@@ -3,77 +3,179 @@
 
 typedef short int CmdID;
 
-const CmdID cmdNop		= 0;	// no operation
+// Command definition file. For extended description, check out CmdRef.txt
+// Файл определения значений команд. Для подробного описания их работы смотрите CmdRef.txt
 
-//general commands [using command flag. check CmdRef.txt]
-const CmdID cmdPush	= 100;	// pushe's a number on top of general stack
-const CmdID cmdPop		= 101;	// remove's a number from top
-const CmdID cmdMov		= 102;	// copy's number from top of stack to value in value stack
-const CmdID cmdShift	= 103;	// add's a shift value to address in general stack, checking the lower and upper bound
-const CmdID cmdRTOI		= 104;	// convert's real numbers to integer
-const CmdID cmdITOR		= 105;	// convert's integer numbers to real
-const CmdID cmdITOL		= 106;	// convert's integer numbers to long
-const CmdID cmdLTOI		= 107;	// convert's long numbers to integer
-const CmdID cmdSwap		= 108;	// swap's two values on top of the general stack
-const CmdID cmdCopy		= 109;	// copy value on top of the stack, and push it on the top again
+// виртуальная машина имеет несколько стеков для переменных различного назначения:
+// 1) основной стек. Сюда помещаются числа, адреса и производятся операции над ними.
+// 1a) стек куда помещаются идентификаторы типа переменных в основном стеке. Используется для отладки,
+//		а также для определения типа переменной при вызове встроенных функций.
+// 2) стек переменных. Сюда помещаются значения активных переменных.
+// 3) стек для хранения количества переменных в стеке переменных. Используется для удаления переменных при
+//		выходе из области видимости.
+// 4) стек вызовов. Сохраняет указатели на код. Используется для возврата из функций.
 
-//conditional and unconditional jumps  [using operation flag. check CmdRef.txt]
-const CmdID cmdJmp		= 110;	// unconditional jump
-const CmdID cmdJmpZ		= 111;	// jump on zero
-const CmdID cmdJmpNZ	= 112;	// jump on not zero
+	// no operation
+	// :)
+const CmdID cmdNop		= 0;
 
-//commands for functions	[not using flags]
-const CmdID cmdCall		= 113;	// call script function
-const CmdID cmdCallStd	= 114;	// call standard function
+// general commands [using command flag. check CmdRef.txt]
+// основные команды [используются флаг команды, смотрите CmdRef.txt]
+	// push's a number on top of general stack
+	// положить значение на верхушку стека
+const CmdID cmdPush		= 100;
+	// remove's a number from top
+	// убрать значение с верхушки стека
+const CmdID cmdPop		= 101;
+	// copy's number from top of stack to value in value stack
+	// скопировать значение с верхушки стека в память где располагаются переменные
+const CmdID cmdMov		= 102;
+	// add's a shift value to address in general stack, checking the lower and upper bound
+	// добавить значение к адресу на верхушке стека, проведя clamp(адрес, минимум, максимум) после сложения
+const CmdID cmdShift	= 103;
+	// convert's real numbers to integer
+	// преобразовать действительное число в целое (на вершине стека)
+const CmdID cmdRTOI		= 104;
+	// convert's integer numbers to real
+	// преобразовать целое число в действительное (на вершине стека)
+const CmdID cmdITOR		= 105;
+	// convert's integer numbers to long
+	// преобразовать int в long (на вершине стека)
+const CmdID cmdITOL		= 106;
+	// convert's long numbers to integer
+	// преобразовать long в int (на вершине стека)
+const CmdID cmdLTOI		= 107;
+	// swap's two values on top of the general stack
+	// поменять местами два значения на верхушке стека
+const CmdID cmdSwap		= 108;
+	// copy value on top of the stack, and push it on the top again
+	// скопировать значение на верхушке стека и добавить его в стек
+const CmdID cmdCopy		= 109;
+
+// conditional and unconditional jumps  [using operation flag. check CmdRef.txt]
+// условные и безусловные переходы [используется флаг операции, смотрите CmdRef.txt]
+	// unconditional jump
+	// безусловный переход
+const CmdID cmdJmp		= 110;
+	// jump on zero
+	// переход, если значение на вершине == 0
+const CmdID cmdJmpZ		= 111;
+	// jump on not zero
+	// переход, если значение на вершине != 0
+const CmdID cmdJmpNZ	= 112;
+
+// commands for functions	[not using flags]
+// команды для функций	[флаги не используются]
+	// call script function
+	// вызов функции, определённой в скрипте
+const CmdID cmdCall		= 113;
+	// call standard function
+	// вызов стандартных (встроенных) функций
+const CmdID cmdCallStd	= 114;
+	// return from function
+	// возврат из функции
 const CmdID cmdReturn	= 115;
 
-//commands for work with value stack	[not using flags]
-const CmdID cmdPushVTop	= 116;	// save value stack top position
-const CmdID cmdPopVTop	= 117;	// pop data from value stack until last top position and remove last top position
-const CmdID cmdPushV	= 118;	// shift value stack top
+// commands for work with variable stack	[not using flags]
+// команды для работы со стеком переменных	[флаги не используются]
+	// save active variable count to "top value" stack
+	// сохранить количество активных переменных в стек вершин стека переменных
+const CmdID cmdPushVTop	= 116;
+	// pop data from variable stack until last top position and remove last top position
+	// убрать данные из стека переменных до предыдущего значения вершины и убрать значение вершины из стека значений вершин
+const CmdID cmdPopVTop	= 117;
+	// shift value stack top
+	// добавить указанное в команде количество байт в стек переменных
+const CmdID cmdPushV	= 118;
 
-//binary commands	[using operation flag. check CmdRef.txt]
-//they take two top numbers (both the same type!), remove them from stack,
-//perform operation and place result on top of stack (the same type as two values!)
+// binary commands	[using operation flag. check CmdRef.txt]
+// they take two top numbers (both the same type!), remove them from stack,
+// perform operation and place result on top of stack (the same type as two values!)
+// бинарные операции [используется флаг операции, смотрите CmdRef.txt]
+// они берут два значения с вершины стека переменных (одинакового типа!), убирают их из стека
+// производят операцию и помещают результат в стек переменных (такого-же типа, как исходные переменные)
+	// a + b
 const CmdID cmdAdd		= 130;
+	// a - b
 const CmdID cmdSub		= 131;
+	// a * b
 const CmdID cmdMul		= 132;
+	// a / b 
 const CmdID cmdDiv		= 133;
+	// power(a, b) (**)
 const CmdID cmdPow		= 134;
-const CmdID cmdMod		= 135;	// a % b
-const CmdID cmdLess		= 136;	// <
-const CmdID cmdGreater	= 137;	// >
-const CmdID cmdLEqual	= 138;	// <=
-const CmdID cmdGEqual	= 139;	// >=
-const CmdID cmdEqual	= 140;	// ==
-const CmdID cmdNEqual	= 141;	// !=
-const CmdID cmdShl		= 142;	// << shift left
-const CmdID cmdShr		= 143;	// >> shift right
-const CmdID cmdBitAnd	= 144;	// & binary AND	| Doesn't work for double and float numbers! |
-const CmdID cmdBitOr	= 145;	// | binary OR	| Doesn't work for double and float numbers! |
-const CmdID cmdBitXor	= 146;	//   binary XOR	| Doesn't work for double and float numbers! |
-const CmdID cmdLogAnd	= 147;	// && logical AND
-const CmdID cmdLogOr	= 148;	// || logical OR
-const CmdID cmdLogXor	= 149;	//    logical XOR
+	// a % b
+const CmdID cmdMod		= 135;
+	// a < b
+const CmdID cmdLess		= 136;
+	// a > b
+const CmdID cmdGreater	= 137;
+	// a <= b
+const CmdID cmdLEqual	= 138;
+	// a >= b
+const CmdID cmdGEqual	= 139;
+	// a == b
+const CmdID cmdEqual	= 140;
+	// a != b
+const CmdID cmdNEqual	= 141;
 
-//unary commands	[using operation flag. check CmdRef.txt]
-//they take one value from top of the stack, and replace it with resulting value
-const CmdID cmdNeg		= 160;	// negation
-const CmdID cmdInc		= 161;	// increment
-const CmdID cmdDec		= 162;	// decrement
-const CmdID cmdBitNot	= 163;	// ~ binary NOT | Doesn't work for double and float numbers! |
-const CmdID cmdLogNot	= 164;	// ! logical NOT
+// the following commands work only with integer numbers
+// следующие команды работают только с целочисленными переменными
+	// a << b
+const CmdID cmdShl		= 142;
+	// a >> b
+const CmdID cmdShr		= 143;
+	// a & b	binary AND/бинарное И
+const CmdID cmdBitAnd	= 144;
+	// a | b	binary OR/бинарное ИЛИ
+const CmdID cmdBitOr	= 145;
+	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
+const CmdID cmdBitXor	= 146;
+	// a && b	logical AND/логическое И
+const CmdID cmdLogAnd	= 147;
+	// a || b	logical OR/логическое ИЛИ
+const CmdID cmdLogOr	= 148;
+	// a logical_xor b	logical XOR/логическое Исключающее ИЛИ
+const CmdID cmdLogXor	= 149;
 
-//Special unary commands	[using command flag. check CmdRef.txt]
-//They work with variable at address
-const CmdID cmdIncAt	= 171;	// increment at address
-const CmdID cmdDecAt	= 172;	// decrement at address
+// unary commands	[using operation flag. check CmdRef.txt]
+// they take one value from top of the stack, and replace it with resulting value
+// унарные операции [используется флаг операции, смотрите CmdRef.txt]
+// они меняют значение на вершине стека
+	// negation
+	// отрицание
+const CmdID cmdNeg		= 160;
+	// increment
+	// инкримент
+const CmdID cmdInc		= 161;
+	// decrement
+	// декримент
+const CmdID cmdDec		= 162;
+	// ~	binary NOT | Only for integers! |
+	// ~	бинарное отрицание | Только для целых чисел |
+const CmdID cmdBitNot	= 163;
+	// !	logical NOT
+	// !	логическое НЕ
+const CmdID cmdLogNot	= 164;
 
-//Flag types
+// Special unary commands	[using command flag. check CmdRef.txt]
+// They work with variable at address
+// Особые унарные операции	[используются флаг команды, смотрите CmdRef.txt]
+// Изменяют значения сразу в стеке переменных
+	// increment at address
+	// инкримент значения по адресу
+const CmdID cmdIncAt	= 171;
+	// decrement at address
+	// декримент значения по адресу
+const CmdID cmdDecAt	= 172;
+
+// Flag types
+// Типы флагов
 typedef unsigned short int CmdFlag;	// command flag
 typedef unsigned char OperFlag;		// operation flag
 
-//
+// Types of values on stack
+// Типы значений в стеке
 enum asmStackType
 {
 	STYPE_INT,
@@ -82,6 +184,8 @@ enum asmStackType
 	STYPE_DOUBLE,
 	STYPE_FORCE_DWORD = 1<<30,
 };
+// Types of values on variable stack
+// Типы значений в стеке переменных
 enum asmDataType
 {
 	DTYPE_CHAR=0,
@@ -92,6 +196,8 @@ enum asmDataType
 	DTYPE_DOUBLE=20,
 	DTYPE_FORCE_DWORD = 1<<30,
 };
+// Type of operation (for operation flag)
+// Типы операция (для флага операции)
 enum asmOperType
 {
 	OTYPE_DOUBLE,
@@ -99,53 +205,75 @@ enum asmOperType
 	OTYPE_LONG,
 	OTYPE_INT,
 };
+
+// Conversion of asmStackType to appropriate asmOperType
+// Преобразование asmStackType в подходящий asmOperType
 static asmOperType operTypeForStackType[] = { OTYPE_INT, OTYPE_LONG, (asmOperType)0, OTYPE_DOUBLE };
+
+// Conversion of asmStackType to appropriate asmDataType
+// Преобразование asmStackType в подходящий asmDataType
 static asmDataType dataTypeForStackType[] = { DTYPE_INT, DTYPE_LONG, (asmDataType)0, DTYPE_DOUBLE };
-//Don't forget the shift, before addressing!
+
+// Conversion of asmDataType to appropriate asmStackType
+// Преобразование asmDataType в подходящий asmStackType
 static asmStackType stackTypeForDataType[] = { STYPE_INT, STYPE_INT, STYPE_INT, STYPE_LONG, STYPE_DOUBLE, STYPE_DOUBLE };
-//Functions for extraction of different bits from flags
-__forceinline asmOperType	flagOperandA(const OperFlag& flag){ return (asmOperType)(flag&0x00000003); }
-__forceinline asmOperType	flagOperandB(const OperFlag& flag){ return (asmOperType)((flag>>2)&0x00000003); }
+
+// Functions for extraction of different bits from flags
+// Функции для извлечения значений отдельных битов из флагов
+	// extract asmStackType
+	// извлечь asmStackType
 __forceinline asmStackType	flagStackType(const CmdFlag& flag){ return (asmStackType)(flag&0x00000003); }
+	// extract asmDataType
+	// извлечь asmDataType
 __forceinline asmDataType	flagDataType(const CmdFlag& flag){ return (asmDataType)(((flag>>2)&0x00000007)<<2); }//flag&0x00000003C); }
+	// addressing is performed according to top value of variable stack
+	// адресация производится относительно вершины стека переменных
 __forceinline UINT			flagAddrRel(const CmdFlag& flag){ return (flag>>5)&0x00000001; }
+	// addressing is perform using absolute address
+	// адресация производится по абсолютному адресу
 __forceinline UINT			flagAddrAbs(const CmdFlag& flag){ return (flag>>6)&0x00000001; }
+	// address is placed in stack
+	// адрес находится в основном стеке
 __forceinline UINT			flagAddrStk(const CmdFlag& flag){ return (flag>>7)&0x00000001; }
+	// shift is performed to the address
+	// к адресу применяется сдвиг
 __forceinline UINT			flagShiftOn(const CmdFlag& flag){ return (flag>>8)&0x00000001; }
+	// shift is placed in stack
+	// сдвиг находится в основном стеке
 __forceinline UINT			flagShiftStk(const CmdFlag& flag){ return (flag>>9)&0x00000001; }
+	// address is clamped to the maximum
+	// адрес не может превыщать некоторое значение
 __forceinline UINT			flagSizeOn(const CmdFlag& flag){ return (flag>>10)&0x00000001; }
+	// maximum is placed in stack
+	// максимуи находится в основном стеке
 __forceinline UINT			flagSizeStk(const CmdFlag& flag){ return (flag>>11)&0x00000001; }
+	// addressing is not performed
+	// адресация отсутствует
 __forceinline UINT			flagNoAddr(const CmdFlag& flag){ return !(flag&0x00000060); }
 
-//constants for flag creation from different bits
-const UINT	bitAddrRel	= 1<<5;
-const UINT	bitAddrAbs	= 1<<6;
-const UINT	bitAddrStk	= 1<<7;
-const UINT	bitShiftOn	= 1<<8;
-const UINT	bitShiftStk	= 1<<9;
-const UINT	bitSizeOn	= 1<<10;
-const UINT	bitSizeStk	= 1<<11;
+// constants for flag creation from different bits
+// константы для создания флага из отдельных битов
+const UINT	bitAddrRel	= 1 << 5;
+const UINT	bitAddrAbs	= 1 << 6;
+const UINT	bitAddrStk	= 1 << 7;
+const UINT	bitShiftOn	= 1 << 8;
+const UINT	bitShiftStk	= 1 << 9;
+const UINT	bitSizeOn	= 1 << 10;
+const UINT	bitSizeStk	= 1 << 11;
 
-const UINT	operAdouble	= 0;
-const UINT	operAfloat	= 1;
-const UINT	operAlong	= 2;
-const UINT	operAint	= 3;
-/*const UINT	operBdouble	= 0;
-const UINT	operBfloat	= 4;
-const UINT	operBlong	= 8;
-const UINT	operBint	= 12;*/
-
-//Command list (bytecode)
+// Command list (bytecode)
+// Листинг команд (байткод)
 class CommandList
 {
 public:
+	// создаём сразу место для будующих команд
 	CommandList(UINT count = 65000)
 	{
 		bytecode = new char[count];
 		max = count;
 		curr = 0;
 	}
-	CommandList(const CommandList& r)	//Copy constructor
+	CommandList(const CommandList& r)
 	{
 		bytecode = new char[r.max];
 		max = r.max;
@@ -156,19 +284,54 @@ public:
 		delete[] bytecode;
 	}
 
+	// добавить данные (это могут быть команды, адреса, флаги и числа)
+	// значение одного типа
 	template<class T> void AddData(const T& data)
 	{
 		memcpy(bytecode+curr, &data, sizeof(T));
 		curr += sizeof(T);
 	}
-	void AddData(const void* data, size_t size){ memcpy(bytecode+curr, data, size); curr += (UINT)size; }
+	// несколько произвольных байт
+	void AddData(const void* data, size_t size)
+	{
+		memcpy(bytecode+curr, data, size);
+		curr += (UINT)size;
+	}
 
-	__inline	bool GetINT(UINT pos, int& ret){ ret = *(reinterpret_cast<int*>(bytecode+pos)); return true; }
-	__inline	bool GetSHORT(UINT pos, short int& ret){ if(pos+2 > curr)return false; ret = *(reinterpret_cast<short int*>(bytecode+pos)); return true; }
-	__inline	bool GetUSHORT(UINT pos, unsigned short& ret){ ret = *(reinterpret_cast<unsigned short*>(bytecode+pos)); return true; }
-	__inline	bool GetUINT(UINT pos, UINT& ret){ ret = *(reinterpret_cast<UINT*>(bytecode+pos)); return true; }
-	__inline	bool GetUCHAR(UINT pos, unsigned char& ret){ ret = *(reinterpret_cast<unsigned char*>(bytecode+pos)); return true; }
+	// получить int по адресу
+	__inline	bool GetINT(UINT pos, int& ret)
+	{
+		ret = *(reinterpret_cast<int*>(bytecode+pos));
+		return true;
+	}
+	// получить short int по адресу
+	__inline	bool GetSHORT(UINT pos, short int& ret)
+	{
+		if(pos+2 > curr)
+			return false;
+		ret = *(reinterpret_cast<short int*>(bytecode+pos));
+		return true;
+	}
+	// получить unsigned short int по адресу
+	__inline	bool GetUSHORT(UINT pos, unsigned short& ret)
+	{
+		ret = *(reinterpret_cast<unsigned short*>(bytecode+pos));
+		return true;
+	}
+	// получить unsinged int по адресу
+	__inline	bool GetUINT(UINT pos, UINT& ret)
+	{
+		ret = *(reinterpret_cast<UINT*>(bytecode+pos));
+		return true;
+	}
+	// получить unsigned char по адресу
+	__inline	bool GetUCHAR(UINT pos, unsigned char& ret)
+	{
+		ret = *(reinterpret_cast<unsigned char*>(bytecode+pos));
+		return true;
+	}
 
+	// получить значение произвольного типа по адресу
 	template<class T> __inline bool GetData(UINT pos, T& ret)
 	{
 		if(pos+sizeof(T) > curr)
@@ -176,6 +339,7 @@ public:
 		memcpy(&ret, bytecode+pos, sizeof(T));
 		return true;
 	}
+	// получить произвольное кол-во байт по адресу
 	__inline bool	GetData(UINT pos, void* data, size_t size)
 	{
 		if(pos+size > curr)
@@ -184,13 +348,19 @@ public:
 		return true;
 	}
 
+	// заменить произвольное количество байт по адресу
 	__inline void	SetData(UINT pos, const void* data, size_t size)
 	{
 		memcpy(bytecode+pos, data, size);
 	}
 
-	__inline const UINT&	GetCurrPos(){ return curr; }
+	// получить текущий размер байткода
+	__inline const UINT&	GetCurrPos()
+	{
+		return curr;
+	}
 
+	// удалить байткод
 	__inline void	Clear()
 	{
 		curr = 0;
@@ -202,7 +372,7 @@ private:
 	UINT	max;
 };
 
-
+// распечатать инструкцию в читабельном виде в поток
 static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, const CmdFlag cFlag, const OperFlag oFlag, UINT dw0=0, UINT dw1=0)
 {
 	asmStackType st = flagStackType(cFlag);
@@ -433,27 +603,27 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 			break;
 		case cmdShl:
 			(*stream) << "SHL";
-			if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+			if(oFlag == OTYPE_DOUBLE)
 				throw string("Invalid operation: SHL used on float");
 			break;
 		case cmdShr:
 			(*stream) << "SHR";
-			if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+			if(oFlag == OTYPE_DOUBLE)
 				throw string("Invalid operation: SHR used on float");
 			break;
 		case cmdBitAnd:
 			(*stream) << "BAND";
-			if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+			if(oFlag == OTYPE_DOUBLE)
 				throw string("Invalid operation: BAND used on float");
 			break;
 		case cmdBitOr:
 			(*stream) << "BOR";
-			if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+			if(oFlag == OTYPE_DOUBLE)
 				throw string("Invalid operation: BOR used on float");
 			break;
 		case cmdBitXor:
 			(*stream) << "BXOR";
-			if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+			if(oFlag == OTYPE_DOUBLE)
 				throw string("Invalid operation: BXOR used on float");
 			break;
 		case cmdLogAnd:
@@ -550,7 +720,8 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		}
 	}
 	
-	//Add end alignment
+	// Add end alignment
+	// Добавить выравнивание
 	size_t endPos = stream->tellp();
 	int putSize = (int)(endPos - beginPos);
 	int alignLen = 55-putSize;
