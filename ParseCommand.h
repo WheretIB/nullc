@@ -146,10 +146,10 @@ const CmdID cmdLogXor	= 149;
 	// отрицание
 const CmdID cmdNeg		= 160;
 	// increment
-	// инкримент
+	// инкремент
 const CmdID cmdInc		= 161;
 	// decrement
-	// декримент
+	// декремент
 const CmdID cmdDec		= 162;
 	// ~	binary NOT | Only for integers! |
 	// ~	бинарное отрицание | Только для целых чисел |
@@ -163,10 +163,10 @@ const CmdID cmdLogNot	= 164;
 // Особые унарные операции	[используются флаг команды, смотрите CmdRef.txt]
 // Изменяют значения сразу в стеке переменных
 	// increment at address
-	// инкримент значения по адресу
+	// инкремент значения по адресу
 const CmdID cmdIncAt	= 171;
 	// decrement at address
-	// декримент значения по адресу
+	// декремент значения по адресу
 const CmdID cmdDecAt	= 172;
 
 // Flag types
@@ -266,7 +266,7 @@ const UINT	bitSizeStk	= 1 << 11;
 class CommandList
 {
 public:
-	// создаём сразу место для будующих команд
+	// создаём сразу место для будущих команд
 	CommandList(UINT count = 65000)
 	{
 		bytecode = new char[count];
