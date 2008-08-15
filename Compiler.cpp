@@ -391,12 +391,6 @@ void selType(char const* s, char const* e)
 	throw std::string("ERROR: Variable type '" + vType + "' is unknown\r\n");
 }
 
-//Issued after '.', to find index to selected variable and get type information
-void getMember(char const* s, char const* e)
-{
-
-}
-
 void addVar(char const* s, char const* e)
 {
 	string vName = *(strs.end()-2);
@@ -438,11 +432,42 @@ void addVarDefNode(char const* s, char const* e)
 	varDefined = 0;
 }
 
+void getType(char const* s, char const* e)
+{
+	int i = (int)varInfo.size()-1;
+	string vName = strs.back();
+	while(i >= 0 && varInfo[i].name != vName)
+		i--;
+	if(i == -1)
+		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [set]");
+	currType = varInfo[i].varType;
+}
+
+void getMember(char const* s, char const* e)
+{
+	string vName = std::string(s, e);
+
+	int i = (int)currType->memberData.size()-1;
+	while(i >= 0 && currType->memberData[i].name != vName)
+		i--;
+	if(i == -1)
+		throw std::string("ERROR: variable '" + vName + "' is not a member of '" + currType->name + "' [set]");
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(currType->memberData[i].offset, typeInt)));
+	addCmd(cmdAdd);
+	currType = currType->memberData[i].type;
+}
+
+void addShiftAddrNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePushShift(currType->size)));
+}
+
 void addSetNode(char const* s, char const* e)
 {
 	int i = (int)varInfo.size()-1;
 	string vName = *(strs.end()-2);
 	size_t braceInd = strs.back().find('[');
+	size_t compoundType = strs.back().find('.');
 
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
@@ -455,8 +480,8 @@ void addSetNode(char const* s, char const* e)
 
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
-	
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], -ashift, varDefined != 0 && braceInd != -1, aabsadr)));
+
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currType, varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr)));
 
 	currValConst = false;
 	varDefined = 0;
@@ -736,14 +761,14 @@ struct CompilerGrammar
 
 		applyval	=
 			(
-				(varname[strPush] - strP("case")) >>
-				!('[' >> term5 >> ']')
-			)[strPush] >>
-			*(
-				chP('.') >>
-				((varname[strPush] - strP("case")) | epsP[AssignVar<string>(errStr, "ERROR: variable name not found after '.'")][pAbort]) >>
-				!('[' >> term5 >> ']')
-			)[getMember];
+				(varname - strP("case"))[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)) >> epsP[getType] >>
+				!('[' >> term5 >> ']')[addShiftAddrNode] >>
+				*(
+					'.' >>
+					(varname - strP("case"))[getMember] >>
+					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]
+				)
+			)[strPush];
 		addvarp		=
 			(
 			(varname[strPush] >>
@@ -1078,6 +1103,12 @@ void Compiler::GenListing()
 		case cmdNop:
 			m_asmlog << dec << showbase << pos2 << dec << " NOP;";
 			break;
+		case cmdCTI:
+			m_asmlog << dec << showbase << pos2 << dec << " CTI addr*";
+			m_cmds->GetUINT(pos, valind);
+			pos += sizeof(UINT);
+			m_asmlog << valind;
+			break;
 		case cmdPush:
 			{
 				m_cmds->GetUSHORT(pos, cFlag);
@@ -1137,10 +1168,6 @@ void Compiler::GenListing()
 						pos += 4;
 						m_asmlog << "+" << valind;
 					}
-					if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
-					{
-						m_asmlog << "*" << typeSizeD[(cFlag>>2)&0x00000007];
-					}
 					m_asmlog << "] ";
 					if(flagSizeStk(cFlag)){
 						m_asmlog << "size: stack";
@@ -1149,10 +1176,6 @@ void Compiler::GenListing()
 						m_cmds->GetINT(pos, valind);
 						pos += 4;
 						m_asmlog << "size: " << valind;
-					}
-					if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
-					{
-						m_asmlog << "*" << typeSizeD[(cFlag>>2)&0x00000007];
 					}
 				}
 			}
@@ -1192,10 +1215,6 @@ void Compiler::GenListing()
 						pos += 4;
 						m_asmlog << "+" << valind;
 					}
-					if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
-					{
-						m_asmlog << "*" << typeSizeD[(cFlag>>2)&0x00000007];
-					}
 					m_asmlog << "] ";
 					if(flagSizeStk(cFlag)){
 						m_asmlog << "size: stack";
@@ -1204,10 +1223,6 @@ void Compiler::GenListing()
 						m_cmds->GetINT(pos, valind);
 						pos += 4;
 						m_asmlog << "size: " << valind;
-					}
-					if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
-					{
-						m_asmlog << "*" << typeSizeD[(cFlag>>2)&0x00000007];
 					}
 				}
 			}
@@ -1475,10 +1490,6 @@ void Compiler::GenListing()
 					pos += 4;
 					m_asmlog << "+" << valind;
 				}
-				if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
-				{
-					m_asmlog << "*" << typeSizeD[(cFlag>>2)&0x00000007];
-				}
 				m_asmlog << "] ";
 				if(flagSizeStk(cFlag)){
 					m_asmlog << "size: stack";
@@ -1487,10 +1498,6 @@ void Compiler::GenListing()
 					m_cmds->GetINT(pos, valind);
 					pos += 4;
 					m_asmlog << "size: " << valind;
-				}
-				if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
-				{
-					m_asmlog << "*" << typeSizeD[(cFlag>>2)&0x00000007];
 				}
 			}
 		}
