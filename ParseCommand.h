@@ -15,9 +15,14 @@ typedef short int CmdID;
 //		выходе из области видимости.
 // 4) стек вызовов. Сохраняет указатели на код. Используется для возврата из функций.
 
+// Special functions
+// Особые функции [флаги не используются]
 	// no operation
 	// :)
 const CmdID cmdNop		= 0;
+	// converts number on top of the stack to integer and multiples it by some number [int after instruction]
+	// конвентирует число на вершине стека в int и умножает на некоторое число [int за инструкцией]
+const CmdID cmdCTI		= 103;
 
 // general commands [using command flag. check CmdRef.txt]
 // основные команды [используются флаг команды, смотрите CmdRef.txt]
@@ -30,9 +35,6 @@ const CmdID cmdPop		= 101;
 	// copy's number from top of stack to value in value stack
 	// скопировать значение с верхушки стека в память где располагаются переменные
 const CmdID cmdMov		= 102;
-	// add's a shift value to address in general stack, checking the lower and upper bound
-	// добавить значение к адресу на верхушке стека, проведя clamp(адрес, минимум, максимум) после сложения
-const CmdID cmdShift	= 103;
 	// convert's real numbers to integer
 	// преобразовать действительное число в целое (на вершине стека)
 const CmdID cmdRTOI		= 104;
@@ -482,6 +484,10 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		}
 		(*stream) << valind << ';';
 		break;
+	case cmdCTI:
+		(*stream) << " CTI addr*";
+		(*stream) << valind;
+		break;
 	case cmdMov:
 		(*stream) << " MOV ";
 		(*stream) << typeInfoS[cFlag&0x00000003] << "->";
@@ -502,10 +508,10 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 			if(flagShiftOn(cFlag)){
 				(*stream) << "+shifton";
 			}
-			if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
+			/*if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
 			{
 				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];
-			}
+			}*/
 			//if(flagSizeStk(cFlag))
 			//	(*stream) << " size: stack";
 			//if(flagSizeOn(cFlag))
@@ -549,8 +555,8 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 				(*stream) << "+shiftstk";
 			if(flagShiftOn(cFlag))
 				(*stream) << "+shifton";
-			if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
-				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];
+			/*if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
+				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];*/
 			//if(flagSizeStk(cFlag))
 			//	(*stream) << " size: stack";
 			//if(flagSizeOn(cFlag))
@@ -709,14 +715,14 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 				(*stream) << "+shiftstk";
 			if(flagShiftOn(cFlag))
 				(*stream) << "+shifton";
-			if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
-				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];
+			/*if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
+				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];*/
 			if(flagSizeStk(cFlag))
 				(*stream) << " size: stack";
 			if(flagSizeOn(cFlag))
 				(*stream) << " size: instr";
-			if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
-				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];
+			/*if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
+				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];*/
 		}
 	}
 	

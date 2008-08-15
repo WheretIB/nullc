@@ -38,6 +38,8 @@ namespace supspi
 
 	Rule	operator -  (Rule a, Rule b){ return Rule(shared_ptr<BaseP>(new ExcludeP(a, b))); }
 
+	Rule	operator ~	(Rule a){ return Rule(shared_ptr<BaseP>(new NegateP(a))); }
+
 	bool	Parse(Rule main, char* str, Rule space)
 	{
 		SetAlterPolicy(ALTER_STANDART);

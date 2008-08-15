@@ -34,6 +34,7 @@ const UINT typeNodeSwitchExpr	= 25;
 const UINT typeNodeNumber		= 27;
 const UINT typeNodeUnaryOp		= 28;
 const UINT typeNodeFuncParam	= 29;
+const UINT typeNodePushShift	= 30;
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP
@@ -276,11 +277,24 @@ protected:
 	UINT		m_id;
 };
 
+class NodePushShift: public NodeOneOP
+{
+public:
+	NodePushShift(int varSizeOf);
+	virtual ~NodePushShift();
+
+	virtual void doAct();
+	virtual void doLog(ostringstream& ostr);
+	virtual UINT getSize();
+	virtual UINT getType(){ return typeNodePushShift; }
+protected:
+	int sizeOfType;
+};
+
 class NodeVarSet: public NodeTwoOP
 {
 public:
-	NodeVarSet(VariableInfo vInfo, UINT adrShift = 0, bool allSet = false, bool adrAbs = false);
-	//NodeVarSet(TypeInfo* tinfo, UINT vpos, std::string name, bool arr, UINT size, bool allSet = false, bool adrAbs = false);
+	NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool arrSetAll, bool absAddress);
 	virtual ~NodeVarSet();
 
 	virtual void doAct();
@@ -289,18 +303,14 @@ public:
 	virtual UINT getType(){ return typeNodeVarSet; }
 protected:
 	VariableInfo	m_varInfo;
-	UINT		m_adrVar;
-	bool		m_allSet, m_adrAbs;
-	//std::string	m_name;
-	
-	//UINT		m_size;
+	UINT			m_varAddress;
+	bool			m_arrSetAll, m_absAddress, m_shiftAddress;
 };
 
 class NodeVarGet: public NodeOneOP
 {
 public:
 	NodeVarGet(VariableInfo vInfo, UINT adrShift = 0, bool adrAbs = false);
-	//NodeVarGet(TypeInfo* tinfo, UINT vpos, std::string name, bool arr, UINT size, bool adrAbs = false);
 	virtual ~NodeVarGet();
 
 	virtual void doAct();

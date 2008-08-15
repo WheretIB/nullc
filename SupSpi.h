@@ -581,6 +581,25 @@ namespace supspi
 		Rule	m_a, m_b;
 	};
 
+	class NegateP: public BaseP
+	{
+	public:
+		NegateP(Rule a){ m_a.set(a); }
+		virtual ~NegateP(){ }
+
+		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		{
+			char* curr = *str;
+			if(!m_a->Parse(str, space)){
+				(*str) = curr;
+				return true;
+			}
+			return false;
+		}
+	protected:
+		Rule	m_a;
+	};
+
 	//Operators
 	Rule	operator !  (Rule a);
 	Rule	operator +  (Rule a);
@@ -595,6 +614,8 @@ namespace supspi
 	Rule	operator >> (Rule a, char b);
 
 	Rule	operator -  (Rule a, Rule b);
+
+	Rule	operator ~	(Rule a);
 
 	//Parser creation
 	Rule	chP(char ch);

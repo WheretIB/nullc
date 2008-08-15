@@ -421,15 +421,64 @@ UINT NodeFuncCall::getSize()
 			return sizeof(CmdID) + sizeof(UINT);
 }
 
-NodeVarSet::NodeVarSet(VariableInfo vInfo, UINT adrShift, bool allSet, bool adrAbs)
+NodePushShift::NodePushShift(int varSizeOf)
 {
-	m_varInfo = vInfo; m_adrVar = vInfo.pos+adrShift;
-	m_allSet = allSet; m_adrAbs = adrAbs;
-	m_typeInfo = m_varInfo.varType;
+	sizeOfType = varSizeOf;
 	first = getList()->back(); getList()->pop_back();
-	if(m_varInfo.count>1 && !m_allSet){
+	getLog() << __FUNCTION__ << "\r\n"; 
+}
+NodePushShift::~NodePushShift(){ getLog() << __FUNCTION__ << "\r\n"; }
+
+void NodePushShift::doAct()
+{
+	first->doAct();
+	cmds->AddData(cmdCTI);
+	cmds->AddData(sizeOfType);
+}
+void NodePushShift::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *m_typeInfo << "PushShift " << sizeOfType << "\r\n";
+	goDown();
+	first->doLog(ostr);
+	goUp();
+}
+UINT NodePushShift::getSize()
+{
+	return first->getSize() + sizeof(CmdID) + sizeof(UINT);
+}
+
+// Узел для присвоения значение переменной
+NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool arrSetAll, bool absAddress)
+{
+	// информация о переменной
+	m_varInfo = vInfo;
+	// и её адрес
+	m_varAddress = varAddress;
+	// присвоить значение всем элементам массива
+	m_arrSetAll = arrSetAll;
+	// использовать абсолютную адресацию (для глобальных переменных)
+	m_absAddress = absAddress;
+	// тип изменяемого значения может быть другим, если переменная составная
+	m_typeInfo = targetType;
+	// применять динамически расчитываемый сдвиг к адресу переменной
+	m_shiftAddress = shiftAddress;
+
+	// получить узел, расчитывающий значение
+	first = getList()->back(); getList()->pop_back();
+
+	// если переменная - массив и обновляется одна ячейка
+	// или если переменная - член составного типа и нужен сдвиг адреса
+	if((m_varInfo.count > 1 && !m_arrSetAll) || m_shiftAddress)	
+	{
+		// получить узел, расчитывающий сдвиг адреса
 		second = getList()->back(); getList()->pop_back();
+
+		// сдвиг адреса должен быть расчитан в узле типа NodePushShift или быть указаным целым числом
+		if(second->getType() != typeNodePushShift && second->getType() != typeNodeNumber)
+			throw std::string("ERROR: NodeVarSet() address shift must be prepared by NodePushShift");
 	}
+	getLog() << __FUNCTION__ << "\r\n"; 
 };
 
 NodeVarSet::~NodeVarSet(){ getLog() << __FUNCTION__ << "\r\n"; }
@@ -439,51 +488,72 @@ void NodeVarSet::doAct()
 	asmStackType newST = podTypeToStackType[m_typeInfo->type];
 	asmDataType newDT = podTypeToDataType[m_typeInfo->type];
 
-	if(m_varInfo.count==1){
-		if(first)
+	if(m_varInfo.count == 1)	// если это не массив
+	{
+		if(m_shiftAddress)		// если переменная - член составного типа и нужен сдвиг адреса
 		{
-			first->doAct();
-			ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], newST);
+			// кладём сдвиг от начала массива (в байтах)
+			second->doAct();
 		}
+
+		// расчитываем значение для присвоения переменной
+		first->doAct();
+		// преобразуем в тип переменной
+		ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], newST);
+
+		// добавляем команду присвоения
 		cmds->AddData(cmdMov);
-		cmds->AddData((USHORT)(newST | newDT | (m_adrAbs ? bitAddrAbs : bitAddrRel)));
-		cmds->AddData(m_adrVar);
-	}else{
-		if(m_allSet){
+		cmds->AddData((USHORT)(newST | newDT | (m_absAddress ? bitAddrAbs : bitAddrRel) | (m_shiftAddress ? bitShiftStk : 0)));
+		cmds->AddData(m_varAddress);
+	}else{						// если это массив
+		if(m_arrSetAll)			// если указано присвоить значение всем ячейкам массива
+		{
+			// расчитываем значение для присвоения переменной
 			first->doAct();
+			// преобразуем в тип ячейки массива
 			ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], newST);
+			// для каждого элемента
 			for(UINT n = 0; n < m_varInfo.count; n++)
 			{
+				// положем в стек сдвиг от начала массива (в байтах)
 				cmds->AddData(cmdPush);
 				cmds->AddData((USHORT)(STYPE_INT | DTYPE_INT));
-				cmds->AddData(n);
+				cmds->AddData(n * m_typeInfo->size);
 				
+				// поменяем местами значения на верхушке стека
+				// (для инструкции MOV значение должно следовать за адресом)
 				cmds->AddData(cmdSwap);
 				cmds->AddData((USHORT)(newST | DTYPE_INT));
 				
+				// добавляем команду присвоения
 				cmds->AddData(cmdMov);
-				cmds->AddData((USHORT)(newST | newDT | (m_adrAbs ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
-				cmds->AddData(m_adrVar);
-				cmds->AddData(m_varInfo.count);
+				cmds->AddData((USHORT)(newST | newDT | (m_absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
+				cmds->AddData(m_varAddress);
+				cmds->AddData(m_varInfo.count * m_typeInfo->size);
 			}
-		}else{
+		}else{					// если указано присвоить значение одной ячейке массива
+			// кладём сдвиг от начала массива (в байтах)
 			second->doAct();
-			ConvertToInteger(second, podTypeToStackType[second->typeInfo()->type]);
 			
+			// расчитываем значение для присвоения ячейке массива
 			first->doAct();
+			// преобразуем в тип ячейки массива
 			ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], newST);
 			
+			// добавляем команду присвоения
 			cmds->AddData(cmdMov);
-			cmds->AddData((USHORT)(newST | newDT | (m_adrAbs ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
-			cmds->AddData(m_adrVar);
-			cmds->AddData(m_varInfo.count);
+			cmds->AddData((USHORT)(newST | newDT | (m_absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
+			// адрес начала массива
+			cmds->AddData(m_varAddress);
+			// кладём размер массива (в байтах) в стек, для предотвращения выхода за его пределы
+			cmds->AddData(m_varInfo.count * m_typeInfo->size);
 		}
 	}
 }
 void NodeVarSet::doLog(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << *m_typeInfo << "VarSet " << m_varInfo << " " << m_adrVar << "\r\n";
+	ostr << *m_typeInfo << "VarSet " << m_varInfo << " " << m_varAddress << "\r\n";
 	goDown();
 	if(first)
 		first->doLog(ostr);
@@ -498,17 +568,18 @@ UINT NodeVarSet::getSize()
 	asmStackType fST =	podTypeToStackType[m_typeInfo->type],
 						sST = first ? podTypeToStackType[first->typeInfo()->type] : STYPE_INT,
 						tST = second ? podTypeToStackType[second->typeInfo()->type] : STYPE_INT;
-	if(m_varInfo.count==1)
+	if(m_varInfo.count == 1)
 	{
 		if(first)
-			return first->getSize() + ConvertFirstToSecondSize(fST, sST) + sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+			return (m_shiftAddress ? second->getSize() : 0) + first->getSize() + ConvertFirstToSecondSize(fST, sST) + sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 		else
 			return sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 	}else{
-		if(m_allSet){
+		if(m_arrSetAll)
+		{
 			return first->getSize() + ConvertFirstToSecondSize(fST, sST) + m_varInfo.count * (3*sizeof(CmdID)+3*sizeof(USHORT)+3*sizeof(UINT));
 		}else{
-			return first->getSize() + ConvertFirstToSecondSize(fST, sST) + second->getSize() + ConvertToIntegerSize(second, tST) + sizeof(CmdID)+sizeof(USHORT)+2*sizeof(UINT);
+			return first->getSize() + ConvertFirstToSecondSize(fST, sST) + second->getSize() + /*ConvertToIntegerSize(second, tST) + */sizeof(CmdID)+sizeof(USHORT)+2*sizeof(UINT);
 		}
 	}
 }
@@ -517,42 +588,52 @@ NodeVarGet::NodeVarGet(VariableInfo vInfo, UINT adrShift, bool adrAbs)
 {
 	m_typeInfo = vInfo.varType; m_vpos = vInfo.pos+adrShift; m_name = vInfo.name;
 	m_arr = vInfo.count>1; m_size = vInfo.count; m_absadr = adrAbs;
-	//m_typeInfo = tinfo; m_vpos = vpos; m_name = name; m_arr = arr; m_size = size; m_absadr = adrAbs;
-	if(m_arr){
+	if(m_arr)
+	{
 		first = getList()->back(); getList()->pop_back();
+
+		// индекс должен быть расчитан в узле типа NodePushShift
+		if(first->getType() != typeNodePushShift)
+			throw std::string("ERROR: NodeVarGet() array index must be prepared by NodePushShift");
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
-/*
-NodeVarGet::NodeVarGet(TypeInfo* tinfo, UINT vpos, std::string name, bool arr, UINT size, bool adrAbs)
-{
-	m_typeInfo = tinfo; m_vpos = vpos; m_name = name; m_arr = arr; m_size = size; m_absadr = adrAbs;
-	if(arr){
-		first = getList()->back(); getList()->pop_back();
-	}
-	getLog() << __FUNCTION__ << "\r\n"; 
-}*/
+
 NodeVarGet::~NodeVarGet(){ getLog() << __FUNCTION__ << "\r\n"; }
 
 void NodeVarGet::doAct()
 {
 	asmStackType newST = podTypeToStackType[m_typeInfo->type];
 	asmDataType newDT = podTypeToDataType[m_typeInfo->type];
-	if(!m_arr){
+	if(!m_arr) 					// если это не массив
+	{
+		// получаем значение переменной по адресу
 		cmds->AddData(cmdPush);
 		cmds->AddData((USHORT)(newST | newDT | (m_absadr ? bitAddrAbs : bitAddrRel)));
+		// адрес переменной
 		cmds->AddData(m_vpos);
-	}else{
+	}else{						// если это массив
+		// кладём сдвиг от начала массива (в байтах)
 		first->doAct();
-		ConvertToInteger(first, podTypeToStackType[first->typeInfo()->type]);
 		
+		// получаем значение переменной по адресу
 		cmds->AddData(cmdPush);
 		cmds->AddData((USHORT)(newST | newDT | (m_absadr ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
+		// адрес начала массива
 		cmds->AddData(m_vpos);
-		cmds->AddData(m_size);
+		// кладём размер массива (в байтах) в стек, для предотвращения выхода за его пределы
+		cmds->AddData(m_size * m_typeInfo->size);
 	}
 }
-void NodeVarGet::doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "VarGet (array:" << m_arr << ") '" << m_name << "' " << (int)(m_vpos) << "\r\n"; goDown(); if(first) first->doLog(ostr); goUp(); }
+void NodeVarGet::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *m_typeInfo << "VarGet (array:" << m_arr << ") '" << m_name << "' " << (int)(m_vpos) << "\r\n";
+	goDown();
+	if(first)
+		first->doLog(ostr);
+	goUp();
+}
 UINT NodeVarGet::getSize()
 {
 	if(!m_arr)

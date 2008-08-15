@@ -41,7 +41,7 @@ bool Executor::Run()
 	UINT pos = 0, pos2 = 0;
 	CmdID	cmd;
 	double	val = 0.0;//, val2;
-	UINT	uintVal;
+	UINT	uintVal, uintVal2;
 	char	name[512];
 	int		valind;
 	UINT	cmdCount = 0;
@@ -255,7 +255,29 @@ bool Executor::Run()
 			genStackTypes.back() = STYPE_INT;
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, 0));
 			break;
-
+		case cmdCTI:
+			m_cmds->GetUINT(pos, uintVal);
+			pos += sizeof(UINT);
+			switch(genStackTypes.back())
+			{
+			case STYPE_DOUBLE:
+				uintVal2 = int(*((double*)(&genStack[genStack.size()-2])));
+				genStack.pop_back(); genStack.pop_back();
+				break;
+			case STYPE_LONG:
+				uintVal2 = int(*((long long*)(&genStack[genStack.size()-2])));
+				genStack.pop_back(); genStack.pop_back();
+				break;
+			case STYPE_INT:
+				uintVal2 = *((int*)(&genStack[genStack.size()-1]));
+				genStack.pop_back();
+				break;
+			}
+			genStackTypes.pop_back();
+			genStack.push_back(uintVal*uintVal2);
+			genStackTypes.push_back(STYPE_INT);
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
+			break;
 		}
 
 		//New commands
@@ -328,7 +350,7 @@ bool Executor::Run()
 			if(flagAddrRel(cFlag))
 				valind += paramTop.back();
 			if(flagShiftOn(cFlag) || flagShiftStk(cFlag))
-				valind += shift*typeSizeD[(cFlag>>2)&0x00000007];
+				valind += shift;//*typeSizeD[(cFlag>>2)&0x00000007];
 
 			if(cmd == cmdMov)
 			{
@@ -795,7 +817,7 @@ bool Executor::Run()
 			if(flagAddrRel(cFlag))
 				valind += paramTop.back();
 			if(flagShiftOn(cFlag) || flagShiftStk(cFlag))
-				valind += shift*typeSizeD[(cFlag>>2)&0x00000007];
+				valind += shift;//*typeSizeD[(cFlag>>2)&0x00000007];
 
 			switch(cmd + (dt << 16))
 			{
@@ -882,10 +904,10 @@ bool Executor::Run()
 
 string Executor::GetResult()
 {
-	//if((UINT)nums.size() == 0)
-	//	throw std::string("There are no values on the stack");
-	if((UINT)genStackTypes.size() != 1)
+	if((UINT)genStackTypes.size() == 0)
 		throw std::string("There are no values on the stack");
+	if((UINT)genStackTypes.size() != 1)
+		throw std::string("There are more than one value on the stack");
 	ostringstream tempStream;
 	switch(genStackTypes[0])
 	{
