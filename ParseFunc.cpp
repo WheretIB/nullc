@@ -264,7 +264,7 @@ UINT NodeTwoOP::getSize()
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, имеющий три дочерних подузла
+// Узел, имеющий три дочерних узла
 NodeThreeOP::NodeThreeOP()
 {
 }
@@ -306,7 +306,7 @@ NodePopOp::~NodePopOp()
 
 void NodePopOp::doAct()
 {
-	// Даём дочернему узлу вычеслить значение
+	// Даём дочернему узлу вычислить значение
 	first->doAct();
 	// Убираем его с вершины стека
 	cmds->AddData(cmdPop);
@@ -994,18 +994,18 @@ UINT NodeVarSetAndOp::getSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел для инкремента или декремента значения переменной
-NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress, CmdID cmd, bool preOp)
+NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool absAddr, CmdID cmd, bool preOp)
 {
 	// информация о переменной
 	varInfo = vInfo;
 	// и её адрес
-	varAddress = varAddress;
+	varAddress = varAddr;
 	// тип изменяемого значения может быть другим, если переменная составная
 	typeInfo = targetType;
 	// применять динамически расчитываемый сдвиг к адресу переменной
-	shiftAddress = shiftAddress;
+	shiftAddress = shiftAddr;
 	// использовать абсолютную адресацию (для глобальных переменных)
-	absAddress = absAddress;
+	absAddress = absAddr;
 	// команду, которую применить к значению (DEC или INC)
 	cmdID = cmd;
 	// префиксный или постфиксный оператор
@@ -1030,99 +1030,100 @@ NodePreValOp::~NodePreValOp()
 	getLog() << __FUNCTION__ << "\r\n";
 }
 
+// Вывод о возможности использования оптимизации делает компилятор (Compiler.cpp)
+// Для включения оптимизации ему предоставляется функция.
+void NodePreValOp::SetOptimised(bool doOptimisation)
+{
+	optimised = doOptimisation;
+}
+
 void NodePreValOp::doAct()
 {
 	asmStackType newST = podTypeToStackType[typeInfo->type];
 	asmDataType newDT = podTypeToDataType[typeInfo->type];
+
+	// Заметка (cmdID+10): Прибавляя 10, мы меняем инструкцию с INC и DEC на INC_AT и DEC_AT
+
+	// Если переменная - массив или член составного типа, то нужен сдвиг адреса
+	if(varInfo.count > 1 || shiftAddress)
+		first->doAct();
+
+	UINT shiftInStack = 0, sizeOn = 0;
+	// Если это массив или член составного типа, включаем флаг что сдвиг в стеке
+	if(varInfo.count > 1 || shiftAddress)
+		shiftInStack = bitShiftStk;
+	// Если это массив, включаем флаг, что имеется ограничение по размеру сдвига
+	if(varInfo.count > 1)
+		sizeOn = bitSizeOn;
+
+	// Выбор флага для разных вариантов адресации
+	UINT addrType = absAddress ? bitAddrAbs : bitAddrRel;
+
+	// Если значение после операции не используется, можно провести оптимизацию:
+	// изменять значение прямо в стеке переменных
 	if(optimised)
 	{
-		if(varInfo.count > 1){
-			//Calculate array index
-			first->doAct();
-			//Convert it to integer number
-			ConvertToInteger(first, podTypeToStackType[first->getTypeInfo()->type]);
-
-			//Update variable in place
-			cmds->AddData((USHORT)(cmdID+10));
-			cmds->AddData((USHORT)(newDT | bitAddrRel | bitShiftStk | bitSizeOn));
-			cmds->AddData(varAddress);
+		// Меняем значение переменной прямо по адресу
+		cmds->AddData((USHORT)(cmdID+10));
+		cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
+		// адрес начала массива
+		cmds->AddData(varAddress);
+		// Если это массив, кладём размер массива (в байтах) в стек, для предотвращения выхода за его пределы
+		if(varInfo.count > 1)	
 			cmds->AddData(varInfo.count * varInfo.varType->size);
-		}else{
-			//Update variable in place
-			cmds->AddData((USHORT)(cmdID+10));
-			cmds->AddData((USHORT)(newDT | bitAddrRel));
-			cmds->AddData(varAddress);
-		}
 	}else{
-		if(prefixOperator)
+		// Если переменная - массив или член составного типа
+		if(varInfo.count > 1 || shiftAddress)
 		{
-			// ++i
-			// First we increment the value, and return new value
-			if(varInfo.count > 1)
-			{
-				//Calculate array index
-				first->doAct();
-				//Convert it to integer number
-				ConvertToInteger(first, podTypeToStackType[first->getTypeInfo()->type]);
+			// Скопируем уже найденный сдвиг адресса
+			// Потому что он пропадает после операций, а их у нас две
+			cmds->AddData(cmdCopy);
+			cmds->AddData((UCHAR)(OTYPE_INT));
+		}
+		if(prefixOperator)			// Для префиксного оператора ++val/--val
+		{
+			// Сначала изменяем переменную, затем кладём в стек её новое значение
 
-				//Copy array index for later use, when we will save our new value
-				cmds->AddData(cmdCopy);
-				cmds->AddData((UCHAR)(OTYPE_INT));
-			}
-			//Update variable in place
+			// Меняем значение переменной прямо по адресу
 			cmds->AddData((USHORT)(cmdID+10));
-			cmds->AddData((USHORT)(newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * (varInfo.count > 1)));
+			cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
 			if(varInfo.count > 1)
 				cmds->AddData(varInfo.count * varInfo.varType->size);
 
-			//Get variable data
+			// Получаем новое значение переменной
 			cmds->AddData(cmdPush);
-			cmds->AddData((USHORT)(newST | newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * (varInfo.count > 1)));
+			cmds->AddData((USHORT)(newST | newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
 			if(varInfo.count > 1)
 				cmds->AddData(varInfo.count * varInfo.varType->size);
-		}else{
-			// i++
-			// We change value, but return the old one
-			if(varInfo.count > 1)
-			{
-				//Calculate array index
-				first->doAct();
-				//Convert it to integer number
-				ConvertToInteger(first, podTypeToStackType[first->getTypeInfo()->type]);
-
-				//Copy array index twice for later use, when we will save our new value
-				cmds->AddData(cmdCopy);
-				cmds->AddData((UCHAR)(OTYPE_INT));
-			}
-			// [Stack: ] (not array)   [Stack; index, index;] (array)
-
-			//Get variable data
-			//This will be the old value of the variable
-			cmds->AddData(cmdPush);
-			cmds->AddData((USHORT)(newST | newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * (varInfo.count > 1)));
-			cmds->AddData(varAddress);
-			if(varInfo.count > 1)
-				cmds->AddData(varInfo.count * varInfo.varType->size);
-			// [Stack: i;] (not array)   [Stack; index, i;] (array)
-
-			if(varInfo.count > 1){
-				cmds->AddData(cmdSwap);
-				cmds->AddData((USHORT)(STYPE_INT | newDT));
-			}
-			// [Stack: i;] (not array)   [Stack; i, index;] (array)
+		}else{						// Для  постфиксного оператора val++/val--
+			// Мы изменяем переменную, но в стек помещаем старое значение
 			
-			//Update variable in place
-			cmds->AddData((USHORT)(cmdID+10));
-			cmds->AddData((USHORT)(newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * (varInfo.count > 1)));
+			// Получаем не изменённое значение переменной
+			cmds->AddData(cmdPush);
+			cmds->AddData((USHORT)(newST | newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
 			if(varInfo.count > 1)
 				cmds->AddData(varInfo.count * varInfo.varType->size);
-			// [Stack: i;] (not array)   [Stack; i;] (array)
+			
+			// Если переменная - массив или член составного типа
+			// Теперь в стеке переменных лежит сдвиг адреса, а затем значение переменной
+			// Следует поменять их местами, так как для следующий инструкции сдвиг адрес должен лежать наверху
+			if(varInfo.count > 1 || shiftAddress)
+			{
+				cmds->AddData(cmdSwap);
+				cmds->AddData((USHORT)(STYPE_INT | (newDT == DTYPE_FLOAT ? DTYPE_DOUBLE : newDT)));
+			}
+			
+			// Меняем значение переменной прямо по адресу
+			cmds->AddData((USHORT)(cmdID+10));
+			cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
+			cmds->AddData(varAddress);
+			if(varInfo.count > 1)
+				cmds->AddData(varInfo.count * varInfo.varType->size);
 		}
 	}
-
 }
 void NodePreValOp::doLog(ostringstream& ostr)
 {

@@ -357,7 +357,7 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodePreValOp; }
 
-	void		 SetOptimised(bool optim){ optimised = optim; }
+	void		 SetOptimised(bool doOptimisation);
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
