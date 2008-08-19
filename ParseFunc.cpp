@@ -347,7 +347,7 @@ void NodeUnaryOp::doAct()
 {
 	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->getTypeInfo()->type]];
 
-	// Даём дочернему узлу вычеслить значение
+	// Даём дочернему узлу вычислить значение
 	first->doAct();
 	// Выполним команду
 	cmds->AddData(cmdID);
