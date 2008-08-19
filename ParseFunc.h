@@ -44,13 +44,18 @@ public:
 	explicit NodeZeroOP(TypeInfo* tinfo);
 	virtual ~NodeZeroOP();
 
+	// Генерация кода
 	virtual void doAct();
+	// Вывод в лог параметров узла
 	virtual void doLog(ostringstream& ostr);
+	// Получения размера кода, сгенерированного данным узлом
 	virtual UINT getSize();
-	virtual UINT getType(){ return typeNodeZeroOp; }
-	virtual TypeInfo*	typeInfo();
+	// Получение типа ячейки
+	virtual UINT getNodeType(){ return typeNodeZeroOp; }
+	// Получение типа результата, возвращаемого ячейкой
+	virtual TypeInfo*	getTypeInfo();
 protected:
-	TypeInfo*	m_typeInfo;
+	TypeInfo*	typeInfo;
 };
 
 std::vector<shared_ptr<NodeZeroOP> >*	getList();
@@ -114,27 +119,27 @@ class NodeNumber: public NodeZeroOP
 {
 	typedef T NumType;
 public:
-	NodeNumber(NumType num, TypeInfo* ptrType){ m_num = num; m_typeInfo = ptrType; }
+	NodeNumber(NumType number, TypeInfo* ptrType){ num = number; typeInfo = ptrType; }
 	virtual ~NodeNumber(){}
 
 	virtual void doAct()
 	{
 		GetCommandList()->AddData(cmdPush);
 		GetCommandList()->AddData((USHORT)(GetAsmStackType<T>() | GetAsmDataType<T>()));
-		GetCommandList()->AddData((T)m_num);
+		GetCommandList()->AddData((T)num);
 	}
-	virtual void doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "Number " << m_num << "\r\n"; }
+	virtual void doLog(ostringstream& ostr){ drawLn(ostr); ostr << *typeInfo << "Number " << num << "\r\n"; }
 	virtual UINT getSize()
 	{
 		return sizeof(CmdID) + sizeof(USHORT) + sizeof(T);
 	}
 	virtual UINT getType(){ return typeNodeNumber; }
 
-	NumType		 getVal(){ return m_num; }
-	NumType		 getLogNotVal(){ return !m_num; }
-	NumType		 getBitNotVal(){ return ~m_num; }
+	NumType		 getVal(){ return num; }
+	NumType		 getLogNotVal(){ return !num; }
+	NumType		 getBitNotVal(){ return ~num; }
 protected:
-	NumType		m_num;
+	NumType		num;
 private:
 	template<typename N>	asmDataType	GetAsmDataType();
 	template<>	asmDataType	GetAsmDataType<char>(){ return DTYPE_CHAR; }
@@ -169,7 +174,7 @@ protected:
 class NodeUnaryOp: public NodeOneOP
 {
 public:
-	NodeUnaryOp(CmdID op);
+	NodeUnaryOp(CmdID cmd);
 	virtual ~NodeUnaryOp();
 
 	virtual void doAct();
@@ -177,7 +182,7 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodeUnaryOp; }
 protected:
-	CmdID m_op;
+	CmdID	cmdID;
 };
 
 class NodeReturnOp: public NodeOneOP
@@ -191,7 +196,7 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodeReturnOp; }
 protected:
-	UINT	m_popCnt;
+	UINT	popCnt;
 };
 
 class NodeExpression: public NodeOneOP
@@ -246,7 +251,7 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodeFuncDef; }
 protected:
-	UINT	m_id;
+	UINT	funcID;
 };
 
 class NodeFuncParam: public NodeOneOP
@@ -273,8 +278,8 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodeFuncCall; }
 protected:
-	std::string	m_name;
-	UINT		m_id;
+	std::string	funcName;
+	UINT		funcID;
 };
 
 class NodePushShift: public NodeOneOP
@@ -302,15 +307,15 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodeVarSet; }
 protected:
-	VariableInfo	m_varInfo;
-	UINT			m_varAddress;
-	bool			m_arrSetAll, m_absAddress, m_shiftAddress;
+	VariableInfo	varInfo;
+	UINT			varAddress;
+	bool			arrSetAll, absAddress, shiftAddress;
 };
 
 class NodeVarGet: public NodeOneOP
 {
 public:
-	NodeVarGet(VariableInfo vInfo, UINT adrShift = 0, bool adrAbs = false);
+	NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress);
 	virtual ~NodeVarGet();
 
 	virtual void doAct();
@@ -318,10 +323,9 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodeVarGet; }
 protected:
-	UINT		m_vpos;
-	std::string	m_name;
-	bool		m_arr, m_absadr;
-	UINT		m_size;
+	VariableInfo	varInfo;
+	UINT			varAddress;
+	bool			arrSetAll, absAddress, shiftAddress;
 };
 
 class NodeVarSetAndOp: public NodeTwoOP
@@ -345,7 +349,7 @@ protected:
 class NodePreValOp: public NodeOneOP
 {
 public:
-	NodePreValOp(TypeInfo* tinfo, UINT vpos, std::string name, bool arr, UINT size, CmdID cmd, bool pre);
+	NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress, CmdID cmd, bool preOp);
 	virtual ~NodePreValOp();
 
 	virtual void doAct();
@@ -353,15 +357,14 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodePreValOp; }
 
-	void		 SetOptimised(bool optim){ m_optimised = optim; }
+	void		 SetOptimised(bool optim){ optimised = optim; }
 protected:
-	UINT		m_vpos;
-	std::string	m_name;
-	bool		m_arr, m_pre;
-	UINT		m_size;
-	CmdID		m_cmd;
-	bool		m_optimised;
+	VariableInfo	varInfo;
+	UINT			varAddress;
+	bool			arrSetAll, absAddress, shiftAddress, prefixOperator, optimised;
+	CmdID			cmdID;
 };
+
 //Two child operators
 
 class NodeTwoAndCmdOp: public NodeTwoOP
@@ -375,7 +378,7 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodeTwoAndCmdOp; }
 protected:
-	CmdID m_cmd;
+	CmdID cmdID;
 };
 
 class NodeTwoExpression: public NodeTwoOP
@@ -455,7 +458,7 @@ public:
 	virtual UINT getSize();
 	virtual UINT getType(){ return typeNodeBreakOp; }
 protected:
-	UINT	m_popCnt;
+	UINT	popCnt;
 };
 
 class NodeCaseExpr: public NodeTwoOP
@@ -483,14 +486,6 @@ public:
 	virtual UINT getType(){ return typeNodeSwitchExpr; }
 protected:
 };
-
-/*
-void blockBegin(UNUSED);
-void blockEnd(UNUSED);
-
-void removeTop(UNUSED);
-void popBackInIndexed(UNUSED);
-*/
 
 /*
 class Node: public NodeOP

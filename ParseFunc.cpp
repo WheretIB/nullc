@@ -177,62 +177,165 @@ UINT	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
 	return 0;
 }
 
-//class implementation
-NodeZeroOP::NodeZeroOP(){ m_typeInfo = typeVoid; }
-NodeZeroOP::NodeZeroOP(TypeInfo* tinfo){ m_typeInfo = tinfo; }
-NodeZeroOP::~NodeZeroOP(){}
+// class implementation
 
-void NodeZeroOP::doAct(){}
-void NodeZeroOP::doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "ZeroOp\r\n"; }
-UINT NodeZeroOP::getSize(){ return 0; }
-TypeInfo* NodeZeroOP::typeInfo()
+//////////////////////////////////////////////////////////////////////////
+// Узел не имеющий дочерних узлов
+NodeZeroOP::NodeZeroOP()
 {
-	return m_typeInfo;
+	typeInfo = typeVoid;
+}
+NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
+{
+	typeInfo = tinfo;
+}
+NodeZeroOP::~NodeZeroOP()
+{
 }
 
-NodeOneOP::NodeOneOP(){ }
-NodeOneOP::~NodeOneOP(){ }
+void NodeZeroOP::doAct()
+{
+}
+void NodeZeroOP::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *typeInfo << "ZeroOp\r\n";
+}
+UINT NodeZeroOP::getSize()
+{
+	return 0;
+}
+TypeInfo* NodeZeroOP::getTypeInfo()
+{
+	return typeInfo;
+}
 
-void NodeOneOP::doAct(){ first->doAct(); }
-void NodeOneOP::doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "OneOP :\r\n"; goDown(); first->doLog(ostr); goUp(); }
-UINT NodeOneOP::getSize(){ return first->getSize(); }
+//////////////////////////////////////////////////////////////////////////
+// Узел, имеющий один дочерний узел
+NodeOneOP::NodeOneOP()
+{
+}
+NodeOneOP::~NodeOneOP()
+{
+}
 
-NodeTwoOP::NodeTwoOP(){ }
-NodeTwoOP::~NodeTwoOP(){ }
+void NodeOneOP::doAct()
+{
+	first->doAct();
+}
+void NodeOneOP::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *typeInfo << "OneOP :\r\n";
+	goDown();
+	first->doLog(ostr);
+	goUp();
+}
+UINT NodeOneOP::getSize()
+{
+	return first->getSize();
+}
 
-void NodeTwoOP::doAct(){ NodeOneOP::doAct(); second->doAct(); }
-void NodeTwoOP::doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "TwoOp :\r\n"; goDown(); first->doLog(ostr); second->doLog(ostr); goUp(); }
-UINT NodeTwoOP::getSize(){ return NodeOneOP::getSize() + second->getSize(); }
+//////////////////////////////////////////////////////////////////////////
+// Узел, имеющий два дочерних узла
+NodeTwoOP::NodeTwoOP()
+{
+}
+NodeTwoOP::~NodeTwoOP()
+{
+}
 
-NodeThreeOP::NodeThreeOP(){ }
-NodeThreeOP::~NodeThreeOP(){ }
+void NodeTwoOP::doAct()
+{
+	NodeOneOP::doAct();
+	second->doAct();
+}
+void NodeTwoOP::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *typeInfo << "TwoOp :\r\n"; goDown();
+	first->doLog(ostr);
+	second->doLog(ostr);
+	goUp();
+}
+UINT NodeTwoOP::getSize()
+{
+	return NodeOneOP::getSize() + second->getSize();
+}
 
-void NodeThreeOP::doAct(){ NodeTwoOP::doAct(); third->doAct(); }
-void NodeThreeOP::doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "ThreeOp :\r\n"; goDown(); first->doLog(ostr); second->doLog(ostr); third->doLog(ostr); goUp(); }
-UINT NodeThreeOP::getSize(){ return NodeTwoOP::getSize() + third->getSize(); }
+//////////////////////////////////////////////////////////////////////////
+// Узел, имеющий три дочерних подузла
+NodeThreeOP::NodeThreeOP()
+{
+}
+NodeThreeOP::~NodeThreeOP()
+{
+}
 
+void NodeThreeOP::doAct()
+{
+	NodeTwoOP::doAct();
+	third->doAct();
+}
+void NodeThreeOP::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *typeInfo << "ThreeOp :\r\n";
+	goDown();
+	first->doLog(ostr);
+	second->doLog(ostr);
+	third->doLog(ostr);
+	goUp();
+}
+UINT NodeThreeOP::getSize()
+{
+	return NodeTwoOP::getSize() + third->getSize();
+}
 
-NodePopOp::NodePopOp(){ first = getList()->back(); getList()->pop_back();  getLog() << __FUNCTION__ << "\r\n"; }
-NodePopOp::~NodePopOp(){ getLog() << __FUNCTION__ << "\r\n"; }
+//////////////////////////////////////////////////////////////////////////
+// Узел, убирающий с вершины стека значение, оставленное дочерним узлом
+NodePopOp::NodePopOp()
+{
+	first = getList()->back(); getList()->pop_back();
+	getLog() << __FUNCTION__ << "\r\n";
+}
+NodePopOp::~NodePopOp()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodePopOp::doAct()
 {
+	// Даём дочернему узлу вычеслить значение
 	first->doAct();
+	// Убираем его с вершины стека
 	cmds->AddData(cmdPop);
-	cmds->AddData((USHORT)(podTypeToStackType[first->typeInfo()->type]));
+	cmds->AddData((USHORT)(podTypeToStackType[first->getTypeInfo()->type]));
 }
-void NodePopOp::doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "PopOp :\r\n"; goDownB(); first->doLog(ostr); goUp(); }
+void NodePopOp::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *typeInfo << "PopOp :\r\n";
+	goDownB();
+	first->doLog(ostr);
+	goUp();
+}
 UINT NodePopOp::getSize()
 {
 	return NodeOneOP::getSize() + sizeof(CmdID) + sizeof(USHORT);
 }
 
-
-NodeUnaryOp::NodeUnaryOp(CmdID op)
+//////////////////////////////////////////////////////////////////////////
+// Узел, производящий выбраную унарную операцию над значением на вершине стека
+NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 {
-	m_op = op;
+	// Унарная операция
+	cmdID = cmd;
+
 	first = getList()->back(); getList()->pop_back();
-	m_typeInfo = first->typeInfo();
+	// Тип результата такой же, как исходный
+	typeInfo = first->getTypeInfo();
+
 	getLog() << __FUNCTION__ << "\r\n";
 }
 NodeUnaryOp::~NodeUnaryOp()
@@ -242,98 +345,193 @@ NodeUnaryOp::~NodeUnaryOp()
 
 void NodeUnaryOp::doAct()
 {
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->typeInfo()->type]];
+	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->getTypeInfo()->type]];
+
+	// Даём дочернему узлу вычеслить значение
 	first->doAct();
-	cmds->AddData(m_op);
+	// Выполним команду
+	cmds->AddData(cmdID);
 	cmds->AddData((UCHAR)(aOT));
 }
-void NodeUnaryOp::doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "UnaryOp :\r\n"; goDown(); first->doLog(ostr); goUp(); }
+void NodeUnaryOp::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *typeInfo << "UnaryOp :\r\n";
+	goDown();
+	first->doLog(ostr);
+	goUp();
+}
 UINT NodeUnaryOp::getSize()
 {
 	return NodeOneOP::getSize() + sizeof(CmdID) + sizeof(UCHAR);
 }
 
-
+//////////////////////////////////////////////////////////////////////////
+// Узел, выполняющий возврат из функции или из программы
 NodeReturnOp::NodeReturnOp(UINT c, TypeInfo* tinfo)
 {
-	m_typeInfo = tinfo;
+	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
+	popCnt = c;
+	// Тип результата предоставлен извне
+	typeInfo = tinfo;
+
 	first = getList()->back(); getList()->pop_back();
-	m_popCnt = c;
+	
 	getLog() << __FUNCTION__ << "\r\n";
 }
-NodeReturnOp::~NodeReturnOp(){ getLog() << __FUNCTION__ << "\r\n"; }
+NodeReturnOp::~NodeReturnOp()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodeReturnOp::doAct()
 {
+	// Найдём значение, которое будем возвращать
 	first->doAct();
-	if(m_typeInfo)
-		ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], podTypeToStackType[m_typeInfo->type]);
-	for(UINT i = 0; i < m_popCnt; i++)
+	// Преобразуем его в тип возвратного значения функции
+	if(typeInfo)
+		ConvertFirstToSecond(podTypeToStackType[first->getTypeInfo()->type], podTypeToStackType[typeInfo->type]);
+	// Уберём значения со стека вершин стека переменных
+	for(UINT i = 0; i < popCnt; i++)
 		cmds->AddData(cmdPopVTop);
+	// Выйдем из функции или программы
 	cmds->AddData(cmdReturn);
 }
 void NodeReturnOp::doLog(ostringstream& ostr)
 {
 	drawLn(ostr);
-	if(m_typeInfo)
-		ostr << *m_typeInfo << "ReturnOp :\r\n";
+	if(typeInfo)
+		ostr << *typeInfo << "ReturnOp :\r\n";
 	else
-		ostr << *first->typeInfo() << "ReturnOp :\r\n";
+		ostr << *first->getTypeInfo() << "ReturnOp :\r\n";
 	goDownB(); first->doLog(ostr); goUp();
 }
 UINT NodeReturnOp::getSize()
 {
-	return NodeOneOP::getSize() + sizeof(CmdID) * (1+m_popCnt) + (m_typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->typeInfo()->type], podTypeToStackType[m_typeInfo->type]) : 0);
+	return NodeOneOP::getSize() + sizeof(CmdID) * (1+popCnt) + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->getTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
 }
 
-NodeExpression::NodeExpression(){ first = getList()->back(); getList()->pop_back();  getLog() << __FUNCTION__ << "\r\n"; }
-NodeExpression::~NodeExpression(){ getLog() << __FUNCTION__ << "\r\n"; }
+//////////////////////////////////////////////////////////////////////////
+// Узел, содержащий выражение. Работает как NodeOneOP за исключением записи в лог.
+// Стоит убрать? BUG 0001
+NodeExpression::NodeExpression()
+{
+	first = getList()->back(); getList()->pop_back();
+	getLog() << __FUNCTION__ << "\r\n";
+}
+NodeExpression::~NodeExpression()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
-void NodeExpression::doAct(){ NodeOneOP::doAct(); }
-void NodeExpression::doLog(ostringstream& ostr){ drawLn(ostr); ostr << "Expression :\r\n"; goDownB(); first->doLog(ostr); goUp(); }
-UINT NodeExpression::getSize(){ return NodeOneOP::getSize(); }
+void NodeExpression::doAct()
+{
+	NodeOneOP::doAct();
+}
+void NodeExpression::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << "Expression :\r\n";
+	goDownB();
+	first->doLog(ostr);
+	goUp();
+}
+UINT NodeExpression::getSize()
+{
+	return NodeOneOP::getSize();
+}
 
-NodeVarDef::NodeVarDef(UINT sh, std::string nm){ shift = sh; name = nm;  getLog() << __FUNCTION__ << "\r\n"; }
-NodeVarDef::~NodeVarDef(){ getLog() << __FUNCTION__ << "\r\n"; }
+//////////////////////////////////////////////////////////////////////////
+// Узел, создающий место для новых переменных
+NodeVarDef::NodeVarDef(UINT sh, std::string nm)
+{
+	// Сдвиг вершины стека переменных
+	shift = sh;
+	// Имя переменной
+	name = nm;
+	getLog() << __FUNCTION__ << "\r\n";
+}
+NodeVarDef::~NodeVarDef()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodeVarDef::doAct()
 {
+	// Если сдвиг не равен нулю
 	if(shift)
 	{
+		// Сдвинем вершину стека переменных
 		cmds->AddData(cmdPushV);
 		cmds->AddData(shift);
 	}
 }
-void NodeVarDef::doLog(ostringstream& ostr){ drawLn(ostr); ostr << "VarDef '" << name << "' " << shift << "\r\n"; }
+void NodeVarDef::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << "VarDef '" << name << "' " << shift << "\r\n";
+}
 UINT NodeVarDef::getSize()
 {
 	return shift ? (sizeof(CmdID) + sizeof(UINT)) : 0;
 }
 
-NodeBlock::NodeBlock(){ first = getList()->back(); getList()->pop_back(); getLog() << __FUNCTION__ << "\r\n"; }
-NodeBlock::~NodeBlock(){ getLog() << __FUNCTION__ << "\r\n"; }
+//////////////////////////////////////////////////////////////////////////
+// Узел c содержимым блока {}
+NodeBlock::NodeBlock()
+{
+	first = getList()->back(); getList()->pop_back();
+	getLog() << __FUNCTION__ << "\r\n";
+}
+NodeBlock::~NodeBlock()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodeBlock::doAct()
 {
+	// Сохраним значение вершины стека переменных
 	cmds->AddData(cmdPushVTop);
+	// Выполним содержимое блока (то же что first->doAct())
 	NodeOneOP::doAct();
+	// Востановим значение вершины стека переменных
 	cmds->AddData(cmdPopVTop);
 }
-void NodeBlock::doLog(ostringstream& ostr){ drawLn(ostr); ostr << "Block :\r\n"; goDownB(); first->doLog(ostr); goUp(); }
+void NodeBlock::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << "Block :\r\n";
+	goDownB();
+	first->doLog(ostr);
+	goUp();
+}
 UINT NodeBlock::getSize()
 {
 	return NodeOneOP::getSize() + 2 * sizeof(CmdID);
 }
 
-NodeFuncDef::NodeFuncDef(UINT id){ m_id = id; first = getList()->back(); getList()->pop_back(); getLog() << __FUNCTION__ << "\r\n"; }
-NodeFuncDef::~NodeFuncDef(){ getLog() << __FUNCTION__ << "\r\n"; }
+NodeFuncDef::NodeFuncDef(UINT id)
+{
+	// Номер функции
+	funcID = id;
+	first = getList()->back(); getList()->pop_back();
+	getLog() << __FUNCTION__ << "\r\n";
+}
+NodeFuncDef::~NodeFuncDef()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodeFuncDef::doAct()
 {
+	// Перед содержимым функции сделаем переход за её конец
+	// Код функций может быть смешан с кодом в глобальной области видимости, и его надо пропускать
 	cmds->AddData(cmdJmp);
 	cmds->AddData(cmds->GetCurrPos() + sizeof(CmdID) + sizeof(UINT) + first->getSize());
-	(*funcs)[m_id]->address = cmds->GetCurrPos();
+	(*funcs)[funcID]->address = cmds->GetCurrPos();
+	// Сгенерируем код функции
 	first->doAct();
+	// Добавим возврат из функции, если пользователь забыл (но ругать его всё ещё стоит, главное не падать)
 	cmds->AddData(cmdReturn);
 }
 void NodeFuncDef::doLog(ostringstream& ostr)
@@ -347,41 +545,64 @@ UINT NodeFuncDef::getSize()
 	return first->getSize() + 2*sizeof(CmdID) + sizeof(UINT);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, определяющий значение входных параметров перед вызовом функции
 NodeFuncParam::NodeFuncParam(TypeInfo* tinfo)
 {
-	m_typeInfo = tinfo;
+	// Тип, который ожидает функция
+	typeInfo = tinfo;
+
 	first = getList()->back(); getList()->pop_back();
 }
 NodeFuncParam::~NodeFuncParam()
 {
+	getLog() << __FUNCTION__ << "\r\n";
 }
 
 void NodeFuncParam::doAct()
 {
+	// Определим значение
 	first->doAct();
-	ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], podTypeToStackType[m_typeInfo->type]);
+	// Преобразуем его в тип входного параметра функции
+	ConvertFirstToSecond(podTypeToStackType[first->getTypeInfo()->type], podTypeToStackType[typeInfo->type]);
 }
 void NodeFuncParam::doLog(ostringstream& ostr)
 {
-	drawLn(ostr); ostr << *m_typeInfo << "FuncParam :\r\n"; goDown(); first->doLog(ostr); goUp();
+	drawLn(ostr);
+	ostr << *typeInfo << "FuncParam :\r\n";
+	goDown();
+	first->doLog(ostr);
+	goUp();
 }
 UINT NodeFuncParam::getSize()
 {
-	return first->getSize() + ConvertFirstToSecondSize(podTypeToStackType[first->typeInfo()->type], podTypeToStackType[m_typeInfo->type]);
+	return first->getSize() + ConvertFirstToSecondSize(podTypeToStackType[first->getTypeInfo()->type], podTypeToStackType[typeInfo->type]);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, производящий вызов функции
 NodeFuncCall::NodeFuncCall(std::string name, UINT id, UINT argCnt, TypeInfo* retType)
 {
-	m_typeInfo = retType; m_name = name; m_id = id;
-	if(argCnt){
+	// Тип результата - тип возвратного значения функции
+	typeInfo = retType;
+	// Имя функции
+	funcName = name;
+	// Идентификатор функции
+	funcID = id;
+
+	// Если функция принимает параметры, следует взять узел, который определяет их значения
+	if(argCnt)
+	{
 		first = getList()->back(); getList()->pop_back();
 	}
-	if(m_id == -1)
+	// Если функция не имеет идентификатора, значит она встроенная
+	if(id == -1)
 	{
-		if(m_name == "clock")
-			m_typeInfo = typeInt;
+		// clock() - единственная функция возвращающая int, а не double
+		if(funcName == "clock")
+			typeInfo = typeInt;
 		else
-			m_typeInfo = typeDouble;
+			typeInfo = typeDouble;
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
@@ -392,53 +613,69 @@ NodeFuncCall::~NodeFuncCall()
 
 void NodeFuncCall::doAct()
 {
+	// Если имеются параметры, найдём их значения
 	if(first)
 		first->doAct();
-	if(m_id == -1){
+	if(funcID == -1)		// Если функция встроенная
+	{
+		// Вызовем по имени
 		cmds->AddData(cmdCallStd);
-		cmds->AddData((UINT)m_name.length());
-		cmds->AddData(m_name.c_str(), m_name.length());
-	}else{
+		cmds->AddData((UINT)funcName.length());
+		cmds->AddData(funcName.c_str(), funcName.length());
+	}else{					// Если функция определена пользователем
+		// Вызовем по адресу
 		cmds->AddData(cmdCall);
-		cmds->AddData((*funcs)[m_id]->address);
+		cmds->AddData((*funcs)[funcID]->address);
 	}
 }
 void NodeFuncCall::doLog(ostringstream& ostr)
 {
-	drawLn(ostr); ostr << "FuncCall '" << m_name << "' :\r\n"; goDownB(); if(first) first->doLog(ostr); goUp();
+	drawLn(ostr); ostr << "FuncCall '" << funcName << "' :\r\n"; goDownB(); if(first) first->doLog(ostr); goUp();
 }
 UINT NodeFuncCall::getSize()
 {
 	if(first)
-		if(m_id == -1)
-			return first->getSize() + sizeof(CmdID) + sizeof(UINT) + m_name.length();// + ConvertToRealSize(first, podTypeToStackType[first->typeInfo()->type]);
+		if(funcID == -1)
+			return first->getSize() + sizeof(CmdID) + sizeof(UINT) + funcName.length();// + ConvertToRealSize(first, podTypeToStackType[first->typeInfo()->type]);
 		else
 			return first->getSize() + sizeof(CmdID) + sizeof(UINT);// + ConvertToRealSize(first, podTypeToStackType[first->typeInfo()->type]);
 	else
-		if(m_id == -1)
-			return sizeof(CmdID) + sizeof(UINT) + (UINT)m_name.length();
+		if(funcID == -1)
+			return sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
 		else
 			return sizeof(CmdID) + sizeof(UINT);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, вычисляющий величину сдвига от начала массива
 NodePushShift::NodePushShift(int varSizeOf)
 {
+	// Возвращаем int
+	typeInfo = typeInt;
+	// Запомним размер типа
 	sizeOfType = varSizeOf;
+
 	first = getList()->back(); getList()->pop_back();
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
-NodePushShift::~NodePushShift(){ getLog() << __FUNCTION__ << "\r\n"; }
+NodePushShift::~NodePushShift()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodePushShift::doAct()
 {
+	// Вычислим индекс
 	first->doAct();
+	// Переведём его в целое число
 	cmds->AddData(cmdCTI);
+	// Умножив на размер элемента (сдвиг должен быть в байтах)
 	cmds->AddData(sizeOfType);
 }
 void NodePushShift::doLog(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << *m_typeInfo << "PushShift " << sizeOfType << "\r\n";
+	ostr << *typeInfo << "PushShift " << sizeOfType << "\r\n";
 	goDown();
 	first->doLog(ostr);
 	goUp();
@@ -448,77 +685,81 @@ UINT NodePushShift::getSize()
 	return first->getSize() + sizeof(CmdID) + sizeof(UINT);
 }
 
-// Узел для присвоения значение переменной
-NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool arrSetAll, bool absAddress)
+//////////////////////////////////////////////////////////////////////////
+// Узел для присвоения значения переменной
+NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool arraySetAll, bool absAddr)
 {
 	// информация о переменной
-	m_varInfo = vInfo;
+	varInfo = vInfo;
 	// и её адрес
-	m_varAddress = varAddress;
+	varAddress = varAddr;
 	// присвоить значение всем элементам массива
-	m_arrSetAll = arrSetAll;
+	arrSetAll = arraySetAll;
 	// использовать абсолютную адресацию (для глобальных переменных)
-	m_absAddress = absAddress;
+	absAddress = absAddr;
 	// тип изменяемого значения может быть другим, если переменная составная
-	m_typeInfo = targetType;
+	typeInfo = targetType;
 	// применять динамически расчитываемый сдвиг к адресу переменной
-	m_shiftAddress = shiftAddress;
+	shiftAddress = shiftAddr;
 
 	// получить узел, расчитывающий значение
 	first = getList()->back(); getList()->pop_back();
 
 	// если переменная - массив и обновляется одна ячейка
 	// или если переменная - член составного типа и нужен сдвиг адреса
-	if((m_varInfo.count > 1 && !m_arrSetAll) || m_shiftAddress)	
+	if((varInfo.count > 1 && !arrSetAll) || shiftAddress)	
 	{
 		// получить узел, расчитывающий сдвиг адреса
 		second = getList()->back(); getList()->pop_back();
 
-		// сдвиг адреса должен быть расчитан в узле типа NodePushShift или быть указаным целым числом
-		if(second->getType() != typeNodePushShift && second->getType() != typeNodeNumber)
-			throw std::string("ERROR: NodeVarSet() address shift must be prepared by NodePushShift");
+		// сдвиг адреса должен быть  целым числом
+		if(second->getTypeInfo() != typeInt)
+			throw std::string("ERROR: NodeVarSet() address shift must be an integer number");
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 };
 
-NodeVarSet::~NodeVarSet(){ getLog() << __FUNCTION__ << "\r\n"; }
+NodeVarSet::~NodeVarSet()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodeVarSet::doAct()
 {
-	asmStackType newST = podTypeToStackType[m_typeInfo->type];
-	asmDataType newDT = podTypeToDataType[m_typeInfo->type];
+	asmStackType newST = podTypeToStackType[typeInfo->type];
+	asmDataType newDT = podTypeToDataType[typeInfo->type];
 
-	if(m_varInfo.count == 1)	// если это не массив
+	if(varInfo.count == 1)	// если это не массив
 	{
-		if(m_shiftAddress)		// если переменная - член составного типа и нужен сдвиг адреса
+		if(shiftAddress)		// если переменная - член составного типа и нужен сдвиг адреса
 		{
-			// кладём сдвиг от начала массива (в байтах)
+			// кладём сдвиг в стек (в байтах)
 			second->doAct();
 		}
 
 		// расчитываем значение для присвоения переменной
 		first->doAct();
 		// преобразуем в тип переменной
-		ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], newST);
+		ConvertFirstToSecond(podTypeToStackType[first->getTypeInfo()->type], newST);
 
 		// добавляем команду присвоения
 		cmds->AddData(cmdMov);
-		cmds->AddData((USHORT)(newST | newDT | (m_absAddress ? bitAddrAbs : bitAddrRel) | (m_shiftAddress ? bitShiftStk : 0)));
-		cmds->AddData(m_varAddress);
+		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | (shiftAddress ? bitShiftStk : 0)));
+		cmds->AddData(varAddress);
 	}else{						// если это массив
-		if(m_arrSetAll)			// если указано присвоить значение всем ячейкам массива
+		if(arrSetAll)			// если указано присвоить значение всем ячейкам массива
 		{
 			// расчитываем значение для присвоения переменной
 			first->doAct();
 			// преобразуем в тип ячейки массива
-			ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], newST);
+			ConvertFirstToSecond(podTypeToStackType[first->getTypeInfo()->type], newST);
 			// для каждого элемента
-			for(UINT n = 0; n < m_varInfo.count; n++)
+			for(UINT n = 0; n < varInfo.count; n++)
 			{
 				// положем в стек сдвиг от начала массива (в байтах)
 				cmds->AddData(cmdPush);
 				cmds->AddData((USHORT)(STYPE_INT | DTYPE_INT));
-				cmds->AddData(n * m_typeInfo->size);
+				cmds->AddData(n * typeInfo->size);
 				
 				// поменяем местами значения на верхушке стека
 				// (для инструкции MOV значение должно следовать за адресом)
@@ -527,9 +768,9 @@ void NodeVarSet::doAct()
 				
 				// добавляем команду присвоения
 				cmds->AddData(cmdMov);
-				cmds->AddData((USHORT)(newST | newDT | (m_absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
-				cmds->AddData(m_varAddress);
-				cmds->AddData(m_varInfo.count * m_typeInfo->size);
+				cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
+				cmds->AddData(varAddress);
+				cmds->AddData(varInfo.count * typeInfo->size);
 			}
 		}else{					// если указано присвоить значение одной ячейке массива
 			// кладём сдвиг от начала массива (в байтах)
@@ -538,22 +779,22 @@ void NodeVarSet::doAct()
 			// расчитываем значение для присвоения ячейке массива
 			first->doAct();
 			// преобразуем в тип ячейки массива
-			ConvertFirstToSecond(podTypeToStackType[first->typeInfo()->type], newST);
+			ConvertFirstToSecond(podTypeToStackType[first->getTypeInfo()->type], newST);
 			
 			// добавляем команду присвоения
 			cmds->AddData(cmdMov);
-			cmds->AddData((USHORT)(newST | newDT | (m_absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
+			cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
 			// адрес начала массива
-			cmds->AddData(m_varAddress);
+			cmds->AddData(varAddress);
 			// кладём размер массива (в байтах) в стек, для предотвращения выхода за его пределы
-			cmds->AddData(m_varInfo.count * m_typeInfo->size);
+			cmds->AddData(varInfo.count * varInfo.varType->size);
 		}
 	}
 }
 void NodeVarSet::doLog(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << *m_typeInfo << "VarSet " << m_varInfo << " " << m_varAddress << "\r\n";
+	ostr << *typeInfo << "VarSet " << varInfo << " " << varAddress << "\r\n";
 	goDown();
 	if(first)
 		first->doLog(ostr);
@@ -565,70 +806,90 @@ void NodeVarSet::doLog(ostringstream& ostr)
 }
 UINT NodeVarSet::getSize()
 {
-	asmStackType fST =	podTypeToStackType[m_typeInfo->type],
-						sST = first ? podTypeToStackType[first->typeInfo()->type] : STYPE_INT,
-						tST = second ? podTypeToStackType[second->typeInfo()->type] : STYPE_INT;
-	if(m_varInfo.count == 1)
+	asmStackType fST =	podTypeToStackType[typeInfo->type],
+						sST = first ? podTypeToStackType[first->getTypeInfo()->type] : STYPE_INT,
+						tST = second ? podTypeToStackType[second->getTypeInfo()->type] : STYPE_INT;
+	if(varInfo.count == 1)
 	{
 		if(first)
-			return (m_shiftAddress ? second->getSize() : 0) + first->getSize() + ConvertFirstToSecondSize(fST, sST) + sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+			return (shiftAddress ? second->getSize() : 0) + first->getSize() + ConvertFirstToSecondSize(fST, sST) + sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 		else
 			return sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 	}else{
-		if(m_arrSetAll)
+		if(arrSetAll)
 		{
-			return first->getSize() + ConvertFirstToSecondSize(fST, sST) + m_varInfo.count * (3*sizeof(CmdID)+3*sizeof(USHORT)+3*sizeof(UINT));
+			return first->getSize() + ConvertFirstToSecondSize(fST, sST) + varInfo.count * (3*sizeof(CmdID)+3*sizeof(USHORT)+3*sizeof(UINT));
 		}else{
-			return first->getSize() + ConvertFirstToSecondSize(fST, sST) + second->getSize() + /*ConvertToIntegerSize(second, tST) + */sizeof(CmdID)+sizeof(USHORT)+2*sizeof(UINT);
+			return first->getSize() + ConvertFirstToSecondSize(fST, sST) + second->getSize() + sizeof(CmdID)+sizeof(USHORT)+2*sizeof(UINT);
 		}
 	}
 }
 
-NodeVarGet::NodeVarGet(VariableInfo vInfo, UINT adrShift, bool adrAbs)
+//////////////////////////////////////////////////////////////////////////
+// Узел для получения значения переменной
+NodeVarGet::NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool absAddr)
 {
-	m_typeInfo = vInfo.varType; m_vpos = vInfo.pos+adrShift; m_name = vInfo.name;
-	m_arr = vInfo.count>1; m_size = vInfo.count; m_absadr = adrAbs;
-	if(m_arr)
+	// информация о переменной
+	varInfo = vInfo;
+	// и её адрес
+	varAddress = varAddr;
+	// использовать абсолютную адресацию (для глобальных переменных)
+	absAddress = absAddr;
+	// тип изменяемого значения может быть другим, если переменная составная
+	typeInfo = targetType;
+	// применять динамически расчитываемый сдвиг к адресу переменной
+	shiftAddress = shiftAddr;
+
+	// если переменная - массив или член составного типа, то нужен сдвиг адреса
+	if(varInfo.count > 1 || shiftAddress)	
 	{
+		// получить узел, расчитывающий сдвиг адреса
 		first = getList()->back(); getList()->pop_back();
 
-		// индекс должен быть расчитан в узле типа NodePushShift
-		if(first->getType() != typeNodePushShift)
-			throw std::string("ERROR: NodeVarGet() array index must be prepared by NodePushShift");
+		// сдвиг адреса должен быть  целым числом
+		if(first->getTypeInfo() != typeInt)
+			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
 
-NodeVarGet::~NodeVarGet(){ getLog() << __FUNCTION__ << "\r\n"; }
+NodeVarGet::~NodeVarGet()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodeVarGet::doAct()
 {
-	asmStackType newST = podTypeToStackType[m_typeInfo->type];
-	asmDataType newDT = podTypeToDataType[m_typeInfo->type];
-	if(!m_arr) 					// если это не массив
+	asmStackType newST = podTypeToStackType[typeInfo->type];
+	asmDataType newDT = podTypeToDataType[typeInfo->type];
+	if(varInfo.count > 1) 	// если это массив
 	{
-		// получаем значение переменной по адресу
-		cmds->AddData(cmdPush);
-		cmds->AddData((USHORT)(newST | newDT | (m_absadr ? bitAddrAbs : bitAddrRel)));
-		// адрес переменной
-		cmds->AddData(m_vpos);
-	}else{						// если это массив
 		// кладём сдвиг от начала массива (в байтах)
 		first->doAct();
-		
+
 		// получаем значение переменной по адресу
 		cmds->AddData(cmdPush);
-		cmds->AddData((USHORT)(newST | newDT | (m_absadr ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
+		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
 		// адрес начала массива
-		cmds->AddData(m_vpos);
+		cmds->AddData(varAddress);
 		// кладём размер массива (в байтах) в стек, для предотвращения выхода за его пределы
-		cmds->AddData(m_size * m_typeInfo->size);
+		cmds->AddData(varInfo.count * varInfo.varType->size);
+	}else{						// если не это массив
+		if(shiftAddress)		// если переменная - член составного типа и нужен сдвиг адреса
+			first->doAct();		// кладём его в стек (в байтах)
+
+		// получаем значение переменной по адресу
+		cmds->AddData(cmdPush);
+		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | (shiftAddress ? bitShiftStk : 0)));
+		// адрес переменной
+		cmds->AddData(varAddress);
+		
 	}
 }
 void NodeVarGet::doLog(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << *m_typeInfo << "VarGet (array:" << m_arr << ") '" << m_name << "' " << (int)(m_vpos) << "\r\n";
+	ostr << *typeInfo << "VarGet (array:" << (varInfo.count > 1) << ") '" << varInfo.name << "' " << (int)(varAddress) << "\r\n";
 	goDown();
 	if(first)
 		first->doLog(ostr);
@@ -636,37 +897,42 @@ void NodeVarGet::doLog(ostringstream& ostr)
 }
 UINT NodeVarGet::getSize()
 {
-	if(!m_arr)
-		return sizeof(CmdID)+sizeof(USHORT) + sizeof(UINT);
+	if(varInfo.count > 1)
+		return first->getSize() + sizeof(CmdID) + sizeof(USHORT) + 2*sizeof(UINT);
 	else
-		return first->getSize() +sizeof(CmdID)+sizeof(USHORT)+2*sizeof(UINT) + ConvertToIntegerSize(first, podTypeToStackType[first->typeInfo()->type]);
+		return sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT) + (shiftAddress ? first->getSize() : 0);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел для изменения значения переменной
 NodeVarSetAndOp::NodeVarSetAndOp(TypeInfo* tinfo, UINT vpos, std::string name, bool arr, UINT size, CmdID cmd)
 {
-	m_typeInfo = tinfo; m_vpos = vpos; m_name = name; m_arr = arr; m_size = size; m_cmd = cmd;
+	typeInfo = tinfo; m_vpos = vpos; m_name = name; m_arr = arr; m_size = size; m_cmd = cmd;
 	first = getList()->back(); getList()->pop_back();
 	if(arr){
 		second = getList()->back(); getList()->pop_back();
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
-NodeVarSetAndOp::~NodeVarSetAndOp(){ getLog() << __FUNCTION__ << "\r\n"; }
+NodeVarSetAndOp::~NodeVarSetAndOp()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodeVarSetAndOp::doAct()
 {
 	asmOperType aOT;
 	asmStackType meST, firstST, newST;
-	asmDataType meDT = podTypeToDataType[m_typeInfo->type];
-	meST = podTypeToStackType[m_typeInfo->type];
-	firstST = podTypeToStackType[first->typeInfo()->type];
+	asmDataType meDT = podTypeToDataType[typeInfo->type];
+	meST = podTypeToStackType[typeInfo->type];
+	firstST = podTypeToStackType[first->getTypeInfo()->type];
 
 	UINT additFlag = bitAddrRel;
 	if(m_arr)
 	{
 		additFlag = bitAddrRel | bitShiftStk | bitSizeOn;
 		second->doAct();
-		ConvertToInteger(second, podTypeToStackType[second->typeInfo()->type]);
+		ConvertToInteger(second, podTypeToStackType[second->getTypeInfo()->type]);
 		cmds->AddData(cmdCopy);
 		cmds->AddData((UCHAR)(OTYPE_INT));
 	}
@@ -693,17 +959,28 @@ void NodeVarSetAndOp::doAct()
 	if(m_arr)
 		cmds->AddData(m_size);
 }
-void NodeVarSetAndOp::doLog(ostringstream& ostr){ drawLn(ostr); ostr << *m_typeInfo << "VarSet (array:" << m_arr << ") '" << m_name << "' " << (int)(m_vpos) << "\r\n"; goDown(); first->doLog(ostr); goUp(); goDownB(); if(m_arr) second->doLog(ostr); goUp(); }
+void NodeVarSetAndOp::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *typeInfo << "VarSet (array:" << m_arr << ") '" << m_name << "' " << (int)(m_vpos) << "\r\n";
+	goDown();
+	first->doLog(ostr);
+	goUp();
+	goDownB();
+	if(m_arr)
+		second->doLog(ostr);
+	goUp();
+}
 UINT NodeVarSetAndOp::getSize()
 {
 	asmStackType meST, firstST, newST;
-	asmDataType meDT = podTypeToDataType[m_typeInfo->type];
-	meST = podTypeToStackType[m_typeInfo->type];
-	firstST = podTypeToStackType[first->typeInfo()->type];
+	asmDataType meDT = podTypeToDataType[typeInfo->type];
+	meST = podTypeToStackType[typeInfo->type];
+	firstST = podTypeToStackType[first->getTypeInfo()->type];
 
 	UINT resSize = 0;
 	if(m_arr)
-		resSize += ConvertToIntegerSize(second, podTypeToStackType[second->typeInfo()->type]);
+		resSize += ConvertToIntegerSize(second, podTypeToStackType[second->getTypeInfo()->type]);
 	resSize += ConvertFirstForSecondSize(meST, firstST).first;
 	newST = ConvertFirstForSecondSize(meST, firstST).second;
 	resSize += ConvertFirstForSecondSize(firstST, newST).first;
@@ -715,77 +992,105 @@ UINT NodeVarSetAndOp::getSize()
 		return first->getSize() + 3*sizeof(CmdID)+2*sizeof(USHORT)+sizeof(UCHAR)+2*sizeof(UINT) + resSize;
 }
 
-NodePreValOp::NodePreValOp(TypeInfo* tinfo, UINT vpos, std::string name, bool arr, UINT size, CmdID cmd, bool pre)
+//////////////////////////////////////////////////////////////////////////
+// Узел для инкремента или декремента значения переменной
+NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress, CmdID cmd, bool preOp)
 {
-	m_typeInfo = tinfo; m_vpos = vpos; m_name = name; m_arr = arr; m_size = size; m_cmd = cmd; m_pre = pre; m_optimised = false;
-	if(arr){
+	// информация о переменной
+	varInfo = vInfo;
+	// и её адрес
+	varAddress = varAddress;
+	// тип изменяемого значения может быть другим, если переменная составная
+	typeInfo = targetType;
+	// применять динамически расчитываемый сдвиг к адресу переменной
+	shiftAddress = shiftAddress;
+	// использовать абсолютную адресацию (для глобальных переменных)
+	absAddress = absAddress;
+	// команду, которую применить к значению (DEC или INC)
+	cmdID = cmd;
+	// префиксный или постфиксный оператор
+	prefixOperator = preOp;
+	// если изменённое значение не используется, можно применить оптимизацию.
+	optimised = false;	// по умолчанию выключено
+
+	// если переменная - массив или член составного типа, то нужен сдвиг адреса
+	if(varInfo.count > 1 || shiftAddress)	
+	{
+		// получить узел, расчитывающий сдвиг адреса
 		first = getList()->back(); getList()->pop_back();
+
+		// сдвиг адреса должен быть  целым числом
+		if(first->getTypeInfo() != typeInt)
+			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
-NodePreValOp::~NodePreValOp(){ getLog() << __FUNCTION__ << "\r\n"; }
+NodePreValOp::~NodePreValOp()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodePreValOp::doAct()
 {
-	asmStackType newST = podTypeToStackType[m_typeInfo->type];
-	asmDataType newDT = podTypeToDataType[m_typeInfo->type];
-	if(m_optimised)
+	asmStackType newST = podTypeToStackType[typeInfo->type];
+	asmDataType newDT = podTypeToDataType[typeInfo->type];
+	if(optimised)
 	{
-		if(m_arr){
+		if(varInfo.count > 1){
 			//Calculate array index
 			first->doAct();
 			//Convert it to integer number
-			ConvertToInteger(first, podTypeToStackType[first->typeInfo()->type]);
+			ConvertToInteger(first, podTypeToStackType[first->getTypeInfo()->type]);
 
 			//Update variable in place
-			cmds->AddData((USHORT)(m_cmd+10));
+			cmds->AddData((USHORT)(cmdID+10));
 			cmds->AddData((USHORT)(newDT | bitAddrRel | bitShiftStk | bitSizeOn));
-			cmds->AddData(m_vpos);
-			cmds->AddData(m_size);
+			cmds->AddData(varAddress);
+			cmds->AddData(varInfo.count * varInfo.varType->size);
 		}else{
 			//Update variable in place
-			cmds->AddData((USHORT)(m_cmd+10));
+			cmds->AddData((USHORT)(cmdID+10));
 			cmds->AddData((USHORT)(newDT | bitAddrRel));
-			cmds->AddData(m_vpos);
+			cmds->AddData(varAddress);
 		}
 	}else{
-		if(m_pre)
+		if(prefixOperator)
 		{
 			// ++i
 			// First we increment the value, and return new value
-			if(m_arr)
+			if(varInfo.count > 1)
 			{
 				//Calculate array index
 				first->doAct();
 				//Convert it to integer number
-				ConvertToInteger(first, podTypeToStackType[first->typeInfo()->type]);
+				ConvertToInteger(first, podTypeToStackType[first->getTypeInfo()->type]);
 
 				//Copy array index for later use, when we will save our new value
 				cmds->AddData(cmdCopy);
 				cmds->AddData((UCHAR)(OTYPE_INT));
 			}
 			//Update variable in place
-			cmds->AddData((USHORT)(m_cmd+10));
-			cmds->AddData((USHORT)(newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * m_arr));
-			cmds->AddData(m_vpos);
-			if(m_arr)
-				cmds->AddData(m_size);
+			cmds->AddData((USHORT)(cmdID+10));
+			cmds->AddData((USHORT)(newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * (varInfo.count > 1)));
+			cmds->AddData(varAddress);
+			if(varInfo.count > 1)
+				cmds->AddData(varInfo.count * varInfo.varType->size);
 
 			//Get variable data
 			cmds->AddData(cmdPush);
-			cmds->AddData((USHORT)(newST | newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * m_arr));
-			cmds->AddData(m_vpos);
-			if(m_arr)
-				cmds->AddData(m_size);
+			cmds->AddData((USHORT)(newST | newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * (varInfo.count > 1)));
+			cmds->AddData(varAddress);
+			if(varInfo.count > 1)
+				cmds->AddData(varInfo.count * varInfo.varType->size);
 		}else{
 			// i++
 			// We change value, but return the old one
-			if(m_arr)
+			if(varInfo.count > 1)
 			{
 				//Calculate array index
 				first->doAct();
 				//Convert it to integer number
-				ConvertToInteger(first, podTypeToStackType[first->typeInfo()->type]);
+				ConvertToInteger(first, podTypeToStackType[first->getTypeInfo()->type]);
 
 				//Copy array index twice for later use, when we will save our new value
 				cmds->AddData(cmdCopy);
@@ -796,55 +1101,56 @@ void NodePreValOp::doAct()
 			//Get variable data
 			//This will be the old value of the variable
 			cmds->AddData(cmdPush);
-			cmds->AddData((USHORT)(newST | newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * m_arr));
-			cmds->AddData(m_vpos);
-			if(m_arr)
-				cmds->AddData(m_size);
+			cmds->AddData((USHORT)(newST | newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * (varInfo.count > 1)));
+			cmds->AddData(varAddress);
+			if(varInfo.count > 1)
+				cmds->AddData(varInfo.count * varInfo.varType->size);
 			// [Stack: i;] (not array)   [Stack; index, i;] (array)
 
-			if(m_arr){
+			if(varInfo.count > 1){
 				cmds->AddData(cmdSwap);
 				cmds->AddData((USHORT)(STYPE_INT | newDT));
 			}
 			// [Stack: i;] (not array)   [Stack; i, index;] (array)
 			
 			//Update variable in place
-			cmds->AddData((USHORT)(m_cmd+10));
-			cmds->AddData((USHORT)(newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * m_arr));
-			cmds->AddData(m_vpos);
-			if(m_arr)
-				cmds->AddData(m_size);
+			cmds->AddData((USHORT)(cmdID+10));
+			cmds->AddData((USHORT)(newDT | bitAddrRel | (bitShiftStk | bitSizeOn) * (varInfo.count > 1)));
+			cmds->AddData(varAddress);
+			if(varInfo.count > 1)
+				cmds->AddData(varInfo.count * varInfo.varType->size);
 			// [Stack: i;] (not array)   [Stack; i;] (array)
 		}
 	}
 
 }
-void NodePreValOp::doLog(ostringstream& ostr){
+void NodePreValOp::doLog(ostringstream& ostr)
+{
 	static char* strs[] = { "++", "--" };
-	if(m_cmd != cmdInc &&  m_cmd != cmdDec)
+	if(cmdID != cmdInc &&  cmdID != cmdDec)
 		throw std::string("ERROR: PreValOp error");
-	drawLn(ostr); ostr << *m_typeInfo << "PreValOp<" << strs[m_cmd-cmdInc] << "> :\r\n"; goDown(); if(first) first->doLog(ostr); goUp();
+	drawLn(ostr); ostr << *typeInfo << "PreValOp<" << strs[cmdID-cmdInc] << "> :\r\n"; goDown(); if(first) first->doLog(ostr); goUp();
 }
 
 UINT NodePreValOp::getSize()
 {
 	UINT someSize = 0;
 	if(first)
-		someSize = ConvertToIntegerSize(first, podTypeToStackType[first->typeInfo()->type]);
-	if(m_optimised)
+		someSize = ConvertToIntegerSize(first, podTypeToStackType[first->getTypeInfo()->type]);
+	if(optimised)
 	{
-		if(m_arr)
+		if(varInfo.count > 1)
 			return first->getSize() + sizeof(CmdID)+sizeof(USHORT)+2*sizeof(UINT)+someSize;
 		else
 			return sizeof(CmdID)+sizeof(USHORT)+sizeof(UINT);
 	}else{
-		if(m_pre){
-			if(m_arr)
+		if(prefixOperator){
+			if(varInfo.count > 1)
 				return first->getSize() + 3*sizeof(CmdID)+2*sizeof(USHORT)+sizeof(UCHAR)+4*sizeof(UINT)+someSize;
 			else
 				return 2*sizeof(CmdID)+2*sizeof(USHORT)+2*sizeof(UINT);
 		}else{
-			if(m_arr)
+			if(varInfo.count > 1)
 				return first->getSize() + 4*sizeof(CmdID)+3*sizeof(USHORT)+sizeof(UCHAR)+4*sizeof(UINT)+someSize;
 			else
 				return 2*sizeof(CmdID)+2*sizeof(USHORT)+2*sizeof(UINT);
@@ -852,38 +1158,52 @@ UINT NodePreValOp::getSize()
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, производящий бинарную операцию с двумя значениями
 NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 {
-	m_cmd = cmd;
-	second = getList()->back();
-	getList()->pop_back();
-	first = getList()->back();
-	getList()->pop_back();
-	m_typeInfo = ChooseBinaryOpResultType(first->typeInfo(), second->typeInfo());
+	// Бинарная операция
+	cmdID = cmd;
+
+	second = getList()->back(); getList()->pop_back();
+	first = getList()->back(); getList()->pop_back();
+
+	// Найдём результирующий тип, после проведения операции
+	typeInfo = ChooseBinaryOpResultType(first->getTypeInfo(), second->getTypeInfo());
+
 	getLog() << __FUNCTION__ << "\r\n";
 }
-NodeTwoAndCmdOp::~NodeTwoAndCmdOp(){ getLog() << __FUNCTION__ << "\r\n"; }
+NodeTwoAndCmdOp::~NodeTwoAndCmdOp()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
 void NodeTwoAndCmdOp::doAct()
 {
-	asmStackType fST = podTypeToStackType[first->typeInfo()->type], sST = podTypeToStackType[second->typeInfo()->type];
+	asmStackType fST = podTypeToStackType[first->getTypeInfo()->type], sST = podTypeToStackType[second->getTypeInfo()->type];
+	
+	// Найдём первое значение
 	first->doAct();
+	// Преобразуем, если надо, в тип, который получается после проведения выбранной операции
 	fST = ConvertFirstForSecond(fST, sST);
+	// Найдём второе значение
 	second->doAct();
+	// Преобразуем, если надо, в тип, который получается после проведения выбранной операции
 	sST = ConvertFirstForSecond(sST, fST);
-	cmds->AddData(m_cmd);
+	// Произведём операцию со значениями
+	cmds->AddData(cmdID);
 	cmds->AddData((UCHAR)(operTypeForStackType[fST]));
 }
 void NodeTwoAndCmdOp::doLog(ostringstream& ostr)
 {
 	static char* strs[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "bin.and", "bin.or", "bin.xor", "log.and", "log.or", "log.xor"};
-	if((m_cmd < cmdAdd) || (m_cmd > cmdLogXor))
+	if((cmdID < cmdAdd) || (cmdID > cmdLogXor))
 		throw std::string("ERROR: TwoAndCmd error");
-	drawLn(ostr); ostr << *m_typeInfo << "TwoAndCmd<" << strs[m_cmd-cmdAdd] << "> :\r\n"; goDown(); first->doLog(ostr); goUp(); goDownB(); second->doLog(ostr); goUp();
+	drawLn(ostr); ostr << *typeInfo << "TwoAndCmd<" << strs[cmdID-cmdAdd] << "> :\r\n"; goDown(); first->doLog(ostr); goUp(); goDownB(); second->doLog(ostr); goUp();
 }
 UINT NodeTwoAndCmdOp::getSize()
 {
-	asmStackType fST = podTypeToStackType[first->typeInfo()->type], sST = podTypeToStackType[second->typeInfo()->type];
+	asmStackType fST = podTypeToStackType[first->getTypeInfo()->type], sST = podTypeToStackType[second->getTypeInfo()->type];
 	UINT resSize = 0;
 	resSize += ConvertFirstForSecondSize(fST, sST).first;
 	fST = ConvertFirstForSecondSize(fST, sST).second;
@@ -891,23 +1211,57 @@ UINT NodeTwoAndCmdOp::getSize()
 	return NodeTwoOP::getSize() + sizeof(CmdID) + 1 + resSize;
 }
 
-NodeTwoExpression::NodeTwoExpression(){ second = getList()->back(); getList()->pop_back(); first = getList()->back(); getList()->pop_back(); getLog() << __FUNCTION__ << "\r\n"; }
-NodeTwoExpression::~NodeTwoExpression(){ getLog() << __FUNCTION__ << "\r\n"; }
+//////////////////////////////////////////////////////////////////////////
+// Узел, содержащий два выражения. Работает как NodeTwoOP за исключением записи в лог.
+// Стоит убрать? BUG 0002
+NodeTwoExpression::NodeTwoExpression()
+{
+	second = getList()->back(); getList()->pop_back();
+	first = getList()->back(); getList()->pop_back();
+	getLog() << __FUNCTION__ << "\r\n";
+}
+NodeTwoExpression::~NodeTwoExpression()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
 
-void NodeTwoExpression::doAct(){ NodeTwoOP::doAct(); }
-void NodeTwoExpression::doLog(ostringstream& ostr){ drawLn(ostr); ostr << "TwoExpression :\r\n"; goDown(); first->doLog(ostr); goUp(); goDownB(); second->doLog(ostr); goUp(); }
-UINT NodeTwoExpression::getSize(){ return NodeTwoOP::getSize(); }
+void NodeTwoExpression::doAct()
+{
+	NodeTwoOP::doAct();
+}
+void NodeTwoExpression::doLog(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << "TwoExpression :\r\n";
+	goDown();
+	first->doLog(ostr);
+	goUp();
+	goDownB();
+	second->doLog(ostr);
+	goUp();
+}
+UINT NodeTwoExpression::getSize()
+{
+	return NodeTwoOP::getSize();
+}
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, выполняющий блок if(){}else{} или условный оператор ?:
 NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 {
-	if(haveElse){
+	// Если имеется блок else{}
+	if(haveElse)
+	{
 		third = getList()->back(); getList()->pop_back();
 	}
 	second = getList()->back(); getList()->pop_back();
 	first = getList()->back(); getList()->pop_back();
 	getLog() << __FUNCTION__ << "\r\n";
+	// Если это условный оператор, то имеется тип результата отличный от void
+	// Потенциальная ошибка имеется, когда разные результирующие варианты имеют разные типы.
+	// Следует исправить! BUG 0003
 	if(isTerm)
-		m_typeInfo = second->typeInfo();
+		typeInfo = second->getTypeInfo();
 }
 NodeIfElseExpr::~NodeIfElseExpr()
 {
@@ -916,21 +1270,27 @@ NodeIfElseExpr::~NodeIfElseExpr()
 
 void NodeIfElseExpr::doAct()
 {
-	//Structure: if(first) second; else third;
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->typeInfo()->type]];
+	// Структура дочерних элементов: if(first) second; else third;
+	// Второй вариант: first ? second : third;
+	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->getTypeInfo()->type]];
+	// Вычислим условие
 	first->doAct();
 
-	//If false, jump to beginning of third
+	// Если false, перейдём в блок else или выйдем из оператора, если такого блока не имеется
 	cmds->AddData(cmdJmpZ);
 	cmds->AddData((UCHAR)(aOT));
 	cmds->AddData(4 + cmds->GetCurrPos() + second->getSize() + (third ? 6 : 0));
 
+	// Выполним блок для успешного прохождения условия (true)
 	second->doAct();
+	// Если есть блок else, выполним его
 	if(third)
 	{
+		// Только поставим выход из оператора перед его кодом, чтобы не выполнять обе ветви
 		cmds->AddData(cmdJmp);
 		cmds->AddData(4 + cmds->GetCurrPos() + third->getSize());
 
+		// Выполним блок else (false)
 		third->doAct();
 	}
 }
@@ -940,11 +1300,13 @@ void NodeIfElseExpr::doLog(ostringstream& ostr)
 	ostr << "IfExpression :\r\n";
 	goDown();
 	first->doLog(ostr);
-	if(!third){
+	if(!third)
+	{
 		goUp(); goDownB();
 	}
 	second->doLog(ostr);
-	if(third){
+	if(third)
+	{
 		goUp(); goDownB();
 		third->doLog(ostr);
 	}
@@ -958,6 +1320,8 @@ UINT NodeIfElseExpr::getSize()
 	return size;
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, выполняющий блок for(){}
 NodeForExpr::NodeForExpr()
 {
 	fourth = getList()->back(); getList()->pop_back();
@@ -973,21 +1337,28 @@ NodeForExpr::~NodeForExpr()
 
 void NodeForExpr::doAct()
 {
-	//for(first, second, third) fourth;
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->typeInfo()->type]];
+	// Структура дочерних элементов: for(first, second, third) fourth;
+	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->getTypeInfo()->type]];
 
+	// Выполним инициализацию
 	first->doAct();
 	UINT posTestExpr = cmds->GetCurrPos();
 
+	// Найдём результат условия
 	second->doAct();
-	//If false, exit the cycle
+
+	// Если ложно, выйдем из цикла
 	cmds->AddData(cmdJmpZ);
 	cmds->AddData((UCHAR)(aOT));
+	// Сохраним адрес для выхода из цикла оператором break;
 	indTemp.push_back(cmds->GetCurrPos()+4+third->getSize()+fourth->getSize()+2+4);
 	cmds->AddData(cmds->GetCurrPos()+4+third->getSize()+fourth->getSize()+2+4);
 
+	// Выполним содержимое цикла
 	fourth->doAct();
+	// Выполним операцию, проводимую после каждой итерации
 	third->doAct();
+	// Перейдём на проверку условия
 	cmds->AddData(cmdJmp);
 	cmds->AddData(posTestExpr);
 	indTemp.pop_back();
@@ -1009,6 +1380,8 @@ UINT NodeForExpr::getSize()
 	return NodeThreeOP::getSize() + fourth->getSize() + 2*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(UCHAR);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, выполняющий блок while(){}
 NodeWhileExpr::NodeWhileExpr()
 {
 	second = getList()->back(); getList()->pop_back();
@@ -1022,15 +1395,21 @@ NodeWhileExpr::~NodeWhileExpr()
 
 void NodeWhileExpr::doAct()
 {
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->typeInfo()->type]];
+	// Структура дочерних элементов: while(first) second;
+	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->getTypeInfo()->type]];
 
 	UINT posStart = cmds->GetCurrPos();
+	// Выполним условие
 	first->doAct();
+	// Если оно ложно, выйдем из цикла
 	cmds->AddData(cmdJmpZ);
 	cmds->AddData((UCHAR)(aOT));
+	// Сохраним адрес для выхода из цикла оператором break;
 	indTemp.push_back(cmds->GetCurrPos()+4+second->getSize()+2+4);
 	cmds->AddData(cmds->GetCurrPos()+4+second->getSize()+2+4);
+	// Выполним содержимое цикла
 	second->doAct();
+	// Перейдём на проверку условия
 	cmds->AddData(cmdJmp);
 	cmds->AddData(posStart);
 }
@@ -1049,6 +1428,8 @@ UINT NodeWhileExpr::getSize()
 	return first->getSize() + second->getSize() + 2*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(UCHAR);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, выполняющий блок do{}while()
 NodeDoWhileExpr::NodeDoWhileExpr()
 {
 	second = getList()->back(); getList()->pop_back();
@@ -1062,12 +1443,17 @@ NodeDoWhileExpr::~NodeDoWhileExpr()
 
 void NodeDoWhileExpr::doAct()
 {
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->typeInfo()->type]];
+	// Структура дочерних элементов: do{ first; }while(second)
+	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->getTypeInfo()->type]];
 
 	UINT posStart = cmds->GetCurrPos();
+	// Сохраним адрес для выхода из цикла оператором break;
 	indTemp.push_back(cmds->GetCurrPos()+first->getSize()+second->getSize()+2+4);
+	// Выполним содержимое цикла
 	first->doAct();
+	// Выполним условие
 	second->doAct();
+	// Если условие верно, перейдём к выполнению следующей итерации цикла
 	cmds->AddData(cmdJmpNZ);
 	cmds->AddData((UCHAR)(aOT));
 	cmds->AddData(posStart);
@@ -1087,9 +1473,13 @@ UINT NodeDoWhileExpr::getSize()
 	return first->getSize() + second->getSize() + sizeof(CmdID) + sizeof(UINT) + sizeof(UCHAR);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, производящий операцию break;
 NodeBreakOp::NodeBreakOp(UINT c)
 {
-	m_popCnt = c;
+	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
+	popCnt = c;
+
 	getLog() << __FUNCTION__ << "\r\n";
 }
 NodeBreakOp::~NodeBreakOp()
@@ -1099,8 +1489,10 @@ NodeBreakOp::~NodeBreakOp()
 
 void NodeBreakOp::doAct()
 {
-	for(UINT i = 0; i < m_popCnt; i++)
+	// Уберём значения со стека вершин стека переменных
+	for(UINT i = 0; i < popCnt; i++)
 		cmds->AddData(cmdPopVTop);
+	// Выйдем из цикла
 	cmds->AddData(cmdJmp);
 	cmds->AddData(indTemp.back());
 }
@@ -1111,9 +1503,11 @@ void NodeBreakOp::doLog(ostringstream& ostr)
 }
 UINT NodeBreakOp::getSize()
 {
-	return (1+m_popCnt)*sizeof(CmdID) + sizeof(UINT);
+	return (1+popCnt)*sizeof(CmdID) + sizeof(UINT);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, для каждого блока case в switch
 NodeCaseExpr::NodeCaseExpr()
 {
 	second = getList()->back(); getList()->pop_back();
@@ -1127,16 +1521,23 @@ NodeCaseExpr::~NodeCaseExpr()
 
 void NodeCaseExpr::doAct()
 {
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->typeInfo()->type]];
+	// Структура дочерних элементов: case first: second;
+	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->getTypeInfo()->type]];
 
+	// switch нашёл значение, по которым производится выбор.
+	// Скопируем его, так как сравнение уберёт одно значение со стека
 	cmds->AddData(cmdCopy);
+	// Положим значение, по которому срабатывает данный case
+	// Значение может вычислятся в рантайме!
 	first->doAct();
+	// Сравним на равенство
 	cmds->AddData(cmdEqual);
 	cmds->AddData((UCHAR)(aOT));
+	// Если не равны, перейдём за блок second
 	cmds->AddData(cmdJmpZ);
 	cmds->AddData((UCHAR)(aOT));
 	cmds->AddData(cmds->GetCurrPos()+4+second->getSize());
-	//cmds->AddData(cmdPop);
+	// Сгенерируем код блока
 	second->doAct();
 }
 void NodeCaseExpr::doLog(ostringstream& ostr)
@@ -1153,6 +1554,8 @@ UINT NodeCaseExpr::getSize()
 	return first->getSize() + second->getSize() + 3*sizeof(CmdID) + sizeof(UINT) + 2*sizeof(UCHAR);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Узел, определяющий код для switch
 NodeSwitchExpr::NodeSwitchExpr()
 {
 	second = getList()->back(); getList()->pop_back();
@@ -1166,13 +1569,19 @@ NodeSwitchExpr::~NodeSwitchExpr()
 
 void NodeSwitchExpr::doAct()
 {
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->typeInfo()->type]];
+	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->getTypeInfo()->type]];
 
+	// Сохраним вершину стека переменных
 	cmds->AddData(cmdPushVTop);
+	// Найдём значение по которому будем выбирать вариант кода
 	first->doAct();
+	// Сохраним значение для оператора break;
 	indTemp.push_back(cmds->GetCurrPos()+second->getSize()+2);
+	// Сгенерируем код для всех case'ов
 	second->doAct();
+	// Востановим вершину стека значений
 	cmds->AddData(cmdPopVTop);
+	// Уберём с вершины стека значение по которому выбирался вариант кода
 	cmds->AddData(cmdPop);
 	cmds->AddData((USHORT)(aOT));
 	indTemp.pop_back();

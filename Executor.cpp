@@ -932,61 +932,82 @@ string Executor::GetLog()
 {
 	return m_ostr.str();
 }
+
+bool Executor::GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address)
+{
+	if(type->type == TypeInfo::POD_INT)
+	{
+		varstr << *((int*)&genParams[address]);
+	}else if(type->type == TypeInfo::POD_SHORT)
+	{
+		varstr << *((short*)&genParams[address]);
+	}else if(type->type == TypeInfo::POD_CHAR)
+	{
+		varstr << "'" << *((unsigned char*)&genParams[address]) << "' (" << (int)(*((unsigned char*)&genParams[address])) << ")";
+	}else if(type->type == TypeInfo::POD_FLOAT)
+	{
+		varstr << *((float*)&genParams[address]);
+	}else if(type->type == TypeInfo::POD_LONG)
+	{
+		varstr << *((long long*)&genParams[address]);
+	}else if(type->type == TypeInfo::POD_DOUBLE)
+	{
+		varstr << *((double*)&genParams[address]);
+	}else{
+		return false;
+	}
+	return true;
+}
+
+void Executor::GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int address)
+{
+	for(int mn = 0; mn < type->memberData.size(); mn++)
+	{
+		varstr << "  " << type->memberData[mn].type->name << " " << type->memberData[mn].name << " = ";
+		if(type->memberData[mn].type->type == TypeInfo::POD_VOID)
+		{
+			varstr << "ERROR: This type is void";
+		}else if(type->memberData[mn].type->type == TypeInfo::NOT_POD)
+		{
+			GetComplexTypeInfo(varstr, type->memberData[mn].type, address+type->memberData[mn].offset);
+		}else{
+			if(!GetSimpleTypeInfo(varstr, type->memberData[mn].type, address+type->memberData[mn].offset))
+				throw std::string("Executor::GetComplexTypeInfo() ERROR: unknown type of variable ") + type->memberData[mn].name;
+		}
+		varstr << "\r\n";
+		//address += type->memberData[mn].type->size;
+	}
+}
+
 string Executor::GetVarInfo()
 {
 	ostringstream varstr;
 	std::vector<VariableInfo>&	varInfo = *m_VarInfo;
-	for(UINT i = 0, k = 0; i < varInfo.size(); i++)
+	UINT address = 0;
+	for(UINT i = 0; i < varInfo.size(); i++)
 	{
-		
-		UINT addr = (varInfo[i].isRef ? varInfo[i].pos : k);
 		for(UINT n = 0; n < varInfo[i].count; n++)
 		{
-			varstr << varInfo[i].pos << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
+			//varInfo[i].pos+n*varInfo[i].varType->size
+			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
 
 			if(varInfo[i].count != 1)
 				varstr << "[" << n << "]";
 			varstr << " = ";
-			if(varInfo[i].varType->type == TypeInfo::POD_INT)
-			{
-				varstr << *((int*)&genParams[k]);
-			}else if(varInfo[i].varType->type == TypeInfo::POD_SHORT)
-			{
-				varstr << *((short*)&genParams[k]);
-			}else if(varInfo[i].varType->type == TypeInfo::POD_CHAR)
-			{
-				varstr << "'" << *((unsigned char*)&genParams[k]) << "' (" << (int)(*((unsigned char*)&genParams[k])) << ")";
-			}else if(varInfo[i].varType->type == TypeInfo::POD_FLOAT)
-			{
-				varstr << *((float*)&genParams[k]);
-			}else if(varInfo[i].varType->type == TypeInfo::POD_LONG)
-			{
-				varstr << *((long long*)&genParams[k]);
-			}else if(varInfo[i].varType->type == TypeInfo::POD_DOUBLE)
-			{
-				varstr << *((double*)&genParams[k]);
-			}else if(varInfo[i].varType->type == TypeInfo::POD_VOID)
+			if(varInfo[i].varType->type == TypeInfo::POD_VOID)
 			{
 				varstr << "ERROR: This type is void";
 			}else if(varInfo[i].varType->type == TypeInfo::NOT_POD)
 			{
-				//varstr << "This type is non-POD";
-				varstr << "Complex type" << "\r\n";
-				for(int mn = 0; mn < varInfo[i].varType->memberData.size(); mn++)
-				{
-					varstr << "  " << varInfo[i].varType->memberData[mn].type->name << " " << varInfo[i].varType->memberData[mn].name << "\r\n";
-				}
+				varstr << "" << "\r\n";
+				GetComplexTypeInfo(varstr, varInfo[i].varType, address);
 			}else{
-				throw std::string("Executor::GetVarInfo() ERROR: unknown type of variable ") + varInfo[i].name;
+				if(!GetSimpleTypeInfo(varstr, varInfo[i].varType, address))
+					throw std::string("Executor::GetVarInfo() ERROR: unknown type of variable ") + varInfo[i].name;
+				varstr << "\r\n";
 			}
-			varstr << "\r\n";
-			k += varInfo[i].varType->size;
+			address += varInfo[i].varType->size;
 		}
-		//if(varInfo[i].count == 1)
-		//	varstr << (varInfo[i].isRef ? genParams[varInfo[i].pos] : *((double*)&genParams[(k++)*8])) << "\r\n";
-		//else
-		//	for(UINT n = 0; n < varInfo[i].count; n++)
-		//		varstr << *((double*)&genParams[(k++)*8]) << "\r\n";
 	}
 	return varstr.str();
 }
