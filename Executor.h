@@ -40,6 +40,9 @@ public:
 	string	GetVarInfo();
 	void	SetCallback(bool (*Func)(UINT));//{ Callback = Func; }
 private:
+	bool	GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address);
+	void	GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int address);
+
 	ofstream			m_FileStream;
 	CommandList*		m_cmds;
 	ostringstream		m_ostr;

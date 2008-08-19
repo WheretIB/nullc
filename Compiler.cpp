@@ -26,6 +26,7 @@ TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
 
 TypeInfo*	currType = NULL;
+std::vector<TypeInfo*>	currTypes;
 
 std::vector<shared_ptr<NodeZeroOP> >	nodeList;
 
@@ -63,12 +64,13 @@ void removeTop(char const* s, char const* e)
 {
 	nodeList.pop_back();
 }
+/*
 void popBackInIndexed(char const* s, char const* e)
 {
 	size_t braceInd = strs.back().find('[');
 	if(braceInd != -1)
 		nodeList.pop_back();
-}
+}*/
 
 template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
 {
@@ -122,10 +124,10 @@ template<>	void addNumberNode<long long>(char const*s, char const*e){ nodeList.p
 template<>	void addNumberNode<double>(char const*s, char const*e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<double>(atof(s), typeDouble))); };
 
 void addPopNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->getType() == typeNodeNumber){
+	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber){
 		nodeList.pop_back();
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	}else if((*(nodeList.end()-1))->getType() == typeNodePreValOp){
+	}else if((*(nodeList.end()-1))->getNodeType() == typeNodePreValOp){
 		static_cast<NodePreValOp*>(nodeList.back().get())->SetOptimised(true);
 	}else{
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
@@ -134,19 +136,19 @@ void addPopNode(char const* s, char const* e){
 void addNegNode(char const* s, char const* e){
 	if(negCount % 2 == 0)
 		return;
-	if((*(nodeList.end()-1))->getType() == typeNodeNumber){
-		TypeInfo *aType = (*(nodeList.end()-1))->typeInfo();
+	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber){
+		TypeInfo *aType = (*(nodeList.end()-1))->getTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
 		{
-			Rd.reset(new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->getVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->getVal(), zOP->getTypeInfo()));
 		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->getVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->getVal(), zOP->getTypeInfo()));
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->getVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->getVal(), zOP->getTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->getVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->getVal(), zOP->getTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -158,19 +160,19 @@ void addNegNode(char const* s, char const* e){
 	negCount = 0;
 }
 void addLogNotNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->getType() == typeNodeNumber){
-		TypeInfo *aType = (*(nodeList.end()-1))->typeInfo();
+	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber){
+		TypeInfo *aType = (*(nodeList.end()-1))->getTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
 		{
-			Rd.reset(new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->getLogNotVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->getLogNotVal(), zOP->getTypeInfo()));
 		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->getLogNotVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->getLogNotVal(), zOP->getTypeInfo()));
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getLogNotVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getLogNotVal(), zOP->getTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getLogNotVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getLogNotVal(), zOP->getTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -181,8 +183,8 @@ void addLogNotNode(char const* s, char const* e){
 	}
 }
 void addBitNotNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->getType() == typeNodeNumber){
-		TypeInfo *aType = (*(nodeList.end()-1))->typeInfo();
+	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber){
+		TypeInfo *aType = (*(nodeList.end()-1))->getTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
@@ -191,9 +193,9 @@ void addBitNotNode(char const* s, char const* e){
 		}else if(aType == typeFloat){
 			throw std::string("ERROR: bitwise NOT cannot be used on floating point numbers");
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getBitNotVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getBitNotVal(), zOP->getTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getBitNotVal(), zOP->typeInfo()));
+			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getBitNotVal(), zOP->getTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -269,12 +271,12 @@ template<>				double	optDoSpecial<>(CmdID cmd, double a, double b)
 
 void addTwoAndCmpNode(CmdID id){
 
-	if((*(nodeList.end()-1))->getType() == typeNodeNumber && (*(nodeList.end()-2))->getType() == typeNodeNumber){
+	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber && (*(nodeList.end()-2))->getNodeType() == typeNodeNumber){
 		//If we have operation between two known numbers, we can optimize code by calculating the result in place
 
 		TypeInfo *aType, *bType;
-		aType = (*(nodeList.end()-2))->typeInfo();
-		bType = (*(nodeList.end()-1))->typeInfo();
+		aType = (*(nodeList.end()-2))->getTypeInfo();
+		bType = (*(nodeList.end()-1))->getTypeInfo();
 
 		UINT shA = 2, shB = 1;	//Shift's to operand A and B in array
 		//Swap operands, to reduce number of combinations
@@ -287,8 +289,8 @@ void addTwoAndCmpNode(CmdID id){
 
 		bool swapOper = shA != 2;
 
-		aType = (*(nodeList.end()-shA))->typeInfo();
-		bType = (*(nodeList.end()-shB))->typeInfo();
+		aType = (*(nodeList.end()-shA))->getTypeInfo();
+		bType = (*(nodeList.end()-shB))->getTypeInfo();
 		if(aType == typeDouble)
 		{
 			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >((nodeList.end()-shA)->get());
@@ -432,6 +434,26 @@ void addVarDefNode(char const* s, char const* e)
 	varDefined = 0;
 }
 
+void pushType(char const* s, char const* e)
+{
+	currTypes.push_back(currType);
+}
+
+void popType(char const* s, char const* e)
+{
+	currTypes.pop_back();
+}
+
+bool pushedShiftAddrNode = false;
+bool pushedShiftAddr = false;
+
+void popTypeAndAddrNode(char const* s, char const* e)
+{
+	currTypes.pop_back();
+	if(pushedShiftAddr)
+		nodeList.pop_back();
+}
+
 void getType(char const* s, char const* e)
 {
 	int i = (int)varInfo.size()-1;
@@ -440,12 +462,15 @@ void getType(char const* s, char const* e)
 		i--;
 	if(i == -1)
 		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [set]");
-	currType = varInfo[i].varType;
+	currTypes.push_back(varInfo[i].varType);
+	pushedShiftAddr = false;
+	pushedShiftAddrNode = false;
 }
 
 void getMember(char const* s, char const* e)
 {
 	string vName = std::string(s, e);
+	currType = currTypes.back();
 
 	int i = (int)currType->memberData.size()-1;
 	while(i >= 0 && currType->memberData[i].name != vName)
@@ -453,13 +478,17 @@ void getMember(char const* s, char const* e)
 	if(i == -1)
 		throw std::string("ERROR: variable '" + vName + "' is not a member of '" + currType->name + "' [set]");
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(currType->memberData[i].offset, typeInt)));
-	addCmd(cmdAdd);
-	currType = currType->memberData[i].type;
+	if(pushedShiftAddrNode)
+		addTwoAndCmpNode(cmdAdd);
+	pushedShiftAddrNode = false;
+	pushedShiftAddr = true;
+	currTypes.back() = currType->memberData[i].type;
 }
 
 void addShiftAddrNode(char const* s, char const* e)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePushShift(currType->size)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePushShift(currTypes.back()->size)));
+	pushedShiftAddrNode = true;
 }
 
 void addSetNode(char const* s, char const* e)
@@ -481,7 +510,8 @@ void addSetNode(char const* s, char const* e)
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currType, varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr)));
+	currTypes.pop_back();
 
 	currValConst = false;
 	varDefined = 0;
@@ -492,6 +522,7 @@ void addGetNode(char const* s, char const* e)
 	int i = (int)varInfo.size()-1;
 	string vName = *(strs.end()-2);
 	size_t braceInd = strs.back().find('[');
+	size_t compoundType = strs.back().find('.');
 
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
@@ -501,10 +532,13 @@ void addGetNode(char const* s, char const* e)
 		throw std::string("ERROR: variable '" + strs.back() + "' is not an array");
 	if(braceInd == -1 && varInfo[i].count > 1)
 		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
+
 	if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], 0, true)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos, compoundType != -1, true)));
 	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], -(int)(varInfoTop.back().varStackSize))));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos-(int)(varInfoTop.back().varStackSize), compoundType != -1, false)));
+	
+	currTypes.pop_back();
 }
 
 void addSetAndOpNode(CmdID cmd)
@@ -531,8 +565,9 @@ void addMulSetNode(char const* s, char const* e){ addSetAndOpNode(cmdMul); }
 void addDivSetNode(char const* s, char const* e){ addSetAndOpNode(cmdDiv); }
 void addPowSetNode(char const* s, char const* e){ addSetAndOpNode(cmdPow); }
 
-void addPreOpNode(CmdID cmd, bool pre){
-	int i = (int)varInfo.size()-1;
+void addPreOpNode(CmdID cmd, bool pre)
+{
+	/*int i = (int)varInfo.size()-1;
 	string vName = *(strs.end()-2);
 	size_t braceInd = strs.back().find('[');
 
@@ -540,7 +575,27 @@ void addPreOpNode(CmdID cmd, bool pre){
 		i--;
 	if(i == -1)
 		throw std::string("ERROR: variable " + strs.back() + " is not defined");
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i].varType, varInfo[i].pos-varInfoTop.back().varStackSize, vName, braceInd != -1, varInfo[i].count, cmd, pre)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i].varType, varInfo[i].pos-varInfoTop.back().varStackSize, vName, varInfo[i].count, cmd, pre)));
+*/
+	int i = (int)varInfo.size()-1;
+	string vName = *(strs.end()-2);
+	size_t braceInd = strs.back().find('[');
+	size_t compoundType = strs.back().find('.');
+
+	while(i >= 0 && varInfo[i].name != vName)
+		i--;
+	if(i == -1)
+		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [set]");
+	if(!currValConst && varInfo[i].isConst)
+		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
+	if(braceInd == -1 && varInfo[i].count > 1)
+		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
+
+	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
+	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
+
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd, pre)));
+	currTypes.pop_back();
 }
 void addPreDecNode(char const* s, char const* e){ addPreOpNode(cmdDec, true); }
 void addPreIncNode(char const* s, char const* e){ addPreOpNode(cmdInc, true); }
@@ -587,6 +642,7 @@ void funcStart(char const* s, char const* e)
 
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP(currType)));
 
+		pushType(0,0);
 		addSetNode(0,0);
 		//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[n].pos, varInfo[n].name, false, 1)));
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
@@ -667,8 +723,8 @@ void addIfNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<Node
 void addIfElseNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true))); }
 void addIfElseTermNode(char const* s, char const* e)
 {
-	TypeInfo* typeA = nodeList[nodeList.size()-1]->typeInfo();
-	TypeInfo* typeB = nodeList[nodeList.size()-2]->typeInfo();
+	TypeInfo* typeA = nodeList[nodeList.size()-1]->getTypeInfo();
+	TypeInfo* typeB = nodeList[nodeList.size()-2]->getTypeInfo();
 	if(typeA != typeB)
 		throw std::string("ERROR: trinary operator ?: \r\n result types are not equal (" + typeB->name + " : " + typeA->name + ")");
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true, true)));
@@ -713,23 +769,6 @@ void addSwitchNode(char const* s, char const* e)
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void printFloat(char const* s, char const* e)
-{
-	throw string("Read float");
-}
-void printInt(char const* s, char const* e)
-{
-	throw string("Read int");
-}
-void printDouble(char const* s, char const* e)
-{
-	throw string("Read double");
-}
-void printLong(char const* s, char const* e)
-{
-	throw string("Read long");
-}
-
 struct CompilerGrammar
 {
 	void InitGrammar()
@@ -771,11 +810,11 @@ struct CompilerGrammar
 			)[strPush];
 		addvarp		=
 			(
-			(varname[strPush] >>
+			(varname[strPush][pushType] >>
 			epsP[AssignVar<UINT>(varSize,1)] >>
 			!('[' >> intP[StrToInt(varSize)] >> ']'))
 			)[strPush][&addVar][IncVar<UINT>(varDefined)] >>
-			(('=' >> term5)[&addSetNode][&addPopNode] | epsP[&addVarDefNode])[strPop][strPop];
+			(('=' >> term5)[&addSetNode][&addPopNode] | epsP[&addVarDefNode][popType])[strPop][strPop];
 		addrefp		=
 			(
 			varname[strPush] >>
@@ -834,13 +873,15 @@ struct CompilerGrammar
 			(strP("--") >> applyval)[&addPreDecNode][strPop][strPop] | 
 			(strP("++") >> applyval)[&addPreIncNode][strPop][strPop] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[&addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[&addLogNotNode] | ('~' >> term1)[&addBitNotNode] |
-			//longestD[(intP >> (chP('l')[printLong] | epsP[printInt])) | (realP >> (chP('f')[printFloat] | epsP[printDouble]))][&subAddRealNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 			group |
 			funccall[&addFuncCallNode] |
-			(applyval >> (strP("++") | (epsP[&popBackInIndexed][strPop][strPop] >> nothingP)))[&addPostIncNode][strPop][strPop] |
-			(applyval >> (strP("--") | (epsP[&popBackInIndexed][strPop][strPop] >> nothingP)))[&addPostDecNode][strPop][strPop] |
-			applyval[&addGetNode][strPop][strPop];
+			applyval >>
+			(
+				strP("++")[&addPostIncNode] |
+				strP("--")[&addPostDecNode] |
+				epsP[&addGetNode]
+			)[strPop][strPop];
 		term2		=	term1 >> *((strP("**") >> term1)[addCmd(cmdPow)]);
 		term3		=	term2 >> *(('*' >> term2)[addCmd(cmdMul)] | ('/' >> term2)[addCmd(cmdDiv)] | ('%' >> term2)[addCmd(cmdMod)]);
 		term4		=	term3 >> *(('+' >> term3)[addCmd(cmdAdd)] | ('-' >> term3)[addCmd(cmdSub)]);
@@ -862,7 +903,7 @@ struct CompilerGrammar
 			(strP("*=") >> term5)[&addMulSetNode] |
 			(strP("/=") >> term5)[&addDivSetNode] |
 			(strP("^=") >> term5)[&addPowSetNode] |
-			(epsP[&popBackInIndexed][strPop][strPop] >> nothingP))
+			(epsP[strPop][strPop][popTypeAndAddrNode] >> nothingP))
 			)[strPop][strPop] |
 			term4_9;
 
@@ -1146,13 +1187,14 @@ void Compiler::GenListing()
 						m_asmlog << " (" << *((char*)(&DWords[0])) << ')';
 				}else{
 					m_asmlog << " PTR[";
-					if(flagAddrStk(cFlag)){
+					if(flagAddrStk(cFlag))
+					{
 						m_asmlog << "stack";
 						if(flagAddrRel(cFlag))
 							m_asmlog << "+top";
-						
 					}else{
-						if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
+						if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+						{
 							m_cmds->GetINT(pos, valind);
 							pos += 4;
 						}
@@ -1160,22 +1202,22 @@ void Compiler::GenListing()
 						if(flagAddrRel(cFlag))
 							m_asmlog << "+top";
 					}
-					if(flagShiftStk(cFlag)){
-						m_asmlog << "+shift";
-					}
-					if(flagShiftOn(cFlag)){
+					if(flagShiftStk(cFlag))
+						m_asmlog << "+shift(stack)";
+					if(flagShiftOn(cFlag))
+					{
 						m_cmds->GetINT(pos, valind);
 						pos += 4;
 						m_asmlog << "+" << valind;
 					}
 					m_asmlog << "] ";
-					if(flagSizeStk(cFlag)){
-						m_asmlog << "size: stack";
-					}
-					if(flagSizeOn(cFlag)){
+					if(flagSizeStk(cFlag))
+						m_asmlog << "size(stack)";
+					if(flagSizeOn(cFlag))
+					{
 						m_cmds->GetINT(pos, valind);
 						pos += 4;
-						m_asmlog << "size: " << valind;
+						m_asmlog << "size(" << valind << ")";
 					}
 				}
 			}
@@ -1193,13 +1235,15 @@ void Compiler::GenListing()
 				UINT	highDW = 0, lowDW = 0;
 				int valind;
 
-				if(flagAddrStk(cFlag)){
+				if(flagAddrStk(cFlag))
+				{
 					m_asmlog << "stack";
 					if(flagAddrRel(cFlag))
 						m_asmlog << "+top";
 					m_asmlog << "]";
 				}else{
-					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
+					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+					{
 						m_cmds->GetINT(pos, valind);
 						pos += 4;
 					}
@@ -1207,19 +1251,20 @@ void Compiler::GenListing()
 					if(flagAddrRel(cFlag))
 						m_asmlog << "+top";
 
-					if(flagShiftStk(cFlag)){
-						m_asmlog << "+shift";
-					}
-					if(flagShiftOn(cFlag)){
+					if(flagShiftStk(cFlag))
+						m_asmlog << "+shift(stack)";
+
+					if(flagShiftOn(cFlag))
+					{
 						m_cmds->GetINT(pos, valind);
 						pos += 4;
 						m_asmlog << "+" << valind;
 					}
 					m_asmlog << "] ";
-					if(flagSizeStk(cFlag)){
-						m_asmlog << "size: stack";
-					}
-					if(flagSizeOn(cFlag)){
+					if(flagSizeStk(cFlag))
+						m_asmlog << "size(stack)";
+					if(flagSizeOn(cFlag))
+					{
 						m_cmds->GetINT(pos, valind);
 						pos += 4;
 						m_asmlog << "size: " << valind;
