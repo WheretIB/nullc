@@ -325,13 +325,13 @@ public:
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
-	bool			arrSetAll, absAddress, shiftAddress;
+	bool			absAddress, shiftAddress;
 };
 
 class NodeVarSetAndOp: public NodeTwoOP
 {
 public:
-	NodeVarSetAndOp(TypeInfo* tinfo, UINT vpos, std::string name, bool arr, UINT size, CmdID cmd);
+	NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress, CmdID cmd);
 	virtual ~NodeVarSetAndOp();
 
 	virtual void Compile();
@@ -339,11 +339,10 @@ public:
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeVarSetAndOp; }
 protected:
-	UINT		m_vpos;
-	std::string	m_name;
-	bool		m_arr;
-	UINT		m_size;
-	CmdID		m_cmd;
+	VariableInfo	varInfo;
+	UINT			varAddress;
+	bool			absAddress, shiftAddress;
+	CmdID			cmdID;
 };
 
 class NodePreValOp: public NodeOneOP

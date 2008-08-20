@@ -547,6 +547,7 @@ void addSetAndOpNode(CmdID cmd)
 	int i = (int)varInfo.size()-1;
 	string vName = *(strs.end()-2);
 	size_t braceInd = strs.back().find('[');
+	size_t compoundType = strs.back().find('.');
 
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
@@ -557,7 +558,12 @@ void addSetAndOpNode(CmdID cmd)
 	if(braceInd == -1 && varInfo[i].count > 1)
 		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i].varType, varInfo[i].pos-varInfoTop.back().varStackSize, vName, braceInd != -1, varInfo[i].count, cmd)));
+	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
+	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
+
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd)));
+
+	//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i].varType, varInfo[i].pos-varInfoTop.back().varStackSize, vName, braceInd != -1, varInfo[i].count, cmd)));
 	varDefined = 0;
 }
 void addAddSetNode(char const* s, char const* e){ addSetAndOpNode(cmdAdd); }
@@ -568,16 +574,6 @@ void addPowSetNode(char const* s, char const* e){ addSetAndOpNode(cmdPow); }
 
 void addPreOpNode(CmdID cmd, bool pre)
 {
-	/*int i = (int)varInfo.size()-1;
-	string vName = *(strs.end()-2);
-	size_t braceInd = strs.back().find('[');
-
-	while(i >= 0 && varInfo[i].name != vName)
-		i--;
-	if(i == -1)
-		throw std::string("ERROR: variable " + strs.back() + " is not defined");
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i].varType, varInfo[i].pos-varInfoTop.back().varStackSize, vName, varInfo[i].count, cmd, pre)));
-*/
 	int i = (int)varInfo.size()-1;
 	string vName = *(strs.end()-2);
 	size_t braceInd = strs.back().find('[');

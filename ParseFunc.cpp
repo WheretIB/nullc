@@ -806,23 +806,32 @@ void NodeVarSet::LogToStream(ostringstream& ostr)
 }
 UINT NodeVarSet::GetSize()
 {
-	asmStackType fST =	podTypeToStackType[typeInfo->type],
-						sST = first ? podTypeToStackType[first->GetTypeInfo()->type] : STYPE_INT,
-						tST = second ? podTypeToStackType[second->GetTypeInfo()->type] : STYPE_INT;
+	asmStackType fST =	podTypeToStackType[typeInfo->type];
+	asmStackType sST = first ? podTypeToStackType[first->GetTypeInfo()->type] : STYPE_INT;
+	asmStackType tST = second ? podTypeToStackType[second->GetTypeInfo()->type] : STYPE_INT;
+
+	UINT size = 0;
 	if(varInfo.count == 1)
 	{
-		if(first)
-			return (shiftAddress ? second->GetSize() : 0) + first->GetSize() + ConvertFirstToSecondSize(fST, sST) + sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
-		else
-			return sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+		if(shiftAddress)
+			size += second->GetSize();
+		size += first->GetSize();
+		size += ConvertFirstToSecondSize(sST, fST);
+		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 	}else{
 		if(arrSetAll)
 		{
-			return first->GetSize() + ConvertFirstToSecondSize(fST, sST) + varInfo.count * (3*sizeof(CmdID)+3*sizeof(USHORT)+3*sizeof(UINT));
+			size += first->GetSize();
+			size += ConvertFirstToSecondSize(sST, fST);
+			size += varInfo.count * (3 * sizeof(CmdID) + 3 * sizeof(USHORT) + 3 * sizeof(UINT));
 		}else{
-			return first->GetSize() + ConvertFirstToSecondSize(fST, sST) + second->GetSize() + sizeof(CmdID)+sizeof(USHORT)+2*sizeof(UINT);
+			size += second->GetSize();
+			size += first->GetSize();
+			size += ConvertFirstToSecondSize(sST, fST);
+			size += sizeof(CmdID) + sizeof(USHORT) + 2 * sizeof(UINT);
 		}
 	}
+	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -883,7 +892,6 @@ void NodeVarGet::Compile()
 		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | (shiftAddress ? bitShiftStk : 0)));
 		// адрес переменной
 		cmds->AddData(varAddress);
-		
 	}
 }
 void NodeVarGet::LogToStream(ostringstream& ostr)
@@ -897,20 +905,47 @@ void NodeVarGet::LogToStream(ostringstream& ostr)
 }
 UINT NodeVarGet::GetSize()
 {
+	UINT size = 0;
 	if(varInfo.count > 1)
-		return first->GetSize() + sizeof(CmdID) + sizeof(USHORT) + 2*sizeof(UINT);
-	else
-		return sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT) + (shiftAddress ? first->GetSize() : 0);
+	{
+		size += first->GetSize();
+		size += sizeof(CmdID) + sizeof(USHORT) + 2 * sizeof(UINT);
+	}else{
+		if(shiftAddress)
+			size += first->GetSize();
+		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+	}
+	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел для изменения значения переменной
-NodeVarSetAndOp::NodeVarSetAndOp(TypeInfo* tinfo, UINT vpos, std::string name, bool arr, UINT size, CmdID cmd)
+// Узел для изменения значения переменной (a += b, и т.п.)
+NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool absAddr, CmdID cmd)
 {
-	typeInfo = tinfo; m_vpos = vpos; m_name = name; m_arr = arr; m_size = size; m_cmd = cmd;
+	// информация о переменной
+	varInfo = vInfo;
+	// и её адрес
+	varAddress = varAddr;
+	// использовать абсолютную адресацию (для глобальных переменных)
+	absAddress = absAddr;
+	// тип изменяемого значения может быть другим, если переменная составная
+	typeInfo = targetType;
+	// применять динамически расчитываемый сдвиг к адресу переменной
+	shiftAddress = shiftAddr;
+	// команда, выполняемая с двумя операндами
+	cmdID = cmd;
+
 	first = getList()->back(); getList()->pop_back();
-	if(arr){
+
+	// если переменная - массив или член составного типа, то нужен сдвиг адреса
+	if(varInfo.count > 1 || shiftAddress)	
+	{
+		// получить узел, расчитывающий сдвиг адреса
 		second = getList()->back(); getList()->pop_back();
+
+		// сдвиг адреса должен быть  целым числом
+		if(second->GetTypeInfo() != typeInt)
+			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
@@ -921,75 +956,111 @@ NodeVarSetAndOp::~NodeVarSetAndOp()
 
 void NodeVarSetAndOp::Compile()
 {
-	asmOperType aOT;
-	asmStackType meST, firstST, newST;
-	asmDataType meDT = podTypeToDataType[typeInfo->type];
-	meST = podTypeToStackType[typeInfo->type];
-	firstST = podTypeToStackType[first->GetTypeInfo()->type];
+	// Тип нашей переменной в основном стеке
+	asmStackType thisST = podTypeToStackType[typeInfo->type];
+	// Тип второго значения в основном стеке
+	asmStackType firstST = podTypeToStackType[first->GetTypeInfo()->type];
+	// Cтековый тип, который получится после выполнения бинарной операции
+	asmStackType resultST;// = ConvertFirstForSecond(thisST, firstST);
 
-	UINT additFlag = bitAddrRel;
-	if(m_arr)
+	// Тип нашей переменной в стеке переменных
+	asmDataType thisDT = podTypeToDataType[typeInfo->type];
+
+	// Тип, над которым работает операция
+	asmOperType aOT;// = operTypeForStackType[resultST];
+
+	// Если переменная - массив или член составного типа, то нужен сдвиг адреса
+	if(varInfo.count > 1 || shiftAddress)
 	{
-		additFlag = bitAddrRel | bitShiftStk | bitSizeOn;
 		second->Compile();
-		ConvertToInteger(second, podTypeToStackType[second->GetTypeInfo()->type]);
+		// Далее две операции, и каждой нужен адрес
 		cmds->AddData(cmdCopy);
 		cmds->AddData((UCHAR)(OTYPE_INT));
 	}
 
+	UINT shiftInStack = 0, sizeOn = 0;
+	// Если это массив или член составного типа, включаем флаг что сдвиг в стеке
+	if(varInfo.count > 1 || shiftAddress)
+		shiftInStack = bitShiftStk;
+	// Если это массив, включаем флаг, что имеется ограничение по размеру сдвига
+	if(varInfo.count > 1)
+		sizeOn = bitSizeOn;
+
+	// Выбор флага для разных вариантов адресации
+	UINT addrType = absAddress ? bitAddrAbs : bitAddrRel;
+
+	// Поместим значение переменной в стек
 	cmds->AddData(cmdPush);
-	cmds->AddData((USHORT)(meST | meDT | additFlag));
-	cmds->AddData(m_vpos);
-	if(m_arr)
-		cmds->AddData(m_size);
-	newST = ConvertFirstForSecond(meST, firstST);
+	cmds->AddData((USHORT)(thisST | thisDT | addrType | shiftInStack | sizeOn));
+	cmds->AddData(varAddress);
+	if(varInfo.count > 1)
+		cmds->AddData(varInfo.count * varInfo.varType->size);
 
+	// Преобразуем в тип результата бинарной операции
+	resultST = ConvertFirstForSecond(thisST, firstST);
+
+	// Теперь известем тип операции
+	aOT = operTypeForStackType[resultST];
+
+	// Найдём значение второго операнда
 	first->Compile();
-	firstST = ConvertFirstForSecond(firstST, newST);
-	aOT = operTypeForStackType[newST];
+	// Преобразуем в тип результата бинарной операции
+	firstST = ConvertFirstForSecond(firstST, thisST);
 
-	cmds->AddData(m_cmd);
+	// Выполним бинарную операцию
+	cmds->AddData(cmdID);
 	cmds->AddData((UCHAR)(aOT));
 
-	ConvertFirstToSecond(newST, meST);
-	
+	// Преобразуем значение в стеке в тип переменной
+	ConvertFirstToSecond(resultST, thisST);
+
+	// Помещаем новое значение в пременную
 	cmds->AddData(cmdMov);
-	cmds->AddData((USHORT)(meST | meDT | additFlag));
-	cmds->AddData(m_vpos);
-	if(m_arr)
-		cmds->AddData(m_size);
+	cmds->AddData((USHORT)(thisST | thisDT | addrType | shiftInStack | sizeOn));
+	cmds->AddData(varAddress);
+	if(varInfo.count > 1)
+		cmds->AddData(varInfo.count * varInfo.varType->size);
 }
 void NodeVarSetAndOp::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << *typeInfo << "VarSet (array:" << m_arr << ") '" << m_name << "' " << (int)(m_vpos) << "\r\n";
+	ostr << *typeInfo << "VarSet (array:" << (varInfo.count > 1) << ") '" << varInfo.name << "' " << (int)(varAddress) << "\r\n";
 	goDown();
 	first->LogToStream(ostr);
 	goUp();
 	goDownB();
-	if(m_arr)
+	if(varInfo.count > 1 || shiftAddress)
 		second->LogToStream(ostr);
 	goUp();
 }
 UINT NodeVarSetAndOp::GetSize()
 {
-	asmStackType meST, firstST, newST;
-	asmDataType meDT = podTypeToDataType[typeInfo->type];
-	meST = podTypeToStackType[typeInfo->type];
-	firstST = podTypeToStackType[first->GetTypeInfo()->type];
+	asmStackType thisST = podTypeToStackType[typeInfo->type];
+	asmStackType firstST = podTypeToStackType[first->GetTypeInfo()->type];
+	asmStackType resultST = ConvertFirstForSecondSize(thisST, firstST).second;
+	asmDataType thisDT = podTypeToDataType[typeInfo->type];
 
-	UINT resSize = 0;
-	if(m_arr)
-		resSize += ConvertToIntegerSize(second, podTypeToStackType[second->GetTypeInfo()->type]);
-	resSize += ConvertFirstForSecondSize(meST, firstST).first;
-	newST = ConvertFirstForSecondSize(meST, firstST).second;
-	resSize += ConvertFirstForSecondSize(firstST, newST).first;
-	resSize += ConvertFirstToSecondSize(newST, meST);
+	UINT size = 0;
+	if(varInfo.count > 1 || shiftAddress)
+	{
+		size += second->GetSize();
+		size += sizeof(CmdID) + sizeof(UCHAR);
+	}
+	if(varInfo.count > 1)
+		size += 2 * sizeof(UINT);
 
-	if(m_arr)
-		return second->GetSize() + first->GetSize() + 4*sizeof(CmdID)+2*sizeof(USHORT)+2*sizeof(UCHAR)+4*sizeof(UINT) + resSize;
-	else
-		return first->GetSize() + 3*sizeof(CmdID)+2*sizeof(USHORT)+sizeof(UCHAR)+2*sizeof(UINT) + resSize;
+	size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+	size += ConvertFirstForSecondSize(thisST, firstST).first;
+
+	size += first->GetSize();
+	size += ConvertFirstForSecondSize(firstST, thisST).first;
+
+	size += sizeof(CmdID) + sizeof(UCHAR);
+
+	size += ConvertFirstToSecondSize(resultST, thisST);
+
+	size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1064,7 +1135,7 @@ void NodePreValOp::Compile()
 	if(optimised)
 	{
 		// Меняем значение переменной прямо по адресу
-		cmds->AddData((USHORT)(cmdID+10));
+		cmds->AddData((CmdID)(cmdID+10));
 		cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 		// адрес начала массива
 		cmds->AddData(varAddress);
@@ -1085,7 +1156,7 @@ void NodePreValOp::Compile()
 			// Сначала изменяем переменную, затем кладём в стек её новое значение
 
 			// Меняем значение переменной прямо по адресу
-			cmds->AddData((USHORT)(cmdID+10));
+			cmds->AddData((CmdID)(cmdID+10));
 			cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
 			if(varInfo.count > 1)
@@ -1117,7 +1188,7 @@ void NodePreValOp::Compile()
 			}
 			
 			// Меняем значение переменной прямо по адресу
-			cmds->AddData((USHORT)(cmdID+10));
+			cmds->AddData((CmdID)(cmdID+10));
 			cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
 			if(varInfo.count > 1)
@@ -1135,28 +1206,35 @@ void NodePreValOp::LogToStream(ostringstream& ostr)
 
 UINT NodePreValOp::GetSize()
 {
-	UINT someSize = 0;
-	if(first)
-		someSize = ConvertToIntegerSize(first, podTypeToStackType[first->GetTypeInfo()->type]);
+	asmStackType newST = podTypeToStackType[typeInfo->type];
+	asmDataType newDT = podTypeToDataType[typeInfo->type];
+
+	UINT size = 0;
+	if(varInfo.count > 1 || shiftAddress)
+		size += first->GetSize();
 	if(optimised)
 	{
+		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 		if(varInfo.count > 1)
-			return first->GetSize() + sizeof(CmdID)+sizeof(USHORT)+2*sizeof(UINT)+someSize;
-		else
-			return sizeof(CmdID)+sizeof(USHORT)+sizeof(UINT);
+			size += sizeof(UINT);
 	}else{
-		if(prefixOperator){
+		if(varInfo.count > 1 || shiftAddress)
+			size += sizeof(CmdID) + sizeof(UCHAR);
+		if(prefixOperator)
+		{
+			size += 2 * (sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT));
 			if(varInfo.count > 1)
-				return first->GetSize() + 3*sizeof(CmdID)+2*sizeof(USHORT)+sizeof(UCHAR)+4*sizeof(UINT)+someSize;
-			else
-				return 2*sizeof(CmdID)+2*sizeof(USHORT)+2*sizeof(UINT);
+				size += 2 * sizeof(UINT);
 		}else{
 			if(varInfo.count > 1)
-				return first->GetSize() + 4*sizeof(CmdID)+3*sizeof(USHORT)+sizeof(UCHAR)+4*sizeof(UINT)+someSize;
-			else
-				return 2*sizeof(CmdID)+2*sizeof(USHORT)+2*sizeof(UINT);
+				size += 2 * sizeof(UINT);
+			size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+			if(varInfo.count > 1 || shiftAddress)
+				size += sizeof(CmdID) + sizeof(USHORT);
+			size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 		}
 	}
+	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////
