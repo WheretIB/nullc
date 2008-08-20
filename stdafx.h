@@ -5,14 +5,14 @@
 
 #include <stdlib.h>
 
-#include "boost/shared_ptr.hpp"
+#include "SharedPtr/shared_ptr.hpp"
+
 #include <vector>
 #include <map>
-//#include <iostream>
+
 #include <list>
 #include <string>
 #include <sstream>
 #include <fstream>
 #include <math.h>
 using namespace std;
-using boost::shared_ptr;

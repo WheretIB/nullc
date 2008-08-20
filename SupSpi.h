@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #pragma once
-using boost::shared_ptr;
 
 namespace supspi
 {
@@ -73,7 +72,7 @@ namespace supspi
 	protected:
 	};
 
-	//Rule is a wrapper over boost::shared_ptr<BaseP>
+	//Rule is a wrapper over shared_ptr<BaseP>
 	class Rule
 	{
 	public:
