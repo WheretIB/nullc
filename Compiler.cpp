@@ -1,5 +1,4 @@
 #include "stdafx.h"
-//using boost::bind;
 #include "SupSpi.h"
 using namespace supspi;
 

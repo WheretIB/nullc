@@ -35,3 +35,8 @@ for(var int i = 0; i < 10; i++)
 }
 
 return 1;
+
+var float2 a;
+a/*[gg]*/.x = 2;
+a.y = a/*[gg]*/.x + 3;
+return a.x;
