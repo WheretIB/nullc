@@ -142,13 +142,13 @@ void addNegNode(char const* s, char const* e){
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
 		{
-			Rd.reset(new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->getVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->getVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->getVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->getVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -166,13 +166,13 @@ void addLogNotNode(char const* s, char const* e){
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
 		{
-			Rd.reset(new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->getLogNotVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->getLogNotVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getLogNotVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getLogNotVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -193,9 +193,9 @@ void addBitNotNode(char const* s, char const* e){
 		}else if(aType == typeFloat){
 			throw std::string("ERROR: bitwise NOT cannot be used on floating point numbers");
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getBitNotVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getBitNotVal(), zOP->GetTypeInfo()));
+			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -298,16 +298,16 @@ void addTwoAndCmpNode(CmdID id){
 			if(bType == typeDouble)
 			{
 				NodeNumber<double> *Bd = static_cast<NodeNumber<double>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->getVal(), Bd->getVal()), typeDouble));
+				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), Bd->GetVal()), typeDouble));
 			}else if(bType == typeFloat){
 				NodeNumber<float> *Bd = static_cast<NodeNumber<float>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->getVal(), (double)Bd->getVal(), swapOper), typeDouble));
+				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble));
 			}else if(bType == typeLong){
 				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->getVal(), (double)Bd->getVal(), swapOper), typeDouble));
+				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble));
 			}else if(bType == typeInt){
 				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->getVal(), (double)Bd->getVal(), swapOper), typeDouble));
+				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble));
 			}
 			nodeList.pop_back(); nodeList.pop_back();
 			nodeList.push_back(Rd);
@@ -316,13 +316,13 @@ void addTwoAndCmpNode(CmdID id){
 			shared_ptr<NodeNumber<float> > Rd;
 			if(bType == typeFloat){
 				NodeNumber<float> *Bd = static_cast<NodeNumber<float>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->getVal(), Bd->getVal()), typeFloat));
+				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), Bd->GetVal()), typeFloat));
 			}else if(bType == typeLong){
 				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->getVal(), (float)Bd->getVal(), swapOper), typeFloat));
+				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), (float)Bd->GetVal(), swapOper), typeFloat));
 			}else if(bType == typeInt){
 				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->getVal(), (float)Bd->getVal(), swapOper), typeFloat));
+				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), (float)Bd->GetVal(), swapOper), typeFloat));
 			}
 			nodeList.pop_back(); nodeList.pop_back();
 			nodeList.push_back(Rd);
@@ -331,10 +331,10 @@ void addTwoAndCmpNode(CmdID id){
 			shared_ptr<NodeNumber<long long> > Rd;
 			if(bType == typeLong){
 				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<long long>(optDoOperation<long long>(id, Ad->getVal(), Bd->getVal()), typeLong));
+				Rd.reset(new NodeNumber<long long>(optDoOperation<long long>(id, Ad->GetVal(), Bd->GetVal()), typeLong));
 			}else if(bType == typeInt){
 				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<long long>(optDoOperation<long long>(id, Ad->getVal(), (long long)Bd->getVal(), swapOper), typeLong));
+				Rd.reset(new NodeNumber<long long>(optDoOperation<long long>(id, Ad->GetVal(), (long long)Bd->GetVal(), swapOper), typeLong));
 			}
 			nodeList.pop_back(); nodeList.pop_back();
 			nodeList.push_back(Rd);
@@ -343,7 +343,7 @@ void addTwoAndCmpNode(CmdID id){
 			shared_ptr<NodeNumber<int> > Rd;
 			//bType is also int!
 			NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >((nodeList.end()-shB)->get());
-			Rd.reset(new NodeNumber<int>(optDoOperation<int>(id, Ad->getVal(), Bd->getVal()), typeInt));
+			Rd.reset(new NodeNumber<int>(optDoOperation<int>(id, Ad->GetVal(), Bd->GetVal()), typeInt));
 			nodeList.pop_back(); nodeList.pop_back();
 			nodeList.push_back(Rd);
 		}

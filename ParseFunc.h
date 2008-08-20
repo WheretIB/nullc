@@ -80,7 +80,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeOneOp; }
+	virtual UINT GetNodeType(){ return typeNodeOneOp; }
 protected:
 	shared_ptr<NodeZeroOP>	first;
 };
@@ -94,7 +94,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeTwoOp; }
+	virtual UINT GetNodeType(){ return typeNodeTwoOp; }
 protected:
 	shared_ptr<NodeZeroOP>	second;
 };
@@ -108,7 +108,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeThreeOp; }
+	virtual UINT GetNodeType(){ return typeNodeThreeOp; }
 protected:
 	shared_ptr<NodeZeroOP>	third;
 };
@@ -133,21 +133,21 @@ public:
 	{
 		return sizeof(CmdID) + sizeof(USHORT) + sizeof(T);
 	}
-	virtual UINT getType(){ return typeNodeNumber; }
+	virtual UINT GetNodeType(){ return typeNodeNumber; }
 
-	NumType		 getVal(){ return num; }
-	NumType		 getLogNotVal(){ return !num; }
-	NumType		 getBitNotVal(){ return ~num; }
+	NumType		 GetVal(){ return num; }
+	NumType		 GetLogNotVal(){ return !num; }
+	NumType		 GetBitNotVal(){ return ~num; }
 protected:
 	NumType		num;
 private:
 	template<typename N>	asmDataType	GetAsmDataType();
-	template<>	asmDataType	GetAsmDataType<char>(){ return DTYPE_CHAR; }
-	template<>	asmDataType	GetAsmDataType<short>(){ return DTYPE_SHORT; }
-	template<>	asmDataType	GetAsmDataType<int>(){ return DTYPE_INT; }
-	template<>	asmDataType	GetAsmDataType<long long>(){ return DTYPE_LONG; }
-	template<>	asmDataType	GetAsmDataType<float>(){ return DTYPE_FLOAT; }
-	template<>	asmDataType	GetAsmDataType<double>(){ return DTYPE_DOUBLE; }
+	template<>	asmDataType		GetAsmDataType<char>(){ return DTYPE_CHAR; }
+	template<>	asmDataType		GetAsmDataType<short>(){ return DTYPE_SHORT; }
+	template<>	asmDataType		GetAsmDataType<int>(){ return DTYPE_INT; }
+	template<>	asmDataType		GetAsmDataType<long long>(){ return DTYPE_LONG; }
+	template<>	asmDataType		GetAsmDataType<float>(){ return DTYPE_FLOAT; }
+	template<>	asmDataType		GetAsmDataType<double>(){ return DTYPE_DOUBLE; }
 	template<typename N>	asmStackType	GetAsmStackType();
 	template<>	asmStackType	GetAsmStackType<char>(){ return STYPE_INT; }
 	template<>	asmStackType	GetAsmStackType<short>(){ return STYPE_INT; }
@@ -167,7 +167,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodePopOp; }
+	virtual UINT GetNodeType(){ return typeNodePopOp; }
 protected:
 };
 
@@ -180,7 +180,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeUnaryOp; }
+	virtual UINT GetNodeType(){ return typeNodeUnaryOp; }
 protected:
 	CmdID	cmdID;
 };
@@ -194,7 +194,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeReturnOp; }
+	virtual UINT GetNodeType(){ return typeNodeReturnOp; }
 protected:
 	UINT	popCnt;
 };
@@ -208,7 +208,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeExpression; }
+	virtual UINT GetNodeType(){ return typeNodeExpression; }
 protected:
 };
 
@@ -221,7 +221,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeVarDef; }
+	virtual UINT GetNodeType(){ return typeNodeVarDef; }
 protected:
 	UINT shift;
 	std::string name;
@@ -236,7 +236,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeBlock; }
+	virtual UINT GetNodeType(){ return typeNodeBlock; }
 protected:
 };
 
@@ -249,7 +249,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeFuncDef; }
+	virtual UINT GetNodeType(){ return typeNodeFuncDef; }
 protected:
 	UINT	funcID;
 };
@@ -263,7 +263,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeFuncParam; }
+	virtual UINT GetNodeType(){ return typeNodeFuncParam; }
 protected:
 };
 
@@ -276,7 +276,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeFuncCall; }
+	virtual UINT GetNodeType(){ return typeNodeFuncCall; }
 protected:
 	std::string	funcName;
 	UINT		funcID;
@@ -291,7 +291,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodePushShift; }
+	virtual UINT GetNodeType(){ return typeNodePushShift; }
 protected:
 	int sizeOfType;
 };
@@ -305,7 +305,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeVarSet; }
+	virtual UINT GetNodeType(){ return typeNodeVarSet; }
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
@@ -321,7 +321,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeVarGet; }
+	virtual UINT GetNodeType(){ return typeNodeVarGet; }
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
@@ -337,7 +337,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeVarSetAndOp; }
+	virtual UINT GetNodeType(){ return typeNodeVarSetAndOp; }
 protected:
 	UINT		m_vpos;
 	std::string	m_name;
@@ -355,7 +355,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodePreValOp; }
+	virtual UINT GetNodeType(){ return typeNodePreValOp; }
 
 	void		 SetOptimised(bool doOptimisation);
 protected:
@@ -376,7 +376,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeTwoAndCmdOp; }
+	virtual UINT GetNodeType(){ return typeNodeTwoAndCmdOp; }
 protected:
 	CmdID cmdID;
 };
@@ -390,7 +390,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeTwoExpression; }
+	virtual UINT GetNodeType(){ return typeNodeTwoExpression; }
 protected:
 };
 
@@ -403,7 +403,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeIfElseExpr; }
+	virtual UINT GetNodeType(){ return typeNodeIfElseExpr; }
 protected:
 };
 
@@ -416,7 +416,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeForExpr; }
+	virtual UINT GetNodeType(){ return typeNodeForExpr; }
 protected:
 	shared_ptr<NodeZeroOP>	fourth;
 };
@@ -430,7 +430,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeWhileExpr; }
+	virtual UINT GetNodeType(){ return typeNodeWhileExpr; }
 protected:
 };
 
@@ -443,7 +443,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeDoWhileExpr; }
+	virtual UINT GetNodeType(){ return typeNodeDoWhileExpr; }
 protected:
 };
 
@@ -456,7 +456,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeBreakOp; }
+	virtual UINT GetNodeType(){ return typeNodeBreakOp; }
 protected:
 	UINT	popCnt;
 };
@@ -470,7 +470,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeCaseExpr; }
+	virtual UINT GetNodeType(){ return typeNodeCaseExpr; }
 protected:
 };
 
@@ -483,7 +483,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT getType(){ return typeNodeSwitchExpr; }
+	virtual UINT GetNodeType(){ return typeNodeSwitchExpr; }
 protected:
 };
 
