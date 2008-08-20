@@ -477,7 +477,7 @@ void getMember(char const* s, char const* e)
 	if(i == -1)
 		throw std::string("ERROR: variable '" + vName + "' is not a member of '" + currType->name + "' [set]");
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(currType->memberData[i].offset, typeInt)));
-	if(pushedShiftAddrNode)
+	if(pushedShiftAddrNode | pushedShiftAddr)
 		addTwoAndCmpNode(cmdAdd);
 	pushedShiftAddrNode = false;
 	pushedShiftAddr = true;
@@ -1013,6 +1013,17 @@ Compiler::Compiler(CommandList* cmds)
 	info->AddMember("y", typeFloat);
 	info->AddMember("z", typeFloat);
 	info->AddMember("w", typeFloat);
+	typeInfo.push_back(info);
+
+	TypeInfo *typeFloat4 = info;
+
+	info = new TypeInfo();
+	info->name = "float4x4";
+	info->type = TypeInfo::NOT_POD;
+	info->AddMember("row1", typeFloat4);
+	info->AddMember("row2", typeFloat4);
+	info->AddMember("row3", typeFloat4);
+	info->AddMember("row4", typeFloat4);
 	typeInfo.push_back(info);
 
 	CompilerGrammar::InitGrammar();

@@ -969,13 +969,13 @@ void Executor::GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int add
 			varstr << "ERROR: This type is void";
 		}else if(type->memberData[mn].type->type == TypeInfo::NOT_POD)
 		{
+			varstr << "\r\n";
 			GetComplexTypeInfo(varstr, type->memberData[mn].type, address+type->memberData[mn].offset);
 		}else{
 			if(!GetSimpleTypeInfo(varstr, type->memberData[mn].type, address+type->memberData[mn].offset))
 				throw std::string("Executor::GetComplexTypeInfo() ERROR: unknown type of variable ") + type->memberData[mn].name;
 		}
 		varstr << "\r\n";
-		//address += type->memberData[mn].type->size;
 	}
 }
 
