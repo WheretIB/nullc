@@ -124,10 +124,10 @@ template<>	void addNumberNode<long long>(char const*s, char const*e){ nodeList.p
 template<>	void addNumberNode<double>(char const*s, char const*e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<double>(atof(s), typeDouble))); };
 
 void addPopNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber){
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber){
 		nodeList.pop_back();
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	}else if((*(nodeList.end()-1))->getNodeType() == typeNodePreValOp){
+	}else if((*(nodeList.end()-1))->GetNodeType() == typeNodePreValOp){
 		static_cast<NodePreValOp*>(nodeList.back().get())->SetOptimised(true);
 	}else{
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
@@ -136,19 +136,19 @@ void addPopNode(char const* s, char const* e){
 void addNegNode(char const* s, char const* e){
 	if(negCount % 2 == 0)
 		return;
-	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber){
-		TypeInfo *aType = (*(nodeList.end()-1))->getTypeInfo();
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber){
+		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
 		{
-			Rd.reset(new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->getVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->getVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->getVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->getVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->getVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->getVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->getVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->getVal(), zOP->GetTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -160,19 +160,19 @@ void addNegNode(char const* s, char const* e){
 	negCount = 0;
 }
 void addLogNotNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber){
-		TypeInfo *aType = (*(nodeList.end()-1))->getTypeInfo();
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber){
+		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
 		{
-			Rd.reset(new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->getLogNotVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->getLogNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->getLogNotVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->getLogNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getLogNotVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getLogNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getLogNotVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getLogNotVal(), zOP->GetTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -183,8 +183,8 @@ void addLogNotNode(char const* s, char const* e){
 	}
 }
 void addBitNotNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber){
-		TypeInfo *aType = (*(nodeList.end()-1))->getTypeInfo();
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber){
+		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
@@ -193,9 +193,9 @@ void addBitNotNode(char const* s, char const* e){
 		}else if(aType == typeFloat){
 			throw std::string("ERROR: bitwise NOT cannot be used on floating point numbers");
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getBitNotVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->getBitNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getBitNotVal(), zOP->getTypeInfo()));
+			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->getBitNotVal(), zOP->GetTypeInfo()));
 		}else{
 			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 		}
@@ -271,12 +271,12 @@ template<>				double	optDoSpecial<>(CmdID cmd, double a, double b)
 
 void addTwoAndCmpNode(CmdID id){
 
-	if((*(nodeList.end()-1))->getNodeType() == typeNodeNumber && (*(nodeList.end()-2))->getNodeType() == typeNodeNumber){
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber && (*(nodeList.end()-2))->GetNodeType() == typeNodeNumber){
 		//If we have operation between two known numbers, we can optimize code by calculating the result in place
 
 		TypeInfo *aType, *bType;
-		aType = (*(nodeList.end()-2))->getTypeInfo();
-		bType = (*(nodeList.end()-1))->getTypeInfo();
+		aType = (*(nodeList.end()-2))->GetTypeInfo();
+		bType = (*(nodeList.end()-1))->GetTypeInfo();
 
 		UINT shA = 2, shB = 1;	//Shift's to operand A and B in array
 		//Swap operands, to reduce number of combinations
@@ -289,8 +289,8 @@ void addTwoAndCmpNode(CmdID id){
 
 		bool swapOper = shA != 2;
 
-		aType = (*(nodeList.end()-shA))->getTypeInfo();
-		bType = (*(nodeList.end()-shB))->getTypeInfo();
+		aType = (*(nodeList.end()-shA))->GetTypeInfo();
+		bType = (*(nodeList.end()-shB))->GetTypeInfo();
 		if(aType == typeDouble)
 		{
 			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >((nodeList.end()-shA)->get());
@@ -723,8 +723,8 @@ void addIfNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<Node
 void addIfElseNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true))); }
 void addIfElseTermNode(char const* s, char const* e)
 {
-	TypeInfo* typeA = nodeList[nodeList.size()-1]->getTypeInfo();
-	TypeInfo* typeB = nodeList[nodeList.size()-2]->getTypeInfo();
+	TypeInfo* typeA = nodeList[nodeList.size()-1]->GetTypeInfo();
+	TypeInfo* typeB = nodeList[nodeList.size()-2]->GetTypeInfo();
 	if(typeA != typeB)
 		throw std::string("ERROR: trinary operator ?: \r\n result types are not equal (" + typeB->name + " : " + typeA->name + ")");
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true, true)));
@@ -1070,7 +1070,7 @@ bool Compiler::Compile(string str)
 	
 	t = GetTickCount();
 	if(getList()->back())
-		getList()->back()->doAct();
+		getList()->back()->Compile();
 	tem = GetTickCount()-t;
 	m_TempStream << "Compile time: " << tem << "ms\r\n";
 
@@ -1079,7 +1079,7 @@ bool Compiler::Compile(string str)
 	ostringstream		graphlog;
 	ofstream graphFile("graph.txt", std::ios::binary);
 	if(getList()->back())
-		getList()->back()->doLog(graphlog);
+		getList()->back()->LogToStream(graphlog);
 	graphFile << graphlog.str();
 	graphFile.close();
 	return true;
