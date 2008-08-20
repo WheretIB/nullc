@@ -1,8 +1,6 @@
 #include "stdafx.h"
 #include "ParseFunc.h"
 
-struct CompilerGrammar;
-
 class Compiler
 {
 public:
@@ -18,8 +16,7 @@ public:
 
 	std::vector<VariableInfo>*	GetVariableInfo();
 private:
-	CompilerGrammar*	m_data;
-	CommandList*		m_cmds;
-	ostringstream		m_astlog;
-	ostringstream		m_asmlog;
+	CommandList*		cmdList;
+	ostringstream		logAST;
+	ostringstream		logASM;
 };
