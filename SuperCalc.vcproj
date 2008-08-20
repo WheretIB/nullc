@@ -420,6 +420,18 @@
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="Executor_X86"
+			>
+			<File
+				RelativePath=".\Executor_X86.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Executor_X86.h"
+				>
+			</File>
+		</Filter>
 		<File
 			RelativePath=".\CmdRef.txt"
 			>
