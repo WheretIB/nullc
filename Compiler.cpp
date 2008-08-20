@@ -1,5 +1,5 @@
 #include "stdafx.h"
-using boost::bind;
+//using boost::bind;
 #include "SupSpi.h"
 using namespace supspi;
 
@@ -504,6 +504,8 @@ void addSetNode(char const* s, char const* e)
 		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [set]");
 	if(!currValConst && varInfo[i].isConst)
 		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
+	if(braceInd != -1 && varInfo[i].count == 1)
+		throw std::string("ERROR: variable '" + strs.back() + "' is not an array");
 	if(braceInd == -1 && varInfo[i].count > 1)
 		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
 
@@ -528,7 +530,7 @@ void addGetNode(char const* s, char const* e)
 		i--;
 	if(i == -1)
 		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [get]");
-	if((braceInd != -1) && varInfo[i].count == 1)
+	if(braceInd != -1 && varInfo[i].count == 1)
 		throw std::string("ERROR: variable '" + strs.back() + "' is not an array");
 	if(braceInd == -1 && varInfo[i].count > 1)
 		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
@@ -769,18 +771,43 @@ void addSwitchNode(char const* s, char const* e)
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct CompilerGrammar
+namespace CompilerGrammar
 {
+	// Если при парсинге обнаруживается синтаксическая ошибка
+	// В errStr помещается сообщение об ошибке и вызывается функция
+	// ParseAbort, которая останавливает парсинг, создавая исключительную ситуацию
+	std::string errStr;
+	void ParseAbort(char const*, char const*){ throw errStr; }
+
+	// Функции, кладушие и убирающие строки со стека строк
+	// Стек строк может использоваться для удобного получения элемента более сложной грамматики
+	// Например для правила использования переменной a[i], можно поместить "a" в стек,
+	// потому что в функцию передаётся "a[i]" целиком
+	void ParseStrPush(char const *s, char const *e){ strs.push_back(string(s,e)); }
+	void ParseStrPop(char const *s, char const *e){ strs.pop_back(); }
+
+	// Callbacks
+	typedef void (*parserCallback)(char const*, char const*);
+	parserCallback addInt, addFloat, addLong, addDouble;
+	parserCallback strPush, strPop, pAbort;
+
+	// Parser rules
+	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
+	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, ifexpr, whileexpr, forexpr, retexpr;
+	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, addrefp, seltype;
+
+	Rule code, mySpaceP;
+
 	void InitGrammar()
 	{
-		pAbort	=	bind(&CompilerGrammar::ParseAbort, this, _1, _2);
-		strPush	=	bind(&CompilerGrammar::ParseStrPush, this, _1, _2);
-		strPop	=	bind(&CompilerGrammar::ParseStrPop, this, _1, _2);
+		pAbort	=	CompilerGrammar::ParseAbort;
+		strPush	=	CompilerGrammar::ParseStrPush;
+		strPop	=	CompilerGrammar::ParseStrPop;
 
-		addInt		=	bind(addNumberNode<int>, _1, _2);
-		addFloat	=	bind(addNumberNode<float>, _1, _2);
-		addLong		=	bind(addNumberNode<long long>, _1, _2);
-		addDouble	=	bind(addNumberNode<double>, _1, _2);
+		addInt		=	addNumberNode<int>;
+		addFloat	=	addNumberNode<float>;
+		addLong		=	addNumberNode<long long>;
+		addDouble	=	addNumberNode<double>;
 
 		seltype		=	varname[selType];
 
@@ -791,12 +818,12 @@ struct CompilerGrammar
 			('(' | (epsP[strPop] >> nothingP)) >>
 			epsP[PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >> 
 			!(
-			term5[ArrBackInc<std::vector<UINT> >(callArgCount)][&addFuncPushParamNode] >>
-			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)][&addFuncPushParamNode])[&addTwoExprNode]
+			term5[ArrBackInc<std::vector<UINT> >(callArgCount)][addFuncPushParamNode] >>
+			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)][addFuncPushParamNode])[addTwoExprNode]
 			) >>
 			(')' | epsP[AssignVar<string>(errStr, "ERROR: ')' not found after function call")][pAbort]);
-		funcvars	=	!(seltype >> isconst >> !strP("ref") >> varname[strPush][&funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref") >> varname[strPush][&funcParam]);
-		funcdef		=	strP("func") >> seltype >> varname[strPush][&funcAdd] >> '(' >>  funcvars[&funcStart] >> chP(')') >> chP('{') >> code[&funcEnd] >> chP('}');
+		funcvars	=	!(seltype >> isconst >> !strP("ref") >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref") >> varname[strPush][funcParam]);
+		funcdef		=	strP("func") >> seltype >> varname[strPush][funcAdd] >> '(' >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
 
 		applyval	=
 			(
@@ -813,8 +840,8 @@ struct CompilerGrammar
 			(varname[strPush][pushType] >>
 			epsP[AssignVar<UINT>(varSize,1)] >>
 			!('[' >> intP[StrToInt(varSize)] >> ']'))
-			)[strPush][&addVar][IncVar<UINT>(varDefined)] >>
-			(('=' >> term5)[&addSetNode][&addPopNode] | epsP[&addVarDefNode][popType])[strPop][strPop];
+			)[strPush][addVar][IncVar<UINT>(varDefined)] >>
+			(('=' >> term5)[addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
 		addrefp		=
 			(
 			varname[strPush] >>
@@ -822,65 +849,65 @@ struct CompilerGrammar
 			epsP[AssignVar<UINT>(varSize,1)] >>
 			varname[strPush] >>
 			!('[' >> intP[StrToInt(varSize)] >> ']')
-			)[&addRefVar];
+			)[addRefVar];
 		vardefsub	=
 			((strP("ref") >> addrefp) | addvarp) >>
-			*(',' >> vardefsub)[&addTwoExprNode];
+			*(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
 			seltype >>
 			isconst >>
 			vardefsub;
 
-		ifexpr		=	strP("if") >> ('(' >> term5 >> ')') >> expression >> ((strP("else") >> expression)[&addIfElseNode] | epsP[&addIfNode]);
-		forexpr		=	strP("for")[&saveVarTop] >> '(' >> ((strP("var") >> vardef) | term5[&addPopNode] | block) >> ';' >> term5 >> ';' >> (term5[&addPopNode] | block) >> ')' >> expression[&addForNode];
+		ifexpr		=	strP("if") >> ('(' >> term5 >> ')') >> expression >> ((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode]);
+		forexpr		=	strP("for")[saveVarTop] >> '(' >> ((strP("var") >> vardef) | term5[addPopNode] | block) >> ';' >> term5 >> ';' >> (term5[addPopNode] | block) >> ')' >> expression[addForNode];
 		whileexpr	=
-			strP("while")[&saveVarTop] >>
+			strP("while")[saveVarTop] >>
 			(
 			('(' | epsP[AssignVar<string>(errStr, "ERROR: '(' not found after 'while'")][pAbort]) >>
 			(term5 | epsP[AssignVar<string>(errStr, "ERROR: expression expected after 'while('")][pAbort]) >>
 			(')' | epsP[AssignVar<string>(errStr, "ERROR: closing ')' not found after expression in 'while' statement")][pAbort])
 			) >>
-			(expression[&addWhileNode] | epsP[AssignVar<string>(errStr, "ERROR: expression expected after 'while(...)'")][pAbort]);
+			(expression[addWhileNode] | epsP[AssignVar<string>(errStr, "ERROR: expression expected after 'while(...)'")][pAbort]);
 		doexpr		=	
-			strP("do")[&saveVarTop] >> 
+			strP("do")[saveVarTop] >> 
 			(expression | epsP[AssignVar<string>(errStr, "ERROR: expression expected after 'do'")][pAbort]) >> 
 			(strP("while") | epsP[AssignVar<string>(errStr, "ERROR: 'while' expected after 'do' statement")][pAbort]) >>
 			(
 			('(' | epsP[AssignVar<string>(errStr, "ERROR: '(' not found after 'while'")][pAbort]) >> 
 			(term5 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after 'while('")][pAbort]) >> 
 			(')' | epsP[AssignVar<string>(errStr, "ERROR: closing ')' not found after expression in 'while' statement")][pAbort])
-			)[&addDoWhileNode] >> 
+			)[addDoWhileNode] >> 
 			(';' | epsP[AssignVar<string>(errStr, "ERROR: while(...) should be followed by ';'")][pAbort]);
 		switchexpr	=
-			strP("switch")[&preSwitchNode] >>
+			strP("switch")[preSwitchNode] >>
 			('(' | epsP[AssignVar<string>(errStr, "ERROR: '(' not found after 'switch'")][pAbort]) >>
 			(term5 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after 'switch('")][pAbort]) >>
 			(')' | epsP[AssignVar<string>(errStr, "ERROR: closing ')' not found after expression in 'switch' statement")][pAbort]) >>
 			('{' | epsP[AssignVar<string>(errStr, "ERROR: '{' not found after 'switch(...)'")][pAbort]) >>
-			(strP("case") >> term5 >> ':' >> expression >> *expression[&addTwoExprNode])[&addCaseNode] >>
-			*(strP("case") >> term5 >> ':' >> expression >> *expression[&addTwoExprNode])[&addCaseNode][&addTwoExprNode] >>
-			//(strP("case") >> term5 >> ':' >> code)[&addCaseNode] >>
-			('}' | epsP[AssignVar<string>(errStr, "ERROR: '}' not found after 'switch' statement")][pAbort])[&addSwitchNode];
+			(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
+			*(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode][addTwoExprNode] >>
+			//(strP("case") >> term5 >> ':' >> code)[addCaseNode] >>
+			('}' | epsP[AssignVar<string>(errStr, "ERROR: '}' not found after 'switch' statement")][pAbort])[addSwitchNode];
 
-		retexpr		=	(strP("return") >> term5 >> +chP(';'))[&addReturnNode];
+		retexpr		=	(strP("return") >> term5 >> +chP(';'))[addReturnNode];
 		breakexpr	=	(
 			strP("break") >>
 			(+chP(';') | epsP[AssignVar<string>(errStr, "ERROR: break must be followed by ';'")][pAbort])
-			)[&addBreakNode];
+			)[addBreakNode];
 
 		group		=	'(' >> term5 >> ')';
 		term1		=	
-			(strP("--") >> applyval)[&addPreDecNode][strPop][strPop] | 
-			(strP("++") >> applyval)[&addPreIncNode][strPop][strPop] |
-			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[&addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[&addLogNotNode] | ('~' >> term1)[&addBitNotNode] |
+			(strP("--") >> applyval)[addPreDecNode][strPop][strPop] | 
+			(strP("++") >> applyval)[addPreIncNode][strPop][strPop] |
+			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 			group |
-			funccall[&addFuncCallNode] |
+			funccall[addFuncCallNode] |
 			applyval >>
 			(
-				strP("++")[&addPostIncNode] |
-				strP("--")[&addPostDecNode] |
-				epsP[&addGetNode]
+				strP("++")[addPostIncNode] |
+				strP("--")[addPostDecNode] |
+				epsP[addGetNode]
 			)[strPop][strPop];
 		term2		=	term1 >> *((strP("**") >> term1)[addCmd(cmdPow)]);
 		term3		=	term2 >> *(('*' >> term2)[addCmd(cmdMul)] | ('/' >> term2)[addCmd(cmdDiv)] | ('%' >> term2)[addCmd(cmdMod)]);
@@ -894,49 +921,30 @@ struct CompilerGrammar
 		term4_75	=	term4_7 >> *(strP("and") >> term4_7)[addCmd(cmdLogAnd)];
 		term4_8		=	term4_75 >> *(strP("xor") >> term4_75)[addCmd(cmdLogXor)];
 		term4_85	=	term4_8 >> *(strP("or") >> term4_8)[addCmd(cmdLogOr)];
-		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[&addIfElseTermNode];
+		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 		term5		=	(
 			applyval >> (
-			(strP("=") >> term5)[&addSetNode] |
-			(strP("+=") >> term5)[&addAddSetNode] |
-			(strP("-=") >> term5)[&addSubSetNode] |
-			(strP("*=") >> term5)[&addMulSetNode] |
-			(strP("/=") >> term5)[&addDivSetNode] |
-			(strP("^=") >> term5)[&addPowSetNode] |
+			(strP("=") >> term5)[addSetNode] |
+			(strP("+=") >> term5)[addAddSetNode] |
+			(strP("-=") >> term5)[addSubSetNode] |
+			(strP("*=") >> term5)[addMulSetNode] |
+			(strP("/=") >> term5)[addDivSetNode] |
+			(strP("^=") >> term5)[addPowSetNode] |
 			(epsP[strPop][strPop][popTypeAndAddrNode] >> nothingP))
 			)[strPop][strPop] |
 			term4_9;
 
-		block		=	chP('{')[&blockBegin] >> code >> chP('}')[&blockEnd];
-		expression	=	*chP(';') >> ((strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> +chP(';'))[&addPopNode] | block[&addBlockNode]);
-		code		=	((funcdef | expression) >> (code[&addTwoExprNode] | epsP[&addOneExprNode]));
+		block		=	chP('{')[blockBegin] >> code >> chP('}')[blockEnd];
+		expression	=	*chP(';') >> ((strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> +chP(';'))[addPopNode] | block[addBlockNode]);
+		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
 	}
-	//Functions
-	void ParseAbort(char const*, char const*){ throw errStr; }
-
-	void ParseStrPush(char const*s, char const*e){ strs.push_back(string(s,e)); }
-	void ParseStrPop(char const*s, char const*e){ strs.pop_back(); }
-
-	//Callbacks
-	boost::function<void (char const*, char const*)> strPush, strPop, pAbort;
-	boost::function<void (char const*, char const*)> addInt, addFloat, addLong, addDouble;
-
-	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
-	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, ifexpr, whileexpr, forexpr, retexpr;
-	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, addrefp, seltype;
-
-	Rule code, mySpaceP;
-
-	//Error log
-	string errStr;
 };
 
 Compiler::Compiler(CommandList* cmds)
 {
-	m_cmds = cmds;
-	m_data = new CompilerGrammar;
+	cmdList = cmds;
 
 	TypeInfo* info;
 	info = new TypeInfo();
@@ -1012,12 +1020,11 @@ Compiler::Compiler(CommandList* cmds)
 	info->AddMember("w", typeFloat);
 	typeInfo.push_back(info);
 
-	m_data->InitGrammar();
+	CompilerGrammar::InitGrammar();
 
 }
 Compiler::~Compiler()
 {
-	delete m_data;
 }
 
 bool Compiler::Compile(string str)
@@ -1042,12 +1049,12 @@ bool Compiler::Compile(string str)
 
 	retTypeStack.push_back(NULL);	//global return can return anything
 
-	m_astlog.str("");
-	m_cmds->Clear();
+	logAST.str("");
+	cmdList->Clear();
 
-	SetCommandList(m_cmds);
+	SetCommandList(cmdList);
 	SetFunctionList(&funcs);
-	SetLogStream(&m_astlog);
+	SetLogStream(&logAST);
 	SetNodeList(&nodeList);
 
 	if(getList()->size() != 0){
@@ -1063,7 +1070,7 @@ bool Compiler::Compile(string str)
 	ofstream m_TempStream("time.txt", std::ios::binary);
 
 	UINT t = GetTickCount();
-	if(!Parse(m_data->code, ptr, m_data->mySpaceP))
+	if(!Parse(CompilerGrammar::code, ptr, CompilerGrammar::mySpaceP))
 		return false;
 	UINT tem = GetTickCount()-t;
 	m_TempStream << "Parsing and AST tree gen. time: " << tem << "ms\r\n";
@@ -1092,7 +1099,7 @@ void Compiler::GenListing()
 	//double	val;
 	char	name[512];
 	UINT	valind;
-	m_asmlog.str("");
+	logASM.str("");
 
 	char* typeInfoS[] = { "int", "long", "float", "double" };
 	char* typeInfoD[] = { "char", "short", "int", "long", "float", "double" };
@@ -1100,7 +1107,7 @@ void Compiler::GenListing()
 	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 	CmdFlag cFlag;
 	OperFlag oFlag;
-	while(m_cmds->GetData(pos, cmd))
+	while(cmdList->GetData(pos, cmd))
 	{
 		pos2 = pos;
 		pos += 2;
@@ -1109,54 +1116,54 @@ void Compiler::GenListing()
 		case cmdCallStd:
 			{
 				size_t len;
-				m_cmds->GetData(pos, len);
+				cmdList->GetData(pos, len);
 				pos += sizeof(size_t);
 				if(len >= 511)
 					break;
-				m_cmds->GetData(pos, name, len);
+				cmdList->GetData(pos, name, len);
 				pos += (UINT)len;
 				name[len] = 0;
-				m_asmlog << dec << showbase << pos2 << dec << " CALLS " << name << ";";
+				logASM << dec << showbase << pos2 << dec << " CALLS " << name << ";";
 			}
 			break;
 		case cmdPushVTop:
-			m_asmlog << dec << showbase << pos2 << dec << " PUSHT;";
+			logASM << dec << showbase << pos2 << dec << " PUSHT;";
 			break;
 		case cmdPopVTop:
-			m_asmlog << dec << showbase << pos2 << dec << " POPT;";
+			logASM << dec << showbase << pos2 << dec << " POPT;";
 			break;
 		case cmdCall:
-			m_cmds->GetData(pos, &valind, sizeof(UINT));
+			cmdList->GetData(pos, &valind, sizeof(UINT));
 			pos += sizeof(UINT);
-			m_asmlog << dec << showbase << pos2 << " CALL " << valind << dec << ";";
+			logASM << dec << showbase << pos2 << " CALL " << valind << dec << ";";
 			break;
 		case cmdReturn:
-			m_asmlog << dec << showbase << pos2 << " RET " << dec << ";";
+			logASM << dec << showbase << pos2 << " RET " << dec << ";";
 			break;
 		case cmdPushV:
 			{
 				int valind;
-				m_cmds->GetData(pos, &valind, sizeof(int));
+				cmdList->GetData(pos, &valind, sizeof(int));
 				pos += sizeof(int);
-				m_asmlog << dec << showbase << pos2 << " PUSHV " << valind << dec << ";";
+				logASM << dec << showbase << pos2 << " PUSHV " << valind << dec << ";";
 			}
 			break;
 		case cmdNop:
-			m_asmlog << dec << showbase << pos2 << dec << " NOP;";
+			logASM << dec << showbase << pos2 << dec << " NOP;";
 			break;
 		case cmdCTI:
-			m_asmlog << dec << showbase << pos2 << dec << " CTI addr*";
-			m_cmds->GetUINT(pos, valind);
+			logASM << dec << showbase << pos2 << dec << " CTI addr*";
+			cmdList->GetUINT(pos, valind);
 			pos += sizeof(UINT);
-			m_asmlog << valind;
+			logASM << valind;
 			break;
 		case cmdPush:
 			{
-				m_cmds->GetUSHORT(pos, cFlag);
+				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
-				m_asmlog << pos2 << " PUSH ";
-				m_asmlog << typeInfoS[cFlag&0x00000003] << "<-";
-				m_asmlog << typeInfoD[(cFlag>>2)&0x00000007];
+				logASM << pos2 << " PUSH ";
+				logASM << typeInfoS[cFlag&0x00000003] << "<-";
+				logASM << typeInfoD[(cFlag>>2)&0x00000007];
 
 				asmStackType st = flagStackType(cFlag);
 				asmDataType dt = flagDataType(cFlag);
@@ -1166,58 +1173,58 @@ void Compiler::GenListing()
 				int valind;
 				if(flagNoAddr(cFlag)){
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
-						m_cmds->GetUINT(pos, DWords[0]); pos += 4;
-						m_cmds->GetUINT(pos, DWords[1]); pos += 4;
+						cmdList->GetUINT(pos, DWords[0]); pos += 4;
+						cmdList->GetUINT(pos, DWords[1]); pos += 4;
 					}
-					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ m_cmds->GetUINT(pos, DWords[0]); pos += 4; }
-					if(dt == DTYPE_SHORT){ m_cmds->GetUSHORT(pos, sdata); pos += 2; DWords[0] = sdata; }
-					if(dt == DTYPE_CHAR){ m_cmds->GetUCHAR(pos, cdata); pos += 1; DWords[0] = cdata; }
+					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ cmdList->GetUINT(pos, DWords[0]); pos += 4; }
+					if(dt == DTYPE_SHORT){ cmdList->GetUSHORT(pos, sdata); pos += 2; DWords[0] = sdata; }
+					if(dt == DTYPE_CHAR){ cmdList->GetUCHAR(pos, cdata); pos += 1; DWords[0] = cdata; }
 
 					if(dt == DTYPE_DOUBLE)
-						m_asmlog << " (" << *((double*)(&DWords[0])) << ')';
+						logASM << " (" << *((double*)(&DWords[0])) << ')';
 					if(dt == DTYPE_LONG)
-						m_asmlog << " (" << *((long*)(&DWords[0])) << ')';
+						logASM << " (" << *((long*)(&DWords[0])) << ')';
 					if(dt == DTYPE_FLOAT)
-						m_asmlog << " (" << *((float*)(&DWords[0])) << dec << ')';
+						logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
 					if(dt == DTYPE_INT)
-						m_asmlog << " (" << *((int*)(&DWords[0])) << dec << ')';
+						logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
 					if(dt == DTYPE_SHORT)
-						m_asmlog << " (" << *((short*)(&DWords[0])) << dec << ')';
+						logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
 					if(dt == DTYPE_CHAR)
-						m_asmlog << " (" << *((char*)(&DWords[0])) << ')';
+						logASM << " (" << *((char*)(&DWords[0])) << ')';
 				}else{
-					m_asmlog << " PTR[";
+					logASM << " PTR[";
 					if(flagAddrStk(cFlag))
 					{
-						m_asmlog << "stack";
+						logASM << "stack";
 						if(flagAddrRel(cFlag))
-							m_asmlog << "+top";
+							logASM << "+top";
 					}else{
 						if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
 						{
-							m_cmds->GetINT(pos, valind);
+							cmdList->GetINT(pos, valind);
 							pos += 4;
 						}
-						m_asmlog << valind;
+						logASM << valind;
 						if(flagAddrRel(cFlag))
-							m_asmlog << "+top";
+							logASM << "+top";
 					}
 					if(flagShiftStk(cFlag))
-						m_asmlog << "+shift(stack)";
+						logASM << "+shift(stack)";
 					if(flagShiftOn(cFlag))
 					{
-						m_cmds->GetINT(pos, valind);
+						cmdList->GetINT(pos, valind);
 						pos += 4;
-						m_asmlog << "+" << valind;
+						logASM << "+" << valind;
 					}
-					m_asmlog << "] ";
+					logASM << "] ";
 					if(flagSizeStk(cFlag))
-						m_asmlog << "size(stack)";
+						logASM << "size(stack)";
 					if(flagSizeOn(cFlag))
 					{
-						m_cmds->GetINT(pos, valind);
+						cmdList->GetINT(pos, valind);
 						pos += 4;
-						m_asmlog << "size(" << valind << ")";
+						logASM << "size(" << valind << ")";
 					}
 				}
 			}
@@ -1225,11 +1232,11 @@ void Compiler::GenListing()
 			break;
 		case cmdMov:
 			{
-				m_cmds->GetUSHORT(pos, cFlag);
+				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
-				m_asmlog << pos2 << " MOV ";
-				m_asmlog << typeInfoS[cFlag&0x00000003] << "->";
-				m_asmlog << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
+				logASM << pos2 << " MOV ";
+				logASM << typeInfoS[cFlag&0x00000003] << "->";
+				logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
 				asmStackType st = flagStackType(cFlag);
 				asmDataType dt = flagDataType(cFlag);
 				UINT	highDW = 0, lowDW = 0;
@@ -1237,331 +1244,331 @@ void Compiler::GenListing()
 
 				if(flagAddrStk(cFlag))
 				{
-					m_asmlog << "stack";
+					logASM << "stack";
 					if(flagAddrRel(cFlag))
-						m_asmlog << "+top";
-					m_asmlog << "]";
+						logASM << "+top";
+					logASM << "]";
 				}else{
 					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
 					{
-						m_cmds->GetINT(pos, valind);
+						cmdList->GetINT(pos, valind);
 						pos += 4;
 					}
-					m_asmlog << valind;
+					logASM << valind;
 					if(flagAddrRel(cFlag))
-						m_asmlog << "+top";
+						logASM << "+top";
 
 					if(flagShiftStk(cFlag))
-						m_asmlog << "+shift(stack)";
+						logASM << "+shift(stack)";
 
 					if(flagShiftOn(cFlag))
 					{
-						m_cmds->GetINT(pos, valind);
+						cmdList->GetINT(pos, valind);
 						pos += 4;
-						m_asmlog << "+" << valind;
+						logASM << "+" << valind;
 					}
-					m_asmlog << "] ";
+					logASM << "] ";
 					if(flagSizeStk(cFlag))
-						m_asmlog << "size(stack)";
+						logASM << "size(stack)";
 					if(flagSizeOn(cFlag))
 					{
-						m_cmds->GetINT(pos, valind);
+						cmdList->GetINT(pos, valind);
 						pos += 4;
-						m_asmlog << "size: " << valind;
+						logASM << "size: " << valind;
 					}
 				}
 			}
 			break;
 		case cmdPop:
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			m_asmlog << pos2 << " POP ";
-			m_asmlog << typeInfoS[cFlag&0x00000003];
+			logASM << pos2 << " POP ";
+			logASM << typeInfoS[cFlag&0x00000003];
 			break;
 		case cmdRTOI:
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			m_asmlog << pos2 << " RTOI ";
-			m_asmlog << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
+			logASM << pos2 << " RTOI ";
+			logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
 			break;
 		case cmdITOR:
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			m_asmlog << pos2 << " ITOR ";
-			m_asmlog << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
+			logASM << pos2 << " ITOR ";
+			logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
 			break;
 		case cmdITOL:
-			m_asmlog << pos2 << " ITOL";
+			logASM << pos2 << " ITOL";
 			break;
 		case cmdLTOI:
-			m_asmlog << pos2 << " LTOI";
+			logASM << pos2 << " LTOI";
 			break;
 		case cmdSwap:
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			m_asmlog << pos2 << " SWAP ";
-			m_asmlog << typeInfoS[cFlag&0x00000003] << "<->";
-			m_asmlog << typeInfoD[(cFlag>>2)&0x00000007];
+			logASM << pos2 << " SWAP ";
+			logASM << typeInfoS[cFlag&0x00000003] << "<->";
+			logASM << typeInfoD[(cFlag>>2)&0x00000007];
 			break;
 		case cmdCopy:
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			m_asmlog << pos2 << " COPY ";
+			logASM << pos2 << " COPY ";
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
-				m_asmlog << " double;";
+				logASM << " double;";
 				break;
 			case OTYPE_LONG:
-				m_asmlog << " long;";
+				logASM << " long;";
 				break;
 			case OTYPE_INT:
-				m_asmlog << " int;";
+				logASM << " int;";
 				break;
 			}
 			break;
 		case cmdJmp:
-			m_cmds->GetUINT(pos, valind);
+			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			m_asmlog << pos2 << " JMP " << valind;
+			logASM << pos2 << " JMP " << valind;
 			break;
 		case cmdJmpZ:
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			m_cmds->GetUINT(pos, valind);
+			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			m_asmlog << pos2 << " JMPZ";
+			logASM << pos2 << " JMPZ";
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
-				m_asmlog << " double";
+				logASM << " double";
 				break;
 			case OTYPE_LONG:
-				m_asmlog << " long";
+				logASM << " long";
 				break;
 			case OTYPE_INT:
-				m_asmlog << " int";
+				logASM << " int";
 				break;
 			}
-			m_asmlog << ' ' << valind << ';';
+			logASM << ' ' << valind << ';';
 			break;
 		case cmdJmpNZ:
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			m_cmds->GetUINT(pos, valind);
+			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			m_asmlog << pos2 << " JMPNZ";
+			logASM << pos2 << " JMPNZ";
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
-				m_asmlog << " double";
+				logASM << " double";
 				break;
 			case OTYPE_LONG:
-				m_asmlog << " long";
+				logASM << " long";
 				break;
 			case OTYPE_INT:
-				m_asmlog << " int";
+				logASM << " int";
 				break;
 			}
-			m_asmlog << ' ' << valind << ';';
+			logASM << ' ' << valind << ';';
 			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
 		{
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			m_asmlog << pos2 << ' ';
+			logASM << pos2 << ' ';
 			switch(cmd)
 			{
 			case cmdAdd:
-				m_asmlog << "ADD";
+				logASM << "ADD";
 				break;
 			case cmdSub:
-				m_asmlog << "SUB";
+				logASM << "SUB";
 				break;
 			case cmdMul:
-				m_asmlog << "MUL";
+				logASM << "MUL";
 				break;
 			case cmdDiv:
-				m_asmlog << "DIV";
+				logASM << "DIV";
 				break;
 			case cmdPow:
-				m_asmlog << "POW";
+				logASM << "POW";
 				break;
 			case cmdMod:
-				m_asmlog << "MOD";
+				logASM << "MOD";
 				break;
 			case cmdLess:
-				m_asmlog << "LES";
+				logASM << "LES";
 				break;
 			case cmdGreater:
-				m_asmlog << "GRT";
+				logASM << "GRT";
 				break;
 			case cmdLEqual:
-				m_asmlog << "LEQL";
+				logASM << "LEQL";
 				break;
 			case cmdGEqual:
-				m_asmlog << "GEQL";
+				logASM << "GEQL";
 				break;
 			case cmdEqual:
-				m_asmlog << "EQL";
+				logASM << "EQL";
 				break;
 			case cmdNEqual:
-				m_asmlog << "NEQL";
+				logASM << "NEQL";
 				break;
 			case cmdShl:
-				m_asmlog << "SHL";
+				logASM << "SHL";
 				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
 					throw string("Invalid operation: SHL used on float");
 				break;
 			case cmdShr:
-				m_asmlog << "SHR";
+				logASM << "SHR";
 				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
 					throw string("Invalid operation: SHR used on float");
 				break;
 			case cmdBitAnd:
-				m_asmlog << "BAND";
+				logASM << "BAND";
 				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
 					throw string("Invalid operation: BAND used on float");
 				break;
 			case cmdBitOr:
-				m_asmlog << "BOR";
+				logASM << "BOR";
 				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
 					throw string("Invalid operation: BOR used on float");
 				break;
 			case cmdBitXor:
-				m_asmlog << "BXOR";
+				logASM << "BXOR";
 				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
 					throw string("Invalid operation: BXOR used on float");
 				break;
 			case cmdLogAnd:
-				m_asmlog << "LAND";
+				logASM << "LAND";
 				break;
 			case cmdLogOr:
-				m_asmlog << "LOR";
+				logASM << "LOR";
 				break;
 			case cmdLogXor:
-				m_asmlog << "LXOR";
+				logASM << "LXOR";
 				break;
 			}
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
-				m_asmlog << " double;";
+				logASM << " double;";
 				break;
 			case OTYPE_LONG:
-				m_asmlog << " long;";
+				logASM << " long;";
 				break;
 			case OTYPE_INT:
-				m_asmlog << " int;";
+				logASM << " int;";
 				break;
 			default:
-				m_asmlog << "ERROR: OperFlag expected after instruction";
+				logASM << "ERROR: OperFlag expected after instruction";
 			}
 		}
 		if(cmd >= cmdNeg && cmd <= cmdLogNot)
 		{
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			m_asmlog << pos2 << ' ';
+			logASM << pos2 << ' ';
 			switch(cmd)
 			{
 			case cmdNeg:
-				m_asmlog << "NEG";
+				logASM << "NEG";
 				break;
 			case cmdInc:
-				m_asmlog << "INC";
+				logASM << "INC";
 				break;
 			case cmdDec:
-				m_asmlog << "DEC";
+				logASM << "DEC";
 				break;
 			case cmdBitNot:
-				m_asmlog << "BNOT";
+				logASM << "BNOT";
 				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
 					throw string("Invalid operation: BNOT used on float");
 				break;
 			case cmdLogNot:
-				m_asmlog << "LNOT;";
+				logASM << "LNOT;";
 				break;
 			}
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
-				m_asmlog << " double;";
+				logASM << " double;";
 				break;
 			case OTYPE_LONG:
-				m_asmlog << " long;";
+				logASM << " long;";
 				break;
 			case OTYPE_INT:
-				m_asmlog << " int;";
+				logASM << " int;";
 				break;
 			default:
-				m_asmlog << "ERROR: OperFlag expected after ";
+				logASM << "ERROR: OperFlag expected after ";
 			}
 		}
 		if(cmd >= cmdIncAt && cmd < cmdDecAt)
 		{
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			if(cmd == cmdIncAt)
-				m_asmlog << pos2 << " INCAT ";
+				logASM << pos2 << " INCAT ";
 			if(cmd == cmdDecAt)
-				m_asmlog << pos2 << " DECAT ";
-			m_asmlog << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
+				logASM << pos2 << " DECAT ";
+			logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
 			asmStackType st = flagStackType(cFlag);
 			asmDataType dt = flagDataType(cFlag);
 			UINT	highDW = 0, lowDW = 0;
 			int valind;
 
 			if(flagAddrStk(cFlag)){
-				m_asmlog << "stack";
+				logASM << "stack";
 				if(flagAddrRel(cFlag))
-					m_asmlog << "+top";
-				m_asmlog << "]";
+					logASM << "+top";
+				logASM << "]";
 			}else{
 				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
-					m_cmds->GetINT(pos, valind);
+					cmdList->GetINT(pos, valind);
 					pos += 4;
 				}
-				m_asmlog << valind;
+				logASM << valind;
 				if(flagAddrRel(cFlag))
-					m_asmlog << "+top";
+					logASM << "+top";
 
 				if(flagShiftStk(cFlag)){
-					m_asmlog << "+shift";
+					logASM << "+shift";
 				}
 				if(flagShiftOn(cFlag)){
-					m_cmds->GetINT(pos, valind);
+					cmdList->GetINT(pos, valind);
 					pos += 4;
-					m_asmlog << "+" << valind;
+					logASM << "+" << valind;
 				}
-				m_asmlog << "] ";
+				logASM << "] ";
 				if(flagSizeStk(cFlag)){
-					m_asmlog << "size: stack";
+					logASM << "size: stack";
 				}
 				if(flagSizeOn(cFlag)){
-					m_cmds->GetINT(pos, valind);
+					cmdList->GetINT(pos, valind);
 					pos += 4;
-					m_asmlog << "size: " << valind;
+					logASM << "size: " << valind;
 				}
 			}
 		}
-		m_asmlog << "\r\n";
+		logASM << "\r\n";
 	}
 
 	ofstream m_FileStream("asm.txt", std::ios::binary);
-	m_FileStream << m_asmlog.str();
+	m_FileStream << logASM.str();
 	m_FileStream.flush();
 }
 
 string Compiler::GetListing()
 {
-	return m_asmlog.str();
+	return logASM.str();
 }
 
 string Compiler::GetLog()
 {
-	return m_astlog.str();
+	return logAST.str();
 }
 
 std::vector<VariableInfo>* Compiler::GetVariableInfo()
