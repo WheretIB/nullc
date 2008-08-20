@@ -1,7 +1,24 @@
 #include "stdafx.h"
 #pragma once
 
-struct ColorerGrammar;
+class ColorCodeCallback;
+
+namespace ColorerGrammar
+{
+	void AddVar(char const* s, char const* e);
+	void AddRef(char const* s, char const* e);
+	void SetVar(char const* s, char const* e);
+	void GetVar(char const* s, char const* e);
+	void FuncAdd(char const* s, char const* e);
+	void FuncEnd(char const* s, char const* e);
+	void FuncCall(char const* s, char const* e);
+	void OnError(char const* s, char const* e);
+	void BlockBegin(char const* s, char const* e);
+	void BlockEnd(char const* s, char const* e);
+
+	void LogStrAndInfo(char const* s, char const* e);
+	void LogStr(char const* s, char const* e);
+};
 
 class Colorer
 {
@@ -12,12 +29,12 @@ public:
 	void	InitParser();
 	void	ColorText();
 private:
+	friend class ColorCodeCallback;
+
 	void	ColorCode(int red, int green, int blue, int bold, int ital, int under, const char* start, const char* end);
-	void	LogTempStr(int str, char const* s, char const* e);
-	bool	m_errUnderline;
+
+	bool	errUnderline;
 	//////////////////////////////////////////////////////////////////////////
-	HWND			m_richEdit;
-	//char*			m_strStart;
-	ColorerGrammar*	m_data;
-	char*			m_buf;
+	HWND			richEdit;
+	char*			strBuf;
 };

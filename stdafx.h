@@ -6,8 +6,6 @@
 #include <stdlib.h>
 
 #include "boost/shared_ptr.hpp"
-#include "boost/bind.hpp"
-#include "boost/function.hpp"
 #include <vector>
 #include <map>
 //#include <iostream>
