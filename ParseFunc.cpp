@@ -547,10 +547,12 @@ UINT NodeFuncDef::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, определяющий значение входных параметров перед вызовом функции
-NodeFuncParam::NodeFuncParam(TypeInfo* tinfo)
+NodeFuncParam::NodeFuncParam(TypeInfo* tinfo, int paramIndex)
 {
 	// Тип, который ожидает функция
 	typeInfo = tinfo;
+	// Номер параметра
+	idParam = paramIndex;
 
 	first = getList()->back(); getList()->pop_back();
 }
@@ -561,6 +563,8 @@ NodeFuncParam::~NodeFuncParam()
 
 void NodeFuncParam::Compile()
 {
+	if(idParam == 1)
+		cmds->AddData(cmdPushVTop);
 	// Определим значение
 	first->Compile();
 	// Преобразуем его в тип входного параметра функции
@@ -576,7 +580,7 @@ void NodeFuncParam::LogToStream(ostringstream& ostr)
 }
 UINT NodeFuncParam::GetSize()
 {
-	return first->GetSize() + ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
+	return (idParam == 1 ? sizeof(CmdID) : 0) + first->GetSize() + ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -623,6 +627,23 @@ void NodeFuncCall::Compile()
 		cmds->AddData((UINT)funcName.length());
 		cmds->AddData(funcName.c_str(), funcName.length());
 	}else{					// Если функция определена пользователем
+		// Перенесём в локальные параметры прямо тут, фигле
+		UINT addr = 0;
+		for(UINT i = 0; i < (*funcs)[funcID]->params.size(); i++)
+		{
+			asmStackType newST = podTypeToStackType[(*funcs)[funcID]->params[i].varType->type];
+			asmDataType newDT = podTypeToDataType[(*funcs)[funcID]->params[i].varType->type];
+			cmds->AddData(cmdMov);
+			cmds->AddData((USHORT)(newST | newDT | bitAddrRel));
+			// адрес начала массива
+			cmds->AddData(addr);
+			addr += (*funcs)[funcID]->params[i].varType->size;
+
+			cmds->AddData(cmdPop);
+			cmds->AddData((USHORT)(newST));
+		}
+		cmds->AddData(cmdPopVTop);
+		
 		// Вызовем по адресу
 		cmds->AddData(cmdCall);
 		cmds->AddData((*funcs)[funcID]->address);
@@ -634,16 +655,22 @@ void NodeFuncCall::LogToStream(ostringstream& ostr)
 }
 UINT NodeFuncCall::GetSize()
 {
+	UINT size = 0;
 	if(first)
+		size += first->GetSize();
+
+	if(funcID == -1)
+		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
+	else
+		size += sizeof(CmdID) + sizeof(UINT) + sizeof(CmdID) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
+	
+	/*if(first)
 		if(funcID == -1)
 			return first->GetSize() + sizeof(CmdID) + sizeof(UINT) + funcName.length();// + ConvertToRealSize(first, podTypeToStackType[first->typeInfo()->type]);
 		else
 			return first->GetSize() + sizeof(CmdID) + sizeof(UINT);// + ConvertToRealSize(first, podTypeToStackType[first->typeInfo()->type]);
-	else
-		if(funcID == -1)
-			return sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
-		else
-			return sizeof(CmdID) + sizeof(UINT);
+	else*/
+	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -665,10 +692,13 @@ NodePushShift::~NodePushShift()
 
 void NodePushShift::Compile()
 {
+	asmOperType oAsmType = operTypeForStackType[podTypeToStackType[first->GetTypeInfo()->type]];
 	// Вычислим индекс
 	first->Compile();
 	// Переведём его в целое число
 	cmds->AddData(cmdCTI);
+	// Передадим тип операнда
+	cmds->AddData((UCHAR)(oAsmType));
 	// Умножив на размер элемента (сдвиг должен быть в байтах)
 	cmds->AddData(sizeOfType);
 }
@@ -682,7 +712,7 @@ void NodePushShift::LogToStream(ostringstream& ostr)
 }
 UINT NodePushShift::GetSize()
 {
-	return first->GetSize() + sizeof(CmdID) + sizeof(UINT);
+	return first->GetSize() + sizeof(CmdID) + sizeof(UCHAR) + sizeof(UINT);
 }
 
 //////////////////////////////////////////////////////////////////////////

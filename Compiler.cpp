@@ -628,7 +628,7 @@ void funcStart(char const* s, char const* e)
 {
 	//infoln1(__FUNCTION__);
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
-	bool two = false;
+	//bool two = false;
 	for(int i = (int)funcs.back()->params.size()-1; i >= 0; i--)
 	{
 		strs.push_back(funcs.back()->params[i].name);
@@ -640,15 +640,16 @@ void funcStart(char const* s, char const* e)
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP(currType)));
 
 		pushType(0,0);
-		addSetNode(0,0);
+	//	addSetNode(0,0);
 		//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[n].pos, varInfo[n].name, false, 1)));
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
-		if(two)
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
-		two = true;
+	//	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
+	//	if(two)
+	//		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
+	//	two = true;
 		strs.pop_back();
 		strs.pop_back();
 	}
+	
 }
 void funcEnd(char const* s, char const* e)
 {
@@ -676,7 +677,7 @@ void addFuncPushParamNode(char const* s, char const* e)
 	if(fname == "cos" || fname == "sin" || fname == "tan" || fname == "ctg" || fname == "ceil" || fname == "floor" || 
 		fname == "sqrt" || fname == "clock")
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(typeDouble)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(typeDouble, callArgCount.back())));
 	}else{
 		int i = (int)funcs.size()-1;
 		while(i >= 0 && funcs[i]->name != fname)
@@ -684,7 +685,7 @@ void addFuncPushParamNode(char const* s, char const* e)
 		if(i == -1)
 			throw std::string("ERROR: function " + fname + " is undefined");
 		VariableInfo* vinfo = &funcs[i]->params[callArgCount.back()-1];
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(vinfo->varType)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(vinfo->varType, callArgCount.back())));
 	}
 }
 void addFuncCallNode(char const* s, char const* e)
@@ -1159,9 +1160,26 @@ void Compiler::GenListing()
 			break;
 		case cmdCTI:
 			logASM << dec << showbase << pos2 << dec << " CTI addr*";
+			cmdList->GetUCHAR(pos, oFlag);
+			pos += 1;
 			cmdList->GetUINT(pos, valind);
 			pos += sizeof(UINT);
 			logASM << valind;
+
+			switch(oFlag)
+			{
+			case OTYPE_DOUBLE:
+				logASM << " double;";
+				break;
+			case OTYPE_LONG:
+				logASM << " long;";
+				break;
+			case OTYPE_INT:
+				logASM << " int;";
+				break;
+			default:
+				logASM << "ERROR: OperFlag expected after ";
+			}
 			break;
 		case cmdPush:
 			{

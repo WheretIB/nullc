@@ -58,7 +58,7 @@ void ExecutorX86::GenListing()
 		case cmdNop:
 			break;
 		case cmdCTI:
-			pos += 4;
+			pos += 5;
 			break;
 		case cmdPush:
 			{
@@ -211,6 +211,8 @@ void ExecutorX86::GenListing()
 			logASM << "nop\r\n";
 			break;
 		case cmdCTI:
+			cmdList->GetUCHAR(pos, oFlag);
+			pos += 1;
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
 			logASM << "  ; cmdCTI, тут ещё следует разобратся imul eax, 0" << hex << valind << dec << "h ;умножим адрес на размер переменной\r\n";
