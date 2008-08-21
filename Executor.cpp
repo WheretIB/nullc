@@ -81,21 +81,8 @@ bool Executor::Run()
 				name[len] = 0;
 				if(memcmp(name, "clock", 5) != 0)
 				{
-					switch(genStackTypes.back())
-					{
-					case STYPE_DOUBLE:
-						val = *((double*)(&genStack[genStack.size()-2]));
-						genStack.pop_back(); genStack.pop_back();
-						break;
-					case STYPE_LONG:
-						val = (double)*((long long*)(&genStack[genStack.size()-2]));
-						genStack.pop_back(); genStack.pop_back();
-						break;
-					case STYPE_INT:
-						val = (double)*((int*)(&genStack[genStack.size()-1]));
-						genStack.pop_back();
-						break;
-					}
+					val = *((double*)(&genStack[genStack.size()-2]));
+					genStack.pop_back(); genStack.pop_back();
 					genStackTypes.pop_back();
 				}
 				if(memcmp(name, "cos", 3) == 0)
@@ -256,19 +243,21 @@ bool Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, 0));
 			break;
 		case cmdCTI:
+			m_cmds->GetUCHAR(pos, oFlag);
+			pos += 1;
 			m_cmds->GetUINT(pos, uintVal);
 			pos += sizeof(UINT);
-			switch(genStackTypes.back())
+			switch(oFlag)
 			{
-			case STYPE_DOUBLE:
+			case OTYPE_DOUBLE:
 				uintVal2 = int(*((double*)(&genStack[genStack.size()-2])));
 				genStack.pop_back(); genStack.pop_back();
 				break;
-			case STYPE_LONG:
+			case OTYPE_LONG:
 				uintVal2 = int(*((long long*)(&genStack[genStack.size()-2])));
 				genStack.pop_back(); genStack.pop_back();
 				break;
-			case STYPE_INT:
+			case OTYPE_INT:
 				uintVal2 = *((int*)(&genStack[genStack.size()-1]));
 				genStack.pop_back();
 				break;
