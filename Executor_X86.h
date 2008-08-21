@@ -17,7 +17,10 @@ public:
 	string	GetResult();
 
 private:
-	CommandList*		cmdList;
-	ostringstream		logAST;
+	CommandList	*cmdList;
+	std::vector<VariableInfo>*	varInfo;
+
+	CommandList	x86CmdList;
+
 	ostringstream		logASM;
 };

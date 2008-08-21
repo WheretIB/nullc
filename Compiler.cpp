@@ -449,7 +449,7 @@ bool pushedShiftAddr = false;
 void popTypeAndAddrNode(char const* s, char const* e)
 {
 	currTypes.pop_back();
-	if(pushedShiftAddr)
+	if(pushedShiftAddr || pushedShiftAddrNode)
 		nodeList.pop_back();
 }
 
@@ -1512,7 +1512,7 @@ void Compiler::GenListing()
 				logASM << "ERROR: OperFlag expected after ";
 			}
 		}
-		if(cmd >= cmdIncAt && cmd < cmdDecAt)
+		if(cmd >= cmdIncAt && cmd <= cmdDecAt)
 		{
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;

@@ -9,6 +9,7 @@
 #include "Colorer.h"
 #include "Compiler.h"
 #include "Executor.h"
+#include "Executor_X86.h"
 
 #define MAX_LOADSTRING 100
 
@@ -34,6 +35,7 @@ HWND hVars;			//disabled text area that shows values of all variables in global 
 Colorer*	colorer;
 Compiler*	compiler;
 Executor*	executor;
+ExecutorX86*	executorX86;
 CommandList*		commands;
 
 //for text update
@@ -55,6 +57,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	colorer = NULL;
 	compiler = new Compiler(commands);
 	executor = new Executor(commands, compiler->GetVariableInfo());
+	executorX86 = new ExecutorX86(commands, compiler->GetVariableInfo());
 	
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -222,6 +225,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			if(good)
 			{
+				executorX86->GenListing();
+
 				executor->SetCallback(RunCallback);//mparser.SetCallback(RunCallback);
 				try
 				{
@@ -241,7 +246,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				SetWindowText(hCode, compiler->GetListing().c_str());
 			else
 				SetWindowText(hCode, ostr.str().c_str());
-			SetWindowText(hLog, compiler->GetLog().c_str());
+			//SetWindowText(hLog, compiler->GetLog().c_str());
+			SetWindowText(hLog, executorX86->GetListing().c_str());
 			string str = ostr.str();
 			if(good)
 				SetWindowText(hResult, str.c_str());
