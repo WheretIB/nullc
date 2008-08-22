@@ -11,8 +11,55 @@ ExecutorX86::~ExecutorX86()
 
 }
 
-bool ExecutorX86::Compile()
+bool ExecutorX86::Run()
 {
+	GenListing();
+	system("fasm.exe asmX86.txt");
+
+	STARTUPINFO stInfo;
+	PROCESS_INFORMATION prInfo;
+
+	// Compile using fasm
+	memset(&stInfo, 0, sizeof(stInfo));
+	stInfo.cb = sizeof(stInfo);
+	stInfo.dwFlags = STARTF_USESHOWWINDOW | STARTF_USEPOSITION;
+	stInfo.wShowWindow = SW_HIDE;
+	stInfo.dwX = 900;
+	stInfo.dwY = 200;
+	memset(&prInfo, 0, sizeof(prInfo));
+
+	if(!CreateProcess("fasm.exe", "asmX86.txt", NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo))
+		throw std::string("Failed to create process");
+
+	if(WAIT_TIMEOUT == WaitForSingleObject(prInfo.hProcess, 5000))
+		throw std::string("Compilation to x86 binary takes too much time (timeout=5sec)");
+
+	CloseHandle(prInfo.hProcess);
+	CloseHandle(prInfo.hThread);
+
+	FILE *fCode = fopen("asmX86.bin", "rb");
+	if(!fCode)
+		throw std::string("Failed to open output file");
+	char binCode[40000];
+	fseek(fCode, 0, SEEK_END);
+	UINT size = ftell(fCode);
+	fseek(fCode, 0, SEEK_SET);
+	if(size > 40000)
+		throw std::string("Bytecode is too big (size > 40000)");
+	fread(binCode, 1, size, fCode);
+
+	typedef void (*codeFunc)();
+	codeFunc funcMain = (codeFunc)(&binCode[0]);
+	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
+	__asm
+	{
+		pusha ;
+		mov eax, binCodeStart ;
+		call eax ;
+		pop eax;
+		popa ;
+	}
+
 	return false;
 }
 void ExecutorX86::GenListing()
@@ -159,6 +206,9 @@ void ExecutorX86::GenListing()
 		//logASM << "\r\n";
 	}
 
+	logASM << "use32\r\n";
+	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
+
 	pos = 0;
 	pos2 = 0;
 	while(cmdList->GetData(pos, cmd))
@@ -187,27 +237,33 @@ void ExecutorX86::GenListing()
 		case cmdCallStd:
 			break;
 		case cmdPushVTop:
-			logASM << "push ecx ; сохранили текущий размер стека переменных\r\n";
-			logASM << "mov ecx, edi ; установили новую базу стека переменных\r\n";
+			logASM << "  ; PUSHT\r\n";
+			logASM << "push ecx ; сохранили текущую базу стека переменных\r\n";
+			logASM << "mov ecx, edi ; установили новую базу стека переменных, по размеру стека\r\n";
 			break;
 		case cmdPopVTop:
-			logASM << "pop ecx ; восстановили размер стека переменных\r\n";
-			logASM << "mov edi, ecx ; восстановили базу стека переменных\r\n";
+			logASM << "  ; POPT\r\n";
+			logASM << "mov edi, ecx ; восстановили предыдущий размер стека переменных\r\n";
+			logASM << "pop ecx ; восстановили предыдущую базу стека переменных\r\n";
 			break;
 		case cmdCall:
+			logASM << "  ; CALL\r\n";
 			cmdList->GetData(pos, &valind, sizeof(UINT));
 			pos += sizeof(UINT);
 			logASM << "call function" << valind << "\r\n";
 			break;
 		case cmdReturn:
+			logASM << "  ; RET\r\n";
 			logASM << "ret ; возвращаемся из функции\r\n";
 			break;
 		case cmdPushV:
+			logASM << "  ; PUSHV\r\n";
 			cmdList->GetData(pos, &valind, sizeof(int));
 			pos += sizeof(int);
 			logASM << "lea edi, [edi + 0" << hex << pos << dec << "h] ; добавили место под новые переменные в стеке\r\n";
 			break;
 		case cmdNop:
+			logASM << "  ; NOP\r\n";
 			logASM << "nop\r\n";
 			break;
 		case cmdCTI:
@@ -215,10 +271,27 @@ void ExecutorX86::GenListing()
 			pos += 1;
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << "  ; cmdCTI, тут ещё следует разобратся imul eax, 0" << hex << valind << dec << "h ;умножим адрес на размер переменной\r\n";
+			logASM << "  ; CTI\r\n";
+			switch(oFlag)
+			{
+			case OTYPE_DOUBLE:
+				logASM << "push eax ; положим double целиком в стек\r\n";
+				logASM << "mov eax, dword [esi+8] ; указатель на функцию doubletolong\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop eax ; убрали double со стека\r\n";
+				logASM << "call eax ; вызовем. теперь нижние 32бита результата - eax, верхние - edx\r\n";
+				break;
+			case OTYPE_LONG:
+				logASM << "pop edx ; убрали старшие биты long со стека\r\n";
+				break;
+			case OTYPE_INT:
+				break;
+			}
+			logASM << "imul eax, 0" << hex << valind << dec << "h ;умножим адрес на размер переменной\r\n";
 			break;
 		case cmdPush:
 			{
+				logASM << "  ; PUSH\r\n";
 				int valind = -1, shift, size;
 				UINT	highDW = 0, lowDW = 0;
 				USHORT sdata;
@@ -408,9 +481,11 @@ void ExecutorX86::GenListing()
 					}
 					if(dt == DTYPE_FLOAT)
 					{
+						logASM << "push eax ; \r\n";
 						logASM << "push eax ; освободим место под double\r\n";
 						logASM << "fld dword [edx] ; поместим float в fpu стек\r\n";
-						logASM << "fstp qword [ebp-8h] ; поместим double в обычный стек\r\n";
+						logASM << "fstp qword [esp] ; поместим double в обычный стек\r\n";
+						logASM << "pop eax\r\n";
 					}
 					if(dt == DTYPE_INT)
 						logASM << "mov eax, [edx] ; положили int\r\n";
@@ -423,6 +498,7 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdMov:
 			{
+				logASM << "  ; MOV\r\n";
 				int valind = -1, shift, size;
 				UINT	highDW = 0, lowDW = 0;
 				cmdList->GetUSHORT(pos, cFlag);
@@ -565,17 +641,26 @@ void ExecutorX86::GenListing()
 					movLabels++;
 				}
 				
+				static int skipLabels = 1;
+				logASM << "add edx, 0" << typeSizeD[(cFlag>>2)&0x00000007] << "h ; прибавим размер\r\n";
+				logASM << "cmp edi, edx ; сравним не превышен ли размер стека переменных\r\n";
+				logASM << "jge skipResize" << skipLabels << "\r\n";
+				logASM << "mov edi, edx \r\n";
+				logASM << "  skipResize" << skipLabels << ":\r\n";
+				//logASM << "sub edx, 0" << typeSizeD[(cFlag>>2)&0x00000007] << "h ; востановим адрес\r\n";
+				skipLabels++;
+
 				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
 					logASM << "mov [edx+4h], eax \r\n";
 					logASM << "pop eax\r\n";
 					logASM << "mov [edx], eax ; присвоили double или long long переменной.\r\n";
-					logASM << "push eax eax\r\n";
+					logASM << "push eax \r\n";
 					logASM << "mov eax, [edx+4h] ; оставили значение в стеке, как было\r\n";
 				}
 				if(dt == DTYPE_FLOAT)
 				{
-					logASM << "fld qword [ebp-8h] ; поместим double из стека в fpu стек\r\n";
+					logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
 					logASM << "fstp qword [edx] ; присвоили float переменной\r\n";
 				}
 				if(dt == DTYPE_INT)
@@ -588,6 +673,7 @@ void ExecutorX86::GenListing()
 			}
 			break;
 		case cmdPop:
+			logASM << "  ; POP\r\n";
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			st = flagStackType(cFlag);
@@ -600,140 +686,376 @@ void ExecutorX86::GenListing()
 			}
 			break;
 		case cmdRTOI:
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			logASM << ";TODO: RTOI\r\n";
-
-			//asmStackType st = flagStackType(cFlag);
-			//asmDataType dt = flagDataType(cFlag);
-			
-			/*if(st == STYPE_DOUBLE && dt == DTYPE_INT)
 			{
-				00412D39  push        ebp  
-					00412D3A  mov         ebp,esp 
-					00412D3C  sub         esp,8 
-					00412D3F  and         esp,0FFFFFFF8h 
-					00412D42  fstp        qword ptr [esp] 
-				00412D45  cvttsd2si   eax,mmword ptr [esp] 
-				00412D4A  leave            
-					00412D4B  ret              
-				int temp = (int)*((double*)(&genStack[genStack.size()-2]));
-				genStack.pop_back();
-				*((int*)(&genStack[genStack.size()-1])) = temp;
-				genStackTypes.push_back(STYPE_INT);
-			}else if(st == STYPE_DOUBLE && dt == DTYPE_LONG){
-				*((long long*)(&genStack[genStack.size()-2])) = (long long)*((double*)(&genStack[genStack.size()-2]));
-				genStackTypes.push_back(STYPE_LONG);
-			}*/
+				logASM << "  ; RTOI\r\n";
+				cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
 
+				asmStackType st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+				
+				if(st == STYPE_DOUBLE && dt == DTYPE_INT)
+				{
+					logASM << "push eax ; положим double целиком в стек\r\n";
+					logASM << "mov eax, dword [esi+8] ; указатель на функцию doubletolong\r\n";
+					logASM << "pop eax \r\n";
+					logASM << "pop eax ; убрали double со стека\r\n";
+					logASM << "call eax ; вызовем. теперь нижние 32бита результата - eax, верхние - edx\r\n";
+				}else if(st == STYPE_DOUBLE && dt == DTYPE_LONG){
+					logASM << "push eax ; положим double целиком в стек\r\n";
+					logASM << "mov eax, dword [esi+8] ; указатель на функцию doubletolong\r\n";
+					logASM << "pop eax \r\n";
+					logASM << "pop eax ; убрали double со стека\r\n";
+					logASM << "call eax ; вызовем. теперь нижние 32бита результата - eax, верхние - edx\r\n";
+					logASM << "push edx ; вот и составили long long в стеке!";
+				}
+			}
 			break;
 		case cmdITOR:
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			logASM << ";TODO: ITOR\r\n";
+			{
+				logASM << "  ; ITOR\r\n";
+				cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
+				asmStackType st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+
+				if(st == STYPE_INT && dt == DTYPE_DOUBLE)
+				{
+					logASM << "push eax ; загоним число целиком в стек\r\n";
+					logASM << "fild dword [esp] ; переведём в double\r\n";
+					logASM << "push eax ; освободим место под double\r\n";
+					logASM << "fstp qword [esp] ; скопируем double в стек\r\n";
+					logASM << "pop eax \r\n";
+				}
+				if(st == STYPE_LONG && dt == DTYPE_DOUBLE)
+				{
+					logASM << "push eax ; загоним число целиком в стек\r\n";
+					logASM << "fild qword [esp] ; переведём в double\r\n";
+					logASM << "fstp qword [esp] ; скопируем double в стек\r\n";
+					logASM << "pop eax \r\n";
+				}
+			}
 			break;
 		case cmdITOL:
-			logASM << ";TODO: ITOL\r\n";
+			logASM << "  ; ITOL\r\n";
+			logASM << "cdq ; расширили до long в edx\r\n";
+			logASM << "push edx ; положили старшие в стек\r\n";
 			break;
 		case cmdLTOI:
-			logASM << ";TODO: LTOI\r\n";
+			logASM << "  ; LTOI\r\n";
+			logASM << "pop edx ; убрали старшие биты long со стека\r\n";
 			break;
 		case cmdSwap:
+			logASM << "  ; SWAP\r\n";
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			logASM << ";TODO: SWAP\r\n";
+			switch(cFlag)
+			{
+			case (STYPE_DOUBLE)+(DTYPE_DOUBLE):
+			case (STYPE_LONG)+(DTYPE_LONG):
+				logASM << "xchg eax, [esp+4h]\r\n";
+				logASM << "mov edx, [esp]\r\n";
+				logASM << "xchg edx, [esp+8h]\r\n";
+				logASM << "mov [esp], edx ; поменяли местами два long или double\r\n";
+				break;
+			case (STYPE_DOUBLE)+(DTYPE_INT):
+			case (STYPE_LONG)+(DTYPE_INT):
+				logASM << "xchg eax, [esp+4h]\r\n";
+				logASM << "xchg eax, [esp] ; поменяли местами double и int\r\n";
+				break;
+			case (STYPE_INT)+(DTYPE_DOUBLE):
+			case (STYPE_INT)+(DTYPE_LONG):
+				logASM << "xchg eax, [esp]\r\n";
+				logASM << "xchg eax, [esp+4h] ; поменяли местами int и double\r\n";
+				break;
+			case (STYPE_INT)+(DTYPE_INT):
+				logASM << "xchg eax, [esp] ; поменяли местами два int\r\n";
+				break;
+			default:
+				throw std::string("cmdSwap, unimplemented type combo");
+			}
 			break;
 		case cmdCopy:
+			logASM << "  ; COPY\r\n";
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			logASM << ";TODO: COPY\r\n";
+			switch(oFlag)
+			{
+			case OTYPE_DOUBLE:
+			case OTYPE_LONG:
+				logASM << "mov edx, [esp]\r\n";
+				logASM << "push eax\r\n";
+				logASM << "push edx ; скопировали long или double\r\n";
+				break;
+			case OTYPE_INT:
+				logASM << "push eax ; скопировали int\r\n";
+				break;
+			}
 			break;
 		case cmdJmp:
+			logASM << "  ; JMP\r\n";
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
 			logASM << "jmp gLabel" << valind << "\r\n";
 			break;
 		case cmdJmpZ:
+			logASM << "  ; JMPZ\r\n";
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << ";TODO: JMPZ\r\n";
+
+			if(oFlag == OTYPE_DOUBLE)
+			{
+				logASM << "push eax ; положим double целиком в стек\r\n";
+				logASM << "fldz ; положим ноль в fpu стек\r\n";
+				logASM << "fcomp qword [esp] ; сравним\r\n"; 
+				logASM << "fnstsw ax ; результат без проверок на fpu исключения положим в ax\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop eax ; убрали double со стека\r\n";
+				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
+				logASM << "jp gLabel" << valind << "\r\n";
+			}else if(oFlag == OTYPE_LONG){
+				logASM << "mov edx, eax \r\n";
+				logASM << "pop eax \r\n";
+				logASM << "or edx, eax ; сравниваем long == 0\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "jne gLabel" << valind << "\r\n";
+			}else if(oFlag == OTYPE_INT){
+				logASM << "mov edx, eax \r\n";
+				logASM << "pop eax \r\n";
+				logASM << "test edx, edx ; сравниваем int == 0\r\n";
+				logASM << "jz gLabel" << valind << "\r\n";
+			}
 			break;
 		case cmdJmpNZ:
+			logASM << "  ; JMPNZ\r\n";
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM <<";TODO: JMPNZ\r\n";
+			if(oFlag == OTYPE_DOUBLE)
+			{
+				logASM << "push eax ; положим double целиком в стек\r\n";
+				logASM << "fldz ; положим ноль в fpu стек\r\n";
+				logASM << "fcomp qword [esp] ; сравним\r\n"; 
+				logASM << "fnstsw ax ; результат без проверок на fpu исключения положим в ax\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop eax ; убрали double со стека\r\n";
+				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
+				logASM << "jnp gLabel" << valind << "\r\n";
+			}else if(oFlag == OTYPE_LONG){
+				logASM << "mov edx, eax \r\n";
+				logASM << "pop eax \r\n";
+				logASM << "or edx, eax ; сравниваем long == 0\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "je gLabel" << valind << "\r\n";
+			}else if(oFlag == OTYPE_INT){
+				logASM << "mov edx, eax \r\n";
+				logASM << "pop eax \r\n";
+				logASM << "test edx, edx \r\n";
+				logASM << "jnz gLabel" << valind << "\r\n";
+			}
 			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
 		{
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			switch(cmd)
+			switch(cmd + (oFlag << 16))
 			{
-			case cmdAdd:
-				logASM <<";TODO: ADD\r\n";
+			case cmdAdd+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) += *((double*)(&genStack[genStack.size()-2]));
 				break;
-			case cmdSub:
-				logASM <<";TODO: SUB\r\n";
+			case cmdAdd+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) += *((long long*)(&genStack[genStack.size()-2]));
 				break;
-			case cmdMul:
-				logASM <<";TODO: MUL\r\n";
+			case cmdAdd+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) += *((int*)(&genStack[genStack.size()-1]));
 				break;
-			case cmdDiv:
-				logASM <<";TODO: DIV\r\n";
+			case cmdSub+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) -= *((double*)(&genStack[genStack.size()-2]));
 				break;
-			case cmdPow:
-				logASM <<";TODO: POW\r\n";
+			case cmdSub+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) -= *((long long*)(&genStack[genStack.size()-2]));
 				break;
-			case cmdMod:
-				logASM <<";TODO: MOD\r\n";
+			case cmdSub+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) -= *((int*)(&genStack[genStack.size()-1]));
 				break;
-			case cmdLess:
-				logASM <<";TODO: LESS\r\n";
+			case cmdMul+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) *= *((double*)(&genStack[genStack.size()-2]));
 				break;
-			case cmdGreater:
-				logASM <<";TODO: GRT\r\n";
+			case cmdMul+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) *= *((long long*)(&genStack[genStack.size()-2]));
 				break;
-			case cmdLEqual:
-				logASM <<";TODO: LE\r\n";
+			case cmdMul+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) *= *((int*)(&genStack[genStack.size()-1]));
 				break;
-			case cmdGEqual:
-				logASM <<";TODO: GE\r\n";
+			case cmdDiv+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) /= *((double*)(&genStack[genStack.size()-2]));
 				break;
-			case cmdEqual:
-				logASM <<";TODO: EQUAL\r\n";
+			case cmdDiv+(OTYPE_LONG<<16):
+			/*	if(*((long long*)(&genStack[genStack.size()-2])))
+					*((long long*)(&genStack[genStack.size()-4])) /= *((long long*)(&genStack[genStack.size()-2]));
+				else{
+					if(*((long long*)(&genStack[genStack.size()-4])) > 0)
+					{
+						*((int*)(&genStack[genStack.size()-3])) = 0x7FFFFFFF;
+						*((int*)(&genStack[genStack.size()-4])) = 0xFFFFFFFF;
+					}else if(*((long long*)(&genStack[genStack.size()-4])) < 0){
+						*((int*)(&genStack[genStack.size()-3])) = 0x80000000;
+						*((int*)(&genStack[genStack.size()-4])) = 0;
+					}else
+						*((long long*)(&genStack[genStack.size()-4])) = 0;
+				}*/
 				break;
-			case cmdNEqual:
-				logASM <<";TODO: NEQUAL\r\n";
+			case cmdDiv+(OTYPE_INT<<16):
+			/*	if(*((int*)(&genStack[genStack.size()-1])))
+					*((int*)(&genStack[genStack.size()-2])) /= *((int*)(&genStack[genStack.size()-1]));
+				else{
+					if(*((int*)(&genStack[genStack.size()-2])) > 0)
+						*((int*)(&genStack[genStack.size()-2])) = (1 << 31) - 1;
+					else if(*((int*)(&genStack[genStack.size()-2])) < 0)
+						*((int*)(&genStack[genStack.size()-2])) = (1 << 31);
+					else
+						*((int*)(&genStack[genStack.size()-2])) = 0;
+				}*/
 				break;
-			case cmdShl:
-				logASM <<";TODO: SHL\r\n";
+			case cmdPow+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) = pow(*((double*)(&genStack[genStack.size()-4])), *((double*)(&genStack[genStack.size()-2])));
 				break;
-			case cmdShr:
-				logASM <<";TODO: SHR\r\n";
+			case cmdPow+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = (long long)pow((double)*((long long*)(&genStack[genStack.size()-4])), (double)*((long long*)(&genStack[genStack.size()-2])));
 				break;
-			case cmdBitAnd:
-				logASM <<";TODO: BAND\r\n";
+			case cmdPow+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = (int)pow((double)(*((int*)(&genStack[genStack.size()-2]))), *((int*)(&genStack[genStack.size()-1])));
 				break;
-			case cmdBitOr:
-				logASM <<";TODO: BOR\r\n";
+			case cmdMod+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) = fmod(*((double*)(&genStack[genStack.size()-4])), *((double*)(&genStack[genStack.size()-2])));
 				break;
-			case cmdBitXor:
-				logASM <<";TODO: BXOR\r\n";
+			case cmdMod+(OTYPE_LONG<<16):
+			/*	if(*((long long*)(&genStack[genStack.size()-2])))
+					*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) % *((long long*)(&genStack[genStack.size()-2]));
+				else
+					*((long long*)(&genStack[genStack.size()-4])) = 0;*/
 				break;
-			case cmdLogAnd:
-				logASM <<";TODO: LAND\r\n";
+			case cmdMod+(OTYPE_INT<<16):
+			/*	if(*((int*)(&genStack[genStack.size()-1])))
+					*((int*)(&genStack[genStack.size()-2])) %= *((int*)(&genStack[genStack.size()-1]));
+				else
+					*((int*)(&genStack[genStack.size()-2])) = 0;*/
+
 				break;
-			case cmdLogOr:
-				logASM <<";TODO: LOR\r\n";
+			case cmdLess+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) = *((double*)(&genStack[genStack.size()-4])) < *((double*)(&genStack[genStack.size()-2]));
 				break;
-			case cmdLogXor:
-				logASM <<";TODO: LXOR\r\n";
+			case cmdLess+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) < *((long long*)(&genStack[genStack.size()-2]));
 				break;
+			case cmdLess+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) < *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdGreater+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) = *((double*)(&genStack[genStack.size()-4])) > *((double*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdGreater+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) > *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdGreater+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) > *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdLEqual+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) = *((double*)(&genStack[genStack.size()-4])) <= *((double*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdLEqual+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) <= *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdLEqual+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) <= *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdGEqual+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) = *((double*)(&genStack[genStack.size()-4])) >= *((double*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdGEqual+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) >= *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdGEqual+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) >= *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdEqual+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) = *((double*)(&genStack[genStack.size()-4])) == *((double*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdEqual+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) == *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdEqual+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) == *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdNEqual+(OTYPE_DOUBLE<<16):
+			//	*((double*)(&genStack[genStack.size()-4])) = *((double*)(&genStack[genStack.size()-4])) != *((double*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdNEqual+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) != *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdNEqual+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) != *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdShl+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) << *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdShl+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) << *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdShr+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) >> *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdShr+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) >> *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdBitAnd+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) & *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdBitAnd+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) & *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdBitOr+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) | *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdBitOr+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) | *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdBitXor+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) ^ *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdBitXor+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) ^ *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdLogAnd+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) && *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdLogAnd+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) && *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdLogOr+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) || *((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdLogOr+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) || *((int*)(&genStack[genStack.size()-1]));
+				break;
+			case cmdLogXor+(OTYPE_LONG<<16):
+			//	*((long long*)(&genStack[genStack.size()-4])) = !!(*((long long*)(&genStack[genStack.size()-4]))) ^ !!(*((long long*)(&genStack[genStack.size()-2])));
+				break;
+			case cmdLogXor+(OTYPE_INT<<16):
+			//	*((int*)(&genStack[genStack.size()-2])) = !!(*((int*)(&genStack[genStack.size()-2]))) ^ !!(*((int*)(&genStack[genStack.size()-1])));
+				break;
+			default:
+				throw string("Operation is not implemented");
+			}
+			if(oFlag == OTYPE_INT)
+			{
+			//	genStack.pop_back();
+			}else{
+			//	genStack.pop_back(); genStack.pop_back();
 			}
 		}
 		if(cmd >= cmdNeg && cmd <= cmdLogNot)
@@ -781,11 +1103,12 @@ string ExecutorX86::GetListing()
 	return logASM.str();
 }
 
-bool ExecutorX86::Run()
-{
-	return false;
-}
 string ExecutorX86::GetResult()
+{
+	return "";
+}
+
+string ExecutorX86::GetVarInfo()
 {
 	return "";
 }
