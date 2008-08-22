@@ -9,12 +9,12 @@ public:
 	ExecutorX86(CommandList* cmds, std::vector<VariableInfo>* varinfo);
 	~ExecutorX86();
 
-	bool	Compile();
 	void	GenListing();
 	string	GetListing();
 
 	bool	Run();
 	string	GetResult();
+	string	GetVarInfo();
 
 private:
 	CommandList	*cmdList;
