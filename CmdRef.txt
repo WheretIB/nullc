@@ -63,7 +63,8 @@
 		
 	CTI OperFlag, UINT size // (cmdCTI = 103) Convert To Index
 		Конвентирует число на вершине стека в int и умножает на size
-		
+
+  Основные команды
 	PUSH CmdFlag, [val], [address], [shift], [size] // (cmdPush = 100) PUSH
 		  Кладёт на вершину основного стека значение, которое может следовать за командой (val), 
 		или может браться из стека переменных, если предоставлен адрес.
@@ -106,6 +107,7 @@
 	COPY OperFlag // (cmdCopy = 109) COPY
 		Дублирует значение на верхушке стека. Тип описан в флаге.
 	
+  Условные и безусловные переходы
 	JMP address // (cmdJmp = 110) unconditional JuMP
 		Безусловные переход по адресу.
 		
@@ -117,6 +119,7 @@
 		Условные переход по адресу, если значение на верхушке стека не равно нулю.
 		Операция удаляет значение на верхушке стека.
 
+  Команды для функций
 	CALL address // (cmdCall = 113) CALL function
 		Вызов функции по адресу. Адрес следующей за этой операции кладётся в стек вызовов.
 		
@@ -129,3 +132,56 @@
 	RET // (cmdReturn = 115) RETurn
 		Возврат из функции или из программы. Адрес возврата берётся с вершины стека вызовов и убирается от туда.
 		Если стек вызовов пуст, но выполняется данная команда, происходит выход из программы.
+
+  Команды для работы со стеком переменных
+	PUSHT // (cmdPushVTop = 116) PUSH Top
+		Сохранить размер стека переменных в стек баз стека переменных.
+		
+	POPT // (cmdPopVTop = 117) POP Top
+		Восстановить предыдущий размер стека переменных и убрать последнюю базу со стека баз.
+	
+	PUSHV count // (cmdPushV = 118) PUSH Variable
+		Увеличивает размер стека переменных на указанное количество байт.
+
+  Бинарные операции
+	Работают с double, long, int:
+	ADD OperFlag // (cmdAdd	= 130) ADD
+	SUB OperFlag // (cmdSub	= 131) SUBstract
+	MUL OperFlag // (cmdMul	= 132) MULtiply
+	DIV OperFlag // (cmdDiv	= 133) DIVide
+	POW OperFlag // (cmdPow	= 134) POWer
+	MOD OperFlag // (cmdMod	= 135) MOD
+	LESS OperFlag // (cmdLess = 136) LESS
+	GRT OperFlag // (cmdGreater	= 137) GReaTer
+	LEQL OperFlag // (cmdLEqual = 138) Less or EQuaL
+	GEQL OperFlag // (cmdGEqual = 139) Greater or EQuaL
+	EQL OperFlag // (cmdEqual = 140) EQuaL
+	NEQL OperFlag // (cmdNEqual = 141) Not EQuaL
+
+	Работают с long, int:
+	SHL OperFlag // (cmdShl	= 142) SHift Left
+	SHR OperFlag // (cmdShr	= 143) SHift Right
+	BAND OperFlag // (cmdBitAnd	= 144) Binary AND
+	BOR OperFlag // (cmdBitOr = 145) Binary OR
+	BXOR OperFlag // (cmdBitXor = 146) Binary eXclusive OR
+	LAND OperFlag // (cmdLogAnd = 147) Logical AND
+	LOR OperFlag // (cmdLogOr = 148) Logical OR
+	LXOR OperFlag // (cmdLogXor	= 149) Logical eXclusive OR
+
+  Унарные операции
+	Работают с double, long, int:
+	NEG OperFlag // (cmdNeg	= 160) NEGate
+	INC OperFlag // (cmdInc	= 161) INCrement
+	DEC OperFlag // (cmdDec	= 162) DECrement
+	LNOT OperFlag // (cmdLogNot	= 164) Logical NOT
+
+	Работают с long, int:
+	BNOT OperFlag // (cmdBitNot	= 163) Binary NOT
+
+  Особые унарные операции (Изменяют значения сразу в стеке переменных)
+	Работают с double, long, int:
+	INCAT CmdFlag, [address], [shift], [size] // (cmdIncAt = 171) INCrement AT
+	DECAT CmdFlag, [address], [shift], [size] // (cmdDecAt = 172) DECrement AT
+		В зависимости от значений CmdFlag, значение адреса может изменяться в соответствии с полями
+		address, shift и size, которые могут находится как в стеке, так и за командой.
+		Тип указан в CmdFlag (биты 234)
