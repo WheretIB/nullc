@@ -240,6 +240,8 @@ void ExecutorX86::GenListing()
 
 	bool skipPopOnIntALU = false;
 
+	bool firstProlog = true;
+
 	pos = 0;
 	pos2 = 0;
 	while(cmdList->GetData(pos, cmd))
@@ -284,6 +286,14 @@ void ExecutorX86::GenListing()
 			logASM << "call function" << valind << "\r\n";
 			break;
 		case cmdProlog:
+			if(firstProlog)
+			{
+				logASM << "push ebp";
+			}else{
+				logASM << "mov ebp, edi ; установили новую базу стека переменных, по размеру стека\r\n";
+				pos += 2; //пропустить PUSHT
+			}
+			firstProlog = !firstProlog;
 			//logASM << "xchg eax, [esp]\r\n";
 			//logASM << "push eax ; таким образом, eip остаётся на вершине, но под ним теперь содержимое eax до функции\r\n";
 			break;
@@ -300,7 +310,7 @@ void ExecutorX86::GenListing()
 			}else if(oFlag == OTYPE_INT){
 				logASM << "pop eax ; на время поместим int в регистр\r\n";
 			}
-
+			logASM << "pop ebx ; сохранили eip\r\n";
 			for(UINT pops = 0; pops < valind; pops++)
 			{
 				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
@@ -309,12 +319,17 @@ void ExecutorX86::GenListing()
 			
 			if(oFlag == OTYPE_DOUBLE || oFlag == OTYPE_LONG)
 			{
-				logASM << "xchg [esp], eax ; поменяем часть числа и eip\r\n";
-				logASM << "push edx ; поместим число обратно в стек\r\n";
+				logASM << "push edx ; \r\n";
+				logASM << "push eax ; поместим число обратно в стек\r\n";
 				logASM << "push ebx ; поместим eip обратно в стек\r\n";
+				/*logASM << "xchg [esp], eax ; поменяем часть числа и eip\r\n";
+				logASM << "push edx ; поместим число обратно в стек\r\n";
+				logASM << "push ebx ; поместим eip обратно в стек\r\n";*/
 			}else if(oFlag == OTYPE_INT){
-				logASM << "xchg [esp], eax ; поменяем число и eip\r\n";
-				logASM << "push eax ; поместим eip обратно в стек\r\n";
+				logASM << "push eax ; поместим число обратно в стек\r\n";
+				logASM << "push ebx ; поместим eip обратно в стек\r\n";
+				/*logASM << "xchg [esp], eax ; поменяем число и eip\r\n";
+				logASM << "push eax ; поместим eip обратно в стек\r\n";*/
 			}
 
 			logASM << "ret ; возвращаемся из функции\r\n";
@@ -1035,9 +1050,10 @@ void ExecutorX86::GenListing()
 				logASM << "  ; LES int\r\n";
 				if(!skipPopOnIntALU)
 					logASM << "pop eax \r\n";
+				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setl al \r\n";
-				logASM << "movzx [esp], al\r\n";
+				logASM << "setl cl \r\n";
+				logASM << "mov [esp], ecx\r\n";
 				break;
 			case cmdGreater+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdGreater double\r\n";
@@ -1051,9 +1067,10 @@ void ExecutorX86::GenListing()
 				logASM << "  ; GRT int\r\n";
 				if(!skipPopOnIntALU)
 					logASM << "pop eax \r\n";
+				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setg al \r\n";
-				logASM << "movzx [esp], al\r\n";
+				logASM << "setg cl \r\n";
+				logASM << "mov [esp], ecx\r\n";
 				break;
 			case cmdLEqual+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdLEqual double\r\n";
@@ -1067,9 +1084,10 @@ void ExecutorX86::GenListing()
 				logASM << "  ; LEQL int\r\n";
 				if(!skipPopOnIntALU)
 					logASM << "pop eax \r\n";
+				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setle al \r\n";
-				logASM << "movzx [esp], al\r\n";
+				logASM << "setle cl \r\n";
+				logASM << "mov [esp], ecx\r\n";
 				break;
 			case cmdGEqual+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdGEqual double\r\n";
@@ -1083,9 +1101,10 @@ void ExecutorX86::GenListing()
 				logASM << "  ; GEQL int\r\n";
 				if(!skipPopOnIntALU)
 					logASM << "pop eax \r\n";
+				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setge al \r\n";
-				logASM << "movzx [esp], al\r\n";
+				logASM << "setge cl \r\n";
+				logASM << "mov [esp], ecx\r\n";
 				break;
 			case cmdEqual+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdEqual double\r\n";
@@ -1099,9 +1118,10 @@ void ExecutorX86::GenListing()
 				logASM << "  ; EQL int\r\n";
 				if(!skipPopOnIntALU)
 					logASM << "pop eax \r\n";
+				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "sete al \r\n";
-				logASM << "movzx [esp], al\r\n";
+				logASM << "sete cl \r\n";
+				logASM << "mov [esp], ecx\r\n";
 				break;
 			case cmdNEqual+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdNEqual double\r\n";
@@ -1115,9 +1135,10 @@ void ExecutorX86::GenListing()
 				logASM << "  ; NEQL int\r\n";
 				if(!skipPopOnIntALU)
 					logASM << "pop eax \r\n";
+				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setne al \r\n";
-				logASM << "movzx [esp], al\r\n";
+				logASM << "setne cl \r\n";
+				logASM << "mov [esp], ecx\r\n";
 				break;
 			case cmdShl+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdShl long\r\n";
