@@ -68,9 +68,12 @@ bool ExecutorX86::Run()
 		pusha ;
 		mov eax, binCodeStart ;
 		//mov ebx, data ;
-		mov ecx, 0h ;
+		push ebp;
+		mov ebp, 0h ;
 		mov edi, 18h ;
 		call eax ;
+		pop eax;
+		pop ebp;
 		mov dword ptr [res1], eax;
 		//push 0h;
 		popa ;
@@ -85,7 +88,7 @@ void ExecutorX86::GenListing()
 	logASM.str("");
 
 	UINT pos = 0, pos2 = 0;
-	CmdID	cmd;
+	CmdID	cmd, cmdNext;
 	//char	name[512];
 	UINT	valind;
 
@@ -235,6 +238,8 @@ void ExecutorX86::GenListing()
 	int skipLabels = 1;
 	int aluLabels = 1;
 
+	bool skipPopOnIntALU = false;
+
 	pos = 0;
 	pos2 = 0;
 	while(cmdList->GetData(pos, cmd))
@@ -264,13 +269,13 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdPushVTop:
 			logASM << "  ; PUSHT\r\n";
-			logASM << "push ecx ; сохранили текущую базу стека переменных\r\n";
-			logASM << "mov ecx, edi ; установили новую базу стека переменных, по размеру стека\r\n";
+			logASM << "push ebp ; сохранили текущую базу стека переменных\r\n";
+			logASM << "mov ebp, edi ; установили новую базу стека переменных, по размеру стека\r\n";
 			break;
 		case cmdPopVTop:
 			logASM << "  ; POPT\r\n";
-			logASM << "mov edi, ecx ; восстановили предыдущий размер стека переменных\r\n";
-			logASM << "pop ecx ; восстановили предыдущую базу стека переменных\r\n";
+			logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
+			logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 			break;
 		case cmdCall:
 			logASM << "  ; CALL\r\n";
@@ -279,8 +284,8 @@ void ExecutorX86::GenListing()
 			logASM << "call function" << valind << "\r\n";
 			break;
 		case cmdProlog:
-			logASM << "xchg eax, [esp]\r\n";
-			logASM << "push eax ; таким образом, eip остаётся на вершине, но под ним теперь содержимое eax до функции\r\n";
+			//logASM << "xchg eax, [esp]\r\n";
+			//logASM << "push eax ; таким образом, eip остаётся на вершине, но под ним теперь содержимое eax до функции\r\n";
 			break;
 		case cmdReturn:
 			logASM << "  ; RET\r\n";
@@ -290,22 +295,28 @@ void ExecutorX86::GenListing()
 			pos += sizeof(UINT);
 			if(oFlag == OTYPE_DOUBLE || oFlag == OTYPE_LONG)
 			{
-				logASM << "mov edx, eax \r\n";
-				logASM << "pop eax ; выйдем так чтобы результат был в eax и edx\r\n";
+				logASM << "pop edx \r\n";
+				logASM << "pop eax ; на время поместим double и long в регистры\r\n";
+			}else if(oFlag == OTYPE_INT){
+				logASM << "pop eax ; на время поместим int в регистр\r\n";
 			}
-			logASM << "add esp, 4 ; просто выкинуть значение\r\n";
-			//if(oFlag == OTYPE_INT)
-			//	logASM << "pop eax \r\n";
+
 			for(UINT pops = 0; pops < valind; pops++)
 			{
-				logASM << "mov edi, ecx ; восстановили предыдущий размер стека переменных\r\n";
-				logASM << "pop ecx ; восстановили предыдущую базу стека переменных\r\n";
+				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
+				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 			}
+			
 			if(oFlag == OTYPE_DOUBLE || oFlag == OTYPE_LONG)
 			{
-				logASM << "xchg edx, [esp] \r\n";
-				logASM << "push edx ; нет, пускай результат буден на вершине и в eax\r\n";
+				logASM << "xchg [esp], eax ; поменяем часть числа и eip\r\n";
+				logASM << "push edx ; поместим число обратно в стек\r\n";
+				logASM << "push ebx ; поместим eip обратно в стек\r\n";
+			}else if(oFlag == OTYPE_INT){
+				logASM << "xchg [esp], eax ; поменяем число и eip\r\n";
+				logASM << "push eax ; поместим eip обратно в стек\r\n";
 			}
+
 			logASM << "ret ; возвращаемся из функции\r\n";
 			break;
 		case cmdPushV:
@@ -316,7 +327,7 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdNop:
 			logASM << "  ; NOP\r\n";
-			logASM << "nop\r\n";
+			logASM << "nop \r\n";
 			break;
 		case cmdCTI:
 			cmdList->GetUCHAR(pos, oFlag);
@@ -327,11 +338,10 @@ void ExecutorX86::GenListing()
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
-				logASM << "push eax ; положим double целиком в стек\r\n";
 				logASM << "mov eax, dword [esi+8] ; указатель на функцию doubletolong\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop eax ; убрали double со стека\r\n";
 				logASM << "call eax ; вызовем. теперь нижние 32бита результата - eax, верхние - edx\r\n";
+				logASM << "pop ebx \r\n";
+				logASM << "mov [esp], eax ; заменили double int'ом\r\n";
 				break;
 			case OTYPE_LONG:
 				logASM << "pop edx ; убрали старшие биты long со стека\r\n";
@@ -339,7 +349,8 @@ void ExecutorX86::GenListing()
 			case OTYPE_INT:
 				break;
 			}
-			logASM << "imul eax, 0" << hex << valind << dec << "h ;умножим адрес на размер переменной\r\n";
+			logASM << "pop eax ; расчёт в eax\r\n";
+			logASM << "imul " << valind << " ; умножим адрес на размер переменной\r\n";
 			break;
 		case cmdPush:
 			{
@@ -353,124 +364,86 @@ void ExecutorX86::GenListing()
 				st = flagStackType(cFlag);
 				dt = flagDataType(cFlag);
 
-				// На все варианты на свете найдём оптимизацию...
-				if(flagAddrAbs(cFlag) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
+				char *texts[] = { "", "edx + ", "ebp + ", "push ", "mov eax, " };
+				char *needPush = texts[3];
+				char *needEDX = texts[1];
+				char *needEBP = texts[2];
+				if(flagAddrAbs(cFlag))
+					needEBP = texts[0];
+				UINT numEDX = 0;
+
+				// Если читается из переменной и...
+				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
 				{
-					// Если абсолютная адресация, адрес не лежит в стеке, и имеется сдвиг в команде
+					// ...если адрес не лежит в стеке, и имеется сдвиг в команде
 					cmdList->GetINT(pos, valind);
 					pos += 4;
 					cmdList->GetINT(pos, shift);
 					pos += 4;
 					valind += shift;
-					if(valind != 0)
-						logASM << "mov edx, " << valind+paramBase << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
-					else
-						logASM << "mov edx, " << paramBase << "; возмём указатель на стек переменных (opt: addr+shift==0)\r\n";
-				}else if(flagAddrAbs(cFlag) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
+					if(!(flagSizeOn(cFlag) || flagSizeStk(cFlag)))
+						needEDX = texts[0];
+					numEDX = valind;
+					if(flagSizeOn(cFlag) || flagSizeStk(cFlag))
+					{
+						if(valind != 0)
+							logASM << "mov edx, " << valind << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
+						else
+							logASM << "xor edx, edx ; возмём указатель на стек переменных (opt: addr+shift==0)\r\n";
+					}
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
 				{
-					// Если абсолютная адресация, адрес не лежит в стеке, и имеется сдвиг в стеке
+					// ...если адрес не лежит в стеке, и имеется сдвиг в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
+					logASM << "pop eax ; взяли сдвиг\r\n";
 					if(valind != 0)
-						logASM << "lea edx, [eax + " << valind+paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 					else
-						logASM << "lea edx, [eax + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-				}else if(flagAddrAbs(cFlag) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
+						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
 				{
-					// Если абсолютная адресация, адрес лежит в стеке, и имеется сдвиг в команде
+					// ...если адрес лежит в стеке, и имеется сдвиг в команде
 					cmdList->GetINT(pos, shift);
 					pos += 4;
+					logASM << "pop eax ; взяли адрес\r\n";
 					if(shift != 0)
-						logASM << "lea edx, [eax + " << shift+paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						logASM << "lea edx, [eax + " << shift << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 					else
-						logASM << "lea edx, [eax + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: shift==0)\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-				}else if(flagAddrAbs(cFlag) && flagAddrStk(cFlag) && flagShiftStk(cFlag))
+						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: shift==0)\r\n";
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftStk(cFlag))
 				{
-					// Если абсолютная адресация, адрес лежит в стеке, и имеется сдвиг в стеке
-					logASM << "lea edx, [eax + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-					logASM << "add edx, eax ; сдвинем на ещё одно число в стеке\r\n";
-					logASM << "pop eax ; убрали использованный сдвиг\r\n";
-				}else if(flagAddrRel(cFlag) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
+					// ...если адрес лежит в стеке, и имеется сдвиг в стеке
+					logASM << "pop eax ; взяли адрес\r\n";
+					logASM << "pop ebx ; взяли сдвиг\r\n";
+					logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag))
 				{
-					// Если относительная адресация, адрес не лежит в стеке, и имеется сдвиг в команде
+					// ...если адрес не лежит в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					cmdList->GetINT(pos, shift);
-					pos += 4;
-					valind += shift;
-					if(valind != 0)
-						logASM << "lea edx, [ecx + " << valind+paramBase << "] ; возмём указатель на стек переменных и сдвинем до базы стека переменных и по константному сдвигу\r\n";
-					else
-						logASM << "lea edx, [ecx + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем до базы стека переменных(opt: addr+shift==0)\r\n";
-				}else if(flagAddrRel(cFlag) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
+					if(!(flagSizeOn(cFlag) || flagSizeStk(cFlag)))
+						needEDX = texts[0];
+					numEDX = valind;
+					if(flagSizeOn(cFlag) || flagSizeStk(cFlag))
+					{
+						if(valind != 0)
+							logASM << "mov edx, " << valind << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
+						else
+							logASM << "xor edx, edx ; возмём указатель на стек переменных (opt: addr==0)\r\n";
+					}
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag))
 				{
-					// Если относительная адресация, адрес не лежит в стеке, и имеется сдвиг в стеке
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					if(valind != 0)
-						logASM << "lea edx, [eax + ecx + " << valind+paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-					else
-						logASM << "lea edx, [eax + ecx + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-					logASM << "pop eax ; убрали использованный сдвиг\r\n";
-					//logASM << "add edx, ecx ; сдвинем на базу стека переменных";
-				}else if(flagAddrRel(cFlag) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
-				{
-					// Если относительная адресация, адрес лежит в стеке, и имеется сдвиг в команде
-					cmdList->GetINT(pos, shift);
-					pos += 4;
-					if(shift != 0)
-						logASM << "lea edx, [eax + ecx + " << shift+paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-					else
-						logASM << "lea edx, [eax + ecx + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: shift==0)\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-					//logASM << "add edx, ecx ; сдвинем на базу стека переменных";
-				}else if(flagAddrRel(cFlag) && flagAddrStk(cFlag) && flagShiftStk(cFlag))
-				{
-					// Если относительная адресация, адрес лежит в стеке, и имеется сдвиг в стеке
-					logASM << "lea edx, [eax + ecx + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-					logASM << "add edx, eax ; сдвинем на ещё одно число в стеке\r\n";
-					logASM << "pop eax ; убрали использованный сдвиг\r\n";
-					//logASM << "add edx, ecx ; сдвинем на базу стека переменных";
-				}else if(flagAddrAbs(cFlag) && !flagAddrStk(cFlag))
-				{
-					// Если абсолютная адресация и адрес не лежит в стеке
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					if(valind != 0)
-						logASM << "mov edx, " << valind+paramBase << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
-					else
-						logASM << "mov edx, " << paramBase << "; возмём указатель на стек переменных (opt: addr==0)\r\n";
-				}else if(flagAddrAbs(cFlag) && flagAddrStk(cFlag))
-				{
-					// Если абсолютная адресация и адрес лежит в стеке
-					logASM << "lea edx, [eax + " << paramBase << "] ; возмём указатель на стек переменных\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-				}else if(flagAddrRel(cFlag) && !flagAddrStk(cFlag))
-				{
-					// Если относительная адресация и адрес не лежит в стеке
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					if(valind != 0)
-						logASM << "lea edx, [ecx + " << valind+paramBase << "] ; возмём указатель на стек переменных и сдвинем на базу стека переменных и по константному сдвигу\r\n";
-					else
-						logASM << "lea edx, [ecx + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем на базу стека переменных(opt: addr+shift==0)\r\n";
-				}else if(flagAddrRel(cFlag) && flagAddrStk(cFlag))
-				{
-					// Если относительная адресация и адрес лежит в стеке
-					logASM << "lea edx, [eax + ecx + " << paramBase << "] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-					//logASM << "add edx, ecx ; сдвинем на базу стека переменных";
+					// ...если адрес лежит в стеке
+					logASM << "pop eax ; взяли адрес\r\n";
+					logASM << "mov edx, eax ; возмём указатель на стек переменных\r\n";
 				}
-				
+
 				if(flagSizeOn(cFlag))
 				{
 					cmdList->GetINT(pos, size);
 					pos += 4;
-					logASM << "cmp edx, 0" << hex << size << dec << "h ; сравним с максимальным сдвигом\r\n";
+					logASM << "cmp edx, " << size << " ; сравним с максимальным сдвигом\r\n";
 					logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 					logASM << "mov esi, [esi+4h] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
 					logASM << "call esi ; вызовем её\r\n";
@@ -479,71 +452,83 @@ void ExecutorX86::GenListing()
 				}
 				if(flagSizeStk(cFlag))
 				{
-					logASM << "cmp edx, eax ; сравним с максимальным сдвигом в стеке\r\n";
+					logASM << "pop eax ; взяли максимальный сдвиг\r\n";
+					logASM << "cmp edx, eax ; сравним с текущим\r\n";
 					logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 					logASM << "mov esi, [esi+4h] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
 					logASM << "call esi ; вызовем её\r\n";
 					logASM << "  pushLabel" << pushLabels << ":\r\n";
 					pushLabels++;
 				}
-				logASM << "push eax ; освободим вершину для новых значений\r\n";
+
 				if(flagNoAddr(cFlag))
 				{
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 					{
 						cmdList->GetUINT(pos, highDW); pos += 4;
 						cmdList->GetUINT(pos, lowDW); pos += 4;
-						logASM << "mov eax, 0" << highDW << "\r\n";
-						logASM << "push eax\r\n";
-						logASM << "mov eax, 0" << lowDW << " ; положили double или long long\r\n";
+						logASM << "push " << highDW << "\r\n";
+						logASM << "push " << lowDW << " ; положили double или long long\r\n";
 					}
 					if(dt == DTYPE_FLOAT)
 					{
 						// Кладём флоат как double
 						cmdList->GetUINT(pos, lowDW); pos += 4;
 						double res = (double)*((float*)(&lowDW));
-						logASM << "mov eax, " << *((UINT*)(&res)) << "\r\n";
-						logASM << "push eax\r\n";
-						logASM << "mov eax, " << *((UINT*)(&res)+1) << " ; положили float как double\r\n";
+						logASM << "push " << *((UINT*)(&res)) << "\r\n";
+						logASM << "push " << *((UINT*)(&res)+1) << " ; положили float как double\r\n";
 					}
 					if(dt == DTYPE_INT)
 					{
 						cmdList->GetUINT(pos, lowDW); pos += 4;
-						logASM << "mov eax, " << lowDW << " ; положили int\r\n";
+						logASM << "push " << lowDW << " ; положили int\r\n";
 					}
 					if(dt == DTYPE_SHORT)
 					{
 						cmdList->GetUSHORT(pos, sdata); pos += 2;
 						lowDW = (sdata > 0 ? sdata : sdata | 0xFFFF0000);
-						logASM << "mov eax, " << lowDW << " ; положили short\r\n";
+						logASM << "push " << lowDW << " ; положили short\r\n";
 					}
 					if(dt == DTYPE_CHAR)
 					{
 						cmdList->GetUCHAR(pos, cdata); pos += 1;
 						lowDW = cdata;
-						logASM << "mov eax, " << lowDW << " ; положили char\r\n";
+						logASM << "push " << lowDW << " ; положили char\r\n";
 					}
 				}else{
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 					{
-						logASM << "mov eax, [edx]\r\n";
-						logASM << "push eax\r\n";
-						logASM << "mov eax, [edx+4h] ; положили double или long long\r\n";
+						logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX << "]\r\n";
+						logASM << "push dword [" << needEDX << needEBP << paramBase+4+numEDX << "] ; положили double или long long\r\n";
 					}
 					if(dt == DTYPE_FLOAT)
 					{
 						logASM << "push eax ; \r\n";
 						logASM << "push eax ; освободим место под double\r\n";
-						logASM << "fld dword [edx] ; поместим float в fpu стек\r\n";
+						logASM << "fld dword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим float в fpu стек\r\n";
 						logASM << "fstp qword [esp] ; поместим double в обычный стек\r\n";
-						logASM << "pop eax\r\n";
 					}
 					if(dt == DTYPE_INT)
-						logASM << "mov eax, [edx] ; положили int\r\n";
+					{
+						//look at the next command
+						cmdList->GetData(pos, cmdNext);
+						if(cmdNext >= cmdAdd && cmdNext <= cmdNEqual)
+						{
+							needPush = texts[4];
+							skipPopOnIntALU = true;
+						}
+						logASM << needPush << "dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили int\r\n";
+					}
 					if(dt == DTYPE_SHORT)
-						logASM << "movsx eax, word [edx] ; положили short\r\n";
+					{
+						logASM << "movsx eax, word [" << needEDX << needEBP << paramBase+numEDX << "] ; положили short\r\n";
+						logASM << "push eax \r\n";
+					}
 					if(dt == DTYPE_CHAR)
-						logASM << "movsx eax, byte [edx] ; положили char\r\n";
+					{
+						logASM << "movsx eax, byte [" << needEDX << needEBP << paramBase+numEDX << "] ; положили char\r\n";
+						logASM << "push eax \r\n";
+					}
 				}
 			}
 			break;
@@ -557,131 +542,88 @@ void ExecutorX86::GenListing()
 				st = flagStackType(cFlag);
 				dt = flagDataType(cFlag);
 
-				if(flagAddrStk(cFlag) || flagShiftStk(cFlag) || flagSizeStk(cFlag))
+				if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
 				{
+					// Регистров много, не паримся!
 					if(st == STYPE_DOUBLE || st == STYPE_LONG)
 					{
-						logASM << "push eax ; загоним double или long целиком в стек \r\n";
-						logASM << "add esp, 8 ; переведём вершину за данные \r\n";
-						logASM << "pop eax ; поместим в eax следующее за данными значение \r\n";
-					}
-					if(st == STYPE_INT)
+						logASM << "pop ebx ; \r\n";
+						logASM << "pop ecx ; считаем double или long long в регистры \r\n";
+					}else if(st == STYPE_INT)
 					{
-						logASM << "push eax ; загоним int целиком в стек\r\n";
-						logASM << "add esp, 4 ; переведём вершину за данные \r\n";
-						logASM << "pop eax ; поместим в eax следующее за данными значение \r\n";
+						logASM << "pop ebx ; считаем int в регистр\r\n";
 					}
 				}
 
-				int varSize = typeSizeD[(cFlag>>2)&0x00000007];
+				UINT numEDX = 0;
+				bool knownEDX = false;
+				bool cantOptimiseEDX = flagSizeOn(cFlag) || flagSizeStk(cFlag);
 
-				// На все варианты на свете найдём оптимизацию...
-				if(flagAddrAbs(cFlag) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
+				// Если читается из переменной и...
+				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
 				{
-					// Если абсолютная адресация, адрес не лежит в стеке, и имеется сдвиг в команде
+					// ...если адрес не лежит в стеке, и имеется сдвиг в команде
 					cmdList->GetINT(pos, valind);
 					pos += 4;
 					cmdList->GetINT(pos, shift);
 					pos += 4;
 					valind += shift;
-					if(valind != 0)
-						logASM << "mov edx, " << valind+varSize << " ; поместим константный сдвиг\r\n";
-					else
-						logASM << "mov edx, " << varSize << " ; константный сдвиг == 0\r\n";
-				}else if(flagAddrAbs(cFlag) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
+					if(cantOptimiseEDX)
+					{
+						if(valind != 0)
+							logASM << "mov edx, " << valind << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
+						else
+							logASM << "xor edx, edx ; возмём указатель на стек переменных (opt: addr+shift==0)\r\n";
+					}else{
+						knownEDX = true;
+						numEDX = valind;
+					}
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
 				{
-					// Если абсолютная адресация, адрес не лежит в стеке, и имеется сдвиг в стеке
+					// ...если адрес не лежит в стеке, и имеется сдвиг в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
+					logASM << "pop eax ; взяли сдвиг\r\n";
 					if(valind != 0)
-						logASM << "lea edx, [eax + " << valind+varSize << "] ; сдвиг = константный адрес + сдвиг в стеке\r\n";
+						logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 					else
-						logASM << "lea edx, [eax + " << varSize << "] ; сдвиг до переменной в стеке (opt: addr==0)\r\n";
-					logASM << "pop eax ; убрали использованный сдвиг\r\n";
-				}else if(flagAddrAbs(cFlag) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
+						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
 				{
-					// Если абсолютная адресация, адрес лежит в стеке, и имеется сдвиг в команде
+					// ...если адрес лежит в стеке, и имеется сдвиг в команде
 					cmdList->GetINT(pos, shift);
 					pos += 4;
+					logASM << "pop eax ; взяли адрес\r\n";
 					if(shift != 0)
-						logASM << "lea edx, [eax + " << shift+varSize << "] ; сдвиг = адрес в стеке + константный сдвиг\r\n";
+						logASM << "lea edx, [eax + " << shift << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 					else
-						logASM << "lea edx, [eax + " << varSize << "] ; сдвиг = адрес в стеке (opt: shift==0)\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-				}else if(flagAddrAbs(cFlag) && flagAddrStk(cFlag) && flagShiftStk(cFlag))
+						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: shift==0)\r\n";
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftStk(cFlag))
 				{
-					// Если абсолютная адресация, адрес лежит в стеке, и имеется сдвиг в стеке
-					logASM << "lea edx, [eax + " << varSize << "] ; сдвиг = адрес в стеке\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-					logASM << "add edx, eax ; сдвиг = адрес в стеке + сдвиг в стеке\r\n";
-					logASM << "pop eax ; убрали использованный сдвиг\r\n";
-				}else if(flagAddrRel(cFlag) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
+					// ...если адрес лежит в стеке, и имеется сдвиг в стеке
+					logASM << "pop eax ; взяли адрес\r\n";
+					logASM << "pop ebx ; взяли сдвиг\r\n";
+					logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag))
 				{
-					// Если относительная адресация, адрес не лежит в стеке, и имеется сдвиг в команде
+					// ...если адрес не лежит в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					cmdList->GetINT(pos, shift);
-					pos += 4;
-					valind += shift;
-					if(valind != 0)
-						logASM << "lea edx, [ecx + " << valind+varSize << "] ; сдвиг = база стека переменных + константный сдвиг + константный адрес\r\n";
-					else
-						logASM << "lea edx, [ecx + " << varSize << "] ; сдвиг = база стека переменных (opt: addr+shift==0)\r\n";
-				}else if(flagAddrRel(cFlag) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
+					if(cantOptimiseEDX)
+					{
+						if(valind != 0)
+							logASM << "mov edx, " << valind << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
+						else
+							logASM << "xor edx, edx ; возмём указатель на стек переменных (opt: addr==0)\r\n";
+					}else{
+						knownEDX = true;
+						numEDX = valind;
+					}
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag))
 				{
-					// Если относительная адресация, адрес не лежит в стеке, и имеется сдвиг в стеке
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					if(valind != 0)
-						logASM << "lea edx, [eax + ecx + " << valind+varSize << "] ; сдвиг = база стека переменных + сдвиг в стеке + константный адрес\r\n";
-					else
-						logASM << "lea edx, [eax + ecx + " << varSize << "] ; сдвиг = база стека переменных + сдвиг в стеке (opt: addr==0)\r\n";
-					logASM << "pop eax ; убрали использованный сдвиг\r\n";
-				}else if(flagAddrRel(cFlag) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
-				{
-					// Если относительная адресация, адрес лежит в стеке, и имеется сдвиг в команде
-					cmdList->GetINT(pos, shift);
-					pos += 4;
-					if(shift != 0)
-						logASM << "lea edx, [eax + ecx + " << shift+varSize << "] ; сдвиг = база стека переменных + константный сдвиг + адрес в стеке\r\n";
-					else
-						logASM << "lea edx, [eax + ecx + " << varSize << "] ; сдвиг = база стека переменных + адрес в стеке (opt: shift==0)\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-				}else if(flagAddrRel(cFlag) && flagAddrStk(cFlag) && flagShiftStk(cFlag))
-				{
-					// Если относительная адресация, адрес лежит в стеке, и имеется сдвиг в стеке
-					logASM << "lea edx, [eax + ecx + " << varSize << "] ; сдвиг = база стека переменных + адрес в стеке\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-					logASM << "add edx, eax ; сдвиг = база стека переменных + адрес в стеке + сдвиг в стеке\r\n";
-					logASM << "pop eax ; убрали использованный сдвиг\r\n";
-				}else if(flagAddrAbs(cFlag) && !flagAddrStk(cFlag))
-				{
-					// Если абсолютная адресация и адрес не лежит в стеке
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					if(valind != 0)
-						logASM << "mov edx, " << valind+varSize << " ; сдвиг = константный адрес\r\n";
-					else
-						logASM << "mov edx, " << varSize << " ; сдвиг = 0 (opt: addr==0)\r\n";
-				}else if(flagAddrAbs(cFlag) && flagAddrStk(cFlag))
-				{
-					// Если абсолютная адресация и адрес лежит в стеке
-					logASM << "lea edx, [eax + " << varSize << "] ; сдвиг = адрес в стеке\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
-				}else if(flagAddrRel(cFlag) && !flagAddrStk(cFlag))
-				{
-					// Если относительная адресация и адрес не лежит в стеке
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					if(valind != 0)
-						logASM << "lea edx, [ecx + " << valind+varSize << "] ; сдвиг = база стека переменных + константный адрес\r\n";
-					else
-						logASM << "lea edx, [ecx + " << varSize << "] ; сдвиг = база стека переменных (opt: addr+shift==0)\r\n";
-				}else if(flagAddrRel(cFlag) && flagAddrStk(cFlag))
-				{
-					// Если относительная адресация и адрес лежит в стеке
-					logASM << "lea edx, [eax + ecx + " << varSize << "] ; сдвиг = база стека переменных + адрес в стеке\r\n";
-					logASM << "pop eax ; убрали использованный адрес\r\n";
+					// ...если адрес лежит в стеке
+					logASM << "pop eax ; взяли адрес\r\n";
+					logASM << "mov edx, eax ; возмём указатель на стек переменных\r\n";
 				}
 
 				if(flagSizeOn(cFlag))
@@ -707,52 +649,81 @@ void ExecutorX86::GenListing()
 					movLabels++;
 				}
 				
-				//logASM << "add edx, " << typeSizeD[(cFlag>>2)&0x00000007] << " ; прибавим размер\r\n";
+				UINT varSize = typeSizeD[(cFlag>>2)&0x00000007];
+				if(knownEDX)
+				{
+					if(flagAddrAbs(cFlag))
+						logASM << "mov edx, " << varSize+numEDX << " ; прибавим размер\r\n";
+					else
+						logASM << "lea edx, [ebp + " << varSize+numEDX << "] ; прибавим размер\r\n";
+				}else{
+					if(flagAddrAbs(cFlag))
+						logASM << "add edx, " << varSize << " ; прибавим размер\r\n";
+					else
+						logASM << "lea edx, [edx + ebp + " << varSize << "] ; прибавим размер\r\n";
+				}
 				logASM << "cmp edi, edx ; сравним не превышен ли размер стека переменных\r\n";
 				logASM << "jge skipResize" << skipLabels << "\r\n";
 				logASM << "mov edi, edx \r\n";
 				logASM << "  skipResize" << skipLabels << ":\r\n";
-				logASM << "lea edx, [edx + " << paramBase-typeSizeD[(cFlag>>2)&0x00000007] << "] ; восстановим сдвиг и составим адрес\r\n";
-				//logASM << "sub edx, " << typeSizeD[(cFlag>>2)&0x00000007] << " ; востановим адрес\r\n";
 				skipLabels++;
 
-				UINT restoreShift = 0;
-				if(flagAddrStk(cFlag))
-					restoreShift += 4;
-				if(flagShiftStk(cFlag))
-					restoreShift += 4;
-				if(flagSizeStk(cFlag))
-					restoreShift += 4;
-				if(restoreShift != 0)
-				{
-					if(st == STYPE_DOUBLE || st == STYPE_LONG)
-						restoreShift += 12;
-					if(st == STYPE_INT)
-						restoreShift += 8;
-
-					logASM << "sub esp, " << restoreShift << " ; переведём вершину за данные \r\n";
-					logASM << "pop eax ";
-				}
+				UINT final = paramBase-typeSizeD[(cFlag>>2)&0x00000007];
 				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
-					logASM << "mov [edx+4h], eax \r\n";
-					logASM << "pop eax\r\n";
-					logASM << "mov [edx], eax ; присвоили double или long long переменной.\r\n";
-					logASM << "push eax \r\n";
-					logASM << "mov eax, [edx+4h] ; оставили значение в стеке, как было\r\n";
+					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
+					{
+						logASM << "mov [edx + " << final+4 << "], ebx \r\n";
+						logASM << "mov [edx + " << final << "], ecx ; присвоили double или long long переменной.\r\n";
+						logASM << "push ecx \r\n";
+						logASM << "push ebx ; оставили значение в стеке, как было\r\n";
+					}else{
+						logASM << "mov ebx, [esp] \r\n";
+						logASM << "mov ecx, [esp+4] \r\n";
+						logASM << "mov [edx + " << final+4 << "], ebx \r\n";
+						logASM << "mov [edx + " << final << "], ecx ; присвоили double или long long переменной.\r\n";
+					}
 				}
 				if(dt == DTYPE_FLOAT)
 				{
+					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
+						logASM << "push ebx \r\n";
 					logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
-					logASM << "fstp qword [edx] ; присвоили float переменной\r\n";
+					logASM << "fstp dword [edx + " << final << "] ; присвоили float переменной\r\n";
 				}
 				if(dt == DTYPE_INT)
-					logASM << "mov [edx], eax ; присвоили int переменной\r\n";
+				{
+					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
+					{
+						logASM << "push ebx \r\n";
+						logASM << "mov [edx + " << final << "], ebx ; присвоили int переменной\r\n";
+					}else{
+						logASM << "mov ebx, [esp] \r\n";
+						logASM << "mov [edx + " << final << "], ebx ; присвоили int переменной\r\n";
+					}
+				}
 				if(dt == DTYPE_SHORT)
-					logASM << "mov word [edx], eax ; присвоили short переменной\r\n";
+				{
+					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
+					{
+						logASM << "push ebx \r\n";
+						logASM << "mov word [edx + " << final << "], ebx ; присвоили short переменной\r\n";
+					}else{
+						logASM << "mov ebx, [esp] \r\n";
+						logASM << "mov word [edx + " << final << "], ebx ; присвоили short переменной\r\n";
+					}
+				}
 				if(dt == DTYPE_CHAR)
-					logASM << "mov byte [edx], eax ; присвоили char переменной\r\n";
-				
+				{
+					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
+					{
+						logASM << "push ebx \r\n";
+						logASM << "mov byte [edx + " << final << "], ebx ; присвоили char переменной\r\n";
+					}else{
+						logASM << "mov ebx, [esp] \r\n";
+						logASM << "mov byte [edx + " << final << "], ebx ; присвоили char переменной\r\n";
+					}
+				}
 			}
 			break;
 		case cmdPop:
@@ -779,18 +750,16 @@ void ExecutorX86::GenListing()
 				
 				if(st == STYPE_DOUBLE && dt == DTYPE_INT)
 				{
-					logASM << "push eax ; положим double целиком в стек\r\n";
 					logASM << "mov eax, dword [esi+8] ; указатель на функцию doubletolong\r\n";
-					logASM << "pop eax \r\n";
-					logASM << "pop eax ; убрали double со стека\r\n";
 					logASM << "call eax ; вызовем. теперь нижние 32бита результата - eax, верхние - edx\r\n";
+					logASM << "pop ebx \r\n";
+					logASM << "pop ebx ; убрали double со стека\r\n";
+					logASM << "push eax ; положим int в стек\r\n";
 				}else if(st == STYPE_DOUBLE && dt == DTYPE_LONG){
-					logASM << "push eax ; положим double целиком в стек\r\n";
 					logASM << "mov eax, dword [esi+8] ; указатель на функцию doubletolong\r\n";
-					logASM << "pop eax \r\n";
-					logASM << "pop eax ; убрали double со стека\r\n";
 					logASM << "call eax ; вызовем. теперь нижние 32бита результата - eax, верхние - edx\r\n";
-					logASM << "push edx ; вот и составили long long в стеке!";
+					logASM << "xchg eax, [esp] \r\n";
+					logASM << "xchg edx, [esp-4] ; составили long long в стеке\r\n";
 				}
 			}
 			break;
@@ -804,29 +773,28 @@ void ExecutorX86::GenListing()
 
 				if(st == STYPE_INT && dt == DTYPE_DOUBLE)
 				{
-					logASM << "push eax ; загоним число целиком в стек\r\n";
 					logASM << "fild dword [esp] ; переведём в double\r\n";
 					logASM << "push eax ; освободим место под double\r\n";
 					logASM << "fstp qword [esp] ; скопируем double в стек\r\n";
-					logASM << "pop eax \r\n";
 				}
 				if(st == STYPE_LONG && dt == DTYPE_DOUBLE)
 				{
-					logASM << "push eax ; загоним число целиком в стек\r\n";
 					logASM << "fild qword [esp] ; переведём в double\r\n";
 					logASM << "fstp qword [esp] ; скопируем double в стек\r\n";
-					logASM << "pop eax \r\n";
 				}
 			}
 			break;
 		case cmdITOL:
 			logASM << "  ; ITOL\r\n";
+			logASM << "pop eax ; взяли int\r\n";
 			logASM << "cdq ; расширили до long в edx\r\n";
 			logASM << "push edx ; положили старшие в стек\r\n";
+			logASM << "push eax ; полжили младшие в стек\r\n";
 			break;
 		case cmdLTOI:
 			logASM << "  ; LTOI\r\n";
-			logASM << "pop edx ; убрали старшие биты long со стека\r\n";
+			logASM << "pop eax ; взяли младшие биты\r\n";
+			logASM << "xchg eax, [esp] ; заменили старшие младшими\r\n";
 			break;
 		case cmdSwap:
 			logASM << "  ; SWAP\r\n";
@@ -836,23 +804,31 @@ void ExecutorX86::GenListing()
 			{
 			case (STYPE_DOUBLE)+(DTYPE_DOUBLE):
 			case (STYPE_LONG)+(DTYPE_LONG):
-				logASM << "xchg eax, [esp+4h]\r\n";
-				logASM << "mov edx, [esp]\r\n";
-				logASM << "xchg edx, [esp+8h]\r\n";
-				logASM << "mov [esp], edx ; поменяли местами два long или double\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "xchg eax, [esp+4]\r\n";
+				logASM << "pop edx \r\n";
+				logASM << "xchg edx, [esp+4]\r\n";
+				logASM << "push edx\r\n";
+				logASM << "push eax ; поменяли местами два long или double\r\n";
 				break;
 			case (STYPE_DOUBLE)+(DTYPE_INT):
 			case (STYPE_LONG)+(DTYPE_INT):
+				logASM << "pop eax \r\n";
 				logASM << "xchg eax, [esp+4h]\r\n";
-				logASM << "xchg eax, [esp] ; поменяли местами double и int\r\n";
+				logASM << "xchg eax, [esp]\r\n";
+				logASM << "push eax ; поменяли местами (long или double) и int\r\n";
 				break;
 			case (STYPE_INT)+(DTYPE_DOUBLE):
 			case (STYPE_INT)+(DTYPE_LONG):
+				logASM << "pop eax \r\n";
 				logASM << "xchg eax, [esp]\r\n";
-				logASM << "xchg eax, [esp+4h] ; поменяли местами int и double\r\n";
+				logASM << "xchg eax, [esp+4h]\r\n";
+				logASM << "push eax ; поменяли местами int и (long или double)\r\n";
 				break;
 			case (STYPE_INT)+(DTYPE_INT):
-				logASM << "xchg eax, [esp] ; поменяли местами два int\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "xchg eax, [esp]\r\n";
+				logASM << "push eax ; поменяли местами два int\r\n";
 				break;
 			default:
 				throw std::string("cmdSwap, unimplemented type combo");
@@ -867,10 +843,12 @@ void ExecutorX86::GenListing()
 			case OTYPE_DOUBLE:
 			case OTYPE_LONG:
 				logASM << "mov edx, [esp]\r\n";
+				logASM << "mov eax, [esp+4]\r\n";
 				logASM << "push eax\r\n";
 				logASM << "push edx ; скопировали long или double\r\n";
 				break;
 			case OTYPE_INT:
+				logASM << "mov eax, [esp]\r\n";
 				logASM << "push eax ; скопировали int\r\n";
 				break;
 			}
@@ -890,7 +868,6 @@ void ExecutorX86::GenListing()
 
 			if(oFlag == OTYPE_DOUBLE)
 			{
-				logASM << "push eax ; положим double целиком в стек\r\n";
 				logASM << "fldz ; положим ноль в fpu стек\r\n";
 				logASM << "fcomp qword [esp] ; сравним\r\n"; 
 				logASM << "fnstsw ax ; результат без проверок на fpu исключения положим в ax\r\n";
@@ -899,15 +876,13 @@ void ExecutorX86::GenListing()
 				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
 				logASM << "jp gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_LONG){
-				logASM << "mov edx, eax \r\n";
+				logASM << "pop edx \r\n";
 				logASM << "pop eax \r\n";
 				logASM << "or edx, eax ; сравниваем long == 0\r\n";
-				logASM << "pop eax \r\n";
 				logASM << "jne gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_INT){
-				logASM << "mov edx, eax \r\n";
 				logASM << "pop eax \r\n";
-				logASM << "test edx, edx ; сравниваем int == 0\r\n";
+				logASM << "test eax, eax ; сравниваем int == 0\r\n";
 				logASM << "jz gLabel" << valind << "\r\n";
 			}
 			break;
@@ -919,7 +894,6 @@ void ExecutorX86::GenListing()
 			pos += 4;
 			if(oFlag == OTYPE_DOUBLE)
 			{
-				logASM << "push eax ; положим double целиком в стек\r\n";
 				logASM << "fldz ; положим ноль в fpu стек\r\n";
 				logASM << "fcomp qword [esp] ; сравним\r\n"; 
 				logASM << "fnstsw ax ; результат без проверок на fpu исключения положим в ax\r\n";
@@ -928,15 +902,13 @@ void ExecutorX86::GenListing()
 				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
 				logASM << "jnp gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_LONG){
-				logASM << "mov edx, eax \r\n";
+				logASM << "pop edx \r\n";
 				logASM << "pop eax \r\n";
 				logASM << "or edx, eax ; сравниваем long == 0\r\n";
-				logASM << "pop eax \r\n";
 				logASM << "je gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_INT){
-				logASM << "mov edx, eax \r\n";
 				logASM << "pop eax \r\n";
-				logASM << "test edx, edx \r\n";
+				logASM << "test eax, eax \r\n";
 				logASM << "jnz gLabel" << valind << "\r\n";
 			}
 			break;
@@ -958,8 +930,9 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdAdd+(OTYPE_INT<<16):
 				logASM << "  ; ADD int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "add eax, edx \r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "add [esp], eax \r\n";
 				break;
 			case cmdSub+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdSub double\r\n";
@@ -971,9 +944,9 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdSub+(OTYPE_INT<<16):
 				logASM << "  ; SUB int\r\n";
-				logASM << "xchg eax, edx \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "sub eax, edx \r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "sub [esp], eax \r\n";
 				break;
 			case cmdMul+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdMul double\r\n";
@@ -985,8 +958,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdMul+(OTYPE_INT<<16):
 				logASM << "  ; MUL int\r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
 				logASM << "pop edx \r\n";
-				logASM << "imul edx ; результат в eax\r\n";
+				logASM << "imul edx \r\n";
+				logASM << "push eax \r\n";
 				break;
 			case cmdDiv+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdDiv double\r\n";
@@ -1010,8 +986,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdDiv+(OTYPE_INT<<16):
 				logASM << "  ; DIV int\r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
 				logASM << "pop edx \r\n";
 				logASM << "idiv edx ; а проверка на 0?\r\n";
+				logASM << "push eax \r\n";
 				break;
 			case cmdPow+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdPow double\r\n";
@@ -1054,10 +1033,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdLess+(OTYPE_INT<<16):
 				logASM << "  ; LES int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "cmp eax, edx ; \r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "cmp [esp], eax ; \r\n";
 				logASM << "setl al \r\n";
-				logASM << "movzx eax, al\r\n";
+				logASM << "movzx [esp], al\r\n";
 				break;
 			case cmdGreater+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdGreater double\r\n";
@@ -1069,10 +1049,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdGreater+(OTYPE_INT<<16):
 				logASM << "  ; GRT int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "cmp eax, edx ; \r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "cmp [esp], eax ; \r\n";
 				logASM << "setg al \r\n";
-				logASM << "movzx eax, al\r\n";
+				logASM << "movzx [esp], al\r\n";
 				break;
 			case cmdLEqual+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdLEqual double\r\n";
@@ -1084,10 +1065,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdLEqual+(OTYPE_INT<<16):
 				logASM << "  ; LEQL int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "cmp eax, edx ; \r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "cmp [esp], eax ; \r\n";
 				logASM << "setle al \r\n";
-				logASM << "movzx eax, al\r\n";
+				logASM << "movzx [esp], al\r\n";
 				break;
 			case cmdGEqual+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdGEqual double\r\n";
@@ -1099,10 +1081,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdGEqual+(OTYPE_INT<<16):
 				logASM << "  ; GEQL int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "cmp eax, edx ; \r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "cmp [esp], eax ; \r\n";
 				logASM << "setge al \r\n";
-				logASM << "movzx eax, al\r\n";
+				logASM << "movzx [esp], al\r\n";
 				break;
 			case cmdEqual+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdEqual double\r\n";
@@ -1114,10 +1097,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdEqual+(OTYPE_INT<<16):
 				logASM << "  ; EQL int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "cmp eax, edx ; \r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "cmp [esp], eax ; \r\n";
 				logASM << "sete al \r\n";
-				logASM << "movzx eax, al\r\n";
+				logASM << "movzx [esp], al\r\n";
 				break;
 			case cmdNEqual+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdNEqual double\r\n";
@@ -1129,10 +1113,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdNEqual+(OTYPE_INT<<16):
 				logASM << "  ; NEQL int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "cmp eax, edx ; \r\n";
+				if(!skipPopOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "cmp [esp], eax ; \r\n";
 				logASM << "setne al \r\n";
-				logASM << "movzx eax, al\r\n";
+				logASM << "movzx [esp], al\r\n";
 				break;
 			case cmdShl+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdShl long\r\n";
@@ -1141,7 +1126,9 @@ void ExecutorX86::GenListing()
 			case cmdShl+(OTYPE_INT<<16):
 				logASM << "  ; SHL int\r\n";
 				logASM << "pop edx \r\n";
+				logASM << "pop eax \r\n";
 				logASM << "sal eax, edx ; \r\n";
+				logASM << "push eax \r\n";
 				break;
 			case cmdShr+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdShr long\r\n";
@@ -1150,7 +1137,9 @@ void ExecutorX86::GenListing()
 			case cmdShr+(OTYPE_INT<<16):
 				logASM << "  ; SHR int\r\n";
 				logASM << "pop edx \r\n";
+				logASM << "pop eax \r\n";
 				logASM << "sar eax, edx ; \r\n";
+				logASM << "push eax \r\n";
 				break;
 			case cmdBitAnd+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdBitAnd long\r\n";
@@ -1158,8 +1147,8 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdBitAnd+(OTYPE_INT<<16):
 				logASM << "  ; BAND int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "and eax, edx ; \r\n";
+				logASM << "pop eax \r\n";
+				logASM << "and [esp], eax ; \r\n";
 				break;
 			case cmdBitOr+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdBitOr long\r\n";
@@ -1167,8 +1156,8 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdBitOr+(OTYPE_INT<<16):
 				logASM << "  ; BOR int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "or eax, edx ; \r\n";
+				logASM << "pop eax \r\n";
+				logASM << "or [esp], eax ; \r\n";
 				break;
 			case cmdBitXor+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdBitXor long\r\n";
@@ -1176,8 +1165,8 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdBitXor+(OTYPE_INT<<16):
 				logASM << "  ; BXOR int\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "xor eax, edx ; \r\n";
+				logASM << "pop eax \r\n";
+				logASM << "xor [esp], eax ; \r\n";
 				break;
 			case cmdLogAnd+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdLogAnd long\r\n";
@@ -1206,12 +1195,7 @@ void ExecutorX86::GenListing()
 			default:
 				throw string("Operation is not implemented");
 			}
-			if(oFlag == OTYPE_INT)
-			{
-			//	genStack.pop_back();
-			}else{
-			//	genStack.pop_back(); genStack.pop_back();
-			}
+			skipPopOnIntALU = false;
 		}
 		if(cmd >= cmdNeg && cmd <= cmdLogNot)
 		{
