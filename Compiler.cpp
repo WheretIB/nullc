@@ -1144,8 +1144,27 @@ void Compiler::GenListing()
 			pos += sizeof(UINT);
 			logASM << dec << showbase << pos2 << " CALL " << valind << dec << ";";
 			break;
+		case cmdProlog:
+			logASM << dec << showbase << pos2 << " PROLOG " << ";";
+			break;
 		case cmdReturn:
-			logASM << dec << showbase << pos2 << " RET " << dec << ";";
+			cmdList->GetUCHAR(pos, oFlag);
+			pos += 1;
+			cmdList->GetData(pos, &valind, sizeof(UINT));
+			pos += sizeof(UINT);
+			logASM << dec << showbase << pos2 << " RET " << valind;
+			switch(oFlag)
+			{
+			case OTYPE_DOUBLE:
+				logASM << " double;";
+				break;
+			case OTYPE_LONG:
+				logASM << " long;";
+				break;
+			case OTYPE_INT:
+				logASM << " int;";
+				break;
+			}
 			break;
 		case cmdPushV:
 			{

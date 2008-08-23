@@ -74,8 +74,12 @@ const CmdID cmdCall		= 113;
 	// call standard function
 	// вызов стандартных (встроенных) функций
 const CmdID cmdCallStd	= 114;
+	// function prologue
+	// пролог функции
+const CmdID cmdProlog	= 120;
+//							[using Operation Flag]
 	// return from function
-	// возврат из функции
+	// возврат из функции и выполнение POPT n раз, где n идёт за командой
 const CmdID cmdReturn	= 115;
 
 // commands for work with variable stack	[not using flags]
@@ -402,8 +406,11 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 	case cmdCall:
 		(*stream) << " CALL " << valind << ";";
 		break;
+	case cmdProlog:
+		(*stream) << " PROLOG " << " ;";
+		break;
 	case cmdReturn:
-		(*stream) << " RET " << ";";
+		(*stream) << " RET " << valind << " ;";
 		break;
 	case cmdPushV:
 		(*stream) << " PUSHV " << valind << ";";

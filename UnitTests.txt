@@ -40,3 +40,24 @@ var float2 a;
 a/*[gg]*/.x = 2;
 a.y = a/*[gg]*/.x + 3;
 return a.x;
+
+var float4x4 mat;
+mat.row1.y = 5;
+return 1;
+
+var int a=5;
+var double d[10];
+for(var int i = 0; i < a; i++)
+d[i] = i*2 + i-2;
+return d[5];
+
+var double d[10];
+return d[5];
+
+var float4 f4;
+f4.y--;
+--f4.z;
+return 1;
+
+func int test(int x, int y, int z){return x*y+z;}
+return 1+test(2, 3, 4);
