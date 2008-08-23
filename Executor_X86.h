@@ -23,4 +23,6 @@ private:
 	CommandList	x86CmdList;
 
 	ostringstream		logASM;
+
+	UINT	paramBase;
 };
