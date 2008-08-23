@@ -664,7 +664,7 @@ void funcEnd(char const* s, char const* e)
 	}
 	varInfoTop.pop_back();
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock()));
+	//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock()));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(i)));
 	strs.pop_back();
 	retTypeStack.pop_back();

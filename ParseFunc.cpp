@@ -530,15 +530,14 @@ void NodeFuncDef::Compile()
 	// Перед содержимым функции сделаем переход за её конец
 	// Код функций может быть смешан с кодом в глобальной области видимости, и его надо пропускать
 	cmds->AddData(cmdJmp);
-	cmds->AddData(cmds->GetCurrPos() + 2*sizeof(CmdID) + 2*sizeof(UINT) + 1 + first->GetSize());
+	cmds->AddData(cmds->GetCurrPos() + sizeof(CmdID) + 2*sizeof(UINT) + 1 + first->GetSize());
 	(*funcs)[funcID]->address = cmds->GetCurrPos();
-	cmds->AddData(cmdProlog);
 	// Сгенерируем код функции
 	first->Compile();
 	// Добавим возврат из функции, если пользователь забыл (но ругать его всё ещё стоит, главное не падать)
 	cmds->AddData(cmdReturn);
 	cmds->AddData((UCHAR)(operTypeForStackType[podTypeToStackType[(*funcs)[funcID]->retType->type]]));
-	cmds->AddData((UINT)(0));
+	cmds->AddData((UINT)(1));
 }
 void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
@@ -548,7 +547,7 @@ void NodeFuncDef::LogToStream(ostringstream& ostr)
 }
 UINT NodeFuncDef::GetSize()
 {
-	return first->GetSize() + 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(UCHAR);
+	return first->GetSize() + 2*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(UCHAR);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -570,7 +569,7 @@ NodeFuncParam::~NodeFuncParam()
 void NodeFuncParam::Compile()
 {
 	if(idParam == 1)
-		cmds->AddData(cmdPushVTop);
+		cmds->AddData(cmdProlog);//cmds->AddData(cmdPushVTop);
 	// Определим значение
 	first->Compile();
 	// Преобразуем его в тип входного параметра функции
@@ -634,6 +633,8 @@ void NodeFuncCall::Compile()
 		cmds->AddData(funcName.c_str(), funcName.length());
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
+		cmds->AddData(cmdProlog);
+		cmds->AddData(cmdPushVTop);
 		UINT addr = 0;
 		for(UINT i = 0; i < (*funcs)[funcID]->params.size(); i++)
 		{
@@ -648,7 +649,7 @@ void NodeFuncCall::Compile()
 			cmds->AddData(cmdPop);
 			cmds->AddData((USHORT)(newST));
 		}
-		cmds->AddData(cmdPopVTop);
+		//cmds->AddData(cmdPopVTop);
 		
 		// Вызовем по адресу
 		cmds->AddData(cmdCall);
@@ -668,7 +669,7 @@ UINT NodeFuncCall::GetSize()
 	if(funcID == -1)
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
 	else
-		size += sizeof(CmdID) + sizeof(UINT) + sizeof(CmdID) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
+		size += 3*sizeof(CmdID) + sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
 	
 	/*if(first)
 		if(funcID == -1)
