@@ -203,8 +203,21 @@ bool Executor::Run()
 			pos = valind;
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
 			break;
-		case cmdReturn:
+		case cmdProlog:
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, 0));
+			break;
+		case cmdReturn:
+			m_cmds->GetUCHAR(pos, oFlag);
+			pos += 1;
+			m_cmds->GetINT(pos, valind);
+			pos += 4;
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, oFlag));
+			for(int pops = 0; pops < valind; pops++)
+			{
+				while(genParams.size() > paramTop.back())
+					genParams.pop_back();
+				paramTop.pop_back();
+			}
 			if(callStack.size() == 0)
 			{
 				done = true;

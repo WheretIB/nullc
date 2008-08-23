@@ -392,10 +392,13 @@ void NodeReturnOp::Compile()
 	if(typeInfo)
 		ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
 	// Уберём значения со стека вершин стека переменных
-	for(UINT i = 0; i < popCnt; i++)
-		cmds->AddData(cmdPopVTop);
+	//for(UINT i = 0; i < popCnt; i++)
+	//	cmds->AddData(cmdPopVTop);
+
 	// Выйдем из функции или программы
 	cmds->AddData(cmdReturn);
+	cmds->AddData((UCHAR)(operTypeForStackType[podTypeToStackType[typeInfo ? typeInfo->type : first->GetTypeInfo()->type]]));
+	cmds->AddData((UINT)(popCnt));
 }
 void NodeReturnOp::LogToStream(ostringstream& ostr)
 {
@@ -408,7 +411,7 @@ void NodeReturnOp::LogToStream(ostringstream& ostr)
 }
 UINT NodeReturnOp::GetSize()
 {
-	return NodeOneOP::GetSize() + sizeof(CmdID) * (1+popCnt) + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
+	return NodeOneOP::GetSize() + sizeof(CmdID) + sizeof(UINT) + 1 + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -527,12 +530,15 @@ void NodeFuncDef::Compile()
 	// Перед содержимым функции сделаем переход за её конец
 	// Код функций может быть смешан с кодом в глобальной области видимости, и его надо пропускать
 	cmds->AddData(cmdJmp);
-	cmds->AddData(cmds->GetCurrPos() + sizeof(CmdID) + sizeof(UINT) + first->GetSize());
+	cmds->AddData(cmds->GetCurrPos() + 2*sizeof(CmdID) + 2*sizeof(UINT) + 1 + first->GetSize());
 	(*funcs)[funcID]->address = cmds->GetCurrPos();
+	cmds->AddData(cmdProlog);
 	// Сгенерируем код функции
 	first->Compile();
 	// Добавим возврат из функции, если пользователь забыл (но ругать его всё ещё стоит, главное не падать)
 	cmds->AddData(cmdReturn);
+	cmds->AddData((UCHAR)(operTypeForStackType[podTypeToStackType[(*funcs)[funcID]->retType->type]]));
+	cmds->AddData((UINT)(0));
 }
 void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
@@ -542,7 +548,7 @@ void NodeFuncDef::LogToStream(ostringstream& ostr)
 }
 UINT NodeFuncDef::GetSize()
 {
-	return first->GetSize() + 2*sizeof(CmdID) + sizeof(UINT);
+	return first->GetSize() + 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(UCHAR);
 }
 
 //////////////////////////////////////////////////////////////////////////
