@@ -17,6 +17,9 @@ public:
 	string	GetVarInfo();
 
 private:
+	bool	GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address);
+	void	GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int address);
+
 	CommandList	*cmdList;
 	std::vector<VariableInfo>*	varInfo;
 
