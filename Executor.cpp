@@ -58,7 +58,7 @@ bool Executor::Run()
 	while(m_cmds->GetSHORT(pos, cmd) && !done)
 	{
 		cmdCount++;
-		if(m_RunCallback && cmdCount % 1000000 == 0)
+		if(m_RunCallback && cmdCount % 5000000 == 0)
 			if(!m_RunCallback(cmdCount))
 			{
 				done = true;
@@ -356,8 +356,8 @@ bool Executor::Run()
 
 			if(cmd == cmdMov)
 			{
-				if(valind+typeSizeD[(cFlag>>2)&0x00000007] > genParams.size())
-					genParams.resize(valind+typeSizeD[(cFlag>>2)&0x00000007]);
+				//if(valind+typeSizeD[(cFlag>>2)&0x00000007] > genParams.size())
+				//	genParams.resize(valind+typeSizeD[(cFlag>>2)&0x00000007]);
 				if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
 				{
 					UINT arr[2] = { highDW, lowDW };

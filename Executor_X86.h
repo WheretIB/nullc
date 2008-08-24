@@ -24,5 +24,6 @@ private:
 
 	ostringstream		logASM;
 
+	char	*paramData;
 	UINT	paramBase;
 };

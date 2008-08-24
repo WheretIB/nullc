@@ -6,6 +6,9 @@
 #pragma comment(lib, "comctl32.lib")
 #include <windowsx.h>
 
+#include <MMSystem.h>
+#pragma comment(lib, "Winmm.lib")
+
 #include "Colorer.h"
 #include "Compiler.h"
 #include "Executor.h"
@@ -193,7 +196,7 @@ bool RunCallback(UINT cmdNum)
 	SetWindowText(hWnd, str.c_str());
 	UpdateWindow(hWnd);
 	static int ignore = false;
-	if(cmdNum % 200000000 == 0 && !ignore)
+	if(cmdNum % 300000000 == 0 && !ignore)
 	{
 		int butSel = MessageBox(hWnd, "Code execution can take a long time. Do you wish to continue?\r\nPress Cancel if you don't want to see this warning again", "Warning: long execution time", MB_YESNOCANCEL);
 		if(butSel == IDYES)
@@ -244,10 +247,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				executor->SetCallback(RunCallback);//mparser.SetCallback(RunCallback);
 				try
 				{
-					executor->Run();//mparser.Run();
-					string val = executor->GetResult();//mparser.GetResult();
+					UINT start = timeGetTime();
+					executor->Run();
+					UINT time = timeGetTime() - start;
+					string val = executor->GetResult();
 					ostr.precision(20);
-					ostr << "The answer is: " << val;
+					ostr << "The answer is: " << val << " [in: " << time << "]";
 
 					SetWindowText(hVars, executor->GetVarInfo().c_str());
 				}catch(const std::string& str){
@@ -285,10 +290,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				executorX86->GenListing();
 				try
 				{
+					UINT start = timeGetTime();
 					executorX86->Run();
+					UINT time = timeGetTime() - start;
 					string val = executorX86->GetResult();
 					ostr.precision(20);
-					ostr << "The answer is: " << val;
+					ostr << "The answer is: " << val << " [in: " << time << "]";
 
 					SetWindowText(hVars, executorX86->GetVarInfo().c_str());
 				}catch(const std::string& str){

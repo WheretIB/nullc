@@ -5,48 +5,19 @@ ExecutorX86::ExecutorX86(CommandList* cmds, std::vector<VariableInfo>* varinfo)
 {
 	cmdList = cmds;
 	varInfo = varinfo;
+	paramData = new char[1000000];
+	paramBase = static_cast<UINT>(reinterpret_cast<long long>(paramData));
 }
 ExecutorX86::~ExecutorX86()
 {
-
+	delete[] paramData;
 }
 
 int runResult = 0;
 
 bool ExecutorX86::Run()
 {
-	char *data = new char[1000000];
-	paramBase = static_cast<UINT>(reinterpret_cast<long long>(data));
-
-	try
-	{
-		GenListing();
-	}catch(...){
-		delete data;
-		throw;
-	}
-	
-	STARTUPINFO stInfo;
-	PROCESS_INFORMATION prInfo;
-
-	// Compile using fasm
-	memset(&stInfo, 0, sizeof(stInfo));
-	stInfo.cb = sizeof(stInfo);
-	stInfo.dwFlags = STARTF_USESHOWWINDOW;
-	stInfo.wShowWindow = SW_HIDE;
-	memset(&prInfo, 0, sizeof(prInfo));
-
-	DeleteFile("asmX86.bin");
-
-	if(!CreateProcess(NULL, "fasm.exe asmX86.txt", NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo))
-		throw std::string("Failed to create process");
-
-	if(WAIT_TIMEOUT == WaitForSingleObject(prInfo.hProcess, 5000))
-		throw std::string("Compilation to x86 binary takes too much time (timeout=5sec)");
-
-	CloseHandle(prInfo.hProcess);
-	CloseHandle(prInfo.hThread);
-
+	//GenListing();
 	FILE *fCode = fopen("asmX86.bin", "rb");
 	if(!fCode)
 		throw std::string("Failed to open output file");
@@ -78,7 +49,6 @@ bool ExecutorX86::Run()
 		//push 0h;
 		popa ;
 	}
-	delete[] data;
 	runResult = res1;
 
 	return false;
@@ -238,7 +208,7 @@ void ExecutorX86::GenListing()
 	int skipLabels = 1;
 	int aluLabels = 1;
 
-	bool skipPopOnIntALU = false;
+	bool skipPopEAXOnIntALU = false;
 
 	bool firstProlog = true;
 
@@ -338,7 +308,7 @@ void ExecutorX86::GenListing()
 			logASM << "  ; PUSHV\r\n";
 			cmdList->GetData(pos, &valind, sizeof(int));
 			pos += sizeof(int);
-			logASM << "add edi, " << pos << " ; добавили место под новые переменные в стеке\r\n";
+			logASM << "add edi, " << valind << " ; добавили место под новые переменные в стеке\r\n";
 			break;
 		case cmdNop:
 			logASM << "  ; NOP\r\n";
@@ -495,8 +465,16 @@ void ExecutorX86::GenListing()
 					}
 					if(dt == DTYPE_INT)
 					{
+						//look at the next command
+						cmdList->GetData(pos+4, cmdNext);
+						if(cmdNext >= cmdAdd && cmdNext <= cmdLogXor)
+						{
+							needPush = texts[4];
+							skipPopEAXOnIntALU = true;
+						}
+
 						cmdList->GetUINT(pos, lowDW); pos += 4;
-						logASM << "push " << lowDW << " ; положили int\r\n";
+						logASM << needPush << lowDW << " ; положили int\r\n";
 					}
 					if(dt == DTYPE_SHORT)
 					{
@@ -527,10 +505,10 @@ void ExecutorX86::GenListing()
 					{
 						//look at the next command
 						cmdList->GetData(pos, cmdNext);
-						if(cmdNext >= cmdAdd && cmdNext <= cmdNEqual)
+						if(cmdNext >= cmdAdd && cmdNext <= cmdLogXor)
 						{
 							needPush = texts[4];
-							skipPopOnIntALU = true;
+							skipPopEAXOnIntALU = true;
 						}
 						logASM << needPush << "dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили int\r\n";
 					}
@@ -664,39 +642,49 @@ void ExecutorX86::GenListing()
 					movLabels++;
 				}
 				
-				UINT varSize = typeSizeD[(cFlag>>2)&0x00000007];
-				if(knownEDX)
-				{
-					if(flagAddrAbs(cFlag))
-						logASM << "mov edx, " << varSize+numEDX << " ; прибавим размер\r\n";
-					else
-						logASM << "lea edx, [ebp + " << varSize+numEDX << "] ; прибавим размер\r\n";
-				}else{
-					if(flagAddrAbs(cFlag))
+				//UINT varSize = typeSizeD[(cFlag>>2)&0x00000007];
+				//if(knownEDX)
+				//{
+				//	if(flagAddrAbs(cFlag))
+				//		logASM << "mov edx, " << /*varSize+*/numEDX << " ; прибавим размер\r\n";
+				//	else
+				//		logASM << "lea edx, [ebp + " << /*varSize+*/numEDX << "] ; прибавим размер\r\n";
+				//}else{
+				//	if(!flagAddrAbs(cFlag))
+				//		logASM << "lea edx, [edx + ebp] ; прибавим размер\r\n";
+					/*if(flagAddrAbs(cFlag))
 						logASM << "add edx, " << varSize << " ; прибавим размер\r\n";
 					else
-						logASM << "lea edx, [edx + ebp + " << varSize << "] ; прибавим размер\r\n";
-				}
-				logASM << "cmp edi, edx ; сравним не превышен ли размер стека переменных\r\n";
-				logASM << "jge skipResize" << skipLabels << "\r\n";
-				logASM << "mov edi, edx \r\n";
-				logASM << "  skipResize" << skipLabels << ":\r\n";
-				skipLabels++;
+						logASM << "lea edx, [edx + ebp + " << varSize << "] ; прибавим размер\r\n";*/
+				//}
+				//logASM << "cmp edi, edx ; сравним не превышен ли размер стека переменных\r\n";
+				//logASM << "jge skipResize" << skipLabels << "\r\n";
+				//logASM << "mov edi, edx \r\n";
+				//logASM << "  skipResize" << skipLabels << ":\r\n";
+				//skipLabels++;
 
-				UINT final = paramBase-typeSizeD[(cFlag>>2)&0x00000007];
+				char *texts[] = { "", "edx + ", "ebp + " };
+				char *needEDX = texts[1];
+				char *needEBP = texts[2];
+				if(knownEDX)
+					needEDX = texts[0];
+				if(flagAddrAbs(cFlag))
+					needEBP = texts[0];
+
+				UINT final = paramBase+numEDX;//-varSize;
 				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
 					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
 					{
-						logASM << "mov [edx + " << final+4 << "], ebx \r\n";
-						logASM << "mov [edx + " << final << "], ecx ; присвоили double или long long переменной.\r\n";
+						logASM << "mov [" << needEDX << needEBP << final+4 << "], ebx \r\n";
+						logASM << "mov [" << needEDX << needEBP << final << "], ecx ; присвоили double или long long переменной.\r\n";
 						logASM << "push ecx \r\n";
 						logASM << "push ebx ; оставили значение в стеке, как было\r\n";
 					}else{
 						logASM << "mov ebx, [esp] \r\n";
 						logASM << "mov ecx, [esp+4] \r\n";
-						logASM << "mov [edx + " << final+4 << "], ebx \r\n";
-						logASM << "mov [edx + " << final << "], ecx ; присвоили double или long long переменной.\r\n";
+						logASM << "mov [" << needEDX << needEBP << final+4 << "], ebx \r\n";
+						logASM << "mov [" << needEDX << needEBP << final << "], ecx ; присвоили double или long long переменной.\r\n";
 					}
 				}
 				if(dt == DTYPE_FLOAT)
@@ -704,17 +692,17 @@ void ExecutorX86::GenListing()
 					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
 						logASM << "push ebx \r\n";
 					logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
-					logASM << "fstp dword [edx + " << final << "] ; присвоили float переменной\r\n";
+					logASM << "fstp dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
 				}
 				if(dt == DTYPE_INT)
 				{
 					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
 					{
 						logASM << "push ebx \r\n";
-						logASM << "mov [edx + " << final << "], ebx ; присвоили int переменной\r\n";
+						logASM << "mov [" << needEDX << needEBP << final << "], ebx ; присвоили int переменной\r\n";
 					}else{
 						logASM << "mov ebx, [esp] \r\n";
-						logASM << "mov [edx + " << final << "], ebx ; присвоили int переменной\r\n";
+						logASM << "mov [" << needEDX << needEBP << final << "], ebx ; присвоили int переменной\r\n";
 					}
 				}
 				if(dt == DTYPE_SHORT)
@@ -722,10 +710,10 @@ void ExecutorX86::GenListing()
 					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
 					{
 						logASM << "push ebx \r\n";
-						logASM << "mov word [edx + " << final << "], ebx ; присвоили short переменной\r\n";
+						logASM << "mov word [" << needEDX << needEBP << final << "], bx ; присвоили short переменной\r\n";
 					}else{
 						logASM << "mov ebx, [esp] \r\n";
-						logASM << "mov word [edx + " << final << "], ebx ; присвоили short переменной\r\n";
+						logASM << "mov word [" << needEDX << needEBP << final << "], bx ; присвоили short переменной\r\n";
 					}
 				}
 				if(dt == DTYPE_CHAR)
@@ -733,10 +721,10 @@ void ExecutorX86::GenListing()
 					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
 					{
 						logASM << "push ebx \r\n";
-						logASM << "mov byte [edx + " << final << "], ebx ; присвоили char переменной\r\n";
+						logASM << "mov byte [" << needEDX << needEBP << final << "], bl ; присвоили char переменной\r\n";
 					}else{
 						logASM << "mov ebx, [esp] \r\n";
-						logASM << "mov byte [edx + " << final << "], ebx ; присвоили char переменной\r\n";
+						logASM << "mov byte [" << needEDX << needEBP << final << "], bl ; присвоили char переменной\r\n";
 					}
 				}
 			}
@@ -945,7 +933,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdAdd+(OTYPE_INT<<16):
 				logASM << "  ; ADD int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "add [esp], eax \r\n";
 				break;
@@ -959,7 +947,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdSub+(OTYPE_INT<<16):
 				logASM << "  ; SUB int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "sub [esp], eax \r\n";
 				break;
@@ -973,7 +961,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdMul+(OTYPE_INT<<16):
 				logASM << "  ; MUL int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "pop edx \r\n";
 				logASM << "imul edx \r\n";
@@ -1001,7 +989,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdDiv+(OTYPE_INT<<16):
 				logASM << "  ; DIV int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "pop edx \r\n";
 				logASM << "idiv edx ; а проверка на 0?\r\n";
@@ -1048,7 +1036,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdLess+(OTYPE_INT<<16):
 				logASM << "  ; LES int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
@@ -1065,7 +1053,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdGreater+(OTYPE_INT<<16):
 				logASM << "  ; GRT int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
@@ -1082,7 +1070,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdLEqual+(OTYPE_INT<<16):
 				logASM << "  ; LEQL int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
@@ -1099,7 +1087,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdGEqual+(OTYPE_INT<<16):
 				logASM << "  ; GEQL int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
@@ -1116,7 +1104,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdEqual+(OTYPE_INT<<16):
 				logASM << "  ; EQL int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
@@ -1133,7 +1121,7 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdNEqual+(OTYPE_INT<<16):
 				logASM << "  ; NEQL int\r\n";
-				if(!skipPopOnIntALU)
+				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "xor ecx, ecx\r\n";
 				logASM << "cmp [esp], eax ; \r\n";
@@ -1146,10 +1134,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdShl+(OTYPE_INT<<16):
 				logASM << "  ; SHL int\r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
 				logASM << "pop edx \r\n";
-				logASM << "pop eax \r\n";
-				logASM << "sal eax, edx ; \r\n";
-				logASM << "push eax \r\n";
+				logASM << "sal edx, eax ; \r\n";
+				logASM << "push edx \r\n";
 				break;
 			case cmdShr+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdShr long\r\n";
@@ -1157,10 +1146,11 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdShr+(OTYPE_INT<<16):
 				logASM << "  ; SHR int\r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
 				logASM << "pop edx \r\n";
-				logASM << "pop eax \r\n";
-				logASM << "sar eax, edx ; \r\n";
-				logASM << "push eax \r\n";
+				logASM << "sar edx, eax ; \r\n";
+				logASM << "push edx \r\n";
 				break;
 			case cmdBitAnd+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdBitAnd long\r\n";
@@ -1168,7 +1158,8 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdBitAnd+(OTYPE_INT<<16):
 				logASM << "  ; BAND int\r\n";
-				logASM << "pop eax \r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
 				logASM << "and [esp], eax ; \r\n";
 				break;
 			case cmdBitOr+(OTYPE_LONG<<16):
@@ -1177,7 +1168,8 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdBitOr+(OTYPE_INT<<16):
 				logASM << "  ; BOR int\r\n";
-				logASM << "pop eax \r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
 				logASM << "or [esp], eax ; \r\n";
 				break;
 			case cmdBitXor+(OTYPE_LONG<<16):
@@ -1186,7 +1178,8 @@ void ExecutorX86::GenListing()
 				break;
 			case cmdBitXor+(OTYPE_INT<<16):
 				logASM << "  ; BXOR int\r\n";
-				logASM << "pop eax \r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
 				logASM << "xor [esp], eax ; \r\n";
 				break;
 			case cmdLogAnd+(OTYPE_LONG<<16):
@@ -1216,7 +1209,7 @@ void ExecutorX86::GenListing()
 			default:
 				throw string("Operation is not implemented");
 			}
-			skipPopOnIntALU = false;
+			skipPopEAXOnIntALU = false;
 		}
 		if(cmd >= cmdNeg && cmd <= cmdLogNot)
 		{
@@ -1257,6 +1250,28 @@ void ExecutorX86::GenListing()
 	ofstream m_FileStream("asmX86.txt", std::ios::binary);
 	m_FileStream << logASM.str();
 	m_FileStream.flush();
+	m_FileStream.close();
+
+	STARTUPINFO stInfo;
+	PROCESS_INFORMATION prInfo;
+
+	// Compile using fasm
+	memset(&stInfo, 0, sizeof(stInfo));
+	stInfo.cb = sizeof(stInfo);
+	stInfo.dwFlags = STARTF_USESHOWWINDOW;
+	stInfo.wShowWindow = SW_HIDE;
+	memset(&prInfo, 0, sizeof(prInfo));
+
+	DeleteFile("asmX86.bin");
+
+	if(!CreateProcess(NULL, "fasm.exe asmX86.txt", NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo))
+		throw std::string("Failed to create process");
+
+	if(WAIT_TIMEOUT == WaitForSingleObject(prInfo.hProcess, 5000))
+		throw std::string("Compilation to x86 binary takes too much time (timeout=5sec)");
+
+	CloseHandle(prInfo.hProcess);
+	CloseHandle(prInfo.hThread);
 }
 string ExecutorX86::GetListing()
 {
