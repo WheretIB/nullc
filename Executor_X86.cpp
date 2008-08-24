@@ -18,6 +18,10 @@ int runResult = 0;
 bool ExecutorX86::Run()
 {
 	//GenListing();
+	*(double*)(paramData) = 0.0;
+	*(double*)(paramData+8) = 3.1415926535897932384626433832795;
+	*(double*)(paramData+16) = 2.7182818284590452353602874713527;
+	
 	FILE *fCode = fopen("asmX86.bin", "rb");
 	if(!fCode)
 		throw std::string("Failed to open output file");
@@ -256,11 +260,12 @@ void ExecutorX86::GenListing()
 			logASM << "call function" << valind << "\r\n";
 			break;
 		case cmdProlog:
+			logASM << "  ; PROLOG \r\n";
 			if(firstProlog)
 			{
-				logASM << "push ebp";
+				logASM << "push ebp ; first part of PUSHT\r\n";
 			}else{
-				logASM << "mov ebp, edi ; установили новую базу стека переменных, по размеру стека\r\n";
+				logASM << "mov ebp, edi ; second part of PUSHT\r\n";
 				pos += 2; //пропустить PUSHT
 			}
 			firstProlog = !firstProlog;
@@ -1213,6 +1218,48 @@ void ExecutorX86::GenListing()
 		}
 		if(cmd >= cmdNeg && cmd <= cmdLogNot)
 		{
+			cmdList->GetUCHAR(pos, oFlag);
+			pos += 1;
+			switch(cmd + (oFlag << 16))
+			{
+			case cmdNeg+(OTYPE_DOUBLE<<16):
+				logASM << ";TODO:  cmdNeg double\r\n";
+				//*((double*)(&genStack[genStack.size()-2])) = -*((double*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdNeg+(OTYPE_LONG<<16):
+				logASM << ";TODO:  cmdNeg long\r\n";
+				//*((long long*)(&genStack[genStack.size()-2])) = -*((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdNeg+(OTYPE_INT<<16):
+				logASM << ";TODO:  cmdNeg int\r\n";
+				logASM << "neg [esp] \r\n";
+				break;
+
+			case cmdLogNot+(OTYPE_DOUBLE<<16):
+				logASM << ";TODO:  cmdLogNot double\r\n";
+				//*((double*)(&genStack[genStack.size()-2])) = fabs(*((double*)(&genStack[genStack.size()-2]))) < 1e-10;
+				break;
+			case cmdLogNot+(OTYPE_LONG<<16):
+				logASM << ";TODO:  cmdLogNot long\r\n";
+				//*((long long*)(&genStack[genStack.size()-2])) = !*((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdLogNot+(OTYPE_INT<<16):
+				logASM << ";TODO:  cmdLogNot int\r\n";
+				//*((int*)(&genStack[genStack.size()-1])) = !*((int*)(&genStack[genStack.size()-1]));
+				break;
+
+			case cmdBitNot+(OTYPE_LONG<<16):
+				logASM << ";TODO:  cmdBitNot long\r\n";
+				//*((long long*)(&genStack[genStack.size()-2])) = ~*((long long*)(&genStack[genStack.size()-2]));
+				break;
+			case cmdBitNot+(OTYPE_INT<<16):
+				logASM << ";TODO:  cmdBitNot int\r\n";
+				//*((int*)(&genStack[genStack.size()-1])) = ~*((int*)(&genStack[genStack.size()-1]));
+				break;
+			default:
+				throw string("Operation is not implemented");
+			}
+			//neg
 			switch(cmd)
 			{
 			case cmdNeg:
@@ -1285,7 +1332,81 @@ string ExecutorX86::GetResult()
 	return string(buf);
 }
 
+bool ExecutorX86::GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address)
+{
+	if(type->type == TypeInfo::POD_INT)
+	{
+		varstr << *((int*)&paramData[address]);
+	}else if(type->type == TypeInfo::POD_SHORT)
+	{
+		varstr << *((short*)&paramData[address]);
+	}else if(type->type == TypeInfo::POD_CHAR)
+	{
+		varstr << "'" << *((unsigned char*)&paramData[address]) << "' (" << (int)(*((unsigned char*)&paramData[address])) << ")";
+	}else if(type->type == TypeInfo::POD_FLOAT)
+	{
+		varstr << *((float*)&paramData[address]);
+	}else if(type->type == TypeInfo::POD_LONG)
+	{
+		varstr << *((long long*)&paramData[address]);
+	}else if(type->type == TypeInfo::POD_DOUBLE)
+	{
+		varstr << *((double*)&paramData[address]);
+	}else{
+		return false;
+	}
+	return true;
+}
+
+void ExecutorX86::GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int address)
+{
+	for(UINT mn = 0; mn < type->memberData.size(); mn++)
+	{
+		varstr << "  " << type->memberData[mn].type->name << " " << type->memberData[mn].name << " = ";
+		if(type->memberData[mn].type->type == TypeInfo::POD_VOID)
+		{
+			varstr << "ERROR: This type is void";
+		}else if(type->memberData[mn].type->type == TypeInfo::NOT_POD)
+		{
+			varstr << "\r\n";
+			GetComplexTypeInfo(varstr, type->memberData[mn].type, address+type->memberData[mn].offset);
+		}else{
+			if(!GetSimpleTypeInfo(varstr, type->memberData[mn].type, address+type->memberData[mn].offset))
+				throw std::string("Executor::GetComplexTypeInfo() ERROR: unknown type of variable ") + type->memberData[mn].name;
+		}
+		varstr << "\r\n";
+	}
+}
+
 string ExecutorX86::GetVarInfo()
 {
-	return "";
+	ostringstream varstr;
+	std::vector<VariableInfo>&	varInfo = *this->varInfo;
+	UINT address = 0;
+	for(UINT i = 0; i < varInfo.size(); i++)
+	{
+		for(UINT n = 0; n < varInfo[i].count; n++)
+		{
+			//varInfo[i].pos+n*varInfo[i].varType->size
+			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
+
+			if(varInfo[i].count != 1)
+				varstr << "[" << n << "]";
+			varstr << " = ";
+			if(varInfo[i].varType->type == TypeInfo::POD_VOID)
+			{
+				varstr << "ERROR: This type is void";
+			}else if(varInfo[i].varType->type == TypeInfo::NOT_POD)
+			{
+				varstr << "" << "\r\n";
+				GetComplexTypeInfo(varstr, varInfo[i].varType, address);
+			}else{
+				if(!GetSimpleTypeInfo(varstr, varInfo[i].varType, address))
+					throw std::string("Executor::GetVarInfo() ERROR: unknown type of variable ") + varInfo[i].name;
+				varstr << "\r\n";
+			}
+			address += varInfo[i].varType->size;
+		}
+	}
+	return varstr.str();
 }
