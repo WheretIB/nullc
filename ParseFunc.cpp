@@ -635,6 +635,16 @@ void NodeFuncCall::Compile()
 		// Перенесём в локальные параметры прямо тут, фигле
 		cmds->AddData(cmdProlog);
 		cmds->AddData(cmdPushVTop);
+
+		// Надём, сколько занимают все переменные
+		UINT allSize=0;
+		for(UINT i = 0; i < (*funcs)[funcID]->params.size(); i++)
+			allSize += (*funcs)[funcID]->params[i].varType->size;
+
+		// Расширим стек переменные на это значение
+		cmds->AddData(cmdPushV);
+		cmds->AddData(allSize);
+
 		UINT addr = 0;
 		for(UINT i = 0; i < (*funcs)[funcID]->params.size(); i++)
 		{
@@ -669,7 +679,7 @@ UINT NodeFuncCall::GetSize()
 	if(funcID == -1)
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
 	else
-		size += 3*sizeof(CmdID) + sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
+		size += 4*sizeof(CmdID) + 2*sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
 	
 	/*if(first)
 		if(funcID == -1)

@@ -61,3 +61,21 @@ return 1;
 
 func int test(int x, int y, int z){return x*y+z;}
 return 1+test(2, 3, 4);
+
+func int fib(int n){ if(n<3) return 1; return fib(n-1)+fib(n-2); }
+func int test(int x, int y, int z){return x*y+z;}
+var int b = 1;
+if(7>5)
+b = 3;
+return b+test(2, 3, 4);
+
+func int fib(int n){ if(n<3) return 5; return 10; }
+return fib(1);
+
+func int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }
+return fib(4);
+
+var int b = 3;
+if(b < 1)
+  b = 10;
+return b;

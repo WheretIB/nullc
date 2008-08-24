@@ -511,7 +511,11 @@ void addSetNode(char const* s, char const* e)
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
+	if(varDefined)
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(varDefined*currType->size, strs.back())));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr)));
+	if(varDefined)
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
 	currTypes.pop_back();
 
 	currValConst = false;
