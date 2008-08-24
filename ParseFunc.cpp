@@ -646,7 +646,7 @@ void NodeFuncCall::Compile()
 		cmds->AddData(allSize);
 
 		UINT addr = 0;
-		for(UINT i = 0; i < (*funcs)[funcID]->params.size(); i++)
+		for(int i = int((*funcs)[funcID]->params.size())-1; i >= 0; i--)
 		{
 			asmStackType newST = podTypeToStackType[(*funcs)[funcID]->params[i].varType->type];
 			asmDataType newDT = podTypeToDataType[(*funcs)[funcID]->params[i].varType->type];
