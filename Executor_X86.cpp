@@ -1460,8 +1460,10 @@ void ExecutorX86::GenListing()
 			switch(cmd + (oFlag << 16))
 			{
 			case cmdNeg+(OTYPE_DOUBLE<<16):
-				logASM << ";TODO:  cmdNeg double\r\n";
-				//*((double*)(&genStack[genStack.size()-2])) = -*((double*)(&genStack[genStack.size()-2]));
+				logASM << "  ; NEG double\r\n";
+				logASM << "fld qword [esp] \r\n";
+				logASM << "fchs \r\n";
+				logASM << "fstp qword [esp] \r\n";
 				break;
 			case cmdNeg+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdNeg long\r\n";
@@ -1473,8 +1475,20 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdLogNot+(OTYPE_DOUBLE<<16):
-				logASM << ";TODO:  cmdLogNot double\r\n";
-				//*((double*)(&genStack[genStack.size()-2])) = fabs(*((double*)(&genStack[genStack.size()-2]))) < 1e-10;
+				logASM << "  ; LNOT double\r\n";
+				logASM << "fldz \r\n";
+				logASM << "fcomp qword [esp] ; сравнили\r\n";
+				logASM << "fnstsw ax ; взяли флажок\r\n";
+				logASM << "test ah, 44h ; сравнили с 'равно'\r\n";
+				logASM << "jp pushZero" << aluLabels << " ; не, не равно\r\n";
+				logASM << "mov dword [esp], 1 \r\n";
+				logASM << "jmp pushedOne" << aluLabels << " \r\n";
+				logASM << "  pushZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 0 \r\n";
+				logASM << "  pushedOne" << aluLabels << ": \r\n";
+				logASM << "fild dword [esp] \r\n";
+				logASM << "fstp qword [esp] \r\n";
+				aluLabels++;
 				break;
 			case cmdLogNot+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdLogNot long\r\n";
