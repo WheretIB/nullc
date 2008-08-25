@@ -725,7 +725,7 @@ UINT NodePushShift::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел для присвоения значения переменной
-NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool arraySetAll, bool absAddr)
+NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool arraySetAll, bool absAddr, UINT pushBytes)
 {
 	// информация о переменной
 	varInfo = vInfo;
@@ -739,6 +739,8 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 	typeInfo = targetType;
 	// применять динамически расчитываемый сдвиг к адресу переменной
 	shiftAddress = shiftAddr;
+	// на сколько байт следует увеличить стек переменных
+	bytesToPush = pushBytes;
 
 	// сдвиг уже прибавлен к адресу
 	bakedShift = false;
@@ -776,6 +778,11 @@ void NodeVarSet::Compile()
 	asmStackType newST = podTypeToStackType[typeInfo->type];
 	asmDataType newDT = podTypeToDataType[typeInfo->type];
 
+	if(bytesToPush)
+	{
+		cmds->AddData(cmdPushV);
+		cmds->AddData(bytesToPush);
+	}
 	if(varInfo.count == 1)	// если это не массив
 	{
 		if(shiftAddress && !bakedShift)		// если переменная - член составного типа и нужен сдвиг адреса
@@ -849,6 +856,8 @@ UINT NodeVarSet::GetSize()
 	asmStackType tST = second ? podTypeToStackType[second->GetTypeInfo()->type] : STYPE_INT;
 
 	UINT size = 0;
+	if(bytesToPush)
+		size += sizeof(CmdID) + sizeof(UINT);
 	if(varInfo.count == 1)
 	{
 		if(shiftAddress)
