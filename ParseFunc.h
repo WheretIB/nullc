@@ -310,7 +310,7 @@ public:
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
-	bool			arrSetAll, absAddress, shiftAddress;
+	bool			arrSetAll, absAddress, shiftAddress, bakedShift;
 };
 
 class NodeVarGet: public NodeOneOP
@@ -326,7 +326,7 @@ public:
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
-	bool			absAddress, shiftAddress;
+	bool			absAddress, shiftAddress, bakedShift;
 };
 
 class NodeVarSetAndOp: public NodeTwoOP

@@ -15,6 +15,31 @@ ExecutorX86::~ExecutorX86()
 
 int runResult = 0;
 
+__declspec(naked) void intPow()
+{
+	// http://en.wikipedia.org/wiki/Exponentiation_by_squaring
+	//eax is the power
+	//ebx is the number
+	__asm
+	{
+		mov edx, 1 ; //edx is the result
+		whileStart: ; 
+		cmp eax, 0 ; //while(power)
+		jz whileEnd ;
+		  mov ecx, eax ; // if(power & 1)
+		  and ecx, 1 ;
+		  je skipIf ;
+		    imul edx, ebx ; // result *= number
+			sub eax, 1 ; //power--;
+		  skipIf: ;
+			imul ebx, ebx ; // number *= number
+			shr eax, 1 ; //power /= 2
+		  jmp whileStart ;
+		whileEnd: ;
+		ret ;
+	}
+}
+
 bool ExecutorX86::Run()
 {
 	//GenListing();
@@ -201,7 +226,6 @@ void ExecutorX86::GenListing()
 					pos += 4;
 			}
 		}
-		//logASM << "\r\n";
 	}
 
 	logASM << "use32\r\n";
@@ -213,6 +237,8 @@ void ExecutorX86::GenListing()
 	int aluLabels = 1;
 
 	bool skipPopEAXOnIntALU = false;
+	UINT lastVarSize = 0;
+	bool mulByVarSize = false;
 
 	bool firstProlog = true;
 
@@ -236,7 +262,7 @@ void ExecutorX86::GenListing()
 				break;
 			}
 		}
-		//xchg al,[char]
+
 		pos2 = pos;
 		pos += 2;
 		switch(cmd)
@@ -269,8 +295,6 @@ void ExecutorX86::GenListing()
 				pos += 2; //пропустить PUSHT
 			}
 			firstProlog = !firstProlog;
-			//logASM << "xchg eax, [esp]\r\n";
-			//logASM << "push eax ; таким образом, eip остаётся на вершине, но под ним теперь содержимое eax до функции\r\n";
 			break;
 		case cmdReturn:
 			logASM << "  ; RET\r\n";
@@ -339,8 +363,18 @@ void ExecutorX86::GenListing()
 			case OTYPE_INT:
 				break;
 			}
-			logASM << "pop eax ; расчёт в eax\r\n";
-			logASM << "imul " << valind << " ; умножим адрес на размер переменной\r\n";
+			if(valind != 1)
+			{
+				if(valind == 2 || valind == 4 || valind == 8)
+				{
+					mulByVarSize = true;
+					lastVarSize = valind;
+				}else{
+					logASM << "pop eax ; расчёт в eax\r\n";
+					logASM << "imul eax, " << valind << " ; умножим адрес на размер переменной\r\n";
+					logASM << "push eax \r\n";
+				}
+			}
 			break;
 		case cmdPush:
 			{
@@ -361,6 +395,7 @@ void ExecutorX86::GenListing()
 				if(flagAddrAbs(cFlag))
 					needEBP = texts[0];
 				UINT numEDX = 0;
+				bool knownShift = false;
 
 				// Если читается из переменной и...
 				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
@@ -370,32 +405,41 @@ void ExecutorX86::GenListing()
 					pos += 4;
 					cmdList->GetINT(pos, shift);
 					pos += 4;
+					if(mulByVarSize)
+						shift *= lastVarSize;
+					mulByVarSize = false;
 					valind += shift;
-					if(!(flagSizeOn(cFlag) || flagSizeStk(cFlag)))
-						needEDX = texts[0];
+					knownShift = true;
+
+					needEDX = texts[0];
 					numEDX = valind;
-					if(flagSizeOn(cFlag) || flagSizeStk(cFlag))
-					{
-						if(valind != 0)
-							logASM << "mov edx, " << valind << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
-						else
-							logASM << "xor edx, edx ; возмём указатель на стек переменных (opt: addr+shift==0)\r\n";
-					}
 				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
 				{
 					// ...если адрес не лежит в стеке, и имеется сдвиг в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
 					logASM << "pop eax ; взяли сдвиг\r\n";
-					if(valind != 0)
-						logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-					else
-						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+					if(mulByVarSize)
+					{
+						if(valind != 0)
+							logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						else
+							logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+					}else{
+						if(valind != 0)
+							logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						else
+							logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+					}
+					mulByVarSize = false;
 				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
 				{
 					// ...если адрес лежит в стеке, и имеется сдвиг в команде
 					cmdList->GetINT(pos, shift);
 					pos += 4;
+					if(mulByVarSize)
+						shift *= lastVarSize;
+					mulByVarSize = false;
 					logASM << "pop eax ; взяли адрес\r\n";
 					if(shift != 0)
 						logASM << "lea edx, [eax + " << shift << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
@@ -406,22 +450,20 @@ void ExecutorX86::GenListing()
 					// ...если адрес лежит в стеке, и имеется сдвиг в стеке
 					logASM << "pop eax ; взяли адрес\r\n";
 					logASM << "pop ebx ; взяли сдвиг\r\n";
-					logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
+					if(mulByVarSize)
+						logASM << "lea edx, [ebx*" << lastVarSize << " + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
+					else
+						logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
+					mulByVarSize = false;
 				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag))
 				{
 					// ...если адрес не лежит в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					if(!(flagSizeOn(cFlag) || flagSizeStk(cFlag)))
-						needEDX = texts[0];
+					knownShift = true;
+
+					needEDX = texts[0];
 					numEDX = valind;
-					if(flagSizeOn(cFlag) || flagSizeStk(cFlag))
-					{
-						if(valind != 0)
-							logASM << "mov edx, " << valind << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
-						else
-							logASM << "xor edx, edx ; возмём указатель на стек переменных (opt: addr==0)\r\n";
-					}
 				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag))
 				{
 					// ...если адрес лежит в стеке
@@ -433,21 +475,32 @@ void ExecutorX86::GenListing()
 				{
 					cmdList->GetINT(pos, size);
 					pos += 4;
-					logASM << "cmp edx, " << size << " ; сравним с максимальным сдвигом\r\n";
-					logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "mov esi, [esi+4h] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
-					logASM << "call esi ; вызовем её\r\n";
-					logASM << "  pushLabel" << pushLabels << ":\r\n";
-					pushLabels++;
+					if(knownShift)
+					{
+						if(shift < 0)
+							throw std::string("ERROR: array index out of bounds (negative)");
+						if(shift > size)
+							throw std::string("ERROR: array index out of bounds (overflow)");
+					}else{
+						logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
+						logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
+						logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
+						logASM << "call esi ; вызовем её\r\n";
+						logASM << "  pushLabel" << pushLabels << ":\r\n";
+						pushLabels++;
+					}
 				}
 				if(flagSizeStk(cFlag))
 				{
-					logASM << "pop eax ; взяли максимальный сдвиг\r\n";
-					logASM << "cmp edx, eax ; сравним с текущим\r\n";
-					logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "mov esi, [esi+4h] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
+					if(knownShift)
+						logASM << "cmp [esp], " << shift << " ; сравним с максимальным сдвигом в стеке\r\n";
+					else
+						logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
+					logASM << "ja pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
+					logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
 					logASM << "call esi ; вызовем её\r\n";
 					logASM << "  pushLabel" << pushLabels << ":\r\n";
+					logASM << "pop eax ; убрали использованный размер\r\n";
 					pushLabels++;
 				}
 
@@ -472,7 +525,7 @@ void ExecutorX86::GenListing()
 					{
 						//look at the next command
 						cmdList->GetData(pos+4, cmdNext);
-						if(cmdNext >= cmdAdd && cmdNext <= cmdLogXor)
+						if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
 						{
 							needPush = texts[4];
 							skipPopEAXOnIntALU = true;
@@ -510,7 +563,7 @@ void ExecutorX86::GenListing()
 					{
 						//look at the next command
 						cmdList->GetData(pos, cmdNext);
-						if(cmdNext >= cmdAdd && cmdNext <= cmdLogXor)
+						if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
 						{
 							needPush = texts[4];
 							skipPopEAXOnIntALU = true;
@@ -555,69 +608,78 @@ void ExecutorX86::GenListing()
 
 				UINT numEDX = 0;
 				bool knownEDX = false;
-				bool cantOptimiseEDX = flagSizeOn(cFlag) || flagSizeStk(cFlag);
+				bool knownShift = false;
 
-				// Если читается из переменной и...
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
+				// Если...
+				if(!flagAddrStk(cFlag) && flagShiftOn(cFlag))
 				{
 					// ...если адрес не лежит в стеке, и имеется сдвиг в команде
 					cmdList->GetINT(pos, valind);
 					pos += 4;
 					cmdList->GetINT(pos, shift);
 					pos += 4;
+					if(mulByVarSize)
+						shift *= lastVarSize;
+					mulByVarSize = false;
 					valind += shift;
-					if(cantOptimiseEDX)
-					{
-						if(valind != 0)
-							logASM << "mov edx, " << valind << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
-						else
-							logASM << "xor edx, edx ; возмём указатель на стек переменных (opt: addr+shift==0)\r\n";
-					}else{
-						knownEDX = true;
-						numEDX = valind;
-					}
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
+
+					knownEDX = true;
+					numEDX = valind;
+					knownShift = true;
+				}else if(!flagAddrStk(cFlag) && flagShiftStk(cFlag))
 				{
 					// ...если адрес не лежит в стеке, и имеется сдвиг в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
 					logASM << "pop eax ; взяли сдвиг\r\n";
-					if(valind != 0)
-						logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-					else
-						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
+					if(mulByVarSize)
+					{
+						if(valind != 0)
+							logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						else
+							logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+					}else{
+						if(valind != 0)
+							logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						else
+							logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+					}
+					mulByVarSize = false;
+				}else if(flagAddrStk(cFlag) && flagShiftOn(cFlag))
 				{
 					// ...если адрес лежит в стеке, и имеется сдвиг в команде
 					cmdList->GetINT(pos, shift);
 					pos += 4;
+					if(mulByVarSize)
+						shift *= lastVarSize;
+					mulByVarSize = false;
+					knownShift = true;
+
 					logASM << "pop eax ; взяли адрес\r\n";
 					if(shift != 0)
 						logASM << "lea edx, [eax + " << shift << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 					else
 						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: shift==0)\r\n";
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftStk(cFlag))
+				}else if(flagAddrStk(cFlag) && flagShiftStk(cFlag))
 				{
 					// ...если адрес лежит в стеке, и имеется сдвиг в стеке
 					logASM << "pop eax ; взяли адрес\r\n";
 					logASM << "pop ebx ; взяли сдвиг\r\n";
-					logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag))
+					if(mulByVarSize)
+						logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
+					else
+						logASM << "lea edx, [ebx*" << lastVarSize << " + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
+					mulByVarSize = false;
+				}else if(!flagAddrStk(cFlag))
 				{
 					// ...если адрес не лежит в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					if(cantOptimiseEDX)
-					{
-						if(valind != 0)
-							logASM << "mov edx, " << valind << " ; возмём указатель на стек переменных и сдвинем по константному сдвигу\r\n";
-						else
-							logASM << "xor edx, edx ; возмём указатель на стек переменных (opt: addr==0)\r\n";
-					}else{
-						knownEDX = true;
-						numEDX = valind;
-					}
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag))
+
+					knownShift = true;
+					knownEDX = true;
+					numEDX = valind;
+				}else if(flagAddrStk(cFlag))
 				{
 					// ...если адрес лежит в стеке
 					logASM << "pop eax ; взяли адрес\r\n";
@@ -628,45 +690,34 @@ void ExecutorX86::GenListing()
 				{
 					cmdList->GetINT(pos, size);
 					pos += 4;
-					logASM << "cmp edx, " << size << " ; сравним с максимальным сдвигом\r\n";
-					logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
-					logASM << "call esi ; вызовем её\r\n";
-					logASM << "  movLabel" << movLabels << ":\r\n";
-					logASM << "pop eax ; убрали использованный размер\r\n";
-					movLabels++;
+					if(knownShift)
+					{
+						if(shift < 0)
+							throw std::string("ERROR: array index out of bounds (negative)");
+						if(shift > size)
+							throw std::string("ERROR: array index out of bounds (overflow)");
+					}else{
+						logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
+						logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
+						logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
+						logASM << "call esi ; вызовем её\r\n";
+						logASM << "  movLabel" << movLabels << ":\r\n";
+						movLabels++;
+					}
 				}
 				if(flagSizeStk(cFlag))
 				{
-					logASM << "cmp edx, eax ; сравним с максимальным сдвигом в стеке\r\n";
-					logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
+					if(knownShift)
+						logASM << "cmp [esp], " << shift << " ; сравним с максимальным сдвигом в стеке\r\n";
+					else
+						logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
+					logASM << "ja movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 					logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
 					logASM << "call esi ; вызовем её\r\n";
 					logASM << "  movLabel" << movLabels << ":\r\n";
 					logASM << "pop eax ; убрали использованный размер\r\n";
 					movLabels++;
 				}
-				
-				//UINT varSize = typeSizeD[(cFlag>>2)&0x00000007];
-				//if(knownEDX)
-				//{
-				//	if(flagAddrAbs(cFlag))
-				//		logASM << "mov edx, " << /*varSize+*/numEDX << " ; прибавим размер\r\n";
-				//	else
-				//		logASM << "lea edx, [ebp + " << /*varSize+*/numEDX << "] ; прибавим размер\r\n";
-				//}else{
-				//	if(!flagAddrAbs(cFlag))
-				//		logASM << "lea edx, [edx + ebp] ; прибавим размер\r\n";
-					/*if(flagAddrAbs(cFlag))
-						logASM << "add edx, " << varSize << " ; прибавим размер\r\n";
-					else
-						logASM << "lea edx, [edx + ebp + " << varSize << "] ; прибавим размер\r\n";*/
-				//}
-				//logASM << "cmp edi, edx ; сравним не превышен ли размер стека переменных\r\n";
-				//logASM << "jge skipResize" << skipLabels << "\r\n";
-				//logASM << "mov edi, edx \r\n";
-				//logASM << "  skipResize" << skipLabels << ":\r\n";
-				//skipLabels++;
 
 				char *texts[] = { "", "edx + ", "ebp + " };
 				char *needEDX = texts[1];
@@ -996,9 +1047,10 @@ void ExecutorX86::GenListing()
 				logASM << "  ; DIV int\r\n";
 				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "idiv edx ; а проверка на 0?\r\n";
-				logASM << "push eax \r\n";
+				logASM << "xchg eax, [esp] \r\n";
+				logASM << "cdq \r\n";
+				logASM << "idiv dword [esp] ; а проверка на 0?\r\n";
+				logASM << "xchg eax, [esp]\r\n";
 				break;
 			case cmdPow+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdPow double\r\n";
@@ -1009,8 +1061,13 @@ void ExecutorX86::GenListing()
 			//	*((long long*)(&genStack[genStack.size()-4])) = (long long)pow((double)*((long long*)(&genStack[genStack.size()-4])), (double)*((long long*)(&genStack[genStack.size()-2])));
 				break;
 			case cmdPow+(OTYPE_INT<<16):
-				logASM << ";TODO:  cmdPow int\r\n";
-			//	*((int*)(&genStack[genStack.size()-2])) = (int)pow((double)(*((int*)(&genStack[genStack.size()-2]))), *((int*)(&genStack[genStack.size()-1])));
+				logASM << "  ; POW int\r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "pop ebx \r\n";
+				logASM << "mov ecx, 0x" << intPow << " ; intPow(), result in edx\r\n";
+				logASM << "call ecx \r\n";
+				logASM << "push edx \r\n";
 				break;
 			case cmdMod+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdMod double\r\n";
@@ -1024,12 +1081,13 @@ void ExecutorX86::GenListing()
 					*((long long*)(&genStack[genStack.size()-4])) = 0;*/
 				break;
 			case cmdMod+(OTYPE_INT<<16):
-				logASM << ";TODO:  cmdMod int\r\n";
-			/*	if(*((int*)(&genStack[genStack.size()-1])))
-					*((int*)(&genStack[genStack.size()-2])) %= *((int*)(&genStack[genStack.size()-1]));
-				else
-					*((int*)(&genStack[genStack.size()-2])) = 0;*/
-
+				logASM << "  ; MOD int\r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "xchg eax, [esp] \r\n";
+				logASM << "cdq \r\n";
+				logASM << "idiv dword [esp] ; а проверка на 0?\r\n";
+				logASM << "xchg edx, [esp]\r\n";
 				break;
 			case cmdLess+(OTYPE_DOUBLE<<16):
 				logASM << ";TODO:  cmdLess double\r\n";
@@ -1141,9 +1199,10 @@ void ExecutorX86::GenListing()
 				logASM << "  ; SHL int\r\n";
 				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "sal edx, eax ; \r\n";
-				logASM << "push edx \r\n";
+				logASM << "pop ecx \r\n";
+				logASM << "xchg ecx, eax \r\n";
+				logASM << "sal eax, cl ; \r\n";
+				logASM << "push eax \r\n";
 				break;
 			case cmdShr+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdShr long\r\n";
@@ -1154,8 +1213,9 @@ void ExecutorX86::GenListing()
 				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
 				logASM << "pop edx \r\n";
-				logASM << "sar edx, eax ; \r\n";
-				logASM << "push edx \r\n";
+				logASM << "xchg ecx, eax \r\n";
+				logASM << "sar eax, cl ; \r\n";
+				logASM << "push eax \r\n";
 				break;
 			case cmdBitAnd+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdBitAnd long\r\n";
@@ -1192,24 +1252,54 @@ void ExecutorX86::GenListing()
 			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) && *((long long*)(&genStack[genStack.size()-2]));
 				break;
 			case cmdLogAnd+(OTYPE_INT<<16):
-				logASM << ";TODO:  cmdLogAnd int\r\n";
-			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) && *((int*)(&genStack[genStack.size()-1]));
+				logASM << "  ; LAND int\r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "cmp eax, 0 \r\n";
+				logASM << "je pushZero" << aluLabels << "\r\n";
+				logASM << "cmp dword [esp], 0 \r\n";
+				logASM << "je pushZero" << aluLabels << "\r\n";
+				logASM << "mov dword [esp], 1 ; true\r\n";
+				logASM << "jmp pushedOne" << aluLabels << " \r\n";
+				logASM << "  pushZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 0 ; false\r\n";
+				logASM << "  pushedOne" << aluLabels << ": \r\n";
+				aluLabels++;
 				break;
 			case cmdLogOr+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdLogOr long\r\n";
 			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) || *((long long*)(&genStack[genStack.size()-2]));
 				break;
 			case cmdLogOr+(OTYPE_INT<<16):
-				logASM << ";TODO:  cmdLogOr int\r\n";
-			//	*((int*)(&genStack[genStack.size()-2])) = *((int*)(&genStack[genStack.size()-2])) || *((int*)(&genStack[genStack.size()-1]));
+				logASM << "  ; LOR int\r\n";
+				if(!skipPopEAXOnIntALU)
+					logASM << "pop eax \r\n";
+				logASM << "pop ebx \r\n";
+				logASM << "or eax, ebx \r\n";
+				logASM << "cmp eax, 0 \r\n";
+				logASM << "je pushZero" << aluLabels << "\r\n";
+				logASM << "push 1 ; true\r\n";
+				logASM << "jmp pushedOne" << aluLabels << " \r\n";
+				logASM << "  pushZero" << aluLabels << ": \r\n";
+				logASM << "push 0 ; false\r\n";
+				logASM << "  pushedOne" << aluLabels << ": \r\n";
+				aluLabels++;
 				break;
 			case cmdLogXor+(OTYPE_LONG<<16):
 				logASM << ";TODO:  cmdLogXor long\r\n";
 			//	*((long long*)(&genStack[genStack.size()-4])) = !!(*((long long*)(&genStack[genStack.size()-4]))) ^ !!(*((long long*)(&genStack[genStack.size()-2])));
 				break;
 			case cmdLogXor+(OTYPE_INT<<16):
-				logASM << ";TODO:  cmdLogXor int\r\n";
-			//	*((int*)(&genStack[genStack.size()-2])) = !!(*((int*)(&genStack[genStack.size()-2]))) ^ !!(*((int*)(&genStack[genStack.size()-1])));
+				logASM << "  ; LXOR int\r\n";
+				logASM << "xor eax, eax \r\n";
+				logASM << "cmp dword [esp], 0 \r\n";
+				logASM << "setne al \r\n";
+				logASM << "xor ecx, ecx \r\n";
+				logASM << "cmp dword [esp+4], 0 \r\n";
+				logASM << "setne cl \r\n";
+				logASM << "xor eax, ecx \r\n";
+				logASM << "pop ecx \r\n";
+				logASM << "mov dword [esp], eax \r\n";
 				break;
 			default:
 				throw string("Operation is not implemented");
@@ -1231,8 +1321,8 @@ void ExecutorX86::GenListing()
 				//*((long long*)(&genStack[genStack.size()-2])) = -*((long long*)(&genStack[genStack.size()-2]));
 				break;
 			case cmdNeg+(OTYPE_INT<<16):
-				logASM << ";TODO:  cmdNeg int\r\n";
-				logASM << "neg [esp] \r\n";
+				logASM << "  ; NEG\r\n";
+				logASM << "neg dword [esp] \r\n";
 				break;
 
 			case cmdLogNot+(OTYPE_DOUBLE<<16):
@@ -1244,8 +1334,11 @@ void ExecutorX86::GenListing()
 				//*((long long*)(&genStack[genStack.size()-2])) = !*((long long*)(&genStack[genStack.size()-2]));
 				break;
 			case cmdLogNot+(OTYPE_INT<<16):
-				logASM << ";TODO:  cmdLogNot int\r\n";
-				//*((int*)(&genStack[genStack.size()-1])) = !*((int*)(&genStack[genStack.size()-1]));
+				logASM << "  ; LNOT\r\n";
+				logASM << "xor eax, eax \r\n";
+				logASM << "cmp dword [esp], 0 \r\n";
+				logASM << "sete al \r\n";
+				logASM << "mov dword [esp], eax \r\n";
 				break;
 
 			case cmdBitNot+(OTYPE_LONG<<16):
@@ -1253,30 +1346,11 @@ void ExecutorX86::GenListing()
 				//*((long long*)(&genStack[genStack.size()-2])) = ~*((long long*)(&genStack[genStack.size()-2]));
 				break;
 			case cmdBitNot+(OTYPE_INT<<16):
-				logASM << ";TODO:  cmdBitNot int\r\n";
-				//*((int*)(&genStack[genStack.size()-1])) = ~*((int*)(&genStack[genStack.size()-1]));
+				logASM << "  ; BNOT int\r\n";
+				logASM << "not dword [esp] \r\n";
 				break;
 			default:
 				throw string("Operation is not implemented");
-			}
-			//neg
-			switch(cmd)
-			{
-			case cmdNeg:
-				logASM <<";TODO: NEG\r\n";
-				break;
-			case cmdInc:
-				logASM <<";TODO: INC\r\n";
-				break;
-			case cmdDec:
-				logASM <<";TODO: DEC\r\n";
-				break;
-			case cmdBitNot:
-				logASM <<";TODO: BNOT\r\n";
-				break;
-			case cmdLogNot:
-				logASM <<";TODO: LNOT\r\n";
-				break;
 			}
 		}
 		if(cmd >= cmdIncAt && cmd < cmdDecAt)
@@ -1291,7 +1365,6 @@ void ExecutorX86::GenListing()
 				break;
 			}
 		}
-		//logASM << "\r\n";
 	}
 
 	ofstream m_FileStream("asmX86.txt", std::ios::binary);
@@ -1387,7 +1460,6 @@ string ExecutorX86::GetVarInfo()
 	{
 		for(UINT n = 0; n < varInfo[i].count; n++)
 		{
-			//varInfo[i].pos+n*varInfo[i].varType->size
 			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
 
 			if(varInfo[i].count != 1)

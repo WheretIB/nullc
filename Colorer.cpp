@@ -57,7 +57,7 @@ namespace ColorerGrammar
 	std::string	logStr;
 
 	std::vector<FunctionInfo>	funcs;
-	std::vector<std::string>	strs;
+	//std::vector<std::string>	strs;
 	std::vector<VariableInfo>	varInfo;
 	std::vector<VarTopInfo>		varInfoTop;
 	std::vector<UINT>			callArgCount;
@@ -68,6 +68,12 @@ namespace ColorerGrammar
 
 	//Error log
 	ostringstream logStream;
+
+	std::string tempStr;
+	void SetTempStr(char const* s, char const* e)
+	{
+		tempStr.assign(s, e);
+	}
 
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 	void	InitGrammar()
@@ -121,8 +127,9 @@ namespace ColorerGrammar
 			(
 			varname[ColorVarDef] >> epsP[AssignVar<UINT>(varSize,1)] >>
 			chP('=')[ColorText] >> 
-			varname[ColorVar] >>
-			!(chP('[')[ColorText] >> intP[StrToInt(varSize)][ColorInt] >> chP(']')[ColorText])
+			varname[ColorVar][SetTempStr] >>
+			!(chP('[')[ColorText] >> intP[StrToInt(varSize)][ColorInt] >> chP(']')[ColorText]) >>
+			((~(chP(';') | chP(','))[FinishedRef] >> nothingP) | epsP)
 			)[AddRef];
 		vardef		=
 			typeExpr >>
@@ -206,19 +213,22 @@ namespace ColorerGrammar
 		varSize = 1;
 	}
 
+	bool refFinished = false;
+	void FinishedRef(char const* s, char const* e)
+	{
+		refFinished = true;
+	}
 	void AddRef(char const* s, char const* e)
 	{
-		const char *st=s, *sb, *sc;
+		if(!refFinished)
+			return;
+		refFinished = false;
+
+		const char* st=s;
 		while(isalnum(*st))
 			st++;
-		sb = st;
-		while(!isalnum(*sb))
-			sb++;
-		sc = sb;
-		while(isalnum(*sc))
-			sc++;
 		string vRefName = std::string(s, st);
-		string vVarName = std::string(sb, sc);
+		string vVarName = tempStr;
 
 		for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++){
 			if(varInfo[i].name == vRefName){
@@ -236,16 +246,16 @@ namespace ColorerGrammar
 		}
 
 		int index = (int)varInfo.size()-1;
-		while(index >= 0 && varInfo[i].name != vVarName)
+		while(index >= 0 && varInfo[index].name != vVarName)
 			index--;
 		if(index == -1){
-			ColorCode(255,0,0,0,0,1,sb,sc);
+			ColorCode(255,0,0,0,0,1,st,e);
 			logStream << "ERROR: variable '" << vVarName << "' is not defined\r\n";
 			return;
 		}
 		if(!currValConst && varInfo[index].isConst)
 		{
-			ColorCode(255,0,0,0,0,1,s,sc);
+			ColorCode(255,0,0,0,0,1,s,e);
 			logStream << "ERROR: cannot remove constant flag of variable '" << vVarName << "'. Use 'const ref'\r\n";
 			return;
 		}

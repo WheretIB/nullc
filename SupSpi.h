@@ -51,6 +51,16 @@ namespace supspi
 		T*	my_ref;
 		V	my_val;
 	};
+	template<typename T>
+	struct PopBack
+	{
+		PopBack(): my_ref(NULL){ }
+		PopBack(T& ref): my_ref(&ref){ }
+
+		void operator()(char const*s, char const*e){ if(my_ref) (*my_ref).pop_back(); }
+	private:
+		T*	my_ref;
+	};
 	struct StrToInt
 	{
 		StrToInt(): my_ref(NULL){ }
@@ -640,7 +650,8 @@ namespace supspi
 	static LongestHelper	longestD;
 
 	//Main function
-	bool	Parse(Rule main, char* str, Rule space);
+	enum ParseResult{ PARSE_FAILED, PARSE_OK, PARSE_NOTFULL, };
+	ParseResult	Parse(Rule main, char* str, Rule space);
 };
 
 namespace supgen
