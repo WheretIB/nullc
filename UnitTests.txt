@@ -146,5 +146,6 @@ res[9] = a >= b;
 res[10] = a <= b;
 res[11] = a == b;
 res[12] = a != b;
+res[13] = !a;
 
 return a+b;
