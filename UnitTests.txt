@@ -129,3 +129,22 @@ res[25] = !a;
 res[26] = !c;
 
 return 1;
+
+//floating point tests
+var double res[15];
+var double a = 14.0, b = 3.0;
+res[0] = a+b;
+res[1] = a-b;
+res[2] = -a;
+res[3] = a*b;
+res[4] = a/b;
+res[5] = a%b;
+res[6] = a**b;
+res[7] = a > b;
+res[8] = a < b;
+res[9] = a >= b;
+res[10] = a <= b;
+res[11] = a == b;
+res[12] = a != b;
+
+return a+b;
