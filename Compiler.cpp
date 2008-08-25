@@ -63,13 +63,6 @@ void removeTop(char const* s, char const* e)
 {
 	nodeList.pop_back();
 }
-/*
-void popBackInIndexed(char const* s, char const* e)
-{
-	size_t braceInd = strs.back().find('[');
-	if(braceInd != -1)
-		nodeList.pop_back();
-}*/
 
 template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
 {
@@ -401,7 +394,7 @@ void addVar(char const* s, char const* e)
 		if(varInfo[i].name == vName)
 			throw std::string("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n");
 	checkIfDeclared(vName);
-	//infoln4("do_addvar ", vName, " ", varTop-varInfoTop.back().t);
+	
 	if(varSize > 128000)
 		throw std::string("ERROR: variable '" + vName + "' has to big length (>128000)");
 	varInfo.push_back(VariableInfo(vName, varTop, currType, varSize, currValConst));
@@ -486,7 +479,29 @@ void getMember(char const* s, char const* e)
 
 void addShiftAddrNode(char const* s, char const* e)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePushShift(currTypes.back()->size)));
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	{
+		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
+		NodeZeroOP* zOP = (nodeList.end()-1)->get();
+		shared_ptr<NodeZeroOP > Rd;
+		if(aType == typeDouble)
+		{
+			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<double>* >(zOP)->GetVal()), typeInt));
+		}else if(aType == typeFloat){
+			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<float>* >(zOP)->GetVal()), typeInt));
+		}else if(aType == typeLong){
+			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<long long>* >(zOP)->GetVal()), typeInt));
+		}else if(aType == typeInt){
+			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<int>* >(zOP)->GetVal()), typeInt));
+		}else{
+			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
+		}
+		nodeList.pop_back();
+		nodeList.push_back(Rd);
+	}else{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePushShift(currTypes.back()->size)));
+	}
+	
 	pushedShiftAddrNode = true;
 }
 
@@ -567,7 +582,6 @@ void addSetAndOpNode(CmdID cmd)
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd)));
 
-	//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i].varType, varInfo[i].pos-varInfoTop.back().varStackSize, vName, braceInd != -1, varInfo[i].count, cmd)));
 	varDefined = 0;
 }
 void addAddSetNode(char const* s, char const* e){ addSetAndOpNode(cmdAdd); }
@@ -598,10 +612,10 @@ void addPreOpNode(CmdID cmd, bool pre)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd, pre)));
 	currTypes.pop_back();
 }
-void addPreDecNode(char const* s, char const* e){ addPreOpNode(cmdDec, true); }
-void addPreIncNode(char const* s, char const* e){ addPreOpNode(cmdInc, true); }
-void addPostDecNode(char const* s, char const* e){ addPreOpNode(cmdDec, false); }
-void addPostIncNode(char const* s, char const* e){ addPreOpNode(cmdInc, false); }
+void addPreDecNode(char const* s, char const* e){ addPreOpNode(cmdDecAt, true); }
+void addPreIncNode(char const* s, char const* e){ addPreOpNode(cmdIncAt, true); }
+void addPostDecNode(char const* s, char const* e){ addPreOpNode(cmdDecAt, false); }
+void addPostIncNode(char const* s, char const* e){ addPreOpNode(cmdIncAt, false); }
 
 void addOneExprNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression())); }
 void addTwoExprNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression())); }
@@ -609,7 +623,6 @@ void addBlockNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<N
 
 void funcAdd(char const* s, char const* e)
 {
-	//infoln3(__FUNCTION__, " adding function ", strs.back());
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		if(varInfo[i].name == strs.back())
 			throw std::string("ERROR: Name '" + strs.back() + "' is already taken for a variable in current scope\r\n");
@@ -619,37 +632,27 @@ void funcAdd(char const* s, char const* e)
 	funcs.back()->vTopSize = (UINT)varInfoTop.size();
 	retTypeStack.push_back(currType);
 	funcs.back()->retType = currType;
-	//strs.pop_back();
-	//funcs.back().address = cmds.GetCurrPos()+sizeof(CmdID)+sizeof(UINT);
 }
 void funcParam(char const* s, char const* e)
 {
-	//infoln3(__FUNCTION__, " adding variable ", strs.back());
 	funcs.back()->params.push_back(VariableInfo(strs.back(), 0, currType, 1, currValConst));
 	strs.pop_back();
 }
 void funcStart(char const* s, char const* e)
 {
-	//infoln1(__FUNCTION__);
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
-	//bool two = false;
+	
 	for(int i = (int)funcs.back()->params.size()-1; i >= 0; i--)
 	{
 		strs.push_back(funcs.back()->params[i].name);
 		strs.push_back(funcs.back()->params[i].name);
+
 		currValConst = funcs.back()->params[i].isConst;
 		currType = funcs.back()->params[i].varType;
 		addVar(0,0);
-
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP(currType)));
-
 		pushType(0,0);
-	//	addSetNode(0,0);
-		//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[n].pos, varInfo[n].name, false, 1)));
-	//	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
-	//	if(two)
-	//		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
-	//	two = true;
+
 		strs.pop_back();
 		strs.pop_back();
 	}
@@ -663,12 +666,11 @@ void funcEnd(char const* s, char const* e)
 
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
-		varTop -= varInfo.back().count*varInfo.back().varType->size;//sizeof(double);
+		varTop -= varInfo.back().count*varInfo.back().varType->size;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
-	//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock()));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(i)));
 	strs.pop_back();
 	retTypeStack.pop_back();
@@ -696,7 +698,7 @@ void addFuncCallNode(char const* s, char const* e)
 {
 	string fname = strs.back();
 	strs.pop_back();
-	//infoln3(__FUNCTION__, " ", fname); 
+
 	char strCnt[32];
 	//Find standard function
 	if(fname == "cos" || fname == "sin" || fname == "tan" || fname == "ctg" || fname == "ceil" || fname == "floor" || 
@@ -915,12 +917,12 @@ namespace CompilerGrammar
 		term4_1		=	term4 >> *((strP("<<") >> term4)[addCmd(cmdShl)] | (strP(">>") >> term4)[addCmd(cmdShr)]);
 		term4_2		=	term4_1 >> *(('<' >> term4_1)[addCmd(cmdLess)] | ('>' >> term4_1)[addCmd(cmdGreater)] | (strP("<=") >> term4_1)[addCmd(cmdLEqual)] | (strP(">=") >> term4_1)[addCmd(cmdGEqual)]);
 		term4_4		=	term4_2 >> *((strP("==") >> term4_2)[addCmd(cmdEqual)] | (strP("!=") >> term4_2)[addCmd(cmdNEqual)]);
-		term4_6		=	term4_4 >> *(strP("&") >> term4_4)[addCmd(cmdBitAnd)];
-		term4_65	=	term4_6 >> *(strP("^") >> term4_6)[addCmd(cmdBitXor)];
-		term4_7		=	term4_65 >> *(strP("|") >> term4_65)[addCmd(cmdBitOr)];
-		term4_75	=	term4_7 >> *(strP("and") >> term4_7)[addCmd(cmdLogAnd)];
-		term4_8		=	term4_75 >> *(strP("xor") >> term4_75)[addCmd(cmdLogXor)];
-		term4_85	=	term4_8 >> *(strP("or") >> term4_8)[addCmd(cmdLogOr)];
+		term4_6		=	term4_4 >> *(strP("&") >> (term4_4 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after &")][pAbort]))[addCmd(cmdBitAnd)];
+		term4_65	=	term4_6 >> *(strP("^") >> (term4_6 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after ^")][pAbort]))[addCmd(cmdBitXor)];
+		term4_7		=	term4_65 >> *(strP("|") >> (term4_65 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after |")][pAbort]))[addCmd(cmdBitOr)];
+		term4_75	=	term4_7 >> *(strP("and") >> (term4_7 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after and")][pAbort]))[addCmd(cmdLogAnd)];
+		term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after xor")][pAbort]))[addCmd(cmdLogXor)];
+		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after or")][pAbort]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 		term5		=	(
 			applyval >> (
@@ -1081,8 +1083,11 @@ bool Compiler::Compile(string str)
 	ofstream m_TempStream("time.txt", std::ios::binary);
 
 	UINT t = GetTickCount();
-	if(!Parse(CompilerGrammar::code, ptr, CompilerGrammar::mySpaceP))
-		return false;
+	ParseResult pRes = Parse(CompilerGrammar::code, ptr, CompilerGrammar::mySpaceP);
+	if(pRes == PARSE_NOTFULL)
+		throw std::string("Parsing wasn't full");
+	if(pRes = PARSE_FAILED)
+		throw std::string("Parsing failed");
 	UINT tem = GetTickCount()-t;
 	m_TempStream << "Parsing and AST tree gen. time: " << tem << "ms\r\n";
 	
@@ -1470,22 +1475,22 @@ void Compiler::GenListing()
 				break;
 			case cmdShr:
 				logASM << "SHR";
-				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+				if(oFlag == OTYPE_DOUBLE)
 					throw string("Invalid operation: SHR used on float");
 				break;
 			case cmdBitAnd:
 				logASM << "BAND";
-				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+				if(oFlag == OTYPE_DOUBLE)
 					throw string("Invalid operation: BAND used on float");
 				break;
 			case cmdBitOr:
 				logASM << "BOR";
-				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+				if(oFlag == OTYPE_DOUBLE)
 					throw string("Invalid operation: BOR used on float");
 				break;
 			case cmdBitXor:
 				logASM << "BXOR";
-				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+				if(oFlag == OTYPE_DOUBLE)
 					throw string("Invalid operation: BXOR used on float");
 				break;
 			case cmdLogAnd:
@@ -1523,15 +1528,9 @@ void Compiler::GenListing()
 			case cmdNeg:
 				logASM << "NEG";
 				break;
-			case cmdInc:
-				logASM << "INC";
-				break;
-			case cmdDec:
-				logASM << "DEC";
-				break;
 			case cmdBitNot:
 				logASM << "BNOT";
-				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+				if(oFlag == OTYPE_DOUBLE)
 					throw string("Invalid operation: BNOT used on float");
 				break;
 			case cmdLogNot:

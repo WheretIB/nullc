@@ -391,9 +391,6 @@ void NodeReturnOp::Compile()
 	// Преобразуем его в тип возвратного значения функции
 	if(typeInfo)
 		ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
-	// Уберём значения со стека вершин стека переменных
-	//for(UINT i = 0; i < popCnt; i++)
-	//	cmds->AddData(cmdPopVTop);
 
 	// Выйдем из функции или программы
 	cmds->AddData(cmdReturn);
@@ -680,13 +677,7 @@ UINT NodeFuncCall::GetSize()
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
 	else
 		size += 4*sizeof(CmdID) + 2*sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
-	
-	/*if(first)
-		if(funcID == -1)
-			return first->GetSize() + sizeof(CmdID) + sizeof(UINT) + funcName.length();// + ConvertToRealSize(first, podTypeToStackType[first->typeInfo()->type]);
-		else
-			return first->GetSize() + sizeof(CmdID) + sizeof(UINT);// + ConvertToRealSize(first, podTypeToStackType[first->typeInfo()->type]);
-	else*/
+
 	return size;
 }
 
@@ -749,6 +740,9 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 	// применять динамически расчитываемый сдвиг к адресу переменной
 	shiftAddress = shiftAddr;
 
+	// сдвиг уже прибавлен к адресу
+	bakedShift = false;
+
 	// получить узел, расчитывающий значение
 	first = getList()->back(); getList()->pop_back();
 
@@ -759,9 +753,15 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 		// получить узел, расчитывающий сдвиг адреса
 		second = getList()->back(); getList()->pop_back();
 
-		// сдвиг адреса должен быть  целым числом
+		// сдвиг адреса должен быть целым числом
 		if(second->GetTypeInfo() != typeInt)
 			throw std::string("ERROR: NodeVarSet() address shift must be an integer number");
+
+		if(second->GetNodeType() == typeNodeNumber)
+		{
+			varAddress += static_cast<NodeNumber<int>* >(second.get())->GetVal();
+			bakedShift = true;
+		}
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 };
@@ -778,7 +778,7 @@ void NodeVarSet::Compile()
 
 	if(varInfo.count == 1)	// если это не массив
 	{
-		if(shiftAddress)		// если переменная - член составного типа и нужен сдвиг адреса
+		if(shiftAddress && !bakedShift)		// если переменная - член составного типа и нужен сдвиг адреса
 		{
 			// кладём сдвиг в стек (в байтах)
 			second->Compile();
@@ -791,7 +791,7 @@ void NodeVarSet::Compile()
 
 		// добавляем команду присвоения
 		cmds->AddData(cmdMov);
-		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | (shiftAddress ? bitShiftStk : 0)));
+		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | ((shiftAddress && !bakedShift) ? bitShiftStk : 0)));
 		cmds->AddData(varAddress);
 	}else{						// если это массив
 		if(arrSetAll)			// если указано присвоить значение всем ячейкам массива
@@ -803,25 +803,15 @@ void NodeVarSet::Compile()
 			// для каждого элемента
 			for(UINT n = 0; n < varInfo.count; n++)
 			{
-				// положем в стек сдвиг от начала массива (в байтах)
-				cmds->AddData(cmdPush);
-				cmds->AddData((USHORT)(STYPE_INT | DTYPE_INT));
-				cmds->AddData(n * typeInfo->size);
-				
-				// поменяем местами значения на верхушке стека
-				// (для инструкции MOV значение должно следовать за адресом)
-				cmds->AddData(cmdSwap);
-				cmds->AddData((USHORT)(newST | DTYPE_INT));
-				
-				// добавляем команду присвоения
+				// присвоим значение
 				cmds->AddData(cmdMov);
-				cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
-				cmds->AddData(varAddress);
-				cmds->AddData(varInfo.count * typeInfo->size);
+				cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel)));
+				cmds->AddData(varAddress + n * typeInfo->size);
 			}
 		}else{					// если указано присвоить значение одной ячейке массива
 			// кладём сдвиг от начала массива (в байтах)
-			second->Compile();
+			if(!bakedShift)
+				second->Compile();
 			
 			// расчитываем значение для присвоения ячейке массива
 			first->Compile();
@@ -830,11 +820,12 @@ void NodeVarSet::Compile()
 			
 			// добавляем команду присвоения
 			cmds->AddData(cmdMov);
-			cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
+			cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | (bakedShift ? 0 : (bitShiftStk | bitSizeOn))));
 			// адрес начала массива
 			cmds->AddData(varAddress);
 			// кладём размер массива (в байтах) в стек, для предотвращения выхода за его пределы
-			cmds->AddData(varInfo.count * varInfo.varType->size);
+			if(!bakedShift)
+				cmds->AddData(varInfo.count * varInfo.varType->size);
 		}
 	}
 }
@@ -896,6 +887,9 @@ NodeVarGet::NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 	// применять динамически расчитываемый сдвиг к адресу переменной
 	shiftAddress = shiftAddr;
 
+	// сдвиг уже прибавлен к адресу
+	bakedShift = false;
+
 	// если переменная - массив или член составного типа, то нужен сдвиг адреса
 	if(varInfo.count > 1 || shiftAddress)	
 	{
@@ -905,6 +899,12 @@ NodeVarGet::NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 		// сдвиг адреса должен быть  целым числом
 		if(first->GetTypeInfo() != typeInt)
 			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
+
+		if(first->GetNodeType() == typeNodeNumber)
+		{
+			varAddress += static_cast<NodeNumber<int>* >(first.get())->GetVal();
+			bakedShift = true;
+		}
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
@@ -921,22 +921,24 @@ void NodeVarGet::Compile()
 	if(varInfo.count > 1) 	// если это массив
 	{
 		// кладём сдвиг от начала массива (в байтах)
-		first->Compile();
+		if(!bakedShift)
+			first->Compile();
 
 		// получаем значение переменной по адресу
 		cmds->AddData(cmdPush);
-		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | bitShiftStk | bitSizeOn));
+		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | (bakedShift ? 0 : (bitShiftStk | bitSizeOn))));
 		// адрес начала массива
 		cmds->AddData(varAddress);
 		// кладём размер массива (в байтах) в стек, для предотвращения выхода за его пределы
-		cmds->AddData(varInfo.count * varInfo.varType->size);
+		if(!bakedShift)
+			cmds->AddData(varInfo.count * varInfo.varType->size);
 	}else{						// если не это массив
-		if(shiftAddress)		// если переменная - член составного типа и нужен сдвиг адреса
+		if(shiftAddress && !bakedShift)		// если переменная - член составного типа и нужен сдвиг адреса
 			first->Compile();		// кладём его в стек (в байтах)
 
 		// получаем значение переменной по адресу
 		cmds->AddData(cmdPush);
-		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | (shiftAddress ? bitShiftStk : 0)));
+		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | ((shiftAddress && !bakedShift) ? bitShiftStk : 0)));
 		// адрес переменной
 		cmds->AddData(varAddress);
 	}
@@ -1182,7 +1184,7 @@ void NodePreValOp::Compile()
 	if(optimised)
 	{
 		// Меняем значение переменной прямо по адресу
-		cmds->AddData((CmdID)(cmdID+10));
+		cmds->AddData(cmdID);
 		cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 		// адрес начала массива
 		cmds->AddData(varAddress);
@@ -1203,7 +1205,7 @@ void NodePreValOp::Compile()
 			// Сначала изменяем переменную, затем кладём в стек её новое значение
 
 			// Меняем значение переменной прямо по адресу
-			cmds->AddData((CmdID)(cmdID+10));
+			cmds->AddData(cmdID);
 			cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
 			if(varInfo.count > 1)
@@ -1235,7 +1237,7 @@ void NodePreValOp::Compile()
 			}
 			
 			// Меняем значение переменной прямо по адресу
-			cmds->AddData((CmdID)(cmdID+10));
+			cmds->AddData(cmdID);
 			cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
 			if(varInfo.count > 1)
@@ -1246,9 +1248,9 @@ void NodePreValOp::Compile()
 void NodePreValOp::LogToStream(ostringstream& ostr)
 {
 	static char* strs[] = { "++", "--" };
-	if(cmdID != cmdInc &&  cmdID != cmdDec)
+	if(cmdID != cmdIncAt &&  cmdID != cmdDecAt)
 		throw std::string("ERROR: PreValOp error");
-	drawLn(ostr); ostr << *typeInfo << "PreValOp<" << strs[cmdID-cmdInc] << "> :\r\n"; goDown(); if(first) first->LogToStream(ostr); goUp();
+	drawLn(ostr); ostr << *typeInfo << "PreValOp<" << strs[cmdID-cmdIncAt] << "> :\r\n"; goDown(); if(first) first->LogToStream(ostr); goUp();
 }
 
 UINT NodePreValOp::GetSize()

@@ -40,12 +40,19 @@ namespace supspi
 
 	Rule	operator ~	(Rule a){ return Rule(shared_ptr<BaseP>(new NegateP(a))); }
 
-	bool	Parse(Rule main, char* str, Rule space)
+	ParseResult	Parse(Rule main, char* str, Rule space)
 	{
 		SetAlterPolicy(ALTER_STANDART);
 		SetActionPolicy(ACTION_STANDART);
 		char* temp = str;
-		return main->Parse(&temp, space.getParser());
+		bool res = main->Parse(&temp, space.getParser());
+		if(res)
+			SkipSpaces(&temp, space.getParser());
+		if(!res)
+			return PARSE_FAILED;
+		if(res && strlen(temp))//(strlen(str) != (UINT)(temp-str)))
+			return PARSE_NOTFULL;
+		return PARSE_OK;
 	}
 };
 

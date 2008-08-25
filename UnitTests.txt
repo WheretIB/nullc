@@ -79,3 +79,53 @@ var int b = 3;
 if(b < 1)
   b = 10;
 return b;
+
+var int res[5]=1;
+res[1] = 13;
+res[2] = 3;
+res[res[2]] = 4;
+res[res[res[2]]] = 12;
+return 5;
+
+var int a=0;
+var int b[512];
+while(a < 256)
+{
+var char c[16];
+var char ref d
+a = ++a + b[a];
+}
+return 0;
+
+//integer tests
+var int res[30];
+var int a = 14, b = 3, c = 0;
+res[0] = a+b;
+res[1] = a-b;
+res[2] = -a;
+res[3] = ~b;
+res[4] = a*b;
+res[5] = a/b;
+res[6] = a%b;
+res[7] = a**b;
+res[8] = a > b;
+res[9] = a < b;
+res[10] = a >= b;
+res[11] = a <= b;
+res[12] = a == b;
+res[13] = a != b;
+res[14] = a << b;
+res[15] = a >> b;
+res[16] = a & b;
+res[17] = a | b;
+res[18] = a ^ b;
+res[19] = a and b;
+res[20] = a or b;
+res[21] = a xor b;
+res[22] = a and c;
+res[23] = a or c;
+res[24] = a xor c;
+res[25] = !a;
+res[26] = !c;
+
+return 1;

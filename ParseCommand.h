@@ -151,12 +151,6 @@ const CmdID cmdLogXor	= 149;
 	// negation
 	// отрицание
 const CmdID cmdNeg		= 160;
-	// increment
-	// инкремент
-const CmdID cmdInc		= 161;
-	// decrement
-	// декремент
-const CmdID cmdDec		= 162;
 	// ~	binary NOT | Only for integers! |
 	// ~	бинарное отрицание | Только для целых чисел |
 const CmdID cmdBitNot	= 163;
@@ -671,12 +665,6 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		{
 		case cmdNeg:
 			(*stream) << "NEG";
-			break;
-		case cmdInc:
-			(*stream) << "INC";
-			break;
-		case cmdDec:
-			(*stream) << "DEC";
 			break;
 		case cmdBitNot:
 			(*stream) << "BNOT";
