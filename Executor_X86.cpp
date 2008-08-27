@@ -739,7 +739,10 @@ void ExecutorX86::GenListing()
 				if(dt == DTYPE_FLOAT)
 				{
 					if(flagAddrStk(cFlag) | flagShiftStk(cFlag) | flagSizeStk(cFlag))
+					{
+						logASM << "push ecx \r\n";
 						logASM << "push ebx \r\n";
+					}
 					logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
 					logASM << "fstp dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
 				}
