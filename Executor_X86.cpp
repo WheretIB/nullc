@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Executor_X86.h"
+#include "StdLib_X86.h"
 
 ExecutorX86::ExecutorX86(CommandList* cmds, std::vector<VariableInfo>* varinfo)
 {
@@ -16,31 +17,6 @@ ExecutorX86::~ExecutorX86()
 int runResult = 0;
 int runResult2 = 0;
 OperFlag runResultType = OTYPE_DOUBLE;
-
-__declspec(naked) void intPow()
-{
-	// http://en.wikipedia.org/wiki/Exponentiation_by_squaring
-	//eax is the power
-	//ebx is the number
-	__asm
-	{
-		mov edx, 1 ; //edx is the result
-		whileStart: ; 
-		cmp eax, 0 ; //while(power)
-		jz whileEnd ;
-		  mov ecx, eax ; // if(power & 1)
-		  and ecx, 1 ;
-		  je skipIf ;
-		    imul edx, ebx ; // result *= number
-			sub eax, 1 ; //power--;
-		  skipIf: ;
-			imul ebx, ebx ; // number *= number
-			shr eax, 1 ; //power /= 2
-		  jmp whileStart ;
-		whileEnd: ;
-		ret ;
-	}
-}
 
 bool ExecutorX86::Run()
 {
@@ -947,10 +923,10 @@ void ExecutorX86::GenListing()
 				logASM << "fldz ; положим ноль в fpu стек\r\n";
 				logASM << "fcomp qword [esp] ; сравним\r\n"; 
 				logASM << "fnstsw ax ; результат без проверок на fpu исключения положим в ax\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop eax ; убрали double со стека\r\n";
+				logASM << "pop ebx \r\n";
+				logASM << "pop ebx ; убрали double со стека\r\n";
 				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
-				logASM << "jp gLabel" << valind << "\r\n";
+				logASM << "jnp gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_LONG){
 				logASM << "pop edx \r\n";
 				logASM << "pop eax \r\n";
@@ -973,10 +949,10 @@ void ExecutorX86::GenListing()
 				logASM << "fldz ; положим ноль в fpu стек\r\n";
 				logASM << "fcomp qword [esp] ; сравним\r\n"; 
 				logASM << "fnstsw ax ; результат без проверок на fpu исключения положим в ax\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop eax ; убрали double со стека\r\n";
+				logASM << "pop ebx \r\n";
+				logASM << "pop ebx ; убрали double со стека\r\n";
 				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
-				logASM << "jnp gLabel" << valind << "\r\n";
+				logASM << "jp gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_LONG){
 				logASM << "pop edx \r\n";
 				logASM << "pop eax \r\n";
@@ -1005,8 +981,11 @@ void ExecutorX86::GenListing()
 				logASM << "add esp, 8\r\n";
 				break;
 			case cmdAdd+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdAdd long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) += *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; ADD long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx \r\n";
+				logASM << "add [esp], eax \r\n";
+				logASM << "adc [esp+4], edx \r\n";
 				break;
 			case cmdAdd+(OTYPE_INT<<16):
 				logASM << "  ; ADD int\r\n";
@@ -1024,8 +1003,11 @@ void ExecutorX86::GenListing()
 				logASM << "add esp, 8\r\n";
 				break;
 			case cmdSub+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdSub long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) -= *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; SUB long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx \r\n";
+				logASM << "sub [esp], eax \r\n";
+				logASM << "sbb [esp+4], edx \r\n";
 				break;
 			case cmdSub+(OTYPE_INT<<16):
 				logASM << "  ; SUB int\r\n";
@@ -1043,8 +1025,12 @@ void ExecutorX86::GenListing()
 				logASM << "add esp, 8\r\n";
 				break;
 			case cmdMul+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdMul long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) *= *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; MUL long\r\n";
+				logASM << "mov ecx, 0x" << longMul << " ; longMul(), result in edx:eax\r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 8 ; сносим один\r\n";
+				logASM << "mov [esp+4], edx \r\n";
+				logASM << "mov [esp], eax \r\n";
 				break;
 			case cmdMul+(OTYPE_INT<<16):
 				logASM << "  ; MUL int\r\n";
@@ -1064,20 +1050,12 @@ void ExecutorX86::GenListing()
 				logASM << "add esp, 8\r\n";
 				break;
 			case cmdDiv+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdDiv long\r\n";
-			/*	if(*((long long*)(&genStack[genStack.size()-2])))
-					*((long long*)(&genStack[genStack.size()-4])) /= *((long long*)(&genStack[genStack.size()-2]));
-				else{
-					if(*((long long*)(&genStack[genStack.size()-4])) > 0)
-					{
-						*((int*)(&genStack[genStack.size()-3])) = 0x7FFFFFFF;
-						*((int*)(&genStack[genStack.size()-4])) = 0xFFFFFFFF;
-					}else if(*((long long*)(&genStack[genStack.size()-4])) < 0){
-						*((int*)(&genStack[genStack.size()-3])) = 0x80000000;
-						*((int*)(&genStack[genStack.size()-4])) = 0;
-					}else
-						*((long long*)(&genStack[genStack.size()-4])) = 0;
-				}*/
+				logASM << "  ; DIV long\r\n";
+				logASM << "mov ecx, 0x" << longDiv << " ; longDiv(), result in edx:eax\r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 8 ; сносим один\r\n";
+				logASM << "mov [esp+4], edx \r\n";
+				logASM << "mov [esp], eax \r\n";
 				break;
 			case cmdDiv+(OTYPE_INT<<16):
 				logASM << "  ; DIV int\r\n";
@@ -1093,22 +1071,18 @@ void ExecutorX86::GenListing()
 				logASM << "  ; POW double\r\n";
 				logASM << "fld qword [esp] \r\n";
 				logASM << "fld qword [esp+8] ; возведение в степень, это конкретный гемморой\r\n";
-				logASM << "fyl2x ; st0 = y*log2(x)\r\n";
-				logASM << "fld st0 ; скопируем\r\n";
-				logASM << "frndint ; округлим вниз\r\n";
-				logASM << "fsubr st0, st1 ; st1=y*log2(x), st0=fract(y*log2(x)) \r\n";
-				logASM << "f2xm1 ; st0=2**(fract(y*log2(x)))-1\r\n";
-				logASM << "fld1 ; положили один\r\n";
-				logASM << "faddp ; прибавили, st0=2**(fract(y*log2(x)))\r\n";
-				logASM << "fscale ; находим st0=2**(y*log2(x))\r\n";
-				logASM << "fxch st1 ; поменяем st0 и st1\r\n";
-				logASM << "fstp st ; уберём st0\r\n";
+				logASM << "mov ecx, 0x" << doublePow << " ; doublePow(), result in st0\r\n";
+				logASM << "call ecx \r\n";
 				logASM << "fstp qword [esp+8] ; сохраним результат\r\n";
 				logASM << "add esp, 8\r\n";
 				break;
 			case cmdPow+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdPow long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = (long long)pow((double)*((long long*)(&genStack[genStack.size()-4])), (double)*((long long*)(&genStack[genStack.size()-2])));
+				logASM << "  ; MOD long\r\n";
+				logASM << "mov ecx, 0x" << longPow << " ; longPow(), result in edx:eax\r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 8 ; сносим один\r\n";
+				logASM << "mov [esp+4], edx \r\n";
+				logASM << "mov [esp], eax \r\n";
 				break;
 			case cmdPow+(OTYPE_INT<<16):
 				logASM << "  ; POW int\r\n";
@@ -1125,15 +1099,17 @@ void ExecutorX86::GenListing()
 				logASM << "fld qword [esp] \r\n";
 				logASM << "fld qword [esp+8] \r\n";
 				logASM << "fprem \r\n";
+				logASM << "fstp st1 \r\n";
 				logASM << "fstp qword [esp+8] \r\n";
 				logASM << "add esp, 8\r\n";
 				break;
 			case cmdMod+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdMod long\r\n";
-			/*	if(*((long long*)(&genStack[genStack.size()-2])))
-					*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) % *((long long*)(&genStack[genStack.size()-2]));
-				else
-					*((long long*)(&genStack[genStack.size()-4])) = 0;*/
+				logASM << "  ; MOD long\r\n";
+				logASM << "mov ecx, 0x" << longMod << " ; longMod(), result in edx:eax\r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 8 ; сносим один\r\n";
+				logASM << "mov [esp+4], edx \r\n";
+				logASM << "mov [esp], eax \r\n";
 				break;
 			case cmdMod+(OTYPE_INT<<16):
 				logASM << "  ; MOD int\r\n";
@@ -1163,8 +1139,22 @@ void ExecutorX86::GenListing()
 				aluLabels++;
 				break;
 			case cmdLess+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdLess long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) < *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; LES long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx ; edx:eax\r\n";
+				logASM << "cmp dword [esp+4], edx \r\n";
+				logASM << "jg SetZero" << aluLabels << " \r\n";
+				logASM << "jl SetOne" << aluLabels << " \r\n";
+				logASM << "cmp dword [esp], eax \r\n";
+				logASM << "jae SetZero" << aluLabels << " \r\n";
+				logASM << "  SetOne" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 1 \r\n";
+				logASM << "jmp OneSet" << aluLabels << " \r\n";
+				logASM << "  SetZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 0 \r\n";
+				logASM << "  OneSet" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+4], 0 \r\n";
+				aluLabels++;
 				break;
 			case cmdLess+(OTYPE_INT<<16):
 				logASM << "  ; LES int\r\n";
@@ -1194,8 +1184,22 @@ void ExecutorX86::GenListing()
 				aluLabels++;
 				break;
 			case cmdGreater+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdGreater long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) > *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; GRT long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx ; edx:eax\r\n";
+				logASM << "cmp dword [esp+4], edx \r\n";
+				logASM << "jl SetZero" << aluLabels << " \r\n";
+				logASM << "jg SetOne" << aluLabels << " \r\n";
+				logASM << "cmp dword [esp], eax \r\n";
+				logASM << "jbe SetZero" << aluLabels << " \r\n";
+				logASM << "  SetOne" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 1 \r\n";
+				logASM << "jmp OneSet" << aluLabels << " \r\n";
+				logASM << "  SetZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 0 \r\n";
+				logASM << "  OneSet" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+4], 0 \r\n";
+				aluLabels++;
 				break;
 			case cmdGreater+(OTYPE_INT<<16):
 				logASM << "  ; GRT int\r\n";
@@ -1225,8 +1229,22 @@ void ExecutorX86::GenListing()
 				aluLabels++;
 				break;
 			case cmdLEqual+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdLEqual long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) <= *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; LEQL long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx ; edx:eax\r\n";
+				logASM << "cmp dword [esp+4], edx \r\n";
+				logASM << "jg SetZero" << aluLabels << " \r\n";
+				logASM << "jl SetOne" << aluLabels << " \r\n";
+				logASM << "cmp dword [esp], eax \r\n";
+				logASM << "ja SetZero" << aluLabels << " \r\n";
+				logASM << "  SetOne" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 1 \r\n";
+				logASM << "jmp OneSet" << aluLabels << " \r\n";
+				logASM << "  SetZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 0 \r\n";
+				logASM << "  OneSet" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+4], 0 \r\n";
+				aluLabels++;
 				break;
 			case cmdLEqual+(OTYPE_INT<<16):
 				logASM << "  ; LEQL int\r\n";
@@ -1256,8 +1274,22 @@ void ExecutorX86::GenListing()
 				aluLabels++;
 				break;
 			case cmdGEqual+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdGEqual long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) >= *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; GEQL long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx ; edx:eax\r\n";
+				logASM << "cmp dword [esp+4], edx \r\n";
+				logASM << "jl SetZero" << aluLabels << " \r\n";
+				logASM << "jg SetOne" << aluLabels << " \r\n";
+				logASM << "cmp dword [esp], eax \r\n";
+				logASM << "jb SetZero" << aluLabels << " \r\n";
+				logASM << "  SetOne" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 1 \r\n";
+				logASM << "jmp OneSet" << aluLabels << " \r\n";
+				logASM << "  SetZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 0 \r\n";
+				logASM << "  OneSet" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+4], 0 \r\n";
+				aluLabels++;
 				break;
 			case cmdGEqual+(OTYPE_INT<<16):
 				logASM << "  ; GEQL int\r\n";
@@ -1287,8 +1319,20 @@ void ExecutorX86::GenListing()
 				aluLabels++;
 				break;
 			case cmdEqual+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdEqual long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) == *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; EQL long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx ; edx:eax\r\n";
+				logASM << "cmp dword [esp+4], edx \r\n";
+				logASM << "jne SetZero" << aluLabels << " \r\n";
+				logASM << "cmp dword [esp], eax \r\n";
+				logASM << "jne SetZero" << aluLabels << " \r\n";
+				logASM << "mov dword [esp], 1 \r\n";
+				logASM << "jmp OneSet" << aluLabels << " \r\n";
+				logASM << "  SetZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 0 \r\n";
+				logASM << "  OneSet" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+4], 0 \r\n";
+				aluLabels++;
 				break;
 			case cmdEqual+(OTYPE_INT<<16):
 				logASM << "  ; EQL int\r\n";
@@ -1318,8 +1362,21 @@ void ExecutorX86::GenListing()
 				aluLabels++;
 				break;
 			case cmdNEqual+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdNEqual long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) != *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; NEQL long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx ; edx:eax\r\n";
+				logASM << "cmp dword [esp+4], edx \r\n";
+				logASM << "jne SetOne" << aluLabels << " \r\n";
+				logASM << "cmp dword [esp], eax \r\n";
+				logASM << "je SetZero" << aluLabels << " \r\n";
+				logASM << "  SetOne" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 1 \r\n";
+				logASM << "jmp OneSet" << aluLabels << " \r\n";
+				logASM << "  SetZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp], 0 \r\n";
+				logASM << "  OneSet" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+4], 0 \r\n";
+				aluLabels++;
 				break;
 			case cmdNEqual+(OTYPE_INT<<16):
 				logASM << "  ; NEQL int\r\n";
@@ -1332,8 +1389,10 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdShl+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdShl long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) << *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; SHL long\r\n";
+				logASM << "mov ecx, 0x" << longShl << " ; longShl(), result in [esp+8]\r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 8 ; сносим один\r\n";
 				break;
 			case cmdShl+(OTYPE_INT<<16):
 				logASM << "  ; SHL int\r\n";
@@ -1346,8 +1405,10 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdShr+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdShr long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) >> *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; SHR long\r\n";
+				logASM << "mov ecx, 0x" << longShr << " ; longShr(), result in [esp+8]\r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 8 ; сносим один\r\n";
 				break;
 			case cmdShr+(OTYPE_INT<<16):
 				logASM << "  ; SHR int\r\n";
@@ -1360,8 +1421,11 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdBitAnd+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdBitAnd long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) & *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; BAND long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx \r\n";
+				logASM << "and [esp], eax ; \r\n";
+				logASM << "and [esp+4], edx ; \r\n";
 				break;
 			case cmdBitAnd+(OTYPE_INT<<16):
 				logASM << "  ; BAND int\r\n";
@@ -1371,8 +1435,11 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdBitOr+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdBitOr long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) | *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; BOR long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx \r\n";
+				logASM << "or [esp], eax ; \r\n";
+				logASM << "or [esp+4], edx ; \r\n";
 				break;
 			case cmdBitOr+(OTYPE_INT<<16):
 				logASM << "  ; BOR int\r\n";
@@ -1382,8 +1449,11 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdBitXor+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdBitXor long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) ^ *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; BXOR long\r\n";
+				logASM << "pop eax \r\n";
+				logASM << "pop edx \r\n";
+				logASM << "xor [esp], eax ; \r\n";
+				logASM << "xor [esp+4], edx ; \r\n";
 				break;
 			case cmdBitXor+(OTYPE_INT<<16):
 				logASM << "  ; BXOR int\r\n";
@@ -1393,8 +1463,21 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdLogAnd+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdLogAnd long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) && *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; LAND long\r\n";
+				logASM << "mov eax, dword [esp] \r\n";
+				logASM << "or eax, dword [esp+4] \r\n";
+				logASM << "jz SetZero" << aluLabels << " \r\n";
+				logASM << "mov eax, dword [esp+8] \r\n";
+				logASM << "or eax, dword [esp+12] \r\n";
+				logASM << "jz SetZero" << aluLabels << " \r\n";
+				logASM << "mov dword [esp+8], 1 \r\n";
+				logASM << "jmp OneSet" << aluLabels << " \r\n";
+				logASM << "  SetZero" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+8], 0 \r\n";
+				logASM << "  OneSet" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+12], 0 \r\n";
+				logASM << "add esp, 8 \r\n";
+				aluLabels++;
 				break;
 			case cmdLogAnd+(OTYPE_INT<<16):
 				logASM << "  ; LAND int\r\n";
@@ -1413,8 +1496,21 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdLogOr+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdLogOr long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = *((long long*)(&genStack[genStack.size()-4])) || *((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; LOR long\r\n";
+				logASM << "mov eax, dword [esp] \r\n";
+				logASM << "or eax, dword [esp+4] \r\n";
+				logASM << "jnz SetOne" << aluLabels << " \r\n";
+				logASM << "mov eax, dword [esp+8] \r\n";
+				logASM << "or eax, dword [esp+12] \r\n";
+				logASM << "jnz SetOne" << aluLabels << " \r\n";
+				logASM << "mov dword [esp+8], 0 \r\n";
+				logASM << "jmp ZeroSet" << aluLabels << " \r\n";
+				logASM << "  SetOne" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+8], 1 \r\n";
+				logASM << "  ZeroSet" << aluLabels << ": \r\n";
+				logASM << "mov dword [esp+12], 0 \r\n";
+				logASM << "add esp, 8 \r\n";
+				aluLabels++;
 				break;
 			case cmdLogOr+(OTYPE_INT<<16):
 				logASM << "  ; LOR int\r\n";
@@ -1433,8 +1529,19 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdLogXor+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdLogXor long\r\n";
-			//	*((long long*)(&genStack[genStack.size()-4])) = !!(*((long long*)(&genStack[genStack.size()-4]))) ^ !!(*((long long*)(&genStack[genStack.size()-2])));
+				logASM << "  ; LXOR long\r\n";
+				logASM << "xor eax, eax \r\n";
+				logASM << "mov ebx, dword [esp] \r\n";
+				logASM << "or ebx, dword [esp+4] \r\n";
+				logASM << "setnz al \r\n";
+				logASM << "xor ecx, ecx \r\n";
+				logASM << "mov ebx, dword [esp+8] \r\n";
+				logASM << "or ebx, dword [esp+12] \r\n";
+				logASM << "setnz cl \r\n";
+				logASM << "xor eax, ecx \r\n";
+				logASM << "add esp, 8 \r\n";
+				logASM << "mov dword [esp+4], 0 \r\n";
+				logASM << "mov dword [esp], eax \r\n";
 				break;
 			case cmdLogXor+(OTYPE_INT<<16):
 				logASM << "  ; LXOR int\r\n";
@@ -1466,11 +1573,13 @@ void ExecutorX86::GenListing()
 				logASM << "fstp qword [esp] \r\n";
 				break;
 			case cmdNeg+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdNeg long\r\n";
-				//*((long long*)(&genStack[genStack.size()-2])) = -*((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; NEG long\r\n";
+				logASM << "neg dword [esp] \r\n";
+				logASM << "adc dword [esp+4], 0 \r\n";
+				logASM << "neg dword [esp+4] \r\n";
 				break;
 			case cmdNeg+(OTYPE_INT<<16):
-				logASM << "  ; NEG\r\n";
+				logASM << "  ; NEG int\r\n";
 				logASM << "neg dword [esp] \r\n";
 				break;
 
@@ -1491,8 +1600,12 @@ void ExecutorX86::GenListing()
 				aluLabels++;
 				break;
 			case cmdLogNot+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdLogNot long\r\n";
-				//*((long long*)(&genStack[genStack.size()-2])) = !*((long long*)(&genStack[genStack.size()-2]));
+				logASM << "xor eax, eax \r\n";
+				logASM << "mov ebx, dword [esp+4] \r\n";
+				logASM << "or ebx, dword [esp] \r\n";
+				logASM << "setz al \r\n";
+				logASM << "mov dword [esp+4], 0 \r\n";
+				logASM << "mov dword [esp], eax \r\n";
 				break;
 			case cmdLogNot+(OTYPE_INT<<16):
 				logASM << "  ; LNOT int\r\n";
@@ -1503,8 +1616,9 @@ void ExecutorX86::GenListing()
 				break;
 
 			case cmdBitNot+(OTYPE_LONG<<16):
-				logASM << ";TODO:  cmdBitNot long\r\n";
-				//*((long long*)(&genStack[genStack.size()-2])) = ~*((long long*)(&genStack[genStack.size()-2]));
+				logASM << "  ; BNOT long\r\n";
+				logASM << "not dword [esp] \r\n";
+				logASM << "not dword [esp+4] \r\n";
 				break;
 			case cmdBitNot+(OTYPE_INT<<16):
 				logASM << "  ; BNOT int\r\n";

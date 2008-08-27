@@ -933,7 +933,7 @@ namespace CompilerGrammar
 			term4_9;
 
 		block		=	chP('{')[blockBegin] >> code >> chP('}')[blockEnd];
-		expression	=	*chP(';') >> ((strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> +chP(';'))[addPopNode] | block[addBlockNode]);
+		expression	=	*chP(';') >> ((strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[AssignVar<string>(errStr, "ERROR: ';' not found after expression")][pAbort]))[addPopNode] | block[addBlockNode]);
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
@@ -1231,7 +1231,7 @@ void Compiler::GenListing()
 					if(dt == DTYPE_DOUBLE)
 						logASM << " (" << *((double*)(&DWords[0])) << ')';
 					if(dt == DTYPE_LONG)
-						logASM << " (" << *((long*)(&DWords[0])) << ')';
+						logASM << " (" << *((long long*)(&DWords[0])) << ')';
 					if(dt == DTYPE_FLOAT)
 						logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
 					if(dt == DTYPE_INT)
