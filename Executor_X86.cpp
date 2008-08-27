@@ -20,7 +20,6 @@ OperFlag runResultType = OTYPE_DOUBLE;
 
 bool ExecutorX86::Run()
 {
-	//GenListing();
 	*(double*)(paramData) = 0.0;
 	*(double*)(paramData+8) = 3.1415926535897932384626433832795;
 	*(double*)(paramData+16) = 2.7182818284590452353602874713527;
@@ -43,31 +42,42 @@ bool ExecutorX86::Run()
 	UINT res1 = 0;
 	UINT res2 = 0;
 	UINT resT = 0;
-	__asm
+	UINT expCode;
+	__try 
 	{
-		pusha ; // Сохраним все регистры
-		mov eax, binCodeStart ;
+		__asm
+		{
+			pusha ; // Сохраним все регистры
+			mov eax, binCodeStart ;
 
-		push ebp; // Сохраним базу стека (её придётся востановить до popa)
+			push ebp; // Сохраним базу стека (её придётся востановить до popa)
 
-		mov ebp, 0h ;
-		mov edi, 18h ;
-		call eax ; // в ebx тип вернувшегося значения
+			mov ebp, 0h ;
+			mov edi, 18h ;
+			call eax ; // в ebx тип вернувшегося значения
 
-		pop eax; // Возмём первый dword
+			pop eax; // Возмём первый dword
 
-		cmp ebx, 3 ; // oFlag == 3, значит int
-		je justAnInt ; // пропустим взятие второй части для long и double
-		pop edx; // Возьмём второй dword
+			cmp ebx, 3 ; // oFlag == 3, значит int
+			je justAnInt ; // пропустим взятие второй части для long и double
+			pop edx; // Возьмём второй dword
 
-		justAnInt:
+			justAnInt:
 
-		pop ebp; // Востановим базу стека
-		mov dword ptr [res1], eax;
-		mov dword ptr [res2], edx;
-		mov dword ptr [resT], ebx;
+			pop ebp; // Востановим базу стека
+			mov dword ptr [res1], eax;
+			mov dword ptr [res2], edx;
+			mov dword ptr [resT], ebx;
 
-		popa ;
+			popa ;
+		}
+	}
+	__except(((expCode = GetExceptionCode()) == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+	{
+		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
+			throw std::string("ERROR: integer division by zero");
+		if(expCode == EXCEPTION_BREAKPOINT)
+			throw std::string("ERROR: array index out of bounds");
 	}
 	runResult = res1;
 	runResult2 = res2;
@@ -477,8 +487,7 @@ void ExecutorX86::GenListing()
 					}else{
 						logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
 						logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-						logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
-						logASM << "call esi ; вызовем её\r\n";
+						logASM << "int 3 \r\n";
 						logASM << "  pushLabel" << pushLabels << ":\r\n";
 						pushLabels++;
 					}
@@ -490,8 +499,7 @@ void ExecutorX86::GenListing()
 					else
 						logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
 					logASM << "ja pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
-					logASM << "call esi ; вызовем её\r\n";
+					logASM << "int 3 \r\n";
 					logASM << "  pushLabel" << pushLabels << ":\r\n";
 					logASM << "pop eax ; убрали использованный размер\r\n";
 					pushLabels++;
@@ -692,8 +700,7 @@ void ExecutorX86::GenListing()
 					}else{
 						logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
 						logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-						logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
-						logASM << "call esi ; вызовем её\r\n";
+						logASM << "int 3 \r\n";
 						logASM << "  movLabel" << movLabels << ":\r\n";
 						movLabels++;
 					}
@@ -705,8 +712,7 @@ void ExecutorX86::GenListing()
 					else
 						logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
 					logASM << "ja movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
-					logASM << "call esi ; вызовем её\r\n";
+					logASM << "int 3 \r\n";
 					logASM << "  movLabel" << movLabels << ":\r\n";
 					logASM << "pop eax ; убрали использованный размер\r\n";
 					movLabels++;
@@ -802,19 +808,15 @@ void ExecutorX86::GenListing()
 
 				asmStackType st = flagStackType(cFlag);
 				asmDataType dt = flagDataType(cFlag);
-				
+
 				if(st == STYPE_DOUBLE && dt == DTYPE_INT)
 				{
-					logASM << "mov eax, dword [esi+8] ; указатель на функцию doubletolong\r\n";
-					logASM << "call eax ; вызовем. теперь нижние 32бита результата - eax, верхние - edx\r\n";
-					logASM << "pop ebx \r\n";
-					logASM << "pop ebx ; убрали double со стека\r\n";
-					logASM << "push eax ; положим int в стек\r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fistp dword [esp+4] \r\n";
+					logASM << "add esp, 4 \r\n";
 				}else if(st == STYPE_DOUBLE && dt == DTYPE_LONG){
-					logASM << "mov eax, dword [esi+8] ; указатель на функцию doubletolong\r\n";
-					logASM << "call eax ; вызовем. теперь нижние 32бита результата - eax, верхние - edx\r\n";
-					logASM << "xchg eax, [esp] \r\n";
-					logASM << "xchg edx, [esp-4] ; составили long long в стеке\r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fistp qword [esp] \r\n";
 				}
 			}
 			break;
@@ -1732,8 +1734,7 @@ void ExecutorX86::GenListing()
 				}else{
 					logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
 					logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
-					logASM << "call esi ; вызовем её\r\n";
+					logASM << "int 3 \r\n";
 					logASM << "  movLabel" << movLabels << ":\r\n";
 					movLabels++;
 				}
@@ -1745,8 +1746,7 @@ void ExecutorX86::GenListing()
 				else
 					logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
 				logASM << "ja movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-				logASM << "mov esi, [esi+4] ; возьмём указатель на вторую системную функцию (invalidOffset)\r\n";
-				logASM << "call esi ; вызовем её\r\n";
+				logASM << "int 3 \r\n";
 				logASM << "  movLabel" << movLabels << ":\r\n";
 				logASM << "pop eax ; убрали использованный размер\r\n";
 				movLabels++;
