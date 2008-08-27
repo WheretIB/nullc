@@ -223,3 +223,18 @@ var long c;
 for(var int i = 0; i < 10000000; i++)
   c = a**b;
 return c;
+
+var int a=5, b =0;
+return a/b;
+
+// Type conversions
+var int ia=3, ib, ic;
+var double da=5.0, db, dc;
+var long la=4l, lb, lc;
+ib = da;
+ic = la;
+db = ia;
+dc = la;
+lb = ia;
+lc = da;
+return 1;
