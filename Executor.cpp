@@ -280,6 +280,45 @@ bool Executor::Run()
 			genStackTypes.push_back(STYPE_INT);
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
 			break;
+		case cmdSetRange:
+			m_cmds->GetUSHORT(pos, cFlag);
+			pos += 2;
+			m_cmds->GetUINT(pos, uintVal);
+			pos += 4;
+			m_cmds->GetUINT(pos, uintVal2);
+			pos += 4;
+			for(int varNum = 0; varNum < uintVal2; varNum++)
+			{
+				switch(cFlag)
+				{
+				case DTYPE_DOUBLE:
+					*((double*)(&genParams[uintVal])) = *((double*)(&genStack[genStack.size()-2]));
+					uintVal += 8;
+					break;
+				case DTYPE_FLOAT:
+					*((float*)(&genParams[uintVal])) = *((double*)(&genStack[genStack.size()-2]));
+					uintVal += 4;
+					break;
+				case DTYPE_LONG:
+					*((long long*)(&genParams[uintVal])) = *((long long*)(&genStack[genStack.size()-2]));
+					uintVal += 8;
+					break;
+				case DTYPE_INT:
+					*((int*)(&genParams[uintVal])) = *((int*)(&genStack[genStack.size()-1]));
+					uintVal += 4;
+					break;
+				case DTYPE_SHORT:
+					*((short*)(&genParams[uintVal])) = *((int*)(&genStack[genStack.size()-1]));
+					uintVal += 2;
+					break;
+				case DTYPE_CHAR:
+					*((char*)(&genParams[uintVal])) = *((int*)(&genStack[genStack.size()-1]));
+					uintVal += 1;
+					break;
+				}
+			}
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, cFlag, 0, uintVal2));
+			break;
 		}
 
 		//New commands

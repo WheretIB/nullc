@@ -1071,6 +1071,7 @@ bool Compiler::Compile(string str)
 	ofstream m_FileStream("code.txt", std::ios::binary);
 	m_FileStream << str;
 	m_FileStream.flush();
+	m_FileStream.close();
 
 	char* ptr = (char*)str.c_str();
 
@@ -1092,6 +1093,7 @@ bool Compiler::Compile(string str)
 	m_TempStream << "Compile time: " << tem << "ms\r\n";
 
 	m_TempStream.flush();
+	m_TempStream.close();
 
 	ostringstream		graphlog;
 	ofstream graphFile("graph.txt", std::ios::binary);
@@ -1108,7 +1110,7 @@ void Compiler::GenListing()
 	CmdID	cmd;
 	//double	val;
 	char	name[512];
-	UINT	valind;
+	UINT	valind, valind2;
 	logASM.str("");
 
 	char* typeInfoS[] = { "int", "long", "float", "double" };
@@ -1417,6 +1419,15 @@ void Compiler::GenListing()
 				break;
 			}
 			logASM << ' ' << valind << ';';
+			break;
+		case cmdSetRange:
+			cmdList->GetUSHORT(pos, cFlag);
+			pos += 2;
+			cmdList->GetUINT(pos, valind);
+			pos += 4;
+			cmdList->GetUINT(pos, valind2);
+			pos += 4;
+			logASM << pos2 << " SETRANGE " << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << valind2 << ';';
 			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)

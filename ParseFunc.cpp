@@ -807,14 +807,11 @@ void NodeVarSet::Compile()
 			first->Compile();
 			// преобразуем в тип €чейки массива
 			ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], newST);
-			// дл€ каждого элемента
-			for(UINT n = 0; n < varInfo.count; n++)
-			{
-				// присвоим значение
-				cmds->AddData(cmdMov);
-				cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel)));
-				cmds->AddData(varAddress + n * typeInfo->size);
-			}
+			// ”становим значение массиву
+			cmds->AddData(cmdSetRange);
+			cmds->AddData((USHORT)(newDT));
+			cmds->AddData(varAddress);
+			cmds->AddData(varInfo.count);
 		}else{					// если указано присвоить значение одной €чейке массива
 			// кладЄм сдвиг от начала массива (в байтах)
 			if(!bakedShift)
@@ -870,7 +867,7 @@ UINT NodeVarSet::GetSize()
 		{
 			size += first->GetSize();
 			size += ConvertFirstToSecondSize(sST, fST);
-			size += varInfo.count * (3 * sizeof(CmdID) + 3 * sizeof(USHORT) + 3 * sizeof(UINT));
+			size += sizeof(CmdID) + sizeof(USHORT) + 2 * sizeof(UINT);
 		}else{
 			size += second->GetSize();
 			size += first->GetSize();
