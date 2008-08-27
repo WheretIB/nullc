@@ -204,11 +204,6 @@ namespace ColorerGrammar
 			return;
 		}
 
-		if(varSize > 128000){
-			ColorCode(255,0,0,0,0,1,st,e);
-			logStream << "ERROR: variable '" << vName << "' has to big length (>128000)\r\n";
-			return;
-		}
 		varInfo.push_back(VariableInfo(vName, 0, NULL, varSize, currValConst));
 		varSize = 1;
 	}
