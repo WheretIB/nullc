@@ -150,6 +150,36 @@ res[13] = !a;
 
 return a+b;
 
+//long tests
+var long res[24];
+var long a = 4494967296l, b = 594967296l, c = 3;
+res[0] = a+b; // 5089934592
+res[1] = a-b; // 3900000000
+res[2] = -a; // -4494967296
+res[3] = ~a; // -4494967297
+res[4] = a*b; // 2674358537709551616
+res[5] = a/b; // 7
+res[6] = a%b; // 330196224
+res[7] = 59496729**c; // 3659347023269828617
+res[8] = a > b; // 1
+res[9] = a < b; // 0
+res[10] = a >= b; // 1
+res[11] = a <= b; // 0
+res[12] = a == b; // 0
+res[13] = a != b; // 1
+res[14] = a << c; // 35959738368 
+res[15] = c << 45; // 105553116266496 
+res[16] = a >> c; // 561870912
+res[17] = a & b; // 56771072
+res[18] = a | b; // 5033163520
+res[19] = a ^ b; // 4976392448
+res[20] = a and b; // 1
+res[21] = a or b; // 1
+res[22] = a xor b; // 0
+res[23] = !a; // 0
+
+return 1;
+
 //decrement and increment tests for all types
 var double a1=5, b1=5;
 var float a2=5, b2=5;
@@ -170,3 +200,26 @@ b5--;
 a6++;
 b6--;
 return 1;
+
+func double test(float x, float y){ /*teste*/return x**2*y; }
+var int a=5;
+var float b, c[3]=14**2-134;
+var double d[10];
+for(var int i = 0; i< 10; i++)
+d[i] = test(i*2, i-2);
+var double n=1;
+while(1){ n*=2; if(n>1000) break; }
+return 2+test(2, 3)+a**b;
+
+
+//longPow speed test (2 sec on x86)
+var long a = 43l, b = 10l; // 2 sec
+//var long a = 1l, b = 1250l; // 100 ms
+//var long a = 0l, b = 1250l; // 100 ms
+//var long a = 48l, b = 1250l; // 110 ms
+//var long a = 45486127846l, b = 10l; // 2 sec
+//var long a = 2l, b = 63l; // 3 sec
+var long c;
+for(var int i = 0; i < 10000000; i++)
+  c = a**b;
+return c;

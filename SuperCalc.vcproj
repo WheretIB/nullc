@@ -433,6 +433,10 @@
 				RelativePath=".\Executor_X86.h"
 				>
 			</File>
+			<File
+				RelativePath=".\StdLib_X86.h"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath=".\CmdRef.txt"
