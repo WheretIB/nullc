@@ -993,6 +993,9 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 	// команда, выполняемая с двумя операндами
 	cmdID = cmd;
 
+	// сдвиг уже прибавлен к адресу
+	bakedShift = false;
+
 	first = getList()->back(); getList()->pop_back();
 
 	// если переменная - массив или член составного типа, то нужен сдвиг адреса
@@ -1004,6 +1007,12 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 		// сдвиг адреса должен быть  целым числом
 		if(second->GetTypeInfo() != typeInt)
 			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
+
+		if(second->GetNodeType() == typeNodeNumber)
+		{
+			varAddress += static_cast<NodeNumber<int>* >(second.get())->GetVal();
+			bakedShift = true;
+		}
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
@@ -1028,7 +1037,7 @@ void NodeVarSetAndOp::Compile()
 	asmOperType aOT;// = operTypeForStackType[resultST];
 
 	// Если переменная - массив или член составного типа, то нужен сдвиг адреса
-	if(varInfo.count > 1 || shiftAddress)
+	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 	{
 		second->Compile();
 		// Далее две операции, и каждой нужен адрес
@@ -1038,10 +1047,10 @@ void NodeVarSetAndOp::Compile()
 
 	UINT shiftInStack = 0, sizeOn = 0;
 	// Если это массив или член составного типа, включаем флаг что сдвиг в стеке
-	if(varInfo.count > 1 || shiftAddress)
+	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 		shiftInStack = bitShiftStk;
 	// Если это массив, включаем флаг, что имеется ограничение по размеру сдвига
-	if(varInfo.count > 1)
+	if((varInfo.count > 1) && !bakedShift)
 		sizeOn = bitSizeOn;
 
 	// Выбор флага для разных вариантов адресации
@@ -1051,7 +1060,7 @@ void NodeVarSetAndOp::Compile()
 	cmds->AddData(cmdPush);
 	cmds->AddData((USHORT)(thisST | thisDT | addrType | shiftInStack | sizeOn));
 	cmds->AddData(varAddress);
-	if(varInfo.count > 1)
+	if((varInfo.count > 1) && !bakedShift)
 		cmds->AddData(varInfo.count * varInfo.varType->size);
 
 	// Преобразуем в тип результата бинарной операции
@@ -1076,7 +1085,7 @@ void NodeVarSetAndOp::Compile()
 	cmds->AddData(cmdMov);
 	cmds->AddData((USHORT)(thisST | thisDT | addrType | shiftInStack | sizeOn));
 	cmds->AddData(varAddress);
-	if(varInfo.count > 1)
+	if((varInfo.count > 1) && !bakedShift)
 		cmds->AddData(varInfo.count * varInfo.varType->size);
 }
 void NodeVarSetAndOp::LogToStream(ostringstream& ostr)
@@ -1142,6 +1151,9 @@ NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAdd
 	// если изменённое значение не используется, можно применить оптимизацию.
 	optimised = false;	// по умолчанию выключено
 
+	// сдвиг уже прибавлен к адресу
+	bakedShift = false;
+
 	// если переменная - массив или член составного типа, то нужен сдвиг адреса
 	if(varInfo.count > 1 || shiftAddress)	
 	{
@@ -1151,6 +1163,12 @@ NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAdd
 		// сдвиг адреса должен быть  целым числом
 		if(first->GetTypeInfo() != typeInt)
 			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
+
+		if(first->GetNodeType() == typeNodeNumber)
+		{
+			varAddress += static_cast<NodeNumber<int>* >(first.get())->GetVal();
+			bakedShift = true;
+		}
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
@@ -1174,15 +1192,15 @@ void NodePreValOp::Compile()
 	// Заметка (cmdID+10): Прибавляя 10, мы меняем инструкцию с INC и DEC на INC_AT и DEC_AT
 
 	// Если переменная - массив или член составного типа, то нужен сдвиг адреса
-	if(varInfo.count > 1 || shiftAddress)
+	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 		first->Compile();
 
 	UINT shiftInStack = 0, sizeOn = 0;
 	// Если это массив или член составного типа, включаем флаг что сдвиг в стеке
-	if(varInfo.count > 1 || shiftAddress)
+	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 		shiftInStack = bitShiftStk;
 	// Если это массив, включаем флаг, что имеется ограничение по размеру сдвига
-	if(varInfo.count > 1)
+	if((varInfo.count > 1) && !bakedShift)
 		sizeOn = bitSizeOn;
 
 	// Выбор флага для разных вариантов адресации
@@ -1198,11 +1216,11 @@ void NodePreValOp::Compile()
 		// адрес начала массива
 		cmds->AddData(varAddress);
 		// Если это массив, кладём размер массива (в байтах) в стек, для предотвращения выхода за его пределы
-		if(varInfo.count > 1)	
+		if((varInfo.count > 1) && !bakedShift)
 			cmds->AddData(varInfo.count * varInfo.varType->size);
 	}else{
 		// Если переменная - массив или член составного типа
-		if(varInfo.count > 1 || shiftAddress)
+		if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 		{
 			// Скопируем уже найденный сдвиг адресса
 			// Потому что он пропадает после операций, а их у нас две
@@ -1217,14 +1235,14 @@ void NodePreValOp::Compile()
 			cmds->AddData(cmdID);
 			cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
-			if(varInfo.count > 1)
+			if((varInfo.count > 1) && !bakedShift)
 				cmds->AddData(varInfo.count * varInfo.varType->size);
 
 			// Получаем новое значение переменной
 			cmds->AddData(cmdPush);
 			cmds->AddData((USHORT)(newST | newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
-			if(varInfo.count > 1)
+			if((varInfo.count > 1) && !bakedShift)
 				cmds->AddData(varInfo.count * varInfo.varType->size);
 		}else{						// Для  постфиксного оператора val++/val--
 			// Мы изменяем переменную, но в стек помещаем старое значение
@@ -1233,13 +1251,13 @@ void NodePreValOp::Compile()
 			cmds->AddData(cmdPush);
 			cmds->AddData((USHORT)(newST | newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
-			if(varInfo.count > 1)
+			if((varInfo.count > 1) && !bakedShift)
 				cmds->AddData(varInfo.count * varInfo.varType->size);
 			
 			// Если переменная - массив или член составного типа
 			// Теперь в стеке переменных лежит сдвиг адреса, а затем значение переменной
 			// Следует поменять их местами, так как для следующий инструкции сдвиг адрес должен лежать наверху
-			if(varInfo.count > 1 || shiftAddress)
+			if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 			{
 				cmds->AddData(cmdSwap);
 				cmds->AddData((USHORT)(STYPE_INT | (newDT == DTYPE_FLOAT ? DTYPE_DOUBLE : newDT)));
@@ -1249,7 +1267,7 @@ void NodePreValOp::Compile()
 			cmds->AddData(cmdID);
 			cmds->AddData((USHORT)(newDT | addrType | shiftInStack | sizeOn));
 			cmds->AddData(varAddress);
-			if(varInfo.count > 1)
+			if((varInfo.count > 1) && !bakedShift)
 				cmds->AddData(varInfo.count * varInfo.varType->size);
 		}
 	}

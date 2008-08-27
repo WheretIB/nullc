@@ -342,7 +342,7 @@ public:
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
-	bool			absAddress, shiftAddress;
+	bool			absAddress, shiftAddress, bakedShift;
 	CmdID			cmdID;
 };
 
@@ -361,7 +361,7 @@ public:
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
-	bool			arrSetAll, absAddress, shiftAddress, prefixOperator, optimised;
+	bool			arrSetAll, absAddress, shiftAddress, prefixOperator, optimised, bakedShift;
 	CmdID			cmdID;
 };
 
