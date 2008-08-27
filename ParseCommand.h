@@ -53,6 +53,9 @@ const CmdID cmdSwap		= 108;
 	// copy value on top of the stack, and push it on the top again
 	// скопировать значение на верхушке стека и добавить его в стек
 const CmdID cmdCopy		= 109;
+	// set value to a range of memory. data type are provided, as well as starting address and count
+	// установить значение участку памяти. Указаны тип данных, а также начальная позиция и количество
+const CmdID cmdSetRange = 200;
 
 // conditional and unconditional jumps  [using operation flag. check CmdRef.txt]
 // условные и безусловные переходы [используется флаг операции, смотрите CmdRef.txt]
@@ -565,6 +568,9 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 			//if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
 			//	(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];
 		}
+		break;
+	case cmdSetRange:
+		(*stream) << " SETRANGE" << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << dw0;
 		break;
 	}
 	if(cmd >= cmdAdd && cmd <= cmdLogXor)

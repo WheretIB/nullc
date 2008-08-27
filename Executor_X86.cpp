@@ -27,12 +27,12 @@ bool ExecutorX86::Run()
 	FILE *fCode = fopen("asmX86.bin", "rb");
 	if(!fCode)
 		throw std::string("Failed to open output file");
-	char binCode[40000];
+	char binCode[200000];
 	fseek(fCode, 0, SEEK_END);
 	UINT size = ftell(fCode);
 	fseek(fCode, 0, SEEK_SET);
-	if(size > 40000)
-		throw std::string("Bytecode is too big (size > 40000)");
+	if(size > 200000)
+		throw std::string("Bytecode is too big (size > 200000)");
 	fread(binCode, 1, size, fCode);
 
 	typedef void (*codeFunc)();
@@ -92,7 +92,7 @@ void ExecutorX86::GenListing()
 	UINT pos = 0, pos2 = 0;
 	CmdID	cmd, cmdNext;
 	//char	name[512];
-	UINT	valind;
+	UINT	valind, valind2;
 
 	CmdFlag cFlag;
 	OperFlag oFlag;
@@ -209,6 +209,8 @@ void ExecutorX86::GenListing()
 			pos += 4;
 			instrNeedLabel.push_back(valind);
 			break;
+		case cmdSetRange:
+			pos += 10;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
 			pos += 1;
@@ -968,6 +970,56 @@ void ExecutorX86::GenListing()
 				logASM << "test eax, eax \r\n";
 				logASM << "jnz gLabel" << valind << "\r\n";
 			}
+			break;
+		case cmdSetRange:
+			cmdList->GetUSHORT(pos, cFlag);
+			pos += 2;
+			cmdList->GetUINT(pos, valind);
+			pos += 4;
+			cmdList->GetUINT(pos, valind2);
+			pos += 4;
+			logASM << "mov ebx, " << paramBase+valind << " ; начальный адрес\r\n";
+			logASM << "mov ecx, " << paramBase+valind+valind2*typeSizeD[(cFlag>>2)&0x00000007] << " ; конечный адрес\r\n";
+			if(cFlag == DTYPE_FLOAT)
+			{
+				logASM << "fld qword [esp] ; float в стек\r\n";
+			}else{
+				logASM << "mov eax, [esp] \r\n";
+				logASM << "mov edx, [esp+4] ; переменную в регистры\r\n";
+			}
+			logASM << " loopStart" << aluLabels << ": \r\n";
+			logASM << "cmp ebx, ecx \r\n";
+			logASM << "jg loopEnd" << aluLabels << " \r\n";
+			switch(cFlag)
+			{
+			case DTYPE_DOUBLE:
+				logASM << "mov dword [ebx+4], edx \r\n";
+				logASM << "mov dword [ebx], eax \r\n";
+				break;
+			case DTYPE_FLOAT:
+				// Ќужно сконвертировать float в дабл
+				logASM << "fst dword [ebx] \r\n";
+				break;
+			case DTYPE_LONG:
+				logASM << "mov dword [ebx+4], edx \r\n";
+				logASM << "mov dword [ebx], eax \r\n";
+				break;
+			case DTYPE_INT:
+				logASM << "mov dword [ebx], eax \r\n";
+				break;
+			case DTYPE_SHORT:
+				logASM << "mov word [ebx], ax \r\n";
+				break;
+			case DTYPE_CHAR:
+				logASM << "mov byte [ebx], al \r\n";
+				break;
+			}
+			logASM << "add ebx, " << typeSizeD[(cFlag>>2)&0x00000007] << " ; сдвинем указатель на следующий элемент\r\n";
+			logASM << "jmp loopStart" << aluLabels << " \r\n";
+			logASM << "  loopEnd" << aluLabels << ": \r\n";
+			if(cFlag == DTYPE_FLOAT)
+				logASM << "fstp st0 ; float из стека\r\n";
+			aluLabels++;
 			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
@@ -1958,6 +2010,11 @@ string ExecutorX86::GetVarInfo()
 	{
 		for(UINT n = 0; n < varInfo[i].count; n++)
 		{
+			if(n > 100)
+			{
+				varstr << "...\r\n";
+				break;
+			}
 			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
 
 			if(varInfo[i].count != 1)
