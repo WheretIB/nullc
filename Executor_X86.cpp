@@ -56,19 +56,19 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 				return EXCEPTION_EXECUTE_HANDLER;
 			}
 			// Разрешим использование последней страницы зарезервированной памяти
-			if(!VirtualAlloc(reinterpret_cast<void*>(paramDataBase+commitedStack), stackGrowSize-stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+			if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+commitedStack)), stackGrowSize-stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
 			{
 				expAllocCode = 1; // failed to commit all old memory
 				return EXCEPTION_EXECUTE_HANDLER;
 			}
 			// Зарезервируем ещё память прямо после предыдущего блока
-			if(!VirtualAlloc(reinterpret_cast<void*>(paramDataBase+reservedStack), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS))
+			if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS))
 			{
 				expAllocCode = 2; // failed to reserve new memory
 				return EXCEPTION_EXECUTE_HANDLER;
 			}
 			// Разрешим использование всей зарезервированной памяти кроме последней страницы
-			if(!VirtualAlloc(reinterpret_cast<void*>(paramDataBase+reservedStack), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+			if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
 			{
 				expAllocCode = 3; // failed to commit new memory
 				return EXCEPTION_EXECUTE_HANDLER;
@@ -85,7 +85,7 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 
 	return EXCEPTION_CONTINUE_SEARCH;
 }
-
+#pragma warning(disable: 4731)
 bool ExecutorX86::Run()
 {
 	stackReallocs = 0;
@@ -102,7 +102,7 @@ bool ExecutorX86::Run()
 	UINT size = ftell(fCode);
 	fseek(fCode, 0, SEEK_SET);
 	if(size > 200000)
-		throw std::string("Bytecode is too big (size > 200000)");
+		throw std::string("Byte code is too big (size > 200000)");
 	fread(binCode, 1, size, fCode);
 
 	typedef void (*codeFunc)();
@@ -163,13 +163,15 @@ bool ExecutorX86::Run()
 
 	return false;
 }
+#pragma warning(default: 4731)
+
 void ExecutorX86::GenListing()
 {
 	logASM.str("");
 
 	UINT pos = 0, pos2 = 0;
 	CmdID	cmd, cmdNext;
-	//char	name[512];
+	char	name[512];
 	UINT	valind, valind2;
 
 	CmdFlag cFlag;
@@ -351,6 +353,95 @@ void ExecutorX86::GenListing()
 		switch(cmd)
 		{
 		case cmdCallStd:
+			size_t len;
+			cmdList->GetData(pos, len);
+			pos += sizeof(size_t);
+			if(len >= 511)
+				throw std::string("ERROR: standard function can't have length>512");
+			cmdList->GetData(pos, name, len);
+			pos += (UINT)len;
+			name[len] = 0;
+			// If it's note clock() function, place the double value to FPU stack
+			if(memcmp(name, "clock", 5) != 0)
+				logASM << "fld qword [esp] \r\n";
+
+			if(memcmp(name, "cos", 3) == 0)
+			{
+				logASM << "  ; CALLSTD cos \r\n";
+				logASM << "push 180 \r\n";
+				logASM << "fild dword [esp] \r\n";
+				logASM << "fdivp \r\n";
+				logASM << "fldpi \r\n";
+				logASM << "fmulp \r\n";
+				logASM << "fsincos \r\n";
+				logASM << "fstp qword [esp+4] \r\n";
+				logASM << "fstp st \r\n";
+				logASM << "pop eax \r\n";
+			}else if(memcmp(name, "sin", 3) == 0){
+				logASM << "  ; CALLSTD sin \r\n";
+				logASM << "push 180 \r\n";
+				logASM << "fild dword [esp] \r\n";
+				logASM << "fdivp \r\n";
+				logASM << "fldpi \r\n";
+				logASM << "fmulp \r\n";
+				logASM << "fsincos \r\n";
+				logASM << "fstp st \r\n";
+				logASM << "fstp qword [esp+4] \r\n";
+				logASM << "pop eax \r\n";
+			}else if(memcmp(name, "tan", 3) == 0){
+				logASM << "  ; CALLSTD tan \r\n";
+				logASM << "push 180 \r\n";
+				logASM << "fild dword [esp] \r\n";
+				logASM << "fdivp \r\n";
+				logASM << "fldpi \r\n";
+				logASM << "fmulp \r\n";
+				logASM << "fptan \r\n";
+				logASM << "fstp st \r\n";
+				logASM << "fstp qword [esp+4] \r\n";
+				logASM << "pop eax \r\n";
+			}else if(memcmp(name, "ctg", 3) == 0){
+				logASM << "  ; CALLSTD ctg \r\n";
+				logASM << "push 180 \r\n";
+				logASM << "fild dword [esp] \r\n";
+				logASM << "fdivp \r\n";
+				logASM << "fldpi \r\n";
+				logASM << "fmulp \r\n";
+				logASM << "fptan \r\n";
+				logASM << "fdivrp \r\n";
+				logASM << "fstp qword [esp+4] \r\n";
+				logASM << "pop eax \r\n";
+			}else if(memcmp(name, "ceil", 4) == 0){
+				logASM << "  ; CALLSTD ceil \r\n";
+				logASM << "push eax ; сюда положим флаг fpu \r\n";
+				logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
+				logASM << "mov word [esp+2], 1BBFh ; сохраним свой с окурглением к 0 \r\n";
+				logASM << "fldcw word [esp+2] ; установим его \r\n";
+				logASM << "frndint ; округлим до целого \r\n";
+				logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
+				logASM << "fstp qword [esp+4] \r\n";
+				logASM << "pop eax ; \r\n";
+			}else if(memcmp(name, "floor", 5) == 0){
+				logASM << "  ; CALLSTD floor \r\n";
+				logASM << "push eax ; сюда положим флаг fpu \r\n";
+				logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
+				logASM << "mov word [esp+2], 17BFh ; сохраним свой с окурглением к 0 \r\n";
+				logASM << "fldcw word [esp+2] ; установим его \r\n";
+				logASM << "frndint ; округлим до целого \r\n";
+				logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
+				logASM << "fstp qword [esp+4] \r\n";
+				logASM << "pop eax ; \r\n";
+			}else if(memcmp(name, "sqrt", 4) == 0){
+				logASM << "  ; CALLSTD ctg \r\n";
+				logASM << "fsqrt \r\n";
+				logASM << "fstp qword [esp] \r\n";
+				logASM << "fstp st \r\n";
+			}else if(memcmp(name, "clock", 5) == 0){
+				logASM << "mov ecx, 0x" << GetTickCount << " ; GetTickCount() \r\n";
+				logASM << "call ecx \r\n";
+				logASM << "push eax \r\n";
+			}else{
+				throw std::string("ERROR: there is no such function: ") + name;
+			}
 			break;
 		case cmdPushVTop:
 			logASM << "  ; PUSHT\r\n";
@@ -1056,8 +1147,8 @@ void ExecutorX86::GenListing()
 			pos += 4;
 			cmdList->GetUINT(pos, valind2);
 			pos += 4;
-			logASM << "mov ebx, " << paramBase+valind << " ; начальный адрес\r\n";
-			logASM << "mov ecx, " << paramBase+valind+valind2*typeSizeD[(cFlag>>2)&0x00000007] << " ; конечный адрес\r\n";
+			logASM << "lea ebx, [ebp + " << paramBase+valind << "] ; начальный адрес\r\n";
+			logASM << "lea ecx, [ebp + " << paramBase+valind+valind2*typeSizeD[(cFlag>>2)&0x00000007] << "] ; конечный адрес\r\n";
 			if(cFlag == DTYPE_FLOAT)
 			{
 				logASM << "fld qword [esp] ; float в стек\r\n";

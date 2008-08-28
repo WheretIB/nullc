@@ -242,5 +242,35 @@ lb = ia;
 lc = da;
 return 1;
 
-var int a[16000000]=5;
+var int a[10]=5;
 return 1;
+
+// Build-In function checks
+var double res[20];
+res[0] = cos(0); // 1.0
+res[1] = cos(60); // 0.5
+res[2] = cos(180); // -1.0
+
+res[3] = sin(0); // 0.0
+res[4] = sin(30); // 0.5
+res[5] = sin(180); // 0.0
+
+res[6] = ceil(1.5); // 2.0
+res[7] = floor(1.5); // 1.0
+res[8] = ceil(-1.5); // -1.0
+res[9] = floor(-1.5); // -2.0
+
+res[10] = tan(0); // 0.0
+res[11] = tan(45); // 1.0
+res[12] = tan(90); // +inf
+
+res[13] = ctg(0); // +inf
+res[14] = ctg(45); // 1.0
+res[15] = ctg(90); // 0.0
+
+res[16] = sqrt(1.0); // 1.0
+res[17] = sqrt(0.0); // 0.0
+res[18] = sqrt(9.0); // 3.0
+
+res[19] = clock();
+return clock();
