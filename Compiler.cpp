@@ -647,8 +647,6 @@ void funcStart(char const* s, char const* e)
 		currValConst = funcs.back()->params[i].isConst;
 		currType = funcs.back()->params[i].varType;
 		addVar(0,0);
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP(currType)));
-		pushType(0,0);
 
 		strs.pop_back();
 		strs.pop_back();
@@ -667,7 +665,6 @@ void funcEnd(char const* s, char const* e)
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(i)));
 	strs.pop_back();
 	retTypeStack.pop_back();
