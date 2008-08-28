@@ -285,6 +285,7 @@ bool Executor::Run()
 			pos += 2;
 			m_cmds->GetUINT(pos, uintVal);
 			pos += 4;
+			uintVal += paramTop.back();
 			m_cmds->GetUINT(pos, uintVal2);
 			pos += 4;
 			for(int varNum = 0; varNum < uintVal2; varNum++)

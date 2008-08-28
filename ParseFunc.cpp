@@ -549,6 +549,7 @@ UINT NodeFuncDef::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, определяющий значение входных параметров перед вызовом функции
+bool stdFunction = false;
 NodeFuncParam::NodeFuncParam(TypeInfo* tinfo, int paramIndex)
 {
 	// Тип, который ожидает функция
@@ -565,8 +566,8 @@ NodeFuncParam::~NodeFuncParam()
 
 void NodeFuncParam::Compile()
 {
-	if(idParam == 1)
-		cmds->AddData(cmdProlog);//cmds->AddData(cmdPushVTop);
+	if(idParam == 1 && !stdFunction)
+		cmds->AddData(cmdProlog);
 	// Определим значение
 	first->Compile();
 	// Преобразуем его в тип входного параметра функции
@@ -619,6 +620,7 @@ NodeFuncCall::~NodeFuncCall()
 
 void NodeFuncCall::Compile()
 {
+	stdFunction = funcID == -1;
 	// Если имеются параметры, найдём их значения
 	if(first)
 		first->Compile();
@@ -761,6 +763,8 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 
 		if(second->GetNodeType() == typeNodeNumber)
 		{
+			if(varInfo.count > 1 && static_cast<NodeNumber<UINT>* >(second.get())->GetVal() > varInfo.count * varInfo.varType->size)
+				throw std::string("ERROR: array index out of range");
 			varAddress += static_cast<NodeNumber<int>* >(second.get())->GetVal();
 			bakedShift = true;
 		}
@@ -908,6 +912,8 @@ NodeVarGet::NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 
 		if(first->GetNodeType() == typeNodeNumber)
 		{
+			if(varInfo.count > 1 && static_cast<NodeNumber<UINT>* >(first.get())->GetVal() > varInfo.count * varInfo.varType->size)
+				throw std::string("ERROR: array index out of range (overflow)");
 			varAddress += static_cast<NodeNumber<int>* >(first.get())->GetVal();
 			bakedShift = true;
 		}
@@ -1007,6 +1013,8 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 
 		if(second->GetNodeType() == typeNodeNumber)
 		{
+			if(varInfo.count > 1 && static_cast<NodeNumber<UINT>* >(second.get())->GetVal() > varInfo.count * varInfo.varType->size)
+				throw std::string("ERROR: array index out of range");
 			varAddress += static_cast<NodeNumber<int>* >(second.get())->GetVal();
 			bakedShift = true;
 		}
@@ -1163,6 +1171,8 @@ NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAdd
 
 		if(first->GetNodeType() == typeNodeNumber)
 		{
+			if(varInfo.count > 1 && static_cast<NodeNumber<UINT>* >(first.get())->GetVal() > varInfo.count * varInfo.varType->size)
+				throw std::string("ERROR: array index out of range (overflow)");
 			varAddress += static_cast<NodeNumber<int>* >(first.get())->GetVal();
 			bakedShift = true;
 		}
