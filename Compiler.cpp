@@ -394,6 +394,9 @@ void addVar(char const* s, char const* e)
 		if(varInfo[i].name == vName)
 			throw std::string("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n");
 	checkIfDeclared(vName);
+
+	if(varSize*currType->size > 64*1024*1024)
+		throw std::string("ERROR: variable '" + vName + "' has to big length (>64 Mb)");
 	
 	varInfo.push_back(VariableInfo(vName, varTop, currType, varSize, currValConst));
 	varDefined += varSize-1;

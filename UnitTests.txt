@@ -241,3 +241,6 @@ dc = la;
 lb = ia;
 lc = da;
 return 1;
+
+var int a[16000000]=5;
+return 1;

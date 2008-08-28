@@ -2,24 +2,94 @@
 #include "Executor_X86.h"
 #include "StdLib_X86.h"
 
+UINT paramDataBase;
+UINT reservedStack;
+UINT commitedStack;
+UINT stackGrowSize;
+UINT stackGrowCommit;
+
 ExecutorX86::ExecutorX86(CommandList* cmds, std::vector<VariableInfo>* varinfo)
 {
 	cmdList = cmds;
 	varInfo = varinfo;
-	paramData = new char[1000000];
-	paramBase = static_cast<UINT>(reinterpret_cast<long long>(paramData));
+
+	stackGrowSize = 128*4096;
+	stackGrowCommit = 64*4096;
+	// Request memory at address
+	if(!(paramData = (char*)VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
+		throw std::string("ERROR: Failed to reserve memory");
+	if(!VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+		throw std::string("ERROR: Failed to commit memory");
+
+	reservedStack = stackGrowSize;
+	commitedStack = stackGrowCommit;
+	
+	paramDataBase = paramBase = static_cast<UINT>(reinterpret_cast<long long>(paramData));
 }
 ExecutorX86::~ExecutorX86()
 {
-	delete[] paramData;
+	VirtualFree(reinterpret_cast<void*>(0x20000000), reservedStack, MEM_RELEASE);
 }
 
 int runResult = 0;
 int runResult2 = 0;
 OperFlag runResultType = OTYPE_DOUBLE;
 
+UINT stackReallocs;
+
+UINT expCodePublic;
+UINT expAllocCode;
+DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
+{
+	expCodePublic = expCode;
+	if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT)
+		return EXCEPTION_EXECUTE_HANDLER;
+	if(expCode == EXCEPTION_ACCESS_VIOLATION)
+	{
+		if(expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
+			expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase)
+		{
+			// Проверим, не привысии ли мы объём доступной памяти
+			if(reservedStack > 512*1024*1024)
+			{
+				expAllocCode = 4;
+				return EXCEPTION_EXECUTE_HANDLER;
+			}
+			// Разрешим использование последней страницы зарезервированной памяти
+			if(!VirtualAlloc(reinterpret_cast<void*>(paramDataBase+commitedStack), stackGrowSize-stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+			{
+				expAllocCode = 1; // failed to commit all old memory
+				return EXCEPTION_EXECUTE_HANDLER;
+			}
+			// Зарезервируем ещё память прямо после предыдущего блока
+			if(!VirtualAlloc(reinterpret_cast<void*>(paramDataBase+reservedStack), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS))
+			{
+				expAllocCode = 2; // failed to reserve new memory
+				return EXCEPTION_EXECUTE_HANDLER;
+			}
+			// Разрешим использование всей зарезервированной памяти кроме последней страницы
+			if(!VirtualAlloc(reinterpret_cast<void*>(paramDataBase+reservedStack), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+			{
+				expAllocCode = 3; // failed to commit new memory
+				return EXCEPTION_EXECUTE_HANDLER;
+			}
+			// Обновим переменные
+			commitedStack = reservedStack;
+			reservedStack += stackGrowSize;
+			commitedStack += stackGrowCommit;
+			stackReallocs++;
+
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+	}
+
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
 bool ExecutorX86::Run()
 {
+	stackReallocs = 0;
+
 	*(double*)(paramData) = 0.0;
 	*(double*)(paramData+8) = 3.1415926535897932384626433832795;
 	*(double*)(paramData+16) = 2.7182818284590452353602874713527;
@@ -42,7 +112,6 @@ bool ExecutorX86::Run()
 	UINT res1 = 0;
 	UINT res2 = 0;
 	UINT resT = 0;
-	UINT expCode;
 	__try 
 	{
 		__asm
@@ -71,13 +140,22 @@ bool ExecutorX86::Run()
 
 			popa ;
 		}
-	}
-	__except(((expCode = GetExceptionCode()) == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
-	{
-		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
+	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
+		if(expCodePublic== EXCEPTION_INT_DIVIDE_BY_ZERO)
 			throw std::string("ERROR: integer division by zero");
-		if(expCode == EXCEPTION_BREAKPOINT)
+		if(expCodePublic == EXCEPTION_BREAKPOINT)
 			throw std::string("ERROR: array index out of bounds");
+		if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
+		{
+			if(expAllocCode == 1)
+				throw std::string("ERROR: Failed to commit old stack memory");
+			if(expAllocCode == 2)
+				throw std::string("ERROR: Failed to reserve new stack memory");
+			if(expAllocCode == 3)
+				throw std::string("ERROR: Failed to commit new stack memory");
+			if(expAllocCode == 4)
+				throw std::string("ERROR: No more memory (512Mb maximum exceeded)");
+		}
 	}
 	runResult = res1;
 	runResult2 = res2;
@@ -1952,6 +2030,7 @@ string ExecutorX86::GetResult()
 		tempStream << runResult;
 		break;
 	}
+	tempStream << " (" << stackReallocs << " reallocs)";
 	return tempStream.str();
 }
 
