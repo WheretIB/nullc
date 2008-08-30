@@ -549,13 +549,14 @@ UINT NodeFuncDef::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, определяющий значение входных параметров перед вызовом функции
-bool stdFunction = false;
-NodeFuncParam::NodeFuncParam(TypeInfo* tinfo, int paramIndex)
+NodeFuncParam::NodeFuncParam(TypeInfo* tinfo, int paramIndex, bool funcStd)
 {
 	// Тип, который ожидает функция
 	typeInfo = tinfo;
 	// Номер параметра
 	idParam = paramIndex;
+	// Стандартная ли функция
+	stdFunction = funcStd;
 
 	first = getList()->back(); getList()->pop_back();
 }
@@ -567,7 +568,10 @@ NodeFuncParam::~NodeFuncParam()
 void NodeFuncParam::Compile()
 {
 	if(idParam == 1 && !stdFunction)
+	{
 		cmds->AddData(cmdProlog);
+		cmds->AddData((UCHAR)(1));
+	}
 	// Определим значение
 	first->Compile();
 	// Преобразуем его в тип входного параметра функции
@@ -583,7 +587,7 @@ void NodeFuncParam::LogToStream(ostringstream& ostr)
 }
 UINT NodeFuncParam::GetSize()
 {
-	return (idParam == 1 ? sizeof(CmdID) : 0) + first->GetSize() + ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
+	return ((idParam == 1  && !stdFunction) ? sizeof(CmdID)+1 : 0) + first->GetSize() + ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -620,7 +624,6 @@ NodeFuncCall::~NodeFuncCall()
 
 void NodeFuncCall::Compile()
 {
-	stdFunction = funcID == -1;
 	// Если имеются параметры, найдём их значения
 	if(first)
 		first->Compile();
@@ -633,6 +636,8 @@ void NodeFuncCall::Compile()
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
 		cmds->AddData(cmdProlog);
+		cmds->AddData((UCHAR)(2));
+
 		cmds->AddData(cmdPushVTop);
 
 		// Надём, сколько занимают все переменные
@@ -678,7 +683,7 @@ UINT NodeFuncCall::GetSize()
 	if(funcID == -1)
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
 	else
-		size += 4*sizeof(CmdID) + 2*sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
+		size += 4*sizeof(CmdID) + 1 + 2*sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
 
 	return size;
 }
@@ -859,7 +864,7 @@ UINT NodeVarSet::GetSize()
 	UINT size = 0;
 	if(bytesToPush)
 		size += sizeof(CmdID) + sizeof(UINT);
-	if(varInfo.count == 1)
+	if(varInfo.count == 1 && !bakedShift)
 	{
 		if(shiftAddress)
 			size += second->GetSize();
@@ -873,10 +878,13 @@ UINT NodeVarSet::GetSize()
 			size += ConvertFirstToSecondSize(sST, fST);
 			size += sizeof(CmdID) + sizeof(USHORT) + 2 * sizeof(UINT);
 		}else{
-			size += second->GetSize();
+			if(!bakedShift)
+				size += second->GetSize();
 			size += first->GetSize();
 			size += ConvertFirstToSecondSize(sST, fST);
-			size += sizeof(CmdID) + sizeof(USHORT) + 2 * sizeof(UINT);
+			size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+			if(!bakedShift)
+				size += sizeof(UINT);
 		}
 	}
 	return size;

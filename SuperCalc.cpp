@@ -247,9 +247,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				executor->SetCallback(RunCallback);//mparser.SetCallback(RunCallback);
 				try
 				{
-					UINT start = timeGetTime();
-					executor->Run();
-					UINT time = timeGetTime() - start;
+					UINT time = executor->Run();
 					string val = executor->GetResult();
 					ostr.precision(20);
 					ostr << "The answer is: " << val << " [in: " << time << "]";
@@ -290,9 +288,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				executorX86->GenListing();
 				try
 				{
-					UINT start = timeGetTime();
-					executorX86->Run();
-					UINT time = timeGetTime() - start;
+					UINT time = executorX86->Run();
 					string val = executorX86->GetResult();
 					ostr.precision(20);
 					ostr << "The answer is: " << val << " [in: " << time << "]";

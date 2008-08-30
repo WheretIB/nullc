@@ -34,7 +34,7 @@ public:
 	Executor(CommandList* cmds, std::vector<VariableInfo>* varinfo);
 	~Executor();
 
-	bool	Run();
+	UINT	Run();
 	string	GetResult();
 	string	GetLog();
 	string	GetVarInfo();

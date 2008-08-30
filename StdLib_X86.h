@@ -33,6 +33,12 @@ __declspec(naked) void doublePow()
 	// st1 == y
 	__asm
 	{
+		push eax ; // сюда положим флаг контроля fpu
+		mov word ptr [esp+2], 1F7Fh ; //сохраним свой с окурглением к 0
+
+		fstcw word ptr [esp] ; //сохраним флаг контроля
+		fldcw word ptr [esp+2] ; //установим его
+
 		fldz ;
 		fcomip st,st(1) ; // сравним x с 0.0
 		je Zero ; // если так, вернём 0.0
@@ -49,7 +55,9 @@ __declspec(naked) void doublePow()
 		Zero:
 		fxch st(1) ; //поменяем st0 и st1
 		fstp st ; //уберём st0
-
+		
+		fldcw word ptr [esp] ; //востановим флаг контроля
+		pop eax ;
 		ret
 	}
 }

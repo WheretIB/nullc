@@ -12,7 +12,7 @@ public:
 	void	GenListing();
 	string	GetListing();
 
-	bool	Run();
+	UINT	Run();
 	string	GetResult();
 	string	GetVarInfo();
 

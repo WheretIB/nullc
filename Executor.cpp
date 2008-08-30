@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Executor.h"
+#include <MMSystem.h>
 
 #ifdef _DEBUG
 #define DBG(x) x
@@ -20,7 +21,7 @@ Executor::~Executor()
 
 }
 
-bool Executor::Run()
+UINT Executor::Run()
 {
 	paramTop.clear();
 	callStack.clear();
@@ -49,12 +50,14 @@ bool Executor::Run()
 
 	CmdFlag		cFlag;
 	OperFlag	oFlag;
-	asmStackType st, sdt;
-	asmDataType dt;
+	asmStackType st;
 	char*	typeInfoS[] = { "int", "long", "float", "double" };
 	char*	typeInfoD[] = { "char", "short", "int", "long", "float", "double" };
 	UINT typeSizeS[] = { 4, 8, 4, 8 };
 	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
+
+	UINT startTime = timeGetTime();
+
 	while(m_cmds->GetSHORT(pos, cmd) && !done)
 	{
 		cmdCount++;
@@ -75,7 +78,7 @@ bool Executor::Run()
 				m_cmds->GetData(pos, len);
 				pos += sizeof(size_t);
 				if(len >= 511)
-					return false;
+					throw std::string("ERROR: standard function can't have length>512");
 				m_cmds->GetData(pos, name, len);
 				pos += (UINT)len;
 				name[len] = 0;
@@ -204,7 +207,9 @@ bool Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
 			break;
 		case cmdProlog:
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, 0));
+			m_cmds->GetUCHAR(pos, oFlag);
+			pos++;
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, (UINT)(oFlag), 0, 0));
 			break;
 		case cmdReturn:
 			m_cmds->GetUCHAR(pos, oFlag);
@@ -288,7 +293,7 @@ bool Executor::Run()
 			uintVal += paramTop.back();
 			m_cmds->GetUINT(pos, uintVal2);
 			pos += 4;
-			for(int varNum = 0; varNum < uintVal2; varNum++)
+			for(UINT varNum = 0; varNum < uintVal2; varNum++)
 			{
 				switch(cFlag)
 				{
@@ -297,7 +302,7 @@ bool Executor::Run()
 					uintVal += 8;
 					break;
 				case DTYPE_FLOAT:
-					*((float*)(&genParams[uintVal])) = *((double*)(&genStack[genStack.size()-2]));
+					*((float*)(&genParams[uintVal])) = (float)*((double*)(&genStack[genStack.size()-2]));
 					uintVal += 4;
 					break;
 				case DTYPE_LONG:
@@ -932,6 +937,8 @@ bool Executor::Run()
 		m_FileStream << ";\r\n" << std::flush;
 #endif
 	}
+	UINT runTime = timeGetTime() - startTime;
+
 	m_ostr << "There are " << (UINT)genStackTypes.size() << " values in the stack\r\n";
 	if((UINT)genStackTypes.size() == 0)
 		m_ostr << "It's bad.\r\nÏèøè return ñöóêî!";//Did you forget 'return'?";
@@ -941,7 +948,7 @@ bool Executor::Run()
 		m_ostr << "It's bug.\r\nReport to NULL_PTR";
 	m_ostr << "\r\n\r\n";
 	m_ostr << "Variables active: " << (UINT)genParams.size() << "\r\n";
-	return true;
+	return runTime;
 }
 
 string Executor::GetResult()
@@ -1003,7 +1010,7 @@ bool Executor::GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int addr
 
 void Executor::GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int address)
 {
-	for(int mn = 0; mn < type->memberData.size(); mn++)
+	for(UINT mn = 0; mn < type->memberData.size(); mn++)
 	{
 		varstr << "  " << type->memberData[mn].type->name << " " << type->memberData[mn].name << " = ";
 		if(type->memberData[mn].type->type == TypeInfo::POD_VOID)
@@ -1030,7 +1037,11 @@ string Executor::GetVarInfo()
 	{
 		for(UINT n = 0; n < varInfo[i].count; n++)
 		{
-			//varInfo[i].pos+n*varInfo[i].varType->size
+			if(n > 100)
+			{
+				address += varInfo[i].varType->size;
+				continue;
+			}
 			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
 
 			if(varInfo[i].count != 1)

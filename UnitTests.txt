@@ -274,3 +274,44 @@ res[18] = sqrt(9.0); // 3.0
 
 res[19] = clock();
 return clock();
+
+
+var double a = 0.9;
+return a**2.0;
+
+
+func double clamp(double a, double min, double max)
+{
+  if(a < min)
+    return min;
+  if(a > max)
+    return max;
+  return a;
+}
+func double abs(double x)
+{
+  if(x < 0.0)
+    return -x;
+  return x;
+}
+return clamp(abs(-1.5), 0.0, 1.0);
+
+func int test(int x, int y, int z){return x*y+z;}
+var int res;
+{
+var int x = 2;
+{
+res = 1+test(x, 3, 4);
+}
+}
+return res;
+
+func double abs(double x)
+{
+  {
+    if(x < 0.0)
+      return -x;
+  }
+  return x;
+}
+return abs(-0.5);
