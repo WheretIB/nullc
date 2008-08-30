@@ -257,7 +257,7 @@ protected:
 class NodeFuncParam: public NodeOneOP
 {
 public:
-	NodeFuncParam(TypeInfo* tinfo, int paramIndex);
+	NodeFuncParam(TypeInfo* tinfo, int paramIndex, bool funcStd);
 	virtual ~NodeFuncParam();
 
 	virtual void Compile();
@@ -266,6 +266,7 @@ public:
 	virtual UINT GetNodeType(){ return typeNodeFuncParam; }
 protected:
 	UINT	idParam;
+	bool	stdFunction;
 };
 
 class NodeFuncCall: public NodeOneOP

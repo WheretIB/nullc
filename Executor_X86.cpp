@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Executor_X86.h"
 #include "StdLib_X86.h"
+#include <MMSystem.h>
 
 UINT paramDataBase;
 UINT reservedStack;
@@ -85,8 +86,9 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 
 	return EXCEPTION_CONTINUE_SEARCH;
 }
+
 #pragma warning(disable: 4731)
-bool ExecutorX86::Run()
+UINT ExecutorX86::Run()
 {
 	stackReallocs = 0;
 
@@ -109,6 +111,7 @@ bool ExecutorX86::Run()
 	codeFunc funcMain = (codeFunc)(&binCode[0]);
 	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
 
+	UINT startTime = timeGetTime();
 	UINT res1 = 0;
 	UINT res2 = 0;
 	UINT resT = 0;
@@ -161,7 +164,13 @@ bool ExecutorX86::Run()
 	runResult2 = res2;
 	runResultType = resT;
 
-	return false;
+	UINT runTime = timeGetTime() - startTime;
+
+	//just for fun, save the parameter data to bmp
+	FILE *fBMP = fopen("funny.bmp", "wb");
+	fwrite(paramData+24, 1, commitedStack-24, fBMP);
+	fclose(fBMP);
+	return runTime;
 }
 #pragma warning(default: 4731)
 
@@ -182,6 +191,8 @@ void ExecutorX86::GenListing()
 	vector<int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
 	vector<int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
 
+	bool firstProlog = true;
+
 	//Узнаем, кому нужны лейблы
 	while(cmdList->GetData(pos, cmd))
 	{
@@ -190,6 +201,10 @@ void ExecutorX86::GenListing()
 		switch(cmd)
 		{
 		case cmdCallStd:
+			size_t len;
+			cmdList->GetData(pos, len);
+			pos += sizeof(size_t);
+			pos += (UINT)len;
 			break;
 		case cmdPushVTop:
 			break;
@@ -201,6 +216,7 @@ void ExecutorX86::GenListing()
 			funcNeedLabel.push_back(valind);
 			break;
 		case cmdProlog:
+			pos += 1;
 			break;
 		case cmdReturn:
 			pos += 5;
@@ -325,7 +341,7 @@ void ExecutorX86::GenListing()
 	UINT lastVarSize = 0;
 	bool mulByVarSize = false;
 
-	bool firstProlog = true;
+	firstProlog = true;
 
 	pos = 0;
 	pos2 = 0;
@@ -414,7 +430,7 @@ void ExecutorX86::GenListing()
 				logASM << "  ; CALLSTD ceil \r\n";
 				logASM << "push eax ; сюда положим флаг fpu \r\n";
 				logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
-				logASM << "mov word [esp+2], 1BBFh ; сохраним свой с окурглением к 0 \r\n";
+				logASM << "mov word [esp+2], 1BBFh ; сохраним свой с окурглением к +inf \r\n";
 				logASM << "fldcw word [esp+2] ; установим его \r\n";
 				logASM << "frndint ; округлим до целого \r\n";
 				logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
@@ -424,7 +440,7 @@ void ExecutorX86::GenListing()
 				logASM << "  ; CALLSTD floor \r\n";
 				logASM << "push eax ; сюда положим флаг fpu \r\n";
 				logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
-				logASM << "mov word [esp+2], 17BFh ; сохраним свой с окурглением к 0 \r\n";
+				logASM << "mov word [esp+2], 17BFh ; сохраним свой с окурглением к -inf \r\n";
 				logASM << "fldcw word [esp+2] ; установим его \r\n";
 				logASM << "frndint ; округлим до целого \r\n";
 				logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
@@ -460,11 +476,13 @@ void ExecutorX86::GenListing()
 			logASM << "call function" << valind << "\r\n";
 			break;
 		case cmdProlog:
-			logASM << "  ; PROLOG \r\n";
-			if(firstProlog)
+			cmdList->GetUCHAR(pos, oFlag);
+			pos++;
+			logASM << "  ; PROLOG " << (UINT)(oFlag) << "\r\n";
+			if(oFlag == 1)
 			{
 				logASM << "push ebp ; first part of PUSHT\r\n";
-			}else{
+			}else if(oFlag == 2){
 				logASM << "mov ebp, edi ; second part of PUSHT\r\n";
 				pos += 2; //пропустить PUSHT
 			}
@@ -484,7 +502,7 @@ void ExecutorX86::GenListing()
 				logASM << "pop eax ; на время поместим int в регистр\r\n";
 			}
 			logASM << "pop ebx ; сохранили eip\r\n";
-			for(UINT pops = 0; pops < valind; pops++)
+			for(int pops = 0; pops < valind; pops++)
 			{
 				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
 				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
@@ -2135,7 +2153,7 @@ bool ExecutorX86::GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int a
 		varstr << *((short*)&paramData[address]);
 	}else if(type->type == TypeInfo::POD_CHAR)
 	{
-		varstr << "'" << *((unsigned char*)&paramData[address]) << "' (" << (int)(*((unsigned char*)&paramData[address])) << ")";
+		varstr << /*"'" << *((unsigned char*)&paramData[address]) << "' (" <<*/ (int)(*((unsigned char*)&paramData[address]));// << ")";
 	}else if(type->type == TypeInfo::POD_FLOAT)
 	{
 		varstr << *((float*)&paramData[address]);
@@ -2182,8 +2200,8 @@ string ExecutorX86::GetVarInfo()
 		{
 			if(n > 100)
 			{
-				varstr << "...\r\n";
-				break;
+				address += varInfo[i].varType->size;
+				continue;
 			}
 			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
 

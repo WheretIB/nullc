@@ -677,7 +677,7 @@ void addFuncPushParamNode(char const* s, char const* e)
 	if(fname == "cos" || fname == "sin" || fname == "tan" || fname == "ctg" || fname == "ceil" || fname == "floor" || 
 		fname == "sqrt" || fname == "clock")
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(typeDouble, callArgCount.back())));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(typeDouble, callArgCount.back(), true)));
 	}else{
 		int i = (int)funcs.size()-1;
 		while(i >= 0 && funcs[i]->name != fname)
@@ -685,7 +685,7 @@ void addFuncPushParamNode(char const* s, char const* e)
 		if(i == -1)
 			throw std::string("ERROR: function " + fname + " is undefined");
 		VariableInfo* vinfo = &funcs[i]->params[callArgCount.back()-1];
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(vinfo->varType, callArgCount.back())));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(vinfo->varType, callArgCount.back(), false)));
 	}
 }
 void addFuncCallNode(char const* s, char const* e)
@@ -1150,7 +1150,9 @@ void Compiler::GenListing()
 			logASM << dec << showbase << pos2 << " CALL " << valind << dec << ";";
 			break;
 		case cmdProlog:
-			logASM << dec << showbase << pos2 << " PROLOG " << ";";
+			cmdList->GetUCHAR(pos, oFlag);
+			pos += 1;
+			logASM << dec << showbase << pos2 << " PROLOG " << (UINT)(oFlag) << ";";
 			break;
 		case cmdReturn:
 			cmdList->GetUCHAR(pos, oFlag);
