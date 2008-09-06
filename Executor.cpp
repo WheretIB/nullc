@@ -202,9 +202,11 @@ UINT Executor::Run()
 		case cmdCall:
 			m_cmds->GetINT(pos, valind);
 			pos += sizeof(UINT);
+			m_cmds->GetUINT(pos, uintVal2);
+			pos += sizeof(UINT);
 			callStack.push_back(CallStackInfo(pos, (UINT)genStack.size(), valind));
 			pos = valind;
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0, uintVal2));
 			break;
 		case cmdProlog:
 			m_cmds->GetUCHAR(pos, oFlag);
