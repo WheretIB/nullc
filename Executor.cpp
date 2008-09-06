@@ -341,20 +341,6 @@ UINT Executor::Run()
 			st = flagStackType(cFlag);
 			asmDataType dt = flagDataType(cFlag);
 
-			if(cmd == cmdMov)
-			{
-				if(st == STYPE_DOUBLE || st == STYPE_LONG)
-				{
-					highDW = genStack[genStack.size()-2];
-					lowDW = genStack[genStack.size()-1];
-					genStack.pop_back(); genStack.pop_back();
-				}else{
-					lowDW = genStack[genStack.size()-1];
-					genStack.pop_back();
-				}
-				genStackTypes.pop_back();
-			}
-
 			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
 			{
 				if(flagAddrStk(cFlag))
@@ -399,43 +385,33 @@ UINT Executor::Run()
 			if(flagAddrRel(cFlag))
 				valind += paramTop.back();
 			if(flagShiftOn(cFlag) || flagShiftStk(cFlag))
-				valind += shift;//*typeSizeD[(cFlag>>2)&0x00000007];
+				valind += shift;
 
 			if(cmd == cmdMov)
 			{
-				//if(valind+typeSizeD[(cFlag>>2)&0x00000007] > genParams.size())
-				//	genParams.resize(valind+typeSizeD[(cFlag>>2)&0x00000007]);
 				if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
 				{
-					UINT arr[2] = { highDW, lowDW };
+					UINT arr[2] = { genStack[genStack.size()-2], genStack[genStack.size()-1] };
 					float res = (float)(*((double*)(&arr[0])));
 					*((float*)(&genParams[valind])) = res;
 				}else if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
-					*((UINT*)(&genParams[valind])) = highDW;
-					*((UINT*)(&genParams[valind+4])) = lowDW;
+					*((UINT*)(&genParams[valind])) = genStack[genStack.size()-2];
+					*((UINT*)(&genParams[valind+4])) = genStack[genStack.size()-1];
 				}else if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
 				{
-					*((UINT*)(&genParams[valind])) = lowDW;
+					*((UINT*)(&genParams[valind])) = genStack[genStack.size()-1];
 				}else if(dt == DTYPE_SHORT)
 				{
-					sdata = lowDW;
+					sdata = genStack[genStack.size()-1];
 					*((USHORT*)(&genParams[valind])) = sdata;
 				}else if(dt == DTYPE_CHAR)
 				{
-					cdata = lowDW;
+					cdata = genStack[genStack.size()-1];
 					genParams[valind] = cdata;
 				}
 
-				if(st == STYPE_DOUBLE || st == STYPE_LONG)
-					genStack.push_back(highDW);
-				genStack.push_back(lowDW);
-				genStackTypes.push_back(st);
-
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0));
-				//DBG(m_FileStream << pos2 << " MOV ");
-				//DBG(m_FileStream << typeInfoS[cFlag&0x00000003] << "->");
-				//DBG(m_FileStream << typeInfoD[(cFlag>>2)&0x00000007]);
 			}else{
 				if(flagNoAddr(cFlag)){
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
@@ -465,9 +441,6 @@ UINT Executor::Run()
 				{
 					double res = (double)(*((float*)(&lowDW)));
 					genStack.push_back((UINT*)(&res), 2);
-					////////////////////////////////////////////////////////////////////////
-					//genStack.push_back(*(UINT*)(&res));
-					//genStack.push_back(*((UINT*)(&res)+1));
 				}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
 				{
 					genStack.push_back(highDW);
@@ -479,9 +452,6 @@ UINT Executor::Run()
 				genStackTypes.push_back(st);
 
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, highDW, lowDW));
-				//DBG(m_FileStream << pos2 << " PUSH ");
-				//DBG(m_FileStream << typeInfoS[cFlag&0x00000003] << "<-");
-				//DBG(m_FileStream << typeInfoD[(cFlag>>2)&0x00000007]);
 			}
 		}else if(cmd == cmdRTOI){
 			m_cmds->GetUSHORT(pos, cFlag);
@@ -514,9 +484,6 @@ UINT Executor::Run()
 				double temp = (double)*((int*)(&genStack[genStack.size()-1]));
 				genStack.pop_back();
 				genStack.push_back((UINT*)(&temp), 2);
-				////////////////////////////////////////////////////////////////////////
-				//genStack.push_back(*(UINT*)(&temp));
-				//genStack.push_back(*((UINT*)(&temp)+1));
 				genStackTypes.push_back(STYPE_DOUBLE);
 			}
 			if(st == STYPE_LONG && dt == DTYPE_DOUBLE)

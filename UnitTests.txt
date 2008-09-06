@@ -322,3 +322,18 @@ var float4 b;
 a = 12.0; // should fail
 b = a; // should fail
 return 1;
+
+var int test[5]=0;
+for(var int i = 0; i < 5; i++)
+{
+  test[i] = 1;
+  test[i] += 5;
+  test[i] = test[i]++;
+  test[i] = ++test[i];
+}
+return 1;
+
+var int test[2]=0;
+for(var int i = 0; i < 2; i++)
+  test[i] = test[i]++;
+return 1;

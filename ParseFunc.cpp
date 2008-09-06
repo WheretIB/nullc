@@ -802,16 +802,16 @@ void NodeVarSet::Compile()
 	}
 	if(varInfo.count == 1)	// если это не массив
 	{
+		// расчитываем значение для присвоения переменной
+		first->Compile();
+		// преобразуем в тип переменной
+		ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], newST);
+
 		if(shiftAddress && !bakedShift)		// если переменная - член составного типа и нужен сдвиг адреса
 		{
 			// кладём сдвиг в стек (в байтах)
 			second->Compile();
 		}
-
-		// расчитываем значение для присвоения переменной
-		first->Compile();
-		// преобразуем в тип переменной
-		ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], newST);
 
 		// добавляем команду присвоения
 		cmds->AddData(cmdMov);
@@ -830,14 +830,14 @@ void NodeVarSet::Compile()
 			cmds->AddData(varAddress);
 			cmds->AddData(varInfo.count);
 		}else{					// если указано присвоить значение одной ячейке массива
-			// кладём сдвиг от начала массива (в байтах)
-			if(!bakedShift)
-				second->Compile();
-			
 			// расчитываем значение для присвоения ячейке массива
 			first->Compile();
 			// преобразуем в тип ячейки массива
 			ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], newST);
+
+			// кладём сдвиг от начала массива (в байтах)
+			if(!bakedShift)
+				second->Compile();
 			
 			// добавляем команду присвоения
 			cmds->AddData(cmdMov);
@@ -1062,12 +1062,7 @@ void NodeVarSetAndOp::Compile()
 
 	// Если переменная - массив или член составного типа, то нужен сдвиг адреса
 	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
-	{
 		second->Compile();
-		// Далее две операции, и каждой нужен адрес
-		cmds->AddData(cmdCopy);
-		cmds->AddData((UCHAR)(OTYPE_INT));
-	}
 
 	UINT shiftInStack = 0, sizeOn = 0;
 	// Если это массив или член составного типа, включаем флаг что сдвиг в стеке
@@ -1105,6 +1100,10 @@ void NodeVarSetAndOp::Compile()
 	// Преобразуем значение в стеке в тип переменной
 	ConvertFirstToSecond(resultST, thisST);
 
+	// Если переменная - массив или член составного типа, то нужен сдвиг адреса
+	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
+		second->Compile();
+
 	// Помещаем новое значение в пременную
 	cmds->AddData(cmdMov);
 	cmds->AddData((USHORT)(thisST | thisDT | addrType | shiftInStack | sizeOn));
@@ -1133,10 +1132,7 @@ UINT NodeVarSetAndOp::GetSize()
 
 	UINT size = 0;
 	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
-	{
-		size += second->GetSize();
-		size += sizeof(CmdID) + sizeof(UCHAR);
-	}
+		size += 2*second->GetSize();
 	if((varInfo.count > 1) && !bakedShift)
 		size += 2 * sizeof(UINT);
 
@@ -1177,6 +1173,9 @@ NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAdd
 
 	// сдвиг уже прибавлен к адресу
 	bakedShift = false;
+
+	if(typeInfo->type == TypeInfo::NOT_POD)
+		throw std::string("ERROR: Increment and decrement is no supported on " + typeInfo->name);
 
 	// если переменная - массив или член составного типа, то нужен сдвиг адреса
 	if(varInfo.count > 1 || shiftAddress)	
