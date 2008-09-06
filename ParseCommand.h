@@ -401,7 +401,7 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		(*stream) << " POPT " << valind << ";";
 		break;
 	case cmdCall:
-		(*stream) << " CALL " << valind << ";";
+		(*stream) << " CALL " << valind << " size: " << dw0 << ";";
 		break;
 	case cmdProlog:
 		(*stream) << " PROLOG " << valind << " ;";

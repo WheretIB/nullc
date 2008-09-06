@@ -315,3 +315,10 @@ func double abs(double x)
   return x;
 }
 return abs(-0.5);
+
+//Some complexness %)
+var float3 a;
+var float4 b;
+a = 12.0; // should fail
+b = a; // should fail
+return 1;

@@ -668,6 +668,7 @@ void NodeFuncCall::Compile()
 		// Вызовем по адресу
 		cmds->AddData(cmdCall);
 		cmds->AddData((*funcs)[funcID]->address);
+		cmds->AddData((UINT)(typeInfo->size));
 	}
 }
 void NodeFuncCall::LogToStream(ostringstream& ostr)
@@ -683,7 +684,7 @@ UINT NodeFuncCall::GetSize()
 	if(funcID == -1)
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
 	else
-		size += 4*sizeof(CmdID) + 1 + 2*sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
+		size += 4*sizeof(CmdID) + 1 + 3*sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
 
 	return size;
 }
@@ -754,6 +755,13 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 
 	// получить узел, расчитывающий значение
 	first = getList()->back(); getList()->pop_back();
+	if(typeInfo->type == TypeInfo::NOT_POD)
+	{
+		if(first->GetTypeInfo()->type != TypeInfo::NOT_POD)
+			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
+		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->name != typeInfo->name)
+			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
+	}
 
 	// если переменная - массив и обновляется одна ячейка
 	// или если переменная - член составного типа и нужен сдвиг адреса
@@ -977,10 +985,13 @@ UINT NodeVarGet::GetSize()
 	UINT size = 0;
 	if(varInfo.count > 1)
 	{
-		size += first->GetSize();
-		size += sizeof(CmdID) + sizeof(USHORT) + 2 * sizeof(UINT);
+		if(!bakedShift)
+			size += first->GetSize();
+		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+		if(!bakedShift)
+			size += sizeof(UINT);
 	}else{
-		if(shiftAddress)
+		if(shiftAddress && !bakedShift)
 			size += first->GetSize();
 		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 	}
@@ -1121,12 +1132,12 @@ UINT NodeVarSetAndOp::GetSize()
 	asmDataType thisDT = podTypeToDataType[typeInfo->type];
 
 	UINT size = 0;
-	if(varInfo.count > 1 || shiftAddress)
+	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 	{
 		size += second->GetSize();
 		size += sizeof(CmdID) + sizeof(UCHAR);
 	}
-	if(varInfo.count > 1)
+	if((varInfo.count > 1) && !bakedShift)
 		size += 2 * sizeof(UINT);
 
 	size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
@@ -1301,26 +1312,26 @@ UINT NodePreValOp::GetSize()
 	asmDataType newDT = podTypeToDataType[typeInfo->type];
 
 	UINT size = 0;
-	if(varInfo.count > 1 || shiftAddress)
+	if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 		size += first->GetSize();
 	if(optimised)
 	{
 		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
-		if(varInfo.count > 1)
+		if((varInfo.count > 1) && !bakedShift)
 			size += sizeof(UINT);
 	}else{
-		if(varInfo.count > 1 || shiftAddress)
+		if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 			size += sizeof(CmdID) + sizeof(UCHAR);
 		if(prefixOperator)
 		{
 			size += 2 * (sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT));
-			if(varInfo.count > 1)
+			if((varInfo.count > 1) && !bakedShift)
 				size += 2 * sizeof(UINT);
 		}else{
-			if(varInfo.count > 1)
+			if((varInfo.count > 1) && !bakedShift)
 				size += 2 * sizeof(UINT);
 			size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
-			if(varInfo.count > 1 || shiftAddress)
+			if((varInfo.count > 1 || shiftAddress) && !bakedShift)
 				size += sizeof(CmdID) + sizeof(USHORT);
 			size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
 		}

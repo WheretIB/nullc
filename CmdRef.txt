@@ -120,8 +120,9 @@
 		Операция удаляет значение на верхушке стека.
 
   Команды для функций
-	CALL address // (cmdCall = 113) CALL function
+	CALL address return_size// (cmdCall = 113) CALL function
 		Вызов функции по адресу. Адрес следующей за этой операции кладётся в стек вызовов.
+		Также известен размер возвращаемого типа в байтах.
 		
 	CALLSTD UINT len, char name[] // (cmdCallStd = 114) CALL STanDart function
 		Вызов предопределённой функции. Имя функции длинною len следует за командой.

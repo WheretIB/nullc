@@ -128,11 +128,11 @@ UINT ExecutorX86::Run()
 			mov edi, 18h ;
 			call eax ; // в ebx тип вернувшегос€ значени€
 
-			pop eax; // ¬озмЄм первый dword
+		//	pop eax; // ¬озмЄм первый dword
 
 			cmp ebx, 3 ; // oFlag == 3, значит int
 			je justAnInt ; // пропустим вз€тие второй части дл€ long и double
-			pop edx; // ¬озьмЄм второй dword
+		//	pop edx; // ¬озьмЄм второй dword
 
 			justAnInt:
 
@@ -212,6 +212,7 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdCall:
 			cmdList->GetUINT(pos, valind);
+			pos += 4;
 			pos += 4;
 			funcNeedLabel.push_back(valind);
 			break;
@@ -338,6 +339,7 @@ void ExecutorX86::GenListing()
 	int aluLabels = 1;
 
 	bool skipPopEAXOnIntALU = false;
+	bool skipFldESPOnDoubleALU = false;
 	UINT lastVarSize = 0;
 	bool mulByVarSize = false;
 
@@ -470,10 +472,21 @@ void ExecutorX86::GenListing()
 			logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 			break;
 		case cmdCall:
-			logASM << "  ; CALL\r\n";
 			cmdList->GetData(pos, &valind, sizeof(UINT));
 			pos += sizeof(UINT);
+			cmdList->GetData(pos, &valind2, sizeof(UINT));
+			pos += sizeof(UINT);
+			logASM << "  ; CALL " << valind << " ret size: " << valind2 << "\r\n";
 			logASM << "call function" << valind << "\r\n";
+			logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
+			logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
+			if(valind2 == 4)
+				logASM << "push eax ; поместим число обратно в стек\r\n";
+			if(valind2 == 8)
+			{
+				logASM << "push eax ; \r\n";
+				logASM << "push edx ; поместим число обратно в стек\r\n";
+			}
 			break;
 		case cmdProlog:
 			cmdList->GetUCHAR(pos, oFlag);
@@ -501,8 +514,8 @@ void ExecutorX86::GenListing()
 			}else if(oFlag == OTYPE_INT){
 				logASM << "pop eax ; на врем€ поместим int в регистр\r\n";
 			}
-			logASM << "pop ebx ; сохранили eip\r\n";
-			for(int pops = 0; pops < valind; pops++)
+			//logASM << "pop ebx ; сохранили eip\r\n";
+			for(int pops = 0; pops < int(valind)-1; pops++)
 			{
 				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
 				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
@@ -510,15 +523,15 @@ void ExecutorX86::GenListing()
 			
 			if(oFlag == OTYPE_DOUBLE || oFlag == OTYPE_LONG)
 			{
-				logASM << "push eax ; \r\n";
-				logASM << "push edx ; поместим число обратно в стек\r\n";
-				logASM << "push ebx ; поместим eip обратно в стек\r\n";
+				//logASM << "push eax ; \r\n";
+				//logASM << "push edx ; поместим число обратно в стек\r\n";
+				//logASM << "push ebx ; поместим eip обратно в стек\r\n";
 				/*logASM << "xchg [esp], eax ; помен€ем часть числа и eip\r\n";
 				logASM << "push edx ; поместим число обратно в стек\r\n";
 				logASM << "push ebx ; поместим eip обратно в стек\r\n";*/
 			}else if(oFlag == OTYPE_INT){
-				logASM << "push eax ; поместим число обратно в стек\r\n";
-				logASM << "push ebx ; поместим eip обратно в стек\r\n";
+				//logASM << "push eax ; поместим число обратно в стек\r\n";
+				//logASM << "push ebx ; поместим eip обратно в стек\r\n";
 				/*logASM << "xchg [esp], eax ; помен€ем число и eip\r\n";
 				logASM << "push eax ; поместим eip обратно в стек\r\n";*/
 			}
@@ -737,10 +750,27 @@ void ExecutorX86::GenListing()
 						logASM << "push " << lowDW << " ; положили char\r\n";
 					}
 				}else{
-					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+					//look at the next command
+					cmdList->GetData(pos, cmdNext);
+					if(dt == DTYPE_DOUBLE)
+					{
+						//  азалось бы, зачем пихать значение в стек, а затем от туда по адресу
+						// пихать в стек переменных, не говор€ уже о том что придЄтс€ делать add esp, 8!
+						// ƒавайте сразу запихнЄм в FPU стек значение по адресу...
+						// ј вот фиг! »з-за такой 'оптимизации' скорость на растерезаторе упала на 10%
+						/*if(cmdNext >= cmdAdd && cmdNext <= cmdDiv && !skipFldESPOnDoubleALU) // for some binary commands
+						{
+							skipFldESPOnDoubleALU = true;
+							logASM << "fld qword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили double пр€мо в FPU\r\n";
+						}else{*/
+							logASM << "push dword [" << needEDX << needEBP << paramBase+4+numEDX << "]\r\n";
+							logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили double\r\n";
+						//}
+					}
+					if(dt == DTYPE_LONG)
 					{
 						logASM << "push dword [" << needEDX << needEBP << paramBase+4+numEDX << "]\r\n";
-						logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили double или long long\r\n";
+						logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили long long\r\n";
 					}
 					if(dt == DTYPE_FLOAT)
 					{
@@ -751,8 +781,6 @@ void ExecutorX86::GenListing()
 					}
 					if(dt == DTYPE_INT)
 					{
-						//look at the next command
-						cmdList->GetData(pos, cmdNext);
 						if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
 						{
 							needPush = texts[4];
@@ -983,8 +1011,8 @@ void ExecutorX86::GenListing()
 			st = flagStackType(cFlag);
 			if(st == STYPE_DOUBLE || st == STYPE_LONG)
 			{
-				logASM << "pop eax\r\n";
-				logASM << "pop eax ; убрали double или long\r\n";
+				//logASM << "pop eax\r\n";
+				logASM << "add esp, 8 ; убрали double или long\r\n";
 			}else{
 				logASM << "pop eax ; убрали int\r\n";
 			}
@@ -1218,11 +1246,18 @@ void ExecutorX86::GenListing()
 			{
 			case cmdAdd+(OTYPE_DOUBLE<<16):
 				logASM << "  ; ADD  double\r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "fld qword [esp+8] \r\n";
-				logASM << "faddp \r\n";
-				logASM << "fstp qword [esp+8] \r\n";
-				logASM << "add esp, 8\r\n";
+				if(!skipFldESPOnDoubleALU)
+				{
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fld qword [esp+8] \r\n";
+					logASM << "faddp \r\n";
+					logASM << "fstp qword [esp+8] \r\n";
+					logASM << "add esp, 8\r\n";
+				}else{
+					logASM << "fld qword [esp] \r\n";
+					logASM << "faddp \r\n";
+					logASM << "fstp qword [esp] \r\n";
+				}
 				break;
 			case cmdAdd+(OTYPE_LONG<<16):
 				logASM << "  ; ADD long\r\n";
@@ -1240,11 +1275,18 @@ void ExecutorX86::GenListing()
 
 			case cmdSub+(OTYPE_DOUBLE<<16):
 				logASM << "  ; SUB  double\r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "fld qword [esp+8] \r\n";
-				logASM << "fsubrp \r\n";
-				logASM << "fstp qword [esp+8] \r\n";
-				logASM << "add esp, 8\r\n";
+				if(!skipFldESPOnDoubleALU)
+				{
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fld qword [esp+8] \r\n";
+					logASM << "fsubrp \r\n";
+					logASM << "fstp qword [esp+8] \r\n";
+					logASM << "add esp, 8\r\n";
+				}else{
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fsubp \r\n";
+					logASM << "fstp qword [esp] \r\n";
+				}
 				break;
 			case cmdSub+(OTYPE_LONG<<16):
 				logASM << "  ; SUB long\r\n";
@@ -1262,11 +1304,18 @@ void ExecutorX86::GenListing()
 
 			case cmdMul+(OTYPE_DOUBLE<<16):
 				logASM << "  ; MUL  double\r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "fld qword [esp+8] \r\n";
-				logASM << "fmulp \r\n";
-				logASM << "fstp qword [esp+8] \r\n";
-				logASM << "add esp, 8\r\n";
+				if(!skipFldESPOnDoubleALU)
+				{
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fld qword [esp+8] \r\n";
+					logASM << "fmulp \r\n";
+					logASM << "fstp qword [esp+8] \r\n";
+					logASM << "add esp, 8\r\n";
+				}else{
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fmulp \r\n";
+					logASM << "fstp qword [esp] \r\n";
+				}
 				break;
 			case cmdMul+(OTYPE_LONG<<16):
 				logASM << "  ; MUL long\r\n";
@@ -1287,11 +1336,18 @@ void ExecutorX86::GenListing()
 
 			case cmdDiv+(OTYPE_DOUBLE<<16):
 				logASM << "  ; DIV  double\r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "fld qword [esp+8] \r\n";
-				logASM << "fdivrp \r\n";
-				logASM << "fstp qword [esp+8] \r\n";
-				logASM << "add esp, 8\r\n";
+				if(!skipFldESPOnDoubleALU)
+				{
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fld qword [esp+8] \r\n";
+					logASM << "fdivrp \r\n";
+					logASM << "fstp qword [esp+8] \r\n";
+					logASM << "add esp, 8\r\n";
+				}else{
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fdivp \r\n";
+					logASM << "fstp qword [esp] \r\n";
+				}
 				break;
 			case cmdDiv+(OTYPE_LONG<<16):
 				logASM << "  ; DIV long\r\n";
@@ -1803,6 +1859,7 @@ void ExecutorX86::GenListing()
 				throw string("Operation is not implemented");
 			}
 			skipPopEAXOnIntALU = false;
+			skipFldESPOnDoubleALU = false;
 		}
 		if(cmd >= cmdNeg && cmd <= cmdLogNot)
 		{
@@ -2124,8 +2181,8 @@ string ExecutorX86::GetResult()
 {
 	ostringstream tempStream;
 	long long combined = 0;
-	*((int*)(&combined)) = runResult;
-	*((int*)(&combined)+1) = runResult2;
+	*((int*)(&combined)) = runResult2;
+	*((int*)(&combined)+1) = runResult;
 
 	switch(runResultType)
 	{
@@ -2139,7 +2196,7 @@ string ExecutorX86::GetResult()
 		tempStream << runResult;
 		break;
 	}
-	tempStream << " (" << stackReallocs << " reallocs)";
+	//tempStream << " (" << stackReallocs << " reallocs)";
 	return tempStream.str();
 }
 

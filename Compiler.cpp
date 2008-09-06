@@ -9,13 +9,22 @@ using namespace supspi;
 //////////////////////////////////////////////////////////////////////////
 //						Code gen ops
 //////////////////////////////////////////////////////////////////////////
-//Code information
+// Информация о функциях
 std::vector<FunctionInfo*>	funcs;
+// Информация о переменных
 std::vector<VariableInfo>	varInfo;
+// Информация о вершинах стека переменных. При компиляции он служит для того, чтобы
+// Удалять информацию о переменных, когда они выходят из области видимости
 std::vector<VarTopInfo>		varInfoTop;
+// Некоторые конструкции допускают оператор break, который должен знать, на сколько сдвинуть базу стека
+// переменных, чтобы привести её в то состояние, в которым она находилась бы, если бы конструкция
+// завершилась без преждевременного выхода. Этот стек (конструкции могут быть вложенными) хранит размер
+// varInfoTop.
 std::vector<UINT>			undComandIndex;
 
+// Массив с информацией о типах
 std::vector<TypeInfo*>		typeInfo;
+// Немного предопределённых базовых типов
 TypeInfo*	typeVoid = NULL;
 TypeInfo*	typeChar = NULL;
 TypeInfo*	typeShort = NULL;
@@ -24,81 +33,36 @@ TypeInfo*	typeFloat = NULL;
 TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
 
+// Информация о типе текцщей переменной
 TypeInfo*	currType = NULL;
+// Стек ( :) )такой информации
+// Для конструкций arr[arr[i.a.b].y].x;
 std::vector<TypeInfo*>	currTypes;
 
+// Список узлов дерева
+// Отдельные узлы помещаются сюда, и в дальнейшем объеденяются в более комплексные узлы,
+// создавая дерево. После правильной компиляции количество узлов в этом массиве должно равнятся 1
 std::vector<shared_ptr<NodeZeroOP> >	nodeList;
 
-//Temp variables
-UINT negCount, varDefined, varSize, varHaveIndex, needCopy, varTop;
+// Temp variables
+// Временные переменные:
+// Количество минусов перед переменной, количество определённых переменных, размер определённых переменных
+// Вершина стека переменных
+UINT negCount, varDefined, varSize, varTop;
+// Является ли текущая переменная константной
 bool currValConst;
+
+// Массив временных строк
 std::vector<std::string>	strs;
+// Стек с количеством переменных переданных функции.
+// Стек для ситуаций вроде foo(1, bar(2, 3, 4), 5), когда нужно сохранить количество параметров,
+// для каждой из функцией для проверки количества переданных параметров с тем, которое принимает функция
 std::vector<UINT>			callArgCount;
+// Стек, который хранит титы значений, которые возвращает функция.
+// Функции можно определять одну в другой (BUG: 0004 может, нафиг не надо?)
 std::vector<TypeInfo*>		retTypeStack;
 
-void checkIfDeclared(const std::string& str)
-{
-	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
-		throw std::string("ERROR: The name '" + str + "' is reserved");
-	for(UINT i = 0; i < funcs.size(); i++)
-		if(funcs[i]->name == str)
-			throw std::string("ERROR: Name '" + str + "' is already taken for a function");
-}
-
-void blockBegin(char const* s, char const* e)
-{
-	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
-}
-void blockEnd(char const* s, char const* e)
-{
-	while(varInfo.size() > varInfoTop.back().activeVarCnt)
-	{ 
-		varTop -= varInfo.back().count*varInfo.back().varType->size;
-		varInfo.pop_back();
-	}
-	varInfoTop.pop_back();
-}
-
-void removeTop(char const* s, char const* e)
-{
-	nodeList.pop_back();
-}
-
-template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
-{
-	addTwoAndCmpNode(cmd);
-}
-
-typedef void (*ParseFuncPtr)(char const* s, char const* e);
-
-static ParseFuncPtr addCmd(CmdID cmd)
-{
-	if(cmd == cmdAdd) return &createTwoAndCmd<cmdAdd>;
-	if(cmd == cmdSub) return &createTwoAndCmd<cmdSub>;
-	if(cmd == cmdMul) return &createTwoAndCmd<cmdMul>;
-	if(cmd == cmdDiv) return &createTwoAndCmd<cmdDiv>;
-	if(cmd == cmdPow) return &createTwoAndCmd<cmdPow>;
-	if(cmd == cmdLess) return &createTwoAndCmd<cmdLess>;
-	if(cmd == cmdGreater) return &createTwoAndCmd<cmdGreater>;
-	if(cmd == cmdLEqual) return &createTwoAndCmd<cmdLEqual>;
-	if(cmd == cmdGEqual) return &createTwoAndCmd<cmdGEqual>;
-	if(cmd == cmdEqual) return &createTwoAndCmd<cmdEqual>;
-	if(cmd == cmdNEqual) return &createTwoAndCmd<cmdNEqual>;
-	if(cmd == cmdShl) return &createTwoAndCmd<cmdShl>;
-	if(cmd == cmdShr) return &createTwoAndCmd<cmdShr>;
-	if(cmd == cmdMod) return &createTwoAndCmd<cmdMod>;
-	if(cmd == cmdBitAnd) return &createTwoAndCmd<cmdBitAnd>;
-	if(cmd == cmdBitOr) return &createTwoAndCmd<cmdBitOr>;
-	if(cmd == cmdBitXor) return &createTwoAndCmd<cmdBitXor>;
-	if(cmd == cmdLogAnd) return &createTwoAndCmd<cmdLogAnd>;
-	if(cmd == cmdLogOr) return &createTwoAndCmd<cmdLogOr>;
-	if(cmd == cmdLogXor) return &createTwoAndCmd<cmdLogXor>;
-	throw std::string("ERROR: addCmd call with unknown command");
-	return &createTwoAndCmd<cmdReturn>;
-}
-
-void addZeroNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP())); }
-
+// Преобразовать строку в число типа long long
 long long atoll(const char* str)
 {
 	int len = 0;
@@ -109,26 +73,86 @@ long long atoll(const char* str)
 		res = res * 10L + (long long)(str[len2-len--] - '0');
 	return res;
 }
-template<typename T>	void addNumberNode(char const*s, char const*e);
-template<>	void addNumberNode<int>(char const*s, char const*e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(atoi(s), typeInt))); };
-template<>	void addNumberNode<float>(char const*s, char const*e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<float>((float)atof(s), typeFloat))); };
-template<>	void addNumberNode<long long>(char const*s, char const*e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(atoll(s), typeLong))); };
-template<>	void addNumberNode<double>(char const*s, char const*e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<double>(atof(s), typeDouble))); };
 
-void addPopNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber){
+// Проверяет, явлеется ли идентификатор зарезервированным или уже занятым
+void checkIfDeclared(const std::string& str)
+{
+	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
+		throw std::string("ERROR: The name '" + str + "' is reserved");
+	for(UINT i = 0; i < funcs.size(); i++)
+		if(funcs[i]->name == str)
+			throw std::string("ERROR: Name '" + str + "' is already taken for a function");
+}
+
+// Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
+// будет вернутся после окончания блока.
+void blockBegin(char const* s, char const* e)
+{
+	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
+}
+// Вызывается в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечивая
+// их выход из области видимости. Также уменьшает вершину стека переменных в байтах.
+void blockEnd(char const* s, char const* e)
+{
+	while(varInfo.size() > varInfoTop.back().activeVarCnt)
+	{ 
+		varTop -= varInfo.back().count*varInfo.back().varType->size;
+		varInfo.pop_back();
+	}
+	varInfoTop.pop_back();
+}
+
+// Функции для добавления узлов с константными числами разных типов
+template<typename T>
+void addNumberNode(char const*s, char const*e);
+
+template<> void addNumberNode<int>(char const*s, char const*e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(atoi(s), typeInt)));
+};
+template<> void addNumberNode<float>(char const*s, char const*e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<float>((float)atof(s), typeFloat)));
+};
+template<> void addNumberNode<long long>(char const*s, char const*e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(atoll(s), typeLong)));
+};
+template<> void addNumberNode<double>(char const*s, char const*e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<double>(atof(s), typeDouble)));
+};
+
+// Функция для создания узла, который уберёт значение со стека переменных
+// Узел заберёт к себе последний узел в списке.
+void addPopNode(char const* s, char const* e)
+{
+	// Если последний узел в списке - узел с цислом, уберём его
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	{
 		nodeList.pop_back();
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
 	}else if((*(nodeList.end()-1))->GetNodeType() == typeNodePreValOp){
+		// Если последний узел, это переменная, которую уменьшают или увеличивают на 1, не используя в
+		// далнейшем её значение, то можно произвести оптимизацию кода.
 		static_cast<NodePreValOp*>(nodeList.back().get())->SetOptimised(true);
 	}else{
+		// Иначе просто создадим узёл, как и планировали в начале
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
 	}
 }
-void addNegNode(char const* s, char const* e){
+
+// Функция для создания узла, которые поменяет знак значения в стеке
+// Узел заберёт к себе последний узел в списке.
+void addNegNode(char const* s, char const* e)
+{
+	// Если количество смен знака чётное, то результирующий знак не поменяется
+	// и нам не стоит тратить время
 	if(negCount % 2 == 0)
 		return;
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber){
+	// Если последний узел это число, то просто поменяем знак у константы
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	{
 		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
@@ -147,12 +171,20 @@ void addNegNode(char const* s, char const* e){
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
+		// Иначе просто создадим узёл, как и планировали в начале
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeUnaryOp(cmdNeg)));
 	}
+	// Сбросим значение смен знака на 0
 	negCount = 0;
 }
-void addLogNotNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber){
+
+// Функция для создания узла, которые произведёт логическое отрицания над значением в стеке
+// Узел заберёт к себе последний узел в списке.
+void addLogNotNode(char const* s, char const* e)
+{
+	// Если последний узел в списке - число, то произведём действие во время копиляции
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	{
 		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
@@ -171,11 +203,14 @@ void addLogNotNode(char const* s, char const* e){
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
+		// Иначе просто создадим узёл, как и планировали в начале
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeUnaryOp(cmdLogNot)));
 	}
 }
-void addBitNotNode(char const* s, char const* e){
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber){
+void addBitNotNode(char const* s, char const* e)
+{
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	{
 		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
 		NodeZeroOP* zOP = (nodeList.end()-1)->get();
 		shared_ptr<NodeZeroOP > Rd;
@@ -203,69 +238,103 @@ T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 {
 	if(swap)
 		std::swap(a, b);
-	if(cmd == cmdAdd) return a + b;
-	if(cmd == cmdSub) return a - b;
-	if(cmd == cmdMul) return a * b;
-	if(cmd == cmdDiv) return a / b;
-	if(cmd == cmdPow) return (T)pow((double)a, (double)b);
-	if(cmd == cmdLess) return a < b;
-	if(cmd == cmdGreater) return a > b;
-	if(cmd == cmdGEqual) return a >= b;
-	if(cmd == cmdLEqual) return a <= b;
-	if(cmd == cmdEqual) return a == b;
-	if(cmd == cmdNEqual) return a != b;
+	if(cmd == cmdAdd)
+		return a + b;
+	if(cmd == cmdSub)
+		return a - b;
+	if(cmd == cmdMul)
+		return a * b;
+	if(cmd == cmdDiv)
+		return a / b;
+	if(cmd == cmdPow)
+		return (T)pow((double)a, (double)b);
+	if(cmd == cmdLess)
+		return a < b;
+	if(cmd == cmdGreater)
+		return a > b;
+	if(cmd == cmdGEqual)
+		return a >= b;
+	if(cmd == cmdLEqual)
+		return a <= b;
+	if(cmd == cmdEqual)
+		return a == b;
+	if(cmd == cmdNEqual)
+		return a != b;
 	return optDoSpecial(cmd, a, b);
 }
-template<typename T>	T	optDoSpecial(CmdID cmd, T a, T b)
+template<typename T>
+T optDoSpecial(CmdID cmd, T a, T b)
 {
 	throw std::string("ERROR: optDoSpecial call with unknown type");
 }
-template<>				int	optDoSpecial<>(CmdID cmd, int a, int b)
+template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 {
-	if(cmd == cmdShl) return a << b;
-	if(cmd == cmdShr) return a >> b;
-	if(cmd == cmdMod) return a % b;
-	if(cmd == cmdBitAnd) return a & b;
-	if(cmd == cmdBitXor) return a ^ b;
-	if(cmd == cmdBitOr) return a | b;
-	if(cmd == cmdLogAnd) return a && b;
-	if(cmd == cmdLogXor) return !!a ^ !!b;
-	if(cmd == cmdLogOr) return a || b;
+	if(cmd == cmdShl)
+		return a << b;
+	if(cmd == cmdShr)
+		return a >> b;
+	if(cmd == cmdMod)
+		return a % b;
+	if(cmd == cmdBitAnd)
+		return a & b;
+	if(cmd == cmdBitXor)
+		return a ^ b;
+	if(cmd == cmdBitOr)
+		return a | b;
+	if(cmd == cmdLogAnd)
+		return a && b;
+	if(cmd == cmdLogXor)
+		return !!a ^ !!b;
+	if(cmd == cmdLogOr)
+		return a || b;
 	throw std::string("ERROR: optDoSpecial<int> call with unknown command");
 }
-template<>				long long	optDoSpecial<>(CmdID cmd, long long a, long long b)
+template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 {
-	if(cmd == cmdShl) return a << b;
-	if(cmd == cmdShr) return a >> b;
-	if(cmd == cmdMod) return a % b;
-	if(cmd == cmdBitAnd) return a & b;
-	if(cmd == cmdBitXor) return a ^ b;
-	if(cmd == cmdBitOr) return a | b;
-	if(cmd == cmdLogAnd) return a && b;
-	if(cmd == cmdLogXor) return !!a ^ !!b;
-	if(cmd == cmdLogOr) return a || b;
+	if(cmd == cmdShl)
+		return a << b;
+	if(cmd == cmdShr)
+		return a >> b;
+	if(cmd == cmdMod)
+		return a % b;
+	if(cmd == cmdBitAnd)
+		return a & b;
+	if(cmd == cmdBitXor)
+		return a ^ b;
+	if(cmd == cmdBitOr)
+		return a | b;
+	if(cmd == cmdLogAnd)
+		return a && b;
+	if(cmd == cmdLogXor)
+		return !!a ^ !!b;
+	if(cmd == cmdLogOr)
+		return a || b;
 	throw std::string("ERROR: optDoSpecial<long long> call with unknown command");
 }
-template<>				double	optDoSpecial<>(CmdID cmd, double a, double b)
+template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 {
 	if(cmd == cmdShl)
 		throw std::string("ERROR: optDoSpecial<double> call with << operation is illegal");
 	if(cmd == cmdShr)
 		throw std::string("ERROR: optDoSpecial<double> call with >> operation is illegal");
-	if(cmd == cmdMod) return fmod(a,b);
+	if(cmd == cmdMod)
+		return fmod(a,b);
 	if(cmd >= cmdBitAnd && cmd <= cmdBitXor)
 		throw std::string("ERROR: optDoSpecial<double> call with binary operation is illegal");
-	if(cmd == cmdLogAnd) return (int)a && (int)b;
-	if(cmd == cmdLogXor) return !!(int)a ^ !!(int)b;
-	if(cmd == cmdLogOr) return (int)a || (int)b;
+	if(cmd == cmdLogAnd)
+		return (int)a && (int)b;
+	if(cmd == cmdLogXor)
+		return !!(int)a ^ !!(int)b;
+	if(cmd == cmdLogOr)
+		return (int)a || (int)b;
 	throw std::string("ERROR: optDoSpecial<double> call with unknown command");
 }
 
-void addTwoAndCmpNode(CmdID id){
-
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber && (*(nodeList.end()-2))->GetNodeType() == typeNodeNumber){
+void addTwoAndCmpNode(CmdID id)
+{
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber && (*(nodeList.end()-2))->GetNodeType() == typeNodeNumber)
+	{
 		//If we have operation between two known numbers, we can optimize code by calculating the result in place
-
 		TypeInfo *aType, *bType;
 		aType = (*(nodeList.end()-2))->GetTypeInfo();
 		bType = (*(nodeList.end()-1))->GetTypeInfo();
@@ -343,13 +412,47 @@ void addTwoAndCmpNode(CmdID id){
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
 	}
 }
+
+template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
+{
+	addTwoAndCmpNode(cmd);
+}
+
+typedef void (*ParseFuncPtr)(char const* s, char const* e);
+
+static ParseFuncPtr addCmd(CmdID cmd)
+{
+	if(cmd == cmdAdd) return &createTwoAndCmd<cmdAdd>;
+	if(cmd == cmdSub) return &createTwoAndCmd<cmdSub>;
+	if(cmd == cmdMul) return &createTwoAndCmd<cmdMul>;
+	if(cmd == cmdDiv) return &createTwoAndCmd<cmdDiv>;
+	if(cmd == cmdPow) return &createTwoAndCmd<cmdPow>;
+	if(cmd == cmdLess) return &createTwoAndCmd<cmdLess>;
+	if(cmd == cmdGreater) return &createTwoAndCmd<cmdGreater>;
+	if(cmd == cmdLEqual) return &createTwoAndCmd<cmdLEqual>;
+	if(cmd == cmdGEqual) return &createTwoAndCmd<cmdGEqual>;
+	if(cmd == cmdEqual) return &createTwoAndCmd<cmdEqual>;
+	if(cmd == cmdNEqual) return &createTwoAndCmd<cmdNEqual>;
+	if(cmd == cmdShl) return &createTwoAndCmd<cmdShl>;
+	if(cmd == cmdShr) return &createTwoAndCmd<cmdShr>;
+	if(cmd == cmdMod) return &createTwoAndCmd<cmdMod>;
+	if(cmd == cmdBitAnd) return &createTwoAndCmd<cmdBitAnd>;
+	if(cmd == cmdBitOr) return &createTwoAndCmd<cmdBitOr>;
+	if(cmd == cmdBitXor) return &createTwoAndCmd<cmdBitXor>;
+	if(cmd == cmdLogAnd) return &createTwoAndCmd<cmdLogAnd>;
+	if(cmd == cmdLogOr) return &createTwoAndCmd<cmdLogOr>;
+	if(cmd == cmdLogXor) return &createTwoAndCmd<cmdLogXor>;
+	throw std::string("ERROR: addCmd call with unknown command");
+	return &createTwoAndCmd<cmdReturn>;
+}
+
 void addReturnNode(char const* s, char const* e)
 {
-	//ColorCode(0, 0, 255, s, s+6);
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	if(funcs.size() != 0)
-		while(t > (int)funcs.back()->vTopSize){
+		while(t > (int)funcs.back()->vTopSize)
+		{
 			c++;
 			t--;
 		}
@@ -358,12 +461,12 @@ void addReturnNode(char const* s, char const* e)
 
 void addBreakNode(char const* s, char const* e)
 {
-	//ColorCode(0, 0, 255, s, s+5);
 	if(undComandIndex.empty())
 		throw std::string("ERROR: break used outside loop statements");
 	int t = (int)varInfoTop.size();
 	int c = 0;
-	while(t > (int)undComandIndex.back()){
+	while(t > (int)undComandIndex.back())
+	{
 		c++;
 		t--;
 	}
@@ -581,11 +684,26 @@ void addSetAndOpNode(CmdID cmd)
 
 	varDefined = 0;
 }
-void addAddSetNode(char const* s, char const* e){ addSetAndOpNode(cmdAdd); }
-void addSubSetNode(char const* s, char const* e){ addSetAndOpNode(cmdSub); }
-void addMulSetNode(char const* s, char const* e){ addSetAndOpNode(cmdMul); }
-void addDivSetNode(char const* s, char const* e){ addSetAndOpNode(cmdDiv); }
-void addPowSetNode(char const* s, char const* e){ addSetAndOpNode(cmdPow); }
+void addAddSetNode(char const* s, char const* e)
+{
+	addSetAndOpNode(cmdAdd);
+}
+void addSubSetNode(char const* s, char const* e)
+{
+	addSetAndOpNode(cmdSub);
+}
+void addMulSetNode(char const* s, char const* e)
+{
+	addSetAndOpNode(cmdMul);
+}
+void addDivSetNode(char const* s, char const* e)
+{
+	addSetAndOpNode(cmdDiv);
+}
+void addPowSetNode(char const* s, char const* e)
+{
+	addSetAndOpNode(cmdPow);
+}
 
 void addPreOpNode(CmdID cmd, bool pre)
 {
@@ -609,14 +727,35 @@ void addPreOpNode(CmdID cmd, bool pre)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd, pre)));
 	currTypes.pop_back();
 }
-void addPreDecNode(char const* s, char const* e){ addPreOpNode(cmdDecAt, true); }
-void addPreIncNode(char const* s, char const* e){ addPreOpNode(cmdIncAt, true); }
-void addPostDecNode(char const* s, char const* e){ addPreOpNode(cmdDecAt, false); }
-void addPostIncNode(char const* s, char const* e){ addPreOpNode(cmdIncAt, false); }
+void addPreDecNode(char const* s, char const* e)
+{
+	addPreOpNode(cmdDecAt, true);
+}
+void addPreIncNode(char const* s, char const* e)
+{
+	addPreOpNode(cmdIncAt, true);
+}
+void addPostDecNode(char const* s, char const* e)
+{
+	addPreOpNode(cmdDecAt, false);
+}
+void addPostIncNode(char const* s, char const* e)
+{
+	addPreOpNode(cmdIncAt, false);
+}
 
-void addOneExprNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression())); }
-void addTwoExprNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression())); }
-void addBlockNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock())); }
+void addOneExprNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression()));
+}
+void addTwoExprNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
+}
+void addBlockNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock()));
+}
 
 void funcAdd(char const* s, char const* e)
 {
@@ -651,7 +790,6 @@ void funcStart(char const* s, char const* e)
 		strs.pop_back();
 		strs.pop_back();
 	}
-	
 }
 void funcEnd(char const* s, char const* e)
 {
@@ -717,8 +855,14 @@ void addFuncCallNode(char const* s, char const* e)
 	callArgCount.pop_back();
 }
 
-void addIfNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(false))); }
-void addIfElseNode(char const* s, char const* e){ nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true))); }
+void addIfNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(false)));
+}
+void addIfElseNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true)));
+}
 void addIfElseTermNode(char const* s, char const* e)
 {
 	TypeInfo* typeA = nodeList[nodeList.size()-1]->GetTypeInfo();
@@ -728,7 +872,10 @@ void addIfElseTermNode(char const* s, char const* e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true, true)));
 }
 
-void saveVarTop(char const* s, char const* e){ undComandIndex.push_back((UINT)varInfoTop.size()); }
+void saveVarTop(char const* s, char const* e)
+{
+	undComandIndex.push_back((UINT)varInfoTop.size());
+}
 void addForNode(char const* s, char const* e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeForExpr()));
@@ -769,12 +916,6 @@ void addSwitchNode(char const* s, char const* e)
 
 namespace CompilerGrammar
 {
-	// Если при парсинге обнаруживается синтаксическая ошибка
-	// В errStr помещается сообщение об ошибке и вызывается функция
-	// ParseAbort, которая останавливает парсинг, создавая исключительную ситуацию
-	std::string errStr;
-	void ParseAbort(char const*, char const*){ throw errStr; }
-
 	// Функции, кладушие и убирающие строки со стека строк
 	// Стек строк может использоваться для удобного получения элемента более сложной грамматики
 	// Например для правила использования переменной a[i], можно поместить "a" в стек,
@@ -785,7 +926,7 @@ namespace CompilerGrammar
 	// Callbacks
 	typedef void (*parserCallback)(char const*, char const*);
 	parserCallback addInt, addFloat, addLong, addDouble;
-	parserCallback strPush, strPop, pAbort;
+	parserCallback strPush, strPop;
 
 	// Parser rules
 	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
@@ -794,9 +935,23 @@ namespace CompilerGrammar
 
 	Rule code, mySpaceP;
 
+	class ThrowError
+	{
+	public:
+		ThrowError(): err(NULL){ }
+		ThrowError(const char* str): err(str){ }
+
+		void operator() (char const* s, char const* e)
+		{
+			//ASSERT(err);
+			throw std::string(err);
+		}
+	private:
+		const char* err;
+	};
+
 	void InitGrammar()
 	{
-		pAbort	=	CompilerGrammar::ParseAbort;
 		strPush	=	CompilerGrammar::ParseStrPush;
 		strPop	=	CompilerGrammar::ParseStrPop;
 
@@ -817,7 +972,7 @@ namespace CompilerGrammar
 			term5[ArrBackInc<std::vector<UINT> >(callArgCount)][addFuncPushParamNode] >>
 			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)][addFuncPushParamNode])[addTwoExprNode]
 			) >>
-			(')' | epsP[AssignVar<string>(errStr, "ERROR: ')' not found after function call")][pAbort]);
+			(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
 		funcvars	=	!(seltype >> isconst >> !strP("ref") >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref") >> varname[strPush][funcParam]);
 		funcdef		=	strP("func") >> seltype >> varname[strPush][funcAdd] >> '(' >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
 
@@ -859,36 +1014,36 @@ namespace CompilerGrammar
 		whileexpr	=
 			strP("while")[saveVarTop] >>
 			(
-			('(' | epsP[AssignVar<string>(errStr, "ERROR: '(' not found after 'while'")][pAbort]) >>
-			(term5 | epsP[AssignVar<string>(errStr, "ERROR: expression expected after 'while('")][pAbort]) >>
-			(')' | epsP[AssignVar<string>(errStr, "ERROR: closing ')' not found after expression in 'while' statement")][pAbort])
+			('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >>
+			(term5 | epsP[ThrowError("ERROR: expression expected after 'while('")]) >>
+			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
 			) >>
-			(expression[addWhileNode] | epsP[AssignVar<string>(errStr, "ERROR: expression expected after 'while(...)'")][pAbort]);
+			(expression[addWhileNode] | epsP[ThrowError("ERROR: expression expected after 'while(...)'")]);
 		doexpr		=	
 			strP("do")[saveVarTop] >> 
-			(expression | epsP[AssignVar<string>(errStr, "ERROR: expression expected after 'do'")][pAbort]) >> 
-			(strP("while") | epsP[AssignVar<string>(errStr, "ERROR: 'while' expected after 'do' statement")][pAbort]) >>
+			(expression | epsP[ThrowError("ERROR: expression expected after 'do'")]) >> 
+			(strP("while") | epsP[ThrowError("ERROR: 'while' expected after 'do' statement")]) >>
 			(
-			('(' | epsP[AssignVar<string>(errStr, "ERROR: '(' not found after 'while'")][pAbort]) >> 
-			(term5 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after 'while('")][pAbort]) >> 
-			(')' | epsP[AssignVar<string>(errStr, "ERROR: closing ')' not found after expression in 'while' statement")][pAbort])
+			('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >> 
+			(term5 | epsP[ThrowError("ERROR: expression not found after 'while('")]) >> 
+			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
 			)[addDoWhileNode] >> 
-			(';' | epsP[AssignVar<string>(errStr, "ERROR: while(...) should be followed by ';'")][pAbort]);
+			(';' | epsP[ThrowError("ERROR: while(...) should be followed by ';'")]);
 		switchexpr	=
 			strP("switch")[preSwitchNode] >>
-			('(' | epsP[AssignVar<string>(errStr, "ERROR: '(' not found after 'switch'")][pAbort]) >>
-			(term5 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after 'switch('")][pAbort]) >>
-			(')' | epsP[AssignVar<string>(errStr, "ERROR: closing ')' not found after expression in 'switch' statement")][pAbort]) >>
-			('{' | epsP[AssignVar<string>(errStr, "ERROR: '{' not found after 'switch(...)'")][pAbort]) >>
+			('(' | epsP[ThrowError("ERROR: '(' not found after 'switch'")]) >>
+			(term5 | epsP[ThrowError("ERROR: expression not found after 'switch('")]) >>
+			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'switch' statement")]) >>
+			('{' | epsP[ThrowError("ERROR: '{' not found after 'switch(...)'")]) >>
 			(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
 			*(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode][addTwoExprNode] >>
 			//(strP("case") >> term5 >> ':' >> code)[addCaseNode] >>
-			('}' | epsP[AssignVar<string>(errStr, "ERROR: '}' not found after 'switch' statement")][pAbort])[addSwitchNode];
+			('}' | epsP[ThrowError("ERROR: '}' not found after 'switch' statement")])[addSwitchNode];
 
 		retexpr		=	(strP("return") >> term5 >> +chP(';'))[addReturnNode];
 		breakexpr	=	(
 			strP("break") >>
-			(+chP(';') | epsP[AssignVar<string>(errStr, "ERROR: break must be followed by ';'")][pAbort])
+			(+chP(';') | epsP[ThrowError("ERROR: break must be followed by ';'")])
 			)[addBreakNode];
 
 		group		=	'(' >> term5 >> ')';
@@ -911,12 +1066,12 @@ namespace CompilerGrammar
 		term4_1		=	term4 >> *((strP("<<") >> term4)[addCmd(cmdShl)] | (strP(">>") >> term4)[addCmd(cmdShr)]);
 		term4_2		=	term4_1 >> *(('<' >> term4_1)[addCmd(cmdLess)] | ('>' >> term4_1)[addCmd(cmdGreater)] | (strP("<=") >> term4_1)[addCmd(cmdLEqual)] | (strP(">=") >> term4_1)[addCmd(cmdGEqual)]);
 		term4_4		=	term4_2 >> *((strP("==") >> term4_2)[addCmd(cmdEqual)] | (strP("!=") >> term4_2)[addCmd(cmdNEqual)]);
-		term4_6		=	term4_4 >> *(strP("&") >> (term4_4 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after &")][pAbort]))[addCmd(cmdBitAnd)];
-		term4_65	=	term4_6 >> *(strP("^") >> (term4_6 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after ^")][pAbort]))[addCmd(cmdBitXor)];
-		term4_7		=	term4_65 >> *(strP("|") >> (term4_65 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after |")][pAbort]))[addCmd(cmdBitOr)];
-		term4_75	=	term4_7 >> *(strP("and") >> (term4_7 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after and")][pAbort]))[addCmd(cmdLogAnd)];
-		term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after xor")][pAbort]))[addCmd(cmdLogXor)];
-		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[AssignVar<string>(errStr, "ERROR: expression not found after or")][pAbort]))[addCmd(cmdLogOr)];
+		term4_6		=	term4_4 >> *(strP("&") >> (term4_4 | epsP[ThrowError("ERROR: expression not found after &")]))[addCmd(cmdBitAnd)];
+		term4_65	=	term4_6 >> *(strP("^") >> (term4_6 | epsP[ThrowError("ERROR: expression not found after ^")]))[addCmd(cmdBitXor)];
+		term4_7		=	term4_65 >> *(strP("|") >> (term4_65 | epsP[ThrowError("ERROR: expression not found after |")]))[addCmd(cmdBitOr)];
+		term4_75	=	term4_7 >> *(strP("and") >> (term4_7 | epsP[ThrowError("ERROR: expression not found after and")]))[addCmd(cmdLogAnd)];
+		term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[ThrowError("ERROR: expression not found after xor")]))[addCmd(cmdLogXor)];
+		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 		term5		=	(
 			applyval >> (
@@ -931,7 +1086,7 @@ namespace CompilerGrammar
 			term4_9;
 
 		block		=	chP('{')[blockBegin] >> code >> chP('}')[blockEnd];
-		expression	=	*chP(';') >> ((strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[AssignVar<string>(errStr, "ERROR: ';' not found after expression")][pAbort]))[addPopNode] | block[addBlockNode]);
+		expression	=	*chP(';') >> ((strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode] | block[addBlockNode]);
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
@@ -1047,7 +1202,6 @@ bool Compiler::Compile(string str)
 	negCount = 0;
 	varSize = 1;
 	varTop = 24;
-	needCopy = 0;
 
 	varInfo.push_back(VariableInfo("ERROR", 0, typeDouble, 1, true));
 	varInfo.push_back(VariableInfo("pi", 8, typeDouble, 1, true));
@@ -1064,9 +1218,8 @@ bool Compiler::Compile(string str)
 	SetLogStream(&logAST);
 	SetNodeList(&nodeList);
 
-	if(getList()->size() != 0){
+	if(getList()->size() != 0)
 		getList()->pop_back();
-	}
 
 	ofstream m_FileStream("code.txt", std::ios::binary);
 	m_FileStream << str;
@@ -1101,7 +1254,11 @@ bool Compiler::Compile(string str)
 		getList()->back()->LogToStream(graphlog);
 	graphFile << graphlog.str();
 	graphFile.close();
-	return true;
+
+	if(nodeList.size() != 1)
+		throw std::string("Compilation failed, AST contains more than one node");
+
+	return true; // Зачем тут return true, если вместо return false используются исключения?
 }
 
 void Compiler::GenListing()
@@ -1145,9 +1302,11 @@ void Compiler::GenListing()
 			logASM << dec << showbase << pos2 << dec << " POPT;";
 			break;
 		case cmdCall:
-			cmdList->GetData(pos, &valind, sizeof(UINT));
+			cmdList->GetUINT(pos, valind);
 			pos += sizeof(UINT);
-			logASM << dec << showbase << pos2 << " CALL " << valind << dec << ";";
+			cmdList->GetUINT(pos, valind2);
+			pos += sizeof(UINT);
+			logASM << dec << showbase << pos2 << " CALL " << valind << " size:" << valind2 << ";";
 			break;
 		case cmdProlog:
 			cmdList->GetUCHAR(pos, oFlag);
