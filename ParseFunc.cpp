@@ -17,6 +17,8 @@ CommandList*	GetCommandList(){ return cmds; }
 
 std::vector<UINT>			indTemp;
 
+static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "bin.and", "bin.or", "bin.xor", "log.and", "log.or", "log.xor"};
+
 //////////////////////////////////////////////////////////////////////////
 
 int	level = 0;
@@ -1020,6 +1022,10 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 
 	first = getList()->back(); getList()->pop_back();
 
+	// На данный момент операции с композитными типами отсутствуют
+	if(typeInfo->type == TypeInfo::NOT_POD)
+		throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + "= is not supported on " + typeInfo->name + " and " + first->GetTypeInfo()->name);
+
 	// если переменная - массив или член составного типа, то нужен сдвиг адреса
 	if(varInfo.count > 1 || shiftAddress)	
 	{
@@ -1348,6 +1354,10 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	second = getList()->back(); getList()->pop_back();
 	first = getList()->back(); getList()->pop_back();
 
+	// На данный момент операции с композитными типами отсутствуют
+	if(first->GetTypeInfo()->type == TypeInfo::NOT_POD || second->GetTypeInfo()->type == TypeInfo::NOT_POD)
+		throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on " + first->GetTypeInfo()->name + " and " + second->GetTypeInfo()->name);
+
 	// Найдём результирующий тип, после проведения операции
 	typeInfo = ChooseBinaryOpResultType(first->GetTypeInfo(), second->GetTypeInfo());
 
@@ -1376,10 +1386,9 @@ void NodeTwoAndCmdOp::Compile()
 }
 void NodeTwoAndCmdOp::LogToStream(ostringstream& ostr)
 {
-	static char* strs[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "bin.and", "bin.or", "bin.xor", "log.and", "log.or", "log.xor"};
 	if((cmdID < cmdAdd) || (cmdID > cmdLogXor))
 		throw std::string("ERROR: TwoAndCmd error");
-	drawLn(ostr); ostr << *typeInfo << "TwoAndCmd<" << strs[cmdID-cmdAdd] << "> :\r\n"; goDown(); first->LogToStream(ostr); goUp(); goDownB(); second->LogToStream(ostr); goUp();
+	drawLn(ostr); ostr << *typeInfo << "TwoAndCmd<" << binCommandToText[cmdID-cmdAdd] << "> :\r\n"; goDown(); first->LogToStream(ostr); goUp(); goDownB(); second->LogToStream(ostr); goUp();
 }
 UINT NodeTwoAndCmdOp::GetSize()
 {
