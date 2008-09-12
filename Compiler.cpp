@@ -457,6 +457,7 @@ void addReturnNode(char const* s, char const* e)
 			t--;
 		}
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeReturnOp(c, retTypeStack.back())));
+	nodeList.back()->SetCodeInfo(s, e);
 }
 
 void addBreakNode(char const* s, char const* e)
@@ -923,6 +924,31 @@ namespace CompilerGrammar
 	void ParseStrPush(char const *s, char const *e){ strs.push_back(string(s,e)); }
 	void ParseStrPop(char const *s, char const *e){ strs.pop_back(); }
 
+	// Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
+	void SetStringToLastNode(char const *s, char const *e)
+	{
+		nodeList.back()->SetCodeInfo(s, e);
+	}
+	struct StringIndex
+	{
+		StringIndex(char const *s, char const *e)
+		{
+			indexS = s;
+			indexE = e;
+		}
+		const char *indexS, *indexE;
+	};
+	vector<StringIndex> sIndexes;
+	void SaveStringIndex(char const *s, char const *e)
+	{
+		sIndexes.push_back(StringIndex(s, e));
+	}
+	void SetStringFromIndex(char const *s, char const *e)
+	{
+		nodeList.back()->SetCodeInfo(sIndexes.back().indexS, sIndexes.back().indexE);
+		sIndexes.pop_back();
+	}
+
 	// Callbacks
 	typedef void (*parserCallback)(char const*, char const*);
 	parserCallback addInt, addFloat, addLong, addDouble;
@@ -1002,15 +1028,15 @@ namespace CompilerGrammar
 			!('[' >> intP[StrToInt(varSize)] >> ']')
 			)[addRefVar];
 		vardefsub	=
-			((strP("ref") >> addrefp) | addvarp) >>
+			((strP("ref") >> addrefp) | addvarp[SetStringToLastNode]) >>
 			*(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
 			seltype >>
 			isconst >>
 			vardefsub;
 
-		ifexpr		=	strP("if") >> ('(' >> term5 >> ')') >> expression >> ((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode]);
-		forexpr		=	strP("for")[saveVarTop] >> '(' >> ((strP("var") >> vardef) | term5[addPopNode] | block) >> ';' >> term5 >> ';' >> (term5[addPopNode] | block) >> ')' >> expression[addForNode];
+		ifexpr		=	(strP("if") >> ('(' >> term5 >> ')'))[SaveStringIndex] >> expression >> ((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
+		forexpr		=	(strP("for")[saveVarTop] >> '(' >> ((strP("var") >> vardef) | term5[addPopNode] | block) >> ';' >> term5 >> ';' >> (term5[addPopNode] | block) >> ')')[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
 		whileexpr	=
 			strP("while")[saveVarTop] >>
 			(
@@ -1082,7 +1108,7 @@ namespace CompilerGrammar
 			(strP("/=") >> term5)[addDivSetNode] |
 			(strP("^=") >> term5)[addPowSetNode] |
 			(epsP[strPop][strPop][popTypeAndAddrNode] >> nothingP))
-			)[strPop][strPop] |
+			)[SetStringToLastNode][strPop][strPop] |
 			term4_9;
 
 		block		=	chP('{')[blockBegin] >> code >> chP('}')[blockEnd];
