@@ -370,6 +370,11 @@ void ExecutorX86::GenListing()
 
 		pos2 = pos;
 		pos += 2;
+		const char *descStr;
+		if(descStr = cmdList->GetDescription(pos2))
+		{
+			logASM << "\r\n  ; \"" << descStr << "\" codeinfo\r\n";
+		}
 		switch(cmd)
 		{
 		case cmdCallStd:

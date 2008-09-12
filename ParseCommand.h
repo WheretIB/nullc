@@ -268,6 +268,21 @@ const UINT	bitSizeStk	= 1 << 11;
 // Листинг команд (байткод)
 class CommandList
 {
+	struct CodeInfo
+	{
+		CodeInfo(UINT position, const char* beginPos, const char* endPos)
+		{
+			byteCodePos = position;
+			memcpy(info, beginPos, (endPos-beginPos < 128 ? endPos-beginPos : 127));
+			info[(endPos-beginPos < 128 ? endPos-beginPos : 127)] = '\0';
+			for(int i = 0; i < 128; i++)
+				if(info[i] == '\n' || info[i] == '\r')
+					info[i] = ' ';
+		}
+
+		UINT	byteCodePos;	// Позиция в байткоде, к которой относится строка
+		char	info[128];		// Указатели на начало и конец строки
+	};
 public:
 	// создаём сразу место для будущих команд
 	CommandList(UINT count = 65000)
@@ -368,11 +383,30 @@ public:
 	{
 		curr = 0;
 		memset(bytecode, 0, max);
+		codeInfo.clear();
+	}
+
+	void		AddDescription(UINT position, const char* start, const char* end)
+	{
+		codeInfo.push_back(CodeInfo(position, start, end));
+	}
+	const char*	GetDescription(UINT position)
+	{
+		for(int s = 0, e = (int)codeInfo.size(); s != e; s++)
+		{
+			if(codeInfo[s].byteCodePos == position)
+				return codeInfo[s].info;
+			if(codeInfo[s].byteCodePos > position)
+				return NULL;
+		}
+		return NULL;
 	}
 private:
 	char*	bytecode;
 	UINT	curr;
 	UINT	max;
+
+	std::vector<CodeInfo>	codeInfo;	// Список строк к коду
 };
 
 // распечатать инструкцию в читабельном виде в поток

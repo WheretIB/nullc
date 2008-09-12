@@ -54,8 +54,11 @@ public:
 	virtual UINT GetNodeType(){ return typeNodeZeroOp; }
 	// ѕолучение типа результата, возвращаемого €чейкой
 	virtual TypeInfo*	GetTypeInfo();
+	// ”становка строки кода, с которым св€зана €чейка
+	virtual void SetCodeInfo(const char* start, const char* end);
 protected:
 	TypeInfo*	typeInfo;
+	const char	*strBegin, *strEnd;
 };
 
 std::vector<shared_ptr<NodeZeroOP> >*	getList();

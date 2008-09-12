@@ -186,6 +186,8 @@ UINT	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
 NodeZeroOP::NodeZeroOP()
 {
 	typeInfo = typeVoid;
+	strBegin = NULL;
+	strEnd = NULL;
 }
 NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 {
@@ -212,6 +214,11 @@ TypeInfo* NodeZeroOP::GetTypeInfo()
 	return typeInfo;
 }
 
+void NodeZeroOP::SetCodeInfo(const char* start, const char* end)
+{
+	strBegin = start;
+	strEnd = end;
+}
 //////////////////////////////////////////////////////////////////////////
 // Узел, имеющий один дочерний узел
 NodeOneOP::NodeOneOP()
@@ -308,6 +315,9 @@ NodePopOp::~NodePopOp()
 
 void NodePopOp::Compile()
 {
+	if(strBegin && strEnd)
+		cmds->AddDescription(cmds->GetCurrPos(), strBegin, strEnd);
+
 	// Даём дочернему узлу вычислить значение
 	first->Compile();
 	// Убираем его с вершины стека
@@ -388,6 +398,9 @@ NodeReturnOp::~NodeReturnOp()
 
 void NodeReturnOp::Compile()
 {
+	if(strBegin && strEnd)
+		cmds->AddDescription(cmds->GetCurrPos(), strBegin, strEnd);
+
 	// Найдём значение, которое будем возвращать
 	first->Compile();
 	// Преобразуем его в тип возвратного значения функции
@@ -460,6 +473,9 @@ NodeVarDef::~NodeVarDef()
 
 void NodeVarDef::Compile()
 {
+	if(strBegin && strEnd)
+		cmds->AddDescription(cmds->GetCurrPos(), strBegin, strEnd);
+
 	// Если сдвиг не равен нулю
 	if(shift)
 	{
@@ -797,6 +813,9 @@ void NodeVarSet::Compile()
 	asmStackType newST = podTypeToStackType[typeInfo->type];
 	asmDataType newDT = podTypeToDataType[typeInfo->type];
 
+	if(strBegin && strEnd)
+		cmds->AddDescription(cmds->GetCurrPos(), strBegin, strEnd);
+
 	if(bytesToPush)
 	{
 		cmds->AddData(cmdPushV);
@@ -1053,6 +1072,9 @@ NodeVarSetAndOp::~NodeVarSetAndOp()
 
 void NodeVarSetAndOp::Compile()
 {
+	if(strBegin && strEnd)
+		cmds->AddDescription(cmds->GetCurrPos(), strBegin, strEnd);
+
 	// Тип нашей переменной в основном стеке
 	asmStackType thisST = podTypeToStackType[typeInfo->type];
 	// Тип второго значения в основном стеке
@@ -1459,6 +1481,9 @@ NodeIfElseExpr::~NodeIfElseExpr()
 
 void NodeIfElseExpr::Compile()
 {
+	if(strBegin && strEnd)
+		cmds->AddDescription(cmds->GetCurrPos(), strBegin, strEnd);
+
 	// Структура дочерних элементов: if(first) second; else third;
 	// Второй вариант: first ? second : third;
 	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->GetTypeInfo()->type]];
@@ -1526,6 +1551,9 @@ NodeForExpr::~NodeForExpr()
 
 void NodeForExpr::Compile()
 {
+	if(strBegin && strEnd)
+		cmds->AddDescription(cmds->GetCurrPos(), strBegin, strEnd);
+
 	// Структура дочерних элементов: for(first, second, third) fourth;
 	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
 
