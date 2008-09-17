@@ -236,9 +236,7 @@ void ExecutorX86::GenListing()
 				pos += 2;
 				dt = flagDataType(cFlag);
 
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag))
-					pos += 4;
-				if(flagShiftOn(cFlag))
+				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
 					pos += 4;
 				if(flagSizeOn(cFlag))
 					pos += 4;
@@ -262,9 +260,7 @@ void ExecutorX86::GenListing()
 			{
 				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag))
-					pos += 4;
-				if(flagShiftOn(cFlag))
+				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
 					pos += 4;
 				if(flagSizeOn(cFlag))
 					pos += 4;
@@ -308,6 +304,10 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdSetRange:
 			pos += 10;
+			break;
+		case cmdGetAddr:
+			pos += 4;
+			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
 			pos += 1;
@@ -318,15 +318,10 @@ void ExecutorX86::GenListing()
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 
-			if(!flagAddrStk(cFlag))
-			{
-				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-					pos += 4;
-				if(flagShiftOn(cFlag))
-					pos += 4;
-				if(flagSizeOn(cFlag))
-					pos += 4;
-			}
+			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+				pos += 4;
+			if(flagSizeOn(cFlag))
+				pos += 4;
 		}
 	}
 
@@ -592,7 +587,7 @@ void ExecutorX86::GenListing()
 		case cmdPush:
 			{
 				logASM << "  ; PUSH\r\n";
-				int valind = -1, shift, size;
+				int valind = -1, /*shift, */size;
 				UINT	highDW = 0, lowDW = 0;
 				USHORT sdata;
 				UCHAR cdata;
@@ -608,106 +603,53 @@ void ExecutorX86::GenListing()
 				if(flagAddrAbs(cFlag))
 					needEBP = texts[0];
 				UINT numEDX = 0;
-				bool knownShift = false;
 
 				// Если читается из переменной и...
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftOn(cFlag))
+				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagShiftStk(cFlag))
 				{
-					// ...если адрес не лежит в стеке, и имеется сдвиг в команде
+					// ...есть адрес в команде и имеется сдвиг в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					cmdList->GetINT(pos, shift);
-					pos += 4;
-					if(mulByVarSize)
-						shift *= lastVarSize;
-					mulByVarSize = false;
-					valind += shift;
-					knownShift = true;
-
-					needEDX = texts[0];
-					numEDX = valind;
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag) && flagShiftStk(cFlag))
-				{
-					// ...если адрес не лежит в стеке, и имеется сдвиг в стеке
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					logASM << "pop eax ; взяли сдвиг\r\n";
 					if(mulByVarSize)
 					{
+						logASM << "pop eax ; взяли сдвиг\r\n";
 						if(valind != 0)
 							logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 						else
 							logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
 					}else{
 						if(valind != 0)
+						{
+							logASM << "pop eax ; взяли сдвиг\r\n";
 							logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-						else
-							logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+						}else{
+							logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+						}
 					}
 					mulByVarSize = false;
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftOn(cFlag))
+				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
 				{
-					// ...если адрес лежит в стеке, и имеется сдвиг в команде
-					cmdList->GetINT(pos, shift);
-					pos += 4;
-					if(mulByVarSize)
-						shift *= lastVarSize;
-					mulByVarSize = false;
-					logASM << "pop eax ; взяли адрес\r\n";
-					if(shift != 0)
-						logASM << "lea edx, [eax + " << shift << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-					else
-						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: shift==0)\r\n";
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag) && flagShiftStk(cFlag))
-				{
-					// ...если адрес лежит в стеке, и имеется сдвиг в стеке
-					logASM << "pop eax ; взяли адрес\r\n";
-					logASM << "pop ebx ; взяли сдвиг\r\n";
-					if(mulByVarSize)
-						logASM << "lea edx, [ebx*" << lastVarSize << " + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-					else
-						logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-					mulByVarSize = false;
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && !flagAddrStk(cFlag))
-				{
-					// ...если адрес не лежит в стеке
+					// ...есть адрес в команде
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					knownShift = true;
 
 					needEDX = texts[0];
 					numEDX = valind;
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagAddrStk(cFlag))
-				{
-					// ...если адрес лежит в стеке
-					logASM << "pop eax ; взяли адрес\r\n";
-					logASM << "mov edx, eax ; возмём указатель на стек переменных\r\n";
 				}
 
 				if(flagSizeOn(cFlag))
 				{
 					cmdList->GetINT(pos, size);
 					pos += 4;
-					if(knownShift)
-					{
-						if(shift < 0)
-							throw std::string("ERROR: array index out of bounds (negative)");
-						if(shift > size)
-							throw std::string("ERROR: array index out of bounds (overflow)");
-					}else{
-						logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
-						logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-						logASM << "int 3 \r\n";
-						logASM << "  pushLabel" << pushLabels << ":\r\n";
-						pushLabels++;
-					}
+					logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
+					logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
+					logASM << "int 3 \r\n";
+					logASM << "  pushLabel" << pushLabels << ":\r\n";
+					pushLabels++;
 				}
 				if(flagSizeStk(cFlag))
 				{
-					if(knownShift)
-						logASM << "cmp [esp], " << shift << " ; сравним с максимальным сдвигом в стеке\r\n";
-					else
-						logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
+					logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
 					logASM << "ja pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 					logASM << "int 3 \r\n";
 					logASM << "  pushLabel" << pushLabels << ":\r\n";
@@ -808,7 +750,7 @@ void ExecutorX86::GenListing()
 		case cmdMov:
 			{
 				logASM << "  ; MOV\r\n";
-				int valind = -1, shift, size;
+				int valind = -1, /*shift, */size;
 				UINT	highDW = 0, lowDW = 0;
 				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
@@ -817,108 +759,51 @@ void ExecutorX86::GenListing()
 
 				UINT numEDX = 0;
 				bool knownEDX = false;
-				bool knownShift = false;
 
-				// Если...
-				if(!flagAddrStk(cFlag) && flagShiftOn(cFlag))
+				// Если имеется сдвиг в стеке
+				if(flagShiftStk(cFlag))
 				{
-					// ...если адрес не лежит в стеке, и имеется сдвиг в команде
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					cmdList->GetINT(pos, shift);
-					pos += 4;
-					if(mulByVarSize)
-						shift *= lastVarSize;
-					mulByVarSize = false;
-					valind += shift;
-
-					knownEDX = true;
-					numEDX = valind;
-					knownShift = true;
-				}else if(!flagAddrStk(cFlag) && flagShiftStk(cFlag))
-				{
-					// ...если адрес не лежит в стеке, и имеется сдвиг в стеке
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					logASM << "pop eax ; взяли сдвиг\r\n";
 					if(mulByVarSize)
 					{
+						logASM << "pop eax ; взяли сдвиг\r\n";
 						if(valind != 0)
 							logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 						else
 							logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
 					}else{
 						if(valind != 0)
+						{
+							logASM << "pop eax ; взяли сдвиг\r\n";
 							logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-						else
-							logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+						}else{
+							logASM << "pop edx ; взяли сдвиг\r\n";
+							//logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+						}
 					}
 					mulByVarSize = false;
-				}else if(flagAddrStk(cFlag) && flagShiftOn(cFlag))
-				{
-					// ...если адрес лежит в стеке, и имеется сдвиг в команде
-					cmdList->GetINT(pos, shift);
-					pos += 4;
-					if(mulByVarSize)
-						shift *= lastVarSize;
-					mulByVarSize = false;
-					knownShift = true;
-
-					logASM << "pop eax ; взяли адрес\r\n";
-					if(shift != 0)
-						logASM << "lea edx, [eax + " << shift << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-					else
-						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: shift==0)\r\n";
-				}else if(flagAddrStk(cFlag) && flagShiftStk(cFlag))
-				{
-					// ...если адрес лежит в стеке, и имеется сдвиг в стеке
-					logASM << "pop eax ; взяли адрес\r\n";
-					logASM << "pop ebx ; взяли сдвиг\r\n";
-					if(mulByVarSize)
-						logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-					else
-						logASM << "lea edx, [ebx*" << lastVarSize << " + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-					mulByVarSize = false;
-				}else if(!flagAddrStk(cFlag))
-				{
-					// ...если адрес не лежит в стеке
+				}else{
 					cmdList->GetINT(pos, valind);
 					pos += 4;
 
-					knownShift = true;
 					knownEDX = true;
 					numEDX = valind;
-				}else if(flagAddrStk(cFlag))
-				{
-					// ...если адрес лежит в стеке
-					logASM << "pop eax ; взяли адрес\r\n";
-					logASM << "mov edx, eax ; возмём указатель на стек переменных\r\n";
 				}
 
 				if(flagSizeOn(cFlag))
 				{
 					cmdList->GetINT(pos, size);
 					pos += 4;
-					if(knownShift)
-					{
-						if(shift < 0)
-							throw std::string("ERROR: array index out of bounds (negative)");
-						if(shift > size)
-							throw std::string("ERROR: array index out of bounds (overflow)");
-					}else{
-						logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
-						logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-						logASM << "int 3 \r\n";
-						logASM << "  movLabel" << movLabels << ":\r\n";
-						movLabels++;
-					}
+					logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
+					logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
+					logASM << "int 3 \r\n";
+					logASM << "  movLabel" << movLabels << ":\r\n";
+					movLabels++;
 				}
 				if(flagSizeStk(cFlag))
 				{
-					if(knownShift)
-						logASM << "cmp [esp], " << shift << " ; сравним с максимальным сдвигом в стеке\r\n";
-					else
-						logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
+					logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
 					logASM << "ja movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 					logASM << "int 3 \r\n";
 					logASM << "  movLabel" << movLabels << ":\r\n";
@@ -1230,6 +1115,12 @@ void ExecutorX86::GenListing()
 			if(cFlag == DTYPE_FLOAT)
 				logASM << "fstp st0 ; float из стека\r\n";
 			aluLabels++;
+			break;
+		case cmdGetAddr:
+			cmdList->GetUINT(pos, valind);
+			pos += 4;
+			logASM << "lea eax, [ebp + " << valind << "] ; сдвинули адрес относительно бызы стека\r\n";
+			logASM << "push eax ; положили адрес в стек\r\n";
 			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
@@ -2026,7 +1917,7 @@ void ExecutorX86::GenListing()
 		}
 		if(cmd >= cmdIncAt && cmd <= cmdDecAt)
 		{
-			int valind = -1, shift, size;
+			int valind = -1, /*shift, */size;
 			UINT	highDW = 0, lowDW = 0;
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
@@ -2041,108 +1932,51 @@ void ExecutorX86::GenListing()
 
 			UINT numEDX = 0;
 			bool knownEDX = false;
-			bool knownShift = false;
-
-			// Если...
-			if(!flagAddrStk(cFlag) && flagShiftOn(cFlag))
+			
+			// Если имеется сдвиг в стеке
+			if(flagShiftStk(cFlag))
 			{
-				// ...если адрес не лежит в стеке, и имеется сдвиг в команде
 				cmdList->GetINT(pos, valind);
 				pos += 4;
-				cmdList->GetINT(pos, shift);
-				pos += 4;
-				if(mulByVarSize)
-					shift *= lastVarSize;
-				mulByVarSize = false;
-				valind += shift;
-
-				knownEDX = true;
-				numEDX = valind;
-				knownShift = true;
-			}else if(!flagAddrStk(cFlag) && flagShiftStk(cFlag))
-			{
-				// ...если адрес не лежит в стеке, и имеется сдвиг в стеке
-				cmdList->GetINT(pos, valind);
-				pos += 4;
-				logASM << "pop eax ; взяли сдвиг\r\n";
 				if(mulByVarSize)
 				{
+					logASM << "pop eax ; взяли сдвиг\r\n";
 					if(valind != 0)
 						logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 					else
 						logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
 				}else{
 					if(valind != 0)
+					{
+						logASM << "pop eax ; взяли сдвиг\r\n";
 						logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-					else
-						logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+					}else{
+						logASM << "pop edx ; взяли сдвиг\r\n";
+						//logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+					}
 				}
 				mulByVarSize = false;
-			}else if(flagAddrStk(cFlag) && flagShiftOn(cFlag))
-			{
-				// ...если адрес лежит в стеке, и имеется сдвиг в команде
-				cmdList->GetINT(pos, shift);
-				pos += 4;
-				if(mulByVarSize)
-					shift *= lastVarSize;
-				mulByVarSize = false;
-				knownShift = true;
-
-				logASM << "pop eax ; взяли адрес\r\n";
-				if(shift != 0)
-					logASM << "lea edx, [eax + " << shift << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-				else
-					logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: shift==0)\r\n";
-			}else if(flagAddrStk(cFlag) && flagShiftStk(cFlag))
-			{
-				// ...если адрес лежит в стеке, и имеется сдвиг в стеке
-				logASM << "pop eax ; взяли адрес\r\n";
-				logASM << "pop ebx ; взяли сдвиг\r\n";
-				if(mulByVarSize)
-					logASM << "lea edx, [ebx + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-				else
-					logASM << "lea edx, [ebx*" << lastVarSize << " + eax] ; возмём указатель на стек переменных и сдвинем на число в стеке\r\n";
-				mulByVarSize = false;
-			}else if(!flagAddrStk(cFlag))
-			{
-				// ...если адрес не лежит в стеке
+			}else{
 				cmdList->GetINT(pos, valind);
 				pos += 4;
 
-				knownShift = true;
 				knownEDX = true;
 				numEDX = valind;
-			}else if(flagAddrStk(cFlag))
-			{
-				// ...если адрес лежит в стеке
-				logASM << "pop eax ; взяли адрес\r\n";
-				logASM << "mov edx, eax ; возмём указатель на стек переменных\r\n";
 			}
 
 			if(flagSizeOn(cFlag))
 			{
 				cmdList->GetINT(pos, size);
 				pos += 4;
-				if(knownShift)
-				{
-					if(shift < 0)
-						throw std::string("ERROR: array index out of bounds (negative)");
-					if(shift > size)
-						throw std::string("ERROR: array index out of bounds (overflow)");
-				}else{
-					logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
-					logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "int 3 \r\n";
-					logASM << "  movLabel" << movLabels << ":\r\n";
-					movLabels++;
-				}
+				logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
+				logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
+				logASM << "int 3 \r\n";
+				logASM << "  movLabel" << movLabels << ":\r\n";
+				movLabels++;
 			}
 			if(flagSizeStk(cFlag))
 			{
-				if(knownShift)
-					logASM << "cmp [esp], " << shift << " ; сравним с максимальным сдвигом в стеке\r\n";
-				else
-					logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
+				logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
 				logASM << "ja movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 				logASM << "int 3 \r\n";
 				logASM << "  movLabel" << movLabels << ":\r\n";
@@ -2350,7 +2184,7 @@ string ExecutorX86::GetVarInfo()
 				address += varInfo[i].varType->size;
 				continue;
 			}
-			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
+			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << *varInfo[i].varType << varInfo[i].name;
 
 			if(varInfo[i].count != 1)
 				varstr << "[" << n << "]";

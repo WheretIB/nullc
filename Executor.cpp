@@ -111,9 +111,6 @@ UINT Executor::Run()
 				if(memcmp(name, "clock", 5) != 0)
 				{
 					genStack.push_back((UINT*)(&val), 2);
-					/////////////////////////////////////////////////////////////////////////////////////
-					//genStack.push_back(*(UINT*)(&val));
-					//genStack.push_back(*((UINT*)(&val)+1));
 					genStackTypes.push_back(STYPE_DOUBLE);
 				}else{
 					genStack.push_back(uintVal);
@@ -231,10 +228,6 @@ UINT Executor::Run()
 				break;
 			}
 			pos = callStack.back().cmd;
-			/*for(UINT i = 0; i < funcs.size(); i++)
-				if(callStack.back().func == funcs[i].address)
-					if(nums.size() != callStack.back().nums-funcs[i].params.size()+1)
-						throw std::string("ERROR: function must return a value");*/
 			callStack.pop_back();
 
 			break;
@@ -327,6 +320,9 @@ UINT Executor::Run()
 			}
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, cFlag, 0, uintVal2));
 			break;
+		case cmdGetAddr:
+			throw std::string("Unsupported command cmdGetAddr");
+			break;
 		}
 
 		//New commands
@@ -343,19 +339,7 @@ UINT Executor::Run()
 
 			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
 			{
-				if(flagAddrStk(cFlag))
-				{
-					valind = genStack.back();
-					genStack.pop_back();
-					genStackTypes.pop_back();
-				}else{
-					m_cmds->GetINT(pos, valind);
-					pos += 4;
-				}
-			}
-			if(flagShiftOn(cFlag))
-			{
-				m_cmds->GetINT(pos, shift);
+				m_cmds->GetINT(pos, valind);
 				pos += 4;
 			}
 			if(flagShiftStk(cFlag))
@@ -375,7 +359,7 @@ UINT Executor::Run()
 				genStack.pop_back();
 				genStackTypes.pop_back();
 			}
-			if(flagShiftOn(cFlag) || flagShiftStk(cFlag))
+			if(flagShiftStk(cFlag))
 				if((int)(shift) < 0)
 					throw std::string("ERROR: array index out of bounds (negative)");
 			if(flagSizeOn(cFlag) || flagSizeStk(cFlag))
@@ -384,7 +368,7 @@ UINT Executor::Run()
 
 			if(flagAddrRel(cFlag))
 				valind += paramTop.back();
-			if(flagShiftOn(cFlag) || flagShiftStk(cFlag))
+			if(flagShiftStk(cFlag))
 				valind += shift;
 
 			if(cmd == cmdMov)
@@ -795,18 +779,9 @@ UINT Executor::Run()
 			pos += 2;
 			asmDataType dt = flagDataType(cFlag);	//Data type
 
-			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
-				if(flagAddrStk(cFlag)){
-					valind = genStack.back();
-					genStack.pop_back();
-					genStackTypes.pop_back();
-				}else{
-					m_cmds->GetINT(pos, valind);
-					pos += 4;
-				}
-			}
-			if(flagShiftOn(cFlag)){
-				m_cmds->GetINT(pos, shift);
+			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+			{
+				m_cmds->GetINT(pos, valind);
 				pos += 4;
 			}
 			if(flagShiftStk(cFlag)){
@@ -823,7 +798,7 @@ UINT Executor::Run()
 				genStack.pop_back();
 				genStackTypes.pop_back();
 			}
-			if(flagShiftOn(cFlag) || flagShiftStk(cFlag))
+			if(flagShiftStk(cFlag))
 				if((int)(shift) < 0)
 					throw std::string("ERROR: array index out of bounds (negative)");
 			if(flagSizeOn(cFlag) || flagSizeStk(cFlag))
@@ -832,59 +807,47 @@ UINT Executor::Run()
 
 			if(flagAddrRel(cFlag))
 				valind += paramTop.back();
-			if(flagShiftOn(cFlag) || flagShiftStk(cFlag))
-				valind += shift;//*typeSizeD[(cFlag>>2)&0x00000007];
+			if(flagShiftStk(cFlag))
+				valind += shift;
 
 			switch(cmd + (dt << 16))
 			{
 			case cmdIncAt+(DTYPE_DOUBLE<<16):
 				*((double*)(&genParams[valind])) += 1.0;
-				//DBG(m_FileStream << "INCAT double" << ";");
 				break;
 			case cmdIncAt+(DTYPE_FLOAT<<16):
 				*((float*)(&genParams[valind])) += 1.0f;
-				//DBG(m_FileStream << "INCAT float" << ";");
 				break;
 			case cmdIncAt+(DTYPE_LONG<<16):
 				*((long long*)(&genParams[valind])) += 1;
-				//DBG(m_FileStream << "INCAT long" << ";");
 				break;
 			case cmdIncAt+(DTYPE_INT<<16):
 				*((int*)(&genParams[valind])) += 1;
-				//DBG(m_FileStream << "INCAT int" << ";");
 				break;
 			case cmdIncAt+(DTYPE_SHORT<<16):
 				*((short*)(&genParams[valind])) += 1;
-				//DBG(m_FileStream << "INCAT short" << ";");
 				break;
 			case cmdIncAt+(DTYPE_CHAR<<16):
 				*((unsigned char*)(&genParams[valind])) += 1;
-				//DBG(m_FileStream << "INCAT char" << ";");
 				break;
 
 			case cmdDecAt+(DTYPE_DOUBLE<<16):
 				*((double*)(&genParams[valind])) -= 1.0;
-				//DBG(m_FileStream << "DECAT double" << ";");
 				break;
 			case cmdDecAt+(DTYPE_FLOAT<<16):
 				*((float*)(&genParams[valind])) -= 1.0f;
-				//DBG(m_FileStream << "DECAT float" << ";");
 				break;
 			case cmdDecAt+(DTYPE_LONG<<16):
 				*((long long*)(&genParams[valind])) -= 1;
-				//DBG(m_FileStream << "DECAT long" << ";");
 				break;
 			case cmdDecAt+(DTYPE_INT<<16):
 				*((int*)(&genParams[valind])) -= 1;
-				//DBG(m_FileStream << "DECAT int" << ";");
 				break;
 			case cmdDecAt+(DTYPE_SHORT<<16):
 				*((short*)(&genParams[valind])) -= 1;
-				//DBG(m_FileStream << "DECAT short" << ";");
 				break;
 			case cmdDecAt+(DTYPE_CHAR<<16):
 				*((unsigned char*)(&genParams[valind])) -= 1;
-				//DBG(m_FileStream << "DECAT char" << ";");
 				break;
 			}
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0));
@@ -932,9 +895,6 @@ string Executor::GetResult()
 	case STYPE_DOUBLE:
 		tempStream << *((double*)(&genStack[0]));
 		break;
-	//case STYPE_FLOAT:
-	//	tempStream << *((float*)(&genStack[0])) << 'f';
-	//	break;
 	case STYPE_LONG:
 		tempStream << *((long long*)(&genStack[0])) << 'L';
 		break;
@@ -942,8 +902,7 @@ string Executor::GetResult()
 		tempStream << *((int*)(&genStack[0]));
 		break;
 	}
-	//double val = *((double*)(&genStack[0]));
-	
+
 	return tempStream.str();;
 }
 string Executor::GetLog()
@@ -1011,7 +970,7 @@ string Executor::GetVarInfo()
 				address += varInfo[i].varType->size;
 				continue;
 			}
-			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << varInfo[i].varType->name << (varInfo[i].isRef ? "ref " : " ") << varInfo[i].name;
+			varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << *varInfo[i].varType << varInfo[i].name;
 
 			if(varInfo[i].count != 1)
 				varstr << "[" << n << "]";

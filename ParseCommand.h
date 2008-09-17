@@ -23,31 +23,34 @@ const CmdID cmdNop		= 0;
 	// converts number on top of the stack to integer and multiples it by some number [int after instruction]
 	// конвентирует число на вершине стека в int и умножает на некоторое число [int за инструкцией]
 const CmdID cmdCTI		= 103;
+	// get variable address, shifted by the parameter stack base
+	// получить адрес переменной, относительно базы стека переменных
+const CmdID cmdGetAddr	= 201;
 
 // general commands [using command flag. check CmdRef.txt]
 // основные команды [используются флаг команды, смотрите CmdRef.txt]
-	// push's a number on top of general stack
+	// pushes a number on top of general stack
 	// положить значение на верхушку стека
 const CmdID cmdPush		= 100;
-	// remove's a number from top
+	// removes a number from top
 	// убрать значение с верхушки стека
 const CmdID cmdPop		= 101;
 	// copy's number from top of stack to value in value stack
 	// скопировать значение с верхушки стека в память где располагаются переменные
 const CmdID cmdMov		= 102;
-	// convert's real numbers to integer
+	// converts real numbers to integer
 	// преобразовать действительное число в целое (на вершине стека)
 const CmdID cmdRTOI		= 104;
-	// convert's integer numbers to real
+	// converts integer numbers to real
 	// преобразовать целое число в действительное (на вершине стека)
 const CmdID cmdITOR		= 105;
-	// convert's integer numbers to long
+	// converts integer numbers to long
 	// преобразовать int в long (на вершине стека)
 const CmdID cmdITOL		= 106;
-	// convert's long numbers to integer
+	// converts long numbers to integer
 	// преобразовать long в int (на вершине стека)
 const CmdID cmdLTOI		= 107;
-	// swap's two values on top of the general stack
+	// swaps two values on top of the general stack
 	// поменять местами два значения на верхушке стека
 const CmdID cmdSwap		= 108;
 	// copy value on top of the stack, and push it on the top again
@@ -237,10 +240,10 @@ __forceinline UINT			flagAddrRel(const CmdFlag& flag){ return (flag>>5)&0x000000
 __forceinline UINT			flagAddrAbs(const CmdFlag& flag){ return (flag>>6)&0x00000001; }
 	// address is placed in stack
 	// адрес находится в основном стеке
-__forceinline UINT			flagAddrStk(const CmdFlag& flag){ return (flag>>7)&0x00000001; }
+//__forceinline UINT			flagAddrStk(const CmdFlag& flag){ return (flag>>7)&0x00000001; }
 	// shift is performed to the address
 	// к адресу применяется сдвиг
-__forceinline UINT			flagShiftOn(const CmdFlag& flag){ return (flag>>8)&0x00000001; }
+//__forceinline UINT			flagShiftOn(const CmdFlag& flag){ return (flag>>8)&0x00000001; }
 	// shift is placed in stack
 	// сдвиг находится в основном стеке
 __forceinline UINT			flagShiftStk(const CmdFlag& flag){ return (flag>>9)&0x00000001; }
@@ -258,8 +261,8 @@ __forceinline UINT			flagNoAddr(const CmdFlag& flag){ return !(flag&0x00000060);
 // константы для создания флага из отдельных битов
 const UINT	bitAddrRel	= 1 << 5;
 const UINT	bitAddrAbs	= 1 << 6;
-const UINT	bitAddrStk	= 1 << 7;
-const UINT	bitShiftOn	= 1 << 8;
+//const UINT	bitAddrStk	= 1 << 7;
+//const UINT	bitShiftOn	= 1 << 8;
 const UINT	bitShiftStk	= 1 << 9;
 const UINT	bitSizeOn	= 1 << 10;
 const UINT	bitSizeStk	= 1 << 11;
@@ -532,30 +535,12 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		(*stream) << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
 
 		(*stream) << valind << "] //";
-		if(flagAddrStk(cFlag)){
-			(*stream) << "stack";
-			if(flagAddrRel(cFlag))
-				(*stream) << "+top";
-		}else{
-			if(flagAddrRel(cFlag))
-				(*stream) << "rel+top";
+		
+		if(flagAddrRel(cFlag))
+			(*stream) << "rel+top";
 
-			if(flagShiftStk(cFlag)){
-				(*stream) << "+shiftstk";
-			}
-			if(flagShiftOn(cFlag)){
-				(*stream) << "+shifton";
-			}
-			/*if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
-			{
-				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];
-			}*/
-			//if(flagSizeStk(cFlag))
-			//	(*stream) << " size: stack";
-			//if(flagSizeOn(cFlag))
-			//	(*stream) << " size: instr";
-			//if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
-			//	(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];
+		if(flagShiftStk(cFlag)){
+			(*stream) << "+shiftstk";
 		}
 		break;
 	case cmdPush:
@@ -565,7 +550,6 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 
 		if(flagNoAddr(cFlag))
 		{
-			//(*stream) << " (known number)";
 			if(dt == DTYPE_DOUBLE)
 				(*stream) << " (" << *((double*)(&DWords[0])) << ')';
 			if(dt == DTYPE_LONG)
@@ -581,31 +565,18 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		}else{
 			(*stream) << " PTR[";
 			(*stream) << valind << "] //";
-			if(flagAddrStk(cFlag)){
-				(*stream) << "stack";
-				if(flagAddrRel(cFlag))
-					(*stream) << "+top";
-			}else{
-				if(flagAddrRel(cFlag))
-					(*stream) << "rel+top";
-			}
+			
+			if(flagAddrRel(cFlag))
+				(*stream) << "rel+top";
 			if(flagShiftStk(cFlag))
 				(*stream) << "+shiftstk";
-			if(flagShiftOn(cFlag))
-				(*stream) << "+shifton";
-			/*if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
-				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];*/
-			//if(flagSizeStk(cFlag))
-			//	(*stream) << " size: stack";
-			//if(flagSizeOn(cFlag))
-			//	(*stream) << " size: instr";
-			//if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
-			//	(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];
 		}
 		break;
 	case cmdSetRange:
 		(*stream) << " SETRANGE" << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << dw0;
 		break;
+	case cmdGetAddr:
+		(*stream) << " GETADDR " << valind;
 	}
 	if(cmd >= cmdAdd && cmd <= cmdLogXor)
 	{
@@ -708,7 +679,7 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 			break;
 		case cmdBitNot:
 			(*stream) << "BNOT";
-			if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+			if(oFlag == OTYPE_DOUBLE)
 				throw string("Invalid operation: BNOT used on float");
 			break;
 		case cmdLogNot:
@@ -739,26 +710,16 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		(*stream) << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
 		
 		(*stream) << valind << "] //";
-		if(flagAddrStk(cFlag)){
-			(*stream) << "stack";
-			if(flagAddrRel(cFlag))
-				(*stream) << "+top";
-		}else{
-			if(flagAddrRel(cFlag))
-				(*stream) << "rel+top";
-			if(flagShiftStk(cFlag))
-				(*stream) << "+shiftstk";
-			if(flagShiftOn(cFlag))
-				(*stream) << "+shifton";
-			/*if(flagShiftStk(cFlag) || flagShiftOn(cFlag))
-				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];*/
-			if(flagSizeStk(cFlag))
-				(*stream) << " size: stack";
-			if(flagSizeOn(cFlag))
-				(*stream) << " size: instr";
-			/*if(flagSizeStk(cFlag) || flagSizeOn(cFlag))
-				(*stream) << "*" << typeSizeD[(cFlag>>2)&0x00000007];*/
-		}
+		
+		if(flagAddrRel(cFlag))
+			(*stream) << "rel+top";
+		if(flagShiftStk(cFlag))
+			(*stream) << "+shiftstk";
+		
+		if(flagSizeStk(cFlag))
+			(*stream) << " size: stack";
+		if(flagSizeOn(cFlag))
+			(*stream) << " size: instr";
 	}
 	
 	// Add end alignment

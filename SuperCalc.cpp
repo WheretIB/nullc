@@ -140,10 +140,10 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	//hTextArea = CreateWindow("RICHEDIT", "func double test(float x, float y){ /*teste*/return x**2*y; }\r\nvar int a=5;\r\nvar float b, c[3]=14**2-134;\r\nvar double d[10];\r\nfor(var int i = 0; i< 10; i++)\r\nd[i] = test(i*2, i-2);\r\nvar double n=1;\r\nwhile(1){ n*=2; if(n>1000) break; }\r\nreturn 2+test(2, 3)+a**b;", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
 	//	5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
-	hTextArea = CreateWindow("RICHEDIT", "func int test(int x, int y, int z){return x*y+z;}\r\nreturn 1+test(2, 3, 4);", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
-		5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
-	//hTextArea = CreateWindow("RICHEDIT", "return 12;", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
+	//hTextArea = CreateWindow("RICHEDIT", "func int test(int x, int y, int z){return x*y+z;}\r\nreturn 1+test(2, 3, 4);", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
 	//	5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
+	hTextArea = CreateWindow("RICHEDIT", "var int a = 5;\r\nvar int ref b = &a;\r\nreturn 1;", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
+		5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
 	if(!hTextArea)
 		return 0;
 	ShowWindow(hTextArea, nCmdShow);
@@ -285,9 +285,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			if(good)
 			{
-				executorX86->GenListing();
 				try
 				{
+					executorX86->GenListing();
 					UINT time = executorX86->Run();
 					string val = executorX86->GetResult();
 					ostr.precision(20);

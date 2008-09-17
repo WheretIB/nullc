@@ -33,6 +33,39 @@ TypeInfo*	typeFloat = NULL;
 TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
 
+// Функция возвращает тип - указателя на исходный
+TypeInfo* GetReferenceType(TypeInfo* type)
+{
+	// Поищем нужный тип в списке
+	UINT targetRefLevel = type->refLevel+1;
+	for(UINT i = 0; i < typeInfo.size(); i++)
+	{
+		if(type->name == typeInfo[i]->name && targetRefLevel == typeInfo[i]->refLevel)
+			return typeInfo[i];
+	}
+	// Создадим новый тип
+	TypeInfo* newInfo = new TypeInfo();
+	// Копия текущего
+	*newInfo = *type;
+	// Но с увеличенным уровнем "ссылочности"
+	newInfo->refLevel++;
+	typeInfo.push_back(newInfo);
+	return newInfo;
+}
+
+// Функиця возвращает тип, получаемый при разименовании указателя
+TypeInfo* GetDereferenceType(TypeInfo* type)
+{
+	// Поищем нужный тип в списке
+	UINT targetRefLevel = type->refLevel-1;
+	for(UINT i = 0; i < typeInfo.size(); i++)
+	{
+		if(type->name == typeInfo[i]->name && targetRefLevel == typeInfo[i]->refLevel)
+			return typeInfo[i];
+	}
+	throw std::string("Cannot dereference type ") + type->name + std::string(" there is no result type available");
+}
+
 // Информация о типе текцщей переменной
 TypeInfo*	currType = NULL;
 // Стек ( :) )такой информации
@@ -510,7 +543,7 @@ void addVar(char const* s, char const* e)
 
 void addRefVar(char const* s, char const* e)
 {
-	string vRefName = *(strs.end()-2);
+	/*string vRefName = *(strs.end()-2);
 	string vVarName = *(strs.end()-1);
 	strs.pop_back();
 	strs.pop_back();
@@ -522,7 +555,7 @@ void addRefVar(char const* s, char const* e)
 		throw std::string("ERROR: variable '" + vVarName + " is not defined");
 
 	varInfo.push_back(VariableInfo(vRefName, varInfo[i].pos+varSize, currType, 1, currValConst, true));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));*/
 }
 
 void addVarDefNode(char const* s, char const* e)
@@ -582,6 +615,46 @@ void getMember(char const* s, char const* e)
 	currTypes.back() = currType->memberData[i].type;
 }
 
+void getAddress(char const* s, char const* e)
+{
+	int i = (int)varInfo.size()-1;
+	string vName = strs.back();
+
+	while(i >= 0 && varInfo[i].name != vName)
+		i--;
+	if(i == -1)
+		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [getaddr]");
+
+	if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(varInfo[i].pos, typeInt)));
+	else
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varInfo[i].pos-(int)(varInfoTop.back().varStackSize))));
+
+	pushedShiftAddrNode = false;
+	pushedShiftAddr = true;
+}
+
+void addAddressNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression(GetReferenceType(currTypes.back()))));
+	currTypes.pop_back();
+}
+
+void convertTypeToRef(char const* s, char const* e)
+{
+	currType = GetReferenceType(currType);
+}
+
+void addDereference(char const* s, char const* e)
+{
+	if(currTypes.back()->refLevel == 0)
+		throw std::string("ERROR: cannot dereference ") + std::string(s, e);
+	currTypes.push_back(currTypes.back());
+	currTypes[currTypes.size()-2] = GetDereferenceType(currTypes.back());
+	if(currTypes[currTypes.size()-2]->refLevel == 0)
+		pushedShiftAddr = true;
+}
+
 void addShiftAddrNode(char const* s, char const* e)
 {
 	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
@@ -620,13 +693,13 @@ void addSetNode(char const* s, char const* e)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [set]");
+		throw std::string("ERROR: variable '" + vName + "' is not defined [set]");
 	if(!currValConst && varInfo[i].isConst)
 		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
 	if(braceInd != -1 && varInfo[i].count == 1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is not an array");
+		throw std::string("ERROR: variable '" + vName + "' is not an array");
 	if(braceInd == -1 && varInfo[i].count > 1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
+		throw std::string("ERROR: variable '" + vName + "' is an array, but no index specified");
 
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
@@ -648,17 +721,30 @@ void addGetNode(char const* s, char const* e)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [get]");
+		throw std::string("ERROR: variable '" + vName + "' is not defined [get]");
 	if(braceInd != -1 && varInfo[i].count == 1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is not an array");
+		throw std::string("ERROR: variable '" + vName + "' is not an array");
 	if(braceInd == -1 && varInfo[i].count > 1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
+		throw std::string("ERROR: variable '" + vName + "' is an array, but no index specified");
 
 	if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos, compoundType != -1, true)));
 	else
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos-(int)(varInfoTop.back().varStackSize), compoundType != -1, false)));
 	
+	currTypes.pop_back();
+}
+
+void addGetByRef(char const* s, char const* e)
+{
+	int i = (int)varInfo.size()-1;
+	string vName = *(strs.end()-2);
+	while(i >= 0 && varInfo[i].name != vName)
+		i--;
+	if(i == -1)
+		throw std::string("ERROR: variable '" + vName + "' is not defined [get]");
+
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
 	currTypes.pop_back();
 }
 
@@ -956,7 +1042,7 @@ namespace CompilerGrammar
 
 	// Parser rules
 	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
-	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, ifexpr, whileexpr, forexpr, retexpr;
+	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, applyref, ifexpr, whileexpr, forexpr, retexpr;
 	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, addrefp, seltype;
 
 	Rule code, mySpaceP;
@@ -1012,6 +1098,16 @@ namespace CompilerGrammar
 					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]
 				)
 			)[strPush];
+		applyref	=
+			(
+				varname[strPush][getType][getAddress] >>
+				!('[' >> term5 >> ']')[addShiftAddrNode] >>
+				*(
+					'.' >>
+					varname[getMember] >>
+					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]
+				)
+			);
 		addvarp		=
 			(
 			(varname[strPush][pushType] >>
@@ -1028,7 +1124,7 @@ namespace CompilerGrammar
 			!('[' >> intP[StrToInt(varSize)] >> ']')
 			)[addRefVar];
 		vardefsub	=
-			((strP("ref") >> addrefp) | addvarp[SetStringToLastNode]) >>
+			((strP("ref")[convertTypeToRef] >> addvarp)[SetStringToLastNode] | addvarp[SetStringToLastNode]) >>
 			*(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
 			seltype >>
@@ -1073,13 +1169,15 @@ namespace CompilerGrammar
 			)[addBreakNode];
 
 		group		=	'(' >> term5 >> ')';
-		term1		=	
+		term1		=
+			(chP('&') >> applyref)[addAddressNode][strPop] |
 			(strP("--") >> applyval)[addPreDecNode][strPop][strPop] | 
 			(strP("++") >> applyval)[addPreIncNode][strPop][strPop] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 			group |
 			funccall[addFuncCallNode] |
+			('*' >> applyval)[addDereference][addGetNode][addGetByRef][strPop][strPop] |
 			applyval >>
 			(
 				strP("++")[addPostIncNode] |
@@ -1429,29 +1527,17 @@ void Compiler::GenListing()
 						logASM << " (" << *((char*)(&DWords[0])) << ')';
 				}else{
 					logASM << " PTR[";
-					if(flagAddrStk(cFlag))
-					{
-						logASM << "stack";
-						if(flagAddrRel(cFlag))
-							logASM << "+top";
-					}else{
-						if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-						{
-							cmdList->GetINT(pos, valind);
-							pos += 4;
-						}
-						logASM << valind;
-						if(flagAddrRel(cFlag))
-							logASM << "+top";
-					}
-					if(flagShiftStk(cFlag))
-						logASM << "+shift(stack)";
-					if(flagShiftOn(cFlag))
+					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
 					{
 						cmdList->GetINT(pos, valind);
 						pos += 4;
-						logASM << "+" << valind;
 					}
+					logASM << valind;
+					if(flagAddrRel(cFlag))
+						logASM << "+top";
+					if(flagShiftStk(cFlag))
+						logASM << "+shift(stack)";
+					
 					logASM << "] ";
 					if(flagSizeStk(cFlag))
 						logASM << "size(stack)";
@@ -1477,40 +1563,27 @@ void Compiler::GenListing()
 				UINT	highDW = 0, lowDW = 0;
 				int valind;
 
-				if(flagAddrStk(cFlag))
+				
+				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
 				{
-					logASM << "stack";
-					if(flagAddrRel(cFlag))
-						logASM << "+top";
-					logASM << "]";
-				}else{
-					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-					}
-					logASM << valind;
-					if(flagAddrRel(cFlag))
-						logASM << "+top";
+					cmdList->GetINT(pos, valind);
+					pos += 4;
+				}
+				logASM << valind;
+				if(flagAddrRel(cFlag))
+					logASM << "+top";
 
-					if(flagShiftStk(cFlag))
-						logASM << "+shift(stack)";
+				if(flagShiftStk(cFlag))
+					logASM << "+shift(stack)";
 
-					if(flagShiftOn(cFlag))
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-						logASM << "+" << valind;
-					}
-					logASM << "] ";
-					if(flagSizeStk(cFlag))
-						logASM << "size(stack)";
-					if(flagSizeOn(cFlag))
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-						logASM << "size: " << valind;
-					}
+				logASM << "] ";
+				if(flagSizeStk(cFlag))
+					logASM << "size(stack)";
+				if(flagSizeOn(cFlag))
+				{
+					cmdList->GetINT(pos, valind);
+					pos += 4;
+					logASM << "size: " << valind;
 				}
 			}
 			break;
@@ -1616,6 +1689,11 @@ void Compiler::GenListing()
 			pos += 4;
 			logASM << pos2 << " SETRANGE " << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << valind2 << ';';
 			break;
+		case cmdGetAddr:
+			cmdList->GetUINT(pos, valind);
+			pos += 4;
+			logASM << pos2 << " GETADDR " << valind << ';';
+			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
 		{
@@ -1662,7 +1740,7 @@ void Compiler::GenListing()
 				break;
 			case cmdShl:
 				logASM << "SHL";
-				if(oFlag == OTYPE_DOUBLE)// || oFlag == OTYPE_FLOAT)
+				if(oFlag == OTYPE_DOUBLE)
 					throw string("Invalid operation: SHL used on float");
 				break;
 			case cmdShr:
@@ -1758,37 +1836,25 @@ void Compiler::GenListing()
 			UINT	highDW = 0, lowDW = 0;
 			int valind;
 
-			if(flagAddrStk(cFlag)){
-				logASM << "stack";
-				if(flagAddrRel(cFlag))
-					logASM << "+top";
-				logASM << "]";
-			}else{
-				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-				}
-				logASM << valind;
-				if(flagAddrRel(cFlag))
-					logASM << "+top";
+			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
+				cmdList->GetINT(pos, valind);
+				pos += 4;
+			}
+			logASM << valind;
+			if(flagAddrRel(cFlag))
+				logASM << "+top";
 
-				if(flagShiftStk(cFlag)){
-					logASM << "+shift";
-				}
-				if(flagShiftOn(cFlag)){
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					logASM << "+" << valind;
-				}
-				logASM << "] ";
-				if(flagSizeStk(cFlag)){
-					logASM << "size: stack";
-				}
-				if(flagSizeOn(cFlag)){
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					logASM << "size: " << valind;
-				}
+			if(flagShiftStk(cFlag)){
+				logASM << "+shift";
+			}
+			logASM << "] ";
+			if(flagSizeStk(cFlag)){
+				logASM << "size: stack";
+			}
+			if(flagSizeOn(cFlag)){
+				cmdList->GetINT(pos, valind);
+				pos += 4;
+				logASM << "size: " << valind;
 			}
 		}
 		logASM << "\r\n";
