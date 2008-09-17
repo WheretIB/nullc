@@ -428,9 +428,13 @@ UINT NodeReturnOp::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // ”зел, содержащий выражение. –аботает как NodeOneOP за исключением записи в лог.
-// —тоит убрать? BUG 0001
-NodeExpression::NodeExpression()
+// ¬ основном такие узлы самосто€тельны, и не оставл€ют за собой ничего (возвращают void)
+// Ќо иногда можно назначить им тип, который они возврат€т
+// (чтобы не плодить лишних классов, делающих всего одно дополнительное действие)
+NodeExpression::NodeExpression(TypeInfo* realRetType)
 {
+	typeInfo = realRetType;
+
 	first = getList()->back(); getList()->pop_back();
 	getLog() << __FUNCTION__ << "\r\n";
 }
@@ -446,7 +450,7 @@ void NodeExpression::Compile()
 void NodeExpression::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << "Expression :\r\n";
+	ostr << *typeInfo << "Expression :\r\n";
 	goDownB();
 	first->LogToStream(ostr);
 	goUp();
@@ -750,6 +754,40 @@ UINT NodePushShift::GetSize()
 }
 
 //////////////////////////////////////////////////////////////////////////
+// ”зел дл€ получени€ адреса переменной относительно базы стека
+NodeGetAddress::NodeGetAddress(VariableInfo vInfo, UINT varAddr)
+{
+	// информаци€ о переменной
+	varInfo = vInfo;
+	// и еЄ адрес
+	varAddress = varAddr;
+	// возвращает "указатель" - целое число
+	typeInfo = typeInt;
+
+	getLog() << __FUNCTION__ << "\r\n"; 
+}
+NodeGetAddress::~NodeGetAddress()
+{
+	getLog() << __FUNCTION__ << "\r\n"; 
+}
+
+void NodeGetAddress::Compile()
+{
+	// ѕоложим в стек адрес переменной, относительно базы стека
+	cmds->AddData(cmdGetAddr);
+	cmds->AddData(varAddress);
+}
+void NodeGetAddress::LogToStream(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << *typeInfo << "GetAddress " << varInfo << " " << varAddress << "\r\n";
+}
+UINT NodeGetAddress::GetSize()
+{
+	return sizeof(CmdID) + sizeof(UINT);
+}
+
+//////////////////////////////////////////////////////////////////////////
 // ”зел дл€ присвоени€ значени€ переменной
 NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool arraySetAll, bool absAddr, UINT pushBytes)
 {
@@ -779,6 +817,12 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
 		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->name != typeInfo->name)
 			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
+	}
+	if(typeInfo->refLevel != first->GetTypeInfo()->refLevel)
+	{
+		ostringstream errstr;
+		errstr << "ERROR: Cannot convert from " << *first->GetTypeInfo() << "to " << *typeInfo;
+		throw errstr.str();
 	}
 
 	// если переменна€ - массив и обновл€етс€ одна €чейка
@@ -874,7 +918,7 @@ void NodeVarSet::Compile()
 void NodeVarSet::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << *typeInfo << "VarSet " << varInfo << " " << varAddress << "\r\n";
+	ostr << (*typeInfo) << "VarSet " << varInfo << " " << varAddress << "\r\n";
 	goDown();
 	if(first)
 		first->LogToStream(ostr);
@@ -944,7 +988,7 @@ NodeVarGet::NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 		first = getList()->back(); getList()->pop_back();
 
 		// сдвиг адреса должен быть  целым числом
-		if(first->GetTypeInfo() != typeInt)
+		if(first->GetTypeInfo()->type != TypeInfo::POD_INT)
 			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
 
 		if(first->GetNodeType() == typeNodeNumber)
