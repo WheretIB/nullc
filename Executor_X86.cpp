@@ -515,6 +515,9 @@ void ExecutorX86::GenListing()
 			pos += 1;
 			cmdList->GetData(pos, &valind, sizeof(UINT));
 			pos += sizeof(UINT);
+			if(valind == -1)
+				logASM << "ret ; возвращаемся из функции\r\n";
+
 			if(oFlag == OTYPE_DOUBLE || oFlag == OTYPE_LONG)
 			{
 				logASM << "pop edx \r\n";
@@ -527,8 +530,8 @@ void ExecutorX86::GenListing()
 				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
 				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 			}
-
-			logASM << "mov ebx, " << (UINT)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
+			if(valind == 0)
+				logASM << "mov ebx, " << (UINT)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
 			logASM << "ret ; возвращаемся из функции\r\n";
 			break;
 		case cmdPushV:

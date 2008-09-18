@@ -320,9 +320,12 @@ void NodePopOp::Compile()
 
 	// Äà¸ì äî÷åğíåìó óçëó âû÷èñëèòü çíà÷åíèå
 	first->Compile();
-	// Óáèğàåì åãî ñ âåğøèíû ñòåêà
-	cmds->AddData(cmdPop);
-	cmds->AddData((USHORT)(podTypeToStackType[first->GetTypeInfo()->type]));
+	if(first->GetTypeInfo() != typeVoid)
+	{
+		// Óáèğàåì åãî ñ âåğøèíû ñòåêà
+		cmds->AddData(cmdPop);
+		cmds->AddData((USHORT)(podTypeToStackType[first->GetTypeInfo()->type]));
+	}
 }
 void NodePopOp::LogToStream(ostringstream& ostr)
 {
@@ -556,7 +559,10 @@ void NodeFuncDef::Compile()
 	// Äîáàâèì âîçâğàò èç ôóíêöèè, åñëè ïîëüçîâàòåëü çàáûë (íî ğóãàòü åãî âñ¸ åù¸ ñòîèò, ãëàâíîå íå ïàäàòü)
 	cmds->AddData(cmdReturn);
 	cmds->AddData((UCHAR)(operTypeForStackType[podTypeToStackType[(*funcs)[funcID]->retType->type]]));
-	cmds->AddData((UINT)(1));
+	if((*funcs)[funcID]->retType == typeVoid)
+		cmds->AddData((UINT)(-1));
+	else
+		cmds->AddData((UINT)(1));
 }
 void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
@@ -700,8 +706,7 @@ void NodeFuncCall::Compile()
 			cmds->AddData(cmdPop);
 			cmds->AddData((USHORT)(newST));
 		}
-		//cmds->AddData(cmdPopVTop);
-		
+
 		// Âûçîâåì ïî àäğåñó
 		cmds->AddData(cmdCall);
 		cmds->AddData((*funcs)[funcID]->address);
