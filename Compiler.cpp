@@ -71,6 +71,11 @@ TypeInfo*	currType = NULL;
 // Стек ( :) )такой информации
 // Для конструкций arr[arr[i.a.b].y].x;
 std::vector<TypeInfo*>	currTypes;
+std::vector<bool>		valueByRef;
+
+void pushValueByRefTrue(char const*s, char const*e){ valueByRef.push_back(true); }
+void pushValueByRefFalse(char const*s, char const*e){ valueByRef.push_back(false); }
+void popValueByRef(char const*s, char const*e){ valueByRef.pop_back(); }
 
 // Список узлов дерева
 // Отдельные узлы помещаются сюда, и в дальнейшем объеденяются в более комплексные узлы,
@@ -541,23 +546,6 @@ void addVar(char const* s, char const* e)
 	varSize = 1;
 }
 
-void addRefVar(char const* s, char const* e)
-{
-	/*string vRefName = *(strs.end()-2);
-	string vVarName = *(strs.end()-1);
-	strs.pop_back();
-	strs.pop_back();
-
-	int i = (int)varInfo.size()-1;
-	while(i >= 0 && varInfo[i].name != vVarName)
-		i--;
-	if(i == -1)
-		throw std::string("ERROR: variable '" + vVarName + " is not defined");
-
-	varInfo.push_back(VariableInfo(vRefName, varInfo[i].pos+varSize, currType, 1, currValConst, true));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));*/
-}
-
 void addVarDefNode(char const* s, char const* e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(varDefined*currType->size, strs.back())));
@@ -653,6 +641,8 @@ void addDereference(char const* s, char const* e)
 	currTypes[currTypes.size()-2] = GetDereferenceType(currTypes.back());
 	if(currTypes[currTypes.size()-2]->refLevel == 0)
 		pushedShiftAddr = true;
+	valueByRef.push_back(true);
+	valueByRef.push_back(false);
 }
 
 void addShiftAddrNode(char const* s, char const* e)
@@ -704,7 +694,11 @@ void addSetNode(char const* s, char const* e)
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr, varDefined*currType->size)));
+	if(!valueByRef.empty() && valueByRef.back())
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, false, true, varDefined*currType->size)));
+	else
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr, varDefined*currType->size)));
+	valueByRef.pop_back();
 	currTypes.pop_back();
 
 	currValConst = false;
@@ -727,11 +721,14 @@ void addGetNode(char const* s, char const* e)
 	if(braceInd == -1 && varInfo[i].count > 1)
 		throw std::string("ERROR: variable '" + vName + "' is an array, but no index specified");
 
-	if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
+	if(valueByRef.back())
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
+	else if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos, compoundType != -1, true)));
 	else
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos-(int)(varInfoTop.back().varStackSize), compoundType != -1, false)));
 	
+	valueByRef.pop_back();
 	currTypes.pop_back();
 }
 
@@ -767,7 +764,13 @@ void addSetAndOpNode(CmdID cmd)
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd)));
+	if(valueByRef.back())
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), 0, true, true, cmd)));
+	else 
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd)));
+
+	valueByRef.pop_back();
+	currTypes.pop_back();
 
 	varDefined = 0;
 }
@@ -811,7 +814,11 @@ void addPreOpNode(CmdID cmd, bool pre)
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd, pre)));
+	if(valueByRef.back())
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), 0, true, true, cmd, pre)));
+	else
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd, pre)));
+	valueByRef.pop_back();
 	currTypes.pop_back();
 }
 void addPreDecNode(char const* s, char const* e)
@@ -1043,7 +1050,7 @@ namespace CompilerGrammar
 	// Parser rules
 	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
 	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, applyref, ifexpr, whileexpr, forexpr, retexpr;
-	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, addrefp, seltype;
+	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype;
 
 	Rule code, mySpaceP;
 
@@ -1085,7 +1092,7 @@ namespace CompilerGrammar
 			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)][addFuncPushParamNode])[addTwoExprNode]
 			) >>
 			(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
-		funcvars	=	!(seltype >> isconst >> !strP("ref") >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref") >> varname[strPush][funcParam]);
+		funcvars	=	!(seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref") >> varname[strPush][funcParam]);
 		funcdef		=	strP("func") >> seltype >> varname[strPush][funcAdd] >> '(' >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
 
 		applyval	=
@@ -1115,14 +1122,6 @@ namespace CompilerGrammar
 			!('[' >> intP[StrToInt(varSize)] >> ']'))
 			)[strPush][addVar][IncVar<UINT>(varDefined)] >>
 			(('=' >> term5)[addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
-		addrefp		=
-			(
-			varname[strPush] >>
-			chP('=') >>
-			epsP[AssignVar<UINT>(varSize,1)] >>
-			varname[strPush] >>
-			!('[' >> intP[StrToInt(varSize)] >> ']')
-			)[addRefVar];
 		vardefsub	=
 			((strP("ref")[convertTypeToRef] >> addvarp)[SetStringToLastNode] | addvarp[SetStringToLastNode]) >>
 			*(',' >> vardefsub)[addTwoExprNode];
@@ -1171,14 +1170,13 @@ namespace CompilerGrammar
 		group		=	'(' >> term5 >> ')';
 		term1		=
 			(chP('&') >> applyref)[addAddressNode][strPop] |
-			(strP("--") >> applyval)[addPreDecNode][strPop][strPop] | 
-			(strP("++") >> applyval)[addPreIncNode][strPop][strPop] |
+			(strP("--") >> applyval[pushValueByRefFalse])[addPreDecNode][strPop][strPop] | 
+			(strP("++") >> applyval[pushValueByRefFalse])[addPreIncNode][strPop][strPop] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 			group |
 			funccall[addFuncCallNode] |
-			('*' >> applyval)[addDereference][addGetNode][addGetByRef][strPop][strPop] |
-			applyval >>
+			(('*' >> applyval)[addDereference][addGetNode] | applyval[pushValueByRefFalse]) >>
 			(
 				strP("++")[addPostIncNode] |
 				strP("--")[addPostDecNode] |
@@ -1198,14 +1196,14 @@ namespace CompilerGrammar
 		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 		term5		=	(
-			applyval >> (
+			(('*' >> applyval)[addDereference][addGetNode] | applyval[pushValueByRefFalse]) >> (
 			(strP("=") >> term5)[addSetNode] |
 			(strP("+=") >> term5)[addAddSetNode] |
 			(strP("-=") >> term5)[addSubSetNode] |
 			(strP("*=") >> term5)[addMulSetNode] |
 			(strP("/=") >> term5)[addDivSetNode] |
 			(strP("^=") >> term5)[addPowSetNode] |
-			(epsP[strPop][strPop][popTypeAndAddrNode] >> nothingP))
+			(epsP[strPop][strPop][popTypeAndAddrNode][popValueByRef] >> nothingP))
 			)[SetStringToLastNode][strPop][strPop] |
 			term4_9;
 
@@ -1321,6 +1319,11 @@ bool Compiler::Compile(string str)
 
 	callArgCount.clear();
 	retTypeStack.clear();
+
+	currTypes.clear();
+	valueByRef.clear();
+
+	nodeList.clear();
 
 	varDefined = 0;
 	negCount = 0;

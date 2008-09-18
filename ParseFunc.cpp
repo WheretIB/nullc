@@ -581,6 +581,21 @@ NodeFuncParam::NodeFuncParam(TypeInfo* tinfo, int paramIndex, bool funcStd)
 	stdFunction = funcStd;
 
 	first = getList()->back(); getList()->pop_back();
+	if(typeInfo->type == TypeInfo::NOT_POD)
+	{
+		if(first->GetTypeInfo()->type != TypeInfo::NOT_POD)
+			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
+		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->name != typeInfo->name)
+			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
+	}
+	if(typeInfo->refLevel != first->GetTypeInfo()->refLevel)
+	{
+		ostringstream errstr;
+		errstr << "ERROR: Cannot convert from " << *first->GetTypeInfo() << "to " << *typeInfo;
+		throw errstr.str();
+	}
+
+	getLog() << __FUNCTION__ << "\r\n";
 }
 NodeFuncParam::~NodeFuncParam()
 {
@@ -833,7 +848,7 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 		second = getList()->back(); getList()->pop_back();
 
 		// сдвиг адреса должен быть целым числом
-		if(second->GetTypeInfo() != typeInt)
+		if(second->GetTypeInfo()->type != TypeInfo::POD_INT)
 			throw std::string("ERROR: NodeVarSet() address shift must be an integer number");
 
 		if(second->GetNodeType() == typeNodeNumber)
@@ -1096,8 +1111,8 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 		second = getList()->back(); getList()->pop_back();
 
 		// сдвиг адреса должен быть  целым числом
-		if(second->GetTypeInfo() != typeInt)
-			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
+		if(second->GetTypeInfo()->type != TypeInfo::POD_INT)
+			throw std::string("ERROR: NodeVarSetAndOp() address shift must be an integer number");
 
 		if(second->GetNodeType() == typeNodeNumber)
 		{
@@ -1256,8 +1271,8 @@ NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAdd
 		first = getList()->back(); getList()->pop_back();
 
 		// сдвиг адреса должен быть  целым числом
-		if(first->GetTypeInfo() != typeInt)
-			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
+		if(first->GetTypeInfo()->type != TypeInfo::POD_INT)
+			throw std::string("ERROR: NodePreValOp() address shift must be an integer number");
 
 		if(first->GetNodeType() == typeNodeNumber)
 		{
