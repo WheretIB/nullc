@@ -44,9 +44,9 @@ private:
 namespace ColorerGrammar
 {
 	// Parsing rules
-	Rule expr, block, funcdef, breakExpr, ifExpr, forExpr, returnExpr, vardef, whileExpr, dowhileExpr, switchExpr;
+	Rule expr, block, funcdef, breakExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
 	Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, funcvars;
-	Rule appval, varname, comment, symb, symb2, constExpr, addvarp, addrefp, typeExpr;
+	Rule appval, varname, comment, symb, symb2, constExpr, addvarp, typeExpr;
 	// Main rule and space parsers
 	Rule code;
 	Rule mySpaceP;
@@ -78,12 +78,13 @@ namespace ColorerGrammar
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 	void	InitGrammar()
 	{
-		typeExpr		=	(strP("float4") | strP("float3") | strP("float2") | strP("double") | strP("long") | strP("float") | strP("int") | strP("short") | strP("char") | epsP)[ColorRWord];
 		constExpr		=	epsP[AssignVar<bool>(currValConst, false)] >>
 			!strP("const")[ColorRWord][AssignVar<bool>(currValConst, true)];
 		symb		=	graphP - alnumP;
 		symb2		=	graphP - alphaP;
 		varname		=	lexemeD[alphaP >> *alnumP];
+
+		typeExpr	=	varname[ColorRWord];
 
 		funccall	=	varname[ColorFunc] >> 
 			strP("(")[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >>
@@ -95,10 +96,10 @@ namespace ColorerGrammar
 			)[OnError]
 			) >>
 			strP(")")[ColorBold];
-		funcvars	=	!(typeExpr >> constExpr >> varname[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)]) >>
+		funcvars	=	!(typeExpr >> constExpr >> !strP("ref")[ColorRWord] >> varname[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)]) >>
 			*(
 			strP(",")[ColorText] >>
-			(typeExpr >> constExpr >> varname[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[AssignVar<string>(logStr, "ERROR: parameter name expected after ','")][LogStr])
+			(typeExpr >> constExpr >> !strP("ref")[ColorRWord] >> varname[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[AssignVar<string>(logStr, "ERROR: parameter name expected after ','")][LogStr])
 			)[OnError];
 		funcdef		=
 			strP("func")[ColorRWord][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >> 
@@ -111,31 +112,36 @@ namespace ColorerGrammar
 			code >>
 			chP('}')[ColorBold][BlockEnd];
 
-		appval		=	(varname[ColorVar] >> 
-			!(
-			chP('[')[ColorText] >> 
-			term5 >> 
-			chP(']')[ColorText]
-			));
+		appval		=
+			(
+				varname[ColorVar] >> ~chP('(') >>
+				!(
+					chP('[')[ColorText] >> 
+					term5 >> 
+					chP(']')[ColorText]
+				) >>
+				*(
+					chP('.')[ColorText] >>
+					varname[ColorVar] >>
+					!(
+						chP('[')[ColorText] >>
+						term5 >>
+						chP(']')[ColorText]
+					)
+				)
+			);
 		addvarp		=
 			(
 			varname[ColorVarDef] >> epsP[AssignVar<UINT>(varSize,1)] >> 
 			!(chP('[')[ColorText] >> intP[StrToInt(varSize)][ColorInt] >> chP(']')[ColorText])
 			)[AddVar] >>
 			((chP('=')[ColorText] >> term5) | epsP);
-		addrefp		=
-			(
-			varname[ColorVarDef] >> epsP[AssignVar<UINT>(varSize,1)] >>
-			chP('=')[ColorText] >> 
-			varname[ColorVar][SetTempStr] >>
-			!(chP('[')[ColorText] >> intP[StrToInt(varSize)][ColorInt] >> chP(']')[ColorText]) >>
-			((~(chP(';') | chP(','))[FinishedRef] >> nothingP) | epsP)
-			)[AddRef];
+		vardefsub	=	((strP("ref")[ColorRWord] >> addvarp) | addvarp) >>
+						*(chP(',')[ColorText] >> vardefsub);
 		vardef		=
 			typeExpr >>
 			constExpr >>
-			((strP("ref")[ColorRWord] >> addrefp) | addvarp) >>
-			*(chP(',')[ColorText] >> vardef);
+			vardefsub;
 
 		ifExpr			=	strWP("if")[ColorRWord] >> (('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText]) >> expr >> ((strP("else")[ColorRWord] >> expr) | epsP);
 		forExpr			=	strWP("for")[ColorRWord] >> ('(' >> epsP)[ColorText] >> ((strP("var")[ColorRWord] >> vardef) | term5 | block) >> (';' >> epsP)[ColorText] >> term5 >> (';' >> epsP)[ColorText] >> (term5 | block) >> (')' >> epsP)[ColorText] >> expr;
@@ -149,14 +155,15 @@ namespace ColorerGrammar
 		breakExpr		=	strWP("break")[ColorRWord] >> +(';' >> epsP)[ColorBold];
 
 		group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
-		term1		=	((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
+		term1		=
+			(chP('&')[ColorText] >> appval) |
+			((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
 			(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
-			//(realP)[ColorReal] |
 			longestD[(intP >> (chP('l') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
 			group | funccall[FuncCall] |
-			(appval >> strP("++")[ColorText])[GetVar] |
-			(appval >> strP("--")[ColorText])[GetVar] |
-			appval[GetVar];
+			(!chP('*')[ColorText] >> appval[GetVar] >> strP("++")[ColorText]) |
+			(!chP('*')[ColorText] >> appval[GetVar] >> strP("--")[ColorText]) |
+			!chP('*')[ColorText] >> appval[GetVar];
 		term2	=	term1 >> *(strP("**")[ColorText] >> term1);
 		term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> term2);
 		term4	=	term3 >> *((chP('+') | chP('-'))[ColorText] >> term3);
@@ -165,7 +172,7 @@ namespace ColorerGrammar
 		term4_4	=	term4_2 >> *((strP("==") | strP("!="))[ColorText] >> term4_2);
 		term4_6	=	term4_4 >> *((strP("&") | strP("|") | strP("^") | strP("and") | strP("or") | strP("xor"))[ColorText] >> term4_4);
 		term4_9	=	term4_6 >> !(chP('?')[ColorText] >> term5 >> chP(':')[ColorText] >> term5);
-		term5	=	(appval >> (strP("=") | strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("^="))[ColorText] >> term5)[SetVar] | term4_9;
+		term5	=	(!chP('*')[ColorText] >> appval[SetVar] >> (strP("=") | strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("^="))[ColorText] >> term5) | term4_9;
 
 		block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
 		expr	=	*chP(';')[ColorText] >> ((strWP("var")[ColorRWord] >> vardef >> (';' >> epsP)[ColorText]) | breakExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]) | block);
@@ -208,55 +215,6 @@ namespace ColorerGrammar
 		varSize = 1;
 	}
 
-	bool refFinished = false;
-	void FinishedRef(char const* s, char const* e)
-	{
-		refFinished = true;
-	}
-	void AddRef(char const* s, char const* e)
-	{
-		if(!refFinished)
-			return;
-		refFinished = false;
-
-		const char* st=s;
-		while(isalnum(*st))
-			st++;
-		string vRefName = std::string(s, st);
-		string vVarName = tempStr;
-
-		for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++){
-			if(varInfo[i].name == vRefName){
-				ColorCode(255,0,0,0,0,1,s,st);
-				logStream << "ERROR: Name '" << vRefName << "' is already taken for a variable in current scope\r\n";
-				return;
-			}
-		}
-		try{
-			CheckIfDeclared(vRefName);
-		}catch(const std::string& str){
-			ColorCode(255,0,0,0,0,1,s,st);
-			logStream << str << "\r\n";
-			return;
-		}
-
-		int index = (int)varInfo.size()-1;
-		while(index >= 0 && varInfo[index].name != vVarName)
-			index--;
-		if(index == -1){
-			ColorCode(255,0,0,0,0,1,st,e);
-			logStream << "ERROR: variable '" << vVarName << "' is not defined\r\n";
-			return;
-		}
-		if(!currValConst && varInfo[index].isConst)
-		{
-			ColorCode(255,0,0,0,0,1,s,e);
-			logStream << "ERROR: cannot remove constant flag of variable '" << vVarName << "'. Use 'const ref'\r\n";
-			return;
-		}
-		varInfo.push_back(VariableInfo(vRefName, 0, 0, currValConst, true));
-	}
-
 	void SetVar(char const* s, char const* e)
 	{
 		const char* st=s;
@@ -268,7 +226,8 @@ namespace ColorerGrammar
 		int i = (int)varInfo.size()-1;
 		while(i >= 0 && varInfo[i].name != vName)
 			i--;
-		if(i == -1){
+		if(i == -1)
+		{
 			ColorCode(255,0,0,0,0,1,s,st);
 			logStream << "ERROR: variable '" << vName << "' is not defined\r\n";
 			return;

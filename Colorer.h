@@ -6,8 +6,6 @@ class ColorCodeCallback;
 namespace ColorerGrammar
 {
 	void AddVar(char const* s, char const* e);
-	void FinishedRef(char const* s, char const* e);
-	void AddRef(char const* s, char const* e);
 	void SetVar(char const* s, char const* e);
 	void GetVar(char const* s, char const* e);
 	void FuncAdd(char const* s, char const* e);
