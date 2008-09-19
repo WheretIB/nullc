@@ -49,7 +49,7 @@ std::vector<Command> Commands;
 
 
 Command_def Commands_table[] = {
-	
+
 	"none" ,  0, sizeof("none"),
 	"push" ,  1, sizeof("push"),
 	"pop"  ,  2, sizeof("pop"),
@@ -73,11 +73,52 @@ Command_def Commands_table[] = {
 
 const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
 
-std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing)
+std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing, int strSize)
 {
-	HashListing(pListing);
+	// Create text without comments, empty lines and other trash
+	UINT originalSize = strSize;
+	char *clearText = new char[originalSize];
+	char *currPos = clearText;
+	for(UINT i = 0; i < originalSize; i++)
+	{
+		// Skip everything before command name or comment
+		while(!((pListing[i] >= 'a' && pListing[i] <= 'z') || pListing[i] == ';'))
+			i++;
+		// Skip comment text
+		if(pListing[i] == ';')
+			while(pListing[i] != '\n')
+				i++;
+		// Copy text, until it is over by comment or line break
+		while(pListing[i] != '\n' && pListing[i] != ';')
+		{
+			*currPos = (pListing[i] == '\t' ? ' ' : pListing[i]);
+			i++;
+			currPos++;
+		}
+		// If it was ended with an comment, add line break
+		if(pListing[i] == ';')
+		{
+			if(*(currPos-1) == ' ')
+			{
+				*(currPos-1) = '\n';
+			}else{
+				*currPos = '\n';
+				currPos++;
+			}
+			i--;
+		}
+		// If it was ended with caret return, replace it with line break
+		if(*(currPos-1) == '\r')
+			*(currPos-1) = '\n';
+	}
+
+	Strings.clear();
+	Commands.clear();
+
+	HashListing(clearText);
 	OptimizePushPop();
 
+	delete[] clearText;
 	// Strings contain the optimized code
 	return &Strings;
 }
@@ -138,9 +179,9 @@ void Optimizer_x86::OptimizePushPop()
 					strncpy((char*)Strings[i].c_str() + Commands[i].pName, "mov", 3);
 
 					Strings[i].insert(Commands[i].arg1 + Commands[i].size1, ",    ", 5);
-					
+
 					strncpy((char*)Strings[i].c_str() + Commands[i].arg1 + Commands[i].size1 + 2, Strings[n].c_str() +
-																									Commands[n].arg1, 3);
+						Commands[n].arg1, 3);
 
 					++optimize_count;
 
@@ -212,54 +253,23 @@ void Optimizer_x86::HashListing(const char* pListing)
 
 	for(int n = 0; n < Strings.size(); n++)
 	{
-		char* temp;
-		int   size = 0;
-		int   command_size = 0;
+		const char* temp = Strings[n].c_str();
+		int size = 0;
 
-		temp = (char*)Strings[n].c_str();
-		while((*temp == ' ' || *temp == '\t' ) && *temp != ';' && size < Strings[n].size())
+		for(int b = 0; b < Commands_table_size; b++)
 		{
-			++temp;
-			++size;
-		}
-
-		/*while(*(temp + command_size) != ' ' && *(temp + command_size) != '\t')
-		{
-			++command_size;
-		}*/
-
-		size = 0;
-
-		if(*temp != ';')
-		{
-			/*while(*((char*)((int)temp + size)) != ' ' && *((char*)((int)temp + size)) != '\t')
+			if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0 && !isalpha(*(temp+Commands_table[b].Size - 1)))
 			{
-				++size;
-			}*/
-
-			for(int b = 0; b < Commands_table_size; b++)
-			{
-				if(!isalpha(*(temp+Commands_table[b].Size - 1)))//command_size == Commands_table[b].Size - 1)
-				{
-					if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0)
-					{
-						Commands[n].Name = (Command_Hash)Commands_table[b].Hash;
-						size = 1;
-						break;
-					}
-				}
+				Commands[n].Name = (Command_Hash)Commands_table[b].Hash;
+				size = 1;
+				break;
 			}
-
-			if(size == 0)
-				Commands[n].Name = other;
-
-			Commands[n].pName = temp - Strings[n].c_str();
-
 		}
-		else
-		{
-			Commands[n].Name = none;
-		}
+
+		if(size == 0)
+			Commands[n].Name = other;
+
+		Commands[n].pName = 0;
 
 		for(int i = 0; i < 2; i++)					//Cycle? Рур.
 		{
@@ -284,12 +294,12 @@ void Optimizer_x86::HashListing(const char* pListing)
 
 		size = 0;
 
-		while(*temp != ' ' && *temp != ',' && *temp != '\t' && *temp != ';' && *temp != '\n')
+		while(*temp && *temp != ' ' && *temp != ',' && *temp != '\t' && *temp != ';' && *temp != '\n')
 		{
 			++temp;
 			++size;
 		}
-		
+
 		Commands[n].size1 = size;
 	}
 }
