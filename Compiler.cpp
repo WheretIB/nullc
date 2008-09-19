@@ -45,10 +45,11 @@ TypeInfo* GetReferenceType(TypeInfo* type)
 	}
 	// Создадим новый тип
 	TypeInfo* newInfo = new TypeInfo();
-	// Копия текущего
-	*newInfo = *type;
-	// Но с увеличенным уровнем "ссылочности"
-	newInfo->refLevel++;
+	newInfo->name = type->name;
+	newInfo->size = 4;
+	newInfo->type = TypeInfo::POD_INT;
+	newInfo->refLevel = type->refLevel + 1;
+
 	typeInfo.push_back(newInfo);
 	return newInfo;
 }
@@ -73,8 +74,8 @@ TypeInfo*	currType = NULL;
 std::vector<TypeInfo*>	currTypes;
 std::vector<bool>		valueByRef;
 
-void pushValueByRefTrue(char const*s, char const*e){ valueByRef.push_back(true); }
-void pushValueByRefFalse(char const*s, char const*e){ valueByRef.push_back(false); }
+bool currValueByRef = false;
+void pushValueByRef(char const*s, char const*e){ valueByRef.push_back(currValueByRef); }
 void popValueByRef(char const*s, char const*e){ valueByRef.pop_back(); }
 
 // Список узлов дерева
@@ -590,6 +591,8 @@ void getMember(char const* s, char const* e)
 	string vName = std::string(s, e);
 	currType = currTypes.back();
 
+	if(currTypes.back()->refLevel != 0)
+		throw std::string("ERROR: references do not have members \"." + vName + "\"\r\n  try using \"->" + vName + "\"");
 	int i = (int)currType->memberData.size()-1;
 	while(i >= 0 && currType->memberData[i].name != vName)
 		i--;
@@ -626,6 +629,7 @@ void addAddressNode(char const* s, char const* e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression(GetReferenceType(currTypes.back()))));
 	currTypes.pop_back();
+	valueByRef.push_back(false);
 }
 
 void convertTypeToRef(char const* s, char const* e)
@@ -1016,6 +1020,7 @@ namespace CompilerGrammar
 	// потому что в функцию передаётся "a[i]" целиком
 	void ParseStrPush(char const *s, char const *e){ strs.push_back(string(s,e)); }
 	void ParseStrPop(char const *s, char const *e){ strs.pop_back(); }
+	void ParseStrCopy(char const *s, char const *e){ strs.push_back(strs.back()); }
 
 	// Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
 	void SetStringToLastNode(char const *s, char const *e)
@@ -1045,7 +1050,7 @@ namespace CompilerGrammar
 	// Callbacks
 	typedef void (*parserCallback)(char const*, char const*);
 	parserCallback addInt, addFloat, addLong, addDouble;
-	parserCallback strPush, strPop;
+	parserCallback strPush, strPop, strCopy;
 
 	// Parser rules
 	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
@@ -1073,6 +1078,7 @@ namespace CompilerGrammar
 	{
 		strPush	=	CompilerGrammar::ParseStrPush;
 		strPop	=	CompilerGrammar::ParseStrPop;
+		strCopy =	CompilerGrammar::ParseStrCopy;
 
 		addInt		=	addNumberNode<int>;
 		addFloat	=	addNumberNode<float>;
@@ -1100,9 +1106,13 @@ namespace CompilerGrammar
 				(varname - strP("case"))[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)) >> epsP[getType] >>
 				!('[' >> term5 >> ']')[addShiftAddrNode] >>
 				*(
-					'.' >>
+					(strP("->")[AssignVar<bool>(currValueByRef, true)][addDereference][strCopy][addGetNode][strPop] >>
 					(varname - strP("case"))[getMember] >>
-					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]
+					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]) |
+
+					('.' >>
+					(varname - strP("case"))[getMember] >>
+					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)])					
 				)
 			)[strPush];
 		applyref	=
@@ -1121,7 +1131,7 @@ namespace CompilerGrammar
 			epsP[AssignVar<UINT>(varSize,1)] >>
 			!('[' >> intP[StrToInt(varSize)] >> ']'))
 			)[strPush][addVar][IncVar<UINT>(varDefined)] >>
-			(('=' >> term5)[addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
+			(('=' >> term5)[AssignVar<bool>(currValueByRef, false)][pushValueByRef][addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
 		vardefsub	=
 			((strP("ref")[convertTypeToRef] >> addvarp)[SetStringToLastNode] | addvarp[SetStringToLastNode]) >>
 			*(',' >> vardefsub)[addTwoExprNode];
@@ -1170,13 +1180,13 @@ namespace CompilerGrammar
 		group		=	'(' >> term5 >> ')';
 		term1		=
 			(chP('&') >> applyref)[addAddressNode][strPop] |
-			(strP("--") >> applyval[pushValueByRefFalse])[addPreDecNode][strPop][strPop] | 
-			(strP("++") >> applyval[pushValueByRefFalse])[addPreIncNode][strPop][strPop] |
+			(strP("--") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreDecNode][strPop][strPop] | 
+			(strP("++") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreIncNode][strPop][strPop] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 			group |
 			funccall[addFuncCallNode] |
-			(('*' >> applyval)[addDereference][addGetNode] | applyval[pushValueByRefFalse]) >>
+			(('*' >> applyval)[addDereference][addGetNode] | (epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])) >>
 			(
 				strP("++")[addPostIncNode] |
 				strP("--")[addPostDecNode] |
@@ -1196,7 +1206,7 @@ namespace CompilerGrammar
 		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 		term5		=	(
-			(('*' >> applyval)[addDereference][addGetNode] | applyval[pushValueByRefFalse]) >> (
+			(('*' >> applyval)[addDereference][addGetNode] | (epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])) >> (
 			(strP("=") >> term5)[addSetNode] |
 			(strP("+=") >> term5)[addAddSetNode] |
 			(strP("-=") >> term5)[addSubSetNode] |

@@ -85,6 +85,7 @@ Command_def Commands_table[] = {
 
 const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
 
+// Функция определяет параметры аргумента по строке
 void ClassifyArgument(Argument& arg, const char* str)
 {
 	if(str == NULL || *str == 0)
@@ -124,6 +125,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 	}
 }
 
+// Функция определяет параметры команды и аргументов по строке
 void ClassifyInstruction(Command& cmd, const char *strRep)
 {
 	const char* temp = strRep;
