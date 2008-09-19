@@ -337,7 +337,7 @@ void NodePopOp::LogToStream(ostringstream& ostr)
 }
 UINT NodePopOp::GetSize()
 {
-	return NodeOneOP::GetSize() + sizeof(CmdID) + sizeof(USHORT);
+	return NodeOneOP::GetSize() + (first->GetTypeInfo() != typeVoid ? sizeof(CmdID) + sizeof(USHORT) : 0);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -36,7 +36,6 @@ const UINT typeNodeUnaryOp		= 28;
 const UINT typeNodeFuncParam	= 29;
 const UINT typeNodePushShift	= 30;
 const UINT typeNodeGetAddress	= 31;
-const UINT typeNodePushAddress	= 32;
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP

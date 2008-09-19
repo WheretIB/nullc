@@ -380,3 +380,7 @@ var float4 a;
 var float4 ref b = &a;
 a.x = 5.0f;
 return testA(b);
+
+var float3 a;
+var float x = a.x, y = a.y;
+return 1;
