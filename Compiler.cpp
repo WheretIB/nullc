@@ -589,7 +589,8 @@ void getType(char const* s, char const* e)
 void getMember(char const* s, char const* e)
 {
 	string vName = std::string(s, e);
-	currType = currTypes.back();
+	// Да, это локальная переменная с именем, как у глобальной!
+	TypeInfo *currType = currTypes.back();
 
 	if(currTypes.back()->refLevel != 0)
 		throw std::string("ERROR: references do not have members \"." + vName + "\"\r\n  try using \"->" + vName + "\"");
@@ -1098,7 +1099,7 @@ namespace CompilerGrammar
 			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)][addFuncPushParamNode])[addTwoExprNode]
 			) >>
 			(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
-		funcvars	=	!(seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref") >> varname[strPush][funcParam]);
+		funcvars	=	!(seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]);
 		funcdef		=	strP("func") >> seltype >> varname[strPush][funcAdd] >> '(' >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
 
 		applyval	=
@@ -1300,6 +1301,30 @@ Compiler::Compiler(CommandList* cmds)
 	info->AddMember("x", typeFloat);
 	info->AddMember("y", typeFloat);
 	info->AddMember("z", typeFloat);
+	info->AddMember("w", typeFloat);
+	typeInfo.push_back(info);
+
+	info = new TypeInfo();
+	info->name = "double2";
+	info->type = TypeInfo::NOT_POD;
+	info->AddMember("x", typeDouble);
+	info->AddMember("y", typeDouble);
+	typeInfo.push_back(info);
+
+	info = new TypeInfo();
+	info->name = "double3";
+	info->type = TypeInfo::NOT_POD;
+	info->AddMember("x", typeDouble);
+	info->AddMember("y", typeDouble);
+	info->AddMember("z", typeDouble);
+	typeInfo.push_back(info);
+
+	info = new TypeInfo();
+	info->name = "double4";
+	info->type = TypeInfo::NOT_POD;
+	info->AddMember("x", typeDouble);
+	info->AddMember("y", typeDouble);
+	info->AddMember("z", typeDouble);
 	info->AddMember("w", typeFloat);
 	typeInfo.push_back(info);
 
