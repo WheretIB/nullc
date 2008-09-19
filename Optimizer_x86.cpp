@@ -3,9 +3,7 @@
 #include "stdafx.h"
 #include "Optimizer_x86.h"
 
-
 std::vector <std::string> Strings;
-std::vector <int>   Sizes;
 
 struct Command_def{
 	char* Name;
@@ -35,17 +33,16 @@ enum Command_Hash{
 	other,
 };
 
-class Command
+struct Command
 {
-public:
 	Command_Hash Name;
-	int    pName;
-	int    arg1;        // ќтносительно Strings[i].begin(), не оставим по старому, не всЄ же по ходу надо делать так
-	int	   size1;
-	char*  arg2;
-	int	   size2;
-	char*  arg3;
-	int    size3;
+	int		pName;
+	int		arg1;		// ќтносительно Strings[i].begin(), не оставим по старому, не всЄ же по ходу надо делать так
+	int		size1;
+	char*	arg2;
+	int		size2;
+	char*	arg3;
+	int		size3;
 };
 
 std::vector<Command> Commands;
@@ -138,7 +135,6 @@ void Optimizer_x86::OptimizePushPop()
 
 					//strncpy(Strings[i].begin() + Commands[i].arg1, Strings[n].c_str() + Commands[n].arg1, 3);
 					Strings[n][0] = ';';
-					//strncpy(Strings[n].begin(), ";", 1);
 					strncpy((char*)Strings[i].c_str() + Commands[i].pName, "mov", 3);
 
 					Strings[i].insert(Commands[i].arg1 + Commands[i].size1, ",    ", 5);
@@ -160,24 +156,10 @@ void Optimizer_x86::OptimizePushPop()
 
 		if(Strings[m].size() != 0)
 		{
-			/*if(Commands[m].Name == none)
-				cout << "none" << endl;
-
-			if(Commands[m].Name == push)
-				cout << "push" << endl;
-
-			if(Commands[m].Name == pop)
-				cout << "pop" << endl;
-
-			if(Commands[m].Name == other)
-				cout << "other" << endl;*/
-
-			strncpy(text, Strings[m].c_str(), Strings[m].size() + 1);
+			//strncpy(text, Strings[m].c_str(), Strings[m].size() + 1);
 			//cout << text << endl;
 		}
-	//cout << "Size : " << Sizes[m] << endl;
 	}
-
 	//cout << "Optimize : " << optimize_count << endl;
 }
 
@@ -220,25 +202,11 @@ bool Optimizer_x86::IsJump(int Command_Name)
 
 void Optimizer_x86::HashListing(const char* pListing)
 {
-	const char* pString = pListing;
-	int Str_size = 0;
-	//std::string text;
-	char temp_text[256] = "";			// ўа с гпрсом не погл€деть справку дл€ append штобы что-нить вроде append(string, size);
-
-	//Command Command_1;
-
-	while(strchr(pString, '\n') != NULL)
+	const char* pString = pListing, *endString;
+	while((endString = strchr(pString, '\n')) != NULL)
 	{	
-		memset(temp_text, NULL, sizeof(temp_text));
-		strncpy(temp_text, pString, (int)(strchr(pString, '\n') - pString));
-		//text.append(temp_text);
-
-		Strings.push_back(std::string(temp_text));
-
-		//text.erase(text.begin(), text.end());
-
-		//Commands.push_back(Command_1);								// Resize?
-		pString = strchr(pString, '\n') + 1;
+		Strings.push_back(std::string(pString, endString));
+		pString = endString + 1;
 	}
 	Commands.resize(Strings.size());	// Yep! Resize!
 
@@ -273,7 +241,7 @@ void Optimizer_x86::HashListing(const char* pListing)
 			{
 				if(1)//command_size == Commands_table[b].Size - 1)
 				{
-					if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0)
+					if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0 && !isalpha(*(temp+Commands_table[b].Size - 1)))
 					{
 						Commands[n].Name = (Command_Hash)Commands_table[b].Hash;
 						size = 1;
