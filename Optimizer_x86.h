@@ -11,7 +11,7 @@ class Optimizer_x86
 {
 public:
 	void HashListing(const char*);
-	std::vector<std::string>* Optimize(const char*);
+	std::vector<std::string>* Optimize(const char* pListing, int strSize);
 	void OptimizePushPop();
 	bool IsRegister(const char*);
 	bool IsJump(int);
