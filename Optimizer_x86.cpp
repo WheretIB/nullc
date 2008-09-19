@@ -1,7 +1,8 @@
+#pragma warning(disable: 4786)    // Надо-ли? Но, не нравиццо.
+
 #include "stdafx.h"
 #include "Optimizer_x86.h"
 
-#pragma warning(disable: 4786)    // Надо-ли? Но, не нравиццо.
 
 std::vector <std::string> Strings;
 std::vector <int>   Sizes;
@@ -245,12 +246,18 @@ void Optimizer_x86::HashListing(const char* pListing)
 	{
 		char* temp;
 		int   size = 0;
+		int   command_size = 0;
 
 		temp = (char*)Strings[n].c_str();
 		while((*temp == ' ' || *temp == '\t' ) && *temp != ';' && size < Strings[n].size())
 		{
 			++temp;
 			++size;
+		}
+
+		while(*(temp + command_size) != ' ' && *(temp + command_size) != '\t')
+		{
+			++command_size;
 		}
 
 		size = 0;
@@ -264,11 +271,14 @@ void Optimizer_x86::HashListing(const char* pListing)
 
 			for(int b = 0; b < Commands_table_size; b++)
 			{
-				if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0)
+				if(1)//command_size == Commands_table[b].Size - 1)
 				{
-					Commands[n].Name = (Command_Hash)Commands_table[b].Hash;
-					size = 1;
-					break;
+					if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0)
+					{
+						Commands[n].Name = (Command_Hash)Commands_table[b].Hash;
+						size = 1;
+						break;
+					}
 				}
 			}
 
