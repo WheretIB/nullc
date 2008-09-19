@@ -38,10 +38,10 @@ struct Command
 	Command_Hash Name;
 	int		pName;
 	int		arg1;		// Относительно Strings[i].begin(), не оставим по старому, не всё же по ходу надо делать так
-	int		size1;
-	char*	arg2;
+	int		size1;	    // Размер аргумента
+	int 	arg2;
 	int		size2;
-	char*	arg3;
+	int 	arg3;
 	int		size3;
 };
 
