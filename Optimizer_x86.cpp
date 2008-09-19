@@ -223,10 +223,10 @@ void Optimizer_x86::HashListing(const char* pListing)
 			++size;
 		}
 
-		while(*(temp + command_size) != ' ' && *(temp + command_size) != '\t')
+		/*while(*(temp + command_size) != ' ' && *(temp + command_size) != '\t')
 		{
 			++command_size;
-		}
+		}*/
 
 		size = 0;
 
@@ -239,9 +239,9 @@ void Optimizer_x86::HashListing(const char* pListing)
 
 			for(int b = 0; b < Commands_table_size; b++)
 			{
-				if(1)//command_size == Commands_table[b].Size - 1)
+				if(!isalpha(*(temp+Commands_table[b].Size - 1)))//command_size == Commands_table[b].Size - 1)
 				{
-					if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0 && !isalpha(*(temp+Commands_table[b].Size - 1)))
+					if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0)
 					{
 						Commands[n].Name = (Command_Hash)Commands_table[b].Hash;
 						size = 1;
