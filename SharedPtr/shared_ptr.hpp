@@ -140,48 +140,6 @@ public:
         return pn < rhs.pn;
     }
 
-private:
-    template <typename U> friend class shared_ptr;
-    template <typename U> friend class weak_ptr;
-
     T* px;                     // contained pointer
     detail::shared_count pn;    // reference counter
-
 };  // shared_ptr
-
-template <typename T, typename U> inline bool operator==(const shared_ptr<T>& a, const shared_ptr<U>& b)
-{
-    return a.get() == b.get();
-}
-
-template <typename T, typename U> inline bool operator!=(const shared_ptr<T>& a, const shared_ptr<U>& b)
-{
-    return a.get() != b.get();
-}
-
-template <typename T, typename U> inline bool operator<(const shared_ptr<T>& a, const shared_ptr<U>& b)
-{
-    return a._internal_less(b);
-}
-
-template <typename T, typename U> shared_ptr<T> static_pointer_cast(const shared_ptr<U>& r)
-{
-    return shared_ptr<T>(r, detail::static_cast_tag());
-}
-
-template <typename T, typename U> shared_ptr<T> const_pointer_cast(const shared_ptr<U>& r)
-{
-    return shared_ptr<T>(r, detail::const_cast_tag());
-}
-
-template <typename T, typename U> shared_ptr<T> dynamic_pointer_cast(const shared_ptr<U>& r)
-{
-    return shared_ptr<T>(r, detail::dynamic_cast_tag());
-}
-/*
-// operator<<
-template <typename E, typename T, typename U> std::basic_ostream<E, T>& operator<<(std::basic_ostream<E, T>& os, const shared_ptr<U>& p)
-{
-    return os << p.get();
-}
-*/

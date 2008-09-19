@@ -1,5 +1,12 @@
 #pragma once
 
+#ifdef VC6
+
+#include <vector>
+#include <string>
+
+#endif
+
 class Optimizer_x86
 {
 public:
