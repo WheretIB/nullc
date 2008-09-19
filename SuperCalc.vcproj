@@ -435,6 +435,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Optimizer_x86.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Optimizer_x86.h"
+				>
+			</File>
+			<File
 				RelativePath=".\StdLib_X86.h"
 				>
 			</File>

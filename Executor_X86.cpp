@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Executor_X86.h"
 #include "StdLib_X86.h"
+#include "Optimizer_x86.h"
 #include <MMSystem.h>
 
 UINT paramDataBase;
@@ -2073,8 +2074,24 @@ void ExecutorX86::GenListing()
 		}
 	}
 
+	std::string	logASMstr = logASM.str();
+
+	ofstream noOptFile("asmX86_noopt.txt", std::ios::binary);
+	noOptFile << logASMstr;
+	noOptFile.flush();
+	noOptFile.close();
+
 	ofstream m_FileStream("asmX86.txt", std::ios::binary);
-	m_FileStream << logASM.str();
+	if(optimize)
+	{
+		Optimizer_x86 optiMan;
+		std::vector<std::string> *optiList = optiMan.Optimize(logASMstr.c_str(), (int)logASMstr.length());
+
+		for(UINT i = 0; i < optiList->size(); i++)
+			m_FileStream << (*optiList)[i] << "\r\n";
+	}else{
+		m_FileStream << logASMstr;
+	}
 	m_FileStream.flush();
 	m_FileStream.close();
 
@@ -2125,6 +2142,11 @@ string ExecutorX86::GetResult()
 	}
 	//tempStream << " (" << stackReallocs << " reallocs)";
 	return tempStream.str();
+}
+
+void ExecutorX86::SetOptimization(bool toggle)
+{
+	optimize = toggle;
 }
 
 bool ExecutorX86::GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address)

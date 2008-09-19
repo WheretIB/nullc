@@ -1441,8 +1441,9 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	first = getList()->back(); getList()->pop_back();
 
 	// На данный момент операции с композитными типами отсутствуют
-	if(first->GetTypeInfo()->type == TypeInfo::NOT_POD || second->GetTypeInfo()->type == TypeInfo::NOT_POD)
-		throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on " + first->GetTypeInfo()->name + " and " + second->GetTypeInfo()->name);
+	if(first->GetTypeInfo()->refLevel == 0)
+		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD || second->GetTypeInfo()->type == TypeInfo::NOT_POD)
+			throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on " + first->GetTypeInfo()->name + " and " + second->GetTypeInfo()->name);
 
 	// Найдём результирующий тип, после проведения операции
 	typeInfo = ChooseBinaryOpResultType(first->GetTypeInfo(), second->GetTypeInfo());

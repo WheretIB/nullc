@@ -28,7 +28,8 @@ LRESULT CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 //Window handles
 HWND hWnd;
 HWND hButtonCalc;	//calculate button
-HWND hButtonCalcX86;	//calculate button
+HWND hButtonCalcX86;//calculate button
+HWND hDoOptimize;	//optimization checkbox
 HWND hTextArea;		//code text area (rich edit)
 HWND hResult;		//label with execution result
 HWND hCode;			//disabled text area for errors and asm-like code output
@@ -135,6 +136,13 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hButtonCalcX86, nCmdShow);
 	UpdateWindow(hButtonCalcX86);
 
+	hDoOptimize = CreateWindow("BUTTON", "Optimize", BS_AUTOCHECKBOX | WS_CHILD,
+		800-240, 185, 90, 30, hWnd, NULL, hInstance, NULL);
+	if(!hDoOptimize)
+		return 0;
+	ShowWindow(hDoOptimize, nCmdShow);
+	UpdateWindow(hDoOptimize);
+
 	InitCommonControls();
 	HMODULE sss = LoadLibrary("RICHED32.dll");
 
@@ -177,7 +185,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	UpdateWindow(hVars);
 
 	hResult = CreateWindow("STATIC", "The result will be here", WS_CHILD,
-		110, 185, 400, 30, hWnd, NULL, hInstance, NULL);
+		110, 185, 300, 30, hWnd, NULL, hInstance, NULL);
 	if(!hResult)
 		return 0;
 	ShowWindow(hResult, nCmdShow);
@@ -283,6 +291,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				good = false;
 				ostr << str;
 			}
+			bool opti = !!Button_GetCheck(hDoOptimize);
+			executorX86->SetOptimization(opti);
 			if(good)
 			{
 				try
@@ -381,7 +391,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		SetWindowPos(hTextArea, HWND_TOP, 5,5,LOWORD(lParam)-10, (int)(4.0/9.0*HIWORD(lParam)), NULL);
 		SetWindowPos(hButtonCalc, HWND_TOP, 5,7+(int)(4.0/9.0*HIWORD(lParam)),100, 30, NULL);
 		SetWindowPos(hButtonCalcX86, HWND_TOP, (int)(LOWORD(lParam))-135,7+(int)(4.0/9.0*HIWORD(lParam)),130, 30, NULL);
-		SetWindowPos(hResult, HWND_TOP, 110,7+(int)(4.0/9.0*HIWORD(lParam)),(int)(LOWORD(lParam))-250, 30, NULL);
+		SetWindowPos(hDoOptimize, HWND_TOP, (int)(LOWORD(lParam))-235,7+(int)(4.0/9.0*HIWORD(lParam)),95, 30, NULL);
+		SetWindowPos(hResult, HWND_TOP, 110,7+(int)(4.0/9.0*HIWORD(lParam)),(int)(LOWORD(lParam))-345, 30, NULL);
 		UINT widt = (LOWORD(lParam)-20)/3;
 		SetWindowPos(hCode, HWND_TOP, 5,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
 		SetWindowPos(hLog, HWND_TOP, widt+10,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);

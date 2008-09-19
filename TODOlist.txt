@@ -41,3 +41,9 @@ var float b = 0;
 for(var float x = 0; x<20000000; x++)
   b++;
 return 1.0;
+
+Баг2:
+
+// Executor_X86 с позором падает
+func float test(){return 1.0f;}
+return test();

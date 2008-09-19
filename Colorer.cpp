@@ -121,7 +121,7 @@ namespace ColorerGrammar
 					chP(']')[ColorText]
 				) >>
 				*(
-					chP('.')[ColorText] >>
+					(chP('.') | strP("->"))[ColorText] >>
 					varname[ColorVar] >>
 					!(
 						chP('[')[ColorText] >>

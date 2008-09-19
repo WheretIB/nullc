@@ -350,3 +350,33 @@ c = *b;
 *b *= 4;
 testB(b);
 return testA(&a);
+
+// Pointers on complex!
+func double length(float4 ref v)
+{
+	return sqrt((v->x*v->x)+(v->y*v->y)+(v->z*v->z));
+}
+func void normalize(float4 ref v)
+{
+	var double len = length(v);
+	v->x /= len; v->y /= len; v->z /= len;
+}
+var float4 a;
+a.x = 12.0;
+a.y = 4.0;
+a.z = 3.0;
+a.w = 1.0;
+var float4 ref b = &a;
+normalize(&a);
+return length(b);
+
+var float4 a;
+var float4 ref b = &a;
+b->x = 5.0f;
+return b->x;
+
+func double testA(float4 ref v){ return v->x; }
+var float4 a;
+var float4 ref b = &a;
+a.x = 5.0f;
+return testA(b);
