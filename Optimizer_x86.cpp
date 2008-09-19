@@ -1,11 +1,7 @@
+#include "stdafx.h"
 #include "Optimizer_x86.h"
-#include <string.h>
-#include <iostream.h>
 
 #pragma warning(disable: 4786)    // Надо-ли? Но, не нравиццо.
-
-#include <vector>
-
 
 std::vector <std::string> Strings;
 std::vector <int>   Sizes;
@@ -38,7 +34,9 @@ enum Command_Hash{
 	other,
 };
 
-struct Command{
+class Command
+{
+public:
 	Command_Hash Name;
 	int    pName;
 	int    arg1;        // Относительно Strings[i].begin(), не оставим по старому, не всё же по ходу надо делать так
@@ -77,17 +75,16 @@ Command_def Commands_table[] = {
 
 const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
 
-Optimizer_x86::Optimize(char * pListing)
+std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing)
 {
 	HashListing(pListing);
-	OptimizePushPop(pListing);
+	OptimizePushPop();
 
 	// Strings contain the optimized code
-
-	return 0;
+	return &Strings;
 }
 
-Optimizer_x86::OptimizePushPop(char * pListing)
+void Optimizer_x86::OptimizePushPop()
 {
 	int optimize_count = 0;
 
@@ -139,12 +136,13 @@ Optimizer_x86::OptimizePushPop(char * pListing)
 					char* bu2 = (char*)Strings[i].c_str() + Commands[i].arg1;
 
 					//strncpy(Strings[i].begin() + Commands[i].arg1, Strings[n].c_str() + Commands[n].arg1, 3);
-					strncpy(Strings[n].begin(), ";", 1);
-					strncpy(Strings[i].begin() + Commands[i].pName, "mov", 3);
+					Strings[n][0] = ';';
+					//strncpy(Strings[n].begin(), ";", 1);
+					strncpy((char*)Strings[i].c_str() + Commands[i].pName, "mov", 3);
 
 					Strings[i].insert(Commands[i].arg1 + Commands[i].size1, ",    ", 5);
 					
-					strncpy(Strings[i].begin() + Commands[i].arg1 + Commands[i].size1 + 2, Strings[n].c_str() +
+					strncpy((char*)Strings[i].c_str() + Commands[i].arg1 + Commands[i].size1 + 2, Strings[n].c_str() +
 																									Commands[n].arg1, 3);
 
 					++optimize_count;
@@ -174,17 +172,15 @@ Optimizer_x86::OptimizePushPop(char * pListing)
 				cout << "other" << endl;*/
 
 			strncpy(text, Strings[m].c_str(), Strings[m].size() + 1);
-			cout << text << endl;
+			//cout << text << endl;
 		}
 	//cout << "Size : " << Sizes[m] << endl;
 	}
 
-	cout << "Optimize : " << optimize_count << endl;
-
-	return 0;
+	//cout << "Optimize : " << optimize_count << endl;
 }
 
-bool Optimizer_x86::IsRegister(char* text)
+bool Optimizer_x86::IsRegister(const char* text)
 {
 	if(strncmp(text, "eax", 3) != 0 && strncmp(text, "ebx", 3) != 0 && strncmp(text, "ecx", 3) !=0 &&
 		strncmp(text, "edx", 3) != 0 && strncmp(text, "edi", 3) != 0 && strncmp(text, "esi", 3) != 0)
@@ -221,29 +217,29 @@ bool Optimizer_x86::IsJump(int Command_Name)
 	return false;
 }
 
-Optimizer_x86::HashListing(char * pListing)
+void Optimizer_x86::HashListing(const char* pListing)
 {
-	char* pString = pListing;
+	const char* pString = pListing;
 	int Str_size = 0;
-	std::string text;
+	//std::string text;
 	char temp_text[256] = "";			// Ща с гпрсом не поглядеть справку для append штобы что-нить вроде append(string, size);
 
-	Command Command_1;
+	//Command Command_1;
 
 	while(strchr(pString, '\n') != NULL)
 	{	
 		memset(temp_text, NULL, sizeof(temp_text));
-		strncpy(temp_text, pString, (int)strchr(pString, '\n') - (int)pString);
-		text.append(temp_text);
+		strncpy(temp_text, pString, (int)(strchr(pString, '\n') - pString));
+		//text.append(temp_text);
 
-		Strings.push_back(text);
+		Strings.push_back(std::string(temp_text));
 
-		text.erase(text.begin(), text.end());
+		//text.erase(text.begin(), text.end());
 
-		Commands.push_back(Command_1);								// Resize?
-		pString = (char*)((int)strchr(pString, '\n') + 1);
-		
+		//Commands.push_back(Command_1);								// Resize?
+		pString = strchr(pString, '\n') + 1;
 	}
+	Commands.resize(Strings.size());	// Yep! Resize!
 
 	for(int n = 0; n < Strings.size(); n++)
 	{
@@ -279,7 +275,7 @@ Optimizer_x86::HashListing(char * pListing)
 			if(size == 0)
 				Commands[n].Name = other;
 
-			Commands[n].pName = temp - Strings[n].begin();
+			Commands[n].pName = temp - Strings[n].c_str();
 
 		}
 		else
@@ -318,10 +314,4 @@ Optimizer_x86::HashListing(char * pListing)
 		
 		Commands[n].size1 = size;
 	}
-
-
-	
-
-
-	return 0;
 }
