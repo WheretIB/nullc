@@ -369,16 +369,31 @@ template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 	throw std::string("ERROR: optDoSpecial<double> call with unknown command");
 }
 
+void popLastNodeCond(bool swap)
+{
+	if(swap)
+	{
+		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.pop_back();
+		nodeList.back() = temp;
+	}else{
+		nodeList.pop_back();
+	}
+}
+
 void addTwoAndCmpNode(CmdID id)
 {
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber && (*(nodeList.end()-2))->GetNodeType() == typeNodeNumber)
+	UINT aNodeType = (*(nodeList.end()-2))->GetNodeType();
+	UINT bNodeType = (*(nodeList.end()-1))->GetNodeType();
+	UINT shA = 2, shB = 1;	//Shifts to operand A and B in array
+	TypeInfo *aType, *bType;
+
+	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber)
 	{
 		//If we have operation between two known numbers, we can optimize code by calculating the result in place
-		TypeInfo *aType, *bType;
 		aType = (*(nodeList.end()-2))->GetTypeInfo();
 		bType = (*(nodeList.end()-1))->GetTypeInfo();
 
-		UINT shA = 2, shB = 1;	//Shift's to operand A and B in array
 		//Swap operands, to reduce number of combinations
 		if((aType == typeFloat || aType == typeLong || aType == typeInt) && bType == typeDouble)
 			std::swap(shA, shB);
@@ -447,9 +462,83 @@ void addTwoAndCmpNode(CmdID id)
 			nodeList.pop_back(); nodeList.pop_back();
 			nodeList.push_back(Rd);
 		}
-	}else{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
+		return;	// Оптимизация удалась, выходим
 	}
+	if(aNodeType == typeNodeNumber || bNodeType == typeNodeNumber)
+	{
+		// Если один из узлов - число, то поменяем операторы местами так, чтобы узел с числом был в A
+		if(bNodeType == typeNodeNumber)
+		{
+			std::swap(shA, shB);
+			std::swap(aNodeType, bNodeType);
+		}
+
+		// Оптимизацию можно произвести, если второй операнд - typeNodeTwoAndCmdOp или typeNodeVarGet
+		if(bNodeType != typeNodeTwoAndCmdOp && bNodeType != typeNodeVarGet)
+		{
+			// Иначе, выходим без оптимизаций
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
+			return;
+		}
+
+		// Оптимизацию можно произвести, если число == 0 или число == 1
+		bool success = false;
+		bType = (*(nodeList.end()-shA))->GetTypeInfo();
+		if(bType == typeDouble)
+		{
+			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >((nodeList.end()-shA)->get());
+			if(Ad->GetVal() == 0.0 && id == cmdMul)
+			{
+				popLastNodeCond(shA == 1); // a*0.0 -> 0.0
+				success = true;
+			}
+			if((Ad->GetVal() == 0.0 && id == cmdAdd) || (Ad->GetVal() == 1.0 && id == cmdMul))
+			{
+				popLastNodeCond(shA == 2); // a+0.0 -> a || a*1.0 -> a
+				success = true;
+			}
+		}else if(bType == typeFloat){
+			NodeNumber<float> *Ad = static_cast<NodeNumber<float>* >((nodeList.end()-shA)->get());
+			if(Ad->GetVal() == 0.0f && id == cmdMul)
+			{
+				popLastNodeCond(shA == 1); // a*0.0f -> 0.0f
+				success = true;
+			}
+			if((Ad->GetVal() == 0.0f && id == cmdAdd) || (Ad->GetVal() == 1.0f && id == cmdMul))
+			{
+				popLastNodeCond(shA == 2); // a+0.0f -> a || a*1.0f -> a
+				success = true;
+			}
+		}else if(bType == typeLong){
+			NodeNumber<long long> *Ad = static_cast<NodeNumber<long long>* >((nodeList.end()-shA)->get());
+			if(Ad->GetVal() == 0 && id == cmdMul)
+			{
+				popLastNodeCond(shA == 1); // a*0L -> 0L
+				success = true;
+			}
+			if((Ad->GetVal() == 0 && id == cmdAdd) || (Ad->GetVal() == 1 && id == cmdMul))
+			{
+				popLastNodeCond(shA == 2); // a+0L -> a || a*1L -> a
+				success = true;
+			}
+		}else if(bType == typeInt){
+			NodeNumber<int> *Ad = static_cast<NodeNumber<int>* >((nodeList.end()-shA)->get());
+			if(Ad->GetVal() == 0 && id == cmdMul)
+			{
+				popLastNodeCond(shA == 1); // a*0 -> 0
+				success = true;
+			}
+			if((Ad->GetVal() == 0 && id == cmdAdd) || (Ad->GetVal() == 1 && id == cmdMul))
+			{
+				popLastNodeCond(shA == 2); // a+0 -> a || a*1 -> a
+				success = true;
+			}
+		}
+		if(success)	// Оптимизация удалась, выходим сразу
+			return;
+	}
+	// Оптимизации не удались, сделаем операцию полностью
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
 }
 
 template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
@@ -628,7 +717,14 @@ void getAddress(char const* s, char const* e)
 
 void addAddressNode(char const* s, char const* e)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression(GetReferenceType(currTypes.back()))));
+	if(nodeList.back()->GetNodeType() != typeNodeNumber)
+		throw std::string("ERROR: addAddressNode() can't find a \r\n  number node on the top of node list");
+	if(nodeList.back()->GetTypeInfo() != typeInt)
+		throw std::string("ERROR: addAddressNode(): number node type is not int");
+
+	shared_ptr<NodeZeroOP> temp = nodeList.back();
+	nodeList.back().reset(new NodeNumber<int>(static_cast<NodeNumber<int>*>(temp.get())->GetVal(), GetReferenceType(currTypes.back())));
+	//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression(GetReferenceType(currTypes.back()))));
 	currTypes.pop_back();
 	valueByRef.push_back(false);
 }
@@ -845,11 +941,17 @@ void addPostIncNode(char const* s, char const* e)
 
 void addOneExprNode(char const* s, char const* e)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression()));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList()));
 }
 void addTwoExprNode(char const* s, char const* e)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoExpression()));
+	if(nodeList.back()->GetNodeType() != typeNodeExpressionList)
+		addOneExprNode(s, e);//throw std::string("addTwoExprNode, no NodeExpressionList found");
+	// Take the expression list from the top
+	shared_ptr<NodeZeroOP> temp = nodeList.back();
+	nodeList.pop_back();
+	static_cast<NodeExpressionList*>(temp.get())->AddNode();
+	nodeList.push_back(temp);
 }
 void addBlockNode(char const* s, char const* e)
 {

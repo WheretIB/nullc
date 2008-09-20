@@ -18,7 +18,7 @@ const UINT typeNodePreValOp		= 10;
 const UINT typeNodeReturnOp		= 12;
 const UINT typeNodeThreeOp		= 13;
 const UINT typeNodeTwoAndCmdOp	= 14;
-const UINT typeNodeTwoExpression= 15;
+
 const UINT typeNodeTwoOp		= 16;
 const UINT typeNodeVarDef		= 17;
 const UINT typeNodeVarGet		= 18;
@@ -36,6 +36,7 @@ const UINT typeNodeUnaryOp		= 28;
 const UINT typeNodeFuncParam	= 29;
 const UINT typeNodePushShift	= 30;
 const UINT typeNodeGetAddress	= 31;
+const UINT typeNodeExpressionList	= 32;
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP
@@ -398,19 +399,10 @@ public:
 	virtual UINT GetNodeType(){ return typeNodeTwoAndCmdOp; }
 protected:
 	CmdID cmdID;
-};
 
-class NodeTwoExpression: public NodeTwoOP
-{
-public:
-	NodeTwoExpression();
-	virtual ~NodeTwoExpression();
-
-	virtual void Compile();
-	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeTwoExpression; }
-protected:
+	friend class NodeVarGet;
+	friend class NodeVarSet;
+	friend class NodeVarSetAndOp;
 };
 
 class NodeIfElseExpr: public NodeThreeOP
@@ -506,6 +498,22 @@ public:
 protected:
 };
 
+class NodeExpressionList: public NodeZeroOP
+{
+public:
+	NodeExpressionList();
+	virtual ~NodeExpressionList();
+
+			void AddNode();
+
+	virtual void Compile();
+	virtual void LogToStream(ostringstream& ostr);
+	virtual UINT GetSize();
+	virtual UINT GetNodeType(){ return typeNodeExpressionList; }
+protected:
+	std::list<shared_ptr<NodeZeroOP>>	exprList;
+	typedef std::list<shared_ptr<NodeZeroOP>>::iterator listPtr;
+};
 /*
 class Node: public NodeOP
 {

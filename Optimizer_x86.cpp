@@ -34,6 +34,8 @@ enum Command_Hash
 	call,
 	fld,
 	fstp,
+	add,
+	sub,
 	other,
 };
 
@@ -80,7 +82,9 @@ Command_def Commands_table[] = {
 	"call"	, 17, sizeof("call"),
 	"fld"	, 18, sizeof("fld"),
 	"fstp"	, 19, sizeof("fstp"),
-	"other"	, 20, sizeof("other"),
+	"add"	, 20, sizeof("add"),
+	"sub"	, 21, sizeof("sub"),
+	"other"	, 22, sizeof("other"),
 };
 
 const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
@@ -221,67 +225,64 @@ void Optimizer_x86::OptimizePushPop()
 
 	for(UINT i = 0; i < Commands.size(); i++)
 	{
-		if(Commands[i].Name == pop)
+		if(Commands[i].Name == pop && isGenReg[Commands[i].argA.type])
 		{
-			if(isGenReg[Commands[i].argA.type])
+			int n = i;
+			bool flag = true;
+
+			// Find push command
+			while(Commands[n].Name != push && n > 0)
+				n = n - 1;
+
+			// Check, if the register value is being pushed to stack
+			if(!isGenReg[Commands[n].argA.type])
+				continue;	// Can't optimize, skip
+
+			for(UINT m = n + 1; m < i; m++)
 			{
-				int n = i;
-				bool flag = true;
+				if(Commands[m].Name == call || IsJump(Commands[m].Name) == true)
+					flag = false;
 
-				// Find push command
-				while(Commands[n].Name != push && n > 0)
-					n = n - 1;
-
-				// Check, if the register value is being pushed to stack
-				if(!isGenReg[Commands[n].argA.type])
-					continue;	// Can't optimize, skip
-
-				for(UINT m = n + 1; m < i; m++)
+				// There are a few other situations, when the optimization is unavailable
+				if(Commands[m].Name != none)
 				{
-					if(Commands[m].Name == call || IsJump(Commands[m].Name) == true)
+					//char text[32] = "";
+
+					// If someone works with stack pointer
+					if(strstr(Strings[m].c_str(), "esp") != 0)
 						flag = false;
 
-					// There are a few other situations, when the optimization is unavailable
-					if(Commands[m].Name != none)
-					{
-						//char text[32] = "";
+					// If there is a label between them
+					if(strchr(Strings[m].c_str(), ':') != 0)
+						flag = false;
 
-						// If someone works with stack pointer
-						if(strstr(Strings[m].c_str(), "esp") != 0)
-							flag = false;
-
-						// If there is a label between them
-						if(strchr(Strings[m].c_str(), ':') != 0)
-							flag = false;
-
-						// Or if someone modifies register that was pushed on stack
-						if(Commands[n].argA.type == Commands[m].argA.type)
-							flag = false;
-					}
+					// Or if someone modifies register that was pushed on stack
+					if(Commands[n].argA.type == Commands[m].argA.type)
+						flag = false;
 				}
-				if(!flag)
-					continue;	// Can't optimize, skip
-
-				// If the register is the same
-				if(Commands[n].argA.type == Commands[i].argA.type)
-				{
-					// Remove the pop instruction
-					Strings[i].clear();
-					ClassifyInstruction(Commands[i], Strings[i].c_str());
-				}else{
-					// Change pop to mov
-					Strings[i].replace(0, 3, "mov");
-					Strings[i] += ", ";
-					Strings[i] += std::string(Strings[n].c_str() + Commands[n].argA.begin, Commands[n].argA.size);
-					
-					ClassifyInstruction(Commands[i], Strings[i].c_str());
-				}
-				// Remove the push instruction
-				Strings[n].clear();
-				ClassifyInstruction(Commands[n], Strings[n].c_str());
-
-				++optimize_count;
 			}
+			if(!flag)
+				continue;	// Can't optimize, skip
+
+			// If the register is the same
+			if(Commands[n].argA.type == Commands[i].argA.type)
+			{
+				// Remove the pop instruction
+				Strings[i].clear();
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+			}else{
+				// Change pop to mov
+				Strings[i].replace(0, 3, "mov");
+				Strings[i] += ", ";
+				Strings[i] += std::string(Strings[n].c_str() + Commands[n].argA.begin, Commands[n].argA.size);
+				
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+			}
+			// Remove the push instruction
+			Strings[n].clear();
+			ClassifyInstruction(Commands[n], Strings[n].c_str());
+
+			++optimize_count;
 		}
 		if(Commands[i].Name == push && (Commands[i].argA.type == Argument::number || isGenReg[Commands[i].argA.type]))
 		{
@@ -297,6 +298,34 @@ void Optimizer_x86::OptimizePushPop()
 				ClassifyInstruction(Commands[i], Strings[i].c_str());
 				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
 
+				++optimize_count;
+			}
+			// push num, pop reg
+			if(Commands[i].argA.type == Argument::number && Commands[i+1].Name == pop && isGenReg[Commands[i+1].argA.type])
+			{
+				Strings[i+1].replace(0, 3, "mov");
+				Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				Strings[i] = "";
+
+				// Update instruction information
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
+
+				++optimize_count;
+			}
+		}
+		if(Commands[i].Name == push && Commands[i].argA.type == Argument::ptr && strstr(Strings[i].c_str()+Commands[i].argA.begin, "dword"))
+		{
+			// push dword, pop reg
+			if(Commands[i+1].Name == pop && isGenReg[Commands[i+1].argA.type])
+			{
+				Strings[i+1].replace(0, 3, "mov");
+				Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				Strings[i] = "";
+
+				// Update instruction information
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
 				++optimize_count;
 			}
 		}
@@ -375,6 +404,20 @@ void Optimizer_x86::OptimizePushPop()
 				ClassifyInstruction(Commands[i], Strings[i].c_str());
 				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
 				ClassifyInstruction(Commands[i+2], Strings[i+2].c_str());
+
+				++optimize_count;
+			}
+		}
+		if(Commands[i].Name == add && Commands[i].argA.type == Argument::reg && Commands[i].argB.type == Argument::number)
+		{
+			if(Commands[i+1].Name == sub && Commands[i+1].argA.type == Commands[i].argA.type && strcmp(Strings[i].c_str()+Commands[i].argB.begin, Strings[i+1].c_str()+Commands[i+1].argB.begin) == 0)
+			{
+				Strings[i] = "";
+				Strings[i+1] = "";
+
+				// Update instruction information
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
 
 				++optimize_count;
 			}

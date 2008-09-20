@@ -24,9 +24,9 @@ static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<="
 int	level = 0;
 std::string preStr = "--";
 bool preNeedChange=false;
-void	goDown(){ level++; preStr = preStr.substr(0, preStr.length()-2); preStr += "  |--"; }
+void	goDown(){ level++; preStr = preStr.substr(0, preStr.length()-2); preStr += "  |__"; }
 void	goDownB(){ goDown(); preNeedChange = true; }
-void	goUp(){ level--; preStr = preStr.substr(0, preStr.length()-5); preStr += "--"; }
+void	goUp(){ level--; preStr = preStr.substr(0, preStr.length()-5); preStr += "__"; }
 void	drawLn(ostringstream& ostr)
 {
 	ostr << preStr;
@@ -34,7 +34,7 @@ void	drawLn(ostringstream& ostr)
 	{
 		preNeedChange = false;
 		goUp();
-		level++; preStr = preStr.substr(0, preStr.length()-2); preStr += "   --"; 
+		level++; preStr = preStr.substr(0, preStr.length()-2); preStr += "   __"; 
 	}
 }
 
@@ -715,7 +715,12 @@ void NodeFuncCall::Compile()
 }
 void NodeFuncCall::LogToStream(ostringstream& ostr)
 {
-	drawLn(ostr); ostr << "FuncCall '" << funcName << "' :\r\n"; goDownB(); if(first) first->LogToStream(ostr); goUp();
+	drawLn(ostr);
+	ostr << *typeInfo << "FuncCall '" << funcName << "' :\r\n";
+	goDownB();
+	if(first)
+		first->LogToStream(ostr);
+	goUp();
 }
 UINT NodeFuncCall::GetSize()
 {
@@ -862,6 +867,15 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 				throw std::string("ERROR: array index out of range");
 			varAddress += static_cast<NodeNumber<int>* >(second.get())->GetVal();
 			bakedShift = true;
+		}
+		if(varInfo.count == 1 && second->GetNodeType() == typeNodeTwoAndCmdOp)
+		{
+			NodeTwoAndCmdOp* nodeInside = static_cast<NodeTwoAndCmdOp*>(second.get());
+			if(nodeInside->cmdID == cmdAdd && nodeInside->first->GetNodeType() == typeNodeVarGet && nodeInside->second->GetNodeType() == typeNodeNumber)
+			{
+				varAddress += static_cast<NodeNumber<int>* >(nodeInside->second.get())->GetVal();
+				second = nodeInside->first;
+			}
 		}
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
@@ -1018,6 +1032,15 @@ NodeVarGet::NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 			varAddress += static_cast<NodeNumber<int>* >(first.get())->GetVal();
 			bakedShift = true;
 		}
+		if(varInfo.count == 1 && first->GetNodeType() == typeNodeTwoAndCmdOp)
+		{
+			NodeTwoAndCmdOp* nodeInside = static_cast<NodeTwoAndCmdOp*>(first.get());
+			if(nodeInside->cmdID == cmdAdd && nodeInside->first->GetNodeType() == typeNodeVarGet && nodeInside->second->GetNodeType() == typeNodeNumber)
+			{
+				varAddress += static_cast<NodeNumber<int>* >(nodeInside->second.get())->GetVal();
+				first = nodeInside->first;
+			}
+		}
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
@@ -1125,6 +1148,15 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 				throw std::string("ERROR: array index out of range");
 			varAddress += static_cast<NodeNumber<int>* >(second.get())->GetVal();
 			bakedShift = true;
+		}
+		if(varInfo.count == 1 && second->GetNodeType() == typeNodeTwoAndCmdOp)
+		{
+			NodeTwoAndCmdOp* nodeInside = static_cast<NodeTwoAndCmdOp*>(second.get());
+			if(nodeInside->cmdID == cmdAdd && nodeInside->first->GetNodeType() == typeNodeVarGet && nodeInside->second->GetNodeType() == typeNodeNumber)
+			{
+				varAddress += static_cast<NodeNumber<int>* >(nodeInside->second.get())->GetVal();
+				second = nodeInside->first;
+			}
 		}
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
@@ -1488,40 +1520,6 @@ UINT NodeTwoAndCmdOp::GetSize()
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, содержащий два выражения. Работает как NodeTwoOP за исключением записи в лог.
-// Стоит убрать? BUG 0002
-NodeTwoExpression::NodeTwoExpression()
-{
-	second = getList()->back(); getList()->pop_back();
-	first = getList()->back(); getList()->pop_back();
-	getLog() << __FUNCTION__ << "\r\n";
-}
-NodeTwoExpression::~NodeTwoExpression()
-{
-	getLog() << __FUNCTION__ << "\r\n";
-}
-
-void NodeTwoExpression::Compile()
-{
-	NodeTwoOP::Compile();
-}
-void NodeTwoExpression::LogToStream(ostringstream& ostr)
-{
-	drawLn(ostr);
-	ostr << "TwoExpression :\r\n";
-	goDown();
-	first->LogToStream(ostr);
-	goUp();
-	goDownB();
-	second->LogToStream(ostr);
-	goUp();
-}
-UINT NodeTwoExpression::GetSize()
-{
-	return NodeTwoOP::GetSize();
-}
-
-//////////////////////////////////////////////////////////////////////////
 // Узел, выполняющий блок if(){}else{} или условный оператор ?:
 NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 {
@@ -1880,4 +1878,51 @@ void NodeSwitchExpr::LogToStream(ostringstream& ostr)
 UINT NodeSwitchExpr::GetSize()
 {
 	return first->GetSize() + second->GetSize() + 3*sizeof(CmdID) + sizeof(USHORT);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Узел, содержащий список выражений.
+NodeExpressionList::NodeExpressionList()
+{
+	exprList.push_back(getList()->back());
+	getList()->pop_back();
+	getLog() << __FUNCTION__ << "\r\n";
+}
+NodeExpressionList::~NodeExpressionList()
+{
+	getLog() << __FUNCTION__ << "\r\n";
+}
+
+void NodeExpressionList::AddNode()
+{
+	exprList.insert(exprList.begin(), getList()->back());
+	getList()->pop_back();
+}
+
+void NodeExpressionList::Compile()
+{
+	for(listPtr s = exprList.begin(), e = exprList.end(); s != e; s++)
+		(*s)->Compile();
+}
+void NodeExpressionList::LogToStream(ostringstream& ostr)
+{
+	drawLn(ostr);
+	ostr << "NodeExpressionList :\r\n";
+	goDown();
+	(*exprList.begin())->LogToStream(ostr);
+	goUp();
+	listPtr s, e;
+	for(s = exprList.begin(), e = exprList.end(), s++; s != e; s++)
+	{
+		goDownB();
+		(*s)->LogToStream(ostr);
+		goUp();
+	}
+}
+UINT NodeExpressionList::GetSize()
+{
+	UINT size = 0;
+	for(listPtr s = exprList.begin(), e = exprList.end(); s != e; s++)
+		size += (*s)->GetSize();
+	return size;
 }
