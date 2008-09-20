@@ -1,11 +1,5 @@
 #pragma once
-
-#ifdef VC6
-
-#include <vector>
-#include <string>
-
-#endif
+#include "stdafx.h"
 
 class Optimizer_x86
 {
@@ -13,7 +7,4 @@ public:
 	void HashListing(const char*);
 	std::vector<std::string>* Optimize(const char* pListing, int strSize);
 	void OptimizePushPop();
-	bool IsRegister(const char*);
-	bool IsJump(int);
-	char* Strnstr(char*, char*, int);
 };

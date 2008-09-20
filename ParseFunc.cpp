@@ -836,14 +836,14 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 
 	// получить узел, расчитывающий значение
 	first = getList()->back(); getList()->pop_back();
-	if(typeInfo->type == TypeInfo::NOT_POD)
+	if(typeInfo->type == TypeInfo::NOT_POD || first->GetTypeInfo()->type == TypeInfo::NOT_POD)
 	{
 		if(first->GetTypeInfo()->type != TypeInfo::NOT_POD)
 			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
 		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->name != typeInfo->name)
 			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
 	}
-	if(typeInfo->refLevel != first->GetTypeInfo()->refLevel)
+	if((typeInfo->refLevel != first->GetTypeInfo()->refLevel) || (typeInfo->refLevel != 0 && typeInfo->name != first->GetTypeInfo()->name))
 	{
 		ostringstream errstr;
 		errstr << "ERROR: Cannot convert from " << *first->GetTypeInfo() << "to " << *typeInfo;
