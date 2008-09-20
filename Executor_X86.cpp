@@ -724,8 +724,7 @@ void ExecutorX86::GenListing()
 					}
 					if(dt == DTYPE_FLOAT)
 					{
-						logASM << "push eax ; \r\n";
-						logASM << "push eax ; освободим место под double\r\n";
+						logASM << "sub esp, 8 ; освободим место под double\r\n";
 						logASM << "fld dword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим float в fpu стек\r\n";
 						logASM << "fstp qword [esp] ; поместим double в обычный стек\r\n";
 					}

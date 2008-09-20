@@ -384,3 +384,14 @@ return testA(b);
 var float3 a;
 var float x = a.x, y = a.y;
 return 1;
+
+var int a = 12;
+var int res[6];
+res[0] = a + 0;
+res[1] = a * 0;
+res[2] = a * 1;
+res[3] = (a*1) +(a*0);
+res[4] = a*2+0;
+res[5] = a*3*1;
+return 1;
+
