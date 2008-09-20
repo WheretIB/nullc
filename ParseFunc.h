@@ -183,6 +183,8 @@ public:
 	NodeGetAddress(VariableInfo vInfo, UINT varAddress);
 	virtual ~NodeGetAddress();
 
+			UINT GetAddress(){ return varAddress; }
+			void SetAddress(UINT varAddr){ varAddress = varAddr; }
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();

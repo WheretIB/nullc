@@ -41,6 +41,7 @@ enum Command_Hash
 
 // Check if type is a general register (eax, ebx, ecx, edx)
 static bool isGenReg[] = { false, false, true, true, true, true, true, true, false, false, false };
+static char* argTypeToStr[] = { NULL, NULL, "eax", "ebx", "ecx", "edx", "edi", "esi", NULL, NULL, NULL };
 
 struct Argument
 {
@@ -219,113 +220,80 @@ std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing, int strS
 	return &Strings;
 }
 
+bool CheckDependencies(int start, int end, Argument::Type dependency, bool checkESPChange, bool checkFlowControl)
+{
+	for(int i = start; i <= end; i++)
+	{
+		if(checkESPChange && strstr(Strings[i].c_str(), "esp"))
+			return true;
+		if(checkFlowControl && Commands[i].Name >= jmp && Commands[i].Name <= call)
+			return true;
+		if(Commands[i].argA.type == dependency || Commands[i].argB.type == dependency || (argTypeToStr[dependency] && strstr(Strings[i].c_str()+Commands[i].argA.begin, argTypeToStr[dependency])))
+		return true;
+	}
+	return false;
+}
+
 void Optimizer_x86::OptimizePushPop()
 {
 	int optimize_count = 0;
 
 	for(UINT i = 0; i < Commands.size(); i++)
 	{
+		// Optimizations for "push num ... pop [location]" and "push register ... pop location"
+		if(Commands[i].Name == pop && Commands[i].argA.type == Argument::ptr)
+		{
+			// Search up to find "push num" or "push reg"
+			int pushIndex = i-1;
+			while(Commands[pushIndex].Name != push && pushIndex > i-10 && pushIndex > 0)
+				pushIndex--;
+			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number || isGenReg[Commands[pushIndex].argA.type]) &&
+				!CheckDependencies(pushIndex+1, i-1, Argument::label, true, true))
+			{
+				Strings[i].replace(0, 3, "mov");
+				Strings[i] += ", " + std::string(Strings[pushIndex].c_str()+Commands[pushIndex].argA.begin, Commands[pushIndex].argA.size);
+				Strings[pushIndex] = "";
+
+				// Update instruction information
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+				ClassifyInstruction(Commands[pushIndex], Strings[pushIndex].c_str());
+
+				++optimize_count;
+			}
+		}
+		// Optimizations for "push num ... pop reg", "push [location] ... pop reg" and "push regA ... pop regB"
 		if(Commands[i].Name == pop && isGenReg[Commands[i].argA.type])
 		{
-			int n = i;
-			bool flag = true;
-
-			// Find push command
-			while(Commands[n].Name != push && n > 0)
-				n = n - 1;
-
-			// Check, if the register value is being pushed to stack
-			if(!isGenReg[Commands[n].argA.type])
-				continue;	// Can't optimize, skip
-
-			for(UINT m = n + 1; m < i; m++)
+			// Search up to find "push" command
+			int pushIndex = i-1;
+			while(Commands[pushIndex].Name != push && pushIndex > i-10 && pushIndex > 0)
+				pushIndex--;
+			// For first two cases
+			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number || Commands[pushIndex].argA.type == Argument::ptr) &&
+				!CheckDependencies(pushIndex+1, i-1, Argument::label, true, true))
 			{
-				if(Commands[m].Name == call || IsJump(Commands[m].Name) == true)
-					flag = false;
-
-				// There are a few other situations, when the optimization is unavailable
-				if(Commands[m].Name != none)
-				{
-					//char text[32] = "";
-
-					// If someone works with stack pointer
-					if(strstr(Strings[m].c_str(), "esp") != 0)
-						flag = false;
-
-					// If there is a label between them
-					if(strchr(Strings[m].c_str(), ':') != 0)
-						flag = false;
-
-					// Or if someone modifies register that was pushed on stack
-					if(Commands[n].argA.type == Commands[m].argA.type)
-						flag = false;
-				}
-			}
-			if(!flag)
-				continue;	// Can't optimize, skip
-
-			// If the register is the same
-			if(Commands[n].argA.type == Commands[i].argA.type)
-			{
-				// Remove the pop instruction
-				Strings[i].clear();
-				ClassifyInstruction(Commands[i], Strings[i].c_str());
-			}else{
-				// Change pop to mov
 				Strings[i].replace(0, 3, "mov");
-				Strings[i] += ", ";
-				Strings[i] += std::string(Strings[n].c_str() + Commands[n].argA.begin, Commands[n].argA.size);
-				
-				ClassifyInstruction(Commands[i], Strings[i].c_str());
-			}
-			// Remove the push instruction
-			Strings[n].clear();
-			ClassifyInstruction(Commands[n], Strings[n].c_str());
-
-			++optimize_count;
-		}
-		if(Commands[i].Name == push && (Commands[i].argA.type == Argument::number || isGenReg[Commands[i].argA.type]))
-		{
-			// push num, pop dword [] or
-			// push reg, pop dword []
-			if(Commands[i+1].Name == pop && Commands[i+1].argA.type == Argument::ptr)
-			{
-				Strings[i+1].replace(0, 3, "mov");
-				Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
-				Strings[i] = "";
+				Strings[i] += ", " + std::string(Strings[pushIndex].c_str()+Commands[pushIndex].argA.begin, Commands[pushIndex].argA.size);
+				Strings[pushIndex] = "";
 
 				// Update instruction information
 				ClassifyInstruction(Commands[i], Strings[i].c_str());
-				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
+				ClassifyInstruction(Commands[pushIndex], Strings[pushIndex].c_str());
 
 				++optimize_count;
 			}
-			// push num, pop reg
-			if(Commands[i].argA.type == Argument::number && Commands[i+1].Name == pop && isGenReg[Commands[i+1].argA.type])
+			// For the third case
+			if(Commands[pushIndex].Name == push && isGenReg[Commands[pushIndex].argA.type] &&
+				!CheckDependencies(pushIndex+1, i-1, Commands[pushIndex].argA.type, true, true))
 			{
-				Strings[i+1].replace(0, 3, "mov");
-				Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
-				Strings[i] = "";
+				Strings[i].replace(0, 3, "mov");
+				Strings[i] += ", " + std::string(Strings[pushIndex].c_str()+Commands[pushIndex].argA.begin, Commands[pushIndex].argA.size);
+				Strings[pushIndex] = "";
 
 				// Update instruction information
 				ClassifyInstruction(Commands[i], Strings[i].c_str());
-				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
+				ClassifyInstruction(Commands[pushIndex], Strings[pushIndex].c_str());
 
-				++optimize_count;
-			}
-		}
-		if(Commands[i].Name == push && Commands[i].argA.type == Argument::ptr && strstr(Strings[i].c_str()+Commands[i].argA.begin, "dword"))
-		{
-			// push dword, pop reg
-			if(Commands[i+1].Name == pop && isGenReg[Commands[i+1].argA.type])
-			{
-				Strings[i+1].replace(0, 3, "mov");
-				Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
-				Strings[i] = "";
-
-				// Update instruction information
-				ClassifyInstruction(Commands[i], Strings[i].c_str());
-				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
 				++optimize_count;
 			}
 		}
@@ -435,17 +403,6 @@ void Optimizer_x86::OptimizePushPop()
 		}
 	}
 	//cout << "Optimize : " << optimize_count << endl;
-}
-
-bool Optimizer_x86::IsJump(int Command_Name)
-{
-	for(int i = 3; i < 17; i++)
-	{
-		if(Command_Name == Commands_table[i].Hash)
-			return true;
-	}
-
-	return false;
 }
 
 void Optimizer_x86::HashListing(const char* pListing)

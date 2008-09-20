@@ -464,6 +464,14 @@ void addTwoAndCmpNode(CmdID id)
 		}
 		return;	// ќптимизаци€ удалась, выходим
 	}
+	if(aNodeType == typeNodeGetAddress && bNodeType == typeNodeNumber && (*(nodeList.end()-1))->GetTypeInfo() == typeInt)
+	{
+		NodeGetAddress *addrNode = static_cast<NodeGetAddress*>((nodeList.end()-2)->get());
+		NodeNumber<int> *numNode = static_cast<NodeNumber<int>* >((nodeList.end()-1)->get());
+		addrNode->SetAddress(addrNode->GetAddress()+numNode->GetVal());
+		nodeList.pop_back();
+		return;
+	}
 	if(aNodeType == typeNodeNumber || bNodeType == typeNodeNumber)
 	{
 		// ≈сли один из узлов - число, то помен€ем операторы местами так, чтобы узел с числом был в A
@@ -717,14 +725,16 @@ void getAddress(char const* s, char const* e)
 
 void addAddressNode(char const* s, char const* e)
 {
-	if(nodeList.back()->GetNodeType() != typeNodeNumber)
+	if(nodeList.back()->GetNodeType() != typeNodeNumber && nodeList.back()->GetNodeType() != typeNodeTwoAndCmdOp && nodeList.back()->GetNodeType() != typeNodeGetAddress)
 		throw std::string("ERROR: addAddressNode() can't find a \r\n  number node on the top of node list");
 	if(nodeList.back()->GetTypeInfo() != typeInt)
 		throw std::string("ERROR: addAddressNode(): number node type is not int");
 
 	shared_ptr<NodeZeroOP> temp = nodeList.back();
-	nodeList.back().reset(new NodeNumber<int>(static_cast<NodeNumber<int>*>(temp.get())->GetVal(), GetReferenceType(currTypes.back())));
-	//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression(GetReferenceType(currTypes.back()))));
+	if(nodeList.back()->GetNodeType() == typeNodeNumber)
+		nodeList.back().reset(new NodeNumber<int>(static_cast<NodeNumber<int>*>(temp.get())->GetVal(), GetReferenceType(currTypes.back())));
+	else
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression(GetReferenceType(currTypes.back()))));
 	currTypes.pop_back();
 	valueByRef.push_back(false);
 }
@@ -1221,7 +1231,7 @@ namespace CompilerGrammar
 		applyref	=
 			(
 				varname[strPush][getType][getAddress] >>
-				!('[' >> term5 >> ']')[addShiftAddrNode] >>
+				!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)] >>
 				*(
 					'.' >>
 					varname[getMember] >>

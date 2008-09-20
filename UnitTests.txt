@@ -395,3 +395,32 @@ res[4] = a*2+0;
 res[5] = a*3*1;
 return 1;
 
+var int arr[5];
+var float4 arrF[4];
+var int ref a = &arr[3];
+*a = 55;
+var float4 ref b = &arrF[1];
+b->x = 85;
+var float ref c = &arrF[1].y;
+*c = 125;
+{
+	var int ref a = &arr[1];
+	*a = 5;
+	var float4 ref b = &arrF[2];
+	b->x = 8;
+	var float ref c = &arrF[2].y;
+	*c = 12;
+}
+return 1;
+
+var int calltest = 0;
+func int fib(int n, int ref calls)
+{
+	*calls++;
+	calltest++;
+	if(n < 3)
+		return 1;
+	return fib(n-2, calls) + fib(n-1, calls);
+}
+var int calls = 0;
+return fib(40, &calls);

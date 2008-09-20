@@ -1120,6 +1120,7 @@ void ExecutorX86::GenListing()
 			aluLabels++;
 			break;
 		case cmdGetAddr:
+			logASM << "  ; GETADDR\r\n";
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
 			logASM << "lea eax, [ebp + " << valind << "] ; сдвинули адрес относительно бызы стека\r\n";
