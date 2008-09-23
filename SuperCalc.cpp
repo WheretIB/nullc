@@ -116,7 +116,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	hInst = hInstance; // Store instance handle in our global variable
 
 	hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-		100, 100, 800, 450, NULL, NULL, hInstance, NULL);
+		100, 100, 900, 450, NULL, NULL, hInstance, NULL);
 	if(!hWnd)
 		return 0;
 	ShowWindow(hWnd, nCmdShow);
@@ -191,7 +191,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hResult, nCmdShow);
 	UpdateWindow(hResult);
 
-	PostMessage(hWnd, WM_SIZE, 0, (394<<16)+784);
+	PostMessage(hWnd, WM_SIZE, 0, (394<<16)+(900-16));
 
 	SetTimer(hWnd, 1, 100, 0);
 	return TRUE;

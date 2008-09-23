@@ -951,7 +951,7 @@ void Executor::GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int add
 {
 	for(UINT mn = 0; mn < type->memberData.size(); mn++)
 	{
-		varstr << "  " << type->memberData[mn].type->name << " " << type->memberData[mn].name << " = ";
+		varstr << "  " << type->memberData[mn].type->GetTypeName() << " " << type->memberData[mn].name << " = ";
 		if(type->memberData[mn].type->type == TypeInfo::POD_VOID)
 		{
 			varstr << "ERROR: This type is void";

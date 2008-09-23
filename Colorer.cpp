@@ -80,7 +80,7 @@ namespace ColorerGrammar
 	{
 		constExpr		=	epsP[AssignVar<bool>(currValConst, false)] >>
 			!strP("const")[ColorRWord][AssignVar<bool>(currValConst, true)];
-		symb		=	graphP - alnumP;
+		symb		=	graphP - alnumP - chP(')');
 		symb2		=	graphP - alphaP;
 		varname		=	lexemeD[alphaP >> *alnumP];
 
