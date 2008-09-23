@@ -265,7 +265,7 @@ protected:
 class NodeFuncDef: public NodeOneOP
 {
 public:
-	NodeFuncDef(UINT id);
+	NodeFuncDef(FunctionInfo *info);
 	virtual ~NodeFuncDef();
 
 	virtual void Compile();
@@ -273,37 +273,7 @@ public:
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeFuncDef; }
 protected:
-	UINT	funcID;
-};
-
-class NodeFuncParam: public NodeOneOP
-{
-public:
-	NodeFuncParam(TypeInfo* tinfo, int paramIndex, bool funcStd);
-	virtual ~NodeFuncParam();
-
-	virtual void Compile();
-	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeFuncParam; }
-protected:
-	UINT	idParam;
-	bool	stdFunction;
-};
-
-class NodeFuncCall: public NodeOneOP
-{
-public:
-	NodeFuncCall(std::string name, UINT id, UINT argCnt, TypeInfo* retType);
-	virtual ~NodeFuncCall();
-
-	virtual void Compile();
-	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeFuncCall; }
-protected:
-	std::string	funcName;
-	UINT		funcID;
+	FunctionInfo	*funcInfo;
 };
 
 class NodePushShift: public NodeOneOP
@@ -515,6 +485,25 @@ public:
 protected:
 	std::list<shared_ptr<NodeZeroOP>>	exprList;
 	typedef std::list<shared_ptr<NodeZeroOP>>::iterator listPtr;
+};
+
+class NodeFuncCall: public NodeZeroOP
+{
+public:
+	NodeFuncCall(FunctionInfo *info, std::string name, UINT params);
+	virtual ~NodeFuncCall();
+
+	virtual void Compile();
+	virtual void LogToStream(ostringstream& ostr);
+	virtual UINT GetSize();
+	virtual UINT GetNodeType(){ return typeNodeFuncCall; }
+protected:
+	FunctionInfo	*funcInfo;
+	std::string		funcName;
+	UINT			paramCount;
+
+	std::list<shared_ptr<NodeZeroOP>>	paramList;
+	typedef std::list<shared_ptr<NodeZeroOP>>::reverse_iterator paramPtr;
 };
 /*
 class Node: public NodeOP

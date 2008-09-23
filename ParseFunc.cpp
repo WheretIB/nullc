@@ -537,10 +537,11 @@ UINT NodeBlock::GetSize()
 	return NodeOneOP::GetSize() + 2 * sizeof(CmdID);
 }
 
-NodeFuncDef::NodeFuncDef(UINT id)
+NodeFuncDef::NodeFuncDef(FunctionInfo *info)
 {
-	// Номер функции
-	funcID = id;
+	// Структура описания функции
+	funcInfo = info;
+
 	first = getList()->back(); getList()->pop_back();
 	getLog() << __FUNCTION__ << "\r\n";
 }
@@ -555,12 +556,12 @@ void NodeFuncDef::Compile()
 	// Код функций может быть смешан с кодом в глобальной области видимости, и его надо пропускать
 	cmds->AddData(cmdJmp);
 	cmds->AddData(cmds->GetCurrPos() + sizeof(CmdID) + sizeof(UINT) + 2*sizeof(USHORT) + first->GetSize());
-	(*funcs)[funcID]->address = cmds->GetCurrPos();
+	funcInfo->address = cmds->GetCurrPos();
 	// Сгенерируем код функции
 	first->Compile();
 
 	cmds->AddData(cmdReturn);
-	if((*funcs)[funcID]->retType == typeVoid)
+	if(funcInfo->retType == typeVoid)
 	{
 		// Если функция не возвращает значения, то это пустой ret
 		cmds->AddData((USHORT)(0));	// Возвращает значение размером 0 байт
@@ -583,77 +584,27 @@ UINT NodeFuncDef::GetSize()
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, определяющий значение входных параметров перед вызовом функции
-NodeFuncParam::NodeFuncParam(TypeInfo* tinfo, int paramIndex, bool funcStd)
-{
-	// Тип, который ожидает функция
-	typeInfo = tinfo;
-	// Номер параметра
-	idParam = paramIndex;
-	// Стандартная ли функция
-	stdFunction = funcStd;
-
-	first = getList()->back(); getList()->pop_back();
-	if(typeInfo->type == TypeInfo::NOT_POD)
-	{
-		if(first->GetTypeInfo()->type != TypeInfo::NOT_POD)
-			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
-		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->GetTypeName() != typeInfo->GetTypeName())
-			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
-	}
-	if(typeInfo->refLevel != first->GetTypeInfo()->refLevel)
-		throw std::string("ERROR: Cannot convert from '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
-
-	getLog() << __FUNCTION__ << "\r\n";
-}
-NodeFuncParam::~NodeFuncParam()
-{
-	getLog() << __FUNCTION__ << "\r\n";
-}
-
-void NodeFuncParam::Compile()
-{
-	if(idParam == 1 && !stdFunction)
-	{
-		cmds->AddData(cmdProlog);
-		cmds->AddData((UCHAR)(1));
-	}
-	// Определим значение
-	first->Compile();
-	// Преобразуем его в тип входного параметра функции
-	ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
-}
-void NodeFuncParam::LogToStream(ostringstream& ostr)
-{
-	drawLn(ostr);
-	ostr << *typeInfo << "FuncParam :\r\n";
-	goDown();
-	first->LogToStream(ostr);
-	goUp();
-}
-UINT NodeFuncParam::GetSize()
-{
-	return ((idParam == 1  && !stdFunction) ? sizeof(CmdID)+1 : 0) + first->GetSize() + ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
-}
-
-//////////////////////////////////////////////////////////////////////////
 // Узел, производящий вызов функции
-NodeFuncCall::NodeFuncCall(std::string name, UINT id, UINT argCnt, TypeInfo* retType)
+NodeFuncCall::NodeFuncCall(FunctionInfo *info, std::string name, UINT params)
 {
+	// Структура описания функции
+	funcInfo = info;
 	// Тип результата - тип возвратного значения функции
-	typeInfo = retType;
+	if(funcInfo)
+		typeInfo = funcInfo->retType;
 	// Имя функции
 	funcName = name;
-	// Идентификатор функции
-	funcID = id;
+	// Количество параметров
+	paramCount = params;
 
-	// Если функция принимает параметры, следует взять узел, который определяет их значения
-	if(argCnt)
+	// Возьмём узлы каждого параметра
+	for(UINT i = 0; i < paramCount; i++)
 	{
-		first = getList()->back(); getList()->pop_back();
+		paramList.push_back(getList()->back());
+		getList()->pop_back();
 	}
 	// Если функция не имеет идентификатора, значит она встроенная
-	if(id == -1)
+	if(!funcInfo)
 	{
 		// clock() - единственная функция возвращающая int, а не double
 		if(funcName == "clock")
@@ -671,9 +622,24 @@ NodeFuncCall::~NodeFuncCall()
 void NodeFuncCall::Compile()
 {
 	// Если имеются параметры, найдём их значения
-	if(first)
-		first->Compile();
-	if(funcID == -1)		// Если функция встроенная
+	if(funcInfo)
+	{
+		cmds->AddData(cmdProlog);
+		cmds->AddData((UCHAR)(1));
+	}
+	UINT currParam = 0;
+	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+	{
+		// Определим значение параметра
+		(*s)->Compile();
+		// Преобразуем его в тип входного параметра функции
+		if(funcInfo)
+			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
+		else
+			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[typeDouble->type]);
+		currParam++;
+	}
+	if(!funcInfo)		// Если функция встроенная
 	{
 		// Вызовем по имени
 		cmds->AddData(cmdCallStd);
@@ -688,23 +654,23 @@ void NodeFuncCall::Compile()
 
 		// Надём, сколько занимают все переменные
 		UINT allSize=0;
-		for(UINT i = 0; i < (*funcs)[funcID]->params.size(); i++)
-			allSize += (*funcs)[funcID]->params[i].varType->size;
+		for(UINT i = 0; i < funcInfo->params.size(); i++)
+			allSize += funcInfo->params[i].varType->size;
 
 		// Расширим стек переменные на это значение
 		cmds->AddData(cmdPushV);
 		cmds->AddData(allSize);
 
 		UINT addr = 0;
-		for(int i = int((*funcs)[funcID]->params.size())-1; i >= 0; i--)
+		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)
 		{
-			asmStackType newST = podTypeToStackType[(*funcs)[funcID]->params[i].varType->type];
-			asmDataType newDT = podTypeToDataType[(*funcs)[funcID]->params[i].varType->type];
+			asmStackType newST = podTypeToStackType[funcInfo->params[i].varType->type];
+			asmDataType newDT = podTypeToDataType[funcInfo->params[i].varType->type];
 			cmds->AddData(cmdMov);
 			cmds->AddData((USHORT)(newST | newDT | bitAddrRel));
 			// адрес начала массива
 			cmds->AddData(addr);
-			addr += (*funcs)[funcID]->params[i].varType->size;
+			addr += funcInfo->params[i].varType->size;
 
 			cmds->AddData(cmdPop);
 			cmds->AddData((USHORT)(newST));
@@ -712,7 +678,7 @@ void NodeFuncCall::Compile()
 
 		// Вызовем по адресу
 		cmds->AddData(cmdCall);
-		cmds->AddData((*funcs)[funcID]->address);
+		cmds->AddData(funcInfo->address);
 		cmds->AddData((USHORT)((typeInfo->type == TypeInfo::NOT_POD || typeInfo->type == TypeInfo::POD_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
 	}
 }
@@ -721,20 +687,20 @@ void NodeFuncCall::LogToStream(ostringstream& ostr)
 	drawLn(ostr);
 	ostr << *typeInfo << "FuncCall '" << funcName << "' :\r\n";
 	goDownB();
-	if(first)
-		first->LogToStream(ostr);
+	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+		(*s)->LogToStream(ostr);
 	goUp();
 }
 UINT NodeFuncCall::GetSize()
 {
 	UINT size = 0;
-	if(first)
-		size += first->GetSize();
+	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+		size += (*s)->GetSize();
 
-	if(funcID == -1)
+	if(!funcInfo)
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
 	else
-		size += 4*sizeof(CmdID) + 1 + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
+		size += 5*sizeof(CmdID) + 2*sizeof(UCHAR) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcInfo->params.size()) * (2*sizeof(CmdID)+2+4+2);
 
 	return size;
 }

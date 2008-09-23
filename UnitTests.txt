@@ -431,3 +431,9 @@ var double x = 5.0, nx;
 for(var int i = 0; i < 50000000; i++)
 nx = neg(x);
 return nx;
+
+
+func int fa(int i){ return i*2; }
+func int fa(int i, double c){ return i*c; }
+func int fa(float i){ return i*3.0f; }
+return fa(5.0f) * fa(2, 3.0);

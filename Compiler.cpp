@@ -973,9 +973,11 @@ void funcAdd(char const* s, char const* e)
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		if(varInfo[i].name == strs.back())
 			throw std::string("ERROR: Name '" + strs.back() + "' is already taken for a variable in current scope\r\n");
-	checkIfDeclared(strs.back());
+	std::string name = strs.back();
+	if(name == "if" || name == "else" || name == "for" || name == "while" || name == "var" || name == "func" || name == "return" || name=="switch" || name=="case")
+		throw std::string("ERROR: The name '" + name + "' is reserved");
 	funcs.push_back(new FunctionInfo());
-	funcs.back()->name = strs.back();
+	funcs.back()->name = name;
 	funcs.back()->vTopSize = (UINT)varInfoTop.size();
 	retTypeStack.push_back(currType);
 	funcs.back()->retType = currType;
@@ -1014,35 +1016,17 @@ void funcEnd(char const* s, char const* e)
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(i)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcs[i])));
 	strs.pop_back();
 	retTypeStack.pop_back();
 }
 
 
-void addFuncPushParamNode(char const* s, char const* e)
-{
-	string fname = strs.back();
-	if(fname == "cos" || fname == "sin" || fname == "tan" || fname == "ctg" || fname == "ceil" || fname == "floor" || 
-		fname == "sqrt" || fname == "clock")
-	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(typeDouble, callArgCount.back(), true)));
-	}else{
-		int i = (int)funcs.size()-1;
-		while(i >= 0 && funcs[i]->name != fname)
-			i--;
-		if(i == -1)
-			throw std::string("ERROR: function " + fname + " is undefined");
-		VariableInfo* vinfo = &funcs[i]->params[callArgCount.back()-1];
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncParam(vinfo->varType, callArgCount.back(), false)));
-	}
-}
 void addFuncCallNode(char const* s, char const* e)
 {
 	string fname = strs.back();
 	strs.pop_back();
 
-	char strCnt[32];
 	//Find standard function
 	if(fname == "cos" || fname == "sin" || fname == "tan" || fname == "ctg" || fname == "ceil" || fname == "floor" || 
 		fname == "sqrt" || fname == "clock")
@@ -1051,17 +1035,89 @@ void addFuncCallNode(char const* s, char const* e)
 			throw std::string("ERROR: function " + fname + " takes no argumets\r\n");
 		if(fname != "clock" && callArgCount.back() != 1)
 			throw std::string("ERROR: function " + fname + " takes one argument\r\n");
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fname, -1, callArgCount.back(), (fname == "clock" ? typeInt : typeDouble))));
-	}else{	//Find user-defined function
-		int i = (int)funcs.size()-1;
-		while(i >= 0 && funcs[i]->name != fname)
-			i--;
-		if(i == -1)
-			throw std::string("ERROR: function " + fname + " is undefined");
-		if(funcs[i]->params.size() != callArgCount.back())
-			throw std::string("ERROR: function ") + fname + std::string(" takes ") + _itoa((int)funcs[i]->params.size(), strCnt, 10) + std::string(" argument(s)\r\n");
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(NULL, fname, callArgCount.back())));
+	}else{
+		//Find all user-defined functions with given name
+		FunctionInfo *fList[32];
+		UINT	fRating[32];
+		memset(fRating, 0, 32*4);
 
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fname, i, callArgCount.back(), funcs[i]->retType)));
+		int count = 0;
+		for(int k = 0; k < (int)funcs.size(); k++)
+			if(funcs[k]->name == fname)
+				fList[count++] = funcs[k];
+		if(count == 0)
+			throw std::string("ERROR: function '" + fname + "' is undefined");
+		// Find the best suited function
+		UINT minRating = 1024*1024;
+		UINT minRatingIndex = -1;
+		for(int k = 0; k < count; k++)
+		{
+			if(fList[k]->params.size() != callArgCount.back())
+			{
+				fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
+				continue;
+			}
+			for(UINT n = 0; n < fList[k]->params.size(); n++)
+			{
+				if(fList[k]->params[n].varType != nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo())
+				{
+					if(fList[k]->params[n].varType->type == TypeInfo::NOT_POD)
+						fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
+					else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
+						fRating[k] += 1;
+				}
+			}
+			if(fRating[k] < minRating)
+			{
+				minRating = fRating[k];
+				minRatingIndex = k;
+			}
+		}
+		// Maybe the function we found can't be used at all
+		if(minRating > 1000)
+		{
+			ostringstream errTemp;
+			errTemp << "ERROR: can't find function '" + fname + "' with following parameters:\r\n  ";
+			errTemp << fname << "(";
+			for(UINT n = 0; n < callArgCount.back(); n++)
+				errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
+			errTemp << ")\r\n";
+			errTemp << " the only available are:\r\n";
+			for(int n = 0; n < count; n++)
+			{
+				errTemp << "  " << fname << "(";
+				for(UINT m = 0; m < fList[n]->params.size(); m++)
+					errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
+				errTemp << ")\r\n";
+			}
+			throw errTemp.str();
+		}
+		// Check, is there are more than one function, that share the same rating
+		for(int k = 0; k < count; k++)
+		{
+			if(k != minRatingIndex && fRating[k] == minRating)
+			{
+				ostringstream errTemp;
+				errTemp << "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n";
+				errTemp << "  " << fname << "(";
+				for(UINT n = 0; n < callArgCount.back(); n++)
+					errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
+				errTemp << ")\r\n";
+				errTemp << " candidates are:\r\n";
+				for(int n = 0; n < count; n++)
+				{
+					if(fRating[n] != minRating)
+						continue;
+					errTemp << "  " << fname << "(";
+					for(UINT m = 0; m < fList[n]->params.size(); m++)
+						errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
+					errTemp << ")\r\n";
+				}
+				throw errTemp.str();
+			}
+		}
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fList[minRatingIndex], fname, callArgCount.back())));
 	}
 	callArgCount.pop_back();
 }
@@ -1207,8 +1263,8 @@ namespace CompilerGrammar
 			('(' | (epsP[strPop] >> nothingP)) >>
 			epsP[PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >> 
 			!(
-			term5[ArrBackInc<std::vector<UINT> >(callArgCount)][addFuncPushParamNode] >>
-			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)][addFuncPushParamNode])[addTwoExprNode]
+			term5[ArrBackInc<std::vector<UINT> >(callArgCount)] >>
+			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)])
 			) >>
 			(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
 		funcvars	=	!(seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]);
