@@ -179,6 +179,7 @@ const CmdID cmdDecAt	= 172;
 // Типы флагов
 typedef unsigned short int CmdFlag;	// command flag
 typedef unsigned char OperFlag;		// operation flag
+typedef unsigned short int RetFlag; // return flag
 
 // Types of values on stack
 // Типы значений в стеке
@@ -257,15 +258,18 @@ __forceinline UINT			flagSizeStk(const CmdFlag& flag){ return (flag>>11)&0x00000
 	// адресация отсутствует
 __forceinline UINT			flagNoAddr(const CmdFlag& flag){ return !(flag&0x00000060); }
 
-// constants for flag creation from different bits
-// константы для создания флага из отдельных битов
+// constants for CmdFlag creation from different bits
+// константы для создания флага комманды из отдельных битов
 const UINT	bitAddrRel	= 1 << 5;
 const UINT	bitAddrAbs	= 1 << 6;
-//const UINT	bitAddrStk	= 1 << 7;
-//const UINT	bitShiftOn	= 1 << 8;
 const UINT	bitShiftStk	= 1 << 9;
 const UINT	bitSizeOn	= 1 << 10;
 const UINT	bitSizeStk	= 1 << 11;
+
+// constants for RetFlag creation from different bits
+// константы для создания флага возврата из отдельных битов
+const UINT	bitRetError	= 1 << 15;	// пользователь забыл возвратить значение, остановить выполнение
+const UINT	bitRetSimple= 1 << 14;	// функция возвращает базовый тип
 
 // Command list (bytecode)
 // Листинг команд (байткод)
@@ -444,7 +448,21 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		(*stream) << " PROLOG " << valind << " ;";
 		break;
 	case cmdReturn:
-		(*stream) << " RET " << valind << " ;";
+		(*stream) << " RET " << valind;
+		if(dw0 & bitRetError)
+			(*stream) << " error;";
+		if(dw0 & bitRetSimple)
+		{
+			OperFlag oFlag = dw0 & 0x0FFF;
+			if(oFlag == OTYPE_DOUBLE)
+				(*stream) << " double;";
+			else if(oFlag == OTYPE_LONG)
+				(*stream) << " long;";
+			else if(oFlag == OTYPE_INT)
+				(*stream) << " int;";
+		}else{
+			(*stream) << " " << dw0 << " bytes;";
+		}
 		break;
 	case cmdPushV:
 		(*stream) << " PUSHV " << valind << ";";

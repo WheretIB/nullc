@@ -424,3 +424,10 @@ func int fib(int n, int ref calls)
 }
 var int calls = 0;
 return fib(40, &calls);
+
+
+func double neg(double a){ return -a; }
+var double x = 5.0, nx;
+for(var int i = 0; i < 50000000; i++)
+nx = neg(x);
+return nx;
