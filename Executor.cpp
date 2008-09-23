@@ -41,7 +41,7 @@ UINT Executor::Run()
 	
 	UINT pos = 0, pos2 = 0;
 	CmdID	cmd;
-	double	val = 0.0;//, val2;
+	double	val = 0.0;
 	UINT	uintVal, uintVal2;
 	char	name[512];
 	int		valind;
@@ -197,13 +197,16 @@ UINT Executor::Run()
 			paramTop.pop_back();
 			break;
 		case cmdCall:
-			m_cmds->GetINT(pos, valind);
-			pos += sizeof(UINT);
-			m_cmds->GetUINT(pos, uintVal2);
-			pos += sizeof(UINT);
-			callStack.push_back(CallStackInfo(pos, (UINT)genStack.size(), valind));
-			pos = valind;
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0, uintVal2));
+			{
+				USHORT retFlag;
+				m_cmds->GetUINT(pos, uintVal);
+				pos += 4;
+				m_cmds->GetUSHORT(pos, retFlag);
+				pos += 2;
+				callStack.push_back(CallStackInfo(pos, (UINT)genStack.size(), uintVal));
+				pos = uintVal;
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0, retFlag));
+			}
 			break;
 		case cmdProlog:
 			m_cmds->GetUCHAR(pos, oFlag);
@@ -211,25 +214,29 @@ UINT Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, (UINT)(oFlag), 0, 0));
 			break;
 		case cmdReturn:
-			m_cmds->GetUCHAR(pos, oFlag);
-			pos += 1;
-			m_cmds->GetINT(pos, valind);
-			pos += 4;
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, oFlag));
-			for(int pops = 0; pops < valind; pops++)
 			{
-				while(genParams.size() > paramTop.back())
-					genParams.pop_back();
-				paramTop.pop_back();
+				USHORT	retFlag, popCnt;
+				m_cmds->GetUSHORT(pos, retFlag);
+				pos += 2;
+				m_cmds->GetUSHORT(pos, popCnt);
+				pos += 2;
+				if(retFlag & bitRetError)
+					throw std::string("ERROR: function didn't return a value");
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, popCnt, 0, 0, retFlag));
+				for(int pops = 0; pops < popCnt; pops++)
+				{
+					while(genParams.size() > paramTop.back())
+						genParams.pop_back();
+					paramTop.pop_back();
+				}
+				if(callStack.size() == 0)
+				{
+					done = true;
+					break;
+				}
+				pos = callStack.back().cmd;
+				callStack.pop_back();
 			}
-			if(callStack.size() == 0)
-			{
-				done = true;
-				break;
-			}
-			pos = callStack.back().cmd;
-			callStack.pop_back();
-
 			break;
 		case cmdPushV:
 			int valind;
@@ -321,7 +328,11 @@ UINT Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, cFlag, 0, uintVal2));
 			break;
 		case cmdGetAddr:
-			throw std::string("Unsupported command cmdGetAddr");
+			m_cmds->GetUINT(pos, uintVal);
+			pos += 4;
+			genStack.push_back(uintVal + paramTop.back());
+			genStackTypes.push_back(STYPE_INT);
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
 			break;
 		}
 

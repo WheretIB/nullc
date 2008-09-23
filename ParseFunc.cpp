@@ -411,9 +411,11 @@ void NodeReturnOp::Compile()
 		ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
 
 	// Выйдем из функции или программы
+	TypeInfo *retType = typeInfo ? typeInfo : first->GetTypeInfo();
+	asmOperType operType = operTypeForStackType[podTypeToStackType[retType->type]];
 	cmds->AddData(cmdReturn);
-	cmds->AddData((UCHAR)(operTypeForStackType[podTypeToStackType[typeInfo ? typeInfo->type : first->GetTypeInfo()->type]]));
-	cmds->AddData((UINT)(popCnt));
+	cmds->AddData((USHORT)(retType->type == TypeInfo::NOT_POD ? retType->size : (bitRetSimple | operType)));
+	cmds->AddData((USHORT)(popCnt));
 }
 void NodeReturnOp::LogToStream(ostringstream& ostr)
 {
@@ -426,7 +428,7 @@ void NodeReturnOp::LogToStream(ostringstream& ostr)
 }
 UINT NodeReturnOp::GetSize()
 {
-	return NodeOneOP::GetSize() + sizeof(CmdID) + sizeof(UINT) + 1 + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
+	return NodeOneOP::GetSize() + sizeof(CmdID) + 2 * sizeof(USHORT) + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -552,17 +554,22 @@ void NodeFuncDef::Compile()
 	// Перед содержимым функции сделаем переход за её конец
 	// Код функций может быть смешан с кодом в глобальной области видимости, и его надо пропускать
 	cmds->AddData(cmdJmp);
-	cmds->AddData(cmds->GetCurrPos() + sizeof(CmdID) + 2*sizeof(UINT) + 1 + first->GetSize());
+	cmds->AddData(cmds->GetCurrPos() + sizeof(CmdID) + sizeof(UINT) + 2*sizeof(USHORT) + first->GetSize());
 	(*funcs)[funcID]->address = cmds->GetCurrPos();
 	// Сгенерируем код функции
 	first->Compile();
-	// Добавим возврат из функции, если пользователь забыл (но ругать его всё ещё стоит, главное не падать)
+
 	cmds->AddData(cmdReturn);
-	cmds->AddData((UCHAR)(operTypeForStackType[podTypeToStackType[(*funcs)[funcID]->retType->type]]));
 	if((*funcs)[funcID]->retType == typeVoid)
-		cmds->AddData((UINT)(-1));
-	else
-		cmds->AddData((UINT)(1));
+	{
+		// Если функция не возвращает значения, то это пустой ret
+		cmds->AddData((USHORT)(0));	// Возвращает значение размером 0 байт
+		cmds->AddData((USHORT)(1));
+	}else{
+		// Остановим программу с ошибкой
+		cmds->AddData((USHORT)(bitRetError));
+		cmds->AddData((USHORT)(1));
+	}
 }
 void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
@@ -572,7 +579,7 @@ void NodeFuncDef::LogToStream(ostringstream& ostr)
 }
 UINT NodeFuncDef::GetSize()
 {
-	return first->GetSize() + 2*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(UCHAR);
+	return first->GetSize() + 2*sizeof(CmdID) + sizeof(UINT) + 2*sizeof(USHORT);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -710,7 +717,7 @@ void NodeFuncCall::Compile()
 		// Вызовем по адресу
 		cmds->AddData(cmdCall);
 		cmds->AddData((*funcs)[funcID]->address);
-		cmds->AddData((UINT)(typeInfo->size));
+		cmds->AddData((USHORT)((typeInfo->type == TypeInfo::NOT_POD || typeInfo->type == TypeInfo::POD_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
 	}
 }
 void NodeFuncCall::LogToStream(ostringstream& ostr)
@@ -731,7 +738,7 @@ UINT NodeFuncCall::GetSize()
 	if(funcID == -1)
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
 	else
-		size += 4*sizeof(CmdID) + 1 + 3*sizeof(UINT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
+		size += 4*sizeof(CmdID) + 1 + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)((*funcs)[funcID]->params.size()) * (2*sizeof(CmdID)+2+4+2);
 
 	return size;
 }

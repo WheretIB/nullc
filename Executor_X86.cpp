@@ -214,14 +214,14 @@ void ExecutorX86::GenListing()
 		case cmdCall:
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			pos += 4;
+			pos += 2;
 			funcNeedLabel.push_back(valind);
 			break;
 		case cmdProlog:
 			pos += 1;
 			break;
 		case cmdReturn:
-			pos += 5;
+			pos += 4;
 			break;
 		case cmdPushV:
 			pos += 4;
@@ -481,20 +481,48 @@ void ExecutorX86::GenListing()
 			logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 			break;
 		case cmdCall:
-			cmdList->GetData(pos, &valind, sizeof(UINT));
-			pos += sizeof(UINT);
-			cmdList->GetData(pos, &valind2, sizeof(UINT));
-			pos += sizeof(UINT);
-			logASM << "  ; CALL " << valind << " ret size: " << valind2 << "\r\n";
-			logASM << "call function" << valind << "\r\n";
-			logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
-			logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
-			if(valind2 == 4)
-				logASM << "push eax ; поместим число обратно в стек\r\n";
-			if(valind2 == 8)
 			{
-				logASM << "push eax ; \r\n";
-				logASM << "push edx ; поместим число обратно в стек\r\n";
+				RetFlag retFlag;
+				cmdList->GetUINT(pos, valind);
+				pos += 4;
+				cmdList->GetUSHORT(pos, retFlag);
+				pos += 2;
+				logASM << "  ; CALL " << valind << " ret " << (retFlag & bitRetSimple ? "simple " : "") << "size: ";
+				if(retFlag & bitRetSimple)
+				{
+					oFlag = retFlag & 0x0FFF;
+					if(oFlag == OTYPE_DOUBLE)
+						logASM << "double\r\n";
+					if(oFlag == OTYPE_LONG)
+						logASM << "long\r\n";
+					if(oFlag == OTYPE_INT)
+						logASM << "int\r\n";
+				}else{
+					logASM << (retFlag&0x0FFF) << "\r\n";
+				}
+
+				logASM << "call function" << valind << "\r\n";
+				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
+				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
+				if(retFlag & bitRetSimple)
+				{
+					oFlag = retFlag & 0x0FFF;
+					if(oFlag == OTYPE_INT)
+						logASM << "push eax ; поместим int обратно в стек\r\n";
+					if(oFlag == OTYPE_DOUBLE)
+					{
+						logASM << "push eax ; \r\n";
+						logASM << "push edx ; поместим double обратно в стек\r\n";
+					}
+					if(oFlag == OTYPE_LONG)
+					{
+						logASM << "push eax ; \r\n";
+						logASM << "push edx ; поместим long обратно в стек\r\n";
+					}
+				}else{
+					if(retFlag != 0)
+						throw std::string("Complex type return is not supported [call]");
+				}
 			}
 			break;
 		case cmdProlog:
@@ -511,29 +539,49 @@ void ExecutorX86::GenListing()
 			firstProlog = !firstProlog;
 			break;
 		case cmdReturn:
-			logASM << "  ; RET\r\n";
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			cmdList->GetData(pos, &valind, sizeof(UINT));
-			pos += sizeof(UINT);
-			if(valind == -1)
+			{
+				USHORT	retFlag, popCnt;
+				logASM << "  ; RET\r\n";
+				cmdList->GetUSHORT(pos, retFlag);
+				pos += 2;
+				cmdList->GetUSHORT(pos, popCnt);
+				pos += 2;
+				if(retFlag & bitRetError)
+				{
+					logASM << "mov ecx, " << 0xffffffff << " ; укажем, вышли за пределы функции\r\n";
+					logASM << "int 3 ; остановим выполнение\r\n";
+					break;
+				}
+				if(retFlag == 0)
+				{
+					logASM << "ret ; возвращаемся из функции\r\n";
+					break;
+				}
+				if(retFlag & bitRetSimple)
+				{
+					oFlag = retFlag & 0x0FFF;
+					if(oFlag == OTYPE_DOUBLE)
+					{
+						logASM << "pop edx \r\n";
+						logASM << "pop eax ; на время поместим double в регистры\r\n";
+					}else if(oFlag == OTYPE_LONG){
+						logASM << "pop edx \r\n";
+						logASM << "pop eax ; на время поместим long в регистры\r\n";
+					}else if(oFlag == OTYPE_INT){
+						logASM << "pop eax ; на время поместим int в регистр\r\n";
+					}
+					for(int pops = 0; pops < popCnt-1; pops++)
+					{
+						logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
+						logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
+					}
+					if(popCnt == 0)
+						logASM << "mov ebx, " << (UINT)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
+				}else{
+					throw std::string("Complex type return is not supported");
+				}
 				logASM << "ret ; возвращаемся из функции\r\n";
-
-			if(oFlag == OTYPE_DOUBLE || oFlag == OTYPE_LONG)
-			{
-				logASM << "pop edx \r\n";
-				logASM << "pop eax ; на время поместим double и long в регистры\r\n";
-			}else if(oFlag == OTYPE_INT){
-				logASM << "pop eax ; на время поместим int в регистр\r\n";
 			}
-			for(int pops = 0; pops < int(valind)-1; pops++)
-			{
-				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
-				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
-			}
-			if(valind == 0)
-				logASM << "mov ebx, " << (UINT)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
-			logASM << "ret ; возвращаемся из функции\r\n";
 			break;
 		case cmdPushV:
 			logASM << "  ; PUSHV\r\n";

@@ -1542,6 +1542,7 @@ void Compiler::GenListing()
 	//double	val;
 	char	name[512];
 	UINT	valind, valind2;
+	USHORT	shVal1, shVal2;
 	logASM.str("");
 
 	char* typeInfoS[] = { "int", "long", "float", "double" };
@@ -1578,9 +1579,12 @@ void Compiler::GenListing()
 		case cmdCall:
 			cmdList->GetUINT(pos, valind);
 			pos += sizeof(UINT);
-			cmdList->GetUINT(pos, valind2);
-			pos += sizeof(UINT);
-			logASM << dec << showbase << pos2 << " CALL " << valind << " size:" << valind2 << ";";
+			cmdList->GetUSHORT(pos, shVal1);
+			pos += 2;
+			logASM << dec << showbase << pos2 << " CALL " << valind;
+			if(shVal1 & bitRetSimple)
+				logASM << " simple";
+			logASM << " size:" << (shVal1&0x0FFF) << ";";
 			break;
 		case cmdProlog:
 			cmdList->GetUCHAR(pos, oFlag);
@@ -1588,22 +1592,32 @@ void Compiler::GenListing()
 			logASM << dec << showbase << pos2 << " PROLOG " << (UINT)(oFlag) << ";";
 			break;
 		case cmdReturn:
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			cmdList->GetData(pos, &valind, sizeof(UINT));
-			pos += sizeof(UINT);
-			logASM << dec << showbase << pos2 << " RET " << valind;
-			switch(oFlag)
+			cmdList->GetUSHORT(pos, shVal1);
+			pos += 2;
+			cmdList->GetUSHORT(pos, shVal2);
+			pos += 2;
+			logASM << dec << showbase << pos2 << " RET " << shVal2;
+			if(shVal1 & bitRetError)
 			{
-			case OTYPE_DOUBLE:
-				logASM << " double;";
+				logASM << " ERROR;";
 				break;
-			case OTYPE_LONG:
-				logASM << " long;";
-				break;
-			case OTYPE_INT:
-				logASM << " int;";
-				break;
+			}
+			if(shVal1 & bitRetSimple)
+			{
+				switch(shVal1 & 0x0FFF)
+				{
+				case OTYPE_DOUBLE:
+					logASM << " double;";
+					break;
+				case OTYPE_LONG:
+					logASM << " long;";
+					break;
+				case OTYPE_INT:
+					logASM << " int;";
+					break;
+				}
+			}else{
+				logASM << " bytes: " << shVal1;
 			}
 			break;
 		case cmdPushV:
