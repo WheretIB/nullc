@@ -597,16 +597,12 @@ NodeFuncParam::NodeFuncParam(TypeInfo* tinfo, int paramIndex, bool funcStd)
 	if(typeInfo->type == TypeInfo::NOT_POD)
 	{
 		if(first->GetTypeInfo()->type != TypeInfo::NOT_POD)
-			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
-		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->name != typeInfo->name)
-			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
+			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
+		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->GetTypeName() != typeInfo->GetTypeName())
+			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
 	}
 	if(typeInfo->refLevel != first->GetTypeInfo()->refLevel)
-	{
-		ostringstream errstr;
-		errstr << "ERROR: Cannot convert from " << *first->GetTypeInfo() << "to " << *typeInfo;
-		throw errstr.str();
-	}
+		throw std::string("ERROR: Cannot convert from '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
 
 	getLog() << __FUNCTION__ << "\r\n";
 }
@@ -846,16 +842,13 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 	if(typeInfo->type == TypeInfo::NOT_POD || first->GetTypeInfo()->type == TypeInfo::NOT_POD)
 	{
 		if(first->GetTypeInfo()->type != TypeInfo::NOT_POD)
-			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
-		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->name != typeInfo->name)
-			throw std::string("ERROR: Cannot convert " + first->GetTypeInfo()->name + " to " + typeInfo->name);
+			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
+		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->GetTypeName() != typeInfo->GetTypeName())
+			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
 	}
-	if((typeInfo->refLevel != first->GetTypeInfo()->refLevel) || (typeInfo->refLevel != 0 && typeInfo->name != first->GetTypeInfo()->name))
-	{
-		ostringstream errstr;
-		errstr << "ERROR: Cannot convert from " << *first->GetTypeInfo() << "to " << *typeInfo;
-		throw errstr.str();
-	}
+	if((typeInfo->refLevel != first->GetTypeInfo()->refLevel) || (typeInfo->refLevel != 0 && typeInfo->GetTypeName() != first->GetTypeInfo()->GetTypeName()))
+		throw std::string("ERROR: Cannot convert from '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
+
 
 	// если переменна€ - массив и обновл€етс€ одна €чейка
 	// или если переменна€ - член составного типа и нужен сдвиг адреса
@@ -1136,8 +1129,8 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 	first = getList()->back(); getList()->pop_back();
 
 	// Ќа данный момент операции с композитными типами отсутствуют
-	if(typeInfo->type == TypeInfo::NOT_POD)
-		throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + "= is not supported on " + typeInfo->name + " and " + first->GetTypeInfo()->name);
+	if(typeInfo->type == TypeInfo::NOT_POD || typeInfo->refLevel != 0 || first->GetTypeInfo()->refLevel != 0)
+		throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + "= is not supported on '" + typeInfo->GetTypeName() + "' and '" + first->GetTypeInfo()->GetTypeName() + "'");
 
 	// если переменна€ - массив или член составного типа, то нужен сдвиг адреса
 	if(varInfo.count > 1 || shiftAddress)	
@@ -1305,8 +1298,8 @@ NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAdd
 	// сдвиг уже прибавлен к адресу
 	bakedShift = false;
 
-	if(typeInfo->type == TypeInfo::NOT_POD)
-		throw std::string("ERROR: Increment and decrement is no supported on " + typeInfo->name);
+	if(typeInfo->type == TypeInfo::NOT_POD || typeInfo->refLevel != 0)
+		throw std::string("ERROR: ") + (cmdID == cmdIncAt ? "increment" : "decrement") + std::string(" is not supported on '") + typeInfo->GetTypeName() + "'";
 
 	// если переменна€ - массив или член составного типа, то нужен сдвиг адреса
 	if(varInfo.count > 1 || shiftAddress)	
@@ -1482,7 +1475,7 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	// Ќа данный момент операции с композитными типами отсутствуют
 	if(first->GetTypeInfo()->refLevel == 0)
 		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD || second->GetTypeInfo()->type == TypeInfo::NOT_POD)
-			throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on " + first->GetTypeInfo()->name + " and " + second->GetTypeInfo()->name);
+			throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on '" + first->GetTypeInfo()->GetTypeName() + "' and '" + second->GetTypeInfo()->GetTypeName() + "'");
 
 	// ЌайдЄм результирующий тип, после проведени€ операции
 	typeInfo = ChooseBinaryOpResultType(first->GetTypeInfo(), second->GetTypeInfo());

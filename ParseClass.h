@@ -17,6 +17,18 @@ public:
 
 	UINT		refLevel;	// reference level
 
+	std::string GetTypeName()
+	{
+		static char buf[256];
+		char *pos = &buf[0];
+		for(UINT i = 0; i < refLevel; i++)
+		{
+			memcpy(pos, "ref ", 4);
+			pos += 4;
+		}
+		memcpy(pos, name.c_str(), strlen(name.c_str()));
+		return std::string(&buf[0], pos+strlen(name.c_str()));
+	}
 	//NOT_POD are structures
 	void	AddMember(const std::string& name, TypeInfo* type)
 	{
