@@ -1062,7 +1062,7 @@ void addFuncCallNode(char const* s, char const* e)
 			{
 				if(fList[k]->params[n].varType != nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo())
 				{
-					if(fList[k]->params[n].varType->type == TypeInfo::NOT_POD)
+					if(nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo()->type == TypeInfo::NOT_POD)
 						fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
 					else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
 						fRating[k] += 1;
