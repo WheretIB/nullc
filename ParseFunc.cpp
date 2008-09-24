@@ -585,32 +585,18 @@ UINT NodeFuncDef::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, производящий вызов функции
-NodeFuncCall::NodeFuncCall(FunctionInfo *info, std::string name, UINT params)
+NodeFuncCall::NodeFuncCall(FunctionInfo *info)
 {
 	// Структура описания функции
 	funcInfo = info;
 	// Тип результата - тип возвратного значения функции
-	if(funcInfo)
-		typeInfo = funcInfo->retType;
-	// Имя функции
-	funcName = name;
-	// Количество параметров
-	paramCount = params;
+	typeInfo = funcInfo->retType;
 
 	// Возьмём узлы каждого параметра
-	for(UINT i = 0; i < paramCount; i++)
+	for(UINT i = 0; i < funcInfo->params.size(); i++)
 	{
 		paramList.push_back(getList()->back());
 		getList()->pop_back();
-	}
-	// Если функция не имеет идентификатора, значит она встроенная
-	if(!funcInfo)
-	{
-		// clock() - единственная функция возвращающая int, а не double
-		if(funcName == "clock")
-			typeInfo = typeInt;
-		else
-			typeInfo = typeDouble;
 	}
 	getLog() << __FUNCTION__ << "\r\n"; 
 }
@@ -622,7 +608,7 @@ NodeFuncCall::~NodeFuncCall()
 void NodeFuncCall::Compile()
 {
 	// Если имеются параметры, найдём их значения
-	if(funcInfo)
+	if(funcInfo->address != -1)
 	{
 		cmds->AddData(cmdProlog);
 		cmds->AddData((UCHAR)(1));
@@ -639,12 +625,12 @@ void NodeFuncCall::Compile()
 			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[typeDouble->type]);
 		currParam++;
 	}
-	if(!funcInfo)		// Если функция встроенная
+	if(funcInfo->address == -1)		// Если функция встроенная
 	{
 		// Вызовем по имени
 		cmds->AddData(cmdCallStd);
-		cmds->AddData((UINT)funcName.length());
-		cmds->AddData(funcName.c_str(), funcName.length());
+		cmds->AddData((UINT)funcInfo->name.length());
+		cmds->AddData(funcInfo->name.c_str(), funcInfo->name.length());
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
 		cmds->AddData(cmdProlog);
@@ -685,7 +671,7 @@ void NodeFuncCall::Compile()
 void NodeFuncCall::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << *typeInfo << "FuncCall '" << funcName << "' :\r\n";
+	ostr << *typeInfo << "FuncCall '" << funcInfo->name << "' :\r\n";
 	goDownB();
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
 		(*s)->LogToStream(ostr);
@@ -697,8 +683,8 @@ UINT NodeFuncCall::GetSize()
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
 		size += (*s)->GetSize();
 
-	if(!funcInfo)
-		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcName.length();
+	if(funcInfo->address == -1)
+		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcInfo->name.length();
 	else
 		size += 5*sizeof(CmdID) + 2*sizeof(UCHAR) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcInfo->params.size()) * (2*sizeof(CmdID)+2+4+2);
 
