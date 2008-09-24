@@ -490,7 +490,7 @@ protected:
 class NodeFuncCall: public NodeZeroOP
 {
 public:
-	NodeFuncCall(FunctionInfo *info, std::string name, UINT params);
+	NodeFuncCall(FunctionInfo *info);
 	virtual ~NodeFuncCall();
 
 	virtual void Compile();
@@ -499,8 +499,6 @@ public:
 	virtual UINT GetNodeType(){ return typeNodeFuncCall; }
 protected:
 	FunctionInfo	*funcInfo;
-	std::string		funcName;
-	UINT			paramCount;
 
 	std::list<shared_ptr<NodeZeroOP>>	paramList;
 	typedef std::list<shared_ptr<NodeZeroOP>>::reverse_iterator paramPtr;

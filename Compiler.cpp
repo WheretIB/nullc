@@ -1010,6 +1010,24 @@ void funcEnd(char const* s, char const* e)
 	while(i >= 0 && funcs[i]->name != strs.back())
 		i--;
 
+	// Find all the functions with the same name
+	int count = 0;
+	for(int n = 0; n < i; n++)
+	{
+		if(funcs[n]->name == funcs[i]->name && funcs[n]->params.size() == funcs[i]->params.size())
+		{
+			// Check all parameter types
+			bool paramsEqual = true;
+			for(UINT k = 0; k < funcs[i]->params.size(); k++)
+			{
+				if(funcs[n]->params[k].varType->GetTypeName() != funcs[i]->params[k].varType->GetTypeName())
+					paramsEqual = false;
+			}
+			if(paramsEqual)
+				throw std::string("ERROR: function '" + funcs[i]->name + "' is being defined with the same set of parameters");
+		}
+	}
+
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
 		varTop -= varInfo.back().count*varInfo.back().varType->size;
@@ -1027,65 +1045,78 @@ void addFuncCallNode(char const* s, char const* e)
 	string fname = strs.back();
 	strs.pop_back();
 
-	//Find standard function
-	if(fname == "cos" || fname == "sin" || fname == "tan" || fname == "ctg" || fname == "ceil" || fname == "floor" || 
-		fname == "sqrt" || fname == "clock")
-	{
-		if(fname == "clock" && callArgCount.back() != 0)
-			throw std::string("ERROR: function " + fname + " takes no argumets\r\n");
-		if(fname != "clock" && callArgCount.back() != 1)
-			throw std::string("ERROR: function " + fname + " takes one argument\r\n");
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(NULL, fname, callArgCount.back())));
-	}else{
-		//Find all user-defined functions with given name
-		FunctionInfo *fList[32];
-		UINT	fRating[32];
-		memset(fRating, 0, 32*4);
+	//Find all functions with given name
+	FunctionInfo *fList[32];
+	UINT	fRating[32];
+	memset(fRating, 0, 32*4);
 
-		int count = 0;
-		for(int k = 0; k < (int)funcs.size(); k++)
-			if(funcs[k]->name == fname)
-				fList[count++] = funcs[k];
-		if(count == 0)
-			throw std::string("ERROR: function '" + fname + "' is undefined");
-		// Find the best suited function
-		UINT minRating = 1024*1024;
-		UINT minRatingIndex = -1;
-		for(int k = 0; k < count; k++)
+	int count = 0;
+	for(int k = 0; k < (int)funcs.size(); k++)
+		if(funcs[k]->name == fname)
+			fList[count++] = funcs[k];
+	if(count == 0)
+		throw std::string("ERROR: function '" + fname + "' is undefined");
+	// Find the best suited function
+	UINT minRating = 1024*1024;
+	UINT minRatingIndex = -1;
+	for(int k = 0; k < count; k++)
+	{
+		if(fList[k]->params.size() != callArgCount.back())
 		{
-			if(fList[k]->params.size() != callArgCount.back())
+			fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
+			continue;
+		}
+		for(UINT n = 0; n < fList[k]->params.size(); n++)
+		{
+			if(fList[k]->params[n].varType != nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo())
 			{
-				fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
-				continue;
-			}
-			for(UINT n = 0; n < fList[k]->params.size(); n++)
-			{
-				if(fList[k]->params[n].varType != nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo())
-				{
-					if(nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo()->type == TypeInfo::NOT_POD)
-						fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
-					else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
-						fRating[k] += 1;
-				}
-			}
-			if(fRating[k] < minRating)
-			{
-				minRating = fRating[k];
-				minRatingIndex = k;
+				if(nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo()->type == TypeInfo::NOT_POD)
+					fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
+				else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
+					fRating[k] += 1;
 			}
 		}
-		// Maybe the function we found can't be used at all
-		if(minRating > 1000)
+		if(fRating[k] < minRating)
+		{
+			minRating = fRating[k];
+			minRatingIndex = k;
+		}
+	}
+	// Maybe the function we found can't be used at all
+	if(minRating > 1000)
+	{
+		ostringstream errTemp;
+		errTemp << "ERROR: can't find function '" + fname + "' with following parameters:\r\n  ";
+		errTemp << fname << "(";
+		for(UINT n = 0; n < callArgCount.back(); n++)
+			errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
+		errTemp << ")\r\n";
+		errTemp << " the only available are:\r\n";
+		for(int n = 0; n < count; n++)
+		{
+			errTemp << "  " << fname << "(";
+			for(UINT m = 0; m < fList[n]->params.size(); m++)
+				errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
+			errTemp << ")\r\n";
+		}
+		throw errTemp.str();
+	}
+	// Check, is there are more than one function, that share the same rating
+	for(int k = 0; k < count; k++)
+	{
+		if(k != minRatingIndex && fRating[k] == minRating)
 		{
 			ostringstream errTemp;
-			errTemp << "ERROR: can't find function '" + fname + "' with following parameters:\r\n  ";
-			errTemp << fname << "(";
+			errTemp << "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n";
+			errTemp << "  " << fname << "(";
 			for(UINT n = 0; n < callArgCount.back(); n++)
 				errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
 			errTemp << ")\r\n";
-			errTemp << " the only available are:\r\n";
+			errTemp << " candidates are:\r\n";
 			for(int n = 0; n < count; n++)
 			{
+				if(fRating[n] != minRating)
+					continue;
 				errTemp << "  " << fname << "(";
 				for(UINT m = 0; m < fList[n]->params.size(); m++)
 					errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
@@ -1093,32 +1124,9 @@ void addFuncCallNode(char const* s, char const* e)
 			}
 			throw errTemp.str();
 		}
-		// Check, is there are more than one function, that share the same rating
-		for(int k = 0; k < count; k++)
-		{
-			if(k != minRatingIndex && fRating[k] == minRating)
-			{
-				ostringstream errTemp;
-				errTemp << "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n";
-				errTemp << "  " << fname << "(";
-				for(UINT n = 0; n < callArgCount.back(); n++)
-					errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
-				errTemp << ")\r\n";
-				errTemp << " candidates are:\r\n";
-				for(int n = 0; n < count; n++)
-				{
-					if(fRating[n] != minRating)
-						continue;
-					errTemp << "  " << fname << "(";
-					for(UINT m = 0; m < fList[n]->params.size(); m++)
-						errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
-					errTemp << ")\r\n";
-				}
-				throw errTemp.str();
-			}
-		}
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fList[minRatingIndex], fname, callArgCount.back())));
 	}
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fList[minRatingIndex])));
+
 	callArgCount.pop_back();
 }
 
@@ -1394,10 +1402,13 @@ namespace CompilerGrammar
 	}
 };
 
+UINT buildInFuncs;
+
 Compiler::Compiler(CommandList* cmds)
 {
 	cmdList = cmds;
-
+	
+	// Add types
 	TypeInfo* info;
 	info = new TypeInfo();
 	info->name = "void";
@@ -1507,6 +1518,73 @@ Compiler::Compiler(CommandList* cmds)
 	info->AddMember("row4", typeFloat4);
 	typeInfo.push_back(info);
 
+	// Add functions
+	FunctionInfo	*fInfo;
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "cos";
+	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->retType = typeDouble;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "sin";
+	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->retType = typeDouble;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "tan";
+	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->retType = typeDouble;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "ctg";
+	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->retType = typeDouble;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "ceil";
+	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->retType = typeDouble;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "floor";
+	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->retType = typeDouble;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "sqrt";
+	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->retType = typeDouble;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "clock";
+	fInfo->retType = typeInt;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	buildInFuncs = (int)funcs.size();
+
 	CompilerGrammar::InitGrammar();
 
 }
@@ -1518,7 +1596,7 @@ bool Compiler::Compile(string str)
 {
 	varInfoTop.clear();
 	varInfo.clear();
-	funcs.clear();
+	funcs.resize(buildInFuncs);
 
 	callArgCount.clear();
 	retTypeStack.clear();

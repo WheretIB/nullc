@@ -161,24 +161,24 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	colorer->InitParser();
 
 	SendMessage(hTextArea, EM_SETEVENTMASK, 0, ENM_CHANGE);
-	UINT widt = (800-25)/3;
+	UINT widt = (800-25)/4;
 
 	hCode = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
-		5, 225, widt, 165, hWnd, NULL, hInstance, NULL);
+		5, 225, widt*2, 165, hWnd, NULL, hInstance, NULL);
 	if(!hCode)
 		return 0;
 	ShowWindow(hCode, nCmdShow);
 	UpdateWindow(hCode);
 
 	hLog = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
-		widt+10, 225, widt, 165, hWnd, NULL, hInstance, NULL);
+		2*widt+10, 225, widt, 165, hWnd, NULL, hInstance, NULL);
 	if(!hLog)
 		return 0;
 	ShowWindow(hLog, nCmdShow);
 	UpdateWindow(hLog);
 
 	hVars = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
-		2*widt+15, 225, widt, 165, hWnd, NULL, hInstance, NULL);
+		3*widt+15, 225, widt, 165, hWnd, NULL, hInstance, NULL);
 	if(!hVars)
 		return 0;
 	ShowWindow(hVars, nCmdShow);
@@ -393,10 +393,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		SetWindowPos(hButtonCalcX86, HWND_TOP, (int)(LOWORD(lParam))-135,7+(int)(4.0/9.0*HIWORD(lParam)),130, 30, NULL);
 		SetWindowPos(hDoOptimize, HWND_TOP, (int)(LOWORD(lParam))-235,7+(int)(4.0/9.0*HIWORD(lParam)),95, 30, NULL);
 		SetWindowPos(hResult, HWND_TOP, 110,7+(int)(4.0/9.0*HIWORD(lParam)),(int)(LOWORD(lParam))-345, 30, NULL);
-		UINT widt = (LOWORD(lParam)-20)/3;
-		SetWindowPos(hCode, HWND_TOP, 5,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
-		SetWindowPos(hLog, HWND_TOP, widt+10,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
-		SetWindowPos(hVars, HWND_TOP, 2*widt+15,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
+		UINT widt = (LOWORD(lParam)-20)/4;
+		SetWindowPos(hCode, HWND_TOP, 5,40+(int)(4.0/9.0*HIWORD(lParam)),2*widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
+		SetWindowPos(hLog, HWND_TOP, 2*widt+10,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
+		SetWindowPos(hVars, HWND_TOP, 3*widt+15,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
 	}
 		break;
 	default:
