@@ -483,8 +483,8 @@ public:
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeExpressionList; }
 protected:
-	std::list<shared_ptr<NodeZeroOP>>	exprList;
-	typedef std::list<shared_ptr<NodeZeroOP>>::iterator listPtr;
+	std::list<shared_ptr<NodeZeroOP> >	exprList;
+	typedef std::list<shared_ptr<NodeZeroOP> >::iterator listPtr;
 };
 
 class NodeFuncCall: public NodeZeroOP
@@ -500,8 +500,8 @@ public:
 protected:
 	FunctionInfo	*funcInfo;
 
-	std::list<shared_ptr<NodeZeroOP>>	paramList;
-	typedef std::list<shared_ptr<NodeZeroOP>>::reverse_iterator paramPtr;
+	std::list<shared_ptr<NodeZeroOP> >	paramList;
+	typedef std::list<shared_ptr<NodeZeroOP> >::reverse_iterator paramPtr;
 };
 /*
 class Node: public NodeOP
