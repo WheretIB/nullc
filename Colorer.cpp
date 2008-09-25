@@ -114,7 +114,7 @@ namespace ColorerGrammar
 
 		appval		=
 			(
-				varname[ColorVar] >> ~chP('(') >>
+				(varname - strP("case"))[ColorVar] >> ~chP('(') >>
 				!(
 					chP('[')[ColorText] >> 
 					term5 >> 

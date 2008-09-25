@@ -1739,59 +1739,12 @@ UINT NodeBreakOp::GetSize()
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, для каждого блока case в switch
-NodeCaseExpr::NodeCaseExpr()
-{
-	second = getList()->back(); getList()->pop_back();
-	first = getList()->back(); getList()->pop_back();
-	getLog() << __FUNCTION__ << "\r\n";
-}
-NodeCaseExpr::~NodeCaseExpr()
-{
-	getLog() << __FUNCTION__ << "\r\n";
-}
-
-void NodeCaseExpr::Compile()
-{
-	// Структура дочерних элементов: case first: second;
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->GetTypeInfo()->type]];
-
-	// switch нашёл значение, по которым производится выбор.
-	// Скопируем его, так как сравнение уберёт одно значение со стека
-	cmds->AddData(cmdCopy);
-	// Положим значение, по которому срабатывает данный case
-	// Значение может вычислятся в рантайме!
-	first->Compile();
-	// Сравним на равенство
-	cmds->AddData(cmdEqual);
-	cmds->AddData((UCHAR)(aOT));
-	// Если не равны, перейдём за блок second
-	cmds->AddData(cmdJmpZ);
-	cmds->AddData((UCHAR)(aOT));
-	cmds->AddData(cmds->GetCurrPos()+4+second->GetSize());
-	// Сгенерируем код блока
-	second->Compile();
-}
-void NodeCaseExpr::LogToStream(ostringstream& ostr)
-{
-	drawLn(ostr);
-	ostr << "CaseExpression :\r\n";
-	goDown();
-	first->LogToStream(ostr);
-	second->LogToStream(ostr);
-	goUp();
-}
-UINT NodeCaseExpr::GetSize()
-{
-	return first->GetSize() + second->GetSize() + 3*sizeof(CmdID) + sizeof(UINT) + 2*sizeof(UCHAR);
-}
-
-//////////////////////////////////////////////////////////////////////////
 // Узел, определяющий код для switch
 NodeSwitchExpr::NodeSwitchExpr()
 {
-	second = getList()->back(); getList()->pop_back();
+	// Возьмём узел с условием
 	first = getList()->back(); getList()->pop_back();
+
 	getLog() << __FUNCTION__ << "\r\n";
 }
 NodeSwitchExpr::~NodeSwitchExpr()
@@ -1799,23 +1752,79 @@ NodeSwitchExpr::~NodeSwitchExpr()
 	getLog() << __FUNCTION__ << "\r\n";
 }
 
+void NodeSwitchExpr::AddCase()
+{
+	// Возьмём с верхушки блок
+	caseBlockList.push_back(getList()->back());
+	getList()->pop_back();
+	// Возьмём условие для блока
+	caseCondList.push_back(getList()->back());
+	getList()->pop_back();
+}
+
 void NodeSwitchExpr::Compile()
 {
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
-
+	asmStackType aST = podTypeToStackType[first->GetTypeInfo()->type];
+	asmOperType aOT = operTypeForStackType[aST];
 	// Сохраним вершину стека переменных
 	cmds->AddData(cmdPushVTop);
 	// Найдём значение по которому будем выбирать вариант кода
 	first->Compile();
-	// Сохраним значение для оператора break;
-	indTemp.push_back(cmds->GetCurrPos()+second->GetSize()+2);
+
+	// Найдём конец свитча
+	UINT switchEnd = cmds->GetCurrPos() + 2*sizeof(CmdID) + sizeof(UINT) + sizeof(USHORT) + caseCondList.size() * (3*sizeof(CmdID) + 3 + sizeof(UINT));
+	for(casePtr s = caseCondList.begin(), e = caseCondList.end(); s != e; s++)
+		switchEnd += (*s)->GetSize();
+	UINT condEnd = switchEnd;
+	int blockNum = 0;
+	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
+		switchEnd += (*s)->GetSize() + sizeof(CmdID) + sizeof(USHORT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
+
+	// Сохраним адрес для оператора break;
+	indTemp.push_back(switchEnd+2);
+
 	// Сгенерируем код для всех case'ов
-	second->Compile();
-	// Востановим вершину стека значений
-	cmds->AddData(cmdPopVTop);
+	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
+	casePtr block = caseBlockList.begin(), eblocl = caseBlockList.end();
+	UINT caseAddr = condEnd;
+	for(; cond != econd; cond++, block++)
+	{
+		cmds->AddData(cmdCopy);
+		cmds->AddData((UCHAR)(aOT));
+
+		(*cond)->Compile();
+		// Сравним на равенство
+		cmds->AddData(cmdEqual);
+		cmds->AddData((UCHAR)(aOT));
+		// Если равны, перейдём на нужный кейс
+		cmds->AddData(cmdJmpNZ);
+		cmds->AddData((UCHAR)(aOT));
+		cmds->AddData(caseAddr);
+		caseAddr += (*block)->GetSize() + 2*sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+	}
 	// Уберём с вершины стека значение по которому выбирался вариант кода
 	cmds->AddData(cmdPop);
-	cmds->AddData((USHORT)(aOT));
+	cmds->AddData((USHORT)(aST));
+
+	cmds->AddData(cmdJmp);
+	cmds->AddData(switchEnd);
+	blockNum = 0;
+	for(block = caseBlockList.begin(), eblocl = caseBlockList.end(); block != eblocl; block++, blockNum++)
+	{
+		// Уберём с вершины стека значение по которому выбирался вариант кода
+		cmds->AddData(cmdPop);
+		cmds->AddData((USHORT)(aST));
+		(*block)->Compile();
+		if(blockNum != caseBlockList.size()-1)
+		{
+			cmds->AddData(cmdJmp);
+			cmds->AddData(cmds->GetCurrPos() + sizeof(UINT) + sizeof(CmdID) + sizeof(USHORT));
+		}
+	}
+
+	// Востановим вершину стека значений
+	cmds->AddData(cmdPopVTop);
+
 	indTemp.pop_back();
 }
 void NodeSwitchExpr::LogToStream(ostringstream& ostr)
@@ -1824,12 +1833,20 @@ void NodeSwitchExpr::LogToStream(ostringstream& ostr)
 	ostr << "SwitchExpression :\r\n";
 	goDown();
 	first->LogToStream(ostr);
-	second->LogToStream(ostr);
 	goUp();
 }
 UINT NodeSwitchExpr::GetSize()
 {
-	return first->GetSize() + second->GetSize() + 3*sizeof(CmdID) + sizeof(USHORT);
+	UINT size = 0;
+	size += first->GetSize();
+	for(casePtr s = caseCondList.begin(), e = caseCondList.end(); s != e; s++)
+		size += (*s)->GetSize();
+	int blockNum = 0;
+	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
+		size += (*s)->GetSize() + sizeof(CmdID) + sizeof(USHORT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
+	size += 4*sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+	size += (UINT)caseCondList.size() * (3 * sizeof(CmdID) + 3 + sizeof(UINT));
+	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -444,30 +444,22 @@ protected:
 	UINT	popCnt;
 };
 
-class NodeCaseExpr: public NodeTwoOP
-{
-public:
-	NodeCaseExpr();
-	virtual ~NodeCaseExpr();
-
-	virtual void Compile();
-	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeCaseExpr; }
-protected:
-};
-
-class NodeSwitchExpr: public NodeThreeOP
+class NodeSwitchExpr: public NodeOneOP
 {
 public:
 	NodeSwitchExpr();
 	virtual ~NodeSwitchExpr();
+
+			void AddCase();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeSwitchExpr; }
 protected:
+	std::list<shared_ptr<NodeZeroOP> >	caseCondList;
+	std::list<shared_ptr<NodeZeroOP> >	caseBlockList;
+	typedef std::list<shared_ptr<NodeZeroOP> >::iterator casePtr;
 };
 
 class NodeExpressionList: public NodeZeroOP

@@ -460,14 +460,44 @@ arr[badID1] = 4;
 return badID1;
 
 // Switch test!
+var int u = 12;
 var int a = 3, b = 0;
-switch(a)
 {
-  case 1:
-	b = 5;
-	break;
-  case 3:
-	b = 7;
-	break;
+  switch(a)
+  {
+    case 1:
+  	  b = 5;
+	  break;
+    case 3:
+	  b = 7;
+	  break;
+  }
 }
-return b;
+return u;
+
+// Class test
+class One
+{
+  int a, b, c;
+  float e, f;
+}
+class Two
+{
+  One a, b;
+  float3 c;
+  int d;
+}
+var One one;
+var Two two;
+one.a = 3;
+one.e = 2;
+two.a.a = 14;
+two.c.x = 2;
+return 1;
+
+// Variable modify test
+func int slow(int how){ for(var int i = 0; i < how; i++){ how = how-1; } return 2; }
+var int index = 2;
+var int arr[10] = 4;
+arr[slow(40000000)] += 16; // 330 ms total. target - 140ms
+return 3;

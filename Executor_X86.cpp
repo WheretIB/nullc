@@ -46,7 +46,7 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 {
 	expECXstate = expInfo->ContextRecord->Ecx;
 	expCodePublic = expCode;
-	if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT)
+	if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW)
 		return EXCEPTION_EXECUTE_HANDLER;
 	if(expCode == EXCEPTION_ACCESS_VIOLATION)
 	{
@@ -153,6 +153,8 @@ UINT ExecutorX86::Run()
 			throw std::string("ERROR: array index out of bounds");
 		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
 			throw std::string("ERROR: function didn't return a value");
+		if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
+			throw std::string("ERROR: stack overflow");
 		if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
 		{
 			if(expAllocCode == 1)
