@@ -1171,14 +1171,15 @@ void preSwitchNode(char const* s, char const* e)
 {
 	undComandIndex.push_back((UINT)varInfoTop.size());
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeSwitchExpr()));
 }
 void addCaseNode(char const* s, char const* e)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeCaseExpr()));
+	shared_ptr<NodeZeroOP> temp = *(nodeList.end()-3);
+	static_cast<NodeSwitchExpr*>(temp.get())->AddCase();
 }
 void addSwitchNode(char const* s, char const* e)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeSwitchExpr()));
 	undComandIndex.pop_back();
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
@@ -1364,14 +1365,13 @@ namespace CompilerGrammar
 			)[addDoWhileNode] >> 
 			(';' | epsP[ThrowError("ERROR: while(...) should be followed by ';'")]);
 		switchexpr	=
-			strP("switch")[preSwitchNode] >>
+			strP("switch") >>
 			('(' | epsP[ThrowError("ERROR: '(' not found after 'switch'")]) >>
-			(term5 | epsP[ThrowError("ERROR: expression not found after 'switch('")]) >>
+			(term5 | epsP[ThrowError("ERROR: expression not found after 'switch('")])[preSwitchNode] >>
 			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'switch' statement")]) >>
 			('{' | epsP[ThrowError("ERROR: '{' not found after 'switch(...)'")]) >>
 			(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
-			*(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode][addTwoExprNode] >>
-			//(strP("case") >> term5 >> ':' >> code)[addCaseNode] >>
+			*(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
 			('}' | epsP[ThrowError("ERROR: '}' not found after 'switch' statement")])[addSwitchNode];
 
 		retexpr		=	(strP("return") >> term5 >> +chP(';'))[addReturnNode];
