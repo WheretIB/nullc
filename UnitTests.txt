@@ -1,4 +1,4 @@
-//complex type test (simple)
+// Complex type test (simple)
 var float f1;
 var float2 f2;
 var float3 f3;
@@ -28,7 +28,7 @@ f2.y ^= 2.0; // f2.y = 9.0
 // f4 = 5; 6; 1; 84
 return 1;
 
-//complex type test (array)
+// Complex type test (array)
 var float3 fa[10];
 for(var int i = 0; i < 10; i++)
 {
@@ -36,14 +36,20 @@ for(var int i = 0; i < 10; i++)
 	fa[i].y = fa[i].x++ - i*4;
 	fa[fa[(fa[i].x-1)*0.125].y*0.25].z = i+100;
 }
-
+// fa[].x = 1   9   17  25  33  41  49  57  65  73
+// fa[].y = 0   4   8   12  16  20  24  28  32  36
+// fa[].z = 100 101 102 103 104 105 106 107 108 109
 return 1;
 
+// Comiler mislead test
 var float2 a;
 a/*[gg]*/.x = 2;
 a.y = a/*[gg]*/.x + 3;
+// Result:
+// a.x = 2; a.y = 5
 return a.x;
 
+// Complex type test
 var float4x4 mat;
 mat.row1.y = 5;
 return 1;
@@ -78,11 +84,7 @@ return fib(1);
 func int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }
 return fib(4);
 
-var int b = 3;
-if(b < 1)
-  b = 10;
-return b;
-
+// Array indirection and optimisation test
 var int res[5]=1;
 res[1] = 13;
 res[2] = 3;
@@ -90,17 +92,18 @@ res[res[2]] = 4;
 res[res[res[2]]] = 12;
 return 5;
 
+// Some test ^_^
 var int a=0;
 var int b[512];
 while(a < 256)
 {
-var char c[16];
-var char ref d
-a = ++a + b[a];
+  var char c[16];
+  var char ref d = &c[0];
+  a = ++a + b[a];
 }
 return 0;
 
-//integer tests
+// Integer tests
 var int res[30];
 var int a = 14, b = 3, c = 0;
 res[0] = a+b;
@@ -133,7 +136,7 @@ res[26] = !c;
 
 return 1;
 
-//floating point tests
+// Floating point tests
 var double res[15];
 var double a = 14.0, b = 3.0;
 res[0] = a+b;
@@ -153,7 +156,7 @@ res[13] = !a;
 
 return a+b;
 
-//long tests
+// Long tests
 var long res[24];
 var long a = 4494967296l, b = 594967296l, c = 3;
 res[0] = a+b; // 5089934592
@@ -183,7 +186,7 @@ res[23] = !a; // 0
 
 return 1;
 
-//decrement and increment tests for all types
+// Decrement and increment tests for all types
 var double a1=5, b1=5;
 var float a2=5, b2=5;
 var long a3=5, b3=5;
@@ -204,6 +207,7 @@ a6++;
 b6--;
 return 1;
 
+// Old all-in-one test
 func double test(float x, float y){ /*teste*/return x**2*y; }
 var int a=5;
 var float b, c[3]=14**2-134;
@@ -227,6 +231,7 @@ for(var int i = 0; i < 10000000; i++)
   c = a**b;
 return c;
 
+// Division by zero handling
 var int a=5, b =0;
 return a/b;
 
@@ -437,3 +442,32 @@ func int fa(int i){ return i*2; }
 func int fa(int i, double c){ return i*c; }
 func int fa(float i){ return i*3.0f; }
 return fa(5.0f) * fa(2, 3.0);
+
+// Function with no return handling
+func int test(){ 1; }
+return test();
+
+// Array out of bound check (negative)
+var int arr[10] = 5;
+var int badID1 = cos(125)*4;
+arr[badID1] = 4;
+return badID1;
+
+// Array out of bound check (overflow)
+var int arr[10] = 5;
+var int badID1 = sqrt(256);
+arr[badID1] = 4;
+return badID1;
+
+// Switch test!
+var int a = 3, b = 0;
+switch(a)
+{
+  case 1:
+	b = 5;
+	break;
+  case 3:
+	b = 7;
+	break;
+}
+return b;

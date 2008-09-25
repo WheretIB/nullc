@@ -1197,7 +1197,8 @@ namespace CompilerGrammar
 	// потому что в функцию передаётся "a[i]" целиком
 	void ParseStrPush(char const *s, char const *e){ strs.push_back(string(s,e)); }
 	void ParseStrPop(char const *s, char const *e){ strs.pop_back(); }
-	void ParseStrCopy(char const *s, char const *e){ strs.push_back(strs.back()); }
+	void ParseStrCopy(char const *s, char const *e){ strs.push_back(*(strs.end()-2)); }
+	void ParseStrAdd(char const *s, char const *e){ strs.back() += std::string(s, e); }
 
 	// Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
 	void SetStringToLastNode(char const *s, char const *e)
@@ -1281,17 +1282,17 @@ namespace CompilerGrammar
 		applyval	=
 			(
 				(varname - strP("case"))[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)) >> epsP[getType] >>
-				!('[' >> term5 >> ']')[addShiftAddrNode] >>
+				!((chP('[')[strPush] | (epsP[strPush] >> nothingP)) >> term5 >> ']')[addShiftAddrNode] >>
 				*(
-					(strP("->")[AssignVar<bool>(currValueByRef, true)][addDereference][strCopy][addGetNode][strPop] >>
+					(strP("->")[AssignVar<bool>(currValueByRef, true)][addDereference][addGetNode] >>
 					(varname - strP("case"))[getMember] >>
 					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]) |
 
-					('.' >>
+					(chP('.')[ParseStrAdd] >>
 					(varname - strP("case"))[getMember] >>
 					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)])					
 				)
-			)[strPush];
+			);
 		applyref	=
 			(
 				varname[strPush][getType][getAddress] >>

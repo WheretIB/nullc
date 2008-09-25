@@ -89,13 +89,13 @@ UINT Executor::Run()
 					genStackTypes.pop_back();
 				}
 				if(memcmp(name, "cos", 3) == 0)
-					val = cos(val/180*3.14159265358);
+					val = cos(val/180.0*3.14159265358);
 				else if(memcmp(name, "sin", 3) == 0)
-					val = sin(val/180*3.14159265358);
+					val = sin(val/180.0*3.14159265358);
 				else if(memcmp(name, "tan", 3) == 0)
-					val = tan(val/180*3.14159265358);
+					val = tan(val/180.0*3.14159265358);
 				else if(memcmp(name, "ctg", 3) == 0)
-					val = 1.0/tan(val/180*3.14159265358);
+					val = 1.0/tan(val/180.0*3.14159265358);
 				else if(memcmp(name, "ceil", 4) == 0)
 					val = ceil(val);
 				else if(memcmp(name, "floor", 5) == 0)
@@ -106,7 +106,7 @@ UINT Executor::Run()
 					uintVal = GetTickCount();
 				else
 					throw std::string("ERROR: there is no such function: ") + name;
-				if(val < 1e-10)
+				if(fabs(val) < 1e-10)
 					val = 0.0;
 				if(memcmp(name, "clock", 5) != 0)
 				{
