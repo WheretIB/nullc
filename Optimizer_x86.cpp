@@ -120,10 +120,10 @@ void ClassifyArgument(Argument& arg, const char* str)
 	}else if(*str == '[' || memcmp(str, "byte", 4) == 0 || memcmp(str, "word", 4) == 0 || memcmp(str, "dword", 5) == 0 || memcmp(str, "qword", 5) == 0){
 		arg.type = Argument::ptr;
 		if(strchr(str, ']') != 0)
-			arg.size = char(strchr(str, ']') + 1 - str);
-		else
 		{
-			char* temp;
+			arg.size = char(strchr(str, ']') + 1 - str);
+		}else{
+			const char *temp;
 			temp = strchr(str, 0);
 
 			while(*temp == ' ' || *temp == '\t')
@@ -131,7 +131,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 				temp = temp - 1;
 			}
 
-			arg.size = temp + 1 - str;
+			arg.size = (int)(temp + 1 - str);
 		}
 	}else {
 		for(int i = 0; i < 6; i++)

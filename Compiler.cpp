@@ -1187,6 +1187,28 @@ void addSwitchNode(char const* s, char const* e)
 	}
 	varInfoTop.pop_back();
 }
+
+TypeInfo *newType = NULL;
+void beginType(char const* s, char const* e)
+{
+	if(newType)
+		throw std::string("ERROR: Different type is being defined");
+	newType = new TypeInfo();
+	newType->name = std::string(s, e);
+	newType->type = TypeInfo::NOT_POD;
+}
+
+void addMember(char const* s, char const* e)
+{
+	newType->AddMember(std::string(s, e), currType);
+}
+
+void addType(char const* s, char const* e)
+{
+	typeInfo.push_back(newType);
+	newType = NULL;
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace CompilerGrammar
@@ -1234,6 +1256,7 @@ namespace CompilerGrammar
 	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
 	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, applyref, ifexpr, whileexpr, forexpr, retexpr;
 	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype;
+	Rule classdef;
 
 	Rule code, mySpaceP;
 
@@ -1267,6 +1290,8 @@ namespace CompilerGrammar
 
 		isconst		=	epsP[AssignVar<bool>(currValConst,false)] >> !strP("const")[AssignVar<bool>(currValConst,true)];
 		varname		=	lexemeD[alphaP >> *alnumP];
+
+		classdef	=	strP("class") >> varname[beginType] >> chP('{') >> *(seltype >> varname[addMember] >> *(',' >> varname[addMember]) >> chP(';')) >> chP('}')[addType];
 
 		funccall	=	varname[strPush] >> 
 			('(' | (epsP[strPop] >> nothingP)) >>
@@ -1396,7 +1421,7 @@ namespace CompilerGrammar
 			term4_9;
 
 		block		=	chP('{')[blockBegin] >> code >> chP('}')[blockEnd];
-		expression	=	*chP(';') >> ((strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode] | block[addBlockNode]);
+		expression	=	*chP(';') >> (classdef | (strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode] | block[addBlockNode]);
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
