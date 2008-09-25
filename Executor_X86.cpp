@@ -41,8 +41,10 @@ UINT stackReallocs;
 
 UINT expCodePublic;
 UINT expAllocCode;
+UINT expECXstate;
 DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 {
+	expECXstate = expInfo->ContextRecord->Ecx;
 	expCodePublic = expCode;
 	if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT)
 		return EXCEPTION_EXECUTE_HANDLER;
@@ -145,10 +147,12 @@ UINT ExecutorX86::Run()
 			popa ;
 		}
 	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
-		if(expCodePublic== EXCEPTION_INT_DIVIDE_BY_ZERO)
+		if(expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			throw std::string("ERROR: integer division by zero");
-		if(expCodePublic == EXCEPTION_BREAKPOINT)
+		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate != 0xFFFFFFFF)
 			throw std::string("ERROR: array index out of bounds");
+		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
+			throw std::string("ERROR: function didn't return a value");
 		if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
 		{
 			if(expAllocCode == 1)
@@ -161,11 +165,11 @@ UINT ExecutorX86::Run()
 				throw std::string("ERROR: No more memory (512Mb maximum exceeded)");
 		}
 	}
+	UINT runTime = timeGetTime() - startTime;
+
 	runResult = res1;
 	runResult2 = res2;
 	runResultType = resT;
-
-	UINT runTime = timeGetTime() - startTime;
 
 	//just for fun, save the parameter data to bmp
 	FILE *fBMP = fopen("funny.bmp", "wb");
@@ -678,7 +682,6 @@ void ExecutorX86::GenListing()
 							logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
 						}
 					}
-					mulByVarSize = false;
 				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
 				{
 					// ...есть адрес в команде
@@ -693,7 +696,7 @@ void ExecutorX86::GenListing()
 				{
 					cmdList->GetINT(pos, size);
 					pos += 4;
-					logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
+					logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
 					logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 					logASM << "int 3 \r\n";
 					logASM << "  pushLabel" << pushLabels << ":\r\n";
@@ -708,6 +711,7 @@ void ExecutorX86::GenListing()
 					logASM << "pop eax ; убрали использованный размер\r\n";
 					pushLabels++;
 				}
+				mulByVarSize = false;
 
 				if(flagNoAddr(cFlag))
 				{
@@ -830,10 +834,8 @@ void ExecutorX86::GenListing()
 							logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 						}else{
 							logASM << "pop edx ; взяли сдвиг\r\n";
-							//logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
 						}
 					}
-					mulByVarSize = false;
 				}else{
 					cmdList->GetINT(pos, valind);
 					pos += 4;
@@ -846,7 +848,7 @@ void ExecutorX86::GenListing()
 				{
 					cmdList->GetINT(pos, size);
 					pos += 4;
-					logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
+					logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
 					logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 					logASM << "int 3 \r\n";
 					logASM << "  movLabel" << movLabels << ":\r\n";
@@ -861,6 +863,7 @@ void ExecutorX86::GenListing()
 					logASM << "pop eax ; убрали использованный размер\r\n";
 					movLabels++;
 				}
+				mulByVarSize = false;
 
 				char *texts[] = { "", "edx + ", "ebp + " };
 				char *needEDX = texts[1];
@@ -2004,10 +2007,8 @@ void ExecutorX86::GenListing()
 						logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
 					}else{
 						logASM << "pop edx ; взяли сдвиг\r\n";
-						//logASM << "mov edx, eax ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
 					}
 				}
-				mulByVarSize = false;
 			}else{
 				cmdList->GetINT(pos, valind);
 				pos += 4;
@@ -2020,7 +2021,7 @@ void ExecutorX86::GenListing()
 			{
 				cmdList->GetINT(pos, size);
 				pos += 4;
-				logASM << "cmp eax, " << size << " ; сравним сдвиг с максимальным\r\n";
+				logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
 				logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
 				logASM << "int 3 \r\n";
 				logASM << "  movLabel" << movLabels << ":\r\n";
@@ -2035,6 +2036,7 @@ void ExecutorX86::GenListing()
 				logASM << "pop eax ; убрали использованный размер\r\n";
 				movLabels++;
 			}
+			mulByVarSize = false;
 
 			char *texts[] = { "", "edx + ", "ebp + " };
 			char *needEDX = texts[1];
@@ -2129,7 +2131,8 @@ void ExecutorX86::GenListing()
 	noOptFile.flush();
 	noOptFile.close();
 
-	ofstream m_FileStream("asmX86.txt", std::ios::binary);
+	DeleteFile("asmX86.txt");
+	ofstream m_FileStream("asmX86.txt", std::ios::binary | std::ios::out);
 	if(optimize)
 	{
 		Optimizer_x86 optiMan;

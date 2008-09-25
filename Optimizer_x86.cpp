@@ -174,7 +174,7 @@ std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing, int strS
 {
 	// Create text without comments, empty lines and other trash
 	UINT originalSize = strSize;
-	char *clearText = new char[originalSize];
+	char *clearText = new char[originalSize+1];
 	char *currPos = clearText;
 	for(UINT i = 0; i < originalSize; i++)
 	{
@@ -208,6 +208,7 @@ std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing, int strS
 		if(*(currPos-1) == '\r')
 			*(currPos-1) = '\n';
 	}
+	*currPos = 0;
 
 	Strings.clear();
 	Commands.clear();
