@@ -39,10 +39,6 @@ enum Command_Hash
 	other,
 };
 
-// Check if type is a general register (eax, ebx, ecx, edx)
-static bool isGenReg[] = { false, false, true, true, true, true, true, true, false, false, false };
-static char* argTypeToStr[] = { NULL, NULL, "eax", "ebx", "ecx", "edx", "edi", "esi", NULL, NULL, NULL };
-
 struct Argument
 {
 	// Argument type
@@ -50,6 +46,25 @@ struct Argument
 
 	char	begin, size;
 	Type	type;
+};
+
+struct Argument_def
+{
+	char*			Name;
+	Argument::Type	Hash;
+	int				Size;
+};
+
+// Check if type is a general register (eax, ebx, ecx, edx)
+static bool isGenReg[] = { false, false, true, true, true, true, true, true, false, false, false };
+static char* argTypeToStr[] = { NULL, NULL, "eax", "ebx", "ecx", "edx", "edi", "esi", NULL, NULL, NULL };
+static Argument_def Argument_Table[] = {
+		"eax", Argument::eax, 3,
+		"ebx", Argument::ebx, 3,
+		"ecx", Argument::ecx, 3,
+		"edx", Argument::edx, 3,
+		"edi", Argument::edi, 3,
+		"esi", Argument::esi, 3,
 };
 
 struct Command
@@ -93,6 +108,8 @@ const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
 // Функция определяет параметры аргумента по строке
 void ClassifyArgument(Argument& arg, const char* str)
 {
+	bool flag = false;
+
 	if(str == NULL || *str == 0)
 	{
 		arg.type = Argument::none;
@@ -102,26 +119,34 @@ void ClassifyArgument(Argument& arg, const char* str)
 		arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
 	}else if(*str == '[' || memcmp(str, "byte", 4) == 0 || memcmp(str, "word", 4) == 0 || memcmp(str, "dword", 5) == 0 || memcmp(str, "qword", 5) == 0){
 		arg.type = Argument::ptr;
-		arg.size = char(strchr(str, ']') + 1 - str);
-	}else if(memcmp(str, "eax", 3) == 0){
-		arg.type = Argument::eax;
-		arg.size = 3;
-	}else if(memcmp(str, "ebx", 3) == 0){
-		arg.type = Argument::ebx;
-		arg.size = 3;
-	}else if(memcmp(str, "ecx", 3) == 0){
-		arg.type = Argument::ecx;
-		arg.size = 3;
-	}else if(memcmp(str, "edx", 3) == 0){
-		arg.type = Argument::edx;
-		arg.size = 3;
-	}else if(memcmp(str, "edi", 3) == 0){
-		arg.type = Argument::edi;
-		arg.size = 3;
-	}else if(memcmp(str, "esi", 3) == 0){
-		arg.type = Argument::esi;
-		arg.size = 3;
-	}else if(strchr(str, ',') == NULL && strlen(str) > 4){
+		if(strchr(str, ']') != 0)
+			arg.size = char(strchr(str, ']') + 1 - str);
+		else
+		{
+			char* temp;
+			temp = strchr(str, 0);
+
+			while(*temp == ' ' || *temp == '\t')
+			{
+				temp = temp - 1;
+			}
+
+			arg.size = temp + 1 - str;
+		}
+	}else {
+		for(int i = 0; i < 6; i++)
+		{
+			if(memcmp(str, Argument_Table[i].Name, Argument_Table[i].Size) == 0)
+			{
+				arg.type = Argument_Table[i].Hash;
+				arg.size = Argument_Table[i].Size;
+				flag = true;
+				break;
+			}
+		}	
+	}
+	if(flag = false)
+		if(strchr(str, ',') == NULL && strlen(str) > 4){
 		arg.type = Argument::label;
 		arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
 	}else{
