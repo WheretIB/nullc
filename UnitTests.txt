@@ -68,20 +68,20 @@ f4.y--;
 --f4.z;
 return 1;
 
-func int test(int x, int y, int z){return x*y+z;}
+int test(int x, int y, int z){return x*y+z;}
 return 1+test(2, 3, 4);
 
-func int fib(int n){ if(n<3) return 1; return fib(n-1)+fib(n-2); }
-func int test(int x, int y, int z){return x*y+z;}
+int fib(int n){ if(n<3) return 1; return fib(n-1)+fib(n-2); }
+int test(int x, int y, int z){return x*y+z;}
 int b = 1;
 if(7>5)
 b = 3;
 return b+test(2, 3, 4);
 
-func int fib(int n){ if(n<3) return 5; return 10; }
+int fib(int n){ if(n<3) return 5; return 10; }
 return fib(1);
 
-func int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }
+int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }
 return fib(4);
 
 // Array indirection and optimisation test
@@ -208,7 +208,7 @@ b6--;
 return 1;
 
 // Old all-in-one test
-func double test(float x, float y){ /*teste*/return x**2*y; }
+double test(float x, float y){ /*teste*/return x**2*y; }
 int a=5;
 float b, c[3]=14**2-134;
 double d[10];
@@ -285,7 +285,7 @@ double a = 0.9;
 return a**2.0;
 
 
-func double clamp(double a, double min, double max)
+double clamp(double a, double min, double max)
 {
   if(a < min)
     return min;
@@ -293,7 +293,7 @@ func double clamp(double a, double min, double max)
     return max;
   return a;
 }
-func double abs(double x)
+double abs(double x)
 {
   if(x < 0.0)
     return -x;
@@ -301,7 +301,7 @@ func double abs(double x)
 }
 return clamp(abs(-1.5), 0.0, 1.0);
 
-func int test(int x, int y, int z){return x*y+z;}
+int test(int x, int y, int z){return x*y+z;}
 int res;
 {
 int x = 2;
@@ -311,7 +311,7 @@ res = 1+test(x, 3, 4);
 }
 return res;
 
-func double abs(double x)
+double abs(double x)
 {
   {
     if(x < 0.0)
@@ -344,8 +344,8 @@ for(int i = 0; i < 2; i++)
 return 1;
 
 // Pointers!
-func int testA(int ref v){ return *v * 5; }
-func void testB(int ref v){ *v += 5; }
+int testA(int ref v){ return *v * 5; }
+void testB(int ref v){ *v += 5; }
 int a = 5;
 int ref b = &a;
 int c = 2;
@@ -357,11 +357,11 @@ testB(b);
 return testA(&a);
 
 // Pointers on complex!
-func double length(float4 ref v)
+double length(float4 ref v)
 {
 	return sqrt((v->x*v->x)+(v->y*v->y)+(v->z*v->z));
 }
-func void normalize(float4 ref v)
+void normalize(float4 ref v)
 {
 	var double len = length(v);
 	v->x /= len; v->y /= len; v->z /= len;
@@ -380,7 +380,7 @@ float4 ref b = &a;
 b->x = 5.0f;
 return b->x;
 
-func double testA(float4 ref v){ return v->x; }
+double testA(float4 ref v){ return v->x; }
 float4 a;
 float4 ref b = &a;
 a.x = 5.0f;
@@ -419,7 +419,7 @@ float ref c = &arrF[1].y;
 return 1;
 
 int calltest = 0;
-func int fib(int n, int ref calls)
+int fib(int n, int ref calls)
 {
 	*calls++;
 	calltest++;
@@ -431,20 +431,20 @@ int calls = 0;
 return fib(40, &calls);
 
 
-func double neg(double a){ return -a; }
+double neg(double a){ return -a; }
 double x = 5.0, nx;
 for(var int i = 0; i < 50000000; i++)
 nx = neg(x);
 return nx;
 
 
-func int fa(int i){ return i*2; }
-func int fa(int i, double c){ return i*c; }
-func int fa(float i){ return i*3.0f; }
+int fa(int i){ return i*2; }
+int fa(int i, double c){ return i*c; }
+int fa(float i){ return i*3.0f; }
 return fa(5.0f) * fa(2, 3.0);
 
 // Function with no return handling
-func int test(){ 1; }
+int test(){ 1; }
 return test();
 
 // Array out of bound check (negative)
@@ -498,7 +498,7 @@ two.c.x = 2;
 return 1;
 
 // Variable modify test
-func int slow(int how){ for(int i = 0; i < how; i++){ how = how-1; } return 2; }
+int slow(int how){ for(int i = 0; i < how; i++){ how = how-1; } return 2; }
 int index = 2;
 int arr[10] = 4;
 arr[slow(40000000)] += 16; // 330 ms total. target - 140ms

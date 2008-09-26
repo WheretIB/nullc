@@ -1326,7 +1326,7 @@ namespace CompilerGrammar
 			) >>
 			(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
 		funcvars	=	!(seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]);
-		funcdef		=	strP("func") >> seltype >> varname[strPush][funcAdd] >> chP('(') >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
+		funcdef		=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
 
 		applyval	=
 			(
