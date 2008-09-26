@@ -1,8 +1,8 @@
 // Complex type test (simple)
-var float f1;
-var float2 f2;
-var float3 f3;
-var float4 f4;
+float f1;
+float2 f2;
+float3 f3;
+float4 f4;
 f1 = 1; // f1 = 1.0
 f2.x = 2.0; // f2.x = 2.0
 f2.y = 3l; // f2.y = 3.0
@@ -29,8 +29,8 @@ f2.y ^= 2.0; // f2.y = 9.0
 return 1;
 
 // Complex type test (array)
-var float3 fa[10];
-for(var int i = 0; i < 10; i++)
+float3 fa[10];
+for(int i = 0; i < 10; i++)
 {
 	fa[i].x = i*8;
 	fa[i].y = fa[i].x++ - i*4;
@@ -42,7 +42,7 @@ for(var int i = 0; i < 10; i++)
 return 1;
 
 // Comiler mislead test
-var float2 a;
+float2 a;
 a/*[gg]*/.x = 2;
 a.y = a/*[gg]*/.x + 3;
 // Result:
@@ -50,20 +50,20 @@ a.y = a/*[gg]*/.x + 3;
 return a.x;
 
 // Complex type test
-var float4x4 mat;
+float4x4 mat;
 mat.row1.y = 5;
 return 1;
 
-var int a=5;
-var double d[10];
-for(var int i = 0; i < a; i++)
+int a=5;
+double d[10];
+for(int i = 0; i < a; i++)
 d[i] = i*2 + i-2;
 return d[5];
 
-var double d[10];
+double d[10];
 return d[5];
 
-var float4 f4;
+float4 f4;
 f4.y--;
 --f4.z;
 return 1;
@@ -73,7 +73,7 @@ return 1+test(2, 3, 4);
 
 func int fib(int n){ if(n<3) return 1; return fib(n-1)+fib(n-2); }
 func int test(int x, int y, int z){return x*y+z;}
-var int b = 1;
+int b = 1;
 if(7>5)
 b = 3;
 return b+test(2, 3, 4);
@@ -85,7 +85,7 @@ func int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }
 return fib(4);
 
 // Array indirection and optimisation test
-var int res[5]=1;
+int res[5]=1;
 res[1] = 13;
 res[2] = 3;
 res[res[2]] = 4;
@@ -93,19 +93,19 @@ res[res[res[2]]] = 12;
 return 5;
 
 // Some test ^_^
-var int a=0;
-var int b[512];
+int a=0;
+int b[512];
 while(a < 256)
 {
-  var char c[16];
-  var char ref d = &c[0];
+  char c[16];
+  char ref d = &c[0];
   a = ++a + b[a];
 }
 return 0;
 
 // Integer tests
-var int res[30];
-var int a = 14, b = 3, c = 0;
+int res[30];
+int a = 14, b = 3, c = 0;
 res[0] = a+b;
 res[1] = a-b;
 res[2] = -a;
@@ -137,8 +137,8 @@ res[26] = !c;
 return 1;
 
 // Floating point tests
-var double res[15];
-var double a = 14.0, b = 3.0;
+double res[15];
+double a = 14.0, b = 3.0;
 res[0] = a+b;
 res[1] = a-b;
 res[2] = -a;
@@ -157,8 +157,8 @@ res[13] = !a;
 return a+b;
 
 // Long tests
-var long res[24];
-var long a = 4494967296l, b = 594967296l, c = 3;
+long res[24];
+long a = 4494967296l, b = 594967296l, c = 3;
 res[0] = a+b; // 5089934592
 res[1] = a-b; // 3900000000
 res[2] = -a; // -4494967296
@@ -187,12 +187,12 @@ res[23] = !a; // 0
 return 1;
 
 // Decrement and increment tests for all types
-var double a1=5, b1=5;
-var float a2=5, b2=5;
-var long a3=5, b3=5;
-var int a4=5, b4=5;
-var short a5=5, b5=5;
-var char a6=5, b6=5;
+double a1=5, b1=5;
+float a2=5, b2=5;
+long a3=5, b3=5;
+int a4=5, b4=5;
+short a5=5, b5=5;
+char a6=5, b6=5;
 a1++;
 b1--;
 a2++;
@@ -209,36 +209,36 @@ return 1;
 
 // Old all-in-one test
 func double test(float x, float y){ /*teste*/return x**2*y; }
-var int a=5;
-var float b, c[3]=14**2-134;
-var double d[10];
-for(var int i = 0; i< 10; i++)
+int a=5;
+float b, c[3]=14**2-134;
+double d[10];
+for(int i = 0; i< 10; i++)
 d[i] = test(i*2, i-2);
-var double n=1;
+double n=1;
 while(1){ n*=2; if(n>1000) break; }
 return 2+test(2, 3)+a**b;
 
 
 //longPow speed test (2 sec on x86)
-var long a = 43l, b = 10l; // 2 sec
-//var long a = 1l, b = 1250l; // 100 ms
-//var long a = 0l, b = 1250l; // 100 ms
-//var long a = 48l, b = 1250l; // 110 ms
-//var long a = 45486127846l, b = 10l; // 2 sec
-//var long a = 2l, b = 63l; // 3 sec
-var long c;
-for(var int i = 0; i < 10000000; i++)
+long a = 43l, b = 10l; // 2 sec
+//long a = 1l, b = 1250l; // 100 ms
+//long a = 0l, b = 1250l; // 100 ms
+//long a = 48l, b = 1250l; // 110 ms
+//long a = 45486127846l, b = 10l; // 2 sec
+//long a = 2l, b = 63l; // 3 sec
+long c;
+for(int i = 0; i < 10000000; i++)
   c = a**b;
 return c;
 
 // Division by zero handling
-var int a=5, b =0;
+int a=5, b =0;
 return a/b;
 
 // Type conversions
-var int ia=3, ib, ic;
-var double da=5.0, db, dc;
-var long la=4l, lb, lc;
+int ia=3, ib, ic;
+double da=5.0, db, dc;
+long la=4l, lb, lc;
 ib = da;
 ic = la;
 db = ia;
@@ -247,11 +247,11 @@ lb = ia;
 lc = da;
 return 1;
 
-var int a[10]=5;
+int a[10]=5;
 return 1;
 
 // Build-In function checks
-var double res[20];
+double res[20];
 res[0] = cos(0); // 1.0
 res[1] = cos(60); // 0.5
 res[2] = cos(180); // -1.0
@@ -281,7 +281,7 @@ res[19] = clock();
 return clock();
 
 
-var double a = 0.9;
+double a = 0.9;
 return a**2.0;
 
 
@@ -302,9 +302,9 @@ func double abs(double x)
 return clamp(abs(-1.5), 0.0, 1.0);
 
 func int test(int x, int y, int z){return x*y+z;}
-var int res;
+int res;
 {
-var int x = 2;
+int x = 2;
 {
 res = 1+test(x, 3, 4);
 }
@@ -322,14 +322,14 @@ func double abs(double x)
 return abs(-0.5);
 
 //Some complexness %)
-var float3 a;
-var float4 b;
+float3 a;
+float4 b;
 a = 12.0; // should fail
 b = a; // should fail
 return 1;
 
-var int test[5]=0;
-for(var int i = 0; i < 5; i++)
+int test[5]=0;
+for(int i = 0; i < 5; i++)
 {
   test[i] = 1;
   test[i] += 5;
@@ -338,17 +338,17 @@ for(var int i = 0; i < 5; i++)
 }
 return 1;
 
-var int test[2]=0;
-for(var int i = 0; i < 2; i++)
+int test[2]=0;
+for(int i = 0; i < 2; i++)
   test[i] = test[i]++;
 return 1;
 
 // Pointers!
 func int testA(int ref v){ return *v * 5; }
 func void testB(int ref v){ *v += 5; }
-var int a = 5;
-var int ref b = &a;
-var int c = 2;
+int a = 5;
+int ref b = &a;
+int c = 2;
 c = *b;
 *b = 14;
 *b++;
@@ -366,32 +366,32 @@ func void normalize(float4 ref v)
 	var double len = length(v);
 	v->x /= len; v->y /= len; v->z /= len;
 }
-var float4 a;
+float4 a;
 a.x = 12.0;
 a.y = 4.0;
 a.z = 3.0;
 a.w = 1.0;
-var float4 ref b = &a;
+float4 ref b = &a;
 normalize(&a);
 return length(b);
 
-var float4 a;
-var float4 ref b = &a;
+float4 a;
+float4 ref b = &a;
 b->x = 5.0f;
 return b->x;
 
 func double testA(float4 ref v){ return v->x; }
-var float4 a;
-var float4 ref b = &a;
+float4 a;
+float4 ref b = &a;
 a.x = 5.0f;
 return testA(b);
 
-var float3 a;
-var float x = a.x, y = a.y;
+float3 a;
+float x = a.x, y = a.y;
 return 1;
 
-var int a = 12;
-var int res[6];
+int a = 12;
+int res[6];
 res[0] = a + 0;
 res[1] = a * 0;
 res[2] = a * 1;
@@ -400,25 +400,25 @@ res[4] = a*2+0;
 res[5] = a*3*1;
 return 1;
 
-var int arr[5];
-var float4 arrF[4];
-var int ref a = &arr[3];
+int arr[5];
+float4 arrF[4];
+int ref a = &arr[3];
 *a = 55;
-var float4 ref b = &arrF[1];
+float4 ref b = &arrF[1];
 b->x = 85;
-var float ref c = &arrF[1].y;
+float ref c = &arrF[1].y;
 *c = 125;
 {
-	var int ref a = &arr[1];
+	int ref a = &arr[1];
 	*a = 5;
-	var float4 ref b = &arrF[2];
+	float4 ref b = &arrF[2];
 	b->x = 8;
-	var float ref c = &arrF[2].y;
+	float ref c = &arrF[2].y;
 	*c = 12;
 }
 return 1;
 
-var int calltest = 0;
+int calltest = 0;
 func int fib(int n, int ref calls)
 {
 	*calls++;
@@ -427,12 +427,12 @@ func int fib(int n, int ref calls)
 		return 1;
 	return fib(n-2, calls) + fib(n-1, calls);
 }
-var int calls = 0;
+int calls = 0;
 return fib(40, &calls);
 
 
 func double neg(double a){ return -a; }
-var double x = 5.0, nx;
+double x = 5.0, nx;
 for(var int i = 0; i < 50000000; i++)
 nx = neg(x);
 return nx;
@@ -448,20 +448,20 @@ func int test(){ 1; }
 return test();
 
 // Array out of bound check (negative)
-var int arr[10] = 5;
-var int badID1 = cos(125)*4;
+int arr[10] = 5;
+int badID1 = cos(125)*4;
 arr[badID1] = 4;
 return badID1;
 
 // Array out of bound check (overflow)
-var int arr[10] = 5;
-var int badID1 = sqrt(256);
+int arr[10] = 5;
+int badID1 = sqrt(256);
 arr[badID1] = 4;
 return badID1;
 
 // Switch test!
-var int u = 12;
-var int a = 3, b = 0;
+int u = 12;
+int a = 3, b = 0;
 {
   switch(a)
   {
@@ -487,8 +487,8 @@ class Two
   float3 c;
   int d;
 }
-var One one;
-var Two two;
+One one;
+Two two;
 one.a = 3;
 one.e = 2;
 two.a.a = 14;
@@ -496,8 +496,8 @@ two.c.x = 2;
 return 1;
 
 // Variable modify test
-func int slow(int how){ for(var int i = 0; i < how; i++){ how = how-1; } return 2; }
-var int index = 2;
-var int arr[10] = 4;
+func int slow(int how){ for(int i = 0; i < how; i++){ how = how-1; } return 2; }
+int index = 2;
+int arr[10] = 4;
 arr[slow(40000000)] += 16; // 330 ms total. target - 140ms
 return 3;

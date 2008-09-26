@@ -1275,6 +1275,29 @@ namespace CompilerGrammar
 	private:
 		const char* err;
 	};
+	class TypeNameP: public BaseP
+	{
+	public:
+		TypeNameP(Rule a){ m_a.set(a); }
+		virtual ~TypeNameP(){}
+
+		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		{
+			SkipSpaces(str, space);
+			char* curr = *str;
+			m_a->Parse(str, shared_ptr<BaseP>((BaseP*)NULL));
+			if(curr == *str)
+				return false;
+			std::string type(curr, *str);
+			for(UINT i = 0; i < typeInfo.size(); i++)
+				if(typeInfo[i]->name == type)
+					return true;
+			return false;
+		}
+	protected:
+		Rule m_a;
+	};
+	Rule	typenameP(Rule a){ return Rule(shared_ptr<BaseP>(new TypeNameP(a))); }
 
 	void InitGrammar()
 	{
@@ -1287,7 +1310,7 @@ namespace CompilerGrammar
 		addLong		=	addNumberNode<long long>;
 		addDouble	=	addNumberNode<double>;
 
-		seltype		=	varname[selType];
+		seltype		=	typenameP(varname)[selType];
 
 		isconst		=	epsP[AssignVar<bool>(currValConst,false)] >> !strP("const")[AssignVar<bool>(currValConst,true)];
 		varname		=	lexemeD[alphaP >> *alnumP];
@@ -1345,7 +1368,7 @@ namespace CompilerGrammar
 			vardefsub;
 
 		ifexpr		=	(strP("if") >> ('(' >> term5 >> ')'))[SaveStringIndex] >> expression >> ((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
-		forexpr		=	(strP("for")[saveVarTop] >> '(' >> ((strP("var") >> vardef) | term5[addPopNode] | block) >> ';' >> term5 >> ';' >> (term5[addPopNode] | block) >> ')')[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
+		forexpr		=	(strP("for")[saveVarTop] >> '(' >> (vardef | term5[addPopNode] | block) >> ';' >> term5 >> ';' >> (term5[addPopNode] | block) >> ')')[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
 		whileexpr	=
 			strP("while")[saveVarTop] >>
 			(
@@ -1421,7 +1444,7 @@ namespace CompilerGrammar
 			term4_9;
 
 		block		=	chP('{')[blockBegin] >> code >> chP('}')[blockEnd];
-		expression	=	*chP(';') >> (classdef | (strP("var") >> vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode] | block[addBlockNode]);
+		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode] | block[addBlockNode]);
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
