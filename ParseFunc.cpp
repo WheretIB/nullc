@@ -23,18 +23,34 @@ static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<="
 
 int	level = 0;
 std::string preStr = "--";
-bool preNeedChange=false;
-void	goDown(){ level++; preStr = preStr.substr(0, preStr.length()-2); preStr += "  |__"; }
-void	goDownB(){ goDown(); preNeedChange = true; }
-void	goUp(){ level--; preStr = preStr.substr(0, preStr.length()-5); preStr += "__"; }
-void	drawLn(ostringstream& ostr)
+bool preNeedChange = false;
+void goDown()
+{
+	level++;
+	preStr = preStr.substr(0, preStr.length()-2);
+	preStr += "  |__";
+}
+void goDownB()
+{
+	goDown();
+	preNeedChange = true;
+}
+void goUp()
+{
+	level--;
+	preStr = preStr.substr(0, preStr.length()-5);
+	preStr += "__";
+}
+void drawLn(ostringstream& ostr)
 {
 	ostr << preStr;
 	if(preNeedChange)
 	{
 		preNeedChange = false;
 		goUp();
-		level++; preStr = preStr.substr(0, preStr.length()-2); preStr += "   __"; 
+		level++;
+		preStr = preStr.substr(0, preStr.length()-2);
+		preStr += "   __"; 
 	}
 }
 
@@ -372,7 +388,7 @@ void NodeUnaryOp::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
 	ostr << *typeInfo << "UnaryOp :\r\n";
-	goDown();
+	goDownB();
 	first->LogToStream(ostr);
 	goUp();
 }
@@ -424,7 +440,9 @@ void NodeReturnOp::LogToStream(ostringstream& ostr)
 		ostr << *typeInfo << "ReturnOp :\r\n";
 	else
 		ostr << *first->GetTypeInfo() << "ReturnOp :\r\n";
-	goDownB(); first->LogToStream(ostr); goUp();
+	goDownB();
+	first->LogToStream(ostr);
+	goUp();
 }
 UINT NodeReturnOp::GetSize()
 {
@@ -576,7 +594,9 @@ void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
 	ostr << "FuncDef :\r\n";
-	goDownB(); first->LogToStream(ostr); goUp();
+	goDownB();
+	first->LogToStream(ostr);
+	goUp();
 }
 UINT NodeFuncDef::GetSize()
 {
@@ -672,9 +692,16 @@ void NodeFuncCall::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
 	ostr << *typeInfo << "FuncCall '" << funcInfo->name << "' :\r\n";
-	goDownB();
+	goDown();
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+	{
+		if(s == --paramList.rend())
+		{
+			goUp();
+			goDownB();
+		}
 		(*s)->LogToStream(ostr);
+	}
 	goUp();
 }
 UINT NodeFuncCall::GetSize()
@@ -732,7 +759,7 @@ void NodePushShift::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
 	ostr << *typeInfo << "PushShift " << sizeOfType << "\r\n";
-	goDown();
+	goDownB();
 	first->LogToStream(ostr);
 	goUp();
 }
@@ -913,13 +940,17 @@ void NodeVarSet::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
 	ostr << (*typeInfo) << "VarSet " << varInfo << " " << varAddress << "\r\n";
-	goDown();
-	if(first)
-		first->LogToStream(ostr);
-	goUp();
-	goDownB();
 	if(second)
+		goDown();
+	else
+		goDownB();
+	first->LogToStream(ostr);
+	if(second)
+	{
+		goUp();
+		goDownB();
 		second->LogToStream(ostr);
+	}
 	goUp();
 }
 UINT NodeVarSet::GetSize()
@@ -1043,10 +1074,12 @@ void NodeVarGet::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
 	ostr << *typeInfo << "VarGet (array:" << (varInfo.count > 1) << ") '" << varInfo.name << "' " << (int)(varAddress) << "\r\n";
-	goDown();
 	if(first)
+	{
+		goDownB();
 		first->LogToStream(ostr);
-	goUp();
+		goUp();
+	}
 }
 UINT NodeVarGet::GetSize()
 {
@@ -1198,13 +1231,18 @@ void NodeVarSetAndOp::Compile()
 void NodeVarSetAndOp::LogToStream(ostringstream& ostr)
 {
 	drawLn(ostr);
-	ostr << *typeInfo << "VarSet (array:" << (varInfo.count > 1) << ") '" << varInfo.name << "' " << (int)(varAddress) << "\r\n";
-	goDown();
-	first->LogToStream(ostr);
-	goUp();
-	goDownB();
+	ostr << *typeInfo << "VarSetAndOp (array:" << (varInfo.count > 1) << ") '" << varInfo.name << "' " << (int)(varAddress) << "\r\n";
 	if(varInfo.count > 1 || shiftAddress)
+		goDown();
+	else
+		goDownB();
+	first->LogToStream(ostr);
+	if(varInfo.count > 1 || shiftAddress)
+	{
+		goUp();
+		goDownB();
 		second->LogToStream(ostr);
+	}
 	goUp();
 }
 UINT NodeVarSetAndOp::GetSize()
@@ -1386,7 +1424,14 @@ void NodePreValOp::LogToStream(ostringstream& ostr)
 	static char* strs[] = { "++", "--" };
 	if(cmdID != cmdIncAt &&  cmdID != cmdDecAt)
 		throw std::string("ERROR: PreValOp error");
-	drawLn(ostr); ostr << *typeInfo << "PreValOp<" << strs[cmdID-cmdIncAt] << "> :\r\n"; goDown(); if(first) first->LogToStream(ostr); goUp();
+	drawLn(ostr);
+	ostr << *typeInfo << "PreValOp<" << strs[cmdID-cmdIncAt] << "> :\r\n";
+	if(first)
+	{
+		goDown();
+		first->LogToStream(ostr);
+		goUp();
+	}
 }
 
 UINT NodePreValOp::GetSize()
@@ -1467,7 +1512,14 @@ void NodeTwoAndCmdOp::LogToStream(ostringstream& ostr)
 {
 	if((cmdID < cmdAdd) || (cmdID > cmdLogXor))
 		throw std::string("ERROR: TwoAndCmd error");
-	drawLn(ostr); ostr << *typeInfo << "TwoAndCmd<" << binCommandToText[cmdID-cmdAdd] << "> :\r\n"; goDown(); first->LogToStream(ostr); goUp(); goDownB(); second->LogToStream(ostr); goUp();
+	drawLn(ostr);
+	ostr << *typeInfo << "TwoAndCmd<" << binCommandToText[cmdID-cmdAdd] << "> :\r\n";
+	goDown();
+	first->LogToStream(ostr);
+	goUp();
+	goDownB();
+	second->LogToStream(ostr);
+	goUp();
 }
 UINT NodeTwoAndCmdOp::GetSize()
 {
@@ -1539,12 +1591,14 @@ void NodeIfElseExpr::LogToStream(ostringstream& ostr)
 	first->LogToStream(ostr);
 	if(!third)
 	{
-		goUp(); goDownB();
+		goUp();
+		goDownB();
 	}
 	second->LogToStream(ostr);
 	if(third)
 	{
-		goUp(); goDownB();
+		goUp();
+		goDownB();
 		third->LogToStream(ostr);
 	}
 	goUp();
@@ -1611,7 +1665,8 @@ void NodeForExpr::LogToStream(ostringstream& ostr)
 	first->LogToStream(ostr);
 	second->LogToStream(ostr);
 	third->LogToStream(ostr);
-	goUp(); goDownB(); 
+	goUp();
+	goDownB(); 
 	fourth->LogToStream(ostr);
 	goUp();
 }
@@ -1659,7 +1714,8 @@ void NodeWhileExpr::LogToStream(ostringstream& ostr)
 	ostr << "WhileExpression :\r\n";
 	goDown();
 	first->LogToStream(ostr);
-	goUp(); goDownB(); 
+	goUp();
+	goDownB(); 
 	second->LogToStream(ostr);
 	goUp();
 }
@@ -1705,6 +1761,8 @@ void NodeDoWhileExpr::LogToStream(ostringstream& ostr)
 	ostr << "DoWhileExpression :\r\n";
 	goDown();
 	first->LogToStream(ostr);
+	goUp();
+	goDownB();
 	second->LogToStream(ostr);
 	goUp();
 }
@@ -1841,6 +1899,18 @@ void NodeSwitchExpr::LogToStream(ostringstream& ostr)
 	ostr << "SwitchExpression :\r\n";
 	goDown();
 	first->LogToStream(ostr);
+	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
+	casePtr block = caseBlockList.begin(), eblocl = caseBlockList.end();
+	for(; cond != econd; cond++, block++)
+	{
+		(*cond)->LogToStream(ostr);
+		if(block == --caseBlockList.end())
+		{
+			goUp();
+			goDownB();
+		}
+		(*block)->LogToStream(ostr);
+	}
 	goUp();
 }
 UINT NodeSwitchExpr::GetSize()
@@ -1886,15 +1956,17 @@ void NodeExpressionList::LogToStream(ostringstream& ostr)
 	drawLn(ostr);
 	ostr << "NodeExpressionList :\r\n";
 	goDown();
-	(*exprList.begin())->LogToStream(ostr);
-	goUp();
 	listPtr s, e;
-	for(s = exprList.begin(), e = exprList.end(), s++; s != e; s++)
+	for(s = exprList.begin(), e = exprList.end(); s != e; s++)
 	{
-		goDownB();
+		if(s == --exprList.end())
+		{
+			goUp();
+			goDownB();
+		}
 		(*s)->LogToStream(ostr);
-		goUp();
 	}
+	goUp();
 }
 UINT NodeExpressionList::GetSize()
 {
