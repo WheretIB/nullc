@@ -680,9 +680,17 @@ void NodeFuncCall::LogToStream(ostringstream& ostr)
 UINT NodeFuncCall::GetSize()
 {
 	UINT size = 0;
+	UINT currParam = 0;
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+	{
 		size += (*s)->GetSize();
-
+		if(funcInfo)
+			size += ConvertFirstToSecondSize(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
+		else
+			size += ConvertFirstToSecondSize(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[typeDouble->type]);
+		currParam++;
+	}
+	
 	if(funcInfo->address == -1)
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcInfo->name.length();
 	else

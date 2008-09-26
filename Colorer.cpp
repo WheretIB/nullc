@@ -57,7 +57,7 @@ namespace ColorerGrammar
 	std::string	logStr;
 
 	std::vector<FunctionInfo>	funcs;
-	//std::vector<std::string>	strs;
+	std::vector<std::string>	typeInfo;
 	std::vector<VariableInfo>	varInfo;
 	std::vector<VarTopInfo>		varInfoTop;
 	std::vector<UINT>			callArgCount;
@@ -75,6 +75,30 @@ namespace ColorerGrammar
 		tempStr.assign(s, e);
 	}
 
+	class TypeNameP: public BaseP
+	{
+	public:
+		TypeNameP(Rule a){ m_a.set(a); }
+		virtual ~TypeNameP(){}
+
+		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		{
+			SkipSpaces(str, space);
+			char* curr = *str;
+			m_a->Parse(str, shared_ptr<BaseP>((BaseP*)NULL));
+			if(curr == *str)
+				return false;
+			std::string type(curr, *str);
+			for(UINT i = 0; i < typeInfo.size(); i++)
+				if(typeInfo[i] == type)
+					return true;
+			return false;
+		}
+	protected:
+		Rule m_a;
+	};
+	Rule	typenameP(Rule a){ return Rule(shared_ptr<BaseP>(new TypeNameP(a))); }
+
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 	void	InitGrammar()
 	{
@@ -84,7 +108,7 @@ namespace ColorerGrammar
 		symb2		=	graphP - alphaP;
 		varname		=	lexemeD[alphaP >> *alnumP];
 
-		typeExpr	=	varname[ColorRWord];
+		typeExpr	=	typenameP(varname)[ColorRWord];
 
 		funccall	=	varname[ColorFunc] >> 
 			strP("(")[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >>
@@ -144,7 +168,7 @@ namespace ColorerGrammar
 			vardefsub;
 
 		ifExpr			=	strWP("if")[ColorRWord] >> (('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText]) >> expr >> ((strP("else")[ColorRWord] >> expr) | epsP);
-		forExpr			=	strWP("for")[ColorRWord] >> ('(' >> epsP)[ColorText] >> ((strP("var")[ColorRWord] >> vardef) | term5 | block) >> (';' >> epsP)[ColorText] >> term5 >> (';' >> epsP)[ColorText] >> (term5 | block) >> (')' >> epsP)[ColorText] >> expr;
+		forExpr			=	strWP("for")[ColorRWord] >> ('(' >> epsP)[ColorText] >> (vardef | term5 | block) >> (';' >> epsP)[ColorText] >> term5 >> (';' >> epsP)[ColorText] >> (term5 | block) >> (')' >> epsP)[ColorText] >> expr;
 		whileExpr		=	strWP("while")[ColorRWord] >> (('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText]) >> expr;
 		dowhileExpr		=	strWP("do")[ColorRWord] >> expr >> strP("while")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> (';' >> epsP)[ColorText];
 		switchExpr		=	strWP("switch")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> ('{' >> epsP)[ColorBold] >> 
@@ -175,7 +199,7 @@ namespace ColorerGrammar
 		term5	=	(!chP('*')[ColorText] >> appval[SetVar] >> (strP("=") | strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("^="))[ColorText] >> term5) | term4_9;
 
 		block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
-		expr	=	*chP(';')[ColorText] >> ((strWP("var")[ColorRWord] >> vardef >> (';' >> epsP)[ColorText]) | breakExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]) | block);
+		expr	=	*chP(';')[ColorText] >> ((vardef >> (';' >> epsP)[ColorText]) | breakExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]) | block);
 		code	=	*(funcdef | expr);
 
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")))[ColorComment];
@@ -408,6 +432,19 @@ void Colorer::ColorText()
 	ColorerGrammar::varInfoTop.clear();
 	ColorerGrammar::varInfo.clear();
 	ColorerGrammar::funcs.clear();
+	ColorerGrammar::typeInfo.clear();
+
+	ColorerGrammar::typeInfo.push_back("void");
+	ColorerGrammar::typeInfo.push_back("char");
+	ColorerGrammar::typeInfo.push_back("short");
+	ColorerGrammar::typeInfo.push_back("int");
+	ColorerGrammar::typeInfo.push_back("long");
+	ColorerGrammar::typeInfo.push_back("float");
+	ColorerGrammar::typeInfo.push_back("double");
+	ColorerGrammar::typeInfo.push_back("float2");
+	ColorerGrammar::typeInfo.push_back("float3");
+	ColorerGrammar::typeInfo.push_back("float4");
+	ColorerGrammar::typeInfo.push_back("float4x4");
 
 	ColorerGrammar::varInfo.push_back(VariableInfo("ERROR", 0, typeDouble));
 	ColorerGrammar::varInfo.push_back(VariableInfo("pi", 1, typeDouble));
