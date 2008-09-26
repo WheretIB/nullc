@@ -126,10 +126,9 @@ namespace ColorerGrammar
 			(typeExpr >> constExpr >> !strP("ref")[ColorRWord] >> varname[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[AssignVar<string>(logStr, "ERROR: parameter name expected after ','")][LogStr])
 			)[OnError];
 		funcdef		=
-			strP("func")[ColorRWord][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >> 
 			typeExpr >>
-			(varname[ColorFunc][FuncAdd][BlockBegin] >>
-			(('(' >> epsP)[ColorBold] | epsP[AssignVar<string>(logStr, "ERROR: function name must be followed by '('")][LogStr]))[OnError] >>
+			(varname[ColorFunc][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)][FuncAdd][BlockBegin] >>
+			(chP('(')[ColorBold]))[OnError] >>
 			((*(symb | digitP))[ColorErr] >> funcvars) >>
 			chP(')')[ColorBold][FuncEnd] >>
 			chP('{')[ColorBold] >>
