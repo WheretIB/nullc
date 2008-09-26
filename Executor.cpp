@@ -923,22 +923,22 @@ string Executor::GetLog()
 
 bool Executor::GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address)
 {
-	if(type->type == TypeInfo::POD_INT)
+	if(type->type == TypeInfo::TYPE_INT)
 	{
 		varstr << *((int*)&genParams[address]);
-	}else if(type->type == TypeInfo::POD_SHORT)
+	}else if(type->type == TypeInfo::TYPE_SHORT)
 	{
 		varstr << *((short*)&genParams[address]);
-	}else if(type->type == TypeInfo::POD_CHAR)
+	}else if(type->type == TypeInfo::TYPE_CHAR)
 	{
 		varstr << "'" << *((unsigned char*)&genParams[address]) << "' (" << (int)(*((unsigned char*)&genParams[address])) << ")";
-	}else if(type->type == TypeInfo::POD_FLOAT)
+	}else if(type->type == TypeInfo::TYPE_FLOAT)
 	{
 		varstr << *((float*)&genParams[address]);
-	}else if(type->type == TypeInfo::POD_LONG)
+	}else if(type->type == TypeInfo::TYPE_LONG)
 	{
 		varstr << *((long long*)&genParams[address]);
-	}else if(type->type == TypeInfo::POD_DOUBLE)
+	}else if(type->type == TypeInfo::TYPE_DOUBLE)
 	{
 		varstr << *((double*)&genParams[address]);
 	}else{
@@ -952,10 +952,10 @@ void Executor::GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int add
 	for(UINT mn = 0; mn < type->memberData.size(); mn++)
 	{
 		varstr << "  " << type->memberData[mn].type->GetTypeName() << " " << type->memberData[mn].name << " = ";
-		if(type->memberData[mn].type->type == TypeInfo::POD_VOID)
+		if(type->memberData[mn].type->type == TypeInfo::TYPE_VOID)
 		{
 			varstr << "ERROR: This type is void";
-		}else if(type->memberData[mn].type->type == TypeInfo::NOT_POD)
+		}else if(type->memberData[mn].type->type == TypeInfo::TYPE_COMPLEX)
 		{
 			varstr << "\r\n";
 			GetComplexTypeInfo(varstr, type->memberData[mn].type, address+type->memberData[mn].offset);
@@ -986,10 +986,10 @@ string Executor::GetVarInfo()
 			if(varInfo[i].count != 1)
 				varstr << "[" << n << "]";
 			varstr << " = ";
-			if(varInfo[i].varType->type == TypeInfo::POD_VOID)
+			if(varInfo[i].varType->type == TypeInfo::TYPE_VOID)
 			{
 				varstr << "ERROR: This type is void";
-			}else if(varInfo[i].varType->type == TypeInfo::NOT_POD)
+			}else if(varInfo[i].varType->type == TypeInfo::TYPE_COMPLEX)
 			{
 				varstr << "" << "\r\n";
 				GetComplexTypeInfo(varstr, varInfo[i].varType, address);

@@ -125,29 +125,29 @@ void	ConvertFirstToSecond(asmStackType first, asmStackType second)
 
 TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 {
-	if(a->type == TypeInfo::POD_DOUBLE)
+	if(a->type == TypeInfo::TYPE_DOUBLE)
 		return a;
-	if(b->type == TypeInfo::POD_DOUBLE)
+	if(b->type == TypeInfo::TYPE_DOUBLE)
 		return b;
-	if(a->type == TypeInfo::POD_FLOAT)
+	if(a->type == TypeInfo::TYPE_FLOAT)
 		return a;
-	if(b->type == TypeInfo::POD_FLOAT)
+	if(b->type == TypeInfo::TYPE_FLOAT)
 		return b;
-	if(a->type == TypeInfo::POD_LONG)
+	if(a->type == TypeInfo::TYPE_LONG)
 		return a;
-	if(b->type == TypeInfo::POD_LONG)
+	if(b->type == TypeInfo::TYPE_LONG)
 		return b;
-	if(a->type == TypeInfo::POD_INT)
+	if(a->type == TypeInfo::TYPE_INT)
 		return a;
-	if(b->type == TypeInfo::POD_INT)
+	if(b->type == TypeInfo::TYPE_INT)
 		return b;
-	if(a->type == TypeInfo::POD_SHORT)
+	if(a->type == TypeInfo::TYPE_SHORT)
 		return a;
-	if(b->type == TypeInfo::POD_SHORT)
+	if(b->type == TypeInfo::TYPE_SHORT)
 		return b;
-	if(a->type == TypeInfo::POD_CHAR)
+	if(a->type == TypeInfo::TYPE_CHAR)
 		return a;
-	if(b->type == TypeInfo::POD_CHAR)
+	if(b->type == TypeInfo::TYPE_CHAR)
 		return b;
 	__asm int 3;
 	return NULL;
@@ -430,7 +430,7 @@ void NodeReturnOp::Compile()
 	TypeInfo *retType = typeInfo ? typeInfo : first->GetTypeInfo();
 	asmOperType operType = operTypeForStackType[podTypeToStackType[retType->type]];
 	cmds->AddData(cmdReturn);
-	cmds->AddData((USHORT)(retType->type == TypeInfo::NOT_POD ? retType->size : (bitRetSimple | operType)));
+	cmds->AddData((USHORT)(retType->type == TypeInfo::TYPE_COMPLEX ? retType->size : (bitRetSimple | operType)));
 	cmds->AddData((USHORT)(popCnt));
 }
 void NodeReturnOp::LogToStream(ostringstream& ostr)
@@ -685,7 +685,7 @@ void NodeFuncCall::Compile()
 		// Вызовем по адресу
 		cmds->AddData(cmdCall);
 		cmds->AddData(funcInfo->address);
-		cmds->AddData((USHORT)((typeInfo->type == TypeInfo::NOT_POD || typeInfo->type == TypeInfo::POD_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
+		cmds->AddData((USHORT)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
 	}
 }
 void NodeFuncCall::LogToStream(ostringstream& ostr)
@@ -826,11 +826,11 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 
 	// получить узел, расчитывающий значение
 	first = getList()->back(); getList()->pop_back();
-	if(typeInfo->type == TypeInfo::NOT_POD || first->GetTypeInfo()->type == TypeInfo::NOT_POD)
+	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 	{
-		if(first->GetTypeInfo()->type != TypeInfo::NOT_POD)
+		if(first->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX)
 			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
-		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD && first->GetTypeInfo()->GetTypeName() != typeInfo->GetTypeName())
+		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX && first->GetTypeInfo()->GetTypeName() != typeInfo->GetTypeName())
 			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
 	}
 	if((typeInfo->refLevel != first->GetTypeInfo()->refLevel) || (typeInfo->refLevel != 0 && typeInfo->GetTypeName() != first->GetTypeInfo()->GetTypeName()))
@@ -845,7 +845,7 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 		second = getList()->back(); getList()->pop_back();
 
 		// сдвиг адреса должен быть целым числом
-		if(second->GetTypeInfo()->type != TypeInfo::POD_INT)
+		if(second->GetTypeInfo()->type != TypeInfo::TYPE_INT)
 			throw std::string("ERROR: NodeVarSet() address shift must be an integer number");
 
 		if(second->GetNodeType() == typeNodeNumber)
@@ -1013,7 +1013,7 @@ NodeVarGet::NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 		first = getList()->back(); getList()->pop_back();
 
 		// сдвиг адреса должен быть  целым числом
-		if(first->GetTypeInfo()->type != TypeInfo::POD_INT)
+		if(first->GetTypeInfo()->type != TypeInfo::TYPE_INT)
 			throw std::string("ERROR: NodeVarGet() address shift must be an integer number");
 
 		if(first->GetNodeType() == typeNodeNumber)
@@ -1122,7 +1122,7 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 	first = getList()->back(); getList()->pop_back();
 
 	// На данный момент операции с композитными типами отсутствуют
-	if(typeInfo->type == TypeInfo::NOT_POD || typeInfo->refLevel != 0 || first->GetTypeInfo()->refLevel != 0)
+	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0 || first->GetTypeInfo()->refLevel != 0)
 		throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + "= is not supported on '" + typeInfo->GetTypeName() + "' and '" + first->GetTypeInfo()->GetTypeName() + "'");
 
 	// если переменная - массив или член составного типа, то нужен сдвиг адреса
@@ -1132,7 +1132,7 @@ NodeVarSetAndOp::NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT 
 		second = getList()->back(); getList()->pop_back();
 
 		// сдвиг адреса должен быть  целым числом
-		if(second->GetTypeInfo()->type != TypeInfo::POD_INT)
+		if(second->GetTypeInfo()->type != TypeInfo::TYPE_INT)
 			throw std::string("ERROR: NodeVarSetAndOp() address shift must be an integer number");
 
 		if(second->GetNodeType() == typeNodeNumber)
@@ -1296,7 +1296,7 @@ NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAdd
 	// сдвиг уже прибавлен к адресу
 	bakedShift = false;
 
-	if(typeInfo->type == TypeInfo::NOT_POD || typeInfo->refLevel != 0)
+	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
 		throw std::string("ERROR: ") + (cmdID == cmdIncAt ? "increment" : "decrement") + std::string(" is not supported on '") + typeInfo->GetTypeName() + "'";
 
 	// если переменная - массив или член составного типа, то нужен сдвиг адреса
@@ -1306,7 +1306,7 @@ NodePreValOp::NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAdd
 		first = getList()->back(); getList()->pop_back();
 
 		// сдвиг адреса должен быть  целым числом
-		if(first->GetTypeInfo()->type != TypeInfo::POD_INT)
+		if(first->GetTypeInfo()->type != TypeInfo::TYPE_INT)
 			throw std::string("ERROR: NodePreValOp() address shift must be an integer number");
 
 		if(first->GetNodeType() == typeNodeNumber)
@@ -1479,7 +1479,7 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 
 	// На данный момент операции с композитными типами отсутствуют
 	if(first->GetTypeInfo()->refLevel == 0)
-		if(first->GetTypeInfo()->type == TypeInfo::NOT_POD || second->GetTypeInfo()->type == TypeInfo::NOT_POD)
+		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX || second->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 			throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on '" + first->GetTypeInfo()->GetTypeName() + "' and '" + second->GetTypeInfo()->GetTypeName() + "'");
 
 	// Найдём результирующий тип, после проведения операции
