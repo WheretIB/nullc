@@ -127,8 +127,8 @@ namespace ColorerGrammar
 			)[OnError];
 		funcdef		=
 			typeExpr >>
-			(varname[ColorFunc][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)][FuncAdd][BlockBegin] >>
-			(chP('(')[ColorBold]))[OnError] >>
+			varname[ColorFunc][SetTempStr] >>
+			chP('(')[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)][FuncAdd][BlockBegin] >>
 			((*(symb | digitP))[ColorErr] >> funcvars) >>
 			chP(')')[ColorBold][FuncEnd] >>
 			chP('{')[ColorBold] >>
@@ -204,13 +204,14 @@ namespace ColorerGrammar
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")))[ColorComment];
 	}
 
-	void CheckIfDeclared(const std::string& str)
+	void CheckIfDeclared(const std::string& str, bool forFunction = false)
 	{
 		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
 			throw std::string("ERROR: The name '" + str + "' is reserved");
-		for(UINT i = 0; i < funcs.size(); i++)
-			if(funcs[i].name == str)
-				throw std::string("ERROR: Name '" + str + "' is already taken for a function");
+		if(!forFunction)
+			for(UINT i = 0; i < funcs.size(); i++)
+				if(funcs[i].name == str)
+					throw std::string("ERROR: Name '" + str + "' is already taken for a function");
 	}
 	void AddVar(char const* s, char const* e)
 	{
@@ -302,7 +303,7 @@ namespace ColorerGrammar
 
 	void FuncAdd(char const* s, char const* e)
 	{
-		string vName = std::string(s, e);
+		string vName = tempStr;
 		for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 			if(varInfo[i].name == vName)
 			{
@@ -311,7 +312,7 @@ namespace ColorerGrammar
 				return;
 			}
 			try{
-				CheckIfDeclared(vName);
+				CheckIfDeclared(vName, true);
 			}catch(const std::string& str){
 				ColorCode(255,0,0,0,0,1,s,e);
 				logStream << str << "\r\n";
@@ -340,30 +341,41 @@ namespace ColorerGrammar
 		if(fname == "cos" || fname == "sin" || fname == "tan" || fname == "ctg" || fname == "ceil" || fname == "floor" || 
 			fname == "sqrt" || fname == "clock")
 		{
-			if(fname == "clock" && callArgCount.back() != 0){
+			if(fname == "clock" && callArgCount.back() != 0)
+			{
 				ColorCode(255,0,0,0,0,1,s,e);
 				logStream << "ERROR: function '" << fname << "' takes no arguments\r\n";
 				return;
 			}
-			if(fname != "clock" && callArgCount.back() != 1){
+			if(fname != "clock" && callArgCount.back() != 1)
+			{
 				ColorCode(255,0,0,0,0,1,s,e);
 				logStream << "ERROR: function '" << fname << "' takes one argument\r\n";
 				return;
 			}
 		}else{	//Find user-defined function
+			bool foundFunction = false;
 			int i = (int)funcs.size()-1;
-			while(i >= 0 && funcs[i].name != fname)
+			while(true)
+			{
+				while(i >= 0 && funcs[i].name != fname)
+					i--;
+				if(i == -1)
+				{
+					if(!foundFunction)
+					{
+						ColorCode(255,0,0,0,0,1,s,st);
+						logStream << "ERROR: function '" << fname << "' is undefined\r\n";
+					}else{
+						ColorCode(255,0,0,0,0,1,s,e);
+						logStream << "ERROR: none of the functions '" << fname << "' takes " << (UINT)funcs[i].params.size() << " arguments\r\n";
+					}
+					break;
+				}
+				foundFunction = true;
+				if(funcs[i].params.size() == callArgCount.back())
+					break;
 				i--;
-			if(i == -1){
-				ColorCode(255,0,0,0,0,1,s,st);
-				logStream << "ERROR: function '" << fname << "' is undefined\r\n";
-				return;
-			}
-
-			if(funcs[i].params.size() != callArgCount.back()){
-				ColorCode(255,0,0,0,0,1,s,e);
-				logStream << "ERROR: function '" << fname << "' takes " << (UINT)funcs[i].params.size() << " argument(s), not " << callArgCount.back() << "\r\n";
-				return;
 			}
 		}
 		callArgCount.pop_back();
