@@ -295,7 +295,7 @@ void Optimizer_x86::OptimizePushPop()
 			while(Commands[pushIndex].Name != push && pushIndex > i-10 && pushIndex > 0)
 				pushIndex--;
 			// For first two cases
-			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number || Commands[pushIndex].argA.type == Argument::ptr) &&
+			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number/* || Commands[pushIndex].argA.type == Argument::ptr*/) &&
 				!CheckDependencies(pushIndex+1, i-1, Argument::label, true, true))
 			{
 				Strings[i].replace(0, 3, "mov");
@@ -312,9 +312,15 @@ void Optimizer_x86::OptimizePushPop()
 			if(Commands[pushIndex].Name == push && isGenReg[Commands[pushIndex].argA.type] &&
 				!CheckDependencies(pushIndex+1, i-1, Commands[pushIndex].argA.type, true, true))
 			{
-				Strings[i].replace(0, 3, "mov");
-				Strings[i] += ", " + std::string(Strings[pushIndex].c_str()+Commands[pushIndex].argA.begin, Commands[pushIndex].argA.size);
-				Strings[pushIndex] = "";
+				if(Commands[i].argA.type == Commands[pushIndex].argA.type)
+				{
+					Strings[i] = "";
+					Strings[pushIndex] = "";
+				}else{
+					Strings[i].replace(0, 3, "mov");
+					Strings[i] += ", " + std::string(Strings[pushIndex].c_str()+Commands[pushIndex].argA.begin, Commands[pushIndex].argA.size);
+					Strings[pushIndex] = "";
+				}
 
 				// Update instruction information
 				ClassifyInstruction(Commands[i], Strings[i].c_str());

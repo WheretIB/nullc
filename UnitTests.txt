@@ -503,3 +503,22 @@ int index = 2;
 int arr[10] = 4;
 arr[slow(40000000)] += 16; // 330 ms total. target - 140ms
 return 3;
+
+// Class test 2
+class One
+{
+  int a, b, c;
+  float e, f;
+}
+class Two
+{
+  One a, b;
+  float3 c;
+  int d;
+}
+Two two, twonext;
+two.a.a = 14;
+two.c.x = 2;
+two.d = 5;
+twonext = two;
+return 1;

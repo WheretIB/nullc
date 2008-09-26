@@ -47,7 +47,7 @@ TypeInfo* GetReferenceType(TypeInfo* type)
 	TypeInfo* newInfo = new TypeInfo();
 	newInfo->name = type->name;
 	newInfo->size = 4;
-	newInfo->type = TypeInfo::POD_INT;
+	newInfo->type = TypeInfo::TYPE_INT;
 	newInfo->refLevel = type->refLevel + 1;
 
 	typeInfo.push_back(newInfo);
@@ -1070,7 +1070,7 @@ void addFuncCallNode(char const* s, char const* e)
 		{
 			if(fList[k]->params[n].varType != nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo())
 			{
-				if(nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo()->type == TypeInfo::NOT_POD)
+				if(nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 					fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
 				else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
 					fRating[k] += 1;
@@ -1196,7 +1196,7 @@ void beginType(char const* s, char const* e)
 		throw std::string("ERROR: Different type is being defined");
 	newType = new TypeInfo();
 	newType->name = std::string(s, e);
-	newType->type = TypeInfo::NOT_POD;
+	newType->type = TypeInfo::TYPE_COMPLEX;
 }
 
 void addMember(char const* s, char const* e)
@@ -1462,62 +1462,62 @@ Compiler::Compiler(CommandList* cmds)
 	info = new TypeInfo();
 	info->name = "void";
 	info->size = 0;
-	info->type = TypeInfo::POD_VOID;
+	info->type = TypeInfo::TYPE_VOID;
 	typeVoid = info;
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "double";
 	info->size = 8;
-	info->type = TypeInfo::POD_DOUBLE;
+	info->type = TypeInfo::TYPE_DOUBLE;
 	typeDouble = info;
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "float";
 	info->size = 4;
-	info->type = TypeInfo::POD_FLOAT;
+	info->type = TypeInfo::TYPE_FLOAT;
 	typeFloat = info;
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "long";
 	info->size = 8;
-	info->type = TypeInfo::POD_LONG;
+	info->type = TypeInfo::TYPE_LONG;
 	typeLong = info;
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "int";
 	info->size = 4;
-	info->type = TypeInfo::POD_INT;
+	info->type = TypeInfo::TYPE_INT;
 	typeInt = info;
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "short";
 	info->size = 2;
-	info->type = TypeInfo::POD_SHORT;
+	info->type = TypeInfo::TYPE_SHORT;
 	typeShort = info;
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "char";
 	info->size = 1;
-	info->type = TypeInfo::POD_CHAR;
+	info->type = TypeInfo::TYPE_CHAR;
 	typeChar = info;
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "float2";
-	info->type = TypeInfo::NOT_POD;
+	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
 	info->AddMember("y", typeFloat);
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "float3";
-	info->type = TypeInfo::NOT_POD;
+	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
 	info->AddMember("y", typeFloat);
 	info->AddMember("z", typeFloat);
@@ -1525,7 +1525,7 @@ Compiler::Compiler(CommandList* cmds)
 
 	info = new TypeInfo();
 	info->name = "float4";
-	info->type = TypeInfo::NOT_POD;
+	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
 	info->AddMember("y", typeFloat);
 	info->AddMember("z", typeFloat);
@@ -1534,14 +1534,14 @@ Compiler::Compiler(CommandList* cmds)
 
 	info = new TypeInfo();
 	info->name = "double2";
-	info->type = TypeInfo::NOT_POD;
+	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
 	info->AddMember("y", typeDouble);
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
 	info->name = "double3";
-	info->type = TypeInfo::NOT_POD;
+	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
 	info->AddMember("y", typeDouble);
 	info->AddMember("z", typeDouble);
@@ -1549,7 +1549,7 @@ Compiler::Compiler(CommandList* cmds)
 
 	info = new TypeInfo();
 	info->name = "double4";
-	info->type = TypeInfo::NOT_POD;
+	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
 	info->AddMember("y", typeDouble);
 	info->AddMember("z", typeDouble);
@@ -1560,7 +1560,7 @@ Compiler::Compiler(CommandList* cmds)
 
 	info = new TypeInfo();
 	info->name = "float4x4";
-	info->type = TypeInfo::NOT_POD;
+	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("row1", typeFloat4);
 	info->AddMember("row2", typeFloat4);
 	info->AddMember("row3", typeFloat4);

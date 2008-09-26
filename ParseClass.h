@@ -7,13 +7,13 @@
 class TypeInfo
 {
 public:
-	enum PodTypes{ NOT_POD, POD_VOID, POD_INT, POD_FLOAT, POD_LONG, POD_DOUBLE, POD_SHORT, POD_CHAR, };
+	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	TypeInfo(){ size = 0; type = POD_VOID; refLevel = 0; }
+	TypeInfo(){ size = 0; type = TYPE_VOID; refLevel = 0; }
 
 	std::string name;	// type name
 	UINT		size;	// sizeof(type)
-	PodTypes	type;	// type id
+	TypeCategory	type;	// type id
 
 	UINT		refLevel;	// reference level
 
@@ -29,7 +29,7 @@ public:
 		memcpy(pos, name.c_str(), strlen(name.c_str()));
 		return std::string(&buf[0], pos+strlen(name.c_str()));
 	}
-	//NOT_POD are structures
+	//TYPE_COMPLEX are structures
 	void	AddMember(const std::string& name, TypeInfo* type)
 	{
 		memberData.push_back(MemberInfo());
@@ -93,6 +93,7 @@ basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, VariableInfo var)
 class FunctionInfo
 {
 public:
+	//shared_ptr<NodeZeroOP>	defNode;	//A node that defines a function
 	UINT		address;				//Address of the beginning of function inside bytecode
 	std::string	name;					//Function name
 	std::vector<VariableInfo> params;	//Parameter list
