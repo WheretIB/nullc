@@ -80,9 +80,6 @@ const CmdID cmdCall		= 113;
 	// call standard function
 	// вызов стандартных (встроенных) функций
 const CmdID cmdCallStd	= 114;
-	// function prologue
-	// пролог функции
-const CmdID cmdProlog	= 120;
 //							[using Operation Flag]
 	// return from function
 	// возврат из функции и выполнение POPT n раз, где n идЄт за командой
@@ -233,18 +230,16 @@ __forceinline asmStackType	flagStackType(const CmdFlag& flag){ return (asmStackT
 	// extract asmDataType
 	// извлечь asmDataType
 __forceinline asmDataType	flagDataType(const CmdFlag& flag){ return (asmDataType)(((flag>>2)&0x00000007)<<2); }//flag&0x00000003C); }
-	// addressing is performed according to top value of variable stack
-	// адресаци€ производитс€ относительно вершины стека переменных
+	// addressing is performed relatively to the base of variable stack
+	// адресаци€ производитс€ относительно базы стека переменных
 __forceinline UINT			flagAddrRel(const CmdFlag& flag){ return (flag>>5)&0x00000001; }
 	// addressing is perform using absolute address
 	// адресаци€ производитс€ по абсолютному адресу
 __forceinline UINT			flagAddrAbs(const CmdFlag& flag){ return (flag>>6)&0x00000001; }
-	// address is placed in stack
-	// адрес находитс€ в основном стеке
-//__forceinline UINT			flagAddrStk(const CmdFlag& flag){ return (flag>>7)&0x00000001; }
-	// shift is performed to the address
-	// к адресу примен€етс€ сдвиг
-//__forceinline UINT			flagShiftOn(const CmdFlag& flag){ return (flag>>8)&0x00000001; }
+	// addressing is performed relatively to the top of variable stack
+	// адресаци€ производитс€ относительно вершины стека переменных
+__forceinline UINT			flagAddrRelTop(const CmdFlag& flag){ return (flag>>7)&0x00000001; }
+
 	// shift is placed in stack
 	// сдвиг находитс€ в основном стеке
 __forceinline UINT			flagShiftStk(const CmdFlag& flag){ return (flag>>9)&0x00000001; }
@@ -262,6 +257,8 @@ __forceinline UINT			flagNoAddr(const CmdFlag& flag){ return !(flag&0x00000060);
 // константы дл€ создани€ флага комманды из отдельных битов
 const UINT	bitAddrRel	= 1 << 5;
 const UINT	bitAddrAbs	= 1 << 6;
+const UINT	bitAddrRelTop= 1 << 7;
+
 const UINT	bitShiftStk	= 1 << 9;
 const UINT	bitSizeOn	= 1 << 10;
 const UINT	bitSizeStk	= 1 << 11;
@@ -443,9 +440,6 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		break;
 	case cmdCall:
 		(*stream) << " CALL " << valind << " size: " << dw0 << ";";
-		break;
-	case cmdProlog:
-		(*stream) << " PROLOG " << valind << " ;";
 		break;
 	case cmdReturn:
 		(*stream) << " RET " << valind;

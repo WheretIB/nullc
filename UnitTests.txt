@@ -522,3 +522,6 @@ two.c.x = 2;
 two.d = 5;
 twonext = two;
 return 1;
+
+int test(int a){ return a*2; }
+return test(5);

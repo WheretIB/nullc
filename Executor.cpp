@@ -208,11 +208,6 @@ UINT Executor::Run()
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0, retFlag));
 			}
 			break;
-		case cmdProlog:
-			m_cmds->GetUCHAR(pos, oFlag);
-			pos++;
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, (UINT)(oFlag), 0, 0));
-			break;
 		case cmdReturn:
 			{
 				USHORT	retFlag, popCnt;
@@ -348,7 +343,7 @@ UINT Executor::Run()
 			st = flagStackType(cFlag);
 			asmDataType dt = flagDataType(cFlag);
 
-			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
 			{
 				m_cmds->GetINT(pos, valind);
 				pos += 4;
@@ -381,9 +376,13 @@ UINT Executor::Run()
 				valind += paramTop.back();
 			if(flagShiftStk(cFlag))
 				valind += shift;
+			if(flagAddrRelTop(cFlag))
+				valind += genParams.size();
 
 			if(cmd == cmdMov)
 			{
+				if(flagAddrRelTop(cFlag) && valind+typeSizeD[dt] > genParams.size())
+					genParams.reserve(genParams.size()+64);
 				if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
 				{
 					UINT arr[2] = { genStack[genStack.size()-2], genStack[genStack.size()-1] };

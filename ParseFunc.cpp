@@ -628,11 +628,6 @@ NodeFuncCall::~NodeFuncCall()
 void NodeFuncCall::Compile()
 {
 	// Если имеются параметры, найдём их значения
-	if(funcInfo->address != -1)
-	{
-		cmds->AddData(cmdProlog);
-		cmds->AddData((UCHAR)(1));
-	}
 	UINT currParam = 0;
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
 	{
@@ -653,8 +648,20 @@ void NodeFuncCall::Compile()
 		cmds->AddData(funcInfo->name.c_str(), funcInfo->name.length());
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
-		cmds->AddData(cmdProlog);
-		cmds->AddData((UCHAR)(2));
+		UINT addr = 0;
+		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)
+		{
+			asmStackType newST = podTypeToStackType[funcInfo->params[i].varType->type];
+			asmDataType newDT = podTypeToDataType[funcInfo->params[i].varType->type];
+			cmds->AddData(cmdMov);
+			cmds->AddData((USHORT)(newST | newDT | bitAddrRelTop));
+			// адрес начала массива
+			cmds->AddData(addr);
+			addr += funcInfo->params[i].varType->size;
+
+			cmds->AddData(cmdPop);
+			cmds->AddData((USHORT)(newST));
+		}
 
 		cmds->AddData(cmdPushVTop);
 
@@ -666,21 +673,6 @@ void NodeFuncCall::Compile()
 		// Расширим стек переменные на это значение
 		cmds->AddData(cmdPushV);
 		cmds->AddData(allSize);
-
-		UINT addr = 0;
-		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)
-		{
-			asmStackType newST = podTypeToStackType[funcInfo->params[i].varType->type];
-			asmDataType newDT = podTypeToDataType[funcInfo->params[i].varType->type];
-			cmds->AddData(cmdMov);
-			cmds->AddData((USHORT)(newST | newDT | bitAddrRel));
-			// адрес начала массива
-			cmds->AddData(addr);
-			addr += funcInfo->params[i].varType->size;
-
-			cmds->AddData(cmdPop);
-			cmds->AddData((USHORT)(newST));
-		}
 
 		// Вызовем по адресу
 		cmds->AddData(cmdCall);
@@ -721,7 +713,7 @@ UINT NodeFuncCall::GetSize()
 	if(funcInfo->address == -1)
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcInfo->name.length();
 	else
-		size += 5*sizeof(CmdID) + 2*sizeof(UCHAR) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcInfo->params.size()) * (2*sizeof(CmdID)+2+4+2);
+		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcInfo->params.size()) * (2*sizeof(CmdID)+2+4+2);
 
 	return size;
 }

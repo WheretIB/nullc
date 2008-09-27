@@ -368,7 +368,7 @@ namespace ColorerGrammar
 						logStream << "ERROR: function '" << fname << "' is undefined\r\n";
 					}else{
 						ColorCode(255,0,0,0,0,1,s,e);
-						logStream << "ERROR: none of the functions '" << fname << "' takes " << (UINT)funcs[i].params.size() << " arguments\r\n";
+						logStream << "ERROR: none of the functions '" << fname << "' takes " << (UINT)callArgCount.back() << " arguments\r\n";
 					}
 					break;
 				}
