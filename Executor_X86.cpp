@@ -51,7 +51,7 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 	if(expCode == EXCEPTION_ACCESS_VIOLATION)
 	{
 		if(expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
-			expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase)
+			expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase+64*1024)
 		{
 			// Проверим, не привысии ли мы объём доступной памяти
 			if(reservedStack > 512*1024*1024)
@@ -198,8 +198,6 @@ void ExecutorX86::GenListing()
 	vector<int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
 	vector<int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
 
-	bool firstProlog = true;
-
 	//Узнаем, кому нужны лейблы
 	while(cmdList->GetData(pos, cmd))
 	{
@@ -222,9 +220,6 @@ void ExecutorX86::GenListing()
 			pos += 4;
 			pos += 2;
 			funcNeedLabel.push_back(valind);
-			break;
-		case cmdProlog:
-			pos += 1;
 			break;
 		case cmdReturn:
 			pos += 4;
@@ -346,8 +341,6 @@ void ExecutorX86::GenListing()
 
 	UINT lastVarSize = 0;
 	bool mulByVarSize = false;
-
-	firstProlog = true;
 
 	pos = 0;
 	pos2 = 0;
@@ -530,19 +523,6 @@ void ExecutorX86::GenListing()
 						throw std::string("Complex type return is not supported [call]");
 				}
 			}
-			break;
-		case cmdProlog:
-			cmdList->GetUCHAR(pos, oFlag);
-			pos++;
-			logASM << "  ; PROLOG " << (UINT)(oFlag) << "\r\n";
-			if(oFlag == 1)
-			{
-				logASM << "push ebp ; first part of PUSHT\r\n";
-			}else if(oFlag == 2){
-				logASM << "mov ebp, edi ; second part of PUSHT\r\n";
-				pos += 2; //пропустить PUSHT
-			}
-			firstProlog = !firstProlog;
 			break;
 		case cmdReturn:
 			{
@@ -867,13 +847,17 @@ void ExecutorX86::GenListing()
 				}
 				mulByVarSize = false;
 
-				char *texts[] = { "", "edx + ", "ebp + " };
+				char *texts[] = { "", "edx + ", "ebp + ", "edi + " };
+				char *dontNeed = texts[0];
 				char *needEDX = texts[1];
 				char *needEBP = texts[2];
+				char *useEDI = texts[3];
 				if(knownEDX)
-					needEDX = texts[0];
+					needEDX = dontNeed;
 				if(flagAddrAbs(cFlag))
-					needEBP = texts[0];
+					needEBP = dontNeed;
+				if(flagAddrRelTop(cFlag))
+					needEBP = useEDI;
 
 				UINT final = paramBase+numEDX;
 

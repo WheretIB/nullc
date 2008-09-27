@@ -21,6 +21,7 @@ public:
 	__inline void		clear(){ m_size = 0; }
 	__inline T&			operator[](UINT index){ return data[index]; }
 	__inline void		resize(UINT newsize){ m_size = newsize; while(m_size>=max) grow(); }
+	__inline void		reserve(UINT ressize){ while(ressize >= max) grow(); }
 private:
 	__inline void	grow(){ T* ndata = new T[max+(max>>1)]; memcpy(ndata, data, max*sizeof(T)); delete[] data; data=ndata; max=max+(max>>1); }
 	T	*data;
