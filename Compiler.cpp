@@ -1769,11 +1769,6 @@ void Compiler::GenListing()
 				logASM << " simple";
 			logASM << " size:" << (shVal1&0x0FFF) << ";";
 			break;
-		case cmdProlog:
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			logASM << dec << showbase << pos2 << " PROLOG " << (UINT)(oFlag) << ";";
-			break;
 		case cmdReturn:
 			cmdList->GetUSHORT(pos, shVal1);
 			pos += 2;
