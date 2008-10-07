@@ -33,15 +33,30 @@ TypeInfo*	typeFloat = NULL;
 TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
 
+// Log stream
+ostringstream	compileLog;
+
+// Temp variables
+// Временные переменные:
+// Количество минусов перед переменной, количество определённых переменных, размер определённых переменных
+// Вершина стека переменных
+UINT negCount, varDefined, varSize, varTop;
+// Является ли текущая переменная константной
+bool currValConst;
+
 // Функция возвращает тип - указателя на исходный
 TypeInfo* GetReferenceType(TypeInfo* type)
 {
+	compileLog << "GetReferenceType(" << type->GetTypeName() << ")\r\n";
 	// Поищем нужный тип в списке
 	UINT targetRefLevel = type->refLevel+1;
 	for(UINT i = 0; i < typeInfo.size(); i++)
 	{
-		if(type->name == typeInfo[i]->name && targetRefLevel == typeInfo[i]->refLevel)
+		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetRefLevel == typeInfo[i]->refLevel)
+		{
+			compileLog << "  returns " << typeInfo[i]->GetTypeName() << "\r\n";
 			return typeInfo[i];
+		}
 	}
 	// Создадим новый тип
 	TypeInfo* newInfo = new TypeInfo();
@@ -49,22 +64,59 @@ TypeInfo* GetReferenceType(TypeInfo* type)
 	newInfo->size = 4;
 	newInfo->type = TypeInfo::TYPE_INT;
 	newInfo->refLevel = type->refLevel + 1;
+	newInfo->subType = type;
 
 	typeInfo.push_back(newInfo);
+	compileLog << "  returns " << newInfo->GetTypeName() << "\r\n";
 	return newInfo;
 }
 
 // Функиця возвращает тип, получаемый при разименовании указателя
 TypeInfo* GetDereferenceType(TypeInfo* type)
 {
+	compileLog << "GetDereferenceType(" << type->GetTypeName() << ")\r\n";
+	if(!type->subType || type->refLevel == 0)
+		throw std::string("Cannot dereference type ") + type->GetTypeName() + std::string(" there is no result type available");
+	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
+	return type->subType;
+}
+
+// Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
+TypeInfo* GetArrayType(TypeInfo* type)
+{
+	compileLog << "GetArrayType(" << type->GetTypeName() << ", " << varSize << ")\r\n";
 	// Поищем нужный тип в списке
-	UINT targetRefLevel = type->refLevel-1;
+	UINT targetArrLevel = type->arrLevel+1;
 	for(UINT i = 0; i < typeInfo.size(); i++)
 	{
-		if(type->name == typeInfo[i]->name && targetRefLevel == typeInfo[i]->refLevel)
+		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == varSize)
+		{
+			compileLog << "  returns " << typeInfo[i]->GetTypeName() << "\r\n";
 			return typeInfo[i];
+		}
 	}
-	throw std::string("Cannot dereference type ") + type->name + std::string(" there is no result type available");
+	// Создадим новый тип
+	TypeInfo* newInfo = new TypeInfo();
+	newInfo->name = type->name;
+	newInfo->size = type->size * varSize;
+	newInfo->type = type->type;//TypeInfo::TYPE_COMPLEX;
+	newInfo->arrLevel = type->arrLevel + 1;
+	newInfo->arrSize = varSize;
+	newInfo->subType = type;
+
+	typeInfo.push_back(newInfo);
+	compileLog << "  returns " << newInfo->GetTypeName() << "\r\n";
+	return newInfo;
+}
+
+// Функция возвращает тип элемента массива
+TypeInfo* GetArrayElementType(TypeInfo* type)
+{
+	compileLog << "GetArrayElementType(" << type->GetTypeName() << ")\r\n";
+	if(!type->subType || type->arrLevel == 0)
+		throw std::string("Cannot return array element type, ") + type->GetTypeName() + std::string(" is not an array");
+	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
+	return type->subType;
 }
 
 // Информация о типе текцщей переменной
@@ -82,14 +134,6 @@ void popValueByRef(char const*s, char const*e){ valueByRef.pop_back(); }
 // Отдельные узлы помещаются сюда, и в дальнейшем объеденяются в более комплексные узлы,
 // создавая дерево. После правильной компиляции количество узлов в этом массиве должно равнятся 1
 std::vector<shared_ptr<NodeZeroOP> >	nodeList;
-
-// Temp variables
-// Временные переменные:
-// Количество минусов перед переменной, количество определённых переменных, размер определённых переменных
-// Вершина стека переменных
-UINT negCount, varDefined, varSize, varTop;
-// Является ли текущая переменная константной
-bool currValConst;
 
 // Массив временных строк
 std::vector<std::string>	strs;
@@ -135,7 +179,7 @@ void blockEnd(char const* s, char const* e)
 {
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{ 
-		varTop -= varInfo.back().count*varInfo.back().varType->size;
+		varTop -= varInfo.back().varType->arrSize*varInfo.back().varType->size;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
@@ -695,7 +739,7 @@ void getMember(char const* s, char const* e)
 	while(i >= 0 && currType->memberData[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + vName + "' is not a member of '" + currType->name + "' [set]");
+		throw std::string("ERROR: variable '" + vName + "' is not a member of '" + currType->GetTypeName() + "' [set]");
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(currType->memberData[i].offset, typeInt)));
 	if(pushedShiftAddrNode | pushedShiftAddr)
 		addTwoAndCmpNode(cmdAdd);
@@ -744,20 +788,26 @@ void convertTypeToRef(char const* s, char const* e)
 	currType = GetReferenceType(currType);
 }
 
+void convertTypeToArray(char const* s, char const* e)
+{
+	currType = GetArrayType(currType);
+	varSize = 1;
+}
+
 void addDereference(char const* s, char const* e)
 {
 	if(currTypes.back()->refLevel == 0)
 		throw std::string("ERROR: cannot dereference ") + std::string(s, e);
 	currTypes.push_back(currTypes.back());
 	currTypes[currTypes.size()-2] = GetDereferenceType(currTypes.back());
-	if(currTypes[currTypes.size()-2]->refLevel == 0)
-		pushedShiftAddr = true;
+	pushedShiftAddr = true;
 	valueByRef.push_back(true);
 	valueByRef.push_back(false);
 }
 
 void addShiftAddrNode(char const* s, char const* e)
 {
+	currTypes.back() = GetArrayElementType(currTypes.back());
 	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
 	{
 		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
@@ -780,7 +830,7 @@ void addShiftAddrNode(char const* s, char const* e)
 	}else{
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePushShift(currTypes.back()->size)));
 	}
-	
+
 	pushedShiftAddrNode = true;
 }
 
@@ -797,18 +847,18 @@ void addSetNode(char const* s, char const* e)
 		throw std::string("ERROR: variable '" + vName + "' is not defined [set]");
 	if(!currValConst && varInfo[i].isConst)
 		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
-	if(braceInd != -1 && varInfo[i].count == 1)
+	if(braceInd != -1 && varInfo[i].varType->arrLevel == 0)
 		throw std::string("ERROR: variable '" + vName + "' is not an array");
-	if(braceInd == -1 && varInfo[i].count > 1)
+	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
 		throw std::string("ERROR: variable '" + vName + "' is an array, but no index specified");
 
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
 	if(!valueByRef.empty() && valueByRef.back())
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, false, true, varDefined*currType->size)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, false, true, /*varDefined**/currType->size)));
 	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr, varDefined*currType->size)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr, /*varDefined**/currType->size)));
 	valueByRef.pop_back();
 	currTypes.pop_back();
 
@@ -827,9 +877,9 @@ void addGetNode(char const* s, char const* e)
 		i--;
 	if(i == -1)
 		throw std::string("ERROR: variable '" + vName + "' is not defined [get]");
-	if(braceInd != -1 && varInfo[i].count == 1)
+	if(braceInd != -1 && varInfo[i].varType->arrLevel == 0)
 		throw std::string("ERROR: variable '" + vName + "' is not an array");
-	if(braceInd == -1 && varInfo[i].count > 1)
+	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
 		throw std::string("ERROR: variable '" + vName + "' is an array, but no index specified");
 
 	if(valueByRef.back())
@@ -869,7 +919,7 @@ void addSetAndOpNode(CmdID cmd)
 		throw std::string("ERROR: variable " + strs.back() + " is not defined");
 	if(!currValConst && varInfo[i].isConst)
 		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
-	if(braceInd == -1 && varInfo[i].count > 1)
+	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
 		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
 
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
@@ -919,7 +969,7 @@ void addPreOpNode(CmdID cmd, bool pre)
 		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [set]");
 	if(!currValConst && varInfo[i].isConst)
 		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
-	if(braceInd == -1 && varInfo[i].count > 1)
+	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
 		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
 
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
@@ -1030,7 +1080,7 @@ void funcEnd(char const* s, char const* e)
 
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
-		varTop -= varInfo.back().count*varInfo.back().varType->size;
+		varTop -= varInfo.back().varType->arrSize*varInfo.back().varType->size;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
@@ -1183,7 +1233,7 @@ void addSwitchNode(char const* s, char const* e)
 	undComandIndex.pop_back();
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
-		varTop -= varInfo.back().count;
+		varTop--;// -= varInfo.back().count;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
@@ -1354,16 +1404,16 @@ namespace CompilerGrammar
 			);
 		addvarp		=
 			(
-			(varname[strPush][pushType] >>
-			epsP[AssignVar<UINT>(varSize,1)] >>
-			!('[' >> intP[StrToInt(varSize)] >> ']'))
+				varname[strPush][pushType] >>
+				epsP[AssignVar<UINT>(varSize,1)] >>
+				!('[' >> intP[StrToInt(varSize)] >> ']')[convertTypeToArray]
 			)[strPush][addVar][IncVar<UINT>(varDefined)] >>
 			(('=' >> term5)[AssignVar<bool>(currValueByRef, false)][pushValueByRef][addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
 		vardefsub	=
-			((strP("ref")[convertTypeToRef] >> addvarp)[SetStringToLastNode] | addvarp[SetStringToLastNode]) >>
+			(*(strP("ref")[convertTypeToRef] | (('[' >> intP[StrToInt(varSize)] >> ']'))[convertTypeToArray]) >> addvarp)[SetStringToLastNode] >>
 			*(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
-			seltype >>
+			seltype >> *('[' >> intP[StrToInt(varSize)] >> ']')[convertTypeToArray] >>
 			isconst >>
 			vardefsub;
 
@@ -1668,6 +1718,7 @@ bool Compiler::Compile(string str)
 	retTypeStack.push_back(NULL);	//global return can return anything
 
 	logAST.str("");
+	compileLog.str("");
 	cmdList->Clear();
 
 	SetCommandList(cmdList);
@@ -1711,6 +1762,11 @@ bool Compiler::Compile(string str)
 		getList()->back()->LogToStream(graphlog);
 	graphFile << graphlog.str();
 	graphFile.close();
+
+	compileLog << "\r\nActive types (" << typeInfo.size() << "):\r\n";
+	for(int i = 0; i < typeInfo.size(); i++)
+		compileLog << typeInfo[i]->GetTypeName() << "\r\n";
+	logAST << "\r\n" << compileLog.str();
 
 	if(nodeList.size() != 1)
 		throw std::string("Compilation failed, AST contains more than one node");

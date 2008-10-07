@@ -271,8 +271,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				SetWindowText(hCode, compiler->GetListing().c_str());
 			else
 				SetWindowText(hCode, ostr.str().c_str());
-			//SetWindowText(hLog, compiler->GetLog().c_str());
-			SetWindowText(hLog, executorX86->GetListing().c_str());
+			SetWindowText(hLog, compiler->GetLog().c_str());
+			//SetWindowText(hLog, executorX86->GetListing().c_str());
 			string str = ostr.str();
 			if(good)
 				SetWindowText(hResult, str.c_str());

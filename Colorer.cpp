@@ -159,8 +159,7 @@ namespace ColorerGrammar
 			!(chP('[')[ColorText] >> intP[StrToInt(varSize)][ColorInt] >> chP(']')[ColorText])
 			)[AddVar] >>
 			((chP('=')[ColorText] >> term5) | epsP);
-		vardefsub	=	((strP("ref")[ColorRWord] >> addvarp) | addvarp) >>
-						*(chP(',')[ColorText] >> vardefsub);
+		vardefsub	=	*strP("ref")[ColorRWord] >> addvarp >> *(chP(',')[ColorText] >> vardefsub);
 		vardef		=
 			typeExpr >>
 			constExpr >>
@@ -262,12 +261,12 @@ namespace ColorerGrammar
 			logStream << "ERROR: cannot change constant parameter '" << vName << "'\r\n";
 			return;
 		}
-		if((braceInd == -1) && varInfo[i].count != 1)
+		/*if((braceInd == -1) && varInfo[i].count != 1)
 		{
 			ColorCode(255,0,0,0,0,1,s,e);
 			logStream << "ERROR: variable '" << vName << "' is an array, but no index specified\r\n";
 			return;
-		}
+		}*/
 	}
 
 	void GetVar(char const* s, char const* e)
@@ -287,7 +286,7 @@ namespace ColorerGrammar
 			logStream << "ERROR: variable '" << vName << "' is not defined\r\n";
 			return;
 		}
-		if((braceInd != -1) && varInfo[i].count == 1)
+		/*if((braceInd != -1) && varInfo[i].count == 1)
 		{
 			ColorCode(255,0,0,0,0,1,s,e);
 			logStream << "ERROR: variable '" << vName << "' is not array\r\n";
@@ -298,7 +297,7 @@ namespace ColorerGrammar
 			ColorCode(255,0,0,0,0,1,s,e);
 			logStream << "ERROR: variable '" << vName << "' is an array, but no index specified\r\n";
 			return;
-		}
+		}*/
 	}
 
 	void FuncAdd(char const* s, char const* e)
@@ -397,7 +396,7 @@ namespace ColorerGrammar
 	{
 		while(varInfo.size() > varInfoTop.back().activeVarCnt)
 		{
-			varTop -= varInfo.back().count;
+			varTop--;// -= varInfo.back().count;
 			varInfo.pop_back();
 		}
 		varInfoTop.pop_back();

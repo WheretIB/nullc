@@ -9,25 +9,37 @@ class TypeInfo
 public:
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	TypeInfo(){ size = 0; type = TYPE_VOID; refLevel = 0; }
+	TypeInfo()
+	{
+		size = 0;
+		type = TYPE_VOID;
+		refLevel = 0;
+		arrLevel = 0;
+		arrSize = 1;
+		subType = NULL;
+	}
 
-	std::string name;	// type name
-	UINT		size;	// sizeof(type)
+	std::string		name;	// base type name
+	UINT			size;	// sizeof(type)
 	TypeCategory	type;	// type id
 
-	UINT		refLevel;	// reference level
+	UINT		refLevel;	// reference to a type depth
+	UINT		arrLevel;	// array to a type depth
+
+	UINT		arrSize;	// element count for an array
+
+	TypeInfo	*subType;
 
 	std::string GetTypeName()
 	{
 		static char buf[256];
-		char *pos = &buf[0];
-		for(UINT i = 0; i < refLevel; i++)
-		{
-			memcpy(pos, "ref ", 4);
-			pos += 4;
-		}
-		memcpy(pos, name.c_str(), strlen(name.c_str()));
-		return std::string(&buf[0], pos+strlen(name.c_str()));
+		if(arrLevel)
+			sprintf(buf, "%s[%d]", subType->GetTypeName().c_str(), arrSize);
+		if(refLevel)
+			sprintf(buf, "%s ref", subType->GetTypeName().c_str());
+		if(arrLevel == 0 && refLevel == 0)
+			sprintf(buf, "%s", name.c_str());
+		return std::string(buf);
 	}
 	//TYPE_COMPLEX are structures
 	void	AddMember(const std::string& name, TypeInfo* type)
@@ -50,10 +62,7 @@ public:
 template<class Ch, class Tr>
 basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, TypeInfo info)
 {
-	for(UINT i = 0; i < info.refLevel; i++)
-		str << "ref ";
-	str << info.name;
-	str << ' ';
+	str << info.GetTypeName();
 	return str;
 }
 static asmStackType podTypeToStackType[] = { (asmStackType)0, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
@@ -70,10 +79,9 @@ class VariableInfo
 public:
 	VariableInfo(){}
 	VariableInfo(std::string newname, UINT newpos, TypeInfo* newtype, UINT newcount=1, bool newisConst=true):
-	  name(newname), pos(newpos), varType(newtype), count(newcount), isConst(newisConst){}
+	  name(newname), pos(newpos), varType(newtype)/*, count(newcount)*/, isConst(newisConst){}
 	std::string	name;		//Variable name
 	UINT		pos;		//Variable position in value stack
-	UINT		count;		//Element count
 	bool		isConst;	//Constant flag
 
 	TypeInfo*	varType;	//Pointer to the variable type info
@@ -85,8 +93,6 @@ basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, VariableInfo var)
 		str << "const ";
 	str << (*var.varType);
 	str << '\'' << var.name << '\'';
-	if(var.count > 1)
-		str << '[' << var.count << ']';
 	return str;
 }
 
