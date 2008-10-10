@@ -1114,7 +1114,7 @@ void ExecutorX86::GenListing()
 			cmdList->GetUINT(pos, valind2);
 			pos += 4;
 			logASM << "lea ebx, [ebp + " << paramBase+valind << "] ; начальный адрес\r\n";
-			logASM << "lea ecx, [ebp + " << paramBase+valind+valind2*typeSizeD[(cFlag>>2)&0x00000007] << "] ; конечный адрес\r\n";
+			logASM << "lea ecx, [ebp + " << paramBase+valind+(valind2-1)*typeSizeD[(cFlag>>2)&0x00000007] << "] ; конечный адрес\r\n";
 			if(cFlag == DTYPE_FLOAT)
 			{
 				logASM << "fld qword [esp] ; float в стек\r\n";
@@ -2186,97 +2186,7 @@ void ExecutorX86::SetOptimization(bool toggle)
 	optimize = toggle;
 }
 
-bool ExecutorX86::GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address)
+char* ExecutorX86::GetVariableData()
 {
-	if(type->arrSize != 1)
-		varstr << "{ ";
-	for(UINT n = 0; n < type->arrSize; n++, address += (type->subType ? type->subType->size : type->size))
-	{
-		if(n > 100)
-			continue;
-		if(type->type == TypeInfo::TYPE_INT)
-		{
-			varstr << *((int*)&paramData[address]);
-		}else if(type->type == TypeInfo::TYPE_SHORT)
-		{
-			varstr << *((short*)&paramData[address]);
-		}else if(type->type == TypeInfo::TYPE_CHAR)
-		{
-			if(*((unsigned char*)&paramData[address]))
-				varstr << "'" << *((unsigned char*)&paramData[address]) << "' (" << (int)(*((unsigned char*)&paramData[address])) << ")";
-			else
-				varstr << '0';
-		}else if(type->type == TypeInfo::TYPE_FLOAT)
-		{
-			varstr << *((float*)&paramData[address]);
-		}else if(type->type == TypeInfo::TYPE_LONG)
-		{
-			varstr << *((long long*)&paramData[address]);
-		}else if(type->type == TypeInfo::TYPE_DOUBLE)
-		{
-			varstr << *((double*)&paramData[address]);
-		}else{
-			return false;
-		}
-		if(n != type->arrSize-1)
-			varstr << ", ";
-	}
-	if(type->arrSize != 1)
-		varstr << " }";
-	varstr << "\r\n";
-	return true;
-}
-
-void ExecutorX86::GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int address)
-{
-	TypeInfo* subType = type;
-	if(type->arrLevel != 0)
-		subType = type->subType;
-	for(UINT n = 0; n < type->arrSize; n++, address += subType->size)
-	{
-		if(n > 100)
-			continue;
-		for(UINT mn = 0; mn < subType->memberData.size(); mn++)
-		{
-			varstr << "  " << subType->memberData[mn].type->GetTypeName() << " " << subType->memberData[mn].name << " = ";
-			if(subType->memberData[mn].type->type == TypeInfo::TYPE_VOID)
-			{
-				varstr << "ERROR: This type is void";
-			}else if(subType->memberData[mn].type->type == TypeInfo::TYPE_COMPLEX)
-			{
-				varstr << "\r\n";
-				GetComplexTypeInfo(varstr, subType->memberData[mn].type, address+subType->memberData[mn].offset);
-			}else{
-				if(!GetSimpleTypeInfo(varstr, subType->memberData[mn].type, address+subType->memberData[mn].offset))
-					throw std::string("Executor::GetComplexTypeInfo() ERROR: unknown type of variable ") + subType->memberData[mn].name;
-			}
-		}
-		varstr << "\r\n";
-	}
-}
-
-string ExecutorX86::GetVarInfo()
-{
-	ostringstream varstr;
-	std::vector<VariableInfo>&	varInfo = *this->varInfo;
-	UINT address = 0;
-	for(UINT i = 0; i < varInfo.size(); i++)
-	{
-		varstr << address << ":" << (varInfo[i].isConst ? "const " : "") << *varInfo[i].varType << " " << varInfo[i].name;
-
-		varstr << " = ";
-		if(varInfo[i].varType->type == TypeInfo::TYPE_VOID)
-		{
-			varstr << "ERROR: This type is void";
-		}else if(varInfo[i].varType->type == TypeInfo::TYPE_COMPLEX)
-		{
-			varstr << "\r\n";
-			GetComplexTypeInfo(varstr, varInfo[i].varType, address);
-		}else{
-			if(!GetSimpleTypeInfo(varstr, varInfo[i].varType, address))
-				throw std::string("Executor::GetVarInfo() ERROR: unknown type of variable ") + varInfo[i].name;
-		}
-		address += varInfo[i].varType->size;
-	}
-	return varstr.str();
+	return paramData;
 }

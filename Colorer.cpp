@@ -46,7 +46,7 @@ namespace ColorerGrammar
 	// Parsing rules
 	Rule expr, block, funcdef, breakExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
 	Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, funcvars;
-	Rule appval, varname, comment, symb, symb2, constExpr, addvarp, typeExpr;
+	Rule appval, varname, comment, symb, symb2, constExpr, addvarp, typeExpr, classdef;
 	// Main rule and space parsers
 	Rule code;
 	Rule mySpaceP;
@@ -110,6 +110,8 @@ namespace ColorerGrammar
 
 		typeExpr	=	typenameP(varname)[ColorRWord];
 
+		classdef	=	strP("class")[ColorRWord] >> varname[ColorRWord] >> chP('{')[ColorText] >> *(typeExpr >> varname[ColorVarDef] >> *(chP(',')[ColorText] >> varname[ColorVarDef]) >> chP(';')[ColorText]) >> chP('}')[ColorText];
+
 		funccall	=	varname[ColorFunc] >> 
 			strP("(")[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >>
 			!(
@@ -144,7 +146,7 @@ namespace ColorerGrammar
 					chP(']')[ColorText]
 				) >>
 				*(
-					(chP('.') | strP("->"))[ColorText] >>
+					chP('.')[ColorText] >>
 					varname[ColorVar] >>
 					!(
 						chP('[')[ColorText] >>
@@ -197,7 +199,7 @@ namespace ColorerGrammar
 		term5	=	(!chP('*')[ColorText] >> appval[SetVar] >> (strP("=") | strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("^="))[ColorText] >> term5) | term4_9;
 
 		block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
-		expr	=	*chP(';')[ColorText] >> ((vardef >> (';' >> epsP)[ColorText]) | breakExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]) | block);
+		expr	=	*chP(';')[ColorText] >> (classdef | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]) | block);
 		code	=	*(funcdef | expr);
 
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")))[ColorComment];

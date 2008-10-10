@@ -727,14 +727,23 @@ void getType(char const* s, char const* e)
 	pushedShiftAddrNode = false;
 }
 
+void addDereference(char const* s, char const* e);
+void addGetNode(char const* s, char const* e);
+
 void getMember(char const* s, char const* e)
 {
 	string vName = std::string(s, e);
+
+	if(currTypes.back()->refLevel != 0)
+	{
+		currValueByRef = true;
+		addDereference(0,0);
+		addGetNode(0,0);
+	}
+
 	// Да, это локальная переменная с именем, как у глобальной!
 	TypeInfo *currType = currTypes.back();
 
-	if(currTypes.back()->refLevel != 0)
-		throw std::string("ERROR: references do not have members \"." + vName + "\"\r\n  try using \"->" + vName + "\"");
 	int i = (int)currType->memberData.size()-1;
 	while(i >= 0 && currType->memberData[i].name != vName)
 		i--;
@@ -831,7 +840,12 @@ void addShiftAddrNode(char const* s, char const* e)
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePushShift(currTypes.back()->size)));
 	}
 
-	pushedShiftAddrNode = true;
+	if(pushedShiftAddrNode)
+	{
+		addTwoAndCmpNode(cmdAdd);
+	}else{
+		pushedShiftAddrNode = true;
+	}
 }
 
 void addSetNode(char const* s, char const* e)
@@ -856,9 +870,9 @@ void addSetNode(char const* s, char const* e)
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
 	if(!valueByRef.empty() && valueByRef.back())
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, false, true, /*varDefined**/currType->size)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, false, true, varDefined ? currType->size : 0)));
 	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr, /*varDefined**/currType->size)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr, varDefined ? currType->size : 0)));
 	valueByRef.pop_back();
 	currTypes.pop_back();
 
@@ -871,7 +885,7 @@ void addGetNode(char const* s, char const* e)
 	int i = (int)varInfo.size()-1;
 	string vName = *(strs.end()-2);
 	size_t braceInd = strs.back().find('[');
-	size_t compoundType = strs.back().find('.');
+	size_t compoundType = (currTypes.back()->refLevel != 0 ? -1 : strs.back().find('.'));
 
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
@@ -1382,14 +1396,11 @@ namespace CompilerGrammar
 			(
 				(varname - strP("case"))[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)) >> epsP[getType] >>
 				!((chP('[')[strPush] | (epsP[strPush] >> nothingP)) >> term5 >> ']')[addShiftAddrNode] >>
+				*('[' >> term5 >> ']')[addShiftAddrNode] >>
 				*(
-					(strP("->")[AssignVar<bool>(currValueByRef, true)][addDereference][addGetNode] >>
+					chP('.')[ParseStrAdd] >>
 					(varname - strP("case"))[getMember] >>
-					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]) |
-
-					(chP('.')[ParseStrAdd] >>
-					(varname - strP("case"))[getMember] >>
-					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)])					
+					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]				
 				)
 			);
 		applyref	=
@@ -1502,6 +1513,7 @@ namespace CompilerGrammar
 };
 
 UINT buildInFuncs;
+UINT buildInTypes;
 
 Compiler::Compiler(CommandList* cmds)
 {
@@ -1582,6 +1594,8 @@ Compiler::Compiler(CommandList* cmds)
 	info->AddMember("w", typeFloat);
 	typeInfo.push_back(info);
 
+	TypeInfo *typeFloat4 = info;
+
 	info = new TypeInfo();
 	info->name = "double2";
 	info->type = TypeInfo::TYPE_COMPLEX;
@@ -1603,10 +1617,8 @@ Compiler::Compiler(CommandList* cmds)
 	info->AddMember("x", typeDouble);
 	info->AddMember("y", typeDouble);
 	info->AddMember("z", typeDouble);
-	info->AddMember("w", typeFloat);
+	info->AddMember("w", typeDouble);
 	typeInfo.push_back(info);
-
-	TypeInfo *typeFloat4 = info;
 
 	info = new TypeInfo();
 	info->name = "float4x4";
@@ -1616,6 +1628,8 @@ Compiler::Compiler(CommandList* cmds)
 	info->AddMember("row3", typeFloat4);
 	info->AddMember("row4", typeFloat4);
 	typeInfo.push_back(info);
+
+	buildInTypes = (int)typeInfo.size();
 
 	// Add functions
 	FunctionInfo	*fInfo;
@@ -1695,6 +1709,7 @@ bool Compiler::Compile(string str)
 {
 	varInfoTop.clear();
 	varInfo.clear();
+	typeInfo.resize(buildInTypes);
 	funcs.resize(buildInFuncs);
 
 	callArgCount.clear();
@@ -1764,7 +1779,7 @@ bool Compiler::Compile(string str)
 	graphFile.close();
 
 	compileLog << "\r\nActive types (" << typeInfo.size() << "):\r\n";
-	for(int i = 0; i < typeInfo.size(); i++)
+	for(UINT i = 0; i < typeInfo.size(); i++)
 		compileLog << typeInfo[i]->GetTypeName() << "\r\n";
 	logAST << "\r\n" << compileLog.str();
 
@@ -1962,7 +1977,7 @@ void Compiler::GenListing()
 				int valind;
 
 				
-				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
 				{
 					cmdList->GetINT(pos, valind);
 					pos += 4;

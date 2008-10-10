@@ -14,13 +14,11 @@ public:
 
 	UINT	Run();
 	string	GetResult();
-	string	GetVarInfo();
+
+	char*	GetVariableData();
 
 	void	SetOptimization(bool toggle);
 private:
-	bool	GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address);
-	void	GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int address);
-
 	bool	optimize;
 
 	CommandList	*cmdList;
