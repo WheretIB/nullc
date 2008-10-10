@@ -38,20 +38,15 @@ public:
 	UINT	Run();
 	string	GetResult();
 	string	GetLog();
-	string	GetVarInfo();
-	void	SetCallback(bool (*Func)(UINT));//{ Callback = Func; }
-private:
-	bool	GetSimpleTypeInfo(ostringstream &varstr, TypeInfo* type, int address);
-	void	GetComplexTypeInfo(ostringstream &varstr, TypeInfo* type, int address);
 
+	char*	GetVariableData();
+
+	void	SetCallback(bool (*Func)(UINT));
+private:
 	ofstream			m_FileStream;
 	CommandList*		m_cmds;
 	ostringstream		m_ostr;
 	std::vector<VariableInfo>*	m_VarInfo;
-
-	//FastVector<double>	nums;
-	//std::vector<double> params;
-	//std::vector<CallStackInfo> callStack;
 
 	FastVector<UINT>	genStack;
 	FastVector<asmStackType>	genStackTypes;

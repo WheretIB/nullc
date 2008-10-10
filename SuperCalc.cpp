@@ -111,6 +111,15 @@ WORD MyRegisterClass(HINSTANCE hInstance)
 	return RegisterClassEx(&wcex);
 }
 
+char* GetLastErrorDesc()
+{
+	char* msgBuf = NULL;
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		reinterpret_cast<LPSTR>(&msgBuf), 0, NULL);
+	return msgBuf;
+}
+
 bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // Store instance handle in our global variable
@@ -143,7 +152,13 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hDoOptimize, nCmdShow);
 	UpdateWindow(hDoOptimize);
 
-	InitCommonControls();
+	INITCOMMONCONTROLSEX commControlTypes;
+	commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
+	commControlTypes.dwICC = ICC_TREEVIEW_CLASSES;
+	int commControlsAvailable = InitCommonControlsEx(&commControlTypes);
+	if(!commControlsAvailable)
+		return 0;
+
 	HMODULE sss = LoadLibrary("RICHED32.dll");
 
 	//hTextArea = CreateWindow("RICHEDIT", "func double test(float x, float y){ /*teste*/return x**2*y; }\r\nint a=5;\r\nfloat b, c[3]=14**2-134;\r\ndouble d[10];\r\nfor(int i = 0; i< 10; i++)\r\nd[i] = test(i*2, i-2);\r\ndouble n=1;\r\nwhile(1){ n*=2; if(n>1000) break; }\r\nreturn 2+test(2, 3)+a**b;", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
@@ -171,13 +186,13 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	UpdateWindow(hCode);
 
 	hLog = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
-		2*widt+10, 225, widt, 165, hWnd, NULL, hInstance, NULL);
+		2*widt+10, 200, widt-100, 165, hWnd, NULL, hInstance, NULL);
 	if(!hLog)
 		return 0;
 	ShowWindow(hLog, nCmdShow);
 	UpdateWindow(hLog);
 
-	hVars = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
+	hVars = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS,
 		3*widt+15, 225, widt, 165, hWnd, NULL, hInstance, NULL);
 	if(!hVars)
 		return 0;
@@ -217,6 +232,139 @@ bool RunCallback(UINT cmdNum)
 	return true;
 }
 
+char *variableData = NULL;
+void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
+void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
+
+const char* GetSimpleVariableValue(TypeInfo* type, int address)
+{
+	static char val[256];
+	if(type->type == TypeInfo::TYPE_INT)
+	{
+		sprintf(val, "%d", *((int*)&variableData[address]));
+	}else if(type->type == TypeInfo::TYPE_SHORT){
+		sprintf(val, "%d", *((short*)&variableData[address]));
+	}else if(type->type == TypeInfo::TYPE_CHAR){
+		if(*((unsigned char*)&variableData[address]))
+			sprintf(val, "'%c' (%d)", *((unsigned char*)&variableData[address]), (int)(*((unsigned char*)&variableData[address])));
+		else
+			sprintf(val, "0");
+	}else if(type->type == TypeInfo::TYPE_FLOAT){
+		sprintf(val, "%f", *((float*)&variableData[address]));
+	}else if(type->type == TypeInfo::TYPE_LONG){
+		sprintf(val, "%I64d", *((long long*)&variableData[address]));
+	}else if(type->type == TypeInfo::TYPE_DOUBLE){
+		sprintf(val, "%f", *((double*)&variableData[address]));
+	}else{
+		sprintf(val, "not basic type");
+	}
+	return val;
+}
+
+void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
+{
+	TVINSERTSTRUCT helpInsert;
+	helpInsert.hParent = parent;
+	helpInsert.hInsertAfter = TVI_LAST;
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.cchTextMax = 0;
+
+	char name[256];
+	HTREEITEM lastItem;
+
+	for(UINT mn = 0; mn < type->memberData.size(); mn++)
+	{
+		TypeInfo::MemberInfo &mInfo = type->memberData[mn];
+
+		sprintf(name, "%s %s = ", mInfo.type->GetTypeName().c_str(), mInfo.name.c_str());
+
+		if(mInfo.type->type != TypeInfo::TYPE_COMPLEX && mInfo.type->arrLevel == 0)
+			strcat(name, GetSimpleVariableValue(mInfo.type, address+type->memberData[mn].offset));
+
+		helpInsert.item.pszText = name;
+		lastItem = TreeView_InsertItem(hVars, &helpInsert);
+
+		if(mInfo.type->arrLevel != 0)
+		{
+			FillArrayVariableInfo(mInfo.type, address+type->memberData[mn].offset, lastItem);
+		}else if(mInfo.type->type == TypeInfo::TYPE_COMPLEX){
+			FillComplexVariableInfo(mInfo.type, address+type->memberData[mn].offset, lastItem);
+		}
+	}
+}
+
+void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
+{
+	TVINSERTSTRUCT helpInsert;
+	helpInsert.hParent = parent;
+	helpInsert.hInsertAfter = TVI_LAST;
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.cchTextMax = 0;
+
+	TypeInfo* subType = type->subType;
+	char name[256];
+	HTREEITEM lastItem;
+	for(UINT n = 0; n < type->arrSize; n++, address += subType->size)
+	{
+		if(n > 100)
+		{
+			sprintf(name, "[%d]-[%d]...", n, type->arrSize);
+			helpInsert.item.pszText = name;
+			lastItem = TreeView_InsertItem(hVars, &helpInsert);
+			break;
+		}
+		sprintf(name, "[%d]: ", n);
+
+		if(subType->type != TypeInfo::TYPE_COMPLEX && subType->arrLevel == 0)
+			strcat(name, GetSimpleVariableValue(subType, address));
+
+		helpInsert.item.pszText = name;
+		lastItem = TreeView_InsertItem(hVars, &helpInsert);
+
+		if(subType->arrLevel != 0)
+		{
+			FillArrayVariableInfo(subType, address, lastItem);
+		}else if(subType->type == TypeInfo::TYPE_COMPLEX){
+			FillComplexVariableInfo(subType, address, lastItem);
+		}
+	}
+}
+
+void FillVariableInfoTree()
+{
+	std::vector<VariableInfo> *varInfo = compiler->GetVariableInfo();
+	TreeView_DeleteAllItems(hVars);
+
+	TVINSERTSTRUCT helpInsert;
+	helpInsert.hParent = NULL;
+	helpInsert.hInsertAfter = TVI_ROOT;
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.cchTextMax = 0;
+
+	UINT address = 0;
+	char name[256];
+	HTREEITEM lastItem;
+	for(UINT i = 0; i < varInfo->size(); i++)
+	{
+		VariableInfo &currVar = (*varInfo)[i];
+		sprintf(name, "%d: %s%s %s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetTypeName().c_str(), currVar.name.c_str());
+
+		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
+			strcat(name, GetSimpleVariableValue(currVar.varType, address));
+
+		helpInsert.item.pszText = name;
+		lastItem = TreeView_InsertItem(hVars, &helpInsert);
+
+		if(currVar.varType->arrLevel != 0)
+		{
+			FillArrayVariableInfo(currVar.varType, address, lastItem);
+		}else if(currVar.varType->type == TypeInfo::TYPE_COMPLEX){
+			FillComplexVariableInfo(currVar.varType, address, lastItem);
+		}
+		address += currVar.varType->size;
+	}
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	int wmId, wmEvent;
@@ -236,13 +384,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			GetWindowText(hTextArea, buf, 400000);
 			bool good;
-			//mparser.SetRichEdit(hTextArea);
-			
+
 			ostringstream ostr;
 			try
 			{
-				//mparser.Color(buf);
-				good = compiler->Compile(buf);//mparser.Parse(buf);
+				good = compiler->Compile(buf);
 				compiler->GenListing();
 			}catch(const std::string& str){
 				good = false;
@@ -252,7 +398,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				executorX86->GenListing();
 
-				executor->SetCallback(RunCallback);//mparser.SetCallback(RunCallback);
+				executor->SetCallback(RunCallback);
 				try
 				{
 					UINT time = executor->Run();
@@ -260,23 +406,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					ostr.precision(20);
 					ostr << "The answer is: " << val << " [in: " << time << "]";
 
-					SetWindowText(hVars, executor->GetVarInfo().c_str());
+					variableData = executor->GetVariableData();
+					FillVariableInfoTree();
 				}catch(const std::string& str){
 					ostr.str("");
 					ostr << str;
 				}
-				//mparser.GetListing();
 			}
 			if(good)
 				SetWindowText(hCode, compiler->GetListing().c_str());
 			else
 				SetWindowText(hCode, ostr.str().c_str());
 			SetWindowText(hLog, compiler->GetLog().c_str());
-			//SetWindowText(hLog, executorX86->GetListing().c_str());
 			string str = ostr.str();
 			if(good)
 				SetWindowText(hResult, str.c_str());
-			//delete[] buf;
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{
@@ -303,7 +447,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					ostr.precision(20);
 					ostr << "The answer is: " << val << " [in: " << time << "]";
 
-					SetWindowText(hVars, executorX86->GetVarInfo().c_str());
+					variableData = executorX86->GetVariableData();
+					FillVariableInfoTree();
 				}catch(const std::string& str){
 					ostr.str("");
 					ostr << str;

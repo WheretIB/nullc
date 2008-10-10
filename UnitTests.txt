@@ -359,12 +359,12 @@ return testA(&a);
 // Pointers on complex!
 double length(float4 ref v)
 {
-	return sqrt((v->x*v->x)+(v->y*v->y)+(v->z*v->z));
+	return sqrt((v.x*v.x)+(v.y*v.y)+(v.z*v.z));
 }
 void normalize(float4 ref v)
 {
-	var double len = length(v);
-	v->x /= len; v->y /= len; v->z /= len;
+	double len = length(v);
+	v.x /= len; v.y /= len; v.z /= len;
 }
 float4 a;
 a.x = 12.0;
@@ -377,10 +377,10 @@ return length(b);
 
 float4 a;
 float4 ref b = &a;
-b->x = 5.0f;
-return b->x;
+b.x = 5.0f;
+return b.x;
 
-double testA(float4 ref v){ return v->x; }
+double testA(float4 ref v){ return v.x; }
 float4 a;
 float4 ref b = &a;
 a.x = 5.0f;
@@ -405,14 +405,14 @@ float4 arrF[4];
 int ref a = &arr[3];
 *a = 55;
 float4 ref b = &arrF[1];
-b->x = 85;
+b.x = 85;
 float ref c = &arrF[1].y;
 *c = 125;
 {
 	int ref a = &arr[1];
 	*a = 5;
 	float4 ref b = &arrF[2];
-	b->x = 8;
+	b.x = 8;
 	float ref c = &arrF[2].y;
 	*c = 12;
 }
@@ -517,6 +517,15 @@ class Two
   int d;
 }
 Two two, twonext;
+float3[2] fa[4];
+int[2] ia[4];
+double da[8];
+char c = 66;
+short u = 15;
+long l = 45645l;
+l *= 4594454795l;
+float4x4 mat;
+
 two.a.a = 14;
 two.c.x = 2;
 two.d = 5;
