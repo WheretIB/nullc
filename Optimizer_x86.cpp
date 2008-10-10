@@ -36,6 +36,10 @@ enum Command_Hash
 	fstp,
 	add,
 	sub,
+	faddp,
+	fmulp,
+	fsubrp,
+	fdivrp,
 	other,
 };
 
@@ -67,8 +71,9 @@ static Argument_def Argument_Table[] = {
 		"esi", Argument::esi, 3,
 };
 
-struct Command
+class Command
 {
+public:
 	Command_Hash Name;
 	std::string* strName;	// pointer to command in text form
 	Argument	argA, argB, argC;
@@ -100,7 +105,11 @@ Command_def Commands_table[] = {
 	"fstp"	, 19, sizeof("fstp"),
 	"add"	, 20, sizeof("add"),
 	"sub"	, 21, sizeof("sub"),
-	"other"	, 22, sizeof("other"),
+	"faddp"	, 22, sizeof("faddp"),
+	"fmulp"	, 23, sizeof("fmulp"),
+	"fsubrp", 24, sizeof("fsubrp"),
+	"fdivrp", 25, sizeof("fdivrp"),
+	"other"	, 26, sizeof("other"),
 };
 
 const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
@@ -114,9 +123,11 @@ void ClassifyArgument(Argument& arg, const char* str)
 	{
 		arg.type = Argument::none;
 		arg.size = 0;
+		flag = true;
 	}else if(*str >= '0' && *str <= '9'){
 		arg.type = Argument::number;
 		arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
+		flag = true;
 	}else if(*str == '[' || memcmp(str, "byte", 4) == 0 || memcmp(str, "word", 4) == 0 || memcmp(str, "dword", 5) == 0 || memcmp(str, "qword", 5) == 0){
 		arg.type = Argument::ptr;
 		if(strchr(str, ']') != 0)
@@ -127,13 +138,12 @@ void ClassifyArgument(Argument& arg, const char* str)
 			temp = strchr(str, 0);
 
 			while(*temp == ' ' || *temp == '\t')
-			{
 				temp = temp - 1;
-			}
 
 			arg.size = (int)(temp + 1 - str);
 		}
-	}else {
+		flag = true;
+	}else{
 		for(int i = 0; i < 6; i++)
 		{
 			if(memcmp(str, Argument_Table[i].Name, Argument_Table[i].Size) == 0)
@@ -145,13 +155,16 @@ void ClassifyArgument(Argument& arg, const char* str)
 			}
 		}	
 	}
-	if(flag = false)
-		if(strchr(str, ',') == NULL && strlen(str) > 4){
-		arg.type = Argument::label;
-		arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
-	}else{
-		arg.type = Argument::reg;
-		arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
+	if(flag == false)
+	{
+		if(strchr(str, ',') == NULL && strlen(str) > 4)
+		{
+			arg.type = Argument::label;
+			arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
+		}else{
+			arg.type = Argument::reg;
+			arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
+		}
 	}
 }
 
@@ -240,6 +253,7 @@ std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing, int strS
 
 	HashListing(clearText);
 	OptimizePushPop();
+	OptimizePushPop();
 
 	delete[] clearText;
 	// Strings contain the optimized code
@@ -295,7 +309,7 @@ void Optimizer_x86::OptimizePushPop()
 			while(Commands[pushIndex].Name != push && pushIndex > i-10 && pushIndex > 0)
 				pushIndex--;
 			// For first two cases
-			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number/* || Commands[pushIndex].argA.type == Argument::ptr*/) &&
+			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number || (Commands[pushIndex].argA.type == Argument::ptr && i-pushIndex<=2)) &&
 				!CheckDependencies(pushIndex+1, i-1, Argument::label, true, true))
 			{
 				Strings[i].replace(0, 3, "mov");
@@ -377,6 +391,69 @@ void Optimizer_x86::OptimizePushPop()
 				ClassifyInstruction(Commands[i], Strings[i].c_str());
 				ClassifyInstruction(Commands[i-1], Strings[i-1].c_str());
 				ClassifyInstruction(Commands[i-2], Strings[i-2].c_str());
+
+				++optimize_count;
+			}
+		}
+		if(Commands[i].Name == fld && (strstr(Strings[i].c_str(), "qword") || strstr(Strings[i].c_str(), "st")))
+		{
+			// fld qword [esp], faddp
+			// fld stN, faddp
+			if(Commands[i+1].Name == faddp)
+			{
+				Strings[i+1] = "fadd " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				if(strstr(Strings[i].c_str(), "st"))
+					Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				Strings[i] = "";
+
+				// Update instruction information
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
+
+				++optimize_count;
+			}
+			// fld qword [esp], fmulp
+			// fld stN, fmulp
+			if(Commands[i+1].Name == fmulp)
+			{
+				Strings[i+1] = "fmul " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				if(strstr(Strings[i].c_str(), "st"))
+					Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				Strings[i] = "";
+
+				// Update instruction information
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
+
+				++optimize_count;
+			}
+			// fld qword [esp], fsubrp
+			// fld stN, fsubrp
+			if(Commands[i+1].Name == fsubrp)
+			{
+				Strings[i+1] = "fsubr " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				if(strstr(Strings[i].c_str(), "st"))
+					Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				Strings[i] = "";
+
+				// Update instruction information
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
+
+				++optimize_count;
+			}
+			// fld qword [esp], fdivrp
+			// fld stN, fdivrp
+			if(Commands[i+1].Name == fdivrp)
+			{
+				Strings[i+1] = "fdivr " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				if(strstr(Strings[i].c_str(), "st"))
+					Strings[i+1] += ", " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
+				Strings[i] = "";
+
+				// Update instruction information
+				ClassifyInstruction(Commands[i], Strings[i].c_str());
+				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
 
 				++optimize_count;
 			}
