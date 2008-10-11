@@ -796,14 +796,12 @@ UINT NodeGetAddress::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел для присвоения значения переменной
-NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool arraySetAll, bool absAddr, UINT pushBytes)
+NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, bool shiftAddr, bool absAddr, UINT pushBytes)
 {
 	// информация о переменной
 	varInfo = vInfo;
 	// и её адрес
 	varAddress = varAddr;
-	// присвоить значение всем элементам массива
-	arrSetAll = arraySetAll;
 	// использовать абсолютную адресацию (для глобальных переменных)
 	absAddress = absAddr;
 	// тип изменяемого значения может быть другим, если переменная составная
@@ -818,16 +816,24 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 
 	// получить узел, расчитывающий значение
 	first = getList()->back(); getList()->pop_back();
-	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
+
+	// Если идёт первое определение переменной и массиву присваивается базовый тип
+	arrSetAll = (bytesToPush && typeInfo->arrLevel != 0 && first->GetTypeInfo()->arrLevel == 0 && typeInfo->type != TypeInfo::TYPE_COMPLEX && first->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX);//arraySetAll;
+
+	// Если типы не равны
+	if(first->GetTypeInfo() != typeInfo)
 	{
-		if(first->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX)
-			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
-		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX && first->GetTypeInfo()->GetTypeName() != typeInfo->GetTypeName())
+		// Если это не встроенные базовые типы, или
+		// если различаются размерности массивов, и при этом не происходит первое определение переменной, или
+		// если различается глубина указателей, или
+		// если это указатель, глубина указателей равна, но при этом тип, на который указывает указатель отличается, то
+		// сообщим об ошибке несоответствия типов
+		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && first->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX) ||
+			(typeInfo->arrLevel != first->GetTypeInfo()->arrLevel && !arrSetAll) ||
+			(typeInfo->refLevel != first->GetTypeInfo()->refLevel) ||
+			(typeInfo->refLevel && typeInfo->refLevel == first->GetTypeInfo()->refLevel && typeInfo->subType != first->GetTypeInfo()->subType))
 			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
 	}
-	if((typeInfo->refLevel != first->GetTypeInfo()->refLevel) || (typeInfo->refLevel != 0 && typeInfo->GetTypeName() != first->GetTypeInfo()->GetTypeName()))
-		throw std::string("ERROR: Cannot convert from '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
-
 
 	// если переменная - массив и обновляется одна ячейка
 	// или если переменная - член составного типа и нужен сдвиг адреса
@@ -906,7 +912,7 @@ void NodeVarSet::Compile()
 			cmds->AddData(cmdSetRange);
 			cmds->AddData((USHORT)(newDT));
 			cmds->AddData(varAddress);
-			cmds->AddData(varInfo.varType->arrSize);
+			cmds->AddData(varInfo.varType->size/first->GetTypeInfo()->size);
 		}else{					// если указано присвоить значение одной ячейке массива
 			// расчитываем значение для присвоения ячейке массива
 			first->Compile();

@@ -161,11 +161,20 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	HMODULE sss = LoadLibrary("RICHED32.dll");
 
-	//hTextArea = CreateWindow("RICHEDIT", "func double test(float x, float y){ /*teste*/return x**2*y; }\r\nint a=5;\r\nfloat b, c[3]=14**2-134;\r\ndouble d[10];\r\nfor(int i = 0; i< 10; i++)\r\nd[i] = test(i*2, i-2);\r\ndouble n=1;\r\nwhile(1){ n*=2; if(n>1000) break; }\r\nreturn 2+test(2, 3)+a**b;", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
-	//	5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
-	//hTextArea = CreateWindow("RICHEDIT", "func int test(int x, int y, int z){return x*y+z;}\r\nreturn 1+test(2, 3, 4);", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
-	//	5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
-	hTextArea = CreateWindow("RICHEDIT", "int a = 5;\r\nint ref b = &a;\r\nreturn 1;", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
+	FILE *startText = fopen("code.txt", "rb");
+	char *fileContent = NULL;
+	if(startText)
+	{
+		fseek(startText, 0, SEEK_END);
+		UINT textSize = ftell(startText);
+		fseek(startText, 0, SEEK_SET);
+		fileContent = new char[textSize+1];
+		fread(fileContent, 1, textSize, startText);
+		fileContent[textSize] = 0;
+		fclose(startText);
+	}
+	hTextArea = CreateWindow("RICHEDIT", fileContent ? fileContent : "int a = 5;\r\nint ref b = &a;\r\nreturn 1;",
+		WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
 		5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
 	if(!hTextArea)
 		return 0;

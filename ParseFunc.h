@@ -329,7 +329,7 @@ protected:
 class NodeVarSet: public NodeTwoOP
 {
 public:
-	NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool arrSetAll, bool absAddress, UINT pushBytes);
+	NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress, UINT pushBytes);
 	virtual ~NodeVarSet();
 
 	virtual void Compile();
