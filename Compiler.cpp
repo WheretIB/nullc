@@ -1288,6 +1288,8 @@ void addMember(char const* s, char const* e)
 
 void addType(char const* s, char const* e)
 {
+	if(newType->size % 4 != 0)
+		newType->size += 4 - (newType->size % 4);
 	typeInfo.push_back(newType);
 	newType = NULL;
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
@@ -1820,8 +1822,8 @@ void Compiler::GenListing()
 	USHORT	shVal1, shVal2;
 	logASM.str("");
 
-	char* typeInfoS[] = { "int", "long", "float", "double" };
-	char* typeInfoD[] = { "char", "short", "int", "long", "float", "double" };
+	char* typeInfoS[] = { "int", "long", "complex", "double" };
+	char* typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
 	UINT typeSizeS[] = { 4, 8, 4, 8 };
 	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 	CmdFlag cFlag;
@@ -1979,7 +1981,13 @@ void Compiler::GenListing()
 					{
 						cmdList->GetINT(pos, valind);
 						pos += 4;
-						logASM << "size(" << valind << ")";
+						logASM << " max size(" << valind << ") ";
+					}
+					if(st == STYPE_COMPLEX_TYPE)
+					{
+						cmdList->GetINT(pos, valind);
+						pos += 4;
+						logASM << "sizeof(" << valind << ")";
 					}
 				}
 			}
@@ -2019,6 +2027,12 @@ void Compiler::GenListing()
 					pos += 4;
 					logASM << "size: " << valind;
 				}
+				if(st == STYPE_COMPLEX_TYPE)
+				{
+					cmdList->GetINT(pos, valind);
+					pos += 4;
+					logASM << "sizeof(" << valind << ")";
+				}
 			}
 			break;
 		case cmdPop:
@@ -2026,6 +2040,12 @@ void Compiler::GenListing()
 			pos += 2;
 			logASM << pos2 << " POP ";
 			logASM << typeInfoS[cFlag&0x00000003];
+			if(flagStackType(cFlag) == STYPE_COMPLEX_TYPE)
+			{
+				cmdList->GetUINT(pos, valind);
+				pos += 4;
+				logASM << " sizeof(" << valind << ")";
+			}
 			break;
 		case cmdRTOI:
 			cmdList->GetUSHORT(pos, cFlag);

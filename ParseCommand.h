@@ -184,7 +184,7 @@ enum asmStackType
 {
 	STYPE_INT,
 	STYPE_LONG,
-	STYPE_FLOAT_DEPRECATED,
+	STYPE_COMPLEX_TYPE,
 	STYPE_DOUBLE,
 	STYPE_FORCE_DWORD = 1<<30,
 };
@@ -198,6 +198,7 @@ enum asmDataType
 	DTYPE_LONG=12,
 	DTYPE_FLOAT=16,
 	DTYPE_DOUBLE=20,
+	DTYPE_COMPLEX_TYPE=24,
 	DTYPE_FORCE_DWORD = 1<<30,
 };
 // Type of operation (for operation flag)
@@ -418,8 +419,8 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 {
 	asmStackType st = flagStackType(cFlag);
 	asmDataType dt = flagDataType(cFlag);
-	char*	typeInfoS[] = { "int", "long", "float", "double" };
-	char*	typeInfoD[] = { "char", "short", "int", "long", "float", "double" };
+	char*	typeInfoS[] = { "int", "long", "complex", "double" };
+	char*	typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
 	UINT	typeSizeS[] = { 4, 8, 4, 8 };
 	UINT	typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 	UINT	DWords[] = { dw0, dw1 };
@@ -467,6 +468,8 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 	case cmdPop:
 		(*stream) << " POP ";
 		(*stream) << typeInfoS[cFlag&0x00000003];
+		if(valind)
+			(*stream) << " sizeof " << valind;
 		break;
 	case cmdRTOI:
 		(*stream) << " RTOI ";
@@ -550,10 +553,10 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		
 		if(flagAddrRel(cFlag))
 			(*stream) << "rel+top";
-
-		if(flagShiftStk(cFlag)){
+		if(flagShiftStk(cFlag))
 			(*stream) << "+shiftstk";
-		}
+		if(st == STYPE_COMPLEX_TYPE)
+			(*stream) << " sizeof " << dw0;
 		break;
 	case cmdPush:
 		(*stream) << " PUSH ";
@@ -582,6 +585,8 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 				(*stream) << "rel+top";
 			if(flagShiftStk(cFlag))
 				(*stream) << "+shiftstk";
+			if(st == STYPE_COMPLEX_TYPE)
+				(*stream) << " sizeof " << dw1;
 		}
 		break;
 	case cmdSetRange:

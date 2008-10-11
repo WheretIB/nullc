@@ -372,6 +372,13 @@ UINT Executor::Run()
 				if((int)(shift) >= size)
 					throw std::string("ERROR: array index out of bounds (overflow)");
 
+			UINT sizeOfVar = 0;
+			if(dt == DTYPE_COMPLEX_TYPE)
+			{
+				m_cmds->GetUINT(pos, sizeOfVar);
+				pos += 4;
+			}
+
 			if(flagAddrRel(cFlag))
 				valind += paramTop.back();
 			if(flagShiftStk(cFlag))
@@ -383,7 +390,17 @@ UINT Executor::Run()
 			{
 				if(flagAddrRelTop(cFlag) && valind+typeSizeD[dt] > genParams.size())
 					genParams.reserve(genParams.size()+64);
-				if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					UINT currShift = 0, varSize = sizeOfVar;
+					while(varSize >= 4)
+					{
+						*((UINT*)(&genParams[valind+currShift])) = genStack[genStack.size()-varSize/4];
+						varSize -= 4;
+						currShift += 4;
+					}
+					assert(varSize == 0);
+				}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
 				{
 					UINT arr[2] = { genStack[genStack.size()-2], genStack[genStack.size()-1] };
 					float res = (float)(*((double*)(&arr[0])));
@@ -405,7 +422,7 @@ UINT Executor::Run()
 					genParams[valind] = cdata;
 				}
 
-				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0));
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, sizeOfVar));
 			}else{
 				if(flagNoAddr(cFlag)){
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
@@ -443,7 +460,22 @@ UINT Executor::Run()
 					genStack.push_back(lowDW);
 				}
 
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					UINT currShift = 0, varSize = sizeOfVar;
+					while(varSize >= 4)
+					{
+						genStack.push_back(*((UINT*)(&genParams[valind+currShift])));
+						varSize -= 4;
+						currShift += 4;
+					}
+					assert(varSize == 0);
+					lowDW = sizeOfVar;
+				}
+
 				genStackTypes.push_back(st);
+				if(st == STYPE_COMPLEX_TYPE)
+					genStackTypes.back() = (asmStackType)(sizeOfVar|0x80000000);
 
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, highDW, lowDW));
 			}
@@ -536,16 +568,27 @@ UINT Executor::Run()
 			m_cmds->GetUSHORT(pos, cFlag);
 			pos += 2;
 			asmStackType st = flagStackType(cFlag);
+			UINT sizeOfVar = 0;
 			if(st == STYPE_DOUBLE || st == STYPE_LONG)
 			{
 				genStack.pop_back();
 				genStack.pop_back();
+			}else if(st == STYPE_COMPLEX_TYPE){
+				UINT varSize;
+				m_cmds->GetUINT(pos, varSize);
+				pos += 4;
+				sizeOfVar = varSize;
+				while(varSize > 0)
+				{
+					genStack.pop_back();
+					varSize -= 4;
+				}
 			}else{
 				genStack.pop_back();
 			}
 			genStackTypes.pop_back();
 
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, sizeOfVar, cFlag, 0));
 		}else if(cmd >= cmdAdd && cmd <= cmdLogXor){
 			m_cmds->GetUCHAR(pos, oFlag);
 			pos += 1;
@@ -863,11 +906,16 @@ UINT Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0));
 		}
 
-		UINT typeSizeS[] = { 1, 2, 1, 2 };
+		UINT typeSizeS[] = { 1, 2, 0, 2 };
 #ifdef _DEBUG
 		m_FileStream << "  " << genStack.size() << ";" << genStackTypes.size() << "; // ";
 		for(UINT i = 0, k = 0; i < genStackTypes.size(); i++)
 		{
+			if(genStackTypes[i] & 0x80000000)
+			{
+				m_FileStream << "complex " << (genStackTypes[i] & ~0x80000000) << " bytes";
+				k += genStackTypes[i] & ~0x80000000;
+			}
 			if(genStackTypes[i] == STYPE_DOUBLE)
 				m_FileStream << "double " << *((double*)(&genStack[k])) << ", ";
 			if(genStackTypes[i] == STYPE_LONG)

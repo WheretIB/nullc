@@ -259,6 +259,8 @@ void ExecutorX86::GenListing()
 					if(dt == DTYPE_CHAR)
 						pos += 1;
 				}
+				if(dt == DTYPE_COMPLEX_TYPE)
+					pos += 4;
 			}
 			break;
 		case cmdMov:
@@ -269,10 +271,16 @@ void ExecutorX86::GenListing()
 					pos += 4;
 				if(flagSizeOn(cFlag))
 					pos += 4;
+				if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
+					pos += 4;
 			}
 			break;
 		case cmdPop:
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
+			dt = flagDataType(cFlag);
+			if(dt == DTYPE_COMPLEX_TYPE)
+				pos += 4;
 			break;
 		case cmdRTOI:
 			pos += 2;
@@ -741,8 +749,31 @@ void ExecutorX86::GenListing()
 						logASM << "push " << lowDW << " ; положили char\r\n";
 					}
 				}else{
+					UINT sizeOfVar = 0;
+					if(dt == DTYPE_COMPLEX_TYPE)
+					{
+						cmdList->GetUINT(pos, sizeOfVar);
+						pos += 4;
+					}
+
 					//look at the next command
 					cmdList->GetData(pos, cmdNext);
+
+					if(dt == DTYPE_COMPLEX_TYPE)
+					{
+						UINT currShift = 0;
+						while(sizeOfVar >= 4)
+						{
+							logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "] ; положили часть complex\r\n";
+							sizeOfVar -= 4;
+							currShift += 4;
+						}
+						if(sizeOfVar)
+						{
+							logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "] ; положили часть complex\r\n";
+							logASM << "add esp, " << 4-sizeOfVar << " ; лишнее убрали\r\n";
+						}
+					}
 					if(dt == DTYPE_DOUBLE)
 					{
 						if(cmdNext >= cmdAdd && cmdNext <= cmdNEqual)// && !skipFldESPOnDoubleALU)
@@ -864,11 +895,42 @@ void ExecutorX86::GenListing()
 
 				UINT final = paramBase+numEDX;
 
+				UINT sizeOfVar = 0;
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					cmdList->GetUINT(pos, sizeOfVar);
+					pos += 4;
+				}
+
 				//look at the next command
 				cmdList->GetData(pos, cmdNext);
 				if(cmdNext == cmdPop)
 					skipPop = true;
 
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					if(skipPop)
+					{
+						UINT currShift = sizeOfVar;
+						while(sizeOfVar >= 4)
+						{
+							currShift -= 4;
+							logASM << "pop dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "] ; присвоили часть complex\r\n";
+							sizeOfVar -= 4;
+						}
+						assert(sizeOfVar == 0);
+					}else{
+						UINT currShift = 0;
+						while(sizeOfVar >= 4)
+						{
+							logASM << "mov ebx, [esp+" << sizeOfVar-4 << "] \r\n";
+							logASM << "mov dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "], ebx ; присвоили часть complex\r\n";
+							sizeOfVar -= 4;
+							currShift += 4;
+						}
+						assert(sizeOfVar == 0);
+					}
+				}
 				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
 					if(skipPop)
@@ -927,17 +989,26 @@ void ExecutorX86::GenListing()
 			logASM << "  ; POP\r\n";
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
+			st = flagStackType(cFlag);
+
 			if(skipPop)
 			{
+				if(st == STYPE_COMPLEX_TYPE)
+					pos += 4;
 				skipPop = false;
 				break;
 			}
 
-			st = flagStackType(cFlag);
 			if(st == STYPE_DOUBLE || st == STYPE_LONG)
+			{
 				logASM << "add esp, 8 ; убрали double или long\r\n";
-			else
+			}else if(st == STYPE_COMPLEX_TYPE){
+				cmdList->GetUINT(pos, valind);
+				pos += 4;
+				logASM << "add esp, " << valind << " ; убрали complex\r\n";
+			}else{
 				logASM << "pop eax ; убрали int\r\n";
+			}
 			break;
 		case cmdRTOI:
 			{
