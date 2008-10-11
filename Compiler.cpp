@@ -888,18 +888,11 @@ void addSetNode(char const* s, char const* e)
 		throw std::string("ERROR: variable '" + vName + "' is not defined [set]");
 	if(!currValConst && varInfo[i].isConst)
 		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
-	if(braceInd != -1 && varInfo[i].varType->arrLevel == 0)
-		throw std::string("ERROR: variable '" + vName + "' is not an array");
-	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
-		throw std::string("ERROR: variable '" + vName + "' is an array, but no index specified");
-
-	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
-	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
 	if(!valueByRef.empty() && valueByRef.back())
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, false, true, varDefined ? currType->size : 0)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, true, varDefined ? currType->size : 0)));
 	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, varDefined != 0 && braceInd != -1, aabsadr, varDefined ? currType->size : 0)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-varInfoTop.back().varStackSize, compoundType != -1, false, varDefined ? currType->size : 0)));
 	valueByRef.pop_back();
 	currTypes.pop_back();
 
