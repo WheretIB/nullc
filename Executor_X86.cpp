@@ -114,16 +114,28 @@ UINT ExecutorX86::Run()
 	codeFunc funcMain = (codeFunc)(&binCode[0]);
 	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
 
-	UINT startTime = timeGetTime();
+	LARGE_INTEGER pFreq, pCntS, pCntE;
+	QueryPerformanceFrequency(&pFreq);
+
 	UINT res1 = 0;
 	UINT res2 = 0;
 	UINT resT = 0;
 	__try 
 	{
+		QueryPerformanceCounter(&pCntS);
 		__asm
 		{
 			pusha ; // Сохраним все регистры
 			mov eax, binCodeStart ;
+
+			mov esi, esp;
+
+			// Выравниваем стек на границу 8 байт
+			lea ebx, [esp+4];
+			and ebx, 0fh;
+			mov ecx, 16;
+			sub ecx, ebx;
+			sub esp, ecx;
 
 			push ebp; // Сохраним базу стека (её придётся востановить до popa)
 
@@ -131,21 +143,16 @@ UINT ExecutorX86::Run()
 			mov edi, 18h ;
 			call eax ; // в ebx тип вернувшегося значения
 
-		//	pop eax; // Возмём первый dword
-
-			cmp ebx, 3 ; // oFlag == 3, значит int
-			je justAnInt ; // пропустим взятие второй части для long и double
-		//	pop edx; // Возьмём второй dword
-
-			justAnInt:
-
 			pop ebp; // Востановим базу стека
+			mov esp, esi;
+
 			mov dword ptr [res1], eax;
 			mov dword ptr [res2], edx;
 			mov dword ptr [resT], ebx;
 
 			popa ;
 		}
+		QueryPerformanceCounter(&pCntE);
 	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			throw std::string("ERROR: integer division by zero");
@@ -167,16 +174,12 @@ UINT ExecutorX86::Run()
 				throw std::string("ERROR: No more memory (512Mb maximum exceeded)");
 		}
 	}
-	UINT runTime = timeGetTime() - startTime;
+	UINT runTime = UINT(double(pCntE.QuadPart - pCntS.QuadPart) / double(pFreq.QuadPart) * 1000.0);
 
 	runResult = res1;
 	runResult2 = res2;
 	runResultType = resT;
 
-	//just for fun, save the parameter data to bmp
-	FILE *fBMP = fopen("funny.bmp", "wb");
-	fwrite(paramData+24, 1, commitedStack-24, fBMP);
-	fclose(fBMP);
 	return runTime;
 }
 #pragma warning(default: 4731)

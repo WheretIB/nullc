@@ -110,16 +110,37 @@ TypeInfo* GetDereferenceType(TypeInfo* type)
 // Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
 TypeInfo* GetArrayType(TypeInfo* type)
 {
-	int varSize = atoi(strs.back().c_str());
-	strs.pop_back();
-	if(varSize < 1)
+	int arrSize = -1;
+	// В последнем узле должно находиться константное число
+	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	{
+		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
+		NodeZeroOP* zOP = (nodeList.end()-1)->get();
+		if(aType == typeDouble)
+		{
+			arrSize = (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
+		}else if(aType == typeFloat){
+			arrSize = (int)static_cast<NodeNumber<float>* >(zOP)->GetVal();
+		}else if(aType == typeLong){
+			arrSize = (int)static_cast<NodeNumber<long long>* >(zOP)->GetVal();
+		}else if(aType == typeInt){
+			arrSize = static_cast<NodeNumber<int>* >(zOP)->GetVal();
+		}else{
+			throw std::string("GetArrayType() ERROR: unknown type of constant number node ") + aType->name;
+		}
+		nodeList.pop_back();
+	}else{
+		throw std::string("Array size must be a constant expression");
+	}
+
+	if(arrSize < 1)
 		throw std::string("Array size can't be negative or zero");
-	compileLog << "GetArrayType(" << type->GetTypeName() << ", " << varSize << ")\r\n";
+	compileLog << "GetArrayType(" << type->GetTypeName() << ", " << arrSize << ")\r\n";
 	// Поищем нужный тип в списке
 	UINT targetArrLevel = type->arrLevel+1;
 	for(UINT i = 0; i < typeInfo.size(); i++)
 	{
-		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == varSize)
+		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == arrSize)
 		{
 			compileLog << "  returns " << typeInfo[i]->GetTypeName() << "\r\n";
 			return typeInfo[i];
@@ -128,10 +149,10 @@ TypeInfo* GetArrayType(TypeInfo* type)
 	// Создадим новый тип
 	TypeInfo* newInfo = new TypeInfo();
 	newInfo->name = type->name;
-	newInfo->size = type->size * varSize;
+	newInfo->size = type->size * arrSize;
 	newInfo->type = type->type;
 	newInfo->arrLevel = type->arrLevel + 1;
-	newInfo->arrSize = varSize;
+	newInfo->arrSize = arrSize;
 	newInfo->subType = type;
 
 	typeInfo.push_back(newInfo);
@@ -257,7 +278,7 @@ void addNegNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
 		}else{
-			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
+			throw std::string("addNegNode() ERROR: unknown type ") + aType->name;
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -289,7 +310,7 @@ void addLogNotNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
 		}else{
-			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
+			throw std::string("addLogNotNode() ERROR: unknown type ") + aType->name;
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -680,7 +701,6 @@ void selType(char const* s, char const* e)
 void addVar(char const* s, char const* e)
 {
 	string vName = *(strs.end()-2);
-	//size_t braceInd = strs.back().find('[');
 
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		if(varInfo[i].name == vName)
@@ -1379,10 +1399,10 @@ namespace CompilerGrammar
 		addLong		=	addNumberNode<long long>;
 		addDouble	=	addNumberNode<double>;
 
-		arrayDef	=	('[' >> intP[strPush] >> ']' >> !arrayDef)[convertTypeToArray];
+		arrayDef	=	('[' >> /*intP[strPush]*/term4_9 >> ']' >> !arrayDef)[convertTypeToArray];
 		seltype		=	typenameP(varname)[selType] >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
-		isconst		=	epsP[AssignVar<bool>(currValConst,false)] >> !strP("const")[AssignVar<bool>(currValConst,true)];
+		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
 		varname		=	lexemeD[alphaP >> *alnumP];
 
 		classdef	=	strP("class") >> varname[beginType] >> chP('{') >>
@@ -1390,13 +1410,14 @@ namespace CompilerGrammar
 						>> chP('}')[addType];
 
 		funccall	=	varname[strPush] >> 
-			('(' | (epsP[strPop] >> nothingP)) >>
-			epsP[PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >> 
-			!(
-			term5[ArrBackInc<std::vector<UINT> >(callArgCount)] >>
-			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)])
-			) >>
-			(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
+				('(' | (epsP[strPop] >> nothingP)) >>
+				epsP[PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >> 
+				!(
+				term5[ArrBackInc<std::vector<UINT> >(callArgCount)] >>
+				*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)])
+				) >>
+				(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
+
 		funcvars	=	!(isconst >> seltype >> varname[strPush][funcParam]) >> *(',' >> isconst >> seltype >> varname[strPush][funcParam]);
 		funcdef		=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
 
@@ -1425,7 +1446,7 @@ namespace CompilerGrammar
 		addvarp		=
 			(
 				varname[strPush] >>
-				!('[' >> intP[strPush] >> ']')[convertTypeToArray]
+				!('[' >> /*intP[strPush]*/term4_9 >> ']')[convertTypeToArray]
 			)[pushType][strPush][addVar] >>
 			(('=' >> term5)[AssignVar<bool>(currValueByRef, false)][pushValueByRef][addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
 		

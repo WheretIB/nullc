@@ -208,7 +208,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	PostMessage(hWnd, WM_SIZE, 0, (394<<16)+(900-16));
 
-	SetTimer(hWnd, 1, 100, 0);
+	SetTimer(hWnd, 1, 500, 0);
 	return TRUE;
 }
 bool RunCallback(UINT cmdNum)
@@ -363,6 +363,11 @@ void FillVariableInfoTree()
 		}
 		address += currVar.varType->size;
 	}
+
+	//just for fun, save the parameter data to bmp
+	FILE *fBMP = fopen("funny.bmp", "wb");
+	fwrite(variableData+24, 1, address-24, fBMP);
+	fclose(fBMP);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
