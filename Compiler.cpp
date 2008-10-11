@@ -1399,7 +1399,7 @@ namespace CompilerGrammar
 		addLong		=	addNumberNode<long long>;
 		addDouble	=	addNumberNode<double>;
 
-		arrayDef	=	('[' >> /*intP[strPush]*/term4_9 >> ']' >> !arrayDef)[convertTypeToArray];
+		arrayDef	=	('[' >> term4_9 >> ']' >> !arrayDef)[convertTypeToArray];
 		seltype		=	typenameP(varname)[selType] >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
 		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
@@ -1446,7 +1446,7 @@ namespace CompilerGrammar
 		addvarp		=
 			(
 				varname[strPush] >>
-				!('[' >> /*intP[strPush]*/term4_9 >> ']')[convertTypeToArray]
+				!('[' >> term4_9 >> ']')[convertTypeToArray]
 			)[pushType][strPush][addVar] >>
 			(('=' >> term5)[AssignVar<bool>(currValueByRef, false)][pushValueByRef][addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
 		
@@ -1751,6 +1751,7 @@ bool Compiler::Compile(string str)
 	varDefined = 0;
 	negCount = 0;
 	varTop = 24;
+	newType = NULL;
 
 	varInfo.push_back(VariableInfo("ERROR", 0, typeDouble, true));
 	varInfo.push_back(VariableInfo("pi", 8, typeDouble, true));
