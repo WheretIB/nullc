@@ -38,12 +38,38 @@ ostringstream	compileLog;
 
 // Temp variables
 // Временные переменные:
-// Количество минусов перед переменной, количество определённых переменных, размер определённых переменных
-// Вершина стека переменных
-UINT negCount, varDefined, varSize, varTop;
+// Количество минусов перед переменной, вершина стека переменных
+UINT negCount, varTop;
+
+// Была ли определена переменная (для addVarSetNode)
+bool varDefined;
+
 // Является ли текущая переменная константной
 bool currValConst;
 
+// Информация о типе текцщей переменной
+TypeInfo*	currType = NULL;
+// Стек ( :) )такой информации
+// Для конструкций arr[arr[i.a.b].y].x;
+std::vector<TypeInfo*>	currTypes;
+std::vector<bool>		valueByRef;
+
+// Список узлов дерева
+// Отдельные узлы помещаются сюда, и в дальнейшем объеденяются в более комплексные узлы,
+// создавая дерево. После правильной компиляции количество узлов в этом массиве должно равнятся 1
+std::vector<shared_ptr<NodeZeroOP> >	nodeList;
+
+// Массив временных строк
+std::vector<std::string>	strs;
+// Стек с количеством переменных переданных функции.
+// Стек для ситуаций вроде foo(1, bar(2, 3, 4), 5), когда нужно сохранить количество параметров,
+// для каждой из функцией для проверки количества переданных параметров с тем, которое принимает функция
+std::vector<UINT>			callArgCount;
+// Стек, который хранит титы значений, которые возвращает функция.
+// Функции можно определять одну в другой (BUG: 0004 может, нафиг не надо?)
+std::vector<TypeInfo*>		retTypeStack;
+
+//////////////////////////////////////////////////////////////////////////
 // Функция возвращает тип - указателя на исходный
 TypeInfo* GetReferenceType(TypeInfo* type)
 {
@@ -84,6 +110,10 @@ TypeInfo* GetDereferenceType(TypeInfo* type)
 // Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
 TypeInfo* GetArrayType(TypeInfo* type)
 {
+	int varSize = atoi(strs.back().c_str());
+	strs.pop_back();
+	if(varSize < 1)
+		throw std::string("Array size can't be negative or zero");
 	compileLog << "GetArrayType(" << type->GetTypeName() << ", " << varSize << ")\r\n";
 	// Поищем нужный тип в списке
 	UINT targetArrLevel = type->arrLevel+1;
@@ -99,7 +129,7 @@ TypeInfo* GetArrayType(TypeInfo* type)
 	TypeInfo* newInfo = new TypeInfo();
 	newInfo->name = type->name;
 	newInfo->size = type->size * varSize;
-	newInfo->type = type->type;//TypeInfo::TYPE_COMPLEX;
+	newInfo->type = type->type;
 	newInfo->arrLevel = type->arrLevel + 1;
 	newInfo->arrSize = varSize;
 	newInfo->subType = type;
@@ -119,31 +149,9 @@ TypeInfo* GetArrayElementType(TypeInfo* type)
 	return type->subType;
 }
 
-// Информация о типе текцщей переменной
-TypeInfo*	currType = NULL;
-// Стек ( :) )такой информации
-// Для конструкций arr[arr[i.a.b].y].x;
-std::vector<TypeInfo*>	currTypes;
-std::vector<bool>		valueByRef;
-
 bool currValueByRef = false;
 void pushValueByRef(char const*s, char const*e){ valueByRef.push_back(currValueByRef); }
 void popValueByRef(char const*s, char const*e){ valueByRef.pop_back(); }
-
-// Список узлов дерева
-// Отдельные узлы помещаются сюда, и в дальнейшем объеденяются в более комплексные узлы,
-// создавая дерево. После правильной компиляции количество узлов в этом массиве должно равнятся 1
-std::vector<shared_ptr<NodeZeroOP> >	nodeList;
-
-// Массив временных строк
-std::vector<std::string>	strs;
-// Стек с количеством переменных переданных функции.
-// Стек для ситуаций вроде foo(1, bar(2, 3, 4), 5), когда нужно сохранить количество параметров,
-// для каждой из функцией для проверки количества переданных параметров с тем, которое принимает функция
-std::vector<UINT>			callArgCount;
-// Стек, который хранит титы значений, которые возвращает функция.
-// Функции можно определять одну в другой (BUG: 0004 может, нафиг не надо?)
-std::vector<TypeInfo*>		retTypeStack;
 
 // Преобразовать строку в число типа long long
 long long atoll(const char* str)
@@ -672,25 +680,25 @@ void selType(char const* s, char const* e)
 void addVar(char const* s, char const* e)
 {
 	string vName = *(strs.end()-2);
-	size_t braceInd = strs.back().find('[');
+	//size_t braceInd = strs.back().find('[');
 
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		if(varInfo[i].name == vName)
 			throw std::string("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n");
 	checkIfDeclared(vName);
 
-	if(varSize*currType->size > 64*1024*1024)
+	if(currType->size > 64*1024*1024)
 		throw std::string("ERROR: variable '" + vName + "' has to big length (>64 Mb)");
 	
-	varInfo.push_back(VariableInfo(vName, varTop, currType, varSize, currValConst));
-	varDefined += varSize-1;
-	varTop += varSize*currType->size;
-	varSize = 1;
+	varInfo.push_back(VariableInfo(vName, varTop, currType, currValConst));
+	varDefined = true;
+	varTop += currType->size;
 }
 
 void addVarDefNode(char const* s, char const* e)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(varDefined*currType->size, strs.back())));
+	assert(varDefined);
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(currType->size, strs.back())));
 	varDefined = 0;
 }
 
@@ -800,7 +808,6 @@ void convertTypeToRef(char const* s, char const* e)
 void convertTypeToArray(char const* s, char const* e)
 {
 	currType = GetArrayType(currType);
-	varSize = 1;
 }
 
 void addDereference(char const* s, char const* e)
@@ -877,7 +884,7 @@ void addSetNode(char const* s, char const* e)
 	currTypes.pop_back();
 
 	currValConst = false;
-	varDefined = 0;
+	varDefined = false;
 }
 
 void addGetNode(char const* s, char const* e)
@@ -946,8 +953,6 @@ void addSetAndOpNode(CmdID cmd)
 
 	valueByRef.pop_back();
 	currTypes.pop_back();
-
-	varDefined = 0;
 }
 void addAddSetNode(char const* s, char const* e)
 {
@@ -1048,7 +1053,7 @@ void funcAdd(char const* s, char const* e)
 }
 void funcParam(char const* s, char const* e)
 {
-	funcs.back()->params.push_back(VariableInfo(strs.back(), 0, currType, 1, currValConst));
+	funcs.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
 	strs.pop_back();
 }
 void funcStart(char const* s, char const* e)
@@ -1320,7 +1325,7 @@ namespace CompilerGrammar
 	// Parser rules
 	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
 	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, applyref, ifexpr, whileexpr, forexpr, retexpr;
-	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype;
+	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype, arrayDef;
 	Rule classdef;
 
 	Rule code, mySpaceP;
@@ -1374,12 +1379,15 @@ namespace CompilerGrammar
 		addLong		=	addNumberNode<long long>;
 		addDouble	=	addNumberNode<double>;
 
-		seltype		=	typenameP(varname)[selType];
+		arrayDef	=	('[' >> intP[strPush] >> ']' >> !arrayDef)[convertTypeToArray];
+		seltype		=	typenameP(varname)[selType] >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
 		isconst		=	epsP[AssignVar<bool>(currValConst,false)] >> !strP("const")[AssignVar<bool>(currValConst,true)];
 		varname		=	lexemeD[alphaP >> *alnumP];
 
-		classdef	=	strP("class") >> varname[beginType] >> chP('{') >> *(seltype >> varname[addMember] >> *(',' >> varname[addMember]) >> chP(';')) >> chP('}')[addType];
+		classdef	=	strP("class") >> varname[beginType] >> chP('{') >>
+						*(seltype >> varname[addMember] >> *(',' >> varname[addMember]) >> chP(';'))
+						>> chP('}')[addType];
 
 		funccall	=	varname[strPush] >> 
 			('(' | (epsP[strPop] >> nothingP)) >>
@@ -1389,7 +1397,7 @@ namespace CompilerGrammar
 			*(',' >> term5[ArrBackInc<std::vector<UINT> >(callArgCount)])
 			) >>
 			(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
-		funcvars	=	!(seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]) >> *(',' >> seltype >> isconst >> !strP("ref")[convertTypeToRef] >> varname[strPush][funcParam]);
+		funcvars	=	!(isconst >> seltype >> varname[strPush][funcParam]) >> *(',' >> isconst >> seltype >> varname[strPush][funcParam]);
 		funcdef		=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
 
 		applyval	=
@@ -1413,19 +1421,18 @@ namespace CompilerGrammar
 					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]
 				)
 			);
+
 		addvarp		=
 			(
-				varname[strPush][pushType] >>
-				epsP[AssignVar<UINT>(varSize,1)] >>
-				!('[' >> intP[StrToInt(varSize)] >> ']')[convertTypeToArray]
-			)[strPush][addVar][IncVar<UINT>(varDefined)] >>
+				varname[strPush] >>
+				!('[' >> intP[strPush] >> ']')[convertTypeToArray]
+			)[pushType][strPush][addVar] >>
 			(('=' >> term5)[AssignVar<bool>(currValueByRef, false)][pushValueByRef][addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
-		vardefsub	=
-			(*(strP("ref")[convertTypeToRef] | (('[' >> intP[StrToInt(varSize)] >> ']'))[convertTypeToArray]) >> addvarp)[SetStringToLastNode] >>
-			*(',' >> vardefsub)[addTwoExprNode];
+		
+		vardefsub	= addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
-			seltype >> *('[' >> intP[StrToInt(varSize)] >> ']')[convertTypeToArray] >>
 			isconst >>
+			seltype >>
 			vardefsub;
 
 		ifexpr		=	(strP("if") >> ('(' >> term5 >> ')'))[SaveStringIndex] >> expression >> ((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
@@ -1722,12 +1729,11 @@ bool Compiler::Compile(string str)
 
 	varDefined = 0;
 	negCount = 0;
-	varSize = 1;
 	varTop = 24;
 
-	varInfo.push_back(VariableInfo("ERROR", 0, typeDouble, 1, true));
-	varInfo.push_back(VariableInfo("pi", 8, typeDouble, 1, true));
-	varInfo.push_back(VariableInfo("e", 16, typeDouble, 1, true));
+	varInfo.push_back(VariableInfo("ERROR", 0, typeDouble, true));
+	varInfo.push_back(VariableInfo("pi", 8, typeDouble, true));
+	varInfo.push_back(VariableInfo("e", 16, typeDouble, true));
 	varInfoTop.push_back(VarTopInfo(0,0));
 
 	retTypeStack.push_back(NULL);	//global return can return anything

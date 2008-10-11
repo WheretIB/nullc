@@ -236,7 +236,7 @@ namespace ColorerGrammar
 			return;
 		}
 
-		varInfo.push_back(VariableInfo(vName, 0, NULL, varSize, currValConst));
+		varInfo.push_back(VariableInfo(vName, 0, NULL, currValConst));
 		varSize = 1;
 	}
 
