@@ -158,7 +158,7 @@ namespace ColorerGrammar
 		addvarp		=
 			(
 			varname[ColorVarDef] >> epsP[AssignVar<UINT>(varSize,1)] >> 
-			!(chP('[')[ColorText] >> intP[StrToInt(varSize)][ColorInt] >> chP(']')[ColorText])
+			!(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])
 			)[AddVar] >>
 			((chP('=')[ColorText] >> term5) | epsP);
 		vardefsub	=	*strP("ref")[ColorRWord] >> addvarp >> *(chP(',')[ColorText] >> vardefsub);
