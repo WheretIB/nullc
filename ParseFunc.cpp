@@ -660,9 +660,13 @@ void NodeFuncCall::Compile()
 			// адрес начала массива
 			cmds->AddData(addr);
 			addr += funcInfo->params[i].varType->size;
+			if(newST == STYPE_COMPLEX_TYPE)
+				cmds->AddData(funcInfo->params[i].varType->size);
 
 			cmds->AddData(cmdPop);
 			cmds->AddData((USHORT)(newST));
+			if(newST == STYPE_COMPLEX_TYPE)
+				cmds->AddData(funcInfo->params[i].varType->size);
 		}
 
 		cmds->AddData(cmdPushVTop);
@@ -713,9 +717,16 @@ UINT NodeFuncCall::GetSize()
 	}
 	
 	if(funcInfo->address == -1)
+	{
 		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcInfo->name.length();
-	else
+	}else{
 		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcInfo->params.size()) * (2*sizeof(CmdID)+2+4+2);
+		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)
+		{
+			if(funcInfo->params[i].varType->type == TypeInfo::TYPE_COMPLEX)
+				size += 2*sizeof(UINT);
+		}
+	}
 
 	return size;
 }

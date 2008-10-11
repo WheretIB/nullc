@@ -62,7 +62,7 @@ public:
 template<class Ch, class Tr>
 basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, TypeInfo info)
 {
-	str << info.GetTypeName();
+	str << info.GetTypeName() << " ";
 	return str;
 }
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
