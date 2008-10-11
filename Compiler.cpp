@@ -1154,6 +1154,8 @@ void addFuncCallNode(char const* s, char const* e)
 			{
 				if(nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 					fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
+				else if(fList[k]->params[n].varType->type == TypeInfo::TYPE_COMPLEX)
+					fRating[k] += 65000;	// Again. Function excepts complex type, and all we have is simple type (cause previous condition failed).
 				else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
 					fRating[k] += 1;
 			}
