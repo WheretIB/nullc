@@ -2,11 +2,18 @@
 #include "ParseCommand.h"
 #include "ParseClass.h"
 
-template<typename T>
+template<typename T, bool zeroNewMemory = false>
 class FastVector
 {
 public:
-	FastVector(UINT reserved = 1000){ data = new T[reserved]; max = reserved; m_size = 0; }
+	FastVector(UINT reserved = 1000)
+	{
+		data = new T[reserved];
+		if(zeroNewMemory)
+			memset(data, 0, reserved);
+		max = reserved;
+		m_size = 0;
+	}
 	~FastVector(){ delete[] data; }
 
 	__inline void		push_back(const T& val){ data[m_size++] = val; if(m_size==max) grow(); };
@@ -23,7 +30,16 @@ public:
 	__inline void		resize(UINT newsize){ m_size = newsize; while(m_size>=max) grow(); }
 	__inline void		reserve(UINT ressize){ while(ressize >= max) grow(); }
 private:
-	__inline void	grow(){ T* ndata = new T[max+(max>>1)]; memcpy(ndata, data, max*sizeof(T)); delete[] data; data=ndata; max=max+(max>>1); }
+	__inline void	grow()
+	{
+		T* ndata = new T[max+(max>>1)];
+		if(zeroNewMemory)
+			memset(ndata, 0, max+(max>>1));
+		memcpy(ndata, data, max*sizeof(T));
+		delete[] data;
+		data=ndata;
+		max=max+(max>>1);
+	}
 	T	*data;
 	UINT	max, m_size;
 };
@@ -50,7 +66,7 @@ private:
 
 	FastVector<UINT>	genStack;
 	FastVector<asmStackType>	genStackTypes;
-	FastVector<char>	genParams;
+	FastVector<char, true>	genParams;
 	FastVector<UINT>	paramTop;
 	FastVector<CallStackInfo> callStack;
 

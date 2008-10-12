@@ -208,7 +208,7 @@ void blockEnd(char const* s, char const* e)
 {
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{ 
-		varTop -= varInfo.back().varType->arrSize*varInfo.back().varType->size;
+		varTop -= varInfo.back().varType->size;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
@@ -892,7 +892,7 @@ void addSetNode(char const* s, char const* e)
 	if(!valueByRef.empty() && valueByRef.back())
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, true, varDefined ? currType->size : 0)));
 	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-varInfoTop.back().varStackSize, compoundType != -1, false, varDefined ? currType->size : 0)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-varInfoTop.back().varStackSize, braceInd != -1 || compoundType != -1, false, varDefined ? currType->size : 0)));
 	valueByRef.pop_back();
 	currTypes.pop_back();
 
@@ -911,17 +911,13 @@ void addGetNode(char const* s, char const* e)
 		i--;
 	if(i == -1)
 		throw std::string("ERROR: variable '" + vName + "' is not defined [get]");
-	if(braceInd != -1 && varInfo[i].varType->arrLevel == 0)
-		throw std::string("ERROR: variable '" + vName + "' is not an array");
-	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
-		throw std::string("ERROR: variable '" + vName + "' is an array, but no index specified");
 
 	if(valueByRef.back())
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
 	else if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos, compoundType != -1, true)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos, braceInd != -1 || compoundType != -1, true)));
 	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos-(int)(varInfoTop.back().varStackSize), compoundType != -1, false)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos-(int)(varInfoTop.back().varStackSize), braceInd != -1 || compoundType != -1, false)));
 	
 	valueByRef.pop_back();
 	currTypes.pop_back();
@@ -1038,7 +1034,7 @@ void addOneExprNode(char const* s, char const* e)
 void addTwoExprNode(char const* s, char const* e)
 {
 	if(nodeList.back()->GetNodeType() != typeNodeExpressionList)
-		addOneExprNode(s, e);//throw std::string("addTwoExprNode, no NodeExpressionList found");
+		addOneExprNode(s, e);
 	// Take the expression list from the top
 	shared_ptr<NodeZeroOP> temp = nodeList.back();
 	nodeList.pop_back();
@@ -1112,7 +1108,7 @@ void funcEnd(char const* s, char const* e)
 
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
-		varTop -= varInfo.back().varType->arrSize*varInfo.back().varType->size;
+		varTop -= varInfo.back().varType->size;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
@@ -1267,7 +1263,7 @@ void addSwitchNode(char const* s, char const* e)
 	undComandIndex.pop_back();
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
-		varTop--;// -= varInfo.back().count;
+		varTop--;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
@@ -1973,6 +1969,8 @@ void Compiler::GenListing()
 					logASM << valind;
 					if(flagAddrRel(cFlag))
 						logASM << "+top";
+					if(flagAddrRelTop(cFlag))
+						logASM << "+max";
 					if(flagShiftStk(cFlag))
 						logASM << "+shift(stack)";
 					
@@ -2016,6 +2014,9 @@ void Compiler::GenListing()
 				logASM << valind;
 				if(flagAddrRel(cFlag))
 					logASM << "+top";
+
+				if(flagAddrRelTop(cFlag))
+					logASM << "+max";
 
 				if(flagShiftStk(cFlag))
 					logASM << "+shift(stack)";

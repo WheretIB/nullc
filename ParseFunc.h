@@ -336,6 +336,7 @@ public:
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeVarSet; }
+	virtual TypeInfo*	GetTypeInfo();
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress, bytesToPush;

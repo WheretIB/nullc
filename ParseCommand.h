@@ -553,6 +553,8 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		
 		if(flagAddrRel(cFlag))
 			(*stream) << "rel+top";
+		if(flagAddrRelTop(cFlag))
+			(*stream) << "max+top";
 		if(flagShiftStk(cFlag))
 			(*stream) << "+shiftstk";
 		if(st == STYPE_COMPLEX_TYPE)
@@ -583,6 +585,8 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 			
 			if(flagAddrRel(cFlag))
 				(*stream) << "rel+top";
+			if(flagAddrRelTop(cFlag))
+				(*stream) << "max+top";
 			if(flagShiftStk(cFlag))
 				(*stream) << "+shiftstk";
 			if(st == STYPE_COMPLEX_TYPE)
