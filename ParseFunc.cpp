@@ -340,8 +340,8 @@ void NodePopOp::Compile()
 	{
 		// Убираем его с вершины стека
 		cmds->AddData(cmdPop);
-		cmds->AddData((USHORT)(first->GetTypeInfo()->arrLevel != 0 ? STYPE_COMPLEX_TYPE : podTypeToStackType[first->GetTypeInfo()->type]));
-		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX || first->GetTypeInfo()->arrLevel != 0)
+		cmds->AddData((USHORT)(podTypeToStackType[first->GetTypeInfo()->type]));
+		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 			cmds->AddData(first->GetTypeInfo()->size);
 	}
 }
@@ -359,7 +359,7 @@ UINT NodePopOp::GetSize()
 	if(first->GetTypeInfo() != typeVoid)
 	{
 		size += sizeof(CmdID) + sizeof(USHORT);
-		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX || first->GetTypeInfo()->arrLevel != 0)
+		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 			size += sizeof(UINT);
 	}
 	return size;
@@ -439,7 +439,7 @@ void NodeReturnOp::Compile()
 	TypeInfo *retType = typeInfo ? typeInfo : first->GetTypeInfo();
 	asmOperType operType = operTypeForStackType[podTypeToStackType[retType->type]];
 	cmds->AddData(cmdReturn);
-	cmds->AddData((USHORT)(retType->type == TypeInfo::TYPE_COMPLEX || retType->arrLevel != 0 ? retType->size : (bitRetSimple | operType)));
+	cmds->AddData((USHORT)(retType->type == TypeInfo::TYPE_COMPLEX ? retType->size : (bitRetSimple | operType)));
 	cmds->AddData((USHORT)(popCnt));
 }
 void NodeReturnOp::LogToStream(ostringstream& ostr)
@@ -660,19 +660,19 @@ void NodeFuncCall::Compile()
 		UINT addr = 0;
 		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)
 		{
-			asmStackType newST = funcInfo->params[i].varType->arrLevel != 0 ? STYPE_COMPLEX_TYPE : podTypeToStackType[funcInfo->params[i].varType->type];
-			asmDataType newDT = funcInfo->params[i].varType->arrLevel != 0 ? DTYPE_COMPLEX_TYPE : podTypeToDataType[funcInfo->params[i].varType->type];
+			asmStackType newST = podTypeToStackType[funcInfo->params[i].varType->type];
+			asmDataType newDT = podTypeToDataType[funcInfo->params[i].varType->type];
 			cmds->AddData(cmdMov);
 			cmds->AddData((USHORT)(newST | newDT | bitAddrRelTop));
 			// адрес начала массива
 			cmds->AddData(addr);
 			addr += funcInfo->params[i].varType->size;
-			if(newST == STYPE_COMPLEX_TYPE || funcInfo->params[i].varType->arrLevel != 0)
+			if(newST == STYPE_COMPLEX_TYPE)
 				cmds->AddData(funcInfo->params[i].varType->size);
 
 			cmds->AddData(cmdPop);
 			cmds->AddData((USHORT)(newST));
-			if(newST == STYPE_COMPLEX_TYPE || funcInfo->params[i].varType->arrLevel != 0)
+			if(newST == STYPE_COMPLEX_TYPE)
 				cmds->AddData(funcInfo->params[i].varType->size);
 		}
 
@@ -690,7 +690,7 @@ void NodeFuncCall::Compile()
 		// Вызовем по адресу
 		cmds->AddData(cmdCall);
 		cmds->AddData(funcInfo->address);
-		cmds->AddData((USHORT)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID || typeInfo->arrLevel != 0) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
+		cmds->AddData((USHORT)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
 	}
 }
 void NodeFuncCall::LogToStream(ostringstream& ostr)
@@ -730,7 +730,7 @@ UINT NodeFuncCall::GetSize()
 		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcInfo->params.size()) * (2*sizeof(CmdID)+2+4+2);
 		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)
 		{
-			if(funcInfo->params[i].varType->type == TypeInfo::TYPE_COMPLEX || funcInfo->params[i].varType->arrLevel != 0)
+			if(funcInfo->params[i].varType->type == TypeInfo::TYPE_COMPLEX)
 				size += 2*sizeof(UINT);
 		}
 	}
@@ -838,7 +838,7 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 	first = getList()->back(); getList()->pop_back();
 
 	// Если идёт первое определение переменной и массиву присваивается базовый тип
-	arrSetAll = (bytesToPush && typeInfo->arrLevel != 0 && first->GetTypeInfo()->arrLevel == 0 && typeInfo->type != TypeInfo::TYPE_COMPLEX && first->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX);//arraySetAll;
+	arrSetAll = (bytesToPush && typeInfo->arrLevel != 0 && first->GetTypeInfo()->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && first->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX);//arraySetAll;
 	if(arrSetAll)
 		shiftAddress = false;
 
@@ -854,7 +854,10 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 			(typeInfo->arrLevel != first->GetTypeInfo()->arrLevel && !arrSetAll) ||
 			(typeInfo->refLevel != first->GetTypeInfo()->refLevel) ||
 			(typeInfo->refLevel && typeInfo->refLevel == first->GetTypeInfo()->refLevel && typeInfo->subType != first->GetTypeInfo()->subType))
-			throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
+		{
+			if(!(typeInfo->arrLevel != 0 && first->GetTypeInfo()->arrLevel == 0 && arrSetAll))
+				throw std::string("ERROR: Cannot convert '" + first->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
+		}
 	}
 
 	// если переменная - массив и обновляется одна ячейка
@@ -895,8 +898,8 @@ NodeVarSet::~NodeVarSet()
 
 void NodeVarSet::Compile()
 {
-	asmStackType newST = (!shiftAddress && varInfo.varType->arrLevel != 0 ? STYPE_COMPLEX_TYPE : podTypeToStackType[typeInfo->type]);
-	asmDataType newDT = (!shiftAddress && varInfo.varType->arrLevel != 0 ? DTYPE_COMPLEX_TYPE : podTypeToDataType[typeInfo->type]);
+	asmStackType newST = podTypeToStackType[typeInfo->type];
+	asmDataType newDT = podTypeToDataType[typeInfo->type];
 
 	if(strBegin && strEnd)
 		cmds->AddDescription(cmds->GetCurrPos(), strBegin, strEnd);
@@ -957,7 +960,7 @@ void NodeVarSet::Compile()
 		cmds->AddData(cmdMov);
 		cmds->AddData((USHORT)(newST | newDT | (absAddress ? bitAddrAbs : bitAddrRel) | ((shiftAddress && !bakedShift) ? bitShiftStk : 0)));
 		cmds->AddData(varAddress);
-		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || varInfo.varType->arrLevel != 0)
+		if(typeInfo->type == TypeInfo::TYPE_COMPLEX)
 			cmds->AddData(typeInfo->size);
 	}
 }
@@ -1012,7 +1015,7 @@ UINT NodeVarSet::GetSize()
 		if(varInfo.varType->arrLevel == 0)
 			size += ConvertFirstToSecondSize(sST, fST);
 		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
-		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || varInfo.varType->arrLevel != 0)
+		if(typeInfo->type == TypeInfo::TYPE_COMPLEX)
 			size += sizeof(UINT);
 	}
 	return size;
@@ -1078,8 +1081,8 @@ NodeVarGet::~NodeVarGet()
 
 void NodeVarGet::Compile()
 {
-	asmStackType asmST = (!shiftAddress && varInfo.varType->arrLevel != 0 ? STYPE_COMPLEX_TYPE : podTypeToStackType[typeInfo->type]);
-	asmDataType asmDT = (!shiftAddress && varInfo.varType->arrLevel != 0 ? DTYPE_COMPLEX_TYPE : podTypeToDataType[typeInfo->type]);
+	asmStackType asmST = podTypeToStackType[typeInfo->type];
+	asmDataType asmDT = podTypeToDataType[typeInfo->type];
 	if(shiftAddress && varInfo.varType->arrLevel != 0) 	// если это массив с индексом
 	{
 		// кладём сдвиг от начала массива (в байтах)
@@ -1105,7 +1108,7 @@ void NodeVarGet::Compile()
 		cmds->AddData((USHORT)(asmST | asmDT | (absAddress ? bitAddrAbs : bitAddrRel) | ((shiftAddress && !bakedShift) ? bitShiftStk : 0)));
 		// адрес переменной
 		cmds->AddData(varAddress);
-		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || varInfo.varType->arrLevel != 0)
+		if(typeInfo->type == TypeInfo::TYPE_COMPLEX)
 			cmds->AddData(typeInfo->size);
 	}
 }
@@ -1136,7 +1139,7 @@ UINT NodeVarGet::GetSize()
 		if(shiftAddress && !bakedShift)
 			size += first->GetSize();
 		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
-		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || varInfo.varType->arrLevel != 0)
+		if(typeInfo->type == TypeInfo::TYPE_COMPLEX)
 			size += 4;
 	}
 	return size;

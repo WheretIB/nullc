@@ -150,7 +150,7 @@ TypeInfo* GetArrayType(TypeInfo* type)
 	TypeInfo* newInfo = new TypeInfo();
 	newInfo->name = type->name;
 	newInfo->size = type->size * arrSize;
-	newInfo->type = type->type;
+	newInfo->type = TypeInfo::TYPE_COMPLEX;
 	newInfo->arrLevel = type->arrLevel + 1;
 	newInfo->arrSize = arrSize;
 	newInfo->subType = type;
