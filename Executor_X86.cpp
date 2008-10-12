@@ -128,15 +128,14 @@ UINT ExecutorX86::Run()
 			pusha ; // Сохраним все регистры
 			mov eax, binCodeStart ;
 
-			mov esi, esp;
-
 			// Выравниваем стек на границу 8 байт
-			lea ebx, [esp+4];
+			lea ebx, [esp+8];
 			and ebx, 0fh;
 			mov ecx, 16;
 			sub ecx, ebx;
 			sub esp, ecx;
 
+			push ecx; // Сохраним на сколько сдвинули стек
 			push ebp; // Сохраним базу стека (её придётся востановить до popa)
 
 			mov ebp, 0h ;
@@ -144,7 +143,8 @@ UINT ExecutorX86::Run()
 			call eax ; // в ebx тип вернувшегося значения
 
 			pop ebp; // Востановим базу стека
-			mov esp, esi;
+			pop ecx;
+			add esp, ecx;
 
 			mov dword ptr [res1], eax;
 			mov dword ptr [res2], edx;
@@ -512,7 +512,7 @@ void ExecutorX86::GenListing()
 				}
 
 				logASM << "call function" << valind << "\r\n";
-				if(!(retFlag & bitRetSimple) && retFlag != 0)
+				if(!(retFlag & bitRetSimple) && retFlag > 16)
 					logASM << "mov eax, edi ; сохраним старый edi\r\n";
 				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
 				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
@@ -534,18 +534,33 @@ void ExecutorX86::GenListing()
 				}else{
 					if(retFlag != 0)
 					{
-						logASM << "sub esp, " << retFlag << "; освободим в стеке место под переменную\r\n";
+						if(retFlag == 4)
+						{
+							logASM << "push eax ; поместим компл. переменную в 4 байта из регистра\r\n";
+						}else if(retFlag == 8){
+							logASM << "push eax \r\n";
+							logASM << "push edx ; поместим компл. переменную в 8 байт в регистры\r\n";
+						}else if(retFlag == 12){
+							logASM << "push eax \r\n";
+							logASM << "push edx \r\n";
+							logASM << "push ecx ; поместим компл. переменную в 12 байт в регистры\r\n";
+						}else if(retFlag == 16){
+							logASM << "push eax \r\n";
+							logASM << "push edx \r\n";
+							logASM << "push ecx \r\n";
+							logASM << "push ebx ; поместим компл. переменную в 16 байт в регистры\r\n";
+						}else{
+							logASM << "sub esp, " << retFlag << "; освободим в стеке место под переменную\r\n";
 
-						logASM << "mov ebx, edi ; сохраним новый edi\r\n";
-						logASM << "mov edx, esi ; сохраним esi\r\n";
+							logASM << "mov ebx, edi ; сохраним новый edi\r\n";
+							
+							logASM << "lea esi, [eax + " << paramBase << "] ; значения берём с вершины стека переменных\r\n";
+							logASM << "mov edi, esp ; перемещаем на время на вершину стека переменных\r\n";
+							logASM << "mov ecx, " << retFlag/4 << " ; размер переменной\r\n";
+							logASM << "rep movsd ; копируем\r\n";
 
-						logASM << "lea esi, [eax + " << paramBase << "] ; значения берём с вершины стека переменных\r\n";
-						logASM << "mov edi, esp ; перемещаем на время на вершину стека переменных\r\n";
-						logASM << "mov ecx, " << retFlag/4 << " ; размер переменной\r\n";
-						logASM << "rep movsd ; копируем\r\n";
-
-						logASM << "mov esi, edx ; востанавливаем esi\r\n";
-						logASM << "mov edi, ebx ; востанавливаем edi\r\n";
+							logASM << "mov edi, ebx ; востанавливаем edi\r\n";
+						}
 					}
 				}
 			}
@@ -590,18 +605,33 @@ void ExecutorX86::GenListing()
 					if(popCnt == 0)
 						logASM << "mov ebx, " << (UINT)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
 				}else{
-					logASM << "mov ebx, edi ; сохраним edi\r\n";
-					logASM << "mov edx, esi ; сохраним esi\r\n";
+					if(retFlag == 4)
+					{
+						logASM << "pop eax ; поместим компл. переменную в 4 байта в регистр\r\n";
+					}else if(retFlag == 8){
+						logASM << "pop edx \r\n";
+						logASM << "pop eax ; поместим компл. переменную в 8 байт в регистры\r\n";
+					}else if(retFlag == 12){
+						logASM << "pop ecx \r\n";
+						logASM << "pop edx \r\n";
+						logASM << "pop eax ; поместим компл. переменную в 12 байт в регистры\r\n";
+					}else if(retFlag == 16){
+						logASM << "pop ebx \r\n";
+						logASM << "pop ecx \r\n";
+						logASM << "pop edx \r\n";
+						logASM << "pop eax ; поместим компл. переменную в 12 байт в регистры\r\n";
+					}else{
+						logASM << "mov ebx, edi ; сохраним edi\r\n";
 
-					logASM << "mov esi, esp ; значения берём из стека в стек\r\n";
-					logASM << "lea edi, [edi + " << paramBase << "] ; перемещаем на время на вершину стека переменных\r\n";
-					logASM << "mov ecx, " << retFlag/4 << " ; размер переменной\r\n";
-					logASM << "rep movsd ; копируем\r\n";
+						logASM << "mov esi, esp ; значения берём из стека в стек\r\n";
+						logASM << "lea edi, [edi + " << paramBase << "] ; перемещаем на время на вершину стека переменных\r\n";
+						logASM << "mov ecx, " << retFlag/4 << " ; размер переменной\r\n";
+						logASM << "rep movsd ; копируем\r\n";
 
-					logASM << "mov esi, edx ; востанавливаем esi\r\n";
-					logASM << "mov edi, ebx ; востанавливаем edi\r\n";
+						logASM << "mov edi, ebx ; востанавливаем edi\r\n";
 
-					logASM << "add esp, " << retFlag << "; сдвинем стек до значения базы стека переменных\r\n";
+						logASM << "add esp, " << retFlag << "; сдвинем стек до значения базы стека переменных\r\n";
+					}
 					for(int pops = 0; pops < popCnt-1; pops++)
 					{
 						logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
