@@ -512,6 +512,8 @@ void ExecutorX86::GenListing()
 				}
 
 				logASM << "call function" << valind << "\r\n";
+				if(!(retFlag & bitRetSimple) && retFlag != 0)
+					logASM << "mov eax, edi ; сохраним старый edi\r\n";
 				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
 				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 				if(retFlag & bitRetSimple)
@@ -531,7 +533,20 @@ void ExecutorX86::GenListing()
 					}
 				}else{
 					if(retFlag != 0)
-						throw std::string("Complex type return is not supported [call]");
+					{
+						logASM << "sub esp, " << retFlag << "; освободим в стеке место под переменную\r\n";
+
+						logASM << "mov ebx, edi ; сохраним новый edi\r\n";
+						logASM << "mov edx, esi ; сохраним esi\r\n";
+
+						logASM << "lea esi, [eax + " << paramBase << "] ; значения берём с вершины стека переменных\r\n";
+						logASM << "mov edi, esp ; перемещаем на время на вершину стека переменных\r\n";
+						logASM << "mov ecx, " << retFlag/4 << " ; размер переменной\r\n";
+						logASM << "rep movsd ; копируем\r\n";
+
+						logASM << "mov esi, edx ; востанавливаем esi\r\n";
+						logASM << "mov edi, ebx ; востанавливаем edi\r\n";
+					}
 				}
 			}
 			break;
@@ -575,7 +590,25 @@ void ExecutorX86::GenListing()
 					if(popCnt == 0)
 						logASM << "mov ebx, " << (UINT)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
 				}else{
-					throw std::string("Complex type return is not supported");
+					logASM << "mov ebx, edi ; сохраним edi\r\n";
+					logASM << "mov edx, esi ; сохраним esi\r\n";
+
+					logASM << "mov esi, esp ; значения берём из стека в стек\r\n";
+					logASM << "lea edi, [edi + " << paramBase << "] ; перемещаем на время на вершину стека переменных\r\n";
+					logASM << "mov ecx, " << retFlag/4 << " ; размер переменной\r\n";
+					logASM << "rep movsd ; копируем\r\n";
+
+					logASM << "mov esi, edx ; востанавливаем esi\r\n";
+					logASM << "mov edi, ebx ; востанавливаем edi\r\n";
+
+					logASM << "add esp, " << retFlag << "; сдвинем стек до значения базы стека переменных\r\n";
+					for(int pops = 0; pops < popCnt-1; pops++)
+					{
+						logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
+						logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
+					}
+					if(popCnt == 0)
+						logASM << "mov ebx, " << 16 << " ; если глобальный return, то обозначим, какой тип вернулся\r\n";
 				}
 				logASM << "ret ; возвращаемся из функции\r\n";
 			}
@@ -915,7 +948,7 @@ void ExecutorX86::GenListing()
 						while(sizeOfVar >= 4)
 						{
 							currShift -= 4;
-							logASM << "pop dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "] ; присвоили часть complex\r\n";
+							logASM << "pop dword [" << needEDX << needEBP << final+currShift << "] ; присвоили часть complex\r\n";
 							sizeOfVar -= 4;
 						}
 						assert(sizeOfVar == 0);
@@ -924,7 +957,7 @@ void ExecutorX86::GenListing()
 						while(sizeOfVar >= 4)
 						{
 							logASM << "mov ebx, [esp+" << sizeOfVar-4 << "] \r\n";
-							logASM << "mov dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "], ebx ; присвоили часть complex\r\n";
+							logASM << "mov dword [" << needEDX << needEBP << final+currShift << "], ebx ; присвоили часть complex\r\n";
 							sizeOfVar -= 4;
 							currShift += 4;
 						}

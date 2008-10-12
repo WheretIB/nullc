@@ -534,3 +534,45 @@ return 1;
 
 int test(int a){ return a*2; }
 return test(5);
+
+//Complex types test #3
+float test(float4 a, float4 b){ return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w; }
+float4 test2(float4 u){ u.x += 5.0; return u; }
+float4 float4(float x, float y, float z, float w){ float4 ret; ret.x = x; ret.y = y; ret.z = z; ret.w = w; return ret; }
+float4 float4(float all){ float4 ret; ret.x = ret.y = ret.z = ret.w = all; return ret; }
+float4 float4(float3 xyz, float w){ float4 ret; ret.x = xyz.x; ret.y = xyz.y; ret.z = xyz.z; ret.w = w; return ret; }
+float sum(float[10] u){ float res = 0; for(int i = 0; i < 10; i++) res += u[i]; return res; }
+float[10] inc(float[10] v){ float[10] res; for(int i = 0; i < 10; i++) res[i] = v[i]+1.0f; return res; }
+float4 n, m;
+n.x = 6.0f;
+n.y = 3.0f;
+n.z = 5.0f;
+n.w = 0.0f;
+
+m.x = 2.0f;
+m.y = 3.0f;
+m.z = 7.0f;
+m.w = 0.0f;
+float3 k;
+k.x = 12.0;
+k.y = 4.7;
+k.z = 0;
+float4 u = test2(n), v = float4(2.5, 1.2, 5, 6.0), w = float4(5.9), q = float4(k, 2.0);
+float[10] arr;
+for(int i = 0; i < 10; i++)
+  arr[i] = i*1.5f;
+float arrSum = sum(arr);
+float[10] iArr = inc(arr);
+float iArrSum = sum(iArr);
+// n={6.0  3.0 5.0 0.0}
+// m={2.0  3.0 7.0 0.0}
+// k={12.0 4.7 0.0}
+// u={11.0 3.0 5.0 0.0}
+// v={2.5  1.2 5.0 6.0}
+// w={5.9  5.9 5.9 5.9}
+// q={12.0 4.7 0.0 2.0}
+// arr={0.0 1.5 3.0 4.5 6.0 7.5 9.0 10.5 12.0 13.5}
+// arrSum=67.5
+// iArr={1.0 2.5 4.0 5.5 7.0 8.5 10.0 11.5 13.0 14.5}
+// iArrSum=77.5
+return test(n, m); // 56.0

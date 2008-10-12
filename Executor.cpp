@@ -377,6 +377,7 @@ UINT Executor::Run()
 			{
 				m_cmds->GetUINT(pos, sizeOfVar);
 				pos += 4;
+				typeSizeD[dt>>3] = sizeOfVar;
 			}
 
 			if(flagAddrRel(cFlag))
@@ -388,7 +389,7 @@ UINT Executor::Run()
 
 			if(cmd == cmdMov)
 			{
-				if(flagAddrRelTop(cFlag) && valind+typeSizeD[dt] > genParams.size())
+				if(flagAddrRelTop(cFlag) && valind+typeSizeD[dt>>3] > genParams.size())
 					genParams.reserve(genParams.size()+64);
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
@@ -448,18 +449,6 @@ UINT Executor::Run()
 					if(dt == DTYPE_CHAR){ cdata = genParams[valind]; lowDW = cdata; }
 				}
 				
-				if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
-				{
-					double res = (double)(*((float*)(&lowDW)));
-					genStack.push_back((UINT*)(&res), 2);
-				}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
-				{
-					genStack.push_back(highDW);
-					genStack.push_back(lowDW);
-				}else{
-					genStack.push_back(lowDW);
-				}
-
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
 					UINT currShift = 0, varSize = sizeOfVar;
@@ -471,6 +460,16 @@ UINT Executor::Run()
 					}
 					assert(varSize == 0);
 					lowDW = sizeOfVar;
+				}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
+				{
+					double res = (double)(*((float*)(&lowDW)));
+					genStack.push_back((UINT*)(&res), 2);
+				}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
+				{
+					genStack.push_back(highDW);
+					genStack.push_back(lowDW);
+				}else{
+					genStack.push_back(lowDW);
 				}
 
 				genStackTypes.push_back(st);
@@ -908,7 +907,7 @@ UINT Executor::Run()
 
 		UINT typeSizeS[] = { 1, 2, 0, 2 };
 #ifdef _DEBUG
-		m_FileStream << "  " << genStack.size() << ";" << genStackTypes.size() << "; // ";
+		m_FileStream << " stack size " << genStack.size() << "; stack vals " << genStackTypes.size() << "; param size " << genParams.size() << ";  // ";
 		for(UINT i = 0, k = 0; i < genStackTypes.size(); i++)
 		{
 			if(genStackTypes[i] & 0x80000000)
