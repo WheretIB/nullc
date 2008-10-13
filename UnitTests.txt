@@ -598,3 +598,25 @@ for(int i = 0; i < 10000000; i++)
   f4 = test(f4);
 }
 return mat.row1.y;
+
+//Auto type tests
+float lengthSqr(float3 ref f){ return f.x*f.x+f.y*f.y+f.z*f.z; }
+float[10] tenArr(float n){ float[10] arr; for(int i = 0; i < 10; i++) arr[i] = n; return arr; }
+auto b = 15;
+auto c = 2*2.0;
+float3 m;
+m.x = 3.0;
+m.z = 1;
+auto n = m, nd = lengthSqr(&n);
+auto k = c = 12;
+auto ar = tenArr(3.0);
+
+// erroneous
+//auto er = pi, err;
+//auto inf(){ return 5; }
+//auto ref er2 = &b;
+//auto er3[10] = 12;
+//class Errored{ auto b; }
+
+auto u = &b;
+return *u;

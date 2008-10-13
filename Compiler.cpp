@@ -687,6 +687,11 @@ void addBreakNode(char const* s, char const* e)
 void selType(char const* s, char const* e)
 {
 	string vType = std::string(s,e);
+	if(vType == "auto")
+	{
+		currType = NULL;
+		return;
+	}
 	for(UINT i = 0; i < typeInfo.size(); i++)
 	{
 		if(typeInfo[i]->name == vType)
@@ -707,17 +712,20 @@ void addVar(char const* s, char const* e)
 			throw std::string("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n");
 	checkIfDeclared(vName);
 
-	if(currType->size > 64*1024*1024)
+	if(currType && currType->size > 64*1024*1024)
 		throw std::string("ERROR: variable '" + vName + "' has to big length (>64 Mb)");
 	
 	varInfo.push_back(VariableInfo(vName, varTop, currType, currValConst));
 	varDefined = true;
-	varTop += currType->size;
+	if(currType)
+		varTop += currType->size;
 }
 
 void addVarDefNode(char const* s, char const* e)
 {
 	assert(varDefined);
+	if(!currType)
+		throw std::string("ERROR: auto variable must be initialized in place of definition");
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(currType->size, strs.back())));
 	varDefined = 0;
 }
@@ -822,11 +830,15 @@ void addAddressNode(char const* s, char const* e)
 
 void convertTypeToRef(char const* s, char const* e)
 {
+	if(!currType)
+		throw std::string("ERROR: auto variable cannot have reference flag");
 	currType = GetReferenceType(currType);
 }
 
 void convertTypeToArray(char const* s, char const* e)
 {
+	if(!currType)
+		throw std::string("ERROR: cannot specify array size for auto variable");
 	currType = GetArrayType(currType);
 }
 
@@ -889,10 +901,18 @@ void addSetNode(char const* s, char const* e)
 	if(!currValConst && varInfo[i].isConst)
 		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
 
+	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->GetTypeInfo();
+	if(!currTypes.back())
+	{
+		varInfo[i].varType = realCurrType;
+		varTop += realCurrType->size;
+	}
+	UINT varSizeAdd = varDefined ? realCurrType->size : 0;
+
 	if(!valueByRef.empty() && valueByRef.back())
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), 0, true, true, varDefined ? currType->size : 0)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, 0, true, true, varSizeAdd)));
 	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], currTypes.back(), varInfo[i].pos-varInfoTop.back().varStackSize, braceInd != -1 || compoundType != -1, false, varDefined ? currType->size : 0)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, varInfo[i].pos-varInfoTop.back().varStackSize, braceInd != -1 || compoundType != -1, false, varSizeAdd)));
 	valueByRef.pop_back();
 	currTypes.pop_back();
 
@@ -1054,6 +1074,8 @@ void funcAdd(char const* s, char const* e)
 	std::string name = strs.back();
 	if(name == "if" || name == "else" || name == "for" || name == "while" || name == "var" || name == "func" || name == "return" || name=="switch" || name=="case")
 		throw std::string("ERROR: The name '" + name + "' is reserved");
+	if(!currType)
+		throw std::string("ERROR: function return type cannot be auto");
 	funcs.push_back(new FunctionInfo());
 	funcs.back()->name = name;
 	funcs.back()->vTopSize = (UINT)varInfoTop.size();
@@ -1062,6 +1084,8 @@ void funcAdd(char const* s, char const* e)
 }
 void funcParam(char const* s, char const* e)
 {
+	if(!currType)
+		throw std::string("ERROR: function parameter cannot be an auto type");
 	funcs.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
 	strs.pop_back();
 }
@@ -1281,6 +1305,8 @@ void beginType(char const* s, char const* e)
 
 void addMember(char const* s, char const* e)
 {
+	if(!currType)
+		throw std::string("ERROR: auto cannot be used for class members");
 	newType->AddMember(std::string(s, e), currType);
 }
 
@@ -1393,7 +1419,7 @@ namespace CompilerGrammar
 		addDouble	=	addNumberNode<double>;
 
 		arrayDef	=	('[' >> term4_9 >> ']' >> !arrayDef)[convertTypeToArray];
-		seltype		=	typenameP(varname)[selType] >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
+		seltype		=	(strP("auto") | typenameP(varname))[selType] >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
 		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
 		varname		=	lexemeD[alphaP >> *alnumP];

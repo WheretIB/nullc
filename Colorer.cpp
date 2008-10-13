@@ -108,7 +108,7 @@ namespace ColorerGrammar
 		symb2		=	graphP - alphaP;
 		varname		=	lexemeD[alphaP >> *alnumP];
 
-		typeExpr	=	typenameP(varname)[ColorRWord];
+		typeExpr	=	(strP("auto") | typenameP(varname))[ColorRWord];
 
 		classdef	=	strP("class")[ColorRWord] >> varname[ColorRWord] >> chP('{')[ColorText] >> *(typeExpr >> varname[ColorVarDef] >> *(chP(',')[ColorText] >> varname[ColorVarDef]) >> chP(';')[ColorText]) >> chP('}')[ColorText];
 
