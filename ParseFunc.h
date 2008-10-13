@@ -466,10 +466,10 @@ protected:
 class NodeExpressionList: public NodeZeroOP
 {
 public:
-	NodeExpressionList();
+	NodeExpressionList(TypeInfo *returnType = typeVoid);
 	virtual ~NodeExpressionList();
 
-			void AddNode();
+			void AddNode(bool reverse = true);
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
@@ -496,6 +496,7 @@ protected:
 	std::list<shared_ptr<NodeZeroOP> >	paramList;
 	typedef std::list<shared_ptr<NodeZeroOP> >::reverse_iterator paramPtr;
 };
+
 /*
 class Node: public NodeOP
 {

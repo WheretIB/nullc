@@ -620,3 +620,8 @@ auto ar = tenArr(3.0);
 
 auto u = &b;
 return *u;
+
+// Char array test
+auto str1 = "", str2 = "a", str3 = "ab";
+auto str4 = "abc", str5 = "abcd", string = "Hello World!";
+return 1;

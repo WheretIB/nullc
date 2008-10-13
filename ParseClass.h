@@ -17,6 +17,7 @@ public:
 		arrLevel = 0;
 		arrSize = 1;
 		subType = NULL;
+		alignBytes = 0;
 	}
 
 	std::string		name;	// base type name
@@ -27,6 +28,8 @@ public:
 	UINT		arrLevel;	// array to a type depth
 
 	UINT		arrSize;	// element count for an array
+
+	UINT		alignBytes;
 
 	TypeInfo	*subType;
 
