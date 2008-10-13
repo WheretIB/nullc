@@ -1975,10 +1975,12 @@ UINT NodeSwitchExpr::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, содержащий список выражений.
-NodeExpressionList::NodeExpressionList()
+NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 {
+	typeInfo = returnType;
 	exprList.push_back(getList()->back());
 	getList()->pop_back();
+
 	getLog() << __FUNCTION__ << "\r\n";
 }
 NodeExpressionList::~NodeExpressionList()
@@ -1986,9 +1988,9 @@ NodeExpressionList::~NodeExpressionList()
 	getLog() << __FUNCTION__ << "\r\n";
 }
 
-void NodeExpressionList::AddNode()
+void NodeExpressionList::AddNode(bool reverse)
 {
-	exprList.insert(exprList.begin(), getList()->back());
+	exprList.insert(reverse ? exprList.begin() : exprList.end(), getList()->back());
 	getList()->pop_back();
 }
 

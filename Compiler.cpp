@@ -149,7 +149,11 @@ TypeInfo* GetArrayType(TypeInfo* type)
 	// Создадим новый тип
 	TypeInfo* newInfo = new TypeInfo();
 	newInfo->name = type->name;
+
 	newInfo->size = type->size * arrSize;
+	if(newInfo->size % 4 != 0)
+		newInfo->size += 4 - (newInfo->size % 4);
+
 	newInfo->type = TypeInfo::TYPE_COMPLEX;
 	newInfo->arrLevel = type->arrLevel + 1;
 	newInfo->arrSize = arrSize;
@@ -221,20 +225,50 @@ void addNumberNode(char const*s, char const*e);
 template<> void addNumberNode<int>(char const*s, char const*e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(atoi(s), typeInt)));
-};
+}
 template<> void addNumberNode<float>(char const*s, char const*e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<float>((float)atof(s), typeFloat)));
-};
+}
 template<> void addNumberNode<long long>(char const*s, char const*e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(atoll(s), typeLong)));
-};
+}
 template<> void addNumberNode<double>(char const*s, char const*e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<double>(atof(s), typeDouble)));
-};
+}
 
+// Функция для создания узла, который кладёт массив в стек
+// Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
+// но зато не надо писать отдельный класс с одинаковыми действиями внутри.
+void addStringNode(char const*s, char const*e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(static_cast<int>(e-s)-1, typeInt)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(typeChar))));
+
+	shared_ptr<NodeZeroOP> temp = nodeList.back();
+	nodeList.pop_back();
+
+	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+
+	const char *curr = s+1, *end = e-1;;
+	while(end-curr >= 4)
+	{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(*(int*)(curr), typeInt)));
+		arrayList->AddNode(false);
+		curr += 4;
+	}
+	int num = *(int*)(curr);
+	*((char*)(&num)+(end-curr)) = 0;
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(num, typeInt)));
+	arrayList->AddNode(false);
+
+	nodeList.push_back(temp);
+
+	strs.pop_back();
+}
 // Функция для создания узла, который уберёт значение со стека переменных
 // Узел заберёт к себе последний узел в списке.
 void addPopNode(char const* s, char const* e)
@@ -703,6 +737,8 @@ void selType(char const* s, char const* e)
 	throw std::string("ERROR: Variable type '" + vType + "' is unknown\r\n");
 }
 
+void addTwoExprNode(char const* s, char const* e);
+
 void addVar(char const* s, char const* e)
 {
 	string vName = *(strs.end()-2);
@@ -715,6 +751,13 @@ void addVar(char const* s, char const* e)
 	if(currType && currType->size > 64*1024*1024)
 		throw std::string("ERROR: variable '" + vName + "' has to big length (>64 Mb)");
 	
+	if(currType && currType->alignBytes != 0 && (varTop-varInfoTop.back().varStackSize)%currType->alignBytes != 0)
+	{
+		UINT offset = currType->alignBytes - ((varTop-varInfoTop.back().varStackSize) % currType->alignBytes);
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(offset, "offset")));
+		addTwoExprNode(0,0);
+		varTop += offset;
+	}
 	varInfo.push_back(VariableInfo(vName, varTop, currType, currValConst));
 	varDefined = true;
 	if(currType)
@@ -1517,6 +1560,7 @@ namespace CompilerGrammar
 			(strP("--") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreDecNode][strPop][strPop] | 
 			(strP("++") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreIncNode][strPop][strPop] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
+			(chP('\"') >> *(anycharP - chP('\"')) >> chP('\"'))[strPush][addStringNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 			group |
 			funccall[addFuncCallNode] |
@@ -1576,6 +1620,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	info->alignBytes = 8;
 	info->name = "double";
 	info->size = 8;
 	info->type = TypeInfo::TYPE_DOUBLE;
@@ -1583,6 +1628,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	info->alignBytes = 4;
 	info->name = "float";
 	info->size = 4;
 	info->type = TypeInfo::TYPE_FLOAT;
@@ -1597,6 +1643,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	//info->alignBytes = 4;
 	info->name = "int";
 	info->size = 4;
 	info->type = TypeInfo::TYPE_INT;
@@ -1618,6 +1665,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	info->alignBytes = 4;
 	info->name = "float2";
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
@@ -1625,6 +1673,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	info->alignBytes = 4;
 	info->name = "float3";
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
@@ -1633,6 +1682,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	info->alignBytes = 4;
 	info->name = "float4";
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
@@ -1644,6 +1694,7 @@ Compiler::Compiler(CommandList* cmds)
 	TypeInfo *typeFloat4 = info;
 
 	info = new TypeInfo();
+	info->alignBytes = 8;
 	info->name = "double2";
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
@@ -1651,6 +1702,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	info->alignBytes = 8;
 	info->name = "double3";
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
@@ -1659,6 +1711,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	info->alignBytes = 8;
 	info->name = "double4";
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
@@ -1668,6 +1721,7 @@ Compiler::Compiler(CommandList* cmds)
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
+	info->alignBytes = 4;
 	info->name = "float4x4";
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("row1", typeFloat4);

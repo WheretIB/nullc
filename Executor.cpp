@@ -572,6 +572,7 @@ UINT Executor::Run()
 			{
 				genStack.pop_back();
 				genStack.pop_back();
+				genStackTypes.pop_back();
 			}else if(st == STYPE_COMPLEX_TYPE){
 				UINT varSize;
 				m_cmds->GetUINT(pos, varSize);
@@ -582,10 +583,12 @@ UINT Executor::Run()
 					genStack.pop_back();
 					varSize -= 4;
 				}
+				for(int n = 0; n < sizeOfVar/(genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()]); n++)
+					genStackTypes.pop_back();
 			}else{
 				genStack.pop_back();
+				genStackTypes.pop_back();
 			}
-			genStackTypes.pop_back();
 
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, sizeOfVar, cFlag, 0));
 		}else if(cmd >= cmdAdd && cmd <= cmdLogXor){
