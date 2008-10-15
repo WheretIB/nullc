@@ -41,6 +41,9 @@ ostringstream	compileLog;
 //  оличество минусов перед переменной, вершина стека переменных
 UINT negCount, varTop;
 
+// ¬ыравнивание переменной или класса в байтах
+UINT currAlign;
+
 // Ѕыла ли определена переменна€ (дл€ addVarSetNode)
 bool varDefined;
 
@@ -751,12 +754,18 @@ void addVar(char const* s, char const* e)
 	if(currType && currType->size > 64*1024*1024)
 		throw std::string("ERROR: variable '" + vName + "' has to big length (>64 Mb)");
 	
-	if(currType && currType->alignBytes != 0 && (varTop-varInfoTop.back().varStackSize)%currType->alignBytes != 0)
+	if((currType && currType->alignBytes != 0) || currAlign != -1)
 	{
-		UINT offset = currType->alignBytes - ((varTop-varInfoTop.back().varStackSize) % currType->alignBytes);
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(offset, "offset")));
-		addTwoExprNode(0,0);
-		varTop += offset;
+		UINT activeAlign = currAlign != -1 ? currAlign : currType->alignBytes;
+		if(activeAlign > 16)
+			throw std::string("ERROR: alignment must me less than 16 bytes");
+		if(activeAlign != 0 && (varTop - varInfoTop.back().varStackSize) % activeAlign != 0)
+		{
+			UINT offset = activeAlign - ((varTop - varInfoTop.back().varStackSize) % activeAlign);
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(offset, "offset")));
+			addTwoExprNode(0,0);
+			varTop += offset;
+		}
 	}
 	varInfo.push_back(VariableInfo(vName, varTop, currType, currValConst));
 	varDefined = true;
@@ -945,12 +954,26 @@ void addSetNode(char const* s, char const* e)
 		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
 
 	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->GetTypeInfo();
+	UINT varSizeAdd = 0;
 	if(!currTypes.back())
 	{
+		if(realCurrType->alignBytes != 0 || currAlign != -1)
+		{
+			UINT activeAlign = currAlign != -1 ? currAlign : realCurrType->alignBytes;
+			if(activeAlign > 16)
+				throw std::string("ERROR: alignment must me less than 16 bytes");
+			if(activeAlign != 0 && (varTop - varInfoTop.back().varStackSize) % activeAlign != 0)
+			{
+				UINT offset = activeAlign - ((varTop - varInfoTop.back().varStackSize) % activeAlign);
+				varSizeAdd += offset;
+				varInfo[i].pos += offset;
+				varTop += offset;
+			}
+		}
 		varInfo[i].varType = realCurrType;
 		varTop += realCurrType->size;
 	}
-	UINT varSizeAdd = varDefined ? realCurrType->size : 0;
+	varSizeAdd += varDefined ? realCurrType->size : 0;
 
 	if(!valueByRef.empty() && valueByRef.back())
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, 0, true, true, varSizeAdd)));
@@ -1341,9 +1364,15 @@ void beginType(char const* s, char const* e)
 {
 	if(newType)
 		throw std::string("ERROR: Different type is being defined");
+	if(currAlign < 0)
+		throw std::string("ERROR: alignment must be a positive number");
+	if(currAlign > 16)
+		throw std::string("ERROR: alignment must me less than 16 bytes");
 	newType = new TypeInfo();
 	newType->name = std::string(s, e);
 	newType->type = TypeInfo::TYPE_COMPLEX;
+	newType->alignBytes = currAlign;
+	currAlign = -1;
 }
 
 void addMember(char const* s, char const* e)
@@ -1467,7 +1496,8 @@ namespace CompilerGrammar
 		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
 		varname		=	lexemeD[alphaP >> *alnumP];
 
-		classdef	=	strP("class") >> varname[beginType] >> chP('{') >>
+		classdef	=	(strP("noalign") | epsP)[AssignVar<UINT>(currAlign, 0)] >> !(strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')') >>
+						strP("class") >> varname[beginType] >> chP('{') >>
 						*(seltype >> varname[addMember] >> *(',' >> varname[addMember]) >> chP(';'))
 						>> chP('}')[addType];
 
@@ -1514,7 +1544,9 @@ namespace CompilerGrammar
 		
 		vardefsub	= addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
+			epsP[AssignVar<UINT>(currAlign, -1)] >>
 			isconst >>
+			!(strP("noalign")[AssignVar<UINT>(currAlign, 0)] | (strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')')) >>
 			seltype >>
 			vardefsub;
 
@@ -1825,6 +1857,8 @@ bool Compiler::Compile(string str)
 	negCount = 0;
 	varTop = 24;
 	newType = NULL;
+
+	currAlign = -1;
 
 	varInfo.push_back(VariableInfo("ERROR", 0, typeDouble, true));
 	varInfo.push_back(VariableInfo("pi", 8, typeDouble, true));
