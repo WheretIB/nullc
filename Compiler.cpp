@@ -1496,7 +1496,7 @@ namespace CompilerGrammar
 		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
 		varname		=	lexemeD[alphaP >> *alnumP];
 
-		classdef	=	(strP("noalign") | epsP)[AssignVar<UINT>(currAlign, 0)] >> !(strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')') >>
+		classdef	=	((strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')') | (strP("noalign") | epsP)[AssignVar<UINT>(currAlign, 0)]) >>
 						strP("class") >> varname[beginType] >> chP('{') >>
 						*(seltype >> varname[addMember] >> *(',' >> varname[addMember]) >> chP(';'))
 						>> chP('}')[addType];
