@@ -18,6 +18,7 @@ public:
 		arrSize = 1;
 		subType = NULL;
 		alignBytes = 0;
+		paddingBytes = 0;
 	}
 
 	std::string		name;	// base type name
@@ -30,6 +31,7 @@ public:
 	UINT		arrSize;	// element count for an array
 
 	UINT		alignBytes;
+	UINT		paddingBytes;
 
 	TypeInfo	*subType;
 

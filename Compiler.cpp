@@ -111,33 +111,40 @@ TypeInfo* GetDereferenceType(TypeInfo* type)
 }
 
 // Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
-TypeInfo* GetArrayType(TypeInfo* type)
+TypeInfo* GetArrayType(TypeInfo* type, UINT sizeInArgument = 0)
 {
 	int arrSize = -1;
 	bool unFixed = false;
-	// В последнем узле должно находиться константное число
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	if(sizeInArgument == 0)
 	{
-		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
-		NodeZeroOP* zOP = (nodeList.end()-1)->get();
-		if(aType == typeDouble)
+		// В последнем узле должно находиться константное число
+		if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
 		{
-			arrSize = (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
-		}else if(aType == typeFloat){
-			arrSize = (int)static_cast<NodeNumber<float>* >(zOP)->GetVal();
-		}else if(aType == typeLong){
-			arrSize = (int)static_cast<NodeNumber<long long>* >(zOP)->GetVal();
-		}else if(aType == typeInt){
-			arrSize = static_cast<NodeNumber<int>* >(zOP)->GetVal();
-		}else if(aType == typeVoid){
-			arrSize = -1;
-			unFixed = true;
+			TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
+			NodeZeroOP* zOP = (nodeList.end()-1)->get();
+			if(aType == typeDouble)
+			{
+				arrSize = (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
+			}else if(aType == typeFloat){
+				arrSize = (int)static_cast<NodeNumber<float>* >(zOP)->GetVal();
+			}else if(aType == typeLong){
+				arrSize = (int)static_cast<NodeNumber<long long>* >(zOP)->GetVal();
+			}else if(aType == typeInt){
+				arrSize = static_cast<NodeNumber<int>* >(zOP)->GetVal();
+			}else if(aType == typeVoid){
+				arrSize = -1;
+				unFixed = true;
+			}else{
+				throw std::string("GetArrayType() ERROR: unknown type of constant number node ") + aType->name;
+			}
+			nodeList.pop_back();
 		}else{
-			throw std::string("GetArrayType() ERROR: unknown type of constant number node ") + aType->name;
+			throw std::string("Array size must be a constant expression");
 		}
-		nodeList.pop_back();
 	}else{
-		throw std::string("Array size must be a constant expression");
+		arrSize = sizeInArgument;
+		if(arrSize == -1)
+			unFixed = true;
 	}
 
 	if(!unFixed && arrSize < 1)
@@ -164,7 +171,10 @@ TypeInfo* GetArrayType(TypeInfo* type)
 	}else{
 		newInfo->size = type->size * arrSize;
 		if(newInfo->size % 4 != 0)
+		{
+			newInfo->paddingBytes = 4 - (newInfo->size % 4);
 			newInfo->size += 4 - (newInfo->size % 4);
+		}
 	}
 
 	newInfo->type = TypeInfo::TYPE_COMPLEX;
@@ -993,12 +1003,13 @@ void addSetNode(char const* s, char const* e)
 
 	if(realCurrType->arrSize == -1)
 	{
-		if(realCurrType->subType == nodeList.back()->GetTypeInfo()->subType)
+		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
+		if(realCurrType->subType == nodeType->subType)
 		{
 			if(nodeList.back()->GetNodeType() != typeNodeVarGet)
 				throw std::string("ERROR: to the right side of '=' must be a get node");
 			strs.push_back(static_cast<NodeVarGet*>(nodeList.back().get())->GetVarName());
-			UINT typeSize = nodeList.back()->GetTypeInfo()->size/nodeList.back()->GetTypeInfo()->subType->size;
+			UINT typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
 			nodeList.pop_back();
 			getAddress(0,0);
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
@@ -1008,6 +1019,7 @@ void addSetNode(char const* s, char const* e)
 			NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
 			arrayList->AddNode();
 			nodeList.push_back(temp);
+			strs.pop_back();
 		}
 	}
 
@@ -1343,12 +1355,13 @@ void addFuncCallNode(char const* s, char const* e)
 	}
 	for(int i = 0; i < fList[minRatingIndex]->params.size(); i++)
 	{
-		if(fList[minRatingIndex]->params[i].varType->arrSize == -1)
+		UINT index = fList[minRatingIndex]->params.size() - i - 1;
+		if(fList[minRatingIndex]->params[i].varType->arrSize == -1 && fList[minRatingIndex]->params[i].varType->subType == paramNodes[index]->GetTypeInfo()->subType)
 		{
-			if(paramNodes[i]->GetNodeType() != typeNodeVarGet)
+			if(paramNodes[index]->GetNodeType() != typeNodeVarGet)
 				throw std::string("ERROR: to the right side of '=' must be a get node");
-			strs.push_back(static_cast<NodeVarGet*>(paramNodes[i].get())->GetVarName());
-			UINT typeSize = paramNodes[i]->GetTypeInfo()->size / paramNodes[i]->GetTypeInfo()->subType->size;
+			strs.push_back(static_cast<NodeVarGet*>(paramNodes[index].get())->GetVarName());
+			UINT typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
 			getAddress(0,0);
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(fList[minRatingIndex]->params[i].varType)));
@@ -1357,8 +1370,9 @@ void addFuncCallNode(char const* s, char const* e)
 			NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
 			arrayList->AddNode();
 			nodeList.push_back(temp);
+			strs.pop_back();
 		}else{
-			nodeList.push_back(paramNodes[fList[minRatingIndex]->params.size()-i-1]);
+			nodeList.push_back(paramNodes[index]);
 		}
 	}
 
@@ -1452,7 +1466,10 @@ void addMember(char const* s, char const* e)
 void addType(char const* s, char const* e)
 {
 	if(newType->size % 4 != 0)
+	{
+		newType->paddingBytes = 4 - (newType->size % 4);
 		newType->size += 4 - (newType->size % 4);
+	}
 	typeInfo.push_back(newType);
 	newType = NULL;
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
@@ -1834,6 +1851,13 @@ Compiler::Compiler(CommandList* cmds)
 	info->AddMember("row4", typeFloat4);
 	typeInfo.push_back(info);
 
+	info = new TypeInfo();
+	info->name = "file";
+	info->size = 4;
+	info->type = TypeInfo::TYPE_COMPLEX;
+	TypeInfo *typeFile = info;
+	typeInfo.push_back(info);
+
 	buildInTypes = (int)typeInfo.size();
 
 	// Add functions
@@ -1898,6 +1922,41 @@ Compiler::Compiler(CommandList* cmds)
 	fInfo->address = -1;
 	fInfo->name = "clock";
 	fInfo->retType = typeInt;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "OpenFile";
+	fInfo->params.push_back(VariableInfo("name", 0, GetArrayType(typeChar, -1)));
+	fInfo->params.push_back(VariableInfo("format", 8, GetArrayType(typeChar, -1)));
+	fInfo->retType = typeFile;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "CloseFile";
+	fInfo->params.push_back(VariableInfo("fID", 0, typeFile));
+	fInfo->retType = typeVoid;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "StringToFile";
+	fInfo->params.push_back(VariableInfo("fID", 0, typeFile));
+	fInfo->params.push_back(VariableInfo("data", 4, GetArrayType(typeChar, -1)));
+	fInfo->retType = typeVoid;
+	fInfo->vTopSize = 1;
+	funcs.push_back(fInfo);
+
+	fInfo = new FunctionInfo();
+	fInfo->address = -1;
+	fInfo->name = "IntToFile";
+	fInfo->params.push_back(VariableInfo("fID", 0, typeFile));
+	fInfo->params.push_back(VariableInfo("data", 4, GetReferenceType(typeInt)));
+	fInfo->retType = typeVoid;
 	fInfo->vTopSize = 1;
 	funcs.push_back(fInfo);
 
