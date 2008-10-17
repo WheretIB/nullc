@@ -316,7 +316,14 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	TypeInfo* subType = type->subType;
 	char name[256];
 	HTREEITEM lastItem;
-	for(UINT n = 0; n < type->arrSize; n++, address += subType->size)
+
+	UINT arrSize = type->arrSize;
+	if(arrSize == -1)
+	{
+		arrSize = *((int*)&variableData[address+4]);
+		address = *((int*)&variableData[address]);
+	}
+	for(UINT n = 0; n < arrSize; n++, address += subType->size)
 	{
 		if(n > 100)
 		{
@@ -370,6 +377,9 @@ void FillVariableInfoTree()
 
 		if(currVar.varType->arrLevel == 1 && currVar.varType->subType->type == TypeInfo::TYPE_CHAR)
 			sprintf(name+strlen(name), "\"%s\"", (char*)(variableData+address));
+
+		if(currVar.varType->arrSize == -1)
+			sprintf(name+strlen(name), " address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);

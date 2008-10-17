@@ -36,8 +36,10 @@ public:
 	std::string GetTypeName()
 	{
 		static char buf[256];
-		if(arrLevel)
+		if(arrLevel && arrSize != -1)
 			sprintf(buf, "%s[%d]", subType->GetTypeName().c_str(), arrSize);
+		if(arrLevel && arrSize == -1)
+			sprintf(buf, "%s[]", subType->GetTypeName().c_str());
 		if(refLevel)
 			sprintf(buf, "%s ref", subType->GetTypeName().c_str());
 		if(arrLevel == 0 && refLevel == 0)

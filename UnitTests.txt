@@ -638,3 +638,27 @@ noalign double c, d;
 double f;
 kl.uhu = "tyty";
 return 0;
+
+// Implicit pointers to arrays
+int sum(int[] arr){ int res=0; for(int i=0;i<arr.size;i++) res+=arr[i]; return res; }
+void print(char[] str){ 1; } 
+
+int[7] u;
+int[] k = u;
+int i = 3;
+
+u[1] = 5;
+k[2] = 2;
+k[i] = 5;
+
+int[7][3] uu;
+uu[2][1] = 100;
+int[][3] kk = uu;
+
+k[4] = kk[2][1];
+
+auto name = "omfg";
+print(name);
+//print("does not work");
+
+return sum(u);

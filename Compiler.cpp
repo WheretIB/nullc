@@ -114,6 +114,7 @@ TypeInfo* GetDereferenceType(TypeInfo* type)
 TypeInfo* GetArrayType(TypeInfo* type)
 {
 	int arrSize = -1;
+	bool unFixed = false;
 	// ¬ последнем узле должно находитьс€ константное число
 	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
 	{
@@ -128,6 +129,9 @@ TypeInfo* GetArrayType(TypeInfo* type)
 			arrSize = (int)static_cast<NodeNumber<long long>* >(zOP)->GetVal();
 		}else if(aType == typeInt){
 			arrSize = static_cast<NodeNumber<int>* >(zOP)->GetVal();
+		}else if(aType == typeVoid){
+			arrSize = -1;
+			unFixed = true;
 		}else{
 			throw std::string("GetArrayType() ERROR: unknown type of constant number node ") + aType->name;
 		}
@@ -136,7 +140,7 @@ TypeInfo* GetArrayType(TypeInfo* type)
 		throw std::string("Array size must be a constant expression");
 	}
 
-	if(arrSize < 1)
+	if(!unFixed && arrSize < 1)
 		throw std::string("Array size can't be negative or zero");
 	compileLog << "GetArrayType(" << type->GetTypeName() << ", " << arrSize << ")\r\n";
 	// ѕоищем нужный тип в списке
@@ -153,9 +157,15 @@ TypeInfo* GetArrayType(TypeInfo* type)
 	TypeInfo* newInfo = new TypeInfo();
 	newInfo->name = type->name;
 
-	newInfo->size = type->size * arrSize;
-	if(newInfo->size % 4 != 0)
-		newInfo->size += 4 - (newInfo->size % 4);
+	if(unFixed)
+	{
+		newInfo->size = 4;
+		newInfo->AddMember("size", typeInt);
+	}else{
+		newInfo->size = type->size * arrSize;
+		if(newInfo->size % 4 != 0)
+			newInfo->size += 4 - (newInfo->size % 4);
+	}
 
 	newInfo->type = TypeInfo::TYPE_COMPLEX;
 	newInfo->arrLevel = type->arrLevel + 1;
@@ -751,6 +761,8 @@ void addVar(char const* s, char const* e)
 			throw std::string("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n");
 	checkIfDeclared(vName);
 
+	if(currType && currType->size == -1)
+		throw std::string("ERROR: variable '" + vName + "' can't be an unfixed size array");
 	if(currType && currType->size > 64*1024*1024)
 		throw std::string("ERROR: variable '" + vName + "' has to big length (>64 Mb)");
 	
@@ -817,6 +829,7 @@ void getType(char const* s, char const* e)
 
 void addDereference(char const* s, char const* e);
 void addGetNode(char const* s, char const* e);
+void getAddress(char const* s, char const* e);
 
 void getMember(char const* s, char const* e)
 {
@@ -842,7 +855,10 @@ void getMember(char const* s, char const* e)
 		addTwoAndCmpNode(cmdAdd);
 	pushedShiftAddrNode = false;
 	pushedShiftAddr = true;
-	currTypes.back() = currType->memberData[i].type;
+	if(currTypes.back()->arrSize == -1)
+		currTypes.back() = typeVoid;
+	else
+		currTypes.back() = currType->memberData[i].type;
 }
 
 void getAddress(char const* s, char const* e)
@@ -897,7 +913,7 @@ void convertTypeToArray(char const* s, char const* e)
 void addDereference(char const* s, char const* e)
 {
 	if(currTypes.back()->refLevel == 0)
-		throw std::string("ERROR: cannot dereference ") + std::string(s, e);
+		throw std::string("ERROR: cannot dereference ") + *(strs.end()-2);
 	currTypes.push_back(currTypes.back());
 	currTypes[currTypes.size()-2] = GetDereferenceType(currTypes.back());
 	pushedShiftAddr = true;
@@ -974,6 +990,23 @@ void addSetNode(char const* s, char const* e)
 		varTop += realCurrType->size;
 	}
 	varSizeAdd += varDefined ? realCurrType->size : 0;
+
+	if(varInfo[i].varType->arrSize == -1 && varInfo[i].varType->subType == realCurrType->subType)
+	{
+		if(nodeList.back()->GetNodeType() != typeNodeVarGet)
+			throw std::string("ERROR: to the right side of '=' must be a get node");
+		strs.push_back(static_cast<NodeVarGet*>(nodeList.back().get())->GetVarName());
+		UINT typeSize = nodeList.back()->GetTypeInfo()->size/nodeList.back()->GetTypeInfo()->subType->size;
+		nodeList.pop_back();
+		getAddress(0,0);
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(varInfo[i].varType)));
+		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.pop_back();
+		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+		arrayList->AddNode();
+		nodeList.push_back(temp);
+	}
 
 	if(!valueByRef.empty() && valueByRef.back())
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, 0, true, true, varSizeAdd)));
@@ -1236,11 +1269,15 @@ void addFuncCallNode(char const* s, char const* e)
 		}
 		for(UINT n = 0; n < fList[k]->params.size(); n++)
 		{
-			if(fList[k]->params[n].varType != nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo())
+			TypeInfo *paramType = nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo();
+			TypeInfo *expectedType = fList[k]->params[n].varType;
+			if(expectedType != paramType)
 			{
-				if(nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
+				if(expectedType->arrSize == -1 && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
+					fRating[k] += 5;
+				else if(expectedType->type == TypeInfo::TYPE_COMPLEX)
 					fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
-				else if(fList[k]->params[n].varType->type == TypeInfo::TYPE_COMPLEX)
+				else if(paramType->type == TypeInfo::TYPE_COMPLEX)
 					fRating[k] += 65000;	// Again. Function excepts complex type, and all we have is simple type (cause previous condition failed).
 				else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
 					fRating[k] += 1;
@@ -1295,6 +1332,33 @@ void addFuncCallNode(char const* s, char const* e)
 			throw errTemp.str();
 		}
 	}
+	vector<shared_ptr<NodeZeroOP> > paramNodes;
+	for(int i = 0; i < fList[minRatingIndex]->params.size(); i++)
+	{
+		paramNodes.push_back(nodeList.back());
+		nodeList.pop_back();
+	}
+	for(int i = 0; i < fList[minRatingIndex]->params.size(); i++)
+	{
+		if(fList[minRatingIndex]->params[i].varType->arrSize == -1)
+		{
+			if(paramNodes[i]->GetNodeType() != typeNodeVarGet)
+				throw std::string("ERROR: to the right side of '=' must be a get node");
+			strs.push_back(static_cast<NodeVarGet*>(paramNodes[i].get())->GetVarName());
+			UINT typeSize = paramNodes[i]->GetTypeInfo()->size / paramNodes[i]->GetTypeInfo()->subType->size;
+			getAddress(0,0);
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(fList[minRatingIndex]->params[i].varType)));
+			shared_ptr<NodeZeroOP> temp = nodeList.back();
+			nodeList.pop_back();
+			NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+			arrayList->AddNode();
+			nodeList.push_back(temp);
+		}else{
+			nodeList.push_back(paramNodes[fList[minRatingIndex]->params.size()-i-1]);
+		}
+	}
+
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fList[minRatingIndex])));
 
 	callArgCount.pop_back();
@@ -1391,6 +1455,11 @@ void addType(char const* s, char const* e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void addUnfixedArraySize(char const*s, char const*e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(1, typeVoid)));
+}
 
 namespace CompilerGrammar
 {
@@ -1490,7 +1559,7 @@ namespace CompilerGrammar
 		addLong		=	addNumberNode<long long>;
 		addDouble	=	addNumberNode<double>;
 
-		arrayDef	=	('[' >> term4_9 >> ']' >> !arrayDef)[convertTypeToArray];
+		arrayDef	=	('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']' >> !arrayDef)[convertTypeToArray];
 		seltype		=	(strP("auto") | typenameP(varname))[selType] >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
 		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
@@ -1538,7 +1607,7 @@ namespace CompilerGrammar
 		addvarp		=
 			(
 				varname[strPush] >>
-				!('[' >> term4_9 >> ']')[convertTypeToArray]
+				!('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']')[convertTypeToArray]
 			)[pushType][strPush][addVar] >>
 			(('=' >> term5)[AssignVar<bool>(currValueByRef, false)][pushValueByRef][addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
 		

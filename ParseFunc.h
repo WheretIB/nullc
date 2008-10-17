@@ -296,10 +296,13 @@ public:
 	NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress);
 	virtual ~NodeVarGet();
 
+			string	GetVarName(){ return varInfo.name; }
+
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeVarGet; }
+	virtual TypeInfo*	GetTypeInfo();
 protected:
 	VariableInfo	varInfo;
 	UINT			varAddress;
