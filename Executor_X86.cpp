@@ -676,7 +676,7 @@ void ExecutorX86::GenListing()
 			{
 				//look at the next command
 				cmdList->GetData(pos, cmdNext);
-				if(cmdNext != cmdCopy && (valind == 2 || valind == 4 || valind == 8))
+				if((cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt) && (valind == 2 || valind == 4 || valind == 8))
 				{
 					mulByVarSize = true;
 					lastVarSize = valind;
