@@ -991,21 +991,24 @@ void addSetNode(char const* s, char const* e)
 	}
 	varSizeAdd += varDefined ? realCurrType->size : 0;
 
-	if(varInfo[i].varType->arrSize == -1 && varInfo[i].varType->subType == realCurrType->subType)
+	if(realCurrType->arrSize == -1)
 	{
-		if(nodeList.back()->GetNodeType() != typeNodeVarGet)
-			throw std::string("ERROR: to the right side of '=' must be a get node");
-		strs.push_back(static_cast<NodeVarGet*>(nodeList.back().get())->GetVarName());
-		UINT typeSize = nodeList.back()->GetTypeInfo()->size/nodeList.back()->GetTypeInfo()->subType->size;
-		nodeList.pop_back();
-		getAddress(0,0);
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(varInfo[i].varType)));
-		shared_ptr<NodeZeroOP> temp = nodeList.back();
-		nodeList.pop_back();
-		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
-		arrayList->AddNode();
-		nodeList.push_back(temp);
+		if(realCurrType->subType == nodeList.back()->GetTypeInfo()->subType)
+		{
+			if(nodeList.back()->GetNodeType() != typeNodeVarGet)
+				throw std::string("ERROR: to the right side of '=' must be a get node");
+			strs.push_back(static_cast<NodeVarGet*>(nodeList.back().get())->GetVarName());
+			UINT typeSize = nodeList.back()->GetTypeInfo()->size/nodeList.back()->GetTypeInfo()->subType->size;
+			nodeList.pop_back();
+			getAddress(0,0);
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(varInfo[i].varType)));
+			shared_ptr<NodeZeroOP> temp = nodeList.back();
+			nodeList.pop_back();
+			NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+			arrayList->AddNode();
+			nodeList.push_back(temp);
+		}
 	}
 
 	if(!valueByRef.empty() && valueByRef.back())
