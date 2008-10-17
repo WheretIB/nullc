@@ -476,6 +476,46 @@ void ExecutorX86::GenListing()
 				logASM << "mov ecx, 0x" << GetTickCount << " ; GetTickCount() \r\n";
 				logASM << "call ecx \r\n";
 				logASM << "push eax \r\n";
+			}else if(memcmp(name, "OpenFile", 8) == 0){
+				logASM << "OpenFile \r\n";
+				logASM << "mov eax, dword [esp+4] ; имя файла\r\n";
+				logASM << "mov ebx, dword [esp+12] ; тип доступа\r\n";
+				logASM << "add eax, " << paramBase << " \r\n";
+				logASM << "add ebx, " << paramBase << " \r\n";
+				logASM << "push eax ; \r\n";
+				logASM << "push ebx ; \r\n";
+				logASM << "mov ecx, 0x" << fopen << " ; fopen() \r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 24 \r\n";
+				logASM << "push eax \r\n";
+			}else if(memcmp(name, "CloseFile", 9) == 0){
+				logASM << "CloseFile \r\n";
+				logASM << "mov ecx, 0x" << fclose << " ; fclose() \r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 4 \r\n";
+			}else if(memcmp(name, "StringToFile", 12) == 0){
+				logASM << "StringToFile \r\n";
+				logASM << "pop eax ; размер \r\n";
+				logASM << "pop ebx ; указатель \r\n";
+				logASM << "add ebx, " << paramBase << " \r\n";
+				logASM << "push 1 \r\n";
+				logASM << "push eax \r\n";
+				logASM << "push ebx \r\n";
+				
+				logASM << "mov ecx, 0x" << fwrite << " ; fwrite() \r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 16 \r\n";
+			}else if(memcmp(name, "IntToFile", 9) == 0){
+				logASM << "IntToFile \r\n";
+				logASM << "pop ebx ; указатель \r\n";
+				logASM << "add ebx, " << paramBase << " \r\n";
+				logASM << "push 1 \r\n";
+				logASM << "push 4 \r\n";
+				logASM << "push ebx \r\n";
+				
+				logASM << "mov ecx, 0x" << fwrite << " ; fwrite() \r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, 16 \r\n";
 			}else{
 				throw std::string("ERROR: there is no such function: ") + name;
 			}
