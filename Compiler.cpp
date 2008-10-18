@@ -32,6 +32,8 @@ TypeInfo*	typeDouble = NULL;
 // Log stream
 ostringstream	compileLog;
 
+const char* lastKnownStartPos = NULL;
+
 // Temp variables
 // Временные переменные:
 // Количество минусов перед переменной, вершина стека переменных
@@ -96,7 +98,7 @@ TypeInfo* GetDereferenceType(TypeInfo* type)
 {
 	compileLog << "GetDereferenceType(" << type->GetTypeName() << ")\r\n";
 	if(!type->subType || type->refLevel == 0)
-		throw std::string("Cannot dereference type ") + type->GetTypeName() + std::string(" there is no result type available");
+		throw CompilerError(std::string("Cannot dereference type ") + type->GetTypeName() + std::string(" there is no result type available"), lastKnownStartPos);
 	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
 	return type->subType;
 }
@@ -126,11 +128,11 @@ TypeInfo* GetArrayType(TypeInfo* type, UINT sizeInArgument = 0)
 				arrSize = -1;
 				unFixed = true;
 			}else{
-				throw std::string("GetArrayType() ERROR: unknown type of constant number node ") + aType->name;
+				throw CompilerError(std::string("ERROR: unknown type of constant number node ") + aType->name, lastKnownStartPos);
 			}
 			nodeList.pop_back();
 		}else{
-			throw std::string("Array size must be a constant expression");
+			throw CompilerError("ERROR: Array size must be a constant expression", lastKnownStartPos);
 		}
 	}else{
 		arrSize = sizeInArgument;
@@ -139,7 +141,7 @@ TypeInfo* GetArrayType(TypeInfo* type, UINT sizeInArgument = 0)
 	}
 
 	if(!unFixed && arrSize < 1)
-		throw std::string("Array size can't be negative or zero");
+		throw CompilerError("ERROR: Array size can't be negative or zero", lastKnownStartPos);
 	compileLog << "GetArrayType(" << type->GetTypeName() << ", " << arrSize << ")\r\n";
 	// Поищем нужный тип в списке
 	UINT targetArrLevel = type->arrLevel+1;
@@ -183,7 +185,7 @@ TypeInfo* GetArrayElementType(TypeInfo* type)
 {
 	compileLog << "GetArrayElementType(" << type->GetTypeName() << ")\r\n";
 	if(!type->subType || type->arrLevel == 0)
-		throw std::string("Cannot return array element type, ") + type->GetTypeName() + std::string(" is not an array");
+		throw CompilerError(std::string("Cannot return array element type, ") + type->GetTypeName() + std::string(" is not an array"), lastKnownStartPos);
 	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
 	return type->subType;
 }
@@ -208,10 +210,10 @@ long long atoll(const char* str)
 void checkIfDeclared(const std::string& str)
 {
 	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
-		throw std::string("ERROR: The name '" + str + "' is reserved");
+		throw CompilerError(std::string("ERROR: The name '" + str + "' is reserved"), lastKnownStartPos);
 	for(UINT i = 0; i < funcs.size(); i++)
 		if(funcs[i]->name == str)
-			throw std::string("ERROR: Name '" + str + "' is already taken for a function");
+			throw CompilerError(std::string("ERROR: Name '" + str + "' is already taken for a function"), lastKnownStartPos);
 }
 
 // Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
@@ -258,6 +260,7 @@ template<> void addNumberNode<double>(char const*s, char const*e)
 // но зато не надо писать отдельный класс с одинаковыми действиями внутри.
 void addStringNode(char const*s, char const*e)
 {
+	lastKnownStartPos = s;
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(static_cast<int>(e-s)-1, typeInt)));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(typeChar))));
@@ -326,7 +329,7 @@ void addNegNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
 		}else{
-			throw std::string("addNegNode() ERROR: unknown type ") + aType->name;
+			throw CompilerError(std::string("addNegNode() ERROR: unknown type ") + aType->name, s);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -358,7 +361,7 @@ void addLogNotNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
 		}else{
-			throw std::string("addLogNotNode() ERROR: unknown type ") + aType->name;
+			throw CompilerError(std::string("addLogNotNode() ERROR: unknown type ") + aType->name, s);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -376,15 +379,15 @@ void addBitNotNode(char const* s, char const* e)
 		shared_ptr<NodeZeroOP > Rd;
 		if(aType == typeDouble)
 		{
-			throw std::string("ERROR: bitwise NOT cannot be used on floating point numbers");
+			throw CompilerError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
 		}else if(aType == typeFloat){
-			throw std::string("ERROR: bitwise NOT cannot be used on floating point numbers");
+			throw CompilerError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
 		}else if(aType == typeLong){
 			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo()));
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo()));
 		}else{
-			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
+			throw CompilerError(std::string("addBitNotNode() ERROR: unknown type ") + aType->name, s);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -425,7 +428,7 @@ T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 template<typename T>
 T optDoSpecial(CmdID cmd, T a, T b)
 {
-	throw std::string("ERROR: optDoSpecial call with unknown type");
+	throw CompilerError("ERROR: optDoSpecial call with unknown type", lastKnownStartPos);
 }
 template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 {
@@ -447,7 +450,7 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 		return !!a ^ !!b;
 	if(cmd == cmdLogOr)
 		return a || b;
-	throw std::string("ERROR: optDoSpecial<int> call with unknown command");
+	throw CompilerError("ERROR: optDoSpecial<int> call with unknown command", lastKnownStartPos);
 }
 template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 {
@@ -469,25 +472,25 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 		return !!a ^ !!b;
 	if(cmd == cmdLogOr)
 		return a || b;
-	throw std::string("ERROR: optDoSpecial<long long> call with unknown command");
+	throw CompilerError("ERROR: optDoSpecial<long long> call with unknown command", lastKnownStartPos);
 }
 template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 {
 	if(cmd == cmdShl)
-		throw std::string("ERROR: optDoSpecial<double> call with << operation is illegal");
+		throw CompilerError("ERROR: optDoSpecial<double> call with << operation is illegal", lastKnownStartPos);
 	if(cmd == cmdShr)
-		throw std::string("ERROR: optDoSpecial<double> call with >> operation is illegal");
+		throw CompilerError("ERROR: optDoSpecial<double> call with >> operation is illegal", lastKnownStartPos);
 	if(cmd == cmdMod)
 		return fmod(a,b);
 	if(cmd >= cmdBitAnd && cmd <= cmdBitXor)
-		throw std::string("ERROR: optDoSpecial<double> call with binary operation is illegal");
+		throw CompilerError("ERROR: optDoSpecial<double> call with binary operation is illegal", lastKnownStartPos);
 	if(cmd == cmdLogAnd)
 		return (int)a && (int)b;
 	if(cmd == cmdLogXor)
 		return !!(int)a ^ !!(int)b;
 	if(cmd == cmdLogOr)
 		return (int)a || (int)b;
-	throw std::string("ERROR: optDoSpecial<double> call with unknown command");
+	throw CompilerError("ERROR: optDoSpecial<double> call with unknown command", lastKnownStartPos);
 }
 
 void popLastNodeCond(bool swap)
@@ -606,7 +609,12 @@ void addTwoAndCmpNode(CmdID id)
 		if(bNodeType != typeNodeTwoAndCmdOp && bNodeType != typeNodeVarGet)
 		{
 			// Иначе, выходим без оптимизаций
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
+			try
+			{
+				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
+			}catch(const std::string& str){
+				throw CompilerError(str.c_str(), lastKnownStartPos);
+			}
 			return;
 		}
 
@@ -667,11 +675,17 @@ void addTwoAndCmpNode(CmdID id)
 			return;
 	}
 	// Оптимизации не удались, сделаем операцию полностью
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
+	try
+	{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
+	}catch(const std::string& str){
+		throw CompilerError(str.c_str(), lastKnownStartPos);
+	}
 }
 
 template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addTwoAndCmpNode(cmd);
 }
 
@@ -699,7 +713,7 @@ static ParseFuncPtr addCmd(CmdID cmd)
 	if(cmd == cmdLogAnd) return &createTwoAndCmd<cmdLogAnd>;
 	if(cmd == cmdLogOr) return &createTwoAndCmd<cmdLogOr>;
 	if(cmd == cmdLogXor) return &createTwoAndCmd<cmdLogXor>;
-	throw std::string("ERROR: addCmd call with unknown command");
+	throw CompilerError("ERROR: addCmd call with unknown command", lastKnownStartPos);
 	return &createTwoAndCmd<cmdReturn>;
 }
 
@@ -720,7 +734,7 @@ void addReturnNode(char const* s, char const* e)
 void addBreakNode(char const* s, char const* e)
 {
 	if(undComandIndex.empty())
-		throw std::string("ERROR: break used outside loop statements");
+		throw CompilerError("ERROR: break used outside loop statements", s);
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	while(t > (int)undComandIndex.back())
@@ -748,30 +762,31 @@ void selType(char const* s, char const* e)
 			return;
 		}
 	}
-	throw std::string("ERROR: Variable type '" + vType + "' is unknown\r\n");
+	throw CompilerError("ERROR: Variable type '" + vType + "' is unknown\r\n", s);
 }
 
 void addTwoExprNode(char const* s, char const* e);
 
 void addVar(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	string vName = *(strs.end()-2);
 
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		if(varInfo[i].name == vName)
-			throw std::string("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n");
+			throw CompilerError("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n", s);
 	checkIfDeclared(vName);
 
 	if(currType && currType->size == -1)
-		throw std::string("ERROR: variable '" + vName + "' can't be an unfixed size array");
+		throw CompilerError("ERROR: variable '" + vName + "' can't be an unfixed size array", s);
 	if(currType && currType->size > 64*1024*1024)
-		throw std::string("ERROR: variable '" + vName + "' has to big length (>64 Mb)");
+		throw CompilerError("ERROR: variable '" + vName + "' has to big length (>64 Mb)", s);
 	
 	if((currType && currType->alignBytes != 0) || currAlign != -1)
 	{
 		UINT activeAlign = currAlign != -1 ? currAlign : currType->alignBytes;
 		if(activeAlign > 16)
-			throw std::string("ERROR: alignment must me less than 16 bytes");
+			throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
 		if(activeAlign != 0 && (varTop - varInfoTop.back().varStackSize) % activeAlign != 0)
 		{
 			UINT offset = activeAlign - ((varTop - varInfoTop.back().varStackSize) % activeAlign);
@@ -790,7 +805,7 @@ void addVarDefNode(char const* s, char const* e)
 {
 	assert(varDefined);
 	if(!currType)
-		throw std::string("ERROR: auto variable must be initialized in place of definition");
+		throw CompilerError("ERROR: auto variable must be initialized in place of definition", s);
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(currType->size, strs.back())));
 	varDefined = 0;
 }
@@ -822,7 +837,7 @@ void getType(char const* s, char const* e)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [set]");
+		throw CompilerError("ERROR: variable '" + strs.back() + "' is not defined [set]", s);
 	currTypes.push_back(varInfo[i].varType);
 	pushedShiftAddr = false;
 	pushedShiftAddrNode = false;
@@ -850,7 +865,7 @@ void getMember(char const* s, char const* e)
 	while(i >= 0 && currType->memberData[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + vName + "' is not a member of '" + currType->GetTypeName() + "' [set]");
+		throw CompilerError("ERROR: variable '" + vName + "' is not a member of '" + currType->GetTypeName() + "' [set]", s);
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(currType->memberData[i].offset, typeInt)));
 	if(pushedShiftAddrNode | pushedShiftAddr)
 		addTwoAndCmpNode(cmdAdd);
@@ -870,7 +885,7 @@ void getAddress(char const* s, char const* e)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [getaddr]");
+		throw CompilerError("ERROR: variable '" + strs.back() + "' is not defined [getaddr]", s);
 
 	if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(varInfo[i].pos, typeInt)));
@@ -884,9 +899,9 @@ void getAddress(char const* s, char const* e)
 void addAddressNode(char const* s, char const* e)
 {
 	if(nodeList.back()->GetNodeType() != typeNodeNumber && nodeList.back()->GetNodeType() != typeNodeTwoAndCmdOp && nodeList.back()->GetNodeType() != typeNodeGetAddress)
-		throw std::string("ERROR: addAddressNode() can't find a \r\n  number node on the top of node list");
+		throw CompilerError("ERROR: addAddressNode() can't find a \r\n  number node on the top of node list", s);
 	if(nodeList.back()->GetTypeInfo() != typeInt)
-		throw std::string("ERROR: addAddressNode(): number node type is not int");
+		throw CompilerError("ERROR: addAddressNode(): number node type is not int", s);
 
 	shared_ptr<NodeZeroOP> temp = nodeList.back();
 	if(nodeList.back()->GetNodeType() == typeNodeNumber)
@@ -899,22 +914,25 @@ void addAddressNode(char const* s, char const* e)
 
 void convertTypeToRef(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	if(!currType)
-		throw std::string("ERROR: auto variable cannot have reference flag");
+		throw CompilerError("ERROR: auto variable cannot have reference flag", s);
 	currType = GetReferenceType(currType);
 }
 
 void convertTypeToArray(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	if(!currType)
-		throw std::string("ERROR: cannot specify array size for auto variable");
+		throw CompilerError("ERROR: cannot specify array size for auto variable", s);
 	currType = GetArrayType(currType);
 }
 
 void addDereference(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	if(currTypes.back()->refLevel == 0)
-		throw std::string("ERROR: cannot dereference ") + *(strs.end()-2);
+		throw CompilerError("ERROR: cannot dereference " + *(strs.end()-2), s);
 	currTypes.push_back(currTypes.back());
 	currTypes[currTypes.size()-2] = GetDereferenceType(currTypes.back());
 	pushedShiftAddr = true;
@@ -924,6 +942,7 @@ void addDereference(char const* s, char const* e)
 
 void addShiftAddrNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	currTypes.back() = GetArrayElementType(currTypes.back());
 	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
 	{
@@ -940,7 +959,7 @@ void addShiftAddrNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<int>* >(zOP)->GetVal()), typeInt));
 		}else{
-			throw std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
+			throw CompilerError("addBitNotNode() ERROR: unknown type " + aType->name, s);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -966,9 +985,9 @@ void addSetNode(char const* s, char const* e)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + vName + "' is not defined [set]");
+		throw CompilerError("ERROR: variable '" + vName + "' is not defined [set]", s);
 	if(!currValConst && varInfo[i].isConst)
-		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
+		throw CompilerError("ERROR: cannot change constant parameter '" + strs.back() + "' ", s);
 
 	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->GetTypeInfo();
 	UINT varSizeAdd = 0;
@@ -978,7 +997,7 @@ void addSetNode(char const* s, char const* e)
 		{
 			UINT activeAlign = currAlign != -1 ? currAlign : realCurrType->alignBytes;
 			if(activeAlign > 16)
-				throw std::string("ERROR: alignment must me less than 16 bytes");
+				throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
 			if(activeAlign != 0 && (varTop - varInfoTop.back().varStackSize) % activeAlign != 0)
 			{
 				UINT offset = activeAlign - ((varTop - varInfoTop.back().varStackSize) % activeAlign);
@@ -998,7 +1017,7 @@ void addSetNode(char const* s, char const* e)
 		if(realCurrType->subType == nodeType->subType)
 		{
 			if(nodeList.back()->GetNodeType() != typeNodeVarGet)
-				throw std::string("ERROR: to the right side of '=' must be a get node");
+				throw CompilerError("ERROR: to the right side of '=' must be a get node", s);
 			strs.push_back(static_cast<NodeVarGet*>(nodeList.back().get())->GetVarName());
 			UINT typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
 			nodeList.pop_back();
@@ -1014,10 +1033,15 @@ void addSetNode(char const* s, char const* e)
 		}
 	}
 
-	if(!valueByRef.empty() && valueByRef.back())
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, 0, true, true, varSizeAdd)));
-	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, varInfo[i].pos-varInfoTop.back().varStackSize, braceInd != -1 || compoundType != -1, false, varSizeAdd)));
+	try
+	{
+		if(!valueByRef.empty() && valueByRef.back())
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, 0, true, true, varSizeAdd)));
+		else
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, varInfo[i].pos-varInfoTop.back().varStackSize, braceInd != -1 || compoundType != -1, false, varSizeAdd)));
+	}catch(const std::string& str){
+		throw CompilerError(str.c_str(), s);
+	}
 	valueByRef.pop_back();
 	currTypes.pop_back();
 
@@ -1035,15 +1059,20 @@ void addGetNode(char const* s, char const* e)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + vName + "' is not defined [get]");
+		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get]", s);
 
-	if(valueByRef.back())
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
-	else if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos, braceInd != -1 || compoundType != -1, true)));
-	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos-(int)(varInfoTop.back().varStackSize), braceInd != -1 || compoundType != -1, false)));
-	
+	try
+	{
+		if(valueByRef.back())
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
+		else if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos, braceInd != -1 || compoundType != -1, true)));
+		else
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos-(int)(varInfoTop.back().varStackSize), braceInd != -1 || compoundType != -1, false)));
+	}catch(const std::string& str){
+		throw CompilerError(str.c_str(), s);
+	}
+
 	valueByRef.pop_back();
 	currTypes.pop_back();
 }
@@ -1055,9 +1084,14 @@ void addGetByRef(char const* s, char const* e)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + vName + "' is not defined [get]");
+		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get]", s);
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
+	try
+	{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
+	}catch(const std::string& str){
+		throw CompilerError(str.c_str(), s);
+	}
 	currTypes.pop_back();
 }
 
@@ -1071,41 +1105,50 @@ void addSetAndOpNode(CmdID cmd)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable " + strs.back() + " is not defined");
+		throw CompilerError("ERROR: variable " + strs.back() + " is not defined", lastKnownStartPos);
 	if(!currValConst && varInfo[i].isConst)
-		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
+		throw CompilerError("ERROR: cannot change constant parameter '" + strs.back() + "' ", lastKnownStartPos);
 	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
-		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
+		throw CompilerError("ERROR: variable '" + strs.back() + "' is an array, but no index specified", lastKnownStartPos);
 
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
-	if(valueByRef.back())
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), 0, true, true, cmd)));
-	else 
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd)));
-
+	try
+	{
+		if(valueByRef.back())
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), 0, true, true, cmd)));
+		else 
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd)));
+	}catch(const std::string& str){
+		throw CompilerError(str.c_str(), lastKnownStartPos);
+	}
 	valueByRef.pop_back();
 	currTypes.pop_back();
 }
 void addAddSetNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addSetAndOpNode(cmdAdd);
 }
 void addSubSetNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addSetAndOpNode(cmdSub);
 }
 void addMulSetNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addSetAndOpNode(cmdMul);
 }
 void addDivSetNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addSetAndOpNode(cmdDiv);
 }
 void addPowSetNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addSetAndOpNode(cmdPow);
 }
 
@@ -1119,36 +1162,45 @@ void addPreOpNode(CmdID cmd, bool pre)
 	while(i >= 0 && varInfo[i].name != vName)
 		i--;
 	if(i == -1)
-		throw std::string("ERROR: variable '" + strs.back() + "' is not defined [set]");
+		throw CompilerError("ERROR: variable '" + strs.back() + "' is not defined [set]", lastKnownStartPos);
 	if(!currValConst && varInfo[i].isConst)
-		throw std::string("ERROR: cannot change constant parameter '" + strs.back() + "' ");
+		throw CompilerError("ERROR: cannot change constant parameter '" + strs.back() + "' ", lastKnownStartPos);
 	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
-		throw std::string("ERROR: variable '" + strs.back() + "' is an array, but no index specified");
+		throw CompilerError("ERROR: variable '" + strs.back() + "' is an array, but no index specified", lastKnownStartPos);
 
 	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
 
-	if(valueByRef.back())
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), 0, true, true, cmd, pre)));
-	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd, pre)));
+	try
+	{
+		if(valueByRef.back())
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), 0, true, true, cmd, pre)));
+		else
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd, pre)));
+	}catch(const std::string& str){
+		throw CompilerError(str.c_str(), lastKnownStartPos);
+	}
 	valueByRef.pop_back();
 	currTypes.pop_back();
 }
 void addPreDecNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addPreOpNode(cmdDecAt, true);
 }
 void addPreIncNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addPreOpNode(cmdIncAt, true);
 }
 void addPostDecNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addPreOpNode(cmdDecAt, false);
 }
 void addPostIncNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
 	addPreOpNode(cmdIncAt, false);
 }
 
@@ -1175,12 +1227,12 @@ void funcAdd(char const* s, char const* e)
 {
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		if(varInfo[i].name == strs.back())
-			throw std::string("ERROR: Name '" + strs.back() + "' is already taken for a variable in current scope\r\n");
+			throw CompilerError("ERROR: Name '" + strs.back() + "' is already taken for a variable in current scope", s);
 	std::string name = strs.back();
 	if(name == "if" || name == "else" || name == "for" || name == "while" || name == "var" || name == "func" || name == "return" || name=="switch" || name=="case")
-		throw std::string("ERROR: The name '" + name + "' is reserved");
+		throw CompilerError("ERROR: The name '" + name + "' is reserved", s);
 	if(!currType)
-		throw std::string("ERROR: function return type cannot be auto");
+		throw CompilerError("ERROR: function return type cannot be auto", s);
 	funcs.push_back(new FunctionInfo());
 	funcs.back()->name = name;
 	funcs.back()->vTopSize = (UINT)varInfoTop.size();
@@ -1190,7 +1242,7 @@ void funcAdd(char const* s, char const* e)
 void funcParam(char const* s, char const* e)
 {
 	if(!currType)
-		throw std::string("ERROR: function parameter cannot be an auto type");
+		throw CompilerError("ERROR: function parameter cannot be an auto type", s);
 	funcs.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
 	strs.pop_back();
 }
@@ -1231,7 +1283,7 @@ void funcEnd(char const* s, char const* e)
 					paramsEqual = false;
 			}
 			if(paramsEqual)
-				throw std::string("ERROR: function '" + funcs[i]->name + "' is being defined with the same set of parameters");
+				throw CompilerError("ERROR: function '" + funcs[i]->name + "' is being defined with the same set of parameters", s);
 		}
 	}
 
@@ -1262,7 +1314,7 @@ void addFuncCallNode(char const* s, char const* e)
 		if(funcs[k]->name == fname)
 			fList[count++] = funcs[k];
 	if(count == 0)
-		throw std::string("ERROR: function '" + fname + "' is undefined");
+		throw CompilerError("ERROR: function '" + fname + "' is undefined", s);
 	// Find the best suited function
 	UINT minRating = 1024*1024;
 	UINT minRatingIndex = -1;
@@ -1339,18 +1391,18 @@ void addFuncCallNode(char const* s, char const* e)
 		}
 	}
 	vector<shared_ptr<NodeZeroOP> > paramNodes;
-	for(int i = 0; i < fList[minRatingIndex]->params.size(); i++)
+	for(UINT i = 0; i < fList[minRatingIndex]->params.size(); i++)
 	{
 		paramNodes.push_back(nodeList.back());
 		nodeList.pop_back();
 	}
-	for(int i = 0; i < fList[minRatingIndex]->params.size(); i++)
+	for(UINT i = 0; i < fList[minRatingIndex]->params.size(); i++)
 	{
-		UINT index = fList[minRatingIndex]->params.size() - i - 1;
+		UINT index = (UINT)(fList[minRatingIndex]->params.size()) - i - 1;
 		if(fList[minRatingIndex]->params[i].varType->arrSize == -1 && fList[minRatingIndex]->params[i].varType->subType == paramNodes[index]->GetTypeInfo()->subType)
 		{
 			if(paramNodes[index]->GetNodeType() != typeNodeVarGet)
-				throw std::string("ERROR: to the right side of '=' must be a get node");
+				throw CompilerError("ERROR: to the right side of '=' must be a get node", s);
 			strs.push_back(static_cast<NodeVarGet*>(paramNodes[index].get())->GetVarName());
 			UINT typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
 			getAddress(0,0);
@@ -1385,7 +1437,7 @@ void addIfElseTermNode(char const* s, char const* e)
 	TypeInfo* typeA = nodeList[nodeList.size()-1]->GetTypeInfo();
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->GetTypeInfo();
 	if(typeA != typeB)
-		throw std::string("ERROR: trinary operator ?: \r\n result types are not equal (" + typeB->name + " : " + typeA->name + ")");
+		throw CompilerError("ERROR: trinary operator ?: \r\n result types are not equal (" + typeB->name + " : " + typeA->name + ")", s);
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true, true)));
 }
 
@@ -1435,11 +1487,11 @@ TypeInfo *newType = NULL;
 void beginType(char const* s, char const* e)
 {
 	if(newType)
-		throw std::string("ERROR: Different type is being defined");
+		throw CompilerError("ERROR: Different type is being defined", s);
 	if(currAlign < 0)
-		throw std::string("ERROR: alignment must be a positive number");
+		throw CompilerError("ERROR: alignment must be a positive number", s);
 	if(currAlign > 16)
-		throw std::string("ERROR: alignment must me less than 16 bytes");
+		throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
 	newType = new TypeInfo();
 	newType->name = std::string(s, e);
 	newType->type = TypeInfo::TYPE_COMPLEX;
@@ -1450,7 +1502,7 @@ void beginType(char const* s, char const* e)
 void addMember(char const* s, char const* e)
 {
 	if(!currType)
-		throw std::string("ERROR: auto cannot be used for class members");
+		throw CompilerError("ERROR: auto cannot be used for class members", s);
 	newType->AddMember(std::string(s, e), currType);
 }
 
@@ -1530,7 +1582,7 @@ namespace CompilerGrammar
 		void operator() (char const* s, char const* e)
 		{
 			//ASSERT(err);
-			throw std::string(err);
+			throw CompilerError(err, s);
 		}
 	private:
 		const char* err;
@@ -1717,6 +1769,39 @@ namespace CompilerGrammar
 
 UINT buildInFuncs;
 UINT buildInTypes;
+
+CompilerError::CompilerError(std::string& errStr, const char* apprPos)
+{
+	Init(errStr.c_str(), apprPos);
+}
+CompilerError::CompilerError(const char* errStr, const char* apprPos)
+{
+	Init(errStr, apprPos);
+}
+
+void CompilerError::Init(const char* errStr, const char* apprPos)
+{
+	UINT len = (UINT)strlen(errStr) < 128 ? (UINT)strlen(errStr) : 127;
+	memcpy(error, errStr, len);
+	error[len] = 0;
+	if(apprPos)
+	{
+		const char *begin = apprPos;
+		while((begin > codeStart) && (*begin != '\n') && (*begin != '\r'))
+			begin--;
+		begin++;
+
+		const char *end = apprPos;
+		while((*end != '\r') && (*end != '\n') && (*end != 0))
+			end++;
+		len = (UINT)(end - begin) < 128 ? (UINT)(end - begin) : 127;
+		memcpy(line, begin, len);
+		line[len] = 0;
+	}else{
+		line[0] = 0;
+	}
+}
+const char *CompilerError::codeStart = NULL;
 
 Compiler::Compiler()
 {
@@ -2000,6 +2085,7 @@ bool Compiler::Compile(string str)
 	m_FileStream.close();
 
 	char* ptr = (char*)str.c_str();
+	CompilerError::codeStart = ptr;
 
 	ofstream m_TempStream("time.txt", std::ios::binary);
 
