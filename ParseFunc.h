@@ -63,17 +63,9 @@ protected:
 	const char	*strBegin, *strEnd;
 };
 
-std::vector<shared_ptr<NodeZeroOP> >*	getList();
-void	SetCommandList(CommandList* list);
-void	SetFunctionList(std::vector<FunctionInfo*>* list);
-void	SetLogStream(ostringstream* stream);
-void	SetNodeList(std::vector<shared_ptr<NodeZeroOP> >* list);
-
-CommandList*	GetCommandList();
-
-void	goDown();
-void	goUp();
-void	drawLn(ostringstream& ostr);
+void	GoDown();
+void	GoUp();
+void	DrawLine(ostringstream& ostr);
 
 //////////////////////////////////////////////////////////////////////////
 class NodeOneOP: public NodeZeroOP
@@ -119,6 +111,7 @@ protected:
 };
 
 //Zero child operators
+void NodeNumberPushCommand(USHORT cmdFlag, char* data, UINT dataSize);
 template<typename T>
 class NodeNumber: public NodeZeroOP
 {
@@ -129,11 +122,13 @@ public:
 
 	virtual void Compile()
 	{
-		GetCommandList()->AddData(cmdPush);
-		GetCommandList()->AddData((USHORT)(GetAsmStackType<T>() | GetAsmDataType<T>()));
-		GetCommandList()->AddData((T)num);
+		NodeNumberPushCommand((USHORT)(GetAsmStackType<T>() | GetAsmDataType<T>()), (char*)(&num), sizeof(T));
 	}
-	virtual void LogToStream(ostringstream& ostr){ drawLn(ostr); ostr << *typeInfo << "Number " << num << "\r\n"; }
+	virtual void LogToStream(ostringstream& ostr)
+	{
+		DrawLine(ostr);
+		ostr << *typeInfo << "Number " << num << "\r\n";
+	}
 	virtual UINT GetSize()
 	{
 		return sizeof(CmdID) + sizeof(USHORT) + sizeof(T);

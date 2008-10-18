@@ -9,6 +9,13 @@
 #include <MMSystem.h>
 #pragma comment(lib, "Winmm.lib")
 
+#include "CodeInfo.h"
+std::vector<FunctionInfo*>	CodeInfo::funcs;
+std::vector<VariableInfo>	CodeInfo::varInfo;
+std::vector<TypeInfo*>		CodeInfo::typeInfo;
+CommandList*				CodeInfo::cmdList;
+std::vector<shared_ptr<NodeZeroOP> >	CodeInfo::nodeList;
+
 #include "Colorer.h"
 #include "Compiler.h"
 #include "Executor.h"
@@ -41,7 +48,6 @@ Colorer*	colorer;
 Compiler*	compiler;
 Executor*	executor;
 ExecutorX86*	executorX86;
-CommandList*		commands;
 
 //for text update
 bool needTextUpdate;
@@ -58,11 +64,12 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	commands = new CommandList();
+	CodeInfo::cmdList = new CommandList();
+
 	colorer = NULL;
-	compiler = new Compiler(commands);
-	executor = new Executor(commands, compiler->GetVariableInfo());
-	executorX86 = new ExecutorX86(commands, compiler->GetVariableInfo());
+	compiler = new Compiler();
+	executor = new Executor();
+	executorX86 = new ExecutorX86();
 	
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -354,7 +361,7 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 
 void FillVariableInfoTree()
 {
-	std::vector<VariableInfo> *varInfo = compiler->GetVariableInfo();
+	std::vector<VariableInfo> *varInfo = &CodeInfo::varInfo;
 	TreeView_DeleteAllItems(hVars);
 
 	TVINSERTSTRUCT helpInsert;

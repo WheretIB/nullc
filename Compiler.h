@@ -1,11 +1,10 @@
 #pragma once
 #include "stdafx.h"
-#include "ParseFunc.h"
 
 class Compiler
 {
 public:
-	Compiler(CommandList* cmds);
+	Compiler();
 	~Compiler();
 
 	bool	Compile(string str);
@@ -14,10 +13,7 @@ public:
 	string	GetListing();
 
 	string	GetLog();
-
-	std::vector<VariableInfo>*	GetVariableInfo();
 private:
-	CommandList*		cmdList;
 	ostringstream		logAST;
 	ostringstream		logASM;
 };

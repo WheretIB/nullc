@@ -2,6 +2,9 @@
 #include "Executor.h"
 #include <MMSystem.h>
 
+#include "CodeInfo.h"
+using namespace CodeInfo;
+
 #ifdef _DEBUG
 #define DBG(x) x
 //#define DBG(x)
@@ -9,10 +12,8 @@
 #define DBG(x)
 #endif
 
-Executor::Executor(CommandList* cmds, std::vector<VariableInfo>* varinfo): m_FileStream("log.txt", std::ios::binary)
+Executor::Executor(): m_FileStream("log.txt", std::ios::binary)
 {
-	m_cmds	= cmds;
-	m_VarInfo = varinfo;
 	m_RunCallback = NULL;
 }
 
@@ -58,7 +59,7 @@ UINT Executor::Run()
 
 	UINT startTime = timeGetTime();
 
-	while(m_cmds->GetSHORT(pos, cmd) && !done)
+	while(cmdList->GetSHORT(pos, cmd) && !done)
 	{
 		cmdCount++;
 		if(m_RunCallback && cmdCount % 5000000 == 0)
@@ -75,11 +76,11 @@ UINT Executor::Run()
 		case cmdCallStd:
 			{
 				size_t len;
-				m_cmds->GetData(pos, len);
+				cmdList->GetData(pos, len);
 				pos += sizeof(size_t);
 				if(len >= 511)
 					throw std::string("ERROR: standard function can't have length>512");
-				m_cmds->GetData(pos, name, len);
+				cmdList->GetData(pos, name, len);
 				pos += (UINT)len;
 				name[len] = 0;
 				if(memcmp(name, "clock", 5) != 0)
@@ -120,7 +121,7 @@ UINT Executor::Run()
 			}
 			break;
 		case cmdSwap:
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			switch(cFlag)
 			{
@@ -166,7 +167,7 @@ UINT Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
 			break;
 		case cmdCopy:
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
 			switch(oFlag)
 			{
@@ -199,9 +200,9 @@ UINT Executor::Run()
 		case cmdCall:
 			{
 				USHORT retFlag;
-				m_cmds->GetUINT(pos, uintVal);
+				cmdList->GetUINT(pos, uintVal);
 				pos += 4;
-				m_cmds->GetUSHORT(pos, retFlag);
+				cmdList->GetUSHORT(pos, retFlag);
 				pos += 2;
 				callStack.push_back(CallStackInfo(pos, (UINT)genStack.size(), uintVal));
 				pos = uintVal;
@@ -211,9 +212,9 @@ UINT Executor::Run()
 		case cmdReturn:
 			{
 				USHORT	retFlag, popCnt;
-				m_cmds->GetUSHORT(pos, retFlag);
+				cmdList->GetUSHORT(pos, retFlag);
 				pos += 2;
-				m_cmds->GetUSHORT(pos, popCnt);
+				cmdList->GetUSHORT(pos, popCnt);
 				pos += 2;
 				if(retFlag & bitRetError)
 					throw std::string("ERROR: function didn't return a value");
@@ -235,7 +236,7 @@ UINT Executor::Run()
 			break;
 		case cmdPushV:
 			int valind;
-			m_cmds->GetINT(pos, valind);
+			cmdList->GetINT(pos, valind);
 			pos += sizeof(UINT);
 			genParams.resize(genParams.size()+valind);
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
@@ -258,9 +259,9 @@ UINT Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, 0));
 			break;
 		case cmdCTI:
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			m_cmds->GetUINT(pos, uintVal);
+			cmdList->GetUINT(pos, uintVal);
 			pos += sizeof(UINT);
 			switch(oFlag)
 			{
@@ -283,12 +284,12 @@ UINT Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
 			break;
 		case cmdSetRange:
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			m_cmds->GetUINT(pos, uintVal);
+			cmdList->GetUINT(pos, uintVal);
 			pos += 4;
 			uintVal += paramTop.back();
-			m_cmds->GetUINT(pos, uintVal2);
+			cmdList->GetUINT(pos, uintVal2);
 			pos += 4;
 			for(UINT varNum = 0; varNum < uintVal2; varNum++)
 			{
@@ -323,7 +324,7 @@ UINT Executor::Run()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, cFlag, 0, uintVal2));
 			break;
 		case cmdGetAddr:
-			m_cmds->GetUINT(pos, uintVal);
+			cmdList->GetUINT(pos, uintVal);
 			pos += 4;
 			genStack.push_back(uintVal + paramTop.back());
 			genStackTypes.push_back(STYPE_INT);
@@ -338,14 +339,14 @@ UINT Executor::Run()
 			UINT	highDW = 0, lowDW = 0;
 			USHORT sdata;
 			UCHAR cdata;
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			st = flagStackType(cFlag);
 			asmDataType dt = flagDataType(cFlag);
 
 			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
 			{
-				m_cmds->GetINT(pos, valind);
+				cmdList->GetINT(pos, valind);
 				pos += 4;
 			}
 			if(flagShiftStk(cFlag))
@@ -356,7 +357,7 @@ UINT Executor::Run()
 			}
 			if(flagSizeOn(cFlag))
 			{
-				m_cmds->GetINT(pos, size);
+				cmdList->GetINT(pos, size);
 				pos += 4;
 			}
 			if(flagSizeStk(cFlag))
@@ -375,7 +376,7 @@ UINT Executor::Run()
 			UINT sizeOfVar = 0;
 			if(dt == DTYPE_COMPLEX_TYPE)
 			{
-				m_cmds->GetUINT(pos, sizeOfVar);
+				cmdList->GetUINT(pos, sizeOfVar);
 				pos += 4;
 				typeSizeD[dt>>3] = sizeOfVar;
 			}
@@ -428,12 +429,12 @@ UINT Executor::Run()
 				if(flagNoAddr(cFlag)){
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 					{
-						m_cmds->GetUINT(pos, highDW); pos += 4;
-						m_cmds->GetUINT(pos, lowDW); pos += 4;
+						cmdList->GetUINT(pos, highDW); pos += 4;
+						cmdList->GetUINT(pos, lowDW); pos += 4;
 					}
-					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ m_cmds->GetUINT(pos, lowDW); pos += 4; }
-					if(dt == DTYPE_SHORT){ m_cmds->GetUSHORT(pos, sdata); pos += 2; lowDW = (sdata>0?sdata:sdata|0xFFFF0000); }
-					if(dt == DTYPE_CHAR){ m_cmds->GetUCHAR(pos, cdata); pos += 1; lowDW = cdata; }
+					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ cmdList->GetUINT(pos, lowDW); pos += 4; }
+					if(dt == DTYPE_SHORT){ cmdList->GetUSHORT(pos, sdata); pos += 2; lowDW = (sdata>0?sdata:sdata|0xFFFF0000); }
+					if(dt == DTYPE_CHAR){ cmdList->GetUCHAR(pos, cdata); pos += 1; lowDW = cdata; }
 				}else{
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 					{
@@ -479,7 +480,7 @@ UINT Executor::Run()
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, highDW, lowDW));
 			}
 		}else if(cmd == cmdRTOI){
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			asmStackType st = flagStackType(cFlag);
 			asmDataType dt = flagDataType(cFlag);
@@ -498,7 +499,7 @@ UINT Executor::Run()
 			
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
 		}else if(cmd == cmdITOR){
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			asmStackType st = flagStackType(cFlag);
 			asmDataType dt = flagDataType(cFlag);
@@ -520,13 +521,13 @@ UINT Executor::Run()
 
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
 		}else if(cmd == cmdJmp){
-			m_cmds->GetINT(pos, valind);
+			cmdList->GetINT(pos, valind);
 			pos = valind;
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
 		}else if(cmd == cmdJmpZ){
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			m_cmds->GetINT(pos, valind);
+			cmdList->GetINT(pos, valind);
 			pos += 4;
 			if(oFlag == OTYPE_DOUBLE){
 				if(*((double*)(&genStack[genStack.size()-2])) == 0.0)
@@ -544,9 +545,9 @@ UINT Executor::Run()
 			genStackTypes.pop_back();
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
 		}else if(cmd == cmdJmpNZ){
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			m_cmds->GetINT(pos, valind);
+			cmdList->GetINT(pos, valind);
 			pos += 4;
 			if(oFlag == OTYPE_DOUBLE){
 				if(*((double*)(&genStack[genStack.size()-2])) != 0.0)
@@ -564,7 +565,7 @@ UINT Executor::Run()
 			genStackTypes.pop_back();
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
 		}else if(cmd == cmdPop){
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			asmStackType st = flagStackType(cFlag);
 			UINT sizeOfVar = 0;
@@ -575,7 +576,7 @@ UINT Executor::Run()
 				genStackTypes.pop_back();
 			}else if(st == STYPE_COMPLEX_TYPE){
 				UINT varSize;
-				m_cmds->GetUINT(pos, varSize);
+				cmdList->GetUINT(pos, varSize);
 				pos += 4;
 				sizeOfVar = varSize;
 				while(varSize > 0)
@@ -592,7 +593,7 @@ UINT Executor::Run()
 
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, sizeOfVar, cFlag, 0));
 		}else if(cmd >= cmdAdd && cmd <= cmdLogXor){
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
 			switch(cmd + (oFlag << 16))
 			{
@@ -793,7 +794,7 @@ UINT Executor::Run()
 			genStackTypes.pop_back();
 			
 		}else if(cmd >= cmdNeg && cmd <= cmdLogNot){
-			m_cmds->GetUCHAR(pos, oFlag);
+			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
 			switch(cmd + (oFlag << 16))
 			{
@@ -830,13 +831,13 @@ UINT Executor::Run()
 		}else if(cmd == cmdIncAt || cmd == cmdDecAt)
 		{
 			int valind, shift, size;
-			m_cmds->GetUSHORT(pos, cFlag);
+			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			asmDataType dt = flagDataType(cFlag);	//Data type
 
 			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
 			{
-				m_cmds->GetINT(pos, valind);
+				cmdList->GetINT(pos, valind);
 				pos += 4;
 			}
 			if(flagShiftStk(cFlag)){
@@ -845,7 +846,7 @@ UINT Executor::Run()
 				genStackTypes.pop_back();
 			}
 			if(flagSizeOn(cFlag)){
-				m_cmds->GetINT(pos, size);
+				cmdList->GetINT(pos, size);
 				pos += 4;
 			}
 			if(flagSizeStk(cFlag)){

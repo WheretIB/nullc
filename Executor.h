@@ -48,7 +48,7 @@ private:
 class Executor
 {
 public:
-	Executor(CommandList* cmds, std::vector<VariableInfo>* varinfo);
+	Executor();
 	~Executor();
 
 	UINT	Run();
@@ -60,9 +60,7 @@ public:
 	void	SetCallback(bool (*Func)(UINT));
 private:
 	ofstream			m_FileStream;
-	CommandList*		m_cmds;
 	ostringstream		m_ostr;
-	std::vector<VariableInfo>*	m_VarInfo;
 
 	FastVector<UINT>	genStack;
 	FastVector<asmStackType>	genStackTypes;

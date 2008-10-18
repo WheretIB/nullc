@@ -1,18 +1,16 @@
 #include "stdafx.h"
+
 #include "SupSpi.h"
 using namespace supspi;
 
-#include "ParseCommand.h"
-#include "ParseClass.h"
+#include "CodeInfo.h"
+using namespace CodeInfo;
+
 #include "Compiler.h"
 
 //////////////////////////////////////////////////////////////////////////
 //						Code gen ops
 //////////////////////////////////////////////////////////////////////////
-// Информация о функциях
-std::vector<FunctionInfo*>	funcs;
-// Информация о переменных
-std::vector<VariableInfo>	varInfo;
 // Информация о вершинах стека переменных. При компиляции он служит для того, чтобы
 // Удалять информацию о переменных, когда они выходят из области видимости
 std::vector<VarTopInfo>		varInfoTop;
@@ -22,8 +20,6 @@ std::vector<VarTopInfo>		varInfoTop;
 // varInfoTop.
 std::vector<UINT>			undComandIndex;
 
-// Массив с информацией о типах
-std::vector<TypeInfo*>		typeInfo;
 // Немного предопределённых базовых типов
 TypeInfo*	typeVoid = NULL;
 TypeInfo*	typeChar = NULL;
@@ -50,17 +46,12 @@ bool varDefined;
 // Является ли текущая переменная константной
 bool currValConst;
 
-// Информация о типе текцщей переменной
+// Информация о типе текущей переменной
 TypeInfo*	currType = NULL;
 // Стек ( :) )такой информации
 // Для конструкций arr[arr[i.a.b].y].x;
 std::vector<TypeInfo*>	currTypes;
 std::vector<bool>		valueByRef;
-
-// Список узлов дерева
-// Отдельные узлы помещаются сюда, и в дальнейшем объеденяются в более комплексные узлы,
-// создавая дерево. После правильной компиляции количество узлов в этом массиве должно равнятся 1
-std::vector<shared_ptr<NodeZeroOP> >	nodeList;
 
 // Массив временных строк
 std::vector<std::string>	strs;
@@ -1727,10 +1718,8 @@ namespace CompilerGrammar
 UINT buildInFuncs;
 UINT buildInTypes;
 
-Compiler::Compiler(CommandList* cmds)
+Compiler::Compiler()
 {
-	cmdList = cmds;
-	
 	// Add types
 	TypeInfo* info;
 	info = new TypeInfo();
@@ -2002,13 +1991,8 @@ bool Compiler::Compile(string str)
 	compileLog.str("");
 	cmdList->Clear();
 
-	SetCommandList(cmdList);
-	SetFunctionList(&funcs);
-	SetLogStream(&logAST);
-	SetNodeList(&nodeList);
-
-	if(getList()->size() != 0)
-		getList()->pop_back();
+	if(nodeList.size() != 0)
+		nodeList.pop_back();
 
 	ofstream m_FileStream("code.txt", std::ios::binary);
 	m_FileStream << str;
@@ -2029,8 +2013,8 @@ bool Compiler::Compile(string str)
 	m_TempStream << "Parsing and AST tree gen. time: " << tem << "ms\r\n";
 	
 	t = GetTickCount();
-	if(getList()->back())
-		getList()->back()->Compile();
+	if(nodeList.back())
+		nodeList.back()->Compile();
 	tem = GetTickCount()-t;
 	m_TempStream << "Compile time: " << tem << "ms\r\n";
 
@@ -2039,8 +2023,8 @@ bool Compiler::Compile(string str)
 
 	ostringstream		graphlog;
 	ofstream graphFile("graph.txt", std::ios::binary);
-	if(getList()->back())
-		getList()->back()->LogToStream(graphlog);
+	if(nodeList.back())
+		nodeList.back()->LogToStream(graphlog);
 	graphFile << graphlog.str();
 	graphFile.close();
 
@@ -2575,9 +2559,4 @@ string Compiler::GetListing()
 string Compiler::GetLog()
 {
 	return logAST.str();
-}
-
-std::vector<VariableInfo>* Compiler::GetVariableInfo()
-{
-	return &varInfo;
 }
