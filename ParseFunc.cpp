@@ -820,6 +820,9 @@ NodeVarSet::NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddr, b
 	if(arrSetAll)
 		shiftAddress = false;
 
+	if(first->GetTypeInfo() == typeVoid)
+		throw std::string("ERROR: cannot convert from void to " + typeInfo->GetTypeName());
+
 	// Если типы не равны
 	if(first->GetTypeInfo() != typeInfo)
 	{
@@ -1565,6 +1568,10 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	if(first->GetTypeInfo()->refLevel == 0)
 		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX || second->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 			throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on '" + first->GetTypeInfo()->GetTypeName() + "' and '" + second->GetTypeInfo()->GetTypeName() + "'");
+	if(first->GetTypeInfo() == typeVoid)
+		throw std::string("ERROR: first operator returns void");
+	if(second->GetTypeInfo() == typeVoid)
+		throw std::string("ERROR: second operator returns void");
 
 	// Найдём результирующий тип, после проведения операции
 	typeInfo = ChooseBinaryOpResultType(first->GetTypeInfo(), second->GetTypeInfo());

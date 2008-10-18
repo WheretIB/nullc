@@ -475,6 +475,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}catch(const std::string& str){
 				good = false;
 				ostr << str;
+			}catch(const CompilerError& err){
+				good = false;
+				ostr << err;
 			}
 			bool opti = !!Button_GetCheck(hDoOptimize);
 			executorX86->SetOptimization(opti);
