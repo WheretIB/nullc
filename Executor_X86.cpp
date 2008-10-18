@@ -4,17 +4,17 @@
 #include "Optimizer_x86.h"
 #include <MMSystem.h>
 
+#include "CodeInfo.h"
+using namespace CodeInfo;
+
 UINT paramDataBase;
 UINT reservedStack;
 UINT commitedStack;
 UINT stackGrowSize;
 UINT stackGrowCommit;
 
-ExecutorX86::ExecutorX86(CommandList* cmds, std::vector<VariableInfo>* varinfo)
+ExecutorX86::ExecutorX86()
 {
-	cmdList = cmds;
-	varInfo = varinfo;
-
 	stackGrowSize = 128*4096;
 	stackGrowCommit = 64*4096;
 	// Request memory at address

@@ -1,12 +1,10 @@
 #pragma once
 #include "stdafx.h"
-#include "ParseCommand.h"
-#include "ParseClass.h"
 
 class ExecutorX86
 {
 public:
-	ExecutorX86(CommandList* cmds, std::vector<VariableInfo>* varinfo);
+	ExecutorX86();
 	~ExecutorX86();
 
 	void	GenListing();
@@ -20,11 +18,6 @@ public:
 	void	SetOptimization(bool toggle);
 private:
 	bool	optimize;
-
-	CommandList	*cmdList;
-	std::vector<VariableInfo>*	varInfo;
-
-	CommandList	x86CmdList;
 
 	ostringstream		logASM;
 
