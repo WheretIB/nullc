@@ -238,6 +238,27 @@ void blockEnd(char const* s, char const* e)
 template<typename T>
 void addNumberNode(char const*s, char const*e);
 
+template<> void addNumberNode<char>(char const*s, char const*e)
+{
+	char res = s[1];
+	if(res == '\\')
+	{
+		if(s[2] == 'n')
+			res = '\n';
+		if(s[2] == 'r')
+			res = '\r';
+		if(s[2] == 't')
+			res = '\t';
+		if(s[2] == '0')
+			res = '\0';
+		if(s[2] == '\'')
+			res = '\'';
+		if(s[2] == '\\')
+			res = '\\';
+	}
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(res, typeChar)));
+}
+
 template<> void addNumberNode<int>(char const*s, char const*e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(atoi(s), typeInt)));
@@ -261,8 +282,40 @@ template<> void addNumberNode<double>(char const*s, char const*e)
 void addStringNode(char const*s, char const*e)
 {
 	lastKnownStartPos = s;
+
+	const char *curr = s+1, *end = e-1;
+	if(end-curr > 64*1024)
+		throw CompilerError("ERROR: strings can't have length larger that 65536", s);
+
+	// Replace escape-sequences with special codes
+	static char cleanBuf[65536];
+	UINT len = 0;
+	for(; curr < end; curr++, len++)
+	{
+		cleanBuf[len] = *curr;
+		if(*curr == '\\')
+		{
+			curr++;
+			if(*curr == 'n')
+				cleanBuf[len] = '\n';
+			if(*curr == 'r')
+				cleanBuf[len] = '\r';
+			if(*curr == 't')
+				cleanBuf[len] = '\t';
+			if(*curr == '0')
+				cleanBuf[len] = '\0';
+			if(*curr == '\'')
+				cleanBuf[len] = '\'';
+			if(*curr == '\\')
+				cleanBuf[len] = '\\';
+		}
+	}
+
+	curr = cleanBuf;
+	end = cleanBuf+len;
+
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(static_cast<int>(e-s)-1, typeInt)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(len+1, typeInt)));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(typeChar))));
 
 	shared_ptr<NodeZeroOP> temp = nodeList.back();
@@ -270,7 +323,6 @@ void addStringNode(char const*s, char const*e)
 
 	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
 
-	const char *curr = s+1, *end = e-1;;
 	while(end-curr >= 4)
 	{
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(*(int*)(curr), typeInt)));
@@ -1564,7 +1616,7 @@ namespace CompilerGrammar
 
 	// Callbacks
 	typedef void (*parserCallback)(char const*, char const*);
-	parserCallback addInt, addFloat, addLong, addDouble;
+	parserCallback addChar, addInt, addFloat, addLong, addDouble;
 	parserCallback strPush, strPop, strCopy;
 
 	// Parser rules
@@ -1620,6 +1672,7 @@ namespace CompilerGrammar
 		strPop	=	CompilerGrammar::ParseStrPop;
 		strCopy =	CompilerGrammar::ParseStrCopy;
 
+		addChar		=	addNumberNode<char>;
 		addInt		=	addNumberNode<int>;
 		addFloat	=	addNumberNode<float>;
 		addLong		=	addNumberNode<long long>;
@@ -1730,6 +1783,7 @@ namespace CompilerGrammar
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			(chP('\"') >> *(anycharP - chP('\"')) >> chP('\"'))[strPush][addStringNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
+			(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] | 
 			group |
 			funccall[addFuncCallNode] |
 			(('*' >> applyval)[addDereference][addGetNode] | (epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])) >>

@@ -126,14 +126,14 @@ void WriteToConsole(int len, char* data)
 {
 	InitConsole();
 	DWORD written;
-	WriteFile(conStdOut, reinterpret_cast<long long>(data)+variableData, len, &written, NULL); 
+	WriteFile(conStdOut, reinterpret_cast<long long>(data)+variableData, len-1, &written, NULL); 
 }
 
 
-int APIENTRY WinMain(HINSTANCE hInstance,
-                     HINSTANCE hPrevInstance,
-                     LPTSTR    lpCmdLine,
-                     int       nCmdShow)
+int APIENTRY WinMain(HINSTANCE	hInstance,
+					HINSTANCE	hPrevInstance,
+					LPTSTR		lpCmdLine,
+					int			nCmdShow)
 {
 	MSG msg;
 	HACCEL hAccelTable;
