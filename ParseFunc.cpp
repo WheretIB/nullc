@@ -621,23 +621,44 @@ void NodeFuncCall::Compile()
 {
 	// Если имеются параметры, найдём их значения
 	UINT currParam = 0;
-	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+	
+	if(funcInfo->address == -1 && funcInfo->funcPtr != NULL)
 	{
-		// Определим значение параметра
-		(*s)->Compile();
-		// Преобразуем его в тип входного параметра функции
-		if(funcInfo)
-			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
-		else
-			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[typeDouble->type]);
-		currParam++;
+		std::list<shared_ptr<NodeZeroOP> >::iterator s, e;
+		s = paramList.begin();
+		e = paramList.end();
+		for(; s != e; s++)
+		{
+			// Определим значение параметра
+			(*s)->Compile();
+			// Преобразуем его в тип входного параметра функции
+			if(funcInfo)
+				ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
+			else
+				ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[typeDouble->type]);
+			currParam++;
+		}
+	}else{
+		std::list<shared_ptr<NodeZeroOP> >::reverse_iterator s, e;
+		s = paramList.rbegin();
+		e = paramList.rend();
+		for(; s != e; s++)
+		{
+			// Определим значение параметра
+			(*s)->Compile();
+			// Преобразуем его в тип входного параметра функции
+			if(funcInfo)
+				ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
+			else
+				ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[typeDouble->type]);
+			currParam++;
+		}
 	}
 	if(funcInfo->address == -1)		// Если функция встроенная
 	{
 		// Вызовем по имени
 		cmdList->AddData(cmdCallStd);
-		cmdList->AddData((UINT)funcInfo->name.length());
-		cmdList->AddData(funcInfo->name.c_str(), funcInfo->name.length());
+		cmdList->AddData(funcInfo);
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
 		UINT addr = 0;
@@ -708,7 +729,7 @@ UINT NodeFuncCall::GetSize()
 	
 	if(funcInfo->address == -1)
 	{
-		size += sizeof(CmdID) + sizeof(UINT) + (UINT)funcInfo->name.length();
+		size += sizeof(CmdID) + sizeof(funcInfo);
 	}else{
 		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcInfo->params.size()) * (2*sizeof(CmdID)+2+4+2);
 		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)

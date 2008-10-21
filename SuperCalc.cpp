@@ -9,6 +9,8 @@
 #include <MMSystem.h>
 #pragma comment(lib, "Winmm.lib")
 
+#include <iostream>
+
 #include "CodeInfo.h"
 std::vector<FunctionInfo*>	CodeInfo::funcs;
 std::vector<VariableInfo>	CodeInfo::varInfo;
@@ -53,6 +55,81 @@ ExecutorX86*	executorX86;
 bool needTextUpdate;
 DWORD lastUpdate;
 
+char *variableData = NULL;
+void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
+void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
+
+//struct CharArr{ char* ptr; int len; };
+FILE* myFileOpen(int nl, char* name, int al, char* access)
+{
+	return fopen(reinterpret_cast<long long>(name)+variableData, reinterpret_cast<long long>(access)+variableData);
+}
+
+void myFileWrite(FILE* file, int arrLen, char* arr)
+{
+	fwrite(reinterpret_cast<long long>(arr)+variableData, 1, arrLen, file);
+}
+
+template<typename T>
+void myFileWriteType(FILE* file, T val)
+{
+	fwrite(&val, sizeof(T), 1, file);
+}
+
+template<typename T>
+void myFileWriteTypePtr(FILE* file, T* val)
+{
+	fwrite(reinterpret_cast<long long>(val)+variableData, sizeof(T), 1, file);
+}
+
+void myFileRead(FILE* file, int arrLen, char* arr)
+{
+	fread(reinterpret_cast<long long>(arr)+variableData, 1, arrLen, file);
+}
+
+template<typename T>
+void myFileReadTypePtr(FILE* file, T* val)
+{
+	fread(reinterpret_cast<long long>(val)+variableData, sizeof(T), 1, file);
+}
+
+void myFileClose(FILE* file)
+{
+	fclose(file);
+}
+
+bool	consoleActive = false;
+HANDLE	conStdIn;
+HANDLE	conStdOut;
+void InitConsole()
+{
+	if(consoleActive)
+		return;
+	AllocConsole();
+	consoleActive = true;
+	conStdIn = GetStdHandle(STD_INPUT_HANDLE);
+	conStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+	DWORD fdwMode = ENABLE_LINE_INPUT; 
+    SetConsoleMode(conStdIn, fdwMode);
+}
+
+void DeInitConsole()
+{
+	if(!consoleActive)
+		return;
+	FreeConsole();
+	consoleActive = false;
+}
+
+void WriteToConsole(int len, char* data)
+{
+	InitConsole();
+	DWORD written;
+	WriteFile(conStdOut, reinterpret_cast<long long>(data)+variableData, len, &written, NULL); 
+}
+
+
 int APIENTRY WinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
                      LPTSTR    lpCmdLine,
@@ -70,6 +147,26 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	compiler = new Compiler();
 	executor = new Executor();
 	executorX86 = new ExecutorX86();
+
+	compiler->AddExternalFunction((void (*)())(myFileOpen), "file FileOpen(char[] name, char[] access);");
+	compiler->AddExternalFunction((void (*)())(myFileClose), "void FileClose(file fID);");
+	compiler->AddExternalFunction((void (*)())(myFileWrite), "void FileWrite(file fID, char[] arr);");
+	compiler->AddExternalFunction((void (*)())(myFileWriteTypePtr<char>), "void FileWrite(file fID, char ref data);");
+	compiler->AddExternalFunction((void (*)())(myFileWriteTypePtr<short>), "void FileWrite(file fID, short ref data);");
+	compiler->AddExternalFunction((void (*)())(myFileWriteTypePtr<int>), "void FileWrite(file fID, int ref data);");
+	compiler->AddExternalFunction((void (*)())(myFileWriteTypePtr<long long>), "void FileWrite(file fID, long ref data);");
+	compiler->AddExternalFunction((void (*)())(myFileWriteType<char>), "void FileWrite(file fID, char data);");
+	compiler->AddExternalFunction((void (*)())(myFileWriteType<short>), "void FileWrite(file fID, short data);");
+	compiler->AddExternalFunction((void (*)())(myFileWriteType<int>), "void FileWrite(file fID, int data);");
+	compiler->AddExternalFunction((void (*)())(myFileWriteType<long long>), "void FileWrite(file fID, long data);");
+
+	compiler->AddExternalFunction((void (*)())(myFileRead), "void FileRead(file fID, char[] arr);");
+	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<char>), "void FileRead(file fID, char ref data);");
+	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<short>), "void FileRead(file fID, short ref data);");
+	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<int>), "void FileRead(file fID, int ref data);");
+	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
+
+	compiler->AddExternalFunction((void (*)())(WriteToConsole), "void Print(char[] text);");
 	
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -248,10 +345,6 @@ bool RunCallback(UINT cmdNum)
 	return true;
 }
 
-char *variableData = NULL;
-void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
-void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
-
 const char* GetSimpleVariableValue(TypeInfo* type, int address)
 {
 	static char val[256];
@@ -399,11 +492,6 @@ void FillVariableInfoTree()
 		}
 		address += currVar.varType->size;
 	}
-
-	//just for fun, save the parameter data to bmp
-	FILE *fBMP = fopen("funny.bmp", "wb");
-	fwrite(variableData+24, 1, address-24, fBMP);
-	fclose(fBMP);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -426,6 +514,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			GetWindowText(hTextArea, buf, 400000);
 			bool good;
 
+			DeInitConsole();
+
 			ostringstream ostr;
 			try
 			{
@@ -437,7 +527,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			if(good)
 			{
-				executorX86->GenListing();
+				variableData = executor->GetVariableData();
 
 				executor->SetCallback(RunCallback);
 				try
@@ -452,6 +542,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}catch(const std::string& str){
 					ostr.str("");
 					ostr << str;
+				}catch(const CompilerError& err){
+					good = false;
+					ostr << err;
 				}
 			}
 			if(good)
@@ -468,6 +561,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			GetWindowText(hTextArea, buf, 400000);
 			bool good;
 			ostringstream ostr;
+
+			DeInitConsole();
+
 			try
 			{
 				good = compiler->Compile(buf);
@@ -483,6 +579,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			executorX86->SetOptimization(opti);
 			if(good)
 			{
+				variableData = executorX86->GetVariableData();
 				try
 				{
 					executorX86->GenListing();

@@ -56,6 +56,7 @@ UINT Executor::Run()
 	char*	typeInfoD[] = { "char", "short", "int", "long", "float", "double" };
 	UINT typeSizeS[] = { 4, 8, 4, 8 };
 	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
+	FunctionInfo *funcInfo = NULL;
 
 	UINT startTime = timeGetTime();
 
@@ -75,47 +76,50 @@ UINT Executor::Run()
 		{
 		case cmdCallStd:
 			{
-				size_t len;
-				cmdList->GetData(pos, len);
-				pos += sizeof(size_t);
-				if(len >= 511)
-					throw std::string("ERROR: standard function can't have length>512");
-				cmdList->GetData(pos, name, len);
-				pos += (UINT)len;
-				name[len] = 0;
-				if(memcmp(name, "clock", 5) != 0)
+				cmdList->GetData(pos, funcInfo);
+				pos += sizeof(FunctionInfo*);
+				if(!funcInfo)
+					throw std::string("ERROR: std function info is invalid");
+
+				if(funcInfo->funcPtr == NULL)
 				{
-					val = *((double*)(&genStack[genStack.size()-2]));
-					genStack.pop_back(); genStack.pop_back();
-					genStackTypes.pop_back();
-				}
-				if(memcmp(name, "cos", 3) == 0)
-					val = cos(val/180.0*3.14159265358);
-				else if(memcmp(name, "sin", 3) == 0)
-					val = sin(val/180.0*3.14159265358);
-				else if(memcmp(name, "tan", 3) == 0)
-					val = tan(val/180.0*3.14159265358);
-				else if(memcmp(name, "ctg", 3) == 0)
-					val = 1.0/tan(val/180.0*3.14159265358);
-				else if(memcmp(name, "ceil", 4) == 0)
-					val = ceil(val);
-				else if(memcmp(name, "floor", 5) == 0)
-					val = floor(val);
-				else if(memcmp(name, "sqrt", 4) == 0)
-					val = sqrt(val);
-				else if(memcmp(name, "clock", 5) == 0)
-					uintVal = GetTickCount();
-				else
-					throw std::string("ERROR: there is no such function: ") + name;
-				if(fabs(val) < 1e-10)
-					val = 0.0;
-				if(memcmp(name, "clock", 5) != 0)
-				{
-					genStack.push_back((UINT*)(&val), 2);
-					genStackTypes.push_back(STYPE_DOUBLE);
+					if(funcInfo->name != "clock")
+					{
+						val = *((double*)(&genStack[genStack.size()-2]));
+						genStack.pop_back(); genStack.pop_back();
+						genStackTypes.pop_back();
+					}
+					if(funcInfo->name == "cos")
+						val = cos(val/180.0*3.14159265358);
+					else if(funcInfo->name == "sin")
+						val = sin(val/180.0*3.14159265358);
+					else if(funcInfo->name == "tan")
+						val = tan(val/180.0*3.14159265358);
+					else if(funcInfo->name == "ctg")
+						val = 1.0/tan(val/180.0*3.14159265358);
+					else if(funcInfo->name == "ceil")
+						val = ceil(val);
+					else if(funcInfo->name == "floor")
+						val = floor(val);
+					else if(funcInfo->name == "sqrt")
+						val = sqrt(val);
+					else if(funcInfo->name == "clock")
+						uintVal = GetTickCount();
+					else
+						throw std::string("ERROR: there is no such function: ") + funcInfo->name;
+
+					if(fabs(val) < 1e-10)
+						val = 0.0;
+					if(funcInfo->name != "clock")
+					{
+						genStack.push_back((UINT*)(&val), 2);
+						genStackTypes.push_back(STYPE_DOUBLE);
+					}else{
+						genStack.push_back(uintVal);
+						genStackTypes.push_back(STYPE_INT);
+					}
 				}else{
-					genStack.push_back(uintVal);
-					genStackTypes.push_back(STYPE_INT);
+					throw std::string("VM Executor does not support external functions " + funcInfo->name); 
 				}
 				DBG(m_FileStream << pos2 << dec << " CALLS " << name << ";");
 			}

@@ -190,12 +190,11 @@ void ExecutorX86::GenListing()
 
 	UINT pos = 0, pos2 = 0;
 	CmdID	cmd, cmdNext;
-	char	name[512];
 	UINT	valind, valind2;
 
 	CmdFlag cFlag;
 	OperFlag oFlag;
-	asmStackType st;//, sdt;
+	asmStackType st;
 	asmDataType dt;
 
 	vector<int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
@@ -211,8 +210,7 @@ void ExecutorX86::GenListing()
 		case cmdCallStd:
 			size_t len;
 			cmdList->GetData(pos, len);
-			pos += sizeof(size_t);
-			pos += (UINT)len;
+			pos += sizeof(FunctionInfo*);
 			break;
 		case cmdPushVTop:
 			break;
@@ -353,6 +351,8 @@ void ExecutorX86::GenListing()
 	UINT lastVarSize = 0;
 	bool mulByVarSize = false;
 
+	FunctionInfo *funcInfo;
+
 	pos = 0;
 	pos2 = 0;
 	while(cmdList->GetData(pos, cmd))
@@ -385,139 +385,112 @@ void ExecutorX86::GenListing()
 		{
 		case cmdCallStd:
 			logASM << "  ; CALLSTD ";
-			size_t len;
-			cmdList->GetData(pos, len);
-			pos += sizeof(size_t);
-			if(len >= 511)
-				throw std::string("ERROR: standard function can't have length>512");
-			cmdList->GetData(pos, name, len);
-			pos += (UINT)len;
-			name[len] = 0;
+			cmdList->GetData(pos, funcInfo);
+			pos += sizeof(FunctionInfo*);
+			if(!funcInfo)
+				throw std::string("ERROR: std function info is invalid");
 
-			if(memcmp(name, "cos", 3) == 0)
+			if(funcInfo->funcPtr == NULL)
 			{
-				logASM << "cos \r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "push 180 \r\n";
-				logASM << "fild dword [esp] \r\n";
-				logASM << "fdivp \r\n";
-				logASM << "fldpi \r\n";
-				logASM << "fmulp \r\n";
-				logASM << "fsincos \r\n";
-				logASM << "fstp qword [esp+4] \r\n";
-				logASM << "fstp st \r\n";
-				logASM << "pop eax \r\n";
-			}else if(memcmp(name, "sin", 3) == 0){
-				logASM << "sin \r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "push 180 \r\n";
-				logASM << "fild dword [esp] \r\n";
-				logASM << "fdivp \r\n";
-				logASM << "fldpi \r\n";
-				logASM << "fmulp \r\n";
-				logASM << "fsincos \r\n";
-				logASM << "fstp st \r\n";
-				logASM << "fstp qword [esp+4] \r\n";
-				logASM << "pop eax \r\n";
-			}else if(memcmp(name, "tan", 3) == 0){
-				logASM << "tan \r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "push 180 \r\n";
-				logASM << "fild dword [esp] \r\n";
-				logASM << "fdivp \r\n";
-				logASM << "fldpi \r\n";
-				logASM << "fmulp \r\n";
-				logASM << "fptan \r\n";
-				logASM << "fstp st \r\n";
-				logASM << "fstp qword [esp+4] \r\n";
-				logASM << "pop eax \r\n";
-			}else if(memcmp(name, "ctg", 3) == 0){
-				logASM << "ctg \r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "push 180 \r\n";
-				logASM << "fild dword [esp] \r\n";
-				logASM << "fdivp \r\n";
-				logASM << "fldpi \r\n";
-				logASM << "fmulp \r\n";
-				logASM << "fptan \r\n";
-				logASM << "fdivrp \r\n";
-				logASM << "fstp qword [esp+4] \r\n";
-				logASM << "pop eax \r\n";
-			}else if(memcmp(name, "ceil", 4) == 0){
-				logASM << "ceil \r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "push eax ; сюда положим флаг fpu \r\n";
-				logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
-				logASM << "mov word [esp+2], 1BBFh ; сохраним свой с окурглением к +inf \r\n";
-				logASM << "fldcw word [esp+2] ; установим его \r\n";
-				logASM << "frndint ; округлим до целого \r\n";
-				logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
-				logASM << "fstp qword [esp+4] \r\n";
-				logASM << "pop eax ; \r\n";
-			}else if(memcmp(name, "floor", 5) == 0){
-				logASM << "floor \r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "push eax ; сюда положим флаг fpu \r\n";
-				logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
-				logASM << "mov word [esp+2], 17BFh ; сохраним свой с окурглением к -inf \r\n";
-				logASM << "fldcw word [esp+2] ; установим его \r\n";
-				logASM << "frndint ; округлим до целого \r\n";
-				logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
-				logASM << "fstp qword [esp+4] \r\n";
-				logASM << "pop eax ; \r\n";
-			}else if(memcmp(name, "sqrt", 4) == 0){
-				logASM << "sqrt \r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "fsqrt \r\n";
-				logASM << "fstp qword [esp] \r\n";
-				logASM << "fstp st \r\n";
-			}else if(memcmp(name, "clock", 5) == 0){
-				logASM << "clock \r\n";
-				logASM << "mov ecx, 0x" << GetTickCount << " ; GetTickCount() \r\n";
-				logASM << "call ecx \r\n";
-				logASM << "push eax \r\n";
-			}else if(memcmp(name, "OpenFile", 8) == 0){
-				logASM << "OpenFile \r\n";
-				logASM << "mov eax, dword [esp+4] ; имя файла\r\n";
-				logASM << "mov ebx, dword [esp+12] ; тип доступа\r\n";
-				logASM << "add eax, " << paramBase << " \r\n";
-				logASM << "add ebx, " << paramBase << " \r\n";
-				logASM << "push eax ; \r\n";
-				logASM << "push ebx ; \r\n";
-				logASM << "mov ecx, 0x" << fopen << " ; fopen() \r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 24 \r\n";
-				logASM << "push eax \r\n";
-			}else if(memcmp(name, "CloseFile", 9) == 0){
-				logASM << "CloseFile \r\n";
-				logASM << "mov ecx, 0x" << fclose << " ; fclose() \r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 4 \r\n";
-			}else if(memcmp(name, "StringToFile", 12) == 0){
-				logASM << "StringToFile \r\n";
-				logASM << "pop eax ; размер \r\n";
-				logASM << "pop ebx ; указатель \r\n";
-				logASM << "add ebx, " << paramBase << " \r\n";
-				logASM << "push 1 \r\n";
-				logASM << "push eax \r\n";
-				logASM << "push ebx \r\n";
-				
-				logASM << "mov ecx, 0x" << fwrite << " ; fwrite() \r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 16 \r\n";
-			}else if(memcmp(name, "IntToFile", 9) == 0){
-				logASM << "IntToFile \r\n";
-				logASM << "pop ebx ; указатель \r\n";
-				logASM << "add ebx, " << paramBase << " \r\n";
-				logASM << "push 1 \r\n";
-				logASM << "push 4 \r\n";
-				logASM << "push ebx \r\n";
-				
-				logASM << "mov ecx, 0x" << fwrite << " ; fwrite() \r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 16 \r\n";
+				if(funcInfo->name == "cos")
+				{
+					logASM << "cos \r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "push 180 \r\n";
+					logASM << "fild dword [esp] \r\n";
+					logASM << "fdivp \r\n";
+					logASM << "fldpi \r\n";
+					logASM << "fmulp \r\n";
+					logASM << "fsincos \r\n";
+					logASM << "fstp qword [esp+4] \r\n";
+					logASM << "fstp st \r\n";
+					logASM << "pop eax \r\n";
+				}else if(funcInfo->name == "sin"){
+					logASM << "sin \r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "push 180 \r\n";
+					logASM << "fild dword [esp] \r\n";
+					logASM << "fdivp \r\n";
+					logASM << "fldpi \r\n";
+					logASM << "fmulp \r\n";
+					logASM << "fsincos \r\n";
+					logASM << "fstp st \r\n";
+					logASM << "fstp qword [esp+4] \r\n";
+					logASM << "pop eax \r\n";
+				}else if(funcInfo->name == "tan"){
+					logASM << "tan \r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "push 180 \r\n";
+					logASM << "fild dword [esp] \r\n";
+					logASM << "fdivp \r\n";
+					logASM << "fldpi \r\n";
+					logASM << "fmulp \r\n";
+					logASM << "fptan \r\n";
+					logASM << "fstp st \r\n";
+					logASM << "fstp qword [esp+4] \r\n";
+					logASM << "pop eax \r\n";
+				}else if(funcInfo->name == "ctg"){
+					logASM << "ctg \r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "push 180 \r\n";
+					logASM << "fild dword [esp] \r\n";
+					logASM << "fdivp \r\n";
+					logASM << "fldpi \r\n";
+					logASM << "fmulp \r\n";
+					logASM << "fptan \r\n";
+					logASM << "fdivrp \r\n";
+					logASM << "fstp qword [esp+4] \r\n";
+					logASM << "pop eax \r\n";
+				}else if(funcInfo->name == "ceil"){
+					logASM << "ceil \r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "push eax ; сюда положим флаг fpu \r\n";
+					logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
+					logASM << "mov word [esp+2], 1BBFh ; сохраним свой с окурглением к +inf \r\n";
+					logASM << "fldcw word [esp+2] ; установим его \r\n";
+					logASM << "frndint ; округлим до целого \r\n";
+					logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
+					logASM << "fstp qword [esp+4] \r\n";
+					logASM << "pop eax ; \r\n";
+				}else if(funcInfo->name == "floor"){
+					logASM << "floor \r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "push eax ; сюда положим флаг fpu \r\n";
+					logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
+					logASM << "mov word [esp+2], 17BFh ; сохраним свой с окурглением к -inf \r\n";
+					logASM << "fldcw word [esp+2] ; установим его \r\n";
+					logASM << "frndint ; округлим до целого \r\n";
+					logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
+					logASM << "fstp qword [esp+4] \r\n";
+					logASM << "pop eax ; \r\n";
+				}else if(funcInfo->name == "sqrt"){
+					logASM << "sqrt \r\n";
+					logASM << "fld qword [esp] \r\n";
+					logASM << "fsqrt \r\n";
+					logASM << "fstp qword [esp] \r\n";
+					logASM << "fstp st \r\n";
+				}else if(funcInfo->name == "clock"){
+					logASM << "clock \r\n";
+					logASM << "mov ecx, 0x" << GetTickCount << " ; GetTickCount() \r\n";
+					logASM << "call ecx \r\n";
+					logASM << "push eax \r\n";
+				}else{
+					throw std::string("ERROR: there is no such function: ") + funcInfo->name;
+				}
 			}else{
-				throw std::string("ERROR: there is no such function: ") + name;
+				if(funcInfo->retType->size > 4)
+					throw std::string("ERROR: user functions with return type size larger than 4 bytes are not supported");
+				UINT bytesToPop = 0;
+				for(UINT i = 0; i < funcInfo->params.size(); i++)
+				{
+					bytesToPop += funcInfo->params[i].varType->size > 4 ? funcInfo->params[i].varType->size : 4;
+				}
+				logASM << funcInfo->name << "\r\n";
+				logASM << "mov ecx, 0x" << funcInfo->funcPtr << " ; " << funcInfo->name << "() \r\n";
+				logASM << "call ecx \r\n";
+				logASM << "add esp, " << bytesToPop << " \r\n";
+				if(funcInfo->retType->size == 4)
+					logASM << "push eax \r\n";
 			}
 			break;
 		case cmdPushVTop:

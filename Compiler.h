@@ -33,6 +33,8 @@ public:
 	Compiler();
 	~Compiler();
 
+	bool	AddExternalFunction(void (_cdecl *ptr)(), const char* prototype);
+
 	bool	Compile(string str);
 	
 	void	GenListing();
@@ -40,6 +42,8 @@ public:
 
 	string	GetLog();
 private:
+	void	ClearState();
+
 	ostringstream		logAST;
 	ostringstream		logASM;
 };

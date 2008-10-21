@@ -1337,6 +1337,8 @@ void addFuncCallNode(char const* s, char const* e)
 					fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
 				else if(paramType->type == TypeInfo::TYPE_COMPLEX)
 					fRating[k] += 65000;	// Again. Function excepts complex type, and all we have is simple type (cause previous condition failed).
+				else if(paramType->subType != expectedType->subType)
+					fRating[k] += 65000;	// Pointer or array with a different types inside. Doesn't matter if simple or complex.
 				else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
 					fRating[k] += 1;
 			}
@@ -1570,6 +1572,7 @@ namespace CompilerGrammar
 	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, applyref, ifexpr, whileexpr, forexpr, retexpr;
 	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype, arrayDef;
 	Rule classdef;
+	Rule funcProt;	// user function prototype
 
 	Rule code, mySpaceP;
 
@@ -1644,6 +1647,7 @@ namespace CompilerGrammar
 
 		funcvars	=	!(isconst >> seltype >> varname[strPush][funcParam]) >> *(',' >> isconst >> seltype >> varname[strPush][funcParam]);
 		funcdef		=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
+		funcProt	=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars >> chP(')') >> chP(';');
 
 		applyval	=
 			(
@@ -1999,41 +2003,6 @@ Compiler::Compiler()
 	fInfo->vTopSize = 1;
 	funcs.push_back(fInfo);
 
-	fInfo = new FunctionInfo();
-	fInfo->address = -1;
-	fInfo->name = "OpenFile";
-	fInfo->params.push_back(VariableInfo("name", 0, GetArrayType(typeChar, -1)));
-	fInfo->params.push_back(VariableInfo("format", 8, GetArrayType(typeChar, -1)));
-	fInfo->retType = typeFile;
-	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
-
-	fInfo = new FunctionInfo();
-	fInfo->address = -1;
-	fInfo->name = "CloseFile";
-	fInfo->params.push_back(VariableInfo("fID", 0, typeFile));
-	fInfo->retType = typeVoid;
-	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
-
-	fInfo = new FunctionInfo();
-	fInfo->address = -1;
-	fInfo->name = "StringToFile";
-	fInfo->params.push_back(VariableInfo("fID", 0, typeFile));
-	fInfo->params.push_back(VariableInfo("data", 4, GetArrayType(typeChar, -1)));
-	fInfo->retType = typeVoid;
-	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
-
-	fInfo = new FunctionInfo();
-	fInfo->address = -1;
-	fInfo->name = "IntToFile";
-	fInfo->params.push_back(VariableInfo("fID", 0, typeFile));
-	fInfo->params.push_back(VariableInfo("data", 4, GetReferenceType(typeInt)));
-	fInfo->retType = typeVoid;
-	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
-
 	buildInFuncs = (int)funcs.size();
 
 	CompilerGrammar::InitGrammar();
@@ -2043,7 +2012,7 @@ Compiler::~Compiler()
 {
 }
 
-bool Compiler::Compile(string str)
+void Compiler::ClearState()
 {
 	varInfoTop.clear();
 	varInfo.clear();
@@ -2074,6 +2043,38 @@ bool Compiler::Compile(string str)
 
 	logAST.str("");
 	compileLog.str("");
+}
+
+bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
+{
+	ClearState();
+
+	ParseResult pRes;
+
+	try{
+		pRes = Parse(CompilerGrammar::funcProt, (char*)prototype, CompilerGrammar::mySpaceP);
+	}catch(const CompilerError& compileErr){
+		compileLog << compileErr;
+		return false;
+	}
+	if(pRes == PARSE_NOTFULL)
+		return false;
+	if(pRes = PARSE_FAILED)
+		return false;
+
+	funcs.back()->address = -1;
+	funcs.back()->funcPtr = ptr;
+
+	strs.pop_back();
+	retTypeStack.pop_back();
+	buildInFuncs++;
+	return true;
+}
+
+bool Compiler::Compile(string str)
+{
+	ClearState();
+
 	cmdList->Clear();
 
 	if(nodeList.size() != 0)
@@ -2129,11 +2130,12 @@ void Compiler::GenListing()
 {
 	UINT pos = 0, pos2 = 0;
 	CmdID	cmd;
-	//double	val;
-	char	name[512];
+
 	UINT	valind, valind2;
 	USHORT	shVal1, shVal2;
 	logASM.str("");
+
+	FunctionInfo *funcInfo;
 
 	char* typeInfoS[] = { "int", "long", "complex", "double" };
 	char* typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
@@ -2148,17 +2150,9 @@ void Compiler::GenListing()
 		switch(cmd)
 		{
 		case cmdCallStd:
-			{
-				size_t len;
-				cmdList->GetData(pos, len);
-				pos += sizeof(size_t);
-				if(len >= 511)
-					break;
-				cmdList->GetData(pos, name, len);
-				pos += (UINT)len;
-				name[len] = 0;
-				logASM << dec << showbase << pos2 << dec << " CALLS " << name << ";";
-			}
+			cmdList->GetData(pos, funcInfo);
+			pos += sizeof(FunctionInfo*);
+			logASM << dec << showbase << pos2 << " CALLS " << funcInfo->name << ";";
 			break;
 		case cmdPushVTop:
 			logASM << dec << showbase << pos2 << dec << " PUSHT;";
