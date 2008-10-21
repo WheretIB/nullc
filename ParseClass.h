@@ -106,8 +106,16 @@ basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, VariableInfo var)
 class FunctionInfo
 {
 public:
+	FunctionInfo()
+	{
+		address = 0;
+		funcPtr = NULL;
+		retType = NULL;
+	}
 	//shared_ptr<NodeZeroOP>	defNode;	//A node that defines a function
 	UINT		address;				//Address of the beginning of function inside bytecode
+	void		*funcPtr;				//Address of the function in memory
+
 	std::string	name;					//Function name
 	std::vector<VariableInfo> params;	//Parameter list
 	UINT		vTopSize;				//For "return" operator, we need to know,

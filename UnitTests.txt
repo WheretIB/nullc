@@ -662,3 +662,65 @@ print(name);
 //print("does not work");
 
 return sum(u);
+
+// File and something else test
+int test(char[] eh, int u){ int b = 0; for(int i=0;i<u;i++)b+=eh[i]; return b; }
+auto uh = "ehhhe";
+
+auto fName = "haha.txt";
+auto accType = "wb";
+int k = 5464321;
+file n = OpenFile(fName, accType);
+auto text = "Hello file!!!";
+StringToFile(n, text);
+
+IntToFile(n, &k);
+CloseFile(n);
+return test(uh, 3);
+
+//File test
+auto name = "extern.bin";
+auto acc = "wb", acc2 = "rb";
+
+// Perform to write
+auto text = "Hello again";
+char ch = 45;
+short sh = 4*256+45;
+int num = 12568;
+long lnum = 4586564;
+
+// Write to file
+file test = FileOpen(name, acc);
+FileWrite(test, text);
+FileWrite(test, &ch);
+FileWrite(test, &sh);
+FileWrite(test, &num);
+FileWrite(test, &lnum);
+FileWrite(test, ch);
+FileWrite(test, sh);
+FileWrite(test, num);
+FileWrite(test, lnum);
+FileClose(test);
+
+// Perform to read
+char[12] textR1;
+char chR1, chR2;
+short shR1, shR2;
+int numR1, numR2;
+long lnumR1, lnumR2;
+
+test = FileOpen(name, acc2);
+FileRead(test, textR1);
+FileRead(test, &chR1);
+FileRead(test, &shR1);
+FileRead(test, &numR1);
+FileRead(test, &lnumR1);
+FileRead(test, &chR2);
+FileRead(test, &shR2);
+FileRead(test, &numR2);
+FileRead(test, &lnumR2);
+FileClose(test);
+
+Print(name);
+
+return 1;
