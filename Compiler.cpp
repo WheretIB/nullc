@@ -48,6 +48,9 @@ bool varDefined;
 // Является ли текущая переменная константной
 bool currValConst;
 
+// Номер скрытой переменной - константного массива
+UINT inplaceArrayNum;
+
 // Информация о типе текущей переменной
 TypeInfo*	currType = NULL;
 // Стек ( :) )такой информации
@@ -839,9 +842,9 @@ void addVar(char const* s, char const* e)
 		UINT activeAlign = currAlign != -1 ? currAlign : currType->alignBytes;
 		if(activeAlign > 16)
 			throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
-		if(activeAlign != 0 && (varTop - varInfoTop.back().varStackSize) % activeAlign != 0)
+		if(activeAlign != 0 && varTop % activeAlign != 0)
 		{
-			UINT offset = activeAlign - ((varTop - varInfoTop.back().varStackSize) % activeAlign);
+			UINT offset = activeAlign - (varTop % activeAlign);
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(offset, "offset")));
 			addTwoExprNode(0,0);
 			varTop += offset;
@@ -896,8 +899,33 @@ void getType(char const* s, char const* e)
 }
 
 void addDereference(char const* s, char const* e);
+void addSetNode(char const* s, char const* e);
 void addGetNode(char const* s, char const* e);
 void getAddress(char const* s, char const* e);
+
+void addInplaceArray(char const* s, char const* e)
+{
+	char asString[16];
+	strs.push_back("$carr");
+	strs.back() += _itoa(inplaceArrayNum++, asString, 10);
+	strs.push_back(strs.back());
+	TypeInfo *saveCurrType = currType;
+	bool saveVarDefined = varDefined;
+	currType = NULL;
+	addVar(s, e);
+	currTypes.push_back(NULL);
+	valueByRef.push_back(false);
+	addSetNode(s, e);
+	addPopNode(s, e);
+	currTypes.push_back(varInfo.back().varType);
+	valueByRef.push_back(false);
+	addGetNode(s, e);
+
+	varDefined = saveVarDefined;
+	currType = saveCurrType;
+	strs.pop_back();
+	strs.pop_back();
+}
 
 void getMember(char const* s, char const* e)
 {
@@ -1042,34 +1070,23 @@ void addSetNode(char const* s, char const* e)
 		throw CompilerError("ERROR: cannot change constant parameter '" + strs.back() + "' ", s);
 
 	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->GetTypeInfo();
-	UINT varSizeAdd = 0;
-	if(!currTypes.back())
-	{
-		if(realCurrType->alignBytes != 0 || currAlign != -1)
-		{
-			UINT activeAlign = currAlign != -1 ? currAlign : realCurrType->alignBytes;
-			if(activeAlign > 16)
-				throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
-			if(activeAlign != 0 && (varTop - varInfoTop.back().varStackSize) % activeAlign != 0)
-			{
-				UINT offset = activeAlign - ((varTop - varInfoTop.back().varStackSize) % activeAlign);
-				varSizeAdd += offset;
-				varInfo[i].pos += offset;
-				varTop += offset;
-			}
-		}
-		varInfo[i].varType = realCurrType;
-		varTop += realCurrType->size;
-	}
-	varSizeAdd += varDefined ? realCurrType->size : 0;
 
+	bool unifyTwo = false;
 	if(realCurrType->arrSize == -1)
 	{
 		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
 		if(realCurrType->subType == nodeType->subType)
 		{
 			if(nodeList.back()->GetNodeType() != typeNodeVarGet)
-				throw CompilerError("ERROR: to the right side of '=' must be a get node", s);
+			{
+				if(nodeList.back()->GetNodeType() == typeNodeExpressionList)
+				{
+					addInplaceArray(s, e);
+					unifyTwo = true;
+				}else{
+					throw CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
+				}
+			}
 			strs.push_back(static_cast<NodeVarGet*>(nodeList.back().get())->GetVarName());
 			UINT typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
 			nodeList.pop_back();
@@ -1085,6 +1102,27 @@ void addSetNode(char const* s, char const* e)
 		}
 	}
 
+	UINT varSizeAdd = 0;
+	if(!currTypes.back())
+	{
+		if(realCurrType->alignBytes != 0 || currAlign != -1)
+		{
+			UINT activeAlign = currAlign != -1 ? currAlign : realCurrType->alignBytes;
+			if(activeAlign > 16)
+				throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
+			if(activeAlign != 0 && varTop % activeAlign != 0)
+			{
+				UINT offset = activeAlign - (varTop % activeAlign);
+				varSizeAdd += offset;
+				varInfo[i].pos += offset;
+				varTop += offset;
+			}
+		}
+		varInfo[i].varType = realCurrType;
+		varTop += realCurrType->size;
+	}
+	varSizeAdd += varDefined ? realCurrType->size : 0;
+
 	try
 	{
 		if(!valueByRef.empty() && valueByRef.back())
@@ -1099,6 +1137,15 @@ void addSetNode(char const* s, char const* e)
 
 	currValConst = false;
 	varDefined = false;
+
+	if(unifyTwo)
+	{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(nodeList.back()->GetTypeInfo())));
+		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.pop_back();
+		static_cast<NodeExpressionList*>(temp.get())->AddNode();
+		nodeList.push_back(temp);
+	}
 }
 
 void addGetNode(char const* s, char const* e)
@@ -1309,6 +1356,7 @@ void funcStart(char const* s, char const* e)
 
 		currValConst = funcs.back()->params[i].isConst;
 		currType = funcs.back()->params[i].varType;
+		currAlign = 1;
 		addVar(0,0);
 
 		strs.pop_back();
@@ -1450,13 +1498,28 @@ void addFuncCallNode(char const* s, char const* e)
 		paramNodes.push_back(nodeList.back());
 		nodeList.pop_back();
 	}
+	vector<shared_ptr<NodeZeroOP> > inplaceArray;
+
 	for(UINT i = 0; i < fList[minRatingIndex]->params.size(); i++)
 	{
 		UINT index = (UINT)(fList[minRatingIndex]->params.size()) - i - 1;
 		if(fList[minRatingIndex]->params[i].varType->arrSize == -1 && fList[minRatingIndex]->params[i].varType->subType == paramNodes[index]->GetTypeInfo()->subType)
 		{
 			if(paramNodes[index]->GetNodeType() != typeNodeVarGet)
-				throw CompilerError("ERROR: to the right side of '=' must be a get node", s);
+			{
+				if(paramNodes[index]->GetNodeType() == typeNodeExpressionList)
+				{
+					nodeList.push_back(paramNodes[index]);
+					addInplaceArray(s, e);
+
+					paramNodes[index] = nodeList.back();
+					nodeList.pop_back();
+					inplaceArray.push_back(nodeList.back());
+					nodeList.pop_back();
+				}else{
+					throw CompilerError("ERROR: to the right side of '=' must be a get node", s);
+				}
+			}
 			strs.push_back(static_cast<NodeVarGet*>(paramNodes[index].get())->GetVarName());
 			UINT typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
 			getAddress(0,0);
@@ -1475,6 +1538,18 @@ void addFuncCallNode(char const* s, char const* e)
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fList[minRatingIndex])));
 
+	if(inplaceArray.size() > 0)
+	{
+		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.pop_back();
+		for(UINT i = 0; i < inplaceArray.size(); i++)
+			nodeList.push_back(inplaceArray[i]);
+		nodeList.push_back(temp);
+
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(temp->GetTypeInfo())));
+		for(UINT i = 0; i < inplaceArray.size(); i++)
+			addTwoExprNode(s, e);
+	}
 	callArgCount.pop_back();
 }
 
@@ -1896,7 +1971,7 @@ Compiler::Compiler()
 	typeInfo.push_back(info);
 
 	info = new TypeInfo();
-	//info->alignBytes = 4;
+	info->alignBytes = 4;
 	info->name = "int";
 	info->size = 4;
 	info->type = TypeInfo::TYPE_INT;
@@ -2087,6 +2162,7 @@ void Compiler::ClearState()
 	newType = NULL;
 
 	currAlign = -1;
+	inplaceArrayNum = 1;
 
 	varInfo.push_back(VariableInfo("ERROR", 0, typeDouble, true));
 	varInfo.push_back(VariableInfo("pi", 8, typeDouble, true));

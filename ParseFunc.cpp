@@ -944,12 +944,12 @@ void NodeVarSet::Compile()
 			if(arrSetAll)			// если указано присвоить значение всем €чейкам массива
 			{
 				// преобразуем в тип €чейки массива
-				ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], newST);
+				ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->subType->type]);
 				// ”становим значение массиву
 				cmdList->AddData(cmdSetRange);
-				cmdList->AddData((USHORT)(newDT));
+				cmdList->AddData((USHORT)(podTypeToDataType[typeInfo->subType->type]));
 				cmdList->AddData(varAddress);
-				cmdList->AddData(varInfo.varType->size/first->GetTypeInfo()->size);
+				cmdList->AddData(varInfo.varType->size/typeInfo->subType->size);
 			}else{					// если указано присвоить значение одной €чейке массива
 				// преобразуем в тип €чейки массива
 				ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], newST);

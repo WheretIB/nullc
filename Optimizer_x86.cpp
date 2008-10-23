@@ -264,7 +264,7 @@ bool CheckDependencies(int start, int end, Argument::Type dependency, bool check
 {
 	for(int i = start; i <= end; i++)
 	{
-		if(checkESPChange && strstr(Strings[i].c_str(), "esp"))
+		if(checkESPChange && strstr(Strings[i].c_str(), "esp") || Commands[i].Name == push || Commands[i].Name == pop)
 			return true;
 		if(checkFlowControl && Commands[i].Name >= jmp && Commands[i].Name <= call)
 			return true;

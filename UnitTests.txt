@@ -665,17 +665,15 @@ return sum(u);
 
 // File and something else test
 int test(char[] eh, int u){ int b = 0; for(int i=0;i<u;i++)b+=eh[i]; return b; }
+
 auto uh = "ehhhe";
-
-auto fName = "haha.txt";
-auto accType = "wb";
 int k = 5464321;
-file n = OpenFile(fName, accType);
+file n = FileOpen("haha.txt", "wb");
 auto text = "Hello file!!!";
-StringToFile(n, text);
+FileWrite(n, text);
 
-IntToFile(n, &k);
-CloseFile(n);
+FileWrite(n, &k);
+FileClose(n);
 return test(uh, 3);
 
 //File test
@@ -734,4 +732,12 @@ for(int i = 0; i < 10; i++)
   Print(name);
 }
 
+return 'n';
+
+auto ts = "Hello World!\r\noh\toh\r\n";
+Print(ts);
+char[] mm = "hello";
+char[] mn = "world";
+auto mo = "!!!";
+Print("hello2");
 return 'n';
