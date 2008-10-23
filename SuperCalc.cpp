@@ -59,6 +59,14 @@ char *variableData = NULL;
 void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
 void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
 
+int myGetTime()
+{
+	LARGE_INTEGER freq, count;
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&count);
+	double temp = double(count.QuadPart) / double(freq.QuadPart);
+	return int(temp*1000.0);
+}
 //struct CharArr{ char* ptr; int len; };
 FILE* myFileOpen(int nl, char* name, int al, char* access)
 {
@@ -147,6 +155,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	compiler = new Compiler();
 	executor = new Executor();
 	executorX86 = new ExecutorX86();
+
+	compiler->AddExternalFunction((void (*)())(myGetTime), "int GetTime();");
 
 	compiler->AddExternalFunction((void (*)())(myFileOpen), "file FileOpen(char[] name, char[] access);");
 	compiler->AddExternalFunction((void (*)())(myFileClose), "void FileClose(file fID);");
