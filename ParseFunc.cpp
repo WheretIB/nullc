@@ -632,10 +632,7 @@ void NodeFuncCall::Compile()
 			// Определим значение параметра
 			(*s)->Compile();
 			// Преобразуем его в тип входного параметра функции
-			if(funcInfo)
-				ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
-			else
-				ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[typeDouble->type]);
+			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
 			currParam++;
 		}
 	}else{
@@ -647,10 +644,7 @@ void NodeFuncCall::Compile()
 			// Определим значение параметра
 			(*s)->Compile();
 			// Преобразуем его в тип входного параметра функции
-			if(funcInfo)
-				ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
-			else
-				ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[typeDouble->type]);
+			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
 			currParam++;
 		}
 	}
