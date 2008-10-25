@@ -374,6 +374,7 @@ protected:
 	friend class NodeVarGet;
 	friend class NodeVarSet;
 	friend class NodeVarSetAndOp;
+	friend class NodePreValOp;
 };
 
 class NodeIfElseExpr: public NodeThreeOP

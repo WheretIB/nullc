@@ -118,7 +118,7 @@ void InitConsole()
 	conStdIn = GetStdHandle(STD_INPUT_HANDLE);
 	conStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
 
-	DWORD fdwMode = ENABLE_LINE_INPUT; 
+	DWORD fdwMode = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT; 
     SetConsoleMode(conStdIn, fdwMode);
 }
 
@@ -137,6 +137,30 @@ void WriteToConsole(int len, char* data)
 	WriteFile(conStdOut, reinterpret_cast<long long>(data)+variableData, len-1, &written, NULL); 
 }
 
+void ReadIntFromConsole(int* val)
+{
+	InitConsole();
+	char temp[128];
+	DWORD read;
+	ReadFile(conStdIn, temp, 128, &read, NULL);
+	*(reinterpret_cast<long long>(val)+variableData) = atoi(temp);
+
+	DWORD written;
+	WriteFile(conStdOut, "\r\n", 2, &written, NULL); 
+}
+
+int ReadTextFromConsole(int len, char* data)
+{
+	InitConsole();
+	DWORD read;
+	ReadFile(conStdIn, reinterpret_cast<long long>(data)+variableData, len, &read, NULL);
+	*(reinterpret_cast<long long>(data)+variableData+read-1) = 0;
+	*(reinterpret_cast<long long>(data)+variableData+len-1) = 0;
+
+	DWORD written;
+	WriteFile(conStdOut, "\r\n", 2, &written, NULL);
+	return read;
+}
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
 					HINSTANCE	hPrevInstance,
@@ -177,6 +201,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
 
 	compiler->AddExternalFunction((void (*)())(WriteToConsole), "void Print(char[] text);");
+	compiler->AddExternalFunction((void (*)())(ReadIntFromConsole), "void Input(int ref num);");
+	compiler->AddExternalFunction((void (*)())(ReadTextFromConsole), "int Input(char[] buf);");
 	
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
