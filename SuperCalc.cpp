@@ -59,6 +59,8 @@ char *variableData = NULL;
 void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
 void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
 
+struct ArrayPtr{ char* ptr; int len; };
+
 int myGetTime()
 {
 	LARGE_INTEGER freq, count;
@@ -67,15 +69,15 @@ int myGetTime()
 	double temp = double(count.QuadPart) / double(freq.QuadPart);
 	return int(temp*1000.0);
 }
-//struct CharArr{ char* ptr; int len; };
-FILE* myFileOpen(int nl, char* name, int al, char* access)
+
+FILE* myFileOpen(ArrayPtr name, ArrayPtr access)
 {
-	return fopen(reinterpret_cast<long long>(name)+variableData, reinterpret_cast<long long>(access)+variableData);
+	return fopen(reinterpret_cast<long long>(name.ptr)+variableData, reinterpret_cast<long long>(access.ptr)+variableData);
 }
 
-void myFileWrite(FILE* file, int arrLen, char* arr)
+void myFileWrite(FILE* file, ArrayPtr arr)
 {
-	fwrite(reinterpret_cast<long long>(arr)+variableData, 1, arrLen, file);
+	fwrite(reinterpret_cast<long long>(arr.ptr)+variableData, 1, arr.len, file);
 }
 
 template<typename T>
@@ -90,9 +92,9 @@ void myFileWriteTypePtr(FILE* file, T* val)
 	fwrite(reinterpret_cast<long long>(val)+variableData, sizeof(T), 1, file);
 }
 
-void myFileRead(FILE* file, int arrLen, char* arr)
+void myFileRead(FILE* file, ArrayPtr arr)
 {
-	fread(reinterpret_cast<long long>(arr)+variableData, 1, arrLen, file);
+	fread(reinterpret_cast<long long>(arr.ptr)+variableData, 1, arr.len, file);
 }
 
 template<typename T>
@@ -130,11 +132,11 @@ void DeInitConsole()
 	consoleActive = false;
 }
 
-void WriteToConsole(int len, char* data)
+void WriteToConsole(ArrayPtr data)
 {
 	InitConsole();
 	DWORD written;
-	WriteFile(conStdOut, reinterpret_cast<long long>(data)+variableData, len-1, &written, NULL); 
+	WriteFile(conStdOut, reinterpret_cast<long long>(data.ptr)+variableData, data.len-1, &written, NULL); 
 }
 
 void ReadIntFromConsole(int* val)
@@ -149,17 +151,37 @@ void ReadIntFromConsole(int* val)
 	WriteFile(conStdOut, "\r\n", 2, &written, NULL); 
 }
 
-int ReadTextFromConsole(int len, char* data)
+int ReadTextFromConsole(ArrayPtr data)
 {
 	InitConsole();
 	DWORD read;
-	ReadFile(conStdIn, reinterpret_cast<long long>(data)+variableData, len, &read, NULL);
-	*(reinterpret_cast<long long>(data)+variableData+read-1) = 0;
-	*(reinterpret_cast<long long>(data)+variableData+len-1) = 0;
+	ReadFile(conStdIn, reinterpret_cast<long long>(data.ptr)+variableData, data.len, &read, NULL);
+	*(reinterpret_cast<long long>(data.ptr)+variableData+read-1) = 0;
+	*(reinterpret_cast<long long>(data.ptr)+variableData+data.len-1) = 0;
 
 	DWORD written;
 	WriteFile(conStdOut, "\r\n", 2, &written, NULL);
 	return read;
+}
+
+struct float4c{ float x, y, z, w; };
+
+void PrintFloat4(float4c n)
+{
+	InitConsole();
+	DWORD written;
+	char temp[128];
+	sprintf(temp, "{%f, %f, %f, %f}\r\n", n.x, n.y, n.z, n.w);
+	WriteFile(conStdOut, temp, strlen(temp), &written, NULL); 
+}
+
+void PrintLong(long long lg)
+{
+	InitConsole();
+	DWORD written;
+	char temp[128];
+	sprintf(temp, "{%I64d}\r\n", lg);
+	WriteFile(conStdOut, temp, strlen(temp), &written, NULL); 
 }
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
@@ -179,6 +201,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	compiler = new Compiler();
 	executor = new Executor();
 	executorX86 = new ExecutorX86();
+
+	compiler->AddExternalFunction((void (*)())(PrintFloat4), "void TestEx(float4 test);");
+	compiler->AddExternalFunction((void (*)())(PrintLong), "void TestEx2(long test);");
 
 	compiler->AddExternalFunction((void (*)())(myGetTime), "int GetTime();");
 

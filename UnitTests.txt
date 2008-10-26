@@ -770,10 +770,15 @@ b[4]--;
 return b[1];
 
 int test(int a, int b, int c){ return a*b+c; }
-int kl = test(2, 3, 4);
-int test2(float4 b){ return b.x*b.y; }
-float4 kl2; test2(kl2);
+float test2(float4 b){ return b.x-b.y; }
 int test3(char[] ch){ return ch.size; }
+
+int kl = test(2, 3, 4);
+float4 kl2; kl2.x = 5.0; kl2.y = 3.0;
+float res2 = test2(kl2);
+TestEx(kl2);
+TestEx2(12l);
+Print("hello");
 auto kl4 = "kjskadjaskd";
 int kl5 = test3(kl4);
 return 1;
