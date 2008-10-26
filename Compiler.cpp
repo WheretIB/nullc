@@ -279,6 +279,11 @@ template<> void addNumberNode<double>(char const*s, char const*e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<double>(atof(s), typeDouble)));
 }
 
+void addVoidNode(char const*s, char const*e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP));
+}
+
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
 // но зато не надо писать отдельный класс с одинаковыми действиями внутри.
@@ -329,13 +334,13 @@ void addStringNode(char const*s, char const*e)
 	while(end-curr >= 4)
 	{
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(*(int*)(curr), typeInt)));
-		arrayList->AddNode(false);
+		arrayList->AddNode();
 		curr += 4;
 	}
 	int num = *(int*)(curr);
 	*((char*)(&num)+(end-curr)) = 0;
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(num, typeInt)));
-	arrayList->AddNode(false);
+	arrayList->AddNode();
 
 	nodeList.push_back(temp);
 
@@ -777,11 +782,20 @@ void addReturnNode(char const* s, char const* e)
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	if(funcs.size() != 0)
+	{
 		while(t > (int)funcs.back()->vTopSize)
 		{
 			c++;
 			t--;
 		}
+	}
+	TypeInfo *realRetType = nodeList.back()->GetTypeInfo();
+	if(retTypeStack.back() && (retTypeStack.back()->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && retTypeStack.back() != realRetType)
+		throw CompilerError("ERROR: function returns " + retTypeStack.back()->GetTypeName() + " but supposed to return " + realRetType->GetTypeName(), s);
+	if(retTypeStack.back() && retTypeStack.back()->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
+		throw CompilerError("ERROR: function returning a value", s);
+	if(retTypeStack.back() && retTypeStack.back() != typeVoid && realRetType == typeVoid)
+		throw CompilerError("ERROR: funtion should return " + retTypeStack.back()->GetTypeName(), s);
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeReturnOp(c, retTypeStack.back())));
 	nodeList.back()->SetCodeInfo(s, e);
 }
@@ -1092,8 +1106,8 @@ void addSetNode(char const* s, char const* e)
 			strs.push_back(static_cast<NodeVarGet*>(nodeList.back().get())->GetVarName());
 			UINT typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
 			nodeList.pop_back();
-			getAddress(0,0);
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			getAddress(0,0);
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(varInfo[i].varType)));
 			shared_ptr<NodeZeroOP> temp = nodeList.back();
 			nodeList.pop_back();
@@ -1526,8 +1540,8 @@ void addFuncCallNode(char const* s, char const* e)
 			}
 			strs.push_back(static_cast<NodeVarGet*>(paramNodes[index].get())->GetVarName());
 			UINT typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
-			getAddress(0,0);
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			getAddress(0,0);
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(fList[minRatingIndex]->params[i].varType)));
 			shared_ptr<NodeZeroOP> temp = nodeList.back();
 			nodeList.pop_back();
@@ -1848,7 +1862,7 @@ namespace CompilerGrammar
 			*(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
 			('}' | epsP[ThrowError("ERROR: '}' not found after 'switch' statement")])[addSwitchNode];
 
-		retexpr		=	(strP("return") >> term5 >> +chP(';'))[addReturnNode];
+		retexpr		=	(strP("return") >> (term5 | epsP[addVoidNode]) >> +chP(';'))[addReturnNode];
 		breakexpr	=	(
 			strP("break") >>
 			(+chP(';') | epsP[ThrowError("ERROR: break must be followed by ';'")])

@@ -837,12 +837,12 @@ void ExecutorX86::GenListing()
 
 					if(dt == DTYPE_COMPLEX_TYPE)
 					{
-						UINT currShift = 0;
+						UINT currShift = sizeOfVar;
 						while(sizeOfVar >= 4)
 						{
+							currShift -= 4;
 							logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "] ; положили часть complex\r\n";
 							sizeOfVar -= 4;
-							currShift += 4;
 						}
 						if(sizeOfVar)
 						{
@@ -987,22 +987,22 @@ void ExecutorX86::GenListing()
 				{
 					if(skipPop)
 					{
+						UINT currShift = 0;
+						while(sizeOfVar >= 4)
+						{
+							logASM << "pop dword [" << needEDX << needEBP << final+currShift << "] ; присвоили часть complex\r\n";
+							sizeOfVar -= 4;
+							currShift += 4;
+						}
+						assert(sizeOfVar == 0);
+					}else{
 						UINT currShift = sizeOfVar;
 						while(sizeOfVar >= 4)
 						{
 							currShift -= 4;
-							logASM << "pop dword [" << needEDX << needEBP << final+currShift << "] ; присвоили часть complex\r\n";
-							sizeOfVar -= 4;
-						}
-						assert(sizeOfVar == 0);
-					}else{
-						UINT currShift = 0;
-						while(sizeOfVar >= 4)
-						{
 							logASM << "mov ebx, [esp+" << sizeOfVar-4 << "] \r\n";
 							logASM << "mov dword [" << needEDX << needEBP << final+currShift << "], ebx ; присвоили часть complex\r\n";
 							sizeOfVar -= 4;
-							currShift += 4;
 						}
 						assert(sizeOfVar == 0);
 					}
