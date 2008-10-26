@@ -346,6 +346,7 @@ void addStringNode(char const*s, char const*e)
 
 	strs.pop_back();
 }
+
 // Функция для создания узла, который уберёт значение со стека переменных
 // Узел заберёт к себе последний узел в списке.
 void addPopNode(char const* s, char const* e)
@@ -1340,6 +1341,41 @@ void addBlockNode(char const* s, char const* e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock()));
 }
 
+UINT arrElementCount = 0;
+void addArrayConstructor(char const* s, char const* e)
+{
+	arrElementCount++;
+
+	TypeInfo *currType = (*(nodeList.end()-arrElementCount))->GetTypeInfo();
+
+	if(currType == typeShort)
+		currType = typeInt;
+	//	throw CompilerWarning("WARNING: short will be promoted to int during array construction", s);
+	if(currType == typeVoid)
+		throw CompilerError("ERROR: array cannot be constructed from void type elements", s);
+
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(arrElementCount, currType)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(currType))));
+
+	shared_ptr<NodeZeroOP> temp = nodeList.back();
+	nodeList.pop_back();
+
+	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+
+	char tempStr[16];
+	for(int i = 0; i < arrElementCount; i++)
+	{
+		if(nodeList.back()->GetTypeInfo() != currType && !(nodeList.back()->GetTypeInfo() == typeShort && currType == typeInt))
+			throw CompilerError(std::string("ERROR: element ") + _itoa(arrElementCount-i-1, tempStr, 10) + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
+		arrayList->AddNode(false);
+	}
+
+	nodeList.push_back(temp);
+
+	arrElementCount = 0;
+}
+
 void funcAdd(char const* s, char const* e)
 {
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
@@ -1876,7 +1912,8 @@ namespace CompilerGrammar
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			(chP('\"') >> *(anycharP - chP('\"')) >> chP('\"'))[strPush][addStringNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
-			(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] | 
+			(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
+			(chP('{') >> term5 >> *(chP(',') >> term5[IncVar<UINT>(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
 			group |
 			funccall[addFuncCallNode] |
 			(('*' >> applyval)[addDereference][addGetNode] | (epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])) >>
