@@ -571,7 +571,7 @@ void NodeBlock::Compile()
 	// —охраним значение вершины стека переменных
 	cmdList->AddData(cmdPushVTop);
 	// ¬ыполним содержимое блока (то же что first->Compile())
-	NodeOneOP::Compile();
+	first->Compile();
 	// ¬остановим значение вершины стека переменных
 	cmdList->AddData(cmdPopVTop);
 
@@ -587,7 +587,7 @@ void NodeBlock::LogToStream(ostringstream& ostr)
 }
 UINT NodeBlock::GetSize()
 {
-	return NodeOneOP::GetSize() + 2 * sizeof(CmdID);
+	return first->GetSize() + 2 * sizeof(CmdID);
 }
 
 NodeFuncDef::NodeFuncDef(FunctionInfo *info)

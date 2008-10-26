@@ -750,14 +750,13 @@ return cos(n);
 
 int a[10]=4;
 int[] b = a;
-/*float4 c;
+float4 c;
 c.y = 5.0f;
-
 c.z = c.w;
-
 b[8] = 4;
 int t1 = b[8];
-int t2 = b.size;*/
+int t2 = b.size;
+
 //b.size++; //!
 //b.size += 4; //!
 for(int i = 0; i < 3; i++)
@@ -766,6 +765,15 @@ b[3]++;
 b[6] = ++b[9];
 b[2] = b[8]++;
 b[b[8]]++;
-//b[b[2]] = b[b[8]]++;
+b[b[2]] = b[b[8]]++;
 b[4]--;
 return b[1];
+
+int test(int a, int b, int c){ return a*b+c; }
+int kl = test(2, 3, 4);
+int test2(float4 b){ return b.x*b.y; }
+float4 kl2; test2(kl2);
+int test3(char[] ch){ return ch.size; }
+auto kl4 = "kjskadjaskd";
+int kl5 = test3(kl4);
+return 1;

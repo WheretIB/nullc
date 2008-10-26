@@ -883,6 +883,8 @@ void popTypeAndAddrNode(char const* s, char const* e)
 	currTypes.pop_back();
 	if(pushedShiftAddr || pushedShiftAddrNode)
 		nodeList.pop_back();
+	pushedShiftAddr = false;
+	pushedShiftAddrNode = false;
 }
 
 void getType(char const* s, char const* e)
@@ -1174,6 +1176,8 @@ void addGetNode(char const* s, char const* e)
 
 	valueByRef.pop_back();
 	currTypes.pop_back();
+
+	pushedShiftAddrNode = false;
 }
 
 void addGetByRef(char const* s, char const* e)
