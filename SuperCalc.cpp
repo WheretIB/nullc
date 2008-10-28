@@ -12,7 +12,7 @@
 #include <iostream>
 
 #include "CodeInfo.h"
-std::vector<FunctionInfo*>	CodeInfo::funcs;
+std::vector<FunctionInfo*>	CodeInfo::funcInfo;
 std::vector<VariableInfo>	CodeInfo::varInfo;
 std::vector<TypeInfo*>		CodeInfo::typeInfo;
 CommandList*				CodeInfo::cmdList;

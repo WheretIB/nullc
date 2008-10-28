@@ -8,7 +8,7 @@ namespace CodeInfo
 {
 	// Информация о функциях
 	// Information about functions
-	extern std::vector<FunctionInfo*>	funcs;
+	extern std::vector<FunctionInfo*>	funcInfo;
 
 	// Информация о переменных
 	// Information about variables
