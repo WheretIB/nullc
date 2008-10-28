@@ -1043,8 +1043,11 @@ void NodeVarSet::Compile()
 void NodeVarSet::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << (*typeInfo) << "VarSet " << varInfo << " (" << varAddress << (absAddress?" absolute":"") << ")";
-	ostr << (bakedShift ? " baked" : "") << (shiftAddress ? " shift" : "") << (arrSetAll ? " set whole array" : "") << "\r\n";
+	ostr << (*typeInfo) << "VarSet " << varInfo << " (" << (int)varAddress << (absAddress ? " absolute" : "") << ")";
+	ostr << (bakedShift ? " baked" : "") << (shiftAddress ? " shift" : "") << (arrSetAll ? " set whole array" : "");
+	if(bytesToPush)
+		ostr << " pusht " << bytesToPush;
+	ostr << "\r\n";
 	if(second)
 		GoDown();
 	else
