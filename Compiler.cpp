@@ -11,6 +11,7 @@ using namespace CodeInfo;
 //////////////////////////////////////////////////////////////////////////
 //						Code gen ops
 //////////////////////////////////////////////////////////////////////////
+
 // Информация о вершинах стека переменных. При компиляции он служит для того, чтобы
 // Удалять информацию о переменных, когда они выходят из области видимости
 std::vector<VarTopInfo>		varInfoTop;
@@ -19,6 +20,9 @@ std::vector<VarTopInfo>		varInfoTop;
 // завершилась без преждевременного выхода. Этот стек (конструкции могут быть вложенными) хранит размер
 // varInfoTop.
 std::vector<UINT>			undComandIndex;
+// Информация о количестве определённых функций на разных вложенностях блоков.
+// Служит для того чтобы убирать функции по мере выхода из области видимости.
+std::vector<UINT>			funcInfoTop;
 
 // Немного предопределённых базовых типов
 TypeInfo*	typeVoid = NULL;
@@ -1348,9 +1352,9 @@ void addArrayConstructor(char const* s, char const* e)
 
 	TypeInfo *currType = (*(nodeList.end()-arrElementCount))->GetTypeInfo();
 
-	if(currType == typeShort)
+	if(currType == typeShort || currType == typeChar)
 		currType = typeInt;
-	//	throw CompilerWarning("WARNING: short will be promoted to int during array construction", s);
+	//	throw CompilerWarning("WARNING: short and char will be promoted to int during array construction", s);
 	if(currType == typeVoid)
 		throw CompilerError("ERROR: array cannot be constructed from void type elements", s);
 
@@ -1363,10 +1367,11 @@ void addArrayConstructor(char const* s, char const* e)
 
 	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
 
+	TypeInfo *realType = nodeList.back()->GetTypeInfo();
 	char tempStr[16];
 	for(int i = 0; i < arrElementCount; i++)
 	{
-		if(nodeList.back()->GetTypeInfo() != currType && !(nodeList.back()->GetTypeInfo() == typeShort && currType == typeInt))
+		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt))
 			throw CompilerError(std::string("ERROR: element ") + _itoa(arrElementCount-i-1, tempStr, 10) + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
 		arrayList->AddNode(false);
 	}
@@ -1412,6 +1417,7 @@ void funcStart(char const* s, char const* e)
 		currType = funcs.back()->params[i].varType;
 		currAlign = 1;
 		addVar(0,0);
+		varDefined = false;
 
 		strs.pop_back();
 		strs.pop_back();
@@ -1869,7 +1875,13 @@ namespace CompilerGrammar
 			vardefsub;
 
 		ifexpr		=	(strP("if") >> ('(' >> term5 >> ')'))[SaveStringIndex] >> expression >> ((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
-		forexpr		=	(strP("for")[saveVarTop] >> '(' >> (vardef | term5[addPopNode] | block) >> ';' >> term5 >> ';' >> (term5[addPopNode] | block) >> ')')[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
+		forexpr		=
+			(strP("for")[saveVarTop] >>
+			'(' >>
+			(vardef | term5[addPopNode] | block) >>';' >>
+			term5 >> ';'
+			>> (term5[addPopNode] | block) >> ')'
+			)[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
 		whileexpr	=
 			strP("while")[saveVarTop] >>
 			(
@@ -1948,7 +1960,7 @@ namespace CompilerGrammar
 			term4_9;
 
 		block		=	chP('{')[blockBegin] >> code >> chP('}')[blockEnd];
-		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode] | block[addBlockNode]);
+		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block[addBlockNode] | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
@@ -2199,6 +2211,8 @@ Compiler::~Compiler()
 void Compiler::ClearState()
 {
 	varInfoTop.clear();
+	funcInfoTop.clear();
+
 	varInfo.clear();
 	typeInfo.resize(buildInTypes);
 	funcs.resize(buildInFuncs);
@@ -2223,6 +2237,8 @@ void Compiler::ClearState()
 	varInfo.push_back(VariableInfo("pi", 8, typeDouble, true));
 	varInfo.push_back(VariableInfo("e", 16, typeDouble, true));
 	varInfoTop.push_back(VarTopInfo(0,0));
+
+	funcInfoTop.push_back(0);
 
 	retTypeStack.push_back(NULL);	//global return can return anything
 

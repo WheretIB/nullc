@@ -782,3 +782,26 @@ Print("hello");
 auto kl4 = "kjskadjaskd";
 int kl5 = test3(kl4);
 return 1;
+
+
+int test(int a, int b, int c){ return a*b+c; }
+//float test2(float4 b){ return b; }
+//void test3(float a){ return a; }
+void test4(float b){ return; }
+//float test5(float c){ return; }
+float test6(){ return 12; }
+
+int sum(int[] arr)
+{
+  int res = 0;
+  for(int i = 0; i < arr.size; i++)
+    res += arr[i];
+  return res;
+}
+short sh(int a){ return a; }
+auto n = { 10, 12, 11, 156 };
+auto m = "hello?";
+auto l = { sh(1), sh(2), sh(3) };
+
+int ns = sum(n), ts = sum({10, 12, 14, 16});
+return 1;

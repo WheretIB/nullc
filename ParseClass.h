@@ -111,16 +111,19 @@ public:
 		address = 0;
 		funcPtr = NULL;
 		retType = NULL;
+		visible = true;
 	}
-	//shared_ptr<NodeZeroOP>	defNode;	//A node that defines a function
-	UINT		address;				//Address of the beginning of function inside bytecode
-	void		*funcPtr;				//Address of the function in memory
+	//shared_ptr<NodeZeroOP>	defNode;	// A node that defines a function
+	UINT		address;				// Address of the beginning of function inside bytecode
+	void		*funcPtr;				// Address of the function in memory
 
-	std::string	name;					//Function name
-	std::vector<VariableInfo> params;	//Parameter list
-	UINT		vTopSize;				//For "return" operator, we need to know,
-										//how many variables we need to remove from variable stack
-	TypeInfo*	retType;				//Function return type
+	std::string	name;					// Function name
+	std::vector<VariableInfo> params;	// Parameter list
+	UINT		vTopSize;				// For "return" operator, we need to know,
+										// how many variables we need to remove from variable stack
+	TypeInfo*	retType;				// Function return type
+
+	bool		visible;				// true untill function goes out of scope
 };
 
 class CallStackInfo
