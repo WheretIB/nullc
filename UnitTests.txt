@@ -805,3 +805,21 @@ auto l = { sh(1), sh(2), sh(3) };
 
 int ns = sum(n), ts = sum({10, 12, 14, 16});
 return 1;
+
+
+// Function visibility test
+int u = 5, t1 = 2, t2 = 2;
+for({int i = 0;}; i < 4; {i++;})
+{
+  int b = 2;
+  {
+    int test(int x){ return x*b+u; }
+    t1 = test(2);
+  }
+  {
+    int test(int x){ return x*u+b; }
+    t2 = test(2);
+  }
+}
+
+return 4;//test(2);

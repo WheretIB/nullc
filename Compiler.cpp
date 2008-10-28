@@ -19,7 +19,7 @@ std::vector<VarTopInfo>		varInfoTop;
 // переменных, чтобы привести её в то состояние, в которым она находилась бы, если бы конструкция
 // завершилась без преждевременного выхода. Этот стек (конструкции могут быть вложенными) хранит размер
 // varInfoTop.
-std::vector<UINT>			undComandIndex;
+std::vector<UINT>			cycleBeginVarTop;
 // Информация о количестве определённых функций на разных вложенностях блоков.
 // Служит для того чтобы убирать функции по мере выхода из области видимости.
 std::vector<UINT>			funcInfoTop;
@@ -218,8 +218,8 @@ void checkIfDeclared(const std::string& str)
 {
 	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
 		throw CompilerError(std::string("ERROR: The name '" + str + "' is reserved"), lastKnownStartPos);
-	for(UINT i = 0; i < funcs.size(); i++)
-		if(funcs[i]->name == str)
+	for(UINT i = 0; i < funcInfo.size(); i++)
+		if(funcInfo[i]->name == str && funcInfo[i]->visible)
 			throw CompilerError(std::string("ERROR: Name '" + str + "' is already taken for a function"), lastKnownStartPos);
 }
 
@@ -228,6 +228,7 @@ void checkIfDeclared(const std::string& str)
 void blockBegin(char const* s, char const* e)
 {
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
+	funcInfoTop.push_back((UINT)funcInfo.size());
 }
 // Вызывается в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечивая
 // их выход из области видимости. Также уменьшает вершину стека переменных в байтах.
@@ -239,6 +240,10 @@ void blockEnd(char const* s, char const* e)
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
+
+	for(UINT i = funcInfoTop.back(); i < funcInfo.size(); i++)
+		funcInfo[i]->visible = false;
+	funcInfoTop.pop_back();
 }
 
 // Функции для добавления узлов с константными числами разных типов
@@ -786,9 +791,9 @@ void addReturnNode(char const* s, char const* e)
 {
 	int t = (int)varInfoTop.size();
 	int c = 0;
-	if(funcs.size() != 0)
+	if(funcInfo.size() != 0)
 	{
-		while(t > (int)funcs.back()->vTopSize)
+		while(t > (int)funcInfo.back()->vTopSize)
 		{
 			c++;
 			t--;
@@ -807,11 +812,11 @@ void addReturnNode(char const* s, char const* e)
 
 void addBreakNode(char const* s, char const* e)
 {
-	if(undComandIndex.empty())
+	if(cycleBeginVarTop.empty())
 		throw CompilerError("ERROR: break used outside loop statements", s);
 	int t = (int)varInfoTop.size();
 	int c = 0;
-	while(t > (int)undComandIndex.back())
+	while(t > (int)cycleBeginVarTop.back())
 	{
 		c++;
 		t--;
@@ -1369,7 +1374,7 @@ void addArrayConstructor(char const* s, char const* e)
 
 	TypeInfo *realType = nodeList.back()->GetTypeInfo();
 	char tempStr[16];
-	for(int i = 0; i < arrElementCount; i++)
+	for(UINT i = 0; i < arrElementCount; i++)
 	{
 		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt))
 			throw CompilerError(std::string("ERROR: element ") + _itoa(arrElementCount-i-1, tempStr, 10) + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
@@ -1391,30 +1396,30 @@ void funcAdd(char const* s, char const* e)
 		throw CompilerError("ERROR: The name '" + name + "' is reserved", s);
 	if(!currType)
 		throw CompilerError("ERROR: function return type cannot be auto", s);
-	funcs.push_back(new FunctionInfo());
-	funcs.back()->name = name;
-	funcs.back()->vTopSize = (UINT)varInfoTop.size();
+	funcInfo.push_back(new FunctionInfo());
+	funcInfo.back()->name = name;
+	funcInfo.back()->vTopSize = (UINT)varInfoTop.size();
 	retTypeStack.push_back(currType);
-	funcs.back()->retType = currType;
+	funcInfo.back()->retType = currType;
 }
 void funcParam(char const* s, char const* e)
 {
 	if(!currType)
 		throw CompilerError("ERROR: function parameter cannot be an auto type", s);
-	funcs.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
+	funcInfo.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
 	strs.pop_back();
 }
 void funcStart(char const* s, char const* e)
 {
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
 	
-	for(int i = (int)funcs.back()->params.size()-1; i >= 0; i--)
+	for(int i = (int)funcInfo.back()->params.size()-1; i >= 0; i--)
 	{
-		strs.push_back(funcs.back()->params[i].name);
-		strs.push_back(funcs.back()->params[i].name);
+		strs.push_back(funcInfo.back()->params[i].name);
+		strs.push_back(funcInfo.back()->params[i].name);
 
-		currValConst = funcs.back()->params[i].isConst;
-		currType = funcs.back()->params[i].varType;
+		currValConst = funcInfo.back()->params[i].isConst;
+		currType = funcInfo.back()->params[i].varType;
 		currAlign = 1;
 		addVar(0,0);
 		varDefined = false;
@@ -1425,25 +1430,25 @@ void funcStart(char const* s, char const* e)
 }
 void funcEnd(char const* s, char const* e)
 {
-	int i = (int)funcs.size()-1;
-	while(i >= 0 && funcs[i]->name != strs.back())
+	int i = (int)funcInfo.size()-1;
+	while(i >= 0 && funcInfo[i]->name != strs.back())
 		i--;
 
 	// Find all the functions with the same name
 	int count = 0;
 	for(int n = 0; n < i; n++)
 	{
-		if(funcs[n]->name == funcs[i]->name && funcs[n]->params.size() == funcs[i]->params.size())
+		if(funcInfo[n]->name == funcInfo[i]->name && funcInfo[n]->params.size() == funcInfo[i]->params.size() && funcInfo[n]->visible)
 		{
 			// Check all parameter types
 			bool paramsEqual = true;
-			for(UINT k = 0; k < funcs[i]->params.size(); k++)
+			for(UINT k = 0; k < funcInfo[i]->params.size(); k++)
 			{
-				if(funcs[n]->params[k].varType->GetTypeName() != funcs[i]->params[k].varType->GetTypeName())
+				if(funcInfo[n]->params[k].varType->GetTypeName() != funcInfo[i]->params[k].varType->GetTypeName())
 					paramsEqual = false;
 			}
 			if(paramsEqual)
-				throw CompilerError("ERROR: function '" + funcs[i]->name + "' is being defined with the same set of parameters", s);
+				throw CompilerError("ERROR: function '" + funcInfo[i]->name + "' is being defined with the same set of parameters", s);
 		}
 	}
 
@@ -1453,7 +1458,7 @@ void funcEnd(char const* s, char const* e)
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcs[i])));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcInfo[i])));
 	strs.pop_back();
 	retTypeStack.pop_back();
 }
@@ -1470,9 +1475,9 @@ void addFuncCallNode(char const* s, char const* e)
 	memset(fRating, 0, 32*4);
 
 	int count = 0;
-	for(int k = 0; k < (int)funcs.size(); k++)
-		if(funcs[k]->name == fname)
-			fList[count++] = funcs[k];
+	for(int k = 0; k < (int)funcInfo.size(); k++)
+		if(funcInfo[k]->name == fname && funcInfo[k]->visible)
+			fList[count++] = funcInfo[k];
 	if(count == 0)
 		throw CompilerError("ERROR: function '" + fname + "' is undefined", s);
 	// Find the best suited function
@@ -1632,27 +1637,27 @@ void addIfElseTermNode(char const* s, char const* e)
 
 void saveVarTop(char const* s, char const* e)
 {
-	undComandIndex.push_back((UINT)varInfoTop.size());
+	cycleBeginVarTop.push_back((UINT)varInfoTop.size());
 }
 void addForNode(char const* s, char const* e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeForExpr()));
-	undComandIndex.pop_back();
+	cycleBeginVarTop.pop_back();
 }
 void addWhileNode(char const* s, char const* e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeWhileExpr()));
-	undComandIndex.pop_back();
+	cycleBeginVarTop.pop_back();
 }
 void addDoWhileNode(char const* s, char const* e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDoWhileExpr()));
-	undComandIndex.pop_back();
+	cycleBeginVarTop.pop_back();
 }
 
 void preSwitchNode(char const* s, char const* e)
 {
-	undComandIndex.push_back((UINT)varInfoTop.size());
+	cycleBeginVarTop.push_back((UINT)varInfoTop.size());
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeSwitchExpr()));
 }
@@ -1663,7 +1668,7 @@ void addCaseNode(char const* s, char const* e)
 }
 void addSwitchNode(char const* s, char const* e)
 {
-	undComandIndex.pop_back();
+	cycleBeginVarTop.pop_back();
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
 		varTop--;
@@ -1878,9 +1883,9 @@ namespace CompilerGrammar
 		forexpr		=
 			(strP("for")[saveVarTop] >>
 			'(' >>
-			(vardef | term5[addPopNode] | block) >>';' >>
-			term5 >> ';'
-			>> (term5[addPopNode] | block) >> ')'
+			(vardef | (chP('{') >> code >> chP('}')) | term5[addPopNode]) >>';' >>
+			term5 >> ';' >>
+			((chP('{') >> code >> chP('}')) | term5[addPopNode]) >> ')'
 			)[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
 		whileexpr	=
 			strP("while")[saveVarTop] >>
@@ -2142,7 +2147,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
+	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
@@ -2150,7 +2155,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
+	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
@@ -2158,7 +2163,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
+	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
@@ -2166,7 +2171,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
+	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
@@ -2174,7 +2179,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
+	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
@@ -2182,7 +2187,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
+	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
@@ -2190,16 +2195,16 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
+	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "clock";
 	fInfo->retType = typeInt;
 	fInfo->vTopSize = 1;
-	funcs.push_back(fInfo);
+	funcInfo.push_back(fInfo);
 
-	buildInFuncs = (int)funcs.size();
+	buildInFuncs = (int)funcInfo.size();
 
 	CompilerGrammar::InitGrammar();
 
@@ -2215,7 +2220,7 @@ void Compiler::ClearState()
 
 	varInfo.clear();
 	typeInfo.resize(buildInTypes);
-	funcs.resize(buildInFuncs);
+	funcInfo.resize(buildInFuncs);
 
 	callArgCount.clear();
 	retTypeStack.clear();
@@ -2263,8 +2268,8 @@ bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
 	if(pRes = PARSE_FAILED)
 		return false;
 
-	funcs.back()->address = -1;
-	funcs.back()->funcPtr = ptr;
+	funcInfo.back()->address = -1;
+	funcInfo.back()->funcPtr = ptr;
 
 	strs.pop_back();
 	retTypeStack.pop_back();
