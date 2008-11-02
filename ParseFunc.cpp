@@ -1173,12 +1173,12 @@ void NodeVarGet::Compile()
 
 	asmStackType asmST = podTypeToStackType[typeInfo->type];
 	asmDataType asmDT = podTypeToDataType[typeInfo->type];
-	if(varInfo.varType->arrSize == -1 && typeInfo != typeVoid)
+	if(varInfo.varType->arrSize == -1 && typeInfo != typeVoid && shiftAddress)
 	{
 		cmdList->AddData(cmdPush);
 		cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT | (absAddress ? bitAddrAbs : bitAddrRel)));
 		cmdList->AddData(varAddress);
-		if(shiftAddress && !bakedShift)
+		if(!bakedShift)
 		{
 			first->Compile();
 			cmdList->AddData(cmdAdd);
@@ -1238,10 +1238,10 @@ void NodeVarGet::LogToStream(ostringstream& ostr)
 UINT NodeVarGet::GetSize()
 {
 	UINT size = 0;
-	if(varInfo.varType->arrSize == -1 && typeInfo != typeVoid)
+	if(varInfo.varType->arrSize == -1 && typeInfo != typeVoid && shiftAddress)
 	{
 		size += 2 * sizeof(CmdID) + 2 * sizeof(USHORT) + 2 * sizeof(UINT);
-		if(shiftAddress && !bakedShift)
+		if(!bakedShift)
 			size += first->GetSize() + sizeof(CmdID) + 1;
 	}else{
 		if(shiftAddress && varInfo.varType->arrLevel != 0 && varInfo.varType->arrSize != -1)

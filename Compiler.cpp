@@ -156,7 +156,7 @@ TypeInfo* GetArrayType(TypeInfo* type, UINT sizeInArgument = 0)
 	{
 		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == arrSize)
 		{
-			compileLog << "  returns " << typeInfo[i]->GetTypeName() << "\r\n";
+			compileLog << "  returns " << typeInfo[i]->GetTypeName() << " Address: " << typeInfo[i] << "\r\n";
 			return typeInfo[i];
 		}
 	}
@@ -183,7 +183,7 @@ TypeInfo* GetArrayType(TypeInfo* type, UINT sizeInArgument = 0)
 	newInfo->subType = type;
 
 	typeInfo.push_back(newInfo);
-	compileLog << "  returns " << newInfo->GetTypeName() << "\r\n";
+	compileLog << "  returns " << newInfo->GetTypeName() << " Address: " << newInfo << "\r\n";
 	return newInfo;
 }
 
@@ -323,6 +323,8 @@ void addStringNode(char const*s, char const*e)
 				cleanBuf[len] = '\0';
 			if(*curr == '\'')
 				cleanBuf[len] = '\'';
+			if(*curr == '\"')
+				cleanBuf[len] = '\"';
 			if(*curr == '\\')
 				cleanBuf[len] = '\\';
 		}
@@ -1098,7 +1100,7 @@ void addSetNode(char const* s, char const* e)
 	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->GetTypeInfo();
 
 	bool unifyTwo = false;
-	if(realCurrType->arrSize == -1)
+	if(realCurrType->arrSize == -1 && realCurrType != nodeList.back()->GetTypeInfo())
 	{
 		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
 		if(realCurrType->subType == nodeType->subType)
@@ -1350,12 +1352,13 @@ void addBlockNode(char const* s, char const* e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock()));
 }
 
-UINT arrElementCount = 0;
+std::vector<UINT> arrElementCount;
+
 void addArrayConstructor(char const* s, char const* e)
 {
-	arrElementCount++;
+	arrElementCount.back()++;
 
-	TypeInfo *currType = (*(nodeList.end()-arrElementCount))->GetTypeInfo();
+	TypeInfo *currType = (*(nodeList.end()-arrElementCount.back()))->GetTypeInfo();
 
 	if(currType == typeShort || currType == typeChar)
 		currType = typeInt;
@@ -1364,7 +1367,7 @@ void addArrayConstructor(char const* s, char const* e)
 		throw CompilerError("ERROR: array cannot be constructed from void type elements", s);
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(arrElementCount, currType)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(arrElementCount.back(), typeInt)));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(currType))));
 
 	shared_ptr<NodeZeroOP> temp = nodeList.back();
@@ -1374,16 +1377,16 @@ void addArrayConstructor(char const* s, char const* e)
 
 	TypeInfo *realType = nodeList.back()->GetTypeInfo();
 	char tempStr[16];
-	for(UINT i = 0; i < arrElementCount; i++)
+	for(UINT i = 0; i < arrElementCount.back(); i++)
 	{
 		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt))
-			throw CompilerError(std::string("ERROR: element ") + _itoa(arrElementCount-i-1, tempStr, 10) + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
+			throw CompilerError(std::string("ERROR: element ") + _itoa(arrElementCount.back()-i-1, tempStr, 10) + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
 		arrayList->AddNode(false);
 	}
 
 	nodeList.push_back(temp);
 
-	arrElementCount = 0;
+	arrElementCount.pop_back();
 }
 
 void funcAdd(char const* s, char const* e)
@@ -1568,7 +1571,11 @@ void addFuncCallNode(char const* s, char const* e)
 	for(UINT i = 0; i < fList[minRatingIndex]->params.size(); i++)
 	{
 		UINT index = (UINT)(fList[minRatingIndex]->params.size()) - i - 1;
-		if(fList[minRatingIndex]->params[i].varType->arrSize == -1 && fList[minRatingIndex]->params[i].varType->subType == paramNodes[index]->GetTypeInfo()->subType)
+
+		TypeInfo *expectedType = fList[minRatingIndex]->params[i].varType;
+		TypeInfo *realType = paramNodes[index]->GetTypeInfo();
+		
+		if(expectedType->arrSize == -1 && expectedType->subType == realType->subType && expectedType != realType)
 		{
 			if(paramNodes[index]->GetNodeType() != typeNodeVarGet)
 			{
@@ -1776,7 +1783,7 @@ namespace CompilerGrammar
 
 		void operator() (char const* s, char const* e)
 		{
-			//ASSERT(err);
+			assert(err);
 			throw CompilerError(err, s);
 		}
 	private:
@@ -1927,10 +1934,10 @@ namespace CompilerGrammar
 			(strP("--") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreDecNode][strPop][strPop] | 
 			(strP("++") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreIncNode][strPop][strPop] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
-			(chP('\"') >> *(anycharP - chP('\"')) >> chP('\"'))[strPush][addStringNode] |
+			(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 			(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
-			(chP('{') >> term5 >> *(chP(',') >> term5[IncVar<UINT>(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
+			(chP('{')[PushBackVal<std::vector<UINT>, UINT>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<UINT> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
 			group |
 			funccall[addFuncCallNode] |
 			(('*' >> applyval)[addDereference][addGetNode] | (epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])) >>
@@ -1964,7 +1971,7 @@ namespace CompilerGrammar
 			)[SetStringToLastNode][strPop][strPop] |
 			term4_9;
 
-		block		=	chP('{')[blockBegin] >> code >> chP('}')[blockEnd];
+		block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
 		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block[addBlockNode] | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
@@ -2247,6 +2254,8 @@ void Compiler::ClearState()
 
 	retTypeStack.push_back(NULL);	//global return can return anything
 
+	arrElementCount.clear();
+
 	logAST.str("");
 	compileLog.str("");
 }
@@ -2274,6 +2283,9 @@ bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
 	strs.pop_back();
 	retTypeStack.pop_back();
 	buildInFuncs++;
+
+	buildInTypes = (int)typeInfo.size();
+
 	return true;
 }
 
