@@ -111,6 +111,26 @@ void myFileClose(FILE* file)
 bool	consoleActive = false;
 HANDLE	conStdIn;
 HANDLE	conStdOut;
+
+void InitConsole();
+void DeInitConsole();
+
+// Does nothing at this point
+int __stdcall ConsoleEvent(DWORD eventType)
+{
+	switch(eventType)
+	{
+	case CTRL_C_EVENT:
+		return 1;
+	case CTRL_BREAK_EVENT:
+		return 1;
+	case CTRL_CLOSE_EVENT:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 void InitConsole()
 {
 	if(consoleActive)
@@ -122,6 +142,7 @@ void InitConsole()
 
 	DWORD fdwMode = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT; 
     SetConsoleMode(conStdIn, fdwMode);
+	SetConsoleCtrlHandler(ConsoleEvent, 1);
 }
 
 void DeInitConsole()
@@ -172,7 +193,7 @@ void PrintFloat4(float4c n)
 	DWORD written;
 	char temp[128];
 	sprintf(temp, "{%f, %f, %f, %f}\r\n", n.x, n.y, n.z, n.w);
-	WriteFile(conStdOut, temp, strlen(temp), &written, NULL); 
+	WriteFile(conStdOut, temp, (UINT)strlen(temp), &written, NULL); 
 }
 
 void PrintLong(long long lg)
@@ -181,7 +202,7 @@ void PrintLong(long long lg)
 	DWORD written;
 	char temp[128];
 	sprintf(temp, "{%I64d}\r\n", lg);
-	WriteFile(conStdOut, temp, strlen(temp), &written, NULL); 
+	WriteFile(conStdOut, temp, (UINT)strlen(temp), &written, NULL); 
 }
 
 int APIENTRY WinMain(HINSTANCE	hInstance,

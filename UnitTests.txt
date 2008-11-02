@@ -823,3 +823,71 @@ for({int i = 0;}; i < 4; {i++;})
 }
 
 return 4;//test(2);
+
+// Local function context test
+int g1 = 3; // global variable (24)
+int r; // (28)
+{
+  int g2 = 5; // block variable (32)
+  int test(int x, int rek)
+  {
+    int g3 = 7; // rekursive function local variable (36?, 40?)
+    int help(int x)
+    {
+      return g3*x+g2*g1;
+    }
+    if(rek)
+      return help(x) * g2 + g1; // (7*3+15)*5+3 = 183
+    return help(x) * test(g1, 1); // (7*13+15) * 183
+  }
+  r = test(13, 0);
+}
+
+return r; // 19398
+
+// Local function context test 2
+int g1 = 3; // global variable (24)
+int r; // (28)
+{
+  // test should get pointer to this variable
+  int g2 = 5; // block variable (32)
+  int test(int x, int rek)
+  {
+    // help should get pointer to this variable
+    int g3 = 7; // rekursive function local variable (36?, 40?)
+    int help(int x)
+    {
+      int hell = 0;
+      if(x > 10)
+        hell = test(2, 0);
+      return g3*x + g2*g1 + hell;
+    }
+    if(rek)
+      return help(x) * g2 + g1; // (7*3+15)*5+3 = 183
+    return help(x) * test(g1, 1); // (7*13+15+(7*2+15+0)*((7*3+15+0)*5+3)) * 183
+  }
+  r = test(13, 0);
+}
+
+return r; // 990579
+
+
+int test(char[] text){ Print(text); return 2; }
+int arr[10];
+auto hm = "World\r\n";
+char[] nm = hm;
+char[] um = nm;
+
+arr[test("hello\r\n")] += 3;
+return 1;
+
+// Multidimensional array constructor test
+float3 float3(float x, float y, float z){ float3 ret; ret.x = x; ret.y = y; ret.z = z; return ret; }
+float3 g = float3(4, 6, 8), h = float3(3, 5, 7), j = float3(11, 12, 13);
+
+auto a = { 3, 4, 5 };
+auto b = { {11, 12}, {14, 15} };
+
+auto c = { g, h, j };
+auto d = { { {g}, {h} }, { {h}, {j} } };
+return 1;
