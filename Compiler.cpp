@@ -293,6 +293,26 @@ void addVoidNode(char const*s, char const*e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP));
 }
 
+void addHexInt(char const*s, char const*e)
+{
+	s += 2;
+	if(int(e-s) > 16)
+		throw CompilerError("ERROR: Overflow in hexademical constant", s);
+	unsigned long long mult = 1;
+	unsigned long long res = 0;
+	for(const char *p = s; p < e; p++)
+	{
+		if(*p >= '0' && *p <= '9')
+			res = res * mult + (*p - '0');
+		else
+			res = res * mult + (tolower(*p) - 'a' + 10);
+		mult = 16;
+	}
+	if(int(e-s) <= 8)
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((UINT)res, typeInt)));
+	else
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(res, typeLong)));
+}
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
 // но зато не надо писать отдельный класс с одинаковыми действиями внутри.
@@ -1935,6 +1955,7 @@ namespace CompilerGrammar
 			(strP("++") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreIncNode][strPop][strPop] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
+			lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f'))][addHexInt] |
 			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 			(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
 			(chP('{')[PushBackVal<std::vector<UINT>, UINT>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<UINT> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
