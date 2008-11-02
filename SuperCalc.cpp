@@ -174,15 +174,31 @@ void ReadIntFromConsole(int* val)
 
 int ReadTextFromConsole(ArrayPtr data)
 {
+	char buffer[2048];
+
 	InitConsole();
 	DWORD read;
-	ReadFile(conStdIn, reinterpret_cast<long long>(data.ptr)+variableData, data.len, &read, NULL);
-	*(reinterpret_cast<long long>(data.ptr)+variableData+read-1) = 0;
-	*(reinterpret_cast<long long>(data.ptr)+variableData+data.len-1) = 0;
+	ReadFile(conStdIn, buffer, 2048, &read, NULL);
+	buffer[read-1] = 0;
+	char *target = reinterpret_cast<long long>(data.ptr) + variableData;
+	int c = 0;
+	for(int i = 0; i < read; i++)
+	{
+		buffer[c++] = buffer[i];
+		if(buffer[i] == '\b')
+			c -= 2;
+		if(c < 0)
+			c = 0;
+	}
+	if(c < data.len)
+		buffer[c-1] = 0;
+	else
+		buffer[data.len-1] = 0;
+	memcpy(target, buffer, data.len);
 
 	DWORD written;
 	WriteFile(conStdOut, "\r\n", 2, &written, NULL);
-	return read;
+	return (c < data.len ? c : data.len);
 }
 
 struct float4c{ float x, y, z, w; };
