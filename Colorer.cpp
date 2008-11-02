@@ -151,7 +151,7 @@ namespace ColorerGrammar
 				*(
 					chP('.')[ColorText] >>
 					varname[ColorVar] >>
-					!(
+					*(
 						chP('[')[ColorText] >>
 						term5 >>
 						chP(']')[ColorText]
@@ -187,6 +187,7 @@ namespace ColorerGrammar
 			((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
 			(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
 			(chP('\"')[ColorText] >> *((strP("\\\"") | strP("\\r") | strP("\\n") | strP("\\\'") | strP("\\\\") | strP("\\t") | strP("\\0"))[ColorReal] | (anycharP[ColorVar] - chP('\"'))) >> chP('\"')[ColorText]) |
+			lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][ColorReal] |
 			longestD[(intP >> (chP('l') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
 			(chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorVar]) >> chP('\'')[ColorText]) |
 			(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
