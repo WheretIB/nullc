@@ -891,3 +891,9 @@ auto b = { {11, 12}, {14, 15} };
 auto c = { g, h, j };
 auto d = { { {g}, {h} }, { {h}, {j} } };
 return 1;
+
+//Hexademical constants
+auto a = 0xdeadbeef;
+auto b = 0xcafe;
+auto c = 0x7fffffffffffffff;
+return a;
