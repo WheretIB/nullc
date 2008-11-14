@@ -112,6 +112,7 @@ public:
 		funcPtr = NULL;
 		retType = NULL;
 		visible = true;
+		local = false;
 	}
 	//shared_ptr<NodeZeroOP>	defNode;	// A node that defines a function
 	UINT		address;				// Address of the beginning of function inside bytecode
@@ -124,6 +125,9 @@ public:
 	TypeInfo*	retType;				// Function return type
 
 	bool		visible;				// true untill function goes out of scope
+	bool		local;					// false for functions, declared in global scope
+
+	std::vector<std::string> external;	// External variable names
 };
 
 class CallStackInfo

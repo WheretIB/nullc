@@ -3,6 +3,8 @@
 #include "ParseCommand.h"
 #include "ParseFunc.h"
 
+#include "Compiler.h"
+
 // Информация о коде, используемых функциях, переменных, типов.
 namespace CodeInfo
 {
@@ -12,7 +14,7 @@ namespace CodeInfo
 
 	// Информация о переменных
 	// Information about variables
-	extern std::vector<VariableInfo>	varInfo;
+	extern std::vector<VariableInfo*>	varInfo;
 
 	// Информация о типах
 	// Information about types
@@ -29,4 +31,22 @@ namespace CodeInfo
 	// Individual nodes are placed here, and later on, combined into a more complex nodes, 
 	// creating AST. After successful compilation, node count should be equal to 1
 	extern std::vector<shared_ptr<NodeZeroOP> >	nodeList;
+
+	static const char* lastKnownStartPos = NULL;
+
+	// Log stream
+	extern ostringstream compileLog;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Функция возвращает тип - указателя на исходный
+	TypeInfo* GetReferenceType(TypeInfo* type);
+
+	// Функиця возвращает тип, получаемый при разименовании указателя
+	TypeInfo* GetDereferenceType(TypeInfo* type);
+
+	// Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
+	TypeInfo* GetArrayType(TypeInfo* type, UINT sizeInArgument = 0);
+
+	// Функция возвращает тип элемента массива
+	TypeInfo* GetArrayElementType(TypeInfo* type);
 };
