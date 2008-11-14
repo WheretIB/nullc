@@ -13,7 +13,7 @@ const UINT typeNodeIfElseExpr	= 6;
 
 const UINT typeNodeOneOp		= 8;
 const UINT typeNodePopOp		= 9;
-const UINT typeNodePreValOp		= 10;//
+
 
 const UINT typeNodeReturnOp		= 12;
 const UINT typeNodeThreeOp		= 13;
@@ -21,9 +21,9 @@ const UINT typeNodeTwoAndCmdOp	= 14;
 
 const UINT typeNodeTwoOp		= 16;
 const UINT typeNodeVarDef		= 17;
-const UINT typeNodeVarGet		= 18;//
-const UINT typeNodeVarSet		= 19;//
-const UINT typeNodeVarSetAndOp	= 20;//
+
+
+
 const UINT typeNodeZeroOp		= 21;
 const UINT typeNodeWhileExpr	= 22;
 const UINT typeNodeDoWhileExpr	= 22;
@@ -34,8 +34,8 @@ const UINT typeNodeSwitchExpr	= 25;
 const UINT typeNodeNumber		= 27;
 const UINT typeNodeUnaryOp		= 28;
 const UINT typeNodeFuncParam	= 29;
-const UINT typeNodePushShift	= 30;//
-const UINT typeNodeGetAddress	= 31;//
+
+
 const UINT typeNodeExpressionList	= 32;
 const UINT typeNodeArrayIndex	= 33;
 const UINT typeNodeDereference	= 34;

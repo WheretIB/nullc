@@ -567,7 +567,7 @@ void addTwoAndCmpNode(CmdID id)
 		}
 
 		// Оптимизацию можно произвести, если второй операнд - typeNodeTwoAndCmdOp или typeNodeVarGet
-		if(bNodeType != typeNodeTwoAndCmdOp && bNodeType != typeNodeVarGet && bNodeType != typeNodeDereference)
+		if(bNodeType != typeNodeTwoAndCmdOp && bNodeType != typeNodeDereference)
 		{
 			// Иначе, выходим без оптимизаций
 			try
