@@ -346,6 +346,15 @@ void ExecutorX86::GenListing()
 
 	bool skipPopEAXOnIntALU = false;
 	bool skipFldESPOnDoubleALU = false;
+	bool skipFldOnMov = false;
+
+	bool skipPopEDXOnPush = false;
+	bool indexInEaxOnCti = false;
+
+	bool knownEDXOnPush = false;
+	bool addEBPtoEDXOnPush = false;
+	int edxValueForPush = 0;
+
 	bool skipPop = false;
 
 	UINT lastVarSize = 0;
@@ -685,29 +694,46 @@ void ExecutorX86::GenListing()
 			case OTYPE_INT:
 				break;
 			}
+			//look at the next command
+			cmdList->GetData(pos, cmdNext);
 			if(valind != 1)
 			{
-				//look at the next command
-				cmdList->GetData(pos, cmdNext);
+				char *indexPlace = "dword [esp]";
+				if(indexInEaxOnCti)
+				{
+					indexPlace = "eax";
+					skipPopEAXOnIntALU = true;
+				}
 				if((cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt) && (valind == 2 || valind == 4 || valind == 8))
 				{
 					mulByVarSize = true;
 					lastVarSize = valind;
 				}else if(valind == 2)
 				{
-					logASM << "shl dword [esp], 1 ; умножим адрес на размер переменной\r\n";
+					logASM << "shl " << indexPlace << ", 1 ; умножим адрес на размер переменной\r\n";
 				}else if(valind == 4){
-					logASM << "shl dword [esp], 2 ; умножим адрес на размер переменной\r\n";
+					logASM << "shl " << indexPlace << ", 2 ; умножим адрес на размер переменной\r\n";
 				}else if(valind == 8){
-					logASM << "shl dword [esp], 3 ; умножим адрес на размер переменной\r\n";
+					logASM << "shl " << indexPlace << ", 3 ; умножим адрес на размер переменной\r\n";
 				}else if(valind == 16){
-					logASM << "shl dword [esp], 4 ; умножим адрес на размер переменной\r\n";
+					logASM << "shl " << indexPlace << ", 4 ; умножим адрес на размер переменной\r\n";
 				}else{
-					logASM << "pop eax ; расчёт в eax\r\n";
+					if(!indexInEaxOnCti)
+						logASM << "pop eax ; расчёт в eax\r\n";
 					logASM << "imul eax, " << valind << " ; умножим адрес на размер переменной\r\n";
-					logASM << "push eax \r\n";
+					if(!indexInEaxOnCti)
+						logASM << "push eax \r\n";
+				}
+			}else{
+				if(indexInEaxOnCti)
+				{
+					if(cmdNext != cmdAdd)
+						logASM << "push eax \r\n";
+					else
+						skipPopEAXOnIntALU = true;
 				}
 			}
+			indexInEaxOnCti = false;
 			break;
 		case cmdPush:
 			{
@@ -725,8 +751,9 @@ void ExecutorX86::GenListing()
 				char *needPush = texts[3];
 				char *needEDX = texts[1];
 				char *needEBP = texts[2];
-				if(flagAddrAbs(cFlag))
+				if(flagAddrAbs(cFlag) && !addEBPtoEDXOnPush)
 					needEBP = texts[0];
+				addEBPtoEDXOnPush = false;
 				UINT numEDX = 0;
 
 				// Если читается из переменной и...
@@ -735,20 +762,44 @@ void ExecutorX86::GenListing()
 					// ...есть адрес в команде и имеется сдвиг в стеке
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					if(mulByVarSize)
+					if(knownEDXOnPush)
 					{
-						logASM << "pop eax ; взяли сдвиг\r\n";
-						if(valind != 0)
-							logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						if(mulByVarSize)
+							numEDX = edxValueForPush * lastVarSize + valind;
 						else
-							logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+							numEDX = edxValueForPush + valind;
+						needEDX = texts[0];
+						knownEDXOnPush = false;
 					}else{
-						if(valind != 0)
+						if(skipPopEDXOnPush)
 						{
-							logASM << "pop eax ; взяли сдвиг\r\n";
-							logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+							if(mulByVarSize)
+							{
+								if(valind != 0)
+									logASM << "lea edx, [edx*" << lastVarSize << " + " << valind << "]\r\n";
+								else
+									logASM << "lea edx, [edx*" << lastVarSize << "]\r\n";
+							}else{
+								numEDX = valind;
+							}
+							skipPopEDXOnPush = false;
 						}else{
-							logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+							if(mulByVarSize)
+							{
+								logASM << "pop eax ; взяли сдвиг\r\n";
+								if(valind != 0)
+									logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+								else
+									logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+							}else{
+								if(valind != 0)
+								{
+									logASM << "pop edx ; взяли сдвиг\r\n";
+									numEDX = valind;
+								}else{
+									logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+								}
+							}
 						}
 					}
 				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
@@ -808,9 +859,19 @@ void ExecutorX86::GenListing()
 							needPush = texts[4];
 							skipPopEAXOnIntALU = true;
 						}
+						if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
+						{
+							CmdFlag lcFlag;
+							cmdList->GetUSHORT(pos+6, lcFlag);
+							if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
+								knownEDXOnPush = true;
+						}
 
 						cmdList->GetUINT(pos, lowDW); pos += 4;
-						logASM << needPush << lowDW << " ; положили int\r\n";
+						if(knownEDXOnPush)
+							edxValueForPush = (int)lowDW;
+						else
+							logASM << needPush << (int)lowDW << " ; положили int\r\n";
 					}
 					if(dt == DTYPE_SHORT)
 					{
@@ -852,10 +913,13 @@ void ExecutorX86::GenListing()
 					}
 					if(dt == DTYPE_DOUBLE)
 					{
-						if(cmdNext >= cmdAdd && cmdNext <= cmdNEqual)// && !skipFldESPOnDoubleALU)
+						if(cmdNext >= cmdAdd && cmdNext <= cmdNEqual)
 						{
 							skipFldESPOnDoubleALU = true;
 							logASM << "fld qword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили double прямо в FPU\r\n";
+						}else if(cmdNext == cmdMov){
+							logASM << "fld qword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим double прямо в FPU\r\n";
+							skipFldOnMov = true;
 						}else{
 							logASM << "push dword [" << needEDX << needEBP << paramBase+4+numEDX << "]\r\n";
 							logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили double\r\n";
@@ -868,9 +932,15 @@ void ExecutorX86::GenListing()
 					}
 					if(dt == DTYPE_FLOAT)
 					{
-						logASM << "sub esp, 8 ; освободим место под double\r\n";
-						logASM << "fld dword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим float в fpu стек\r\n";
-						logASM << "fstp qword [esp] ; поместим double в обычный стек\r\n";
+						if(cmdNext == cmdMov)
+						{
+							logASM << "fld dword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим float в fpu стек\r\n";
+							skipFldOnMov = true;
+						}else{
+							logASM << "sub esp, 8 ; освободим место под double\r\n";
+							logASM << "fld dword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим float в fpu стек\r\n";
+							logASM << "fstp qword [esp] ; поместим double в обычный стек\r\n";
+						}
 					}
 					if(dt == DTYPE_INT)
 					{
@@ -878,6 +948,21 @@ void ExecutorX86::GenListing()
 						{
 							needPush = texts[4];
 							skipPopEAXOnIntALU = true;
+						}
+						if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
+						{
+							CmdFlag lcFlag;
+							cmdList->GetUSHORT(pos+2, lcFlag);
+							if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
+							{
+								skipPopEDXOnPush = true;
+								needPush = "mov edx, ";
+							}
+						}
+						if(cmdNext == cmdCTI)
+						{
+							indexInEaxOnCti = true;
+							needPush = "mov eax, ";
 						}
 						logASM << needPush << "dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили int\r\n";
 					}
@@ -912,20 +997,44 @@ void ExecutorX86::GenListing()
 				{
 					cmdList->GetINT(pos, valind);
 					pos += 4;
-					if(mulByVarSize)
+					if(knownEDXOnPush)
 					{
-						logASM << "pop eax ; взяли сдвиг\r\n";
-						if(valind != 0)
-							logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						if(mulByVarSize)
+							numEDX = edxValueForPush * lastVarSize + valind;
 						else
-							logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+							numEDX = edxValueForPush + valind;
+						knownEDX = true;
+						knownEDXOnPush = false;
 					}else{
-						if(valind != 0)
+						if(skipPopEDXOnPush)
 						{
-							logASM << "pop eax ; взяли сдвиг\r\n";
-							logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+							if(mulByVarSize)
+							{
+								if(valind != 0)
+									logASM << "lea edx, [edx*" << lastVarSize << " + " << valind << "]\r\n";
+								else
+									logASM << "lea edx, [edx*" << lastVarSize << "]\r\n";
+							}else{
+								numEDX = valind;
+							}
+							skipPopEDXOnPush = false;
 						}else{
-							logASM << "pop edx ; взяли сдвиг\r\n";
+							if(mulByVarSize)
+							{
+								logASM << "pop eax ; взяли сдвиг\r\n";
+								if(valind != 0)
+									logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+								else
+									logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+							}else{
+								if(valind != 0)
+								{
+									logASM << "pop edx ; взяли сдвиг\r\n";
+									numEDX = valind;
+								}else{
+									logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+								}
+							}
 						}
 					}
 				}else{
@@ -964,8 +1073,9 @@ void ExecutorX86::GenListing()
 				char *useEDI = texts[3];
 				if(knownEDX)
 					needEDX = dontNeed;
-				if(flagAddrAbs(cFlag))
+				if(flagAddrAbs(cFlag) && !addEBPtoEDXOnPush)
 					needEBP = dontNeed;
+				addEBPtoEDXOnPush = false;
 				if(flagAddrRelTop(cFlag))
 					needEBP = useEDI;
 
@@ -1007,25 +1117,74 @@ void ExecutorX86::GenListing()
 						assert(sizeOfVar == 0);
 					}
 				}
-				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+				if(dt == DTYPE_DOUBLE)
+				{
+					if(skipFldOnMov)
+					{
+						if(skipPop)
+						{
+							logASM << "fstp qword [" << needEDX << needEBP << final << "] ; присвоили double переменной\r\n";
+							skipFldOnMov = false;
+						}else{
+							if(cmdNext == cmdMov)
+							{
+								logASM << "fst qword [" << needEDX << needEBP << final << "] ; присвоили double переменной\r\n";
+							}else{
+								logASM << "fst qword [" << needEDX << needEBP << final << "] ; присвоили double переменной\r\n";
+								logASM << "sub esp, 8 ; освободим место под double\r\n";
+								logASM << "fstp qword [esp]\r\n";
+								skipFldOnMov = false;
+							}
+						}
+					}else{
+						if(skipPop)
+						{
+							logASM << "pop dword [" << needEDX << needEBP << final << "] \r\n";
+							logASM << "pop dword [" << needEDX << needEBP << final+4 << "] ; присвоили double переменной.\r\n";
+						}else{
+							logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
+							logASM << "fstp qword [" << needEDX << needEBP << final << "] ; присвоили double переменной\r\n";
+						}
+					}
+				}
+				if(dt == DTYPE_LONG)
 				{
 					if(skipPop)
 					{
 						logASM << "pop dword [" << needEDX << needEBP << final << "] \r\n";
-						logASM << "pop dword [" << needEDX << needEBP << final+4 << "] ; присвоили double или long long переменной.\r\n";
+						logASM << "pop dword [" << needEDX << needEBP << final+4 << "] ; присвоили long long переменной.\r\n";
 					}else{
 						logASM << "mov ebx, [esp] \r\n";
 						logASM << "mov ecx, [esp+4] \r\n";
 						logASM << "mov [" << needEDX << needEBP << final << "], ebx \r\n";
-						logASM << "mov [" << needEDX << needEBP << final+4 << "], ecx ; присвоили double или long long переменной.\r\n";
+						logASM << "mov [" << needEDX << needEBP << final+4 << "], ecx ; присвоили long long переменной.\r\n";
 					}
 				}
 				if(dt == DTYPE_FLOAT)
 				{
-					logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
-					logASM << "fstp dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
-					if(skipPop)
-						logASM << "add esp, 8 ;\r\n";
+					if(skipFldOnMov)
+					{
+						if(skipPop)
+						{
+							logASM << "fstp dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
+							skipFldOnMov = false;
+						}else{
+							if(cmdNext == cmdMov)
+							{
+								logASM << "fst dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
+							}else{
+								logASM << "fst dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
+								logASM << "sub esp, 8 ; освободим место под double\r\n";
+								logASM << "fstp qword [esp]\r\n";
+								skipFldOnMov = false;
+							}
+						}
+					}else{
+						logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
+						logASM << "fstp dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
+						if(skipPop)
+							logASM << "add esp, 8 ;\r\n";
+					}
 				}
 				if(dt == DTYPE_INT)
 				{
@@ -1310,8 +1469,22 @@ void ExecutorX86::GenListing()
 			logASM << "  ; GETADDR\r\n";
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << "lea eax, [ebp + " << valind << "] ; сдвинули адрес относительно бызы стека\r\n";
-			logASM << "push eax ; положили адрес в стек\r\n";
+			cmdList->GetData(pos, cmdNext);
+			if(cmdNext == cmdPush)
+			{
+				CmdFlag lcFlag;
+				cmdList->GetUSHORT(pos+2, lcFlag);
+				if(flagAddrAbs(lcFlag) || flagAddrRel(lcFlag) && flagShiftStk(cFlag))
+					knownEDXOnPush = true;
+			}
+			if(!knownEDXOnPush)
+			{
+				logASM << "lea eax, [ebp + " << (int)valind << "] ; сдвинули адрес относительно бызы стека\r\n";
+				logASM << "push eax ; положили адрес в стек\r\n";
+			}else{
+				addEBPtoEDXOnPush = true;
+				edxValueForPush = (int)valind;
+			}
 			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
@@ -2129,20 +2302,44 @@ void ExecutorX86::GenListing()
 			{
 				cmdList->GetINT(pos, valind);
 				pos += 4;
-				if(mulByVarSize)
+				if(knownEDXOnPush)
 				{
-					logASM << "pop eax ; взяли сдвиг\r\n";
-					if(valind != 0)
-						logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+					if(mulByVarSize)
+						numEDX = edxValueForPush * lastVarSize + valind;
 					else
-						logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+						numEDX = edxValueForPush + valind;
+					knownEDX = true;
+					knownEDXOnPush = false;
 				}else{
-					if(valind != 0)
+					if(skipPopEDXOnPush)
 					{
-						logASM << "pop eax ; взяли сдвиг\r\n";
-						logASM << "lea edx, [eax + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+						if(mulByVarSize)
+						{
+							if(valind != 0)
+								logASM << "lea edx, [edx*" << lastVarSize << " + " << valind << "]\r\n";
+							else
+								logASM << "lea edx, [edx*" << lastVarSize << "]\r\n";
+						}else{
+							numEDX = valind;
+						}
+						skipPopEDXOnPush = false;
 					}else{
-						logASM << "pop edx ; взяли сдвиг\r\n";
+						if(mulByVarSize)
+						{
+							logASM << "pop eax ; взяли сдвиг\r\n";
+							if(valind != 0)
+								logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
+							else
+								logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+						}else{
+							if(valind != 0)
+							{
+								logASM << "pop edx ; взяли сдвиг\r\n";
+								numEDX = valind;
+							}else{
+								logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
+							}
+						}
 					}
 				}
 			}else{
@@ -2179,82 +2376,171 @@ void ExecutorX86::GenListing()
 			char *needEBP = texts[2];
 			if(knownEDX)
 				needEDX = texts[0];
-			if(flagAddrAbs(cFlag))
+			if(flagAddrAbs(cFlag) && !addEBPtoEDXOnPush)
 				needEBP = texts[0];
+			addEBPtoEDXOnPush = false;
 
 			UINT final = paramBase+numEDX;
 			switch(cmd + (dt << 16))
 			{
 			case cmdIncAt+(DTYPE_DOUBLE<<16):
 				logASM << "fld qword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "fld st0\r\n";
 				logASM << "fld1 \r\n";
 				logASM << "faddp \r\n";
-				logASM << "fstp qword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushAfter(cFlag))
+				{
+					logASM << "fst qword [" << needEDX << needEBP << final << "] ;\r\n";
+					logASM << "sub esp, 8\r\n";
+					logASM << "fstp qword [esp]\r\n";
+				}else{
+					logASM << "fstp qword [" << needEDX << needEBP << final << "] ;\r\n";
+				}
+				if(flagPushBefore(cFlag))
+					logASM << "sub esp, 8\r\nfstp qword [esp]\r\n";
 				break;
 			case cmdIncAt+(DTYPE_FLOAT<<16):
 				logASM << "fld dword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "fld st0\r\n";
 				logASM << "fld1 \r\n";
 				logASM << "faddp \r\n";
-				logASM << "fstp dword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushAfter(cFlag))
+				{
+					logASM << "fst dword [" << needEDX << needEBP << final << "] ;\r\n";
+					logASM << "sub esp, 8\r\n";
+					logASM << "fstp qword [esp]\r\n";
+				}else{
+					logASM << "fstp dword [" << needEDX << needEBP << final << "] ;\r\n";
+				}
+				if(flagPushBefore(cFlag))
+					logASM << "sub esp, 8\r\nfstp qword [esp]\r\n";
 				break;
 			case cmdIncAt+(DTYPE_LONG<<16):
 				logASM << "mov eax, dword [" << needEDX << needEBP << final << "] ;\r\n";
 				logASM << "mov edx, dword [" << needEDX << needEBP << final+4 << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+				{
+					logASM << "push edx\r\n";
+					logASM << "push eax\r\n";
+				}
 				logASM << "add eax, 1 \r\n";
 				logASM << "adc edx, 0 \r\n";
 				logASM << "mov dword [" << needEDX << needEBP << final << "], eax ;\r\n";
 				logASM << "mov dword [" << needEDX << needEBP << final+4 << "], edx ;\r\n";
+				if(flagPushAfter(cFlag))
+				{
+					logASM << "push edx\r\n";
+					logASM << "push eax\r\n";
+				}
 				break;
 			case cmdIncAt+(DTYPE_INT<<16):
 				logASM << "mov eax, dword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "push eax\r\n";
 				logASM << "add eax, 1 \r\n";
 				logASM << "mov dword [" << needEDX << needEBP << final << "], eax ;\r\n";
+				if(flagPushAfter(cFlag))
+					logASM << "push eax\r\n";
 				break;
 			case cmdIncAt+(DTYPE_SHORT<<16):
 				logASM << "movsx eax, word [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "push eax\r\n";
 				logASM << "add eax, 1 \r\n";
 				logASM << "mov word [" << needEDX << needEBP << final << "], ax ;\r\n";
+				if(flagPushAfter(cFlag))
+					logASM << "push eax\r\n";
 				break;
 			case cmdIncAt+(DTYPE_CHAR<<16):
 				logASM << "movsx eax, byte [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "push eax\r\n";
 				logASM << "add eax, 1 \r\n";
 				logASM << "mov byte [" << needEDX << needEBP << final << "], al ;\r\n";
+				if(flagPushAfter(cFlag))
+					logASM << "push eax\r\n";
 				break;
 
 			case cmdDecAt+(DTYPE_DOUBLE<<16):
 				logASM << "fld qword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "fld st0\r\n";
 				logASM << "fld1 \r\n";
 				logASM << "fsubp \r\n";
-				logASM << "fstp qword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushAfter(cFlag))
+				{
+					logASM << "fst qword [" << needEDX << needEBP << final << "] ;\r\n";
+					logASM << "sub esp, 8\r\n";
+					logASM << "fstp qword [esp]\r\n";
+				}else{
+					logASM << "fstp qword [" << needEDX << needEBP << final << "] ;\r\n";
+				}
+				if(flagPushBefore(cFlag))
+					logASM << "sub esp, 8\r\nfstp qword [esp]\r\n";
 				break;
 			case cmdDecAt+(DTYPE_FLOAT<<16):
 				logASM << "fld dword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "fld st0\r\n";
 				logASM << "fld1 \r\n";
 				logASM << "fsubp \r\n";
-				logASM << "fstp dword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushAfter(cFlag))
+				{
+					logASM << "fst dword [" << needEDX << needEBP << final << "] ;\r\n";
+					logASM << "sub esp, 8\r\n";
+					logASM << "fstp qword [esp]\r\n";
+				}else{
+					logASM << "fstp dword [" << needEDX << needEBP << final << "] ;\r\n";
+				}
+				if(flagPushBefore(cFlag))
+					logASM << "sub esp, 8\r\nfstp qword [esp]\r\n";
 				break;
 			case cmdDecAt+(DTYPE_LONG<<16):
 				logASM << "mov eax, dword [" << needEDX << needEBP << final << "] ;\r\n";
 				logASM << "mov edx, dword [" << needEDX << needEBP << final+4 << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+				{
+					logASM << "push edx\r\n";
+					logASM << "push eax\r\n";
+				}
 				logASM << "sub eax, 1 \r\n";
 				logASM << "sbb edx, 0 \r\n";
 				logASM << "mov dword [" << needEDX << needEBP << final << "], eax ;\r\n";
 				logASM << "mov dword [" << needEDX << needEBP << final+4 << "], edx ;\r\n";
+				if(flagPushAfter(cFlag))
+				{
+					logASM << "push edx\r\n";
+					logASM << "push eax\r\n";
+				}
 				break;
 			case cmdDecAt+(DTYPE_INT<<16):
 				logASM << "mov eax, dword [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "push eax\r\n";
 				logASM << "sub eax, 1 \r\n";
 				logASM << "mov dword [" << needEDX << needEBP << final << "], eax ;\r\n";
+				if(flagPushAfter(cFlag))
+					logASM << "push eax\r\n";
 				break;
 			case cmdDecAt+(DTYPE_SHORT<<16):
 				logASM << "movsx eax, word [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "push eax\r\n";
 				logASM << "sub eax, 1 \r\n";
 				logASM << "mov word [" << needEDX << needEBP << final << "], ax ;\r\n";
+				if(flagPushAfter(cFlag))
+					logASM << "push eax\r\n";
 				break;
 			case cmdDecAt+(DTYPE_CHAR<<16):
 				logASM << "movsx eax, byte [" << needEDX << needEBP << final << "] ;\r\n";
+				if(flagPushBefore(cFlag))
+					logASM << "push eax\r\n";
 				logASM << "sub eax, 1 \r\n";
 				logASM << "mov byte [" << needEDX << needEBP << final << "], al ;\r\n";
+				if(flagPushAfter(cFlag))
+					logASM << "push eax\r\n";
 				break;
 			}
 		}

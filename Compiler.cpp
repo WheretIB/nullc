@@ -33,11 +33,6 @@ TypeInfo*	typeFloat = NULL;
 TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
 
-// Log stream
-ostringstream	compileLog;
-
-const char* lastKnownStartPos = NULL;
-
 // Temp variables
 // Временные переменные:
 // Количество минусов перед переменной, вершина стека переменных
@@ -60,7 +55,6 @@ TypeInfo*	currType = NULL;
 // Стек ( :) )такой информации
 // Для конструкций arr[arr[i.a.b].y].x;
 std::vector<TypeInfo*>	currTypes;
-std::vector<bool>		valueByRef;
 
 // Массив временных строк
 std::vector<std::string>	strs;
@@ -71,135 +65,17 @@ std::vector<UINT>			callArgCount;
 // Стек, который хранит титы значений, которые возвращает функция.
 // Функции можно определять одну в другой (BUG: 0004 может, нафиг не надо?)
 std::vector<TypeInfo*>		retTypeStack;
+std::vector<FunctionInfo*>	currDefinedFunc;
 
-//////////////////////////////////////////////////////////////////////////
-// Функция возвращает тип - указателя на исходный
-TypeInfo* GetReferenceType(TypeInfo* type)
+void AddFunctionExternal(FunctionInfo* func, std::string name)
 {
-	compileLog << "GetReferenceType(" << type->GetTypeName() << ")\r\n";
-	// Поищем нужный тип в списке
-	UINT targetRefLevel = type->refLevel+1;
-	for(UINT i = 0; i < typeInfo.size(); i++)
-	{
-		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetRefLevel == typeInfo[i]->refLevel)
-		{
-			compileLog << "  returns " << typeInfo[i]->GetTypeName() << "\r\n";
-			return typeInfo[i];
-		}
-	}
-	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo();
-	newInfo->name = type->name;
-	newInfo->size = 4;
-	newInfo->type = TypeInfo::TYPE_INT;
-	newInfo->refLevel = type->refLevel + 1;
-	newInfo->subType = type;
+	for(UINT i = 0; i < func->external.size(); i++)
+		if(func->external[i] == name)
+			return;
 
-	typeInfo.push_back(newInfo);
-	compileLog << "  returns " << newInfo->GetTypeName() << "\r\n";
-	return newInfo;
+	compileLog << "Function " << currDefinedFunc.back()->name << " uses external variable " << name << "\r\n";
+	func->external.push_back(name);
 }
-
-// Функиця возвращает тип, получаемый при разименовании указателя
-TypeInfo* GetDereferenceType(TypeInfo* type)
-{
-	compileLog << "GetDereferenceType(" << type->GetTypeName() << ")\r\n";
-	if(!type->subType || type->refLevel == 0)
-		throw CompilerError(std::string("Cannot dereference type ") + type->GetTypeName() + std::string(" there is no result type available"), lastKnownStartPos);
-	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
-	return type->subType;
-}
-
-// Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
-TypeInfo* GetArrayType(TypeInfo* type, UINT sizeInArgument = 0)
-{
-	int arrSize = -1;
-	bool unFixed = false;
-	if(sizeInArgument == 0)
-	{
-		// В последнем узле должно находиться константное число
-		if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
-		{
-			TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
-			NodeZeroOP* zOP = (nodeList.end()-1)->get();
-			if(aType == typeDouble)
-			{
-				arrSize = (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
-			}else if(aType == typeFloat){
-				arrSize = (int)static_cast<NodeNumber<float>* >(zOP)->GetVal();
-			}else if(aType == typeLong){
-				arrSize = (int)static_cast<NodeNumber<long long>* >(zOP)->GetVal();
-			}else if(aType == typeInt){
-				arrSize = static_cast<NodeNumber<int>* >(zOP)->GetVal();
-			}else if(aType == typeVoid){
-				arrSize = -1;
-				unFixed = true;
-			}else{
-				throw CompilerError(std::string("ERROR: unknown type of constant number node ") + aType->name, lastKnownStartPos);
-			}
-			nodeList.pop_back();
-		}else{
-			throw CompilerError("ERROR: Array size must be a constant expression", lastKnownStartPos);
-		}
-	}else{
-		arrSize = sizeInArgument;
-		if(arrSize == -1)
-			unFixed = true;
-	}
-
-	if(!unFixed && arrSize < 1)
-		throw CompilerError("ERROR: Array size can't be negative or zero", lastKnownStartPos);
-	compileLog << "GetArrayType(" << type->GetTypeName() << ", " << arrSize << ")\r\n";
-	// Поищем нужный тип в списке
-	UINT targetArrLevel = type->arrLevel+1;
-	for(UINT i = 0; i < typeInfo.size(); i++)
-	{
-		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == arrSize)
-		{
-			compileLog << "  returns " << typeInfo[i]->GetTypeName() << " Address: " << typeInfo[i] << "\r\n";
-			return typeInfo[i];
-		}
-	}
-	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo();
-	newInfo->name = type->name;
-
-	if(unFixed)
-	{
-		newInfo->size = 4;
-		newInfo->AddMember("size", typeInt);
-	}else{
-		newInfo->size = type->size * arrSize;
-		if(newInfo->size % 4 != 0)
-		{
-			newInfo->paddingBytes = 4 - (newInfo->size % 4);
-			newInfo->size += 4 - (newInfo->size % 4);
-		}
-	}
-
-	newInfo->type = TypeInfo::TYPE_COMPLEX;
-	newInfo->arrLevel = type->arrLevel + 1;
-	newInfo->arrSize = arrSize;
-	newInfo->subType = type;
-
-	typeInfo.push_back(newInfo);
-	compileLog << "  returns " << newInfo->GetTypeName() << " Address: " << newInfo << "\r\n";
-	return newInfo;
-}
-
-// Функция возвращает тип элемента массива
-TypeInfo* GetArrayElementType(TypeInfo* type)
-{
-	compileLog << "GetArrayElementType(" << type->GetTypeName() << ")\r\n";
-	if(!type->subType || type->arrLevel == 0)
-		throw CompilerError(std::string("Cannot return array element type, ") + type->GetTypeName() + std::string(" is not an array"), lastKnownStartPos);
-	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
-	return type->subType;
-}
-
-bool currValueByRef = false;
-void pushValueByRef(char const*s, char const*e){ valueByRef.push_back(currValueByRef); }
-void popValueByRef(char const*s, char const*e){ valueByRef.pop_back(); }
 
 // Преобразовать строку в число типа long long
 long long atoll(const char* str)
@@ -236,7 +112,7 @@ void blockEnd(char const* s, char const* e)
 {
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{ 
-		varTop -= varInfo.back().varType->size;
+		varTop -= varInfo.back()->varType->size;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
@@ -382,15 +258,16 @@ void addStringNode(char const*s, char const*e)
 // Узел заберёт к себе последний узел в списке.
 void addPopNode(char const* s, char const* e)
 {
+	nodeList.back()->SetCodeInfo(s, e);
 	// Если последний узел в списке - узел с цислом, уберём его
 	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
 	{
 		nodeList.pop_back();
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	}else if((*(nodeList.end()-1))->GetNodeType() == typeNodePreValOp){
+	}else if((*(nodeList.end()-1))->GetNodeType() == typeNodePreOrPostOp){
 		// Если последний узел, это переменная, которую уменьшают или увеличивают на 1, не используя в
 		// далнейшем её значение, то можно произвести оптимизацию кода.
-		static_cast<NodePreValOp*>(nodeList.back().get())->SetOptimised(true);
+		static_cast<NodePreOrPostOp*>(nodeList.back().get())->SetOptimised(true);
 	}else{
 		// Иначе просто создадим узёл, как и планировали в начале
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
@@ -680,14 +557,6 @@ void addTwoAndCmpNode(CmdID id)
 		}
 		return;	// Оптимизация удалась, выходим
 	}
-	if(aNodeType == typeNodeGetAddress && bNodeType == typeNodeNumber && (*(nodeList.end()-1))->GetTypeInfo() == typeInt)
-	{
-		NodeGetAddress *addrNode = static_cast<NodeGetAddress*>((nodeList.end()-2)->get());
-		NodeNumber<int> *numNode = static_cast<NodeNumber<int>* >((nodeList.end()-1)->get());
-		addrNode->SetAddress(addrNode->GetAddress()+numNode->GetVal());
-		nodeList.pop_back();
-		return;
-	}
 	if(aNodeType == typeNodeNumber || bNodeType == typeNodeNumber)
 	{
 		// Если один из узлов - число, то поменяем операторы местами так, чтобы узел с числом был в A
@@ -698,7 +567,7 @@ void addTwoAndCmpNode(CmdID id)
 		}
 
 		// Оптимизацию можно произвести, если второй операнд - typeNodeTwoAndCmdOp или typeNodeVarGet
-		if(bNodeType != typeNodeTwoAndCmdOp && bNodeType != typeNodeVarGet)
+		if(bNodeType != typeNodeTwoAndCmdOp && bNodeType != typeNodeVarGet && bNodeType != typeNodeDereference)
 		{
 			// Иначе, выходим без оптимизаций
 			try
@@ -871,10 +740,10 @@ void addTwoExprNode(char const* s, char const* e);
 void addVar(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
-	string vName = *(strs.end()-2);
+	string vName = strs.back();
 
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
-		if(varInfo[i].name == vName)
+		if(varInfo[i]->name == vName)
 			throw CompilerError("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n", s);
 	checkIfDeclared(vName);
 
@@ -896,7 +765,7 @@ void addVar(char const* s, char const* e)
 			varTop += offset;
 		}
 	}
-	varInfo.push_back(VariableInfo(vName, varTop, currType, currValConst));
+	varInfo.push_back(new VariableInfo(vName, varTop, currType, currValConst));
 	varDefined = true;
 	if(currType)
 		varTop += currType->size;
@@ -921,125 +790,6 @@ void popType(char const* s, char const* e)
 	currTypes.pop_back();
 }
 
-bool pushedShiftAddrNode = false;
-bool pushedShiftAddr = false;
-
-void popTypeAndAddrNode(char const* s, char const* e)
-{
-	currTypes.pop_back();
-	if(pushedShiftAddr || pushedShiftAddrNode)
-		nodeList.pop_back();
-	pushedShiftAddr = false;
-	pushedShiftAddrNode = false;
-}
-
-void getType(char const* s, char const* e)
-{
-	int i = (int)varInfo.size()-1;
-	string vName = strs.back();
-	while(i >= 0 && varInfo[i].name != vName)
-		i--;
-	if(i == -1)
-		throw CompilerError("ERROR: variable '" + strs.back() + "' is not defined [set]", s);
-	currTypes.push_back(varInfo[i].varType);
-	pushedShiftAddr = false;
-	pushedShiftAddrNode = false;
-}
-
-void addDereference(char const* s, char const* e);
-void addSetNode(char const* s, char const* e);
-void addGetNode(char const* s, char const* e);
-void getAddress(char const* s, char const* e);
-
-void addInplaceArray(char const* s, char const* e)
-{
-	char asString[16];
-	strs.push_back("$carr");
-	strs.back() += _itoa(inplaceArrayNum++, asString, 10);
-	strs.push_back(strs.back());
-	TypeInfo *saveCurrType = currType;
-	bool saveVarDefined = varDefined;
-	currType = NULL;
-	addVar(s, e);
-	currTypes.push_back(NULL);
-	valueByRef.push_back(false);
-	addSetNode(s, e);
-	addPopNode(s, e);
-	currTypes.push_back(varInfo.back().varType);
-	valueByRef.push_back(false);
-	addGetNode(s, e);
-
-	varDefined = saveVarDefined;
-	currType = saveCurrType;
-	strs.pop_back();
-	strs.pop_back();
-}
-
-void getMember(char const* s, char const* e)
-{
-	string vName = std::string(s, e);
-
-	if(currTypes.back()->refLevel != 0)
-	{
-		currValueByRef = true;
-		addDereference(0,0);
-		addGetNode(0,0);
-	}
-
-	// Да, это локальная переменная с именем, как у глобальной!
-	TypeInfo *currType = currTypes.back();
-
-	int i = (int)currType->memberData.size()-1;
-	while(i >= 0 && currType->memberData[i].name != vName)
-		i--;
-	if(i == -1)
-		throw CompilerError("ERROR: variable '" + vName + "' is not a member of '" + currType->GetTypeName() + "' [set]", s);
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(currType->memberData[i].offset, typeInt)));
-	if(pushedShiftAddrNode | pushedShiftAddr)
-		addTwoAndCmpNode(cmdAdd);
-	pushedShiftAddrNode = false;
-	pushedShiftAddr = true;
-	if(currTypes.back()->arrSize == -1)
-		currTypes.back() = typeVoid;
-	else
-		currTypes.back() = currType->memberData[i].type;
-}
-
-void getAddress(char const* s, char const* e)
-{
-	int i = (int)varInfo.size()-1;
-	string vName = strs.back();
-
-	while(i >= 0 && varInfo[i].name != vName)
-		i--;
-	if(i == -1)
-		throw CompilerError("ERROR: variable '" + strs.back() + "' is not defined [getaddr]", s);
-
-	if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(varInfo[i].pos, typeInt)));
-	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varInfo[i].pos-(int)(varInfoTop.back().varStackSize))));
-
-	pushedShiftAddrNode = false;
-	pushedShiftAddr = true;
-}
-
-void addAddressNode(char const* s, char const* e)
-{
-	if(nodeList.back()->GetNodeType() != typeNodeNumber && nodeList.back()->GetNodeType() != typeNodeTwoAndCmdOp && nodeList.back()->GetNodeType() != typeNodeGetAddress)
-		throw CompilerError("ERROR: addAddressNode() can't find a \r\n  number node on the top of node list", s);
-	if(nodeList.back()->GetTypeInfo() != typeInt)
-		throw CompilerError("ERROR: addAddressNode(): number node type is not int", s);
-
-	shared_ptr<NodeZeroOP> temp = nodeList.back();
-	if(nodeList.back()->GetNodeType() == typeNodeNumber)
-		nodeList.back().reset(new NodeNumber<int>(static_cast<NodeNumber<int>*>(temp.get())->GetVal(), GetReferenceType(currTypes.back())));
-	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpression(GetReferenceType(currTypes.back()))));
-	currTypes.pop_back();
-	valueByRef.push_back(false);
-}
-
 void convertTypeToRef(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
@@ -1056,66 +806,98 @@ void convertTypeToArray(char const* s, char const* e)
 	currType = GetArrayType(currType);
 }
 
-void addDereference(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	if(currTypes.back()->refLevel == 0)
-		throw CompilerError("ERROR: cannot dereference " + *(strs.end()-2), s);
-	currTypes.push_back(currTypes.back());
-	currTypes[currTypes.size()-2] = GetDereferenceType(currTypes.back());
-	pushedShiftAddr = true;
-	valueByRef.push_back(true);
-	valueByRef.push_back(false);
-}
+//////////////////////////////////////////////////////////////////////////
+//					New functions for work with variables
 
-void addShiftAddrNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	currTypes.back() = GetArrayElementType(currTypes.back());
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
-	{
-		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
-		NodeZeroOP* zOP = (nodeList.end()-1)->get();
-		shared_ptr<NodeZeroOP > Rd;
-		if(aType == typeDouble)
-		{
-			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<double>* >(zOP)->GetVal()), typeInt));
-		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<float>* >(zOP)->GetVal()), typeInt));
-		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<long long>* >(zOP)->GetVal()), typeInt));
-		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(int(currTypes.back()->size*static_cast<NodeNumber<int>* >(zOP)->GetVal()), typeInt));
-		}else{
-			throw CompilerError("addBitNotNode() ERROR: unknown type " + aType->name, s);
-		}
-		nodeList.pop_back();
-		nodeList.push_back(Rd);
-	}else{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePushShift(currTypes.back()->size)));
-	}
+void AddInplaceArray(char const* s, char const* e);
 
-	if(pushedShiftAddrNode)
-	{
-		addTwoAndCmpNode(cmdAdd);
-	}else{
-		pushedShiftAddrNode = true;
-	}
-}
-
-void addSetNode(char const* s, char const* e)
+void AddGetVariableNode(char const* s, char const* e)
 {
 	int i = (int)varInfo.size()-1;
-	string vName = *(strs.end()-2);
-	size_t braceInd = strs.back().find('[');
-	size_t compoundType = strs.back().find('.');
-
-	while(i >= 0 && varInfo[i].name != vName)
+	string vName(s, e);
+	while(i >= 0 && varInfo[i]->name != vName)
 		i--;
 	if(i == -1)
-		throw CompilerError("ERROR: variable '" + vName + "' is not defined [set]", s);
-	if(!currValConst && varInfo[i].isConst)
-		throw CompilerError("ERROR: cannot change constant parameter '" + strs.back() + "' ", s);
+		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get var]", s);
+	currTypes.push_back(varInfo[i]->varType);
+
+	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
+
+	int varAddress = varInfo[i]->pos;
+	if(!absAddress)
+		varAddress -= (int)(varInfoTop.back().varStackSize);
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableGet(varInfo[i], varAddress, absAddress)));
+}
+
+void AddGetAddressNode(char const* s, char const* e)
+{
+}
+
+void AddArrayIndexNode(char const* s, char const* e)
+{
+	if(currTypes.back()->arrLevel == 0)
+		throw CompilerError("ERROR: indexing variable that is not an array", s);
+	if(currTypes.back()->arrSize == -1)
+	{
+		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.pop_back();
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(GetReferenceType(currTypes.back()->subType))));
+		nodeList.push_back(temp);
+	}
+	if(nodeList.back()->GetNodeType() == typeNodeNumber)
+	{
+		int shiftValue;
+		shared_ptr<NodeZeroOP> indexNode = nodeList.back();
+		TypeInfo *aType = indexNode->GetTypeInfo();
+		NodeZeroOP* zOP = indexNode.get();
+		if(aType == typeDouble)
+		{
+			shiftValue = (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
+		}else if(aType == typeFloat){
+			shiftValue = (int)static_cast<NodeNumber<float>* >(zOP)->GetVal();
+		}else if(aType == typeLong){
+			shiftValue = (int)static_cast<NodeNumber<long long>* >(zOP)->GetVal();
+		}else if(aType == typeInt){
+			shiftValue = static_cast<NodeNumber<int>* >(zOP)->GetVal();
+		}else{
+			throw CompilerError("AddArrayIndexNode() ERROR: unknown index type " + aType->name, lastKnownStartPos);
+		}
+
+		if((*(nodeList.end()-2))->GetNodeType() == typeNodeVariableGet)
+		{
+			static_cast<NodeVariableGet*>((*(nodeList.end()-2)).get())->IndexArray(shiftValue);
+			nodeList.pop_back();
+		}else{
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeArrayIndex(currTypes.back())));
+		}
+	}else{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeArrayIndex(currTypes.back())));
+	}
+	currTypes.back() = currTypes.back()->subType;
+}
+
+void AddDereferenceNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
+	currTypes.back() = GetDereferenceType(currTypes.back());
+}
+
+void FailedSetVariable(char const* s, char const* e)
+{
+	nodeList.pop_back();
+}
+
+void AddDefineVariableNode(char const* s, char const* e)
+{
+	int i = (int)varInfo.size()-1;
+	string vName = strs.back();
+	while(i >= 0 && varInfo[i]->name != vName)
+		i--;
+	if(i == -1)
+		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get var]", s);
+	currTypes.push_back(varInfo[i]->varType);
+
+	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 
 	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->GetTypeInfo();
 
@@ -1125,28 +907,22 @@ void addSetNode(char const* s, char const* e)
 		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
 		if(realCurrType->subType == nodeType->subType)
 		{
-			if(nodeList.back()->GetNodeType() != typeNodeVarGet)
+			if(nodeList.back()->GetNodeType() != typeNodeDereference)
 			{
 				if(nodeList.back()->GetNodeType() == typeNodeExpressionList)
 				{
-					addInplaceArray(s, e);
+					AddInplaceArray(s, e);
 					unifyTwo = true;
 				}else{
 					throw CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
 				}
 			}
-			strs.push_back(static_cast<NodeVarGet*>(nodeList.back().get())->GetVarName());
+			nodeList.back() = static_cast<NodeDereference*>(nodeList.back().get())->GetFirstNode();
 			UINT typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
-			nodeList.pop_back();
+			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(varInfo[i]->varType));
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
-			getAddress(0,0);
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(varInfo[i].varType)));
-			shared_ptr<NodeZeroOP> temp = nodeList.back();
-			nodeList.pop_back();
-			NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
-			arrayList->AddNode();
-			nodeList.push_back(temp);
-			strs.pop_back();
+			listExpr->AddNode();
+			nodeList.push_back(listExpr);
 		}
 	}
 
@@ -1162,29 +938,18 @@ void addSetNode(char const* s, char const* e)
 			{
 				UINT offset = activeAlign - (varTop % activeAlign);
 				varSizeAdd += offset;
-				varInfo[i].pos += offset;
+				varInfo[i]->pos += offset;
 				varTop += offset;
 			}
 		}
-		varInfo[i].varType = realCurrType;
+		varInfo[i]->varType = realCurrType;
 		varTop += realCurrType->size;
 	}
 	varSizeAdd += varDefined ? realCurrType->size : 0;
 
-	try
-	{
-		if(!valueByRef.empty() && valueByRef.back())
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, 0, true, true, varSizeAdd)));
-		else
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSet(varInfo[i], realCurrType, varInfo[i].pos-varInfoTop.back().varStackSize, braceInd != -1 || compoundType != -1, false, varSizeAdd)));
-	}catch(const std::string& str){
-		throw CompilerError(str.c_str(), s);
-	}
-	valueByRef.pop_back();
-	currTypes.pop_back();
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableGet(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress)));
 
-	currValConst = false;
-	varDefined = false;
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableSet(realCurrType, varSizeAdd, false)));
 
 	if(unifyTwo)
 	{
@@ -1196,163 +961,107 @@ void addSetNode(char const* s, char const* e)
 	}
 }
 
-void addGetNode(char const* s, char const* e)
+void AddSetVariableNode(char const* s, char const* e)
 {
-	int i = (int)varInfo.size()-1;
-	string vName = *(strs.end()-2);
-	size_t braceInd = strs.back().find('[');
-	size_t compoundType = (currTypes.back()->refLevel != 0 ? -1 : strs.back().find('.'));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableSet(currTypes.back(), 0, true)));
+}
 
-	while(i >= 0 && varInfo[i].name != vName)
-		i--;
-	if(i == -1)
-		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get]", s);
+void AddFinalDereferenceNode(char const* s, char const* e)
+{
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
+}
 
-	try
+void AddMemberAccessNode(char const* s, char const* e)
+{
+	std::string memberName = strs.back();
+
+	// Да, это локальная переменная с именем, как у глобальной!
+	TypeInfo *currType = currTypes.back();
+
+	if(currType->refLevel == 1)
 	{
-		if(valueByRef.back())
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
-		else if(((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos, braceInd != -1 || compoundType != -1, true)));
-		else
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), varInfo[i].pos-(int)(varInfoTop.back().varStackSize), braceInd != -1 || compoundType != -1, false)));
-	}catch(const std::string& str){
-		throw CompilerError(str.c_str(), s);
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
+		currTypes.back() = GetDereferenceType(currTypes.back());
+		currType = currTypes.back();
 	}
 
-	valueByRef.pop_back();
-	currTypes.pop_back();
-
-	pushedShiftAddrNode = false;
-}
-
-void addGetByRef(char const* s, char const* e)
-{
-	int i = (int)varInfo.size()-1;
-	string vName = *(strs.end()-2);
-	while(i >= 0 && varInfo[i].name != vName)
+	int i = (int)currType->memberData.size()-1;
+	while(i >= 0 && currType->memberData[i].name != memberName)
 		i--;
 	if(i == -1)
-		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get]", s);
+		throw CompilerError("ERROR: variable '" + memberName + "' is not a member of '" + currType->GetTypeName() + "'", s);
 
-	try
+	if(nodeList.back()->GetNodeType() == typeNodeVariableGet)
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarGet(varInfo[i], currTypes.back(), 0, true, true)));
-	}catch(const std::string& str){
-		throw CompilerError(str.c_str(), s);
+		static_cast<NodeVariableGet*>(nodeList.back().get())->ShiftToMember(i);
+	}else{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeShiftAddress(currType->memberData[i].offset, currType->memberData[i].type)));
 	}
-	currTypes.pop_back();
+	currTypes.back() = currType->memberData[i].type;
+
+	strs.pop_back();
 }
 
-void addSetAndOpNode(CmdID cmd)
+void AddPreOrPostOpNode(CmdID postCmd, bool prefixOp)
 {
-	int i = (int)varInfo.size()-1;
-	string vName = *(strs.end()-2);
-	size_t braceInd = strs.back().find('[');
-	size_t compoundType = strs.back().find('.');
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreOrPostOp(currTypes.back(), postCmd, prefixOp)));
+}
 
-	while(i >= 0 && varInfo[i].name != vName)
-		i--;
-	if(i == -1)
-		throw CompilerError("ERROR: variable " + strs.back() + " is not defined", lastKnownStartPos);
-	if(!currValConst && varInfo[i].isConst)
-		throw CompilerError("ERROR: cannot change constant parameter '" + strs.back() + "' ", lastKnownStartPos);
-	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
-		throw CompilerError("ERROR: variable '" + strs.back() + "' is an array, but no index specified", lastKnownStartPos);
-
-	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
-	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
-
-	try
+template<CmdID cmd, bool prefixOp>
+struct AddPreOrPostOp
+{
+	void operator() (char const* s, char const* e)
 	{
-		if(valueByRef.back())
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), 0, true, true, cmd)));
-		else 
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarSetAndOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd)));
-	}catch(const std::string& str){
-		throw CompilerError(str.c_str(), lastKnownStartPos);
+		AddPreOrPostOpNode(cmd, prefixOp);
 	}
-	valueByRef.pop_back();
-	currTypes.pop_back();
-}
-void addAddSetNode(char const* s, char const* e)
+};
+
+void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 {
-	lastKnownStartPos = s;
-	addSetAndOpNode(cmdAdd);
-}
-void addSubSetNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	addSetAndOpNode(cmdSub);
-}
-void addMulSetNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	addSetAndOpNode(cmdMul);
-}
-void addDivSetNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	addSetAndOpNode(cmdDiv);
-}
-void addPowSetNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	addSetAndOpNode(cmdPow);
+	shared_ptr<NodeZeroOP> temp = *(nodeList.end()-2);
+	nodeList.push_back(temp);
+	AddFinalDereferenceNode(s, e);
+	std::swap(*(nodeList.end()-1), *(nodeList.end()-2));
+	addTwoAndCmpNode(cmd);
+	AddSetVariableNode(s, e);
 }
 
-void addPreOpNode(CmdID cmd, bool pre)
+template<CmdID cmd>
+struct AddModifyVariable
 {
-	int i = (int)varInfo.size()-1;
-	string vName = *(strs.end()-2);
-	size_t braceInd = strs.back().find('[');
-	size_t compoundType = strs.back().find('.');
-
-	while(i >= 0 && varInfo[i].name != vName)
-		i--;
-	if(i == -1)
-		throw CompilerError("ERROR: variable '" + strs.back() + "' is not defined [set]", lastKnownStartPos);
-	if(!currValConst && varInfo[i].isConst)
-		throw CompilerError("ERROR: cannot change constant parameter '" + strs.back() + "' ", lastKnownStartPos);
-	if(braceInd == -1 && varInfo[i].varType->arrLevel != 0)
-		throw CompilerError("ERROR: variable '" + strs.back() + "' is an array, but no index specified", lastKnownStartPos);
-
-	bool aabsadr = ((varInfoTop.size() > 1) && (varInfo[i].pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
-	int ashift = aabsadr ? 0 : varInfoTop.back().varStackSize;
-
-	try
+	void operator() (char const* s, char const* e)
 	{
-		if(valueByRef.back())
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), 0, true, true, cmd, pre)));
-		else
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreValOp(varInfo[i], currTypes.back(), varInfo[i].pos-ashift, compoundType != -1, aabsadr, cmd, pre)));
-	}catch(const std::string& str){
-		throw CompilerError(str.c_str(), lastKnownStartPos);
+		AddModifyVariableNode(s, e, cmd);
 	}
-	valueByRef.pop_back();
-	currTypes.pop_back();
-}
-void addPreDecNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	addPreOpNode(cmdDecAt, true);
-}
-void addPreIncNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	addPreOpNode(cmdIncAt, true);
-}
-void addPostDecNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	addPreOpNode(cmdDecAt, false);
-}
-void addPostIncNode(char const* s, char const* e)
-{
-	lastKnownStartPos = s;
-	addPreOpNode(cmdIncAt, false);
-}
+};
 
+void AddInplaceArray(char const* s, char const* e)
+{
+	char asString[16];
+	strs.push_back("$carr");
+	strs.back() += _itoa(inplaceArrayNum++, asString, 10);
+
+	TypeInfo *saveCurrType = currType;
+	bool saveVarDefined = varDefined;
+
+	currType = NULL;
+	addVar(s, e);
+	currTypes.push_back(NULL);
+	
+	//AddGetVariableNode(strs.back().c_str(), strs.back().c_str()+strs.back().length());
+	currTypes.push_back(NULL);
+	AddDefineVariableNode(s, e);
+	addPopNode(s, e);
+
+	currTypes.push_back(varInfo.back()->varType);
+	AddGetVariableNode(strs.back().c_str(), strs.back().c_str()+strs.back().length());
+	AddFinalDereferenceNode(s, e);
+
+	varDefined = saveVarDefined;
+	currType = saveCurrType;
+	strs.pop_back();
+}
+//////////////////////////////////////////////////////////////////////////
 void addOneExprNode(char const* s, char const* e)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList()));
@@ -1412,7 +1121,7 @@ void addArrayConstructor(char const* s, char const* e)
 void funcAdd(char const* s, char const* e)
 {
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
-		if(varInfo[i].name == strs.back())
+		if(varInfo[i]->name == strs.back())
 			throw CompilerError("ERROR: Name '" + strs.back() + "' is already taken for a variable in current scope", s);
 	std::string name = strs.back();
 	if(name == "if" || name == "else" || name == "for" || name == "while" || name == "var" || name == "func" || name == "return" || name=="switch" || name=="case")
@@ -1424,6 +1133,9 @@ void funcAdd(char const* s, char const* e)
 	funcInfo.back()->vTopSize = (UINT)varInfoTop.size();
 	retTypeStack.push_back(currType);
 	funcInfo.back()->retType = currType;
+	if(varInfoTop.size() > 1)
+		funcInfo.back()->local = true;
+	currDefinedFunc.push_back(funcInfo.back());
 }
 void funcParam(char const* s, char const* e)
 {
@@ -1435,7 +1147,11 @@ void funcParam(char const* s, char const* e)
 void funcStart(char const* s, char const* e)
 {
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
-	
+
+	// Local function has a special parameter - pointer to a list of extern variable pointers
+	if(funcInfo.back()->local)
+		funcInfo.back()->params.push_back(VariableInfo("$" + funcInfo.back()->name + "_ext", 0, GetReferenceType(typeInt), true));
+
 	for(int i = (int)funcInfo.back()->params.size()-1; i >= 0; i--)
 	{
 		strs.push_back(funcInfo.back()->params[i].name);
@@ -1453,6 +1169,8 @@ void funcStart(char const* s, char const* e)
 }
 void funcEnd(char const* s, char const* e)
 {
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
+
 	int i = (int)funcInfo.size()-1;
 	while(i >= 0 && funcInfo[i]->name != strs.back())
 		i--;
@@ -1477,13 +1195,63 @@ void funcEnd(char const* s, char const* e)
 
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
-		varTop -= varInfo.back().varType->size;
+		varTop -= varInfo.back()->varType->size;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcInfo[i])));
 	strs.pop_back();
+
+
 	retTypeStack.pop_back();
+	currDefinedFunc.pop_back();
+
+	// If function is local, create function parameters block
+	if(lastFunc.local)
+	{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)lastFunc.external.size(), typeInt)));
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(GetReferenceType(typeInt)))));
+
+		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.pop_back();
+
+		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+
+		/*for(UINT n = 0; n < lastFunc.external.size(); n++)
+		{
+			int i = (int)varInfo.size()-1;
+			while(i >= 0 && varInfo[i]->name != lastFunc.external[n])
+				i--;
+			if(i == -1)
+				throw CompilerError("ERROR: variable '" + strs.back() + "' is not defined [getaddr]", s);
+
+			if(((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
+				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(varInfo[i]->pos, typeInt)));
+			else
+				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(*varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize))));
+			arrayList->AddNode();
+		}*/
+		nodeList.push_back(temp);
+		throw CompilerError("to implement", s);
+		/*strs.push_back("$" + lastFunc.name + "_ext");
+		strs.push_back(strs.back());
+		TypeInfo *saveCurrType = currType;
+		bool saveVarDefined = varDefined;
+		currType = NULL;
+		addVar(s, e);
+		currTypes.push_back(NULL);
+		valueByRef.push_back(false);
+		addSetNode(s, e);
+		addPopNode(s, e);
+
+		varDefined = saveVarDefined;
+		currType = saveCurrType;
+		strs.pop_back();
+		strs.pop_back();
+
+		addTwoExprNode(0,0);*/
+	}
 }
 
 
@@ -1491,6 +1259,29 @@ void addFuncCallNode(char const* s, char const* e)
 {
 	string fname = strs.back();
 	strs.pop_back();
+
+	// Searching from last function to first. If  the first found function is local, create node that sends context info
+	/*for(int k = (int)funcInfo.size()-1; k >= 0; k--)
+	{
+		if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->local)
+		{
+			strs.push_back("$" + funcInfo[k]->name + "_ext");
+			strs.push_back(strs.back());
+
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)funcInfo[k]->external.size(), typeInt)));
+			currTypes.push_back(GetReferenceType(GetArrayType(GetReferenceType(typeInt))));
+			funcInfo[k]->params.back().varType = currTypes.back();
+
+			valueByRef.push_back(false);
+			addGetNode(s, e);
+
+			strs.pop_back();
+			strs.pop_back();
+
+			callArgCount.back()++;
+			break;
+		}
+	}*/
 
 	//Find all functions with given name
 	FunctionInfo *fList[32];
@@ -1597,32 +1388,28 @@ void addFuncCallNode(char const* s, char const* e)
 		
 		if(expectedType->arrSize == -1 && expectedType->subType == realType->subType && expectedType != realType)
 		{
-			if(paramNodes[index]->GetNodeType() != typeNodeVarGet)
+			if(paramNodes[index]->GetNodeType() != typeNodeDereference)
 			{
 				if(paramNodes[index]->GetNodeType() == typeNodeExpressionList)
 				{
 					nodeList.push_back(paramNodes[index]);
-					addInplaceArray(s, e);
+					AddInplaceArray(s, e);
 
 					paramNodes[index] = nodeList.back();
 					nodeList.pop_back();
 					inplaceArray.push_back(nodeList.back());
 					nodeList.pop_back();
 				}else{
-					throw CompilerError("ERROR: to the right side of '=' must be a get node", s);
+					char chTemp[16];
+					throw CompilerError(std::string("ERROR: array expected as a parameter ") + _itoa(i, chTemp, 10), s);
 				}
 			}
-			strs.push_back(static_cast<NodeVarGet*>(paramNodes[index].get())->GetVarName());
 			UINT typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
+			nodeList.push_back(static_cast<NodeDereference*>(paramNodes[index].get())->GetFirstNode());
+			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(varInfo[i]->varType));
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
-			getAddress(0,0);
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(fList[minRatingIndex]->params[i].varType)));
-			shared_ptr<NodeZeroOP> temp = nodeList.back();
-			nodeList.pop_back();
-			NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
-			arrayList->AddNode();
-			nodeList.push_back(temp);
-			strs.pop_back();
+			listExpr->AddNode();
+			nodeList.push_back(listExpr);
 		}else{
 			nodeList.push_back(paramNodes[index]);
 		}
@@ -1788,9 +1575,9 @@ namespace CompilerGrammar
 
 	// Parser rules
 	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
-	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, applyval, applyref, ifexpr, whileexpr, forexpr, retexpr;
+	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, ifexpr, whileexpr, forexpr, retexpr;
 	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype, arrayDef;
-	Rule classdef;
+	Rule classdef, variable, postExpr;
 	Rule funcProt;	// user function prototype
 
 	Rule code, mySpaceP;
@@ -1869,34 +1656,12 @@ namespace CompilerGrammar
 		funcdef		=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
 		funcProt	=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars >> chP(')') >> chP(';');
 
-		applyval	=
-			(
-				(varname - strP("case"))[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)) >> epsP[getType] >>
-				!((chP('[')[strPush] | (epsP[strPush] >> nothingP)) >> term5 >> ']')[addShiftAddrNode] >>
-				*('[' >> term5 >> ']')[addShiftAddrNode] >>
-				*(
-					chP('.')[ParseStrAdd] >>
-					(varname - strP("case"))[getMember] >>
-					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)] >> *('[' >> term5 >> ']')[addShiftAddrNode]
-				)
-			);
-		applyref	=
-			(
-				varname[strPush][getType][getAddress] >>
-				!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)] >>
-				*(
-					'.' >>
-					varname[getMember] >>
-					!('[' >> term5 >> ']')[addShiftAddrNode][addCmd(cmdAdd)]
-				)
-			);
-
 		addvarp		=
 			(
 				varname[strPush] >>
 				!('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']')[convertTypeToArray]
-			)[pushType][strPush][addVar] >>
-			(('=' >> term5)[AssignVar<bool>(currValueByRef, false)][pushValueByRef][addSetNode][addPopNode] | epsP[addVarDefNode][popType])[strPop][strPop];
+			)[pushType][addVar] >>
+			(('=' >> term5)[AddDefineVariableNode][addPopNode] | epsP[addVarDefNode][popType])[strPop];
 		
 		vardefsub	= addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
@@ -1949,10 +1714,14 @@ namespace CompilerGrammar
 			)[addBreakNode];
 
 		group		=	'(' >> term5 >> ')';
+
+		variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetVariableNode] >> *postExpr);
+		postExpr	=	('.' >> varname[strPush])[AddMemberAccessNode] |
+						('[' >> term5 >> ']')[AddArrayIndexNode];
 		term1		=
-			(chP('&') >> applyref)[addAddressNode][strPop] |
-			(strP("--") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreDecNode][strPop][strPop] | 
-			(strP("++") >> epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])[addPreIncNode][strPop][strPop] |
+			(chP('&') >> variable[AddGetAddressNode])[popType] |
+			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt, true>()])[popType] | 
+			(strP("++") >> variable[AddPreOrPostOp<cmdIncAt, true>()])[popType] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
 			lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][addHexInt] |
@@ -1961,13 +1730,15 @@ namespace CompilerGrammar
 			(chP('{')[PushBackVal<std::vector<UINT>, UINT>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<UINT> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
 			group |
 			funccall[addFuncCallNode] |
-			(('*' >> applyval)[addDereference][addGetNode] | (epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])) >>
-			(
-				strP("++")[addPostIncNode] |
-				strP("--")[addPostDecNode] |
-				epsP[addGetNode]
-			)[strPop][strPop];
-		term2		=	term1 >> *((strP("**") >> term1)[addCmd(cmdPow)]);
+			(variable >>
+				(
+					strP("++")[AddPreOrPostOp<cmdIncAt, false>()] |
+					strP("--")[AddPreOrPostOp<cmdDecAt, false>()] |
+					epsP[AddFinalDereferenceNode]
+				)[popType]
+			);
+
+		term2		=	(term1) >> *((strP("**") >> (term1))[addCmd(cmdPow)]);
 		term3		=	term2 >> *(('*' >> term2)[addCmd(cmdMul)] | ('/' >> term2)[addCmd(cmdDiv)] | ('%' >> term2)[addCmd(cmdMod)]);
 		term4		=	term3 >> *(('+' >> term3)[addCmd(cmdAdd)] | ('-' >> term3)[addCmd(cmdSub)]);
 		term4_1		=	term4 >> *((strP("<<") >> term4)[addCmd(cmdShl)] | (strP(">>") >> term4)[addCmd(cmdShr)]);
@@ -1981,16 +1752,16 @@ namespace CompilerGrammar
 		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 		term5		=	(
-			(('*' >> applyval)[addDereference][addGetNode] | (epsP[AssignVar<bool>(currValueByRef, false)] >> applyval[pushValueByRef])) >> (
-			(strP("=") >> term5)[addSetNode] |
-			(strP("+=") >> term5)[addAddSetNode] |
-			(strP("-=") >> term5)[addSubSetNode] |
-			(strP("*=") >> term5)[addMulSetNode] |
-			(strP("/=") >> term5)[addDivSetNode] |
-			(strP("^=") >> term5)[addPowSetNode] |
-			(epsP[strPop][strPop][popTypeAndAddrNode][popValueByRef] >> nothingP))
-			)[SetStringToLastNode][strPop][strPop] |
-			term4_9;
+						variable >> (
+						(strP("=") >> term5)[AddSetVariableNode][popType] |
+						(strP("+=") >> term5)[AddModifyVariable<cmdAdd>()][popType] |
+						(strP("-=") >> term5)[AddModifyVariable<cmdSub>()][popType] |
+						(strP("*=") >> term5)[AddModifyVariable<cmdMul>()][popType] |
+						(strP("/=") >> term5)[AddModifyVariable<cmdDiv>()][popType] |
+						(strP("**=") >> term5)[AddModifyVariable<cmdPow>()][popType] |
+						(epsP[FailedSetVariable][popType] >> nothingP))
+						) |
+						term4_9;
 
 		block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
 		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block[addBlockNode] | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
@@ -2252,9 +2023,9 @@ void Compiler::ClearState()
 
 	callArgCount.clear();
 	retTypeStack.clear();
+	currDefinedFunc.clear();
 
 	currTypes.clear();
-	valueByRef.clear();
 
 	nodeList.clear();
 
@@ -2266,9 +2037,9 @@ void Compiler::ClearState()
 	currAlign = -1;
 	inplaceArrayNum = 1;
 
-	varInfo.push_back(VariableInfo("ERROR", 0, typeDouble, true));
-	varInfo.push_back(VariableInfo("pi", 8, typeDouble, true));
-	varInfo.push_back(VariableInfo("e", 16, typeDouble, true));
+	varInfo.push_back(new VariableInfo("ERROR", 0, typeDouble, true));
+	varInfo.push_back(new VariableInfo("pi", 8, typeDouble, true));
+	varInfo.push_back(new VariableInfo("e", 16, typeDouble, true));
 	varInfoTop.push_back(VarTopInfo(0,0));
 
 	funcInfoTop.push_back(0);
@@ -2356,7 +2127,23 @@ bool Compiler::Compile(string str)
 
 	compileLog << "\r\nActive types (" << typeInfo.size() << "):\r\n";
 	for(UINT i = 0; i < typeInfo.size(); i++)
-		compileLog << typeInfo[i]->GetTypeName() << "\r\n";
+		compileLog << typeInfo[i]->GetTypeName() << " (" << typeInfo[i]->size << " bytes)\r\n";
+
+	compileLog << "\r\nActive functions (" << funcInfo.size() << "):\r\n";
+	for(UINT i = 0; i < funcInfo.size(); i++)
+	{
+		FunctionInfo &currFunc = *funcInfo[i];
+		compileLog << (currFunc.local ? "local " : "global ") << currFunc.retType->GetTypeName() << " " << currFunc.name;
+		compileLog << "(";
+		for(UINT n = 0; n < currFunc.params.size(); n++)
+			compileLog << currFunc.params[n].varType->GetTypeName() << " " << currFunc.params[n].name << (n==currFunc.params.size()-1 ? "" :", ");
+		compileLog << ")\r\n";
+		if(currFunc.local)
+		{
+			for(UINT n = 0; n < currFunc.external.size(); n++)
+				compileLog << "  external var: " << currFunc.external[n] << "\r\n";
+		}
+	}
 	logAST << "\r\n" << compileLog.str();
 
 	if(nodeList.size() != 1)
@@ -2697,7 +2484,7 @@ void Compiler::GenListing()
 		case cmdGetAddr:
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << pos2 << " GETADDR " << valind << ';';
+			logASM << pos2 << " GETADDR " << (int)valind << ';';
 			break;
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)

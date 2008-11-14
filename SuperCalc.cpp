@@ -12,8 +12,9 @@
 #include <iostream>
 
 #include "CodeInfo.h"
+
 std::vector<FunctionInfo*>	CodeInfo::funcInfo;
-std::vector<VariableInfo>	CodeInfo::varInfo;
+std::vector<VariableInfo*>	CodeInfo::varInfo;
 std::vector<TypeInfo*>		CodeInfo::typeInfo;
 CommandList*				CodeInfo::cmdList;
 std::vector<shared_ptr<NodeZeroOP> >	CodeInfo::nodeList;
@@ -289,6 +290,10 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		}
 	}
 	delete colorer;
+
+	delete compiler;
+	delete executor;
+	delete executorX86;
 	return (int) msg.wParam;
 }
 
@@ -552,7 +557,7 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 
 void FillVariableInfoTree()
 {
-	std::vector<VariableInfo> *varInfo = &CodeInfo::varInfo;
+	std::vector<VariableInfo*> *varInfo = &CodeInfo::varInfo;
 	TreeView_DeleteAllItems(hVars);
 
 	TVINSERTSTRUCT helpInsert;
@@ -566,7 +571,7 @@ void FillVariableInfoTree()
 	HTREEITEM lastItem;
 	for(UINT i = 0; i < varInfo->size(); i++)
 	{
-		VariableInfo &currVar = (*varInfo)[i];
+		VariableInfo &currVar = *(*varInfo)[i];
 		address = currVar.pos;
 		sprintf(name, "%d: %s%s %s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetTypeName().c_str(), currVar.name.c_str());
 
@@ -697,7 +702,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				SetWindowText(hCode, compiler->GetListing().c_str());
 			else
 				SetWindowText(hCode, ostr.str().c_str());
-			SetWindowText(hLog, executorX86->GetListing().c_str());
+			SetWindowText(hLog, compiler->GetLog().c_str());
 			string str = ostr.str();
 			if(good)
 				SetWindowText(hResult, str.c_str());

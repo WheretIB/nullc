@@ -111,7 +111,7 @@ namespace ColorerGrammar
 		typeName	=	varname - strP("return") ;
 
 		arrayDef	=	(chP('[')[ColorText] >> (term4_9 | epsP) >> chP(']')[ColorText] >> !arrayDef);
-		typeExpr	=	(strP("auto") | /*typenameP*/(typeName))[ColorRWord] >> *((lexemeD[strP("ref")[ColorRWord] >> (~alnumP | nothingP)]) | arrayDef);
+		typeExpr	=	(strP("auto") | /*typenameP*/(typeName))[ColorRWord] >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
 
 		classdef	=	strP("class")[ColorRWord] >> varname[ColorRWord] >> chP('{')[ColorText] >> *(typeExpr >> varname[ColorVarDef] >> *(chP(',')[ColorText] >> varname[ColorVarDef]) >> chP(';')[ColorText]) >> chP('}')[ColorText];
 
@@ -203,7 +203,7 @@ namespace ColorerGrammar
 		term4_4	=	term4_2 >> *((strP("==") | strP("!="))[ColorText] >> term4_2);
 		term4_6	=	term4_4 >> *((strP("&") | strP("|") | strP("^") | strP("and") | strP("or") | strP("xor"))[ColorText] >> term4_4);
 		term4_9	=	term4_6 >> !(chP('?')[ColorText] >> term5 >> chP(':')[ColorText] >> term5);
-		term5	=	(!chP('*')[ColorText] >> appval[SetVar] >> (strP("=") | strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("^="))[ColorText] >> term5) | term4_9;
+		term5	=	(!chP('*')[ColorText] >> appval[SetVar] >> (strP("=") | strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**="))[ColorText] >> term5) | term4_9;
 
 		block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
 		expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));

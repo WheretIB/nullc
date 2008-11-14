@@ -230,7 +230,7 @@ static asmStackType stackTypeForDataType[] = { STYPE_INT, STYPE_INT, STYPE_INT, 
 __forceinline asmStackType	flagStackType(const CmdFlag& flag){ return (asmStackType)(flag&0x00000003); }
 	// extract asmDataType
 	// извлечь asmDataType
-__forceinline asmDataType	flagDataType(const CmdFlag& flag){ return (asmDataType)(((flag>>2)&0x00000007)<<2); }//flag&0x00000003C); }
+__forceinline asmDataType	flagDataType(const CmdFlag& flag){ return (asmDataType)(((flag>>2)&0x00000007)<<2); }
 	// addressing is performed relatively to the base of variable stack
 	// адресация производится относительно базы стека переменных
 __forceinline UINT			flagAddrRel(const CmdFlag& flag){ return (flag>>5)&0x00000001; }
@@ -248,8 +248,16 @@ __forceinline UINT			flagShiftStk(const CmdFlag& flag){ return (flag>>9)&0x00000
 	// адрес не может превыщать некоторое значение
 __forceinline UINT			flagSizeOn(const CmdFlag& flag){ return (flag>>10)&0x00000001; }
 	// maximum is placed in stack
-	// максимуи находится в основном стеке
+	// максимум находится в основном стеке
 __forceinline UINT			flagSizeStk(const CmdFlag& flag){ return (flag>>11)&0x00000001; }
+
+	// push value on stack before modifying
+	// положить значение в стек до изменения
+__forceinline UINT			flagPushBefore(const CmdFlag& flag){ return (flag>>12)&0x00000001; }
+	// push value on stack after modifying
+	// положить значение в стек после изменения
+__forceinline UINT			flagPushAfter(const CmdFlag& flag){ return (flag>>13)&0x00000001; }
+
 	// addressing is not performed
 	// адресация отсутствует
 __forceinline UINT			flagNoAddr(const CmdFlag& flag){ return !(flag&0x00000060); }
@@ -263,6 +271,10 @@ const UINT	bitAddrRelTop= 1 << 7;
 const UINT	bitShiftStk	= 1 << 9;
 const UINT	bitSizeOn	= 1 << 10;
 const UINT	bitSizeStk	= 1 << 11;
+
+// Для cmdIncAt и cmdDecAt
+const UINT	bitPushBefore = 1 << 12;	// положить значение в стек до изменения
+const UINT	bitPushAfter = 1 << 13;		// положить значение в стек после изменения
 
 // constants for RetFlag creation from different bits
 // константы для создания флага возврата из отдельных битов

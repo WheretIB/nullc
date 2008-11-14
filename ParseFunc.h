@@ -13,7 +13,7 @@ const UINT typeNodeIfElseExpr	= 6;
 
 const UINT typeNodeOneOp		= 8;
 const UINT typeNodePopOp		= 9;
-const UINT typeNodePreValOp		= 10;
+const UINT typeNodePreValOp		= 10;//
 
 const UINT typeNodeReturnOp		= 12;
 const UINT typeNodeThreeOp		= 13;
@@ -21,9 +21,9 @@ const UINT typeNodeTwoAndCmdOp	= 14;
 
 const UINT typeNodeTwoOp		= 16;
 const UINT typeNodeVarDef		= 17;
-const UINT typeNodeVarGet		= 18;
-const UINT typeNodeVarSet		= 19;
-const UINT typeNodeVarSetAndOp	= 20;
+const UINT typeNodeVarGet		= 18;//
+const UINT typeNodeVarSet		= 19;//
+const UINT typeNodeVarSetAndOp	= 20;//
 const UINT typeNodeZeroOp		= 21;
 const UINT typeNodeWhileExpr	= 22;
 const UINT typeNodeDoWhileExpr	= 22;
@@ -34,9 +34,15 @@ const UINT typeNodeSwitchExpr	= 25;
 const UINT typeNodeNumber		= 27;
 const UINT typeNodeUnaryOp		= 28;
 const UINT typeNodeFuncParam	= 29;
-const UINT typeNodePushShift	= 30;
-const UINT typeNodeGetAddress	= 31;
+const UINT typeNodePushShift	= 30;//
+const UINT typeNodeGetAddress	= 31;//
 const UINT typeNodeExpressionList	= 32;
+const UINT typeNodeArrayIndex	= 33;
+const UINT typeNodeDereference	= 34;
+const UINT typeNodeShiftAddress	= 35;
+const UINT typeNodeVariableGet	= 36;
+const UINT typeNodeVariableSet	= 37;
+const UINT typeNodePreOrPostOp	= 38;
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP
@@ -78,6 +84,8 @@ public:
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeOneOp; }
+
+	shared_ptr<NodeZeroOP>	GetFirstNode(){ return first; }
 protected:
 	shared_ptr<NodeZeroOP>	first;
 };
@@ -92,6 +100,8 @@ public:
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeTwoOp; }
+
+	shared_ptr<NodeZeroOP>	GetSecondNode(){ return second; }
 protected:
 	shared_ptr<NodeZeroOP>	second;
 };
@@ -106,6 +116,8 @@ public:
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeThreeOp; }
+
+	shared_ptr<NodeZeroOP>	GetTrirdNode(){ return third; }
 protected:
 	shared_ptr<NodeZeroOP>	third;
 };
@@ -170,23 +182,6 @@ public:
 protected:
 	UINT shift;
 	std::string name;
-};
-
-class NodeGetAddress: public NodeZeroOP
-{
-public:
-	NodeGetAddress(VariableInfo vInfo, UINT varAddress);
-	virtual ~NodeGetAddress();
-
-			UINT GetAddress(){ return varAddress; }
-			void SetAddress(UINT varAddr){ varAddress = varAddr; }
-	virtual void Compile();
-	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeGetAddress; }
-protected:
-	VariableInfo	varInfo;
-	UINT			varAddress;
 };
 
 //One child operators
@@ -271,92 +266,130 @@ protected:
 	FunctionInfo	*funcInfo;
 };
 
-class NodePushShift: public NodeOneOP
+//////////////////////////////////////////////////////////////////////////
+class NodeVariableGet: public NodeZeroOP
 {
 public:
-	NodePushShift(int varSizeOf);
-	virtual ~NodePushShift();
+			NodeVariableGet(VariableInfo* variableInfo, int variableAddress, bool absoluteAddressation);
+	virtual ~NodeVariableGet();
+
+			bool IsAbsoluteAddress();
+
+			void IndexArray(int shift);
+			void ShiftToMember(int member);
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodePushShift; }
-protected:
-	int sizeOfType;
-};
-
-class NodeVarGet: public NodeOneOP
-{
-public:
-	NodeVarGet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress);
-	virtual ~NodeVarGet();
-
-			string	GetVarName(){ return varInfo.name; }
-
-	virtual void Compile();
-	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeVarGet; }
+	virtual UINT GetNodeType(){ return typeNodeVariableGet; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
-	VariableInfo	varInfo;
-	UINT			varAddress;
-	bool			absAddress, shiftAddress, bakedShift;
+	friend class NodeDereference;
+	friend class NodeVariableSet;
+	friend class NodePreOrPostOp;
+
+	VariableInfo	*varInfo;
+	int				varAddress;
+	bool			absAddress;
 };
 
-class NodePreValOp: public NodeOneOP
+class NodeVariableSet: public NodeTwoOP
 {
 public:
-	NodePreValOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress, CmdID cmd, bool preOp);
-	virtual ~NodePreValOp();
+			NodeVariableSet(TypeInfo* targetType, UINT pushVar, bool swapNodes);
+	virtual ~NodeVariableSet();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodePreValOp; }
-
-	void		 SetOptimised(bool doOptimisation);
-protected:
-	VariableInfo	varInfo;
-	UINT			varAddress;
-	bool			arrSetAll, absAddress, shiftAddress, prefixOperator, optimised, bakedShift;
-	CmdID			cmdID;
-};
-
-//Two child operators
-class NodeVarSet: public NodeTwoOP
-{
-public:
-	NodeVarSet(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress, UINT pushBytes);
-	virtual ~NodeVarSet();
-
-	virtual void Compile();
-	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeVarSet; }
+	virtual UINT GetNodeType(){ return typeNodeVariableSet; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
-	VariableInfo	varInfo;
-	UINT			varAddress, bytesToPush;
-	bool			arrSetAll, absAddress, shiftAddress, bakedShift;
+	UINT	bytesToPush;
+	int		addrShift;
+	bool	absAddress, knownAddress, arrSetAll;
 };
 
-class NodeVarSetAndOp: public NodeTwoOP
+class NodeDereference: public NodeOneOP
 {
 public:
-	NodeVarSetAndOp(VariableInfo vInfo, TypeInfo* targetType, UINT varAddress, bool shiftAddress, bool absAddress, CmdID cmd);
-	virtual ~NodeVarSetAndOp();
+			NodeDereference(TypeInfo* type);
+	virtual ~NodeDereference();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeVarSetAndOp; }
+	virtual UINT GetNodeType(){ return typeNodeDereference; }
+	virtual TypeInfo*	GetTypeInfo();
 protected:
-	VariableInfo	varInfo;
-	UINT			varAddress;
-	bool			absAddress, shiftAddress, bakedShift;
-	CmdID			cmdID;
+	int		addrShift;
+	bool	absAddress, knownAddress;
 };
+
+class NodeArrayIndex: public NodeTwoOP
+{
+public:
+			NodeArrayIndex(TypeInfo* parentType);
+	virtual ~NodeArrayIndex();
+
+	virtual void Compile();
+	virtual void LogToStream(ostringstream& ostr);
+	virtual UINT GetSize();
+	virtual UINT GetNodeType(){ return typeNodeArrayIndex; }
+	virtual TypeInfo*	GetTypeInfo();
+protected:
+	friend class NodeDereference;
+	friend class NodeVariableSet;
+	friend class NodePreOrPostOp;
+
+	TypeInfo	*typeParent;
+	bool		knownShift;
+	int			shiftValue;
+};
+
+class NodeShiftAddress: public NodeOneOP
+{
+public:
+			NodeShiftAddress(UINT shift, TypeInfo* resType);
+	virtual ~NodeShiftAddress();
+
+	virtual void Compile();
+	virtual void LogToStream(ostringstream& ostr);
+	virtual UINT GetSize();
+	virtual UINT GetNodeType(){ return typeNodeShiftAddress; }
+	virtual TypeInfo*	GetTypeInfo();
+protected:
+	friend class NodeDereference;
+	friend class NodeVariableSet;
+	friend class NodePreOrPostOp;
+
+	UINT	memberShift;
+};
+
+class NodePreOrPostOp: public NodeOneOP
+{
+public:
+			NodePreOrPostOp(TypeInfo* resType, CmdID cmd, bool preOp);
+	virtual ~NodePreOrPostOp();
+
+			void SetOptimised(bool doOptimisation);
+
+	virtual void Compile();
+	virtual void LogToStream(ostringstream& ostr);
+	virtual UINT GetSize();
+	virtual UINT GetNodeType(){ return typeNodePreOrPostOp; }
+	virtual TypeInfo*	GetTypeInfo();
+protected:
+	CmdID	cmdID;
+	bool	optimised;
+
+	bool	prefixOp;
+
+	int		addrShift;
+	bool	absAddress, knownAddress;
+};
+
+//////////////////////////////////////////////////////////////////////////
 
 class NodeTwoAndCmdOp: public NodeTwoOP
 {

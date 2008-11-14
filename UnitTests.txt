@@ -1,3 +1,4 @@
+//////////////////////////////////////////////////////////////////////////
 // Complex type test (simple)
 float f1;
 float2 f2;
@@ -21,13 +22,14 @@ f4.y--; // f4.y = 6.0
 --f4.z; // f4.z = 1.0
 f4.w *= f2.x += f3.z = 5; // f3.z = 5.0 f2.x = 7.0 f4.w = 84
 f2.x /= 0.5; // f2.x = 14.0
-f2.y ^= 2.0; // f2.y = 9.0
+f2.y **= 2.0; // f2.y = 9.0
 // f1 = 1
 // f2 = 14; 9
 // f3 = 9; 1; 5
 // f4 = 5; 6; 1; 84
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Complex type test (array)
 float3 fa[10];
 for(int i = 0; i < 10; i++)
@@ -41,6 +43,7 @@ for(int i = 0; i < 10; i++)
 // fa[].z = 100 101 102 103 104 105 106 107 108 109
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Comiler mislead test
 float2 a;
 a/*[gg]*/.x = 2;
@@ -49,28 +52,34 @@ a.y = a/*[gg]*/.x + 3;
 // a.x = 2; a.y = 5
 return a.x;
 
+//////////////////////////////////////////////////////////////////////////
 // Complex type test
 float4x4 mat;
 mat.row1.y = 5;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int a=5;
 double d[10];
 for(int i = 0; i < a; i++)
 d[i] = i*2 + i-2;
 return d[5];
 
+//////////////////////////////////////////////////////////////////////////
 double d[10];
 return d[5];
 
+//////////////////////////////////////////////////////////////////////////
 float4 f4;
 f4.y--;
 --f4.z;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int test(int x, int y, int z){return x*y+z;}
-return 1+test(2, 3, 4);
+return 1+test(2, 3, 4);	// 11
 
+//////////////////////////////////////////////////////////////////////////
 int fib(int n){ if(n<3) return 1; return fib(n-1)+fib(n-2); }
 int test(int x, int y, int z){return x*y+z;}
 int b = 1;
@@ -78,12 +87,15 @@ if(7>5)
 b = 3;
 return b+test(2, 3, 4);
 
+//////////////////////////////////////////////////////////////////////////
 int fib(int n){ if(n<3) return 5; return 10; }
 return fib(1);
 
+//////////////////////////////////////////////////////////////////////////
 int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }
 return fib(4);
 
+//////////////////////////////////////////////////////////////////////////
 // Array indirection and optimisation test
 int res[5]=1;
 res[1] = 13;
@@ -92,6 +104,7 @@ res[res[2]] = 4;
 res[res[res[2]]] = 12;
 return 5;
 
+//////////////////////////////////////////////////////////////////////////
 // Some test ^_^
 int a=0;
 int b[512];
@@ -103,6 +116,7 @@ while(a < 256)
 }
 return 0;
 
+//////////////////////////////////////////////////////////////////////////
 // Integer tests
 int res[30];
 int a = 14, b = 3, c = 0;
@@ -136,6 +150,7 @@ res[26] = !c;
 
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Floating point tests
 double res[15];
 double a = 14.0, b = 3.0;
@@ -156,6 +171,7 @@ res[13] = !a;
 
 return a+b;
 
+//////////////////////////////////////////////////////////////////////////
 // Long tests
 long res[24];
 long a = 4494967296l, b = 594967296l, c = 3;
@@ -186,27 +202,34 @@ res[23] = !a; // 0
 
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Decrement and increment tests for all types
-double a1=5, b1=5;
-float a2=5, b2=5;
-long a3=5, b3=5;
-int a4=5, b4=5;
-short a5=5, b5=5;
-char a6=5, b6=5;
-a1++;
-b1--;
-a2++;
-b2--;
-a3++;
-b3--;
-a4++;
-b4--;
-a5++;
-b5--;
-a6++;
-b6--;
+double a1=5, b1=5, c1, d1, e1, f1;
+float a2=5, b2=5, c2, d2, e2, f2;
+long a3=5, b3=5, c3, d3, e3, f3;
+int a4=5, b4=5, c4, d4, e4, f4;
+short a5=5, b5=5, c5, d5, e5, f5;
+char a6=5, b6=5, c6, d6, e6, f6;
+c1 = a1++; a1++; e1 = ++a1; ++a1;
+d1 = b1--; b1--; f1 = --b1; --b1;
+
+c2 = a2++; a2++; e2 = ++a2; ++a2;
+d2 = b2--; b2--; f2 = --b2; --b2;
+
+c3 = a3++; a3++; e3 = ++a3; ++a3;
+d3 = b3--; b3--; f3 = --b3; --b3;
+
+c4 = a4++; a4++; e4 = ++a4; ++a4;
+d4 = b4--; b4--; f4 = --b4; --b4;
+
+c5 = a5++; a5++; e5 = ++a5; ++a5;
+d5 = b5--; b5--; f5 = --b5; --b5;
+
+c6 = a6++; a6++; e6 = ++a6; ++a6;
+d6 = b6--; b6--; f6 = --b6; --b6;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Old all-in-one test
 double test(float x, float y){ /*teste*/return x**2*y; }
 int a=5;
@@ -219,6 +242,7 @@ while(1){ n*=2; if(n>1000) break; }
 return 2+test(2, 3)+a**b;
 
 
+//////////////////////////////////////////////////////////////////////////
 //longPow speed test (2 sec on x86)
 long a = 43l, b = 10l; // 2 sec
 //long a = 1l, b = 1250l; // 100 ms
@@ -231,10 +255,12 @@ for(int i = 0; i < 10000000; i++)
   c = a**b;
 return c;
 
+//////////////////////////////////////////////////////////////////////////
 // Division by zero handling
 int a=5, b =0;
 return a/b;
 
+//////////////////////////////////////////////////////////////////////////
 // Type conversions
 int ia=3, ib, ic;
 double da=5.0, db, dc;
@@ -247,9 +273,11 @@ lb = ia;
 lc = da;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int a[10]=5;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Build-In function checks
 double res[20];
 res[0] = cos(0); // 1.0
@@ -280,11 +308,12 @@ res[18] = sqrt(9.0); // 3.0
 res[19] = clock();
 return clock();
 
-
+//////////////////////////////////////////////////////////////////////////
 double a = 0.9;
 return a**2.0;
 
 
+//////////////////////////////////////////////////////////////////////////
 double clamp(double a, double min, double max)
 {
   if(a < min)
@@ -301,6 +330,7 @@ double abs(double x)
 }
 return clamp(abs(-1.5), 0.0, 1.0);
 
+//////////////////////////////////////////////////////////////////////////
 int test(int x, int y, int z){return x*y+z;}
 int res;
 {
@@ -311,6 +341,7 @@ res = 1+test(x, 3, 4);
 }
 return res;
 
+//////////////////////////////////////////////////////////////////////////
 double abs(double x)
 {
   {
@@ -321,6 +352,7 @@ double abs(double x)
 }
 return abs(-0.5);
 
+//////////////////////////////////////////////////////////////////////////
 //Some complexness %)
 float3 a;
 float4 b;
@@ -328,6 +360,7 @@ a = 12.0; // should fail
 b = a; // should fail
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int test[5]=0;
 for(int i = 0; i < 5; i++)
 {
@@ -338,11 +371,13 @@ for(int i = 0; i < 5; i++)
 }
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int test[2]=0;
 for(int i = 0; i < 2; i++)
   test[i] = test[i]++;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Pointers!
 int testA(int ref v){ return *v * 5; }
 void testB(int ref v){ *v += 5; }
@@ -356,6 +391,7 @@ c = *b;
 testB(b);
 return testA(&a);
 
+//////////////////////////////////////////////////////////////////////////
 // Pointers on complex!
 double length(float4 ref v)
 {
@@ -375,21 +411,25 @@ float4 ref b = &a;
 normalize(&a);
 return length(b);
 
+//////////////////////////////////////////////////////////////////////////
 float4 a;
 float4 ref b = &a;
 b.x = 5.0f;
 return b.x;
 
+//////////////////////////////////////////////////////////////////////////
 double testA(float4 ref v){ return v.x; }
 float4 a;
 float4 ref b = &a;
 a.x = 5.0f;
 return testA(b);
 
+//////////////////////////////////////////////////////////////////////////
 float3 a;
 float x = a.x, y = a.y;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int a = 12;
 int res[6];
 res[0] = a + 0;
@@ -400,6 +440,7 @@ res[4] = a*2+0;
 res[5] = a*3*1;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int arr[5];
 float4 arrF[4];
 int ref a = &arr[3];
@@ -418,6 +459,7 @@ float ref c = &arrF[1].y;
 }
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int calltest = 0;
 int fib(int n, int ref calls)
 {
@@ -431,34 +473,40 @@ int calls = 0;
 return fib(40, &calls);
 
 
+//////////////////////////////////////////////////////////////////////////
 double neg(double a){ return -a; }
 double x = 5.0, nx;
-for(var int i = 0; i < 50000000; i++)
+for(int i = 0; i < 50000000; i++)
 nx = neg(x);
 return nx;
 
 
+//////////////////////////////////////////////////////////////////////////
 int fa(int i){ return i*2; }
 int fa(int i, double c){ return i*c; }
 int fa(float i){ return i*3.0f; }
 return fa(5.0f) * fa(2, 3.0);
 
+//////////////////////////////////////////////////////////////////////////
 // Function with no return handling
 int test(){ 1; }
 return test();
 
+//////////////////////////////////////////////////////////////////////////
 // Array out of bound check (negative)
 int arr[10] = 5;
 int badID1 = cos(125)*4;
 arr[badID1] = 4;
 return badID1;
 
+//////////////////////////////////////////////////////////////////////////
 // Array out of bound check (overflow)
 int arr[10] = 5;
 int badID1 = sqrt(256);
 arr[badID1] = 4;
 return badID1;
 
+//////////////////////////////////////////////////////////////////////////
 // Switch test!
 int u = 12;
 int a = 3, b = 0;
@@ -477,6 +525,7 @@ int a = 3, b = 0;
 }
 return u;
 
+//////////////////////////////////////////////////////////////////////////
 // Class test
 class One
 {
@@ -497,6 +546,7 @@ two.a.a = 14;
 two.c.x = 2;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Variable modify test
 int slow(int how){ for(int i = 0; i < how; i++){ how = how-1; } return 2; }
 int index = 2;
@@ -504,6 +554,7 @@ int arr[10] = 4;
 arr[slow(40000000)] += 16; // 330 ms total. target - 140ms
 return 3;
 
+//////////////////////////////////////////////////////////////////////////
 // Class test 2
 class One
 {
@@ -532,9 +583,11 @@ two.d = 5;
 twonext = two;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 int test(int a){ return a*2; }
 return test(5);
 
+//////////////////////////////////////////////////////////////////////////
 //Complex types test #3
 float test(float4 a, float4 b){ return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w; }
 float4 test2(float4 u){ u.x += 5.0; return u; }
@@ -577,6 +630,7 @@ float iArrSum = sum(iArr);
 // iArrSum=77.5
 return test(n, m); // 56.0
 
+//////////////////////////////////////////////////////////////////////////
 // Speed tests
 float4x4 mat;
 class Float{ float x; }
@@ -599,6 +653,7 @@ for(int i = 0; i < 10000000; i++)
 }
 return mat.row1.y;
 
+//////////////////////////////////////////////////////////////////////////
 //Auto type tests
 float lengthSqr(float3 ref f){ return f.x*f.x+f.y*f.y+f.z*f.z; }
 float[10] tenArr(float n){ float[10] arr; for(int i = 0; i < 10; i++) arr[i] = n; return arr; }
@@ -621,12 +676,14 @@ auto ar = tenArr(3.0);
 auto u = &b;
 return *u;
 
+//////////////////////////////////////////////////////////////////////////
 // Char array test
 auto str1 = "", str2 = "a", str3 = "ab";
 auto str4 = "abc", str5 = "abcd", string = "Hello World!";
 return 1;
 
 
+//////////////////////////////////////////////////////////////////////////
 char[2][5] arr;
 arr[0] = "hehe";
 arr[1] = "haha";
@@ -639,6 +696,7 @@ double f;
 kl.uhu = "tyty";
 return 0;
 
+//////////////////////////////////////////////////////////////////////////
 // Implicit pointers to arrays
 int sum(int[] arr){ int res=0; for(int i=0;i<arr.size;i++) res+=arr[i]; return res; }
 void print(char[] str){ 1; } 
@@ -659,10 +717,11 @@ k[4] = kk[2][1];
 
 auto name = "omfg";
 print(name);
-//print("does not work");
+print("does work");
 
 return sum(u);
 
+//////////////////////////////////////////////////////////////////////////
 // File and something else test
 int test(char[] eh, int u){ int b = 0; for(int i=0;i<u;i++)b+=eh[i]; return b; }
 
@@ -676,6 +735,7 @@ FileWrite(n, &k);
 FileClose(n);
 return test(uh, 3);
 
+//////////////////////////////////////////////////////////////////////////
 //File test
 auto name = "extern.bin";
 auto acc = "wb", acc2 = "rb";
@@ -723,6 +783,7 @@ Print(name);
 
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 //Escape sequences
 auto name = "01n";
 for(int i = 0; i < 10; i++)
@@ -734,6 +795,7 @@ for(int i = 0; i < 10; i++)
 
 return 'n';
 
+//////////////////////////////////////////////////////////////////////////
 auto ts = "Hello World!\r\noh\toh\r\n";
 Print(ts);
 char[] mm = "hello";
@@ -748,6 +810,7 @@ Input(buf);
 return cos(n);
 
 
+//////////////////////////////////////////////////////////////////////////
 int a[10]=4;
 int[] b = a;
 float4 c;
@@ -769,6 +832,7 @@ b[b[2]] = b[b[8]]++;
 b[4]--;
 return b[1];
 
+//////////////////////////////////////////////////////////////////////////
 int test(int a, int b, int c){ return a*b+c; }
 float test2(float4 b){ return b.x-b.y; }
 int test3(char[] ch){ return ch.size; }
@@ -784,6 +848,7 @@ int kl5 = test3(kl4);
 return 1;
 
 
+//////////////////////////////////////////////////////////////////////////
 int test(int a, int b, int c){ return a*b+c; }
 //float test2(float4 b){ return b; }
 //void test3(float a){ return a; }
@@ -807,6 +872,7 @@ int ns = sum(n), ts = sum({10, 12, 14, 16});
 return 1;
 
 
+//////////////////////////////////////////////////////////////////////////
 // Function visibility test
 int u = 5, t1 = 2, t2 = 2;
 for({int i = 0;}; i < 4; {i++;})
@@ -824,6 +890,7 @@ for({int i = 0;}; i < 4; {i++;})
 
 return 4;//test(2);
 
+//////////////////////////////////////////////////////////////////////////
 // Local function context test
 int g1 = 3; // global variable (24)
 int r; // (28)
@@ -845,6 +912,7 @@ int r; // (28)
 
 return r; // 19398
 
+//////////////////////////////////////////////////////////////////////////
 // Local function context test 2
 int g1 = 3; // global variable (24)
 int r; // (28)
@@ -872,6 +940,7 @@ int r; // (28)
 return r; // 990579
 
 
+//////////////////////////////////////////////////////////////////////////
 int test(char[] text){ Print(text); return 2; }
 int arr[10];
 auto hm = "World\r\n";
@@ -881,6 +950,7 @@ char[] um = nm;
 arr[test("hello\r\n")] += 3;
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 // Multidimensional array constructor test
 float3 float3(float x, float y, float z){ float3 ret; ret.x = x; ret.y = y; ret.z = z; return ret; }
 float3 g = float3(4, 6, 8), h = float3(3, 5, 7), j = float3(11, 12, 13);
@@ -892,8 +962,98 @@ auto c = { g, h, j };
 auto d = { { {g}, {h} }, { {h}, {j} } };
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 //Hexademical constants
 auto a = 0xdeadbeef;
 auto b = 0xcafe;
 auto c = 0x7fffffffffffffff;
 return a;
+
+
+//////////////////////////////////////////////////////////////////////////
+class Hoh
+{
+  int[3] c;
+}
+class Test
+{
+  Hoh[5][5] a;
+  Hoh[6] b;
+}
+Test u;
+u.b[3].c[2] = 12;
+u.a[3][3].c[1] = 4;
+
+return 6;
+
+
+//////////////////////////////////////////////////////////////////////////
+// New get and set functions test
+auto s1 = 5;
+auto f1 = &s1;
+int d1 = 3;
+int ref df1 = &d1;
+{
+auto d2 = *f1;
+auto d3 = f1;
+d1 = d2;
+df1 = d3;
+}
+
+auto k = { 1,4,8,64,7};
+auto kr = { &k[4], &k[3], &k[2], &k[1], &k[0] };
+auto krr = &kr;
+auto t1 = 5;
+float4 t2;
+t2.x = 6;
+t2.y = 4;
+float4[4] t3;
+t3[1].x = 5;
+t3[2].z = 14.0;
+auto t4 = &t1;
+auto t5 = &t2;
+auto t6 = &t3;
+float4 ref[4] t7;
+t7[0] = &t3[1];
+class Test{ int ref x, y; }
+Test t8;
+t8.y = &t1;
+Test[3] t9;
+t9[2].y = &t1;
+auto t10 = &t8;
+
+float er2, er1 = 2 * (er2 = t2.y);
+//gets
+int r1 = t1;	// 5
+int r2 = k[2];	// 8
+float r3s, r3 = r3s = t2.y;	// 4
+float r4 = t3[2].z;	// 14
+int r5 = *t4;	// 5
+int r6 = *kr[2];	// 8
+float r7 = t5.y;	// 4
+int r8 = *t8.y;	// 5
+int r9 = *t9[2].y;	// 5
+//float r10 = (*t7)[2].z;
+int r11 = *t10.y; // 5
+float4 t11 = *t7[0];
+
+//sets in reverse
+t1 = r1;
+k[2] = r2;
+t2.y = r3;
+t3[2].z = r4;
+*t4 = r5;
+*kr[2] = r6;
+t5.y = r7;
+*t8.y = r8;
+*t9[2].y = r9;
+*t10.y = r11;
+*t7[0] = t11;
+
+int i = 1, j = 2;
+auto spec = {{1,2,3},{4,5,6},{7,8,9}};
+int r2a = spec[2][1]; // 8
+int r2b = spec[j][1]; // 8
+int r2c = spec[1][j]; // 6
+int r2d = spec[i][j]; // 6
+return 1;
