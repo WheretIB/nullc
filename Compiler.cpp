@@ -11,6 +11,7 @@ using namespace CodeInfo;
 //////////////////////////////////////////////////////////////////////////
 //						Code gen ops
 //////////////////////////////////////////////////////////////////////////
+std::ostringstream		warningLog;
 
 // Информация о вершинах стека переменных. При компиляции он служит для того, чтобы
 // Удалять информацию о переменных, когда они выходят из области видимости
@@ -67,14 +68,15 @@ std::vector<UINT>			callArgCount;
 std::vector<TypeInfo*>		retTypeStack;
 std::vector<FunctionInfo*>	currDefinedFunc;
 
-void AddFunctionExternal(FunctionInfo* func, std::string name)
+int AddFunctionExternal(FunctionInfo* func, std::string name)
 {
 	for(UINT i = 0; i < func->external.size(); i++)
 		if(func->external[i] == name)
-			return;
+			return i;
 
 	compileLog << "Function " << currDefinedFunc.back()->name << " uses external variable " << name << "\r\n";
 	func->external.push_back(name);
+	return func->external.size()-1;
 }
 
 // Преобразовать строку в число типа long long
@@ -737,6 +739,8 @@ void selType(char const* s, char const* e)
 
 void addTwoExprNode(char const* s, char const* e);
 
+UINT	offsetBytes = 0;
+
 void addVar(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
@@ -760,9 +764,8 @@ void addVar(char const* s, char const* e)
 		if(activeAlign != 0 && varTop % activeAlign != 0)
 		{
 			UINT offset = activeAlign - (varTop % activeAlign);
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(offset, "offset")));
-			addTwoExprNode(0,0);
 			varTop += offset;
+			offsetBytes = offset;
 		}
 	}
 	varInfo.push_back(new VariableInfo(vName, varTop, currType, currValConst));
@@ -776,8 +779,9 @@ void addVarDefNode(char const* s, char const* e)
 	assert(varDefined);
 	if(!currType)
 		throw CompilerError("ERROR: auto variable must be initialized in place of definition", s);
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(currType->size, strs.back())));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(currType->size+offsetBytes, strs.back())));
 	varDefined = 0;
+	offsetBytes = 0;
 }
 
 void pushType(char const* s, char const* e)
@@ -810,9 +814,13 @@ void convertTypeToArray(char const* s, char const* e)
 //					New functions for work with variables
 
 void AddInplaceArray(char const* s, char const* e);
+void AddDereferenceNode(char const* s, char const* e);
+void AddArrayIndexNode(char const* s, char const* e);
 
 void AddGetVariableNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
+
 	int i = (int)varInfo.size()-1;
 	string vName(s, e);
 	while(i >= 0 && varInfo[i]->name != vName)
@@ -821,20 +829,36 @@ void AddGetVariableNode(char const* s, char const* e)
 		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get var]", s);
 	currTypes.push_back(varInfo[i]->varType);
 
-	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
+	if(retTypeStack.size() > 1 && currDefinedFunc.back()->local && i < varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+	{
+		int num = AddFunctionExternal(currDefinedFunc.back(), vName);
 
-	int varAddress = varInfo[i]->pos;
-	if(!absAddress)
-		varAddress -= (int)(varInfoTop.back().varStackSize);
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableGet(varInfo[i], varAddress, absAddress)));
-}
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)currDefinedFunc.back()->external.size(), typeInt)));
+		//currTypes.push_back(GetReferenceType(GetArrayType(GetReferenceType(typeInt))));
+		varInfo[varInfoTop.back().activeVarCnt]->varType = GetReferenceType(GetArrayType(GetReferenceType(typeInt)));
 
-void AddGetAddressNode(char const* s, char const* e)
-{
+		std::string bName = "$" + currDefinedFunc.back()->name + "_ext";
+
+		AddGetVariableNode(bName.c_str(), bName.c_str()+bName.length());
+		AddDereferenceNode(0,0);
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(num, typeInt)));
+		AddArrayIndexNode(0,0);
+		AddDereferenceNode(0,0);
+		currTypes.pop_back();
+	}else{
+		bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
+
+		int varAddress = varInfo[i]->pos;
+		if(!absAddress)
+			varAddress -= (int)(varInfoTop.back().varStackSize);
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableGet(varInfo[i], varAddress, absAddress)));
+	}
 }
 
 void AddArrayIndexNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
+
 	if(currTypes.back()->arrLevel == 0)
 		throw CompilerError("ERROR: indexing variable that is not an array", s);
 	if(currTypes.back()->arrSize == -1)
@@ -878,6 +902,8 @@ void AddArrayIndexNode(char const* s, char const* e)
 
 void AddDereferenceNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
+
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
 	currTypes.back() = GetDereferenceType(currTypes.back());
 }
@@ -889,6 +915,8 @@ void FailedSetVariable(char const* s, char const* e)
 
 void AddDefineVariableNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
+
 	int i = (int)varInfo.size()-1;
 	string vName = strs.back();
 	while(i >= 0 && varInfo[i]->name != vName)
@@ -926,7 +954,8 @@ void AddDefineVariableNode(char const* s, char const* e)
 		}
 	}
 
-	UINT varSizeAdd = 0;
+	UINT varSizeAdd = offsetBytes;
+	offsetBytes = 0;
 	if(!currTypes.back())
 	{
 		if(realCurrType->alignBytes != 0 || currAlign != -1)
@@ -963,16 +992,61 @@ void AddDefineVariableNode(char const* s, char const* e)
 
 void AddSetVariableNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
+
+	TypeInfo *realCurrType = currTypes.back();
+	bool unifyTwo = false;
+	if(realCurrType->arrSize == -1 && realCurrType != nodeList.back()->GetTypeInfo())
+	{
+		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
+		if(realCurrType->subType == nodeType->subType)
+		{
+			if(nodeList.back()->GetNodeType() != typeNodeDereference)
+			{
+				if(nodeList.back()->GetNodeType() == typeNodeExpressionList)
+				{
+					AddInplaceArray(s, e);
+					currTypes.pop_back();
+					unifyTwo = true;
+				}else{
+					throw CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
+				}
+			}
+			nodeList.back() = static_cast<NodeDereference*>(nodeList.back().get())->GetFirstNode();
+			UINT typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
+			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(realCurrType));
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			listExpr->AddNode();
+			nodeList.push_back(listExpr);
+
+			if(unifyTwo)
+				std::swap(*(nodeList.end()-2), *(nodeList.end()-3));
+		}
+	}
+
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableSet(currTypes.back(), 0, true)));
+
+	if(unifyTwo)
+	{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(nodeList.back()->GetTypeInfo())));
+		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.pop_back();
+		static_cast<NodeExpressionList*>(temp.get())->AddNode();
+		nodeList.push_back(temp);
+	}
 }
 
 void AddFinalDereferenceNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
+
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
 }
 
 void AddMemberAccessNode(char const* s, char const* e)
 {
+	lastKnownStartPos = s;
+
 	std::string memberName = strs.back();
 
 	// Да, это локальная переменная с именем, как у глобальной!
@@ -1012,6 +1086,7 @@ struct AddPreOrPostOp
 {
 	void operator() (char const* s, char const* e)
 	{
+		lastKnownStartPos = s;
 		AddPreOrPostOpNode(cmd, prefixOp);
 	}
 };
@@ -1031,6 +1106,7 @@ struct AddModifyVariable
 {
 	void operator() (char const* s, char const* e)
 	{
+		lastKnownStartPos = s;
 		AddModifyVariableNode(s, e, cmd);
 	}
 };
@@ -1046,14 +1122,11 @@ void AddInplaceArray(char const* s, char const* e)
 
 	currType = NULL;
 	addVar(s, e);
-	currTypes.push_back(NULL);
-	
-	//AddGetVariableNode(strs.back().c_str(), strs.back().c_str()+strs.back().length());
-	currTypes.push_back(NULL);
+
 	AddDefineVariableNode(s, e);
 	addPopNode(s, e);
+	currTypes.pop_back();
 
-	currTypes.push_back(varInfo.back()->varType);
 	AddGetVariableNode(strs.back().c_str(), strs.back().c_str()+strs.back().length());
 	AddFinalDereferenceNode(s, e);
 
@@ -1090,8 +1163,15 @@ void addArrayConstructor(char const* s, char const* e)
 	TypeInfo *currType = (*(nodeList.end()-arrElementCount.back()))->GetTypeInfo();
 
 	if(currType == typeShort || currType == typeChar)
+	{
 		currType = typeInt;
-	//	throw CompilerWarning("WARNING: short and char will be promoted to int during array construction", s);
+		warningLog << "WARNING: short and char will be promoted to int during array construction\r\n At " << std::string(s, e) << "\r\n";
+	}
+	if(currType == typeFloat)
+	{
+		currType = typeDouble;
+		warningLog << "WARNING: float will be promoted to double during array construction\r\n At " << std::string(s, e) << "\r\n";
+	}
 	if(currType == typeVoid)
 		throw CompilerError("ERROR: array cannot be constructed from void type elements", s);
 
@@ -1108,7 +1188,7 @@ void addArrayConstructor(char const* s, char const* e)
 	char tempStr[16];
 	for(UINT i = 0; i < arrElementCount.back(); i++)
 	{
-		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt))
+		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt) && !(realType == typeFloat && currType == typeDouble))
 			throw CompilerError(std::string("ERROR: element ") + _itoa(arrElementCount.back()-i-1, tempStr, 10) + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
 		arrayList->AddNode(false);
 	}
@@ -1216,41 +1296,34 @@ void funcEnd(char const* s, char const* e)
 		shared_ptr<NodeZeroOP> temp = nodeList.back();
 		nodeList.pop_back();
 
+		lastFunc.params.back().varType = GetReferenceType(temp->GetTypeInfo());
+
 		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
 
-		/*for(UINT n = 0; n < lastFunc.external.size(); n++)
+		for(UINT n = 0; n < lastFunc.external.size(); n++)
 		{
-			int i = (int)varInfo.size()-1;
-			while(i >= 0 && varInfo[i]->name != lastFunc.external[n])
-				i--;
-			if(i == -1)
-				throw CompilerError("ERROR: variable '" + strs.back() + "' is not defined [getaddr]", s);
-
-			if(((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0)
-				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(varInfo[i]->pos, typeInt)));
-			else
-				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(*varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize))));
+			const char *s = lastFunc.external[n].c_str(), *e = s + lastFunc.external[n].length();
+			AddGetVariableNode(s, e);
 			arrayList->AddNode();
-		}*/
+		}
 		nodeList.push_back(temp);
-		throw CompilerError("to implement", s);
-		/*strs.push_back("$" + lastFunc.name + "_ext");
-		strs.push_back(strs.back());
+
+		strs.push_back("$" + lastFunc.name + "_ext");
+
 		TypeInfo *saveCurrType = currType;
 		bool saveVarDefined = varDefined;
+
 		currType = NULL;
 		addVar(s, e);
-		currTypes.push_back(NULL);
-		valueByRef.push_back(false);
-		addSetNode(s, e);
+
+		AddDefineVariableNode(s, e);
 		addPopNode(s, e);
+		currTypes.pop_back();
 
 		varDefined = saveVarDefined;
 		currType = saveCurrType;
 		strs.pop_back();
-		strs.pop_back();
-
-		addTwoExprNode(0,0);*/
+		addTwoExprNode(0,0);
 	}
 }
 
@@ -1261,27 +1334,19 @@ void addFuncCallNode(char const* s, char const* e)
 	strs.pop_back();
 
 	// Searching from last function to first. If  the first found function is local, create node that sends context info
-	/*for(int k = (int)funcInfo.size()-1; k >= 0; k--)
+	for(int k = (int)funcInfo.size()-1; k >= 0; k--)
 	{
 		if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->local)
 		{
-			strs.push_back("$" + funcInfo[k]->name + "_ext");
-			strs.push_back(strs.back());
+			std::string bName = "$" + funcInfo[k]->name + "_ext";
 
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)funcInfo[k]->external.size(), typeInt)));
-			currTypes.push_back(GetReferenceType(GetArrayType(GetReferenceType(typeInt))));
-			funcInfo[k]->params.back().varType = currTypes.back();
-
-			valueByRef.push_back(false);
-			addGetNode(s, e);
-
-			strs.pop_back();
-			strs.pop_back();
+			AddGetVariableNode(bName.c_str(), bName.c_str()+bName.length());
+			currTypes.pop_back();
 
 			callArgCount.back()++;
 			break;
 		}
-	}*/
+	}
 
 	//Find all functions with given name
 	FunctionInfo *fList[32];
@@ -1661,7 +1726,7 @@ namespace CompilerGrammar
 				varname[strPush] >>
 				!('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']')[convertTypeToArray]
 			)[pushType][addVar] >>
-			(('=' >> term5)[AddDefineVariableNode][addPopNode] | epsP[addVarDefNode][popType])[strPop];
+			(('=' >> term5)[AddDefineVariableNode][addPopNode][popType] | epsP[addVarDefNode])[popType][strPop];
 		
 		vardefsub	= addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
@@ -1675,7 +1740,7 @@ namespace CompilerGrammar
 		forexpr		=
 			(strP("for")[saveVarTop] >>
 			'(' >>
-			(vardef | (chP('{') >> code >> chP('}')) | term5[addPopNode]) >>';' >>
+			((chP('{') >> code >> chP('}')) | vardef | term5[addPopNode]) >>';' >>
 			term5 >> ';' >>
 			((chP('{') >> code >> chP('}')) | term5[addPopNode]) >> ')'
 			)[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
@@ -1719,7 +1784,7 @@ namespace CompilerGrammar
 		postExpr	=	('.' >> varname[strPush])[AddMemberAccessNode] |
 						('[' >> term5 >> ']')[AddArrayIndexNode];
 		term1		=
-			(chP('&') >> variable[AddGetAddressNode])[popType] |
+			(chP('&') >> variable)[popType] |
 			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt, true>()])[popType] | 
 			(strP("++") >> variable[AddPreOrPostOp<cmdIncAt, true>()])[popType] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
@@ -2050,6 +2115,7 @@ void Compiler::ClearState()
 
 	logAST.str("");
 	compileLog.str("");
+	warningLog.str("");
 }
 
 bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
@@ -2124,6 +2190,8 @@ bool Compiler::Compile(string str)
 		nodeList.back()->LogToStream(graphlog);
 	graphFile << graphlog.str();
 	graphFile.close();
+
+	logAST << "\r\n" << warningLog.str();
 
 	compileLog << "\r\nActive types (" << typeInfo.size() << "):\r\n";
 	for(UINT i = 0; i < typeInfo.size(); i++)

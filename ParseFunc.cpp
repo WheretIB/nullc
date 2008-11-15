@@ -547,7 +547,7 @@ void NodeVarDef::Compile()
 void NodeVarDef::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "VarDef '" << name << "' " << shift << "\r\n";
+	ostr << *typeInfo << "VarDef '" << name << "' " << shift << "\r\n";
 }
 UINT NodeVarDef::GetSize()
 {
@@ -580,7 +580,7 @@ void NodeBlock::Compile()
 void NodeBlock::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "Block :\r\n";
+	ostr << *typeInfo << "Block :\r\n";
 	GoDownB();
 	first->LogToStream(ostr);
 	GoUp();
@@ -630,7 +630,7 @@ void NodeFuncDef::Compile()
 void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "FuncDef :\r\n";
+	ostr << *typeInfo << "FuncDef :\r\n";
 	GoDownB();
 	first->LogToStream(ostr);
 	GoUp();
@@ -1458,7 +1458,7 @@ void NodeIfElseExpr::Compile()
 void NodeIfElseExpr::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "IfExpression :\r\n";
+	ostr << *typeInfo << "IfExpression :\r\n";
 	GoDown();
 	first->LogToStream(ostr);
 	if(!third)
@@ -1534,7 +1534,7 @@ void NodeForExpr::Compile()
 void NodeForExpr::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "ForExpression :\r\n";
+	ostr << *typeInfo << "ForExpression :\r\n";
 	GoDown();
 	first->LogToStream(ostr);
 	second->LogToStream(ostr);
@@ -1587,7 +1587,7 @@ void NodeWhileExpr::Compile()
 void NodeWhileExpr::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "WhileExpression :\r\n";
+	ostr << *typeInfo << "WhileExpression :\r\n";
 	GoDown();
 	first->LogToStream(ostr);
 	GoUp();
@@ -1636,7 +1636,7 @@ void NodeDoWhileExpr::Compile()
 void NodeDoWhileExpr::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "DoWhileExpression :\r\n";
+	ostr << *typeInfo << "DoWhileExpression :\r\n";
 	GoDown();
 	first->LogToStream(ostr);
 	GoUp();
@@ -1676,7 +1676,7 @@ void NodeBreakOp::Compile()
 void NodeBreakOp::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "BreakExpression\r\n";
+	ostr << *typeInfo << "BreakExpression\r\n";
 }
 UINT NodeBreakOp::GetSize()
 {
@@ -1774,7 +1774,7 @@ void NodeSwitchExpr::Compile()
 void NodeSwitchExpr::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << "SwitchExpression :\r\n";
+	ostr << *typeInfo << "SwitchExpression :\r\n";
 	GoDown();
 	first->LogToStream(ostr);
 	casePtr cond = caseCondList.begin(), econd = caseCondList.end();

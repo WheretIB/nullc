@@ -952,14 +952,18 @@ return 1;
 
 //////////////////////////////////////////////////////////////////////////
 // Multidimensional array constructor test
-float3 float3(float x, float y, float z){ float3 ret; ret.x = x; ret.y = y; ret.z = z; return ret; }
-float3 g = float3(4, 6, 8), h = float3(3, 5, 7), j = float3(11, 12, 13);
+float3 float3(int[3] comp){ float3 ret; ret.x = comp[0]; ret.y = comp[1]; ret.z = comp[2]; return ret; }
+float3 float3(float[3] comp){ float3 ret; ret.x = comp[0]; ret.y = comp[1]; ret.z = comp[2]; return ret; }
+float3 float3(double[3] comp){ float3 ret; ret.x = comp[0]; ret.y = comp[1]; ret.z = comp[2]; return ret; }
+float3 g = float3({4.0, 6.0, 8.0}), h = float3({3.0f, 5.0f, 7.0f}), j = float3({11, 12, 13});
 
 auto a = { 3, 4, 5 };
 auto b = { {11, 12}, {14, 15} };
 
 auto c = { g, h, j };
 auto d = { { {g}, {h} }, { {h}, {j} } };
+
+auto f = { 1.0f, 2.0f };
 return 1;
 
 //////////////////////////////////////////////////////////////////////////
