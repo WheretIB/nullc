@@ -171,7 +171,7 @@ namespace ColorerGrammar
 			vardefsub;
 
 		ifExpr			=	strWP("if")[ColorRWord] >> (('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText]) >> expr >> ((strP("else")[ColorRWord] >> expr) | epsP);
-		forExpr			=	strWP("for")[ColorRWord] >> ('(' >> epsP)[ColorText] >> (vardef | term5 | block) >> (';' >> epsP)[ColorText] >> term5 >> (';' >> epsP)[ColorText] >> (block | term5) >> (')' >> epsP)[ColorText] >> expr;
+		forExpr			=	strWP("for")[ColorRWord] >> ('(' >> epsP)[ColorText] >> ((chP('{')[ColorBold] >> code >> chP('}')[ColorBold]) | vardef | term5) >> (';' >> epsP)[ColorText] >> term5 >> (';' >> epsP)[ColorText] >> (block | term5) >> (')' >> epsP)[ColorText] >> expr;
 		whileExpr		=	strWP("while")[ColorRWord] >> (('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText]) >> expr;
 		dowhileExpr		=	strWP("do")[ColorRWord] >> expr >> strP("while")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> (';' >> epsP)[ColorText];
 		switchExpr		=	strWP("switch")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> ('{' >> epsP)[ColorBold] >> 

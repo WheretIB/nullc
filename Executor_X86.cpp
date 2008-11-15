@@ -1479,8 +1479,13 @@ void ExecutorX86::GenListing()
 			}
 			if(!knownEDXOnPush)
 			{
-				logASM << "lea eax, [ebp + " << (int)valind << "] ; сдвинули адрес относительно бызы стека\r\n";
-				logASM << "push eax ; положили адрес в стек\r\n";
+				if(valind)
+				{
+					logASM << "lea eax, [ebp + " << (int)valind << "] ; сдвинули адрес относительно бызы стека\r\n";
+					logASM << "push eax ; положили адрес в стек\r\n";
+				}else{
+					logASM << "push ebp ; положили адрес в стек (valind == 0)\r\n";
+				}
 			}else{
 				addEBPtoEDXOnPush = true;
 				edxValueForPush = (int)valind;
@@ -1503,10 +1508,11 @@ void ExecutorX86::GenListing()
 			{
 			case cmdAdd+(OTYPE_DOUBLE<<16):
 				logASM << "  ; ADD  double\r\n";
-				logASM << "fld qword [esp] \r\n";
+			//	logASM << "fld qword [esp] \r\n";
 				if(!skipFldESPOnDoubleALU)
 					logASM << "fld qword [esp+8] \r\n";
-				logASM << "faddp \r\n";
+				logASM << "fadd qword [esp] \r\n";
+			//	logASM << "faddp \r\n";
 				if(!skipFstpOnDoubleALU)
 				{
 					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
@@ -1533,10 +1539,14 @@ void ExecutorX86::GenListing()
 
 			case cmdSub+(OTYPE_DOUBLE<<16):
 				logASM << "  ; SUB  double\r\n";
-				logASM << "fld qword [esp] \r\n";
+			//	logASM << "fld qword [esp] \r\n";
 				if(!skipFldESPOnDoubleALU)
 					logASM << "fld qword [esp+8] \r\n";
-				logASM << "fsubrp \r\n";
+				if(skipFldESPOnDoubleALU)
+					logASM << "fsubr qword [esp] \r\n";
+				else
+					logASM << "fsub qword [esp] \r\n";
+			//	logASM << "fsubrp \r\n";
 				if(!skipFstpOnDoubleALU)
 				{
 					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
@@ -1563,10 +1573,11 @@ void ExecutorX86::GenListing()
 
 			case cmdMul+(OTYPE_DOUBLE<<16):
 				logASM << "  ; MUL  double\r\n";
-				logASM << "fld qword [esp] \r\n";
+			//	logASM << "fld qword [esp] \r\n";
 				if(!skipFldESPOnDoubleALU)
 					logASM << "fld qword [esp+8] \r\n";
-				logASM << "fmulp \r\n";
+				logASM << "fmul qword [esp] \r\n";
+			//	logASM << "fmulp \r\n";
 				if(!skipFstpOnDoubleALU)
 				{
 					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
@@ -1596,10 +1607,14 @@ void ExecutorX86::GenListing()
 
 			case cmdDiv+(OTYPE_DOUBLE<<16):
 				logASM << "  ; DIV  double\r\n";
-				logASM << "fld qword [esp] \r\n";
+			//	logASM << "fld qword [esp] \r\n";
 				if(!skipFldESPOnDoubleALU)
 					logASM << "fld qword [esp+8] \r\n";
-				logASM << "fdivrp \r\n";
+				if(skipFldESPOnDoubleALU)
+					logASM << "fdivr qword [esp] \r\n";
+				else
+					logASM << "fdiv qword [esp] \r\n";
+			//	logASM << "fdivrp \r\n";
 				if(!skipFstpOnDoubleALU)
 				{
 					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
