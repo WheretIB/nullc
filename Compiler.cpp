@@ -1338,8 +1338,15 @@ void addFuncCallNode(char const* s, char const* e)
 	{
 		if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->local)
 		{
-			if(!funcInfo[k]->external.empty())
+			std::string bName = "$" + funcInfo[k]->name + "_ext";
+			int i = (int)varInfo.size()-1;
+			while(i >= 0 && varInfo[i]->name != bName)
+				i--;
+			if(i == -1)
 			{
+				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
+				callArgCount.back()++;
+			}else{
 				std::string bName = "$" + funcInfo[k]->name + "_ext";
 
 				AddGetVariableNode(bName.c_str(), bName.c_str()+bName.length());
@@ -1348,9 +1355,6 @@ void addFuncCallNode(char const* s, char const* e)
 				funcInfo[k]->params.back().varType = GetReferenceType(currTypes.back());
 				currTypes.pop_back();
 
-				callArgCount.back()++;
-			}else{
-				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
 				callArgCount.back()++;
 			}
 			break;
