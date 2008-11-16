@@ -1287,7 +1287,7 @@ void funcEnd(char const* s, char const* e)
 	currDefinedFunc.pop_back();
 
 	// If function is local, create function parameters block
-	if(lastFunc.local)
+	if(lastFunc.local && !lastFunc.external.empty())
 	{
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)lastFunc.external.size(), typeInt)));
@@ -1338,12 +1338,21 @@ void addFuncCallNode(char const* s, char const* e)
 	{
 		if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->local)
 		{
-			std::string bName = "$" + funcInfo[k]->name + "_ext";
+			if(!funcInfo[k]->external.empty())
+			{
+				std::string bName = "$" + funcInfo[k]->name + "_ext";
 
-			AddGetVariableNode(bName.c_str(), bName.c_str()+bName.length());
-			currTypes.pop_back();
+				AddGetVariableNode(bName.c_str(), bName.c_str()+bName.length());
+				if(currTypes.back()->refLevel == 1)
+					AddDereferenceNode(s, e);
+				funcInfo[k]->params.back().varType = GetReferenceType(currTypes.back());
+				currTypes.pop_back();
 
-			callArgCount.back()++;
+				callArgCount.back()++;
+			}else{
+				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
+				callArgCount.back()++;
+			}
 			break;
 		}
 	}
