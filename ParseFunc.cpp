@@ -630,7 +630,7 @@ void NodeFuncDef::Compile()
 void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *typeInfo << "FuncDef :\r\n";
+	ostr << *typeInfo << "FuncDef " << funcInfo->name << "\r\n";
 	GoDownB();
 	first->LogToStream(ostr);
 	GoUp();
