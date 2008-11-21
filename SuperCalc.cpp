@@ -400,6 +400,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	ShowWindow(hCode, nCmdShow);
 	UpdateWindow(hCode);
+	SendMessage(hCode, WM_SETFONT, (WPARAM)CreateFont(15,0,0,0,0,0,0,0,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,FF_DONTCARE,"Courier New"), 0);
 
 	hLog = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
 		2*widt+10, 200, widt-100, 165, hWnd, NULL, hInstance, NULL);

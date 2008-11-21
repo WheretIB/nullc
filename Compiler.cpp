@@ -1100,7 +1100,12 @@ void AddSetVariableNode(char const* s, char const* e)
 		}
 	}
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableSet(currTypes.back(), 0, true)));
+	try
+	{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableSet(currTypes.back(), 0, true)));
+	}catch(const std::string& str){
+		throw CompilerError(str.c_str(), s);
+	}
 
 	if(unifyTwo)
 	{
@@ -1878,7 +1883,7 @@ namespace CompilerGrammar
 				varname[strPush] >>
 				!('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']')[convertTypeToArray]
 			)[pushType][addVar] >>
-			(('=' >> term5)[AddDefineVariableNode][addPopNode][popType] | epsP[addVarDefNode])[popType][strPop];
+			(('=' >> (term5 | epsP[ThrowError("ERROR: expression not found after '='")]))[AddDefineVariableNode][addPopNode][popType] | epsP[addVarDefNode])[popType][strPop];
 		
 		vardefsub	= addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
@@ -1888,20 +1893,41 @@ namespace CompilerGrammar
 			seltype >>
 			vardefsub;
 
-		ifexpr		=	(strP("if") >> ('(' >> term5 >> ')'))[SaveStringIndex] >> expression >> ((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
+		ifexpr		=
+			(
+				strP("if") >>
+				('(' | epsP[ThrowError("ERROR: '(' not found after 'if'")]) >>
+				(term5 | epsP[ThrowError("ERROR: condition not found in 'if' statement")]) >>
+				(')' | epsP[ThrowError("ERROR: closing ')' not found after 'if' condition")])
+			)[SaveStringIndex] >>
+			expression >>
+			((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
 		forexpr		=
-			(strP("for")[saveVarTop] >>
-			'(' >>
-			((chP('{') >> code >> chP('}')) | vardef | term5[addPopNode]) >>';' >>
-			term5 >> ';' >>
-			((chP('{') >> code >> chP('}')) | term5[addPopNode]) >> ')'
+			(
+				strP("for")[saveVarTop] >>
+				('(' | epsP[ThrowError("ERROR: '(' not found after 'for'")]) >>
+				(
+					(
+						chP('{') >>
+						(code | epsP[addVoidNode]) >>
+						(chP('}') | epsP[ThrowError("ERROR: '}' not found after '{'")])
+					) |
+					vardef |
+					term5[addPopNode] |
+					epsP[addVoidNode]
+				) >>
+				(';' | epsP[ThrowError("ERROR: ';' not found after initializer in 'for'")]) >>
+				(term5 | epsP[ThrowError("ERROR: condition not found in 'for' statement")]) >>
+				(';' | epsP[ThrowError("ERROR: ';' not found after condition in 'for'")]) >>
+				((chP('{') >> code >> chP('}')) | term5[addPopNode] | epsP[addVoidNode]) >>
+				(')' | epsP[ThrowError("ERROR: ')' not found after 'for' statement")])
 			)[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
 		whileexpr	=
 			strP("while")[saveVarTop] >>
 			(
-			('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >>
-			(term5 | epsP[ThrowError("ERROR: expression expected after 'while('")]) >>
-			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
+				('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >>
+				(term5 | epsP[ThrowError("ERROR: expression expected after 'while('")]) >>
+				(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
 			) >>
 			(expression[addWhileNode] | epsP[ThrowError("ERROR: expression expected after 'while(...)'")]);
 		doexpr		=	
@@ -1909,9 +1935,9 @@ namespace CompilerGrammar
 			(expression | epsP[ThrowError("ERROR: expression expected after 'do'")]) >> 
 			(strP("while") | epsP[ThrowError("ERROR: 'while' expected after 'do' statement")]) >>
 			(
-			('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >> 
-			(term5 | epsP[ThrowError("ERROR: expression not found after 'while('")]) >> 
-			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
+				('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >> 
+				(term5 | epsP[ThrowError("ERROR: expression not found after 'while('")]) >> 
+				(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
 			)[addDoWhileNode] >> 
 			(';' | epsP[ThrowError("ERROR: while(...) should be followed by ';'")]);
 		switchexpr	=
@@ -1924,13 +1950,18 @@ namespace CompilerGrammar
 			*(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
 			('}' | epsP[ThrowError("ERROR: '}' not found after 'switch' statement")])[addSwitchNode];
 
-		retexpr		=	(strP("return") >> (term5 | epsP[addVoidNode]) >> +chP(';'))[addReturnNode];
+		retexpr		=
+			(
+				strP("return") >>
+				(term5 | epsP[addVoidNode]) >>
+				(+chP(';') | epsP[ThrowError("ERROR: return must be followed by ';'")])
+			)[addReturnNode];
 		breakexpr	=	(
 			strP("break") >>
 			(+chP(';') | epsP[ThrowError("ERROR: break must be followed by ';'")])
 			)[addBreakNode];
 
-		group		=	'(' >> term5 >> ')';
+		group		=	'(' >> term5 >> (')' | epsP[ThrowError("ERROR: closing ')' not found after '('")]);
 
 		variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetAddressNode] >> *postExpr);
 		postExpr	=	('.' >> varname[strPush])[AddMemberAccessNode] |
@@ -1970,12 +2001,12 @@ namespace CompilerGrammar
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 		term5		=	(
 						variable >> (
-						(strP("=") >> term5)[AddSetVariableNode][popType] |
-						(strP("+=") >> term5)[AddModifyVariable<cmdAdd>()][popType] |
-						(strP("-=") >> term5)[AddModifyVariable<cmdSub>()][popType] |
-						(strP("*=") >> term5)[AddModifyVariable<cmdMul>()][popType] |
-						(strP("/=") >> term5)[AddModifyVariable<cmdDiv>()][popType] |
-						(strP("**=") >> term5)[AddModifyVariable<cmdPow>()][popType] |
+						(strP("=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '='")]))[AddSetVariableNode][popType] |
+						(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
+						(strP("-=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '-='")]))[AddModifyVariable<cmdSub>()][popType] |
+						(strP("*=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '*='")]))[AddModifyVariable<cmdMul>()][popType] |
+						(strP("/=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '/='")]))[AddModifyVariable<cmdDiv>()][popType] |
+						(strP("**=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '**='")]))[AddModifyVariable<cmdPow>()][popType] |
 						(epsP[FailedSetVariable][popType] >> nothingP))
 						) |
 						term4_9;
@@ -2018,8 +2049,10 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 		len = (UINT)(end - begin) < 128 ? (UINT)(end - begin) : 127;
 		memcpy(line, begin, len);
 		line[len] = 0;
+		shift = (UINT)(apprPos-begin);
 	}else{
 		line[0] = 0;
+		shift = 0;
 	}
 }
 const char *CompilerError::codeStart = NULL;
