@@ -843,6 +843,21 @@ void GetVariableType(char const* s, char const* e)
 		currType = funcInfo[fID]->funcType;
 }
 
+bool sizeOfExpr = false;
+void GetTypeSize(char const* s, char const* e)
+{
+	if(!currTypes.back())
+		throw CompilerError("ERROR: sizeof(auto) is illegal", s);
+	if(sizeOfExpr)
+	{
+		currTypes.back() = nodeList.back()->GetTypeInfo();
+		nodeList.pop_back();
+	}
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(currTypes.back()->size, typeInt)));
+
+	sizeOfExpr = false;
+}
+
 void AddInplaceArray(char const* s, char const* e);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
@@ -1997,6 +2012,7 @@ namespace CompilerGrammar
 		postExpr	=	('.' >> varname[strPush])[AddMemberAccessNode] |
 						('[' >> term5 >> ']')[AddArrayIndexNode];
 		term1		=
+			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize][popType]/*[addPopNode]*/) >> chP(')')[popType]) |
 			(chP('&') >> variable)[popType] |
 			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt, true>()])[popType] | 
 			(strP("++") >> variable[AddPreOrPostOp<cmdIncAt, true>()])[popType] |
@@ -2016,7 +2032,7 @@ namespace CompilerGrammar
 				)[popType]
 			);
 
-		term2		=	(term1) >> *((strP("**") >> (term1))[addCmd(cmdPow)]);
+		term2		=	term1 >> *((strP("**") >> term1)[addCmd(cmdPow)]);
 		term3		=	term2 >> *(('*' >> term2)[addCmd(cmdMul)] | ('/' >> term2)[addCmd(cmdDiv)] | ('%' >> term2)[addCmd(cmdMod)]);
 		term4		=	term3 >> *(('+' >> term3)[addCmd(cmdAdd)] | ('-' >> term3)[addCmd(cmdSub)]);
 		term4_1		=	term4 >> *((strP("<<") >> term4)[addCmd(cmdShl)] | (strP(">>") >> term4)[addCmd(cmdShr)]);
