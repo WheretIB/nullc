@@ -723,6 +723,9 @@ void NodeFuncCall::Compile()
 				cmdList->AddData(funcType->paramType[i]->size);
 		}
 
+		if(!funcInfo)
+			first->Compile();
+
 		cmdList->AddData(cmdPushVTop);
 
 		// Надём, сколько занимают все переменные
@@ -733,9 +736,6 @@ void NodeFuncCall::Compile()
 		// Расширим стек переменные на это значение
 		cmdList->AddData(cmdPushV);
 		cmdList->AddData(allSize);
-
-		if(!funcInfo)
-			first->Compile();
 
 		// Вызовем по адресу
 		cmdList->AddData(cmdCall);
