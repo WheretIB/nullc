@@ -858,6 +858,12 @@ void GetTypeSize(char const* s, char const* e)
 	sizeOfExpr = false;
 }
 
+void SetTypeOfLastNode(char const* s, char const* e)
+{
+	currType = nodeList.back()->GetTypeInfo();
+	nodeList.pop_back();
+}
+
 void AddInplaceArray(char const* s, char const* e);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
@@ -1900,7 +1906,7 @@ namespace CompilerGrammar
 		addDouble	=	addNumberNode<double>;
 
 		arrayDef	=	('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']' >> !arrayDef)[convertTypeToArray];
-		seltype		=	((strP("auto") | typenameP(varname))[selType] | (strP("typeof") >> chP('(') >> varname[GetVariableType] >> chP(')'))) >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
+		seltype		=	((strP("auto") | typenameP(varname))[selType] | (strP("typeof") >> chP('(') >> ((varname[GetVariableType] >> chP(')')) | (term5[SetTypeOfLastNode] >> chP(')'))))) >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
 		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
 		varname		=	lexemeD[alphaP >> *alnumP];
@@ -2012,7 +2018,7 @@ namespace CompilerGrammar
 		postExpr	=	('.' >> varname[strPush])[AddMemberAccessNode] |
 						('[' >> term5 >> ']')[AddArrayIndexNode];
 		term1		=
-			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize][popType]/*[addPopNode]*/) >> chP(')')[popType]) |
+			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize][popType]) >> chP(')')[popType]) |
 			(chP('&') >> variable)[popType] |
 			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt, true>()])[popType] | 
 			(strP("++") >> variable[AddPreOrPostOp<cmdIncAt, true>()])[popType] |
