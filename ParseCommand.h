@@ -26,6 +26,9 @@ const CmdID cmdCTI		= 103;
 	// get variable address, shifted by the parameter stack base
 	// получить адрес переменной, относительно базы стека переменных
 const CmdID cmdGetAddr	= 201;
+	// get function address
+	// получить адрес функции
+const CmdID cmdFuncAddr	= 202;
 
 // general commands [using command flag. check CmdRef.txt]
 // основные команды [используются флаг команды, смотрите CmdRef.txt]
