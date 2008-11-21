@@ -76,7 +76,7 @@ int AddFunctionExternal(FunctionInfo* func, std::string name)
 
 	compileLog << "Function " << currDefinedFunc.back()->name << " uses external variable " << name << "\r\n";
 	func->external.push_back(name);
-	return func->external.size()-1;
+	return (int)func->external.size()-1;
 }
 
 // Преобразовать строку в число типа long long
@@ -765,7 +765,7 @@ void addVar(char const* s, char const* e)
 		{
 			UINT offset = activeAlign - (varTop % activeAlign);
 			varTop += offset;
-			offsetBytes = offset;
+			offsetBytes += offset;
 		}
 	}
 	varInfo.push_back(new VariableInfo(vName, varTop, currType, currValConst));
@@ -817,59 +817,102 @@ void AddInplaceArray(char const* s, char const* e);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
 
-void AddGetVariableNode(char const* s, char const* e)
+// Функция для получения адреса переменной, имя которое передаётся в параметрах
+void AddGetAddressNode(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
 
+	int fID = -1;
+	// Ищем переменную по имени
 	int i = (int)varInfo.size()-1;
 	string vName(s, e);
 	while(i >= 0 && varInfo[i]->name != vName)
 		i--;
 	if(i == -1)
-		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get var]", s);
-	currTypes.push_back(varInfo[i]->varType);
-
-	if(retTypeStack.size() > 1 && currDefinedFunc.back()->local && i < varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 	{
+		// Ищем функцию по имени
+		for(int k = 0; k < (int)funcInfo.size(); k++)
+		{
+			if(funcInfo[k]->name == vName && funcInfo[k]->visible)
+			{
+				if(fID != -1)
+					throw CompilerError("ERROR: there are more than one '" + vName + "' function, and the decision isn't clear", s);
+				fID = k;
+			}
+		}
+		if(fID == -1)
+			throw CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+	}
+	// Кладём в стек типов её тип
+	if(fID == -1)
+		currTypes.push_back(varInfo[i]->varType);
+	else
+		currTypes.push_back(funcInfo[fID]->retType);
+
+	// Если мы находимся в локальной функции, и переменная находится в наружной области видимости
+	if((int)retTypeStack.size() > 1 && currDefinedFunc.back()->local && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+	{
+		// Добавим имя переменной в список внешних переменных функции
 		int num = AddFunctionExternal(currDefinedFunc.back(), vName);
 
+		// Создадим тип - указатель на массив указателей, размером со все текущие внешние переменные функции
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)currDefinedFunc.back()->external.size(), typeInt)));
-		//currTypes.push_back(GetReferenceType(GetArrayType(GetReferenceType(typeInt))));
 		varInfo[varInfoTop.back().activeVarCnt]->varType = GetReferenceType(GetArrayType(GetReferenceType(typeInt)));
 
+		// Внешние переменные адрессуются косвенно через скрытый параметр функции
 		std::string bName = "$" + currDefinedFunc.back()->name + "_ext";
 
-		AddGetVariableNode(bName.c_str(), bName.c_str()+bName.length());
-		AddDereferenceNode(0,0);
+		// Получаем значение скрытого параметра
+		// Тут компилятор делает предположение, что текущий тип - "int ref[n] ref", хотя на самом деле он "int ref[n] ref ref"
+		AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());		// текущий тип - int ref[n] ref (реальный - int ref[n] ref ref)
+		// Разыменовываем
+		AddDereferenceNode(0,0);											// текущий тип - int ref[n]		(реальный - int ref[n] ref)
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(num, typeInt)));
-		AddArrayIndexNode(0,0);
-		AddDereferenceNode(0,0);
+		AddArrayIndexNode(0,0);												// текущий тип - int ref		(реальный - int ref ref)
+		AddDereferenceNode(0,0);											// текущий тип - int			(реальный - int ref)
+		// Убрали текущий тип
 		currTypes.pop_back();
 	}else{
-		bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
+		if(fID == -1)
+		{
+			// Если переменная находится в глобальной области видимости, её адрес - абсолютный, без сдвигов
+			bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 
-		int varAddress = varInfo[i]->pos;
-		if(!absAddress)
-			varAddress -= (int)(varInfoTop.back().varStackSize);
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableGet(varInfo[i], varAddress, absAddress)));
+			int varAddress = varInfo[i]->pos;
+			if(!absAddress)
+				varAddress -= (int)(varInfoTop.back().varStackSize);
+
+			// Создаем узел для получения указателя на переменную
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varAddress, absAddress)));
+		}else{
+			// Создаем узел для получения указателя на функцию
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFunctionAddress(funcInfo[fID])));
+			//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(reinterpret_cast<long long>(funcInfo[fID]), funcInfo[fID]->funcType)));
+		}
 	}
 }
 
+// Функция вызывается для индексации массива
 void AddArrayIndexNode(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
 
+	// Тип должен быть массивом
 	if(currTypes.back()->arrLevel == 0)
 		throw CompilerError("ERROR: indexing variable that is not an array", s);
+	// Если это безразмерный массив (указатель на массив)
 	if(currTypes.back()->arrSize == -1)
 	{
+		// То перед индексацией необходимо получить указатель на массив, который хранится в переменной
 		shared_ptr<NodeZeroOP> temp = nodeList.back();
 		nodeList.pop_back();
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(GetReferenceType(currTypes.back()->subType))));
 		nodeList.push_back(temp);
 	}
-	if(nodeList.back()->GetNodeType() == typeNodeNumber)
+	// Если индекс - константное число и текущий узел - адрес
+	if(nodeList.back()->GetNodeType() == typeNodeNumber && (*(nodeList.end()-2))->GetNodeType() == typeNodeGetAddress)
 	{
+		// Получаем значение сдвига
 		int shiftValue;
 		shared_ptr<NodeZeroOP> indexNode = nodeList.back();
 		TypeInfo *aType = indexNode->GetTypeInfo();
@@ -887,82 +930,115 @@ void AddArrayIndexNode(char const* s, char const* e)
 			throw CompilerError("AddArrayIndexNode() ERROR: unknown index type " + aType->name, lastKnownStartPos);
 		}
 
-		if((*(nodeList.end()-2))->GetNodeType() == typeNodeVariableGet)
-		{
-			static_cast<NodeVariableGet*>((*(nodeList.end()-2)).get())->IndexArray(shiftValue);
-			nodeList.pop_back();
-		}else{
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeArrayIndex(currTypes.back())));
-		}
+		// Индексируем относительно него
+		static_cast<NodeGetAddress*>((*(nodeList.end()-2)).get())->IndexArray(shiftValue);
+		nodeList.pop_back();
 	}else{
+		// Иначе создаём узел индексации
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeArrayIndex(currTypes.back())));
 	}
+	// Теперь текущий тип - тип элемента массива
 	currTypes.back() = currTypes.back()->subType;
 }
 
+// Функция вызывается для разыменования указателя
 void AddDereferenceNode(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
 
+	// Создаём узел разыменования
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
+	// Теперь текущий тип - тип на который указывала ссылка
 	currTypes.back() = GetDereferenceType(currTypes.back());
 }
 
+// Компилятор в начале предполагает, что после переменной будет слодовать знак присваивания
+// Часто его нету, поэтому требуется удалить узел
 void FailedSetVariable(char const* s, char const* e)
 {
 	nodeList.pop_back();
 }
 
+// Функция вызывается для определния переменной с одновременным присваиванием ей значения
 void AddDefineVariableNode(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
 
+	// Ищем переменную по имени
 	int i = (int)varInfo.size()-1;
 	string vName = strs.back();
 	while(i >= 0 && varInfo[i]->name != vName)
 		i--;
 	if(i == -1)
-		throw CompilerError("ERROR: variable '" + vName + "' is not defined [get var]", s);
+		throw CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+	// Кладём в стек типов её тип
 	currTypes.push_back(varInfo[i]->varType);
 
+	// Если переменная находится в глобальной области видимости, её адрес - абсолютный, без сдвигов
 	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 
+	// Если указатель на текущий тип равен NULL, значит тип переменной обозначен как автоматически выводимый (auto)
+	// В таком случае, в качестве типа берётся возвращаемый последним узлом AST
 	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->GetTypeInfo();
 
+	// Возможно, для определения значения переменной понадобится добавить вспомогательный узел дерева
+	// Переменная служит как флаг, обозначающий, что два узла надо объеденить в один
 	bool unifyTwo = false;
+	// Если тип переменной - безразмерный массив, а присваевается ей значение другого типа
 	if(realCurrType->arrSize == -1 && realCurrType != nodeList.back()->GetTypeInfo())
 	{
 		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
+		// Если подтип обоих значений (предположительно, массивов) совпадает
 		if(realCurrType->subType == nodeType->subType)
 		{
+			// И если справа не находится узел получения значения переменной
 			if(nodeList.back()->GetNodeType() != typeNodeDereference)
 			{
+				// Тогда, если справа - определение массива списком
 				if(nodeList.back()->GetNodeType() == typeNodeExpressionList)
 				{
+					// Добавим узел, присваивающий скрытой переменной значения этого списка
 					AddInplaceArray(s, e);
+					// Добавили лишний узел, потребуется их объеденить в конце
 					unifyTwo = true;
 				}else{
+					// Иначе, типы не совместимы, поэтому свидетельствуем об ошибке
 					throw CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
 				}
 			}
+			// Далее, так как мы присваиваем безразменому массиву значение размерного,
+			// нам надо преобразовать его в пару указатель;размер
+			// Возьмём указатель на массив, он - узел, находящийся в узле разыменования указателя
 			nodeList.back() = static_cast<NodeDereference*>(nodeList.back().get())->GetFirstNode();
+			// Найдем размер массива
 			UINT typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
+			// Создадим список выражений, возвращающий тип безразмерного массива
+			// Конструктор списка захватит предыдущий узел в себя
 			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(varInfo[i]->varType));
+			// Создадим узел, возвращающий число - размер массива
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			// Добавим в список
 			listExpr->AddNode();
+			// Положим список в список узлов
 			nodeList.push_back(listExpr);
 		}
 	}
 
-	UINT varSizeAdd = offsetBytes;
-	offsetBytes = 0;
+	// Переменная показывает, на сколько байт расширить стек переменных
+	UINT varSizeAdd = offsetBytes;	// По умолчанию, она хранит выравнивающий сдвиг
+	offsetBytes = 0;	// Который сразу же обнуляется
+	// Если тип не был ранее известен, значит в функции добавления переменной выравнивание не было произведено
 	if(!currTypes.back())
 	{
+		// Если выравнивание по умолчанию для типа значения справа не равно нулю (без выравнивания)
+		// Или если выравнивание указано пользователем
 		if(realCurrType->alignBytes != 0 || currAlign != -1)
 		{
+			// Выбираем выравниваени. Указанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
 			UINT activeAlign = currAlign != -1 ? currAlign : realCurrType->alignBytes;
 			if(activeAlign > 16)
 				throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
+			// Если требуется выравнивание (нету спецификации noalign, и адрес ещё не выравнен)
 			if(activeAlign != 0 && varTop % activeAlign != 0)
 			{
 				UINT offset = activeAlign - (varTop % activeAlign);
@@ -976,7 +1052,7 @@ void AddDefineVariableNode(char const* s, char const* e)
 	}
 	varSizeAdd += varDefined ? realCurrType->size : 0;
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableGet(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress)));
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableSet(realCurrType, varSizeAdd, false)));
 
@@ -1036,11 +1112,12 @@ void AddSetVariableNode(char const* s, char const* e)
 	}
 }
 
-void AddFinalDereferenceNode(char const* s, char const* e)
+void AddGetVariableNode(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
+	if(nodeList.back()->GetTypeInfo()->funcType == NULL)
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
 }
 
 void AddMemberAccessNode(char const* s, char const* e)
@@ -1065,9 +1142,9 @@ void AddMemberAccessNode(char const* s, char const* e)
 	if(i == -1)
 		throw CompilerError("ERROR: variable '" + memberName + "' is not a member of '" + currType->GetTypeName() + "'", s);
 
-	if(nodeList.back()->GetNodeType() == typeNodeVariableGet)
+	if(nodeList.back()->GetNodeType() == typeNodeGetAddress)
 	{
-		static_cast<NodeVariableGet*>(nodeList.back().get())->ShiftToMember(i);
+		static_cast<NodeGetAddress*>(nodeList.back().get())->ShiftToMember(i);
 	}else{
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeShiftAddress(currType->memberData[i].offset, currType->memberData[i].type)));
 	}
@@ -1095,7 +1172,7 @@ void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 {
 	shared_ptr<NodeZeroOP> temp = *(nodeList.end()-2);
 	nodeList.push_back(temp);
-	AddFinalDereferenceNode(s, e);
+	AddGetVariableNode(s, e);
 	std::swap(*(nodeList.end()-1), *(nodeList.end()-2));
 	addTwoAndCmpNode(cmd);
 	AddSetVariableNode(s, e);
@@ -1127,8 +1204,8 @@ void AddInplaceArray(char const* s, char const* e)
 	addPopNode(s, e);
 	currTypes.pop_back();
 
-	AddGetVariableNode(strs.back().c_str(), strs.back().c_str()+strs.back().length());
-	AddFinalDereferenceNode(s, e);
+	AddGetAddressNode(strs.back().c_str(), strs.back().c_str()+strs.back().length());
+	AddGetVariableNode(s, e);
 
 	varDefined = saveVarDefined;
 	currType = saveCurrType;
@@ -1303,7 +1380,7 @@ void funcEnd(char const* s, char const* e)
 		for(UINT n = 0; n < lastFunc.external.size(); n++)
 		{
 			const char *s = lastFunc.external[n].c_str(), *e = s + lastFunc.external[n].length();
-			AddGetVariableNode(s, e);
+			AddGetAddressNode(s, e);
 			arrayList->AddNode();
 		}
 		nodeList.push_back(temp);
@@ -1325,6 +1402,51 @@ void funcEnd(char const* s, char const* e)
 		strs.pop_back();
 		addTwoExprNode(0,0);
 	}
+
+	// Find out the function type
+	TypeInfo	*bestFit = NULL;
+	// Search through active types
+	for(UINT i = 0; i < typeInfo.size(); i++)
+	{
+		if(typeInfo[i]->funcType)
+		{
+			if(typeInfo[i]->funcType->retType != lastFunc.retType)
+				continue;
+			if(typeInfo[i]->funcType->paramType.size() != lastFunc.params.size())
+				continue;
+			bool good = true;
+			for(UINT n = 0; n < lastFunc.params.size(); n++)
+			{
+				if(lastFunc.params[n].varType != typeInfo[i]->funcType->paramType[n])
+				{
+					good = false;
+					break;
+				}
+			}
+			if(good)
+			{
+				bestFit = typeInfo[i];
+				break;
+			}
+		}
+	}
+	// If none found, create new
+	if(!bestFit)
+	{
+		typeInfo.push_back(new TypeInfo());
+		typeInfo.back()->funcType = new FunctionType();
+		typeInfo.back()->size = 4;
+		bestFit = typeInfo.back();
+
+		bestFit->type = TypeInfo::TYPE_COMPLEX;
+
+		bestFit->funcType->retType = lastFunc.retType;
+		for(UINT n = 0; n < lastFunc.params.size(); n++)
+		{
+			bestFit->funcType->paramType.push_back(lastFunc.params[n].varType);
+		}
+	}
+	lastFunc.funcType = bestFit;
 }
 
 
@@ -1333,114 +1455,101 @@ void addFuncCallNode(char const* s, char const* e)
 	string fname = strs.back();
 	strs.pop_back();
 
-	// Searching from last function to first. If  the first found function is local, create node that sends context info
-	for(int k = (int)funcInfo.size()-1; k >= 0; k--)
+	// Searching, if fname is actually a variable name (which means, either it is a pointer to function, or an error)
+	int vID = (int)varInfo.size()-1;
+	while(vID >= 0 && varInfo[vID]->name != fname)
+		vID--;
+
+	FunctionInfo	*fInfo = NULL;
+	FunctionType	*fType = NULL;
+
+	if(vID == -1)
 	{
-		if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->local)
+		// Searching from last function to first. If  the first found function is local, create node that sends context info
+		for(int k = (int)funcInfo.size()-1; k >= 0; k--)
 		{
-			std::string bName = "$" + funcInfo[k]->name + "_ext";
-			int i = (int)varInfo.size()-1;
-			while(i >= 0 && varInfo[i]->name != bName)
-				i--;
-			if(i == -1)
+			if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->local)
 			{
-				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
-				callArgCount.back()++;
-			}else{
 				std::string bName = "$" + funcInfo[k]->name + "_ext";
+				int i = (int)varInfo.size()-1;
+				while(i >= 0 && varInfo[i]->name != bName)
+					i--;
+				if(i == -1)
+				{
+					nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
+					callArgCount.back()++;
+				}else{
+					std::string bName = "$" + funcInfo[k]->name + "_ext";
 
-				AddGetVariableNode(bName.c_str(), bName.c_str()+bName.length());
-				if(currTypes.back()->refLevel == 1)
-					AddDereferenceNode(s, e);
-				funcInfo[k]->params.back().varType = GetReferenceType(currTypes.back());
-				currTypes.pop_back();
+					AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+					if(currTypes.back()->refLevel == 1)
+						AddDereferenceNode(s, e);
+					funcInfo[k]->params.back().varType = GetReferenceType(currTypes.back());
+					currTypes.pop_back();
 
-				callArgCount.back()++;
+					callArgCount.back()++;
+				}
+				break;
 			}
-			break;
 		}
-	}
 
-	//Find all functions with given name
-	FunctionInfo *fList[32];
-	UINT	fRating[32];
-	memset(fRating, 0, 32*4);
+		//Find all functions with given name
+		FunctionInfo *fList[32];
+		UINT	fRating[32];
+		memset(fRating, 0, 32*4);
 
-	int count = 0;
-	for(int k = 0; k < (int)funcInfo.size(); k++)
-		if(funcInfo[k]->name == fname && funcInfo[k]->visible)
-			fList[count++] = funcInfo[k];
-	if(count == 0)
-		throw CompilerError("ERROR: function '" + fname + "' is undefined", s);
-	// Find the best suited function
-	UINT minRating = 1024*1024;
-	UINT minRatingIndex = -1;
-	for(int k = 0; k < count; k++)
-	{
-		if(fList[k]->params.size() != callArgCount.back())
+		int count = 0;
+		for(int k = 0; k < (int)funcInfo.size(); k++)
+			if(funcInfo[k]->name == fname && funcInfo[k]->visible)
+				fList[count++] = funcInfo[k];
+		if(count == 0)
+			throw CompilerError("ERROR: function '" + fname + "' is undefined", s);
+		// Find the best suited function
+		UINT minRating = 1024*1024;
+		UINT minRatingIndex = -1;
+		for(int k = 0; k < count; k++)
 		{
-			fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
-			continue;
-		}
-		for(UINT n = 0; n < fList[k]->params.size(); n++)
-		{
-			TypeInfo *paramType = nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo();
-			TypeInfo *expectedType = fList[k]->params[n].varType;
-			if(expectedType != paramType)
+			if(fList[k]->params.size() != callArgCount.back())
 			{
-				if(expectedType->arrSize == -1 && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
-					fRating[k] += 5;
-				else if(expectedType->type == TypeInfo::TYPE_COMPLEX)
-					fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
-				else if(paramType->type == TypeInfo::TYPE_COMPLEX)
-					fRating[k] += 65000;	// Again. Function excepts complex type, and all we have is simple type (cause previous condition failed).
-				else if(paramType->subType != expectedType->subType)
-					fRating[k] += 65000;	// Pointer or array with a different types inside. Doesn't matter if simple or complex.
-				else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
-					fRating[k] += 1;
+				fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
+				continue;
+			}
+			for(UINT n = 0; n < fList[k]->params.size(); n++)
+			{
+				TypeInfo *paramType = nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo();
+				TypeInfo *expectedType = fList[k]->params[n].varType;
+				if(expectedType != paramType)
+				{
+					if(expectedType->arrSize == -1 && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
+						fRating[k] += 5;
+					else if(expectedType->type == TypeInfo::TYPE_COMPLEX)
+						fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
+					else if(paramType->type == TypeInfo::TYPE_COMPLEX)
+						fRating[k] += 65000;	// Again. Function excepts complex type, and all we have is simple type (cause previous condition failed).
+					else if(paramType->subType != expectedType->subType)
+						fRating[k] += 65000;	// Pointer or array with a different types inside. Doesn't matter if simple or complex.
+					else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
+						fRating[k] += 1;
+				}
+			}
+			if(fRating[k] < minRating)
+			{
+				minRating = fRating[k];
+				minRatingIndex = k;
 			}
 		}
-		if(fRating[k] < minRating)
-		{
-			minRating = fRating[k];
-			minRatingIndex = k;
-		}
-	}
-	// Maybe the function we found can't be used at all
-	if(minRating > 1000)
-	{
-		ostringstream errTemp;
-		errTemp << "ERROR: can't find function '" + fname + "' with following parameters:\r\n  ";
-		errTemp << fname << "(";
-		for(UINT n = 0; n < callArgCount.back(); n++)
-			errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
-		errTemp << ")\r\n";
-		errTemp << " the only available are:\r\n";
-		for(int n = 0; n < count; n++)
-		{
-			errTemp << "  " << fname << "(";
-			for(UINT m = 0; m < fList[n]->params.size(); m++)
-				errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
-			errTemp << ")\r\n";
-		}
-		throw errTemp.str();
-	}
-	// Check, is there are more than one function, that share the same rating
-	for(int k = 0; k < count; k++)
-	{
-		if(k != minRatingIndex && fRating[k] == minRating)
+		// Maybe the function we found can't be used at all
+		if(minRating > 1000)
 		{
 			ostringstream errTemp;
-			errTemp << "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n";
-			errTemp << "  " << fname << "(";
+			errTemp << "ERROR: can't find function '" + fname + "' with following parameters:\r\n  ";
+			errTemp << fname << "(";
 			for(UINT n = 0; n < callArgCount.back(); n++)
 				errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
 			errTemp << ")\r\n";
-			errTemp << " candidates are:\r\n";
+			errTemp << " the only available are:\r\n";
 			for(int n = 0; n < count; n++)
 			{
-				if(fRating[n] != minRating)
-					continue;
 				errTemp << "  " << fname << "(";
 				for(UINT m = 0; m < fList[n]->params.size(); m++)
 					errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
@@ -1448,20 +1557,50 @@ void addFuncCallNode(char const* s, char const* e)
 			}
 			throw errTemp.str();
 		}
+		// Check, is there are more than one function, that share the same rating
+		for(int k = 0; k < count; k++)
+		{
+			if(k != minRatingIndex && fRating[k] == minRating)
+			{
+				ostringstream errTemp;
+				errTemp << "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n";
+				errTemp << "  " << fname << "(";
+				for(UINT n = 0; n < callArgCount.back(); n++)
+					errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
+				errTemp << ")\r\n";
+				errTemp << " candidates are:\r\n";
+				for(int n = 0; n < count; n++)
+				{
+					if(fRating[n] != minRating)
+						continue;
+					errTemp << "  " << fname << "(";
+					for(UINT m = 0; m < fList[n]->params.size(); m++)
+						errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
+					errTemp << ")\r\n";
+				}
+				throw errTemp.str();
+			}
+		}
+		fType = fList[minRatingIndex]->funcType->funcType;
+		fInfo = fList[minRatingIndex];
+	}else{
+		AddGetAddressNode(fname.c_str(), fname.length()+fname.c_str());
+		AddGetVariableNode(s, e);
+		fType = nodeList.back()->GetTypeInfo()->funcType;
 	}
 	vector<shared_ptr<NodeZeroOP> > paramNodes;
-	for(UINT i = 0; i < fList[minRatingIndex]->params.size(); i++)
+	for(UINT i = 0; i < fType->paramType.size(); i++)
 	{
 		paramNodes.push_back(nodeList.back());
 		nodeList.pop_back();
 	}
 	vector<shared_ptr<NodeZeroOP> > inplaceArray;
 
-	for(UINT i = 0; i < fList[minRatingIndex]->params.size(); i++)
+	for(UINT i = 0; i < fType->paramType.size(); i++)
 	{
-		UINT index = (UINT)(fList[minRatingIndex]->params.size()) - i - 1;
+		UINT index = (UINT)(fType->paramType.size()) - i - 1;
 
-		TypeInfo *expectedType = fList[minRatingIndex]->params[i].varType;
+		TypeInfo *expectedType = fType->paramType[i];
 		TypeInfo *realType = paramNodes[index]->GetTypeInfo();
 		
 		if(expectedType->arrSize == -1 && expectedType->subType == realType->subType && expectedType != realType)
@@ -1493,7 +1632,7 @@ void addFuncCallNode(char const* s, char const* e)
 		}
 	}
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fList[minRatingIndex])));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fInfo, fType)));
 
 	if(inplaceArray.size() > 0)
 	{
@@ -1793,7 +1932,7 @@ namespace CompilerGrammar
 
 		group		=	'(' >> term5 >> ')';
 
-		variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetVariableNode] >> *postExpr);
+		variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetAddressNode] >> *postExpr);
 		postExpr	=	('.' >> varname[strPush])[AddMemberAccessNode] |
 						('[' >> term5 >> ']')[AddArrayIndexNode];
 		term1		=
@@ -1812,7 +1951,7 @@ namespace CompilerGrammar
 				(
 					strP("++")[AddPreOrPostOp<cmdIncAt, false>()] |
 					strP("--")[AddPreOrPostOp<cmdDecAt, false>()] |
-					epsP[AddFinalDereferenceNode]
+					epsP[AddGetVariableNode]
 				)[popType]
 			);
 
@@ -2154,6 +2293,52 @@ bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
 	strs.pop_back();
 	retTypeStack.pop_back();
 	buildInFuncs++;
+
+	FunctionInfo	&lastFunc = *funcInfo.back();
+	// Find out the function type
+	TypeInfo	*bestFit = NULL;
+	// Search through active types
+	for(UINT i = 0; i < typeInfo.size(); i++)
+	{
+		if(typeInfo[i]->funcType)
+		{
+			if(typeInfo[i]->funcType->retType != lastFunc.retType)
+				continue;
+			if(typeInfo[i]->funcType->paramType.size() != lastFunc.params.size())
+				continue;
+			bool good = true;
+			for(UINT n = 0; n < lastFunc.params.size(); n++)
+			{
+				if(lastFunc.params[n].varType != typeInfo[i]->funcType->paramType[n])
+				{
+					good = false;
+					break;
+				}
+			}
+			if(good)
+			{
+				bestFit = typeInfo[i];
+				break;
+			}
+		}
+	}
+	// If none found, create new
+	if(!bestFit)
+	{
+		typeInfo.push_back(new TypeInfo());
+		typeInfo.back()->funcType = new FunctionType();
+		typeInfo.back()->size = 4;
+		bestFit = typeInfo.back();
+
+		bestFit->type = TypeInfo::TYPE_INT;
+
+		bestFit->funcType->retType = lastFunc.retType;
+		for(UINT n = 0; n < lastFunc.params.size(); n++)
+		{
+			bestFit->funcType->paramType.push_back(lastFunc.params[n].varType);
+		}
+	}
+	lastFunc.funcType = bestFit;
 
 	buildInTypes = (int)typeInfo.size();
 
@@ -2567,6 +2752,14 @@ void Compiler::GenListing()
 			pos += 4;
 			logASM << pos2 << " GETADDR " << (int)valind << ';';
 			break;
+		case cmdFuncAddr:
+			{
+				FunctionInfo	*fInfo;
+				cmdList->GetData(pos, fInfo);
+				pos += sizeof(FunctionInfo*);
+				logASM << pos2 << " FUNCADDR " << fInfo->name;
+				break;
+			}
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
 		{

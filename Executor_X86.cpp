@@ -27,10 +27,15 @@ ExecutorX86::ExecutorX86()
 	commitedStack = stackGrowCommit;
 	
 	paramDataBase = paramBase = static_cast<UINT>(reinterpret_cast<long long>(paramData));
+
+	binCode = new char[200000];
+	binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
 }
 ExecutorX86::~ExecutorX86()
 {
 	VirtualFree(reinterpret_cast<void*>(0x20000000), reservedStack, MEM_RELEASE);
+
+	delete[] binCode;
 }
 
 int runResult = 0;
@@ -102,7 +107,7 @@ UINT ExecutorX86::Run()
 	FILE *fCode = fopen("asmX86.bin", "rb");
 	if(!fCode)
 		throw std::string("Failed to open output file");
-	char binCode[200000];
+	
 	fseek(fCode, 0, SEEK_END);
 	UINT size = ftell(fCode);
 	fseek(fCode, 0, SEEK_SET);
@@ -110,12 +115,10 @@ UINT ExecutorX86::Run()
 		throw std::string("Byte code is too big (size > 200000)");
 	fread(binCode, 1, size, fCode);
 
-	typedef void (*codeFunc)();
-	codeFunc funcMain = (codeFunc)(&binCode[0]);
-	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
-
 	LARGE_INTEGER pFreq, pCntS, pCntE;
 	QueryPerformanceFrequency(&pFreq);
+
+	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
 
 	UINT res1 = 0;
 	UINT res2 = 0;
@@ -200,6 +203,8 @@ void ExecutorX86::GenListing()
 	vector<int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
 	vector<int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
 
+	FunctionInfo *funcInfo;
+
 	//Узнаем, кому нужны лейблы
 	while(cmdList->GetData(pos, cmd))
 	{
@@ -221,6 +226,12 @@ void ExecutorX86::GenListing()
 			pos += 4;
 			pos += 2;
 			funcNeedLabel.push_back(valind);
+			break;
+		case cmdFuncAddr:
+			cmdList->GetData(pos, funcInfo);
+			pos += sizeof(FunctionInfo*);
+			if(funcInfo->funcPtr == NULL)
+				funcNeedLabel.push_back(funcInfo->address);
 			break;
 		case cmdReturn:
 			pos += 4;
@@ -359,8 +370,6 @@ void ExecutorX86::GenListing()
 
 	UINT lastVarSize = 0;
 	bool mulByVarSize = false;
-
-	FunctionInfo *funcInfo;
 
 	pos = 0;
 	pos2 = 0;
@@ -532,8 +541,13 @@ void ExecutorX86::GenListing()
 				}else{
 					logASM << (retFlag&0x0FFF) << "\r\n";
 				}
-
-				logASM << "call function" << valind << "\r\n";
+				if(valind == -1)
+				{
+					logASM << "pop eax ;\r\n";
+					logASM << "call eax ; \r\n";
+				}else{
+					logASM << "call function" << valind << "\r\n";
+				}
 				if(!(retFlag & bitRetSimple) && retFlag > 16)
 					logASM << "mov eax, edi ; сохраним старый edi\r\n";
 				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
@@ -1491,6 +1505,22 @@ void ExecutorX86::GenListing()
 				edxValueForPush = (int)valind;
 			}
 			break;
+		case cmdFuncAddr:
+		{
+			cmdList->GetData(pos, funcInfo);
+			pos += sizeof(FunctionInfo*);
+			if(!funcInfo)
+				throw std::string("ERROR: std function info is invalid");
+
+			if(funcInfo->funcPtr == NULL)
+			{
+				logASM << "lea eax, [function" << funcInfo->address << " + " << binCodeStart << "] ; адрес функции \r\n";
+				logASM << "push eax ; \r\n";
+			}else{
+				logASM << "push 0x" << funcInfo->funcPtr << " \r\n";
+			}
+			break;
+		}
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
 		{

@@ -642,15 +642,22 @@ UINT NodeFuncDef::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, производящий вызов функции
-NodeFuncCall::NodeFuncCall(FunctionInfo *info)
+NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 {
 	// Структура описания функции
 	funcInfo = info;
+
+	// Структура описания типа функции
+	funcType = type;
+
 	// Тип результата - тип возвратного значения функции
-	typeInfo = funcInfo->retType;
+	typeInfo = type->retType;
+
+	if(!funcInfo)
+		first = TakeLastNode();
 
 	// Возьмём узлы каждого параметра
-	for(UINT i = 0; i < funcInfo->params.size(); i++)
+	for(UINT i = 0; i < type->paramType.size(); i++)
 		paramList.push_back(TakeLastNode());
 }
 NodeFuncCall::~NodeFuncCall()
@@ -664,7 +671,7 @@ void NodeFuncCall::Compile()
 	// Если имеются параметры, найдём их значения
 	UINT currParam = 0;
 	
-	if(funcInfo->address == -1 && funcInfo->funcPtr != NULL)
+	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL)
 	{
 		std::list<shared_ptr<NodeZeroOP> >::iterator s, e;
 		s = paramList.begin();
@@ -674,7 +681,7 @@ void NodeFuncCall::Compile()
 			// Определим значение параметра
 			(*s)->Compile();
 			// Преобразуем его в тип входного параметра функции
-			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
+			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
 			currParam++;
 		}
 	}else{
@@ -686,11 +693,11 @@ void NodeFuncCall::Compile()
 			// Определим значение параметра
 			(*s)->Compile();
 			// Преобразуем его в тип входного параметра функции
-			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
+			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
 			currParam++;
 		}
 	}
-	if(funcInfo->address == -1)		// Если функция встроенная
+	if(funcInfo && funcInfo->address == -1)		// Если функция встроенная
 	{
 		// Вызовем по имени
 		cmdList->AddData(cmdCallStd);
@@ -698,38 +705,41 @@ void NodeFuncCall::Compile()
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
 		UINT addr = 0;
-		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)
+		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
 		{
-			asmStackType newST = podTypeToStackType[funcInfo->params[i].varType->type];
-			asmDataType newDT = podTypeToDataType[funcInfo->params[i].varType->type];
+			asmStackType newST = podTypeToStackType[funcType->paramType[i]->type];
+			asmDataType newDT = podTypeToDataType[funcType->paramType[i]->type];
 			cmdList->AddData(cmdMov);
 			cmdList->AddData((USHORT)(newST | newDT | bitAddrRelTop));
 			// адрес начала массива
 			cmdList->AddData(addr);
-			addr += funcInfo->params[i].varType->size;
+			addr += funcType->paramType[i]->size;
 			if(newST == STYPE_COMPLEX_TYPE)
-				cmdList->AddData(funcInfo->params[i].varType->size);
+				cmdList->AddData(funcType->paramType[i]->size);
 
 			cmdList->AddData(cmdPop);
 			cmdList->AddData((USHORT)(newST));
 			if(newST == STYPE_COMPLEX_TYPE)
-				cmdList->AddData(funcInfo->params[i].varType->size);
+				cmdList->AddData(funcType->paramType[i]->size);
 		}
 
 		cmdList->AddData(cmdPushVTop);
 
 		// Надём, сколько занимают все переменные
 		UINT allSize=0;
-		for(UINT i = 0; i < funcInfo->params.size(); i++)
-			allSize += funcInfo->params[i].varType->size;
+		for(UINT i = 0; i < funcType->paramType.size(); i++)
+			allSize += funcType->paramType[i]->size;
 
 		// Расширим стек переменные на это значение
 		cmdList->AddData(cmdPushV);
 		cmdList->AddData(allSize);
 
+		if(!funcInfo)
+			first->Compile();
+
 		// Вызовем по адресу
 		cmdList->AddData(cmdCall);
-		cmdList->AddData(funcInfo->address);
+		cmdList->AddData(funcInfo ? funcInfo->address : -1);
 		cmdList->AddData((USHORT)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
 	}
 
@@ -738,7 +748,7 @@ void NodeFuncCall::Compile()
 void NodeFuncCall::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *typeInfo << "FuncCall '" << funcInfo->name << "' :\r\n";
+	ostr << *typeInfo << "FuncCall '" << (funcInfo ? funcInfo->name : "$ptr") << "' :\r\n";
 	GoDown();
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
 	{
@@ -754,22 +764,25 @@ void NodeFuncCall::LogToStream(ostringstream& ostr)
 UINT NodeFuncCall::GetSize()
 {
 	UINT size = 0;
+	if(!funcInfo)
+		size += first->GetSize();
+
 	UINT currParam = 0;
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
 	{
 		size += (*s)->GetSize();
-		size += ConvertFirstToSecondSize(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcInfo->params[currParam].varType->type]);
+		size += ConvertFirstToSecondSize(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
 		currParam++;
 	}
 	
-	if(funcInfo->address == -1)
+	if(funcInfo && funcInfo->address == -1)
 	{
 		size += sizeof(CmdID) + sizeof(funcInfo);
 	}else{
-		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcInfo->params.size()) * (2*sizeof(CmdID)+2+4+2);
-		for(int i = int(funcInfo->params.size())-1; i >= 0; i--)
+		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcType->paramType.size()) * (2*sizeof(CmdID)+2+4+2);
+		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
 		{
-			if(funcInfo->params[i].varType->type == TypeInfo::TYPE_COMPLEX)
+			if(funcType->paramType[i]->type == TypeInfo::TYPE_COMPLEX)
 				size += 2*sizeof(UINT);
 		}
 	}
@@ -779,7 +792,7 @@ UINT NodeFuncCall::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Новый узел для получения значения переменной
-NodeVariableGet::NodeVariableGet(VariableInfo* vInfo, int vAddress, bool absAddr)
+NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr)
 {
 	assert(vInfo);
 	varInfo = vInfo;
@@ -789,30 +802,30 @@ NodeVariableGet::NodeVariableGet(VariableInfo* vInfo, int vAddress, bool absAddr
 	typeInfo = vInfo->varType;
 }
 
-NodeVariableGet::~NodeVariableGet()
+NodeGetAddress::~NodeGetAddress()
 {
 }
 
-bool NodeVariableGet::IsAbsoluteAddress()
+bool NodeGetAddress::IsAbsoluteAddress()
 {
 	return absAddress;
 }
 
-void NodeVariableGet::IndexArray(int shift)
+void NodeGetAddress::IndexArray(int shift)
 {
 	assert(typeInfo->arrLevel != 0);
 	varAddress += typeInfo->subType->size * shift;
 	typeInfo = typeInfo->subType;
 }
 
-void NodeVariableGet::ShiftToMember(int member)
+void NodeGetAddress::ShiftToMember(int member)
 {
 	assert(member < typeInfo->memberData.size());
 	varAddress += typeInfo->memberData[member].offset;
 	typeInfo = typeInfo->memberData[member].type;
 }
 
-void NodeVariableGet::Compile()
+void NodeGetAddress::Compile()
 {
 	UINT startCmdSize = cmdList->GetCurrPos();
 	if(strBegin && strEnd)
@@ -833,13 +846,13 @@ void NodeVariableGet::Compile()
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
 
-void NodeVariableGet::LogToStream(ostringstream& ostr)
+void NodeGetAddress::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *GetReferenceType(typeInfo) << "VariableGet " << *varInfo << " (" << (int)varAddress << (absAddress ? " absolute" : " relative") << ")\r\n";
+	ostr << *GetReferenceType(typeInfo) << "GetAddress " << *varInfo << " (" << (int)varAddress << (absAddress ? " absolute" : " relative") << ")\r\n";
 }
 
-UINT NodeVariableGet::GetSize()
+UINT NodeGetAddress::GetSize()
 {
 	if(absAddress)
 		return sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
@@ -847,7 +860,7 @@ UINT NodeVariableGet::GetSize()
 	return sizeof(CmdID) + sizeof(UINT);
 }
 
-TypeInfo* NodeVariableGet::GetTypeInfo()
+TypeInfo* NodeGetAddress::GetTypeInfo()
 {
 	return GetReferenceType(typeInfo);
 }
@@ -902,10 +915,10 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, UINT pushVar, bool swapNo
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->GetNodeType() == typeNodeVariableGet)
+	if(first->GetNodeType() == typeNodeGetAddress)
 	{
-		absAddress = static_cast<NodeVariableGet*>(first.get())->IsAbsoluteAddress();
-		addrShift = static_cast<NodeVariableGet*>(first.get())->varAddress;
+		absAddress = static_cast<NodeGetAddress*>(first.get())->IsAbsoluteAddress();
+		addrShift = static_cast<NodeGetAddress*>(first.get())->varAddress;
 		knownAddress = true;
 	}
 	if(first->GetNodeType() == typeNodeShiftAddress)
@@ -1116,10 +1129,10 @@ NodeDereference::NodeDereference(TypeInfo* type)
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->GetNodeType() == typeNodeVariableGet)
+	if(first->GetNodeType() == typeNodeGetAddress)
 	{
-		absAddress = static_cast<NodeVariableGet*>(first.get())->IsAbsoluteAddress();
-		addrShift = static_cast<NodeVariableGet*>(first.get())->varAddress;
+		absAddress = static_cast<NodeGetAddress*>(first.get())->IsAbsoluteAddress();
+		addrShift = static_cast<NodeGetAddress*>(first.get())->varAddress;
 		knownAddress = true;
 	}
 	if(first->GetNodeType() == typeNodeShiftAddress)
@@ -1264,10 +1277,10 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, CmdID cmd, bool preOp)
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->GetNodeType() == typeNodeVariableGet)
+	if(first->GetNodeType() == typeNodeGetAddress)
 	{
-		absAddress = static_cast<NodeVariableGet*>(first.get())->IsAbsoluteAddress();
-		addrShift = static_cast<NodeVariableGet*>(first.get())->varAddress;
+		absAddress = static_cast<NodeGetAddress*>(first.get())->IsAbsoluteAddress();
+		addrShift = static_cast<NodeGetAddress*>(first.get())->varAddress;
 		knownAddress = true;
 	}
 	if(first->GetNodeType() == typeNodeShiftAddress)
@@ -1330,6 +1343,43 @@ UINT NodePreOrPostOp::GetSize()
 TypeInfo* NodePreOrPostOp::GetTypeInfo()
 {
 	return typeInfo;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Узел, получающий адрес функции
+
+NodeFunctionAddress::NodeFunctionAddress(FunctionInfo* functionInfo)
+{
+	funcInfo = functionInfo;
+	typeInfo = funcInfo->funcType;
+}
+
+NodeFunctionAddress::~NodeFunctionAddress()
+{
+}
+
+
+void NodeFunctionAddress::Compile()
+{
+	UINT startCmdSize = cmdList->GetCurrPos();
+	if(strBegin && strEnd)
+		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+
+	cmdList->AddData(cmdFuncAddr);
+	cmdList->AddData(funcInfo);
+
+	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+}
+
+void NodeFunctionAddress::LogToStream(ostringstream& ostr)
+{
+	DrawLine(ostr);
+	ostr << *typeInfo << "FunctionAddress " << funcInfo->name << (funcInfo->funcPtr ? " external" : "") << "\r\n";
+}
+
+UINT NodeFunctionAddress::GetSize()
+{
+	return sizeof(CmdID) + sizeof(FunctionInfo*);
 }
 
 //////////////////////////////////////////////////////////////////////////

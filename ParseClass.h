@@ -3,6 +3,20 @@
 
 #include "ParseCommand.h"
 
+class TypeInfo;
+
+class FunctionType
+{
+public:
+	FunctionType()
+	{
+		retType = NULL;
+	}
+
+	TypeInfo	*retType;
+	vector<TypeInfo*>	paramType;
+};
+
 //Information about type
 class TypeInfo
 {
@@ -19,6 +33,7 @@ public:
 		subType = NULL;
 		alignBytes = 0;
 		paddingBytes = 0;
+		funcType = NULL;
 	}
 
 	std::string		name;	// base type name
@@ -37,14 +52,25 @@ public:
 
 	std::string GetTypeName()
 	{
-		static char buf[256];
+		char buf[512];
+		if(funcType)
+		{
+			char *curr = buf + sprintf(buf, "%s ref(", funcType->retType->GetTypeName().c_str());
+			for(UINT i = 0; i < funcType->paramType.size(); i++)
+			{
+				curr += sprintf(curr, "%s", funcType->paramType[i]->GetTypeName().c_str());
+				if(i != funcType->paramType.size()-1)
+					curr += sprintf(curr, ", ");
+			}
+			sprintf(curr, ")");
+		}
 		if(arrLevel && arrSize != -1)
 			sprintf(buf, "%s[%d]", subType->GetTypeName().c_str(), arrSize);
 		if(arrLevel && arrSize == -1)
 			sprintf(buf, "%s[]", subType->GetTypeName().c_str());
 		if(refLevel)
 			sprintf(buf, "%s ref", subType->GetTypeName().c_str());
-		if(arrLevel == 0 && refLevel == 0)
+		if(arrLevel == 0 && refLevel == 0 && !funcType)
 			sprintf(buf, "%s", name.c_str());
 		return std::string(buf);
 	}
@@ -64,6 +90,8 @@ public:
 		UINT		offset;
 	};
 	vector<MemberInfo>	memberData;
+
+	FunctionType		*funcType;
 };
 
 template<class Ch, class Tr>
@@ -72,6 +100,7 @@ basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, TypeInfo info)
 	str << info.GetTypeName() << " ";
 	return str;
 }
+
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
 static asmDataType podTypeToDataType[] = { DTYPE_COMPLEX_TYPE, (asmDataType)0, DTYPE_INT, DTYPE_FLOAT, DTYPE_LONG, DTYPE_DOUBLE, DTYPE_SHORT, DTYPE_CHAR };
 
@@ -124,10 +153,12 @@ public:
 										// how many variables we need to remove from variable stack
 	TypeInfo*	retType;				// Function return type
 
-	bool		visible;				// true untill function goes out of scope
+	bool		visible;				// true until function goes out of scope
 	bool		local;					// false for functions, declared in global scope
 
 	std::vector<std::string> external;	// External variable names
+
+	TypeInfo	*funcType;				// Function type
 };
 
 class CallStackInfo

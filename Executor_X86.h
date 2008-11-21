@@ -23,4 +23,7 @@ private:
 
 	char	*paramData;
 	UINT	paramBase;
+
+	char	*binCode;
+	UINT	binCodeStart;
 };

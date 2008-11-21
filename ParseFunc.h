@@ -40,9 +40,10 @@ const UINT typeNodeExpressionList	= 32;
 const UINT typeNodeArrayIndex	= 33;
 const UINT typeNodeDereference	= 34;
 const UINT typeNodeShiftAddress	= 35;
-const UINT typeNodeVariableGet	= 36;
+const UINT typeNodeGetAddress	= 36;
 const UINT typeNodeVariableSet	= 37;
 const UINT typeNodePreOrPostOp	= 38;
+const UINT typeNodeFunctionAddress	= 39;
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP
@@ -267,11 +268,11 @@ protected:
 };
 
 //////////////////////////////////////////////////////////////////////////
-class NodeVariableGet: public NodeZeroOP
+class NodeGetAddress: public NodeZeroOP
 {
 public:
-			NodeVariableGet(VariableInfo* variableInfo, int variableAddress, bool absoluteAddressation);
-	virtual ~NodeVariableGet();
+			NodeGetAddress(VariableInfo* variableInfo, int variableAddress, bool absoluteAddressation);
+	virtual ~NodeGetAddress();
 
 			bool IsAbsoluteAddress();
 
@@ -281,7 +282,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeVariableGet; }
+	virtual UINT GetNodeType(){ return typeNodeGetAddress; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -389,6 +390,19 @@ protected:
 	bool	absAddress, knownAddress;
 };
 
+class NodeFunctionAddress: public NodeZeroOP
+{
+public:
+			NodeFunctionAddress(FunctionInfo* functionInfo);
+	virtual ~NodeFunctionAddress();
+
+	virtual void Compile();
+	virtual void LogToStream(ostringstream& ostr);
+	virtual UINT GetSize();
+	virtual UINT GetNodeType(){ return typeNodeFunctionAddress; }
+protected:
+	FunctionInfo	*funcInfo;
+};
 //////////////////////////////////////////////////////////////////////////
 
 class NodeTwoAndCmdOp: public NodeTwoOP
@@ -512,10 +526,10 @@ protected:
 	typedef std::list<shared_ptr<NodeZeroOP> >::iterator listPtr;
 };
 
-class NodeFuncCall: public NodeZeroOP
+class NodeFuncCall: public NodeOneOP
 {
 public:
-	NodeFuncCall(FunctionInfo *info);
+	NodeFuncCall(FunctionInfo *info, FunctionType *type);
 	virtual ~NodeFuncCall();
 
 	virtual void Compile();
@@ -524,6 +538,7 @@ public:
 	virtual UINT GetNodeType(){ return typeNodeFuncCall; }
 protected:
 	FunctionInfo	*funcInfo;
+	FunctionType	*funcType;
 
 	std::list<shared_ptr<NodeZeroOP> >	paramList;
 	typedef std::list<shared_ptr<NodeZeroOP> >::reverse_iterator paramPtr;
