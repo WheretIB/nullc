@@ -143,7 +143,11 @@ namespace ColorerGrammar
 		typeName	=	varname - strP("return") ;
 
 		arrayDef	=	(chP('[')[ColorText] >> (term4_9 | epsP) >> chP(']')[ColorText] >> !arrayDef);
-		typeExpr	=	(strP("auto") | typenameP(typeName))[ColorRWord] >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
+		typeExpr	=
+			(
+				(strP("auto") | typenameP(typeName))[ColorRWord] |
+				(strP("typeof")[ColorRWord] >> chP('(')[ColorText] >> typeName[ColorVar] >> chP(')')[ColorText])
+			) >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
 
 		classdef	=	strP("class")[ColorRWord] >> varname[ColorRWord] >> chP('{')[ColorText] >> *(typeExpr >> varname[ColorVarDef] >> *(chP(',')[ColorText] >> varname[ColorVarDef]) >> chP(';')[ColorText]) >> chP('}')[ColorText];
 
@@ -233,9 +237,17 @@ namespace ColorerGrammar
 			(';' | epsP[LogError("ERROR: ';' not found after condition in 'for'")])[ColorText] >>
 			(block | term5 | epsP) >>
 			(')' | epsP[LogError("ERROR: ')' not found after 'for' statement")])[ColorText] >>
-			expr;
+			(expr | epsP[LogError("ERROR: expression not found after 'for' statement")]);
 
-		whileExpr		=	strWP("while")[ColorRWord] >> (('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText]) >> expr;
+		whileExpr		=
+			strWP("while")[ColorRWord] >>
+			(
+				('(' | epsP[LogError("ERROR: '(' not found after 'while'")])[ColorText] >>
+				(term5 | epsP[LogError("ERROR: condition not found in 'while' statement")]) >>
+				(')' | epsP[LogError("ERROR: ')' not found after 'while' statement")])[ColorText]
+			) >>
+			(expr | epsP[LogError("ERROR: expression not found after 'while' statement")]);
+
 		dowhileExpr		=	strWP("do")[ColorRWord] >> expr >> strP("while")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> (';' >> epsP)[ColorText];
 		switchExpr		=	strWP("switch")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> ('{' >> epsP)[ColorBold] >> 
 			(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>

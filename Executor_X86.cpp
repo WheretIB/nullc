@@ -544,6 +544,7 @@ void ExecutorX86::GenListing()
 				if(valind == -1)
 				{
 					logASM << "pop eax ;\r\n";
+					logASM << "xchg [esp], eax ;\r\n";
 					logASM << "call eax ; \r\n";
 				}else{
 					logASM << "call function" << valind << "\r\n";

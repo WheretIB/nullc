@@ -813,6 +813,36 @@ void convertTypeToArray(char const* s, char const* e)
 //////////////////////////////////////////////////////////////////////////
 //					New functions for work with variables
 
+void GetVariableType(char const* s, char const* e)
+{
+	int fID = -1;
+	// »щем переменную по имени
+	int i = (int)varInfo.size()-1;
+	string vName(s, e);
+	while(i >= 0 && varInfo[i]->name != vName)
+		i--;
+	if(i == -1)
+	{
+		// »щем функцию по имени
+		for(int k = 0; k < (int)funcInfo.size(); k++)
+		{
+			if(funcInfo[k]->name == vName && funcInfo[k]->visible)
+			{
+				if(fID != -1)
+					throw CompilerError("ERROR: there are more than one '" + vName + "' function, and the decision isn't clear", s);
+				fID = k;
+			}
+		}
+		if(fID == -1)
+			throw CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+	}
+
+	if(fID == -1)
+		currType = varInfo[i]->varType;
+	else
+		currType = funcInfo[fID]->funcType;
+}
+
 void AddInplaceArray(char const* s, char const* e);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
@@ -1855,7 +1885,7 @@ namespace CompilerGrammar
 		addDouble	=	addNumberNode<double>;
 
 		arrayDef	=	('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']' >> !arrayDef)[convertTypeToArray];
-		seltype		=	(strP("auto") | typenameP(varname))[selType] >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
+		seltype		=	((strP("auto") | typenameP(varname))[selType] | (strP("typeof") >> chP('(') >> varname[GetVariableType] >> chP(')'))) >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
 		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
 		varname		=	lexemeD[alphaP >> *alnumP];
