@@ -146,7 +146,7 @@ namespace ColorerGrammar
 		typeExpr	=
 			(
 				(strP("auto") | typenameP(typeName))[ColorRWord] |
-				(strP("typeof")[ColorRWord] >> chP('(')[ColorText] >> typeName[ColorVar] >> chP(')')[ColorText])
+				(strP("typeof")[ColorRWord] >> chP('(')[ColorText] >> term5 >> chP(')')[ColorText])
 			) >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
 
 		classdef	=	strP("class")[ColorRWord] >> varname[ColorRWord] >> chP('{')[ColorText] >> *(typeExpr >> varname[ColorVarDef] >> *(chP(',')[ColorText] >> varname[ColorVarDef]) >> chP(';')[ColorText]) >> chP('}')[ColorText];
