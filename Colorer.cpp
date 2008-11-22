@@ -160,7 +160,23 @@ namespace ColorerGrammar
 				)
 			) >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
 
-		classdef	=	strP("class")[ColorRWord] >> varname[ColorRWord] >> chP('{')[ColorText] >> *(typeExpr >> varname[ColorVarDef] >> *(chP(',')[ColorText] >> varname[ColorVarDef]) >> chP(';')[ColorText]) >> chP('}')[ColorText];
+		classdef	=
+			strP("class")[ColorRWord] >>
+			(varname[AddType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
+			(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
+			*(
+				funcdef |
+				(
+					typeExpr >>
+					((varname - typenameP(varname))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after type")]) >>
+					*(
+						chP(',')[ColorText] >>
+						((varname - typenameP(varname))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")])
+					) >>
+					(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
+				)
+			) >>
+			(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText];
 
 		funccall	=	varname[ColorFunc] >> 
 			strP("(")[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >>
@@ -209,7 +225,7 @@ namespace ColorerGrammar
 				) >>
 				*(
 					chP('.')[ColorText] >>
-					varname[ColorVar] >>
+					varname[ColorVar] >> (~chP('(') | nothingP) >>
 					*(
 						chP('[')[ColorText] >>
 						term5 >>
@@ -279,6 +295,7 @@ namespace ColorerGrammar
 			(term5 | epsP[LogError("ERROR: condition not found in 'while' statement")]) >>
 			(')' | epsP[LogError("ERROR: ')' not found after 'while' condition")])[ColorText] >>
 			(';' | epsP[LogError("ERROR: ';' expected after 'do...while' statement")])[ColorText];
+
 		switchExpr		=	strWP("switch")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> ('{' >> epsP)[ColorBold] >> 
 			(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
 			*(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
@@ -299,7 +316,7 @@ namespace ColorerGrammar
 			(chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorVar]) >> chP('\'')[ColorText]) |
 			(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
 			group | funccall[FuncCall] |
-			(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++") | strP("--") | epsP)[ColorText]);
+			(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++") | strP("--") | ('.' >> funccall) | epsP)[ColorText]);
 		term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
 		term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));
 		term4	=	term3 >> *((chP('+') | chP('-'))[ColorText] >> (term3 | epsP[LogError("ERROR: expression not found after operator")]));
@@ -483,6 +500,12 @@ namespace ColorerGrammar
 			i--;
 		}
 		callArgCount.pop_back();
+	}
+
+	void AddType(char const* s, char const* e)
+	{
+		typeInfo.push_back(std::string(s, e));
+		//typeInfo.back().name = std::string(s, e);
 	}
 
 	void OnError(char const* s, char const* e)

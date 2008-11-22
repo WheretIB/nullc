@@ -8,10 +8,15 @@ namespace ColorerGrammar
 	void AddVar(char const* s, char const* e);
 	void SetVar(char const* s, char const* e);
 	void GetVar(char const* s, char const* e);
+
 	void FuncAdd(char const* s, char const* e);
 	void FuncEnd(char const* s, char const* e);
 	void FuncCall(char const* s, char const* e);
+
+	void AddType(char const* s, char const* e);
+
 	void OnError(char const* s, char const* e);
+
 	void BlockBegin(char const* s, char const* e);
 	void BlockEnd(char const* s, char const* e);
 
