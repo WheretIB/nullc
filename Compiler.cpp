@@ -717,6 +717,20 @@ void addBreakNode(char const* s, char const* e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBreakOp(c)));
 }
 
+void AddContinueNode(char const* s, char const* e)
+{
+	if(cycleBeginVarTop.empty())
+		throw CompilerError("ERROR: continue used outside loop statements", s);
+	int t = (int)varInfoTop.size();
+	int c = 0;
+	while(t > (int)cycleBeginVarTop.back())
+	{
+		c++;
+		t--;
+	}
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeContinueOp(c)));
+}
+
 //Finds TypeInfo in a typeInfo list by name
 void selType(char const* s, char const* e)
 {
@@ -1850,7 +1864,7 @@ namespace CompilerGrammar
 	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
 	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, ifexpr, whileexpr, forexpr, retexpr;
 	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype, arrayDef;
-	Rule classdef, variable, postExpr;
+	Rule classdef, variable, postExpr, continueExpr;
 	Rule funcProt;	// user function prototype
 
 	Rule code, mySpaceP;
@@ -2011,6 +2025,11 @@ namespace CompilerGrammar
 			strP("break") >>
 			(+chP(';') | epsP[ThrowError("ERROR: break must be followed by ';'")])
 			)[addBreakNode];
+		continueExpr	=
+			(
+				strP("continue") >>
+				(+chP(';') | epsP[ThrowError("ERROR: continue must be followed by ';'")])
+			)[AddContinueNode];
 
 		group		=	'(' >> term5 >> (')' | epsP[ThrowError("ERROR: closing ')' not found after '('")]);
 
@@ -2064,7 +2083,7 @@ namespace CompilerGrammar
 						term4_9;
 
 		block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
-		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block[addBlockNode] | breakexpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
+		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block[addBlockNode] | breakexpr | continueExpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));

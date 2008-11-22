@@ -45,7 +45,7 @@ private:
 namespace ColorerGrammar
 {
 	// Parsing rules
-	Rule expr, block, funcdef, breakExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
+	Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
 	Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, funcvars;
 	Rule appval, varname, comment, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName;
 	// Main rule and space parsers
@@ -142,11 +142,22 @@ namespace ColorerGrammar
 		varname		=	lexemeD[alphaP >> *alnumP];
 		typeName	=	varname - strP("return") ;
 
-		arrayDef	=	(chP('[')[ColorText] >> (term4_9 | epsP) >> chP(']')[ColorText] >> !arrayDef);
+		arrayDef	=
+			(
+				chP('[')[ColorText] >>
+				(term4_9 | epsP) >>
+				(chP(']')[ColorText] | epsP[LogError("ERROR: closing ']' not found in array definition")]) >>
+				!arrayDef
+			);
 		typeExpr	=
 			(
 				(strP("auto") | typenameP(typeName))[ColorRWord] |
-				(strP("typeof")[ColorRWord] >> chP('(')[ColorText] >> term5 >> chP(')')[ColorText])
+				(
+					strP("typeof")[ColorRWord] >>
+					(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
+					(term5 | epsP[LogError("ERROR: expression not found in 'typeof' statement")]) >>
+					(chP(')')[ColorText] | epsP[LogError("ERROR: ')' not found after 'typeof' statement")])
+				)
 			) >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
 
 		classdef	=	strP("class")[ColorRWord] >> varname[ColorRWord] >> chP('{')[ColorText] >> *(typeExpr >> varname[ColorVarDef] >> *(chP(',')[ColorText] >> varname[ColorVarDef]) >> chP(';')[ColorText]) >> chP('}')[ColorText];
@@ -154,27 +165,39 @@ namespace ColorerGrammar
 		funccall	=	varname[ColorFunc] >> 
 			strP("(")[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >>
 			!(
-			term5[ArrBackInc<std::vector<UINT> >(callArgCount)] >>
-			*(
-			strP(",")[ColorText] >> 
-			(term5[ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[AssignVar<string>(logStr, "ERROR: unexpected symbol after ','")][LogStr])
-			)[OnError]
+				term5[ArrBackInc<std::vector<UINT> >(callArgCount)] >>
+				*(
+					strP(",")[ColorText] >> 
+					(term5[ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[LogError("ERROR: unexpected symbol after ','")])
+				)[OnError]
 			) >>
-			strP(")")[ColorBold];
-		funcvars	=	!(typeExpr >> constExpr >> !strP("ref")[ColorRWord] >> varname[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)]) >>
+			(strP(")")[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
+		funcvars	=
+			!(
+				typeExpr >>
+				constExpr >>
+				((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")])
+			) >>
 			*(
-			strP(",")[ColorText] >>
-			(typeExpr >> constExpr >> !strP("ref")[ColorRWord] >> varname[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[AssignVar<string>(logStr, "ERROR: parameter name expected after ','")][LogStr])
+				strP(",")[ColorText] >>
+				(
+					typeExpr >>
+					constExpr >>
+					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")])
+				)
 			)[OnError];
 		funcdef		=
 			typeExpr >>
-			varname[ColorFunc][SetTempStr] >>
+			(varname - typenameP(varname))[ColorFunc][SetTempStr] >>
 			chP('(')[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)][FuncAdd][BlockBegin] >>
-			((*(symb | digitP))[ColorErr] >> funcvars) >>
-			chP(')')[ColorBold][FuncEnd] >>
-			chP('{')[ColorBold] >>
-			code >>
-			chP('}')[ColorBold][BlockEnd];
+			(
+				(*(symb | digitP))[ColorErr] >>
+				funcvars
+			) >>
+			(chP(')')[ColorBold][FuncEnd] | epsP[LogError("ERROR: ')' expected after function parameter list")]) >>
+			(chP('{')[ColorBold] | epsP[LogError("ERROR: '{' not found after function header")]) >>
+			(code | epsP[LogError("ERROR: function body not found")]) >>
+			(chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: '}' not found after function body")]);
 
 		appval		=
 			(
@@ -215,7 +238,7 @@ namespace ColorerGrammar
 			) >>
 			(expr | epsP[LogError("ERROR: expression not found after 'if' statement")]) >>
 			(
-				(strP("else")[ColorRWord] >> (expr | epsP[LogError("ERROR: expression not foun after 'else'")])) |
+				(strP("else")[ColorRWord] >> (expr | epsP[LogError("ERROR: expression not found after 'else'")])) |
 				epsP
 			);
 
@@ -244,17 +267,25 @@ namespace ColorerGrammar
 			(
 				('(' | epsP[LogError("ERROR: '(' not found after 'while'")])[ColorText] >>
 				(term5 | epsP[LogError("ERROR: condition not found in 'while' statement")]) >>
-				(')' | epsP[LogError("ERROR: ')' not found after 'while' statement")])[ColorText]
+				(')' | epsP[LogError("ERROR: ')' not found after 'while' condition")])[ColorText]
 			) >>
 			(expr | epsP[LogError("ERROR: expression not found after 'while' statement")]);
 
-		dowhileExpr		=	strWP("do")[ColorRWord] >> expr >> strP("while")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> (';' >> epsP)[ColorText];
+		dowhileExpr		=
+			strWP("do")[ColorRWord] >>
+			(expr | epsP[LogError("ERROR: expression or block not found after 'do'")]) >>
+			(strP("while")[ColorRWord] | epsP[LogError("ERROR: 'while' not found after body of 'do'")]) >>
+			('(' | epsP[LogError("ERROR: '(' not found after 'while'")])[ColorText] >>
+			(term5 | epsP[LogError("ERROR: condition not found in 'while' statement")]) >>
+			(')' | epsP[LogError("ERROR: ')' not found after 'while' condition")])[ColorText] >>
+			(';' | epsP[LogError("ERROR: ';' expected after 'do...while' statement")])[ColorText];
 		switchExpr		=	strWP("switch")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> ('{' >> epsP)[ColorBold] >> 
 			(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
 			*(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
 			('}' >> epsP)[ColorBold];
 		returnExpr		=	strWP("return")[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return must be followed by ';'")]);
 		breakExpr		=	strWP("break")[ColorRWord] >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break must be followed by ';'")]);
+		continueExpr		=	strWP("continue")[ColorRWord] >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);
 
 		group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
 		term1		=
@@ -290,7 +321,7 @@ namespace ColorerGrammar
 			term4_9;
 
 		block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
-		expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));
+		expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));
 		code	=	*(funcdef | expr);
 
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")))[ColorComment];
@@ -369,8 +400,14 @@ namespace ColorerGrammar
 			i--;
 		if(i == -1)
 		{
+			i = (int)funcs.size()-1;
+			while(i >= 0 && funcs[i]->name != vName)
+				i--;
+		}
+		if(i == -1)
+		{
 			ColorCode(255,0,0,0,0,1,s,st);
-			//logStream << "ERROR: variable '" << vName << "' is not defined\r\n";
+			logStream << "ERROR: variable '" << vName << "' is not defined\r\n";
 			return;
 		}
 	}
@@ -414,11 +451,20 @@ namespace ColorerGrammar
 
 		//Find function
 		bool foundFunction = false;
+		bool funcPtr = false;
 		int i = (int)funcs.size()-1;
 		while(true)
 		{
 			while(i >= 0 && funcs[i]->name != fname)
 				i--;
+			if(i == -1)
+			{
+				i = (int)varInfo.size()-1;
+				while(i >= 0 && varInfo[i].name != fname)
+					i--;
+				if(i != -1)
+					funcPtr = true;
+			}
 			if(i == -1)
 			{
 				if(!foundFunction)
@@ -432,7 +478,7 @@ namespace ColorerGrammar
 				break;
 			}
 			foundFunction = true;
-			if(funcs[i]->params.size() == callArgCount.back())
+			if(funcs[i]->params.size() == callArgCount.back() || funcPtr)
 				break;
 			i--;
 		}
