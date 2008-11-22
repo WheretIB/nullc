@@ -44,6 +44,7 @@ const UINT typeNodeGetAddress	= 36;
 const UINT typeNodeVariableSet	= 37;
 const UINT typeNodePreOrPostOp	= 38;
 const UINT typeNodeFunctionAddress	= 39;
+const UINT typeNodeContinueOp	= 40;
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP
@@ -487,6 +488,20 @@ public:
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeBreakOp; }
+protected:
+	UINT	popCnt;
+};
+
+class NodeContinueOp: public NodeZeroOP
+{
+public:
+	NodeContinueOp(UINT c);
+	virtual ~NodeContinueOp();
+
+	virtual void Compile();
+	virtual void LogToStream(ostringstream& ostr);
+	virtual UINT GetSize();
+	virtual UINT GetNodeType(){ return typeNodeContinueOp; }
 protected:
 	UINT	popCnt;
 };

@@ -11,7 +11,8 @@ shared_ptr<NodeZeroOP>	TakeLastNode()
 	return last;
 }
 
-std::vector<UINT>			indTemp;
+std::vector<UINT>	breakAddr;
+std::vector<UINT>	continueAddr;
 
 static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "bin.and", "bin.or", "bin.xor", "log.and", "log.or", "log.xor"};
 
@@ -1566,9 +1567,13 @@ void NodeForExpr::Compile()
 	// Если ложно, выйдем из цикла
 	cmdList->AddData(cmdJmpZ);
 	cmdList->AddData((UCHAR)(aOT));
+
 	// Сохраним адрес для выхода из цикла оператором break;
-	indTemp.push_back(cmdList->GetCurrPos()+4+third->GetSize()+fourth->GetSize()+2+4);
-	cmdList->AddData(cmdList->GetCurrPos()+4+third->GetSize()+fourth->GetSize()+2+4);
+	breakAddr.push_back(cmdList->GetCurrPos()+4+third->GetSize()+fourth->GetSize()+2+4);
+	cmdList->AddData(breakAddr.back());
+
+	// Сохраним адрес для перехода к следующей операции оператором continue;
+	continueAddr.push_back(cmdList->GetCurrPos()+fourth->GetSize());
 
 	// Выполним содержимое цикла
 	fourth->Compile();
@@ -1577,7 +1582,9 @@ void NodeForExpr::Compile()
 	// Перейдём на проверку условия
 	cmdList->AddData(cmdJmp);
 	cmdList->AddData(posTestExpr);
-	indTemp.pop_back();
+
+	breakAddr.pop_back();
+	continueAddr.pop_back();
 
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
@@ -1623,14 +1630,22 @@ void NodeWhileExpr::Compile()
 	// Если оно ложно, выйдем из цикла
 	cmdList->AddData(cmdJmpZ);
 	cmdList->AddData((UCHAR)(aOT));
+
 	// Сохраним адрес для выхода из цикла оператором break;
-	indTemp.push_back(cmdList->GetCurrPos()+4+second->GetSize()+2+4);
-	cmdList->AddData(cmdList->GetCurrPos()+4+second->GetSize()+2+4);
+	breakAddr.push_back(cmdList->GetCurrPos()+4+second->GetSize()+2+4);
+	cmdList->AddData(breakAddr.back());
+
+	// Сохраним адрес для перехода к следующей операции оператором continue;
+	continueAddr.push_back(cmdList->GetCurrPos()+second->GetSize());
+
 	// Выполним содержимое цикла
 	second->Compile();
 	// Перейдём на проверку условия
 	cmdList->AddData(cmdJmp);
 	cmdList->AddData(posStart);
+
+	breakAddr.pop_back();
+	continueAddr.pop_back();
 
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
@@ -1670,7 +1685,11 @@ void NodeDoWhileExpr::Compile()
 
 	UINT posStart = cmdList->GetCurrPos();
 	// Сохраним адрес для выхода из цикла оператором break;
-	indTemp.push_back(cmdList->GetCurrPos()+first->GetSize()+second->GetSize()+2+4);
+	breakAddr.push_back(cmdList->GetCurrPos()+first->GetSize()+second->GetSize()+2+4);
+
+	// Сохраним адрес для перехода к следующей операции оператором continue;
+	continueAddr.push_back(cmdList->GetCurrPos()+first->GetSize());
+
 	// Выполним содержимое цикла
 	first->Compile();
 	// Выполним условие
@@ -1679,7 +1698,9 @@ void NodeDoWhileExpr::Compile()
 	cmdList->AddData(cmdJmpNZ);
 	cmdList->AddData((UCHAR)(aOT));
 	cmdList->AddData(posStart);
-	indTemp.pop_back();
+
+	breakAddr.pop_back();
+	continueAddr.pop_back();
 
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
@@ -1719,7 +1740,7 @@ void NodeBreakOp::Compile()
 		cmdList->AddData(cmdPopVTop);
 	// Выйдем из цикла
 	cmdList->AddData(cmdJmp);
-	cmdList->AddData(indTemp.back());
+	cmdList->AddData(breakAddr.back());
 
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
@@ -1729,6 +1750,42 @@ void NodeBreakOp::LogToStream(ostringstream& ostr)
 	ostr << *typeInfo << "BreakExpression\r\n";
 }
 UINT NodeBreakOp::GetSize()
+{
+	return (1+popCnt)*sizeof(CmdID) + sizeof(UINT);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Узел, производящий досрочный переход к следующей итерации цикла
+
+NodeContinueOp::NodeContinueOp(UINT c)
+{
+	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
+	popCnt = c;
+}
+NodeContinueOp::~NodeContinueOp()
+{
+}
+
+void NodeContinueOp::Compile()
+{
+	UINT startCmdSize = cmdList->GetCurrPos();
+
+	// Уберём значения со стека вершин стека переменных
+	for(UINT i = 0; i < popCnt; i++)
+		cmdList->AddData(cmdPopVTop);
+
+	// Выйдем из цикла
+	cmdList->AddData(cmdJmp);
+	cmdList->AddData(continueAddr.back());
+
+	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+}
+void NodeContinueOp::LogToStream(ostringstream& ostr)
+{
+	DrawLine(ostr);
+	ostr << *typeInfo << "ContinueOp\r\n";
+}
+UINT NodeContinueOp::GetSize()
 {
 	return (1+popCnt)*sizeof(CmdID) + sizeof(UINT);
 }
@@ -1773,7 +1830,7 @@ void NodeSwitchExpr::Compile()
 		switchEnd += (*s)->GetSize() + sizeof(CmdID) + sizeof(USHORT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
 
 	// Сохраним адрес для оператора break;
-	indTemp.push_back(switchEnd+2);
+	breakAddr.push_back(switchEnd+2);
 
 	// Сгенерируем код для всех case'ов
 	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
@@ -1817,7 +1874,7 @@ void NodeSwitchExpr::Compile()
 	// Востановим вершину стека значений
 	cmdList->AddData(cmdPopVTop);
 
-	indTemp.pop_back();
+	breakAddr.pop_back();
 
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
