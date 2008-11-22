@@ -3,7 +3,10 @@
 
 #include "ParseCommand.h"
 
+class NodeZeroOP;
+
 class TypeInfo;
+class FunctionInfo;
 
 class FunctionType
 {
@@ -91,6 +94,14 @@ public:
 	};
 	vector<MemberInfo>	memberData;
 
+	struct MemberFunction
+	{
+		std::string		name;
+		FunctionInfo	*func;
+		NodeZeroOP		*defNode;
+	};
+	vector<MemberFunction>	memberFunctions;
+
 	FunctionType		*funcType;
 };
 
@@ -141,7 +152,7 @@ public:
 		funcPtr = NULL;
 		retType = NULL;
 		visible = true;
-		local = false;
+		type = NORMAL;
 	}
 	//shared_ptr<NodeZeroOP>	defNode;	// A node that defines a function
 	UINT		address;				// Address of the beginning of function inside bytecode
@@ -154,7 +165,10 @@ public:
 	TypeInfo*	retType;				// Function return type
 
 	bool		visible;				// true until function goes out of scope
-	bool		local;					// false for functions, declared in global scope
+
+	enum FunctionType{ NORMAL, LOCAL, THISCALL };
+	FunctionType	type;
+	//bool		local;					// false for functions, declared in global scope
 
 	std::vector<std::string> external;	// External variable names
 

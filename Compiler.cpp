@@ -51,6 +51,9 @@ bool currValConst;
 // Номер скрытой переменной - константного массива
 UINT inplaceArrayNum;
 
+// Для определения новых типов
+TypeInfo *newType = NULL;
+
 // Информация о типе текущей переменной
 TypeInfo*	currType = NULL;
 // Стек ( :) )такой информации
@@ -881,6 +884,8 @@ void SetTypeOfLastNode(char const* s, char const* e)
 void AddInplaceArray(char const* s, char const* e);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
+void AddMemberAccessNode(char const* s, char const* e);
+void addFuncCallNode(char const* s, char const* e);
 
 // Функция для получения адреса переменной, имя которое передаётся в параметрах
 void AddGetAddressNode(char const* s, char const* e)
@@ -914,8 +919,26 @@ void AddGetAddressNode(char const* s, char const* e)
 	else
 		currTypes.push_back(funcInfo[fID]->retType);
 
+	if(newType && (currDefinedFunc.back()->type == FunctionInfo::THISCALL) && vName != "this")
+	{
+		bool member = false;
+		for(UINT i = 0; i < newType->memberData.size(); i++)
+			if(newType->memberData[i].name == vName)
+				member = true;
+		if(member)
+		{
+			// Переменные типа адресуются через указатель this
+			std::string bName = "this";
+
+			AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+			AddDereferenceNode(0,0);
+			strs.push_back(vName);
+			AddMemberAccessNode(s, e);
+			return;
+		}
+	}
 	// Если мы находимся в локальной функции, и переменная находится в наружной области видимости
-	if((int)retTypeStack.size() > 1 && currDefinedFunc.back()->local && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+	if((int)retTypeStack.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 	{
 		// Добавим имя переменной в список внешних переменных функции
 		int num = AddFunctionExternal(currDefinedFunc.back(), vName);
@@ -952,7 +975,6 @@ void AddGetAddressNode(char const* s, char const* e)
 		}else{
 			// Создаем узел для получения указателя на функцию
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFunctionAddress(funcInfo[fID])));
-			//nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(reinterpret_cast<long long>(funcInfo[fID]), funcInfo[fID]->funcType)));
 		}
 	}
 }
@@ -1223,6 +1245,13 @@ void AddMemberAccessNode(char const* s, char const* e)
 	strs.pop_back();
 }
 
+void AddMemberFunctionCall(char const* s, char const* e)
+{
+	strs.back() = currTypes.back()->name + "::" + strs.back();
+	addFuncCallNode(s, e);
+	currTypes.back() = nodeList.back()->GetTypeInfo();
+}
+
 void AddPreOrPostOpNode(CmdID postCmd, bool prefixOp)
 {
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreOrPostOp(currTypes.back(), postCmd, prefixOp)));
@@ -1345,7 +1374,7 @@ void addArrayConstructor(char const* s, char const* e)
 	arrElementCount.pop_back();
 }
 
-void funcAdd(char const* s, char const* e)
+void FunctionAdd(char const* s, char const* e)
 {
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		if(varInfo[i]->name == strs.back())
@@ -1360,24 +1389,29 @@ void funcAdd(char const* s, char const* e)
 	funcInfo.back()->vTopSize = (UINT)varInfoTop.size();
 	retTypeStack.push_back(currType);
 	funcInfo.back()->retType = currType;
-	if(varInfoTop.size() > 1)
-		funcInfo.back()->local = true;
+	if(newType)
+		funcInfo.back()->type = FunctionInfo::THISCALL;
+	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
+		funcInfo.back()->type = FunctionInfo::LOCAL;
 	currDefinedFunc.push_back(funcInfo.back());
 }
-void funcParam(char const* s, char const* e)
+void FunctionParam(char const* s, char const* e)
 {
 	if(!currType)
 		throw CompilerError("ERROR: function parameter cannot be an auto type", s);
 	funcInfo.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
 	strs.pop_back();
 }
-void funcStart(char const* s, char const* e)
+void FunctionStart(char const* s, char const* e)
 {
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
 
 	// Local function has a special parameter - pointer to a list of extern variable pointers
-	if(funcInfo.back()->local)
+	if(funcInfo.back()->type == FunctionInfo::LOCAL)
 		funcInfo.back()->params.push_back(VariableInfo("$" + funcInfo.back()->name + "_ext", 0, GetReferenceType(typeInt), true));
+
+	if(newType)
+		funcInfo.back()->params.push_back(VariableInfo("this", 0, GetReferenceType(newType), true));
 
 	for(int i = (int)funcInfo.back()->params.size()-1; i >= 0; i--)
 	{
@@ -1394,7 +1428,7 @@ void funcStart(char const* s, char const* e)
 		strs.pop_back();
 	}
 }
-void funcEnd(char const* s, char const* e)
+void FunctionEnd(char const* s, char const* e)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
@@ -1429,12 +1463,11 @@ void funcEnd(char const* s, char const* e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcInfo[i])));
 	strs.pop_back();
 
-
 	retTypeStack.pop_back();
 	currDefinedFunc.pop_back();
 
 	// If function is local, create function parameters block
-	if(lastFunc.local && !lastFunc.external.empty())
+	if(lastFunc.type == FunctionInfo::LOCAL && !lastFunc.external.empty())
 	{
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)lastFunc.external.size(), typeInt)));
@@ -1517,8 +1550,19 @@ void funcEnd(char const* s, char const* e)
 		}
 	}
 	lastFunc.funcType = bestFit;
-}
 
+	if(newType)
+	{
+		newType->memberFunctions.push_back(TypeInfo::MemberFunction());
+		TypeInfo::MemberFunction &clFunc = newType->memberFunctions.back();
+		clFunc.name = lastFunc.name;
+		clFunc.func = &lastFunc;
+		clFunc.defNode = nodeList.back().get();
+		//nodeList.pop_back();
+		lastFunc.name = newType->name + "::" + lastFunc.name;
+		//lastFunc.type = FunctionInfo::THISCALL;
+	}
+}
 
 void addFuncCallNode(char const* s, char const* e)
 {
@@ -1535,10 +1579,11 @@ void addFuncCallNode(char const* s, char const* e)
 
 	if(vID == -1)
 	{
-		// Searching from last function to first. If  the first found function is local, create node that sends context info
+		// Searching from last function to first. If the first found function is local, create node that sends context info
+		// If the function is thiscall, create add pointer to a class
 		for(int k = (int)funcInfo.size()-1; k >= 0; k--)
 		{
-			if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->local)
+			if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->type == FunctionInfo::LOCAL)
 			{
 				std::string bName = "$" + funcInfo[k]->name + "_ext";
 				int i = (int)varInfo.size()-1;
@@ -1559,6 +1604,11 @@ void addFuncCallNode(char const* s, char const* e)
 
 					callArgCount.back()++;
 				}
+				break;
+			}
+			if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->type == FunctionInfo::THISCALL)
+			{
+				callArgCount.back()++;
 				break;
 			}
 		}
@@ -1778,8 +1828,7 @@ void addSwitchNode(char const* s, char const* e)
 	varInfoTop.pop_back();
 }
 
-TypeInfo *newType = NULL;
-void beginType(char const* s, char const* e)
+void TypeBegin(char const* s, char const* e)
 {
 	if(newType)
 		throw CompilerError("ERROR: Different type is being defined", s);
@@ -1792,25 +1841,44 @@ void beginType(char const* s, char const* e)
 	newType->type = TypeInfo::TYPE_COMPLEX;
 	newType->alignBytes = currAlign;
 	currAlign = -1;
+
+	typeInfo.push_back(newType);
+	
+	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
 }
 
-void addMember(char const* s, char const* e)
+void TypeAddMember(char const* s, char const* e)
 {
 	if(!currType)
 		throw CompilerError("ERROR: auto cannot be used for class members", s);
 	newType->AddMember(std::string(s, e), currType);
+
+	strs.push_back(std::string(s, e));
+	addVar(0,0);
+	strs.pop_back();
 }
 
-void addType(char const* s, char const* e)
+void TypeFinish(char const* s, char const* e)
 {
 	if(newType->size % 4 != 0)
 	{
 		newType->paddingBytes = 4 - (newType->size % 4);
 		newType->size += 4 - (newType->size % 4);
 	}
-	typeInfo.push_back(newType);
-	newType = NULL;
+	//typeInfo.push_back(newType);
+
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
+	for(int i = 0; i < newType->memberFunctions.size(); i++)
+		addTwoExprNode(0,0);
+
+	newType = NULL;
+
+	while(varInfo.size() > varInfoTop.back().activeVarCnt)
+	{ 
+		varTop -= varInfo.back()->varType->size;
+		varInfo.pop_back();
+	}
+	varInfoTop.pop_back();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1926,9 +1994,12 @@ namespace CompilerGrammar
 		varname		=	lexemeD[alphaP >> *alnumP];
 
 		classdef	=	((strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')') | (strP("noalign") | epsP)[AssignVar<UINT>(currAlign, 0)]) >>
-						strP("class") >> varname[beginType] >> chP('{') >>
-						*(seltype >> varname[addMember] >> *(',' >> varname[addMember]) >> chP(';'))
-						>> chP('}')[addType];
+						strP("class") >> varname[TypeBegin] >> chP('{') >>
+						*(
+							funcdef |
+							(seltype >> varname[TypeAddMember] >> *(',' >> varname[TypeAddMember]) >> chP(';'))
+						)
+						>> chP('}')[TypeFinish];
 
 		funccall	=	varname[strPush] >> 
 				('(' | (epsP[strPop] >> nothingP)) >>
@@ -1939,9 +2010,9 @@ namespace CompilerGrammar
 				) >>
 				(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
 
-		funcvars	=	!(isconst >> seltype >> varname[strPush][funcParam]) >> *(',' >> isconst >> seltype >> varname[strPush][funcParam]);
-		funcdef		=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[funcStart] >> chP(')') >> chP('{') >> code[funcEnd] >> chP('}');
-		funcProt	=	seltype >> varname[strPush] >> (chP('(')[funcAdd] | (epsP[strPop] >> nothingP)) >>  funcvars >> chP(')') >> chP(';');
+		funcvars	=	!(isconst >> seltype >> varname[strPush][FunctionParam]) >> *(',' >> isconst >> seltype >> varname[strPush][FunctionParam]);
+		funcdef		=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[FunctionStart] >> chP(')') >> chP('{') >> code[FunctionEnd] >> chP('}');
+		funcProt	=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars >> chP(')') >> chP(';');
 
 		addvarp		=
 			(
@@ -2034,7 +2105,7 @@ namespace CompilerGrammar
 		group		=	'(' >> term5 >> (')' | epsP[ThrowError("ERROR: closing ')' not found after '('")]);
 
 		variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetAddressNode] >> *postExpr);
-		postExpr	=	('.' >> varname[strPush])[AddMemberAccessNode] |
+		postExpr	=	('.' >> varname[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)))[AddMemberAccessNode] |
 						('[' >> term5 >> ']')[AddArrayIndexNode];
 		term1		=
 			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize][popType]) >> chP(')')[popType]) |
@@ -2053,6 +2124,7 @@ namespace CompilerGrammar
 				(
 					strP("++")[AddPreOrPostOp<cmdIncAt, false>()] |
 					strP("--")[AddPreOrPostOp<cmdDecAt, false>()] |
+					('.' >> funccall)[AddMemberFunctionCall] |
 					epsP[AddGetVariableNode]
 				)[popType]
 			);
@@ -2112,7 +2184,8 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 		const char *begin = apprPos;
 		while((begin > codeStart) && (*begin != '\n') && (*begin != '\r'))
 			begin--;
-		begin++;
+		if(begin < apprPos)
+			begin++;
 
 		const char *end = apprPos;
 		while((*end != '\r') && (*end != '\n') && (*end != 0))
@@ -2503,12 +2576,12 @@ bool Compiler::Compile(string str)
 	for(UINT i = 0; i < funcInfo.size(); i++)
 	{
 		FunctionInfo &currFunc = *funcInfo[i];
-		compileLog << (currFunc.local ? "local " : "global ") << currFunc.retType->GetTypeName() << " " << currFunc.name;
+		compileLog << (currFunc.type == FunctionInfo::LOCAL ? "local " : (currFunc.type == FunctionInfo::NORMAL ? "global " : "thiscall ")) << currFunc.retType->GetTypeName() << " " << currFunc.name;
 		compileLog << "(";
 		for(UINT n = 0; n < currFunc.params.size(); n++)
 			compileLog << currFunc.params[n].varType->GetTypeName() << " " << currFunc.params[n].name << (n==currFunc.params.size()-1 ? "" :", ");
 		compileLog << ")\r\n";
-		if(currFunc.local)
+		if(currFunc.type == FunctionInfo::LOCAL)
 		{
 			for(UINT n = 0; n < currFunc.external.size(); n++)
 				compileLog << "  external var: " << currFunc.external[n] << "\r\n";
