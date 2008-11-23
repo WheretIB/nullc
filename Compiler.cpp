@@ -1425,6 +1425,8 @@ void FunctionStart(char const* s, char const* e)
 
 		strs.pop_back();
 	}	
+
+	funcInfo.back()->funcType = GetFunctionType(funcInfo.back());
 }
 void FunctionEnd(char const* s, char const* e)
 {
@@ -1503,8 +1505,6 @@ void FunctionEnd(char const* s, char const* e)
 		strs.pop_back();
 		addTwoExprNode(0,0);
 	}
-
-	lastFunc.funcType = GetFunctionType(&lastFunc);
 
 	if(newType)
 	{
@@ -2097,7 +2097,7 @@ namespace CompilerGrammar
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 		term5		=	(
 						variable >> (
-						(strP("=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '='")]))[AddSetVariableNode][popType] |
+						(strP("=") >> term5)[AddSetVariableNode][popType] |
 						(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
 						(strP("-=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '-='")]))[AddModifyVariable<cmdSub>()][popType] |
 						(strP("*=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '*='")]))[AddModifyVariable<cmdMul>()][popType] |

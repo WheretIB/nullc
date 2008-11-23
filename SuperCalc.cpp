@@ -222,6 +222,84 @@ void PrintLong(long long lg)
 	WriteFile(conStdOut, temp, (UINT)strlen(temp), &written, NULL); 
 }
 
+void RunUnitTests()
+{
+	FILE *fTest = fopen("UnitTests.txt", "rb");
+	FILE *fTLog = fopen("TestLog.txt", "wb");
+	if(!fTest)
+	{
+		fprintf(fTLog, "File not found, UnitTests.txt\r\n");
+		fclose(fTLog);
+		return;
+	}
+
+	fseek(fTest, 0, SEEK_END);
+	UINT size = ftell(fTest);
+	fseek(fTest, 0, SEEK_SET);
+	char *data = new char[size+1];
+	fread(data, 1, size, fTest);
+	data[size] = 0;
+
+	char *begin = data, *end;
+	bool good;
+
+	char line[256];
+
+	while(begin = strstr(begin, "///\r\n"))
+	{
+		begin += 5;
+		end = strstr(begin, "///\r\n");
+		if(!end)
+			end = data + size;
+		*(end-2) = 0;
+		memcpy(line, begin, strchr(begin, '\n')-begin);
+		line[strchr(begin, '\n')-begin] = 0;
+		fprintf(fTLog, "Test name: %s\r\n", line);
+		fflush(fTLog);
+
+		ostringstream ostr;
+		DeInitConsole();
+		try
+		{
+			good = compiler->Compile(begin);
+		}catch(const std::string& str){
+			good = false;
+			ostr << str;
+		}catch(const CompilerError& err){
+			good = false;
+			ostr << err;
+		}
+		executorX86->SetOptimization(false);
+		if(good)
+		{
+			variableData = executorX86->GetVariableData();
+			try
+			{
+				executorX86->GenListing();
+				UINT time = executorX86->Run();
+				string val = executorX86->GetResult();
+				ostr.precision(20);
+				ostr << "The answer is: " << val << " [in: " << time << "]";
+			}catch(const std::string& str){
+				ostr.str("");
+				ostr << str;
+			}
+		}
+		string str = ostr.str();
+		if(good)
+		{
+			fprintf(fTLog, "Compilation successful\r\n%s\r\n\r\n", str.c_str());
+		}else{
+			fprintf(fTLog, "Compilation failed\r\n%s\r\n\r\n", str.c_str());
+		}
+		fflush(fTLog);
+		begin = end;
+	}
+
+	fclose(fTLog);
+	fclose(fTest);
+}
+
 int APIENTRY WinMain(HINSTANCE	hInstance,
 					HINSTANCE	hPrevInstance,
 					LPTSTR		lpCmdLine,
@@ -279,6 +357,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	}
 
 	hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDC_SUPERCALC);
+
+	//RunUnitTests();
 
 	// Main message loop:
 	while(GetMessage(&msg, NULL, 0, 0))
