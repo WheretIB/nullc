@@ -863,7 +863,7 @@ void GetVariableType(char const* s, char const* e)
 bool sizeOfExpr = false;
 void GetTypeSize(char const* s, char const* e)
 {
-	if(!currTypes.back())
+	if(!sizeOfExpr && !currTypes.back())
 		throw CompilerError("ERROR: sizeof(auto) is illegal", s);
 	if(sizeOfExpr)
 	{
@@ -1394,6 +1394,9 @@ void FunctionAdd(char const* s, char const* e)
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
 		funcInfo.back()->type = FunctionInfo::LOCAL;
 	currDefinedFunc.push_back(funcInfo.back());
+
+	if(newType)
+		funcInfo.back()->params.push_back(VariableInfo("this", 0, GetReferenceType(newType), true));
 }
 void FunctionParam(char const* s, char const* e)
 {
@@ -1410,14 +1413,10 @@ void FunctionStart(char const* s, char const* e)
 	if(funcInfo.back()->type == FunctionInfo::LOCAL)
 		funcInfo.back()->params.push_back(VariableInfo("$" + funcInfo.back()->name + "_ext", 0, GetReferenceType(typeInt), true));
 
-	if(newType)
-		funcInfo.back()->params.push_back(VariableInfo("this", 0, GetReferenceType(newType), true));
-
 	for(int i = (int)funcInfo.back()->params.size()-1; i >= 0; i--)
 	{
 		strs.push_back(funcInfo.back()->params[i].name);
-		strs.push_back(funcInfo.back()->params[i].name);
-
+		
 		currValConst = funcInfo.back()->params[i].isConst;
 		currType = funcInfo.back()->params[i].varType;
 		currAlign = 1;
@@ -1425,8 +1424,7 @@ void FunctionStart(char const* s, char const* e)
 		varDefined = false;
 
 		strs.pop_back();
-		strs.pop_back();
-	}
+	}	
 }
 void FunctionEnd(char const* s, char const* e)
 {
@@ -1506,50 +1504,7 @@ void FunctionEnd(char const* s, char const* e)
 		addTwoExprNode(0,0);
 	}
 
-	// Find out the function type
-	TypeInfo	*bestFit = NULL;
-	// Search through active types
-	for(UINT i = 0; i < typeInfo.size(); i++)
-	{
-		if(typeInfo[i]->funcType)
-		{
-			if(typeInfo[i]->funcType->retType != lastFunc.retType)
-				continue;
-			if(typeInfo[i]->funcType->paramType.size() != lastFunc.params.size())
-				continue;
-			bool good = true;
-			for(UINT n = 0; n < lastFunc.params.size(); n++)
-			{
-				if(lastFunc.params[n].varType != typeInfo[i]->funcType->paramType[n])
-				{
-					good = false;
-					break;
-				}
-			}
-			if(good)
-			{
-				bestFit = typeInfo[i];
-				break;
-			}
-		}
-	}
-	// If none found, create new
-	if(!bestFit)
-	{
-		typeInfo.push_back(new TypeInfo());
-		typeInfo.back()->funcType = new FunctionType();
-		typeInfo.back()->size = 4;
-		bestFit = typeInfo.back();
-
-		bestFit->type = TypeInfo::TYPE_COMPLEX;
-
-		bestFit->funcType->retType = lastFunc.retType;
-		for(UINT n = 0; n < lastFunc.params.size(); n++)
-		{
-			bestFit->funcType->paramType.push_back(lastFunc.params[n].varType);
-		}
-	}
-	lastFunc.funcType = bestFit;
+	lastFunc.funcType = GetFunctionType(&lastFunc);
 
 	if(newType)
 	{
@@ -1558,9 +1513,8 @@ void FunctionEnd(char const* s, char const* e)
 		clFunc.name = lastFunc.name;
 		clFunc.func = &lastFunc;
 		clFunc.defNode = nodeList.back().get();
-		//nodeList.pop_back();
+
 		lastFunc.name = newType->name + "::" + lastFunc.name;
-		//lastFunc.type = FunctionInfo::THISCALL;
 	}
 }
 
@@ -1865,7 +1819,6 @@ void TypeFinish(char const* s, char const* e)
 		newType->paddingBytes = 4 - (newType->size % 4);
 		newType->size += 4 - (newType->size % 4);
 	}
-	//typeInfo.push_back(newType);
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
 	for(int i = 0; i < newType->memberFunctions.size(); i++)
@@ -2108,7 +2061,7 @@ namespace CompilerGrammar
 		postExpr	=	('.' >> varname[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)))[AddMemberAccessNode] |
 						('[' >> term5 >> ']')[AddArrayIndexNode];
 		term1		=
-			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize][popType]) >> chP(')')[popType]) |
+			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
 			(chP('&') >> variable)[popType] |
 			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt, true>()])[popType] | 
 			(strP("++") >> variable[AddPreOrPostOp<cmdIncAt, true>()])[popType] |
@@ -2340,6 +2293,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
+	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
@@ -2348,6 +2302,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
+	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
@@ -2356,6 +2311,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
+	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
@@ -2364,6 +2320,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
+	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
@@ -2372,6 +2329,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
+	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
@@ -2380,6 +2338,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
+	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
@@ -2388,6 +2347,7 @@ Compiler::Compiler()
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
+	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
 	fInfo = new FunctionInfo();
@@ -2395,6 +2355,7 @@ Compiler::Compiler()
 	fInfo->name = "clock";
 	fInfo->retType = typeInt;
 	fInfo->vTopSize = 1;
+	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
 	buildInFuncs = (int)funcInfo.size();

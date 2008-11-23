@@ -127,3 +127,51 @@ TypeInfo* CodeInfo::GetArrayElementType(TypeInfo* type)
 	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
 	return type->subType;
 }
+
+TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
+{
+	// Find out the function type
+	TypeInfo	*bestFit = NULL;
+	// Search through active types
+	for(UINT i = 0; i < typeInfo.size(); i++)
+	{
+		if(typeInfo[i]->funcType)
+		{
+			if(typeInfo[i]->funcType->retType != info->retType)
+				continue;
+			if(typeInfo[i]->funcType->paramType.size() != info->params.size())
+				continue;
+			bool good = true;
+			for(UINT n = 0; n < info->params.size(); n++)
+			{
+				if(info->params[n].varType != typeInfo[i]->funcType->paramType[n])
+				{
+					good = false;
+					break;
+				}
+			}
+			if(good)
+			{
+				bestFit = typeInfo[i];
+				break;
+			}
+		}
+	}
+	// If none found, create new
+	if(!bestFit)
+	{
+		typeInfo.push_back(new TypeInfo());
+		typeInfo.back()->funcType = new FunctionType();
+		typeInfo.back()->size = 4;
+		bestFit = typeInfo.back();
+
+		bestFit->type = TypeInfo::TYPE_COMPLEX;
+
+		bestFit->funcType->retType = info->retType;
+		for(UINT n = 0; n < info->params.size(); n++)
+		{
+			bestFit->funcType->paramType.push_back(info->params[n].varType);
+		}
+	}
+	return bestFit;
+}

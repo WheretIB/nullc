@@ -153,6 +153,7 @@ public:
 		retType = NULL;
 		visible = true;
 		type = NORMAL;
+		funcType = NULL;
 	}
 	//shared_ptr<NodeZeroOP>	defNode;	// A node that defines a function
 	UINT		address;				// Address of the beginning of function inside bytecode

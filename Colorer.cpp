@@ -162,7 +162,7 @@ namespace ColorerGrammar
 
 		classdef	=
 			strP("class")[ColorRWord] >>
-			(varname[AddType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
+			(varname[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
 			(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
 			*(
 				funcdef |
@@ -176,7 +176,7 @@ namespace ColorerGrammar
 					(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
 				)
 			) >>
-			(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText];
+			(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][AddType];
 
 		funccall	=	varname[ColorFunc] >> 
 			strP("(")[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >>
@@ -502,10 +502,14 @@ namespace ColorerGrammar
 		callArgCount.pop_back();
 	}
 
+	std::string newType;
+	void StartType(char const* s, char const* e)
+	{
+		newType = std::string(s, e);
+	}
 	void AddType(char const* s, char const* e)
 	{
-		typeInfo.push_back(std::string(s, e));
-		//typeInfo.back().name = std::string(s, e);
+		typeInfo.push_back(newType);
 	}
 
 	void OnError(char const* s, char const* e)
@@ -606,9 +610,7 @@ void Colorer::ColorText()
 
 	if(!Parse(ColorerGrammar::code, strBuf, ColorerGrammar::mySpaceP))
 		throw std::string("Syntax error");
-	//char* ptr = m_buf;
-	//if(!m_data->code->Parse(&ptr, m_data->mySpaceP.getParser()))
-	//	throw std::string("Syntax error");
+
 	if(ColorerGrammar::logStream.str().length() != 0)
 		throw ColorerGrammar::logStream.str();
 }

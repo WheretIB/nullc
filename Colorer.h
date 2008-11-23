@@ -13,6 +13,7 @@ namespace ColorerGrammar
 	void FuncEnd(char const* s, char const* e);
 	void FuncCall(char const* s, char const* e);
 
+	void StartType(char const* s, char const* e);
 	void AddType(char const* s, char const* e);
 
 	void OnError(char const* s, char const* e);

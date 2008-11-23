@@ -1061,3 +1061,26 @@ int r2b = spec[j][1]; // 8
 int r2c = spec[1][j]; // 6
 int r2d = spec[i][j]; // 6
 return 1;
+
+//sizeof tests
+int t1 = sizeof(int); // 4
+int t2 = sizeof(float4); // 16
+int t3 = sizeof({4,5,5}); // 12
+int t4 = sizeof(t3); // 4
+int t5 = sizeof(t2*0.5); // 8
+return 1;
+
+//typeof tests
+int test(float a, double b){ return a+b; }
+int funcref(float a, double b, typeof(test) op){ return op(a, b); }
+
+int i=1;
+
+auto m = test; // int ref(float, double)
+typeof(i) i2 = 4.0f; // int
+typeof(m) n = m; // int ref(float, double)
+typeof(i*0.2) d = 3; // double
+typeof(funcref) fr = funcref; // int ref(float, double, int ref(float, double))
+int rr = sizeof(typeof(fr));
+
+return 1;

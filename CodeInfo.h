@@ -49,4 +49,7 @@ namespace CodeInfo
 
 	// Функция возвращает тип элемента массива
 	TypeInfo* GetArrayElementType(TypeInfo* type);
+
+	// Функция возвращает тип функции
+	TypeInfo* GetFunctionType(FunctionInfo* info);
 };
