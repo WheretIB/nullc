@@ -40,6 +40,7 @@ enum Command_Hash
 	fmulp,
 	fsubrp,
 	fdivrp,
+	label,
 	other,
 };
 
@@ -109,7 +110,8 @@ Command_def Commands_table[] = {
 	"fmulp"	, 23, sizeof("fmulp"),
 	"fsubrp", 24, sizeof("fsubrp"),
 	"fdivrp", 25, sizeof("fdivrp"),
-	"other"	, 26, sizeof("other"),
+	"label:", 26, sizeof("label:"),
+	"other"	, 27, sizeof("other"),
 };
 
 const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
@@ -184,6 +186,9 @@ void ClassifyInstruction(Command& cmd, const char *strRep)
 			break;
 		}
 	}
+
+	if(strchr(temp, ':'))
+		cmd.Name = label;
 
 	// Find the first argument
 	temp = strchr(temp, ' ');
@@ -268,8 +273,10 @@ bool CheckDependencies(int start, int end, Argument::Type dependency, bool check
 			return true;
 		if(checkFlowControl && Commands[i].Name >= jmp && Commands[i].Name <= call)
 			return true;
+		if(checkFlowControl && Commands[i].Name == label)
+			return true;
 		if(Commands[i].argA.type == dependency || Commands[i].argB.type == dependency || (argTypeToStr[dependency] && strstr(Strings[i].c_str()+Commands[i].argA.begin, argTypeToStr[dependency])))
-		return true;
+			return true;
 	}
 	return false;
 }
