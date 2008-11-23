@@ -269,7 +269,7 @@ void RunUnitTests()
 			good = false;
 			ostr << err;
 		}
-		executorX86->SetOptimization(false);
+		executorX86->SetOptimization(true);
 		if(good)
 		{
 			variableData = executorX86->GetVariableData();
