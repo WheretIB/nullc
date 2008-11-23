@@ -334,7 +334,13 @@ namespace ColorerGrammar
 		term5	=	(
 			!chP('*')[ColorText] >>
 			appval[SetVar] >>
-			(strP("=") | strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**="))[ColorText] >> (term5 | epsP[LogError("ERROR: expression not found after assignment")])) |
+			(
+				(chP('=')[ColorText] >> term5) |
+				(
+					(strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**="))[ColorText] >>
+					(term5 | epsP[LogError("ERROR: expression not found after assignment")]))
+				)
+			) |
 			term4_9;
 
 		block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];

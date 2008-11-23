@@ -489,7 +489,7 @@ return fa(5.0f) * fa(2, 3.0);
 
 //////////////////////////////////////////////////////////////////////////
 // Function with no return handling
-int test(){ 1; }
+int test(){ 1; } // temporary
 return test();
 
 //////////////////////////////////////////////////////////////////////////
@@ -1062,6 +1062,7 @@ int r2c = spec[1][j]; // 6
 int r2d = spec[i][j]; // 6
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 //sizeof tests
 int t1 = sizeof(int); // 4
 int t2 = sizeof(float4); // 16
@@ -1070,6 +1071,7 @@ int t4 = sizeof(t3); // 4
 int t5 = sizeof(t2*0.5); // 8
 return 1;
 
+//////////////////////////////////////////////////////////////////////////
 //typeof tests
 int test(float a, double b){ return a+b; }
 int funcref(float a, double b, typeof(test) op){ return op(a, b); }
@@ -1084,3 +1086,5 @@ typeof(funcref) fr = funcref; // int ref(float, double, int ref(float, double))
 int rr = sizeof(typeof(fr));
 
 return 1;
+
+//////////////////////////////////////////////////////////////////////////
