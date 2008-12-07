@@ -272,7 +272,7 @@ protected:
 class NodeGetAddress: public NodeZeroOP
 {
 public:
-			NodeGetAddress(VariableInfo* variableInfo, int variableAddress, bool absoluteAddressation);
+			NodeGetAddress(VariableInfo* variableInfo, int variableAddress, bool absoluteAddressation, TypeInfo *retInfo = NULL);
 	virtual ~NodeGetAddress();
 
 			bool IsAbsoluteAddress();
@@ -391,7 +391,7 @@ protected:
 	bool	absAddress, knownAddress;
 };
 
-class NodeFunctionAddress: public NodeZeroOP
+class NodeFunctionAddress: public NodeOneOP
 {
 public:
 			NodeFunctionAddress(FunctionInfo* functionInfo);
@@ -541,7 +541,7 @@ protected:
 	typedef std::list<shared_ptr<NodeZeroOP> >::iterator listPtr;
 };
 
-class NodeFuncCall: public NodeOneOP
+class NodeFuncCall: public NodeTwoOP
 {
 public:
 	NodeFuncCall(FunctionInfo *info, FunctionType *type);

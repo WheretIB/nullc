@@ -654,12 +654,18 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	// Тип результата - тип возвратного значения функции
 	typeInfo = type->retType;
 
+	if(funcInfo && funcInfo->type == FunctionInfo::LOCAL)
+		second = TakeLastNode();
+
 	if(!funcInfo)
 		first = TakeLastNode();
 
 	// Возьмём узлы каждого параметра
 	for(UINT i = 0; i < type->paramType.size(); i++)
 		paramList.push_back(TakeLastNode());
+
+	if(funcInfo && funcInfo->type == FunctionInfo::THISCALL)
+		second = TakeLastNode();
 }
 NodeFuncCall::~NodeFuncCall()
 {
@@ -724,19 +730,30 @@ void NodeFuncCall::Compile()
 				cmdList->AddData(funcType->paramType[i]->size);
 		}
 
-		if(!funcInfo)
-			first->Compile();
+		if(!funcInfo || second)
+		{
+			if(second)
+				second->Compile();
+			else
+				first->Compile();
+			cmdList->AddData(cmdMov);
+			cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT | bitAddrRelTop));
+			cmdList->AddData(addr);
+
+			cmdList->AddData(cmdPop);
+			cmdList->AddData((USHORT)(STYPE_INT));
+		}
 
 		cmdList->AddData(cmdPushVTop);
 
 		// Надём, сколько занимают все переменные
-		UINT allSize=0;
+		UINT allSize = 0;
 		for(UINT i = 0; i < funcType->paramType.size(); i++)
 			allSize += funcType->paramType[i]->size;
 
 		// Расширим стек переменные на это значение
 		cmdList->AddData(cmdPushV);
-		cmdList->AddData(allSize);
+		cmdList->AddData(allSize + (funcInfo ? (funcInfo->type == FunctionInfo::LOCAL ? 4 : 0) : 4));
 
 		// Вызовем по адресу
 		cmdList->AddData(cmdCall);
@@ -749,8 +766,12 @@ void NodeFuncCall::Compile()
 void NodeFuncCall::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *typeInfo << "FuncCall '" << (funcInfo ? funcInfo->name : "$ptr") << "' :\r\n";
+	ostr << *typeInfo << "FuncCall '" << (funcInfo ? funcInfo->name : "$ptr") << "' " << paramList.size() << ":\r\n";
 	GoDown();
+	if(first)
+		first->LogToStream(ostr);
+	if(second)
+		second->LogToStream(ostr);
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
 	{
 		if(s == --paramList.rend())
@@ -765,8 +786,14 @@ void NodeFuncCall::LogToStream(ostringstream& ostr)
 UINT NodeFuncCall::GetSize()
 {
 	UINT size = 0;
-	if(!funcInfo)
-		size += first->GetSize();
+	if(!funcInfo || second)
+	{
+		if(second)
+			size += second->GetSize();
+		else
+			size += first->GetSize();
+		size += 2*sizeof(CmdID) + sizeof(UINT) + 2*sizeof(USHORT);
+	}
 
 	UINT currParam = 0;
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
@@ -793,14 +820,17 @@ UINT NodeFuncCall::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Новый узел для получения значения переменной
-NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr)
+NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, TypeInfo *retInfo)
 {
-	assert(vInfo);
+	//assert(vInfo);
 	varInfo = vInfo;
 	varAddress = vAddress;
 	absAddress = absAddr;
 
-	typeInfo = vInfo->varType;
+	if(vInfo)
+		typeInfo = vInfo->varType;
+	else
+		typeInfo = retInfo;
 }
 
 NodeGetAddress::~NodeGetAddress()
@@ -850,7 +880,12 @@ void NodeGetAddress::Compile()
 void NodeGetAddress::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *GetReferenceType(typeInfo) << "GetAddress " << *varInfo << " (" << (int)varAddress << (absAddress ? " absolute" : " relative") << ")\r\n";
+	ostr << *GetReferenceType(typeInfo) << "GetAddress ";
+	if(varInfo)
+		ostr << *varInfo;
+	else
+		ostr << "$$$";
+	ostr << " (" << (int)varAddress << (absAddress ? " absolute" : " relative") << ")\r\n";
 }
 
 UINT NodeGetAddress::GetSize()
@@ -1353,6 +1388,9 @@ NodeFunctionAddress::NodeFunctionAddress(FunctionInfo* functionInfo)
 {
 	funcInfo = functionInfo;
 	typeInfo = funcInfo->funcType;
+
+	if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
+		first = TakeLastNode();
 }
 
 NodeFunctionAddress::~NodeFunctionAddress()
@@ -1369,6 +1407,15 @@ void NodeFunctionAddress::Compile()
 	cmdList->AddData(cmdFuncAddr);
 	cmdList->AddData(funcInfo);
 
+	if(funcInfo->type == FunctionInfo::NORMAL)
+	{
+		cmdList->AddData(cmdPush);
+		cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT));
+		cmdList->AddData(0);
+	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
+		first->Compile();
+	}
+
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
 
@@ -1376,11 +1423,22 @@ void NodeFunctionAddress::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
 	ostr << *typeInfo << "FunctionAddress " << funcInfo->name << (funcInfo->funcPtr ? " external" : "") << "\r\n";
+	if(first)
+	{
+		GoDownB();
+		first->LogToStream(ostr);
+		GoUp();
+	}
 }
 
 UINT NodeFunctionAddress::GetSize()
 {
-	return sizeof(CmdID) + sizeof(FunctionInfo*);
+	UINT size = sizeof(CmdID) + sizeof(FunctionInfo*);
+	if(funcInfo->type == FunctionInfo::NORMAL)
+		size += sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+	else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
+		size += first->GetSize();
+	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -1088,3 +1088,76 @@ int rr = sizeof(typeof(fr));
 return 1;
 
 //////////////////////////////////////////////////////////////////////////
+// Class method test
+class vec3
+{
+float x, y, z;
+void vec3(float xx, float yy, float zz){ x = xx; y = yy; z = zz; }
+
+float length(){ return sqrt(x*x+y*y+z*z); }
+float dot(vec3 ref v){ return x*v.x+y*v.y+z*v.z; }
+
+float w;
+}
+
+return 1;
+
+//////////////////////////////////////////////////////////////////////////
+// Closure test
+
+int global = 100;
+int test(int a, int c){ return global + a * c; }
+
+int proxy(int a, int c, typeof(test) foo){ return foo(a, c); }
+
+auto fp = test;
+int res1a, res1b, res1c, res1d;
+res1a = test(2, 3);
+res1b = fp(2, 4);
+res1c = proxy(2, 5, test);
+res1d = proxy(2, 6, fp);
+int res2a, res2b, res2c, res2d;
+{
+  int local = 200;
+  int localtest(int a, int c){ return local + a * c; }
+
+  auto fp2 = localtest;
+  res2a = localtest(2, 3);
+  res2b = fp2(2, 4);
+  res2c = proxy(2, 5, localtest);
+  res2d = proxy(2, 6, fp2);
+}
+
+class Del
+{
+  int classLocal;
+
+  int test(int a, int c){ return classLocal + a * c; }
+}
+Del cls;
+cls.classLocal = 300;
+auto fp3 = cls.test;
+int res3a, res3b, res3c, res3d;
+res3a = cls.test(2, 3);
+res3b = fp3(2, 4);
+res3c = proxy(2, 5, cls.test);
+res3d = proxy(2, 6, fp3);
+
+int type(int[3] x){ return 0; }
+
+int foobar(typeof(type) f) { int x[3]; x = {5, 6, 7}; return f(x); }
+int result;
+{
+  int local1 = 5, local2 = 2;
+  typeof(foobar) local3 = foobar;
+
+  int bar(typeof(type) x){ return local3(x); }
+  int foo(int[3] x){ return local1 + x[local2]; }
+
+  result = bar(foo);
+}
+
+char ee;
+return 1;
+
+//////////////////////////////////////////////////////////////////////////
