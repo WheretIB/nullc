@@ -930,34 +930,37 @@ void AddGetAddressNode(char const* s, char const* e)
 			// Переменные типа адресуются через указатель this
 			std::string bName = "this";
 
-			AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+			FunctionInfo *currFunc = currDefinedFunc.back();
+
+			TypeInfo *temp = GetReferenceType(newType);
+			currTypes.push_back(temp);
+
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp)));
+
 			AddDereferenceNode(0,0);
 			strs.push_back(vName);
 			AddMemberAccessNode(s, e);
+
+			currTypes.pop_back();
 			return;
 		}
 	}
 	// Если мы находимся в локальной функции, и переменная находится в наружной области видимости
 	if((int)retTypeStack.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 	{
+		FunctionInfo *currFunc = currDefinedFunc.back();
 		// Добавим имя переменной в список внешних переменных функции
-		int num = AddFunctionExternal(currDefinedFunc.back(), vName);
+		int num = AddFunctionExternal(currFunc, vName);
 
-		// Создадим тип - указатель на массив указателей, размером со все текущие внешние переменные функции
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)currDefinedFunc.back()->external.size(), typeInt)));
-		varInfo[varInfoTop.back().activeVarCnt]->varType = GetReferenceType(GetArrayType(GetReferenceType(typeInt)));
+		TypeInfo *temp = GetReferenceType(GetArrayType(GetReferenceType(typeInt)));
+		currTypes.push_back(temp);
 
-		// Внешние переменные адрессуются косвенно через скрытый параметр функции
-		std::string bName = "$" + currDefinedFunc.back()->name + "_ext";
-
-		// Получаем значение скрытого параметра
-		// Тут компилятор делает предположение, что текущий тип - "int ref[n] ref", хотя на самом деле он "int ref[n] ref ref"
-		AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());		// текущий тип - int ref[n] ref (реальный - int ref[n] ref ref)
-		// Разыменовываем
-		AddDereferenceNode(0,0);											// текущий тип - int ref[n]		(реальный - int ref[n] ref)
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp)));
+		AddDereferenceNode(0,0);
 		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(num, typeInt)));
-		AddArrayIndexNode(0,0);												// текущий тип - int ref		(реальный - int ref ref)
-		AddDereferenceNode(0,0);											// текущий тип - int			(реальный - int ref)
+		AddArrayIndexNode(0,0);
+		AddDereferenceNode(0,0);
 		// Убрали текущий тип
 		currTypes.pop_back();
 	}else{
@@ -973,6 +976,12 @@ void AddGetAddressNode(char const* s, char const* e)
 			// Создаем узел для получения указателя на переменную
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varAddress, absAddress)));
 		}else{
+			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
+			{
+				std::string bName = "$" + funcInfo[fID]->name + "_ext";
+				AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+			}
+
 			// Создаем узел для получения указателя на функцию
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFunctionAddress(funcInfo[fID])));
 		}
@@ -1228,19 +1237,41 @@ void AddMemberAccessNode(char const* s, char const* e)
 		currType = currTypes.back();
 	}
 
+	int fID = -1;
 	int i = (int)currType->memberData.size()-1;
 	while(i >= 0 && currType->memberData[i].name != memberName)
 		i--;
 	if(i == -1)
-		throw CompilerError("ERROR: variable '" + memberName + "' is not a member of '" + currType->GetTypeName() + "'", s);
-
-	if(nodeList.back()->GetNodeType() == typeNodeGetAddress)
 	{
-		static_cast<NodeGetAddress*>(nodeList.back().get())->ShiftToMember(i);
-	}else{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeShiftAddress(currType->memberData[i].offset, currType->memberData[i].type)));
+		// Ищем функцию по имени
+		for(int k = 0; k < (int)funcInfo.size(); k++)
+		{
+			if(funcInfo[k]->name == ("Del::" + memberName) && funcInfo[k]->visible)
+			{
+				if(fID != -1)
+					throw CompilerError("ERROR: there are more than one '" + memberName + "' function, and the decision isn't clear", s);
+				fID = k;
+			}
+		}
+		if(fID == -1)
+			throw CompilerError("ERROR: variable '" + memberName + "' is not a member of '" + currType->GetTypeName() + "'", s);
 	}
-	currTypes.back() = currType->memberData[i].type;
+	
+	if(fID == -1)
+	{
+		if(nodeList.back()->GetNodeType() == typeNodeGetAddress)
+		{
+			static_cast<NodeGetAddress*>(nodeList.back().get())->ShiftToMember(i);
+		}else{
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeShiftAddress(currType->memberData[i].offset, currType->memberData[i].type)));
+		}
+		currTypes.back() = currType->memberData[i].type;
+	}else{
+		// Создаем узел для получения указателя на функцию
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFunctionAddress(funcInfo[fID])));
+
+		currTypes.back() = funcInfo[fID]->funcType;
+	}
 
 	strs.pop_back();
 }
@@ -1396,22 +1427,20 @@ void FunctionAdd(char const* s, char const* e)
 	currDefinedFunc.push_back(funcInfo.back());
 
 	if(newType)
-		funcInfo.back()->params.push_back(VariableInfo("this", 0, GetReferenceType(newType), true));
+		funcInfo.back()->name = newType->name + "::" + name;
 }
+
 void FunctionParam(char const* s, char const* e)
 {
 	if(!currType)
 		throw CompilerError("ERROR: function parameter cannot be an auto type", s);
 	funcInfo.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
+	funcInfo.back()->allParamSize += currType->size;
 	strs.pop_back();
 }
 void FunctionStart(char const* s, char const* e)
 {
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
-
-	// Local function has a special parameter - pointer to a list of extern variable pointers
-	if(funcInfo.back()->type == FunctionInfo::LOCAL)
-		funcInfo.back()->params.push_back(VariableInfo("$" + funcInfo.back()->name + "_ext", 0, GetReferenceType(typeInt), true));
 
 	for(int i = (int)funcInfo.back()->params.size()-1; i >= 0; i--)
 	{
@@ -1424,7 +1453,14 @@ void FunctionStart(char const* s, char const* e)
 		varDefined = false;
 
 		strs.pop_back();
-	}	
+	}
+
+	strs.push_back("$" + funcInfo.back()->name + "_ext");
+	currType = GetReferenceType(typeInt);
+	currAlign = 1;
+	addVar(0, 0);
+	varDefined = false;
+	strs.pop_back();
 
 	funcInfo.back()->funcType = GetFunctionType(funcInfo.back());
 }
@@ -1432,8 +1468,14 @@ void FunctionEnd(char const* s, char const* e)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
+	std::string fName = strs.back();
+	if(newType)
+	{
+		fName = newType->name + "::" + fName;
+	}
+
 	int i = (int)funcInfo.size()-1;
-	while(i >= 0 && funcInfo[i]->name != strs.back())
+	while(i >= 0 && funcInfo[i]->name != fName)
 		i--;
 
 	// Find all the functions with the same name
@@ -1476,8 +1518,6 @@ void FunctionEnd(char const* s, char const* e)
 		shared_ptr<NodeZeroOP> temp = nodeList.back();
 		nodeList.pop_back();
 
-		lastFunc.params.back().varType = GetReferenceType(temp->GetTypeInfo());
-
 		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
 
 		for(UINT n = 0; n < lastFunc.external.size(); n++)
@@ -1513,8 +1553,6 @@ void FunctionEnd(char const* s, char const* e)
 		clFunc.name = lastFunc.name;
 		clFunc.func = &lastFunc;
 		clFunc.defNode = nodeList.back().get();
-
-		lastFunc.name = newType->name + "::" + lastFunc.name;
 	}
 }
 
@@ -1533,40 +1571,6 @@ void addFuncCallNode(char const* s, char const* e)
 
 	if(vID == -1)
 	{
-		// Searching from last function to first. If the first found function is local, create node that sends context info
-		// If the function is thiscall, create add pointer to a class
-		for(int k = (int)funcInfo.size()-1; k >= 0; k--)
-		{
-			if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->type == FunctionInfo::LOCAL)
-			{
-				std::string bName = "$" + funcInfo[k]->name + "_ext";
-				int i = (int)varInfo.size()-1;
-				while(i >= 0 && varInfo[i]->name != bName)
-					i--;
-				if(i == -1)
-				{
-					nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
-					callArgCount.back()++;
-				}else{
-					std::string bName = "$" + funcInfo[k]->name + "_ext";
-
-					AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
-					if(currTypes.back()->refLevel == 1)
-						AddDereferenceNode(s, e);
-					funcInfo[k]->params.back().varType = GetReferenceType(currTypes.back());
-					currTypes.pop_back();
-
-					callArgCount.back()++;
-				}
-				break;
-			}
-			if(funcInfo[k]->name == fname && funcInfo[k]->visible && funcInfo[k]->type == FunctionInfo::THISCALL)
-			{
-				callArgCount.back()++;
-				break;
-			}
-		}
-
 		//Find all functions with given name
 		FunctionInfo *fList[32];
 		UINT	fRating[32];
@@ -1662,6 +1666,7 @@ void addFuncCallNode(char const* s, char const* e)
 		AddGetVariableNode(s, e);
 		fType = nodeList.back()->GetTypeInfo()->funcType;
 	}
+
 	vector<shared_ptr<NodeZeroOP> > paramNodes;
 	for(UINT i = 0; i < fType->paramType.size(); i++)
 	{
@@ -1705,6 +1710,24 @@ void addFuncCallNode(char const* s, char const* e)
 			nodeList.push_back(paramNodes[index]);
 		}
 	}
+
+	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
+	{
+		std::string bName = "$" + fInfo->name + "_ext";
+		int i = (int)varInfo.size()-1;
+		while(i >= 0 && varInfo[i]->name != bName)
+			i--;
+		if(i == -1)
+			throw CompilerError("ERROR: cannot find context container " + bName, s);
+		
+		AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+		if(currTypes.back()->refLevel == 1)
+			AddDereferenceNode(s, e);
+		currTypes.pop_back();
+	}
+
+	if(!fInfo)
+		currTypes.pop_back();
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fInfo, fType)));
 

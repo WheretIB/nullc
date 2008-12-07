@@ -858,15 +858,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_SIZE:
 	{
-		SetWindowPos(hTextArea, HWND_TOP, 5,5,LOWORD(lParam)-10, (int)(4.0/9.0*HIWORD(lParam)), NULL);
-		SetWindowPos(hButtonCalc, HWND_TOP, 5,7+(int)(4.0/9.0*HIWORD(lParam)),100, 30, NULL);
-		SetWindowPos(hButtonCalcX86, HWND_TOP, (int)(LOWORD(lParam))-135,7+(int)(4.0/9.0*HIWORD(lParam)),130, 30, NULL);
-		SetWindowPos(hDoOptimize, HWND_TOP, (int)(LOWORD(lParam))-235,7+(int)(4.0/9.0*HIWORD(lParam)),95, 30, NULL);
-		SetWindowPos(hResult, HWND_TOP, 110,7+(int)(4.0/9.0*HIWORD(lParam)),(int)(LOWORD(lParam))-345, 30, NULL);
+		SetWindowPos(hTextArea, HWND_TOP, 5,5,LOWORD(lParam)-10, (int)(5.0/9.0*HIWORD(lParam)), NULL);
+		SetWindowPos(hButtonCalc, HWND_TOP, 5,7+(int)(5.0/9.0*HIWORD(lParam)),100, 30, NULL);
+		SetWindowPos(hButtonCalcX86, HWND_TOP, (int)(LOWORD(lParam))-135,7+(int)(5.0/9.0*HIWORD(lParam)),130, 30, NULL);
+		SetWindowPos(hDoOptimize, HWND_TOP, (int)(LOWORD(lParam))-235,7+(int)(5.0/9.0*HIWORD(lParam)),95, 30, NULL);
+		SetWindowPos(hResult, HWND_TOP, 110,7+(int)(5.0/9.0*HIWORD(lParam)),(int)(LOWORD(lParam))-345, 30, NULL);
 		UINT widt = (LOWORD(lParam)-20)/4;
-		SetWindowPos(hCode, HWND_TOP, 5,40+(int)(4.0/9.0*HIWORD(lParam)),2*widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
-		SetWindowPos(hLog, HWND_TOP, 2*widt+10,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
-		SetWindowPos(hVars, HWND_TOP, 3*widt+15,40+(int)(4.0/9.0*HIWORD(lParam)),widt, (int)(4.0/9.0*HIWORD(lParam)), NULL);
+		SetWindowPos(hCode, HWND_TOP, 5,40+(int)(5.0/9.0*HIWORD(lParam)),2*widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);
+		SetWindowPos(hLog, HWND_TOP, 2*widt+10,40+(int)(5.0/9.0*HIWORD(lParam)),widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);
+		SetWindowPos(hVars, HWND_TOP, 3*widt+15,40+(int)(5.0/9.0*HIWORD(lParam)),widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);
 	}
 		break;
 	default:

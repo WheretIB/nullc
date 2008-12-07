@@ -163,20 +163,20 @@ namespace ColorerGrammar
 		classdef	=
 			strP("class")[ColorRWord] >>
 			(varname[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
-			(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
+			(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText][BlockBegin] >>
 			*(
 				funcdef |
 				(
 					typeExpr >>
-					((varname - typenameP(varname))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after type")]) >>
+					((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after type")]) >>
 					*(
 						chP(',')[ColorText] >>
-						((varname - typenameP(varname))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")])
+						((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after ','")])
 					) >>
 					(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
 				)
 			) >>
-			(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][AddType];
+			(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd][AddType];
 
 		funccall	=	varname[ColorFunc] >> 
 			strP("(")[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >>

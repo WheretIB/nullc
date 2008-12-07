@@ -162,7 +162,7 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 	{
 		typeInfo.push_back(new TypeInfo());
 		typeInfo.back()->funcType = new FunctionType();
-		typeInfo.back()->size = 4;
+		typeInfo.back()->size = 8;
 		bestFit = typeInfo.back();
 
 		bestFit->type = TypeInfo::TYPE_COMPLEX;

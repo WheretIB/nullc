@@ -1489,7 +1489,7 @@ void ExecutorX86::GenListing()
 			{
 				CmdFlag lcFlag;
 				cmdList->GetUSHORT(pos+2, lcFlag);
-				if(flagAddrAbs(lcFlag) || flagAddrRel(lcFlag) && flagShiftStk(cFlag))
+				if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
 					knownEDXOnPush = true;
 			}
 			if(!knownEDXOnPush)
