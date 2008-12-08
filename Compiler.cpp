@@ -917,7 +917,7 @@ void AddGetAddressNode(char const* s, char const* e)
 	if(fID == -1)
 		currTypes.push_back(varInfo[i]->varType);
 	else
-		currTypes.push_back(funcInfo[fID]->retType);
+		currTypes.push_back(funcInfo[fID]->funcType);
 
 	if(newType && (currDefinedFunc.back()->type == FunctionInfo::THISCALL) && vName != "this")
 	{
@@ -983,9 +983,12 @@ void AddGetAddressNode(char const* s, char const* e)
 				while(i >= 0 && varInfo[i]->name != bName)
 					i--;
 				if(i == -1)
+				{
 					nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
-				else
+				}else{
 					AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+					currTypes.pop_back();
+				}
 			}
 
 			// Создаем узел для получения указателя на функцию
