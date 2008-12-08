@@ -979,7 +979,13 @@ void AddGetAddressNode(char const* s, char const* e)
 			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 			{
 				std::string bName = "$" + funcInfo[fID]->name + "_ext";
-				AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+				int i = (int)varInfo.size()-1;
+				while(i >= 0 && varInfo[i]->name != bName)
+					i--;
+				if(i == -1)
+					nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
+				else
+					AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
 			}
 
 			// Создаем узел для получения указателя на функцию
@@ -1236,7 +1242,7 @@ void AddMemberAccessNode(char const* s, char const* e)
 		currTypes.back() = GetDereferenceType(currTypes.back());
 		currType = currTypes.back();
 	}
-
+ 
 	int fID = -1;
 	int i = (int)currType->memberData.size()-1;
 	while(i >= 0 && currType->memberData[i].name != memberName)
@@ -1246,7 +1252,7 @@ void AddMemberAccessNode(char const* s, char const* e)
 		// Ищем функцию по имени
 		for(int k = 0; k < (int)funcInfo.size(); k++)
 		{
-			if(funcInfo[k]->name == ("Del::" + memberName) && funcInfo[k]->visible)
+			if(funcInfo[k]->name == (currType->name + "::" + memberName) && funcInfo[k]->visible)
 			{
 				if(fID != -1)
 					throw CompilerError("ERROR: there are more than one '" + memberName + "' function, and the decision isn't clear", s);
@@ -1718,12 +1724,14 @@ void addFuncCallNode(char const* s, char const* e)
 		while(i >= 0 && varInfo[i]->name != bName)
 			i--;
 		if(i == -1)
-			throw CompilerError("ERROR: cannot find context container " + bName, s);
-		
-		AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
-		if(currTypes.back()->refLevel == 1)
-			AddDereferenceNode(s, e);
-		currTypes.pop_back();
+		{
+			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
+		}else{
+			AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+			if(currTypes.back()->refLevel == 1)
+				AddDereferenceNode(s, e);
+			currTypes.pop_back();
+		}
 	}
 
 	if(!fInfo)
