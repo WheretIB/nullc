@@ -1016,7 +1016,7 @@ void NodeVariableSet::Compile()
 void NodeVariableSet::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *typeInfo << "VariableSet " << (arrSetAll ? "set all elements" : "") << "\r\n";
+	ostr << *typeInfo << "VariableSet " << (arrSetAll ? "set all elements" : "") << " pushv: " << bytesToPush << "\r\n";
 	GoDown();
 	first->LogToStream(ostr);
 	GoUp();
@@ -1984,6 +1984,13 @@ NodeExpressionList::~NodeExpressionList()
 void NodeExpressionList::AddNode(bool reverse)
 {
 	exprList.insert(reverse ? exprList.begin() : exprList.end(), TakeLastNode());
+}
+
+shared_ptr<NodeZeroOP> NodeExpressionList::GetFirstNode()
+{
+	if(exprList.empty())
+		throw std::string("NodeExpressionList::GetLastNode() List is empty");
+	return *(exprList.begin());
 }
 
 void NodeExpressionList::Compile()

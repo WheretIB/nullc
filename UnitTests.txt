@@ -1161,3 +1161,38 @@ char ee;
 return 1;
 
 //////////////////////////////////////////////////////////////////////////
+
+int f(int a){ 1; }
+
+int test(int n, typeof(f) ptr){ return ptr(n); }
+
+int n = 5;
+auto a = int clA(int b){ return b + 5; };
+auto b = int clB(int b){ return b + n; };
+
+int res1 = test(3, int cl(int b){ return b+n; });
+
+int resA, resB, resC, resD, resE, resF;
+{
+  int d = 7;
+  typeof(f) a0, a1;
+  a0 = int cl22(int b){ return b + 2; };
+  a1 = int cl23(int b){ return b + d; };
+
+  resA = a0(3);
+  resB = a1(3);
+
+  auto b0 = int cl24(int b){ return b + 2; };
+  auto b1 = int cl25(int b){ return b + d; };
+
+  resC = b0(4);
+  resD = b1(4);
+
+  resE = test(5, int cl26(int b){ return b + 2; });
+  resF = test(5, int cl27(int b){ return b + d; });
+}
+int c=0;
+
+return 1;;
+
+//////////////////////////////////////////////////////////////////////////

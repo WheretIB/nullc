@@ -161,9 +161,15 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 	if(!bestFit)
 	{
 		typeInfo.push_back(new TypeInfo());
-		typeInfo.back()->funcType = new FunctionType();
-		typeInfo.back()->size = 8;
 		bestFit = typeInfo.back();
+
+#ifdef _DEBUG
+		bestFit->AddMember("context", typeInt);
+		bestFit->AddMember("ptr", typeInt);
+#endif
+
+		bestFit->funcType = new FunctionType();
+		bestFit->size = 8;
 
 		bestFit->type = TypeInfo::TYPE_COMPLEX;
 

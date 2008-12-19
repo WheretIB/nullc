@@ -531,6 +531,7 @@ public:
 	virtual ~NodeExpressionList();
 
 			void AddNode(bool reverse = true);
+			shared_ptr<NodeZeroOP> GetFirstNode();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);

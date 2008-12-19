@@ -882,6 +882,7 @@ void SetTypeOfLastNode(char const* s, char const* e)
 }
 
 void AddInplaceArray(char const* s, char const* e);
+void AddInplaceFunction(char const* s, char const* e);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
 void AddMemberAccessNode(char const* s, char const* e);
@@ -976,6 +977,10 @@ void AddGetAddressNode(char const* s, char const* e)
 			// Создаем узел для получения указателя на переменную
 			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varAddress, absAddress)));
 		}else{
+			if(funcInfo[fID]->funcPtr != 0)
+				throw CompilerError("ERROR: Can't get a pointer to an extern function", s);
+			if(funcInfo[fID]->address == -1 && funcInfo[fID]->funcPtr == NULL)
+				throw CompilerError("ERROR: Can't get a pointer to a build-in function", s);
 			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 			{
 				std::string bName = "$" + funcInfo[fID]->name + "_ext";
@@ -1128,6 +1133,17 @@ void AddDefineVariableNode(char const* s, char const* e)
 			nodeList.push_back(listExpr);
 		}
 	}
+	// Если переменной присваивается функция, то возьмём указатель на неё
+	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
+		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back().get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+	{
+		AddInplaceFunction(s, e);
+		currTypes.pop_back();
+		unifyTwo = true;
+		realCurrType = nodeList.back()->GetTypeInfo();
+		varDefined = true;
+		varTop -= realCurrType->size;
+	}
 
 	// Переменная показывает, на сколько байт расширить стек переменных
 	UINT varSizeAdd = offsetBytes;	// По умолчанию, она хранит выравнивающий сдвиг
@@ -1203,6 +1219,13 @@ void AddSetVariableNode(char const* s, char const* e)
 			if(unifyTwo)
 				std::swap(*(nodeList.end()-2), *(nodeList.end()-3));
 		}
+	}
+	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
+		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back().get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+	{
+		AddInplaceFunction(s, e);
+		unifyTwo = true;
+		std::swap(*(nodeList.end()-2), *(nodeList.end()-3));
 	}
 
 	try
@@ -1350,6 +1373,13 @@ void AddInplaceArray(char const* s, char const* e)
 	currType = saveCurrType;
 	strs.pop_back();
 }
+
+void AddInplaceFunction(char const* s, char const* e)
+{
+	std::string fName = funcInfo.back()->name;
+	AddGetAddressNode(fName.c_str(), fName.c_str()+fName.length());
+}
+
 //////////////////////////////////////////////////////////////////////////
 void addOneExprNode(char const* s, char const* e)
 {
@@ -1437,6 +1467,8 @@ void FunctionAdd(char const* s, char const* e)
 
 	if(newType)
 		funcInfo.back()->name = newType->name + "::" + name;
+	if(varDefined && varInfo.back()->varType == NULL)
+		varTop += 8;
 }
 
 void FunctionParam(char const* s, char const* e)
@@ -1603,11 +1635,16 @@ void addFuncCallNode(char const* s, char const* e)
 			}
 			for(UINT n = 0; n < fList[k]->params.size(); n++)
 			{
-				TypeInfo *paramType = nodeList[nodeList.size()-fList[k]->params.size()+n]->GetTypeInfo();
+				shared_ptr<NodeZeroOP> activeNode = nodeList[nodeList.size()-fList[k]->params.size()+n];
+				TypeInfo *paramType = activeNode->GetTypeInfo();
+				UINT	nodeType = activeNode->GetNodeType();
 				TypeInfo *expectedType = fList[k]->params[n].varType;
 				if(expectedType != paramType)
 				{
 					if(expectedType->arrSize == -1 && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
+						fRating[k] += 5;
+					else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef ||
+							(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode.get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 						fRating[k] += 5;
 					else if(expectedType->type == TypeInfo::TYPE_COMPLEX)
 						fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
@@ -1691,6 +1728,16 @@ void addFuncCallNode(char const* s, char const* e)
 		TypeInfo *expectedType = fType->paramType[i];
 		TypeInfo *realType = paramNodes[index]->GetTypeInfo();
 		
+		if(paramNodes[index]->GetNodeType() == typeNodeFuncDef ||
+			(paramNodes[index]->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index].get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+		{
+			AddInplaceFunction(s, e);
+			currTypes.pop_back();
+
+			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(paramNodes[index]->GetTypeInfo()));
+			listExpr->AddNode();
+			nodeList.push_back(listExpr);
+		}
 		if(expectedType->arrSize == -1 && expectedType->subType == realType->subType && expectedType != realType)
 		{
 			if(paramNodes[index]->GetNodeType() != typeNodeDereference)
@@ -2095,6 +2142,7 @@ namespace CompilerGrammar
 		postExpr	=	('.' >> varname[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)))[AddMemberAccessNode] |
 						('[' >> term5 >> ']')[AddArrayIndexNode];
 		term1		=
+			funcdef |
 			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
 			(chP('&') >> variable)[popType] |
 			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt, true>()])[popType] | 
@@ -2129,7 +2177,7 @@ namespace CompilerGrammar
 		term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[ThrowError("ERROR: expression not found after xor")]))[addCmd(cmdLogXor)];
 		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
-		term5		=	(
+		term5		=	(!(seltype /*>> epsP[popType]*/) >>
 						variable >> (
 						(strP("=") >> term5)[AddSetVariableNode][popType] |
 						(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
@@ -2499,10 +2547,10 @@ bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
 	{
 		typeInfo.push_back(new TypeInfo());
 		typeInfo.back()->funcType = new FunctionType();
-		typeInfo.back()->size = 4;
+		typeInfo.back()->size = 8;
 		bestFit = typeInfo.back();
 
-		bestFit->type = TypeInfo::TYPE_INT;
+		bestFit->type = TypeInfo::TYPE_COMPLEX;
 
 		bestFit->funcType->retType = lastFunc.retType;
 		for(UINT n = 0; n < lastFunc.params.size(); n++)
