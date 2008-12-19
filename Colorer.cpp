@@ -306,6 +306,7 @@ namespace ColorerGrammar
 
 		group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
 		term1		=
+			funcdef |
 			(strP("sizeof")[ColorRWord] >> chP('(')[ColorText] >> (typeExpr | term5) >> chP(')')[ColorText]) |
 			(chP('&')[ColorText] >> appval) |
 			((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
