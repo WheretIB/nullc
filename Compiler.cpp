@@ -1040,6 +1040,12 @@ void AddArrayIndexNode(char const* s, char const* e)
 			throw CompilerError("AddArrayIndexNode() ERROR: unknown index type " + aType->name, lastKnownStartPos);
 		}
 
+		// ѕроверим индекс на выход за пределы массива
+		if(shiftValue < 0)
+			throw CompilerError("ERROR: Array index cannot be negative", s);
+		if(shiftValue > currTypes.back()->arrSize)
+			throw CompilerError("ERROR: Array index out of bounds", s);
+
 		// »ндексируем относительно него
 		static_cast<NodeGetAddress*>((*(nodeList.end()-2)).get())->IndexArray(shiftValue);
 		nodeList.pop_back();
