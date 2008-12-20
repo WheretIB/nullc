@@ -1196,3 +1196,17 @@ int c=0;
 return 1;;
 
 //////////////////////////////////////////////////////////////////////////
+
+int main()
+{
+  int f(int a){ 1; }
+  int test(int n, typeof(f) ptr){ return ptr(n); }
+ 
+  int n = 5;
+  int res1 = test(3, int cl(int b){ return b+n; });
+  return res1;
+}
+
+return main();
+
+//////////////////////////////////////////////////////////////////////////
