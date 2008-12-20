@@ -126,10 +126,12 @@ class VariableInfo
 public:
 	VariableInfo(){}
 	VariableInfo(std::string newname, UINT newpos, TypeInfo* newtype, bool newisConst=true):
-	  name(newname), pos(newpos), varType(newtype), isConst(newisConst){}
+	  name(newname), pos(newpos), varType(newtype), isConst(newisConst), dataReserved(false){}
 	std::string	name;		//Variable name
 	UINT		pos;		//Variable position in value stack
 	bool		isConst;	//Constant flag
+
+	bool		dataReserved;	// Tells if cmdPushV was used for this variable
 
 	TypeInfo*	varType;	//Pointer to the variable type info
 };

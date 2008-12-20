@@ -797,6 +797,7 @@ void addVarDefNode(char const* s, char const* e)
 	if(!currType)
 		throw CompilerError("ERROR: auto variable must be initialized in place of definition", s);
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(currType->size+offsetBytes, strs.back())));
+	varInfo.back()->dataReserved = true;
 	varDefined = 0;
 	offsetBytes = 0;
 }
@@ -1043,7 +1044,7 @@ void AddArrayIndexNode(char const* s, char const* e)
 		// ѕроверим индекс на выход за пределы массива
 		if(shiftValue < 0)
 			throw CompilerError("ERROR: Array index cannot be negative", s);
-		if(shiftValue > currTypes.back()->arrSize)
+		if(shiftValue >= currTypes.back()->arrSize)
 			throw CompilerError("ERROR: Array index out of bounds", s);
 
 		// »ндексируем относительно него
@@ -1177,7 +1178,8 @@ void AddDefineVariableNode(char const* s, char const* e)
 		varInfo[i]->varType = realCurrType;
 		varTop += realCurrType->size;
 	}
-	varSizeAdd += varDefined ? realCurrType->size : 0;
+	varSizeAdd += /*varDefined*/!varInfo[i]->dataReserved ? realCurrType->size : 0;
+	varInfo[i]->dataReserved = true;
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress)));
 

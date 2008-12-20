@@ -753,7 +753,7 @@ void NodeFuncCall::Compile()
 
 		// Расширим стек переменные на это значение
 		cmdList->AddData(cmdPushV);
-		cmdList->AddData(allSize + (funcInfo ? (funcInfo->type == FunctionInfo::LOCAL ? 4 : 0) : 4));
+		cmdList->AddData(allSize + 4);//(funcInfo ? (funcInfo->type == FunctionInfo::LOCAL ? 4 : 0) : 4));
 
 		// Вызовем по адресу
 		cmdList->AddData(cmdCall);
