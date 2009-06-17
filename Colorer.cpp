@@ -112,7 +112,7 @@ namespace ColorerGrammar
 	{
 	public:
 		TypeNameP(Rule a){ m_a.set(a); }
-		virtual ~TypeNameP(){}
+		virtual ~TypeNameP(){ m_a.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -350,6 +350,16 @@ namespace ColorerGrammar
 
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")))[ColorComment];
 	}
+	void DeInitGrammar()
+	{
+		mySpaceP.detach();	code.detach();	expr.detach();
+		block.detach();	term5.detach();	term4_9.detach();	term4_6.detach(); term4_4.detach();	term4_2.detach();	term4_1.detach();
+		term4.detach();	term3.detach();	term2.detach(); term1.detach();
+		group.detach();	continueExpr.detach();	breakExpr.detach(); returnExpr.detach();	switchExpr.detach();	dowhileExpr.detach();
+		whileExpr.detach();	forExpr.detach();	ifExpr.detach(); vardef.detach();	vardefsub.detach();	addvarp.detach();
+		funcdef.detach();	funcvars.detach(); funccall.detach();	classdef.detach();	varname.detach();
+		arrayDef.detach();
+	}
 
 	void CheckIfDeclared(const std::string& str, bool forFunction = false)
 	{
@@ -557,6 +567,9 @@ Colorer::Colorer(HWND rich): richEdit(rich)
 }
 Colorer::~Colorer()
 {
+	delete[] strBuf;
+
+	ColorerGrammar::DeInitGrammar();
 }
 
 void Colorer::InitParser()
@@ -581,6 +594,7 @@ void Colorer::ColorText()
 	ColorerGrammar::varInfoTop.clear();
 	ColorerGrammar::varInfo.clear();
 	ColorerGrammar::funcs = CodeInfo::funcInfo;
+	UINT oldFuncCount = ColorerGrammar::funcs.size();
 	ColorerGrammar::typeInfo.clear();
 
 	ColorerGrammar::typeInfo.push_back("void");
@@ -617,6 +631,9 @@ void Colorer::ColorText()
 
 	if(!Parse(ColorerGrammar::code, strBuf, ColorerGrammar::mySpaceP))
 		throw std::string("Syntax error");
+
+	for(int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
+		delete ColorerGrammar::funcs[i];
 
 	if(ColorerGrammar::logStream.str().length() != 0)
 		throw ColorerGrammar::logStream.str();

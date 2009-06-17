@@ -23,6 +23,7 @@ std::vector<shared_ptr<NodeZeroOP> >	CodeInfo::nodeList;
 #include "Compiler.h"
 #include "Executor.h"
 #include "Executor_X86.h"
+#include "SupSpi.h"
 
 #define MAX_LOADSTRING 100
 
@@ -374,6 +375,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	delete compiler;
 	delete executor;
 	delete executorX86;
+	delete CodeInfo::cmdList;
+
 	return (int) msg.wParam;
 }
 
@@ -463,6 +466,8 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	hTextArea = CreateWindow("RICHEDIT", fileContent ? fileContent : "int a = 5;\r\nint ref b = &a;\r\nreturn 1;",
 		WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
 		5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
+	delete fileContent;
+	fileContent = NULL;
 	if(!hTextArea)
 		return 0;
 	ShowWindow(hTextArea, nCmdShow);
@@ -821,6 +826,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_DESTROY:
+		delete[] buf;
 		PostQuitMessage(0);
 		break;
 	case WM_TIMER:
