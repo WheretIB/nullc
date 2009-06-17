@@ -1997,7 +1997,7 @@ namespace CompilerGrammar
 	{
 	public:
 		TypeNameP(Rule a){ m_a.set(a); }
-		virtual ~TypeNameP(){}
+		virtual ~TypeNameP(){ m_a.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -2202,6 +2202,17 @@ namespace CompilerGrammar
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
+	}
+	void DeInitGrammar()
+	{
+		mySpaceP.detach();	code.detach();	expression.detach();
+		block.detach();	term5.detach();	term4_9.detach();	term4_85.detach();	term4_8.detach();	term4_75.detach();
+		term4_7.detach();	term4_65.detach();	term4_6.detach(); term4_4.detach();	term4_2.detach();	term4_1.detach();
+		term4.detach();	term3.detach();	term2.detach(); term1.detach();	postExpr.detach();	variable.detach();
+		group.detach();	continueExpr.detach();	breakexpr.detach(); retexpr.detach();	switchexpr.detach();	doexpr.detach();
+		whileexpr.detach();	forexpr.detach();	ifexpr.detach(); vardef.detach();	vardefsub.detach();	addvarp.detach();
+		funcProt.detach();	funcdef.detach();	funcvars.detach(); funccall.detach();	classdef.detach();	varname.detach();
+		isconst.detach();	seltype.detach();	arrayDef.detach();
 	}
 };
 
@@ -2455,6 +2466,18 @@ Compiler::Compiler()
 }
 Compiler::~Compiler()
 {
+	for(UINT i = 0; i < typeInfo.size(); i++)
+	{
+		delete typeInfo[i]->funcType;
+		delete typeInfo[i];
+	}
+	for(UINT i = 0; i < funcInfo.size(); i++)
+		delete funcInfo[i];
+
+	CompilerGrammar::DeInitGrammar();
+
+	for(UINT i = 0; i < varInfo.size(); i++)
+		delete varInfo[i];
 }
 
 void Compiler::ClearState()
@@ -2462,7 +2485,18 @@ void Compiler::ClearState()
 	varInfoTop.clear();
 	funcInfoTop.clear();
 
+	/*for(UINT i = 0; i < varInfo.size(); i++)
+		delete varInfo[i];*/
 	varInfo.clear();
+
+	/*for(int i = buildInTypes; i < typeInfo.size(); i++)
+	{
+		delete typeInfo[i]->funcType;
+		delete typeInfo[i];
+	}*/
+	/*for(int i = buildInFuncs; i < funcInfo.size(); i++)
+		delete funcInfo[i];*/
+
 	typeInfo.resize(buildInTypes);
 	funcInfo.resize(buildInFuncs);
 

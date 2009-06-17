@@ -87,8 +87,8 @@ namespace supspi
 	{
 	public:
 		Rule(){ m_ptr.reset(new shared_ptr<BaseP>()); }
+		//Rule(const Rule& old){ /*m_ptr.reset(new shared_ptr<BaseP>());*/ m_ptr=old.m_ptr; }
 		Rule(shared_ptr<BaseP> a){ m_ptr.reset(new shared_ptr<BaseP>()); *m_ptr=a; }
-		~Rule(){}
 		
 		Rule&	operator =(const Rule& a)
 		{
@@ -99,10 +99,12 @@ namespace supspi
 		BaseP*	operator ->(){ return m_ptr->get(); }
 		shared_ptr<BaseP> getParser(){ return *m_ptr; };
 
-		void set(const Rule& r) {m_ptr = r.m_ptr;}
+		void set(const Rule& r){ m_ptr = r.m_ptr; }
 
 		template<typename ActionT>
 		Rule	operator [](ActionT act);
+
+		void detach(){ m_ptr->reset(); m_ptr.reset(); }
 	private:
 		shared_ptr<shared_ptr<BaseP> >	m_ptr;
 	};
@@ -127,7 +129,7 @@ namespace supspi
 	{
 	public:
 		ActionP(Rule a, ActionT act){ m_a.set(a); m_act = act; }
-		~ActionP(){}
+		~ActionP(){ m_a.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -145,7 +147,7 @@ namespace supspi
 	};
 	template<typename ActionT>
 	Rule	Rule::operator [](ActionT act){ return Rule(shared_ptr<BaseP>(new ActionP<ActionT>(*this, act))); }
-	
+
 	//Policies
 
 	//Rule inside this policy won't skip any spaces
@@ -153,7 +155,7 @@ namespace supspi
 	{
 	public:
 		NoSpaceP(Rule a){ m_sub.set(a); }
-		~NoSpaceP(){}
+		~NoSpaceP(){ m_sub.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -173,7 +175,7 @@ namespace supspi
 	{
 	public:
 		LongestP(Rule a){ m_altp.set(a); }
-		~LongestP(){}
+		~LongestP(){ m_altp.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -452,7 +454,7 @@ namespace supspi
 	{
 	public:
 		RepeatP(Rule a, UINT cnt){ m_a.set(a); m_cnt = cnt; }
-		virtual ~RepeatP(){ }
+		virtual ~RepeatP(){ m_a.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -493,7 +495,7 @@ namespace supspi
 	{
 	public:
 		AlternativeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
-		virtual ~AlternativeP(){ }
+		virtual ~AlternativeP(){ m_a.detach(); m_b.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -543,8 +545,8 @@ namespace supspi
 	class SequenceP: public BaseP
 	{
 	public:
-		SequenceP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
-		virtual ~SequenceP(){ }
+		SequenceP(const Rule& a, const Rule& b){ m_a.set(a); m_b.set(b); }
+		virtual ~SequenceP(){ m_a.detach(); m_b.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -569,7 +571,7 @@ namespace supspi
 	{
 	public:
 		ExcludeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
-		~ExcludeP(){}
+		~ExcludeP(){ m_a.detach(); m_b.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -594,7 +596,7 @@ namespace supspi
 	{
 	public:
 		NegateP(Rule a){ m_a.set(a); }
-		virtual ~NegateP(){ }
+		virtual ~NegateP(){ m_a.detach(); }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
