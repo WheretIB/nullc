@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "../stdafx.h"
 #pragma once
 
 namespace supspi
@@ -129,7 +129,7 @@ namespace supspi
 	{
 	public:
 		ActionP(Rule a, ActionT act){ m_a.set(a); m_act = act; }
-		~ActionP(){ m_a.detach(); }
+		~ActionP(){ /*m_a.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -155,7 +155,7 @@ namespace supspi
 	{
 	public:
 		NoSpaceP(Rule a){ m_sub.set(a); }
-		~NoSpaceP(){ m_sub.detach(); }
+		~NoSpaceP(){ /*m_sub.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -175,7 +175,7 @@ namespace supspi
 	{
 	public:
 		LongestP(Rule a){ m_altp.set(a); }
-		~LongestP(){ m_altp.detach(); }
+		~LongestP(){ /*m_altp.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -454,7 +454,7 @@ namespace supspi
 	{
 	public:
 		RepeatP(Rule a, UINT cnt){ m_a.set(a); m_cnt = cnt; }
-		virtual ~RepeatP(){ m_a.detach(); }
+		virtual ~RepeatP(){ /*m_a.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -495,7 +495,7 @@ namespace supspi
 	{
 	public:
 		AlternativeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
-		virtual ~AlternativeP(){ m_a.detach(); m_b.detach(); }
+		virtual ~AlternativeP(){ /*m_a.detach(); m_b.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -546,7 +546,7 @@ namespace supspi
 	{
 	public:
 		SequenceP(const Rule& a, const Rule& b){ m_a.set(a); m_b.set(b); }
-		virtual ~SequenceP(){ m_a.detach(); m_b.detach(); }
+		virtual ~SequenceP(){ /*m_a.detach(); m_b.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -571,7 +571,7 @@ namespace supspi
 	{
 	public:
 		ExcludeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
-		~ExcludeP(){ m_a.detach(); m_b.detach(); }
+		~ExcludeP(){ /*m_a.detach(); m_b.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -596,7 +596,7 @@ namespace supspi
 	{
 	public:
 		NegateP(Rule a){ m_a.set(a); }
-		virtual ~NegateP(){ m_a.detach(); }
+		virtual ~NegateP(){ /*m_a.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
@@ -612,25 +612,25 @@ namespace supspi
 	};
 
 	//Operators
-	Rule	operator !  (Rule a);
-	Rule	operator +  (Rule a);
-	Rule	operator *  (Rule a);
+	Rule	operator !  (Rule a) throw();
+	Rule	operator +  (Rule a) throw();
+	Rule	operator *  (Rule a) throw();
 
-	Rule	operator |  (Rule a, Rule b);
-	Rule	operator |  (char a, Rule b);
-	Rule	operator |  (Rule a, char b);
+	Rule	operator |  (Rule a, Rule b) throw();
+	Rule	operator |  (char a, Rule b) throw();
+	Rule	operator |  (Rule a, char b) throw();
 
-	Rule	operator >> (Rule a, Rule b);
-	Rule	operator >> (char a, Rule b);
-	Rule	operator >> (Rule a, char b);
+	Rule	operator >> (Rule a, Rule b) throw();
+	Rule	operator >> (char a, Rule b) throw();
+	Rule	operator >> (Rule a, char b) throw();
 
-	Rule	operator -  (Rule a, Rule b);
+	Rule	operator -  (Rule a, Rule b) throw();
 
-	Rule	operator ~	(Rule a);
+	Rule	operator ~	(Rule a) throw();
 
 	//Parser creation
-	Rule	chP(char ch);
-	Rule	strP(char* str);
+	Rule	chP(char ch) throw();
+	Rule	strP(char* str) throw();
 
 	//Static parsers
 	static Rule nothingP = Rule(shared_ptr<BaseP>(new NeverP()));
@@ -654,49 +654,4 @@ namespace supspi
 	//Main function
 	enum ParseResult{ PARSE_FAILED, PARSE_OK, PARSE_NOTFULL, };
 	ParseResult	Parse(Rule main, char* str, Rule space);
-};
-
-namespace supgen
-{
-	//Parser generator from description string
-	class BaseCallBack
-	{
-	public:
-		BaseCallBack(){}
-		virtual ~BaseCallBack(){}
-
-		virtual void operator() (){}
-	};
-
-	template<typename ActionT>
-	class DerivedCallBack
-	{
-	public:
-		DerivedCallBack(ActionT act){ m_act = act; }
-		virtual ~DerivedCallBack(){}
-
-		virtual void operator() (){ m_act(); }
-	private:
-		ActionT	m_act;
-	};
-
-	class ParseGen
-	{
-	public:
-		ParseGen();
-		~ParseGen();
-
-		void	SetCallback(std::string name, shared_ptr<BaseCallBack> act);
-		
-		supspi::Rule	CreateParser(std::string grammarDesc);
-	private:
-		supspi::Rule	ruleList, ruleOne, ruleTwo, ruleGroup, ruleInst, ruleAction, ruleName, ruleSpace;
-
-		std::map<std::string, supspi::Rule >				parserList;
-		std::map<std::string, shared_ptr<BaseCallBack> >		callbackList;
-
-		typedef std::map<std::string, supspi::Rule >::iterator			plIt;
-		typedef std::map<std::string, shared_ptr<BaseCallBack> >::iterator	cblIt;
-	};
-
 };

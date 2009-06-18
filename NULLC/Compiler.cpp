@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#include "SupSpi.h"
+#include "../SupSpi/SupSpi.h"
 using namespace supspi;
 
 #include "CodeInfo.h"
@@ -1178,7 +1178,7 @@ void AddDefineVariableNode(char const* s, char const* e)
 		varInfo[i]->varType = realCurrType;
 		varTop += realCurrType->size;
 	}
-	varSizeAdd += /*varDefined*/!varInfo[i]->dataReserved ? realCurrType->size : 0;
+	varSizeAdd += !varInfo[i]->dataReserved ? realCurrType->size : 0;
 	varInfo[i]->dataReserved = true;
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress)));
@@ -1999,7 +1999,7 @@ namespace CompilerGrammar
 		TypeNameP(Rule a){ m_a.set(a); }
 		virtual ~TypeNameP(){ m_a.detach(); }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, shared_ptr<BaseP> space) throw()
 		{
 			SkipSpaces(str, space);
 			char* curr = *str;
@@ -2015,9 +2015,9 @@ namespace CompilerGrammar
 	protected:
 		Rule m_a;
 	};
-	Rule	typenameP(Rule a){ return Rule(shared_ptr<BaseP>(new TypeNameP(a))); }
+	Rule	typenameP(Rule a) throw(){ return Rule(shared_ptr<BaseP>(new TypeNameP(a))); }
 
-	void InitGrammar()
+	void InitGrammar() throw()
 	{
 		strPush	=	CompilerGrammar::ParseStrPush;
 		strPop	=	CompilerGrammar::ParseStrPop;
@@ -2185,7 +2185,7 @@ namespace CompilerGrammar
 		term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[ThrowError("ERROR: expression not found after xor")]))[addCmd(cmdLogXor)];
 		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
-		term5		=	(!(seltype /*>> epsP[popType]*/) >>
+		term5		=	(!(seltype) >>
 						variable >> (
 						(strP("=") >> term5)[AddSetVariableNode][popType] |
 						(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
@@ -2203,7 +2203,7 @@ namespace CompilerGrammar
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
 	}
-	void DeInitGrammar()
+	void DeInitGrammar() throw()
 	{
 		mySpaceP.detach();	code.detach();	expression.detach();
 		block.detach();	term5.detach();	term4_9.detach();	term4_85.detach();	term4_8.detach();	term4_75.detach();

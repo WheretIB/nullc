@@ -11,19 +11,13 @@
 
 #include <iostream>
 
-#include "CodeInfo.h"
+#include "NULLC/nullc.h"
+#include "NULLC/ParseClass.h"
 
-std::vector<FunctionInfo*>	CodeInfo::funcInfo;
-std::vector<VariableInfo*>	CodeInfo::varInfo;
-std::vector<TypeInfo*>		CodeInfo::typeInfo;
-CommandList*				CodeInfo::cmdList;
-std::vector<shared_ptr<NodeZeroOP> >	CodeInfo::nodeList;
+//#include "NULLC/CodeInfo.h"
 
 #include "Colorer.h"
-#include "Compiler.h"
-#include "Executor.h"
-#include "Executor_X86.h"
-#include "SupSpi.h"
+#include "SupSpi/SupSpi.h"
 
 #define MAX_LOADSTRING 100
 
@@ -49,9 +43,6 @@ HWND hVars;			//disabled text area that shows values of all variables in global 
 
 //colorer, compiler and executor
 Colorer*	colorer;
-Compiler*	compiler;
-Executor*	executor;
-ExecutorX86*	executorX86;
 
 //for text update
 bool needTextUpdate;
@@ -260,30 +251,30 @@ void RunUnitTests()
 
 		ostringstream ostr;
 		DeInitConsole();
-		try
+
+		bool good = nullcCompile(begin);
+		if(!good)
 		{
-			good = compiler->Compile(begin);
-		}catch(const std::string& str){
-			good = false;
-			ostr << str;
-		}catch(const CompilerError& err){
-			good = false;
-			ostr << err;
-		}
-		executorX86->SetOptimization(true);
-		if(good)
-		{
-			variableData = executorX86->GetVariableData();
-			try
+			ostr << nullcGetCompilationError();
+		}else{
+			variableData = (char*)nullcGetVariableDataX86();
+			bool goodRun = nullcTranslateX86(true);
+			if(!goodRun)
 			{
-				executorX86->GenListing();
-				UINT time = executorX86->Run();
-				string val = executorX86->GetResult();
-				ostr.precision(20);
-				ostr << "The answer is: " << val << " [in: " << time << "]";
-			}catch(const std::string& str){
-				ostr.str("");
-				ostr << str;
+				ostr << nullcGetExecutionLog();
+			}else{
+				UINT time = 0;
+				goodRun = nullcExecuteX86(&time);
+				if(goodRun)
+				{
+					string val = nullcGetResult();
+
+					ostr.precision(20);
+					ostr << "The answer is: " << val << " [in: " << time << "]";
+
+				}else{
+					ostr << nullcGetExecutionLog();
+				}
 			}
 		}
 		string str = ostr.str();
@@ -293,6 +284,7 @@ void RunUnitTests()
 		}else{
 			fprintf(fTLog, "Compilation failed\r\n%s\r\n\r\n", str.c_str());
 		}
+
 		fflush(fTLog);
 		begin = end;
 	}
@@ -312,40 +304,37 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	CodeInfo::cmdList = new CommandList();
+	nullcInit();
 
 	colorer = NULL;
-	compiler = new Compiler();
-	executor = new Executor();
-	executorX86 = new ExecutorX86();
 
-	compiler->AddExternalFunction((void (*)())(PrintFloat4), "void TestEx(float4 test);");
-	compiler->AddExternalFunction((void (*)())(PrintLong), "void TestEx2(long test);");
+	nullcAddExternalFunction((void (*)())(PrintFloat4), "void TestEx(float4 test);");
+	nullcAddExternalFunction((void (*)())(PrintLong), "void TestEx2(long test);");
 
-	compiler->AddExternalFunction((void (*)())(myGetTime), "int GetTime();");
+	nullcAddExternalFunction((void (*)())(myGetTime), "int GetTime();");
 
-	compiler->AddExternalFunction((void (*)())(myFileOpen), "file FileOpen(char[] name, char[] access);");
-	compiler->AddExternalFunction((void (*)())(myFileClose), "void FileClose(file fID);");
-	compiler->AddExternalFunction((void (*)())(myFileWrite), "void FileWrite(file fID, char[] arr);");
-	compiler->AddExternalFunction((void (*)())(myFileWriteTypePtr<char>), "void FileWrite(file fID, char ref data);");
-	compiler->AddExternalFunction((void (*)())(myFileWriteTypePtr<short>), "void FileWrite(file fID, short ref data);");
-	compiler->AddExternalFunction((void (*)())(myFileWriteTypePtr<int>), "void FileWrite(file fID, int ref data);");
-	compiler->AddExternalFunction((void (*)())(myFileWriteTypePtr<long long>), "void FileWrite(file fID, long ref data);");
-	compiler->AddExternalFunction((void (*)())(myFileWriteType<char>), "void FileWrite(file fID, char data);");
-	compiler->AddExternalFunction((void (*)())(myFileWriteType<short>), "void FileWrite(file fID, short data);");
-	compiler->AddExternalFunction((void (*)())(myFileWriteType<int>), "void FileWrite(file fID, int data);");
-	compiler->AddExternalFunction((void (*)())(myFileWriteType<long long>), "void FileWrite(file fID, long data);");
+	nullcAddExternalFunction((void (*)())(myFileOpen), "file FileOpen(char[] name, char[] access);");
+	nullcAddExternalFunction((void (*)())(myFileClose), "void FileClose(file fID);");
+	nullcAddExternalFunction((void (*)())(myFileWrite), "void FileWrite(file fID, char[] arr);");
+	nullcAddExternalFunction((void (*)())(myFileWriteTypePtr<char>), "void FileWrite(file fID, char ref data);");
+	nullcAddExternalFunction((void (*)())(myFileWriteTypePtr<short>), "void FileWrite(file fID, short ref data);");
+	nullcAddExternalFunction((void (*)())(myFileWriteTypePtr<int>), "void FileWrite(file fID, int ref data);");
+	nullcAddExternalFunction((void (*)())(myFileWriteTypePtr<long long>), "void FileWrite(file fID, long ref data);");
+	nullcAddExternalFunction((void (*)())(myFileWriteType<char>), "void FileWrite(file fID, char data);");
+	nullcAddExternalFunction((void (*)())(myFileWriteType<short>), "void FileWrite(file fID, short data);");
+	nullcAddExternalFunction((void (*)())(myFileWriteType<int>), "void FileWrite(file fID, int data);");
+	nullcAddExternalFunction((void (*)())(myFileWriteType<long long>), "void FileWrite(file fID, long data);");
 
-	compiler->AddExternalFunction((void (*)())(myFileRead), "void FileRead(file fID, char[] arr);");
-	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<char>), "void FileRead(file fID, char ref data);");
-	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<short>), "void FileRead(file fID, short ref data);");
-	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<int>), "void FileRead(file fID, int ref data);");
-	compiler->AddExternalFunction((void (*)())(myFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
+	nullcAddExternalFunction((void (*)())(myFileRead), "void FileRead(file fID, char[] arr);");
+	nullcAddExternalFunction((void (*)())(myFileReadTypePtr<char>), "void FileRead(file fID, char ref data);");
+	nullcAddExternalFunction((void (*)())(myFileReadTypePtr<short>), "void FileRead(file fID, short ref data);");
+	nullcAddExternalFunction((void (*)())(myFileReadTypePtr<int>), "void FileRead(file fID, int ref data);");
+	nullcAddExternalFunction((void (*)())(myFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
 
-	compiler->AddExternalFunction((void (*)())(WriteToConsole), "void Print(char[] text);");
-	compiler->AddExternalFunction((void (*)())(ReadIntFromConsole), "void Input(int ref num);");
-	compiler->AddExternalFunction((void (*)())(ReadTextFromConsole), "int Input(char[] buf);");
-	
+	nullcAddExternalFunction((void (*)())(WriteToConsole), "void Print(char[] text);");
+	nullcAddExternalFunction((void (*)())(ReadIntFromConsole), "void Input(int ref num);");
+	nullcAddExternalFunction((void (*)())(ReadTextFromConsole), "int Input(char[] buf);");
+
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
 	LoadString(hInstance, IDC_SUPERCALC, szWindowClass, MAX_LOADSTRING);
@@ -372,10 +361,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	}
 	delete colorer;
 
-	delete compiler;
-	delete executor;
-	delete executorX86;
-	delete CodeInfo::cmdList;
+	nullcDeinit();
 
 	return (int) msg.wParam;
 }
@@ -643,7 +629,8 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 
 void FillVariableInfoTree()
 {
-	std::vector<VariableInfo*> *varInfo = &CodeInfo::varInfo;
+	UINT varCount = 0;
+	VariableInfo **varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
 	TreeView_DeleteAllItems(hVars);
 
 	TVINSERTSTRUCT helpInsert;
@@ -655,9 +642,9 @@ void FillVariableInfoTree()
 	UINT address = 0;
 	char name[256];
 	HTREEITEM lastItem;
-	for(UINT i = 0; i < varInfo->size(); i++)
+	for(UINT i = 0; i < varCount; i++)
 	{
-		VariableInfo &currVar = *(*varInfo)[i];
+		VariableInfo &currVar = *(*(varInfo+i));
 		address = currVar.pos;
 		sprintf(name, "%d: %s%s %s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetTypeName().c_str(), currVar.name.c_str());
 
@@ -701,97 +688,80 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if((HWND)lParam == hButtonCalc)
 		{
 			GetWindowText(hTextArea, buf, 400000);
-			bool good;
 
 			DeInitConsole();
 
 			ostringstream ostr;
-			try
+			bool good = nullcCompile(buf);
+			if(!good)
 			{
-				good = compiler->Compile(buf);
-				compiler->GenListing();
-			}catch(const std::string& str){
-				good = false;
-				ostr << str;
-			}
-			if(good)
-			{
-				variableData = executor->GetVariableData();
+				ostr << nullcGetCompilationError();
+				SetWindowText(hCode, ostr.str().c_str());
+			}else{
+				SetWindowText(hCode, nullcGetListing());
 
-				executor->SetCallback(RunCallback);
-				try
+				variableData = (char*)nullcGetVariableDataVM();
+
+				UINT time = 0;
+				bool goodRun = nullcExecuteVM(&time, RunCallback);
+				if(goodRun)
 				{
-					UINT time = executor->Run();
-					string val = executor->GetResult();
+					string val = nullcGetResult();
+
 					ostr.precision(20);
 					ostr << "The answer is: " << val << " [in: " << time << "]";
 
-					variableData = executor->GetVariableData();
+					variableData = (char*)nullcGetVariableDataVM();
 					FillVariableInfoTree();
-				}catch(const std::string& str){
-					ostr.str("");
-					ostr << str;
-				}catch(const CompilerError& err){
-					good = false;
-					ostr << err;
+
+					SetWindowText(hResult, ostr.str().c_str());
+				}else{
+					ostr << nullcGetExecutionLog();
 				}
 			}
-			if(good)
-				SetWindowText(hCode, compiler->GetListing().c_str());
-			else
-				SetWindowText(hCode, ostr.str().c_str());
-			SetWindowText(hLog, compiler->GetLog().c_str());
-			string str = ostr.str();
-			if(good)
-				SetWindowText(hResult, str.c_str());
+			SetWindowText(hLog, nullcGetCompilationLog());
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{
 			GetWindowText(hTextArea, buf, 400000);
-			bool good;
-			ostringstream ostr;
 
 			DeInitConsole();
 
-			try
+			ostringstream ostr;
+			bool good = nullcCompile(buf);
+			if(!good)
 			{
-				good = compiler->Compile(buf);
-				compiler->GenListing();
-			}catch(const std::string& str){
-				good = false;
-				ostr << str;
-			}catch(const CompilerError& err){
-				good = false;
-				ostr << err;
-			}
-			bool opti = !!Button_GetCheck(hDoOptimize);
-			executorX86->SetOptimization(opti);
-			if(good)
-			{
-				variableData = executorX86->GetVariableData();
-				try
-				{
-					executorX86->GenListing();
-					UINT time = executorX86->Run();
-					string val = executorX86->GetResult();
-					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << time << "]";
+				ostr << nullcGetCompilationError();
+				SetWindowText(hCode, ostr.str().c_str());
+			}else{
+				SetWindowText(hCode, nullcGetListing());
 
-					variableData = executorX86->GetVariableData();
-					FillVariableInfoTree();
-				}catch(const std::string& str){
-					ostr.str("");
-					ostr << str;
+				bool opti = !!Button_GetCheck(hDoOptimize);
+				variableData = (char*)nullcGetVariableDataX86();
+				bool goodRun = nullcTranslateX86(opti);
+				if(!goodRun)
+				{
+					ostr << nullcGetExecutionLog();
+				}else{
+					UINT time = 0;
+					goodRun = nullcExecuteX86(&time);
+					if(goodRun)
+					{
+						string val = nullcGetResult();
+
+						ostr.precision(20);
+						ostr << "The answer is: " << val << " [in: " << time << "]";
+
+						variableData = (char*)nullcGetVariableDataX86();
+						FillVariableInfoTree();
+
+						SetWindowText(hResult, ostr.str().c_str());
+					}else{
+						ostr << nullcGetExecutionLog();
+					}
 				}
 			}
-			if(good)
-				SetWindowText(hCode, compiler->GetListing().c_str());
-			else
-				SetWindowText(hCode, ostr.str().c_str());
-			SetWindowText(hLog, compiler->GetLog().c_str());
-			string str = ostr.str();
-			if(good)
-				SetWindowText(hResult, str.c_str());
+			SetWindowText(hLog, nullcGetCompilationLog());
 		}
 		if((HWND)lParam == hTextArea)
 		{
@@ -827,6 +797,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_DESTROY:
 		delete[] buf;
+		buf = NULL;
 		PostQuitMessage(0);
 		break;
 	case WM_TIMER:

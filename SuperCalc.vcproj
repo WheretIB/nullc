@@ -43,10 +43,10 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="1"
+				RuntimeLibrary="3"
 				ForceConformanceInForLoopScope="false"
 				RuntimeTypeInfo="false"
-				UsePrecompiledHeader="2"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="4"
@@ -66,6 +66,7 @@
 				AdditionalDependencies="Riched20.lib"
 				OutputFile="bin/SuperCalcDBG.exe"
 				LinkIncremental="2"
+				IgnoreAllDefaultLibraries="false"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/SuperCalc.pdb"
 				SubSystem="2"
@@ -122,9 +123,9 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS"
-				RuntimeLibrary="0"
+				RuntimeLibrary="2"
 				ForceConformanceInForLoopScope="false"
-				UsePrecompiledHeader="2"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
@@ -206,13 +207,13 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS"
-				RuntimeLibrary="0"
+				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				EnableEnhancedInstructionSet="2"
 				FloatingPointModel="0"
 				ForceConformanceInForLoopScope="false"
 				RuntimeTypeInfo="false"
-				UsePrecompiledHeader="2"
+				UsePrecompiledHeader="0"
 				AssemblerOutput="4"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -272,10 +273,6 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\CodeInfo.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\stdafx.cpp"
 				>
 				<FileConfiguration
@@ -314,18 +311,6 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath=".\CodeInfo.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ParseClass.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ParseCommand.h"
-				>
-			</File>
-			<File
 				RelativePath=".\Resource.h"
 				>
 			</File>
@@ -357,26 +342,10 @@
 			</File>
 		</Filter>
 		<Filter
-			Name="Executor"
-			>
-			<File
-				RelativePath=".\Executor.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\Executor.h"
-				>
-			</File>
-		</Filter>
-		<Filter
 			Name="Parser"
 			>
 			<File
-				RelativePath=".\SupSpi.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\SupSpi.h"
+				RelativePath=".\SupSpi\SupSpi.h"
 				>
 			</File>
 		</Filter>
@@ -389,70 +358,6 @@
 			</File>
 			<File
 				RelativePath=".\Colorer.h"
-				>
-			</File>
-		</Filter>
-		<Filter
-			Name="Compiler"
-			>
-			<File
-				RelativePath=".\Compiler.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\Compiler.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ParseFunc.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\ParseFunc.h"
-				>
-			</File>
-		</Filter>
-		<Filter
-			Name="SharedPtr"
-			>
-			<File
-				RelativePath=".\SharedPtr\checked_delete.hpp"
-				>
-			</File>
-			<File
-				RelativePath=".\SharedPtr\quick_allocator.hpp"
-				>
-			</File>
-			<File
-				RelativePath=".\SharedPtr\shared_count.hpp"
-				>
-			</File>
-			<File
-				RelativePath=".\SharedPtr\shared_ptr.hpp"
-				>
-			</File>
-		</Filter>
-		<Filter
-			Name="Executor_X86"
-			>
-			<File
-				RelativePath=".\Executor_X86.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\Executor_X86.h"
-				>
-			</File>
-			<File
-				RelativePath=".\Optimizer_x86.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\Optimizer_x86.h"
-				>
-			</File>
-			<File
-				RelativePath=".\StdLib_X86.h"
 				>
 			</File>
 		</Filter>
