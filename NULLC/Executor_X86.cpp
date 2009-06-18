@@ -2,6 +2,10 @@
 #include "Executor_X86.h"
 #include "StdLib_X86.h"
 #include "Optimizer_x86.h"
+
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #include <MMSystem.h>
 
 #include "CodeInfo.h"

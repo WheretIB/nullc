@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "CodeInfo.h"
 
-ostringstream CodeInfo::compileLog;
+//ostringstream CodeInfo::compileLog;
 
 //////////////////////////////////////////////////////////////////////////
 // Функция возвращает тип - указателя на исходный

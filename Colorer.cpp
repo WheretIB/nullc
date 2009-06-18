@@ -1,12 +1,12 @@
 #include "stdafx.h"
-#include "SupSpi.h"
+#include "SupSpi/SupSpi.h"
 using namespace supspi;
 #include "richedit.h"
 #include <windowsx.h>
 
-#include "ParseClass.h"
+#include "NULLC/ParseClass.h"
 #include "Colorer.h"
-#include "CodeInfo.h"
+//#include "NULLC/CodeInfo.h"
 
 class ColorCodeCallback
 {
@@ -512,7 +512,7 @@ namespace ColorerGrammar
 				break;
 			}
 			foundFunction = true;
-			if(funcs[i]->params.size() == callArgCount.back() || funcPtr)
+			if(funcPtr || funcs[i]->params.size() == callArgCount.back())
 				break;
 			i--;
 		}
@@ -593,8 +593,8 @@ void Colorer::ColorText()
 {
 	ColorerGrammar::varInfoTop.clear();
 	ColorerGrammar::varInfo.clear();
-	ColorerGrammar::funcs = CodeInfo::funcInfo;
-	UINT oldFuncCount = ColorerGrammar::funcs.size();
+//	ColorerGrammar::funcs = CodeInfo::funcInfo;
+	UINT oldFuncCount = 0;//ColorerGrammar::funcs.size();
 	ColorerGrammar::typeInfo.clear();
 
 	ColorerGrammar::typeInfo.push_back("void");
@@ -609,9 +609,9 @@ void Colorer::ColorText()
 	ColorerGrammar::typeInfo.push_back("float4");
 	ColorerGrammar::typeInfo.push_back("float4x4");
 
-	ColorerGrammar::varInfo.push_back(VariableInfo("ERROR", 0, typeDouble));
-	ColorerGrammar::varInfo.push_back(VariableInfo("pi", 1, typeDouble));
-	ColorerGrammar::varInfo.push_back(VariableInfo("e", 2, typeDouble));
+	//ColorerGrammar::varInfo.push_back(VariableInfo("ERROR", 0, typeDouble));
+	//ColorerGrammar::varInfo.push_back(VariableInfo("pi", 1, typeDouble));
+	//ColorerGrammar::varInfo.push_back(VariableInfo("e", 2, typeDouble));
 
 	ColorerGrammar::varInfoTop.push_back(VarTopInfo(0,0));
 
@@ -632,8 +632,8 @@ void Colorer::ColorText()
 	if(!Parse(ColorerGrammar::code, strBuf, ColorerGrammar::mySpaceP))
 		throw std::string("Syntax error");
 
-	for(int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
-		delete ColorerGrammar::funcs[i];
+//	for(int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
+//		delete ColorerGrammar::funcs[i];
 
 	if(ColorerGrammar::logStream.str().length() != 0)
 		throw ColorerGrammar::logStream.str();
