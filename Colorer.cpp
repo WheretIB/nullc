@@ -469,7 +469,9 @@ namespace ColorerGrammar
 
 	void FuncEnd(char const* s, char const* e)
 	{
-		assert(!funcs.empty());
+		if(funcs.empty())
+			return;
+
 		funcs.back()->params.clear();
 		for(UINT i = 0; i < callArgCount.back(); i++)
 			funcs.back()->params.push_back(VariableInfo("param", 0, NULL));
@@ -632,8 +634,8 @@ void Colorer::ColorText()
 	if(!Parse(ColorerGrammar::code, strBuf, ColorerGrammar::mySpaceP))
 		throw std::string("Syntax error");
 
-//	for(int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
-//		delete ColorerGrammar::funcs[i];
+	for(int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
+		delete ColorerGrammar::funcs[i];
 
 	if(ColorerGrammar::logStream.str().length() != 0)
 		throw ColorerGrammar::logStream.str();

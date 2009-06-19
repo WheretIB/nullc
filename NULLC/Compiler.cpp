@@ -758,6 +758,9 @@ void addTwoExprNode(char const* s, char const* e);
 
 UINT	offsetBytes = 0;
 
+#include <set>
+std::set<VariableInfo*> varInfoAll;
+
 void addVar(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
@@ -786,6 +789,7 @@ void addVar(char const* s, char const* e)
 		}
 	}
 	varInfo.push_back(new VariableInfo(vName, varTop, currType, currValConst));
+	varInfoAll.insert(varInfo.back());
 	varDefined = true;
 	if(currType)
 		varTop += currType->size;
@@ -2475,8 +2479,10 @@ Compiler::~Compiler()
 
 	CompilerGrammar::DeInitGrammar();
 
-	for(UINT i = 0; i < varInfo.size(); i++)
-		delete varInfo[i];
+	for(std::set<VariableInfo*>::iterator s = varInfoAll.begin(), e = varInfoAll.end(); s!=e; s++)
+		delete *s;
+	/*for(UINT i = 0; i < varInfo.size(); i++)
+		delete varInfo[i];*/
 }
 
 void Compiler::ClearState()
@@ -2484,8 +2490,12 @@ void Compiler::ClearState()
 	varInfoTop.clear();
 	funcInfoTop.clear();
 
-	for(UINT i = 0; i < varInfo.size(); i++)
-		delete varInfo[i];
+	for(std::set<VariableInfo*>::iterator s = varInfoAll.begin(), e = varInfoAll.end(); s!=e; s++)
+		delete *s;
+	varInfoAll.clear();
+
+	/*for(UINT i = 0; i < varInfo.size(); i++)
+		delete varInfo[i];*/
 	varInfo.clear();
 
 	for(int i = buildInTypes; i < typeInfo.size(); i++)
@@ -2516,8 +2526,12 @@ void Compiler::ClearState()
 	inplaceArrayNum = 1;
 
 	varInfo.push_back(new VariableInfo("ERROR", 0, typeDouble, true));
+	varInfoAll.insert(varInfo.back());
 	varInfo.push_back(new VariableInfo("pi", 8, typeDouble, true));
+	varInfoAll.insert(varInfo.back());
 	varInfo.push_back(new VariableInfo("e", 16, typeDouble, true));
+	varInfoAll.insert(varInfo.back());
+
 	varInfoTop.push_back(VarTopInfo(0,0));
 
 	funcInfoTop.push_back(0);

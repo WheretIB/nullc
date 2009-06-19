@@ -291,6 +291,7 @@ void RunUnitTests()
 
 	fclose(fTLog);
 	fclose(fTest);
+	delete[] data;
 }
 
 char* buf;
