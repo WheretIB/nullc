@@ -2384,8 +2384,6 @@ Compiler::Compiler()
 	TypeInfo *typeFile = info;
 	typeInfo.push_back(info);
 
-	buildInTypes = (int)typeInfo.size();
-
 	// Add functions
 	FunctionInfo	*fInfo;
 	fInfo = new FunctionInfo();
@@ -2459,6 +2457,7 @@ Compiler::Compiler()
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
+	buildInTypes = (int)typeInfo.size();
 	buildInFuncs = (int)funcInfo.size();
 
 	CompilerGrammar::InitGrammar();
@@ -2485,17 +2484,17 @@ void Compiler::ClearState()
 	varInfoTop.clear();
 	funcInfoTop.clear();
 
-	/*for(UINT i = 0; i < varInfo.size(); i++)
-		delete varInfo[i];*/
+	for(UINT i = 0; i < varInfo.size(); i++)
+		delete varInfo[i];
 	varInfo.clear();
 
-	/*for(int i = buildInTypes; i < typeInfo.size(); i++)
+	for(int i = buildInTypes; i < typeInfo.size(); i++)
 	{
 		delete typeInfo[i]->funcType;
 		delete typeInfo[i];
-	}*/
-	/*for(int i = buildInFuncs; i < funcInfo.size(); i++)
-		delete funcInfo[i];*/
+	}
+	for(int i = buildInFuncs; i < funcInfo.size(); i++)
+		delete funcInfo[i];
 
 	typeInfo.resize(buildInTypes);
 	funcInfo.resize(buildInFuncs);
