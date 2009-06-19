@@ -499,7 +499,8 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	SetTimer(hWnd, 1, 500, 0);
 	return TRUE;
 }
-bool RunCallback(UINT cmdNum)
+
+nullres RunCallback(UINT cmdNum)
 {
 	std::string str;
 	char num[32];

@@ -1,3 +1,4 @@
+#pragma once
 #include "stdafx.h"
 #include "ParseCommand.h"
 #include "ParseClass.h"
