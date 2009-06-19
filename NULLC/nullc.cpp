@@ -19,7 +19,7 @@ ExecutorX86*	executorX86;
 
 std::ostringstream strStream;
 std::string	compileError;
-std::string	compileLog;
+std::string	compileLogString;
 std::string	compileListing;
 
 std::string executeResult, executeLog;
@@ -33,9 +33,9 @@ void	nullcInit()
 	executorX86 = new ExecutorX86();
 }
 
-bool	nullcCompile(const char* code)
+nullres	nullcCompile(const char* code)
 {
-	bool good = false;
+	nullres good = false;
 	try
 	{
 		good = compiler->Compile(code);
@@ -58,8 +58,8 @@ const char*	nullcGetCompilationError()
 
 const char*	nullcGetCompilationLog()
 {
-	compileLog = CodeInfo::compileLog.str();
-	return compileLog.c_str();
+	compileLogString = CodeInfo::compileLog.str();
+	return compileLogString.c_str();
 }
 
 const char*	nullcGetListing()
@@ -70,7 +70,7 @@ const char*	nullcGetListing()
 }
 
 
-bool	nullcAddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
+nullres	nullcAddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
 {
 	return compiler->AddExternalFunction(ptr, prototype);
 }
@@ -80,9 +80,9 @@ void*	nullcGetVariableDataX86()
 	return executorX86->GetVariableData();
 }
 
-bool	nullcTranslateX86(int optimised)
+nullres	nullcTranslateX86(int optimised)
 {
-	bool good = true;
+	nullres good = true;
 	try
 	{
 		executorX86->GenListing();
@@ -93,9 +93,9 @@ bool	nullcTranslateX86(int optimised)
 	return good;
 }
 
-bool	nullcExecuteX86(unsigned int* runTime)
+nullres	nullcExecuteX86(unsigned int* runTime)
 {
-	bool good = true;
+	nullres good = true;
 	try
 	{
 		*runTime = executorX86->Run();
@@ -112,12 +112,17 @@ void*	nullcGetVariableDataVM()
 	return executor->GetVariableData();
 }
 
-bool	nullcExecuteVM(unsigned int* runTime, bool (*func)(unsigned int))
+nullres	emptyCallback(unsigned int)
 {
-	bool good = true;
+	return true;
+}
+
+nullres	nullcExecuteVM(unsigned int* runTime, nullres (*func)(unsigned int))
+{
+	nullres good = true;
 	try
 	{
-		executor->SetCallback(func);
+		executor->SetCallback((bool (*)(unsigned int))(func ? func : emptyCallback));
 		*runTime = executor->Run();
 		executeResult = executor->GetResult();
 	}catch(const std::string& str){
