@@ -293,11 +293,15 @@ void RunUnitTests()
 	fclose(fTest);
 }
 
+char* buf;
+
 int APIENTRY WinMain(HINSTANCE	hInstance,
 					HINSTANCE	hPrevInstance,
 					LPTSTR		lpCmdLine,
 					int			nCmdShow)
 {
+	buf = new char[400000];
+
 	MSG msg;
 	HACCEL hAccelTable;
 
@@ -305,7 +309,14 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	lastUpdate = GetTickCount();
 
 	nullcInit();
+	/*
+	const char *code="return 2+2;"; nullcCompile(code);
+	unsigned int time; nullcExecuteVM(&time, NULL);
+	const char *res = nullcGetResult();
 
+	nullcDeinit();
+	return 0;
+*/
 	colorer = NULL;
 
 	nullcAddExternalFunction((void (*)())(PrintFloat4), "void TestEx(float4 test);");
@@ -362,6 +373,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	delete colorer;
 
 	nullcDeinit();
+
+	delete[] buf;
 
 	return (int) msg.wParam;
 }
@@ -676,9 +689,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
 	HDC hdc;
-	static char* buf = NULL;
-	if(!buf)
-		buf = new char[400000];
+	
 	memset(buf, 0, GetWindowTextLength(hTextArea)+5);
 	switch (message) 
 	{
@@ -797,8 +808,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_DESTROY:
-		delete[] buf;
-		buf = NULL;
+		//delete[] buf;
+		//buf = NULL;
 		PostQuitMessage(0);
 		break;
 	case WM_TIMER:
