@@ -4,6 +4,9 @@
 #ifdef __cplusplus
 extern "C"
 {
+#endif
+
+#ifdef _MSC_VER
 	#define NCDECL _cdecl
 #else
 	#define NCDECL
