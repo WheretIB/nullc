@@ -1,9 +1,10 @@
-#pragma once
+#ifndef NULLC_INCLUDED
+#define NULLC_INCLUDED
 
-class Compiler;
-
+#ifdef __cplusplus
 extern "C"
 {
+#endif
 
 void	nullcInit();
 
@@ -28,4 +29,8 @@ void**	nullcGetVariableInfo(unsigned int* count);
 
 void	nullcDeinit();
 
+#ifdef __cplusplus
 }
+#endif
+
+#endif
