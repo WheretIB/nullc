@@ -85,6 +85,7 @@ nullres	nullcTranslateX86(int optimised)
 	nullres good = true;
 	try
 	{
+		executorX86->SetOptimization(optimised);
 		executorX86->GenListing();
 	}catch(const std::string& str){
 		good = false;
