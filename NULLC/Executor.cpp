@@ -123,7 +123,43 @@ UINT Executor::Run()
 						genStackTypes.push_back(STYPE_INT);
 					}
 				}else{
-					throw std::string("VM Executor does not support external functions " + funcInfo->name); 
+					if(funcInfo->retType->size > 4)
+						throw std::string("ERROR: user functions with return type size larger than 4 bytes are not supported");
+					UINT bytesToPop = 0;
+					for(UINT i = 0; i < funcInfo->params.size(); i++)
+					{
+						UINT paramSize = funcInfo->params[i].varType->size > 4 ? funcInfo->params[i].varType->size : 4;
+						bytesToPop += paramSize;
+						while(paramSize > 0)
+						{
+							paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];;
+							genStackTypes.pop_back();
+						}
+					}
+					for(UINT i = 0; i < bytesToPop/4; i++)
+					{
+						UINT data = genStack[genStack.size()-bytesToPop/4+i];
+						__asm push data;
+					}
+					for(UINT i = 0; i < bytesToPop/4; i++)
+						genStack.pop_back();
+					void* fPtr = funcInfo->funcPtr;
+					__asm{
+						mov ecx, fPtr;
+						call ecx;
+						add esp, bytesToPop;
+					}
+					UINT fRes;
+					__asm mov fRes, eax;
+					if(funcInfo->retType->size == 4)
+					{
+						genStack.push_back(fRes);
+						if(funcInfo->retType->type == TypeInfo::TYPE_COMPLEX)
+							genStackTypes.push_back((asmStackType)(0x80000000 | funcInfo->retType->size));
+						else
+							genStackTypes.push_back(podTypeToStackType[funcInfo->retType->type]);
+					}
+					//throw std::string("VM Executor does not support external functions " + funcInfo->name); 
 				}
 				DBG(m_FileStream << pos2 << dec << " CALLS " << name << ";");
 			}
@@ -402,10 +438,10 @@ UINT Executor::Run()
 					genParams.reserve(genParams.size()+64);
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
-					UINT currShift = 0, varSize = sizeOfVar;
+					UINT currShift = 4, varSize = sizeOfVar;
 					while(varSize >= 4)
 					{
-						*((UINT*)(&genParams[valind+currShift])) = genStack[genStack.size()-varSize/4];
+						*((UINT*)(&genParams[valind+sizeOfVar-currShift])) = genStack[genStack.size()-varSize/4];
 						varSize -= 4;
 						currShift += 4;
 					}
@@ -460,10 +496,10 @@ UINT Executor::Run()
 				
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
-					UINT currShift = 0, varSize = sizeOfVar;
+					UINT currShift = 4, varSize = sizeOfVar;
 					while(varSize >= 4)
 					{
-						genStack.push_back(*((UINT*)(&genParams[valind+currShift])));
+						genStack.push_back(*((UINT*)(&genParams[valind+sizeOfVar-currShift])));
 						varSize -= 4;
 						currShift += 4;
 					}
@@ -592,7 +628,8 @@ UINT Executor::Run()
 					genStack.pop_back();
 					varSize -= 4;
 				}
-				for(int n = 0; n < sizeOfVar/(genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()]); n++)
+				UINT count = genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];
+				for(int n = 0; n < sizeOfVar/count; n++)
 					genStackTypes.pop_back();
 			}else{
 				genStack.pop_back();
@@ -876,7 +913,7 @@ UINT Executor::Run()
 
 			if(flagPushBefore(cFlag))
 			{
-				if(dt == STYPE_DOUBLE || dt == STYPE_LONG)
+				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
 					genStack.push_back(*((int*)(&genParams[valind])));
 					genStack.push_back(*((int*)(&genParams[valind+4])));
@@ -937,7 +974,7 @@ UINT Executor::Run()
 
 			if(flagPushAfter(cFlag))
 			{
-				if(dt == STYPE_DOUBLE || dt == STYPE_LONG)
+				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
 					genStack.push_back(*((int*)(&genParams[valind])));
 					genStack.push_back(*((int*)(&genParams[valind+4])));
@@ -967,14 +1004,15 @@ UINT Executor::Run()
 			{
 				m_FileStream << "complex " << (genStackTypes[i] & ~0x80000000) << " bytes";
 				k += genStackTypes[i] & ~0x80000000;
+			}else{
+				if(genStackTypes[i] == STYPE_DOUBLE)
+					m_FileStream << "double " << *((double*)(&genStack[k])) << ", ";
+				if(genStackTypes[i] == STYPE_LONG)
+					m_FileStream << "long " << *((long*)(&genStack[k])) << ", ";
+				if(genStackTypes[i] == STYPE_INT)
+					m_FileStream << "int " << *((int*)(&genStack[k])) << ", ";
+				k += typeSizeS[genStackTypes[i]];
 			}
-			if(genStackTypes[i] == STYPE_DOUBLE)
-				m_FileStream << "double " << *((double*)(&genStack[k])) << ", ";
-			if(genStackTypes[i] == STYPE_LONG)
-				m_FileStream << "long " << *((long*)(&genStack[k])) << ", ";
-			if(genStackTypes[i] == STYPE_INT)
-				m_FileStream << "int " << *((int*)(&genStack[k])) << ", ";
-			k += typeSizeS[genStackTypes[i]];
 		}
 		m_FileStream << ";\r\n" << std::flush;
 #endif
