@@ -224,7 +224,17 @@ static asmDataType dataTypeForStackType[] = { DTYPE_INT, DTYPE_LONG, (asmDataTyp
 
 // Conversion of asmDataType to appropriate asmStackType
 // Преобразование asmDataType в подходящий asmStackType
-static asmStackType stackTypeForDataType[] = { STYPE_INT, STYPE_INT, STYPE_INT, STYPE_LONG, STYPE_DOUBLE, STYPE_DOUBLE };
+//static asmStackType stackTypeForDataType[] = { STYPE_INT, STYPE_INT, STYPE_INT, STYPE_LONG, STYPE_DOUBLE, STYPE_DOUBLE };
+static asmStackType stackTypeForDataType(asmDataType dt)
+{
+	if(dt == DTYPE_DOUBLE || dt == DTYPE_FLOAT)
+		return STYPE_DOUBLE;
+	if(dt == DTYPE_COMPLEX_TYPE)
+		return STYPE_COMPLEX_TYPE;
+	if(dt == DTYPE_LONG)
+		return STYPE_LONG;
+	return STYPE_INT;
+}
 
 // Functions for extraction of different bits from flags
 // Функции для извлечения значений отдельных битов из флагов

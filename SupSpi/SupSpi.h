@@ -104,7 +104,7 @@ namespace supspi
 		template<typename ActionT>
 		Rule	operator [](ActionT act);
 
-		void detach(){ m_ptr->reset(); m_ptr.reset(); }
+		void detach(){ m_ptr->reset(); /*m_ptr.reset();*/ }
 	private:
 		shared_ptr<shared_ptr<BaseP> >	m_ptr;
 	};

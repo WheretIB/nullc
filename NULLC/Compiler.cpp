@@ -2037,7 +2037,7 @@ namespace CompilerGrammar
 		seltype		=	((strP("auto") | typenameP(varname))[selType] | (strP("typeof") >> chP('(') >> ((varname[GetVariableType] >> chP(')')) | (term5[SetTypeOfLastNode] >> chP(')'))))) >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
 		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
-		varname		=	lexemeD[alphaP >> *alnumP];
+		varname		=	lexemeD[alphaP >> *(alnumP | '_')];
 
 		classdef	=	((strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')') | (strP("noalign") | epsP)[AssignVar<UINT>(currAlign, 0)]) >>
 						strP("class") >> varname[TypeBegin] >> chP('{') >>
@@ -2481,6 +2481,11 @@ Compiler::~Compiler()
 
 	for(std::set<VariableInfo*>::iterator s = varInfoAll.begin(), e = varInfoAll.end(); s!=e; s++)
 		delete *s;
+
+	varInfoAll.clear();
+	varInfo.clear();
+	funcInfo.clear();
+	typeInfo.clear();
 	/*for(UINT i = 0; i < varInfo.size(); i++)
 		delete varInfo[i];*/
 }
@@ -2559,7 +2564,7 @@ bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
 	}
 	if(pRes == PARSE_NOTFULL)
 		return false;
-	if(pRes = PARSE_FAILED)
+	if(pRes == PARSE_FAILED)
 		return false;
 
 	funcInfo.back()->address = -1;
@@ -2643,7 +2648,7 @@ bool Compiler::Compile(string str)
 	ParseResult pRes = Parse(CompilerGrammar::code, ptr, CompilerGrammar::mySpaceP);
 	if(pRes == PARSE_NOTFULL)
 		throw std::string("Parsing wasn't full");
-	if(pRes = PARSE_FAILED)
+	if(pRes == PARSE_FAILED)
 		throw std::string("Parsing failed");
 	UINT tem = GetTickCount()-t;
 	m_TempStream << "Parsing and AST tree gen. time: " << tem << "ms\r\n";

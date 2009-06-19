@@ -636,6 +636,7 @@ void Colorer::ColorText()
 
 	for(int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
 		delete ColorerGrammar::funcs[i];
+	ColorerGrammar::funcs.clear();
 
 	if(ColorerGrammar::logStream.str().length() != 0)
 		throw ColorerGrammar::logStream.str();

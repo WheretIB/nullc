@@ -37,7 +37,7 @@ ExecutorX86::ExecutorX86()
 }
 ExecutorX86::~ExecutorX86()
 {
-	VirtualFree(reinterpret_cast<void*>(0x20000000), reservedStack, MEM_RELEASE);
+	VirtualFree(reinterpret_cast<void*>(0x20000000), 0, MEM_RELEASE);
 
 	delete[] binCode;
 }

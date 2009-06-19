@@ -874,6 +874,26 @@ UINT Executor::Run()
 			if(flagShiftStk(cFlag))
 				valind += shift;
 
+			if(flagPushBefore(cFlag))
+			{
+				if(dt == STYPE_DOUBLE || dt == STYPE_LONG)
+				{
+					genStack.push_back(*((int*)(&genParams[valind])));
+					genStack.push_back(*((int*)(&genParams[valind+4])));
+				}else if(dt == DTYPE_FLOAT){
+					double res = (double)(*((float*)(&genParams[valind])));
+					genStack.push_back((UINT*)(&res), 2);
+				}else if(dt == DTYPE_INT){
+					genStack.push_back(*((int*)(&genParams[valind])));
+				}else if(dt == DTYPE_SHORT){
+					genStack.push_back(*((short*)(&genParams[valind])));
+				}else if(dt == DTYPE_CHAR){
+					genStack.push_back(*((char*)(&genParams[valind])));
+				}
+
+				genStackTypes.push_back(stackTypeForDataType(dt));
+			}
+
 			switch(cmd + (dt << 16))
 			{
 			case cmdIncAt+(DTYPE_DOUBLE<<16):
@@ -914,6 +934,27 @@ UINT Executor::Run()
 				*((unsigned char*)(&genParams[valind])) -= 1;
 				break;
 			}
+
+			if(flagPushAfter(cFlag))
+			{
+				if(dt == STYPE_DOUBLE || dt == STYPE_LONG)
+				{
+					genStack.push_back(*((int*)(&genParams[valind])));
+					genStack.push_back(*((int*)(&genParams[valind+4])));
+				}else if(dt == DTYPE_FLOAT){
+					double res = (double)(*((float*)(&genParams[valind])));
+					genStack.push_back((UINT*)(&res), 2);
+				}else if(dt == DTYPE_INT){
+					genStack.push_back(*((int*)(&genParams[valind])));
+				}else if(dt == DTYPE_SHORT){
+					genStack.push_back(*((short*)(&genParams[valind])));
+				}else if(dt == DTYPE_CHAR){
+					genStack.push_back(*((char*)(&genParams[valind])));
+				}
+
+				genStackTypes.push_back(stackTypeForDataType(dt));
+			}
+		
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0));
 		}
 
