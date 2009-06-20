@@ -410,6 +410,18 @@ UINT Executor::Run(const char* funcName)
 			genStackTypes.push_back(STYPE_INT);
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
 			break;
+		case cmdFuncAddr:
+			cmdList->GetData(pos, funcInfoPtr);
+			pos += sizeof(FunctionInfo*);
+			if(!funcInfoPtr)
+				throw std::string("ERROR: std function info is invalid");
+
+			if(funcInfoPtr->funcPtr == NULL)
+				genStack.push_back(funcInfoPtr->address);
+			else
+				genStack.push_back((unsigned int)(funcInfoPtr->funcPtr));
+			genStackTypes.push_back(STYPE_INT);
+			break;
 		}
 
 		//New commands
