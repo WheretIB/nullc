@@ -450,51 +450,27 @@ void ExecutorX86::GenListing()
 				{
 					logASM << "cos \r\n";
 					logASM << "fld qword [esp] \r\n";
-					logASM << "push 180 \r\n";
-					logASM << "fild dword [esp] \r\n";
-					logASM << "fdivp \r\n";
-					logASM << "fldpi \r\n";
-					logASM << "fmulp \r\n";
 					logASM << "fsincos \r\n";
-					logASM << "fstp qword [esp+4] \r\n";
+					logASM << "fstp qword [esp] \r\n";
 					logASM << "fstp st \r\n";
-					logASM << "pop eax \r\n";
 				}else if(funcInfo->name == "sin"){
 					logASM << "sin \r\n";
 					logASM << "fld qword [esp] \r\n";
-					logASM << "push 180 \r\n";
-					logASM << "fild dword [esp] \r\n";
-					logASM << "fdivp \r\n";
-					logASM << "fldpi \r\n";
-					logASM << "fmulp \r\n";
 					logASM << "fsincos \r\n";
 					logASM << "fstp st \r\n";
-					logASM << "fstp qword [esp+4] \r\n";
-					logASM << "pop eax \r\n";
+					logASM << "fstp qword [esp] \r\n";
 				}else if(funcInfo->name == "tan"){
 					logASM << "tan \r\n";
 					logASM << "fld qword [esp] \r\n";
-					logASM << "push 180 \r\n";
-					logASM << "fild dword [esp] \r\n";
-					logASM << "fdivp \r\n";
-					logASM << "fldpi \r\n";
-					logASM << "fmulp \r\n";
 					logASM << "fptan \r\n";
 					logASM << "fstp st \r\n";
-					logASM << "fstp qword [esp+4] \r\n";
-					logASM << "pop eax \r\n";
+					logASM << "fstp qword [esp] \r\n";
 				}else if(funcInfo->name == "ctg"){
 					logASM << "ctg \r\n";
 					logASM << "fld qword [esp] \r\n";
-					logASM << "push 180 \r\n";
-					logASM << "fild dword [esp] \r\n";
-					logASM << "fdivp \r\n";
-					logASM << "fldpi \r\n";
-					logASM << "fmulp \r\n";
 					logASM << "fptan \r\n";
 					logASM << "fdivrp \r\n";
-					logASM << "fstp qword [esp+4] \r\n";
-					logASM << "pop eax \r\n";
+					logASM << "fstp qword [esp] \r\n";
 				}else if(funcInfo->name == "ceil"){
 					logASM << "ceil \r\n";
 					logASM << "fld qword [esp] \r\n";

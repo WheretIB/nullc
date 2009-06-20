@@ -63,11 +63,17 @@ private:
 	ofstream			m_FileStream;
 	ostringstream		m_ostr;
 
-	FastVector<UINT>	genStack;
 	FastVector<asmStackType>	genStackTypes;
+
 	FastVector<char, true>	genParams;
 	FastVector<UINT>	paramTop;
 	FastVector<CallStackInfo> callStack;
+
+	UINT	*genStackBase;
+	UINT	*genStackPtr;
+	UINT	*genStackTop;
+
+	OperFlag	retType;
 
 	bool (*m_RunCallback)(UINT);
 };
