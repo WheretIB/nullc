@@ -35,6 +35,9 @@ const CmdID cmdFuncAddr	= 202;
 	// pushes a number on top of general stack
 	// положить значение на верхушку стека
 const CmdID cmdPush		= 100;
+
+const CmdID cmdPushImmt	= 99;
+
 	// removes a number from top
 	// убрать значение с верхушки стека
 const CmdID cmdPop		= 101;
@@ -598,6 +601,23 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		if(st == STYPE_COMPLEX_TYPE)
 			(*stream) << " sizeof " << dw0;
 		break;
+	case cmdPushImmt:
+		(*stream) << " PUSHIMMT ";
+		(*stream) << typeInfoS[cFlag&0x00000003] << "<-";
+		(*stream) << typeInfoD[(cFlag>>2)&0x00000007];
+
+		if(dt == DTYPE_DOUBLE)
+			(*stream) << " (" << *((double*)(&DWords[0])) << ')';
+		if(dt == DTYPE_LONG)
+			(*stream) << " (" << *((long*)(&DWords[0])) << ')';
+		if(dt == DTYPE_FLOAT)
+			(*stream) << " (" << *((float*)(&DWords[1])) << ')';
+		if(dt == DTYPE_INT)
+			(*stream) << " (" << *((int*)(&DWords[1])) << ')';
+		if(dt == DTYPE_SHORT)
+			(*stream) << " (" << *((short*)(&DWords[1])) << ')';
+		if(dt == DTYPE_CHAR)
+			(*stream) << " (" << *((char*)(&DWords[1])) << ')';
 	case cmdPush:
 		(*stream) << " PUSH ";
 		(*stream) << typeInfoS[cFlag&0x00000003] << "<-";

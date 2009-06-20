@@ -278,6 +278,20 @@ void ExecutorX86::GenListing()
 		case cmdCTI:
 			pos += 5;
 			break;
+		case cmdPushImmt:
+			cmdList->GetUSHORT(pos, cFlag);
+			pos += 2;
+			dt = flagDataType(cFlag);
+
+			if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+				pos += 8;
+			if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
+				pos += 4;
+			if(dt == DTYPE_SHORT)
+				pos += 2;
+			if(dt == DTYPE_CHAR)
+				pos += 1;
+			break;
 		case cmdPush:
 			{
 				cmdList->GetUSHORT(pos, cFlag);
@@ -761,6 +775,79 @@ void ExecutorX86::GenListing()
 				}
 			}
 			indexInEaxOnCti = false;
+			break;
+		case cmdPushImmt:
+			{
+				logASM << "  ; PUSHIMMT\r\n";
+				int valind = -1;
+				UINT	highDW = 0, lowDW = 0;
+				USHORT sdata;
+				UCHAR cdata;
+				cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
+				st = flagStackType(cFlag);
+				dt = flagDataType(cFlag);
+
+				char *texts[] = { "", "edx + ", "ebp + ", "push ", "mov eax, " };
+				char *needPush = texts[3];
+				char *needEDX = texts[1];
+				char *needEBP = texts[2];
+				addEBPtoEDXOnPush = false;
+				UINT numEDX = 0;
+
+				mulByVarSize = false;
+
+				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+				{
+					cmdList->GetUINT(pos, highDW); pos += 4;
+					cmdList->GetUINT(pos, lowDW); pos += 4;
+					logASM << "push " << lowDW << "\r\n";
+					logASM << "push " << highDW << " ; положили double или long long\r\n";
+				}
+				if(dt == DTYPE_FLOAT)
+				{
+					// Кладём флоат как double
+					cmdList->GetUINT(pos, lowDW); pos += 4;
+					double res = (double)*((float*)(&lowDW));
+					logASM << "push " << *((UINT*)(&res)+1) << "\r\n";
+					logASM << "push " << *((UINT*)(&res)) << " ; положили float как double\r\n";
+				}
+				if(dt == DTYPE_INT)
+				{
+					//look at the next command
+					cmdList->GetData(pos+4, cmdNext);
+					if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
+					{
+						needPush = texts[4];
+						skipPopEAXOnIntALU = true;
+					}
+					if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
+					{
+						CmdFlag lcFlag;
+						cmdList->GetUSHORT(pos+6, lcFlag);
+						if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
+							knownEDXOnPush = true;
+					}
+
+					cmdList->GetUINT(pos, lowDW); pos += 4;
+					if(knownEDXOnPush)
+						edxValueForPush = (int)lowDW;
+					else
+						logASM << needPush << (int)lowDW << " ; положили int\r\n";
+				}
+				if(dt == DTYPE_SHORT)
+				{
+					cmdList->GetUSHORT(pos, sdata); pos += 2;
+					lowDW = (sdata > 0 ? sdata : sdata | 0xFFFF0000);
+					logASM << "push " << lowDW << " ; положили short\r\n";
+				}
+				if(dt == DTYPE_CHAR)
+				{
+					cmdList->GetUCHAR(pos, cdata); pos += 1;
+					lowDW = cdata;
+					logASM << "push " << lowDW << " ; положили char\r\n";
+				}
+			}
 			break;
 		case cmdPush:
 			{
