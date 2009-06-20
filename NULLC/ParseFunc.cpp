@@ -330,7 +330,7 @@ UINT NodeThreeOP::GetSize()
 // Вспомогательная функция для NodeNumber<T>
 void NodeNumberPushCommand(USHORT cmdFlag, char* data, UINT dataSize)
 {
-	cmdList->AddData(cmdPush);
+	cmdList->AddData(cmdPushImmt);
 	cmdList->AddData(cmdFlag);
 	cmdList->AddData(data, dataSize);
 }
@@ -864,7 +864,7 @@ void NodeGetAddress::Compile()
 
 	if(absAddress)
 	{
-		cmdList->AddData(cmdPush);
+		cmdList->AddData(cmdPushImmt);
 		cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT));
 		// адрес начала массива
 		cmdList->AddData(varAddress);
@@ -1098,7 +1098,7 @@ void NodeArrayIndex::Compile()
 
 	if(knownShift)
 	{
-		cmdList->AddData(cmdPush);
+		cmdList->AddData(cmdPushImmt);
 		cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT));
 		// адрес начала массива
 		cmdList->AddData(shiftValue);
@@ -1254,7 +1254,7 @@ void NodeShiftAddress::Compile()
 
 	if(memberShift)
 	{
-		cmdList->AddData(cmdPush);
+		cmdList->AddData(cmdPushImmt);
 		cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT));
 		// сдвиг до члена типа
 		cmdList->AddData(memberShift);
@@ -1409,7 +1409,7 @@ void NodeFunctionAddress::Compile()
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
-		cmdList->AddData(cmdPush);
+		cmdList->AddData(cmdPushImmt);
 		cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT));
 		cmdList->AddData(0);
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){

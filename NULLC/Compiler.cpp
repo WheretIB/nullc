@@ -2812,6 +2812,43 @@ void Compiler::GenListing()
 				logASM << "ERROR: OperFlag expected after ";
 			}
 			break;
+		case cmdPushImmt:
+			{
+				cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
+				logASM << pos2 << " PUSHIMMT ";
+				logASM << typeInfoS[cFlag&0x00000003] << "<-";
+				logASM << typeInfoD[(cFlag>>2)&0x00000007];
+
+				asmStackType st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+				UINT	DWords[2];
+				USHORT sdata;
+				UCHAR cdata;
+				int valind;
+				
+				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
+					cmdList->GetUINT(pos, DWords[0]); pos += 4;
+					cmdList->GetUINT(pos, DWords[1]); pos += 4;
+				}
+				if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ cmdList->GetUINT(pos, DWords[0]); pos += 4; }
+				if(dt == DTYPE_SHORT){ cmdList->GetUSHORT(pos, sdata); pos += 2; DWords[0] = sdata; }
+				if(dt == DTYPE_CHAR){ cmdList->GetUCHAR(pos, cdata); pos += 1; DWords[0] = cdata; }
+
+				if(dt == DTYPE_DOUBLE)
+					logASM << " (" << *((double*)(&DWords[0])) << ')';
+				if(dt == DTYPE_LONG)
+					logASM << " (" << *((long long*)(&DWords[0])) << ')';
+				if(dt == DTYPE_FLOAT)
+					logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
+				if(dt == DTYPE_INT)
+					logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
+				if(dt == DTYPE_SHORT)
+					logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
+				if(dt == DTYPE_CHAR)
+					logASM << " (" << *((char*)(&DWords[0])) << ')';
+			}
+			break;
 		case cmdPush:
 			{
 				cmdList->GetUSHORT(pos, cFlag);

@@ -482,7 +482,50 @@ UINT Executor::Run(const char* funcName)
 		}
 
 		//New commands
-		if(cmd == cmdPush || cmd == cmdMov)
+		if(cmd == cmdPushImmt)
+		{
+			int valind = -1;
+			UINT	highDW = 0, lowDW = 0;
+			USHORT sdata;
+			UCHAR cdata;
+			cmdList->GetUSHORT(pos, cFlag);
+			pos += 2;
+			st = flagStackType(cFlag);
+			asmDataType dt = flagDataType(cFlag);
+
+			if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+			{
+				cmdList->GetUINT(pos, highDW); pos += 4;
+				cmdList->GetUINT(pos, lowDW); pos += 4;
+			}else if(dt == DTYPE_FLOAT || dt == DTYPE_INT){
+				cmdList->GetUINT(pos, lowDW); pos += 4;
+			}else if(dt == DTYPE_SHORT){
+				cmdList->GetUSHORT(pos, sdata); pos += 2; lowDW = (sdata>0?sdata:sdata|0xFFFF0000);
+			}else if(dt == DTYPE_CHAR){
+				cmdList->GetUCHAR(pos, cdata); pos += 1; lowDW = cdata;
+			}
+			
+			if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
+			{
+				genStackPtr -= 2;
+				*(double*)(genStackPtr) = (double)(*((float*)(&lowDW)));
+			}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
+			{
+				genStackPtr--;
+				*genStackPtr = lowDW;
+				genStackPtr--;
+				*genStackPtr = highDW;
+			}else{
+				genStackPtr--;
+				*genStackPtr = lowDW;
+			}
+
+			DBG(genStackTypes.push_back(st));
+			DBG(if(st == STYPE_COMPLEX_TYPE))
+			DBG(genStackTypes.back() = (asmStackType)(sizeOfVar|0x80000000));
+
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, highDW, lowDW));
+		}else if(cmd == cmdPush || cmd == cmdMov)
 		{
 			int valind = -1, shift, size;
 			UINT	highDW = 0, lowDW = 0;
@@ -1144,9 +1187,9 @@ UINT Executor::Run(const char* funcName)
 
 string Executor::GetResult()
 {
-	if(/*(UINT)genStackTypes.size()*/genStackSize == 0)
+	if(genStackSize == 0)
 		return "No result value";
-	if(/*(UINT)genStackTypes.size() != 1*/genStackSize > 2)
+	if(genStackSize-1 > 2)
 		throw std::string("There are more than one value on the stack");
 	ostringstream tempStream;
 	switch(retType)
@@ -1161,18 +1204,6 @@ string Executor::GetResult()
 		tempStream << *(int*)(genStackPtr);
 		break;
 	}
-	/*switch(genStackTypes[0])
-	{
-	case STYPE_DOUBLE:
-		tempStream << *((double*)(&genStack[0]));
-		break;
-	case STYPE_LONG:
-		tempStream << *((long long*)(&genStack[0])) << 'L';
-		break;
-	case STYPE_INT:
-		tempStream << *((int*)(&genStack[0]));
-		break;
-	}*/
 
 	return tempStream.str();;
 }
