@@ -26,4 +26,5 @@ private:
 
 	char	*binCode;
 	UINT	binCodeStart;
+	UINT	binCodeSize;
 };

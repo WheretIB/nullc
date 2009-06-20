@@ -35,6 +35,7 @@ ExecutorX86::ExecutorX86()
 	binCode = new char[200000];
 	memset(binCode, 0x90, 20);
 	binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
+	binCodeSize = 0;
 }
 ExecutorX86::~ExecutorX86()
 {
@@ -108,17 +109,6 @@ UINT ExecutorX86::Run(const char* funcName)
 	*(double*)(paramData) = 0.0;
 	*(double*)(paramData+8) = 3.1415926535897932384626433832795;
 	*(double*)(paramData+16) = 2.7182818284590452353602874713527;
-	
-	FILE *fCode = fopen("asmX86.bin", "rb");
-	if(!fCode)
-		throw std::string("Failed to open output file");
-	
-	fseek(fCode, 0, SEEK_END);
-	UINT size = ftell(fCode);
-	fseek(fCode, 0, SEEK_SET);
-	if(size > 200000)
-		throw std::string("Byte code is too big (size > 200000)");
-	fread(binCode+20, 1, size, fCode);
 
 	LARGE_INTEGER pFreq, pCntS, pCntE;
 	QueryPerformanceFrequency(&pFreq);
@@ -126,6 +116,7 @@ UINT ExecutorX86::Run(const char* funcName)
 	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 
 	UINT startPos = 20;
+	char	oldCode[16];
 	if(funcName)
 	{
 		UINT funcPos = -1;
@@ -141,9 +132,10 @@ UINT ExecutorX86::Run(const char* funcName)
 			throw std::string("Cannot find starting function");
 		UINT marker = 'N' << 24 | funcPos;
 
-		while(*(UINT*)(binCode+startPos) != marker && startPos < size)
+		while(*(UINT*)(binCode+startPos) != marker && startPos < binCodeSize)
 			startPos++;
 		startPos -= 5;
+		memcpy(oldCode, binCode+startPos, 9);
 		binCode[startPos+0] = 0x90;
 		binCode[startPos+1] = 0x90;
 		binCode[startPos+2] = 0x90;
@@ -218,6 +210,8 @@ UINT ExecutorX86::Run(const char* funcName)
 	runResult = res1;
 	runResult2 = res2;
 	runResultType = resT;
+
+	memcpy(binCode+startPos, oldCode, 9);
 
 	return runTime;
 }
@@ -2682,7 +2676,20 @@ void ExecutorX86::GenListing()
 
 	CloseHandle(prInfo.hProcess);
 	CloseHandle(prInfo.hThread);
+
+	FILE *fCode = fopen("asmX86.bin", "rb");
+	if(!fCode)
+		throw std::string("Failed to open output file");
+	
+	fseek(fCode, 0, SEEK_END);
+	UINT size = ftell(fCode);
+	fseek(fCode, 0, SEEK_SET);
+	if(size > 200000)
+		throw std::string("Byte code is too big (size > 200000)");
+	fread(binCode+20, 1, size, fCode);
+	binCodeSize = size;
 }
+
 string ExecutorX86::GetListing()
 {
 	return logASM.str();
