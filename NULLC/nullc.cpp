@@ -118,13 +118,13 @@ nullres	emptyCallback(unsigned int)
 	return true;
 }
 
-nullres	nullcExecuteVM(unsigned int* runTime, nullres (*func)(unsigned int))
+nullres	nullcExecuteVM(unsigned int* runTime, nullres (*func)(unsigned int), const char* funcName)
 {
 	nullres good = true;
 	try
 	{
 		executor->SetCallback((bool (*)(unsigned int))(func ? func : emptyCallback));
-		*runTime = executor->Run();
+		*runTime = executor->Run(funcName);
 		executeResult = executor->GetResult();
 	}catch(const std::string& str){
 		good = false;

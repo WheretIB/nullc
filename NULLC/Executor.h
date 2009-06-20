@@ -52,7 +52,7 @@ public:
 	Executor();
 	~Executor();
 
-	UINT	Run();
+	UINT	Run(const char* funcName = NULL);
 	string	GetResult();
 	string	GetLog();
 
