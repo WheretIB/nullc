@@ -536,11 +536,11 @@ UINT Executor::Run(const char* funcName)
 			st = flagStackType(cFlag);
 			asmDataType dt = flagDataType(cFlag);
 
-			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
-			{
+			//if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
+			//{
 				cmdList->GetINT(pos, valind);
 				pos += 4;
-			}
+			//}
 			if(flagShiftStk(cFlag))
 			{
 				shift = *genStackPtr;
@@ -616,7 +616,7 @@ UINT Executor::Run(const char* funcName)
 
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, typeSizeD[dt>>3]));
 			}else{
-				if(flagNoAddr(cFlag)){
+				/*if(flagNoAddr(cFlag)){
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 					{
 						cmdList->GetUINT(pos, highDW); pos += 4;
@@ -625,7 +625,7 @@ UINT Executor::Run(const char* funcName)
 					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ cmdList->GetUINT(pos, lowDW); pos += 4; }
 					if(dt == DTYPE_SHORT){ cmdList->GetUSHORT(pos, sdata); pos += 2; lowDW = (sdata>0?sdata:sdata|0xFFFF0000); }
 					if(dt == DTYPE_CHAR){ cmdList->GetUCHAR(pos, cdata); pos += 1; lowDW = cdata; }
-				}else{
+				}else{*/
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 					{
 						highDW = *((UINT*)(&genParams[valind]));
@@ -638,7 +638,7 @@ UINT Executor::Run(const char* funcName)
 						lowDW = (short)(sdata) > 0 ? sdata : sdata | 0xFFFF0000;
 					}
 					if(dt == DTYPE_CHAR){ cdata = genParams[valind]; lowDW = cdata; }
-				}
+				//}
 				
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
