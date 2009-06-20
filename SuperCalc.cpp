@@ -255,35 +255,71 @@ void RunUnitTests()
 		bool good = nullcCompile(begin);
 		if(!good)
 		{
-			ostr << nullcGetCompilationError();
+			ostr << "Compilation failed\r\n" << nullcGetCompilationError();
 		}else{
-			variableData = (char*)nullcGetVariableDataX86();
-			bool goodRun = nullcTranslateX86(true);
+			ostr << "Compilation successful\r\n";
+
+			char *variableDataX86 = variableData = (char*)nullcGetVariableDataX86();
+			bool goodRun = nullcTranslateX86(false);
 			if(!goodRun)
 			{
 				ostr << nullcGetExecutionLog();
 			}else{
 				UINT time = 0;
-				goodRun = nullcExecuteX86(&time);
+				goodRun = nullcExecuteX86(&time, NULL);
 				if(goodRun)
 				{
 					string val = nullcGetResult();
 
 					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << time << "]";
+					ostr << "The answer is: " << val << " [in: " << time << "]\r\n";
 
 				}else{
-					ostr << nullcGetExecutionLog();
+					ostr << "X86 Execution failed: " << nullcGetExecutionLog() << "\r\n";
 				}
+			}
+
+			UINT varCount = 0;
+			VariableInfo **varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
+			UINT allsizeX86 = 0;
+			for(UINT i = 0; i < varCount; i++)
+			{
+				VariableInfo &currVar = *(*(varInfo+i));
+				allsizeX86 += currVar.varType->size;
+			}
+
+			char *variableDataVM = variableData = (char*)nullcGetVariableDataVM();
+			UINT time = 0;
+			goodRun = nullcExecuteVM(&time, NULL, NULL);
+			if(goodRun)
+			{
+				string val = nullcGetResult();
+
+				ostr.precision(20);
+				ostr << "The answer is: " << val << " [in: " << time << "]\r\n";
+
+			}else{
+				ostr << "VM Execution failed: " << nullcGetExecutionLog() << "\r\n";
+			}
+
+			varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
+			UINT allsizeVM = 0;
+			for(UINT i = 0; i < varCount; i++)
+			{
+				VariableInfo &currVar = *(*(varInfo+i));
+				allsizeVM += currVar.varType->size;
+			}
+
+			if(allsizeX86 != allsizeVM)
+			{
+				ostr << "X86 and VM variable stack sizes are different\r\n";
+			}else{
+				if(memcmp(variableDataX86, variableDataVM, allsizeX86) != 0)
+					ostr << "X86 and VM results are different\r\n";
 			}
 		}
 		string str = ostr.str();
-		if(good)
-		{
-			fprintf(fTLog, "Compilation successful\r\n%s\r\n\r\n", str.c_str());
-		}else{
-			fprintf(fTLog, "Compilation failed\r\n%s\r\n\r\n", str.c_str());
-		}
+		fprintf(fTLog, "%s\r\n\r\n", str.c_str());
 
 		fflush(fTLog);
 		begin = end;
@@ -709,8 +745,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_COMMAND:
 		wmId    = LOWORD(wParam); 
 		wmEvent = HIWORD(wParam);
+
 		if((HWND)lParam == hButtonCalc)
 		{
+			/*static*/ int callNum = -1;
+			callNum++;
 			GetWindowText(hTextArea, buf, 400000);
 
 			DeInitConsole();
@@ -726,8 +765,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				variableData = (char*)nullcGetVariableDataVM();
 
+				
 				UINT time = 0;
-				bool goodRun = nullcExecuteVM(&time, RunCallback, "orint");
+				bool goodRun = nullcExecuteVM(&time, RunCallback, callNum ? "draw_progress_bar" : NULL);
+
 				if(goodRun)
 				{
 					string val = nullcGetResult();
@@ -748,6 +789,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{
+			/*static*/ int callNum = -1;
+			callNum++;
 			GetWindowText(hTextArea, buf, 400000);
 
 			DeInitConsole();
@@ -769,7 +812,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					ostr << nullcGetExecutionLog();
 				}else{
 					UINT time = 0;
-					goodRun = nullcExecuteX86(&time);
+					goodRun = nullcExecuteX86(&time, callNum ? "draw_progress_bar" : NULL);
 					if(goodRun)
 					{
 						string val = nullcGetResult();

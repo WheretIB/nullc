@@ -27,7 +27,7 @@ nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
 
 void*	nullcGetVariableDataX86();
 nullres	nullcTranslateX86(int optimised);
-nullres	nullcExecuteX86(unsigned int* runTime);
+nullres	nullcExecuteX86(unsigned int* runTime, const char* funcName);
 
 void*	nullcGetVariableDataVM();
 nullres	nullcExecuteVM(unsigned int* runTime, nullres (*func)(unsigned int), const char* funcName);

@@ -107,7 +107,7 @@ return 5;
 //////////////////////////////////////////////////////////////////////////
 // Some test ^_^
 int a=0;
-int b[512];
+int b[512]=0;
 while(a < 256)
 {
   char c[16];
@@ -118,37 +118,37 @@ return 0;
 
 //////////////////////////////////////////////////////////////////////////
 // Integer tests
-int res[30];
+int res[27];
 int a = 14, b = 3, c = 0;
-res[0] = a+b;
-res[1] = a-b;
-res[2] = -a;
-res[3] = ~b;
-res[4] = a*b;
-res[5] = a/b;
-res[6] = a%b;
-res[7] = a**b;
-res[8] = a > b;
-res[9] = a < b;
-res[10] = a >= b;
-res[11] = a <= b;
-res[12] = a == b;
-res[13] = a != b;
-res[14] = a << b;
-res[15] = a >> b;
-res[16] = a & b;
-res[17] = a | b;
-res[18] = a ^ b;
-res[19] = a and b;
-res[20] = a or b;
-res[21] = a xor b;
-res[22] = a and c;
-res[23] = a or c;
-res[24] = a xor c;
-res[25] = !a;
-res[26] = !c;
+res[0] = a+b; // 17
+res[1] = a-b; // 11
+res[2] = -a; // -14
+res[3] = ~b; // -4
+res[4] = a*b; // 42
+res[5] = a/b; // 4
+res[6] = a%b; // 2
+res[7] = a**b; // 2744
+res[8] = a > b; // 1
+res[9] = a < b; // 0
+res[10] = a >= b; // 1
+res[11] = a <= b; // 0
+res[12] = a == b; // 0
+res[13] = a != b; // 1
+res[14] = a << b; // 112
+res[15] = a >> b; // 1
+res[16] = a & b; // 2
+res[17] = a | b; // 15
+res[18] = a ^ b; // 13
+res[19] = a and b; // 1
+res[20] = a or b; // 1
+res[21] = a xor b; // 0
+res[22] = a and c; // 0
+res[23] = a or c; // 1
+res[24] = a xor c; // 1
+res[25] = !a; // 0
+res[26] = !c; // 1
 
-return 1;
+return a >> b;
 
 //////////////////////////////////////////////////////////////////////////
 // Floating point tests
@@ -182,7 +182,7 @@ res[3] = ~a; // -4494967297
 res[4] = a*b; // 2674358537709551616
 res[5] = a/b; // 7
 res[6] = a%b; // 330196224
-res[7] = 59496729**c; // 3659347023269828617
+res[7] = 594967**c; // 210609828468829063
 res[8] = a > b; // 1
 res[9] = a < b; // 0
 res[10] = a >= b; // 1
@@ -251,7 +251,7 @@ long a = 43l, b = 10l; // 2 sec
 //long a = 45486127846l, b = 10l; // 2 sec
 //long a = 2l, b = 63l; // 3 sec
 long c;
-for(int i = 0; i < 10000000; i++)
+for(int i = 0; i < /*10000000*/1000; i++)
   c = a**b;
 return c;
 
@@ -274,6 +274,7 @@ lc = da;
 return 1;
 
 //////////////////////////////////////////////////////////////////////////
+// Array fill test
 int a[10]=5;
 return 1;
 
@@ -470,13 +471,13 @@ int fib(int n, int ref calls)
 	return fib(n-2, calls) + fib(n-1, calls);
 }
 int calls = 0;
-return fib(40, &calls);
+return fib(/*40*/15, &calls);
 
 
 //////////////////////////////////////////////////////////////////////////
 double neg(double a){ return -a; }
 double x = 5.0, nx;
-for(int i = 0; i < 50000000; i++)
+for(int i = 0; i < /*50000000*/1000; i++)
 nx = neg(x);
 return nx;
 
@@ -551,7 +552,7 @@ return 1;
 int slow(int how){ for(int i = 0; i < how; i++){ how = how-1; } return 2; }
 int index = 2;
 int arr[10] = 4;
-arr[slow(40000000)] += 16; // 330 ms total. target - 140ms
+arr[slow(/*40000000*/1000)] += 16; // 330 ms total. target - 140ms
 return 3;
 
 //////////////////////////////////////////////////////////////////////////
@@ -643,7 +644,7 @@ Float test(Float p){ p.x *= 2.0f; return p; }
 float2 test(float2 p){ p.y *= 2.0f; return p; }
 float3 test(float3 p){ p.y *= 2.0f; return p; }
 float4 test(float4 p){ p.y *= 2.0f; return p; }
-for(int i = 0; i < 10000000; i++)
+for(int i = 0; i < /*10000000*/1000; i++)
 {
   mat = test(mat);
   f = test(f);
@@ -922,7 +923,7 @@ int r; // (28)
   int test(int x, int rek)
   {
     // help should get pointer to this variable
-    int g3 = 7; // rekursive function local variable (36?, 40?)
+    int g3 = 7; // recursive function local variable (36?, 40?)
     int help(int x)
     {
       int hell = 0;

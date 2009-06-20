@@ -10,7 +10,7 @@ public:
 	void	GenListing();
 	string	GetListing();
 
-	UINT	Run();
+	UINT	Run(const char* funcName = NULL);
 	string	GetResult();
 
 	char*	GetVariableData();
