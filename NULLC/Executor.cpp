@@ -299,7 +299,7 @@ UINT Executor::Run(const char* funcName)
 				if(retFlag & bitRetError)
 					throw std::string("ERROR: function didn't return a value");
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, popCnt, 0, 0, retFlag));
-				for(int pops = 0; pops < popCnt; pops++)
+				for(int pops = 0; pops < (popCnt > 0 ? popCnt : 1); pops++)
 				{
 					while(genParams.size() > paramTop.back())
 						genParams.pop_back();
@@ -471,7 +471,7 @@ UINT Executor::Run(const char* funcName)
 			if(cmd == cmdMov)
 			{
 				if(flagAddrRelTop(cFlag) && valind+typeSizeD[dt>>3] > genParams.size())
-					genParams.reserve(genParams.size()+64);
+					genParams.reserve(genParams.size()+128);
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
 					UINT currShift = 4, varSize = sizeOfVar;
