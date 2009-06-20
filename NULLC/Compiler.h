@@ -14,6 +14,8 @@ public:
 
 	friend basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, const CompilerError& err)
 	{
+		if(err.lineNum != 0)
+			str << "line " << err.lineNum << " - ";
 		str << err.error;
 		if(err.line[0] != 0)
 			str << "\r\n  at \"" << err.line << '\"';
@@ -29,6 +31,7 @@ private:
 	char error[128];
 	char line[128];
 	UINT shift;
+	UINT lineNum;
 };
 
 class Compiler
