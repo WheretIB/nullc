@@ -465,7 +465,20 @@ static void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT val
 		(*stream) << " POPT " << valind << ";";
 		break;
 	case cmdCall:
-		(*stream) << " CALL " << valind << " size: " << dw0 << ";";
+		//(*stream) << " CALL " << valind << " size: " << dw0 << ";";
+		(*stream) << " CALL " << valind << " ret " << (dw0 & bitRetSimple ? "simple " : "") << "size: ";
+		if(dw0 & bitRetSimple)
+		{
+			OperFlag oFlag = dw0 & 0x0FFF;
+			if(oFlag == OTYPE_DOUBLE)
+				(*stream) << "double";
+			if(oFlag == OTYPE_LONG)
+				(*stream) << "long";
+			if(oFlag == OTYPE_INT)
+				(*stream) << "int";
+		}else{
+			(*stream) << (dw0&0x0FFF) << "";
+		}
 		break;
 	case cmdReturn:
 		(*stream) << " RET " << valind;
