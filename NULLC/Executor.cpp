@@ -96,6 +96,13 @@ UINT Executor::Run(const char* funcName)
 			cmdList->GetSHORT(pos, cmd);
 			pos2 = pos;
 			pos += 2;
+
+			// cmdPushVTop
+			UINT valtop = genParams.size();
+			paramTop.push_back(valtop);
+
+			// cmdPushV 4
+			genParams.resize(genParams.size()+4);
 		}
 		//DBG(m_FileStream << pos2 << " ");
 		switch(cmd)
