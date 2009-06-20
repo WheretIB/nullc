@@ -100,7 +100,7 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 }
 
 #pragma warning(disable: 4731)
-UINT ExecutorX86::Run()
+UINT ExecutorX86::Run(const char* funcName)
 {
 	stackReallocs = 0;
 
@@ -123,6 +123,33 @@ UINT ExecutorX86::Run()
 	QueryPerformanceFrequency(&pFreq);
 
 	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
+
+	UINT startPos = 0;
+	if(funcName)
+	{
+		UINT funcPos = -1;
+		for(unsigned int i = 0; i < funcInfo.size(); i++)
+		{
+			if(strcmp(funcInfo[i]->name.c_str(), funcName) == 0)
+			{
+				funcPos = CodeInfo::funcInfo[i]->address;
+				break;
+			}
+		}
+		if(funcPos == -1)
+			throw std::string("Cannot find starting function");
+		UINT marker = 'N' << 24 | funcPos;
+
+		while(*(UINT*)(binCode+startPos) != marker && startPos < size)
+			startPos++;
+		startPos -= 2;
+		binCode[startPos+0] = 0x90; // nop */binCode[startPos+0] = 0x55; // push ebp
+		binCode[startPos+1] = 0x89; // mov ebp, edi
+		binCode[startPos+2] = 0xFD;
+		binCode[startPos+3] = 0x83; // add edi, 4
+		binCode[startPos+4] = 0xC7;
+		binCode[startPos+5] = 0x04;
+	}
 
 	UINT res1 = 0;
 	UINT res2 = 0;
@@ -147,6 +174,7 @@ UINT ExecutorX86::Run()
 
 			mov ebp, 0h ;
 			mov edi, 18h ;
+
 			call eax ; // в ebx тип вернувшегося значения
 
 			pop ebp; // Востановим базу стека
@@ -207,6 +235,10 @@ void ExecutorX86::GenListing()
 	vector<int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
 	vector<int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
 
+	for(int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		if(CodeInfo::funcInfo[i]->funcPtr == NULL && CodeInfo::funcInfo[i]->address != -1)
+			funcNeedLabel.push_back(CodeInfo::funcInfo[i]->address);
+
 	FunctionInfo *funcInfo;
 
 	//Узнаем, кому нужны лейблы
@@ -229,13 +261,13 @@ void ExecutorX86::GenListing()
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
 			pos += 2;
-			funcNeedLabel.push_back(valind);
+			//funcNeedLabel.push_back(valind);
 			break;
 		case cmdFuncAddr:
 			cmdList->GetData(pos, funcInfo);
 			pos += sizeof(FunctionInfo*);
-			if(funcInfo->funcPtr == NULL)
-				funcNeedLabel.push_back(funcInfo->address);
+			//if(funcInfo->funcPtr == NULL)
+			//	funcNeedLabel.push_back(funcInfo->address);
 			break;
 		case cmdReturn:
 			pos += 4;
@@ -391,6 +423,8 @@ void ExecutorX86::GenListing()
 		{
 			if(pos == funcNeedLabel[i])
 			{
+				//logASM << "  db " << "'N', " << (pos>>16) << ", " << (0xFF&(pos>>8)) << ", " << (pos&0xFF) << "; marker \r\n";
+				logASM << "  dd " << (('N' << 24) | pos) << "; marker \r\n";
 				logASM << "  function" << pos << ": \r\n";
 				break;
 			}
@@ -2113,7 +2147,7 @@ void ExecutorX86::GenListing()
 				logASM << "  ; SHR int\r\n";
 				if(!skipPopEAXOnIntALU)
 					logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
+				logASM << "pop ecx \r\n";
 				logASM << "xchg ecx, eax \r\n";
 				logASM << "sar eax, cl ; \r\n";
 				logASM << "push eax \r\n";

@@ -94,12 +94,12 @@ nullres	nullcTranslateX86(int optimised)
 	return good;
 }
 
-nullres	nullcExecuteX86(unsigned int* runTime)
+nullres	nullcExecuteX86(unsigned int* runTime, const char* funcName)
 {
 	nullres good = true;
 	try
 	{
-		*runTime = executorX86->Run();
+		*runTime = executorX86->Run(funcName);
 		executeResult = executorX86->GetResult();
 	}catch(const std::string& str){
 		good = false;

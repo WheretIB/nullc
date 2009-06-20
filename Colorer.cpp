@@ -139,7 +139,7 @@ namespace ColorerGrammar
 			!strP("const")[ColorRWord][AssignVar<bool>(currValConst, true)];
 		symb		=	graphP - alnumP - chP(')');
 		symb2		=	graphP - alphaP;
-		varname		=	lexemeD[alphaP >> *alnumP];
+		varname		=	lexemeD[alphaP >> *(alnumP | '_')];
 		typeName	=	varname - strP("return") ;
 
 		arrayDef	=
@@ -373,7 +373,7 @@ namespace ColorerGrammar
 	void AddVar(char const* s, char const* e)
 	{
 		const char* st=s;
-		while(isalnum(*st))
+		while(isalnum(*st) || *st == '_')
 			st++;
 		string vName = std::string(s, st);
 
@@ -399,7 +399,7 @@ namespace ColorerGrammar
 	void SetVar(char const* s, char const* e)
 	{
 		const char* st=s;
-		while(isalnum(*st))
+		while(isalnum(*st) || *st == '_')
 			st++;
 		string vName = std::string(s, st);
 		size_t braceInd = std::string(s, e).find('[');
@@ -424,7 +424,7 @@ namespace ColorerGrammar
 	void GetVar(char const* s, char const* e)
 	{
 		const char* st=s;
-		while(isalnum(*st))
+		while(isalnum(*st) || *st == '_')
 			st++;
 		string vName = std::string(s, st);
 		size_t braceInd = std::string(s, e).find('[');
@@ -481,7 +481,7 @@ namespace ColorerGrammar
 	void FuncCall(char const* s, char const* e)
 	{
 		const char* st=s;
-		while(isalnum(*st))
+		while(isalnum(*st) || *st == '_')
 			st++;
 		string fname = std::string(s, st);
 

@@ -76,8 +76,16 @@ UINT Executor::Run(const char* funcName)
 		}
 	}
 
+#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
+	unsigned int insCallCount[255];
+	memset(insCallCount, 0, 255*4);
+#endif
 	while(cmdList->GetSHORT(pos, cmd) && !done)
 	{
+		#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
+			insCallCount[cmd]++;
+		#endif
+
 		cmdCount++;
 		if(m_RunCallback && cmdCount % 5000000 == 0)
 			if(!m_RunCallback(cmdCount))
