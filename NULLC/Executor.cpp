@@ -64,13 +64,14 @@ UINT Executor::Run(const char* funcName)
 
 	UINT startTime = timeGetTime();
 
+	UINT funcPos = 0;
 	if(funcName)
 	{
 		for(unsigned int i = 0; i < funcInfo.size(); i++)
 		{
 			if(strcmp(funcInfo[i]->name.c_str(), funcName) == 0)
 			{
-				pos = CodeInfo::funcInfo[i]->address;
+				funcPos = CodeInfo::funcInfo[i]->address;
 				break;
 			}
 		}
@@ -87,6 +88,15 @@ UINT Executor::Run(const char* funcName)
 			}
 		pos2 = pos;
 		pos += 2;
+
+		if(funcName && pos >= funcPos)
+		{
+			funcName = NULL;
+			pos = funcPos;
+			cmdList->GetSHORT(pos, cmd);
+			pos2 = pos;
+			pos += 2;
+		}
 		//DBG(m_FileStream << pos2 << " ");
 		switch(cmd)
 		{
@@ -173,7 +183,7 @@ UINT Executor::Run(const char* funcName)
 					}
 					//throw std::string("VM Executor does not support external functions " + funcInfoPtr->name); 
 				}
-				DBG(m_FileStream << pos2 << dec << " CALLS " << name << ";");
+				DBG(m_FileStream << pos2 << dec << " CALLS " << funcInfoPtr->name << ";");
 			}
 			break;
 		case cmdSwap:
@@ -1046,7 +1056,7 @@ UINT Executor::Run(const char* funcName)
 string Executor::GetResult()
 {
 	if((UINT)genStackTypes.size() == 0)
-		throw std::string("There are no values on the stack");
+		return "No result value";
 	if((UINT)genStackTypes.size() != 1)
 		throw std::string("There are more than one value on the stack");
 	ostringstream tempStream;
