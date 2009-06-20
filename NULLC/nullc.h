@@ -1,6 +1,8 @@
 #ifndef NULLC_INCLUDED
 #define NULLC_INCLUDED
 
+#include "nullcdef.h"
+
 #ifdef __cplusplus
 extern "C"
 {

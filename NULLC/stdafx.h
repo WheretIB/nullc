@@ -18,3 +18,9 @@ typedef unsigned char UCHAR;
 using namespace std;
 
 #include <assert.h>
+
+#include "nullcdef.h"
+
+#pragma warning(disable: 4996)
+#pragma warning(disable: 4530)
+#pragma warning(disable: 4127)
