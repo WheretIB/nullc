@@ -28,7 +28,7 @@ nullres	nullcTranslateX86(int optimised);
 nullres	nullcExecuteX86(unsigned int* runTime);
 
 void*	nullcGetVariableDataVM();
-nullres	nullcExecuteVM(unsigned int* runTime, nullres (*func)(unsigned int));
+nullres	nullcExecuteVM(unsigned int* runTime, nullres (*func)(unsigned int), const char* funcName);
 
 const char*	nullcGetExecutionLog();
 const char*	nullcGetResult();

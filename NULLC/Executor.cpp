@@ -26,7 +26,7 @@ Executor::~Executor()
 	m_RunCallback = NULL;
 }
 
-UINT Executor::Run()
+UINT Executor::Run(const char* funcName)
 {
 	paramTop.clear();
 	callStack.clear();
@@ -60,9 +60,21 @@ UINT Executor::Run()
 	char*	typeInfoD[] = { "char", "short", "int", "long", "float", "double" };
 	UINT typeSizeS[] = { 4, 8, 4, 8 };
 	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
-	FunctionInfo *funcInfo = NULL;
+	FunctionInfo *funcInfoPtr = NULL;
 
 	UINT startTime = timeGetTime();
+
+	if(funcName)
+	{
+		for(unsigned int i = 0; i < funcInfo.size(); i++)
+		{
+			if(strcmp(funcInfo[i]->name.c_str(), funcName) == 0)
+			{
+				pos = CodeInfo::funcInfo[i]->address;
+				break;
+			}
+		}
+	}
 
 	while(cmdList->GetSHORT(pos, cmd) && !done)
 	{
@@ -80,41 +92,41 @@ UINT Executor::Run()
 		{
 		case cmdCallStd:
 			{
-				cmdList->GetData(pos, funcInfo);
+				cmdList->GetData(pos, funcInfoPtr);
 				pos += sizeof(FunctionInfo*);
-				if(!funcInfo)
+				if(!funcInfoPtr)
 					throw std::string("ERROR: std function info is invalid");
 
-				if(funcInfo->funcPtr == NULL)
+				if(funcInfoPtr->funcPtr == NULL)
 				{
-					if(funcInfo->name != "clock")
+					if(funcInfoPtr->name != "clock")
 					{
 						val = *((double*)(&genStack[genStack.size()-2]));
 						genStack.pop_back(); genStack.pop_back();
 						genStackTypes.pop_back();
 					}
-					if(funcInfo->name == "cos")
+					if(funcInfoPtr->name == "cos")
 						val = cos(val/180.0*3.14159265358);
-					else if(funcInfo->name == "sin")
+					else if(funcInfoPtr->name == "sin")
 						val = sin(val/180.0*3.14159265358);
-					else if(funcInfo->name == "tan")
+					else if(funcInfoPtr->name == "tan")
 						val = tan(val/180.0*3.14159265358);
-					else if(funcInfo->name == "ctg")
+					else if(funcInfoPtr->name == "ctg")
 						val = 1.0/tan(val/180.0*3.14159265358);
-					else if(funcInfo->name == "ceil")
+					else if(funcInfoPtr->name == "ceil")
 						val = ceil(val);
-					else if(funcInfo->name == "floor")
+					else if(funcInfoPtr->name == "floor")
 						val = floor(val);
-					else if(funcInfo->name == "sqrt")
+					else if(funcInfoPtr->name == "sqrt")
 						val = sqrt(val);
-					else if(funcInfo->name == "clock")
+					else if(funcInfoPtr->name == "clock")
 						uintVal = GetTickCount();
 					else
-						throw std::string("ERROR: there is no such function: ") + funcInfo->name;
+						throw std::string("ERROR: there is no such function: ") + funcInfoPtr->name;
 
 					if(fabs(val) < 1e-10)
 						val = 0.0;
-					if(funcInfo->name != "clock")
+					if(funcInfoPtr->name != "clock")
 					{
 						genStack.push_back((UINT*)(&val), 2);
 						genStackTypes.push_back(STYPE_DOUBLE);
@@ -123,12 +135,12 @@ UINT Executor::Run()
 						genStackTypes.push_back(STYPE_INT);
 					}
 				}else{
-					if(funcInfo->retType->size > 4)
+					if(funcInfoPtr->retType->size > 4)
 						throw std::string("ERROR: user functions with return type size larger than 4 bytes are not supported");
 					UINT bytesToPop = 0;
-					for(UINT i = 0; i < funcInfo->params.size(); i++)
+					for(UINT i = 0; i < funcInfoPtr->params.size(); i++)
 					{
-						UINT paramSize = funcInfo->params[i].varType->size > 4 ? funcInfo->params[i].varType->size : 4;
+						UINT paramSize = funcInfoPtr->params[i].varType->size > 4 ? funcInfoPtr->params[i].varType->size : 4;
 						bytesToPop += paramSize;
 						while(paramSize > 0)
 						{
@@ -143,7 +155,7 @@ UINT Executor::Run()
 					}
 					for(UINT i = 0; i < bytesToPop/4; i++)
 						genStack.pop_back();
-					void* fPtr = funcInfo->funcPtr;
+					void* fPtr = funcInfoPtr->funcPtr;
 					__asm{
 						mov ecx, fPtr;
 						call ecx;
@@ -151,15 +163,15 @@ UINT Executor::Run()
 					}
 					UINT fRes;
 					__asm mov fRes, eax;
-					if(funcInfo->retType->size == 4)
+					if(funcInfoPtr->retType->size == 4)
 					{
 						genStack.push_back(fRes);
-						if(funcInfo->retType->type == TypeInfo::TYPE_COMPLEX)
-							genStackTypes.push_back((asmStackType)(0x80000000 | funcInfo->retType->size));
+						if(funcInfoPtr->retType->type == TypeInfo::TYPE_COMPLEX)
+							genStackTypes.push_back((asmStackType)(0x80000000 | funcInfoPtr->retType->size));
 						else
-							genStackTypes.push_back(podTypeToStackType[funcInfo->retType->type]);
+							genStackTypes.push_back(podTypeToStackType[funcInfoPtr->retType->type]);
 					}
-					//throw std::string("VM Executor does not support external functions " + funcInfo->name); 
+					//throw std::string("VM Executor does not support external functions " + funcInfoPtr->name); 
 				}
 				DBG(m_FileStream << pos2 << dec << " CALLS " << name << ";");
 			}

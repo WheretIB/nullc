@@ -90,3 +90,5 @@ Integer division should fail in VM.
 Array under- and overflow tests have to work again.
   "Auto type tests" isn't perfectly fine when x86 optimisation is enabled
   long type is sent to external functions with wrong DWORD order when running under VM
+  
+Проблемы с вызовом функций, начинающихся на do (грамматика цикла не проверяет whitespace)

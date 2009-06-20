@@ -294,6 +294,11 @@ void RunUnitTests()
 	delete[] data;
 }
 
+void draw_rect(int x, int y, int width, int height, int color)
+{
+	x += y;
+}
+
 char* buf;
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
@@ -310,6 +315,12 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	lastUpdate = GetTickCount();
 
 	nullcInit();
+
+#define REGISTER(func, proto) nullcAddExternalFunction((void (*)())func, proto)
+REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int color);");
+
+	//nullcDeinit();
+	//nullcInit();
 	/*
 	const char *code="return 2+2;"; nullcCompile(code);
 	unsigned int time; nullcExecuteVM(&time, NULL);
@@ -716,7 +727,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				variableData = (char*)nullcGetVariableDataVM();
 
 				UINT time = 0;
-				bool goodRun = nullcExecuteVM(&time, RunCallback);
+				bool goodRun = nullcExecuteVM(&time, RunCallback, "orint");
 				if(goodRun)
 				{
 					string val = nullcGetResult();
@@ -730,6 +741,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					SetWindowText(hResult, ostr.str().c_str());
 				}else{
 					ostr << nullcGetExecutionLog();
+					SetWindowText(hResult, ostr.str().c_str());
 				}
 			}
 			SetWindowText(hLog, nullcGetCompilationLog());
@@ -771,6 +783,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						SetWindowText(hResult, ostr.str().c_str());
 					}else{
 						ostr << nullcGetExecutionLog();
+						SetWindowText(hResult, ostr.str().c_str());
 					}
 				}
 			}
