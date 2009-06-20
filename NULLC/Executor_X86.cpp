@@ -33,7 +33,8 @@ ExecutorX86::ExecutorX86()
 	paramDataBase = paramBase = static_cast<UINT>(reinterpret_cast<long long>(paramData));
 
 	binCode = new char[200000];
-	binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
+	memset(binCode, 0x90, 20);
+	binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 }
 ExecutorX86::~ExecutorX86()
 {
@@ -117,14 +118,14 @@ UINT ExecutorX86::Run(const char* funcName)
 	fseek(fCode, 0, SEEK_SET);
 	if(size > 200000)
 		throw std::string("Byte code is too big (size > 200000)");
-	fread(binCode, 1, size, fCode);
+	fread(binCode+20, 1, size, fCode);
 
 	LARGE_INTEGER pFreq, pCntS, pCntE;
 	QueryPerformanceFrequency(&pFreq);
 
-	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[0]));
+	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 
-	UINT startPos = 0;
+	UINT startPos = 20;
 	if(funcName)
 	{
 		UINT funcPos = -1;
@@ -142,13 +143,16 @@ UINT ExecutorX86::Run(const char* funcName)
 
 		while(*(UINT*)(binCode+startPos) != marker && startPos < size)
 			startPos++;
-		startPos -= 2;
-		binCode[startPos+0] = 0x90; // nop */binCode[startPos+0] = 0x55; // push ebp
-		binCode[startPos+1] = 0x89; // mov ebp, edi
-		binCode[startPos+2] = 0xFD;
-		binCode[startPos+3] = 0x83; // add edi, 4
-		binCode[startPos+4] = 0xC7;
-		binCode[startPos+5] = 0x04;
+		startPos -= 5;
+		binCode[startPos+0] = 0x90;
+		binCode[startPos+1] = 0x90;
+		binCode[startPos+2] = 0x90;
+		binCode[startPos+3] = 0x90; // nop */binCode[startPos+0] = 0x55; // push ebp
+		binCode[startPos+4] = 0x89; // mov ebp, edi
+		binCode[startPos+5] = 0xFD;
+		binCode[startPos+6] = 0x83; // add edi, 4
+		binCode[startPos+7] = 0xC7;
+		binCode[startPos+8] = 0x04;
 	}
 
 	UINT res1 = 0;
@@ -1412,7 +1416,13 @@ void ExecutorX86::GenListing()
 			logASM << "  ; JMP\r\n";
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << "jmp gLabel" << valind << "\r\n";
+			{
+				bool jFar = false;
+				for(int i = 0; i < funcNeedLabel.size(); i++)
+					if(funcNeedLabel[i] == pos)
+						jFar = true;
+				logASM << "jmp " << (jFar ? "near " : "") << "gLabel" << valind << "\r\n";
+			}
 			break;
 		case cmdJmpZ:
 			logASM << "  ; JMPZ\r\n";
