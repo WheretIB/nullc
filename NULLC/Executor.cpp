@@ -9,11 +9,10 @@
 #include "CodeInfo.h"
 using namespace CodeInfo;
 
-#ifdef _DEBUG
-#define DBG(x) x
-//#define DBG(x)
+#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
+	#define DBG(x) x
 #else
-#define DBG(x)
+	#define DBG(x)
 #endif
 
 Executor::Executor(): m_FileStream("log.txt", std::ios::binary)
@@ -1025,7 +1024,7 @@ UINT Executor::Run(const char* funcName)
 		}
 
 		UINT typeSizeS[] = { 1, 2, 0, 2 };
-#ifdef _DEBUG
+#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 		m_FileStream << " stack size " << genStack.size() << "; stack vals " << genStackTypes.size() << "; param size " << genParams.size() << ";  // ";
 		for(UINT i = 0, k = 0; i < genStackTypes.size(); i++)
 		{

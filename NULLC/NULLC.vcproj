@@ -232,6 +232,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\nullcdef.h"
+				>
+			</File>
+			<File
 				RelativePath=".\ParseClass.h"
 				>
 			</File>
