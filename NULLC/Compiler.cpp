@@ -2245,6 +2245,12 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 		if(begin < apprPos)
 			begin++;
 
+		lineNum = 1;
+		const char *scan = codeStart;
+		while(scan < begin)
+			if(*(scan++) == '\n')
+				lineNum++;
+
 		const char *end = apprPos;
 		while((*end != '\r') && (*end != '\n') && (*end != 0))
 			end++;
@@ -2255,6 +2261,7 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 	}else{
 		line[0] = 0;
 		shift = 0;
+		lineNum = 0;
 	}
 }
 const char *CompilerError::codeStart = NULL;
