@@ -184,8 +184,8 @@ class CallStackInfo
 {
 public:
 	CallStackInfo(){}
-	CallStackInfo(UINT ncmd, UINT nnums, UINT nfunc): cmd(ncmd), func(nfunc), nums(nnums){}
-	UINT		cmd;	//Next command position (RET operation will jump there)
+	CallStackInfo(char* ncmd, UINT nnums, UINT nfunc): cmd(ncmd), func(nfunc), nums(nnums){}
+	char*		cmd;	//Next command position (RET operation will jump there)
 	UINT		func;	//Address of beginning of function
 	UINT		nums;	//General variable stack size to check if function really returned a value (This will be removed soon)
 };
