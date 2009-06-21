@@ -6,6 +6,8 @@
 #include "Executor.h"
 #include "Executor_X86.h"
 
+unsigned int CodeInfo::activeExecutor = 0;
+
 std::vector<FunctionInfo*>	CodeInfo::funcInfo;
 std::vector<VariableInfo*>	CodeInfo::varInfo;
 std::vector<TypeInfo*>		CodeInfo::typeInfo;
@@ -24,6 +26,9 @@ std::string	compileListing;
 
 std::string executeResult, executeLog;
 
+unsigned int currExec = 0;
+bool	optimize = false;
+
 void	nullcInit()
 {
 	CodeInfo::cmdList = new CommandList();
@@ -33,8 +38,25 @@ void	nullcInit()
 	executorX86 = new ExecutorX86();
 }
 
+void	nullcSetExecutor(unsigned int id)
+{
+	currExec = id;
+	CodeInfo::activeExecutor = currExec;
+}
+
+void	nullcSetExecutorOptions(int optimize)
+{
+	optimize = true;
+}
+
+nullres	nullcAddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
+{
+	return compiler->AddExternalFunction(ptr, prototype);
+}
+
 nullres	nullcCompile(const char* code)
 {
+	compileError = "";
 	nullres good = false;
 	try
 	{
@@ -47,6 +69,17 @@ nullres	nullcCompile(const char* code)
 		strStream.str("");
 		strStream << err;
 		compileError = strStream.str();
+	}
+	if(good && currExec == NULLC_X86)
+	{
+		try
+		{
+			executorX86->SetOptimization(optimize);
+			executorX86->GenListing();
+		}catch(const std::string& str){
+			good = false;
+			compileError += "    " + str;
+		}
 	}
 	return good;
 }
@@ -69,71 +102,45 @@ const char*	nullcGetListing()
 	return compileListing.c_str();
 }
 
-
-nullres	nullcAddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
-{
-	return compiler->AddExternalFunction(ptr, prototype);
-}
-
-void*	nullcGetVariableDataX86()
-{
-	return executorX86->GetVariableData();
-}
-
-nullres	nullcTranslateX86(int optimised)
-{
-	nullres good = true;
-	try
-	{
-		executorX86->SetOptimization(optimised);
-		executorX86->GenListing();
-	}catch(const std::string& str){
-		good = false;
-		executeLog = str;
-	}
-	return good;
-}
-
-nullres	nullcExecuteX86(unsigned int* runTime, const char* funcName)
-{
-	nullres good = true;
-	try
-	{
-		*runTime = executorX86->Run(funcName);
-		executeResult = executorX86->GetResult();
-	}catch(const std::string& str){
-		good = false;
-		executeLog = str;
-	}
-	return good;
-}
-
-void*	nullcGetVariableDataVM()
-{
-	return executor->GetVariableData();
-}
-
 nullres	emptyCallback(unsigned int)
 {
 	return true;
 }
 
-nullres	nullcExecuteVM(unsigned int* runTime, nullres (*func)(unsigned int), const char* funcName)
+nullres	nullcRun(unsigned int* runTime)
+{
+	return nullcRunFunction(runTime, NULL);
+}
+
+nullres	nullcRunFunction(unsigned int* runTime, const char* funcName)
 {
 	nullres good = true;
-	try
+	if(currExec == NULLC_VM)
 	{
-		executor->SetCallback((bool (*)(unsigned int))(func ? func : emptyCallback));
-		*runTime = executor->Run(funcName);
-		executeResult = executor->GetResult();
-	}catch(const std::string& str){
-		good = false;
-		executeLog = str;
+		try
+		{
+			executor->SetCallback((bool (*)(unsigned int))(emptyCallback));
+			*runTime = executor->Run(funcName);
+			executeResult = executor->GetResult();
+		}catch(const std::string& str){
+			good = false;
+			executeLog = str;
+		}
+	}else if(currExec == NULLC_X86){
+		try
+		{
+			*runTime = executorX86->Run(funcName);
+			executeResult = executorX86->GetResult();
+		}catch(const std::string& str){
+			good = false;
+			executeLog = str;
+		}
+	}else{
+		executeLog = "Unknown executor code";
 	}
 	return good;
 }
-
-const char*	nullcGetExecutionLog()
+const char*	nullcGetRuntimeError()
 {
 	return executeLog.c_str();
 }
@@ -141,6 +148,17 @@ const char*	nullcGetExecutionLog()
 const char*	nullcGetResult()
 {
 	return executeResult.c_str();
+}
+
+void*	nullcGetVariableData()
+{
+	if(currExec == NULLC_VM)
+	{
+		return executor->GetVariableData();
+	}else if(currExec == NULLC_X86){
+		return executorX86->GetVariableData();
+	}
+	return NULL;
 }
 
 void**	nullcGetVariableInfo(unsigned int* count)

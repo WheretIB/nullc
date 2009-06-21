@@ -8,6 +8,11 @@
 // Информация о коде, используемых функциях, переменных, типов.
 namespace CodeInfo
 {
+	static const int EXEC_VM = 0;
+	static const int EXEC_X86 = 1;
+
+	extern unsigned int		activeExecutor;
+
 	// Информация о функциях
 	// Information about functions
 	extern std::vector<FunctionInfo*>	funcInfo;
