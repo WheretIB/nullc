@@ -76,19 +76,20 @@ n5: Остановка расчёта в х86 при зависании
 Добавить или выдавать ошибку при создании указателя на внешнюю функцию.
 
 
-Исправить warnings при компиляции nullc
+ЧАСТИЧНО: Исправить warnings при компиляции nullc
 Убрать зависимость от windows.h
 Возможность определить свой аллокатор
 Убрать исключения
 Динамическая память
 Операторы для floatn
-ЧАСТИЧНО: Вызов отдельной функции
+ГОТОВО: Вызов отдельной функции
 Сохранение и загрузка байткода.
 Указание базового адреса переменных для Х86
 в папку NULLC переместить supspi/sharedptr
-Integer division should fail in VM.
+ГОТОВО: Integer division should fail in VM.
 Array under- and overflow tests have to work again.
   "Auto type tests" isn't perfectly fine when x86 optimisation is enabled
-  long type is sent to external functions with wrong DWORD order when running under VM
+ИСПРАВЛЕНО: long type is sent to external functions with wrong DWORD order when running under VM
 
-Проблемы с вызовом функций, начинающихся на do (грамматика цикла не проверяет whitespace)
+ИСПРАВЛЕНО: Проблемы с вызовом функций, начинающихся на do (грамматика цикла не проверяет whitespace)
+Когда в VM увеличивается стек переменных, указатель от nullcGetVariableData больше не валидный, но необходим для преобразования указателей во внешних функциях.
