@@ -145,7 +145,7 @@ const char*	nullcGetResult()
 
 void**	nullcGetVariableInfo(unsigned int* count)
 {
-	*count = CodeInfo::varInfo.size();
+	*count = (unsigned int)CodeInfo::varInfo.size();
 	return (void**)(&CodeInfo::varInfo[0]);
 }
 

@@ -159,7 +159,7 @@ void ReadIntFromConsole(int* val)
 	char temp[128];
 	DWORD read;
 	ReadFile(conStdIn, temp, 128, &read, NULL);
-	*(reinterpret_cast<long long>(val)+variableData) = atoi(temp);
+	*(int*)(reinterpret_cast<long long>(val)+variableData) = atoi(temp);
 
 	DWORD written;
 	WriteFile(conStdOut, "\r\n", 2, &written, NULL); 
@@ -175,7 +175,7 @@ int ReadTextFromConsole(ArrayPtr data)
 	buffer[read-1] = 0;
 	char *target = reinterpret_cast<long long>(data.ptr) + variableData;
 	int c = 0;
-	for(int i = 0; i < read; i++)
+	for(UINT i = 0; i < read; i++)
 	{
 		buffer[c++] = buffer[i];
 		if(buffer[i] == '\b')
@@ -233,11 +233,10 @@ void RunUnitTests()
 	data[size] = 0;
 
 	char *begin = data, *end;
-	bool good;
 
 	char line[256];
 
-	while(begin = strstr(begin, "///\r\n"))
+	while((begin = strstr(begin, "///\r\n")) != 0)
 	{
 		begin += 5;
 		end = strstr(begin, "///\r\n");
@@ -252,7 +251,7 @@ void RunUnitTests()
 		ostringstream ostr;
 		DeInitConsole();
 
-		bool good = nullcCompile(begin);
+		nullres good = nullcCompile(begin);
 		if(!good)
 		{
 			ostr << "Compilation failed\r\n" << nullcGetCompilationError();
@@ -260,7 +259,7 @@ void RunUnitTests()
 			ostr << "Compilation successful\r\n";
 
 			char *variableDataX86 = variableData = (char*)nullcGetVariableDataX86();
-			bool goodRun = nullcTranslateX86(false);
+			nullres goodRun = nullcTranslateX86(false);
 			if(!goodRun)
 			{
 				ostr << nullcGetExecutionLog();
@@ -316,6 +315,8 @@ void RunUnitTests()
 			}else{
 				if(memcmp(variableDataX86, variableDataVM, allsizeX86) != 0)
 					ostr << "X86 and VM results are different\r\n";
+				//memset(variableDataX86, 0, allsizeX86);
+				//memset(variableDataVM, 0, allsizeX86);
 			}
 		}
 		string str = ostr.str();
@@ -332,7 +333,7 @@ void RunUnitTests()
 
 void draw_rect(int x, int y, int width, int height, int color)
 {
-	x += y;
+	x += y; width = height + color;
 }
 
 char* buf;
@@ -342,6 +343,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 					LPTSTR		lpCmdLine,
 					int			nCmdShow)
 {
+	(void)lpCmdLine;
+	(void)hPrevInstance;
 	buf = new char[400000];
 
 	MSG msg;
@@ -496,7 +499,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	if(!commControlsAvailable)
 		return 0;
 
-	HMODULE sss = LoadLibrary("RICHED32.dll");
+	/*HMODULE sss = */LoadLibrary("RICHED32.dll");
 
 	FILE *startText = fopen("code.txt", "rb");
 	char *fileContent = NULL;
@@ -755,7 +758,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			DeInitConsole();
 
 			ostringstream ostr;
-			bool good = nullcCompile(buf);
+			nullres good = nullcCompile(buf);
 			if(!good)
 			{
 				ostr << nullcGetCompilationError();
@@ -767,7 +770,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				
 				UINT time = 0;
-				bool goodRun = nullcExecuteVM(&time, RunCallback, callNum ? "draw_progress_bar" : NULL);
+				nullres goodRun = nullcExecuteVM(&time, RunCallback, callNum ? "draw_progress_bar" : NULL);
 
 				if(goodRun)
 				{
@@ -796,7 +799,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			DeInitConsole();
 
 			ostringstream ostr;
-			bool good = nullcCompile(buf);
+			nullres good = nullcCompile(buf);
 			if(!good)
 			{
 				ostr << nullcGetCompilationError();
@@ -806,13 +809,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				bool opti = !!Button_GetCheck(hDoOptimize);
 				variableData = (char*)nullcGetVariableDataX86();
-				bool goodRun = nullcTranslateX86(opti);
+				nullres goodRun = nullcTranslateX86(opti);
 				if(!goodRun)
 				{
 					ostr << nullcGetExecutionLog();
 				}else{
 					UINT time = 0;
-					goodRun = nullcExecuteX86(&time, callNum ? "draw_progress_bar" : NULL);
+					goodRun = nullcExecuteX86(&time, callNum%2 ? "draw_progress_bar" : NULL);
 					if(goodRun)
 					{
 						string val = nullcGetResult();
@@ -865,8 +868,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_DESTROY:
-		//delete[] buf;
-		//buf = NULL;
 		PostQuitMessage(0);
 		break;
 	case WM_TIMER:
@@ -877,7 +878,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		CHARRANGE cr;
 		if(GetFocus() == hTextArea)
 		{
-			bRetFocus=true;
+			bRetFocus = true;
 			SendMessage(hTextArea, (UINT)EM_EXGETSEL, 0L, (LPARAM)&cr);  
 			SetFocus(hWnd);
 		}

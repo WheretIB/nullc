@@ -159,7 +159,7 @@ public:
 		allParamSize = 0;
 	}
 	//shared_ptr<NodeZeroOP>	defNode;	// A node that defines a function
-	UINT		address;				// Address of the beginning of function inside bytecode
+	int			address;				// Address of the beginning of function inside bytecode
 	void		*funcPtr;				// Address of the function in memory
 
 	std::string	name;					// Function name

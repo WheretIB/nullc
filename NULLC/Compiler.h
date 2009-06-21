@@ -4,7 +4,7 @@
 class CompilerError
 {
 public:
-	CompilerError(std::string& errStr, const char* apprPos);
+	CompilerError(const std::string& errStr, const char* apprPos);
 	CompilerError(const char* errStr, const char* apprPos);
 	~CompilerError(){}
 

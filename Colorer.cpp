@@ -86,6 +86,7 @@ namespace ColorerGrammar
 
 		void operator() (char const* s, char const* e)
 		{
+			(void)e;	// C4100
 			assert(err);
 			logStream << err << "\r\n";
 
@@ -372,6 +373,7 @@ namespace ColorerGrammar
 	}
 	void AddVar(char const* s, char const* e)
 	{
+		(void)e;	// C4100
 		const char* st=s;
 		while(isalnum(*st) || *st == '_')
 			st++;
@@ -398,11 +400,11 @@ namespace ColorerGrammar
 
 	void SetVar(char const* s, char const* e)
 	{
+		(void)e;	// C4100
 		const char* st=s;
 		while(isalnum(*st) || *st == '_')
 			st++;
 		string vName = std::string(s, st);
-		size_t braceInd = std::string(s, e).find('[');
 
 		int i = (int)varInfo.size()-1;
 		while(i >= 0 && varInfo[i].name != vName)
@@ -423,11 +425,11 @@ namespace ColorerGrammar
 
 	void GetVar(char const* s, char const* e)
 	{
+		(void)e;	// C4100
 		const char* st=s;
 		while(isalnum(*st) || *st == '_')
 			st++;
 		string vName = std::string(s, st);
-		size_t braceInd = std::string(s, e).find('[');
 
 		int i = (int)varInfo.size()-1;
 		while(i >= 0 && varInfo[i].name != vName)
@@ -469,6 +471,7 @@ namespace ColorerGrammar
 
 	void FuncEnd(char const* s, char const* e)
 	{
+		(void)s; (void)e;	// C4100
 		if(funcs.empty())
 			return;
 
@@ -528,6 +531,7 @@ namespace ColorerGrammar
 	}
 	void AddType(char const* s, char const* e)
 	{
+		(void)s; (void)e;	// C4100
 		typeInfo.push_back(newType);
 	}
 
@@ -541,10 +545,12 @@ namespace ColorerGrammar
 	}
 	void BlockBegin(char const* s, char const* e)
 	{
+		(void)s; (void)e;	// C4100
 		varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
 	}
 	void BlockEnd(char const* s, char const* e)
 	{
+		(void)s; (void)e;	// C4100
 		while(varInfo.size() > varInfoTop.back().activeVarCnt)
 		{
 			varTop--;// -= varInfo.back().count;
@@ -559,6 +565,7 @@ namespace ColorerGrammar
 	}
 	void LogStr(char const* s, char const* e)
 	{
+		(void)s; (void)e;	// C4100
 		logStream << logStr << "\r\n";
 	}
 };
@@ -634,7 +641,7 @@ void Colorer::ColorText()
 	if(!Parse(ColorerGrammar::code, strBuf, ColorerGrammar::mySpaceP))
 		throw std::string("Syntax error");
 
-	for(int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
+	for(unsigned int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
 		delete ColorerGrammar::funcs[i];
 	ColorerGrammar::funcs.clear();
 

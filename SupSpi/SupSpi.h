@@ -13,7 +13,9 @@ namespace supspi
 
 		void operator()(char const*s, char const*e)
 		{
-			if(my_ref) (*my_ref) = my_val;
+			(void)s; (void)e;	// C4100
+			if(my_ref)
+				(*my_ref) = my_val;
 		}
 
 	private:
@@ -26,7 +28,12 @@ namespace supspi
 		IncVar(): my_ref(NULL){ }
 		IncVar(T& ref): my_ref(&ref){ }
 
-		void operator()(char const*s, char const*e){ if(my_ref) (*my_ref)++; }
+		void operator()(char const*s, char const*e)
+		{
+			(void)s; (void)e;	// C4100
+			if(my_ref)
+				(*my_ref)++;
+		}
 	private:
 		T*	my_ref;
 	};
@@ -36,7 +43,12 @@ namespace supspi
 		ArrBackInc(): my_ref(NULL){ }
 		ArrBackInc(T& ref): my_ref(&ref){ }
 
-		void operator()(char const*s, char const*e){ if(my_ref) (*my_ref).back()++; }
+		void operator()(char const*s, char const*e)
+		{
+			(void)s; (void)e;	// C4100
+			if(my_ref)
+				(*my_ref).back()++;
+		}
 	private:
 		T*	my_ref;
 	};
@@ -46,7 +58,12 @@ namespace supspi
 		PushBackVal(): my_ref(NULL){ }
 		PushBackVal(T& ref, V val): my_ref(&ref), my_val(val){ }
 
-		void operator()(char const*s, char const*e){ if(my_ref) (*my_ref).push_back(my_val); }
+		void operator()(char const*s, char const*e)
+		{
+			(void)s; (void)e;	// C4100
+			if(my_ref)
+				(*my_ref).push_back(my_val);
+		}
 	private:
 		T*	my_ref;
 		V	my_val;
@@ -57,7 +74,12 @@ namespace supspi
 		PopBack(): my_ref(NULL){ }
 		PopBack(T& ref): my_ref(&ref){ }
 
-		void operator()(char const*s, char const*e){ if(my_ref) (*my_ref).pop_back(); }
+		void operator()(char const*s, char const*e)
+		{
+			(void)s; (void)e;	// C4100
+			if(my_ref)
+				(*my_ref).pop_back();
+		}
 	private:
 		T*	my_ref;
 	};
@@ -66,7 +88,12 @@ namespace supspi
 		StrToInt(): my_ref(NULL){ }
 		StrToInt(UINT& ref): my_ref(&ref){ }
 
-		void operator()(char const*s, char const*e){ if(my_ref) (*my_ref) = atoi(s); }
+		void operator()(char const*s, char const*e)
+		{
+			(void)e;	// C4100
+			if(my_ref)
+				(*my_ref) = atoi(s);
+		}
 	private:
 		UINT*	my_ref;
 	};
@@ -128,7 +155,7 @@ namespace supspi
 	class ActionP: public BaseP
 	{
 	public:
-		ActionP(Rule a, ActionT act){ m_a.set(a); m_act = act; }
+		ActionP(Rule a, ActionT act): m_act(act) { m_a.set(a); }
 		~ActionP(){ /*m_a.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
@@ -202,6 +229,7 @@ namespace supspi
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
+			(void)str;	// C4100
 			return true;
 		}
 	protected:
@@ -215,6 +243,7 @@ namespace supspi
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
+			(void)str;	// C4100
 			return false;
 		}
 	protected:
@@ -460,19 +489,23 @@ namespace supspi
 		{
 			char* curr = *str;
 			UINT iter = 0;
-			while(true)
+			for(;;)
 			{
 				//SkipSpaces(str, space);
-				if(!m_a->Parse(str, space)){
-					if((m_cnt == ZERO_ONE || m_cnt == ZERO_PLUS) && iter == 0){
+				if(!m_a->Parse(str, space))
+				{
+					if((m_cnt == ZERO_ONE || m_cnt == ZERO_PLUS) && iter == 0)
+					{
 						(*str) = curr;
 						return true;
 					}
-					if(m_cnt == PLUS && iter == 0){
+					if(m_cnt == PLUS && iter == 0)
+					{
 						(*str) = curr;
 						return false;
 					}
-					if(iter != 0){
+					if(iter != 0)
+					{
 						return true;
 					}
 				}else{
@@ -482,8 +515,6 @@ namespace supspi
 						return true;
 				}
 			}
-			
-			return false;
 		}
 	protected:
 		Rule	m_a;

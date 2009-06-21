@@ -22,7 +22,7 @@ ExecutorX86::ExecutorX86()
 	stackGrowSize = 128*4096;
 	stackGrowCommit = 64*4096;
 	// Request memory at address
-	if(!(paramData = (char*)VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
+	if(NULL == (paramData = (char*)VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
 		throw std::string("ERROR: Failed to reserve memory");
 	if(!VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
 		throw std::string("ERROR: Failed to commit memory");
@@ -32,7 +32,7 @@ ExecutorX86::ExecutorX86()
 	
 	paramDataBase = paramBase = static_cast<UINT>(reinterpret_cast<long long>(paramData));
 
-	binCode = new char[200000];
+	binCode = new unsigned char[200000];
 	memset(binCode, 0x90, 20);
 	binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 	binCodeSize = 0;
@@ -94,11 +94,11 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 			commitedStack += stackGrowCommit;
 			stackReallocs++;
 
-			return EXCEPTION_CONTINUE_EXECUTION;
+			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
 		}
 	}
 
-	return EXCEPTION_CONTINUE_SEARCH;
+	return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 }
 
 #pragma warning(disable: 4731)
@@ -116,10 +116,10 @@ UINT ExecutorX86::Run(const char* funcName)
 	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 
 	UINT startPos = 20;
-	char	oldCode[16];
+	unsigned char	oldCode[16];
 	if(funcName)
 	{
-		UINT funcPos = -1;
+		UINT funcPos = (unsigned int)-1;
 		for(unsigned int i = 0; i < funcInfo.size(); i++)
 		{
 			if(strcmp(funcInfo[i]->name.c_str(), funcName) == 0)
@@ -209,7 +209,7 @@ UINT ExecutorX86::Run(const char* funcName)
 
 	runResult = res1;
 	runResult2 = res2;
-	runResultType = resT;
+	runResultType = (OperFlag)resT;
 
 	memcpy(binCode+startPos, oldCode, 9);
 
@@ -230,10 +230,10 @@ void ExecutorX86::GenListing()
 	asmStackType st;
 	asmDataType dt;
 
-	vector<int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
-	vector<int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
+	vector<unsigned int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
+	vector<unsigned int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
 
-	for(int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 		if(CodeInfo::funcInfo[i]->funcPtr == NULL && CodeInfo::funcInfo[i]->address != -1)
 			funcNeedLabel.push_back(CodeInfo::funcInfo[i]->address);
 
@@ -400,7 +400,7 @@ void ExecutorX86::GenListing()
 
 	int pushLabels = 1;
 	int movLabels = 1;
-	int skipLabels = 1;
+	//int skipLabels = 1;
 	int aluLabels = 1;
 
 	bool skipPopEAXOnIntALU = false;
@@ -444,11 +444,10 @@ void ExecutorX86::GenListing()
 
 		pos2 = pos;
 		pos += 2;
-		const char *descStr;
-		if(descStr = cmdList->GetDescription(pos2))
-		{
+		const char *descStr = cmdList->GetDescription(pos2);
+		if(descStr)
 			logASM << "\r\n  ; \"" << descStr << "\" codeinfo\r\n";
-		}
+
 		switch(cmd)
 		{
 		case cmdCallStd:
@@ -557,7 +556,7 @@ void ExecutorX86::GenListing()
 				logASM << "  ; CALL " << valind << " ret " << (retFlag & bitRetSimple ? "simple " : "") << "size: ";
 				if(retFlag & bitRetSimple)
 				{
-					oFlag = retFlag & 0x0FFF;
+					oFlag = (OperFlag)(retFlag & 0x0FFF);
 					if(oFlag == OTYPE_DOUBLE)
 						logASM << "double\r\n";
 					if(oFlag == OTYPE_LONG)
@@ -581,7 +580,7 @@ void ExecutorX86::GenListing()
 				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 				if(retFlag & bitRetSimple)
 				{
-					oFlag = retFlag & 0x0FFF;
+					oFlag = (OperFlag)(retFlag & 0x0FFF);
 					if(oFlag == OTYPE_INT)
 						logASM << "push eax ; поместим int обратно в стек\r\n";
 					if(oFlag == OTYPE_DOUBLE)
@@ -649,7 +648,7 @@ void ExecutorX86::GenListing()
 				}
 				if(retFlag & bitRetSimple)
 				{
-					oFlag = retFlag & 0x0FFF;
+					oFlag = (OperFlag)(retFlag & 0x0FFF);
 					if(oFlag == OTYPE_DOUBLE)
 					{
 						logASM << "pop edx \r\n";
@@ -779,7 +778,6 @@ void ExecutorX86::GenListing()
 		case cmdPushImmt:
 			{
 				logASM << "  ; PUSHIMMT\r\n";
-				int valind = -1;
 				UINT	highDW = 0, lowDW = 0;
 				USHORT sdata;
 				UCHAR cdata;
@@ -790,10 +788,7 @@ void ExecutorX86::GenListing()
 
 				char *texts[] = { "", "edx + ", "ebp + ", "push ", "mov eax, " };
 				char *needPush = texts[3];
-				char *needEDX = texts[1];
-				char *needEBP = texts[2];
 				addEBPtoEDXOnPush = false;
-				UINT numEDX = 0;
 
 				mulByVarSize = false;
 
@@ -1096,8 +1091,8 @@ void ExecutorX86::GenListing()
 		case cmdMov:
 			{
 				logASM << "  ; MOV\r\n";
-				int valind = -1, /*shift, */size;
-				UINT	highDW = 0, lowDW = 0;
+				int valind = -1, size;
+
 				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
 				st = flagStackType(cFlag);
@@ -1475,7 +1470,7 @@ void ExecutorX86::GenListing()
 			pos += 4;
 			{
 				bool jFar = false;
-				for(int i = 0; i < funcNeedLabel.size(); i++)
+				for(unsigned int i = 0; i < funcNeedLabel.size(); i++)
 					if(funcNeedLabel[i] == pos)
 						jFar = true;
 				logASM << "jmp " << (jFar ? "near " : "") << "gLabel" << valind << "\r\n";
@@ -2432,8 +2427,8 @@ void ExecutorX86::GenListing()
 		}
 		if(cmd >= cmdIncAt && cmd <= cmdDecAt)
 		{
-			int valind = -1, /*shift, */size;
-			UINT	highDW = 0, lowDW = 0;
+			int valind = -1, size;
+
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			dt = flagDataType(cFlag);
@@ -2781,7 +2776,7 @@ string ExecutorX86::GetResult()
 	return tempStream.str();
 }
 
-void ExecutorX86::SetOptimization(bool toggle)
+void ExecutorX86::SetOptimization(int toggle)
 {
 	optimize = toggle;
 }
