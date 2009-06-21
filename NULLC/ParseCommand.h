@@ -425,7 +425,7 @@ public:
 		}
 		return NULL;
 	}
-private:
+//private:
 	char*	bytecode;
 	UINT	curr;
 	UINT	max;
