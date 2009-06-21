@@ -104,7 +104,7 @@ UINT Executor::Run(const char* funcName)
 	char *cmdStreamEnd = CodeInfo::cmdList->bytecode + CodeInfo::cmdList->max;
 #define cmdStreamPos (cmdStream-cmdStreamBase)
 
-	while(cmdStream+2 < cmdStreamEnd/*cmdList->GetSHORT(pos, cmd)*/ && !done)
+	while(cmdStream+2 < cmdStreamEnd && !done)
 	{
 		cmd = *(CmdID*)(cmdStream);
 		DBG(pos2 = cmdStream - cmdStreamBase);
@@ -158,8 +158,209 @@ UINT Executor::Run(const char* funcName)
 			genParams.resize(genParams.size()+4);
 		}
 
+		UINT	highDW = 0, lowDW = 0;
+
 		switch(cmd)
 		{
+		case cmdMovRTaP:
+			{
+				int valind;
+				cFlag = *(CmdFlag*)cmdStream;
+				cmdStream += 2;
+
+				asmDataType dt = flagDataType(cFlag);
+
+				valind = *(int*)cmdStream;
+				cmdStream += 4;
+
+				UINT sizeOfVar = 0;
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					sizeOfVar = *(unsigned int*)cmdStream;
+					cmdStream += 4;
+				}
+				UINT sizeOfVarConst = sizeOfVar;
+
+				valind += genParams.size();
+
+				if(valind + sizeOfVarConst > genParams.size())
+					genParams.reserve(genParams.size()+128);
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					UINT currShift = sizeOfVar;
+					while(sizeOfVar >= 4)
+					{
+						currShift -= 4;
+						*((UINT*)(&genParams[valind+currShift])) = *(genStackPtr+sizeOfVar/4-1);
+						sizeOfVar -= 4;
+					}
+					genStackPtr += sizeOfVarConst / 4;
+					assert(sizeOfVar == 0);
+				}else if(dt == DTYPE_FLOAT){
+					*((float*)(&genParams[valind])) = float(*(double*)(genStackPtr));
+					genStackPtr += 2;
+				}else if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
+					*((UINT*)(&genParams[valind])) = *genStackPtr;
+					*((UINT*)(&genParams[valind+4])) = *(genStackPtr+1);
+					genStackPtr += 2;
+				}else if(dt == DTYPE_INT){
+					*((UINT*)(&genParams[valind])) = *genStackPtr;
+					genStackPtr++;
+				}else if(dt == DTYPE_SHORT){
+					*((short*)(&genParams[valind])) = *(short*)(genStackPtr);
+					genStackPtr++;
+				}else if(dt == DTYPE_CHAR){
+					genParams[valind] = *(char*)(genStackPtr);
+					genStackPtr++;
+				}
+
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, sizeOfVarConst));
+			}
+			break;
+		case cmdPushImmt:
+			{
+				USHORT sdata;
+				UCHAR cdata;
+
+				cFlag = *(CmdFlag*)cmdStream;
+				cmdStream += 2;
+
+				st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+
+				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+				{
+					highDW = *(unsigned int*)cmdStream;
+					lowDW = *(unsigned int*)(cmdStream+4);
+					cmdStream += 8;
+				}else if(dt == DTYPE_FLOAT || dt == DTYPE_INT){
+					lowDW = *(unsigned int*)cmdStream;
+					cmdStream += 4;
+				}else if(dt == DTYPE_SHORT){
+					sdata = *(unsigned short*)cmdStream;
+					cmdStream += 2;
+					lowDW = (sdata>0?sdata:sdata|0xFFFF0000);
+				}else if(dt == DTYPE_CHAR){
+					cdata = *(unsigned char*)cmdStream;
+					cmdStream++;
+					lowDW = cdata;
+				}
+				
+				if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
+				{
+					genStackPtr -= 2;
+					*(double*)(genStackPtr) = (double)(*((float*)(&lowDW)));
+				}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
+				{
+					genStackPtr--;
+					*genStackPtr = lowDW;
+					genStackPtr--;
+					*genStackPtr = highDW;
+				}else{
+					genStackPtr--;
+					*genStackPtr = lowDW;
+				}
+
+				DBG(genStackTypes.push_back(st));
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0, highDW, lowDW));
+			}
+			break;
+		case cmdPush:
+			{
+				int valind = -1, shift = 0;
+				USHORT sdata;
+				UCHAR cdata;
+				cFlag = *(CmdFlag*)cmdStream;
+				cmdStream += 2;
+				st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+
+				valind = *(int*)cmdStream;
+				cmdStream += 4;
+
+				if(flagShiftStk(cFlag))
+				{
+					shift = *genStackPtr;
+					genStackPtr++;
+
+					//if(int(shift) < 0)
+					//	throw std::string("ERROR: array index out of bounds (negative)");
+					DBG(genStackTypes.pop_back());
+				}
+
+				UINT sizeOfVar = 0;
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					sizeOfVar = *(unsigned int*)cmdStream;
+					cmdStream += 4;
+				}
+
+				if(flagAddrRel(cFlag))
+					valind += paramTop.back();
+				if(flagShiftStk(cFlag))
+					valind += shift;
+
+				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+				{
+					highDW = *((UINT*)(&genParams[valind]));
+					lowDW = *((UINT*)(&genParams[valind+4]));
+				}
+				if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ lowDW = *((UINT*)(&genParams[valind])); }
+				if(dt == DTYPE_SHORT)
+				{
+					sdata = *((USHORT*)(&genParams[valind]));
+					lowDW = (short)(sdata) > 0 ? sdata : sdata | 0xFFFF0000;
+				}
+				if(dt == DTYPE_CHAR){ cdata = genParams[valind]; lowDW = cdata; }
+				
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					UINT currShift = sizeOfVar;
+					while(sizeOfVar >= 4)
+					{
+						currShift -= 4;
+						genStackPtr--;
+						*genStackPtr = *((UINT*)(&genParams[valind+currShift]));
+						sizeOfVar -= 4;
+					}
+					lowDW = sizeOfVar;
+				}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
+				{
+					genStackPtr -= 2;
+					*(double*)(genStackPtr) = (double)(*((float*)(&lowDW)));
+				}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
+				{
+					genStackPtr--;
+					*genStackPtr = lowDW;
+					genStackPtr--;
+					*genStackPtr = highDW;
+				}else{
+					genStackPtr--;
+					*genStackPtr = lowDW;
+				}
+
+				DBG(genStackTypes.push_back(st));
+				DBG(if(st == STYPE_COMPLEX_TYPE))
+				DBG(genStackTypes.back() = (asmStackType)(sizeOfVar|0x80000000));
+
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, highDW, lowDW));
+			}
+			break;
+		case cmdPop:
+			{
+				UINT varSize = *(unsigned int*)cmdStream;
+				cmdStream += 4;
+
+				genStackPtr += varSize >> 2;
+#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
+				UINT sizeOfVar = varSize;
+				UINT count = genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];
+				for(unsigned int n = 0; n < sizeOfVar/count; n++)
+					genStackTypes.pop_back();
+#endif
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, sizeOfVar, 0, 0));
+			}
+			break;
 		case cmdCallStd:
 			{
 				funcInfoPtr = *(FunctionInfo**)(cmdStream);// cmdList->GetData(pos, funcInfoPtr);
@@ -503,135 +704,7 @@ UINT Executor::Run(const char* funcName)
 		}
 
 		//New commands
-		if(cmd == cmdPushImmt)
-		{
-			UINT	highDW = 0, lowDW = 0;
-			USHORT sdata;
-			UCHAR cdata;
-
-			cFlag = *(CmdFlag*)cmdStream;
-			cmdStream += 2;
-
-			st = flagStackType(cFlag);
-			asmDataType dt = flagDataType(cFlag);
-
-			if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-			{
-				highDW = *(unsigned int*)cmdStream;
-				lowDW = *(unsigned int*)(cmdStream+4);
-				cmdStream += 8;
-			}else if(dt == DTYPE_FLOAT || dt == DTYPE_INT){
-				lowDW = *(unsigned int*)cmdStream;
-				cmdStream += 4;
-			}else if(dt == DTYPE_SHORT){
-				sdata = *(unsigned short*)cmdStream;
-				cmdStream += 2;
-				//cmdList->GetUSHORT(pos, sdata); pos += 2;
-				lowDW = (sdata>0?sdata:sdata|0xFFFF0000);
-			}else if(dt == DTYPE_CHAR){
-				cdata = *(unsigned char*)cmdStream;
-				cmdStream++;
-				//cmdList->GetUCHAR(pos, cdata); pos += 1;
-				lowDW = cdata;
-			}
-			
-			if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
-			{
-				genStackPtr -= 2;
-				*(double*)(genStackPtr) = (double)(*((float*)(&lowDW)));
-			}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
-			{
-				genStackPtr--;
-				*genStackPtr = lowDW;
-				genStackPtr--;
-				*genStackPtr = highDW;
-			}else{
-				genStackPtr--;
-				*genStackPtr = lowDW;
-			}
-
-			DBG(genStackTypes.push_back(st));
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0, highDW, lowDW));
-		}else if(cmd == cmdPush){
-			int valind = -1, shift = 0;
-			UINT	highDW = 0, lowDW = 0;
-			USHORT sdata;
-			UCHAR cdata;
-			cFlag = *(CmdFlag*)cmdStream;
-			cmdStream += 2;
-			st = flagStackType(cFlag);
-			asmDataType dt = flagDataType(cFlag);
-
-			valind = *(int*)cmdStream;
-			cmdStream += 4;
-
-			if(flagShiftStk(cFlag))
-			{
-				shift = *genStackPtr;
-				genStackPtr++;
-
-				//if(int(shift) < 0)
-				//	throw std::string("ERROR: array index out of bounds (negative)");
-				DBG(genStackTypes.pop_back());
-			}
-
-			UINT sizeOfVar = 0;
-			if(dt == DTYPE_COMPLEX_TYPE)
-			{
-				sizeOfVar = *(unsigned int*)cmdStream;
-				cmdStream += 4;
-			}
-
-			if(flagAddrRel(cFlag))
-				valind += paramTop.back();
-			if(flagShiftStk(cFlag))
-				valind += shift;
-
-			if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-			{
-				highDW = *((UINT*)(&genParams[valind]));
-				lowDW = *((UINT*)(&genParams[valind+4]));
-			}
-			if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ lowDW = *((UINT*)(&genParams[valind])); }
-			if(dt == DTYPE_SHORT)
-			{
-				sdata = *((USHORT*)(&genParams[valind]));
-				lowDW = (short)(sdata) > 0 ? sdata : sdata | 0xFFFF0000;
-			}
-			if(dt == DTYPE_CHAR){ cdata = genParams[valind]; lowDW = cdata; }
-			
-			if(dt == DTYPE_COMPLEX_TYPE)
-			{
-				UINT currShift = sizeOfVar;
-				while(sizeOfVar >= 4)
-				{
-					currShift -= 4;
-					genStackPtr--;
-					*genStackPtr = *((UINT*)(&genParams[valind+currShift]));
-					sizeOfVar -= 4;
-				}
-				lowDW = sizeOfVar;
-			}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
-			{
-				genStackPtr -= 2;
-				*(double*)(genStackPtr) = (double)(*((float*)(&lowDW)));
-			}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
-			{
-				genStackPtr--;
-				*genStackPtr = lowDW;
-				genStackPtr--;
-				*genStackPtr = highDW;
-			}else{
-				genStackPtr--;
-				*genStackPtr = lowDW;
-			}
-
-			DBG(genStackTypes.push_back(st));
-			DBG(if(st == STYPE_COMPLEX_TYPE))
-			DBG(genStackTypes.back() = (asmStackType)(sizeOfVar|0x80000000));
-
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, highDW, lowDW));
-		}else if(cmd == cmdMov){
+		if(cmd == cmdMov){
 			int valind = -1, shift = 0;
 			USHORT sdata;
 			UCHAR cdata;
@@ -676,17 +749,17 @@ UINT Executor::Run(const char* funcName)
 				sizeOfVar = *(unsigned int*)cmdStream;
 				cmdStream += 4;
 			}
-			UINT sizeOfVarConst = sizeOfVar;
+			//UINT sizeOfVarConst = sizeOfVar;
 
 			if(flagAddrRel(cFlag))
 				valind += paramTop.back();
 			if(flagShiftStk(cFlag))
 				valind += shift;
-			if(flagAddrRelTop(cFlag))
-				valind += genParams.size();
+			//if(flagAddrRelTop(cFlag))
+			//	valind += genParams.size();
 
-			if(flagAddrRelTop(cFlag) && valind+sizeOfVarConst > genParams.size())
-				genParams.reserve(genParams.size()+128);
+			//if(flagAddrRelTop(cFlag) && valind+sizeOfVarConst > genParams.size())
+			//	genParams.reserve(genParams.size()+128);
 			if(dt == DTYPE_COMPLEX_TYPE)
 			{
 				UINT currShift = sizeOfVar;
@@ -803,32 +876,6 @@ UINT Executor::Run(const char* funcName)
 			}
 			DBG(genStackTypes.pop_back());
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
-		}else if(cmd == cmdPop){
-			cFlag = *(CmdFlag*)cmdStream;
-			cmdStream += 2;
-			asmStackType st = flagStackType(cFlag);
-			UINT sizeOfVar = 0;
-			if(st == STYPE_DOUBLE || st == STYPE_LONG)
-			{
-				genStackPtr += 2;
-				DBG(genStackTypes.pop_back());
-			}else if(st == STYPE_COMPLEX_TYPE){
-				UINT varSize = *(unsigned int*)cmdStream;
-				cmdStream += 4;
-
-				sizeOfVar = varSize;
-				genStackPtr += varSize/4;
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-				UINT count = genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];
-				for(unsigned int n = 0; n < sizeOfVar/count; n++)
-					genStackTypes.pop_back();
-#endif
-			}else{
-				genStackPtr++;
-				DBG(genStackTypes.pop_back());
-			}
-
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, sizeOfVar, cFlag, 0));
 		}else if(cmd >= cmdAdd && cmd <= cmdLogXor){
 			oFlag = *(OperFlag*)cmdStream;
 			cmdStream++;
@@ -1339,7 +1386,7 @@ void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, co
 		break;
 	case cmdPop:
 		(*stream) << " POP ";
-		(*stream) << typeInfoS[cFlag&0x00000003];
+		//(*stream) << typeInfoS[cFlag&0x00000003];
 		if(valind)
 			(*stream) << " sizeof " << valind;
 		break;
@@ -1415,6 +1462,15 @@ void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, co
 	case cmdCTI:
 		(*stream) << " CTI addr*";
 		(*stream) << valind;
+		break;
+	case cmdMovRTaP:
+		(*stream) << " MOVRTAP ";
+		(*stream) << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
+
+		(*stream) << valind << "] //+max";
+
+		if(dt == STYPE_COMPLEX_TYPE)
+			(*stream) << " sizeof " << dw0;
 		break;
 	case cmdMov:
 		(*stream) << " MOV ";

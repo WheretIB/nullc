@@ -36,6 +36,7 @@ const CmdID cmdFuncAddr	= 202;
 	// положить значение на верхушку стека
 const CmdID cmdPush		= 100;
 
+const CmdID cmdMovRTaP	= 98;	// cmdMov + (relative to top and pop)
 const CmdID cmdPushImmt	= 99;
 
 	// removes a number from top
@@ -217,6 +218,7 @@ enum asmOperType
 	OTYPE_INT,
 };
 
+static int		stackTypeSize[] = { 4, 8, -1, 8 };
 // Conversion of asmStackType to appropriate asmOperType
 // Преобразование asmStackType в подходящий asmOperType
 static asmOperType operTypeForStackType[] = { OTYPE_INT, OTYPE_LONG, (asmOperType)0, OTYPE_DOUBLE };

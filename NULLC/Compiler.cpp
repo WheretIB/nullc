@@ -2998,6 +2998,26 @@ void Compiler::GenListing()
 			}
 			
 			break;
+		case cmdMovRTaP:
+			{
+				cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
+
+				logASM << pos2 << " MOVRTAP ";
+				logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
+				int valind;
+				cmdList->GetINT(pos, valind);
+				pos += 4;
+				logASM << valind;
+				logASM << "+max] ";
+				if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
+				{
+					cmdList->GetINT(pos, valind);
+					pos += 4;
+					logASM << "sizeof(" << valind << ")";
+				}
+			}
+			break;
 		case cmdMov:
 			{
 				cmdList->GetUSHORT(pos, cFlag);
@@ -3041,16 +3061,9 @@ void Compiler::GenListing()
 			}
 			break;
 		case cmdPop:
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			logASM << pos2 << " POP ";
-			logASM << typeInfoS[cFlag&0x00000003];
-			if(flagStackType(cFlag) == STYPE_COMPLEX_TYPE)
-			{
-				cmdList->GetUINT(pos, valind);
-				pos += 4;
-				logASM << " sizeof(" << valind << ")";
-			}
+			cmdList->GetUINT(pos, valind);
+			pos += 4;
+			logASM << pos2 << " POP" << " sizeof(" << valind << ")";
 			break;
 		case cmdRTOI:
 			cmdList->GetUSHORT(pos, cFlag);

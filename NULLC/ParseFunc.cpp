@@ -357,9 +357,10 @@ void NodePopOp::Compile()
 	{
 		// Убираем его с вершины стека
 		cmdList->AddData(cmdPop);
-		cmdList->AddData((USHORT)(podTypeToStackType[first->GetTypeInfo()->type]));
 		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 			cmdList->AddData(first->GetTypeInfo()->size);
+		else
+			cmdList->AddData(stackTypeSize[podTypeToStackType[first->GetTypeInfo()->type]]);
 	}
 
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
@@ -376,11 +377,8 @@ UINT NodePopOp::GetSize()
 {
 	UINT size = NodeOneOP::GetSize();
 	if(first->GetTypeInfo() != typeVoid)
-	{
-		size += sizeof(CmdID) + sizeof(USHORT);
-		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
-			size += sizeof(UINT);
-	}
+		size += sizeof(CmdID) + sizeof(UINT);
+
 	return size;
 }
 
@@ -716,18 +714,30 @@ void NodeFuncCall::Compile()
 		{
 			asmStackType newST = podTypeToStackType[funcType->paramType[i]->type];
 			asmDataType newDT = podTypeToDataType[funcType->paramType[i]->type];
-			cmdList->AddData(cmdMov);
-			cmdList->AddData((USHORT)(newST | newDT | bitAddrRelTop));
-			// адрес начала массива
-			cmdList->AddData(addr);
-			addr += funcType->paramType[i]->size;
-			if(newST == STYPE_COMPLEX_TYPE)
-				cmdList->AddData(funcType->paramType[i]->size);
+			if(CodeInfo::activeExecutor == EXEC_VM)
+			{
+				cmdList->AddData(cmdMovRTaP);
+				cmdList->AddData((USHORT)(newDT));
+				// адрес начала массива
+				cmdList->AddData(addr);
+				addr += funcType->paramType[i]->size;
+				if(newST == STYPE_COMPLEX_TYPE)
+					cmdList->AddData(funcType->paramType[i]->size);
+			}else{
+				cmdList->AddData(cmdMov);
+				cmdList->AddData((USHORT)(newST | newDT | bitAddrRelTop));
+				// адрес начала массива
+				cmdList->AddData(addr);
+				addr += funcType->paramType[i]->size;
+				if(newST == STYPE_COMPLEX_TYPE)
+					cmdList->AddData(funcType->paramType[i]->size);
 
-			cmdList->AddData(cmdPop);
-			cmdList->AddData((USHORT)(newST));
-			if(newST == STYPE_COMPLEX_TYPE)
-				cmdList->AddData(funcType->paramType[i]->size);
+				cmdList->AddData(cmdPop);
+				if(newST == STYPE_COMPLEX_TYPE)
+					cmdList->AddData(funcType->paramType[i]->size);
+				else
+					cmdList->AddData(stackTypeSize[newST]);
+			}
 		}
 
 		if(!funcInfo || second)
@@ -736,12 +746,19 @@ void NodeFuncCall::Compile()
 				second->Compile();
 			else
 				first->Compile();
-			cmdList->AddData(cmdMov);
-			cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT | bitAddrRelTop));
-			cmdList->AddData(addr);
+			if(CodeInfo::activeExecutor == EXEC_VM)
+			{
+				cmdList->AddData(cmdMovRTaP);
+				cmdList->AddData((USHORT)(DTYPE_INT));
+				cmdList->AddData(addr);
+			}else{
+				cmdList->AddData(cmdMov);
+				cmdList->AddData((USHORT)(STYPE_INT | DTYPE_INT | bitAddrRelTop));
+				cmdList->AddData(addr);
 
-			cmdList->AddData(cmdPop);
-			cmdList->AddData((USHORT)(STYPE_INT));
+				cmdList->AddData(cmdPop);
+				cmdList->AddData(4);
+			}
 		}
 
 		cmdList->AddData(cmdPushVTop);
@@ -792,7 +809,9 @@ UINT NodeFuncCall::GetSize()
 			size += second->GetSize();
 		else
 			size += first->GetSize();
-		size += 2*sizeof(CmdID) + sizeof(UINT) + 2*sizeof(USHORT);
+		size += sizeof(CmdID) + sizeof(UINT) + sizeof(USHORT);
+		if(CodeInfo::activeExecutor == EXEC_X86)
+			size += sizeof(CmdID) + sizeof(UINT);
 	}
 
 	UINT currParam = 0;
@@ -807,11 +826,13 @@ UINT NodeFuncCall::GetSize()
 	{
 		size += sizeof(CmdID) + sizeof(funcInfo);
 	}else{
-		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcType->paramType.size()) * (2*sizeof(CmdID)+2+4+2);
+		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcType->paramType.size()) * (sizeof(CmdID)+2+4);
+		if(CodeInfo::activeExecutor == EXEC_X86)
+			size += (UINT)(funcType->paramType.size()) * (sizeof(CmdID)+4);
 		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
 		{
 			if(funcType->paramType[i]->type == TypeInfo::TYPE_COMPLEX)
-				size += 2*sizeof(UINT);
+				size += sizeof(UINT);
 		}
 	}
 
@@ -1875,13 +1896,13 @@ void NodeSwitchExpr::Compile()
 	first->Compile();
 
 	// Найдём конец свитча
-	UINT switchEnd = cmdList->GetCurrPos() + 2*sizeof(CmdID) + sizeof(UINT) + sizeof(USHORT) + caseCondList.size() * (3*sizeof(CmdID) + 3 + sizeof(UINT));
+	UINT switchEnd = cmdList->GetCurrPos() + 2*sizeof(CmdID) + sizeof(UINT) + sizeof(UINT) + caseCondList.size() * (3*sizeof(CmdID) + 3 + sizeof(UINT));
 	for(casePtr s = caseCondList.begin(), e = caseCondList.end(); s != e; s++)
 		switchEnd += (*s)->GetSize();
 	UINT condEnd = switchEnd;
 	UINT blockNum = 0;
 	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
-		switchEnd += (*s)->GetSize() + sizeof(CmdID) + sizeof(USHORT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
+		switchEnd += (*s)->GetSize() + sizeof(CmdID) + sizeof(UINT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
 
 	// Сохраним адрес для оператора break;
 	breakAddr.push_back(switchEnd+2);
@@ -1903,11 +1924,11 @@ void NodeSwitchExpr::Compile()
 		cmdList->AddData(cmdJmpNZ);
 		cmdList->AddData((UCHAR)(aOT));
 		cmdList->AddData(caseAddr);
-		caseAddr += (*block)->GetSize() + 2*sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+		caseAddr += (*block)->GetSize() + 2*sizeof(CmdID) + sizeof(UINT) + sizeof(UINT);
 	}
 	// Уберём с вершины стека значение по которому выбирался вариант кода
 	cmdList->AddData(cmdPop);
-	cmdList->AddData((USHORT)(aST));
+	cmdList->AddData(stackTypeSize[aST]);
 
 	cmdList->AddData(cmdJmp);
 	cmdList->AddData(switchEnd);
@@ -1916,12 +1937,12 @@ void NodeSwitchExpr::Compile()
 	{
 		// Уберём с вершины стека значение по которому выбирался вариант кода
 		cmdList->AddData(cmdPop);
-		cmdList->AddData((USHORT)(aST));
+		cmdList->AddData(stackTypeSize[aST]);
 		(*block)->Compile();
 		if(blockNum != caseBlockList.size()-1)
 		{
 			cmdList->AddData(cmdJmp);
-			cmdList->AddData(cmdList->GetCurrPos() + sizeof(UINT) + sizeof(CmdID) + sizeof(USHORT));
+			cmdList->AddData(cmdList->GetCurrPos() + sizeof(UINT) + sizeof(CmdID) + sizeof(UINT));
 		}
 	}
 
@@ -1960,8 +1981,8 @@ UINT NodeSwitchExpr::GetSize()
 		size += (*s)->GetSize();
 	UINT blockNum = 0;
 	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
-		size += (*s)->GetSize() + sizeof(CmdID) + sizeof(USHORT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
-	size += 4*sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);
+		size += (*s)->GetSize() + sizeof(CmdID) + sizeof(UINT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
+	size += 4*sizeof(CmdID) + sizeof(UINT) + sizeof(UINT);
 	size += (UINT)caseCondList.size() * (3 * sizeof(CmdID) + 3 + sizeof(UINT));
 	return size;
 }

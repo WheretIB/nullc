@@ -334,10 +334,10 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdPop:
 			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			dt = flagDataType(cFlag);
-			if(dt == DTYPE_COMPLEX_TYPE)
-				pos += 4;
+			//pos += 2;
+			//dt = flagDataType(cFlag);
+			//if(dt == DTYPE_COMPLEX_TYPE)
+			pos += 4;
 			break;
 		case cmdRTOI:
 			pos += 2;
@@ -1331,28 +1331,35 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdPop:
 			logASM << "  ; POP\r\n";
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			st = flagStackType(cFlag);
+			//cmdList->GetUSHORT(pos, cFlag);
+			//pos += 2;
+			//st = flagStackType(cFlag);
 
 			if(skipPop)
 			{
-				if(st == STYPE_COMPLEX_TYPE)
-					pos += 4;
+				//if(st == STYPE_COMPLEX_TYPE)
+				pos += 4;
 				skipPop = false;
 				break;
 			}
 
-			if(st == STYPE_DOUBLE || st == STYPE_LONG)
-			{
-				logASM << "add esp, 8 ; убрали double или long\r\n";
-			}else if(st == STYPE_COMPLEX_TYPE){
-				cmdList->GetUINT(pos, valind);
-				pos += 4;
-				logASM << "add esp, " << valind << " ; убрали complex\r\n";
-			}else{
+			//if(
+
+			//if(st == STYPE_DOUBLE || st == STYPE_LONG)
+			//{
+			//	logASM << "add esp, 8 ; убрали double или long\r\n";
+			//}else if(st == STYPE_COMPLEX_TYPE){
+
+			cmdList->GetUINT(pos, valind);
+			pos += 4;
+			if(valind == 4)
 				logASM << "pop eax ; убрали int\r\n";
-			}
+			else
+				logASM << "add esp, " << valind << " ; убрали complex\r\n";
+
+			//}else{
+			//	logASM << "pop eax ; убрали int\r\n";
+			//}
 			break;
 		case cmdRTOI:
 			{
