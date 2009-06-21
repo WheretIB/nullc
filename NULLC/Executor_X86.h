@@ -15,16 +15,16 @@ public:
 
 	char*	GetVariableData();
 
-	void	SetOptimization(bool toggle);
+	void	SetOptimization(int toggle);
 private:
-	bool	optimize;
+	int	optimize;
 
 	ostringstream		logASM;
 
 	char	*paramData;
 	UINT	paramBase;
 
-	char	*binCode;
+	unsigned char	*binCode;
 	UINT	binCodeStart;
 	UINT	binCodeSize;
 };

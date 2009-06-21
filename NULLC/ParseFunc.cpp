@@ -851,7 +851,7 @@ void NodeGetAddress::IndexArray(int shift)
 
 void NodeGetAddress::ShiftToMember(int member)
 {
-	assert(member < typeInfo->memberData.size());
+	assert(member < (int)typeInfo->memberData.size());
 	varAddress += typeInfo->memberData[member].offset;
 	typeInfo = typeInfo->memberData[member].type;
 }
@@ -1137,12 +1137,9 @@ void NodeArrayIndex::LogToStream(ostringstream& ostr)
 UINT NodeArrayIndex::GetSize()
 {
 	if(knownShift)
-	{
 		return first->GetSize() + 2*sizeof(CmdID) + sizeof(USHORT) + sizeof(UCHAR) + sizeof(UINT);
-	}else{
-		return first->GetSize() + second->GetSize() + 2*sizeof(CmdID) + 2*sizeof(UCHAR) + sizeof(UINT);
-	}
-	return 0;
+	// else
+	return first->GetSize() + second->GetSize() + 2*sizeof(CmdID) + 2*sizeof(UCHAR) + sizeof(UINT);
 }
 
 TypeInfo* NodeArrayIndex::GetTypeInfo()
@@ -1348,7 +1345,6 @@ void NodePreOrPostOp::Compile()
 	if(strBegin && strEnd)
 		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
 
-	asmStackType asmST = podTypeToStackType[typeInfo->type];
 	asmDataType asmDT = podTypeToDataType[typeInfo->type];
 	
 	if(!knownAddress)
@@ -1883,7 +1879,7 @@ void NodeSwitchExpr::Compile()
 	for(casePtr s = caseCondList.begin(), e = caseCondList.end(); s != e; s++)
 		switchEnd += (*s)->GetSize();
 	UINT condEnd = switchEnd;
-	int blockNum = 0;
+	UINT blockNum = 0;
 	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
 		switchEnd += (*s)->GetSize() + sizeof(CmdID) + sizeof(USHORT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
 
@@ -1962,7 +1958,7 @@ UINT NodeSwitchExpr::GetSize()
 	size += first->GetSize();
 	for(casePtr s = caseCondList.begin(), e = caseCondList.end(); s != e; s++)
 		size += (*s)->GetSize();
-	int blockNum = 0;
+	UINT blockNum = 0;
 	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
 		size += (*s)->GetSize() + sizeof(CmdID) + sizeof(USHORT) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(UINT) : 0);
 	size += 4*sizeof(CmdID) + sizeof(USHORT) + sizeof(UINT);

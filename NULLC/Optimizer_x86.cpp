@@ -142,7 +142,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 			while(*temp == ' ' || *temp == '\t')
 				temp = temp - 1;
 
-			arg.size = (int)(temp + 1 - str);
+			arg.size = (char)(temp + 1 - str);
 		}
 		flag = true;
 	}else{
@@ -151,7 +151,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 			if(memcmp(str, Argument_Table[i].Name, Argument_Table[i].Size) == 0)
 			{
 				arg.type = Argument_Table[i].Hash;
-				arg.size = Argument_Table[i].Size;
+				arg.size = (char)Argument_Table[i].Size;
 				flag = true;
 				break;
 			}
@@ -292,7 +292,7 @@ void Optimizer_x86::OptimizePushPop()
 		{
 			// Search up to find "push num" or "push reg"
 			int pushIndex = i-1;
-			while(Commands[pushIndex].Name != push && pushIndex > i-10 && pushIndex > 0)
+			while(Commands[pushIndex].Name != push && pushIndex > int(i)-10 && pushIndex > 0)
 				pushIndex--;
 			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number || isGenReg[Commands[pushIndex].argA.type]) &&
 				!CheckDependencies(pushIndex+1, i-1, (Commands[pushIndex].argA.type == Argument::number ? Argument::label : Commands[pushIndex].argA.type), true, true))
@@ -313,7 +313,7 @@ void Optimizer_x86::OptimizePushPop()
 		{
 			// Search up to find "push" command
 			int pushIndex = i-1;
-			while(Commands[pushIndex].Name != push && pushIndex > i-10 && pushIndex > 0)
+			while(Commands[pushIndex].Name != push && pushIndex > int(i)-10 && pushIndex > 0)
 				pushIndex--;
 			// For first two cases
 			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number || (Commands[pushIndex].argA.type == Argument::ptr && i-pushIndex<=2)) &&
@@ -507,18 +507,6 @@ void Optimizer_x86::OptimizePushPop()
 			}
 		}
 	}
-
-	for(UINT m = 0; m < Strings.size(); m++)
-	{
-		char text[256] = "";
-
-		if(Strings[m].size() != 0)
-		{
-			//strncpy(text, Strings[m].c_str(), Strings[m].size() + 1);
-			//cout << text << endl;
-		}
-	}
-	//cout << "Optimize : " << optimize_count << endl;
 }
 
 void Optimizer_x86::HashListing(const char* pListing)

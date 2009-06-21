@@ -77,3 +77,5 @@ private:
 
 	bool (*m_RunCallback)(UINT);
 };
+
+void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, const CmdFlag cFlag, const OperFlag oFlag, UINT dw0=0, UINT dw1=0);

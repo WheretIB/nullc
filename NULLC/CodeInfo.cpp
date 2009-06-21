@@ -36,7 +36,10 @@ TypeInfo* CodeInfo::GetDereferenceType(TypeInfo* type)
 {
 	compileLog << "GetDereferenceType(" << type->GetTypeName() << ")\r\n";
 	if(!type->subType || type->refLevel == 0)
-		throw CompilerError(std::string("Cannot dereference type ") + type->GetTypeName() + std::string(" there is no result type available"), lastKnownStartPos);
+	{
+		std::string fullError = std::string("Cannot dereference type ") + type->GetTypeName() + std::string(" there is no result type available");
+		throw CompilerError(fullError, lastKnownStartPos);
+	}
 	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
 	return type->subType;
 }
@@ -66,7 +69,8 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, UINT sizeInArgument)
 				arrSize = -1;
 				unFixed = true;
 			}else{
-				throw CompilerError(std::string("ERROR: unknown type of constant number node ") + aType->name, lastKnownStartPos);
+				std::string fullError = std::string("ERROR: unknown type of constant number node ") + aType->name;
+				throw CompilerError(fullError, lastKnownStartPos);
 			}
 			nodeList.pop_back();
 		}else{
@@ -85,7 +89,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, UINT sizeInArgument)
 	UINT targetArrLevel = type->arrLevel+1;
 	for(UINT i = 0; i < typeInfo.size(); i++)
 	{
-		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == arrSize)
+		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (UINT)arrSize)
 		{
 			compileLog << "  returns " << typeInfo[i]->GetTypeName() << " Address: " << typeInfo[i] << "\r\n";
 			return typeInfo[i];
@@ -123,7 +127,10 @@ TypeInfo* CodeInfo::GetArrayElementType(TypeInfo* type)
 {
 	compileLog << "GetArrayElementType(" << type->GetTypeName() << ")\r\n";
 	if(!type->subType || type->arrLevel == 0)
-		throw CompilerError(std::string("Cannot return array element type, ") + type->GetTypeName() + std::string(" is not an array"), lastKnownStartPos);
+	{
+		std::string fullErr = std::string("Cannot return array element type, ") + type->GetTypeName() + std::string(" is not an array");
+		throw CompilerError(fullErr, lastKnownStartPos);
+	}
 	compileLog << "  returns " << type->subType->GetTypeName() << "\r\n";
 	return type->subType;
 }

@@ -33,6 +33,7 @@ TypeInfo*	typeInt = NULL;
 TypeInfo*	typeFloat = NULL;
 TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
+TypeInfo*	typeFile = NULL;
 
 // Temp variables
 // Временные переменные:
@@ -98,16 +99,25 @@ long long atoll(const char* str)
 void checkIfDeclared(const std::string& str)
 {
 	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
-		throw CompilerError(std::string("ERROR: The name '" + str + "' is reserved"), lastKnownStartPos);
+	{
+		std::string fullError = std::string("ERROR: The name '" + str + "' is reserved");
+		throw CompilerError(fullError, lastKnownStartPos);
+	}
 	for(UINT i = 0; i < funcInfo.size(); i++)
+	{
 		if(funcInfo[i]->name == str && funcInfo[i]->visible)
-			throw CompilerError(std::string("ERROR: Name '" + str + "' is already taken for a function"), lastKnownStartPos);
+		{
+			std::string fullError = std::string("ERROR: Name '" + str + "' is already taken for a function");
+			throw CompilerError(fullError, lastKnownStartPos);
+		}
+	}
 }
 
 // Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
 // будет вернутся после окончания блока.
 void blockBegin(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
 	funcInfoTop.push_back((UINT)funcInfo.size());
 }
@@ -115,6 +125,7 @@ void blockBegin(char const* s, char const* e)
 // их выход из области видимости. Также уменьшает вершину стека переменных в байтах.
 void blockEnd(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{ 
 		varTop -= varInfo.back()->varType->size;
@@ -133,6 +144,7 @@ void addNumberNode(char const*s, char const*e);
 
 template<> void addNumberNode<char>(char const*s, char const*e)
 {
+	(void)e;	// C4100
 	char res = s[1];
 	if(res == '\\')
 	{
@@ -154,23 +166,28 @@ template<> void addNumberNode<char>(char const*s, char const*e)
 
 template<> void addNumberNode<int>(char const*s, char const*e)
 {
+	(void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(atoi(s), typeInt)));
 }
 template<> void addNumberNode<float>(char const*s, char const*e)
 {
+	(void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<float>((float)atof(s), typeFloat)));
 }
 template<> void addNumberNode<long long>(char const*s, char const*e)
 {
+	(void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(atoll(s), typeLong)));
 }
 template<> void addNumberNode<double>(char const*s, char const*e)
 {
+	(void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<double>(atof(s), typeDouble)));
 }
 
 void addVoidNode(char const*s, char const*e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP));
 }
 
@@ -283,6 +300,7 @@ void addPopNode(char const* s, char const* e)
 // Узел заберёт к себе последний узел в списке.
 void addNegNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	// Если количество смен знака чётное, то результирующий знак не поменяется
 	// и нам не стоит тратить время
 	if(negCount % 2 == 0)
@@ -303,7 +321,8 @@ void addNegNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
 		}else{
-			throw CompilerError(std::string("addNegNode() ERROR: unknown type ") + aType->name, s);
+			std::string fullError = std::string("addNegNode() ERROR: unknown type ") + aType->name;
+			throw CompilerError(fullError, s);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -319,6 +338,7 @@ void addNegNode(char const* s, char const* e)
 // Узел заберёт к себе последний узел в списке.
 void addLogNotNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	// Если последний узел в списке - число, то произведём действие во время копиляции
 	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
 	{
@@ -335,7 +355,8 @@ void addLogNotNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
 		}else{
-			throw CompilerError(std::string("addLogNotNode() ERROR: unknown type ") + aType->name, s);
+			std::string fullError = std::string("addLogNotNode() ERROR: unknown type ") + aType->name;
+			throw CompilerError(fullError, s);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -346,6 +367,7 @@ void addLogNotNode(char const* s, char const* e)
 }
 void addBitNotNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
 	{
 		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
@@ -361,7 +383,8 @@ void addBitNotNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo()));
 		}else{
-			throw CompilerError(std::string("addBitNotNode() ERROR: unknown type ") + aType->name, s);
+			std::string fullError = std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
+			throw CompilerError(fullError, s);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -402,6 +425,7 @@ T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 template<typename T>
 T optDoSpecial(CmdID cmd, T a, T b)
 {
+	(void)cmd; (void)b; (void)a;	// C4100
 	throw CompilerError("ERROR: optDoSpecial call with unknown type", lastKnownStartPos);
 }
 template<> int optDoSpecial<>(CmdID cmd, int a, int b)
@@ -651,6 +675,7 @@ void addTwoAndCmpNode(CmdID id)
 
 template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	lastKnownStartPos = s;
 	addTwoAndCmpNode(cmd);
 }
@@ -680,7 +705,6 @@ static ParseFuncPtr addCmd(CmdID cmd)
 	if(cmd == cmdLogOr) return &createTwoAndCmd<cmdLogOr>;
 	if(cmd == cmdLogXor) return &createTwoAndCmd<cmdLogXor>;
 	throw CompilerError("ERROR: addCmd call with unknown command", lastKnownStartPos);
-	return &createTwoAndCmd<cmdReturn>;
 }
 
 void addReturnNode(char const* s, char const* e)
@@ -708,6 +732,7 @@ void addReturnNode(char const* s, char const* e)
 
 void addBreakNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	if(cycleBeginVarTop.empty())
 		throw CompilerError("ERROR: break used outside loop statements", s);
 	int t = (int)varInfoTop.size();
@@ -722,6 +747,7 @@ void addBreakNode(char const* s, char const* e)
 
 void AddContinueNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	if(cycleBeginVarTop.empty())
 		throw CompilerError("ERROR: continue used outside loop statements", s);
 	int t = (int)varInfoTop.size();
@@ -763,6 +789,7 @@ std::set<VariableInfo*> varInfoAll;
 
 void addVar(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	lastKnownStartPos = s;
 	string vName = strs.back();
 
@@ -797,6 +824,7 @@ void addVar(char const* s, char const* e)
 
 void addVarDefNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	assert(varDefined);
 	if(!currType)
 		throw CompilerError("ERROR: auto variable must be initialized in place of definition", s);
@@ -808,16 +836,19 @@ void addVarDefNode(char const* s, char const* e)
 
 void pushType(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	currTypes.push_back(currType);
 }
 
 void popType(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	currTypes.pop_back();
 }
 
 void convertTypeToRef(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	lastKnownStartPos = s;
 	if(!currType)
 		throw CompilerError("ERROR: auto variable cannot have reference flag", s);
@@ -826,6 +857,7 @@ void convertTypeToRef(char const* s, char const* e)
 
 void convertTypeToArray(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	lastKnownStartPos = s;
 	if(!currType)
 		throw CompilerError("ERROR: cannot specify array size for auto variable", s);
@@ -868,6 +900,7 @@ void GetVariableType(char const* s, char const* e)
 bool sizeOfExpr = false;
 void GetTypeSize(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	if(!sizeOfExpr && !currTypes.back())
 		throw CompilerError("ERROR: sizeof(auto) is illegal", s);
 	if(sizeOfExpr)
@@ -882,6 +915,7 @@ void GetTypeSize(char const* s, char const* e)
 
 void SetTypeOfLastNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	currType = nodeList.back()->GetTypeInfo();
 	nodeList.pop_back();
 }
@@ -1010,6 +1044,7 @@ void AddGetAddressNode(char const* s, char const* e)
 // Функция вызывается для индексации массива
 void AddArrayIndexNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	lastKnownStartPos = s;
 
 	// Тип должен быть массивом
@@ -1048,7 +1083,7 @@ void AddArrayIndexNode(char const* s, char const* e)
 		// Проверим индекс на выход за пределы массива
 		if(shiftValue < 0)
 			throw CompilerError("ERROR: Array index cannot be negative", s);
-		if(shiftValue >= currTypes.back()->arrSize)
+		if((unsigned int)shiftValue >= currTypes.back()->arrSize)
 			throw CompilerError("ERROR: Array index out of bounds", s);
 
 		// Индексируем относительно него
@@ -1065,6 +1100,7 @@ void AddArrayIndexNode(char const* s, char const* e)
 // Функция вызывается для разыменования указателя
 void AddDereferenceNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	lastKnownStartPos = s;
 
 	// Создаём узел разыменования
@@ -1077,6 +1113,7 @@ void AddDereferenceNode(char const* s, char const* e)
 // Часто его нету, поэтому требуется удалить узел
 void FailedSetVariable(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.pop_back();
 }
 
@@ -1259,6 +1296,7 @@ void AddSetVariableNode(char const* s, char const* e)
 
 void AddGetVariableNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	lastKnownStartPos = s;
 
 	if(nodeList.back()->GetTypeInfo()->funcType == NULL)
@@ -1267,6 +1305,7 @@ void AddGetVariableNode(char const* s, char const* e)
 
 void AddMemberAccessNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	lastKnownStartPos = s;
 
 	std::string memberName = strs.back();
@@ -1332,14 +1371,21 @@ void AddPreOrPostOpNode(CmdID postCmd, bool prefixOp)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreOrPostOp(currTypes.back(), postCmd, prefixOp)));
 }
 
-template<CmdID cmd, bool prefixOp>
+template<CmdID cmd>
 struct AddPreOrPostOp
 {
+	AddPreOrPostOp(bool isPrefixOp)
+	{
+		prefixOp = isPrefixOp;
+	}
+
 	void operator() (char const* s, char const* e)
 	{
+		(void)e;	// C4100
 		lastKnownStartPos = s;
 		AddPreOrPostOpNode(cmd, prefixOp);
 	}
+	bool prefixOp;
 };
 
 void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
@@ -1388,6 +1434,7 @@ void AddInplaceArray(char const* s, char const* e)
 
 void AddInplaceFunction(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	std::string fName = funcInfo.back()->name;
 	AddGetAddressNode(fName.c_str(), fName.c_str()+fName.length());
 }
@@ -1395,6 +1442,7 @@ void AddInplaceFunction(char const* s, char const* e)
 //////////////////////////////////////////////////////////////////////////
 void addOneExprNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList()));
 }
 void addTwoExprNode(char const* s, char const* e)
@@ -1409,6 +1457,7 @@ void addTwoExprNode(char const* s, char const* e)
 }
 void addBlockNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock()));
 }
 
@@ -1458,6 +1507,7 @@ void addArrayConstructor(char const* s, char const* e)
 
 void FunctionAdd(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		if(varInfo[i]->name == strs.back())
 			throw CompilerError("ERROR: Name '" + strs.back() + "' is already taken for a variable in current scope", s);
@@ -1485,6 +1535,7 @@ void FunctionAdd(char const* s, char const* e)
 
 void FunctionParam(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	if(!currType)
 		throw CompilerError("ERROR: function parameter cannot be an auto type", s);
 	funcInfo.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
@@ -1493,6 +1544,7 @@ void FunctionParam(char const* s, char const* e)
 }
 void FunctionStart(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
 
 	for(int i = (int)funcInfo.back()->params.size()-1; i >= 0; i--)
@@ -1532,7 +1584,7 @@ void FunctionEnd(char const* s, char const* e)
 		i--;
 
 	// Find all the functions with the same name
-	int count = 0;
+	//int count = 0;
 	for(int n = 0; n < i; n++)
 	{
 		if(funcInfo[n]->name == funcInfo[i]->name && funcInfo[n]->params.size() == funcInfo[i]->params.size() && funcInfo[n]->visible)
@@ -1629,7 +1681,7 @@ void addFuncCallNode(char const* s, char const* e)
 		UINT	fRating[32];
 		memset(fRating, 0, 32*4);
 
-		int count = 0;
+		unsigned int count = 0;
 		for(int k = 0; k < (int)funcInfo.size(); k++)
 			if(funcInfo[k]->name == fname && funcInfo[k]->visible)
 				fList[count++] = funcInfo[k];
@@ -1637,8 +1689,8 @@ void addFuncCallNode(char const* s, char const* e)
 			throw CompilerError("ERROR: function '" + fname + "' is undefined", s);
 		// Find the best suited function
 		UINT minRating = 1024*1024;
-		UINT minRatingIndex = -1;
-		for(int k = 0; k < count; k++)
+		UINT minRatingIndex = (unsigned int)~0;
+		for(unsigned int k = 0; k < count; k++)
 		{
 			if(fList[k]->params.size() != callArgCount.back())
 			{
@@ -1684,7 +1736,7 @@ void addFuncCallNode(char const* s, char const* e)
 				errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
 			errTemp << ")\r\n";
 			errTemp << " the only available are:\r\n";
-			for(int n = 0; n < count; n++)
+			for(unsigned int n = 0; n < count; n++)
 			{
 				errTemp << "  " << fname << "(";
 				for(UINT m = 0; m < fList[n]->params.size(); m++)
@@ -1694,7 +1746,7 @@ void addFuncCallNode(char const* s, char const* e)
 			throw errTemp.str();
 		}
 		// Check, is there are more than one function, that share the same rating
-		for(int k = 0; k < count; k++)
+		for(unsigned int k = 0; k < count; k++)
 		{
 			if(k != minRatingIndex && fRating[k] == minRating)
 			{
@@ -1705,7 +1757,7 @@ void addFuncCallNode(char const* s, char const* e)
 					errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
 				errTemp << ")\r\n";
 				errTemp << " candidates are:\r\n";
-				for(int n = 0; n < count; n++)
+				for(unsigned int n = 0; n < count; n++)
 				{
 					if(fRating[n] != minRating)
 						continue;
@@ -1818,14 +1870,17 @@ void addFuncCallNode(char const* s, char const* e)
 
 void addIfNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(false)));
 }
 void addIfElseNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true)));
 }
 void addIfElseTermNode(char const* s, char const* e)
 {
+	(void)e;	// C4100
 	TypeInfo* typeA = nodeList[nodeList.size()-1]->GetTypeInfo();
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->GetTypeInfo();
 	if(typeA != typeB)
@@ -1835,37 +1890,44 @@ void addIfElseTermNode(char const* s, char const* e)
 
 void saveVarTop(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	cycleBeginVarTop.push_back((UINT)varInfoTop.size());
 }
 void addForNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeForExpr()));
 	cycleBeginVarTop.pop_back();
 }
 void addWhileNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeWhileExpr()));
 	cycleBeginVarTop.pop_back();
 }
 void addDoWhileNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDoWhileExpr()));
 	cycleBeginVarTop.pop_back();
 }
 
 void preSwitchNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	cycleBeginVarTop.push_back((UINT)varInfoTop.size());
 	varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeSwitchExpr()));
 }
 void addCaseNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	shared_ptr<NodeZeroOP> temp = *(nodeList.end()-3);
 	static_cast<NodeSwitchExpr*>(temp.get())->AddCase();
 }
 void addSwitchNode(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	cycleBeginVarTop.pop_back();
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
@@ -1887,7 +1949,7 @@ void TypeBegin(char const* s, char const* e)
 	newType->name = std::string(s, e);
 	newType->type = TypeInfo::TYPE_COMPLEX;
 	newType->alignBytes = currAlign;
-	currAlign = -1;
+	currAlign = (unsigned int)-1;
 
 	typeInfo.push_back(newType);
 	
@@ -1907,6 +1969,7 @@ void TypeAddMember(char const* s, char const* e)
 
 void TypeFinish(char const* s, char const* e)
 {
+	(void)s; (void)e;	// C4100
 	if(newType->size % 4 != 0)
 	{
 		newType->paddingBytes = 4 - (newType->size % 4);
@@ -1914,7 +1977,7 @@ void TypeFinish(char const* s, char const* e)
 	}
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	for(int i = 0; i < newType->memberFunctions.size(); i++)
+	for(unsigned int i = 0; i < newType->memberFunctions.size(); i++)
 		addTwoExprNode(0,0);
 
 	newType = NULL;
@@ -1930,6 +1993,7 @@ void TypeFinish(char const* s, char const* e)
 
 void addUnfixedArraySize(char const*s, char const*e)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(1, typeVoid)));
 }
 
@@ -1939,10 +2003,24 @@ namespace CompilerGrammar
 	// Стек строк может использоваться для удобного получения элемента более сложной грамматики
 	// Например для правила использования переменной a[i], можно поместить "a" в стек,
 	// потому что в функцию передаётся "a[i]" целиком
-	void ParseStrPush(char const *s, char const *e){ strs.push_back(string(s,e)); }
-	void ParseStrPop(char const *s, char const *e){ strs.pop_back(); }
-	void ParseStrCopy(char const *s, char const *e){ strs.push_back(*(strs.end()-2)); }
-	void ParseStrAdd(char const *s, char const *e){ strs.back() += std::string(s, e); }
+	void ParseStrPush(char const *s, char const *e)
+	{
+		strs.push_back(string(s,e));
+	}
+	void ParseStrPop(char const *s, char const *e)
+	{
+		(void)s; (void)e;	// C4100
+		strs.pop_back();
+	}
+	void ParseStrCopy(char const *s, char const *e)
+	{
+		(void)s; (void)e;	// C4100
+		strs.push_back(*(strs.end()-2));
+	}
+	void ParseStrAdd(char const *s, char const *e)
+	{
+		strs.back() += std::string(s, e);
+	}
 
 	// Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
 	void SetStringToLastNode(char const *s, char const *e)
@@ -1965,6 +2043,7 @@ namespace CompilerGrammar
 	}
 	void SetStringFromIndex(char const *s, char const *e)
 	{
+		(void)s; (void)e;	// C4100
 		nodeList.back()->SetCodeInfo(sIndexes.back().indexS, sIndexes.back().indexE);
 		sIndexes.pop_back();
 	}
@@ -1991,6 +2070,7 @@ namespace CompilerGrammar
 
 		void operator() (char const* s, char const* e)
 		{
+			(void)e;	// C4100
 			assert(err);
 			throw CompilerError(err, s);
 		}
@@ -2069,7 +2149,7 @@ namespace CompilerGrammar
 		
 		vardefsub	= addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
 		vardef		=
-			epsP[AssignVar<UINT>(currAlign, -1)] >>
+			epsP[AssignVar<UINT>(currAlign, 0xFFFFFFFF)] >>
 			isconst >>
 			!(strP("noalign")[AssignVar<UINT>(currAlign, 0)] | (strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')')) >>
 			seltype >>
@@ -2153,12 +2233,13 @@ namespace CompilerGrammar
 		variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetAddressNode] >> *postExpr);
 		postExpr	=	('.' >> varname[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)))[AddMemberAccessNode] |
 						('[' >> term5 >> ']')[AddArrayIndexNode];
+
 		term1		=
 			funcdef |
 			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
 			(chP('&') >> variable)[popType] |
-			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt, true>()])[popType] | 
-			(strP("++") >> variable[AddPreOrPostOp<cmdIncAt, true>()])[popType] |
+			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt>(true)])[popType] | 
+			(strP("++") >> variable[AddPreOrPostOp<cmdIncAt>(true)])[popType] |
 			(+(chP('-')[IncVar<UINT>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
 			lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][addHexInt] |
@@ -2169,8 +2250,8 @@ namespace CompilerGrammar
 			funccall[addFuncCallNode] |
 			(variable >>
 				(
-					strP("++")[AddPreOrPostOp<cmdIncAt, false>()] |
-					strP("--")[AddPreOrPostOp<cmdDecAt, false>()] |
+					strP("++")[AddPreOrPostOp<cmdIncAt>(false)] |
+					strP("--")[AddPreOrPostOp<cmdDecAt>(false)] |
 					('.' >> funccall)[AddMemberFunctionCall] |
 					epsP[AddGetVariableNode]
 				)[popType]
@@ -2189,6 +2270,7 @@ namespace CompilerGrammar
 		term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[ThrowError("ERROR: expression not found after xor")]))[addCmd(cmdLogXor)];
 		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
+#pragma warning(disable: 4709)
 		term5		=	(!(seltype) >>
 						variable >> (
 						(strP("=") >> term5)[AddSetVariableNode][popType] |
@@ -2200,6 +2282,7 @@ namespace CompilerGrammar
 						(epsP[FailedSetVariable][popType] >> nothingP))
 						) |
 						term4_9;
+#pragma warning(default: 4709)
 
 		block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
 		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block[addBlockNode] | breakexpr | continueExpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
@@ -2223,7 +2306,7 @@ namespace CompilerGrammar
 UINT buildInFuncs;
 UINT buildInTypes;
 
-CompilerError::CompilerError(std::string& errStr, const char* apprPos)
+CompilerError::CompilerError(const std::string& errStr, const char* apprPos)
 {
 	Init(errStr.c_str(), apprPos);
 }
@@ -2392,7 +2475,7 @@ Compiler::Compiler()
 	info->name = "file";
 	info->size = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
-	TypeInfo *typeFile = info;
+	typeFile = info;
 	typeInfo.push_back(info);
 
 	// Add functions
@@ -2510,12 +2593,12 @@ void Compiler::ClearState()
 		delete varInfo[i];*/
 	varInfo.clear();
 
-	for(int i = buildInTypes; i < typeInfo.size(); i++)
+	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
 	{
 		delete typeInfo[i]->funcType;
 		delete typeInfo[i];
 	}
-	for(int i = buildInFuncs; i < funcInfo.size(); i++)
+	for(unsigned int i = buildInFuncs; i < funcInfo.size(); i++)
 		delete funcInfo[i];
 
 	typeInfo.resize(buildInTypes);
@@ -2534,7 +2617,7 @@ void Compiler::ClearState()
 	varTop = 24;
 	newType = NULL;
 
-	currAlign = -1;
+	currAlign = (unsigned int)-1;
 	inplaceArrayNum = 1;
 
 	varInfo.push_back(new VariableInfo("ERROR", 0, typeDouble, true));
@@ -2718,8 +2801,7 @@ void Compiler::GenListing()
 
 	char* typeInfoS[] = { "int", "long", "complex", "double" };
 	char* typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
-	UINT typeSizeS[] = { 4, 8, 4, 8 };
-	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
+
 	CmdFlag cFlag;
 	OperFlag oFlag;
 	while(cmdList->GetData(pos, cmd))
@@ -2820,12 +2902,10 @@ void Compiler::GenListing()
 				logASM << typeInfoS[cFlag&0x00000003] << "<-";
 				logASM << typeInfoD[(cFlag>>2)&0x00000007];
 
-				asmStackType st = flagStackType(cFlag);
 				asmDataType dt = flagDataType(cFlag);
 				UINT	DWords[2];
 				USHORT sdata;
 				UCHAR cdata;
-				int valind;
 				
 				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
 					cmdList->GetUINT(pos, DWords[0]); pos += 4;
@@ -2926,10 +3006,7 @@ void Compiler::GenListing()
 				logASM << typeInfoS[cFlag&0x00000003] << "->";
 				logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
 				asmStackType st = flagStackType(cFlag);
-				asmDataType dt = flagDataType(cFlag);
-				UINT	highDW = 0, lowDW = 0;
 				int valind;
-
 				
 				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
 				{
@@ -3221,9 +3298,7 @@ void Compiler::GenListing()
 			if(cmd == cmdDecAt)
 				logASM << pos2 << " DECAT ";
 			logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
-			asmStackType st = flagStackType(cFlag);
-			asmDataType dt = flagDataType(cFlag);
-			UINT	highDW = 0, lowDW = 0;
+
 			int valind;
 
 			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
