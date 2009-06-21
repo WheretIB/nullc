@@ -530,8 +530,7 @@ UINT Executor::Run(const char* funcName)
 			break;
 		case cmdPopVTop:
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, paramTop.back(), 0, 0));
-			while(genParams.size() > paramTop.back())
-				genParams.pop_back();
+			genParams.shrink(paramTop.back());
 			paramTop.pop_back();
 			break;
 		case cmdCall:
@@ -564,8 +563,7 @@ UINT Executor::Run(const char* funcName)
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, popCnt, 0, 0, retFlag));
 				for(int pops = 0; pops < (popCnt > 0 ? popCnt : 1); pops++)
 				{
-					while(genParams.size() > paramTop.back())
-						genParams.pop_back();
+					genParams.shrink(paramTop.back());
 					paramTop.pop_back();
 				}
 				if(callStack.size() == 0)

@@ -29,6 +29,7 @@ public:
 	__inline void		clear(){ m_size = 0; }
 	__inline T&			operator[](UINT index){ return data[index]; }
 	__inline void		resize(UINT newsize){ m_size = newsize; while(m_size>=max) grow(); }
+	__inline void		shrink(UINT newSize){ m_size = newSize; }
 	__inline void		reserve(UINT ressize){ while(ressize >= max) grow(); }
 private:
 	__inline void	grow()
