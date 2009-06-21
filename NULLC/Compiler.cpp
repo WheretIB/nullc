@@ -2100,6 +2100,7 @@ namespace CompilerGrammar
 		Rule m_a;
 	};
 	Rule	typenameP(Rule a) throw(){ return Rule(shared_ptr<BaseP>(new TypeNameP(a))); }
+	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 
 	void InitGrammar() throw()
 	{
@@ -2157,7 +2158,7 @@ namespace CompilerGrammar
 
 		ifexpr		=
 			(
-				strP("if") >>
+				strWP("if") >>
 				('(' | epsP[ThrowError("ERROR: '(' not found after 'if'")]) >>
 				(term5 | epsP[ThrowError("ERROR: condition not found in 'if' statement")]) >>
 				(')' | epsP[ThrowError("ERROR: closing ')' not found after 'if' condition")])
@@ -2166,7 +2167,7 @@ namespace CompilerGrammar
 			((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
 		forexpr		=
 			(
-				strP("for")[saveVarTop] >>
+				strWP("for")[saveVarTop] >>
 				('(' | epsP[ThrowError("ERROR: '(' not found after 'for'")]) >>
 				(
 					(
@@ -2185,7 +2186,7 @@ namespace CompilerGrammar
 				(')' | epsP[ThrowError("ERROR: ')' not found after 'for' statement")])
 			)[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
 		whileexpr	=
-			strP("while")[saveVarTop] >>
+			strWP("while")[saveVarTop] >>
 			(
 				('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >>
 				(term5 | epsP[ThrowError("ERROR: expression expected after 'while('")]) >>
@@ -2193,7 +2194,7 @@ namespace CompilerGrammar
 			) >>
 			(expression[addWhileNode] | epsP[ThrowError("ERROR: expression expected after 'while(...)'")]);
 		doexpr		=	
-			strP("do")[saveVarTop] >> 
+			strWP("do")[saveVarTop] >> 
 			(expression | epsP[ThrowError("ERROR: expression expected after 'do'")]) >> 
 			(strP("while") | epsP[ThrowError("ERROR: 'while' expected after 'do' statement")]) >>
 			(
@@ -2203,28 +2204,28 @@ namespace CompilerGrammar
 			)[addDoWhileNode] >> 
 			(';' | epsP[ThrowError("ERROR: while(...) should be followed by ';'")]);
 		switchexpr	=
-			strP("switch") >>
+			strWP("switch") >>
 			('(' | epsP[ThrowError("ERROR: '(' not found after 'switch'")]) >>
 			(term5 | epsP[ThrowError("ERROR: expression not found after 'switch('")])[preSwitchNode] >>
 			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'switch' statement")]) >>
 			('{' | epsP[ThrowError("ERROR: '{' not found after 'switch(...)'")]) >>
-			(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
-			*(strP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
+			(strWP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
+			*(strWP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
 			('}' | epsP[ThrowError("ERROR: '}' not found after 'switch' statement")])[addSwitchNode];
 
 		retexpr		=
 			(
-				strP("return") >>
+				strWP("return") >>
 				(term5 | epsP[addVoidNode]) >>
 				(+chP(';') | epsP[ThrowError("ERROR: return must be followed by ';'")])
 			)[addReturnNode];
 		breakexpr	=	(
-			strP("break") >>
+			strWP("break") >>
 			(+chP(';') | epsP[ThrowError("ERROR: break must be followed by ';'")])
 			)[addBreakNode];
 		continueExpr	=
 			(
-				strP("continue") >>
+				strWP("continue") >>
 				(+chP(';') | epsP[ThrowError("ERROR: continue must be followed by ';'")])
 			)[AddContinueNode];
 
