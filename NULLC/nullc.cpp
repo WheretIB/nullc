@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "nullc.h"
 
 #include "CodeInfo.h"

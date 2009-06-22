@@ -2271,7 +2271,9 @@ namespace CompilerGrammar
 		term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[ThrowError("ERROR: expression not found after xor")]))[addCmd(cmdLogXor)];
 		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
 		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
+#ifdef _MSC_VER
 #pragma warning(disable: 4709)
+#endif
 		term5		=	(!(seltype) >>
 						variable >> (
 						(strP("=") >> term5)[AddSetVariableNode][popType] |
@@ -2283,7 +2285,9 @@ namespace CompilerGrammar
 						(epsP[FailedSetVariable][popType] >> nothingP))
 						) |
 						term4_9;
+#ifdef _MSC_VER
 #pragma warning(default: 4709)
+#endif
 
 		block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
 		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block[addBlockNode] | breakexpr | continueExpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);

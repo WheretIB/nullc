@@ -124,6 +124,18 @@ protected:
 	shared_ptr<NodeZeroOP>	third;
 };
 
+// Assembly type traits
+template <typename T> struct AsmTypeTraits;
+
+#define ASM_TYPE_TRAITS(type, dataTypeValue, stackTypeValue) template <> struct AsmTypeTraits<type> { static const asmDataType dataType = dataTypeValue; static const asmStackType stackType = stackTypeValue; }
+
+ASM_TYPE_TRAITS(char, DTYPE_CHAR, STYPE_INT);
+ASM_TYPE_TRAITS(short, DTYPE_SHORT, STYPE_INT);
+ASM_TYPE_TRAITS(int, DTYPE_INT, STYPE_INT);
+ASM_TYPE_TRAITS(long long, DTYPE_LONG, STYPE_LONG);
+ASM_TYPE_TRAITS(float, DTYPE_FLOAT, STYPE_DOUBLE); // float expands to double
+ASM_TYPE_TRAITS(double, DTYPE_DOUBLE, STYPE_DOUBLE);
+
 //Zero child operators
 void NodeNumberPushCommand(USHORT cmdFlag, char* data, UINT dataSize);
 template<typename T>
@@ -136,7 +148,8 @@ public:
 
 	virtual void Compile()
 	{
-		NodeNumberPushCommand((USHORT)(GetAsmStackType<T>() | GetAsmDataType<T>()), (char*)(&num), sizeof(T));
+		typedef AsmTypeTraits<T> Traits;
+		NodeNumberPushCommand((USHORT)(Traits::stackType | Traits::dataType), (char*)(&num), sizeof(T));
 	}
 	virtual void LogToStream(ostringstream& ostr)
 	{
@@ -154,21 +167,6 @@ public:
 	NumType		 GetBitNotVal(){ return ~num; }
 protected:
 	NumType		num;
-private:
-	template<typename N>	asmDataType	GetAsmDataType();
-	template<>	asmDataType		GetAsmDataType<char>(){ return DTYPE_CHAR; }
-	template<>	asmDataType		GetAsmDataType<short>(){ return DTYPE_SHORT; }
-	template<>	asmDataType		GetAsmDataType<int>(){ return DTYPE_INT; }
-	template<>	asmDataType		GetAsmDataType<long long>(){ return DTYPE_LONG; }
-	template<>	asmDataType		GetAsmDataType<float>(){ return DTYPE_FLOAT; }
-	template<>	asmDataType		GetAsmDataType<double>(){ return DTYPE_DOUBLE; }
-	template<typename N>	asmStackType	GetAsmStackType();
-	template<>	asmStackType	GetAsmStackType<char>(){ return STYPE_INT; }
-	template<>	asmStackType	GetAsmStackType<short>(){ return STYPE_INT; }
-	template<>	asmStackType	GetAsmStackType<int>(){ return STYPE_INT; }
-	template<>	asmStackType	GetAsmStackType<long long>(){ return STYPE_LONG; }
-	template<>	asmStackType	GetAsmStackType<float>(){ return STYPE_DOUBLE; }	// float expands to double
-	template<>	asmStackType	GetAsmStackType<double>(){ return STYPE_DOUBLE; }
 };
 
 class NodeVarDef: public NodeZeroOP
