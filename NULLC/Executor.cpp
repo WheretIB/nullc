@@ -74,6 +74,7 @@ void Executor::Run(const char* funcName) throw()
 			if(strcmp(CodeInfo::funcInfo[i]->name.c_str(), funcName) == 0)
 			{
 				funcPos = CodeInfo::funcInfo[i]->address;
+				*(CmdID*)(&CodeInfo::cmdList->bytecode[funcPos-6]) = cmdFEnter;
 				break;
 			}
 		}
@@ -114,48 +115,25 @@ void Executor::Run(const char* funcName) throw()
 
 			genStackPtr = genStackTop - oldSize;
 		}
+#ifdef NULLC_VM_DEBUG
 		if(genStackSize < 0)
 		{
 			done = true;
 			assert(!"stack underflow");
 		}
+#endif
 		#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
 			insCallCount[cmd]++;
 		#endif
-
-		/*cmdCount++;
-		if(m_RunCallback && cmdCount % 5000000 == 0)
-		{
-			if(!m_RunCallback(cmdCount))
-			{
-				done = true;
-				strcpy(execError, "ERROR: User have canceled the execution");
-			}
-		}*/
-		//pos += 2;
-
-		if(funcName && (UINT)cmdStreamPos >= funcPos)
-		{
-			funcName = NULL;
-			cmdStream = cmdStreamBase + funcPos;
-
-			cmd = *(CmdID*)(cmdStream);
-
-			DBG(pos2 = cmdStream - cmdStreamBase);
-			cmdStream += 2;
-
-			// cmdPushVTop
-			UINT valtop = genParams.size();
-			paramTop.push_back(valtop);
-
-			// cmdPushV 4
-			genParams.resize(genParams.size()+4);
-		}
 
 		UINT	highDW = 0, lowDW = 0;
 
 		switch(cmd)
 		{
+		case cmdFEnter:
+			paramTop.push_back(genParams.size());
+			genParams.resize(genParams.size()+4);
+			break;
 		case cmdMovRTaP:
 			{
 				int valind;
@@ -919,6 +897,155 @@ void Executor::Run(const char* funcName) throw()
 			}
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
 			break;
+		case cmdIncAt:
+		case cmdDecAt:
+			{
+				int valind = 0, shift = 0, size = 0;
+				cFlag = *(CmdFlag*)cmdStream;
+				cmdStream += 2;
+				asmDataType dt = flagDataType(cFlag);	//Data type
+
+				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+				{
+					valind = *(int*)cmdStream;
+					cmdStream += 4;
+				}
+				if(flagShiftStk(cFlag))
+				{
+					shift = *genStackPtr;
+					genStackPtr++;
+
+					if(shift < 0)
+					{
+						done = true;
+						strcpy(execError, "ERROR: array index out of bounds (negative)");
+						break;
+					}
+				}
+				if(flagSizeOn(cFlag))
+				{
+					size = *(int*)cmdStream;
+					cmdStream += 4;
+
+					if(shift >= size)
+					{
+						done = true;
+						strcpy(execError, "ERROR: array index out of bounds (overflow)");
+						break;
+					}
+				}
+				if(flagSizeStk(cFlag))
+				{
+					size = *genStackPtr;
+					genStackPtr++;
+
+					if(shift >= size)
+					{
+						done = true;
+						strcpy(execError, "ERROR: array index out of bounds (overflow)");
+						break;
+					}
+				}
+
+				if(flagAddrRel(cFlag))
+					valind += paramTop.back();
+				if(flagShiftStk(cFlag))
+					valind += shift;
+
+				if(flagPushBefore(cFlag))
+				{
+					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+					{
+						genStackPtr -= 2;
+						*genStackPtr = *(int*)(&genParams[valind]);
+						*(genStackPtr+1) = *(int*)(&genParams[valind+4]);
+					}else if(dt == DTYPE_FLOAT){
+						double res = (double)(*((float*)(&genParams[valind])));
+						genStackPtr -= 2;
+						*(double*)(genStackPtr) = res;
+					}else if(dt == DTYPE_INT){
+						genStackPtr--;
+						*genStackPtr = *((int*)(&genParams[valind]));
+					}else if(dt == DTYPE_SHORT){
+						genStackPtr--;
+						*genStackPtr = *((short*)(&genParams[valind]));
+					}else if(dt == DTYPE_CHAR){
+						genStackPtr--;
+						*genStackPtr = *((char*)(&genParams[valind]));
+					}
+
+					DBG(genStackTypes.push_back(stackTypeForDataType(dt)));
+				}
+
+				switch(cmd + (dt << 16))
+				{
+				case cmdIncAt+(DTYPE_DOUBLE<<16):
+					*((double*)(&genParams[valind])) += 1.0;
+					break;
+				case cmdIncAt+(DTYPE_FLOAT<<16):
+					*((float*)(&genParams[valind])) += 1.0f;
+					break;
+				case cmdIncAt+(DTYPE_LONG<<16):
+					*((long long*)(&genParams[valind])) += 1;
+					break;
+				case cmdIncAt+(DTYPE_INT<<16):
+					*((int*)(&genParams[valind])) += 1;
+					break;
+				case cmdIncAt+(DTYPE_SHORT<<16):
+					*((short*)(&genParams[valind])) += 1;
+					break;
+				case cmdIncAt+(DTYPE_CHAR<<16):
+					*((unsigned char*)(&genParams[valind])) += 1;
+					break;
+
+				case cmdDecAt+(DTYPE_DOUBLE<<16):
+					*((double*)(&genParams[valind])) -= 1.0;
+					break;
+				case cmdDecAt+(DTYPE_FLOAT<<16):
+					*((float*)(&genParams[valind])) -= 1.0f;
+					break;
+				case cmdDecAt+(DTYPE_LONG<<16):
+					*((long long*)(&genParams[valind])) -= 1;
+					break;
+				case cmdDecAt+(DTYPE_INT<<16):
+					*((int*)(&genParams[valind])) -= 1;
+					break;
+				case cmdDecAt+(DTYPE_SHORT<<16):
+					*((short*)(&genParams[valind])) -= 1;
+					break;
+				case cmdDecAt+(DTYPE_CHAR<<16):
+					*((unsigned char*)(&genParams[valind])) -= 1;
+					break;
+				}
+
+				if(flagPushAfter(cFlag))
+				{
+					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+					{
+						genStackPtr -= 2;
+						*genStackPtr = *(int*)(&genParams[valind]);
+						*(genStackPtr+1) = *(int*)(&genParams[valind+4]);
+					}else if(dt == DTYPE_FLOAT){
+						double res = (double)(*((float*)(&genParams[valind])));
+						genStackPtr -= 2;
+						*(double*)(genStackPtr) = res;
+					}else if(dt == DTYPE_INT){
+						genStackPtr--;
+						*genStackPtr = *((int*)(&genParams[valind]));
+					}else if(dt == DTYPE_SHORT){
+						genStackPtr--;
+						*genStackPtr = *((short*)(&genParams[valind]));
+					}else if(dt == DTYPE_CHAR){
+						genStackPtr--;
+						*genStackPtr = *((char*)(&genParams[valind]));
+					}
+
+					DBG(genStackTypes.push_back(stackTypeForDataType(dt)));
+				}
+			
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0));
+			}
+			break;
 		}
 
 		//New commands
@@ -1121,152 +1248,6 @@ void Executor::Run(const char* funcName) throw()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
 			DBG(genStackTypes.pop_back());
 			
-		}else if(cmd == cmdIncAt || cmd == cmdDecAt)
-		{
-			int valind = 0, shift = 0, size = 0;
-			cFlag = *(CmdFlag*)cmdStream;
-			cmdStream += 2;
-			asmDataType dt = flagDataType(cFlag);	//Data type
-
-			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-			{
-				valind = *(int*)cmdStream;
-				cmdStream += 4;
-			}
-			if(flagShiftStk(cFlag))
-			{
-				shift = *genStackPtr;
-				genStackPtr++;
-
-				if(shift < 0)
-				{
-					done = true;
-					strcpy(execError, "ERROR: array index out of bounds (negative)");
-					break;
-				}
-			}
-			if(flagSizeOn(cFlag))
-			{
-				size = *(int*)cmdStream;
-				cmdStream += 4;
-
-				if(shift >= size)
-				{
-					done = true;
-					strcpy(execError, "ERROR: array index out of bounds (overflow)");
-					break;
-				}
-			}
-			if(flagSizeStk(cFlag))
-			{
-				size = *genStackPtr;
-				genStackPtr++;
-
-				if(shift >= size)
-				{
-					done = true;
-					strcpy(execError, "ERROR: array index out of bounds (overflow)");
-					break;
-				}
-			}
-
-			if(flagAddrRel(cFlag))
-				valind += paramTop.back();
-			if(flagShiftStk(cFlag))
-				valind += shift;
-
-			if(flagPushBefore(cFlag))
-			{
-				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-				{
-					genStackPtr -= 2;
-					*genStackPtr = *(int*)(&genParams[valind]);
-					*(genStackPtr+1) = *(int*)(&genParams[valind+4]);
-				}else if(dt == DTYPE_FLOAT){
-					double res = (double)(*((float*)(&genParams[valind])));
-					genStackPtr -= 2;
-					*(double*)(genStackPtr) = res;
-				}else if(dt == DTYPE_INT){
-					genStackPtr--;
-					*genStackPtr = *((int*)(&genParams[valind]));
-				}else if(dt == DTYPE_SHORT){
-					genStackPtr--;
-					*genStackPtr = *((short*)(&genParams[valind]));
-				}else if(dt == DTYPE_CHAR){
-					genStackPtr--;
-					*genStackPtr = *((char*)(&genParams[valind]));
-				}
-
-				DBG(genStackTypes.push_back(stackTypeForDataType(dt)));
-			}
-
-			switch(cmd + (dt << 16))
-			{
-			case cmdIncAt+(DTYPE_DOUBLE<<16):
-				*((double*)(&genParams[valind])) += 1.0;
-				break;
-			case cmdIncAt+(DTYPE_FLOAT<<16):
-				*((float*)(&genParams[valind])) += 1.0f;
-				break;
-			case cmdIncAt+(DTYPE_LONG<<16):
-				*((long long*)(&genParams[valind])) += 1;
-				break;
-			case cmdIncAt+(DTYPE_INT<<16):
-				*((int*)(&genParams[valind])) += 1;
-				break;
-			case cmdIncAt+(DTYPE_SHORT<<16):
-				*((short*)(&genParams[valind])) += 1;
-				break;
-			case cmdIncAt+(DTYPE_CHAR<<16):
-				*((unsigned char*)(&genParams[valind])) += 1;
-				break;
-
-			case cmdDecAt+(DTYPE_DOUBLE<<16):
-				*((double*)(&genParams[valind])) -= 1.0;
-				break;
-			case cmdDecAt+(DTYPE_FLOAT<<16):
-				*((float*)(&genParams[valind])) -= 1.0f;
-				break;
-			case cmdDecAt+(DTYPE_LONG<<16):
-				*((long long*)(&genParams[valind])) -= 1;
-				break;
-			case cmdDecAt+(DTYPE_INT<<16):
-				*((int*)(&genParams[valind])) -= 1;
-				break;
-			case cmdDecAt+(DTYPE_SHORT<<16):
-				*((short*)(&genParams[valind])) -= 1;
-				break;
-			case cmdDecAt+(DTYPE_CHAR<<16):
-				*((unsigned char*)(&genParams[valind])) -= 1;
-				break;
-			}
-
-			if(flagPushAfter(cFlag))
-			{
-				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-				{
-					genStackPtr -= 2;
-					*genStackPtr = *(int*)(&genParams[valind]);
-					*(genStackPtr+1) = *(int*)(&genParams[valind+4]);
-				}else if(dt == DTYPE_FLOAT){
-					double res = (double)(*((float*)(&genParams[valind])));
-					genStackPtr -= 2;
-					*(double*)(genStackPtr) = res;
-				}else if(dt == DTYPE_INT){
-					genStackPtr--;
-					*genStackPtr = *((int*)(&genParams[valind]));
-				}else if(dt == DTYPE_SHORT){
-					genStackPtr--;
-					*genStackPtr = *((short*)(&genParams[valind]));
-				}else if(dt == DTYPE_CHAR){
-					genStackPtr--;
-					*genStackPtr = *((char*)(&genParams[valind]));
-				}
-
-				DBG(genStackTypes.push_back(stackTypeForDataType(dt)));
-			}
-		
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0));
 		}
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
@@ -1291,6 +1272,9 @@ void Executor::Run(const char* funcName) throw()
 		m_FileStream << ";\r\n" << std::flush;
 #endif
 	}
+
+	if(funcName)
+		*(CmdID*)(&CodeInfo::cmdList->bytecode[funcPos-6]) = cmdJmp;
 }
 
 string Executor::GetResult() throw()

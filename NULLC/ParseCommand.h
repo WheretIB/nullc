@@ -36,6 +36,7 @@ const CmdID cmdFuncAddr	= 202;
 	// положить значение на верхушку стека
 const CmdID cmdPush		= 100;
 
+const CmdID cmdFEnter	= 97;	// only for VM - jmp before function is replaced by function call imitation
 const CmdID cmdMovRTaP	= 98;	// cmdMov + (relative to top and pop)
 const CmdID cmdPushImmt	= 99;
 
