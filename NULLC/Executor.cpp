@@ -1358,7 +1358,8 @@ void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, co
 	size_t beginPos = stream->tellp();
 	(*stream) << pos2;
 	char temp[32];
-	UINT addSp = 5 - (UINT)strlen(_itoa(pos2, temp, 10));
+	sprintf(temp, "%d", pos2);
+	UINT addSp = 5 - (UINT)strlen(temp);
 	for(UINT i = 0; i < addSp; i++)
 		(*stream) << ' ';
 	switch(cmd)

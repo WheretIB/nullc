@@ -24,6 +24,8 @@ public:
 class TypeInfo
 {
 public:
+	static const UINT UNSIZED_ARRAY = (UINT)-1;
+	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
 	TypeInfo()
@@ -67,9 +69,9 @@ public:
 			}
 			sprintf(curr, ")");
 		}
-		if(arrLevel && arrSize != -1)
+		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY)
 			sprintf(buf, "%s[%d]", subType->GetTypeName().c_str(), arrSize);
-		if(arrLevel && arrSize == -1)
+		if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY)
 			sprintf(buf, "%s[]", subType->GetTypeName().c_str());
 		if(refLevel)
 			sprintf(buf, "%s ref", subType->GetTypeName().c_str());
