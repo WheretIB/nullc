@@ -2211,8 +2211,8 @@ namespace CompilerGrammar
 			)[addDoWhileNode] >> 
 			(';' | epsP[ThrowError("ERROR: while(...) should be followed by ';'")]);
 		switchexpr	=
-			strWP("switch") >>
-			('(' | epsP[ThrowError("ERROR: '(' not found after 'switch'")]) >>
+			strP("switch") >>
+			('(') >>
 			(term5 | epsP[ThrowError("ERROR: expression not found after 'switch('")])[preSwitchNode] >>
 			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'switch' statement")]) >>
 			('{' | epsP[ThrowError("ERROR: '{' not found after 'switch(...)'")]) >>
