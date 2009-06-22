@@ -66,6 +66,8 @@ void Executor::Run(const char* funcName) throw()
 
 	FunctionInfo *funcInfoPtr = NULL;
 
+	execError[0] = 0;
+
 	UINT funcPos = 0;
 	if(funcName)
 	{
@@ -78,9 +80,12 @@ void Executor::Run(const char* funcName) throw()
 				break;
 			}
 		}
+		if(funcPos == 0)
+		{
+			sprintf(execError, "ERROR: starting function %s not found", funcName);
+			done = true;
+		}
 	}
-
-	execError[0] = 0;
 
 	// General stack
 	if(!genStackBase)
@@ -1273,7 +1278,7 @@ void Executor::Run(const char* funcName) throw()
 #endif
 	}
 
-	if(funcName)
+	if(funcName && funcPos)
 		*(CmdID*)(&CodeInfo::cmdList->bytecode[funcPos-6]) = cmdJmp;
 }
 
