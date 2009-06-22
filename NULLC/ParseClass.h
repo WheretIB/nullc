@@ -127,7 +127,7 @@ class VariableInfo
 public:
 	VariableInfo(){}
 	VariableInfo(std::string newname, UINT newpos, TypeInfo* newtype, bool newisConst=true):
-	  name(newname), pos(newpos), varType(newtype), isConst(newisConst), dataReserved(false){}
+	  name(newname), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype) {}
 	std::string	name;		//Variable name
 	UINT		pos;		//Variable position in value stack
 	bool		isConst;	//Constant flag

@@ -13,6 +13,8 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 //
 
+#include <new>
+
 namespace detail
 {
 	class sp_counted_base
