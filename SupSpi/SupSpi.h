@@ -86,7 +86,7 @@ namespace supspi
 	struct StrToInt
 	{
 		StrToInt(): my_ref(NULL){ }
-		StrToInt(UINT& ref): my_ref(&ref){ }
+		StrToInt(unsigned int& ref): my_ref(&ref){ }
 
 		void operator()(char const*s, char const*e)
 		{
@@ -95,7 +95,7 @@ namespace supspi
 				(*my_ref) = atoi(s);
 		}
 	private:
-		UINT*	my_ref;
+		unsigned int*	my_ref;
 	};
 	
 	//Our base parser
@@ -399,7 +399,7 @@ namespace supspi
 	class StrlitP: public BaseP
 	{
 	public:
-		StrlitP(char* str){ m_str = str; m_len = (UINT)strlen(str); }
+		StrlitP(char* str){ m_str = str; m_len = (unsigned int)strlen(str); }
 		virtual ~StrlitP(){ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
@@ -416,7 +416,7 @@ namespace supspi
 		}
 	protected:
 		char*	m_str;
-		UINT	m_len;
+		unsigned int	m_len;
 	};
 
 	class IntNumberP: public BaseP
@@ -479,19 +479,19 @@ namespace supspi
 	};
 	
 	//Unary operators
-	const UINT ZERO_ONE = 1;
-	const UINT PLUS = 2;
-	const UINT ZERO_PLUS = 3;
+	const unsigned int ZERO_ONE = 1;
+	const unsigned int PLUS = 2;
+	const unsigned int ZERO_PLUS = 3;
 	class RepeatP: public BaseP
 	{
 	public:
-		RepeatP(Rule a, UINT cnt){ m_a.set(a); m_cnt = cnt; }
+		RepeatP(Rule a, unsigned int cnt){ m_a.set(a); m_cnt = cnt; }
 		virtual ~RepeatP(){ /*m_a.detach();*/ }
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
 			char* curr = *str;
-			UINT iter = 0;
+			unsigned int iter = 0;
 			for(;;)
 			{
 				//SkipSpaces(str, space);
@@ -521,7 +521,7 @@ namespace supspi
 		}
 	protected:
 		Rule	m_a;
-		UINT				m_cnt;
+		unsigned int				m_cnt;
 	};
 
 	//Binary operators
@@ -558,12 +558,12 @@ namespace supspi
 				}
 
 				if(oldAlter == ALTER_LONGEST){
-					if((UINT)(temp1-(*str)) >= (UINT)(temp2-(*str)))
+					if((unsigned int)(temp1-(*str)) >= (unsigned int)(temp2-(*str)))
 						m_a->Parse(str, space);
 					else
 						m_b->Parse(str, space);
 				}else{
-					if((UINT)(temp1-(*str)) <= (UINT)(temp2-(*str)))
+					if((unsigned int)(temp1-(*str)) <= (unsigned int)(temp2-(*str)))
 						m_a->Parse(str, space);
 					else
 						m_b->Parse(str, space);

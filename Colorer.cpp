@@ -1,6 +1,10 @@
 #include "stdafx.h"
 #include "SupSpi/SupSpi.h"
 using namespace supspi;
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 #include "richedit.h"
 #include <windowsx.h>
 

@@ -2,7 +2,8 @@
 #include "Executor.h"
 
 #include "CodeInfo.h"
-//using namespace CodeInfo;
+
+const unsigned int CALL_BY_POINTER = (unsigned int)-1;
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	#define DBG(x) x
@@ -83,8 +84,8 @@ void Executor::Run(const char* funcName) throw()
 	// General stack
 	if(!genStackBase)
 	{
-		genStackBase = new UINT[64];		// Will grow
-		genStackTop = genStackBase + 64;
+		genStackBase = new UINT[128];		// Will grow
+		genStackTop = genStackBase + 128;
 	}
 	genStackPtr = genStackTop - 1;
 
@@ -107,9 +108,9 @@ void Executor::Run(const char* funcName) throw()
 		{
 			UINT *oldStack = genStackBase;
 			UINT oldSize = (unsigned int)(genStackTop-genStackBase);
-			genStackBase = new UINT[oldSize+64];
-			genStackTop = genStackBase + oldSize + 64;
-			memcpy(genStackBase+64, oldStack, oldSize);
+			genStackBase = new UINT[oldSize+128];
+			genStackTop = genStackBase + oldSize + 128;
+			memcpy(genStackBase+128, oldStack, oldSize);
 
 			genStackPtr = genStackTop - oldSize;
 		}
@@ -508,12 +509,9 @@ void Executor::Run(const char* funcName) throw()
 
 				if(funcInfoPtr->funcPtr == NULL)
 				{
-					//uintVal = 0;
-					//if(funcInfoPtr->name != "clock")
-					//{
-						val = *(double*)(genStackPtr);
-						DBG(genStackTypes.pop_back());
-					//}
+					val = *(double*)(genStackPtr);
+					DBG(genStackTypes.pop_back());
+
 					if(funcInfoPtr->name == "cos")
 						val = cos(val);
 					else if(funcInfoPtr->name == "sin")
@@ -528,8 +526,6 @@ void Executor::Run(const char* funcName) throw()
 						val = floor(val);
 					else if(funcInfoPtr->name == "sqrt")
 						val = sqrt(val);
-					//else if(funcInfoPtr->name == "clock")
-					//	uintVal = GetTickCount();
 					else{
 						done = true;
 						printf(execError, "ERROR: there is no such function: %s", funcInfoPtr->name.c_str());
@@ -538,15 +534,8 @@ void Executor::Run(const char* funcName) throw()
 
 					if(fabs(val) < 1e-10)
 						val = 0.0;
-					if(funcInfoPtr->name != "clock")
-					{
-						*(double*)(genStackPtr) = val;
-						DBG(genStackTypes.push_back(STYPE_DOUBLE));
-					}/*else{
-						genStackPtr--;
-						*genStackPtr = uintVal;
-						DBG(genStackTypes.push_back(STYPE_INT));
-					}*/
+					*(double*)(genStackPtr) = val;
+					DBG(genStackTypes.push_back(STYPE_DOUBLE));
 				}else{
 					if(funcInfoPtr->retType->size > 4)
 					{
@@ -734,7 +723,7 @@ void Executor::Run(const char* funcName) throw()
 				retFlag = *(unsigned short*)cmdStream;
 				cmdStream += 2;
 
-				if(uintVal == (UINT)-1)
+				if(uintVal == CALL_BY_POINTER)
 				{
 					uintVal = *genStackPtr;
 					genStackPtr++;
