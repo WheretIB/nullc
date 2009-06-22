@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#ifdef NULLC_BUILD_X86_JIT
+
 #include "Executor_X86.h"
 #include "StdLib_X86.h"
 #include "Optimizer_x86.h"
@@ -512,12 +514,12 @@ void ExecutorX86::GenListing()
 					logASM << "fsqrt \r\n";
 					logASM << "fstp qword [esp] \r\n";
 					logASM << "fstp st \r\n";
-				}else if(funcInfo->name == "clock"){
+				}/*else if(funcInfo->name == "clock"){
 					logASM << "clock \r\n";
 					logASM << "mov ecx, 0x" << GetTickCount << " ; GetTickCount() \r\n";
 					logASM << "call ecx \r\n";
 					logASM << "push eax \r\n";
-				}else{
+				}*/else{
 					throw std::string("ERROR: there is no such function: ") + funcInfo->name;
 				}
 			}else{
@@ -2792,3 +2794,5 @@ char* ExecutorX86::GetVariableData()
 {
 	return paramData;
 }
+
+#endif

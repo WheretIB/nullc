@@ -2544,13 +2544,13 @@ Compiler::Compiler()
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo();
+	/*fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "clock";
 	fInfo->retType = typeInt;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);
+	funcInfo.push_back(fInfo);*/
 
 	buildInTypes = (int)typeInfo.size();
 	buildInFuncs = (int)funcInfo.size();

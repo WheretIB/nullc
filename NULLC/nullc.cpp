@@ -4,7 +4,9 @@
 
 #include "Compiler.h"
 #include "Executor.h"
-#include "Executor_X86.h"
+#ifdef NULLC_BUILD_X86_JIT
+	#include "Executor_X86.h"
+#endif
 
 unsigned int CodeInfo::activeExecutor = 0;
 
@@ -17,7 +19,9 @@ ostringstream				CodeInfo::compileLog;
 
 Compiler*	compiler;
 Executor*	executor;
-ExecutorX86*	executorX86;
+#ifdef NULLC_BUILD_X86_JIT
+	ExecutorX86*	executorX86;
+#endif
 
 std::ostringstream strStream;
 std::string	compileError;
@@ -35,7 +39,9 @@ void	nullcInit()
 
 	compiler = new Compiler();
 	executor = new Executor();
+#ifdef NULLC_BUILD_X86_JIT
 	executorX86 = new ExecutorX86();
+#endif
 }
 
 void	nullcSetExecutor(unsigned int id)
@@ -72,6 +78,7 @@ nullres	nullcCompile(const char* code)
 	}
 	if(good && currExec == NULLC_X86)
 	{
+#ifdef NULLC_BUILD_X86_JIT
 		try
 		{
 			executorX86->SetOptimization(optimize);
@@ -80,6 +87,10 @@ nullres	nullcCompile(const char* code)
 			good = false;
 			compileError += "    " + str;
 		}
+#else
+		good = false;
+		compileError = "X86 JIT isn't available";
+#endif
 	}
 	return good;
 }
@@ -107,18 +118,18 @@ nullres	emptyCallback(unsigned int)
 	return true;
 }
 
-nullres	nullcRun(unsigned int* runTime)
+nullres	nullcRun()
 {
-	return nullcRunFunction(runTime, NULL);
+	return nullcRunFunction(NULL);
 }
 
-nullres	nullcRunFunction(unsigned int* runTime, const char* funcName)
+nullres	nullcRunFunction(const char* funcName)
 {
 	nullres good = true;
 	if(currExec == NULLC_VM)
 	{
 		executor->SetCallback((bool (*)(unsigned int))(emptyCallback));
-		*runTime = executor->Run(funcName);
+		executor->Run(funcName);
 		const char* error = executor->GetExecError();
 		if(error[0] == 0)
 		{
@@ -128,14 +139,19 @@ nullres	nullcRunFunction(unsigned int* runTime, const char* funcName)
 			executeLog = error;
 		}
 	}else if(currExec == NULLC_X86){
+#ifdef NULLC_BUILD_X86_JIT
 		try
 		{
-			*runTime = executorX86->Run(funcName);
+			executorX86->Run(funcName);
 			executeResult = executorX86->GetResult();
 		}catch(const std::string& str){
 			good = false;
 			executeLog = str;
 		}
+#else
+		good = false;
+		executeLog = "X86 JIT isn't available";
+#endif
 	}else{
 		executeLog = "Unknown executor code";
 	}
@@ -157,7 +173,9 @@ void*	nullcGetVariableData()
 	{
 		return executor->GetVariableData();
 	}else if(currExec == NULLC_X86){
+#ifdef NULLC_BUILD_X86_JIT
 		return executorX86->GetVariableData();
+#endif
 	}
 	return NULL;
 }
@@ -172,6 +190,8 @@ void	nullcDeinit()
 {
 	delete compiler;
 	delete executor;
+#ifdef NULLC_BUILD_X86_JIT
 	delete executorX86;
+#endif
 	delete CodeInfo::cmdList;
 }
