@@ -16,7 +16,7 @@ typedef unsigned char UCHAR;
 
 #include <stdlib.h>
 
-#include "../SharedPtr/shared_ptr.hpp"
+#include "SharedPtr/shared_ptr.hpp"
 
 #include <vector>
 

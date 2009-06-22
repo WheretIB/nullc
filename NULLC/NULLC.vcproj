@@ -316,11 +316,11 @@
 			Name="Parser"
 			>
 			<File
-				RelativePath="..\SupSpi\SupSpi.cpp"
+				RelativePath=".\SupSpi\SupSpi.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\SupSpi\SupSpi.h"
+				RelativePath=".\SupSpi\SupSpi.h"
 				>
 			</File>
 		</Filter>

@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#include "../SupSpi/SupSpi.h"
+#include "SupSpi/SupSpi.h"
 using namespace supspi;
 
 #include "CodeInfo.h"

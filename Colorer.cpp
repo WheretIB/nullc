@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "SupSpi/SupSpi.h"
+#include "NULLC/SupSpi/SupSpi.h"
 using namespace supspi;
 
 #define WIN32_LEAN_AND_MEAN
@@ -10,7 +10,6 @@ using namespace supspi;
 
 #include "NULLC/ParseClass.h"
 #include "Colorer.h"
-//#include "NULLC/CodeInfo.h"
 
 class ColorCodeCallback
 {
