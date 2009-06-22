@@ -342,14 +342,6 @@
 			</File>
 		</Filter>
 		<Filter
-			Name="Parser"
-			>
-			<File
-				RelativePath=".\SupSpi\SupSpi.h"
-				>
-			</File>
-		</Filter>
-		<Filter
 			Name="Colorer"
 			>
 			<File

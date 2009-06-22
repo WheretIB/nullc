@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 
-#include "SharedPtr/shared_ptr.hpp"
+#include "NULLC/SharedPtr/shared_ptr.hpp"
 
 //#include <vector>
 //#include <map>

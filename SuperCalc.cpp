@@ -17,10 +17,7 @@
 #include "NULLC/nullc.h"
 #include "NULLC/ParseClass.h"
 
-//#include "NULLC/CodeInfo.h"
-
 #include "Colorer.h"
-#include "SupSpi/SupSpi.h"
 
 #define MAX_LOADSTRING 100
 
