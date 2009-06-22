@@ -2645,7 +2645,7 @@ void Compiler::ClearState()
 	warningLog.str("");
 }
 
-bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
+bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 {
 	ClearState();
 
@@ -2663,7 +2663,7 @@ bool Compiler::AddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
 		return false;
 
 	funcInfo.back()->address = -1;
-	funcInfo.back()->funcPtr = ptr;
+	funcInfo.back()->funcPtr = (void*)ptr;
 
 	strs.pop_back();
 	retTypeStack.pop_back();

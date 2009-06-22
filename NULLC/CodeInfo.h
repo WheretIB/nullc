@@ -8,8 +8,8 @@
 // Информация о коде, используемых функциях, переменных, типов.
 namespace CodeInfo
 {
-	static const int EXEC_VM = 0;
-	static const int EXEC_X86 = 1;
+	static const unsigned int EXEC_VM = 0;
+	static const unsigned int EXEC_X86 = 1;
 
 	extern unsigned int		activeExecutor;
 

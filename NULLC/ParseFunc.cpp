@@ -56,6 +56,7 @@ void DrawLine(ostringstream& ostr)
 //returns new value type
 asmStackType	ConvertToReal(shared_ptr<NodeZeroOP> op, asmStackType st)
 {
+	(void)op;
 	if(st == STYPE_DOUBLE)
 		return st;
 	cmdList->AddData(cmdITOR);
@@ -64,6 +65,7 @@ asmStackType	ConvertToReal(shared_ptr<NodeZeroOP> op, asmStackType st)
 }
 asmStackType	ConvertToInteger(shared_ptr<NodeZeroOP> op, asmStackType st)
 {
+	(void)op;
 	if(st == STYPE_INT || st == STYPE_LONG)
 		return st;
 	cmdList->AddData(cmdRTOI);
@@ -152,12 +154,14 @@ TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 
 UINT	ConvertToRealSize(shared_ptr<NodeZeroOP> op, asmStackType st)
 {
+	(void)op;
 	if(st == STYPE_DOUBLE)
 		return 0;
 	return sizeof(CmdID) + sizeof(USHORT);
 }
 UINT	ConvertToIntegerSize(shared_ptr<NodeZeroOP> op, asmStackType st)
 {
+	(void)op;
 	if(st == STYPE_INT || st == STYPE_LONG)
 		return 0;
 	return sizeof(CmdID) + sizeof(USHORT);

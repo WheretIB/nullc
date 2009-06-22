@@ -40,7 +40,7 @@ public:
 	Compiler();
 	~Compiler();
 
-	bool	AddExternalFunction(void (_cdecl *ptr)(), const char* prototype);
+	bool	AddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
 
 	bool	Compile(string str);
 	

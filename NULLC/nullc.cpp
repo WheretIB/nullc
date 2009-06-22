@@ -56,7 +56,7 @@ void	nullcSetExecutorOptions(int optimize)
 	optimize = true;
 }
 
-nullres	nullcAddExternalFunction(void (_cdecl *ptr)(), const char* prototype)
+nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 {
 	return compiler->AddExternalFunction(ptr, prototype);
 }

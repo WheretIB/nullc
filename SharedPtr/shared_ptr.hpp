@@ -16,6 +16,8 @@
 #include "checked_delete.hpp"
 #include "shared_count.hpp"
 
+#include <utility>
+
 template <typename T> class weak_ptr;
 
 namespace detail

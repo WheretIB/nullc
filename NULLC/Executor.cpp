@@ -106,7 +106,7 @@ void Executor::Run(const char* funcName) throw()
 		if(genStackPtr <= genStackBase)
 		{
 			UINT *oldStack = genStackBase;
-			UINT oldSize = unsigned int(genStackTop-genStackBase);
+			UINT oldSize = (unsigned int)(genStackTop-genStackBase);
 			genStackBase = new UINT[oldSize+64];
 			genStackTop = genStackBase + oldSize + 64;
 			memcpy(genStackBase+64, oldStack, oldSize);
@@ -116,7 +116,7 @@ void Executor::Run(const char* funcName) throw()
 		if(genStackSize < 0)
 		{
 			done = true;
-			assert(("stack underflow", NULL));
+			assert(!"stack underflow");
 		}
 		#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
 			insCallCount[cmd]++;
@@ -532,7 +532,7 @@ void Executor::Run(const char* funcName) throw()
 					//	uintVal = GetTickCount();
 					else{
 						done = true;
-						printf(execError, "ERROR: there is no such function: %s", funcInfoPtr->name);
+						printf(execError, "ERROR: there is no such function: %s", funcInfoPtr->name.c_str());
 						break;
 					}
 
@@ -1493,7 +1493,7 @@ void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, co
 
 		(*stream) << valind << "] //+max";
 
-		if(dt == STYPE_COMPLEX_TYPE)
+		if(dt == DTYPE_COMPLEX_TYPE)
 			(*stream) << " sizeof " << dw0;
 		break;
 	case cmdMov:
