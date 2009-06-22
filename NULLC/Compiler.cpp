@@ -8,6 +8,8 @@ using namespace CodeInfo;
 
 #include "Compiler.h"
 
+#include <time.h>
+
 //////////////////////////////////////////////////////////////////////////
 //						Code gen ops
 //////////////////////////////////////////////////////////////////////////
@@ -84,7 +86,7 @@ int AddFunctionExternal(FunctionInfo* func, std::string name)
 }
 
 // ѕреобразовать строку в число типа long long
-long long atoll(const char* str)
+long long parseLongLong(const char* str)
 {
 	int len = 0;
 	while(isdigit(str[len++]));
@@ -177,7 +179,7 @@ template<> void addNumberNode<float>(char const*s, char const*e)
 template<> void addNumberNode<long long>(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(atoll(s), typeLong)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(parseLongLong(s), typeLong)));
 }
 template<> void addNumberNode<double>(char const*s, char const*e)
 {
@@ -803,9 +805,9 @@ void addVar(char const* s, char const* e)
 	if(currType && currType->size > 64*1024*1024)
 		throw CompilerError("ERROR: variable '" + vName + "' has to big length (>64 Mb)", s);
 	
-	if((currType && currType->alignBytes != 0) || currAlign != -1)
+	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 	{
-		UINT activeAlign = currAlign != -1 ? currAlign : currType->alignBytes;
+		UINT activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes;
 		if(activeAlign > 16)
 			throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
 		if(activeAlign != 0 && varTop % activeAlign != 0)
@@ -1201,10 +1203,10 @@ void AddDefineVariableNode(char const* s, char const* e)
 	{
 		// ≈сли выравнивание по умолчанию дл€ типа значени€ справа не равно нулю (без выравнивани€)
 		// »ли если выравнивание указано пользователем
-		if(realCurrType->alignBytes != 0 || currAlign != -1)
+		if(realCurrType->alignBytes != 0 || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 		{
 			// ¬ыбираем выравниваени. ”казанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
-			UINT activeAlign = currAlign != -1 ? currAlign : realCurrType->alignBytes;
+			UINT activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes;
 			if(activeAlign > 16)
 				throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
 			// ≈сли требуетс€ выравнивание (нету спецификации noalign, и адрес ещЄ не выравнен)
@@ -1242,7 +1244,7 @@ void AddSetVariableNode(char const* s, char const* e)
 
 	TypeInfo *realCurrType = currTypes.back();
 	bool unifyTwo = false;
-	if(realCurrType->arrSize == -1 && realCurrType != nodeList.back()->GetTypeInfo())
+	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->GetTypeInfo())
 	{
 		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
 		if(realCurrType->subType == nodeType->subType)
@@ -1946,7 +1948,7 @@ void TypeBegin(char const* s, char const* e)
 {
 	if(newType)
 		throw CompilerError("ERROR: Different type is being defined", s);
-	if(currAlign < 0)
+	if((int)currAlign < 0)
 		throw CompilerError("ERROR: alignment must be a positive number", s);
 	if(currAlign > 16)
 		throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
@@ -1954,7 +1956,7 @@ void TypeBegin(char const* s, char const* e)
 	newType->name = std::string(s, e);
 	newType->type = TypeInfo::TYPE_COMPLEX;
 	newType->alignBytes = currAlign;
-	currAlign = (unsigned int)-1;
+	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 
 	typeInfo.push_back(newType);
 	
@@ -2627,7 +2629,7 @@ void Compiler::ClearState()
 	varTop = 24;
 	newType = NULL;
 
-	currAlign = (unsigned int)-1;
+	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	inplaceArrayNum = 1;
 
 	varInfo.push_back(new VariableInfo("ERROR", 0, typeDouble, true));
@@ -2744,20 +2746,20 @@ bool Compiler::Compile(string str)
 
 	ofstream m_TempStream("time.txt", std::ios::binary);
 
-	UINT t = GetTickCount();
+	UINT t = clock();
 	ParseResult pRes = Parse(CompilerGrammar::code, ptr, CompilerGrammar::mySpaceP);
 	if(pRes == PARSE_NOTFULL)
 		throw std::string("Parsing wasn't full");
 	if(pRes == PARSE_FAILED)
 		throw std::string("Parsing failed");
-	UINT tem = GetTickCount()-t;
-	m_TempStream << "Parsing and AST tree gen. time: " << tem << "ms\r\n";
+	UINT tem = clock()-t;
+	m_TempStream << "Parsing and AST tree gen. time: " << tem * 1000 / CLOCKS_PER_SEC << "ms\r\n";
 	
-	t = GetTickCount();
+	t = clock();
 	if(nodeList.back())
 		nodeList.back()->Compile();
-	tem = GetTickCount()-t;
-	m_TempStream << "Compile time: " << tem << "ms\r\n";
+	tem = clock()-t;
+	m_TempStream << "Compile time: " << tem * 1000 / CLOCKS_PER_SEC << "ms\r\n";
 
 	m_TempStream.flush();
 	m_TempStream.close();

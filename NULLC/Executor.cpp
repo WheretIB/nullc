@@ -734,7 +734,7 @@ void Executor::Run(const char* funcName) throw()
 				retFlag = *(unsigned short*)cmdStream;
 				cmdStream += 2;
 
-				if(uintVal == -1)
+				if(uintVal == (UINT)-1)
 				{
 					uintVal = *genStackPtr;
 					genStackPtr++;
