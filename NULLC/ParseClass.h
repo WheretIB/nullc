@@ -160,6 +160,7 @@ public:
 		type = NORMAL;
 		funcType = NULL;
 		allParamSize = 0;
+		bytesToPop = 0;
 	}
 	//shared_ptr<NodeZeroOP>	defNode;	// A node that defines a function
 	int			address;				// Address of the beginning of function inside bytecode
@@ -168,6 +169,7 @@ public:
 	std::string	name;					// Function name
 	std::vector<VariableInfo> params;	// Parameter list
 	UINT		allParamSize;
+	UINT		bytesToPop;
 	UINT		vTopSize;				// For "return" operator, we need to know,
 										// how many variables we need to remove from variable stack
 	TypeInfo*	retType;				// Function return type

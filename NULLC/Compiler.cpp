@@ -2794,6 +2794,18 @@ bool Compiler::Compile(string str)
 	}
 	logAST << "\r\n" << compileLog.str();
 
+	for(unsigned int n = 0; n < CodeInfo::funcInfo.size(); n++)
+	{
+		FunctionInfo* funcInfoPtr = CodeInfo::funcInfo[n];
+		UINT bytesToPop = 0;
+		for(UINT i = 0; i < funcInfoPtr->params.size(); i++)
+		{
+			UINT paramSize = funcInfoPtr->params[i].varType->size > 4 ? funcInfoPtr->params[i].varType->size : 4;
+			bytesToPop += paramSize;
+		}
+		funcInfoPtr->bytesToPop = bytesToPop;
+	}
+
 	if(nodeList.size() != 1)
 		throw std::string("Compilation failed, AST contains more than one node");
 
