@@ -146,7 +146,7 @@ TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 		return a;
 	if(b->type == TypeInfo::TYPE_CHAR)
 		return b;
-	__asm int 3;
+	assert(false);
 	return NULL;
 }
 
