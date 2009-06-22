@@ -1,11 +1,6 @@
 #include "stdafx.h"
 #include "Executor.h"
 
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-
-#include <MMSystem.h>
-
 #include "CodeInfo.h"
 //using namespace CodeInfo;
 
@@ -33,9 +28,8 @@ Executor::~Executor()
 
 #define genStackSize (genStackTop-genStackPtr)
 
-UINT Executor::Run(const char* funcName) throw()
+void Executor::Run(const char* funcName) throw()
 {
-	UINT startTime = timeGetTime();
 	paramTop.clear();
 	fcallStack.clear();
 
@@ -514,12 +508,12 @@ UINT Executor::Run(const char* funcName) throw()
 
 				if(funcInfoPtr->funcPtr == NULL)
 				{
-					uintVal = 0;
-					if(funcInfoPtr->name != "clock")
-					{
+					//uintVal = 0;
+					//if(funcInfoPtr->name != "clock")
+					//{
 						val = *(double*)(genStackPtr);
 						DBG(genStackTypes.pop_back());
-					}
+					//}
 					if(funcInfoPtr->name == "cos")
 						val = cos(val);
 					else if(funcInfoPtr->name == "sin")
@@ -534,8 +528,8 @@ UINT Executor::Run(const char* funcName) throw()
 						val = floor(val);
 					else if(funcInfoPtr->name == "sqrt")
 						val = sqrt(val);
-					else if(funcInfoPtr->name == "clock")
-						uintVal = GetTickCount();
+					//else if(funcInfoPtr->name == "clock")
+					//	uintVal = GetTickCount();
 					else{
 						done = true;
 						printf(execError, "ERROR: there is no such function: %s", funcInfoPtr->name);
@@ -548,11 +542,11 @@ UINT Executor::Run(const char* funcName) throw()
 					{
 						*(double*)(genStackPtr) = val;
 						DBG(genStackTypes.push_back(STYPE_DOUBLE));
-					}else{
+					}/*else{
 						genStackPtr--;
 						*genStackPtr = uintVal;
 						DBG(genStackTypes.push_back(STYPE_INT));
-					}
+					}*/
 				}else{
 					if(funcInfoPtr->retType->size > 4)
 					{
@@ -1310,9 +1304,6 @@ UINT Executor::Run(const char* funcName) throw()
 		m_FileStream << ";\r\n" << std::flush;
 #endif
 	}
-	UINT runTime = timeGetTime() - startTime;
-
-	return runTime;
 }
 
 string Executor::GetResult() throw()

@@ -53,7 +53,7 @@ public:
 	Executor();
 	~Executor();
 
-	UINT	Run(const char* funcName = NULL) throw();
+	void	Run(const char* funcName = NULL) throw();
 	string	GetResult() throw();
 
 	const char*	GetExecError();

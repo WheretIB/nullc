@@ -31,8 +31,8 @@ const char*	nullcGetCompilationError();
 const char*	nullcGetCompilationLog();
 const char*	nullcGetListing();
 
-nullres	nullcRun(unsigned int* runTime);
-nullres	nullcRunFunction(unsigned int* runTime, const char* funcName);
+nullres	nullcRun();
+nullres	nullcRunFunction(const char* funcName);
 const char*	nullcGetRuntimeError();
 
 const char*	nullcGetResult();

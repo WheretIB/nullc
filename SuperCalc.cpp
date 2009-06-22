@@ -266,14 +266,14 @@ void RunUnitTests()
 
 			variableDataX86 = variableData = (char*)nullcGetVariableData();
 			
-			UINT time = 0;
-			nullres goodRun = nullcRun(&time);
+			UINT time = timeGetTime();
+			nullres goodRun = nullcRun();
 			if(goodRun)
 			{
 				string val = nullcGetResult();
 
 				ostr.precision(20);
-				ostr << "The answer is: " << val << " [in: " << time << "]\r\n";
+				ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]\r\n";
 			}else{
 				ostr << "X86 Execution failed: " << nullcGetRuntimeError() << "\r\n";
 			}
@@ -299,14 +299,14 @@ void RunUnitTests()
 
 			variableDataVM = variableData = (char*)nullcGetVariableData();
 
-			UINT time = 0;
-			nullres goodRun = nullcRun(&time);
+			UINT time = timeGetTime();
+			nullres goodRun = nullcRun();
 			if(goodRun)
 			{
 				string val = nullcGetResult();
 
 				ostr.precision(20);
-				ostr << "The answer is: " << val << " [in: " << time << "]\r\n";
+				ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]\r\n";
 			}else{
 				ostr << "VM Execution failed: " << nullcGetRuntimeError() << "\r\n";
 			}
@@ -385,7 +385,7 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	nullcAddExternalFunction((void (*)())(PrintFloat4), "void TestEx(float4 test);");
 	nullcAddExternalFunction((void (*)())(PrintLong), "void TestEx2(long test);");
 
-	nullcAddExternalFunction((void (*)())(myGetTime), "int GetTime();");
+	nullcAddExternalFunction((void (*)())(myGetTime), "int clock();");
 
 	nullcAddExternalFunction((void (*)())(myFileOpen), "file FileOpen(char[] name, char[] access);");
 	nullcAddExternalFunction((void (*)())(myFileClose), "void FileClose(file fID);");
@@ -784,15 +784,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				variableData = (char*)nullcGetVariableData();
 				
-				UINT time = 0;
-				nullres goodRun = nullcRunFunction(&time, callNum ? "draw_progress_bar" : NULL);
+				UINT time = timeGetTime();
+				nullres goodRun = nullcRunFunction(callNum ? "draw_progress_bar" : NULL);
 
 				if(goodRun)
 				{
 					string val = nullcGetResult();
 
 					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << time << "]";
+					ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]";
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
@@ -827,14 +827,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				variableData = (char*)nullcGetVariableData();
 				
-				UINT time = 0;
-				nullres goodRun = nullcRunFunction(&time, callNum%2 ? "draw_progress_bar" : NULL);
+				UINT time = timeGetTime();
+				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
 				if(goodRun)
 				{
 					string val = nullcGetResult();
 
 					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << time << "]";
+					ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]";
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
