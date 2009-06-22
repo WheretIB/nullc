@@ -8,8 +8,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-#include <MMSystem.h>
-
 #include "CodeInfo.h"
 using namespace CodeInfo;
 
@@ -213,7 +211,8 @@ UINT ExecutorX86::Run(const char* funcName)
 	runResult2 = res2;
 	runResultType = (OperFlag)resT;
 
-	memcpy(binCode+startPos, oldCode, 9);
+	if(funcName)
+		memcpy(binCode+startPos, oldCode, 9);
 
 	return runTime;
 }
