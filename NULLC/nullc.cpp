@@ -117,14 +117,15 @@ nullres	nullcRunFunction(unsigned int* runTime, const char* funcName)
 	nullres good = true;
 	if(currExec == NULLC_VM)
 	{
-		try
+		executor->SetCallback((bool (*)(unsigned int))(emptyCallback));
+		*runTime = executor->Run(funcName);
+		const char* error = executor->GetExecError();
+		if(error[0] == 0)
 		{
-			executor->SetCallback((bool (*)(unsigned int))(emptyCallback));
-			*runTime = executor->Run(funcName);
 			executeResult = executor->GetResult();
-		}catch(const std::string& str){
+		}else{
 			good = false;
-			executeLog = str;
+			executeLog = error;
 		}
 	}else if(currExec == NULLC_X86){
 		try

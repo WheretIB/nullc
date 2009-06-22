@@ -53,22 +53,25 @@ public:
 	Executor();
 	~Executor();
 
-	UINT	Run(const char* funcName = NULL);
-	string	GetResult();
-	string	GetLog();
+	UINT	Run(const char* funcName = NULL) throw();
+	string	GetResult() throw();
+
+	const char*	GetExecError();
 
 	char*	GetVariableData();
 
 	void	SetCallback(bool (*Func)(UINT));
 private:
+#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	ofstream			m_FileStream;
-	ostringstream		m_ostr;
+#endif
+	char		execError[256];
 
 	FastVector<asmStackType>	genStackTypes;
 
 	FastVector<char, true>	genParams;
 	FastVector<UINT>	paramTop;
-	FastVector<CallStackInfo> callStack;
+	FastVector<char*>	fcallStack;
 
 	UINT	*genStackBase;
 	UINT	*genStackPtr;

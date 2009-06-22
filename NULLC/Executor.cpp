@@ -15,7 +15,7 @@
 	#define DBG(x)
 #endif
 
-Executor::Executor(): m_FileStream("log.txt", std::ios::binary)
+Executor::Executor()DBG(: m_FileStream("log.txt", std::ios::binary))
 {
 	m_RunCallback = NULL;
 
@@ -33,10 +33,11 @@ Executor::~Executor()
 
 #define genStackSize (genStackTop-genStackPtr)
 
-UINT Executor::Run(const char* funcName)
+UINT Executor::Run(const char* funcName) throw()
 {
+	UINT startTime = timeGetTime();
 	paramTop.clear();
-	callStack.clear();
+	fcallStack.clear();
 
 	paramTop.push_back(0);
 
@@ -56,7 +57,7 @@ UINT Executor::Run(const char* funcName)
 	UINT	uintVal, uintVal2;
 
 	int		valind;
-	UINT	cmdCount = 0;
+	//UINT	cmdCount = 0;
 	bool	done = false;
 
 	CmdFlag		cFlag;
@@ -69,8 +70,6 @@ UINT Executor::Run(const char* funcName)
 #endif
 
 	FunctionInfo *funcInfoPtr = NULL;
-
-	UINT startTime = timeGetTime();
 
 	UINT funcPos = 0;
 	if(funcName)
@@ -85,7 +84,7 @@ UINT Executor::Run(const char* funcName)
 		}
 	}
 
-	bool intDivByZero = false;
+	execError[0] = 0;
 
 	// General stack
 	if(!genStackBase)
@@ -110,7 +109,7 @@ UINT Executor::Run(const char* funcName)
 		DBG(pos2 = cmdStream - cmdStreamBase);
 		cmdStream += 2;
 
-		if(genStackSize >= (genStackTop-genStackBase))
+		if(genStackPtr <= genStackBase)
 		{
 			UINT *oldStack = genStackBase;
 			UINT oldSize = unsigned int(genStackTop-genStackBase);
@@ -129,15 +128,15 @@ UINT Executor::Run(const char* funcName)
 			insCallCount[cmd]++;
 		#endif
 
-		cmdCount++;
+		/*cmdCount++;
 		if(m_RunCallback && cmdCount % 5000000 == 0)
 		{
 			if(!m_RunCallback(cmdCount))
 			{
 				done = true;
-				throw std::string("User have canceled the execution");
+				strcpy(execError, "ERROR: User have canceled the execution");
 			}
-		}
+		}*/
 		//pos += 2;
 
 		if(funcName && (UINT)cmdStreamPos >= funcPos)
@@ -361,12 +360,157 @@ UINT Executor::Run(const char* funcName)
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, sizeOfVar, 0, 0));
 			}
 			break;
+		case cmdMov:
+			{
+				int valind = -1, shift = 0;
+				USHORT sdata;
+				UCHAR cdata;
+				cFlag = *(CmdFlag*)cmdStream;
+				cmdStream += 2;
+				st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+
+				valind = *(int*)cmdStream;
+				cmdStream += 4;
+
+				if(flagShiftStk(cFlag))
+				{
+					shift = *genStackPtr;
+					genStackPtr++;
+
+					//if(int(shift) < 0)
+					//	throw std::string("ERROR: array index out of bounds (negative)");
+					DBG(genStackTypes.pop_back());
+				}
+
+				UINT sizeOfVar = 0;
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					sizeOfVar = *(unsigned int*)cmdStream;
+					cmdStream += 4;
+				}
+
+				if(flagAddrRel(cFlag))
+					valind += paramTop.back();
+				if(flagShiftStk(cFlag))
+					valind += shift;
+
+				if(dt == DTYPE_COMPLEX_TYPE)
+				{
+					UINT currShift = sizeOfVar;
+					while(sizeOfVar >= 4)
+					{
+						currShift -= 4;
+						*((UINT*)(&genParams[valind+currShift])) = *(genStackPtr+sizeOfVar/4-1);
+						sizeOfVar -= 4;
+					}
+					assert(sizeOfVar == 0);
+				}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
+				{
+					*((float*)(&genParams[valind])) = float(*(double*)(genStackPtr));
+				}else if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+				{
+					*((UINT*)(&genParams[valind])) = *genStackPtr;
+					*((UINT*)(&genParams[valind+4])) = *(genStackPtr+1);
+				}else if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
+				{
+					*((UINT*)(&genParams[valind])) = *genStackPtr;
+				}else if(dt == DTYPE_SHORT)
+				{
+					sdata = (unsigned short)(*genStackPtr);
+					*((USHORT*)(&genParams[valind])) = sdata;
+				}else if(dt == DTYPE_CHAR)
+				{
+					cdata = (unsigned char)(*genStackPtr);
+					genParams[valind] = cdata;
+				}
+
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, sizeOfVarConst));
+			}
+			break;
+		case cmdCTI:
+			oFlag = *(OperFlag*)cmdStream;
+			cmdStream++;
+			uintVal = *(unsigned int*)cmdStream;
+			cmdStream += 4;
+			switch(oFlag)
+			{
+			case OTYPE_DOUBLE:
+				uintVal2 = int(*(double*)(genStackPtr));
+				genStackPtr++;
+				break;
+			case OTYPE_LONG:
+				uintVal2 = int(*(long long*)(genStackPtr));
+				genStackPtr++;
+				break;
+			case OTYPE_INT:
+				uintVal2 = *genStackPtr;
+				break;
+			default:
+				uintVal2 = 0;
+			}
+			*genStackPtr = uintVal*uintVal2;
+			DBG(genStackTypes.pop_back());
+			DBG(genStackTypes.push_back(STYPE_INT));
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
+			break;
+		case cmdRTOI:
+			{
+				cFlag = *(CmdFlag*)cmdStream;
+				cmdStream += 2;
+				asmStackType st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+				DBG(genStackTypes.pop_back());
+
+				if(st == STYPE_DOUBLE && dt == DTYPE_INT)
+				{
+					int temp = int(*(double*)(genStackPtr));
+					genStackPtr++;
+					*genStackPtr = temp;
+					DBG(genStackTypes.push_back(STYPE_INT));
+				}else if(st == STYPE_DOUBLE && dt == DTYPE_LONG){
+					*(long long*)(genStackPtr) = (long long)*(double*)(genStackPtr);
+					DBG(genStackTypes.push_back(STYPE_LONG));
+				}
+				
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
+			}
+			break;
+		case cmdITOR:
+			{
+				cFlag = *(CmdFlag*)cmdStream;
+				cmdStream += 2;
+				asmStackType st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+				DBG(genStackTypes.pop_back());
+
+				if(st == STYPE_INT && dt == DTYPE_DOUBLE)
+				{
+					double temp = double(*(int*)genStackPtr);
+					genStackPtr--;
+					*(double*)(genStackPtr) = temp;
+					DBG(genStackTypes.push_back(STYPE_DOUBLE));
+				}
+				if(st == STYPE_LONG && dt == DTYPE_DOUBLE)
+				{
+					double temp = double(*(long long*)(genStackPtr));
+					*(double*)(genStackPtr) = temp;
+					DBG(genStackTypes.push_back(STYPE_DOUBLE));
+				}
+
+				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
+			}
+			break;
 		case cmdCallStd:
 			{
-				funcInfoPtr = *(FunctionInfo**)(cmdStream);// cmdList->GetData(pos, funcInfoPtr);
+				funcInfoPtr = *(FunctionInfo**)(cmdStream);
 				cmdStream += sizeof(FunctionInfo*);
 				if(!funcInfoPtr)
-					throw std::string("ERROR: std function info is invalid");
+				{
+					done = true;
+					strcpy(execError, "ERROR: std function info is invalid");
+					break;
+				}
 
 				if(funcInfoPtr->funcPtr == NULL)
 				{
@@ -392,8 +536,11 @@ UINT Executor::Run(const char* funcName)
 						val = sqrt(val);
 					else if(funcInfoPtr->name == "clock")
 						uintVal = GetTickCount();
-					else
-						throw std::string("ERROR: there is no such function: ") + funcInfoPtr->name;
+					else{
+						done = true;
+						printf(execError, "ERROR: there is no such function: %s", funcInfoPtr->name);
+						break;
+					}
 
 					if(fabs(val) < 1e-10)
 						val = 0.0;
@@ -408,7 +555,11 @@ UINT Executor::Run(const char* funcName)
 					}
 				}else{
 					if(funcInfoPtr->retType->size > 4)
-						throw std::string("ERROR: user functions with return type size larger than 4 bytes are not supported");
+					{
+						done = true;
+						strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
+						break;
+					}
 					UINT bytesToPop = 0;
 					for(UINT i = 0; i < funcInfoPtr->params.size(); i++)
 					{
@@ -493,7 +644,8 @@ UINT Executor::Run(const char* funcName)
 				*(genStackPtr+1) = valind;
 				break;
 			default:
-				throw std::string("cmdSwap, unimplemented type combo");
+				done = true;
+				strcpy(execError, "ERROR: cmdSwap, unimplemented type combo");
 			}
 			DBG(st = genStackTypes[genStackTypes.size()-2]);
 			DBG(genStackTypes[genStackTypes.size()-2] = genStackTypes[genStackTypes.size()-1]);
@@ -521,6 +673,53 @@ UINT Executor::Run(const char* funcName)
 
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
 			break;
+		case cmdJmp:
+			valind = *(int*)cmdStream;
+			cmdStream = cmdStreamBase + valind;
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
+			break;
+		case cmdJmpZ:
+			oFlag = *(OperFlag*)cmdStream;
+			cmdStream++;
+			valind = *(int*)cmdStream;
+			cmdStream += 4;
+			if(oFlag == OTYPE_DOUBLE){
+				if(*(double*)(genStackPtr) == 0.0)
+					cmdStream = cmdStreamBase + valind;
+				genStackPtr += 2;
+			}else if(oFlag == OTYPE_LONG){
+				if(*(long long*)(genStackPtr) == 0L)
+					cmdStream = cmdStreamBase + valind;
+				genStackPtr += 2;
+			}else if(oFlag == OTYPE_INT){
+				if(*genStackPtr == 0)
+					cmdStream = cmdStreamBase + valind;
+				genStackPtr++;
+			}
+			DBG(genStackTypes.pop_back());
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
+			break;
+		case cmdJmpNZ:
+			oFlag = *(OperFlag*)cmdStream;
+			cmdStream++;
+			valind = *(int*)cmdStream;
+			cmdStream += 4;
+			if(oFlag == OTYPE_DOUBLE){
+				if(*(double*)(genStackPtr) != 0.0)
+					cmdStream = cmdStreamBase + valind;
+				genStackPtr += 2;
+			}else if(oFlag == OTYPE_LONG){
+				if(*(long long*)(genStackPtr) == 0L)
+					cmdStream = cmdStreamBase + valind;
+				genStackPtr += 2;
+			}else if(oFlag == OTYPE_INT){
+				if(*genStackPtr != 0)
+					cmdStream = cmdStreamBase + valind;
+				genStackPtr++;
+			}
+			DBG(genStackTypes.pop_back());
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
+			break;
 		case cmdPushVTop:
 			size_t valtop;
 			valtop = genParams.size();
@@ -546,7 +745,7 @@ UINT Executor::Run(const char* funcName)
 					uintVal = *genStackPtr;
 					genStackPtr++;
 				}
-				callStack.push_back(CallStackInfo(cmdStream, (UINT)genStackSize, uintVal));
+				fcallStack.push_back(cmdStream);// callStack.push_back(CallStackInfo(cmdStream, (UINT)genStackSize, uintVal));
 				cmdStream = cmdStreamBase + uintVal;
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0, retFlag));
 			}
@@ -559,21 +758,25 @@ UINT Executor::Run(const char* funcName)
 				popCnt = *(unsigned short*)cmdStream;
 				cmdStream += 2;
 				if(retFlag & bitRetError)
-					throw std::string("ERROR: function didn't return a value");
+				{
+					done = true;
+					strcpy(execError, "ERROR: function didn't return a value");
+					break;
+				}
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, popCnt, 0, 0, retFlag));
 				for(int pops = 0; pops < (popCnt > 0 ? popCnt : 1); pops++)
 				{
 					genParams.shrink(paramTop.back());
 					paramTop.pop_back();
 				}
-				if(callStack.size() == 0)
+				if(fcallStack.size() == 0)
 				{
 					retType = (OperFlag)(retFlag & 0x0FFF);
 					done = true;
 					break;
 				}
-				cmdStream = callStack.back().cmd;
-				callStack.pop_back();
+				cmdStream = fcallStack.back();
+				fcallStack.pop_back();
 			}
 			break;
 		case cmdPushV:
@@ -607,32 +810,6 @@ UINT Executor::Run(const char* funcName)
 			*genStackPtr = *(genStackPtr-1);
 			DBG(genStackTypes.back() = STYPE_INT);
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, 0));
-			break;
-		case cmdCTI:
-			oFlag = *(OperFlag*)cmdStream;
-			cmdStream++;
-			uintVal = *(unsigned int*)cmdStream;
-			cmdStream += 4;
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-				uintVal2 = int(*(double*)(genStackPtr));
-				genStackPtr++;
-				break;
-			case OTYPE_LONG:
-				uintVal2 = int(*(long long*)(genStackPtr));
-				genStackPtr++;
-				break;
-			case OTYPE_INT:
-				uintVal2 = *genStackPtr;
-				break;
-			default:
-				uintVal2 = 0;
-			}
-			*genStackPtr = uintVal*uintVal2;
-			DBG(genStackTypes.pop_back());
-			DBG(genStackTypes.push_back(STYPE_INT));
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
 			break;
 		case cmdSetRange:
 			cFlag = *(CmdFlag*)cmdStream;
@@ -688,7 +865,11 @@ UINT Executor::Run(const char* funcName)
 			funcInfoPtr = *(FunctionInfo**)cmdStream;
 			cmdStream += sizeof(FunctionInfo*);
 			if(!funcInfoPtr)
-				throw std::string("ERROR: std function info is invalid");
+			{
+				done = true;
+				strcpy(execError, "ERROR: std function info is invalid");
+				break;
+			}
 
 			assert(sizeof(funcInfoPtr->funcPtr) == 4);
 
@@ -699,182 +880,69 @@ UINT Executor::Run(const char* funcName)
 				*genStackPtr = (unsigned int)((unsigned long long)(funcInfoPtr->funcPtr));
 			DBG(genStackTypes.push_back(STYPE_INT));
 			break;
+
+		case cmdNeg:
+			oFlag = *(OperFlag*)cmdStream;
+			cmdStream++;
+			switch(oFlag)
+			{
+			case OTYPE_DOUBLE:
+				*(double*)(genStackPtr) = -*(double*)(genStackPtr);
+				break;
+			case OTYPE_LONG:
+				*(long long*)(genStackPtr) = -*(long long*)(genStackPtr);
+				break;
+			case OTYPE_INT:
+				*(int*)(genStackPtr) = -*(int*)(genStackPtr);
+				break;
+			default:
+				done = true;
+				strcpy(execError, "ERROR: Operation is not implemented");
+			}
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
+			break;
+		case cmdBitNot:
+			oFlag = *(OperFlag*)cmdStream;
+			cmdStream++;
+			switch(oFlag)
+			{
+			case OTYPE_LONG:
+				*(long long*)(genStackPtr) = ~*(long long*)(genStackPtr);
+				break;
+			case OTYPE_INT:
+				*(int*)(genStackPtr) = ~*(int*)(genStackPtr);
+				break;
+			default:
+				done = true;
+				strcpy(execError, "ERROR: Operation is not implemented");
+			}
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
+			break;
+		case cmdLogNot:
+			oFlag = *(OperFlag*)cmdStream;
+			cmdStream++;
+			switch(oFlag)
+			{
+			case OTYPE_DOUBLE:
+				*(double*)(genStackPtr) = fabs(*(double*)(genStackPtr)) < 1e-10;
+				break;
+			case OTYPE_LONG:
+				*(long long*)(genStackPtr) = !*(long long*)(genStackPtr);
+				break;
+			case OTYPE_INT:
+				*(int*)(genStackPtr) = !*(int*)(genStackPtr);
+				break;
+			default:
+				done = true;
+				strcpy(execError, "ERROR: Operation is not implemented");
+			}
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
+			break;
 		}
 
 		//New commands
-		if(cmd == cmdMov){
-			int valind = -1, shift = 0;
-			USHORT sdata;
-			UCHAR cdata;
-			cFlag = *(CmdFlag*)cmdStream;
-			cmdStream += 2;
-			st = flagStackType(cFlag);
-			asmDataType dt = flagDataType(cFlag);
-
-			valind = *(int*)cmdStream;
-			cmdStream += 4;
-
-			if(flagShiftStk(cFlag))
-			{
-				shift = *genStackPtr;
-				genStackPtr++;
-
-				//if(int(shift) < 0)
-				//	throw std::string("ERROR: array index out of bounds (negative)");
-				DBG(genStackTypes.pop_back());
-			}
-			/*if(flagSizeOn(cFlag))
-			{
-				cmdList->GetINT(pos, size);
-				pos += 4;
-
-				if(int(shift) >= size)
-					throw std::string("ERROR: array index out of bounds (overflow)");
-			}
-			if(flagSizeStk(cFlag))
-			{
-				size = *genStackPtr;
-				genStackPtr++;
-
-				if(int(shift) >= size)
-					throw std::string("ERROR: array index out of bounds (overflow)");
-				DBG(genStackTypes.pop_back());
-			}*/
-
-			UINT sizeOfVar = 0;
-			if(dt == DTYPE_COMPLEX_TYPE)
-			{
-				sizeOfVar = *(unsigned int*)cmdStream;
-				cmdStream += 4;
-			}
-			//UINT sizeOfVarConst = sizeOfVar;
-
-			if(flagAddrRel(cFlag))
-				valind += paramTop.back();
-			if(flagShiftStk(cFlag))
-				valind += shift;
-			//if(flagAddrRelTop(cFlag))
-			//	valind += genParams.size();
-
-			//if(flagAddrRelTop(cFlag) && valind+sizeOfVarConst > genParams.size())
-			//	genParams.reserve(genParams.size()+128);
-			if(dt == DTYPE_COMPLEX_TYPE)
-			{
-				UINT currShift = sizeOfVar;
-				while(sizeOfVar >= 4)
-				{
-					currShift -= 4;
-					*((UINT*)(&genParams[valind+currShift])) = *(genStackPtr+sizeOfVar/4-1);
-					sizeOfVar -= 4;
-				}
-				assert(sizeOfVar == 0);
-			}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
-			{
-				*((float*)(&genParams[valind])) = float(*(double*)(genStackPtr));
-			}else if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-			{
-				*((UINT*)(&genParams[valind])) = *genStackPtr;
-				*((UINT*)(&genParams[valind+4])) = *(genStackPtr+1);
-			}else if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
-			{
-				*((UINT*)(&genParams[valind])) = *genStackPtr;
-			}else if(dt == DTYPE_SHORT)
-			{
-				sdata = (unsigned short)(*genStackPtr);
-				*((USHORT*)(&genParams[valind])) = sdata;
-			}else if(dt == DTYPE_CHAR)
-			{
-				cdata = (unsigned char)(*genStackPtr);
-				genParams[valind] = cdata;
-			}
-
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, sizeOfVarConst));
-		}else if(cmd == cmdRTOI){
-			cFlag = *(CmdFlag*)cmdStream;
-			cmdStream += 2;
-			asmStackType st = flagStackType(cFlag);
-			asmDataType dt = flagDataType(cFlag);
-			DBG(genStackTypes.pop_back());
-
-			if(st == STYPE_DOUBLE && dt == DTYPE_INT)
-			{
-				int temp = int(*(double*)(genStackPtr));
-				genStackPtr++;
-				*genStackPtr = temp;
-				DBG(genStackTypes.push_back(STYPE_INT));
-			}else if(st == STYPE_DOUBLE && dt == DTYPE_LONG){
-				*(long long*)(genStackPtr) = (long long)*(double*)(genStackPtr);
-				DBG(genStackTypes.push_back(STYPE_LONG));
-			}
-			
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
-		}else if(cmd == cmdITOR){
-			cFlag = *(CmdFlag*)cmdStream;
-			cmdStream += 2;
-			asmStackType st = flagStackType(cFlag);
-			asmDataType dt = flagDataType(cFlag);
-			DBG(genStackTypes.pop_back());
-
-			if(st == STYPE_INT && dt == DTYPE_DOUBLE)
-			{
-				double temp = double(*(int*)genStackPtr);
-				genStackPtr--;
-				*(double*)(genStackPtr) = temp;
-				DBG(genStackTypes.push_back(STYPE_DOUBLE));
-			}
-			if(st == STYPE_LONG && dt == DTYPE_DOUBLE)
-			{
-				double temp = double(*(long long*)(genStackPtr));
-				*(double*)(genStackPtr) = temp;
-				DBG(genStackTypes.push_back(STYPE_DOUBLE));
-			}
-
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
-		}else if(cmd == cmdJmp){
-			valind = *(int*)cmdStream;
-			cmdStream = cmdStreamBase + valind;
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
-		}else if(cmd == cmdJmpZ){
-			oFlag = *(OperFlag*)cmdStream;
-			cmdStream++;
-			valind = *(int*)cmdStream;
-			cmdStream += 4;
-			if(oFlag == OTYPE_DOUBLE){
-				if(*(double*)(genStackPtr) == 0.0)
-					cmdStream = cmdStreamBase + valind;
-				genStackPtr += 2;
-			}else if(oFlag == OTYPE_LONG){
-				if(*(long long*)(genStackPtr) == 0L)
-					cmdStream = cmdStreamBase + valind;
-				genStackPtr += 2;
-			}else if(oFlag == OTYPE_INT){
-				if(*genStackPtr == 0)
-					cmdStream = cmdStreamBase + valind;
-				genStackPtr++;
-			}
-			DBG(genStackTypes.pop_back());
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
-		}else if(cmd == cmdJmpNZ){
-			oFlag = *(OperFlag*)cmdStream;
-			cmdStream++;
-			valind = *(int*)cmdStream;
-			cmdStream += 4;
-			if(oFlag == OTYPE_DOUBLE){
-				if(*(double*)(genStackPtr) != 0.0)
-					cmdStream = cmdStreamBase + valind;
-				genStackPtr += 2;
-			}else if(oFlag == OTYPE_LONG){
-				if(*(long long*)(genStackPtr) == 0L)
-					cmdStream = cmdStreamBase + valind;
-				genStackPtr += 2;
-			}else if(oFlag == OTYPE_INT){
-				if(*genStackPtr != 0)
-					cmdStream = cmdStreamBase + valind;
-				genStackPtr++;
-			}
-			DBG(genStackTypes.pop_back());
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
-		}else if(cmd >= cmdAdd && cmd <= cmdLogXor){
+		if(cmd >= cmdAdd && cmd <= cmdLogXor)
+		{
 			oFlag = *(OperFlag*)cmdStream;
 			cmdStream++;
 			switch(cmd + (oFlag << 16))
@@ -914,7 +982,7 @@ UINT Executor::Run(const char* funcName)
 				{
 					*(long long*)(genStackPtr+2) /= *(long long*)(genStackPtr);
 				}else{
-					intDivByZero = true;
+					strcpy(execError, "ERROR: Integer division by zero");
 					done = true;
 				}
 				break;
@@ -923,7 +991,7 @@ UINT Executor::Run(const char* funcName)
 				{
 					*(int*)(genStackPtr+1) /= *(int*)(genStackPtr);
 				}else{
-					intDivByZero = true;
+					strcpy(execError, "ERROR: Integer division by zero");
 					done = true;
 				}
 				break;
@@ -944,7 +1012,7 @@ UINT Executor::Run(const char* funcName)
 				{
 					*(long long*)(genStackPtr+2) %= *(long long*)(genStackPtr);
 				}else{
-					intDivByZero = true;
+					strcpy(execError, "ERROR: Integer division by zero");
 					done = true;
 				}
 				break;
@@ -953,7 +1021,7 @@ UINT Executor::Run(const char* funcName)
 				{
 					*(int*)(genStackPtr+1) %= *(int*)(genStackPtr);
 				}else{
-					intDivByZero = true;
+					strcpy(execError, "ERROR: Integer division by zero");
 					done = true;
 				}				
 				break;
@@ -1060,7 +1128,8 @@ UINT Executor::Run(const char* funcName)
 				*(int*)(genStackPtr+1) = !!(*(int*)(genStackPtr+1)) ^ !!(*(int*)(genStackPtr));
 				break;
 			default:
-				throw string("Operation is not implemented");
+				done = true;
+				strcpy(execError, "ERROR: Operation is not implemented");
 			}
 			if(oFlag == OTYPE_INT)
 			{
@@ -1071,41 +1140,6 @@ UINT Executor::Run(const char* funcName)
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
 			DBG(genStackTypes.pop_back());
 			
-		}else if(cmd >= cmdNeg && cmd <= cmdLogNot){
-			oFlag = *(OperFlag*)cmdStream;
-			cmdStream++;
-			switch(cmd + (oFlag << 16))
-			{
-			case cmdNeg+(OTYPE_DOUBLE<<16):
-				*(double*)(genStackPtr) = -*(double*)(genStackPtr);
-				break;
-			case cmdNeg+(OTYPE_LONG<<16):
-				*(long long*)(genStackPtr) = -*(long long*)(genStackPtr);
-				break;
-			case cmdNeg+(OTYPE_INT<<16):
-				*(int*)(genStackPtr) = -*(int*)(genStackPtr);
-				break;
-
-			case cmdLogNot+(OTYPE_DOUBLE<<16):
-				*(double*)(genStackPtr) = fabs(*(double*)(genStackPtr)) < 1e-10;
-				break;
-			case cmdLogNot+(OTYPE_LONG<<16):
-				*(long long*)(genStackPtr) = !*(long long*)(genStackPtr);
-				break;
-			case cmdLogNot+(OTYPE_INT<<16):
-				*(int*)(genStackPtr) = !*(int*)(genStackPtr);
-				break;
-
-			case cmdBitNot+(OTYPE_LONG<<16):
-				*(long long*)(genStackPtr) = ~*(long long*)(genStackPtr);
-				break;
-			case cmdBitNot+(OTYPE_INT<<16):
-				*(int*)(genStackPtr) = ~*(int*)(genStackPtr);
-				break;
-			default:
-				throw string("Operation is not implemented");
-			}
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
 		}else if(cmd == cmdIncAt || cmd == cmdDecAt)
 		{
 			int valind = 0, shift = 0, size = 0;
@@ -1124,7 +1158,11 @@ UINT Executor::Run(const char* funcName)
 				genStackPtr++;
 
 				if(shift < 0)
-					throw std::string("ERROR: array index out of bounds (negative)");
+				{
+					done = true;
+					strcpy(execError, "ERROR: array index out of bounds (negative)");
+					break;
+				}
 			}
 			if(flagSizeOn(cFlag))
 			{
@@ -1132,7 +1170,11 @@ UINT Executor::Run(const char* funcName)
 				cmdStream += 4;
 
 				if(shift >= size)
-					throw std::string("ERROR: array index out of bounds (overflow)");
+				{
+					done = true;
+					strcpy(execError, "ERROR: array index out of bounds (overflow)");
+					break;
+				}
 			}
 			if(flagSizeStk(cFlag))
 			{
@@ -1140,7 +1182,11 @@ UINT Executor::Run(const char* funcName)
 				genStackPtr++;
 
 				if(shift >= size)
-					throw std::string("ERROR: array index out of bounds (overflow)");
+				{
+					done = true;
+					strcpy(execError, "ERROR: array index out of bounds (overflow)");
+					break;
+				}
 			}
 
 			if(flagAddrRel(cFlag))
@@ -1266,27 +1312,15 @@ UINT Executor::Run(const char* funcName)
 	}
 	UINT runTime = timeGetTime() - startTime;
 
-	if(intDivByZero)
-		throw std::string("Integer division by zero");
-
-	/*m_ostr << "There are " << (UINT)genStackTypes.size() << " values in the stack\r\n";
-	if((UINT)genStackTypes.size() == 0)
-		m_ostr << "It's bad.\r\nÏèøè return ñöóêî!";//Did you forget 'return'?";
-	else if((UINT)genStackTypes.size() == 1)
-		m_ostr << "Good.";
-	else if((UINT)genStackTypes.size() > 1)
-		m_ostr << "It's bug.\r\nReport to NULL_PTR";
-	m_ostr << "\r\n\r\n";
-	m_ostr << "Variables active: " << (UINT)genParams.size() << "\r\n";*/
 	return runTime;
 }
 
-string Executor::GetResult()
+string Executor::GetResult() throw()
 {
 	if(genStackSize == 0)
 		return "No result value";
 	if(genStackSize-1 > 2)
-		throw std::string("There are more than one value on the stack");
+		return "There are more than one value on the stack";
 	ostringstream tempStream;
 	switch(retType)
 	{
@@ -1301,11 +1335,12 @@ string Executor::GetResult()
 		break;
 	}
 
-	return tempStream.str();;
+	return tempStream.str();
 }
-string Executor::GetLog()
+
+const char*	Executor::GetExecError()
 {
-	return m_ostr.str();
+	return execError;
 }
 
 char* Executor::GetVariableData()
