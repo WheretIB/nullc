@@ -1051,11 +1051,26 @@ void Executor::Run(const char* funcName) throw()
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0));
 			}
 			break;
-		}
-
-		//New commands
-		if(cmd >= cmdAdd && cmd <= cmdLogXor)
-		{
+		case cmdAdd:
+		case cmdSub:
+		case cmdMul:
+		case cmdDiv:
+		case cmdPow:
+		case cmdMod:
+		case cmdLess:
+		case cmdGreater:
+		case cmdLEqual:
+		case cmdGEqual:
+		case cmdEqual:
+		case cmdNEqual:
+		case cmdShl:
+		case cmdShr:
+		case cmdBitAnd:
+		case cmdBitOr:
+		case cmdBitXor:
+		case cmdLogAnd:
+		case cmdLogOr:
+		case cmdLogXor:
 			oFlag = *(OperFlag*)cmdStream;
 			cmdStream++;
 			switch(cmd + (oFlag << 16))
@@ -1253,6 +1268,7 @@ void Executor::Run(const char* funcName) throw()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
 			DBG(genStackTypes.pop_back());
 			
+			break;
 		}
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
