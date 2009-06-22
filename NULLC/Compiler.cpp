@@ -798,7 +798,7 @@ void addVar(char const* s, char const* e)
 			throw CompilerError("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n", s);
 	checkIfDeclared(vName);
 
-	if(currType && currType->size == -1)
+	if(currType && currType->size == TypeInfo::UNSIZED_ARRAY)
 		throw CompilerError("ERROR: variable '" + vName + "' can't be an unfixed size array", s);
 	if(currType && currType->size > 64*1024*1024)
 		throw CompilerError("ERROR: variable '" + vName + "' has to big length (>64 Mb)", s);
@@ -1051,7 +1051,7 @@ void AddArrayIndexNode(char const* s, char const* e)
 	if(currTypes.back()->arrLevel == 0)
 		throw CompilerError("ERROR: indexing variable that is not an array", s);
 	// ≈сли это безразмерный массив (указатель на массив)
-	if(currTypes.back()->arrSize == -1)
+	if(currTypes.back()->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		// “о перед индексацией необходимо получить указатель на массив, который хранитс€ в переменной
 		shared_ptr<NodeZeroOP> temp = nodeList.back();
@@ -1143,7 +1143,7 @@ void AddDefineVariableNode(char const* s, char const* e)
 	// ѕеременна€ служит как флаг, обозначающий, что два узла надо объеденить в один
 	bool unifyTwo = false;
 	// ≈сли тип переменной - безразмерный массив, а присваеваетс€ ей значение другого типа
-	if(realCurrType->arrSize == -1 && realCurrType != nodeList.back()->GetTypeInfo())
+	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->GetTypeInfo())
 	{
 		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
 		// ≈сли подтип обоих значений (предположительно, массивов) совпадает
@@ -1411,8 +1411,9 @@ struct AddModifyVariable
 void AddInplaceArray(char const* s, char const* e)
 {
 	char asString[16];
+	sprintf(asString, "%d", inplaceArrayNum++);
 	strs.push_back("$carr");
-	strs.back() += _itoa(inplaceArrayNum++, asString, 10);
+	strs.back() += asString;
 
 	TypeInfo *saveCurrType = currType;
 	bool saveVarDefined = varDefined;
@@ -1492,11 +1493,14 @@ void addArrayConstructor(char const* s, char const* e)
 	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
 
 	TypeInfo *realType = nodeList.back()->GetTypeInfo();
-	char tempStr[16];
 	for(UINT i = 0; i < arrElementCount.back(); i++)
 	{
 		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt) && !(realType == typeFloat && currType == typeDouble))
-			throw CompilerError(std::string("ERROR: element ") + _itoa(arrElementCount.back()-i-1, tempStr, 10) + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
+		{
+			char tempStr[16];
+			sprintf(tempStr, "%d", arrElementCount.back()-i-1);
+			throw CompilerError(std::string("ERROR: element ") + tempStr + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
+		}
 		arrayList->AddNode(false);
 	}
 
@@ -1705,7 +1709,7 @@ void addFuncCallNode(char const* s, char const* e)
 				TypeInfo *expectedType = fList[k]->params[n].varType;
 				if(expectedType != paramType)
 				{
-					if(expectedType->arrSize == -1 && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
+					if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 						fRating[k] += 5;
 					else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef ||
 							(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode.get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
@@ -1802,7 +1806,7 @@ void addFuncCallNode(char const* s, char const* e)
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
 		}
-		if(expectedType->arrSize == -1 && expectedType->subType == realType->subType && expectedType != realType)
+		if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && expectedType->subType == realType->subType && expectedType != realType)
 		{
 			if(paramNodes[index]->GetNodeType() != typeNodeDereference)
 			{
@@ -1817,7 +1821,8 @@ void addFuncCallNode(char const* s, char const* e)
 					nodeList.pop_back();
 				}else{
 					char chTemp[16];
-					throw CompilerError(std::string("ERROR: array expected as a parameter ") + _itoa(i, chTemp, 10), s);
+					sprintf(chTemp, "%d", i);
+					throw CompilerError(std::string("ERROR: array expected as a parameter ") + chTemp, s);
 				}
 			}
 			UINT typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;

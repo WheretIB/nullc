@@ -186,6 +186,7 @@ namespace supspi
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
+			(void)space;
 			return m_sub->Parse(str, shared_ptr<BaseP>((BaseP*)NULL));
 		}
 	private:
@@ -229,7 +230,8 @@ namespace supspi
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
-			(void)str;	// C4100
+			(void)str;
+			(void)space;
 			return true;
 		}
 	protected:
@@ -243,7 +245,8 @@ namespace supspi
 
 		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
 		{
-			(void)str;	// C4100
+			(void)str;
+			(void)space;
 			return false;
 		}
 	protected:
