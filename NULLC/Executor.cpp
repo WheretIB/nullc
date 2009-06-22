@@ -543,34 +543,32 @@ void Executor::Run(const char* funcName) throw()
 						strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
 						break;
 					}
-					UINT bytesToPop = 0;
-					for(UINT i = 0; i < funcInfoPtr->params.size(); i++)
-					{
-						UINT paramSize = funcInfoPtr->params[i].varType->size > 4 ? funcInfoPtr->params[i].varType->size : 4;
-						bytesToPop += paramSize;
+					UINT bytesToPop = funcInfoPtr->bytesToPop;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-						while(paramSize > 0)
-						{
-							paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];;
-							genStackTypes.pop_back();
-						}
-#endif
+					UINT paramSize = bytesToPop;
+					while(paramSize > 0)
+					{
+						paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];;
+						genStackTypes.pop_back();
 					}
+#endif
+					UINT *stackStart = (genStackPtr+bytesToPop/4-1);
 					for(UINT i = 0; i < bytesToPop/4; i++)
 					{
-						UINT data = *(genStackPtr+bytesToPop/4-i-1);
-						__asm push data;
+						__asm mov eax, dword ptr[stackStart]
+						__asm push dword ptr[eax];
+						stackStart--;
 					}
 					genStackPtr += bytesToPop/4;
 
 					void* fPtr = funcInfoPtr->funcPtr;
+					UINT fRes;
 					__asm{
 						mov ecx, fPtr;
 						call ecx;
 						add esp, bytesToPop;
+						mov fRes, eax;
 					}
-					UINT fRes;
-					__asm mov fRes, eax;
 					if(funcInfoPtr->retType->size == 4)
 					{
 						genStackPtr--;
