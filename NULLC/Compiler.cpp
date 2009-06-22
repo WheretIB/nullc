@@ -2971,8 +2971,8 @@ void Compiler::GenListing()
 					{
 						cmdList->GetINT(pos, valind);
 						pos += 4;
+						logASM << valind;
 					}
-					logASM << valind;
 					if(flagAddrRel(cFlag))
 						logASM << "+top";
 					if(flagAddrRelTop(cFlag))
@@ -3033,8 +3033,8 @@ void Compiler::GenListing()
 				{
 					cmdList->GetINT(pos, valind);
 					pos += 4;
+					logASM << valind;
 				}
-				logASM << valind;
 				if(flagAddrRel(cFlag))
 					logASM << "+top";
 
@@ -3318,8 +3318,8 @@ void Compiler::GenListing()
 			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
 				cmdList->GetINT(pos, valind);
 				pos += 4;
+				logASM << valind;
 			}
-			logASM << valind;
 			if(flagAddrRel(cFlag))
 				logASM << "+top";
 
