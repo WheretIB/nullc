@@ -3388,6 +3388,18 @@ bool FunctionInfo::CreateExternalInfo()
 #elif defined(__CELLOS_LV2__)
 bool FunctionInfo::CreateExternalInfo()
 {
+    // only integer params with size <= 4 supported for now
+	for (UINT i = 0; i < params.size(); i++)
+	{
+	    const TypeInfo& type = *params[i].varType;
+	    if (type.type != TypeInfo::TYPE_CHAR && type.type != TypeInfo::TYPE_SHORT && type.type != TypeInfo::TYPE_INT)
+	        return false;
+    }
+    
+    // too many params, we only support register-passing ABI
+    if (params.size() > 8)
+        return false;
+       
     return true;
 }
 #endif
