@@ -519,49 +519,7 @@ void Executor::Run(const char* funcName) throw()
 					*(double*)(genStackPtr) = val;
 					DBG(genStackTypes.push_back(STYPE_DOUBLE));
 				}else{
-					if(funcInfoPtr->retType->size > 4)
-					{
-						done = true;
-						strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
-						break;
-					}
-					UINT bytesToPop = funcInfoPtr->bytesToPop;
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-					UINT paramSize = bytesToPop;
-					while(paramSize > 0)
-					{
-						paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];;
-						genStackTypes.pop_back();
-					}
-#endif
-					UINT *stackStart = (genStackPtr+bytesToPop/4-1);
-					for(UINT i = 0; i < bytesToPop/4; i++)
-					{
-						__asm mov eax, dword ptr[stackStart]
-						__asm push dword ptr[eax];
-						stackStart--;
-					}
-					genStackPtr += bytesToPop/4;
-
-					void* fPtr = funcInfoPtr->funcPtr;
-					UINT fRes;
-					__asm{
-						mov ecx, fPtr;
-						call ecx;
-						add esp, bytesToPop;
-						mov fRes, eax;
-					}
-					if(funcInfoPtr->retType->size == 4)
-					{
-						genStackPtr--;
-						*genStackPtr = fRes;
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-						if(funcInfoPtr->retType->type == TypeInfo::TYPE_COMPLEX)
-							genStackTypes.push_back((asmStackType)(0x80000000 | funcInfoPtr->retType->size));
-						else
-							genStackTypes.push_back(podTypeToStackType[funcInfoPtr->retType->type]);
-#endif
-					}
+				    done = !RunExternalFunction(funcInfoPtr);
 				}
 				DBG(m_FileStream << pos2 << dec << " CALLS " << funcInfoPtr->name << ";");
 			}
@@ -1296,6 +1254,62 @@ void Executor::Run(const char* funcName) throw()
 	if(funcName && funcPos)
 		*(CmdID*)(&CodeInfo::cmdList->bytecode[funcPos-6]) = cmdJmp;
 }
+
+#ifdef _MSC_VER
+// X86 implementation
+bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
+{
+    if (funcInfo->retType->size > 4)
+    {
+        strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
+        return false;
+    }
+    UINT bytesToPop = funcInfo->bytesToPop;
+#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
+    UINT paramSize = bytesToPop;
+    while(paramSize > 0)
+    {
+        paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];;
+        genStackTypes.pop_back();
+    }
+#endif
+    UINT *stackStart = (genStackPtr+bytesToPop/4-1);
+    for(UINT i = 0; i < bytesToPop/4; i++)
+    {
+        __asm mov eax, dword ptr[stackStart]
+        __asm push dword ptr[eax];
+        stackStart--;
+    }
+    genStackPtr += bytesToPop/4;
+
+    void* fPtr = funcInfo->funcPtr;
+    UINT fRes;
+    __asm{
+        mov ecx, fPtr;
+        call ecx;
+        add esp, bytesToPop;
+        mov fRes, eax;
+    }
+    if(funcInfo->retType->size == 4)
+    {
+        genStackPtr--;
+        *genStackPtr = fRes;
+#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
+        if(funcInfo->retType->type == TypeInfo::TYPE_COMPLEX)
+            genStackTypes.push_back((asmStackType)(0x80000000 | funcInfo->retType->size));
+        else
+            genStackTypes.push_back(podTypeToStackType[funcInfo->retType->type]);
+#endif
+    }
+}
+#elif defined(__CELLOS_LV2__)
+// PS3 implementation
+bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
+{
+    strcpy(execError, "ERROR: user functions are not supported");
+    return false;
+}
+#endif
 
 string Executor::GetResult() throw()
 {

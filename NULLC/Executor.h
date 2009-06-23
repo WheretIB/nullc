@@ -80,6 +80,8 @@ private:
 	OperFlag	retType;
 
 	bool (*m_RunCallback)(UINT);
+	
+	bool RunExternalFunction(const FunctionInfo* funcInfo);
 };
 
 void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, const CmdFlag cFlag, const OperFlag oFlag, UINT dw0=0, UINT dw1=0);
