@@ -1290,7 +1290,7 @@ bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
         add esp, bytesToPop;
         mov fRes, eax;
     }
-    if(funcInfo->retType->size == 4)
+    if(funcInfo->retType->size != 0)
     {
         genStackPtr--;
         *genStackPtr = fRes;
