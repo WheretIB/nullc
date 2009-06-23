@@ -376,13 +376,12 @@ void Executor::Run(const char* funcName) throw()
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
 					UINT currShift = sizeOfVar;
-					while(sizeOfVar >= 4)
+					while(currShift >= 4)
 					{
 						currShift -= 4;
-						*((UINT*)(&genParams[valind+currShift])) = *(genStackPtr+sizeOfVar/4-1);
-						sizeOfVar -= 4;
+						*((UINT*)(&genParams[valind+currShift])) = *(genStackPtr+(currShift>>2));
 					}
-					assert(sizeOfVar == 0);
+					assert(currShift == 0);
 				}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
 				{
 					*((float*)(&genParams[valind])) = float(*(double*)(genStackPtr));
