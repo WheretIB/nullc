@@ -2797,13 +2797,9 @@ bool Compiler::Compile(string str)
 	for(unsigned int n = 0; n < CodeInfo::funcInfo.size(); n++)
 	{
 		FunctionInfo* funcInfoPtr = CodeInfo::funcInfo[n];
-		UINT bytesToPop = 0;
-		for(UINT i = 0; i < funcInfoPtr->params.size(); i++)
-		{
-			UINT paramSize = funcInfoPtr->params[i].varType->size > 4 ? funcInfoPtr->params[i].varType->size : 4;
-			bytesToPop += paramSize;
-		}
-		funcInfoPtr->bytesToPop = bytesToPop;
+		
+		if (funcInfoPtr->funcPtr && !funcInfoPtr->CreateExternalInfo())
+    		throw std::string("External function compilation failed");
 	}
 
 	if(nodeList.size() != 1)
@@ -3376,3 +3372,22 @@ string Compiler::GetLog()
 {
 	return logAST.str();
 }
+
+#if defined(_MSC_VER)
+bool FunctionInfo::CreateExternalInfo()
+{
+	externalInfo.bytesToPop = 0;
+	for(UINT i = 0; i < params.size(); i++)
+	{
+		UINT paramSize = params[i].varType->size > 4 ? params[i].varType->size : 4;
+		externalInfo.bytesToPop += paramSize;
+	}
+	
+	return true;
+}
+#elif defined(__CELLOS_LV2__)
+bool FunctionInfo::CreateExternalInfo()
+{
+    return true;
+}
+#endif

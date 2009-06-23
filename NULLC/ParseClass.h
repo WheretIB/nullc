@@ -148,6 +148,14 @@ basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, VariableInfo var)
 	return str;
 }
 
+struct ExternalFunctionInfo
+{
+#if defined(_MSC_VER)
+    UINT bytesToPop;
+#elif defined(__CELLOS_LV2__)
+#endif
+};
+
 class FunctionInfo
 {
 public:
@@ -160,7 +168,6 @@ public:
 		type = NORMAL;
 		funcType = NULL;
 		allParamSize = 0;
-		bytesToPop = 0;
 	}
 	//shared_ptr<NodeZeroOP>	defNode;	// A node that defines a function
 	int			address;				// Address of the beginning of function inside bytecode
@@ -169,7 +176,6 @@ public:
 	std::string	name;					// Function name
 	std::vector<VariableInfo> params;	// Parameter list
 	UINT		allParamSize;
-	UINT		bytesToPop;
 	UINT		vTopSize;				// For "return" operator, we need to know,
 										// how many variables we need to remove from variable stack
 	TypeInfo*	retType;				// Function return type
@@ -183,6 +189,10 @@ public:
 	std::vector<std::string> external;	// External variable names
 
 	TypeInfo	*funcType;				// Function type
+	
+	ExternalFunctionInfo externalInfo;
+	
+    bool CreateExternalInfo();
 };
 
 class CallStackInfo

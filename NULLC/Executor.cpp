@@ -1264,7 +1264,7 @@ bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
         strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
         return false;
     }
-    UINT bytesToPop = funcInfo->bytesToPop;
+    UINT bytesToPop = funcInfo->externalInfo.bytesToPop;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
     UINT paramSize = bytesToPop;
     while(paramSize > 0)
