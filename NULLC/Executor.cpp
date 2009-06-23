@@ -1304,7 +1304,10 @@ bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
 }
 #elif defined(__CELLOS_LV2__)
 // PS3 implementation
-typedef unsigned int (*SimpleFunctionPtr)(...);
+typedef unsigned int (*SimpleFunctionPtr)(
+    unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned,
+    double, double, double, double, double, double, double, double
+    );
 
 bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
 {
