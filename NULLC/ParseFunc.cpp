@@ -690,7 +690,7 @@ void NodeFuncCall::Compile()
 			// Определим значение параметра
 			(*s)->Compile();
 			// Преобразуем его в тип входного параметра функции
-			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
+			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[paramList.size()-currParam-1]->type]);
 			currParam++;
 		}
 	}else{
