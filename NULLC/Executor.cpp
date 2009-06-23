@@ -1304,37 +1304,16 @@ bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
 }
 #elif defined(__CELLOS_LV2__)
 // PS3 implementation
-static inline unsigned int RunExternalFunctionImpl(void* ptr, const UINT* params, unsigned int paramsCount)
-{
-    unsigned int result;
-    unsigned int lr;
-    
-    __asm__ volatile
-    (
-        "lwz 10, 28(%1)\n"
-        "lwz 9, 24(%1)\n"
-        "lwz 8, 20(%1)\n"
-        "lwz 7, 16(%1)\n"
-        "lwz 6, 12(%1);\n"
-        "lwz 5, 8(%1);\n"
-        "lwz 4, 4(%1);\n"
-        "lwz 3, 0(%1);\n"
-        "mflr %3;\n"
-        "mtctr %2;\n"
-        "bctrl;\n"
-        "mtlr %3;\n"
-        "mr %0, 3;\n"
-        : "=r" (result)
-        : "r" (params), "r" (ptr), "r" (lr)
-        : "3", "4", "5", "6", "7", "8", "9", "10", "ctr", "lr"
-    );
-    
-    return result;
-}
+typedef unsigned int (*SimpleFunctionPtr)(...);
 
 bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
 {
-    unsigned int result = RunExternalFunctionImpl(*(void**)funcInfo->funcPtr, genStackPtr, funcInfo->params.size());
+    // cast function pointer so we can call it
+    SimpleFunctionPtr code = (SimpleFunctionPtr)funcInfo->funcPtr;
+    
+    // call function
+    const UINT* p = genStackPtr;
+    unsigned int result = code(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
     
     if (funcInfo->retType->size != 0)
     {
