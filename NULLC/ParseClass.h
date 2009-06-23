@@ -153,6 +153,8 @@ struct ExternalFunctionInfo
 #if defined(_MSC_VER)
     UINT bytesToPop;
 #elif defined(__CELLOS_LV2__)
+    unsigned int rOffsets[8];
+    unsigned int fOffsets[8];
 #endif
 };
 

@@ -3388,18 +3388,44 @@ bool FunctionInfo::CreateExternalInfo()
 #elif defined(__CELLOS_LV2__)
 bool FunctionInfo::CreateExternalInfo()
 {
-    // only integer params with size <= 4 supported for now
+    unsigned int rCount = 0, fCount = 0;
+    unsigned int rMaxCount = sizeof(externalInfo.rOffsets) / sizeof(externalInfo.rOffsets[0]);
+    unsigned int fMaxCount = sizeof(externalInfo.fOffsets) / sizeof(externalInfo.fOffsets[0]);
+    
+    // parse all parameters, fill offsets
+    unsigned int offset = 0;
+    
 	for (UINT i = 0; i < params.size(); i++)
 	{
 	    const TypeInfo& type = *params[i].varType;
-	    if (type.type != TypeInfo::TYPE_CHAR && type.type != TypeInfo::TYPE_SHORT && type.type != TypeInfo::TYPE_INT)
-	        return false;
+	    
+	    switch (type.type)
+	    {
+	    case TypeInfo::TYPE_CHAR:
+	    case TypeInfo::TYPE_SHORT:
+	    case TypeInfo::TYPE_INT:
+	        if (rCount >= rMaxCount) return false; // too many r parameters
+	        externalInfo.rOffsets[rCount++] = offset;
+	        offset++;
+	        break;
+	    
+	    case TypeInfo::TYPE_FLOAT:
+	    case TypeInfo::TYPE_DOUBLE:
+	        if (fCount >= fMaxCount || rCount >= rMaxCount) return false; // too many f/r parameters
+	        externalInfo.rOffsets[rCount++] = offset;
+	        externalInfo.fOffsets[fCount++] = offset;
+	        offset += 2;
+	        break;
+	        
+	    default:
+	        return false; // unsupported type
+	    }
     }
     
-    // too many params, we only support register-passing ABI
-    if (params.size() > 8)
-        return false;
-       
+    // clear remaining offsets
+    for (unsigned int i = rCount; i < rMaxCount; ++i) externalInfo.rOffsets[i] = 0;
+    for (unsigned int i = fCount; i < fMaxCount; ++i) externalInfo.fOffsets[i] = 0;
+    
     return true;
 }
 #endif
