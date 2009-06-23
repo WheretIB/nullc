@@ -1312,8 +1312,13 @@ bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
     SimpleFunctionPtr code = (SimpleFunctionPtr)funcInfo->funcPtr;
     
     // call function
-    const UINT* p = genStackPtr;
-    unsigned int result = code(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+    #define R(i) *(const unsigned int*)(const void*)(genStackPtr + funcInfo->externalInfo.rOffsets[i])
+    #define F(i) *(const double*)(const void*)(genStackPtr + funcInfo->externalInfo.fOffsets[i])
+    
+    unsigned int result = code(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+    
+    #undef F
+    #undef R
     
     if (funcInfo->retType->size != 0)
     {
