@@ -311,6 +311,14 @@
 				RelativePath=".\StdLib_X86.h"
 				>
 			</File>
+			<File
+				RelativePath=".\Translator_X86.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Translator_X86.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Parser"
