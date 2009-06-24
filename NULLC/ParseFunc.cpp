@@ -691,6 +691,8 @@ void NodeFuncCall::Compile()
 			(*s)->Compile();
 			// Преобразуем его в тип входного параметра функции
 			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[paramList.size()-currParam-1]->type]);
+			if(funcType->paramType[paramList.size()-currParam-1] == typeFloat)
+				cmdList->AddData(cmdDTOF);
 			currParam++;
 		}
 	}else{
@@ -823,6 +825,8 @@ UINT NodeFuncCall::GetSize()
 	{
 		size += (*s)->GetSize();
 		size += ConvertFirstToSecondSize(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
+		if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && funcType->paramType[paramList.size()-currParam-1] == typeFloat)
+			size += sizeof(CmdID);
 		currParam++;
 	}
 	
