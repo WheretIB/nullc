@@ -117,6 +117,7 @@ void Executor::Run(const char* funcName) throw()
 			genStackBase = new UINT[oldSize+128];
 			genStackTop = genStackBase + oldSize + 128;
 			memcpy(genStackBase+128, oldStack, oldSize);
+			delete[] oldStack;
 
 			genStackPtr = genStackTop - oldSize;
 		}
