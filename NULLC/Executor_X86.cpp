@@ -3,6 +3,7 @@
 
 #include "Executor_X86.h"
 #include "StdLib_X86.h"
+#include "Translator_X86.h"
 #include "Optimizer_x86.h"
 
 #define WIN32_LEAN_AND_MEAN
