@@ -17,30 +17,35 @@ public:
 	}
 	~FastVector(){ delete[] data; }
 
-	__inline void		push_back(const T& val){ data[m_size++] = val; if(m_size==max) grow(); };
-	__inline void		push_back(const T* valptr, UINT count)
+	__forceinline void		push_back(const T& val){ data[m_size++] = val; if(m_size==max) grow(m_size); };
+	__forceinline void		push_back(const T* valptr, UINT count)
 	{
-		while(m_size+count>=max) grow();
+		if(m_size+count>=max) grow(m_size+count);
 		for(UINT i = 0; i < count; i++) data[m_size++] = valptr[i];
 	};
-	__inline T&			back(){ return data[m_size-1]; }
-	__inline UINT		size(){ return m_size; }
-	__inline void		pop_back(){ m_size--; }
-	__inline void		clear(){ m_size = 0; }
-	__inline T&			operator[](UINT index){ return data[index]; }
-	__inline void		resize(UINT newsize){ m_size = newsize; while(m_size>=max) grow(); }
-	__inline void		shrink(UINT newSize){ m_size = newSize; }
-	__inline void		reserve(UINT ressize){ while(ressize >= max) grow(); }
+	__forceinline T&		back(){ return data[m_size-1]; }
+	__forceinline UINT		size(){ return m_size; }
+	__forceinline void		pop_back(){ m_size--; }
+	__forceinline void		clear(){ m_size = 0; }
+	__forceinline T&		operator[](UINT index){ return data[index]; }
+	__forceinline void		resize(UINT newsize){ m_size = newsize; if(m_size>=max) grow(m_size); }
+	__forceinline void		shrink(UINT newSize){ m_size = newSize; }
+	__forceinline void		reserve(UINT ressize){ if(ressize >= max) grow(ressize); }
 private:
-	__inline void	grow()
+	__inline void	grow(unsigned int newSize)
 	{
-		T* ndata = new T[max+(max>>1)];
+		if(max+(max>>1) > newSize)
+			newSize = max+(max>>1);
+		else
+			newSize += 32;
+		//assert(max+(max>>1) >= newSize);
+		T* ndata = new T[newSize];
 		if(zeroNewMemory)
-			memset(ndata, 0, max+(max>>1));
+			memset(ndata, 0, newSize);
 		memcpy(ndata, data, max*sizeof(T));
 		delete[] data;
 		data=ndata;
-		max=max+(max>>1);
+		max=newSize;
 	}
 	T	*data;
 	UINT	max, m_size;
