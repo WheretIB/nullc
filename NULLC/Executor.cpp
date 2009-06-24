@@ -135,9 +135,14 @@ void Executor::Run(const char* funcName) throw()
 
 		switch(cmd)
 		{
+		case cmdDTOF:
+			*((float*)(genStackPtr+1)) = float(*(double*)(genStackPtr));
+			genStackPtr++;
+			break;
 		case cmdFEnter:
 			paramTop.push_back(genParams.size());
 			genParams.resize(genParams.size()+4);
+			cmdStream += 4;
 			break;
 		case cmdMovRTaP:
 			{
@@ -1259,7 +1264,7 @@ void Executor::Run(const char* funcName) throw()
 // X86 implementation
 bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
 {
-    if (funcInfo->retType->size > 4)
+	if(funcInfo->retType->size > 4 && funcInfo->retType->type != TypeInfo::TYPE_DOUBLE)
     {
         strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
         return false;

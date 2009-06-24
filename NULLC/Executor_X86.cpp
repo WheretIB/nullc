@@ -451,6 +451,12 @@ void ExecutorX86::GenListing()
 
 		switch(cmd)
 		{
+		case cmdDTOF:
+			logASM << "  ; DTOF \r\n";
+			logASM << "fld qword [esp] \r\n";
+			logASM << "fstp dword [esp+4] \r\n";
+			logASM << "add esp, 4 \r\n";
+			break;
 		case cmdCallStd:
 			logASM << "  ; CALLSTD ";
 			cmdList->GetData(pos, funcInfo);
@@ -513,16 +519,11 @@ void ExecutorX86::GenListing()
 					logASM << "fsqrt \r\n";
 					logASM << "fstp qword [esp] \r\n";
 					logASM << "fstp st \r\n";
-				}/*else if(funcInfo->name == "clock"){
-					logASM << "clock \r\n";
-					logASM << "mov ecx, 0x" << GetTickCount << " ; GetTickCount() \r\n";
-					logASM << "call ecx \r\n";
-					logASM << "push eax \r\n";
-				}*/else{
+				}else{
 					throw std::string("ERROR: there is no such function: ") + funcInfo->name;
 				}
 			}else{
-				if(funcInfo->retType->size > 4)
+				if(funcInfo->retType->size > 4 && funcInfo->retType->type != TypeInfo::TYPE_DOUBLE)
 					throw std::string("ERROR: user functions with return type size larger than 4 bytes are not supported");
 				UINT bytesToPop = 0;
 				for(UINT i = 0; i < funcInfo->params.size(); i++)
@@ -533,7 +534,7 @@ void ExecutorX86::GenListing()
 				logASM << "mov ecx, 0x" << funcInfo->funcPtr << " ; " << funcInfo->name << "() \r\n";
 				logASM << "call ecx \r\n";
 				logASM << "add esp, " << bytesToPop << " \r\n";
-				if(funcInfo->retType->size == 4)
+				if(funcInfo->retType->size != 0)
 					logASM << "push eax \r\n";
 			}
 			break;

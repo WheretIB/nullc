@@ -2830,6 +2830,9 @@ void Compiler::GenListing()
 		pos += 2;
 		switch(cmd)
 		{
+		case cmdDTOF:
+			logASM << dec << showbase << pos2 << " DTOF;";
+			break;
 		case cmdCallStd:
 			cmdList->GetData(pos, funcInfo);
 			pos += sizeof(FunctionInfo*);
