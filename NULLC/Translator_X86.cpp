@@ -13,16 +13,15 @@ char	condCode[] = { 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 10, 11, 
 
 // spareField can be found in nasmdoc as /0-7 or /r codes in instruction bytecode
 // encode register as address
-unsigned int	encodeRegister(unsigned char* stream, x86Reg reg, char spareField)
+unsigned char	encodeRegister(x86Reg reg, char spareField)
 {
 	unsigned char mod = 3 << 6;
 	unsigned char spare = spareField << 3;
 	unsigned char RM = regCode[reg];
-	*stream = mod | spare | RM;
-	return 1;
+	return mod | spare | RM;
 }
 
-// encode [base], [base+displacement] or [index*multiplier+base+displacement]
+// encode [base], [base+displacement], [index*multiplier+displacement] and [index*multiplier+base+displacement]
 unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, unsigned int displacement, char spareField)
 {
 	assert(index != rESP);
@@ -62,6 +61,8 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	unsigned char sibIndex = (index != rNONE ? regCode[index] << 3 : regCode[rESP] << 3);
 	unsigned char sibBase = regCode[base];
 
+	if(index != rNONE && base == rNONE)
+		sibBase = regCode[rEBP];
 	if(index != rNONE || base == rESP)
 		*stream++ = sibScale | sibIndex | sibBase;
 	
@@ -368,12 +369,25 @@ int x86NEG(unsigned char *stream, x86Size, x86Reg reg, int shift)
 // add dst, num
 int x86ADD(unsigned char *stream, x86Reg dst, int num)
 {
-	return 0;
+	if((char)(num) == num)
+	{
+		stream[0] = 0x83;
+		stream[1] = encodeRegister(dst, 0);
+		stream[2] = (char)(num);
+		return 3;
+	}
+	// else
+	stream[0] = 0x81;
+	stream[1] = encodeRegister(dst, 0);
+	*(int*)(stream+2) = num;
+	return 6;
 }
 // add dword [reg+shift], op2
 int x86ADD(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
 {
-	return 0;
+	stream[0] = 0x01;
+	unsigned int size = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	return 1 + size;
 }
 
 // adc dst, num
@@ -584,14 +598,13 @@ int x86Jcc(unsigned char *stream, const char* label, x86Cond cond, bool isNear)
 	}else{
 		if(isNear)
 		{
-			assert(info.pos-stream + 32768 < 65536);
-			*(short int*)(stream+2) = (short int)(info.pos-stream);
+			*(int*)(stream+2) = (int)(info.pos-stream);
 		}else{
 			assert(info.pos-stream + 128 < 256);
 			stream[1] = (char)(info.pos-stream);
 		}
 	}
-	return (isNear ? 4 : 2);
+	return (isNear ? 6 : 2);
 }
 
 int x86JMP(unsigned char *stream, const char* label, bool isNear)
@@ -631,12 +644,9 @@ void x86AddLabel(unsigned char *stream, const char* label)
 			if(uJmp.isNear)
 			{
 				if(*uJmp.jmpPos == 0x0f)
-				{
-					assert(uJmp.jmpPos-stream + 32768 < 65536);
-					*(short int*)(uJmp.jmpPos+2) = (short int)(stream-uJmp.jmpPos);
-				}else{
+					*(int*)(uJmp.jmpPos+2) = (int)(stream-uJmp.jmpPos);
+				else
 					*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos);
-				}
 			}else{
 				assert(uJmp.jmpPos-stream + 128 < 256);
 				*(char*)(uJmp.jmpPos+1) = (char)(stream-uJmp.jmpPos);
