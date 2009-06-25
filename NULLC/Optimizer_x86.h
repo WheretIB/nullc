@@ -96,10 +96,18 @@ enum Command_Hash
 struct Argument
 {
 	// Argument type
-	enum Type{ none, number, eax, ebx, ecx, edx, edi, esi, reg, ptr, label };
+	enum Type{ none, number, eax, ebx, ecx, edx, edi, esi, esp, ebp, reg, ptr, label };
+
+	// For pointer arguments
+	enum Size{ snone, byte, word, dword, qword, };
 
 	char	begin, size;
 	Type	type;
+	int		num;
+
+	Size	ptrSize;
+	Type	ptrReg[2];
+	int		ptrNum;
 };
 
 class Command
