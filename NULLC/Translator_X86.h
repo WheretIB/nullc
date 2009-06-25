@@ -3,7 +3,7 @@
 enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI, };
 enum x87Reg{ rST0, rST1, rST2, rST3, rST4, rST5, rST6, rST7, };
 enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD, };
-enum x86Cond{ condO, condNO, condB, condC, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
+enum x86Cond{ condO, condNO, condB, condC, condNAE, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
 				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
 				condL, condNGE, condGE, condNL, condLE, condNG, condG, condNLE };
 
@@ -199,8 +199,8 @@ int x86XCHG(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
 
 int x86CDQ(unsigned char *stream);
 
-// setcc cl
-int x86SETcc(unsigned char *stream, x86Cond cond);
+// setcc *l
+int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg);
 
 int x86CALL(unsigned char *stream, x86Reg address);
 int x86CALL(unsigned char *stream, const char* label);

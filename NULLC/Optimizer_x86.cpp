@@ -20,8 +20,8 @@ struct Argument_def
 };
 
 // Check if type is a general register (eax, ebx, ecx, edx)
-static bool isGenReg[] = { false, false, true, true, true, true, true, true, true, true, false, false, false, false, false, false, false };
-static char* argTypeToStr[] = { NULL, NULL, "eax", "ebx", "ecx", "edx", "edi", "esi", "esp", "ebp", "ax", "al", "bx", "bl", NULL, NULL, NULL };
+static bool isGenReg[] = { false, false, true, true, true, true, true, true, true, true, false, false, false, false, false, false, false, false, false };
+static char* argTypeToStr[] = { NULL, NULL, "eax", "ebx", "ecx", "edx", "edi", "esi", "esp", "ebp", "ax", "al", "bx", "bl", "cx", "cl", NULL, NULL, NULL };
 static Argument_def Argument_Table[] = {
 		"eax", Argument::eax, 3,
 		"ebx", Argument::ebx, 3,
@@ -35,6 +35,8 @@ static Argument_def Argument_Table[] = {
 		"al", Argument::al, 2,
 		"bx", Argument::bx, 2,
 		"bl", Argument::bl, 2,
+		"cx", Argument::cx, 2,
+		"cl", Argument::cl, 2,
 };
 
 std::vector<Command> Commands;
@@ -132,6 +134,23 @@ Command_def Commands_table[] = {
 
 const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
 
+long long parseLL(const char* str)
+{
+	int len = 0;
+	int sign = 0;
+	if(*str == '-')
+	{
+		sign = 1;
+		str++;
+	}
+	while(isdigit(str[len++]));
+	int len2 = len -= 1;
+	long long res = 0;
+	while(len)
+		res = res * 10L + (long long)(str[len2-len--] - '0');
+	return (sign ? -1 : 1) * res;
+}
+
 // Функция определяет параметры аргумента по строке
 void ClassifyArgument(Argument& arg, const char* str)
 {
@@ -145,9 +164,12 @@ void ClassifyArgument(Argument& arg, const char* str)
 		arg.type = Argument::none;
 		arg.size = 0;
 		flag = true;
-	}else if(*str >= '0' && *str <= '9'){
+	}else if(*str == '-' || (*str >= '0' && *str <= '9')){
 		arg.type = Argument::number;
-		arg.num = atoi(str);
+		if(str[1] == 'x')
+			sscanf(str, "%x", &arg.num);
+		else
+			arg.num = parseLL(str);
 		arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
 		flag = true;
 	}else if(*str == '[' || memcmp(str, "byte", 4) == 0 || memcmp(str, "word", 4) == 0 || memcmp(str, "dword", 5) == 0 || memcmp(str, "qword", 5) == 0){
@@ -172,12 +194,12 @@ void ClassifyArgument(Argument& arg, const char* str)
 		arg.ptrMult = 1;
 		for(int n = 0; n < 3 && ptrArgs; n++)
 		{
-			if(*ptrArgs >= '0' && *ptrArgs <= '9')
+			if(*ptrArgs == '-' || (*ptrArgs >= '0' && *ptrArgs <= '9'))
 			{
 				arg.ptrNum = atoi(ptrArgs);
 			}else{
 				assert(n < 2);
-				for(int i = 0; i < 12; i++)
+				for(int i = 0; i < 14; i++)
 				{
 					if(memcmp(ptrArgs, Argument_Table[i].Name, Argument_Table[i].Size) == 0)
 					{
@@ -191,7 +213,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 
 			ptrArgs = strchr(ptrArgs, '+');
 			if(ptrArgs)
-				while(!isalnum(*ptrArgs))
+				while(!isalnum(*ptrArgs) && *ptrArgs != '-')
 					ptrArgs++;
 			if(ptrArgs > strchr(str, ']'))
 				ptrArgs = NULL;
@@ -213,7 +235,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 	}else if(str[0] == 's' && str[1] == 't'){
 		arg.fpArg = isdigit(str[2]) ? str[2]-'0' : 0;
 	}else{
-		for(int i = 0; i < 12; i++)
+		for(int i = 0; i < 14; i++)
 		{
 			if(memcmp(str, Argument_Table[i].Name, Argument_Table[i].Size) == 0)
 			{
