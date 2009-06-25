@@ -166,10 +166,10 @@ void ClassifyArgument(Argument& arg, const char* str)
 		flag = true;
 	}else if(*str == '-' || (*str >= '0' && *str <= '9')){
 		arg.type = Argument::number;
-		if(str[1] == 'x')
+		if(str[1] == 'x' || strchr(str, 'h') != NULL)
 			sscanf(str, "%x", &arg.num);
 		else
-			arg.num = parseLL(str);
+			arg.num = (int)parseLL(str);
 		arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
 		flag = true;
 	}else if(*str == '[' || memcmp(str, "byte", 4) == 0 || memcmp(str, "word", 4) == 0 || memcmp(str, "dword", 5) == 0 || memcmp(str, "qword", 5) == 0){
@@ -251,7 +251,10 @@ void ClassifyArgument(Argument& arg, const char* str)
 		if(strchr(str, ',') == NULL && strlen(str) > 4)
 		{
 			arg.type = Argument::label;
-			arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
+			const char *strTmp = str;
+			while(isalnum(*strTmp))
+				strTmp++;
+			arg.size = (char)(strTmp-str);//(strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
 		}else{
 			arg.type = Argument::reg;
 			arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
@@ -269,7 +272,7 @@ void ClassifyInstruction(Command& cmd, const char *strRep)
 	// Compare it to all known commands
 	for(int b = 0; b < Commands_table_size; b++)
 	{
-		if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0 && !isalpha(*(temp+Commands_table[b].Size - 1)))
+		if(strncmp(Commands_table[b].Name, temp, Commands_table[b].Size - 1) == 0 && !isalnum(*(temp+Commands_table[b].Size - 1)))
 		{
 			cmd.Name = (Command_Hash)Commands_table[b].Hash;
 			break;
@@ -311,7 +314,7 @@ std::vector<Command>* Optimizer_x86::HashListing(const char* pListing, int strSi
 	for(UINT i = 0; i < originalSize; i++)
 	{
 		// Skip everything before command name or comment
-		while(!((pListing[i] >= 'a' && pListing[i] <= 'z') || pListing[i] == ';'))
+		while(!((pListing[i] >= 'a' && pListing[i] <= 'z') || (pListing[i] >= 'A' && pListing[i] <= 'Z') || pListing[i] == ';'))
 			i++;
 		// Skip comment text
 		if(pListing[i] == ';')
