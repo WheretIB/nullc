@@ -20,8 +20,8 @@ struct Argument_def
 };
 
 // Check if type is a general register (eax, ebx, ecx, edx)
-static bool isGenReg[] = { false, false, true, true, true, true, true, true, false, false, false };
-static char* argTypeToStr[] = { NULL, NULL, "eax", "ebx", "ecx", "edx", "edi", "esi", NULL, NULL, NULL };
+static bool isGenReg[] = { false, false, true, true, true, true, true, true, true, true, false, false, false };
+static char* argTypeToStr[] = { NULL, NULL, "eax", "ebx", "ecx", "edx", "edi", "esi", "esp", "ebp", NULL, NULL, NULL };
 static Argument_def Argument_Table[] = {
 		"eax", Argument::eax, 3,
 		"ebx", Argument::ebx, 3,
@@ -29,6 +29,8 @@ static Argument_def Argument_Table[] = {
 		"edx", Argument::edx, 3,
 		"edi", Argument::edi, 3,
 		"esi", Argument::esi, 3,
+		"esp", Argument::esp, 3,
+		"ebp", Argument::ebp, 3,
 };
 
 std::vector<Command> Commands;
@@ -131,6 +133,8 @@ const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
 void ClassifyArgument(Argument& arg, const char* str)
 {
 	bool flag = false;
+	arg.num = 0;
+	arg.ptrSize = Argument::snone;
 
 	if(str == NULL || *str == 0)
 	{
@@ -139,10 +143,52 @@ void ClassifyArgument(Argument& arg, const char* str)
 		flag = true;
 	}else if(*str >= '0' && *str <= '9'){
 		arg.type = Argument::number;
+		arg.num = atoi(str);
 		arg.size = (strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
 		flag = true;
 	}else if(*str == '[' || memcmp(str, "byte", 4) == 0 || memcmp(str, "word", 4) == 0 || memcmp(str, "dword", 5) == 0 || memcmp(str, "qword", 5) == 0){
 		arg.type = Argument::ptr;
+		if(*str == '[')
+			arg.ptrSize = Argument::dword;
+		else if(memcmp(str, "byte", 4) == 0)
+			arg.ptrSize = Argument::byte;
+		else if(memcmp(str, "word", 4) == 0)
+			arg.ptrSize = Argument::word;
+		else if(memcmp(str, "dword", 4) == 0)
+			arg.ptrSize = Argument::dword;
+		else if(memcmp(str, "qword", 4) == 0)
+			arg.ptrSize = Argument::qword;
+
+		const char* ptrArgs = strchr(str, '[');
+		assert(ptrArgs != NULL);
+		ptrArgs++;
+		arg.ptrReg[0] = Argument::none;
+		arg.ptrReg[1] = Argument::none;
+		arg.ptrNum = 0;
+		for(int n = 0; n < 3 && ptrArgs; n++)
+		{
+			if(*ptrArgs >= '0' && *ptrArgs <= '9')
+			{
+				arg.ptrNum = atoi(ptrArgs);
+			}else{
+				assert(n < 2);
+				for(int i = 0; i < 8; i++)
+				{
+					if(memcmp(ptrArgs, Argument_Table[i].Name, Argument_Table[i].Size) == 0)
+					{
+						arg.ptrReg[n] = Argument_Table[i].Hash;
+						break;
+					}
+				}
+			}
+			ptrArgs = strchr(ptrArgs, '+');
+			if(ptrArgs)
+				while(!isalnum(*ptrArgs))
+					ptrArgs++;
+			if(ptrArgs > strchr(str, ']'))
+				ptrArgs = NULL;
+		}
+		
 		if(strchr(str, ']') != 0)
 		{
 			arg.size = char(strchr(str, ']') + 1 - str);
@@ -157,7 +203,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 		}
 		flag = true;
 	}else{
-		for(int i = 0; i < 6; i++)
+		for(int i = 0; i < 8; i++)
 		{
 			if(memcmp(str, Argument_Table[i].Name, Argument_Table[i].Size) == 0)
 			{
@@ -166,7 +212,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 				flag = true;
 				break;
 			}
-		}	
+		}
 	}
 	if(flag == false)
 	{
