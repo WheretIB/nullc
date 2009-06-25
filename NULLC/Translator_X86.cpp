@@ -1,5 +1,6 @@
 #include "Translator_X86.h"
 #include <vector>
+#include <assert.h>
 
 // Mapping from x86Reg to register code
 char	regCode[] = { -1, 0, 3, 1, 2, 4, 7, 5, 6 };
@@ -12,6 +13,7 @@ char	condCode[] = { 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 10, 11, 
 
 struct LabelInfo
 {
+	LabelInfo():pos(NULL){}
 	LabelInfo(const char *newLabel, const unsigned char *newPos)
 	{
 		strncpy(label, newLabel, 16);
@@ -23,11 +25,41 @@ struct LabelInfo
 	const unsigned char *pos;
 };
 
+struct UnsatisfiedJump
+{
+	UnsatisfiedJump(const char *newLabel, bool newIsNear, unsigned char *newJmpPos)
+	{
+		strncpy(label, newLabel, 16);
+		label[15] = 0;
+		isNear = newIsNear;
+		jmpPos = newJmpPos;
+	}
+
+	char label[16];
+	bool isNear;
+	unsigned char *jmpPos;
+};
+
 std::vector<LabelInfo>	labels;
+std::vector<UnsatisfiedJump> pendingJumps;
+
+bool FindLabel(const char *name, LabelInfo& info)
+{
+	for(unsigned int i = 0; i < labels.size(); i++)
+	{
+		if(strcmp(labels[i].label, name) == 0)
+		{
+			info = labels[i];
+			return true;
+		}
+	}
+	return false;
+}
 
 void x86ClearLabels()
 {
 	labels.clear();
+	pendingJumps.clear();
 }
 
 int x86FLDZ(unsigned char* stream)
@@ -473,15 +505,82 @@ int x86NOP(unsigned char *stream)
 
 int x86Jcc(unsigned char *stream, const char* label, x86Cond cond, bool isNear)
 {
-	return 0;
+	LabelInfo info;
+	if(isNear)
+		label += 5;
+
+	if(isNear)
+	{
+		stream[0] = 0x0f;
+		stream[1] = 0x80 + condCode[cond];
+	}else{
+		stream[0] = 0x70 + condCode[cond];
+	}
+
+	if(!FindLabel(label, info))
+	{
+		pendingJumps.push_back(UnsatisfiedJump(label, isNear, stream));
+	}else{
+		if(isNear)
+		{
+			assert(info.pos-stream + 32768 < 65536);
+			*(short int*)(stream+2) = (short int)(info.pos-stream);
+		}else{
+			assert(info.pos-stream + 128 < 256);
+			stream[1] = (char)(info.pos-stream);
+		}
+	}
+	return (isNear ? 4 : 2);
 }
 
 int x86JMP(unsigned char *stream, const char* label, bool isNear)
 {
-	return 0;
+	LabelInfo info;
+	if(isNear)
+		label += 5;
+
+	if(isNear)
+		stream[0] = 0xE9;
+	else
+		stream[0] = 0xEB;
+
+	if(!FindLabel(label, info))
+	{
+		pendingJumps.push_back(UnsatisfiedJump(label, isNear, stream));
+	}else{
+		if(isNear)
+		{
+			*(int*)(stream+1) = (int)(info.pos-stream);
+		}else{
+			assert(info.pos-stream + 128 < 256);
+			stream[1] = (char)(info.pos-stream);
+		}
+	}
+	return (isNear ? 5 : 2);
 }
 
 void x86AddLabel(unsigned char *stream, const char* label)
 {
 	labels.push_back(LabelInfo(label, stream));
+	for(unsigned int i = 0; i < pendingJumps.size(); i++)
+	{
+		UnsatisfiedJump& uJmp = pendingJumps[i];
+		if(strcmp(uJmp.label, label) == 0)
+		{
+			if(uJmp.isNear)
+			{
+				if(*uJmp.jmpPos == 0x0f)
+				{
+					assert(uJmp.jmpPos-stream + 32768 < 65536);
+					*(short int*)(uJmp.jmpPos+2) = (short int)(stream-uJmp.jmpPos);
+				}else{
+					*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos);
+				}
+			}else{
+				assert(uJmp.jmpPos-stream + 128 < 256);
+				*(char*)(uJmp.jmpPos+1) = (char)(stream-uJmp.jmpPos);
+			}
+			uJmp.label[0] = 0;
+		}
+	}
 }
