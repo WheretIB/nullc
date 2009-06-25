@@ -11,8 +11,18 @@ enum	segCode{ segES, segCS, segSS, segDS, segFS, segGS };
 // Mapping from x86Cond to x86 conditions
 char	condCode[] = { 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15 };
 
-// [index*multiplier+base+displacement]
 // spareField can be found in nasmdoc as /0-7 or /r codes in instruction bytecode
+// encode register as address
+unsigned int	encodeRegister(unsigned char* stream, x86Reg reg, char spareField)
+{
+	unsigned char mod = 3 << 6;
+	unsigned char spare = spareField << 3;
+	unsigned char RM = regCode[reg];
+	*stream = mod | spare | RM;
+	return 1;
+}
+
+// encode [base], [base+displacement] or [index*multiplier+base+displacement]
 unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, unsigned int displacement, char spareField)
 {
 	assert(index != rESP);
@@ -32,7 +42,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 
 	unsigned char RM = regCode[rEBP]; // by default, it's simply [displacement]
 	if(base != rNONE)
-		RM = regCode[base];
+		RM = regCode[base];	// this is [base + displacement]
 	if(index != rNONE)
 		RM = regCode[rESP];	// this changes mode to [index*multiplier + base + displacement]
 
@@ -49,7 +59,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 		sibScale = 3 << 6;
 	else
 		assert(!"scale must be 1, 2, 4 or 8");
-	unsigned char sibIndex = regCode[index] << 3;
+	unsigned char sibIndex = (index != rNONE ? regCode[index] << 3 : regCode[rESP] << 3);
 	unsigned char sibBase = regCode[base];
 
 	if(index != rNONE || base == rESP)
