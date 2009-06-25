@@ -24,8 +24,8 @@ int x86FLD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
 // fld *word [regA+regB+shift]
 int x86FLD(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift);
 
-// fild dword [reg]
-int x86FILD(unsigned char *stream, x86Size, x86Reg reg);
+// fild *word [reg]
+int x86FILD(unsigned char *stream, x86Size size, x86Reg reg);
 
 // fst *word [reg+shift]
 int x86FST(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
@@ -51,9 +51,9 @@ int x86FADDP(unsigned char *stream);
 int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg);
 // fsubr *word [reg]
 int x86FSUBR(unsigned char *stream, x86Size size, x86Reg reg);
-// fsubp *word [reg]
+// fsubp
 int x86FSUBP(unsigned char *stream);
-// fsubrp *word [reg]
+// fsubrp
 int x86FSUBRP(unsigned char *stream);
 
 // fmul *word [reg]
@@ -196,6 +196,8 @@ int x86TESTah(unsigned char* stream, char num);
 
 // xchg dword [reg], op2
 int x86XCHG(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
+// xchg regA, regB
+int x86XCHG(unsigned char *stream, x86Reg regA, x86Reg regB);
 
 int x86CDQ(unsigned char *stream);
 
