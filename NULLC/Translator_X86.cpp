@@ -11,6 +11,57 @@ enum	segCode{ segES, segCS, segSS, segDS, segFS, segGS };
 // Mapping from x86Cond to x86 conditions
 char	condCode[] = { 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15 };
 
+// [index*multiplier+base+displacement]
+// spareField can be found in nasmdoc as /0-7 or /r codes in instruction bytecode
+unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, unsigned int displacement, char spareField)
+{
+	assert(index != rESP);
+	unsigned char* start = stream;
+
+	unsigned char mod = 0;
+	if(displacement < 256)
+		mod = 1 << 6;
+	else
+		mod = 2 << 6;
+
+	// special case: [ebp] should be encoded as [ebp+0]
+	if(displacement == 0 && base == rEBP)
+		mod = 1 << 6;
+
+	unsigned char spare = spareField << 3;
+
+	unsigned char RM = regCode[rEBP]; // by default, it's simply [displacement]
+	if(base != rNONE)
+		RM = regCode[base];
+	if(index != rNONE)
+		RM = regCode[rESP];	// this changes mode to [index*multiplier + base + displacement]
+
+	*stream++ = mod | spare | RM;
+
+	unsigned char sibScale = 0;
+	if(multiplier == 1)
+		sibScale = 0 << 6;
+	else if(multiplier == 2)
+		sibScale = 1 << 6;
+	else if(multiplier == 4)
+		sibScale = 2 << 6;
+	else if(multiplier == 8)
+		sibScale = 3 << 6;
+	else
+		assert(!"scale must be 1, 2, 4 or 8");
+	unsigned char sibIndex = regCode[index] << 3;
+	unsigned char sibBase = regCode[base];
+
+	if(index != rNONE || base == rESP)
+		*stream++ = sibScale | sibIndex | sibBase;
+	
+	if(displacement < 256)
+		*stream = (unsigned char)displacement;
+	else
+		*(int*)stream = displacement;
+	return (int)(stream - start) + (mod == 0 ? 0 : (displacement < 256 ? 1 : 4));
+}
+
 struct LabelInfo
 {
 	LabelInfo():pos(NULL){}
