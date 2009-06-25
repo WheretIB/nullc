@@ -28,10 +28,13 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	unsigned char* start = stream;
 
 	unsigned char mod = 0;
-	if(displacement < 256)
-		mod = 1 << 6;
-	else
-		mod = 2 << 6;
+	if(displacement)
+	{
+		if(displacement < 256)
+			mod = 1 << 6;
+		else
+			mod = 2 << 6;
+	}
 
 	// special case: [ebp] should be encoded as [ebp+0]
 	if(displacement == 0 && base == rEBP)
@@ -297,49 +300,123 @@ int x86FLDCW(unsigned char *stream, int shift)
 	return 0;
 }
 
-// push *word [regA+regB+shift]
+// push dword [regA+regB+shift]
 int x86PUSH(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift)
 {
-	return 0;
+	assert(size == sDWORD);
+	if(regB == rNONE && regA != rNONE)	// swap so if there is only one register, it will be base
+	{
+		regB = regA;
+		regA = rNONE;
+	}
+	stream[0] = 0xff;
+	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 6);
+	return 1+asize;
 }
 int x86PUSH(unsigned char *stream, x86Reg reg)
 {
-	return 0;
+	stream[0] = 0x50 + regCode[reg];
+	return 1;
 }
 int x86PUSH(unsigned char *stream, int num)
 {
-	return 0;
+	if((char)(num) == num)
+	{
+		stream[0] = 0x6a;
+		stream[1] = (char)(num);
+		return 2;
+	}
+	stream[0] = 0x68;
+	*(int*)(stream+1) = num;
+	return 5;
 }
 
+// pop dword [regA+regB+shift]
+int x86POP(unsigned char *stream, x86Size, x86Reg regA, x86Reg regB, int shift)
+{
+	if(regB == rNONE && regA != rNONE)	// swap so if there is only one register, it will be base
+	{
+		regB = regA;
+		regA = rNONE;
+	}
+	stream[0] = 0x8f;
+	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 0);
+	return 1+asize;
+}
+// pop reg
 int x86POP(unsigned char *stream, x86Reg reg)
 {
-	return 0;
+	stream[0] = 0x58 + regCode[reg];
+	return 1;
 }
 
 int x86MOV(unsigned char *stream, x86Reg dst, int src)
 {
-	return 0;
+	stream[0] = 0xb8 + regCode[dst];
+	*(int*)(stream+1) = src;
+	return 5;
 }
 int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src)
 {
-	return 0;
+	stream[0] = 0x8b;
+	stream[1] = encodeRegister(src, regCode[dst]);
+	return 2;
 }
 // mov dst, dword [src+shift]
-int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src, x86Size, int shift)
+int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src, x86Size size, int shift)
 {
-	return 0;
+	assert(size == sDWORD);
+	stream[0] = 0x8b;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, src, shift, regCode[dst]);
+	return 1 + asize;
 }
 
 // mov *word [regA+shift], num
 int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, int shift, int num)
 {
-	return 0;
+	if(size == sBYTE)
+	{
+		assert((char)(num) == num);
+		stream[0] = 0xc6;
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, regA, shift, 0);
+		stream[1+asize] = (char)(num);
+		return 2+asize;
+	}else if(size == sWORD){
+		assert((short int)(num) == num);
+		stream[0] = 0x66;	// switch to word
+		stream[1] = 0xc7;
+		unsigned int asize = encodeAddress(stream+2, rNONE, 1, regA, shift, 0);
+		*(short int*)(stream+2+asize) = (short int)(num);
+		return 4+asize;
+	}
+	stream[0] = 0xc7;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, regA, shift, 0);
+	*(int*)(stream+2+asize) = (int)(num);
+	return 5+asize;
 }
 
 // mov *word [regA+regB+shift], src
 int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift, x86Reg src)
 {
-	return 0;
+	if(regB == rNONE && regA != rNONE)	// swap so if there is only one register, it will be base
+	{
+		regB = regA;
+		regA = rNONE;
+	}
+	if(size == sBYTE)
+	{
+		stream[0] = 0x88;
+		unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, regCode[src]);
+		return 1+asize;
+	}else if(size == sWORD){
+		stream[0] = 0x66;	// switch to word
+		stream[1] = 0x89;
+		unsigned int asize = encodeAddress(stream+2, regA, 1, regB, shift, regCode[src]);
+		return 2+asize;
+	}
+	stream[0] = 0x89;
+	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, regCode[src]);
+	return 1+asize;
 }
 
 // movsx dst, *word [regA+regB+shift]
@@ -493,7 +570,9 @@ int x86OR(unsigned char *stream, x86Reg op1, x86Size, x86Reg reg, int shift)
 // xor op1, op2
 int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
-	return 0;
+	stream[0] = 0x31;
+	stream[1] = encodeRegister(op2, regCode[op1]);
+	return 2;
 }
 // xor dword [reg+shift], op2
 int x86XOR(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
@@ -512,9 +591,12 @@ int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2)
 	return 0;
 }
 // cmp dword [reg], op2
-int x86CMP(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
+int x86CMP(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
 {
-	return 0;
+	assert(size == sDWORD);
+	stream[0] = 0x39;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	return 1+asize;
 }
 // cmp dword [reg+shift], num
 int x86CMP(unsigned char *stream, x86Size, x86Reg reg, int shift, int op2)
@@ -524,7 +606,9 @@ int x86CMP(unsigned char *stream, x86Size, x86Reg reg, int shift, int op2)
 
 int x86TEST(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
-	return 0;
+	stream[0] = 0x85;
+	stream[1] = encodeRegister(op1, regCode[op2]);
+	return 2;
 }
 // test ah, num
 int x86TESTah(unsigned char* stream, char num)
@@ -546,7 +630,10 @@ int x86CDQ(unsigned char *stream)
 // setcc cl
 int x86SETcc(unsigned char *stream, x86Cond cond)
 {
-	return 0;
+	stream[0] = 0x0f;
+	stream[1] = 0x90 + condCode[cond];
+	stream[2] = encodeRegister(rECX, 0);
+	return 3;
 }
 
 int x86CALL(unsigned char *stream, x86Reg address)

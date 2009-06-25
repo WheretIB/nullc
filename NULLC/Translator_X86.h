@@ -90,11 +90,16 @@ int x86FSTCW(unsigned char *stream);
 // fldcw word [esp+shift]
 int x86FLDCW(unsigned char *stream, int shift);
 
-// push *word [regA+regB+shift]
-int x86PUSH(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift);
+// push dword [regA+regB+shift]
+int x86PUSH(unsigned char *stream, x86Size, x86Reg regA, x86Reg regB, int shift);
+// push reg
 int x86PUSH(unsigned char *stream, x86Reg reg);
+// push num
 int x86PUSH(unsigned char *stream, int num);
 
+// pop dword [regA+regB+shift]
+int x86POP(unsigned char *stream, x86Size, x86Reg regA, x86Reg regB, int shift);
+// pop reg
 int x86POP(unsigned char *stream, x86Reg reg);
 
 // mov dst, num
