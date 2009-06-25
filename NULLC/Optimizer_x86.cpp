@@ -12,47 +12,6 @@ struct Command_def
 	int   Size;
 };
 
-enum Command_Hash
-{
-	none,
-	push,
-	pop,
-	jmp,
-	ja,
-	jae,
-	jb,
-	jbe,
-	jc,
-	je,
-	jz,
-	jg,
-	jl,
-	jne,
-	jnp,
-	jnz,
-	jp,
-	call,
-	fld,
-	fstp,
-	add,
-	sub,
-	faddp,
-	fmulp,
-	fsubrp,
-	fdivrp,
-	label,
-	other,
-};
-
-struct Argument
-{
-	// Argument type
-	enum Type{ none, number, eax, ebx, ecx, edx, edi, esi, reg, ptr, label };
-
-	char	begin, size;
-	Type	type;
-};
-
 struct Argument_def
 {
 	char*			Name;
@@ -72,46 +31,98 @@ static Argument_def Argument_Table[] = {
 		"esi", Argument::esi, 3,
 };
 
-class Command
-{
-public:
-	Command_Hash Name;
-	std::string* strName;	// pointer to command in text form
-	Argument	argA, argB, argC;
-};
-
 std::vector<Command> Commands;
 
 Command_def Commands_table[] = {
 
-	"none"	,  0, sizeof("none"),
-	"push"	,  1, sizeof("push"),
-	"pop"	,  2, sizeof("pop"),
-	"jmp"	,  3, sizeof("jmp"),
-	"ja"	,  4, sizeof("ja"),
-	"jae"	,  5, sizeof("jae"),
-	"jb"	,  6, sizeof("jb"),
-	"jbe"	,  7, sizeof("jbe"),
-	"jc"	,  8, sizeof("jc"),
-	"je"	,  9, sizeof("je"),
-	"jz"	, 10, sizeof("jz"),
-	"jg"	, 11, sizeof("jg"),
-	"jl"	, 12, sizeof("jl"),
-	"jne"	, 13, sizeof("jne"),
-	"jnp"	, 14, sizeof("jnp"),
-	"jnz"	, 15, sizeof("jnz"),
-	"jp"	, 16, sizeof("jp"),	     // Now its not full list, if you will add commands, calculate correct value in IsJump function
-	"call"	, 17, sizeof("call"),
-	"fld"	, 18, sizeof("fld"),
-	"fstp"	, 19, sizeof("fstp"),
-	"add"	, 20, sizeof("add"),
-	"sub"	, 21, sizeof("sub"),
-	"faddp"	, 22, sizeof("faddp"),
-	"fmulp"	, 23, sizeof("fmulp"),
-	"fsubrp", 24, sizeof("fsubrp"),
-	"fdivrp", 25, sizeof("fdivrp"),
-	"label:", 26, sizeof("label:"),
-	"other"	, 27, sizeof("other"),
+	"none",		o_none,	sizeof("none"),
+	"mov",		o_mov,	sizeof("mov"),
+	"movsx",	o_movsx,sizeof("movsx"),
+	"push",		o_push,	sizeof("push"),
+	"pop",		o_pop,	sizeof("pop"),
+	"lea",		o_lea,	sizeof("lea"),
+	"xchg",		o_xchg,	sizeof("xchg"),
+	"cdq",		o_cdq,	sizeof("cdq"),
+	"rep movsd",o_rep_movsd,sizeof("rep movsd"),
+
+	"jmp",		o_jmp,	sizeof("jmp"),
+	"ja",		o_ja,	sizeof("ja"),
+	"jae",		o_jae,	sizeof("jae"),
+	"jb",		o_jb,	sizeof("jb"),
+	"jbe",		o_jbe,	sizeof("jbe"),
+	"jc",		o_jc,	sizeof("jc"),
+	"je",		o_je,	sizeof("je"),
+	"jz",		o_jz,	sizeof("jz"),
+	"jg",		o_jg,	sizeof("jg"),
+	"jl",		o_jl,	sizeof("jl"),
+	"jne",		o_jne,	sizeof("jne"),
+	"jnp",		o_jnp,	sizeof("jnp"),
+	"jnz",		o_jnz,	sizeof("jnz"),
+	"jp",		o_jp,	sizeof("jp"),	     // Now its not full list, if you will add commands, calculate correct value in IsJump function
+	"call",		o_call,	sizeof("call"),
+	"ret",		o_ret,	sizeof("ret"),
+
+	"fld",		o_fld,		sizeof("fld"),
+	"fild",		o_fild,		sizeof("fild"),
+	"fistp",	o_fistp,	sizeof("fistp"),
+	"fst",		o_fst,		sizeof("fst"),
+	"fstp",		o_fstp,		sizeof("fstp"),
+	"fnstsw",	o_fnstsw,	sizeof("fnstsw"),
+	"fstcw",	o_fstcw,	sizeof("fstcw"),
+	"fldcw",	o_fldcw,	sizeof("fldcw"),
+
+	"neg",		o_neg,	sizeof("neg"),
+	"add",		o_add,	sizeof("add"),
+	"adc",		o_adc,	sizeof("adc"),
+	"sub",		o_sub,	sizeof("sub"),
+	"sbb",		o_sbb,	sizeof("sbb"),
+	"imul",		o_imul,	sizeof("imul"),
+	"idiv",		o_idiv,	sizeof("idiv"),
+	"shl",		o_shl,	sizeof("shl"),
+	"shr",		o_shr,	sizeof("shr"),
+	"sal",		o_sal,	sizeof("sal"),
+	"sar",		o_sar,	sizeof("sar"),
+	"not",		o_not,	sizeof("not"),
+	"and",		o_and,	sizeof("and"),
+	"or",		o_or,	sizeof("or"),
+	"xor",		o_xor,	sizeof("xor"),
+	"cmp",		o_cmp,	sizeof("cmp"),
+	"test",		o_test,	sizeof("test"),
+
+	"setl",		o_setl,		sizeof("setl"),
+	"setg",		o_setg,		sizeof("setg"),
+	"setle",	o_setle,	sizeof("setle"),
+	"setge",	o_setge,	sizeof("setge"),
+	"sete",		o_sete,		sizeof("sete"),
+	"setne",	o_setne,	sizeof("setne"),
+	"setz",		o_setz,		sizeof("setz"),
+	"setnz",	o_setnz,	sizeof("setnz"),
+
+	"fadd",		o_fadd,		sizeof("fadd"),
+	"faddp",	o_faddp,	sizeof("faddp"),
+	"fmul",		o_fmul,		sizeof("fmul"),
+	"fmulp",	o_fmulp,	sizeof("fmulp"),
+	"fsub",		o_fsub,		sizeof("fsub"),
+	"fsubr",	o_fsubr,	sizeof("fsubr"),
+	"fsubp",	o_fsubp,	sizeof("fsubp"),
+	"fsubrp",	o_fsubrp,	sizeof("fsubrp"),
+	"fdiv",		o_fdiv,		sizeof("fdiv"),
+	"fdivr",	o_fdivr,	sizeof("fdivr"),
+	"fdivrp",	o_fdivrp,	sizeof("fdivrp"),
+	"fchs",		o_fchs,		sizeof("fchs"),
+	"fprem",	o_fprem,	sizeof("fprem"),
+	"fcomp",	o_fcomp,	sizeof("fcomp"),
+	"fldz",		o_fldz,		sizeof("fldz"),
+	"fld1",		o_fld1,		sizeof("fld1"),
+	"fsincos",	o_fsincos,	sizeof("fsincos"),
+	"fptan",	o_fptan,	sizeof("fptan"),
+	"fsqrt",	o_fsqrt,	sizeof("fsqrt"),
+	"frndint",	o_frndint,	sizeof("frndint"),
+
+	"int",		o_int,		sizeof("int"),
+	"dd",		o_dd,		sizeof("dd"),
+	"label:",	o_label,	sizeof("label:"),
+	"other",	o_other,	sizeof("other"),
 };
 
 const int Commands_table_size = sizeof(Commands_table) / sizeof(Command_def);
@@ -176,7 +187,7 @@ void ClassifyInstruction(Command& cmd, const char *strRep)
 	const char* temp = strRep;
 
 	// By default, we don't know, what command this is
-	cmd.Name = other;
+	cmd.Name = o_other;
 	// Compare it to all known commands
 	for(int b = 0; b < Commands_table_size; b++)
 	{
@@ -188,7 +199,7 @@ void ClassifyInstruction(Command& cmd, const char *strRep)
 	}
 
 	if(strchr(temp, ':'))
-		cmd.Name = label;
+		cmd.Name = o_label;
 
 	// Find the first argument
 	temp = strchr(temp, ' ');
@@ -213,7 +224,7 @@ void ClassifyInstruction(Command& cmd, const char *strRep)
 	}
 }
 
-std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing, int strSize)
+std::vector<Command>* Optimizer_x86::HashListing(const char* pListing, int strSize)
 {
 	// Create text without comments, empty lines and other trash
 	UINT originalSize = strSize;
@@ -257,10 +268,17 @@ std::vector<std::string>* Optimizer_x86::Optimize(const char* pListing, int strS
 	Commands.clear();
 
 	HashListing(clearText);
+
+	delete[] clearText;
+
+	return &Commands;
+}
+
+std::vector<std::string>* Optimizer_x86::Optimize()
+{
 	OptimizePushPop();
 	OptimizePushPop();
 
-	delete[] clearText;
 	// Strings contain the optimized code
 	return &Strings;
 }
@@ -269,11 +287,11 @@ bool CheckDependencies(int start, int end, Argument::Type dependency, bool check
 {
 	for(int i = start; i <= end; i++)
 	{
-		if(checkESPChange && strstr(Strings[i].c_str(), "esp") || Commands[i].Name == push || Commands[i].Name == pop)
+		if(checkESPChange && strstr(Strings[i].c_str(), "esp") || Commands[i].Name == o_push || Commands[i].Name == o_pop)
 			return true;
-		if(checkFlowControl && Commands[i].Name >= jmp && Commands[i].Name <= call)
+		if(checkFlowControl && Commands[i].Name >= o_jmp && Commands[i].Name <= o_call)
 			return true;
-		if(checkFlowControl && Commands[i].Name == label)
+		if(checkFlowControl && Commands[i].Name == o_label)
 			return true;
 		if(Commands[i].argA.type == dependency || Commands[i].argB.type == dependency || (argTypeToStr[dependency] && strstr(Strings[i].c_str()+Commands[i].argA.begin, argTypeToStr[dependency])))
 			return true;
@@ -288,13 +306,13 @@ void Optimizer_x86::OptimizePushPop()
 	for(UINT i = 0; i < Commands.size(); i++)
 	{
 		// Optimizations for "push num ... pop [location]" and "push register ... pop location"
-		if(Commands[i].Name == pop && Commands[i].argA.type == Argument::ptr)
+		if(Commands[i].Name == o_pop && Commands[i].argA.type == Argument::ptr)
 		{
 			// Search up to find "push num" or "push reg"
 			int pushIndex = i-1;
-			while(Commands[pushIndex].Name != push && pushIndex > int(i)-10 && pushIndex > 0)
+			while(Commands[pushIndex].Name != o_push && pushIndex > int(i)-10 && pushIndex > 0)
 				pushIndex--;
-			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number || isGenReg[Commands[pushIndex].argA.type]) &&
+			if(Commands[pushIndex].Name == o_push && (Commands[pushIndex].argA.type == Argument::number || isGenReg[Commands[pushIndex].argA.type]) &&
 				!CheckDependencies(pushIndex+1, i-1, (Commands[pushIndex].argA.type == Argument::number ? Argument::label : Commands[pushIndex].argA.type), true, true))
 			{
 				Strings[i].replace(0, 3, "mov");
@@ -309,14 +327,14 @@ void Optimizer_x86::OptimizePushPop()
 			}
 		}
 		// Optimizations for "push num ... pop reg", "push [location] ... pop reg" and "push regA ... pop regB"
-		if(Commands[i].Name == pop && isGenReg[Commands[i].argA.type])
+		if(Commands[i].Name == o_pop && isGenReg[Commands[i].argA.type])
 		{
 			// Search up to find "push" command
 			int pushIndex = i-1;
-			while(Commands[pushIndex].Name != push && pushIndex > int(i)-10 && pushIndex > 0)
+			while(Commands[pushIndex].Name != o_push && pushIndex > int(i)-10 && pushIndex > 0)
 				pushIndex--;
 			// For first two cases
-			if(Commands[pushIndex].Name == push && (Commands[pushIndex].argA.type == Argument::number || (Commands[pushIndex].argA.type == Argument::ptr && i-pushIndex<=2)) &&
+			if(Commands[pushIndex].Name == o_push && (Commands[pushIndex].argA.type == Argument::number || (Commands[pushIndex].argA.type == Argument::ptr && i-pushIndex<=2)) &&
 				!CheckDependencies(pushIndex+1, i-1, Argument::label, true, true))
 			{
 				Strings[i].replace(0, 3, "mov");
@@ -330,7 +348,7 @@ void Optimizer_x86::OptimizePushPop()
 				++optimize_count;
 			}
 			// For the third case
-			if(Commands[pushIndex].Name == push && isGenReg[Commands[pushIndex].argA.type] &&
+			if(Commands[pushIndex].Name == o_push && isGenReg[Commands[pushIndex].argA.type] &&
 				!CheckDependencies(pushIndex+1, i-1, Commands[pushIndex].argA.type, true, true))
 			{
 				if(Commands[i].argA.type == Commands[pushIndex].argA.type)
@@ -350,10 +368,10 @@ void Optimizer_x86::OptimizePushPop()
 				++optimize_count;
 			}
 		}
-		if(Commands[i].Name == fld && strstr(Strings[i].c_str(), "qword [esp]"))
+		if(Commands[i].Name == o_fld && strstr(Strings[i].c_str(), "qword [esp]"))
 		{
 			// push dword [a+4], push dword[a], fld [esp]
-			if(Commands[i-1].Name == push && Commands[i-1].argA.type == Argument::ptr && Commands[i-2].Name == push && Commands[i-2].argA.type == Argument::ptr)
+			if(Commands[i-1].Name == o_push && Commands[i-1].argA.type == Argument::ptr && Commands[i-2].Name == o_push && Commands[i-2].argA.type == Argument::ptr)
 			{
 				Strings[i] = "fld qword " + std::string(Strings[i-1].c_str()+Commands[i-1].argA.begin+6, Commands[i-1].argA.size-6);
 				Strings[i-1] = "";
@@ -366,7 +384,7 @@ void Optimizer_x86::OptimizePushPop()
 
 				++optimize_count;
 			// push dword [a+4], push dword [a], fld ... [], fld dword [esp]
-			}else if(Commands[i-2].Name == push && Commands[i-2].argA.type == Argument::ptr && Commands[i-3].Name == push && Commands[i-3].argA.type == Argument::ptr)
+			}else if(Commands[i-2].Name == o_push && Commands[i-2].argA.type == Argument::ptr && Commands[i-3].Name == o_push && Commands[i-3].argA.type == Argument::ptr)
 			{
 				Strings[i] = "fld qword " + std::string(Strings[i-2].c_str()+Commands[i-2].argA.begin+6, Commands[i-2].argA.size-6);
 				if(Strings[i] == Strings[i-1])
@@ -382,7 +400,7 @@ void Optimizer_x86::OptimizePushPop()
 
 				++optimize_count;
 			// push num, push num, fld qword [esp]
-			}else if(Commands[i-1].Name == push && Commands[i-1].argA.type == Argument::number && Commands[i-2].Name == push && Commands[i-2].argA.type == Argument::number)
+			}else if(Commands[i-1].Name == o_push && Commands[i-1].argA.type == Argument::number && Commands[i-2].Name == o_push && Commands[i-2].argA.type == Argument::number)
 			{
 				if(atoi(Strings[i-1].c_str() + Commands[i-1].argA.begin) == 0 && atoi(Strings[i-2].c_str() + Commands[i-2].argA.begin) == 0)
 					Strings[i] = "fldz";
@@ -402,11 +420,11 @@ void Optimizer_x86::OptimizePushPop()
 				++optimize_count;
 			}
 		}
-		if(Commands[i].Name == fld && (strstr(Strings[i].c_str(), "qword") || strstr(Strings[i].c_str(), "st")))
+		if(Commands[i].Name == o_fld && (strstr(Strings[i].c_str(), "qword") || strstr(Strings[i].c_str(), "st")))
 		{
 			// fld qword [esp], faddp
 			// fld stN, faddp
-			if(Commands[i+1].Name == faddp)
+			if(Commands[i+1].Name == o_faddp)
 			{
 				Strings[i+1] = "fadd " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
 				if(strstr(Strings[i].c_str(), "st"))
@@ -421,7 +439,7 @@ void Optimizer_x86::OptimizePushPop()
 			}
 			// fld qword [esp], fmulp
 			// fld stN, fmulp
-			if(Commands[i+1].Name == fmulp)
+			if(Commands[i+1].Name == o_fmulp)
 			{
 				Strings[i+1] = "fmul " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
 				if(strstr(Strings[i].c_str(), "st"))
@@ -436,7 +454,7 @@ void Optimizer_x86::OptimizePushPop()
 			}
 			// fld qword [esp], fsubrp
 			// fld stN, fsubrp
-			if(Commands[i+1].Name == fsubrp)
+			if(Commands[i+1].Name == o_fsubrp)
 			{
 				Strings[i+1] = "fsubr " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
 				if(strstr(Strings[i].c_str(), "st"))
@@ -451,7 +469,7 @@ void Optimizer_x86::OptimizePushPop()
 			}
 			// fld qword [esp], fdivrp
 			// fld stN, fdivrp
-			if(Commands[i+1].Name == fdivrp)
+			if(Commands[i+1].Name == o_fdivrp)
 			{
 				Strings[i+1] = "fdivr " + std::string(Strings[i].c_str()+Commands[i].argA.begin, Commands[i].argA.size);
 				if(strstr(Strings[i].c_str(), "st"))
@@ -465,10 +483,10 @@ void Optimizer_x86::OptimizePushPop()
 				++optimize_count;
 			}
 		}
-		if(Commands[i].Name == fstp && strstr(Strings[i].c_str(), "qword [esp]"))
+		if(Commands[i].Name == o_fstp && strstr(Strings[i].c_str(), "qword [esp]"))
 		{
 			// fstp qword [esp], fld qword [esp]
-			if(Commands[i+1].Name == fld && strstr(Strings[i+1].c_str(), "qword [esp]"))
+			if(Commands[i+1].Name == o_fld && strstr(Strings[i+1].c_str(), "qword [esp]"))
 			{
 				Strings[i] = "";
 				Strings[i+1] = "";
@@ -479,7 +497,7 @@ void Optimizer_x86::OptimizePushPop()
 
 				++optimize_count;
 			// fstp qword [esp], pop dword [a], pop dword [a+4]
-			}else if(Commands[i+1].Name == pop && Commands[i+1].argA.type == Argument::ptr && Commands[i+2].Name == pop && Commands[i+2].argA.type == Argument::ptr){
+			}else if(Commands[i+1].Name == o_pop && Commands[i+1].argA.type == Argument::ptr && Commands[i+2].Name == o_pop && Commands[i+2].argA.type == Argument::ptr){
 				Strings[i] = "fstp qword " + std::string(Strings[i+1].c_str()+Commands[i+1].argA.begin+6, Commands[i+1].argA.size-6);
 				Strings[i+1] = "";
 				Strings[i+2] = "add esp, 8";
@@ -492,9 +510,9 @@ void Optimizer_x86::OptimizePushPop()
 				++optimize_count;
 			}
 		}
-		if(Commands[i].Name == add && Commands[i].argA.type == Argument::reg && Commands[i].argB.type == Argument::number)
+		if(Commands[i].Name == o_add && Commands[i].argA.type == Argument::reg && Commands[i].argB.type == Argument::number)
 		{
-			if(Commands[i+1].Name == sub && Commands[i+1].argA.type == Commands[i].argA.type && strcmp(Strings[i].c_str()+Commands[i].argB.begin, Strings[i+1].c_str()+Commands[i+1].argB.begin) == 0)
+			if(Commands[i+1].Name == o_sub && Commands[i+1].argA.type == Commands[i].argA.type && strcmp(Strings[i].c_str()+Commands[i].argB.begin, Strings[i+1].c_str()+Commands[i+1].argB.begin) == 0)
 			{
 				Strings[i] = "";
 				Strings[i+1] = "";

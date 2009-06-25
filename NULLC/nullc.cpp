@@ -32,7 +32,7 @@ std::string	compileListing;
 std::string executeResult, executeLog;
 
 unsigned int currExec = 0;
-bool	optimize = false;
+bool	execOptimize = false;
 
 void	nullcInit()
 {
@@ -53,7 +53,7 @@ void	nullcSetExecutor(unsigned int id)
 
 void	nullcSetExecutorOptions(int optimize)
 {
-	optimize = true;
+	execOptimize = !!optimize;
 }
 
 nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
@@ -82,7 +82,7 @@ nullres	nullcCompile(const char* code)
 #ifdef NULLC_BUILD_X86_JIT
 		try
 		{
-			executorX86->SetOptimization(optimize);
+			executorX86->SetOptimization(execOptimize);
 			executorX86->GenListing();
 		}catch(const std::string& str){
 			good = false;

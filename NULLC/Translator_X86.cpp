@@ -7,11 +7,7 @@ char	regCode[] = { -1, 0, 3, 1, 2, 4, 7, 5, 6 };
 enum	segCode{ segES, segCS, segSS, segDS, segFS, segGS };
 // x87Reg are mapped to FP register codes directly
 //char	fpCode[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
-
-// x86 conditions
-enum	x86Cond{ condO, condNO, condB, condC, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
-				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
-				condL, condNGE, condGE, condNL, condLE, condNG, condG, condNLE };
+// Mapping from x86Cond to x86 conditions
 char	condCode[] = { 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15 };
 
 struct LabelInfo
@@ -149,7 +145,7 @@ int x86FSTCW(unsigned char *stream)
 {
 	return 0;
 }
-int x86FLDCW(unsigned char *stream)
+int x86FLDCW(unsigned char *stream, int shift)
 {
 	return 0;
 }
@@ -186,6 +182,13 @@ int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src, x86Size, int shift)
 {
 	return 0;
 }
+
+// mov *word [regA+shift], num
+int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, int shift, int num)
+{
+	return 0;
+}
+
 // mov *word [regA+regB+shift], src
 int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift, x86Reg src)
 {
@@ -288,33 +291,8 @@ int x86CDQ(unsigned char *stream)
 	return 0;
 }
 
-// setl cl
-int x86SETL(unsigned char *stream)
-{
-	return 0;
-}
-// setg cl
-int x86SETG(unsigned char *stream)
-{
-	return 0;
-}
-// setle cl
-int x86SETLE(unsigned char *stream)
-{
-	return 0;
-}
-// setge cl
-int x86SETGE(unsigned char *stream)
-{
-	return 0;
-}
-// sete cl
-int x86SETE(unsigned char *stream)
-{
-	return 0;
-}
-// setne cl
-int x86SETNE(unsigned char *stream)
+// setcc cl
+int x86SETcc(unsigned char *stream, x86Cond cond)
 {
 	return 0;
 }
@@ -348,53 +326,7 @@ int x86NOP(unsigned char *stream)
 	return 1;
 }
 
-int x86JA(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JAE(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JB(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JBE(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JG(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JL(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-
-int x86JP(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JE(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JZ(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-
-int x86JNP(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JNE(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-int x86JNZ(unsigned char *stream, const char* label)
+int x86Jcc(unsigned char *stream, const char* label, x86Cond cond)
 {
 	return 0;
 }
