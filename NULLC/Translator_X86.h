@@ -1,8 +1,16 @@
 #pragma once
 
-enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI};
+enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI, };
 enum x87Reg{ rST0, rST1, rST2, rST3, rST4, rST5, rST6, rST7, };
 enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD, };
+enum x86Cond{ condO, condNO, condB, condC, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
+				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
+				condL, condNGE, condGE, condNL, condLE, condNG, condG, condNLE };
+
+const int rAX = rEAX;
+const int rAL = rEAX;
+const int rBX = rEBX;
+const int rBL = rEBX;
 
 void x86ClearLabels();
 
@@ -52,9 +60,10 @@ int x86FRNDINT(unsigned char *stream);
 // fcomp *word [reg]
 int x86FCOMP(unsigned char *stream, x86Size size, x86Reg reg);
 
-// target - word [esp]
+// fstcw word [esp]
 int x86FSTCW(unsigned char *stream);
-int x86FLDCW(unsigned char *stream);
+// fldcw word [esp+shift]
+int x86FLDCW(unsigned char *stream, int shift);
 
 // push *word [regA+regB+shift]
 int x86PUSH(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift);
@@ -63,10 +72,15 @@ int x86PUSH(unsigned char *stream, int num);
 
 int x86POP(unsigned char *stream, x86Reg reg);
 
-int x86MOV(unsigned char *stream, x86Reg dst, int src);
+// mov dst, num
+int x86MOV(unsigned char *stream, x86Reg dst, int num);
+// mov dst, src
 int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src);
 // mov dst, dword [src+shift]
 int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src, x86Size, int shift);
+
+// mov *word [regA+shift], num
+int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, int shift, int num);
 // mov *word [regA+regB+shift], src
 int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift, x86Reg src);
 
@@ -112,18 +126,8 @@ int x86XCHG(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
 
 int x86CDQ(unsigned char *stream);
 
-// setl cl
-int x86SETL(unsigned char *stream);
-// setg cl
-int x86SETG(unsigned char *stream);
-// setle cl
-int x86SETLE(unsigned char *stream);
-// setge cl
-int x86SETGE(unsigned char *stream);
-// sete cl
-int x86SETE(unsigned char *stream);
-// setne cl
-int x86SETNE(unsigned char *stream);
+// setcc cl
+int x86SETcc(unsigned char *stream, x86Cond cond);
 
 int x86CALL(unsigned char *stream, x86Reg address);
 int x86CALL(unsigned char *stream, const char* label);
@@ -135,20 +139,7 @@ int x86INT(unsigned char *stream, int interrupt);
 
 int x86NOP(unsigned char *stream);
 
-int x86JA(unsigned char *stream, const char* label);
-int x86JAE(unsigned char *stream, const char* label);
-int x86JB(unsigned char *stream, const char* label);
-int x86JBE(unsigned char *stream, const char* label);
-int x86JG(unsigned char *stream, const char* label);
-int x86JL(unsigned char *stream, const char* label);
-
-int x86JP(unsigned char *stream, const char* label);
-int x86JE(unsigned char *stream, const char* label);
-int x86JZ(unsigned char *stream, const char* label);
-
-int x86JNP(unsigned char *stream, const char* label);
-int x86JNE(unsigned char *stream, const char* label);
-int x86JNZ(unsigned char *stream, const char* label);
+int x86Jcc(unsigned char *stream, const char* label, x86Cond cond);
 
 // short - 0-255 bytes AFAIK
 int x86JMPshort(unsigned char *stream, const char* label);
