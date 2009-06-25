@@ -35,6 +35,11 @@ int x86FLDZ(unsigned char* stream)
 	return 0;
 }
 
+int x86FLD1(unsigned char* stream)
+{
+	return 0;
+}
+
 // fld st*
 int x86FLD(unsigned char *stream, x87Reg reg)
 {
@@ -58,6 +63,17 @@ int x86FILD(unsigned char *stream, x86Size, x86Reg reg)
 	return 0;
 }
 
+// fst *word [reg+shift]
+int x86FST(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+{
+	return 0;
+}
+// fst *word [regA+regB+shift]
+int x86FST(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift)
+{
+	return 0;
+}
+
 // fstp st*
 int x86FSTP(unsigned char *stream, x87Reg dst)
 {
@@ -74,23 +90,49 @@ int x86FSTP(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int s
 	return 0;
 }
 
+// fistp *word [reg+shift]
+int x86FISTP(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+{
+	return 0;
+}
+
 // fadd *word [reg]
 int x86FADD(unsigned char *stream, x86Size size, x86Reg reg)
 {
 	return 0;
 }
-// fadd *word [reg]
+// faddp
+int x86FADDP(unsigned char *stream)
+{
+	return 0;
+}
+// fsub *word [reg]
 int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg)
 {
 	return 0;
 }
-// fadd *word [reg]
+// fsubr *word [reg]
 int x86FSUBR(unsigned char *stream, x86Size size, x86Reg reg)
+{
+	return 0;
+}
+// fsubp *word [reg]
+int x86FSUBP(unsigned char *stream)
+{
+	return 0;
+}
+// fsubrp *word [reg]
+int x86FSUBRP(unsigned char *stream)
 {
 	return 0;
 }
 // fmul *word [reg]
 int x86FMUL(unsigned char *stream, x86Size size, x86Reg reg)
+{
+	return 0;
+}
+// fmulp
+int x86FMULP(unsigned char *stream)
 {
 	return 0;
 }
@@ -106,6 +148,11 @@ int x86FDIVR(unsigned char *stream, x86Size size, x86Reg reg)
 }
 // fdivrp
 int x86FDIVRP(unsigned char *stream)
+{
+	return 0;
+}
+
+int x86FCHS(unsigned char *stream)
 {
 	return 0;
 }
@@ -134,8 +181,14 @@ int x86FRNDINT(unsigned char *stream)
 	return 0;
 }
 
-// fcomp *word [reg]
-int x86FCOMP(unsigned char *stream, x86Size size, x86Reg reg)
+// fcomp *word [reg+shift]
+int x86FCOMP(unsigned char *stream, x86Size size, x86Reg reg, int shift)
+{
+	return 0;
+}
+
+// fnstsw ax
+int x86FNSTSW(unsigned char *stream)
 {
 	return 0;
 }
@@ -212,7 +265,9 @@ int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int multiplier, int sh
 	return 0;
 }
 
-int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2)
+
+// neg dword [reg+shift]
+int x86NEG(unsigned char *stream, x86Size, x86Reg reg, int shift)
 {
 	return 0;
 }
@@ -227,21 +282,56 @@ int x86ADD(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
 {
 	return 0;
 }
+
+// adc dst, num
+int x86ADC(unsigned char *stream, x86Reg dst, int num)
+{
+	return 0;
+}
+// adc dword [reg+shift], num
+int x86ADC(unsigned char *stream, x86Size, x86Reg reg, int shift, int num)
+{
+	return 0;
+}
 // adc dword [reg+shift], op2
 int x86ADC(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
 {
 	return 0;
 }
+
 // sub dst, num
 int x86SUB(unsigned char *stream, x86Reg dst, int num)
 {
 	return 0;
 }
+// sub dword [reg+shift], op2
+int x86SUB(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
+{
+	return 0;
+}
+
+// sbb dst, num
+int x86SBB(unsigned char *stream, x86Reg dst, int num)
+{
+	return 0;
+}
+// sbb dword [reg+shift], op2
+int x86SBB(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
+{
+	return 0;
+}
+
 // imul dst, num
 int x86IMUL(unsigned char *stream, x86Reg srcdst, int num)
 {
 	return 0;
 }
+// imul src
+int x86IMUL(unsigned char *stream, x86Reg src)
+{
+	return 0;
+}
+
 // idiv dword [reg]
 int x86IDIV(unsigned char *stream, x86Size, x86Reg reg)
 {
@@ -259,13 +349,68 @@ int x86SHL(unsigned char *stream, x86Size, x86Reg reg, int shift)
 	return 0;
 }
 
+// sal eax, cl
+int x86SAL(unsigned char *stream)
+{
+	return 0;
+}
+// sar eax, cl
+int x86SAR(unsigned char *stream)
+{
+	return 0;
+}
+
+// not dword [reg+shift]
+int x86NOT(unsigned char *stream, x86Size, x86Reg reg, int shift)
+{
+	return 0;
+}
+
+// and dword [reg+shift], op2
+int x86AND(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
+{
+	return 0;
+}
+
+// or op1, op2
+int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2)
+{
+	return 0;
+}
+// or op1, dword [reg+shift]
+int x86OR(unsigned char *stream, x86Reg op1, x86Size, x86Reg reg, int shift)
+{
+	return 0;
+}
+
+// xor op1, op2
+int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2)
+{
+	return 0;
+}
+// xor dword [reg+shift], op2
+int x86XOR(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
+{
+	return 0;
+}
+
 // cmp reg, num
 int x86CMP(unsigned char *stream, x86Reg reg, int num)
 {
 	return 0;
 }
+// cmp reg1, reg2
+int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2)
+{
+	return 0;
+}
 // cmp dword [reg], op2
-int x86CMP(unsigned char *stream, x86Size, x86Reg reg, x86Reg op2)
+int x86CMP(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2)
+{
+	return 0;
+}
+// cmp dword [reg+shift], num
+int x86CMP(unsigned char *stream, x86Size, x86Reg reg, int shift, int op2)
 {
 	return 0;
 }
@@ -326,18 +471,12 @@ int x86NOP(unsigned char *stream)
 	return 1;
 }
 
-int x86Jcc(unsigned char *stream, const char* label, x86Cond cond)
+int x86Jcc(unsigned char *stream, const char* label, x86Cond cond, bool isNear)
 {
 	return 0;
 }
 
-// short - 0-255 bytes AFAIK
-int x86JMPshort(unsigned char *stream, const char* label)
-{
-	return 0;
-}
-// near - 0-2^32  AFAIK
-int x86JMPnear(unsigned char *stream, const char* label)
+int x86JMP(unsigned char *stream, const char* label, bool isNear)
 {
 	return 0;
 }
