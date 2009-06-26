@@ -2740,15 +2740,19 @@ bool Compiler::Compile(string str)
 	if(nodeList.size() != 0)
 		nodeList.pop_back();
 
+#ifdef NULLC_LOG_FILES
 	ofstream m_FileStream("code.txt", std::ios::binary);
 	m_FileStream << str;
 	m_FileStream.flush();
 	m_FileStream.close();
+#endif
 
 	char* ptr = (char*)str.c_str();
 	CompilerError::codeStart = ptr;
 
+#ifdef NULLC_LOG_FILES
 	ofstream m_TempStream("time.txt", std::ios::binary);
+#endif
 
 	UINT t = clock();
 	ParseResult pRes = Parse(CompilerGrammar::code, ptr, CompilerGrammar::mySpaceP);
@@ -2757,8 +2761,10 @@ bool Compiler::Compile(string str)
 	if(pRes == PARSE_FAILED)
 		throw std::string("Parsing failed");
 	UINT tem = clock()-t;
+#ifdef NULLC_LOG_FILES
 	m_TempStream << "Parsing and AST tree gen. time: " << tem * 1000 / CLOCKS_PER_SEC << "ms\r\n";
-	
+#endif
+
 	// Emulate global block end
 	CodeInfo::globalSize = varTop;
 
@@ -2766,17 +2772,21 @@ bool Compiler::Compile(string str)
 	if(nodeList.back())
 		nodeList.back()->Compile();
 	tem = clock()-t;
+#ifdef NULLC_LOG_FILES
 	m_TempStream << "Compile time: " << tem * 1000 / CLOCKS_PER_SEC << "ms\r\n";
 
 	m_TempStream.flush();
 	m_TempStream.close();
+#endif
 
+#ifdef NULLC_LOG_FILES
 	ostringstream		graphlog;
 	ofstream graphFile("graph.txt", std::ios::binary);
 	if(nodeList.back())
 		nodeList.back()->LogToStream(graphlog);
 	graphFile << graphlog.str();
 	graphFile.close();
+#endif NULLC_LOG_FILES
 
 	logAST << "\r\n" << warningLog.str();
 
@@ -3370,9 +3380,11 @@ void Compiler::GenListing()
 		logASM << "\r\n";
 	}
 
+#ifdef NULLC_LOG_FILES
 	ofstream m_FileStream("asm.txt", std::ios::binary);
 	m_FileStream << logASM.str();
 	m_FileStream.flush();
+#endif
 }
 
 string Compiler::GetListing()
