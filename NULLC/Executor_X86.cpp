@@ -437,7 +437,6 @@ void ExecutorX86::GenListing()
 		{
 			if(pos == funcNeedLabel[i])
 			{
-				//logASM << "  db " << "'N', " << (pos>>16) << ", " << (0xFF&(pos>>8)) << ", " << (pos&0xFF) << "; marker \r\n";
 				logASM << "  dd " << (('N' << 24) | pos) << "; marker \r\n";
 				logASM << "  function" << pos << ": \r\n";
 				break;
@@ -1483,7 +1482,7 @@ void ExecutorX86::GenListing()
 				for(unsigned int i = 0; i < funcNeedLabel.size(); i++)
 					if(funcNeedLabel[i] == pos)
 						jFar = true;
-				logASM << "jmp " << (jFar ? "near " : "") << "gLabel" << valind << "\r\n";
+				logASM << "jmp near gLabel" << valind << "\r\n";
 			}
 			break;
 		case cmdJmpZ:
@@ -1501,16 +1500,16 @@ void ExecutorX86::GenListing()
 				logASM << "pop ebx \r\n";
 				logASM << "pop ebx ; убрали double со стека\r\n";
 				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
-				logASM << "jnp gLabel" << valind << "\r\n";
+				logASM << "jnp near gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_LONG){
 				logASM << "pop edx \r\n";
 				logASM << "pop eax \r\n";
 				logASM << "or edx, eax ; сравниваем long == 0\r\n";
-				logASM << "jne gLabel" << valind << "\r\n";
+				logASM << "jne near gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_INT){
 				logASM << "pop eax \r\n";
 				logASM << "test eax, eax ; сравниваем int == 0\r\n";
-				logASM << "jz gLabel" << valind << "\r\n";
+				logASM << "jz near gLabel" << valind << "\r\n";
 			}
 			break;
 		case cmdJmpNZ:
@@ -1527,16 +1526,16 @@ void ExecutorX86::GenListing()
 				logASM << "pop ebx \r\n";
 				logASM << "pop ebx ; убрали double со стека\r\n";
 				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
-				logASM << "jp gLabel" << valind << "\r\n";
+				logASM << "jp near gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_LONG){
 				logASM << "pop edx \r\n";
 				logASM << "pop eax \r\n";
 				logASM << "or edx, eax ; сравниваем long == 0\r\n";
-				logASM << "je gLabel" << valind << "\r\n";
+				logASM << "je near gLabel" << valind << "\r\n";
 			}else if(oFlag == OTYPE_INT){
 				logASM << "pop eax \r\n";
 				logASM << "test eax, eax \r\n";
-				logASM << "jnz gLabel" << valind << "\r\n";
+				logASM << "jnz near gLabel" << valind << "\r\n";
 			}
 			break;
 		case cmdSetRange:
@@ -2709,20 +2708,412 @@ void ExecutorX86::GenListing()
 	noOptFile.flush();
 	noOptFile.close();
 
+	std::vector<Command>*	x86Cmd = NULL;
+
 	DeleteFile("asmX86.txt");
 	ofstream m_FileStream("asmX86.txt", std::ios::binary | std::ios::out);
 	if(optimize)
 	{
 		Optimizer_x86 optiMan;
-		std::vector<std::string> *optiList = optiMan.Optimize(logASMstr.c_str(), (int)logASMstr.length());
+		x86Cmd = optiMan.HashListing(logASMstr.c_str(), (int)logASMstr.length());
+		std::vector<std::string> *optiList = optiMan.Optimize();
 
 		for(UINT i = 0; i < optiList->size(); i++)
 			m_FileStream << (*optiList)[i] << "\r\n";
 	}else{
+		Optimizer_x86 optiMan;
+		x86Cmd = optiMan.HashListing(logASMstr.c_str(), (int)logASMstr.length());
 		m_FileStream << logASMstr;
 	}
 	m_FileStream.flush();
 	m_FileStream.close();
+
+	// Translate to x86
+	unsigned char *bytecode = binCode+20;//new unsigned char[16000];
+	unsigned char *code = bytecode;
+	char labelName[16];
+
+	x86Reg	optiReg[] = { rNONE, rNONE, rEAX, rEBX, rECX, rEDX, rEDI, rESI, rESP, rEBP, rEAX, rEAX, rEBX, rEBX, rECX, rECX, rNONE, rNONE, rNONE };
+	x86Size	optiSize[] = { sNONE, sBYTE, sWORD, sDWORD, sQWORD };
+
+	x86ClearLabels();
+
+	for(unsigned int i = 0, e = (unsigned int)x86Cmd->size(); i != e; i++)
+	{
+		//if(code-bytecode >= 0x0097)
+		//	__asm int 3;
+		Command	cmd = (*x86Cmd)[i];
+		switch(cmd.Name)
+		{
+		case o_none:
+			break;
+		case o_mov:
+			if(cmd.argA.type != Argument::ptr)
+			{
+				if(cmd.argB.type == Argument::number)
+					code += x86MOV(code, optiReg[cmd.argA.type], cmd.argB.num);
+				else if(cmd.argB.type == Argument::ptr)
+					code += x86MOV(code, optiReg[cmd.argA.type], optiReg[cmd.argB.ptrReg[0]], sDWORD, cmd.argB.ptrNum);
+				else
+					code += x86MOV(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+			}else{
+				if(cmd.argB.type == Argument::number)
+					code += x86MOV(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, cmd.argB.num);
+				else
+					code += x86MOV(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			}
+			break;
+		case o_movsx:
+			code += x86MOVSX(code, optiReg[cmd.argA.type], optiSize[cmd.argB.ptrSize], optiReg[cmd.argB.ptrReg[0]], optiReg[cmd.argB.ptrReg[1]], cmd.argB.ptrNum);
+			break;
+		case o_push:
+			if(cmd.argA.type == Argument::number)
+				code += x86PUSH(code, cmd.argA.num);
+			else if(cmd.argA.type == Argument::ptr)
+				code += x86PUSH(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+			else
+				code += x86PUSH(code, optiReg[cmd.argA.type]);
+			break;
+		case o_pop:
+			if(cmd.argA.type == Argument::ptr)
+				code += x86POP(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+			else
+				code += x86POP(code, optiReg[cmd.argA.type]);
+			break;
+		case o_lea:
+			if(cmd.argB.labelName[0] != 0)
+			{
+				code += x86LEA(code, optiReg[cmd.argA.type], cmd.argB.labelName, cmd.argB.ptrNum);
+			}else{
+				if(cmd.argB.ptrMult != 1)
+					code += x86LEA(code, optiReg[cmd.argA.type], optiReg[cmd.argB.ptrReg[0]], cmd.argB.ptrMult, cmd.argB.ptrNum);
+				else
+					code += x86LEA(code, optiReg[cmd.argA.type], optiReg[cmd.argB.ptrReg[0]], cmd.argB.ptrNum);
+			}
+			break;
+		case o_xchg:
+			if(cmd.argA.type == Argument::ptr)
+				code += x86XCHG(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			else if(cmd.argB.type == Argument::ptr)
+				code += x86XCHG(code, sDWORD, optiReg[cmd.argB.ptrReg[0]], cmd.argB.ptrNum, optiReg[cmd.argA.type]);
+			else
+				code += x86XCHG(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+			break;
+		case o_cdq:
+			code += x86CDQ(code);
+			break;
+		case o_rep_movsd:
+			code += x86REP_MOVSD(code);
+			break;
+
+		case o_jmp:
+			code += x86JMP(code, cmd.argA.labelName, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_ja:
+			code += x86Jcc(code, cmd.argA.labelName, condA, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jae:
+			code += x86Jcc(code, cmd.argA.labelName, condAE, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jb:
+			code += x86Jcc(code, cmd.argA.labelName, condB, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jbe:
+			code += x86Jcc(code, cmd.argA.labelName, condBE, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jc:
+			code += x86Jcc(code, cmd.argA.labelName, condC, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_je:
+			code += x86Jcc(code, cmd.argA.labelName, condE, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jz:
+			code += x86Jcc(code, cmd.argA.labelName, condZ, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jg:
+			code += x86Jcc(code, cmd.argA.labelName, condG, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jl:
+			code += x86Jcc(code, cmd.argA.labelName, condL, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jne:
+			code += x86Jcc(code, cmd.argA.labelName, condNE, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jnp:
+			code += x86Jcc(code, cmd.argA.labelName, condNP, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jnz:
+			code += x86Jcc(code, cmd.argA.labelName, condNZ, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_jp:
+			code += x86Jcc(code, cmd.argA.labelName, condP, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			break;
+		case o_call:
+			if(cmd.argA.type == Argument::label)
+				code += x86CALL(code, cmd.argA.labelName);
+			else
+				code += x86CALL(code, optiReg[cmd.argA.type]);
+			break;
+		case o_ret:
+			code += x86RET(code);
+			break;
+
+		case o_fld:
+			if(cmd.argA.type == Argument::ptr)
+			{
+				if(cmd.argA.ptrReg[1] != Argument::none)
+					code += x86FLD(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+				else
+					code += x86FLD(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			}else{
+				code += x86FLD(code, (x87Reg)cmd.argA.fpArg);
+			}
+			break;
+		case o_fild:
+			code += x86FILD(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			break;
+		case o_fistp:
+			code += x86FISTP(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			break;
+		case o_fst:
+			if(cmd.argA.ptrReg[1] != Argument::none)
+				code += x86FST(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+			else
+				code += x86FST(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			break;
+		case o_fstp:
+			if(cmd.argA.type == Argument::ptr)
+			{
+				if(cmd.argA.ptrReg[1] != Argument::none)
+					code += x86FSTP(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+				else
+					code += x86FSTP(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			}else{
+				code += x86FSTP(code, (x87Reg)cmd.argA.fpArg);
+			}
+			break;
+		case o_fnstsw:
+			code += x86FNSTSW(code);
+			break;
+		case o_fstcw:
+			code += x86FSTCW(code);
+			break;
+		case o_fldcw:
+			code += x86FLDCW(code, cmd.argA.ptrNum);
+			break;
+
+		case o_neg:
+			code += x86NEG(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			break;
+		case o_add:
+			if(cmd.argA.type == Argument::ptr)
+				code += x86ADD(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			else
+				code += x86ADD(code, optiReg[cmd.argA.type], cmd.argB.num);
+			break;
+		case o_adc:
+			if(cmd.argA.type == Argument::ptr)
+			{
+				if(cmd.argB.type == Argument::number)
+					code += x86ADC(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, cmd.argB.num);
+				else
+					code += x86ADC(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			}else{
+				code += x86ADC(code, optiReg[cmd.argA.type], cmd.argB.num);
+			}
+			break;
+		case o_sub:
+			if(cmd.argA.type == Argument::ptr)
+				code += x86SUB(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			else
+				code += x86SUB(code, optiReg[cmd.argA.type], cmd.argB.num);
+			break;
+		case o_sbb:
+			if(cmd.argA.type == Argument::ptr)
+				code += x86SBB(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			else
+				code += x86SBB(code, optiReg[cmd.argA.type], cmd.argB.num);
+			break;
+		case o_imul:
+			if(cmd.argB.type != Argument::none)
+				code += x86IMUL(code, optiReg[cmd.argA.type], cmd.argB.num);
+			else
+				code += x86IMUL(code, optiReg[cmd.argA.type]);
+			break;
+		case o_idiv:
+			code += x86IDIV(code, sDWORD, optiReg[cmd.argA.ptrReg[0]]);
+			break;
+		case o_shl:
+			if(cmd.argA.type == Argument::ptr)
+				code += x86SHL(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argB.num);
+			else
+				code += x86SHL(code, optiReg[cmd.argA.type], cmd.argB.num);
+			break;
+		case o_sal:
+			code += x86SAL(code);
+			break;
+		case o_sar:
+			code += x86SAR(code);
+			break;
+		case o_not:
+			code += x86NOT(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			break;
+		case o_and:
+			code += x86AND(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			break;
+		case o_or:
+			if(cmd.argA.type == Argument::ptr)
+				code += x86OR(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			else if(cmd.argB.type == Argument::ptr)
+				code += x86OR(code, optiReg[cmd.argA.type], sDWORD, optiReg[cmd.argB.ptrReg[0]], cmd.argB.ptrNum);
+			else
+				code += x86OR(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+			break;
+		case o_xor:
+			if(cmd.argA.type == Argument::ptr)
+				code += x86XOR(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			else
+				code += x86XOR(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+			break;
+		case o_cmp:
+			if(cmd.argA.type == Argument::ptr)
+			{
+				if(cmd.argB.type == Argument::number)
+					code += x86CMP(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, cmd.argB.num);
+				else
+					code += x86CMP(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			}else{
+				if(cmd.argB.type == Argument::number)
+					code += x86CMP(code, optiReg[cmd.argA.type], cmd.argB.num);
+				else
+					code += x86CMP(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+			}
+			break;
+		case o_test:
+			if(cmd.argB.type == Argument::number)
+				code += x86TESTah(code, (char)cmd.argB.num);
+			else
+				code += x86TEST(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+			break;
+
+		case o_setl:
+			code += x86SETcc(code, condL, optiReg[cmd.argA.type]);
+			break;
+		case o_setg:
+			code += x86SETcc(code, condG, optiReg[cmd.argA.type]);
+			break;
+		case o_setle:
+			code += x86SETcc(code, condLE, optiReg[cmd.argA.type]);
+			break;
+		case o_setge:
+			code += x86SETcc(code, condGE, optiReg[cmd.argA.type]);
+			break;
+		case o_sete:
+			code += x86SETcc(code, condE, optiReg[cmd.argA.type]);
+			break;
+		case o_setne:
+			code += x86SETcc(code, condNE, optiReg[cmd.argA.type]);
+			break;
+		case o_setz:
+			code += x86SETcc(code, condZ, optiReg[cmd.argA.type]);
+			break;
+		case o_setnz:
+			code += x86SETcc(code, condNZ, optiReg[cmd.argA.type]);
+			break;
+
+		case o_fadd:
+			code += x86FADD(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			break;
+		case o_faddp:
+			code += x86FADDP(code);
+			break;
+		case o_fmul:
+			code += x86FMUL(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			break;
+		case o_fmulp:
+			code += x86FMULP(code);
+			break;
+		case o_fsub:
+			code += x86FSUB(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			break;
+		case o_fsubr:
+			code += x86FSUBR(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			break;
+		case o_fsubp:
+			code += x86FSUBP(code);
+			break;
+		case o_fsubrp:
+			code += x86FSUBRP(code);
+			break;
+		case o_fdiv:
+			code += x86FDIV(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			break;
+		case o_fdivr:
+			code += x86FDIVR(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			break;
+		case o_fdivrp:
+			code += x86FDIVRP(code);
+			break;
+		case o_fchs:
+			code += x86FCHS(code);
+			break;
+		case o_fprem:
+			code += x86FPREM(code);
+			break;
+		case o_fcomp:
+			code += x86FCOMP(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			break;
+		case o_fldz:
+			code += x86FLDZ(code);
+			break;
+		case o_fld1:
+			code += x86FLD1(code);
+			break;
+		case o_fsincos:
+			code += x86FSINCOS(code);
+			break;
+		case o_fptan:
+			code += x86FPTAN(code);
+			break;
+		case o_fsqrt:
+			code += x86FSQRT(code);
+			break;
+		case o_frndint:
+			code += x86FRNDINT(code);
+			break;
+
+		case o_int:
+			code += x86INT(code, 3);
+			break;
+		case o_dd:
+			*(int*)code = cmd.argA.num;
+			code += 4;
+			break;
+		case o_label:
+			memset(labelName, 0, 16);
+			strncpy(labelName, cmd.strName->c_str(), strchr(cmd.strName->c_str(), ':')-cmd.strName->c_str());
+			x86AddLabel(code, labelName);
+			break;
+		case o_other:
+			if(memcmp(cmd.strName->c_str(), "use32", 5) == 0)
+				break;
+			else if((*cmd.strName)[0] == 0)
+				break;
+			else
+				__asm int 3;
+			break;
+		}
+	}
+	binCodeSize = (unsigned int)(code-bytecode);
+
+#ifdef NULLC_X86_CMP_FASM
+	FILE *fMyCode = fopen("asmX86my.bin", "wb");
+	fwrite(bytecode, 1, code-bytecode, fMyCode);
+	fclose(fMyCode);
+
+	// debug
+	unsigned char *bytecodeCopy = new unsigned char[code-bytecode+1];
+	memcpy(bytecodeCopy, bytecode, code-bytecode);
 
 	STARTUPINFO stInfo;
 	PROCESS_INFORMATION prInfo;
@@ -2756,6 +3147,15 @@ void ExecutorX86::GenListing()
 		throw std::string("Byte code is too big (size > 200000)");
 	fread(binCode+20, 1, size, fCode);
 	binCodeSize = size;
+
+	for(int i = 0; i < code-bytecode; i++)
+		if(binCode[i+20] != bytecodeCopy[i])
+			__asm int 3;
+	//memcpy(binCode+20, bytecode, code-bytecode);
+	//binCodeSize = code-bytecode;
+
+	delete[] bytecodeCopy;
+#endif NULLC_X86_CMP_FASM
 }
 
 string ExecutorX86::GetListing()
