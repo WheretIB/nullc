@@ -14,6 +14,8 @@ typedef unsigned int UINT;
 typedef unsigned short USHORT;
 typedef unsigned char UCHAR;
 
+#include "nullcdef.h"
+
 #include <stdlib.h>
 
 #include "SharedPtr/shared_ptr.hpp"
@@ -23,7 +25,9 @@ typedef unsigned char UCHAR;
 #include <list>
 #include <string>
 #include <sstream>
-#include <fstream>
+#ifdef NULLC_LOG_FILES
+	#include <fstream>
+#endif
 #include <math.h>
 using namespace std;
 
@@ -33,4 +37,3 @@ using namespace std;
 #define assert(expr)	((void)sizeof(!(expr)))
 #endif
 
-#include "nullcdef.h"

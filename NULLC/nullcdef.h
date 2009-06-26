@@ -12,6 +12,8 @@
 //#define NULLC_VM_DEBUG
 //#define NULLC_X86_CMP_FASM
 
+//#define NULLC_LOG_FILES
+
 #ifdef _MSC_VER
 #define NULLC_BUILD_X86_JIT
 #endif

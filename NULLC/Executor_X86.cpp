@@ -2689,33 +2689,47 @@ void ExecutorX86::GenListing()
 			}
 		}
 	}
+	logASM << "  gLabel" << CodeInfo::cmdList->GetCurrPos() << ": \r\n";
+	logASM << "pop ebp\r\n";
+	logASM << "ret; final return, if user skipped it\r\n";
 
 	std::string	logASMstr = logASM.str();
 
+#ifdef NULLC_LOG_FILES
 	ofstream noOptFile("asmX86_noopt.txt", std::ios::binary);
 	noOptFile << logASMstr;
 	noOptFile.flush();
 	noOptFile.close();
+#endif
 
 	std::vector<Command>*	x86Cmd = NULL;
 
+#ifdef NULLC_LOG_FILES
 	DeleteFile("asmX86.txt");
 	ofstream m_FileStream("asmX86.txt", std::ios::binary | std::ios::out);
+#endif
 	if(optimize)
 	{
 		Optimizer_x86 optiMan;
 		x86Cmd = optiMan.HashListing(logASMstr.c_str(), (int)logASMstr.length());
 		std::vector<std::string> *optiList = optiMan.Optimize();
-
+#ifdef NULLC_LOG_FILES
 		for(UINT i = 0; i < optiList->size(); i++)
 			m_FileStream << (*optiList)[i] << "\r\n";
+#else
+		(void)optiList;
+#endif
 	}else{
 		Optimizer_x86 optiMan;
 		x86Cmd = optiMan.HashListing(logASMstr.c_str(), (int)logASMstr.length());
+#ifdef NULLC_LOG_FILES
 		m_FileStream << logASMstr;
+#endif
 	}
+#ifdef NULLC_LOG_FILES
 	m_FileStream.flush();
 	m_FileStream.close();
+#endif
 
 	// Translate to x86
 	unsigned char *bytecode = binCode+20;//new unsigned char[16000];
