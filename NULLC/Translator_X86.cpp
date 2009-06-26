@@ -656,6 +656,21 @@ int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Re
 	return 2+asize;
 }
 
+// lea dst, [label+shift]
+int x86LEA(unsigned char *stream, x86Reg dst, const char *label, int shift)
+{
+	LabelInfo info;
+	stream[0] = 0x8d;
+	if(!FindLabel(label, info))
+	{
+		pendingJumps.push_back(UnsatisfiedJump(label, false, stream));
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, rNONE, 0xcdcdcdcd, regCode[dst]);
+		assert(asize == 5);
+		return 1 + asize;
+	}
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rNONE, (int)info.pos, regCode[dst]);
+	return 1 + asize;
+}
 // lea dst, [src+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int shift)
 {
@@ -899,6 +914,14 @@ int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2)
 	stream[1] = encodeRegister(op1, regCode[op2]);
 	return 2;
 }
+// or dword [reg+shift], op2
+int x86OR(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+{
+	assert(size == sDWORD);
+	stream[0] = 0x09;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	return 1 + asize;
+}
 // or op1, dword [reg+shift]
 int x86OR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg reg, int shift)
 {
@@ -1141,8 +1164,13 @@ void x86AddLabel(unsigned char *stream, const char* label)
 				else
 					*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos-5);
 			}else{
-				assert(uJmp.jmpPos-stream + 128 < 256);
-				*(char*)(uJmp.jmpPos+1) = (char)(stream-uJmp.jmpPos-2);
+				if(*uJmp.jmpPos == 0x8d)	// This one is for lea reg, [label+offset]
+				{
+					*(int*)(uJmp.jmpPos+2) = (int)(stream);
+				}else{
+					assert(uJmp.jmpPos-stream + 128 < 256);
+					*(char*)(uJmp.jmpPos+1) = (char)(stream-uJmp.jmpPos-2);
+				}
 			}
 			uJmp.label[0] = 0;
 		}
