@@ -110,6 +110,8 @@ struct Argument
 	Type	ptrReg[2];
 	int		ptrMult;
 	int		ptrNum;
+
+	char	labelName[16];
 };
 
 class Command

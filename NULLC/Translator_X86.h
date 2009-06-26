@@ -117,6 +117,8 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 // movsx dst, *word [regA+regB+shift]
 int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Reg regB, int shift);
 
+// lea dst, [label+shift]
+int x86LEA(unsigned char *stream, x86Reg dst, const char *label, int shift);
 // lea dst, [src+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int shift);
 // lea dst, [src*multiplier+shift]
@@ -173,6 +175,8 @@ int x86AND(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
 
 // or op1, op2
 int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2);
+// or dword [reg+shift], op2
+int x86OR(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
 // or op1, dword [reg+shift]
 int x86OR(unsigned char *stream, x86Reg op1, x86Size, x86Reg reg, int shift);
 

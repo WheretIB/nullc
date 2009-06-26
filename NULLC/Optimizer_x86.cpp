@@ -158,6 +158,7 @@ void ClassifyArgument(Argument& arg, const char* str)
 	arg.num = 0;
 	arg.ptrSize = Argument::snone;
 	arg.fpArg = 0;
+	arg.labelName[0] = 0;
 
 	if(str == NULL || *str == 0)
 	{
@@ -207,6 +208,14 @@ void ClassifyArgument(Argument& arg, const char* str)
 						break;
 					}
 				}
+				if(arg.ptrReg[n] == Argument::none)
+				{
+					const char *labelEnd = ptrArgs;
+					while(isalnum(*labelEnd))
+						labelEnd++;
+					arg.ptrReg[n] = Argument::label;
+					strncpy(arg.labelName, ptrArgs, labelEnd-ptrArgs);
+				}
 			}
 			if(const char *ptrMult = strchr(ptrArgs, '*'))
 				arg.ptrMult = atoi(ptrMult);
@@ -252,8 +261,11 @@ void ClassifyArgument(Argument& arg, const char* str)
 		{
 			arg.type = Argument::label;
 			const char *strTmp = str;
+			if(memcmp(str, "near", 4) == 0)
+				strTmp += 5;;
 			while(isalnum(*strTmp))
 				strTmp++;
+			strncpy(arg.labelName, str, strTmp-str);
 			arg.size = (char)(strTmp-str);//(strchr(str, ',') ? (char)(strchr(str, ',') - str) : (char)strlen(str));
 		}else{
 			arg.type = Argument::reg;
