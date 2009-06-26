@@ -137,15 +137,15 @@ UINT ExecutorX86::Run(const char* funcName)
 			startPos++;
 		startPos -= 5;
 		memcpy(oldCode, binCode+startPos, 9);
-		binCode[startPos+0] = 0x90;
+		binCode[startPos+0] = 0x58 + 0x05;
 		binCode[startPos+1] = 0x90;
 		binCode[startPos+2] = 0x90;
 		binCode[startPos+3] = 0x90; // nop */binCode[startPos+0] = 0x55; // push ebp
-		binCode[startPos+4] = 0x89; // mov ebp, edi
-		binCode[startPos+5] = 0xFD;
-		binCode[startPos+6] = 0x83; // add edi, 4
-		binCode[startPos+7] = 0xC7;
-		binCode[startPos+8] = 0x04;
+		binCode[startPos+4] = 0x90; // mov ebp, edi
+		binCode[startPos+5] = 0x90;
+		binCode[startPos+6] = 0x90; // add edi, 4
+		binCode[startPos+7] = 0x90;
+		binCode[startPos+8] = 0x90;
 	}
 
 	UINT res1 = 0;
