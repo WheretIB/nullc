@@ -30,7 +30,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	unsigned char mod = 0;
 	if(displacement)
 	{
-		if(displacement < 256)
+		if((char)(displacement) == displacement)
 			mod = 1 << 6;
 		else
 			mod = 2 << 6;
@@ -75,7 +75,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 		*stream = (unsigned char)displacement;
 	else
 		*(int*)stream = displacement;
-	return (int)(stream - start) + (mod == 0 ? (displacement == 0 ? 0 : 4) : (displacement < 256 ? 1 : 4));
+	return (int)(stream - start) + (mod == 0 ? (displacement == 0 ? 0 : 4) : (((char)(displacement) == displacement) ? 1 : 4));
 }
 
 struct LabelInfo
@@ -480,13 +480,13 @@ int x86FSTCW(unsigned char *stream)
 {
 	stream[0] = 0x9b;
 	stream[1] = 0xd9;
-	unsigned int asize = encodeAddress(stream+2, rNONE, 1, rESP, 0, 3);
+	unsigned int asize = encodeAddress(stream+2, rNONE, 1, rESP, 0, 7);
 	return 2+asize;
 }
 int x86FLDCW(unsigned char *stream, int shift)
 {
 	stream[0] = 0xd9;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rESP, 0, 5);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rESP, shift, 5);
 	return 1+asize;
 }
 
@@ -602,16 +602,28 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 	}
 	if(size == sBYTE)
 	{
+		if(src == rEAX && regA == rNONE && regB == rNONE)
+		{
+			stream[0] = 0xa2;
+			*(int*)(stream+1) = shift;
+			return 5;
+		}
 		stream[0] = 0x88;
 		unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, regCode[src]);
 		return 1+asize;
 	}else if(size == sWORD){
 		stream[0] = 0x66;	// switch to word
+		if(src == rEAX && regA == rNONE && regB == rNONE)
+		{
+			stream[1] = 0xa3;
+			*(int*)(stream+2) = shift;
+			return 6;
+		}
 		stream[1] = 0x89;
 		unsigned int asize = encodeAddress(stream+2, regA, 1, regB, shift, regCode[src]);
 		return 2+asize;
 	}
-	if(src == rEAX && (char)(shift) != shift && regA == rNONE && regB == rNONE)
+	if(src == rEAX && regA == rNONE && regB == rNONE)
 	{
 		stream[0] = 0xa3;
 		*(int*)(stream+1) = shift;
@@ -625,8 +637,23 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 // movsx dst, *word [regA+regB+shift]
 int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Reg regB, int shift)
 {
-	assert(0);
-	return 0;
+	assert(size != sDWORD && size != sQWORD);
+	if(regB == rNONE && regA != rNONE)	// swap so if there is only one register, it will be base
+	{
+		regB = regA;
+		regA = rNONE;
+	}
+	if(size == sBYTE)
+	{
+		stream[0] = 0x0f;
+		stream[1] = 0xbe;
+		unsigned int asize = encodeAddress(stream+2, regA, 1, regB, shift, regCode[dst]);
+		return 2+asize;
+	}
+	stream[0] = 0x0f;
+	stream[1] = 0xbf;
+	unsigned int asize = encodeAddress(stream+2, regA, 1, regB, shift, regCode[dst]);
+	return 2+asize;
 }
 
 // lea dst, [src+shift]
@@ -639,8 +666,9 @@ int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int shift)
 // lea dst, [src*multiplier+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int multiplier, int shift)
 {
-	assert(0);
-	return 0;
+	stream[0] = 0x8d;
+	unsigned int asize = encodeAddress(stream+1, src, multiplier, rNONE, shift, regCode[dst]);
+	return 1 + asize;
 }
 
 
@@ -721,18 +749,18 @@ int x86ADC(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op
 // sub dst, num
 int x86SUB(unsigned char *stream, x86Reg dst, int num)
 {
-	if(dst == rEAX)
-	{
-		stream[0] = 0x2d;
-		*(int*)(stream+1) = num;
-		return 5;
-	}
 	if((char)(num) == num)
 	{
 		stream[0] = 0x83;
 		stream[1] = encodeRegister(dst, 5);
 		stream[2] = (char)(num);
 		return 3;
+	}
+	if(dst == rEAX)
+	{
+		stream[0] = 0x2d;
+		*(int*)(stream+1) = num;
+		return 5;
 	}
 	stream[0] = 0x81;
 	stream[1] = encodeRegister(dst, 5);
@@ -821,8 +849,14 @@ int x86SHL(unsigned char *stream, x86Reg reg, int shift)
 int x86SHL(unsigned char *stream, x86Size size, x86Reg reg, int shift)
 {
 	assert(size == sDWORD);
-	assert(0);
-	return 0;
+	if(shift == 1)
+		stream[0] = 0xd1;
+	else
+		stream[0] = 0xc1;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 4);
+	if(shift != 1)
+		stream[1+asize] = (char)(shift);
+	return (shift == 1 ? 1 : 2) + asize;
 }
 
 // sal eax, cl
@@ -1019,8 +1053,9 @@ int x86RET(unsigned char *stream)
 
 int x86REP_MOVSD(unsigned char *stream)
 {
-	assert(0);
-	return 0;
+	stream[0] = 0xf3;
+	stream[1] = 0xa5;
+	return 2;
 }
 
 int x86INT(unsigned char *stream, int interrupt)
