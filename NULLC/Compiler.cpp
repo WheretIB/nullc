@@ -2760,7 +2760,7 @@ bool Compiler::Compile(string str)
 	m_TempStream << "Parsing and AST tree gen. time: " << tem * 1000 / CLOCKS_PER_SEC << "ms\r\n";
 	
 	// Emulate global block end
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varTop)));
+	CodeInfo::globalSize = varTop;
 
 	t = clock();
 	if(nodeList.back())

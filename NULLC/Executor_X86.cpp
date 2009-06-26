@@ -117,7 +117,6 @@ UINT ExecutorX86::Run(const char* funcName)
 	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 
 	UINT startPos = 20;
-	unsigned char	oldCode[16];
 	if(funcName)
 	{
 		UINT funcPos = (unsigned int)-1;
@@ -135,17 +134,8 @@ UINT ExecutorX86::Run(const char* funcName)
 
 		while(*(UINT*)(binCode+startPos) != marker && startPos < binCodeSize)
 			startPos++;
-		startPos -= 5;
-		memcpy(oldCode, binCode+startPos, 9);
-		binCode[startPos+0] = 0x58 + 0x05;
-		binCode[startPos+1] = 0x90;
-		binCode[startPos+2] = 0x90;
-		binCode[startPos+3] = 0x90; // nop */binCode[startPos+0] = 0x55; // push ebp
-		binCode[startPos+4] = 0x90; // mov ebp, edi
-		binCode[startPos+5] = 0x90;
-		binCode[startPos+6] = 0x90; // add edi, 4
-		binCode[startPos+7] = 0x90;
-		binCode[startPos+8] = 0x90;
+
+		binCodeStart += startPos - 20 + 4; // shift to starting position and skip marker
 	}
 
 	UINT res1 = 0;
@@ -170,7 +160,7 @@ UINT ExecutorX86::Run(const char* funcName)
 			push ebp; // Сохраним базу стека (её придётся востановить до popa)
 
 			mov ebp, 0h ;
-			mov edi, 0h ;
+			mov edi, CodeInfo::globalSize ;
 
 			call eax ; // в ebx тип вернувшегося значения
 
@@ -211,9 +201,6 @@ UINT ExecutorX86::Run(const char* funcName)
 	runResult = res1;
 	runResult2 = res2;
 	runResultType = (OperFlag)resT;
-
-	if(funcName)
-		memcpy(binCode+startPos, oldCode, 9);
 
 	return runTime;
 }
@@ -398,6 +385,7 @@ void ExecutorX86::GenListing()
 	}
 
 	logASM << "use32\r\n";
+	logASM << "push ebp\r\n";
 	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 
 	int pushLabels = 1;

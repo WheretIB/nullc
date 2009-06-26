@@ -17,6 +17,7 @@ std::vector<TypeInfo*>		CodeInfo::typeInfo;
 CommandList*				CodeInfo::cmdList;
 std::vector<shared_ptr<NodeZeroOP> >	CodeInfo::nodeList;
 ostringstream				CodeInfo::compileLog;
+unsigned int				CodeInfo::globalSize = 0;
 
 Compiler*	compiler;
 Executor*	executor;
