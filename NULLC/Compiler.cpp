@@ -253,6 +253,9 @@ void addStringNode(char const*s, char const*e)
 	curr = cleanBuf;
 	end = cleanBuf+len;
 
+	// Clean the padding
+	*(int*)(cleanBuf+len) = 0;
+
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(len+1, typeInt)));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(typeChar))));

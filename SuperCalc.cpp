@@ -63,6 +63,15 @@ int myGetTime()
 	return int(temp*1000.0);
 }
 
+double myGetPreciseTime()
+{
+	LARGE_INTEGER freq, count;
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&count);
+	double temp = double(count.QuadPart) / double(freq.QuadPart);
+	return temp*1000.0;
+}
+
 FILE* myFileOpen(ArrayPtr name, ArrayPtr access)
 {
 	return fopen(reinterpret_cast<long long>(name.ptr)+variableData, reinterpret_cast<long long>(access.ptr)+variableData);
@@ -279,11 +288,11 @@ void RunUnitTests()
 			}
 		}
 		UINT varCount = 0;
-		VariableInfo **varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
+		VariableInfo **varInfoX86 = (VariableInfo**)nullcGetVariableInfo(&varCount);
 		UINT allsizeX86 = 0;
 		for(UINT i = 0; i < varCount; i++)
 		{
-			VariableInfo &currVar = *(*(varInfo+i));
+			VariableInfo &currVar = *(*(varInfoX86+i));
 			allsizeX86 += currVar.varType->size;
 		}
 
@@ -305,6 +314,8 @@ void RunUnitTests()
 			{
 				string val = nullcGetResult();
 
+				variableDataVM = variableData = (char*)nullcGetVariableData();
+
 				ostr.precision(20);
 				ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]\r\n";
 			}else{
@@ -312,27 +323,52 @@ void RunUnitTests()
 			}
 		}
 
-		varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
+		VariableInfo **varInfoVM = (VariableInfo**)nullcGetVariableInfo(&varCount);
 		UINT allsizeVM = 0;
 		for(UINT i = 0; i < varCount; i++)
 		{
-			VariableInfo &currVar = *(*(varInfo+i));
+			VariableInfo &currVar = *(*(varInfoVM+i));
 			allsizeVM += currVar.varType->size;
 		}
 
 		if(allsizeX86 != allsizeVM)
 		{
 			ostr << "X86 and VM variable stack sizes are different\r\n";
+			string str = ostr.str();
+			fprintf(fTLog, "%s\r\n\r\n", str.c_str());
 		}else{
+			char hexArr[] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
 			if(variableDataVM && variableDataX86)
-				if(memcmp(variableDataX86+8, variableDataVM+8, allsizeX86-8) != 0)
+			{
+				if(memcmp(variableDataX86, variableDataVM, allsizeX86) != 0)
+				{
 					ostr << "X86 and VM results are different\r\n";
-			//memset(variableDataX86, 0, allsizeX86);
-			//memset(variableDataVM, 0, allsizeX86);
-		}
+					for(UINT i = 0; i < varCount; i++)
+					{
+						VariableInfo &currVar = *(*(varInfoVM+i));
+						if(memcmp(variableDataX86+currVar.pos, variableDataVM+currVar.pos, currVar.varType->size) != 0)
+						{
+							ostr << "Difference in variable '" << currVar.name << "'\r\n";
+							if(currVar.varType->funcType != NULL)
+								ostr << "####Probably just different pointer to function####\r\n";
+							ostr << "VM: ";
+							for(UINT n = 0; n < currVar.varType->size; n++)
+								ostr << hexArr[(unsigned char)variableDataVM[currVar.pos+n] >> 4] << hexArr[(unsigned char)variableDataVM[currVar.pos+n] & 0x0f] << ' ';
+							ostr << "\r\n";
+							ostr << "X86: ";
+							for(UINT n = 0; n < currVar.varType->size; n++)
+								ostr << hexArr[(unsigned char)variableDataX86[currVar.pos+n] >> 4] << hexArr[(unsigned char)variableDataX86[currVar.pos+n] & 0x0f] << ' ';
+							ostr << "\r\n";
+						}
+						allsizeX86 += currVar.varType->size;
+					}
 
-		string str = ostr.str();
-		fprintf(fTLog, "%s\r\n\r\n", str.c_str());
+					string str = ostr.str();
+					fprintf(fTLog, "%s\r\n\r\n", str.c_str());
+				}
+				
+			}
+		}
 
 		fflush(fTLog);
 		begin = end;
@@ -346,6 +382,16 @@ void RunUnitTests()
 void draw_rect(int x, int y, int width, int height, int color)
 {
 	//x += y; width = height + color;
+}
+
+char typeTest(int x, short y, char z, int d, long long u, float m, double k)
+{
+	InitConsole();
+	DWORD written;
+	char buf[64];
+	sprintf(buf, "%d %d %d %d %I64d %f %f", x, y, z, d, u, m, k);
+	WriteFile(conStdOut, buf, strlen(buf), &written, NULL); 
+	return 12;
 }
 
 char* buf;
@@ -381,6 +427,10 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	return 0;
 */
 	colorer = NULL;
+
+	//typeTest(12, 14, 'c', 15, 5l, 5.0);
+	
+	nullcAddExternalFunction((void (*)())(typeTest), "char typeTest(int x, short y, char z, int d, long u, float m, double k);");
 
 	nullcAddExternalFunction((void (*)())(PrintFloat4), "void TestEx(float4 test);");
 	nullcAddExternalFunction((void (*)())(PrintLong), "void TestEx2(long test);");
@@ -784,22 +834,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				variableData = (char*)nullcGetVariableData();
 				
-				UINT time = timeGetTime();
-				nullres goodRun = nullcRunFunction(callNum ? "draw_progress_bar" : NULL);
+				double time = myGetPreciseTime();
+				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
 
 				if(goodRun)
 				{
 					string val = nullcGetResult();
 
 					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]";
+					ostr << "The answer is: " << val << " [in: " << myGetPreciseTime()-time << "]";
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
 
 					SetWindowText(hResult, ostr.str().c_str());
 				}else{
-					ostr << nullcGetRuntimeError();
+					ostr << nullcGetRuntimeError() << " [in: " << myGetPreciseTime()-time << "]";
 					SetWindowText(hResult, ostr.str().c_str());
 				}
 			}
@@ -827,14 +877,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				variableData = (char*)nullcGetVariableData();
 				
-				UINT time = timeGetTime();
+				double time = myGetPreciseTime();
 				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
 				if(goodRun)
 				{
 					string val = nullcGetResult();
 
 					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]";
+					ostr << "The answer is: " << val << " [in: " << myGetPreciseTime()-time << "]";
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
