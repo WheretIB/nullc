@@ -170,7 +170,7 @@ UINT ExecutorX86::Run(const char* funcName)
 			push ebp; // Сохраним базу стека (её придётся востановить до popa)
 
 			mov ebp, 0h ;
-			mov edi, 18h ;
+			mov edi, 0h ;
 
 			call eax ; // в ebx тип вернувшегося значения
 
@@ -571,15 +571,10 @@ void ExecutorX86::GenListing()
 				if(valind == -1)
 				{
 					logASM << "pop eax ;\r\n";
-					logASM << "xchg [esp], eax ;\r\n";
 					logASM << "call eax ; \r\n";
 				}else{
 					logASM << "call function" << valind << "\r\n";
 				}
-				if(!(retFlag & bitRetSimple) && retFlag > 16)
-					logASM << "mov eax, edi ; сохраним старый edi\r\n";
-				logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
-				logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 				if(retFlag & bitRetSimple)
 				{
 					oFlag = (OperFlag)(retFlag & 0x0FFF);
@@ -645,6 +640,8 @@ void ExecutorX86::GenListing()
 				}
 				if(retFlag == 0)
 				{
+					logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
+					logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 					logASM << "ret ; возвращаемся из функции\r\n";
 					break;
 				}
@@ -661,7 +658,7 @@ void ExecutorX86::GenListing()
 					}else if(oFlag == OTYPE_INT){
 						logASM << "pop eax ; на время поместим int в регистр\r\n";
 					}
-					for(int pops = 0; pops < popCnt-1; pops++)
+					for(int pops = 0; pops < (popCnt > 0 ? popCnt : 1); pops++)
 					{
 						logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
 						logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
@@ -701,6 +698,10 @@ void ExecutorX86::GenListing()
 						logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
 						logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 					}
+					if(retFlag > 16)
+						logASM << "mov eax, edi ; сохраним старый edi\r\n";
+					logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
+					logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 					if(popCnt == 0)
 						logASM << "mov ebx, " << 16 << " ; если глобальный return, то обозначим, какой тип вернулся\r\n";
 				}

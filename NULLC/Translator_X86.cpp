@@ -1,6 +1,11 @@
 #include "Translator_X86.h"
 #include <vector>
+
 #include <assert.h>
+#ifdef NDEBUG
+#undef assert
+#define assert(expr)	((void)sizeof(!(expr)))
+#endif
 
 // Mapping from x86Reg to register code
 char	regCode[] = { -1, 0, 3, 1, 2, 4, 7, 5, 6 };
@@ -30,7 +35,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	unsigned char mod = 0;
 	if(displacement)
 	{
-		if((char)(displacement) == displacement)
+		if((char)(displacement) == (int)displacement)
 			mod = 1 << 6;
 		else
 			mod = 2 << 6;
@@ -75,7 +80,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 		*stream = (unsigned char)displacement;
 	else
 		*(int*)stream = displacement;
-	return (int)(stream - start) + (mod == 0 ? (displacement == 0 ? 0 : 4) : (((char)(displacement) == displacement) ? 1 : 4));
+	return (int)(stream - start) + (mod == 0 ? (displacement == 0 ? 0 : 4) : (((char)(displacement) == (int)displacement) ? 1 : 4));
 }
 
 struct LabelInfo
@@ -159,7 +164,7 @@ int x86FLD1(unsigned char* stream)
 int x86FLD(unsigned char *stream, x87Reg reg)
 {
 	stream[0] = 0xd9;
-	stream[1] = 0xc0 + reg;
+	stream[1] = (unsigned char)(0xc0 + reg);
 	return 2;
 }
 
@@ -239,7 +244,7 @@ int x86FST(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 int x86FSTP(unsigned char *stream, x87Reg dst)
 {
 	stream[0] = 0xdd;
-	stream[1] = 0xd8 + dst;
+	stream[1] = (unsigned char)(0xd8 + dst);
 	return 2;
 }
 // fstp *word [reg+shift]
@@ -659,6 +664,7 @@ int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Re
 // lea dst, [label+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, const char *label, int shift)
 {
+	(void)shift;
 	LabelInfo info;
 	stream[0] = 0x8d;
 	if(!FindLabel(label, info))
@@ -668,7 +674,7 @@ int x86LEA(unsigned char *stream, x86Reg dst, const char *label, int shift)
 		assert(asize == 5);
 		return 1 + asize;
 	}
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rNONE, (int)info.pos, regCode[dst]);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rNONE, (int)(long long)info.pos, regCode[dst]);
 	return 1 + asize;
 }
 // lea dst, [src+shift]
@@ -1166,7 +1172,7 @@ void x86AddLabel(unsigned char *stream, const char* label)
 			}else{
 				if(*uJmp.jmpPos == 0x8d)	// This one is for lea reg, [label+offset]
 				{
-					*(int*)(uJmp.jmpPos+2) = (int)(stream);
+					*(int*)(uJmp.jmpPos+2) = (int)(long long)(stream);
 				}else{
 					assert(uJmp.jmpPos-stream + 128 < 256);
 					*(char*)(uJmp.jmpPos+1) = (char)(stream-uJmp.jmpPos-2);

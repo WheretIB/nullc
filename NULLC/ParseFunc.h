@@ -172,7 +172,7 @@ protected:
 class NodeVarDef: public NodeZeroOP
 {
 public:
-	NodeVarDef(UINT sh, std::string nm);
+	NodeVarDef(std::string nm);
 	virtual ~NodeVarDef();
 
 	virtual void Compile();
@@ -180,7 +180,6 @@ public:
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeVarDef; }
 protected:
-	UINT shift;
 	std::string name;
 };
 
@@ -242,7 +241,7 @@ protected:
 class NodeBlock: public NodeOneOP
 {
 public:
-	NodeBlock();
+	NodeBlock(unsigned int varShift, bool postPop = true);
 	virtual ~NodeBlock();
 
 	virtual void Compile();
@@ -250,6 +249,8 @@ public:
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeBlock; }
 protected:
+	UINT shift;
+	bool popAfter;
 };
 
 class NodeFuncDef: public NodeOneOP

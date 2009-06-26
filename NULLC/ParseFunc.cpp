@@ -519,10 +519,8 @@ UINT NodeExpression::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, создающий место для новых переменных
-NodeVarDef::NodeVarDef(UINT sh, std::string nm)
+NodeVarDef::NodeVarDef(std::string nm)
 {
-	// Сдвиг вершины стека переменных
-	shift = sh;
 	// Имя переменной
 	name = nm;
 }
@@ -537,31 +535,26 @@ void NodeVarDef::Compile()
 	if(strBegin && strEnd)
 		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
 
-	// Если сдвиг не равен нулю
-	if(shift)
-	{
-		// Сдвинем вершину стека переменных
-		cmdList->AddData(cmdPushV);
-		cmdList->AddData(shift);
-	}
-
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
 void NodeVarDef::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *typeInfo << "VarDef '" << name << "' " << shift << "\r\n";
+	ostr << *typeInfo << "VarDef '" << name << "'\r\n";
 }
 UINT NodeVarDef::GetSize()
 {
-	return shift ? (sizeof(CmdID) + sizeof(UINT)) : 0;
+	return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Узел c содержимым блока {}
-NodeBlock::NodeBlock()
+NodeBlock::NodeBlock(unsigned int varShift, bool postPop)
 {
 	first = TakeLastNode();
+
+	shift = varShift;
+	popAfter = postPop;
 }
 NodeBlock::~NodeBlock()
 {
@@ -573,24 +566,30 @@ void NodeBlock::Compile()
 
 	// Сохраним значение вершины стека переменных
 	cmdList->AddData(cmdPushVTop);
+	if(shift)
+	{
+		cmdList->AddData(cmdPushV);
+		cmdList->AddData(shift);
+	}
 	// Выполним содержимое блока (то же что first->Compile())
 	first->Compile();
 	// Востановим значение вершины стека переменных
-	cmdList->AddData(cmdPopVTop);
+	if(popAfter)
+		cmdList->AddData(cmdPopVTop);
 
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
 void NodeBlock::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *typeInfo << "Block :\r\n";
+	ostr << *typeInfo << "Block (" << shift << ") :\r\n";
 	GoDownB();
 	first->LogToStream(ostr);
 	GoUp();
 }
 UINT NodeBlock::GetSize()
 {
-	return first->GetSize() + 2 * sizeof(CmdID);
+	return first->GetSize() + (popAfter ? 2 : 1) * sizeof(CmdID) + (shift ? sizeof(CmdID) + 4 : 0);
 }
 
 NodeFuncDef::NodeFuncDef(FunctionInfo *info)
@@ -767,17 +766,6 @@ void NodeFuncCall::Compile()
 			}
 		}
 
-		cmdList->AddData(cmdPushVTop);
-
-		// Надём, сколько занимают все переменные
-		UINT allSize = 0;
-		for(UINT i = 0; i < funcType->paramType.size(); i++)
-			allSize += funcType->paramType[i]->size;
-
-		// Расширим стек переменные на это значение
-		cmdList->AddData(cmdPushV);
-		cmdList->AddData(allSize + 4);//(funcInfo ? (funcInfo->type == FunctionInfo::LOCAL ? 4 : 0) : 4));
-
 		// Вызовем по адресу
 		cmdList->AddData(cmdCall);
 		cmdList->AddData(funcInfo ? funcInfo->address : -1);
@@ -834,7 +822,7 @@ UINT NodeFuncCall::GetSize()
 	{
 		size += sizeof(CmdID) + sizeof(funcInfo);
 	}else{
-		size += 3*sizeof(CmdID) + 2*sizeof(UINT) + sizeof(USHORT) + (UINT)(funcType->paramType.size()) * (sizeof(CmdID)+2+4);
+		size += sizeof(CmdID) + sizeof(UINT) + sizeof(USHORT) + (UINT)(funcType->paramType.size()) * (sizeof(CmdID)+2+4);
 		if(CodeInfo::activeExecutor == EXEC_X86)
 			size += (UINT)(funcType->paramType.size()) * (sizeof(CmdID)+4);
 		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
@@ -1011,12 +999,6 @@ void NodeVariableSet::Compile()
 
 	asmStackType asmST = podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)];
 	asmDataType asmDT = podTypeToDataType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)];
-	
-	if(bytesToPush)
-	{
-		cmdList->AddData(cmdPushV);
-		cmdList->AddData(bytesToPush);
-	}
 
 	second->Compile();
 	ConvertFirstToSecond(podTypeToStackType[second->GetTypeInfo()->type], asmST);
@@ -1045,7 +1027,7 @@ void NodeVariableSet::Compile()
 void NodeVariableSet::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *typeInfo << "VariableSet " << (arrSetAll ? "set all elements" : "") << " pushv: " << bytesToPush << "\r\n";
+	ostr << *typeInfo << "VariableSet " << (arrSetAll ? "set all elements" : "") << "\r\n";
 	GoDown();
 	first->LogToStream(ostr);
 	GoUp();
@@ -1059,8 +1041,6 @@ UINT NodeVariableSet::GetSize()
 	UINT size = second->GetSize();
 	if(!knownAddress)
 		size += first->GetSize();
-	if(bytesToPush)
-		size += sizeof(CmdID) + sizeof(UINT);
 	size += ConvertFirstToSecondSize(podTypeToStackType[second->GetTypeInfo()->type], podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)]);
 	if(arrSetAll)
 		size += sizeof(CmdID) + sizeof(USHORT) + 2*sizeof(UINT);
