@@ -28,5 +28,9 @@ typedef unsigned char UCHAR;
 using namespace std;
 
 #include <assert.h>
+#ifdef NDEBUG
+#undef assert
+#define assert(expr)	((void)sizeof(!(expr)))
+#endif
 
 #include "nullcdef.h"

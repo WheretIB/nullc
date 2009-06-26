@@ -46,6 +46,8 @@ void Executor::Run(const char* funcName) throw()
 	tempVal = 2.7182818284590452353602874713527;
 	genParams.push_back((char*)(&tempVal), 8);
 	
+	genParams.shrink(0);
+
 	//UINT pos = 0, pos2 = 0;
 	CmdID	cmd;
 	double	val = 0.0;
@@ -116,7 +118,7 @@ void Executor::Run(const char* funcName) throw()
 			UINT oldSize = (unsigned int)(genStackTop-genStackBase);
 			genStackBase = new UINT[oldSize+128];
 			genStackTop = genStackBase + oldSize + 128;
-			memcpy(genStackBase+128, oldStack, oldSize);
+			memcpy(genStackBase+128, oldStack, oldSize * sizeof(unsigned int));
 			delete[] oldStack;
 
 			genStackPtr = genStackTop - oldSize;

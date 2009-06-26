@@ -128,6 +128,7 @@ void blockBegin(char const* s, char const* e)
 void blockEnd(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
+	unsigned int varFormerTop = varTop;
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{ 
 		varTop -= varInfo.back()->varType->size;
@@ -138,6 +139,8 @@ void blockEnd(char const* s, char const* e)
 	for(UINT i = funcInfoTop.back(); i < funcInfo.size(); i++)
 		funcInfo[i]->visible = false;
 	funcInfoTop.pop_back();
+
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varFormerTop-varTop)));
 }
 
 // Функции для добавления узлов с константными числами разных типов
@@ -833,7 +836,7 @@ void addVarDefNode(char const* s, char const* e)
 	assert(varDefined);
 	if(!currType)
 		throw CompilerError("ERROR: auto variable must be initialized in place of definition", s);
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(currType->size+offsetBytes, strs.back())));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(strs.back())));
 	varInfo.back()->dataReserved = true;
 	varDefined = 0;
 	offsetBytes = 0;
@@ -1461,11 +1464,6 @@ void addTwoExprNode(char const* s, char const* e)
 	static_cast<NodeExpressionList*>(temp.get())->AddNode();
 	nodeList.push_back(temp);
 }
-void addBlockNode(char const* s, char const* e)
-{
-	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock()));
-}
 
 std::vector<UINT> arrElementCount;
 
@@ -1610,12 +1608,15 @@ void FunctionEnd(char const* s, char const* e)
 		}
 	}
 
+	unsigned int varFormerTop = varTop;
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
 		varTop -= varInfo.back()->varType->size;
 		varInfo.pop_back();
 	}
 	varInfoTop.pop_back();
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varFormerTop-varTop, false)));
+
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcInfo[i])));
 	strs.pop_back();
 
@@ -2300,7 +2301,7 @@ namespace CompilerGrammar
 #endif
 
 		block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
-		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block[addBlockNode] | breakexpr | continueExpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
+		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block | breakexpr | continueExpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
 		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 	
 		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
@@ -2758,6 +2759,9 @@ bool Compiler::Compile(string str)
 	UINT tem = clock()-t;
 	m_TempStream << "Parsing and AST tree gen. time: " << tem * 1000 / CLOCKS_PER_SEC << "ms\r\n";
 	
+	// Emulate global block end
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varTop)));
+
 	t = clock();
 	if(nodeList.back())
 		nodeList.back()->Compile();
@@ -2831,28 +2835,30 @@ void Compiler::GenListing()
 	{
 		pos2 = pos;
 		pos += 2;
+
+		logASM << pos2;
 		switch(cmd)
 		{
 		case cmdDTOF:
-			logASM << dec << showbase << pos2 << " DTOF;";
+			logASM << " DTOF;";
 			break;
 		case cmdCallStd:
 			cmdList->GetData(pos, funcInfo);
 			pos += sizeof(FunctionInfo*);
-			logASM << dec << showbase << pos2 << " CALLS " << funcInfo->name << ";";
+			logASM << " CALLS " << funcInfo->name << ";";
 			break;
 		case cmdPushVTop:
-			logASM << dec << showbase << pos2 << dec << " PUSHT;";
+			logASM << " PUSHT;";
 			break;
 		case cmdPopVTop:
-			logASM << dec << showbase << pos2 << dec << " POPT;";
+			logASM << " POPT;";
 			break;
 		case cmdCall:
 			cmdList->GetUINT(pos, valind);
 			pos += sizeof(UINT);
 			cmdList->GetUSHORT(pos, shVal1);
 			pos += 2;
-			logASM << dec << showbase << pos2 << " CALL " << valind;
+			logASM << " CALL " << valind;
 			if(shVal1 & bitRetSimple)
 				logASM << " simple";
 			logASM << " size:" << (shVal1&0x0FFF) << ";";
@@ -2862,7 +2868,7 @@ void Compiler::GenListing()
 			pos += 2;
 			cmdList->GetUSHORT(pos, shVal2);
 			pos += 2;
-			logASM << dec << showbase << pos2 << " RET " << shVal2;
+			logASM << " RET " << shVal2;
 			if(shVal1 & bitRetError)
 			{
 				logASM << " ERROR;";
@@ -2891,14 +2897,14 @@ void Compiler::GenListing()
 				int valind;
 				cmdList->GetData(pos, &valind, sizeof(int));
 				pos += sizeof(int);
-				logASM << dec << showbase << pos2 << " PUSHV " << valind << dec << ";";
+				logASM << " PUSHV " << valind << dec << ";";
 			}
 			break;
 		case cmdNop:
-			logASM << dec << showbase << pos2 << dec << " NOP;";
+			logASM << dec << " NOP;";
 			break;
 		case cmdCTI:
-			logASM << dec << showbase << pos2 << dec << " CTI addr*";
+			logASM << dec << " CTI addr*";
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
 			cmdList->GetUINT(pos, valind);
@@ -2924,7 +2930,7 @@ void Compiler::GenListing()
 			{
 				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
-				logASM << pos2 << " PUSHIMMT ";
+				logASM << " PUSHIMMT ";
 				logASM << typeInfoS[cFlag&0x00000003] << "<-";
 				logASM << typeInfoD[(cFlag>>2)&0x00000007];
 
@@ -2959,7 +2965,7 @@ void Compiler::GenListing()
 			{
 				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
-				logASM << pos2 << " PUSH ";
+				logASM << " PUSH ";
 				logASM << typeInfoS[cFlag&0x00000003] << "<-";
 				logASM << typeInfoD[(cFlag>>2)&0x00000007];
 
@@ -3029,7 +3035,7 @@ void Compiler::GenListing()
 				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
 
-				logASM << pos2 << " MOVRTAP ";
+				logASM << " MOVRTAP ";
 				logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
 				int valind;
 				cmdList->GetINT(pos, valind);
@@ -3048,7 +3054,7 @@ void Compiler::GenListing()
 			{
 				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
-				logASM << pos2 << " MOV ";
+				logASM << " MOV ";
 				logASM << typeInfoS[cFlag&0x00000003] << "->";
 				logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
 				asmStackType st = flagStackType(cFlag);
@@ -3089,37 +3095,37 @@ void Compiler::GenListing()
 		case cmdPop:
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << pos2 << " POP" << " sizeof(" << valind << ")";
+			logASM << " POP" << " sizeof(" << valind << ")";
 			break;
 		case cmdRTOI:
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			logASM << pos2 << " RTOI ";
+			logASM << " RTOI ";
 			logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
 			break;
 		case cmdITOR:
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			logASM << pos2 << " ITOR ";
+			logASM << " ITOR ";
 			logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
 			break;
 		case cmdITOL:
-			logASM << pos2 << " ITOL";
+			logASM << " ITOL";
 			break;
 		case cmdLTOI:
-			logASM << pos2 << " LTOI";
+			logASM << " LTOI";
 			break;
 		case cmdSwap:
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
-			logASM << pos2 << " SWAP ";
+			logASM << " SWAP ";
 			logASM << typeInfoS[cFlag&0x00000003] << "<->";
 			logASM << typeInfoD[(cFlag>>2)&0x00000007];
 			break;
 		case cmdCopy:
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			logASM << pos2 << " COPY ";
+			logASM << " COPY ";
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
@@ -3136,14 +3142,14 @@ void Compiler::GenListing()
 		case cmdJmp:
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << pos2 << " JMP " << valind;
+			logASM << " JMP " << valind;
 			break;
 		case cmdJmpZ:
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << pos2 << " JMPZ";
+			logASM << " JMPZ";
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
@@ -3163,7 +3169,7 @@ void Compiler::GenListing()
 			pos += 1;
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << pos2 << " JMPNZ";
+			logASM << " JMPNZ";
 			switch(oFlag)
 			{
 			case OTYPE_DOUBLE:
@@ -3185,19 +3191,19 @@ void Compiler::GenListing()
 			pos += 4;
 			cmdList->GetUINT(pos, valind2);
 			pos += 4;
-			logASM << pos2 << " SETRANGE " << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << valind2 << ';';
+			logASM << " SETRANGE " << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << valind2 << ';';
 			break;
 		case cmdGetAddr:
 			cmdList->GetUINT(pos, valind);
 			pos += 4;
-			logASM << pos2 << " GETADDR " << (int)valind << ';';
+			logASM << " GETADDR " << (int)valind << ';';
 			break;
 		case cmdFuncAddr:
 			{
 				FunctionInfo	*fInfo;
 				cmdList->GetData(pos, fInfo);
 				pos += sizeof(FunctionInfo*);
-				logASM << pos2 << " FUNCADDR " << fInfo->name;
+				logASM << " FUNCADDR " << fInfo->name;
 				break;
 			}
 		}
@@ -3205,7 +3211,7 @@ void Compiler::GenListing()
 		{
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			logASM << pos2 << ' ';
+			logASM << ' ';
 			switch(cmd)
 			{
 			case cmdAdd:
@@ -3298,7 +3304,7 @@ void Compiler::GenListing()
 		{
 			cmdList->GetUCHAR(pos, oFlag);
 			pos += 1;
-			logASM << pos2 << ' ';
+			logASM << ' ';
 			switch(cmd)
 			{
 			case cmdNeg:
@@ -3333,9 +3339,9 @@ void Compiler::GenListing()
 			cmdList->GetUSHORT(pos, cFlag);
 			pos += 2;
 			if(cmd == cmdIncAt)
-				logASM << pos2 << " INCAT ";
+				logASM << " INCAT ";
 			if(cmd == cmdDecAt)
-				logASM << pos2 << " DECAT ";
+				logASM << " DECAT ";
 			logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
 
 			int valind;
