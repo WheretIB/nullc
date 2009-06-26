@@ -29,6 +29,9 @@ namespace CodeInfo
 	// Command stream
 	extern CommandList*				cmdList;
 
+	// The size of all global variables in bytes
+	extern unsigned int				globalSize;
+
 	// —писок узлов дерева
 	// ќтдельные узлы помещаютс€ сюда, и в дальнейшем объеден€ютс€ в более комплексные узлы,
 	// создава€ дерево. ѕосле правильной компил€ции количество узлов в этом массиве должно равн€тс€ 1

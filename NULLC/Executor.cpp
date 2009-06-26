@@ -46,7 +46,7 @@ void Executor::Run(const char* funcName) throw()
 	tempVal = 2.7182818284590452353602874713527;
 	genParams.push_back((char*)(&tempVal), 8);
 	
-	genParams.shrink(0);
+	genParams.resize(CodeInfo::globalSize);
 
 	//UINT pos = 0, pos2 = 0;
 	CmdID	cmd;
@@ -78,7 +78,6 @@ void Executor::Run(const char* funcName) throw()
 			if(strcmp(CodeInfo::funcInfo[i]->name.c_str(), funcName) == 0)
 			{
 				funcPos = CodeInfo::funcInfo[i]->address;
-				*(CmdID*)(&CodeInfo::cmdList->bytecode[funcPos-6]) = cmdFEnter;
 				break;
 			}
 		}
@@ -105,6 +104,9 @@ void Executor::Run(const char* funcName) throw()
 	char *cmdStream = CodeInfo::cmdList->bytecode;
 	char *cmdStreamEnd = CodeInfo::cmdList->bytecode + CodeInfo::cmdList->max;
 #define cmdStreamPos (cmdStream-cmdStreamBase)
+
+	if(funcName)
+		cmdStream += funcPos;
 
 	while(cmdStream+2 < cmdStreamEnd && !done)
 	{
@@ -1258,9 +1260,6 @@ void Executor::Run(const char* funcName) throw()
 		m_FileStream << ";\r\n" << std::flush;
 #endif
 	}
-
-	if(funcName && funcPos)
-		*(CmdID*)(&CodeInfo::cmdList->bytecode[funcPos-6]) = cmdJmp;
 }
 
 #ifdef _MSC_VER
