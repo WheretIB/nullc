@@ -36,6 +36,28 @@ const CmdID cmdFuncAddr	= 202;
 	// положить значение на верхушку стека
 const CmdID cmdPush		= 100;
 
+// cmdPush specializations for VM
+const CmdID cmdPushCharAbs = 70;
+const CmdID cmdPushShortAbs = 71;
+const CmdID cmdPushIntAbs = 72;
+const CmdID cmdPushFloatAbs = 73;
+const CmdID cmdPushDorLAbs = 74;
+const CmdID cmdPushCmplxAbs = 75;
+
+const CmdID cmdPushCharRel = 76;
+const CmdID cmdPushShortRel = 77;
+const CmdID cmdPushIntRel = 78;
+const CmdID cmdPushFloatRel = 79;
+const CmdID cmdPushDorLRel = 80;
+const CmdID cmdPushCmplxRel = 81;
+
+const CmdID cmdPushCharStk = 82;
+const CmdID cmdPushShortStk = 83;
+const CmdID cmdPushIntStk = 84;
+const CmdID cmdPushFloatStk = 85;
+const CmdID cmdPushDorLStk = 86;
+const CmdID cmdPushCmplxStk = 87;
+
 const CmdID cmdDTOF		= 96;	// double to float conversion
 const CmdID cmdFEnter	= 97;	// only for VM - jmp before function is replaced by function call imitation
 const CmdID cmdMovRTaP	= 98;	// cmdMov + (relative to top and pop)
