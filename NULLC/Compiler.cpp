@@ -3041,7 +3041,10 @@ void Compiler::GenListing()
 			{
 				cmdList->GetUSHORT(pos, cFlag);
 				pos += 2;
-				logASM << " PUSH ";
+				if(cmd == cmdPush)
+					logASM << " PUSH ";
+				else
+					logASM << " ***PUSH ";
 				logASM << typeInfoS[cFlag&0x00000003] << "<-";
 				logASM << typeInfoD[(cFlag>>2)&0x00000007];
 

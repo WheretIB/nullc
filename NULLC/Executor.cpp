@@ -335,11 +335,6 @@ void Executor::Run(const char* funcName) throw()
 			genStackPtr++;
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, 0, 0, 0));
 			break;
-		case cmdFEnter:
-			paramTop.push_back(genParams.size());
-			genParams.resize(genParams.size()+4);
-			cmdStream += 4;
-			break;
 		case cmdMovRTaP:
 			{
 				int valind;
