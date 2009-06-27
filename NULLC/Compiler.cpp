@@ -2822,6 +2822,173 @@ bool Compiler::Compile(string str)
 	if(nodeList.size() != 1)
 		throw std::string("Compilation failed, AST contains more than one node");
 
+	if(CodeInfo::activeExecutor == CodeInfo::EXEC_VM)
+	{
+		CmdID cmd;
+		CmdFlag cFlag;
+		asmDataType dt;
+		UINT pos = 0;
+		while(CodeInfo::cmdList->GetData(pos, cmd))
+		{
+			pos += 2;
+			switch(cmd)
+			{
+			case cmdMovRTaP:
+				CodeInfo::cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
+				dt = flagDataType(cFlag);
+
+				pos += 4;
+
+				if(dt == DTYPE_COMPLEX_TYPE)
+					pos += 4;
+				break;
+			case cmdCallStd:
+				pos += sizeof(FunctionInfo*);
+				break;
+			case cmdPushVTop:
+				break;
+			case cmdPopVTop:
+				break;
+			case cmdCall:
+				pos += 4;
+				pos += 2;
+				break;
+			case cmdFuncAddr:
+				pos += sizeof(FunctionInfo*);
+				break;
+			case cmdReturn:
+				pos += 4;
+				break;
+			case cmdPushV:
+				pos += 4;
+				break;
+			case cmdNop:
+				break;
+			case cmdCTI:
+				pos += 5;
+				break;
+			case cmdPushImmt:
+				CodeInfo::cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
+				dt = flagDataType(cFlag);
+
+				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+					pos += 8;
+				if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
+					pos += 4;
+				if(dt == DTYPE_SHORT)
+					pos += 2;
+				if(dt == DTYPE_CHAR)
+					pos += 1;
+				break;
+			case cmdPush:
+				{
+					UINT pos2 = pos - 2;
+					CodeInfo::cmdList->GetUSHORT(pos, cFlag);
+					pos += 2;
+					dt = flagDataType(cFlag);
+
+					if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
+						pos += 4;
+					if(flagSizeOn(cFlag))
+						pos += 4;
+					
+					CmdID prefferedCmd = 0;
+
+					if(dt == DTYPE_COMPLEX_TYPE)
+					{
+						pos += 4;
+						prefferedCmd = cmdPushCmplxAbs;
+					}
+					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+						prefferedCmd = cmdPushDorLAbs;
+					if(dt == DTYPE_FLOAT)
+						prefferedCmd = cmdPushFloatAbs;
+					if(dt == DTYPE_INT)
+						prefferedCmd = cmdPushIntAbs;
+					if(dt == DTYPE_SHORT)
+						prefferedCmd = cmdPushShortAbs;
+					if(dt == DTYPE_CHAR)
+						prefferedCmd = cmdPushCharAbs;
+
+					if(flagAddrRel(cFlag))
+						prefferedCmd += 6;
+					if(flagShiftStk(cFlag))
+						prefferedCmd += 12;
+
+					*(CmdID*)(&CodeInfo::cmdList->bytecode[pos2]) = prefferedCmd;
+
+					assert(prefferedCmd >= cmdPushCharAbs && prefferedCmd <= cmdPushCmplxStk);
+				}
+				break;
+			case cmdMov:
+				{
+					CodeInfo::cmdList->GetUSHORT(pos, cFlag);
+					pos += 2;
+					if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
+						pos += 4;
+					if(flagSizeOn(cFlag))
+						pos += 4;
+					if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
+						pos += 4;
+				}
+				break;
+			case cmdPop:
+				CodeInfo::cmdList->GetUSHORT(pos, cFlag);
+				pos += 4;
+				break;
+			case cmdRTOI:
+				pos += 2;
+				break;
+			case cmdITOR:
+				pos += 2;
+				break;
+			case cmdITOL:
+				break;
+			case cmdLTOI:
+				break;
+			case cmdSwap:
+				pos += 2;
+				break;
+			case cmdCopy:
+				pos += 1;
+				break;
+			case cmdJmp:
+				pos += 4;
+				break;
+			case cmdJmpZ:
+				pos += 1;
+				pos += 4;
+				break;
+			case cmdJmpNZ:
+				pos += 1;
+				pos += 4;
+				break;
+			case cmdSetRange:
+				pos += 10;
+				break;
+			case cmdGetAddr:
+				pos += 4;
+				break;
+			}
+			if(cmd >= cmdAdd && cmd <= cmdLogXor)
+				pos += 1;
+			if(cmd >= cmdNeg && cmd <= cmdLogNot)
+				pos += 1;
+			if(cmd >= cmdIncAt && cmd < cmdDecAt)
+			{
+				CodeInfo::cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
+
+				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+					pos += 4;
+				if(flagSizeOn(cFlag))
+					pos += 4;
+			}
+		}
+	}
+
 	return true; // Зачем тут return true, если вместо return false используются исключения?
 }
 
@@ -2849,6 +3016,92 @@ void Compiler::GenListing()
 		logASM << pos2;
 		switch(cmd)
 		{
+		case cmdPushCharAbs:
+		case cmdPushShortAbs:
+		case cmdPushIntAbs:
+		case cmdPushFloatAbs:
+		case cmdPushDorLAbs:
+		case cmdPushCmplxAbs:
+		case cmdPushCharRel:
+		case cmdPushShortRel:
+		case cmdPushIntRel:
+		case cmdPushFloatRel:
+		case cmdPushDorLRel:
+		case cmdPushCmplxRel:
+		case cmdPushCharStk:
+		case cmdPushShortStk:
+		case cmdPushIntStk:
+		case cmdPushFloatStk:
+		case cmdPushDorLStk:
+		case cmdPushCmplxStk:
+		case cmdPush:
+			{
+				cmdList->GetUSHORT(pos, cFlag);
+				pos += 2;
+				logASM << " PUSH ";
+				logASM << typeInfoS[cFlag&0x00000003] << "<-";
+				logASM << typeInfoD[(cFlag>>2)&0x00000007];
+
+				asmStackType st = flagStackType(cFlag);
+				asmDataType dt = flagDataType(cFlag);
+				UINT	DWords[2];
+				USHORT sdata;
+				UCHAR cdata;
+				int valind;
+				if(flagNoAddr(cFlag)){
+					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
+						cmdList->GetUINT(pos, DWords[0]); pos += 4;
+						cmdList->GetUINT(pos, DWords[1]); pos += 4;
+					}
+					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ cmdList->GetUINT(pos, DWords[0]); pos += 4; }
+					if(dt == DTYPE_SHORT){ cmdList->GetUSHORT(pos, sdata); pos += 2; DWords[0] = sdata; }
+					if(dt == DTYPE_CHAR){ cmdList->GetUCHAR(pos, cdata); pos += 1; DWords[0] = cdata; }
+
+					if(dt == DTYPE_DOUBLE)
+						logASM << " (" << *((double*)(&DWords[0])) << ')';
+					if(dt == DTYPE_LONG)
+						logASM << " (" << *((long long*)(&DWords[0])) << ')';
+					if(dt == DTYPE_FLOAT)
+						logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
+					if(dt == DTYPE_INT)
+						logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
+					if(dt == DTYPE_SHORT)
+						logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
+					if(dt == DTYPE_CHAR)
+						logASM << " (" << *((char*)(&DWords[0])) << ')';
+				}else{
+					logASM << " PTR[";
+					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+					{
+						cmdList->GetINT(pos, valind);
+						pos += 4;
+						logASM << valind;
+					}
+					if(flagAddrRel(cFlag))
+						logASM << "+top";
+					if(flagAddrRelTop(cFlag))
+						logASM << "+max";
+					if(flagShiftStk(cFlag))
+						logASM << "+shift(stack)";
+					
+					logASM << "] ";
+					if(flagSizeStk(cFlag))
+						logASM << "size(stack)";
+					if(flagSizeOn(cFlag))
+					{
+						cmdList->GetINT(pos, valind);
+						pos += 4;
+						logASM << " max size(" << valind << ") ";
+					}
+					if(st == STYPE_COMPLEX_TYPE)
+					{
+						cmdList->GetINT(pos, valind);
+						pos += 4;
+						logASM << "sizeof(" << valind << ")";
+					}
+				}
+			}
+			break;
 		case cmdDTOF:
 			logASM << " DTOF;";
 			break;
@@ -2970,75 +3223,6 @@ void Compiler::GenListing()
 				if(dt == DTYPE_CHAR)
 					logASM << " (" << *((char*)(&DWords[0])) << ')';
 			}
-			break;
-		case cmdPush:
-			{
-				cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-				logASM << " PUSH ";
-				logASM << typeInfoS[cFlag&0x00000003] << "<-";
-				logASM << typeInfoD[(cFlag>>2)&0x00000007];
-
-				asmStackType st = flagStackType(cFlag);
-				asmDataType dt = flagDataType(cFlag);
-				UINT	DWords[2];
-				USHORT sdata;
-				UCHAR cdata;
-				int valind;
-				if(flagNoAddr(cFlag)){
-					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
-						cmdList->GetUINT(pos, DWords[0]); pos += 4;
-						cmdList->GetUINT(pos, DWords[1]); pos += 4;
-					}
-					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ cmdList->GetUINT(pos, DWords[0]); pos += 4; }
-					if(dt == DTYPE_SHORT){ cmdList->GetUSHORT(pos, sdata); pos += 2; DWords[0] = sdata; }
-					if(dt == DTYPE_CHAR){ cmdList->GetUCHAR(pos, cdata); pos += 1; DWords[0] = cdata; }
-
-					if(dt == DTYPE_DOUBLE)
-						logASM << " (" << *((double*)(&DWords[0])) << ')';
-					if(dt == DTYPE_LONG)
-						logASM << " (" << *((long long*)(&DWords[0])) << ')';
-					if(dt == DTYPE_FLOAT)
-						logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_INT)
-						logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_SHORT)
-						logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_CHAR)
-						logASM << " (" << *((char*)(&DWords[0])) << ')';
-				}else{
-					logASM << " PTR[";
-					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-						logASM << valind;
-					}
-					if(flagAddrRel(cFlag))
-						logASM << "+top";
-					if(flagAddrRelTop(cFlag))
-						logASM << "+max";
-					if(flagShiftStk(cFlag))
-						logASM << "+shift(stack)";
-					
-					logASM << "] ";
-					if(flagSizeStk(cFlag))
-						logASM << "size(stack)";
-					if(flagSizeOn(cFlag))
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-						logASM << " max size(" << valind << ") ";
-					}
-					if(st == STYPE_COMPLEX_TYPE)
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-						logASM << "sizeof(" << valind << ")";
-					}
-				}
-			}
-			
 			break;
 		case cmdMovRTaP:
 			{

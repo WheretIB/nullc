@@ -140,6 +140,174 @@ void Executor::Run(const char* funcName) throw()
 
 		switch(cmd)
 		{
+		case cmdPushCharAbs:
+			cmdStream += 2;
+
+			genStackPtr--;
+			*genStackPtr = genParams[*(int*)cmdStream];
+
+			cmdStream += 4;
+			break;
+		case cmdPushShortAbs:
+			cmdStream += 2;
+
+			genStackPtr--;
+			*genStackPtr =  *((short*)(&genParams[*(int*)cmdStream]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushIntAbs:
+			cmdStream += 2;
+
+			genStackPtr--;
+			*genStackPtr = *((int*)(&genParams[*(int*)cmdStream]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushFloatAbs:
+			cmdStream += 2;
+
+			genStackPtr -= 2;
+			*(double*)(genStackPtr) = (double)*((float*)(&genParams[*(int*)cmdStream]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushDorLAbs:
+			cmdStream += 2;
+
+			genStackPtr -= 2;
+			*(double*)(genStackPtr) = *((double*)(&genParams[*(int*)cmdStream]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushCmplxAbs:
+			cmdStream += 2;
+
+			{
+				UINT currShift = *(unsigned int*)(cmdStream + 4);
+				while(currShift >= 4)
+				{
+					currShift -= 4;
+					genStackPtr--;
+					*genStackPtr = *((UINT*)(&genParams[*(int*)cmdStream + currShift]));
+				}
+			}
+
+			cmdStream += 8;
+			break;
+
+		case cmdPushCharRel:
+			cmdStream += 2;
+
+			genStackPtr--;
+			*genStackPtr = genParams[*(int*)cmdStream + paramTop.back()];
+
+			cmdStream += 4;
+			break;
+		case cmdPushShortRel:
+			cmdStream += 2;
+
+			genStackPtr--;
+			*genStackPtr =  *((short*)(&genParams[*(int*)cmdStream + paramTop.back()]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushIntRel:
+			cmdStream += 2;
+
+			genStackPtr--;
+			*genStackPtr = *((int*)(&genParams[*(int*)cmdStream + paramTop.back()]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushFloatRel:
+			cmdStream += 2;
+
+			genStackPtr -= 2;
+			*(double*)(genStackPtr) = (double)*((float*)(&genParams[*(int*)cmdStream + paramTop.back()]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushDorLRel:
+			cmdStream += 2;
+
+			genStackPtr -= 2;
+			*(double*)(genStackPtr) = *((double*)(&genParams[*(int*)cmdStream + paramTop.back()]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushCmplxRel:
+			cmdStream += 2;
+
+			{
+				int valind = *(int*)cmdStream + paramTop.back();
+				UINT currShift = *(unsigned int*)(cmdStream + 4);
+				while(currShift >= 4)
+				{
+					currShift -= 4;
+					genStackPtr--;
+					*genStackPtr = *((UINT*)(&genParams[valind + currShift]));
+				}
+			}
+
+			cmdStream += 8;
+			break;
+
+		case cmdPushCharStk:
+			cmdStream += 2;
+
+			*genStackPtr = genParams[*(int*)cmdStream + *genStackPtr];
+
+			cmdStream += 4;
+			break;
+		case cmdPushShortStk:
+			cmdStream += 2;
+
+			*genStackPtr =  *((short*)(&genParams[*(int*)cmdStream + *genStackPtr]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushIntStk:
+			cmdStream += 2;
+
+			*genStackPtr = *((int*)(&genParams[*(int*)cmdStream + *genStackPtr]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushFloatStk:
+			cmdStream += 2;
+
+			genStackPtr--;
+			*(double*)(genStackPtr) = (double)*((float*)(&genParams[*(int*)cmdStream + *(genStackPtr+1)]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushDorLStk:
+			cmdStream += 2;
+
+			genStackPtr--;
+			*(double*)(genStackPtr) = *((double*)(&genParams[*(int*)cmdStream + *(genStackPtr+1)]));
+
+			cmdStream += 4;
+			break;
+		case cmdPushCmplxStk:
+			cmdStream += 2;
+
+			{
+				UINT shift = *(int*)cmdStream + *genStackPtr;
+				genStackPtr++;
+				UINT currShift = *(unsigned int*)(cmdStream + 4);
+				while(currShift >= 4)
+				{
+					currShift -= 4;
+					genStackPtr--;
+					*genStackPtr = *((UINT*)(&genParams[shift + currShift]));
+				}
+			}
+
+			cmdStream += 8;
+			break;
+
 		case cmdDTOF:
 			*((float*)(genStackPtr+1)) = float(*(double*)(genStackPtr));
 			genStackPtr++;
@@ -253,85 +421,7 @@ void Executor::Run(const char* funcName) throw()
 			}
 			break;
 		case cmdPush:
-			{
-				int valind = -1, shift = 0;
-				USHORT sdata;
-				UCHAR cdata;
-				cFlag = *(CmdFlag*)cmdStream;
-				cmdStream += 2;
-				st = flagStackType(cFlag);
-				asmDataType dt = flagDataType(cFlag);
-
-				valind = *(int*)cmdStream;
-				cmdStream += 4;
-
-				if(flagShiftStk(cFlag))
-				{
-					shift = *genStackPtr;
-					genStackPtr++;
-
-					//if(int(shift) < 0)
-					//	throw std::string("ERROR: array index out of bounds (negative)");
-					DBG(genStackTypes.pop_back());
-				}
-
-				UINT sizeOfVar = 0;
-				if(dt == DTYPE_COMPLEX_TYPE)
-				{
-					sizeOfVar = *(unsigned int*)cmdStream;
-					cmdStream += 4;
-				}
-
-				if(flagAddrRel(cFlag))
-					valind += paramTop.back();
-				if(flagShiftStk(cFlag))
-					valind += shift;
-
-				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-				{
-					highDW = *((UINT*)(&genParams[valind]));
-					lowDW = *((UINT*)(&genParams[valind+4]));
-				}
-				if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ lowDW = *((UINT*)(&genParams[valind])); }
-				if(dt == DTYPE_SHORT)
-				{
-					sdata = *((USHORT*)(&genParams[valind]));
-					lowDW = (short)(sdata) > 0 ? sdata : sdata | 0xFFFF0000;
-				}
-				if(dt == DTYPE_CHAR){ cdata = genParams[valind]; lowDW = cdata; }
-				
-				if(dt == DTYPE_COMPLEX_TYPE)
-				{
-					UINT currShift = sizeOfVar;
-					while(sizeOfVar >= 4)
-					{
-						currShift -= 4;
-						genStackPtr--;
-						*genStackPtr = *((UINT*)(&genParams[valind+currShift]));
-						sizeOfVar -= 4;
-					}
-					lowDW = sizeOfVar;
-				}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
-				{
-					genStackPtr -= 2;
-					*(double*)(genStackPtr) = (double)(*((float*)(&lowDW)));
-				}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
-				{
-					genStackPtr--;
-					*genStackPtr = lowDW;
-					genStackPtr--;
-					*genStackPtr = highDW;
-				}else{
-					genStackPtr--;
-					*genStackPtr = lowDW;
-				}
-
-				DBG(genStackTypes.push_back(st));
-				DBG(if(st == STYPE_COMPLEX_TYPE))
-				DBG(genStackTypes.back() = (asmStackType)(sizeOfVar|0x80000000));
-
-				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, cFlag, 0, highDW, lowDW));
-			}
+			assert(!"cmdPush is illegal in VM");
 			break;
 		case cmdPop:
 			{
