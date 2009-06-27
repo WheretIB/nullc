@@ -30,7 +30,8 @@ std::string	compileError;
 std::string	compileLogString;
 std::string	compileListing;
 
-std::string executeResult, executeLog;
+const char* executeResult;
+std::string executeLog;
 
 unsigned int currExec = 0;
 bool	execOptimize = false;
@@ -142,13 +143,14 @@ nullres	nullcRunFunction(const char* funcName)
 		}
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		try
+		executorX86->Run(funcName);
+		const char* error = executorX86->GetExecError();
+		if(error[0] == 0)
 		{
-			executorX86->Run(funcName);
 			executeResult = executorX86->GetResult();
-		}catch(const std::string& str){
+		}else{
 			good = false;
-			executeLog = str;
+			executeLog = error;
 		}
 #else
 		good = false;
@@ -166,7 +168,7 @@ const char*	nullcGetRuntimeError()
 
 const char*	nullcGetResult()
 {
-	return executeResult.c_str();
+	return executeResult;
 }
 
 void*	nullcGetVariableData()

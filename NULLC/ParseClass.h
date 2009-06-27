@@ -150,6 +150,7 @@ basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, VariableInfo var)
 
 struct ExternalFunctionInfo
 {
+	UINT startInByteCode;
 #if defined(_MSC_VER)
     UINT bytesToPop;
 #elif defined(__CELLOS_LV2__)
@@ -176,6 +177,8 @@ public:
 	void		*funcPtr;				// Address of the function in memory
 
 	std::string	name;					// Function name
+	UINT		nameHash;
+
 	std::vector<VariableInfo> params;	// Parameter list
 	UINT		allParamSize;
 	UINT		vTopSize;				// For "return" operator, we need to know,

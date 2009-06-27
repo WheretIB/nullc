@@ -73,9 +73,10 @@ void Executor::Run(const char* funcName) throw()
 	UINT funcPos = 0;
 	if(funcName)
 	{
-		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		UINT fnameHash = GetStringHash(funcName);
+		for(int i = (int)CodeInfo::funcInfo.size()-1; i >= 0; i--)
 		{
-			if(strcmp(CodeInfo::funcInfo[i]->name.c_str(), funcName) == 0)
+			if(CodeInfo::funcInfo[i]->nameHash == fnameHash)
 			{
 				funcPos = CodeInfo::funcInfo[i]->address;
 				break;
@@ -1430,27 +1431,31 @@ bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
 }
 #endif
 
-string Executor::GetResult() throw()
+const char* Executor::GetResult() throw()
 {
 	if(genStackSize == 0)
-		return "No result value";
+	{
+		strcpy(execResult, "No result value");
+		return execResult;
+	}
 	if(genStackSize-1 > 2)
-		return "There are more than one value on the stack";
-	ostringstream tempStream;
+		{
+		strcpy(execResult, "There are more than one value on the stack");
+		return execResult;
+	}
 	switch(retType)
 	{
 	case OTYPE_DOUBLE:
-		tempStream << *(double*)(genStackPtr);
+		sprintf(execResult, "%f", *(double*)(genStackPtr));
 		break;
 	case OTYPE_LONG:
-		tempStream << *(long long*)(genStackPtr) << 'L';
+		sprintf(execResult, "%I64dL", *(long long*)(genStackPtr));
 		break;
 	case OTYPE_INT:
-		tempStream << *(int*)(genStackPtr);
+		sprintf(execResult, "%d", *(int*)(genStackPtr));
 		break;
 	}
-
-	return tempStream.str();
+	return execResult;
 }
 
 const char*	Executor::GetExecError()

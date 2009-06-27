@@ -103,16 +103,15 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 }
 
 #pragma warning(disable: 4731)
-UINT ExecutorX86::Run(const char* funcName)
+void ExecutorX86::Run(const char* funcName) throw()
 {
+	execError[0] = 0;
+
 	stackReallocs = 0;
 
 	*(double*)(paramData) = 0.0;
 	*(double*)(paramData+8) = 3.1415926535897932384626433832795;
 	*(double*)(paramData+16) = 2.7182818284590452353602874713527;
-
-	LARGE_INTEGER pFreq, pCntS, pCntE;
-	QueryPerformanceFrequency(&pFreq);
 
 	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 
@@ -120,22 +119,27 @@ UINT ExecutorX86::Run(const char* funcName)
 	if(funcName)
 	{
 		UINT funcPos = (unsigned int)-1;
-		for(unsigned int i = 0; i < funcInfo.size(); i++)
+		UINT fnameHash = GetStringHash(funcName);
+		for(int i = (int)funcInfo.size()-1; i >= 0; i--)
 		{
-			if(strcmp(funcInfo[i]->name.c_str(), funcName) == 0)
+			if(funcInfo[i]->nameHash == fnameHash)
 			{
-				funcPos = CodeInfo::funcInfo[i]->address;
+				funcPos = CodeInfo::funcInfo[i]->externalInfo.startInByteCode;
 				break;
 			}
 		}
 		if(funcPos == -1)
-			throw std::string("Cannot find starting function");
-		UINT marker = 'N' << 24 | funcPos;
+		{
+			strcpy(execError, "Cannot find starting function");
+			return;
+		}
+		/*UINT marker = 'N' << 24 | funcPos;
 
 		while(*(UINT*)(binCode+startPos) != marker && startPos < binCodeSize)
 			startPos++;
 
-		binCodeStart += startPos - 20 + 4; // shift to starting position and skip marker
+		binCodeStart += startPos - 20 + 4; // shift to starting position and skip marker*/
+		binCodeStart += funcPos;
 	}
 
 	UINT res1 = 0;
@@ -143,7 +147,6 @@ UINT ExecutorX86::Run(const char* funcName)
 	UINT resT = 0;
 	__try 
 	{
-		QueryPerformanceCounter(&pCntS);
 		__asm
 		{
 			pusha ; // Сохраним все регистры
@@ -174,35 +177,31 @@ UINT ExecutorX86::Run(const char* funcName)
 
 			popa ;
 		}
-		QueryPerformanceCounter(&pCntE);
 	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
-			throw std::string("ERROR: integer division by zero");
+			strcpy(execError, "ERROR: integer division by zero");
 		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate != 0xFFFFFFFF)
-			throw std::string("ERROR: array index out of bounds");
+			strcpy(execError, "ERROR: array index out of bounds");
 		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
-			throw std::string("ERROR: function didn't return a value");
+			strcpy(execError, "ERROR: function didn't return a value");
 		if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
-			throw std::string("ERROR: stack overflow");
+			strcpy(execError, "ERROR: stack overflow");
 		if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
 		{
 			if(expAllocCode == 1)
-				throw std::string("ERROR: Failed to commit old stack memory");
+				strcpy(execError, "ERROR: Failed to commit old stack memory");
 			if(expAllocCode == 2)
-				throw std::string("ERROR: Failed to reserve new stack memory");
+				strcpy(execError, "ERROR: Failed to reserve new stack memory");
 			if(expAllocCode == 3)
-				throw std::string("ERROR: Failed to commit new stack memory");
+				strcpy(execError, "ERROR: Failed to commit new stack memory");
 			if(expAllocCode == 4)
-				throw std::string("ERROR: No more memory (512Mb maximum exceeded)");
+				strcpy(execError, "ERROR: No more memory (512Mb maximum exceeded)");
 		}
 	}
-	UINT runTime = UINT(double(pCntE.QuadPart - pCntS.QuadPart) / double(pFreq.QuadPart) * 1000.0);
 
 	runResult = res1;
 	runResult2 = res2;
 	runResultType = (OperFlag)resT;
-
-	return runTime;
 }
 #pragma warning(default: 4731)
 
@@ -223,8 +222,11 @@ void ExecutorX86::GenListing()
 	vector<unsigned int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
 
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	{
+		CodeInfo::funcInfo[i]->externalInfo.startInByteCode = 0xffffff;
 		if(CodeInfo::funcInfo[i]->funcPtr == NULL && CodeInfo::funcInfo[i]->address != -1)
 			funcNeedLabel.push_back(CodeInfo::funcInfo[i]->address);
+	}
 
 	FunctionInfo *funcInfo;
 
@@ -3091,6 +3093,13 @@ void ExecutorX86::GenListing()
 		case o_dd:
 			*(int*)code = cmd.argA.num;
 			code += 4;
+
+			for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+			{
+				int marker = (('N' << 24) | CodeInfo::funcInfo[i]->address);
+				if(marker == cmd.argA.num)
+					CodeInfo::funcInfo[i]->externalInfo.startInByteCode = (int)(code-bytecode);
+			}
 			break;
 		case o_label:
 			memset(labelName, 0, 16);
@@ -3166,9 +3175,8 @@ string ExecutorX86::GetListing()
 	return logASM.str();
 }
 
-string ExecutorX86::GetResult()
+const char* ExecutorX86::GetResult() throw()
 {
-	ostringstream tempStream;
 	long long combined = 0;
 	*((int*)(&combined)) = runResult2;
 	*((int*)(&combined)+1) = runResult;
@@ -3176,17 +3184,21 @@ string ExecutorX86::GetResult()
 	switch(runResultType)
 	{
 	case OTYPE_DOUBLE:
-		tempStream << *((double*)(&combined));
+		sprintf(execResult, "%f", *(double*)(&combined));
 		break;
 	case OTYPE_LONG:
-		tempStream << combined << 'L';
+		sprintf(execResult, "%I64dL", combined);
 		break;
 	case OTYPE_INT:
-		tempStream << runResult;
+		sprintf(execResult, "%d", runResult);
 		break;
 	}
-	//tempStream << " (" << stackReallocs << " reallocs)";
-	return tempStream.str();
+	return execResult;
+}
+
+const char*	ExecutorX86::GetExecError() throw()
+{
+	return execError;
 }
 
 void ExecutorX86::SetOptimization(int toggle)
