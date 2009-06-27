@@ -1536,6 +1536,9 @@ void FunctionAdd(char const* s, char const* e)
 
 	if(newType)
 		funcInfo.back()->name = newType->name + "::" + name;
+
+	funcInfo.back()->nameHash = GetStringHash(funcInfo.back()->name.c_str());
+
 	if(varDefined && varInfo.back()->varType == NULL)
 		varTop += 8;
 }

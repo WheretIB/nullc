@@ -59,9 +59,9 @@ public:
 	~Executor();
 
 	void	Run(const char* funcName = NULL) throw();
-	string	GetResult() throw();
 
-	const char*	GetExecError();
+	const char*	GetResult() throw();
+	const char*	GetExecError() throw();
 
 	char*	GetVariableData();
 
@@ -71,6 +71,7 @@ private:
 	ofstream			m_FileStream;
 #endif
 	char		execError[256];
+	char		execResult[64];
 
 	FastVector<asmStackType>	genStackTypes;
 

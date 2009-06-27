@@ -10,13 +10,18 @@ public:
 	void	GenListing();
 	string	GetListing();
 
-	UINT	Run(const char* funcName = NULL);
-	string	GetResult();
+	void	Run(const char* funcName = NULL) throw();
+
+	const char*	GetResult() throw();
+	const char*	GetExecError() throw();
 
 	char*	GetVariableData();
 
 	void	SetOptimization(int toggle);
 private:
+	char	execError[256];
+	char	execResult[64];
+
 	int	optimize;
 
 	ostringstream		logASM;
