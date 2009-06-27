@@ -115,7 +115,6 @@ void ExecutorX86::Run(const char* funcName) throw()
 
 	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 
-	UINT startPos = 20;
 	if(funcName)
 	{
 		UINT funcPos = (unsigned int)-1;
@@ -133,12 +132,6 @@ void ExecutorX86::Run(const char* funcName) throw()
 			strcpy(execError, "Cannot find starting function");
 			return;
 		}
-		/*UINT marker = 'N' << 24 | funcPos;
-
-		while(*(UINT*)(binCode+startPos) != marker && startPos < binCodeSize)
-			startPos++;
-
-		binCodeStart += startPos - 20 + 4; // shift to starting position and skip marker*/
 		binCodeStart += funcPos;
 	}
 
