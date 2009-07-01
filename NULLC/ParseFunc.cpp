@@ -597,20 +597,32 @@ NodeFuncDef::NodeFuncDef(FunctionInfo *info)
 	// Структура описания функции
 	funcInfo = info;
 
+	disabled = false;
+
 	first = TakeLastNode();
 }
 NodeFuncDef::~NodeFuncDef()
 {
 }
 
+void NodeFuncDef::Disable()
+{
+	disabled = true;
+}
+
 void NodeFuncDef::Compile()
 {
+	if(disabled)
+		return;
 	UINT startCmdSize = cmdList->GetCurrPos();
 
 	// Перед содержимым функции сделаем переход за её конец
 	// Код функций может быть смешан с кодом в глобальной области видимости, и его надо пропускать
-	cmdList->AddData(cmdJmp);
-	cmdList->AddData(cmdList->GetCurrPos() + sizeof(CmdID) + sizeof(UINT) + 2*sizeof(USHORT) + first->GetSize());
+	if(funcInfo->type == FunctionInfo::LOCAL)
+	{
+		cmdList->AddData(cmdJmp);
+		cmdList->AddData(cmdList->GetCurrPos() + sizeof(CmdID) + sizeof(UINT) + 2*sizeof(USHORT) + first->GetSize());
+	}
 	funcInfo->address = cmdList->GetCurrPos();
 	// Сгенерируем код функции
 	first->Compile();
@@ -627,19 +639,23 @@ void NodeFuncDef::Compile()
 		cmdList->AddData((USHORT)(1));
 	}
 
+	funcInfo->codeSize = cmdList->GetCurrPos() - funcInfo->address;
+
 	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
 }
 void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
 	DrawLine(ostr);
-	ostr << *typeInfo << "FuncDef " << funcInfo->name << "\r\n";
+	ostr << *typeInfo << "FuncDef " << funcInfo->name << (disabled ? " disabled" : "") << "\r\n";
 	GoDownB();
 	first->LogToStream(ostr);
 	GoUp();
 }
 UINT NodeFuncDef::GetSize()
 {
-	return first->GetSize() + 2*sizeof(CmdID) + sizeof(UINT) + 2*sizeof(USHORT);
+	if(disabled)
+		return 0;
+	return first->GetSize() + ((funcInfo->type == FunctionInfo::LOCAL) ? sizeof(CmdID) + sizeof(UINT) : 0) + sizeof(CmdID) + 2*sizeof(USHORT);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -711,7 +727,12 @@ void NodeFuncCall::Compile()
 	{
 		// Вызовем по имени
 		cmdList->AddData(cmdCallStd);
-		cmdList->AddData(funcInfo);
+		unsigned int ID = 0xffffffff;
+		for(unsigned int i = 0; i < CodeInfo::funcInfo.size() && ID == -1; i++)
+			if(CodeInfo::funcInfo[i] == funcInfo)
+				ID = i;
+	
+		cmdList->AddData(ID);
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
 		UINT addr = 0;
@@ -1410,7 +1431,12 @@ void NodeFunctionAddress::Compile()
 		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
 
 	cmdList->AddData(cmdFuncAddr);
-	cmdList->AddData(funcInfo);
+	unsigned int ID = 0xffffffff;
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size() && ID == -1; i++)
+		if(CodeInfo::funcInfo[i] == funcInfo)
+			ID = i;
+
+	cmdList->AddData(ID);
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{

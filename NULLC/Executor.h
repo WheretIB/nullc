@@ -1,7 +1,8 @@
 #pragma once
 #include "stdafx.h"
-#include "ParseCommand.h"
 #include "ParseClass.h"
+
+#include "Bytecode.h"
 
 template<typename T, bool zeroNewMemory = false>
 class FastVector
@@ -58,6 +59,9 @@ public:
 	Executor();
 	~Executor();
 
+	void	CleanCode();
+	bool	LinkCode(const char *bytecode, int redefinitions);
+
 	void	Run(const char* funcName = NULL) throw();
 
 	const char*	GetResult() throw();
@@ -70,8 +74,27 @@ private:
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	ofstream			m_FileStream;
 #endif
-	char		execError[256];
+	char		execError[512];
 	char		execResult[64];
+
+	FastVector<ExternTypeInfo*>	exTypes;
+	FastVector<ExternVarInfo*>	exVariables;
+	FastVector<ExternFuncInfo*>	exFunctions;
+	FastVector<char>			exCode;
+	unsigned int				globalVarSize;
+	unsigned int				offsetToGlobalCode;
+
+	struct ExternalFunctionInfo
+	{
+#if defined(_MSC_VER)
+		UINT bytesToPop;
+#elif defined(__CELLOS_LV2__)
+		unsigned int rOffsets[8];
+		unsigned int fOffsets[8];
+#endif
+	};
+	FastVector<ExternalFunctionInfo>	exFuncInfo;
+	bool CreateExternalInfo(ExternFuncInfo *fInfo, Executor::ExternalFunctionInfo& externalInfo);
 
 	FastVector<asmStackType>	genStackTypes;
 
@@ -87,7 +110,7 @@ private:
 
 	bool (*m_RunCallback)(UINT);
 	
-	bool RunExternalFunction(const FunctionInfo* funcInfo);
+	bool RunExternalFunction(unsigned int funcID);
 };
 
 void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, const CmdFlag cFlag, const OperFlag oFlag, UINT dw0=0, UINT dw1=0);

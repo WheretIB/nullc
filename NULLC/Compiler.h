@@ -48,6 +48,8 @@ public:
 	string	GetListing();
 
 	string	GetLog();
+
+	unsigned int	GetBytecode(char **bytecode);
 private:
 	void	ClearState();
 

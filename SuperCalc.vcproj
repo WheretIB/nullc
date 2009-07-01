@@ -304,6 +304,10 @@
 				RelativePath=".\SuperCalc.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\UnitTests.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -320,6 +324,10 @@
 			</File>
 			<File
 				RelativePath=".\SuperCalc.h"
+				>
+			</File>
+			<File
+				RelativePath=".\UnitTests.h"
 				>
 			</File>
 		</Filter>

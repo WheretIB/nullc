@@ -1,8 +1,6 @@
 #include "stdafx.h"
 #include "Executor.h"
 
-#include "CodeInfo.h"
-
 const unsigned int CALL_BY_POINTER = (unsigned int)-1;
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
@@ -11,8 +9,93 @@ const unsigned int CALL_BY_POINTER = (unsigned int)-1;
 	#define DBG(x)
 #endif
 
-Executor::Executor()DBG(: m_FileStream("log.txt", std::ios::binary))
+long long vmLongPow(long long num, long long pow)
 {
+	if(pow == 0)
+		return 1;
+	if(pow == 1)
+		return num;
+	if(pow > 36)
+		return num;
+	long long res = 1;
+	int power = (int)pow;
+	while(power)
+	{
+		if(power & 0x01)
+		{
+			res *= num;
+			power--;
+		}
+		num *= num;
+		power >>= 1;
+	}
+	return res;
+}
+
+#if defined(_MSC_VER)
+bool Executor::CreateExternalInfo(ExternFuncInfo *fInfo, Executor::ExternalFunctionInfo& externalInfo)
+{
+	externalInfo.bytesToPop = 0;
+	for(UINT i = 0; i < fInfo->paramCount; i++)
+	{
+		UINT paramSize = exTypes[fInfo->paramList[i]]->size > 4 ? exTypes[fInfo->paramList[i]]->size : 4;
+		externalInfo.bytesToPop += paramSize;
+	}
+	
+	return true;
+}
+#elif defined(__CELLOS_LV2__)
+bool Executor::CreateExternalInfo(ExternFuncInfo *fInfo, Executor::ExternalFunctionInfo& externalInfo)
+{
+    unsigned int rCount = 0, fCount = 0;
+    unsigned int rMaxCount = sizeof(externalInfo.rOffsets) / sizeof(externalInfo.rOffsets[0]);
+    unsigned int fMaxCount = sizeof(externalInfo.fOffsets) / sizeof(externalInfo.fOffsets[0]);
+    
+    // parse all parameters, fill offsets
+    unsigned int offset = 0;
+    
+	for (UINT i = 0; i < fInfo->paramCount; i++)
+	{
+	    const ExternTypeInfo& type = *exTypes[fInfo->paramList[i]];
+	    
+	    switch (type.type)
+	    {
+	    case ExternTypeInfo::TYPE_CHAR:
+	    case ExternTypeInfo::TYPE_SHORT:
+	    case ExternTypeInfo::TYPE_INT:
+	        if (rCount >= rMaxCount) return false; // too many r parameters
+	        externalInfo.rOffsets[rCount++] = offset;
+	        offset++;
+	        break;
+	    
+	    case ExternTypeInfo::TYPE_FLOAT:
+	    case ExternTypeInfo::TYPE_DOUBLE:
+	        if (fCount >= fMaxCount || rCount >= rMaxCount) return false; // too many f/r parameters
+	        externalInfo.rOffsets[rCount++] = offset;
+	        externalInfo.fOffsets[fCount++] = offset;
+	        offset += 2;
+	        break;
+	        
+	    default:
+	        return false; // unsupported type
+	    }
+    }
+    
+    // clear remaining offsets
+    for (unsigned int i = rCount; i < rMaxCount; ++i) externalInfo.rOffsets[i] = 0;
+    for (unsigned int i = fCount; i < fMaxCount; ++i) externalInfo.fOffsets[i] = 0;
+    
+    return true;
+}
+#endif
+
+Executor::Executor(): exTypes(50), exVariables(50), exFunctions(50), exFuncInfo(50)
+{
+	DBG(m_FileStream.open("log.txt", std::ios::binary));
+
+	globalVarSize = 0;
+	offsetToGlobalCode = 0;
+
 	m_RunCallback = NULL;
 
 	genStackBase = NULL;
@@ -27,10 +110,366 @@ Executor::~Executor()
 	delete[] genStackBase;
 }
 
+void Executor::CleanCode()
+{
+	exFuncInfo.clear();
+	for(unsigned int i = 0; i < exTypes.size(); i++)
+		delete[] (char*)exTypes[i];
+	exTypes.clear();
+	for(unsigned int i = 0; i < exVariables.size(); i++)
+		delete[] (char*)exVariables[i];
+	exVariables.clear();
+	for(unsigned int i = 0; i < exFunctions.size(); i++)
+		delete[] (char*)exFunctions[i];
+	exFunctions.clear();
+	exCode.clear();
+
+	globalVarSize = 0;
+	offsetToGlobalCode = 0;
+}
+
+FastVector<unsigned int>	typeRemap;
+FastVector<unsigned int>	funcRemap;
+
+bool Executor::LinkCode(const char *code, int redefinitions)
+{
+	ByteCode *bCode = (ByteCode*)code;
+
+	typeRemap.clear();
+	// Add all types from bytecode to the list
+	ExternTypeInfo *tInfo = FindFirstType(bCode);
+	for(unsigned int i = 0; i < bCode->typeCount; i++)
+	{
+		unsigned int index = 0xffffffff;
+		for(unsigned int n = 0; n < exTypes.size() && index == -1; n++)
+			if(strcmp(exTypes[n]->name, tInfo->name) == 0)
+				index = n;
+
+		if(index != -1 && exTypes[index]->size != tInfo->size)
+		{
+			sprintf(execError, "Link Error: type '%s' is redefined with a different size", tInfo->name);
+			return false;
+		}
+		if(index == -1)
+		{
+			typeRemap.push_back(exTypes.size());
+			exTypes.push_back((ExternTypeInfo*)(new char[tInfo->structSize]));
+			memcpy(exTypes.back(), tInfo, tInfo->structSize);
+			exTypes.back()->name = (char*)(&exTypes.back()->name) + sizeof(exTypes.back()->name);
+			exTypes.back()->next = NULL;	// no one cares
+		}else{
+			typeRemap.push_back(index);
+		}
+
+		tInfo = FindNextType(tInfo);
+	}
+
+	// Add all global variables
+	ExternVarInfo *vInfo = FindFirstVar(bCode);
+	for(unsigned int i = 0; i < bCode->variableCount; i++)
+	{
+		exVariables.push_back((ExternVarInfo*)(new char[vInfo->structSize]));
+		memcpy(exVariables.back(), vInfo, vInfo->structSize);
+
+		exVariables.back()->name = (char*)(&exVariables.back()->name) + sizeof(exVariables.back()->name);
+		exVariables.back()->next = NULL;	// no one cares
+		// Type index have to be updated
+		exVariables.back()->type = typeRemap[vInfo->type];
+
+		vInfo = FindNextVar(vInfo);
+	}
+
+	unsigned int oldGlobalSize = globalVarSize;
+	globalVarSize += bCode->globalVarSize;
+
+	unsigned int	oldExFuncSize = exFunctions.size();
+	unsigned int	oldOffsetToGlobalCode = offsetToGlobalCode;
+	funcRemap.clear();
+	unsigned int	allFunctionSize = 0;
+	// Add new functions
+	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
+	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo = FindNextFunc(fInfo))
+	{
+		allFunctionSize += fInfo->codeSize;
+
+		unsigned int index = 0xffffffff;
+		for(unsigned int n = 0; n < exFunctions.size() && index == -1; n++)
+			if(strcmp(exFunctions[n]->name, fInfo->name) == 0)
+				index = n;
+
+		// Suppose, this is an overload function
+		bool isOverload = true;
+		if(index != -1)
+		{
+			for(unsigned int n = 0; n < exFunctions.size() && isOverload == true; n++)
+			{
+				if(strcmp(exFunctions[n]->name, fInfo->name) == 0)
+				{
+					if(fInfo->paramCount == exFunctions[n]->paramCount)
+					{
+						// If the parameter count is equal, test parameters
+						unsigned int *paramList = (unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1);
+						unsigned int k;
+						for(k = 0; k < fInfo->paramCount; k++)
+							if(typeRemap[paramList[k]] != exFunctions[n]->paramList[k])
+								break;
+						if(k == fInfo->paramCount)
+						{
+							isOverload = false;
+							index = n;
+						}
+					}
+				}
+			}
+			if(!exFunctions[index]->isVisible)
+				isOverload = true;
+		}
+		// If the function exists and is build-in or external, skip
+		if(index != -1 && !isOverload && exFunctions[index]->address == -1)
+		{
+			funcRemap.push_back(index);
+			continue;
+		}
+		// If the function exists and is internal, check if redefinition is allowed
+		if(index != -1 && !isOverload)
+		{
+			if(redefinitions)
+			{
+				sprintf(execError, "Warning: function '%s' is redefined", fInfo->name);
+			}else{
+				sprintf(execError, "Link Error: function '%s' is redefined", fInfo->name);
+				return false;
+			}
+		}
+		if(index == -1 || isOverload)
+		{
+			funcRemap.push_back(exFunctions.size());
+
+			exFunctions.push_back((ExternFuncInfo*)(new char[fInfo->structSize]));
+			memcpy(exFunctions.back(), fInfo, fInfo->structSize);
+
+			exFunctions.back()->name = (char*)(&exFunctions.back()->name) + sizeof(exFunctions.back()->name);
+			exFunctions.back()->next = NULL;	// no one cares
+			exFunctions.back()->paramList = (unsigned int*)((char*)(&exFunctions.back()->name) + sizeof(fInfo->name) + fInfo->nameLength + 1);
+
+			// Type index have to be updated
+			exFunctions.back()->retType = typeRemap[exFunctions.back()->retType];
+			if(exFunctions.back()->funcPtr != NULL && exTypes[exFunctions.back()->retType]->size > 8 && exTypes[exFunctions.back()->retType]->type != ExternTypeInfo::TYPE_DOUBLE)
+			{
+				strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
+				return false;
+			}
+			for(unsigned int n = 0; n < exFunctions.back()->paramCount; n++)
+				exFunctions.back()->paramList[n] = typeRemap[((unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1))[n]];
+
+			if(fInfo->funcType == ExternFuncInfo::LOCAL)
+			{
+				exFunctions.back()->address -= bCode->globalCodeStart;
+				allFunctionSize -= fInfo->codeSize;
+				continue;
+			}
+			// Add function code to the bytecode,
+			// shifting global code forward,
+			// fixing all jump addresses in global code
+
+			if(exFunctions.back()->address != -1)
+			{
+				unsigned int shift = fInfo->codeSize;
+				unsigned int oldCodeSize = exCode.size();
+				// Expand bytecode
+				exCode.resize(exCode.size() + shift);
+				// Move global code
+				memmove(&exCode[offsetToGlobalCode] + shift, &exCode[offsetToGlobalCode], oldCodeSize-offsetToGlobalCode);
+				// Insert function code
+				memcpy(&exCode[offsetToGlobalCode], FindCode(bCode) + fInfo->address, shift);
+				// Update function position
+			
+				exFunctions.back()->address = offsetToGlobalCode;
+				// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in function code
+				int pos = exFunctions.back()->address;
+				while(pos < exFunctions.back()->address + exFunctions.back()->codeSize)
+				{
+					CmdID cmd = *(CmdID*)(&exCode[pos]);
+					CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
+					switch(cmd)
+					{
+					case cmdPushCharAbs:
+					case cmdPushShortAbs:
+					case cmdPushIntAbs:
+					case cmdPushFloatAbs:
+					case cmdPushDorLAbs:
+					case cmdPushCmplxAbs:
+					case cmdPush:
+					case cmdMov:
+						*(unsigned int*)(&exCode[pos+4]) += oldGlobalSize;
+						break;
+					case cmdJmp:
+						*(unsigned int*)(&exCode[pos+2]) += exFunctions.back()->address - fInfo->address;
+						break;
+					case cmdJmpZ:
+					case cmdJmpNZ:
+						*(unsigned int*)(&exCode[pos+3]) += exFunctions.back()->address - fInfo->address;
+						break;
+					}
+					pos += CommandList::GetCommandLength(cmd, cFlag);
+				}
+				// Update global code start
+				offsetToGlobalCode += shift;
+			}
+		}else{
+			funcRemap.push_back(index);
+			assert(!"No function rewrite at the moment");
+		}
+	}
+
+	for(unsigned int n = oldExFuncSize; n < exFunctions.size(); n++)
+	{
+		if(exFunctions[n]->funcType == ExternFuncInfo::LOCAL)
+			exFunctions[n]->address += offsetToGlobalCode;
+		if(exFunctions.back()->address != -1)
+		{
+			// Fix cmdCall in function code
+			int pos = exFunctions.back()->address;
+			while(pos < exFunctions.back()->address + exFunctions.back()->codeSize)
+			{
+				CmdID cmd = *(CmdID*)(&exCode[pos]);
+				CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
+				switch(cmd)
+				{
+				case cmdCall:
+					if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
+					{
+						unsigned int index = 0xffffffff;
+						ExternFuncInfo *fInfo = FindFirstFunc(bCode);
+						for(unsigned int n = 0; n < bCode->functionCount && index == -1; n++, fInfo = FindNextFunc(fInfo))
+							if(*(int*)(&exCode[pos+2]) == fInfo->oldAddress)
+								index = n;
+						assert(index != -1);
+						*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[index]]->address;
+					}
+					break;
+				case cmdCallStd:
+					*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+					break;
+				case cmdFuncAddr:
+					*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+					break;
+				}
+				pos += CommandList::GetCommandLength(cmd, cFlag);
+			}
+		}
+	}
+
+	unsigned int oldCodeSize = exCode.size();
+	// Fix cmdJmp* in old code
+	unsigned int pos = offsetToGlobalCode;
+	while(pos < oldCodeSize)
+	{
+		CmdID cmd = *(CmdID*)(&exCode[pos]);
+		CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
+		switch(cmd)
+		{
+		case cmdJmp:
+			*(unsigned int*)(&exCode[pos+2]) += offsetToGlobalCode - oldOffsetToGlobalCode;
+			break;
+		case cmdJmpZ:
+		case cmdJmpNZ:
+			*(unsigned int*)(&exCode[pos+3]) += offsetToGlobalCode - oldOffsetToGlobalCode;
+			break;
+		}
+		pos += CommandList::GetCommandLength(cmd, cFlag);
+	}
+
+	// Add new global code
+
+	// Expand bytecode
+	exCode.resize(exCode.size() + bCode->codeSize - allFunctionSize);
+	// Insert function code
+	memcpy(&exCode[oldCodeSize], FindCode(bCode) + allFunctionSize, bCode->codeSize - allFunctionSize);
+
+	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
+	pos = oldCodeSize;
+	while(pos < exCode.size())
+	{
+		CmdID cmd = *(CmdID*)(&exCode[pos]);
+		CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
+		switch(cmd)
+		{
+		case cmdPushCharAbs:
+		case cmdPushShortAbs:
+		case cmdPushIntAbs:
+		case cmdPushFloatAbs:
+		case cmdPushDorLAbs:
+		case cmdPushCmplxAbs:
+		case cmdPush:
+		case cmdMov:
+			*(unsigned int*)(&exCode[pos+4]) += oldGlobalSize;
+			break;
+		case cmdJmp:
+			*(unsigned int*)(&exCode[pos+2]) += oldCodeSize - allFunctionSize;
+			break;
+		case cmdJmpZ:
+		case cmdJmpNZ:
+			*(unsigned int*)(&exCode[pos+3]) += oldCodeSize - allFunctionSize;
+			break;
+		case cmdCall:
+			if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
+			{
+				unsigned int index = 0xffffffff;
+				ExternFuncInfo *fInfo = FindFirstFunc(bCode);
+				for(unsigned int n = 0; n < bCode->functionCount && index == -1; n++, fInfo = FindNextFunc(fInfo))
+					if(*(int*)(&exCode[pos+2]) == fInfo->oldAddress)
+						index = n;
+				if(index != -1)
+					*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[index]]->address;
+				else
+					*(unsigned int*)(&exCode[pos+2]) += oldCodeSize - allFunctionSize;
+			}
+			break;
+		case cmdCallStd:
+			*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+			break;
+		case cmdFuncAddr:
+			*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+			break;
+		}
+		pos += CommandList::GetCommandLength(cmd, cFlag);
+	}
+
+	exFuncInfo.resize(exFunctions.size());
+	for(unsigned int n = 0; n < exFunctions.size(); n++)
+	{
+		ExternFuncInfo* funcInfoPtr = exFunctions[n];
+
+		if(funcInfoPtr->funcPtr && !CreateExternalInfo(funcInfoPtr, exFuncInfo[n]))
+		{
+			sprintf(execError, "Link Error: External function info failed for '%s'", fInfo->name);
+			return false;
+		}
+	}
+
+#ifdef NULLC_LOG_FILES
+	ostringstream logASM;
+	logASM.str("");
+	CommandList::PrintCommandListing(&logASM, &exCode[0], &exCode[exCode.size()]);
+
+	ofstream m_FileStream("link.txt", std::ios::binary);
+	m_FileStream << logASM.str();
+	m_FileStream.flush();
+#endif
+
+	return true;
+}
+
 #define genStackSize (genStackTop-genStackPtr)
 
 void Executor::Run(const char* funcName) throw()
 {
+	if(!exCode.size())
+	{
+		strcpy(execError, "ERROR: no code to run");
+		return;
+	}
 	paramTop.clear();
 	fcallStack.clear();
 
@@ -46,7 +485,7 @@ void Executor::Run(const char* funcName) throw()
 	tempVal = 2.7182818284590452353602874713527;
 	genParams.push_back((char*)(&tempVal), 8);
 	
-	genParams.resize(CodeInfo::globalSize);
+	genParams.resize(globalVarSize);
 
 	//UINT pos = 0, pos2 = 0;
 	CmdID	cmd;
@@ -66,19 +505,17 @@ void Executor::Run(const char* funcName) throw()
 	//UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 #endif
 
-	FunctionInfo *funcInfoPtr = NULL;
-
 	execError[0] = 0;
 
 	UINT funcPos = 0;
 	if(funcName)
 	{
 		UINT fnameHash = GetStringHash(funcName);
-		for(int i = (int)CodeInfo::funcInfo.size()-1; i >= 0; i--)
+		for(int i = (int)exFunctions.size()-1; i >= 0; i--)
 		{
-			if(CodeInfo::funcInfo[i]->nameHash == fnameHash)
+			if(exFunctions[i]->nameHash == fnameHash)
 			{
-				funcPos = CodeInfo::funcInfo[i]->address;
+				funcPos = exFunctions[i]->address;
 				break;
 			}
 		}
@@ -101,13 +538,13 @@ void Executor::Run(const char* funcName) throw()
 	unsigned int insCallCount[255];
 	memset(insCallCount, 0, 255*4);
 #endif
-	char *cmdStreamBase = CodeInfo::cmdList->bytecode;
-	char *cmdStream = CodeInfo::cmdList->bytecode;
-	char *cmdStreamEnd = CodeInfo::cmdList->bytecode + CodeInfo::cmdList->max;
+	char *cmdStreamBase = &exCode[0];
+	char *cmdStream = &exCode[offsetToGlobalCode];
+	char *cmdStreamEnd = &exCode[exCode.size()];
 #define cmdStreamPos (cmdStream-cmdStreamBase)
 
 	if(funcName)
-		cmdStream += funcPos;
+		cmdStream = &exCode[funcPos];
 
 	while(cmdStream+2 < cmdStreamEnd && !done)
 	{
@@ -598,37 +1035,31 @@ void Executor::Run(const char* funcName) throw()
 			break;
 		case cmdCallStd:
 			{
-				funcInfoPtr = *(FunctionInfo**)(cmdStream);
-				cmdStream += sizeof(FunctionInfo*);
-				if(!funcInfoPtr)
-				{
-					done = true;
-					strcpy(execError, "ERROR: std function info is invalid");
-					break;
-				}
+				valind = *(unsigned int*)(cmdStream);
+				cmdStream += sizeof(unsigned int);
 
-				if(funcInfoPtr->funcPtr == NULL)
+				if(exFunctions[valind]->funcPtr == NULL)
 				{
 					val = *(double*)(genStackPtr);
 					DBG(genStackTypes.pop_back());
 
-					if(funcInfoPtr->name == "cos")
+					if(exFunctions[valind]->nameHash == GetStringHash("cos"))
 						val = cos(val);
-					else if(funcInfoPtr->name == "sin")
+					else if(exFunctions[valind]->nameHash == GetStringHash("sin"))
 						val = sin(val);
-					else if(funcInfoPtr->name == "tan")
+					else if(exFunctions[valind]->nameHash == GetStringHash("tan"))
 						val = tan(val);
-					else if(funcInfoPtr->name == "ctg")
+					else if(exFunctions[valind]->nameHash == GetStringHash("ctg"))
 						val = 1.0/tan(val);
-					else if(funcInfoPtr->name == "ceil")
+					else if(exFunctions[valind]->nameHash == GetStringHash("ceil"))
 						val = ceil(val);
-					else if(funcInfoPtr->name == "floor")
+					else if(exFunctions[valind]->nameHash == GetStringHash("floor"))
 						val = floor(val);
-					else if(funcInfoPtr->name == "sqrt")
+					else if(exFunctions[valind]->nameHash == GetStringHash("sqrt"))
 						val = sqrt(val);
 					else{
 						done = true;
-						printf(execError, "ERROR: there is no such function: %s", funcInfoPtr->name.c_str());
+						printf(execError, "ERROR: there is no such function: %s", exFunctions[valind]->name);
 						break;
 					}
 
@@ -637,9 +1068,9 @@ void Executor::Run(const char* funcName) throw()
 					*(double*)(genStackPtr) = val;
 					DBG(genStackTypes.push_back(STYPE_DOUBLE));
 				}else{
-				    done = !RunExternalFunction(funcInfoPtr);
+				    done = !RunExternalFunction(valind);
 				}
-				DBG(m_FileStream << pos2 << dec << " CALLS " << funcInfoPtr->name << ";");
+				DBG(m_FileStream << pos2 << dec << " CALLS " << exFunctions[valind]->name << ";");
 			}
 			break;
 		case cmdSwap:
@@ -901,22 +1332,16 @@ void Executor::Run(const char* funcName) throw()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
 			break;
 		case cmdFuncAddr:
-			funcInfoPtr = *(FunctionInfo**)cmdStream;
-			cmdStream += sizeof(FunctionInfo*);
-			if(!funcInfoPtr)
-			{
-				done = true;
-				strcpy(execError, "ERROR: std function info is invalid");
-				break;
-			}
+			valind = *(unsigned int*)(cmdStream);
+			cmdStream += sizeof(unsigned int);
 
-			assert(sizeof(funcInfoPtr->funcPtr) == 4);
+			assert(sizeof(exFunctions[valind]->funcPtr) == 4);
 
 			genStackPtr--;
-			if(funcInfoPtr->funcPtr == NULL)
-				*genStackPtr = funcInfoPtr->address;
+			if(exFunctions[valind]->funcPtr == NULL)
+				*genStackPtr = exFunctions[valind]->address;
 			else
-				*genStackPtr = (unsigned int)((unsigned long long)(funcInfoPtr->funcPtr));
+				*genStackPtr = (unsigned int)((unsigned long long)(exFunctions[valind]->funcPtr));
 			DBG(genStackTypes.push_back(STYPE_INT));
 			break;
 
@@ -1202,7 +1627,7 @@ void Executor::Run(const char* funcName) throw()
 				*(double*)(genStackPtr+2) = pow(*(double*)(genStackPtr+2), *(double*)(genStackPtr));
 				break;
 			case cmdPow+(OTYPE_LONG<<16):
-				*(long long*)(genStackPtr+2) = (long long)pow((double)*(long long*)(genStackPtr+2), (double)*(long long*)(genStackPtr));
+				*(long long*)(genStackPtr+2) = vmLongPow(*(long long*)(genStackPtr+2), *(long long*)(genStackPtr));
 				break;
 			case cmdPow+(OTYPE_INT<<16):
 				*(int*)(genStackPtr+1) = (int)pow((double)*(int*)(genStackPtr+1), (double)*(int*)(genStackPtr));
@@ -1373,14 +1798,9 @@ void Executor::Run(const char* funcName) throw()
 
 #ifdef _MSC_VER
 // X86 implementation
-bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
+bool Executor::RunExternalFunction(unsigned int funcID)
 {
-	if(funcInfo->retType->size > 4 && funcInfo->retType->type != TypeInfo::TYPE_DOUBLE)
-    {
-        strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
-        return false;
-    }
-    UINT bytesToPop = funcInfo->externalInfo.bytesToPop;
+    UINT bytesToPop = exFuncInfo[funcID].bytesToPop;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	UINT typeSizeS[] = { 4, 8, 4, 8 };
     UINT paramSize = bytesToPop;
@@ -1399,7 +1819,7 @@ bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
     }
     genStackPtr += bytesToPop/4;
 
-    void* fPtr = funcInfo->funcPtr;
+    void* fPtr = exFunctions[funcID]->funcPtr;
     UINT fRes;
     __asm{
         mov ecx, fPtr;
@@ -1407,15 +1827,15 @@ bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
         add esp, bytesToPop;
         mov fRes, eax;
     }
-    if(funcInfo->retType->size != 0)
+    if(exTypes[exFunctions[funcID]->retType]->size != 0)
     {
         genStackPtr--;
         *genStackPtr = fRes;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-        if(funcInfo->retType->type == TypeInfo::TYPE_COMPLEX)
-            genStackTypes.push_back((asmStackType)(0x80000000 | funcInfo->retType->size));
+        if(exTypes[exFunctions[funcID]->retType]->type == TypeInfo::TYPE_COMPLEX)
+            genStackTypes.push_back((asmStackType)(0x80000000 | exTypes[exFunctions[funcID]->retType]->size));
         else
-            genStackTypes.push_back(podTypeToStackType[funcInfo->retType->type]);
+            genStackTypes.push_back(podTypeToStackType[exTypes[exFunctions[funcID]->retType]->type]);
 #endif
     }
 }
@@ -1426,21 +1846,21 @@ typedef unsigned int (*SimpleFunctionPtr)(
     double, double, double, double, double, double, double, double
     );
 
-bool Executor::RunExternalFunction(const FunctionInfo* funcInfo)
+bool Executor::RunExternalFunction(unsigned int funcID)
 {
     // cast function pointer so we can call it
-    SimpleFunctionPtr code = (SimpleFunctionPtr)funcInfo->funcPtr;
+    SimpleFunctionPtr code = (SimpleFunctionPtr)exFunctions[funcID]->funcPtr;
     
     // call function
-    #define R(i) *(const unsigned int*)(const void*)(genStackPtr + funcInfo->externalInfo.rOffsets[i])
-    #define F(i) *(const double*)(const void*)(genStackPtr + funcInfo->externalInfo.fOffsets[i])
+    #define R(i) *(const unsigned int*)(const void*)(genStackPtr + exFuncInfo[funcID].rOffsets[i])
+    #define F(i) *(const double*)(const void*)(genStackPtr + exFuncInfo[funcID].fOffsets[i])
     
     unsigned int result = code(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
     
     #undef F
     #undef R
     
-    if (funcInfo->retType->size != 0)
+    if (exTypes[exFunctions[funcID]->retType]->size != 0)
     {
         genStackPtr--;
         *genStackPtr = result;

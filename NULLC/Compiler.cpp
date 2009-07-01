@@ -6,6 +6,8 @@ using namespace supspi;
 #include "CodeInfo.h"
 using namespace CodeInfo;
 
+#include "Bytecode.h"
+
 #include "Compiler.h"
 
 #include <time.h>
@@ -69,10 +71,13 @@ std::vector<std::string>	strs;
 // Стек для ситуаций вроде foo(1, bar(2, 3, 4), 5), когда нужно сохранить количество параметров,
 // для каждой из функцией для проверки количества переданных параметров с тем, которое принимает функция
 std::vector<UINT>			callArgCount;
-// Стек, который хранит титы значений, которые возвращает функция.
-// Функции можно определять одну в другой (BUG: 0004 может, нафиг не надо?)
+// Стек, который хранит типы значений, которые возвращает функция.
+// Функции можно определять одну в другой
 std::vector<TypeInfo*>		retTypeStack;
 std::vector<FunctionInfo*>	currDefinedFunc;
+
+// Список узлов, которые определяют код функции
+std::vector<shared_ptr<NodeZeroOP> >	funcDefList;
 
 int AddFunctionExternal(FunctionInfo* func, std::string name)
 {
@@ -1621,6 +1626,8 @@ void FunctionEnd(char const* s, char const* e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varFormerTop-varTop, false)));
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcInfo[i])));
+	if(funcInfo[i]->type != FunctionInfo::LOCAL)
+		funcDefList.push_back(nodeList.back());
 	strs.pop_back();
 
 	retTypeStack.pop_back();
@@ -2502,6 +2509,7 @@ Compiler::Compiler()
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "cos";
+	fInfo->nameHash = GetStringHash(fInfo->name.c_str());
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
@@ -2511,6 +2519,7 @@ Compiler::Compiler()
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "sin";
+	fInfo->nameHash = GetStringHash(fInfo->name.c_str());
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
@@ -2520,6 +2529,7 @@ Compiler::Compiler()
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "tan";
+	fInfo->nameHash = GetStringHash(fInfo->name.c_str());
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
@@ -2529,6 +2539,7 @@ Compiler::Compiler()
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "ctg";
+	fInfo->nameHash = GetStringHash(fInfo->name.c_str());
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
@@ -2538,6 +2549,7 @@ Compiler::Compiler()
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "ceil";
+	fInfo->nameHash = GetStringHash(fInfo->name.c_str());
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
@@ -2547,6 +2559,7 @@ Compiler::Compiler()
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "floor";
+	fInfo->nameHash = GetStringHash(fInfo->name.c_str());
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
@@ -2556,19 +2569,12 @@ Compiler::Compiler()
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
 	fInfo->name = "sqrt";
+	fInfo->nameHash = GetStringHash(fInfo->name.c_str());
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
-
-	/*fInfo = new FunctionInfo();
-	fInfo->address = -1;
-	fInfo->name = "clock";
-	fInfo->retType = typeInt;
-	fInfo->vTopSize = 1;
-	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);*/
 
 	buildInTypes = (int)typeInfo.size();
 	buildInFuncs = (int)funcInfo.size();
@@ -2595,8 +2601,6 @@ Compiler::~Compiler()
 	varInfo.clear();
 	funcInfo.clear();
 	typeInfo.clear();
-	/*for(UINT i = 0; i < varInfo.size(); i++)
-		delete varInfo[i];*/
 }
 
 void Compiler::ClearState()
@@ -2607,9 +2611,6 @@ void Compiler::ClearState()
 	for(std::set<VariableInfo*>::iterator s = varInfoAll.begin(), e = varInfoAll.end(); s!=e; s++)
 		delete *s;
 	varInfoAll.clear();
-
-	/*for(UINT i = 0; i < varInfo.size(); i++)
-		delete varInfo[i];*/
 	varInfo.clear();
 
 	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
@@ -2630,6 +2631,7 @@ void Compiler::ClearState()
 	currTypes.clear();
 
 	nodeList.clear();
+	funcDefList.clear();
 
 	varDefined = 0;
 	negCount = 0;
@@ -2772,6 +2774,11 @@ bool Compiler::Compile(string str)
 	CodeInfo::globalSize = varTop;
 
 	t = clock();
+	for(unsigned int i = 0; i < funcDefList.size(); i++)
+	{
+		funcDefList[i]->Compile();
+		((NodeFuncDef*)funcDefList[i].get())->Disable();
+	}
 	if(nodeList.back())
 		nodeList.back()->Compile();
 	tem = clock()-t;
@@ -2785,6 +2792,8 @@ bool Compiler::Compile(string str)
 #ifdef NULLC_LOG_FILES
 	ostringstream		graphlog;
 	ofstream graphFile("graph.txt", std::ios::binary);
+	for(unsigned int i = 0; i < funcDefList.size(); i++)
+		funcDefList[i]->LogToStream(graphlog);
 	if(nodeList.back())
 		nodeList.back()->LogToStream(graphlog);
 	graphFile << graphlog.str();
@@ -2814,14 +2823,6 @@ bool Compiler::Compile(string str)
 	}
 	logAST << "\r\n" << compileLog.str();
 
-	for(unsigned int n = 0; n < CodeInfo::funcInfo.size(); n++)
-	{
-		FunctionInfo* funcInfoPtr = CodeInfo::funcInfo[n];
-		
-		if (funcInfoPtr->funcPtr && !funcInfoPtr->CreateExternalInfo())
-    		throw std::string("External function compilation failed");
-	}
-
 	if(nodeList.size() != 1)
 		throw std::string("Compilation failed, AST contains more than one node");
 
@@ -2834,76 +2835,16 @@ bool Compiler::Compile(string str)
 		while(CodeInfo::cmdList->GetData(pos, cmd))
 		{
 			pos += 2;
+			CodeInfo::cmdList->GetUSHORT(pos, cFlag);
 			switch(cmd)
 			{
-			case cmdMovRTaP:
-				CodeInfo::cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-				dt = flagDataType(cFlag);
-
-				pos += 4;
-
-				if(dt == DTYPE_COMPLEX_TYPE)
-					pos += 4;
-				break;
-			case cmdCallStd:
-				pos += sizeof(FunctionInfo*);
-				break;
-			case cmdPushVTop:
-				break;
-			case cmdPopVTop:
-				break;
-			case cmdCall:
-				pos += 4;
-				pos += 2;
-				break;
-			case cmdFuncAddr:
-				pos += sizeof(FunctionInfo*);
-				break;
-			case cmdReturn:
-				pos += 4;
-				break;
-			case cmdPushV:
-				pos += 4;
-				break;
-			case cmdNop:
-				break;
-			case cmdCTI:
-				pos += 5;
-				break;
-			case cmdPushImmt:
-				CodeInfo::cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-				dt = flagDataType(cFlag);
-
-				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-					pos += 8;
-				if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
-					pos += 4;
-				if(dt == DTYPE_SHORT)
-					pos += 2;
-				if(dt == DTYPE_CHAR)
-					pos += 1;
-				break;
 			case cmdPush:
 				{
-					UINT pos2 = pos - 2;
-					CodeInfo::cmdList->GetUSHORT(pos, cFlag);
-					pos += 2;
 					dt = flagDataType(cFlag);
 
-					if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
-						pos += 4;
-					if(flagSizeOn(cFlag))
-						pos += 4;
-					
 					CmdID prefferedCmd = 0;
-
 					if(dt == DTYPE_COMPLEX_TYPE)
-					{
-						pos += 4;
 						prefferedCmd = cmdPushCmplxAbs;
-					}
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 						prefferedCmd = cmdPushDorLAbs;
 					if(dt == DTYPE_FLOAT)
@@ -2920,75 +2861,13 @@ bool Compiler::Compile(string str)
 					if(flagShiftStk(cFlag))
 						prefferedCmd += 12;
 
-					*(CmdID*)(&CodeInfo::cmdList->bytecode[pos2]) = prefferedCmd;
+					*(CmdID*)(&CodeInfo::cmdList->bytecode[pos - 2]) = prefferedCmd;
 
 					assert(prefferedCmd >= cmdPushCharAbs && prefferedCmd <= cmdPushCmplxStk);
 				}
 				break;
-			case cmdMov:
-				{
-					CodeInfo::cmdList->GetUSHORT(pos, cFlag);
-					pos += 2;
-					if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
-						pos += 4;
-					if(flagSizeOn(cFlag))
-						pos += 4;
-					if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
-						pos += 4;
-				}
-				break;
-			case cmdPop:
-				CodeInfo::cmdList->GetUSHORT(pos, cFlag);
-				pos += 4;
-				break;
-			case cmdRTOI:
-				pos += 2;
-				break;
-			case cmdITOR:
-				pos += 2;
-				break;
-			case cmdITOL:
-				break;
-			case cmdLTOI:
-				break;
-			case cmdSwap:
-				pos += 2;
-				break;
-			case cmdCopy:
-				pos += 1;
-				break;
-			case cmdJmp:
-				pos += 4;
-				break;
-			case cmdJmpZ:
-				pos += 1;
-				pos += 4;
-				break;
-			case cmdJmpNZ:
-				pos += 1;
-				pos += 4;
-				break;
-			case cmdSetRange:
-				pos += 10;
-				break;
-			case cmdGetAddr:
-				pos += 4;
-				break;
 			}
-			if(cmd >= cmdAdd && cmd <= cmdLogXor)
-				pos += 1;
-			if(cmd >= cmdNeg && cmd <= cmdLogNot)
-				pos += 1;
-			if(cmd >= cmdIncAt && cmd < cmdDecAt)
-			{
-				CodeInfo::cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-
-				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-					pos += 4;
-				if(flagSizeOn(cFlag))
-					pos += 4;
-			}
+			pos += CommandList::GetCommandLength(cmd, cFlag) - 2;
 		}
 	}
 
@@ -2997,580 +2876,10 @@ bool Compiler::Compile(string str)
 
 void Compiler::GenListing()
 {
-	UINT pos = 0, pos2 = 0;
-	CmdID	cmd;
-
-	UINT	valind, valind2;
-	USHORT	shVal1, shVal2;
-	logASM.str("");
-
-	FunctionInfo *funcInfo;
-
-	char* typeInfoS[] = { "int", "long", "complex", "double" };
-	char* typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
-
-	CmdFlag cFlag;
-	OperFlag oFlag;
-	while(cmdList->GetData(pos, cmd))
-	{
-		pos2 = pos;
-		pos += 2;
-
-		logASM << pos2;
-		switch(cmd)
-		{
-		case cmdPushCharAbs:
-		case cmdPushShortAbs:
-		case cmdPushIntAbs:
-		case cmdPushFloatAbs:
-		case cmdPushDorLAbs:
-		case cmdPushCmplxAbs:
-		case cmdPushCharRel:
-		case cmdPushShortRel:
-		case cmdPushIntRel:
-		case cmdPushFloatRel:
-		case cmdPushDorLRel:
-		case cmdPushCmplxRel:
-		case cmdPushCharStk:
-		case cmdPushShortStk:
-		case cmdPushIntStk:
-		case cmdPushFloatStk:
-		case cmdPushDorLStk:
-		case cmdPushCmplxStk:
-		case cmdPush:
-			{
-				cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-				if(cmd == cmdPush)
-					logASM << " PUSH ";
-				else
-					logASM << " ***PUSH ";
-				logASM << typeInfoS[cFlag&0x00000003] << "<-";
-				logASM << typeInfoD[(cFlag>>2)&0x00000007];
-
-				asmStackType st = flagStackType(cFlag);
-				asmDataType dt = flagDataType(cFlag);
-				UINT	DWords[2];
-				USHORT sdata;
-				UCHAR cdata;
-				int valind;
-				if(flagNoAddr(cFlag)){
-					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
-						cmdList->GetUINT(pos, DWords[0]); pos += 4;
-						cmdList->GetUINT(pos, DWords[1]); pos += 4;
-					}
-					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ cmdList->GetUINT(pos, DWords[0]); pos += 4; }
-					if(dt == DTYPE_SHORT){ cmdList->GetUSHORT(pos, sdata); pos += 2; DWords[0] = sdata; }
-					if(dt == DTYPE_CHAR){ cmdList->GetUCHAR(pos, cdata); pos += 1; DWords[0] = cdata; }
-
-					if(dt == DTYPE_DOUBLE)
-						logASM << " (" << *((double*)(&DWords[0])) << ')';
-					if(dt == DTYPE_LONG)
-						logASM << " (" << *((long long*)(&DWords[0])) << ')';
-					if(dt == DTYPE_FLOAT)
-						logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_INT)
-						logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_SHORT)
-						logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_CHAR)
-						logASM << " (" << *((char*)(&DWords[0])) << ')';
-				}else{
-					logASM << " PTR[";
-					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-						logASM << valind;
-					}
-					if(flagAddrRel(cFlag))
-						logASM << "+top";
-					if(flagAddrRelTop(cFlag))
-						logASM << "+max";
-					if(flagShiftStk(cFlag))
-						logASM << "+shift(stack)";
-					
-					logASM << "] ";
-					if(flagSizeStk(cFlag))
-						logASM << "size(stack)";
-					if(flagSizeOn(cFlag))
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-						logASM << " max size(" << valind << ") ";
-					}
-					if(st == STYPE_COMPLEX_TYPE)
-					{
-						cmdList->GetINT(pos, valind);
-						pos += 4;
-						logASM << "sizeof(" << valind << ")";
-					}
-				}
-			}
-			break;
-		case cmdDTOF:
-			logASM << " DTOF;";
-			break;
-		case cmdCallStd:
-			cmdList->GetData(pos, funcInfo);
-			pos += sizeof(FunctionInfo*);
-			logASM << " CALLS " << funcInfo->name << ";";
-			break;
-		case cmdPushVTop:
-			logASM << " PUSHT;";
-			break;
-		case cmdPopVTop:
-			logASM << " POPT;";
-			break;
-		case cmdCall:
-			cmdList->GetUINT(pos, valind);
-			pos += sizeof(UINT);
-			cmdList->GetUSHORT(pos, shVal1);
-			pos += 2;
-			logASM << " CALL " << valind;
-			if(shVal1 & bitRetSimple)
-				logASM << " simple";
-			logASM << " size:" << (shVal1&0x0FFF) << ";";
-			break;
-		case cmdReturn:
-			cmdList->GetUSHORT(pos, shVal1);
-			pos += 2;
-			cmdList->GetUSHORT(pos, shVal2);
-			pos += 2;
-			logASM << " RET " << shVal2;
-			if(shVal1 & bitRetError)
-			{
-				logASM << " ERROR;";
-				break;
-			}
-			if(shVal1 & bitRetSimple)
-			{
-				switch(shVal1 & 0x0FFF)
-				{
-				case OTYPE_DOUBLE:
-					logASM << " double;";
-					break;
-				case OTYPE_LONG:
-					logASM << " long;";
-					break;
-				case OTYPE_INT:
-					logASM << " int;";
-					break;
-				}
-			}else{
-				logASM << " bytes: " << shVal1;
-			}
-			break;
-		case cmdPushV:
-			{
-				int valind;
-				cmdList->GetData(pos, &valind, sizeof(int));
-				pos += sizeof(int);
-				logASM << " PUSHV " << valind << dec << ";";
-			}
-			break;
-		case cmdNop:
-			logASM << dec << " NOP;";
-			break;
-		case cmdCTI:
-			logASM << dec << " CTI addr*";
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			cmdList->GetUINT(pos, valind);
-			pos += sizeof(UINT);
-			logASM << valind;
-
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-				logASM << " double;";
-				break;
-			case OTYPE_LONG:
-				logASM << " long;";
-				break;
-			case OTYPE_INT:
-				logASM << " int;";
-				break;
-			default:
-				logASM << "ERROR: OperFlag expected after ";
-			}
-			break;
-		case cmdPushImmt:
-			{
-				cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-				logASM << " PUSHIMMT ";
-				logASM << typeInfoS[cFlag&0x00000003] << "<-";
-				logASM << typeInfoD[(cFlag>>2)&0x00000007];
-
-				asmDataType dt = flagDataType(cFlag);
-				UINT	DWords[2];
-				USHORT sdata;
-				UCHAR cdata;
-				
-				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
-					cmdList->GetUINT(pos, DWords[0]); pos += 4;
-					cmdList->GetUINT(pos, DWords[1]); pos += 4;
-				}
-				if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ cmdList->GetUINT(pos, DWords[0]); pos += 4; }
-				if(dt == DTYPE_SHORT){ cmdList->GetUSHORT(pos, sdata); pos += 2; DWords[0] = sdata; }
-				if(dt == DTYPE_CHAR){ cmdList->GetUCHAR(pos, cdata); pos += 1; DWords[0] = cdata; }
-
-				if(dt == DTYPE_DOUBLE)
-					logASM << " (" << *((double*)(&DWords[0])) << ')';
-				if(dt == DTYPE_LONG)
-					logASM << " (" << *((long long*)(&DWords[0])) << ')';
-				if(dt == DTYPE_FLOAT)
-					logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
-				if(dt == DTYPE_INT)
-					logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
-				if(dt == DTYPE_SHORT)
-					logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
-				if(dt == DTYPE_CHAR)
-					logASM << " (" << *((char*)(&DWords[0])) << ')';
-			}
-			break;
-		case cmdMovRTaP:
-			{
-				cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-
-				logASM << " MOVRTAP ";
-				logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
-				int valind;
-				cmdList->GetINT(pos, valind);
-				pos += 4;
-				logASM << valind;
-				logASM << "+max] ";
-				if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
-				{
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					logASM << "sizeof(" << valind << ")";
-				}
-			}
-			break;
-		case cmdMov:
-			{
-				cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-				logASM << " MOV ";
-				logASM << typeInfoS[cFlag&0x00000003] << "->";
-				logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
-				asmStackType st = flagStackType(cFlag);
-				int valind;
-				
-				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
-				{
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					logASM << valind;
-				}
-				if(flagAddrRel(cFlag))
-					logASM << "+top";
-
-				if(flagAddrRelTop(cFlag))
-					logASM << "+max";
-
-				if(flagShiftStk(cFlag))
-					logASM << "+shift(stack)";
-
-				logASM << "] ";
-				if(flagSizeStk(cFlag))
-					logASM << "size(stack)";
-				if(flagSizeOn(cFlag))
-				{
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					logASM << "size: " << valind;
-				}
-				if(st == STYPE_COMPLEX_TYPE)
-				{
-					cmdList->GetINT(pos, valind);
-					pos += 4;
-					logASM << "sizeof(" << valind << ")";
-				}
-			}
-			break;
-		case cmdPop:
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
-			logASM << " POP" << " sizeof(" << valind << ")";
-			break;
-		case cmdRTOI:
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			logASM << " RTOI ";
-			logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
-			break;
-		case cmdITOR:
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			logASM << " ITOR ";
-			logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
-			break;
-		case cmdITOL:
-			logASM << " ITOL";
-			break;
-		case cmdLTOI:
-			logASM << " LTOI";
-			break;
-		case cmdSwap:
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			logASM << " SWAP ";
-			logASM << typeInfoS[cFlag&0x00000003] << "<->";
-			logASM << typeInfoD[(cFlag>>2)&0x00000007];
-			break;
-		case cmdCopy:
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			logASM << " COPY ";
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-				logASM << " double;";
-				break;
-			case OTYPE_LONG:
-				logASM << " long;";
-				break;
-			case OTYPE_INT:
-				logASM << " int;";
-				break;
-			}
-			break;
-		case cmdJmp:
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
-			logASM << " JMP " << valind;
-			break;
-		case cmdJmpZ:
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
-			logASM << " JMPZ";
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-				logASM << " double";
-				break;
-			case OTYPE_LONG:
-				logASM << " long";
-				break;
-			case OTYPE_INT:
-				logASM << " int";
-				break;
-			}
-			logASM << ' ' << valind << ';';
-			break;
-		case cmdJmpNZ:
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
-			logASM << " JMPNZ";
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-				logASM << " double";
-				break;
-			case OTYPE_LONG:
-				logASM << " long";
-				break;
-			case OTYPE_INT:
-				logASM << " int";
-				break;
-			}
-			logASM << ' ' << valind << ';';
-			break;
-		case cmdSetRange:
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
-			cmdList->GetUINT(pos, valind2);
-			pos += 4;
-			logASM << " SETRANGE " << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << valind2 << ';';
-			break;
-		case cmdGetAddr:
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
-			logASM << " GETADDR " << (int)valind << ';';
-			break;
-		case cmdFuncAddr:
-			{
-				FunctionInfo	*fInfo;
-				cmdList->GetData(pos, fInfo);
-				pos += sizeof(FunctionInfo*);
-				logASM << " FUNCADDR " << fInfo->name;
-				break;
-			}
-		}
-		if(cmd >= cmdAdd && cmd <= cmdLogXor)
-		{
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			logASM << ' ';
-			switch(cmd)
-			{
-			case cmdAdd:
-				logASM << "ADD";
-				break;
-			case cmdSub:
-				logASM << "SUB";
-				break;
-			case cmdMul:
-				logASM << "MUL";
-				break;
-			case cmdDiv:
-				logASM << "DIV";
-				break;
-			case cmdPow:
-				logASM << "POW";
-				break;
-			case cmdMod:
-				logASM << "MOD";
-				break;
-			case cmdLess:
-				logASM << "LES";
-				break;
-			case cmdGreater:
-				logASM << "GRT";
-				break;
-			case cmdLEqual:
-				logASM << "LEQL";
-				break;
-			case cmdGEqual:
-				logASM << "GEQL";
-				break;
-			case cmdEqual:
-				logASM << "EQL";
-				break;
-			case cmdNEqual:
-				logASM << "NEQL";
-				break;
-			case cmdShl:
-				logASM << "SHL";
-				if(oFlag == OTYPE_DOUBLE)
-					throw string("Invalid operation: SHL used on float");
-				break;
-			case cmdShr:
-				logASM << "SHR";
-				if(oFlag == OTYPE_DOUBLE)
-					throw string("Invalid operation: SHR used on float");
-				break;
-			case cmdBitAnd:
-				logASM << "BAND";
-				if(oFlag == OTYPE_DOUBLE)
-					throw string("Invalid operation: BAND used on float");
-				break;
-			case cmdBitOr:
-				logASM << "BOR";
-				if(oFlag == OTYPE_DOUBLE)
-					throw string("Invalid operation: BOR used on float");
-				break;
-			case cmdBitXor:
-				logASM << "BXOR";
-				if(oFlag == OTYPE_DOUBLE)
-					throw string("Invalid operation: BXOR used on float");
-				break;
-			case cmdLogAnd:
-				logASM << "LAND";
-				break;
-			case cmdLogOr:
-				logASM << "LOR";
-				break;
-			case cmdLogXor:
-				logASM << "LXOR";
-				break;
-			}
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-				logASM << " double;";
-				break;
-			case OTYPE_LONG:
-				logASM << " long;";
-				break;
-			case OTYPE_INT:
-				logASM << " int;";
-				break;
-			default:
-				logASM << "ERROR: OperFlag expected after instruction";
-			}
-		}
-		if(cmd >= cmdNeg && cmd <= cmdLogNot)
-		{
-			cmdList->GetUCHAR(pos, oFlag);
-			pos += 1;
-			logASM << ' ';
-			switch(cmd)
-			{
-			case cmdNeg:
-				logASM << "NEG";
-				break;
-			case cmdBitNot:
-				logASM << "BNOT";
-				if(oFlag == OTYPE_DOUBLE)
-					throw string("Invalid operation: BNOT used on float");
-				break;
-			case cmdLogNot:
-				logASM << "LNOT;";
-				break;
-			}
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-				logASM << " double;";
-				break;
-			case OTYPE_LONG:
-				logASM << " long;";
-				break;
-			case OTYPE_INT:
-				logASM << " int;";
-				break;
-			default:
-				logASM << "ERROR: OperFlag expected after ";
-			}
-		}
-		if(cmd >= cmdIncAt && cmd <= cmdDecAt)
-		{
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			if(cmd == cmdIncAt)
-				logASM << " INCAT ";
-			if(cmd == cmdDecAt)
-				logASM << " DECAT ";
-			logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
-
-			int valind;
-
-			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
-				cmdList->GetINT(pos, valind);
-				pos += 4;
-				logASM << valind;
-			}
-			if(flagAddrRel(cFlag))
-				logASM << "+top";
-
-			if(flagShiftStk(cFlag)){
-				logASM << "+shift";
-			}
-			logASM << "] ";
-			if(flagSizeStk(cFlag)){
-				logASM << "size: stack";
-			}
-			if(flagSizeOn(cFlag)){
-				cmdList->GetINT(pos, valind);
-				pos += 4;
-				logASM << "size: " << valind;
-			}
-		}
-		logASM << "\r\n";
-	}
-
 #ifdef NULLC_LOG_FILES
+	logASM.str("");
+	CommandList::PrintCommandListing(&logASM, CodeInfo::cmdList->bytecode, CodeInfo::cmdList->bytecode+CodeInfo::cmdList->curr);
+
 	ofstream m_FileStream("asm.txt", std::ios::binary);
 	m_FileStream << logASM.str();
 	m_FileStream.flush();
@@ -3587,59 +2896,149 @@ string Compiler::GetLog()
 	return logAST.str();
 }
 
-#if defined(_MSC_VER)
-bool FunctionInfo::CreateExternalInfo()
+unsigned int GetTypeIndexByPtr(TypeInfo* type)
 {
-	externalInfo.bytesToPop = 0;
-	for(UINT i = 0; i < params.size(); i++)
+	unsigned int typeIndex = 0xffffffff;
+	for(unsigned int n = 0; (n < CodeInfo::typeInfo.size()) && (typeIndex == -1); n++)
+		if(CodeInfo::typeInfo[n] == type)
+			typeIndex = n;
+	assert(typeIndex != -1);
+	return typeIndex;
+}
+
+unsigned int Compiler::GetBytecode(char **bytecode)
+{
+	// find out the size of generated bytecode
+	unsigned int size = sizeof(ByteCode);
+
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
-		UINT paramSize = params[i].varType->size > 4 ? params[i].varType->size : 4;
-		externalInfo.bytesToPop += paramSize;
+		size += sizeof(ExternTypeInfo);
+		size += (int)CodeInfo::typeInfo[i]->GetTypeName().length()+1;
 	}
-	
-	return true;
-}
-#elif defined(__CELLOS_LV2__)
-bool FunctionInfo::CreateExternalInfo()
-{
-    unsigned int rCount = 0, fCount = 0;
-    unsigned int rMaxCount = sizeof(externalInfo.rOffsets) / sizeof(externalInfo.rOffsets[0]);
-    unsigned int fMaxCount = sizeof(externalInfo.fOffsets) / sizeof(externalInfo.fOffsets[0]);
-    
-    // parse all parameters, fill offsets
-    unsigned int offset = 0;
-    
-	for (UINT i = 0; i < params.size(); i++)
+
+	unsigned int offsetToVar = size;
+	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
-	    const TypeInfo& type = *params[i].varType;
-	    
-	    switch (type.type)
-	    {
-	    case TypeInfo::TYPE_CHAR:
-	    case TypeInfo::TYPE_SHORT:
-	    case TypeInfo::TYPE_INT:
-	        if (rCount >= rMaxCount) return false; // too many r parameters
-	        externalInfo.rOffsets[rCount++] = offset;
-	        offset++;
-	        break;
-	    
-	    case TypeInfo::TYPE_FLOAT:
-	    case TypeInfo::TYPE_DOUBLE:
-	        if (fCount >= fMaxCount || rCount >= rMaxCount) return false; // too many f/r parameters
-	        externalInfo.rOffsets[rCount++] = offset;
-	        externalInfo.fOffsets[fCount++] = offset;
-	        offset += 2;
-	        break;
-	        
-	    default:
-	        return false; // unsupported type
-	    }
-    }
-    
-    // clear remaining offsets
-    for (unsigned int i = rCount; i < rMaxCount; ++i) externalInfo.rOffsets[i] = 0;
-    for (unsigned int i = fCount; i < fMaxCount; ++i) externalInfo.fOffsets[i] = 0;
-    
-    return true;
+		size += sizeof(ExternVarInfo);
+		size += (int)CodeInfo::varInfo[i]->name.length()+1;
+	}
+
+	unsigned int offsetToFunc = size;
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	{
+		size += sizeof(ExternFuncInfo);
+		size += (int)CodeInfo::funcInfo[i]->name.length()+1;
+		size += (unsigned int)CodeInfo::funcInfo[i]->params.size() * sizeof(unsigned int);
+	}
+	unsigned int offsetToCode = size;
+	size += CodeInfo::cmdList->GetCurrPos();
+
+	*bytecode = new char[size];
+
+	ByteCode	*code = (ByteCode*)(*bytecode);
+	code->size = size;
+
+	code->typeCount = (unsigned int)CodeInfo::typeInfo.size();
+
+	code->globalVarSize = varTop;
+	code->variableCount = (unsigned int)CodeInfo::varInfo.size();
+	code->offsetToFirstVar = offsetToVar;
+
+	code->functionCount = (unsigned int)CodeInfo::funcInfo.size();
+	code->offsetToFirstFunc = offsetToFunc;
+
+	code->codeSize = CodeInfo::cmdList->GetCurrPos();
+	code->offsetToCode = offsetToCode;
+
+	ExternTypeInfo *tInfo = FindFirstType(code);
+	code->firstType = tInfo;
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
+		tInfo->size = CodeInfo::typeInfo[i]->size;
+		tInfo->nameLength = (unsigned int)CodeInfo::typeInfo[i]->GetTypeName().length();
+		tInfo->structSize = sizeof(ExternTypeInfo) + tInfo->nameLength + 1;
+		// ! write name after the pointer to name
+		char *namePtr = (char*)(&tInfo->name) + sizeof(tInfo->name);
+		memcpy(namePtr, CodeInfo::typeInfo[i]->GetTypeName().c_str(), tInfo->nameLength+1);
+		tInfo->name = namePtr;
+
+		if(i+1 == CodeInfo::typeInfo.size())
+			tInfo->next = NULL;
+		else
+			tInfo->next = FindNextType(tInfo);
+
+		// Fill up next
+		tInfo = tInfo->next;
+	}
+
+	ExternVarInfo *varInfo = FindFirstVar(code);
+	code->firstVar = varInfo;
+	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
+	{
+		varInfo->size = CodeInfo::varInfo[i]->varType->size;
+		varInfo->nameLength = (unsigned int)CodeInfo::varInfo[i]->name.length();
+		varInfo->structSize = sizeof(ExternVarInfo) + varInfo->nameLength + 1;
+
+		varInfo->type = GetTypeIndexByPtr(CodeInfo::varInfo[i]->varType);
+
+		// ! write name after the pointer to name
+		char *namePtr = (char*)(&varInfo->name) + sizeof(varInfo->name);
+		memcpy(namePtr, CodeInfo::varInfo[i]->name.c_str(), varInfo->nameLength+1);
+		varInfo->name = namePtr;
+
+		if(i+1 == CodeInfo::varInfo.size())
+			varInfo->next = NULL;
+		else
+			varInfo->next = FindNextVar(varInfo);
+
+		// Fill up next
+		varInfo = varInfo->next;
+	}
+
+	unsigned int offsetToGlobal = 0;
+	ExternFuncInfo *fInfo = FindFirstFunc(code);
+	code->firstFunc = fInfo;
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	{
+		fInfo->oldAddress = fInfo->address = CodeInfo::funcInfo[i]->address;
+		fInfo->codeSize = CodeInfo::funcInfo[i]->codeSize;
+		fInfo->funcPtr = CodeInfo::funcInfo[i]->funcPtr;
+		fInfo->isVisible = CodeInfo::funcInfo[i]->visible;
+		fInfo->funcType = (ExternFuncInfo::FunctionType)CodeInfo::funcInfo[i]->type;
+		if(fInfo->funcType != ExternFuncInfo::LOCAL)
+			offsetToGlobal += fInfo->codeSize;
+
+		fInfo->nameHash = CodeInfo::funcInfo[i]->nameHash;
+		fInfo->nameLength = (unsigned int)CodeInfo::funcInfo[i]->name.length();
+
+		fInfo->retType = GetTypeIndexByPtr(CodeInfo::funcInfo[i]->retType);
+		fInfo->paramCount = (unsigned int)CodeInfo::funcInfo[i]->params.size();
+		fInfo->paramList = (unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1);
+
+		fInfo->structSize = sizeof(ExternFuncInfo) + fInfo->nameLength + 1 + fInfo->paramCount * sizeof(unsigned int);
+
+		for(unsigned int n = 0; n < fInfo->paramCount; n++)
+			fInfo->paramList[n] = GetTypeIndexByPtr(CodeInfo::funcInfo[i]->params[n].varType);
+
+		// ! write name after the pointer to name
+		char *namePtr = (char*)(&fInfo->name) + sizeof(fInfo->name);
+		memcpy(namePtr, CodeInfo::funcInfo[i]->name.c_str(), fInfo->nameLength+1);
+		fInfo->name = namePtr;
+
+		if(i+1 == CodeInfo::funcInfo.size())
+			fInfo->next = NULL;
+		else
+			fInfo->next = FindNextFunc(fInfo);
+
+		// Fill up next
+		fInfo = fInfo->next;
+	}
+
+	code->code = FindCode(code);
+	code->globalCodeStart = offsetToGlobal;
+	memcpy(code->code, CodeInfo::cmdList->bytecode, CodeInfo::cmdList->GetCurrPos());
+
+	return size;
 }
-#endif
+

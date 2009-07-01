@@ -1,6 +1,10 @@
 #pragma once
 #include "stdafx.h"
 
+#include "ParseClass.h"
+
+#include "Bytecode.h"
+
 class ExecutorX86
 {
 public:
@@ -9,6 +13,9 @@ public:
 
 	void	GenListing();
 	string	GetListing();
+
+	void	CleanCode();
+	bool	LinkCode(const char *bytecode, int redefinitions);
 
 	void	Run(const char* funcName = NULL) throw();
 
@@ -25,6 +32,9 @@ private:
 	int	optimize;
 
 	ostringstream		logASM;
+
+	char		*bytecode;
+	ByteCode	*codeInfo;
 
 	char	*paramData;
 	UINT	paramBase;

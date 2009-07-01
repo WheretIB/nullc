@@ -9,6 +9,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+//#include "ParseClass.h"
+//#include "ParseCommand.h"
 #include "CodeInfo.h"
 using namespace CodeInfo;
 
@@ -37,12 +39,31 @@ ExecutorX86::ExecutorX86()
 	memset(binCode, 0x90, 20);
 	binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
 	binCodeSize = 0;
+
+	bytecode = NULL;
+	codeInfo = NULL;
 }
 ExecutorX86::~ExecutorX86()
 {
 	VirtualFree(reinterpret_cast<void*>(0x20000000), 0, MEM_RELEASE);
 
 	delete[] binCode;
+}
+
+void ExecutorX86::CleanCode()
+{
+	delete[] bytecode;
+	codeInfo = NULL;
+}
+
+bool ExecutorX86::LinkCode(const char *code, int redefinitions)
+{
+	ByteCode *bCode = (ByteCode*)code;
+	bytecode = new char[bCode->size];
+	memcpy(bytecode, code, bCode->size);
+	codeInfo = (ByteCode*)bytecode;
+	BytecodeFixup(codeInfo);
+	return true;
 }
 
 int runResult = 0;
@@ -105,6 +126,12 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 #pragma warning(disable: 4731)
 void ExecutorX86::Run(const char* funcName) throw()
 {
+	/*if(!bytecode)
+	{
+		strcpy(execError, "ERROR: no code to run");
+		return;
+	}*/
+
 	execError[0] = 0;
 
 	stackReallocs = 0;
@@ -226,157 +253,24 @@ void ExecutorX86::GenListing()
 	//Узнаем, кому нужны лейблы
 	while(cmdList->GetData(pos, cmd))
 	{
-		pos2 = pos;
 		pos += 2;
+		CodeInfo::cmdList->GetUSHORT(pos, cFlag);
 		switch(cmd)
 		{
-		case cmdCallStd:
-			size_t len;
-			cmdList->GetData(pos, len);
-			pos += sizeof(FunctionInfo*);
-			break;
-		case cmdPushVTop:
-			break;
-		case cmdPopVTop:
-			break;
-		case cmdCall:
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
-			pos += 2;
-			//funcNeedLabel.push_back(valind);
-			break;
-		case cmdFuncAddr:
-			cmdList->GetData(pos, funcInfo);
-			pos += sizeof(FunctionInfo*);
-			//if(funcInfo->funcPtr == NULL)
-			//	funcNeedLabel.push_back(funcInfo->address);
-			break;
-		case cmdReturn:
-			pos += 4;
-			break;
-		case cmdPushV:
-			pos += 4;
-			break;
-		case cmdNop:
-			break;
-		case cmdCTI:
-			pos += 5;
-			break;
-		case cmdPushImmt:
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-			dt = flagDataType(cFlag);
-
-			if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-				pos += 8;
-			if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
-				pos += 4;
-			if(dt == DTYPE_SHORT)
-				pos += 2;
-			if(dt == DTYPE_CHAR)
-				pos += 1;
-			break;
-		case cmdPush:
-			{
-				cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-				dt = flagDataType(cFlag);
-
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
-					pos += 4;
-				if(flagSizeOn(cFlag))
-					pos += 4;
-				
-				if(flagNoAddr(cFlag))
-				{
-					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-						pos += 8;
-					if(dt == DTYPE_FLOAT)
-						pos += 4;
-					if(dt == DTYPE_INT)
-						pos += 4;
-					if(dt == DTYPE_SHORT)
-						pos += 2;
-					if(dt == DTYPE_CHAR)
-						pos += 1;
-				}
-				if(dt == DTYPE_COMPLEX_TYPE)
-					pos += 4;
-			}
-			break;
-		case cmdMov:
-			{
-				cmdList->GetUSHORT(pos, cFlag);
-				pos += 2;
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
-					pos += 4;
-				if(flagSizeOn(cFlag))
-					pos += 4;
-				if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
-					pos += 4;
-			}
-			break;
-		case cmdPop:
-			cmdList->GetUSHORT(pos, cFlag);
-			//pos += 2;
-			//dt = flagDataType(cFlag);
-			//if(dt == DTYPE_COMPLEX_TYPE)
-			pos += 4;
-			break;
-		case cmdRTOI:
-			pos += 2;
-			break;
-		case cmdITOR:
-			pos += 2;
-			break;
-		case cmdITOL:
-			break;
-		case cmdLTOI:
-			break;
-		case cmdSwap:
-			pos += 2;
-			break;
-		case cmdCopy:
-			pos += 1;
-			break;
 		case cmdJmp:
 			cmdList->GetUINT(pos, valind);
-			pos += 4;
 			instrNeedLabel.push_back(valind);
 			break;
 		case cmdJmpZ:
-			pos += 1;
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
+			cmdList->GetUINT(pos+1, valind);
 			instrNeedLabel.push_back(valind);
 			break;
 		case cmdJmpNZ:
-			pos += 1;
-			cmdList->GetUINT(pos, valind);
-			pos += 4;
+			cmdList->GetUINT(pos+1, valind);
 			instrNeedLabel.push_back(valind);
 			break;
-		case cmdSetRange:
-			pos += 10;
-			break;
-		case cmdGetAddr:
-			pos += 4;
-			break;
 		}
-		if(cmd >= cmdAdd && cmd <= cmdLogXor)
-			pos += 1;
-		if(cmd >= cmdNeg && cmd <= cmdLogNot)
-			pos += 1;
-		if(cmd >= cmdIncAt && cmd < cmdDecAt)
-		{
-			cmdList->GetUSHORT(pos, cFlag);
-			pos += 2;
-
-			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-				pos += 4;
-			if(flagSizeOn(cFlag))
-				pos += 4;
-		}
+		pos += CommandList::GetCommandLength(cmd, cFlag) - 2;
 	}
 
 	logASM << "use32\r\n";
@@ -3085,8 +2979,9 @@ void ExecutorX86::GenListing()
 			break;
 		case o_dd:
 			*(int*)code = cmd.argA.num;
+#ifdef NULLC_X86_CMP_FASM
 			code += 4;
-
+#endif
 			for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 			{
 				int marker = (('N' << 24) | CodeInfo::funcInfo[i]->address);

@@ -259,12 +259,15 @@ public:
 	NodeFuncDef(FunctionInfo *info);
 	virtual ~NodeFuncDef();
 
+	virtual void Disable();
+
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
 	virtual UINT GetSize();
 	virtual UINT GetNodeType(){ return typeNodeFuncDef; }
 protected:
 	FunctionInfo	*funcInfo;
+	bool disabled;
 };
 
 //////////////////////////////////////////////////////////////////////////

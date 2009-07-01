@@ -451,6 +451,712 @@ public:
 		}
 		return NULL;
 	}
+	static int		GetCommandLength(CmdID cmd, CmdFlag cFlag)
+	{
+		asmDataType dt;
+		int size = 2;
+		switch(cmd)
+		{
+		case cmdMovRTaP:
+			size += 2;
+			dt = flagDataType(cFlag);
+
+			size += 4;
+
+			if(dt == DTYPE_COMPLEX_TYPE)
+				size += 4;
+			break;
+		case cmdCallStd:
+			size += 4;
+			break;
+		case cmdCall:
+			size += 4;
+			size += 2;
+			break;
+		case cmdFuncAddr:
+			size += 4;
+			break;
+		case cmdReturn:
+			size += 4;
+			break;
+		case cmdPushV:
+			size += 4;
+			break;
+		case cmdCTI:
+			size += 5;
+			break;
+		case cmdPushImmt:
+			size += 2;
+			dt = flagDataType(cFlag);
+
+			if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
+				size += 8;
+			if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
+				size += 4;
+			if(dt == DTYPE_SHORT)
+				size += 2;
+			if(dt == DTYPE_CHAR)
+				size += 1;
+			break;
+		case cmdPushCharAbs:
+		case cmdPushShortAbs:
+		case cmdPushIntAbs:
+		case cmdPushFloatAbs:
+		case cmdPushDorLAbs:
+		case cmdPushCmplxAbs:
+		case cmdPushCharRel:
+		case cmdPushShortRel:
+		case cmdPushIntRel:
+		case cmdPushFloatRel:
+		case cmdPushDorLRel:
+		case cmdPushCmplxRel:
+		case cmdPushCharStk:
+		case cmdPushShortStk:
+		case cmdPushIntStk:
+		case cmdPushFloatStk:
+		case cmdPushDorLStk:
+		case cmdPushCmplxStk:
+		case cmdPush:
+			{
+				size += 2;
+				dt = flagDataType(cFlag);
+
+				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
+					size += 4;
+				if(flagSizeOn(cFlag))
+					size += 4;
+
+				if(dt == DTYPE_COMPLEX_TYPE)
+					size += 4;
+			}
+			break;
+		case cmdMov:
+			{
+				size += 2;
+				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
+					size += 4;
+				if(flagSizeOn(cFlag))
+					size += 4;
+				if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
+					size += 4;
+			}
+			break;
+		case cmdPop:
+			size += 4;
+			break;
+		case cmdRTOI:
+			size += 2;
+			break;
+		case cmdITOR:
+			size += 2;
+			break;
+		case cmdSwap:
+			size += 2;
+			break;
+		case cmdCopy:
+			size += 1;
+			break;
+		case cmdJmp:
+			size += 4;
+			break;
+		case cmdJmpZ:
+			size += 1;
+			size += 4;
+			break;
+		case cmdJmpNZ:
+			size += 1;
+			size += 4;
+			break;
+		case cmdSetRange:
+			size += 10;
+			break;
+		case cmdGetAddr:
+			size += 4;
+			break;
+		}
+		if(cmd >= cmdAdd && cmd <= cmdLogXor)
+			size += 1;
+		if(cmd >= cmdNeg && cmd <= cmdLogNot)
+			size += 1;
+		if(cmd >= cmdIncAt && cmd <= cmdDecAt)
+		{
+			size += 2;
+
+			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+				size += 4;
+			if(flagSizeOn(cFlag))
+				size += 4;
+		}
+		return size;
+	}
+	static void PrintCommandListing(ostream *logASM, char *cmdStream, char *cmdStreamEnd)
+	{
+		UINT pos = 0, pos2 = 0;
+		CmdID	cmd;
+
+		UINT	valind, valind2;
+		USHORT	shVal1, shVal2;
+
+		char* typeInfoS[] = { "int", "long", "complex", "double" };
+		char* typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
+
+		CmdFlag cFlag;
+		OperFlag oFlag;
+		while(cmdStream+pos+2 < cmdStreamEnd)
+		{
+			cmd = *(CmdID*)(&cmdStream[pos]);
+
+			pos2 = pos;
+			pos += 2;
+
+			*logASM << pos2;
+			switch(cmd)
+			{
+			case cmdPushCharAbs:
+			case cmdPushShortAbs:
+			case cmdPushIntAbs:
+			case cmdPushFloatAbs:
+			case cmdPushDorLAbs:
+			case cmdPushCmplxAbs:
+			case cmdPushCharRel:
+			case cmdPushShortRel:
+			case cmdPushIntRel:
+			case cmdPushFloatRel:
+			case cmdPushDorLRel:
+			case cmdPushCmplxRel:
+			case cmdPushCharStk:
+			case cmdPushShortStk:
+			case cmdPushIntStk:
+			case cmdPushFloatStk:
+			case cmdPushDorLStk:
+			case cmdPushCmplxStk:
+			case cmdPush:
+				{
+					cFlag = *(CmdFlag*)(&cmdStream[pos]);
+					pos += 2;
+					if(cmd == cmdPush)
+						*logASM << " PUSH ";
+					else
+						*logASM << " ***PUSH ";
+					*logASM << typeInfoS[cFlag&0x00000003] << "<-";
+					*logASM << typeInfoD[(cFlag>>2)&0x00000007];
+
+					asmStackType st = flagStackType(cFlag);
+					asmDataType dt = flagDataType(cFlag);
+					UINT	DWords[2];
+					USHORT sdata;
+					UCHAR cdata;
+					int valind;
+					if(flagNoAddr(cFlag)){
+						if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
+							DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
+							DWords[1] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
+						}
+						if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4; }
+						if(dt == DTYPE_SHORT){ sdata = *(unsigned short*)(&cmdStream[pos]); pos += 2; DWords[0] = sdata; }
+						if(dt == DTYPE_CHAR){ cdata = *(unsigned char*)(&cmdStream[pos]); pos += 1; DWords[0] = cdata; }
+
+						if(dt == DTYPE_DOUBLE)
+							*logASM << " (" << *((double*)(&DWords[0])) << ')';
+						if(dt == DTYPE_LONG)
+							*logASM << " (" << *((long long*)(&DWords[0])) << ')';
+						if(dt == DTYPE_FLOAT)
+							*logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
+						if(dt == DTYPE_INT)
+							*logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
+						if(dt == DTYPE_SHORT)
+							*logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
+						if(dt == DTYPE_CHAR)
+							*logASM << " (" << *((char*)(&DWords[0])) << ')';
+					}else{
+						*logASM << " PTR[";
+						if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
+						{
+							valind = *(int*)(&cmdStream[pos]);
+							pos += 4;
+							*logASM << valind;
+						}
+						if(flagAddrRel(cFlag))
+							*logASM << "+top";
+						if(flagAddrRelTop(cFlag))
+							*logASM << "+max";
+						if(flagShiftStk(cFlag))
+							*logASM << "+shift(stack)";
+						
+						*logASM << "] ";
+						if(flagSizeStk(cFlag))
+							*logASM << "size(stack)";
+						if(flagSizeOn(cFlag))
+						{
+							valind = *(int*)(&cmdStream[pos]);
+							pos += 4;
+							*logASM << " max size(" << valind << ") ";
+						}
+						if(st == STYPE_COMPLEX_TYPE)
+						{
+							valind = *(int*)(&cmdStream[pos]);
+							pos += 4;
+							*logASM << "sizeof(" << valind << ")";
+						}
+					}
+				}
+				break;
+			case cmdDTOF:
+				*logASM << " DTOF;";
+				break;
+			case cmdCallStd:
+				valind = *(int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " CALLS " << valind << ";";
+				break;
+			case cmdPushVTop:
+				*logASM << " PUSHT;";
+				break;
+			case cmdPopVTop:
+				*logASM << " POPT;";
+				break;
+			case cmdCall:
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += sizeof(UINT);
+				shVal1 = *(unsigned short*)(&cmdStream[pos]);
+				pos += 2;
+				*logASM << " CALL " << valind;
+				if(shVal1 & bitRetSimple)
+					*logASM << " simple";
+				*logASM << " size:" << (shVal1&0x0FFF) << ";";
+				break;
+			case cmdReturn:
+				shVal1 = *(unsigned short*)(&cmdStream[pos]);
+				pos += 2;
+				shVal2 = *(unsigned short*)(&cmdStream[pos]);
+				pos += 2;
+				*logASM << " RET " << shVal2;
+				if(shVal1 & bitRetError)
+				{
+					*logASM << " ERROR;";
+					break;
+				}
+				if(shVal1 & bitRetSimple)
+				{
+					switch(shVal1 & 0x0FFF)
+					{
+					case OTYPE_DOUBLE:
+						*logASM << " double;";
+						break;
+					case OTYPE_LONG:
+						*logASM << " long;";
+						break;
+					case OTYPE_INT:
+						*logASM << " int;";
+						break;
+					}
+				}else{
+					*logASM << " bytes: " << shVal1;
+				}
+				break;
+			case cmdPushV:
+				valind = *(int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " PUSHV " << valind << dec << ";";
+				break;
+			case cmdNop:
+				*logASM << dec << " NOP;";
+				break;
+			case cmdCTI:
+				*logASM << dec << " CTI addr*";
+				oFlag = *(unsigned char*)(&cmdStream[pos]);
+				pos += 1;
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += sizeof(UINT);
+				*logASM << valind;
+
+				switch(oFlag)
+				{
+				case OTYPE_DOUBLE:
+					*logASM << " double;";
+					break;
+				case OTYPE_LONG:
+					*logASM << " long;";
+					break;
+				case OTYPE_INT:
+					*logASM << " int;";
+					break;
+				default:
+					*logASM << "ERROR: OperFlag expected after ";
+				}
+				break;
+			case cmdPushImmt:
+				{
+					cFlag = *(CmdFlag*)(&cmdStream[pos]);
+					pos += 2;
+					*logASM << " PUSHIMMT ";
+					*logASM << typeInfoS[cFlag&0x00000003] << "<-";
+					*logASM << typeInfoD[(cFlag>>2)&0x00000007];
+
+					asmDataType dt = flagDataType(cFlag);
+					UINT	DWords[2];
+					USHORT sdata;
+					UCHAR cdata;
+					
+					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
+						DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
+						DWords[1] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
+					}
+					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4; }
+					if(dt == DTYPE_SHORT){ sdata = *(unsigned short*)(&cmdStream[pos]); pos += 2; DWords[0] = sdata; }
+					if(dt == DTYPE_CHAR){ cdata = *(unsigned char*)(&cmdStream[pos]); pos += 1; DWords[0] = cdata; }
+
+					if(dt == DTYPE_DOUBLE)
+						*logASM << " (" << *((double*)(&DWords[0])) << ')';
+					if(dt == DTYPE_LONG)
+						*logASM << " (" << *((long long*)(&DWords[0])) << ')';
+					if(dt == DTYPE_FLOAT)
+						*logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
+					if(dt == DTYPE_INT)
+						*logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
+					if(dt == DTYPE_SHORT)
+						*logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
+					if(dt == DTYPE_CHAR)
+						*logASM << " (" << *((char*)(&DWords[0])) << ')';
+				}
+				break;
+			case cmdMovRTaP:
+				{
+					cFlag = *(CmdFlag*)(&cmdStream[pos]);
+					pos += 2;
+
+					*logASM << " MOVRTAP ";
+					*logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
+					int valind;
+					valind = *(int*)(&cmdStream[pos]);
+					pos += 4;
+					*logASM << valind;
+					*logASM << "+max] ";
+					if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
+					{
+						valind = *(int*)(&cmdStream[pos]);
+						pos += 4;
+						*logASM << "sizeof(" << valind << ")";
+					}
+				}
+				break;
+			case cmdMov:
+				{
+					cFlag = *(CmdFlag*)(&cmdStream[pos]);
+					pos += 2;
+					*logASM << " MOV ";
+					*logASM << typeInfoS[cFlag&0x00000003] << "->";
+					*logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
+					asmStackType st = flagStackType(cFlag);
+					int valind;
+					
+					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
+					{
+						valind = *(int*)(&cmdStream[pos]);
+						pos += 4;
+						*logASM << valind;
+					}
+					if(flagAddrRel(cFlag))
+						*logASM << "+top";
+
+					if(flagAddrRelTop(cFlag))
+						*logASM << "+max";
+
+					if(flagShiftStk(cFlag))
+						*logASM << "+shift(stack)";
+
+					*logASM << "] ";
+					if(flagSizeStk(cFlag))
+						*logASM << "size(stack)";
+					if(flagSizeOn(cFlag))
+					{
+						valind = *(int*)(&cmdStream[pos]);
+						pos += 4;
+						*logASM << "size: " << valind;
+					}
+					if(st == STYPE_COMPLEX_TYPE)
+					{
+						valind = *(int*)(&cmdStream[pos]);
+						pos += 4;
+						*logASM << "sizeof(" << valind << ")";
+					}
+				}
+				break;
+			case cmdPop:
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " POP" << " sizeof(" << valind << ")";
+				break;
+			case cmdRTOI:
+				cFlag = *(CmdFlag*)(&cmdStream[pos]);
+				pos += 2;
+				*logASM << " RTOI ";
+				*logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
+				break;
+			case cmdITOR:
+				cFlag = *(CmdFlag*)(&cmdStream[pos]);
+				pos += 2;
+				*logASM << " ITOR ";
+				*logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
+				break;
+			case cmdITOL:
+				*logASM << " ITOL";
+				break;
+			case cmdLTOI:
+				*logASM << " LTOI";
+				break;
+			case cmdSwap:
+				cFlag = *(CmdFlag*)(&cmdStream[pos]);
+				pos += 2;
+				*logASM << " SWAP ";
+				*logASM << typeInfoS[cFlag&0x00000003] << "<->";
+				*logASM << typeInfoD[(cFlag>>2)&0x00000007];
+				break;
+			case cmdCopy:
+				oFlag = *(unsigned char*)(&cmdStream[pos]);
+				pos += 1;
+				*logASM << " COPY ";
+				switch(oFlag)
+				{
+				case OTYPE_DOUBLE:
+					*logASM << " double;";
+					break;
+				case OTYPE_LONG:
+					*logASM << " long;";
+					break;
+				case OTYPE_INT:
+					*logASM << " int;";
+					break;
+				}
+				break;
+			case cmdJmp:
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " JMP " << valind;
+				break;
+			case cmdJmpZ:
+				oFlag = *(unsigned char*)(&cmdStream[pos]);
+				pos += 1;
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " JMPZ";
+				switch(oFlag)
+				{
+				case OTYPE_DOUBLE:
+					*logASM << " double";
+					break;
+				case OTYPE_LONG:
+					*logASM << " long";
+					break;
+				case OTYPE_INT:
+					*logASM << " int";
+					break;
+				}
+				*logASM << ' ' << valind << ';';
+				break;
+			case cmdJmpNZ:
+				oFlag = *(unsigned char*)(&cmdStream[pos]);
+				pos += 1;
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " JMPNZ";
+				switch(oFlag)
+				{
+				case OTYPE_DOUBLE:
+					*logASM << " double";
+					break;
+				case OTYPE_LONG:
+					*logASM << " long";
+					break;
+				case OTYPE_INT:
+					*logASM << " int";
+					break;
+				}
+				*logASM << ' ' << valind << ';';
+				break;
+			case cmdSetRange:
+				cFlag = *(CmdFlag*)(&cmdStream[pos]);
+				pos += 2;
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += 4;
+				valind2 = *(unsigned int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " SETRANGE " << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << valind2 << ';';
+				break;
+			case cmdGetAddr:
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " GETADDR " << (int)valind << ';';
+				break;
+			case cmdFuncAddr:
+				valind = *(unsigned int*)(&cmdStream[pos]);
+				pos += 4;
+				*logASM << " FUNCADDR " << valind;
+				break;
+			}
+			if(cmd >= cmdAdd && cmd <= cmdLogXor)
+			{
+				oFlag = *(unsigned char*)(&cmdStream[pos]);
+				pos += 1;
+				*logASM << ' ';
+				switch(cmd)
+				{
+				case cmdAdd:
+					*logASM << "ADD";
+					break;
+				case cmdSub:
+					*logASM << "SUB";
+					break;
+				case cmdMul:
+					*logASM << "MUL";
+					break;
+				case cmdDiv:
+					*logASM << "DIV";
+					break;
+				case cmdPow:
+					*logASM << "POW";
+					break;
+				case cmdMod:
+					*logASM << "MOD";
+					break;
+				case cmdLess:
+					*logASM << "LES";
+					break;
+				case cmdGreater:
+					*logASM << "GRT";
+					break;
+				case cmdLEqual:
+					*logASM << "LEQL";
+					break;
+				case cmdGEqual:
+					*logASM << "GEQL";
+					break;
+				case cmdEqual:
+					*logASM << "EQL";
+					break;
+				case cmdNEqual:
+					*logASM << "NEQL";
+					break;
+				case cmdShl:
+					*logASM << "SHL";
+					if(oFlag == OTYPE_DOUBLE)
+						throw string("Invalid operation: SHL used on float");
+					break;
+				case cmdShr:
+					*logASM << "SHR";
+					if(oFlag == OTYPE_DOUBLE)
+						throw string("Invalid operation: SHR used on float");
+					break;
+				case cmdBitAnd:
+					*logASM << "BAND";
+					if(oFlag == OTYPE_DOUBLE)
+						throw string("Invalid operation: BAND used on float");
+					break;
+				case cmdBitOr:
+					*logASM << "BOR";
+					if(oFlag == OTYPE_DOUBLE)
+						throw string("Invalid operation: BOR used on float");
+					break;
+				case cmdBitXor:
+					*logASM << "BXOR";
+					if(oFlag == OTYPE_DOUBLE)
+						throw string("Invalid operation: BXOR used on float");
+					break;
+				case cmdLogAnd:
+					*logASM << "LAND";
+					break;
+				case cmdLogOr:
+					*logASM << "LOR";
+					break;
+				case cmdLogXor:
+					*logASM << "LXOR";
+					break;
+				}
+				switch(oFlag)
+				{
+				case OTYPE_DOUBLE:
+					*logASM << " double;";
+					break;
+				case OTYPE_LONG:
+					*logASM << " long;";
+					break;
+				case OTYPE_INT:
+					*logASM << " int;";
+					break;
+				default:
+					*logASM << "ERROR: OperFlag expected after instruction";
+				}
+			}
+			if(cmd >= cmdNeg && cmd <= cmdLogNot)
+			{
+				oFlag = *(unsigned char*)(&cmdStream[pos]);
+				pos += 1;
+				*logASM << ' ';
+				switch(cmd)
+				{
+				case cmdNeg:
+					*logASM << "NEG";
+					break;
+				case cmdBitNot:
+					*logASM << "BNOT";
+					if(oFlag == OTYPE_DOUBLE)
+						throw string("Invalid operation: BNOT used on float");
+					break;
+				case cmdLogNot:
+					*logASM << "LNOT;";
+					break;
+				}
+				switch(oFlag)
+				{
+				case OTYPE_DOUBLE:
+					*logASM << " double;";
+					break;
+				case OTYPE_LONG:
+					*logASM << " long;";
+					break;
+				case OTYPE_INT:
+					*logASM << " int;";
+					break;
+				default:
+					*logASM << "ERROR: OperFlag expected after ";
+				}
+			}
+			if(cmd >= cmdIncAt && cmd <= cmdDecAt)
+			{
+				cFlag = *(CmdFlag*)(&cmdStream[pos]);
+				pos += 2;
+				if(cmd == cmdIncAt)
+					*logASM << " INCAT ";
+				if(cmd == cmdDecAt)
+					*logASM << " DECAT ";
+				*logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
+
+				int valind;
+
+				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
+					valind = *(int*)(&cmdStream[pos]);
+					pos += 4;
+					*logASM << valind;
+				}
+				if(flagAddrRel(cFlag))
+					*logASM << "+top";
+
+				if(flagShiftStk(cFlag)){
+					*logASM << "+shift";
+				}
+				*logASM << "] ";
+				if(flagSizeStk(cFlag)){
+					*logASM << "size: stack";
+				}
+				if(flagSizeOn(cFlag)){
+					valind = *(int*)(&cmdStream[pos]);
+					pos += 4;
+					*logASM << "size: " << valind;
+				}
+			}
+			*logASM << "\r\n";
+		}
+	}
 //private:
 	char*	bytecode;
 	UINT	curr;
