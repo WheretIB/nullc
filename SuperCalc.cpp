@@ -19,6 +19,8 @@
 
 #include "Colorer.h"
 
+#include "UnitTests.h"
+
 #define MAX_LOADSTRING 100
 
 HINSTANCE hInst;
@@ -223,165 +225,12 @@ void PrintLong(long long lg)
 	WriteFile(conStdOut, temp, (UINT)strlen(temp), &written, NULL); 
 }
 
-void RunUnitTests()
-{
-	FILE *fTest = fopen("UnitTests.txt", "rb");
-	FILE *fTLog = fopen("TestLog.txt", "wb");
-	if(!fTest)
-	{
-		fprintf(fTLog, "File not found, UnitTests.txt\r\n");
-		fclose(fTLog);
-		return;
-	}
-
-	fseek(fTest, 0, SEEK_END);
-	UINT size = ftell(fTest);
-	fseek(fTest, 0, SEEK_SET);
-	char *data = new char[size+1];
-	fread(data, 1, size, fTest);
-	data[size] = 0;
-
-	char *begin = data, *end;
-
-	char line[256];
-
-	while((begin = strstr(begin, "///\r\n")) != 0)
-	{
-		begin += 5;
-		end = strstr(begin, "///\r\n");
-		if(!end)
-			end = data + size;
-		*(end-2) = 0;
-		memcpy(line, begin, strchr(begin, '\n')-begin);
-		line[strchr(begin, '\n')-begin] = 0;
-		fprintf(fTLog, "Test name: %s\r\n", line);
-		fflush(fTLog);
-
-		ostringstream ostr;
-		DeInitConsole();
-
-		char *variableDataX86 = NULL;
-		char *variableDataVM = NULL;
-
-		nullcSetExecutor(NULLC_X86);
-		nullcSetExecutorOptions(false);
-
-		nullres good = nullcCompile(begin);
-		if(!good)
-		{
-			ostr << "Compilation failed\r\n" << nullcGetCompilationError();
-		}else{
-			ostr << "Compilation successful\r\n";
-
-			variableDataX86 = variableData = (char*)nullcGetVariableData();
-			
-			UINT time = timeGetTime();
-			nullres goodRun = nullcRun();
-			if(goodRun)
-			{
-				string val = nullcGetResult();
-
-				ostr.precision(20);
-				ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]\r\n";
-			}else{
-				ostr << "X86 Execution failed: " << nullcGetRuntimeError() << "\r\n";
-			}
-		}
-		UINT varCount = 0;
-		VariableInfo **varInfoX86 = (VariableInfo**)nullcGetVariableInfo(&varCount);
-		UINT allsizeX86 = 0;
-		for(UINT i = 0; i < varCount; i++)
-		{
-			VariableInfo &currVar = *(*(varInfoX86+i));
-			allsizeX86 += currVar.varType->size;
-		}
-
-		nullcSetExecutor(NULLC_VM);
-		nullcSetExecutorOptions(false);
-
-		good = nullcCompile(begin);
-		if(!good)
-		{
-			ostr << "Compilation failed\r\n" << nullcGetCompilationError();
-		}else{
-			ostr << "Compilation successful\r\n";
-
-			variableDataVM = variableData = (char*)nullcGetVariableData();
-
-			UINT time = timeGetTime();
-			nullres goodRun = nullcRun();
-			if(goodRun)
-			{
-				string val = nullcGetResult();
-
-				variableDataVM = variableData = (char*)nullcGetVariableData();
-
-				ostr.precision(20);
-				ostr << "The answer is: " << val << " [in: " << timeGetTime()-time << "]\r\n";
-			}else{
-				ostr << "VM Execution failed: " << nullcGetRuntimeError() << "\r\n";
-			}
-		}
-
-		VariableInfo **varInfoVM = (VariableInfo**)nullcGetVariableInfo(&varCount);
-		UINT allsizeVM = 0;
-		for(UINT i = 0; i < varCount; i++)
-		{
-			VariableInfo &currVar = *(*(varInfoVM+i));
-			allsizeVM += currVar.varType->size;
-		}
-
-		if(allsizeX86 != allsizeVM)
-		{
-			ostr << "X86 and VM variable stack sizes are different\r\n";
-			string str = ostr.str();
-			fprintf(fTLog, "%s\r\n\r\n", str.c_str());
-		}else{
-			char hexArr[] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
-			if(variableDataVM && variableDataX86)
-			{
-				if(memcmp(variableDataX86, variableDataVM, allsizeX86) != 0)
-				{
-					ostr << "X86 and VM results are different\r\n";
-					for(UINT i = 0; i < varCount; i++)
-					{
-						VariableInfo &currVar = *(*(varInfoVM+i));
-						if(memcmp(variableDataX86+currVar.pos, variableDataVM+currVar.pos, currVar.varType->size) != 0)
-						{
-							ostr << "Difference in variable '" << currVar.name << "'\r\n";
-							if(currVar.varType->funcType != NULL)
-								ostr << "####Probably just different pointer to function####\r\n";
-							ostr << "VM: ";
-							for(UINT n = 0; n < currVar.varType->size; n++)
-								ostr << hexArr[(unsigned char)variableDataVM[currVar.pos+n] >> 4] << hexArr[(unsigned char)variableDataVM[currVar.pos+n] & 0x0f] << ' ';
-							ostr << "\r\n";
-							ostr << "X86: ";
-							for(UINT n = 0; n < currVar.varType->size; n++)
-								ostr << hexArr[(unsigned char)variableDataX86[currVar.pos+n] >> 4] << hexArr[(unsigned char)variableDataX86[currVar.pos+n] & 0x0f] << ' ';
-							ostr << "\r\n";
-						}
-						allsizeX86 += currVar.varType->size;
-					}
-
-					string str = ostr.str();
-					fprintf(fTLog, "%s\r\n\r\n", str.c_str());
-				}
-				
-			}
-		}
-
-		fflush(fTLog);
-		begin = end;
-	}
-
-	fclose(fTLog);
-	fclose(fTest);
-	delete[] data;
-}
-
 void draw_rect(int x, int y, int width, int height, int color)
 {
-	//x += y; width = height + color;
+	//DWORD written;
+	/*char buf[64];
+	sprintf(buf, "%d %d %d %d %d\r\n", x, y, width, height, color);
+	fwrite(buf, strlen(buf), 1, zeuxOut); */
 }
 
 char typeTest(int x, short y, char z, int d, long long u, float m, double k)
@@ -410,6 +259,18 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
+
+	bool runUnitTests = true;
+	if(runUnitTests)
+	{
+		AllocConsole();
+		freopen("CONOUT$", "w", stdout);
+		freopen("CONIN$", "r", stdin);
+
+		RunTests();
+
+		//FreeConsole();
+	}
 
 	nullcInit();
 
@@ -471,8 +332,6 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	}
 
 	hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDC_SUPERCALC);
-
-	//RunUnitTests();
 
 	// Main message loop:
 	while(GetMessage(&msg, NULL, 0, 0))
@@ -813,7 +672,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		if((HWND)lParam == hButtonCalc)
 		{
-			/*static*/ int callNum = -1;
+			static int callNum = -1;
 			callNum++;
 			GetWindowText(hTextArea, buf, 400000);
 
@@ -825,6 +684,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			nullcSetExecutorOptions(false);
 
 			nullres good = nullcCompile(buf);
+			nullcGetListing();
+			char *bytecode;
+			nullcGetBytecode(&bytecode);
+			nullcClean();
+			nullcLinkCode(bytecode, 1);
+			delete[] bytecode;
 			if(!good)
 			{
 				ostr << nullcGetCompilationError();
@@ -839,10 +704,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				if(goodRun)
 				{
-					string val = nullcGetResult();
+					const char *val = nullcGetResult();
+					double execTime = myGetPreciseTime()-time;
 
 					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << myGetPreciseTime()-time << "]";
+					ostr << "The answer is: " << val << " [in: " << execTime << "]";
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
@@ -857,7 +723,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{
-			/*static */int callNum = -1;
+			static int callNum = -1;
 			callNum++;
 			GetWindowText(hTextArea, buf, 400000);
 
@@ -881,10 +747,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
 				if(goodRun)
 				{
-					string val = nullcGetResult();
+					const char *val = nullcGetResult();
+					double execTime = myGetPreciseTime()-time;
 
 					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << myGetPreciseTime()-time << "]";
+					ostr << "The answer is: " << val << " [in: " << execTime << "]";
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();

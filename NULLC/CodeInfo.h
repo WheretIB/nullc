@@ -5,8 +5,6 @@
 
 #include "Compiler.h"
 
-unsigned int GetStringHash(const char *str);
-
 // Информация о коде, используемых функциях, переменных, типов.
 namespace CodeInfo
 {

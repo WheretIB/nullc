@@ -148,23 +148,13 @@ basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, VariableInfo var)
 	return str;
 }
 
-struct ExternalFunctionInfo
-{
-	UINT startInByteCode;
-#if defined(_MSC_VER)
-    UINT bytesToPop;
-#elif defined(__CELLOS_LV2__)
-    unsigned int rOffsets[8];
-    unsigned int fOffsets[8];
-#endif
-};
-
 class FunctionInfo
 {
 public:
 	FunctionInfo()
 	{
 		address = 0;
+		codeSize = 0;
 		funcPtr = NULL;
 		retType = NULL;
 		visible = true;
@@ -172,8 +162,8 @@ public:
 		funcType = NULL;
 		allParamSize = 0;
 	}
-	//shared_ptr<NodeZeroOP>	defNode;	// A node that defines a function
 	int			address;				// Address of the beginning of function inside bytecode
+	int			codeSize;				// Size of a function bytecode
 	void		*funcPtr;				// Address of the function in memory
 
 	std::string	name;					// Function name
@@ -189,15 +179,10 @@ public:
 
 	enum FunctionType{ NORMAL, LOCAL, THISCALL };
 	FunctionType	type;
-	//bool		local;					// false for functions, declared in global scope
 
 	std::vector<std::string> external;	// External variable names
 
 	TypeInfo	*funcType;				// Function type
-	
-	ExternalFunctionInfo externalInfo;
-	
-    bool CreateExternalInfo();
 };
 
 class CallStackInfo

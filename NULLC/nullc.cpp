@@ -9,6 +9,8 @@
 	#include "Executor_X86.h"
 #endif
 
+#include "Bytecode.h"
+
 unsigned int CodeInfo::activeExecutor = 0;
 
 std::vector<FunctionInfo*>	CodeInfo::funcInfo;
@@ -103,6 +105,11 @@ const char*	nullcGetCompilationError()
 	return compileError.c_str();
 }
 
+unsigned int nullcGetBytecode(char **bytecode)
+{
+	return compiler->GetBytecode(bytecode);
+}
+
 const char*	nullcGetCompilationLog()
 {
 	compileLogString = CodeInfo::compileLog.str();
@@ -114,6 +121,51 @@ const char*	nullcGetListing()
 	compiler->GenListing();
 	compileListing = compiler->GetListing();
 	return compileListing.c_str();
+}
+
+void nullcClean()
+{
+	if(currExec == NULLC_VM)
+	{
+		executor->CleanCode();
+	}else if(currExec == NULLC_X86){
+#ifdef NULLC_BUILD_X86_JIT
+		executorX86->CleanCode();
+#endif
+	}
+}
+
+void nullcFixupBytecode(char *bytecode)
+{
+	BytecodeFixup((ByteCode*)bytecode);
+}
+
+nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
+{
+	if(currExec == NULLC_VM)
+	{
+		if(!executor->LinkCode(bytecode, acceptRedefinitions))
+		{
+			executeLog = executor->GetExecError();
+			return false;
+		}
+		executeLog = executor->GetExecError();
+	}else if(currExec == NULLC_X86){
+#ifdef NULLC_BUILD_X86_JIT
+		if(!executorX86->LinkCode(bytecode, acceptRedefinitions))
+		{
+			executeLog = executorX86->GetExecError();
+			return false;
+		}
+		executeLog = executorX86->GetExecError();
+#endif
+	}
+	return true;
+}
+
+const char*	nullcGetLinkLog()
+{
+	return executeLog.c_str();
 }
 
 nullres	emptyCallback(unsigned int)
@@ -157,6 +209,7 @@ nullres	nullcRunFunction(const char* funcName)
 		executeLog = "X86 JIT isn't available";
 #endif
 	}else{
+		good = false;
 		executeLog = "Unknown executor code";
 	}
 	return good;
