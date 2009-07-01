@@ -2,40 +2,65 @@
 
 namespace detail
 {
-	template <size_t size> union freeblock
+	template <size_t size> union block_t
 	{
     	char bytes[size];
-		freeblock* next;
+		block_t* next;
+	};
+	
+	template <size_t size> struct page_t
+	{
+		enum { items_per_page = 32768 / size }; // 32k pages
+		
+		block_t<size> items[items_per_page];
+		page_t* next;
 	};
 
 	template <size_t size> struct quick_allocator
 	{
-		typedef freeblock<size> block;
+		typedef block_t<size> block;
+		typedef page_t<size> page;
 
-		enum { items_per_page = 32768 / size }; // 32k pages
-
-		static block* free;
-		static block* page;
+		static block* free_head;
+		static page* page_head;
 		static unsigned int last;
+		
+		struct cleanuper
+		{
+			~cleanuper()
+			{
+				page* next;
+				
+				for (page* p = page_head; p; p = next)
+				{
+					next = p->next;
+					delete p;
+				}
+			}
+		};
 
 		static void* alloc()
 		{
-			if (block* x = free)
+			if (block* b = free_head)
 			{
-				free = x->next;
-            	return x;
+				free_head = b->next;
+            	return b->bytes;
 			}
 			else
 			{
-				if (last == items_per_page)
+				if (last == page::items_per_page)
 				{
-					// "Listen to me carefully: there is no memory leak"
-					// -- Scott Meyers, Eff C++ 2nd Ed Item 10
-					page = static_cast<block*>(malloc(sizeof(block) * items_per_page));
+					static cleanuper c;
+					
+					page* p = new page;
+					
+					p->next = page_head;
+					page_head = p;
+					
 					last = 0;
 				}
 
-            	return &page[last++];
+            	return page_head->items[last++].bytes;
         	}
     	}
 
@@ -44,13 +69,14 @@ namespace detail
         	if (p != 0) // 18.4.1.1/13
 			{
 				block* b = static_cast<block*>(p);
-				b->next = free;
-            	free = b;
+				
+				b->next = free_head;
+            	free_head = b;
         	}
     	}
 	};
 
-	template <size_t size> freeblock<size>* quick_allocator<size>::free = 0;
-	template <size_t size> freeblock<size>* quick_allocator<size>::page = 0;
-	template <size_t size> unsigned int quick_allocator<size>::last = quick_allocator<size>::items_per_page;
+	template <size_t size> block_t<size>* quick_allocator<size>::free_head = 0;
+	template <size_t size> page_t<size>* quick_allocator<size>::page_head = 0;
+	template <size_t size> unsigned int quick_allocator<size>::last = quick_allocator<size>::page::items_per_page;
 }
