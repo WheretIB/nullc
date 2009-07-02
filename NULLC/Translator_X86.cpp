@@ -1064,12 +1064,13 @@ int x86CALL(unsigned char *stream, x86Reg address)
 }
 int x86CALL(unsigned char *stream, const char* label)
 {
+	stream[0] = 0xe8;
+
 	LabelInfo info;
 	if(!FindLabel(label, info))
 	{
-		assert(!"call to unknown label");
+		pendingJumps.push_back(UnsatisfiedJump(label, true, stream));
 	}else{
-		stream[0] = 0xe8;
 		*(int*)(stream+1) = (int)(info.pos-stream-5);
 	}
 	return 5;
@@ -1163,16 +1164,18 @@ void x86AddLabel(unsigned char *stream, const char* label)
 		UnsatisfiedJump& uJmp = pendingJumps[i];
 		if(strcmp(uJmp.label, label) == 0)
 		{
-			if(uJmp.isNear)
+			if(*uJmp.jmpPos == 0xe8)	// This one is for call label
 			{
-				if(*uJmp.jmpPos == 0x0f)
-					*(int*)(uJmp.jmpPos+2) = (int)(stream-uJmp.jmpPos-6);
-				else
-					*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos-5);
+				*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos-5);
+			}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
+				*(int*)(uJmp.jmpPos+2) = (int)(long long)(stream);
 			}else{
-				if(*uJmp.jmpPos == 0x8d)	// This one is for lea reg, [label+offset]
+				if(uJmp.isNear)
 				{
-					*(int*)(uJmp.jmpPos+2) = (int)(long long)(stream);
+					if(*uJmp.jmpPos == 0x0f)
+						*(int*)(uJmp.jmpPos+2) = (int)(stream-uJmp.jmpPos-6);
+					else
+						*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos-5);
 				}else{
 					assert(uJmp.jmpPos-stream + 128 < 256);
 					*(char*)(uJmp.jmpPos+1) = (char)(stream-uJmp.jmpPos-2);
