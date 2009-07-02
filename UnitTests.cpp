@@ -347,8 +347,11 @@ void	RunTests()
 		varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
 		if(varInfo)
 		{
+			bool lastFailed = false;
 			CHECK_INT("ERROR", 6, 9);
 			CHECK_INT("ERROR", 13, 20);
+			if(!lastFailed)
+				passed[0]++;
 		}
 	}else{
 		printf("Execution failed: %s\r\n", nullcGetRuntimeError());

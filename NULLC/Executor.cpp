@@ -107,6 +107,8 @@ Executor::~Executor()
 {
 	m_RunCallback = NULL;
 
+	CleanCode();
+
 	delete[] genStackBase;
 }
 
