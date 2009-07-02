@@ -260,7 +260,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	bool runUnitTests = true;
+	bool runUnitTests = false;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -268,8 +268,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		freopen("CONIN$", "r", stdin);
 
 		RunTests();
-
-		//FreeConsole();
 	}
 
 	nullcInit();

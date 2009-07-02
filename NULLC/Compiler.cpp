@@ -229,40 +229,15 @@ void addStringNode(char const*s, char const*e)
 	lastKnownStartPos = s;
 
 	const char *curr = s+1, *end = e-1;
-	if(end-curr > 64*1024)
-		throw CompilerError("ERROR: strings can't have length larger that 65536", s);
-
-	// Replace escape-sequences with special codes
-	static char cleanBuf[65536];
 	UINT len = 0;
+	// Find the length of the string with collapsed escape-sequences
 	for(; curr < end; curr++, len++)
 	{
-		cleanBuf[len] = *curr;
 		if(*curr == '\\')
-		{
 			curr++;
-			if(*curr == 'n')
-				cleanBuf[len] = '\n';
-			if(*curr == 'r')
-				cleanBuf[len] = '\r';
-			if(*curr == 't')
-				cleanBuf[len] = '\t';
-			if(*curr == '0')
-				cleanBuf[len] = '\0';
-			if(*curr == '\'')
-				cleanBuf[len] = '\'';
-			if(*curr == '\"')
-				cleanBuf[len] = '\"';
-			if(*curr == '\\')
-				cleanBuf[len] = '\\';
-		}
 	}
-
-	curr = cleanBuf;
-	end = cleanBuf+len;
-
-	// Clean the padding
-	*(int*)(cleanBuf+len) = 0;
+	curr = s+1;
+	end = e-1;
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(len+1, typeInt)));
@@ -273,17 +248,41 @@ void addStringNode(char const*s, char const*e)
 
 	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
 
-	while(end-curr >= 4)
+	while(end-curr > 0)
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(*(int*)(curr), typeInt)));
-		arrayList->AddNode();
-		curr += 4;
-	}
-	int num = *(int*)(curr);
-	*((char*)(&num)+(end-curr)) = 0;
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(num, typeInt)));
-	arrayList->AddNode();
+		char clean[4];
+		*(int*)clean = 0;
 
+		for(int i = 0; i < 4 && curr < end; i++, curr++)
+		{
+			clean[i] = *curr;
+			if(*curr == '\\')
+			{
+				curr++;
+				if(*curr == 'n')
+					clean[i] = '\n';
+				if(*curr == 'r')
+					clean[i] = '\r';
+				if(*curr == 't')
+					clean[i] = '\t';
+				if(*curr == '0')
+					clean[i] = '\0';
+				if(*curr == '\'')
+					clean[i] = '\'';
+				if(*curr == '\"')
+					clean[i] = '\"';
+				if(*curr == '\\')
+					clean[i] = '\\';
+			}
+		}
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(*(int*)clean, typeInt)));
+		arrayList->AddNode();
+	}
+	if(len % 4 == 0)
+	{
+		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, typeInt)));
+		arrayList->AddNode();
+	}
 	nodeList.push_back(temp);
 
 	strs.pop_back();
