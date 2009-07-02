@@ -24,8 +24,8 @@ public:
 class TypeInfo
 {
 public:
-	static const UINT UNSIZED_ARRAY = (UINT)-1;
-	static const UINT UNSPECIFIED_ALIGNMENT = (UINT)-1;
+	static const unsigned int UNSIZED_ARRAY = (unsigned int)-1;
+	static const unsigned int UNSPECIFIED_ALIGNMENT = (unsigned int)-1;
 	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
@@ -43,16 +43,16 @@ public:
 	}
 
 	std::string		name;	// base type name
-	UINT			size;	// sizeof(type)
+	unsigned int	size;	// sizeof(type)
 	TypeCategory	type;	// type id
 
-	UINT		refLevel;	// reference to a type depth
-	UINT		arrLevel;	// array to a type depth
+	unsigned int	refLevel;	// reference to a type depth
+	unsigned int	arrLevel;	// array to a type depth
 
-	UINT		arrSize;	// element count for an array
+	unsigned int	arrSize;	// element count for an array
 
-	UINT		alignBytes;
-	UINT		paddingBytes;
+	unsigned int	alignBytes;
+	unsigned int	paddingBytes;
 
 	TypeInfo	*subType;
 
@@ -62,7 +62,7 @@ public:
 		if(funcType)
 		{
 			char *curr = buf + sprintf(buf, "%s ref(", funcType->retType->GetTypeName().c_str());
-			for(UINT i = 0; i < funcType->paramType.size(); i++)
+			for(unsigned int i = 0; i < funcType->paramType.size(); i++)
 			{
 				curr += sprintf(curr, "%s", funcType->paramType[i]->GetTypeName().c_str());
 				if(i != funcType->paramType.size()-1)
@@ -93,7 +93,7 @@ public:
 	{
 		std::string name;
 		TypeInfo*	type;
-		UINT		offset;
+		unsigned int	offset;
 	};
 	vector<MemberInfo>	memberData;
 
@@ -128,15 +128,15 @@ class VariableInfo
 {
 public:
 	VariableInfo(){}
-	VariableInfo(std::string newname, UINT newpos, TypeInfo* newtype, bool newisConst=true):
+	VariableInfo(std::string newname, unsigned int newpos, TypeInfo* newtype, bool newisConst=true):
 	  name(newname), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype) {}
-	std::string	name;		//Variable name
-	UINT		pos;		//Variable position in value stack
-	bool		isConst;	//Constant flag
+	std::string		name;		//Variable name
+	unsigned int	pos;		//Variable position in value stack
+	bool			isConst;	//Constant flag
 
-	bool		dataReserved;	// Tells if cmdPushV was used for this variable
+	bool			dataReserved;	// Tells if cmdPushV was used for this variable
 
-	TypeInfo*	varType;	//Pointer to the variable type info
+	TypeInfo*		varType;	//Pointer to the variable type info
 };
 template<class Ch, class Tr>
 basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, VariableInfo var)
@@ -166,12 +166,12 @@ public:
 	int			codeSize;				// Size of a function bytecode
 	void		*funcPtr;				// Address of the function in memory
 
-	std::string	name;					// Function name
-	UINT		nameHash;
+	std::string		name;					// Function name
+	unsigned int	nameHash;
 
 	std::vector<VariableInfo> params;	// Parameter list
-	UINT		allParamSize;
-	UINT		vTopSize;				// For "return" operator, we need to know,
+	unsigned int	allParamSize;
+	unsigned int	vTopSize;				// For "return" operator, we need to know,
 										// how many variables we need to remove from variable stack
 	TypeInfo*	retType;				// Function return type
 
@@ -189,10 +189,10 @@ class CallStackInfo
 {
 public:
 	CallStackInfo(){}
-	CallStackInfo(char* ncmd, UINT nnums, UINT nfunc): cmd(ncmd), func(nfunc), nums(nnums){}
+	CallStackInfo(char* ncmd, unsigned int nnums, unsigned int nfunc): cmd(ncmd), func(nfunc), nums(nnums){}
 	char*		cmd;	//Next command position (RET operation will jump there)
-	UINT		func;	//Address of beginning of function
-	UINT		nums;	//General variable stack size to check if function really returned a value (This will be removed soon)
+	unsigned int		func;	//Address of beginning of function
+	unsigned int		nums;	//General variable stack size to check if function really returned a value (This will be removed soon)
 };
 
 //VarTopInfo holds information about variable stack state
@@ -200,11 +200,11 @@ public:
 class VarTopInfo
 {
 public:
-	VarTopInfo(UINT activeVariableCount, UINT variableStackSize)
+	VarTopInfo(unsigned int activeVariableCount, unsigned int variableStackSize)
 	{
 		activeVarCnt = activeVariableCount;
 		varStackSize = variableStackSize;
 	}
-	UINT activeVarCnt;	//Active variable count
-	UINT varStackSize;	//Variable stack size in bytes
+	unsigned int activeVarCnt;	//Active variable count
+	unsigned int varStackSize;	//Variable stack size in bytes
 };

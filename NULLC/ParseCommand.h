@@ -103,6 +103,7 @@ const CmdID cmdJmpZ		= 111;
 	// переход, если значение на вершине != 0
 const CmdID cmdJmpNZ	= 112;
 
+const unsigned int CALL_BY_POINTER = (unsigned int)-1;
 // commands for functions	[not using flags]
 // команды для функций	[флаги не используются]
 	// call script function
@@ -266,53 +267,53 @@ __forceinline asmStackType	flagStackType(const CmdFlag& flag){ return (asmStackT
 __forceinline asmDataType	flagDataType(const CmdFlag& flag){ return (asmDataType)(((flag>>2)&0x00000007)<<2); }
 	// addressing is performed relatively to the base of variable stack
 	// адресация производится относительно базы стека переменных
-__forceinline UINT			flagAddrRel(const CmdFlag& flag){ return (flag>>5)&0x00000001; }
+__forceinline unsigned int	flagAddrRel(const CmdFlag& flag){ return (flag>>5)&0x00000001; }
 	// addressing is perform using absolute address
 	// адресация производится по абсолютному адресу
-__forceinline UINT			flagAddrAbs(const CmdFlag& flag){ return (flag>>6)&0x00000001; }
+__forceinline unsigned int	flagAddrAbs(const CmdFlag& flag){ return (flag>>6)&0x00000001; }
 	// addressing is performed relatively to the top of variable stack
 	// адресация производится относительно вершины стека переменных
-__forceinline UINT			flagAddrRelTop(const CmdFlag& flag){ return (flag>>7)&0x00000001; }
+__forceinline unsigned int	flagAddrRelTop(const CmdFlag& flag){ return (flag>>7)&0x00000001; }
 
 	// shift is placed in stack
 	// сдвиг находится в основном стеке
-__forceinline UINT			flagShiftStk(const CmdFlag& flag){ return (flag>>9)&0x00000001; }
+__forceinline unsigned int	flagShiftStk(const CmdFlag& flag){ return (flag>>9)&0x00000001; }
 	// address is clamped to the maximum
 	// адрес не может превыщать некоторое значение
-__forceinline UINT			flagSizeOn(const CmdFlag& flag){ return (flag>>10)&0x00000001; }
+__forceinline unsigned int	flagSizeOn(const CmdFlag& flag){ return (flag>>10)&0x00000001; }
 	// maximum is placed in stack
 	// максимум находится в основном стеке
-__forceinline UINT			flagSizeStk(const CmdFlag& flag){ return (flag>>11)&0x00000001; }
+__forceinline unsigned int	flagSizeStk(const CmdFlag& flag){ return (flag>>11)&0x00000001; }
 
 	// push value on stack before modifying
 	// положить значение в стек до изменения
-__forceinline UINT			flagPushBefore(const CmdFlag& flag){ return (flag>>12)&0x00000001; }
+__forceinline unsigned int	flagPushBefore(const CmdFlag& flag){ return (flag>>12)&0x00000001; }
 	// push value on stack after modifying
 	// положить значение в стек после изменения
-__forceinline UINT			flagPushAfter(const CmdFlag& flag){ return (flag>>13)&0x00000001; }
+__forceinline unsigned int	flagPushAfter(const CmdFlag& flag){ return (flag>>13)&0x00000001; }
 
 	// addressing is not performed
 	// адресация отсутствует
-__forceinline UINT			flagNoAddr(const CmdFlag& flag){ return !(flag&0x00000060); }
+__forceinline unsigned int	flagNoAddr(const CmdFlag& flag){ return !(flag&0x00000060); }
 
 // constants for CmdFlag creation from different bits
 // константы для создания флага комманды из отдельных битов
-const UINT	bitAddrRel	= 1 << 5;
-const UINT	bitAddrAbs	= 1 << 6;
-const UINT	bitAddrRelTop= 1 << 7;
+const unsigned int	bitAddrRel	= 1 << 5;
+const unsigned int	bitAddrAbs	= 1 << 6;
+const unsigned int	bitAddrRelTop= 1 << 7;
 
-const UINT	bitShiftStk	= 1 << 9;
-const UINT	bitSizeOn	= 1 << 10;
-const UINT	bitSizeStk	= 1 << 11;
+const unsigned int	bitShiftStk	= 1 << 9;
+const unsigned int	bitSizeOn	= 1 << 10;
+const unsigned int	bitSizeStk	= 1 << 11;
 
 // Для cmdIncAt и cmdDecAt
-const UINT	bitPushBefore = 1 << 12;	// положить значение в стек до изменения
-const UINT	bitPushAfter = 1 << 13;		// положить значение в стек после изменения
+const unsigned int	bitPushBefore = 1 << 12;	// положить значение в стек до изменения
+const unsigned int	bitPushAfter = 1 << 13;		// положить значение в стек после изменения
 
 // constants for RetFlag creation from different bits
 // константы для создания флага возврата из отдельных битов
-const UINT	bitRetError	= 1 << 15;	// пользователь забыл возвратить значение, остановить выполнение
-const UINT	bitRetSimple= 1 << 14;	// функция возвращает базовый тип
+const unsigned int	bitRetError	= 1 << 15;	// пользователь забыл возвратить значение, остановить выполнение
+const unsigned int	bitRetSimple= 1 << 14;	// функция возвращает базовый тип
 
 // Command list (bytecode)
 // Листинг команд (байткод)
@@ -320,7 +321,7 @@ class CommandList
 {
 	struct CodeInfo
 	{
-		CodeInfo(UINT position, const char* beginPos, const char* endPos)
+		CodeInfo(unsigned int position, const char* beginPos, const char* endPos)
 		{
 			byteCodePos = position;
 			memcpy(info, beginPos, (endPos-beginPos < 128 ? endPos-beginPos : 127));
@@ -330,12 +331,12 @@ class CommandList
 					info[i] = ' ';
 		}
 
-		UINT	byteCodePos;	// Позиция в байткоде, к которой относится строка
+		unsigned int	byteCodePos;	// Позиция в байткоде, к которой относится строка
 		char	info[128];		// Указатели на начало и конец строки
 	};
 public:
 	// создаём сразу место для будущих команд
-	CommandList(UINT count = 65000)
+	CommandList(unsigned int count = 65000)
 	{
 		bytecode = new char[count];
 		max = count;
@@ -363,17 +364,17 @@ public:
 	void AddData(const void* data, size_t size)
 	{
 		memcpy(bytecode+curr, data, size);
-		curr += (UINT)size;
+		curr += (unsigned int)size;
 	}
 
 	// получить int по адресу
-	__inline	bool GetINT(UINT pos, int& ret)
+	__inline	bool GetINT(unsigned int pos, int& ret)
 	{
 		ret = *(reinterpret_cast<int*>(bytecode+pos));
 		return true;
 	}
 	// получить short int по адресу
-	__inline	bool GetSHORT(UINT pos, short int& ret)
+	__inline	bool GetSHORT(unsigned int pos, short int& ret)
 	{
 		if(pos+2 > curr)
 			return false;
@@ -381,26 +382,26 @@ public:
 		return true;
 	}
 	// получить unsigned short int по адресу
-	__inline	bool GetUSHORT(UINT pos, unsigned short& ret)
+	__inline	bool GetUSHORT(unsigned int pos, unsigned short& ret)
 	{
 		ret = *(reinterpret_cast<unsigned short*>(bytecode+pos));
 		return true;
 	}
-	// получить unsinged int по адресу
-	__inline	bool GetUINT(UINT pos, UINT& ret)
+	// получить unsigned int по адресу
+	__inline	bool GetUINT(unsigned int pos, unsigned int& ret)
 	{
-		ret = *(reinterpret_cast<UINT*>(bytecode+pos));
+		ret = *(reinterpret_cast<unsigned int*>(bytecode+pos));
 		return true;
 	}
 	// получить unsigned char по адресу
-	__inline	bool GetUCHAR(UINT pos, unsigned char& ret)
+	__inline	bool GetUCHAR(unsigned int pos, unsigned char& ret)
 	{
 		ret = *(reinterpret_cast<unsigned char*>(bytecode+pos));
 		return true;
 	}
 
 	// получить значение произвольного типа по адресу
-	template<class T> __inline bool GetData(UINT pos, T& ret)
+	template<class T> __inline bool GetData(unsigned int pos, T& ret)
 	{
 		if(pos+sizeof(T) > curr)
 			return false;
@@ -408,7 +409,7 @@ public:
 		return true;
 	}
 	// получить произвольное кол-во байт по адресу
-	__inline bool	GetData(UINT pos, void* data, size_t size)
+	__inline bool	GetData(unsigned int pos, void* data, size_t size)
 	{
 		if(pos+size > curr)
 			return false;
@@ -417,13 +418,13 @@ public:
 	}
 
 	// заменить произвольное количество байт по адресу
-	__inline void	SetData(UINT pos, const void* data, size_t size)
+	__inline void	SetData(unsigned int pos, const void* data, size_t size)
 	{
 		memcpy(bytecode+pos, data, size);
 	}
 
 	// получить текущий размер байткода
-	__inline const UINT&	GetCurrPos()
+	__inline const unsigned int&	GetCurrPos()
 	{
 		return curr;
 	}
@@ -436,11 +437,11 @@ public:
 		codeInfo.clear();
 	}
 
-	void		AddDescription(UINT position, const char* start, const char* end)
+	void		AddDescription(unsigned int position, const char* start, const char* end)
 	{
 		codeInfo.push_back(CodeInfo(position, start, end));
 	}
-	const char*	GetDescription(UINT position)
+	const char*	GetDescription(unsigned int position)
 	{
 		for(int s = 0, e = (int)codeInfo.size(); s != e; s++)
 		{
@@ -590,14 +591,14 @@ public:
 		return size;
 	}
 	
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
+#ifdef NULLC_LOG_FILES
     static void PrintCommandListing(ostream *logASM, char *cmdStream, char *cmdStreamEnd)
 	{
-		UINT pos = 0, pos2 = 0;
+		unsigned int pos = 0, pos2 = 0;
 		CmdID	cmd;
 
-		UINT	valind, valind2;
-		USHORT	shVal1, shVal2;
+		unsigned int	valind, valind2;
+		unsigned short	shVal1, shVal2;
 
 		char* typeInfoS[] = { "int", "long", "complex", "double" };
 		char* typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
@@ -645,9 +646,9 @@ public:
 
 					asmStackType st = flagStackType(cFlag);
 					asmDataType dt = flagDataType(cFlag);
-					UINT	DWords[2];
-					USHORT sdata;
-					UCHAR cdata;
+					unsigned int	DWords[2];
+					unsigned short sdata;
+					unsigned char cdata;
 					int valind;
 					if(flagNoAddr(cFlag)){
 						if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
@@ -719,7 +720,7 @@ public:
 				break;
 			case cmdCall:
 				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += sizeof(UINT);
+				pos += sizeof(unsigned int);
 				shVal1 = *(unsigned short*)(&cmdStream[pos]);
 				pos += 2;
 				*logASM << " CALL " << valind;
@@ -769,7 +770,7 @@ public:
 				oFlag = *(unsigned char*)(&cmdStream[pos]);
 				pos += 1;
 				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += sizeof(UINT);
+				pos += sizeof(unsigned int);
 				*logASM << valind;
 
 				switch(oFlag)
@@ -796,9 +797,9 @@ public:
 					*logASM << typeInfoD[(cFlag>>2)&0x00000007];
 
 					asmDataType dt = flagDataType(cFlag);
-					UINT	DWords[2];
-					USHORT sdata;
-					UCHAR cdata;
+					unsigned int	DWords[2];
+					unsigned short sdata;
+					unsigned char cdata;
 					
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
 						DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
@@ -1162,8 +1163,8 @@ public:
 #endif
 //private:
 	char*	bytecode;
-	UINT	curr;
-	UINT	max;
+	unsigned int	curr;
+	unsigned int	max;
 
 	std::vector<CodeInfo>	codeInfo;	// Список строк к коду
 };

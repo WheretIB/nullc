@@ -53,7 +53,7 @@ namespace CodeInfo
 	TypeInfo* GetDereferenceType(TypeInfo* type);
 
 	// Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
-	TypeInfo* GetArrayType(TypeInfo* type, UINT sizeInArgument = 0);
+	TypeInfo* GetArrayType(TypeInfo* type, unsigned int sizeInArgument = 0);
 
 	// Функция возвращает тип элемента массива
 	TypeInfo* GetArrayElementType(TypeInfo* type);

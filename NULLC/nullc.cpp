@@ -81,22 +81,6 @@ nullres	nullcCompile(const char* code)
 		strStream << err;
 		compileError = strStream.str();
 	}
-	if(good && currExec == NULLC_X86)
-	{
-#ifdef NULLC_BUILD_X86_JIT
-		try
-		{
-			executorX86->SetOptimization(execOptimize);
-			executorX86->GenListing();
-		}catch(const std::string& str){
-			good = false;
-			compileError += "    " + str;
-		}
-#else
-		good = false;
-		compileError = "X86 JIT isn't available";
-#endif
-	}
 	return good;
 }
 
@@ -158,6 +142,18 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 			return false;
 		}
 		executeLog = executorX86->GetExecError();
+
+		try
+		{
+			executorX86->SetOptimization(execOptimize);
+			executorX86->GenListing();
+		}catch(const std::string& str){
+			executeLog += "    " + str;
+			return false;
+		}
+#else
+		executeLog = "X86 JIT isn't available";
+		return false;
 #endif
 	}
 	return true;
