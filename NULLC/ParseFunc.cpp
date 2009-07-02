@@ -4,6 +4,15 @@
 #include "CodeInfo.h"
 using namespace CodeInfo;
 
+unsigned int GetFuncIndexByPtr(FunctionInfo* funcInfo)
+{
+    for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+        if(CodeInfo::funcInfo[i] == funcInfo)
+            return i;
+            
+    return ~0u;
+}
+
 shared_ptr<NodeZeroOP>	TakeLastNode()
 {
 	shared_ptr<NodeZeroOP> last = nodeList.back();
@@ -727,11 +736,7 @@ void NodeFuncCall::Compile()
 	{
 		// Вызовем по имени
 		cmdList->AddData(cmdCallStd);
-		unsigned int ID = 0xffffffff;
-		for(unsigned int i = 0; i < CodeInfo::funcInfo.size() && ID == -1; i++)
-			if(CodeInfo::funcInfo[i] == funcInfo)
-				ID = i;
-	
+		unsigned int ID = GetFuncIndexByPtr(funcInfo);
 		cmdList->AddData(ID);
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
@@ -1431,11 +1436,7 @@ void NodeFunctionAddress::Compile()
 		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
 
 	cmdList->AddData(cmdFuncAddr);
-	unsigned int ID = 0xffffffff;
-	for(unsigned int i = 0; i < CodeInfo::funcInfo.size() && ID == -1; i++)
-		if(CodeInfo::funcInfo[i] == funcInfo)
-			ID = i;
-
+    unsigned int ID = GetFuncIndexByPtr(funcInfo);
 	cmdList->AddData(ID);
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
