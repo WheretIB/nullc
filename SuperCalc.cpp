@@ -29,8 +29,8 @@ char szWindowClass[MAX_LOADSTRING];
 
 WORD				MyRegisterClass(HINSTANCE hInstance);
 bool				InitInstance(HINSTANCE, int);
-LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK	WndProc(HWND, unsigned int, WPARAM, LPARAM);
+LRESULT CALLBACK	About(HWND, unsigned int, WPARAM, LPARAM);
 
 //Window handles
 HWND hWnd;
@@ -186,7 +186,7 @@ int ReadTextFromConsole(ArrayPtr data)
 	buffer[read-1] = 0;
 	char *target = reinterpret_cast<long long>(data.ptr) + variableData;
 	int c = 0;
-	for(UINT i = 0; i < read; i++)
+	for(unsigned int i = 0; i < read; i++)
 	{
 		buffer[c++] = buffer[i];
 		if(buffer[i] == '\b')
@@ -213,7 +213,7 @@ void PrintFloat4(float4c n)
 	DWORD written;
 	char temp[128];
 	sprintf(temp, "{%f, %f, %f, %f}\r\n", n.x, n.y, n.z, n.w);
-	WriteFile(conStdOut, temp, (UINT)strlen(temp), &written, NULL); 
+	WriteFile(conStdOut, temp, (unsigned int)strlen(temp), &written, NULL); 
 }
 
 void PrintLong(long long lg)
@@ -222,7 +222,7 @@ void PrintLong(long long lg)
 	DWORD written;
 	char temp[128];
 	sprintf(temp, "{%I64d}\r\n", lg);
-	WriteFile(conStdOut, temp, (UINT)strlen(temp), &written, NULL); 
+	WriteFile(conStdOut, temp, (unsigned int)strlen(temp), &written, NULL); 
 }
 
 void draw_rect(int x, int y, int width, int height, int color)
@@ -260,7 +260,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	bool runUnitTests = false;
+	bool runUnitTests = true;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -425,7 +425,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	if(startText)
 	{
 		fseek(startText, 0, SEEK_END);
-		UINT textSize = ftell(startText);
+		unsigned int textSize = ftell(startText);
 		fseek(startText, 0, SEEK_SET);
 		fileContent = new char[textSize+1];
 		fread(fileContent, 1, textSize, startText);
@@ -446,7 +446,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	colorer->InitParser();
 
 	SendMessage(hTextArea, EM_SETEVENTMASK, 0, ENM_CHANGE);
-	UINT widt = (800-25)/4;
+	unsigned int widt = (800-25)/4;
 
 	hCode = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
 		5, 225, widt*2, 165, hWnd, NULL, hInstance, NULL);
@@ -483,7 +483,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return TRUE;
 }
 
-nullres RunCallback(UINT cmdNum)
+nullres RunCallback(unsigned int cmdNum)
 {
 	std::string str;
 	char num[32];
@@ -540,7 +540,7 @@ void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	char name[256];
 	HTREEITEM lastItem;
 
-	for(UINT mn = 0; mn < type->memberData.size(); mn++)
+	for(unsigned int mn = 0; mn < type->memberData.size(); mn++)
 	{
 		TypeInfo::MemberInfo &mInfo = type->memberData[mn];
 
@@ -576,13 +576,13 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	char name[256];
 	HTREEITEM lastItem;
 
-	UINT arrSize = type->arrSize;
+	unsigned int arrSize = type->arrSize;
 	if(arrSize == -1)
 	{
 		arrSize = *((int*)&variableData[address+4]);
 		address = *((int*)&variableData[address]);
 	}
-	for(UINT n = 0; n < arrSize; n++, address += subType->size)
+	for(unsigned int n = 0; n < arrSize; n++, address += subType->size)
 	{
 		if(n > 100)
 		{
@@ -613,7 +613,7 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 
 void FillVariableInfoTree()
 {
-	UINT varCount = 0;
+	unsigned int varCount = 0;
 	VariableInfo **varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
 	TreeView_DeleteAllItems(hVars);
 
@@ -623,10 +623,10 @@ void FillVariableInfoTree()
 	helpInsert.item.mask = TVIF_TEXT;
 	helpInsert.item.cchTextMax = 0;
 
-	UINT address = 0;
+	unsigned int address = 0;
 	char name[256];
 	HTREEITEM lastItem;
-	for(UINT i = 0; i < varCount; i++)
+	for(unsigned int i = 0; i < varCount; i++)
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
 		address = currVar.pos;
@@ -654,7 +654,7 @@ void FillVariableInfoTree()
 	}
 }
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
@@ -732,6 +732,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			ostringstream ostr;
 			nullres good = nullcCompile(buf);
+			char *bytecode;
+			nullcGetBytecode(&bytecode);
+			nullcClean();
+			nullcLinkCode(bytecode, 1);
+			delete[] bytecode;
 			if(!good)
 			{
 				ostr << nullcGetCompilationError();
@@ -806,7 +811,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if(GetFocus() == hTextArea)
 		{
 			bRetFocus = true;
-			SendMessage(hTextArea, (UINT)EM_EXGETSEL, 0L, (LPARAM)&cr);  
+			SendMessage(hTextArea, (unsigned int)EM_EXGETSEL, 0L, (LPARAM)&cr);  
 			SetFocus(hWnd);
 		}
 		string str = "";
@@ -837,7 +842,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		SetWindowPos(hButtonCalcX86, HWND_TOP, (int)(LOWORD(lParam))-135,7+(int)(5.0/9.0*HIWORD(lParam)),130, 30, NULL);
 		SetWindowPos(hDoOptimize, HWND_TOP, (int)(LOWORD(lParam))-235,7+(int)(5.0/9.0*HIWORD(lParam)),95, 30, NULL);
 		SetWindowPos(hResult, HWND_TOP, 110,7+(int)(5.0/9.0*HIWORD(lParam)),(int)(LOWORD(lParam))-345, 30, NULL);
-		UINT widt = (LOWORD(lParam)-20)/4;
+		unsigned int widt = (LOWORD(lParam)-20)/4;
 		SetWindowPos(hCode, HWND_TOP, 5,40+(int)(5.0/9.0*HIWORD(lParam)),2*widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);
 		SetWindowPos(hLog, HWND_TOP, 2*widt+10,40+(int)(5.0/9.0*HIWORD(lParam)),widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);
 		SetWindowPos(hVars, HWND_TOP, 3*widt+15,40+(int)(5.0/9.0*HIWORD(lParam)),widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);

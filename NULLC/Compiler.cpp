@@ -135,10 +135,8 @@ void blockEnd(char const* s, char const* e)
 	(void)s; (void)e;	// C4100
 	unsigned int varFormerTop = varTop;
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
-	{ 
-		varTop -= varInfo.back()->varType->size;
 		varInfo.pop_back();
-	}
+	varTop = varInfoTop.back().varStackSize;
 	varInfoTop.pop_back();
 
 	for(unsigned int i = funcInfoTop.back(); i < funcInfo.size(); i++)
@@ -1617,10 +1615,8 @@ void FunctionEnd(char const* s, char const* e)
 
 	unsigned int varFormerTop = varTop;
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
-	{
-		varTop -= varInfo.back()->varType->size;
 		varInfo.pop_back();
-	}
+	varTop = varInfoTop.back().varStackSize;
 	varInfoTop.pop_back();
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varFormerTop-varTop, false)));
 
@@ -2003,10 +1999,8 @@ void TypeFinish(char const* s, char const* e)
 	newType = NULL;
 
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
-	{ 
-		varTop -= varInfo.back()->varType->size;
 		varInfo.pop_back();
-	}
+	varTop = varInfoTop.back().varStackSize;
 	varInfoTop.pop_back();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

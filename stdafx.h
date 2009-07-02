@@ -19,3 +19,5 @@
 using namespace std;
 
 #include <assert.h>
+
+double myGetPreciseTime();
