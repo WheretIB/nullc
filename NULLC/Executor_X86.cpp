@@ -447,7 +447,7 @@ bool ExecutorX86::LinkCode(const char *code, int redefinitions)
 
 		if(funcInfoPtr->funcPtr && !CreateExternalInfo(funcInfoPtr, exFuncInfo[n]))
 		{
-			sprintf(execError, "Link Error: External function info failed for '%s'", fInfo->name);
+			sprintf(execError, "Link Error: External function info failed for '%s'", funcInfoPtr->name);
 			return false;
 		}
 	}

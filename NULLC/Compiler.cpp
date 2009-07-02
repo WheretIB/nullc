@@ -2956,6 +2956,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		tInfo->size = CodeInfo::typeInfo[i]->size;
 		tInfo->nameLength = (unsigned int)CodeInfo::typeInfo[i]->GetTypeName().length();
 		tInfo->structSize = sizeof(ExternTypeInfo) + tInfo->nameLength + 1;
+
+		tInfo->type = (ExternTypeInfo::TypeCategory)CodeInfo::typeInfo[i]->type;
 		// ! write name after the pointer to name
 		char *namePtr = (char*)(&tInfo->name) + sizeof(tInfo->name);
 		memcpy(namePtr, CodeInfo::typeInfo[i]->GetTypeName().c_str(), tInfo->nameLength+1);
