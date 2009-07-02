@@ -56,7 +56,7 @@ namespace ColorerGrammar
 	Rule mySpaceP;
 
 	// Temporary variables
-	UINT	varSize, varTop;
+	unsigned int	varSize, varTop;
 	bool	currValConst;
 	std::string	logStr;
 
@@ -66,7 +66,7 @@ namespace ColorerGrammar
 	std::vector<std::string>	typeInfo;
 	std::vector<VariableInfo>	varInfo;
 	std::vector<VarTopInfo>		varInfoTop;
-	std::vector<UINT>			callArgCount;
+	std::vector<unsigned int>	callArgCount;
 
 	// Callbacks
 	ColorCodeCallback ColorRWord, ColorVar, ColorVarDef, ColorFunc, ColorText, ColorReal, ColorInt, ColorBold, ColorErr, ColorComment;
@@ -104,7 +104,7 @@ namespace ColorerGrammar
 
 			logStream << "  at \"" << std::string(begin,end) << '\"';
 			logStream << "\r\n      ";
-			for(UINT i = 0; i < (UINT)(s-begin); i++)
+			for(unsigned int i = 0; i < (unsigned int)(s-begin); i++)
 				logStream << ' ';
 			logStream << "^\r\n";
 		}
@@ -126,7 +126,7 @@ namespace ColorerGrammar
 			if(curr == *str)
 				return false;
 			std::string type(curr, *str);
-			for(UINT i = 0; i < typeInfo.size(); i++)
+			for(unsigned int i = 0; i < typeInfo.size(); i++)
 				if(typeInfo[i] == type)
 					return true;
 			return false;
@@ -183,12 +183,12 @@ namespace ColorerGrammar
 			(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd][AddType];
 
 		funccall	=	varname[ColorFunc] >> 
-			strP("(")[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)] >>
+			strP("(")[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >>
 			!(
-				term5[ArrBackInc<std::vector<UINT> >(callArgCount)] >>
+				term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] >>
 				*(
 					strP(",")[ColorText] >> 
-					(term5[ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[LogError("ERROR: unexpected symbol after ','")])
+					(term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: unexpected symbol after ','")])
 				)[OnError]
 			) >>
 			(strP(")")[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
@@ -196,20 +196,20 @@ namespace ColorerGrammar
 			!(
 				typeExpr >>
 				constExpr >>
-				((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")])
+				((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")])
 			) >>
 			*(
 				strP(",")[ColorText] >>
 				(
 					typeExpr >>
 					constExpr >>
-					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<UINT> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")])
+					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")])
 				)
 			)[OnError];
 		funcdef		=
 			typeExpr >>
 			(varname - typenameP(varname))[ColorFunc][SetTempStr] >>
-			chP('(')[ColorBold][PushBackVal<std::vector<UINT>, UINT>(callArgCount, 0)][FuncAdd][BlockBegin] >>
+			chP('(')[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
 			(
 				(*(symb | digitP))[ColorErr] >>
 				funcvars
@@ -239,7 +239,7 @@ namespace ColorerGrammar
 			);
 		addvarp		=
 			(
-			varname[ColorVarDef] >> epsP[AssignVar<UINT>(varSize,1)] >> 
+			varname[ColorVarDef] >> epsP[AssignVar<unsigned int>(varSize,1)] >> 
 			!(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])
 			)[AddVar] >>
 			((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: expression not found after '='")])) | epsP);
@@ -370,7 +370,7 @@ namespace ColorerGrammar
 		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
 			throw std::string("ERROR: The name '" + str + "' is reserved");
 		if(!forFunction)
-			for(UINT i = 0; i < funcs.size(); i++)
+			for(unsigned int i = 0; i < funcs.size(); i++)
 				if(funcs[i]->name == str)
 					throw std::string("ERROR: Name '" + str + "' is already taken for a function");
 	}
@@ -382,7 +382,7 @@ namespace ColorerGrammar
 			st++;
 		string vName = std::string(s, st);
 
-		for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++){
+		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++){
 			if(varInfo[i].name == vName){
 				ColorCode(255,0,0,0,0,1,s,st);
 				logStream << "ERROR: Name '" << vName << "' is already taken for a variable in current scope\r\n";
@@ -454,7 +454,7 @@ namespace ColorerGrammar
 	void FuncAdd(char const* s, char const* e)
 	{
 		string vName = tempStr;
-		for(UINT i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
+		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 			if(varInfo[i].name == vName)
 			{
 				ColorCode(255,0,0,0,0,1,s,e);
@@ -479,7 +479,7 @@ namespace ColorerGrammar
 			return;
 
 		funcs.back()->params.clear();
-		for(UINT i = 0; i < callArgCount.back(); i++)
+		for(unsigned int i = 0; i < callArgCount.back(); i++)
 			funcs.back()->params.push_back(VariableInfo("param", 0, NULL));
 		callArgCount.pop_back();
 	}
@@ -515,7 +515,7 @@ namespace ColorerGrammar
 					logStream << "ERROR: function '" << fname << "' is undefined\r\n";
 				}else{
 					ColorCode(255,0,0,0,0,1,s,e);
-					logStream << "ERROR: none of the functions '" << fname << "' takes " << (UINT)callArgCount.back() << " arguments\r\n";
+					logStream << "ERROR: none of the functions '" << fname << "' takes " << (unsigned int)callArgCount.back() << " arguments\r\n";
 				}
 				break;
 			}
@@ -549,7 +549,7 @@ namespace ColorerGrammar
 	void BlockBegin(char const* s, char const* e)
 	{
 		(void)s; (void)e;	// C4100
-		varInfoTop.push_back(VarTopInfo((UINT)varInfo.size(), varTop));
+		varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 	}
 	void BlockEnd(char const* s, char const* e)
 	{
@@ -606,7 +606,7 @@ void Colorer::ColorText()
 	ColorerGrammar::varInfoTop.clear();
 	ColorerGrammar::varInfo.clear();
 //	ColorerGrammar::funcs = CodeInfo::funcInfo;
-	UINT oldFuncCount = 0;//ColorerGrammar::funcs.size();
+	unsigned int oldFuncCount = 0;//ColorerGrammar::funcs.size();
 	ColorerGrammar::typeInfo.clear();
 
 	ColorerGrammar::typeInfo.push_back("void");

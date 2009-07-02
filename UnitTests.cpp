@@ -1,9 +1,17 @@
+#include "stdafx.h"
 #include "UnitTests.h"
 #include "NULLC/nullc.h"
 #include "NULLC/ParseClass.h"
 
 #include <stdio.h>
 #include <vadefs.h>
+
+double timeCompile;
+double timeGetListing;
+double timeGetBytecode;
+double timeClean;
+double timeLinkCode;
+double timeRun;
 
 char *varData = NULL;
 unsigned int varCount = 0;
@@ -60,7 +68,7 @@ void mFileClose(FILE* file)
 
 void*	FindVar(const char* name)
 {
-	for(UINT i = 0; i < varCount; i++)
+	for(unsigned int i = 0; i < varCount; i++)
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
 		if(strcmp(currVar.name.c_str(), name) == 0)
@@ -77,20 +85,36 @@ bool	RunCode(const char *code, unsigned int executor, bool optimization, const c
 	char buf[128];
 	sprintf(buf, "%s optimization %s ", executor == NULLC_VM ? "VM, " : "X86,", optimization ? "on. " : "off.");
 
+	double time = myGetPreciseTime();
 	nullres good = nullcCompile(code);
+	timeCompile += myGetPreciseTime() - time;
+
+	time = myGetPreciseTime();
 	nullcGetListing();
+	timeGetListing += myGetPreciseTime() - time;
+
 	if(!good)
 	{
 		printf("%s Compilation failed: %s\r\n", buf, nullcGetCompilationError());
 		return false;
 	}else{
 		char *bytecode;
+		time = myGetPreciseTime();
 		nullcGetBytecode(&bytecode);
+		timeGetBytecode += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
 		nullcClean();
+		timeClean += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
 		nullcLinkCode(bytecode, 1);
+		timeLinkCode += myGetPreciseTime() - time;
 		delete[] bytecode;
 
+		varData = (char*)nullcGetVariableData();
+
+		time = myGetPreciseTime();
 		nullres goodRun = nullcRun();
+		timeRun += myGetPreciseTime() - time;
 		if(goodRun)
 		{
 			const char* val = nullcGetResult();
@@ -263,7 +287,7 @@ return 1;";
 char*	Format(const char *str, ...)
 {
 	static char text[4096*16];
-	static UINT section = 0;
+	static unsigned int section = 0;
 
 	char* ptr = text + (section++ % 16) * 4096;
 
@@ -276,6 +300,13 @@ char*	Format(const char *str, ...)
 
 void	RunTests()
 {
+	timeCompile = 0.0;
+	timeGetListing = 0.0;
+	timeGetBytecode = 0.0;
+	timeClean = 0.0;
+	timeLinkCode = 0.0;
+	timeRun = 0.0;
+
 	// Init NULLC
 	nullcInit();
 
@@ -305,8 +336,6 @@ void	RunTests()
 	bool			testOpti[] = { false, false, true };
 
 //////////////////////////////////////////////////////////////////////////
-	nullcSetExecutor(NULLC_VM);
-	nullcSetExecutorOptions(false);
 	printf("\r\nTwo bytecode merge test 1\r\n");
 	testCount++;
 
@@ -317,44 +346,52 @@ void	RunTests()
 	bytecodeA = NULL;
 	bytecodeB = NULL;
 
-	nullres good = nullcCompile(partA1);
-	nullcGetListing();
-	if(!good)
-		printf("Compilation failed: %s\r\n", nullcGetCompilationError());
-	else
-		nullcGetBytecode(&bytecodeA);
-
-	good = nullcCompile(partB1);
-	nullcGetListing();
-	if(!good)
-		printf("Compilation failed: %s\r\n", nullcGetCompilationError());
-	else
-		nullcGetBytecode(&bytecodeB);
-
-	nullcClean();
-	nullcLinkCode(bytecodeA, 0);
-	nullcLinkCode(bytecodeB, 0);
-
-	nullres goodRun = nullcRun();
-	if(goodRun)
+	for(int t = 0; t < 3; t++)
 	{
-		const char* val = nullcGetResult();
-		varData = (char*)nullcGetVariableData();
+		nullcSetExecutor(testTarget[t]);
+		nullcSetExecutorOptions(testOpti[t]);
 
-		if(strcmp(val, "20") != 0)
-			printf("Failed (%s != %s)\r\n", val, "20");
-		varCount = 0;
-		varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
-		if(varInfo)
+		nullres good = nullcCompile(partA1);
+		nullcGetListing();
+		if(!good)
+			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
+		else
+			nullcGetBytecode(&bytecodeA);
+
+		good = nullcCompile(partB1);
+		nullcGetListing();
+		if(!good)
+			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
+		else
+			nullcGetBytecode(&bytecodeB);
+
+		nullcClean();
+		nullcLinkCode(bytecodeA, 0);
+		nullcLinkCode(bytecodeB, 0);
+
+		nullres goodRun = nullcRun();
+		if(goodRun)
 		{
-			bool lastFailed = false;
-			CHECK_INT("ERROR", 6, 9);
-			CHECK_INT("ERROR", 13, 20);
-			if(!lastFailed)
-				passed[0]++;
+			const char* val = nullcGetResult();
+			varData = (char*)nullcGetVariableData();
+
+			if(strcmp(val, "20") != 0)
+				printf("Failed (%s != %s)\r\n", val, "20");
+			varCount = 0;
+			varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
+			if(varInfo)
+			{
+				bool lastFailed = false;
+				CHECK_INT("ERROR", 6, 9);
+				CHECK_INT("ERROR", 13, 20);
+				if(!lastFailed)
+					passed[t]++;
+			}
+		}else{
+			printf("Execution failed: %s\r\n", nullcGetRuntimeError());
 		}
-	}else{
-		printf("Execution failed: %s\r\n", nullcGetRuntimeError());
+		delete[] bytecodeA;
+		delete[] bytecodeB;
 	}
 //////////////////////////////////////////////////////////////////////////
 	// Number operation test
@@ -2744,6 +2781,12 @@ return main();";
 	printf("X86opt passed %d of %d tests\r\n", passed[2], testCount);
 	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2], testCount*3);
 
+	printf("Compilation time: %f\r\n", timeCompile);
+	printf("Get listing time: %f\r\n", timeGetListing);
+	printf("Get bytecode time: %f\r\n", timeGetBytecode);
+	printf("Clean time: %f\r\n", timeClean);
+	printf("Link time: %f\r\n", timeLinkCode);
+	printf("Run time: %f\r\n", timeRun);
 
 	// Deinit NULLC
 	nullcDeinit();
