@@ -4,47 +4,47 @@
 #include "ParseClass.h"
 
 //////////////////////////////////////////////////////////////////////////
-const UINT typeNodeBlock		= 1;
-const UINT typeNodeExpression	= 2;
-const UINT typeNodeForExpr		= 3;
-const UINT typeNodeFuncCall		= 4;
-const UINT typeNodeFuncDef		= 5;
-const UINT typeNodeIfElseExpr	= 6;
+const unsigned int typeNodeBlock		= 1;
+const unsigned int typeNodeExpression	= 2;
+const unsigned int typeNodeForExpr		= 3;
+const unsigned int typeNodeFuncCall		= 4;
+const unsigned int typeNodeFuncDef		= 5;
+const unsigned int typeNodeIfElseExpr	= 6;
 
-const UINT typeNodeOneOp		= 8;
-const UINT typeNodePopOp		= 9;
-
-
-const UINT typeNodeReturnOp		= 12;
-const UINT typeNodeThreeOp		= 13;
-const UINT typeNodeTwoAndCmdOp	= 14;
-
-const UINT typeNodeTwoOp		= 16;
-const UINT typeNodeVarDef		= 17;
+const unsigned int typeNodeOneOp		= 8;
+const unsigned int typeNodePopOp		= 9;
 
 
+const unsigned int typeNodeReturnOp		= 12;
+const unsigned int typeNodeThreeOp		= 13;
+const unsigned int typeNodeTwoAndCmdOp	= 14;
 
-const UINT typeNodeZeroOp		= 21;
-const UINT typeNodeWhileExpr	= 22;
-const UINT typeNodeDoWhileExpr	= 22;
-const UINT typeNodeBreakOp		= 23;
-const UINT typeNodeCaseExpr		= 24;
-const UINT typeNodeSwitchExpr	= 25;
-
-const UINT typeNodeNumber		= 27;
-const UINT typeNodeUnaryOp		= 28;
-const UINT typeNodeFuncParam	= 29;
+const unsigned int typeNodeTwoOp		= 16;
+const unsigned int typeNodeVarDef		= 17;
 
 
-const UINT typeNodeExpressionList	= 32;
-const UINT typeNodeArrayIndex	= 33;
-const UINT typeNodeDereference	= 34;
-const UINT typeNodeShiftAddress	= 35;
-const UINT typeNodeGetAddress	= 36;
-const UINT typeNodeVariableSet	= 37;
-const UINT typeNodePreOrPostOp	= 38;
-const UINT typeNodeFunctionAddress	= 39;
-const UINT typeNodeContinueOp	= 40;
+
+const unsigned int typeNodeZeroOp		= 21;
+const unsigned int typeNodeWhileExpr	= 22;
+const unsigned int typeNodeDoWhileExpr	= 22;
+const unsigned int typeNodeBreakOp		= 23;
+const unsigned int typeNodeCaseExpr		= 24;
+const unsigned int typeNodeSwitchExpr	= 25;
+
+const unsigned int typeNodeNumber		= 27;
+const unsigned int typeNodeUnaryOp		= 28;
+const unsigned int typeNodeFuncParam	= 29;
+
+
+const unsigned int typeNodeExpressionList	= 32;
+const unsigned int typeNodeArrayIndex	= 33;
+const unsigned int typeNodeDereference	= 34;
+const unsigned int typeNodeShiftAddress	= 35;
+const unsigned int typeNodeGetAddress	= 36;
+const unsigned int typeNodeVariableSet	= 37;
+const unsigned int typeNodePreOrPostOp	= 38;
+const unsigned int typeNodeFunctionAddress	= 39;
+const unsigned int typeNodeContinueOp	= 40;
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP
@@ -59,9 +59,9 @@ public:
 	// Вывод в лог параметров узла
 	virtual void LogToStream(ostringstream& ostr);
 	// Получения размера кода, сгенерированного данным узлом
-	virtual UINT GetSize();
+	virtual unsigned int GetSize();
 	// Получение типа ячейки
-	virtual UINT GetNodeType(){ return typeNodeZeroOp; }
+	virtual unsigned int GetNodeType(){ return typeNodeZeroOp; }
 	// Получение типа результата, возвращаемого ячейкой
 	virtual TypeInfo*	GetTypeInfo();
 	// Установка строки кода, с которым связана ячейка
@@ -84,8 +84,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeOneOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeOneOp; }
 
 	shared_ptr<NodeZeroOP>	GetFirstNode(){ return first; }
 protected:
@@ -100,8 +100,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeTwoOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeTwoOp; }
 
 	shared_ptr<NodeZeroOP>	GetSecondNode(){ return second; }
 protected:
@@ -116,8 +116,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeThreeOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeThreeOp; }
 
 	shared_ptr<NodeZeroOP>	GetTrirdNode(){ return third; }
 protected:
@@ -137,7 +137,7 @@ ASM_TYPE_TRAITS(float, DTYPE_FLOAT, STYPE_DOUBLE); // float expands to double
 ASM_TYPE_TRAITS(double, DTYPE_DOUBLE, STYPE_DOUBLE);
 
 //Zero child operators
-void NodeNumberPushCommand(USHORT cmdFlag, char* data, UINT dataSize);
+void NodeNumberPushCommand(unsigned short cmdFlag, char* data, unsigned int dataSize);
 template<typename T>
 class NodeNumber: public NodeZeroOP
 {
@@ -149,18 +149,18 @@ public:
 	virtual void Compile()
 	{
 		typedef AsmTypeTraits<T> Traits;
-		NodeNumberPushCommand((USHORT)(Traits::stackType | Traits::dataType), (char*)(&num), sizeof(T));
+		NodeNumberPushCommand((unsigned short)(Traits::stackType | Traits::dataType), (char*)(&num), sizeof(T));
 	}
 	virtual void LogToStream(ostringstream& ostr)
 	{
 		DrawLine(ostr);
 		ostr << *typeInfo << "Number " << num << "\r\n";
 	}
-	virtual UINT GetSize()
+	virtual unsigned int GetSize()
 	{
-		return sizeof(CmdID) + sizeof(USHORT) + sizeof(T);
+		return sizeof(CmdID) + sizeof(unsigned short) + sizeof(T);
 	}
-	virtual UINT GetNodeType(){ return typeNodeNumber; }
+	virtual unsigned int GetNodeType(){ return typeNodeNumber; }
 
 	NumType		 GetVal(){ return num; }
 	NumType		 GetLogNotVal(){ return !num; }
@@ -177,8 +177,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeVarDef; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeVarDef; }
 protected:
 	std::string name;
 };
@@ -192,8 +192,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodePopOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodePopOp; }
 protected:
 };
 
@@ -205,8 +205,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeUnaryOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeUnaryOp; }
 protected:
 	CmdID	cmdID;
 };
@@ -214,15 +214,15 @@ protected:
 class NodeReturnOp: public NodeOneOP
 {
 public:
-	NodeReturnOp(UINT c, TypeInfo* tinfo);
+	NodeReturnOp(unsigned int c, TypeInfo* tinfo);
 	virtual ~NodeReturnOp();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeReturnOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeReturnOp; }
 protected:
-	UINT	popCnt;
+	unsigned int	popCnt;
 };
 
 class NodeExpression: public NodeOneOP
@@ -233,8 +233,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeExpression; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeExpression; }
 protected:
 };
 
@@ -246,10 +246,10 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeBlock; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeBlock; }
 protected:
-	UINT shift;
+	unsigned int shift;
 	bool popAfter;
 };
 
@@ -263,8 +263,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeFuncDef; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeFuncDef; }
 protected:
 	FunctionInfo	*funcInfo;
 	bool disabled;
@@ -284,8 +284,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeGetAddress; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeGetAddress; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -300,16 +300,16 @@ protected:
 class NodeVariableSet: public NodeTwoOP
 {
 public:
-			NodeVariableSet(TypeInfo* targetType, UINT pushVar, bool swapNodes);
+			NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, bool swapNodes);
 	virtual ~NodeVariableSet();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeVariableSet; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeVariableSet; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
-	UINT	bytesToPush;
+	unsigned int	bytesToPush;
 	int		addrShift;
 	bool	absAddress, knownAddress, arrSetAll;
 };
@@ -322,8 +322,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeDereference; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeDereference; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	int		addrShift;
@@ -338,8 +338,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeArrayIndex; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeArrayIndex; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -354,20 +354,20 @@ protected:
 class NodeShiftAddress: public NodeOneOP
 {
 public:
-			NodeShiftAddress(UINT shift, TypeInfo* resType);
+			NodeShiftAddress(unsigned int shift, TypeInfo* resType);
 	virtual ~NodeShiftAddress();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeShiftAddress; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeShiftAddress; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
 	friend class NodePreOrPostOp;
 
-	UINT	memberShift;
+	unsigned int	memberShift;
 };
 
 class NodePreOrPostOp: public NodeOneOP
@@ -380,8 +380,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodePreOrPostOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodePreOrPostOp; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	CmdID	cmdID;
@@ -401,8 +401,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeFunctionAddress; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeFunctionAddress; }
 protected:
 	FunctionInfo	*funcInfo;
 };
@@ -416,8 +416,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeTwoAndCmdOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeTwoAndCmdOp; }
 protected:
 	CmdID cmdID;
 
@@ -435,8 +435,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeIfElseExpr; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeIfElseExpr; }
 protected:
 };
 
@@ -448,8 +448,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeForExpr; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeForExpr; }
 protected:
 	shared_ptr<NodeZeroOP>	fourth;
 };
@@ -462,8 +462,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeWhileExpr; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeWhileExpr; }
 protected:
 };
 
@@ -475,37 +475,37 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeDoWhileExpr; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeDoWhileExpr; }
 protected:
 };
 
 class NodeBreakOp: public NodeZeroOP
 {
 public:
-	NodeBreakOp(UINT c);
+	NodeBreakOp(unsigned int c);
 	virtual ~NodeBreakOp();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeBreakOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeBreakOp; }
 protected:
-	UINT	popCnt;
+	unsigned int	popCnt;
 };
 
 class NodeContinueOp: public NodeZeroOP
 {
 public:
-	NodeContinueOp(UINT c);
+	NodeContinueOp(unsigned int c);
 	virtual ~NodeContinueOp();
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeContinueOp; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeContinueOp; }
 protected:
-	UINT	popCnt;
+	unsigned int	popCnt;
 };
 
 class NodeSwitchExpr: public NodeOneOP
@@ -518,8 +518,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeSwitchExpr; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeSwitchExpr; }
 protected:
 	std::list<shared_ptr<NodeZeroOP> >	caseCondList;
 	std::list<shared_ptr<NodeZeroOP> >	caseBlockList;
@@ -537,8 +537,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeExpressionList; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeExpressionList; }
 protected:
 	std::list<shared_ptr<NodeZeroOP> >	exprList;
 	typedef std::list<shared_ptr<NodeZeroOP> >::iterator listPtr;
@@ -552,8 +552,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNodeFuncCall; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeFuncCall; }
 protected:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;
@@ -571,8 +571,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(ostringstream& ostr);
-	virtual UINT GetSize();
-	virtual UINT GetNodeType(){ return typeNode; }
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNode; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 };*/

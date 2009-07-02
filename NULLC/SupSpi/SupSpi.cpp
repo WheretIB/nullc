@@ -50,7 +50,7 @@ namespace supspi
 			SkipSpaces(&temp, space.getParser());
 		if(!res)
 			return PARSE_FAILED;
-		if(res && strlen(temp))//(strlen(str) != (UINT)(temp-str)))
+		if(res && strlen(temp))
 			return PARSE_NOTFULL;
 		return PARSE_OK;
 	}

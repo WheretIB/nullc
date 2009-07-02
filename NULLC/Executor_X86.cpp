@@ -6,22 +6,77 @@
 #include "Translator_X86.h"
 #include "Optimizer_x86.h"
 
+#if defined(_MSC_VER)
+bool ExecutorX86::CreateExternalInfo(ExternFuncInfo *fInfo, ExecutorX86::ExternalFunctionInfo& externalInfo)
+{
+	externalInfo.bytesToPop = 0;
+	for(unsigned int i = 0; i < fInfo->paramCount; i++)
+	{
+		unsigned int paramSize = exTypes[fInfo->paramList[i]]->size > 4 ? exTypes[fInfo->paramList[i]]->size : 4;
+		externalInfo.bytesToPop += paramSize;
+	}
+	
+	return true;
+}
+#elif defined(__CELLOS_LV2__)
+bool ExecutorX86::CreateExternalInfo(ExternFuncInfo *fInfo, ExecutorX86::ExternalFunctionInfo& externalInfo)
+{
+    unsigned int rCount = 0, fCount = 0;
+    unsigned int rMaxCount = sizeof(externalInfo.rOffsets) / sizeof(externalInfo.rOffsets[0]);
+    unsigned int fMaxCount = sizeof(externalInfo.fOffsets) / sizeof(externalInfo.fOffsets[0]);
+    
+    // parse all parameters, fill offsets
+    unsigned int offset = 0;
+    
+	for (unsigned int i = 0; i < fInfo->paramCount; i++)
+	{
+	    const ExternTypeInfo& type = *exTypes[fInfo->paramList[i]];
+	    
+	    switch (type.type)
+	    {
+	    case ExternTypeInfo::TYPE_CHAR:
+	    case ExternTypeInfo::TYPE_SHORT:
+	    case ExternTypeInfo::TYPE_INT:
+	        if (rCount >= rMaxCount) return false; // too many r parameters
+	        externalInfo.rOffsets[rCount++] = offset;
+	        offset++;
+	        break;
+	    
+	    case ExternTypeInfo::TYPE_FLOAT:
+	    case ExternTypeInfo::TYPE_DOUBLE:
+	        if (fCount >= fMaxCount || rCount >= rMaxCount) return false; // too many f/r parameters
+	        externalInfo.rOffsets[rCount++] = offset;
+	        externalInfo.fOffsets[fCount++] = offset;
+	        offset += 2;
+	        break;
+	        
+	    default:
+	        return false; // unsupported type
+	    }
+    }
+    
+    // clear remaining offsets
+    for (unsigned int i = rCount; i < rMaxCount; ++i) externalInfo.rOffsets[i] = 0;
+    for (unsigned int i = fCount; i < fMaxCount; ++i) externalInfo.fOffsets[i] = 0;
+    
+    return true;
+}
+#endif
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-//#include "ParseClass.h"
-//#include "ParseCommand.h"
-#include "CodeInfo.h"
-using namespace CodeInfo;
+unsigned int paramDataBase;
+unsigned int reservedStack;
+unsigned int commitedStack;
+unsigned int stackGrowSize;
+unsigned int stackGrowCommit;
 
-UINT paramDataBase;
-UINT reservedStack;
-UINT commitedStack;
-UINT stackGrowSize;
-UINT stackGrowCommit;
-
-ExecutorX86::ExecutorX86()
+ExecutorX86::ExecutorX86(): exTypes(50), exVariables(50), exFunctions(50), exFuncInfo(50)
 {
+	globalVarSize = 0;
+	offsetToGlobalCode = 0;
+
 	stackGrowSize = 128*4096;
 	stackGrowCommit = 64*4096;
 	// Request memory at address
@@ -33,36 +88,380 @@ ExecutorX86::ExecutorX86()
 	reservedStack = stackGrowSize;
 	commitedStack = stackGrowCommit;
 	
-	paramDataBase = paramBase = static_cast<UINT>(reinterpret_cast<long long>(paramData));
+	paramDataBase = paramBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
 
 	binCode = new unsigned char[200000];
 	memset(binCode, 0x90, 20);
-	binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
+	binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
 	binCodeSize = 0;
-
-	bytecode = NULL;
-	codeInfo = NULL;
 }
 ExecutorX86::~ExecutorX86()
 {
 	VirtualFree(reinterpret_cast<void*>(0x20000000), 0, MEM_RELEASE);
+
+	CleanCode();
 
 	delete[] binCode;
 }
 
 void ExecutorX86::CleanCode()
 {
-	delete[] bytecode;
-	codeInfo = NULL;
+	exFuncInfo.clear();
+	for(unsigned int i = 0; i < exTypes.size(); i++)
+		delete[] (char*)exTypes[i];
+	exTypes.clear();
+	for(unsigned int i = 0; i < exVariables.size(); i++)
+		delete[] (char*)exVariables[i];
+	exVariables.clear();
+	for(unsigned int i = 0; i < exFunctions.size(); i++)
+		delete[] (char*)exFunctions[i];
+	exFunctions.clear();
+	exCode.clear();
+
+	globalVarSize = 0;
+	offsetToGlobalCode = 0;
 }
 
 bool ExecutorX86::LinkCode(const char *code, int redefinitions)
 {
+	execError[0] = 0;
+
+	FastVector<unsigned int>	typeRemap(50);
+	FastVector<unsigned int>	funcRemap(50);
+
 	ByteCode *bCode = (ByteCode*)code;
-	bytecode = new char[bCode->size];
-	memcpy(bytecode, code, bCode->size);
-	codeInfo = (ByteCode*)bytecode;
-	BytecodeFixup(codeInfo);
+
+	typeRemap.clear();
+	// Add all types from bytecode to the list
+	ExternTypeInfo *tInfo = FindFirstType(bCode);
+	for(unsigned int i = 0; i < bCode->typeCount; i++)
+	{
+	    const unsigned int index_none = ~0u;
+	    
+		unsigned int index = index_none;
+		for(unsigned int n = 0; n < exTypes.size() && index == index_none; n++)
+			if(strcmp(exTypes[n]->name, tInfo->name) == 0)
+				index = n;
+
+		if(index != index_none && exTypes[index]->size != tInfo->size)
+		{
+			sprintf(execError, "Link Error: type '%s' is redefined with a different size", tInfo->name);
+			return false;
+		}
+		if(index == index_none)
+		{
+			typeRemap.push_back(exTypes.size());
+			exTypes.push_back((ExternTypeInfo*)(new char[tInfo->structSize]));
+			memcpy(exTypes.back(), tInfo, tInfo->structSize);
+			exTypes.back()->name = (char*)(&exTypes.back()->name) + sizeof(exTypes.back()->name);
+			exTypes.back()->next = NULL;	// no one cares
+		}else{
+			typeRemap.push_back(index);
+		}
+
+		tInfo = FindNextType(tInfo);
+	}
+
+	// Add all global variables
+	ExternVarInfo *vInfo = FindFirstVar(bCode);
+	for(unsigned int i = 0; i < bCode->variableCount; i++)
+	{
+		exVariables.push_back((ExternVarInfo*)(new char[vInfo->structSize]));
+		memcpy(exVariables.back(), vInfo, vInfo->structSize);
+
+		exVariables.back()->name = (char*)(&exVariables.back()->name) + sizeof(exVariables.back()->name);
+		exVariables.back()->next = NULL;	// no one cares
+		// Type index have to be updated
+		exVariables.back()->type = typeRemap[vInfo->type];
+
+		vInfo = FindNextVar(vInfo);
+	}
+
+	unsigned int oldGlobalSize = globalVarSize;
+	globalVarSize += bCode->globalVarSize;
+
+	unsigned int	oldExFuncSize = exFunctions.size();
+	unsigned int	oldOffsetToGlobalCode = offsetToGlobalCode;
+	funcRemap.clear();
+	unsigned int	allFunctionSize = 0;
+	// Add new functions
+	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
+	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo = FindNextFunc(fInfo))
+	{
+		allFunctionSize += fInfo->codeSize;
+		
+        const unsigned int index_none = ~0u;
+        
+		unsigned int index = index_none;
+		for(unsigned int n = 0; n < exFunctions.size() && index == index_none; n++)
+			if(strcmp(exFunctions[n]->name, fInfo->name) == 0)
+				index = n;
+
+		// Suppose, this is an overload function
+		bool isOverload = true;
+		if(index != index_none)
+		{
+			for(unsigned int n = 0; n < exFunctions.size() && isOverload == true; n++)
+			{
+				if(strcmp(exFunctions[n]->name, fInfo->name) == 0)
+				{
+					if(fInfo->paramCount == exFunctions[n]->paramCount)
+					{
+						// If the parameter count is equal, test parameters
+						unsigned int *paramList = (unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1);
+						unsigned int k;
+						for(k = 0; k < fInfo->paramCount; k++)
+							if(typeRemap[paramList[k]] != exFunctions[n]->paramList[k])
+								break;
+						if(k == fInfo->paramCount)
+						{
+							isOverload = false;
+							index = n;
+						}
+					}
+				}
+			}
+			if(!exFunctions[index]->isVisible)
+				isOverload = true;
+		}
+		// If the function exists and is build-in or external, skip
+		if(index != index_none && !isOverload && exFunctions[index]->address == -1)
+		{
+			funcRemap.push_back(index);
+			continue;
+		}
+		// If the function exists and is internal, check if redefinition is allowed
+		if(index != index_none && !isOverload)
+		{
+			if(redefinitions)
+			{
+				sprintf(execError, "Warning: function '%s' is redefined", fInfo->name);
+			}else{
+				sprintf(execError, "Link Error: function '%s' is redefined", fInfo->name);
+				return false;
+			}
+		}
+		if(index == index_none || isOverload)
+		{
+			funcRemap.push_back(exFunctions.size());
+
+			exFunctions.push_back((ExternFuncInfo*)(new char[fInfo->structSize]));
+			memcpy(exFunctions.back(), fInfo, fInfo->structSize);
+
+			exFunctions.back()->name = (char*)(&exFunctions.back()->name) + sizeof(exFunctions.back()->name);
+			exFunctions.back()->next = NULL;	// no one cares
+			exFunctions.back()->paramList = (unsigned int*)((char*)(&exFunctions.back()->name) + sizeof(fInfo->name) + fInfo->nameLength + 1);
+
+			// Type index have to be updated
+			exFunctions.back()->retType = typeRemap[exFunctions.back()->retType];
+			if(exFunctions.back()->funcPtr != NULL && exTypes[exFunctions.back()->retType]->size > 8 && exTypes[exFunctions.back()->retType]->type != ExternTypeInfo::TYPE_DOUBLE)
+			{
+				strcpy(execError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
+				return false;
+			}
+			for(unsigned int n = 0; n < exFunctions.back()->paramCount; n++)
+				exFunctions.back()->paramList[n] = typeRemap[((unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1))[n]];
+
+			if(fInfo->funcType == ExternFuncInfo::LOCAL)
+			{
+				exFunctions.back()->address -= bCode->globalCodeStart;
+				allFunctionSize -= fInfo->codeSize;
+				continue;
+			}
+			// Add function code to the bytecode,
+			// shifting global code forward,
+			// fixing all jump addresses in global code
+
+			if(exFunctions.back()->address != -1)
+			{
+				unsigned int shift = fInfo->codeSize;
+				unsigned int oldCodeSize = exCode.size();
+				// Expand bytecode
+				exCode.resize(exCode.size() + shift);
+				// Move global code
+				memmove(&exCode[offsetToGlobalCode] + shift, &exCode[offsetToGlobalCode], oldCodeSize-offsetToGlobalCode);
+				// Insert function code
+				memcpy(&exCode[offsetToGlobalCode], FindCode(bCode) + fInfo->address, shift);
+				// Update function position
+			
+				exFunctions.back()->address = offsetToGlobalCode;
+				// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in function code
+				int pos = exFunctions.back()->address;
+				while(pos < exFunctions.back()->address + exFunctions.back()->codeSize)
+				{
+					CmdID cmd = *(CmdID*)(&exCode[pos]);
+					CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
+					switch(cmd)
+					{
+					case cmdPushCharAbs:
+					case cmdPushShortAbs:
+					case cmdPushIntAbs:
+					case cmdPushFloatAbs:
+					case cmdPushDorLAbs:
+					case cmdPushCmplxAbs:
+					case cmdPush:
+					case cmdMov:
+						*(unsigned int*)(&exCode[pos+4]) += oldGlobalSize;
+						break;
+					case cmdJmp:
+						*(unsigned int*)(&exCode[pos+2]) += exFunctions.back()->address - fInfo->address;
+						break;
+					case cmdJmpZ:
+					case cmdJmpNZ:
+						*(unsigned int*)(&exCode[pos+3]) += exFunctions.back()->address - fInfo->address;
+						break;
+					}
+					pos += CommandList::GetCommandLength(cmd, cFlag);
+				}
+				// Update global code start
+				offsetToGlobalCode += shift;
+			}
+		}else{
+			funcRemap.push_back(index);
+			assert(!"No function rewrite at the moment");
+		}
+	}
+
+	for(unsigned int n = oldExFuncSize; n < exFunctions.size(); n++)
+	{
+		if(exFunctions[n]->funcType == ExternFuncInfo::LOCAL)
+			exFunctions[n]->address += offsetToGlobalCode;
+		if(exFunctions.back()->address != -1)
+		{
+			// Fix cmdCall in function code
+			int pos = exFunctions.back()->address;
+			while(pos < exFunctions.back()->address + exFunctions.back()->codeSize)
+			{
+				CmdID cmd = *(CmdID*)(&exCode[pos]);
+				CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
+				switch(cmd)
+				{
+				case cmdCall:
+					if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
+					{
+                        const unsigned int index_none = ~0u;
+                        
+						unsigned int index = index_none;
+						ExternFuncInfo *fInfo = FindFirstFunc(bCode);
+						for(unsigned int n = 0; n < bCode->functionCount && index == index_none; n++, fInfo = FindNextFunc(fInfo))
+							if(*(int*)(&exCode[pos+2]) == fInfo->oldAddress)
+								index = n;
+						assert(index != index_none);
+						*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[index]]->address;
+					}
+					break;
+				case cmdCallStd:
+					*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+					break;
+				case cmdFuncAddr:
+					*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+					break;
+				}
+				pos += CommandList::GetCommandLength(cmd, cFlag);
+			}
+		}
+	}
+
+	unsigned int oldCodeSize = exCode.size();
+	// Fix cmdJmp* in old code
+	unsigned int pos = offsetToGlobalCode;
+	while(pos < oldCodeSize)
+	{
+		CmdID cmd = *(CmdID*)(&exCode[pos]);
+		CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
+		switch(cmd)
+		{
+		case cmdJmp:
+			*(unsigned int*)(&exCode[pos+2]) += offsetToGlobalCode - oldOffsetToGlobalCode;
+			break;
+		case cmdJmpZ:
+		case cmdJmpNZ:
+			*(unsigned int*)(&exCode[pos+3]) += offsetToGlobalCode - oldOffsetToGlobalCode;
+			break;
+		}
+		pos += CommandList::GetCommandLength(cmd, cFlag);
+	}
+
+	// Add new global code
+
+	// Expand bytecode
+	exCode.resize(exCode.size() + bCode->codeSize - allFunctionSize);
+	// Insert function code
+	memcpy(&exCode[oldCodeSize], FindCode(bCode) + allFunctionSize, bCode->codeSize - allFunctionSize);
+
+	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
+	pos = oldCodeSize;
+	while(pos < exCode.size())
+	{
+		CmdID cmd = *(CmdID*)(&exCode[pos]);
+		CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
+		switch(cmd)
+		{
+		case cmdPushCharAbs:
+		case cmdPushShortAbs:
+		case cmdPushIntAbs:
+		case cmdPushFloatAbs:
+		case cmdPushDorLAbs:
+		case cmdPushCmplxAbs:
+		case cmdPush:
+		case cmdMov:
+			*(unsigned int*)(&exCode[pos+4]) += oldGlobalSize;
+			break;
+		case cmdJmp:
+			*(unsigned int*)(&exCode[pos+2]) += oldCodeSize - allFunctionSize;
+			break;
+		case cmdJmpZ:
+		case cmdJmpNZ:
+			*(unsigned int*)(&exCode[pos+3]) += oldCodeSize - allFunctionSize;
+			break;
+		case cmdCall:
+			if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
+			{
+                const unsigned int index_none = ~0u;
+                
+				unsigned int index = index_none;
+				ExternFuncInfo *fInfo = FindFirstFunc(bCode);
+				for(unsigned int n = 0; n < bCode->functionCount && index == index_none; n++, fInfo = FindNextFunc(fInfo))
+					if(*(int*)(&exCode[pos+2]) == fInfo->oldAddress)
+						index = n;
+				if(index != index_none)
+					*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[index]]->address;
+				else
+					*(unsigned int*)(&exCode[pos+2]) += oldCodeSize - allFunctionSize;
+			}
+			break;
+		case cmdCallStd:
+			*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+			break;
+		case cmdFuncAddr:
+			*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+			break;
+		}
+		pos += CommandList::GetCommandLength(cmd, cFlag);
+	}
+
+	exFuncInfo.resize(exFunctions.size());
+	for(unsigned int n = 0; n < exFunctions.size(); n++)
+	{
+		ExternFuncInfo* funcInfoPtr = exFunctions[n];
+
+		if(funcInfoPtr->funcPtr && !CreateExternalInfo(funcInfoPtr, exFuncInfo[n]))
+		{
+			sprintf(execError, "Link Error: External function info failed for '%s'", fInfo->name);
+			return false;
+		}
+	}
+
+#ifdef NULLC_LOG_FILES
+	ostringstream logASM;
+	logASM.str("");
+	CommandList::PrintCommandListing(&logASM, &exCode[0], &exCode[exCode.size()]);
+
+	ofstream m_FileStream("link.txt", std::ios::binary);
+	m_FileStream << logASM.str();
+	m_FileStream.flush();
+#endif
+
 	return true;
 }
 
@@ -70,12 +469,12 @@ int runResult = 0;
 int runResult2 = 0;
 OperFlag runResultType = OTYPE_DOUBLE;
 
-UINT stackReallocs;
+unsigned int stackReallocs;
 
-UINT expCodePublic;
-UINT expAllocCode;
-UINT expECXstate;
-DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
+unsigned int expCodePublic;
+unsigned int expAllocCode;
+unsigned int expECXstate;
+DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 {
 	expECXstate = expInfo->ContextRecord->Ecx;
 	expCodePublic = expCode;
@@ -126,11 +525,11 @@ DWORD CanWeHandleSEH(UINT expCode, _EXCEPTION_POINTERS* expInfo)
 #pragma warning(disable: 4731)
 void ExecutorX86::Run(const char* funcName) throw()
 {
-	/*if(!bytecode)
+	if(!exCode.size())
 	{
 		strcpy(execError, "ERROR: no code to run");
 		return;
-	}*/
+	}
 
 	execError[0] = 0;
 
@@ -140,17 +539,17 @@ void ExecutorX86::Run(const char* funcName) throw()
 	*(double*)(paramData+8) = 3.1415926535897932384626433832795;
 	*(double*)(paramData+16) = 2.7182818284590452353602874713527;
 
-	UINT binCodeStart = static_cast<UINT>(reinterpret_cast<long long>(&binCode[20]));
+	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
 
 	if(funcName)
 	{
-		UINT funcPos = (unsigned int)-1;
-		UINT fnameHash = GetStringHash(funcName);
-		for(int i = (int)funcInfo.size()-1; i >= 0; i--)
+		unsigned int funcPos = (unsigned int)-1;
+		unsigned int fnameHash = GetStringHash(funcName);
+		for(int i = (int)exFunctions.size()-1; i >= 0; i--)
 		{
-			if(funcInfo[i]->nameHash == fnameHash)
+			if(exFunctions[i]->nameHash == fnameHash)
 			{
-				funcPos = CodeInfo::funcInfo[i]->externalInfo.startInByteCode;
+				funcPos = exFuncInfo[i].startInByteCode;
 				break;
 			}
 		}
@@ -160,18 +559,22 @@ void ExecutorX86::Run(const char* funcName) throw()
 			return;
 		}
 		binCodeStart += funcPos;
+	}else{
+		binCodeStart += globalStartInBytecode;
 	}
 
-	UINT res1 = 0;
-	UINT res2 = 0;
-	UINT resT = 0;
+	unsigned int varSize = globalVarSize;
+
+	unsigned int res1 = 0;
+	unsigned int res2 = 0;
+	unsigned int resT = 0;
 	__try 
 	{
 		__asm
 		{
 			pusha ; // Сохраним все регистры
 			mov eax, binCodeStart ;
-
+			
 			// Выравниваем стек на границу 8 байт
 			lea ebx, [esp+8];
 			and ebx, 0fh;
@@ -182,8 +585,8 @@ void ExecutorX86::Run(const char* funcName) throw()
 			push ecx; // Сохраним на сколько сдвинули стек
 			push ebp; // Сохраним базу стека (её придётся востановить до popa)
 
+			mov edi, varSize ;
 			mov ebp, 0h ;
-			mov edi, CodeInfo::globalSize ;
 
 			call eax ; // в ebx тип вернувшегося значения
 
@@ -229,9 +632,9 @@ void ExecutorX86::GenListing()
 {
 	logASM.str("");
 
-	UINT pos = 0, pos2 = 0;
+	unsigned int pos = 0, pos2 = 0;
 	CmdID	cmd, cmdNext;
-	UINT	valind, valind2;
+	unsigned int	valind, valind2;
 
 	CmdFlag cFlag;
 	OperFlag oFlag;
@@ -241,41 +644,34 @@ void ExecutorX86::GenListing()
 	vector<unsigned int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
 	vector<unsigned int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
 
-	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	globalStartInBytecode = 0xffffffff;
+	for(unsigned int i = 0; i < exFunctions.size(); i++)
 	{
-		CodeInfo::funcInfo[i]->externalInfo.startInByteCode = 0xffffff;
-		if(CodeInfo::funcInfo[i]->funcPtr == NULL && CodeInfo::funcInfo[i]->address != -1)
-			funcNeedLabel.push_back(CodeInfo::funcInfo[i]->address);
+		exFuncInfo[i].startInByteCode = 0xffffffff;
+		if(exFunctions[i]->funcPtr == NULL && exFunctions[i]->address != -1)
+			funcNeedLabel.push_back(exFunctions[i]->address);
 	}
 
-	FunctionInfo *funcInfo;
-
 	//Узнаем, кому нужны лейблы
-	while(cmdList->GetData(pos, cmd))
+	while(pos < exCode.size())
 	{
-		pos += 2;
-		CodeInfo::cmdList->GetUSHORT(pos, cFlag);
+		CmdID cmd = *(CmdID*)(&exCode[pos]);
+		CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
 		switch(cmd)
 		{
 		case cmdJmp:
-			cmdList->GetUINT(pos, valind);
-			instrNeedLabel.push_back(valind);
+			instrNeedLabel.push_back(*(unsigned int*)(&exCode[pos+2]));
 			break;
 		case cmdJmpZ:
-			cmdList->GetUINT(pos+1, valind);
-			instrNeedLabel.push_back(valind);
-			break;
 		case cmdJmpNZ:
-			cmdList->GetUINT(pos+1, valind);
-			instrNeedLabel.push_back(valind);
+			instrNeedLabel.push_back(*(unsigned int*)(&exCode[pos+3]));
 			break;
 		}
-		pos += CommandList::GetCommandLength(cmd, cFlag) - 2;
+		pos += CommandList::GetCommandLength(cmd, cFlag);
 	}
 
 	logASM << "use32\r\n";
-	logASM << "push ebp\r\n";
-	UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
+	unsigned int typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 
 	int pushLabels = 1;
 	int movLabels = 1;
@@ -295,14 +691,15 @@ void ExecutorX86::GenListing()
 
 	bool skipPop = false;
 
-	UINT lastVarSize = 0;
+	unsigned int lastVarSize = 0;
 	bool mulByVarSize = false;
 
 	pos = 0;
 	pos2 = 0;
-	while(cmdList->GetData(pos, cmd))
+	while(pos < exCode.size())
 	{
-		for(UINT i = 0; i < instrNeedLabel.size(); i++)
+		cmd = *(CmdID*)(&exCode[pos]);
+		for(unsigned int i = 0; i < instrNeedLabel.size(); i++)
 		{
 			if(pos == instrNeedLabel[i])
 			{
@@ -310,7 +707,7 @@ void ExecutorX86::GenListing()
 				break;
 			}
 		}
-		for(UINT i = 0; i < funcNeedLabel.size(); i++)
+		for(unsigned int i = 0; i < funcNeedLabel.size(); i++)
 		{
 			if(pos == funcNeedLabel[i])
 			{
@@ -320,11 +717,17 @@ void ExecutorX86::GenListing()
 			}
 		}
 
+		if(pos == offsetToGlobalCode)
+		{
+			logASM << "  dd " << (('G' << 24) | offsetToGlobalCode) << "; global marker \r\n";
+			logASM << "push ebp\r\n";
+		}
+
 		pos2 = pos;
 		pos += 2;
-		const char *descStr = cmdList->GetDescription(pos2);
-		if(descStr)
-			logASM << "\r\n  ; \"" << descStr << "\" codeinfo\r\n";
+	//	const char *descStr = cmdList->GetDescription(pos2);
+	//	if(descStr)
+	//		logASM << "\r\n  ; \"" << descStr << "\" codeinfo\r\n";
 
 		switch(cmd)
 		{
@@ -336,39 +739,37 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdCallStd:
 			logASM << "  ; CALLSTD ";
-			cmdList->GetData(pos, funcInfo);
-			pos += sizeof(FunctionInfo*);
-			if(!funcInfo)
-				throw std::string("ERROR: std function info is invalid");
+			valind = *(unsigned int*)(&exCode[pos]);
+			pos += sizeof(unsigned int);
 
-			if(funcInfo->funcPtr == NULL)
+			if(exFunctions[valind]->funcPtr == NULL)
 			{
-				if(funcInfo->name == "cos")
+				if(exFunctions[valind]->nameHash == GetStringHash("cos"))
 				{
 					logASM << "cos \r\n";
 					logASM << "fld qword [esp] \r\n";
 					logASM << "fsincos \r\n";
 					logASM << "fstp qword [esp] \r\n";
 					logASM << "fstp st \r\n";
-				}else if(funcInfo->name == "sin"){
+				}else if(exFunctions[valind]->nameHash == GetStringHash("sin")){
 					logASM << "sin \r\n";
 					logASM << "fld qword [esp] \r\n";
 					logASM << "fsincos \r\n";
 					logASM << "fstp st \r\n";
 					logASM << "fstp qword [esp] \r\n";
-				}else if(funcInfo->name == "tan"){
+				}else if(exFunctions[valind]->nameHash == GetStringHash("tan")){
 					logASM << "tan \r\n";
 					logASM << "fld qword [esp] \r\n";
 					logASM << "fptan \r\n";
 					logASM << "fstp st \r\n";
 					logASM << "fstp qword [esp] \r\n";
-				}else if(funcInfo->name == "ctg"){
+				}else if(exFunctions[valind]->nameHash == GetStringHash("ctg")){
 					logASM << "ctg \r\n";
 					logASM << "fld qword [esp] \r\n";
 					logASM << "fptan \r\n";
 					logASM << "fdivrp \r\n";
 					logASM << "fstp qword [esp] \r\n";
-				}else if(funcInfo->name == "ceil"){
+				}else if(exFunctions[valind]->nameHash == GetStringHash("ceil")){
 					logASM << "ceil \r\n";
 					logASM << "fld qword [esp] \r\n";
 					logASM << "push eax ; сюда положим флаг fpu \r\n";
@@ -379,7 +780,7 @@ void ExecutorX86::GenListing()
 					logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
 					logASM << "fstp qword [esp+4] \r\n";
 					logASM << "pop eax ; \r\n";
-				}else if(funcInfo->name == "floor"){
+				}else if(exFunctions[valind]->nameHash == GetStringHash("floor")){
 					logASM << "floor \r\n";
 					logASM << "fld qword [esp] \r\n";
 					logASM << "push eax ; сюда положим флаг fpu \r\n";
@@ -390,28 +791,28 @@ void ExecutorX86::GenListing()
 					logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
 					logASM << "fstp qword [esp+4] \r\n";
 					logASM << "pop eax ; \r\n";
-				}else if(funcInfo->name == "sqrt"){
+				}else if(exFunctions[valind]->nameHash == GetStringHash("sqrt")){
 					logASM << "sqrt \r\n";
 					logASM << "fld qword [esp] \r\n";
 					logASM << "fsqrt \r\n";
 					logASM << "fstp qword [esp] \r\n";
 					logASM << "fstp st \r\n";
 				}else{
-					throw std::string("ERROR: there is no such function: ") + funcInfo->name;
+					throw std::string("ERROR: there is no such function: ") + exFunctions[valind]->name;
 				}
 			}else{
-				if(funcInfo->retType->size > 4 && funcInfo->retType->type != TypeInfo::TYPE_DOUBLE)
+				if(exTypes[exFunctions[valind]->retType]->size > 4 && exTypes[exFunctions[valind]->retType]->type != TypeInfo::TYPE_DOUBLE)
 					throw std::string("ERROR: user functions with return type size larger than 4 bytes are not supported");
-				UINT bytesToPop = 0;
-				for(UINT i = 0; i < funcInfo->params.size(); i++)
+				unsigned int bytesToPop = 0;
+				for(unsigned int i = 0; i < exFunctions[valind]->paramCount; i++)
 				{
-					bytesToPop += funcInfo->params[i].varType->size > 4 ? funcInfo->params[i].varType->size : 4;
+					bytesToPop += exTypes[exFunctions[valind]->paramList[i]]->size > 4 ? exTypes[exFunctions[valind]->paramList[i]]->size : 4;
 				}
-				logASM << funcInfo->name << "\r\n";
-				logASM << "mov ecx, 0x" << funcInfo->funcPtr << " ; " << funcInfo->name << "() \r\n";
+				logASM << exFunctions[valind]->name << "\r\n";
+				logASM << "mov ecx, 0x" << exFunctions[valind]->funcPtr << " ; " << exFunctions[valind]->name << "() \r\n";
 				logASM << "call ecx \r\n";
 				logASM << "add esp, " << bytesToPop << " \r\n";
-				if(funcInfo->retType->size != 0)
+				if(exTypes[exFunctions[valind]->retType]->size != 0)
 					logASM << "push eax \r\n";
 			}
 			break;
@@ -428,9 +829,9 @@ void ExecutorX86::GenListing()
 		case cmdCall:
 			{
 				RetFlag retFlag;
-				cmdList->GetUINT(pos, valind);
+				valind = *(unsigned int*)(&exCode[pos]);
 				pos += 4;
-				cmdList->GetUSHORT(pos, retFlag);
+				retFlag = *(unsigned short*)(&exCode[pos]);
 				pos += 2;
 				logASM << "  ; CALL " << valind << " ret " << (retFlag & bitRetSimple ? "simple " : "") << "size: ";
 				if(retFlag & bitRetSimple)
@@ -503,11 +904,11 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdReturn:
 			{
-				USHORT	retFlag, popCnt;
+				unsigned short	retFlag, popCnt;
 				logASM << "  ; RET\r\n";
-				cmdList->GetUSHORT(pos, retFlag);
+				retFlag = *(unsigned short*)(&exCode[pos]);
 				pos += 2;
-				cmdList->GetUSHORT(pos, popCnt);
+				popCnt = *(unsigned short*)(&exCode[pos]);
 				pos += 2;
 				if(retFlag & bitRetError)
 				{
@@ -541,7 +942,7 @@ void ExecutorX86::GenListing()
 						logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
 					}
 					if(popCnt == 0)
-						logASM << "mov ebx, " << (UINT)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
+						logASM << "mov ebx, " << (unsigned int)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
 				}else{
 					if(retFlag == 4)
 					{
@@ -587,7 +988,7 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdPushV:
 			logASM << "  ; PUSHV\r\n";
-			cmdList->GetData(pos, &valind, sizeof(int));
+			valind = *(int*)(&exCode[pos]);
 			pos += sizeof(int);
 			logASM << "add edi, " << valind << " ; добавили место под новые переменные в стеке\r\n";
 			break;
@@ -596,9 +997,9 @@ void ExecutorX86::GenListing()
 			logASM << "nop \r\n";
 			break;
 		case cmdCTI:
-			cmdList->GetUCHAR(pos, oFlag);
+			oFlag = *(unsigned char*)(&exCode[pos]);
 			pos += 1;
-			cmdList->GetUINT(pos, valind);
+			valind = *(unsigned int*)(&exCode[pos]);
 			pos += 4;
 			logASM << "  ; CTI " << valind << "\r\n";
 			switch(oFlag)
@@ -615,7 +1016,7 @@ void ExecutorX86::GenListing()
 				break;
 			}
 			//look at the next command
-			cmdList->GetData(pos, cmdNext);
+			cmdNext = *(CmdID*)(&exCode[pos]);
 			if(valind != 1)
 			{
 				char *indexPlace = "dword [esp]";
@@ -658,10 +1059,10 @@ void ExecutorX86::GenListing()
 		case cmdPushImmt:
 			{
 				logASM << "  ; PUSHIMMT\r\n";
-				UINT	highDW = 0, lowDW = 0;
-				USHORT sdata;
-				UCHAR cdata;
-				cmdList->GetUSHORT(pos, cFlag);
+				unsigned int	highDW = 0, lowDW = 0;
+				unsigned short sdata;
+				unsigned char cdata;
+				cFlag = *(unsigned short*)(&exCode[pos]);
 				pos += 2;
 				st = flagStackType(cFlag);
 				dt = flagDataType(cFlag);
@@ -674,23 +1075,23 @@ void ExecutorX86::GenListing()
 
 				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
-					cmdList->GetUINT(pos, highDW); pos += 4;
-					cmdList->GetUINT(pos, lowDW); pos += 4;
+					highDW = *(unsigned int*)(&exCode[pos]); pos += 4;
+					lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
 					logASM << "push " << lowDW << "\r\n";
 					logASM << "push " << highDW << " ; положили double или long long\r\n";
 				}
 				if(dt == DTYPE_FLOAT)
 				{
 					// Кладём флоат как double
-					cmdList->GetUINT(pos, lowDW); pos += 4;
+					lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
 					double res = (double)*((float*)(&lowDW));
-					logASM << "push " << *((UINT*)(&res)+1) << "\r\n";
-					logASM << "push " << *((UINT*)(&res)) << " ; положили float как double\r\n";
+					logASM << "push " << *((unsigned int*)(&res)+1) << "\r\n";
+					logASM << "push " << *((unsigned int*)(&res)) << " ; положили float как double\r\n";
 				}
 				if(dt == DTYPE_INT)
 				{
 					//look at the next command
-					cmdList->GetData(pos+4, cmdNext);
+					cmdNext = *(CmdID*)(&exCode[pos+4]);
 					if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
 					{
 						needPush = texts[4];
@@ -699,12 +1100,12 @@ void ExecutorX86::GenListing()
 					if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
 					{
 						CmdFlag lcFlag;
-						cmdList->GetUSHORT(pos+6, lcFlag);
+						lcFlag = *(unsigned short*)(&exCode[pos+6]);
 						if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
 							knownEDXOnPush = true;
 					}
 
-					cmdList->GetUINT(pos, lowDW); pos += 4;
+					lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
 					if(knownEDXOnPush)
 						edxValueForPush = (int)lowDW;
 					else
@@ -712,13 +1113,13 @@ void ExecutorX86::GenListing()
 				}
 				if(dt == DTYPE_SHORT)
 				{
-					cmdList->GetUSHORT(pos, sdata); pos += 2;
+					sdata = *(unsigned short*)(&exCode[pos]); pos += 2;
 					lowDW = (sdata > 0 ? sdata : sdata | 0xFFFF0000);
 					logASM << "push " << lowDW << " ; положили short\r\n";
 				}
 				if(dt == DTYPE_CHAR)
 				{
-					cmdList->GetUCHAR(pos, cdata); pos += 1;
+					cdata = *(unsigned char*)(&exCode[pos]); pos += 1;
 					lowDW = cdata;
 					logASM << "push " << lowDW << " ; положили char\r\n";
 				}
@@ -728,10 +1129,10 @@ void ExecutorX86::GenListing()
 			{
 				logASM << "  ; PUSH\r\n";
 				int valind = -1, /*shift, */size;
-				UINT	highDW = 0, lowDW = 0;
-				USHORT sdata;
-				UCHAR cdata;
-				cmdList->GetUSHORT(pos, cFlag);
+				unsigned int	highDW = 0, lowDW = 0;
+				unsigned short sdata;
+				unsigned char cdata;
+				cFlag = *(unsigned short*)(&exCode[pos]);
 				pos += 2;
 				st = flagStackType(cFlag);
 				dt = flagDataType(cFlag);
@@ -743,13 +1144,13 @@ void ExecutorX86::GenListing()
 				if(flagAddrAbs(cFlag) && !addEBPtoEDXOnPush)
 					needEBP = texts[0];
 				addEBPtoEDXOnPush = false;
-				UINT numEDX = 0;
+				unsigned int numEDX = 0;
 
 				// Если читается из переменной и...
 				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagShiftStk(cFlag))
 				{
 					// ...есть адрес в команде и имеется сдвиг в стеке
-					cmdList->GetINT(pos, valind);
+					valind = *(int*)(&exCode[pos]);
 					pos += 4;
 					if(knownEDXOnPush)
 					{
@@ -794,7 +1195,7 @@ void ExecutorX86::GenListing()
 				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
 				{
 					// ...есть адрес в команде
-					cmdList->GetINT(pos, valind);
+					valind = *(int*)(&exCode[pos]);
 					pos += 4;
 
 					needEDX = texts[0];
@@ -803,7 +1204,7 @@ void ExecutorX86::GenListing()
 
 				if(flagSizeOn(cFlag))
 				{
-					cmdList->GetINT(pos, size);
+					size = *(int*)(&exCode[pos]);
 					pos += 4;
 					logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
 					logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
@@ -826,23 +1227,23 @@ void ExecutorX86::GenListing()
 				{
 					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 					{
-						cmdList->GetUINT(pos, highDW); pos += 4;
-						cmdList->GetUINT(pos, lowDW); pos += 4;
+						highDW = *(unsigned int*)(&exCode[pos]); pos += 4;
+						lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
 						logASM << "push " << lowDW << "\r\n";
 						logASM << "push " << highDW << " ; положили double или long long\r\n";
 					}
 					if(dt == DTYPE_FLOAT)
 					{
 						// Кладём флоат как double
-						cmdList->GetUINT(pos, lowDW); pos += 4;
+						lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
 						double res = (double)*((float*)(&lowDW));
-						logASM << "push " << *((UINT*)(&res)+1) << "\r\n";
-						logASM << "push " << *((UINT*)(&res)) << " ; положили float как double\r\n";
+						logASM << "push " << *((unsigned int*)(&res)+1) << "\r\n";
+						logASM << "push " << *((unsigned int*)(&res)) << " ; положили float как double\r\n";
 					}
 					if(dt == DTYPE_INT)
 					{
 						//look at the next command
-						cmdList->GetData(pos+4, cmdNext);
+						cmdNext = *(CmdID*)(&exCode[pos+4]);
 						if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
 						{
 							needPush = texts[4];
@@ -851,12 +1252,12 @@ void ExecutorX86::GenListing()
 						if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
 						{
 							CmdFlag lcFlag;
-							cmdList->GetUSHORT(pos+6, lcFlag);
+							lcFlag = *(unsigned short*)(&exCode[pos+6]);
 							if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
 								knownEDXOnPush = true;
 						}
 
-						cmdList->GetUINT(pos, lowDW); pos += 4;
+						lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
 						if(knownEDXOnPush)
 							edxValueForPush = (int)lowDW;
 						else
@@ -864,30 +1265,30 @@ void ExecutorX86::GenListing()
 					}
 					if(dt == DTYPE_SHORT)
 					{
-						cmdList->GetUSHORT(pos, sdata); pos += 2;
+						sdata = *(unsigned short*)(&exCode[pos]); pos += 2;
 						lowDW = (sdata > 0 ? sdata : sdata | 0xFFFF0000);
 						logASM << "push " << lowDW << " ; положили short\r\n";
 					}
 					if(dt == DTYPE_CHAR)
 					{
-						cmdList->GetUCHAR(pos, cdata); pos += 1;
+						cdata = *(unsigned char*)(&exCode[pos]); pos += 1;
 						lowDW = cdata;
 						logASM << "push " << lowDW << " ; положили char\r\n";
 					}
 				}else{
-					UINT sizeOfVar = 0;
+					unsigned int sizeOfVar = 0;
 					if(dt == DTYPE_COMPLEX_TYPE)
 					{
-						cmdList->GetUINT(pos, sizeOfVar);
+						sizeOfVar = *(unsigned int*)(&exCode[pos]);
 						pos += 4;
 					}
 
 					//look at the next command
-					cmdList->GetData(pos, cmdNext);
+					cmdNext = *(CmdID*)(&exCode[pos]);
 
 					if(dt == DTYPE_COMPLEX_TYPE)
 					{
-						UINT currShift = sizeOfVar;
+						unsigned int currShift = sizeOfVar;
 						while(sizeOfVar >= 4)
 						{
 							currShift -= 4;
@@ -941,7 +1342,7 @@ void ExecutorX86::GenListing()
 						if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
 						{
 							CmdFlag lcFlag;
-							cmdList->GetUSHORT(pos+2, lcFlag);
+							lcFlag = *(unsigned short*)(&exCode[pos+2]);
 							if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
 							{
 								skipPopEDXOnPush = true;
@@ -973,18 +1374,18 @@ void ExecutorX86::GenListing()
 				logASM << "  ; MOV\r\n";
 				int valind = -1, size;
 
-				cmdList->GetUSHORT(pos, cFlag);
+				cFlag = *(unsigned short*)(&exCode[pos]);
 				pos += 2;
 				st = flagStackType(cFlag);
 				dt = flagDataType(cFlag);
 
-				UINT numEDX = 0;
+				unsigned int numEDX = 0;
 				bool knownEDX = false;
 
 				// Если имеется сдвиг в стеке
 				if(flagShiftStk(cFlag))
 				{
-					cmdList->GetINT(pos, valind);
+					valind = *(int*)(&exCode[pos]);
 					pos += 4;
 					if(knownEDXOnPush)
 					{
@@ -1027,7 +1428,7 @@ void ExecutorX86::GenListing()
 						}
 					}
 				}else{
-					cmdList->GetINT(pos, valind);
+					valind = *(int*)(&exCode[pos]);
 					pos += 4;
 
 					knownEDX = true;
@@ -1036,7 +1437,7 @@ void ExecutorX86::GenListing()
 
 				if(flagSizeOn(cFlag))
 				{
-					cmdList->GetINT(pos, size);
+					size = *(int*)(&exCode[pos]);
 					pos += 4;
 					logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
 					logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
@@ -1068,17 +1469,17 @@ void ExecutorX86::GenListing()
 				if(flagAddrRelTop(cFlag))
 					needEBP = useEDI;
 
-				UINT final = paramBase+numEDX;
+				unsigned int final = paramBase+numEDX;
 
-				UINT sizeOfVar = 0;
+				unsigned int sizeOfVar = 0;
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
-					cmdList->GetUINT(pos, sizeOfVar);
+					sizeOfVar = *(unsigned int*)(&exCode[pos]);
 					pos += 4;
 				}
 
 				//look at the next command
-				cmdList->GetData(pos, cmdNext);
+				cmdNext = *(CmdID*)(&exCode[pos]);
 				if(cmdNext == cmdPop)
 					skipPop = true;
 
@@ -1086,7 +1487,7 @@ void ExecutorX86::GenListing()
 				{
 					if(skipPop)
 					{
-						UINT currShift = 0;
+						unsigned int currShift = 0;
 						while(sizeOfVar >= 4)
 						{
 							logASM << "pop dword [" << needEDX << needEBP << final+currShift << "] ; присвоили часть complex\r\n";
@@ -1095,7 +1496,7 @@ void ExecutorX86::GenListing()
 						}
 						assert(sizeOfVar == 0);
 					}else{
-						UINT currShift = sizeOfVar;
+						unsigned int currShift = sizeOfVar;
 						while(sizeOfVar >= 4)
 						{
 							currShift -= 4;
@@ -1211,40 +1612,25 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdPop:
 			logASM << "  ; POP\r\n";
-			//cmdList->GetUSHORT(pos, cFlag);
-			//pos += 2;
-			//st = flagStackType(cFlag);
 
 			if(skipPop)
 			{
-				//if(st == STYPE_COMPLEX_TYPE)
 				pos += 4;
 				skipPop = false;
 				break;
 			}
 
-			//if(
-
-			//if(st == STYPE_DOUBLE || st == STYPE_LONG)
-			//{
-			//	logASM << "add esp, 8 ; убрали double или long\r\n";
-			//}else if(st == STYPE_COMPLEX_TYPE){
-
-			cmdList->GetUINT(pos, valind);
+			valind = *(unsigned int*)(&exCode[pos]);
 			pos += 4;
 			if(valind == 4)
 				logASM << "pop eax ; убрали int\r\n";
 			else
 				logASM << "add esp, " << valind << " ; убрали complex\r\n";
-
-			//}else{
-			//	logASM << "pop eax ; убрали int\r\n";
-			//}
 			break;
 		case cmdRTOI:
 			{
 				logASM << "  ; RTOI\r\n";
-				cmdList->GetUSHORT(pos, cFlag);
+				cFlag = *(unsigned short*)(&exCode[pos]);
 				pos += 2;
 
 				asmStackType st = flagStackType(cFlag);
@@ -1264,7 +1650,7 @@ void ExecutorX86::GenListing()
 		case cmdITOR:
 			{
 				logASM << "  ; ITOR\r\n";
-				cmdList->GetUSHORT(pos, cFlag);
+				cFlag = *(unsigned short*)(&exCode[pos]);
 				pos += 2;
 				asmStackType st = flagStackType(cFlag);
 				asmDataType dt = flagDataType(cFlag);
@@ -1296,7 +1682,7 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdSwap:
 			logASM << "  ; SWAP\r\n";
-			cmdList->GetUSHORT(pos, cFlag);
+			cFlag = *(unsigned short*)(&exCode[pos]);
 			pos += 2;
 			switch(cFlag)
 			{
@@ -1334,7 +1720,7 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdCopy:
 			logASM << "  ; COPY\r\n";
-			cmdList->GetUCHAR(pos, oFlag);
+			oFlag = *(unsigned char*)(&exCode[pos]);
 			pos += 1;
 			switch(oFlag)
 			{
@@ -1353,7 +1739,7 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdJmp:
 			logASM << "  ; JMP\r\n";
-			cmdList->GetUINT(pos, valind);
+			valind = *(unsigned int*)(&exCode[pos]);
 			pos += 4;
 			{
 				bool jFar = false;
@@ -1365,9 +1751,9 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdJmpZ:
 			logASM << "  ; JMPZ\r\n";
-			cmdList->GetUCHAR(pos, oFlag);
+			oFlag = *(unsigned char*)(&exCode[pos]);
 			pos += 1;
-			cmdList->GetUINT(pos, valind);
+			valind = *(unsigned int*)(&exCode[pos]);
 			pos += 4;
 
 			if(oFlag == OTYPE_DOUBLE)
@@ -1392,9 +1778,9 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdJmpNZ:
 			logASM << "  ; JMPNZ\r\n";
-			cmdList->GetUCHAR(pos, oFlag);
+			oFlag = *(unsigned char*)(&exCode[pos]);
 			pos += 1;
-			cmdList->GetUINT(pos, valind);
+			valind = *(unsigned int*)(&exCode[pos]);
 			pos += 4;
 			if(oFlag == OTYPE_DOUBLE)
 			{
@@ -1418,11 +1804,11 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdSetRange:
 			logASM << "  ; SETRANGE\r\n";
-			cmdList->GetUSHORT(pos, cFlag);
+			cFlag = *(unsigned short*)(&exCode[pos]);
 			pos += 2;
-			cmdList->GetUINT(pos, valind);
+			valind = *(unsigned int*)(&exCode[pos]);
 			pos += 4;
-			cmdList->GetUINT(pos, valind2);
+			valind2 = *(unsigned int*)(&exCode[pos]);
 			pos += 4;
 			logASM << "lea ebx, [ebp + " << paramBase+valind << "] ; начальный адрес\r\n";
 			logASM << "lea ecx, [ebp + " << paramBase+valind+(valind2-1)*typeSizeD[(cFlag>>2)&0x00000007] << "] ; конечный адрес\r\n";
@@ -1469,13 +1855,13 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdGetAddr:
 			logASM << "  ; GETADDR\r\n";
-			cmdList->GetUINT(pos, valind);
+			valind = *(unsigned int*)(&exCode[pos]);
 			pos += 4;
-			cmdList->GetData(pos, cmdNext);
+			cmdNext = *(CmdID*)(&exCode[pos]);
 			if(cmdNext == cmdPush)
 			{
 				CmdFlag lcFlag;
-				cmdList->GetUSHORT(pos+2, lcFlag);
+				lcFlag = *(unsigned short*)(&exCode[pos+3]);
 				if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
 					knownEDXOnPush = true;
 			}
@@ -1495,28 +1881,26 @@ void ExecutorX86::GenListing()
 			break;
 		case cmdFuncAddr:
 		{
-			cmdList->GetData(pos, funcInfo);
-			pos += sizeof(FunctionInfo*);
-			if(!funcInfo)
-				throw std::string("ERROR: std function info is invalid");
+			valind = *(unsigned int*)(&exCode[pos]);
+			pos += sizeof(unsigned int);
 
-			if(funcInfo->funcPtr == NULL)
+			if(exFunctions[valind]->funcPtr == NULL)
 			{
-				logASM << "lea eax, [function" << funcInfo->address << " + " << binCodeStart << "] ; адрес функции \r\n";
+				logASM << "lea eax, [function" << exFunctions[valind]->address << " + " << binCodeStart << "] ; адрес функции \r\n";
 				logASM << "push eax ; \r\n";
 			}else{
-				logASM << "push 0x" << funcInfo->funcPtr << " \r\n";
+				logASM << "push 0x" << exFunctions[valind]->funcPtr << " \r\n";
 			}
 			break;
 		}
 		}
 		if(cmd >= cmdAdd && cmd <= cmdLogXor)
 		{
-			cmdList->GetUCHAR(pos, oFlag);
+			oFlag = *(unsigned char*)(&exCode[pos]);
 			pos += 1;
 
 			//look at the next command
-			cmdList->GetData(pos, cmdNext);
+			cmdNext = *(CmdID*)(&exCode[pos]);
 
 			bool skipFstpOnDoubleALU = false;
 			if(cmdNext >= cmdAdd && cmdNext <= cmdNEqual)
@@ -2246,7 +2630,7 @@ void ExecutorX86::GenListing()
 		}
 		if(cmd >= cmdNeg && cmd <= cmdLogNot)
 		{
-			cmdList->GetUCHAR(pos, oFlag);
+			oFlag = *(unsigned char*)(&exCode[pos]);
 			pos += 1;
 			switch(cmd + (oFlag << 16))
 			{
@@ -2316,7 +2700,7 @@ void ExecutorX86::GenListing()
 		{
 			int valind = -1, size;
 
-			cmdList->GetUSHORT(pos, cFlag);
+			cFlag = *(unsigned short*)(&exCode[pos]);
 			pos += 2;
 			dt = flagDataType(cFlag);
 
@@ -2327,13 +2711,13 @@ void ExecutorX86::GenListing()
 			char *typeNameD[] = { "char", "short", "int", "long", "float", "double" };
 			logASM << typeNameD[dt/4] << "\r\n";
 
-			UINT numEDX = 0;
+			unsigned int numEDX = 0;
 			bool knownEDX = false;
 			
 			// Если имеется сдвиг в стеке
 			if(flagShiftStk(cFlag))
 			{
-				cmdList->GetINT(pos, valind);
+				valind = *(int*)(&exCode[pos]);
 				pos += 4;
 				if(knownEDXOnPush)
 				{
@@ -2376,7 +2760,7 @@ void ExecutorX86::GenListing()
 					}
 				}
 			}else{
-				cmdList->GetINT(pos, valind);
+				valind = *(int*)(&exCode[pos]);
 				pos += 4;
 
 				knownEDX = true;
@@ -2385,7 +2769,7 @@ void ExecutorX86::GenListing()
 
 			if(flagSizeOn(cFlag))
 			{
-				cmdList->GetINT(pos, size);
+				size = *(int*)(&exCode[pos]);
 				pos += 4;
 				logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
 				logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
@@ -2413,7 +2797,7 @@ void ExecutorX86::GenListing()
 				needEBP = texts[0];
 			addEBPtoEDXOnPush = false;
 
-			UINT final = paramBase+numEDX;
+			unsigned int final = paramBase+numEDX;
 			switch(cmd + (dt << 16))
 			{
 			case cmdIncAt+(DTYPE_DOUBLE<<16):
@@ -2578,7 +2962,7 @@ void ExecutorX86::GenListing()
 			}
 		}
 	}
-	logASM << "  gLabel" << CodeInfo::cmdList->GetCurrPos() << ": \r\n";
+	logASM << "  gLabel" << pos << ": \r\n";
 	logASM << "pop ebp\r\n";
 	logASM << "ret; final return, if user skipped it\r\n";
 
@@ -2603,7 +2987,7 @@ void ExecutorX86::GenListing()
 		x86Cmd = optiMan.HashListing(logASMstr.c_str(), (int)logASMstr.length());
 		std::vector<std::string> *optiList = optiMan.Optimize();
 #ifdef NULLC_LOG_FILES
-		for(UINT i = 0; i < optiList->size(); i++)
+		for(unsigned int i = 0; i < optiList->size(); i++)
 			m_FileStream << (*optiList)[i] << "\r\n";
 #else
 		(void)optiList;
@@ -2982,11 +3366,15 @@ void ExecutorX86::GenListing()
 #ifdef NULLC_X86_CMP_FASM
 			code += 4;
 #endif
-			for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+			for(unsigned int i = 0; i < exFunctions.size(); i++)
 			{
-				int marker = (('N' << 24) | CodeInfo::funcInfo[i]->address);
+				int marker = (('N' << 24) | exFunctions[i]->address);
 				if(marker == cmd.argA.num)
-					CodeInfo::funcInfo[i]->externalInfo.startInByteCode = (int)(code-bytecode);
+					exFuncInfo[i].startInByteCode = (int)(code-bytecode);
+			}
+			if(cmd.argA.num == int(('G' << 24) | offsetToGlobalCode))
+			{
+				globalStartInBytecode = (int)(code-bytecode);
 			}
 			break;
 		case o_label:
@@ -3041,7 +3429,7 @@ void ExecutorX86::GenListing()
 		throw std::string("Failed to open output file");
 	
 	fseek(fCode, 0, SEEK_END);
-	UINT size = ftell(fCode);
+	unsigned int size = ftell(fCode);
 	fseek(fCode, 0, SEEK_SET);
 	if(size > 200000)
 		throw std::string("Byte code is too big (size > 200000)");

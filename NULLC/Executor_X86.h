@@ -29,17 +29,35 @@ private:
 	char	execError[256];
 	char	execResult[64];
 
+	FastVector<ExternTypeInfo*>	exTypes;
+	FastVector<ExternVarInfo*>	exVariables;
+	FastVector<ExternFuncInfo*>	exFunctions;
+	FastVector<char>			exCode;
+	unsigned int				globalVarSize;
+	unsigned int				offsetToGlobalCode;
+
+	struct ExternalFunctionInfo
+	{
+		unsigned int startInByteCode;
+#if defined(_MSC_VER)
+		unsigned int bytesToPop;
+#elif defined(__CELLOS_LV2__)
+		unsigned int rOffsets[8];
+		unsigned int fOffsets[8];
+#endif
+	};
+	FastVector<ExternalFunctionInfo>	exFuncInfo;
+	bool CreateExternalInfo(ExternFuncInfo *fInfo, ExecutorX86::ExternalFunctionInfo& externalInfo);
+
 	int	optimize;
+	unsigned int		globalStartInBytecode;
 
 	ostringstream		logASM;
 
-	char		*bytecode;
-	ByteCode	*codeInfo;
-
 	char	*paramData;
-	UINT	paramBase;
+	unsigned int	paramBase;
 
 	unsigned char	*binCode;
-	UINT	binCodeStart;
-	UINT	binCodeSize;
+	unsigned int	binCodeStart;
+	unsigned int	binCodeSize;
 };

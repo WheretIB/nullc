@@ -20,7 +20,7 @@ public:
 		if(err.line[0] != 0)
 			str << "\r\n  at \"" << err.line << '\"';
 		str << "\r\n      ";
-		for(UINT i = 0; i < err.shift; i++)
+		for(unsigned int i = 0; i < err.shift; i++)
 			str << ' ';
 		str << "^\r\n";
 		return str;
@@ -30,8 +30,8 @@ public:
 private:
 	char error[128];
 	char line[128];
-	UINT shift;
-	UINT lineNum;
+	unsigned int shift;
+	unsigned int lineNum;
 };
 
 class Compiler

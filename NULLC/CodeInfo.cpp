@@ -7,8 +7,8 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 {
 	compileLog << "GetReferenceType(" << type->GetTypeName() << ")\r\n";
 	// Поищем нужный тип в списке
-	UINT targetRefLevel = type->refLevel+1;
-	for(UINT i = 0; i < typeInfo.size(); i++)
+	unsigned int targetRefLevel = type->refLevel+1;
+	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
 		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetRefLevel == typeInfo[i]->refLevel)
 		{
@@ -43,7 +43,7 @@ TypeInfo* CodeInfo::GetDereferenceType(TypeInfo* type)
 }
 
 // Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
-TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, UINT sizeInArgument)
+TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 {
 	int arrSize = -1;
 	bool unFixed = false;
@@ -84,10 +84,10 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, UINT sizeInArgument)
 		throw CompilerError("ERROR: Array size can't be negative or zero", lastKnownStartPos);
 	compileLog << "GetArrayType(" << type->GetTypeName() << ", " << arrSize << ")\r\n";
 	// Поищем нужный тип в списке
-	UINT targetArrLevel = type->arrLevel+1;
-	for(UINT i = 0; i < typeInfo.size(); i++)
+	unsigned int targetArrLevel = type->arrLevel+1;
+	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
-		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (UINT)arrSize)
+		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (unsigned int)arrSize)
 		{
 			compileLog << "  returns " << typeInfo[i]->GetTypeName() << " Address: " << typeInfo[i] << "\r\n";
 			return typeInfo[i];
@@ -138,7 +138,7 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 	// Find out the function type
 	TypeInfo	*bestFit = NULL;
 	// Search through active types
-	for(UINT i = 0; i < typeInfo.size(); i++)
+	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
 		if(typeInfo[i]->funcType)
 		{
@@ -147,7 +147,7 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 			if(typeInfo[i]->funcType->paramType.size() != info->params.size())
 				continue;
 			bool good = true;
-			for(UINT n = 0; n < info->params.size(); n++)
+			for(unsigned int n = 0; n < info->params.size(); n++)
 			{
 				if(info->params[n].varType != typeInfo[i]->funcType->paramType[n])
 				{
@@ -179,7 +179,7 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 		bestFit->type = TypeInfo::TYPE_COMPLEX;
 
 		bestFit->funcType->retType = info->retType;
-		for(UINT n = 0; n < info->params.size(); n++)
+		for(unsigned int n = 0; n < info->params.size(); n++)
 		{
 			bestFit->funcType->paramType.push_back(info->params[n].varType);
 		}

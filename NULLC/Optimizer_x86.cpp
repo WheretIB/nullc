@@ -320,10 +320,10 @@ void ClassifyInstruction(Command& cmd, const char *strRep)
 std::vector<Command>* Optimizer_x86::HashListing(const char* pListing, int strSize)
 {
 	// Create text without comments, empty lines and other trash
-	UINT originalSize = strSize;
+	unsigned int originalSize = strSize;
 	char *clearText = new char[originalSize+1];
 	char *currPos = clearText;
-	for(UINT i = 0; i < originalSize; i++)
+	for(unsigned int i = 0; i < originalSize; i++)
 	{
 		// Skip everything before command name or comment
 		while(!((pListing[i] >= 'a' && pListing[i] <= 'z') || (pListing[i] >= 'A' && pListing[i] <= 'Z') || pListing[i] == ';'))
@@ -396,7 +396,7 @@ void Optimizer_x86::OptimizePushPop()
 {
 	int optimize_count = 0;
 
-	for(UINT i = 0; i < Commands.size(); i++)
+	for(unsigned int i = 0; i < Commands.size(); i++)
 	{
 		// Optimizations for "push num ... pop [location]" and "push register ... pop location"
 		if(Commands[i].Name == o_pop && Commands[i].argA.type == Argument::ptr)
@@ -632,7 +632,7 @@ void Optimizer_x86::HashListing(const char* pListing)
 	Commands.resize(Strings.size());
 
 	// Classify instruction
-	for(UINT n = 0; n < Strings.size(); n++)
+	for(unsigned int n = 0; n < Strings.size(); n++)
 	{
 		Commands[n].strName = &Strings[n];
 		ClassifyInstruction(Commands[n], Strings[n].c_str());

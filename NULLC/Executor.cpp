@@ -1,8 +1,6 @@
 #include "stdafx.h"
 #include "Executor.h"
 
-const unsigned int CALL_BY_POINTER = (unsigned int)-1;
-
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	#define DBG(x) x
 #else
@@ -36,9 +34,9 @@ long long vmLongPow(long long num, long long pow)
 bool Executor::CreateExternalInfo(ExternFuncInfo *fInfo, Executor::ExternalFunctionInfo& externalInfo)
 {
 	externalInfo.bytesToPop = 0;
-	for(UINT i = 0; i < fInfo->paramCount; i++)
+	for(unsigned int i = 0; i < fInfo->paramCount; i++)
 	{
-		UINT paramSize = exTypes[fInfo->paramList[i]]->size > 4 ? exTypes[fInfo->paramList[i]]->size : 4;
+		unsigned int paramSize = exTypes[fInfo->paramList[i]]->size > 4 ? exTypes[fInfo->paramList[i]]->size : 4;
 		externalInfo.bytesToPop += paramSize;
 	}
 	
@@ -54,7 +52,7 @@ bool Executor::CreateExternalInfo(ExternFuncInfo *fInfo, Executor::ExternalFunct
     // parse all parameters, fill offsets
     unsigned int offset = 0;
     
-	for (UINT i = 0; i < fInfo->paramCount; i++)
+	for (unsigned int i = 0; i < fInfo->paramCount; i++)
 	{
 	    const ExternTypeInfo& type = *exTypes[fInfo->paramList[i]];
 	    
@@ -130,11 +128,13 @@ void Executor::CleanCode()
 	offsetToGlobalCode = 0;
 }
 
-FastVector<unsigned int>	typeRemap;
-FastVector<unsigned int>	funcRemap;
-
 bool Executor::LinkCode(const char *code, int redefinitions)
 {
+	execError[0] = 0;
+
+	FastVector<unsigned int>	typeRemap(50);
+	FastVector<unsigned int>	funcRemap(50);
+
 	ByteCode *bCode = (ByteCode*)code;
 
 	typeRemap.clear();
@@ -497,13 +497,13 @@ void Executor::Run(const char* funcName) throw()
 	
 	genParams.resize(globalVarSize);
 
-	//UINT pos = 0, pos2 = 0;
+	//unsigned int pos = 0, pos2 = 0;
 	CmdID	cmd;
 	double	val = 0.0;
-	UINT	uintVal, uintVal2;
+	unsigned int	uintVal, uintVal2;
 
 	int		valind;
-	//UINT	cmdCount = 0;
+	//unsigned int	cmdCount = 0;
 	bool	done = false;
 
 	CmdFlag		cFlag;
@@ -511,16 +511,16 @@ void Executor::Run(const char* funcName) throw()
 	asmStackType st;
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-	UINT typeSizeS[] = { 4, 8, 4, 8 };
-	//UINT typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
+	unsigned int typeSizeS[] = { 4, 8, 4, 8 };
+	//unsigned int typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 #endif
 
 	execError[0] = 0;
 
-	UINT funcPos = 0;
+	unsigned int funcPos = 0;
 	if(funcName)
 	{
-		UINT fnameHash = GetStringHash(funcName);
+		unsigned int fnameHash = GetStringHash(funcName);
 		for(int i = (int)exFunctions.size()-1; i >= 0; i--)
 		{
 			if(exFunctions[i]->nameHash == fnameHash)
@@ -564,8 +564,8 @@ void Executor::Run(const char* funcName) throw()
 
 		if(genStackPtr <= genStackBase)
 		{
-			UINT *oldStack = genStackBase;
-			UINT oldSize = (unsigned int)(genStackTop-genStackBase);
+			unsigned int *oldStack = genStackBase;
+			unsigned int oldSize = (unsigned int)(genStackTop-genStackBase);
 			genStackBase = new unsigned int[oldSize+128];
 			genStackTop = genStackBase + oldSize + 128;
 			memcpy(genStackBase+128, oldStack, oldSize * sizeof(unsigned int));
@@ -637,12 +637,12 @@ void Executor::Run(const char* funcName) throw()
 			cmdStream += 2;
 
 			{
-				UINT currShift = *(unsigned int*)(cmdStream + 4);
+				unsigned int currShift = *(unsigned int*)(cmdStream + 4);
 				while(currShift >= 4)
 				{
 					currShift -= 4;
 					genStackPtr--;
-					*genStackPtr = *((UINT*)(&genParams[*(int*)cmdStream + currShift]));
+					*genStackPtr = *((unsigned int*)(&genParams[*(int*)cmdStream + currShift]));
 				}
 				DBG(genStackTypes.push_back((asmStackType)(*(unsigned int*)(cmdStream + 4)|0x80000000)));
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, *(int*)(cmdStream), STYPE_COMPLEX_TYPE | DTYPE_COMPLEX_TYPE, 0, 0, 0));
@@ -701,12 +701,12 @@ void Executor::Run(const char* funcName) throw()
 
 			{
 				int valind = *(int*)cmdStream + paramTop.back();
-				UINT currShift = *(unsigned int*)(cmdStream + 4);
+				unsigned int currShift = *(unsigned int*)(cmdStream + 4);
 				while(currShift >= 4)
 				{
 					currShift -= 4;
 					genStackPtr--;
-					*genStackPtr = *((UINT*)(&genParams[valind + currShift]));
+					*genStackPtr = *((unsigned int*)(&genParams[valind + currShift]));
 				}
 				DBG(genStackTypes.push_back((asmStackType)(*(unsigned int*)(cmdStream + 4)|0x80000000)));
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind + paramTop.back(), STYPE_COMPLEX_TYPE | DTYPE_COMPLEX_TYPE | bitAddrRel, 0, 0, 0));
@@ -763,14 +763,14 @@ void Executor::Run(const char* funcName) throw()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, *(int*)cmdStream + *genStackPtr, STYPE_COMPLEX_TYPE | DTYPE_COMPLEX_TYPE | bitShiftStk, 0, 0, 0));
 
 			{
-				UINT shift = *(int*)cmdStream + *genStackPtr;
+				unsigned int shift = *(int*)cmdStream + *genStackPtr;
 				genStackPtr++;
-				UINT currShift = *(unsigned int*)(cmdStream + 4);
+				unsigned int currShift = *(unsigned int*)(cmdStream + 4);
 				while(currShift >= 4)
 				{
 					currShift -= 4;
 					genStackPtr--;
-					*genStackPtr = *((UINT*)(&genParams[shift + currShift]));
+					*genStackPtr = *((unsigned int*)(&genParams[shift + currShift]));
 				}
 			}
 
@@ -793,13 +793,13 @@ void Executor::Run(const char* funcName) throw()
 				valind = *(int*)cmdStream;
 				cmdStream += 4;
 
-				UINT sizeOfVar = 0;
+				unsigned int sizeOfVar = 0;
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
 					sizeOfVar = *(unsigned int*)cmdStream;
 					cmdStream += 4;
 				}
-				UINT sizeOfVarConst = sizeOfVar;
+				unsigned int sizeOfVarConst = sizeOfVar;
 
 				valind += genParams.size();
 
@@ -807,11 +807,11 @@ void Executor::Run(const char* funcName) throw()
 					genParams.reserve(genParams.size()+128);
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
-					UINT currShift = sizeOfVar;
+					unsigned int currShift = sizeOfVar;
 					while(sizeOfVar >= 4)
 					{
 						currShift -= 4;
-						*((UINT*)(&genParams[valind+currShift])) = *(genStackPtr+sizeOfVar/4-1);
+						*((unsigned int*)(&genParams[valind+currShift])) = *(genStackPtr+sizeOfVar/4-1);
 						sizeOfVar -= 4;
 					}
 					genStackPtr += sizeOfVarConst / 4;
@@ -820,11 +820,11 @@ void Executor::Run(const char* funcName) throw()
 					*((float*)(&genParams[valind])) = float(*(double*)(genStackPtr));
 					genStackPtr += 2;
 				}else if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
-					*((UINT*)(&genParams[valind])) = *genStackPtr;
-					*((UINT*)(&genParams[valind+4])) = *(genStackPtr+1);
+					*((unsigned int*)(&genParams[valind])) = *genStackPtr;
+					*((unsigned int*)(&genParams[valind+4])) = *(genStackPtr+1);
 					genStackPtr += 2;
 				}else if(dt == DTYPE_INT){
-					*((UINT*)(&genParams[valind])) = *genStackPtr;
+					*((unsigned int*)(&genParams[valind])) = *genStackPtr;
 					genStackPtr++;
 				}else if(dt == DTYPE_SHORT){
 					*((short*)(&genParams[valind])) = *(short*)(genStackPtr);
@@ -839,8 +839,8 @@ void Executor::Run(const char* funcName) throw()
 			break;
 		case cmdPushImmt:
 			{
-				USHORT sdata;
-				UCHAR cdata;
+				unsigned short sdata;
+				unsigned char cdata;
 
 				cFlag = *(CmdFlag*)cmdStream;
 				cmdStream += 2;
@@ -899,13 +899,13 @@ void Executor::Run(const char* funcName) throw()
 			break;
 		case cmdPop:
 			{
-				UINT varSize = *(unsigned int*)cmdStream;
+				unsigned int varSize = *(unsigned int*)cmdStream;
 				cmdStream += 4;
 
 				genStackPtr += varSize >> 2;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-				UINT sizeOfVar = varSize;
-				UINT count = genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];
+				unsigned int sizeOfVar = varSize;
+				unsigned int count = genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];
 				for(unsigned int n = 0; n < sizeOfVar/count; n++)
 					genStackTypes.pop_back();
 #endif
@@ -915,8 +915,8 @@ void Executor::Run(const char* funcName) throw()
 		case cmdMov:
 			{
 				int valind = -1, shift = 0;
-				USHORT sdata;
-				UCHAR cdata;
+				unsigned short sdata;
+				unsigned char cdata;
 				cFlag = *(CmdFlag*)cmdStream;
 				cmdStream += 2;
 				st = flagStackType(cFlag);
@@ -935,7 +935,7 @@ void Executor::Run(const char* funcName) throw()
 					DBG(genStackTypes.pop_back());
 				}
 
-				UINT sizeOfVar = 0;
+				unsigned int sizeOfVar = 0;
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
 					sizeOfVar = *(unsigned int*)cmdStream;
@@ -949,11 +949,11 @@ void Executor::Run(const char* funcName) throw()
 
 				if(dt == DTYPE_COMPLEX_TYPE)
 				{
-					UINT currShift = sizeOfVar;
+					unsigned int currShift = sizeOfVar;
 					while(currShift >= 4)
 					{
 						currShift -= 4;
-						*((UINT*)(&genParams[valind+currShift])) = *(genStackPtr+(currShift>>2));
+						*((unsigned int*)(&genParams[valind+currShift])) = *(genStackPtr+(currShift>>2));
 					}
 					assert(currShift == 0);
 				}else if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)
@@ -961,15 +961,15 @@ void Executor::Run(const char* funcName) throw()
 					*((float*)(&genParams[valind])) = float(*(double*)(genStackPtr));
 				}else if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
 				{
-					*((UINT*)(&genParams[valind])) = *genStackPtr;
-					*((UINT*)(&genParams[valind+4])) = *(genStackPtr+1);
+					*((unsigned int*)(&genParams[valind])) = *genStackPtr;
+					*((unsigned int*)(&genParams[valind+4])) = *(genStackPtr+1);
 				}else if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
 				{
-					*((UINT*)(&genParams[valind])) = *genStackPtr;
+					*((unsigned int*)(&genParams[valind])) = *genStackPtr;
 				}else if(dt == DTYPE_SHORT)
 				{
 					sdata = (unsigned short)(*genStackPtr);
-					*((USHORT*)(&genParams[valind])) = sdata;
+					*((unsigned short*)(&genParams[valind])) = sdata;
 				}else if(dt == DTYPE_CHAR)
 				{
 					cdata = (unsigned char)(*genStackPtr);
@@ -1214,7 +1214,7 @@ void Executor::Run(const char* funcName) throw()
 			valtop = genParams.size();
 			paramTop.push_back(valtop);
 
-			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, (UINT)valtop, 0, 0));
+			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, (unsigned int)valtop, 0, 0));
 			break;
 		case cmdPopVTop:
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, paramTop.back(), 0, 0));
@@ -1223,7 +1223,7 @@ void Executor::Run(const char* funcName) throw()
 			break;
 		case cmdCall:
 			{
-				USHORT retFlag;
+				unsigned short retFlag;
 				uintVal = *(unsigned int*)cmdStream;
 				cmdStream += 4;
 				retFlag = *(unsigned short*)cmdStream;
@@ -1234,14 +1234,14 @@ void Executor::Run(const char* funcName) throw()
 					uintVal = *genStackPtr;
 					genStackPtr++;
 				}
-				fcallStack.push_back(cmdStream);// callStack.push_back(CallStackInfo(cmdStream, (UINT)genStackSize, uintVal));
+				fcallStack.push_back(cmdStream);// callStack.push_back(CallStackInfo(cmdStream, (unsigned int)genStackSize, uintVal));
 				cmdStream = cmdStreamBase + uintVal;
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0, retFlag));
 			}
 			break;
 		case cmdReturn:
 			{
-				USHORT	retFlag, popCnt;
+				unsigned short	retFlag, popCnt;
 				retFlag = *(unsigned short*)cmdStream;
 				cmdStream += 2;
 				popCnt = *(unsigned short*)cmdStream;
@@ -1309,7 +1309,7 @@ void Executor::Run(const char* funcName) throw()
 			cmdStream += 4;
 			
 			uintVal += paramTop.back();
-			for(UINT varNum = 0; varNum < uintVal2; varNum++)
+			for(unsigned int varNum = 0; varNum < uintVal2; varNum++)
 			{
 				switch(cFlag)
 				{
@@ -1791,10 +1791,10 @@ void Executor::Run(const char* funcName) throw()
 		}
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-		UINT typeSizeS[] = { 1, 2, 0, 2 };
+		unsigned int typeSizeS[] = { 1, 2, 0, 2 };
 		m_FileStream << " stack size " << genStackSize << "; stack vals " << genStackTypes.size() << "; param size " << genParams.size() << ";  // ";
 		assert(genStackTypes.size() < (1 << 16));
-		for(UINT i = 0, k = 0; i < genStackTypes.size(); i++)
+		for(unsigned int i = 0, k = 0; i < genStackTypes.size(); i++)
 		{
 			if(genStackTypes[i] & 0x80000000)
 			{
@@ -1819,18 +1819,18 @@ void Executor::Run(const char* funcName) throw()
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
-    UINT bytesToPop = exFuncInfo[funcID].bytesToPop;
+    unsigned int bytesToPop = exFuncInfo[funcID].bytesToPop;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-	UINT typeSizeS[] = { 4, 8, 4, 8 };
-    UINT paramSize = bytesToPop;
+	unsigned int typeSizeS[] = { 4, 8, 4, 8 };
+    unsigned int paramSize = bytesToPop;
     while(paramSize > 0)
     {
         paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];;
         genStackTypes.pop_back();
     }
 #endif
-    UINT *stackStart = (genStackPtr+bytesToPop/4-1);
-    for(UINT i = 0; i < bytesToPop/4; i++)
+    unsigned int *stackStart = (genStackPtr+bytesToPop/4-1);
+    for(unsigned int i = 0; i < bytesToPop/4; i++)
     {
         __asm mov eax, dword ptr[stackStart]
         __asm push dword ptr[eax];
@@ -1839,7 +1839,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
     genStackPtr += bytesToPop/4;
 
     void* fPtr = exFunctions[funcID]->funcPtr;
-    UINT fRes;
+    unsigned int fRes;
     __asm{
         mov ecx, fPtr;
         call ecx;
@@ -1930,7 +1930,7 @@ char* Executor::GetVariableData()
 	return &genParams[0];
 }
 
-void Executor::SetCallback(bool (*Func)(UINT))
+void Executor::SetCallback(bool (*Func)(unsigned int))
 {
 	m_RunCallback = Func;
 }
@@ -1938,21 +1938,21 @@ void Executor::SetCallback(bool (*Func)(UINT))
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 // распечатать инструкцию в читабельном виде в поток
-void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, const CmdFlag cFlag, const OperFlag oFlag, UINT dw0, UINT dw1)
+void PrintInstructionText(ostream* stream, CmdID cmd, unsigned int pos2, unsigned int valind, const CmdFlag cFlag, const OperFlag oFlag, unsigned int dw0, unsigned int dw1)
 {
 	asmStackType st = flagStackType(cFlag);
 	asmDataType dt = flagDataType(cFlag);
 	char*	typeInfoS[] = { "int", "long", "complex", "double" };
 	char*	typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
 
-	UINT	DWords[] = { dw0, dw1 };
+	unsigned int	DWords[] = { dw0, dw1 };
 
 	size_t beginPos = stream->tellp();
 	(*stream) << pos2;
 	char temp[32];
 	sprintf(temp, "%d", pos2);
-	UINT addSp = 5 - (UINT)strlen(temp);
-	for(UINT i = 0; i < addSp; i++)
+	unsigned int addSp = 5 - (unsigned int)strlen(temp);
+	for(unsigned int i = 0; i < addSp; i++)
 		(*stream) << ' ';
 	switch(cmd)
 	{
