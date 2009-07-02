@@ -589,7 +589,9 @@ public:
 		}
 		return size;
 	}
-	static void PrintCommandListing(ostream *logASM, char *cmdStream, char *cmdStreamEnd)
+	
+#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
+    static void PrintCommandListing(ostream *logASM, char *cmdStream, char *cmdStreamEnd)
 	{
 		UINT pos = 0, pos2 = 0;
 		CmdID	cmd;
@@ -1157,6 +1159,7 @@ public:
 			*logASM << "\r\n";
 		}
 	}
+#endif
 //private:
 	char*	bytecode;
 	UINT	curr;

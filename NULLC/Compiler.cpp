@@ -2797,7 +2797,7 @@ bool Compiler::Compile(string str)
 		nodeList.back()->LogToStream(graphlog);
 	graphFile << graphlog.str();
 	graphFile.close();
-#endif NULLC_LOG_FILES
+#endif
 
 	logAST << "\r\n" << warningLog.str();
 
@@ -2897,12 +2897,11 @@ string Compiler::GetLog()
 
 unsigned int GetTypeIndexByPtr(TypeInfo* type)
 {
-	unsigned int typeIndex = 0xffffffff;
-	for(unsigned int n = 0; (n < CodeInfo::typeInfo.size()) && (typeIndex == -1); n++)
+	for(unsigned int n = 0; n < CodeInfo::typeInfo.size(); n++)
 		if(CodeInfo::typeInfo[n] == type)
-			typeIndex = n;
-	assert(typeIndex != -1);
-	return typeIndex;
+			return n;
+	assert(!"type not found");
+	return ~0u;
 }
 
 unsigned int Compiler::GetBytecode(char **bytecode)

@@ -142,17 +142,19 @@ bool Executor::LinkCode(const char *code, int redefinitions)
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
 	for(unsigned int i = 0; i < bCode->typeCount; i++)
 	{
-		unsigned int index = 0xffffffff;
-		for(unsigned int n = 0; n < exTypes.size() && index == -1; n++)
+	    const unsigned int index_none = ~0u;
+	    
+		unsigned int index = index_none;
+		for(unsigned int n = 0; n < exTypes.size() && index == index_none; n++)
 			if(strcmp(exTypes[n]->name, tInfo->name) == 0)
 				index = n;
 
-		if(index != -1 && exTypes[index]->size != tInfo->size)
+		if(index != index_none && exTypes[index]->size != tInfo->size)
 		{
 			sprintf(execError, "Link Error: type '%s' is redefined with a different size", tInfo->name);
 			return false;
 		}
-		if(index == -1)
+		if(index == index_none)
 		{
 			typeRemap.push_back(exTypes.size());
 			exTypes.push_back((ExternTypeInfo*)(new char[tInfo->structSize]));
@@ -193,15 +195,17 @@ bool Executor::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo = FindNextFunc(fInfo))
 	{
 		allFunctionSize += fInfo->codeSize;
-
-		unsigned int index = 0xffffffff;
-		for(unsigned int n = 0; n < exFunctions.size() && index == -1; n++)
+		
+        const unsigned int index_none = ~0u;
+        
+		unsigned int index = index_none;
+		for(unsigned int n = 0; n < exFunctions.size() && index == index_none; n++)
 			if(strcmp(exFunctions[n]->name, fInfo->name) == 0)
 				index = n;
 
 		// Suppose, this is an overload function
 		bool isOverload = true;
-		if(index != -1)
+		if(index != index_none)
 		{
 			for(unsigned int n = 0; n < exFunctions.size() && isOverload == true; n++)
 			{
@@ -227,13 +231,13 @@ bool Executor::LinkCode(const char *code, int redefinitions)
 				isOverload = true;
 		}
 		// If the function exists and is build-in or external, skip
-		if(index != -1 && !isOverload && exFunctions[index]->address == -1)
+		if(index != index_none && !isOverload && exFunctions[index]->address == -1)
 		{
 			funcRemap.push_back(index);
 			continue;
 		}
 		// If the function exists and is internal, check if redefinition is allowed
-		if(index != -1 && !isOverload)
+		if(index != index_none && !isOverload)
 		{
 			if(redefinitions)
 			{
@@ -243,7 +247,7 @@ bool Executor::LinkCode(const char *code, int redefinitions)
 				return false;
 			}
 		}
-		if(index == -1 || isOverload)
+		if(index == index_none || isOverload)
 		{
 			funcRemap.push_back(exFunctions.size());
 
@@ -341,12 +345,14 @@ bool Executor::LinkCode(const char *code, int redefinitions)
 				case cmdCall:
 					if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
 					{
-						unsigned int index = 0xffffffff;
+                        const unsigned int index_none = ~0u;
+                        
+						unsigned int index = index_none;
 						ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-						for(unsigned int n = 0; n < bCode->functionCount && index == -1; n++, fInfo = FindNextFunc(fInfo))
+						for(unsigned int n = 0; n < bCode->functionCount && index == index_none; n++, fInfo = FindNextFunc(fInfo))
 							if(*(int*)(&exCode[pos+2]) == fInfo->oldAddress)
 								index = n;
-						assert(index != -1);
+						assert(index != index_none);
 						*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[index]]->address;
 					}
 					break;
@@ -417,12 +423,14 @@ bool Executor::LinkCode(const char *code, int redefinitions)
 		case cmdCall:
 			if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
 			{
-				unsigned int index = 0xffffffff;
+                const unsigned int index_none = ~0u;
+                
+				unsigned int index = index_none;
 				ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-				for(unsigned int n = 0; n < bCode->functionCount && index == -1; n++, fInfo = FindNextFunc(fInfo))
+				for(unsigned int n = 0; n < bCode->functionCount && index == index_none; n++, fInfo = FindNextFunc(fInfo))
 					if(*(int*)(&exCode[pos+2]) == fInfo->oldAddress)
 						index = n;
-				if(index != -1)
+				if(index != index_none)
 					*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[index]]->address;
 				else
 					*(unsigned int*)(&exCode[pos+2]) += oldCodeSize - allFunctionSize;
@@ -861,7 +869,16 @@ void Executor::Run(const char* funcName) throw()
 				if(dt == DTYPE_FLOAT && st == STYPE_DOUBLE)	//expand float to double
 				{
 					genStackPtr -= 2;
-					*(double*)(genStackPtr) = (double)(*((float*)(&lowDW)));
+					
+					union
+					{
+					    unsigned int ui;
+					    float f;
+					} u;
+					
+					u.ui = lowDW;
+					
+					*(double*)(genStackPtr) = u.f;
 				}else if(st == STYPE_DOUBLE || st == STYPE_LONG)
 				{
 					genStackPtr--;
@@ -1890,7 +1907,11 @@ const char* Executor::GetResult() throw()
 		sprintf(execResult, "%f", *(double*)(genStackPtr));
 		break;
 	case OTYPE_LONG:
+    #ifdef _MSC_VER
 		sprintf(execResult, "%I64dL", *(long long*)(genStackPtr));
+	#else
+		sprintf(execResult, "%lld", *(long long*)(genStackPtr));
+	#endif
 		break;
 	case OTYPE_INT:
 		sprintf(execResult, "%d", *(int*)(genStackPtr));
@@ -1899,7 +1920,7 @@ const char* Executor::GetResult() throw()
 	return execResult;
 }
 
-const char*	Executor::GetExecError()
+const char*	Executor::GetExecError() throw()
 {
 	return execError;
 }
@@ -1915,6 +1936,7 @@ void Executor::SetCallback(bool (*Func)(UINT))
 }
 
 
+#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 // распечатать инструкцию в читабельном виде в поток
 void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, const CmdFlag cFlag, const OperFlag oFlag, UINT dw0, UINT dw1)
 {
@@ -2296,3 +2318,4 @@ void PrintInstructionText(ostream* stream, CmdID cmd, UINT pos2, UINT valind, co
 			(*stream) << ' ';
 	
 }
+#endif
