@@ -2,16 +2,13 @@
 #include "stdafx.h"
 #include "ParseClass.h"
 
-#include "Bytecode.h"
+#include "Linker.h"
 
 class Executor
 {
 public:
-	Executor();
+	Executor(Linker* linker);
 	~Executor();
-
-	void	CleanCode();
-	bool	LinkCode(const char *bytecode, int redefinitions);
 
 	void	Run(const char* funcName = NULL) throw();
 
@@ -28,24 +25,12 @@ private:
 	char		execError[512];
 	char		execResult[64];
 
-	FastVector<ExternTypeInfo*>	exTypes;
-	FastVector<ExternVarInfo*>	exVariables;
-	FastVector<ExternFuncInfo*>	exFunctions;
-	FastVector<char>			exCode;
-	unsigned int				globalVarSize;
-	unsigned int				offsetToGlobalCode;
+	Linker		*exLinker;
 
-	struct ExternalFunctionInfo
-	{
-#if defined(_MSC_VER)
-		unsigned int bytesToPop;
-#elif defined(__CELLOS_LV2__)
-		unsigned int rOffsets[8];
-		unsigned int fOffsets[8];
-#endif
-	};
-	FastVector<ExternalFunctionInfo>	exFuncInfo;
-	bool CreateExternalInfo(ExternFuncInfo *fInfo, Executor::ExternalFunctionInfo& externalInfo);
+	FastVector<ExternTypeInfo*>	&exTypes;
+	FastVector<ExternFuncInfo*>	&exFunctions;
+	FastVector<ExternalFunctionInfo>	&exFuncInfo;
+	FastVector<char>			&exCode;
 
 	FastVector<asmStackType>	genStackTypes;
 
@@ -62,6 +47,8 @@ private:
 	bool (*m_RunCallback)(unsigned int);
 	
 	bool RunExternalFunction(unsigned int funcID);
+
+	void operator=(Executor& r){ (void)r; assert(false); }
 };
 
 void PrintInstructionText(ostream* stream, CmdID cmd, unsigned int pos2, unsigned int valind, const CmdFlag cFlag, const OperFlag oFlag, unsigned int dw0=0, unsigned int dw1=0);
