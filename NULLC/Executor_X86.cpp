@@ -262,12 +262,6 @@ bool ExecutorX86::LinkCode(const char *code, int redefinitions)
 			for(unsigned int n = 0; n < exFunctions.back()->paramCount; n++)
 				exFunctions.back()->paramList[n] = typeRemap[((unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1))[n]];
 
-			if(fInfo->funcType == ExternFuncInfo::LOCAL)
-			{
-				exFunctions.back()->address -= bCode->globalCodeStart;
-				allFunctionSize -= fInfo->codeSize;
-				continue;
-			}
 			// Add function code to the bytecode,
 			// shifting global code forward,
 			// fixing all jump addresses in global code
@@ -285,34 +279,6 @@ bool ExecutorX86::LinkCode(const char *code, int redefinitions)
 				// Update function position
 			
 				exFunctions.back()->address = offsetToGlobalCode;
-				// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in function code
-				int pos = exFunctions.back()->address;
-				while(pos < exFunctions.back()->address + exFunctions.back()->codeSize)
-				{
-					CmdID cmd = *(CmdID*)(&exCode[pos]);
-					CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
-					switch(cmd)
-					{
-					case cmdPushCharAbs:
-					case cmdPushShortAbs:
-					case cmdPushIntAbs:
-					case cmdPushFloatAbs:
-					case cmdPushDorLAbs:
-					case cmdPushCmplxAbs:
-					case cmdPush:
-					case cmdMov:
-						*(unsigned int*)(&exCode[pos+4]) += oldGlobalSize;
-						break;
-					case cmdJmp:
-						*(unsigned int*)(&exCode[pos+2]) += exFunctions.back()->address - fInfo->address;
-						break;
-					case cmdJmpZ:
-					case cmdJmpNZ:
-						*(unsigned int*)(&exCode[pos+3]) += exFunctions.back()->address - fInfo->address;
-						break;
-					}
-					pos += CommandList::GetCommandLength(cmd, cFlag);
-				}
 				// Update global code start
 				offsetToGlobalCode += shift;
 			}
@@ -322,33 +288,38 @@ bool ExecutorX86::LinkCode(const char *code, int redefinitions)
 		}
 	}
 
-	for(unsigned int n = oldExFuncSize; n < exFunctions.size(); n++)
+	for(unsigned int i = oldExFuncSize; i < exFunctions.size(); i++)
 	{
-		if(exFunctions[n]->funcType == ExternFuncInfo::LOCAL)
-			exFunctions[n]->address += offsetToGlobalCode;
-		if(exFunctions.back()->address != -1)
+		if(exFunctions[i]->address != -1)
 		{
-			// Fix cmdCall in function code
-			int pos = exFunctions.back()->address;
-			while(pos < exFunctions.back()->address + exFunctions.back()->codeSize)
+			// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in function code
+			int pos = exFunctions[i]->address;
+			while(pos < exFunctions[i]->address + exFunctions[i]->codeSize)
 			{
 				CmdID cmd = *(CmdID*)(&exCode[pos]);
 				CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
 				switch(cmd)
 				{
+				case cmdPushCharAbs:
+				case cmdPushShortAbs:
+				case cmdPushIntAbs:
+				case cmdPushFloatAbs:
+				case cmdPushDorLAbs:
+				case cmdPushCmplxAbs:
+				case cmdPush:
+				case cmdMov:
+					*(unsigned int*)(&exCode[pos+4]) += oldGlobalSize;
+					break;
+				case cmdJmp:
+					*(unsigned int*)(&exCode[pos+2]) += exFunctions[i]->address - exFunctions[i]->oldAddress;
+					break;
+				case cmdJmpZ:
+				case cmdJmpNZ:
+					*(unsigned int*)(&exCode[pos+3]) += exFunctions[i]->address - exFunctions[i]->oldAddress;
+					break;
 				case cmdCall:
 					if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
-					{
-                        const unsigned int index_none = ~0u;
-                        
-						unsigned int index = index_none;
-						ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-						for(unsigned int n = 0; n < bCode->functionCount && index == index_none; n++, fInfo = FindNextFunc(fInfo))
-							if(*(int*)(&exCode[pos+2]) == fInfo->oldAddress)
-								index = n;
-						assert(index != index_none);
-						*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[index]]->address;
-					}
+						*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[*(unsigned int*)(&exCode[pos+2])]]->address;
 					break;
 				case cmdCallStd:
 					*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
@@ -416,19 +387,7 @@ bool ExecutorX86::LinkCode(const char *code, int redefinitions)
 			break;
 		case cmdCall:
 			if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
-			{
-                const unsigned int index_none = ~0u;
-                
-				unsigned int index = index_none;
-				ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-				for(unsigned int n = 0; n < bCode->functionCount && index == index_none; n++, fInfo = FindNextFunc(fInfo))
-					if(*(int*)(&exCode[pos+2]) == fInfo->oldAddress)
-						index = n;
-				if(index != index_none)
-					*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[index]]->address;
-				else
-					*(unsigned int*)(&exCode[pos+2]) += oldCodeSize - allFunctionSize;
-			}
+				*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[*(unsigned int*)(&exCode[pos+2])]]->address;
 			break;
 		case cmdCallStd:
 			*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];

@@ -625,13 +625,6 @@ void NodeFuncDef::Compile()
 		return;
 	unsigned int startCmdSize = cmdList->GetCurrPos();
 
-	// Перед содержимым функции сделаем переход за её конец
-	// Код функций может быть смешан с кодом в глобальной области видимости, и его надо пропускать
-	if(funcInfo->type == FunctionInfo::LOCAL)
-	{
-		cmdList->AddData(cmdJmp);
-		cmdList->AddData(cmdList->GetCurrPos() + sizeof(CmdID) + sizeof(unsigned int) + 2*sizeof(unsigned short) + first->GetSize());
-	}
 	funcInfo->address = cmdList->GetCurrPos();
 	// Сгенерируем код функции
 	first->Compile();
@@ -664,7 +657,7 @@ unsigned int NodeFuncDef::GetSize()
 {
 	if(disabled)
 		return 0;
-	return first->GetSize() + ((funcInfo->type == FunctionInfo::LOCAL) ? sizeof(CmdID) + sizeof(unsigned int) : 0) + sizeof(CmdID) + 2*sizeof(unsigned short);
+	return first->GetSize() + sizeof(CmdID) + 2*sizeof(unsigned short);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -794,7 +787,8 @@ void NodeFuncCall::Compile()
 
 		// Вызовем по адресу
 		cmdList->AddData(cmdCall);
-		cmdList->AddData(funcInfo ? funcInfo->address : -1);
+		unsigned int ID = GetFuncIndexByPtr(funcInfo);
+		cmdList->AddData(funcInfo ? ID : -1);
 		cmdList->AddData((unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
 	}
 

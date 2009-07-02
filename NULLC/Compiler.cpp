@@ -1621,8 +1621,7 @@ void FunctionEnd(char const* s, char const* e)
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varFormerTop-varTop, false)));
 
 	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcInfo[i])));
-	if(funcInfo[i]->type != FunctionInfo::LOCAL)
-		funcDefList.push_back(nodeList.back());
+	funcDefList.push_back(nodeList.back());
 	strs.pop_back();
 
 	retTypeStack.pop_back();
@@ -3000,8 +2999,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		fInfo->funcPtr = CodeInfo::funcInfo[i]->funcPtr;
 		fInfo->isVisible = CodeInfo::funcInfo[i]->visible;
 		fInfo->funcType = (ExternFuncInfo::FunctionType)CodeInfo::funcInfo[i]->type;
-		if(fInfo->funcType != ExternFuncInfo::LOCAL)
-			offsetToGlobal += fInfo->codeSize;
+
+		offsetToGlobal += fInfo->codeSize;
 
 		fInfo->nameHash = CodeInfo::funcInfo[i]->nameHash;
 		fInfo->nameLength = (unsigned int)CodeInfo::funcInfo[i]->name.length();
