@@ -185,16 +185,6 @@ public:
 	TypeInfo	*funcType;				// Function type
 };
 
-class CallStackInfo
-{
-public:
-	CallStackInfo(){}
-	CallStackInfo(char* ncmd, unsigned int nnums, unsigned int nfunc): cmd(ncmd), func(nfunc), nums(nnums){}
-	char*		cmd;	//Next command position (RET operation will jump there)
-	unsigned int		func;	//Address of beginning of function
-	unsigned int		nums;	//General variable stack size to check if function really returned a value (This will be removed soon)
-};
-
 //VarTopInfo holds information about variable stack state
 //It is used to destroy variables when then go in and out of scope
 class VarTopInfo
