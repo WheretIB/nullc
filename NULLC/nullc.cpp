@@ -4,6 +4,7 @@
 #include "CodeInfo.h"
 
 #include "Compiler.h"
+#include "Linker.h"
 #include "Executor.h"
 #ifdef NULLC_BUILD_X86_JIT
 	#include "Executor_X86.h"
@@ -22,6 +23,7 @@ ostringstream				CodeInfo::compileLog;
 unsigned int				CodeInfo::globalSize = 0;
 
 Compiler*	compiler;
+Linker*		linker;
 Executor*	executor;
 #ifdef NULLC_BUILD_X86_JIT
 	ExecutorX86*	executorX86;
@@ -43,9 +45,10 @@ void	nullcInit()
 	CodeInfo::cmdList = new CommandList();
 
 	compiler = new Compiler();
-	executor = new Executor();
+	linker = new Linker();
+	executor = new Executor(linker);
 #ifdef NULLC_BUILD_X86_JIT
-	executorX86 = new ExecutorX86();
+	executorX86 = new ExecutorX86(linker);
 #endif
 }
 
@@ -109,14 +112,7 @@ const char*	nullcGetListing()
 
 void nullcClean()
 {
-	if(currExec == NULLC_VM)
-	{
-		executor->CleanCode();
-	}else if(currExec == NULLC_X86){
-#ifdef NULLC_BUILD_X86_JIT
-		executorX86->CleanCode();
-#endif
-	}
+	linker->CleanCode();
 }
 
 void nullcFixupBytecode(char *bytecode)
@@ -126,23 +122,14 @@ void nullcFixupBytecode(char *bytecode)
 
 nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 {
-	if(currExec == NULLC_VM)
+	if(!linker->LinkCode(bytecode, acceptRedefinitions))
 	{
-		if(!executor->LinkCode(bytecode, acceptRedefinitions))
-		{
-			executeLog = executor->GetExecError();
-			return false;
-		}
-		executeLog = executor->GetExecError();
-	}else if(currExec == NULLC_X86){
+		executeLog = linker->GetLinkError();
+		return false;
+	}
+	executeLog = linker->GetLinkError();
+	if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		if(!executorX86->LinkCode(bytecode, acceptRedefinitions))
-		{
-			executeLog = executorX86->GetExecError();
-			return false;
-		}
-		executeLog = executorX86->GetExecError();
-
 		try
 		{
 			executorX86->SetOptimization(execOptimize);

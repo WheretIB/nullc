@@ -3,19 +3,16 @@
 
 #include "ParseClass.h"
 
-#include "Bytecode.h"
+#include "Linker.h"
 
 class ExecutorX86
 {
 public:
-	ExecutorX86();
+	ExecutorX86(Linker *linker);
 	~ExecutorX86();
 
 	void	GenListing();
 	string	GetListing();
-
-	void	CleanCode();
-	bool	LinkCode(const char *bytecode, int redefinitions);
 
 	void	Run(const char* funcName = NULL) throw();
 
@@ -29,25 +26,12 @@ private:
 	char	execError[256];
 	char	execResult[64];
 
-	FastVector<ExternTypeInfo*>	exTypes;
-	FastVector<ExternVarInfo*>	exVariables;
-	FastVector<ExternFuncInfo*>	exFunctions;
-	FastVector<char>			exCode;
-	unsigned int				globalVarSize;
-	unsigned int				offsetToGlobalCode;
+	Linker		*exLinker;
 
-	struct ExternalFunctionInfo
-	{
-		unsigned int startInByteCode;
-#if defined(_MSC_VER)
-		unsigned int bytesToPop;
-#elif defined(__CELLOS_LV2__)
-		unsigned int rOffsets[8];
-		unsigned int fOffsets[8];
-#endif
-	};
-	FastVector<ExternalFunctionInfo>	exFuncInfo;
-	bool CreateExternalInfo(ExternFuncInfo *fInfo, ExecutorX86::ExternalFunctionInfo& externalInfo);
+	FastVector<ExternTypeInfo*>	&exTypes;
+	FastVector<ExternFuncInfo*>	&exFunctions;
+	FastVector<ExternalFunctionInfo>	&exFuncInfo;
+	FastVector<char>			&exCode;
 
 	int	optimize;
 	unsigned int		globalStartInBytecode;

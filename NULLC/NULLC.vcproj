@@ -340,6 +340,18 @@
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="Linker"
+			>
+			<File
+				RelativePath=".\Linker.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Linker.h"
+				>
+			</File>
+		</Filter>
 	</Files>
 	<Globals>
 	</Globals>
