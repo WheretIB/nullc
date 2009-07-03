@@ -75,18 +75,13 @@ void Executor::Run(const char* funcName) throw()
 	
 	genParams.resize(exLinker->globalVarSize);
 
-	//unsigned int pos = 0, pos2 = 0;
 	CmdID	cmd;
-	double	val = 0.0;
-	unsigned int	uintVal, uintVal2;
 
-	int		valind;
 	//unsigned int	cmdCount = 0;
 	bool	done = false;
 
 	CmdFlag		cFlag;
 	OperFlag	oFlag;
-	asmStackType st;
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	unsigned int typeSizeS[] = { 4, 8, 4, 8 };
@@ -423,7 +418,7 @@ void Executor::Run(const char* funcName) throw()
 				cFlag = *(CmdFlag*)cmdStream;
 				cmdStream += 2;
 
-				st = flagStackType(cFlag);
+				asmStackType st = flagStackType(cFlag);
 				asmDataType dt = flagDataType(cFlag);
 
 				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
@@ -497,7 +492,7 @@ void Executor::Run(const char* funcName) throw()
 				unsigned char cdata;
 				cFlag = *(CmdFlag*)cmdStream;
 				cmdStream += 2;
-				st = flagStackType(cFlag);
+				asmStackType st = flagStackType(cFlag);
 				asmDataType dt = flagDataType(cFlag);
 
 				valind = *(int*)cmdStream;
@@ -558,6 +553,8 @@ void Executor::Run(const char* funcName) throw()
 			}
 			break;
 		case cmdCTI:
+		{
+			unsigned int	uintVal, uintVal2;
 			oFlag = *(OperFlag*)cmdStream;
 			cmdStream++;
 			uintVal = *(unsigned int*)cmdStream;
@@ -582,6 +579,7 @@ void Executor::Run(const char* funcName) throw()
 			DBG(genStackTypes.pop_back());
 			DBG(genStackTypes.push_back(STYPE_INT));
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
+		}
 			break;
 		case cmdRTOI:
 			{
@@ -632,12 +630,12 @@ void Executor::Run(const char* funcName) throw()
 			break;
 		case cmdCallStd:
 			{
-				valind = *(unsigned int*)(cmdStream);
+				unsigned int valind = *(unsigned int*)(cmdStream);
 				cmdStream += sizeof(unsigned int);
 
 				if(exFunctions[valind]->funcPtr == NULL)
 				{
-					val = *(double*)(genStackPtr);
+					double val = *(double*)(genStackPtr);
 					DBG(genStackTypes.pop_back());
 
 					if(exFunctions[valind]->nameHash == GetStringHash("cos"))
@@ -671,6 +669,8 @@ void Executor::Run(const char* funcName) throw()
 			}
 			break;
 		case cmdSwap:
+		{
+			unsigned int valind;
 			cFlag = *(CmdFlag*)cmdStream;
 			cmdStream += 2;
 			switch(cFlag)
@@ -719,6 +719,7 @@ void Executor::Run(const char* funcName) throw()
 			DBG(genStackTypes[genStackTypes.size()-1] = st);
 
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, cFlag, 0));
+		}
 			break;
 		case cmdCopy:
 			oFlag = *(OperFlag*)cmdStream;
@@ -741,26 +742,29 @@ void Executor::Run(const char* funcName) throw()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, oFlag));
 			break;
 		case cmdJmp:
-			valind = *(int*)cmdStream;
-			cmdStream = cmdStreamBase + valind;
+			cmdStream = cmdStreamBase + *(int*)cmdStream;
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
 			break;
 		case cmdJmpZ:
 			oFlag = *(OperFlag*)cmdStream;
 			cmdStream++;
-			valind = *(int*)cmdStream;
-			cmdStream += 4;
 			if(oFlag == OTYPE_DOUBLE){
 				if(*(double*)(genStackPtr) == 0.0)
-					cmdStream = cmdStreamBase + valind;
+					cmdStream = cmdStreamBase + *(int*)cmdStream;
+				else
+					cmdStream += 4;
 				genStackPtr += 2;
 			}else if(oFlag == OTYPE_LONG){
 				if(*(long long*)(genStackPtr) == 0L)
-					cmdStream = cmdStreamBase + valind;
+					cmdStream = cmdStreamBase + *(int*)cmdStream;
+				else
+					cmdStream += 4;
 				genStackPtr += 2;
 			}else if(oFlag == OTYPE_INT){
 				if(*genStackPtr == 0)
-					cmdStream = cmdStreamBase + valind;
+					cmdStream = cmdStreamBase + *(int*)cmdStream;
+				else
+					cmdStream += 4;
 				genStackPtr++;
 			}
 			DBG(genStackTypes.pop_back());
@@ -769,19 +773,23 @@ void Executor::Run(const char* funcName) throw()
 		case cmdJmpNZ:
 			oFlag = *(OperFlag*)cmdStream;
 			cmdStream++;
-			valind = *(int*)cmdStream;
-			cmdStream += 4;
 			if(oFlag == OTYPE_DOUBLE){
 				if(*(double*)(genStackPtr) != 0.0)
-					cmdStream = cmdStreamBase + valind;
+					cmdStream = cmdStreamBase + *(int*)cmdStream;
+				else
+					cmdStream += 4;
 				genStackPtr += 2;
 			}else if(oFlag == OTYPE_LONG){
 				if(*(long long*)(genStackPtr) == 0L)
-					cmdStream = cmdStreamBase + valind;
+					cmdStream = cmdStreamBase + *(int*)cmdStream;
+				else
+					cmdStream += 4;
 				genStackPtr += 2;
 			}else if(oFlag == OTYPE_INT){
 				if(*genStackPtr != 0)
-					cmdStream = cmdStreamBase + valind;
+					cmdStream = cmdStreamBase + *(int*)cmdStream;
+				else
+					cmdStream += 4;
 				genStackPtr++;
 			}
 			DBG(genStackTypes.pop_back());
@@ -802,18 +810,18 @@ void Executor::Run(const char* funcName) throw()
 		case cmdCall:
 			{
 				unsigned short retFlag;
-				uintVal = *(unsigned int*)cmdStream;
+				unsigned int fAddress = *(unsigned int*)cmdStream;
 				cmdStream += 4;
 				retFlag = *(unsigned short*)cmdStream;
 				cmdStream += 2;
 
-				if(uintVal == CALL_BY_POINTER)
+				if(fAddress == CALL_BY_POINTER)
 				{
-					uintVal = *genStackPtr;
+					fAddress = *genStackPtr;
 					genStackPtr++;
 				}
 				fcallStack.push_back(cmdStream);// callStack.push_back(CallStackInfo(cmdStream, (unsigned int)genStackSize, uintVal));
-				cmdStream = cmdStreamBase + uintVal;
+				cmdStream = cmdStreamBase + fAddress;
 				DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0, retFlag));
 			}
 			break;
@@ -847,9 +855,8 @@ void Executor::Run(const char* funcName) throw()
 			}
 			break;
 		case cmdPushV:
-			valind = *(int*)cmdStream;
+			genParams.resize(genParams.size() + *(int*)cmdStream);
 			cmdStream += 4;
-			genParams.resize(genParams.size()+valind);
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, valind, 0, 0));
 			break;
 		case cmdNop:
@@ -859,12 +866,12 @@ void Executor::Run(const char* funcName) throw()
 		case cmdITOL:
 			if((int)(*genStackPtr) < 0)
 			{
-				valind = *genStackPtr;
+				unsigned int valind = *genStackPtr;
 				*genStackPtr = 0xFFFFFFFF;
 				genStackPtr--;
 				*genStackPtr = valind;
 			}else{
-				valind = *genStackPtr;
+				unsigned int valind = *genStackPtr;
 				*genStackPtr = 0;
 				genStackPtr--;
 				*genStackPtr = valind;
@@ -879,57 +886,59 @@ void Executor::Run(const char* funcName) throw()
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, 0, 0, 0));
 			break;
 		case cmdSetRange:
+		{
 			cFlag = *(CmdFlag*)cmdStream;
 			cmdStream += 2;
-			uintVal = *(unsigned int*)cmdStream;
+			unsigned int start = *(unsigned int*)cmdStream;
 			cmdStream += 4;
-			uintVal2 = *(unsigned int*)cmdStream;
+			unsigned int count = *(unsigned int*)cmdStream;
 			cmdStream += 4;
 			
-			uintVal += paramTop.back();
-			for(unsigned int varNum = 0; varNum < uintVal2; varNum++)
+			start += paramTop.back();
+			for(unsigned int varNum = 0; varNum < count; varNum++)
 			{
 				switch(cFlag)
 				{
 				case DTYPE_DOUBLE:
-					*((double*)(&genParams[uintVal])) = *(double*)(genStackPtr);
-					uintVal += 8;
+					*((double*)(&genParams[start])) = *(double*)(genStackPtr);
+					start += 8;
 					break;
 				case DTYPE_FLOAT:
-					*((float*)(&genParams[uintVal])) = float(*(double*)(genStackPtr));
-					uintVal += 4;
+					*((float*)(&genParams[start])) = float(*(double*)(genStackPtr));
+					start += 4;
 					break;
 				case DTYPE_LONG:
-					*((long long*)(&genParams[uintVal])) = *(long long*)(genStackPtr);
-					uintVal += 8;
+					*((long long*)(&genParams[start])) = *(long long*)(genStackPtr);
+					start += 8;
 					break;
 				case DTYPE_INT:
-					*((int*)(&genParams[uintVal])) = int(*genStackPtr);
-					uintVal += 4;
+					*((int*)(&genParams[start])) = int(*genStackPtr);
+					start += 4;
 					break;
 				case DTYPE_SHORT:
-					*((short*)(&genParams[uintVal])) = short(*genStackPtr);
-					uintVal += 2;
+					*((short*)(&genParams[start])) = short(*genStackPtr);
+					start += 2;
 					break;
 				case DTYPE_CHAR:
-					*((char*)(&genParams[uintVal])) = char(*genStackPtr);
-					uintVal += 1;
+					*((char*)(&genParams[start])) = char(*genStackPtr);
+					start += 1;
 					break;
 				}
 			}
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, cFlag, 0, uintVal2));
+		}
 			break;
 		case cmdGetAddr:
-			uintVal = *(unsigned int*)cmdStream;
+			genStackPtr--;
+			*genStackPtr = *(unsigned int*)cmdStream + paramTop.back();
 			cmdStream += 4;
 
-			genStackPtr--;
-			*genStackPtr = uintVal + paramTop.back();
 			DBG(genStackTypes.push_back(STYPE_INT));
 			DBG(PrintInstructionText(&m_FileStream, cmd, pos2, uintVal, 0, 0));
 			break;
 		case cmdFuncAddr:
-			valind = *(unsigned int*)(cmdStream);
+		{
+			unsigned int valind = *(unsigned int*)(cmdStream);
 			cmdStream += sizeof(unsigned int);
 
 			assert(sizeof(exFunctions[valind]->funcPtr) == 4);
@@ -940,8 +949,8 @@ void Executor::Run(const char* funcName) throw()
 			else
 				*genStackPtr = (unsigned int)((unsigned long long)(exFunctions[valind]->funcPtr));
 			DBG(genStackTypes.push_back(STYPE_INT));
+		}
 			break;
-
 		case cmdNeg:
 			oFlag = *(OperFlag*)cmdStream;
 			cmdStream++;
