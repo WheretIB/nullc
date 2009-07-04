@@ -37,11 +37,19 @@ template<typename T, bool zeroNewMemory = false>
 class FastVector
 {
 public:
-	FastVector(unsigned int reserved = 1000)
+	FastVector()
+	{
+		data = new T[256];
+		if(zeroNewMemory)
+			memset(data, 0, 256 * sizeof(T));
+		max = 256;
+		m_size = 0;
+	}
+	FastVector(unsigned int reserved)
 	{
 		data = new T[reserved];
 		if(zeroNewMemory)
-			memset(data, 0, reserved);
+			memset(data, 0, reserved * sizeof(T));
 		max = reserved;
 		m_size = 0;
 	}
@@ -71,8 +79,8 @@ private:
 		//assert(max+(max>>1) >= newSize);
 		T* ndata = new T[newSize];
 		if(zeroNewMemory)
-			memset(ndata, 0, newSize);
-		memcpy(ndata, data, max*sizeof(T));
+			memset(ndata, 0, newSize*sizeof(T));
+		memcpy(ndata, data, m_size*sizeof(T));
 		delete[] data;
 		data=ndata;
 		max=newSize;
