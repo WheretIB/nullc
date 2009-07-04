@@ -32,7 +32,7 @@ public:
 	FastVector<ExternTypeInfo*>	exTypes;
 	FastVector<ExternVarInfo*>	exVariables;
 	FastVector<ExternFuncInfo*>	exFunctions;
-	FastVector<char>			exCode;
+	FastVector<VMCmd>			exCode;
 	unsigned int				globalVarSize;
 	unsigned int				offsetToGlobalCode;
 

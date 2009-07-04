@@ -114,7 +114,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		if(index == index_none)
 		{
 			typeRemap.push_back(exTypes.size());
-			exTypes.push_back((ExternTypeInfo*)(new char[tInfo->structSize]));
+			exTypes.push_back((ExternTypeInfo*)(new char[tInfo->structSize + 16]));
 			memcpy(exTypes.back(), tInfo, tInfo->structSize);
 			exTypes.back()->name = (char*)(&exTypes.back()->name) + sizeof(exTypes.back()->name);
 			exTypes.back()->next = NULL;	// no one cares
@@ -236,9 +236,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				// Expand bytecode
 				exCode.resize(exCode.size() + shift);
 				// Move global code
-				memmove(&exCode[offsetToGlobalCode] + shift, &exCode[offsetToGlobalCode], oldCodeSize-offsetToGlobalCode);
+				if(oldCodeSize-offsetToGlobalCode > 0)
+					memmove(&exCode[offsetToGlobalCode] + shift, &exCode[offsetToGlobalCode], (oldCodeSize-offsetToGlobalCode) * sizeof(VMCmd));
 				// Insert function code
-				memcpy(&exCode[offsetToGlobalCode], FindCode(bCode) + fInfo->address, shift);
+				memcpy(&exCode[offsetToGlobalCode], FindCode(bCode) + fInfo->address * sizeof(VMCmd), shift * sizeof(VMCmd));
 				// Update function position
 			
 				exFunctions.back()->address = offsetToGlobalCode;
@@ -259,9 +260,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			int pos = exFunctions[i]->address;
 			while(pos < exFunctions[i]->address + exFunctions[i]->codeSize)
 			{
-				CmdID cmd = *(CmdID*)(&exCode[pos]);
-				CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
-				switch(cmd)
+				VMCmd &cmd = exCode[pos];
+				pos++;
+				switch(cmd.cmd)
 				{
 				case cmdPushCharAbs:
 				case cmdPushShortAbs:
@@ -269,29 +270,34 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				case cmdPushFloatAbs:
 				case cmdPushDorLAbs:
 				case cmdPushCmplxAbs:
-				case cmdPush:
-				case cmdMov:
-					*(unsigned int*)(&exCode[pos+4]) += oldGlobalSize;
+				case cmdMovCharAbs:
+				case cmdMovShortAbs:
+				case cmdMovIntAbs:
+				case cmdMovFloatAbs:
+				case cmdMovDorLAbs:
+				case cmdMovCmplxAbs:
+					cmd.argument += oldGlobalSize;
 					break;
 				case cmdJmp:
-					*(unsigned int*)(&exCode[pos+2]) += exFunctions[i]->address - exFunctions[i]->oldAddress;
-					break;
-				case cmdJmpZ:
-				case cmdJmpNZ:
-					*(unsigned int*)(&exCode[pos+3]) += exFunctions[i]->address - exFunctions[i]->oldAddress;
+				case cmdJmpZI:
+				case cmdJmpZD:
+				case cmdJmpZL:
+				case cmdJmpNZI:
+				case cmdJmpNZD:
+				case cmdJmpNZL:
+					cmd.argument += exFunctions[i]->address - exFunctions[i]->oldAddress;
 					break;
 				case cmdCall:
-					if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
-						*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[*(unsigned int*)(&exCode[pos+2])]]->address;
+					if(cmd.argument != CALL_BY_POINTER)
+						cmd.argument = exFunctions[funcRemap[cmd.argument]]->address;
 					break;
 				case cmdCallStd:
-					*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+					cmd.argument = funcRemap[cmd.argument];
 					break;
 				case cmdFuncAddr:
-					*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+					cmd.argument = funcRemap[cmd.argument];
 					break;
 				}
-				pos += CommandList::GetCommandLength(cmd, cFlag);
 			}
 		}
 	}
@@ -301,19 +307,19 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int pos = offsetToGlobalCode;
 	while(pos < oldCodeSize)
 	{
-		CmdID cmd = *(CmdID*)(&exCode[pos]);
-		CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
-		switch(cmd)
+		VMCmd &cmd = exCode[pos];
+		pos++;
+		switch(cmd.cmd)
 		{
 		case cmdJmp:
-			*(unsigned int*)(&exCode[pos+2]) += offsetToGlobalCode - oldOffsetToGlobalCode;
-			break;
-		case cmdJmpZ:
-		case cmdJmpNZ:
-			*(unsigned int*)(&exCode[pos+3]) += offsetToGlobalCode - oldOffsetToGlobalCode;
-			break;
+		case cmdJmpZI:
+		case cmdJmpZD:
+		case cmdJmpZL:
+		case cmdJmpNZI:
+		case cmdJmpNZD:
+		case cmdJmpNZL:
+			cmd.argument += offsetToGlobalCode - oldOffsetToGlobalCode;
 		}
-		pos += CommandList::GetCommandLength(cmd, cFlag);
 	}
 
 	// Add new global code
@@ -321,15 +327,19 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	// Expand bytecode
 	exCode.resize(exCode.size() + bCode->codeSize - allFunctionSize);
 	// Insert function code
-	memcpy(&exCode[oldCodeSize], FindCode(bCode) + allFunctionSize, bCode->codeSize - allFunctionSize);
+	memcpy(&exCode[oldCodeSize], FindCode(bCode) + allFunctionSize * sizeof(VMCmd), (bCode->codeSize - allFunctionSize) * sizeof(VMCmd));
+
+//	exCode.resize(bCode->codeSize);
+//	memcpy(&exCode[0], FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
 
 	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
 	pos = oldCodeSize;
+//	unsigned int pos = 0;
 	while(pos < exCode.size())
 	{
-		CmdID cmd = *(CmdID*)(&exCode[pos]);
-		CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
-		switch(cmd)
+		VMCmd &cmd = exCode[pos];
+		pos++;
+		switch(cmd.cmd)
 		{
 		case cmdPushCharAbs:
 		case cmdPushShortAbs:
@@ -337,29 +347,34 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		case cmdPushFloatAbs:
 		case cmdPushDorLAbs:
 		case cmdPushCmplxAbs:
-		case cmdPush:
-		case cmdMov:
-			*(unsigned int*)(&exCode[pos+4]) += oldGlobalSize;
+		case cmdMovCharAbs:
+		case cmdMovShortAbs:
+		case cmdMovIntAbs:
+		case cmdMovFloatAbs:
+		case cmdMovDorLAbs:
+		case cmdMovCmplxAbs:
+			cmd.argument += oldGlobalSize;
 			break;
 		case cmdJmp:
-			*(unsigned int*)(&exCode[pos+2]) += oldCodeSize - allFunctionSize;
-			break;
-		case cmdJmpZ:
-		case cmdJmpNZ:
-			*(unsigned int*)(&exCode[pos+3]) += oldCodeSize - allFunctionSize;
+		case cmdJmpZI:
+		case cmdJmpZD:
+		case cmdJmpZL:
+		case cmdJmpNZI:
+		case cmdJmpNZD:
+		case cmdJmpNZL:
+			cmd.argument += oldCodeSize - allFunctionSize;
 			break;
 		case cmdCall:
-			if(*(unsigned int*)(&exCode[pos+2]) != CALL_BY_POINTER)
-				*(unsigned int*)(&exCode[pos+2]) = exFunctions[funcRemap[*(unsigned int*)(&exCode[pos+2])]]->address;
+			if(cmd.argument != CALL_BY_POINTER)
+				cmd.argument = exFunctions[funcRemap[cmd.argument]]->address;
 			break;
 		case cmdCallStd:
-			*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+			cmd.argument = funcRemap[cmd.argument];
 			break;
 		case cmdFuncAddr:
-			*(unsigned int*)(&exCode[pos+2]) = funcRemap[*(unsigned int*)(&exCode[pos+2])];
+			cmd.argument = funcRemap[cmd.argument];
 			break;
 		}
-		pos += CommandList::GetCommandLength(cmd, cFlag);
 	}
 
 	exFuncInfo.resize(exFunctions.size());
@@ -377,7 +392,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 #ifdef NULLC_LOG_FILES
 	ostringstream logASM;
 	logASM.str("");
-	CommandList::PrintCommandListing(&logASM, &exCode[0], &exCode[exCode.size()]);
+	CommandList::PrintCommandListing(&logASM, &exCode[0], &exCode[0]+exCode.size());
 
 	ofstream m_FileStream("link.txt", std::ios::binary);
 	m_FileStream << logASM.str();

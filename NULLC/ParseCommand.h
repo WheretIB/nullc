@@ -1,7 +1,7 @@
 #pragma once
 #include "stdafx.h"
 
-typedef short int CmdID;
+typedef unsigned char CmdID;
 
 // Command definition file. For extended description, check out CmdRef.txt
 // Файл определения значений команд. Для подробного описания их работы смотрите CmdRef.txt
@@ -15,200 +15,279 @@ typedef short int CmdID;
 //		выходе из области видимости.
 // 4) стек вызовов. Сохраняет указатели на код. Используется для возврата из функций.
 
-// Special functions
-// Особые функции [флаги не используются]
+const unsigned int CALL_BY_POINTER = (unsigned int)-1;
+
+enum InstructionCode
+{
 	// no operation
-	// :)
-const CmdID cmdNop		= 0;
-	// converts number on top of the stack to integer and multiples it by some number [int after instruction]
-	// конвентирует число на вершине стека в int и умножает на некоторое число [int за инструкцией]
-const CmdID cmdCTI		= 103;
-	// get variable address, shifted by the parameter stack base
-	// получить адрес переменной, относительно базы стека переменных
-const CmdID cmdGetAddr	= 201;
-	// get function address
-	// получить адрес функции
-const CmdID cmdFuncAddr	= 202;
+	// отсутствие операции
+	cmdNop = 0,
 
-// general commands [using command flag. check CmdRef.txt]
-// основные команды [используются флаг команды, смотрите CmdRef.txt]
-	// pushes a number on top of general stack
+	// push a number on top of general stack
 	// положить значение на верхушку стека
-const CmdID cmdPush		= 100;
+	cmdPushCharAbs,
+	cmdPushShortAbs,
+	cmdPushIntAbs,
+	cmdPushFloatAbs,
+	cmdPushDorLAbs,
+	cmdPushCmplxAbs,
 
-// cmdPush specializations for VM
-const CmdID cmdPushCharAbs = 70;
-const CmdID cmdPushShortAbs = 71;
-const CmdID cmdPushIntAbs = 72;
-const CmdID cmdPushFloatAbs = 73;
-const CmdID cmdPushDorLAbs = 74;
-const CmdID cmdPushCmplxAbs = 75;
+	cmdPushCharRel,
+	cmdPushShortRel,
+	cmdPushIntRel,
+	cmdPushFloatRel,
+	cmdPushDorLRel,
+	cmdPushCmplxRel,
 
-const CmdID cmdPushCharRel = 76;
-const CmdID cmdPushShortRel = 77;
-const CmdID cmdPushIntRel = 78;
-const CmdID cmdPushFloatRel = 79;
-const CmdID cmdPushDorLRel = 80;
-const CmdID cmdPushCmplxRel = 81;
+	cmdPushCharStk,
+	cmdPushShortStk,
+	cmdPushIntStk,
+	cmdPushFloatStk,
+	cmdPushDorLStk,
+	cmdPushCmplxStk,
 
-const CmdID cmdPushCharStk = 82;
-const CmdID cmdPushShortStk = 83;
-const CmdID cmdPushIntStk = 84;
-const CmdID cmdPushFloatStk = 85;
-const CmdID cmdPushDorLStk = 86;
-const CmdID cmdPushCmplxStk = 87;
+	// push an immediate dword on the stack
+	cmdPushImmt,
 
-const CmdID cmdDTOF		= 96;	// double to float conversion
-const CmdID cmdFEnter	= 97;	// only for VM - jmp before function is replaced by function call imitation
-const CmdID cmdMovRTaP	= 98;	// cmdMov + (relative to top and pop)
-const CmdID cmdPushImmt	= 99;
-
-	// removes a number from top
-	// убрать значение с верхушки стека
-const CmdID cmdPop		= 101;
 	// copy's number from top of stack to value in value stack
 	// скопировать значение с верхушки стека в память где располагаются переменные
-const CmdID cmdMov		= 102;
-	// converts real numbers to integer
-	// преобразовать действительное число в целое (на вершине стека)
-const CmdID cmdRTOI		= 104;
-	// converts integer numbers to real
-	// преобразовать целое число в действительное (на вершине стека)
-const CmdID cmdITOR		= 105;
-	// converts integer numbers to long
-	// преобразовать int в long (на вершине стека)
-const CmdID cmdITOL		= 106;
-	// converts long numbers to integer
-	// преобразовать long в int (на вершине стека)
-const CmdID cmdLTOI		= 107;
-	// swaps two values on top of the general stack
-	// поменять местами два значения на верхушке стека
-const CmdID cmdSwap		= 108;
+	cmdMovCharAbs,
+	cmdMovShortAbs,
+	cmdMovIntAbs,
+	cmdMovFloatAbs,
+	cmdMovDorLAbs,
+	cmdMovCmplxAbs,
+
+	cmdMovCharRel,
+	cmdMovShortRel,
+	cmdMovIntRel,
+	cmdMovFloatRel,
+	cmdMovDorLRel,
+	cmdMovCmplxRel,
+
+	cmdMovCharStk,
+	cmdMovShortStk,
+	cmdMovIntStk,
+	cmdMovFloatStk,
+	cmdMovDorLStk,
+	cmdMovCmplxStk,
+
+	// pop a value from top of the stack to [address + value_top]
+	// переместить зачение по адресу [address + value_top] и убрать со стека
+	cmdReserveV,
+
+	cmdPopCharTop,
+	cmdPopShortTop,
+	cmdPopIntTop,
+	cmdPopFloatTop,
+	cmdPopDorLTop,
+	cmdPopCmplxTop,
+
+	// removes a number of bytes from top
+	// убрать заданное кол-во байт со стека с верхушки стека
+	cmdPop,
+
+	// Number conversion on the top of the stack
+	// Преобразование чисел на вершине стека
+	cmdDtoI,	// double to int
+	cmdDtoL,	// double to long
+	cmdDtoF,	// double to float
+	cmdItoD,	// int to double
+	cmdLtoD,	// long to double
+	cmdItoL,	// int to long
+	cmdLtoI,	// long to int
+
+	// converts number on top of the stack to integer and multiples it by some number [int after instruction]
+	// конвентирует число на вершине стека в int и умножает на некоторое число [int за инструкцией]
+	cmdImmtMulD,	// double on top of the stack
+	cmdImmtMulL,	// long on top of the stack
+	cmdImmtMulI,	// int on top of the stack
+
 	// copy value on top of the stack, and push it on the top again
 	// скопировать значение на верхушке стека и добавить его в стек
-const CmdID cmdCopy		= 109;
-	// set value to a range of memory. data type are provided, as well as starting address and count
-	// установить значение участку памяти. Указаны тип данных, а также начальная позиция и количество
-const CmdID cmdSetRange = 200;
+	cmdCopyDorL,
+	cmdCopyI,
 
-// conditional and unconditional jumps  [using operation flag. check CmdRef.txt]
-// условные и безусловные переходы [используется флаг операции, смотрите CmdRef.txt]
+	// get variable address, shifted by the parameter stack base
+	// получить адрес переменной, относительно базы стека переменных
+	cmdGetAddr,
+
+	// get function address
+	// получить адрес функции
+	cmdFuncAddr,
+
+	// set value to a range of memory. Starting address is given, count pushed before
+	// установить значение участку памяти. Начальная позиция задана, количество - на вершине стека
+	cmdSetRange,
+
 	// unconditional jump
 	// безусловный переход
-const CmdID cmdJmp		= 110;
+	cmdJmp,
+
 	// jump on zero
 	// переход, если значение на вершине == 0
-const CmdID cmdJmpZ		= 111;
+	cmdJmpZI,
+	cmdJmpZD,
+	cmdJmpZL,
 	// jump on not zero
 	// переход, если значение на вершине != 0
-const CmdID cmdJmpNZ	= 112;
+	cmdJmpNZI,
+	cmdJmpNZD,
+	cmdJmpNZL,
 
-const unsigned int CALL_BY_POINTER = (unsigned int)-1;
-// commands for functions	[not using flags]
-// команды для функций	[флаги не используются]
 	// call script function
 	// вызов функции, определённой в скрипте
-const CmdID cmdCall		= 113;
+	cmdCall,
 	// call standard function
 	// вызов стандартных (встроенных) функций
-const CmdID cmdCallStd	= 114;
-//							[using Operation Flag]
+	cmdCallStd,
+
 	// return from function
 	// возврат из функции и выполнение POPT n раз, где n идёт за командой
-const CmdID cmdReturn	= 115;
+	cmdReturn,
 
-// commands for work with variable stack	[not using flags]
-// команды для работы со стеком переменных	[флаги не используются]
-	// save active variable count to "top value" stack
-	// сохранить количество активных переменных в стек вершин стека переменных
-const CmdID cmdPushVTop	= 116;
-	// pop data from variable stack until last top position and remove last top position
-	// убрать данные из стека переменных до предыдущего значения вершины и убрать значение вершины из стека значений вершин
-const CmdID cmdPopVTop	= 117;
-	// shift value stack top
-	// добавить указанное в команде количество байт в стек переменных
-const CmdID cmdPushV	= 118;
+	// commands for work with variable stack
+	// команды для работы со стеком переменных
+		// save active variable count to "top value" stack
+		// сохранить количество активных переменных в стек вершин стека переменных
+	cmdPushVTop,
+		// pop data from variable stack until last top position and remove last top position
+		// убрать данные из стека переменных до предыдущего значения вершины и убрать значение вершины из стека значений вершин
+	cmdPopVTop,
+		// shift value stack top
+		// добавить указанное в команде количество байт в стек переменных
+	cmdPushV,
 
-// binary commands	[using operation flag. check CmdRef.txt]
-// they take two top numbers (both the same type!), remove them from stack,
-// perform operation and place result on top of stack (the same type as two values!)
-// бинарные операции [используется флаг операции, смотрите CmdRef.txt]
-// они берут два значения с вершины стека переменных (одинакового типа!), убирают их из стека
-// производят операцию и помещают результат в стек переменных (такого-же типа, как исходные переменные)
-	// a + b
-const CmdID cmdAdd		= 130;
-	// a - b
-const CmdID cmdSub		= 131;
-	// a * b
-const CmdID cmdMul		= 132;
-	// a / b 
-const CmdID cmdDiv		= 133;
-	// power(a, b) (**)
-const CmdID cmdPow		= 134;
-	// a % b
-const CmdID cmdMod		= 135;
-	// a < b
-const CmdID cmdLess		= 136;
-	// a > b
-const CmdID cmdGreater	= 137;
-	// a <= b
-const CmdID cmdLEqual	= 138;
-	// a >= b
-const CmdID cmdGEqual	= 139;
-	// a == b
-const CmdID cmdEqual	= 140;
-	// a != b
-const CmdID cmdNEqual	= 141;
+	// binary commands
+	// they take two top numbers (both the same type!), remove them from stack,
+	// perform operation and place result on top of stack (the same type as two values!)
+	// бинарные операции
+	// они берут два значения с вершины стека переменных (одинакового типа!), убирают их из стека
+	// производят операцию и помещают результат в стек переменных (такого-же типа, как исходные переменные)
+		
+	cmdAdd,		// a + b
+	cmdSub,		// a - b
+	cmdMul,		// a * b
+	cmdDiv,		// a / b
+	cmdPow,		// power(a, b) (**)
+	cmdMod,		// a % b
+	cmdLess,	// a < b
+	cmdGreater,	// a > b
+	cmdLEqual,	// a <= b
+	cmdGEqual,	// a >= b
+	cmdEqual,	// a == b
+	cmdNEqual,	// a != b
+	cmdShl,		// a << b
+	cmdShr,		// a >> b
+	cmdBitAnd,	// a & b	binary AND/бинарное И
+	cmdBitOr,	// a | b	binary OR/бинарное ИЛИ
+	cmdBitXor,	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
+	cmdLogAnd,	// a && b	logical AND/логическое И
+	cmdLogOr,	// a || b	logical OR/логическое ИЛИ
+	cmdLogXor,	// a logical_xor b	logical XOR/логическое Исключающее ИЛИ
 
-// the following commands work only with integer numbers
-// следующие команды работают только с целочисленными переменными
-	// a << b
-const CmdID cmdShl		= 142;
-	// a >> b
-const CmdID cmdShr		= 143;
-	// a & b	binary AND/бинарное И
-const CmdID cmdBitAnd	= 144;
-	// a | b	binary OR/бинарное ИЛИ
-const CmdID cmdBitOr	= 145;
-	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
-const CmdID cmdBitXor	= 146;
-	// a && b	logical AND/логическое И
-const CmdID cmdLogAnd	= 147;
-	// a || b	logical OR/логическое ИЛИ
-const CmdID cmdLogOr	= 148;
-	// a logical_xor b	logical XOR/логическое Исключающее ИЛИ
-const CmdID cmdLogXor	= 149;
+	cmdAddL,	// a + b
+	cmdSubL,	// a - b
+	cmdMulL,	// a * b
+	cmdDivL,	// a / b
+	cmdPowL,	// power(a, b) (**)
+	cmdModL,	// a % b
+	cmdLessL,	// a < b
+	cmdGreaterL,// a > b
+	cmdLEqualL,	// a <= b
+	cmdGEqualL,	// a >= b
+	cmdEqualL,	// a == b
+	cmdNEqualL,	// a != b
+	cmdShlL,	// a << b
+	cmdShrL,	// a >> b
+	cmdBitAndL,	// a & b	binary AND/бинарное И
+	cmdBitOrL,	// a | b	binary OR/бинарное ИЛИ
+	cmdBitXorL,	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
+	cmdLogAndL,	// a && b	logical AND/логическое И
+	cmdLogOrL,	// a || b	logical OR/логическое ИЛИ
+	cmdLogXorL,	// a logical_xor b	logical XOR/логическое Исключающее ИЛИ
 
-// unary commands	[using operation flag. check CmdRef.txt]
-// they take one value from top of the stack, and replace it with resulting value
-// унарные операции [используется флаг операции, смотрите CmdRef.txt]
-// они меняют значение на вершине стека
-	// negation
-	// отрицание
-const CmdID cmdNeg		= 160;
-	// ~	binary NOT | Only for integers! |
-	// ~	бинарное отрицание | Только для целых чисел |
-const CmdID cmdBitNot	= 163;
-	// !	logical NOT
-	// !	логическое НЕ
-const CmdID cmdLogNot	= 164;
+	cmdAddD,	// a + b
+	cmdSubD,	// a - b
+	cmdMulD,	// a * b
+	cmdDivD,	// a / b
+	cmdPowD,	// power(a, b) (**)
+	cmdModD,	// a % b
+	cmdLessD,	// a < b
+	cmdGreaterD,// a > b
+	cmdLEqualD,	// a <= b
+	cmdGEqualD,	// a >= b
+	cmdEqualD,	// a == b
+	cmdNEqualD,	// a != b
 
-// Special unary commands	[using command flag. check CmdRef.txt]
-// They work with variable at address
-// Особые унарные операции	[используются флаг команды, смотрите CmdRef.txt]
-// Изменяют значения сразу в стеке переменных
-	// increment at address
-	// инкремент значения по адресу
-const CmdID cmdIncAt	= 171;
-	// decrement at address
-	// декремент значения по адресу
-const CmdID cmdDecAt	= 172;
+	// unary commands	[using operation flag. check CmdRef.txt]
+	// they take one value from top of the stack, and replace it with resulting value
+	// унарные операции [используется флаг операции, смотрите CmdRef.txt]
+	// они меняют значение на вершине стека
+	cmdNeg,		// negation
+	cmdBitNot,	// ~	binary NOT
+	cmdLogNot,	// !	logical NOT
 
-// Flag types
-// Типы флагов
-typedef unsigned short int CmdFlag;	// command flag
-typedef unsigned char OperFlag;		// operation flag
-typedef unsigned short int RetFlag; // return flag
+	cmdNegL,	// negation
+	cmdBitNotL,	// ~	binary NOT
+	cmdLogNotL,	// !	logical NOT
+
+	cmdNegD,	// negation
+	noBitNotD,	// not available for double
+	cmdLogNotD,	// !	logical NOT
+
+	cmdIncI,
+	cmdIncD,
+	cmdIncL,
+
+	cmdDecI,
+	cmdDecD,
+	cmdDecL,
+
+	cmdAddAtCharStk,
+	cmdAddAtShortStk,
+	cmdAddAtIntStk,
+	cmdAddAtLongStk,
+	cmdAddAtFloatStk,
+	cmdAddAtDoubleStk,
+};
+
+struct VMCmd
+{
+	VMCmd()
+	{
+		Set(0, 0, 0, 0);
+	}
+	VMCmd(InstructionCode Cmd)
+	{
+		Set((CmdID)Cmd, 0, 0, 0);
+	}
+	VMCmd(InstructionCode Cmd, unsigned int Arg)
+	{
+		Set((CmdID)Cmd, 0, 0, Arg);
+	}
+	VMCmd(InstructionCode Cmd, unsigned short Helper, unsigned int Arg)
+	{
+		Set((CmdID)Cmd, 0, Helper, Arg);
+	}
+	VMCmd(InstructionCode Cmd, unsigned char Flag, unsigned short Helper, unsigned int Arg)
+	{
+		Set((CmdID)Cmd, Flag, Helper, Arg);
+	}
+
+	void Set(CmdID Cmd, unsigned char Flag, unsigned short Helper, unsigned int Arg)
+	{
+		cmd = Cmd;
+		flag = Flag;
+		helper = Helper;
+		argument = Arg;
+	}
+
+	CmdID	cmd;
+	unsigned char	flag;		// rarely used (cmdIncAt, cmdDecAt)
+	unsigned short	helper;		// rarely used (cmdPushCmplx*, cmdMovCmplx*, cmdPopCmplxTop)
+	unsigned int	argument;
+};
 
 // Types of values on stack
 // Типы значений в стеке
@@ -257,63 +336,35 @@ static asmDataType dataTypeForStackType[] = { DTYPE_INT, DTYPE_LONG, (asmDataTyp
 static asmStackType stackTypeForDataTypeArr[] = { STYPE_INT, STYPE_INT, STYPE_INT, STYPE_LONG, STYPE_DOUBLE, STYPE_DOUBLE, STYPE_COMPLEX_TYPE };
 __forceinline asmStackType stackTypeForDataType(asmDataType dt){ return stackTypeForDataTypeArr[dt/4]; }
 
-// Functions for extraction of different bits from flags
-// Функции для извлечения значений отдельных битов из флагов
-	// extract asmStackType
-	// извлечь asmStackType
-__forceinline asmStackType	flagStackType(const CmdFlag& flag){ return (asmStackType)(flag&0x00000003); }
-	// extract asmDataType
-	// извлечь asmDataType
-__forceinline asmDataType	flagDataType(const CmdFlag& flag){ return (asmDataType)(((flag>>2)&0x00000007)<<2); }
-	// addressing is performed relatively to the base of variable stack
-	// адресация производится относительно базы стека переменных
-__forceinline unsigned int	flagAddrRel(const CmdFlag& flag){ return (flag>>5)&0x00000001; }
-	// addressing is perform using absolute address
-	// адресация производится по абсолютному адресу
-__forceinline unsigned int	flagAddrAbs(const CmdFlag& flag){ return (flag>>6)&0x00000001; }
-	// addressing is performed relatively to the top of variable stack
-	// адресация производится относительно вершины стека переменных
-__forceinline unsigned int	flagAddrRelTop(const CmdFlag& flag){ return (flag>>7)&0x00000001; }
+static InstructionCode cmdPushTypeAbs[] = { cmdPushCharAbs, cmdPushShortAbs, cmdPushIntAbs, cmdPushDorLAbs, cmdPushFloatAbs, cmdPushDorLAbs, cmdPushCmplxAbs };
+static InstructionCode cmdPushTypeRel[] = { cmdPushCharRel, cmdPushShortRel, cmdPushIntRel, cmdPushDorLRel, cmdPushFloatRel, cmdPushDorLRel, cmdPushCmplxRel };
+static InstructionCode cmdPushTypeStk[] = { cmdPushCharStk, cmdPushShortStk, cmdPushIntStk, cmdPushDorLStk, cmdPushFloatStk, cmdPushDorLStk, cmdPushCmplxStk };
 
-	// shift is placed in stack
-	// сдвиг находится в основном стеке
-__forceinline unsigned int	flagShiftStk(const CmdFlag& flag){ return (flag>>9)&0x00000001; }
-	// address is clamped to the maximum
-	// адрес не может превыщать некоторое значение
-__forceinline unsigned int	flagSizeOn(const CmdFlag& flag){ return (flag>>10)&0x00000001; }
-	// maximum is placed in stack
-	// максимум находится в основном стеке
-__forceinline unsigned int	flagSizeStk(const CmdFlag& flag){ return (flag>>11)&0x00000001; }
+static InstructionCode cmdMovTypeAbs[] = { cmdMovCharAbs, cmdMovShortAbs, cmdMovIntAbs, cmdMovDorLAbs, cmdMovFloatAbs, cmdMovDorLAbs, cmdMovCmplxAbs };
+static InstructionCode cmdMovTypeRel[] = { cmdMovCharRel, cmdMovShortRel, cmdMovIntRel, cmdMovDorLRel, cmdMovFloatRel, cmdMovDorLRel, cmdMovCmplxRel };
+static InstructionCode cmdMovTypeStk[] = { cmdMovCharStk, cmdMovShortStk, cmdMovIntStk, cmdMovDorLStk, cmdMovFloatStk, cmdMovDorLStk, cmdMovCmplxStk };
 
-	// push value on stack before modifying
-	// положить значение в стек до изменения
-__forceinline unsigned int	flagPushBefore(const CmdFlag& flag){ return (flag>>12)&0x00000001; }
-	// push value on stack after modifying
-	// положить значение в стек после изменения
-__forceinline unsigned int	flagPushAfter(const CmdFlag& flag){ return (flag>>13)&0x00000001; }
+static InstructionCode cmdPopTypeTop[] = { cmdPopCharTop, cmdPopShortTop, cmdPopIntTop, cmdPopDorLTop, cmdPopFloatTop, cmdPopDorLTop, cmdPopCmplxTop };
 
-	// addressing is not performed
-	// адресация отсутствует
-__forceinline unsigned int	flagNoAddr(const CmdFlag& flag){ return !(flag&0x00000060); }
+static InstructionCode cmdImmtMulType[] = { cmdImmtMulD, cmdNop, cmdImmtMulL, cmdImmtMulI };
+static InstructionCode cmdJmpZType[] = { cmdJmpZD, cmdNop, cmdJmpZL, cmdJmpZI };
+static InstructionCode cmdJmpNZType[] = { cmdJmpNZD, cmdNop, cmdJmpNZL, cmdJmpNZI };
 
-// constants for CmdFlag creation from different bits
-// константы для создания флага комманды из отдельных битов
-const unsigned int	bitAddrRel	= 1 << 5;
-const unsigned int	bitAddrAbs	= 1 << 6;
-const unsigned int	bitAddrRelTop= 1 << 7;
+static InstructionCode cmdIncType[] = { cmdIncD, cmdNop, cmdIncL, cmdIncI };
+static InstructionCode cmdDecType[] = { cmdDecD, cmdNop, cmdDecL, cmdDecI };
 
-const unsigned int	bitShiftStk	= 1 << 9;
-const unsigned int	bitSizeOn	= 1 << 10;
-const unsigned int	bitSizeStk	= 1 << 11;
+static InstructionCode cmdAddAtTypeStk[] = { cmdAddAtCharStk, cmdAddAtShortStk, cmdAddAtIntStk, cmdAddAtLongStk, cmdAddAtFloatStk, cmdAddAtDoubleStk };
 
 // Для cmdIncAt и cmdDecAt
-const unsigned int	bitPushBefore = 1 << 12;	// положить значение в стек до изменения
-const unsigned int	bitPushAfter = 1 << 13;		// положить значение в стек после изменения
+const unsigned int	bitPushBefore = 1;	// положить значение в стек до изменения
+const unsigned int	bitPushAfter = 2;	// положить значение в стек после изменения
 
 // constants for RetFlag creation from different bits
 // константы для создания флага возврата из отдельных битов
-const unsigned int	bitRetError	= 1 << 15;	// пользователь забыл возвратить значение, остановить выполнение
-const unsigned int	bitRetSimple= 1 << 14;	// функция возвращает базовый тип
+const unsigned int	bitRetError		= 1;	// пользователь забыл возвратить значение, остановить выполнение
+const unsigned int	bitRetSimple	= 1 << 15;	// пользователь забыл возвратить значение, остановить выполнение
+
+const int	COMMANDE_LENGTH = 8;
 
 // Command list (bytecode)
 // Листинг команд (байткод)
@@ -335,108 +386,15 @@ class CommandList
 		char	info[128];		// Указатели на начало и конец строки
 	};
 public:
-	// создаём сразу место для будущих команд
-	CommandList(unsigned int count = 65000)
+	CommandList()
 	{
-		bytecode = new char[count];
-		max = count;
-		curr = 0;
-	}
-	CommandList(const CommandList& r)
-	{
-		bytecode = new char[r.max];
-		max = r.max;
-		curr = 0;
-	}
-	~CommandList()
-	{
-		delete[] bytecode;
+
 	}
 
-	// добавить данные (это могут быть команды, адреса, флаги и числа)
-	// значение одного типа
-	template<class T> void AddData(const T& data)
+	void		Clear()
 	{
-		memcpy(bytecode+curr, &data, sizeof(T));
-		curr += sizeof(T);
-	}
-	// несколько произвольных байт
-	void AddData(const void* data, size_t size)
-	{
-		memcpy(bytecode+curr, data, size);
-		curr += (unsigned int)size;
-	}
-
-	// получить int по адресу
-	__inline	bool GetINT(unsigned int pos, int& ret)
-	{
-		ret = *(reinterpret_cast<int*>(bytecode+pos));
-		return true;
-	}
-	// получить short int по адресу
-	__inline	bool GetSHORT(unsigned int pos, short int& ret)
-	{
-		if(pos+2 > curr)
-			return false;
-		ret = *(reinterpret_cast<short int*>(bytecode+pos));
-		return true;
-	}
-	// получить unsigned short int по адресу
-	__inline	bool GetUSHORT(unsigned int pos, unsigned short& ret)
-	{
-		ret = *(reinterpret_cast<unsigned short*>(bytecode+pos));
-		return true;
-	}
-	// получить unsigned int по адресу
-	__inline	bool GetUINT(unsigned int pos, unsigned int& ret)
-	{
-		ret = *(reinterpret_cast<unsigned int*>(bytecode+pos));
-		return true;
-	}
-	// получить unsigned char по адресу
-	__inline	bool GetUCHAR(unsigned int pos, unsigned char& ret)
-	{
-		ret = *(reinterpret_cast<unsigned char*>(bytecode+pos));
-		return true;
-	}
-
-	// получить значение произвольного типа по адресу
-	template<class T> __inline bool GetData(unsigned int pos, T& ret)
-	{
-		if(pos+sizeof(T) > curr)
-			return false;
-		memcpy(&ret, bytecode+pos, sizeof(T));
-		return true;
-	}
-	// получить произвольное кол-во байт по адресу
-	__inline bool	GetData(unsigned int pos, void* data, size_t size)
-	{
-		if(pos+size > curr)
-			return false;
-		memcpy(data, bytecode+pos, size);
-		return true;
-	}
-
-	// заменить произвольное количество байт по адресу
-	__inline void	SetData(unsigned int pos, const void* data, size_t size)
-	{
-		memcpy(bytecode+pos, data, size);
-	}
-
-	// получить текущий размер байткода
-	__inline const unsigned int&	GetCurrPos()
-	{
-		return curr;
-	}
-
-	// удалить байткод
-	__inline void	Clear()
-	{
-		curr = 0;
-		memset(bytecode, 0, max);
 		codeInfo.clear();
 	}
-
 	void		AddDescription(unsigned int position, const char* start, const char* end)
 	{
 		codeInfo.push_back(CodeInfo(position, start, end));
@@ -452,719 +410,430 @@ public:
 		}
 		return NULL;
 	}
-	static int		GetCommandLength(CmdID cmd, CmdFlag cFlag)
-	{
-		asmDataType dt;
-		int size = 2;
-		switch(cmd)
-		{
-		case cmdMovRTaP:
-			size += 2;
-			dt = flagDataType(cFlag);
-
-			size += 4;
-
-			if(dt == DTYPE_COMPLEX_TYPE)
-				size += 4;
-			break;
-		case cmdCallStd:
-			size += 4;
-			break;
-		case cmdCall:
-			size += 4;
-			size += 2;
-			break;
-		case cmdFuncAddr:
-			size += 4;
-			break;
-		case cmdReturn:
-			size += 4;
-			break;
-		case cmdPushV:
-			size += 4;
-			break;
-		case cmdCTI:
-			size += 5;
-			break;
-		case cmdPushImmt:
-			size += 2;
-			dt = flagDataType(cFlag);
-
-			if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-				size += 8;
-			if(dt == DTYPE_FLOAT || dt == DTYPE_INT)
-				size += 4;
-			if(dt == DTYPE_SHORT)
-				size += 2;
-			if(dt == DTYPE_CHAR)
-				size += 1;
-			break;
-		case cmdPushCharAbs:
-		case cmdPushShortAbs:
-		case cmdPushIntAbs:
-		case cmdPushFloatAbs:
-		case cmdPushDorLAbs:
-		case cmdPushCmplxAbs:
-		case cmdPushCharRel:
-		case cmdPushShortRel:
-		case cmdPushIntRel:
-		case cmdPushFloatRel:
-		case cmdPushDorLRel:
-		case cmdPushCmplxRel:
-		case cmdPushCharStk:
-		case cmdPushShortStk:
-		case cmdPushIntStk:
-		case cmdPushFloatStk:
-		case cmdPushDorLStk:
-		case cmdPushCmplxStk:
-		case cmdPush:
-			{
-				size += 2;
-				dt = flagDataType(cFlag);
-
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
-					size += 4;
-				if(flagSizeOn(cFlag))
-					size += 4;
-
-				if(dt == DTYPE_COMPLEX_TYPE)
-					size += 4;
-			}
-			break;
-		case cmdMov:
-			{
-				size += 2;
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
-					size += 4;
-				if(flagSizeOn(cFlag))
-					size += 4;
-				if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
-					size += 4;
-			}
-			break;
-		case cmdPop:
-			size += 4;
-			break;
-		case cmdRTOI:
-			size += 2;
-			break;
-		case cmdITOR:
-			size += 2;
-			break;
-		case cmdSwap:
-			size += 2;
-			break;
-		case cmdCopy:
-			size += 1;
-			break;
-		case cmdJmp:
-			size += 4;
-			break;
-		case cmdJmpZ:
-			size += 1;
-			size += 4;
-			break;
-		case cmdJmpNZ:
-			size += 1;
-			size += 4;
-			break;
-		case cmdSetRange:
-			size += 10;
-			break;
-		case cmdGetAddr:
-			size += 4;
-			break;
-		}
-		if(cmd >= cmdAdd && cmd <= cmdLogXor)
-			size += 1;
-		if(cmd >= cmdNeg && cmd <= cmdLogNot)
-			size += 1;
-		if(cmd >= cmdIncAt && cmd <= cmdDecAt)
-		{
-			size += 2;
-
-			if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-				size += 4;
-			if(flagSizeOn(cFlag))
-				size += 4;
-		}
-		return size;
-	}
 	
 #ifdef NULLC_LOG_FILES
-    static void PrintCommandListing(ostream *logASM, char *cmdStream, char *cmdStreamEnd)
+    static void PrintCommandListing(ostream *logASM, VMCmd *cmdStream, VMCmd *cmdStreamEnd)
 	{
-		unsigned int pos = 0, pos2 = 0;
-		CmdID	cmd;
+		const char	*typeName[] = { "char", "short", "int", "float", "qword", "complex" };
+		// different for cmdAddAt**
+		const char	*typeNameAA[] = { "char", "short", "int", "long", "float", "double" };
 
-		unsigned int	valind, valind2;
-		unsigned short	shVal1, shVal2;
-
-		char* typeInfoS[] = { "int", "long", "complex", "double" };
-		char* typeInfoD[] = { "char", "short", "int", "long", "float", "double", "complex" };
-
-		CmdFlag cFlag;
-		OperFlag oFlag;
-		while(cmdStream+pos+2 < cmdStreamEnd)
+		VMCmd *cmdStreamBase = cmdStream;
+		while(cmdStream < cmdStreamEnd)
 		{
-			cmd = *(CmdID*)(&cmdStream[pos]);
-
-			pos2 = pos;
-			pos += 2;
-
-			*logASM << pos2;
-			switch(cmd)
+			const VMCmd &cmd = *cmdStream;
+			*logASM << cmdStream - cmdStreamBase << " ";
+			switch(cmd.cmd)
 			{
+			case cmdNop:
+				*logASM << "NOP\r\n";
+				break;
 			case cmdPushCharAbs:
 			case cmdPushShortAbs:
 			case cmdPushIntAbs:
 			case cmdPushFloatAbs:
 			case cmdPushDorLAbs:
+				*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharAbs] << " [" << cmd.argument << "]";
+				break;
 			case cmdPushCmplxAbs:
+				*logASM << "PUSH complex [" << cmd.argument << "] sizeof(" << cmd.helper << ")";
+				break;
+
 			case cmdPushCharRel:
 			case cmdPushShortRel:
 			case cmdPushIntRel:
 			case cmdPushFloatRel:
 			case cmdPushDorLRel:
+				*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharRel] << " [rel + " << (int)cmd.argument << "]";
+				break;
 			case cmdPushCmplxRel:
+				*logASM << "PUSH complex [rel + " << (int)cmd.argument << "] sizeof(" << cmd.helper << ")";
+				break;
+
 			case cmdPushCharStk:
 			case cmdPushShortStk:
 			case cmdPushIntStk:
 			case cmdPushFloatStk:
 			case cmdPushDorLStk:
+				*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharStk] << " [stack + " << cmd.argument << "]";
+				break;
 			case cmdPushCmplxStk:
-			case cmdPush:
-				{
-					cFlag = *(CmdFlag*)(&cmdStream[pos]);
-					pos += 2;
-					if(cmd == cmdPush)
-						*logASM << " PUSH ";
-					else
-						*logASM << " ***PUSH ";
-					*logASM << typeInfoS[cFlag&0x00000003] << "<-";
-					*logASM << typeInfoD[(cFlag>>2)&0x00000007];
+				*logASM << "PUSH complex [stack + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
+				break;
 
-					asmStackType st = flagStackType(cFlag);
-					asmDataType dt = flagDataType(cFlag);
-					unsigned int	DWords[2];
-					unsigned short sdata;
-					unsigned char cdata;
-					int valind;
-					if(flagNoAddr(cFlag)){
-						if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
-							DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
-							DWords[1] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
-						}
-						if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4; }
-						if(dt == DTYPE_SHORT){ sdata = *(unsigned short*)(&cmdStream[pos]); pos += 2; DWords[0] = sdata; }
-						if(dt == DTYPE_CHAR){ cdata = *(unsigned char*)(&cmdStream[pos]); pos += 1; DWords[0] = cdata; }
-
-						if(dt == DTYPE_DOUBLE)
-							*logASM << " (" << *((double*)(&DWords[0])) << ')';
-						if(dt == DTYPE_LONG)
-							*logASM << " (" << *((long long*)(&DWords[0])) << ')';
-						if(dt == DTYPE_FLOAT)
-							*logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
-						if(dt == DTYPE_INT)
-							*logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
-						if(dt == DTYPE_SHORT)
-							*logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
-						if(dt == DTYPE_CHAR)
-							*logASM << " (" << *((char*)(&DWords[0])) << ')';
-					}else{
-						*logASM << " PTR[";
-						if(flagAddrRel(cFlag) || flagAddrAbs(cFlag))
-						{
-							valind = *(int*)(&cmdStream[pos]);
-							pos += 4;
-							*logASM << valind;
-						}
-						if(flagAddrRel(cFlag))
-							*logASM << "+top";
-						if(flagAddrRelTop(cFlag))
-							*logASM << "+max";
-						if(flagShiftStk(cFlag))
-							*logASM << "+shift(stack)";
-						
-						*logASM << "] ";
-						if(flagSizeStk(cFlag))
-							*logASM << "size(stack)";
-						if(flagSizeOn(cFlag))
-						{
-							valind = *(int*)(&cmdStream[pos]);
-							pos += 4;
-							*logASM << " max size(" << valind << ") ";
-						}
-						if(st == STYPE_COMPLEX_TYPE)
-						{
-							valind = *(int*)(&cmdStream[pos]);
-							pos += 4;
-							*logASM << "sizeof(" << valind << ")";
-						}
-					}
-				}
-				break;
-			case cmdDTOF:
-				*logASM << " DTOF;";
-				break;
-			case cmdCallStd:
-				valind = *(int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " CALLS " << valind << ";";
-				break;
-			case cmdPushVTop:
-				*logASM << " PUSHT;";
-				break;
-			case cmdPopVTop:
-				*logASM << " POPT;";
-				break;
-			case cmdCall:
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += sizeof(unsigned int);
-				shVal1 = *(unsigned short*)(&cmdStream[pos]);
-				pos += 2;
-				*logASM << " CALL " << valind;
-				if(shVal1 & bitRetSimple)
-					*logASM << " simple";
-				*logASM << " size:" << (shVal1&0x0FFF) << ";";
-				break;
-			case cmdReturn:
-				shVal1 = *(unsigned short*)(&cmdStream[pos]);
-				pos += 2;
-				shVal2 = *(unsigned short*)(&cmdStream[pos]);
-				pos += 2;
-				*logASM << " RET " << shVal2;
-				if(shVal1 & bitRetError)
-				{
-					*logASM << " ERROR;";
-					break;
-				}
-				if(shVal1 & bitRetSimple)
-				{
-					switch(shVal1 & 0x0FFF)
-					{
-					case OTYPE_DOUBLE:
-						*logASM << " double;";
-						break;
-					case OTYPE_LONG:
-						*logASM << " long;";
-						break;
-					case OTYPE_INT:
-						*logASM << " int;";
-						break;
-					}
-				}else{
-					*logASM << " bytes: " << shVal1;
-				}
-				break;
-			case cmdPushV:
-				valind = *(int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " PUSHV " << valind << dec << ";";
-				break;
-			case cmdNop:
-				*logASM << dec << " NOP;";
-				break;
-			case cmdCTI:
-				*logASM << dec << " CTI addr*";
-				oFlag = *(unsigned char*)(&cmdStream[pos]);
-				pos += 1;
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += sizeof(unsigned int);
-				*logASM << valind;
-
-				switch(oFlag)
-				{
-				case OTYPE_DOUBLE:
-					*logASM << " double;";
-					break;
-				case OTYPE_LONG:
-					*logASM << " long;";
-					break;
-				case OTYPE_INT:
-					*logASM << " int;";
-					break;
-				default:
-					*logASM << "ERROR: OperFlag expected after ";
-				}
-				break;
 			case cmdPushImmt:
-				{
-					cFlag = *(CmdFlag*)(&cmdStream[pos]);
-					pos += 2;
-					*logASM << " PUSHIMMT ";
-					*logASM << typeInfoS[cFlag&0x00000003] << "<-";
-					*logASM << typeInfoD[(cFlag>>2)&0x00000007];
-
-					asmDataType dt = flagDataType(cFlag);
-					unsigned int	DWords[2];
-					unsigned short sdata;
-					unsigned char cdata;
-					
-					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
-						DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
-						DWords[1] = *(unsigned int*)(&cmdStream[pos]); pos += 4;
-					}
-					if(dt == DTYPE_FLOAT || dt == DTYPE_INT){ DWords[0] = *(unsigned int*)(&cmdStream[pos]); pos += 4; }
-					if(dt == DTYPE_SHORT){ sdata = *(unsigned short*)(&cmdStream[pos]); pos += 2; DWords[0] = sdata; }
-					if(dt == DTYPE_CHAR){ cdata = *(unsigned char*)(&cmdStream[pos]); pos += 1; DWords[0] = cdata; }
-
-					if(dt == DTYPE_DOUBLE)
-						*logASM << " (" << *((double*)(&DWords[0])) << ')';
-					if(dt == DTYPE_LONG)
-						*logASM << " (" << *((long long*)(&DWords[0])) << ')';
-					if(dt == DTYPE_FLOAT)
-						*logASM << " (" << *((float*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_INT)
-						*logASM << " (" << *((int*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_SHORT)
-						*logASM << " (" << *((short*)(&DWords[0])) << dec << ')';
-					if(dt == DTYPE_CHAR)
-						*logASM << " (" << *((char*)(&DWords[0])) << ')';
-				}
+				*logASM << "PUSHIMMT " << cmd.argument;
 				break;
-			case cmdMovRTaP:
-				{
-					cFlag = *(CmdFlag*)(&cmdStream[pos]);
-					pos += 2;
 
-					*logASM << " MOVRTAP ";
-					*logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
-					int valind;
-					valind = *(int*)(&cmdStream[pos]);
-					pos += 4;
-					*logASM << valind;
-					*logASM << "+max] ";
-					if(flagDataType(cFlag) == DTYPE_COMPLEX_TYPE)
-					{
-						valind = *(int*)(&cmdStream[pos]);
-						pos += 4;
-						*logASM << "sizeof(" << valind << ")";
-					}
-				}
+			case cmdMovCharAbs:
+			case cmdMovShortAbs:
+			case cmdMovIntAbs:
+			case cmdMovFloatAbs:
+			case cmdMovDorLAbs:
+				*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharAbs] << " [" << cmd.argument << "]";
 				break;
-			case cmdMov:
-				{
-					cFlag = *(CmdFlag*)(&cmdStream[pos]);
-					pos += 2;
-					*logASM << " MOV ";
-					*logASM << typeInfoS[cFlag&0x00000003] << "->";
-					*logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
-					asmStackType st = flagStackType(cFlag);
-					int valind;
-					
-					if(flagAddrRel(cFlag) || flagAddrAbs(cFlag) || flagAddrRelTop(cFlag))
-					{
-						valind = *(int*)(&cmdStream[pos]);
-						pos += 4;
-						*logASM << valind;
-					}
-					if(flagAddrRel(cFlag))
-						*logASM << "+top";
-
-					if(flagAddrRelTop(cFlag))
-						*logASM << "+max";
-
-					if(flagShiftStk(cFlag))
-						*logASM << "+shift(stack)";
-
-					*logASM << "] ";
-					if(flagSizeStk(cFlag))
-						*logASM << "size(stack)";
-					if(flagSizeOn(cFlag))
-					{
-						valind = *(int*)(&cmdStream[pos]);
-						pos += 4;
-						*logASM << "size: " << valind;
-					}
-					if(st == STYPE_COMPLEX_TYPE)
-					{
-						valind = *(int*)(&cmdStream[pos]);
-						pos += 4;
-						*logASM << "sizeof(" << valind << ")";
-					}
-				}
+			case cmdMovCmplxAbs:
+				*logASM << "MOV complex [" << cmd.argument << "] sizeof(" << cmd.helper << ")";
 				break;
+
+			case cmdMovCharRel:
+			case cmdMovShortRel:
+			case cmdMovIntRel:
+			case cmdMovFloatRel:
+			case cmdMovDorLRel:
+				*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharRel] << " [rel + " << (int)cmd.argument << "]";
+				break;
+			case cmdMovCmplxRel:
+				*logASM << "MOV complex [rel + " << (int)cmd.argument << "] sizeof(" << cmd.helper << ")";
+				break;
+
+			case cmdMovCharStk:
+			case cmdMovShortStk:
+			case cmdMovIntStk:
+			case cmdMovFloatStk:
+			case cmdMovDorLStk:
+				*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharStk] << " [stack + " << cmd.argument << "]";
+				break;
+			case cmdMovCmplxStk:
+				*logASM << "MOV complex [rel + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
+				break;
+
+			case cmdReserveV:
+				*logASM << "RESERVE " << cmd.argument;
+				break;
+
+			case cmdPopCharTop:
+			case cmdPopShortTop:
+			case cmdPopIntTop:
+			case cmdPopFloatTop:
+			case cmdPopDorLTop:
+				*logASM << "POPTOP " << typeName[cmd.cmd-cmdPopCharTop] << " [top + " << cmd.argument << "]";
+				break;
+			case cmdPopCmplxTop:
+				*logASM << "POPTOP complex [top + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
+				break;
+
 			case cmdPop:
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " POP" << " sizeof(" << valind << ")";
+				*logASM << "POP " << cmd.argument;
 				break;
-			case cmdRTOI:
-				cFlag = *(CmdFlag*)(&cmdStream[pos]);
-				pos += 2;
-				*logASM << " RTOI ";
-				*logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
+
+			case cmdDtoI:
+				*logASM << "DTOI";
 				break;
-			case cmdITOR:
-				cFlag = *(CmdFlag*)(&cmdStream[pos]);
-				pos += 2;
-				*logASM << " ITOR ";
-				*logASM << typeInfoS[cFlag&0x00000003] << "->" << typeInfoD[(cFlag>>2)&0x00000007];
+			case cmdDtoL:
+				*logASM << "DTOL";
 				break;
-			case cmdITOL:
-				*logASM << " ITOL";
+			case cmdDtoF:
+				*logASM << "DTOF";
 				break;
-			case cmdLTOI:
-				*logASM << " LTOI";
+			case cmdItoD:
+				*logASM << "ITOD";
 				break;
-			case cmdSwap:
-				cFlag = *(CmdFlag*)(&cmdStream[pos]);
-				pos += 2;
-				*logASM << " SWAP ";
-				*logASM << typeInfoS[cFlag&0x00000003] << "<->";
-				*logASM << typeInfoD[(cFlag>>2)&0x00000007];
+			case cmdLtoD:
+				*logASM << "LTOD";
 				break;
-			case cmdCopy:
-				oFlag = *(unsigned char*)(&cmdStream[pos]);
-				pos += 1;
-				*logASM << " COPY ";
-				switch(oFlag)
-				{
-				case OTYPE_DOUBLE:
-					*logASM << " double;";
-					break;
-				case OTYPE_LONG:
-					*logASM << " long;";
-					break;
-				case OTYPE_INT:
-					*logASM << " int;";
-					break;
-				}
+			case cmdItoL:
+				*logASM << "ITOL";
 				break;
-			case cmdJmp:
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " JMP " << valind;
+			case cmdLtoI:
+				*logASM << "LTOI";
 				break;
-			case cmdJmpZ:
-				oFlag = *(unsigned char*)(&cmdStream[pos]);
-				pos += 1;
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " JMPZ";
-				switch(oFlag)
-				{
-				case OTYPE_DOUBLE:
-					*logASM << " double";
-					break;
-				case OTYPE_LONG:
-					*logASM << " long";
-					break;
-				case OTYPE_INT:
-					*logASM << " int";
-					break;
-				}
-				*logASM << ' ' << valind << ';';
+
+			case cmdImmtMulD:
+				*logASM << "IMMTMUL double " << cmd.argument;
 				break;
-			case cmdJmpNZ:
-				oFlag = *(unsigned char*)(&cmdStream[pos]);
-				pos += 1;
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " JMPNZ";
-				switch(oFlag)
-				{
-				case OTYPE_DOUBLE:
-					*logASM << " double";
-					break;
-				case OTYPE_LONG:
-					*logASM << " long";
-					break;
-				case OTYPE_INT:
-					*logASM << " int";
-					break;
-				}
-				*logASM << ' ' << valind << ';';
+			case cmdImmtMulL:
+				*logASM << "IMMTMUL long " << cmd.argument;
 				break;
-			case cmdSetRange:
-				cFlag = *(CmdFlag*)(&cmdStream[pos]);
-				pos += 2;
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += 4;
-				valind2 = *(unsigned int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " SETRANGE " << typeInfoD[(cFlag>>2)&0x00000007] << " " << valind << " " << valind2 << ';';
+			case cmdImmtMulI:
+				*logASM << "IMMTMUL int " << cmd.argument;
 				break;
+
+			case cmdCopyDorL:
+				*logASM << "COPY qword";
+				break;
+			case cmdCopyI:
+				*logASM << "COPY dword";
+				break;
+
 			case cmdGetAddr:
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " GETADDR " << (int)valind << ';';
+				*logASM << "GETADDR " << cmd.argument;
 				break;
 			case cmdFuncAddr:
-				valind = *(unsigned int*)(&cmdStream[pos]);
-				pos += 4;
-				*logASM << " FUNCADDR " << valind;
+				*logASM << "FUNCADDR " << cmd.argument;
+				break;
+
+			case cmdSetRange:
+				*logASM << "SETRANGE start: " << cmd.argument << " dtype: " << cmd.helper;
+				break;
+
+			case cmdJmp:
+				*logASM << "JMP " << cmd.argument;
+				break;
+
+			case cmdJmpZI:
+				*logASM << "JMPZ int " << cmd.argument;
+				break;
+			case cmdJmpZD:
+				*logASM << "JMPZ double " << cmd.argument;
+				break;
+			case cmdJmpZL:
+				*logASM << "JMPZ long " << cmd.argument;
+				break;
+
+			case cmdJmpNZI:
+				*logASM << "JMPNZ int " << cmd.argument;
+				break;
+			case cmdJmpNZD:
+				*logASM << "JMPNZ double " << cmd.argument;
+				break;
+			case cmdJmpNZL:
+				*logASM << "JMPNZ long " << cmd.argument;
+				break;
+
+			case cmdCall:
+				*logASM << "CALL ID/address: " << cmd.argument << " helper: " << cmd.helper;
+				break;
+
+			case cmdCallStd:
+				*logASM << "CALLSTD ID: " << cmd.argument;
+				break;
+
+			case cmdReturn:
+				*logASM << "RET flag: " << (int)cmd.flag << " sizeof: " << cmd.helper << " popcnt: " << cmd.argument;
+				break;
+
+			case cmdPushVTop:
+				*logASM << "PUSHT";
+				break;
+			case cmdPopVTop:
+				*logASM << "POPT";
+				break;
+
+			case cmdPushV:
+				*logASM << "PUSHV " << cmd.argument;
+				break;
+
+			case cmdAdd:
+				*logASM << "ADD int";
+				break;
+			case cmdSub:
+				*logASM << "SUB int";
+				break;
+			case cmdMul:
+				*logASM << "MUL int";
+				break;
+			case cmdDiv:
+				*logASM << "DIV int";
+				break;
+			case cmdPow:
+				*logASM << "POW int";
+				break;
+			case cmdMod:
+				*logASM << "MOD int";
+				break;
+			case cmdLess:
+				*logASM << "LESS int";
+				break;
+			case cmdGreater:
+				*logASM << "GREATER int";
+				break;
+			case cmdLEqual:
+				*logASM << "LEQUAL int";
+				break;
+			case cmdGEqual:
+				*logASM << "GEQUAL int";
+				break;
+			case cmdEqual:
+				*logASM << "EQUAL int";
+				break;
+			case cmdNEqual:
+				*logASM << "NEQUAL int";
+				break;
+			case cmdShl:
+				*logASM << "SHL int";
+				break;
+			case cmdShr:
+				*logASM << "SHR int";
+				break;
+			case cmdBitAnd:
+				*logASM << "BAND int";
+				break;
+			case cmdBitOr:
+				*logASM << "BOR int";
+				break;
+			case cmdBitXor:
+				*logASM << "BXOR int";
+				break;
+			case cmdLogAnd:
+				*logASM << "LAND int";
+				break;
+			case cmdLogOr:
+				*logASM << "LOR int";
+				break;
+			case cmdLogXor:
+				*logASM << "LXOR int";
+				break;
+
+			case cmdAddL:
+				*logASM << "ADD long";
+				break;
+			case cmdSubL:
+				*logASM << "SUB long";
+				break;
+			case cmdMulL:
+				*logASM << "MUL long";
+				break;
+			case cmdDivL:
+				*logASM << "DIV long";
+				break;
+			case cmdPowL:
+				*logASM << "POW long";
+				break;
+			case cmdModL:
+				*logASM << "MOD long";
+				break;
+			case cmdLessL:
+				*logASM << "LESS long";
+				break;
+			case cmdGreaterL:
+				*logASM << "GREATER long";
+				break;
+			case cmdLEqualL:
+				*logASM << "LEQUAL long";
+				break;
+			case cmdGEqualL:
+				*logASM << "GEQUAL long";
+				break;
+			case cmdEqualL:
+				*logASM << "EQUAL long";
+				break;
+			case cmdNEqualL:
+				*logASM << "NEQUAL long";
+				break;
+			case cmdShlL:
+				*logASM << "SHL long";
+				break;
+			case cmdShrL:
+				*logASM << "SHR long";
+				break;
+			case cmdBitAndL:
+				*logASM << "BAND long";
+				break;
+			case cmdBitOrL:
+				*logASM << "BOR long";
+				break;
+			case cmdBitXorL:
+				*logASM << "BXOR long";
+				break;
+			case cmdLogAndL:
+				*logASM << "LAND long";
+				break;
+			case cmdLogOrL:
+				*logASM << "LOR long";
+				break;
+			case cmdLogXorL:
+				*logASM << "LXOR long";
+				break;
+
+			case cmdAddD:
+				*logASM << "ADD double";
+				break;
+			case cmdSubD:
+				*logASM << "SUB double";
+				break;
+			case cmdMulD:
+				*logASM << "MUL double";
+				break;
+			case cmdDivD:
+				*logASM << "DIV double";
+				break;
+			case cmdPowD:
+				*logASM << "POW double";
+				break;
+			case cmdModD:
+				*logASM << "MOV double";
+				break;
+			case cmdLessD:
+				*logASM << "LESS double";
+				break;
+			case cmdGreaterD:
+				*logASM << "GREATER double";
+				break;
+			case cmdLEqualD:
+				*logASM << "LEQUAL double";
+				break;
+			case cmdGEqualD:
+				*logASM << "GEQUAL double";
+				break;
+			case cmdEqualD:
+				*logASM << "EQUAL double";
+				break;
+			case cmdNEqualD:
+				*logASM << "NEQUAL double";
+				break;
+
+			case cmdNeg:
+				*logASM << "NEG int";
+				break;
+			case cmdBitNot:
+				*logASM << "BNOT int";
+				break;
+			case cmdLogNot:
+				*logASM << "LNOT int";
+				break;
+
+			case cmdNegL:
+				*logASM << "NEG long";
+				break;
+			case cmdBitNotL:
+				*logASM << "BNOT long";
+				break;
+			case cmdLogNotL:
+				*logASM << "LNOT long";
+				break;
+
+			case cmdNegD:
+				*logASM << "NEG double";
+				break;
+			case cmdLogNotD:
+				*logASM << "LNOT double";
+				break;
+			
+			case cmdIncI:
+				*logASM << "INC int";
+				break;
+			case cmdIncD:
+				*logASM << "INC double";
+				break;
+			case cmdIncL:
+				*logASM << "INC long";
+				break;
+
+			case cmdDecI:
+				*logASM << "DEC int";
+				break;
+			case cmdDecD:
+				*logASM << "DEC double";
+				break;
+			case cmdDecL:
+				*logASM << "DEC long";
+				break;
+
+			case cmdAddAtCharStk:
+			case cmdAddAtShortStk:
+			case cmdAddAtIntStk:
+			case cmdAddAtLongStk:
+			case cmdAddAtFloatStk:
+			case cmdAddAtDoubleStk:
+				*logASM << "ADDAT " << typeNameAA[cmd.cmd-cmdAddAtCharStk] << " [stk + " << cmd.argument << "] flag: " << (int)cmd.flag << " helper: " << cmd.helper;
 				break;
 			}
-			if(cmd >= cmdAdd && cmd <= cmdLogXor)
-			{
-				oFlag = *(unsigned char*)(&cmdStream[pos]);
-				pos += 1;
-				*logASM << ' ';
-				switch(cmd)
-				{
-				case cmdAdd:
-					*logASM << "ADD";
-					break;
-				case cmdSub:
-					*logASM << "SUB";
-					break;
-				case cmdMul:
-					*logASM << "MUL";
-					break;
-				case cmdDiv:
-					*logASM << "DIV";
-					break;
-				case cmdPow:
-					*logASM << "POW";
-					break;
-				case cmdMod:
-					*logASM << "MOD";
-					break;
-				case cmdLess:
-					*logASM << "LES";
-					break;
-				case cmdGreater:
-					*logASM << "GRT";
-					break;
-				case cmdLEqual:
-					*logASM << "LEQL";
-					break;
-				case cmdGEqual:
-					*logASM << "GEQL";
-					break;
-				case cmdEqual:
-					*logASM << "EQL";
-					break;
-				case cmdNEqual:
-					*logASM << "NEQL";
-					break;
-				case cmdShl:
-					*logASM << "SHL";
-					if(oFlag == OTYPE_DOUBLE)
-						throw string("Invalid operation: SHL used on float");
-					break;
-				case cmdShr:
-					*logASM << "SHR";
-					if(oFlag == OTYPE_DOUBLE)
-						throw string("Invalid operation: SHR used on float");
-					break;
-				case cmdBitAnd:
-					*logASM << "BAND";
-					if(oFlag == OTYPE_DOUBLE)
-						throw string("Invalid operation: BAND used on float");
-					break;
-				case cmdBitOr:
-					*logASM << "BOR";
-					if(oFlag == OTYPE_DOUBLE)
-						throw string("Invalid operation: BOR used on float");
-					break;
-				case cmdBitXor:
-					*logASM << "BXOR";
-					if(oFlag == OTYPE_DOUBLE)
-						throw string("Invalid operation: BXOR used on float");
-					break;
-				case cmdLogAnd:
-					*logASM << "LAND";
-					break;
-				case cmdLogOr:
-					*logASM << "LOR";
-					break;
-				case cmdLogXor:
-					*logASM << "LXOR";
-					break;
-				}
-				switch(oFlag)
-				{
-				case OTYPE_DOUBLE:
-					*logASM << " double;";
-					break;
-				case OTYPE_LONG:
-					*logASM << " long;";
-					break;
-				case OTYPE_INT:
-					*logASM << " int;";
-					break;
-				default:
-					*logASM << "ERROR: OperFlag expected after instruction";
-				}
-			}
-			if(cmd >= cmdNeg && cmd <= cmdLogNot)
-			{
-				oFlag = *(unsigned char*)(&cmdStream[pos]);
-				pos += 1;
-				*logASM << ' ';
-				switch(cmd)
-				{
-				case cmdNeg:
-					*logASM << "NEG";
-					break;
-				case cmdBitNot:
-					*logASM << "BNOT";
-					if(oFlag == OTYPE_DOUBLE)
-						throw string("Invalid operation: BNOT used on float");
-					break;
-				case cmdLogNot:
-					*logASM << "LNOT;";
-					break;
-				}
-				switch(oFlag)
-				{
-				case OTYPE_DOUBLE:
-					*logASM << " double;";
-					break;
-				case OTYPE_LONG:
-					*logASM << " long;";
-					break;
-				case OTYPE_INT:
-					*logASM << " int;";
-					break;
-				default:
-					*logASM << "ERROR: OperFlag expected after ";
-				}
-			}
-			if(cmd >= cmdIncAt && cmd <= cmdDecAt)
-			{
-				cFlag = *(CmdFlag*)(&cmdStream[pos]);
-				pos += 2;
-				if(cmd == cmdIncAt)
-					*logASM << " INCAT ";
-				if(cmd == cmdDecAt)
-					*logASM << " DECAT ";
-				*logASM << typeInfoD[(cFlag>>2)&0x00000007] << " PTR[";
-
-				int valind;
-
-				if(flagAddrRel(cFlag) || flagAddrAbs(cFlag)){
-					valind = *(int*)(&cmdStream[pos]);
-					pos += 4;
-					*logASM << valind;
-				}
-				if(flagAddrRel(cFlag))
-					*logASM << "+top";
-
-				if(flagShiftStk(cFlag)){
-					*logASM << "+shift";
-				}
-				*logASM << "] ";
-				if(flagSizeStk(cFlag)){
-					*logASM << "size: stack";
-				}
-				if(flagSizeOn(cFlag)){
-					valind = *(int*)(&cmdStream[pos]);
-					pos += 4;
-					*logASM << "size: " << valind;
-				}
-			}
 			*logASM << "\r\n";
+			cmdStream++;
 		}
 	}
 #endif
-//private:
-	char*	bytecode;
-	unsigned int	curr;
-	unsigned int	max;
-
+private:
 	std::vector<CodeInfo>	codeInfo;	// Список строк к коду
 };

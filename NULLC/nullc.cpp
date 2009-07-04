@@ -17,7 +17,8 @@ unsigned int CodeInfo::activeExecutor = 0;
 std::vector<FunctionInfo*>	CodeInfo::funcInfo;
 std::vector<VariableInfo*>	CodeInfo::varInfo;
 std::vector<TypeInfo*>		CodeInfo::typeInfo;
-CommandList*				CodeInfo::cmdList;
+CommandList*				CodeInfo::cmdInfoList;
+FastVector<VMCmd>			CodeInfo::cmdList;
 std::vector<shared_ptr<NodeZeroOP> >	CodeInfo::nodeList;
 ostringstream				CodeInfo::compileLog;
 unsigned int				CodeInfo::globalSize = 0;
@@ -42,7 +43,7 @@ bool	execOptimize = false;
 
 void	nullcInit()
 {
-	CodeInfo::cmdList = new CommandList();
+	CodeInfo::cmdInfoList = new CommandList();
 
 	compiler = new Compiler();
 	linker = new Linker();
@@ -233,5 +234,5 @@ void	nullcDeinit()
 #ifdef NULLC_BUILD_X86_JIT
 	delete executorX86;
 #endif
-	delete CodeInfo::cmdList;
+	delete CodeInfo::cmdInfoList;
 }

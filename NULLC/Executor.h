@@ -30,19 +30,18 @@ private:
 	FastVector<ExternTypeInfo*>	&exTypes;
 	FastVector<ExternFuncInfo*>	&exFunctions;
 	FastVector<ExternalFunctionInfo>	&exFuncInfo;
-	FastVector<char>			&exCode;
 
 	FastVector<asmStackType>	genStackTypes;
 
 	FastVector<char, true>	genParams;
 	FastVector<unsigned int>	paramTop;
-	FastVector<char*>	fcallStack;
+	FastVector<VMCmd*>	fcallStack;
 
 	unsigned int	*genStackBase;
 	unsigned int	*genStackPtr;
 	unsigned int	*genStackTop;
 
-	OperFlag	retType;
+	asmOperType	retType;
 
 	bool (*m_RunCallback)(unsigned int);
 	
@@ -51,4 +50,4 @@ private:
 	void operator=(Executor& r){ (void)r; assert(false); }
 };
 
-void PrintInstructionText(ostream* stream, CmdID cmd, unsigned int pos2, unsigned int valind, const CmdFlag cFlag, const OperFlag oFlag, unsigned int dw0=0, unsigned int dw1=0);
+void PrintInstructionText(ostream* stream, VMCmd cmd, unsigned int rel, unsigned int top);

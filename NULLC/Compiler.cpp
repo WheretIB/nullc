@@ -1376,16 +1376,16 @@ void AddMemberFunctionCall(char const* s, char const* e)
 	currTypes.back() = nodeList.back()->GetTypeInfo();
 }
 
-void AddPreOrPostOpNode(CmdID postCmd, bool prefixOp)
+void AddPreOrPostOpNode(bool isInc, bool prefixOp)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreOrPostOp(currTypes.back(), postCmd, prefixOp)));
+	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreOrPostOp(currTypes.back(), isInc, prefixOp)));
 }
 
-template<CmdID cmd>
 struct AddPreOrPostOp
 {
-	AddPreOrPostOp(bool isPrefixOp)
+	AddPreOrPostOp(bool isInc, bool isPrefixOp)
 	{
+		incOp = isInc;
 		prefixOp = isPrefixOp;
 	}
 
@@ -1393,8 +1393,9 @@ struct AddPreOrPostOp
 	{
 		(void)e;	// C4100
 		lastKnownStartPos = s;
-		AddPreOrPostOpNode(cmd, prefixOp);
+		AddPreOrPostOpNode(incOp, prefixOp);
 	}
+	bool incOp;
 	bool prefixOp;
 };
 
@@ -2252,8 +2253,8 @@ namespace CompilerGrammar
 			funcdef |
 			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
 			(chP('&') >> variable)[popType] |
-			(strP("--") >> variable[AddPreOrPostOp<cmdDecAt>(true)])[popType] | 
-			(strP("++") >> variable[AddPreOrPostOp<cmdIncAt>(true)])[popType] |
+			(strP("--") >> variable[AddPreOrPostOp(false, true)])[popType] | 
+			(strP("++") >> variable[AddPreOrPostOp(true, true)])[popType] |
 			(+(chP('-')[IncVar<unsigned int>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 			(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
 			lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][addHexInt] |
@@ -2264,8 +2265,8 @@ namespace CompilerGrammar
 			funccall[addFuncCallNode] |
 			(variable >>
 				(
-					strP("++")[AddPreOrPostOp<cmdIncAt>(false)] |
-					strP("--")[AddPreOrPostOp<cmdDecAt>(false)] |
+					strP("++")[AddPreOrPostOp(true, false)] |
+					strP("--")[AddPreOrPostOp(false, false)] |
 					('.' >> funccall)[AddMemberFunctionCall] |
 					epsP[AddGetVariableNode]
 				)[popType]
@@ -2732,7 +2733,8 @@ bool Compiler::Compile(string str)
 {
 	ClearState();
 
-	cmdList->Clear();
+	cmdInfoList->Clear();
+	cmdList.clear();
 
 	if(nodeList.size() != 0)
 		nodeList.pop_back();
@@ -2818,51 +2820,6 @@ bool Compiler::Compile(string str)
 	if(nodeList.size() != 1)
 		throw std::string("Compilation failed, AST contains more than one node");
 
-	if(CodeInfo::activeExecutor == CodeInfo::EXEC_VM)
-	{
-		CmdID cmd;
-		CmdFlag cFlag;
-		asmDataType dt;
-		unsigned int pos = 0;
-		while(CodeInfo::cmdList->GetData(pos, cmd))
-		{
-			pos += 2;
-			CodeInfo::cmdList->GetUSHORT(pos, cFlag);
-			switch(cmd)
-			{
-			case cmdPush:
-				{
-					dt = flagDataType(cFlag);
-
-					CmdID prefferedCmd = 0;
-					if(dt == DTYPE_COMPLEX_TYPE)
-						prefferedCmd = cmdPushCmplxAbs;
-					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-						prefferedCmd = cmdPushDorLAbs;
-					if(dt == DTYPE_FLOAT)
-						prefferedCmd = cmdPushFloatAbs;
-					if(dt == DTYPE_INT)
-						prefferedCmd = cmdPushIntAbs;
-					if(dt == DTYPE_SHORT)
-						prefferedCmd = cmdPushShortAbs;
-					if(dt == DTYPE_CHAR)
-						prefferedCmd = cmdPushCharAbs;
-
-					if(flagAddrRel(cFlag))
-						prefferedCmd += 6;
-					if(flagShiftStk(cFlag))
-						prefferedCmd += 12;
-
-					*(CmdID*)(&CodeInfo::cmdList->bytecode[pos - 2]) = prefferedCmd;
-
-					assert(prefferedCmd >= cmdPushCharAbs && prefferedCmd <= cmdPushCmplxStk);
-				}
-				break;
-			}
-			pos += CommandList::GetCommandLength(cmd, cFlag) - 2;
-		}
-	}
-
 	return true; // Зачем тут return true, если вместо return false используются исключения?
 }
 
@@ -2870,7 +2827,7 @@ void Compiler::GenListing()
 {
 #ifdef NULLC_LOG_FILES
 	logASM.str("");
-	CommandList::PrintCommandListing(&logASM, CodeInfo::cmdList->bytecode, CodeInfo::cmdList->bytecode+CodeInfo::cmdList->curr);
+	CommandList::PrintCommandListing(&logASM, &CodeInfo::cmdList[0], &CodeInfo::cmdList[0] + CodeInfo::cmdList.size());
 
 	ofstream m_FileStream("asm.txt", std::ios::binary);
 	m_FileStream << logASM.str();
@@ -2923,7 +2880,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		size += (unsigned int)CodeInfo::funcInfo[i]->params.size() * sizeof(unsigned int);
 	}
 	unsigned int offsetToCode = size;
-	size += CodeInfo::cmdList->GetCurrPos();
+	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
 
 	*bytecode = new char[size];
 
@@ -2939,7 +2896,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->functionCount = (unsigned int)CodeInfo::funcInfo.size();
 	code->offsetToFirstFunc = offsetToFunc;
 
-	code->codeSize = CodeInfo::cmdList->GetCurrPos();
+	code->codeSize = CodeInfo::cmdList.size();
 	code->offsetToCode = offsetToCode;
 
 	ExternTypeInfo *tInfo = FindFirstType(code);
@@ -3030,7 +2987,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->code = FindCode(code);
 	code->globalCodeStart = offsetToGlobal;
-	memcpy(code->code, CodeInfo::cmdList->bytecode, CodeInfo::cmdList->GetCurrPos());
+	memcpy(code->code, &CodeInfo::cmdList[0], CodeInfo::cmdList.size() * sizeof(VMCmd));
 
 	return size;
 }

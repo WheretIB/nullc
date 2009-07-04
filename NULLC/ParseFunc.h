@@ -137,7 +137,7 @@ ASM_TYPE_TRAITS(float, DTYPE_FLOAT, STYPE_DOUBLE); // float expands to double
 ASM_TYPE_TRAITS(double, DTYPE_DOUBLE, STYPE_DOUBLE);
 
 //Zero child operators
-void NodeNumberPushCommand(unsigned short cmdFlag, char* data, unsigned int dataSize);
+void NodeNumberPushCommand(asmDataType dt, char* data, unsigned int dataSize);
 template<typename T>
 class NodeNumber: public NodeZeroOP
 {
@@ -149,7 +149,7 @@ public:
 	virtual void Compile()
 	{
 		typedef AsmTypeTraits<T> Traits;
-		NodeNumberPushCommand((unsigned short)(Traits::stackType | Traits::dataType), (char*)(&num), sizeof(T));
+		NodeNumberPushCommand(Traits::dataType, (char*)(&num), sizeof(T));
 	}
 	virtual void LogToStream(ostringstream& ostr)
 	{
@@ -158,7 +158,8 @@ public:
 	}
 	virtual unsigned int GetSize()
 	{
-		return sizeof(CmdID) + sizeof(unsigned short) + sizeof(T);
+		typedef AsmTypeTraits<T> Traits;
+		return Traits::dataType == DTYPE_FLOAT ? 2 : (sizeof(T)/4);
 	}
 	virtual unsigned int GetNodeType(){ return typeNodeNumber; }
 
@@ -373,7 +374,7 @@ protected:
 class NodePreOrPostOp: public NodeOneOP
 {
 public:
-			NodePreOrPostOp(TypeInfo* resType, CmdID cmd, bool preOp);
+			NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp);
 	virtual ~NodePreOrPostOp();
 
 			void SetOptimised(bool doOptimisation);
@@ -384,7 +385,7 @@ public:
 	virtual unsigned int GetNodeType(){ return typeNodePreOrPostOp; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
-	CmdID	cmdID;
+	bool	incOp;
 	bool	optimised;
 
 	bool	prefixOp;

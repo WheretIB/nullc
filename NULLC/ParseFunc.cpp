@@ -62,26 +62,6 @@ void DrawLine(ostringstream& ostr)
 
 //Functions for work with types
 
-//returns new value type
-asmStackType	ConvertToReal(shared_ptr<NodeZeroOP> op, asmStackType st)
-{
-	(void)op;
-	if(st == STYPE_DOUBLE)
-		return st;
-	cmdList->AddData(cmdITOR);
-	cmdList->AddData((unsigned short)(st | DTYPE_DOUBLE));
-	return STYPE_DOUBLE;
-}
-asmStackType	ConvertToInteger(shared_ptr<NodeZeroOP> op, asmStackType st)
-{
-	(void)op;
-	if(st == STYPE_INT || st == STYPE_LONG)
-		return st;
-	cmdList->AddData(cmdRTOI);
-	cmdList->AddData((unsigned short)(st | DTYPE_INT));
-	return STYPE_INT;
-}
-
 //This function converts a type according to result type of binary operation between types 'first' and 'second'
 //For example,  int * double = double, so first operand will be transformed to double
 //				double * int = double, no transformations
@@ -89,14 +69,15 @@ asmStackType	ConvertFirstForSecond(asmStackType first, asmStackType second)
 {
 	if((first == STYPE_INT || first == STYPE_LONG) && second == STYPE_DOUBLE)
 	{
-		//getLog() << "Converting from integer to float\r\n";
-		cmdList->AddData(cmdITOR);
-		cmdList->AddData((unsigned short)(first | dataTypeForStackType[second]));
+		if(first == STYPE_INT)
+			cmdList.push_back(VMCmd(cmdItoD));
+		else
+			cmdList.push_back(VMCmd(cmdLtoD));
 		return second;
 	}
 	if(first == STYPE_INT && second == STYPE_LONG)
 	{
-		cmdList->AddData(cmdITOL);
+		cmdList.push_back(VMCmd(cmdItoL));
 		return second;
 	}
 	return first;
@@ -107,27 +88,20 @@ void	ConvertFirstToSecond(asmStackType first, asmStackType second)
 {
 	if(second == STYPE_DOUBLE)
 	{
-		if(first == STYPE_INT || first == STYPE_LONG)
-		{
-			cmdList->AddData(cmdITOR);
-			cmdList->AddData((unsigned short)(first | DTYPE_DOUBLE));
-		}
+		if(first == STYPE_INT)
+			cmdList.push_back(VMCmd(cmdItoD));
+		else if(first == STYPE_LONG)
+			cmdList.push_back(VMCmd(cmdLtoD));
 	}else if(second == STYPE_LONG){
 		if(first == STYPE_INT)
-		{
-			cmdList->AddData(cmdITOL);
-		}else if(first == STYPE_DOUBLE){
-			cmdList->AddData(cmdRTOI);
-			cmdList->AddData((unsigned short)(STYPE_DOUBLE | DTYPE_LONG));
-		}
+			cmdList.push_back(VMCmd(cmdItoL));
+		else if(first == STYPE_DOUBLE)
+			cmdList.push_back(VMCmd(cmdDtoL));
 	}else if(second == STYPE_INT){
 		if(first == STYPE_DOUBLE)
-		{
-			cmdList->AddData(cmdRTOI);
-			cmdList->AddData((unsigned short)(STYPE_DOUBLE | DTYPE_INT));
-		}else if(first == STYPE_LONG){
-			cmdList->AddData(cmdLTOI);
-		}
+			cmdList.push_back(VMCmd(cmdDtoI));
+		else if(first == STYPE_LONG)
+			cmdList.push_back(VMCmd(cmdLtoI));
 	}
 }
 
@@ -161,27 +135,12 @@ TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 	return NULL;
 }
 
-unsigned int	ConvertToRealSize(shared_ptr<NodeZeroOP> op, asmStackType st)
-{
-	(void)op;
-	if(st == STYPE_DOUBLE)
-		return 0;
-	return sizeof(CmdID) + sizeof(unsigned short);
-}
-unsigned int	ConvertToIntegerSize(shared_ptr<NodeZeroOP> op, asmStackType st)
-{
-	(void)op;
-	if(st == STYPE_INT || st == STYPE_LONG)
-		return 0;
-	return sizeof(CmdID) + sizeof(unsigned short);
-}
-
 std::pair<unsigned int, asmStackType>	ConvertFirstForSecondSize(asmStackType first, asmStackType second)
 {
 	if((first == STYPE_INT || first == STYPE_LONG) && second == STYPE_DOUBLE)
-		return std::pair<unsigned int, asmStackType>(sizeof(CmdID) + sizeof(unsigned short), STYPE_DOUBLE);
+		return std::pair<unsigned int, asmStackType>(1, STYPE_DOUBLE);
 	if(first == STYPE_INT && second == STYPE_LONG)
-		return std::pair<unsigned int, asmStackType>(sizeof(CmdID), STYPE_LONG);
+		return std::pair<unsigned int, asmStackType>(1, STYPE_LONG);
 	return std::pair<unsigned int, asmStackType>(0, first);
 }
 
@@ -190,17 +149,17 @@ unsigned int	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
 	if(second == STYPE_DOUBLE)
 	{
 		if(first == STYPE_INT || first == STYPE_LONG)
-			return sizeof(CmdID) + sizeof(unsigned short);
+			return 1;
 	}else if(second == STYPE_LONG){
 		if(first == STYPE_INT)
-			return sizeof(CmdID);
+			return 1;
 		else if(first == STYPE_DOUBLE)
-			return sizeof(CmdID) + sizeof(unsigned short);
+			return 1;
 	}else if(second == STYPE_INT){
 		if(first == STYPE_DOUBLE)
-			return sizeof(CmdID) + sizeof(unsigned short);
+			return 1;
 		else if(first == STYPE_LONG)
-			return sizeof(CmdID);
+			return 1;
 	}
 	return 0;
 }
@@ -256,11 +215,11 @@ NodeOneOP::~NodeOneOP()
 
 void NodeOneOP::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	first->Compile();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeOneOP::LogToStream(ostringstream& ostr)
 {
@@ -286,12 +245,12 @@ NodeTwoOP::~NodeTwoOP()
 
 void NodeTwoOP::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	NodeOneOP::Compile();
 	second->Compile();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeTwoOP::LogToStream(ostringstream& ostr)
 {
@@ -317,12 +276,12 @@ NodeThreeOP::~NodeThreeOP()
 
 void NodeThreeOP::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	NodeTwoOP::Compile();
 	third->Compile();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeThreeOP::LogToStream(ostringstream& ostr)
 {
@@ -341,11 +300,24 @@ unsigned int NodeThreeOP::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Вспомогательная функция для NodeNumber<T>
-void NodeNumberPushCommand(unsigned short cmdFlag, char* data, unsigned int dataSize)
+void NodeNumberPushCommand(asmDataType dt, char* data, unsigned int dataSize)
 {
-	cmdList->AddData(cmdPushImmt);
-	cmdList->AddData(cmdFlag);
-	cmdList->AddData(data, dataSize);
+	if(dt == DTYPE_CHAR)
+		cmdList.push_back(VMCmd(cmdPushImmt, (int)*data));
+	else if(dt == DTYPE_SHORT)
+		cmdList.push_back(VMCmd(cmdPushImmt, (int)*(short*)data));
+	else if(dt == DTYPE_INT)
+		cmdList.push_back(VMCmd(cmdPushImmt, *(int*)data));
+	else if(dt == DTYPE_FLOAT){
+		double val = (double)*(float*)(data);
+		cmdList.push_back(VMCmd(cmdPushImmt, ((int*)(&val))[1]));
+		cmdList.push_back(VMCmd(cmdPushImmt, ((int*)(&val))[0]));
+	}else if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
+		cmdList.push_back(VMCmd(cmdPushImmt, *(int*)(data + 4)));
+		cmdList.push_back(VMCmd(cmdPushImmt, *(int*)(data)));
+	}else{
+		assert(!"complex type cannot be pushed immediately");
+	}
 }
 //////////////////////////////////////////////////////////////////////////
 // Узел, убирающий с вершины стека значение, оставленное дочерним узлом
@@ -359,24 +331,20 @@ NodePopOp::~NodePopOp()
 
 void NodePopOp::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Даём дочернему узлу вычислить значение
 	first->Compile();
 	if(first->GetTypeInfo() != typeVoid)
 	{
 		// Убираем его с вершины стека
-		cmdList->AddData(cmdPop);
-		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
-			cmdList->AddData(first->GetTypeInfo()->size);
-		else
-			cmdList->AddData(stackTypeSize[podTypeToStackType[first->GetTypeInfo()->type]]);
+		cmdList.push_back(VMCmd(cmdPop, first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX ? first->GetTypeInfo()->size : stackTypeSize[podTypeToStackType[first->GetTypeInfo()->type]]));
 	}
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodePopOp::LogToStream(ostringstream& ostr)
 {
@@ -390,7 +358,7 @@ unsigned int NodePopOp::GetSize()
 {
 	unsigned int size = NodeOneOP::GetSize();
 	if(first->GetTypeInfo() != typeVoid)
-		size += sizeof(CmdID) + sizeof(unsigned int);
+		size += 1;
 
 	return size;
 }
@@ -412,17 +380,21 @@ NodeUnaryOp::~NodeUnaryOp()
 
 void NodeUnaryOp::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->GetTypeInfo()->type]];
 
 	// Даём дочернему узлу вычислить значение
 	first->Compile();
 	// Выполним команду
-	cmdList->AddData(cmdID);
-	cmdList->AddData((unsigned char)(aOT));
+	if(aOT == OTYPE_INT)
+		cmdList.push_back(VMCmd((InstructionCode)cmdID));
+	else if(aOT == OTYPE_DOUBLE)
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 6)));
+	else
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 3)));
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeUnaryOp::LogToStream(ostringstream& ostr)
 {
@@ -434,7 +406,7 @@ void NodeUnaryOp::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeUnaryOp::GetSize()
 {
-	return NodeOneOP::GetSize() + sizeof(CmdID) + sizeof(unsigned char);
+	return NodeOneOP::GetSize() + 1;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -454,10 +426,10 @@ NodeReturnOp::~NodeReturnOp()
 
 void NodeReturnOp::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Найдём значение, которое будем возвращать
 	first->Compile();
@@ -468,11 +440,13 @@ void NodeReturnOp::Compile()
 	// Выйдем из функции или программы
 	TypeInfo *retType = typeInfo ? typeInfo : first->GetTypeInfo();
 	asmOperType operType = operTypeForStackType[podTypeToStackType[retType->type]];
-	cmdList->AddData(cmdReturn);
-	cmdList->AddData((unsigned short)(retType->type == TypeInfo::TYPE_COMPLEX ? retType->size : (bitRetSimple | operType)));
-	cmdList->AddData((unsigned short)(popCnt));
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	if(retType->type == TypeInfo::TYPE_COMPLEX)
+		cmdList.push_back(VMCmd(cmdReturn, 0, (unsigned short)retType->size, popCnt));
+	else
+		cmdList.push_back(VMCmd(cmdReturn, 0, (unsigned short)(bitRetSimple | operType), popCnt));
+
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeReturnOp::LogToStream(ostringstream& ostr)
 {
@@ -487,7 +461,7 @@ void NodeReturnOp::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeReturnOp::GetSize()
 {
-	return NodeOneOP::GetSize() + sizeof(CmdID) + 2 * sizeof(unsigned short) + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
+	return NodeOneOP::GetSize() + 1 + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -507,11 +481,11 @@ NodeExpression::~NodeExpression()
 
 void NodeExpression::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	NodeOneOP::Compile();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeExpression::LogToStream(ostringstream& ostr)
 {
@@ -539,12 +513,12 @@ NodeVarDef::~NodeVarDef()
 
 void NodeVarDef::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeVarDef::LogToStream(ostringstream& ostr)
 {
@@ -571,22 +545,19 @@ NodeBlock::~NodeBlock()
 
 void NodeBlock::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	// Сохраним значение вершины стека переменных
-	cmdList->AddData(cmdPushVTop);
+	cmdList.push_back(VMCmd(cmdPushVTop));
 	if(shift)
-	{
-		cmdList->AddData(cmdPushV);
-		cmdList->AddData(shift);
-	}
+		cmdList.push_back(VMCmd(cmdPushV, shift));
 	// Выполним содержимое блока (то же что first->Compile())
 	first->Compile();
 	// Востановим значение вершины стека переменных
 	if(popAfter)
-		cmdList->AddData(cmdPopVTop);
+		cmdList.push_back(VMCmd(cmdPopVTop));
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeBlock::LogToStream(ostringstream& ostr)
 {
@@ -598,7 +569,7 @@ void NodeBlock::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeBlock::GetSize()
 {
-	return first->GetSize() + (popAfter ? 2 : 1) * sizeof(CmdID) + (shift ? sizeof(CmdID) + 4 : 0);
+	return first->GetSize() + (popAfter ? 2 : 1) + (shift ? 1 : 0);
 }
 
 NodeFuncDef::NodeFuncDef(FunctionInfo *info)
@@ -623,27 +594,24 @@ void NodeFuncDef::Compile()
 {
 	if(disabled)
 		return;
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
-	funcInfo->address = cmdList->GetCurrPos();
+	funcInfo->address = cmdList.size();
 	// Сгенерируем код функции
 	first->Compile();
 
-	cmdList->AddData(cmdReturn);
 	if(funcInfo->retType == typeVoid)
 	{
+		cmdList.push_back(VMCmd(cmdReturn, 0, 0, 1));
 		// Если функция не возвращает значения, то это пустой ret
-		cmdList->AddData((unsigned short)(0));	// Возвращает значение размером 0 байт
-		cmdList->AddData((unsigned short)(1));
 	}else{
 		// Остановим программу с ошибкой
-		cmdList->AddData((unsigned short)(bitRetError));
-		cmdList->AddData((unsigned short)(1));
+		cmdList.push_back(VMCmd(cmdReturn, bitRetError, 0, 1));
 	}
 
-	funcInfo->codeSize = cmdList->GetCurrPos() - funcInfo->address;
+	funcInfo->codeSize = cmdList.size() - funcInfo->address;
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeFuncDef::LogToStream(ostringstream& ostr)
 {
@@ -657,7 +625,7 @@ unsigned int NodeFuncDef::GetSize()
 {
 	if(disabled)
 		return 0;
-	return first->GetSize() + sizeof(CmdID) + 2*sizeof(unsigned short);
+	return first->GetSize() + 1;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -692,7 +660,7 @@ NodeFuncCall::~NodeFuncCall()
 
 void NodeFuncCall::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	// Если имеются параметры, найдём их значения
 	unsigned int currParam = 0;
@@ -709,7 +677,7 @@ void NodeFuncCall::Compile()
 			// Преобразуем его в тип входного параметра функции
 			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[paramList.size()-currParam-1]->type]);
 			if(funcType->paramType[paramList.size()-currParam-1] == typeFloat)
-				cmdList->AddData(cmdDTOF);
+				cmdList.push_back(VMCmd(cmdDtoF));
 			currParam++;
 		}
 	}else{
@@ -728,40 +696,23 @@ void NodeFuncCall::Compile()
 	if(funcInfo && funcInfo->address == -1)		// Если функция встроенная
 	{
 		// Вызовем по имени
-		cmdList->AddData(cmdCallStd);
 		unsigned int ID = GetFuncIndexByPtr(funcInfo);
-		cmdList->AddData(ID);
+		cmdList.push_back(VMCmd(cmdCallStd, ID));
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
+		unsigned int paramSize = 0;
+		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
+			paramSize += funcType->paramType[i]->size;
+		paramSize += ((!funcInfo || second) ? 4 : 0);
+		if(paramSize)
+			cmdList.push_back(VMCmd(cmdReserveV, paramSize));
+
 		unsigned int addr = 0;
 		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
 		{
-			asmStackType newST = podTypeToStackType[funcType->paramType[i]->type];
 			asmDataType newDT = podTypeToDataType[funcType->paramType[i]->type];
-			if(CodeInfo::activeExecutor == EXEC_VM)
-			{
-				cmdList->AddData(cmdMovRTaP);
-				cmdList->AddData((unsigned short)(newDT));
-				// адрес начала массива
-				cmdList->AddData(addr);
-				addr += funcType->paramType[i]->size;
-				if(newST == STYPE_COMPLEX_TYPE)
-					cmdList->AddData(funcType->paramType[i]->size);
-			}else{
-				cmdList->AddData(cmdMov);
-				cmdList->AddData((unsigned short)(newST | newDT | bitAddrRelTop));
-				// адрес начала массива
-				cmdList->AddData(addr);
-				addr += funcType->paramType[i]->size;
-				if(newST == STYPE_COMPLEX_TYPE)
-					cmdList->AddData(funcType->paramType[i]->size);
-
-				cmdList->AddData(cmdPop);
-				if(newST == STYPE_COMPLEX_TYPE)
-					cmdList->AddData(funcType->paramType[i]->size);
-				else
-					cmdList->AddData(stackTypeSize[newST]);
-			}
+			cmdList.push_back(VMCmd(cmdPopTypeTop[newDT>>2], (unsigned short)funcType->paramType[i]->size, addr));
+			addr += funcType->paramType[i]->size;
 		}
 
 		if(!funcInfo || second)
@@ -770,29 +721,16 @@ void NodeFuncCall::Compile()
 				second->Compile();
 			else
 				first->Compile();
-			if(CodeInfo::activeExecutor == EXEC_VM)
-			{
-				cmdList->AddData(cmdMovRTaP);
-				cmdList->AddData((unsigned short)(DTYPE_INT));
-				cmdList->AddData(addr);
-			}else{
-				cmdList->AddData(cmdMov);
-				cmdList->AddData((unsigned short)(STYPE_INT | DTYPE_INT | bitAddrRelTop));
-				cmdList->AddData(addr);
-
-				cmdList->AddData(cmdPop);
-				cmdList->AddData(4);
-			}
+			cmdList.push_back(VMCmd(cmdPopIntTop, 4, addr));
 		}
 
 		// Вызовем по адресу
-		cmdList->AddData(cmdCall);
 		unsigned int ID = GetFuncIndexByPtr(funcInfo);
-		cmdList->AddData(funcInfo ? ID : -1);
-		cmdList->AddData((unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]])));
+		unsigned short helper = (unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]]));
+		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : -1));
 	}
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeFuncCall::LogToStream(ostringstream& ostr)
 {
@@ -823,33 +761,28 @@ unsigned int NodeFuncCall::GetSize()
 			size += second->GetSize();
 		else
 			size += first->GetSize();
-		size += sizeof(CmdID) + sizeof(unsigned int) + sizeof(unsigned short);
-		if(CodeInfo::activeExecutor == EXEC_X86)
-			size += sizeof(CmdID) + sizeof(unsigned int);
+		size += 1;
 	}
+
+	unsigned int paramSize = ((!funcInfo || second) ? 4 : 0);
 
 	unsigned int currParam = 0;
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
 	{
+		paramSize += funcType->paramType[currParam]->size;
+
 		size += (*s)->GetSize();
 		size += ConvertFirstToSecondSize(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
 		if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && funcType->paramType[paramList.size()-currParam-1] == typeFloat)
-			size += sizeof(CmdID);
+			size += 1;
 		currParam++;
 	}
 	
 	if(funcInfo && funcInfo->address == -1)
 	{
-		size += sizeof(CmdID) + sizeof(funcInfo);
+		size += 1;
 	}else{
-		size += sizeof(CmdID) + sizeof(unsigned int) + sizeof(unsigned short) + (unsigned int)(funcType->paramType.size()) * (sizeof(CmdID)+2+4);
-		if(CodeInfo::activeExecutor == EXEC_X86)
-			size += (unsigned int)(funcType->paramType.size()) * (sizeof(CmdID)+4);
-		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
-		{
-			if(funcType->paramType[i]->type == TypeInfo::TYPE_COMPLEX)
-				size += sizeof(unsigned int);
-		}
+		size += (paramSize ? 2 : 1) + (unsigned int)(funcType->paramType.size());
 	}
 
 	return size;
@@ -895,23 +828,16 @@ void NodeGetAddress::ShiftToMember(int member)
 
 void NodeGetAddress::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
 	if(absAddress)
-	{
-		cmdList->AddData(cmdPushImmt);
-		cmdList->AddData((unsigned short)(STYPE_INT | DTYPE_INT));
-		// адрес начала массива
-		cmdList->AddData(varAddress);
-	}else{
-		cmdList->AddData(cmdGetAddr);
-		// относительный адрес переменной
-		cmdList->AddData(varAddress);
-	}
+		cmdList.push_back(VMCmd(cmdPushImmt, varAddress));
+	else
+		cmdList.push_back(VMCmd(cmdGetAddr, varAddress));
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
 void NodeGetAddress::LogToStream(ostringstream& ostr)
@@ -927,10 +853,7 @@ void NodeGetAddress::LogToStream(ostringstream& ostr)
 
 unsigned int NodeGetAddress::GetSize()
 {
-	if(absAddress)
-		return sizeof(CmdID) + sizeof(unsigned short) + sizeof(unsigned int);
-	// else
-	return sizeof(CmdID) + sizeof(unsigned int);
+	return 1;
 }
 
 TypeInfo* NodeGetAddress::GetTypeInfo()
@@ -1013,9 +936,9 @@ NodeVariableSet::~NodeVariableSet()
 
 void NodeVariableSet::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
 	asmStackType asmST = podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)];
 	asmDataType asmDT = podTypeToDataType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)];
@@ -1028,20 +951,21 @@ void NodeVariableSet::Compile()
 	if(arrSetAll)
 	{
 		assert(knownAddress);
-		cmdList->AddData(cmdSetRange);
-		cmdList->AddData((unsigned short)(podTypeToDataType[typeInfo->subType->type]));
-		cmdList->AddData(addrShift);
-		cmdList->AddData(typeInfo->size / typeInfo->subType->size);
+		cmdList.push_back(VMCmd(cmdPushImmt, typeInfo->size / typeInfo->subType->size));
+		cmdList.push_back(VMCmd(cmdSetRange, (unsigned short)(asmDT), addrShift));
 	}else{
-		cmdList->AddData(cmdMov);
-		cmdList->AddData((unsigned short)(asmST | asmDT | (absAddress ? bitAddrAbs : bitAddrRel) | (knownAddress ? 0 : bitShiftStk)));
-		// адрес начала массива
-		cmdList->AddData(addrShift);
-		if(typeInfo->type == TypeInfo::TYPE_COMPLEX)
-			cmdList->AddData(typeInfo->size);
+		if(knownAddress)
+		{
+			if(absAddress)
+				cmdList.push_back(VMCmd(cmdMovTypeAbs[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			else
+				cmdList.push_back(VMCmd(cmdMovTypeRel[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+		}else{
+			cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+		}
 	}
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
 void NodeVariableSet::LogToStream(ostringstream& ostr)
@@ -1063,9 +987,9 @@ unsigned int NodeVariableSet::GetSize()
 		size += first->GetSize();
 	size += ConvertFirstToSecondSize(podTypeToStackType[second->GetTypeInfo()->type], podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)]);
 	if(arrSetAll)
-		size += sizeof(CmdID) + sizeof(unsigned short) + 2*sizeof(unsigned int);
+		size += 2;
 	else
-		size += sizeof(CmdID) + sizeof(unsigned short) + sizeof(unsigned int) + (typeInfo->type == TypeInfo::TYPE_COMPLEX ? sizeof(unsigned int) : 0);
+		size += 1;
 	return size;
 }
 
@@ -1116,9 +1040,9 @@ NodeArrayIndex::~NodeArrayIndex()
 
 void NodeArrayIndex::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
 	asmOperType oAsmType = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
 
@@ -1127,26 +1051,17 @@ void NodeArrayIndex::Compile()
 
 	if(knownShift)
 	{
-		cmdList->AddData(cmdPushImmt);
-		cmdList->AddData((unsigned short)(STYPE_INT | DTYPE_INT));
-		// адрес начала массива
-		cmdList->AddData(shiftValue);
+		cmdList.push_back(VMCmd(cmdPushImmt, shiftValue));
 	}else{
 		// Вычислим индекс
 		second->Compile();
-		// Переведём его в целое число
-		cmdList->AddData(cmdCTI);
-		// Передадим тип операнда
-		cmdList->AddData((unsigned char)(oAsmType));
-		// Умножив на размер элемента (сдвиг должен быть в байтах)
-		cmdList->AddData(typeParent->subType->size);
+		// Переведём его в целое число.  Умножив на размер элемента
+		cmdList.push_back(VMCmd(cmdImmtMulType[oAsmType], typeParent->subType->size));
 	}
 	// Сложим с адресом, который был на вершине
-	cmdList->AddData(cmdAdd);
-	// Передадим тип операнда
-	cmdList->AddData((unsigned char)(OTYPE_INT));
+	cmdList.push_back(VMCmd(cmdAdd));
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
 void NodeArrayIndex::LogToStream(ostringstream& ostr)
@@ -1166,9 +1081,9 @@ void NodeArrayIndex::LogToStream(ostringstream& ostr)
 unsigned int NodeArrayIndex::GetSize()
 {
 	if(knownShift)
-		return first->GetSize() + 2*sizeof(CmdID) + sizeof(unsigned short) + sizeof(unsigned char) + sizeof(unsigned int);
+		return first->GetSize() + 2;
 	// else
-	return first->GetSize() + second->GetSize() + 2*sizeof(CmdID) + 2*sizeof(unsigned char) + sizeof(unsigned int);
+	return first->GetSize() + second->GetSize() + 2;
 }
 
 TypeInfo* NodeArrayIndex::GetTypeInfo()
@@ -1216,24 +1131,26 @@ NodeDereference::~NodeDereference()
 
 void NodeDereference::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
-	asmStackType asmST = podTypeToStackType[typeInfo->type];
 	asmDataType asmDT = podTypeToDataType[typeInfo->type];
 	
 	if(!knownAddress)
 		first->Compile();
 
-	cmdList->AddData(cmdPush);
-	cmdList->AddData((unsigned short)(asmST | asmDT | (absAddress ? bitAddrAbs : bitAddrRel) | (knownAddress ? 0 : bitShiftStk)));
-	// адрес начала массива
-	cmdList->AddData(addrShift);
-	if(typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		cmdList->AddData(typeInfo->size);
+	if(knownAddress)
+	{
+		if(absAddress)
+			cmdList.push_back(VMCmd(cmdPushTypeAbs[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+		else
+			cmdList.push_back(VMCmd(cmdPushTypeRel[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+	}else{
+		cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+	}
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
 void NodeDereference::LogToStream(ostringstream& ostr)
@@ -1247,7 +1164,7 @@ void NodeDereference::LogToStream(ostringstream& ostr)
 
 unsigned int NodeDereference::GetSize()
 {
-	return (!knownAddress ? first->GetSize() : 0) + sizeof(CmdID) + sizeof(unsigned short) + sizeof(unsigned int) + (typeInfo->type == TypeInfo::TYPE_COMPLEX ? sizeof(unsigned int) : 0);
+	return (!knownAddress ? first->GetSize() : 0) + 1;
 }
 
 TypeInfo* NodeDereference::GetTypeInfo()
@@ -1272,25 +1189,20 @@ NodeShiftAddress::~NodeShiftAddress()
 
 void NodeShiftAddress::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
 	first->Compile();
 
 	if(memberShift)
 	{
-		cmdList->AddData(cmdPushImmt);
-		cmdList->AddData((unsigned short)(STYPE_INT | DTYPE_INT));
-		// сдвиг до члена типа
-		cmdList->AddData(memberShift);
-
+		cmdList.push_back(VMCmd(cmdPushImmt, memberShift));
 		// Сложим с адресом, который был на вершине
-		cmdList->AddData(cmdAdd);
-		cmdList->AddData((unsigned char)(OTYPE_INT));
+		cmdList.push_back(VMCmd(cmdAdd));
 	}
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
 void NodeShiftAddress::LogToStream(ostringstream& ostr)
@@ -1306,7 +1218,7 @@ unsigned int NodeShiftAddress::GetSize()
 {
 	unsigned int retSize = first->GetSize();
 	if(memberShift)
-		retSize += 2*sizeof(CmdID) + sizeof(unsigned short) + sizeof(unsigned int) + sizeof(unsigned char);
+		retSize += 2;
 	return retSize;
 }
 
@@ -1317,7 +1229,7 @@ TypeInfo* NodeShiftAddress::GetTypeInfo()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел для постинкримента или постдекримента
-NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, CmdID cmd, bool preOp)
+NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 {
 	assert(resType);
 	typeInfo = resType;
@@ -1325,11 +1237,10 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, CmdID cmd, bool preOp)
 	first = TakeLastNode();
 	assert(first->GetTypeInfo()->refLevel != 0);
 
-	assert(cmd == cmdIncAt || cmd == cmdDecAt);
-	cmdID = cmd;
+	incOp = isInc;
 
 	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
-		throw std::string("ERROR: ") + (cmdID == cmdIncAt ? "Increment" : "Decrement") + std::string(" is not supported on '") + typeInfo->GetTypeName() + "'";
+		throw std::string("ERROR: ") + (isInc ? "Increment" : "Decrement") + std::string(" is not supported on '") + typeInfo->GetTypeName() + "'";
 
 	prefixOp = preOp;
 
@@ -1370,21 +1281,42 @@ void NodePreOrPostOp::SetOptimised(bool doOptimisation)
 
 void NodePreOrPostOp::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
+	asmStackType asmST = podTypeToStackType[typeInfo->type];
 	asmDataType asmDT = podTypeToDataType[typeInfo->type];
+	asmOperType aOT = operTypeForStackType[podTypeToStackType[typeInfo->type]];
 	
 	if(!knownAddress)
 		first->Compile();
 
-	// Меняем значение переменной прямо по адресу
-	cmdList->AddData(cmdID);
-	cmdList->AddData((unsigned short)(asmDT | (optimised ? 0 : (prefixOp ? bitPushAfter : bitPushBefore)) | (absAddress ? bitAddrAbs : bitAddrRel) | (knownAddress ? 0 : bitShiftStk)));
-	cmdList->AddData(addrShift);
+	if(knownAddress)
+	{
+		if(absAddress)
+		{
+			cmdList.push_back(VMCmd(cmdPushTypeAbs[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(incOp ? cmdIncType[aOT] : cmdDecType[aOT]));
+			cmdList.push_back(VMCmd(cmdMovTypeAbs[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			if(!prefixOp && !optimised)
+				cmdList.push_back(VMCmd(!incOp ? cmdIncType[aOT] : cmdDecType[aOT]));
+			if(optimised)
+				cmdList.push_back(VMCmd(cmdPop, stackTypeSize[asmST]));
+		}else{
+			cmdList.push_back(VMCmd(cmdPushTypeRel[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(incOp ? cmdIncType[aOT] : cmdDecType[aOT]));
+			cmdList.push_back(VMCmd(cmdMovTypeRel[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			if(!prefixOp && !optimised)
+				cmdList.push_back(VMCmd(!incOp ? cmdIncType[aOT] : cmdDecType[aOT]));
+			if(optimised)
+				cmdList.push_back(VMCmd(cmdPop, stackTypeSize[asmST]));
+		}
+	}else{
+		cmdList.push_back(VMCmd(cmdAddAtTypeStk[asmDT>>2], optimised ? 0 : (prefixOp ? bitPushAfter : bitPushBefore), incOp ? 1 : -1, addrShift));
+	}
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
 void NodePreOrPostOp::LogToStream(ostringstream& ostr)
@@ -1398,7 +1330,18 @@ void NodePreOrPostOp::LogToStream(ostringstream& ostr)
 
 unsigned int NodePreOrPostOp::GetSize()
 {
-	return (!knownAddress ? first->GetSize() : 0) + sizeof(CmdID) + sizeof(unsigned short) + sizeof(unsigned int);
+	unsigned int size = (!knownAddress ? first->GetSize() : 0);
+	if(knownAddress)
+	{
+		size += 3;
+		if(!prefixOp && !optimised)
+			size++;
+		if(optimised)
+			size++;
+	}else{
+		size++;
+	}
+	return size;
 }
 
 TypeInfo* NodePreOrPostOp::GetTypeInfo()
@@ -1425,24 +1368,21 @@ NodeFunctionAddress::~NodeFunctionAddress()
 
 void NodeFunctionAddress::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
-	cmdList->AddData(cmdFuncAddr);
     unsigned int ID = GetFuncIndexByPtr(funcInfo);
-	cmdList->AddData(ID);
+	cmdList.push_back(VMCmd(cmdFuncAddr, ID));
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
-		cmdList->AddData(cmdPushImmt);
-		cmdList->AddData((unsigned short)(STYPE_INT | DTYPE_INT));
-		cmdList->AddData(0);
+		cmdList.push_back(VMCmd(cmdPushImmt, 0));
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
 		first->Compile();
 	}
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
 void NodeFunctionAddress::LogToStream(ostringstream& ostr)
@@ -1459,9 +1399,9 @@ void NodeFunctionAddress::LogToStream(ostringstream& ostr)
 
 unsigned int NodeFunctionAddress::GetSize()
 {
-	unsigned int size = sizeof(CmdID) + sizeof(FunctionInfo*);
+	unsigned int size = 1;
 	if(funcInfo->type == FunctionInfo::NORMAL)
-		size += sizeof(CmdID) + sizeof(unsigned short) + sizeof(unsigned int);
+		size += 1;
 	else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
 		size += first->GetSize();
 	return size;
@@ -1495,7 +1435,7 @@ NodeTwoAndCmdOp::~NodeTwoAndCmdOp()
 
 void NodeTwoAndCmdOp::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	asmStackType fST = podTypeToStackType[first->GetTypeInfo()->type], sST = podTypeToStackType[second->GetTypeInfo()->type];
 	
@@ -1508,10 +1448,16 @@ void NodeTwoAndCmdOp::Compile()
 	// Преобразуем, если надо, в тип, который получается после проведения выбранной операции
 	sST = ConvertFirstForSecond(sST, fST);
 	// Произведём операцию со значениями
-	cmdList->AddData(cmdID);
-	cmdList->AddData((unsigned char)(operTypeForStackType[fST]));
+	if(fST == STYPE_INT)
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID)));
+	else if(fST == STYPE_LONG)
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddL)));
+	else if(fST == STYPE_DOUBLE)
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddD)));
+	else
+		assert(!"unknow operator type in NodeTwoAndCmdOp");
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeTwoAndCmdOp::LogToStream(ostringstream& ostr)
 {
@@ -1533,7 +1479,7 @@ unsigned int NodeTwoAndCmdOp::GetSize()
 	resSize += ConvertFirstForSecondSize(fST, sST).first;
 	fST = ConvertFirstForSecondSize(fST, sST).second;
 	resSize += ConvertFirstForSecondSize(sST, fST).first;
-	return NodeTwoOP::GetSize() + sizeof(CmdID) + 1 + resSize;
+	return NodeTwoOP::GetSize() + 1 + resSize;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1559,10 +1505,10 @@ NodeIfElseExpr::~NodeIfElseExpr()
 
 void NodeIfElseExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Структура дочерних элементов: if(first) second; else third;
 	// Второй вариант: first ? second : third;
@@ -1571,9 +1517,7 @@ void NodeIfElseExpr::Compile()
 	first->Compile();
 
 	// Если false, перейдём в блок else или выйдем из оператора, если такого блока не имеется
-	cmdList->AddData(cmdJmpZ);
-	cmdList->AddData((unsigned char)(aOT));
-	cmdList->AddData(4 + cmdList->GetCurrPos() + second->GetSize() + (third ? 6 : 0));
+	cmdList.push_back(VMCmd(cmdJmpZType[aOT], 1 + cmdList.size() + second->GetSize() + (third ? 1 : 0)));
 
 	// Выполним блок для успешного прохождения условия (true)
 	second->Compile();
@@ -1581,14 +1525,13 @@ void NodeIfElseExpr::Compile()
 	if(third)
 	{
 		// Только поставим выход из оператора перед его кодом, чтобы не выполнять обе ветви
-		cmdList->AddData(cmdJmp);
-		cmdList->AddData(4 + cmdList->GetCurrPos() + third->GetSize());
+		cmdList.push_back(VMCmd(cmdJmp, 1 + cmdList.size() + third->GetSize()));
 
 		// Выполним блок else (false)
 		third->Compile();
 	}
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeIfElseExpr::LogToStream(ostringstream& ostr)
 {
@@ -1612,9 +1555,9 @@ void NodeIfElseExpr::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeIfElseExpr::GetSize()
 {
-	unsigned int size = first->GetSize() + second->GetSize() + sizeof(CmdID) + sizeof(unsigned int) + sizeof(unsigned char);
+	unsigned int size = first->GetSize() + second->GetSize() + 1;
 	if(third)
-		size += third->GetSize() + sizeof(CmdID) + sizeof(unsigned int);
+		size += third->GetSize() + 1;
 	return size;
 }
 
@@ -1633,44 +1576,41 @@ NodeForExpr::~NodeForExpr()
 
 void NodeForExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdList->AddDescription(cmdList->GetCurrPos(), strBegin, strEnd);
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Структура дочерних элементов: for(first, second, third) fourth;
 	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
 
 	// Выполним инициализацию
 	first->Compile();
-	unsigned int posTestExpr = cmdList->GetCurrPos();
+	unsigned int posTestExpr = cmdList.size();
 
 	// Найдём результат условия
 	second->Compile();
 
-	// Если ложно, выйдем из цикла
-	cmdList->AddData(cmdJmpZ);
-	cmdList->AddData((unsigned char)(aOT));
-
 	// Сохраним адрес для выхода из цикла оператором break;
-	breakAddr.push_back(cmdList->GetCurrPos()+4+third->GetSize()+fourth->GetSize()+2+4);
-	cmdList->AddData(breakAddr.back());
+	breakAddr.push_back(cmdList.size() + 1 + third->GetSize() + fourth->GetSize() + 1);
+
+	// Если ложно, выйдем из цикла
+	cmdList.push_back(VMCmd(cmdJmpZType[aOT], breakAddr.back()));
 
 	// Сохраним адрес для перехода к следующей операции оператором continue;
-	continueAddr.push_back(cmdList->GetCurrPos()+fourth->GetSize());
+	continueAddr.push_back(cmdList.size()+fourth->GetSize());
 
 	// Выполним содержимое цикла
 	fourth->Compile();
 	// Выполним операцию, проводимую после каждой итерации
 	third->Compile();
 	// Перейдём на проверку условия
-	cmdList->AddData(cmdJmp);
-	cmdList->AddData(posTestExpr);
+	cmdList.push_back(VMCmd(cmdJmp, posTestExpr));
 
 	breakAddr.pop_back();
 	continueAddr.pop_back();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeForExpr::LogToStream(ostringstream& ostr)
 {
@@ -1687,7 +1627,7 @@ void NodeForExpr::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeForExpr::GetSize()
 {
-	return NodeThreeOP::GetSize() + fourth->GetSize() + 2*sizeof(CmdID) + 2*sizeof(unsigned int) + sizeof(unsigned char);
+	return NodeThreeOP::GetSize() + fourth->GetSize() + 2;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1703,35 +1643,33 @@ NodeWhileExpr::~NodeWhileExpr()
 
 void NodeWhileExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	// Структура дочерних элементов: while(first) second;
 	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->GetTypeInfo()->type]];
 
-	unsigned int posStart = cmdList->GetCurrPos();
+	unsigned int posStart = cmdList.size();
 	// Выполним условие
 	first->Compile();
-	// Если оно ложно, выйдем из цикла
-	cmdList->AddData(cmdJmpZ);
-	cmdList->AddData((unsigned char)(aOT));
 
 	// Сохраним адрес для выхода из цикла оператором break;
-	breakAddr.push_back(cmdList->GetCurrPos()+4+second->GetSize()+2+4);
-	cmdList->AddData(breakAddr.back());
+	breakAddr.push_back(cmdList.size() + 1 + second->GetSize() + 1);
+
+	// Если оно ложно, выйдем из цикла
+	cmdList.push_back(VMCmd(cmdJmpZType[aOT], breakAddr.back()));
 
 	// Сохраним адрес для перехода к следующей операции оператором continue;
-	continueAddr.push_back(cmdList->GetCurrPos()+second->GetSize());
+	continueAddr.push_back(cmdList.size() + second->GetSize());
 
 	// Выполним содержимое цикла
 	second->Compile();
 	// Перейдём на проверку условия
-	cmdList->AddData(cmdJmp);
-	cmdList->AddData(posStart);
+	cmdList.push_back(VMCmd(cmdJmp, posStart));
 
 	breakAddr.pop_back();
 	continueAddr.pop_back();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeWhileExpr::LogToStream(ostringstream& ostr)
 {
@@ -1746,7 +1684,7 @@ void NodeWhileExpr::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeWhileExpr::GetSize()
 {
-	return first->GetSize() + second->GetSize() + 2*sizeof(CmdID) + 2*sizeof(unsigned int) + sizeof(unsigned char);
+	return first->GetSize() + second->GetSize() + 2;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1762,31 +1700,29 @@ NodeDoWhileExpr::~NodeDoWhileExpr()
 
 void NodeDoWhileExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	// Структура дочерних элементов: do{ first; }while(second)
 	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
 
-	unsigned int posStart = cmdList->GetCurrPos();
+	unsigned int posStart = cmdList.size();
 	// Сохраним адрес для выхода из цикла оператором break;
-	breakAddr.push_back(cmdList->GetCurrPos()+first->GetSize()+second->GetSize()+2+4);
+	breakAddr.push_back(cmdList.size()+first->GetSize()+second->GetSize()+1);
 
 	// Сохраним адрес для перехода к следующей операции оператором continue;
-	continueAddr.push_back(cmdList->GetCurrPos()+first->GetSize());
+	continueAddr.push_back(cmdList.size()+first->GetSize());
 
 	// Выполним содержимое цикла
 	first->Compile();
 	// Выполним условие
 	second->Compile();
 	// Если условие верно, перейдём к выполнению следующей итерации цикла
-	cmdList->AddData(cmdJmpNZ);
-	cmdList->AddData((unsigned char)(aOT));
-	cmdList->AddData(posStart);
+	cmdList.push_back(VMCmd(cmdJmpNZType[aOT], posStart));
 
 	breakAddr.pop_back();
 	continueAddr.pop_back();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeDoWhileExpr::LogToStream(ostringstream& ostr)
 {
@@ -1801,7 +1737,7 @@ void NodeDoWhileExpr::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeDoWhileExpr::GetSize()
 {
-	return first->GetSize() + second->GetSize() + sizeof(CmdID) + sizeof(unsigned int) + sizeof(unsigned char);
+	return first->GetSize() + second->GetSize() + 1;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1817,16 +1753,15 @@ NodeBreakOp::~NodeBreakOp()
 
 void NodeBreakOp::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	// Уберём значения со стека вершин стека переменных
 	for(unsigned int i = 0; i < popCnt; i++)
-		cmdList->AddData(cmdPopVTop);
+		cmdList.push_back(VMCmd(cmdPopVTop));
 	// Выйдем из цикла
-	cmdList->AddData(cmdJmp);
-	cmdList->AddData(breakAddr.back());
+	cmdList.push_back(VMCmd(cmdJmp, breakAddr.back()));
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeBreakOp::LogToStream(ostringstream& ostr)
 {
@@ -1835,7 +1770,7 @@ void NodeBreakOp::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeBreakOp::GetSize()
 {
-	return (1+popCnt)*sizeof(CmdID) + sizeof(unsigned int);
+	return (1+popCnt);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1852,17 +1787,16 @@ NodeContinueOp::~NodeContinueOp()
 
 void NodeContinueOp::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	// Уберём значения со стека вершин стека переменных
 	for(unsigned int i = 0; i < popCnt; i++)
-		cmdList->AddData(cmdPopVTop);
+		cmdList.push_back(VMCmd(cmdPopVTop));
 
 	// Выйдем из цикла
-	cmdList->AddData(cmdJmp);
-	cmdList->AddData(continueAddr.back());
+	cmdList.push_back(VMCmd(cmdJmp, continueAddr.back()));
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeContinueOp::LogToStream(ostringstream& ostr)
 {
@@ -1871,7 +1805,7 @@ void NodeContinueOp::LogToStream(ostringstream& ostr)
 }
 unsigned int NodeContinueOp::GetSize()
 {
-	return (1+popCnt)*sizeof(CmdID) + sizeof(unsigned int);
+	return (1+popCnt);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1895,23 +1829,23 @@ void NodeSwitchExpr::AddCase()
 
 void NodeSwitchExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	asmStackType aST = podTypeToStackType[first->GetTypeInfo()->type];
 	asmOperType aOT = operTypeForStackType[aST];
 	// Сохраним вершину стека переменных
-	cmdList->AddData(cmdPushVTop);
+	cmdList.push_back(VMCmd(cmdPushVTop));
 	// Найдём значение по которому будем выбирать вариант кода
 	first->Compile();
 
 	// Найдём конец свитча
-	unsigned int switchEnd = cmdList->GetCurrPos() + 2*sizeof(CmdID) + sizeof(unsigned int) + sizeof(unsigned int) + caseCondList.size() * (3*sizeof(CmdID) + 3 + sizeof(unsigned int));
+	unsigned int switchEnd = cmdList.size() + 2 + caseCondList.size() * 3;
 	for(casePtr s = caseCondList.begin(), e = caseCondList.end(); s != e; s++)
 		switchEnd += (*s)->GetSize();
 	unsigned int condEnd = switchEnd;
 	unsigned int blockNum = 0;
 	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
-		switchEnd += (*s)->GetSize() + sizeof(CmdID) + sizeof(unsigned int) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(unsigned int) : 0);
+		switchEnd += (*s)->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
 
 	// Сохраним адрес для оператора break;
 	breakAddr.push_back(switchEnd+2);
@@ -1922,45 +1856,45 @@ void NodeSwitchExpr::Compile()
 	unsigned int caseAddr = condEnd;
 	for(; cond != econd; cond++, block++)
 	{
-		cmdList->AddData(cmdCopy);
-		cmdList->AddData((unsigned char)(aOT));
+		if(aOT == OTYPE_INT)
+			cmdList.push_back(VMCmd(cmdCopyI));
+		else
+			cmdList.push_back(VMCmd(cmdCopyDorL));
 
 		(*cond)->Compile();
 		// Сравним на равенство
-		cmdList->AddData(cmdEqual);
-		cmdList->AddData((unsigned char)(aOT));
+		if(aOT == OTYPE_INT)
+			cmdList.push_back(VMCmd(cmdEqual));
+		else if(aOT == OTYPE_DOUBLE)
+			cmdList.push_back(VMCmd(cmdEqualD));
+		else
+			cmdList.push_back(VMCmd(cmdEqualL));
 		// Если равны, перейдём на нужный кейс
-		cmdList->AddData(cmdJmpNZ);
-		cmdList->AddData((unsigned char)(aOT));
-		cmdList->AddData(caseAddr);
-		caseAddr += (*block)->GetSize() + 2*sizeof(CmdID) + sizeof(unsigned int) + sizeof(unsigned int);
+		cmdList.push_back(VMCmd(cmdJmpNZType[aOT], caseAddr));
+		caseAddr += (*block)->GetSize() + 2;
 	}
 	// Уберём с вершины стека значение по которому выбирался вариант кода
-	cmdList->AddData(cmdPop);
-	cmdList->AddData(stackTypeSize[aST]);
+	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 
-	cmdList->AddData(cmdJmp);
-	cmdList->AddData(switchEnd);
+	cmdList.push_back(VMCmd(cmdJmp, switchEnd));
 	blockNum = 0;
 	for(block = caseBlockList.begin(), eblocl = caseBlockList.end(); block != eblocl; block++, blockNum++)
 	{
 		// Уберём с вершины стека значение по которому выбирался вариант кода
-		cmdList->AddData(cmdPop);
-		cmdList->AddData(stackTypeSize[aST]);
+		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 		(*block)->Compile();
 		if(blockNum != caseBlockList.size()-1)
 		{
-			cmdList->AddData(cmdJmp);
-			cmdList->AddData(cmdList->GetCurrPos() + sizeof(unsigned int) + sizeof(CmdID) + sizeof(unsigned int));
+			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 1));
 		}
 	}
 
 	// Востановим вершину стека значений
-	cmdList->AddData(cmdPopVTop);
+	cmdList.push_back(VMCmd(cmdPopVTop));
 
 	breakAddr.pop_back();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeSwitchExpr::LogToStream(ostringstream& ostr)
 {
@@ -1990,9 +1924,9 @@ unsigned int NodeSwitchExpr::GetSize()
 		size += (*s)->GetSize();
 	unsigned int blockNum = 0;
 	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
-		size += (*s)->GetSize() + sizeof(CmdID) + sizeof(unsigned int) + (blockNum != caseBlockList.size()-1 ? sizeof(CmdID) + sizeof(unsigned int) : 0);
-	size += 4*sizeof(CmdID) + sizeof(unsigned int) + sizeof(unsigned int);
-	size += (unsigned int)caseCondList.size() * (3 * sizeof(CmdID) + 3 + sizeof(unsigned int));
+		size += (*s)->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
+	size += 4;
+	size += (unsigned int)caseCondList.size() * 3;
 	return size;
 }
 
@@ -2021,12 +1955,12 @@ shared_ptr<NodeZeroOP> NodeExpressionList::GetFirstNode()
 
 void NodeExpressionList::Compile()
 {
-	unsigned int startCmdSize = cmdList->GetCurrPos();
+	unsigned int startCmdSize = cmdList.size();
 
 	for(listPtr s = exprList.begin(), e = exprList.end(); s != e; s++)
 		(*s)->Compile();
 
-	assert((cmdList->GetCurrPos()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 void NodeExpressionList::LogToStream(ostringstream& ostr)
 {

@@ -27,7 +27,8 @@ namespace CodeInfo
 
 	// Поток комманд
 	// Command stream
-	extern CommandList*				cmdList;
+	extern CommandList*				cmdInfoList;
+	extern FastVector<VMCmd>		cmdList;
 
 	// The size of all global variables in bytes
 	extern unsigned int				globalSize;
