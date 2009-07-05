@@ -1,16 +1,6 @@
 #pragma once
 
-enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI, };
-enum x87Reg{ rST0, rST1, rST2, rST3, rST4, rST5, rST6, rST7, };
-enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD, };
-enum x86Cond{ condO, condNO, condB, condC, condNAE, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
-				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
-				condL, condNGE, condGE, condNL, condLE, condNG, condG, condNLE };
-
-const int rAX = rEAX;
-const int rAL = rEAX;
-const int rBX = rEBX;
-const int rBL = rEBX;
+#include "Instruction_X86.h"
 
 void x86ClearLabels();
 

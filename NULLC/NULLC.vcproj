@@ -308,6 +308,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Instruction_X86.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Optimizer_x86.cpp"
 				>
 			</File>

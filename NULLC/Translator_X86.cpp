@@ -1,11 +1,4 @@
 #include "Translator_X86.h"
-#include <vector>
-
-#include <assert.h>
-#ifdef NDEBUG
-#undef assert
-#define assert(expr)	((void)sizeof(!(expr)))
-#endif
 
 // Mapping from x86Reg to register code
 char	regCode[] = { -1, 0, 3, 1, 2, 4, 7, 5, 6 };

@@ -1,6 +1,8 @@
 #pragma once
 #include "stdafx.h"
 
+#include "Instruction_X86.h"
+
 #include "ParseClass.h"
 
 #include "Linker.h"
@@ -11,17 +13,18 @@ public:
 	ExecutorX86(Linker *linker);
 	~ExecutorX86();
 
-	void	GenListing();
-	string	GetListing();
+	bool	Initialize() throw();
+
+	bool	TranslateToNative() throw();
 
 	void	Run(const char* funcName = NULL) throw();
-
 	const char*	GetResult() throw();
+
 	const char*	GetExecError() throw();
 
-	char*	GetVariableData();
+	char*	GetVariableData() throw();
 
-	void	SetOptimization(int toggle);
+	void	SetOptimization(int toggle) throw();
 private:
 	char	execError[256];
 	char	execResult[64];
@@ -31,17 +34,21 @@ private:
 	FastVector<ExternTypeInfo*>	&exTypes;
 	FastVector<ExternFuncInfo*>	&exFunctions;
 	FastVector<ExternalFunctionInfo>	&exFuncInfo;
-	FastVector<char>			&exCode;
+	FastVector<VMCmd>			&exCode;
+
+	FastVector<x86Instruction>	instList;
 
 	int	optimize;
 	unsigned int		globalStartInBytecode;
 
-	ostringstream		logASM;
+	//ostringstream		logASM;
 
-	char	*paramData;
+	char			*paramData;
 	unsigned int	paramBase;
 
 	unsigned char	*binCode;
 	unsigned int	binCodeStart;
 	unsigned int	binCodeSize;
+
+	void operator=(ExecutorX86& r){ (void)r; assert(false); }
 };
