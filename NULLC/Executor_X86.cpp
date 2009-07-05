@@ -18,23 +18,7 @@ unsigned int stackGrowCommit;
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
 			exFuncInfo(linker->exFuncInfo), exCode(linker->exCode), exTypes(linker->exTypes)
 {
-	stackGrowSize = 128*4096;
-	stackGrowCommit = 64*4096;
-	// Request memory at address
-	if(NULL == (paramData = (char*)VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
-		throw std::string("ERROR: Failed to reserve memory");
-	if(!VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
-		throw std::string("ERROR: Failed to commit memory");
-
-	reservedStack = stackGrowSize;
-	commitedStack = stackGrowCommit;
-	
-	paramDataBase = paramBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
-
-	binCode = new unsigned char[200000];
-	memset(binCode, 0x90, 20);
-	binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
-	binCodeSize = 0;
+	binCode = NULL;
 }
 ExecutorX86::~ExecutorX86()
 {
@@ -45,7 +29,7 @@ ExecutorX86::~ExecutorX86()
 
 int runResult = 0;
 int runResult2 = 0;
-OperFlag runResultType = OTYPE_DOUBLE;
+asmOperType runResultType = OTYPE_DOUBLE;
 
 unsigned int stackReallocs;
 
@@ -98,6 +82,45 @@ DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	}
 
 	return (DWORD)EXCEPTION_CONTINUE_SEARCH;
+}
+
+bool ExecutorX86::Initialize() throw()
+{
+	stackGrowSize = 128*4096;
+	stackGrowCommit = 64*4096;
+
+	// Request memory at address
+	if(NULL == (paramData = (char*)VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
+	{
+		strcpy(execError, "ERROR: Failed to reserve memory");
+		return false;
+	}
+	if(!VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+	{
+		strcpy(execError, "ERROR: Failed to commit memory");
+		return false;
+	}
+
+	reservedStack = stackGrowSize;
+	commitedStack = stackGrowCommit;
+	
+	paramDataBase = paramBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
+
+	binCode = new unsigned char[200000];
+	memset(binCode, 0x90, 20);
+	binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
+	binCodeSize = 0;
+
+	return true;
+}
+
+char* InlFmt(const char *str, ...)
+{
+	static char storage[64];
+	va_list args;
+	va_start(args, str);
+	vsprintf(storage, str, args); 
+	return storage;
 }
 
 #pragma warning(disable: 4731)
@@ -202,22 +225,15 @@ void ExecutorX86::Run(const char* funcName) throw()
 
 	runResult = res1;
 	runResult2 = res2;
-	runResultType = (OperFlag)resT;
+	runResultType = (asmOperType)resT;
 }
 #pragma warning(default: 4731)
 
-void ExecutorX86::GenListing()
+bool ExecutorX86::TranslateToNative()
 {
-	logASM.str("");
+	execError[0] = 0;
 
-	unsigned int pos = 0, pos2 = 0;
-	CmdID	cmd, cmdNext;
-	unsigned int	valind, valind2;
-
-	CmdFlag cFlag;
-	OperFlag oFlag;
-	asmStackType st;
-	asmDataType dt;
+	unsigned int pos = 0;
 
 	vector<unsigned int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
 	vector<unsigned int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
@@ -233,55 +249,31 @@ void ExecutorX86::GenListing()
 	//Узнаем, кому нужны лейблы
 	while(pos < exCode.size())
 	{
-		CmdID cmd = *(CmdID*)(&exCode[pos]);
-		CmdFlag cFlag = *(CmdFlag*)(&exCode[pos+2]);
-		switch(cmd)
-		{
-		case cmdJmp:
-			instrNeedLabel.push_back(*(unsigned int*)(&exCode[pos+2]));
-			break;
-		case cmdJmpZ:
-		case cmdJmpNZ:
-			instrNeedLabel.push_back(*(unsigned int*)(&exCode[pos+3]));
-			break;
-		}
-		pos += CommandList::GetCommandLength(cmd, cFlag);
+		const VMCmd &cmd = exCode[pos];
+		if(cmd.cmd >= cmdJmp && cmd.cmd <= cmdJmpNZL)
+			instrNeedLabel.push_back(cmd.argument);
+		pos++;
 	}
 
-	logASM << "use32\r\n";
+#define Emit instList.push_back(x86Instruction()), instList.back() = x86Instruction
+
+	instList.clear();
+
+	Emit(o_use32);
 	unsigned int typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 
-	int pushLabels = 1;
-	int movLabels = 1;
-	//int skipLabels = 1;
 	int aluLabels = 1;
 
-	bool skipPopEAXOnIntALU = false;
-	bool skipFldESPOnDoubleALU = false;
-	bool skipFldOnMov = false;
-
-	bool skipPopEDXOnPush = false;
-	bool indexInEaxOnCti = false;
-
-	bool knownEDXOnPush = false;
-	bool addEBPtoEDXOnPush = false;
-	int edxValueForPush = 0;
-
-	bool skipPop = false;
-
-	unsigned int lastVarSize = 0;
-	bool mulByVarSize = false;
-
 	pos = 0;
-	pos2 = 0;
 	while(pos < exCode.size())
 	{
-		cmd = *(CmdID*)(&exCode[pos]);
+		const VMCmd &cmd = exCode[pos];
+		const VMCmd &cmdNext = exCode[pos+1];
 		for(unsigned int i = 0; i < instrNeedLabel.size(); i++)
 		{
 			if(pos == instrNeedLabel[i])
 			{
-				logASM << "  gLabel" << pos << ": \r\n";
+				Emit(InlFmt("gLabel%d", pos));
 				break;
 			}
 		}
@@ -289,2369 +281,1626 @@ void ExecutorX86::GenListing()
 		{
 			if(pos == funcNeedLabel[i])
 			{
-				logASM << "  dd " << (('N' << 24) | pos) << "; marker \r\n";
-				logASM << "  function" << pos << ": \r\n";
+				Emit(o_dd, x86Argument((('N' << 24) | pos)));
+				Emit(InlFmt("function%d", pos));
 				break;
 			}
 		}
 
 		if(pos == exLinker->offsetToGlobalCode)
 		{
-			logASM << "  dd " << (('G' << 24) | exLinker->offsetToGlobalCode) << "; global marker \r\n";
-			logASM << "push ebp\r\n";
+			Emit(o_dd, x86Argument((('G' << 24) | exLinker->offsetToGlobalCode)));
+			Emit(o_push, x86Argument(rEBP));
 		}
 
-		pos2 = pos;
-		pos += 2;
 	//	const char *descStr = cmdList->GetDescription(pos2);
 	//	if(descStr)
 	//		logASM << "\r\n  ; \"" << descStr << "\" codeinfo\r\n";
+		pos++;
 
-		switch(cmd)
+		switch(cmd.cmd)
 		{
-		case cmdDTOF:
-			logASM << "  ; DTOF \r\n";
-			logASM << "fld qword [esp] \r\n";
-			logASM << "fstp dword [esp+4] \r\n";
-			logASM << "add esp, 4 \r\n";
-			break;
-		case cmdCallStd:
-			logASM << "  ; CALLSTD ";
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += sizeof(unsigned int);
-
-			if(exFunctions[valind]->funcPtr == NULL)
-			{
-				if(exFunctions[valind]->nameHash == GetStringHash("cos"))
-				{
-					logASM << "cos \r\n";
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fsincos \r\n";
-					logASM << "fstp qword [esp] \r\n";
-					logASM << "fstp st \r\n";
-				}else if(exFunctions[valind]->nameHash == GetStringHash("sin")){
-					logASM << "sin \r\n";
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fsincos \r\n";
-					logASM << "fstp st \r\n";
-					logASM << "fstp qword [esp] \r\n";
-				}else if(exFunctions[valind]->nameHash == GetStringHash("tan")){
-					logASM << "tan \r\n";
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fptan \r\n";
-					logASM << "fstp st \r\n";
-					logASM << "fstp qword [esp] \r\n";
-				}else if(exFunctions[valind]->nameHash == GetStringHash("ctg")){
-					logASM << "ctg \r\n";
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fptan \r\n";
-					logASM << "fdivrp \r\n";
-					logASM << "fstp qword [esp] \r\n";
-				}else if(exFunctions[valind]->nameHash == GetStringHash("ceil")){
-					logASM << "ceil \r\n";
-					logASM << "fld qword [esp] \r\n";
-					logASM << "push eax ; сюда положим флаг fpu \r\n";
-					logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
-					logASM << "mov word [esp+2], 1BBFh ; сохраним свой с окурглением к +inf \r\n";
-					logASM << "fldcw word [esp+2] ; установим его \r\n";
-					logASM << "frndint ; округлим до целого \r\n";
-					logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
-					logASM << "fstp qword [esp+4] \r\n";
-					logASM << "pop eax ; \r\n";
-				}else if(exFunctions[valind]->nameHash == GetStringHash("floor")){
-					logASM << "floor \r\n";
-					logASM << "fld qword [esp] \r\n";
-					logASM << "push eax ; сюда положим флаг fpu \r\n";
-					logASM << "fstcw word [esp] ; сохраним флаг контроля \r\n";
-					logASM << "mov word [esp+2], 17BFh ; сохраним свой с окурглением к -inf \r\n";
-					logASM << "fldcw word [esp+2] ; установим его \r\n";
-					logASM << "frndint ; округлим до целого \r\n";
-					logASM << "fldcw word [esp] ; востановим флаг контроля \r\n";
-					logASM << "fstp qword [esp+4] \r\n";
-					logASM << "pop eax ; \r\n";
-				}else if(exFunctions[valind]->nameHash == GetStringHash("sqrt")){
-					logASM << "sqrt \r\n";
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fsqrt \r\n";
-					logASM << "fstp qword [esp] \r\n";
-					logASM << "fstp st \r\n";
-				}else{
-					throw std::string("ERROR: there is no such function: ") + exFunctions[valind]->name;
-				}
-			}else{
-				if(exTypes[exFunctions[valind]->retType]->size > 4 && exTypes[exFunctions[valind]->retType]->type != TypeInfo::TYPE_DOUBLE)
-					throw std::string("ERROR: user functions with return type size larger than 4 bytes are not supported");
-				unsigned int bytesToPop = 0;
-				for(unsigned int i = 0; i < exFunctions[valind]->paramCount; i++)
-				{
-					bytesToPop += exTypes[exFunctions[valind]->paramList[i]]->size > 4 ? exTypes[exFunctions[valind]->paramList[i]]->size : 4;
-				}
-				logASM << exFunctions[valind]->name << "\r\n";
-				logASM << "mov ecx, 0x" << exFunctions[valind]->funcPtr << " ; " << exFunctions[valind]->name << "() \r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, " << bytesToPop << " \r\n";
-				if(exTypes[exFunctions[valind]->retType]->size != 0)
-					logASM << "push eax \r\n";
-			}
-			break;
-		case cmdPushVTop:
-			logASM << "  ; PUSHT\r\n";
-			logASM << "push ebp ; сохранили текущую базу стека переменных\r\n";
-			logASM << "mov ebp, edi ; установили новую базу стека переменных, по размеру стека\r\n";
-			break;
-		case cmdPopVTop:
-			logASM << "  ; POPT\r\n";
-			logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
-			logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
-			break;
-		case cmdCall:
-			{
-				RetFlag retFlag;
-				valind = *(unsigned int*)(&exCode[pos]);
-				pos += 4;
-				retFlag = *(unsigned short*)(&exCode[pos]);
-				pos += 2;
-				logASM << "  ; CALL " << valind << " ret " << (retFlag & bitRetSimple ? "simple " : "") << "size: ";
-				if(retFlag & bitRetSimple)
-				{
-					oFlag = (OperFlag)(retFlag & 0x0FFF);
-					if(oFlag == OTYPE_DOUBLE)
-						logASM << "double\r\n";
-					if(oFlag == OTYPE_LONG)
-						logASM << "long\r\n";
-					if(oFlag == OTYPE_INT)
-						logASM << "int\r\n";
-				}else{
-					logASM << (retFlag&0x0FFF) << "\r\n";
-				}
-				if(valind == -1)
-				{
-					logASM << "pop eax ;\r\n";
-					logASM << "call eax ; \r\n";
-				}else{
-					logASM << "call function" << valind << "\r\n";
-				}
-				if(retFlag & bitRetSimple)
-				{
-					oFlag = (OperFlag)(retFlag & 0x0FFF);
-					if(oFlag == OTYPE_INT)
-						logASM << "push eax ; поместим int обратно в стек\r\n";
-					if(oFlag == OTYPE_DOUBLE)
-					{
-						logASM << "push eax ; \r\n";
-						logASM << "push edx ; поместим double обратно в стек\r\n";
-					}
-					if(oFlag == OTYPE_LONG)
-					{
-						logASM << "push eax ; \r\n";
-						logASM << "push edx ; поместим long обратно в стек\r\n";
-					}
-				}else{
-					if(retFlag != 0)
-					{
-						if(retFlag == 4)
-						{
-							logASM << "push eax ; поместим компл. переменную в 4 байта из регистра\r\n";
-						}else if(retFlag == 8){
-							logASM << "push eax \r\n";
-							logASM << "push edx ; поместим компл. переменную в 8 байт в регистры\r\n";
-						}else if(retFlag == 12){
-							logASM << "push eax \r\n";
-							logASM << "push edx \r\n";
-							logASM << "push ecx ; поместим компл. переменную в 12 байт в регистры\r\n";
-						}else if(retFlag == 16){
-							logASM << "push eax \r\n";
-							logASM << "push edx \r\n";
-							logASM << "push ecx \r\n";
-							logASM << "push ebx ; поместим компл. переменную в 16 байт в регистры\r\n";
-						}else{
-							logASM << "sub esp, " << retFlag << "; освободим в стеке место под переменную\r\n";
-
-							logASM << "mov ebx, edi ; сохраним новый edi\r\n";
-							
-							logASM << "lea esi, [eax + " << paramBase << "] ; значения берём с вершины стека переменных\r\n";
-							logASM << "mov edi, esp ; перемещаем на время на вершину стека переменных\r\n";
-							logASM << "mov ecx, " << retFlag/4 << " ; размер переменной\r\n";
-							logASM << "rep movsd ; копируем\r\n";
-
-							logASM << "mov edi, ebx ; востанавливаем edi\r\n";
-						}
-					}
-				}
-			}
-			break;
-		case cmdReturn:
-			{
-				unsigned short	retFlag, popCnt;
-				logASM << "  ; RET\r\n";
-				retFlag = *(unsigned short*)(&exCode[pos]);
-				pos += 2;
-				popCnt = *(unsigned short*)(&exCode[pos]);
-				pos += 2;
-				if(retFlag & bitRetError)
-				{
-					logASM << "mov ecx, " << 0xffffffff << " ; укажем, вышли за пределы функции\r\n";
-					logASM << "int 3 ; остановим выполнение\r\n";
-					break;
-				}
-				if(retFlag == 0)
-				{
-					logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
-					logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
-					logASM << "ret ; возвращаемся из функции\r\n";
-					break;
-				}
-				if(retFlag & bitRetSimple)
-				{
-					oFlag = (OperFlag)(retFlag & 0x0FFF);
-					if(oFlag == OTYPE_DOUBLE)
-					{
-						logASM << "pop edx \r\n";
-						logASM << "pop eax ; на время поместим double в регистры\r\n";
-					}else if(oFlag == OTYPE_LONG){
-						logASM << "pop edx \r\n";
-						logASM << "pop eax ; на время поместим long в регистры\r\n";
-					}else if(oFlag == OTYPE_INT){
-						logASM << "pop eax ; на время поместим int в регистр\r\n";
-					}
-					for(int pops = 0; pops < (popCnt > 0 ? popCnt : 1); pops++)
-					{
-						logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
-						logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
-					}
-					if(popCnt == 0)
-						logASM << "mov ebx, " << (unsigned int)(oFlag) << " ; поместим oFlag чтобы снаружи знали, какой тип вернулся\r\n";
-				}else{
-					if(retFlag == 4)
-					{
-						logASM << "pop eax ; поместим компл. переменную в 4 байта в регистр\r\n";
-					}else if(retFlag == 8){
-						logASM << "pop edx \r\n";
-						logASM << "pop eax ; поместим компл. переменную в 8 байт в регистры\r\n";
-					}else if(retFlag == 12){
-						logASM << "pop ecx \r\n";
-						logASM << "pop edx \r\n";
-						logASM << "pop eax ; поместим компл. переменную в 12 байт в регистры\r\n";
-					}else if(retFlag == 16){
-						logASM << "pop ebx \r\n";
-						logASM << "pop ecx \r\n";
-						logASM << "pop edx \r\n";
-						logASM << "pop eax ; поместим компл. переменную в 12 байт в регистры\r\n";
-					}else{
-						logASM << "mov ebx, edi ; сохраним edi\r\n";
-
-						logASM << "mov esi, esp ; значения берём из стека в стек\r\n";
-						logASM << "lea edi, [edi + " << paramBase << "] ; перемещаем на время на вершину стека переменных\r\n";
-						logASM << "mov ecx, " << retFlag/4 << " ; размер переменной\r\n";
-						logASM << "rep movsd ; копируем\r\n";
-
-						logASM << "mov edi, ebx ; востанавливаем edi\r\n";
-
-						logASM << "add esp, " << retFlag << "; сдвинем стек до значения базы стека переменных\r\n";
-					}
-					for(int pops = 0; pops < popCnt-1; pops++)
-					{
-						logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
-						logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
-					}
-					if(retFlag > 16)
-						logASM << "mov eax, edi ; сохраним старый edi\r\n";
-					logASM << "mov edi, ebp ; восстановили предыдущий размер стека переменных\r\n";
-					logASM << "pop ebp ; восстановили предыдущую базу стека переменных\r\n";
-					if(popCnt == 0)
-						logASM << "mov ebx, " << 16 << " ; если глобальный return, то обозначим, какой тип вернулся\r\n";
-				}
-				logASM << "ret ; возвращаемся из функции\r\n";
-			}
-			break;
-		case cmdPushV:
-			logASM << "  ; PUSHV\r\n";
-			valind = *(int*)(&exCode[pos]);
-			pos += sizeof(int);
-			logASM << "add edi, " << valind << " ; добавили место под новые переменные в стеке\r\n";
-			break;
 		case cmdNop:
-			logASM << "  ; NOP\r\n";
-			logASM << "nop \r\n";
+			Emit(o_nop);
 			break;
-		case cmdCTI:
-			oFlag = *(unsigned char*)(&exCode[pos]);
-			pos += 1;
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += 4;
-			logASM << "  ; CTI " << valind << "\r\n";
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-				logASM << "fld qword [esp] \r\n";
-				logASM << "fistp dword[esp+4] \r\n";
-				logASM << "pop eax ; заменили double int'ом\r\n";
-				break;
-			case OTYPE_LONG:
-				logASM << "pop edx ; убрали старшие биты long со стека\r\n";
-				break;
-			case OTYPE_INT:
-				break;
-			}
-			//look at the next command
-			cmdNext = *(CmdID*)(&exCode[pos]);
-			if(valind != 1)
-			{
-				char *indexPlace = "dword [esp]";
-				if(indexInEaxOnCti)
-				{
-					indexPlace = "eax";
-					skipPopEAXOnIntALU = true;
-				}
-				if((cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt) && (valind == 2 || valind == 4 || valind == 8))
-				{
-					mulByVarSize = true;
-					lastVarSize = valind;
-				}else if(valind == 2)
-				{
-					logASM << "shl " << indexPlace << ", 1 ; умножим адрес на размер переменной\r\n";
-				}else if(valind == 4){
-					logASM << "shl " << indexPlace << ", 2 ; умножим адрес на размер переменной\r\n";
-				}else if(valind == 8){
-					logASM << "shl " << indexPlace << ", 3 ; умножим адрес на размер переменной\r\n";
-				}else if(valind == 16){
-					logASM << "shl " << indexPlace << ", 4 ; умножим адрес на размер переменной\r\n";
-				}else{
-					if(!indexInEaxOnCti)
-						logASM << "pop eax ; расчёт в eax\r\n";
-					logASM << "imul eax, " << valind << " ; умножим адрес на размер переменной\r\n";
-					if(!indexInEaxOnCti)
-						logASM << "push eax \r\n";
-				}
-			}else{
-				if(indexInEaxOnCti)
-				{
-					if(cmdNext != cmdAdd)
-						logASM << "push eax \r\n";
-					else
-						skipPopEAXOnIntALU = true;
-				}
-			}
-			indexInEaxOnCti = false;
+		case cmdPushCharAbs:
+			Emit(INST_COMMENT, "PUSH char abs");
+
+			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, cmd.argument+paramBase));
+			Emit(o_push, x86Argument(rEAX));
 			break;
+		case cmdPushShortAbs:
+			Emit(INST_COMMENT, "PUSH short abs");
+
+			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, cmd.argument+paramBase));
+			Emit(o_push, x86Argument(rEAX));
+			break;
+		case cmdPushIntAbs:
+			Emit(INST_COMMENT, "PUSH int abs");
+
+			Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase));
+			break;
+		case cmdPushFloatAbs:
+			Emit(INST_COMMENT, "PUSH float abs");
+
+			Emit(o_sub, x86Argument(rESP), x86Argument(8));
+			Emit(o_fld, x86Argument(sDWORD, cmd.argument+paramBase));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			break;
+		case cmdPushDorLAbs:
+			Emit(INST_COMMENT, cmd.flag ? "PUSH double abs" : "MOV long abs");
+
+			Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase+4));
+			Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase));
+			break;
+		case cmdPushCmplxAbs:
+			Emit(INST_COMMENT, "PUSH complex abs");
+		{
+			unsigned int currShift = cmd.helper;
+			while(currShift >= 4)
+			{
+				currShift -= 4;
+				Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase+currShift));
+			}
+			if(currShift)
+			{
+				Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase+currShift));
+				Emit(o_add, x86Argument(rESP), x86Argument(4-currShift));
+			}
+		}
+			break;
+
+		case cmdPushCharRel:
+			Emit(INST_COMMENT, "PUSH char rel");
+
+			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, rEBP, cmd.argument+paramBase));
+			Emit(o_push, x86Argument(rEAX));
+		case cmdPushShortRel:
+			Emit(INST_COMMENT, "PUSH short rel");
+
+			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, rEBP, cmd.argument+paramBase));
+			Emit(o_push, x86Argument(rEAX));
+		case cmdPushIntRel:
+			Emit(INST_COMMENT, "PUSH int rel");
+
+			Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
+		case cmdPushFloatRel:
+			Emit(INST_COMMENT, "PUSH float rel");
+
+			Emit(o_sub, x86Argument(rESP), x86Argument(8));
+			Emit(o_fld, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+		case cmdPushDorLRel:
+			Emit(INST_COMMENT, cmd.flag ? "PUSH double rel" : "PUSH long rel");
+
+			Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase+4));
+			Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
+			break;
+		case cmdPushCmplxRel:
+			Emit(INST_COMMENT, "PUSH complex rel");
+		{
+			unsigned int currShift = cmd.helper;
+			while(currShift >= 4)
+			{
+				currShift -= 4;
+				Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase+currShift));
+			}
+			if(currShift)
+			{
+				Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase+currShift));
+				Emit(o_add, x86Argument(rESP), x86Argument(4-currShift));
+			}
+		}
+			break;
+
+		case cmdPushCharStk:
+			Emit(INST_COMMENT, "PUSH char stack");
+
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, rEDX, cmd.argument+paramBase));
+			Emit(o_push, x86Argument(rEAX));
+		case cmdPushShortStk:
+			Emit(INST_COMMENT, "PUSH short stack");
+
+			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, rEDX, cmd.argument+paramBase));
+			Emit(o_push, x86Argument(rEAX));
+		case cmdPushIntStk:
+			Emit(INST_COMMENT, "PUSH int stack");
+
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+		case cmdPushFloatStk:
+			Emit(INST_COMMENT, "PUSH float stack");
+
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_sub, x86Argument(rESP), x86Argument(8));
+			Emit(o_fld, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+		case cmdPushDorLStk:
+			Emit(INST_COMMENT, cmd.flag ? "PUSH double stack" : "PUSH long stack");
+
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase+4));
+			Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			break;
+		case cmdPushCmplxStk:
+			Emit(INST_COMMENT, "PUSH complex stack");
+		{
+			unsigned int currShift = cmd.helper;
+			Emit(o_pop, x86Argument(rEDX));
+			while(currShift >= 4)
+			{
+				currShift -= 4;
+				Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase+currShift));
+			}
+			if(currShift)
+			{
+				Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase+currShift));
+				Emit(o_add, x86Argument(rESP), x86Argument(4-currShift));
+			}
+		}
+			break;
+
 		case cmdPushImmt:
+			Emit(INST_COMMENT, "PUSHIMMT");
+			
+			if(cmdNext.cmd != cmdSetRange)
+				Emit(o_push, x86Argument(cmd.argument));
+			break;
+
+		case cmdMovCharAbs:
+			Emit(INST_COMMENT, "MOV char abs");
+	
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sBYTE, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovShortAbs:
+			Emit(INST_COMMENT, "MOV short abs");
+	
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sWORD, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovIntAbs:
+			Emit(INST_COMMENT, "MOV int abs");
+	
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sDWORD, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovFloatAbs:
+			Emit(INST_COMMENT, "MOV float abs");
+
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sDWORD, cmd.argument+paramBase));
+			break;
+		case cmdMovDorLAbs:
+			Emit(INST_COMMENT, cmd.flag ? "MOV double abs" : "MOV long abs");
+	
+			if(cmd.flag)
 			{
-				logASM << "  ; PUSHIMMT\r\n";
-				unsigned int	highDW = 0, lowDW = 0;
-				unsigned short sdata;
-				unsigned char cdata;
-				cFlag = *(unsigned short*)(&exCode[pos]);
-				pos += 2;
-				st = flagStackType(cFlag);
-				dt = flagDataType(cFlag);
-
-				char *texts[] = { "", "edx + ", "ebp + ", "push ", "mov eax, " };
-				char *needPush = texts[3];
-				addEBPtoEDXOnPush = false;
-
-				mulByVarSize = false;
-
-				if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-				{
-					highDW = *(unsigned int*)(&exCode[pos]); pos += 4;
-					lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
-					logASM << "push " << lowDW << "\r\n";
-					logASM << "push " << highDW << " ; положили double или long long\r\n";
-				}
-				if(dt == DTYPE_FLOAT)
-				{
-					// Кладём флоат как double
-					lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
-					double res = (double)*((float*)(&lowDW));
-					logASM << "push " << *((unsigned int*)(&res)+1) << "\r\n";
-					logASM << "push " << *((unsigned int*)(&res)) << " ; положили float как double\r\n";
-				}
-				if(dt == DTYPE_INT)
-				{
-					//look at the next command
-					cmdNext = *(CmdID*)(&exCode[pos+4]);
-					if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
-					{
-						needPush = texts[4];
-						skipPopEAXOnIntALU = true;
-					}
-					if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
-					{
-						CmdFlag lcFlag;
-						lcFlag = *(unsigned short*)(&exCode[pos+6]);
-						if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
-							knownEDXOnPush = true;
-					}
-
-					lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
-					if(knownEDXOnPush)
-						edxValueForPush = (int)lowDW;
-					else
-						logASM << needPush << (int)lowDW << " ; положили int\r\n";
-				}
-				if(dt == DTYPE_SHORT)
-				{
-					sdata = *(unsigned short*)(&exCode[pos]); pos += 2;
-					lowDW = (sdata > 0 ? sdata : sdata | 0xFFFF0000);
-					logASM << "push " << lowDW << " ; положили short\r\n";
-				}
-				if(dt == DTYPE_CHAR)
-				{
-					cdata = *(unsigned char*)(&exCode[pos]); pos += 1;
-					lowDW = cdata;
-					logASM << "push " << lowDW << " ; положили char\r\n";
-				}
+				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+				Emit(o_fstp, x86Argument(sQWORD, cmd.argument+paramBase));
+			}else{
+				Emit(o_pop, x86Argument(sDWORD, cmd.argument+paramBase));
+				Emit(o_pop, x86Argument(sDWORD, cmd.argument+paramBase + 4));
+				Emit(o_sub, x86Argument(rESP), x86Argument(8));
 			}
 			break;
-		case cmdPush:
+		case cmdMovCmplxAbs:
+			Emit(INST_COMMENT, "MOV complex abs");
+		{
+			unsigned int currShift = 0;
+			while(currShift < cmd.helper)
 			{
-				logASM << "  ; PUSH\r\n";
-				int valind = -1, /*shift, */size;
-				unsigned int	highDW = 0, lowDW = 0;
-				unsigned short sdata;
-				unsigned char cdata;
-				cFlag = *(unsigned short*)(&exCode[pos]);
-				pos += 2;
-				st = flagStackType(cFlag);
-				dt = flagDataType(cFlag);
+				Emit(o_pop, x86Argument(sDWORD, cmd.argument+paramBase + currShift));
+				currShift += 4;
+			}
+			Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
+			assert(currShift == cmd.helper);
+		}
+			break;
 
-				char *texts[] = { "", "edx + ", "ebp + ", "push ", "mov eax, " };
-				char *needPush = texts[3];
-				char *needEDX = texts[1];
-				char *needEBP = texts[2];
-				if(flagAddrAbs(cFlag) && !addEBPtoEDXOnPush)
-					needEBP = texts[0];
-				addEBPtoEDXOnPush = false;
-				unsigned int numEDX = 0;
+		case cmdMovCharRel:
+			Emit(INST_COMMENT, "MOV char rel");
+	
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sBYTE, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovShortRel:
+			Emit(INST_COMMENT, "MOV short rel");
+	
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sWORD, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovIntRel:
+			Emit(INST_COMMENT, "MOV int rel");
+	
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sDWORD, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovFloatRel:
+			Emit(INST_COMMENT, "MOV float rel");
 
-				// Если читается из переменной и...
-				if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)) && flagShiftStk(cFlag))
-				{
-					// ...есть адрес в команде и имеется сдвиг в стеке
-					valind = *(int*)(&exCode[pos]);
-					pos += 4;
-					if(knownEDXOnPush)
-					{
-						if(mulByVarSize)
-							numEDX = edxValueForPush * lastVarSize + valind;
-						else
-							numEDX = edxValueForPush + valind;
-						needEDX = texts[0];
-						knownEDXOnPush = false;
-					}else{
-						if(skipPopEDXOnPush)
-						{
-							if(mulByVarSize)
-							{
-								if(valind != 0)
-									logASM << "lea edx, [edx*" << lastVarSize << " + " << valind << "]\r\n";
-								else
-									logASM << "lea edx, [edx*" << lastVarSize << "]\r\n";
-							}else{
-								numEDX = valind;
-							}
-							skipPopEDXOnPush = false;
-						}else{
-							if(mulByVarSize)
-							{
-								logASM << "pop eax ; взяли сдвиг\r\n";
-								if(valind != 0)
-									logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-								else
-									logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-							}else{
-								if(valind != 0)
-								{
-									logASM << "pop edx ; взяли сдвиг\r\n";
-									numEDX = valind;
-								}else{
-									logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-								}
-							}
-						}
-					}
-				}else if((flagAddrAbs(cFlag) || flagAddrRel(cFlag)))
-				{
-					// ...есть адрес в команде
-					valind = *(int*)(&exCode[pos]);
-					pos += 4;
-
-					needEDX = texts[0];
-					numEDX = valind;
-				}
-
-				if(flagSizeOn(cFlag))
-				{
-					size = *(int*)(&exCode[pos]);
-					pos += 4;
-					logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
-					logASM << "jb pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "int 3 \r\n";
-					logASM << "  pushLabel" << pushLabels << ":\r\n";
-					pushLabels++;
-				}
-				if(flagSizeStk(cFlag))
-				{
-					logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
-					logASM << "ja pushLabel" << pushLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "int 3 \r\n";
-					logASM << "  pushLabel" << pushLabels << ":\r\n";
-					logASM << "pop eax ; убрали использованный размер\r\n";
-					pushLabels++;
-				}
-				mulByVarSize = false;
-
-				if(flagNoAddr(cFlag))
-				{
-					if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG)
-					{
-						highDW = *(unsigned int*)(&exCode[pos]); pos += 4;
-						lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
-						logASM << "push " << lowDW << "\r\n";
-						logASM << "push " << highDW << " ; положили double или long long\r\n";
-					}
-					if(dt == DTYPE_FLOAT)
-					{
-						// Кладём флоат как double
-						lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
-						double res = (double)*((float*)(&lowDW));
-						logASM << "push " << *((unsigned int*)(&res)+1) << "\r\n";
-						logASM << "push " << *((unsigned int*)(&res)) << " ; положили float как double\r\n";
-					}
-					if(dt == DTYPE_INT)
-					{
-						//look at the next command
-						cmdNext = *(CmdID*)(&exCode[pos+4]);
-						if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
-						{
-							needPush = texts[4];
-							skipPopEAXOnIntALU = true;
-						}
-						if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
-						{
-							CmdFlag lcFlag;
-							lcFlag = *(unsigned short*)(&exCode[pos+6]);
-							if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
-								knownEDXOnPush = true;
-						}
-
-						lowDW = *(unsigned int*)(&exCode[pos]); pos += 4;
-						if(knownEDXOnPush)
-							edxValueForPush = (int)lowDW;
-						else
-							logASM << needPush << (int)lowDW << " ; положили int\r\n";
-					}
-					if(dt == DTYPE_SHORT)
-					{
-						sdata = *(unsigned short*)(&exCode[pos]); pos += 2;
-						lowDW = (sdata > 0 ? sdata : sdata | 0xFFFF0000);
-						logASM << "push " << lowDW << " ; положили short\r\n";
-					}
-					if(dt == DTYPE_CHAR)
-					{
-						cdata = *(unsigned char*)(&exCode[pos]); pos += 1;
-						lowDW = cdata;
-						logASM << "push " << lowDW << " ; положили char\r\n";
-					}
-				}else{
-					unsigned int sizeOfVar = 0;
-					if(dt == DTYPE_COMPLEX_TYPE)
-					{
-						sizeOfVar = *(unsigned int*)(&exCode[pos]);
-						pos += 4;
-					}
-
-					//look at the next command
-					cmdNext = *(CmdID*)(&exCode[pos]);
-
-					if(dt == DTYPE_COMPLEX_TYPE)
-					{
-						unsigned int currShift = sizeOfVar;
-						while(sizeOfVar >= 4)
-						{
-							currShift -= 4;
-							logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "] ; положили часть complex\r\n";
-							sizeOfVar -= 4;
-						}
-						if(sizeOfVar)
-						{
-							logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX+currShift << "] ; положили часть complex\r\n";
-							logASM << "add esp, " << 4-sizeOfVar << " ; лишнее убрали\r\n";
-						}
-					}
-					if(dt == DTYPE_DOUBLE)
-					{
-						if(cmdNext >= cmdAdd && cmdNext <= cmdNEqual)
-						{
-							skipFldESPOnDoubleALU = true;
-							logASM << "fld qword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили double прямо в FPU\r\n";
-						}else if(cmdNext == cmdMov){
-							logASM << "fld qword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим double прямо в FPU\r\n";
-							skipFldOnMov = true;
-						}else{
-							logASM << "push dword [" << needEDX << needEBP << paramBase+4+numEDX << "]\r\n";
-							logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили double\r\n";
-						}
-					}
-					if(dt == DTYPE_LONG)
-					{
-						logASM << "push dword [" << needEDX << needEBP << paramBase+4+numEDX << "]\r\n";
-						logASM << "push dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили long long\r\n";
-					}
-					if(dt == DTYPE_FLOAT)
-					{
-						if(cmdNext == cmdMov)
-						{
-							logASM << "fld dword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим float в fpu стек\r\n";
-							skipFldOnMov = true;
-						}else{
-							logASM << "sub esp, 8 ; освободим место под double\r\n";
-							logASM << "fld dword [" << needEDX << needEBP << paramBase+numEDX << "] ; поместим float в fpu стек\r\n";
-							logASM << "fstp qword [esp] ; поместим double в обычный стек\r\n";
-						}
-					}
-					if(dt == DTYPE_INT)
-					{
-						if(cmdNext >= cmdAdd && cmdNext <= cmdLogOr) // for binary commands except LogicalXOR
-						{
-							needPush = texts[4];
-							skipPopEAXOnIntALU = true;
-						}
-						if(cmdNext == cmdPush || cmdNext == cmdMov || cmdNext == cmdIncAt || cmdNext == cmdDecAt)
-						{
-							CmdFlag lcFlag;
-							lcFlag = *(unsigned short*)(&exCode[pos+2]);
-							if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
-							{
-								skipPopEDXOnPush = true;
-								needPush = "mov edx, ";
-							}
-						}
-						if(cmdNext == cmdCTI)
-						{
-							indexInEaxOnCti = true;
-							needPush = "mov eax, ";
-						}
-						logASM << needPush << "dword [" << needEDX << needEBP << paramBase+numEDX << "] ; положили int\r\n";
-					}
-					if(dt == DTYPE_SHORT)
-					{
-						logASM << "movsx eax, word [" << needEDX << needEBP << paramBase+numEDX << "] ; положили short\r\n";
-						logASM << "push eax \r\n";
-					}
-					if(dt == DTYPE_CHAR)
-					{
-						logASM << "movsx eax, byte [" << needEDX << needEBP << paramBase+numEDX << "] ; положили char\r\n";
-						logASM << "push eax \r\n";
-					}
-				}
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
+			break;
+		case cmdMovDorLRel:
+			Emit(INST_COMMENT, cmd.flag ? "MOV double rel" : "MOV long rel");
+	
+			if(cmd.flag)
+			{
+				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+				Emit(o_fstp, x86Argument(sQWORD, rEBP, cmd.argument+paramBase));
+			}else{
+				Emit(o_pop, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
+				Emit(o_pop, x86Argument(sDWORD, rEBP, cmd.argument+paramBase + 4));
+				Emit(o_sub, x86Argument(rESP), x86Argument(8));
 			}
 			break;
-		case cmdMov:
+		case cmdMovCmplxRel:
+			Emit(INST_COMMENT, "MOV complex rel");
+		{
+			unsigned int currShift = 0;
+			while(currShift < cmd.helper)
 			{
-				logASM << "  ; MOV\r\n";
-				int valind = -1, size;
+				Emit(o_pop, x86Argument(sDWORD, rEBP, cmd.argument + currShift));
+				currShift += 4;
+			}
+			Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
+			assert(currShift == cmd.helper);
+		}
+			break;
 
-				cFlag = *(unsigned short*)(&exCode[pos]);
-				pos += 2;
-				st = flagStackType(cFlag);
-				dt = flagDataType(cFlag);
+		case cmdMovCharStk:
+			Emit(INST_COMMENT, "MOV char stack");
+	
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sBYTE, rEDX, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovShortStk:
+			Emit(INST_COMMENT, "MOV short stack");
+	
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sWORD, rEDX, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovIntStk:
+			Emit(INST_COMMENT, "MOV int stack");
+	
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(sDWORD, rEDX, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdMovFloatStk:
+			Emit(INST_COMMENT, "MOV float stack");
 
-				unsigned int numEDX = 0;
-				bool knownEDX = false;
-
-				// Если имеется сдвиг в стеке
-				if(flagShiftStk(cFlag))
-				{
-					valind = *(int*)(&exCode[pos]);
-					pos += 4;
-					if(knownEDXOnPush)
-					{
-						if(mulByVarSize)
-							numEDX = edxValueForPush * lastVarSize + valind;
-						else
-							numEDX = edxValueForPush + valind;
-						knownEDX = true;
-						knownEDXOnPush = false;
-					}else{
-						if(skipPopEDXOnPush)
-						{
-							if(mulByVarSize)
-							{
-								if(valind != 0)
-									logASM << "lea edx, [edx*" << lastVarSize << " + " << valind << "]\r\n";
-								else
-									logASM << "lea edx, [edx*" << lastVarSize << "]\r\n";
-							}else{
-								numEDX = valind;
-							}
-							skipPopEDXOnPush = false;
-						}else{
-							if(mulByVarSize)
-							{
-								logASM << "pop eax ; взяли сдвиг\r\n";
-								if(valind != 0)
-									logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-								else
-									logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-							}else{
-								if(valind != 0)
-								{
-									logASM << "pop edx ; взяли сдвиг\r\n";
-									numEDX = valind;
-								}else{
-									logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-								}
-							}
-						}
-					}
-				}else{
-					valind = *(int*)(&exCode[pos]);
-					pos += 4;
-
-					knownEDX = true;
-					numEDX = valind;
-				}
-
-				if(flagSizeOn(cFlag))
-				{
-					size = *(int*)(&exCode[pos]);
-					pos += 4;
-					logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
-					logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "int 3 \r\n";
-					logASM << "  movLabel" << movLabels << ":\r\n";
-					movLabels++;
-				}
-				if(flagSizeStk(cFlag))
-				{
-					logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
-					logASM << "ja movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-					logASM << "int 3 \r\n";
-					logASM << "  movLabel" << movLabels << ":\r\n";
-					logASM << "pop eax ; убрали использованный размер\r\n";
-					movLabels++;
-				}
-				mulByVarSize = false;
-
-				char *texts[] = { "", "edx + ", "ebp + ", "edi + " };
-				char *dontNeed = texts[0];
-				char *needEDX = texts[1];
-				char *needEBP = texts[2];
-				char *useEDI = texts[3];
-				if(knownEDX)
-					needEDX = dontNeed;
-				if(flagAddrAbs(cFlag) && !addEBPtoEDXOnPush)
-					needEBP = dontNeed;
-				addEBPtoEDXOnPush = false;
-				if(flagAddrRelTop(cFlag))
-					needEBP = useEDI;
-
-				unsigned int final = paramBase+numEDX;
-
-				unsigned int sizeOfVar = 0;
-				if(dt == DTYPE_COMPLEX_TYPE)
-				{
-					sizeOfVar = *(unsigned int*)(&exCode[pos]);
-					pos += 4;
-				}
-
-				//look at the next command
-				cmdNext = *(CmdID*)(&exCode[pos]);
-				if(cmdNext == cmdPop)
-					skipPop = true;
-
-				if(dt == DTYPE_COMPLEX_TYPE)
-				{
-					if(skipPop)
-					{
-						unsigned int currShift = 0;
-						while(sizeOfVar >= 4)
-						{
-							logASM << "pop dword [" << needEDX << needEBP << final+currShift << "] ; присвоили часть complex\r\n";
-							sizeOfVar -= 4;
-							currShift += 4;
-						}
-						assert(sizeOfVar == 0);
-					}else{
-						unsigned int currShift = sizeOfVar;
-						while(sizeOfVar >= 4)
-						{
-							currShift -= 4;
-							logASM << "mov ebx, [esp+" << sizeOfVar-4 << "] \r\n";
-							logASM << "mov dword [" << needEDX << needEBP << final+currShift << "], ebx ; присвоили часть complex\r\n";
-							sizeOfVar -= 4;
-						}
-						assert(sizeOfVar == 0);
-					}
-				}
-				if(dt == DTYPE_DOUBLE)
-				{
-					if(skipFldOnMov)
-					{
-						if(skipPop)
-						{
-							logASM << "fstp qword [" << needEDX << needEBP << final << "] ; присвоили double переменной\r\n";
-							skipFldOnMov = false;
-						}else{
-							if(cmdNext == cmdMov)
-							{
-								logASM << "fst qword [" << needEDX << needEBP << final << "] ; присвоили double переменной\r\n";
-							}else{
-								logASM << "fst qword [" << needEDX << needEBP << final << "] ; присвоили double переменной\r\n";
-								logASM << "sub esp, 8 ; освободим место под double\r\n";
-								logASM << "fstp qword [esp]\r\n";
-								skipFldOnMov = false;
-							}
-						}
-					}else{
-						if(skipPop)
-						{
-							logASM << "pop dword [" << needEDX << needEBP << final << "] \r\n";
-							logASM << "pop dword [" << needEDX << needEBP << final+4 << "] ; присвоили double переменной.\r\n";
-						}else{
-							logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
-							logASM << "fstp qword [" << needEDX << needEBP << final << "] ; присвоили double переменной\r\n";
-						}
-					}
-				}
-				if(dt == DTYPE_LONG)
-				{
-					if(skipPop)
-					{
-						logASM << "pop dword [" << needEDX << needEBP << final << "] \r\n";
-						logASM << "pop dword [" << needEDX << needEBP << final+4 << "] ; присвоили long long переменной.\r\n";
-					}else{
-						logASM << "mov ebx, [esp] \r\n";
-						logASM << "mov ecx, [esp+4] \r\n";
-						logASM << "mov [" << needEDX << needEBP << final << "], ebx \r\n";
-						logASM << "mov [" << needEDX << needEBP << final+4 << "], ecx ; присвоили long long переменной.\r\n";
-					}
-				}
-				if(dt == DTYPE_FLOAT)
-				{
-					if(skipFldOnMov)
-					{
-						if(skipPop)
-						{
-							logASM << "fstp dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
-							skipFldOnMov = false;
-						}else{
-							if(cmdNext == cmdMov)
-							{
-								logASM << "fst dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
-							}else{
-								logASM << "fst dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
-								logASM << "sub esp, 8 ; освободим место под double\r\n";
-								logASM << "fstp qword [esp]\r\n";
-								skipFldOnMov = false;
-							}
-						}
-					}else{
-						logASM << "fld qword [esp] ; поместим double из стека в fpu стек\r\n";
-						logASM << "fstp dword [" << needEDX << needEBP << final << "] ; присвоили float переменной\r\n";
-						if(skipPop)
-							logASM << "add esp, 8 ;\r\n";
-					}
-				}
-				if(dt == DTYPE_INT)
-				{
-					if(skipPop)
-					{
-						logASM << "pop dword [" << needEDX << needEBP << final << "] ; присвоили int переменной\r\n";
-					}else{
-						logASM << "mov ebx, [esp] \r\n";
-						logASM << "mov [" << needEDX << needEBP << final << "], ebx ; присвоили int переменной\r\n";
-					}
-				}
-				if(dt == DTYPE_SHORT)
-				{
-					if(skipPop)
-					{
-						logASM << "pop ebx \r\n";
-						logASM << "mov word [" << needEDX << needEBP << final << "], bx ; присвоили short переменной\r\n";
-					}else{
-						logASM << "mov ebx, [esp] \r\n";
-						logASM << "mov word [" << needEDX << needEBP << final << "], bx ; присвоили short переменной\r\n";
-					}
-				}
-				if(dt == DTYPE_CHAR)
-				{
-					if(skipPop)
-					{
-						logASM << "pop ebx \r\n";
-						logASM << "mov byte [" << needEDX << needEBP << final << "], bl ; присвоили char переменной\r\n";
-					}else{
-						logASM << "mov ebx, [esp] \r\n";
-						logASM << "mov byte [" << needEDX << needEBP << final << "], bl ; присвоили char переменной\r\n";
-					}
-				}
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			break;
+		case cmdMovDorLStk:
+			Emit(INST_COMMENT, cmd.flag ? "MOV double stack" : "MOV long stack");
+	
+			Emit(o_pop, x86Argument(rEDX));
+			if(cmd.flag)
+			{
+				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+				Emit(o_fstp, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
+			}else{
+				Emit(o_pop, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+				Emit(o_pop, x86Argument(sDWORD, rEDX, cmd.argument+paramBase + 4));
+				Emit(o_sub, x86Argument(rESP), x86Argument(8));
 			}
 			break;
+		case cmdMovCmplxStk:
+			Emit(INST_COMMENT, "MOV complex stack");
+		{
+			Emit(o_pop, x86Argument(rEDX));
+			unsigned int currShift = 0;
+			while(currShift < cmd.helper)
+			{
+				Emit(o_pop, x86Argument(sDWORD, rEDX, cmd.argument + currShift));
+				currShift += 4;
+			}
+			Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
+			assert(currShift == cmd.helper);
+		}
+			break;
+
+		case cmdReserveV:
+			break;
+
+		case cmdPopCharTop:
+			Emit(INST_COMMENT, "POP char top");
+	
+			Emit(o_pop, x86Argument(rEBX));
+			Emit(o_mov, x86Argument(sBYTE, rEDI, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdPopShortTop:
+			Emit(INST_COMMENT, "POP short top");
+	
+			Emit(o_pop, x86Argument(rEBX));
+			Emit(o_mov, x86Argument(sWORD, rEDI, cmd.argument+paramBase), x86Argument(rEBX));
+			break;
+		case cmdPopIntTop:
+			Emit(INST_COMMENT, "POP int top");
+	
+			Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument+paramBase));
+			break;
+		case cmdPopFloatTop:
+			Emit(INST_COMMENT, "POP float top");
+
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sDWORD, rEDI, cmd.argument+paramBase));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdPopDorLTop:
+			Emit(INST_COMMENT, cmd.flag ? "POP double top" : "POP long top");
+	
+			Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument+paramBase));
+			Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument+paramBase + 4));
+			break;
+		case cmdPopCmplxTop:
+			Emit(INST_COMMENT, "POP complex top");
+		{
+			unsigned int currShift = 0;
+			while(currShift < cmd.helper)
+			{
+				Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument + currShift));
+				currShift += 4;
+			}
+			assert(currShift == cmd.helper);
+		}
+			break;
+
+
 		case cmdPop:
-			logASM << "  ; POP\r\n";
+			Emit(INST_COMMENT, "POP");
 
-			if(skipPop)
-			{
-				pos += 4;
-				skipPop = false;
-				break;
-			}
-
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += 4;
-			if(valind == 4)
-				logASM << "pop eax ; убрали int\r\n";
+			if(cmd.argument == 4)
+				Emit(o_pop, x86Argument(rEAX));
 			else
-				logASM << "add esp, " << valind << " ; убрали complex\r\n";
+				Emit(o_add, x86Argument(rESP), x86Argument(cmd.argument));
 			break;
-		case cmdRTOI:
-			{
-				logASM << "  ; RTOI\r\n";
-				cFlag = *(unsigned short*)(&exCode[pos]);
-				pos += 2;
 
-				asmStackType st = flagStackType(cFlag);
-				asmDataType dt = flagDataType(cFlag);
+		case cmdDtoI:
+			Emit(INST_COMMENT, "DTOI");
 
-				if(st == STYPE_DOUBLE && dt == DTYPE_INT)
-				{
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fistp dword [esp+4] \r\n";
-					logASM << "add esp, 4 \r\n";
-				}else if(st == STYPE_DOUBLE && dt == DTYPE_LONG){
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fistp qword [esp] \r\n";
-				}
-			}
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fistp, x86Argument(sDWORD, rESP, 4));
+			Emit(o_add, x86Argument(rESP), x86Argument(4));
 			break;
-		case cmdITOR:
-			{
-				logASM << "  ; ITOR\r\n";
-				cFlag = *(unsigned short*)(&exCode[pos]);
-				pos += 2;
-				asmStackType st = flagStackType(cFlag);
-				asmDataType dt = flagDataType(cFlag);
+		case cmdDtoL:
+			Emit(INST_COMMENT, "DTOI");
 
-				if(st == STYPE_INT && dt == DTYPE_DOUBLE)
-				{
-					logASM << "fild dword [esp] ; переведём в double\r\n";
-					logASM << "push eax ; освободим место под double\r\n";
-					logASM << "fstp qword [esp] ; скопируем double в стек\r\n";
-				}
-				if(st == STYPE_LONG && dt == DTYPE_DOUBLE)
-				{
-					logASM << "fild qword [esp] ; переведём в double\r\n";
-					logASM << "fstp qword [esp] ; скопируем double в стек\r\n";
-				}
-			}
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fistp, x86Argument(sQWORD, rESP, 0));
 			break;
-		case cmdITOL:
-			logASM << "  ; ITOL\r\n";
-			logASM << "pop eax ; взяли int\r\n";
-			logASM << "cdq ; расширили до long в edx\r\n";
-			logASM << "push edx ; положили старшие в стек\r\n";
-			logASM << "push eax ; полжили младшие в стек\r\n";
-			break;
-		case cmdLTOI:
-			logASM << "  ; LTOI\r\n";
-			logASM << "pop eax ; взяли младшие биты\r\n";
-			logASM << "xchg eax, [esp] ; заменили старшие младшими\r\n";
-			break;
-		case cmdSwap:
-			logASM << "  ; SWAP\r\n";
-			cFlag = *(unsigned short*)(&exCode[pos]);
-			pos += 2;
-			switch(cFlag)
-			{
-			case (STYPE_DOUBLE)+(DTYPE_DOUBLE):
-			case (STYPE_LONG)+(DTYPE_LONG):
-				logASM << "pop eax \r\n";
-				logASM << "xchg eax, [esp+4]\r\n";
-				logASM << "pop edx \r\n";
-				logASM << "xchg edx, [esp+4]\r\n";
-				logASM << "push edx\r\n";
-				logASM << "push eax ; поменяли местами два long или double\r\n";
-				break;
-			case (STYPE_DOUBLE)+(DTYPE_INT):
-			case (STYPE_LONG)+(DTYPE_INT):
-				logASM << "pop eax \r\n";
-				logASM << "xchg eax, [esp+4h]\r\n";
-				logASM << "xchg eax, [esp]\r\n";
-				logASM << "push eax ; поменяли местами (long или double) и int\r\n";
-				break;
-			case (STYPE_INT)+(DTYPE_DOUBLE):
-			case (STYPE_INT)+(DTYPE_LONG):
-				logASM << "pop eax \r\n";
-				logASM << "xchg eax, [esp]\r\n";
-				logASM << "xchg eax, [esp+4h]\r\n";
-				logASM << "push eax ; поменяли местами int и (long или double)\r\n";
-				break;
-			case (STYPE_INT)+(DTYPE_INT):
-				logASM << "pop eax \r\n";
-				logASM << "xchg eax, [esp]\r\n";
-				logASM << "push eax ; поменяли местами два int\r\n";
-				break;
-			default:
-				throw std::string("cmdSwap, unimplemented type combo");
-			}
-			break;
-		case cmdCopy:
-			logASM << "  ; COPY\r\n";
-			oFlag = *(unsigned char*)(&exCode[pos]);
-			pos += 1;
-			switch(oFlag)
-			{
-			case OTYPE_DOUBLE:
-			case OTYPE_LONG:
-				logASM << "mov edx, [esp]\r\n";
-				logASM << "mov eax, [esp+4]\r\n";
-				logASM << "push eax\r\n";
-				logASM << "push edx ; скопировали long или double\r\n";
-				break;
-			case OTYPE_INT:
-				logASM << "mov eax, [esp]\r\n";
-				logASM << "push eax ; скопировали int\r\n";
-				break;
-			}
-			break;
-		case cmdJmp:
-			logASM << "  ; JMP\r\n";
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += 4;
-			{
-				bool jFar = false;
-				for(unsigned int i = 0; i < funcNeedLabel.size(); i++)
-					if(funcNeedLabel[i] == pos)
-						jFar = true;
-				logASM << "jmp near gLabel" << valind << "\r\n";
-			}
-			break;
-		case cmdJmpZ:
-			logASM << "  ; JMPZ\r\n";
-			oFlag = *(unsigned char*)(&exCode[pos]);
-			pos += 1;
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += 4;
+		case cmdDtoF:
+			Emit(INST_COMMENT, "DTOI");
 
-			if(oFlag == OTYPE_DOUBLE)
-			{
-				logASM << "fldz ; положим ноль в fpu стек\r\n";
-				logASM << "fcomp qword [esp] ; сравним\r\n"; 
-				logASM << "fnstsw ax ; результат без проверок на fpu исключения положим в ax\r\n";
-				logASM << "pop ebx \r\n";
-				logASM << "pop ebx ; убрали double со стека\r\n";
-				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
-				logASM << "jnp near gLabel" << valind << "\r\n";
-			}else if(oFlag == OTYPE_LONG){
-				logASM << "pop edx \r\n";
-				logASM << "pop eax \r\n";
-				logASM << "or edx, eax ; сравниваем long == 0\r\n";
-				logASM << "jne near gLabel" << valind << "\r\n";
-			}else if(oFlag == OTYPE_INT){
-				logASM << "pop eax \r\n";
-				logASM << "test eax, eax ; сравниваем int == 0\r\n";
-				logASM << "jz near gLabel" << valind << "\r\n";
-			}
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sDWORD, rESP, 4));
+			Emit(o_add, x86Argument(rESP), x86Argument(4));
 			break;
-		case cmdJmpNZ:
-			logASM << "  ; JMPNZ\r\n";
-			oFlag = *(unsigned char*)(&exCode[pos]);
-			pos += 1;
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += 4;
-			if(oFlag == OTYPE_DOUBLE)
-			{
-				logASM << "fldz ; положим ноль в fpu стек\r\n";
-				logASM << "fcomp qword [esp] ; сравним\r\n"; 
-				logASM << "fnstsw ax ; результат без проверок на fpu исключения положим в ax\r\n";
-				logASM << "pop ebx \r\n";
-				logASM << "pop ebx ; убрали double со стека\r\n";
-				logASM << "test ah, 44h ; MSVS с чем-то сравнивает\r\n";
-				logASM << "jp near gLabel" << valind << "\r\n";
-			}else if(oFlag == OTYPE_LONG){
-				logASM << "pop edx \r\n";
-				logASM << "pop eax \r\n";
-				logASM << "or edx, eax ; сравниваем long == 0\r\n";
-				logASM << "je near gLabel" << valind << "\r\n";
-			}else if(oFlag == OTYPE_INT){
-				logASM << "pop eax \r\n";
-				logASM << "test eax, eax \r\n";
-				logASM << "jnz near gLabel" << valind << "\r\n";
-			}
+		case cmdItoD:
+			Emit(INST_COMMENT, "DTOI");
+
+			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
+			Emit(o_push, x86Argument(rEAX));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
 			break;
-		case cmdSetRange:
-			logASM << "  ; SETRANGE\r\n";
-			cFlag = *(unsigned short*)(&exCode[pos]);
-			pos += 2;
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += 4;
-			valind2 = *(unsigned int*)(&exCode[pos]);
-			pos += 4;
-			logASM << "lea ebx, [ebp + " << paramBase+valind << "] ; начальный адрес\r\n";
-			logASM << "lea ecx, [ebp + " << paramBase+valind+(valind2-1)*typeSizeD[(cFlag>>2)&0x00000007] << "] ; конечный адрес\r\n";
-			if(cFlag == DTYPE_FLOAT)
+		case cmdLtoD:
+			Emit(INST_COMMENT, "DTOI");
+
+			Emit(o_fild, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			break;
+		case cmdItoL:
+			Emit(INST_COMMENT, "DTOI");
+
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_cdq);
+			Emit(o_push, x86Argument(rEDX));
+			Emit(o_push, x86Argument(rEAX));
+			break;
+		case cmdLtoI:
+			Emit(INST_COMMENT, "DTOI");
+
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
+			break;
+
+		case cmdImmtMulD:
+		case cmdImmtMulL:
+		case cmdImmtMulI:
+			Emit(INST_COMMENT, cmd.cmd == cmdImmtMulD ? "IMUL double" : (cmd.cmd == cmdImmtMulL ? "IMUL long" : "IMUL int"));
+			
+			if(cmd.cmd == cmdImmtMulD)
 			{
-				logASM << "fld qword [esp] ; float в стек\r\n";
+				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+				Emit(o_fistp, x86Argument(sDWORD, rESP, 4));
+				Emit(o_pop, x86Argument(rEAX));
+			}else if(cmd.cmd == cmdImmtMulL){
+				Emit(o_pop, x86Argument(rEAX));
+			}
+			
+			if(cmd.argument == 2)
+			{
+				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			}else if(cmd.argument == 4){
+				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(2));
+			}else if(cmd.argument == 8){
+				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(3));
+			}else if(cmd.argument == 16){
+				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(4));
 			}else{
-				logASM << "mov eax, [esp] \r\n";
-				logASM << "mov edx, [esp+4] ; переменную в регистры\r\n";
+				Emit(o_pop, x86Argument(rEAX));
+				Emit(o_imul, x86Argument(cmd.argument));
+				Emit(o_push, x86Argument(rEAX));
 			}
-			logASM << " loopStart" << aluLabels << ": \r\n";
-			logASM << "cmp ebx, ecx \r\n";
-			logASM << "jg loopEnd" << aluLabels << " \r\n";
-			switch(cFlag)
-			{
-			case DTYPE_DOUBLE:
-				logASM << "mov dword [ebx+4], edx \r\n";
-				logASM << "mov dword [ebx], eax \r\n";
-				break;
-			case DTYPE_FLOAT:
-				// Нужно сконвертировать float в дабл
-				logASM << "fst dword [ebx] \r\n";
-				break;
-			case DTYPE_LONG:
-				logASM << "mov dword [ebx+4], edx \r\n";
-				logASM << "mov dword [ebx], eax \r\n";
-				break;
-			case DTYPE_INT:
-				logASM << "mov dword [ebx], eax \r\n";
-				break;
-			case DTYPE_SHORT:
-				logASM << "mov word [ebx], ax \r\n";
-				break;
-			case DTYPE_CHAR:
-				logASM << "mov byte [ebx], al \r\n";
-				break;
-			}
-			logASM << "add ebx, " << typeSizeD[(cFlag>>2)&0x00000007] << " ; сдвинем указатель на следующий элемент\r\n";
-			logASM << "jmp loopStart" << aluLabels << " \r\n";
-			logASM << "  loopEnd" << aluLabels << ": \r\n";
-			if(cFlag == DTYPE_FLOAT)
-				logASM << "fstp st0 ; float из стека\r\n";
-			aluLabels++;
 			break;
+
+		case cmdCopyDorL:
+			Emit(INST_COMMENT, "COPY qword");
+
+			Emit(o_mov, x86Argument(rEDX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 4));
+			Emit(o_push, x86Argument(rEAX));
+			Emit(o_push, x86Argument(rEDX));
+			break;
+		case cmdCopyI:
+			Emit(INST_COMMENT, "COPY dword");
+
+			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_push, x86Argument(rEAX));
+			break;
+
 		case cmdGetAddr:
-			logASM << "  ; GETADDR\r\n";
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += 4;
-			cmdNext = *(CmdID*)(&exCode[pos]);
-			if(cmdNext == cmdPush)
+			Emit(INST_COMMENT, "GETADDR");
+
+			if(cmd.argument)
 			{
-				CmdFlag lcFlag;
-				lcFlag = *(unsigned short*)(&exCode[pos+3]);
-				if((flagAddrAbs(lcFlag) || flagAddrRel(lcFlag)) && flagShiftStk(lcFlag))
-					knownEDXOnPush = true;
-			}
-			if(!knownEDXOnPush)
-			{
-				if(valind)
-				{
-					logASM << "lea eax, [ebp + " << (int)valind << "] ; сдвинули адрес относительно бызы стека\r\n";
-					logASM << "push eax ; положили адрес в стек\r\n";
-				}else{
-					logASM << "push ebp ; положили адрес в стек (valind == 0)\r\n";
-				}
+				Emit(o_lea, x86Argument(rEAX), x86Argument(sDWORD, rEBP, cmd.argument));
+				Emit(o_push, x86Argument(rEAX));
 			}else{
-				addEBPtoEDXOnPush = true;
-				edxValueForPush = (int)valind;
+				Emit(o_push, x86Argument(rEBP));
 			}
 			break;
 		case cmdFuncAddr:
-		{
-			valind = *(unsigned int*)(&exCode[pos]);
-			pos += sizeof(unsigned int);
+			Emit(INST_COMMENT, "FUNCADDR");
 
-			if(exFunctions[valind]->funcPtr == NULL)
+			if(exFunctions[cmd.argument]->funcPtr == NULL)
 			{
-				logASM << "lea eax, [function" << exFunctions[valind]->address << " + " << binCodeStart << "] ; адрес функции \r\n";
-				logASM << "push eax ; \r\n";
+				Emit(o_lea, x86Argument(rEAX), x86Argument(InlFmt("function%d", exFunctions[cmd.argument]->address), binCodeStart));
+				Emit(o_push, x86Argument(rEAX));
 			}else{
-				logASM << "push 0x" << exFunctions[valind]->funcPtr << " \r\n";
+				Emit(o_push, x86Argument((int)(long long)exFunctions[cmd.argument]->funcPtr));
 			}
 			break;
-		}
-		}
-		if(cmd >= cmdAdd && cmd <= cmdLogXor)
-		{
-			oFlag = *(unsigned char*)(&exCode[pos]);
-			pos += 1;
 
-			//look at the next command
-			cmdNext = *(CmdID*)(&exCode[pos]);
+		case cmdSetRange:
+			Emit(INST_COMMENT, "SETRANGE");
 
-			bool skipFstpOnDoubleALU = false;
-			if(cmdNext >= cmdAdd && cmdNext <= cmdNEqual)
-				skipFstpOnDoubleALU = true;
+			assert(exCode[pos-2].cmd == cmdPushImmt);	// previous command must be cmdPushImmt
 
-			switch(cmd + (oFlag << 16))
+			// start address
+			Emit(o_lea, x86Argument(rEBX), x86Argument(sDWORD, rEBP, paramBase + cmd.argument));
+			// end address
+			Emit(o_lea, x86Argument(rECX), x86Argument(sDWORD, rEBP, paramBase + cmd.argument + (exCode[pos-2].argument - 1) * typeSizeD[(cmd.helper>>2)&0x00000007]));
+			if(cmd.helper == DTYPE_FLOAT)
 			{
-			case cmdAdd+(OTYPE_DOUBLE<<16):
-				logASM << "  ; ADD  double\r\n";
-			//	logASM << "fld qword [esp] \r\n";
-				if(!skipFldESPOnDoubleALU)
-					logASM << "fld qword [esp+8] \r\n";
-				logASM << "fadd qword [esp] \r\n";
-			//	logASM << "faddp \r\n";
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdAdd+(OTYPE_LONG<<16):
-				logASM << "  ; ADD long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "add [esp], eax \r\n";
-				logASM << "adc [esp+4], edx \r\n";
-				break;
-			case cmdAdd+(OTYPE_INT<<16):
-				logASM << "  ; ADD int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "add [esp], eax \r\n";
-				break;
-
-			case cmdSub+(OTYPE_DOUBLE<<16):
-				logASM << "  ; SUB  double\r\n";
-			//	logASM << "fld qword [esp] \r\n";
-				if(!skipFldESPOnDoubleALU)
-					logASM << "fld qword [esp+8] \r\n";
-				if(skipFldESPOnDoubleALU)
-					logASM << "fsubr qword [esp] \r\n";
-				else
-					logASM << "fsub qword [esp] \r\n";
-			//	logASM << "fsubrp \r\n";
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdSub+(OTYPE_LONG<<16):
-				logASM << "  ; SUB long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "sub [esp], eax \r\n";
-				logASM << "sbb [esp+4], edx \r\n";
-				break;
-			case cmdSub+(OTYPE_INT<<16):
-				logASM << "  ; SUB int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "sub [esp], eax \r\n";
-				break;
-
-			case cmdMul+(OTYPE_DOUBLE<<16):
-				logASM << "  ; MUL  double\r\n";
-			//	logASM << "fld qword [esp] \r\n";
-				if(!skipFldESPOnDoubleALU)
-					logASM << "fld qword [esp+8] \r\n";
-				logASM << "fmul qword [esp] \r\n";
-			//	logASM << "fmulp \r\n";
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdMul+(OTYPE_LONG<<16):
-				logASM << "  ; MUL long\r\n";
-				logASM << "mov ecx, 0x" << longMul << " ; longMul(), result in edx:eax\r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 8 ; сносим один\r\n";
-				logASM << "mov [esp+4], edx \r\n";
-				logASM << "mov [esp], eax \r\n";
-				break;
-			case cmdMul+(OTYPE_INT<<16):
-				logASM << "  ; MUL int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "imul edx \r\n";
-				logASM << "push eax \r\n";
-				break;
-
-			case cmdDiv+(OTYPE_DOUBLE<<16):
-				logASM << "  ; DIV  double\r\n";
-			//	logASM << "fld qword [esp] \r\n";
-				if(!skipFldESPOnDoubleALU)
-					logASM << "fld qword [esp+8] \r\n";
-				if(skipFldESPOnDoubleALU)
-					logASM << "fdivr qword [esp] \r\n";
-				else
-					logASM << "fdiv qword [esp] \r\n";
-			//	logASM << "fdivrp \r\n";
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdDiv+(OTYPE_LONG<<16):
-				logASM << "  ; DIV long\r\n";
-				logASM << "mov ecx, 0x" << longDiv << " ; longDiv(), result in edx:eax\r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 8 ; сносим один\r\n";
-				logASM << "mov [esp+4], edx \r\n";
-				logASM << "mov [esp], eax \r\n";
-				break;
-			case cmdDiv+(OTYPE_INT<<16):
-				logASM << "  ; DIV int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xchg eax, [esp] \r\n";
-				logASM << "cdq \r\n";
-				logASM << "idiv dword [esp] ; а проверка на 0?\r\n";
-				logASM << "xchg eax, [esp]\r\n";
-				break;
-
-			case cmdPow+(OTYPE_DOUBLE<<16):
-				logASM << "  ; POW double\r\n";
-				logASM << "fld qword [esp] \r\n";
-				if(!skipFldESPOnDoubleALU)
-					logASM << "fld qword [esp+8] \r\n";
-				logASM << "mov ecx, 0x" << doublePow << " ; doublePow(), result in st0\r\n";
-				logASM << "call ecx \r\n";
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdPow+(OTYPE_LONG<<16):
-				logASM << "  ; MOD long\r\n";
-				logASM << "mov ecx, 0x" << longPow << " ; longPow(), result in edx:eax\r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 8 ; сносим один\r\n";
-				logASM << "mov [esp+4], edx \r\n";
-				logASM << "mov [esp], eax \r\n";
-				break;
-			case cmdPow+(OTYPE_INT<<16):
-				logASM << "  ; POW int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "pop ebx \r\n";
-				logASM << "mov ecx, 0x" << intPow << " ; intPow(), result in edx\r\n";
-				logASM << "call ecx \r\n";
-				logASM << "push edx \r\n";
-				break;
-
-			case cmdMod+(OTYPE_DOUBLE<<16):
-				logASM << "  ; MOD  double\r\n";
-				logASM << "fld qword [esp] \r\n";
-				if(!skipFldESPOnDoubleALU)
-					logASM << "fld qword [esp+8] \r\n";
-				logASM << "fprem \r\n";
-				logASM << "fstp st1 \r\n";
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdMod+(OTYPE_LONG<<16):
-				logASM << "  ; MOD long\r\n";
-				logASM << "mov ecx, 0x" << longMod << " ; longMod(), result in edx:eax\r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 8 ; сносим один\r\n";
-				logASM << "mov [esp+4], edx \r\n";
-				logASM << "mov [esp], eax \r\n";
-				break;
-			case cmdMod+(OTYPE_INT<<16):
-				logASM << "  ; MOD int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xchg eax, [esp] \r\n";
-				logASM << "cdq \r\n";
-				logASM << "idiv dword [esp] ; а проверка на 0?\r\n";
-				logASM << "xchg edx, [esp]\r\n";
-				break;
-
-			case cmdLess+(OTYPE_DOUBLE<<16):
-				logASM << "  ; LES double\r\n";
-				if(!skipFldESPOnDoubleALU)
-				{
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fcomp qword [esp+8] \r\n";
-				}else{
-					logASM << "fcomp qword [esp] \r\n";
-				}
-				logASM << "fnstsw ax ; взяли флажок\r\n";
-				logASM << "test ah, 41h ; сравнили с 'меньше'\r\n";
-				logASM << "jne pushZero" << aluLabels << " ; не, не меньше\r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				logASM << "fild dword [esp] \r\n";
-				aluLabels++;
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdLess+(OTYPE_LONG<<16):
-				logASM << "  ; LES long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx ; edx:eax\r\n";
-				logASM << "cmp dword [esp+4], edx \r\n";
-				logASM << "jg SetZero" << aluLabels << " \r\n";
-				logASM << "jl SetOne" << aluLabels << " \r\n";
-				logASM << "cmp dword [esp], eax \r\n";
-				logASM << "jae SetZero" << aluLabels << " \r\n";
-				logASM << "  SetOne" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp OneSet" << aluLabels << " \r\n";
-				logASM << "  SetZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  OneSet" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+4], 0 \r\n";
-				aluLabels++;
-				break;
-			case cmdLess+(OTYPE_INT<<16):
-				logASM << "  ; LES int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xor ecx, ecx\r\n";
-				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setl cl \r\n";
-				logASM << "mov [esp], ecx\r\n";
-				break;
-
-			case cmdGreater+(OTYPE_DOUBLE<<16):
-				logASM << "  ; GRT double\r\n";
-				if(!skipFldESPOnDoubleALU)
-				{
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fcomp qword [esp+8] \r\n";
-				}else{
-					logASM << "fcomp qword [esp] \r\n";
-				}
-				logASM << "fnstsw ax ; взяли флажок\r\n";
-				logASM << "test ah, 5h ; сравнили с 'больше'\r\n";
-				logASM << "jp pushZero" << aluLabels << " ; не, не больше\r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				logASM << "fild dword [esp] \r\n";
-				aluLabels++;
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdGreater+(OTYPE_LONG<<16):
-				logASM << "  ; GRT long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx ; edx:eax\r\n";
-				logASM << "cmp dword [esp+4], edx \r\n";
-				logASM << "jl SetZero" << aluLabels << " \r\n";
-				logASM << "jg SetOne" << aluLabels << " \r\n";
-				logASM << "cmp dword [esp], eax \r\n";
-				logASM << "jbe SetZero" << aluLabels << " \r\n";
-				logASM << "  SetOne" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp OneSet" << aluLabels << " \r\n";
-				logASM << "  SetZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  OneSet" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+4], 0 \r\n";
-				aluLabels++;
-				break;
-			case cmdGreater+(OTYPE_INT<<16):
-				logASM << "  ; GRT int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xor ecx, ecx\r\n";
-				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setg cl \r\n";
-				logASM << "mov [esp], ecx\r\n";
-				break;
-
-			case cmdLEqual+(OTYPE_DOUBLE<<16):
-				logASM << "  ; LEQL double\r\n";
-				if(!skipFldESPOnDoubleALU)
-				{
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fcomp qword [esp+8] \r\n";
-				}else{
-					logASM << "fcomp qword [esp] \r\n";
-				}
-				logASM << "fnstsw ax ; взяли флажок\r\n";
-				logASM << "test ah, 1h ; сравнили с 'меньше или равно'\r\n";
-				logASM << "jne pushZero" << aluLabels << " ; не, не меньше или равно\r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				logASM << "fild dword [esp] \r\n";
-				aluLabels++;
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdLEqual+(OTYPE_LONG<<16):
-				logASM << "  ; LEQL long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx ; edx:eax\r\n";
-				logASM << "cmp dword [esp+4], edx \r\n";
-				logASM << "jg SetZero" << aluLabels << " \r\n";
-				logASM << "jl SetOne" << aluLabels << " \r\n";
-				logASM << "cmp dword [esp], eax \r\n";
-				logASM << "ja SetZero" << aluLabels << " \r\n";
-				logASM << "  SetOne" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp OneSet" << aluLabels << " \r\n";
-				logASM << "  SetZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  OneSet" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+4], 0 \r\n";
-				aluLabels++;
-				break;
-			case cmdLEqual+(OTYPE_INT<<16):
-				logASM << "  ; LEQL int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xor ecx, ecx\r\n";
-				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setle cl \r\n";
-				logASM << "mov [esp], ecx\r\n";
-				break;
-
-			case cmdGEqual+(OTYPE_DOUBLE<<16):
-				logASM << "  ; GEQL double\r\n";
-				if(!skipFldESPOnDoubleALU)
-				{
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fcomp qword [esp+8] \r\n";
-				}else{
-					logASM << "fcomp qword [esp] \r\n";
-				}
-				logASM << "fnstsw ax ; взяли флажок\r\n";
-				logASM << "test ah, 41h ; сравнили с 'больше или равно'\r\n";
-				logASM << "jp pushZero" << aluLabels << " ; не, не больше или равно\r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				logASM << "fild dword [esp] \r\n";
-				aluLabels++;
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdGEqual+(OTYPE_LONG<<16):
-				logASM << "  ; GEQL long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx ; edx:eax\r\n";
-				logASM << "cmp dword [esp+4], edx \r\n";
-				logASM << "jl SetZero" << aluLabels << " \r\n";
-				logASM << "jg SetOne" << aluLabels << " \r\n";
-				logASM << "cmp dword [esp], eax \r\n";
-				logASM << "jb SetZero" << aluLabels << " \r\n";
-				logASM << "  SetOne" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp OneSet" << aluLabels << " \r\n";
-				logASM << "  SetZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  OneSet" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+4], 0 \r\n";
-				aluLabels++;
-				break;
-			case cmdGEqual+(OTYPE_INT<<16):
-				logASM << "  ; GEQL int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xor ecx, ecx\r\n";
-				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setge cl \r\n";
-				logASM << "mov [esp], ecx\r\n";
-				break;
-
-			case cmdEqual+(OTYPE_DOUBLE<<16):
-				logASM << "  ; EQL double\r\n";
-				if(!skipFldESPOnDoubleALU)
-				{
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fcomp qword [esp+8] \r\n";
-				}else{
-					logASM << "fcomp qword [esp] \r\n";
-				}
-				logASM << "fnstsw ax ; взяли флажок\r\n";
-				logASM << "test ah, 44h ; сравнили с 'равно'\r\n";
-				logASM << "jp pushZero" << aluLabels << " ; не, не равно\r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				logASM << "fild dword [esp] \r\n";
-				aluLabels++;
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdEqual+(OTYPE_LONG<<16):
-				logASM << "  ; EQL long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx ; edx:eax\r\n";
-				logASM << "cmp dword [esp+4], edx \r\n";
-				logASM << "jne SetZero" << aluLabels << " \r\n";
-				logASM << "cmp dword [esp], eax \r\n";
-				logASM << "jne SetZero" << aluLabels << " \r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp OneSet" << aluLabels << " \r\n";
-				logASM << "  SetZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  OneSet" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+4], 0 \r\n";
-				aluLabels++;
-				break;
-			case cmdEqual+(OTYPE_INT<<16):
-				logASM << "  ; EQL int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xor ecx, ecx\r\n";
-				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "sete cl \r\n";
-				logASM << "mov [esp], ecx\r\n";
-				break;
-
-			case cmdNEqual+(OTYPE_DOUBLE<<16):
-				logASM << "  ; NEQL double\r\n";
-				if(!skipFldESPOnDoubleALU)
-				{
-					logASM << "fld qword [esp] \r\n";
-					logASM << "fcomp qword [esp+8] \r\n";
-				}else{
-					logASM << "fcomp qword [esp] \r\n";
-				}
-				logASM << "fnstsw ax ; взяли флажок\r\n";
-				logASM << "test ah, 44h ; сравнили с 'неравно'\r\n";
-				logASM << "jnp pushZero" << aluLabels << " ; не, не неравно\r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				logASM << "fild dword [esp] \r\n";
-				aluLabels++;
-				if(!skipFstpOnDoubleALU)
-				{
-					logASM << "fstp qword [esp" << (skipFldESPOnDoubleALU ? "" : "+8") << "] \r\n";
-					if(!skipFldESPOnDoubleALU)
-						logASM << "add esp, 8\r\n";
-				}else{
-					logASM << "add esp, " << (skipFldESPOnDoubleALU ? 8 : 16) << "\r\n";
-					skipFldESPOnDoubleALU = true;
-				}
-				break;
-			case cmdNEqual+(OTYPE_LONG<<16):
-				logASM << "  ; NEQL long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx ; edx:eax\r\n";
-				logASM << "cmp dword [esp+4], edx \r\n";
-				logASM << "jne SetOne" << aluLabels << " \r\n";
-				logASM << "cmp dword [esp], eax \r\n";
-				logASM << "je SetZero" << aluLabels << " \r\n";
-				logASM << "  SetOne" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp OneSet" << aluLabels << " \r\n";
-				logASM << "  SetZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  OneSet" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+4], 0 \r\n";
-				aluLabels++;
-				break;
-			case cmdNEqual+(OTYPE_INT<<16):
-				logASM << "  ; NEQL int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xor ecx, ecx\r\n";
-				logASM << "cmp [esp], eax ; \r\n";
-				logASM << "setne cl \r\n";
-				logASM << "mov [esp], ecx\r\n";
-				break;
-
-			case cmdShl+(OTYPE_LONG<<16):
-				logASM << "  ; SHL long\r\n";
-				logASM << "mov ecx, 0x" << longShl << " ; longShl(), result in [esp+8]\r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 8 ; сносим один\r\n";
-				break;
-			case cmdShl+(OTYPE_INT<<16):
-				logASM << "  ; SHL int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "pop ecx \r\n";
-				logASM << "xchg ecx, eax \r\n";
-				logASM << "sal eax, cl ; \r\n";
-				logASM << "push eax \r\n";
-				break;
-
-			case cmdShr+(OTYPE_LONG<<16):
-				logASM << "  ; SHR long\r\n";
-				logASM << "mov ecx, 0x" << longShr << " ; longShr(), result in [esp+8]\r\n";
-				logASM << "call ecx \r\n";
-				logASM << "add esp, 8 ; сносим один\r\n";
-				break;
-			case cmdShr+(OTYPE_INT<<16):
-				logASM << "  ; SHR int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "pop ecx \r\n";
-				logASM << "xchg ecx, eax \r\n";
-				logASM << "sar eax, cl ; \r\n";
-				logASM << "push eax \r\n";
-				break;
-
-			case cmdBitAnd+(OTYPE_LONG<<16):
-				logASM << "  ; BAND long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "and [esp], eax ; \r\n";
-				logASM << "and [esp+4], edx ; \r\n";
-				break;
-			case cmdBitAnd+(OTYPE_INT<<16):
-				logASM << "  ; BAND int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "and [esp], eax ; \r\n";
-				break;
-
-			case cmdBitOr+(OTYPE_LONG<<16):
-				logASM << "  ; BOR long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "or [esp], eax ; \r\n";
-				logASM << "or [esp+4], edx ; \r\n";
-				break;
-			case cmdBitOr+(OTYPE_INT<<16):
-				logASM << "  ; BOR int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "or [esp], eax ; \r\n";
-				break;
-
-			case cmdBitXor+(OTYPE_LONG<<16):
-				logASM << "  ; BXOR long\r\n";
-				logASM << "pop eax \r\n";
-				logASM << "pop edx \r\n";
-				logASM << "xor [esp], eax ; \r\n";
-				logASM << "xor [esp+4], edx ; \r\n";
-				break;
-			case cmdBitXor+(OTYPE_INT<<16):
-				logASM << "  ; BXOR int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "xor [esp], eax ; \r\n";
-				break;
-
-			case cmdLogAnd+(OTYPE_LONG<<16):
-				logASM << "  ; LAND long\r\n";
-				logASM << "mov eax, dword [esp] \r\n";
-				logASM << "or eax, dword [esp+4] \r\n";
-				logASM << "jz SetZero" << aluLabels << " \r\n";
-				logASM << "mov eax, dword [esp+8] \r\n";
-				logASM << "or eax, dword [esp+12] \r\n";
-				logASM << "jz SetZero" << aluLabels << " \r\n";
-				logASM << "mov dword [esp+8], 1 \r\n";
-				logASM << "jmp OneSet" << aluLabels << " \r\n";
-				logASM << "  SetZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+8], 0 \r\n";
-				logASM << "  OneSet" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+12], 0 \r\n";
-				logASM << "add esp, 8 \r\n";
-				aluLabels++;
-				break;
-			case cmdLogAnd+(OTYPE_INT<<16):
-				logASM << "  ; LAND int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "cmp eax, 0 \r\n";
-				logASM << "je pushZero" << aluLabels << "\r\n";
-				logASM << "cmp dword [esp], 0 \r\n";
-				logASM << "je pushZero" << aluLabels << "\r\n";
-				logASM << "mov dword [esp], 1 ; true\r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 ; false\r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				aluLabels++;
-				break;
-
-			case cmdLogOr+(OTYPE_LONG<<16):
-				logASM << "  ; LOR long\r\n";
-				logASM << "mov eax, dword [esp] \r\n";
-				logASM << "or eax, dword [esp+4] \r\n";
-				logASM << "jnz SetOne" << aluLabels << " \r\n";
-				logASM << "mov eax, dword [esp+8] \r\n";
-				logASM << "or eax, dword [esp+12] \r\n";
-				logASM << "jnz SetOne" << aluLabels << " \r\n";
-				logASM << "mov dword [esp+8], 0 \r\n";
-				logASM << "jmp ZeroSet" << aluLabels << " \r\n";
-				logASM << "  SetOne" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+8], 1 \r\n";
-				logASM << "  ZeroSet" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp+12], 0 \r\n";
-				logASM << "add esp, 8 \r\n";
-				aluLabels++;
-				break;
-			case cmdLogOr+(OTYPE_INT<<16):
-				logASM << "  ; LOR int\r\n";
-				if(!skipPopEAXOnIntALU)
-					logASM << "pop eax \r\n";
-				logASM << "pop ebx \r\n";
-				logASM << "or eax, ebx \r\n";
-				logASM << "cmp eax, 0 \r\n";
-				logASM << "je pushZero" << aluLabels << "\r\n";
-				logASM << "push 1 ; true\r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "push 0 ; false\r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				aluLabels++;
-				break;
-
-			case cmdLogXor+(OTYPE_LONG<<16):
-				logASM << "  ; LXOR long\r\n";
-				logASM << "xor eax, eax \r\n";
-				logASM << "mov ebx, dword [esp] \r\n";
-				logASM << "or ebx, dword [esp+4] \r\n";
-				logASM << "setnz al \r\n";
-				logASM << "xor ecx, ecx \r\n";
-				logASM << "mov ebx, dword [esp+8] \r\n";
-				logASM << "or ebx, dword [esp+12] \r\n";
-				logASM << "setnz cl \r\n";
-				logASM << "xor eax, ecx \r\n";
-				logASM << "add esp, 8 \r\n";
-				logASM << "mov dword [esp+4], 0 \r\n";
-				logASM << "mov dword [esp], eax \r\n";
-				break;
-			case cmdLogXor+(OTYPE_INT<<16):
-				logASM << "  ; LXOR int\r\n";
-				logASM << "xor eax, eax \r\n";
-				logASM << "cmp dword [esp], 0 \r\n";
-				logASM << "setne al \r\n";
-				logASM << "xor ecx, ecx \r\n";
-				logASM << "cmp dword [esp+4], 0 \r\n";
-				logASM << "setne cl \r\n";
-				logASM << "xor eax, ecx \r\n";
-				logASM << "pop ecx \r\n";
-				logASM << "mov dword [esp], eax \r\n";
-				break;
-			default:
-				throw string("Operation is not implemented");
+				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			}else{
+				Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
+				Emit(o_mov, x86Argument(rEDX), x86Argument(sDWORD, rESP, 4));
 			}
-			skipPopEAXOnIntALU = false;
-			if(!skipFstpOnDoubleALU)
-				skipFldESPOnDoubleALU = false;
-		}
-		if(cmd >= cmdNeg && cmd <= cmdLogNot)
-		{
-			oFlag = *(unsigned char*)(&exCode[pos]);
-			pos += 1;
-			switch(cmd + (oFlag << 16))
+			Emit(InlFmt("loopStart%d", aluLabels));
+			Emit(o_cmp, x86Argument(rEBX), x86Argument(rECX));
+			Emit(o_jg, x86Argument(InlFmt("loopEnd%d", aluLabels)));
+
+			switch(cmd.helper)
 			{
-			case cmdNeg+(OTYPE_DOUBLE<<16):
-				logASM << "  ; NEG double\r\n";
-				logASM << "fld qword [esp] \r\n";
-				logASM << "fchs \r\n";
-				logASM << "fstp qword [esp] \r\n";
+			case DTYPE_DOUBLE:
+			case DTYPE_LONG:
+				Emit(o_mov, x86Argument(sDWORD, rEBX, 4), x86Argument(rEDX));
+				Emit(o_mov, x86Argument(sDWORD, rEBX, 0), x86Argument(rEAX));
 				break;
-			case cmdNeg+(OTYPE_LONG<<16):
-				logASM << "  ; NEG long\r\n";
-				logASM << "neg dword [esp] \r\n";
-				logASM << "adc dword [esp+4], 0 \r\n";
-				logASM << "neg dword [esp+4] \r\n";
+			case DTYPE_FLOAT:
+				Emit(o_fst, x86Argument(sDWORD, rEBX, 0));
 				break;
-			case cmdNeg+(OTYPE_INT<<16):
-				logASM << "  ; NEG int\r\n";
-				logASM << "neg dword [esp] \r\n";
+			case DTYPE_INT:
+				Emit(o_mov, x86Argument(sDWORD, rEBX, 0), x86Argument(rEAX));
 				break;
-
-			case cmdLogNot+(OTYPE_DOUBLE<<16):
-				logASM << "  ; LNOT double\r\n";
-				logASM << "fldz \r\n";
-				logASM << "fcomp qword [esp] ; сравнили\r\n";
-				logASM << "fnstsw ax ; взяли флажок\r\n";
-				logASM << "test ah, 44h ; сравнили с 'равно'\r\n";
-				logASM << "jp pushZero" << aluLabels << " ; не, не равно\r\n";
-				logASM << "mov dword [esp], 1 \r\n";
-				logASM << "jmp pushedOne" << aluLabels << " \r\n";
-				logASM << "  pushZero" << aluLabels << ": \r\n";
-				logASM << "mov dword [esp], 0 \r\n";
-				logASM << "  pushedOne" << aluLabels << ": \r\n";
-				logASM << "fild dword [esp] \r\n";
-				logASM << "fstp qword [esp] \r\n";
-				aluLabels++;
+			case DTYPE_SHORT:
+				Emit(o_mov, x86Argument(sWORD, rEBX, 0), x86Argument(rEAX));
 				break;
-			case cmdLogNot+(OTYPE_LONG<<16):
-				logASM << "xor eax, eax \r\n";
-				logASM << "mov ebx, dword [esp+4] \r\n";
-				logASM << "or ebx, dword [esp] \r\n";
-				logASM << "setz al \r\n";
-				logASM << "mov dword [esp+4], 0 \r\n";
-				logASM << "mov dword [esp], eax \r\n";
+			case DTYPE_CHAR:
+				Emit(o_mov, x86Argument(sBYTE, rEBX, 0), x86Argument(rEAX));
 				break;
-			case cmdLogNot+(OTYPE_INT<<16):
-				logASM << "  ; LNOT int\r\n";
-				logASM << "xor eax, eax \r\n";
-				logASM << "cmp dword [esp], 0 \r\n";
-				logASM << "sete al \r\n";
-				logASM << "mov dword [esp], eax \r\n";
-				break;
-
-			case cmdBitNot+(OTYPE_LONG<<16):
-				logASM << "  ; BNOT long\r\n";
-				logASM << "not dword [esp] \r\n";
-				logASM << "not dword [esp+4] \r\n";
-				break;
-			case cmdBitNot+(OTYPE_INT<<16):
-				logASM << "  ; BNOT int\r\n";
-				logASM << "not dword [esp] \r\n";
-				break;
-			default:
-				throw string("Operation is not implemented");
 			}
-		}
-		if(cmd >= cmdIncAt && cmd <= cmdDecAt)
-		{
-			int valind = -1, size;
+			Emit(o_add, x86Argument(rEBX), x86Argument(typeSizeD[(cmd.helper>>2)&0x00000007]));
+			Emit(o_jmp, x86Argument(InlFmt("loopStart%d", aluLabels)));
+			Emit(InlFmt("loopEnd%d", aluLabels));
+			if(cmd.helper == DTYPE_FLOAT)
+				Emit(o_fstp, x86Argument(rST0));
+			aluLabels++;
+			break;
 
-			cFlag = *(unsigned short*)(&exCode[pos]);
-			pos += 2;
-			dt = flagDataType(cFlag);
+		case cmdJmp:
+			Emit(INST_COMMENT, "JMP");
+			Emit(o_jmp, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
+			break;
 
-			if(cmd == cmdIncAt)
-				logASM << "  ; INCAT ";
-			else
-				logASM << "  ; DECAT ";
-			char *typeNameD[] = { "char", "short", "int", "long", "float", "double" };
-			logASM << typeNameD[dt/4] << "\r\n";
+		case cmdJmpZI:
+			Emit(INST_COMMENT, "JMPZ int");
 
-			unsigned int numEDX = 0;
-			bool knownEDX = false;
-			
-			// Если имеется сдвиг в стеке
-			if(flagShiftStk(cFlag))
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_test, x86Argument(rEAX), x86Argument(rEAX));
+			Emit(o_jz, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
+			break;
+		case cmdJmpZD:
+			Emit(INST_COMMENT, "JMPZ double");
+
+			Emit(o_fldz);
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fnstsw, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEBX));
+			Emit(o_pop, x86Argument(rEBX));
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
+			Emit(o_jnp, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
+			break;
+		case cmdJmpZL:
+			Emit(INST_COMMENT, "JMPZ long");
+
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_or, x86Argument(rEDX), x86Argument(rEAX));
+			Emit(o_jne, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
+			break;
+
+		case cmdJmpNZI:
+			Emit(INST_COMMENT, "JMPNZ int");
+
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_test, x86Argument(rEAX), x86Argument(rEAX));
+			Emit(o_jnz, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
+			break;
+		case cmdJmpNZD:
+			Emit(INST_COMMENT, "JMPNZ double");
+
+			Emit(o_fldz);
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fnstsw, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEBX));
+			Emit(o_pop, x86Argument(rEBX));
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
+			Emit(o_jp, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
+			break;
+		case cmdJmpNZL:
+			Emit(INST_COMMENT, "JMPNZ long");
+
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_or, x86Argument(rEDX), x86Argument(rEAX));
+			Emit(o_je, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
+			break;
+
+		case cmdCall:
+			Emit(INST_COMMENT, InlFmt("CALL %d ret %s %d", cmd.argument, (cmd.helper & bitRetSimple ? "simple " : ""), (cmd.helper & 0x0FFF)));
+
+			if(cmd.argument == -1)
 			{
-				valind = *(int*)(&exCode[pos]);
-				pos += 4;
-				if(knownEDXOnPush)
+				Emit(o_pop, x86Argument(rEAX));
+				Emit(o_call, x86Argument(rEAX));
+			}else{
+				Emit(o_call, x86Argument(InlFmt("function%d", cmd.argument)));
+			}
+			if(cmd.helper & bitRetSimple)
+			{
+				if((asmOperType)(cmd.helper & 0x0FFF) == OTYPE_INT)
 				{
-					if(mulByVarSize)
-						numEDX = edxValueForPush * lastVarSize + valind;
-					else
-						numEDX = edxValueForPush + valind;
-					knownEDX = true;
-					knownEDXOnPush = false;
-				}else{
-					if(skipPopEDXOnPush)
-					{
-						if(mulByVarSize)
-						{
-							if(valind != 0)
-								logASM << "lea edx, [edx*" << lastVarSize << " + " << valind << "]\r\n";
-							else
-								logASM << "lea edx, [edx*" << lastVarSize << "]\r\n";
-						}else{
-							numEDX = valind;
-						}
-						skipPopEDXOnPush = false;
-					}else{
-						if(mulByVarSize)
-						{
-							logASM << "pop eax ; взяли сдвиг\r\n";
-							if(valind != 0)
-								logASM << "lea edx, [eax*" << lastVarSize << " + " << valind << "] ; возмём указатель на стек переменных и сдвинем на число в стеке и по константному сдвигу\r\n";
-							else
-								logASM << "lea edx, [eax*" << lastVarSize << "] ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-						}else{
-							if(valind != 0)
-							{
-								logASM << "pop edx ; взяли сдвиг\r\n";
-								numEDX = valind;
-							}else{
-								logASM << "pop edx ; возмём указатель на стек переменных и сдвинем на число в стеке (opt: addr==0)\r\n";
-							}
-						}
-					}
+					Emit(o_push, x86Argument(rEAX));
+				}else{	// double or long
+					Emit(o_push, x86Argument(rEAX));
+					Emit(o_push, x86Argument(rEDX));
 				}
 			}else{
-				valind = *(int*)(&exCode[pos]);
-				pos += 4;
+				assert(cmd.helper % 4 == 0);
+				if(cmd.helper == 4)
+				{
+					Emit(o_push, x86Argument(rEAX));
+				}else if(cmd.helper == 8){
+					Emit(o_push, x86Argument(rEAX));
+					Emit(o_push, x86Argument(rEDX));
+				}else if(cmd.helper == 12){
+					Emit(o_push, x86Argument(rEAX));
+					Emit(o_push, x86Argument(rEDX));
+					Emit(o_push, x86Argument(rECX));
+				}else if(cmd.helper == 16){
+					Emit(o_push, x86Argument(rEAX));
+					Emit(o_push, x86Argument(rEDX));
+					Emit(o_push, x86Argument(rECX));
+					Emit(o_push, x86Argument(rEBX));
+				}else if(cmd.helper > 16){
+					Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
 
-				knownEDX = true;
-				numEDX = valind;
+					Emit(o_mov, x86Argument(rEBX), x86Argument(rEDI));
+
+					Emit(o_lea, x86Argument(rESI), x86Argument(sDWORD, rEAX, paramBase));
+					Emit(o_mov, x86Argument(rEDI), x86Argument(rESP));
+					Emit(o_mov, x86Argument(rECX), x86Argument(cmd.helper >> 2));
+					Emit(o_rep_movsd);
+
+					Emit(o_mov, x86Argument(rEDI), x86Argument(rEBX));
+				}
 			}
+			break;
+		case cmdCallStd:
+			if(exFunctions[cmd.argument]->nameLength < 31)
+				Emit(INST_COMMENT, InlFmt("CALLSTD %s", exFunctions[cmd.argument]->name));
+			else
+				Emit(INST_COMMENT, InlFmt("CALLSTD %d", cmd.argument));
 
-			if(flagSizeOn(cFlag))
+			if(exFunctions[cmd.argument]->funcPtr == NULL)
 			{
-				size = *(int*)(&exCode[pos]);
-				pos += 4;
-				logASM << "cmp eax, " << (mulByVarSize ? size/lastVarSize : size) << " ; сравним сдвиг с максимальным\r\n";
-				logASM << "jb movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-				logASM << "int 3 \r\n";
-				logASM << "  movLabel" << movLabels << ":\r\n";
-				movLabels++;
+				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+				if(exFunctions[cmd.argument]->nameHash == GetStringHash("cos"))
+				{
+					Emit(o_fsincos);
+					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+					Emit(o_fstp, x86Argument(rST0));
+				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("sin")){
+					Emit(o_fsincos);
+					Emit(o_fstp, x86Argument(rST0));
+					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("tan")){
+					Emit(o_fptan);
+					Emit(o_fstp, x86Argument(rST0));
+					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("ctg")){
+					Emit(o_fptan);
+					Emit(o_fdivrp);
+					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("ceil")){
+					Emit(o_push, x86Argument(rEAX));
+					Emit(o_fstcw, x86Argument(sWORD, rESP, 0));
+					Emit(o_mov, x86Argument(sWORD, rESP, 2), x86Argument(0x1BBF));
+					Emit(o_fldcw, x86Argument(sWORD, rESP, 2));
+					Emit(o_frndint);
+					Emit(o_fldcw, x86Argument(sWORD, rESP, 0));
+					Emit(o_fstp, x86Argument(sQWORD, rESP, 4));
+					Emit(o_pop, x86Argument(rEAX));
+				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("floor")){
+					Emit(o_push, x86Argument(rEAX));
+					Emit(o_fstcw, x86Argument(sWORD, rESP, 0));
+					Emit(o_mov, x86Argument(sWORD, rESP, 2), x86Argument(0x17BF));
+					Emit(o_fldcw, x86Argument(sWORD, rESP, 2));
+					Emit(o_frndint);
+					Emit(o_fldcw, x86Argument(sWORD, rESP, 0));
+					Emit(o_fstp, x86Argument(sQWORD, rESP, 4));
+					Emit(o_pop, x86Argument(rEAX));
+				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("sqrt")){
+					Emit(o_fsqrt);
+					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+					Emit(o_fstp, x86Argument(rST0));
+				}else{
+					strcpy(execError, "cmdCallStd with unknown standard function");
+					return false;
+				}
+			}else{
+				unsigned int bytesToPop = 0;
+				for(unsigned int i = 0; i < exFunctions[cmd.argument]->paramCount; i++)
+				{
+					bytesToPop += exTypes[exFunctions[cmd.argument]->paramList[i]]->size > 4 ? exTypes[exFunctions[cmd.argument]->paramList[i]]->size : 4;
+				}
+				Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)exFunctions[cmd.argument]->funcPtr));
+				Emit(o_call, x86Argument(rECX));
+				Emit(o_add, x86Argument(rESP), x86Argument(bytesToPop));
+				if(exTypes[exFunctions[cmd.argument]->retType]->size != 0)
+					Emit(o_push, x86Argument(rEAX));
 			}
-			if(flagSizeStk(cFlag))
+			break;
+		case cmdReturn:
+			Emit(INST_COMMENT, InlFmt("RET %d, %d %d", cmd.flag, cmd.argument, (cmd.helper & 0x0FFF)));
+
+			if(cmd.flag & bitRetError)
 			{
-				logASM << "cmp [esp], eax ; сравним с максимальным сдвигом в стеке\r\n";
-				logASM << "ja movLabel" << movLabels << " ; если сдвиг меньше максимума (и не отрицательный) то всё ок\r\n";
-				logASM << "int 3 \r\n";
-				logASM << "  movLabel" << movLabels << ":\r\n";
-				logASM << "pop eax ; убрали использованный размер\r\n";
-				movLabels++;
+				Emit(o_mov, x86Argument(rECX), x86Argument(0xffffffff));
+				Emit(o_int, x86Argument(3));
+				break;
 			}
-			mulByVarSize = false;
-
-			char *texts[] = { "", "edx + ", "ebp + " };
-			char *needEDX = texts[1];
-			char *needEBP = texts[2];
-			if(knownEDX)
-				needEDX = texts[0];
-			if(flagAddrAbs(cFlag) && !addEBPtoEDXOnPush)
-				needEBP = texts[0];
-			addEBPtoEDXOnPush = false;
-
-			unsigned int final = paramBase+numEDX;
-			switch(cmd + (dt << 16))
+			if(cmd.helper == 0)
 			{
-			case cmdIncAt+(DTYPE_DOUBLE<<16):
-				logASM << "fld qword [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "fld st0\r\n";
-				logASM << "fld1 \r\n";
-				logASM << "faddp \r\n";
-				if(flagPushAfter(cFlag))
-				{
-					logASM << "fst qword [" << needEDX << needEBP << final << "] ;\r\n";
-					logASM << "sub esp, 8\r\n";
-					logASM << "fstp qword [esp]\r\n";
-				}else{
-					logASM << "fstp qword [" << needEDX << needEBP << final << "] ;\r\n";
-				}
-				if(flagPushBefore(cFlag))
-					logASM << "sub esp, 8\r\nfstp qword [esp]\r\n";
-				break;
-			case cmdIncAt+(DTYPE_FLOAT<<16):
-				logASM << "fld dword [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "fld st0\r\n";
-				logASM << "fld1 \r\n";
-				logASM << "faddp \r\n";
-				if(flagPushAfter(cFlag))
-				{
-					logASM << "fst dword [" << needEDX << needEBP << final << "] ;\r\n";
-					logASM << "sub esp, 8\r\n";
-					logASM << "fstp qword [esp]\r\n";
-				}else{
-					logASM << "fstp dword [" << needEDX << needEBP << final << "] ;\r\n";
-				}
-				if(flagPushBefore(cFlag))
-					logASM << "sub esp, 8\r\nfstp qword [esp]\r\n";
-				break;
-			case cmdIncAt+(DTYPE_LONG<<16):
-				logASM << "mov eax, dword [" << needEDX << needEBP << final << "] ;\r\n";
-				logASM << "mov edx, dword [" << needEDX << needEBP << final+4 << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-				{
-					logASM << "push edx\r\n";
-					logASM << "push eax\r\n";
-				}
-				logASM << "add eax, 1 \r\n";
-				logASM << "adc edx, 0 \r\n";
-				logASM << "mov dword [" << needEDX << needEBP << final << "], eax ;\r\n";
-				logASM << "mov dword [" << needEDX << needEBP << final+4 << "], edx ;\r\n";
-				if(flagPushAfter(cFlag))
-				{
-					logASM << "push edx\r\n";
-					logASM << "push eax\r\n";
-				}
-				break;
-			case cmdIncAt+(DTYPE_INT<<16):
-				logASM << "mov eax, dword [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "push eax\r\n";
-				logASM << "add eax, 1 \r\n";
-				logASM << "mov dword [" << needEDX << needEBP << final << "], eax ;\r\n";
-				if(flagPushAfter(cFlag))
-					logASM << "push eax\r\n";
-				break;
-			case cmdIncAt+(DTYPE_SHORT<<16):
-				logASM << "movsx eax, word [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "push eax\r\n";
-				logASM << "add eax, 1 \r\n";
-				logASM << "mov word [" << needEDX << needEBP << final << "], ax ;\r\n";
-				if(flagPushAfter(cFlag))
-					logASM << "push eax\r\n";
-				break;
-			case cmdIncAt+(DTYPE_CHAR<<16):
-				logASM << "movsx eax, byte [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "push eax\r\n";
-				logASM << "add eax, 1 \r\n";
-				logASM << "mov byte [" << needEDX << needEBP << final << "], al ;\r\n";
-				if(flagPushAfter(cFlag))
-					logASM << "push eax\r\n";
-				break;
-
-			case cmdDecAt+(DTYPE_DOUBLE<<16):
-				logASM << "fld qword [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "fld st0\r\n";
-				logASM << "fld1 \r\n";
-				logASM << "fsubp \r\n";
-				if(flagPushAfter(cFlag))
-				{
-					logASM << "fst qword [" << needEDX << needEBP << final << "] ;\r\n";
-					logASM << "sub esp, 8\r\n";
-					logASM << "fstp qword [esp]\r\n";
-				}else{
-					logASM << "fstp qword [" << needEDX << needEBP << final << "] ;\r\n";
-				}
-				if(flagPushBefore(cFlag))
-					logASM << "sub esp, 8\r\nfstp qword [esp]\r\n";
-				break;
-			case cmdDecAt+(DTYPE_FLOAT<<16):
-				logASM << "fld dword [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "fld st0\r\n";
-				logASM << "fld1 \r\n";
-				logASM << "fsubp \r\n";
-				if(flagPushAfter(cFlag))
-				{
-					logASM << "fst dword [" << needEDX << needEBP << final << "] ;\r\n";
-					logASM << "sub esp, 8\r\n";
-					logASM << "fstp qword [esp]\r\n";
-				}else{
-					logASM << "fstp dword [" << needEDX << needEBP << final << "] ;\r\n";
-				}
-				if(flagPushBefore(cFlag))
-					logASM << "sub esp, 8\r\nfstp qword [esp]\r\n";
-				break;
-			case cmdDecAt+(DTYPE_LONG<<16):
-				logASM << "mov eax, dword [" << needEDX << needEBP << final << "] ;\r\n";
-				logASM << "mov edx, dword [" << needEDX << needEBP << final+4 << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-				{
-					logASM << "push edx\r\n";
-					logASM << "push eax\r\n";
-				}
-				logASM << "sub eax, 1 \r\n";
-				logASM << "sbb edx, 0 \r\n";
-				logASM << "mov dword [" << needEDX << needEBP << final << "], eax ;\r\n";
-				logASM << "mov dword [" << needEDX << needEBP << final+4 << "], edx ;\r\n";
-				if(flagPushAfter(cFlag))
-				{
-					logASM << "push edx\r\n";
-					logASM << "push eax\r\n";
-				}
-				break;
-			case cmdDecAt+(DTYPE_INT<<16):
-				logASM << "mov eax, dword [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "push eax\r\n";
-				logASM << "sub eax, 1 \r\n";
-				logASM << "mov dword [" << needEDX << needEBP << final << "], eax ;\r\n";
-				if(flagPushAfter(cFlag))
-					logASM << "push eax\r\n";
-				break;
-			case cmdDecAt+(DTYPE_SHORT<<16):
-				logASM << "movsx eax, word [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "push eax\r\n";
-				logASM << "sub eax, 1 \r\n";
-				logASM << "mov word [" << needEDX << needEBP << final << "], ax ;\r\n";
-				if(flagPushAfter(cFlag))
-					logASM << "push eax\r\n";
-				break;
-			case cmdDecAt+(DTYPE_CHAR<<16):
-				logASM << "movsx eax, byte [" << needEDX << needEBP << final << "] ;\r\n";
-				if(flagPushBefore(cFlag))
-					logASM << "push eax\r\n";
-				logASM << "sub eax, 1 \r\n";
-				logASM << "mov byte [" << needEDX << needEBP << final << "], al ;\r\n";
-				if(flagPushAfter(cFlag))
-					logASM << "push eax\r\n";
+				Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
+				Emit(o_pop, x86Argument(rEBP));
+				Emit(o_ret);
 				break;
 			}
+			if(cmd.helper & bitRetSimple)
+			{
+				if((asmOperType)(cmd.helper & 0x0FFF) == OTYPE_INT)
+				{
+					Emit(o_pop, x86Argument(rEAX));
+				}else{
+					Emit(o_pop, x86Argument(rEDX));
+					Emit(o_pop, x86Argument(rEAX));
+				}
+				for(unsigned int pops = 0; pops < (cmd.argument > 0 ? cmd.argument : 1); pops++)
+				{
+					Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
+					Emit(o_pop, x86Argument(rEBP));
+				}
+				if(cmd.argument == 0)
+					Emit(o_mov, x86Argument(rEBX), x86Argument(cmd.helper & 0x0FFF));
+			}else{
+				if(cmd.helper == 4)
+				{
+					Emit(o_pop, x86Argument(rEAX));
+				}else if(cmd.helper == 8){
+					Emit(o_pop, x86Argument(rEDX));
+					Emit(o_pop, x86Argument(rEAX));
+				}else if(cmd.helper == 12){
+					Emit(o_pop, x86Argument(rECX));
+					Emit(o_pop, x86Argument(rEDX));
+					Emit(o_pop, x86Argument(rEAX));
+				}else if(cmd.helper == 16){
+					Emit(o_pop, x86Argument(rEBX));
+					Emit(o_pop, x86Argument(rECX));
+					Emit(o_pop, x86Argument(rEDX));
+					Emit(o_pop, x86Argument(rEAX));
+				}else{
+					Emit(o_mov, x86Argument(rEBX), x86Argument(rEDI));
+					Emit(o_mov, x86Argument(rESI), x86Argument(rESP));
+
+					Emit(o_lea, x86Argument(rEDI), x86Argument(sDWORD, rEDI, paramBase));
+					Emit(o_mov, x86Argument(rECX), x86Argument(cmd.helper >> 2));
+					Emit(o_rep_movsd);
+
+					Emit(o_mov, x86Argument(rEDI), x86Argument(rEBX));
+
+					Emit(o_add, x86Argument(rESP), x86Argument(cmd.helper));
+				}
+				for(unsigned int pops = 0; pops < cmd.argument-1; pops++)
+				{
+					Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
+					Emit(o_pop, x86Argument(rEBP));
+				}
+				if(cmd.helper > 16)
+					Emit(o_mov, x86Argument(rEAX), x86Argument(rEDI));
+				Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
+				Emit(o_pop, x86Argument(rEBP));
+				if(cmd.argument == 0)
+					Emit(o_mov, x86Argument(rEBX), x86Argument(16));
+			}
+			Emit(o_ret);
+			break;
+
+		case cmdPushVTop:
+			Emit(INST_COMMENT, "PUSHT");
+
+			Emit(o_push, x86Argument(rEBP));
+			Emit(o_mov, x86Argument(rEBP), x86Argument(rEDI));
+			break;
+		case cmdPopVTop:
+			Emit(INST_COMMENT, "POPT");
+
+			Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
+			Emit(o_pop, x86Argument(rEBP));
+			break;
+		
+		case cmdPushV:
+			Emit(INST_COMMENT, "PUSHV");
+
+			Emit(o_add, x86Argument(rEDI), x86Argument(cmd.argument));
+			break;
+
+		case cmdAdd:
+			Emit(INST_COMMENT, "ADD int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdSub:
+			Emit(INST_COMMENT, "SUB int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdMul:
+			Emit(INST_COMMENT, "MUL int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_imul, x86Argument(rEDX));
+			Emit(o_push, x86Argument(rEAX));
+			break;
+		case cmdDiv:
+			Emit(INST_COMMENT, "DIV int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_cdq);
+			Emit(o_idiv, x86Argument(sDWORD, rESP, 0));
+			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
+			break;
+		case cmdPow:
+			Emit(INST_COMMENT, "POW int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEBX));
+			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)intPow));
+			Emit(o_call, x86Argument(rECX));
+			Emit(o_push, x86Argument(rEDX));
+			break;
+		case cmdMod:
+			Emit(INST_COMMENT, "MOD int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_cdq);
+			Emit(o_idiv, x86Argument(sDWORD, rESP, 0));
+			Emit(o_xchg, x86Argument(rEDX), x86Argument(sDWORD, rESP, 0));
+			break;
+		case cmdLess:
+			Emit(INST_COMMENT, "LESS int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_setl, x86Argument(rECX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
+			break;
+		case cmdGreater:
+			Emit(INST_COMMENT, "GREATER int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_setg, x86Argument(rECX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
+			break;
+		case cmdLEqual:
+			Emit(INST_COMMENT, "LEQUAL int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_setle, x86Argument(rECX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
+			break;
+		case cmdGEqual:
+			Emit(INST_COMMENT, "GEQUAL int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_setge, x86Argument(rECX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
+			break;
+		case cmdEqual:
+			Emit(INST_COMMENT, "EQUAL int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_sete, x86Argument(rECX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
+			break;
+		case cmdNEqual:
+			Emit(INST_COMMENT, "NEQUAL int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_setne, x86Argument(rECX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
+			break;
+		case cmdShl:
+			Emit(INST_COMMENT, "SHL int");
+			Emit(o_pop, x86Argument(rECX));
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_sal, x86Argument(rEAX), x86Argument(rECX));
+			Emit(o_push, x86Argument(rEAX));
+			break;
+		case cmdShr:
+			Emit(INST_COMMENT, "SHR int");
+			Emit(o_pop, x86Argument(rECX));
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_sar, x86Argument(rEAX), x86Argument(rECX));
+			Emit(o_push, x86Argument(rEAX));
+			break;
+		case cmdBitAnd:
+			Emit(INST_COMMENT, "BAND int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_and, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdBitOr:
+			Emit(INST_COMMENT, "BOR int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_or, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdBitXor:
+			Emit(INST_COMMENT, "BXOR int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdLogAnd:
+			Emit(INST_COMMENT, "LAND int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_cmp, x86Argument(rEAX), x86Argument(0));
+			Emit(o_je, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_je, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			aluLabels++;
+			break;
+		case cmdLogOr:
+			Emit(INST_COMMENT, "LOR int");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEBX));
+			Emit(o_or, x86Argument(rEAX), x86Argument(rEBX));
+			Emit(o_cmp, x86Argument(rEAX), x86Argument(0));
+			Emit(o_je, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_push, x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_push, x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			aluLabels++;
+			break;
+		case cmdLogXor:
+			Emit(INST_COMMENT, "LXOR int");
+			Emit(o_xor, x86Argument(rEAX), x86Argument(rEAX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(o_setne, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			Emit(o_setne, x86Argument(rECX));
+			Emit(o_xor, x86Argument(rEAX), x86Argument(rECX));
+			Emit(o_pop, x86Argument(rECX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+
+		case cmdAddL:
+			Emit(INST_COMMENT, "ADD long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_adc, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			break;
+		case cmdSubL:
+			Emit(INST_COMMENT, "SUB long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_sbb, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			break;
+		case cmdMulL:
+			Emit(INST_COMMENT, "MUL long");
+			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longMul));
+			Emit(o_call, x86Argument(rECX));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdDivL:
+			Emit(INST_COMMENT, "DIV long");
+			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longDiv));
+			Emit(o_call, x86Argument(rECX));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdPowL:
+			Emit(INST_COMMENT, "POW long");
+			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longPow));
+			Emit(o_call, x86Argument(rECX));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdModL:
+			Emit(INST_COMMENT, "MOD long");
+			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longMod));
+			Emit(o_call, x86Argument(rECX));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdLessL:
+			Emit(INST_COMMENT, "LESS long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_jg, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(o_jl, x86Argument(InlFmt("SetOne%d", aluLabels)));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_jae, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(InlFmt("SetOne%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
+			Emit(InlFmt("SetZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("OneSet%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			aluLabels++;
+			break;
+		case cmdGreaterL:
+			Emit(INST_COMMENT, "GREATER long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_jl, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(o_jg, x86Argument(InlFmt("SetOne%d", aluLabels)));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_jbe, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(InlFmt("SetOne%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
+			Emit(InlFmt("SetZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("OneSet%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			aluLabels++;
+			break;
+		case cmdLEqualL:
+			Emit(INST_COMMENT, "LEQUAL long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_jg, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(o_jl, x86Argument(InlFmt("SetOne%d", aluLabels)));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_ja, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(InlFmt("SetOne%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
+			Emit(InlFmt("SetZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("OneSet%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			aluLabels++;
+			break;
+		case cmdGEqualL:
+			Emit(INST_COMMENT, "GEQUAL long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_jl, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(o_jg, x86Argument(InlFmt("SetOne%d", aluLabels)));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_jb, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(InlFmt("SetOne%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
+			Emit(InlFmt("SetZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("OneSet%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			aluLabels++;
+			break;
+		case cmdEqualL:
+			Emit(INST_COMMENT, "EQUAL long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_jne, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_jne, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
+			Emit(InlFmt("SetZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("OneSet%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			aluLabels++;
+			break;
+		case cmdNEqualL:
+			Emit(INST_COMMENT, "NEQUAL long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			Emit(o_jne, x86Argument(InlFmt("SetOne%d", aluLabels)));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_je, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(InlFmt("SetOne%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
+			Emit(InlFmt("SetZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("OneSet%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			aluLabels++;
+			break;
+		case cmdShlL:
+			Emit(INST_COMMENT, "SHL long");
+			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longShl));
+			Emit(o_call, x86Argument(rECX));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdShrL:
+			Emit(INST_COMMENT, "SHR long");
+			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longShr));
+			Emit(o_call, x86Argument(rECX));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdBitAndL:
+			Emit(INST_COMMENT, "BAND long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_and, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_and, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+		case cmdBitOrL:
+			Emit(INST_COMMENT, "BOR long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_or, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_or, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			break;
+		case cmdBitXorL:
+			Emit(INST_COMMENT, "BXOR long");
+			Emit(o_pop, x86Argument(rEAX));
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_xor, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_xor, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
+			break;
+		case cmdLogAndL:
+			Emit(INST_COMMENT, "LAND long");
+			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_or, x86Argument(rEAX), x86Argument(sDWORD, rESP, 4));
+			Emit(o_jz, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 8));
+			Emit(o_or, x86Argument(rEAX), x86Argument(sDWORD, rESP, 12));
+			Emit(o_jz, x86Argument(InlFmt("SetZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 8), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
+			Emit(InlFmt("SetZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 8), x86Argument(0));
+			Emit(InlFmt("OneSet%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 12), x86Argument(0));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			aluLabels++;
+			break;
+		case cmdLogOrL:
+			Emit(INST_COMMENT, "LOR long");
+			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_or, x86Argument(rEAX), x86Argument(sDWORD, rESP, 4));
+			Emit(o_jnz, x86Argument(InlFmt("SetOne%d", aluLabels)));
+			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 8));
+			Emit(o_or, x86Argument(rEAX), x86Argument(sDWORD, rESP, 12));
+			Emit(o_jnz, x86Argument(InlFmt("SetOne%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 8), x86Argument(0));
+			Emit(o_jmp, x86Argument(InlFmt("ZeroSet%d", aluLabels)));
+			Emit(InlFmt("SetOne%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 8), x86Argument(1));
+			Emit(InlFmt("ZeroSet%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 12), x86Argument(0));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			aluLabels++;
+			break;
+		case cmdLogXorL:
+			Emit(INST_COMMENT, "LXOR long");
+			Emit(o_xor, x86Argument(rEAX), x86Argument(rEAX));
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_or, x86Argument(rEBX), x86Argument(sDWORD, rESP, 4));
+			Emit(o_setnz, x86Argument(rEAX));
+			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 8));
+			Emit(o_or, x86Argument(rEBX), x86Argument(sDWORD, rESP, 12));
+			Emit(o_setnz, x86Argument(rECX));
+			Emit(o_xor, x86Argument(rEAX), x86Argument(rECX));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			aluLabels++;
+			break;
+
+		case cmdAddD:
+			Emit(INST_COMMENT, "ADD double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fadd, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdSubD:
+			Emit(INST_COMMENT, "SUB double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fsub, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdMulD:
+			Emit(INST_COMMENT, "MUL double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fmul, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdDivD:
+			Emit(INST_COMMENT, "DIV double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fdiv, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdPowD:
+			Emit(INST_COMMENT, "POW double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
+			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)doublePow));
+			Emit(o_call, x86Argument(rECX));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdModD:
+			Emit(INST_COMMENT, "MOD double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fprem);
+			Emit(o_fstp, x86Argument(rST1));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			break;
+		case cmdLessD:
+			Emit(INST_COMMENT, "LESS double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fnstsw);
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x41));
+			Emit(o_jne, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			aluLabels++;
+			break;
+		case cmdGreaterD:
+			Emit(INST_COMMENT, "GREATER double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fnstsw);
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x05));
+			Emit(o_jp, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			aluLabels++;
+			break;
+		case cmdLEqualD:
+			Emit(INST_COMMENT, "LEQUAL double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fnstsw);
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x01));
+			Emit(o_jne, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			aluLabels++;
+			break;
+		case cmdGEqualD:
+			Emit(INST_COMMENT, "GEQUAL double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fnstsw);
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x41));
+			Emit(o_jp, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			aluLabels++;
+			break;
+		case cmdEqualD:
+			Emit(INST_COMMENT, "EQUAL double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fnstsw);
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
+			Emit(o_jp, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			aluLabels++;
+			break;
+		case cmdNEqualD:
+			Emit(INST_COMMENT, "NEQUAL double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_fnstsw);
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
+			Emit(o_jnp, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
+			Emit(o_add, x86Argument(rESP), x86Argument(8));
+			aluLabels++;
+			break;
+
+		case cmdNeg:
+			Emit(INST_COMMENT, "NEG int");
+			Emit(o_neg, x86Argument(sDWORD, rESP, 0));
+			break;
+		case cmdBitNot:
+			Emit(INST_COMMENT, "BNOT int");
+			Emit(o_not, x86Argument(sDWORD, rESP, 0));
+			break;
+		case cmdLogNot:
+			Emit(INST_COMMENT, "LNOT int");
+			Emit(o_xor, x86Argument(rEAX), x86Argument(rEAX));
+			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(o_sete, x86Argument(rEAX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+
+		case cmdNegL:
+			Emit(INST_COMMENT, "NEG long");
+			Emit(o_neg, x86Argument(sDWORD, rESP, 0));
+			Emit(o_adc, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			Emit(o_neg, x86Argument(sDWORD, rESP, 4));
+			break;
+		case cmdBitNotL:
+			Emit(INST_COMMENT, "BNOT long");
+			Emit(o_not, x86Argument(sDWORD, rESP, 0));
+			Emit(o_not, x86Argument(sDWORD, rESP, 4));
+			break;
+		case cmdLogNotL:
+			Emit(INST_COMMENT, "LNOT long");
+			Emit(o_xor, x86Argument(rEAX), x86Argument(rEAX));
+			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 4));
+			Emit(o_or, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
+			Emit(o_setz, x86Argument(rEAX));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			break;
+
+		case cmdNegD:
+			Emit(INST_COMMENT, "NEG double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fchs);
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			break;
+		case cmdLogNotD:
+			Emit(INST_COMMENT, "LNOT double");
+			Emit(o_fldz);
+			Emit(o_fcomp, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fnstsw);
+			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
+			Emit(o_jp, x86Argument(InlFmt("pushZero%d", aluLabels)));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
+			Emit(InlFmt("pushZero%d", aluLabels));
+			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			Emit(InlFmt("pushedOne%d", aluLabels));
+			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			aluLabels++;
+			break;
+		
+		case cmdIncI:
+			Emit(INST_COMMENT, "INC int");
+			Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			break;
+		case cmdIncD:
+			Emit(INST_COMMENT, "INC double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fld1);
+			Emit(o_faddp);
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			break;
+		case cmdIncL:
+			Emit(INST_COMMENT, "INC long");
+			Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_adc, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			break;
+
+		case cmdDecI:
+			Emit(INST_COMMENT, "DEC int");
+			Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			break;
+		case cmdDecD:
+			Emit(INST_COMMENT, "DEC double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+			Emit(o_fld1);
+			Emit(o_fsubp);
+			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			break;
+		case cmdDecL:
+			Emit(INST_COMMENT, "DEC long");
+			Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(1));
+			Emit(o_sbb, x86Argument(sDWORD, rESP, 0), x86Argument(0));
+			break;
+
+		case cmdAddAtCharStk:
+			Emit(INST_COMMENT, "ADDAT char stack");
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, rEDX, cmd.argument+paramBase));
+			if(cmd.flag == bitPushBefore)
+				Emit(o_push, x86Argument(rEAX));
+			Emit(cmd.helper == 1 ? o_add : o_sub, x86Argument(rEAX), x86Argument(1));
+			Emit(o_mov, x86Argument(sBYTE, rEDX, cmd.argument+paramBase), x86Argument(rEAX));
+			if(cmd.flag == bitPushAfter)
+				Emit(o_push, x86Argument(rEAX));
+			break;
+		case cmdAddAtShortStk:
+			Emit(INST_COMMENT, "ADDAT short stack");
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, rEDX, cmd.argument+paramBase));
+			if(cmd.flag == bitPushBefore)
+				Emit(o_push, x86Argument(rEAX));
+			Emit(cmd.helper == 1 ? o_add : o_sub, x86Argument(rEAX), x86Argument(1));
+			Emit(o_mov, x86Argument(sWORD, rEDX, cmd.argument+paramBase), x86Argument(rEAX));
+			if(cmd.flag == bitPushAfter)
+				Emit(o_push, x86Argument(rEAX));
+			break;
+		case cmdAddAtIntStk:
+			Emit(INST_COMMENT, "ADDAT int stack");
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			if(cmd.flag == bitPushBefore)
+				Emit(o_push, x86Argument(rEAX));
+			Emit(cmd.helper == 1 ? o_add : o_sub, x86Argument(rEAX), x86Argument(1));
+			Emit(o_mov, x86Argument(sDWORD, rEDX, cmd.argument+paramBase), x86Argument(rEAX));
+			if(cmd.flag == bitPushAfter)
+				Emit(o_push, x86Argument(rEAX));
+			break;
+		case cmdAddAtLongStk:
+			Emit(INST_COMMENT, "ADDAT long stack");
+			Emit(o_pop, x86Argument(rECX));
+			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rECX, cmd.argument+paramBase));
+			Emit(o_mov, x86Argument(rEDX), x86Argument(sDWORD, rECX, cmd.argument+paramBase+4));
+			if(cmd.flag == bitPushBefore)
+			{
+				Emit(o_push, x86Argument(rEAX));
+				Emit(o_push, x86Argument(rEDX));
+			}
+			Emit(cmd.helper == 1 ? o_add : o_sub, x86Argument(rEAX), x86Argument(1));
+			Emit(cmd.helper == 1 ? o_adc : o_sbb, x86Argument(rEDX), x86Argument(0));
+			Emit(o_mov, x86Argument(sDWORD, rECX, cmd.argument+paramBase), x86Argument(rEAX));
+			Emit(o_mov, x86Argument(sDWORD, rECX, cmd.argument+paramBase+4), x86Argument(rEDX));
+			if(cmd.flag == bitPushAfter)
+			{
+				Emit(o_push, x86Argument(rEAX));
+				Emit(o_push, x86Argument(rEDX));
+			}
+			break;
+		case cmdAddAtFloatStk:
+			Emit(INST_COMMENT, "ADDAT float stack");
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_fld, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			Emit(o_fld1);
+			Emit(cmd.helper == 1 ? o_faddp : o_fsubp);
+			Emit(o_fstp, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			break;
+		case cmdAddAtDoubleStk:
+			Emit(INST_COMMENT, "ADDAT double stack");
+			Emit(o_pop, x86Argument(rEDX));
+			Emit(o_fld, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
+			Emit(o_fld1);
+			Emit(cmd.helper == 1 ? o_faddp : o_fsubp);
+			Emit(o_fstp, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
+			break;
 		}
 	}
-	logASM << "  gLabel" << pos << ": \r\n";
-	logASM << "pop ebp\r\n";
-	logASM << "ret; final return, if user skipped it\r\n";
-
-	std::string	logASMstr = logASM.str();
+	Emit(InlFmt("gLabel%d", pos));
+	Emit(o_pop, x86Argument(rEBP));
+	Emit(o_ret);
 
 #ifdef NULLC_LOG_FILES
-	ofstream noOptFile("asmX86_noopt.txt", std::ios::binary);
-	noOptFile << logASMstr;
-	noOptFile.flush();
-	noOptFile.close();
+	FILE *noptAsm = fopen("asmX86_noopt.txt", "wb");
+	char instBuf[128];
+	for(unsigned int i = 0; i < instList.size(); i++)
+	{
+		instList[i].Decode(instBuf);
+		fprintf(noptAsm, "%s\r\n", instBuf);
+	}
+	fclose(noptAsm);
 #endif
-
-	std::vector<Command>*	x86Cmd = NULL;
 
 #ifdef NULLC_LOG_FILES
 	DeleteFile("asmX86.txt");
-	ofstream m_FileStream("asmX86.txt", std::ios::binary | std::ios::out);
+	FILE *fAsm = fopen("asmX86.txt", "wb");
 #endif
 	if(optimize)
 	{
-		Optimizer_x86 optiMan;
-		x86Cmd = optiMan.HashListing(logASMstr.c_str(), (int)logASMstr.length());
-		std::vector<std::string> *optiList = optiMan.Optimize();
-#ifdef NULLC_LOG_FILES
-		for(unsigned int i = 0; i < optiList->size(); i++)
-			m_FileStream << (*optiList)[i] << "\r\n";
-#else
-		(void)optiList;
-#endif
-	}else{
-		Optimizer_x86 optiMan;
-		x86Cmd = optiMan.HashListing(logASMstr.c_str(), (int)logASMstr.length());
-#ifdef NULLC_LOG_FILES
-		m_FileStream << logASMstr;
-#endif
+		//Optimizer_x86 optiMan;
+		//x86Cmd = optiMan.HashListing(logASMstr.c_str(), (int)logASMstr.length());
+		//std::vector<std::string> *optiList = optiMan.Optimize();
 	}
 #ifdef NULLC_LOG_FILES
-	m_FileStream.flush();
-	m_FileStream.close();
+	for(unsigned int i = 0; i < instList.size(); i++)
+	{
+		instList[i].Decode(instBuf);
+		fprintf(fAsm, "%s\r\n", instBuf);
+	}
+	fclose(fAsm);
 #endif
 
 	// Translate to x86
 	unsigned char *bytecode = binCode+20;//new unsigned char[16000];
 	unsigned char *code = bytecode;
-	char labelName[16];
-
-	x86Reg	optiReg[] = { rNONE, rNONE, rEAX, rEBX, rECX, rEDX, rEDI, rESI, rESP, rEBP, rEAX, rEAX, rEBX, rEBX, rECX, rECX, rNONE, rNONE, rNONE };
-	x86Size	optiSize[] = { sNONE, sBYTE, sWORD, sDWORD, sQWORD };
 
 	x86ClearLabels();
 
-	for(unsigned int i = 0, e = (unsigned int)x86Cmd->size(); i != e; i++)
+	for(unsigned int i = 0; i < instList.size(); i++)
 	{
 		//if(code-bytecode >= 0x0097)
 		//	__asm int 3;
-		Command	cmd = (*x86Cmd)[i];
-		switch(cmd.Name)
+		x86Instruction cmd = instList[i];
+		switch(cmd.name)
 		{
 		case o_none:
 			break;
 		case o_mov:
-			if(cmd.argA.type != Argument::ptr)
+			if(cmd.argA.type != x86Argument::argPtr)
 			{
-				if(cmd.argB.type == Argument::number)
-					code += x86MOV(code, optiReg[cmd.argA.type], cmd.argB.num);
-				else if(cmd.argB.type == Argument::ptr)
-					code += x86MOV(code, optiReg[cmd.argA.type], optiReg[cmd.argB.ptrReg[0]], sDWORD, cmd.argB.ptrNum);
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86MOV(code, cmd.argA.reg, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argPtr)
+					code += x86MOV(code, cmd.argA.reg, cmd.argB.ptrReg[0], sDWORD, cmd.argB.ptrNum);
 				else
-					code += x86MOV(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+					code += x86MOV(code, cmd.argA.reg, cmd.argB.reg);
 			}else{
-				if(cmd.argB.type == Argument::number)
-					code += x86MOV(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, cmd.argB.num);
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
 				else
-					code += x86MOV(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum, cmd.argB.reg);
 			}
 			break;
 		case o_movsx:
-			code += x86MOVSX(code, optiReg[cmd.argA.type], optiSize[cmd.argB.ptrSize], optiReg[cmd.argB.ptrReg[0]], optiReg[cmd.argB.ptrReg[1]], cmd.argB.ptrNum);
+			code += x86MOVSX(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrReg[0], cmd.argB.ptrReg[1], cmd.argB.ptrNum);
 			break;
 		case o_push:
-			if(cmd.argA.type == Argument::number)
+			if(cmd.argA.type == x86Argument::argNumber)
 				code += x86PUSH(code, cmd.argA.num);
-			else if(cmd.argA.type == Argument::ptr)
-				code += x86PUSH(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+			else if(cmd.argA.type == x86Argument::argPtr)
+				code += x86PUSH(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
 			else
-				code += x86PUSH(code, optiReg[cmd.argA.type]);
+				code += x86PUSH(code, cmd.argA.reg);
 			break;
 		case o_pop:
-			if(cmd.argA.type == Argument::ptr)
-				code += x86POP(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86POP(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
 			else
-				code += x86POP(code, optiReg[cmd.argA.type]);
+				code += x86POP(code, cmd.argA.reg);
 			break;
 		case o_lea:
-			if(cmd.argB.labelName[0] != 0)
+			if(cmd.argB.type == x86Argument::argPtrLabel)
 			{
-				code += x86LEA(code, optiReg[cmd.argA.type], cmd.argB.labelName, cmd.argB.ptrNum);
+				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelName, cmd.argB.ptrNum);
 			}else{
 				if(cmd.argB.ptrMult != 1)
-					code += x86LEA(code, optiReg[cmd.argA.type], optiReg[cmd.argB.ptrReg[0]], cmd.argB.ptrMult, cmd.argB.ptrNum);
+					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrMult, cmd.argB.ptrNum);
 				else
-					code += x86LEA(code, optiReg[cmd.argA.type], optiReg[cmd.argB.ptrReg[0]], cmd.argB.ptrNum);
+					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
 			}
 			break;
 		case o_xchg:
-			if(cmd.argA.type == Argument::ptr)
-				code += x86XCHG(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
-			else if(cmd.argB.type == Argument::ptr)
-				code += x86XCHG(code, sDWORD, optiReg[cmd.argB.ptrReg[0]], cmd.argB.ptrNum, optiReg[cmd.argA.type]);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86XCHG(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+			else if(cmd.argB.type == x86Argument::argPtr)
+				code += x86XCHG(code, sDWORD, cmd.argB.ptrReg[0], cmd.argB.ptrNum, cmd.argA.reg);
 			else
-				code += x86XCHG(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+				code += x86XCHG(code, cmd.argA.reg, cmd.argB.reg);
 			break;
 		case o_cdq:
 			code += x86CDQ(code);
@@ -2703,45 +1952,45 @@ void ExecutorX86::GenListing()
 			code += x86Jcc(code, cmd.argA.labelName, condP, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
 			break;
 		case o_call:
-			if(cmd.argA.type == Argument::label)
+			if(cmd.argA.type == x86Argument::argLabel)
 				code += x86CALL(code, cmd.argA.labelName);
 			else
-				code += x86CALL(code, optiReg[cmd.argA.type]);
+				code += x86CALL(code, cmd.argA.reg);
 			break;
 		case o_ret:
 			code += x86RET(code);
 			break;
 
 		case o_fld:
-			if(cmd.argA.type == Argument::ptr)
+			if(cmd.argA.type == x86Argument::argPtr)
 			{
-				if(cmd.argA.ptrReg[1] != Argument::none)
-					code += x86FLD(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+				if(cmd.argA.ptrReg[1] != x86Argument::argNone)
+					code += x86FLD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
 				else
-					code += x86FLD(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+					code += x86FLD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			}else{
 				code += x86FLD(code, (x87Reg)cmd.argA.fpArg);
 			}
 			break;
 		case o_fild:
-			code += x86FILD(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			code += x86FILD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0]);
 			break;
 		case o_fistp:
-			code += x86FISTP(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			code += x86FISTP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			break;
 		case o_fst:
-			if(cmd.argA.ptrReg[1] != Argument::none)
-				code += x86FST(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+			if(cmd.argA.ptrReg[1] != x86Argument::argNone)
+				code += x86FST(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
 			else
-				code += x86FST(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+				code += x86FST(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			break;
 		case o_fstp:
-			if(cmd.argA.type == Argument::ptr)
+			if(cmd.argA.type == x86Argument::argPtr)
 			{
-				if(cmd.argA.ptrReg[1] != Argument::none)
-					code += x86FSTP(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], optiReg[cmd.argA.ptrReg[1]], cmd.argA.ptrNum);
+				if(cmd.argA.ptrReg[1] != x86Argument::argNone)
+					code += x86FSTP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
 				else
-					code += x86FSTP(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+					code += x86FSTP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			}else{
 				code += x86FSTP(code, (x87Reg)cmd.argA.fpArg);
 			}
@@ -2757,51 +2006,51 @@ void ExecutorX86::GenListing()
 			break;
 
 		case o_neg:
-			code += x86NEG(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			code += x86NEG(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			break;
 		case o_add:
-			if(cmd.argA.type == Argument::ptr)
-				code += x86ADD(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86ADD(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
 			else
-				code += x86ADD(code, optiReg[cmd.argA.type], cmd.argB.num);
+				code += x86ADD(code, cmd.argA.reg, cmd.argB.num);
 			break;
 		case o_adc:
-			if(cmd.argA.type == Argument::ptr)
+			if(cmd.argA.type == x86Argument::argPtr)
 			{
-				if(cmd.argB.type == Argument::number)
-					code += x86ADC(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, cmd.argB.num);
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86ADC(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
 				else
-					code += x86ADC(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+					code += x86ADC(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
 			}else{
-				code += x86ADC(code, optiReg[cmd.argA.type], cmd.argB.num);
+				code += x86ADC(code, cmd.argA.reg, cmd.argB.num);
 			}
 			break;
 		case o_sub:
-			if(cmd.argA.type == Argument::ptr)
-				code += x86SUB(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86SUB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
 			else
-				code += x86SUB(code, optiReg[cmd.argA.type], cmd.argB.num);
+				code += x86SUB(code, cmd.argA.reg, cmd.argB.num);
 			break;
 		case o_sbb:
-			if(cmd.argA.type == Argument::ptr)
-				code += x86SBB(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86SBB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
 			else
-				code += x86SBB(code, optiReg[cmd.argA.type], cmd.argB.num);
+				code += x86SBB(code, cmd.argA.reg, cmd.argB.num);
 			break;
 		case o_imul:
-			if(cmd.argB.type != Argument::none)
-				code += x86IMUL(code, optiReg[cmd.argA.type], cmd.argB.num);
+			if(cmd.argB.type != x86Argument::argNone)
+				code += x86IMUL(code, cmd.argA.reg, cmd.argB.num);
 			else
-				code += x86IMUL(code, optiReg[cmd.argA.type]);
+				code += x86IMUL(code, cmd.argA.reg);
 			break;
 		case o_idiv:
-			code += x86IDIV(code, sDWORD, optiReg[cmd.argA.ptrReg[0]]);
+			code += x86IDIV(code, sDWORD, cmd.argA.ptrReg[0]);
 			break;
 		case o_shl:
-			if(cmd.argA.type == Argument::ptr)
-				code += x86SHL(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argB.num);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86SHL(code, sDWORD, cmd.argA.ptrReg[0], cmd.argB.num);
 			else
-				code += x86SHL(code, optiReg[cmd.argA.type], cmd.argB.num);
+				code += x86SHL(code, cmd.argA.reg, cmd.argB.num);
 			break;
 		case o_sal:
 			code += x86SAL(code);
@@ -2810,88 +2059,88 @@ void ExecutorX86::GenListing()
 			code += x86SAR(code);
 			break;
 		case o_not:
-			code += x86NOT(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			code += x86NOT(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			break;
 		case o_and:
-			code += x86AND(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
 			break;
 		case o_or:
-			if(cmd.argA.type == Argument::ptr)
-				code += x86OR(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
-			else if(cmd.argB.type == Argument::ptr)
-				code += x86OR(code, optiReg[cmd.argA.type], sDWORD, optiReg[cmd.argB.ptrReg[0]], cmd.argB.ptrNum);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86OR(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+			else if(cmd.argB.type == x86Argument::argPtr)
+				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
 			else
-				code += x86OR(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+				code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
 			break;
 		case o_xor:
-			if(cmd.argA.type == Argument::ptr)
-				code += x86XOR(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86XOR(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
 			else
-				code += x86XOR(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+				code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
 			break;
 		case o_cmp:
-			if(cmd.argA.type == Argument::ptr)
+			if(cmd.argA.type == x86Argument::argPtr)
 			{
-				if(cmd.argB.type == Argument::number)
-					code += x86CMP(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, cmd.argB.num);
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86CMP(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
 				else
-					code += x86CMP(code, sDWORD, optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum, optiReg[cmd.argB.type]);
+					code += x86CMP(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
 			}else{
-				if(cmd.argB.type == Argument::number)
-					code += x86CMP(code, optiReg[cmd.argA.type], cmd.argB.num);
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86CMP(code, cmd.argA.reg, cmd.argB.num);
 				else
-					code += x86CMP(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+					code += x86CMP(code, cmd.argA.reg, cmd.argB.reg);
 			}
 			break;
 		case o_test:
-			if(cmd.argB.type == Argument::number)
+			if(cmd.argB.type == x86Argument::argNumber)
 				code += x86TESTah(code, (char)cmd.argB.num);
 			else
-				code += x86TEST(code, optiReg[cmd.argA.type], optiReg[cmd.argB.type]);
+				code += x86TEST(code, cmd.argA.reg, cmd.argB.reg);
 			break;
 
 		case o_setl:
-			code += x86SETcc(code, condL, optiReg[cmd.argA.type]);
+			code += x86SETcc(code, condL, cmd.argA.reg);
 			break;
 		case o_setg:
-			code += x86SETcc(code, condG, optiReg[cmd.argA.type]);
+			code += x86SETcc(code, condG, cmd.argA.reg);
 			break;
 		case o_setle:
-			code += x86SETcc(code, condLE, optiReg[cmd.argA.type]);
+			code += x86SETcc(code, condLE, cmd.argA.reg);
 			break;
 		case o_setge:
-			code += x86SETcc(code, condGE, optiReg[cmd.argA.type]);
+			code += x86SETcc(code, condGE, cmd.argA.reg);
 			break;
 		case o_sete:
-			code += x86SETcc(code, condE, optiReg[cmd.argA.type]);
+			code += x86SETcc(code, condE, cmd.argA.reg);
 			break;
 		case o_setne:
-			code += x86SETcc(code, condNE, optiReg[cmd.argA.type]);
+			code += x86SETcc(code, condNE, cmd.argA.reg);
 			break;
 		case o_setz:
-			code += x86SETcc(code, condZ, optiReg[cmd.argA.type]);
+			code += x86SETcc(code, condZ, cmd.argA.reg);
 			break;
 		case o_setnz:
-			code += x86SETcc(code, condNZ, optiReg[cmd.argA.type]);
+			code += x86SETcc(code, condNZ, cmd.argA.reg);
 			break;
 
 		case o_fadd:
-			code += x86FADD(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			code += x86FADD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0]);
 			break;
 		case o_faddp:
 			code += x86FADDP(code);
 			break;
 		case o_fmul:
-			code += x86FMUL(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			code += x86FMUL(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0]);
 			break;
 		case o_fmulp:
 			code += x86FMULP(code);
 			break;
 		case o_fsub:
-			code += x86FSUB(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			code += x86FSUB(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0]);
 			break;
 		case o_fsubr:
-			code += x86FSUBR(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			code += x86FSUBR(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0]);
 			break;
 		case o_fsubp:
 			code += x86FSUBP(code);
@@ -2900,10 +2149,10 @@ void ExecutorX86::GenListing()
 			code += x86FSUBRP(code);
 			break;
 		case o_fdiv:
-			code += x86FDIV(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			code += x86FDIV(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0]);
 			break;
 		case o_fdivr:
-			code += x86FDIVR(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]]);
+			code += x86FDIVR(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0]);
 			break;
 		case o_fdivrp:
 			code += x86FDIVRP(code);
@@ -2915,7 +2164,7 @@ void ExecutorX86::GenListing()
 			code += x86FPREM(code);
 			break;
 		case o_fcomp:
-			code += x86FCOMP(code, optiSize[cmd.argA.ptrSize], optiReg[cmd.argA.ptrReg[0]], cmd.argA.ptrNum);
+			code += x86FCOMP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			break;
 		case o_fldz:
 			code += x86FLDZ(code);
@@ -2956,17 +2205,11 @@ void ExecutorX86::GenListing()
 			}
 			break;
 		case o_label:
-			memset(labelName, 0, 16);
-			strncpy(labelName, cmd.strName->c_str(), strchr(cmd.strName->c_str(), ':')-cmd.strName->c_str());
-			x86AddLabel(code, labelName);
+			x86AddLabel(code, cmd.labelName);
+			break;
+		case o_use32:
 			break;
 		case o_other:
-			if(memcmp(cmd.strName->c_str(), "use32", 5) == 0)
-				break;
-			else if((*cmd.strName)[0] == 0)
-				break;
-			else
-				__asm int 3;
 			break;
 		}
 	}
@@ -2994,39 +2237,45 @@ void ExecutorX86::GenListing()
 	DeleteFile("asmX86.bin");
 
 	if(!CreateProcess(NULL, "fasm.exe asmX86.txt", NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo))
-		throw std::string("Failed to create process");
+	{
+		strcpy(execError, "Failed to create process");
+		return false;
+	}
 
 	if(WAIT_TIMEOUT == WaitForSingleObject(prInfo.hProcess, 5000))
-		throw std::string("Compilation to x86 binary takes too much time (timeout=5sec)");
+	{
+		strcpy(execError, "Compilation to x86 binary took too much time (timeout=5sec)");
+		return false;
+	}
 
 	CloseHandle(prInfo.hProcess);
 	CloseHandle(prInfo.hThread);
 
 	FILE *fCode = fopen("asmX86.bin", "rb");
 	if(!fCode)
-		throw std::string("Failed to open output file");
+	{
+		strcpy(execError, "Failed to open output file");
+		return false;
+	}
 	
 	fseek(fCode, 0, SEEK_END);
 	unsigned int size = ftell(fCode);
 	fseek(fCode, 0, SEEK_SET);
 	if(size > 200000)
-		throw std::string("Byte code is too big (size > 200000)");
+	{
+		strcpy(execError, "Byte code is too big (size > 200000)");
+		return false;
+	}
 	fread(binCode+20, 1, size, fCode);
 	binCodeSize = size;
 
 	for(int i = 0; i < code-bytecode; i++)
 		if(binCode[i+20] != bytecodeCopy[i])
 			__asm int 3;
-	//memcpy(binCode+20, bytecode, code-bytecode);
-	//binCodeSize = code-bytecode;
 
 	delete[] bytecodeCopy;
 #endif NULLC_X86_CMP_FASM
-}
-
-string ExecutorX86::GetListing()
-{
-	return logASM.str();
+	return true;
 }
 
 const char* ExecutorX86::GetResult() throw()
@@ -3055,12 +2304,12 @@ const char*	ExecutorX86::GetExecError() throw()
 	return execError;
 }
 
-void ExecutorX86::SetOptimization(int toggle)
+void ExecutorX86::SetOptimization(int toggle) throw()
 {
 	optimize = toggle;
 }
 
-char* ExecutorX86::GetVariableData()
+char* ExecutorX86::GetVariableData() throw()
 {
 	return paramData;
 }

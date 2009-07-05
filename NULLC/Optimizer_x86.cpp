@@ -2,7 +2,7 @@
 
 #include "stdafx.h"
 #include "Optimizer_x86.h"
-
+/*
 std::vector<std::string> Strings;
 
 struct Command_def
@@ -578,19 +578,8 @@ void Optimizer_x86::OptimizePushPop()
 		}
 		if(Commands[i].Name == o_fstp && strstr(Strings[i].c_str(), "qword [esp]"))
 		{
-			// fstp qword [esp], fld qword [esp]
-			/*if(Commands[i+1].Name == o_fld && strstr(Strings[i+1].c_str(), "qword [esp]"))
-			{
-				Strings[i] = "";
-				Strings[i+1] = "";
-
-				// Update instruction information
-				ClassifyInstruction(Commands[i], Strings[i].c_str());
-				ClassifyInstruction(Commands[i+1], Strings[i+1].c_str());
-
-				++optimize_count;
 			// fstp qword [esp], pop dword [a], pop dword [a+4]
-			}else */if(Commands[i+1].Name == o_pop && Commands[i+1].argA.type == Argument::ptr && Commands[i+2].Name == o_pop && Commands[i+2].argA.type == Argument::ptr){
+			if(Commands[i+1].Name == o_pop && Commands[i+1].argA.type == Argument::ptr && Commands[i+2].Name == o_pop && Commands[i+2].argA.type == Argument::ptr){
 				Strings[i] = "fstp qword " + std::string(Strings[i+1].c_str()+Commands[i+1].argA.begin+6, Commands[i+1].argA.size-6);
 				Strings[i+1] = "";
 				Strings[i+2] = "add esp, 8";
@@ -638,3 +627,4 @@ void Optimizer_x86::HashListing(const char* pListing)
 		ClassifyInstruction(Commands[n], Strings[n].c_str());
 	}
 }
+*/

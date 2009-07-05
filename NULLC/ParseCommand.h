@@ -752,7 +752,7 @@ public:
 				*logASM << "POW double";
 				break;
 			case cmdModD:
-				*logASM << "MOV double";
+				*logASM << "MOD double";
 				break;
 			case cmdLessD:
 				*logASM << "LESS double";

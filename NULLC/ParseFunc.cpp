@@ -711,7 +711,7 @@ void NodeFuncCall::Compile()
 		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
 		{
 			asmDataType newDT = podTypeToDataType[funcType->paramType[i]->type];
-			cmdList.push_back(VMCmd(cmdPopTypeTop[newDT>>2], (unsigned short)funcType->paramType[i]->size, addr));
+			cmdList.push_back(VMCmd(cmdPopTypeTop[newDT>>2], newDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)funcType->paramType[i]->size, addr));
 			addr += funcType->paramType[i]->size;
 		}
 
@@ -957,11 +957,11 @@ void NodeVariableSet::Compile()
 		if(knownAddress)
 		{
 			if(absAddress)
-				cmdList.push_back(VMCmd(cmdMovTypeAbs[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+				cmdList.push_back(VMCmd(cmdMovTypeAbs[asmDT>>2], asmST == STYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 			else
-				cmdList.push_back(VMCmd(cmdMovTypeRel[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+				cmdList.push_back(VMCmd(cmdMovTypeRel[asmDT>>2], asmST == STYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 		}else{
-			cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], asmST == STYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 		}
 	}
 
@@ -1056,7 +1056,14 @@ void NodeArrayIndex::Compile()
 		// Вычислим индекс
 		second->Compile();
 		// Переведём его в целое число.  Умножив на размер элемента
-		cmdList.push_back(VMCmd(cmdImmtMulType[oAsmType], typeParent->subType->size));
+		if(typeParent->subType->size != 1)
+		{
+			cmdList.push_back(VMCmd(cmdImmtMulType[oAsmType], typeParent->subType->size));
+		}else{
+			if(oAsmType != OTYPE_INT)
+				cmdList.push_back(VMCmd(oAsmType == OTYPE_DOUBLE ? cmdDtoI : cmdLtoI));
+		}
+
 	}
 	// Сложим с адресом, который был на вершине
 	cmdList.push_back(VMCmd(cmdAdd));
@@ -1083,7 +1090,7 @@ unsigned int NodeArrayIndex::GetSize()
 	if(knownShift)
 		return first->GetSize() + 2;
 	// else
-	return first->GetSize() + second->GetSize() + 2;
+	return first->GetSize() + second->GetSize() + 1 + (podTypeToStackType[second->GetTypeInfo()->type] == STYPE_INT ? 0 : 1);
 }
 
 TypeInfo* NodeArrayIndex::GetTypeInfo()
@@ -1143,11 +1150,11 @@ void NodeDereference::Compile()
 	if(knownAddress)
 	{
 		if(absAddress)
-			cmdList.push_back(VMCmd(cmdPushTypeAbs[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(cmdPushTypeAbs[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 		else
-			cmdList.push_back(VMCmd(cmdPushTypeRel[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(cmdPushTypeRel[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 	}else{
-		cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+		cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 	}
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
@@ -1296,17 +1303,17 @@ void NodePreOrPostOp::Compile()
 	{
 		if(absAddress)
 		{
-			cmdList.push_back(VMCmd(cmdPushTypeAbs[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(cmdPushTypeAbs[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 			cmdList.push_back(VMCmd(incOp ? cmdIncType[aOT] : cmdDecType[aOT]));
-			cmdList.push_back(VMCmd(cmdMovTypeAbs[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(cmdMovTypeAbs[asmDT>>2], asmST == STYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 			if(!prefixOp && !optimised)
 				cmdList.push_back(VMCmd(!incOp ? cmdIncType[aOT] : cmdDecType[aOT]));
 			if(optimised)
 				cmdList.push_back(VMCmd(cmdPop, stackTypeSize[asmST]));
 		}else{
-			cmdList.push_back(VMCmd(cmdPushTypeRel[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(cmdPushTypeRel[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 			cmdList.push_back(VMCmd(incOp ? cmdIncType[aOT] : cmdDecType[aOT]));
-			cmdList.push_back(VMCmd(cmdMovTypeRel[asmDT>>2], (unsigned short)typeInfo->size, addrShift));
+			cmdList.push_back(VMCmd(cmdMovTypeRel[asmDT>>2], asmST == STYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 			if(!prefixOp && !optimised)
 				cmdList.push_back(VMCmd(!incOp ? cmdIncType[aOT] : cmdDecType[aOT]));
 			if(optimised)

@@ -50,6 +50,7 @@ void	nullcInit()
 	executor = new Executor(linker);
 #ifdef NULLC_BUILD_X86_JIT
 	executorX86 = new ExecutorX86(linker);
+	executorX86->Initialize();
 #endif
 }
 
@@ -134,7 +135,7 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 		try
 		{
 			executorX86->SetOptimization(execOptimize);
-			executorX86->GenListing();
+			executorX86->TranslateToNative();
 		}catch(const std::string& str){
 			executeLog += "    " + str;
 			return false;
