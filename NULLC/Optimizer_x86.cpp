@@ -232,7 +232,6 @@ fstp qword [esp]
 		if(curr.name == o_fld && curr.argA.type == x86Argument::argPtr && curr.argA.ptrSize == sQWORD && curr.argA.ptrReg[0] != rESP && curr.argA.ptrReg[1] == rNONE)
 		{
 			x86Instruction &pPrev = instList[SearchUp(prevIndex)];
-			x86Instruction &next2 = instList[SearchDown(nextIndex)];
 			if(prev.name == o_push && prev.argA.type == x86Argument::argPtr && pPrev.name == o_push && pPrev.argA.type == x86Argument::argPtr &&
 				prev.argA == x86Argument(pPrev.argA.ptrSize, pPrev.argA.ptrReg[0], pPrev.argA.ptrMult, pPrev.argA.ptrReg[1], pPrev.argA.ptrNum-4) &&
 				next.argA == x86Argument(sQWORD, rESP, 0))

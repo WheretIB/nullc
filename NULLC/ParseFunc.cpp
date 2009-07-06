@@ -300,7 +300,7 @@ unsigned int NodeThreeOP::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Вспомогательная функция для NodeNumber<T>
-void NodeNumberPushCommand(asmDataType dt, char* data, unsigned int dataSize)
+void NodeNumberPushCommand(asmDataType dt, char* data)
 {
 	if(dt == DTYPE_CHAR)
 		cmdList.push_back(VMCmd(cmdPushImmt, (int)*data));

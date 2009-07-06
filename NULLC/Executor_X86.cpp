@@ -2,7 +2,7 @@
 #ifdef NULLC_BUILD_X86_JIT
 
 #include "Executor_X86.h"
-#include "StdLib_X86.h"
+#include "CodeGen_X86.h"
 #include "Translator_X86.h"
 #include "Optimizer_x86.h"
 
@@ -84,6 +84,9 @@ DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 }
 
+typedef void (*codegenCallback)(VMCmd, FastVector<x86Instruction>&);
+codegenCallback cgFuncs[cmdAddAtDoubleStk+1];
+
 bool ExecutorX86::Initialize() throw()
 {
 	stackGrowSize = 128*4096;
@@ -111,16 +114,181 @@ bool ExecutorX86::Initialize() throw()
 	binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
 	binCodeSize = 0;
 
-	return true;
-}
+	cgFuncs[cmdNop] = GenCodeCmdNop;
 
-char* InlFmt(const char *str, ...)
-{
-	static char storage[64];
-	va_list args;
-	va_start(args, str);
-	vsprintf(storage, str, args); 
-	return storage;
+	cgFuncs[cmdPushCharAbs] = GenCodeCmdPushCharAbs;
+	cgFuncs[cmdPushShortAbs] = GenCodeCmdPushShortAbs;
+	cgFuncs[cmdPushIntAbs] = GenCodeCmdPushIntAbs;
+	cgFuncs[cmdPushFloatAbs] = GenCodeCmdPushFloatAbs;
+	cgFuncs[cmdPushDorLAbs] = GenCodeCmdPushDorLAbs;
+	cgFuncs[cmdPushCmplxAbs] = GenCodeCmdPushCmplxAbs;
+
+	cgFuncs[cmdPushCharRel] = GenCodeCmdPushCharRel;
+	cgFuncs[cmdPushShortRel] = GenCodeCmdPushShortRel;
+	cgFuncs[cmdPushIntRel] = GenCodeCmdPushIntRel;
+	cgFuncs[cmdPushFloatRel] = GenCodeCmdPushFloatRel;
+	cgFuncs[cmdPushDorLRel] = GenCodeCmdPushDorLRel;
+	cgFuncs[cmdPushCmplxRel] = GenCodeCmdPushCmplxRel;
+
+	cgFuncs[cmdPushCharStk] = GenCodeCmdPushCharStk;
+	cgFuncs[cmdPushShortStk] = GenCodeCmdPushShortStk;
+	cgFuncs[cmdPushIntStk] = GenCodeCmdPushIntStk;
+	cgFuncs[cmdPushFloatStk] = GenCodeCmdPushFloatStk;
+	cgFuncs[cmdPushDorLStk] = GenCodeCmdPushDorLStk;
+	cgFuncs[cmdPushCmplxStk] = GenCodeCmdPushCmplxStk;
+
+	cgFuncs[cmdPushImmt] = GenCodeCmdPushImmt;
+
+	cgFuncs[cmdMovCharAbs] = GenCodeCmdMovCharAbs;
+	cgFuncs[cmdMovShortAbs] = GenCodeCmdMovShortAbs;
+	cgFuncs[cmdMovIntAbs] = GenCodeCmdMovIntAbs;
+	cgFuncs[cmdMovFloatAbs] = GenCodeCmdMovFloatAbs;
+	cgFuncs[cmdMovDorLAbs] = GenCodeCmdMovDorLAbs;
+	cgFuncs[cmdMovCmplxAbs] = GenCodeCmdMovCmplxAbs;
+
+	cgFuncs[cmdMovCharRel] = GenCodeCmdMovCharRel;
+	cgFuncs[cmdMovShortRel] = GenCodeCmdMovShortRel;
+	cgFuncs[cmdMovIntRel] = GenCodeCmdMovIntRel;
+	cgFuncs[cmdMovFloatRel] = GenCodeCmdMovFloatRel;
+	cgFuncs[cmdMovDorLRel] = GenCodeCmdMovDorLRel;
+	cgFuncs[cmdMovCmplxRel] = GenCodeCmdMovCmplxRel;
+
+	cgFuncs[cmdMovCharStk] = GenCodeCmdMovCharStk;
+	cgFuncs[cmdMovShortStk] = GenCodeCmdMovShortStk;
+	cgFuncs[cmdMovIntStk] = GenCodeCmdMovIntStk;
+	cgFuncs[cmdMovFloatStk] = GenCodeCmdMovFloatStk;
+	cgFuncs[cmdMovDorLStk] = GenCodeCmdMovDorLStk;
+	cgFuncs[cmdMovCmplxStk] = GenCodeCmdMovCmplxStk;
+
+	cgFuncs[cmdReserveV] = GenCodeCmdReserveV;
+
+	cgFuncs[cmdPopCharTop] = GenCodeCmdPopCharTop;
+	cgFuncs[cmdPopShortTop] = GenCodeCmdPopShortTop;
+	cgFuncs[cmdPopIntTop] = GenCodeCmdPopIntTop;
+	cgFuncs[cmdPopFloatTop] = GenCodeCmdPopFloatTop;
+	cgFuncs[cmdPopDorLTop] = GenCodeCmdPopDorLTop;
+	cgFuncs[cmdPopCmplxTop] = GenCodeCmdPopCmplxTop;
+
+	cgFuncs[cmdPop] = GenCodeCmdPop;
+
+	cgFuncs[cmdDtoI] = GenCodeCmdDtoI;
+	cgFuncs[cmdDtoL] = GenCodeCmdDtoL;
+	cgFuncs[cmdDtoF] = GenCodeCmdDtoF;
+	cgFuncs[cmdItoD] = GenCodeCmdItoD;
+	cgFuncs[cmdLtoD] = GenCodeCmdLtoD;
+	cgFuncs[cmdItoL] = GenCodeCmdItoL;
+	cgFuncs[cmdLtoI] = GenCodeCmdLtoI;
+
+	cgFuncs[cmdImmtMulD] = GenCodeCmdImmtMul;
+	cgFuncs[cmdImmtMulL] = GenCodeCmdImmtMul;
+	cgFuncs[cmdImmtMulI] = GenCodeCmdImmtMul;
+
+	cgFuncs[cmdCopyDorL] = GenCodeCmdCopyDorL;
+	cgFuncs[cmdCopyI] = GenCodeCmdCopyI;
+
+	cgFuncs[cmdGetAddr] = GenCodeCmdGetAddr;
+
+	cgFuncs[cmdSetRange] = GenCodeCmdSetRange;
+
+	cgFuncs[cmdJmp] = GenCodeCmdJmp;
+
+	cgFuncs[cmdJmpZI] = GenCodeCmdJmpZI;
+	cgFuncs[cmdJmpZD] = GenCodeCmdJmpZD;
+	cgFuncs[cmdJmpZL] = GenCodeCmdJmpZL;
+
+	cgFuncs[cmdJmpNZI] = GenCodeCmdJmpNZI;
+	cgFuncs[cmdJmpNZD] = GenCodeCmdJmpNZD;
+	cgFuncs[cmdJmpNZL] = GenCodeCmdJmpNZL;
+
+	cgFuncs[cmdCall] = GenCodeCmdCall;
+
+	cgFuncs[cmdReturn] = GenCodeCmdReturn;
+
+	cgFuncs[cmdPushVTop] = GenCodeCmdPushVTop;
+	cgFuncs[cmdPopVTop] = GenCodeCmdPopVTop;
+	cgFuncs[cmdPushV] = GenCodeCmdPushV;
+
+	cgFuncs[cmdAdd] = GenCodeCmdAdd;
+	cgFuncs[cmdSub] = GenCodeCmdSub;
+	cgFuncs[cmdMul] = GenCodeCmdMul;
+	cgFuncs[cmdDiv] = GenCodeCmdDiv;
+	cgFuncs[cmdPow] = GenCodeCmdPow;
+	cgFuncs[cmdMod] = GenCodeCmdMod;
+	cgFuncs[cmdLess] = GenCodeCmdLess;
+	cgFuncs[cmdGreater] = GenCodeCmdGreater;
+	cgFuncs[cmdLEqual] = GenCodeCmdLEqual;
+	cgFuncs[cmdGEqual] = GenCodeCmdGEqual;
+	cgFuncs[cmdEqual] = GenCodeCmdEqual;
+	cgFuncs[cmdNEqual] = GenCodeCmdNEqual;
+	cgFuncs[cmdShl] = GenCodeCmdShl;
+	cgFuncs[cmdShr] = GenCodeCmdShr;
+	cgFuncs[cmdBitAnd] = GenCodeCmdBitAnd;
+	cgFuncs[cmdBitOr] = GenCodeCmdBitOr;
+	cgFuncs[cmdBitXor] = GenCodeCmdBitXor;
+	cgFuncs[cmdLogAnd] = GenCodeCmdLogAnd;
+	cgFuncs[cmdLogOr] = GenCodeCmdLogOr;
+	cgFuncs[cmdLogXor] = GenCodeCmdLogXor;
+
+	cgFuncs[cmdAddL] = GenCodeCmdAddL;
+	cgFuncs[cmdSubL] = GenCodeCmdSubL;
+	cgFuncs[cmdMulL] = GenCodeCmdMulL;
+	cgFuncs[cmdDivL] = GenCodeCmdDivL;
+	cgFuncs[cmdPowL] = GenCodeCmdPowL;
+	cgFuncs[cmdModL] = GenCodeCmdModL;
+	cgFuncs[cmdLessL] = GenCodeCmdLessL;
+	cgFuncs[cmdGreaterL] = GenCodeCmdGreaterL;
+	cgFuncs[cmdLEqualL] = GenCodeCmdLEqualL;
+	cgFuncs[cmdGEqualL] = GenCodeCmdGEqualL;
+	cgFuncs[cmdEqualL] = GenCodeCmdEqualL;
+	cgFuncs[cmdNEqualL] = GenCodeCmdNEqualL;
+	cgFuncs[cmdShlL] = GenCodeCmdShlL;
+	cgFuncs[cmdShrL] = GenCodeCmdShrL;
+	cgFuncs[cmdBitAndL] = GenCodeCmdBitAndL;
+	cgFuncs[cmdBitOrL] = GenCodeCmdBitOrL;
+	cgFuncs[cmdBitXorL] = GenCodeCmdBitXorL;
+	cgFuncs[cmdLogAndL] = GenCodeCmdLogAndL;
+	cgFuncs[cmdLogOrL] = GenCodeCmdLogOrL;
+	cgFuncs[cmdLogXorL] = GenCodeCmdLogXorL;
+
+	cgFuncs[cmdAddD] = GenCodeCmdAddD;
+	cgFuncs[cmdSubD] = GenCodeCmdSubD;
+	cgFuncs[cmdMulD] = GenCodeCmdMulD;
+	cgFuncs[cmdDivD] = GenCodeCmdDivD;
+	cgFuncs[cmdPowD] = GenCodeCmdPowD;
+	cgFuncs[cmdModD] = GenCodeCmdModD;
+	cgFuncs[cmdLessD] = GenCodeCmdLessD;
+	cgFuncs[cmdGreaterD] = GenCodeCmdGreaterD;
+	cgFuncs[cmdLEqualD] = GenCodeCmdLEqualD;
+	cgFuncs[cmdGEqualD] = GenCodeCmdGEqualD;
+	cgFuncs[cmdEqualD] = GenCodeCmdEqualD;
+	cgFuncs[cmdNEqualD] = GenCodeCmdNEqualD;
+
+	cgFuncs[cmdNeg] = GenCodeCmdNeg;
+	cgFuncs[cmdBitNot] = GenCodeCmdBitNot;
+	cgFuncs[cmdLogNot] = GenCodeCmdLogNot;
+
+	cgFuncs[cmdNegL] = GenCodeCmdNegL;
+	cgFuncs[cmdBitNotL] = GenCodeCmdBitNotL;
+	cgFuncs[cmdLogNotL] = GenCodeCmdLogNotL;
+
+	cgFuncs[cmdNegD] = GenCodeCmdNegD;
+	cgFuncs[cmdLogNotD] = GenCodeCmdLogNotD;
+
+	cgFuncs[cmdIncI] = GenCodeCmdIncI;
+	cgFuncs[cmdIncD] = GenCodeCmdIncD;
+	cgFuncs[cmdIncL] = GenCodeCmdIncL;
+
+	cgFuncs[cmdDecI] = GenCodeCmdDecI;
+	cgFuncs[cmdDecD] = GenCodeCmdDecD;
+	cgFuncs[cmdDecL] = GenCodeCmdDecL;
+
+	cgFuncs[cmdAddAtCharStk] = GenCodeCmdAddAtCharStk;
+	cgFuncs[cmdAddAtShortStk] = GenCodeCmdAddAtShortStk;
+	cgFuncs[cmdAddAtIntStk] = GenCodeCmdAddAtIntStk;
+	cgFuncs[cmdAddAtLongStk] = GenCodeCmdAddAtLongStk;
+	cgFuncs[cmdAddAtFloatStk] = GenCodeCmdAddAtFloatStk;
+	cgFuncs[cmdAddAtDoubleStk] = GenCodeCmdAddAtDoubleStk;
+	return true;
 }
 
 #pragma warning(disable: 4731)
@@ -260,16 +428,16 @@ bool ExecutorX86::TranslateToNative()
 	instList.clear();
 
 	Emit(o_use32);
-	unsigned int typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 
-	int aluLabels = 1;
+	ResetStackTracking();
+	SetParamBase(paramBase);
+
 	int stackRelSize = 0, stackRelSizePrev = 0;
 
 	pos = 0;
 	while(pos < exCode.size())
 	{
 		const VMCmd &cmd = exCode[pos];
-		const VMCmd &cmdNext = exCode[pos+1];
 		for(unsigned int i = 0; i < instrNeedLabel.size(); i++)
 		{
 			if(pos == instrNeedLabel[i])
@@ -294,519 +462,15 @@ bool ExecutorX86::TranslateToNative()
 			Emit(o_push, x86Argument(rEBP));
 		}
 
-		stackRelSizePrev = stackRelSize;
+		stackRelSizePrev = stackRelSize + GetStackTrackInfo();
 
 	//	const char *descStr = cmdList->GetDescription(pos2);
 	//	if(descStr)
 	//		logASM << "\r\n  ; \"" << descStr << "\" codeinfo\r\n";
 		pos++;
 
-		switch(cmd.cmd)
+		if(cmd.cmd == cmdFuncAddr)
 		{
-		case cmdNop:
-			Emit(o_nop);
-			break;
-		case cmdPushCharAbs:
-			Emit(INST_COMMENT, "PUSH char abs");
-
-			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, cmd.argument+paramBase));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize += 4;
-			break;
-		case cmdPushShortAbs:
-			Emit(INST_COMMENT, "PUSH short abs");
-
-			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, cmd.argument+paramBase));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize += 4;
-			break;
-		case cmdPushIntAbs:
-			Emit(INST_COMMENT, "PUSH int abs");
-
-			Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase));
-			stackRelSize += 4;
-			break;
-		case cmdPushFloatAbs:
-			Emit(INST_COMMENT, "PUSH float abs");
-
-			Emit(o_sub, x86Argument(rESP), x86Argument(8));
-			Emit(o_fld, x86Argument(sDWORD, cmd.argument+paramBase));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			stackRelSize += 8;
-			break;
-		case cmdPushDorLAbs:
-			Emit(INST_COMMENT, cmd.flag ? "PUSH double abs" : "MOV long abs");
-
-			Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase+4));
-			Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase));
-			stackRelSize += 8;
-			break;
-		case cmdPushCmplxAbs:
-			Emit(INST_COMMENT, "PUSH complex abs");
-		{
-			unsigned int currShift = cmd.helper;
-			while(currShift >= 4)
-			{
-				currShift -= 4;
-				Emit(o_push, x86Argument(sDWORD, cmd.argument+paramBase+currShift));
-				stackRelSize += 4;
-			}
-			assert(currShift == 0);
-		}
-			break;
-
-		case cmdPushCharRel:
-			Emit(INST_COMMENT, "PUSH char rel");
-
-			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, rEBP, cmd.argument+paramBase));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize += 4;
-			break;
-		case cmdPushShortRel:
-			Emit(INST_COMMENT, "PUSH short rel");
-
-			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, rEBP, cmd.argument+paramBase));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize += 4;
-			break;
-		case cmdPushIntRel:
-			Emit(INST_COMMENT, "PUSH int rel");
-
-			Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
-			stackRelSize += 4;
-			break;
-		case cmdPushFloatRel:
-			Emit(INST_COMMENT, "PUSH float rel");
-
-			Emit(o_sub, x86Argument(rESP), x86Argument(8));
-			Emit(o_fld, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			stackRelSize += 8;
-			break;
-		case cmdPushDorLRel:
-			Emit(INST_COMMENT, cmd.flag ? "PUSH double rel" : "PUSH long rel");
-
-			Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase+4));
-			Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
-			stackRelSize += 8;
-			break;
-		case cmdPushCmplxRel:
-			Emit(INST_COMMENT, "PUSH complex rel");
-		{
-			unsigned int currShift = cmd.helper;
-			while(currShift >= 4)
-			{
-				currShift -= 4;
-				Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase+currShift));
-				stackRelSize += 4;
-			}
-			assert(currShift == 0);
-		}
-			break;
-
-		case cmdPushCharStk:
-			Emit(INST_COMMENT, "PUSH char stack");
-
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, rEDX, cmd.argument+paramBase));
-			Emit(o_push, x86Argument(rEAX));
-			break;
-		case cmdPushShortStk:
-			Emit(INST_COMMENT, "PUSH short stack");
-
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, rEDX, cmd.argument+paramBase));
-			Emit(o_push, x86Argument(rEAX));
-			break;
-		case cmdPushIntStk:
-			Emit(INST_COMMENT, "PUSH int stack");
-
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-			break;
-		case cmdPushFloatStk:
-			Emit(INST_COMMENT, "PUSH float stack");
-
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_sub, x86Argument(rESP), x86Argument(8));
-			Emit(o_fld, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			stackRelSize += 4;
-			break;
-		case cmdPushDorLStk:
-			Emit(INST_COMMENT, cmd.flag ? "PUSH double stack" : "PUSH long stack");
-
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase+4));
-			Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-			stackRelSize += 4;
-			break;
-		case cmdPushCmplxStk:
-			Emit(INST_COMMENT, "PUSH complex stack");
-		{
-			unsigned int currShift = cmd.helper;
-			Emit(o_pop, x86Argument(rEDX));
-			stackRelSize -= 4;
-			while(currShift >= 4)
-			{
-				currShift -= 4;
-				Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase+currShift));
-				stackRelSize += 4;
-			}
-			assert(currShift == 0);
-		}
-			break;
-
-		case cmdPushImmt:
-			Emit(INST_COMMENT, "PUSHIMMT");
-			
-			if(cmdNext.cmd != cmdSetRange)
-			{
-				Emit(o_push, x86Argument(cmd.argument));
-				stackRelSize += 4;
-			}
-			break;
-
-		case cmdMovCharAbs:
-			Emit(INST_COMMENT, "MOV char abs");
-	
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sBYTE, cmd.argument+paramBase), x86Argument(rEBX));
-			break;
-		case cmdMovShortAbs:
-			Emit(INST_COMMENT, "MOV short abs");
-	
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sWORD, cmd.argument+paramBase), x86Argument(rEBX));
-			break;
-		case cmdMovIntAbs:
-			Emit(INST_COMMENT, "MOV int abs");
-	
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sDWORD, cmd.argument+paramBase), x86Argument(rEBX));
-			break;
-		case cmdMovFloatAbs:
-			Emit(INST_COMMENT, "MOV float abs");
-
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sDWORD, cmd.argument+paramBase));
-			break;
-		case cmdMovDorLAbs:
-			Emit(INST_COMMENT, cmd.flag ? "MOV double abs" : "MOV long abs");
-	
-			if(cmd.flag)
-			{
-				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-				Emit(o_fstp, x86Argument(sQWORD, cmd.argument+paramBase));
-			}else{
-				Emit(o_pop, x86Argument(sDWORD, cmd.argument+paramBase));
-				Emit(o_pop, x86Argument(sDWORD, cmd.argument+paramBase + 4));
-				Emit(o_sub, x86Argument(rESP), x86Argument(8));
-			}
-			break;
-		case cmdMovCmplxAbs:
-			Emit(INST_COMMENT, "MOV complex abs");
-		{
-			unsigned int currShift = 0;
-			while(currShift < cmd.helper)
-			{
-				Emit(o_pop, x86Argument(sDWORD, cmd.argument+paramBase + currShift));
-				currShift += 4;
-			}
-			Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
-			assert(currShift == cmd.helper);
-		}
-			break;
-
-		case cmdMovCharRel:
-			Emit(INST_COMMENT, "MOV char rel");
-	
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sBYTE, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
-			break;
-		case cmdMovShortRel:
-			Emit(INST_COMMENT, "MOV short rel");
-	
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sWORD, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
-			break;
-		case cmdMovIntRel:
-			Emit(INST_COMMENT, "MOV int rel");
-	
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sDWORD, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
-			break;
-		case cmdMovFloatRel:
-			Emit(INST_COMMENT, "MOV float rel");
-
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
-			break;
-		case cmdMovDorLRel:
-			Emit(INST_COMMENT, cmd.flag ? "MOV double rel" : "MOV long rel");
-	
-			if(cmd.flag)
-			{
-				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-				Emit(o_fstp, x86Argument(sQWORD, rEBP, cmd.argument+paramBase));
-			}else{
-				Emit(o_pop, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
-				Emit(o_pop, x86Argument(sDWORD, rEBP, cmd.argument+paramBase + 4));
-				Emit(o_sub, x86Argument(rESP), x86Argument(8));
-			}
-			break;
-		case cmdMovCmplxRel:
-			Emit(INST_COMMENT, "MOV complex rel");
-		{
-			unsigned int currShift = 0;
-			while(currShift < cmd.helper)
-			{
-				Emit(o_pop, x86Argument(sDWORD, rEBP, cmd.argument+paramBase + currShift));
-				currShift += 4;
-			}
-			Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
-			assert(currShift == cmd.helper);
-		}
-			break;
-
-		case cmdMovCharStk:
-			Emit(INST_COMMENT, "MOV char stack");
-	
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sBYTE, rEDX, cmd.argument+paramBase), x86Argument(rEBX));
-			stackRelSize -= 4;
-			break;
-		case cmdMovShortStk:
-			Emit(INST_COMMENT, "MOV short stack");
-	
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sWORD, rEDX, cmd.argument+paramBase), x86Argument(rEBX));
-			stackRelSize -= 4;
-			break;
-		case cmdMovIntStk:
-			Emit(INST_COMMENT, "MOV int stack");
-	
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(sDWORD, rEDX, cmd.argument+paramBase), x86Argument(rEBX));
-			stackRelSize -= 4;
-			break;
-		case cmdMovFloatStk:
-			Emit(INST_COMMENT, "MOV float stack");
-
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-			stackRelSize -= 4;
-			break;
-		case cmdMovDorLStk:
-			Emit(INST_COMMENT, cmd.flag ? "MOV double stack" : "MOV long stack");
-	
-			Emit(o_pop, x86Argument(rEDX));
-			if(cmd.flag)
-			{
-				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-				Emit(o_fstp, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
-			}else{
-				Emit(o_pop, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-				Emit(o_pop, x86Argument(sDWORD, rEDX, cmd.argument+paramBase + 4));
-				Emit(o_sub, x86Argument(rESP), x86Argument(8));
-			}
-			stackRelSize -= 4;
-			break;
-		case cmdMovCmplxStk:
-			Emit(INST_COMMENT, "MOV complex stack");
-		{
-			Emit(o_pop, x86Argument(rEDX));
-			stackRelSize -= 4;
-			unsigned int currShift = 0;
-			while(currShift < cmd.helper)
-			{
-				Emit(o_pop, x86Argument(sDWORD, rEDX, cmd.argument+paramBase + currShift));
-				currShift += 4;
-			}
-			Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
-			assert(currShift == cmd.helper);
-		}
-			break;
-
-		case cmdReserveV:
-			break;
-
-		case cmdPopCharTop:
-			Emit(INST_COMMENT, "POP char top");
-	
-			Emit(o_pop, x86Argument(rEBX));
-			Emit(o_mov, x86Argument(sBYTE, rEDI, cmd.argument+paramBase), x86Argument(rEBX));
-			stackRelSize -= 4;
-			break;
-		case cmdPopShortTop:
-			Emit(INST_COMMENT, "POP short top");
-	
-			Emit(o_pop, x86Argument(rEBX));
-			Emit(o_mov, x86Argument(sWORD, rEDI, cmd.argument+paramBase), x86Argument(rEBX));
-			stackRelSize -= 4;
-			break;
-		case cmdPopIntTop:
-			Emit(INST_COMMENT, "POP int top");
-	
-			Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument+paramBase));
-			stackRelSize -= 4;
-			break;
-		case cmdPopFloatTop:
-			Emit(INST_COMMENT, "POP float top");
-
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sDWORD, rEDI, cmd.argument+paramBase));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdPopDorLTop:
-			Emit(INST_COMMENT, cmd.flag ? "POP double top" : "POP long top");
-	
-			Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument+paramBase));
-			Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument+paramBase + 4));
-			stackRelSize -= 8;
-			break;
-		case cmdPopCmplxTop:
-			Emit(INST_COMMENT, "POP complex top");
-		{
-			unsigned int currShift = 0;
-			while(currShift < cmd.helper)
-			{
-				Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument+paramBase + currShift));
-				currShift += 4;
-			}
-			assert(currShift == cmd.helper);
-			stackRelSize -= cmd.helper;
-		}
-			break;
-
-
-		case cmdPop:
-			Emit(INST_COMMENT, "POP");
-
-			Emit(o_add, x86Argument(rESP), x86Argument(cmd.argument));
-			stackRelSize -= cmd.argument;
-			break;
-
-		case cmdDtoI:
-			Emit(INST_COMMENT, "DTOI");
-
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fistp, x86Argument(sDWORD, rESP, 4));
-			Emit(o_add, x86Argument(rESP), x86Argument(4));
-			stackRelSize -= 4;
-			break;
-		case cmdDtoL:
-			Emit(INST_COMMENT, "DTOL");
-
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fistp, x86Argument(sQWORD, rESP, 0));
-			break;
-		case cmdDtoF:
-			Emit(INST_COMMENT, "DTOF");
-
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sDWORD, rESP, 4));
-			Emit(o_add, x86Argument(rESP), x86Argument(4));
-			stackRelSize -= 4;
-			break;
-		case cmdItoD:
-			Emit(INST_COMMENT, "ITOD");
-
-			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
-			Emit(o_push, x86Argument(rEAX));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			stackRelSize += 4;
-			break;
-		case cmdLtoD:
-			Emit(INST_COMMENT, "LTOD");
-
-			Emit(o_fild, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			break;
-		case cmdItoL:
-			Emit(INST_COMMENT, "ITOL");
-
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_cdq);
-			Emit(o_push, x86Argument(rEDX));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize += 4;
-			break;
-		case cmdLtoI:
-			Emit(INST_COMMENT, "LTOI");
-
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
-			stackRelSize -= 4;
-			break;
-
-		case cmdImmtMulD:
-		case cmdImmtMulL:
-		case cmdImmtMulI:
-			Emit(INST_COMMENT, cmd.cmd == cmdImmtMulD ? "IMUL double" : (cmd.cmd == cmdImmtMulL ? "IMUL long" : "IMUL int"));
-			
-			if(cmd.cmd == cmdImmtMulD)
-			{
-				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-				Emit(o_fistp, x86Argument(sDWORD, rESP, 4));
-				Emit(o_pop, x86Argument(rEAX));
-				stackRelSize -= 4;
-			}else if(cmd.cmd == cmdImmtMulL){
-				Emit(o_pop, x86Argument(rEAX));
-				stackRelSize -= 4;
-			}
-			
-			if(cmd.argument == 2)
-			{
-				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			}else if(cmd.argument == 4){
-				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(2));
-			}else if(cmd.argument == 8){
-				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(3));
-			}else if(cmd.argument == 16){
-				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(4));
-			}else{
-				Emit(o_pop, x86Argument(rEAX));
-				Emit(o_imul, x86Argument(rEAX), x86Argument(cmd.argument));
-				Emit(o_push, x86Argument(rEAX));
-			}
-			break;
-
-		case cmdCopyDorL:
-			Emit(INST_COMMENT, "COPY qword");
-
-			Emit(o_mov, x86Argument(rEDX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 4));
-			Emit(o_push, x86Argument(rEAX));
-			Emit(o_push, x86Argument(rEDX));
-			stackRelSize += 8;
-			break;
-		case cmdCopyI:
-			Emit(INST_COMMENT, "COPY dword");
-
-			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize += 4;
-			break;
-
-		case cmdGetAddr:
-			Emit(INST_COMMENT, "GETADDR");
-
-			if(cmd.argument)
-			{
-				Emit(o_lea, x86Argument(rEAX), x86Argument(sDWORD, rEBP, cmd.argument));
-				Emit(o_push, x86Argument(rEAX));
-			}else{
-				Emit(o_push, x86Argument(rEBP));
-			}
-			stackRelSize += 4;
-			break;
-		case cmdFuncAddr:
 			Emit(INST_COMMENT, "FUNCADDR");
 
 			if(exFunctions[cmd.argument]->funcPtr == NULL)
@@ -817,176 +481,8 @@ bool ExecutorX86::TranslateToNative()
 				Emit(o_push, x86Argument((int)(long long)exFunctions[cmd.argument]->funcPtr));
 			}
 			stackRelSize += 4;
-			break;
-
-		case cmdSetRange:
-			Emit(INST_COMMENT, "SETRANGE");
-
-			assert(exCode[pos-2].cmd == cmdPushImmt);	// previous command must be cmdPushImmt
-
-			// start address
-			Emit(o_lea, x86Argument(rEBX), x86Argument(sDWORD, rEBP, paramBase + cmd.argument));
-			// end address
-			Emit(o_lea, x86Argument(rECX), x86Argument(sDWORD, rEBP, paramBase + cmd.argument + (exCode[pos-2].argument - 1) * typeSizeD[(cmd.helper>>2)&0x00000007]));
-			if(cmd.helper == DTYPE_FLOAT)
-			{
-				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			}else{
-				Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
-				Emit(o_mov, x86Argument(rEDX), x86Argument(sDWORD, rESP, 4));
-			}
-			Emit(InlFmt("loopStart%d", aluLabels));
-			Emit(o_cmp, x86Argument(rEBX), x86Argument(rECX));
-			Emit(o_jg, x86Argument(InlFmt("loopEnd%d", aluLabels)));
-
-			switch(cmd.helper)
-			{
-			case DTYPE_DOUBLE:
-			case DTYPE_LONG:
-				Emit(o_mov, x86Argument(sDWORD, rEBX, 4), x86Argument(rEDX));
-				Emit(o_mov, x86Argument(sDWORD, rEBX, 0), x86Argument(rEAX));
-				break;
-			case DTYPE_FLOAT:
-				Emit(o_fst, x86Argument(sDWORD, rEBX, 0));
-				break;
-			case DTYPE_INT:
-				Emit(o_mov, x86Argument(sDWORD, rEBX, 0), x86Argument(rEAX));
-				break;
-			case DTYPE_SHORT:
-				Emit(o_mov, x86Argument(sWORD, rEBX, 0), x86Argument(rEAX));
-				break;
-			case DTYPE_CHAR:
-				Emit(o_mov, x86Argument(sBYTE, rEBX, 0), x86Argument(rEAX));
-				break;
-			}
-			Emit(o_add, x86Argument(rEBX), x86Argument(typeSizeD[(cmd.helper>>2)&0x00000007]));
-			Emit(o_jmp, x86Argument(InlFmt("loopStart%d", aluLabels)));
-			Emit(InlFmt("loopEnd%d", aluLabels));
-			if(cmd.helper == DTYPE_FLOAT)
-				Emit(o_fstp, x86Argument(rST0));
-			aluLabels++;
-			break;
-
-		case cmdJmp:
-			Emit(INST_COMMENT, "JMP");
-			Emit(o_jmp, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
-			break;
-
-		case cmdJmpZI:
-			Emit(INST_COMMENT, "JMPZ int");
-
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_test, x86Argument(rEAX), x86Argument(rEAX));
-			Emit(o_jz, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
-			stackRelSize -= 4;
-			break;
-		case cmdJmpZD:
-			Emit(INST_COMMENT, "JMPZ double");
-
-			Emit(o_fldz);
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fnstsw, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEBX));
-			Emit(o_pop, x86Argument(rEBX));
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
-			Emit(o_jnp, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
-			stackRelSize -= 8;
-			break;
-		case cmdJmpZL:
-			Emit(INST_COMMENT, "JMPZ long");
-
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_or, x86Argument(rEDX), x86Argument(rEAX));
-			Emit(o_jne, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
-			stackRelSize -= 8;
-			break;
-
-		case cmdJmpNZI:
-			Emit(INST_COMMENT, "JMPNZ int");
-
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_test, x86Argument(rEAX), x86Argument(rEAX));
-			Emit(o_jnz, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
-			stackRelSize -= 4;
-			break;
-		case cmdJmpNZD:
-			Emit(INST_COMMENT, "JMPNZ double");
-
-			Emit(o_fldz);
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fnstsw, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEBX));
-			Emit(o_pop, x86Argument(rEBX));
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
-			Emit(o_jp, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
-			stackRelSize -= 8;
-			break;
-		case cmdJmpNZL:
-			Emit(INST_COMMENT, "JMPNZ long");
-
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_or, x86Argument(rEDX), x86Argument(rEAX));
-			Emit(o_je, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
-			stackRelSize -= 8;
-			break;
-
-		case cmdCall:
-			Emit(INST_COMMENT, InlFmt("CALL %d ret %s %d", cmd.argument, (cmd.helper & bitRetSimple ? "simple " : ""), (cmd.helper & 0x0FFF)));
-
-			if(cmd.argument == -1)
-			{
-				Emit(o_pop, x86Argument(rEAX));
-				Emit(o_call, x86Argument(rEAX));
-				stackRelSize -= 4;
-			}else{
-				Emit(o_call, x86Argument(InlFmt("function%d", cmd.argument)));
-			}
-			if(cmd.helper & bitRetSimple)
-			{
-				if((asmOperType)(cmd.helper & 0x0FFF) == OTYPE_INT)
-				{
-					Emit(o_push, x86Argument(rEAX));
-					stackRelSize += 4;
-				}else{	// double or long
-					Emit(o_push, x86Argument(rEAX));
-					Emit(o_push, x86Argument(rEDX));
-					stackRelSize += 8;
-				}
-			}else{
-				assert(cmd.helper % 4 == 0);
-				if(cmd.helper == 4)
-				{
-					Emit(o_push, x86Argument(rEAX));
-				}else if(cmd.helper == 8){
-					Emit(o_push, x86Argument(rEAX));
-					Emit(o_push, x86Argument(rEDX));
-				}else if(cmd.helper == 12){
-					Emit(o_push, x86Argument(rEAX));
-					Emit(o_push, x86Argument(rEDX));
-					Emit(o_push, x86Argument(rECX));
-				}else if(cmd.helper == 16){
-					Emit(o_push, x86Argument(rEAX));
-					Emit(o_push, x86Argument(rEDX));
-					Emit(o_push, x86Argument(rECX));
-					Emit(o_push, x86Argument(rEBX));
-				}else if(cmd.helper > 16){
-					Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
-
-					Emit(o_mov, x86Argument(rEBX), x86Argument(rEDI));
-
-					Emit(o_lea, x86Argument(rESI), x86Argument(sDWORD, rEAX, paramBase));
-					Emit(o_mov, x86Argument(rEDI), x86Argument(rESP));
-					Emit(o_mov, x86Argument(rECX), x86Argument(cmd.helper >> 2));
-					Emit(o_rep_movsd);
-
-					Emit(o_mov, x86Argument(rEDI), x86Argument(rEBX));
-				}
-				stackRelSize += cmd.helper;
-			}
-			break;
-		case cmdCallStd:
+		}else if(cmd.cmd == cmdCallStd)
+		{
 			if(exFunctions[cmd.argument]->nameLength < 31)
 				Emit(INST_COMMENT, InlFmt("CALLSTD %s", exFunctions[cmd.argument]->name));
 			else
@@ -1054,913 +550,12 @@ bool ExecutorX86::TranslateToNative()
 					stackRelSize += 4;
 				}
 			}
-			break;
-		case cmdReturn:
-			Emit(INST_COMMENT, InlFmt("RET %d, %d %d", cmd.flag, cmd.argument, (cmd.helper & 0x0FFF)));
-
-			if(cmd.flag & bitRetError)
-			{
-				Emit(o_mov, x86Argument(rECX), x86Argument(0xffffffff));
-				Emit(o_int, x86Argument(3));
-				break;
-			}
-			if(cmd.helper == 0)
-			{
-				Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
-				Emit(o_pop, x86Argument(rEBP));
-				Emit(o_ret);
-				stackRelSize = 0;
-				break;
-			}
-			if(cmd.helper & bitRetSimple)
-			{
-				if((asmOperType)(cmd.helper & 0x0FFF) == OTYPE_INT)
-				{
-					Emit(o_pop, x86Argument(rEAX));
-					stackRelSize -= 4;
-				}else{
-					Emit(o_pop, x86Argument(rEDX));
-					Emit(o_pop, x86Argument(rEAX));
-					stackRelSize -= 8;
-				}
-				for(unsigned int pops = 0; pops < (cmd.argument > 0 ? cmd.argument : 1); pops++)
-				{
-					Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
-					Emit(o_pop, x86Argument(rEBP));
-					stackRelSize -= 4;
-				}
-				if(cmd.argument == 0)
-					Emit(o_mov, x86Argument(rEBX), x86Argument(cmd.helper & 0x0FFF));
-			}else{
-				if(cmd.helper == 4)
-				{
-					Emit(o_pop, x86Argument(rEAX));
-				}else if(cmd.helper == 8){
-					Emit(o_pop, x86Argument(rEDX));
-					Emit(o_pop, x86Argument(rEAX));
-				}else if(cmd.helper == 12){
-					Emit(o_pop, x86Argument(rECX));
-					Emit(o_pop, x86Argument(rEDX));
-					Emit(o_pop, x86Argument(rEAX));
-				}else if(cmd.helper == 16){
-					Emit(o_pop, x86Argument(rEBX));
-					Emit(o_pop, x86Argument(rECX));
-					Emit(o_pop, x86Argument(rEDX));
-					Emit(o_pop, x86Argument(rEAX));
-				}else{
-					Emit(o_mov, x86Argument(rEBX), x86Argument(rEDI));
-					Emit(o_mov, x86Argument(rESI), x86Argument(rESP));
-
-					Emit(o_lea, x86Argument(rEDI), x86Argument(sDWORD, rEDI, paramBase));
-					Emit(o_mov, x86Argument(rECX), x86Argument(cmd.helper >> 2));
-					Emit(o_rep_movsd);
-
-					Emit(o_mov, x86Argument(rEDI), x86Argument(rEBX));
-
-					Emit(o_add, x86Argument(rESP), x86Argument(cmd.helper));
-				}
-				stackRelSize -= cmd.helper;
-				for(unsigned int pops = 0; pops < cmd.argument-1; pops++)
-				{
-					Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
-					Emit(o_pop, x86Argument(rEBP));
-					stackRelSize -= 4;
-				}
-				if(cmd.helper > 16)
-					Emit(o_mov, x86Argument(rEAX), x86Argument(rEDI));
-				Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
-				Emit(o_pop, x86Argument(rEBP));
-				stackRelSize -= 4;
-				if(cmd.argument == 0)
-					Emit(o_mov, x86Argument(rEBX), x86Argument(16));
-			}
-			Emit(o_ret);
-			stackRelSize = 0;
-			break;
-
-		case cmdPushVTop:
-			Emit(INST_COMMENT, "PUSHT");
-
-			Emit(o_push, x86Argument(rEBP));
-			Emit(o_mov, x86Argument(rEBP), x86Argument(rEDI));
-			stackRelSize += 4;
-			break;
-		case cmdPopVTop:
-			Emit(INST_COMMENT, "POPT");
-
-			Emit(o_mov, x86Argument(rEDI), x86Argument(rEBP));
-			Emit(o_pop, x86Argument(rEBP));
-			stackRelSize -= 4;
-			break;
-		
-		case cmdPushV:
-			Emit(INST_COMMENT, "PUSHV");
-
-			Emit(o_add, x86Argument(rEDI), x86Argument(cmd.argument));
-			break;
-
-		case cmdAdd:
-			Emit(INST_COMMENT, "ADD int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-		case cmdSub:
-			Emit(INST_COMMENT, "SUB int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-		case cmdMul:
-			Emit(INST_COMMENT, "MUL int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_imul, x86Argument(rEDX));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-		case cmdDiv:
-			Emit(INST_COMMENT, "DIV int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_cdq);
-			Emit(o_idiv, x86Argument(sDWORD, rESP, 0));
-			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
-			stackRelSize -= 4;
-			break;
-		case cmdPow:
-			Emit(INST_COMMENT, "POW int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEBX));
-			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)intPow));
-			Emit(o_call, x86Argument(rECX));
-			Emit(o_push, x86Argument(rEDX));
-			stackRelSize -= 4;
-			break;
-		case cmdMod:
-			Emit(INST_COMMENT, "MOD int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_cdq);
-			Emit(o_idiv, x86Argument(sDWORD, rESP, 0));
-			Emit(o_xchg, x86Argument(rEDX), x86Argument(sDWORD, rESP, 0));
-			stackRelSize -= 4;
-			break;
-		case cmdLess:
-			Emit(INST_COMMENT, "LESS int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_setl, x86Argument(rECX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
-			stackRelSize -= 4;
-			break;
-		case cmdGreater:
-			Emit(INST_COMMENT, "GREATER int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_setg, x86Argument(rECX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
-			stackRelSize -= 4;
-			break;
-		case cmdLEqual:
-			Emit(INST_COMMENT, "LEQUAL int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_setle, x86Argument(rECX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
-			stackRelSize -= 4;
-			break;
-		case cmdGEqual:
-			Emit(INST_COMMENT, "GEQUAL int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_setge, x86Argument(rECX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
-			stackRelSize -= 4;
-			break;
-		case cmdEqual:
-			Emit(INST_COMMENT, "EQUAL int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_sete, x86Argument(rECX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
-			stackRelSize -= 4;
-			break;
-		case cmdNEqual:
-			Emit(INST_COMMENT, "NEQUAL int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_setne, x86Argument(rECX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rECX));
-			stackRelSize -= 4;
-			break;
-		case cmdShl:
-			Emit(INST_COMMENT, "SHL int");
-			Emit(o_pop, x86Argument(rECX));
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_sal, x86Argument(rEAX), x86Argument(rECX));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-		case cmdShr:
-			Emit(INST_COMMENT, "SHR int");
-			Emit(o_pop, x86Argument(rECX));
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_sar, x86Argument(rEAX), x86Argument(rECX));
-			Emit(o_push, x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-		case cmdBitAnd:
-			Emit(INST_COMMENT, "BAND int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_and, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-		case cmdBitOr:
-			Emit(INST_COMMENT, "BOR int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_or, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-		case cmdBitXor:
-			Emit(INST_COMMENT, "BXOR int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-		case cmdLogAnd:
-			Emit(INST_COMMENT, "LAND int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_cmp, x86Argument(rEAX), x86Argument(0));
-			Emit(o_je, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_je, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			aluLabels++;
-			stackRelSize -= 4;
-			break;
-		case cmdLogOr:
-			Emit(INST_COMMENT, "LOR int");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEBX));
-			Emit(o_or, x86Argument(rEAX), x86Argument(rEBX));
-			Emit(o_cmp, x86Argument(rEAX), x86Argument(0));
-			Emit(o_je, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_push, x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_push, x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			aluLabels++;
-			stackRelSize -= 4;
-			break;
-		case cmdLogXor:
-			Emit(INST_COMMENT, "LXOR int");
-			Emit(o_xor, x86Argument(rEAX), x86Argument(rEAX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(o_setne, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			Emit(o_setne, x86Argument(rECX));
-			Emit(o_xor, x86Argument(rEAX), x86Argument(rECX));
-			Emit(o_pop, x86Argument(rECX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 4;
-			break;
-
-		case cmdAddL:
-			Emit(INST_COMMENT, "ADD long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_adc, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			stackRelSize -= 8;
-			break;
-		case cmdSubL:
-			Emit(INST_COMMENT, "SUB long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_sbb, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			stackRelSize -= 8;
-			break;
-		case cmdMulL:
-			Emit(INST_COMMENT, "MUL long");
-			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longMul));
-			Emit(o_call, x86Argument(rECX));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 8;
-			break;
-		case cmdDivL:
-			Emit(INST_COMMENT, "DIV long");
-			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longDiv));
-			Emit(o_call, x86Argument(rECX));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 8;
-			break;
-		case cmdPowL:
-			Emit(INST_COMMENT, "POW long");
-			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longPow));
-			Emit(o_call, x86Argument(rECX));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 8;
-			break;
-		case cmdModL:
-			Emit(INST_COMMENT, "MOD long");
-			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longMod));
-			Emit(o_call, x86Argument(rECX));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			stackRelSize -= 8;
-			break;
-		case cmdLessL:
-			Emit(INST_COMMENT, "LESS long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_jg, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(o_jl, x86Argument(InlFmt("SetOne%d", aluLabels)));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_jae, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(InlFmt("SetOne%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
-			Emit(InlFmt("SetZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("OneSet%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdGreaterL:
-			Emit(INST_COMMENT, "GREATER long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_jl, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(o_jg, x86Argument(InlFmt("SetOne%d", aluLabels)));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_jbe, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(InlFmt("SetOne%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
-			Emit(InlFmt("SetZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("OneSet%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdLEqualL:
-			Emit(INST_COMMENT, "LEQUAL long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_jg, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(o_jl, x86Argument(InlFmt("SetOne%d", aluLabels)));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_ja, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(InlFmt("SetOne%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
-			Emit(InlFmt("SetZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("OneSet%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdGEqualL:
-			Emit(INST_COMMENT, "GEQUAL long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_jl, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(o_jg, x86Argument(InlFmt("SetOne%d", aluLabels)));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_jb, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(InlFmt("SetOne%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
-			Emit(InlFmt("SetZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("OneSet%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdEqualL:
-			Emit(INST_COMMENT, "EQUAL long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_jne, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_jne, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
-			Emit(InlFmt("SetZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("OneSet%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdNEqualL:
-			Emit(INST_COMMENT, "NEQUAL long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			Emit(o_jne, x86Argument(InlFmt("SetOne%d", aluLabels)));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_je, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(InlFmt("SetOne%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
-			Emit(InlFmt("SetZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("OneSet%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdShlL:
-			Emit(INST_COMMENT, "SHL long");
-			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longShl));
-			Emit(o_call, x86Argument(rECX));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdShrL:
-			Emit(INST_COMMENT, "SHR long");
-			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)longShr));
-			Emit(o_call, x86Argument(rECX));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdBitAndL:
-			Emit(INST_COMMENT, "BAND long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_and, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_and, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			stackRelSize -= 8;
-			break;
-		case cmdBitOrL:
-			Emit(INST_COMMENT, "BOR long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_or, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_or, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			stackRelSize -= 8;
-			break;
-		case cmdBitXorL:
-			Emit(INST_COMMENT, "BXOR long");
-			Emit(o_pop, x86Argument(rEAX));
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_xor, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_xor, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
-			stackRelSize -= 8;
-			break;
-		case cmdLogAndL:
-			Emit(INST_COMMENT, "LAND long");
-			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_or, x86Argument(rEAX), x86Argument(sDWORD, rESP, 4));
-			Emit(o_jz, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 8));
-			Emit(o_or, x86Argument(rEAX), x86Argument(sDWORD, rESP, 12));
-			Emit(o_jz, x86Argument(InlFmt("SetZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 8), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("OneSet%d", aluLabels)));
-			Emit(InlFmt("SetZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 8), x86Argument(0));
-			Emit(InlFmt("OneSet%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 12), x86Argument(0));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdLogOrL:
-			Emit(INST_COMMENT, "LOR long");
-			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_or, x86Argument(rEAX), x86Argument(sDWORD, rESP, 4));
-			Emit(o_jnz, x86Argument(InlFmt("SetOne%d", aluLabels)));
-			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rESP, 8));
-			Emit(o_or, x86Argument(rEAX), x86Argument(sDWORD, rESP, 12));
-			Emit(o_jnz, x86Argument(InlFmt("SetOne%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 8), x86Argument(0));
-			Emit(o_jmp, x86Argument(InlFmt("ZeroSet%d", aluLabels)));
-			Emit(InlFmt("SetOne%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 8), x86Argument(1));
-			Emit(InlFmt("ZeroSet%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 12), x86Argument(0));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdLogXorL:
-			Emit(INST_COMMENT, "LXOR long");
-			Emit(o_xor, x86Argument(rEAX), x86Argument(rEAX));
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_or, x86Argument(rEBX), x86Argument(sDWORD, rESP, 4));
-			Emit(o_setnz, x86Argument(rEAX));
-			Emit(o_xor, x86Argument(rECX), x86Argument(rECX));
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 8));
-			Emit(o_or, x86Argument(rEBX), x86Argument(sDWORD, rESP, 12));
-			Emit(o_setnz, x86Argument(rECX));
-			Emit(o_xor, x86Argument(rEAX), x86Argument(rECX));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-
-		case cmdAddD:
-			Emit(INST_COMMENT, "ADD double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fadd, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdSubD:
-			Emit(INST_COMMENT, "SUB double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fsub, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdMulD:
-			Emit(INST_COMMENT, "MUL double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fmul, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdDivD:
-			Emit(INST_COMMENT, "DIV double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fdiv, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdPowD:
-			Emit(INST_COMMENT, "POW double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
-			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)doublePow));
-			Emit(o_call, x86Argument(rECX));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdModD:
-			Emit(INST_COMMENT, "MOD double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fprem);
-			Emit(o_fstp, x86Argument(rST1));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			stackRelSize -= 8;
-			break;
-		case cmdLessD:
-			Emit(INST_COMMENT, "LESS double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fnstsw);
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x41));
-			Emit(o_jne, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdGreaterD:
-			Emit(INST_COMMENT, "GREATER double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fnstsw);
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x05));
-			Emit(o_jp, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdLEqualD:
-			Emit(INST_COMMENT, "LEQUAL double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fnstsw);
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x01));
-			Emit(o_jne, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdGEqualD:
-			Emit(INST_COMMENT, "GEQUAL double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fnstsw);
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x41));
-			Emit(o_jp, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdEqualD:
-			Emit(INST_COMMENT, "EQUAL double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fnstsw);
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
-			Emit(o_jp, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-		case cmdNEqualD:
-			Emit(INST_COMMENT, "NEQUAL double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_fnstsw);
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
-			Emit(o_jnp, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 8));
-			Emit(o_add, x86Argument(rESP), x86Argument(8));
-			aluLabels++;
-			stackRelSize -= 8;
-			break;
-
-		case cmdNeg:
-			Emit(INST_COMMENT, "NEG int");
-			Emit(o_neg, x86Argument(sDWORD, rESP, 0));
-			break;
-		case cmdBitNot:
-			Emit(INST_COMMENT, "BNOT int");
-			Emit(o_not, x86Argument(sDWORD, rESP, 0));
-			break;
-		case cmdLogNot:
-			Emit(INST_COMMENT, "LNOT int");
-			Emit(o_xor, x86Argument(rEAX), x86Argument(rEAX));
-			Emit(o_cmp, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(o_sete, x86Argument(rEAX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			break;
-
-		case cmdNegL:
-			Emit(INST_COMMENT, "NEG long");
-			Emit(o_neg, x86Argument(sDWORD, rESP, 0));
-			Emit(o_adc, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			Emit(o_neg, x86Argument(sDWORD, rESP, 4));
-			break;
-		case cmdBitNotL:
-			Emit(INST_COMMENT, "BNOT long");
-			Emit(o_not, x86Argument(sDWORD, rESP, 0));
-			Emit(o_not, x86Argument(sDWORD, rESP, 4));
-			break;
-		case cmdLogNotL:
-			Emit(INST_COMMENT, "LNOT long");
-			Emit(o_xor, x86Argument(rEAX), x86Argument(rEAX));
-			Emit(o_mov, x86Argument(rEBX), x86Argument(sDWORD, rESP, 4));
-			Emit(o_or, x86Argument(rEBX), x86Argument(sDWORD, rESP, 0));
-			Emit(o_setz, x86Argument(rEAX));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 4), x86Argument(0));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			break;
-
-		case cmdNegD:
-			Emit(INST_COMMENT, "NEG double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fchs);
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			break;
-		case cmdLogNotD:
-			Emit(INST_COMMENT, "LNOT double");
-			Emit(o_fldz);
-			Emit(o_fcomp, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fnstsw);
-			Emit(o_test, x86Argument(rEAX), x86Argument(0x44));
-			Emit(o_jp, x86Argument(InlFmt("pushZero%d", aluLabels)));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_jmp, x86Argument(InlFmt("pushedOne%d", aluLabels)));
-			Emit(InlFmt("pushZero%d", aluLabels));
-			Emit(o_mov, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			Emit(InlFmt("pushedOne%d", aluLabels));
-			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			aluLabels++;
-			break;
-		
-		case cmdIncI:
-			Emit(INST_COMMENT, "INC int");
-			Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			break;
-		case cmdIncD:
-			Emit(INST_COMMENT, "INC double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fld1);
-			Emit(o_faddp);
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			break;
-		case cmdIncL:
-			Emit(INST_COMMENT, "INC long");
-			Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_adc, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			break;
-
-		case cmdDecI:
-			Emit(INST_COMMENT, "DEC int");
-			Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			break;
-		case cmdDecD:
-			Emit(INST_COMMENT, "DEC double");
-			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
-			Emit(o_fld1);
-			Emit(o_fsubp);
-			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-			break;
-		case cmdDecL:
-			Emit(INST_COMMENT, "DEC long");
-			Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(1));
-			Emit(o_sbb, x86Argument(sDWORD, rESP, 0), x86Argument(0));
-			break;
-
-		case cmdAddAtCharStk:
-			Emit(INST_COMMENT, "ADDAT char stack");
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, rEDX, cmd.argument+paramBase));
-			if(cmd.flag == bitPushBefore)
-				Emit(o_push, x86Argument(rEAX));
-			Emit(cmd.helper == 1 ? o_add : o_sub, x86Argument(rEAX), x86Argument(1));
-			Emit(o_mov, x86Argument(sBYTE, rEDX, cmd.argument+paramBase), x86Argument(rEAX));
-			if(cmd.flag == bitPushAfter)
-				Emit(o_push, x86Argument(rEAX));
-			if(!cmd.flag)
-				stackRelSize -= 4;
-			break;
-		case cmdAddAtShortStk:
-			Emit(INST_COMMENT, "ADDAT short stack");
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, rEDX, cmd.argument+paramBase));
-			if(cmd.flag == bitPushBefore)
-				Emit(o_push, x86Argument(rEAX));
-			Emit(cmd.helper == 1 ? o_add : o_sub, x86Argument(rEAX), x86Argument(1));
-			Emit(o_mov, x86Argument(sWORD, rEDX, cmd.argument+paramBase), x86Argument(rEAX));
-			if(cmd.flag == bitPushAfter)
-				Emit(o_push, x86Argument(rEAX));
-			if(!cmd.flag)
-				stackRelSize -= 4;
-			break;
-		case cmdAddAtIntStk:
-			Emit(INST_COMMENT, "ADDAT int stack");
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-			if(cmd.flag == bitPushBefore)
-				Emit(o_push, x86Argument(rEAX));
-			Emit(cmd.helper == 1 ? o_add : o_sub, x86Argument(rEAX), x86Argument(1));
-			Emit(o_mov, x86Argument(sDWORD, rEDX, cmd.argument+paramBase), x86Argument(rEAX));
-			if(cmd.flag == bitPushAfter)
-				Emit(o_push, x86Argument(rEAX));
-			if(!cmd.flag)
-				stackRelSize -= 4;
-			break;
-		case cmdAddAtLongStk:
-			Emit(INST_COMMENT, "ADDAT long stack");
-			Emit(o_pop, x86Argument(rECX));
-			Emit(o_mov, x86Argument(rEAX), x86Argument(sDWORD, rECX, cmd.argument+paramBase));
-			Emit(o_mov, x86Argument(rEDX), x86Argument(sDWORD, rECX, cmd.argument+paramBase+4));
-			if(cmd.flag == bitPushBefore)
-			{
-				Emit(o_push, x86Argument(rEAX));
-				Emit(o_push, x86Argument(rEDX));
-				stackRelSize += 4;
-			}
-			Emit(cmd.helper == 1 ? o_add : o_sub, x86Argument(rEAX), x86Argument(1));
-			Emit(cmd.helper == 1 ? o_adc : o_sbb, x86Argument(rEDX), x86Argument(0));
-			Emit(o_mov, x86Argument(sDWORD, rECX, cmd.argument+paramBase), x86Argument(rEAX));
-			Emit(o_mov, x86Argument(sDWORD, rECX, cmd.argument+paramBase+4), x86Argument(rEDX));
-			if(cmd.flag == bitPushAfter)
-			{
-				Emit(o_push, x86Argument(rEAX));
-				Emit(o_push, x86Argument(rEDX));
-				stackRelSize += 4;
-			}
-			break;
-		case cmdAddAtFloatStk:
-			Emit(INST_COMMENT, "ADDAT float stack");
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_fld, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-			if(cmd.flag == bitPushBefore)
-				Emit(o_fld, x86Argument(rST0));
-			Emit(o_fld1);
-			Emit(cmd.helper == 1 ? o_faddp : o_fsubp);
-			if(cmd.flag == bitPushAfter)
-			{
-				Emit(o_fst, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-				Emit(o_sub, x86Argument(rESP), x86Argument(8));
-				Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-				stackRelSize += 4;
-			}else{
-				Emit(o_fstp, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
-			}
-			if(cmd.flag == bitPushBefore)
-			{
-				Emit(o_sub, x86Argument(rESP), x86Argument(8));
-				Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-				stackRelSize += 4;
-			}
-			break;
-		case cmdAddAtDoubleStk:
-			Emit(INST_COMMENT, "ADDAT double stack");
-			Emit(o_pop, x86Argument(rEDX));
-			Emit(o_fld, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
-			if(cmd.flag == bitPushBefore)
-				Emit(o_fld, x86Argument(rST0));
-			Emit(o_fld1);
-			Emit(cmd.helper == 1 ? o_faddp : o_fsubp);
-			if(cmd.flag == bitPushAfter)
-			{
-				Emit(o_fst, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
-				Emit(o_sub, x86Argument(rESP), x86Argument(8));
-				Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-				stackRelSize += 4;
-			}else{
-				Emit(o_fstp, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
-			}
-			if(cmd.flag == bitPushBefore)
-			{
-				Emit(o_sub, x86Argument(rESP), x86Argument(8));
-				Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-				stackRelSize += 4;
-			}
-			break;
+		}else{
+			cgFuncs[cmd.cmd](cmd, instList);
 		}
-		if(stackRelSize == 0 && stackRelSizePrev != 0)
+		
+		if(stackRelSize + GetStackTrackInfo() == 0 && stackRelSizePrev != 0)
 			Emit(INST_COMMENT, "=====Stack restored=====");
-		//Emit(INST_COMMENT, InlFmt("====Stack size: %d", stackRelSize));
 	}
 	Emit(InlFmt("gLabel%d", pos));
 	Emit(o_pop, x86Argument(rEBP));
@@ -1998,7 +593,7 @@ bool ExecutorX86::TranslateToNative()
 #endif
 
 	// Translate to x86
-	unsigned char *bytecode = binCode+20;//new unsigned char[16000];
+	unsigned char *bytecode = binCode+20;
 	unsigned char *code = bytecode;
 
 	x86ClearLabels();
