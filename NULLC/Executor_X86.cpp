@@ -355,21 +355,25 @@ bool ExecutorX86::TranslateToNative()
 
 			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, rEBP, cmd.argument+paramBase));
 			Emit(o_push, x86Argument(rEAX));
+			break;
 		case cmdPushShortRel:
 			Emit(INST_COMMENT, "PUSH short rel");
 
 			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, rEBP, cmd.argument+paramBase));
 			Emit(o_push, x86Argument(rEAX));
+			break;
 		case cmdPushIntRel:
 			Emit(INST_COMMENT, "PUSH int rel");
 
 			Emit(o_push, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
+			break;
 		case cmdPushFloatRel:
 			Emit(INST_COMMENT, "PUSH float rel");
 
 			Emit(o_sub, x86Argument(rESP), x86Argument(8));
 			Emit(o_fld, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
 			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			break;
 		case cmdPushDorLRel:
 			Emit(INST_COMMENT, cmd.flag ? "PUSH double rel" : "PUSH long rel");
 
@@ -399,16 +403,19 @@ bool ExecutorX86::TranslateToNative()
 			Emit(o_pop, x86Argument(rEDX));
 			Emit(o_movsx, x86Argument(rEAX), x86Argument(sBYTE, rEDX, cmd.argument+paramBase));
 			Emit(o_push, x86Argument(rEAX));
+			break;
 		case cmdPushShortStk:
 			Emit(INST_COMMENT, "PUSH short stack");
 
 			Emit(o_movsx, x86Argument(rEAX), x86Argument(sWORD, rEDX, cmd.argument+paramBase));
 			Emit(o_push, x86Argument(rEAX));
+			break;
 		case cmdPushIntStk:
 			Emit(INST_COMMENT, "PUSH int stack");
 
 			Emit(o_pop, x86Argument(rEDX));
 			Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			break;
 		case cmdPushFloatStk:
 			Emit(INST_COMMENT, "PUSH float stack");
 
@@ -416,6 +423,7 @@ bool ExecutorX86::TranslateToNative()
 			Emit(o_sub, x86Argument(rESP), x86Argument(8));
 			Emit(o_fld, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
 			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			break;
 		case cmdPushDorLStk:
 			Emit(INST_COMMENT, cmd.flag ? "PUSH double stack" : "PUSH long stack");
 
@@ -542,7 +550,7 @@ bool ExecutorX86::TranslateToNative()
 			unsigned int currShift = 0;
 			while(currShift < cmd.helper)
 			{
-				Emit(o_pop, x86Argument(sDWORD, rEBP, cmd.argument + currShift));
+				Emit(o_pop, x86Argument(sDWORD, rEBP, cmd.argument+paramBase + currShift));
 				currShift += 4;
 			}
 			Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
@@ -599,7 +607,7 @@ bool ExecutorX86::TranslateToNative()
 			unsigned int currShift = 0;
 			while(currShift < cmd.helper)
 			{
-				Emit(o_pop, x86Argument(sDWORD, rEDX, cmd.argument + currShift));
+				Emit(o_pop, x86Argument(sDWORD, rEDX, cmd.argument+paramBase + currShift));
 				currShift += 4;
 			}
 			Emit(o_sub, x86Argument(rESP), x86Argument(cmd.helper));
@@ -646,7 +654,7 @@ bool ExecutorX86::TranslateToNative()
 			unsigned int currShift = 0;
 			while(currShift < cmd.helper)
 			{
-				Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument + currShift));
+				Emit(o_pop, x86Argument(sDWORD, rEDI, cmd.argument+paramBase + currShift));
 				currShift += 4;
 			}
 			assert(currShift == cmd.helper);
@@ -671,33 +679,33 @@ bool ExecutorX86::TranslateToNative()
 			Emit(o_add, x86Argument(rESP), x86Argument(4));
 			break;
 		case cmdDtoL:
-			Emit(INST_COMMENT, "DTOI");
+			Emit(INST_COMMENT, "DTOL");
 
 			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
 			Emit(o_fistp, x86Argument(sQWORD, rESP, 0));
 			break;
 		case cmdDtoF:
-			Emit(INST_COMMENT, "DTOI");
+			Emit(INST_COMMENT, "DTOF");
 
 			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
 			Emit(o_fstp, x86Argument(sDWORD, rESP, 4));
 			Emit(o_add, x86Argument(rESP), x86Argument(4));
 			break;
 		case cmdItoD:
-			Emit(INST_COMMENT, "DTOI");
+			Emit(INST_COMMENT, "ITOD");
 
 			Emit(o_fild, x86Argument(sDWORD, rESP, 0));
 			Emit(o_push, x86Argument(rEAX));
 			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
 			break;
 		case cmdLtoD:
-			Emit(INST_COMMENT, "DTOI");
+			Emit(INST_COMMENT, "LTOD");
 
 			Emit(o_fild, x86Argument(sQWORD, rESP, 0));
 			Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
 			break;
 		case cmdItoL:
-			Emit(INST_COMMENT, "DTOI");
+			Emit(INST_COMMENT, "ITOL");
 
 			Emit(o_pop, x86Argument(rEAX));
 			Emit(o_cdq);
@@ -705,7 +713,7 @@ bool ExecutorX86::TranslateToNative()
 			Emit(o_push, x86Argument(rEAX));
 			break;
 		case cmdLtoI:
-			Emit(INST_COMMENT, "DTOI");
+			Emit(INST_COMMENT, "LTOI");
 
 			Emit(o_pop, x86Argument(rEAX));
 			Emit(o_xchg, x86Argument(rEAX), x86Argument(sDWORD, rESP, 0));
@@ -736,7 +744,7 @@ bool ExecutorX86::TranslateToNative()
 				Emit(o_shl, x86Argument(sDWORD, rESP, 0), x86Argument(4));
 			}else{
 				Emit(o_pop, x86Argument(rEAX));
-				Emit(o_imul, x86Argument(cmd.argument));
+				Emit(o_imul, x86Argument(rEAX), x86Argument(cmd.argument));
 				Emit(o_push, x86Argument(rEAX));
 			}
 			break;
@@ -1422,7 +1430,7 @@ bool ExecutorX86::TranslateToNative()
 			Emit(o_pop, x86Argument(rEAX));
 			Emit(o_pop, x86Argument(rEDX));
 			Emit(o_and, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
-			Emit(o_and, x86Argument(sDWORD, rESP, 0), x86Argument(rEAX));
+			Emit(o_and, x86Argument(sDWORD, rESP, 4), x86Argument(rEDX));
 			break;
 		case cmdBitOrL:
 			Emit(INST_COMMENT, "BOR long");
@@ -1519,6 +1527,7 @@ bool ExecutorX86::TranslateToNative()
 			break;
 		case cmdPowD:
 			Emit(INST_COMMENT, "POW double");
+			Emit(o_fld, x86Argument(sQWORD, rESP, 0));
 			Emit(o_fld, x86Argument(sQWORD, rESP, 8));
 			Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)doublePow));
 			Emit(o_call, x86Argument(rECX));
@@ -1787,17 +1796,45 @@ bool ExecutorX86::TranslateToNative()
 			Emit(INST_COMMENT, "ADDAT float stack");
 			Emit(o_pop, x86Argument(rEDX));
 			Emit(o_fld, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			if(cmd.flag == bitPushBefore)
+				Emit(o_fld, x86Argument(rST0));
 			Emit(o_fld1);
 			Emit(cmd.helper == 1 ? o_faddp : o_fsubp);
-			Emit(o_fstp, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			if(cmd.flag == bitPushAfter)
+			{
+				Emit(o_fst, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+				Emit(o_sub, x86Argument(rESP), x86Argument(8));
+				Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			}else{
+				Emit(o_fstp, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
+			}
+			if(cmd.flag == bitPushBefore)
+			{
+				Emit(o_sub, x86Argument(rESP), x86Argument(8));
+				Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			}
 			break;
 		case cmdAddAtDoubleStk:
 			Emit(INST_COMMENT, "ADDAT double stack");
 			Emit(o_pop, x86Argument(rEDX));
 			Emit(o_fld, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
+			if(cmd.flag == bitPushBefore)
+				Emit(o_fld, x86Argument(rST0));
 			Emit(o_fld1);
 			Emit(cmd.helper == 1 ? o_faddp : o_fsubp);
-			Emit(o_fstp, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
+			if(cmd.flag == bitPushAfter)
+			{
+				Emit(o_fst, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
+				Emit(o_sub, x86Argument(rESP), x86Argument(8));
+				Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			}else{
+				Emit(o_fstp, x86Argument(sQWORD, rEDX, cmd.argument+paramBase));
+			}
+			if(cmd.flag == bitPushBefore)
+			{
+				Emit(o_sub, x86Argument(rESP), x86Argument(8));
+				Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+			}
 			break;
 		}
 	}
@@ -1829,6 +1866,8 @@ bool ExecutorX86::TranslateToNative()
 #ifdef NULLC_LOG_FILES
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
+		if(instList[i].name == o_other)
+			continue;
 		instList[i].Decode(instBuf);
 		fprintf(fAsm, "%s\r\n", instBuf);
 	}
@@ -2010,32 +2049,47 @@ bool ExecutorX86::TranslateToNative()
 			break;
 		case o_add:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86ADD(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
-			else
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86ADD(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86ADD(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+			}else{
 				code += x86ADD(code, cmd.argA.reg, cmd.argB.num);
+			}
 			break;
 		case o_adc:
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
-				if(cmd.argB.type == x86Argument::argNumber)
-					code += x86ADC(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
-				else
+				if(cmd.argB.type == x86Argument::argReg)
 					code += x86ADC(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86ADC(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
 			}else{
 				code += x86ADC(code, cmd.argA.reg, cmd.argB.num);
 			}
 			break;
 		case o_sub:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86SUB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
-			else
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86SUB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86SUB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+			}else{
 				code += x86SUB(code, cmd.argA.reg, cmd.argB.num);
+			}
 			break;
 		case o_sbb:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86SBB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
-			else
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86SBB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86SBB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+			}else{
 				code += x86SBB(code, cmd.argA.reg, cmd.argB.num);
+			}
 			break;
 		case o_imul:
 			if(cmd.argB.type != x86Argument::argNone)

@@ -117,6 +117,7 @@ void Executor::Run(const char* funcName) throw()
 #ifdef NULLC_VM_PROFILE_INSTRUCTIONS
 	unsigned int insCallCount[255];
 	memset(insCallCount, 0, 255*4);
+	unsigned int insExecuted = 0;
 #endif
 	VMCmd *cmdStreamBase = &exLinker->exCode[0];
 	VMCmd *cmdStream = &exLinker->exCode[exLinker->offsetToGlobalCode];
@@ -152,7 +153,8 @@ void Executor::Run(const char* funcName) throw()
 		}
 #endif
 		#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
-			insCallCount[cmd]++;
+			insCallCount[cmd.cmd]++;
+			insExecuted++;
 		#endif
 
 		switch(cmd.cmd)
@@ -585,30 +587,26 @@ void Executor::Run(const char* funcName) throw()
 			break;
 
 		case cmdReturn:
+			if(cmd.flag & bitRetError)
 			{
-				unsigned short retFlag = cmd.flag;
-				int popCnt = cmd.argument;
-				if(retFlag & bitRetError)
-				{
-					done = true;
-					strcpy(execError, "ERROR: function didn't return a value");
-					break;
-				}
-				// TODO: move (cmd.argument > 0 ? cmd.argument : 1) to compilation stage
-				for(int pops = 0; pops < (popCnt > 0 ? popCnt : 1); pops++)
-				{
-					genParams.shrink(paramTop.back());
-					paramTop.pop_back();
-				}
-				if(fcallStack.size() == 0)
-				{
-					retType = (cmd.helper&bitRetSimple) ? (asmOperType)(cmd.helper^bitRetSimple) : OTYPE_FLOAT_DEPRECATED;
-					done = true;
-					break;
-				}
-				cmdStream = fcallStack.back();
-				fcallStack.pop_back();
+				done = true;
+				strcpy(execError, "ERROR: function didn't return a value");
+				break;
 			}
+			// TODO: move (cmd.argument > 0 ? cmd.argument : 1) to compilation stage
+			for(unsigned int pops = 0; pops < (cmd.argument > 0 ? cmd.argument : 1); pops++)
+			{
+				genParams.shrink(paramTop.back());
+				paramTop.pop_back();
+			}
+			if(fcallStack.size() == 0)
+			{
+				retType = (cmd.helper&bitRetSimple) ? (asmOperType)(cmd.helper^bitRetSimple) : OTYPE_FLOAT_DEPRECATED;
+				done = true;
+				break;
+			}
+			cmdStream = fcallStack.back();
+			fcallStack.pop_back();
 			break;
 
 		case cmdPushVTop:
