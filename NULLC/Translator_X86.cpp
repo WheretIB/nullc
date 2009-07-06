@@ -289,18 +289,18 @@ int x86FISTP(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift
 	return 1+asize;
 }
 
-// fadd *word [reg]
-int x86FADD(unsigned char *stream, x86Size size, x86Reg reg)
+// fadd *word [reg+shift]
+int x86FADD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	if(size == sDWORD)
 	{
 		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 0);
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
 		return 1+asize;
 	}
 	stream[0] = 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 0);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
 	return 1+asize;
 }
 // faddp
@@ -310,32 +310,32 @@ int x86FADDP(unsigned char *stream)
 	stream[1] = 0xc1;
 	return 2;
 }
-// fsub *word [reg]
-int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg)
+// fsub *word [reg+shift]
+int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	if(size == sDWORD)
 	{
 		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 4);
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
 		return 1+asize;
 	}
 	stream[0] = 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 4);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
 	return 1+asize;
 }
-// fsubr *word [reg]
-int x86FSUBR(unsigned char *stream, x86Size size, x86Reg reg)
+// fsubr *word [reg+shift]
+int x86FSUBR(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	if(size == sDWORD)
 	{
 		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 5);
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
 		return 1+asize;
 	}
 	stream[0] = 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 5);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
 	return 1+asize;
 }
 // fsubp
@@ -352,18 +352,18 @@ int x86FSUBRP(unsigned char *stream)
 	stream[1] = 0xe1;
 	return 2;
 }
-// fmul *word [reg]
-int x86FMUL(unsigned char *stream, x86Size size, x86Reg reg)
+// fmul *word [reg+shift]
+int x86FMUL(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	if(size == sDWORD)
 	{
 		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 1);
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 1);
 		return 1+asize;
 	}
 	stream[0] = 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 1);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 1);
 	return 1+asize;
 }
 // fmulp
@@ -373,32 +373,32 @@ int x86FMULP(unsigned char *stream)
 	stream[1] = 0xc9;
 	return 2;
 }
-// fdiv *word [reg]
-int x86FDIV(unsigned char *stream, x86Size size, x86Reg reg)
+// fdiv *word [reg+shift]
+int x86FDIV(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	if(size == sDWORD)
 	{
 		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 6);
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 6);
 		return 1+asize;
 	}
 	stream[0] = 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 6);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 6);
 	return 1+asize;
 }
-// fdivr *word [reg]
-int x86FDIVR(unsigned char *stream, x86Size size, x86Reg reg)
+// fdivr *word [reg+shift]
+int x86FDIVR(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	if(size == sDWORD)
 	{
 		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 7);
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
 		return 1+asize;
 	}
 	stream[0] = 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 7);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
 	return 1+asize;
 }
 // fdivrp

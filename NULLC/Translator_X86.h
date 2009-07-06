@@ -32,29 +32,29 @@ int x86FSTP(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int s
 // fistp *word [reg+shift]
 int x86FISTP(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
 
-// fadd *word [reg]
-int x86FADD(unsigned char *stream, x86Size size, x86Reg reg);
+// fadd *word [reg+shift]
+int x86FADD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
 // faddp
 int x86FADDP(unsigned char *stream);
 
-// fsub *word [reg]
-int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg);
-// fsubr *word [reg]
-int x86FSUBR(unsigned char *stream, x86Size size, x86Reg reg);
+// fsub *word [reg+shift]
+int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
+// fsubr *word [reg+shift]
+int x86FSUBR(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
 // fsubp
 int x86FSUBP(unsigned char *stream);
 // fsubrp
 int x86FSUBRP(unsigned char *stream);
 
-// fmul *word [reg]
-int x86FMUL(unsigned char *stream, x86Size size, x86Reg reg);
+// fmul *word [reg+shift]
+int x86FMUL(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
 // fmulp
 int x86FMULP(unsigned char *stream);
 
-// fdiv *word [reg]
-int x86FDIV(unsigned char *stream, x86Size size, x86Reg reg);
-// fdivr *word [reg]
-int x86FDIVR(unsigned char *stream, x86Size size, x86Reg reg);
+// fdiv *word [reg+shift]
+int x86FDIV(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
+// fdivr *word [reg+shift]
+int x86FDIVR(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
 // fdivrp
 int x86FDIVRP(unsigned char *stream);
 

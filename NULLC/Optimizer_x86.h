@@ -2,12 +2,14 @@
 #include "stdafx.h"
 #include "Instruction_X86.h"
 
-class Optimizer_x86
+class OptimizerX86
 {
 public:
-	//std::vector<Command>*		HashListing(const char* pListing, int strSize);
-	//std::vector<std::string>*	Optimize();
+	unsigned int	Optimize(FastVector<x86Instruction>& instList);
 private:
-	//void HashListing(const char*);
-	void OptimizePushPop();
+	unsigned int	SearchUp(unsigned int from);
+	unsigned int	SearchDown(unsigned int from);
+	unsigned int	OptimizationPass(FastVector<x86Instruction>& instList);
+
+	x86Instruction	*start, *end;
 };
