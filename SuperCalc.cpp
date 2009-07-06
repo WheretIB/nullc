@@ -659,8 +659,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
 	HDC hdc;
-	
-	memset(buf, 0, GetWindowTextLength(hTextArea)+5);
+
 	switch (message) 
 	{
 	
@@ -670,28 +669,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		if((HWND)lParam == hButtonCalc)
 		{
-			static int callNum = -1;
+		
+			/*static*/ int callNum = -1;
 			callNum++;
 			GetWindowText(hTextArea, buf, 400000);
 
 			DeInitConsole();
 
-			ostringstream ostr;
-
 			nullcSetExecutor(NULLC_VM);
 			nullcSetExecutorOptions(false);
-
+		//for(int kkk = 0; kkk < 100; kkk++)
+		//{
 			nullres good = nullcCompile(buf);
 			nullcGetListing();
+
 			char *bytecode;
-			nullcGetBytecode(&bytecode);
+			unsigned int size = nullcGetBytecode(&bytecode);
 			nullcClean();
 			nullcLinkCode(bytecode, 1);
 			delete[] bytecode;
 			if(!good)
 			{
-				ostr << nullcGetCompilationError();
-				SetWindowText(hCode, ostr.str().c_str());
+				SetWindowText(hCode, nullcGetCompilationError());
 			}else{
 				SetWindowText(hCode, nullcGetListing());
 
@@ -700,24 +699,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				double time = myGetPreciseTime();
 				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
 
+				char	result[128];
+
 				if(goodRun)
 				{
 					const char *val = nullcGetResult();
 					double execTime = myGetPreciseTime()-time;
 
-					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << execTime << "]";
+					/*if(val[0] != '1' || val[1] != 0)
+					{
+						char nbuf[64];
+						SetWindowText(hResult, _itoa(kkk, nbuf, 10));
+						break;
+					}*/
+
+					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime);
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
-
-					SetWindowText(hResult, ostr.str().c_str());
 				}else{
-					ostr << nullcGetRuntimeError() << " [in: " << myGetPreciseTime()-time << "]";
-					SetWindowText(hResult, ostr.str().c_str());
+					sprintf_s(result, 128, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
 				}
+				SetWindowText(hResult, result);
 			}
 			SetWindowText(hLog, nullcGetCompilationLog());
+	//	}
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{

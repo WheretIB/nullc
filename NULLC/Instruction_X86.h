@@ -216,7 +216,7 @@ struct x86Argument
 		else if(type == argLabel)
 			curr += sprintf(curr, "%s", labelName);
 		else if(type == argPtrLabel)
-			curr += sprintf(curr, "[%s + %d]", labelName, ptrNum);
+			curr += sprintf(curr, "[%s+%d]", labelName, ptrNum);
 		else if(type == argPtr){
 			curr += sprintf(curr, "%s [", x86SizeText[ptrSize]);
 			if(ptrReg[0] != rNONE)
@@ -227,8 +227,8 @@ struct x86Argument
 				curr += sprintf(curr, " + %s", x86RegText[ptrReg[1]]);
 			if(ptrReg[0] == rNONE && ptrReg[1] == rNONE)
 				curr += sprintf(curr, "%d", ptrNum);
-			else
-				curr += sprintf(curr, " + %d", ptrNum);
+			else if(ptrNum != 0)
+				curr += sprintf(curr, "+%d", ptrNum);
 			curr += sprintf(curr, "]");
 		}
 

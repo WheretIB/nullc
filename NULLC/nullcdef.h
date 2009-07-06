@@ -15,7 +15,7 @@
 //#define NULLC_LOG_FILES
 
 #ifdef _MSC_VER
-//#define NULLC_BUILD_X86_JIT
+#define NULLC_BUILD_X86_JIT
 #endif
 
 #endif

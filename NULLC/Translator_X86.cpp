@@ -711,6 +711,23 @@ int x86ADD(unsigned char *stream, x86Reg dst, int num)
 	*(int*)(stream+2) = num;
 	return 6;
 }
+// add dword [reg+shift], num
+int x86ADD(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
+{
+	assert(size == sDWORD);
+	if((char)(num) == num)
+	{
+		stream[0] = 0x83;
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
+		stream[1+asize] = (char)(num);
+		return asize + 2;
+	}
+	// else
+	stream[0] = 0x81;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
+	*(int*)(stream+1+asize) = num;
+	return asize + 5;
+}
 // add dword [reg+shift], op2
 int x86ADD(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
 {
@@ -781,6 +798,23 @@ int x86SUB(unsigned char *stream, x86Reg dst, int num)
 	*(int*)(stream+2) = num;
 	return 6;
 }
+// sub dword [reg+shift], num
+int x86SUB(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
+{
+	assert(size == sDWORD);
+	if((char)(num) == num)
+	{
+		stream[0] = 0x83;
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
+		stream[1+asize] = (char)(num);
+		return asize + 2;
+	}
+	// else
+	stream[0] = 0x81;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
+	*(int*)(stream+1+asize) = num;
+	return asize + 5;
+}
 // sub dword [reg+shift], op2
 int x86SUB(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
 {
@@ -804,6 +838,23 @@ int x86SBB(unsigned char *stream, x86Reg dst, int num)
 	stream[1] = encodeRegister(dst, 3);
 	*(int*)(stream+2) = num;
 	return 6;
+}
+// sbb dword [reg+shift], num
+int x86SBB(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
+{
+	assert(size == sDWORD);
+	if((char)(num) == num)
+	{
+		stream[0] = 0x83;
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
+		stream[1+asize] = (char)(num);
+		return asize + 2;
+	}
+	// else
+	stream[0] = 0x81;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
+	*(int*)(stream+1+asize) = num;
+	return asize + 5;
 }
 // sbb dword [reg+shift], op2
 int x86SBB(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)

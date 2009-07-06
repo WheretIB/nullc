@@ -79,6 +79,8 @@ void*	FindVar(const char* name)
 
 bool	RunCode(const char *code, unsigned int executor, bool optimization, const char* expected)
 {
+	//if(executor != NULLC_VM)
+	//	return false;
 	nullcSetExecutor(executor);
 	nullcSetExecutorOptions(optimization);
 
