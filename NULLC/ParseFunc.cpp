@@ -1090,7 +1090,7 @@ unsigned int NodeArrayIndex::GetSize()
 	if(knownShift)
 		return first->GetSize() + 2;
 	// else
-	return first->GetSize() + second->GetSize() + 1 + (podTypeToStackType[second->GetTypeInfo()->type] == STYPE_INT ? 0 : 1);
+	return first->GetSize() + second->GetSize() + 1 + (typeParent->subType->size == 1 && podTypeToStackType[second->GetTypeInfo()->type] == STYPE_INT ? 0 : 1);
 }
 
 TypeInfo* NodeArrayIndex::GetTypeInfo()
@@ -1855,7 +1855,7 @@ void NodeSwitchExpr::Compile()
 		switchEnd += (*s)->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
 
 	// Сохраним адрес для оператора break;
-	breakAddr.push_back(switchEnd+2);
+	breakAddr.push_back(switchEnd+1);
 
 	// Сгенерируем код для всех case'ов
 	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
@@ -1892,7 +1892,7 @@ void NodeSwitchExpr::Compile()
 		(*block)->Compile();
 		if(blockNum != caseBlockList.size()-1)
 		{
-			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 1));
+			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 2));
 		}
 	}
 
