@@ -132,13 +132,11 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 	executeLog = linker->GetLinkError();
 	if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		try
+		executorX86->SetOptimization(execOptimize);
+		bool res = executorX86->TranslateToNative();
+		if(!res)
 		{
-			executorX86->SetOptimization(execOptimize);
-			executorX86->TranslateToNative();
-		}catch(const std::string& str){
-			executeLog += "    " + str;
-			return false;
+			executeLog = executor->GetResult();
 		}
 #else
 		executeLog = "X86 JIT isn't available";

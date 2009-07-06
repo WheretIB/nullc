@@ -300,6 +300,14 @@
 			Name="Executor_X86"
 			>
 			<File
+				RelativePath=".\CodeGen_X86.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\CodeGen_X86.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Executor_X86.cpp"
 				>
 			</File>

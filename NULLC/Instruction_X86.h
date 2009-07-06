@@ -135,21 +135,21 @@ struct x86Argument
 		Empty();
 	}
 	// immediate number
-	x86Argument(int Num)
+	explicit x86Argument(int Num)
 	{
 		Empty();
 		type = argNumber;
 		num = Num;
 	}
 	// register
-	x86Argument(x86Reg Register)
+	explicit x86Argument(x86Reg Register)
 	{
 		Empty();
 		type = argReg;
 		reg = Register;
 	}
 	// fp register
-	x86Argument(x87Reg fpReg)
+	explicit x86Argument(x87Reg fpReg)
 	{
 		Empty();
 		type = argFPReg;
@@ -268,9 +268,9 @@ const int INST_COMMENT = 1;
 struct x86Instruction
 {
 	x86Instruction(){ name = o_other; }
-	x86Instruction(const char* Label){ name = o_label; assert(strlen(Label) < 16); strncpy(labelName, Label, 16); }
+	explicit x86Instruction(const char* Label){ name = o_label; assert(strlen(Label) < 16); strncpy(labelName, Label, 16); }
 	x86Instruction(int comment, const char* text){ (void)comment; name = o_other; assert(strlen(text) < 32); strncpy(labelName, text, 32); }
-	x86Instruction(x86Command Name){ name = Name; }
+	explicit x86Instruction(x86Command Name){ name = Name; }
 	x86Instruction(x86Command Name, x86Argument a){ name = Name; argA = a; }
 	x86Instruction(x86Command Name, x86Argument a, x86Argument b){ name = Name; argA = a; argB = b; }
 	x86Instruction(x86Command Name, x86Argument a, x86Argument b, x86Argument c){ name = Name; argA = a; argB = b; argC = c; }

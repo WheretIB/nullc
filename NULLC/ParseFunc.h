@@ -137,7 +137,7 @@ ASM_TYPE_TRAITS(float, DTYPE_FLOAT, STYPE_DOUBLE); // float expands to double
 ASM_TYPE_TRAITS(double, DTYPE_DOUBLE, STYPE_DOUBLE);
 
 //Zero child operators
-void NodeNumberPushCommand(asmDataType dt, char* data, unsigned int dataSize);
+void NodeNumberPushCommand(asmDataType dt, char* data);
 template<typename T>
 class NodeNumber: public NodeZeroOP
 {
@@ -149,7 +149,7 @@ public:
 	virtual void Compile()
 	{
 		typedef AsmTypeTraits<T> Traits;
-		NodeNumberPushCommand(Traits::dataType, (char*)(&num), sizeof(T));
+		NodeNumberPushCommand(Traits::dataType, (char*)(&num));
 	}
 	virtual void LogToStream(ostringstream& ostr)
 	{

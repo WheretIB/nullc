@@ -258,7 +258,7 @@ struct VMCmd
 	{
 		Set(0, 0, 0, 0);
 	}
-	VMCmd(InstructionCode Cmd)
+	explicit VMCmd(InstructionCode Cmd)
 	{
 		Set((CmdID)Cmd, 0, 0, 0);
 	}
