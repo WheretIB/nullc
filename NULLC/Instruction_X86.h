@@ -115,7 +115,7 @@ enum x86Command
 
 
 static char* x86CmdText[] = 
-{	"none", "mov", "movsx", "push", "pop", "lea", "xchg", "cdq", "rep movsd",
+{	"", "mov", "movsx", "push", "pop", "lea", "xchg", "cdq", "rep movsd",
 	"jmp", "ja", "jae", "jb", "jbe", "jc", "je", "jz", "jg", "jl", "jne", "jnp", "jnz", "jp", "call", "ret",
 	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
@@ -132,62 +132,89 @@ struct x86Argument
 	// no argument
 	x86Argument()
 	{
-		type = argNone;
+		Empty();
 	}
 	// immediate number
 	x86Argument(int Num)
 	{
+		Empty();
 		type = argNumber;
 		num = Num;
 	}
 	// register
 	x86Argument(x86Reg Register)
 	{
+		Empty();
 		type = argReg;
 		reg = Register;
 	}
 	// fp register
 	x86Argument(x87Reg fpReg)
 	{
+		Empty();
 		type = argFPReg;
 		fpArg = fpReg;
 	}
 	// size [num]
 	x86Argument(x86Size Size, unsigned int Num)
 	{
+		Empty();
 		type = argPtr;
 		ptrSize = Size; ptrReg[0] = rNONE; ptrMult = 1; ptrReg[1] = rNONE; ptrNum = Num;
 	}
 	// size [register + num]
 	x86Argument(x86Size Size, x86Reg RegA, unsigned int Num)
 	{
+		Empty();
 		type = argPtr;
 		ptrSize = Size; ptrReg[0] = RegA; ptrMult = 1; ptrReg[1] = rNONE; ptrNum = Num;
 	}
 	// size [register + register + num]
 	x86Argument(x86Size Size, x86Reg RegA, x86Reg RegB, unsigned int Num)
 	{
+		Empty();
 		type = argPtr;
 		ptrSize = Size; ptrReg[0] = RegA; ptrMult = 1; ptrReg[1] = RegB; ptrNum = Num;
 	}
 	// size [register * multiplier + register + num]
 	x86Argument(x86Size Size, x86Reg RegA, unsigned int Mult, x86Reg RegB, unsigned int Num)
 	{
+		Empty();
 		type = argPtr;
 		ptrSize = Size; ptrReg[0] = RegA; ptrMult = Mult; ptrReg[1] = RegB; ptrNum = Num;
 	}
 	// label
 	x86Argument(const char* Label)
 	{
+		Empty();
 		type = argLabel;
 		assert(strlen(Label) < 16); strncpy(labelName, Label, 16);
 	}
 	// dword [label+number]
 	x86Argument(const char* Label, unsigned int Num)
 	{
+		Empty();
 		type = argPtrLabel;
 		assert(strlen(Label) < 16); strncpy(labelName, Label, 16);
 		ptrNum = Num;
+	}
+
+	void Empty()
+	{
+		type = argNone;
+		num = 0; fpArg = rST0; ptrSize = sNONE; ptrReg[0] = rNONE; ptrMult = 1; ptrReg[1] = rNONE; ptrNum = 0;
+		memset(labelName, 0, 16);
+	}
+
+	bool operator==(const x86Argument& r)
+	{
+		if(type != r.type || reg != r.reg || num != r.num || fpArg != r.fpArg)
+			return false;
+		if(ptrSize != r.ptrSize || ptrReg[0] != r.ptrReg[0] || ptrReg[1] != r.ptrReg[1] || ptrMult != r.ptrMult || ptrNum != r.ptrNum)
+			return false;
+		if(memcmp(labelName, r.labelName, 16) != 0)
+			return false;
+		return true;
 	}
 
 	ArgType	type;
