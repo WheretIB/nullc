@@ -2,8 +2,6 @@
 
 #include "StdLib_X86.h"
 
-//#define Emit instList.push_back(x86Instruction()), instList.back() = x86Instruction
-
 FastVector<x86Instruction>	*myInstList;
 
 void Emit(const char* Label)
