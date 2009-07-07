@@ -47,9 +47,9 @@ void GoUp()
 	preStr = preStr.substr(0, preStr.length()-5);
 	preStr += "__";
 }
-void DrawLine(ostringstream& ostr)
+void DrawLine(FILE *fGraph)
 {
-	ostr << preStr;
+	fprintf(fGraph, "%s", preStr.c_str());
 	if(preNeedChange)
 	{
 		preNeedChange = false;
@@ -185,10 +185,10 @@ NodeZeroOP::~NodeZeroOP()
 void NodeZeroOP::Compile()
 {
 }
-void NodeZeroOP::LogToStream(ostringstream& ostr)
+void NodeZeroOP::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "ZeroOp\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s ZeroOp\r\n", typeInfo->GetTypeName().c_str());
 }
 unsigned int NodeZeroOP::GetSize()
 {
@@ -221,12 +221,12 @@ void NodeOneOP::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeOneOP::LogToStream(ostringstream& ostr)
+void NodeOneOP::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "OneOP :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s OneOP :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeOneOP::GetSize()
@@ -252,12 +252,13 @@ void NodeTwoOP::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeTwoOP::LogToStream(ostringstream& ostr)
+void NodeTwoOP::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "TwoOp :\r\n"; GoDown();
-	first->LogToStream(ostr);
-	second->LogToStream(ostr);
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s TwoOp :\r\n", typeInfo->GetTypeName().c_str());
+	GoDown();
+	first->LogToStream(fGraph);
+	second->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeTwoOP::GetSize()
@@ -283,14 +284,14 @@ void NodeThreeOP::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeThreeOP::LogToStream(ostringstream& ostr)
+void NodeThreeOP::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "ThreeOp :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s ThreeOp :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	first->LogToStream(ostr);
-	second->LogToStream(ostr);
-	third->LogToStream(ostr);
+	first->LogToStream(fGraph);
+	second->LogToStream(fGraph);
+	third->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeThreeOP::GetSize()
@@ -346,12 +347,12 @@ void NodePopOp::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodePopOp::LogToStream(ostringstream& ostr)
+void NodePopOp::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "PopOp :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s PopOp :\r\n", typeInfo->GetTypeName().c_str());
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodePopOp::GetSize()
@@ -396,12 +397,12 @@ void NodeUnaryOp::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeUnaryOp::LogToStream(ostringstream& ostr)
+void NodeUnaryOp::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "UnaryOp :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s UnaryOp :\r\n", typeInfo->GetTypeName().c_str());
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeUnaryOp::GetSize()
@@ -448,15 +449,15 @@ void NodeReturnOp::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeReturnOp::LogToStream(ostringstream& ostr)
+void NodeReturnOp::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
+	DrawLine(fGraph);
 	if(typeInfo)
-		ostr << *typeInfo << "ReturnOp :\r\n";
+		fprintf(fGraph, "%s ReturnOp :\r\n", typeInfo->GetTypeName().c_str());
 	else
-		ostr << *first->GetTypeInfo() << "ReturnOp :\r\n";
+		fprintf(fGraph, "%s ReturnOp :\r\n", first->GetTypeInfo()->GetTypeName().c_str());
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeReturnOp::GetSize()
@@ -487,12 +488,12 @@ void NodeExpression::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeExpression::LogToStream(ostringstream& ostr)
+void NodeExpression::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "Expression :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s Expression :\r\n", typeInfo->GetTypeName().c_str());
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeExpression::GetSize()
@@ -520,10 +521,10 @@ void NodeVarDef::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeVarDef::LogToStream(ostringstream& ostr)
+void NodeVarDef::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "VarDef '" << name << "'\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s VarDef '%s'\r\n", typeInfo->GetTypeName().c_str(), name.c_str());
 }
 unsigned int NodeVarDef::GetSize()
 {
@@ -559,12 +560,12 @@ void NodeBlock::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeBlock::LogToStream(ostringstream& ostr)
+void NodeBlock::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "Block (" << shift << ") :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s Block (%d)\r\n", typeInfo->GetTypeName().c_str(), shift);
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeBlock::GetSize()
@@ -613,12 +614,12 @@ void NodeFuncDef::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeFuncDef::LogToStream(ostringstream& ostr)
+void NodeFuncDef::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "FuncDef " << funcInfo->name << (disabled ? " disabled" : "") << "\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s FuncDef %s %s\r\n", typeInfo->GetTypeName().c_str(), funcInfo->name.c_str(), (disabled ? " disabled" : ""));
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeFuncDef::GetSize()
@@ -732,15 +733,15 @@ void NodeFuncCall::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeFuncCall::LogToStream(ostringstream& ostr)
+void NodeFuncCall::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "FuncCall '" << (funcInfo ? funcInfo->name : "$ptr") << "' " << paramList.size() << ":\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetTypeName().c_str(), (funcInfo ? funcInfo->name.c_str() : "$ptr"), paramList.size());
 	GoDown();
 	if(first)
-		first->LogToStream(ostr);
+		first->LogToStream(fGraph);
 	if(second)
-		second->LogToStream(ostr);
+		second->LogToStream(fGraph);
 	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
 	{
 		if(s == --paramList.rend())
@@ -748,7 +749,7 @@ void NodeFuncCall::LogToStream(ostringstream& ostr)
 			GoUp();
 			GoDownB();
 		}
-		(*s)->LogToStream(ostr);
+		(*s)->LogToStream(fGraph);
 	}
 	GoUp();
 }
@@ -840,15 +841,15 @@ void NodeGetAddress::Compile()
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
-void NodeGetAddress::LogToStream(ostringstream& ostr)
+void NodeGetAddress::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *GetReferenceType(typeInfo) << "GetAddress ";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s GetAddress ", GetReferenceType(typeInfo)->GetTypeName().c_str());
 	if(varInfo)
-		ostr << *varInfo;
+		fprintf(fGraph, "%s%s '%s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetTypeName().c_str(), varInfo->name.c_str());
 	else
-		ostr << "$$$";
-	ostr << " (" << (int)varAddress << (absAddress ? " absolute" : " relative") << ")\r\n";
+		fprintf(fGraph, "$$$");
+	fprintf(fGraph, " (%d %s)\r\n", (int)varAddress, (absAddress ? " absolute" : " relative"));
 }
 
 unsigned int NodeGetAddress::GetSize()
@@ -968,15 +969,15 @@ void NodeVariableSet::Compile()
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
-void NodeVariableSet::LogToStream(ostringstream& ostr)
+void NodeVariableSet::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "VariableSet " << (arrSetAll ? "set all elements" : "") << "\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s VariableSet %s\r\n", typeInfo->GetTypeName().c_str(), (arrSetAll ? "set all elements" : ""));
 	GoDown();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 	GoDownB();
-	second->LogToStream(ostr);
+	second->LogToStream(fGraph);
 	GoUp();
 }
 
@@ -1071,17 +1072,15 @@ void NodeArrayIndex::Compile()
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
-void NodeArrayIndex::LogToStream(ostringstream& ostr)
+void NodeArrayIndex::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "ArrayIndex " << *typeParent;
-	ostr << " known: " << knownShift << " shiftval: " << shiftValue;
-	ostr << "\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s ArrayIndex %s known: %d shiftval: %d\r\n", typeInfo->GetTypeName().c_str(), typeParent->GetTypeName().c_str(), knownShift, shiftValue);
 	GoDown();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 	GoDownB();
-	second->LogToStream(ostr);
+	second->LogToStream(fGraph);
 	GoUp();
 }
 
@@ -1160,12 +1159,12 @@ void NodeDereference::Compile()
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
-void NodeDereference::LogToStream(ostringstream& ostr)
+void NodeDereference::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "Dereference " << "\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s Dereference\r\n", typeInfo->GetTypeName().c_str());
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 
@@ -1212,12 +1211,12 @@ void NodeShiftAddress::Compile()
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
-void NodeShiftAddress::LogToStream(ostringstream& ostr)
+void NodeShiftAddress::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "ShiftAddress" << "\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s ShiftAddress\r\n", typeInfo->GetTypeName().c_str());
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 
@@ -1326,12 +1325,12 @@ void NodePreOrPostOp::Compile()
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
-void NodePreOrPostOp::LogToStream(ostringstream& ostr)
+void NodePreOrPostOp::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "PreOrPostOp " << (prefixOp ? "prefix" : "postfix") << "\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s PreOrPostOp %s\r\n", typeInfo->GetTypeName().c_str(), (prefixOp ? "prefix" : "postfix"));
 	GoDownB();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 }
 
@@ -1392,14 +1391,14 @@ void NodeFunctionAddress::Compile()
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
 
-void NodeFunctionAddress::LogToStream(ostringstream& ostr)
+void NodeFunctionAddress::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "FunctionAddress " << funcInfo->name << (funcInfo->funcPtr ? " external" : "") << "\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s FunctionAddress %s %s\r\n", typeInfo->GetTypeName().c_str(), funcInfo->name.c_str(), (funcInfo->funcPtr ? " external" : ""));
 	if(first)
 	{
 		GoDownB();
-		first->LogToStream(ostr);
+		first->LogToStream(fGraph);
 		GoUp();
 	}
 }
@@ -1466,17 +1465,17 @@ void NodeTwoAndCmdOp::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeTwoAndCmdOp::LogToStream(ostringstream& ostr)
+void NodeTwoAndCmdOp::LogToStream(FILE *fGraph)
 {
 	if((cmdID < cmdAdd) || (cmdID > cmdLogXor))
 		throw std::string("ERROR: TwoAndCmd error");
-	DrawLine(ostr);
-	ostr << *typeInfo << "TwoAndCmd<" << binCommandToText[cmdID-cmdAdd] << "> :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s TwoAndCmd<%s> :\r\n", typeInfo->GetTypeName().c_str(), binCommandToText[cmdID-cmdAdd]);
 	GoDown();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 	GoDownB();
-	second->LogToStream(ostr);
+	second->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeTwoAndCmdOp::GetSize()
@@ -1540,23 +1539,23 @@ void NodeIfElseExpr::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeIfElseExpr::LogToStream(ostringstream& ostr)
+void NodeIfElseExpr::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "IfExpression :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s IfExpression :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	if(!third)
 	{
 		GoUp();
 		GoDownB();
 	}
-	second->LogToStream(ostr);
+	second->LogToStream(fGraph);
 	if(third)
 	{
 		GoUp();
 		GoDownB();
-		third->LogToStream(ostr);
+		third->LogToStream(fGraph);
 	}
 	GoUp();
 }
@@ -1619,17 +1618,17 @@ void NodeForExpr::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeForExpr::LogToStream(ostringstream& ostr)
+void NodeForExpr::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "ForExpression :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s ForExpression :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	first->LogToStream(ostr);
-	second->LogToStream(ostr);
-	third->LogToStream(ostr);
+	first->LogToStream(fGraph);
+	second->LogToStream(fGraph);
+	third->LogToStream(fGraph);
 	GoUp();
 	GoDownB(); 
-	fourth->LogToStream(ostr);
+	fourth->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeForExpr::GetSize()
@@ -1678,15 +1677,15 @@ void NodeWhileExpr::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeWhileExpr::LogToStream(ostringstream& ostr)
+void NodeWhileExpr::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "WhileExpression :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s WhileExpression :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 	GoDownB(); 
-	second->LogToStream(ostr);
+	second->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeWhileExpr::GetSize()
@@ -1731,15 +1730,15 @@ void NodeDoWhileExpr::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeDoWhileExpr::LogToStream(ostringstream& ostr)
+void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "DoWhileExpression :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s DoWhileExpression :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	GoUp();
 	GoDownB();
-	second->LogToStream(ostr);
+	second->LogToStream(fGraph);
 	GoUp();
 }
 unsigned int NodeDoWhileExpr::GetSize()
@@ -1770,10 +1769,10 @@ void NodeBreakOp::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeBreakOp::LogToStream(ostringstream& ostr)
+void NodeBreakOp::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "BreakExpression\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s BreakExpression\r\n", typeInfo->GetTypeName().c_str());
 }
 unsigned int NodeBreakOp::GetSize()
 {
@@ -1805,10 +1804,10 @@ void NodeContinueOp::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeContinueOp::LogToStream(ostringstream& ostr)
+void NodeContinueOp::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "ContinueOp\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s ContinueOp\r\n", typeInfo->GetTypeName().c_str());
 }
 unsigned int NodeContinueOp::GetSize()
 {
@@ -1903,23 +1902,23 @@ void NodeSwitchExpr::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeSwitchExpr::LogToStream(ostringstream& ostr)
+void NodeSwitchExpr::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "SwitchExpression :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s SwitchExpression :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	first->LogToStream(ostr);
+	first->LogToStream(fGraph);
 	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
 	casePtr block = caseBlockList.begin(), eblocl = caseBlockList.end();
 	for(; cond != econd; cond++, block++)
 	{
-		(*cond)->LogToStream(ostr);
+		(*cond)->LogToStream(fGraph);
 		if(block == --caseBlockList.end())
 		{
 			GoUp();
 			GoDownB();
 		}
-		(*block)->LogToStream(ostr);
+		(*block)->LogToStream(fGraph);
 	}
 	GoUp();
 }
@@ -1969,10 +1968,10 @@ void NodeExpressionList::Compile()
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
-void NodeExpressionList::LogToStream(ostringstream& ostr)
+void NodeExpressionList::LogToStream(FILE *fGraph)
 {
-	DrawLine(ostr);
-	ostr << *typeInfo << "NodeExpressionList :\r\n";
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s NodeExpressionList :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
 	listPtr s, e;
 	for(s = exprList.begin(), e = exprList.end(); s != e; s++)
@@ -1982,7 +1981,7 @@ void NodeExpressionList::LogToStream(ostringstream& ostr)
 			GoUp();
 			GoDownB();
 		}
-		(*s)->LogToStream(ostr);
+		(*s)->LogToStream(fGraph);
 	}
 	GoUp();
 }

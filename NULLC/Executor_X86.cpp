@@ -84,7 +84,7 @@ DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 }
 
-typedef void (*codegenCallback)(VMCmd, FastVector<x86Instruction>&);
+typedef void (*codegenCallback)(VMCmd);
 codegenCallback cgFuncs[cmdAddAtDoubleStk+1];
 
 bool ExecutorX86::Initialize() throw()
@@ -431,6 +431,7 @@ bool ExecutorX86::TranslateToNative()
 
 	ResetStackTracking();
 	SetParamBase(paramBase);
+	SetInstructionList(&instList);
 
 	int stackRelSize = 0, stackRelSizePrev = 0;
 
@@ -551,7 +552,7 @@ bool ExecutorX86::TranslateToNative()
 				}
 			}
 		}else{
-			cgFuncs[cmd.cmd](cmd, instList);
+			cgFuncs[cmd.cmd](cmd);
 		}
 		
 		if(stackRelSize + GetStackTrackInfo() == 0 && stackRelSizePrev != 0)

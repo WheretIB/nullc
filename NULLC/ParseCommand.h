@@ -252,6 +252,39 @@ enum InstructionCode
 	cmdAddAtDoubleStk,
 };
 
+static char *vmInstructionText[] =
+{
+	"Nop",
+	"PushCharAbs", "PushShortAbs", "PushIntAbs", "PushFloatAbs", "PushDorLAbs", "PushCmplxAbs",
+	"PushCharRel", "PushShortRel", "PushIntRel", "PushFloatRel", "PushDorLRel", "PushCmplxRel",
+	"PushCharStk", "PushShortStk", "PushIntStk", "PushFloatStk", "PushDorLStk", "PushCmplxStk",
+	"PushImmt",
+	"MovCharAbs", "MovShortAbs", "MovIntAbs", "MovFloatAbs", "MovDorLAbs", "MovCmplxAbs",
+	"MovCharRel", "MovShortRel", "MovIntRel", "MovFloatRel", "MovDorLRel", "MovCmplxRel",
+	"MovCharStk", "MovShortStk", "MovIntStk", "MovFloatStk", "MovDorLStk", "MovCmplxStk",
+	"ReserveV",
+	"PopCharTop", "PopShortTop", "PopIntTop", "PopFloatTop", "PopDorLTop", "PopCmplxTop",
+	"Pop",
+	"DtoI", "DtoL", "DtoF", "ItoD", "LtoD", "ItoL", "LtoI",
+	"ImmtMulD", "ImmtMulL", "ImmtMulI",
+	"CopyDorL", "CopyI",
+	"GetAddr", "FuncAddr", "SetRange",
+	"Jmp", "JmpZI", "JmpZD", "JmpZL", "JmpNZI", "JmpNZD", "JmpNZL",
+	"Call", "CallStd", "Return",
+	"PushVTop", "PopVTop", "PushV",
+	"Add", "Sub", "Mul", "Div", "Pow", "Mod", "Less", "Greater", "LEqual", "GEqual", "Equal", "NEqual",
+	"Shl", "Shr", "BitAnd", "BitOr", "BitXor", "LogAnd", "LogOr", "LogXor",
+	"AddL", "SubL", "MulL", "DivL", "PowL", "ModL", "LessL", "GreaterL", "LEqualL", "GEqualL", "EqualL", "NEqualL",
+	"ShlL", "ShrL", "BitAndL", "BitOrL", "BitXorL", "LogAndL", "LogOrL", "LogXorL",
+	"AddD", "SubD", "MulD", "DivD", "PowD", "ModD", "LessD", "GreaterD", "LEqualD", "GEqualD", "EqualD", "NEqualD",
+	"Neg", "BitNot", "LogNot",
+	"NegL", "BitNotL", "LogNotL",
+	"NegD", "noBitNotD", "LogNotD",
+	"IncI", "IncD", "IncL",
+	"DecI", "DecD", "DecL",
+	"AddAtCharStk", "AddAtShortStk", "AddAtIntStk", "AddAtLongStk", "AddAtFloatStk", "AddAtDoubleStk"
+};
+
 struct VMCmd
 {
 	VMCmd()
@@ -282,6 +315,136 @@ struct VMCmd
 		helper = Helper;
 		argument = Arg;
 	}
+
+	#ifdef NULLC_LOG_FILES
+    void Decode(char *buf)
+	{
+		char *curr = buf;
+		curr += sprintf(curr, "%s", vmInstructionText[cmd]);
+
+		switch(cmd)
+		{
+		case cmdPushCharAbs:
+		case cmdPushShortAbs:
+		case cmdPushIntAbs:
+		case cmdPushFloatAbs:
+		case cmdPushDorLAbs:
+		case cmdPushCmplxAbs:
+
+		case cmdPushCharRel:
+		case cmdPushShortRel:
+		case cmdPushIntRel:
+		case cmdPushFloatRel:
+		case cmdPushDorLRel:
+		case cmdPushCmplxRel:
+
+		case cmdPushCharStk:
+		case cmdPushShortStk:
+		case cmdPushIntStk:
+		case cmdPushFloatStk:
+		case cmdPushDorLStk:
+		case cmdPushCmplxStk:
+			curr += sprintf(curr, " [%d] sizeof(%d)", argument, helper);
+			break;
+
+		case cmdPushImmt:
+			curr += sprintf(curr, " %d", argument);
+			break;
+
+		case cmdMovCharAbs:
+		case cmdMovShortAbs:
+		case cmdMovIntAbs:
+		case cmdMovFloatAbs:
+		case cmdMovDorLAbs:
+		case cmdMovCmplxAbs:
+
+		case cmdMovCharRel:
+		case cmdMovShortRel:
+		case cmdMovIntRel:
+		case cmdMovFloatRel:
+		case cmdMovDorLRel:
+		case cmdMovCmplxRel:
+
+		case cmdMovCharStk:
+		case cmdMovShortStk:
+		case cmdMovIntStk:
+		case cmdMovFloatStk:
+		case cmdMovDorLStk:
+		case cmdMovCmplxStk:
+			curr += sprintf(curr, " [%d] sizeof(%d)", argument, helper);
+			break;
+
+		case cmdReserveV:
+			curr += sprintf(curr, " %d", argument);
+			break;
+
+		case cmdPopCharTop:
+		case cmdPopShortTop:
+		case cmdPopIntTop:
+		case cmdPopFloatTop:
+		case cmdPopDorLTop:
+		case cmdPopCmplxTop:
+			curr += sprintf(curr, " [%d] sizeof(%d)", argument, helper);
+			break;
+
+		case cmdPop:
+			curr += sprintf(curr, " %d", argument);
+			break;
+
+		case cmdImmtMulD:
+		case cmdImmtMulL:
+		case cmdImmtMulI:
+			curr += sprintf(curr, " %d", argument);
+			break;
+
+		case cmdGetAddr:
+			curr += sprintf(curr, " %d", argument);
+			break;
+		case cmdFuncAddr:
+			curr += sprintf(curr, " %d", argument);
+			break;
+
+		case cmdSetRange:
+			curr += sprintf(curr, " start: %d dtype: %d", argument, helper);
+			break;
+
+		case cmdJmp:
+		case cmdJmpZI:
+		case cmdJmpZD:
+		case cmdJmpZL:
+		case cmdJmpNZI:
+		case cmdJmpNZD:
+		case cmdJmpNZL:
+			curr += sprintf(curr, " %d", argument);
+			break;
+
+		case cmdCall:
+			curr += sprintf(curr, " id/address: %d helper: %d", argument, helper);
+			break;
+
+		case cmdCallStd:
+			curr += sprintf(curr, " ID: %d", argument);
+			break;
+
+		case cmdReturn:
+			curr += sprintf(curr, " flag: %d sizeof: %d popcnt: %d", (int)flag, helper, argument);
+			break;
+
+		case cmdPushV:
+			curr += sprintf(curr, " %d", argument);
+			break;
+
+		case cmdAddAtCharStk:
+		case cmdAddAtShortStk:
+		case cmdAddAtIntStk:
+		case cmdAddAtLongStk:
+		case cmdAddAtFloatStk:
+		case cmdAddAtDoubleStk:
+			curr += sprintf(curr, " [stk + %d] flag: %d helper: %d", argument, (int)flag, helper);
+			break;
+		}
+	}
+#endif
 
 	CmdID	cmd;
 	unsigned char	flag;		// rarely used (cmdIncAt, cmdDecAt)
@@ -410,430 +573,6 @@ public:
 		}
 		return NULL;
 	}
-	
-#ifdef NULLC_LOG_FILES
-    static void PrintCommandListing(ostream *logASM, VMCmd *cmdStream, VMCmd *cmdStreamEnd)
-	{
-		const char	*typeName[] = { "char", "short", "int", "float", "qword", "complex" };
-		// different for cmdAddAt**
-		const char	*typeNameAA[] = { "char", "short", "int", "long", "float", "double" };
-
-		VMCmd *cmdStreamBase = cmdStream;
-		while(cmdStream < cmdStreamEnd)
-		{
-			const VMCmd &cmd = *cmdStream;
-			*logASM << cmdStream - cmdStreamBase << " ";
-			switch(cmd.cmd)
-			{
-			case cmdNop:
-				*logASM << "NOP\r\n";
-				break;
-			case cmdPushCharAbs:
-			case cmdPushShortAbs:
-			case cmdPushIntAbs:
-			case cmdPushFloatAbs:
-			case cmdPushDorLAbs:
-				*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharAbs] << " [" << cmd.argument << "]";
-				break;
-			case cmdPushCmplxAbs:
-				*logASM << "PUSH complex [" << cmd.argument << "] sizeof(" << cmd.helper << ")";
-				break;
-
-			case cmdPushCharRel:
-			case cmdPushShortRel:
-			case cmdPushIntRel:
-			case cmdPushFloatRel:
-			case cmdPushDorLRel:
-				*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharRel] << " [rel + " << (int)cmd.argument << "]";
-				break;
-			case cmdPushCmplxRel:
-				*logASM << "PUSH complex [rel + " << (int)cmd.argument << "] sizeof(" << cmd.helper << ")";
-				break;
-
-			case cmdPushCharStk:
-			case cmdPushShortStk:
-			case cmdPushIntStk:
-			case cmdPushFloatStk:
-			case cmdPushDorLStk:
-				*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharStk] << " [stack + " << cmd.argument << "]";
-				break;
-			case cmdPushCmplxStk:
-				*logASM << "PUSH complex [stack + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
-				break;
-
-			case cmdPushImmt:
-				*logASM << "PUSHIMMT " << cmd.argument;
-				break;
-
-			case cmdMovCharAbs:
-			case cmdMovShortAbs:
-			case cmdMovIntAbs:
-			case cmdMovFloatAbs:
-			case cmdMovDorLAbs:
-				*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharAbs] << " [" << cmd.argument << "]";
-				break;
-			case cmdMovCmplxAbs:
-				*logASM << "MOV complex [" << cmd.argument << "] sizeof(" << cmd.helper << ")";
-				break;
-
-			case cmdMovCharRel:
-			case cmdMovShortRel:
-			case cmdMovIntRel:
-			case cmdMovFloatRel:
-			case cmdMovDorLRel:
-				*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharRel] << " [rel + " << (int)cmd.argument << "]";
-				break;
-			case cmdMovCmplxRel:
-				*logASM << "MOV complex [rel + " << (int)cmd.argument << "] sizeof(" << cmd.helper << ")";
-				break;
-
-			case cmdMovCharStk:
-			case cmdMovShortStk:
-			case cmdMovIntStk:
-			case cmdMovFloatStk:
-			case cmdMovDorLStk:
-				*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharStk] << " [stack + " << cmd.argument << "]";
-				break;
-			case cmdMovCmplxStk:
-				*logASM << "MOV complex [rel + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
-				break;
-
-			case cmdReserveV:
-				*logASM << "RESERVE " << cmd.argument;
-				break;
-
-			case cmdPopCharTop:
-			case cmdPopShortTop:
-			case cmdPopIntTop:
-			case cmdPopFloatTop:
-			case cmdPopDorLTop:
-				*logASM << "POPTOP " << typeName[cmd.cmd-cmdPopCharTop] << " [top + " << cmd.argument << "]";
-				break;
-			case cmdPopCmplxTop:
-				*logASM << "POPTOP complex [top + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
-				break;
-
-			case cmdPop:
-				*logASM << "POP " << cmd.argument;
-				break;
-
-			case cmdDtoI:
-				*logASM << "DTOI";
-				break;
-			case cmdDtoL:
-				*logASM << "DTOL";
-				break;
-			case cmdDtoF:
-				*logASM << "DTOF";
-				break;
-			case cmdItoD:
-				*logASM << "ITOD";
-				break;
-			case cmdLtoD:
-				*logASM << "LTOD";
-				break;
-			case cmdItoL:
-				*logASM << "ITOL";
-				break;
-			case cmdLtoI:
-				*logASM << "LTOI";
-				break;
-
-			case cmdImmtMulD:
-				*logASM << "IMMTMUL double " << cmd.argument;
-				break;
-			case cmdImmtMulL:
-				*logASM << "IMMTMUL long " << cmd.argument;
-				break;
-			case cmdImmtMulI:
-				*logASM << "IMMTMUL int " << cmd.argument;
-				break;
-
-			case cmdCopyDorL:
-				*logASM << "COPY qword";
-				break;
-			case cmdCopyI:
-				*logASM << "COPY dword";
-				break;
-
-			case cmdGetAddr:
-				*logASM << "GETADDR " << cmd.argument;
-				break;
-			case cmdFuncAddr:
-				*logASM << "FUNCADDR " << cmd.argument;
-				break;
-
-			case cmdSetRange:
-				*logASM << "SETRANGE start: " << cmd.argument << " dtype: " << cmd.helper;
-				break;
-
-			case cmdJmp:
-				*logASM << "JMP " << cmd.argument;
-				break;
-
-			case cmdJmpZI:
-				*logASM << "JMPZ int " << cmd.argument;
-				break;
-			case cmdJmpZD:
-				*logASM << "JMPZ double " << cmd.argument;
-				break;
-			case cmdJmpZL:
-				*logASM << "JMPZ long " << cmd.argument;
-				break;
-
-			case cmdJmpNZI:
-				*logASM << "JMPNZ int " << cmd.argument;
-				break;
-			case cmdJmpNZD:
-				*logASM << "JMPNZ double " << cmd.argument;
-				break;
-			case cmdJmpNZL:
-				*logASM << "JMPNZ long " << cmd.argument;
-				break;
-
-			case cmdCall:
-				*logASM << "CALL ID/address: " << cmd.argument << " helper: " << cmd.helper;
-				break;
-
-			case cmdCallStd:
-				*logASM << "CALLSTD ID: " << cmd.argument;
-				break;
-
-			case cmdReturn:
-				*logASM << "RET flag: " << (int)cmd.flag << " sizeof: " << cmd.helper << " popcnt: " << cmd.argument;
-				break;
-
-			case cmdPushVTop:
-				*logASM << "PUSHT";
-				break;
-			case cmdPopVTop:
-				*logASM << "POPT";
-				break;
-
-			case cmdPushV:
-				*logASM << "PUSHV " << cmd.argument;
-				break;
-
-			case cmdAdd:
-				*logASM << "ADD int";
-				break;
-			case cmdSub:
-				*logASM << "SUB int";
-				break;
-			case cmdMul:
-				*logASM << "MUL int";
-				break;
-			case cmdDiv:
-				*logASM << "DIV int";
-				break;
-			case cmdPow:
-				*logASM << "POW int";
-				break;
-			case cmdMod:
-				*logASM << "MOD int";
-				break;
-			case cmdLess:
-				*logASM << "LESS int";
-				break;
-			case cmdGreater:
-				*logASM << "GREATER int";
-				break;
-			case cmdLEqual:
-				*logASM << "LEQUAL int";
-				break;
-			case cmdGEqual:
-				*logASM << "GEQUAL int";
-				break;
-			case cmdEqual:
-				*logASM << "EQUAL int";
-				break;
-			case cmdNEqual:
-				*logASM << "NEQUAL int";
-				break;
-			case cmdShl:
-				*logASM << "SHL int";
-				break;
-			case cmdShr:
-				*logASM << "SHR int";
-				break;
-			case cmdBitAnd:
-				*logASM << "BAND int";
-				break;
-			case cmdBitOr:
-				*logASM << "BOR int";
-				break;
-			case cmdBitXor:
-				*logASM << "BXOR int";
-				break;
-			case cmdLogAnd:
-				*logASM << "LAND int";
-				break;
-			case cmdLogOr:
-				*logASM << "LOR int";
-				break;
-			case cmdLogXor:
-				*logASM << "LXOR int";
-				break;
-
-			case cmdAddL:
-				*logASM << "ADD long";
-				break;
-			case cmdSubL:
-				*logASM << "SUB long";
-				break;
-			case cmdMulL:
-				*logASM << "MUL long";
-				break;
-			case cmdDivL:
-				*logASM << "DIV long";
-				break;
-			case cmdPowL:
-				*logASM << "POW long";
-				break;
-			case cmdModL:
-				*logASM << "MOD long";
-				break;
-			case cmdLessL:
-				*logASM << "LESS long";
-				break;
-			case cmdGreaterL:
-				*logASM << "GREATER long";
-				break;
-			case cmdLEqualL:
-				*logASM << "LEQUAL long";
-				break;
-			case cmdGEqualL:
-				*logASM << "GEQUAL long";
-				break;
-			case cmdEqualL:
-				*logASM << "EQUAL long";
-				break;
-			case cmdNEqualL:
-				*logASM << "NEQUAL long";
-				break;
-			case cmdShlL:
-				*logASM << "SHL long";
-				break;
-			case cmdShrL:
-				*logASM << "SHR long";
-				break;
-			case cmdBitAndL:
-				*logASM << "BAND long";
-				break;
-			case cmdBitOrL:
-				*logASM << "BOR long";
-				break;
-			case cmdBitXorL:
-				*logASM << "BXOR long";
-				break;
-			case cmdLogAndL:
-				*logASM << "LAND long";
-				break;
-			case cmdLogOrL:
-				*logASM << "LOR long";
-				break;
-			case cmdLogXorL:
-				*logASM << "LXOR long";
-				break;
-
-			case cmdAddD:
-				*logASM << "ADD double";
-				break;
-			case cmdSubD:
-				*logASM << "SUB double";
-				break;
-			case cmdMulD:
-				*logASM << "MUL double";
-				break;
-			case cmdDivD:
-				*logASM << "DIV double";
-				break;
-			case cmdPowD:
-				*logASM << "POW double";
-				break;
-			case cmdModD:
-				*logASM << "MOD double";
-				break;
-			case cmdLessD:
-				*logASM << "LESS double";
-				break;
-			case cmdGreaterD:
-				*logASM << "GREATER double";
-				break;
-			case cmdLEqualD:
-				*logASM << "LEQUAL double";
-				break;
-			case cmdGEqualD:
-				*logASM << "GEQUAL double";
-				break;
-			case cmdEqualD:
-				*logASM << "EQUAL double";
-				break;
-			case cmdNEqualD:
-				*logASM << "NEQUAL double";
-				break;
-
-			case cmdNeg:
-				*logASM << "NEG int";
-				break;
-			case cmdBitNot:
-				*logASM << "BNOT int";
-				break;
-			case cmdLogNot:
-				*logASM << "LNOT int";
-				break;
-
-			case cmdNegL:
-				*logASM << "NEG long";
-				break;
-			case cmdBitNotL:
-				*logASM << "BNOT long";
-				break;
-			case cmdLogNotL:
-				*logASM << "LNOT long";
-				break;
-
-			case cmdNegD:
-				*logASM << "NEG double";
-				break;
-			case cmdLogNotD:
-				*logASM << "LNOT double";
-				break;
-			
-			case cmdIncI:
-				*logASM << "INC int";
-				break;
-			case cmdIncD:
-				*logASM << "INC double";
-				break;
-			case cmdIncL:
-				*logASM << "INC long";
-				break;
-
-			case cmdDecI:
-				*logASM << "DEC int";
-				break;
-			case cmdDecD:
-				*logASM << "DEC double";
-				break;
-			case cmdDecL:
-				*logASM << "DEC long";
-				break;
-
-			case cmdAddAtCharStk:
-			case cmdAddAtShortStk:
-			case cmdAddAtIntStk:
-			case cmdAddAtLongStk:
-			case cmdAddAtFloatStk:
-			case cmdAddAtDoubleStk:
-				*logASM << "ADDAT " << typeNameAA[cmd.cmd-cmdAddAtCharStk] << " [stk + " << cmd.argument << "] flag: " << (int)cmd.flag << " helper: " << cmd.helper;
-				break;
-			}
-			*logASM << "\r\n";
-			cmdStream++;
-		}
-	}
-#endif
 private:
 	std::vector<CodeInfo>	codeInfo;	// Список строк к коду
 };

@@ -114,7 +114,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		if(index == index_none)
 		{
 			typeRemap.push_back(exTypes.size());
-			exTypes.push_back((ExternTypeInfo*)(new char[tInfo->structSize + 16]));
+			exTypes.push_back((ExternTypeInfo*)(new char[tInfo->structSize/* + 16*/]));
+			//memset(exTypes.back(), 0, tInfo->structSize+16);
 			memcpy(exTypes.back(), tInfo, tInfo->structSize);
 			exTypes.back()->name = (char*)(&exTypes.back()->name) + sizeof(exTypes.back()->name);
 			exTypes.back()->next = NULL;	// no one cares
@@ -390,13 +391,14 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	}
 
 #ifdef NULLC_LOG_FILES
-	ostringstream logASM;
-	logASM.str("");
-	CommandList::PrintCommandListing(&logASM, &exCode[0], &exCode[0]+exCode.size());
-
-	ofstream m_FileStream("link.txt", std::ios::binary);
-	m_FileStream << logASM.str();
-	m_FileStream.flush();
+	FILE *linkAsm = fopen("link.txt", "wb");
+	char instBuf[128];
+	for(unsigned int i = 0; i < exCode.size(); i++)
+	{
+		exCode[i].Decode(instBuf);
+		fprintf(linkAsm, "%s\r\n", instBuf);
+	}
+	fclose(linkAsm);
 #endif
 
 	return true;

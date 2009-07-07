@@ -20,7 +20,6 @@ std::vector<TypeInfo*>		CodeInfo::typeInfo;
 CommandList*				CodeInfo::cmdInfoList;
 FastVector<VMCmd>			CodeInfo::cmdList;
 std::vector<shared_ptr<NodeZeroOP> >	CodeInfo::nodeList;
-ostringstream				CodeInfo::compileLog;
 unsigned int				CodeInfo::globalSize = 0;
 
 Compiler*	compiler;
@@ -30,13 +29,12 @@ Executor*	executor;
 	ExecutorX86*	executorX86;
 #endif
 
-std::ostringstream strStream;
 std::string	compileError;
-std::string	compileLogString;
-std::string	compileListing;
 
 const char* executeResult;
 std::string executeLog;
+
+char* compileLog;
 
 unsigned int currExec = 0;
 bool	execOptimize = false;
@@ -51,6 +49,9 @@ void	nullcInit()
 #ifdef NULLC_BUILD_X86_JIT
 	executorX86 = new ExecutorX86(linker);
 	executorX86->Initialize();
+#endif
+#ifdef NULLC_LOG_FILES
+	compileLog = NULL;
 #endif
 }
 
@@ -82,9 +83,7 @@ nullres	nullcCompile(const char* code)
 		compileError = str;
 	}catch(const CompilerError& err){
 		good = false;
-		strStream.str("");
-		strStream << err;
-		compileError = strStream.str();
+		compileError = err.GetErrorString();
 	}
 	return good;
 }
@@ -101,15 +100,30 @@ unsigned int nullcGetBytecode(char **bytecode)
 
 const char*	nullcGetCompilationLog()
 {
-	compileLogString = CodeInfo::compileLog.str();
-	return compileLogString.c_str();
+#ifdef NULLC_LOG_FILES
+	FILE *cLog = fopen("compilelog.txt", "rb");
+	if(!cLog)
+		return "";
+	fseek(cLog, 0, SEEK_END);
+	unsigned int size = ftell(cLog);
+	fseek(cLog, 0, SEEK_SET);
+	delete[] compileLog;
+	compileLog = new char[size+1];
+	fread(compileLog, 1, size, cLog);
+	compileLog[size] = 0;
+	return compileLog;
+#else
+	return "";
+#endif
 }
 
-const char*	nullcGetListing()
+void	nullcSaveListing(const char *fileName)
 {
-	compiler->GenListing();
-	compileListing = compiler->GetListing();
-	return compileListing.c_str();
+#ifdef NULLC_LOG_FILES
+	compiler->SaveListing(fileName);
+#else
+	(void)fileName;
+#endif
 }
 
 void nullcClean()
@@ -232,6 +246,9 @@ void	nullcDeinit()
 	delete executor;
 #ifdef NULLC_BUILD_X86_JIT
 	delete executorX86;
+#endif
+#ifdef NULLC_LOG_FILES
+	delete[] compileLog;
 #endif
 	delete CodeInfo::cmdInfoList;
 }

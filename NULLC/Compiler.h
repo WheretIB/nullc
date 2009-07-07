@@ -10,22 +10,21 @@ public:
 
 	void Init(const char* errStr, const char* apprPos);
 
-	template<class Ch, class Tr>
-
-	friend basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, const CompilerError& err)
+	const char* GetErrorString() const
 	{
-		if(err.lineNum != 0)
-			str << "line " << err.lineNum << " - ";
-		str << err.error;
-		if(err.line[0] != 0)
-			str << "\r\n  at \"" << err.line << '\"';
-		str << "\r\n      ";
-		for(unsigned int i = 0; i < err.shift; i++)
-			str << ' ';
-		str << "^\r\n";
-		return str;
+		static char errBuf[512];
+		char *curr = errBuf;
+		if(lineNum != 0)
+			curr += sprintf(curr, "line %d - ", lineNum);
+		curr += sprintf(curr, "%s", error);
+		if(line[0] != 0)
+			curr += sprintf(curr, "\r\n  at \"%s\"", line);
+		curr += sprintf(curr, "\r\n      ");
+		for(unsigned int i = 0; i < shift; i++)
+			*(curr++) = ' ';
+		curr += sprintf(curr, "^\r\n");
+		return errBuf;
 	}
-
 	static const char *codeStart;
 private:
 	char error[128];
@@ -44,15 +43,9 @@ public:
 
 	bool	Compile(string str);
 	
-	void	GenListing();
-	string	GetListing();
-
-	string	GetLog();
+	void	SaveListing(const char *fileName);
 
 	unsigned int	GetBytecode(char **bytecode);
 private:
 	void	ClearState();
-
-	ostringstream		logAST;
-	ostringstream		logASM;
 };

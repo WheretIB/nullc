@@ -201,7 +201,7 @@ struct x86Argument
 
 	void Empty()
 	{
-		type = argNone;
+		type = argNone; reg = rNONE;
 		num = 0; fpArg = rST0; ptrSize = sNONE; ptrReg[0] = rNONE; ptrMult = 1; ptrReg[1] = rNONE; ptrNum = 0;
 		memset(labelName, 0, 16);
 	}

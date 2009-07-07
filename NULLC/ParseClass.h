@@ -108,13 +108,6 @@ public:
 	FunctionType		*funcType;
 };
 
-template<class Ch, class Tr>
-basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, TypeInfo info)
-{
-	str << info.GetTypeName() << " ";
-	return str;
-}
-
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
 static asmDataType podTypeToDataType[] = { DTYPE_COMPLEX_TYPE, (asmDataType)0, DTYPE_INT, DTYPE_FLOAT, DTYPE_LONG, DTYPE_DOUBLE, DTYPE_SHORT, DTYPE_CHAR };
 
@@ -138,15 +131,6 @@ public:
 
 	TypeInfo*		varType;	//Pointer to the variable type info
 };
-template<class Ch, class Tr>
-basic_ostream<Ch, Tr>& operator<< (basic_ostream<Ch, Tr>& str, VariableInfo var)
-{
-	if(var.isConst)
-		str << "const ";
-	str << (*var.varType);
-	str << '\'' << var.name << '\'';
-	return str;
-}
 
 class FunctionInfo
 {

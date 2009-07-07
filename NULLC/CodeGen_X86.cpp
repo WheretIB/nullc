@@ -2,7 +2,34 @@
 
 #include "StdLib_X86.h"
 
-#define Emit instList.push_back(x86Instruction()), instList.back() = x86Instruction
+//#define Emit instList.push_back(x86Instruction()), instList.back() = x86Instruction
+
+FastVector<x86Instruction>	*myInstList;
+
+void Emit(const char* Label)
+{
+	myInstList->push_back(x86Instruction(Label));
+}
+void Emit(int comment, const char* text)
+{
+	myInstList->push_back(x86Instruction(comment, text));
+}
+void Emit(x86Command Name)
+{
+	myInstList->push_back(x86Instruction(Name));
+}
+void Emit(x86Command Name, const x86Argument& a)
+{
+	myInstList->push_back(x86Instruction(Name, a));
+}
+void Emit(x86Command Name, const x86Argument& a, const x86Argument& b)
+{
+	myInstList->push_back(x86Instruction(Name, a, b));
+}
+void Emit(x86Command Name, const x86Argument& a, const x86Argument& b, const x86Argument& c)
+{
+	myInstList->push_back(x86Instruction(Name, a, b, c));
+}
 
 #include <stdarg.h>
 
@@ -34,13 +61,18 @@ void SetParamBase(unsigned int base)
 	paramBase = base;
 }
 
-void GenCodeCmdNop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void SetInstructionList(FastVector<x86Instruction> *instList)
+{
+	myInstList = instList;
+}
+
+void GenCodeCmdNop(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(o_nop);
 }
 
-void GenCodeCmdPushCharAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushCharAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH char abs");
 
@@ -49,7 +81,7 @@ void GenCodeCmdPushCharAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPushShortAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushShortAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH short abs");
 
@@ -58,7 +90,7 @@ void GenCodeCmdPushShortAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPushIntAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushIntAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH int abs");
 
@@ -66,7 +98,7 @@ void GenCodeCmdPushIntAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPushFloatAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushFloatAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH float abs");
 
@@ -76,7 +108,7 @@ void GenCodeCmdPushFloatAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 8;
 }
 
-void GenCodeCmdPushDorLAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushDorLAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, cmd.flag ? "PUSH double abs" : "MOV long abs");
 
@@ -85,7 +117,7 @@ void GenCodeCmdPushDorLAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 8;
 }
 
-void GenCodeCmdPushCmplxAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushCmplxAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH complex abs");
 
@@ -100,7 +132,7 @@ void GenCodeCmdPushCmplxAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdPushCharRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushCharRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH char rel");
 
@@ -109,7 +141,7 @@ void GenCodeCmdPushCharRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPushShortRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushShortRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH short rel");
 
@@ -118,7 +150,7 @@ void GenCodeCmdPushShortRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPushIntRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushIntRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH int rel");
 
@@ -126,7 +158,7 @@ void GenCodeCmdPushIntRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPushFloatRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushFloatRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH float rel");
 
@@ -136,7 +168,7 @@ void GenCodeCmdPushFloatRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 8;
 }
 
-void GenCodeCmdPushDorLRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushDorLRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, cmd.flag ? "PUSH double rel" : "PUSH long rel");
 
@@ -145,7 +177,7 @@ void GenCodeCmdPushDorLRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 8;
 }
 
-void GenCodeCmdPushCmplxRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushCmplxRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH complex rel");
 	unsigned int currShift = cmd.helper;
@@ -159,7 +191,7 @@ void GenCodeCmdPushCmplxRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdPushCharStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushCharStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH char stack");
 
@@ -168,7 +200,7 @@ void GenCodeCmdPushCharStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_push, x86Argument(rEAX));
 }
 
-void GenCodeCmdPushShortStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushShortStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH short stack");
 
@@ -177,7 +209,7 @@ void GenCodeCmdPushShortStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_push, x86Argument(rEAX));
 }
 
-void GenCodeCmdPushIntStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushIntStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH int stack");
 
@@ -185,7 +217,7 @@ void GenCodeCmdPushIntStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_push, x86Argument(sDWORD, rEDX, cmd.argument+paramBase));
 }
 
-void GenCodeCmdPushFloatStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushFloatStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH float stack");
 
@@ -196,7 +228,7 @@ void GenCodeCmdPushFloatStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPushDorLStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushDorLStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, cmd.flag ? "PUSH double stack" : "PUSH long stack");
 
@@ -206,7 +238,7 @@ void GenCodeCmdPushDorLStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPushCmplxStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushCmplxStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSH complex stack");
 	unsigned int currShift = cmd.helper;
@@ -222,7 +254,7 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdPushImmt(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushImmt(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSHIMMT");
 	
@@ -231,7 +263,7 @@ void GenCodeCmdPushImmt(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdMovCharAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovCharAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV char abs");
 
@@ -239,7 +271,7 @@ void GenCodeCmdMovCharAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_mov, x86Argument(sBYTE, cmd.argument+paramBase), x86Argument(rEBX));
 }
 
-void GenCodeCmdMovShortAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovShortAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV short abs");
 
@@ -247,7 +279,7 @@ void GenCodeCmdMovShortAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_mov, x86Argument(sWORD, cmd.argument+paramBase), x86Argument(rEBX));
 }
 
-void GenCodeCmdMovIntAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovIntAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV int abs");
 
@@ -255,7 +287,7 @@ void GenCodeCmdMovIntAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_mov, x86Argument(sDWORD, cmd.argument+paramBase), x86Argument(rEBX));
 }
 
-void GenCodeCmdMovFloatAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovFloatAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV float abs");
 
@@ -263,7 +295,7 @@ void GenCodeCmdMovFloatAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_fstp, x86Argument(sDWORD, cmd.argument+paramBase));
 }
 
-void GenCodeCmdMovDorLAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovDorLAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, cmd.flag ? "MOV double abs" : "MOV long abs");
 
@@ -278,7 +310,7 @@ void GenCodeCmdMovDorLAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 	}
 }
 
-void GenCodeCmdMovCmplxAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovCmplxAbs(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV complex abs");
 	unsigned int currShift = 0;
@@ -292,7 +324,7 @@ void GenCodeCmdMovCmplxAbs(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdMovCharRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovCharRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV char rel");
 
@@ -300,7 +332,7 @@ void GenCodeCmdMovCharRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_mov, x86Argument(sBYTE, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
 }
 
-void GenCodeCmdMovShortRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovShortRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV short rel");
 
@@ -308,7 +340,7 @@ void GenCodeCmdMovShortRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_mov, x86Argument(sWORD, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
 }
 
-void GenCodeCmdMovIntRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovIntRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV int rel");
 
@@ -316,7 +348,7 @@ void GenCodeCmdMovIntRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_mov, x86Argument(sDWORD, rEBP, cmd.argument+paramBase), x86Argument(rEBX));
 }
 
-void GenCodeCmdMovFloatRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovFloatRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV float rel");
 
@@ -324,7 +356,7 @@ void GenCodeCmdMovFloatRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_fstp, x86Argument(sDWORD, rEBP, cmd.argument+paramBase));
 }
 
-void GenCodeCmdMovDorLRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovDorLRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, cmd.flag ? "MOV double rel" : "MOV long rel");
 
@@ -339,7 +371,7 @@ void GenCodeCmdMovDorLRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 	}
 }
 
-void GenCodeCmdMovCmplxRel(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovCmplxRel(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV complex rel");
 	unsigned int currShift = 0;
@@ -353,7 +385,7 @@ void GenCodeCmdMovCmplxRel(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdMovCharStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovCharStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV char stack");
 
@@ -363,7 +395,7 @@ void GenCodeCmdMovCharStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdMovShortStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovShortStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV short stack");
 
@@ -373,7 +405,7 @@ void GenCodeCmdMovShortStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdMovIntStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovIntStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV int stack");
 
@@ -383,7 +415,7 @@ void GenCodeCmdMovIntStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdMovFloatStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovFloatStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV float stack");
 
@@ -393,7 +425,7 @@ void GenCodeCmdMovFloatStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdMovDorLStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovDorLStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, cmd.flag ? "MOV double stack" : "MOV long stack");
 
@@ -410,7 +442,7 @@ void GenCodeCmdMovDorLStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdMovCmplxStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMovCmplxStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV complex stack");
 	Emit(o_pop, x86Argument(rEDX));
@@ -426,12 +458,12 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdReserveV(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdReserveV(VMCmd cmd)
 {
-	(void)cmd; (void)instList;
+	(void)cmd;
 }
 
-void GenCodeCmdPopCharTop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPopCharTop(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "POP char top");
 
@@ -440,7 +472,7 @@ void GenCodeCmdPopCharTop(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdPopShortTop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPopShortTop(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "POP short top");
 
@@ -449,7 +481,7 @@ void GenCodeCmdPopShortTop(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdPopIntTop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPopIntTop(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "POP int top");
 
@@ -457,7 +489,7 @@ void GenCodeCmdPopIntTop(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdPopFloatTop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPopFloatTop(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "POP float top");
 
@@ -467,7 +499,7 @@ void GenCodeCmdPopFloatTop(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdPopDorLTop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPopDorLTop(VMCmd cmd)
 {
 	Emit(INST_COMMENT, cmd.flag ? "POP double top" : "POP long top");
 
@@ -476,7 +508,7 @@ void GenCodeCmdPopDorLTop(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdPopCmplxTop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPopCmplxTop(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "POP complex top");
 	unsigned int currShift = 0;
@@ -491,7 +523,7 @@ void GenCodeCmdPopCmplxTop(VMCmd cmd, FastVector<x86Instruction> &instList)
 
 
 
-void GenCodeCmdPop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPop(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "POP");
 
@@ -500,7 +532,7 @@ void GenCodeCmdPop(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdDtoI(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDtoI(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DTOI");
@@ -511,7 +543,7 @@ void GenCodeCmdDtoI(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdDtoL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDtoL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DTOL");
@@ -520,7 +552,7 @@ void GenCodeCmdDtoL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_fistp, x86Argument(sQWORD, rESP, 0));
 }
 
-void GenCodeCmdDtoF(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDtoF(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DTOF");
@@ -531,7 +563,7 @@ void GenCodeCmdDtoF(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdItoD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdItoD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "ITOD");
@@ -542,7 +574,7 @@ void GenCodeCmdItoD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdLtoD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLtoD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LTOD");
@@ -551,7 +583,7 @@ void GenCodeCmdLtoD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
 }
 
-void GenCodeCmdItoL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdItoL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "ITOL");
@@ -563,7 +595,7 @@ void GenCodeCmdItoL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdLtoI(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLtoI(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LTOI");
@@ -574,7 +606,7 @@ void GenCodeCmdLtoI(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdImmtMul(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdImmtMul(VMCmd cmd)
 {
 	Emit(INST_COMMENT, cmd.cmd == cmdImmtMulD ? "IMUL double" : (cmd.cmd == cmdImmtMulL ? "IMUL long" : "IMUL int"));
 	
@@ -605,7 +637,7 @@ void GenCodeCmdImmtMul(VMCmd cmd, FastVector<x86Instruction> &instList)
 	}
 }
 
-void GenCodeCmdCopyDorL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdCopyDorL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "COPY qword");
@@ -617,7 +649,7 @@ void GenCodeCmdCopyDorL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 8;
 }
 
-void GenCodeCmdCopyI(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdCopyI(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "COPY dword");
@@ -628,7 +660,7 @@ void GenCodeCmdCopyI(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdGetAddr(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdGetAddr(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "GETADDR");
 
@@ -642,10 +674,10 @@ void GenCodeCmdGetAddr(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdSetRange(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdSetRange(VMCmd cmd)
 {
-	unsigned int elCount = instList.back().argA.num;
-	instList.pop_back();
+	unsigned int elCount = myInstList->back().argA.num;
+	myInstList->pop_back();
 
 	Emit(INST_COMMENT, "SETRANGE");
 
@@ -697,14 +729,14 @@ void GenCodeCmdSetRange(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdJmp(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdJmp(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "JMP");
 	Emit(o_jmp, x86Argument(InlFmt("near gLabel%d", cmd.argument)));
 }
 
 
-void GenCodeCmdJmpZI(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdJmpZI(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "JMPZ int");
 
@@ -714,7 +746,7 @@ void GenCodeCmdJmpZI(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdJmpZD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdJmpZD(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "JMPZ double");
 
@@ -728,7 +760,7 @@ void GenCodeCmdJmpZD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdJmpZL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdJmpZL(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "JMPZ long");
 
@@ -740,7 +772,7 @@ void GenCodeCmdJmpZL(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdJmpNZI(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdJmpNZI(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "JMPNZ int");
 
@@ -750,7 +782,7 @@ void GenCodeCmdJmpNZI(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdJmpNZD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdJmpNZD(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "JMPNZ double");
 
@@ -764,7 +796,7 @@ void GenCodeCmdJmpNZD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdJmpNZL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdJmpNZL(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "JMPNZ long");
 
@@ -776,7 +808,7 @@ void GenCodeCmdJmpNZL(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdCall(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdCall(VMCmd cmd)
 {
 	Emit(INST_COMMENT, InlFmt("CALL %d ret %s %d", cmd.argument, (cmd.helper & bitRetSimple ? "simple " : ""), (cmd.helper & 0x0FFF)));
 
@@ -832,7 +864,7 @@ void GenCodeCmdCall(VMCmd cmd, FastVector<x86Instruction> &instList)
 	}
 }
 
-void GenCodeCmdReturn(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdReturn(VMCmd cmd)
 {
 	Emit(INST_COMMENT, InlFmt("RET %d, %d %d", cmd.flag, cmd.argument, (cmd.helper & 0x0FFF)));
 
@@ -917,7 +949,7 @@ void GenCodeCmdReturn(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdPushVTop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushVTop(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "PUSHT");
@@ -927,7 +959,7 @@ void GenCodeCmdPushVTop(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize += 4;
 }
 
-void GenCodeCmdPopVTop(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPopVTop(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "POPT");
@@ -938,7 +970,7 @@ void GenCodeCmdPopVTop(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdPushV(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPushV(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "PUSHV");
 
@@ -946,7 +978,7 @@ void GenCodeCmdPushV(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdAdd(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAdd(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "ADD int");
@@ -955,7 +987,7 @@ void GenCodeCmdAdd(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdSub(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdSub(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "SUB int");
@@ -964,7 +996,7 @@ void GenCodeCmdSub(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdMul(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMul(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "MUL int");
@@ -975,7 +1007,7 @@ void GenCodeCmdMul(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdDiv(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDiv(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DIV int");
@@ -987,7 +1019,7 @@ void GenCodeCmdDiv(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdPow(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPow(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "POW int");
@@ -999,7 +1031,7 @@ void GenCodeCmdPow(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdMod(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMod(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "MOD int");
@@ -1011,7 +1043,7 @@ void GenCodeCmdMod(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdLess(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLess(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LESS int");
@@ -1023,7 +1055,7 @@ void GenCodeCmdLess(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdGreater(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdGreater(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "GREATER int");
@@ -1035,7 +1067,7 @@ void GenCodeCmdGreater(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdLEqual(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLEqual(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LEQUAL int");
@@ -1047,7 +1079,7 @@ void GenCodeCmdLEqual(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdGEqual(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdGEqual(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "GEQUAL int");
@@ -1059,7 +1091,7 @@ void GenCodeCmdGEqual(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdEqual(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdEqual(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "EQUAL int");
@@ -1071,7 +1103,7 @@ void GenCodeCmdEqual(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdNEqual(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdNEqual(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "NEQUAL int");
@@ -1083,7 +1115,7 @@ void GenCodeCmdNEqual(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdShl(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdShl(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "SHL int");
@@ -1094,7 +1126,7 @@ void GenCodeCmdShl(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdShr(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdShr(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "SHR int");
@@ -1105,7 +1137,7 @@ void GenCodeCmdShr(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdBitAnd(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdBitAnd(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "BAND int");
@@ -1114,7 +1146,7 @@ void GenCodeCmdBitAnd(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdBitOr(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdBitOr(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "BOR int");
@@ -1123,7 +1155,7 @@ void GenCodeCmdBitOr(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdBitXor(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdBitXor(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "BXOR int");
@@ -1132,7 +1164,7 @@ void GenCodeCmdBitXor(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdLogAnd(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogAnd(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LAND int");
@@ -1150,7 +1182,7 @@ void GenCodeCmdLogAnd(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdLogOr(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogOr(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LOR int");
@@ -1168,7 +1200,7 @@ void GenCodeCmdLogOr(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 4;
 }
 
-void GenCodeCmdLogXor(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogXor(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LXOR int");
@@ -1185,7 +1217,7 @@ void GenCodeCmdLogXor(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdAddL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAddL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "ADD long");
@@ -1196,7 +1228,7 @@ void GenCodeCmdAddL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdSubL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdSubL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "SUB long");
@@ -1207,7 +1239,7 @@ void GenCodeCmdSubL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdMulL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMulL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "MUL long");
@@ -1219,7 +1251,7 @@ void GenCodeCmdMulL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdDivL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDivL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DIV long");
@@ -1231,7 +1263,7 @@ void GenCodeCmdDivL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdPowL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPowL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "POW long");
@@ -1243,7 +1275,7 @@ void GenCodeCmdPowL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdModL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdModL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "MOD long");
@@ -1255,7 +1287,7 @@ void GenCodeCmdModL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdLessL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLessL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LESS long");
@@ -1277,7 +1309,7 @@ void GenCodeCmdLessL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdGreaterL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdGreaterL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "GREATER long");
@@ -1299,7 +1331,7 @@ void GenCodeCmdGreaterL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdLEqualL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLEqualL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LEQUAL long");
@@ -1321,7 +1353,7 @@ void GenCodeCmdLEqualL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdGEqualL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdGEqualL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "GEQUAL long");
@@ -1343,7 +1375,7 @@ void GenCodeCmdGEqualL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdEqualL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdEqualL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "EQUAL long");
@@ -1363,7 +1395,7 @@ void GenCodeCmdEqualL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdNEqualL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdNEqualL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "NEQUAL long");
@@ -1384,7 +1416,7 @@ void GenCodeCmdNEqualL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdShlL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdShlL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "SHL long");
@@ -1394,7 +1426,7 @@ void GenCodeCmdShlL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdShrL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdShrL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "SHR long");
@@ -1404,7 +1436,7 @@ void GenCodeCmdShrL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdBitAndL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdBitAndL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "BAND long");
@@ -1415,7 +1447,7 @@ void GenCodeCmdBitAndL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdBitOrL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdBitOrL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "BOR long");
@@ -1426,7 +1458,7 @@ void GenCodeCmdBitOrL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdBitXorL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdBitXorL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "BXOR long");
@@ -1437,7 +1469,7 @@ void GenCodeCmdBitXorL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdLogAndL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogAndL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LAND long");
@@ -1458,7 +1490,7 @@ void GenCodeCmdLogAndL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdLogOrL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogOrL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LOR long");
@@ -1479,7 +1511,7 @@ void GenCodeCmdLogOrL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdLogXorL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogXorL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LXOR long");
@@ -1500,7 +1532,7 @@ void GenCodeCmdLogXorL(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdAddD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAddD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "ADD double");
@@ -1511,7 +1543,7 @@ void GenCodeCmdAddD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdSubD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdSubD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "SUB double");
@@ -1522,7 +1554,7 @@ void GenCodeCmdSubD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdMulD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdMulD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "MUL double");
@@ -1533,7 +1565,7 @@ void GenCodeCmdMulD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdDivD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDivD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DIV double");
@@ -1544,7 +1576,7 @@ void GenCodeCmdDivD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdPowD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdPowD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "POW double");
@@ -1557,7 +1589,7 @@ void GenCodeCmdPowD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdModD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdModD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "MOD double");
@@ -1570,7 +1602,7 @@ void GenCodeCmdModD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdLessD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLessD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LESS double");
@@ -1591,7 +1623,7 @@ void GenCodeCmdLessD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdGreaterD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdGreaterD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "GREATER double");
@@ -1612,7 +1644,7 @@ void GenCodeCmdGreaterD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdLEqualD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLEqualD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LEQUAL double");
@@ -1633,7 +1665,7 @@ void GenCodeCmdLEqualD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdGEqualD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdGEqualD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "GEQUAL double");
@@ -1654,7 +1686,7 @@ void GenCodeCmdGEqualD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdEqualD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdEqualD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "EQUAL double");
@@ -1675,7 +1707,7 @@ void GenCodeCmdEqualD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	stackRelSize -= 8;
 }
 
-void GenCodeCmdNEqualD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdNEqualD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "NEQUAL double");
@@ -1697,21 +1729,21 @@ void GenCodeCmdNEqualD(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdNeg(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdNeg(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "NEG int");
 	Emit(o_neg, x86Argument(sDWORD, rESP, 0));
 }
 
-void GenCodeCmdBitNot(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdBitNot(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "BNOT int");
 	Emit(o_not, x86Argument(sDWORD, rESP, 0));
 }
 
-void GenCodeCmdLogNot(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogNot(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LNOT int");
@@ -1722,7 +1754,7 @@ void GenCodeCmdLogNot(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdNegL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdNegL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "NEG long");
@@ -1731,7 +1763,7 @@ void GenCodeCmdNegL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_neg, x86Argument(sDWORD, rESP, 4));
 }
 
-void GenCodeCmdBitNotL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdBitNotL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "BNOT long");
@@ -1739,7 +1771,7 @@ void GenCodeCmdBitNotL(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_not, x86Argument(sDWORD, rESP, 4));
 }
 
-void GenCodeCmdLogNotL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogNotL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LNOT long");
@@ -1752,7 +1784,7 @@ void GenCodeCmdLogNotL(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdNegD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdNegD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "NEG double");
@@ -1761,7 +1793,7 @@ void GenCodeCmdNegD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
 }
 
-void GenCodeCmdLogNotD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdLogNotD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "LNOT double");
@@ -1781,14 +1813,14 @@ void GenCodeCmdLogNotD(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdIncI(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdIncI(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "INC int");
 	Emit(o_add, x86Argument(sDWORD, rESP, 0), x86Argument(1));
 }
 
-void GenCodeCmdIncD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdIncD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "INC double");
@@ -1798,7 +1830,7 @@ void GenCodeCmdIncD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
 }
 
-void GenCodeCmdIncL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdIncL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "INC long");
@@ -1807,14 +1839,14 @@ void GenCodeCmdIncL(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdDecI(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDecI(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DEC int");
 	Emit(o_sub, x86Argument(sDWORD, rESP, 0), x86Argument(1));
 }
 
-void GenCodeCmdDecD(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDecD(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DEC double");
@@ -1824,7 +1856,7 @@ void GenCodeCmdDecD(VMCmd cmd, FastVector<x86Instruction> &instList)
 	Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
 }
 
-void GenCodeCmdDecL(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdDecL(VMCmd cmd)
 {
 	(void)cmd;
 	Emit(INST_COMMENT, "DEC long");
@@ -1833,7 +1865,7 @@ void GenCodeCmdDecL(VMCmd cmd, FastVector<x86Instruction> &instList)
 }
 
 
-void GenCodeCmdAddAtCharStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAddAtCharStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "ADDAT char stack");
 	Emit(o_pop, x86Argument(rEDX));
@@ -1848,7 +1880,7 @@ void GenCodeCmdAddAtCharStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 		stackRelSize -= 4;
 }
 
-void GenCodeCmdAddAtShortStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAddAtShortStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "ADDAT short stack");
 	Emit(o_pop, x86Argument(rEDX));
@@ -1863,7 +1895,7 @@ void GenCodeCmdAddAtShortStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 		stackRelSize -= 4;
 }
 
-void GenCodeCmdAddAtIntStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAddAtIntStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "ADDAT int stack");
 	Emit(o_pop, x86Argument(rEDX));
@@ -1878,7 +1910,7 @@ void GenCodeCmdAddAtIntStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 		stackRelSize -= 4;
 }
 
-void GenCodeCmdAddAtLongStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAddAtLongStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "ADDAT long stack");
 	Emit(o_pop, x86Argument(rECX));
@@ -1902,7 +1934,7 @@ void GenCodeCmdAddAtLongStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	}
 }
 
-void GenCodeCmdAddAtFloatStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAddAtFloatStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "ADDAT float stack");
 	Emit(o_pop, x86Argument(rEDX));
@@ -1928,7 +1960,7 @@ void GenCodeCmdAddAtFloatStk(VMCmd cmd, FastVector<x86Instruction> &instList)
 	}
 }
 
-void GenCodeCmdAddAtDoubleStk(VMCmd cmd, FastVector<x86Instruction> &instList)
+void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "ADDAT double stack");
 	Emit(o_pop, x86Argument(rEDX));
