@@ -20,10 +20,7 @@
 
 #include <list>
 #include <string>
-#include <sstream>
-#ifdef NULLC_LOG_FILES
-	#include <fstream>
-#endif
+
 #include <math.h>
 using namespace std;
 

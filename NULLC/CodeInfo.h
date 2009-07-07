@@ -43,9 +43,6 @@ namespace CodeInfo
 
 	static const char* lastKnownStartPos = NULL;
 
-	// Log stream
-	extern ostringstream compileLog;
-
 	//////////////////////////////////////////////////////////////////////////
 	// Функция возвращает тип - указателя на исходный
 	TypeInfo* GetReferenceType(TypeInfo* type);

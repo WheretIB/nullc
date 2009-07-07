@@ -31,11 +31,13 @@ const char*	nullcGetCompilationError();
 // function returns bytecode size, and memory to which 'bytecode' points can be freed at any time
 unsigned int nullcGetBytecode(char **bytecode);
 
+// Function work only if NULLC_LOG_FILES is defined
 // for debug purposes, or simple curiosity, this function returns some information, generated during compilation
 const char*	nullcGetCompilationLog();
 
+// Function work only if NULLC_LOG_FILES is defined
 // this function returns string with last bytecode disassembly
-const char*	nullcGetListing();
+void	nullcSaveListing(const char *fileName);
 
 // Clean all accumulated bytecode
 void nullcClean();

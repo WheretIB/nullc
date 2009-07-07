@@ -15,7 +15,10 @@ using namespace CodeInfo;
 //////////////////////////////////////////////////////////////////////////
 //						Code gen ops
 //////////////////////////////////////////////////////////////////////////
-std::ostringstream		warningLog;
+std::string		warningLog;
+#ifdef NULLC_LOG_FILES
+FILE*			compileLog;
+#endif
 
 // Информация о вершинах стека переменных. При компиляции он служит для того, чтобы
 // Удалять информацию о переменных, когда они выходят из области видимости
@@ -85,7 +88,9 @@ int AddFunctionExternal(FunctionInfo* func, std::string name)
 		if(func->external[i] == name)
 			return i;
 
-	compileLog << "Function " << currDefinedFunc.back()->name << " uses external variable " << name << "\r\n";
+#ifdef NULLC_LOG_FILES
+	fprintf(compileLog, "Function %s uses external variable %s\r\n", currDefinedFunc.back()->name.c_str(), name.c_str());
+#endif
 	func->external.push_back(name);
 	return (int)func->external.size()-1;
 }
@@ -1479,12 +1484,16 @@ void addArrayConstructor(char const* s, char const* e)
 	if(currType == typeShort || currType == typeChar)
 	{
 		currType = typeInt;
-		warningLog << "WARNING: short and char will be promoted to int during array construction\r\n At " << std::string(s, e) << "\r\n";
+		warningLog.append("WARNING: short and char will be promoted to int during array construction\r\n At ");
+		warningLog.append(s, e);
+		warningLog.append("\r\n");
 	}
 	if(currType == typeFloat)
 	{
 		currType = typeDouble;
-		warningLog << "WARNING: float will be promoted to double during array construction\r\n At " << std::string(s, e) << "\r\n";
+		warningLog.append("WARNING: float will be promoted to double during array construction\r\n At ");
+		warningLog.append(s, e);
+		warningLog.append("\r\n");
 	}
 	if(currType == typeVoid)
 		throw CompilerError("ERROR: array cannot be constructed from void type elements", s);
@@ -1744,44 +1753,65 @@ void addFuncCallNode(char const* s, char const* e)
 		// Maybe the function we found can't be used at all
 		if(minRating > 1000)
 		{
-			ostringstream errTemp;
-			errTemp << "ERROR: can't find function '" + fname + "' with following parameters:\r\n  ";
-			errTemp << fname << "(";
+			std::string errTemp;
+			errTemp.append("ERROR: can't find function '");
+			errTemp.append(fname);
+			errTemp.append("' with following parameters:\r\n  ");
+			errTemp.append(fname);
+			errTemp.append("(");
 			for(unsigned int n = 0; n < callArgCount.back(); n++)
-				errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
-			errTemp << ")\r\n";
-			errTemp << " the only available are:\r\n";
+			{
+				errTemp.append(nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName());
+				errTemp.append(n != callArgCount.back()-1 ? ", " : "");
+			}
+			errTemp.append(")\r\n");
+			errTemp.append(" the only available are:\r\n");
 			for(unsigned int n = 0; n < count; n++)
 			{
-				errTemp << "  " << fname << "(";
+				errTemp.append("  ");
+				errTemp.append(fname);
+				errTemp.append("(");
 				for(unsigned int m = 0; m < fList[n]->params.size(); m++)
-					errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
-				errTemp << ")\r\n";
+				{
+					errTemp.append(fList[n]->params[m].varType->GetTypeName());
+					errTemp.append(m != fList[n]->params.size()-1 ? ", " : "");
+				}
+				errTemp.append(")\r\n");
 			}
-			throw errTemp.str();
+			throw errTemp;
 		}
 		// Check, is there are more than one function, that share the same rating
 		for(unsigned int k = 0; k < count; k++)
 		{
 			if(k != minRatingIndex && fRating[k] == minRating)
 			{
-				ostringstream errTemp;
-				errTemp << "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n";
-				errTemp << "  " << fname << "(";
+				std::string errTemp;
+				errTemp.append("ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n");
+				errTemp.append("  ");
+				errTemp.append(fname);
+				errTemp.append("(");
 				for(unsigned int n = 0; n < callArgCount.back(); n++)
-					errTemp << nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName() << (n != callArgCount.back()-1 ? ", " : "");
-				errTemp << ")\r\n";
-				errTemp << " candidates are:\r\n";
+				{
+					errTemp.append(nodeList[nodeList.size()-callArgCount.back()+n]->GetTypeInfo()->GetTypeName());
+					errTemp.append(n != callArgCount.back()-1 ? ", " : "");
+				}
+				errTemp.append(")\r\n");
+				errTemp.append(" candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
 					if(fRating[n] != minRating)
 						continue;
-					errTemp << "  " << fname << "(";
+					errTemp.append("  ");
+					errTemp.append(fname);
+					errTemp.append("(");
 					for(unsigned int m = 0; m < fList[n]->params.size(); m++)
-						errTemp << fList[n]->params[m].varType->GetTypeName() << (m != fList[n]->params.size()-1 ? ", " : "");
-					errTemp << ")\r\n";
+					{
+						errTemp.append(fList[n]->params[m].varType->GetTypeName());
+						errTemp.append(m != fList[n]->params.size()-1 ? ", " : "");
+					}
+					errTemp.append(")\r\n");
 				}
-				throw errTemp.str();
+				throw errTemp;
 			}
 		}
 		fType = fList[minRatingIndex]->funcType->funcType;
@@ -2574,7 +2604,11 @@ Compiler::Compiler()
 
 	CompilerGrammar::InitGrammar();
 
+#ifdef NULLC_LOG_FILES
+	compileLog = NULL;
+#endif
 }
+
 Compiler::~Compiler()
 {
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
@@ -2594,6 +2628,11 @@ Compiler::~Compiler()
 	varInfo.clear();
 	funcInfo.clear();
 	typeInfo.clear();
+
+#ifdef NULLC_LOG_FILES
+	if(compileLog)
+		fclose(compileLog);
+#endif
 }
 
 void Compiler::ClearState()
@@ -2649,9 +2688,12 @@ void Compiler::ClearState()
 
 	arrElementCount.clear();
 
-	logAST.str("");
-	compileLog.str("");
-	warningLog.str("");
+#ifdef NULLC_LOG_FILES
+	if(compileLog)
+		fclose(compileLog);
+	compileLog = fopen("compilelog.txt", "wb");
+#endif
+	warningLog.clear();
 }
 
 bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
@@ -2663,7 +2705,11 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	try{
 		pRes = Parse(CompilerGrammar::funcProt, (char*)prototype, CompilerGrammar::mySpaceP);
 	}catch(const CompilerError& compileErr){
-		compileLog << compileErr;
+#ifdef NULLC_LOG_FILES
+		fprintf(compileLog, "%s", compileErr.GetErrorString());
+#else
+		(void)compileErr;
+#endif
 		return false;
 	}
 	if(pRes == PARSE_NOTFULL)
@@ -2740,17 +2786,16 @@ bool Compiler::Compile(string str)
 		nodeList.pop_back();
 
 #ifdef NULLC_LOG_FILES
-	ofstream m_FileStream("code.txt", std::ios::binary);
-	m_FileStream << str;
-	m_FileStream.flush();
-	m_FileStream.close();
+	FILE *fCode = fopen("code.txt", "wb");
+	fwrite(str.c_str(), 1, str.length(), fCode);
+	fclose(fCode);
 #endif
 
 	char* ptr = (char*)str.c_str();
 	CompilerError::codeStart = ptr;
 
 #ifdef NULLC_LOG_FILES
-	ofstream m_TempStream("time.txt", std::ios::binary);
+	FILE *fTime = fopen("time.txt", "wb");
 #endif
 
 	unsigned int t = clock();
@@ -2761,7 +2806,7 @@ bool Compiler::Compile(string str)
 		throw std::string("Parsing failed");
 	unsigned int tem = clock()-t;
 #ifdef NULLC_LOG_FILES
-	m_TempStream << "Parsing and AST tree gen. time: " << tem * 1000 / CLOCKS_PER_SEC << "ms\r\n";
+	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
 #endif
 
 	// Emulate global block end
@@ -2777,45 +2822,45 @@ bool Compiler::Compile(string str)
 		nodeList.back()->Compile();
 	tem = clock()-t;
 #ifdef NULLC_LOG_FILES
-	m_TempStream << "Compile time: " << tem * 1000 / CLOCKS_PER_SEC << "ms\r\n";
-
-	m_TempStream.flush();
-	m_TempStream.close();
+	fprintf(fTime, "Compile time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
+	fclose(fTime);
 #endif
 
 #ifdef NULLC_LOG_FILES
-	ostringstream		graphlog;
-	ofstream graphFile("graph.txt", std::ios::binary);
+	FILE *fGraph = fopen("graph.txt", "wb");
 	for(unsigned int i = 0; i < funcDefList.size(); i++)
-		funcDefList[i]->LogToStream(graphlog);
+		funcDefList[i]->LogToStream(fGraph);
 	if(nodeList.back())
-		nodeList.back()->LogToStream(graphlog);
-	graphFile << graphlog.str();
-	graphFile.close();
+		nodeList.back()->LogToStream(fGraph);
+	fclose(fGraph);
 #endif
 
-	logAST << "\r\n" << warningLog.str();
+#ifdef NULLC_LOG_FILES
+	fprintf(compileLog, "\r\n%s", warningLog.c_str());
 
-	compileLog << "\r\nActive types (" << typeInfo.size() << "):\r\n";
+	fprintf(compileLog, "\r\nActive types (%d):\r\n", typeInfo.size());
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
-		compileLog << typeInfo[i]->GetTypeName() << " (" << typeInfo[i]->size << " bytes)\r\n";
+		fprintf(compileLog, "%s (%d bytes)\r\n", typeInfo[i]->GetTypeName().c_str(), typeInfo[i]->size);
 
-	compileLog << "\r\nActive functions (" << funcInfo.size() << "):\r\n";
+	fprintf(compileLog, "\r\nActive functions (%d):\r\n", funcInfo.size());
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
 		FunctionInfo &currFunc = *funcInfo[i];
-		compileLog << (currFunc.type == FunctionInfo::LOCAL ? "local " : (currFunc.type == FunctionInfo::NORMAL ? "global " : "thiscall ")) << currFunc.retType->GetTypeName() << " " << currFunc.name;
-		compileLog << "(";
+		fprintf(compileLog, "%s", currFunc.type == FunctionInfo::LOCAL ? "local " : (currFunc.type == FunctionInfo::NORMAL ? "global " : "thiscall "));
+		fprintf(compileLog, "%s %s(", currFunc.retType->GetTypeName().c_str(), currFunc.name.c_str());
+
 		for(unsigned int n = 0; n < currFunc.params.size(); n++)
-			compileLog << currFunc.params[n].varType->GetTypeName() << " " << currFunc.params[n].name << (n==currFunc.params.size()-1 ? "" :", ");
-		compileLog << ")\r\n";
+			fprintf(compileLog, "%s %s%s", currFunc.params[n].varType->GetTypeName().c_str(), currFunc.params[n].name.c_str(), (n==currFunc.params.size()-1 ? "" :", "));
+		
+		fprintf(compileLog, ")\r\n");
 		if(currFunc.type == FunctionInfo::LOCAL)
 		{
 			for(unsigned int n = 0; n < currFunc.external.size(); n++)
-				compileLog << "  external var: " << currFunc.external[n] << "\r\n";
+				fprintf(compileLog, "  external var: %s\r\n", currFunc.external[n].c_str());
 		}
 	}
-	logAST << "\r\n" << compileLog.str();
+	fflush(compileLog);
+#endif
 
 	if(nodeList.size() != 1)
 		throw std::string("Compilation failed, AST contains more than one node");
@@ -2823,26 +2868,20 @@ bool Compiler::Compile(string str)
 	return true; // Зачем тут return true, если вместо return false используются исключения?
 }
 
-void Compiler::GenListing()
+void Compiler::SaveListing(const char *fileName)
 {
 #ifdef NULLC_LOG_FILES
-	logASM.str("");
-	CommandList::PrintCommandListing(&logASM, &CodeInfo::cmdList[0], &CodeInfo::cmdList[0] + CodeInfo::cmdList.size());
-
-	ofstream m_FileStream("asm.txt", std::ios::binary);
-	m_FileStream << logASM.str();
-	m_FileStream.flush();
+	FILE *compiledAsm = fopen(fileName, "wb");
+	char instBuf[128];
+	for(unsigned int i = 0; i < CodeInfo::cmdList.size(); i++)
+	{
+		CodeInfo::cmdList[i].Decode(instBuf);
+		fprintf(compiledAsm, "%s\r\n", instBuf);
+	}
+	fclose(compiledAsm);
+#else
+	(void)fileName;
 #endif
-}
-
-string Compiler::GetListing()
-{
-	return logASM.str();
-}
-
-string Compiler::GetLog()
-{
-	return logAST.str();
 }
 
 unsigned int GetTypeIndexByPtr(TypeInfo* type)

@@ -678,10 +678,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			nullcSetExecutor(NULLC_VM);
 			nullcSetExecutorOptions(false);
-		//for(int kkk = 0; kkk < 100; kkk++)
-		//{
+	//	for(int kkk = 0; kkk < 100; kkk++)
+	//	{
 			nullres good = nullcCompile(buf);
-			nullcGetListing();
+			nullcSaveListing("asm.txt");
 
 			char *bytecode;
 			unsigned int size = nullcGetBytecode(&bytecode);
@@ -692,8 +692,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			{
 				SetWindowText(hCode, nullcGetCompilationError());
 			}else{
-				SetWindowText(hCode, nullcGetListing());
-
 				variableData = (char*)nullcGetVariableData();
 				
 				double time = myGetPreciseTime();
@@ -727,7 +725,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{
-			static int callNum = -1;
+			/*static*/ int callNum = -1;
 			callNum++;
 			GetWindowText(hTextArea, buf, 400000);
 
@@ -736,8 +734,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			nullcSetExecutor(NULLC_X86);
 			nullcSetExecutorOptions(!!Button_GetCheck(hDoOptimize));
 
-			ostringstream ostr;
+			char	result[128];
+
 			nullres good = nullcCompile(buf);
+			nullcSaveListing("asm.txt");
+
 			char *bytecode;
 			nullcGetBytecode(&bytecode);
 			nullcClean();
@@ -745,11 +746,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			delete[] bytecode;
 			if(!good)
 			{
-				ostr << nullcGetCompilationError();
-				SetWindowText(hCode, ostr.str().c_str());
+				SetWindowText(hCode, nullcGetCompilationError());
 			}else{
-				SetWindowText(hCode, nullcGetListing());
-
 				variableData = (char*)nullcGetVariableData();
 				
 				double time = myGetPreciseTime();
@@ -759,17 +757,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					const char *val = nullcGetResult();
 					double execTime = myGetPreciseTime()-time;
 
-					ostr.precision(20);
-					ostr << "The answer is: " << val << " [in: " << execTime << "]";
+					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime);
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
-
-					SetWindowText(hResult, ostr.str().c_str());
 				}else{
-					ostr << nullcGetRuntimeError();
-					SetWindowText(hResult, ostr.str().c_str());
+					sprintf_s(result, 128, "%s", nullcGetRuntimeError());
 				}
+				SetWindowText(hResult, result);
 			}
 			SetWindowText(hLog, nullcGetCompilationLog());
 		}
@@ -822,14 +817,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		}
 		string str = "";
 		SetWindowText(hCode, str.c_str());
-		ostringstream ostr;
+
 		try
 		{
 			colorer->ColorText();
 		}catch(const std::string& strerr){
-			ostr << strerr;
-			str = ostr.str();
-			SetWindowText(hCode, str.c_str());
+			SetWindowText(hCode, strerr.c_str());
 		}
 		if(bRetFocus)
 		{

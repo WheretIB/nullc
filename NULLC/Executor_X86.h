@@ -41,8 +41,6 @@ private:
 	int	optimize;
 	unsigned int		globalStartInBytecode;
 
-	//ostringstream		logASM;
-
 	char			*paramData;
 	unsigned int	paramBase;
 

@@ -92,7 +92,7 @@ bool	RunCode(const char *code, unsigned int executor, bool optimization, const c
 	timeCompile += myGetPreciseTime() - time;
 
 	time = myGetPreciseTime();
-	nullcGetListing();
+	nullcSaveListing("asm.txt");
 	timeGetListing += myGetPreciseTime() - time;
 
 	if(!good)
@@ -354,14 +354,14 @@ void	RunTests()
 		nullcSetExecutorOptions(testOpti[t]);
 
 		nullres good = nullcCompile(partA1);
-		nullcGetListing();
+		nullcSaveListing("asm.txt");
 		if(!good)
 			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
 		else
 			nullcGetBytecode(&bytecodeA);
 
 		good = nullcCompile(partB1);
-		nullcGetListing();
+		nullcSaveListing("asm.txt");
 		if(!good)
 			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
 		else
