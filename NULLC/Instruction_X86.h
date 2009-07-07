@@ -160,14 +160,14 @@ struct x86Argument
 	{
 		Empty();
 		type = argPtr;
-		ptrSize = Size; ptrReg[0] = rNONE; ptrMult = 1; ptrReg[1] = rNONE; ptrNum = Num;
+		ptrSize = Size; ptrMult = 1; ptrNum = Num;
 	}
 	// size [register + num]
 	x86Argument(x86Size Size, x86Reg RegA, unsigned int Num)
 	{
 		Empty();
 		type = argPtr;
-		ptrSize = Size; ptrReg[0] = RegA; ptrMult = 1; ptrReg[1] = rNONE; ptrNum = Num;
+		ptrSize = Size; ptrReg[0] = RegA; ptrMult = 1; ptrNum = Num;
 	}
 	// size [register + register + num]
 	x86Argument(x86Size Size, x86Reg RegA, x86Reg RegB, unsigned int Num)
@@ -201,9 +201,7 @@ struct x86Argument
 
 	void Empty()
 	{
-		type = argNone; reg = rNONE;
-		num = 0; fpArg = rST0; ptrSize = sNONE; ptrReg[0] = rNONE; ptrMult = 1; ptrReg[1] = rNONE; ptrNum = 0;
-		memset(labelName, 0, 16);
+		memset(this, 0, sizeof(x86Argument));
 	}
 
 	bool operator==(const x86Argument& r)
@@ -271,9 +269,9 @@ struct x86Instruction
 	explicit x86Instruction(const char* Label){ name = o_label; assert(strlen(Label) < 16); strncpy(labelName, Label, 16); }
 	x86Instruction(int comment, const char* text){ (void)comment; name = o_other; assert(strlen(text) < 32); strncpy(labelName, text, 32); }
 	explicit x86Instruction(x86Command Name){ name = Name; }
-	x86Instruction(x86Command Name, x86Argument a){ name = Name; argA = a; }
-	x86Instruction(x86Command Name, x86Argument a, x86Argument b){ name = Name; argA = a; argB = b; }
-	x86Instruction(x86Command Name, x86Argument a, x86Argument b, x86Argument c){ name = Name; argA = a; argB = b; argC = c; }
+	x86Instruction(x86Command Name, const x86Argument& a){ name = Name; argA = a; }
+	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b){ name = Name; argA = a; argB = b; }
+	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b, const x86Argument& c){ name = Name; argA = a; argB = b; argC = c; }
 
 	x86Command	name;
 	x86Argument	argA, argB, argC;

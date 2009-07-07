@@ -243,6 +243,7 @@ void**	nullcGetVariableInfo(unsigned int* count)
 void	nullcDeinit()
 {
 	delete compiler;
+	delete linker;
 	delete executor;
 #ifdef NULLC_BUILD_X86_JIT
 	delete executorX86;
