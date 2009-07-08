@@ -111,6 +111,7 @@ const char*	nullcGetCompilationLog()
 	compileLog = new char[size+1];
 	fread(compileLog, 1, size, cLog);
 	compileLog[size] = 0;
+	fclose(cLog);
 	return compileLog;
 #else
 	return "";
