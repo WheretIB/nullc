@@ -1435,6 +1435,7 @@ struct AddPreOrPostOp
 
 void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 {
+	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeVariableModify(GetDereferenceType(nodeList[nodeList.size()-2]->GetTypeInfo()), cmd));
 }
 
