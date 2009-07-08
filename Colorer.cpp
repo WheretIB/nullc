@@ -118,11 +118,11 @@ namespace ColorerGrammar
 		TypeNameP(Rule a){ m_a.set(a); }
 		virtual ~TypeNameP(){ m_a.detach(); }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			SkipSpaces(str, space);
 			char* curr = *str;
-			m_a->Parse(str, shared_ptr<BaseP>((BaseP*)NULL));
+			m_a->Parse(str, NULL);
 			if(curr == *str)
 				return false;
 			std::string type(curr, *str);
