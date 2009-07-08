@@ -95,6 +95,7 @@ struct LabelInfo
 
 struct UnsatisfiedJump
 {
+	UnsatisfiedJump():jmpPos(NULL){}
 	UnsatisfiedJump(const char *newLabel, bool newIsNear, unsigned char *newJmpPos)
 	{
 		strncpy(label, newLabel, 16);
@@ -111,8 +112,8 @@ struct UnsatisfiedJump
 	unsigned char *jmpPos;
 };
 
-std::vector<LabelInfo>	labels;
-std::vector<UnsatisfiedJump> pendingJumps;
+FastVector<LabelInfo>	labels(16);
+FastVector<UnsatisfiedJump> pendingJumps(16);
 
 bool FindLabel(const char *name, LabelInfo& info)
 {
@@ -165,12 +166,7 @@ int x86FLD(unsigned char *stream, x87Reg reg)
 int x86FLD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD){
-		stream[0] = 0xd9;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
-		return 1+asize;
-	}
-	stream[0] = 0xdd;
+	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
 	return 1+asize;
 }
@@ -179,12 +175,7 @@ int x86FLD(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 {
 	assert(regB != rNONE);
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD){
-		stream[0] = 0xd9;
-		unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 0);
-		return 1+asize;
-	}
-	stream[0] = 0xdd;
+	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
 	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 0);
 	return 1+asize;
 }
@@ -193,13 +184,8 @@ int x86FLD(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 int x86FILD(unsigned char *stream, x86Size size, x86Reg reg)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD){
-		stream[0] = 0xdb;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 0);
-		return 1+asize;
-	}
-	stream[0] = 0xdf;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 5);
+	stream[0] = size == sDWORD ? 0xdb : 0xdf;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, size == sDWORD ?  0 : 5);
 	return 1+asize;
 }
 
@@ -207,13 +193,7 @@ int x86FILD(unsigned char *stream, x86Size size, x86Reg reg)
 int x86FST(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd9;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 2);
-		return 1+asize;
-	}
-	stream[0] = 0xdd;
+	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 2);
 	return 1+asize;
 }
@@ -222,13 +202,7 @@ int x86FST(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 {
 	assert(regB != rNONE);
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd9;
-		unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 2);
-		return 1+asize;
-	}
-	stream[0] = 0xdd;
+	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
 	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 2);
 	return 1+asize;
 }
@@ -244,13 +218,7 @@ int x86FSTP(unsigned char *stream, x87Reg dst)
 int x86FSTP(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd9;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
-		return 1+asize;
-	}
-	stream[0] = 0xdd;
+	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
 	return 1+asize;
 }
@@ -259,13 +227,7 @@ int x86FSTP(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int s
 {
 	assert(regB != rNONE);
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd9;
-		unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 3);
-		return 1+asize;
-	}
-	stream[0] = 0xdd;
+	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
 	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 3);
 	return 1+asize;
 }
@@ -293,13 +255,7 @@ int x86FISTP(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift
 int x86FADD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
-		return 1+asize;
-	}
-	stream[0] = 0xdc;
+	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
 	return 1+asize;
 }
@@ -314,13 +270,7 @@ int x86FADDP(unsigned char *stream)
 int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
-		return 1+asize;
-	}
-	stream[0] = 0xdc;
+	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
 	return 1+asize;
 }
@@ -328,13 +278,7 @@ int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 int x86FSUBR(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
-		return 1+asize;
-	}
-	stream[0] = 0xdc;
+	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
 	return 1+asize;
 }
@@ -356,13 +300,7 @@ int x86FSUBRP(unsigned char *stream)
 int x86FMUL(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 1);
-		return 1+asize;
-	}
-	stream[0] = 0xdc;
+	stream[0] = size == sDWORD ? 0xd8: 0xdc;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 1);
 	return 1+asize;
 }
@@ -377,13 +315,7 @@ int x86FMULP(unsigned char *stream)
 int x86FDIV(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 6);
-		return 1+asize;
-	}
-	stream[0] = 0xdc;
+	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 6);
 	return 1+asize;
 }
@@ -391,13 +323,7 @@ int x86FDIV(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 int x86FDIVR(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
-		return 1+asize;
-	}
-	stream[0] = 0xdc;
+	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
 	return 1+asize;
 }
@@ -454,13 +380,7 @@ int x86FRNDINT(unsigned char *stream)
 int x86FCOMP(unsigned char *stream, x86Size size, x86Reg reg, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
-	if(size == sDWORD)
-	{
-		stream[0] = 0xd8;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
-		return 1+asize;
-	}
-	stream[0] = 0xdc;
+	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
 	return 1+asize;
 }
@@ -641,15 +561,8 @@ int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Re
 		regB = regA;
 		regA = rNONE;
 	}
-	if(size == sBYTE)
-	{
-		stream[0] = 0x0f;
-		stream[1] = 0xbe;
-		unsigned int asize = encodeAddress(stream+2, regA, 1, regB, shift, regCode[dst]);
-		return 2+asize;
-	}
 	stream[0] = 0x0f;
-	stream[1] = 0xbf;
+	stream[1] = size == sBYTE ? 0xbe : 0xbf;
 	unsigned int asize = encodeAddress(stream+2, regA, 1, regB, shift, regCode[dst]);
 	return 2+asize;
 }
