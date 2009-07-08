@@ -18,7 +18,6 @@
 
 #include <vector>
 
-#include <list>
 #include <string>
 
 #include <math.h>

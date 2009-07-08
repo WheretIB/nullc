@@ -80,7 +80,7 @@ std::vector<TypeInfo*>		retTypeStack;
 std::vector<FunctionInfo*>	currDefinedFunc;
 
 // Список узлов, которые определяют код функции
-std::vector<shared_ptr<NodeZeroOP> >	funcDefList;
+std::vector<NodeZeroOP*>	funcDefList;
 
 int AddFunctionExternal(FunctionInfo* func, std::string name)
 {
@@ -148,7 +148,7 @@ void blockEnd(char const* s, char const* e)
 		funcInfo[i]->visible = false;
 	funcInfoTop.pop_back();
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varFormerTop-varTop)));
+	nodeList.push_back(new NodeBlock(varFormerTop-varTop));
 }
 
 // Функции для добавления узлов с константными числами разных типов
@@ -174,34 +174,34 @@ template<> void addNumberNode<char>(char const*s, char const*e)
 		if(s[2] == '\\')
 			res = '\\';
 	}
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(res, typeChar)));
+	nodeList.push_back(new NodeNumber<int>(res, typeChar));
 }
 
 template<> void addNumberNode<int>(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(atoi(s), typeInt)));
+	nodeList.push_back(new NodeNumber<int>(atoi(s), typeInt));
 }
 template<> void addNumberNode<float>(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<float>((float)atof(s), typeFloat)));
+	nodeList.push_back(new NodeNumber<float>((float)atof(s), typeFloat));
 }
 template<> void addNumberNode<long long>(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(parseLongLong(s), typeLong)));
+	nodeList.push_back(new NodeNumber<long long>(parseLongLong(s), typeLong));
 }
 template<> void addNumberNode<double>(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<double>(atof(s), typeDouble)));
+	nodeList.push_back(new NodeNumber<double>(atof(s), typeDouble));
 }
 
 void addVoidNode(char const*s, char const*e)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP));
+	nodeList.push_back(new NodeZeroOP());
 }
 
 void addHexInt(char const*s, char const*e)
@@ -220,9 +220,9 @@ void addHexInt(char const*s, char const*e)
 		mult = 16;
 	}
 	if(int(e-s) <= 8)
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((unsigned int)res, typeInt)));
+		nodeList.push_back(new NodeNumber<int>((unsigned int)res, typeInt));
 	else
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<long long>(res, typeLong)));
+		nodeList.push_back(new NodeNumber<long long>(res, typeLong));
 }
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
@@ -242,14 +242,14 @@ void addStringNode(char const*s, char const*e)
 	curr = s+1;
 	end = e-1;
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(len+1, typeInt)));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(typeChar))));
+	nodeList.push_back(new NodeZeroOP());
+	nodeList.push_back(new NodeNumber<int>(len+1, typeInt));
+	nodeList.push_back(new NodeExpressionList(GetArrayType(typeChar)));
 
-	shared_ptr<NodeZeroOP> temp = nodeList.back();
+	NodeZeroOP* temp = nodeList.back();
 	nodeList.pop_back();
 
-	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp);
 
 	while(end-curr > 0)
 	{
@@ -278,12 +278,12 @@ void addStringNode(char const*s, char const*e)
 					clean[i] = '\\';
 			}
 		}
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(*(int*)clean, typeInt)));
+		nodeList.push_back(new NodeNumber<int>(*(int*)clean, typeInt));
 		arrayList->AddNode();
 	}
 	if(len % 4 == 0)
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, typeInt)));
+		nodeList.push_back(new NodeNumber<int>(0, typeInt));
 		arrayList->AddNode();
 	}
 	nodeList.push_back(temp);
@@ -297,17 +297,18 @@ void addPopNode(char const* s, char const* e)
 {
 	nodeList.back()->SetCodeInfo(s, e);
 	// Если последний узел в списке - узел с цислом, уберём его
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	if(nodeList.back()->GetNodeType() == typeNodeNumber)
 	{
+		delete nodeList.back();
 		nodeList.pop_back();
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	}else if((*(nodeList.end()-1))->GetNodeType() == typeNodePreOrPostOp){
+		nodeList.push_back(new NodeZeroOP());
+	}else if(nodeList.back()->GetNodeType() == typeNodePreOrPostOp){
 		// Если последний узел, это переменная, которую уменьшают или увеличивают на 1, не используя в
 		// далнейшем её значение, то можно произвести оптимизацию кода.
-		static_cast<NodePreOrPostOp*>(nodeList.back().get())->SetOptimised(true);
+		static_cast<NodePreOrPostOp*>(nodeList.back())->SetOptimised(true);
 	}else{
 		// Иначе просто создадим узёл, как и планировали в начале
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePopOp()));
+		nodeList.push_back(new NodePopOp());
 	}
 }
 
@@ -321,29 +322,30 @@ void addNegNode(char const* s, char const* e)
 	if(negCount % 2 == 0)
 		return;
 	// Если последний узел это число, то просто поменяем знак у константы
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	if(nodeList.back()->GetNodeType() == typeNodeNumber)
 	{
-		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
-		NodeZeroOP* zOP = (nodeList.end()-1)->get();
-		shared_ptr<NodeZeroOP > Rd;
+		TypeInfo *aType = nodeList.back()->GetTypeInfo();
+		NodeZeroOP* zOP = nodeList.back();
+		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
-			Rd.reset(new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->GetVal(), zOP->GetTypeInfo());
 		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->GetVal(), zOP->GetTypeInfo());
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->GetVal(), zOP->GetTypeInfo());
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo());
 		}else{
 			std::string fullError = std::string("addNegNode() ERROR: unknown type ") + aType->name;
 			throw CompilerError(fullError, s);
 		}
+		delete nodeList.back();
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
 		// Иначе просто создадим узёл, как и планировали в начале
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeUnaryOp(cmdNeg)));
+		nodeList.push_back(new NodeUnaryOp(cmdNeg));
 	}
 	// Сбросим значение смен знака на 0
 	negCount = 0;
@@ -355,56 +357,58 @@ void addLogNotNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	// Если последний узел в списке - число, то произведём действие во время копиляции
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	if(nodeList.back()->GetNodeType() == typeNodeNumber)
 	{
-		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
-		NodeZeroOP* zOP = (nodeList.end()-1)->get();
-		shared_ptr<NodeZeroOP > Rd;
+		TypeInfo *aType = nodeList.back()->GetTypeInfo();
+		NodeZeroOP* zOP = nodeList.back();
+		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
-			Rd.reset(new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
 		}else if(aType == typeFloat){
-			Rd.reset(new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
 		}else{
 			std::string fullError = std::string("addLogNotNode() ERROR: unknown type ") + aType->name;
 			throw CompilerError(fullError, s);
 		}
+		delete nodeList.back();
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
 		// Иначе просто создадим узёл, как и планировали в начале
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeUnaryOp(cmdLogNot)));
+		nodeList.push_back(new NodeUnaryOp(cmdLogNot));
 	}
 }
 void addBitNotNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
-	if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+	if(nodeList.back()->GetNodeType() == typeNodeNumber)
 	{
-		TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
-		NodeZeroOP* zOP = (nodeList.end()-1)->get();
-		shared_ptr<NodeZeroOP > Rd;
+		TypeInfo *aType = nodeList.back()->GetTypeInfo();
+		NodeZeroOP* zOP = nodeList.back();
+		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
 			throw CompilerError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
 		}else if(aType == typeFloat){
 			throw CompilerError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
 		}else if(aType == typeLong){
-			Rd.reset(new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo());
 		}else if(aType == typeInt){
-			Rd.reset(new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo()));
+			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo());
 		}else{
 			std::string fullError = std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
 			throw CompilerError(fullError, s);
 		}
+		delete nodeList.back();
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeUnaryOp(cmdBitNot)));
+		nodeList.push_back(new NodeUnaryOp(cmdBitNot));
 	}
 }
 
@@ -510,26 +514,28 @@ void popLastNodeCond(bool swap)
 {
 	if(swap)
 	{
-		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
+		delete nodeList.back();
 		nodeList.back() = temp;
 	}else{
+		delete nodeList.back();
 		nodeList.pop_back();
 	}
 }
 
 void addTwoAndCmpNode(CmdID id)
 {
-	unsigned int aNodeType = (*(nodeList.end()-2))->GetNodeType();
-	unsigned int bNodeType = (*(nodeList.end()-1))->GetNodeType();
+	unsigned int aNodeType = nodeList[nodeList.size()-2]->GetNodeType();
+	unsigned int bNodeType = nodeList[nodeList.size()-1]->GetNodeType();
 	unsigned int shA = 2, shB = 1;	//Shifts to operand A and B in array
 	TypeInfo *aType, *bType;
 
 	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber)
 	{
 		//If we have operation between two known numbers, we can optimize code by calculating the result in place
-		aType = (*(nodeList.end()-2))->GetTypeInfo();
-		bType = (*(nodeList.end()-1))->GetTypeInfo();
+		aType = nodeList[nodeList.size()-2]->GetTypeInfo();
+		bType = nodeList[nodeList.size()-1]->GetTypeInfo();
 
 		//Swap operands, to reduce number of combinations
 		if((aType == typeFloat || aType == typeLong || aType == typeInt) && bType == typeDouble)
@@ -541,62 +547,74 @@ void addTwoAndCmpNode(CmdID id)
 
 		bool swapOper = shA != 2;
 
-		aType = (*(nodeList.end()-shA))->GetTypeInfo();
-		bType = (*(nodeList.end()-shB))->GetTypeInfo();
+		aType = nodeList[nodeList.size()-shA]->GetTypeInfo();
+		bType = nodeList[nodeList.size()-shB]->GetTypeInfo();
 		if(aType == typeDouble)
 		{
-			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >((nodeList.end()-shA)->get());
-			shared_ptr<NodeNumber<double> > Rd;
+			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shA]);
+			NodeNumber<double>* Rd = NULL;
 			if(bType == typeDouble)
 			{
-				NodeNumber<double> *Bd = static_cast<NodeNumber<double>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), Bd->GetVal()), typeDouble));
+				NodeNumber<double> *Bd = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), Bd->GetVal()), typeDouble);
 			}else if(bType == typeFloat){
-				NodeNumber<float> *Bd = static_cast<NodeNumber<float>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble));
+				NodeNumber<float> *Bd = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble);
 			}else if(bType == typeLong){
-				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble));
+				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble);
 			}else if(bType == typeInt){
-				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble));
+				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble);
 			}
-			nodeList.pop_back(); nodeList.pop_back();
+			delete nodeList.back();
+			nodeList.pop_back();
+			delete nodeList.back();
+			nodeList.pop_back();
 			nodeList.push_back(Rd);
 		}else if(aType == typeFloat){
-			NodeNumber<float> *Ad = static_cast<NodeNumber<float>* >((nodeList.end()-shA)->get());
-			shared_ptr<NodeNumber<float> > Rd;
+			NodeNumber<float> *Ad = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shA]);
+			NodeNumber<float>* Rd = NULL;
 			if(bType == typeFloat){
-				NodeNumber<float> *Bd = static_cast<NodeNumber<float>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), Bd->GetVal()), typeFloat));
+				NodeNumber<float> *Bd = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), Bd->GetVal()), typeFloat);
 			}else if(bType == typeLong){
-				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), (float)Bd->GetVal(), swapOper), typeFloat));
+				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), (float)Bd->GetVal(), swapOper), typeFloat);
 			}else if(bType == typeInt){
-				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), (float)Bd->GetVal(), swapOper), typeFloat));
+				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), (float)Bd->GetVal(), swapOper), typeFloat);
 			}
-			nodeList.pop_back(); nodeList.pop_back();
+			delete nodeList.back();
+			nodeList.pop_back();
+			delete nodeList.back();
+			nodeList.pop_back();
 			nodeList.push_back(Rd);
 		}else if(aType == typeLong){
-			NodeNumber<long long> *Ad = static_cast<NodeNumber<long long>* >((nodeList.end()-shA)->get());
-			shared_ptr<NodeNumber<long long> > Rd;
+			NodeNumber<long long> *Ad = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shA]);
+			NodeNumber<long long>* Rd = NULL;
 			if(bType == typeLong){
-				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<long long>(optDoOperation<long long>(id, Ad->GetVal(), Bd->GetVal()), typeLong));
+				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<long long>(optDoOperation<long long>(id, Ad->GetVal(), Bd->GetVal()), typeLong);
 			}else if(bType == typeInt){
-				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >((nodeList.end()-shB)->get());
-				Rd.reset(new NodeNumber<long long>(optDoOperation<long long>(id, Ad->GetVal(), (long long)Bd->GetVal(), swapOper), typeLong));
+				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shB]);
+				Rd = new NodeNumber<long long>(optDoOperation<long long>(id, Ad->GetVal(), (long long)Bd->GetVal(), swapOper), typeLong);
 			}
-			nodeList.pop_back(); nodeList.pop_back();
+			delete nodeList.back();
+			nodeList.pop_back();
+			delete nodeList.back();
+			nodeList.pop_back();
 			nodeList.push_back(Rd);
 		}else if(aType == typeInt){
-			NodeNumber<int> *Ad = static_cast<NodeNumber<int>* >((nodeList.end()-shA)->get());
-			shared_ptr<NodeNumber<int> > Rd;
+			NodeNumber<int> *Ad = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shA]);
+			NodeNumber<int>* Rd;
 			//bType is also int!
-			NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >((nodeList.end()-shB)->get());
-			Rd.reset(new NodeNumber<int>(optDoOperation<int>(id, Ad->GetVal(), Bd->GetVal()), typeInt));
-			nodeList.pop_back(); nodeList.pop_back();
+			NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shB]);
+			Rd = new NodeNumber<int>(optDoOperation<int>(id, Ad->GetVal(), Bd->GetVal()), typeInt);
+			delete nodeList.back();
+			nodeList.pop_back();
+			delete nodeList.back();
+			nodeList.pop_back();
 			nodeList.push_back(Rd);
 		}
 		return;	// Оптимизация удалась, выходим
@@ -616,7 +634,7 @@ void addTwoAndCmpNode(CmdID id)
 			// Иначе, выходим без оптимизаций
 			try
 			{
-				nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
+				nodeList.push_back(new NodeTwoAndCmdOp(id));
 			}catch(const std::string& str){
 				throw CompilerError(str.c_str(), lastKnownStartPos);
 			}
@@ -625,10 +643,10 @@ void addTwoAndCmpNode(CmdID id)
 
 		// Оптимизацию можно произвести, если число == 0 или число == 1
 		bool success = false;
-		bType = (*(nodeList.end()-shA))->GetTypeInfo();
+		bType = nodeList[nodeList.size()-shA]->GetTypeInfo();
 		if(bType == typeDouble)
 		{
-			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >((nodeList.end()-shA)->get());
+			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shA]);
 			if(Ad->GetVal() == 0.0 && id == cmdMul)
 			{
 				popLastNodeCond(shA == 1); // a*0.0 -> 0.0
@@ -640,7 +658,7 @@ void addTwoAndCmpNode(CmdID id)
 				success = true;
 			}
 		}else if(bType == typeFloat){
-			NodeNumber<float> *Ad = static_cast<NodeNumber<float>* >((nodeList.end()-shA)->get());
+			NodeNumber<float> *Ad = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shA]);
 			if(Ad->GetVal() == 0.0f && id == cmdMul)
 			{
 				popLastNodeCond(shA == 1); // a*0.0f -> 0.0f
@@ -652,7 +670,7 @@ void addTwoAndCmpNode(CmdID id)
 				success = true;
 			}
 		}else if(bType == typeLong){
-			NodeNumber<long long> *Ad = static_cast<NodeNumber<long long>* >((nodeList.end()-shA)->get());
+			NodeNumber<long long> *Ad = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shA]);
 			if(Ad->GetVal() == 0 && id == cmdMul)
 			{
 				popLastNodeCond(shA == 1); // a*0L -> 0L
@@ -664,7 +682,7 @@ void addTwoAndCmpNode(CmdID id)
 				success = true;
 			}
 		}else if(bType == typeInt){
-			NodeNumber<int> *Ad = static_cast<NodeNumber<int>* >((nodeList.end()-shA)->get());
+			NodeNumber<int> *Ad = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shA]);
 			if(Ad->GetVal() == 0 && id == cmdMul)
 			{
 				popLastNodeCond(shA == 1); // a*0 -> 0
@@ -682,7 +700,7 @@ void addTwoAndCmpNode(CmdID id)
 	// Оптимизации не удались, сделаем операцию полностью
 	try
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeTwoAndCmdOp(id)));
+		nodeList.push_back(new NodeTwoAndCmdOp(id));
 	}catch(const std::string& str){
 		throw CompilerError(str.c_str(), lastKnownStartPos);
 	}
@@ -741,7 +759,7 @@ void addReturnNode(char const* s, char const* e)
 		throw CompilerError("ERROR: function returning a value", s);
 	if(retTypeStack.back() && retTypeStack.back() != typeVoid && realRetType == typeVoid)
 		throw CompilerError("ERROR: funtion should return " + retTypeStack.back()->GetTypeName(), s);
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeReturnOp(c, retTypeStack.back())));
+	nodeList.push_back(new NodeReturnOp(c, retTypeStack.back()));
 	nodeList.back()->SetCodeInfo(s, e);
 }
 
@@ -757,7 +775,7 @@ void addBreakNode(char const* s, char const* e)
 		c++;
 		t--;
 	}
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBreakOp(c)));
+	nodeList.push_back(new NodeBreakOp(c));
 }
 
 void AddContinueNode(char const* s, char const* e)
@@ -772,7 +790,7 @@ void AddContinueNode(char const* s, char const* e)
 		c++;
 		t--;
 	}
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeContinueOp(c)));
+	nodeList.push_back(new NodeContinueOp(c));
 }
 
 //Finds TypeInfo in a typeInfo list by name
@@ -843,7 +861,7 @@ void addVarDefNode(char const* s, char const* e)
 	assert(varDefined);
 	if(!currType)
 		throw CompilerError("ERROR: auto variable must be initialized in place of definition", s);
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVarDef(strs.back())));
+	nodeList.push_back(new NodeVarDef(strs.back()));
 	varInfo.back()->dataReserved = true;
 	varDefined = 0;
 	offsetBytes = 0;
@@ -921,9 +939,10 @@ void GetTypeSize(char const* s, char const* e)
 	if(sizeOfExpr)
 	{
 		currTypes.back() = nodeList.back()->GetTypeInfo();
+		delete nodeList.back();
 		nodeList.pop_back();
 	}
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(currTypes.back()->size, typeInt)));
+	nodeList.push_back(new NodeNumber<int>(currTypes.back()->size, typeInt));
 
 	sizeOfExpr = false;
 }
@@ -932,6 +951,7 @@ void SetTypeOfLastNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
 	currType = nodeList.back()->GetTypeInfo();
+	delete nodeList.back();
 	nodeList.pop_back();
 }
 
@@ -990,7 +1010,7 @@ void AddGetAddressNode(char const* s, char const* e)
 			TypeInfo *temp = GetReferenceType(newType);
 			currTypes.push_back(temp);
 
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp)));
+			nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 
 			AddDereferenceNode(0,0);
 			strs.push_back(vName);
@@ -1007,13 +1027,13 @@ void AddGetAddressNode(char const* s, char const* e)
 		// Добавим имя переменной в список внешних переменных функции
 		int num = AddFunctionExternal(currFunc, vName);
 
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)currDefinedFunc.back()->external.size(), typeInt)));
+		nodeList.push_back(new NodeNumber<int>((int)currDefinedFunc.back()->external.size(), typeInt));
 		TypeInfo *temp = GetReferenceType(GetArrayType(GetReferenceType(typeInt)));
 		currTypes.push_back(temp);
 
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp)));
+		nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 		AddDereferenceNode(0,0);
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(num, typeInt)));
+		nodeList.push_back(new NodeNumber<int>(num, typeInt));
 		AddArrayIndexNode(0,0);
 		AddDereferenceNode(0,0);
 		// Убрали текущий тип
@@ -1029,7 +1049,7 @@ void AddGetAddressNode(char const* s, char const* e)
 				varAddress -= (int)(varInfoTop.back().varStackSize);
 
 			// Создаем узел для получения указателя на переменную
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varAddress, absAddress)));
+			nodeList.push_back(new NodeGetAddress(varInfo[i], varAddress, absAddress));
 		}else{
 			if(funcInfo[fID]->funcPtr != 0)
 				throw CompilerError("ERROR: Can't get a pointer to an extern function", s);
@@ -1043,7 +1063,7 @@ void AddGetAddressNode(char const* s, char const* e)
 					i--;
 				if(i == -1)
 				{
-					nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
+					nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
 				}else{
 					AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
 					currTypes.pop_back();
@@ -1051,7 +1071,7 @@ void AddGetAddressNode(char const* s, char const* e)
 			}
 
 			// Создаем узел для получения указателя на функцию
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFunctionAddress(funcInfo[fID])));
+			nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
 		}
 	}
 }
@@ -1069,19 +1089,19 @@ void AddArrayIndexNode(char const* s, char const* e)
 	if(currTypes.back()->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		// То перед индексацией необходимо получить указатель на массив, который хранится в переменной
-		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(GetReferenceType(currTypes.back()->subType))));
+		nodeList.push_back(new NodeDereference(GetReferenceType(currTypes.back()->subType)));
 		nodeList.push_back(temp);
 	}
 	// Если индекс - константное число и текущий узел - адрес
-	if(nodeList.back()->GetNodeType() == typeNodeNumber && (*(nodeList.end()-2))->GetNodeType() == typeNodeGetAddress)
+	if(nodeList.back()->GetNodeType() == typeNodeNumber && nodeList[nodeList.size()-2]->GetNodeType() == typeNodeGetAddress)
 	{
 		// Получаем значение сдвига
 		int shiftValue;
-		shared_ptr<NodeZeroOP> indexNode = nodeList.back();
+		NodeZeroOP* indexNode = nodeList.back();
 		TypeInfo *aType = indexNode->GetTypeInfo();
-		NodeZeroOP* zOP = indexNode.get();
+		NodeZeroOP* zOP = indexNode;
 		if(aType == typeDouble)
 		{
 			shiftValue = (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
@@ -1102,11 +1122,12 @@ void AddArrayIndexNode(char const* s, char const* e)
 			throw CompilerError("ERROR: Array index out of bounds", s);
 
 		// Индексируем относительно него
-		static_cast<NodeGetAddress*>((*(nodeList.end()-2)).get())->IndexArray(shiftValue);
+		static_cast<NodeGetAddress*>(nodeList[nodeList.size()-2])->IndexArray(shiftValue);
+		delete nodeList.back();
 		nodeList.pop_back();
 	}else{
 		// Иначе создаём узел индексации
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeArrayIndex(currTypes.back())));
+		nodeList.push_back(new NodeArrayIndex(currTypes.back()));
 	}
 	// Теперь текущий тип - тип элемента массива
 	currTypes.back() = currTypes.back()->subType;
@@ -1119,7 +1140,7 @@ void AddDereferenceNode(char const* s, char const* e)
 	lastKnownStartPos = s;
 
 	// Создаём узел разыменования
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
+	nodeList.push_back(new NodeDereference(currTypes.back()));
 	// Теперь текущий тип - тип на который указывала ссылка
 	currTypes.back() = GetDereferenceType(currTypes.back());
 }
@@ -1129,6 +1150,7 @@ void AddDereferenceNode(char const* s, char const* e)
 void FailedSetVariable(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
+	delete nodeList.back();
 	nodeList.pop_back();
 }
 
@@ -1182,14 +1204,17 @@ void AddDefineVariableNode(char const* s, char const* e)
 			// Далее, так как мы присваиваем безразменому массиву значение размерного,
 			// нам надо преобразовать его в пару указатель;размер
 			// Возьмём указатель на массив, он - узел, находящийся в узле разыменования указателя
-			nodeList.back() = static_cast<NodeDereference*>(nodeList.back().get())->GetFirstNode();
+			NodeZeroOP	*oldNode = nodeList.back();
+			nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
+			static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
+			delete oldNode;
 			// Найдем размер массива
 			unsigned int typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
 			// Создадим список выражений, возвращающий тип безразмерного массива
 			// Конструктор списка захватит предыдущий узел в себя
-			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(varInfo[i]->varType));
+			NodeExpressionList *listExpr = new NodeExpressionList(varInfo[i]->varType);
 			// Создадим узел, возвращающий число - размер массива
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			nodeList.push_back(new NodeNumber<int>(typeSize, typeInt));
 			// Добавим в список
 			listExpr->AddNode();
 			// Положим список в список узлов
@@ -1198,7 +1223,7 @@ void AddDefineVariableNode(char const* s, char const* e)
 	}
 	// Если переменной присваивается функция, то возьмём указатель на неё
 	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
-		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back().get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
 		AddInplaceFunction(s, e);
 		currTypes.pop_back();
@@ -1237,16 +1262,16 @@ void AddDefineVariableNode(char const* s, char const* e)
 	varSizeAdd += !varInfo[i]->dataReserved ? realCurrType->size : 0;
 	varInfo[i]->dataReserved = true;
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress)));
+	nodeList.push_back(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress));
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableSet(realCurrType, varSizeAdd, false)));
+	nodeList.push_back(new NodeVariableSet(realCurrType, varSizeAdd, false));
 
 	if(unifyTwo)
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(nodeList.back()->GetTypeInfo())));
-		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.push_back(new NodeExpressionList(nodeList.back()->GetTypeInfo()));
+		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
-		static_cast<NodeExpressionList*>(temp.get())->AddNode();
+		static_cast<NodeExpressionList*>(temp)->AddNode();
 		nodeList.push_back(temp);
 	}
 }
@@ -1273,38 +1298,42 @@ void AddSetVariableNode(char const* s, char const* e)
 					throw CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
 				}
 			}
-			nodeList.back() = static_cast<NodeDereference*>(nodeList.back().get())->GetFirstNode();
+			NodeZeroOP	*oldNode = nodeList.back();
+			nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
+			static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
+			delete oldNode;
+
 			unsigned int typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
-			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(realCurrType));
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			NodeExpressionList *listExpr = new NodeExpressionList(realCurrType);
+			nodeList.push_back(new NodeNumber<int>(typeSize, typeInt));
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
 
 			if(unifyTwo)
-				std::swap(*(nodeList.end()-2), *(nodeList.end()-3));
+				std::swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 		}
 	}
 	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
-		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back().get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
 		AddInplaceFunction(s, e);
 		unifyTwo = true;
-		std::swap(*(nodeList.end()-2), *(nodeList.end()-3));
+		std::swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 	}
 
 	try
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeVariableSet(currTypes.back(), 0, true)));
+		nodeList.push_back(new NodeVariableSet(currTypes.back(), 0, true));
 	}catch(const std::string& str){
 		throw CompilerError(str.c_str(), s);
 	}
 
 	if(unifyTwo)
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(nodeList.back()->GetTypeInfo())));
-		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		nodeList.push_back(new NodeExpressionList(nodeList.back()->GetTypeInfo()));
+		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
-		static_cast<NodeExpressionList*>(temp.get())->AddNode();
+		static_cast<NodeExpressionList*>(temp)->AddNode();
 		nodeList.push_back(temp);
 	}
 }
@@ -1315,7 +1344,7 @@ void AddGetVariableNode(char const* s, char const* e)
 	lastKnownStartPos = s;
 
 	if(nodeList.back()->GetTypeInfo()->funcType == NULL)
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
+		nodeList.push_back(new NodeDereference(currTypes.back()));
 }
 
 void AddMemberAccessNode(char const* s, char const* e)
@@ -1330,7 +1359,7 @@ void AddMemberAccessNode(char const* s, char const* e)
 
 	if(currType->refLevel == 1)
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDereference(currTypes.back())));
+		nodeList.push_back(new NodeDereference(currTypes.back()));
 		currTypes.back() = GetDereferenceType(currTypes.back());
 		currType = currTypes.back();
 	}
@@ -1359,14 +1388,14 @@ void AddMemberAccessNode(char const* s, char const* e)
 	{
 		if(nodeList.back()->GetNodeType() == typeNodeGetAddress)
 		{
-			static_cast<NodeGetAddress*>(nodeList.back().get())->ShiftToMember(i);
+			static_cast<NodeGetAddress*>(nodeList.back())->ShiftToMember(i);
 		}else{
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeShiftAddress(currType->memberData[i].offset, currType->memberData[i].type)));
+			nodeList.push_back(new NodeShiftAddress(currType->memberData[i].offset, currType->memberData[i].type));
 		}
 		currTypes.back() = currType->memberData[i].type;
 	}else{
 		// Создаем узел для получения указателя на функцию
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFunctionAddress(funcInfo[fID])));
+		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
 
 		currTypes.back() = funcInfo[fID]->funcType;
 	}
@@ -1383,7 +1412,7 @@ void AddMemberFunctionCall(char const* s, char const* e)
 
 void AddPreOrPostOpNode(bool isInc, bool prefixOp)
 {
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodePreOrPostOp(currTypes.back(), isInc, prefixOp)));
+	nodeList.push_back(new NodePreOrPostOp(currTypes.back(), isInc, prefixOp));
 }
 
 struct AddPreOrPostOp
@@ -1406,12 +1435,7 @@ struct AddPreOrPostOp
 
 void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 {
-	shared_ptr<NodeZeroOP> temp = *(nodeList.end()-2);
-	nodeList.push_back(temp);
-	AddGetVariableNode(s, e);
-	std::swap(*(nodeList.end()-1), *(nodeList.end()-2));
-	addTwoAndCmpNode(cmd);
-	AddSetVariableNode(s, e);
+	nodeList.push_back(new NodeVariableModify(GetDereferenceType(nodeList[nodeList.size()-2]->GetTypeInfo()), cmd));
 }
 
 template<CmdID cmd>
@@ -1460,16 +1484,16 @@ void AddInplaceFunction(char const* s, char const* e)
 void addOneExprNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList()));
+	nodeList.push_back(new NodeExpressionList());
 }
 void addTwoExprNode(char const* s, char const* e)
 {
 	if(nodeList.back()->GetNodeType() != typeNodeExpressionList)
 		addOneExprNode(s, e);
 	// Take the expression list from the top
-	shared_ptr<NodeZeroOP> temp = nodeList.back();
+	NodeZeroOP* temp = nodeList.back();
 	nodeList.pop_back();
-	static_cast<NodeExpressionList*>(temp.get())->AddNode();
+	static_cast<NodeExpressionList*>(temp)->AddNode();
 	nodeList.push_back(temp);
 }
 
@@ -1479,7 +1503,7 @@ void addArrayConstructor(char const* s, char const* e)
 {
 	arrElementCount.back()++;
 
-	TypeInfo *currType = (*(nodeList.end()-arrElementCount.back()))->GetTypeInfo();
+	TypeInfo *currType = nodeList[nodeList.size()-arrElementCount.back()]->GetTypeInfo();
 
 	if(currType == typeShort || currType == typeChar)
 	{
@@ -1498,14 +1522,14 @@ void addArrayConstructor(char const* s, char const* e)
 	if(currType == typeVoid)
 		throw CompilerError("ERROR: array cannot be constructed from void type elements", s);
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(arrElementCount.back(), typeInt)));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(currType))));
+	nodeList.push_back(new NodeZeroOP());
+	nodeList.push_back(new NodeNumber<int>(arrElementCount.back(), typeInt));
+	nodeList.push_back(new NodeExpressionList(GetArrayType(currType)));
 
-	shared_ptr<NodeZeroOP> temp = nodeList.back();
+	NodeZeroOP* temp = nodeList.back();
 	nodeList.pop_back();
 
-	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp);
 
 	TypeInfo *realType = nodeList.back()->GetTypeInfo();
 	for(unsigned int i = 0; i < arrElementCount.back(); i++)
@@ -1628,9 +1652,9 @@ void FunctionEnd(char const* s, char const* e)
 		varInfo.pop_back();
 	varTop = varInfoTop.back().varStackSize;
 	varInfoTop.pop_back();
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeBlock(varFormerTop-varTop, false)));
+	nodeList.push_back(new NodeBlock(varFormerTop-varTop, false));
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncDef(funcInfo[i])));
+	nodeList.push_back(new NodeFuncDef(funcInfo[i]));
 	funcDefList.push_back(nodeList.back());
 	strs.pop_back();
 
@@ -1640,14 +1664,14 @@ void FunctionEnd(char const* s, char const* e)
 	// If function is local, create function parameters block
 	if(lastFunc.type == FunctionInfo::LOCAL && !lastFunc.external.empty())
 	{
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>((int)lastFunc.external.size(), typeInt)));
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(GetArrayType(GetReferenceType(typeInt)))));
+		nodeList.push_back(new NodeZeroOP());
+		nodeList.push_back(new NodeNumber<int>((int)lastFunc.external.size(), typeInt));
+		nodeList.push_back(new NodeExpressionList(GetArrayType(GetReferenceType(typeInt))));
 
-		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
 
-		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp.get());
+		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp);
 
 		for(unsigned int n = 0; n < lastFunc.external.size(); n++)
 		{
@@ -1681,7 +1705,7 @@ void FunctionEnd(char const* s, char const* e)
 		TypeInfo::MemberFunction &clFunc = newType->memberFunctions.back();
 		clFunc.name = lastFunc.name;
 		clFunc.func = &lastFunc;
-		clFunc.defNode = nodeList.back().get();
+		clFunc.defNode = nodeList.back();
 	}
 }
 
@@ -1723,7 +1747,7 @@ void addFuncCallNode(char const* s, char const* e)
 			}
 			for(unsigned int n = 0; n < fList[k]->params.size(); n++)
 			{
-				shared_ptr<NodeZeroOP> activeNode = nodeList[nodeList.size()-fList[k]->params.size()+n];
+				NodeZeroOP* activeNode = nodeList[nodeList.size()-fList[k]->params.size()+n];
 				TypeInfo *paramType = activeNode->GetTypeInfo();
 				unsigned int	nodeType = activeNode->GetNodeType();
 				TypeInfo *expectedType = fList[k]->params[n].varType;
@@ -1732,7 +1756,7 @@ void addFuncCallNode(char const* s, char const* e)
 					if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 						fRating[k] += 5;
 					else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef ||
-							(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode.get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+							(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode)->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 						fRating[k] += 5;
 					else if(expectedType->type == TypeInfo::TYPE_COMPLEX)
 						fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
@@ -1822,13 +1846,13 @@ void addFuncCallNode(char const* s, char const* e)
 		fType = nodeList.back()->GetTypeInfo()->funcType;
 	}
 
-	vector<shared_ptr<NodeZeroOP> > paramNodes;
+	vector<NodeZeroOP*> paramNodes;
 	for(unsigned int i = 0; i < fType->paramType.size(); i++)
 	{
 		paramNodes.push_back(nodeList.back());
 		nodeList.pop_back();
 	}
-	vector<shared_ptr<NodeZeroOP> > inplaceArray;
+	vector<NodeZeroOP*> inplaceArray;
 
 	for(unsigned int i = 0; i < fType->paramType.size(); i++)
 	{
@@ -1838,12 +1862,12 @@ void addFuncCallNode(char const* s, char const* e)
 		TypeInfo *realType = paramNodes[index]->GetTypeInfo();
 		
 		if(paramNodes[index]->GetNodeType() == typeNodeFuncDef ||
-			(paramNodes[index]->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index].get())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+			(paramNodes[index]->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 		{
 			AddInplaceFunction(s, e);
 			currTypes.pop_back();
 
-			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(paramNodes[index]->GetTypeInfo()));
+			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->GetTypeInfo());
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
 		}
@@ -1867,9 +1891,12 @@ void addFuncCallNode(char const* s, char const* e)
 				}
 			}
 			unsigned int typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
-			nodeList.push_back(static_cast<NodeDereference*>(paramNodes[index].get())->GetFirstNode());
-			shared_ptr<NodeExpressionList> listExpr(new NodeExpressionList(varInfo[i]->varType));
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(typeSize, typeInt)));
+			nodeList.push_back(static_cast<NodeDereference*>(paramNodes[index])->GetFirstNode());
+			static_cast<NodeDereference*>(paramNodes[index])->SetFirstNode(NULL);
+			delete paramNodes[index];
+			paramNodes[index] = NULL;
+			NodeExpressionList *listExpr = new NodeExpressionList(varInfo[i]->varType);
+			nodeList.push_back(new NodeNumber<int>(typeSize, typeInt));
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
 		}else{
@@ -1885,7 +1912,7 @@ void addFuncCallNode(char const* s, char const* e)
 			i--;
 		if(i == -1)
 		{
-			nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(0, GetReferenceType(typeInt))));
+			nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
 		}else{
 			AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
 			if(currTypes.back()->refLevel == 1)
@@ -1897,17 +1924,17 @@ void addFuncCallNode(char const* s, char const* e)
 	if(!fInfo)
 		currTypes.pop_back();
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeFuncCall(fInfo, fType)));
+	nodeList.push_back(new NodeFuncCall(fInfo, fType));
 
 	if(inplaceArray.size() > 0)
 	{
-		shared_ptr<NodeZeroOP> temp = nodeList.back();
+		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
 		for(unsigned int i = 0; i < inplaceArray.size(); i++)
 			nodeList.push_back(inplaceArray[i]);
 		nodeList.push_back(temp);
 
-		nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeExpressionList(temp->GetTypeInfo())));
+		nodeList.push_back(new NodeExpressionList(temp->GetTypeInfo()));
 		for(unsigned int i = 0; i < inplaceArray.size(); i++)
 			addTwoExprNode(s, e);
 	}
@@ -1917,12 +1944,12 @@ void addFuncCallNode(char const* s, char const* e)
 void addIfNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(false)));
+	nodeList.push_back(new NodeIfElseExpr(false));
 }
 void addIfElseNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true)));
+	nodeList.push_back(new NodeIfElseExpr(true));
 }
 void addIfElseTermNode(char const* s, char const* e)
 {
@@ -1931,7 +1958,7 @@ void addIfElseTermNode(char const* s, char const* e)
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->GetTypeInfo();
 	if(typeA != typeB)
 		throw CompilerError("ERROR: trinary operator ?: \r\n result types are not equal (" + typeB->name + " : " + typeA->name + ")", s);
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeIfElseExpr(true, true)));
+	nodeList.push_back(new NodeIfElseExpr(true, true));
 }
 
 void saveVarTop(char const* s, char const* e)
@@ -1942,19 +1969,19 @@ void saveVarTop(char const* s, char const* e)
 void addForNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeForExpr()));
+	nodeList.push_back(new NodeForExpr());
 	cycleBeginVarTop.pop_back();
 }
 void addWhileNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeWhileExpr()));
+	nodeList.push_back(new NodeWhileExpr());
 	cycleBeginVarTop.pop_back();
 }
 void addDoWhileNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeDoWhileExpr()));
+	nodeList.push_back(new NodeDoWhileExpr());
 	cycleBeginVarTop.pop_back();
 }
 
@@ -1963,13 +1990,13 @@ void preSwitchNode(char const* s, char const* e)
 	(void)s; (void)e;	// C4100
 	cycleBeginVarTop.push_back((unsigned int)varInfoTop.size());
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeSwitchExpr()));
+	nodeList.push_back(new NodeSwitchExpr());
 }
 void addCaseNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	shared_ptr<NodeZeroOP> temp = *(nodeList.end()-3);
-	static_cast<NodeSwitchExpr*>(temp.get())->AddCase();
+	NodeZeroOP* temp = nodeList[nodeList.size()-3];
+	static_cast<NodeSwitchExpr*>(temp)->AddCase();
 }
 void addSwitchNode(char const* s, char const* e)
 {
@@ -2022,7 +2049,7 @@ void TypeFinish(char const* s, char const* e)
 		newType->size += 4 - (newType->size % 4);
 	}
 
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeZeroOP()));
+	nodeList.push_back(new NodeZeroOP());
 	for(unsigned int i = 0; i < newType->memberFunctions.size(); i++)
 		addTwoExprNode(0,0);
 
@@ -2038,7 +2065,7 @@ void TypeFinish(char const* s, char const* e)
 void addUnfixedArraySize(char const*s, char const*e)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(shared_ptr<NodeZeroOP>(new NodeNumber<int>(1, typeVoid)));
+	nodeList.push_back(new NodeNumber<int>(1, typeVoid));
 }
 
 namespace CompilerGrammar
@@ -2782,9 +2809,6 @@ bool Compiler::Compile(string str)
 	cmdInfoList->Clear();
 	cmdList.clear();
 
-	if(nodeList.size() != 0)
-		nodeList.pop_back();
-
 #ifdef NULLC_LOG_FILES
 	FILE *fCode = fopen("code.txt", "wb");
 	fwrite(str.c_str(), 1, str.length(), fCode);
@@ -2816,7 +2840,7 @@ bool Compiler::Compile(string str)
 	for(unsigned int i = 0; i < funcDefList.size(); i++)
 	{
 		funcDefList[i]->Compile();
-		((NodeFuncDef*)funcDefList[i].get())->Disable();
+		((NodeFuncDef*)funcDefList[i])->Disable();
 	}
 	if(nodeList.back())
 		nodeList.back()->Compile();
@@ -2862,7 +2886,13 @@ bool Compiler::Compile(string str)
 	fflush(compileLog);
 #endif
 
-	if(nodeList.size() != 1)
+	if(nodeList.back())
+	{
+		delete nodeList.back();
+		nodeList.pop_back();
+	}
+
+	if(nodeList.size() != 0)
 		throw std::string("Compilation failed, AST contains more than one node");
 
 	return true; // Зачем тут return true, если вместо return false используются исключения?

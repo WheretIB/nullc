@@ -13,9 +13,9 @@ unsigned int GetFuncIndexByPtr(FunctionInfo* funcInfo)
     return ~0u;
 }
 
-shared_ptr<NodeZeroOP>	TakeLastNode()
+NodeZeroOP*	TakeLastNode()
 {
-	shared_ptr<NodeZeroOP> last = nodeList.back();
+	NodeZeroOP* last = nodeList.back();
 	nodeList.pop_back();
 	return last;
 }
@@ -208,9 +208,11 @@ void NodeZeroOP::SetCodeInfo(const char* start, const char* end)
 // ”зел, имеющий один дочерний узел
 NodeOneOP::NodeOneOP()
 {
+	first = NULL;
 }
 NodeOneOP::~NodeOneOP()
 {
+	delete first;
 }
 
 void NodeOneOP::Compile()
@@ -238,9 +240,11 @@ unsigned int NodeOneOP::GetSize()
 // ”зел, имеющий два дочерних узла
 NodeTwoOP::NodeTwoOP()
 {
+	second = NULL;
 }
 NodeTwoOP::~NodeTwoOP()
 {
+	delete second;
 }
 
 void NodeTwoOP::Compile()
@@ -270,9 +274,11 @@ unsigned int NodeTwoOP::GetSize()
 // ”зел, имеющий три дочерних узла
 NodeThreeOP::NodeThreeOP()
 {
+	third = NULL;
 }
 NodeThreeOP::~NodeThreeOP()
 {
+	delete third;
 }
 
 void NodeThreeOP::Compile()
@@ -657,6 +663,8 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 }
 NodeFuncCall::~NodeFuncCall()
 {
+	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+		delete *s;
 }
 
 void NodeFuncCall::Compile()
@@ -668,7 +676,7 @@ void NodeFuncCall::Compile()
 	
 	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL)
 	{
-		std::list<shared_ptr<NodeZeroOP> >::iterator s, e;
+		std::vector<NodeZeroOP*>::iterator s, e;
 		s = paramList.begin();
 		e = paramList.end();
 		for(; s != e; s++)
@@ -682,7 +690,7 @@ void NodeFuncCall::Compile()
 			currParam++;
 		}
 	}else{
-		std::list<shared_ptr<NodeZeroOP> >::reverse_iterator s, e;
+		std::vector<NodeZeroOP*>::reverse_iterator s, e;
 		s = paramList.rbegin();
 		e = paramList.rend();
 		for(; s != e; s++)
@@ -870,8 +878,6 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 	assert(targetType);
 	typeInfo = targetType;
 
-	bytesToPush = pushVar;
-
 	if(swapNodes)
 		second = TakeLastNode();
 
@@ -883,7 +889,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		second = TakeLastNode();
 
 	// ≈сли идЄт первое определение переменной и массиву присваиваетс€ базовый тип
-	arrSetAll = (bytesToPush && typeInfo->arrLevel != 0 && second->GetTypeInfo()->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX);
+	arrSetAll = (pushVar && typeInfo->arrLevel != 0 && second->GetTypeInfo()->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->GetTypeInfo() == typeVoid)
 		throw std::string("ERROR: cannot convert from void to " + typeInfo->GetTypeName());
@@ -914,19 +920,25 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 
 	if(first->GetNodeType() == typeNodeGetAddress)
 	{
-		absAddress = static_cast<NodeGetAddress*>(first.get())->IsAbsoluteAddress();
-		addrShift = static_cast<NodeGetAddress*>(first.get())->varAddress;
+		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
+		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
 	if(first->GetNodeType() == typeNodeShiftAddress)
 	{
-		addrShift = static_cast<NodeShiftAddress*>(first.get())->memberShift;
-		first = static_cast<NodeShiftAddress*>(first.get())->first;
+		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeShiftAddress*>(first)->first;
+		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
+		delete oldFirst;
 	}
-	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first.get())->knownShift)
+	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
-		addrShift = static_cast<NodeArrayIndex*>(first.get())->shiftValue;
-		first = static_cast<NodeArrayIndex*>(first.get())->first;
+		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeArrayIndex*>(first)->first;
+		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
+		delete oldFirst;
 	}
 }
 
@@ -1000,6 +1012,174 @@ TypeInfo* NodeVariableSet::GetTypeInfo()
 }
 
 //////////////////////////////////////////////////////////////////////////
+// ”зел дл€ изменени€ значени€ переменной (операции += -= *= /= и т.п.)
+
+NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
+{
+	assert(targetType);
+	typeInfo = targetType;
+
+	cmdID = cmd;
+
+	second = TakeLastNode();
+
+	// Address of the target variable
+	first = TakeLastNode();
+	assert(first->GetTypeInfo()->refLevel != 0);
+
+	if(second->GetTypeInfo() == typeVoid)
+		throw std::string("ERROR: cannot convert from void to " + typeInfo->GetTypeName());
+	if(typeInfo == typeVoid)
+		throw std::string("ERROR: cannot convert from " + second->GetTypeInfo()->GetTypeName() + " to void");
+
+	// ≈сли типы не равны
+	if(second->GetTypeInfo() != typeInfo)
+	{
+		// ≈сли это не встроенные базовые типы, или
+		// если различаетс€ глубина указателей, или
+		// если это указатель, глубина указателей равна, но при этом тип, на который указывает указатель отличаетс€, то
+		// сообщим об ошибке несоответстви€ типов
+		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX) ||
+			(typeInfo->arrLevel != second->GetTypeInfo()->arrLevel) ||
+			(typeInfo->refLevel != second->GetTypeInfo()->refLevel) ||
+			(typeInfo->refLevel && typeInfo->refLevel == second->GetTypeInfo()->refLevel && typeInfo->subType != second->GetTypeInfo()->subType))
+		{
+			throw std::string("ERROR: Cannot convert '" + second->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
+		}
+	}
+
+	absAddress = true;
+	knownAddress = false;
+	addrShift = 0;
+
+	if(first->GetNodeType() == typeNodeGetAddress)
+	{
+		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
+		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
+		knownAddress = true;
+	}
+	if(first->GetNodeType() == typeNodeShiftAddress)
+	{
+		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeShiftAddress*>(first)->first;
+		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
+		delete oldFirst;
+	}
+	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
+	{
+		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeArrayIndex*>(first)->first;
+		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
+		delete oldFirst;
+	}
+}
+
+NodeVariableModify::~NodeVariableModify()
+{
+}
+
+void NodeVariableModify::Compile()
+{
+	unsigned int startCmdSize = cmdList.size();
+	if(strBegin && strEnd)
+		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+
+	asmStackType asmSTfirst = podTypeToStackType[typeInfo->type];
+	asmDataType asmDT = podTypeToDataType[typeInfo->type];
+
+	asmStackType asmSTsecond = podTypeToStackType[second->GetTypeInfo()->type];
+
+	// ≈сли надо, расчитаем адрес первого операнда
+	if(!knownAddress)
+		first->Compile();
+
+	// » положим его в стек
+	if(knownAddress)
+	{
+		if(absAddress)
+			cmdList.push_back(VMCmd(cmdPushTypeAbs[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+		else
+			cmdList.push_back(VMCmd(cmdPushTypeRel[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+	}else{
+		cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+	}
+
+	// ѕреобразуем, если надо, в тип, который получаетс€ после проведени€ выбранной операции
+	asmStackType asmSTresult = ConvertFirstForSecond(asmSTfirst, asmSTsecond);
+
+	// ќперделим второй операнд
+	second->Compile();
+
+	// ѕреобразуем, если надо, в тип, который получаетс€ после проведени€ выбранной операции
+	ConvertFirstForSecond(asmSTsecond, asmSTresult);
+
+	// ѕроизведЄм операцию со значени€ми
+	if(asmSTresult == STYPE_INT)
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID)));
+	else if(asmSTresult == STYPE_LONG)
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddL)));
+	else if(asmSTresult == STYPE_DOUBLE)
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddD)));
+	else
+		assert(!"unknown operator type in NodeVariableModify");
+
+	// ѕреобразуем результат в тип первого операнда
+	ConvertFirstToSecond(asmSTresult, asmSTfirst);
+
+	// ≈сли надо, расчитаем адрес первого операнда
+	if(!knownAddress)
+		first->Compile();
+
+	// » запишем новое значение переменной
+	if(knownAddress)
+	{
+		if(absAddress)
+			cmdList.push_back(VMCmd(cmdMovTypeAbs[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+		else
+			cmdList.push_back(VMCmd(cmdMovTypeRel[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+	}else{
+		cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+	}
+
+	assert((cmdList.size()-startCmdSize) == GetSize());
+}
+
+void NodeVariableModify::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s VariableModify\r\n", typeInfo->GetTypeName().c_str());
+	GoDown();
+	first->LogToStream(fGraph);
+	GoUp();
+	GoDownB();
+	second->LogToStream(fGraph);
+	GoUp();
+}
+
+unsigned int NodeVariableModify::GetSize()
+{
+	asmStackType asmSTfirst = podTypeToStackType[typeInfo->type];
+	asmStackType asmSTsecond = podTypeToStackType[second->GetTypeInfo()->type];
+
+	unsigned int size = second->GetSize();
+	if(!knownAddress)
+		size += 2 * first->GetSize();
+	size += ConvertFirstForSecondSize(asmSTfirst, asmSTsecond).first;
+	asmStackType asmSTresult = ConvertFirstForSecondSize(asmSTfirst, asmSTsecond).second;
+	size += ConvertFirstForSecondSize(asmSTsecond, asmSTresult).first;
+	size += ConvertFirstToSecondSize(asmSTresult, asmSTfirst);
+	size += 3;
+	return size;
+}
+
+TypeInfo* NodeVariableModify::GetTypeInfo()
+{
+	return typeInfo;
+}
+
+//////////////////////////////////////////////////////////////////////////
 // ”зел дл€ получени€ элемента массива
 NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 {
@@ -1018,7 +1198,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 	if(second->GetNodeType() == typeNodeNumber)
 	{
 		TypeInfo *aType = second->GetTypeInfo();
-		NodeZeroOP* zOP = second.get();
+		NodeZeroOP* zOP = second;
 		if(aType == typeDouble)
 		{
 			shiftValue = typeParent->subType->size * (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
@@ -1114,19 +1294,25 @@ NodeDereference::NodeDereference(TypeInfo* type)
 
 	if(first->GetNodeType() == typeNodeGetAddress)
 	{
-		absAddress = static_cast<NodeGetAddress*>(first.get())->IsAbsoluteAddress();
-		addrShift = static_cast<NodeGetAddress*>(first.get())->varAddress;
+		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
+		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
 	if(first->GetNodeType() == typeNodeShiftAddress)
 	{
-		addrShift = static_cast<NodeShiftAddress*>(first.get())->memberShift;
-		first = static_cast<NodeShiftAddress*>(first.get())->first;
+		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeShiftAddress*>(first)->first;
+		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
+		delete oldFirst;
 	}
-	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first.get())->knownShift)
+	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
-		addrShift = static_cast<NodeArrayIndex*>(first.get())->shiftValue;
-		first = static_cast<NodeArrayIndex*>(first.get())->first;
+		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeArrayIndex*>(first)->first;
+		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
+		delete oldFirst;
 	}
 }
 
@@ -1258,19 +1444,25 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 
 	if(first->GetNodeType() == typeNodeGetAddress)
 	{
-		absAddress = static_cast<NodeGetAddress*>(first.get())->IsAbsoluteAddress();
-		addrShift = static_cast<NodeGetAddress*>(first.get())->varAddress;
+		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
+		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
 	if(first->GetNodeType() == typeNodeShiftAddress)
 	{
-		addrShift = static_cast<NodeShiftAddress*>(first.get())->memberShift;
-		first = static_cast<NodeShiftAddress*>(first.get())->first;
+		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeShiftAddress*>(first)->first;
+		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
+		delete oldFirst;
 	}
-	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first.get())->knownShift)
+	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
-		addrShift = static_cast<NodeArrayIndex*>(first.get())->shiftValue;
-		first = static_cast<NodeArrayIndex*>(first.get())->first;
+		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeArrayIndex*>(first)->first;
+		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
+		delete oldFirst;
 	}
 }
 
@@ -1461,7 +1653,7 @@ void NodeTwoAndCmdOp::Compile()
 	else if(fST == STYPE_DOUBLE)
 		cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddD)));
 	else
-		assert(!"unknow operator type in NodeTwoAndCmdOp");
+		assert(!"unknown operator type in NodeTwoAndCmdOp");
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
@@ -1578,6 +1770,7 @@ NodeForExpr::NodeForExpr()
 }
 NodeForExpr::~NodeForExpr()
 {
+	delete fourth;
 }
 
 void NodeForExpr::Compile()
@@ -1823,6 +2016,13 @@ NodeSwitchExpr::NodeSwitchExpr()
 }
 NodeSwitchExpr::~NodeSwitchExpr()
 {
+	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
+	casePtr block = caseBlockList.begin(), eblocl = caseBlockList.end();
+	for(; cond != econd; cond++, block++)
+	{
+		delete *cond;
+		delete *block;
+	}
 }
 
 void NodeSwitchExpr::AddCase()
@@ -1945,6 +2145,8 @@ NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 }
 NodeExpressionList::~NodeExpressionList()
 {
+	for(listPtr s = exprList.begin(), e = exprList.end(); s != e; s++)
+		delete *s;
 }
 
 void NodeExpressionList::AddNode(bool reverse)
@@ -1952,7 +2154,7 @@ void NodeExpressionList::AddNode(bool reverse)
 	exprList.insert(reverse ? exprList.begin() : exprList.end(), TakeLastNode());
 }
 
-shared_ptr<NodeZeroOP> NodeExpressionList::GetFirstNode()
+NodeZeroOP* NodeExpressionList::GetFirstNode()
 {
 	if(exprList.empty())
 		throw std::string("NodeExpressionList::GetLastNode() List is empty");

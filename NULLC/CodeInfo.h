@@ -39,7 +39,7 @@ namespace CodeInfo
 	// Node tree list
 	// Individual nodes are placed here, and later on, combined into a more complex nodes, 
 	// creating AST. After successful compilation, node count should be equal to 1
-	extern std::vector<shared_ptr<NodeZeroOP> >	nodeList;
+	extern std::vector<NodeZeroOP*>	nodeList;
 
 	static const char* lastKnownStartPos = NULL;
 

@@ -19,7 +19,7 @@ std::vector<VariableInfo*>	CodeInfo::varInfo;
 std::vector<TypeInfo*>		CodeInfo::typeInfo;
 CommandList*				CodeInfo::cmdInfoList;
 FastVector<VMCmd>			CodeInfo::cmdList;
-std::vector<shared_ptr<NodeZeroOP> >	CodeInfo::nodeList;
+std::vector<NodeZeroOP*>	CodeInfo::nodeList;
 unsigned int				CodeInfo::globalSize = 0;
 
 Compiler*	compiler;
