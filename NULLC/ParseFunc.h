@@ -44,7 +44,8 @@ const unsigned int typeNodeGetAddress	= 36;
 const unsigned int typeNodeVariableSet	= 37;
 const unsigned int typeNodePreOrPostOp	= 38;
 const unsigned int typeNodeFunctionAddress	= 39;
-const unsigned int typeNodeContinueOp	= 40;
+const unsigned int typeNodeContinueOp		= 40;
+const unsigned int typeNodeVariableModify	= 41;
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP
@@ -87,9 +88,10 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeOneOp; }
 
-	shared_ptr<NodeZeroOP>	GetFirstNode(){ return first; }
+	NodeZeroOP*	GetFirstNode(){ return first; }
+	void		SetFirstNode(NodeZeroOP* node){ first = node; }
 protected:
-	shared_ptr<NodeZeroOP>	first;
+	NodeZeroOP*	first;
 };
 
 class NodeTwoOP: public NodeOneOP
@@ -103,9 +105,9 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeTwoOp; }
 
-	shared_ptr<NodeZeroOP>	GetSecondNode(){ return second; }
+	NodeZeroOP*	GetSecondNode(){ return second; }
 protected:
-	shared_ptr<NodeZeroOP>	second;
+	NodeZeroOP*	second;
 };
 
 class NodeThreeOP: public NodeTwoOP
@@ -119,9 +121,9 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeThreeOp; }
 
-	shared_ptr<NodeZeroOP>	GetTrirdNode(){ return third; }
+	NodeZeroOP*	GetTrirdNode(){ return third; }
 protected:
-	shared_ptr<NodeZeroOP>	third;
+	NodeZeroOP*	third;
 };
 
 // Assembly type traits
@@ -291,6 +293,7 @@ public:
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
+	friend class NodeVariableModify;
 	friend class NodePreOrPostOp;
 
 	VariableInfo	*varInfo;
@@ -310,9 +313,25 @@ public:
 	virtual unsigned int GetNodeType(){ return typeNodeVariableSet; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
-	unsigned int	bytesToPush;
 	int		addrShift;
 	bool	absAddress, knownAddress, arrSetAll;
+};
+
+class NodeVariableModify: public NodeTwoOP
+{
+public:
+			NodeVariableModify(TypeInfo* targetType, CmdID cmd);
+	virtual ~NodeVariableModify();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+	virtual unsigned int GetSize();
+	virtual unsigned int GetNodeType(){ return typeNodeVariableModify; }
+	virtual TypeInfo*	GetTypeInfo();
+protected:
+	CmdID	cmdID;
+	int		addrShift;
+	bool	absAddress, knownAddress;
 };
 
 class NodeDereference: public NodeOneOP
@@ -345,6 +364,7 @@ public:
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
+	friend class NodeVariableModify;
 	friend class NodePreOrPostOp;
 
 	TypeInfo	*typeParent;
@@ -366,6 +386,7 @@ public:
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
+	friend class NodeVariableModify;
 	friend class NodePreOrPostOp;
 
 	unsigned int	memberShift;
@@ -421,11 +442,6 @@ public:
 	virtual unsigned int GetNodeType(){ return typeNodeTwoAndCmdOp; }
 protected:
 	CmdID cmdID;
-
-	friend class NodeVarGet;
-	friend class NodeVarSet;
-	friend class NodeVarSetAndOp;
-	friend class NodePreValOp;
 };
 
 class NodeIfElseExpr: public NodeThreeOP
@@ -452,7 +468,7 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeForExpr; }
 protected:
-	shared_ptr<NodeZeroOP>	fourth;
+	NodeZeroOP*	fourth;
 };
 
 class NodeWhileExpr: public NodeTwoOP
@@ -522,9 +538,9 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeSwitchExpr; }
 protected:
-	std::list<shared_ptr<NodeZeroOP> >	caseCondList;
-	std::list<shared_ptr<NodeZeroOP> >	caseBlockList;
-	typedef std::list<shared_ptr<NodeZeroOP> >::iterator casePtr;
+	std::vector<NodeZeroOP*>	caseCondList;
+	std::vector<NodeZeroOP*>	caseBlockList;
+	typedef std::vector<NodeZeroOP*>::iterator casePtr;
 };
 
 class NodeExpressionList: public NodeZeroOP
@@ -534,15 +550,15 @@ public:
 	virtual ~NodeExpressionList();
 
 			void AddNode(bool reverse = true);
-			shared_ptr<NodeZeroOP> GetFirstNode();
+			NodeZeroOP* GetFirstNode();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeExpressionList; }
 protected:
-	std::list<shared_ptr<NodeZeroOP> >	exprList;
-	typedef std::list<shared_ptr<NodeZeroOP> >::iterator listPtr;
+	std::vector<NodeZeroOP*>	exprList;
+	typedef std::vector<NodeZeroOP*>::iterator listPtr;
 };
 
 class NodeFuncCall: public NodeTwoOP
@@ -559,8 +575,8 @@ protected:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;
 
-	std::list<shared_ptr<NodeZeroOP> >	paramList;
-	typedef std::list<shared_ptr<NodeZeroOP> >::reverse_iterator paramPtr;
+	std::vector<NodeZeroOP*>	paramList;
+	typedef std::vector<NodeZeroOP*>::reverse_iterator paramPtr;
 };
 
 /*

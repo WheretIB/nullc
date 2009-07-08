@@ -45,10 +45,10 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	if(sizeInArgument == 0)
 	{
 		// В последнем узле должно находиться константное число
-		if((*(nodeList.end()-1))->GetNodeType() == typeNodeNumber)
+		if(nodeList.back()->GetNodeType() == typeNodeNumber)
 		{
-			TypeInfo *aType = (*(nodeList.end()-1))->GetTypeInfo();
-			NodeZeroOP* zOP = (nodeList.end()-1)->get();
+			TypeInfo *aType = nodeList.back()->GetTypeInfo();
+			NodeZeroOP* zOP = nodeList.back();
 			if(aType == typeDouble)
 			{
 				arrSize = (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
@@ -65,6 +65,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 				std::string fullError = std::string("ERROR: unknown type of constant number node ") + aType->name;
 				throw CompilerError(fullError, lastKnownStartPos);
 			}
+			delete nodeList.back();
 			nodeList.pop_back();
 		}else{
 			throw CompilerError("ERROR: Array size must be a constant expression", lastKnownStartPos);
