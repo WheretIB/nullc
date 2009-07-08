@@ -105,7 +105,7 @@ namespace supspi
 		BaseP(){ }
 		virtual			~BaseP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space) = 0;
+		virtual bool	Parse(char** str, BaseP* space) = 0;
 	protected:
 	};
 
@@ -114,7 +114,6 @@ namespace supspi
 	{
 	public:
 		Rule(){ m_ptr.reset(new shared_ptr<BaseP>()); }
-		//Rule(const Rule& old){ /*m_ptr.reset(new shared_ptr<BaseP>());*/ m_ptr=old.m_ptr; }
 		Rule(shared_ptr<BaseP> a){ m_ptr.reset(new shared_ptr<BaseP>()); *m_ptr=a; }
 		
 		Rule&	operator =(const Rule& a)
@@ -136,7 +135,7 @@ namespace supspi
 		shared_ptr<shared_ptr<BaseP> >	m_ptr;
 	};
 
-	void	SkipSpaces(char** str, shared_ptr<BaseP> space);
+	void	SkipSpaces(char** str, BaseP* space);
 
 	//AlternativeP can act differently, depending on state of this policy
 	enum AlternativePolicy{ ALTER_STANDART, ALTER_LONGEST, ALTER_SHORTEST, };
@@ -158,7 +157,7 @@ namespace supspi
 		ActionP(Rule a, ActionT act): m_act(act) { m_a.set(a); }
 		~ActionP(){ /*m_a.detach();*/ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			SkipSpaces(str, space);
 			char* start = *str;
@@ -184,10 +183,10 @@ namespace supspi
 		NoSpaceP(Rule a){ m_sub.set(a); }
 		~NoSpaceP(){ /*m_sub.detach();*/ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			(void)space;
-			return m_sub->Parse(str, shared_ptr<BaseP>((BaseP*)NULL));
+			return m_sub->Parse(str, NULL);
 		}
 	private:
 		Rule	m_sub;
@@ -205,7 +204,7 @@ namespace supspi
 		LongestP(Rule a){ m_altp.set(a); }
 		~LongestP(){ /*m_altp.detach();*/ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			AlternativePolicy old = GetAlterPolicy();
 			SetAlterPolicy(ALTER_LONGEST);
@@ -228,7 +227,7 @@ namespace supspi
 		EpsilonP(){ }
 		virtual ~EpsilonP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			(void)str;
 			(void)space;
@@ -243,7 +242,7 @@ namespace supspi
 		NeverP(){ }
 		virtual ~NeverP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			(void)str;
 			(void)space;
@@ -259,7 +258,7 @@ namespace supspi
 		ChlitP(char ch){ m_ch = ch; }
 		virtual ~ChlitP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -281,7 +280,7 @@ namespace supspi
 		AnycharP(){ }
 		virtual ~AnycharP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -301,7 +300,7 @@ namespace supspi
 		EndOfLineP(){ }
 		virtual ~EndOfLineP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -321,7 +320,7 @@ namespace supspi
 		DigitP(){ }
 		virtual ~DigitP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -341,7 +340,7 @@ namespace supspi
 		AlnumP(){ }
 		virtual ~AlnumP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -361,7 +360,7 @@ namespace supspi
 		AlphaP(){ }
 		virtual ~AlphaP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -381,7 +380,7 @@ namespace supspi
 		GraphP(){ }
 		virtual ~GraphP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -402,7 +401,7 @@ namespace supspi
 		StrlitP(char* str){ m_str = str; m_len = (unsigned int)strlen(str); }
 		virtual ~StrlitP(){ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -425,7 +424,7 @@ namespace supspi
 		IntNumberP(int base){ m_base = base; }
 		~IntNumberP(){}
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -445,7 +444,7 @@ namespace supspi
 		RealNumberP(){}
 		~RealNumberP(){}
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
@@ -488,7 +487,7 @@ namespace supspi
 		RepeatP(Rule a, unsigned int cnt){ m_a.set(a); m_cnt = cnt; }
 		virtual ~RepeatP(){ /*m_a.detach();*/ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			unsigned int iter = 0;
@@ -531,7 +530,7 @@ namespace supspi
 		AlternativeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
 		virtual ~AlternativeP(){ /*m_a.detach(); m_b.detach();*/ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			
@@ -582,7 +581,7 @@ namespace supspi
 		SequenceP(const Rule& a, const Rule& b){ m_a.set(a); m_b.set(b); }
 		virtual ~SequenceP(){ /*m_a.detach(); m_b.detach();*/ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			//SkipSpaces(str, space);
@@ -607,7 +606,7 @@ namespace supspi
 		ExcludeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
 		~ExcludeP(){ /*m_a.detach(); m_b.detach();*/ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			//SkipSpaces(str, space);
@@ -632,7 +631,7 @@ namespace supspi
 		NegateP(Rule a){ m_a.set(a); }
 		virtual ~NegateP(){ /*m_a.detach();*/ }
 
-		virtual bool	Parse(char** str, shared_ptr<BaseP> space)
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
 			if(!m_a->Parse(str, space)){

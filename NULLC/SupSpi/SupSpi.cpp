@@ -12,12 +12,12 @@ namespace supspi
 	ActionPolicy		GetActionPolicy(){ return actionPol; }
 	void				SetActionPolicy(ActionPolicy pol){ actionPol = pol; }
 
-	void	SkipSpaces(char** str, shared_ptr<BaseP> space)
+	void	SkipSpaces(char** str, BaseP* space)
 	{
 		AlternativePolicy old = GetAlterPolicy();
 		SetAlterPolicy(ALTER_STANDART);
 		if(space)
-			while(space->Parse(str, shared_ptr<BaseP>((BaseP*)NULL)));
+			while(space->Parse(str, NULL));
 		SetAlterPolicy(old);
 	}
 
@@ -45,9 +45,9 @@ namespace supspi
 		SetAlterPolicy(ALTER_STANDART);
 		SetActionPolicy(ACTION_STANDART);
 		char* temp = str;
-		bool res = main->Parse(&temp, space.getParser());
+		bool res = main->Parse(&temp, space.getParser().get());
 		if(res)
-			SkipSpaces(&temp, space.getParser());
+			SkipSpaces(&temp, space.getParser().get());
 		if(!res)
 			return PARSE_FAILED;
 		if(res && strlen(temp))
