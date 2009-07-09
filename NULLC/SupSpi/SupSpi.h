@@ -97,12 +97,15 @@ namespace supspi
 	private:
 		unsigned int*	my_ref;
 	};
-	
+
+	class BaseP;
+	extern std::vector<BaseP*>	uniqueParserList;
+
 	//Our base parser
 	class BaseP
 	{
 	public:
-		BaseP(){ }
+		BaseP(){ uniqueParserList.push_back(this); };
 		virtual			~BaseP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space) = 0;

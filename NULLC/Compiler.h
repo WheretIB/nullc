@@ -33,6 +33,11 @@ private:
 	unsigned int lineNum;
 };
 
+namespace CompilerGrammar
+{
+	class Grammar;
+};
+
 class Compiler
 {
 public:
@@ -48,4 +53,6 @@ public:
 	unsigned int	GetBytecode(char **bytecode);
 private:
 	void	ClearState();
+
+	CompilerGrammar::Grammar	*syntax;
 };
