@@ -68,7 +68,7 @@ n5: Остановка расчёта в х86 при зависании
 
 Исправить двойное вычисление индекса для изменения значения массивов операциями += -= *= /= **=
 ГОТОВО: Собирать отдельные PUSHV в один.
-Закрытие консоли не должно закрывать программу.
+НЕ БУДЕТ: Закрытие консоли не должно закрывать программу.
 Константность должна храниться в информации о типе.
 Определение значений массивов с типами float, short и char.
 Если результат функции - составной тип, должна быть возможность адресовать его поля прямо после вызова.
@@ -87,7 +87,7 @@ n5: Остановка расчёта в х86 при зависании
 ГОТОВО: в папку NULLC переместить supspi/sharedptr
 ГОТОВО: Integer division should fail in VM.
 Array under- and overflow tests have to work again.
-  "Auto type tests" isn't perfectly fine when x86 optimisation is enabled
+ИСПРАВЛЕНО:  "Auto type tests" isn't perfectly fine when x86 optimisation is enabled
 ИСПРАВЛЕНО: long type is sent to external functions with wrong DWORD order when running under VM
 
 ИСПРАВЛЕНО: Проблемы с вызовом функций, начинающихся на do (грамматика цикла не проверяет whitespace)

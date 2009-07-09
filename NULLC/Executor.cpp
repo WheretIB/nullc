@@ -78,7 +78,6 @@ void Executor::Run(const char* funcName) throw()
 	genParams.resize(exLinker->globalVarSize);
 
 	//unsigned int	cmdCount = 0;
-	bool	done = false;
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	//unsigned int typeSizeS[] = { 4, 8, 4, 8 };
@@ -102,7 +101,7 @@ void Executor::Run(const char* funcName) throw()
 		if(funcPos == 0)
 		{
 			sprintf(execError, "ERROR: starting function %s not found", funcName);
-			done = true;
+			return;
 		}
 	}
 
@@ -127,7 +126,7 @@ void Executor::Run(const char* funcName) throw()
 	if(funcName)
 		cmdStream = &exLinker->exCode[funcPos];
 	
-	while(cmdStream < cmdStreamEnd && !done)
+	while(cmdStream < cmdStreamEnd)
 	{
 		const VMCmd &cmd = *cmdStream;
 		//const unsigned int argument = cmd.argument;
@@ -378,20 +377,8 @@ void Executor::Run(const char* funcName) throw()
 			genStackPtr += 2;
 			break;
 		case cmdPopCmplxTop:
-		{
-			unsigned int valind = cmd.argument + genParams.size();
-			//if(cmd.argument + genParams.size() + cmd.helper > genParams.size())
-			//	genParams.reserve(genParams.size()+128);
-
-			unsigned int currShift = cmd.helper;
-			while(currShift >= 4)
-			{
-				currShift -= 4;
-				*((unsigned int*)(&genParams[valind + currShift])) = *(genStackPtr + (currShift >> 2));
-			}
-			genStackPtr += cmd.helper / 4;
-			assert(currShift == 0);
-		}
+			memcpy((char*)&genParams[cmd.argument + genParams.size()], genStackPtr, cmd.helper);
+			genStackPtr += cmd.helper >> 2;
 			break;
 
 		case cmdPop:
@@ -572,7 +559,7 @@ void Executor::Run(const char* funcName) throw()
 				else if(exFunctions[valind]->nameHash == GetStringHash("sqrt"))
 					val = sqrt(val);
 				else{
-					done = true;
+					cmdStreamEnd = NULL;
 					printf(execError, "ERROR: there is no such function: %s", exFunctions[valind]->name);
 					break;
 				}
@@ -581,7 +568,8 @@ void Executor::Run(const char* funcName) throw()
 					val = 0.0;
 				*(double*)(genStackPtr) = val;
 			}else{
-			    done = !RunExternalFunction(valind);
+			    if(!RunExternalFunction(valind))
+					cmdStreamEnd = NULL;
 			}
 		}
 			break;
@@ -589,7 +577,7 @@ void Executor::Run(const char* funcName) throw()
 		case cmdReturn:
 			if(cmd.flag & bitRetError)
 			{
-				done = true;
+				cmdStreamEnd = NULL;
 				strcpy(execError, "ERROR: function didn't return a value");
 				break;
 			}
@@ -602,7 +590,7 @@ void Executor::Run(const char* funcName) throw()
 			if(fcallStack.size() == 0)
 			{
 				retType = (cmd.helper&bitRetSimple) ? (asmOperType)(cmd.helper^bitRetSimple) : OTYPE_FLOAT_DEPRECATED;
-				done = true;
+				cmdStreamEnd = NULL;
 				break;
 			}
 			cmdStream = fcallStack.back();
@@ -639,7 +627,7 @@ void Executor::Run(const char* funcName) throw()
 				*(int*)(genStackPtr+1) /= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: Integer division by zero");
-				done = true;
+				cmdStreamEnd = NULL;
 			}
 			genStackPtr++;
 			break;
@@ -653,7 +641,7 @@ void Executor::Run(const char* funcName) throw()
 				*(int*)(genStackPtr+1) %= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: Integer division by zero");
-				done = true;
+				cmdStreamEnd = NULL;
 			}
 			genStackPtr++;
 			break;
@@ -732,7 +720,7 @@ void Executor::Run(const char* funcName) throw()
 				*(long long*)(genStackPtr+2) /= *(long long*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: Integer division by zero");
-				done = true;
+				cmdStreamEnd = NULL;
 			}
 			genStackPtr += 2;
 			break;
@@ -746,7 +734,7 @@ void Executor::Run(const char* funcName) throw()
 				*(long long*)(genStackPtr+2) %= *(long long*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: Integer division by zero");
-				done = true;
+				cmdStreamEnd = NULL;
 			}
 			genStackPtr += 2;
 			break;
