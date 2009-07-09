@@ -48,14 +48,6 @@ private:
 
 namespace ColorerGrammar
 {
-	// Parsing rules
-	Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
-	Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, funcvars;
-	Rule appval, varname, comment, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName;
-	// Main rule and space parsers
-	Rule code;
-	Rule mySpaceP;
-
 	// Temporary variables
 	unsigned int	varSize, varTop;
 	bool	currValConst;
@@ -138,227 +130,240 @@ namespace ColorerGrammar
 	Rule	typenameP(Rule a){ return Rule(new TypeNameP(a)); }
 
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
-	void	InitGrammar()
+
+	class Grammar
 	{
-		constExpr		=	epsP[AssignVar<bool>(currValConst, false)] >>
-			!strP("const")[ColorRWord][AssignVar<bool>(currValConst, true)];
-		symb		=	graphP - alnumP - chP(')');
-		symb2		=	graphP - alphaP;
-		varname		=	lexemeD[alphaP >> *(alnumP | '_')];
-		typeName	=	varname - strP("return") ;
+	public:
+		void	InitGrammar()
+		{
+			constExpr		=	epsP[AssignVar<bool>(currValConst, false)] >>
+				!strP("const")[ColorRWord][AssignVar<bool>(currValConst, true)];
+			symb		=	graphP - alnumP - chP(')');
+			symb2		=	graphP - alphaP;
+			varname		=	lexemeD[alphaP >> *(alnumP | '_')];
+			typeName	=	varname - strP("return") ;
 
-		arrayDef	=
-			(
-				chP('[')[ColorText] >>
-				(term4_9 | epsP) >>
-				(chP(']')[ColorText] | epsP[LogError("ERROR: closing ']' not found in array definition")]) >>
-				!arrayDef
-			);
-		typeExpr	=
-			(
-				(strP("auto") | typenameP(typeName))[ColorRWord] |
+			arrayDef	=
 				(
-					strP("typeof")[ColorRWord] >>
-					(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
-					(term5 | epsP[LogError("ERROR: expression not found in 'typeof' statement")]) >>
-					(chP(')')[ColorText] | epsP[LogError("ERROR: ')' not found after 'typeof' statement")])
-				)
-			) >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
-
-		classdef	=
-			strP("class")[ColorRWord] >>
-			(varname[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
-			(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText][BlockBegin] >>
-			*(
-				funcdef |
+					chP('[')[ColorText] >>
+					(term4_9 | epsP) >>
+					(chP(']')[ColorText] | epsP[LogError("ERROR: closing ']' not found in array definition")]) >>
+					!arrayDef
+				);
+			typeExpr	=
 				(
-					typeExpr >>
-					((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after type")]) >>
-					*(
-						chP(',')[ColorText] >>
-						((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after ','")])
-					) >>
-					(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
-				)
-			) >>
-			(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd][AddType];
+					(strP("auto") | typenameP(typeName))[ColorRWord] |
+					(
+						strP("typeof")[ColorRWord] >>
+						(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
+						(term5 | epsP[LogError("ERROR: expression not found in 'typeof' statement")]) >>
+						(chP(')')[ColorText] | epsP[LogError("ERROR: ')' not found after 'typeof' statement")])
+					)
+				) >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
 
-		funccall	=	varname[ColorFunc] >> 
-			strP("(")[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >>
-			!(
-				term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] >>
+			classdef	=
+				strP("class")[ColorRWord] >>
+				(varname[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
+				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText][BlockBegin] >>
 				*(
-					strP(",")[ColorText] >> 
-					(term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: unexpected symbol after ','")])
-				)[OnError]
-			) >>
-			(strP(")")[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
-		funcvars	=
-			!(
-				typeExpr >>
-				constExpr >>
-				((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")])
-			) >>
-			*(
-				strP(",")[ColorText] >>
-				(
+					funcdef |
+					(
+						typeExpr >>
+						((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after type")]) >>
+						*(
+							chP(',')[ColorText] >>
+							((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after ','")])
+						) >>
+						(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
+					)
+				) >>
+				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd][AddType];
+
+			funccall	=	varname[ColorFunc] >> 
+				strP("(")[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >>
+				!(
+					term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] >>
+					*(
+						strP(",")[ColorText] >> 
+						(term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: unexpected symbol after ','")])
+					)[OnError]
+				) >>
+				(strP(")")[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
+			funcvars	=
+				!(
 					typeExpr >>
 					constExpr >>
-					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")])
-				)
-			)[OnError];
-		funcdef		=
-			typeExpr >>
-			(varname - typenameP(varname))[ColorFunc][SetTempStr] >>
-			chP('(')[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
-			(
-				(*(symb | digitP))[ColorErr] >>
-				funcvars
-			) >>
-			(chP(')')[ColorBold][FuncEnd] | epsP[LogError("ERROR: ')' expected after function parameter list")]) >>
-			(chP('{')[ColorBold] | epsP[LogError("ERROR: '{' not found after function header")]) >>
-			(code | epsP[LogError("ERROR: function body not found")]) >>
-			(chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: '}' not found after function body")]);
-
-		appval		=
-			(
-				(varname - strP("case"))[ColorVar] >> ~chP('(') >>
-				*(
-					chP('[')[ColorText] >> 
-					term5 >> 
-					chP(']')[ColorText]
+					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")])
 				) >>
 				*(
-					chP('.')[ColorText] >>
-					varname[ColorVar] >> (~chP('(') | nothingP) >>
-					*(
-						chP('[')[ColorText] >>
-						term5 >>
-						chP(']')[ColorText]
+					strP(",")[ColorText] >>
+					(
+						typeExpr >>
+						constExpr >>
+						((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")])
 					)
-				)
-			);
-		addvarp		=
-			(
-			varname[ColorVarDef] >> epsP[AssignVar<unsigned int>(varSize,1)] >> 
-			!(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])
-			)[AddVar] >>
-			((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: expression not found after '='")])) | epsP);
-		vardefsub	=	addvarp >> *(chP(',')[ColorText] >> vardefsub);
-		vardef		=
-			typeExpr >>
-			constExpr >>
-			vardefsub;
-
-		ifExpr			=
-			strWP("if")[ColorRWord] >>
-			(
-				('(' | epsP[LogError("ERROR: '(' not found after 'if'")])[ColorText] >>
-				(term5 | epsP[LogError("ERROR: condition not found in 'if' statement")]) >>
-				(')' | epsP[LogError("ERROR: ')' not found after 'if' condition")])[ColorText]
-			) >>
-			(expr | epsP[LogError("ERROR: expression not found after 'if' statement")]) >>
-			(
-				(strP("else")[ColorRWord] >> (expr | epsP[LogError("ERROR: expression not found after 'else'")])) |
-				epsP
-			);
-
-		forExpr			=
-			strWP("for")[ColorRWord] >>
-			('(' | epsP[LogError("ERROR: '(' not found after 'for'")])[ColorText] >>
-			(
+				)[OnError];
+			funcdef		=
+				typeExpr >>
+				(varname - typenameP(varname))[ColorFunc][SetTempStr] >>
+				chP('(')[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
 				(
-					chP('{')[ColorBold] >>
-					(code | epsP) >>
-					(chP('}')[ColorBold] | epsP[LogError("ERROR: '}' not found after '{'")])
-				) |
-				vardef |
-				term5 |
-				epsP
-			) >>
-			(';' | epsP[LogError("ERROR: ';' not found after initializer in 'for'")])[ColorText] >>
-			(term5 | epsP[LogError("ERROR: condition not found in 'for' statement")]) >>
-			(';' | epsP[LogError("ERROR: ';' not found after condition in 'for'")])[ColorText] >>
-			(block | term5 | epsP) >>
-			(')' | epsP[LogError("ERROR: ')' not found after 'for' statement")])[ColorText] >>
-			(expr | epsP[LogError("ERROR: expression not found after 'for' statement")]);
+					(*(symb | digitP))[ColorErr] >>
+					funcvars
+				) >>
+				(chP(')')[ColorBold][FuncEnd] | epsP[LogError("ERROR: ')' expected after function parameter list")]) >>
+				(chP('{')[ColorBold] | epsP[LogError("ERROR: '{' not found after function header")]) >>
+				(code | epsP[LogError("ERROR: function body not found")]) >>
+				(chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: '}' not found after function body")]);
 
-		whileExpr		=
-			strWP("while")[ColorRWord] >>
-			(
+			appval		=
+				(
+					(varname - strP("case"))[ColorVar] >> ~chP('(') >>
+					*(
+						chP('[')[ColorText] >> 
+						term5 >> 
+						chP(']')[ColorText]
+					) >>
+					*(
+						chP('.')[ColorText] >>
+						varname[ColorVar] >> (~chP('(') | nothingP) >>
+						*(
+							chP('[')[ColorText] >>
+							term5 >>
+							chP(']')[ColorText]
+						)
+					)
+				);
+			addvarp		=
+				(
+				varname[ColorVarDef] >> epsP[AssignVar<unsigned int>(varSize,1)] >> 
+				!(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])
+				)[AddVar] >>
+				((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: expression not found after '='")])) | epsP);
+			vardefsub	=	addvarp >> *(chP(',')[ColorText] >> vardefsub);
+			vardef		=
+				typeExpr >>
+				constExpr >>
+				vardefsub;
+
+			ifExpr			=
+				strWP("if")[ColorRWord] >>
+				(
+					('(' | epsP[LogError("ERROR: '(' not found after 'if'")])[ColorText] >>
+					(term5 | epsP[LogError("ERROR: condition not found in 'if' statement")]) >>
+					(')' | epsP[LogError("ERROR: ')' not found after 'if' condition")])[ColorText]
+				) >>
+				(expr | epsP[LogError("ERROR: expression not found after 'if' statement")]) >>
+				(
+					(strP("else")[ColorRWord] >> (expr | epsP[LogError("ERROR: expression not found after 'else'")])) |
+					epsP
+				);
+
+			forExpr			=
+				strWP("for")[ColorRWord] >>
+				('(' | epsP[LogError("ERROR: '(' not found after 'for'")])[ColorText] >>
+				(
+					(
+						chP('{')[ColorBold] >>
+						(code | epsP) >>
+						(chP('}')[ColorBold] | epsP[LogError("ERROR: '}' not found after '{'")])
+					) |
+					vardef |
+					term5 |
+					epsP
+				) >>
+				(';' | epsP[LogError("ERROR: ';' not found after initializer in 'for'")])[ColorText] >>
+				(term5 | epsP[LogError("ERROR: condition not found in 'for' statement")]) >>
+				(';' | epsP[LogError("ERROR: ';' not found after condition in 'for'")])[ColorText] >>
+				(block | term5 | epsP) >>
+				(')' | epsP[LogError("ERROR: ')' not found after 'for' statement")])[ColorText] >>
+				(expr | epsP[LogError("ERROR: expression not found after 'for' statement")]);
+
+			whileExpr		=
+				strWP("while")[ColorRWord] >>
+				(
+					('(' | epsP[LogError("ERROR: '(' not found after 'while'")])[ColorText] >>
+					(term5 | epsP[LogError("ERROR: condition not found in 'while' statement")]) >>
+					(')' | epsP[LogError("ERROR: ')' not found after 'while' condition")])[ColorText]
+				) >>
+				(expr | epsP[LogError("ERROR: expression not found after 'while' statement")]);
+
+			dowhileExpr		=
+				strWP("do")[ColorRWord] >>
+				(expr | epsP[LogError("ERROR: expression or block not found after 'do'")]) >>
+				(strP("while")[ColorRWord] | epsP[LogError("ERROR: 'while' not found after body of 'do'")]) >>
 				('(' | epsP[LogError("ERROR: '(' not found after 'while'")])[ColorText] >>
 				(term5 | epsP[LogError("ERROR: condition not found in 'while' statement")]) >>
-				(')' | epsP[LogError("ERROR: ')' not found after 'while' condition")])[ColorText]
-			) >>
-			(expr | epsP[LogError("ERROR: expression not found after 'while' statement")]);
+				(')' | epsP[LogError("ERROR: ')' not found after 'while' condition")])[ColorText] >>
+				(';' | epsP[LogError("ERROR: ';' expected after 'do...while' statement")])[ColorText];
 
-		dowhileExpr		=
-			strWP("do")[ColorRWord] >>
-			(expr | epsP[LogError("ERROR: expression or block not found after 'do'")]) >>
-			(strP("while")[ColorRWord] | epsP[LogError("ERROR: 'while' not found after body of 'do'")]) >>
-			('(' | epsP[LogError("ERROR: '(' not found after 'while'")])[ColorText] >>
-			(term5 | epsP[LogError("ERROR: condition not found in 'while' statement")]) >>
-			(')' | epsP[LogError("ERROR: ')' not found after 'while' condition")])[ColorText] >>
-			(';' | epsP[LogError("ERROR: ';' expected after 'do...while' statement")])[ColorText];
+			switchExpr		=	strWP("switch")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> ('{' >> epsP)[ColorBold] >> 
+				(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
+				*(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
+				('}' >> epsP)[ColorBold];
+			returnExpr		=	strWP("return")[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return must be followed by ';'")]);
+			breakExpr		=	strWP("break")[ColorRWord] >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break must be followed by ';'")]);
+			continueExpr		=	strWP("continue")[ColorRWord] >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);
 
-		switchExpr		=	strWP("switch")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> ('{' >> epsP)[ColorBold] >> 
-			(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
-			*(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
-			('}' >> epsP)[ColorBold];
-		returnExpr		=	strWP("return")[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return must be followed by ';'")]);
-		breakExpr		=	strWP("break")[ColorRWord] >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break must be followed by ';'")]);
-		continueExpr		=	strWP("continue")[ColorRWord] >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);
-
-		group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
-		term1		=
-			funcdef |
-			(strP("sizeof")[ColorRWord] >> chP('(')[ColorText] >> (typeExpr | term5) >> chP(')')[ColorText]) |
-			(chP('&')[ColorText] >> appval) |
-			((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
-			(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
-			(chP('\"')[ColorText] >> *((strP("\\\"") | strP("\\r") | strP("\\n") | strP("\\\'") | strP("\\\\") | strP("\\t") | strP("\\0"))[ColorReal] | (anycharP[ColorVar] - chP('\"'))) >> chP('\"')[ColorText]) |
-			lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][ColorReal] |
-			longestD[(intP >> (chP('l') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
-			(chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorVar]) >> chP('\'')[ColorText]) |
-			(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
-			group | funccall[FuncCall] |
-			(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++") | strP("--") | ('.' >> funccall) | epsP)[ColorText]);
-		term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
-		term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));
-		term4	=	term3 >> *((chP('+') | chP('-'))[ColorText] >> (term3 | epsP[LogError("ERROR: expression not found after operator")]));
-		term4_1	=	term4 >> *((strP("<<") | strP(">>"))[ColorText] >> (term4 | epsP[LogError("ERROR: expression not found after operator")]));
-		term4_2	=	term4_1 >> *((strP("<=") | strP(">=") | chP('<') | chP('>'))[ColorText] >> (term4_1 | epsP[LogError("ERROR: expression not found after operator")]));
-		term4_4	=	term4_2 >> *((strP("==") | strP("!="))[ColorText] >> (term4_2 | epsP[LogError("ERROR: expression not found after operator")]));
-		term4_6	=	term4_4 >> *((strP("&") | strP("|") | strP("^") | strP("and") | strP("or") | strP("xor"))[ColorText] >> (term4_4 | epsP[LogError("ERROR: expression not found after operator")]));
-		term4_9	=	term4_6 >> 
-			!(
-				chP('?')[ColorText] >>
-				(term5 | epsP[LogError("ERROR: expression not found after operator ?")]) >>
-				(chP(':')[ColorText] | epsP[LogError("ERROR: ':' not found in conditional statement")]) >>
-				(term5 | epsP[LogError("ERROR: expression not found after ':' in conditional statement")])
-			);
-		term5	=	(
-			!chP('*')[ColorText] >>
-			appval[SetVar] >>
-			(
-				(chP('=')[ColorText] >> term5) |
+			group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
+			term1		=
+				funcdef |
+				(strP("sizeof")[ColorRWord] >> chP('(')[ColorText] >> (typeExpr | term5) >> chP(')')[ColorText]) |
+				(chP('&')[ColorText] >> appval) |
+				((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
+				(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
+				(chP('\"')[ColorText] >> *((strP("\\\"") | strP("\\r") | strP("\\n") | strP("\\\'") | strP("\\\\") | strP("\\t") | strP("\\0"))[ColorReal] | (anycharP[ColorVar] - chP('\"'))) >> chP('\"')[ColorText]) |
+				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][ColorReal] |
+				longestD[(intP >> (chP('l') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
+				(chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorVar]) >> chP('\'')[ColorText]) |
+				(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
+				group | funccall[FuncCall] |
+				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++") | strP("--") | ('.' >> funccall) | epsP)[ColorText]);
+			term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
+			term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));
+			term4	=	term3 >> *((chP('+') | chP('-'))[ColorText] >> (term3 | epsP[LogError("ERROR: expression not found after operator")]));
+			term4_1	=	term4 >> *((strP("<<") | strP(">>"))[ColorText] >> (term4 | epsP[LogError("ERROR: expression not found after operator")]));
+			term4_2	=	term4_1 >> *((strP("<=") | strP(">=") | chP('<') | chP('>'))[ColorText] >> (term4_1 | epsP[LogError("ERROR: expression not found after operator")]));
+			term4_4	=	term4_2 >> *((strP("==") | strP("!="))[ColorText] >> (term4_2 | epsP[LogError("ERROR: expression not found after operator")]));
+			term4_6	=	term4_4 >> *((strP("&") | strP("|") | strP("^") | strP("and") | strP("or") | strP("xor"))[ColorText] >> (term4_4 | epsP[LogError("ERROR: expression not found after operator")]));
+			term4_9	=	term4_6 >> 
+				!(
+					chP('?')[ColorText] >>
+					(term5 | epsP[LogError("ERROR: expression not found after operator ?")]) >>
+					(chP(':')[ColorText] | epsP[LogError("ERROR: ':' not found in conditional statement")]) >>
+					(term5 | epsP[LogError("ERROR: expression not found after ':' in conditional statement")])
+				);
+			term5	=	(
+				!chP('*')[ColorText] >>
+				appval[SetVar] >>
 				(
-					(strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**="))[ColorText] >>
-					(term5 | epsP[LogError("ERROR: expression not found after assignment")]))
-				)
-			) |
-			term4_9;
+					(chP('=')[ColorText] >> term5) |
+					(
+						(strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**="))[ColorText] >>
+						(term5 | epsP[LogError("ERROR: expression not found after assignment")]))
+					)
+				) |
+				term4_9;
 
-		block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
-		expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));
-		code	=	*(funcdef | expr);
+			block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
+			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));
+			code	=	*(funcdef | expr);
 
-		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")))[ColorComment];
-	}
-	void DeInitGrammar()
-	{
-		DeleteParsers();
-	}
+			mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")))[ColorComment];
+		}
+		void DeInitGrammar()
+		{
+			DeleteParsers();
+		}
+
+		// Parsing rules
+		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
+		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, funcvars;
+		Rule appval, varname, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName;
+		// Main rule and space parsers
+		Rule code;
+		Rule mySpaceP;
+	};
 
 	void CheckIfDeclared(const std::string& str, bool forFunction = false)
 	{
@@ -570,17 +575,10 @@ namespace ColorerGrammar
 
 Colorer::Colorer(HWND rich): richEdit(rich)
 {
+	syntax = new ColorerGrammar::Grammar();
+
 	strBuf = new char[400000];//Should be enough
-}
-Colorer::~Colorer()
-{
-	delete[] strBuf;
 
-	ColorerGrammar::DeInitGrammar();
-}
-
-void Colorer::InitParser()
-{
 	ColorerGrammar::ColorRWord	= ColorCodeCallback(this, 0,0,255,0,0,0);
 	ColorerGrammar::ColorVar	= ColorCodeCallback(this, 128,128,128,0,0,0);
 	ColorerGrammar::ColorVarDef	= ColorCodeCallback(this, 50,50,50,0,0,0);
@@ -594,8 +592,16 @@ void Colorer::InitParser()
 
 	ColorerGrammar::ColorCode	= ColorCodeCallback(this, 0, 0, 0, 0, 0, 0);
 
-	ColorerGrammar::InitGrammar();
+	syntax->InitGrammar();
 }
+Colorer::~Colorer()
+{
+	delete[] strBuf;
+
+	syntax->DeInitGrammar();
+	delete syntax;
+}
+
 void Colorer::ColorText()
 {
 	ColorerGrammar::varInfoTop.clear();
@@ -636,7 +642,7 @@ void Colorer::ColorText()
 	errUnderline = false;
 	ColorCode(255,0,0,0,0,0, strBuf, strBuf+strlen(strBuf));
 
-	if(!Parse(ColorerGrammar::code, strBuf, ColorerGrammar::mySpaceP))
+	if(!Parse(syntax->code, strBuf, syntax->mySpaceP))
 		throw std::string("Syntax error");
 
 	for(unsigned int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)

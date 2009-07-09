@@ -5,6 +5,8 @@ class ColorCodeCallback;
 
 namespace ColorerGrammar
 {
+	class Grammar;
+
 	void AddVar(char const* s, char const* e);
 	void SetVar(char const* s, char const* e);
 	void GetVar(char const* s, char const* e);
@@ -31,9 +33,10 @@ public:
 	Colorer(HWND rich);
 	~Colorer();
 
-	void	InitParser();
 	void	ColorText();
 private:
+	ColorerGrammar::Grammar	*syntax;
+
 	friend class ColorCodeCallback;
 
 	void	ColorCode(int red, int green, int blue, int bold, int ital, int under, const char* start, const char* end);

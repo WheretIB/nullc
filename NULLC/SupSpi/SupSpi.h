@@ -120,7 +120,7 @@ namespace supspi
 	{
 	public:
 		Rule(){ myParser = AllocParser(NULL); }
-		Rule(BaseP* parser){ myParser = AllocParser(parser); }
+		explicit Rule(BaseP* parser){ myParser = AllocParser(parser); }
 		
 		Rule&	operator =(const Rule& r)
 		{
@@ -131,7 +131,10 @@ namespace supspi
 		BaseP*	operator ->(){ assert(GetParser(myParser) != NULL); return GetParser(myParser); }
 		BaseP*	getParser(){ return GetParser(myParser); };
 
-		void set(const Rule& r){ myParser = r.myParser; }
+		void set(const Rule& r)
+		{
+			myParser = r.myParser;
+		}
 
 		template<typename ActionT>
 		Rule	operator [](ActionT act);
