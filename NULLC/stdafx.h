@@ -62,7 +62,7 @@ public:
 	__forceinline void		pop_back(){ m_size--; }
 	__forceinline void		clear(){ m_size = 0; }
 	__forceinline T&		operator[](unsigned int index){ return data[index]; }
-	__forceinline void		resize(unsigned int newsize){ m_size = newsize; if(m_size>=max) grow(m_size); }
+	__forceinline void		resize(unsigned int newsize){ if(newsize >= max) grow(newsize); m_size = newsize; }
 	__forceinline void		shrink(unsigned int newSize){ m_size = newSize; }
 	__forceinline void		reserve(unsigned int ressize){ if(ressize >= max) grow(ressize); }
 private:

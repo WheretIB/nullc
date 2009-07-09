@@ -1081,6 +1081,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
             genStackTypes.push_back(podTypeToStackType[exTypes[exFunctions[funcID]->retType]->type]);*/
 #endif
     }
+	return true;
 }
 #elif defined(__CELLOS_LV2__)
 // PS3 implementation
