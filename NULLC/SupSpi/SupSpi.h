@@ -124,6 +124,7 @@ namespace supspi
 	public:
 		Rule(){ myParser = AllocParser(NULL); }
 		explicit Rule(BaseP* parser){ myParser = AllocParser(parser); }
+		explicit Rule(unsigned int ptr){ myParser = ptr; }
 		
 		Rule&	operator =(const Rule& r)
 		{
@@ -133,11 +134,7 @@ namespace supspi
 		
 		BaseP*	operator ->(){ assert(GetParser(myParser) != NULL); return GetParser(myParser); }
 		BaseP*	getParser(){ return GetParser(myParser); };
-
-		void set(const Rule& r)
-		{
-			myParser = r.myParser;
-		}
+		unsigned int	getPtr() const{ return myParser; }
 
 		template<typename ActionT>
 		Rule	operator [](ActionT act);
@@ -164,7 +161,7 @@ namespace supspi
 	class ActionP: public BaseP
 	{
 	public:
-		ActionP(Rule a, ActionT act): m_act(act) { m_a.set(a); }
+		ActionP(Rule a, ActionT act): m_a(a.getPtr()), m_act(act){ }
 		~ActionP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
@@ -190,7 +187,7 @@ namespace supspi
 	class NoSpaceP: public BaseP
 	{
 	public:
-		NoSpaceP(Rule a){ m_sub.set(a); }
+		NoSpaceP(Rule a): m_sub(a.getPtr()){  }
 		~NoSpaceP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
@@ -211,7 +208,7 @@ namespace supspi
 	class LongestP: public BaseP
 	{
 	public:
-		LongestP(Rule a){ m_altp.set(a); }
+		LongestP(Rule a): m_altp(a.getPtr()){ }
 		~LongestP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
@@ -494,7 +491,7 @@ namespace supspi
 	class RepeatP: public BaseP
 	{
 	public:
-		RepeatP(Rule a, unsigned int cnt){ m_a.set(a); m_cnt = cnt; }
+		RepeatP(Rule a, unsigned int cnt): m_a(a.getPtr()){ m_cnt = cnt; }
 		virtual ~RepeatP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
@@ -537,7 +534,7 @@ namespace supspi
 	class AlternativeP: public BaseP
 	{
 	public:
-		AlternativeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
+		AlternativeP(Rule a, Rule b): m_a(a.getPtr()), m_b(b.getPtr()){ }
 		virtual ~AlternativeP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
@@ -588,7 +585,7 @@ namespace supspi
 	class SequenceP: public BaseP
 	{
 	public:
-		SequenceP(const Rule& a, const Rule& b){ m_a.set(a); m_b.set(b); }
+		SequenceP(const Rule& a, const Rule& b): m_a(a.getPtr()), m_b(b.getPtr()){ }
 		virtual ~SequenceP(){  }
 
 		virtual bool	Parse(char** str, BaseP* space)
@@ -613,7 +610,7 @@ namespace supspi
 	class ExcludeP: public BaseP
 	{
 	public:
-		ExcludeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
+		ExcludeP(Rule a, Rule b): m_a(a.getPtr()), m_b(b.getPtr()){ }
 		~ExcludeP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
@@ -638,7 +635,7 @@ namespace supspi
 	class NegateP: public BaseP
 	{
 	public:
-		NegateP(Rule a){ m_a.set(a); }
+		NegateP(Rule a): m_a(a.getPtr()){ }
 		virtual ~NegateP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)

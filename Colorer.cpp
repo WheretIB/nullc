@@ -108,7 +108,7 @@ namespace ColorerGrammar
 	class TypeNameP: public BaseP
 	{
 	public:
-		TypeNameP(Rule a){ m_a.set(a); }
+		TypeNameP(Rule a): m_a(a.getPtr()){ }
 		virtual ~TypeNameP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
