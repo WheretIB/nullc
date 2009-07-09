@@ -2153,7 +2153,7 @@ namespace CompilerGrammar
 	{
 	public:
 		TypeNameP(Rule a){ m_a.set(a); }
-		virtual ~TypeNameP(){ m_a.detach(); }
+		virtual ~TypeNameP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space) throw()
 		{
@@ -2171,7 +2171,7 @@ namespace CompilerGrammar
 	protected:
 		Rule m_a;
 	};
-	Rule	typenameP(Rule a) throw(){ return Rule(shared_ptr<BaseP>(new TypeNameP(a))); }
+	Rule	typenameP(Rule a) throw(){ return Rule(new TypeNameP(a)); }
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 
 	void InitGrammar() throw()
@@ -2369,14 +2369,7 @@ namespace CompilerGrammar
 	}
 	void DeInitGrammar() throw()
 	{
-		mySpaceP.detach();	code.detach();	expression.detach();
-		block.detach();	term5.detach();	term4_9.detach();	term4_85.detach();	term4_8.detach();	term4_75.detach();
-		term4_7.detach();	term4_65.detach();	term4_6.detach(); term4_4.detach();	term4_2.detach();	term4_1.detach();
-		term4.detach();	term3.detach();	term2.detach(); term1.detach();	postExpr.detach();	variable.detach();
-		group.detach();	continueExpr.detach();	breakexpr.detach(); retexpr.detach();	switchexpr.detach();	doexpr.detach();
-		whileexpr.detach();	forexpr.detach();	ifexpr.detach(); vardef.detach();	vardefsub.detach();	addvarp.detach();
-		funcProt.detach();	funcdef.detach();	funcvars.detach(); funccall.detach();	classdef.detach();	varname.detach();
-		isconst.detach();	seltype.detach();	arrayDef.detach();
+		DeleteParsers();
 	}
 };
 
