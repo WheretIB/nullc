@@ -1,4 +1,5 @@
 #include "stdafx.h"
+
 #include "NULLC/SupSpi/SupSpi.h"
 using namespace supspi;
 
@@ -116,7 +117,7 @@ namespace ColorerGrammar
 	{
 	public:
 		TypeNameP(Rule a){ m_a.set(a); }
-		virtual ~TypeNameP(){ m_a.detach(); }
+		virtual ~TypeNameP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -134,7 +135,7 @@ namespace ColorerGrammar
 	protected:
 		Rule m_a;
 	};
-	Rule	typenameP(Rule a){ return Rule(shared_ptr<BaseP>(new TypeNameP(a))); }
+	Rule	typenameP(Rule a){ return Rule(new TypeNameP(a)); }
 
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 	void	InitGrammar()
@@ -356,13 +357,7 @@ namespace ColorerGrammar
 	}
 	void DeInitGrammar()
 	{
-		mySpaceP.detach();	code.detach();	expr.detach();
-		block.detach();	term5.detach();	term4_9.detach();	term4_6.detach(); term4_4.detach();	term4_2.detach();	term4_1.detach();
-		term4.detach();	term3.detach();	term2.detach(); term1.detach();
-		group.detach();	continueExpr.detach();	breakExpr.detach(); returnExpr.detach();	switchExpr.detach();	dowhileExpr.detach();
-		whileExpr.detach();	forExpr.detach();	ifExpr.detach(); vardef.detach();	vardefsub.detach();	addvarp.detach();
-		funcdef.detach();	funcvars.detach(); funccall.detach();	classdef.detach();	varname.detach();
-		arrayDef.detach();
+		DeleteParsers();
 	}
 
 	void CheckIfDeclared(const std::string& str, bool forFunction = false)

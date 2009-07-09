@@ -44,7 +44,7 @@ HWND hLog;			//disabled text area for log information of AST creation
 HWND hVars;			//disabled text area that shows values of all variables in global scope
 
 //colorer, compiler and executor
-Colorer*	colorer;
+//Colorer*	colorer;
 
 //for text update
 bool needTextUpdate;
@@ -285,7 +285,7 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	nullcDeinit();
 	return 0;
 */
-	colorer = NULL;
+	//colorer = NULL;
 
 	//typeTest(12, 14, 'c', 15, 5l, 5.0);
 	
@@ -340,7 +340,7 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 			DispatchMessage(&msg);
 		}
 	}
-	delete colorer;
+	//delete colorer;
 
 	nullcDeinit();
 
@@ -442,8 +442,8 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hTextArea, nCmdShow);
 	UpdateWindow(hTextArea);
 
-	colorer = new Colorer(hTextArea);
-	colorer->InitParser();
+//	colorer = new Colorer(hTextArea);
+//	colorer->InitParser();
 
 	SendMessage(hTextArea, EM_SETEVENTMASK, 0, ENM_CHANGE);
 	unsigned int widt = (800-25)/4;
@@ -678,8 +678,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			nullcSetExecutor(NULLC_VM);
 			nullcSetExecutorOptions(false);
-	//	for(int kkk = 0; kkk < 100; kkk++)
-	//	{
+		//for(int kkk = 0; kkk < 100; kkk++)
+		//{
 			nullres good = nullcCompile(buf);
 			nullcSaveListing("asm.txt");
 
@@ -714,14 +714,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime);
 
 					variableData = (char*)nullcGetVariableData();
-					FillVariableInfoTree();
+					//FillVariableInfoTree();
 				}else{
 					sprintf_s(result, 128, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
 				}
 				SetWindowText(hResult, result);
 			}
 			SetWindowText(hLog, nullcGetCompilationLog());
-	//	}
+		//}
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{
@@ -818,12 +818,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
-		try
+	/*	try
 		{
 			colorer->ColorText();
 		}catch(const std::string& strerr){
 			SetWindowText(hCode, strerr.c_str());
-		}
+		}*/
 		if(bRetFocus)
 		{
 			SetFocus(hTextArea);

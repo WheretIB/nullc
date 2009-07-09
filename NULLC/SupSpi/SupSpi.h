@@ -109,30 +109,34 @@ namespace supspi
 	protected:
 	};
 
-	//Rule is a wrapper over shared_ptr<BaseP>
+	extern std::vector<BaseP*>	parserList;
+
+	unsigned int AllocParser(BaseP* parser);
+	void		SetParser(unsigned int ptr, BaseP* parser);
+	BaseP*		GetParser(unsigned int ptr);
+
+	//Rule is a wrapper over BaseP
 	class Rule
 	{
 	public:
-		Rule(){ m_ptr.reset(new shared_ptr<BaseP>()); }
-		Rule(shared_ptr<BaseP> a){ m_ptr.reset(new shared_ptr<BaseP>()); *m_ptr=a; }
+		Rule(){ myParser = AllocParser(NULL); }
+		Rule(BaseP* parser){ myParser = AllocParser(parser); }
 		
-		Rule&	operator =(const Rule& a)
+		Rule&	operator =(const Rule& r)
 		{
-			*m_ptr=*a.m_ptr;
+			SetParser(myParser, GetParser(r.myParser));
 			return *this;
 		}
 		
-		BaseP*	operator ->(){ return m_ptr->get(); }
-		shared_ptr<BaseP> getParser(){ return *m_ptr; };
+		BaseP*	operator ->(){ assert(GetParser(myParser) != NULL); return GetParser(myParser); }
+		BaseP*	getParser(){ return GetParser(myParser); };
 
-		void set(const Rule& r){ m_ptr = r.m_ptr; }
+		void set(const Rule& r){ myParser = r.myParser; }
 
 		template<typename ActionT>
 		Rule	operator [](ActionT act);
-
-		void detach(){ m_ptr->reset(); /*m_ptr.reset();*/ }
 	private:
-		shared_ptr<shared_ptr<BaseP> >	m_ptr;
+		unsigned int	myParser;
 	};
 
 	void	SkipSpaces(char** str, BaseP* space);
@@ -155,7 +159,7 @@ namespace supspi
 	{
 	public:
 		ActionP(Rule a, ActionT act): m_act(act) { m_a.set(a); }
-		~ActionP(){ /*m_a.detach();*/ }
+		~ActionP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -172,7 +176,7 @@ namespace supspi
 		Rule	m_a;
 	};
 	template<typename ActionT>
-	Rule	Rule::operator [](ActionT act){ return Rule(shared_ptr<BaseP>(new ActionP<ActionT>(*this, act))); }
+	Rule	Rule::operator [](ActionT act){ return Rule(new ActionP<ActionT>(*this, act)); }
 
 	//Policies
 
@@ -181,7 +185,7 @@ namespace supspi
 	{
 	public:
 		NoSpaceP(Rule a){ m_sub.set(a); }
-		~NoSpaceP(){ /*m_sub.detach();*/ }
+		~NoSpaceP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -194,7 +198,7 @@ namespace supspi
 	//helper will help to use syntax like lexemeD[rule]
 	struct NoSpaceHelper
 	{
-		Rule	operator[](Rule a){ return Rule(shared_ptr<BaseP>(new NoSpaceP(a))); }
+		Rule	operator[](Rule a){ return Rule(new NoSpaceP(a)); }
 	};
 
 	//Longest parses both rules and apply's the one, that have parsed longest string
@@ -202,7 +206,7 @@ namespace supspi
 	{
 	public:
 		LongestP(Rule a){ m_altp.set(a); }
-		~LongestP(){ /*m_altp.detach();*/ }
+		~LongestP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -217,7 +221,7 @@ namespace supspi
 	};
 	struct LongestHelper
 	{
-		Rule	operator[](Rule altp){ return Rule(shared_ptr<BaseP>(new LongestP(altp))); }
+		Rule	operator[](Rule altp){ return Rule(new LongestP(altp)); }
 	};
 
 	//epsilon and nothing
@@ -485,7 +489,7 @@ namespace supspi
 	{
 	public:
 		RepeatP(Rule a, unsigned int cnt){ m_a.set(a); m_cnt = cnt; }
-		virtual ~RepeatP(){ /*m_a.detach();*/ }
+		virtual ~RepeatP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -528,7 +532,7 @@ namespace supspi
 	{
 	public:
 		AlternativeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
-		virtual ~AlternativeP(){ /*m_a.detach(); m_b.detach();*/ }
+		virtual ~AlternativeP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -579,7 +583,7 @@ namespace supspi
 	{
 	public:
 		SequenceP(const Rule& a, const Rule& b){ m_a.set(a); m_b.set(b); }
-		virtual ~SequenceP(){ /*m_a.detach(); m_b.detach();*/ }
+		virtual ~SequenceP(){  }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -604,7 +608,7 @@ namespace supspi
 	{
 	public:
 		ExcludeP(Rule a, Rule b){ m_a.set(a); m_b.set(b); }
-		~ExcludeP(){ /*m_a.detach(); m_b.detach();*/ }
+		~ExcludeP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -629,7 +633,7 @@ namespace supspi
 	{
 	public:
 		NegateP(Rule a){ m_a.set(a); }
-		virtual ~NegateP(){ /*m_a.detach();*/ }
+		virtual ~NegateP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
@@ -665,20 +669,33 @@ namespace supspi
 	Rule	chP(char ch) throw();
 	Rule	strP(char* str) throw();
 
-	//Static parsers
-	static Rule nothingP = Rule(shared_ptr<BaseP>(new NeverP()));
-	static Rule epsP = Rule(shared_ptr<BaseP>(new EpsilonP()));
+	Rule	nothing_P();
+	Rule	eps_P();
 
-	static Rule	spaceP = chP(' ') | chP('\r') | chP('\n') | chP('\t');
-	static Rule	anycharP = Rule(shared_ptr<BaseP>(new AnycharP()));
-	static Rule	eolP = Rule(shared_ptr<BaseP>(new EndOfLineP()));
-	static Rule	alnumP = Rule(shared_ptr<BaseP>(new AlnumP()));
-	static Rule	alphaP = Rule(shared_ptr<BaseP>(new AlphaP()));
-	static Rule	graphP = Rule(shared_ptr<BaseP>(new GraphP()));
-	static Rule	digitP = Rule(shared_ptr<BaseP>(new DigitP()));
+	Rule	space_P();
+	Rule	anychar_P();
+	Rule	eol_P();
+	Rule	alnum_P();
+	Rule	alpha_P();
+	Rule	graph_P();
+	Rule	digit_P();
 
-	static Rule intP = Rule(shared_ptr<BaseP>(new IntNumberP(10)));
-	static Rule realP = Rule(shared_ptr<BaseP>(new RealNumberP()));
+	Rule	int_P();
+	Rule	real_P();
+
+#define nothingP nothing_P()
+#define epsP eps_P()
+
+#define spaceP space_P()
+#define anycharP anychar_P()
+#define eolP eol_P()
+#define alnumP alnum_P()
+#define alphaP alpha_P()
+#define graphP graph_P()
+#define digitP digit_P()
+
+#define intP int_P()
+#define realP real_P()
 
 	//Static policies
 	static NoSpaceHelper	lexemeD;
@@ -687,4 +704,6 @@ namespace supspi
 	//Main function
 	enum ParseResult{ PARSE_FAILED, PARSE_OK, PARSE_NOTFULL, };
 	ParseResult	Parse(Rule main, char* str, Rule space);
+
+	void		DeleteParsers();
 };
