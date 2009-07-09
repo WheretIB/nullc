@@ -2125,15 +2125,6 @@ namespace CompilerGrammar
 	parserCallback addChar, addInt, addFloat, addLong, addDouble;
 	parserCallback strPush, strPop, strCopy;
 
-	// Parser rules
-	Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
-	Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, ifexpr, whileexpr, forexpr, retexpr;
-	Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype, arrayDef;
-	Rule classdef, variable, postExpr, continueExpr;
-	Rule funcProt;	// user function prototype
-
-	Rule code, mySpaceP;
-
 	class ThrowError
 	{
 	public:
@@ -2174,203 +2165,215 @@ namespace CompilerGrammar
 	Rule	typenameP(Rule a) throw(){ return Rule(new TypeNameP(a)); }
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 
-	void InitGrammar() throw()
+	class Grammar
 	{
-		strPush	=	CompilerGrammar::ParseStrPush;
-		strPop	=	CompilerGrammar::ParseStrPop;
-		strCopy =	CompilerGrammar::ParseStrCopy;
+	public:
+		void InitGrammar() throw()
+		{
+			strPush	=	CompilerGrammar::ParseStrPush;
+			strPop	=	CompilerGrammar::ParseStrPop;
+			strCopy =	CompilerGrammar::ParseStrCopy;
 
-		addChar		=	addNumberNode<char>;
-		addInt		=	addNumberNode<int>;
-		addFloat	=	addNumberNode<float>;
-		addLong		=	addNumberNode<long long>;
-		addDouble	=	addNumberNode<double>;
+			addChar		=	addNumberNode<char>;
+			addInt		=	addNumberNode<int>;
+			addFloat	=	addNumberNode<float>;
+			addLong		=	addNumberNode<long long>;
+			addDouble	=	addNumberNode<double>;
 
-		arrayDef	=	('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']' >> !arrayDef)[convertTypeToArray];
-		seltype		=	((strP("auto") | typenameP(varname))[selType] | (strP("typeof") >> chP('(') >> ((varname[GetVariableType] >> chP(')')) | (term5[SetTypeOfLastNode] >> chP(')'))))) >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
+			arrayDef	=	('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']' >> !arrayDef)[convertTypeToArray];
+			seltype		=	((strP("auto") | typenameP(varname))[selType] | (strP("typeof") >> chP('(') >> ((varname[GetVariableType] >> chP(')')) | (term5[SetTypeOfLastNode] >> chP(')'))))) >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
 
-		isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
-		varname		=	lexemeD[alphaP >> *(alnumP | '_')];
+			isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
+			varname		=	lexemeD[alphaP >> *(alnumP | '_')];
 
-		classdef	=	((strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')') | (strP("noalign") | epsP)[AssignVar<unsigned int>(currAlign, 0)]) >>
-						strP("class") >> varname[TypeBegin] >> chP('{') >>
-						*(
-							funcdef |
-							(seltype >> varname[TypeAddMember] >> *(',' >> varname[TypeAddMember]) >> chP(';'))
-						)
-						>> chP('}')[TypeFinish];
+			classdef	=	((strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')') | (strP("noalign") | epsP)[AssignVar<unsigned int>(currAlign, 0)]) >>
+							strP("class") >> varname[TypeBegin] >> chP('{') >>
+							*(
+								funcdef |
+								(seltype >> varname[TypeAddMember] >> *(',' >> varname[TypeAddMember]) >> chP(';'))
+							)
+							>> chP('}')[TypeFinish];
 
-		funccall	=	varname[strPush] >> 
-				('(' | (epsP[strPop] >> nothingP)) >>
-				epsP[PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >> 
-				!(
-				term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] >>
-				*(',' >> term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)])
-				) >>
-				(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
+			funccall	=	varname[strPush] >> 
+					('(' | (epsP[strPop] >> nothingP)) >>
+					epsP[PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >> 
+					!(
+					term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] >>
+					*(',' >> term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)])
+					) >>
+					(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
 
-		funcvars	=	!(isconst >> seltype >> varname[strPush][FunctionParam]) >> *(',' >> isconst >> seltype >> varname[strPush][FunctionParam]);
-		funcdef		=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[FunctionStart] >> chP(')') >> chP('{') >> code[FunctionEnd] >> chP('}');
-		funcProt	=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars >> chP(')') >> chP(';');
+			funcvars	=	!(isconst >> seltype >> varname[strPush][FunctionParam]) >> *(',' >> isconst >> seltype >> varname[strPush][FunctionParam]);
+			funcdef		=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[FunctionStart] >> chP(')') >> chP('{') >> code[FunctionEnd] >> chP('}');
+			funcProt	=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars >> chP(')') >> chP(';');
 
-		addvarp		=
-			(
-				varname[strPush] >>
-				!('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']')[convertTypeToArray]
-			)[pushType][addVar] >>
-			(('=' >> (term5 | epsP[ThrowError("ERROR: expression not found after '='")]))[AddDefineVariableNode][addPopNode][popType] | epsP[addVarDefNode])[popType][strPop];
-		
-		vardefsub	= addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
-		vardef		=
-			epsP[AssignVar<unsigned int>(currAlign, 0xFFFFFFFF)] >>
-			isconst >>
-			!(strP("noalign")[AssignVar<unsigned int>(currAlign, 0)] | (strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')')) >>
-			seltype >>
-			vardefsub;
-
-		ifexpr		=
-			(
-				strWP("if") >>
-				('(' | epsP[ThrowError("ERROR: '(' not found after 'if'")]) >>
-				(term5 | epsP[ThrowError("ERROR: condition not found in 'if' statement")]) >>
-				(')' | epsP[ThrowError("ERROR: closing ')' not found after 'if' condition")])
-			)[SaveStringIndex] >>
-			expression >>
-			((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
-		forexpr		=
-			(
-				strWP("for")[saveVarTop] >>
-				('(' | epsP[ThrowError("ERROR: '(' not found after 'for'")]) >>
+			addvarp		=
 				(
+					varname[strPush] >>
+					!('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']')[convertTypeToArray]
+				)[pushType][addVar] >>
+				(('=' >> (term5 | epsP[ThrowError("ERROR: expression not found after '='")]))[AddDefineVariableNode][addPopNode][popType] | epsP[addVarDefNode])[popType][strPop];
+			
+			vardefsub	= addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
+			vardef		=
+				epsP[AssignVar<unsigned int>(currAlign, 0xFFFFFFFF)] >>
+				isconst >>
+				!(strP("noalign")[AssignVar<unsigned int>(currAlign, 0)] | (strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')')) >>
+				seltype >>
+				vardefsub;
+
+			ifexpr		=
+				(
+					strWP("if") >>
+					('(' | epsP[ThrowError("ERROR: '(' not found after 'if'")]) >>
+					(term5 | epsP[ThrowError("ERROR: condition not found in 'if' statement")]) >>
+					(')' | epsP[ThrowError("ERROR: closing ')' not found after 'if' condition")])
+				)[SaveStringIndex] >>
+				expression >>
+				((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];
+			forexpr		=
+				(
+					strWP("for")[saveVarTop] >>
+					('(' | epsP[ThrowError("ERROR: '(' not found after 'for'")]) >>
 					(
-						chP('{') >>
-						(code | epsP[addVoidNode]) >>
-						(chP('}') | epsP[ThrowError("ERROR: '}' not found after '{'")])
-					) |
-					vardef |
-					term5[addPopNode] |
-					epsP[addVoidNode]
-				) >>
-				(';' | epsP[ThrowError("ERROR: ';' not found after initializer in 'for'")]) >>
-				(term5 | epsP[ThrowError("ERROR: condition not found in 'for' statement")]) >>
-				(';' | epsP[ThrowError("ERROR: ';' not found after condition in 'for'")]) >>
-				((chP('{') >> code >> chP('}')) | term5[addPopNode] | epsP[addVoidNode]) >>
-				(')' | epsP[ThrowError("ERROR: ')' not found after 'for' statement")])
-			)[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
-		whileexpr	=
-			strWP("while")[saveVarTop] >>
-			(
-				('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >>
-				(term5 | epsP[ThrowError("ERROR: expression expected after 'while('")]) >>
-				(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
-			) >>
-			(expression[addWhileNode] | epsP[ThrowError("ERROR: expression expected after 'while(...)'")]);
-		doexpr		=	
-			strWP("do")[saveVarTop] >> 
-			(expression | epsP[ThrowError("ERROR: expression expected after 'do'")]) >> 
-			(strP("while") | epsP[ThrowError("ERROR: 'while' expected after 'do' statement")]) >>
-			(
-				('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >> 
-				(term5 | epsP[ThrowError("ERROR: expression not found after 'while('")]) >> 
-				(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
-			)[addDoWhileNode] >> 
-			(';' | epsP[ThrowError("ERROR: while(...) should be followed by ';'")]);
-		switchexpr	=
-			strP("switch") >>
-			('(') >>
-			(term5 | epsP[ThrowError("ERROR: expression not found after 'switch('")])[preSwitchNode] >>
-			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'switch' statement")]) >>
-			('{' | epsP[ThrowError("ERROR: '{' not found after 'switch(...)'")]) >>
-			(strWP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
-			*(strWP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
-			('}' | epsP[ThrowError("ERROR: '}' not found after 'switch' statement")])[addSwitchNode];
-
-		retexpr		=
-			(
-				strWP("return") >>
-				(term5 | epsP[addVoidNode]) >>
-				(+chP(';') | epsP[ThrowError("ERROR: return must be followed by ';'")])
-			)[addReturnNode];
-		breakexpr	=	(
-			strWP("break") >>
-			(+chP(';') | epsP[ThrowError("ERROR: break must be followed by ';'")])
-			)[addBreakNode];
-		continueExpr	=
-			(
-				strWP("continue") >>
-				(+chP(';') | epsP[ThrowError("ERROR: continue must be followed by ';'")])
-			)[AddContinueNode];
-
-		group		=	'(' >> term5 >> (')' | epsP[ThrowError("ERROR: closing ')' not found after '('")]);
-
-		variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetAddressNode] >> *postExpr);
-		postExpr	=	('.' >> varname[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)))[AddMemberAccessNode] |
-						('[' >> term5 >> ']')[AddArrayIndexNode];
-
-		term1		=
-			funcdef |
-			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
-			(chP('&') >> variable)[popType] |
-			(strP("--") >> variable[AddPreOrPostOp(false, true)])[popType] | 
-			(strP("++") >> variable[AddPreOrPostOp(true, true)])[popType] |
-			(+(chP('-')[IncVar<unsigned int>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
-			(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
-			lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][addHexInt] |
-			longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
-			(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
-			(chP('{')[PushBackVal<std::vector<unsigned int>, unsigned int>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<unsigned int> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
-			group |
-			funccall[addFuncCallNode] |
-			(variable >>
+						(
+							chP('{') >>
+							(code | epsP[addVoidNode]) >>
+							(chP('}') | epsP[ThrowError("ERROR: '}' not found after '{'")])
+						) |
+						vardef |
+						term5[addPopNode] |
+						epsP[addVoidNode]
+					) >>
+					(';' | epsP[ThrowError("ERROR: ';' not found after initializer in 'for'")]) >>
+					(term5 | epsP[ThrowError("ERROR: condition not found in 'for' statement")]) >>
+					(';' | epsP[ThrowError("ERROR: ';' not found after condition in 'for'")]) >>
+					((chP('{') >> code >> chP('}')) | term5[addPopNode] | epsP[addVoidNode]) >>
+					(')' | epsP[ThrowError("ERROR: ')' not found after 'for' statement")])
+				)[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];
+			whileexpr	=
+				strWP("while")[saveVarTop] >>
 				(
-					strP("++")[AddPreOrPostOp(true, false)] |
-					strP("--")[AddPreOrPostOp(false, false)] |
-					('.' >> funccall)[AddMemberFunctionCall] |
-					epsP[AddGetVariableNode]
-				)[popType]
-			);
+					('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >>
+					(term5 | epsP[ThrowError("ERROR: expression expected after 'while('")]) >>
+					(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
+				) >>
+				(expression[addWhileNode] | epsP[ThrowError("ERROR: expression expected after 'while(...)'")]);
+			doexpr		=	
+				strWP("do")[saveVarTop] >> 
+				(expression | epsP[ThrowError("ERROR: expression expected after 'do'")]) >> 
+				(strP("while") | epsP[ThrowError("ERROR: 'while' expected after 'do' statement")]) >>
+				(
+					('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >> 
+					(term5 | epsP[ThrowError("ERROR: expression not found after 'while('")]) >> 
+					(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
+				)[addDoWhileNode] >> 
+				(';' | epsP[ThrowError("ERROR: while(...) should be followed by ';'")]);
+			switchexpr	=
+				strP("switch") >>
+				('(') >>
+				(term5 | epsP[ThrowError("ERROR: expression not found after 'switch('")])[preSwitchNode] >>
+				(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'switch' statement")]) >>
+				('{' | epsP[ThrowError("ERROR: '{' not found after 'switch(...)'")]) >>
+				(strWP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
+				*(strWP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
+				('}' | epsP[ThrowError("ERROR: '}' not found after 'switch' statement")])[addSwitchNode];
 
-		term2		=	term1 >> *((strP("**") >> term1)[addCmd(cmdPow)]);
-		term3		=	term2 >> *(('*' >> term2)[addCmd(cmdMul)] | ('/' >> term2)[addCmd(cmdDiv)] | ('%' >> term2)[addCmd(cmdMod)]);
-		term4		=	term3 >> *(('+' >> term3)[addCmd(cmdAdd)] | ('-' >> term3)[addCmd(cmdSub)]);
-		term4_1		=	term4 >> *((strP("<<") >> term4)[addCmd(cmdShl)] | (strP(">>") >> term4)[addCmd(cmdShr)]);
-		term4_2		=	term4_1 >> *(('<' >> term4_1)[addCmd(cmdLess)] | ('>' >> term4_1)[addCmd(cmdGreater)] | (strP("<=") >> term4_1)[addCmd(cmdLEqual)] | (strP(">=") >> term4_1)[addCmd(cmdGEqual)]);
-		term4_4		=	term4_2 >> *((strP("==") >> term4_2)[addCmd(cmdEqual)] | (strP("!=") >> term4_2)[addCmd(cmdNEqual)]);
-		term4_6		=	term4_4 >> *(strP("&") >> (term4_4 | epsP[ThrowError("ERROR: expression not found after &")]))[addCmd(cmdBitAnd)];
-		term4_65	=	term4_6 >> *(strP("^") >> (term4_6 | epsP[ThrowError("ERROR: expression not found after ^")]))[addCmd(cmdBitXor)];
-		term4_7		=	term4_65 >> *(strP("|") >> (term4_65 | epsP[ThrowError("ERROR: expression not found after |")]))[addCmd(cmdBitOr)];
-		term4_75	=	term4_7 >> *(strP("and") >> (term4_7 | epsP[ThrowError("ERROR: expression not found after and")]))[addCmd(cmdLogAnd)];
-		term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[ThrowError("ERROR: expression not found after xor")]))[addCmd(cmdLogXor)];
-		term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
-		term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
+			retexpr		=
+				(
+					strWP("return") >>
+					(term5 | epsP[addVoidNode]) >>
+					(+chP(';') | epsP[ThrowError("ERROR: return must be followed by ';'")])
+				)[addReturnNode];
+			breakexpr	=	(
+				strWP("break") >>
+				(+chP(';') | epsP[ThrowError("ERROR: break must be followed by ';'")])
+				)[addBreakNode];
+			continueExpr	=
+				(
+					strWP("continue") >>
+					(+chP(';') | epsP[ThrowError("ERROR: continue must be followed by ';'")])
+				)[AddContinueNode];
+
+			group		=	'(' >> term5 >> (')' | epsP[ThrowError("ERROR: closing ')' not found after '('")]);
+
+			variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetAddressNode] >> *postExpr);
+			postExpr	=	('.' >> varname[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)))[AddMemberAccessNode] |
+							('[' >> term5 >> ']')[AddArrayIndexNode];
+
+			term1		=
+				funcdef |
+				(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
+				(chP('&') >> variable)[popType] |
+				(strP("--") >> variable[AddPreOrPostOp(false, true)])[popType] | 
+				(strP("++") >> variable[AddPreOrPostOp(true, true)])[popType] |
+				(+(chP('-')[IncVar<unsigned int>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
+				(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
+				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][addHexInt] |
+				longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
+				(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
+				(chP('{')[PushBackVal<std::vector<unsigned int>, unsigned int>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<unsigned int> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
+				group |
+				funccall[addFuncCallNode] |
+				(variable >>
+					(
+						strP("++")[AddPreOrPostOp(true, false)] |
+						strP("--")[AddPreOrPostOp(false, false)] |
+						('.' >> funccall)[AddMemberFunctionCall] |
+						epsP[AddGetVariableNode]
+					)[popType]
+				);
+
+			term2		=	term1 >> *((strP("**") >> term1)[addCmd(cmdPow)]);
+			term3		=	term2 >> *(('*' >> term2)[addCmd(cmdMul)] | ('/' >> term2)[addCmd(cmdDiv)] | ('%' >> term2)[addCmd(cmdMod)]);
+			term4		=	term3 >> *(('+' >> term3)[addCmd(cmdAdd)] | ('-' >> term3)[addCmd(cmdSub)]);
+			term4_1		=	term4 >> *((strP("<<") >> term4)[addCmd(cmdShl)] | (strP(">>") >> term4)[addCmd(cmdShr)]);
+			term4_2		=	term4_1 >> *(('<' >> term4_1)[addCmd(cmdLess)] | ('>' >> term4_1)[addCmd(cmdGreater)] | (strP("<=") >> term4_1)[addCmd(cmdLEqual)] | (strP(">=") >> term4_1)[addCmd(cmdGEqual)]);
+			term4_4		=	term4_2 >> *((strP("==") >> term4_2)[addCmd(cmdEqual)] | (strP("!=") >> term4_2)[addCmd(cmdNEqual)]);
+			term4_6		=	term4_4 >> *(strP("&") >> (term4_4 | epsP[ThrowError("ERROR: expression not found after &")]))[addCmd(cmdBitAnd)];
+			term4_65	=	term4_6 >> *(strP("^") >> (term4_6 | epsP[ThrowError("ERROR: expression not found after ^")]))[addCmd(cmdBitXor)];
+			term4_7		=	term4_65 >> *(strP("|") >> (term4_65 | epsP[ThrowError("ERROR: expression not found after |")]))[addCmd(cmdBitOr)];
+			term4_75	=	term4_7 >> *(strP("and") >> (term4_7 | epsP[ThrowError("ERROR: expression not found after and")]))[addCmd(cmdLogAnd)];
+			term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[ThrowError("ERROR: expression not found after xor")]))[addCmd(cmdLogXor)];
+			term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
+			term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
 #ifdef _MSC_VER
 #pragma warning(disable: 4709)
 #endif
-		term5		=	(!(seltype) >>
-						variable >> (
-						(strP("=") >> term5)[AddSetVariableNode][popType] |
-						(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
-						(strP("-=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '-='")]))[AddModifyVariable<cmdSub>()][popType] |
-						(strP("*=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '*='")]))[AddModifyVariable<cmdMul>()][popType] |
-						(strP("/=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '/='")]))[AddModifyVariable<cmdDiv>()][popType] |
-						(strP("**=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '**='")]))[AddModifyVariable<cmdPow>()][popType] |
-						(epsP[FailedSetVariable][popType] >> nothingP))
-						) |
-						term4_9;
+			term5		=	(!(seltype) >>
+							variable >> (
+							(strP("=") >> term5)[AddSetVariableNode][popType] |
+							(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
+							(strP("-=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '-='")]))[AddModifyVariable<cmdSub>()][popType] |
+							(strP("*=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '*='")]))[AddModifyVariable<cmdMul>()][popType] |
+							(strP("/=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '/='")]))[AddModifyVariable<cmdDiv>()][popType] |
+							(strP("**=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '**='")]))[AddModifyVariable<cmdPow>()][popType] |
+							(epsP[FailedSetVariable][popType] >> nothingP))
+							) |
+							term4_9;
 #ifdef _MSC_VER
 #pragma warning(default: 4709)
 #endif
 
-		block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
-		expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block | breakexpr | continueExpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
-		code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
-	
-		mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
-	}
-	void DeInitGrammar() throw()
-	{
-		DeleteParsers();
-	}
+			block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
+			expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block | breakexpr | continueExpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
+			code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
+		
+			mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
+		}
+		void DeInitGrammar() throw()
+		{
+			DeleteParsers();
+		}
+		// Parser rules
+		Rule group, term5, term4_9, term4_8, term4_85, term4_7, term4_75, term4_6, term4_65, term4_4, term4_2, term4_1, term4, term3, term2, term1, expression;
+		Rule varname, funccall, funcdef, funcvars, block, vardef, vardefsub, ifexpr, whileexpr, forexpr, retexpr;
+		Rule doexpr, breakexpr, switchexpr, isconst, addvarp, seltype, arrayDef;
+		Rule classdef, variable, postExpr, continueExpr;
+		Rule funcProt;	// user function prototype
+
+		Rule code, mySpaceP;
+	};
 };
 
 unsigned int buildInFuncs;
@@ -2623,7 +2626,8 @@ Compiler::Compiler()
 	buildInTypes = (int)typeInfo.size();
 	buildInFuncs = (int)funcInfo.size();
 
-	CompilerGrammar::InitGrammar();
+	syntax = new CompilerGrammar::Grammar();
+	syntax->InitGrammar();
 
 #ifdef NULLC_LOG_FILES
 	compileLog = NULL;
@@ -2640,7 +2644,8 @@ Compiler::~Compiler()
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 		delete funcInfo[i];
 
-	CompilerGrammar::DeInitGrammar();
+	syntax->DeInitGrammar();
+	delete syntax;
 
 	for(std::set<VariableInfo*>::iterator s = varInfoAll.begin(), e = varInfoAll.end(); s!=e; s++)
 		delete *s;
@@ -2724,7 +2729,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	ParseResult pRes;
 
 	try{
-		pRes = Parse(CompilerGrammar::funcProt, (char*)prototype, CompilerGrammar::mySpaceP);
+		pRes = Parse(syntax->funcProt, (char*)prototype, syntax->mySpaceP);
 	}catch(const CompilerError& compileErr){
 #ifdef NULLC_LOG_FILES
 		fprintf(compileLog, "%s", compileErr.GetErrorString());
@@ -2817,7 +2822,7 @@ bool Compiler::Compile(string str)
 #endif
 
 	unsigned int t = clock();
-	ParseResult pRes = Parse(CompilerGrammar::code, ptr, CompilerGrammar::mySpaceP);
+	ParseResult pRes = Parse(syntax->code, ptr, syntax->mySpaceP);
 	if(pRes == PARSE_NOTFULL)
 		throw std::string("Parsing wasn't full");
 	if(pRes == PARSE_FAILED)

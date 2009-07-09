@@ -2,6 +2,7 @@
 
 namespace supspi
 {
+	std::vector<BaseP*>	uniqueParserList;
 	std::vector<BaseP*>	parserList;
 
 	Rule	nothing_P(){ return Rule(new NeverP()); }
@@ -77,17 +78,12 @@ namespace supspi
 
 	void		DeleteParsers()
 	{
-		for(int i = 0; i < (int)parserList.size(); i++)
+		for(int i = 0; i < (int)uniqueParserList.size(); i++)
 		{
-			if(!parserList[i])
-				continue;
-			delete parserList[i];
-			for(int n = i + 1; n < (int)parserList.size(); n++)
-			{
-				if(parserList[i] == parserList[n])
-					parserList[n] = NULL;
-			}
-			parserList[i] = NULL;
+			delete uniqueParserList[i];
+			uniqueParserList[i] = NULL;
 		}
+		uniqueParserList.resize(0);
+		parserList.resize(0);
 	}
 };
