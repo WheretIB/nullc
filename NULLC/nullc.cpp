@@ -244,13 +244,19 @@ void**	nullcGetVariableInfo(unsigned int* count)
 void	nullcDeinit()
 {
 	delete compiler;
+	compiler = NULL;
 	delete linker;
+	linker = NULL;
 	delete executor;
+	executor = NULL;
 #ifdef NULLC_BUILD_X86_JIT
 	delete executorX86;
+	executorX86 = NULL;
 #endif
 #ifdef NULLC_LOG_FILES
 	delete[] compileLog;
+	compileLog = NULL;
 #endif
 	delete CodeInfo::cmdInfoList;
+	CodeInfo::cmdInfoList = NULL;
 }
