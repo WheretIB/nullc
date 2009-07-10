@@ -21,7 +21,7 @@ enum InstructionCode
 {
 	// no operation
 	// отсутствие операции
-	cmdNop = 0,
+	cmdNop = -1,
 
 	// push a number on top of general stack
 	// положить значение на верхушку стека

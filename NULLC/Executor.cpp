@@ -108,8 +108,8 @@ void Executor::Run(const char* funcName) throw()
 	// General stack
 	if(!genStackBase)
 	{
-		genStackBase = new unsigned int[128];		// Will grow
-		genStackTop = genStackBase + 128;
+		genStackBase = new unsigned int[2048];		// Should be enough, but can grow
+		genStackTop = genStackBase + 2048;
 	}
 	genStackPtr = genStackTop - 1;
 
@@ -133,17 +133,6 @@ void Executor::Run(const char* funcName) throw()
 		DBG(PrintInstructionText(&m_FileStream, cmd, paramTop.back(), genParams.size()));
 		cmdStream++;
 
-		if(genStackPtr <= genStackBase)
-		{
-			unsigned int *oldStack = genStackBase;
-			unsigned int oldSize = (unsigned int)(genStackTop-genStackBase);
-			genStackBase = new unsigned int[oldSize+128];
-			genStackTop = genStackBase + oldSize + 128;
-			memcpy(genStackBase+128, oldStack, oldSize * sizeof(unsigned int));
-			delete[] oldStack;
-
-			genStackPtr = genStackTop - oldSize;
-		}
 #ifdef NULLC_VM_DEBUG
 		if(genStackSize < 0)
 		{
@@ -526,6 +515,12 @@ void Executor::Run(const char* funcName) throw()
 
 		case cmdCall:
 		{
+			if(genStackPtr <= genStackBase+8)
+			{
+				cmdStreamEnd = NULL;
+				printf(execError, "ERROR: stack overflow");
+				break;
+			}
 			unsigned int fAddress = cmd.argument;
 			if(fAddress == CALL_BY_POINTER)
 			{
@@ -590,7 +585,7 @@ void Executor::Run(const char* funcName) throw()
 			if(fcallStack.size() == 0)
 			{
 				retType = (cmd.helper&bitRetSimple) ? (asmOperType)(cmd.helper^bitRetSimple) : OTYPE_FLOAT_DEPRECATED;
-				cmdStreamEnd = NULL;
+				cmdStream = cmdStreamEnd;
 				break;
 			}
 			cmdStream = fcallStack.back();

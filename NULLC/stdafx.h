@@ -74,7 +74,7 @@ private:
 		T* ndata = new T[newSize];
 		if(zeroNewMemory)
 			memset(ndata, 0, newSize*sizeof(T));
-		memcpy(ndata, data, m_size*sizeof(T));
+		memcpy(ndata, data, max*sizeof(T));
 		delete[] data;
 		data=ndata;
 		max=newSize;
