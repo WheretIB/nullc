@@ -53,7 +53,7 @@ Executor::~Executor()
 
 #define genStackSize (genStackTop-genStackPtr)
 
-void Executor::Run(const char* funcName) throw()
+void Executor::Run(const char* funcName)
 {
 	if(!exLinker->exCode.size())
 	{
@@ -1097,7 +1097,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 }
 #endif
 
-const char* Executor::GetResult() throw()
+const char* Executor::GetResult()
 {
 	if(genStackSize == 0)
 	{
@@ -1128,7 +1128,7 @@ const char* Executor::GetResult() throw()
 	return execResult;
 }
 
-const char*	Executor::GetExecError() throw()
+const char*	Executor::GetExecError()
 {
 	return execError;
 }

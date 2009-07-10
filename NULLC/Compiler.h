@@ -4,11 +4,13 @@
 class CompilerError
 {
 public:
+	CompilerError(){ shift = 0; lineNum = 0; empty = 1; }
 	CompilerError(const std::string& errStr, const char* apprPos);
 	CompilerError(const char* errStr, const char* apprPos);
 	~CompilerError(){}
 
 	void Init(const char* errStr, const char* apprPos);
+	unsigned int IsEmpty(){ return !!empty; }
 
 	const char* GetErrorString() const
 	{
@@ -31,6 +33,7 @@ private:
 	char line[128];
 	unsigned int shift;
 	unsigned int lineNum;
+	unsigned int empty;
 };
 
 namespace CompilerGrammar
@@ -47,6 +50,7 @@ public:
 	bool	AddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
 
 	bool	Compile(string str);
+	const char*		GetError();
 	
 	void	SaveListing(const char *fileName);
 

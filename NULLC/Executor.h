@@ -10,10 +10,10 @@ public:
 	Executor(Linker* linker);
 	~Executor();
 
-	void	Run(const char* funcName = NULL) throw();
+	void	Run(const char* funcName = NULL);
 
-	const char*	GetResult() throw();
-	const char*	GetExecError() throw();
+	const char*	GetResult();
+	const char*	GetExecError();
 
 	char*	GetVariableData();
 

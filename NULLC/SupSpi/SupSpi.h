@@ -109,6 +109,8 @@ namespace supspi
 		virtual			~BaseP(){ }
 
 		virtual bool	Parse(char** str, BaseP* space) = 0;
+
+		static bool continueParse;
 	protected:
 	};
 
@@ -172,7 +174,7 @@ namespace supspi
 				return false;
 			if(GetActionPolicy() == ACTION_STANDART)
 				m_act(start,*str);
-			return true;
+			return continueParse;
 		}
 	private:
 		ActionT				m_act;
@@ -204,7 +206,7 @@ namespace supspi
 		Rule	operator[](Rule a){ return Rule(new NoSpaceP(a)); }
 	};
 
-	//Longest parses both rules and apply's the one, that have parsed longest string
+	//Longest parses both rules and applies the one, that have parsed longest string
 	class LongestP: public BaseP
 	{
 	public:
@@ -217,7 +219,7 @@ namespace supspi
 			SetAlterPolicy(ALTER_LONGEST);
 			bool ret = m_altp->Parse(str, space);
 			SetAlterPolicy(old);
-			return ret;
+			return ret && continueParse;
 		}
 	private:
 		Rule	m_altp;
@@ -438,7 +440,7 @@ namespace supspi
 			while(isdigit(*str[0]))
 				(*str)++;
 			if(curr == *str)
-				return false;	//no characters were parsed...
+				return false;	//no characters were parsed
 			return true;
 		}
 	private:
@@ -460,7 +462,7 @@ namespace supspi
 			while(isdigit(*str[0]))
 				(*str)++;
 			if(curr == *str && *str[0] != '.')
-				return false;	//no characters were parsed...
+				return false;	//no characters were parsed
 			if(*str[0] == '.'){
 				(*str)++;
 				while(isdigit(*str[0]))
@@ -503,6 +505,8 @@ namespace supspi
 				//SkipSpaces(str, space);
 				if(!m_a->Parse(str, space))
 				{
+					if(!continueParse)
+						return false;
 					if((m_cnt == ZERO_ONE || m_cnt == ZERO_PLUS) && iter == 0)
 					{
 						(*str) = curr;
@@ -518,6 +522,8 @@ namespace supspi
 						return true;
 					}
 				}else{
+					if(!continueParse)
+						return false;
 					iter++;
 					curr = *str;
 					if(m_cnt == ZERO_ONE)
@@ -541,9 +547,14 @@ namespace supspi
 		{
 			char* curr = *str;
 			
-			if(GetAlterPolicy() == ALTER_STANDART){
-				if(!m_a->Parse(str, space)){
-					if(!m_b->Parse(str, space)){
+			if(GetAlterPolicy() == ALTER_STANDART)
+			{
+				if(!m_a->Parse(str, space))
+				{
+					if(!continueParse)
+						return false;
+					if(!m_b->Parse(str, space))
+					{
 						(*str) = curr;
 						return false;
 					}
@@ -563,7 +574,8 @@ namespace supspi
 					return false;
 				}
 
-				if(oldAlter == ALTER_LONGEST){
+				if(oldAlter == ALTER_LONGEST)
+				{
 					if((unsigned int)(temp1-(*str)) >= (unsigned int)(temp2-(*str)))
 						m_a->Parse(str, space);
 					else
@@ -576,7 +588,7 @@ namespace supspi
 				}
 				SetAlterPolicy(oldAlter);
 			}
-			return true;
+			return continueParse;
 		}
 	protected:
 		Rule	m_a, m_b;
@@ -591,17 +603,19 @@ namespace supspi
 		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
-			//SkipSpaces(str, space);
-			if(!m_a->Parse(str, space)){
+			if(!m_a->Parse(str, space))
+			{
 				(*str) = curr;
 				return false;
 			}
-			//SkipSpaces(str, space);
-			if(!m_b->Parse(str, space)){
+			if(!continueParse)
+				return false;
+			if(!m_b->Parse(str, space))
+			{
 				(*str) = curr;
 				return false;
 			}
-			return true;
+			return continueParse;
 		}
 	protected:
 		Rule	m_a, m_b;
@@ -618,15 +632,19 @@ namespace supspi
 			char* curr = *str;
 			//SkipSpaces(str, space);
 			char* copy = *str;
-			if(!m_a->Parse(str, space)){
+			if(!m_a->Parse(str, space))
+			{
 				(*str) = curr;
 				return false;
 			}
-			if(m_b->Parse(&copy, space)){
+			if(!continueParse)
+				return false;
+			if(m_b->Parse(&copy, space))
+			{
 				(*str) = curr;
 				return false;
 			}
-			return true;
+			return continueParse;
 		}
 	private:
 		Rule	m_a, m_b;
@@ -641,9 +659,10 @@ namespace supspi
 		virtual bool	Parse(char** str, BaseP* space)
 		{
 			char* curr = *str;
-			if(!m_a->Parse(str, space)){
+			if(!m_a->Parse(str, space))
+			{
 				(*str) = curr;
-				return true;
+				return continueParse;
 			}
 			return false;
 		}
@@ -652,25 +671,25 @@ namespace supspi
 	};
 
 	//Operators
-	Rule	operator !  (Rule a) throw();
-	Rule	operator +  (Rule a) throw();
-	Rule	operator *  (Rule a) throw();
+	Rule	operator !  (Rule a);
+	Rule	operator +  (Rule a);
+	Rule	operator *  (Rule a);
 
-	Rule	operator |  (Rule a, Rule b) throw();
-	Rule	operator |  (char a, Rule b) throw();
-	Rule	operator |  (Rule a, char b) throw();
+	Rule	operator |  (Rule a, Rule b);
+	Rule	operator |  (char a, Rule b);
+	Rule	operator |  (Rule a, char b);
 
-	Rule	operator >> (Rule a, Rule b) throw();
-	Rule	operator >> (char a, Rule b) throw();
-	Rule	operator >> (Rule a, char b) throw();
+	Rule	operator >> (Rule a, Rule b);
+	Rule	operator >> (char a, Rule b);
+	Rule	operator >> (Rule a, char b);
 
-	Rule	operator -  (Rule a, Rule b) throw();
+	Rule	operator -  (Rule a, Rule b);
 
-	Rule	operator ~	(Rule a) throw();
+	Rule	operator ~	(Rule a);
 
 	//Parser creation
-	Rule	chP(char ch) throw();
-	Rule	strP(char* str) throw();
+	Rule	chP(char ch);
+	Rule	strP(char* str);
 
 	Rule	nothing_P();
 	Rule	eps_P();
@@ -705,8 +724,9 @@ namespace supspi
 	static LongestHelper	longestD;
 
 	//Main function
-	enum ParseResult{ PARSE_FAILED, PARSE_OK, PARSE_NOTFULL, };
+	enum ParseResult{ PARSE_FAILED, PARSE_OK, PARSE_NOTFULL, PARSE_ABORTED };
 	ParseResult	Parse(Rule main, char* str, Rule space);
+	void		Abort();
 
 	void		DeleteParsers();
 };

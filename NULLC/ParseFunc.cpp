@@ -926,9 +926,15 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 	arrSetAll = (pushVar && typeInfo->arrLevel != 0 && second->GetTypeInfo()->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->GetTypeInfo() == typeVoid)
-		throw std::string("ERROR: cannot convert from void to " + typeInfo->GetTypeName());
+	{
+		lastError = CompilerError("ERROR: cannot convert from void to " + typeInfo->GetTypeName(), lastKnownStartPos);
+		return;
+	}
 	if(typeInfo == typeVoid)
-		throw std::string("ERROR: cannot convert from " + second->GetTypeInfo()->GetTypeName() + " to void");
+	{
+		lastError = CompilerError("ERROR: cannot convert from " + second->GetTypeInfo()->GetTypeName() + " to void", lastKnownStartPos);
+		return;
+	}
 
 	// Если типы не равны
 	if(second->GetTypeInfo() != typeInfo)
@@ -944,7 +950,10 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 			(typeInfo->refLevel && typeInfo->refLevel == second->GetTypeInfo()->refLevel && typeInfo->subType != second->GetTypeInfo()->subType))
 		{
 			if(!(typeInfo->arrLevel != 0 && second->GetTypeInfo()->arrLevel == 0 && arrSetAll))
-				throw std::string("ERROR: Cannot convert '" + second->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
+			{
+				lastError = CompilerError("ERROR: Cannot convert '" + second->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'", lastKnownStartPos);
+				return;
+			}
 		}
 	}
 
@@ -1062,9 +1071,15 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	assert(first->GetTypeInfo()->refLevel != 0);
 
 	if(second->GetTypeInfo() == typeVoid)
-		throw std::string("ERROR: cannot convert from void to " + typeInfo->GetTypeName());
+	{
+		lastError = CompilerError("ERROR: cannot convert from void to " + typeInfo->GetTypeName(), lastKnownStartPos);
+		return;
+	}
 	if(typeInfo == typeVoid)
-		throw std::string("ERROR: cannot convert from " + second->GetTypeInfo()->GetTypeName() + " to void");
+	{
+		lastError = CompilerError("ERROR: cannot convert from " + second->GetTypeInfo()->GetTypeName() + " to void", lastKnownStartPos);
+		return;
+	}
 
 	// Если типы не равны
 	if(second->GetTypeInfo() != typeInfo)
@@ -1078,7 +1093,8 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 			(typeInfo->refLevel != second->GetTypeInfo()->refLevel) ||
 			(typeInfo->refLevel && typeInfo->refLevel == second->GetTypeInfo()->refLevel && typeInfo->subType != second->GetTypeInfo()->subType))
 		{
-			throw std::string("ERROR: Cannot convert '" + second->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'");
+			lastError = CompilerError("ERROR: Cannot convert '" + second->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'", lastKnownStartPos);
+			return;
 		}
 	}
 
@@ -1229,6 +1245,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 
 	shiftValue = 0;
 	knownShift = false;
+
 	if(second->GetNodeType() == typeNodeNumber)
 	{
 		TypeInfo *aType = second->GetTypeInfo();
@@ -1243,7 +1260,8 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 		}else if(aType == typeInt){
 			shiftValue = typeParent->subType->size * static_cast<NodeNumber<int>* >(zOP)->GetVal();
 		}else{
-			throw CompilerError("NodeArrayIndex() ERROR: unknown type " + aType->name, lastKnownStartPos);
+			lastError = CompilerError("NodeArrayIndex() ERROR: unknown type " + aType->name, lastKnownStartPos);
+			return;
 		}
 		knownShift = true;
 	}
@@ -1466,7 +1484,10 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 	incOp = isInc;
 
 	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
-		throw std::string("ERROR: ") + (isInc ? "Increment" : "Decrement") + std::string(" is not supported on '") + typeInfo->GetTypeName() + "'";
+	{
+		lastError = CompilerError(std::string("ERROR: ") + (isInc ? "Increment" : "Decrement") + std::string(" is not supported on '") + typeInfo->GetTypeName() + "'", lastKnownStartPos);
+		return;
+	}
 
 	prefixOp = preOp;
 
@@ -1651,12 +1672,23 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 
 	// На данный момент операции с композитными типами отсутствуют
 	if(first->GetTypeInfo()->refLevel == 0)
+	{
 		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX || second->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
-			throw std::string("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on '" + first->GetTypeInfo()->GetTypeName() + "' and '" + second->GetTypeInfo()->GetTypeName() + "'");
+		{
+			lastError = CompilerError("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on '" + first->GetTypeInfo()->GetTypeName() + "' and '" + second->GetTypeInfo()->GetTypeName() + "'", lastKnownStartPos);
+			return;
+		}
+	}
 	if(first->GetTypeInfo() == typeVoid)
-		throw std::string("ERROR: first operator returns void");
+	{
+		lastError = CompilerError("ERROR: first operator returns void", lastKnownStartPos);
+		return;
+	}
 	if(second->GetTypeInfo() == typeVoid)
-		throw std::string("ERROR: second operator returns void");
+	{
+		lastError = CompilerError("ERROR: second operator returns void", lastKnownStartPos);
+		return;
+	}
 
 	// Найдём результирующий тип, после проведения операции
 	typeInfo = ChooseBinaryOpResultType(first->GetTypeInfo(), second->GetTypeInfo());
@@ -1693,10 +1725,10 @@ void NodeTwoAndCmdOp::Compile()
 }
 void NodeTwoAndCmdOp::LogToStream(FILE *fGraph)
 {
-	if((cmdID < cmdAdd) || (cmdID > cmdLogXor))
-		throw std::string("ERROR: TwoAndCmd error");
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s TwoAndCmd<%s> :\r\n", typeInfo->GetTypeName().c_str(), binCommandToText[cmdID-cmdAdd]);
+	assert(cmdID >= cmdAdd);
+	assert(cmdID <= cmdNEqualD);
 	GoDown();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -2190,8 +2222,7 @@ void NodeExpressionList::AddNode(bool reverse)
 
 NodeZeroOP* NodeExpressionList::GetFirstNode()
 {
-	if(exprList.empty())
-		throw std::string("NodeExpressionList::GetLastNode() List is empty");
+	assert(!exprList.empty());
 	return *(exprList.begin());
 }
 

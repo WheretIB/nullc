@@ -13,18 +13,18 @@ public:
 	ExecutorX86(Linker *linker);
 	~ExecutorX86();
 
-	bool	Initialize() throw();
+	bool	Initialize();
 
-	bool	TranslateToNative() throw();
+	bool	TranslateToNative();
 
-	void	Run(const char* funcName = NULL) throw();
-	const char*	GetResult() throw();
+	void	Run(const char* funcName = NULL);
+	const char*	GetResult();
 
-	const char*	GetExecError() throw();
+	const char*	GetExecError();
 
-	char*	GetVariableData() throw();
+	char*	GetVariableData();
 
-	void	SetOptimization(int toggle) throw();
+	void	SetOptimization(int toggle);
 private:
 	char	execError[256];
 	char	execResult[64];

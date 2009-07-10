@@ -68,6 +68,8 @@ namespace ColorerGrammar
 	//Error log
 	ostringstream logStream;
 
+	std::string	lastError;
+
 	std::string tempStr;
 	void SetTempStr(char const* s, char const* e)
 	{
@@ -365,14 +367,25 @@ namespace ColorerGrammar
 		Rule mySpaceP;
 	};
 
-	void CheckIfDeclared(const std::string& str, bool forFunction = false)
+	bool CheckIfDeclared(const std::string& str, bool forFunction = false)
 	{
 		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
-			throw std::string("ERROR: The name '" + str + "' is reserved");
+		{
+			logStream << "ERROR: The name '" << str << "' is reserved" << "\r\n";
+			return true;
+		}
 		if(!forFunction)
+		{
 			for(unsigned int i = 0; i < funcs.size(); i++)
+			{
 				if(funcs[i]->name == str)
-					throw std::string("ERROR: Name '" + str + "' is already taken for a function");
+				{
+					logStream << "ERROR: Name '" << str << "' is already taken for a function" << "\r\n";
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 	void AddVar(char const* s, char const* e)
 	{
@@ -382,18 +395,18 @@ namespace ColorerGrammar
 			st++;
 		string vName = std::string(s, st);
 
-		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++){
-			if(varInfo[i].name == vName){
-				ColorCode(255,0,0,0,0,1,s,st);
+		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
+		{
+			if(varInfo[i].name == vName)
+			{
+				ColorCode(255, 0, 0, 0, 0, 1, s, st);
 				logStream << "ERROR: Name '" << vName << "' is already taken for a variable in current scope\r\n";
 				return;
 			}
 		}
-		try{
-			CheckIfDeclared(vName);
-		}catch(const std::string& str){
-			ColorCode(255,0,0,0,0,1,s,st);
-			logStream << str << "\r\n";
+		if(CheckIfDeclared(vName))
+		{
+			ColorCode(255, 0, 0, 0, 0, 1, s, st);
 			return;
 		}
 
@@ -414,13 +427,13 @@ namespace ColorerGrammar
 			i--;
 		if(i == -1)
 		{
-			ColorCode(255,0,0,0,0,1,s,st);
+			ColorCode(255, 0, 0, 0, 0, 1, s, st);
 			//logStream << "ERROR: variable '" << vName << "' is not defined\r\n";
 			return;
 		}
 		if(varInfo[i].isConst)
 		{
-			ColorCode(255,0,0,0,0,1,s,st);
+			ColorCode(255, 0, 0, 0, 0, 1, s, st);
 			logStream << "ERROR: cannot change constant parameter '" << vName << "'\r\n";
 			return;
 		}
@@ -457,15 +470,13 @@ namespace ColorerGrammar
 		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 			if(varInfo[i].name == vName)
 			{
-				ColorCode(255,0,0,0,0,1,s,e);
+				ColorCode(255, 0, 0, 0, 0, 1, s, e);
 				logStream << "ERROR: Name '" << vName << "' is already taken for a variable in current scope\r\n";
 				return;
 			}
-			try{
-				CheckIfDeclared(vName, true);
-			}catch(const std::string& str){
-				ColorCode(255,0,0,0,0,1,s,e);
-				logStream << str << "\r\n";
+			if(CheckIfDeclared(vName))
+			{
+				ColorCode(255, 0, 0, 0, 0, 1, s, e);
 				return;
 			}
 			funcs.push_back(new FunctionInfo());
@@ -602,12 +613,13 @@ Colorer::~Colorer()
 	delete syntax;
 }
 
-void Colorer::ColorText()
+bool Colorer::ColorText()
 {
+	lastError = "";
 	ColorerGrammar::varInfoTop.clear();
 	ColorerGrammar::varInfo.clear();
-//	ColorerGrammar::funcs = CodeInfo::funcInfo;
-	unsigned int oldFuncCount = 0;//ColorerGrammar::funcs.size();
+
+	unsigned int oldFuncCount = 0;
 	ColorerGrammar::typeInfo.clear();
 
 	ColorerGrammar::typeInfo.push_back("void");
@@ -621,10 +633,6 @@ void Colorer::ColorText()
 	ColorerGrammar::typeInfo.push_back("float3");
 	ColorerGrammar::typeInfo.push_back("float4");
 	ColorerGrammar::typeInfo.push_back("float4x4");
-
-	//ColorerGrammar::varInfo.push_back(VariableInfo("ERROR", 0, typeDouble));
-	//ColorerGrammar::varInfo.push_back(VariableInfo("pi", 1, typeDouble));
-	//ColorerGrammar::varInfo.push_back(VariableInfo("e", 2, typeDouble));
 
 	ColorerGrammar::varInfoTop.push_back(VarTopInfo(0,0));
 
@@ -642,15 +650,33 @@ void Colorer::ColorText()
 	errUnderline = false;
 	ColorCode(255,0,0,0,0,0, strBuf, strBuf+strlen(strBuf));
 
-	if(!Parse(syntax->code, strBuf, syntax->mySpaceP))
-		throw std::string("Syntax error");
+	ParseResult pRes = Parse(syntax->code, strBuf, syntax->mySpaceP);
+	if(pRes == PARSE_ABORTED)
+	{
+		lastError = ColorerGrammar::lastError;
+		return false;
+	}
+	if(pRes != PARSE_OK)
+	{
+		lastError = "Syntax error";
+		return false;
+	}
 
 	for(unsigned int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
 		delete ColorerGrammar::funcs[i];
 	ColorerGrammar::funcs.clear();
 
 	if(ColorerGrammar::logStream.str().length() != 0)
-		throw ColorerGrammar::logStream.str();
+	{
+		lastError = ColorerGrammar::logStream.str();
+		return false;
+	}
+	return true;
+}
+
+std::string Colorer::GetError()
+{
+	return lastError;
 }
 
 void Colorer::ColorCode(int red, int green, int blue, int bold, int ital, int under, const char* start, const char* end)

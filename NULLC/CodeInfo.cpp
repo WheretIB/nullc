@@ -32,7 +32,8 @@ TypeInfo* CodeInfo::GetDereferenceType(TypeInfo* type)
 	if(!type->subType || type->refLevel == 0)
 	{
 		std::string fullError = std::string("Cannot dereference type ") + type->GetTypeName() + std::string(" there is no result type available");
-		throw CompilerError(fullError, lastKnownStartPos);
+		lastError = CompilerError(fullError, lastKnownStartPos);
+		return NULL;
 	}
 	return type->subType;
 }
@@ -63,12 +64,14 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 				unFixed = true;
 			}else{
 				std::string fullError = std::string("ERROR: unknown type of constant number node ") + aType->name;
-				throw CompilerError(fullError, lastKnownStartPos);
+				lastError = CompilerError(fullError, lastKnownStartPos);
+				return NULL;
 			}
 			delete nodeList.back();
 			nodeList.pop_back();
 		}else{
-			throw CompilerError("ERROR: Array size must be a constant expression", lastKnownStartPos);
+			lastError = CompilerError("ERROR: Array size must be a constant expression", lastKnownStartPos);
+			return NULL;
 		}
 	}else{
 		arrSize = sizeInArgument;
@@ -77,7 +80,10 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	}
 
 	if(!unFixed && arrSize < 1)
-		throw CompilerError("ERROR: Array size can't be negative or zero", lastKnownStartPos);
+	{
+		lastError = CompilerError("ERROR: Array size can't be negative or zero", lastKnownStartPos);
+		return NULL;
+	}
 	// Поищем нужный тип в списке
 	unsigned int targetArrLevel = type->arrLevel+1;
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
@@ -111,17 +117,6 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 
 	typeInfo.push_back(newInfo);
 	return newInfo;
-}
-
-// Функция возвращает тип элемента массива
-TypeInfo* CodeInfo::GetArrayElementType(TypeInfo* type)
-{
-	if(!type->subType || type->arrLevel == 0)
-	{
-		std::string fullErr = std::string("Cannot return array element type, ") + type->GetTypeName() + std::string(" is not an array");
-		throw CompilerError(fullErr, lastKnownStartPos);
-	}
-	return type->subType;
 }
 
 TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)

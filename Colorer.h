@@ -33,7 +33,8 @@ public:
 	Colorer(HWND rich);
 	~Colorer();
 
-	void	ColorText();
+	bool	ColorText();
+	std::string		GetError();
 private:
 	ColorerGrammar::Grammar	*syntax;
 
@@ -42,6 +43,8 @@ private:
 	void	ColorCode(int red, int green, int blue, int bold, int ital, int under, const char* start, const char* end);
 
 	bool	errUnderline;
+
+	std::string		lastError;
 	//////////////////////////////////////////////////////////////////////////
 	HWND			richEdit;
 	char*			strBuf;

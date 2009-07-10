@@ -113,14 +113,18 @@ void checkIfDeclared(const std::string& str)
 	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
 	{
 		std::string fullError = std::string("ERROR: The name '" + str + "' is reserved");
-		throw CompilerError(fullError, lastKnownStartPos);
+		lastError = CompilerError(fullError, lastKnownStartPos);
+		supspi::Abort();
+		return;
 	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
 		if(funcInfo[i]->name == str && funcInfo[i]->visible)
 		{
 			std::string fullError = std::string("ERROR: Name '" + str + "' is already taken for a function");
-			throw CompilerError(fullError, lastKnownStartPos);
+			lastError = CompilerError(fullError, lastKnownStartPos);
+			supspi::Abort();
+			return;
 		}
 	}
 }
@@ -208,7 +212,11 @@ void addHexInt(char const*s, char const*e)
 {
 	s += 2;
 	if(int(e-s) > 16)
-		throw CompilerError("ERROR: Overflow in hexademical constant", s);
+	{
+		lastError = CompilerError("ERROR: Overflow in hexadecimal constant", s);
+		supspi::Abort();
+		return;
+	}
 	unsigned long long mult = 1;
 	unsigned long long res = 0;
 	for(const char *p = s; p < e; p++)
@@ -244,7 +252,13 @@ void addStringNode(char const*s, char const*e)
 
 	nodeList.push_back(new NodeZeroOP());
 	nodeList.push_back(new NodeNumber<int>(len+1, typeInt));
-	nodeList.push_back(new NodeExpressionList(GetArrayType(typeChar)));
+	TypeInfo *targetType = GetArrayType(typeChar);
+	if(!targetType)
+	{
+		supspi::Abort();
+		return;
+	}
+	nodeList.push_back(new NodeExpressionList(targetType));
 
 	NodeZeroOP* temp = nodeList.back();
 	nodeList.pop_back();
@@ -338,7 +352,9 @@ void addNegNode(char const* s, char const* e)
 			Rd = new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo());
 		}else{
 			std::string fullError = std::string("addNegNode() ERROR: unknown type ") + aType->name;
-			throw CompilerError(fullError, s);
+			lastError = CompilerError(fullError, s);
+			supspi::Abort();
+			return;
 		}
 		delete nodeList.back();
 		nodeList.pop_back();
@@ -373,7 +389,9 @@ void addLogNotNode(char const* s, char const* e)
 			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
 		}else{
 			std::string fullError = std::string("addLogNotNode() ERROR: unknown type ") + aType->name;
-			throw CompilerError(fullError, s);
+			lastError = CompilerError(fullError, s);
+			supspi::Abort();
+			return;
 		}
 		delete nodeList.back();
 		nodeList.pop_back();
@@ -393,16 +411,22 @@ void addBitNotNode(char const* s, char const* e)
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
-			throw CompilerError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
+			lastError = CompilerError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
+			supspi::Abort();
+			return;
 		}else if(aType == typeFloat){
-			throw CompilerError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
+			lastError = CompilerError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
+			supspi::Abort();
+			return;
 		}else if(aType == typeLong){
 			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo());
 		}else if(aType == typeInt){
 			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo());
 		}else{
 			std::string fullError = std::string("addBitNotNode() ERROR: unknown type ") + aType->name;
-			throw CompilerError(fullError, s);
+			lastError = CompilerError(fullError, s);
+			supspi::Abort();
+			return;
 		}
 		delete nodeList.back();
 		nodeList.pop_back();
@@ -445,7 +469,9 @@ template<typename T>
 T optDoSpecial(CmdID cmd, T a, T b)
 {
 	(void)cmd; (void)b; (void)a;	// C4100
-	throw CompilerError("ERROR: optDoSpecial call with unknown type", lastKnownStartPos);
+	lastError = CompilerError("ERROR: optDoSpecial call with unknown type", lastKnownStartPos);
+	supspi::Abort();
+	return 0;
 }
 template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 {
@@ -467,7 +493,9 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 		return !!a ^ !!b;
 	if(cmd == cmdLogOr)
 		return a || b;
-	throw CompilerError("ERROR: optDoSpecial<int> call with unknown command", lastKnownStartPos);
+	lastError = CompilerError("ERROR: optDoSpecial<int> call with unknown command", lastKnownStartPos);
+	supspi::Abort();
+	return 0;
 }
 template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 {
@@ -489,25 +517,41 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 		return !!a ^ !!b;
 	if(cmd == cmdLogOr)
 		return a || b;
-	throw CompilerError("ERROR: optDoSpecial<long long> call with unknown command", lastKnownStartPos);
+	lastError = CompilerError("ERROR: optDoSpecial<long long> call with unknown command", lastKnownStartPos);
+	supspi::Abort();
+	return 0;
 }
 template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 {
 	if(cmd == cmdShl)
-		throw CompilerError("ERROR: optDoSpecial<double> call with << operation is illegal", lastKnownStartPos);
+	{
+		lastError = CompilerError("ERROR: optDoSpecial<double> call with << operation is illegal", lastKnownStartPos);
+		supspi::Abort();
+		return 0.0;
+	}
 	if(cmd == cmdShr)
-		throw CompilerError("ERROR: optDoSpecial<double> call with >> operation is illegal", lastKnownStartPos);
+	{
+		lastError = CompilerError("ERROR: optDoSpecial<double> call with >> operation is illegal", lastKnownStartPos);
+		supspi::Abort();
+		return 0.0;
+	}
 	if(cmd == cmdMod)
 		return fmod(a,b);
 	if(cmd >= cmdBitAnd && cmd <= cmdBitXor)
-		throw CompilerError("ERROR: optDoSpecial<double> call with binary operation is illegal", lastKnownStartPos);
+	{
+		lastError = CompilerError("ERROR: optDoSpecial<double> call with binary operation is illegal", lastKnownStartPos);
+		supspi::Abort();
+		return 0.0;
+	}
 	if(cmd == cmdLogAnd)
 		return (int)a && (int)b;
 	if(cmd == cmdLogXor)
 		return !!(int)a ^ !!(int)b;
 	if(cmd == cmdLogOr)
 		return (int)a || (int)b;
-	throw CompilerError("ERROR: optDoSpecial<double> call with unknown command", lastKnownStartPos);
+	lastError = CompilerError("ERROR: optDoSpecial<double> call with unknown command", lastKnownStartPos);
+	supspi::Abort();
+	return 0.0;
 }
 
 void popLastNodeCond(bool swap)
@@ -632,12 +676,9 @@ void addTwoAndCmpNode(CmdID id)
 		if(bNodeType != typeNodeTwoAndCmdOp && bNodeType != typeNodeDereference)
 		{
 			// Иначе, выходим без оптимизаций
-			try
-			{
-				nodeList.push_back(new NodeTwoAndCmdOp(id));
-			}catch(const std::string& str){
-				throw CompilerError(str.c_str(), lastKnownStartPos);
-			}
+			nodeList.push_back(new NodeTwoAndCmdOp(id));
+			if(!lastError.IsEmpty())
+				supspi::Abort();
 			return;
 		}
 
@@ -698,12 +739,9 @@ void addTwoAndCmpNode(CmdID id)
 			return;
 	}
 	// Оптимизации не удались, сделаем операцию полностью
-	try
-	{
-		nodeList.push_back(new NodeTwoAndCmdOp(id));
-	}catch(const std::string& str){
-		throw CompilerError(str.c_str(), lastKnownStartPos);
-	}
+	nodeList.push_back(new NodeTwoAndCmdOp(id));
+	if(!lastError.IsEmpty())
+		supspi::Abort();
 }
 
 template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
@@ -737,7 +775,9 @@ static ParseFuncPtr addCmd(CmdID cmd)
 	if(cmd == cmdLogAnd) return &createTwoAndCmd<cmdLogAnd>;
 	if(cmd == cmdLogOr) return &createTwoAndCmd<cmdLogOr>;
 	if(cmd == cmdLogXor) return &createTwoAndCmd<cmdLogXor>;
-	throw CompilerError("ERROR: addCmd call with unknown command", lastKnownStartPos);
+	lastError = CompilerError("ERROR: addCmd call with unknown command", lastKnownStartPos);
+	supspi::Abort();
+	return NULL;
 }
 
 void addReturnNode(char const* s, char const* e)
@@ -754,11 +794,23 @@ void addReturnNode(char const* s, char const* e)
 	}
 	TypeInfo *realRetType = nodeList.back()->GetTypeInfo();
 	if(retTypeStack.back() && (retTypeStack.back()->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && retTypeStack.back() != realRetType)
-		throw CompilerError("ERROR: function returns " + retTypeStack.back()->GetTypeName() + " but supposed to return " + realRetType->GetTypeName(), s);
+	{
+		lastError = CompilerError("ERROR: function returns " + retTypeStack.back()->GetTypeName() + " but supposed to return " + realRetType->GetTypeName(), s);
+		supspi::Abort();
+		return;
+	}
 	if(retTypeStack.back() && retTypeStack.back()->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
-		throw CompilerError("ERROR: function returning a value", s);
+	{
+		lastError = CompilerError("ERROR: function returning a value", s);
+		supspi::Abort();
+		return;
+	}
 	if(retTypeStack.back() && retTypeStack.back() != typeVoid && realRetType == typeVoid)
-		throw CompilerError("ERROR: funtion should return " + retTypeStack.back()->GetTypeName(), s);
+	{
+		lastError = CompilerError("ERROR: funtion should return " + retTypeStack.back()->GetTypeName(), s);
+		supspi::Abort();
+		return;
+	}
 	nodeList.push_back(new NodeReturnOp(c, retTypeStack.back()));
 	nodeList.back()->SetCodeInfo(s, e);
 }
@@ -767,7 +819,11 @@ void addBreakNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	if(cycleBeginVarTop.empty())
-		throw CompilerError("ERROR: break used outside loop statements", s);
+	{
+		lastError = CompilerError("ERROR: break used outside loop statements", s);
+		supspi::Abort();
+		return;
+	}
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	while(t > (int)cycleBeginVarTop.back())
@@ -782,7 +838,11 @@ void AddContinueNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	if(cycleBeginVarTop.empty())
-		throw CompilerError("ERROR: continue used outside loop statements", s);
+	{
+		lastError = CompilerError("ERROR: continue used outside loop statements", s);
+		supspi::Abort();
+		return;
+	}
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	while(t > (int)cycleBeginVarTop.back())
@@ -810,7 +870,8 @@ void selType(char const* s, char const* e)
 			return;
 		}
 	}
-	throw CompilerError("ERROR: Variable type '" + vType + "' is unknown\r\n", s);
+	lastError = CompilerError("ERROR: Variable type '" + vType + "' is unknown\r\n", s);
+	supspi::Abort();
 }
 
 void addTwoExprNode(char const* s, char const* e);
@@ -827,20 +888,38 @@ void addVar(char const* s, char const* e)
 	string vName = strs.back();
 
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
+	{
 		if(varInfo[i]->name == vName)
-			throw CompilerError("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n", s);
+		{
+			lastError = CompilerError("ERROR: Name '" + vName + "' is already taken for a variable in current scope\r\n", s);
+			supspi::Abort();
+			return;
+		}
+	}
 	checkIfDeclared(vName);
 
 	if(currType && currType->size == TypeInfo::UNSIZED_ARRAY)
-		throw CompilerError("ERROR: variable '" + vName + "' can't be an unfixed size array", s);
+	{
+		lastError = CompilerError("ERROR: variable '" + vName + "' can't be an unfixed size array", s);
+		supspi::Abort();
+		return;
+	}
 	if(currType && currType->size > 64*1024*1024)
-		throw CompilerError("ERROR: variable '" + vName + "' has to big length (>64 Mb)", s);
+	{
+		lastError = CompilerError("ERROR: variable '" + vName + "' has to big length (>64 Mb)", s);
+		supspi::Abort();
+		return;
+	}
 	
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 	{
 		unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes;
 		if(activeAlign > 16)
-			throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
+		{
+			lastError = CompilerError("ERROR: alignment must me less than 16 bytes", s);
+			supspi::Abort();
+			return;
+		}
 		if(activeAlign != 0 && varTop % activeAlign != 0)
 		{
 			unsigned int offset = activeAlign - (varTop % activeAlign);
@@ -860,7 +939,11 @@ void addVarDefNode(char const* s, char const* e)
 	(void)e;	// C4100
 	assert(varDefined);
 	if(!currType)
-		throw CompilerError("ERROR: auto variable must be initialized in place of definition", s);
+	{
+		lastError = CompilerError("ERROR: auto variable must be initialized in place of definition", s);
+		supspi::Abort();
+		return;
+	}
 	nodeList.push_back(new NodeVarDef(strs.back()));
 	varInfo.back()->dataReserved = true;
 	varDefined = 0;
@@ -884,7 +967,11 @@ void convertTypeToRef(char const* s, char const* e)
 	(void)e;	// C4100
 	lastKnownStartPos = s;
 	if(!currType)
-		throw CompilerError("ERROR: auto variable cannot have reference flag", s);
+	{
+		lastError = CompilerError("ERROR: auto variable cannot have reference flag", s);
+		supspi::Abort();
+		return;
+	}
 	currType = GetReferenceType(currType);
 }
 
@@ -893,8 +980,14 @@ void convertTypeToArray(char const* s, char const* e)
 	(void)e;	// C4100
 	lastKnownStartPos = s;
 	if(!currType)
-		throw CompilerError("ERROR: cannot specify array size for auto variable", s);
+	{
+		lastError = CompilerError("ERROR: cannot specify array size for auto variable", s);
+		supspi::Abort();
+		return;
+	}
 	currType = GetArrayType(currType);
+	if(!currType)
+		supspi::Abort();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -916,12 +1009,20 @@ void GetVariableType(char const* s, char const* e)
 			if(funcInfo[k]->name == vName && funcInfo[k]->visible)
 			{
 				if(fID != -1)
-					throw CompilerError("ERROR: there are more than one '" + vName + "' function, and the decision isn't clear", s);
+				{
+					lastError = CompilerError("ERROR: there are more than one '" + vName + "' function, and the decision isn't clear", s);
+					supspi::Abort();
+					return;
+				}
 				fID = k;
 			}
 		}
 		if(fID == -1)
-			throw CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+		{
+			lastError = CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+			supspi::Abort();
+			return;
+		}
 	}
 
 	if(fID == -1)
@@ -935,7 +1036,11 @@ void GetTypeSize(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	if(!sizeOfExpr && !currTypes.back())
-		throw CompilerError("ERROR: sizeof(auto) is illegal", s);
+	{
+		lastError = CompilerError("ERROR: sizeof(auto) is illegal", s);
+		supspi::Abort();
+		return;
+	}
 	if(sizeOfExpr)
 	{
 		currTypes.back() = nodeList.back()->GetTypeInfo();
@@ -981,12 +1086,20 @@ void AddGetAddressNode(char const* s, char const* e)
 			if(funcInfo[k]->name == vName && funcInfo[k]->visible)
 			{
 				if(fID != -1)
-					throw CompilerError("ERROR: there are more than one '" + vName + "' function, and the decision isn't clear", s);
+				{
+					lastError = CompilerError("ERROR: there are more than one '" + vName + "' function, and the decision isn't clear", s);
+					supspi::Abort();
+					return;
+				}
 				fID = k;
 			}
 		}
 		if(fID == -1)
-			throw CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+		{
+			lastError = CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+			supspi::Abort();
+			return;
+		}
 	}
 	// Кладём в стек типов её тип
 	if(fID == -1)
@@ -1028,7 +1141,14 @@ void AddGetAddressNode(char const* s, char const* e)
 		int num = AddFunctionExternal(currFunc, vName);
 
 		nodeList.push_back(new NodeNumber<int>((int)currDefinedFunc.back()->external.size(), typeInt));
-		TypeInfo *temp = GetReferenceType(GetArrayType(GetReferenceType(typeInt)));
+		TypeInfo *temp = GetReferenceType(typeInt);
+		temp = GetArrayType(temp);
+		if(!temp)
+		{
+			supspi::Abort();
+			return;
+		}
+		temp = GetReferenceType(temp);
 		currTypes.push_back(temp);
 
 		nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
@@ -1052,9 +1172,17 @@ void AddGetAddressNode(char const* s, char const* e)
 			nodeList.push_back(new NodeGetAddress(varInfo[i], varAddress, absAddress));
 		}else{
 			if(funcInfo[fID]->funcPtr != 0)
-				throw CompilerError("ERROR: Can't get a pointer to an extern function", s);
+			{
+				lastError = CompilerError("ERROR: Can't get a pointer to an extern function", s);
+				supspi::Abort();
+				return;
+			}
 			if(funcInfo[fID]->address == -1 && funcInfo[fID]->funcPtr == NULL)
-				throw CompilerError("ERROR: Can't get a pointer to a build-in function", s);
+			{
+				lastError = CompilerError("ERROR: Can't get a pointer to a build-in function", s);
+				supspi::Abort();
+				return;
+			}
 			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 			{
 				std::string bName = "$" + funcInfo[fID]->name + "_ext";
@@ -1084,7 +1212,11 @@ void AddArrayIndexNode(char const* s, char const* e)
 
 	// Тип должен быть массивом
 	if(currTypes.back()->arrLevel == 0)
-		throw CompilerError("ERROR: indexing variable that is not an array", s);
+	{
+		lastError = CompilerError("ERROR: indexing variable that is not an array", s);
+		supspi::Abort();
+		return;
+	}
 	// Если это безразмерный массив (указатель на массив)
 	if(currTypes.back()->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
@@ -1112,14 +1244,24 @@ void AddArrayIndexNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			shiftValue = static_cast<NodeNumber<int>* >(zOP)->GetVal();
 		}else{
-			throw CompilerError("AddArrayIndexNode() ERROR: unknown index type " + aType->name, lastKnownStartPos);
+			lastError = CompilerError("AddArrayIndexNode() ERROR: unknown index type " + aType->name, lastKnownStartPos);
+			supspi::Abort();
+			return;
 		}
 
 		// Проверим индекс на выход за пределы массива
 		if(shiftValue < 0)
-			throw CompilerError("ERROR: Array index cannot be negative", s);
+		{
+			lastError = CompilerError("ERROR: Array index cannot be negative", s);
+			supspi::Abort();
+			return;
+		}
 		if((unsigned int)shiftValue >= currTypes.back()->arrSize)
-			throw CompilerError("ERROR: Array index out of bounds", s);
+		{
+			lastError = CompilerError("ERROR: Array index out of bounds", s);
+			supspi::Abort();
+			return;
+		}
 
 		// Индексируем относительно него
 		static_cast<NodeGetAddress*>(nodeList[nodeList.size()-2])->IndexArray(shiftValue);
@@ -1143,6 +1285,8 @@ void AddDereferenceNode(char const* s, char const* e)
 	nodeList.push_back(new NodeDereference(currTypes.back()));
 	// Теперь текущий тип - тип на который указывала ссылка
 	currTypes.back() = GetDereferenceType(currTypes.back());
+	if(!currTypes.back())
+		supspi::Abort();
 }
 
 // Компилятор в начале предполагает, что после переменной будет слодовать знак присваивания
@@ -1165,7 +1309,11 @@ void AddDefineVariableNode(char const* s, char const* e)
 	while(i >= 0 && varInfo[i]->name != vName)
 		i--;
 	if(i == -1)
-		throw CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+	{
+		lastError = CompilerError("ERROR: variable '" + vName + "' is not defined", s);
+		supspi::Abort();
+		return;
+	}
 	// Кладём в стек типов её тип
 	currTypes.push_back(varInfo[i]->varType);
 
@@ -1198,7 +1346,9 @@ void AddDefineVariableNode(char const* s, char const* e)
 					unifyTwo = true;
 				}else{
 					// Иначе, типы не совместимы, поэтому свидетельствуем об ошибке
-					throw CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
+					lastError = CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
+					supspi::Abort();
+					return;
 				}
 			}
 			// Далее, так как мы присваиваем безразменому массиву значение размерного,
@@ -1246,7 +1396,11 @@ void AddDefineVariableNode(char const* s, char const* e)
 			// Выбираем выравниваени. Указанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
 			unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes;
 			if(activeAlign > 16)
-				throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
+			{
+				lastError = CompilerError("ERROR: alignment must me less than 16 bytes", s);
+				supspi::Abort();
+				return;
+			}
 			// Если требуется выравнивание (нету спецификации noalign, и адрес ещё не выравнен)
 			if(activeAlign != 0 && varTop % activeAlign != 0)
 			{
@@ -1295,7 +1449,9 @@ void AddSetVariableNode(char const* s, char const* e)
 					currTypes.pop_back();
 					unifyTwo = true;
 				}else{
-					throw CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
+					lastError = CompilerError("ERROR: cannot convert from " + nodeList.back()->GetTypeInfo()->GetTypeName() + " to " + realCurrType->GetTypeName(), s);
+					supspi::Abort();
+					return;
 				}
 			}
 			NodeZeroOP	*oldNode = nodeList.back();
@@ -1321,11 +1477,11 @@ void AddSetVariableNode(char const* s, char const* e)
 		std::swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 	}
 
-	try
+	nodeList.push_back(new NodeVariableSet(currTypes.back(), 0, true));
+	if(!lastError.IsEmpty())
 	{
-		nodeList.push_back(new NodeVariableSet(currTypes.back(), 0, true));
-	}catch(const std::string& str){
-		throw CompilerError(str.c_str(), s);
+		supspi::Abort();
+		return;
 	}
 
 	if(unifyTwo)
@@ -1361,6 +1517,11 @@ void AddMemberAccessNode(char const* s, char const* e)
 	{
 		nodeList.push_back(new NodeDereference(currTypes.back()));
 		currTypes.back() = GetDereferenceType(currTypes.back());
+		if(!currTypes.back())
+		{
+			supspi::Abort();
+			return;
+		}
 		currType = currTypes.back();
 	}
  
@@ -1376,12 +1537,20 @@ void AddMemberAccessNode(char const* s, char const* e)
 			if(funcInfo[k]->name == (currType->name + "::" + memberName) && funcInfo[k]->visible)
 			{
 				if(fID != -1)
-					throw CompilerError("ERROR: there are more than one '" + memberName + "' function, and the decision isn't clear", s);
+				{
+					lastError = CompilerError("ERROR: there are more than one '" + memberName + "' function, and the decision isn't clear", s);
+					supspi::Abort();
+					return;
+				}
 				fID = k;
 			}
 		}
 		if(fID == -1)
-			throw CompilerError("ERROR: variable '" + memberName + "' is not a member of '" + currType->GetTypeName() + "'", s);
+		{
+			lastError = CompilerError("ERROR: variable '" + memberName + "' is not a member of '" + currType->GetTypeName() + "'", s);
+			supspi::Abort();
+			return;
+		}
 	}
 	
 	if(fID == -1)
@@ -1436,7 +1605,13 @@ struct AddPreOrPostOp
 void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 {
 	(void)s; (void)e;	// C4100
-	nodeList.push_back(new NodeVariableModify(GetDereferenceType(nodeList[nodeList.size()-2]->GetTypeInfo()), cmd));
+	TypeInfo *targetType = GetDereferenceType(nodeList[nodeList.size()-2]->GetTypeInfo());
+	if(!targetType)
+	{
+		supspi::Abort();
+		return;
+	}
+	nodeList.push_back(new NodeVariableModify(targetType, cmd));
 }
 
 template<CmdID cmd>
@@ -1521,11 +1696,21 @@ void addArrayConstructor(char const* s, char const* e)
 		warningLog.append("\r\n");
 	}
 	if(currType == typeVoid)
-		throw CompilerError("ERROR: array cannot be constructed from void type elements", s);
+	{
+		lastError = CompilerError("ERROR: array cannot be constructed from void type elements", s);
+		supspi::Abort();
+		return;
+	}
 
 	nodeList.push_back(new NodeZeroOP());
 	nodeList.push_back(new NodeNumber<int>(arrElementCount.back(), typeInt));
-	nodeList.push_back(new NodeExpressionList(GetArrayType(currType)));
+	TypeInfo *targetType = GetArrayType(currType);
+	if(!targetType)
+	{
+		supspi::Abort();
+		return;
+	}
+	nodeList.push_back(new NodeExpressionList(targetType));
 
 	NodeZeroOP* temp = nodeList.back();
 	nodeList.pop_back();
@@ -1539,7 +1724,9 @@ void addArrayConstructor(char const* s, char const* e)
 		{
 			char tempStr[16];
 			sprintf(tempStr, "%d", arrElementCount.back()-i-1);
-			throw CompilerError(std::string("ERROR: element ") + tempStr + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
+			lastError = CompilerError(std::string("ERROR: element ") + tempStr + " doesn't match the type of element 0 (" + currType->GetTypeName() + ")", s);
+			supspi::Abort();
+			return;
 		}
 		arrayList->AddNode(false);
 	}
@@ -1553,13 +1740,27 @@ void FunctionAdd(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
+	{
 		if(varInfo[i]->name == strs.back())
-			throw CompilerError("ERROR: Name '" + strs.back() + "' is already taken for a variable in current scope", s);
+		{
+			lastError = CompilerError("ERROR: Name '" + strs.back() + "' is already taken for a variable in current scope", s);
+			supspi::Abort();
+			return;
+		}
+	}
 	std::string name = strs.back();
 	if(name == "if" || name == "else" || name == "for" || name == "while" || name == "var" || name == "func" || name == "return" || name=="switch" || name=="case")
-		throw CompilerError("ERROR: The name '" + name + "' is reserved", s);
+	{
+		lastError = CompilerError("ERROR: The name '" + name + "' is reserved", s);
+		supspi::Abort();
+		return;
+	}
 	if(!currType)
-		throw CompilerError("ERROR: function return type cannot be auto", s);
+	{
+		lastError = CompilerError("ERROR: function return type cannot be auto", s);
+		supspi::Abort();
+		return;
+	}
 	funcInfo.push_back(new FunctionInfo());
 	funcInfo.back()->name = name;
 	funcInfo.back()->vTopSize = (unsigned int)varInfoTop.size();
@@ -1584,7 +1785,11 @@ void FunctionParam(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	if(!currType)
-		throw CompilerError("ERROR: function parameter cannot be an auto type", s);
+	{
+		lastError = CompilerError("ERROR: function parameter cannot be an auto type", s);
+		supspi::Abort();
+		return;
+	}
 	funcInfo.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
 	funcInfo.back()->allParamSize += currType->size;
 	strs.pop_back();
@@ -1644,7 +1849,11 @@ void FunctionEnd(char const* s, char const* e)
 					paramsEqual = false;
 			}
 			if(paramsEqual)
-				throw CompilerError("ERROR: function '" + funcInfo[i]->name + "' is being defined with the same set of parameters", s);
+			{
+				lastError = CompilerError("ERROR: function '" + funcInfo[i]->name + "' is being defined with the same set of parameters", s);
+				supspi::Abort();
+				return;
+			}
 		}
 	}
 
@@ -1667,7 +1876,19 @@ void FunctionEnd(char const* s, char const* e)
 	{
 		nodeList.push_back(new NodeZeroOP());
 		nodeList.push_back(new NodeNumber<int>((int)lastFunc.external.size(), typeInt));
-		nodeList.push_back(new NodeExpressionList(GetArrayType(GetReferenceType(typeInt))));
+		TypeInfo *targetType = GetReferenceType(typeInt);
+		if(!targetType)
+		{
+			supspi::Abort();
+			return;
+		}
+		targetType = GetArrayType(targetType);
+		if(!targetType)
+		{
+			supspi::Abort();
+			return;
+		}
+		nodeList.push_back(new NodeExpressionList(targetType));
 
 		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
@@ -1735,7 +1956,11 @@ void addFuncCallNode(char const* s, char const* e)
 			if(funcInfo[k]->name == fname && funcInfo[k]->visible)
 				fList[count++] = funcInfo[k];
 		if(count == 0)
-			throw CompilerError("ERROR: function '" + fname + "' is undefined", s);
+		{
+			lastError = CompilerError("ERROR: function '" + fname + "' is undefined", s);
+			supspi::Abort();
+			return;
+		}
 		// Find the best suited function
 		unsigned int minRating = 1024*1024;
 		unsigned int minRatingIndex = (unsigned int)~0;
@@ -1803,7 +2028,9 @@ void addFuncCallNode(char const* s, char const* e)
 				}
 				errTemp.append(")\r\n");
 			}
-			throw errTemp;
+			lastError = CompilerError(errTemp.c_str(), s);
+			supspi::Abort();
+			return;
 		}
 		// Check, is there are more than one function, that share the same rating
 		for(unsigned int k = 0; k < count; k++)
@@ -1836,7 +2063,9 @@ void addFuncCallNode(char const* s, char const* e)
 					}
 					errTemp.append(")\r\n");
 				}
-				throw errTemp;
+				lastError = CompilerError(errTemp.c_str(), s);
+				supspi::Abort();
+				return;
 			}
 		}
 		fType = fList[minRatingIndex]->funcType->funcType;
@@ -1888,7 +2117,9 @@ void addFuncCallNode(char const* s, char const* e)
 				}else{
 					char chTemp[16];
 					sprintf(chTemp, "%d", i);
-					throw CompilerError(std::string("ERROR: array expected as a parameter ") + chTemp, s);
+					lastError = CompilerError(std::string("ERROR: array expected as a parameter ") + chTemp, s);
+					supspi::Abort();
+					return;
 				}
 			}
 			unsigned int typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
@@ -1958,7 +2189,11 @@ void addIfElseTermNode(char const* s, char const* e)
 	TypeInfo* typeA = nodeList[nodeList.size()-1]->GetTypeInfo();
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->GetTypeInfo();
 	if(typeA != typeB)
-		throw CompilerError("ERROR: trinary operator ?: \r\n result types are not equal (" + typeB->name + " : " + typeA->name + ")", s);
+	{
+		lastError = CompilerError("ERROR: trinary operator ?: \r\n result types are not equal (" + typeB->name + " : " + typeA->name + ")", s);
+		supspi::Abort();
+		return;
+	}
 	nodeList.push_back(new NodeIfElseExpr(true, true));
 }
 
@@ -2014,11 +2249,23 @@ void addSwitchNode(char const* s, char const* e)
 void TypeBegin(char const* s, char const* e)
 {
 	if(newType)
-		throw CompilerError("ERROR: Different type is being defined", s);
+	{
+		lastError = CompilerError("ERROR: Different type is being defined", s);
+		supspi::Abort();
+		return;
+	}
 	if((int)currAlign < 0)
-		throw CompilerError("ERROR: alignment must be a positive number", s);
+	{
+		lastError = CompilerError("ERROR: alignment must be a positive number", s);
+		supspi::Abort();
+		return;
+	}
 	if(currAlign > 16)
-		throw CompilerError("ERROR: alignment must me less than 16 bytes", s);
+	{
+		lastError = CompilerError("ERROR: alignment must me less than 16 bytes", s);
+		supspi::Abort();
+		return;
+	}
 	newType = new TypeInfo();
 	newType->name = std::string(s, e);
 	newType->type = TypeInfo::TYPE_COMPLEX;
@@ -2033,7 +2280,11 @@ void TypeBegin(char const* s, char const* e)
 void TypeAddMember(char const* s, char const* e)
 {
 	if(!currType)
-		throw CompilerError("ERROR: auto cannot be used for class members", s);
+	{
+		lastError = CompilerError("ERROR: auto cannot be used for class members", s);
+		supspi::Abort();
+		return;
+	}
 	newType->AddMember(std::string(s, e), currType);
 
 	strs.push_back(std::string(s, e));
@@ -2135,7 +2386,8 @@ namespace CompilerGrammar
 		{
 			(void)e;	// C4100
 			assert(err);
-			throw CompilerError(err, s);
+			lastError = CompilerError(err, s);
+			supspi::Abort();
 		}
 	private:
 		const char* err;
@@ -2146,7 +2398,7 @@ namespace CompilerGrammar
 		TypeNameP(Rule a): m_a(a.getPtr()){ }
 		virtual ~TypeNameP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space) throw()
+		virtual bool	Parse(char** str, BaseP* space)
 		{
 			SkipSpaces(str, space);
 			char* curr = *str;
@@ -2162,13 +2414,13 @@ namespace CompilerGrammar
 	protected:
 		Rule m_a;
 	};
-	Rule	typenameP(Rule a) throw(){ return Rule(new TypeNameP(a)); }
+	Rule	typenameP(Rule a){ return Rule(new TypeNameP(a)); }
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 
 	class Grammar
 	{
 	public:
-		void InitGrammar() throw()
+		void InitGrammar()
 		{
 			strPush	=	CompilerGrammar::ParseStrPush;
 			strPop	=	CompilerGrammar::ParseStrPop;
@@ -2361,7 +2613,7 @@ namespace CompilerGrammar
 		
 			mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
 		}
-		void DeInitGrammar() throw()
+		void DeInitGrammar()
 		{
 			DeleteParsers();
 		}
@@ -2390,6 +2642,7 @@ CompilerError::CompilerError(const char* errStr, const char* apprPos)
 
 void CompilerError::Init(const char* errStr, const char* apprPos)
 {
+	empty = 0;
 	unsigned int len = (unsigned int)strlen(errStr) < 128 ? (unsigned int)strlen(errStr) : 127;
 	memcpy(error, errStr, len);
 	error[len] = 0;
@@ -2720,27 +2973,16 @@ void Compiler::ClearState()
 	compileLog = fopen("compilelog.txt", "wb");
 #endif
 	warningLog.clear();
+
+	lastError = CompilerError();
 }
 
 bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 {
 	ClearState();
 
-	ParseResult pRes;
-
-	try{
-		pRes = Parse(syntax->funcProt, (char*)prototype, syntax->mySpaceP);
-	}catch(const CompilerError& compileErr){
-#ifdef NULLC_LOG_FILES
-		fprintf(compileLog, "%s", compileErr.GetErrorString());
-#else
-		(void)compileErr;
-#endif
-		return false;
-	}
-	if(pRes == PARSE_NOTFULL)
-		return false;
-	if(pRes == PARSE_FAILED)
+	ParseResult pRes = Parse(syntax->funcProt, (char*)prototype, syntax->mySpaceP);
+	if(pRes != PARSE_OK)
 		return false;
 
 	funcInfo.back()->address = -1;
@@ -2824,9 +3066,17 @@ bool Compiler::Compile(string str)
 	unsigned int t = clock();
 	ParseResult pRes = Parse(syntax->code, ptr, syntax->mySpaceP);
 	if(pRes == PARSE_NOTFULL)
-		throw std::string("Parsing wasn't full");
+	{
+		lastError = CompilerError("Parsing wasn't full", NULL);
+		return false;
+	}
 	if(pRes == PARSE_FAILED)
-		throw std::string("Parsing failed");
+	{
+		lastError = CompilerError("Parsing failed", NULL);
+		return false;
+	}
+	if(pRes == PARSE_ABORTED)
+		return false;
 	unsigned int tem = clock()-t;
 #ifdef NULLC_LOG_FILES
 	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
@@ -2892,9 +3142,17 @@ bool Compiler::Compile(string str)
 	}
 
 	if(nodeList.size() != 0)
-		throw std::string("Compilation failed, AST contains more than one node");
+	{
+		lastError = CompilerError("Compilation failed, AST contains more than one node", NULL);
+		return false;
+	}
 
-	return true; // Зачем тут return true, если вместо return false используются исключения?
+	return true;
+}
+
+const char* Compiler::GetError()
+{
+	return lastError.GetErrorString();
 }
 
 void Compiler::SaveListing(const char *fileName)
