@@ -2,6 +2,8 @@
 
 namespace supspi
 {
+	bool BaseP::continueParse = true;
+
 	std::vector<BaseP*>	uniqueParserList;
 	std::vector<BaseP*>	parserList;
 
@@ -42,31 +44,34 @@ namespace supspi
 		SetAlterPolicy(old);
 	}
 
-	Rule	chP(char ch) throw(){ return Rule(new ChlitP(ch)); }
-	Rule	strP(char* str) throw(){ return Rule(new StrlitP(str)); }
+	Rule	chP(char ch){ return Rule(new ChlitP(ch)); }
+	Rule	strP(char* str){ return Rule(new StrlitP(str)); }
 
-	Rule	operator !  (Rule a) throw(){ return Rule(new RepeatP(a, ZERO_ONE)); }
-	Rule	operator +  (Rule a) throw(){ return Rule(new RepeatP(a, PLUS)); }
-	Rule	operator *  (Rule a) throw(){ return Rule(new RepeatP(a, ZERO_PLUS)); }
+	Rule	operator !  (Rule a){ return Rule(new RepeatP(a, ZERO_ONE)); }
+	Rule	operator +  (Rule a){ return Rule(new RepeatP(a, PLUS)); }
+	Rule	operator *  (Rule a){ return Rule(new RepeatP(a, ZERO_PLUS)); }
 
-	Rule	operator |  (Rule a, Rule b) throw(){ return Rule(new AlternativeP(a, b)); }
-	Rule	operator |  (char a, Rule b) throw(){ return Rule(new AlternativeP(chP(a), b)); }
-	Rule	operator |  (Rule a, char b) throw(){ return Rule(new AlternativeP(a, chP(b))); }
+	Rule	operator |  (Rule a, Rule b){ return Rule(new AlternativeP(a, b)); }
+	Rule	operator |  (char a, Rule b){ return Rule(new AlternativeP(chP(a), b)); }
+	Rule	operator |  (Rule a, char b){ return Rule(new AlternativeP(a, chP(b))); }
 
-	Rule	operator >> (Rule a, Rule b) throw(){ return Rule(new SequenceP(a, b)); }
-	Rule	operator >> (char a, Rule b) throw(){ return Rule(new SequenceP(chP(a), b)); }
-	Rule	operator >> (Rule a, char b) throw(){ return Rule(new SequenceP(a, chP(b))); }
+	Rule	operator >> (Rule a, Rule b){ return Rule(new SequenceP(a, b)); }
+	Rule	operator >> (char a, Rule b){ return Rule(new SequenceP(chP(a), b)); }
+	Rule	operator >> (Rule a, char b){ return Rule(new SequenceP(a, chP(b))); }
 
-	Rule	operator -  (Rule a, Rule b) throw(){ return Rule(new ExcludeP(a, b)); }
+	Rule	operator -  (Rule a, Rule b){ return Rule(new ExcludeP(a, b)); }
 
-	Rule	operator ~	(Rule a) throw(){ return Rule(new NegateP(a)); }
+	Rule	operator ~	(Rule a){ return Rule(new NegateP(a)); }
 
 	ParseResult	Parse(Rule main, char* str, Rule space)
 	{
+		BaseP::continueParse = true;
 		SetAlterPolicy(ALTER_STANDART);
 		SetActionPolicy(ACTION_STANDART);
 		char* temp = str;
 		bool res = main->Parse(&temp, space.getParser());
+		if(!BaseP::continueParse)
+			return PARSE_ABORTED;
 		if(res)
 			SkipSpaces(&temp, space.getParser());
 		if(!res)
@@ -74,6 +79,10 @@ namespace supspi
 		if(res && strlen(temp))
 			return PARSE_NOTFULL;
 		return PARSE_OK;
+	}
+	void		Abort()
+	{
+		BaseP::continueParse = false;
 	}
 
 	void		DeleteParsers()

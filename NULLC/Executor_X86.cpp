@@ -87,7 +87,7 @@ DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 typedef void (*codegenCallback)(VMCmd);
 codegenCallback cgFuncs[cmdAddAtDoubleStk+1];
 
-bool ExecutorX86::Initialize() throw()
+bool ExecutorX86::Initialize()
 {
 	stackGrowSize = 128*4096;
 	stackGrowCommit = 64*4096;
@@ -292,7 +292,7 @@ bool ExecutorX86::Initialize() throw()
 }
 
 #pragma warning(disable: 4731)
-void ExecutorX86::Run(const char* funcName) throw()
+void ExecutorX86::Run(const char* funcName)
 {
 	if(!exCode.size())
 	{
@@ -1051,7 +1051,7 @@ bool ExecutorX86::TranslateToNative()
 	return true;
 }
 
-const char* ExecutorX86::GetResult() throw()
+const char* ExecutorX86::GetResult()
 {
 	long long combined = 0;
 	*((int*)(&combined)) = runResult2;
@@ -1072,17 +1072,17 @@ const char* ExecutorX86::GetResult() throw()
 	return execResult;
 }
 
-const char*	ExecutorX86::GetExecError() throw()
+const char*	ExecutorX86::GetExecError()
 {
 	return execError;
 }
 
-void ExecutorX86::SetOptimization(int toggle) throw()
+void ExecutorX86::SetOptimization(int toggle)
 {
 	optimize = toggle;
 }
 
-char* ExecutorX86::GetVariableData() throw()
+char* ExecutorX86::GetVariableData()
 {
 	return paramData;
 }

@@ -14,10 +14,12 @@
 
 unsigned int CodeInfo::activeExecutor = 0;
 
+CompilerError				CodeInfo::lastError;
+
 std::vector<FunctionInfo*>	CodeInfo::funcInfo;
 std::vector<VariableInfo*>	CodeInfo::varInfo;
 std::vector<TypeInfo*>		CodeInfo::typeInfo;
-CommandList*				CodeInfo::cmdInfoList;
+CommandList*				CodeInfo::cmdInfoList = NULL;
 FastVector<VMCmd>			CodeInfo::cmdList;
 std::vector<NodeZeroOP*>	CodeInfo::nodeList;
 unsigned int				CodeInfo::globalSize = 0;
@@ -29,7 +31,7 @@ Executor*	executor;
 	ExecutorX86*	executorX86;
 #endif
 
-std::string	compileError;
+const char*	compileError;
 
 const char* executeResult;
 std::string executeLog;
@@ -68,29 +70,24 @@ void	nullcSetExecutorOptions(int optimize)
 
 nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 {
-	return compiler->AddExternalFunction(ptr, prototype);
+	nullres good = compiler->AddExternalFunction(ptr, prototype);
+	if(good == 0)
+		compileError = compiler->GetError();
+	return good;
 }
 
 nullres	nullcCompile(const char* code)
 {
 	compileError = "";
-	nullres good = false;
-	try
-	{
-		good = compiler->Compile(code);
-	}catch(const std::string& str){
-		good = false;
-		compileError = str;
-	}catch(const CompilerError& err){
-		good = false;
-		compileError = err.GetErrorString();
-	}
+	nullres good = compiler->Compile(code);
+	if(good == 0)
+		compileError = compiler->GetError();
 	return good;
 }
 
 const char*	nullcGetCompilationError()
 {
-	return compileError.c_str();
+	return compileError;
 }
 
 unsigned int nullcGetBytecode(char **bytecode)

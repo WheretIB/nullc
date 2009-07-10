@@ -677,7 +677,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			nullcSetExecutor(NULLC_VM);
 			nullcSetExecutorOptions(false);
-		//for(int kkk = 0; kkk < 100; kkk++)
+			double execTime = 0.0;
+			int kkk = 0;
+		//for(; kkk < 1; kkk++)
 		//{
 			nullres good = nullcCompile(buf);
 			nullcSaveListing("asm.txt");
@@ -701,7 +703,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				if(goodRun)
 				{
 					const char *val = nullcGetResult();
-					double execTime = myGetPreciseTime()-time;
+					execTime += myGetPreciseTime()-time;
 
 					/*if(val[0] != '1' || val[1] != 0)
 					{
@@ -710,7 +712,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						break;
 					}*/
 
-					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime);
+					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
 
 					variableData = (char*)nullcGetVariableData();
 					//FillVariableInfoTree();
@@ -817,11 +819,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
-		try
+		if(!colorer->ColorText())
 		{
-			colorer->ColorText();
-		}catch(const std::string& strerr){
-			SetWindowText(hCode, strerr.c_str());
+			SetWindowText(hCode, colorer->GetError().c_str());
 		}
 		if(bRetFocus)
 		{

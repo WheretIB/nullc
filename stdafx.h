@@ -6,15 +6,10 @@
 
 #include <stdlib.h>
 
-#include "NULLC/SharedPtr/shared_ptr.hpp"
+#define _HAS_EXCEPTIONS 0
 
-//#include <vector>
-//#include <map>
-
-//#include <list>
 #include <string>
 #include <sstream>
-//#include <fstream>
 #include <math.h>
 using namespace std;
 
