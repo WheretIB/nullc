@@ -110,7 +110,7 @@ long long parseLongLong(const char* str)
 // ѕровер€ет, €влеетс€ ли идентификатор зарезервированным или уже зан€тым
 void checkIfDeclared(const std::string& str)
 {
-	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
+	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "return" || str=="switch" || str=="case")
 	{
 		std::string fullError = std::string("ERROR: The name '" + str + "' is reserved");
 		lastError = CompilerError(fullError, lastKnownStartPos);
@@ -1749,7 +1749,7 @@ void FunctionAdd(char const* s, char const* e)
 		}
 	}
 	std::string name = strs.back();
-	if(name == "if" || name == "else" || name == "for" || name == "while" || name == "var" || name == "func" || name == "return" || name=="switch" || name=="case")
+	if(name == "if" || name == "else" || name == "for" || name == "while" || name == "return" || name=="switch" || name=="case")
 	{
 		lastError = CompilerError("ERROR: The name '" + name + "' is reserved", s);
 		supspi::Abort();
@@ -2456,7 +2456,7 @@ namespace CompilerGrammar
 					(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);
 
 			funcvars	=	!(isconst >> seltype >> varname[strPush][FunctionParam]) >> *(',' >> isconst >> seltype >> varname[strPush][FunctionParam]);
-			funcdef		=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[FunctionStart] >> chP(')') >> chP('{') >> code[FunctionEnd] >> chP('}');
+			funcdef		=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars[FunctionStart] >> chP(')') >> chP('{') >> (code | epsP[addVoidNode])[FunctionEnd] >> chP('}');
 			funcProt	=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >>  funcvars >> chP(')') >> chP(';');
 
 			addvarp		=
