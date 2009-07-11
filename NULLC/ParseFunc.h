@@ -263,6 +263,7 @@ public:
 	virtual ~NodeFuncDef();
 
 	virtual void Disable();
+	virtual FunctionInfo*	GetFuncInfo(){ return funcInfo; }
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);

@@ -2100,7 +2100,8 @@ void addFuncCallNode(char const* s, char const* e)
 		if(paramNodes[index]->GetNodeType() == typeNodeFuncDef ||
 			(paramNodes[index]->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 		{
-			AddInplaceFunction(s, e);
+			NodeFuncDef*	funcDefNode = (NodeFuncDef*)(paramNodes[index]->GetNodeType() == typeNodeFuncDef ? paramNodes[index] : static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode());
+			AddGetAddressNode(funcDefNode->GetFuncInfo()->name.c_str(), funcDefNode->GetFuncInfo()->name.c_str() + funcDefNode->GetFuncInfo()->name.length());
 			currTypes.pop_back();
 
 			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->GetTypeInfo());
