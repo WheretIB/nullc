@@ -320,7 +320,7 @@ struct VMCmd
     int Decode(char *buf)
 	{
 		char *curr = buf;
-		curr += sprintf(curr, "%s", vmInstructionText[cmd]);
+		curr += sprintf(curr, "%s", vmInstructionText[cmd+1]);
 
 		switch(cmd)
 		{

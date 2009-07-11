@@ -807,7 +807,13 @@ void addReturnNode(char const* s, char const* e)
 	}
 	if(retTypeStack.back() && retTypeStack.back() != typeVoid && realRetType == typeVoid)
 	{
-		lastError = CompilerError("ERROR: funtion should return " + retTypeStack.back()->GetTypeName(), s);
+		lastError = CompilerError("ERROR: function should return " + retTypeStack.back()->GetTypeName(), s);
+		supspi::Abort();
+		return;
+	}
+	if(!retTypeStack.back() && realRetType == typeVoid)
+	{
+		lastError = CompilerError("ERROR: global return cannot accept void", s);
 		supspi::Abort();
 		return;
 	}
