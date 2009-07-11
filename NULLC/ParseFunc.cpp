@@ -448,7 +448,7 @@ void NodeReturnOp::Compile()
 	TypeInfo *retType = typeInfo ? typeInfo : first->GetTypeInfo();
 	asmOperType operType = operTypeForStackType[podTypeToStackType[retType->type]];
 
-	if(retType->type == TypeInfo::TYPE_COMPLEX)
+	if(retType->type == TypeInfo::TYPE_COMPLEX || retType->type == TypeInfo::TYPE_VOID)
 		cmdList.push_back(VMCmd(cmdReturn, 0, (unsigned short)retType->size, popCnt));
 	else
 		cmdList.push_back(VMCmd(cmdReturn, 0, (unsigned short)(bitRetSimple | operType), popCnt));
