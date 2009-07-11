@@ -317,7 +317,7 @@ struct VMCmd
 	}
 
 	#ifdef NULLC_LOG_FILES
-    void Decode(char *buf)
+    int Decode(char *buf)
 	{
 		char *curr = buf;
 		curr += sprintf(curr, "%s", vmInstructionText[cmd]);
@@ -443,6 +443,7 @@ struct VMCmd
 			curr += sprintf(curr, " [stk + %d] flag: %d helper: %d", argument, (int)flag, helper);
 			break;
 		}
+		return (int)(curr-buf);
 	}
 #endif
 
