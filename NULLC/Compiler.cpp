@@ -2104,11 +2104,10 @@ void addFuncCallNode(char const* s, char const* e)
 			currTypes.pop_back();
 
 			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->GetTypeInfo());
+			nodeList.push_back(paramNodes[index]);
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
-		}
-		if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && expectedType->subType == realType->subType && expectedType != realType)
-		{
+		}else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && expectedType->subType == realType->subType && expectedType != realType){
 			if(paramNodes[index]->GetNodeType() != typeNodeDereference)
 			{
 				if(paramNodes[index]->GetNodeType() == typeNodeExpressionList)
