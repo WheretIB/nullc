@@ -20,7 +20,7 @@ public:
 	void	SetCallback(bool (*Func)(unsigned int));
 private:
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-	ofstream			m_FileStream;
+	FILE*		executeLog;
 #endif
 	char		execError[512];
 	char		execResult[64];
@@ -50,4 +50,4 @@ private:
 	void operator=(Executor& r){ (void)r; assert(false); }
 };
 
-void PrintInstructionText(ostream* stream, VMCmd cmd, unsigned int rel, unsigned int top);
+void PrintInstructionText(FILE* stream, VMCmd cmd, unsigned int rel, unsigned int top);

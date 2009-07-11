@@ -35,7 +35,7 @@ long long vmLongPow(long long num, long long pow)
 Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions),
 			exFuncInfo(linker->exFuncInfo), exTypes(linker->exTypes)
 {
-	DBG(m_FileStream.open("log.txt", std::ios::binary));
+	DBG(executeLog = fopen("log.txt", "wb"));
 
 	m_RunCallback = NULL;
 
@@ -46,6 +46,7 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 
 Executor::~Executor()
 {
+	DBG(fclose(executeLog));
 	m_RunCallback = NULL;
 
 	delete[] genStackBase;
@@ -76,8 +77,6 @@ void Executor::Run(const char* funcName)
 	genParams.push_back((char*)(&tempVal), 8);
 	
 	genParams.resize(exLinker->globalVarSize);
-
-	//unsigned int	cmdCount = 0;
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	//unsigned int typeSizeS[] = { 4, 8, 4, 8 };
@@ -130,14 +129,14 @@ void Executor::Run(const char* funcName)
 	{
 		const VMCmd &cmd = *cmdStream;
 		//const unsigned int argument = cmd.argument;
-		DBG(PrintInstructionText(&m_FileStream, cmd, paramTop.back(), genParams.size()));
+		DBG(PrintInstructionText(executeLog, cmd, paramTop.back(), genParams.size()));
 		cmdStream++;
 
 #ifdef NULLC_VM_DEBUG
 		if(genStackSize < 0)
 		{
-			done = true;
 			assert(!"stack underflow");
+			break;
 		}
 #endif
 		#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
@@ -1017,7 +1016,8 @@ void Executor::Run(const char* funcName)
 				k += typeSizeS[genStackTypes[i]];
 			}
 		}*/
-		m_FileStream << ";\r\n" << std::flush;
+		fprintf(executeLog, ";\r\n");
+		fflush(executeLog);
 #endif
 	}
 }
@@ -1145,426 +1145,14 @@ void Executor::SetCallback(bool (*Func)(unsigned int))
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 // распечатать инструкцию в читабельном виде в поток
-void PrintInstructionText(ostream* logASM, VMCmd cmd, unsigned int rel, unsigned int top)
+void PrintInstructionText(FILE* logASM, VMCmd cmd, unsigned int rel, unsigned int top)
 {
-	const char	*typeName[] = { "char", "short", "int", "float", "qword", "complex" };
-	// different for cmdAddAt**
-	const char	*typeNameAA[] = { "char", "short", "int", "long", "float", "double" };
-	switch(cmd.cmd)
-	{
-	case cmdNop:
-		*logASM << "NOP\r\n";
-		break;
-	case cmdPushCharAbs:
-	case cmdPushShortAbs:
-	case cmdPushIntAbs:
-	case cmdPushFloatAbs:
-	case cmdPushDorLAbs:
-		*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharAbs] << " [" << cmd.argument << "]";
-		break;
-	case cmdPushCmplxAbs:
-		*logASM << "PUSH complex [" << cmd.argument << "] sizeof(" << cmd.helper << ")";
-		break;
-
-	case cmdPushCharRel:
-	case cmdPushShortRel:
-	case cmdPushIntRel:
-	case cmdPushFloatRel:
-	case cmdPushDorLRel:
-		*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharRel] << " [rel + " << (int)cmd.argument << "]";
-		break;
-	case cmdPushCmplxRel:
-		*logASM << "PUSH complex [rel + " << (int)cmd.argument << "] sizeof(" << cmd.helper << ")";
-		break;
-
-	case cmdPushCharStk:
-	case cmdPushShortStk:
-	case cmdPushIntStk:
-	case cmdPushFloatStk:
-	case cmdPushDorLStk:
-		*logASM << "PUSH " << typeName[cmd.cmd-cmdPushCharStk] << " [stack + " << cmd.argument << "]";
-		break;
-	case cmdPushCmplxStk:
-		*logASM << "PUSH complex [stack + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
-		break;
-
-	case cmdPushImmt:
-		*logASM << "PUSHIMMT " << cmd.argument;
-		break;
-
-	case cmdMovCharAbs:
-	case cmdMovShortAbs:
-	case cmdMovIntAbs:
-	case cmdMovFloatAbs:
-	case cmdMovDorLAbs:
-		*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharAbs] << " [" << cmd.argument << "]";
-		break;
-	case cmdMovCmplxAbs:
-		*logASM << "MOV complex [" << cmd.argument << "] sizeof(" << cmd.helper << ")";
-		break;
-
-	case cmdMovCharRel:
-	case cmdMovShortRel:
-	case cmdMovIntRel:
-	case cmdMovFloatRel:
-	case cmdMovDorLRel:
-		*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharRel] << " [rel + " << (int)cmd.argument << "]";
-		break;
-	case cmdMovCmplxRel:
-		*logASM << "MOV complex [rel + " << (int)cmd.argument << "] sizeof(" << cmd.helper << ")";
-		break;
-
-	case cmdMovCharStk:
-	case cmdMovShortStk:
-	case cmdMovIntStk:
-	case cmdMovFloatStk:
-	case cmdMovDorLStk:
-		*logASM << "MOV " << typeName[cmd.cmd-cmdMovCharStk] << " [stack + " << cmd.argument << "]";
-		break;
-	case cmdMovCmplxStk:
-		*logASM << "MOV complex [rel + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
-		break;
-
-	case cmdReserveV:
-		*logASM << "RESERVE " << cmd.argument;
-		break;
-
-	case cmdPopCharTop:
-	case cmdPopShortTop:
-	case cmdPopIntTop:
-	case cmdPopFloatTop:
-	case cmdPopDorLTop:
-		*logASM << "POPTOP " << typeName[cmd.cmd-cmdPopCharTop] << " [top + " << cmd.argument << "]";
-		break;
-	case cmdPopCmplxTop:
-		*logASM << "POPTOP complex [top + " << cmd.argument << "] sizeof(" << cmd.helper << ")";
-		break;
-
-	case cmdPop:
-		*logASM << "POP " << cmd.argument;
-		break;
-
-	case cmdDtoI:
-		*logASM << "DTOI";
-		break;
-	case cmdDtoL:
-		*logASM << "DTOL";
-		break;
-	case cmdDtoF:
-		*logASM << "DTOF";
-		break;
-	case cmdItoD:
-		*logASM << "ITOD";
-		break;
-	case cmdLtoD:
-		*logASM << "LTOD";
-		break;
-	case cmdItoL:
-		*logASM << "ITOL";
-		break;
-	case cmdLtoI:
-		*logASM << "LTOI";
-		break;
-
-	case cmdImmtMulD:
-		*logASM << "IMMTMUL double " << cmd.argument;
-		break;
-	case cmdImmtMulL:
-		*logASM << "IMMTMUL long " << cmd.argument;
-		break;
-	case cmdImmtMulI:
-		*logASM << "IMMTMUL int " << cmd.argument;
-		break;
-
-	case cmdCopyDorL:
-		*logASM << "COPY qword";
-		break;
-	case cmdCopyI:
-		*logASM << "COPY dword";
-		break;
-
-	case cmdGetAddr:
-		*logASM << "GETADDR " << cmd.argument;
-		break;
-	case cmdFuncAddr:
-		*logASM << "FUNCADDR " << cmd.argument;
-		break;
-
-	case cmdSetRange:
-		*logASM << "SETRANGE start: " << cmd.argument << " dtype: " << cmd.helper;
-		break;
-
-	case cmdJmp:
-		*logASM << "JMP " << cmd.argument;
-		break;
-
-	case cmdJmpZI:
-		*logASM << "JMPZ int " << cmd.argument;
-		break;
-	case cmdJmpZD:
-		*logASM << "JMPZ double " << cmd.argument;
-		break;
-	case cmdJmpZL:
-		*logASM << "JMPZ long " << cmd.argument;
-		break;
-
-	case cmdJmpNZI:
-		*logASM << "JMPNZ int " << cmd.argument;
-		break;
-	case cmdJmpNZD:
-		*logASM << "JMPNZ double " << cmd.argument;
-		break;
-	case cmdJmpNZL:
-		*logASM << "JMPNZ long " << cmd.argument;
-		break;
-
-	case cmdCall:
-		*logASM << "CALL ID/address: " << cmd.argument << " helper: " << cmd.helper;
-		break;
-
-	case cmdCallStd:
-		*logASM << "CALLSTD ID: " << cmd.argument;
-		break;
-
-	case cmdReturn:
-		*logASM << "RET flag: " << (int)cmd.flag << " sizeof: " << cmd.helper << " popcnt: " << cmd.argument;
-		break;
-
-	case cmdPushVTop:
-		*logASM << "PUSHT";
-		break;
-	case cmdPopVTop:
-		*logASM << "POPT";
-		break;
-
-	case cmdPushV:
-		*logASM << "PUSHV " << cmd.argument;
-		break;
-
-	case cmdAdd:
-		*logASM << "ADD int";
-		break;
-	case cmdSub:
-		*logASM << "SUB int";
-		break;
-	case cmdMul:
-		*logASM << "MUL int";
-		break;
-	case cmdDiv:
-		*logASM << "DIV int";
-		break;
-	case cmdPow:
-		*logASM << "POW int";
-		break;
-	case cmdMod:
-		*logASM << "MOD int";
-		break;
-	case cmdLess:
-		*logASM << "LESS int";
-		break;
-	case cmdGreater:
-		*logASM << "GREATER int";
-		break;
-	case cmdLEqual:
-		*logASM << "LEQUAL int";
-		break;
-	case cmdGEqual:
-		*logASM << "GEQUAL int";
-		break;
-	case cmdEqual:
-		*logASM << "EQUAL int";
-		break;
-	case cmdNEqual:
-		*logASM << "NEQUAL int";
-		break;
-	case cmdShl:
-		*logASM << "SHL int";
-		break;
-	case cmdShr:
-		*logASM << "SHR int";
-		break;
-	case cmdBitAnd:
-		*logASM << "BAND int";
-		break;
-	case cmdBitOr:
-		*logASM << "BOR int";
-		break;
-	case cmdBitXor:
-		*logASM << "BXOR int";
-		break;
-	case cmdLogAnd:
-		*logASM << "LAND int";
-		break;
-	case cmdLogOr:
-		*logASM << "LOR int";
-		break;
-	case cmdLogXor:
-		*logASM << "LXOR int";
-		break;
-
-	case cmdAddL:
-		*logASM << "ADD long";
-		break;
-	case cmdSubL:
-		*logASM << "SUB long";
-		break;
-	case cmdMulL:
-		*logASM << "MUL long";
-		break;
-	case cmdDivL:
-		*logASM << "DIV long";
-		break;
-	case cmdPowL:
-		*logASM << "POW long";
-		break;
-	case cmdModL:
-		*logASM << "MOD long";
-		break;
-	case cmdLessL:
-		*logASM << "LESS long";
-		break;
-	case cmdGreaterL:
-		*logASM << "GREATER long";
-		break;
-	case cmdLEqualL:
-		*logASM << "LEQUAL long";
-		break;
-	case cmdGEqualL:
-		*logASM << "GEQUAL long";
-		break;
-	case cmdEqualL:
-		*logASM << "EQUAL long";
-		break;
-	case cmdNEqualL:
-		*logASM << "NEQUAL long";
-		break;
-	case cmdShlL:
-		*logASM << "SHL long";
-		break;
-	case cmdShrL:
-		*logASM << "SHR long";
-		break;
-	case cmdBitAndL:
-		*logASM << "BAND long";
-		break;
-	case cmdBitOrL:
-		*logASM << "BOR long";
-		break;
-	case cmdBitXorL:
-		*logASM << "BXOR long";
-		break;
-	case cmdLogAndL:
-		*logASM << "LAND long";
-		break;
-	case cmdLogOrL:
-		*logASM << "LOR long";
-		break;
-	case cmdLogXorL:
-		*logASM << "LXOR long";
-		break;
-
-	case cmdAddD:
-		*logASM << "ADD double";
-		break;
-	case cmdSubD:
-		*logASM << "SUB double";
-		break;
-	case cmdMulD:
-		*logASM << "MUL double";
-		break;
-	case cmdDivD:
-		*logASM << "DIV double";
-		break;
-	case cmdPowD:
-		*logASM << "POW double";
-		break;
-	case cmdModD:
-		*logASM << "MOV double";
-		break;
-	case cmdLessD:
-		*logASM << "LESS double";
-		break;
-	case cmdGreaterD:
-		*logASM << "GREATER double";
-		break;
-	case cmdLEqualD:
-		*logASM << "LEQUAL double";
-		break;
-	case cmdGEqualD:
-		*logASM << "GEQUAL double";
-		break;
-	case cmdEqualD:
-		*logASM << "EQUAL double";
-		break;
-	case cmdNEqualD:
-		*logASM << "NEQUAL double";
-		break;
-
-	case cmdNeg:
-		*logASM << "NEG int";
-		break;
-	case cmdBitNot:
-		*logASM << "BNOT int";
-		break;
-	case cmdLogNot:
-		*logASM << "LNOT int";
-		break;
-
-	case cmdNegL:
-		*logASM << "NEG long";
-		break;
-	case cmdBitNotL:
-		*logASM << "BNOT long";
-		break;
-	case cmdLogNotL:
-		*logASM << "LNOT long";
-		break;
-
-	case cmdNegD:
-		*logASM << "NEG double";
-		break;
-	case cmdLogNotD:
-		*logASM << "LNOT double";
-		break;
-	
-	case cmdIncI:
-		*logASM << "INC int";
-		break;
-	case cmdIncD:
-		*logASM << "INC double";
-		break;
-	case cmdIncL:
-		*logASM << "INC long";
-		break;
-
-	case cmdDecI:
-		*logASM << "DEC int";
-		break;
-	case cmdDecD:
-		*logASM << "DEC double";
-		break;
-	case cmdDecL:
-		*logASM << "DEC long";
-		break;
-
-	case cmdAddAtCharStk:
-	case cmdAddAtShortStk:
-	case cmdAddAtIntStk:
-	case cmdAddAtLongStk:
-	case cmdAddAtFloatStk:
-	case cmdAddAtDoubleStk:
-		*logASM << "ADDAT " << typeNameAA[cmd.cmd-cmdAddAtCharStk] << " [stk + " << cmd.argument << "] flag: " << (int)cmd.flag << " helper: " << cmd.helper;
-		break;
-	}
-	
-	// Add end alignment
-	// ƒобавить выравнивание
-	/*size_t endPos = stream->tellp();
-	int putSize = (int)(endPos - beginPos);
-	int alignLen = 55-putSize;
-	if(alignLen > 0)
-		for(int i = 0; i < alignLen; i++)
-			(*stream) << ' ';*/
-	
+	char	buf[128];
+	memset(buf, ' ', 128);
+	char	*curr = buf;
+	curr += cmd.Decode(buf);
+	*curr = ' ';
+	sprintf(&buf[50], " rel = %d; top = %d", rel, top);
+	fwrite(buf, 1, strlen(buf), logASM);
 }
 #endif
