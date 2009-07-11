@@ -369,7 +369,7 @@ namespace ColorerGrammar
 
 	bool CheckIfDeclared(const std::string& str, bool forFunction = false)
 	{
-		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "var" || str == "func" || str == "return" || str=="switch" || str=="case")
+		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "return" || str=="switch" || str=="case")
 		{
 			logStream << "ERROR: The name '" << str << "' is reserved" << "\r\n";
 			return true;
