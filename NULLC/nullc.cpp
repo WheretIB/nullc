@@ -23,6 +23,7 @@ CommandList*				CodeInfo::cmdInfoList = NULL;
 FastVector<VMCmd>			CodeInfo::cmdList;
 std::vector<NodeZeroOP*>	CodeInfo::nodeList;
 unsigned int				CodeInfo::globalSize = 0;
+const char*					CodeInfo::lastKnownStartPos = NULL;
 
 Compiler*	compiler;
 Linker*		linker;

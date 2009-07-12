@@ -43,7 +43,7 @@ namespace CodeInfo
 	// creating AST. After successful compilation, node count should be equal to 1
 	extern std::vector<NodeZeroOP*>	nodeList;
 
-	static const char* lastKnownStartPos = NULL;
+	extern const char* lastKnownStartPos;
 
 	//////////////////////////////////////////////////////////////////////////
 	// Функция возвращает тип - указателя на исходный

@@ -1067,7 +1067,6 @@ void SetTypeOfLastNode(char const* s, char const* e)
 }
 
 void AddInplaceArray(char const* s, char const* e);
-void AddInplaceFunction(char const* s, char const* e);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
 void AddMemberAccessNode(char const* s, char const* e);
@@ -1140,7 +1139,7 @@ void AddGetAddressNode(char const* s, char const* e)
 		}
 	}
 	// Если мы находимся в локальной функции, и переменная находится в наружной области видимости
-	if((int)retTypeStack.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+	if((int)retTypeStack.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i != -1 && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 	{
 		FunctionInfo *currFunc = currDefinedFunc.back();
 		// Добавим имя переменной в список внешних переменных функции
@@ -1381,7 +1380,8 @@ void AddDefineVariableNode(char const* s, char const* e)
 	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
 		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
-		AddInplaceFunction(s, e);
+		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
+		AddGetAddressNode(funcDefNode->GetFuncInfo()->name.c_str(), funcDefNode->GetFuncInfo()->name.c_str() + funcDefNode->GetFuncInfo()->name.length());
 		currTypes.pop_back();
 		unifyTwo = true;
 		realCurrType = nodeList.back()->GetTypeInfo();
@@ -1478,7 +1478,9 @@ void AddSetVariableNode(char const* s, char const* e)
 	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
 		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
-		AddInplaceFunction(s, e);
+		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
+		AddGetAddressNode(funcDefNode->GetFuncInfo()->name.c_str(), funcDefNode->GetFuncInfo()->name.c_str() + funcDefNode->GetFuncInfo()->name.length());
+		currTypes.pop_back();
 		unifyTwo = true;
 		std::swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 	}
@@ -1653,13 +1655,6 @@ void AddInplaceArray(char const* s, char const* e)
 	varDefined = saveVarDefined;
 	currType = saveCurrType;
 	strs.pop_back();
-}
-
-void AddInplaceFunction(char const* s, char const* e)
-{
-	(void)s; (void)e;	// C4100
-	std::string fName = funcInfo.back()->name;
-	AddGetAddressNode(fName.c_str(), fName.c_str()+fName.length());
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1905,6 +1900,7 @@ void FunctionEnd(char const* s, char const* e)
 		{
 			const char *s = lastFunc.external[n].c_str(), *e = s + lastFunc.external[n].length();
 			AddGetAddressNode(s, e);
+			currTypes.pop_back();
 			arrayList->AddNode();
 		}
 		nodeList.push_back(temp);
