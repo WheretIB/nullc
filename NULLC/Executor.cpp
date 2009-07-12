@@ -370,7 +370,8 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdPop:
-			genStackPtr += cmd.argument >> 2;
+			//genStackPtr += cmd.argument >> 2;
+			genStackPtr = (unsigned int*)((char*)(genStackPtr) + cmd.argument);
 			break;
 
 		case cmdDtoI:
