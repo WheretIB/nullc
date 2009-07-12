@@ -2776,6 +2776,64 @@ return main();";
 		}
 	}
 
+const char	*testClosure4 = 
+"int func(){}\r\n\
+int a = 0;\r\n\
+{\r\n\
+int ff(typeof(func) f){ return f(); }\r\n\
+a = 1 + ff(int f1(){ return 1 + ff(int f2(){ return 1; }); });\r\n\
+}\r\n\
+int ff(typeof(func) f){ return f(); }\r\n\
+int b = 1 + ff(int f1(){ return 1 + ff(int f2(){ return 1 + ff(int f3(){ return 1; }); }); });\r\n\
+return a+b;";
+	printf("\r\nClosure test 4\r\n");
+	testCount++;
+	for(int t = 0; t < 3; t++)
+	{
+		if(RunCode(testClosure4, testTarget[t], testOpti[t], "7"))
+		{
+			lastFailed = false;
+			CHECK_DOUBLE("ERROR", 0, 0.0);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testClosure5 = 
+"int func(){}\r\n\
+int r1, r2, r3, r4, r5;\r\n\
+{\r\n\
+int ff(typeof(func) f){ return f(); }\r\n\
+typeof(func) a1 = int f1(){ return 1 + ff(int f2(){ return 1; }); };\r\n\
+typeof(func) a2;\r\n\
+a2 = int f3(){ return 1 + ff(int f4(){ return 1; }); };\r\n\
+r1 = ff(int f5(){ return 1 + ff(int f6(){ return 1; }); });\r\n\
+r2 = ff(a1);\r\n\
+r3 = ff(a2);\r\n\
+r4 = a1();\r\n\
+r5 = a2();\r\n\
+}\r\n\
+return 1;";
+	printf("\r\nClosure test 5\r\n");
+	testCount++;
+	for(int t = 0; t < 3; t++)
+	{
+		if(RunCode(testClosure5, testTarget[t], testOpti[t], "1"))
+		{
+			lastFailed = false;
+			CHECK_DOUBLE("ERROR", 0, 0.0);
+
+			CHECK_INT("r1", 0, 2);
+			CHECK_INT("r2", 0, 2);
+			CHECK_INT("r3", 0, 2);
+			CHECK_INT("r4", 0, 2);
+			CHECK_INT("r5", 0, 2);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount);
