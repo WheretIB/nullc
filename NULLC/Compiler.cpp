@@ -232,6 +232,24 @@ void addHexInt(char const*s, char const*e)
 	else
 		nodeList.push_back(new NodeNumber<long long>(res, typeLong));
 }
+
+void addOctInt(char const*s, char const*e)
+{
+	s++;
+	if(int(e-s) > 21)
+	{
+		lastError = CompilerError("ERROR: Overflow in octal constant", s);
+		supspi::Abort();
+		return;
+	}
+	unsigned long long res = (*s - '0');
+	for(const char *p = s+1; p < e; p++)
+		res = res * 8 + (*p - '0');
+	if(int(e-s) <= 10)
+		nodeList.push_back(new NodeNumber<int>((unsigned int)res, typeInt));
+	else
+		nodeList.push_back(new NodeNumber<long long>(res, typeLong));
+}
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
 // но зато не надо писать отдельный класс с одинаковыми действиями внутри.
@@ -2564,6 +2582,7 @@ namespace CompilerGrammar
 				(+(chP('-')[IncVar<unsigned int>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 				(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
 				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][addHexInt] |
+				lexemeD[chP('0') >> +(chP('0') | chP('1') | chP('2') | chP('3') | chP('4') | chP('5') | chP('6') | chP('7'))][addOctInt] |
 				longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 				(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
 				(chP('{')[PushBackVal<std::vector<unsigned int>, unsigned int>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<unsigned int> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
