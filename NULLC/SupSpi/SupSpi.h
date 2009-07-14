@@ -134,8 +134,8 @@ namespace supspi
 			return *this;
 		}
 		
-		BaseP*	operator ->(){ assert(GetParser(myParser) != NULL); return GetParser(myParser); }
-		BaseP*	getParser(){ return GetParser(myParser); };
+		BaseP*	operator ->() const{ assert(GetParser(myParser) != NULL); return GetParser(myParser); }
+		BaseP*	getParser() const{ return GetParser(myParser); };
 		unsigned int	getPtr() const{ return myParser; }
 
 		template<typename ActionT>
@@ -228,6 +228,11 @@ namespace supspi
 	{
 		Rule	operator[](Rule altp){ return Rule(new LongestP(altp)); }
 	};
+
+	static inline bool isDigit(char data)
+	{
+		return (unsigned char)(data - '0') < 10;
+	}
 
 	//epsilon and nothing
 	class EpsilonP: public BaseP
@@ -333,7 +338,7 @@ namespace supspi
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
-			if(!isdigit(*str[0])){
+			if(!isDigit(*str[0])){
 				(*str) = curr;
 				return false;
 			}else{
@@ -437,7 +442,7 @@ namespace supspi
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
-			while(isdigit(*str[0]))
+			while(isDigit(*str[0]))
 				(*str)++;
 			if(curr == *str)
 				return false;	//no characters were parsed
@@ -459,20 +464,20 @@ namespace supspi
 			SkipSpaces(str, space);
 			if(*str[0] == '-' || *str[0] == '+')
 				(*str)++;
-			while(isdigit(*str[0]))
+			while(isDigit(*str[0]))
 				(*str)++;
 			if(curr == *str && *str[0] != '.')
 				return false;	//no characters were parsed
 			if(*str[0] == '.'){
 				(*str)++;
-				while(isdigit(*str[0]))
+				while(isDigit(*str[0]))
 					(*str)++;
 			}
 			if(*str[0] == 'e'){
 				(*str)++;
 				if(*str[0] == '-')
 					(*str)++;
-				while(isdigit(*str[0]))
+				while(isDigit(*str[0]))
 					(*str)++;
 			}
 			if(curr[0] == '.' && (*str)-curr == 1)
@@ -725,7 +730,7 @@ namespace supspi
 
 	//Main function
 	enum ParseResult{ PARSE_FAILED, PARSE_OK, PARSE_NOTFULL, PARSE_ABORTED };
-	ParseResult	Parse(Rule main, char* str, Rule space);
+	ParseResult	Parse(const Rule& main, char* str, const Rule& space, bool skipAction=false);
 	void		Abort();
 
 	void		DeleteParsers();

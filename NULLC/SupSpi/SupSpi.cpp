@@ -40,7 +40,7 @@ namespace supspi
 		AlternativePolicy old = GetAlterPolicy();
 		SetAlterPolicy(ALTER_STANDART);
 		if(space)
-			while(space->Parse(str, NULL));
+			space->Parse(str, NULL);
 		SetAlterPolicy(old);
 	}
 
@@ -63,11 +63,11 @@ namespace supspi
 
 	Rule	operator ~	(Rule a){ return Rule(new NegateP(a)); }
 
-	ParseResult	Parse(Rule main, char* str, Rule space)
+	ParseResult	Parse(const Rule& main, char* str, const Rule& space, bool skipAction)
 	{
 		BaseP::continueParse = true;
 		SetAlterPolicy(ALTER_STANDART);
-		SetActionPolicy(ACTION_STANDART);
+		SetActionPolicy(skipAction ? ACTION_NONE : ACTION_STANDART);
 		char* temp = str;
 		bool res = main->Parse(&temp, space.getParser());
 		if(!BaseP::continueParse)

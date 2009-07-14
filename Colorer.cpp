@@ -130,7 +130,39 @@ namespace ColorerGrammar
 		Rule m_a;
 	};
 	Rule	typenameP(Rule a){ return Rule(new TypeNameP(a)); }
+	class MySpaceP: public BaseP
+	{
+	public:
+		MySpaceP(){ }
+		virtual ~MySpaceP(){ }
 
+		virtual bool	Parse(char** str, BaseP* space)
+		{
+			for(;;)
+			{
+				while((unsigned char)((*str)[0] - 1) < ' ')
+					(*str)++;
+				if((*str)[0] == '/'){
+					if((*str)[1] == '/')
+					{
+						while((*str)[0] != '\n' && (*str)[0] != '\0')
+							(*str)++;
+					}else if((*str)[1] == '*'){
+						while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
+							(*str)++;
+						(*str) += 2;
+					}else{
+						break;
+					}
+				}else{
+					break;
+				}
+			}
+			return true;
+		}
+	protected:
+	};
+	Rule	myspaceP(){ return Rule(new MySpaceP()); }
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 
 	class Grammar
@@ -351,7 +383,7 @@ namespace ColorerGrammar
 			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));
 			code	=	*(funcdef | expr);
 
-			mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")))[ColorComment];
+			mySpaceP = myspaceP()[ColorComment];
 		}
 		void DeInitGrammar()
 		{
