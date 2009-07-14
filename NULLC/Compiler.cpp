@@ -95,15 +95,11 @@ int AddFunctionExternal(FunctionInfo* func, std::string name)
 	return (int)func->external.size()-1;
 }
 
-// Преобразовать строку в число типа long long
-long long parseLongLong(const char* str)
+long long parseInteger(char const* s, char const* e, int base)
 {
-	int len = 0;
-	while(isdigit(str[len++]));
-	int len2 = len -= 1;
-	long long res = 0;
-	while(len)
-		res = res * 10L + (long long)(str[len2-len--] - '0');
+	unsigned long long res = 0;
+	for(const char *p = s; p < e; p++)
+		res = res * base + ((*p >= '0' && *p <= '9') ? *p - '0' : tolower(*p) - 'a' + 10);
 	return res;
 }
 
@@ -194,7 +190,7 @@ template<> void addNumberNode<float>(char const*s, char const*e)
 template<> void addNumberNode<long long>(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<long long>(parseLongLong(s), typeLong));
+	nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e-1, 10), typeLong));
 }
 template<> void addNumberNode<double>(char const*s, char const*e)
 {
@@ -217,20 +213,10 @@ void addHexInt(char const*s, char const*e)
 		supspi::Abort();
 		return;
 	}
-	unsigned long long mult = 1;
-	unsigned long long res = 0;
-	for(const char *p = s; p < e; p++)
-	{
-		if(*p >= '0' && *p <= '9')
-			res = res * mult + (*p - '0');
-		else
-			res = res * mult + (tolower(*p) - 'a' + 10);
-		mult = 16;
-	}
 	if(int(e-s) <= 8)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)res, typeInt));
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseInteger(s, e, 16), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(res, typeLong));
+		nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e, 16), typeLong));
 }
 
 void addOctInt(char const*s, char const*e)
@@ -242,13 +228,25 @@ void addOctInt(char const*s, char const*e)
 		supspi::Abort();
 		return;
 	}
-	unsigned long long res = (*s - '0');
-	for(const char *p = s+1; p < e; p++)
-		res = res * 8 + (*p - '0');
 	if(int(e-s) <= 10)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)res, typeInt));
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseInteger(s, e, 8), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(res, typeLong));
+		nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e, 8), typeLong));
+}
+
+void addBinInt(char const*s, char const*e)
+{
+	e--;
+	if(int(e-s) > 64)
+	{
+		lastError = CompilerError("ERROR: Overflow in binary constant", s);
+		supspi::Abort();
+		return;
+	}
+	if(int(e-s) <= 32)
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseInteger(s, e, 2), typeInt));
+	else
+		nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e, 2), typeLong));
 }
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
@@ -2434,7 +2432,40 @@ namespace CompilerGrammar
 	protected:
 		Rule m_a;
 	};
+	class MySpaceP: public BaseP
+	{
+	public:
+		MySpaceP(){ }
+		virtual ~MySpaceP(){ }
+
+		virtual bool	Parse(char** str, BaseP* space)
+		{
+			for(;;)
+			{
+				while((unsigned char)((*str)[0] - 1) < ' ')
+					(*str)++;
+				if((*str)[0] == '/'){
+					if((*str)[1] == '/')
+					{
+						while((*str)[0] != '\n' && (*str)[0] != '\0')
+							(*str)++;
+					}else if((*str)[1] == '*'){
+						while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
+							(*str)++;
+						(*str) += 2;
+					}else{
+						break;
+					}
+				}else{
+					break;
+				}
+			}
+			return true;
+		}
+	protected:
+	};
 	Rule	typenameP(Rule a){ return Rule(new TypeNameP(a)); }
+	Rule	myspaceP(){ return Rule(new MySpaceP()); }
 	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 
 	class Grammar
@@ -2583,7 +2614,7 @@ namespace CompilerGrammar
 				(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
 				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][addHexInt] |
 				lexemeD[chP('0') >> +(chP('0') | chP('1') | chP('2') | chP('3') | chP('4') | chP('5') | chP('6') | chP('7'))][addOctInt] |
-				longestD[((intP >> chP('l'))[addLong] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
+				longestD[((intP >> chP('l'))[addLong] | (intP >> chP('b'))[addBinInt] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
 				(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
 				(chP('{')[PushBackVal<std::vector<unsigned int>, unsigned int>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<unsigned int> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
 				group |
@@ -2632,7 +2663,7 @@ namespace CompilerGrammar
 			expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block | breakexpr | continueExpr | ifexpr | forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
 			code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
 		
-			mySpaceP = spaceP | ((strP("//") >> *(anycharP - eolP)) | (strP("/*") >> *(anycharP - strP("*/")) >> strP("*/")));
+			mySpaceP = myspaceP();
 		}
 		void DeInitGrammar()
 		{
@@ -3085,7 +3116,7 @@ bool Compiler::Compile(string str)
 #endif
 
 	unsigned int t = clock();
-	ParseResult pRes = Parse(syntax->code, ptr, syntax->mySpaceP);
+	ParseResult pRes = Parse(syntax->code, ptr, syntax->mySpaceP, false);
 	if(pRes == PARSE_NOTFULL)
 	{
 		lastError = CompilerError("Parsing wasn't full", NULL);
@@ -3102,7 +3133,7 @@ bool Compiler::Compile(string str)
 #ifdef NULLC_LOG_FILES
 	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
 #endif
-
+	//return true;
 	// Emulate global block end
 	CodeInfo::globalSize = varTop;
 
