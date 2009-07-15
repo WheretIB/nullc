@@ -234,6 +234,11 @@ namespace supspi
 		return (unsigned char)(data - '0') < 10;
 	}
 
+	static inline bool isAlpha(char data)
+	{
+		return (unsigned int)(data - 'A') < 26 || (unsigned int)(data - 'a') < 26;
+	}
+
 	//epsilon and nothing
 	class EpsilonP: public BaseP
 	{
@@ -358,7 +363,7 @@ namespace supspi
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
-			if(!isalnum(*str[0])){
+			if(!(isAlpha(*str[0]) || isDigit(*str[0]))){
 				(*str) = curr;
 				return false;
 			}else{
@@ -378,7 +383,7 @@ namespace supspi
 		{
 			char* curr = *str;
 			SkipSpaces(str, space);
-			if(!isalpha(*str[0])){
+			if(!isAlpha(*str[0])){
 				(*str) = curr;
 				return false;
 			}else{
