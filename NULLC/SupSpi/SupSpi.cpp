@@ -37,11 +37,11 @@ namespace supspi
 
 	void	SkipSpaces(char** str, BaseP* space)
 	{
-		AlternativePolicy old = GetAlterPolicy();
-		SetAlterPolicy(ALTER_STANDART);
+		AlternativePolicy old = alerPol;
+		alerPol = ALTER_STANDART;
 		if(space)
 			space->Parse(str, NULL);
-		SetAlterPolicy(old);
+		alerPol = old;
 	}
 
 	Rule	chP(char ch){ return Rule(new ChlitP(ch)); }

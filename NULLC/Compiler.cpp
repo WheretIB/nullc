@@ -2701,17 +2701,20 @@ namespace CompilerGrammar
 							('[' >> term5 >> ']')[AddArrayIndexNode];
 
 			term1		=
-				funcdef |
-				(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
+				numberP(this) |
 				(chP('&') >> variable)[popType] |
 				(strP("--") >> variable[AddPreOrPostOp(false, true)])[popType] | 
 				(strP("++") >> variable[AddPreOrPostOp(true, true)])[popType] |
-				(+(chP('-')[IncVar<unsigned int>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
+				(+(chP('-')[IncVar<unsigned int>(negCount)]) >> term1)[addNegNode] |
+				(+chP('+') >> term1) |
+				('!' >> term1)[addLogNotNode] |
+				('~' >> term1)[addBitNotNode] |
 				(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
-				numberP(this) |
 				(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
-				(chP('{')[PushBackVal<std::vector<unsigned int>, unsigned int>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<unsigned int> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
+				(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
+				(chP('{')[PushBackVal<std::vector<unsigned int>, unsigned int>(arrElementCount, 0)] >> term4_9 >> *(chP(',') >> term4_9[ArrBackInc<std::vector<unsigned int> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
 				group |
+				funcdef |
 				funccall[addFuncCallNode] |
 				(variable >>
 					(
@@ -2738,7 +2741,7 @@ namespace CompilerGrammar
 #ifdef _MSC_VER
 #pragma warning(disable: 4709)
 #endif
-			term5		=	/*term5P(this);/**/(!(seltype) >>
+			term5		=	(!(seltype) >>
 							variable >> (
 							(strP("=") >> term5)[AddSetVariableNode][popType] |
 							(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
@@ -2748,7 +2751,7 @@ namespace CompilerGrammar
 							(strP("**=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '**='")]))[AddModifyVariable<cmdPow>()][popType] |
 							(epsP[FailedSetVariable][popType] >> nothingP))
 							) |
-							term4_9;/**/
+							term4_9;
 #ifdef _MSC_VER
 #pragma warning(default: 4709)
 #endif
