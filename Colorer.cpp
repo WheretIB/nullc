@@ -145,12 +145,16 @@ namespace ColorerGrammar
 				if((*str)[0] == '/'){
 					if((*str)[1] == '/')
 					{
+						char *start = *str;
 						while((*str)[0] != '\n' && (*str)[0] != '\0')
 							(*str)++;
+						ColorComment(start, *str);
 					}else if((*str)[1] == '*'){
+						char *start = *str;
 						while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
 							(*str)++;
 						(*str) += 2;
+						ColorComment(start, *str);
 					}else{
 						break;
 					}
@@ -383,7 +387,7 @@ namespace ColorerGrammar
 			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));
 			code	=	*(funcdef | expr);
 
-			mySpaceP = myspaceP()[ColorComment];
+			mySpaceP = myspaceP();
 		}
 		void DeInitGrammar()
 		{
