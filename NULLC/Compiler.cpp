@@ -99,7 +99,18 @@ long long parseInteger(char const* s, char const* e, int base)
 {
 	unsigned long long res = 0;
 	for(const char *p = s; p < e; p++)
-		res = res * base + ((*p >= '0' && *p <= '9') ? *p - '0' : tolower(*p) - 'a' + 10);
+	{
+		int digit = ((*p >= '0' && *p <= '9') ? *p - '0' : tolower(*p) - 'a' + 10);
+		if(digit < 0 || digit > base)
+		{
+			char error[64];
+			sprintf(error, "ERROR: Digit %d is not allowed in base %d", digit, base);
+			lastError = CompilerError(error, p);
+			supspi::Abort();
+			return 0;
+		}
+		res = res * base + digit;
+	}
 	return res;
 }
 
@@ -1628,7 +1639,8 @@ struct AddPreOrPostOp
 
 void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 {
-	(void)s; (void)e;	// C4100
+	lastKnownStartPos = s;
+	(void)e;	// C4100
 	TypeInfo *targetType = GetDereferenceType(nodeList[nodeList.size()-2]->GetTypeInfo());
 	if(!targetType)
 	{
@@ -1643,7 +1655,6 @@ struct AddModifyVariable
 {
 	void operator() (char const* s, char const* e)
 	{
-		lastKnownStartPos = s;
 		AddModifyVariableNode(s, e, cmd);
 	}
 };
@@ -2440,6 +2451,7 @@ namespace CompilerGrammar
 
 		virtual bool	Parse(char** str, BaseP* space)
 		{
+			(void)space;
 			for(;;)
 			{
 				while((unsigned char)((*str)[0] - 1) < ' ')
@@ -2470,6 +2482,90 @@ namespace CompilerGrammar
 
 	class Grammar
 	{
+		bool  ParseNumber(char** str, BaseP* space)
+		{
+			SkipSpaces(str, space);
+			char* start = *str;
+			if(start[0] == '0' && start[1] == 'x')	// hexadecimal
+			{
+				*str += 2;
+				while(isDigit(**str) || ((unsigned char)(**str - 'a') < 6) || ((unsigned char)(**str - 'A') < 6))
+					(*str)++;
+				if(*str == start+2)
+				{
+					lastError = CompilerError("ERROR: '0x' must be followed by number", *str);
+					supspi::Abort();
+					return false;
+				}
+				addHexInt(start, *str);
+				return true;
+			}
+			while(isDigit(**str))
+				(*str)++;
+			if(start == *str && **str != '.')
+				return false;
+
+			if(**str == 'b')
+			{
+				(*str)++;
+				addBinInt(start, *str);
+				return true;
+			}else if(**str == 'l'){
+				(*str)++;
+				addLong(start, *str);
+				return true;
+			}else if(**str != '.' && start[0] == '0' && isDigit(start[1])){
+				addOctInt(start, *str);
+				return true;
+			}else if(**str != '.' && **str != 'e'){
+				addInt(start, *str);
+				return true;
+			}
+
+			if(*str[0] == '.')
+			{
+				(*str)++;
+				while(isDigit(*str[0]))
+					(*str)++;
+			}
+			if(*str[0] == 'e')
+			{
+				(*str)++;
+				if(*str[0] == '-')
+					(*str)++;
+				while(isDigit(*str[0]))
+					(*str)++;
+			}
+			if(start[0] == '.' && (*str)-start == 1)
+			{
+				(*str) = start;
+				return false;
+			}
+			if(**str == 'f')
+			{
+				(*str)++;
+				addFloat(start, *str);
+				return true;
+			}else{
+				addDouble(start, *str);
+				return true;
+			}
+			return true;
+		}
+		class NumberP: public BaseP
+		{
+		public:
+			NumberP(Grammar *gram): grammar(gram){ }
+			virtual ~NumberP(){ }
+
+			virtual bool	Parse(char** str, BaseP* space)
+			{
+				return grammar->ParseNumber(str, space);
+			}
+		protected:
+			Grammar *grammar;
+		};
+		Rule	numberP(Grammar *grammar){ return Rule(new NumberP(grammar)); }
 	public:
 		void InitGrammar()
 		{
@@ -2612,9 +2708,7 @@ namespace CompilerGrammar
 				(strP("++") >> variable[AddPreOrPostOp(true, true)])[popType] |
 				(+(chP('-')[IncVar<unsigned int>(negCount)]) >> term1)[addNegNode] | (+chP('+') >> term1) | ('!' >> term1)[addLogNotNode] | ('~' >> term1)[addBitNotNode] |
 				(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
-				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][addHexInt] |
-				lexemeD[chP('0') >> +(chP('0') | chP('1') | chP('2') | chP('3') | chP('4') | chP('5') | chP('6') | chP('7'))][addOctInt] |
-				longestD[((intP >> chP('l'))[addLong] | (intP >> chP('b'))[addBinInt] | (intP[addInt])) | ((realP >> chP('f'))[addFloat] | (realP[addDouble]))] |
+				numberP(this) |
 				(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
 				(chP('{')[PushBackVal<std::vector<unsigned int>, unsigned int>(arrElementCount, 0)] >> term5 >> *(chP(',') >> term5[ArrBackInc<std::vector<unsigned int> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
 				group |
@@ -2644,7 +2738,7 @@ namespace CompilerGrammar
 #ifdef _MSC_VER
 #pragma warning(disable: 4709)
 #endif
-			term5		=	(!(seltype) >>
+			term5		=	/*term5P(this);/**/(!(seltype) >>
 							variable >> (
 							(strP("=") >> term5)[AddSetVariableNode][popType] |
 							(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
@@ -2654,7 +2748,7 @@ namespace CompilerGrammar
 							(strP("**=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '**='")]))[AddModifyVariable<cmdPow>()][popType] |
 							(epsP[FailedSetVariable][popType] >> nothingP))
 							) |
-							term4_9;
+							term4_9;/**/
 #ifdef _MSC_VER
 #pragma warning(default: 4709)
 #endif
