@@ -563,7 +563,7 @@ void Executor::Run(const char* funcName)
 					val = 0.0;
 				*(double*)(genStackPtr) = val;
 			}else{
-			    if(!RunExternalFunction(valind))
+				if(!RunExternalFunction(valind))
 					cmdStreamEnd = NULL;
 			}
 		}
@@ -1027,74 +1027,74 @@ void Executor::Run(const char* funcName)
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
-    unsigned int bytesToPop = exFuncInfo[funcID].bytesToPop;
+	unsigned int bytesToPop = exFuncInfo[funcID].bytesToPop;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	/*unsigned int typeSizeS[] = { 4, 8, 4, 8 };
-    unsigned int paramSize = bytesToPop;
-    while(paramSize > 0)
-    {
-        paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];
-        genStackTypes.pop_back();
-    }*/
+	unsigned int paramSize = bytesToPop;
+	while(paramSize > 0)
+	{
+		paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];
+		genStackTypes.pop_back();
+	}*/
 #endif
-    unsigned int *stackStart = (genStackPtr+bytesToPop/4-1);
-    for(unsigned int i = 0; i < bytesToPop/4; i++)
-    {
-        __asm mov eax, dword ptr[stackStart]
-        __asm push dword ptr[eax];
-        stackStart--;
-    }
-    genStackPtr += bytesToPop/4;
+	unsigned int *stackStart = (genStackPtr+bytesToPop/4-1);
+	for(unsigned int i = 0; i < bytesToPop/4; i++)
+	{
+		__asm mov eax, dword ptr[stackStart]
+		__asm push dword ptr[eax];
+		stackStart--;
+	}
+	genStackPtr += bytesToPop/4;
 
-    void* fPtr = exFunctions[funcID]->funcPtr;
-    unsigned int fRes;
-    __asm{
-        mov eax, fPtr;
-        call eax;
-        add esp, bytesToPop;
-        mov fRes, eax;
-    }
+	void* fPtr = exFunctions[funcID]->funcPtr;
+	unsigned int fRes;
+	__asm{
+		mov eax, fPtr;
+		call eax;
+		add esp, bytesToPop;
+		mov fRes, eax;
+	}
 	if(exLinker->exTypes[exFunctions[funcID]->retType]->size != 0)
-    {
-        genStackPtr--;
-        *genStackPtr = fRes;
+	{
+		genStackPtr--;
+		*genStackPtr = fRes;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-        /*if(exTypes[exFunctions[funcID]->retType]->type == TypeInfo::TYPE_COMPLEX)
-            genStackTypes.push_back((asmStackType)(0x80000000 | exTypes[exFunctions[funcID]->retType]->size));
-        else
-            genStackTypes.push_back(podTypeToStackType[exTypes[exFunctions[funcID]->retType]->type]);*/
+		/*if(exTypes[exFunctions[funcID]->retType]->type == TypeInfo::TYPE_COMPLEX)
+			genStackTypes.push_back((asmStackType)(0x80000000 | exTypes[exFunctions[funcID]->retType]->size));
+		else
+			genStackTypes.push_back(podTypeToStackType[exTypes[exFunctions[funcID]->retType]->type]);*/
 #endif
-    }
+	}
 	return true;
 }
 #elif defined(__CELLOS_LV2__)
 // PS3 implementation
 typedef unsigned int (*SimpleFunctionPtr)(
-    unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned,
-    double, double, double, double, double, double, double, double
-    );
+	unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned,
+	double, double, double, double, double, double, double, double
+	);
 
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
-    // cast function pointer so we can call it
-    SimpleFunctionPtr code = (SimpleFunctionPtr)exFunctions[funcID]->funcPtr;
-    
-    // call function
-    #define R(i) *(const unsigned int*)(const void*)(genStackPtr + exFuncInfo[funcID].rOffsets[i])
-    #define F(i) *(const double*)(const void*)(genStackPtr + exFuncInfo[funcID].fOffsets[i])
-    
-    unsigned int result = code(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
-    
-    #undef F
-    #undef R
-    
-    if (exTypes[exFunctions[funcID]->retType]->size != 0)
-    {
-        genStackPtr--;
-        *genStackPtr = result;
-    }
-    
-    return true;
+	// cast function pointer so we can call it
+	SimpleFunctionPtr code = (SimpleFunctionPtr)exFunctions[funcID]->funcPtr;
+
+	// call function
+	#define R(i) *(const unsigned int*)(const void*)(genStackPtr + exFuncInfo[funcID].rOffsets[i])
+	#define F(i) *(const double*)(const void*)(genStackPtr + exFuncInfo[funcID].fOffsets[i])
+
+	unsigned int result = code(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+
+	#undef F
+	#undef R
+
+	if (exTypes[exFunctions[funcID]->retType]->size != 0)
+	{
+		genStackPtr--;
+		*genStackPtr = result;
+	}
+
+	return true;
 }
 #endif
 
@@ -1116,11 +1116,11 @@ const char* Executor::GetResult()
 		sprintf(execResult, "%f", *(double*)(genStackPtr));
 		break;
 	case OTYPE_LONG:
-    #ifdef _MSC_VER
+#ifdef _MSC_VER
 		sprintf(execResult, "%I64dL", *(long long*)(genStackPtr));
-	#else
+#else
 		sprintf(execResult, "%lld", *(long long*)(genStackPtr));
-	#endif
+#endif
 		break;
 	case OTYPE_INT:
 		sprintf(execResult, "%d", *(int*)(genStackPtr));
