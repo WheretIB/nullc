@@ -15,45 +15,45 @@ bool Linker::CreateExternalInfo(ExternFuncInfo *fInfo, ExternalFunctionInfo& ext
 #elif defined(__CELLOS_LV2__)
 bool Linker::CreateExternalInfo(ExternFuncInfo *fInfo, ExternalFunctionInfo& externalInfo)
 {
-    unsigned int rCount = 0, fCount = 0;
-    unsigned int rMaxCount = sizeof(externalInfo.rOffsets) / sizeof(externalInfo.rOffsets[0]);
-    unsigned int fMaxCount = sizeof(externalInfo.fOffsets) / sizeof(externalInfo.fOffsets[0]);
-    
-    // parse all parameters, fill offsets
-    unsigned int offset = 0;
-    
+	unsigned int rCount = 0, fCount = 0;
+	unsigned int rMaxCount = sizeof(externalInfo.rOffsets) / sizeof(externalInfo.rOffsets[0]);
+	unsigned int fMaxCount = sizeof(externalInfo.fOffsets) / sizeof(externalInfo.fOffsets[0]);
+
+	// parse all parameters, fill offsets
+	unsigned int offset = 0;
+
 	for (unsigned int i = 0; i < fInfo->paramCount; i++)
 	{
-	    const ExternTypeInfo& type = *exTypes[fInfo->paramList[i]];
-	    
-	    switch (type.type)
-	    {
-	    case ExternTypeInfo::TYPE_CHAR:
-	    case ExternTypeInfo::TYPE_SHORT:
-	    case ExternTypeInfo::TYPE_INT:
-	        if (rCount >= rMaxCount) return false; // too many r parameters
-	        externalInfo.rOffsets[rCount++] = offset;
-	        offset++;
-	        break;
-	    
-	    case ExternTypeInfo::TYPE_FLOAT:
-	    case ExternTypeInfo::TYPE_DOUBLE:
-	        if (fCount >= fMaxCount || rCount >= rMaxCount) return false; // too many f/r parameters
-	        externalInfo.rOffsets[rCount++] = offset;
-	        externalInfo.fOffsets[fCount++] = offset;
-	        offset += 2;
-	        break;
-	        
-	    default:
-	        return false; // unsupported type
-	    }
-    }
-    
-    // clear remaining offsets
-    for (unsigned int i = rCount; i < rMaxCount; ++i) externalInfo.rOffsets[i] = 0;
-    for (unsigned int i = fCount; i < fMaxCount; ++i) externalInfo.fOffsets[i] = 0;
-    
-    return true;
+		const ExternTypeInfo& type = *exTypes[fInfo->paramList[i]];
+
+		switch (type.type)
+		{
+		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_SHORT:
+		case ExternTypeInfo::TYPE_INT:
+			if (rCount >= rMaxCount) return false; // too many r parameters
+			externalInfo.rOffsets[rCount++] = offset;
+			offset++;
+			break;
+
+		case ExternTypeInfo::TYPE_FLOAT:
+		case ExternTypeInfo::TYPE_DOUBLE:
+			if (fCount >= fMaxCount || rCount >= rMaxCount) return false; // too many f/r parameters
+			externalInfo.rOffsets[rCount++] = offset;
+			externalInfo.fOffsets[fCount++] = offset;
+			offset += 2;
+			break;
+
+		default:
+			return false; // unsupported type
+		}
+	}
+
+	// clear remaining offsets
+	for (unsigned int i = rCount; i < rMaxCount; ++i) externalInfo.rOffsets[i] = 0;
+	for (unsigned int i = fCount; i < fMaxCount; ++i) externalInfo.fOffsets[i] = 0;
+
+	return true;
 }
 #endif
 
@@ -99,8 +99,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
 	for(unsigned int i = 0; i < bCode->typeCount; i++)
 	{
-	    const unsigned int index_none = ~0u;
-	    
+		const unsigned int index_none = ~0u;
+
 		unsigned int index = index_none;
 		for(unsigned int n = 0; n < exTypes.size() && index == index_none; n++)
 			if(strcmp(exTypes[n]->name, tInfo->name) == 0)
@@ -154,8 +154,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	{
 		allFunctionSize += fInfo->codeSize;
 		
-        const unsigned int index_none = ~0u;
-        
+		const unsigned int index_none = ~0u;
+
 		unsigned int index = index_none;
 		for(unsigned int n = 0; n < exFunctions.size() && index == index_none; n++)
 			if(strcmp(exFunctions[n]->name, fInfo->name) == 0)

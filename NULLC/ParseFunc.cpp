@@ -6,11 +6,11 @@ using namespace CodeInfo;
 
 unsigned int GetFuncIndexByPtr(FunctionInfo* funcInfo)
 {
-    for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
-        if(CodeInfo::funcInfo[i] == funcInfo)
-            return i;
-            
-    return ~0u;
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		if(CodeInfo::funcInfo[i] == funcInfo)
+			return i;
+
+	return ~0u;
 }
 
 NodeZeroOP*	TakeLastNode()
@@ -1625,7 +1625,7 @@ void NodeFunctionAddress::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
 
-    unsigned int ID = GetFuncIndexByPtr(funcInfo);
+	unsigned int ID = GetFuncIndexByPtr(funcInfo);
 	cmdList.push_back(VMCmd(cmdFuncAddr, ID));
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
