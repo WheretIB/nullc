@@ -4,569 +4,383 @@ using namespace CodeInfo;
 
 #include "Callbacks.h"
 
-enum chartype
-{
-	ct_symbol = 64,			// Any symbol > 127, a-z, A-Z, 0-9, _
-	ct_start_symbol = 128	// Any symbol > 127, a-z, A-Z, _, :
-};
-
-const unsigned char chartype_table[256] =
-{
-	0,   0,   0,   0,   0,   0,   0,   0,      0,   0,   0,   0,   0,   0,   0,   0,   // 0-15
-	0,   0,   0,   0,   0,   0,   0,   0,      0,   0,   0,   0,   0,   0,   0,   0,   // 16-31
-	0,   0,   6,   0,   0,   0,   0,   0,      0,   0,   0,   0,   0,   0,   0,   0,   // 32-47
-	64,  64,  64,  64,  64,  64,  64,  64,     64,  64,  0,   0,   0,   0,   0,   0,   // 48-63
-	0,   192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192, // 64-79
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 0,   0,   0,   0,   192, // 80-95
-	0,   192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192, // 96-111
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 0, 0, 0, 0, 0,           // 112-127
-
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192, // 128+
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192,
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192,
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192,
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192,
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192,
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192,
-	192, 192, 192, 192, 192, 192, 192, 192,    192, 192, 192, 192, 192, 192, 192, 192
-};
-
-static inline bool isDigit(char data)
-{
-	return (unsigned char)(data - '0') < 10;
-}
-
-void	ParseSpace(char** str)
-{
-	while(**str == ' ')
-		(*str)++;
-}
-
-#define SKIP_SPACE(str) ParseSpace(str);
 #define CALLBACK(x) x
 //#define CALLBACK(x) 1
 
-bool ParseTypename(char** str)
+inline bool ParseLexem(Lexeme** str, LexemeType type)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(!(chartype_table[*curr] & ct_start_symbol))
+	if((*str)->type != type)
 		return false;
-	while(chartype_table[*curr] & ct_symbol)
-		curr++;
+	(*str)++;
+	return true;
+}
+
+bool ParseTypename(Lexeme** str)
+{
+	if((*str)->type != lex_string)
+		return false;
+
 	unsigned int hash = 5381;
-	while(*str < curr)
-		hash = ((hash << 5) + hash) + *(*str)++;
+	for(unsigned int i = 0; i < (*str)->length; i++)
+		hash = ((hash << 5) + hash) + (*str)->pos[i];
+
 	for(unsigned int s = 0, e = CodeInfo::typeInfo.size(); s != e; s++)
+	{
 		if(CodeInfo::typeInfo[s]->nameHash == hash)
+		{
+			(*str)++;
 			return true;
+		}
+	}
 	return false;
 }
 
-bool  ParseInt(char** str)
+bool ParseNumber(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(isDigit(*str[0]))
-		(*str)++;
-	if(curr == *str)
-		return false;	//no characters were parsed
-	return true;
-}
+	Lexeme *number = *str;
 
-bool  ParseNumber(char** str)
-{
-	//SKIP_SPACE(str);
-	char* start = *str;
-	if(!isDigit(*start))
-		return false;
-	if(start[0] == '0' && start[1] == 'x')	// hexadecimal
-	{
-		*str += 2;
-		while(isDigit(**str) || ((unsigned char)(**str - 'a') < 6) || ((unsigned char)(**str - 'A') < 6))
-			(*str)++;
-		if(*str == start+2)
-			ThrowError("ERROR: '0x' must be followed by number", *str);
-		CALLBACK(addHexInt(start, *str));
-		return true;
-	}
-	while(isDigit(**str))
-		(*str)++;
-	if(start == *str && **str != '.')
+	if(!ParseLexem(str, lex_number))
 		return false;
 
-	if(**str == 'b')
+	const char *start = number->pos;
+
+	if(/*start[0] == '0' && */start[1] == 'x')	// hexadecimal
 	{
-		(*str)++;
-		CALLBACK(addBinInt(start, *str));
-		return true;
-	}else if(**str == 'l'){
-		(*str)++;
-		CALLBACK(addNumberNodeLong(start, *str));
-		return true;
-	}else if(**str != '.' && start[0] == '0' && isDigit(start[1])){
-		CALLBACK(addOctInt(start, *str));
-		return true;
-	}else if(**str != '.' && **str != 'e'){
-		CALLBACK(addNumberNodeInt(start, *str));
+		if(number->length == 2)
+			ThrowError("ERROR: '0x' must be followed by number", start+2);
+		CALLBACK(addHexInt(number->pos, number->pos+number->length));
 		return true;
 	}
 
-	if(*str[0] == '.')
-	{
-		(*str)++;
-		while(isDigit(*str[0]))
-			(*str)++;
-	}
-	if(*str[0] == 'e')
-	{
-		(*str)++;
-		if(*str[0] == '-')
-			(*str)++;
-		while(isDigit(*str[0]))
-			(*str)++;
-	}
-	if(start[0] == '.' && (*str)-start == 1)
-	{
-		(*str) = start;
-		return false;
-	}
-	if(**str == 'f')
-	{
-		(*str)++;
-		CALLBACK(addNumberNodeFloat(start, *str));
-		return true;
-	}else{
-		CALLBACK(addNumberNodeDouble(start, *str));
-		return true;
-	}
-}
+	bool isFP = false;
+	for(unsigned int i = 0; i < number->length; i++)
+		if(number->pos[i] == '.' || number->pos[i] == 'e')
+			isFP = true;
 
-// arrayDef	=	('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']' >> !arrayDef)[convertTypeToArray];
-bool  ParseArrayDefinition(char** str)
-{
-	SKIP_SPACE(str);
-	char *start = *str;
-	if(**str != '[')
-		return false;
-	(*str)++;
-	if(!ParseTernaryExpr(str))
-		CALLBACK(addUnfixedArraySize(*str, *str));
-	SKIP_SPACE(str);
-	if(**str != ']')
-		ThrowError("ERROR: Matching ']' not found", *str);
-	(*str)++;
-	ParseArrayDefinition(str);
-	CALLBACK(convertTypeToArray(start, *str));
-	return true;
-}
-// seltype		=	((strP("auto") | typenameP(varname))[selType] | (strP("typeof") >> chP('(') >> ((varname[GetVariableType] >> chP(')')) | (term5[SetTypeOfLastNode] >> chP(')'))))) >> *((lexemeD[strP("ref") >> (~alnumP | nothingP)])[convertTypeToRef] | arrayDef);
-bool  ParseSelectType(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "typeof", 6) == 0)
+	if(!isFP)
 	{
-		curr += 6;
-		SKIP_SPACE(&curr);
-		if(*curr != '(')
-			ThrowError("ERROR: typeof must be followed by '('", curr);
-		curr++;
-		char *old = curr;
-		if(ParseVaribleSet(&curr))
+		if((*str)->pos[0] == 'b')
 		{
-			CALLBACK(SetTypeOfLastNode(old, curr));
-			SKIP_SPACE(&curr);
-			if(*curr != ')')
-				ThrowError("ERROR: ')' not found after expression in typeof", curr);
-			curr++;
+			(*str)++;
+			CALLBACK(addBinInt(number->pos, number->pos+number->length));
+			return true;
+		}else if((*str)->pos[0] == 'l'){
+			(*str)++;
+			CALLBACK(addNumberNodeLong(number->pos, number->pos+number->length));
+			return true;
+		}else if(number->pos[0] == '0' && isDigit(number->pos[1])){
+			CALLBACK(addOctInt(number->pos, number->pos+number->length));
+			return true;
 		}else{
-			ThrowError("ERROR: expression not found after typeof(", curr);
+			CALLBACK(addNumberNodeInt(number->pos, number->pos+number->length));
+			return true;
 		}
-	}else if(memcmp(curr, "auto", 4) == 0){
-		curr += 4;
-		CALLBACK(selType(curr-4, curr));
 	}else{
-		char *old = curr;
-		if(!ParseTypename(&curr))
-			return false;
-		CALLBACK(selType(old, curr));
+		if((*str)->pos[0] == 'f')
+		{
+			(*str)++;
+			CALLBACK(addNumberNodeFloat(number->pos, number->pos+number->length));
+			return true;
+		}else{
+			CALLBACK(addNumberNodeDouble(number->pos, number->pos+number->length));
+			return true;
+		}
 	}
-	*str = curr;
+}
+
+bool ParseArrayDefinition(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_obracket))
+		return false;
+
+	if(!ParseTernaryExpr(str))
+		CALLBACK(addUnfixedArraySize((*str)->pos, (*str)->pos));
+	if(!ParseLexem(str, lex_cbracket))
+		ThrowError("ERROR: Matching ']' not found", (*str)->pos);
+	ParseArrayDefinition(str);
+	CALLBACK(convertTypeToArray((*str)->pos, (*str)->pos));
+	return true;
+}
+
+bool ParseSelectType(Lexeme** str)
+{
+	if((*str)->type == lex_typeof)
+	{
+		(*str)++;
+		if(!ParseLexem(str, lex_oparen))
+			ThrowError("ERROR: typeof must be followed by '('", (*str)->pos);
+		if(ParseVaribleSet(str))
+		{
+			CALLBACK(SetTypeOfLastNode(NULL, NULL));
+			if(!ParseLexem(str, lex_cparen))
+				ThrowError("ERROR: ')' not found after expression in typeof", (*str)->pos);
+		}else{
+			ThrowError("ERROR: expression not found after typeof(", (*str)->pos);
+		}
+	}else if((*str)->type == lex_auto){
+		CALLBACK(selType((*str)->pos, (*str)->pos+(*str)->length));
+		(*str)++;
+	}else if((*str)->type == lex_string){
+		if(!ParseTypename(str))
+			return false;
+		(*str)--;
+		CALLBACK(selType((*str)->pos, (*str)->pos+(*str)->length));
+		(*str)++;
+	}else{
+		return false;
+	}
 
 	for(;;)
 	{
-		SKIP_SPACE(&curr);
-		if(memcmp(curr, "ref", 3) == 0 && !(chartype_table[curr[3]] & ct_symbol))
+		if(ParseLexem(str, lex_ref))
 		{
-			curr += 3;
-			CALLBACK(convertTypeToRef(curr-3, curr));
+			CALLBACK(convertTypeToRef(NULL, NULL));
 		}else{
-			if(!ParseArrayDefinition(&curr))
+			if(!ParseArrayDefinition(str))
 				break;
 		}
 	}
-	*str = curr;
 	return true;
 }
-// isconst		=	epsP[AssignVar<bool>(currValConst, false)] >> !strP("const")[AssignVar<bool>(currValConst, true)];
-bool  ParseIsConst(char** str)
+
+bool ParseIsConst(Lexeme** str)
 {
-	SKIP_SPACE(str);
 	CALLBACK(SetTypeConst(false));
-	if(memcmp(*str, "const", 5) == 0)
-	{
-		(*str) += 5;
+	if(ParseLexem(str, lex_const))
 		CALLBACK(SetTypeConst(true));
-	}
 	return true;
 }
-// varname		=	lexemeD[alphaP >> *(alnumP | '_')];
-bool  ParseVariableName(char** str)
+
+bool ParseClassDefinition(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	if(!(chartype_table[**str] & ct_start_symbol))
-		return false;
-	while(chartype_table[**str] & ct_symbol)
-		(*str)++;
-	return true;
-}
-/* classdef	=	((strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')') | (strP("noalign") | epsP)[AssignVar<unsigned int>(currAlign, 0)]) >>
-						strP("class") >> varname[TypeBegin] >> chP('{') >>
-						*(
-							funcdef |
-							(seltype >> varname[TypeAddMember] >> *(',' >> varname[TypeAddMember]) >> chP(';'))
-						)
-						>> chP('}')[TypeFinish];*/
-bool  ParseClassDefinition(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(!ParseAlignment(&curr))
+	if(!ParseAlignment(str))
 		CALLBACK(SetCurrentAlignment(0));
 
-	SKIP_SPACE(&curr);
-	if(memcmp(curr, "class", 5) == 0)
+	if(ParseLexem(str, lex_class))
 	{
-		curr += 5;
-		SKIP_SPACE(&curr);
-		char *old = curr;
-		if(!ParseVariableName(&curr))
-			ThrowError("ERROR: class name expected", curr);
-		CALLBACK(TypeBegin(old, curr));
-		SKIP_SPACE(&curr);
-		if(*curr != '{')
-			ThrowError("ERROR: '{' not found after class name", curr);
-		curr++;
+		if((*str)->type != lex_string)
+			ThrowError("ERROR: class name expected", (*str)->pos);
+		CALLBACK(TypeBegin((*str)->pos, (*str)->pos+(*str)->length));
+		(*str)++;
+		if(!ParseLexem(str, lex_ofigure))
+			ThrowError("ERROR: '{' not found after class name", (*str)->pos);
 
 		for(;;)
 		{
-			if(!ParseFunctionDefinition(&curr))
+			if(!ParseFunctionDefinition(str))
 			{
-				if(!ParseSelectType(&curr))
+				if(!ParseSelectType(str))
 					break;
-				SKIP_SPACE(&curr);
-				char *old = curr;
-				if(!ParseVariableName(&curr))
-					ThrowError("ERROR: class member name expected after type", curr);
-				CALLBACK(TypeAddMember(old, curr));
-				SKIP_SPACE(&curr);
-				while(*curr == ',')
+				if((*str)->type != lex_string)
+					ThrowError("ERROR: class member name expected after type", (*str)->pos);
+				CALLBACK(TypeAddMember((*str)->pos, (*str)->pos+(*str)->length));
+				(*str)++;
+
+				while(ParseLexem(str, lex_comma))
 				{
-					curr++;
-					SKIP_SPACE(&curr);
-					char *old = curr;
-					if(!ParseVariableName(&curr))
-						ThrowError("ERROR: member name expected after ','", curr);
-					CALLBACK(TypeAddMember(old, curr));
-					SKIP_SPACE(&curr);
+					if((*str)->type != lex_string)
+						ThrowError("ERROR: member name expected after ','", (*str)->pos);
+					CALLBACK(TypeAddMember((*str)->pos, (*str)->pos+(*str)->length));
+					(*str)++;
 				}
-				if(*curr != ';')
-					ThrowError("ERROR: ';' not found after class member list", curr);
-				curr++;
+				if(!ParseLexem(str, lex_semicolon))
+					ThrowError("ERROR: ';' not found after class member list", (*str)->pos);
 			}
 		}
-		SKIP_SPACE(&curr);
-		if(*curr != '}')
-			ThrowError("ERROR: '}' not found after class definition", curr);
-		curr++;
-		CALLBACK(TypeFinish(curr, curr));
-		*str = curr;
+		if(!ParseLexem(str, lex_cfigure))
+			ThrowError("ERROR: '}' not found after class definition", (*str)->pos);
+		CALLBACK(TypeFinish(NULL, NULL));
 		return true;
 	}
 	return false;
 }
-/* funccall	=	varname[strPush] >> 
-				('(' | (epsP[strPop] >> nothingP)) >>
-				epsP[PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >> 
-				!(
-				term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] >>
-				*(',' >> term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)])
-				) >>
-				(')' | epsP[ThrowError("ERROR: ')' not found after function call")]);*/
-bool  ParseFunctionCall(char** str, bool memberFunctionCall)
+
+bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 {
-	char *curr = *str;
-	ParseVariableName(&curr);
-	CALLBACK(ParseStrPush(*str, curr));
-	SKIP_SPACE(&curr);
-	if(*curr != '(')
-	{
-		CALLBACK(ParseStrPop(NULL, NULL));
+	if((*str)->type != lex_string || (*str)[1].type != lex_oparen)
 		return false;
-	}
-	curr++;
+	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+	(*str) += 2;
+
 	unsigned int callArgCount = 0;
-	if(ParseVaribleSet(&curr))
+	if(ParseVaribleSet(str))
 	{
 		callArgCount++;
-		SKIP_SPACE(&curr);
-		while(*curr == ',')
+		while(ParseLexem(str, lex_comma))
 		{
-			curr++;
-			if(!ParseVaribleSet(&curr))
-				ThrowError("ERROR: expression not found after ',' in function parameter list", curr);
+			if(!ParseVaribleSet(str))
+				ThrowError("ERROR: expression not found after ',' in function parameter list", (*str)->pos);
 			callArgCount++;
-			SKIP_SPACE(&curr);
 		}
 	}
-	SKIP_SPACE(&curr);
-	if(*curr != ')')
-		ThrowError("ERROR: ')' not found after function parameter list", curr);
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: ')' not found after function parameter list", (*str)->pos);
 
 	if(memberFunctionCall)
-		CALLBACK(AddMemberFunctionCall(*str, curr, callArgCount));
+		CALLBACK(AddMemberFunctionCall(NULL, NULL, callArgCount));
 	else
-		CALLBACK(addFuncCallNode(*str, curr, callArgCount));
+		CALLBACK(addFuncCallNode(NULL, NULL, callArgCount));
 
-	*str = curr+1;
 	return true;
 }
-// funcvars	=	!(isconst >> seltype >> varname[strPush][FunctionParam]) >> *(',' >> isconst >> seltype >> varname[strPush][FunctionParam]);
-bool  ParseFunctionVariables(char** str)
+
+bool ParseFunctionVariables(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	ParseIsConst(&curr);
-	if(!ParseSelectType(&curr))
+	ParseIsConst(str);
+	if(!ParseSelectType(str))
 		return true;
 
-	SKIP_SPACE(&curr);
-	char *old = curr;
-	if(!ParseVariableName(&curr))
-		ThrowError("ERROR: variable name not found after type in function variable list", curr);
-	CALLBACK(ParseStrPush(old, curr));
-	CALLBACK(FunctionParam(old, curr));
+	if((*str)->type != lex_string)
+		ThrowError("ERROR: variable name not found after type in function variable list", (*str)->pos);
+	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+	CALLBACK(FunctionParam((*str)->pos, (*str)->pos+(*str)->length));
+	(*str)++;
 
-	SKIP_SPACE(&curr);
-	while(*curr == ',')
+	while(ParseLexem(str, lex_comma))
 	{
-		curr++;
-		ParseIsConst(&curr);
-		if(!ParseSelectType(&curr))
-			ThrowError("ERROR: type name not found after ',' in function variable list", curr);
-		SKIP_SPACE(&curr);
-		char *old = curr;
-		if(!ParseVariableName(&curr))
-			ThrowError("ERROR: variable name not found after type in function variable list", curr);
-		CALLBACK(ParseStrPush(old, curr));
-		CALLBACK(FunctionParam(old, curr));
-		SKIP_SPACE(&curr);
+		ParseIsConst(str);
+		if(!ParseSelectType(str))
+			ThrowError("ERROR: type name not found after ',' in function variable list", (*str)->pos);
+
+		if((*str)->type != lex_string)
+			ThrowError("ERROR: variable name not found after type in function variable list", (*str)->pos);
+		CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+		CALLBACK(FunctionParam((*str)->pos, (*str)->pos+(*str)->length));
+		(*str)++;
 	}
-	*str = curr;
 	return true;
 }
-// funcdef		=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >> funcvars[FunctionStart] >> chP(')') >> chP('{') >> (code | epsP[addVoidNode])[FunctionEnd] >> chP('}');
-bool  ParseFunctionDefinition(char** str)
+
+bool ParseFunctionDefinition(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(!ParseSelectType(&curr))
+	Lexeme *start = *str;
+	if(!ParseSelectType(str))
 		return false;
 
-	SKIP_SPACE(&curr);
-	char *old = curr;
-	if(!ParseVariableName(&curr))
-		return false;
-	CALLBACK(ParseStrPush(old, curr));
-
-	SKIP_SPACE(&curr);
-	if(*curr == '(')
+	if((*str)->type != lex_string || (*str)[1].type != lex_oparen)
 	{
-		CALLBACK(FunctionAdd(NULL, NULL));
-	}else{
-		CALLBACK(ParseStrPop(NULL, NULL));
+		*str = start;
 		return false;
 	}
-	curr++;
+	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+	(*str) += 2;
 
-	ParseFunctionVariables(&curr);
-	CALLBACK(FunctionStart(curr, curr));
+	CALLBACK(FunctionAdd(NULL, NULL));
 
-	SKIP_SPACE(&curr);
-	if(*curr != ')')
-		ThrowError("ERROR: ')' not found after function variable list", curr);
-	curr++;
-	SKIP_SPACE(&curr);
-	if(*curr != '{')
-		ThrowError("ERROR: '{' not found after function header", curr);
-	curr++;
+	ParseFunctionVariables(str);
+	CALLBACK(FunctionStart(NULL, NULL));
 
-	if(!ParseCode(&curr))
-		CALLBACK(addVoidNode(curr, curr));
-	CALLBACK(FunctionEnd(*str, curr));
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: ')' not found after function variable list", (*str)->pos);
+	if(!ParseLexem(str, lex_ofigure))
+		ThrowError("ERROR: '{' not found after function header", (*str)->pos);
+
+	if(!ParseCode(str))
+		CALLBACK(addVoidNode(NULL, NULL));
+	CALLBACK(FunctionEnd(NULL, NULL));
 	
-	SKIP_SPACE(&curr);
-	if(*curr != '}')
-		ThrowError("ERROR: '}' not found after function body", curr);
-	curr++;
-	*str = curr;
+	if(!ParseLexem(str, lex_cfigure))
+		ThrowError("ERROR: '}' not found after function body", (*str)->pos);
 	return true;
 }
-// funcProt	=	seltype >> varname[strPush] >> (chP('(')[FunctionAdd] | (epsP[strPop] >> nothingP)) >> funcvars >> chP(')') >> chP(';');
-bool  ParseFunctionPrototype(char** str)
+
+bool ParseFunctionPrototype(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(!ParseSelectType(&curr))
-		return false;
+	if(!ParseSelectType(str))
+		ThrowError("ERROR: function prototype must begin with type name", (*str)->pos);
 
-	SKIP_SPACE(&curr);
-	char *old = curr;
-	if(!ParseVariableName(&curr))
-		return false;
-	CALLBACK(ParseStrPush(old, curr));
+	if((*str)->type != lex_string)
+		ThrowError("ERROR: function not found after type", (*str)->pos);
+	if((*str)[1].type != lex_oparen)
+		ThrowError("ERROR: '(' not found after function name", (*str)->pos);
+	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+	(*str) += 2;
 
-	SKIP_SPACE(&curr);
-	if(*curr == '(')
-	{
-		CALLBACK(FunctionAdd(NULL, NULL));
-	}else{
-		CALLBACK(ParseStrPop(NULL, NULL));
-		return false;
-	}
-	curr++;
+	CALLBACK(FunctionAdd(NULL, NULL));
 
-	ParseFunctionVariables(&curr);
+	ParseFunctionVariables(str);
 
-	SKIP_SPACE(&curr);
-	if(*curr != ')')
-		ThrowError("ERROR: ')' not found after function variable list", curr);
-	curr++;
-	SKIP_SPACE(&curr);
-	if(*curr != ';')
-		ThrowError("ERROR: ';' not found after function header", curr);
-	curr++;
-	*str = curr;
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: ')' not found after function variable list", (*str)->pos);
+	if(!ParseLexem(str, lex_semicolon))
+		ThrowError("ERROR: ';' not found after function header", (*str)->pos);
 	return true;
 }
-/* addvarp		=
-			(
-				varname[strPush] >>
-				!('[' >> (term4_9 | epsP[addUnfixedArraySize]) >> ']')[convertTypeToArray]
-			)[pushType][addVar] >>
-			(('=' >> (term5 | epsP[ThrowError("ERROR: expression not found after '='")]))[AddDefineVariableNode][addPopNode][popType] | epsP[addVarDefNode])[popType][strPop];*/
-bool  ParseAddVariable(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(!ParseVariableName(&curr))
-		return false;
-	CALLBACK(ParseStrPush(*str, curr));
 
-	SKIP_SPACE(&curr);
-	char *old = curr;
-	if(*curr == '[')
+bool ParseAddVariable(Lexeme** str)
+{
+	if((*str)->type != lex_string)
+		return false;
+	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+	(*str)++;
+
+	if(ParseLexem(str, lex_obracket))
 	{
-		curr++;
-		if(!ParseTernaryExpr(&curr))
-			CALLBACK(addUnfixedArraySize(curr, curr));
-		SKIP_SPACE(&curr);
-		if(*curr != ']')
-			ThrowError("ERROR: Matching ']' not found", curr);
-		curr++;
-		CALLBACK(convertTypeToArray(old, curr));
+		if(!ParseTernaryExpr(str))
+			CALLBACK(addUnfixedArraySize(NULL, NULL));
+		if(!ParseLexem(str, lex_cbracket))
+			ThrowError("ERROR: Matching ']' not found", (*str)->pos);
+		CALLBACK(convertTypeToArray(NULL, NULL));
 	}
-	CALLBACK(pushType(*str, curr));
-	CALLBACK(addVar(*str, curr));
-	SKIP_SPACE(&curr);
-	old = curr;
-	if(*curr == '=')
+	CALLBACK(pushType(NULL, NULL));
+	CALLBACK(addVar(NULL, NULL));
+
+	if(ParseLexem(str, lex_set))
 	{
-		curr++;
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: expression not found after '='", curr);
-		CALLBACK(AddDefineVariableNode(old, curr));
-		CALLBACK(addPopNode(old, curr));
-		CALLBACK(popType(old, curr));
+		if(!ParseVaribleSet(str))
+			ThrowError("ERROR: expression not found after '='", (*str)->pos);
+		CALLBACK(AddDefineVariableNode(NULL, NULL));
+		CALLBACK(addPopNode(NULL, NULL));
+		CALLBACK(popType(NULL, NULL));
 	}else{
-		CALLBACK(addVarDefNode(curr, curr));
+		CALLBACK(addVarDefNode(NULL, NULL));
 	}
-	CALLBACK(popType(old, curr));
+	CALLBACK(popType(NULL, NULL));
 	CALLBACK(ParseStrPop(NULL, NULL));
-	*str = curr;
 	return true;
 }
-// vardefsub	=	addvarp[SetStringToLastNode] >> *(',' >> vardefsub)[addTwoExprNode];
-bool  ParseVariableDefineSub(char** str)
+
+bool ParseVariableDefineSub(Lexeme** str)
 {
-	char *old = *str;
+	const char *old = (*str)->pos;
 	if(!ParseAddVariable(str))
 		return false;
-	CALLBACK(SetStringToLastNode(old, *str));
+	CALLBACK(SetStringToLastNode(old, (*str)->pos));
 
-	SKIP_SPACE(str);
-	old = *str;
-	while(**str == ',')
+	while(ParseLexem(str, lex_comma))
 	{
-		(*str)++;
 		if(!ParseAddVariable(str))
-			ThrowError("ERROR: next variable definition excepted after ','", (*str));
+			ThrowError("ERROR: next variable definition excepted after ','", (*str)->pos);
 		CALLBACK(addTwoExprNode(NULL, NULL));
-		SKIP_SPACE(str);
 	}
 	return true;
 }
-// align = (strP("noalign")[AssignVar<unsigned int>(currAlign, 0)] | (strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')'))
-bool ParseAlignment(char** str)
+
+bool ParseAlignment(Lexeme** str)
 {
-	char *curr = *str;
-	SKIP_SPACE(&curr);
-	if(memcmp(curr, "noalign", 7) == 0)
+	if(ParseLexem(str, lex_noalign))
 	{
-		curr += 7;
 		CALLBACK(SetCurrentAlignment(0));
-		*str = curr;
 		return true;
-	}else if(memcmp(curr, "align", 5) == 0)
+	}else if(ParseLexem(str, lex_align))
 	{
-		curr += 5;
-		SKIP_SPACE(str);
-		if(*curr != '(')
-			ThrowError("ERROR: '(' expected after align", curr);
-		curr++;
-		char *start = curr;
-		if(!ParseInt(&curr))
-			ThrowError("ERROR: alignment value not found after align(", curr);
+		if(!ParseLexem(str, lex_oparen))
+			ThrowError("ERROR: '(' expected after align", (*str)->pos);
+		
+		const char *start = (*str)->pos;
+		if(!ParseLexem(str, lex_number))
+			ThrowError("ERROR: alignment value not found after align(", (*str)->pos);
 		CALLBACK(SetCurrentAlignment(atoi(start)));
-		SKIP_SPACE(&curr);
-		if(*curr != ')')
-			ThrowError("ERROR: ')' expected after alignment value", curr);
-		curr++;
-		*str = curr;
+		if(!ParseLexem(str, lex_cparen))
+			ThrowError("ERROR: ')' expected after alignment value", (*str)->pos);
 		return true;
 	}
 	return false;
 }
-/* vardef		=
-			epsP[AssignVar<unsigned int>(currAlign, 0xFFFFFFFF)] >>
-			isconst >>
-			!(strP("noalign")[AssignVar<unsigned int>(currAlign, 0)] | (strP("align") >> '(' >> intP[StrToInt(currAlign)] >> ')')) >>
-			seltype >>
-			vardefsub;*/
-bool  ParseVariableDefine(char** str)
+
+bool ParseVariableDefine(Lexeme** str)
 {
-	char *curr = *str;
+	Lexeme *curr = *str;
 	CALLBACK(SetCurrentAlignment(0xFFFFFFFF));
 	if(!ParseIsConst(&curr))
 		return false;
@@ -578,1009 +392,670 @@ bool  ParseVariableDefine(char** str)
 	*str = curr;
 	return true;
 }
-/* ifexpr		=
-			(
-				strWP("if") >>
-				('(' | epsP[ThrowError("ERROR: '(' not found after 'if'")]) >>
-				(term5 | epsP[ThrowError("ERROR: condition not found in 'if' statement")]) >>
-				(')' | epsP[ThrowError("ERROR: closing ')' not found after 'if' condition")])
-			)[SaveStringIndex] >>
-			expression >>
-			((strP("else") >> expression)[addIfElseNode] | epsP[addIfNode])[SetStringFromIndex];*/
-bool  ParseIfExpr(char** str)
+
+bool ParseIfExpr(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "if", 2) == 0 && !(chartype_table[curr[2]] & ct_symbol))
+	const char *pos = (*str)->pos;
+	if(!ParseLexem(str, lex_if))
+		return false;
+
+	if(!ParseLexem(str, lex_oparen))
+		ThrowError("ERROR: '(' not found after 'if'", (*str)->pos);
+	if(!ParseVaribleSet(str))
+		ThrowError("ERROR: condition not found in 'if' statement", (*str)->pos);
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: closing ')' not found after 'if' condition", (*str)->pos);
+	CALLBACK(SaveStringIndex(pos, (*str)->pos));
+	if(!ParseExpression(str))
+		ThrowError("ERROR: expression not found after 'if'", (*str)->pos);
+
+	if(ParseLexem(str, lex_else))
 	{
-		curr += 2;
-		SKIP_SPACE(&curr);
-		if(*curr != '(')
-			ThrowError("ERROR: '(' not found after 'if'", curr);
-		curr++;
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: condition not found in 'if' statement", curr);
-		SKIP_SPACE(&curr);
-		if(*curr != ')')
-			ThrowError("ERROR: closing ')' not found after 'if' condition", curr);
-		curr++;
-		CALLBACK(SaveStringIndex(*str, curr));
-		if(!ParseExpression(&curr))
-			ThrowError("ERROR: expression not found after 'if'", curr);
-
-		SKIP_SPACE(&curr);
-		if(memcmp(curr, "else", 4) == 0 && !(chartype_table[curr[4]] & ct_symbol))
-		{
-			curr += 4;
-			if(!ParseExpression(&curr))
-				ThrowError("ERROR: expression not found after 'else'", curr);
-			CALLBACK(addIfElseNode(curr, curr));
-		}else{
-			CALLBACK(addIfNode(curr, curr));
-		}
-		CALLBACK(SetStringFromIndex(curr, curr));
-
-		*str = curr;
-		return true;
+		if(!ParseExpression(str))
+			ThrowError("ERROR: expression not found after 'else'", (*str)->pos);
+		CALLBACK(addIfElseNode(NULL, NULL));
+	}else{
+		CALLBACK(addIfNode(NULL, NULL));
 	}
-	return false;
+	CALLBACK(SetStringFromIndex(NULL, NULL));
+	return true;
 }
-/* forexpr		=
-			(
-				strWP("for")[saveVarTop] >>
-				('(' | epsP[ThrowError("ERROR: '(' not found after 'for'")]) >>
-				(
-					(
-						chP('{') >>
-						(code | epsP[addVoidNode]) >>
-						(chP('}') | epsP[ThrowError("ERROR: '}' not found after '{'")])
-					) |
-					vardef |
-					term5[addPopNode] |
-					epsP[addVoidNode]
-				) >>
-				(';' | epsP[ThrowError("ERROR: ';' not found after initializer in 'for'")]) >>
-				(term5 | epsP[ThrowError("ERROR: condition not found in 'for' statement")]) >>
-				(';' | epsP[ThrowError("ERROR: ';' not found after condition in 'for'")]) >>
-				((chP('{') >> code >> chP('}')) | term5[addPopNode] | epsP[addVoidNode]) >>
-				(')' | epsP[ThrowError("ERROR: ')' not found after 'for' statement")])
-			)[SaveStringIndex] >> expression[addForNode][SetStringFromIndex];*/
-bool  ParseForExpr(char** str)
+
+bool  ParseForExpr(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "for", 3) == 0 && !(chartype_table[curr[3]] & ct_symbol))
-	{
-		curr += 3;
-		CALLBACK(saveVarTop(curr, curr));
-		SKIP_SPACE(&curr);
-		if(*curr != '(')
-			ThrowError("ERROR: '(' not found after 'for'", curr);
-		curr++;
-		SKIP_SPACE(&curr);
-		if(*curr == '{')
-		{
-			curr++;
-			if(!ParseCode(&curr))
-				CALLBACK(addVoidNode(curr, curr));
-			SKIP_SPACE(&curr);
-			if(*curr != '}')
-				ThrowError("ERROR: '}' not found after '{'", curr);
-			curr++;
-		}else{
-			if(!ParseVariableDefine(&curr))
-			{
-				if(!ParseVaribleSet(&curr))
-					CALLBACK(addVoidNode(curr, curr));
-				else
-					CALLBACK(addPopNode(curr, curr));
-			}
-		}
-
-		SKIP_SPACE(&curr);
-		if(*curr != ';')
-			ThrowError("ERROR: ';' not found after initializer in 'for'", curr);
-		curr++;
-
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: condition not found in 'for' statement", curr);
-
-		SKIP_SPACE(&curr);
-		if(*curr != ';')
-			ThrowError("ERROR: ';' not found after condition in 'for'", curr);
-		curr++;
-
-		SKIP_SPACE(&curr);
-		if(*curr == '{')
-		{
-			curr++;
-			if(!ParseCode(&curr))
-				CALLBACK(addVoidNode(curr, curr));
-			SKIP_SPACE(&curr);
-			if(*curr != '}')
-				ThrowError("ERROR: '}' not found after '{'", curr);
-			curr++;
-		}else{
-			if(!ParseVaribleSet(&curr))
-				CALLBACK(addVoidNode(curr, curr));
-			else
-				CALLBACK(addPopNode(*str, curr));
-		}
-
-		SKIP_SPACE(&curr);
-		if(*curr != ')')
-			ThrowError("ERROR: ')' not found after 'for' statement", curr);
-		curr++;
-
-		CALLBACK(SaveStringIndex(*str, curr));
-
-		if(!ParseExpression(&curr))
-			ThrowError("ERROR: body not found after 'for' header", curr);
-		CALLBACK(addForNode(curr, curr));
-		CALLBACK(SetStringFromIndex(curr, curr));
-
-		*str = curr;
-		return true;
-	}
-	return false;
-}
-/* whileexpr	=
-			strWP("while")[saveVarTop] >>
-			(
-				('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >>
-				(term5 | epsP[ThrowError("ERROR: expression expected after 'while('")]) >>
-				(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
-			) >>
-			(expression[addWhileNode] | epsP[ThrowError("ERROR: expression expected after 'while(...)'")]);*/
-bool  ParseWhileExpr(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "while", 5) == 0 && !(chartype_table[curr[5]] & ct_symbol))
-	{
-		curr += 5;
-		CALLBACK(saveVarTop(curr, curr));
-		SKIP_SPACE(&curr);
-		if(*curr != '(')
-			ThrowError("ERROR: '(' not found after 'while'", curr);
-		curr++;
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: expression expected after 'while('", curr);
-		SKIP_SPACE(&curr);
-		if(*curr != ')')
-			ThrowError("ERROR: closing ')' not found after expression in 'while' statement", curr);
-		curr++;
+	const char *pos = (*str)->pos;
+	if(!ParseLexem(str, lex_for))
+		return false;
 	
-		if(!ParseExpression(&curr))
-			ThrowError("ERROR: expression expected after 'while(...)'", curr);
-		CALLBACK(addWhileNode(curr, curr));
-
-		*str = curr;
-		return true;
-	}
-	return false;
-}
-/* doexpr		=	
-			strWP("do")[saveVarTop] >> 
-			(expression | epsP[ThrowError("ERROR: expression expected after 'do'")]) >> 
-			(strP("while") | epsP[ThrowError("ERROR: 'while' expected after 'do' statement")]) >>
-			(
-				('(' | epsP[ThrowError("ERROR: '(' not found after 'while'")]) >> 
-				(term5 | epsP[ThrowError("ERROR: expression not found after 'while('")]) >> 
-				(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'while' statement")])
-			)[addDoWhileNode] >> 
-			(';' | epsP[ThrowError("ERROR: while(...) should be followed by ';'")]);*/
-bool  ParseDoWhileExpr(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "do", 2) == 0 && !(chartype_table[curr[2]] & ct_symbol))
+	CALLBACK(saveVarTop(NULL, NULL));
+	
+	if(!ParseLexem(str, lex_oparen))
+		ThrowError("ERROR: '(' not found after 'for'", (*str)->pos);
+	
+	if(ParseLexem(str, lex_ofigure))
 	{
-		curr += 2;
-		CALLBACK(saveVarTop(curr, curr));
-
-		if(!ParseExpression(&curr))
-			ThrowError("ERROR: expression expected after 'do'", curr);
-
-		SKIP_SPACE(&curr);
-		if(memcmp(curr, "while", 5) != 0)
-			ThrowError("ERROR: 'while' expected after 'do' statement", curr);
-		SKIP_SPACE(&curr);
-		if(*curr != '(')
-			ThrowError("ERROR: '(' not found after 'while'", curr);
-		curr++;
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: expression expected after 'while('", curr);
-		SKIP_SPACE(&curr);
-		if(*curr != ')')
-			ThrowError("ERROR: closing ')' not found after expression in 'while' statement", curr);
-		curr++;
-
-		CALLBACK(addDoWhileNode(curr, curr));
-
-		SKIP_SPACE(&curr);
-		if(*curr != ';')
-			ThrowError("ERROR: while(...) should be followed by ';'", curr);
-		curr++;
-
-		*str = curr;
-		return true;
-	}
-	return false;
-}
-/* switchexpr	=
-			strP("switch") >>
-			('(') >>
-			(term5 | epsP[ThrowError("ERROR: expression not found after 'switch('")])[preSwitchNode] >>
-			(')' | epsP[ThrowError("ERROR: closing ')' not found after expression in 'switch' statement")]) >>
-			('{' | epsP[ThrowError("ERROR: '{' not found after 'switch(...)'")]) >>
-			(strWP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
-			*(strWP("case") >> term5 >> ':' >> expression >> *expression[addTwoExprNode])[addCaseNode] >>
-			('}' | epsP[ThrowError("ERROR: '}' not found after 'switch' statement")])[addSwitchNode];*/
-bool  ParseSwitchExpr(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "switch", 6) == 0 && !(chartype_table[curr[6]] & ct_symbol))
-	{
-		curr += 6;
-
-		SKIP_SPACE(&curr);
-		if(*curr != '(')
-			ThrowError("ERROR: '(' not found after 'switch'", curr);
-		curr++;
-
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: expression not found after 'switch('", curr);
-		CALLBACK(preSwitchNode(curr, curr));
-
-		SKIP_SPACE(&curr);
-		if(*curr != ')')
-			ThrowError("ERROR: closing ')' not found after expression in 'switch' statement", curr);
-		curr++;
-
-		SKIP_SPACE(&curr);
-		if(*curr != '{')
-			ThrowError("ERROR: '{' not found after 'switch(...)'", curr);
-		curr++;
-
-		SKIP_SPACE(&curr);
-		while(memcmp(curr, "case", 4) == 0 && !(chartype_table[curr[4]] & ct_symbol))
+		if(!ParseCode(str))
+			CALLBACK(addVoidNode(NULL, NULL));
+		if(!ParseLexem(str, lex_cfigure))
+			ThrowError("ERROR: '}' not found after '{'", (*str)->pos);
+	}else{
+		if(!ParseVariableDefine(str))
 		{
-			curr += 4;
-			if(!ParseVaribleSet(&curr))
-				ThrowError("ERROR: expression expected after 'case'", curr);
-			SKIP_SPACE(&curr);
-			if(*curr != ':')
-				ThrowError("ERROR: ':' not found after 'case' expression", curr);
-			curr++;
-
-			if(!ParseExpression(&curr))
-				ThrowError("ERROR: expression expected after 'case:'", curr);
-			while(ParseExpression(&curr))
-				CALLBACK(addTwoExprNode(curr, curr));
-			CALLBACK(addCaseNode(curr, curr));
-			SKIP_SPACE(&curr);
+			if(!ParseVaribleSet(str))
+				CALLBACK(addVoidNode(NULL, NULL));
+			else
+				CALLBACK(addPopNode(NULL, NULL));
 		}
+	}
 
-		SKIP_SPACE(&curr);
-		if(*curr != '}')
-			ThrowError("ERROR: '}' not found after 'switch' statement", curr);
-		curr++;
-		CALLBACK(addSwitchNode(curr, curr));
-		*str = curr;
-		return true;
-	}
-	return false;
-}
-/* retexpr		=
-			(
-				strWP("return") >>
-				(term5 | epsP[addVoidNode]) >>
-				(+chP(';') | epsP[ThrowError("ERROR: return must be followed by ';'")])
-			)[addReturnNode];*/
-bool  ParseReturnExpr(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "return", 6) == 0 && !(chartype_table[curr[6]] & ct_symbol))
+	if(!ParseLexem(str, lex_semicolon))
+		ThrowError("ERROR: ';' not found after initializer in 'for'", (*str)->pos);
+
+	if(!ParseVaribleSet(str))
+		ThrowError("ERROR: condition not found in 'for' statement", (*str)->pos);
+
+	if(!ParseLexem(str, lex_semicolon))
+		ThrowError("ERROR: ';' not found after condition in 'for'", (*str)->pos);
+
+	if(ParseLexem(str, lex_ofigure))
 	{
-		curr += 6;
-		if(!ParseVaribleSet(&curr))
-			CALLBACK(addVoidNode(curr, curr));
-		SKIP_SPACE(&curr);
-		if(*curr != ';')
-			ThrowError("ERROR: return must be followed by ';'", curr);
-		curr++;
-		CALLBACK(addReturnNode(*str, curr));
-		*str = curr;
-		return true;
+		if(!ParseCode(str))
+			CALLBACK(addVoidNode(NULL, NULL));
+		if(!ParseLexem(str, lex_cfigure))
+			ThrowError("ERROR: '}' not found after '{'", (*str)->pos);
+	}else{
+		if(!ParseVaribleSet(str))
+			CALLBACK(addVoidNode(NULL, NULL));
+		else
+			CALLBACK(addPopNode(NULL, NULL));
 	}
-	return false;
+
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: ')' not found after 'for' statement", (*str)->pos);
+
+	CALLBACK(SaveStringIndex(pos, (*str)->pos));
+
+	if(!ParseExpression(str))
+		ThrowError("ERROR: body not found after 'for' header", (*str)->pos);
+	CALLBACK(addForNode(NULL, NULL));
+	CALLBACK(SetStringFromIndex(NULL, NULL));
+	return true;
+
 }
-/* breakexpr	=	(
-			strWP("break") >>
-			(+chP(';') | epsP[ThrowError("ERROR: break must be followed by ';'")])
-			)[addBreakNode];*/
-bool  ParseBreakExpr(char** str)
+
+bool  ParseWhileExpr(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "break", 5) == 0 && !(chartype_table[curr[5]] & ct_symbol))
-	{
-		curr += 5;
-		SKIP_SPACE(&curr);
-		if(*curr != ';')
-			ThrowError("ERROR: break must be followed by ';'", curr);
-		curr++;
-		CALLBACK(addBreakNode(*str, curr));
-		*str = curr;
-		return true;
-	}
-	return false;
-}
-/* continueExpr	=
-			(
-				strWP("continue") >>
-				(+chP(';') | epsP[ThrowError("ERROR: continue must be followed by ';'")])
-			)[AddContinueNode];*/
-bool  ParseContinueExpr(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(memcmp(curr, "continue", 8) == 0 && !(chartype_table[curr[8]] & ct_symbol))
-	{
-		curr += 8;
-		SKIP_SPACE(&curr);
-		if(*curr != ';')
-			ThrowError("ERROR: continue must be followed by ';'", curr);
-		curr++;
-		CALLBACK(AddContinueNode(*str, curr));
-		*str = curr;
-		return true;
-	}
-	return false;
-}
-// group		=	'(' >> term5 >> (')' | epsP[ThrowError("ERROR: closing ')' not found after '('")]);
-bool  ParseGroup(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(*curr != '(')
+	if(!ParseLexem(str, lex_while))
 		return false;
-	curr++;
-	if(!ParseVaribleSet(&curr))
-		ThrowError("ERROR: expression not found after '('", curr);
-	SKIP_SPACE(&curr);
-	if(*curr != ')')
-		ThrowError("ERROR: closing ')' not found after '('", curr);
-	curr++;
-	*str = curr;
+	
+	CALLBACK(saveVarTop(NULL, NULL));
+	if(!ParseLexem(str, lex_oparen))
+		ThrowError("ERROR: '(' not found after 'while'", (*str)->pos);
+	if(!ParseVaribleSet(str))
+		ThrowError("ERROR: expression expected after 'while('", (*str)->pos);
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: closing ')' not found after expression in 'while' statement", (*str)->pos);
+
+	if(!ParseExpression(str))
+		ThrowError("ERROR: expression expected after 'while(...)'", (*str)->pos);
+	CALLBACK(addWhileNode(NULL, NULL));
 	return true;
 }
-// variable	= (chP('*') >> variable)[AddDereferenceNode] | (((varname - strP("case")) >> (~chP('(') | nothingP))[AddGetAddressNode] >> *postExpr);
-bool  ParseVariable(char** str)
+
+bool  ParseDoWhileExpr(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(*curr == '*')
-	{
-		curr++;
-		if(!ParseVariable(&curr))
-			ThrowError("ERROR: variable name not found after '*'", curr);
-		CALLBACK(AddDereferenceNode(*str, curr));
-		*str = curr;
-		return true;
-	}
-	SKIP_SPACE(&curr);
-	char *old = curr;
-	if(!ParseVariableName(&curr))
+	if(!ParseLexem(str, lex_do))
 		return false;
-	char *old2 = curr;
-	SKIP_SPACE(&curr);
-	if(*curr == '(' || memcmp("case", old, 4) == 0)
-		return false;
-	CALLBACK(AddGetAddressNode(old, old2));
-	while(ParsePostExpression(&curr));
-	*str = curr;
+
+	CALLBACK(saveVarTop(NULL, NULL));
+
+	if(!ParseExpression(str))
+		ThrowError("ERROR: expression expected after 'do'", (*str)->pos);
+
+	if(!ParseLexem(str, lex_while))
+		ThrowError("ERROR: 'while' expected after 'do' statement", (*str)->pos);
+	if(!ParseLexem(str, lex_oparen))
+		ThrowError("ERROR: '(' not found after 'while'", (*str)->pos);
+	if(!ParseVaribleSet(str))
+		ThrowError("ERROR: expression expected after 'while('", (*str)->pos);
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: closing ')' not found after expression in 'while' statement", (*str)->pos);
+
+	CALLBACK(addDoWhileNode(NULL, NULL));
+
+	if(!ParseLexem(str, lex_semicolon))
+		ThrowError("ERROR: while(...) should be followed by ';'", (*str)->pos);
 	return true;
 }
-// postExpr	=	('.' >> varname[strPush] >> (~chP('(') | (epsP[strPop] >> nothingP)))[AddMemberAccessNode] | ('[' >> term5 >> ']')[AddArrayIndexNode];
-bool  ParsePostExpression(char** str)
-{
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(*curr == '.')
-	{
-		curr++;
-		SKIP_SPACE(str);
-		char *old = curr;
-		if(!ParseVariableName(&curr))
-			ThrowError("ERROR: member variable or function expected after '.'", curr);
-		CALLBACK(ParseStrPush(old, curr));
 
-		SKIP_SPACE(&curr);
-		if(*curr == '(')
+bool  ParseSwitchExpr(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_switch))
+		return false;
+
+	if(!ParseLexem(str, lex_oparen))
+		ThrowError("ERROR: '(' not found after 'switch'", (*str)->pos);
+
+	if(!ParseVaribleSet(str))
+		ThrowError("ERROR: expression not found after 'switch('", (*str)->pos);
+	CALLBACK(preSwitchNode(NULL, NULL));
+
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: closing ')' not found after expression in 'switch' statement", (*str)->pos);
+
+	if(!ParseLexem(str, lex_ofigure))
+		ThrowError("ERROR: '{' not found after 'switch(...)'", (*str)->pos);
+
+	while(ParseLexem(str, lex_case))
+	{
+		if(!ParseVaribleSet(str))
+			ThrowError("ERROR: expression expected after 'case'", (*str)->pos);
+		if(!ParseLexem(str, lex_colon))
+			ThrowError("ERROR: ':' not found after 'case' expression", (*str)->pos);
+
+		if(!ParseExpression(str))
+			ThrowError("ERROR: expression expected after 'case:'", (*str)->pos);
+		while(ParseExpression(str))
+			CALLBACK(addTwoExprNode(NULL, NULL));
+		CALLBACK(addCaseNode(NULL, NULL));
+	}
+
+	if(!ParseLexem(str, lex_cfigure))
+		ThrowError("ERROR: '}' not found after 'switch' statement", (*str)->pos);
+	CALLBACK(addSwitchNode(NULL, NULL));
+	return true;
+}
+
+bool  ParseReturnExpr(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_return))
+		return false;
+
+	if(!ParseVaribleSet(str))
+		CALLBACK(addVoidNode(NULL, NULL));
+
+	if(!ParseLexem(str, lex_semicolon))
+		ThrowError("ERROR: return must be followed by ';'", (*str)->pos);
+	CALLBACK(addReturnNode(NULL, NULL));
+	return true;
+}
+
+bool  ParseBreakExpr(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_break))
+		return false;
+
+	if(!ParseLexem(str, lex_semicolon))
+		ThrowError("ERROR: break must be followed by ';'", (*str)->pos);
+	CALLBACK(addBreakNode(NULL, NULL));
+	return true;
+}
+
+bool  ParseContinueExpr(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_continue))
+		return false;
+
+	if(!ParseLexem(str, lex_semicolon))
+		ThrowError("ERROR: continue must be followed by ';'", (*str)->pos);
+	CALLBACK(AddContinueNode(NULL, NULL));
+	return true;
+}
+
+bool  ParseGroup(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_oparen))
+		return false;
+
+	if(!ParseVaribleSet(str))
+		ThrowError("ERROR: expression not found after '('", (*str)->pos);
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError("ERROR: closing ')' not found after '('", (*str)->pos);
+	return true;
+}
+
+bool  ParseVariable(Lexeme** str)
+{
+	if(ParseLexem(str, lex_mul))
+	{
+		if(!ParseVariable(str))
+			ThrowError("ERROR: variable name not found after '*'", (*str)->pos);
+		CALLBACK(AddDereferenceNode(NULL, NULL));
+		return true;
+	}
+	
+	if((*str)->type != lex_string || (*str)[1].type == lex_oparen)
+		return false;
+	CALLBACK(AddGetAddressNode((*str)->pos, (*str)->pos+(*str)->length));
+	(*str)++;
+
+	while(ParsePostExpression(str));
+	return true;
+}
+
+bool  ParsePostExpression(Lexeme** str)
+{
+	Lexeme *start = *str;
+	if(ParseLexem(str, lex_point))
+	{
+		if((*str)->type != lex_string)
+			ThrowError("ERROR: member variable expected after '.'", (*str)->pos);
+		if((*str)[1].type == lex_oparen)
 		{
-			CALLBACK(ParseStrPop(NULL, NULL));
+			*str = start;
 			return false;
 		}
-		CALLBACK(AddMemberAccessNode(*str, curr));
-	}else if(*curr == '['){
-		curr++;
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: expression not found after '['", curr);
-		SKIP_SPACE(&curr);
-		if(*curr != ']')
-			ThrowError("ERROR: ']' not found after expression", curr);
-		curr++;
-		CALLBACK(AddArrayIndexNode(*str, curr));
+		CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+		(*str)++;
+
+		CALLBACK(AddMemberAccessNode(NULL, NULL));
+	}else if(ParseLexem(str, lex_obracket)){
+		if(!ParseVaribleSet(str))
+			ThrowError("ERROR: expression not found after '['", (*str)->pos);
+		if(!ParseLexem(str, lex_cbracket))
+			ThrowError("ERROR: ']' not found after expression", (*str)->pos);
+		CALLBACK(AddArrayIndexNode(NULL, NULL));
 	}else{
 		return false;
 	}
-	*str = curr;
 	return true;
 }
-/* term1		=
-			(strP("--") >> variable[AddPreOrPostOp(false, true)])[popType] | 
-			(strP("++") >> variable[AddPreOrPostOp(true, true)])[popType] |
-			(chP('\"') >> *(strP("\\\"") | (anycharP - chP('\"'))) >> chP('\"'))[strPush][addStringNode] |
-			(chP('\'') >> ((chP('\\') >> anycharP) | anycharP) >> chP('\''))[addChar] |
-			(strP("sizeof") >> chP('(')[pushType] >> (seltype[pushType][GetTypeSize][popType] | term5[AssignVar<bool>(sizeOfExpr, true)][GetTypeSize]) >> chP(')')[popType]) |
-			(chP('{')[PushBackVal<std::vector<unsigned int>, unsigned int>(arrElementCount, 0)] >> term4_9 >> *(chP(',') >> term4_9[ArrBackInc<std::vector<unsigned int> >(arrElementCount)]) >> chP('}'))[addArrayConstructor] |
-			funcdef |
-			funccall[addFuncCallNode] |
-			(variable >>
-				(
-					strP("++")[AddPreOrPostOp(true, false)] |
-					strP("--")[AddPreOrPostOp(false, false)] |
-					('.' >> funccall)[AddMemberFunctionCall] |
-					epsP[AddGetVariableNode]
-				)[popType]
-			);*/
-bool ParseTerminal(char** str)
+
+bool ParseTerminal(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(ParseNumber(str))
-		return true;
-	if(*curr == '&')
+	if((*str)->type == lex_number)
+		return ParseNumber(str);
+	if(ParseLexem(str, lex_bitand))
 	{
-		curr++;
-		if(!ParseVariable(&curr))
-			ThrowError("ERROR: variable not found after '&'", curr);
-		CALLBACK(popType(*str, curr));
-		*str = curr;
+		if(!ParseVariable(str))
+			ThrowError("ERROR: variable not found after '&'", (*str)->pos);
+		CALLBACK(popType(NULL, NULL));
 		return true;
 	}
-	if(*curr == '!')
+	if(ParseLexem(str, lex_lognot))
 	{
-		curr++;
-		if(!ParseTerminal(&curr))
-			ThrowError("ERROR: expression not found after '!'", curr);
-		CALLBACK(addLogNotNode(*str, curr));
-		*str = curr;
+		if(!ParseTerminal(str))
+			ThrowError("ERROR: expression not found after '!'", (*str)->pos);
+		CALLBACK(addLogNotNode(NULL, NULL));
 		return true;
 	}
-	if(*curr == '~')
+	if(ParseLexem(str, lex_bitnot))
 	{
-		curr++;
-		if(!ParseTerminal(&curr))
-			ThrowError("ERROR: expression not found after '~'", curr);
-		CALLBACK(addBitNotNode(*str, curr));
-		*str = curr;
+		if(!ParseTerminal(str))
+			ThrowError("ERROR: expression not found after '~'", (*str)->pos);
+		CALLBACK(addBitNotNode(NULL, NULL));
 		return true;
 	}
-	if(curr[0] == '-' && curr[1] == '-')
+	if(ParseLexem(str, lex_dec))
 	{
-		curr += 2;
-		if(!ParseVariable(&curr))
-			ThrowError("ERROR: variable not found after '--'", curr);
+		if(!ParseVariable(str))
+			ThrowError("ERROR: variable not found after '--'", (*str)->pos);
 		CALLBACK(AddPreOrPostOpNode(false, true));
-		CALLBACK(popType(*str, curr));
-		*str = curr;
+		CALLBACK(popType(NULL, NULL));
 		return true;
 	}
-	if(curr[0] == '+' && curr[1] == '+')
+	if(ParseLexem(str, lex_inc))
 	{
-		curr += 2;
-		if(!ParseVariable(&curr))
-			ThrowError("ERROR: variable not found after '++'", curr);
+		if(!ParseVariable(str))
+			ThrowError("ERROR: variable not found after '++'", (*str)->pos);
 		CALLBACK(AddPreOrPostOpNode(true, true));
-		CALLBACK(popType(*str, curr));
-		*str = curr;
+		CALLBACK(popType(NULL, NULL));
 		return true;
 	}
-	if(*curr == '+')
+	if(ParseLexem(str, lex_add))
 	{
-		curr++;
-		SKIP_SPACE(&curr);
-		while(*curr == '+')
-		{
-			curr++;
-			SKIP_SPACE(&curr);
-		}
-		if(!ParseTerminal(&curr))
-			ThrowError("ERROR: expression not found after '+'", curr);
-		*str = curr;
+		while(ParseLexem(str, lex_add));
+		if(!ParseTerminal(str))
+			ThrowError("ERROR: expression not found after '+'", (*str)->pos);
 		return true;
 	}
-	if(*curr == '-')
+	if(ParseLexem(str, lex_sub))
 	{
 		int negCount = 1;
-		curr++;
-		SKIP_SPACE(&curr);
-		while(*curr == '-')
-		{
+		while(ParseLexem(str, lex_sub))
 			negCount++;
-			curr++;
-			SKIP_SPACE(&curr);
-		}
-		if(!ParseTerminal(&curr))
-			ThrowError("ERROR: expression not found after '-'", curr);
+		if(!ParseTerminal(str))
+			ThrowError("ERROR: expression not found after '-'", (*str)->pos);
 		if(negCount % 2 == 1)
-			CALLBACK(addNegNode(*str, curr));
-		*str = curr;
+			CALLBACK(addNegNode(NULL, NULL));
 		return true;
 	}
-	if(*curr == '\"')
+	if((*str)->type == lex_quotedstring)
 	{
-		curr++;
-		while(!(*curr == '\"' && curr[-1] != '\\'))
-			curr++;
-		curr++;
-		CALLBACK(ParseStrPush(*str, curr));
-		CALLBACK(addStringNode(*str, curr));
-		*str = curr;
+		CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+		CALLBACK(addStringNode((*str)->pos, (*str)->pos+(*str)->length));
+		(*str)++;
 		return true;
 	}
-	if(*curr == '\'')
+	if((*str)->type == lex_semiquote)
 	{
-		curr++;
-		if(*curr == '\\')
-			curr++;
-		curr++;
-		if(*curr != '\'')
-			ThrowError("ERROR: ' not found after character", curr);
-		curr++;
-		CALLBACK(addNumberNodeChar(*str, curr));
-		*str = curr;
+		const char *start = (*str)->pos;
+		(*str)++;
+		ParseLexem(str, lex_escape);
+		if(!ParseLexem(str, lex_string) && !ParseLexem(str, lex_number))
+			ThrowError("ERROR: character not found after '", (*str)->pos);
+		if(!ParseLexem(str, lex_semiquote))
+			ThrowError("ERROR: ' not found after character", (*str)->pos);
+		CALLBACK(addNumberNodeChar(start, (*str)->pos));
 		return true;
 	}
-	if(*curr == 's' && memcmp(curr, "sizeof", 6) == 0)
+	if(ParseLexem(str, lex_sizeof))
 	{
-		curr += 6;
-		SKIP_SPACE(&curr);
-		if(*curr != '(')
-			ThrowError("ERROR: sizeof must be followed by '('", curr);
-		curr++;
-		CALLBACK(pushType(*str, curr));
-		char *old = curr;
-		if(ParseSelectType(&curr))
+		if(!ParseLexem(str, lex_oparen))
+			ThrowError("ERROR: sizeof must be followed by '('", (*str)->pos);
+		CALLBACK(pushType(NULL, NULL));
+		if(ParseSelectType(str))
 		{
-			CALLBACK(pushType(old, curr));
-			CALLBACK(GetTypeSize(old, curr, false));
-			CALLBACK(popType(old, curr));
+			CALLBACK(pushType(NULL, NULL));
+			CALLBACK(GetTypeSize(NULL, NULL, false));
+			CALLBACK(popType(NULL, NULL));
 		}else{
-			if(ParseVaribleSet(&curr))
-				CALLBACK(GetTypeSize(old, curr, true));
+			if(ParseVaribleSet(str))
+				CALLBACK(GetTypeSize(NULL, NULL, true));
 			else
-				ThrowError("ERROR: expression or type not found after sizeof(", curr);
+				ThrowError("ERROR: expression or type not found after sizeof(", (*str)->pos);
 		}
-		SKIP_SPACE(&curr);
-		if(*curr != ')')
-			ThrowError("ERROR: ')' not found after expression in sizeof", curr);
-		curr++;
-		CALLBACK(popType(old, curr));
-		*str = curr;
+		if(!ParseLexem(str, lex_cparen))
+			ThrowError("ERROR: ')' not found after expression in sizeof", (*str)->pos);
+		CALLBACK(popType(NULL, NULL));
 		return true;
 	}
-	if(*curr == '{')
+	if(ParseLexem(str, lex_ofigure))
 	{
-		curr++;
 		unsigned int arrElementCount = 0;
-		if(!ParseTernaryExpr(&curr))
-			ThrowError("ERROR: value not found after '{'", curr);
-		SKIP_SPACE(&curr);
-		while(*curr == ',')
+		if(!ParseTernaryExpr(str))
+			ThrowError("ERROR: value not found after '{'", (*str)->pos);
+		while(ParseLexem(str, lex_comma))
 		{
-			curr++;
-			if(!ParseTernaryExpr(&curr))
-				ThrowError("ERROR: value not found after ','", curr);
+			if(!ParseTernaryExpr(str))
+				ThrowError("ERROR: value not found after ','", (*str)->pos);
 			arrElementCount++;
-			SKIP_SPACE(&curr);
 		}
-		SKIP_SPACE(&curr);
-		if(*curr != '}')
-			ThrowError("ERROR: '}' not found after inline array", curr);
-		curr++;
-		CALLBACK(addArrayConstructor(*str, curr, arrElementCount));
-		*str = curr;
+		if(!ParseLexem(str, lex_cfigure))
+			ThrowError("ERROR: '}' not found after inline array", (*str)->pos);
+		CALLBACK(addArrayConstructor(NULL, NULL, arrElementCount));
 		return true;
 	}
 	if(ParseGroup(str))
 		return true;
-	if(ParseFunctionDefinition(str))
-		return true;
+	if(((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) || ((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
+		if(ParseFunctionDefinition(str))
+			return true;
 	if(ParseFunctionCall(str, false))
 		return true;
 	if(ParseVariable(str))
 	{
-		SKIP_SPACE(str);
-		if((*str)[0] == '-' && (*str)[1] == '-')
+		if(ParseLexem(str, lex_dec))
 		{
-			(*str) += 2;
 			CALLBACK(AddPreOrPostOpNode(false, false));
-		}else if((*str)[0] == '+' && (*str)[1] == '+')
+		}else if(ParseLexem(str, lex_inc))
 		{
-			(*str) += 2;
 			CALLBACK(AddPreOrPostOpNode(true, false));
-		}else if((*str)[0] == '.'){
-			(*str)++;
+		}else if(ParseLexem(str, lex_point)){
 			if(!ParseFunctionCall(str, true))
-				ThrowError("ERROR: function call is excepted after '.'", curr);
+				ThrowError("ERROR: function call is excepted after '.'", (*str)->pos);
 		}else{
-			CALLBACK(AddGetVariableNode(curr, *str));
+			CALLBACK(AddGetVariableNode(NULL, NULL));
 		}
-		CALLBACK(popType(curr, *str));
+		CALLBACK(popType(NULL, NULL));
 		return true;
 	}
 	return false;
 }
-// term2		=	term1 >> *((strP("**") >> term1)[addCmd(cmdPow)]);
-bool ParsePower(char** str)
+
+bool ParsePower(Lexeme** str)
 {
 	if(!ParseTerminal(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == '*' && curr[1] == '*')
+	while(ParseLexem(str, lex_pow))
 	{
-		curr += 2;
-		if(!ParseTerminal(&curr))
-			ThrowError("ERROR: expression not found after **", curr);
-		CALLBACK((addCmd(cmdPow))(*str, curr));
-		SKIP_SPACE(&curr);
+		if(!ParseTerminal(str))
+			ThrowError("ERROR: expression not found after **", (*str)->pos);
+		CALLBACK((addCmd(cmdPow))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-// term3		=	term2 >> *(('*' >> term2)[addCmd(cmdMul)] | ('/' >> term2)[addCmd(cmdDiv)] | ('%' >> term2)[addCmd(cmdMod)]);
-bool ParseMultiplicative(char** str)
+
+bool ParseMultiplicative(Lexeme** str)
 {
 	if(!ParsePower(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == '*' || curr[0] == '/' || curr[0] == '%')
+	while(ParseLexem(str, lex_mul) || ParseLexem(str, lex_div) || ParseLexem(str, lex_mod))
 	{
-		char op = *curr;
-		curr++;
-		if(!ParsePower(&curr))
-			ThrowError("ERROR: expression not found after multiplicative expression", curr);
-		CALLBACK((addCmd((CmdID)(op == '*' ? cmdMul : (op == '/' ? cmdDiv : cmdMod))))(*str, curr));
-		SKIP_SPACE(&curr);
+		char op = (*str)[-1].pos[0];
+		if(!ParsePower(str))
+			ThrowError("ERROR: expression not found after multiplicative expression", (*str)->pos);
+		CALLBACK((addCmd((CmdID)(op == '*' ? cmdMul : (op == '/' ? cmdDiv : cmdMod))))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-// term4		=	term3 >> *(('+' >> term3)[addCmd(cmdMul)] | ('-' >> term3)[addCmd(cmdDiv)]);
-bool ParseAdditive(char** str)
+
+bool ParseAdditive(Lexeme** str)
 {
 	if(!ParseMultiplicative(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == '+' || curr[0] == '-')
+	while(ParseLexem(str, lex_add) || ParseLexem(str, lex_sub))
 	{
-		char op = *curr;
-		curr++;
-		if(!ParseMultiplicative(&curr))
-			ThrowError("ERROR: expression not found after additive expression", curr);
-		CALLBACK((addCmd((CmdID)(op == '+' ? cmdAdd : cmdSub)))(*str, curr));
-		SKIP_SPACE(&curr);
+		char op = (*str)[-1].pos[0];
+		if(!ParseMultiplicative(str))
+			ThrowError("ERROR: expression not found after additive expression", (*str)->pos);
+		CALLBACK((addCmd((CmdID)(op == '+' ? cmdAdd : cmdSub)))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_1		=	term4 >> *((strP("<<") >> term4)[addCmd(cmdShl)] | (strP(">>") >> term4)[addCmd(cmdShr)]);
-bool ParseBinaryShift(char** str)
+
+bool ParseBinaryShift(Lexeme** str)
 {
 	if(!ParseAdditive(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while((curr[0] == '<' && curr[1] == '<') || (curr[0] == '>' && curr[1] == '>'))
+	while(ParseLexem(str, lex_shl) || ParseLexem(str, lex_shr))
 	{
-		char op = *curr;
-		curr += 2;
-		if(!ParseAdditive(&curr))
-			ThrowError("ERROR: expression not found after shift expression", curr);
-		CALLBACK((addCmd((CmdID)(op == '<' ? cmdShl : cmdShr)))(*str, curr));
-		SKIP_SPACE(&curr);
+		char op = (*str)[-1].pos[0];
+		if(!ParseAdditive(str))
+			ThrowError("ERROR: expression not found after shift expression", (*str)->pos);
+		CALLBACK((addCmd((CmdID)(op == '<' ? cmdShl : cmdShr)))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_2		=	term4_1 >> *(('<' >> term4_1)[addCmd(cmdLess)] | ('>' >> term4_1)[addCmd(cmdGreater)] | (strP("<=") >> term4_1)[addCmd(cmdLEqual)] | (strP(">=") >> term4_1)[addCmd(cmdGEqual)]);
-bool ParseComparision(char** str)
+
+bool ParseComparision(Lexeme** str)
 {
 	if(!ParseBinaryShift(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == '<' || curr[0] == '>')
+	while(ParseLexem(str, lex_less) || ParseLexem(str, lex_lequal) || ParseLexem(str, lex_greater) || ParseLexem(str, lex_gequal))
 	{
-		char op = *curr;
-		curr += curr[1] == '=' ? 2 : 1;
-		if(!ParseBinaryShift(&curr))
-			ThrowError("ERROR: expression not found after comparison expression", curr);
-		CALLBACK((addCmd((CmdID)(op == '<' ? (curr[1] == '=' ? cmdLEqual : cmdLess) : (curr[1] == '=' ? cmdGEqual : cmdGreater))))(*str, curr));
-		SKIP_SPACE(&curr);
+		char op = (*str)[-1].pos[0];
+		char op2 = (*str)[-1].pos[1];
+		if(!ParseBinaryShift(str))
+			ThrowError("ERROR: expression not found after comparison expression", (*str)->pos);
+		CALLBACK((addCmd((CmdID)(op == '<' ? (op2 == '=' ? cmdLEqual : cmdLess) : (op2 == '=' ? cmdGEqual : cmdGreater))))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_4		=	term4_2 >> *((strP("==") >> term4_2)[addCmd(cmdEqual)] | (strP("!=") >> term4_2)[addCmd(cmdNEqual)]);
-bool  ParseStrongComparision(char** str)
+
+bool  ParseStrongComparision(Lexeme** str)
 {
 	if(!ParseComparision(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while((curr[0] == '!' || curr[0] == '=') && curr[1] == '=')
+	while(ParseLexem(str, lex_equal) || ParseLexem(str, lex_nequal))
 	{
-		char op = *curr;
-		curr += 2;
-		if(!ParseComparision(&curr))
-			ThrowError("ERROR: expression not found after comparison expression", curr);
-		CALLBACK((addCmd((CmdID)(op == '=' ? cmdEqual : cmdNEqual)))(*str, curr));
-		SKIP_SPACE(&curr);
+		char op = (*str)[-1].pos[0];
+		if(!ParseComparision(str))
+			ThrowError("ERROR: expression not found after comparison expression", (*str)->pos);
+		CALLBACK((addCmd((CmdID)(op == '=' ? cmdEqual : cmdNEqual)))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_6		=	term4_4 >> *(strP("&") >> (term4_4 | epsP[ThrowError("ERROR: expression not found after &")]))[addCmd(cmdBitAnd)];
-bool ParseBinaryAnd(char** str)
+
+bool ParseBinaryAnd(Lexeme** str)
 {
 	if(!ParseStrongComparision(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == '&')
+	while(ParseLexem(str, lex_bitand))
 	{
-		curr++;
-		if(!ParseStrongComparision(&curr))
-			ThrowError("ERROR: expression not found after '&'", curr);
-		CALLBACK((addCmd(cmdBitAnd))(*str, curr));
-		SKIP_SPACE(&curr);
+		if(!ParseStrongComparision(str))
+			ThrowError("ERROR: expression not found after '&'", (*str)->pos);
+		CALLBACK((addCmd(cmdBitAnd))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_65	=	term4_6 >> *(strP("^") >> (term4_6 | epsP[ThrowError("ERROR: expression not found after ^")]))[addCmd(cmdBitXor)];
-bool ParseBinaryXor(char** str)
+
+bool ParseBinaryXor(Lexeme** str)
 {
 	if(!ParseBinaryAnd(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == '^')
+	while(ParseLexem(str, lex_bitxor))
 	{
-		curr++;
-		if(!ParseBinaryAnd(&curr))
-			ThrowError("ERROR: expression not found after '^'", curr);
-		CALLBACK((addCmd(cmdBitXor))(*str, curr));
-		SKIP_SPACE(&curr);
+		if(!ParseBinaryAnd(str))
+			ThrowError("ERROR: expression not found after '^'", (*str)->pos);
+		CALLBACK((addCmd(cmdBitXor))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_7		=	term4_65 >> *(strP("|") >> (term4_65 | epsP[ThrowError("ERROR: expression not found after |")]))[addCmd(cmdBitOr)];
-bool ParseBinaryOr(char** str)
+
+bool ParseBinaryOr(Lexeme** str)
 {
 	if(!ParseBinaryXor(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == '|')
+	while(ParseLexem(str, lex_bitor))
 	{
-		curr++;
-		if(!ParseBinaryXor(&curr))
-			ThrowError("ERROR: expression not found after '|'", curr);
-		CALLBACK((addCmd(cmdBitOr))(*str, curr));
-		SKIP_SPACE(&curr);
+		if(!ParseBinaryXor(str))
+			ThrowError("ERROR: expression not found after '|'", (*str)->pos);
+		CALLBACK((addCmd(cmdBitOr))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_75	=	term4_7 >> *(strP("and") >> (term4_7 | epsP[ThrowError("ERROR: expression not found after and")]))[addCmd(cmdLogAnd)];
-bool ParseLogicalAnd(char** str)
+
+bool ParseLogicalAnd(Lexeme** str)
 {
 	if(!ParseBinaryOr(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == 'a' && curr[1] == 'n' && curr[2] == 'd')
+	while(ParseLexem(str, lex_logand))
 	{
-		curr += 3;
-		if(!ParseBinaryOr(&curr))
-			ThrowError("ERROR: expression not found after 'and'", curr);
-		CALLBACK((addCmd(cmdLogAnd))(*str, curr));
-		SKIP_SPACE(&curr);
+		if(!ParseBinaryOr(str))
+			ThrowError("ERROR: expression not found after 'and'", (*str)->pos);
+		CALLBACK((addCmd(cmdLogAnd))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_8		=	term4_75 >> *(strP("xor") >> (term4_75 | epsP[ThrowError("ERROR: expression not found after xor")]))[addCmd(cmdLogXor)];
-bool ParseLogicalXor(char** str)
+
+bool ParseLogicalXor(Lexeme** str)
 {
 	if(!ParseLogicalAnd(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == 'x' && curr[1] == 'o' && curr[2] == 'r')
+	while(ParseLexem(str, lex_logxor))
 	{
-		curr += 3;
-		if(!ParseLogicalAnd(&curr))
-			ThrowError("ERROR: expression not found after 'xor'", curr);
-		CALLBACK((addCmd(cmdLogXor))(*str, curr));
-		SKIP_SPACE(&curr);
+		if(!ParseLogicalAnd(str))
+			ThrowError("ERROR: expression not found after 'xor'", (*str)->pos);
+		CALLBACK((addCmd(cmdLogXor))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_85	=	term4_8 >> *(strP("or") >> (term4_8 | epsP[ThrowError("ERROR: expression not found after or")]))[addCmd(cmdLogOr)];
-bool ParseLogicalOr(char** str)
+
+bool ParseLogicalOr(Lexeme** str)
 {
 	if(!ParseLogicalXor(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == 'o' && curr[1] == 'r')
+	while(ParseLexem(str, lex_logor))
 	{
-		curr += 2;
-		if(!ParseLogicalXor(&curr))
-			ThrowError("ERROR: expression not found after 'or'", curr);
-		CALLBACK((addCmd(cmdLogOr))(*str, curr));
-		SKIP_SPACE(&curr);
+		if(!ParseLogicalXor(str))
+			ThrowError("ERROR: expression not found after 'or'", (*str)->pos);
+		CALLBACK((addCmd(cmdLogOr))(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-//term4_9		=	term4_85 >> !('?' >> term5 >> ':' >> term5)[addIfElseTermNode];
-bool ParseTernaryExpr(char** str)
+
+bool ParseTernaryExpr(Lexeme** str)
 {
 	if(!ParseLogicalOr(str))
 		return false;
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(curr[0] == '?')
+	while(ParseLexem(str, lex_questionmark))
 	{
-		curr++;
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: expression not found after '?'", curr);
-		SKIP_SPACE(&curr);
-		if(*curr != ':')
-			ThrowError("ERROR: ':' not found after expression in ternary operator", curr);
-		curr++;
-		if(!ParseVaribleSet(&curr))
-			ThrowError("ERROR: expression not found after ':'", curr);
-		CALLBACK(addIfElseTermNode(*str, curr));
-		SKIP_SPACE(&curr);
+		if(!ParseVaribleSet(str))
+			ThrowError("ERROR: expression not found after '?'", (*str)->pos);
+		if(!ParseLexem(str, lex_colon))
+			ThrowError("ERROR: ':' not found after expression in ternary operator", (*str)->pos);
+		if(!ParseVaribleSet(str))
+			ThrowError("ERROR: expression not found after ':'", (*str)->pos);
+		CALLBACK(addIfElseTermNode(NULL, NULL));
 	}
-	*str = curr;
 	return true;
 }
-/* term5		=	(!(seltype) >>
-						variable >> (
-						(strP("=") >> term5)[AddSetVariableNode][popType] |
-						(strP("+=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '+='")]))[AddModifyVariable<cmdAdd>()][popType] |
-						(strP("-=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '-='")]))[AddModifyVariable<cmdSub>()][popType] |
-						(strP("*=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '*='")]))[AddModifyVariable<cmdMul>()][popType] |
-						(strP("/=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '/='")]))[AddModifyVariable<cmdDiv>()][popType] |
-						(strP("**=") >> (term5 | epsP[ThrowError("ERROR: expression not found after '**='")]))[AddModifyVariable<cmdPow>()][popType] |
-						(epsP[FailedSetVariable][popType] >> nothingP))
-						) |
-						term4_9;*/
-bool ParseVaribleSet(char** str)
+
+bool ParseVaribleSet(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	ParseSelectType(&curr);
-	if(!ParseVariable(&curr))
+	if(((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) || ((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
+		if(ParseFunctionDefinition(str))
+			return true;
+	
+	Lexeme *start = *str;
+	if(ParseVariable(str))
 	{
-		curr = *str;
-	}else{
-		SKIP_SPACE(&curr);
-		char *pos = curr;
-		if(curr[0] == '=')
+		char op = (*str)->pos[0];
+		if(ParseLexem(str, lex_set))
 		{
-			curr++;
-			if(ParseVaribleSet(&curr))
+			if(ParseVaribleSet(str))
 			{
-				CALLBACK(AddSetVariableNode(pos, curr));
-				CALLBACK(popType(pos, curr));
-				*str = curr;
+				CALLBACK(AddSetVariableNode(NULL, NULL));
+				CALLBACK(popType(NULL, NULL));
 				return true;
 			}else{
 				CALLBACK(FailedSetVariable(NULL, NULL));
 				CALLBACK(popType(NULL, NULL));
-				curr = *str;
+				*str = start;
 			}
-		}else if(curr[1] == '=' && (curr[0] == '+' || curr[0] == '-' || curr[0] == '*' || curr[0] == '/')){
-			char op = *curr;
-			curr += 2;
-			if(ParseVaribleSet(&curr))
+		}else if(ParseLexem(str, lex_addset) || ParseLexem(str, lex_subset) || ParseLexem(str, lex_mulset) || ParseLexem(str, lex_divset)){
+			if(ParseVaribleSet(str))
 			{
-				CALLBACK(AddModifyVariableNode(pos, curr, (CmdID)(op == '+' ? cmdAdd : (op == '-' ? cmdSub : (op == '*' ? cmdMul : cmdDiv)))));
-				CALLBACK(popType(pos, curr));
-				*str = curr;
+				CALLBACK(AddModifyVariableNode(NULL, NULL, (CmdID)(op == '+' ? cmdAdd : (op == '-' ? cmdSub : (op == '*' ? cmdMul : cmdDiv)))));
+				CALLBACK(popType(NULL, NULL));
 				return true;
 			}else{
-				ThrowError("ERROR: expression not found after assignment operator", *str);
+				ThrowError("ERROR: expression not found after assignment operator", (*str)->pos);
 			}
-		}else if(curr[0] == '*' && curr[1] == '*' && curr[2] == '='){
-			curr += 3;
-			if(ParseVaribleSet(&curr))
+		}else if(ParseLexem(str, lex_powset)){
+			if(ParseVaribleSet(str))
 			{
-				CALLBACK(AddModifyVariableNode(pos, curr, cmdPow));
-				CALLBACK(popType(pos, curr));
-				*str = curr;
+				CALLBACK(AddModifyVariableNode(NULL, NULL, cmdPow));
+				CALLBACK(popType(NULL, NULL));
 				return true;
 			}else{
-				ThrowError("ERROR: expression not found after '**='", *str);
+				ThrowError("ERROR: expression not found after '**='", (*str)->pos);
 			}
 		}else{
 			CALLBACK(FailedSetVariable(NULL, NULL));
 			CALLBACK(popType(NULL, NULL));
-			curr = *str;
+			*str = start;
 		}
 	}
-	if(!ParseTernaryExpr(&curr))
+	if(!ParseTernaryExpr(str))
 		return false;
-	*str = curr;
 	return true;
 }
-// block		=	chP('{')[blockBegin] >> (code | epsP[ThrowError("ERROR: {} block cannot be empty")]) >> chP('}')[blockEnd];
-bool  ParseBlock(char** str)
+
+bool ParseBlock(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(*curr != '{')
+	if(!ParseLexem(str, lex_ofigure))
 		return false;
-	CALLBACK(blockBegin(curr, curr));
-	curr++;
-	if(!ParseCode(&curr))
-		ThrowError("ERROR: {} block cannot be empty", *str);
-	SKIP_SPACE(&curr);
-	if(*curr != '}')
-		ThrowError("ERROR: closing '}' not found", *str);
-	CALLBACK(blockEnd(curr, curr));
-	curr++;
-	*str = curr;
+	CALLBACK(blockBegin(NULL, NULL));
+	if(!ParseCode(str))
+		ThrowError("ERROR: {} block cannot be empty", (*str)->pos);
+	if(!ParseLexem(str, lex_cfigure))
+		ThrowError("ERROR: closing '}' not found", (*str)->pos);
+	CALLBACK(blockEnd(NULL, NULL));
 	return true;
 }
-// expression	=	*chP(';') >> (classdef | (vardef >> +chP(';')) | block | breakexpr | continueExpr | ifexpr | 
-//					forexpr | whileexpr | doexpr | switchexpr | retexpr | (term5 >> (+chP(';')  | epsP[ThrowError("ERROR: ';' not found after expression")]))[addPopNode]);
-bool  ParseExpression(char** str)
+
+bool ParseExpression(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	while(*curr == ';')
-	{
-		curr++;
-		SKIP_SPACE(&curr);
-	}
-	*str = curr;
+	while(ParseLexem(str, lex_semicolon));
+
 	if(ParseClassDefinition(str))
 		return true;
 	if(ParseVariableDefine(str))
 	{
-		SKIP_SPACE(str);
-		if(**str != ';')
-			ThrowError("ERROR: ';' not found after variable definition", *str);
-		(*str)++;
+		if(!ParseLexem(str, lex_semicolon))
+			ThrowError("ERROR: ';' not found after variable definition", (*str)->pos);
 		return true;
 	}
 	if(ParseBlock(str))
@@ -1603,29 +1078,24 @@ bool  ParseExpression(char** str)
 		return true;
 	if(ParseVaribleSet(str))
 	{
-		SKIP_SPACE(str);
-		if(**str != ';')
-			ThrowError("ERROR: ';' not found after expression", *str);
-		CALLBACK(addPopNode(curr, *str));
-		(*str)++;
+		if(!ParseLexem(str, lex_semicolon))
+			ThrowError("ERROR: ';' not found after expression", (*str)->pos);
+		CALLBACK(addPopNode(NULL, NULL));
 		return true;
 	}
 	return false;
 }
-// code		=	((funcdef | expression) >> (code[addTwoExprNode] | epsP[addOneExprNode]));
-bool  ParseCode(char** str)
+
+bool  ParseCode(Lexeme** str)
 {
-	SKIP_SPACE(str);
-	char *curr = *str;
-	if(!ParseFunctionDefinition(&curr))
+	if(!ParseFunctionDefinition(str))
 	{
-		if(!ParseExpression(&curr))
+		if(!ParseExpression(str))
 			return false;
 	}
-	if(ParseCode(&curr))
-		CALLBACK(addTwoExprNode(curr, curr));
+	if(ParseCode(str))
+		CALLBACK(addTwoExprNode(NULL, NULL));
 	else
-		CALLBACK(addOneExprNode(curr, curr));
-	*str = curr;
+		CALLBACK(addOneExprNode(NULL, NULL));
 	return true;
 }

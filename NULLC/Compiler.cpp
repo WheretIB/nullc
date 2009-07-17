@@ -360,10 +360,12 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 
 	bool res;
 
-	char* temp = (char*)prototype;
+	lexer.Lexify(prototype);
+
 	if(!setjmp(errorHandler))
 	{
-		res = ParseFunctionPrototype(&temp);
+		Lexeme *start = lexer.GetStreamStart();
+		res = ParseFunctionPrototype(&start);
 	}else{
 		lastError = CompilerError("Parsing failed", NULL);
 		return false;
@@ -448,50 +450,18 @@ bool Compiler::Compile(string str)
 	FILE *fTime = fopen("time.txt", "wb");
 #endif
 
-	char *codeClean = new char[str.length()+1];
-	memcpy(codeClean, str.c_str(), str.length()+1);
-	char *curr = codeClean, *end = codeClean + str.length();
-	while(curr < end)
-	{
-		if(*curr < ' ')
-			*curr = ' ';
-		else if(*curr == '/')
-		{
-			if(curr[1] == '/')
-			{
-				while(*curr != '\n' && curr[0] != '\0')
-				{
-					*curr = ' ';
-					curr++;
-				}
-				if(curr[0] != '\0')
-					*curr = ' ';
-			}else if(curr[1] == '*'){
-				while(!(curr[0] == '*' && curr[1] == '/') && curr[0] != '\0')
-				{
-					*curr = ' ';
-					curr++;
-				}
-				if(curr[0] != '\0')
-					curr[0] = ' ';
-				if(curr[1] != '\0')
-					curr[1] = ' ';
-				curr += 2;
-			}
-		}
-		curr++;
-	}
-
-	CompilerError::codeStart = codeClean;
+	CompilerError::codeStart = ptr;
 
 	unsigned int t = clock();
 
+	lexer.Lexify(ptr);
+
 	bool res;
 
-	char* temp = (char*)codeClean;
 	if(!setjmp(errorHandler))
 	{
-		res = ParseCode(&temp);
+		Lexeme *start = lexer.GetStreamStart();
+		res = ParseCode(&start);
 	}else{
 		return false;
 	}

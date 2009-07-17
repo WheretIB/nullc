@@ -172,7 +172,7 @@ void addNumberNodeFloat(char const*s, char const*e)
 void addNumberNodeLong(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e-1, 10), typeLong));
+	nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e, 10), typeLong));
 }
 void addNumberNodeDouble(char const*s, char const*e)
 {
@@ -210,7 +210,6 @@ void addOctInt(char const*s, char const*e)
 
 void addBinInt(char const*s, char const*e)
 {
-	e--;
 	if(int(e-s) > 64)
 		ThrowError("ERROR: Overflow in binary constant", s);
 	if(int(e-s) <= 32)
