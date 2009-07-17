@@ -11,13 +11,13 @@ class FunctionInfo;
 class FunctionType
 {
 public:
-	FunctionType()
+	FunctionType():paramType(16)
 	{
 		retType = NULL;
 	}
 
 	TypeInfo	*retType;
-	vector<TypeInfo*>	paramType;
+	FastVector<TypeInfo*>	paramType;
 };
 
 //Information about type
@@ -175,6 +175,7 @@ public:
 class VarTopInfo
 {
 public:
+	VarTopInfo(){}
 	VarTopInfo(unsigned int activeVariableCount, unsigned int variableStackSize)
 	{
 		activeVarCnt = activeVariableCount;

@@ -539,9 +539,8 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeSwitchExpr; }
 protected:
-	std::vector<NodeZeroOP*>	caseCondList;
-	std::vector<NodeZeroOP*>	caseBlockList;
-	typedef std::vector<NodeZeroOP*>::iterator casePtr;
+	FastVector<NodeZeroOP*>	caseCondList;
+	FastVector<NodeZeroOP*>	caseBlockList;
 };
 
 class NodeExpressionList: public NodeZeroOP
@@ -558,8 +557,7 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeExpressionList; }
 protected:
-	std::vector<NodeZeroOP*>	exprList;
-	typedef std::vector<NodeZeroOP*>::iterator listPtr;
+	FastVector<NodeZeroOP*>	exprList;
 };
 
 class NodeFuncCall: public NodeTwoOP
