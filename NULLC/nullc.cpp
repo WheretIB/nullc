@@ -21,10 +21,10 @@ std::vector<VariableInfo*>	CodeInfo::varInfo;
 FastVector<TypeInfo*>		CodeInfo::typeInfo(64);
 CommandList*				CodeInfo::cmdInfoList = NULL;
 FastVector<VMCmd>			CodeInfo::cmdList;
-std::vector<NodeZeroOP*>	CodeInfo::nodeList;
+FastVector<NodeZeroOP*>		CodeInfo::nodeList(64);
 unsigned int				CodeInfo::globalSize = 0;
 unsigned int				CodeInfo::varTop = 0;
-std::vector<NodeZeroOP*>	CodeInfo::funcDefList;
+FastVector<NodeZeroOP*>		CodeInfo::funcDefList(32);
 const char*					CodeInfo::lastKnownStartPos = NULL;
 
 Compiler*	compiler;

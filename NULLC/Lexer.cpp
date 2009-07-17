@@ -1,10 +1,5 @@
 #include "Lexer.h"
 
-// 	lex_none,
-// 	lex_number, lex_string,
-
-
-
 void	SkipSpace(const char** str)
 {
 	for(;;)

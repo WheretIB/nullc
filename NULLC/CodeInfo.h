@@ -52,7 +52,7 @@ namespace CodeInfo
 	extern unsigned int				varTop;
 
 	// —писок узлов, которые определ€ют код функции
-	extern std::vector<NodeZeroOP*>	funcDefList;
+	extern FastVector<NodeZeroOP*>	funcDefList;
 
 	// —писок узлов дерева
 	// ќтдельные узлы помещаютс€ сюда, и в дальнейшем объеден€ютс€ в более комплексные узлы,
@@ -60,7 +60,7 @@ namespace CodeInfo
 	// Node tree list
 	// Individual nodes are placed here, and later on, combined into a more complex nodes, 
 	// creating AST. After successful compilation, node count should be equal to 1
-	extern std::vector<NodeZeroOP*>	nodeList;
+	extern FastVector<NodeZeroOP*>	nodeList;
 
 	extern const char* lastKnownStartPos;
 

@@ -26,31 +26,31 @@ std::vector<std::string>	strs;
 
 // Информация о вершинах стека переменных. При компиляции он служит для того, чтобы
 // Удалять информацию о переменных, когда они выходят из области видимости
-std::vector<VarTopInfo>		varInfoTop;
+FastVector<VarTopInfo>		varInfoTop(64);
 
 // Некоторые конструкции допускают оператор break, который должен знать, на сколько сдвинуть базу стека
 // переменных, чтобы привести её в то состояние, в которым она находилась бы, если бы конструкция
 // завершилась без преждевременного выхода. Этот стек (конструкции могут быть вложенными) хранит размер
 // varInfoTop.
-std::vector<unsigned int>			cycleBeginVarTop;
+FastVector<unsigned int>			cycleBeginVarTop(64);
 
 // Информация о количестве определённых функций на разных вложенностях блоков.
 // Служит для того чтобы убирать функции по мере выхода из области видимости.
-std::vector<unsigned int>			funcInfoTop;
+FastVector<unsigned int>			funcInfoTop(64);
 
 // Стек, который хранит типы значений, которые возвращает функция.
 // Функции можно определять одну в другой
-std::vector<TypeInfo*>		retTypeStack;
+FastVector<TypeInfo*>		retTypeStack(64);
 
 // Информация о типе текущей переменной
 TypeInfo*	currType = NULL;
 // Стек для конструкций arr[arr[i.a.b].y].x;
-std::vector<TypeInfo*>	currTypes;
+FastVector<TypeInfo*>		currTypes(64);
 
 // Для определения новых типов
 TypeInfo *newType = NULL;
 
-std::vector<FunctionInfo*>	currDefinedFunc;
+FastVector<FunctionInfo*>	currDefinedFunc(64);
 
 void SetTypeConst(bool isConst)
 {
@@ -95,14 +95,10 @@ long long parseInteger(char const* s, char const* e, int base)
 // Проверяет, явлеется ли идентификатор зарезервированным или уже занятым
 void checkIfDeclared(const std::string& str)
 {
-	if(str == "if" || str == "else" || str == "for" || str == "while" || str == "return" || str=="switch" || str=="case")
-	{
-		sprintf(callbackError, "ERROR: The name '%s' is reserved", str.c_str());
-		ThrowError(callbackError, lastKnownStartPos);
-	}
+	unsigned int hash = GetStringHash(str.c_str());
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
-		if(funcInfo[i]->name == str && funcInfo[i]->visible)
+		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible)
 		{
 			sprintf(callbackError, "ERROR: Name '%s' is already taken for a function", str.c_str());
 			ThrowError(callbackError, lastKnownStartPos);
@@ -759,7 +755,7 @@ void addReturnNode(char const* s, char const* e)
 void addBreakNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
-	if(cycleBeginVarTop.empty())
+	if(cycleBeginVarTop.size() == 0)
 		ThrowError("ERROR: break used outside loop statements", s);
 	int t = (int)varInfoTop.size();
 	int c = 0;
@@ -774,7 +770,7 @@ void addBreakNode(char const* s, char const* e)
 void AddContinueNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
-	if(cycleBeginVarTop.empty())
+	if(cycleBeginVarTop.size() == 0)
 		ThrowError("ERROR: continue used outside loop statements", s);
 	int t = (int)varInfoTop.size();
 	int c = 0;
@@ -1899,13 +1895,13 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 		fType = nodeList.back()->GetTypeInfo()->funcType;
 	}
 
-	vector<NodeZeroOP*> paramNodes;
+	FastVector<NodeZeroOP*> paramNodes;
 	for(unsigned int i = 0; i < fType->paramType.size(); i++)
 	{
 		paramNodes.push_back(nodeList.back());
 		nodeList.pop_back();
 	}
-	vector<NodeZeroOP*> inplaceArray;
+	FastVector<NodeZeroOP*> inplaceArray;
 
 	for(unsigned int i = 0; i < fType->paramType.size(); i++)
 	{

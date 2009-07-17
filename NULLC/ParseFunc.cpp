@@ -20,8 +20,8 @@ NodeZeroOP*	TakeLastNode()
 	return last;
 }
 
-std::vector<unsigned int>	breakAddr;
-std::vector<unsigned int>	continueAddr;
+FastVector<unsigned int>	breakAddr(64);
+FastVector<unsigned int>	continueAddr(64);
 
 static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "bin.and", "bin.or", "bin.xor", "log.and", "log.or", "log.xor"};
 
@@ -2076,19 +2076,17 @@ unsigned int NodeContinueOp::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, определяющий код для switch
-NodeSwitchExpr::NodeSwitchExpr()
+NodeSwitchExpr::NodeSwitchExpr():caseCondList(8), caseBlockList(8)
 {
 	// Возьмём узел с условием
 	first = TakeLastNode();
 }
 NodeSwitchExpr::~NodeSwitchExpr()
 {
-	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
-	casePtr block = caseBlockList.begin(), eblocl = caseBlockList.end();
-	for(; cond != econd; cond++, block++)
+	for(unsigned int i = 0; i < caseCondList.size(); i++)
 	{
-		delete *cond;
-		delete *block;
+		delete caseCondList[i];
+		delete caseBlockList[i];
 	}
 }
 
@@ -2113,28 +2111,26 @@ void NodeSwitchExpr::Compile()
 
 	// Найдём конец свитча
 	unsigned int switchEnd = cmdList.size() + 2 + caseCondList.size() * 3;
-	for(casePtr s = caseCondList.begin(), e = caseCondList.end(); s != e; s++)
-		switchEnd += (*s)->GetSize();
+	for(unsigned int i = 0; i < caseCondList.size(); i++)
+		switchEnd += caseCondList[i]->GetSize();
 	unsigned int condEnd = switchEnd;
 	unsigned int blockNum = 0;
-	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
-		switchEnd += (*s)->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
+	for(unsigned int i = 0; i < caseBlockList.size(); i++, blockNum++)
+		switchEnd += caseBlockList[i]->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
 
 	// Сохраним адрес для оператора break;
 	breakAddr.push_back(switchEnd+1);
 
 	// Сгенерируем код для всех case'ов
-	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
-	casePtr block = caseBlockList.begin(), eblocl = caseBlockList.end();
 	unsigned int caseAddr = condEnd;
-	for(; cond != econd; cond++, block++)
+	for(unsigned int i = 0; i < caseCondList.size(); i++)
 	{
 		if(aOT == OTYPE_INT)
 			cmdList.push_back(VMCmd(cmdCopyI));
 		else
 			cmdList.push_back(VMCmd(cmdCopyDorL));
 
-		(*cond)->Compile();
+		caseCondList[i]->Compile();
 		// Сравним на равенство
 		if(aOT == OTYPE_INT)
 			cmdList.push_back(VMCmd(cmdEqual));
@@ -2144,18 +2140,18 @@ void NodeSwitchExpr::Compile()
 			cmdList.push_back(VMCmd(cmdEqualL));
 		// Если равны, перейдём на нужный кейс
 		cmdList.push_back(VMCmd(cmdJmpNZType[aOT], caseAddr));
-		caseAddr += (*block)->GetSize() + 2;
+		caseAddr += caseBlockList[i]->GetSize() + 2;
 	}
 	// Уберём с вершины стека значение по которому выбирался вариант кода
 	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 
 	cmdList.push_back(VMCmd(cmdJmp, switchEnd));
 	blockNum = 0;
-	for(block = caseBlockList.begin(), eblocl = caseBlockList.end(); block != eblocl; block++, blockNum++)
+	for(unsigned int i = 0; i < caseBlockList.size(); i++, blockNum++)
 	{
 		// Уберём с вершины стека значение по которому выбирался вариант кода
 		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
-		(*block)->Compile();
+		caseBlockList[i]->Compile();
 		if(blockNum != caseBlockList.size()-1)
 		{
 			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 2));
@@ -2175,17 +2171,15 @@ void NodeSwitchExpr::LogToStream(FILE *fGraph)
 	fprintf(fGraph, "%s SwitchExpression :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
 	first->LogToStream(fGraph);
-	casePtr cond = caseCondList.begin(), econd = caseCondList.end();
-	casePtr block = caseBlockList.begin(), eblocl = caseBlockList.end();
-	for(; cond != econd; cond++, block++)
+	for(unsigned int i = 0; i < caseCondList.size(); i++)
 	{
-		(*cond)->LogToStream(fGraph);
-		if(block == --caseBlockList.end())
+		caseCondList[i]->LogToStream(fGraph);
+		if(i == caseCondList.size()-1)
 		{
 			GoUp();
 			GoDownB();
 		}
-		(*block)->LogToStream(fGraph);
+		caseBlockList[i]->LogToStream(fGraph);
 	}
 	GoUp();
 }
@@ -2193,11 +2187,11 @@ unsigned int NodeSwitchExpr::GetSize()
 {
 	unsigned int size = 0;
 	size += first->GetSize();
-	for(casePtr s = caseCondList.begin(), e = caseCondList.end(); s != e; s++)
-		size += (*s)->GetSize();
+	for(unsigned int i = 0; i < caseCondList.size(); i++)
+		size += caseCondList[i]->GetSize();
 	unsigned int blockNum = 0;
-	for(casePtr s = caseBlockList.begin(), e = caseBlockList.end(); s != e; s++, blockNum++)
-		size += (*s)->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
+	for(unsigned int i = 0; i < caseBlockList.size(); i++, blockNum++)
+		size += caseBlockList[i]->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
 	size += 4;
 	size += (unsigned int)caseCondList.size() * 3;
 	return size;
@@ -2205,34 +2199,42 @@ unsigned int NodeSwitchExpr::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, содержащий список выражений.
-NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
+NodeExpressionList::NodeExpressionList(TypeInfo *returnType):exprList(8)
 {
 	typeInfo = returnType;
 	exprList.push_back(TakeLastNode());
 }
 NodeExpressionList::~NodeExpressionList()
 {
-	for(listPtr s = exprList.begin(), e = exprList.end(); s != e; s++)
-		delete *s;
+	for(unsigned int i = 0; i < exprList.size(); i++)
+		delete exprList[i];
 }
 
 void NodeExpressionList::AddNode(bool reverse)
 {
-	exprList.insert(reverse ? exprList.begin() : exprList.end(), TakeLastNode());
+	if(exprList.size() == 0 || !reverse)
+	{
+		exprList.push_back(TakeLastNode());
+		return;
+	}else{
+		exprList.push_back(NULL);
+		memmove(&exprList[1], &exprList[0], sizeof(NodeZeroOP*) * (exprList.size()-1));
+		exprList[0] = TakeLastNode();
+	}
 }
 
 NodeZeroOP* NodeExpressionList::GetFirstNode()
 {
-	assert(!exprList.empty());
-	return *(exprList.begin());
+	assert(exprList.size() != 0);
+	return exprList[0];
 }
 
 void NodeExpressionList::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	for(listPtr s = exprList.begin(), e = exprList.end(); s != e; s++)
-		(*s)->Compile();
+	for(unsigned int i = 0; i < exprList.size(); i++)
+		exprList[i]->Compile();
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
@@ -2241,22 +2243,21 @@ void NodeExpressionList::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s NodeExpressionList :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	listPtr s, e;
-	for(s = exprList.begin(), e = exprList.end(); s != e; s++)
+	for(unsigned int i = 0; i < exprList.size(); i++)
 	{
-		if(s == --exprList.end())
+		if(i == exprList.size()-1)
 		{
 			GoUp();
 			GoDownB();
 		}
-		(*s)->LogToStream(fGraph);
+		exprList[i]->LogToStream(fGraph);
 	}
 	GoUp();
 }
 unsigned int NodeExpressionList::GetSize()
 {
 	unsigned int size = 0;
-	for(listPtr s = exprList.begin(), e = exprList.end(); s != e; s++)
-		size += (*s)->GetSize();
+	for(unsigned int i = 0; i < exprList.size(); i++)
+		size += exprList[i]->GetSize();
 	return size;
 }

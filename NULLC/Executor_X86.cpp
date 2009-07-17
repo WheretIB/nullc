@@ -403,8 +403,8 @@ bool ExecutorX86::TranslateToNative()
 
 	unsigned int pos = 0;
 
-	vector<unsigned int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
-	vector<unsigned int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
+	FastVector<unsigned int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
+	FastVector<unsigned int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
 
 	globalStartInBytecode = 0xffffffff;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
