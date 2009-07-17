@@ -83,8 +83,6 @@ struct ByteCode
 //	char			code[codeSize];
 };
 
-unsigned int GetStringHash(const char *str);
-
 void	BytecodeFixup(ByteCode *code);
 
 ExternTypeInfo*	FindFirstType(ByteCode *code);

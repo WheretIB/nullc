@@ -113,9 +113,10 @@ namespace ColorerGrammar
 		TypeNameP(Rule a): m_a(a.getPtr()){ }
 		virtual ~TypeNameP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			char* curr = *str;
 			m_a->Parse(str, NULL);
 			if(curr == *str)
@@ -130,44 +131,31 @@ namespace ColorerGrammar
 		Rule m_a;
 	};
 	Rule	typenameP(Rule a){ return Rule(new TypeNameP(a)); }
-	class MySpaceP: public BaseP
-	{
-	public:
-		MySpaceP(){ }
-		virtual ~MySpaceP(){ }
+	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
 
-		virtual bool	Parse(char** str, BaseP* space)
+	void	ParseSpace(char** str)
+	{
+		for(;;)
 		{
-			for(;;)
-			{
-				while((unsigned char)((*str)[0] - 1) < ' ')
-					(*str)++;
-				if((*str)[0] == '/'){
-					if((*str)[1] == '/')
-					{
-						char *start = *str;
-						while((*str)[0] != '\n' && (*str)[0] != '\0')
-							(*str)++;
-						ColorComment(start, *str);
-					}else if((*str)[1] == '*'){
-						char *start = *str;
-						while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
-							(*str)++;
-						(*str) += 2;
-						ColorComment(start, *str);
-					}else{
-						break;
-					}
+			while((unsigned char)((*str)[0] - 1) < ' ')
+				(*str)++;
+			if((*str)[0] == '/'){
+				if((*str)[1] == '/')
+				{
+					while((*str)[0] != '\n' && (*str)[0] != '\0')
+						(*str)++;
+				}else if((*str)[1] == '*'){
+					while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
+						(*str)++;
+					(*str) += 2;
 				}else{
 					break;
 				}
+			}else{
+				break;
 			}
-			return true;
 		}
-	protected:
-	};
-	Rule	myspaceP(){ return Rule(new MySpaceP()); }
-	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
+	}
 
 	class Grammar
 	{
@@ -386,8 +374,6 @@ namespace ColorerGrammar
 			block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
 			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));
 			code	=	*(funcdef | expr);
-
-			mySpaceP = myspaceP();
 		}
 		void DeInitGrammar()
 		{
@@ -398,9 +384,8 @@ namespace ColorerGrammar
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, funcvars;
 		Rule appval, varname, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName;
-		// Main rule and space parsers
+		// Main rule
 		Rule code;
-		Rule mySpaceP;
 	};
 
 	bool CheckIfDeclared(const std::string& str, bool forFunction = false)
@@ -686,7 +671,7 @@ bool Colorer::ColorText()
 	errUnderline = false;
 	ColorCode(255,0,0,0,0,0, strBuf, strBuf+strlen(strBuf));
 
-	ParseResult pRes = Parse(syntax->code, strBuf, syntax->mySpaceP);
+	ParseResult pRes = Parse(syntax->code, strBuf, ColorerGrammar::ParseSpace);
 	if(pRes == PARSE_ABORTED)
 	{
 		lastError = ColorerGrammar::lastError;

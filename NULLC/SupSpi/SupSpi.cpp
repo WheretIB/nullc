@@ -35,15 +35,6 @@ namespace supspi
 	ActionPolicy		GetActionPolicy(){ return actionPol; }
 	void				SetActionPolicy(ActionPolicy pol){ actionPol = pol; }
 
-	void	SkipSpaces(char** str, BaseP* space)
-	{
-		AlternativePolicy old = alerPol;
-		alerPol = ALTER_STANDART;
-		if(space)
-			space->Parse(str, NULL);
-		alerPol = old;
-	}
-
 	Rule	chP(char ch){ return Rule(new ChlitP(ch)); }
 	Rule	strP(char* str){ return Rule(new StrlitP(str)); }
 
@@ -63,17 +54,17 @@ namespace supspi
 
 	Rule	operator ~	(Rule a){ return Rule(new NegateP(a)); }
 
-	ParseResult	Parse(const Rule& main, char* str, const Rule& space, bool skipAction)
+	ParseResult	Parse(const Rule& main, char* str, SpaceRule space, bool skipAction)
 	{
 		BaseP::continueParse = true;
 		SetAlterPolicy(ALTER_STANDART);
 		SetActionPolicy(skipAction ? ACTION_NONE : ACTION_STANDART);
 		char* temp = str;
-		bool res = main->Parse(&temp, space.getParser());
+		bool res = main->Parse(&temp, space);
 		if(!BaseP::continueParse)
 			return PARSE_ABORTED;
 		if(res)
-			SkipSpaces(&temp, space.getParser());
+			space(&temp);
 		if(!res)
 			return PARSE_FAILED;
 		if(res && strlen(temp))

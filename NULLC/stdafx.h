@@ -13,19 +13,23 @@
 #include "nullcdef.h"
 
 #include <stdlib.h>
+#include <setjmp.h>
 
+#include <set>
 #include <vector>
-
 #include <string>
+using namespace std;
 
 #include <math.h>
-using namespace std;
 
 #include <assert.h>
 #ifdef NDEBUG
 #undef assert
 #define assert(expr)	((void)sizeof(!(expr)))
 #endif
+
+unsigned int GetStringHash(const char *str);
+unsigned int GetStringHash(const char *str, const char *end);
 
 template<typename T, bool zeroNewMemory = false>
 class FastVector

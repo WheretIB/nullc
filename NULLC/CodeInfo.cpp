@@ -1,5 +1,16 @@
 #include "stdafx.h"
 #include "CodeInfo.h"
+#include "Bytecode.h"
+
+void ThrowError(const char* err, const char* pos)
+{
+	CodeInfo::lastError = CompilerError(err, pos);
+	longjmp(CodeInfo::errorHandler, 1);
+}
+void ThrowLastError()
+{
+	longjmp(CodeInfo::errorHandler, 1);
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Функция возвращает тип - указателя на исходный
@@ -17,6 +28,7 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 	// Создадим новый тип
 	TypeInfo* newInfo = new TypeInfo();
 	newInfo->name = type->name;
+	newInfo->nameHash = GetStringHash(newInfo->name.c_str());
 	newInfo->size = 4;
 	newInfo->type = TypeInfo::TYPE_INT;
 	newInfo->refLevel = type->refLevel + 1;
@@ -96,6 +108,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	// Создадим новый тип
 	TypeInfo* newInfo = new TypeInfo();
 	newInfo->name = type->name;
+	newInfo->nameHash = GetStringHash(newInfo->name.c_str());
 
 	if(unFixed)
 	{

@@ -5,6 +5,19 @@
 
 #include "Compiler.h"
 
+void ThrowError(const char* err, const char* pos);
+void ThrowLastError();
+
+// Немного предопределённых базовых типов
+extern TypeInfo*	typeVoid;
+extern TypeInfo*	typeChar;
+extern TypeInfo*	typeShort;
+extern TypeInfo*	typeInt;
+extern TypeInfo*	typeFloat;
+extern TypeInfo*	typeLong;
+extern TypeInfo*	typeDouble;
+extern TypeInfo*	typeFile;
+
 // Информация о коде, используемых функциях, переменных, типов.
 namespace CodeInfo
 {
@@ -25,7 +38,7 @@ namespace CodeInfo
 
 	// Информация о типах
 	// Information about types
-	extern std::vector<TypeInfo*>		typeInfo;
+	extern FastVector<TypeInfo*>		typeInfo;
 
 	// Поток комманд
 	// Command stream
@@ -34,6 +47,12 @@ namespace CodeInfo
 
 	// The size of all global variables in bytes
 	extern unsigned int				globalSize;
+
+	// вершина стека переменных
+	extern unsigned int				varTop;
+
+	// Список узлов, которые определяют код функции
+	extern std::vector<NodeZeroOP*>	funcDefList;
 
 	// Список узлов дерева
 	// Отдельные узлы помещаются сюда, и в дальнейшем объеденяются в более комплексные узлы,
@@ -44,6 +63,8 @@ namespace CodeInfo
 	extern std::vector<NodeZeroOP*>	nodeList;
 
 	extern const char* lastKnownStartPos;
+
+	extern jmp_buf	errorHandler;
 
 	//////////////////////////////////////////////////////////////////////////
 	// Функция возвращает тип - указателя на исходный
