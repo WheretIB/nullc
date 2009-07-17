@@ -1,61 +1,59 @@
 #pragma once
 #include "stdafx.h"
+#include "Lexer.h"
 
-void ParseSpace(char** str);
+bool ParseTypename(Lexeme** str);
 
-bool ParseTypename(char** str);
+bool ParseNumber(Lexeme** str);
+bool ParseArrayDefinition(Lexeme** str);
+bool ParseSelectType(Lexeme** str);
+bool ParseIsConst(Lexeme** str);
 
-bool ParseNumber(char** str);
-bool ParseArrayDefinition(char** str);
-bool ParseSelectType(char** str);
-bool ParseIsConst(char** str);
-bool ParseVariableName(char** str);
+bool ParseClassDefinition(Lexeme** str);
 
-bool ParseClassDefinition(char** str);
+bool ParseFunctionCall(Lexeme** str);
 
-bool ParseFunctionCall(char** str);
+bool ParseFunctionVariables(Lexeme** str);
+bool ParseFunctionDefinition(Lexeme** str);
+bool ParseFunctionPrototype(Lexeme** str);
 
-bool ParseFunctionVariables(char** str);
-bool ParseFunctionDefinition(char** str);
-bool ParseFunctionPrototype(char** str);
+bool ParseAlignment(Lexeme** str);
 
-bool ParseAlignment(char** str);
+bool ParseAddVariable(Lexeme** str);
+bool ParseVariableDefineSub(Lexeme** str);
+bool ParseVariableDefine(Lexeme** str);
 
-bool ParseAddVariable(char** str);
-bool ParseVariableDefineSub(char** str);
-bool ParseVariableDefine(char** str);
+bool ParseIfExpr(Lexeme** str);
+bool ParseForExpr(Lexeme** str);
+bool ParseWhileExpr(Lexeme** str);
+bool ParseDoWhileExpr(Lexeme** str);
+bool ParseSwitchExpr(Lexeme** str);
 
-bool ParseIfExpr(char** str);
-bool ParseForExpr(char** str);
-bool ParseWhileExpr(char** str);
-bool ParseDoWhileExpr(char** str);
-bool ParseSwitchExpr(char** str);
+bool ParseReturnExpr(Lexeme** str);
+bool ParseBreakExpr(Lexeme** str);
+bool ParseContinueExpr(Lexeme** str);
 
-bool ParseReturnExpr(char** str);
-bool ParseBreakExpr(char** str);
-bool ParseContinueExpr(char** str);
+bool ParseGroup(Lexeme** str);
 
-bool ParseGroup(char** str);
+bool ParseVariable(Lexeme** str);
+bool ParsePostExpression(Lexeme** str);
 
-bool ParseVariable(char** str);
-bool ParsePostExpression(char** str);
+bool ParseTerminal(Lexeme** str);
+bool ParsePower(Lexeme** str);
+bool ParseMultiplicative(Lexeme** str);
+bool ParseAdditive(Lexeme** str);
+bool ParseBinaryShift(Lexeme** str);
+bool ParseComparision(Lexeme** str);
+bool ParseStrongComparision(Lexeme** str);
+bool ParseBinaryAnd(Lexeme** str);
+bool ParseBinaryXor(Lexeme** str);
+bool ParseBinaryOr(Lexeme** str);
+bool ParseLogicalAnd(Lexeme** str);
+bool ParseLogicalXor(Lexeme** str);
+bool ParseLogicalOr(Lexeme** str);
+bool ParseTernaryExpr(Lexeme** str);
+bool ParseVaribleSet(Lexeme** str);
 
-bool ParseTerminal(char** str);
-bool ParsePower(char** str);
-bool ParseMultiplicative(char** str);
-bool ParseAdditive(char** str);
-bool ParseBinaryShift(char** str);
-bool ParseComparision(char** str);
-bool ParseStrongComparision(char** str);
-bool ParseBinaryAnd(char** str);
-bool ParseBinaryXor(char** str);
-bool ParseBinaryOr(char** str);
-bool ParseLogicalAnd(char** str);
-bool ParseLogicalXor(char** str);
-bool ParseLogicalOr(char** str);
-bool ParseTernaryExpr(char** str);
-bool ParseVaribleSet(char** str);
-
-bool ParseBlock(char** str);
-bool ParseExpression(char** str);
-bool ParseCode(char** str);
+bool ParseBlock(Lexeme** str);
+bool ParseExpression(Lexeme** str);
+bool ParseCode(Lexeme** str);

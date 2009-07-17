@@ -39,13 +39,21 @@ void	Lexer::Lexify(const char* code)
 		if(!*code)
 			break;
 
-		LexemType lType = lex_none;
+		LexemeType lType = lex_none;
 		int lLength = 0;
 
 		switch(*code)
 		{
 		case '\"':
-			lType = lex_quote;
+			lType = lex_quotedstring;
+			{
+				const char *pos = code;
+				pos++;
+				while(!(*pos == '\"' && pos[-1] != '\\'))
+					pos++;
+				pos++;
+				lLength = (int)(pos - code);
+			}
 			break;
 		case '\'':
 			lType = lex_semiquote;
@@ -63,11 +71,15 @@ void	Lexer::Lexify(const char* code)
 			lType = lex_add;
 			if(code[1] == '=')
 				lType = lex_addset;
+			else if(code[1] == '+')
+				lType = lex_inc;
 			break;
 		case '-':
 			lType = lex_sub;
 			if(code[1] == '=')
 				lType = lex_subset;
+			else if(code[1] == '-')
+				lType = lex_dec;
 			break;
 		case '*':
 			lType = lex_mul;
@@ -92,11 +104,15 @@ void	Lexer::Lexify(const char* code)
 			lType = lex_less;
 			if(code[1] == '=')
 				lType = lex_lequal;
+			else if(code[1] == '<')
+				lType = lex_shl;
 			break;
 		case '>':
 			lType = lex_greater;
 			if(code[1] == '=')
 				lType = lex_gequal;
+			else if(code[1] == '>')
+				lType = lex_shr;
 			break;
 		case '=':
 			lType = lex_set;
@@ -156,14 +172,14 @@ void	Lexer::Lexify(const char* code)
 				if(pos[0] == '0' && pos[1] == 'x')
 				{
 					pos += 2;
-					while(isDigit(*pos) || ((*pos & 0x20) >= 'A' && (*pos & 0x20) <= 'F'))
-					pos++;
+					while(isDigit(*pos) || ((*pos & ~0x20) >= 'A' && (*pos & ~0x20) <= 'F'))
+						pos++;
 				}else{
 					while(isDigit(*pos))
 						pos++;
 				}
 				/*if(*pos == 'b' || *pos == 'l' || *pos == 'f')
-					pos++;
+					pos++;*/
 				if(*pos == '.')
 					pos++;
 				while(isDigit(*pos))
@@ -171,7 +187,7 @@ void	Lexer::Lexify(const char* code)
 				if(*pos == 'e')
 					pos++;
 				while(isDigit(*pos))
-					pos++;*/
+					pos++;
 				lLength = (int)(pos - code);
 			}else if(chartype_table[*code] & ct_start_symbol){
 				const char *pos = code;
@@ -206,6 +222,18 @@ void	Lexer::Lexify(const char* code)
 						lType = lex_continue;
 					else if(lLength == 6 && memcmp(code, "return", 6) == 0)
 						lType = lex_return;
+					else if(lLength == 5 && memcmp(code, "const", 5) == 0)
+						lType = lex_const;
+					else if(lLength == 3 && memcmp(code, "ref", 3) == 0)
+						lType = lex_ref;
+					else if(lLength == 4 && memcmp(code, "auto", 4) == 0)
+						lType = lex_auto;
+					else if(lLength == 5 && memcmp(code, "class", 5) == 0)
+						lType = lex_class;
+					else if(lLength == 7 && memcmp(code, "noalign", 7) == 0)
+						lType = lex_noalign;
+					else if(lLength == 5 && memcmp(code, "align", 5) == 0)
+						lType = lex_align;
 					else if(lLength == 6 && memcmp(code, "typeof", 6) == 0)
 						lType = lex_typeof;
 					else if(lLength == 6 && memcmp(code, "sizeof", 6) == 0)
@@ -227,7 +255,7 @@ void	Lexer::Lexify(const char* code)
 		if(!lLength)
 			lLength = lexemLength[lType];
 
-		Lexem lex;
+		Lexeme lex;
 		lex.type = lType;
 		lex.length = lLength;
 		lex.pos = code;
@@ -235,14 +263,14 @@ void	Lexer::Lexify(const char* code)
 
 		code += lLength;
 	}
-	Lexem lex;
+	Lexeme lex;
 	lex.type = lex_none;
 	lex.length = 1;
 	lex.pos = code;
 	lexems.push_back(lex);
 }
 
-Lexem*	Lexer::GetStreamStart()
+Lexeme*	Lexer::GetStreamStart()
 {
 	return &lexems[0];
 }

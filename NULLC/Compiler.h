@@ -1,5 +1,6 @@
 #pragma once
 #include "stdafx.h"
+#include "Lexer.h"
 
 class CompilerError
 {
@@ -53,4 +54,6 @@ public:
 	unsigned int	GetBytecode(char **bytecode);
 private:
 	void	ClearState();
+
+	Lexer	lexer;
 };
