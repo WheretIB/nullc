@@ -18,11 +18,13 @@ CompilerError				CodeInfo::lastError;
 
 std::vector<FunctionInfo*>	CodeInfo::funcInfo;
 std::vector<VariableInfo*>	CodeInfo::varInfo;
-std::vector<TypeInfo*>		CodeInfo::typeInfo;
+FastVector<TypeInfo*>		CodeInfo::typeInfo(64);
 CommandList*				CodeInfo::cmdInfoList = NULL;
 FastVector<VMCmd>			CodeInfo::cmdList;
 std::vector<NodeZeroOP*>	CodeInfo::nodeList;
 unsigned int				CodeInfo::globalSize = 0;
+unsigned int				CodeInfo::varTop = 0;
+std::vector<NodeZeroOP*>	CodeInfo::funcDefList;
 const char*					CodeInfo::lastKnownStartPos = NULL;
 
 Compiler*	compiler;

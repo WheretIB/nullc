@@ -43,6 +43,7 @@ public:
 	}
 
 	std::string		name;	// base type name
+	unsigned int	nameHash;
 	unsigned int	size;	// sizeof(type)
 	TypeCategory	type;	// type id
 

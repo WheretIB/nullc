@@ -107,6 +107,7 @@
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS"
 				ExceptionHandling="0"
 				RuntimeLibrary="2"
+				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
 				AssemblerOutput="4"
 				WarningLevel="4"
@@ -232,6 +233,10 @@
 				RelativePath=".\nullc.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\stdafx.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -271,6 +276,14 @@
 			Name="Compiler"
 			>
 			<File
+				RelativePath=".\Callbacks.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Callbacks.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Compiler.cpp"
 				>
 			</File>
@@ -284,6 +297,14 @@
 			</File>
 			<File
 				RelativePath=".\ParseFunc.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Parser.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Parser.h"
 				>
 			</File>
 		</Filter>

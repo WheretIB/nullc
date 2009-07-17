@@ -101,6 +101,8 @@ namespace supspi
 	class BaseP;
 	extern std::vector<BaseP*>	uniqueParserList;
 
+	typedef void (*SpaceRule)(char**);
+
 	//Our base parser
 	class BaseP
 	{
@@ -108,7 +110,7 @@ namespace supspi
 		BaseP(){ uniqueParserList.push_back(this); };
 		virtual			~BaseP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space) = 0;
+		virtual bool	Parse(char** str, SpaceRule space) = 0;
 
 		static bool continueParse;
 	protected:
@@ -144,8 +146,6 @@ namespace supspi
 		unsigned int	myParser;
 	};
 
-	void	SkipSpaces(char** str, BaseP* space);
-
 	//AlternativeP can act differently, depending on state of this policy
 	enum AlternativePolicy{ ALTER_STANDART, ALTER_LONGEST, ALTER_SHORTEST, };
 	//static AlternativePolicy alternativePol = ALTER_STANDART;
@@ -166,9 +166,10 @@ namespace supspi
 		ActionP(Rule a, ActionT act): m_a(a.getPtr()), m_act(act){ }
 		~ActionP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			char* start = *str;
 			if(!m_a->Parse(str, space))
 				return false;
@@ -192,9 +193,11 @@ namespace supspi
 		NoSpaceP(Rule a): m_sub(a.getPtr()){  }
 		~NoSpaceP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			(void)space;
+			//if(space)
+			//	space(str);	// Skip spaces before lexeme
 			return m_sub->Parse(str, NULL);
 		}
 	private:
@@ -213,7 +216,7 @@ namespace supspi
 		LongestP(Rule a): m_altp(a.getPtr()){ }
 		~LongestP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			AlternativePolicy old = GetAlterPolicy();
 			SetAlterPolicy(ALTER_LONGEST);
@@ -246,7 +249,7 @@ namespace supspi
 		EpsilonP(){ }
 		virtual ~EpsilonP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			(void)str;
 			(void)space;
@@ -261,7 +264,7 @@ namespace supspi
 		NeverP(){ }
 		virtual ~NeverP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			(void)str;
 			(void)space;
@@ -277,10 +280,11 @@ namespace supspi
 		ChlitP(char ch){ m_ch = ch; }
 		virtual ~ChlitP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(*str[0] != m_ch){
 				(*str) = curr;
 				return false;
@@ -299,10 +303,11 @@ namespace supspi
 		AnycharP(){ }
 		virtual ~AnycharP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(*str[0] == NULL){
 				(*str) = curr;
 				return false;
@@ -319,10 +324,11 @@ namespace supspi
 		EndOfLineP(){ }
 		virtual ~EndOfLineP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(*str[0] != '\n'){
 				(*str) = curr;
 				return false;
@@ -339,10 +345,11 @@ namespace supspi
 		DigitP(){ }
 		virtual ~DigitP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(!isDigit(*str[0])){
 				(*str) = curr;
 				return false;
@@ -359,10 +366,11 @@ namespace supspi
 		AlnumP(){ }
 		virtual ~AlnumP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(!(isAlpha(*str[0]) || isDigit(*str[0]))){
 				(*str) = curr;
 				return false;
@@ -379,10 +387,11 @@ namespace supspi
 		AlphaP(){ }
 		virtual ~AlphaP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(!isAlpha(*str[0])){
 				(*str) = curr;
 				return false;
@@ -399,10 +408,11 @@ namespace supspi
 		GraphP(){ }
 		virtual ~GraphP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(!isgraph(*str[0])){
 				(*str) = curr;
 				return false;
@@ -420,10 +430,11 @@ namespace supspi
 		StrlitP(char* str){ m_str = str; m_len = (unsigned int)strlen(str); }
 		virtual ~StrlitP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(memcmp(*str, m_str, m_len) != 0){
 				(*str) = curr;
 				return false;
@@ -443,10 +454,11 @@ namespace supspi
 		IntNumberP(int base){ m_base = base; }
 		~IntNumberP(){}
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			while(isDigit(*str[0]))
 				(*str)++;
 			if(curr == *str)
@@ -463,10 +475,11 @@ namespace supspi
 		RealNumberP(){}
 		~RealNumberP(){}
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			SkipSpaces(str, space);
+			if(space)
+				space(str);
 			if(*str[0] == '-' || *str[0] == '+')
 				(*str)++;
 			while(isDigit(*str[0]))
@@ -506,7 +519,7 @@ namespace supspi
 		RepeatP(Rule a, unsigned int cnt): m_a(a.getPtr()){ m_cnt = cnt; }
 		virtual ~RepeatP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
 			unsigned int iter = 0;
@@ -553,8 +566,10 @@ namespace supspi
 		AlternativeP(Rule a, Rule b): m_a(a.getPtr()), m_b(b.getPtr()){ }
 		virtual ~AlternativeP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
+			//static int issued = 0;
+			//issued++;
 			char* curr = *str;
 			
 			if(GetAlterPolicy() == ALTER_STANDART)
@@ -610,8 +625,10 @@ namespace supspi
 		SequenceP(const Rule& a, const Rule& b): m_a(a.getPtr()), m_b(b.getPtr()){ }
 		virtual ~SequenceP(){  }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
+			//static int issued = 0;
+			//issued++;
 			char* curr = *str;
 			if(!m_a->Parse(str, space))
 			{
@@ -637,7 +654,7 @@ namespace supspi
 		ExcludeP(Rule a, Rule b): m_a(a.getPtr()), m_b(b.getPtr()){ }
 		~ExcludeP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
 			//SkipSpaces(str, space);
@@ -666,7 +683,7 @@ namespace supspi
 		NegateP(Rule a): m_a(a.getPtr()){ }
 		virtual ~NegateP(){ }
 
-		virtual bool	Parse(char** str, BaseP* space)
+		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
 			if(!m_a->Parse(str, space))
@@ -735,7 +752,7 @@ namespace supspi
 
 	//Main function
 	enum ParseResult{ PARSE_FAILED, PARSE_OK, PARSE_NOTFULL, PARSE_ABORTED };
-	ParseResult	Parse(const Rule& main, char* str, const Rule& space, bool skipAction=false);
+	ParseResult	Parse(const Rule& main, char* str, SpaceRule space, bool skipAction=false);
 	void		Abort();
 
 	void		DeleteParsers();

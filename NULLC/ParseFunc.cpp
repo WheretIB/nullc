@@ -201,6 +201,7 @@ TypeInfo* NodeZeroOP::GetTypeInfo()
 
 void NodeZeroOP::SetCodeInfo(const char* start, const char* end)
 {
+	assert(end > start);
 	strBegin = start;
 	strEnd = end;
 }

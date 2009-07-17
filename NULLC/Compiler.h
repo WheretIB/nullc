@@ -27,6 +27,7 @@ public:
 		curr += sprintf(curr, "^\r\n");
 		return errBuf;
 	}
+	static const char *codeStartOriginal;
 	static const char *codeStart;
 private:
 	char error[128];
@@ -34,11 +35,6 @@ private:
 	unsigned int shift;
 	unsigned int lineNum;
 	unsigned int empty;
-};
-
-namespace CompilerGrammar
-{
-	class Grammar;
 };
 
 class Compiler
@@ -57,6 +53,4 @@ public:
 	unsigned int	GetBytecode(char **bytecode);
 private:
 	void	ClearState();
-
-	CompilerGrammar::Grammar	*syntax;
 };
