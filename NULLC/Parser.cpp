@@ -323,7 +323,7 @@ bool ParseAddVariable(Lexeme** str)
 		CALLBACK(convertTypeToArray(NULL, NULL));
 	}
 	CALLBACK(pushType(NULL, NULL));
-	CALLBACK(addVar(NULL, NULL));
+	CALLBACK(AddVariable(NULL, NULL));
 
 	if(ParseLexem(str, lex_set))
 	{

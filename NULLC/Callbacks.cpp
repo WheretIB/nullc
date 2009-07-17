@@ -92,20 +92,6 @@ long long parseInteger(char const* s, char const* e, int base)
 	return res;
 }
 
-// Проверяет, явлеется ли идентификатор зарезервированным или уже занятым
-void checkIfDeclared(const std::string& str)
-{
-	unsigned int hash = GetStringHash(str.c_str());
-	for(unsigned int i = 0; i < funcInfo.size(); i++)
-	{
-		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible)
-		{
-			sprintf(callbackError, "ERROR: Name '%s' is already taken for a function", str.c_str());
-			ThrowError(callbackError, lastKnownStartPos);
-		}
-	}
-}
-
 // Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
 // будет вернутся после окончания блока.
 void blockBegin(char const* s, char const* e)
@@ -455,6 +441,7 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 	if(cmd == cmdLogOr)
 		return a || b;
 	ThrowError("ERROR: optDoSpecial<int> call with unknown command", lastKnownStartPos);
+	return 0;
 }
 template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 {
@@ -477,6 +464,7 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 	if(cmd == cmdLogOr)
 		return a || b;
 	ThrowError("ERROR: optDoSpecial<long long> call with unknown command", lastKnownStartPos);
+	return 0;
 }
 template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 {
@@ -495,6 +483,7 @@ template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 	if(cmd == cmdLogOr)
 		return (int)a || (int)b;
 	ThrowError("ERROR: optDoSpecial<double> call with unknown command", lastKnownStartPos);
+	return 0.0;
 }
 
 void popLastNodeCond(bool swap)
@@ -719,6 +708,7 @@ ParseFuncPtr addCmd(CmdID cmd)
 	if(cmd == cmdLogOr) return &createTwoAndCmd<cmdLogOr>;
 	if(cmd == cmdLogXor) return &createTwoAndCmd<cmdLogXor>;
 	ThrowError("ERROR: addCmd call with unknown command", lastKnownStartPos);
+	return NULL;
 }
 
 void addReturnNode(char const* s, char const* e)
@@ -809,38 +799,49 @@ unsigned int	offsetBytes = 0;
 
 std::set<VariableInfo*> varInfoAll;
 
-void addVar(char const* s, char const* e)
+void AddVariable(char const* pos, const char* e)
 {
-	(void)e;	// C4100
-	lastKnownStartPos = s;
+	(void)e;
+	lastKnownStartPos = pos;
 	string vName = strs.back();
 
+	unsigned int hash = GetStringHash(vName.c_str());
+
+	// Check for variables with the same name in current scope
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 	{
-		if(varInfo[i]->name == vName)
+		if(varInfo[i]->nameHash == hash)
 		{
 			sprintf(callbackError, "ERROR: Name '%s' is already taken for a variable in current scope", vName.c_str());
-			ThrowError(callbackError, s);
+			ThrowError(callbackError, pos);
 		}
 	}
-	checkIfDeclared(vName);
+	// Check for functions with the same name
+	for(unsigned int i = 0; i < funcInfo.size(); i++)
+	{
+		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible)
+		{
+			sprintf(callbackError, "ERROR: Name '%s' is already taken for a function", vName.c_str());
+			ThrowError(callbackError, pos);
+		}
+	}
 
 	if(currType && currType->size == TypeInfo::UNSIZED_ARRAY)
 	{
 		sprintf(callbackError, "ERROR: variable '%s' can't be an unfixed size array", vName.c_str());
-		ThrowError(callbackError, s);
+		ThrowError(callbackError, pos);
 	}
 	if(currType && currType->size > 64*1024*1024)
 	{
 		sprintf(callbackError, "ERROR: variable '%s' has to big length (>64 Mb)", vName.c_str());
-		ThrowError(callbackError, s);
+		ThrowError(callbackError, pos);
 	}
 	
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 	{
 		unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes;
 		if(activeAlign > 16)
-			ThrowError("ERROR: alignment must me less than 16 bytes", s);
+			ThrowError("ERROR: alignment must me less than 16 bytes", pos);
 		if(activeAlign != 0 && varTop % activeAlign != 0)
 		{
 			unsigned int offset = activeAlign - (varTop % activeAlign);
@@ -902,42 +903,6 @@ void convertTypeToArray(char const* s, char const* e)
 //////////////////////////////////////////////////////////////////////////
 //					New functions for work with variables
 
-void GetVariableType(char const* s, char const* e)
-{
-	int fID = -1;
-	// Ищем переменную по имени
-	int i = (int)varInfo.size()-1;
-	string vName(s, e);
-	while(i >= 0 && varInfo[i]->name != vName)
-		i--;
-	if(i == -1)
-	{
-		// Ищем функцию по имени
-		for(int k = 0; k < (int)funcInfo.size(); k++)
-		{
-			if(funcInfo[k]->name == vName && funcInfo[k]->visible)
-			{
-				if(fID != -1)
-				{
-					sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", vName.c_str());
-					ThrowError(callbackError, s);
-				}
-				fID = k;
-			}
-		}
-		if(fID == -1)
-		{
-			sprintf(callbackError, "ERROR: variable '%s' is not defined", vName.c_str());
-			ThrowError(callbackError, s);
-		}
-	}
-
-	if(fID == -1)
-		currType = varInfo[i]->varType;
-	else
-		currType = funcInfo[fID]->funcType;
-}
-
 void GetTypeSize(char const* s, char const* e, bool sizeOfExpr)
 {
 	(void)e;	// C4100
@@ -972,21 +937,31 @@ void AddGetAddressNode(char const* s, char const* e)
 	lastKnownStartPos = s;
 
 	int fID = -1;
-	// Ищем переменную по имени
+
+	// Find variable name hash
+	unsigned int hash = GetStringHash(s, e+1);
+
+	if((int)(e-s) > 63)
+		ThrowError("ERROR: variable name length is limited to 64 symbols", s);
+
+	char	varName[64];
+	memcpy(varName, s, (int)(e-s));
+	varName[(int)(e-s)] = 0;
+
+	// Find in variable list
 	int i = (int)varInfo.size()-1;
-	string vName(s, e);
-	while(i >= 0 && varInfo[i]->name != vName)
+	while(i >= 0 && varInfo[i]->nameHash != hash)
 		i--;
 	if(i == -1)
 	{
 		// Ищем функцию по имени
 		for(int k = 0; k < (int)funcInfo.size(); k++)
 		{
-			if(funcInfo[k]->name == vName && funcInfo[k]->visible)
+			if(funcInfo[k]->nameHash == hash && funcInfo[k]->visible)
 			{
 				if(fID != -1)
 				{
-					sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", vName.c_str());
+					sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
 					ThrowError(callbackError, s);
 				}
 				fID = k;
@@ -994,7 +969,7 @@ void AddGetAddressNode(char const* s, char const* e)
 		}
 		if(fID == -1)
 		{
-			sprintf(callbackError, "ERROR: variable '%s' is not defined", vName.c_str());
+			sprintf(callbackError, "ERROR: variable '%s' is not defined", varName);
 			ThrowError(callbackError, s);
 		}
 	}
@@ -1004,11 +979,13 @@ void AddGetAddressNode(char const* s, char const* e)
 	else
 		currTypes.push_back(funcInfo[fID]->funcType);
 
-	if(newType && (currDefinedFunc.back()->type == FunctionInfo::THISCALL) && vName != "this")
+	static unsigned int thisHash = GetStringHash("this");
+
+	if(newType && (currDefinedFunc.back()->type == FunctionInfo::THISCALL) && hash != thisHash)
 	{
 		bool member = false;
 		for(unsigned int i = 0; i < newType->memberData.size(); i++)
-			if(newType->memberData[i].name == vName)
+			if(newType->memberData[i].nameHash == hash)
 				member = true;
 		if(member)
 		{
@@ -1023,7 +1000,7 @@ void AddGetAddressNode(char const* s, char const* e)
 			nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 
 			AddDereferenceNode(0,0);
-			strs.push_back(vName);
+			strs.push_back(varName);
 			AddMemberAccessNode(s, e);
 
 			currTypes.pop_back();
@@ -1035,7 +1012,7 @@ void AddGetAddressNode(char const* s, char const* e)
 	{
 		FunctionInfo *currFunc = currDefinedFunc.back();
 		// Добавим имя переменной в список внешних переменных функции
-		int num = AddFunctionExternal(currFunc, vName);
+		int num = AddFunctionExternal(currFunc, varName);
 
 		nodeList.push_back(new NodeNumber<int>((int)currDefinedFunc.back()->external.size(), typeInt));
 		TypeInfo *temp = GetReferenceType(typeInt);
@@ -1112,7 +1089,7 @@ void AddArrayIndexNode(char const* s, char const* e)
 	if(nodeList.back()->GetNodeType() == typeNodeNumber && nodeList[nodeList.size()-2]->GetNodeType() == typeNodeGetAddress)
 	{
 		// Получаем значение сдвига
-		int shiftValue;
+		int shiftValue = 0;
 		NodeZeroOP* indexNode = nodeList.back();
 		TypeInfo *aType = indexNode->GetTypeInfo();
 		NodeZeroOP* zOP = indexNode;
@@ -1493,7 +1470,7 @@ void AddInplaceArray(char const* s, char const* e)
 	bool saveVarDefined = varDefined;
 
 	currType = NULL;
-	addVar(s, e);
+	AddVariable(s, e);
 
 	AddDefineVariableNode(s, e);
 	addPopNode(s, e);
@@ -1634,7 +1611,7 @@ void FunctionStart(char const* s, char const* e)
 		currValConst = funcInfo.back()->params[i].isConst;
 		currType = funcInfo.back()->params[i].varType;
 		currAlign = 1;
-		addVar(0,0);
+		AddVariable(0,0);
 		varDefined = false;
 
 		strs.pop_back();
@@ -1643,7 +1620,7 @@ void FunctionStart(char const* s, char const* e)
 	strs.push_back("$" + funcInfo.back()->name + "_ext");
 	currType = GetReferenceType(typeInt);
 	currAlign = 1;
-	addVar(0, 0);
+	AddVariable(0, 0);
 	varDefined = false;
 	strs.pop_back();
 
@@ -1731,7 +1708,7 @@ void FunctionEnd(char const* s, char const* e)
 		bool saveVarDefined = varDefined;
 
 		currType = NULL;
-		addVar(s, e);
+		AddVariable(s, e);
 
 		AddDefineVariableNode(s, e);
 		addPopNode(s, e);
@@ -2087,7 +2064,7 @@ void TypeAddMember(char const* s, char const* e)
 	newType->AddMember(std::string(s, e), currType);
 
 	strs.push_back(std::string(s, e));
-	addVar(0,0);
+	AddVariable(0,0);
 	strs.pop_back();
 }
 
