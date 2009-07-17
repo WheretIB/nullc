@@ -292,6 +292,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Lexer.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Lexer.h"
+				>
+			</File>
+			<File
 				RelativePath=".\ParseFunc.cpp"
 				>
 			</File>
@@ -388,6 +396,10 @@
 				>
 			</File>
 		</Filter>
+		<File
+			RelativePath=".\VTune\NULLC.vpj"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>
