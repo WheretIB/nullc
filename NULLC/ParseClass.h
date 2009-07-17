@@ -86,14 +86,16 @@ public:
 	{
 		memberData.push_back(MemberInfo());
 		memberData.back().name = name;
+		memberData.back().nameHash = GetStringHash(name.c_str());
 		memberData.back().type = type;
 		memberData.back().offset = size;
 		size += type->size;
 	}
 	struct MemberInfo
 	{
-		std::string name;
-		TypeInfo*	type;
+		std::string		name;
+		unsigned int	nameHash;
+		TypeInfo*		type;
 		unsigned int	offset;
 	};
 	vector<MemberInfo>	memberData;
@@ -123,14 +125,20 @@ class VariableInfo
 public:
 	VariableInfo(){}
 	VariableInfo(std::string newname, unsigned int newpos, TypeInfo* newtype, bool newisConst=true):
-	  name(newname), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype) {}
-	std::string		name;		//Variable name
-	unsigned int	pos;		//Variable position in value stack
-	bool			isConst;	//Constant flag
+		name(newname), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype)
+	{
+		nameHash = GetStringHash(name.c_str());	
+	}
+
+	std::string		name;		// Variable name
+	unsigned int	nameHash;	// Variable name hash
+
+	unsigned int	pos;		// Variable position in value stack
+	bool			isConst;	// Constant flag
 
 	bool			dataReserved;	// Tells if cmdPushV was used for this variable
 
-	TypeInfo*		varType;	//Pointer to the variable type info
+	TypeInfo*		varType;	// Pointer to the variable type info
 };
 
 class FunctionInfo

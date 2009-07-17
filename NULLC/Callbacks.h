@@ -57,7 +57,7 @@ void AddContinueNode(char const* s, char const* e);
 //Finds TypeInfo in a typeInfo list by name
 void selType(char const* s, char const* e);
 
-void addVar(char const* s, char const* e);
+void AddVariable(char const* s, char const* e);
 
 void addVarDefNode(char const* s, char const* e);
 
@@ -67,8 +67,6 @@ void popType(char const* s, char const* e);
 void convertTypeToRef(char const* s, char const* e);
 
 void convertTypeToArray(char const* s, char const* e);
-// 
-// void GetVariableType(char const* s, char const* e);
 
 void GetTypeSize(char const* s, char const* e, bool sizeOfExpr);
 
