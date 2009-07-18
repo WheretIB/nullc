@@ -79,7 +79,6 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 				lastError = CompilerError(fullError, lastKnownStartPos);
 				return NULL;
 			}
-			delete nodeList.back();
 			nodeList.pop_back();
 		}else{
 			lastError = CompilerError("ERROR: Array size must be a constant expression", lastKnownStartPos);

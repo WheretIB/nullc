@@ -85,3 +85,58 @@ private:
 	T	*data;
 	unsigned int	max, m_size;
 };
+
+template<int chunkSize = 256>
+class ChunkedStackPool
+{
+public:
+	ChunkedStackPool()
+	{
+		curr = first = new StackChunk;
+		first->next = NULL;
+		size = 0;
+	}
+	~ChunkedStackPool()
+	{
+		while(first)
+		{
+			StackChunk *next = first->next;
+			delete first;
+			first = next;
+		}
+	}
+
+	void	Clear()
+	{
+		curr = first;
+		size = 0;
+	}
+	void*	Allocate(unsigned int bytes)
+	{
+		if(size + bytes < chunkSize)
+		{
+			size += bytes;
+			return curr->data + size - bytes;
+		}
+		if(curr->next)
+		{
+			curr = curr->next;
+			size = 0;
+			return Allocate(bytes);
+		}else{
+			curr->next = new StackChunk;
+			curr = curr->next;
+			curr->next = NULL;
+			size = 0;
+			return Allocate(bytes);
+		}
+	}
+private:
+	struct StackChunk
+	{
+		StackChunk *next;
+		char		data[chunkSize];
+	};
+	StackChunk	*first, *curr;
+	unsigned int size;
+};
