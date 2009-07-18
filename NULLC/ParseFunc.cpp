@@ -619,7 +619,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	funcType = type;
 
 	// Тип результата - тип возвратного значения функции
-	typeInfo = type->retType;
+	typeInfo = funcType->retType;
 
 	if(funcInfo && funcInfo->type == FunctionInfo::LOCAL)
 		second = TakeLastNode();
@@ -627,17 +627,29 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	if(!funcInfo)
 		first = TakeLastNode();
 
+	if(funcType->paramType.size() > 0)
+		paramHead = paramTail = TakeLastNode();
+	else
+		paramHead = paramTail = NULL;
 	// Возьмём узлы каждого параметра
-	for(unsigned int i = 0; i < type->paramType.size(); i++)
-		paramList.push_back(TakeLastNode());
+	for(unsigned int i = 1; i < funcType->paramType.size(); i++)
+	{
+		paramTail->next = TakeLastNode();
+		paramTail->next->prev = paramTail;
+		paramTail = paramTail->next;
+	}
 
 	if(funcInfo && funcInfo->type == FunctionInfo::THISCALL)
 		second = TakeLastNode();
 }
 NodeFuncCall::~NodeFuncCall()
 {
-	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
-		delete *s;
+	while(paramHead)
+	{
+		NodeZeroOP *next = paramHead->next;
+		delete paramHead;
+		paramHead = next;
+	}
 }
 
 void NodeFuncCall::Compile()
@@ -650,18 +662,20 @@ void NodeFuncCall::Compile()
 	bool onlyStackTypes = true;
 	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL)
 	{
-		std::vector<NodeZeroOP*>::iterator s, e;
-		s = paramList.begin();
-		e = paramList.end();
-		for(; s != e; s++)
+		if(funcType->paramType.size() > 0)
 		{
-			// Определим значение параметра
-			(*s)->Compile();
-			// Преобразуем его в тип входного параметра функции
-			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[paramList.size()-currParam-1]->type]);
-			if(funcType->paramType[paramList.size()-currParam-1] == typeFloat)
-				cmdList.push_back(VMCmd(cmdDtoF));
-			currParam++;
+			NodeZeroOP *curr = paramHead;
+			do
+			{
+				// Определим значение параметра
+				curr->Compile();
+				// Преобразуем его в тип входного параметра функции
+				ConvertFirstToSecond(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[funcType->paramType.size()-currParam-1]->type]);
+				if(funcType->paramType[funcType->paramType.size()-currParam-1] == typeFloat)
+					cmdList.push_back(VMCmd(cmdDtoF));
+				currParam++;
+				curr = curr->next;
+			}while(curr);
 		}
 	}else{
 		if(!funcInfo || second)
@@ -671,20 +685,22 @@ void NodeFuncCall::Compile()
 			else
 				first->Compile();
 		}
-		std::vector<NodeZeroOP*>::reverse_iterator s, e;
-		s = paramList.rbegin();
-		e = paramList.rend();
-		for(; s != e; s++)
+		if(funcType->paramType.size() > 0)
 		{
-			// Определим значение параметра
-			(*s)->Compile();
-			// Преобразуем его в тип входного параметра функции
-			ConvertFirstToSecond(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
-			if(funcType->paramType[currParam]->type == TypeInfo::TYPE_CHAR ||
-				funcType->paramType[currParam]->type == TypeInfo::TYPE_SHORT ||
-				funcType->paramType[currParam]->type == TypeInfo::TYPE_FLOAT)
-					onlyStackTypes = false;
-			currParam++;
+			NodeZeroOP *curr = paramTail;
+			do
+			{
+				// Определим значение параметра
+				curr->Compile();
+				// Преобразуем его в тип входного параметра функции
+				ConvertFirstToSecond(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
+				if(funcType->paramType[currParam]->type == TypeInfo::TYPE_CHAR ||
+					funcType->paramType[currParam]->type == TypeInfo::TYPE_SHORT ||
+					funcType->paramType[currParam]->type == TypeInfo::TYPE_FLOAT)
+						onlyStackTypes = false;
+				currParam++;
+				curr = curr->prev;
+			}while(curr);
 		}
 	}
 	if(funcInfo && funcInfo->address == -1)		// Если функция встроенная
@@ -739,21 +755,23 @@ void NodeFuncCall::Compile()
 void NodeFuncCall::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetTypeName().c_str(), (funcInfo ? funcInfo->name.c_str() : "$ptr"), paramList.size());
+	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetTypeName().c_str(), (funcInfo ? funcInfo->name.c_str() : "$ptr"), funcType->paramType.size());
 	GoDown();
 	if(first)
 		first->LogToStream(fGraph);
 	if(second)
 		second->LogToStream(fGraph);
-	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+	NodeZeroOP	*curr = paramTail;
+	do
 	{
-		if(s == --paramList.rend())
+		if(curr == paramHead)
 		{
 			GoUp();
 			GoDownB();
 		}
-		(*s)->LogToStream(fGraph);
-	}
+		curr->LogToStream(fGraph);
+		curr = curr->prev;
+	}while(curr);
 	GoUp();
 }
 unsigned int NodeFuncCall::GetSize()
@@ -763,19 +781,24 @@ unsigned int NodeFuncCall::GetSize()
 
 	unsigned int currParam = 0;
 	bool onlyStackTypes = true;
-	for(paramPtr s = paramList.rbegin(), e = paramList.rend(); s != e; s++)
+	if(funcType->paramType.size() > 0)
 	{
-		paramSize += funcType->paramType[currParam]->size;
+		NodeZeroOP	*curr = paramTail;
+		do
+		{
+			paramSize += funcType->paramType[currParam]->size;
 
-		size += (*s)->GetSize();
-		size += ConvertFirstToSecondSize(podTypeToStackType[(*s)->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
-		if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && funcType->paramType[paramList.size()-currParam-1] == typeFloat)
-			size += 1;
-		if(funcType->paramType[paramList.size()-currParam-1]->type == TypeInfo::TYPE_CHAR ||
-			funcType->paramType[paramList.size()-currParam-1]->type == TypeInfo::TYPE_SHORT ||
-			funcType->paramType[paramList.size()-currParam-1]->type == TypeInfo::TYPE_FLOAT)
-				onlyStackTypes = false;
-		currParam++;
+			size += curr->GetSize();
+			size += ConvertFirstToSecondSize(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
+			if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && funcType->paramType[funcType->paramType.size()-currParam-1] == typeFloat)
+				size += 1;
+			if(funcType->paramType[funcType->paramType.size()-currParam-1]->type == TypeInfo::TYPE_CHAR ||
+				funcType->paramType[funcType->paramType.size()-currParam-1]->type == TypeInfo::TYPE_SHORT ||
+				funcType->paramType[funcType->paramType.size()-currParam-1]->type == TypeInfo::TYPE_FLOAT)
+					onlyStackTypes = false;
+			currParam++;
+			curr = curr->prev;
+		}while(curr);
 	}
 	if(!funcInfo || second)
 	{
@@ -2174,12 +2197,12 @@ NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 }
 NodeExpressionList::~NodeExpressionList()
 {
-	do 
+	while(first)
 	{
-		NodeZeroOP *firstNext = first->next;
+		NodeZeroOP *next = first->next;
 		delete first;
-		first = firstNext;
-	}while(first);
+		first = next;
+	}
 }
 
 void NodeExpressionList::AddNode(bool reverse)
@@ -2190,8 +2213,10 @@ void NodeExpressionList::AddNode(bool reverse)
 		NodeZeroOP *firstNext = first;
 		first = TakeLastNode();
 		first->next = firstNext;
+		first->next->prev = first;
 	}else{
 		tail->next = TakeLastNode();
+		tail->next->prev = tail;
 		tail = tail->next;
 	}
 }
@@ -2212,8 +2237,6 @@ void NodeExpressionList::Compile()
 		curr->Compile();
 		curr = curr->next;
 	}while(curr);
-	//for(unsigned int i = 0; i < exprList.size(); i++)
-	//	exprList[i]->Compile();
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
