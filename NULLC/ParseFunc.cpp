@@ -171,12 +171,14 @@ unsigned int	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
 NodeZeroOP::NodeZeroOP()
 {
 	typeInfo = typeVoid;
-	strBegin = NULL;
-	strEnd = NULL;
+	strBegin = strEnd = NULL;
+	prev = next = NULL;
 }
 NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 {
 	typeInfo = tinfo;
+	strBegin = strEnd = NULL;
+	prev = next = NULL;
 }
 NodeZeroOP::~NodeZeroOP()
 {
@@ -2165,47 +2167,53 @@ unsigned int NodeSwitchExpr::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, содержащий список выражений.
-NodeExpressionList::NodeExpressionList(TypeInfo *returnType):exprList(8)
+NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 {
 	typeInfo = returnType;
-	exprList.push_back(TakeLastNode());
+	tail = first = TakeLastNode();
 }
 NodeExpressionList::~NodeExpressionList()
 {
-	for(unsigned int i = 0; i < exprList.size(); i++)
-		delete exprList[i];
-}
-
-void NodeExpressionList::ReserveNodes(unsigned int count)
-{
-	exprList.reserve(count);
+	do 
+	{
+		NodeZeroOP *firstNext = first->next;
+		delete first;
+		first = firstNext;
+	}while(first);
 }
 
 void NodeExpressionList::AddNode(bool reverse)
 {
-	if(exprList.size() == 0 || !reverse)
+	// If reverse is set, add before the head
+	if(reverse)
 	{
-		exprList.push_back(TakeLastNode());
-		return;
+		NodeZeroOP *firstNext = first;
+		first = TakeLastNode();
+		first->next = firstNext;
 	}else{
-		exprList.push_back(NULL);
-		memmove(&exprList[1], &exprList[0], sizeof(NodeZeroOP*) * (exprList.size()-1));
-		exprList[0] = TakeLastNode();
+		tail->next = TakeLastNode();
+		tail = tail->next;
 	}
 }
 
 NodeZeroOP* NodeExpressionList::GetFirstNode()
 {
-	assert(exprList.size() != 0);
-	return exprList[0];
+	assert(first);
+	return first;
 }
 
 void NodeExpressionList::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	for(unsigned int i = 0; i < exprList.size(); i++)
-		exprList[i]->Compile();
+	NodeZeroOP	*curr = first;
+	do 
+	{
+		curr->Compile();
+		curr = curr->next;
+	}while(curr);
+	//for(unsigned int i = 0; i < exprList.size(); i++)
+	//	exprList[i]->Compile();
 
 	assert((cmdList.size()-startCmdSize) == GetSize());
 }
@@ -2214,21 +2222,27 @@ void NodeExpressionList::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s NodeExpressionList :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
-	for(unsigned int i = 0; i < exprList.size(); i++)
+	NodeZeroOP	*curr = first;
+	do 
 	{
-		if(i == exprList.size()-1)
+		if(curr == tail)
 		{
 			GoUp();
 			GoDownB();
 		}
-		exprList[i]->LogToStream(fGraph);
-	}
+		curr->LogToStream(fGraph);
+		curr = curr->next;
+	}while(curr);
 	GoUp();
 }
 unsigned int NodeExpressionList::GetSize()
 {
 	unsigned int size = 0;
-	for(unsigned int i = 0; i < exprList.size(); i++)
-		size += exprList[i]->GetSize();
+	NodeZeroOP	*curr = first;
+	do 
+	{
+		size += curr->GetSize();
+		curr = curr->next;
+	}while(curr);
 	return size;
 }

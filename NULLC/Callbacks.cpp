@@ -1530,7 +1530,6 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 		ThrowLastError();
 
 	NodeExpressionList *arrayList = new NodeExpressionList(targetType);
-	arrayList->ReserveNodes(arrElementCount + 1);
 
 	TypeInfo *realType = nodeList.back()->GetTypeInfo();
 	for(unsigned int i = 0; i < arrElementCount; i++)
