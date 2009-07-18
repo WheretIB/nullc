@@ -70,7 +70,7 @@ public:
 protected:
 	TypeInfo	*typeInfo;
 	const char	*strBegin, *strEnd;
-
+public:
 	NodeZeroOP	*prev, *next;	// For organizing intrusive node lists
 };
 
@@ -531,13 +531,12 @@ protected:
 	FastVector<NodeZeroOP*>	caseBlockList;
 };
 
-class NodeExpressionList: public NodeZeroOP
+class NodeExpressionList: public NodeOneOP
 {
 public:
 	NodeExpressionList(TypeInfo *returnType = typeVoid);
 	virtual ~NodeExpressionList();
 
-			void ReserveNodes(unsigned int count);
 			void AddNode(bool reverse = true);
 			NodeZeroOP* GetFirstNode();
 
@@ -546,7 +545,7 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeExpressionList; }
 protected:
-	FastVector<NodeZeroOP*>	exprList;
+	NodeZeroOP	*tail;
 };
 
 class NodeFuncCall: public NodeTwoOP
