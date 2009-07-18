@@ -4,6 +4,18 @@ using namespace CodeInfo;
 
 #include "Callbacks.h"
 
+ChunkedStackPool<4096>	stringPool;
+
+char*	AllocateString(unsigned int size)
+{
+	return (char*)stringPool.Allocate(size);
+}
+
+void ClearStringList()
+{
+	stringPool.Clear();
+}
+
 #define CALLBACK(x) x
 //#define CALLBACK(x) 1
 
@@ -124,9 +136,9 @@ bool ParseSelectType(Lexeme** str)
 		if(!ParseTypename(str))
 			return false;
 		(*str)--;
-		char	typeName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		char	*typeName = (char*)stringPool.Allocate((*str)->length+1);
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-			ThrowError("ERROR: type name length is limited to 64 symbols", (*str)->pos);
+			ThrowError("ERROR: type name length is limited to 2048 symbols", (*str)->pos);
 		memcpy(typeName, (*str)->pos, (*str)->length);
 		typeName[(*str)->length] = 0;
 		CALLBACK(SelectTypeByName((*str)->pos, typeName));
@@ -177,12 +189,11 @@ bool ParseClassDefinition(Lexeme** str)
 				if(!ParseSelectType(str))
 					break;
 
-				char	memberName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-
 				if((*str)->type != lex_string)
 					ThrowError("ERROR: class member name expected after type", (*str)->pos);
 				if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-					ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+					ThrowError("ERROR: member name length is limited to 2048 symbols", (*str)->pos);
+				char	*memberName = (char*)stringPool.Allocate((*str)->length+1);
 				memcpy(memberName, (*str)->pos, (*str)->length);
 				memberName[(*str)->length] = 0;
 				CALLBACK(TypeAddMember((*str)->pos, memberName));
@@ -193,7 +204,8 @@ bool ParseClassDefinition(Lexeme** str)
 					if((*str)->type != lex_string)
 						ThrowError("ERROR: member name expected after ','", (*str)->pos);
 					if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-						ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+						ThrowError("ERROR: member name length is limited to 2048 symbols", (*str)->pos);
+					char	*memberName = (char*)stringPool.Allocate((*str)->length+1);
 					memcpy(memberName, (*str)->pos, (*str)->length);
 					memberName[(*str)->length] = 0;
 					CALLBACK(TypeAddMember((*str)->pos, memberName));
@@ -216,9 +228,9 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	if((*str)->type != lex_string || (*str)[1].type != lex_oparen)
 		return false;
 
-	char	functionName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-		ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+		ThrowError("ERROR: function name length is limited to 2048 symbols", (*str)->pos);
+	char	*functionName = (char*)stringPool.Allocate((*str)->length+1);
 	memcpy(functionName, (*str)->pos, (*str)->length);
 	functionName[(*str)->length] = 0;
 	(*str) += 2;
@@ -253,10 +265,10 @@ bool ParseFunctionVariables(Lexeme** str)
 
 	if((*str)->type != lex_string)
 		ThrowError("ERROR: variable name not found after type in function variable list", (*str)->pos);
-	char	paramName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-		ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+		ThrowError("ERROR: parameter name length is limited to 2048 symbols", (*str)->pos);
+	char	*paramName = (char*)stringPool.Allocate((*str)->length+1);
 	memcpy(paramName, (*str)->pos, (*str)->length);
 	paramName[(*str)->length] = 0;
 	CALLBACK(FunctionParameter((*str)->pos, paramName));
@@ -271,7 +283,8 @@ bool ParseFunctionVariables(Lexeme** str)
 		if((*str)->type != lex_string)
 			ThrowError("ERROR: variable name not found after type in function variable list", (*str)->pos);
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-			ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+			ThrowError("ERROR: parameter name length is limited to 2048 symbols", (*str)->pos);
+		char	*paramName = (char*)stringPool.Allocate((*str)->length+1);
 		memcpy(paramName, (*str)->pos, (*str)->length);
 		paramName[(*str)->length] = 0;
 		CALLBACK(FunctionParameter((*str)->pos, paramName));
@@ -291,9 +304,9 @@ bool ParseFunctionDefinition(Lexeme** str)
 		*str = start;
 		return false;
 	}
-	char	functionName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-		ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+		ThrowError("ERROR: function name length is limited to 2048 symbols", (*str)->pos);
+	char	*functionName = (char*)stringPool.Allocate((*str)->length+1);
 	memcpy(functionName, (*str)->pos, (*str)->length);
 	functionName[(*str)->length] = 0;
 	(*str) += 2;
@@ -326,10 +339,10 @@ bool ParseFunctionPrototype(Lexeme** str)
 		ThrowError("ERROR: function not found after type", (*str)->pos);
 	if((*str)[1].type != lex_oparen)
 		ThrowError("ERROR: '(' not found after function name", (*str)->pos);
-	
-	char	functionName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-		ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+		ThrowError("ERROR: function name length is limited to 2048 symbols", (*str)->pos);
+	char	*functionName = (char*)stringPool.Allocate((*str)->length+1);
 	memcpy(functionName, (*str)->pos, (*str)->length);
 	functionName[(*str)->length] = 0;
 	(*str) += 2;
@@ -351,9 +364,9 @@ bool ParseAddVariable(Lexeme** str)
 		return false;
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-		ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+		ThrowError("ERROR: variable name length is limited to 2048 symbols", (*str)->pos);
 
-	char	varName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+	char	*varName = (char*)stringPool.Allocate((*str)->length+1);
 	memcpy(varName, (*str)->pos, (*str)->length);
 	varName[(*str)->length] = 0;
 
@@ -672,9 +685,9 @@ bool  ParseVariable(Lexeme** str)
 		return false;
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-		ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+		ThrowError("ERROR: variable name length is limited to 2048 symbols", (*str)->pos);
 
-	char	varName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+	char	*varName = (char*)stringPool.Allocate((*str)->length+1);
 	memcpy(varName, (*str)->pos, (*str)->length);
 	varName[(*str)->length] = 0;
 
@@ -698,9 +711,9 @@ bool  ParsePostExpression(Lexeme** str)
 			return false;
 		}
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-			ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+			ThrowError("ERROR: variable name length is limited to 2048 symbols", (*str)->pos);
 
-		char	varName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		char	*varName = (char*)stringPool.Allocate((*str)->length+1);
 		memcpy(varName, (*str)->pos, (*str)->length);
 		varName[(*str)->length] = 0;
 		(*str)++;

@@ -596,7 +596,7 @@ void NodeFuncDef::Compile()
 void NodeFuncDef::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FuncDef %s %s\r\n", typeInfo->GetTypeName().c_str(), funcInfo->name.c_str(), (disabled ? " disabled" : ""));
+	fprintf(fGraph, "%s FuncDef %s %s\r\n", typeInfo->GetTypeName().c_str(), funcInfo->name, (disabled ? " disabled" : ""));
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -749,7 +749,7 @@ void NodeFuncCall::Compile()
 void NodeFuncCall::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetTypeName().c_str(), (funcInfo ? funcInfo->name.c_str() : "$ptr"), funcType->paramType.size());
+	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetTypeName().c_str(), (funcInfo ? funcInfo->name : "$ptr"), funcType->paramType.size());
 	GoDown();
 	if(first)
 		first->LogToStream(fGraph);
@@ -874,7 +874,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s GetAddress ", GetReferenceType(typeInfo)->GetTypeName().c_str());
 	if(varInfo)
-		fprintf(fGraph, "%s%s '%s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetTypeName().c_str(), varInfo->name.c_str());
+		fprintf(fGraph, "%s%s '%s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetTypeName().c_str(), varInfo->name);
 	else
 		fprintf(fGraph, "$$$");
 	fprintf(fGraph, " (%d %s)\r\n", (int)varAddress, (absAddress ? " absolute" : " relative"));
@@ -1619,7 +1619,7 @@ void NodeFunctionAddress::Compile()
 void NodeFunctionAddress::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FunctionAddress %s %s\r\n", typeInfo->GetTypeName().c_str(), funcInfo->name.c_str(), (funcInfo->funcPtr ? " external" : ""));
+	fprintf(fGraph, "%s FunctionAddress %s %s\r\n", typeInfo->GetTypeName().c_str(), funcInfo->name, (funcInfo->funcPtr ? " external" : ""));
 	if(first)
 	{
 		GoDownB();

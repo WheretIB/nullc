@@ -125,13 +125,13 @@ class VariableInfo
 {
 public:
 	VariableInfo(){}
-	VariableInfo(std::string newname, unsigned int newpos, TypeInfo* newtype, bool newisConst=true):
+	VariableInfo(const char *newname, unsigned int newpos, TypeInfo* newtype, bool newisConst=true):
 		name(newname), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype)
 	{
-		nameHash = GetStringHash(name.c_str());	
+		nameHash = GetStringHash(name);	
 	}
 
-	std::string		name;		// Variable name
+	const char		*name;		// Variable name
 	unsigned int	nameHash;	// Variable name hash
 
 	unsigned int	pos;		// Variable position in value stack

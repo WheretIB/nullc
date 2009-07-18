@@ -344,6 +344,8 @@ void Compiler::ClearState()
 
 	nodeList.clear();
 
+	ClearStringList();
+
 	CallbackInitialize();
 
 #ifdef NULLC_LOG_FILES
@@ -586,7 +588,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		size += sizeof(ExternVarInfo);
-		size += (int)CodeInfo::varInfo[i]->name.length()+1;
+		size += (int)strlen(CodeInfo::varInfo[i]->name)+1;
 	}
 
 	unsigned int offsetToFunc = size;
@@ -644,14 +646,14 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		varInfo->size = CodeInfo::varInfo[i]->varType->size;
-		varInfo->nameLength = (unsigned int)CodeInfo::varInfo[i]->name.length();
+		varInfo->nameLength = (unsigned int)strlen(CodeInfo::varInfo[i]->name);
 		varInfo->structSize = sizeof(ExternVarInfo) + varInfo->nameLength + 1;
 
 		varInfo->type = GetTypeIndexByPtr(CodeInfo::varInfo[i]->varType);
 
 		// ! write name after the pointer to name
 		char *namePtr = (char*)(&varInfo->name) + sizeof(varInfo->name);
-		memcpy(namePtr, CodeInfo::varInfo[i]->name.c_str(), varInfo->nameLength+1);
+		memcpy(namePtr, CodeInfo::varInfo[i]->name, varInfo->nameLength+1);
 		varInfo->name = namePtr;
 
 		if(i+1 == CodeInfo::varInfo.size())

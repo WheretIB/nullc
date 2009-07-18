@@ -2,6 +2,8 @@
 #include "CodeInfo.h"
 using namespace CodeInfo;
 
+#include "Parser.h"
+
 char	callbackError[256];
 
 std::string		warningLog;
@@ -971,8 +973,6 @@ void AddGetAddressNode(char const* pos, char const* varName)
 		if(member)
 		{
 			// Переменные типа адресуются через указатель this
-			//std::string bName = "this";
-
 			FunctionInfo *currFunc = currDefinedFunc.back();
 
 			TypeInfo *temp = GetReferenceType(newType);
@@ -1350,9 +1350,9 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 		i--;
 	if(i == -1)
 	{
-		char	funcName[NULLC_MAX_VARIABLE_NAME_LENGTH * 2 + 2];
-		sprintf(funcName, "%s::%s", currType->name.c_str(), varName);
-		unsigned int hash = GetStringHash(funcName);
+		unsigned int hash = GetStringHash(currType->name.c_str());
+		hash = StringHashContinue(hash, "::");
+		hash = StringHashContinue(hash, varName);
 
 		// Ищем функцию по имени
 		for(int k = 0; k < (int)funcInfo.size(); k++)
@@ -1393,7 +1393,7 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 
 void AddMemberFunctionCall(char const* pos, char const* funcName, unsigned int callArgCount)
 {
-	char	memberFuncName[NULLC_MAX_VARIABLE_NAME_LENGTH * 2 + 2];
+	char	*memberFuncName = AllocateString((int)currTypes.back()->name.length() + 2 + (int)strlen(funcName) + 1);
 	sprintf(memberFuncName, "%s::%s", currTypes.back()->name.c_str(), funcName);
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
 	currTypes.back() = nodeList.back()->GetTypeInfo();
@@ -1443,7 +1443,7 @@ struct AddModifyVariable
 
 void AddInplaceArray(char const* pos)
 {
-	char arrName[16];
+	char	*arrName = AllocateString(16);
 	sprintf(arrName, "$carr%d", inplaceArrayNum++);
 
 	TypeInfo *saveCurrType = currType;
@@ -1575,11 +1575,11 @@ void FunctionStart(char const* pos)
 		currValConst = funcInfo.back()->params[i].isConst;
 		currType = funcInfo.back()->params[i].varType;
 		currAlign = 1;
-		AddVariable(pos, funcInfo.back()->params[i].name.c_str());
+		AddVariable(pos, funcInfo.back()->params[i].name);
 		varDefined = false;
 	}
 
-	char hiddenHame[NULLC_MAX_VARIABLE_NAME_LENGTH + 8];
+	char	*hiddenHame = AllocateString((int)funcInfo.back()->name.length() + 8);
 	sprintf(hiddenHame, "$%s_ext", funcInfo.back()->name.c_str());
 	currType = GetReferenceType(typeInt);
 	currAlign = 1;
@@ -1593,13 +1593,14 @@ void FunctionEnd(char const* pos, char const* funcName)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	std::string fName = funcName;
+	unsigned int funcNameHash = GetStringHash(funcName);
+
 	if(newType)
 	{
-		fName = newType->name + "::" + fName;
+		funcNameHash = GetStringHash(newType->name.c_str());
+		funcNameHash = StringHashContinue(funcNameHash, "::");
+		funcNameHash = StringHashContinue(funcNameHash, funcName);
 	}
-
-	unsigned int funcNameHash = GetStringHash(fName.c_str());
 
 	int i = (int)funcInfo.size()-1;
 	while(i >= 0 && funcInfo[i]->nameHash != funcNameHash)
@@ -1663,7 +1664,7 @@ void FunctionEnd(char const* pos, char const* funcName)
 		}
 		nodeList.push_back(temp);
 
-		char hiddenHame[NULLC_MAX_VARIABLE_NAME_LENGTH + 8];
+		char	*hiddenHame = AllocateString((int)lastFunc.name.length() + 8);
 		sprintf(hiddenHame, "$%s_ext", lastFunc.name.c_str());
 
 		TypeInfo *saveCurrType = currType;

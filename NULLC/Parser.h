@@ -2,6 +2,9 @@
 #include "stdafx.h"
 #include "Lexer.h"
 
+char*	AllocateString(unsigned int size);
+void ClearStringList();
+
 bool ParseTypename(Lexeme** str);
 
 bool ParseNumber(Lexeme** str);
