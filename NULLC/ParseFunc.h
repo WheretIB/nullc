@@ -68,8 +68,10 @@ public:
 	// ”становка строки кода, с которым св€зана €чейка
 	virtual void SetCodeInfo(const char* start, const char* end);
 protected:
-	TypeInfo*	typeInfo;
+	TypeInfo	*typeInfo;
 	const char	*strBegin, *strEnd;
+
+	NodeZeroOP	*prev, *next;	// For organizing intrusive node lists
 };
 
 void	GoDown();
@@ -170,20 +172,6 @@ public:
 	NumType		 GetBitNotVal(){ return ~num; }
 protected:
 	NumType		num;
-};
-
-class NodeVarDef: public NodeZeroOP
-{
-public:
-	NodeVarDef(std::string nm);
-	virtual ~NodeVarDef();
-
-	virtual void Compile();
-	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeVarDef; }
-protected:
-	std::string name;
 };
 
 //One child operators

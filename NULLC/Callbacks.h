@@ -59,7 +59,7 @@ void SelectTypeByName(char const* pos, char const* typeName);
 
 void AddVariable(char const* pos, const char* varName);
 
-void AddVariableReserveNode(char const* pos, const char* varName);
+void AddVariableReserveNode(char const* pos);
 
 void pushType(char const* s, char const* e);
 void popType(char const* s, char const* e);

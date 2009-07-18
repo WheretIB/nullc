@@ -15,7 +15,6 @@
 #include <stdlib.h>
 #include <setjmp.h>
 
-#include <set>
 #include <vector>
 #include <string>
 using namespace std;

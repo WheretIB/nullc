@@ -861,12 +861,12 @@ void AddVariable(char const* pos, const char* varName)
 		varTop += currType->size;
 }
 
-void AddVariableReserveNode(char const* pos, const char* varName)
+void AddVariableReserveNode(char const* pos)
 {
 	assert(varDefined);
 	if(!currType)
 		ThrowError("ERROR: auto variable must be initialized in place of definition", pos);
-	nodeList.push_back(new NodeVarDef(varName));
+	nodeList.push_back(new NodeZeroOP());
 	varInfo.back()->dataReserved = true;
 	varDefined = 0;
 	offsetBytes = 0;
