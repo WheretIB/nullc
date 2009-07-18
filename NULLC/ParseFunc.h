@@ -549,6 +549,7 @@ public:
 	NodeExpressionList(TypeInfo *returnType = typeVoid);
 	virtual ~NodeExpressionList();
 
+			void ReserveNodes(unsigned int count);
 			void AddNode(bool reverse = true);
 			NodeZeroOP* GetFirstNode();
 

@@ -373,7 +373,6 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	if(!res)
 		return false;
 
-//return true;
 	funcInfo.back()->address = -1;
 	funcInfo.back()->funcPtr = (void*)ptr;
 
@@ -475,7 +474,6 @@ bool Compiler::Compile(string str)
 #ifdef NULLC_LOG_FILES
 	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
 #endif
-	//return true;
 
 	// Emulate global block end
 	CodeInfo::globalSize = varTop;
