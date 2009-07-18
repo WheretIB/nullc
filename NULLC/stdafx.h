@@ -28,7 +28,7 @@ using namespace std;
 #endif
 
 unsigned int GetStringHash(const char *str);
-unsigned int GetStringHash(const char *str, const char *end);
+unsigned int StringHashContinue(unsigned int hash, const char *str);
 
 template<typename T, bool zeroNewMemory = false>
 class FastVector
@@ -86,7 +86,7 @@ private:
 	unsigned int	max, m_size;
 };
 
-template<int chunkSize = 256>
+template<int chunkSize>
 class ChunkedStackPool
 {
 public:

@@ -9,11 +9,10 @@ unsigned int GetStringHash(const char *str)
 	return hash;
 }
 
-unsigned int GetStringHash(const char *str, const char *end)
+unsigned int StringHashContinue(unsigned int hash, const char *str)
 {
-	unsigned int hash = 5381;
 	int c;
-	while((c = *str++) != 0 && str != end)
+	while((c = *str++) != 0)
 		hash = ((hash << 5) + hash) + c;
 	return hash;
 }
