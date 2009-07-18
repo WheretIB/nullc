@@ -2067,26 +2067,48 @@ unsigned int NodeContinueOp::GetSize()
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, определяющий код для switch
-NodeSwitchExpr::NodeSwitchExpr():caseCondList(8), caseBlockList(8)
+NodeSwitchExpr::NodeSwitchExpr()
 {
 	// Возьмём узел с условием
 	first = TakeLastNode();
+	conditionHead = conditionTail = NULL;
+	blockHead = blockTail = NULL;
+	caseCount = 0;
 }
 NodeSwitchExpr::~NodeSwitchExpr()
 {
-	for(unsigned int i = 0; i < caseCondList.size(); i++)
+	while(conditionHead)
 	{
-		delete caseCondList[i];
-		delete caseBlockList[i];
+		NodeZeroOP *condNext = conditionHead->next;
+		NodeZeroOP *blockNext = blockHead->next;
+		delete conditionHead;
+		delete blockHead;
+		conditionHead = condNext;
+		blockHead = blockNext;
 	}
 }
 
 void NodeSwitchExpr::AddCase()
 {
+	caseCount++;
 	// Возьмём с верхушки блок
-	caseBlockList.push_back(TakeLastNode());
+	if(blockTail)
+	{
+		blockTail->next = TakeLastNode();
+		blockTail->next->prev = blockTail;
+		blockTail = blockTail->next;
+	}else{
+		blockHead = blockTail = TakeLastNode();
+	}
 	// Возьмём условие для блока
-	caseCondList.push_back(TakeLastNode());
+	if(conditionTail)
+	{
+		conditionTail->next = TakeLastNode();
+		conditionTail->next->prev = conditionTail;
+		conditionTail = conditionTail->next;
+	}else{
+		conditionHead = conditionTail = TakeLastNode();
+	}
 }
 
 void NodeSwitchExpr::Compile()
@@ -2100,28 +2122,29 @@ void NodeSwitchExpr::Compile()
 	// Найдём значение по которому будем выбирать вариант кода
 	first->Compile();
 
+	NodeZeroOP *curr, *currBlock;
+
 	// Найдём конец свитча
-	unsigned int switchEnd = cmdList.size() + 2 + caseCondList.size() * 3;
-	for(unsigned int i = 0; i < caseCondList.size(); i++)
-		switchEnd += caseCondList[i]->GetSize();
+	unsigned int switchEnd = cmdList.size() + 2 + caseCount * 3;
+	for(curr = conditionHead; curr; curr = curr->next)
+		switchEnd += curr->GetSize();
 	unsigned int condEnd = switchEnd;
-	unsigned int blockNum = 0;
-	for(unsigned int i = 0; i < caseBlockList.size(); i++, blockNum++)
-		switchEnd += caseBlockList[i]->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
+	for(curr = blockHead; curr; curr = curr->next)
+		switchEnd += curr->GetSize() + 1 + (curr != blockTail ? 1 : 0);
 
 	// Сохраним адрес для оператора break;
 	breakAddr.push_back(switchEnd+1);
 
 	// Сгенерируем код для всех case'ов
 	unsigned int caseAddr = condEnd;
-	for(unsigned int i = 0; i < caseCondList.size(); i++)
+	for(curr = conditionHead, currBlock = blockHead; curr; curr = curr->next, currBlock = currBlock->next)
 	{
 		if(aOT == OTYPE_INT)
 			cmdList.push_back(VMCmd(cmdCopyI));
 		else
 			cmdList.push_back(VMCmd(cmdCopyDorL));
 
-		caseCondList[i]->Compile();
+		curr->Compile();
 		// Сравним на равенство
 		if(aOT == OTYPE_INT)
 			cmdList.push_back(VMCmd(cmdEqual));
@@ -2131,19 +2154,18 @@ void NodeSwitchExpr::Compile()
 			cmdList.push_back(VMCmd(cmdEqualL));
 		// Если равны, перейдём на нужный кейс
 		cmdList.push_back(VMCmd(cmdJmpNZType[aOT], caseAddr));
-		caseAddr += caseBlockList[i]->GetSize() + 2;
+		caseAddr += currBlock->GetSize() + 2;
 	}
 	// Уберём с вершины стека значение по которому выбирался вариант кода
 	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 
 	cmdList.push_back(VMCmd(cmdJmp, switchEnd));
-	blockNum = 0;
-	for(unsigned int i = 0; i < caseBlockList.size(); i++, blockNum++)
+	for(curr = blockHead; curr; curr = curr->next)
 	{
 		// Уберём с вершины стека значение по которому выбирался вариант кода
 		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
-		caseBlockList[i]->Compile();
-		if(blockNum != caseBlockList.size()-1)
+		curr->Compile();
+		if(curr != blockTail)
 		{
 			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 2));
 		}
@@ -2162,15 +2184,15 @@ void NodeSwitchExpr::LogToStream(FILE *fGraph)
 	fprintf(fGraph, "%s SwitchExpression :\r\n", typeInfo->GetTypeName().c_str());
 	GoDown();
 	first->LogToStream(fGraph);
-	for(unsigned int i = 0; i < caseCondList.size(); i++)
+	for(NodeZeroOP *curr = conditionHead, *block = blockHead; curr; curr = curr->next, block = block->next)
 	{
-		caseCondList[i]->LogToStream(fGraph);
-		if(i == caseCondList.size()-1)
+		curr->LogToStream(fGraph);
+		if(curr == conditionTail)
 		{
 			GoUp();
 			GoDownB();
 		}
-		caseBlockList[i]->LogToStream(fGraph);
+		block->LogToStream(fGraph);
 	}
 	GoUp();
 }
@@ -2178,13 +2200,12 @@ unsigned int NodeSwitchExpr::GetSize()
 {
 	unsigned int size = 0;
 	size += first->GetSize();
-	for(unsigned int i = 0; i < caseCondList.size(); i++)
-		size += caseCondList[i]->GetSize();
-	unsigned int blockNum = 0;
-	for(unsigned int i = 0; i < caseBlockList.size(); i++, blockNum++)
-		size += caseBlockList[i]->GetSize() + 1 + (blockNum != caseBlockList.size()-1 ? 1 : 0);
+	for(NodeZeroOP *curr = conditionHead; curr; curr = curr->next)
+		size += curr->GetSize();
+	for(NodeZeroOP *curr = blockHead; curr; curr = curr->next)
+		size += curr->GetSize() + 1 + (curr != blockTail ? 1 : 0);
 	size += 4;
-	size += (unsigned int)caseCondList.size() * 3;
+	size += (unsigned int)caseCount * 3;
 	return size;
 }
 
