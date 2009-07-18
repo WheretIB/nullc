@@ -21,9 +21,6 @@ bool currValConst;
 // Номер скрытой переменной - константного массива
 unsigned int inplaceArrayNum;
 
-// Массив временных строк
-std::vector<std::string>	strs;
-
 // Информация о вершинах стека переменных. При компиляции он служит для того, чтобы
 // Удалять информацию о переменных, когда они выходят из области видимости
 FastVector<VarTopInfo>		varInfoTop(64);
@@ -202,7 +199,7 @@ void addBinInt(char const*s, char const*e)
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
 // но зато не надо писать отдельный класс с одинаковыми действиями внутри.
-void addStringNode(char const*s, char const*e)
+void addStringNode(char const* s, char const* e)
 {
 	lastKnownStartPos = s;
 
@@ -265,8 +262,6 @@ void addStringNode(char const*s, char const*e)
 		arrayList->AddNode();
 	}
 	nodeList.push_back(temp);
-
-	strs.pop_back();
 }
 
 // Функция для создания узла, который уберёт значение со стека переменных
@@ -772,25 +767,25 @@ void AddContinueNode(char const* s, char const* e)
 	nodeList.push_back(new NodeContinueOp(c));
 }
 
-//Finds TypeInfo in a typeInfo list by name
-void selType(char const* s, char const* e)
+void SelectTypeByName(char const* pos, char const* typeName)
 {
-	string vType = std::string(s,e);
-	if(vType == "auto")
+	static unsigned int autoHash = GetStringHash("auto");
+	unsigned int typeHash = GetStringHash(typeName);
+	if(typeHash == autoHash)
 	{
 		currType = NULL;
 		return;
 	}
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
-		if(typeInfo[i]->name == vType)
+		if(typeInfo[i]->nameHash == typeHash)
 		{
 			currType = typeInfo[i];
 			return;
 		}
 	}
-	sprintf(callbackError, "ERROR: Variable type '%s' is unknown", vType.c_str());
-	ThrowError(callbackError, s);
+	sprintf(callbackError, "ERROR: Variable type '%s' is unknown", typeName);
+	ThrowError(callbackError, pos);
 }
 
 void addTwoExprNode(char const* s, char const* e);
@@ -799,20 +794,19 @@ unsigned int	offsetBytes = 0;
 
 std::set<VariableInfo*> varInfoAll;
 
-void AddVariable(char const* pos, const char* e)
+void AddVariable(char const* pos, const char* varName)
 {
-	(void)e;
+	assert(varName != NULL);
 	lastKnownStartPos = pos;
-	string vName = strs.back();
 
-	unsigned int hash = GetStringHash(vName.c_str());
+	unsigned int hash = GetStringHash(varName);
 
 	// Check for variables with the same name in current scope
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 	{
 		if(varInfo[i]->nameHash == hash)
 		{
-			sprintf(callbackError, "ERROR: Name '%s' is already taken for a variable in current scope", vName.c_str());
+			sprintf(callbackError, "ERROR: Name '%s' is already taken for a variable in current scope", varName);
 			ThrowError(callbackError, pos);
 		}
 	}
@@ -821,19 +815,19 @@ void AddVariable(char const* pos, const char* e)
 	{
 		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible)
 		{
-			sprintf(callbackError, "ERROR: Name '%s' is already taken for a function", vName.c_str());
+			sprintf(callbackError, "ERROR: Name '%s' is already taken for a function", varName);
 			ThrowError(callbackError, pos);
 		}
 	}
 
 	if(currType && currType->size == TypeInfo::UNSIZED_ARRAY)
 	{
-		sprintf(callbackError, "ERROR: variable '%s' can't be an unfixed size array", vName.c_str());
+		sprintf(callbackError, "ERROR: variable '%s' can't be an unfixed size array", varName);
 		ThrowError(callbackError, pos);
 	}
 	if(currType && currType->size > 64*1024*1024)
 	{
-		sprintf(callbackError, "ERROR: variable '%s' has to big length (>64 Mb)", vName.c_str());
+		sprintf(callbackError, "ERROR: variable '%s' has to big length (>64 Mb)", varName);
 		ThrowError(callbackError, pos);
 	}
 	
@@ -849,20 +843,19 @@ void AddVariable(char const* pos, const char* e)
 			offsetBytes += offset;
 		}
 	}
-	varInfo.push_back(new VariableInfo(vName, varTop, currType, currValConst));
+	varInfo.push_back(new VariableInfo(varName, varTop, currType, currValConst));
 	varInfoAll.insert(varInfo.back());
 	varDefined = true;
 	if(currType)
 		varTop += currType->size;
 }
 
-void addVarDefNode(char const* s, char const* e)
+void AddVariableReserveNode(char const* pos, const char* varName)
 {
-	(void)e;	// C4100
 	assert(varDefined);
 	if(!currType)
-		ThrowError("ERROR: auto variable must be initialized in place of definition", s);
-	nodeList.push_back(new NodeVarDef(strs.back()));
+		ThrowError("ERROR: auto variable must be initialized in place of definition", pos);
+	nodeList.push_back(new NodeVarDef(varName));
 	varInfo.back()->dataReserved = true;
 	varDefined = 0;
 	offsetBytes = 0;
@@ -925,28 +918,21 @@ void SetTypeOfLastNode(char const* s, char const* e)
 	nodeList.pop_back();
 }
 
-void AddInplaceArray(char const* s, char const* e);
+void AddInplaceArray(char const* pos);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
-void AddMemberAccessNode(char const* s, char const* e);
-void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount);
+void AddMemberAccessNode(char const* pos, char const* varName);
+void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int callArgCount);
 
 // Функция для получения адреса переменной, имя которое передаётся в параметрах
-void AddGetAddressNode(char const* s, char const* e)
+void AddGetAddressNode(char const* pos, char const* varName)
 {
-	lastKnownStartPos = s;
+	lastKnownStartPos = pos;
 
 	int fID = -1;
 
 	// Find variable name hash
-	unsigned int hash = GetStringHash(s, e+1);
-
-	if((int)(e-s) > 63)
-		ThrowError("ERROR: variable name length is limited to 64 symbols", s);
-
-	char	varName[64];
-	memcpy(varName, s, (int)(e-s));
-	varName[(int)(e-s)] = 0;
+	unsigned int hash = GetStringHash(varName);
 
 	// Find in variable list
 	int i = (int)varInfo.size()-1;
@@ -962,7 +948,7 @@ void AddGetAddressNode(char const* s, char const* e)
 				if(fID != -1)
 				{
 					sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
-					ThrowError(callbackError, s);
+					ThrowError(callbackError, pos);
 				}
 				fID = k;
 			}
@@ -970,7 +956,7 @@ void AddGetAddressNode(char const* s, char const* e)
 		if(fID == -1)
 		{
 			sprintf(callbackError, "ERROR: variable '%s' is not defined", varName);
-			ThrowError(callbackError, s);
+			ThrowError(callbackError, pos);
 		}
 	}
 	// Кладём в стек типов её тип
@@ -990,7 +976,7 @@ void AddGetAddressNode(char const* s, char const* e)
 		if(member)
 		{
 			// Переменные типа адресуются через указатель this
-			std::string bName = "this";
+			//std::string bName = "this";
 
 			FunctionInfo *currFunc = currDefinedFunc.back();
 
@@ -999,9 +985,8 @@ void AddGetAddressNode(char const* s, char const* e)
 
 			nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 
-			AddDereferenceNode(0,0);
-			strs.push_back(varName);
-			AddMemberAccessNode(s, e);
+			AddDereferenceNode(pos, 0);
+			AddMemberAccessNode(pos, varName);
 
 			currTypes.pop_back();
 			return;
@@ -1043,20 +1028,22 @@ void AddGetAddressNode(char const* s, char const* e)
 			nodeList.push_back(new NodeGetAddress(varInfo[i], varAddress, absAddress));
 		}else{
 			if(funcInfo[fID]->funcPtr != 0)
-				ThrowError("ERROR: Can't get a pointer to an extern function", s);
+				ThrowError("ERROR: Can't get a pointer to an extern function", pos);
 			if(funcInfo[fID]->address == -1 && funcInfo[fID]->funcPtr == NULL)
-				ThrowError("ERROR: Can't get a pointer to a build-in function", s);
+				ThrowError("ERROR: Can't get a pointer to a build-in function", pos);
 			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 			{
 				std::string bName = "$" + funcInfo[fID]->name + "_ext";
+				unsigned int contextHash = GetStringHash(bName.c_str());
+
 				int i = (int)varInfo.size()-1;
-				while(i >= 0 && varInfo[i]->name != bName)
+				while(i >= 0 && varInfo[i]->nameHash != contextHash)
 					i--;
 				if(i == -1)
 				{
 					nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
 				}else{
-					AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+					AddGetAddressNode(pos, bName.c_str());
 					currTypes.pop_back();
 				}
 			}
@@ -1149,19 +1136,21 @@ void FailedSetVariable(char const* s, char const* e)
 }
 
 // Функция вызывается для определния переменной с одновременным присваиванием ей значения
-void AddDefineVariableNode(char const* s, char const* e)
+void AddDefineVariableNode(char const* pos, const char* varName)
 {
-	lastKnownStartPos = s;
+	assert(varName != NULL);
+	lastKnownStartPos = pos;
+
+	unsigned int hash = GetStringHash(varName);
 
 	// Ищем переменную по имени
 	int i = (int)varInfo.size()-1;
-	string vName = strs.back();
-	while(i >= 0 && varInfo[i]->name != vName)
+	while(i >= 0 && varInfo[i]->nameHash != hash)
 		i--;
 	if(i == -1)
 	{
-		sprintf(callbackError, "ERROR: variable '%s' is not defined", vName.c_str());
-		ThrowError(callbackError, s);
+		sprintf(callbackError, "ERROR: variable '%s' is not defined", varName);
+		ThrowError(callbackError, pos);
 	}
 	// Кладём в стек типов её тип
 	currTypes.push_back(varInfo[i]->varType);
@@ -1190,13 +1179,13 @@ void AddDefineVariableNode(char const* s, char const* e)
 				if(nodeList.back()->GetNodeType() == typeNodeExpressionList)
 				{
 					// Добавим узел, присваивающий скрытой переменной значения этого списка
-					AddInplaceArray(s, e);
+					AddInplaceArray(pos);
 					// Добавили лишний узел, потребуется их объеденить в конце
 					unifyTwo = true;
 				}else{
 					// Иначе, типы не совместимы, поэтому свидетельствуем об ошибке
 					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->GetTypeInfo()->GetTypeName().c_str(), realCurrType->GetTypeName().c_str());
-					ThrowError(callbackError, s);
+					ThrowError(callbackError, pos);
 				}
 			}
 			// Далее, так как мы присваиваем безразменому массиву значение размерного,
@@ -1224,7 +1213,7 @@ void AddDefineVariableNode(char const* s, char const* e)
 		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(funcDefNode->GetFuncInfo()->name.c_str(), funcDefNode->GetFuncInfo()->name.c_str() + funcDefNode->GetFuncInfo()->name.length());
+		AddGetAddressNode(pos, funcDefNode->GetFuncInfo()->name.c_str());
 		currTypes.pop_back();
 		unifyTwo = true;
 		realCurrType = nodeList.back()->GetTypeInfo();
@@ -1245,7 +1234,7 @@ void AddDefineVariableNode(char const* s, char const* e)
 			// Выбираем выравниваени. Указанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
 			unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes;
 			if(activeAlign > 16)
-				ThrowError("ERROR: alignment must me less than 16 bytes", s);
+				ThrowError("ERROR: alignment must me less than 16 bytes", pos);
 			// Если требуется выравнивание (нету спецификации noalign, и адрес ещё не выравнен)
 			if(activeAlign != 0 && varTop % activeAlign != 0)
 			{
@@ -1277,6 +1266,7 @@ void AddDefineVariableNode(char const* s, char const* e)
 
 void AddSetVariableNode(char const* s, char const* e)
 {
+	(void)e;
 	lastKnownStartPos = s;
 
 	TypeInfo *realCurrType = currTypes.back();
@@ -1290,7 +1280,7 @@ void AddSetVariableNode(char const* s, char const* e)
 			{
 				if(nodeList.back()->GetNodeType() == typeNodeExpressionList)
 				{
-					AddInplaceArray(s, e);
+					AddInplaceArray(s);
 					currTypes.pop_back();
 					unifyTwo = true;
 				}else{
@@ -1317,7 +1307,7 @@ void AddSetVariableNode(char const* s, char const* e)
 		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(funcDefNode->GetFuncInfo()->name.c_str(), funcDefNode->GetFuncInfo()->name.c_str() + funcDefNode->GetFuncInfo()->name.length());
+		AddGetAddressNode(s, funcDefNode->GetFuncInfo()->name.c_str());
 		currTypes.pop_back();
 		unifyTwo = true;
 		std::swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
@@ -1346,12 +1336,11 @@ void AddGetVariableNode(char const* s, char const* e)
 		nodeList.push_back(new NodeDereference(currTypes.back()));
 }
 
-void AddMemberAccessNode(char const* s, char const* e)
+void AddMemberAccessNode(char const* pos, char const* varName)
 {
-	(void)e;	// C4100
-	lastKnownStartPos = s;
+	lastKnownStartPos = pos;
 
-	std::string memberName = strs.back();
+	unsigned int hash = GetStringHash(varName);
 
 	// Да, это локальная переменная с именем, как у глобальной!
 	TypeInfo *currType = currTypes.back();
@@ -1367,27 +1356,31 @@ void AddMemberAccessNode(char const* s, char const* e)
  
 	int fID = -1;
 	int i = (int)currType->memberData.size()-1;
-	while(i >= 0 && currType->memberData[i].name != memberName)
+	while(i >= 0 && currType->memberData[i].nameHash != hash)
 		i--;
 	if(i == -1)
 	{
+		char	funcName[NULLC_MAX_VARIABLE_NAME_LENGTH * 2 + 2];
+		sprintf(funcName, "%s::%s", currType->name.c_str(), varName);
+		unsigned int hash = GetStringHash(funcName);
+
 		// Ищем функцию по имени
 		for(int k = 0; k < (int)funcInfo.size(); k++)
 		{
-			if(funcInfo[k]->name == (currType->name + "::" + memberName) && funcInfo[k]->visible)
+			if(funcInfo[k]->nameHash == hash && funcInfo[k]->visible)
 			{
 				if(fID != -1)
 				{
-					sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", memberName.c_str());
-					ThrowError(callbackError, s);
+					sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
+					ThrowError(callbackError, pos);
 				}
 				fID = k;
 			}
 		}
 		if(fID == -1)
 		{
-			sprintf(callbackError, "ERROR: variable '%s' is not a member of '%s'", memberName.c_str(), currType->GetTypeName().c_str());
-			ThrowError(callbackError, s);
+			sprintf(callbackError, "ERROR: variable '%s' is not a member of '%s'", varName, currType->GetTypeName().c_str());
+			ThrowError(callbackError, pos);
 		}
 	}
 	
@@ -1406,14 +1399,13 @@ void AddMemberAccessNode(char const* s, char const* e)
 
 		currTypes.back() = funcInfo[fID]->funcType;
 	}
-
-	strs.pop_back();
 }
 
-void AddMemberFunctionCall(char const* s, char const* e, unsigned int callArgCount)
+void AddMemberFunctionCall(char const* pos, char const* funcName, unsigned int callArgCount)
 {
-	strs.back() = currTypes.back()->name + "::" + strs.back();
-	addFuncCallNode(s, e, callArgCount);
+	char	memberFuncName[NULLC_MAX_VARIABLE_NAME_LENGTH * 2 + 2];
+	sprintf(memberFuncName, "%s::%s", currTypes.back()->name.c_str(), funcName);
+	AddFunctionCallNode(pos, memberFuncName, callArgCount);
 	currTypes.back() = nodeList.back()->GetTypeInfo();
 }
 
@@ -1459,29 +1451,26 @@ struct AddModifyVariable
 	}
 };
 
-void AddInplaceArray(char const* s, char const* e)
+void AddInplaceArray(char const* pos)
 {
-	char asString[16];
-	sprintf(asString, "%d", inplaceArrayNum++);
-	strs.push_back("$carr");
-	strs.back() += asString;
+	char arrName[16];
+	sprintf(arrName, "$carr%d", inplaceArrayNum++);
 
 	TypeInfo *saveCurrType = currType;
 	bool saveVarDefined = varDefined;
 
 	currType = NULL;
-	AddVariable(s, e);
+	AddVariable(pos, arrName);
 
-	AddDefineVariableNode(s, e);
-	addPopNode(s, e);
+	AddDefineVariableNode(pos, arrName);
+	addPopNode(pos, pos);
 	currTypes.pop_back();
 
-	AddGetAddressNode(strs.back().c_str(), strs.back().c_str()+strs.back().length());
-	AddGetVariableNode(s, e);
+	AddGetAddressNode(pos, arrName);
+	AddGetVariableNode(pos, pos);
 
 	varDefined = saveVarDefined;
 	currType = saveCurrType;
-	strs.pop_back();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1551,25 +1540,20 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 	nodeList.push_back(temp);
 }
 
-void FunctionAdd(char const* s, char const* e)
+void FunctionAdd(char const* pos, char const* funcName)
 {
-	(void)e;	// C4100
+	unsigned int funcNameHash = GetStringHash(funcName);
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 	{
-		if(varInfo[i]->name == strs.back())
+		if(varInfo[i]->nameHash == funcNameHash)
 		{
-			sprintf(callbackError, "ERROR: Name '%s' is already taken for a variable in current scope", strs.back().c_str());
-			ThrowError(callbackError, s);
+			sprintf(callbackError, "ERROR: Name '%s' is already taken for a variable in current scope", funcName);
+			ThrowError(callbackError, pos);
 		}
 	}
-	std::string name = strs.back();
-	if(name == "if" || name == "else" || name == "for" || name == "while" || name == "return" || name=="switch" || name=="case")
-	{
-		sprintf(callbackError, "ERROR: The name '%s' is reserved", name.c_str());
-		ThrowError(callbackError, s);
-	}
+	std::string name = funcName;
 	if(!currType)
-		ThrowError("ERROR: function return type cannot be auto", s);
+		ThrowError("ERROR: function return type cannot be auto", pos);
 	funcInfo.push_back(new FunctionInfo());
 	funcInfo.back()->name = name;
 	funcInfo.back()->vTopSize = (unsigned int)varInfoTop.size();
@@ -1590,61 +1574,56 @@ void FunctionAdd(char const* s, char const* e)
 		varTop += 8;
 }
 
-void FunctionParam(char const* s, char const* e)
+void FunctionParameter(char const* pos, char const* paramName)
 {
-	(void)e;	// C4100
 	if(!currType)
-		ThrowError("ERROR: function parameter cannot be an auto type", s);
-	funcInfo.back()->params.push_back(VariableInfo(strs.back(), 0, currType, currValConst));
+		ThrowError("ERROR: function parameter cannot be an auto type", pos);
+	funcInfo.back()->params.push_back(VariableInfo(paramName, 0, currType, currValConst));
 	funcInfo.back()->allParamSize += currType->size;
-	strs.pop_back();
 }
-void FunctionStart(char const* s, char const* e)
+void FunctionStart(char const* pos)
 {
-	(void)s; (void)e;	// C4100
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 
 	for(int i = (int)funcInfo.back()->params.size()-1; i >= 0; i--)
 	{
-		strs.push_back(funcInfo.back()->params[i].name);
-		
 		currValConst = funcInfo.back()->params[i].isConst;
 		currType = funcInfo.back()->params[i].varType;
 		currAlign = 1;
-		AddVariable(0,0);
+		AddVariable(pos, funcInfo.back()->params[i].name.c_str());
 		varDefined = false;
-
-		strs.pop_back();
 	}
 
-	strs.push_back("$" + funcInfo.back()->name + "_ext");
+	char hiddenHame[NULLC_MAX_VARIABLE_NAME_LENGTH + 8];
+	sprintf(hiddenHame, "$%s_ext", funcInfo.back()->name.c_str());
 	currType = GetReferenceType(typeInt);
 	currAlign = 1;
-	AddVariable(0, 0);
+	AddVariable(pos, hiddenHame);
 	varDefined = false;
-	strs.pop_back();
 
 	funcInfo.back()->funcType = GetFunctionType(funcInfo.back());
 }
-void FunctionEnd(char const* s, char const* e)
+
+void FunctionEnd(char const* pos, char const* funcName)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	std::string fName = strs.back();
+	std::string fName = funcName;
 	if(newType)
 	{
 		fName = newType->name + "::" + fName;
 	}
 
+	unsigned int funcNameHash = GetStringHash(fName.c_str());
+
 	int i = (int)funcInfo.size()-1;
-	while(i >= 0 && funcInfo[i]->name != fName)
+	while(i >= 0 && funcInfo[i]->nameHash != funcNameHash)
 		i--;
 
 	// Find all the functions with the same name
-	//int count = 0;
 	for(int n = 0; n < i; n++)
 	{
-		if(funcInfo[n]->name == funcInfo[i]->name && funcInfo[n]->params.size() == funcInfo[i]->params.size() && funcInfo[n]->visible)
+		if(funcInfo[n]->nameHash == funcInfo[i]->nameHash && funcInfo[n]->params.size() == funcInfo[i]->params.size() && funcInfo[n]->visible)
 		{
 			// Check all parameter types
 			bool paramsEqual = true;
@@ -1656,7 +1635,7 @@ void FunctionEnd(char const* s, char const* e)
 			if(paramsEqual)
 			{
 				sprintf(callbackError, "ERROR: function '%s' is being defined with the same set of parameters", funcInfo[i]->name.c_str());
-				ThrowError(callbackError, s);
+				ThrowError(callbackError, pos);
 			}
 		}
 	}
@@ -1670,7 +1649,6 @@ void FunctionEnd(char const* s, char const* e)
 
 	nodeList.push_back(new NodeFuncDef(funcInfo[i]));
 	funcDefList.push_back(nodeList.back());
-	strs.pop_back();
 
 	retTypeStack.pop_back();
 	currDefinedFunc.pop_back();
@@ -1695,29 +1673,28 @@ void FunctionEnd(char const* s, char const* e)
 
 		for(unsigned int n = 0; n < lastFunc.external.size(); n++)
 		{
-			const char *s = lastFunc.external[n].c_str(), *e = s + lastFunc.external[n].length();
-			AddGetAddressNode(s, e);
+			AddGetAddressNode(pos, lastFunc.external[n].c_str());
 			currTypes.pop_back();
 			arrayList->AddNode();
 		}
 		nodeList.push_back(temp);
 
-		strs.push_back("$" + lastFunc.name + "_ext");
+		char hiddenHame[NULLC_MAX_VARIABLE_NAME_LENGTH + 8];
+		sprintf(hiddenHame, "$%s_ext", lastFunc.name.c_str());
 
 		TypeInfo *saveCurrType = currType;
 		bool saveVarDefined = varDefined;
 
 		currType = NULL;
-		AddVariable(s, e);
+		AddVariable(pos, hiddenHame);
 
-		AddDefineVariableNode(s, e);
-		addPopNode(s, e);
+		AddDefineVariableNode(pos, hiddenHame);
+		addPopNode(pos, pos);
 		currTypes.pop_back();
 
 		varDefined = saveVarDefined;
 		currType = saveCurrType;
-		strs.pop_back();
-		addTwoExprNode(0,0);
+		addTwoExprNode(pos, pos);
 	}
 
 	if(newType)
@@ -1730,14 +1707,13 @@ void FunctionEnd(char const* s, char const* e)
 	}
 }
 
-void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
+void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int callArgCount)
 {
-	string fname = strs.back();
-	strs.pop_back();
+	unsigned int funcNameHash = GetStringHash(funcName);
 
 	// Searching, if fname is actually a variable name (which means, either it is a pointer to function, or an error)
 	int vID = (int)varInfo.size()-1;
-	while(vID >= 0 && varInfo[vID]->name != fname)
+	while(vID >= 0 && varInfo[vID]->nameHash != funcNameHash)
 		vID--;
 
 	FunctionInfo	*fInfo = NULL;
@@ -1752,12 +1728,12 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 
 		unsigned int count = 0;
 		for(int k = 0; k < (int)funcInfo.size(); k++)
-			if(funcInfo[k]->name == fname && funcInfo[k]->visible)
+			if(funcInfo[k]->nameHash == funcNameHash && funcInfo[k]->visible)
 				fList[count++] = funcInfo[k];
 		if(count == 0)
 		{
-			sprintf(callbackError, "ERROR: function '%s' is undefined", fname.c_str());
-			ThrowError(callbackError, s);
+			sprintf(callbackError, "ERROR: function '%s' is undefined", funcName);
+			ThrowError(callbackError, pos);
 		}
 		// Find the best suited function
 		unsigned int minRating = 1024*1024;
@@ -1803,9 +1779,9 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 		{
 			std::string errTemp;
 			errTemp.append("ERROR: can't find function '");
-			errTemp.append(fname);
+			errTemp.append(funcName);
 			errTemp.append("' with following parameters:\r\n  ");
-			errTemp.append(fname);
+			errTemp.append(funcName);
 			errTemp.append("(");
 			for(unsigned int n = 0; n < callArgCount; n++)
 			{
@@ -1817,7 +1793,7 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 			for(unsigned int n = 0; n < count; n++)
 			{
 				errTemp.append("  ");
-				errTemp.append(fname);
+				errTemp.append(funcName);
 				errTemp.append("(");
 				for(unsigned int m = 0; m < fList[n]->params.size(); m++)
 				{
@@ -1826,7 +1802,7 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 				}
 				errTemp.append(")\r\n");
 			}
-			lastError = CompilerError(errTemp.c_str(), s);
+			lastError = CompilerError(errTemp.c_str(), pos);
 			ThrowLastError();
 		}
 		// Check, is there are more than one function, that share the same rating
@@ -1837,7 +1813,7 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 				std::string errTemp;
 				errTemp.append("ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n");
 				errTemp.append("  ");
-				errTemp.append(fname);
+				errTemp.append(funcName);
 				errTemp.append("(");
 				for(unsigned int n = 0; n < callArgCount; n++)
 				{
@@ -1851,7 +1827,7 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 					if(fRating[n] != minRating)
 						continue;
 					errTemp.append("  ");
-					errTemp.append(fname);
+					errTemp.append(funcName);
 					errTemp.append("(");
 					for(unsigned int m = 0; m < fList[n]->params.size(); m++)
 					{
@@ -1860,15 +1836,15 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 					}
 					errTemp.append(")\r\n");
 				}
-				lastError = CompilerError(errTemp.c_str(), s);
+				lastError = CompilerError(errTemp.c_str(), pos);
 				ThrowLastError();
 			}
 		}
 		fType = fList[minRatingIndex]->funcType->funcType;
 		fInfo = fList[minRatingIndex];
 	}else{
-		AddGetAddressNode(fname.c_str(), fname.length()+fname.c_str());
-		AddGetVariableNode(s, e);
+		AddGetAddressNode(pos, funcName);
+		AddGetVariableNode(pos, NULL);
 		fType = nodeList.back()->GetTypeInfo()->funcType;
 	}
 
@@ -1891,7 +1867,7 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 			(paramNodes[index]->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 		{
 			NodeFuncDef*	funcDefNode = (NodeFuncDef*)(paramNodes[index]->GetNodeType() == typeNodeFuncDef ? paramNodes[index] : static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode());
-			AddGetAddressNode(funcDefNode->GetFuncInfo()->name.c_str(), funcDefNode->GetFuncInfo()->name.c_str() + funcDefNode->GetFuncInfo()->name.length());
+			AddGetAddressNode(pos, funcDefNode->GetFuncInfo()->name.c_str());
 			currTypes.pop_back();
 
 			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->GetTypeInfo());
@@ -1904,7 +1880,7 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 				if(paramNodes[index]->GetNodeType() == typeNodeExpressionList)
 				{
 					nodeList.push_back(paramNodes[index]);
-					AddInplaceArray(s, e);
+					AddInplaceArray(pos);
 
 					paramNodes[index] = nodeList.back();
 					nodeList.pop_back();
@@ -1912,7 +1888,7 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 					nodeList.pop_back();
 				}else{
 					sprintf(callbackError, "ERROR: array expected as a parameter %d", i);
-					ThrowError(callbackError, s);
+					ThrowError(callbackError, pos);
 				}
 			}
 			unsigned int typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
@@ -1932,16 +1908,18 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
 	{
 		std::string bName = "$" + fInfo->name + "_ext";
+		unsigned int contextHash = GetStringHash(bName.c_str());
+
 		int i = (int)varInfo.size()-1;
-		while(i >= 0 && varInfo[i]->name != bName)
+		while(i >= 0 && varInfo[i]->nameHash != contextHash)
 			i--;
 		if(i == -1)
 		{
 			nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
 		}else{
-			AddGetAddressNode(bName.c_str(), bName.c_str()+bName.length());
+			AddGetAddressNode(pos, bName.c_str());
 			if(currTypes.back()->refLevel == 1)
-				AddDereferenceNode(s, e);
+				AddDereferenceNode(pos, NULL);
 			currTypes.pop_back();
 		}
 	}
@@ -1961,7 +1939,7 @@ void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount)
 
 		nodeList.push_back(new NodeExpressionList(temp->GetTypeInfo()));
 		for(unsigned int i = 0; i < inplaceArray.size(); i++)
-			addTwoExprNode(s, e);
+			addTwoExprNode(pos, pos);
 	}
 }
 
@@ -2057,15 +2035,13 @@ void TypeBegin(char const* s, char const* e)
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 }
 
-void TypeAddMember(char const* s, char const* e)
+void TypeAddMember(char const* pos, const char* varName)
 {
 	if(!currType)
-		ThrowError("ERROR: auto cannot be used for class members", s);
-	newType->AddMember(std::string(s, e), currType);
+		ThrowError("ERROR: auto cannot be used for class members", pos);
+	newType->AddMember(std::string(varName), currType);
 
-	strs.push_back(std::string(s, e));
-	AddVariable(0,0);
-	strs.pop_back();
+	AddVariable(pos, varName);
 }
 
 void TypeFinish(char const* s, char const* e)
@@ -2094,20 +2070,6 @@ void addUnfixedArraySize(char const*s, char const*e)
 {
 	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeNumber<int>(1, typeVoid));
-}
-
-// Функции, кладушие и убирающие строки со стека строк
-// Стек строк может использоваться для удобного получения элемента более сложной грамматики
-// Например для правила использования переменной a[i], можно поместить "a" в стек,
-// потому что в функцию передаётся "a[i]" целиком
-void ParseStrPush(char const *s, char const *e)
-{
-	strs.push_back(string(s,e));
-}
-void ParseStrPop(char const *s, char const *e)
-{
-	(void)s; (void)e;	// C4100
-	strs.pop_back();
 }
 
 // Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует

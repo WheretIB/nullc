@@ -118,13 +118,18 @@ bool ParseSelectType(Lexeme** str)
 			ThrowError("ERROR: expression not found after typeof(", (*str)->pos);
 		}
 	}else if((*str)->type == lex_auto){
-		CALLBACK(selType((*str)->pos, (*str)->pos+(*str)->length));
+		CALLBACK(SelectTypeByName((*str)->pos, "auto"));
 		(*str)++;
 	}else if((*str)->type == lex_string){
 		if(!ParseTypename(str))
 			return false;
 		(*str)--;
-		CALLBACK(selType((*str)->pos, (*str)->pos+(*str)->length));
+		char	typeName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError("ERROR: type name length is limited to 64 symbols", (*str)->pos);
+		memcpy(typeName, (*str)->pos, (*str)->length);
+		typeName[(*str)->length] = 0;
+		CALLBACK(SelectTypeByName((*str)->pos, typeName));
 		(*str)++;
 	}else{
 		return false;
@@ -171,16 +176,27 @@ bool ParseClassDefinition(Lexeme** str)
 			{
 				if(!ParseSelectType(str))
 					break;
+
+				char	memberName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+
 				if((*str)->type != lex_string)
 					ThrowError("ERROR: class member name expected after type", (*str)->pos);
-				CALLBACK(TypeAddMember((*str)->pos, (*str)->pos+(*str)->length));
+				if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+					ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+				memcpy(memberName, (*str)->pos, (*str)->length);
+				memberName[(*str)->length] = 0;
+				CALLBACK(TypeAddMember((*str)->pos, memberName));
 				(*str)++;
 
 				while(ParseLexem(str, lex_comma))
 				{
 					if((*str)->type != lex_string)
 						ThrowError("ERROR: member name expected after ','", (*str)->pos);
-					CALLBACK(TypeAddMember((*str)->pos, (*str)->pos+(*str)->length));
+					if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+						ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+					memcpy(memberName, (*str)->pos, (*str)->length);
+					memberName[(*str)->length] = 0;
+					CALLBACK(TypeAddMember((*str)->pos, memberName));
 					(*str)++;
 				}
 				if(!ParseLexem(str, lex_semicolon))
@@ -199,7 +215,12 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 {
 	if((*str)->type != lex_string || (*str)[1].type != lex_oparen)
 		return false;
-	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+
+	char	functionName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+		ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+	memcpy(functionName, (*str)->pos, (*str)->length);
+	functionName[(*str)->length] = 0;
 	(*str) += 2;
 
 	unsigned int callArgCount = 0;
@@ -217,9 +238,9 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 		ThrowError("ERROR: ')' not found after function parameter list", (*str)->pos);
 
 	if(memberFunctionCall)
-		CALLBACK(AddMemberFunctionCall(NULL, NULL, callArgCount));
+		CALLBACK(AddMemberFunctionCall((*str)->pos, functionName, callArgCount));
 	else
-		CALLBACK(addFuncCallNode(NULL, NULL, callArgCount));
+		CALLBACK(AddFunctionCallNode((*str)->pos, functionName, callArgCount));
 
 	return true;
 }
@@ -232,8 +253,13 @@ bool ParseFunctionVariables(Lexeme** str)
 
 	if((*str)->type != lex_string)
 		ThrowError("ERROR: variable name not found after type in function variable list", (*str)->pos);
-	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
-	CALLBACK(FunctionParam((*str)->pos, (*str)->pos+(*str)->length));
+	char	paramName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+
+	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+		ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+	memcpy(paramName, (*str)->pos, (*str)->length);
+	paramName[(*str)->length] = 0;
+	CALLBACK(FunctionParameter((*str)->pos, paramName));
 	(*str)++;
 
 	while(ParseLexem(str, lex_comma))
@@ -244,8 +270,11 @@ bool ParseFunctionVariables(Lexeme** str)
 
 		if((*str)->type != lex_string)
 			ThrowError("ERROR: variable name not found after type in function variable list", (*str)->pos);
-		CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
-		CALLBACK(FunctionParam((*str)->pos, (*str)->pos+(*str)->length));
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+		memcpy(paramName, (*str)->pos, (*str)->length);
+		paramName[(*str)->length] = 0;
+		CALLBACK(FunctionParameter((*str)->pos, paramName));
 		(*str)++;
 	}
 	return true;
@@ -262,13 +291,17 @@ bool ParseFunctionDefinition(Lexeme** str)
 		*str = start;
 		return false;
 	}
-	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+	char	functionName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+		ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+	memcpy(functionName, (*str)->pos, (*str)->length);
+	functionName[(*str)->length] = 0;
 	(*str) += 2;
 
-	CALLBACK(FunctionAdd(NULL, NULL));
+	CALLBACK(FunctionAdd((*str)->pos, functionName));
 
 	ParseFunctionVariables(str);
-	CALLBACK(FunctionStart(NULL, NULL));
+	CALLBACK(FunctionStart((*str)->pos));
 
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError("ERROR: ')' not found after function variable list", (*str)->pos);
@@ -277,7 +310,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 
 	if(!ParseCode(str))
 		CALLBACK(addVoidNode(NULL, NULL));
-	CALLBACK(FunctionEnd(NULL, NULL));
+	CALLBACK(FunctionEnd((*str)->pos, functionName));
 	
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError("ERROR: '}' not found after function body", (*str)->pos);
@@ -293,10 +326,15 @@ bool ParseFunctionPrototype(Lexeme** str)
 		ThrowError("ERROR: function not found after type", (*str)->pos);
 	if((*str)[1].type != lex_oparen)
 		ThrowError("ERROR: '(' not found after function name", (*str)->pos);
-	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+	
+	char	functionName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+		ThrowError("ERROR: function name length is limited to 64 symbols", (*str)->pos);
+	memcpy(functionName, (*str)->pos, (*str)->length);
+	functionName[(*str)->length] = 0;
 	(*str) += 2;
 
-	CALLBACK(FunctionAdd(NULL, NULL));
+	CALLBACK(FunctionAdd((*str)->pos, functionName));
 
 	ParseFunctionVariables(str);
 
@@ -311,7 +349,14 @@ bool ParseAddVariable(Lexeme** str)
 {
 	if((*str)->type != lex_string)
 		return false;
-	CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+
+	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+		ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+
+	char	varName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+	memcpy(varName, (*str)->pos, (*str)->length);
+	varName[(*str)->length] = 0;
+
 	(*str)++;
 
 	if(ParseLexem(str, lex_obracket))
@@ -323,20 +368,19 @@ bool ParseAddVariable(Lexeme** str)
 		CALLBACK(convertTypeToArray(NULL, NULL));
 	}
 	CALLBACK(pushType(NULL, NULL));
-	CALLBACK(AddVariable(NULL, NULL));
+	CALLBACK(AddVariable((*str)->pos, varName));
 
 	if(ParseLexem(str, lex_set))
 	{
 		if(!ParseVaribleSet(str))
 			ThrowError("ERROR: expression not found after '='", (*str)->pos);
-		CALLBACK(AddDefineVariableNode(NULL, NULL));
+		CALLBACK(AddDefineVariableNode((*str)->pos, varName));
 		CALLBACK(addPopNode(NULL, NULL));
 		CALLBACK(popType(NULL, NULL));
 	}else{
-		CALLBACK(addVarDefNode(NULL, NULL));
+		CALLBACK(AddVariableReserveNode((*str)->pos, varName));
 	}
 	CALLBACK(popType(NULL, NULL));
-	CALLBACK(ParseStrPop(NULL, NULL));
 	return true;
 }
 
@@ -626,7 +670,15 @@ bool  ParseVariable(Lexeme** str)
 	
 	if((*str)->type != lex_string || (*str)[1].type == lex_oparen)
 		return false;
-	CALLBACK(AddGetAddressNode((*str)->pos, (*str)->pos+(*str)->length));
+
+	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+		ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+
+	char	varName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+	memcpy(varName, (*str)->pos, (*str)->length);
+	varName[(*str)->length] = 0;
+
+	CALLBACK(AddGetAddressNode((*str)->pos, varName));
 	(*str)++;
 
 	while(ParsePostExpression(str));
@@ -645,10 +697,15 @@ bool  ParsePostExpression(Lexeme** str)
 			*str = start;
 			return false;
 		}
-		CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError("ERROR: variable name length is limited to 64 symbols", (*str)->pos);
+
+		char	varName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		memcpy(varName, (*str)->pos, (*str)->length);
+		varName[(*str)->length] = 0;
 		(*str)++;
 
-		CALLBACK(AddMemberAccessNode(NULL, NULL));
+		CALLBACK(AddMemberAccessNode((*str)->pos, varName));
 	}else if(ParseLexem(str, lex_obracket)){
 		if(!ParseVaribleSet(str))
 			ThrowError("ERROR: expression not found after '['", (*str)->pos);
@@ -722,7 +779,6 @@ bool ParseTerminal(Lexeme** str)
 	}
 	if((*str)->type == lex_quotedstring)
 	{
-		CALLBACK(ParseStrPush((*str)->pos, (*str)->pos+(*str)->length));
 		CALLBACK(addStringNode((*str)->pos, (*str)->pos+(*str)->length));
 		(*str)++;
 		return true;
