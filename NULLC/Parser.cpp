@@ -378,7 +378,7 @@ bool ParseAddVariable(Lexeme** str)
 		CALLBACK(addPopNode(NULL, NULL));
 		CALLBACK(popType(NULL, NULL));
 	}else{
-		CALLBACK(AddVariableReserveNode((*str)->pos, varName));
+		CALLBACK(AddVariableReserveNode((*str)->pos));
 	}
 	CALLBACK(popType(NULL, NULL));
 	return true;

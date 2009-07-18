@@ -509,36 +509,6 @@ unsigned int NodeExpression::GetSize()
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, создающий место для новых переменных
-NodeVarDef::NodeVarDef(std::string nm)
-{
-	// Имя переменной
-	name = nm;
-}
-NodeVarDef::~NodeVarDef()
-{
-}
-
-void NodeVarDef::Compile()
-{
-	unsigned int startCmdSize = cmdList.size();
-
-	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
-
-	assert((cmdList.size()-startCmdSize) == GetSize());
-}
-void NodeVarDef::LogToStream(FILE *fGraph)
-{
-	DrawLine(fGraph);
-	fprintf(fGraph, "%s VarDef '%s'\r\n", typeInfo->GetTypeName().c_str(), name.c_str());
-}
-unsigned int NodeVarDef::GetSize()
-{
-	return 0;
-}
-
-//////////////////////////////////////////////////////////////////////////
 // Узел c содержимым блока {}
 NodeBlock::NodeBlock(unsigned int varShift, bool postPop)
 {
@@ -742,10 +712,6 @@ void NodeFuncCall::Compile()
 
 		if(!funcInfo || second)
 		{
-			/*if(second)
-				second->Compile();
-			else
-				first->Compile();*/
 			if(!onlyStackTypes)
 				cmdList.push_back(VMCmd(cmdPopIntTop, 4, addr));
 		}
