@@ -562,8 +562,7 @@ protected:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;
 
-	std::vector<NodeZeroOP*>	paramList;
-	typedef std::vector<NodeZeroOP*>::reverse_iterator paramPtr;
+	NodeZeroOP		*paramHead, *paramTail;
 };
 
 /*
