@@ -49,6 +49,8 @@ TypeInfo *newType = NULL;
 
 FastVector<FunctionInfo*>	currDefinedFunc(64);
 
+FastVector<VariableInfo*>	varInfoAll;
+
 void SetTypeConst(bool isConst)
 {
 	currValConst = isConst;
@@ -138,10 +140,22 @@ void addNumberNodeChar(char const*s, char const*e)
 	nodeList.push_back(new NodeNumber<int>(res, typeChar));
 }
 
+int fastatoi(const char* str)
+{
+	unsigned int digit;
+	int a = 0;
+	while((digit = *str - '0') < 10)
+	{
+		a = a * 10 + digit;
+		str++;
+	}
+	return a;
+}
+
 void addNumberNodeInt(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<int>(atoi(s), typeInt));
+	nodeList.push_back(new NodeNumber<int>(fastatoi(s), typeInt));
 }
 void addNumberNodeFloat(char const*s, char const*e)
 {
@@ -215,8 +229,7 @@ void addStringNode(char const* s, char const* e)
 	end = e-1;
 
 	nodeList.push_back(new NodeZeroOP());
-	nodeList.push_back(new NodeNumber<int>(len+1, typeInt));
-	TypeInfo *targetType = GetArrayType(typeChar);
+	TypeInfo *targetType = GetArrayType(typeChar, len+1);
 	if(!targetType)
 		ThrowLastError();
 	nodeList.push_back(new NodeExpressionList(targetType));
@@ -792,8 +805,6 @@ void addTwoExprNode(char const* s, char const* e);
 
 unsigned int	offsetBytes = 0;
 
-std::set<VariableInfo*> varInfoAll;
-
 void AddVariable(char const* pos, const char* varName)
 {
 	assert(varName != NULL);
@@ -844,7 +855,7 @@ void AddVariable(char const* pos, const char* varName)
 		}
 	}
 	varInfo.push_back(new VariableInfo(varName, varTop, currType, currValConst));
-	varInfoAll.insert(varInfo.back());
+	varInfoAll.push_back(varInfo.back());
 	varDefined = true;
 	if(currType)
 		varTop += currType->size;
@@ -999,9 +1010,8 @@ void AddGetAddressNode(char const* pos, char const* varName)
 		// Добавим имя переменной в список внешних переменных функции
 		int num = AddFunctionExternal(currFunc, varName);
 
-		nodeList.push_back(new NodeNumber<int>((int)currDefinedFunc.back()->external.size(), typeInt));
 		TypeInfo *temp = GetReferenceType(typeInt);
-		temp = GetArrayType(temp);
+		temp = GetArrayType(temp, (int)currDefinedFunc.back()->external.size());
 		if(!temp)
 			ThrowLastError();
 		temp = GetReferenceType(temp);
@@ -1515,16 +1525,12 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 		ThrowError("ERROR: array cannot be constructed from void type elements", s);
 
 	nodeList.push_back(new NodeZeroOP());
-	nodeList.push_back(new NodeNumber<int>(arrElementCount, typeInt));
-	TypeInfo *targetType = GetArrayType(currType);
+	TypeInfo *targetType = GetArrayType(currType, arrElementCount);
 	if(!targetType)
 		ThrowLastError();
-	nodeList.push_back(new NodeExpressionList(targetType));
 
-	NodeZeroOP* temp = nodeList.back();
-	nodeList.pop_back();
-
-	NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp);
+	NodeExpressionList *arrayList = new NodeExpressionList(targetType);
+	arrayList->ReserveNodes(arrElementCount + 1);
 
 	TypeInfo *realType = nodeList.back()->GetTypeInfo();
 	for(unsigned int i = 0; i < arrElementCount; i++)
@@ -1537,7 +1543,7 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 		arrayList->AddNode(false);
 	}
 
-	nodeList.push_back(temp);
+	nodeList.push_back(arrayList);
 }
 
 void FunctionAdd(char const* pos, char const* funcName)
@@ -1657,11 +1663,10 @@ void FunctionEnd(char const* pos, char const* funcName)
 	if(lastFunc.type == FunctionInfo::LOCAL && !lastFunc.external.empty())
 	{
 		nodeList.push_back(new NodeZeroOP());
-		nodeList.push_back(new NodeNumber<int>((int)lastFunc.external.size(), typeInt));
 		TypeInfo *targetType = GetReferenceType(typeInt);
 		if(!targetType)
 			ThrowLastError();
-		targetType = GetArrayType(targetType);
+		targetType = GetArrayType(targetType, (int)lastFunc.external.size());
 		if(!targetType)
 			ThrowLastError();
 		nodeList.push_back(new NodeExpressionList(targetType));
@@ -1707,6 +1712,9 @@ void FunctionEnd(char const* pos, char const* funcName)
 	}
 }
 
+FastVector<NodeZeroOP*> paramNodes(32);
+FastVector<NodeZeroOP*> inplaceArray(32);
+
 void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int callArgCount)
 {
 	unsigned int funcNameHash = GetStringHash(funcName);
@@ -1724,12 +1732,17 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		//Find all functions with given name
 		FunctionInfo *fList[32];
 		unsigned int	fRating[32];
-		memset(fRating, 0, 32*4);
+		//memset(fRating, 0, 32*4);
 
 		unsigned int count = 0;
 		for(int k = 0; k < (int)funcInfo.size(); k++)
+		{
 			if(funcInfo[k]->nameHash == funcNameHash && funcInfo[k]->visible)
+			{
+				fRating[count] = 0;
 				fList[count++] = funcInfo[k];
+			}
+		}
 		if(count == 0)
 		{
 			sprintf(callbackError, "ERROR: function '%s' is undefined", funcName);
@@ -1848,13 +1861,13 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		fType = nodeList.back()->GetTypeInfo()->funcType;
 	}
 
-	FastVector<NodeZeroOP*> paramNodes;
+	paramNodes.clear();
 	for(unsigned int i = 0; i < fType->paramType.size(); i++)
 	{
 		paramNodes.push_back(nodeList.back());
 		nodeList.pop_back();
 	}
-	FastVector<NodeZeroOP*> inplaceArray;
+	inplaceArray.clear();
 
 	for(unsigned int i = 0; i < fType->paramType.size(); i++)
 	{
@@ -2104,8 +2117,8 @@ void CallbackInitialize()
 	varInfoTop.clear();
 	funcInfoTop.clear();
 
-	for(std::set<VariableInfo*>::iterator s = varInfoAll.begin(), e = varInfoAll.end(); s!=e; s++)
-		delete *s;
+	for(unsigned int i = 0; i < varInfoAll.size(); i++)
+		delete varInfoAll[i];
 	varInfoAll.clear();
 
 	retTypeStack.clear();
@@ -2123,11 +2136,11 @@ void CallbackInitialize()
 	inplaceArrayNum = 1;
 
 	varInfo.push_back(new VariableInfo("ERROR", 0, typeDouble, true));
-	varInfoAll.insert(varInfo.back());
+	varInfoAll.push_back(varInfo.back());
 	varInfo.push_back(new VariableInfo("pi", 8, typeDouble, true));
-	varInfoAll.insert(varInfo.back());
+	varInfoAll.push_back(varInfo.back());
 	varInfo.push_back(new VariableInfo("e", 16, typeDouble, true));
-	varInfoAll.insert(varInfo.back());
+	varInfoAll.push_back(varInfo.back());
 
 	varInfoTop.push_back(VarTopInfo(0,0));
 
@@ -2141,7 +2154,7 @@ void CallbackInitialize()
 
 void CallbackDeinitialize()
 {
-	for(std::set<VariableInfo*>::iterator s = varInfoAll.begin(), e = varInfoAll.end(); s!=e; s++)
-		delete *s;
+	for(unsigned int i = 0; i < varInfoAll.size(); i++)
+		delete varInfoAll[i];
 	varInfoAll.clear();
 }

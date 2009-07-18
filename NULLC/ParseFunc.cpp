@@ -2210,6 +2210,11 @@ NodeExpressionList::~NodeExpressionList()
 		delete exprList[i];
 }
 
+void NodeExpressionList::ReserveNodes(unsigned int count)
+{
+	exprList.reserve(count);
+}
+
 void NodeExpressionList::AddNode(bool reverse)
 {
 	if(exprList.size() == 0 || !reverse)

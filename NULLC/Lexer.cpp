@@ -173,8 +173,6 @@ void	Lexer::Lexify(const char* code)
 					while(isDigit(*pos))
 						pos++;
 				}
-				/*if(*pos == 'b' || *pos == 'l' || *pos == 'f')
-					pos++;*/
 				if(*pos == '.')
 					pos++;
 				while(isDigit(*pos))
@@ -186,53 +184,61 @@ void	Lexer::Lexify(const char* code)
 				lLength = (int)(pos - code);
 			}else if(chartype_table[*code] & ct_start_symbol){
 				const char *pos = code;
-				while(chartype_table[*pos++] & ct_symbol)
-					lLength++;
+				while(chartype_table[*pos] & ct_symbol)
+					pos++;
+				lLength = (int)(pos-code);
 
-				if(!(chartype_table[code[lLength]] & ct_symbol))
+				if(!(chartype_table[*pos] & ct_symbol))
 				{
-					if(lLength == 3 && memcmp(code, "and", 3) == 0)
-						lType = lex_logand;
-					else if(lLength == 2 && memcmp(code, "or", 2) == 0)
-						lType = lex_logor;
-					else if(lLength == 3 && memcmp(code, "xor", 3) == 0)
-						lType = lex_logxor;
-					else if(lLength == 2 && memcmp(code, "if", 2) == 0)
-						lType = lex_if;
-					else if(lLength == 4 && memcmp(code, "else", 4) == 0)
-						lType = lex_else;
-					else if(lLength == 3 && memcmp(code, "for", 3) == 0)
-						lType = lex_for;
-					else if(lLength == 5 && memcmp(code, "while", 5) == 0)
-						lType = lex_while;
-					else if(lLength == 2 && memcmp(code, "do", 2) == 0)
-						lType = lex_do;
-					else if(lLength == 6 && memcmp(code, "switch", 6) == 0)
-						lType = lex_switch;
-					else if(lLength == 4 && memcmp(code, "case", 4) == 0)
-						lType = lex_case;
-					else if(lLength == 5 && memcmp(code, "break", 5) == 0)
-						lType = lex_break;
-					else if(lLength == 8 && memcmp(code, "continue", 8) == 0)
-						lType = lex_continue;
-					else if(lLength == 6 && memcmp(code, "return", 6) == 0)
-						lType = lex_return;
-					else if(lLength == 5 && memcmp(code, "const", 5) == 0)
-						lType = lex_const;
-					else if(lLength == 3 && memcmp(code, "ref", 3) == 0)
-						lType = lex_ref;
-					else if(lLength == 4 && memcmp(code, "auto", 4) == 0)
-						lType = lex_auto;
-					else if(lLength == 5 && memcmp(code, "class", 5) == 0)
-						lType = lex_class;
-					else if(lLength == 7 && memcmp(code, "noalign", 7) == 0)
+					if(lLength == 2)
+					{
+						if(memcmp(code, "or", 2) == 0)
+							lType = lex_logor;
+						else if(memcmp(code, "if", 2) == 0)
+							lType = lex_if;
+						else if(memcmp(code, "do", 2) == 0)
+							lType = lex_do;
+					}else if(lLength == 3){
+						if(memcmp(code, "and", 3) == 0)
+							lType = lex_logand;
+						else if(memcmp(code, "xor", 3) == 0)
+							lType = lex_logxor;
+						else if(memcmp(code, "for", 3) == 0)
+							lType = lex_for;
+						else if(memcmp(code, "ref", 3) == 0)
+							lType = lex_ref;
+					}else if(lLength == 4){
+						if(memcmp(code, "case", 4) == 0)
+							lType = lex_case;
+						else if(memcmp(code, "else", 4) == 0)
+							lType = lex_else;
+						else if(memcmp(code, "auto", 4) == 0)
+							lType = lex_auto;
+					}else if(lLength == 5){
+						if(memcmp(code, "while", 5) == 0)
+							lType = lex_while;
+						else if(memcmp(code, "break", 5) == 0)
+							lType = lex_break;
+						else if(memcmp(code, "const", 5) == 0)
+							lType = lex_const;
+						else if(memcmp(code, "class", 5) == 0)
+							lType = lex_class;
+						else if(memcmp(code, "align", 5) == 0)
+							lType = lex_align;
+					}else if(lLength == 6){
+						if(memcmp(code, "switch", 6) == 0)
+							lType = lex_switch;
+						else if(memcmp(code, "return", 6) == 0)
+							lType = lex_return;
+						else if(memcmp(code, "typeof", 6) == 0)
+							lType = lex_typeof;
+						else if(memcmp(code, "sizeof", 6) == 0)
+							lType = lex_sizeof;
+					}else if(lLength == 7 && memcmp(code, "noalign", 7) == 0){
 						lType = lex_noalign;
-					else if(lLength == 5 && memcmp(code, "align", 5) == 0)
-						lType = lex_align;
-					else if(lLength == 6 && memcmp(code, "typeof", 6) == 0)
-						lType = lex_typeof;
-					else if(lLength == 6 && memcmp(code, "sizeof", 6) == 0)
-						lType = lex_sizeof;
+					}else if(lLength == 8 && memcmp(code, "continue", 8) == 0){
+						lType = lex_continue;
+					}
 				}
 	
 				if(lType == lex_none)

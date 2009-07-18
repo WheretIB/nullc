@@ -16,8 +16,8 @@ unsigned int CodeInfo::activeExecutor = 0;
 
 CompilerError				CodeInfo::lastError;
 
-std::vector<FunctionInfo*>	CodeInfo::funcInfo;
-std::vector<VariableInfo*>	CodeInfo::varInfo;
+FastVector<FunctionInfo*>	CodeInfo::funcInfo;
+FastVector<VariableInfo*>	CodeInfo::varInfo;
 FastVector<TypeInfo*>		CodeInfo::typeInfo(64);
 CommandList*				CodeInfo::cmdInfoList = NULL;
 FastVector<VMCmd>			CodeInfo::cmdList;

@@ -30,11 +30,11 @@ namespace CodeInfo
 
 	// Информация о функциях
 	// Information about functions
-	extern std::vector<FunctionInfo*>	funcInfo;
+	extern FastVector<FunctionInfo*>	funcInfo;
 
 	// Информация о переменных
 	// Information about variables
-	extern std::vector<VariableInfo*>	varInfo;
+	extern FastVector<VariableInfo*>	varInfo;
 
 	// Информация о типах
 	// Information about types

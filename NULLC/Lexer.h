@@ -37,7 +37,7 @@ enum LexemeType
 {
 	lex_none,
 	lex_number, lex_string, lex_quotedstring, // *(0-9) *(a-z,A-Z,_) "*any"
-	/*lex_quote, */lex_semiquote, lex_escape, lex_point, lex_comma, // " ' \ .
+	lex_semiquote, lex_escape, lex_point, lex_comma, // " ' \ .
 	lex_inc, lex_dec, // ++ --
 	lex_add, lex_sub, lex_mul, lex_div, lex_mod, lex_pow, lex_less, lex_lequal, lex_shl, lex_greater, lex_gequal, lex_shr, lex_equal, lex_nequal, // + - * / % ** < <= << > >= >> == !=
 	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, // = += -= *= /= **=
@@ -54,7 +54,7 @@ static const int lexemLength[] =
 {
 	0,
 	0, 0, 0,
-	/*1, */1, 1, 1, 1, // " ' \ . ,
+	1, 1, 1, 1, // " ' \ . ,
 	2, 2, // ++ --
 	1, 1, 1, 1, 1, 2, 1, 2, 2, 1, 2, 2, 2, 2, // + - * / % ** < <= << > >= >> == !=
 	1, 2, 2, 2, 2, 3, // = += -= *= /= **=
