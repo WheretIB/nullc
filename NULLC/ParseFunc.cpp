@@ -168,6 +168,9 @@ unsigned int	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
 
 //////////////////////////////////////////////////////////////////////////
 // Узел не имеющий дочерних узлов
+
+ChunkedStackPool<2048>	NodeZeroOP::nodePool;
+
 NodeZeroOP::NodeZeroOP()
 {
 	typeInfo = typeVoid;
@@ -215,7 +218,6 @@ NodeOneOP::NodeOneOP()
 }
 NodeOneOP::~NodeOneOP()
 {
-	delete first;
 }
 
 void NodeOneOP::Compile()
@@ -247,7 +249,6 @@ NodeTwoOP::NodeTwoOP()
 }
 NodeTwoOP::~NodeTwoOP()
 {
-	delete second;
 }
 
 void NodeTwoOP::Compile()
@@ -281,7 +282,6 @@ NodeThreeOP::NodeThreeOP()
 }
 NodeThreeOP::~NodeThreeOP()
 {
-	delete third;
 }
 
 void NodeThreeOP::Compile()
@@ -644,12 +644,6 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 }
 NodeFuncCall::~NodeFuncCall()
 {
-	while(paramHead)
-	{
-		NodeZeroOP *next = paramHead->next;
-		delete paramHead;
-		paramHead = next;
-	}
 }
 
 void NodeFuncCall::Compile()
@@ -965,7 +959,6 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
-		delete oldFirst;
 	}
 	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
@@ -973,7 +966,6 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
-		delete oldFirst;
 	}
 }
 
@@ -1106,7 +1098,6 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
-		delete oldFirst;
 	}
 	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
@@ -1114,7 +1105,6 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
-		delete oldFirst;
 	}
 }
 
@@ -1348,7 +1338,6 @@ NodeDereference::NodeDereference(TypeInfo* type)
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
-		delete oldFirst;
 	}
 	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
@@ -1356,7 +1345,6 @@ NodeDereference::NodeDereference(TypeInfo* type)
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
-		delete oldFirst;
 	}
 }
 
@@ -1501,7 +1489,6 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
-		delete oldFirst;
 	}
 	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
@@ -1509,7 +1496,6 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
-		delete oldFirst;
 	}
 }
 
@@ -1828,7 +1814,6 @@ NodeForExpr::NodeForExpr()
 }
 NodeForExpr::~NodeForExpr()
 {
-	delete fourth;
 }
 
 void NodeForExpr::Compile()
@@ -2077,15 +2062,6 @@ NodeSwitchExpr::NodeSwitchExpr()
 }
 NodeSwitchExpr::~NodeSwitchExpr()
 {
-	while(conditionHead)
-	{
-		NodeZeroOP *condNext = conditionHead->next;
-		NodeZeroOP *blockNext = blockHead->next;
-		delete conditionHead;
-		delete blockHead;
-		conditionHead = condNext;
-		blockHead = blockNext;
-	}
 }
 
 void NodeSwitchExpr::AddCase()
@@ -2218,12 +2194,6 @@ NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 }
 NodeExpressionList::~NodeExpressionList()
 {
-	while(first)
-	{
-		NodeZeroOP *next = first->next;
-		delete first;
-		first = next;
-	}
 }
 
 void NodeExpressionList::AddNode(bool reverse)

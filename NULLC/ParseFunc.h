@@ -67,6 +67,19 @@ public:
 	virtual TypeInfo*	GetTypeInfo();
 	// ”становка строки кода, с которым св€зана €чейка
 	virtual void SetCodeInfo(const char* start, const char* end);
+
+	void*		operator new(unsigned int size)
+	{
+		return nodePool.Allocate(size);
+	}
+	void		operator delete(void *ptr, unsigned int size)
+	{
+		(void)ptr; (void)size;
+		assert(!"Cannot delete NodeZeroOp");
+	}
+
+	static	ChunkedStackPool<2048>	nodePool;
+	static void	DeleteNodes(){ nodePool.Clear(); }
 protected:
 	TypeInfo	*typeInfo;
 	const char	*strBegin, *strEnd;

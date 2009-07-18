@@ -529,10 +529,8 @@ bool Compiler::Compile(string str)
 #endif
 
 	if(nodeList.back())
-	{
-		delete nodeList.back();
 		nodeList.pop_back();
-	}
+	NodeZeroOP::DeleteNodes();
 
 	if(nodeList.size() != 0)
 	{
