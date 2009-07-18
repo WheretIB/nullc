@@ -20,7 +20,7 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 	unsigned int targetRefLevel = type->refLevel+1;
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
-		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetRefLevel == typeInfo[i]->refLevel)
+		if(type == typeInfo[i]->subType && type->nameHash == typeInfo[i]->nameHash && targetRefLevel == typeInfo[i]->refLevel)
 		{
 			return typeInfo[i];
 		}
@@ -100,7 +100,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	unsigned int targetArrLevel = type->arrLevel+1;
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
-		if(type == typeInfo[i]->subType && type->name == typeInfo[i]->name && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (unsigned int)arrSize)
+		if(type == typeInfo[i]->subType && type->nameHash == typeInfo[i]->nameHash && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (unsigned int)arrSize)
 		{
 			return typeInfo[i];
 		}

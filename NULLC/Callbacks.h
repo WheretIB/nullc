@@ -55,11 +55,11 @@ void addBreakNode(char const* s, char const* e);
 void AddContinueNode(char const* s, char const* e);
 
 //Finds TypeInfo in a typeInfo list by name
-void selType(char const* s, char const* e);
+void SelectTypeByName(char const* pos, char const* typeName);
 
-void AddVariable(char const* s, char const* e);
+void AddVariable(char const* pos, const char* varName);
 
-void addVarDefNode(char const* s, char const* e);
+void AddVariableReserveNode(char const* pos, const char* varName);
 
 void pushType(char const* s, char const* e);
 void popType(char const* s, char const* e);
@@ -73,7 +73,7 @@ void GetTypeSize(char const* s, char const* e, bool sizeOfExpr);
 void SetTypeOfLastNode(char const* s, char const* e);
 
 // Функция для получения адреса переменной, имя которое передаётся в параметрах
-void AddGetAddressNode(char const* s, char const* e);
+void AddGetAddressNode(char const* pos, char const* varName);
 
 // Функция вызывается для индексации массива
 void AddArrayIndexNode(char const* s, char const* e);
@@ -86,14 +86,13 @@ void AddDereferenceNode(char const* s, char const* e);
 void FailedSetVariable(char const* s, char const* e);
 
 // Функция вызывается для определния переменной с одновременным присваиванием ей значения
-void AddDefineVariableNode(char const* s, char const* e);
+void AddDefineVariableNode(char const* pos, const char* varName);
 
 void AddSetVariableNode(char const* s, char const* e);
 
 void AddGetVariableNode(char const* s, char const* e);
-void AddMemberAccessNode(char const* s, char const* e);
+void AddMemberAccessNode(char const* pos, char const* varName);
 
-void AddMemberFunctionCall(char const* s, char const* e, unsigned int callArgCount);
 void AddPreOrPostOpNode(bool isInc, bool prefixOp);
 
 void AddModifyVariableNode(char const* s, char const* e, CmdID cmd);
@@ -103,12 +102,14 @@ void addTwoExprNode(char const* s, char const* e);
 
 void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCount);
 
-void FunctionAdd(char const* s, char const* e);
-void FunctionParam(char const* s, char const* e);
-void FunctionStart(char const* s, char const* e);
-void FunctionEnd(char const* s, char const* e);
+void FunctionAdd(char const* pos, char const* funcName);
+void FunctionParameter(char const* pos, char const* paramName);
+void FunctionStart(char const* pos);
+void FunctionEnd(char const* pos, char const* funcName);
 
-void addFuncCallNode(char const* s, char const* e, unsigned int callArgCount);
+void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int callArgCount);
+void AddMemberFunctionCall(char const* pos, char const* funcName, unsigned int callArgCount);
+
 void addIfNode(char const* s, char const* e);
 void addIfElseNode(char const* s, char const* e);
 void addIfElseTermNode(char const* s, char const* e);
@@ -123,17 +124,10 @@ void addCaseNode(char const* s, char const* e);
 void addSwitchNode(char const* s, char const* e);
 
 void TypeBegin(char const* s, char const* e);
-void TypeAddMember(char const* s, char const* e);
+void TypeAddMember(char const* pos, const char* varName);
 void TypeFinish(char const* s, char const* e);
 
 void addUnfixedArraySize(char const*s, char const*e);
-
-// Функции, кладушие и убирающие строки со стека строк
-// Стек строк может использоваться для удобного получения элемента более сложной грамматики
-// Например для правила использования переменной a[i], можно поместить "a" в стек,
-// потому что в функцию передаётся "a[i]" целиком
-void ParseStrPush(char const *s, char const *e);
-void ParseStrPop(char const *s, char const *e);
 
 // Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
 void SetStringToLastNode(char const *s, char const *e);

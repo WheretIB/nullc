@@ -31,6 +31,7 @@ public:
 
 	TypeInfo()
 	{
+		nameHash = (unsigned int)(~0);
 		size = 0;
 		type = TYPE_VOID;
 		refLevel = 0;
