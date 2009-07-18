@@ -527,8 +527,10 @@ public:
 	virtual unsigned int GetSize();
 	virtual unsigned int GetNodeType(){ return typeNodeSwitchExpr; }
 protected:
-	FastVector<NodeZeroOP*>	caseCondList;
-	FastVector<NodeZeroOP*>	caseBlockList;
+	NodeZeroOP	*conditionHead, *conditionTail;
+	NodeZeroOP	*blockHead, *blockTail;
+
+	unsigned int	caseCount;
 };
 
 class NodeExpressionList: public NodeOneOP
