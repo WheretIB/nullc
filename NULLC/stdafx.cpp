@@ -1,5 +1,14 @@
 #include "stdafx.h"
 
+char*		DuplicateString(const char *str)
+{
+	if(!str)
+		return NULL;
+	char* strDuplicate = new char[strlen(str) + 1];
+	strcpy(strDuplicate, str);
+	return strDuplicate;
+}
+
 unsigned int GetStringHash(const char *str)
 {
 	unsigned int hash = 5381;

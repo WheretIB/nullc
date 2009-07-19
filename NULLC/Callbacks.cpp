@@ -49,7 +49,7 @@ TypeInfo *newType = NULL;
 
 FastVector<FunctionInfo*>	currDefinedFunc(64);
 
-FastVector<VariableInfo*>	varInfoAll;
+ChunkedStackPool<1024> VariableInfo::variablePool;
 
 template<typename T> void	Swap(T& a, T& b)
 {
@@ -849,7 +849,6 @@ void AddVariable(char const* pos, const char* varName)
 		}
 	}
 	varInfo.push_back(new VariableInfo(varName, varTop, currType, currValConst));
-	varInfoAll.push_back(varInfo.back());
 	varDefined = true;
 	if(currType)
 		varTop += currType->size;
@@ -2080,9 +2079,7 @@ void CallbackInitialize()
 	varInfoTop.clear();
 	funcInfoTop.clear();
 
-	for(unsigned int i = 0; i < varInfoAll.size(); i++)
-		delete varInfoAll[i];
-	varInfoAll.clear();
+	VariableInfo::DeleteVariableInformation();
 
 	retTypeStack.clear();
 	currDefinedFunc.clear();
@@ -2099,11 +2096,8 @@ void CallbackInitialize()
 	inplaceArrayNum = 1;
 
 	varInfo.push_back(new VariableInfo("ERROR", 0, typeDouble, true));
-	varInfoAll.push_back(varInfo.back());
 	varInfo.push_back(new VariableInfo("pi", 8, typeDouble, true));
-	varInfoAll.push_back(varInfo.back());
 	varInfo.push_back(new VariableInfo("e", 16, typeDouble, true));
-	varInfoAll.push_back(varInfo.back());
 
 	varInfoTop.push_back(VarTopInfo(0,0));
 
@@ -2114,7 +2108,5 @@ void CallbackInitialize()
 
 void CallbackDeinitialize()
 {
-	for(unsigned int i = 0; i < varInfoAll.size(); i++)
-		delete varInfoAll[i];
-	varInfoAll.clear();
+	VariableInfo::DeleteVariableInformation();
 }
