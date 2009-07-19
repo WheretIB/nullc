@@ -530,50 +530,49 @@ const unsigned int	bitRetSimple	= 1 << 15;	// пользователь забыл возвратить знач
 
 const int	COMMANDE_LENGTH = 8;
 
-// Command list (bytecode)
-// Листинг команд (байткод)
-class CommandList
+class SourceInfo
 {
-	struct CodeInfo
+	struct SourceLine
 	{
-		CodeInfo(unsigned int position, const char* beginPos, const char* endPos)
+		SourceLine(){}
+		SourceLine(unsigned int position, unsigned int beginPos, unsigned int endPos)
 		{
 			byteCodePos = position;
-			memcpy(info, beginPos, (endPos-beginPos < 128 ? endPos-beginPos : 127));
-			info[(endPos-beginPos < 128 ? endPos-beginPos : 127)] = '\0';
-			for(int i = 0; i < 128; i++)
-				if(info[i] == '\n' || info[i] == '\r')
-					info[i] = ' ';
+			beginOffset = beginPos;
+			endOffset = endPos;
 		}
 
 		unsigned int	byteCodePos;	// Позиция в байткоде, к которой относится строка
-		char	info[128];		// Указатели на начало и конец строки
+		unsigned int	beginOffset, endOffset;
 	};
 public:
-	CommandList()
-	{
+	SourceInfo(){ sourceStart = NULL; }
 
+	void	SetSourceStart(const char *start)
+	{
+		sourceStart = start;
 	}
-
-	void		Clear()
+	void	Clear()
 	{
-		codeInfo.clear();
+		sourceInfo.clear();
 	}
 	void		AddDescription(unsigned int position, const char* start, const char* end)
 	{
-		codeInfo.push_back(CodeInfo(position, start, end));
+		assert(sourceStart != NULL);
+		sourceInfo.push_back(SourceLine(position, (unsigned int)(start - sourceStart), (unsigned int)(end - sourceStart)));
 	}
-	const char*	GetDescription(unsigned int position)
+	SourceLine*	GetDescription(unsigned int position)
 	{
-		for(int s = 0, e = (int)codeInfo.size(); s != e; s++)
+		for(int s = 0, e = (int)sourceInfo.size(); s != e; s++)
 		{
-			if(codeInfo[s].byteCodePos == position)
-				return codeInfo[s].info;
-			if(codeInfo[s].byteCodePos > position)
+			if(sourceInfo[s].byteCodePos == position)
+				return &sourceInfo[s];
+			if(sourceInfo[s].byteCodePos > position)
 				return NULL;
 		}
 		return NULL;
 	}
 private:
-	std::vector<CodeInfo>	codeInfo;	// Список строк к коду
+	const char *sourceStart;
+	FastVector<SourceLine>	sourceInfo;	// Список строк к коду
 };

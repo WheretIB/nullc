@@ -19,7 +19,7 @@ CompilerError				CodeInfo::lastError;
 FastVector<FunctionInfo*>	CodeInfo::funcInfo;
 FastVector<VariableInfo*>	CodeInfo::varInfo;
 FastVector<TypeInfo*>		CodeInfo::typeInfo(64);
-CommandList*				CodeInfo::cmdInfoList = NULL;
+SourceInfo					CodeInfo::cmdInfoList;
 FastVector<VMCmd>			CodeInfo::cmdList;
 FastVector<NodeZeroOP*>		CodeInfo::nodeList(64);
 unsigned int				CodeInfo::globalSize = 0;
@@ -46,8 +46,6 @@ bool	execOptimize = false;
 
 void	nullcInit()
 {
-	CodeInfo::cmdInfoList = new CommandList();
-
 	compiler = new Compiler();
 	linker = new Linker();
 	executor = new Executor(linker);
@@ -257,6 +255,4 @@ void	nullcDeinit()
 	delete[] compileLog;
 	compileLog = NULL;
 #endif
-	delete CodeInfo::cmdInfoList;
-	CodeInfo::cmdInfoList = NULL;
 }

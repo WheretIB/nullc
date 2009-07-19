@@ -37,7 +37,7 @@ unsigned int buildInTypes;
 
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
-	Init(errStr, apprPos ? (apprPos-codeStart)+codeStartOriginal : NULL);
+	Init(errStr, apprPos ? apprPos : NULL);
 }
 
 void CompilerError::Init(const char* errStr, const char* apprPos)
@@ -74,7 +74,6 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 	}
 }
 
-const char *CompilerError::codeStartOriginal = NULL;
 const char *CompilerError::codeStart = NULL;
 
 Compiler::Compiler()
@@ -409,7 +408,7 @@ bool Compiler::Compile(const char *str)
 {
 	ClearState();
 
-	cmdInfoList->Clear();
+	cmdInfoList.Clear();
 	cmdList.clear();
 
 #ifdef NULLC_LOG_FILES
@@ -418,13 +417,12 @@ bool Compiler::Compile(const char *str)
 	fclose(fCode);
 #endif
 
-	CompilerError::codeStartOriginal = str;
-
 #ifdef NULLC_LOG_FILES
 	FILE *fTime = fopen("time.txt", "wb");
 #endif
 
 	CompilerError::codeStart = str;
+	cmdInfoList.SetSourceStart(str);
 
 	unsigned int t = clock();
 
