@@ -275,7 +275,6 @@ Compiler::~Compiler()
 		delete typeInfo[i]->funcType;
 		delete[] typeInfo[i]->name;
 		delete[] typeInfo[i]->fullName;
-		//delete typeInfo[i];
 	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
@@ -299,12 +298,14 @@ void Compiler::ClearState()
 {
 	varInfo.clear();
 
+	for(unsigned int i = 0; i < buildInTypes; i++)
+		typeInfo[i]->refType = NULL;
+
 	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
 	{
 		delete typeInfo[i]->funcType;
 		delete[] typeInfo[i]->name;
 		delete[] typeInfo[i]->fullName;
-		//delete typeInfo[i];
 	}
 	for(unsigned int i = buildInFuncs; i < funcInfo.size(); i++)
 	{

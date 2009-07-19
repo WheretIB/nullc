@@ -48,6 +48,8 @@ public:
 
 		funcType = functionType;
 
+		refType = NULL;
+
 		fullName = NULL;
 		fullNameLength = (unsigned int)(~0);
 		fullNameHash = (unsigned int)(~0);
@@ -75,6 +77,8 @@ public:
 	unsigned int	paddingBytes;
 
 	TypeInfo	*subType;
+
+	TypeInfo	*refType;
 
 	const char*		GetFullTypeName()
 	{
