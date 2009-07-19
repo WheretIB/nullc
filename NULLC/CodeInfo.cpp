@@ -26,13 +26,9 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 		}
 	}
 	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo();
-	newInfo->name = type->name;
-	newInfo->nameHash = GetStringHash(newInfo->name.c_str());
+	TypeInfo* newInfo = new TypeInfo(type->name ? strdup(type->name) : NULL, type->refLevel + 1, 0, 1, type);
 	newInfo->size = 4;
 	newInfo->type = TypeInfo::TYPE_INT;
-	newInfo->refLevel = type->refLevel + 1;
-	newInfo->subType = type;
 
 	typeInfo.push_back(newInfo);
 	return newInfo;
@@ -44,7 +40,7 @@ TypeInfo* CodeInfo::GetDereferenceType(TypeInfo* type)
 	if(!type->subType || type->refLevel == 0)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: Cannot dereference type '%s' - there is no result type available", type->GetTypeName().c_str());
+		_snprintf(errBuf, 128, "ERROR: Cannot dereference type '%s' - there is no result type available", type->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return NULL;
 	}
@@ -77,7 +73,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 				unFixed = true;
 			}else{
 				char	errBuf[128];
-				_snprintf(errBuf, 128, "ERROR: Unknown type of constant number node '%s'", aType->name.c_str());
+				_snprintf(errBuf, 128, "ERROR: Unknown type of constant number node '%s'", aType->name);
 				lastError = CompilerError(errBuf, lastKnownStartPos);
 				return NULL;
 			}
@@ -107,9 +103,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 		}
 	}
 	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo();
-	newInfo->name = type->name;
-	newInfo->nameHash = GetStringHash(newInfo->name.c_str());
+	TypeInfo* newInfo = new TypeInfo(strdup(type->name), 0, type->arrLevel + 1, arrSize, type);
 
 	if(unFixed)
 	{
@@ -125,9 +119,6 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	}
 
 	newInfo->type = TypeInfo::TYPE_COMPLEX;
-	newInfo->arrLevel = type->arrLevel + 1;
-	newInfo->arrSize = arrSize;
-	newInfo->subType = type;
 
 	typeInfo.push_back(newInfo);
 	return newInfo;
@@ -165,24 +156,20 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 	// If none found, create new
 	if(!bestFit)
 	{
-		typeInfo.push_back(new TypeInfo());
+		FunctionType *funcType = new FunctionType();
+		funcType->retType = info->retType;
+		for(unsigned int n = 0; n < info->params.size(); n++)
+			funcType->paramType.push_back(info->params[n].varType);
+
+		typeInfo.push_back(new TypeInfo(NULL, 0, 0, 1, NULL, funcType));
 		bestFit = typeInfo.back();
 
 #ifdef _DEBUG
 		bestFit->AddMember("context", typeInt);
 		bestFit->AddMember("ptr", typeInt);
 #endif
-
-		bestFit->funcType = new FunctionType();
 		bestFit->size = 8;
-
 		bestFit->type = TypeInfo::TYPE_COMPLEX;
-
-		bestFit->funcType->retType = info->retType;
-		for(unsigned int n = 0; n < info->params.size(); n++)
-		{
-			bestFit->funcType->paramType.push_back(info->params[n].varType);
-		}
 	}
 	return bestFit;
 }

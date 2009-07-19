@@ -242,6 +242,11 @@ namespace supspi
 		return (unsigned int)(data - 'A') < 26 || (unsigned int)(data - 'a') < 26;
 	}
 
+	static inline bool isPunctuation(char data)
+	{
+		return (unsigned int)(data - '!') < 15 || (unsigned int)(data - ':') < 7 || (unsigned int)(data - '[') < 6 || (unsigned int)(data - '{') < 4;
+	}
+
 	//epsilon and nothing
 	class EpsilonP: public BaseP
 	{
@@ -413,7 +418,7 @@ namespace supspi
 			char* curr = *str;
 			if(space)
 				space(str);
-			if(!isgraph(*str[0])){
+			if(!(isAlpha(*str[0]) || isDigit(*str[0]) || isPunctuation(*str[0]))){
 				(*str) = curr;
 				return false;
 			}else{

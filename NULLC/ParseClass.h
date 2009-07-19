@@ -29,22 +29,36 @@ public:
 	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	TypeInfo():memberData(4),memberFunctions(4)
+	TypeInfo(const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType, FunctionType *functionType = NULL):memberData(4),memberFunctions(4)
 	{
-		nameHash = (unsigned int)(~0);
+		assert(typeName != NULL || functionType != NULL || referenceLevel != 0 || arrayLevel != 0);
+		name = typeName;
+		nameHash = name ? GetStringHash(name) : (unsigned int)(~0);
+
 		size = 0;
 		type = TYPE_VOID;
-		refLevel = 0;
-		arrLevel = 0;
-		arrSize = 1;
-		subType = NULL;
+
+		refLevel = referenceLevel;
+		arrLevel = arrayLevel;
+		arrSize = arraySize;
+		subType = childType;
+
 		alignBytes = 0;
 		paddingBytes = 0;
-		funcType = NULL;
+
+		funcType = functionType;
+
+		fullName = NULL;
+		fullName = GetFullTypeName();
 	}
 
-	std::string		name;	// base type name
+	const char		*name;	// base type name
 	unsigned int	nameHash;
+
+	const char		*fullName;	// full type name
+	unsigned int	fullNameLength;
+	unsigned int	fullNameHash;
+
 	unsigned int	size;	// sizeof(type)
 	TypeCategory	type;	// type id
 
@@ -58,29 +72,53 @@ public:
 
 	TypeInfo	*subType;
 
-	std::string GetTypeName()
+	unsigned int	GetFullNameLength()
 	{
-		char buf[512];
-		if(funcType)
-		{
-			char *curr = buf + sprintf(buf, "%s ref(", funcType->retType->GetTypeName().c_str());
-			for(unsigned int i = 0; i < funcType->paramType.size(); i++)
-			{
-				curr += sprintf(curr, "%s", funcType->paramType[i]->GetTypeName().c_str());
-				if(i != funcType->paramType.size()-1)
-					curr += sprintf(curr, ", ");
-			}
-			sprintf(curr, ")");
-		}
+		if(fullName)
+			return fullNameLength;
+		GetFullTypeName();
+		return fullNameLength;
+	}
+
+	const char*		GetFullTypeName()
+	{
+		if(fullName)
+			return fullName;
 		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY)
-			sprintf(buf, "%s[%d]", subType->GetTypeName().c_str(), arrSize);
-		if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY)
-			sprintf(buf, "%s[]", subType->GetTypeName().c_str());
-		if(refLevel)
-			sprintf(buf, "%s ref", subType->GetTypeName().c_str());
-		if(arrLevel == 0 && refLevel == 0 && !funcType)
-			sprintf(buf, "%s", name.c_str());
-		return std::string(buf);
+		{
+			fullName = new char[subType->GetFullNameLength() + 8 + 3]; // 8 for the digits of arrSize, and 3 for '[',']' and \0
+			sprintf((char*)fullName, "%s[%d]", subType->GetFullTypeName(), arrSize);
+		}else if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY){
+			fullName = new char[subType->GetFullNameLength() + 3]; // 3 for '[',']' and \0
+			sprintf((char*)fullName, "%s[]", subType->GetFullTypeName());
+		}else if(refLevel){
+			fullName = new char[subType->GetFullNameLength() + 5]; // 5 for " ref" and \0
+			sprintf((char*)fullName, "%s ref", subType->GetFullTypeName());
+		}else{
+			if(funcType)
+			{
+				// 7 is the length of " ref(", ")" and \0
+				unsigned int bufferSize = 7 + funcType->retType->GetFullNameLength() + funcType->paramType.size();
+				for(unsigned int i = 0; i < funcType->paramType.size(); i++)
+					bufferSize += funcType->paramType[i]->GetFullNameLength() + (i != funcType->paramType.size()-1 ? 2 : 0);
+				char *curr = new char[bufferSize+1];
+				fullName = curr;
+				curr += sprintf(curr, "%s ref(", funcType->retType->GetFullTypeName());
+				for(unsigned int i = 0; i < funcType->paramType.size(); i++)
+				{
+					curr += sprintf(curr, "%s", funcType->paramType[i]->GetFullTypeName());
+					if(i != funcType->paramType.size()-1)
+						curr += sprintf(curr, ", ");
+				}
+				sprintf(curr, ")");
+			}else{
+				fullName = new char[(int)strlen(name)+ 1]; // 1 for \0
+				sprintf((char*)fullName, "%s", name);
+			}
+		}
+		fullNameLength = (int)strlen(fullName);
+		fullNameHash = GetStringHash(fullName);
+		return fullName;
 	}
 	//TYPE_COMPLEX are structures
 	void	AddMember(const char *name, TypeInfo* type)
@@ -159,7 +197,7 @@ public:
 	int			codeSize;				// Size of a function bytecode
 	void		*funcPtr;				// Address of the function in memory
 
-	std::string		name;				// Function name
+	const char		*name;				// Function name
 	unsigned int	nameHash;
 
 	FastVector<VariableInfo> params;	// Parameter list

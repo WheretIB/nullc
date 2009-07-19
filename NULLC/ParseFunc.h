@@ -171,7 +171,7 @@ public:
 	virtual void LogToStream(FILE *fGraph)
 	{
 		DrawLine(fGraph);
-		fprintf(fGraph, "%s Number\r\n", typeInfo->GetTypeName().c_str());
+		fprintf(fGraph, "%s Number\r\n", typeInfo->GetFullTypeName());
 	}
 	virtual unsigned int GetSize()
 	{

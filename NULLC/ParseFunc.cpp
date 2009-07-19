@@ -28,13 +28,17 @@ static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<="
 //////////////////////////////////////////////////////////////////////////
 
 int	level = 0;
-std::string preStr = "--";
+char	linePrefix[256];
+unsigned int prefixSize = 2;
+
 bool preNeedChange = false;
 void GoDown()
 {
 	level++;
-	preStr = preStr.substr(0, preStr.length()-2);
-	preStr += "  |__";
+	prefixSize -= 2;
+	linePrefix[prefixSize] = 0;
+	sprintf(linePrefix + prefixSize, "  |__");
+	prefixSize += 5;
 }
 void GoDownB()
 {
@@ -44,19 +48,24 @@ void GoDownB()
 void GoUp()
 {
 	level--;
-	preStr = preStr.substr(0, preStr.length()-5);
-	preStr += "__";
+	prefixSize -= 5;
+	linePrefix[prefixSize] = 0;
+	sprintf(linePrefix + prefixSize, "__");
+	prefixSize += 2;
 }
 void DrawLine(FILE *fGraph)
 {
-	fprintf(fGraph, "%s", preStr.c_str());
+	fprintf(fGraph, "%s", linePrefix);
 	if(preNeedChange)
 	{
 		preNeedChange = false;
 		GoUp();
 		level++;
-		preStr = preStr.substr(0, preStr.length()-2);
-		preStr += "   __"; 
+
+		prefixSize -= 2;
+		linePrefix[prefixSize] = 0;
+		sprintf(linePrefix + prefixSize, "   __");
+		prefixSize += 5;
 	}
 }
 
@@ -193,7 +202,7 @@ void NodeZeroOP::Compile()
 void NodeZeroOP::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s ZeroOp\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s ZeroOp\r\n", typeInfo->GetFullTypeName());
 }
 unsigned int NodeZeroOP::GetSize()
 {
@@ -231,7 +240,7 @@ void NodeOneOP::Compile()
 void NodeOneOP::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s OneOP :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s OneOP :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -263,7 +272,7 @@ void NodeTwoOP::Compile()
 void NodeTwoOP::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s TwoOp :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s TwoOp :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	second->LogToStream(fGraph);
@@ -296,7 +305,7 @@ void NodeThreeOP::Compile()
 void NodeThreeOP::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s ThreeOp :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s ThreeOp :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	second->LogToStream(fGraph);
@@ -359,7 +368,7 @@ void NodePopOp::Compile()
 void NodePopOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s PopOp :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s PopOp :\r\n", typeInfo->GetFullTypeName());
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -409,7 +418,7 @@ void NodeUnaryOp::Compile()
 void NodeUnaryOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s UnaryOp :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s UnaryOp :\r\n", typeInfo->GetFullTypeName());
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -462,9 +471,9 @@ void NodeReturnOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
 	if(typeInfo)
-		fprintf(fGraph, "%s ReturnOp :\r\n", typeInfo->GetTypeName().c_str());
+		fprintf(fGraph, "%s ReturnOp :\r\n", typeInfo->GetFullTypeName());
 	else
-		fprintf(fGraph, "%s ReturnOp :\r\n", first->GetTypeInfo()->GetTypeName().c_str());
+		fprintf(fGraph, "%s ReturnOp :\r\n", first->GetTypeInfo()->GetFullTypeName());
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -500,7 +509,7 @@ void NodeExpression::Compile()
 void NodeExpression::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s Expression :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s Expression :\r\n", typeInfo->GetFullTypeName());
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -542,7 +551,7 @@ void NodeBlock::Compile()
 void NodeBlock::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s Block (%d)\r\n", typeInfo->GetTypeName().c_str(), shift);
+	fprintf(fGraph, "%s Block (%d)\r\n", typeInfo->GetFullTypeName(), shift);
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -596,7 +605,7 @@ void NodeFuncDef::Compile()
 void NodeFuncDef::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FuncDef %s %s\r\n", typeInfo->GetTypeName().c_str(), funcInfo->name, (disabled ? " disabled" : ""));
+	fprintf(fGraph, "%s FuncDef %s %s\r\n", typeInfo->GetFullTypeName(), funcInfo->name, (disabled ? " disabled" : ""));
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -749,7 +758,7 @@ void NodeFuncCall::Compile()
 void NodeFuncCall::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetTypeName().c_str(), (funcInfo ? funcInfo->name : "$ptr"), funcType->paramType.size());
+	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetFullTypeName(), (funcInfo ? funcInfo->name : "$ptr"), funcType->paramType.size());
 	GoDown();
 	if(first)
 		first->LogToStream(fGraph);
@@ -872,9 +881,9 @@ void NodeGetAddress::Compile()
 void NodeGetAddress::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s GetAddress ", GetReferenceType(typeInfo)->GetTypeName().c_str());
+	fprintf(fGraph, "%s GetAddress ", GetReferenceType(typeInfo)->GetFullTypeName());
 	if(varInfo)
-		fprintf(fGraph, "%s%s '%s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetTypeName().c_str(), varInfo->name);
+		fprintf(fGraph, "%s%s '%s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetFullTypeName(), varInfo->name);
 	else
 		fprintf(fGraph, "$$$");
 	fprintf(fGraph, " (%d %s)\r\n", (int)varAddress, (absAddress ? " absolute" : " relative"));
@@ -914,14 +923,14 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 	if(second->GetTypeInfo() == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetTypeName().c_str());
+		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 	if(typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->GetTypeInfo()->GetTypeName().c_str());
+		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->GetTypeInfo()->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
@@ -942,7 +951,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 			if(!(typeInfo->arrLevel != 0 && second->GetTypeInfo()->arrLevel == 0 && arrSetAll))
 			{
 				char	errBuf[128];
-				_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->GetTypeInfo()->GetTypeName().c_str(), typeInfo->GetTypeName().c_str());
+				_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->GetTypeInfo()->GetFullTypeName(), typeInfo->GetFullTypeName());
 				lastError = CompilerError(errBuf, lastKnownStartPos);
 				return;
 			}
@@ -1017,7 +1026,7 @@ void NodeVariableSet::Compile()
 void NodeVariableSet::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s VariableSet %s\r\n", typeInfo->GetTypeName().c_str(), (arrSetAll ? "set all elements" : ""));
+	fprintf(fGraph, "%s VariableSet %s\r\n", typeInfo->GetFullTypeName(), (arrSetAll ? "set all elements" : ""));
 	GoDown();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -1063,14 +1072,14 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	if(second->GetTypeInfo() == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetTypeName().c_str());
+		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 	if(typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->GetTypeInfo()->GetTypeName().c_str());
+		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->GetTypeInfo()->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
@@ -1088,7 +1097,7 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 			(typeInfo->refLevel && typeInfo->refLevel == second->GetTypeInfo()->refLevel && typeInfo->subType != second->GetTypeInfo()->subType))
 		{
 			char	errBuf[128];
-			_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->GetTypeInfo()->GetTypeName().c_str(), typeInfo->GetTypeName().c_str());
+			_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->GetTypeInfo()->GetFullTypeName(), typeInfo->GetFullTypeName());
 			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
@@ -1193,7 +1202,7 @@ void NodeVariableModify::Compile()
 void NodeVariableModify::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s VariableModify\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s VariableModify\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -1255,7 +1264,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 			shiftValue = typeParent->subType->size * static_cast<NodeNumber<int>* >(zOP)->GetVal();
 		}else{
 			char	errBuf[128];
-			_snprintf(errBuf, 128, "NodeArrayIndex() ERROR: unknown type %s", aType->name.c_str());
+			_snprintf(errBuf, 128, "NodeArrayIndex() ERROR: unknown type %s", aType->name);
 			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
@@ -1303,7 +1312,7 @@ void NodeArrayIndex::Compile()
 void NodeArrayIndex::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s ArrayIndex %s known: %d shiftval: %d\r\n", typeInfo->GetTypeName().c_str(), typeParent->GetTypeName().c_str(), knownShift, shiftValue);
+	fprintf(fGraph, "%s ArrayIndex %s known: %d shiftval: %d\r\n", typeInfo->GetFullTypeName(), typeParent->GetFullTypeName(), knownShift, shiftValue);
 	GoDown();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -1394,7 +1403,7 @@ void NodeDereference::Compile()
 void NodeDereference::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s Dereference\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s Dereference\r\n", typeInfo->GetFullTypeName());
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -1446,7 +1455,7 @@ void NodeShiftAddress::Compile()
 void NodeShiftAddress::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s ShiftAddress\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s ShiftAddress\r\n", typeInfo->GetFullTypeName());
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -1480,7 +1489,7 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetTypeName().c_str());
+		_snprintf(errBuf, 128, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
@@ -1569,7 +1578,7 @@ void NodePreOrPostOp::Compile()
 void NodePreOrPostOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s PreOrPostOp %s\r\n", typeInfo->GetTypeName().c_str(), (prefixOp ? "prefix" : "postfix"));
+	fprintf(fGraph, "%s PreOrPostOp %s\r\n", typeInfo->GetFullTypeName(), (prefixOp ? "prefix" : "postfix"));
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -1635,7 +1644,7 @@ void NodeFunctionAddress::Compile()
 void NodeFunctionAddress::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FunctionAddress %s %s\r\n", typeInfo->GetTypeName().c_str(), funcInfo->name, (funcInfo->funcPtr ? " external" : ""));
+	fprintf(fGraph, "%s FunctionAddress %s %s\r\n", typeInfo->GetFullTypeName(), funcInfo->name, (funcInfo->funcPtr ? " external" : ""));
 	if(first)
 	{
 		GoDownB();
@@ -1670,7 +1679,7 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX || second->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 		{
 			char	errBuf[128];
-			_snprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->GetTypeInfo()->GetTypeName().c_str(), second->GetTypeInfo()->GetTypeName().c_str());
+			_snprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->GetTypeInfo()->GetFullTypeName(), second->GetTypeInfo()->GetFullTypeName());
 			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
@@ -1722,7 +1731,7 @@ void NodeTwoAndCmdOp::Compile()
 void NodeTwoAndCmdOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s TwoAndCmd<%s> :\r\n", typeInfo->GetTypeName().c_str(), binCommandToText[cmdID-cmdAdd]);
+	fprintf(fGraph, "%s TwoAndCmd<%s> :\r\n", typeInfo->GetFullTypeName(), binCommandToText[cmdID-cmdAdd]);
 	assert(cmdID >= cmdAdd);
 	assert(cmdID <= cmdNEqualD);
 	GoDown();
@@ -1796,7 +1805,7 @@ void NodeIfElseExpr::Compile()
 void NodeIfElseExpr::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s IfExpression :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s IfExpression :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	if(!third)
@@ -1875,7 +1884,7 @@ void NodeForExpr::Compile()
 void NodeForExpr::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s ForExpression :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s ForExpression :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	second->LogToStream(fGraph);
@@ -1934,7 +1943,7 @@ void NodeWhileExpr::Compile()
 void NodeWhileExpr::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s WhileExpression :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s WhileExpression :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -1987,7 +1996,7 @@ void NodeDoWhileExpr::Compile()
 void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s DoWhileExpression :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s DoWhileExpression :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -2026,7 +2035,7 @@ void NodeBreakOp::Compile()
 void NodeBreakOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s BreakExpression\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s BreakExpression\r\n", typeInfo->GetFullTypeName());
 }
 unsigned int NodeBreakOp::GetSize()
 {
@@ -2061,7 +2070,7 @@ void NodeContinueOp::Compile()
 void NodeContinueOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s ContinueOp\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s ContinueOp\r\n", typeInfo->GetFullTypeName());
 }
 unsigned int NodeContinueOp::GetSize()
 {
@@ -2175,7 +2184,7 @@ void NodeSwitchExpr::Compile()
 void NodeSwitchExpr::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s SwitchExpression :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s SwitchExpression :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	first->LogToStream(fGraph);
 	for(NodeZeroOP *curr = conditionHead, *block = blockHead; curr; curr = curr->next, block = block->next)
@@ -2252,7 +2261,7 @@ void NodeExpressionList::Compile()
 void NodeExpressionList::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s NodeExpressionList :\r\n", typeInfo->GetTypeName().c_str());
+	fprintf(fGraph, "%s NodeExpressionList :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	NodeZeroOP	*curr = first;
 	do 
