@@ -49,7 +49,8 @@ public:
 		funcType = functionType;
 
 		fullName = NULL;
-		fullName = GetFullTypeName();
+		fullNameLength = (unsigned int)(~0);
+		fullNameHash = (unsigned int)(~0);
 	}
 
 	const char		*name;	// base type name
@@ -71,14 +72,6 @@ public:
 	unsigned int	paddingBytes;
 
 	TypeInfo	*subType;
-
-	unsigned int	GetFullNameLength()
-	{
-		if(fullName)
-			return fullNameLength;
-		GetFullTypeName();
-		return fullNameLength;
-	}
 
 	const char*		GetFullTypeName()
 	{
@@ -119,6 +112,20 @@ public:
 		fullNameLength = (int)strlen(fullName);
 		fullNameHash = GetStringHash(fullName);
 		return fullName;
+	}
+	unsigned int	GetFullNameLength()
+	{
+		if(fullName)
+			return fullNameLength;
+		GetFullTypeName();
+		return fullNameLength;
+	}
+	unsigned int	GetFullNameHash()
+	{
+		if(fullName)
+			return fullNameHash;
+		GetFullTypeName();
+		return fullNameHash;
 	}
 	//TYPE_COMPLEX are structures
 	void	AddMember(const char *name, TypeInfo* type)
