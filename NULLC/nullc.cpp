@@ -37,7 +37,7 @@ Executor*	executor;
 const char*	compileError;
 
 const char* executeResult;
-std::string executeLog;
+const char* executeLog;
 
 char* compileLog;
 
@@ -161,7 +161,7 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 
 const char*	nullcGetLinkLog()
 {
-	return executeLog.c_str();
+	return executeLog;
 }
 
 nullres	emptyCallback(unsigned int)
@@ -212,7 +212,7 @@ nullres	nullcRunFunction(const char* funcName)
 }
 const char*	nullcGetRuntimeError()
 {
-	return executeLog.c_str();
+	return executeLog;
 }
 
 const char*	nullcGetResult()
