@@ -16,6 +16,9 @@ void ThrowLastError()
 // Функция возвращает тип - указателя на исходный
 TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 {
+	if(type->refType)
+		return type->refType;
+
 	// Поищем нужный тип в списке
 	unsigned int targetRefLevel = type->refLevel+1;
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
@@ -29,6 +32,8 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 	TypeInfo* newInfo = new TypeInfo(type->name ? DuplicateString(type->name) : NULL, type->refLevel + 1, 0, 1, type);
 	newInfo->size = 4;
 	newInfo->type = TypeInfo::TYPE_INT;
+
+	type->refType = newInfo;
 
 	typeInfo.push_back(newInfo);
 	return newInfo;
