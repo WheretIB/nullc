@@ -35,10 +35,6 @@ TypeInfo*	typeFile = NULL;
 unsigned int buildInFuncs;
 unsigned int buildInTypes;
 
-CompilerError::CompilerError(const std::string& errStr, const char* apprPos)
-{
-	Init(errStr.c_str(), apprPos ? (apprPos-codeStart)+codeStartOriginal : NULL);
-}
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
 	Init(errStr, apprPos ? (apprPos-codeStart)+codeStartOriginal : NULL);
@@ -431,7 +427,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	return true;
 }
 
-bool Compiler::Compile(string str)
+bool Compiler::Compile(const char *str)
 {
 	ClearState();
 
@@ -444,18 +440,17 @@ bool Compiler::Compile(string str)
 	fclose(fCode);
 #endif
 
-	char* ptr = (char*)str.c_str();
-	CompilerError::codeStartOriginal = ptr;
+	CompilerError::codeStartOriginal = str;
 
 #ifdef NULLC_LOG_FILES
 	FILE *fTime = fopen("time.txt", "wb");
 #endif
 
-	CompilerError::codeStart = ptr;
+	CompilerError::codeStart = str;
 
 	unsigned int t = clock();
 
-	lexer.Lexify(ptr);
+	lexer.Lexify(str);
 
 	bool res;
 

@@ -29,7 +29,7 @@ public:
 	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	TypeInfo()
+	TypeInfo():memberData(4),memberFunctions(4)
 	{
 		nameHash = (unsigned int)(~0);
 		size = 0;
@@ -83,31 +83,30 @@ public:
 		return std::string(buf);
 	}
 	//TYPE_COMPLEX are structures
-	void	AddMember(const std::string& name, TypeInfo* type)
+	void	AddMember(const char *name, TypeInfo* type)
 	{
 		memberData.push_back(MemberInfo());
 		memberData.back().name = name;
-		memberData.back().nameHash = GetStringHash(name.c_str());
+		memberData.back().nameHash = GetStringHash(name);
 		memberData.back().type = type;
 		memberData.back().offset = size;
 		size += type->size;
 	}
 	struct MemberInfo
 	{
-		std::string		name;
+		const char		*name;
 		unsigned int	nameHash;
 		TypeInfo*		type;
 		unsigned int	offset;
 	};
-	vector<MemberInfo>	memberData;
+	FastVector<MemberInfo>	memberData;
 
 	struct MemberFunction
 	{
-		std::string		name;
 		FunctionInfo	*func;
 		NodeZeroOP		*defNode;
 	};
-	vector<MemberFunction>	memberFunctions;
+	FastVector<MemberFunction>	memberFunctions;
 
 	FunctionType		*funcType;
 };
@@ -145,7 +144,7 @@ public:
 class FunctionInfo
 {
 public:
-	FunctionInfo()
+	FunctionInfo(): params(8), external(8)
 	{
 		address = 0;
 		codeSize = 0;
@@ -160,10 +159,10 @@ public:
 	int			codeSize;				// Size of a function bytecode
 	void		*funcPtr;				// Address of the function in memory
 
-	std::string		name;					// Function name
+	std::string		name;				// Function name
 	unsigned int	nameHash;
 
-	std::vector<VariableInfo> params;	// Parameter list
+	FastVector<VariableInfo> params;	// Parameter list
 	unsigned int	allParamSize;
 	unsigned int	vTopSize;				// For "return" operator, we need to know,
 										// how many variables we need to remove from variable stack
@@ -174,7 +173,22 @@ public:
 	enum FunctionType{ NORMAL, LOCAL, THISCALL };
 	FunctionType	type;
 
-	std::vector<std::string> external;	// External variable names
+	struct ExternalName
+	{
+		ExternalName()
+		{
+			name = NULL;
+			nameHash = 0;
+		}
+		explicit ExternalName(const char *external)
+		{
+			name = external;
+			nameHash = GetStringHash(external);
+		}
+		const char		*name;
+		unsigned int	nameHash;
+	};
+	FastVector<ExternalName> external;	// External variable names
 
 	TypeInfo	*funcType;				// Function type
 };
