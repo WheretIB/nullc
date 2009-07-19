@@ -108,7 +108,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	if(unFixed)
 	{
 		newInfo->size = 4;
-		newInfo->AddMember("size", typeInt);
+		newInfo->AddMemberVariable("size", typeInt);
 	}else{
 		newInfo->size = type->size * arrSize;
 		if(newInfo->size % 4 != 0)
@@ -165,8 +165,8 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 		bestFit = typeInfo.back();
 
 #ifdef _DEBUG
-		bestFit->AddMember("context", typeInt);
-		bestFit->AddMember("ptr", typeInt);
+		bestFit->AddMemberVariable("context", typeInt);
+		bestFit->AddMemberVariable("ptr", typeInt);
 #endif
 		bestFit->size = 8;
 		bestFit->type = TypeInfo::TYPE_COMPLEX;

@@ -78,7 +78,7 @@ public:
 		assert(!"Cannot delete NodeZeroOp");
 	}
 
-	static	ChunkedStackPool<2048>	nodePool;
+	static	ChunkedStackPool<4092>	nodePool;
 	static void	DeleteNodes(){ nodePool.Clear(); }
 protected:
 	TypeInfo	*typeInfo;
@@ -285,7 +285,7 @@ public:
 			bool IsAbsoluteAddress();
 
 			void IndexArray(int shift);
-			void ShiftToMember(int member);
+			void ShiftToMember(TypeInfo::MemberVariable *member);
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);

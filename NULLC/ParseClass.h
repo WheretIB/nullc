@@ -29,7 +29,7 @@ public:
 	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	TypeInfo(const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType, FunctionType *functionType = NULL):memberData(4),memberFunctions(4)
+	TypeInfo(const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType, FunctionType *functionType = NULL)
 	{
 		assert(typeName != NULL || functionType != NULL || referenceLevel != 0 || arrayLevel != 0);
 		name = typeName;
@@ -51,6 +51,9 @@ public:
 		fullName = NULL;
 		fullNameLength = (unsigned int)(~0);
 		fullNameHash = (unsigned int)(~0);
+
+		firstVariable = lastVariable = NULL;
+		firstFunction = lastFunction = NULL;
 	}
 
 	const char		*name;	// base type name
@@ -127,33 +130,74 @@ public:
 		GetFullTypeName();
 		return fullNameHash;
 	}
-	//TYPE_COMPLEX are structures
-	void	AddMember(const char *name, TypeInfo* type)
+
+	void	AddMemberVariable(const char *name, TypeInfo* type)
 	{
-		memberData.push_back(MemberInfo());
-		memberData.back().name = name;
-		memberData.back().nameHash = GetStringHash(name);
-		memberData.back().type = type;
-		memberData.back().offset = size;
+		if(!lastVariable)
+		{
+			firstVariable = lastVariable = (MemberVariable*)typeInfoPool.Allocate(sizeof(MemberVariable));
+		}else{
+			lastVariable->next = (MemberVariable*)typeInfoPool.Allocate(sizeof(MemberVariable));
+			lastVariable = lastVariable->next;
+		}
+		lastVariable->next = NULL;
+		lastVariable->name = name;
+		lastVariable->nameHash = GetStringHash(name);
+		lastVariable->type = type;
+		lastVariable->offset = size;
 		size += type->size;
 	}
-	struct MemberInfo
+	void	AddMemberFunction()
+	{
+		if(!lastFunction)
+		{
+			firstFunction = lastFunction = (MemberFunction*)typeInfoPool.Allocate(sizeof(MemberFunction));
+		}else{
+			lastFunction->next = (MemberFunction*)typeInfoPool.Allocate(sizeof(MemberFunction));
+			lastFunction = lastFunction->next;
+		}
+		lastFunction->next = NULL;
+	}
+	struct MemberVariable
 	{
 		const char		*name;
 		unsigned int	nameHash;
-		TypeInfo*		type;
+		TypeInfo		*type;
 		unsigned int	offset;
-	};
-	FastVector<MemberInfo>	memberData;
 
+		MemberVariable	*next;
+	};
 	struct MemberFunction
 	{
 		FunctionInfo	*func;
 		NodeZeroOP		*defNode;
+
+		MemberFunction	*next;
 	};
-	FastVector<MemberFunction>	memberFunctions;
+	MemberVariable	*firstVariable, *lastVariable;
+	MemberFunction	*firstFunction, *lastFunction;
 
 	FunctionType		*funcType;
+
+// Specialized allocation
+	void*		operator new(unsigned int size)
+	{
+		return typeInfoPool.Allocate(size);
+	}
+	void		operator delete(void *ptr, unsigned int size)
+	{
+		(void)ptr; (void)size;
+		assert(!"Cannot delete TypeInfo");
+	}
+
+	static void		SaveBuildinTop()
+	{
+		buildInSize = typeInfoPool.GetSize();
+	}
+
+	static	unsigned int	buildInSize;
+	static	ChunkedStackPool<4092>	typeInfoPool;
+	static	void	DeleteTypeInformation(){ typeInfoPool.ClearTo(buildInSize); }
 };
 
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
@@ -195,7 +239,7 @@ public:
 		assert(!"Cannot delete VariableInfo");
 	}
 
-	static	ChunkedStackPool<1024>	variablePool;
+	static	ChunkedStackPool<4092>	variablePool;
 	static void	DeleteVariableInformation(){ variablePool.Clear(); }
 };
 

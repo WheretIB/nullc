@@ -49,7 +49,9 @@ TypeInfo *newType = NULL;
 
 FastVector<FunctionInfo*>	currDefinedFunc(64);
 
-ChunkedStackPool<1024> VariableInfo::variablePool;
+unsigned int	TypeInfo::buildInSize = 0;
+ChunkedStackPool<4092> TypeInfo::typeInfoPool;
+ChunkedStackPool<4092> VariableInfo::variablePool;
 
 template<typename T> void	Swap(T& a, T& b)
 {
@@ -972,8 +974,8 @@ void AddGetAddressNode(char const* pos, char const* varName)
 	if(newType && (currDefinedFunc.back()->type == FunctionInfo::THISCALL) && hash != thisHash)
 	{
 		bool member = false;
-		for(unsigned int i = 0; i < newType->memberData.size(); i++)
-			if(newType->memberData[i].nameHash == hash)
+		for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
+			if(curr->nameHash == hash)
 				member = true;
 		if(member)
 		{
@@ -1351,10 +1353,11 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 	}
  
 	int fID = -1;
-	int i = (int)currType->memberData.size()-1;
-	while(i >= 0 && currType->memberData[i].nameHash != hash)
-		i--;
-	if(i == -1)
+	TypeInfo::MemberVariable *curr = currType->firstVariable;
+	for(; curr; curr = curr->next)
+		if(curr->nameHash == hash)
+			break;
+	if(!curr)
 	{
 		unsigned int hash = currType->nameHash;
 		hash = StringHashContinue(hash, "::");
@@ -1384,11 +1387,11 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 	{
 		if(nodeList.back()->GetNodeType() == typeNodeGetAddress)
 		{
-			static_cast<NodeGetAddress*>(nodeList.back())->ShiftToMember(i);
+			static_cast<NodeGetAddress*>(nodeList.back())->ShiftToMember(curr);
 		}else{
-			nodeList.push_back(new NodeShiftAddress(currType->memberData[i].offset, currType->memberData[i].type));
+			nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
 		}
-		currTypes.back() = currType->memberData[i].type;
+		currTypes.back() = curr->type;
 	}else{
 		// Создаем узел для получения указателя на функцию
 		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
@@ -1686,10 +1689,9 @@ void FunctionEnd(char const* pos, char const* funcName)
 
 	if(newType)
 	{
-		newType->memberFunctions.push_back(TypeInfo::MemberFunction());
-		TypeInfo::MemberFunction &clFunc = newType->memberFunctions.back();
-		clFunc.func = &lastFunc;
-		clFunc.defNode = nodeList.back();
+		newType->AddMemberFunction();
+		newType->lastFunction->func = &lastFunc;
+		newType->lastFunction->defNode = nodeList.back();
 	}
 }
 
@@ -2012,7 +2014,7 @@ void TypeAddMember(char const* pos, const char* varName)
 {
 	if(!currType)
 		ThrowError("ERROR: auto cannot be used for class members", pos);
-	newType->AddMember(varName, currType);
+	newType->AddMemberVariable(varName, currType);
 
 	AddVariable(pos, varName);
 }
@@ -2027,7 +2029,7 @@ void TypeFinish(char const* s, char const* e)
 	}
 
 	nodeList.push_back(new NodeZeroOP());
-	for(unsigned int i = 0; i < newType->memberFunctions.size(); i++)
+	for(TypeInfo::MemberFunction *curr = newType->firstFunction; curr; curr = curr->next)
 		addTwoExprNode(0,0);
 
 	newType = NULL;

@@ -112,6 +112,17 @@ public:
 		curr = first;
 		size = 0;
 	}
+	void	ClearTo(unsigned int bytes)
+	{
+		curr = first;
+		while(bytes > chunkSize)
+		{
+			assert(curr->next != NULL);
+			curr = curr->next;
+			bytes -= chunkSize;
+		}
+		size = bytes;
+	}
 	void*	Allocate(unsigned int bytes)
 	{
 		if(size + bytes < chunkSize)
@@ -131,6 +142,17 @@ public:
 			size = 0;
 			return Allocate(bytes);
 		}
+	}
+	unsigned int GetSize()
+	{
+		unsigned int wholeSize = 0;
+		StackChunk *temp = first;
+		while(temp != curr)
+		{
+			wholeSize += chunkSize;
+			temp = temp->next;
+		}
+		return wholeSize + size;
 	}
 private:
 	struct StackChunk

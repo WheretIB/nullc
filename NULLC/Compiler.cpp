@@ -125,25 +125,25 @@ Compiler::Compiler()
 	info = new TypeInfo(DuplicateString("float2"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
-	info->AddMember("x", typeFloat);
-	info->AddMember("y", typeFloat);
+	info->AddMemberVariable("x", typeFloat);
+	info->AddMemberVariable("y", typeFloat);
 	typeInfo.push_back(info);
 
 	info = new TypeInfo(DuplicateString("float3"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
-	info->AddMember("x", typeFloat);
-	info->AddMember("y", typeFloat);
-	info->AddMember("z", typeFloat);
+	info->AddMemberVariable("x", typeFloat);
+	info->AddMemberVariable("y", typeFloat);
+	info->AddMemberVariable("z", typeFloat);
 	typeInfo.push_back(info);
 
 	info = new TypeInfo(DuplicateString("float4"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
-	info->AddMember("x", typeFloat);
-	info->AddMember("y", typeFloat);
-	info->AddMember("z", typeFloat);
-	info->AddMember("w", typeFloat);
+	info->AddMemberVariable("x", typeFloat);
+	info->AddMemberVariable("y", typeFloat);
+	info->AddMemberVariable("z", typeFloat);
+	info->AddMemberVariable("w", typeFloat);
 	typeInfo.push_back(info);
 
 	TypeInfo *typeFloat4 = info;
@@ -151,34 +151,34 @@ Compiler::Compiler()
 	info = new TypeInfo(DuplicateString("double2"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
-	info->AddMember("x", typeDouble);
-	info->AddMember("y", typeDouble);
+	info->AddMemberVariable("x", typeDouble);
+	info->AddMemberVariable("y", typeDouble);
 	typeInfo.push_back(info);
 
 	info = new TypeInfo(DuplicateString("double3"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
-	info->AddMember("x", typeDouble);
-	info->AddMember("y", typeDouble);
-	info->AddMember("z", typeDouble);
+	info->AddMemberVariable("x", typeDouble);
+	info->AddMemberVariable("y", typeDouble);
+	info->AddMemberVariable("z", typeDouble);
 	typeInfo.push_back(info);
 
 	info = new TypeInfo(DuplicateString("double4"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
-	info->AddMember("x", typeDouble);
-	info->AddMember("y", typeDouble);
-	info->AddMember("z", typeDouble);
-	info->AddMember("w", typeDouble);
+	info->AddMemberVariable("x", typeDouble);
+	info->AddMemberVariable("y", typeDouble);
+	info->AddMemberVariable("z", typeDouble);
+	info->AddMemberVariable("w", typeDouble);
 	typeInfo.push_back(info);
 
 	info = new TypeInfo(DuplicateString("float4x4"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
-	info->AddMember("row1", typeFloat4);
-	info->AddMember("row2", typeFloat4);
-	info->AddMember("row3", typeFloat4);
-	info->AddMember("row4", typeFloat4);
+	info->AddMemberVariable("row1", typeFloat4);
+	info->AddMemberVariable("row2", typeFloat4);
+	info->AddMemberVariable("row3", typeFloat4);
+	info->AddMemberVariable("row4", typeFloat4);
 	typeInfo.push_back(info);
 
 	info = new TypeInfo(DuplicateString("file"), 0, 0, 1, NULL);
@@ -260,6 +260,7 @@ Compiler::Compiler()
 	funcInfo.push_back(fInfo);
 
 	buildInTypes = (int)typeInfo.size();
+	TypeInfo::SaveBuildinTop();
 	buildInFuncs = (int)funcInfo.size();
 
 #ifdef NULLC_LOG_FILES
@@ -274,7 +275,7 @@ Compiler::~Compiler()
 		delete typeInfo[i]->funcType;
 		delete[] typeInfo[i]->name;
 		delete[] typeInfo[i]->fullName;
-		delete typeInfo[i];
+		//delete typeInfo[i];
 	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
@@ -303,7 +304,7 @@ void Compiler::ClearState()
 		delete typeInfo[i]->funcType;
 		delete[] typeInfo[i]->name;
 		delete[] typeInfo[i]->fullName;
-		delete typeInfo[i];
+		//delete typeInfo[i];
 	}
 	for(unsigned int i = buildInFuncs; i < funcInfo.size(); i++)
 	{
@@ -312,6 +313,8 @@ void Compiler::ClearState()
 	}
 
 	typeInfo.resize(buildInTypes);
+	TypeInfo::DeleteTypeInformation();
+
 	funcInfo.resize(buildInFuncs);
 
 	nodeList.clear();
@@ -397,6 +400,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	lastFunc.funcType = bestFit;
 
 	buildInTypes = (int)typeInfo.size();
+	TypeInfo::SaveBuildinTop();
 
 	return true;
 }
