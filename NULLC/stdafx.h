@@ -21,9 +21,6 @@
 
 #include <assert.h>
 
-#include <vector>
-using namespace std;
-
 #ifdef NDEBUG
 #undef assert
 #define assert(expr)	((void)sizeof(!(expr)))
