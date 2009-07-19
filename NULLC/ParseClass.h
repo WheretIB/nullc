@@ -184,6 +184,19 @@ public:
 	bool			dataReserved;	// Tells if cmdPushV was used for this variable
 
 	TypeInfo*		varType;	// Pointer to the variable type info
+
+	void*		operator new(unsigned int size)
+	{
+		return variablePool.Allocate(size);
+	}
+	void		operator delete(void *ptr, unsigned int size)
+	{
+		(void)ptr; (void)size;
+		assert(!"Cannot delete VariableInfo");
+	}
+
+	static	ChunkedStackPool<1024>	variablePool;
+	static void	DeleteVariableInformation(){ variablePool.Clear(); }
 };
 
 class FunctionInfo

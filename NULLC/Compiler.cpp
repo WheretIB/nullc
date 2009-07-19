@@ -77,59 +77,59 @@ Compiler::Compiler()
 {
 	// Add types
 	TypeInfo* info;
-	info = new TypeInfo(strdup("void"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("void"), 0, 0, 1, NULL);
 	info->size = 0;
 	info->type = TypeInfo::TYPE_VOID;
 	typeVoid = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("double"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("double"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->size = 8;
 	info->type = TypeInfo::TYPE_DOUBLE;
 	typeDouble = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("float"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("float"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->size = 4;
 	info->type = TypeInfo::TYPE_FLOAT;
 	typeFloat = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("long"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("long"), 0, 0, 1, NULL);
 	info->size = 8;
 	info->type = TypeInfo::TYPE_LONG;
 	typeLong = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("int"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("int"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->size = 4;
 	info->type = TypeInfo::TYPE_INT;
 	typeInt = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("short"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("short"), 0, 0, 1, NULL);
 	info->size = 2;
 	info->type = TypeInfo::TYPE_SHORT;
 	typeShort = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("char"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("char"), 0, 0, 1, NULL);
 	info->size = 1;
 	info->type = TypeInfo::TYPE_CHAR;
 	typeChar = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("float2"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("float2"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
 	info->AddMember("y", typeFloat);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("float3"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("float3"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
@@ -137,7 +137,7 @@ Compiler::Compiler()
 	info->AddMember("z", typeFloat);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("float4"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("float4"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeFloat);
@@ -148,14 +148,14 @@ Compiler::Compiler()
 
 	TypeInfo *typeFloat4 = info;
 
-	info = new TypeInfo(strdup("double2"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("double2"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
 	info->AddMember("y", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("double3"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("double3"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
@@ -163,7 +163,7 @@ Compiler::Compiler()
 	info->AddMember("z", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("double4"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("double4"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("x", typeDouble);
@@ -172,7 +172,7 @@ Compiler::Compiler()
 	info->AddMember("w", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("float4x4"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("float4x4"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMember("row1", typeFloat4);
@@ -181,7 +181,7 @@ Compiler::Compiler()
 	info->AddMember("row4", typeFloat4);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(strdup("file"), 0, 0, 1, NULL);
+	info = new TypeInfo(DuplicateString("file"), 0, 0, 1, NULL);
 	info->size = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	typeFile = info;
@@ -191,7 +191,7 @@ Compiler::Compiler()
 	FunctionInfo	*fInfo;
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
-	fInfo->name = strdup("cos");
+	fInfo->name = DuplicateString("cos");
 	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -201,7 +201,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
-	fInfo->name = strdup("sin");
+	fInfo->name = DuplicateString("sin");
 	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -211,7 +211,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
-	fInfo->name = strdup("tan");
+	fInfo->name = DuplicateString("tan");
 	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -221,7 +221,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
-	fInfo->name = strdup("ctg");
+	fInfo->name = DuplicateString("ctg");
 	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -231,7 +231,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
-	fInfo->name = strdup("ceil");
+	fInfo->name = DuplicateString("ceil");
 	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -241,7 +241,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
-	fInfo->name = strdup("floor");
+	fInfo->name = DuplicateString("floor");
 	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -251,7 +251,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo();
 	fInfo->address = -1;
-	fInfo->name = strdup("sqrt");
+	fInfo->name = DuplicateString("sqrt");
 	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;

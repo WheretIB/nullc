@@ -26,6 +26,8 @@
 #define assert(expr)	((void)sizeof(!(expr)))
 #endif
 
+char*		DuplicateString(const char *str);
+
 unsigned int GetStringHash(const char *str);
 unsigned int StringHashContinue(unsigned int hash, const char *str);
 
