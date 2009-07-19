@@ -913,12 +913,16 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 
 	if(second->GetTypeInfo() == typeVoid)
 	{
-		lastError = CompilerError("ERROR: cannot convert from void to " + typeInfo->GetTypeName(), lastKnownStartPos);
+		char	errBuf[128];
+		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetTypeName().c_str());
+		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 	if(typeInfo == typeVoid)
 	{
-		lastError = CompilerError("ERROR: cannot convert from " + second->GetTypeInfo()->GetTypeName() + " to void", lastKnownStartPos);
+		char	errBuf[128];
+		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->GetTypeInfo()->GetTypeName().c_str());
+		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 
@@ -937,7 +941,9 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		{
 			if(!(typeInfo->arrLevel != 0 && second->GetTypeInfo()->arrLevel == 0 && arrSetAll))
 			{
-				lastError = CompilerError("ERROR: Cannot convert '" + second->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'", lastKnownStartPos);
+				char	errBuf[128];
+				_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->GetTypeInfo()->GetTypeName().c_str(), typeInfo->GetTypeName().c_str());
+				lastError = CompilerError(errBuf, lastKnownStartPos);
 				return;
 			}
 		}
@@ -1056,12 +1062,16 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 
 	if(second->GetTypeInfo() == typeVoid)
 	{
-		lastError = CompilerError("ERROR: cannot convert from void to " + typeInfo->GetTypeName(), lastKnownStartPos);
+		char	errBuf[128];
+		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetTypeName().c_str());
+		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 	if(typeInfo == typeVoid)
 	{
-		lastError = CompilerError("ERROR: cannot convert from " + second->GetTypeInfo()->GetTypeName() + " to void", lastKnownStartPos);
+		char	errBuf[128];
+		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->GetTypeInfo()->GetTypeName().c_str());
+		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 
@@ -1077,7 +1087,9 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 			(typeInfo->refLevel != second->GetTypeInfo()->refLevel) ||
 			(typeInfo->refLevel && typeInfo->refLevel == second->GetTypeInfo()->refLevel && typeInfo->subType != second->GetTypeInfo()->subType))
 		{
-			lastError = CompilerError("ERROR: Cannot convert '" + second->GetTypeInfo()->GetTypeName() + "' to '" + typeInfo->GetTypeName() + "'", lastKnownStartPos);
+			char	errBuf[128];
+			_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->GetTypeInfo()->GetTypeName().c_str(), typeInfo->GetTypeName().c_str());
+			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
 	}
@@ -1242,7 +1254,9 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 		}else if(aType == typeInt){
 			shiftValue = typeParent->subType->size * static_cast<NodeNumber<int>* >(zOP)->GetVal();
 		}else{
-			lastError = CompilerError("NodeArrayIndex() ERROR: unknown type " + aType->name, lastKnownStartPos);
+			char	errBuf[128];
+			_snprintf(errBuf, 128, "NodeArrayIndex() ERROR: unknown type %s", aType->name.c_str());
+			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
 		knownShift = true;
@@ -1465,7 +1479,9 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 
 	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
 	{
-		lastError = CompilerError(std::string("ERROR: ") + (isInc ? "Increment" : "Decrement") + std::string(" is not supported on '") + typeInfo->GetTypeName() + "'", lastKnownStartPos);
+		char	errBuf[128];
+		_snprintf(errBuf, 128, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetTypeName().c_str());
+		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 
@@ -1653,7 +1669,9 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	{
 		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX || second->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
 		{
-			lastError = CompilerError("ERROR: Operation " + std::string(binCommandToText[cmdID - cmdAdd]) + " is not supported on '" + first->GetTypeInfo()->GetTypeName() + "' and '" + second->GetTypeInfo()->GetTypeName() + "'", lastKnownStartPos);
+			char	errBuf[128];
+			_snprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->GetTypeInfo()->GetTypeName().c_str(), second->GetTypeInfo()->GetTypeName().c_str());
+			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
 	}

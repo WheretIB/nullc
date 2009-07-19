@@ -63,16 +63,17 @@ void SetCurrentAlignment(unsigned int alignment)
 	currAlign = alignment;
 }
 
-int AddFunctionExternal(FunctionInfo* func, std::string name)
+int AddFunctionExternal(FunctionInfo* func, const char *name)
 {
+	unsigned int hash = GetStringHash(name);
 	for(unsigned int i = 0; i < func->external.size(); i++)
-		if(func->external[i] == name)
+		if(func->external[i].nameHash == hash)
 			return i;
 
 #ifdef NULLC_LOG_FILES
 	fprintf(compileLog, "Function %s uses external variable %s\r\n", currDefinedFunc.back()->name.c_str(), name.c_str());
 #endif
-	func->external.push_back(name);
+	func->external.push_back(FunctionInfo::ExternalName(name));
 	return (int)func->external.size()-1;
 }
 
@@ -1027,8 +1028,9 @@ void AddGetAddressNode(char const* pos, char const* varName)
 				ThrowError("ERROR: Can't get a pointer to a build-in function", pos);
 			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 			{
-				std::string bName = "$" + funcInfo[fID]->name + "_ext";
-				unsigned int contextHash = GetStringHash(bName.c_str());
+				char	*contextName = AllocateString((int)funcInfo[fID]->name.length() + 6);
+				sprintf(contextName, "$%s_ext", funcInfo[fID]->name.c_str());
+				unsigned int contextHash = GetStringHash(contextName);
 
 				int i = (int)varInfo.size()-1;
 				while(i >= 0 && varInfo[i]->nameHash != contextHash)
@@ -1037,7 +1039,7 @@ void AddGetAddressNode(char const* pos, char const* varName)
 				{
 					nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
 				}else{
-					AddGetAddressNode(pos, bName.c_str());
+					AddGetAddressNode(pos, contextName);
 					currTypes.pop_back();
 				}
 			}
@@ -1640,7 +1642,7 @@ void FunctionEnd(char const* pos, char const* funcName)
 	currDefinedFunc.pop_back();
 
 	// If function is local, create function parameters block
-	if(lastFunc.type == FunctionInfo::LOCAL && !lastFunc.external.empty())
+	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.external.size() != 0)
 	{
 		nodeList.push_back(new NodeZeroOP());
 		TypeInfo *targetType = GetReferenceType(typeInt);
@@ -1658,7 +1660,7 @@ void FunctionEnd(char const* pos, char const* funcName)
 
 		for(unsigned int n = 0; n < lastFunc.external.size(); n++)
 		{
-			AddGetAddressNode(pos, lastFunc.external[n].c_str());
+			AddGetAddressNode(pos, lastFunc.external[n].name);
 			currTypes.pop_back();
 			arrayList->AddNode();
 		}
@@ -1686,7 +1688,6 @@ void FunctionEnd(char const* pos, char const* funcName)
 	{
 		newType->memberFunctions.push_back(TypeInfo::MemberFunction());
 		TypeInfo::MemberFunction &clFunc = newType->memberFunctions.back();
-		clFunc.name = lastFunc.name;
 		clFunc.func = &lastFunc;
 		clFunc.defNode = nodeList.back();
 	}
@@ -1770,32 +1771,20 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		// Maybe the function we found can't be used at all
 		if(minRating > 1000)
 		{
-			std::string errTemp;
-			errTemp.append("ERROR: can't find function '");
-			errTemp.append(funcName);
-			errTemp.append("' with following parameters:\r\n  ");
-			errTemp.append(funcName);
-			errTemp.append("(");
+			char errTemp[512];
+			char	*errPos = errTemp;
+			errPos += sprintf(errPos, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
 			for(unsigned int n = 0; n < callArgCount; n++)
-			{
-				errTemp.append(nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetTypeName());
-				errTemp.append(n != callArgCount-1 ? ", " : "");
-			}
-			errTemp.append(")\r\n");
-			errTemp.append(" the only available are:\r\n");
+				errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetTypeName().c_str(), n != callArgCount-1 ? ", " : "");
+			errPos += sprintf(errPos, ")\r\n the only available are:\r\n");
 			for(unsigned int n = 0; n < count; n++)
 			{
-				errTemp.append("  ");
-				errTemp.append(funcName);
-				errTemp.append("(");
+				errPos += sprintf(errPos, "  %s(", funcName);
 				for(unsigned int m = 0; m < fList[n]->params.size(); m++)
-				{
-					errTemp.append(fList[n]->params[m].varType->GetTypeName());
-					errTemp.append(m != fList[n]->params.size()-1 ? ", " : "");
-				}
-				errTemp.append(")\r\n");
+					errPos += sprintf(errPos, "%s%s", fList[n]->params[m].varType->GetTypeName().c_str(), m != fList[n]->params.size()-1 ? ", " : "");
+				errPos += sprintf(errPos, ")\r\n");
 			}
-			lastError = CompilerError(errTemp.c_str(), pos);
+			lastError = CompilerError(errTemp, pos);
 			ThrowLastError();
 		}
 		// Check, is there are more than one function, that share the same rating
@@ -1803,33 +1792,22 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		{
 			if(k != minRatingIndex && fRating[k] == minRating)
 			{
-				std::string errTemp;
-				errTemp.append("ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n");
-				errTemp.append("  ");
-				errTemp.append(funcName);
-				errTemp.append("(");
+				char errTemp[512];
+				char	*errPos = errTemp;
+				errPos += sprintf(errPos, "ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
 				for(unsigned int n = 0; n < callArgCount; n++)
-				{
-					errTemp.append(nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetTypeName());
-					errTemp.append(n != callArgCount-1 ? ", " : "");
-				}
-				errTemp.append(")\r\n");
-				errTemp.append(" candidates are:\r\n");
+					errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetTypeName().c_str(), n != callArgCount-1 ? ", " : "");
+				errPos += sprintf(errPos, ")\r\n  candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
 					if(fRating[n] != minRating)
 						continue;
-					errTemp.append("  ");
-					errTemp.append(funcName);
-					errTemp.append("(");
+					errPos += sprintf(errPos, "  %s(", funcName);
 					for(unsigned int m = 0; m < fList[n]->params.size(); m++)
-					{
-						errTemp.append(fList[n]->params[m].varType->GetTypeName());
-						errTemp.append(m != fList[n]->params.size()-1 ? ", " : "");
-					}
-					errTemp.append(")\r\n");
+						errPos += sprintf(errPos, "%s%s", fList[n]->params[m].varType->GetTypeName().c_str(), m != fList[n]->params.size()-1 ? ", " : "");
+					errPos += sprintf(errPos, ")\r\n");
 				}
-				lastError = CompilerError(errTemp.c_str(), pos);
+				lastError = CompilerError(errTemp, pos);
 				ThrowLastError();
 			}
 		}
@@ -1899,8 +1877,9 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
 	{
-		std::string bName = "$" + fInfo->name + "_ext";
-		unsigned int contextHash = GetStringHash(bName.c_str());
+		char	*contextName = AllocateString((int)fInfo->name.length() + 6);
+		sprintf(contextName, "$%s_ext", fInfo->name.c_str());
+		unsigned int contextHash = GetStringHash(contextName);
 
 		int i = (int)varInfo.size()-1;
 		while(i >= 0 && varInfo[i]->nameHash != contextHash)
@@ -1909,7 +1888,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		{
 			nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
 		}else{
-			AddGetAddressNode(pos, bName.c_str());
+			AddGetAddressNode(pos, contextName);
 			if(currTypes.back()->refLevel == 1)
 				AddDereferenceNode(pos, NULL);
 			currTypes.pop_back();
@@ -2031,7 +2010,7 @@ void TypeAddMember(char const* pos, const char* varName)
 {
 	if(!currType)
 		ThrowError("ERROR: auto cannot be used for class members", pos);
-	newType->AddMember(std::string(varName), currType);
+	newType->AddMember(varName, currType);
 
 	AddVariable(pos, varName);
 }

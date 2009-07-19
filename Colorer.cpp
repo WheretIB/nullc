@@ -431,7 +431,7 @@ namespace ColorerGrammar
 			return;
 		}
 
-		varInfo.push_back(VariableInfo(vName, 0, NULL, currValConst));
+		varInfo.push_back(VariableInfo(vName.c_str(), 0, NULL, currValConst));
 		varSize = 1;
 	}
 
@@ -501,7 +501,7 @@ namespace ColorerGrammar
 				return;
 			}
 			funcs.push_back(new FunctionInfo());
-			funcs.back()->name = vName;
+			funcs.back()->name = vName.c_str();
 	}
 
 	void FuncEnd(char const* s, char const* e)
