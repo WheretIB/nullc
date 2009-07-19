@@ -2046,6 +2046,7 @@ void SetStringToLastNode(char const *s, char const *e)
 }
 struct StringIndex
 {
+	StringIndex(){}
 	StringIndex(char const *s, char const *e)
 	{
 		indexS = s;
@@ -2053,7 +2054,8 @@ struct StringIndex
 	}
 	const char *indexS, *indexE;
 };
-vector<StringIndex> sIndexes;
+
+FastVector<StringIndex> sIndexes(16);
 void SaveStringIndex(char const *s, char const *e)
 {
 	assert(e > s);
