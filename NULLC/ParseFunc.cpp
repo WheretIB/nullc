@@ -353,7 +353,7 @@ void NodePopOp::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Даём дочернему узлу вычислить значение
 	first->Compile();
@@ -448,7 +448,7 @@ void NodeReturnOp::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Найдём значение, которое будем возвращать
 	first->Compile();
@@ -868,7 +868,7 @@ void NodeGetAddress::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	if(absAddress)
 		cmdList.push_back(VMCmd(cmdPushImmt, varAddress));
@@ -993,7 +993,7 @@ void NodeVariableSet::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	asmStackType asmST = podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)];
 	asmDataType asmDT = podTypeToDataType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)];
@@ -1137,7 +1137,7 @@ void NodeVariableModify::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	asmStackType asmSTfirst = podTypeToStackType[typeInfo->type];
 	asmDataType asmDT = podTypeToDataType[typeInfo->type];
@@ -1280,7 +1280,7 @@ void NodeArrayIndex::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	asmOperType oAsmType = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
 
@@ -1380,7 +1380,7 @@ void NodeDereference::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	asmDataType asmDT = podTypeToDataType[typeInfo->type];
 	
@@ -1438,7 +1438,7 @@ void NodeShiftAddress::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	first->Compile();
 
@@ -1539,7 +1539,7 @@ void NodePreOrPostOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	asmStackType asmST = podTypeToStackType[typeInfo->type];
 	asmDataType asmDT = podTypeToDataType[typeInfo->type];
@@ -1626,7 +1626,7 @@ void NodeFunctionAddress::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	unsigned int ID = GetFuncIndexByPtr(funcInfo);
 	cmdList.push_back(VMCmd(cmdFuncAddr, ID));
@@ -1777,7 +1777,7 @@ void NodeIfElseExpr::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Структура дочерних элементов: if(first) second; else third;
 	// Второй вариант: first ? second : third;
@@ -1848,7 +1848,7 @@ void NodeForExpr::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	if(strBegin && strEnd)
-		cmdInfoList->AddDescription(cmdList.size(), strBegin, strEnd);
+		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Структура дочерних элементов: for(first, second, third) fourth;
 	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];

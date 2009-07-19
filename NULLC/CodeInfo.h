@@ -42,7 +42,7 @@ namespace CodeInfo
 
 	// Поток комманд
 	// Command stream
-	extern CommandList*				cmdInfoList;
+	extern SourceInfo				cmdInfoList;
 	extern FastVector<VMCmd>		cmdList;
 
 	// The size of all global variables in bytes

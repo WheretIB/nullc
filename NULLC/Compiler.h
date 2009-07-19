@@ -27,7 +27,6 @@ public:
 		curr += sprintf(curr, "^\r\n");
 		return errBuf;
 	}
-	static const char *codeStartOriginal;
 	static const char *codeStart;
 private:
 	char error[128];
