@@ -554,7 +554,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		size += sizeof(ExternTypeInfo);
-		size += (int)CodeInfo::typeInfo[i]->fullNameLength + 1;
+		size += (int)CodeInfo::typeInfo[i]->GetFullNameLength() + 1;
 	}
 
 	unsigned int offsetToVar = size;
@@ -596,7 +596,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		tInfo->size = CodeInfo::typeInfo[i]->size;
-		tInfo->nameLength = (unsigned int)CodeInfo::typeInfo[i]->fullNameLength;
+		tInfo->nameLength = (unsigned int)CodeInfo::typeInfo[i]->GetFullNameLength();
 		tInfo->structSize = sizeof(ExternTypeInfo) + tInfo->nameLength + 1;
 
 		tInfo->type = (ExternTypeInfo::TypeCategory)CodeInfo::typeInfo[i]->type;

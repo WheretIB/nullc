@@ -1611,7 +1611,7 @@ void FunctionEnd(char const* pos, char const* funcName)
 			bool paramsEqual = true;
 			for(unsigned int k = 0; k < funcInfo[i]->params.size(); k++)
 			{
-				if(funcInfo[n]->params[k].varType->fullNameHash != funcInfo[i]->params[k].varType->fullNameHash)
+				if(funcInfo[n]->params[k].varType != funcInfo[i]->params[k].varType)
 					paramsEqual = false;
 			}
 			if(paramsEqual)
