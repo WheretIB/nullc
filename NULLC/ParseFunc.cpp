@@ -186,7 +186,7 @@ unsigned int	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
 //////////////////////////////////////////////////////////////////////////
 // Узел не имеющий дочерних узлов
 
-ChunkedStackPool<2048>	NodeZeroOP::nodePool;
+ChunkedStackPool<4092>	NodeZeroOP::nodePool;
 
 NodeZeroOP::NodeZeroOP()
 {
@@ -865,11 +865,11 @@ void NodeGetAddress::IndexArray(int shift)
 	typeInfo = typeInfo->subType;
 }
 
-void NodeGetAddress::ShiftToMember(int member)
+void NodeGetAddress::ShiftToMember(TypeInfo::MemberVariable *member)
 {
-	assert(member < (int)typeInfo->memberData.size());
-	varAddress += typeInfo->memberData[member].offset;
-	typeInfo = typeInfo->memberData[member].type;
+	assert(member);
+	varAddress += member->offset;
+	typeInfo = member->type;
 }
 
 void NodeGetAddress::Compile()

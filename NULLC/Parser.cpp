@@ -4,7 +4,7 @@ using namespace CodeInfo;
 
 #include "Callbacks.h"
 
-ChunkedStackPool<4096>	stringPool;
+ChunkedStackPool<4092>	stringPool;
 
 char*	AllocateString(unsigned int size)
 {
