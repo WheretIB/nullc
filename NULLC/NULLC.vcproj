@@ -373,18 +373,6 @@
 			</File>
 		</Filter>
 		<Filter
-			Name="Parser"
-			>
-			<File
-				RelativePath=".\SupSpi\SupSpi.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\SupSpi\SupSpi.h"
-				>
-			</File>
-		</Filter>
-		<Filter
 			Name="Linker"
 			>
 			<File
@@ -396,10 +384,6 @@
 				>
 			</File>
 		</Filter>
-		<File
-			RelativePath=".\VTune\NULLC.vpj"
-			>
-		</File>
 	</Files>
 	<Globals>
 	</Globals>

@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#include "NULLC/SupSpi/SupSpi.h"
+#include "SupSpi/SupSpi.h"
 using namespace supspi;
 
 #define WIN32_LEAN_AND_MEAN

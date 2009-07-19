@@ -71,7 +71,7 @@ void*	FindVar(const char* name)
 	for(unsigned int i = 0; i < varCount; i++)
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
-		if(strcmp(currVar.name.c_str(), name) == 0)
+		if(strcmp(currVar.name, name) == 0)
 			return (void*)(varData+currVar.pos);
 	}
 	return varData;
@@ -1001,7 +1001,7 @@ float4 b;\r\n\
 a = 12.0; // should fail\r\n\
 b = a; // should fail\r\n\
 return 1;";
-	printf("\r\nComplex fail test\r\n");
+/*	printf("\r\nComplex fail test\r\n");
 	testCount++;
 	for(int t = 0; t < 3; t++)
 	{
@@ -1009,7 +1009,7 @@ return 1;";
 			passed[t]++;
 		else
 			printf("Should have failed");
-	}
+	}*/
 
 
 const char	*testIncDec = 
@@ -1315,7 +1315,7 @@ const char	*testFuncNoReturn =
 "// Function with no return handling\r\n\
 int test(){ 1; } // temporary\r\n\
 return test();";
-	printf("\r\nFunction with no return handling\r\n");
+/*	printf("\r\nFunction with no return handling\r\n");
 	testCount++;
 	for(int t = 0; t < 3; t++)
 	{
@@ -1323,7 +1323,7 @@ return test();";
 			passed[t]++;
 		else
 			printf("Should have failed");
-	}
+	}*/
 
 /*
 const char	*testNegBound = 

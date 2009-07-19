@@ -150,6 +150,7 @@
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				TargetMachine="1"
+				FixedBaseAddress="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -361,6 +362,18 @@
 			</File>
 			<File
 				RelativePath=".\Colorer.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="Parser"
+			>
+			<File
+				RelativePath=".\SupSpi\SupSpi.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SupSpi\SupSpi.h"
 				>
 			</File>
 		</Filter>

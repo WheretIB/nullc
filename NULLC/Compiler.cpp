@@ -1,8 +1,5 @@
 #include "stdafx.h"
 
-#include "SupSpi/SupSpi.h"
-using namespace supspi;
-
 #include "CodeInfo.h"
 using namespace CodeInfo;
 
