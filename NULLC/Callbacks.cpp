@@ -6,8 +6,6 @@ using namespace CodeInfo;
 
 char	callbackError[256];
 
-std::string		warningLog;
-
 // Temp variables
 // Временные переменные:
 
@@ -82,7 +80,7 @@ long long parseInteger(char const* s, char const* e, int base)
 	unsigned long long res = 0;
 	for(const char *p = s; p < e; p++)
 	{
-		int digit = ((*p >= '0' && *p <= '9') ? *p - '0' : tolower(*p) - 'a' + 10);
+		int digit = ((*p >= '0' && *p <= '9') ? *p - '0' : (*p & ~0x20) - 'A' + 10);
 		if(digit < 0 || digit > base)
 		{
 			char error[64];
@@ -321,7 +319,7 @@ void addNegNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd = new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo());
 		}else{
-			sprintf(callbackError, "addNegNode() ERROR: unknown type %s", aType->name.c_str());
+			sprintf(callbackError, "addNegNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, s);
 		}
 		nodeList.pop_back();
@@ -353,7 +351,7 @@ void addLogNotNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
 		}else{
-			sprintf(callbackError, "addLogNotNode() ERROR: unknown type %s", aType->name.c_str());
+			sprintf(callbackError, "addLogNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, s);
 		}
 		nodeList.pop_back();
@@ -381,7 +379,7 @@ void addBitNotNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo());
 		}else{
-			sprintf(callbackError, "addBitNotNode() ERROR: unknown type %s", aType->name.c_str());
+			sprintf(callbackError, "addBitNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, s);
 		}
 		nodeList.pop_back();
@@ -723,14 +721,14 @@ void addReturnNode(char const* s, char const* e)
 	TypeInfo *realRetType = nodeList.back()->GetTypeInfo();
 	if(retTypeStack.back() && (retTypeStack.back()->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && retTypeStack.back() != realRetType)
 	{
-		sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", retTypeStack.back()->GetTypeName().c_str(), realRetType->GetTypeName().c_str());
+		sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", retTypeStack.back()->GetFullTypeName(), realRetType->GetFullTypeName());
 		ThrowError(callbackError, s);
 	}
 	if(retTypeStack.back() && retTypeStack.back()->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
 		ThrowError("ERROR: function returning a value", s);
 	if(retTypeStack.back() && retTypeStack.back() != typeVoid && realRetType == typeVoid)
 	{
-		sprintf(callbackError, "ERROR: function should return %s", retTypeStack.back()->GetTypeName().c_str());
+		sprintf(callbackError, "ERROR: function should return %s", retTypeStack.back()->GetFullTypeName());
 		ThrowError(callbackError, s);
 	}
 	if(!retTypeStack.back() && realRetType == typeVoid)
@@ -1028,8 +1026,8 @@ void AddGetAddressNode(char const* pos, char const* varName)
 				ThrowError("ERROR: Can't get a pointer to a build-in function", pos);
 			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 			{
-				char	*contextName = AllocateString((int)funcInfo[fID]->name.length() + 6);
-				sprintf(contextName, "$%s_ext", funcInfo[fID]->name.c_str());
+				char	*contextName = AllocateString((int)strlen(funcInfo[fID]->name) + 6);
+				sprintf(contextName, "$%s_ext", funcInfo[fID]->name);
 				unsigned int contextHash = GetStringHash(contextName);
 
 				int i = (int)varInfo.size()-1;
@@ -1086,7 +1084,7 @@ void AddArrayIndexNode(char const* s, char const* e)
 		}else if(aType == typeInt){
 			shiftValue = static_cast<NodeNumber<int>* >(zOP)->GetVal();
 		}else{
-			sprintf(callbackError, "AddArrayIndexNode() ERROR: unknown index type %s", aType->name.c_str());
+			sprintf(callbackError, "AddArrayIndexNode() ERROR: unknown index type %s", aType->name);
 			ThrowError(callbackError, lastKnownStartPos);
 		}
 
@@ -1178,7 +1176,7 @@ void AddDefineVariableNode(char const* pos, const char* varName)
 					unifyTwo = true;
 				}else{
 					// Иначе, типы не совместимы, поэтому свидетельствуем об ошибке
-					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->GetTypeInfo()->GetTypeName().c_str(), realCurrType->GetTypeName().c_str());
+					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->GetTypeInfo()->GetFullTypeName(), realCurrType->GetFullTypeName());
 					ThrowError(callbackError, pos);
 				}
 			}
@@ -1206,7 +1204,7 @@ void AddDefineVariableNode(char const* pos, const char* varName)
 		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(pos, funcDefNode->GetFuncInfo()->name.c_str());
+		AddGetAddressNode(pos, funcDefNode->GetFuncInfo()->name);
 		currTypes.pop_back();
 		unifyTwo = true;
 		realCurrType = nodeList.back()->GetTypeInfo();
@@ -1277,7 +1275,7 @@ void AddSetVariableNode(char const* s, char const* e)
 					currTypes.pop_back();
 					unifyTwo = true;
 				}else{
-					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->GetTypeInfo()->GetTypeName().c_str(), realCurrType->GetTypeName().c_str());
+					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->GetTypeInfo()->GetFullTypeName(), realCurrType->GetFullTypeName());
 					ThrowError(callbackError, s);
 				}
 			}
@@ -1299,7 +1297,7 @@ void AddSetVariableNode(char const* s, char const* e)
 		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(s, funcDefNode->GetFuncInfo()->name.c_str());
+		AddGetAddressNode(s, funcDefNode->GetFuncInfo()->name);
 		currTypes.pop_back();
 		unifyTwo = true;
 		std::swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
@@ -1352,7 +1350,7 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 		i--;
 	if(i == -1)
 	{
-		unsigned int hash = GetStringHash(currType->name.c_str());
+		unsigned int hash = currType->nameHash;
 		hash = StringHashContinue(hash, "::");
 		hash = StringHashContinue(hash, varName);
 
@@ -1371,7 +1369,7 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 		}
 		if(fID == -1)
 		{
-			sprintf(callbackError, "ERROR: variable '%s' is not a member of '%s'", varName, currType->GetTypeName().c_str());
+			sprintf(callbackError, "ERROR: variable '%s' is not a member of '%s'", varName, currType->GetFullTypeName());
 			ThrowError(callbackError, pos);
 		}
 	}
@@ -1395,8 +1393,8 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 
 void AddMemberFunctionCall(char const* pos, char const* funcName, unsigned int callArgCount)
 {
-	char	*memberFuncName = AllocateString((int)currTypes.back()->name.length() + 2 + (int)strlen(funcName) + 1);
-	sprintf(memberFuncName, "%s::%s", currTypes.back()->name.c_str(), funcName);
+	char	*memberFuncName = AllocateString((int)strlen(currTypes.back()->name) + 2 + (int)strlen(funcName) + 1);
+	sprintf(memberFuncName, "%s::%s", currTypes.back()->name, funcName);
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
 	currTypes.back() = nodeList.back()->GetTypeInfo();
 }
@@ -1485,24 +1483,15 @@ void addTwoExprNode(char const* s, char const* e)
 
 void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCount)
 {
+	(void)e;
 	arrElementCount++;
 
 	TypeInfo *currType = nodeList[nodeList.size()-arrElementCount]->GetTypeInfo();
 
 	if(currType == typeShort || currType == typeChar)
-	{
 		currType = typeInt;
-		warningLog.append("WARNING: short and char will be promoted to int during array construction\r\n At ");
-		warningLog.append(s, e);
-		warningLog.append("\r\n");
-	}
 	if(currType == typeFloat)
-	{
 		currType = typeDouble;
-		warningLog.append("WARNING: float will be promoted to double during array construction\r\n At ");
-		warningLog.append(s, e);
-		warningLog.append("\r\n");
-	}
 	if(currType == typeVoid)
 		ThrowError("ERROR: array cannot be constructed from void type elements", s);
 
@@ -1518,7 +1507,7 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 	{
 		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt) && !(realType == typeFloat && currType == typeDouble))
 		{
-			sprintf(callbackError, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currType->GetTypeName().c_str());
+			sprintf(callbackError, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currType->GetFullTypeName());
 			ThrowError(callbackError, s);
 		}
 		arrayList->AddNode(false);
@@ -1538,11 +1527,19 @@ void FunctionAdd(char const* pos, char const* funcName)
 			ThrowError(callbackError, pos);
 		}
 	}
-	std::string name = funcName;
+	char *funcNameCopy = NULL;
+	if(newType)
+	{
+		funcNameCopy = new char[(int)strlen(newType->name) + 2 + strlen(funcName) + 1];
+		sprintf(funcNameCopy, "%s::%s", newType->name, funcName);
+	}else{
+		funcNameCopy = new char[strlen(funcName) + 1];
+		sprintf(funcNameCopy, "%s", funcName);
+	}
 	if(!currType)
 		ThrowError("ERROR: function return type cannot be auto", pos);
 	funcInfo.push_back(new FunctionInfo());
-	funcInfo.back()->name = name;
+	funcInfo.back()->name = funcNameCopy;
 	funcInfo.back()->vTopSize = (unsigned int)varInfoTop.size();
 	retTypeStack.push_back(currType);
 	funcInfo.back()->retType = currType;
@@ -1552,10 +1549,7 @@ void FunctionAdd(char const* pos, char const* funcName)
 		funcInfo.back()->type = FunctionInfo::LOCAL;
 	currDefinedFunc.push_back(funcInfo.back());
 
-	if(newType)
-		funcInfo.back()->name = newType->name + "::" + name;
-
-	funcInfo.back()->nameHash = GetStringHash(funcInfo.back()->name.c_str());
+	funcInfo.back()->nameHash = GetStringHash(funcInfo.back()->name);
 
 	if(varDefined && varInfo.back()->varType == NULL)
 		varTop += 8;
@@ -1581,8 +1575,8 @@ void FunctionStart(char const* pos)
 		varDefined = false;
 	}
 
-	char	*hiddenHame = AllocateString((int)funcInfo.back()->name.length() + 8);
-	sprintf(hiddenHame, "$%s_ext", funcInfo.back()->name.c_str());
+	char	*hiddenHame = AllocateString((int)strlen(funcInfo.back()->name) + 8);
+	sprintf(hiddenHame, "$%s_ext", funcInfo.back()->name);
 	currType = GetReferenceType(typeInt);
 	currAlign = 1;
 	AddVariable(pos, hiddenHame);
@@ -1599,7 +1593,7 @@ void FunctionEnd(char const* pos, char const* funcName)
 
 	if(newType)
 	{
-		funcNameHash = GetStringHash(newType->name.c_str());
+		funcNameHash = newType->nameHash;
 		funcNameHash = StringHashContinue(funcNameHash, "::");
 		funcNameHash = StringHashContinue(funcNameHash, funcName);
 	}
@@ -1617,12 +1611,12 @@ void FunctionEnd(char const* pos, char const* funcName)
 			bool paramsEqual = true;
 			for(unsigned int k = 0; k < funcInfo[i]->params.size(); k++)
 			{
-				if(funcInfo[n]->params[k].varType->GetTypeName() != funcInfo[i]->params[k].varType->GetTypeName())
+				if(funcInfo[n]->params[k].varType->fullNameHash != funcInfo[i]->params[k].varType->fullNameHash)
 					paramsEqual = false;
 			}
 			if(paramsEqual)
 			{
-				sprintf(callbackError, "ERROR: function '%s' is being defined with the same set of parameters", funcInfo[i]->name.c_str());
+				sprintf(callbackError, "ERROR: function '%s' is being defined with the same set of parameters", funcInfo[i]->name);
 				ThrowError(callbackError, pos);
 			}
 		}
@@ -1666,8 +1660,8 @@ void FunctionEnd(char const* pos, char const* funcName)
 		}
 		nodeList.push_back(temp);
 
-		char	*hiddenHame = AllocateString((int)lastFunc.name.length() + 8);
-		sprintf(hiddenHame, "$%s_ext", lastFunc.name.c_str());
+		char	*hiddenHame = AllocateString((int)strlen(lastFunc.name) + 8);
+		sprintf(hiddenHame, "$%s_ext", lastFunc.name);
 
 		TypeInfo *saveCurrType = currType;
 		bool saveVarDefined = varDefined;
@@ -1775,13 +1769,13 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			char	*errPos = errTemp;
 			errPos += sprintf(errPos, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
 			for(unsigned int n = 0; n < callArgCount; n++)
-				errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetTypeName().c_str(), n != callArgCount-1 ? ", " : "");
+				errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 			errPos += sprintf(errPos, ")\r\n the only available are:\r\n");
 			for(unsigned int n = 0; n < count; n++)
 			{
 				errPos += sprintf(errPos, "  %s(", funcName);
 				for(unsigned int m = 0; m < fList[n]->params.size(); m++)
-					errPos += sprintf(errPos, "%s%s", fList[n]->params[m].varType->GetTypeName().c_str(), m != fList[n]->params.size()-1 ? ", " : "");
+					errPos += sprintf(errPos, "%s%s", fList[n]->params[m].varType->GetFullTypeName(), m != fList[n]->params.size()-1 ? ", " : "");
 				errPos += sprintf(errPos, ")\r\n");
 			}
 			lastError = CompilerError(errTemp, pos);
@@ -1796,7 +1790,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 				char	*errPos = errTemp;
 				errPos += sprintf(errPos, "ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
 				for(unsigned int n = 0; n < callArgCount; n++)
-					errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetTypeName().c_str(), n != callArgCount-1 ? ", " : "");
+					errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 				errPos += sprintf(errPos, ")\r\n  candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
@@ -1804,7 +1798,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 						continue;
 					errPos += sprintf(errPos, "  %s(", funcName);
 					for(unsigned int m = 0; m < fList[n]->params.size(); m++)
-						errPos += sprintf(errPos, "%s%s", fList[n]->params[m].varType->GetTypeName().c_str(), m != fList[n]->params.size()-1 ? ", " : "");
+						errPos += sprintf(errPos, "%s%s", fList[n]->params[m].varType->GetFullTypeName(), m != fList[n]->params.size()-1 ? ", " : "");
 					errPos += sprintf(errPos, ")\r\n");
 				}
 				lastError = CompilerError(errTemp, pos);
@@ -1838,7 +1832,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			(paramNodes[index]->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 		{
 			NodeFuncDef*	funcDefNode = (NodeFuncDef*)(paramNodes[index]->GetNodeType() == typeNodeFuncDef ? paramNodes[index] : static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode());
-			AddGetAddressNode(pos, funcDefNode->GetFuncInfo()->name.c_str());
+			AddGetAddressNode(pos, funcDefNode->GetFuncInfo()->name);
 			currTypes.pop_back();
 
 			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->GetTypeInfo());
@@ -1877,8 +1871,8 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
 	{
-		char	*contextName = AllocateString((int)fInfo->name.length() + 6);
-		sprintf(contextName, "$%s_ext", fInfo->name.c_str());
+		char	*contextName = AllocateString((int)strlen(fInfo->name) + 6);
+		sprintf(contextName, "$%s_ext", fInfo->name);
 		unsigned int contextHash = GetStringHash(contextName);
 
 		int i = (int)varInfo.size()-1;
@@ -1931,7 +1925,7 @@ void addIfElseTermNode(char const* s, char const* e)
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->GetTypeInfo();
 	if(typeA != typeB)
 	{
-		sprintf(callbackError, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name.c_str(), typeA->name.c_str());
+		sprintf(callbackError, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
 		ThrowError(callbackError, s);
 	}
 	nodeList.push_back(new NodeIfElseExpr(true, true));
@@ -1994,9 +1988,11 @@ void TypeBegin(char const* s, char const* e)
 		ThrowError("ERROR: alignment must be a positive number", s);
 	if(currAlign > 16)
 		ThrowError("ERROR: alignment must me less than 16 bytes", s);
-	newType = new TypeInfo();
-	newType->name = std::string(s, e);
-	newType->nameHash = GetStringHash(newType->name.c_str());
+
+	char *typeNameCopy = new char[(int)(e - s) + 1];
+	sprintf(typeNameCopy, "%.*s", (int)(e-s), s);
+
+	newType = new TypeInfo(typeNameCopy, 0, 0, 1, NULL);
 	newType->type = TypeInfo::TYPE_COMPLEX;
 	newType->alignBytes = currAlign;
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
@@ -2105,9 +2101,6 @@ void CallbackInitialize()
 	funcInfoTop.push_back(0);
 
 	retTypeStack.push_back(NULL);	//global return can return anything
-
-	warningLog.clear();
-
 }
 
 void CallbackDeinitialize()
