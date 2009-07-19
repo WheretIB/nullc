@@ -144,13 +144,21 @@ TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 	return NULL;
 }
 
-std::pair<unsigned int, asmStackType>	ConvertFirstForSecondSize(asmStackType first, asmStackType second)
+unsigned int ConvertFirstForSecondSize(asmStackType first, asmStackType second)
 {
 	if((first == STYPE_INT || first == STYPE_LONG) && second == STYPE_DOUBLE)
-		return std::pair<unsigned int, asmStackType>(1, STYPE_DOUBLE);
+		return 1;
 	if(first == STYPE_INT && second == STYPE_LONG)
-		return std::pair<unsigned int, asmStackType>(1, STYPE_LONG);
-	return std::pair<unsigned int, asmStackType>(0, first);
+		return 1;
+	return 0;
+}
+asmStackType	ConvertFirstForSecondType(asmStackType first, asmStackType second)
+{
+	if((first == STYPE_INT || first == STYPE_LONG) && second == STYPE_DOUBLE)
+		return STYPE_DOUBLE;
+	if(first == STYPE_INT && second == STYPE_LONG)
+		return STYPE_LONG;
+	return first;
 }
 
 unsigned int	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
@@ -1219,9 +1227,9 @@ unsigned int NodeVariableModify::GetSize()
 	unsigned int size = second->GetSize();
 	if(!knownAddress)
 		size += 2 * first->GetSize();
-	size += ConvertFirstForSecondSize(asmSTfirst, asmSTsecond).first;
-	asmStackType asmSTresult = ConvertFirstForSecondSize(asmSTfirst, asmSTsecond).second;
-	size += ConvertFirstForSecondSize(asmSTsecond, asmSTresult).first;
+	size += ConvertFirstForSecondSize(asmSTfirst, asmSTsecond);
+	asmStackType asmSTresult = ConvertFirstForSecondType(asmSTfirst, asmSTsecond);
+	size += ConvertFirstForSecondSize(asmSTsecond, asmSTresult);
 	size += ConvertFirstToSecondSize(asmSTresult, asmSTfirst);
 	size += 3;
 	return size;
@@ -1745,9 +1753,9 @@ unsigned int NodeTwoAndCmdOp::GetSize()
 {
 	asmStackType fST = podTypeToStackType[first->GetTypeInfo()->type], sST = podTypeToStackType[second->GetTypeInfo()->type];
 	unsigned int resSize = 0;
-	resSize += ConvertFirstForSecondSize(fST, sST).first;
-	fST = ConvertFirstForSecondSize(fST, sST).second;
-	resSize += ConvertFirstForSecondSize(sST, fST).first;
+	resSize += ConvertFirstForSecondSize(fST, sST);
+	fST = ConvertFirstForSecondType(fST, sST);
+	resSize += ConvertFirstForSecondSize(sST, fST);
 	return NodeTwoOP::GetSize() + 1 + resSize;
 }
 

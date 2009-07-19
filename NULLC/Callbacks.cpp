@@ -51,6 +51,13 @@ FastVector<FunctionInfo*>	currDefinedFunc(64);
 
 FastVector<VariableInfo*>	varInfoAll;
 
+template<typename T> void	Swap(T& a, T& b)
+{
+	T temp = a;
+	a = b;
+	b = temp;
+}
+
 void SetTypeConst(bool isConst)
 {
 	currValConst = isConst;
@@ -393,7 +400,7 @@ template<typename T>
 T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 {
 	if(swap)
-		std::swap(a, b);
+		Swap(a, b);
 	if(cmd == cmdAdd)
 		return a + b;
 	if(cmd == cmdSub)
@@ -518,11 +525,11 @@ void addTwoAndCmpNode(CmdID id)
 
 		//Swap operands, to reduce number of combinations
 		if((aType == typeFloat || aType == typeLong || aType == typeInt) && bType == typeDouble)
-			std::swap(shA, shB);
+			Swap(shA, shB);
 		if((aType == typeLong || aType == typeInt) && bType == typeFloat)
-			std::swap(shA, shB);
+			Swap(shA, shB);
 		if(aType == typeInt && bType == typeLong)
-			std::swap(shA, shB);
+			Swap(shA, shB);
 
 		bool swapOper = shA != 2;
 
@@ -595,8 +602,8 @@ void addTwoAndCmpNode(CmdID id)
 		// ≈сли один из узлов - число, то помен€ем операторы местами так, чтобы узел с числом был в A
 		if(bNodeType == typeNodeNumber)
 		{
-			std::swap(shA, shB);
-			std::swap(aNodeType, bNodeType);
+			Swap(shA, shB);
+			Swap(aNodeType, bNodeType);
 		}
 
 		// ќптимизацию можно произвести, если второй операнд - typeNodeTwoAndCmdOp или typeNodeVarGet
@@ -1290,7 +1297,7 @@ void AddSetVariableNode(char const* s, char const* e)
 			nodeList.push_back(listExpr);
 
 			if(unifyTwo)
-				std::swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
+				Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 		}
 	}
 	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
@@ -1300,7 +1307,7 @@ void AddSetVariableNode(char const* s, char const* e)
 		AddGetAddressNode(s, funcDefNode->GetFuncInfo()->name);
 		currTypes.pop_back();
 		unifyTwo = true;
-		std::swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
+		Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 	}
 
 	nodeList.push_back(new NodeVariableSet(currTypes.back(), 0, true));
