@@ -27,7 +27,7 @@ inline bool ParseLexem(Lexeme** str, LexemeType type)
 	return true;
 }
 
-bool ParseTypename(Lexeme** str)
+unsigned int ParseTypename(Lexeme** str)
 {
 	if((*str)->type != lex_string)
 		return false;
@@ -41,10 +41,10 @@ bool ParseTypename(Lexeme** str)
 		if(CodeInfo::typeInfo[s]->nameHash == hash)
 		{
 			(*str)++;
-			return true;
+			return s+1;
 		}
 	}
-	return false;
+	return 0;
 }
 
 bool ParseNumber(Lexeme** str)
@@ -130,19 +130,13 @@ bool ParseSelectType(Lexeme** str)
 			ThrowError("ERROR: expression not found after typeof(", (*str)->pos);
 		}
 	}else if((*str)->type == lex_auto){
-		CALLBACK(SelectTypeByName((*str)->pos, "auto"));
+		CALLBACK(SelectAutoType());
 		(*str)++;
 	}else if((*str)->type == lex_string){
-		if(!ParseTypename(str))
+		unsigned int index;
+		if(!(index = ParseTypename(str)))
 			return false;
-		(*str)--;
-		char	*typeName = (char*)stringPool.Allocate((*str)->length+1);
-		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-			ThrowError("ERROR: type name length is limited to 2048 symbols", (*str)->pos);
-		memcpy(typeName, (*str)->pos, (*str)->length);
-		typeName[(*str)->length] = 0;
-		CALLBACK(SelectTypeByName((*str)->pos, typeName));
-		(*str)++;
+		CALLBACK(SelectTypeByIndex(index-1));
 	}else{
 		return false;
 	}
@@ -639,23 +633,25 @@ bool  ParseReturnExpr(Lexeme** str)
 
 bool  ParseBreakExpr(Lexeme** str)
 {
+	const char *pos = (*str)->pos;
 	if(!ParseLexem(str, lex_break))
 		return false;
 
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError("ERROR: break must be followed by ';'", (*str)->pos);
-	CALLBACK(addBreakNode(NULL, NULL));
+	CALLBACK(addBreakNode(pos, pos));
 	return true;
 }
 
 bool  ParseContinueExpr(Lexeme** str)
 {
+	const char *pos = (*str)->pos;
 	if(!ParseLexem(str, lex_continue))
 		return false;
 
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError("ERROR: continue must be followed by ';'", (*str)->pos);
-	CALLBACK(AddContinueNode(NULL, NULL));
+	CALLBACK(AddContinueNode(pos, pos));
 	return true;
 }
 

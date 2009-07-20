@@ -730,7 +730,7 @@ void addReturnNode(char const* s, char const* e)
 	TypeInfo *realRetType = nodeList.back()->GetTypeInfo();
 	if(retTypeStack.back() && (retTypeStack.back()->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && retTypeStack.back() != realRetType)
 	{
-		sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", retTypeStack.back()->GetFullTypeName(), realRetType->GetFullTypeName());
+		sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), retTypeStack.back()->GetFullTypeName());
 		ThrowError(callbackError, s);
 	}
 	if(retTypeStack.back() && retTypeStack.back()->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
@@ -750,7 +750,7 @@ void addBreakNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	if(cycleBeginVarTop.size() == 0)
-		ThrowError("ERROR: break used outside loop statements", s);
+		ThrowError("ERROR: break used outside loop statement", s);
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	while(t > (int)cycleBeginVarTop.back())
@@ -765,7 +765,7 @@ void AddContinueNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	if(cycleBeginVarTop.size() == 0)
-		ThrowError("ERROR: continue used outside loop statements", s);
+		ThrowError("ERROR: continue used outside loop statement", s);
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	while(t > (int)cycleBeginVarTop.back())
@@ -776,25 +776,14 @@ void AddContinueNode(char const* s, char const* e)
 	nodeList.push_back(new NodeContinueOp(c));
 }
 
-void SelectTypeByName(char const* pos, char const* typeName)
+void SelectAutoType()
 {
-	static unsigned int autoHash = GetStringHash("auto");
-	unsigned int typeHash = GetStringHash(typeName);
-	if(typeHash == autoHash)
-	{
-		currType = NULL;
-		return;
-	}
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
-	{
-		if(typeInfo[i]->nameHash == typeHash)
-		{
-			currType = typeInfo[i];
-			return;
-		}
-	}
-	sprintf(callbackError, "ERROR: Variable type '%s' is unknown", typeName);
-	ThrowError(callbackError, pos);
+	currType = NULL;
+}
+
+void SelectTypeByIndex(unsigned int index)
+{
+	currType = typeInfo[index];
 }
 
 void addTwoExprNode(char const* s, char const* e);

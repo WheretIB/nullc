@@ -5,7 +5,7 @@
 char*	AllocateString(unsigned int size);
 void ClearStringList();
 
-bool ParseTypename(Lexeme** str);
+unsigned int ParseTypename(Lexeme** str);
 
 bool ParseNumber(Lexeme** str);
 bool ParseArrayDefinition(Lexeme** str);

@@ -54,8 +54,8 @@ void addBreakNode(char const* s, char const* e);
 
 void AddContinueNode(char const* s, char const* e);
 
-//Finds TypeInfo in a typeInfo list by name
-void SelectTypeByName(char const* pos, char const* typeName);
+void SelectAutoType();
+void SelectTypeByIndex(unsigned int index);
 
 void AddVariable(char const* pos, const char* varName);
 
