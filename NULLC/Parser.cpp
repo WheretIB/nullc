@@ -870,8 +870,6 @@ bool ParseTerminal(Lexeme** str)
 
 bool ParsePower(Lexeme** str)
 {
-	if(!ParseTerminal(str))
-		return false;
 	while(ParseLexem(str, lex_pow))
 	{
 		if(!ParseTerminal(str))
@@ -888,6 +886,8 @@ bool ParseMultiplicative(Lexeme** str)
 	while(ParseLexem(str, lex_mul) || ParseLexem(str, lex_div) || ParseLexem(str, lex_mod))
 	{
 		char op = (*str)[-1].pos[0];
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParsePower(str))
 			ThrowError("ERROR: expression not found after multiplicative expression", (*str)->pos);
 		CALLBACK((addCmd((CmdID)(op == '*' ? cmdMul : (op == '/' ? cmdDiv : cmdMod))))(NULL, NULL));
@@ -902,6 +902,8 @@ bool ParseAdditive(Lexeme** str)
 	while(ParseLexem(str, lex_add) || ParseLexem(str, lex_sub))
 	{
 		char op = (*str)[-1].pos[0];
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseMultiplicative(str))
 			ThrowError("ERROR: expression not found after additive expression", (*str)->pos);
 		CALLBACK((addCmd((CmdID)(op == '+' ? cmdAdd : cmdSub)))(NULL, NULL));
@@ -916,6 +918,8 @@ bool ParseBinaryShift(Lexeme** str)
 	while(ParseLexem(str, lex_shl) || ParseLexem(str, lex_shr))
 	{
 		char op = (*str)[-1].pos[0];
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseAdditive(str))
 			ThrowError("ERROR: expression not found after shift expression", (*str)->pos);
 		CALLBACK((addCmd((CmdID)(op == '<' ? cmdShl : cmdShr)))(NULL, NULL));
@@ -931,6 +935,8 @@ bool ParseComparision(Lexeme** str)
 	{
 		char op = (*str)[-1].pos[0];
 		char op2 = (*str)[-1].pos[1];
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseBinaryShift(str))
 			ThrowError("ERROR: expression not found after comparison expression", (*str)->pos);
 		CALLBACK((addCmd((CmdID)(op == '<' ? (op2 == '=' ? cmdLEqual : cmdLess) : (op2 == '=' ? cmdGEqual : cmdGreater))))(NULL, NULL));
@@ -945,6 +951,8 @@ bool  ParseStrongComparision(Lexeme** str)
 	while(ParseLexem(str, lex_equal) || ParseLexem(str, lex_nequal))
 	{
 		char op = (*str)[-1].pos[0];
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseComparision(str))
 			ThrowError("ERROR: expression not found after comparison expression", (*str)->pos);
 		CALLBACK((addCmd((CmdID)(op == '=' ? cmdEqual : cmdNEqual)))(NULL, NULL));
@@ -958,6 +966,8 @@ bool ParseBinaryAnd(Lexeme** str)
 		return false;
 	while(ParseLexem(str, lex_bitand))
 	{
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseStrongComparision(str))
 			ThrowError("ERROR: expression not found after '&'", (*str)->pos);
 		CALLBACK((addCmd(cmdBitAnd))(NULL, NULL));
@@ -971,6 +981,8 @@ bool ParseBinaryXor(Lexeme** str)
 		return false;
 	while(ParseLexem(str, lex_bitxor))
 	{
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseBinaryAnd(str))
 			ThrowError("ERROR: expression not found after '^'", (*str)->pos);
 		CALLBACK((addCmd(cmdBitXor))(NULL, NULL));
@@ -984,6 +996,8 @@ bool ParseBinaryOr(Lexeme** str)
 		return false;
 	while(ParseLexem(str, lex_bitor))
 	{
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseBinaryXor(str))
 			ThrowError("ERROR: expression not found after '|'", (*str)->pos);
 		CALLBACK((addCmd(cmdBitOr))(NULL, NULL));
@@ -997,6 +1011,8 @@ bool ParseLogicalAnd(Lexeme** str)
 		return false;
 	while(ParseLexem(str, lex_logand))
 	{
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseBinaryOr(str))
 			ThrowError("ERROR: expression not found after 'and'", (*str)->pos);
 		CALLBACK((addCmd(cmdLogAnd))(NULL, NULL));
@@ -1010,6 +1026,8 @@ bool ParseLogicalXor(Lexeme** str)
 		return false;
 	while(ParseLexem(str, lex_logxor))
 	{
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseLogicalAnd(str))
 			ThrowError("ERROR: expression not found after 'xor'", (*str)->pos);
 		CALLBACK((addCmd(cmdLogXor))(NULL, NULL));
@@ -1023,6 +1041,8 @@ bool ParseLogicalOr(Lexeme** str)
 		return false;
 	while(ParseLexem(str, lex_logor))
 	{
+		if(!ParseTerminal(str))
+			return false;
 		if(!ParseLogicalXor(str))
 			ThrowError("ERROR: expression not found after 'or'", (*str)->pos);
 		CALLBACK((addCmd(cmdLogOr))(NULL, NULL));
@@ -1032,6 +1052,8 @@ bool ParseLogicalOr(Lexeme** str)
 
 bool ParseTernaryExpr(Lexeme** str)
 {
+	if(!ParseTerminal(str))
+		return false;
 	if(!ParseLogicalOr(str))
 		return false;
 	while(ParseLexem(str, lex_questionmark))

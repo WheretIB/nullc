@@ -189,70 +189,56 @@ Compiler::Compiler()
 
 	// Add functions
 	FunctionInfo	*fInfo;
-	fInfo = new FunctionInfo();
+	fInfo = new FunctionInfo(DuplicateString("cos"));
 	fInfo->address = -1;
-	fInfo->name = DuplicateString("cos");
-	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo();
+	fInfo = new FunctionInfo(DuplicateString("sin"));
 	fInfo->address = -1;
-	fInfo->name = DuplicateString("sin");
-	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo();
+	fInfo = new FunctionInfo(DuplicateString("tan"));
 	fInfo->address = -1;
-	fInfo->name = DuplicateString("tan");
-	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo();
+	fInfo = new FunctionInfo(DuplicateString("ctg"));
 	fInfo->address = -1;
-	fInfo->name = DuplicateString("ctg");
-	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo();
+	fInfo = new FunctionInfo(DuplicateString("ceil"));
 	fInfo->address = -1;
-	fInfo->name = DuplicateString("ceil");
-	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo();
+	fInfo = new FunctionInfo(DuplicateString("floor"));
 	fInfo->address = -1;
-	fInfo->name = DuplicateString("floor");
-	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo();
+	fInfo = new FunctionInfo(DuplicateString("sqrt"));
 	fInfo->address = -1;
-	fInfo->name = DuplicateString("sqrt");
-	fInfo->nameHash = GetStringHash(fInfo->name);
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
@@ -350,7 +336,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	}
 	if(!res)
 		return false;
-
+//return true;
 	funcInfo.back()->address = -1;
 	funcInfo.back()->funcPtr = (void*)ptr;
 
@@ -444,7 +430,7 @@ bool Compiler::Compile(const char *str)
 		lastError = CompilerError("Parsing failed", NULL);
 		return false;
 	}
-
+//return true;
 	unsigned int tem = clock()-t;
 #ifdef NULLC_LOG_FILES
 	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
@@ -568,7 +554,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
 		size += sizeof(ExternFuncInfo);
-		size += (int)strlen(CodeInfo::funcInfo[i]->name)+1;
+		size += CodeInfo::funcInfo[i]->nameLength + 1;
 		size += (unsigned int)CodeInfo::funcInfo[i]->params.size() * sizeof(unsigned int);
 	}
 	unsigned int offsetToCode = size;
@@ -652,7 +638,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		offsetToGlobal += fInfo->codeSize;
 
 		fInfo->nameHash = CodeInfo::funcInfo[i]->nameHash;
-		fInfo->nameLength = (unsigned int)strlen(CodeInfo::funcInfo[i]->name);
+		fInfo->nameLength = CodeInfo::funcInfo[i]->nameLength;
 
 		fInfo->retType = GetTypeIndexByPtr(CodeInfo::funcInfo[i]->retType);
 		fInfo->paramCount = (unsigned int)CodeInfo::funcInfo[i]->params.size();
