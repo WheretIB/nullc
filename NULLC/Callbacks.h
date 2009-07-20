@@ -45,8 +45,7 @@ void addNegNode(char const* s, char const* e);
 void addLogNotNode(char const* s, char const* e);
 void addBitNotNode(char const* s, char const* e);
 
-typedef void (*ParseFuncPtr)(char const* s, char const* e);
-ParseFuncPtr addCmd(CmdID cmd);
+void AddBinaryCommandNode(CmdID id);
 
 void addReturnNode(char const* s, char const* e);
 

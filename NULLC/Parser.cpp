@@ -868,193 +868,44 @@ bool ParseTerminal(Lexeme** str)
 	return false;
 }
 
-bool ParsePower(Lexeme** str)
-{
-	while(ParseLexem(str, lex_pow))
-	{
-		if(!ParseTerminal(str))
-			ThrowError("ERROR: expression not found after **", (*str)->pos);
-		CALLBACK((addCmd(cmdPow))(NULL, NULL));
-	}
-	return true;
-}
+// indexed by [lexeme - lex_add]
+char opPrecedence[] = { 2, 2, 1, 1, 1, 0, 4, 4, 3, 4, 4, 3, 5, 5, 6, 8, 7, 9, 11, 10 /* + - * / % ** < <= << > >= >> == != & | ^ and or xor */ };
+CmdID opHandler[] = { cmdAdd, cmdSub, cmdMul, cmdDiv, cmdMod, cmdPow, cmdLess, cmdLEqual, cmdShl, cmdGreater, cmdGEqual, cmdShr, cmdEqual, cmdNEqual, cmdBitAnd, cmdBitOr, cmdBitXor, cmdLogAnd, cmdLogOr, cmdLogXor };
+// operator stack
+FastVector<LexemeType>	opStack(64);
 
-bool ParseMultiplicative(Lexeme** str)
+bool ParseArithmetic(Lexeme** str)
 {
-	if(!ParsePower(str))
+	if(!ParseTerminal(str))
 		return false;
-	while(ParseLexem(str, lex_mul) || ParseLexem(str, lex_div) || ParseLexem(str, lex_mod))
+	unsigned int opCount = 0;
+	while((*str)->type >= lex_add && (*str)->type <= lex_logxor)
 	{
-		char op = (*str)[-1].pos[0];
+		LexemeType lType = (*str)->type;
+		while(opCount > 0 && opPrecedence[opStack.back() - lex_add] <= opPrecedence[lType - lex_add])
+		{
+			CALLBACK(AddBinaryCommandNode(opHandler[opStack.back() - lex_add]));
+			opStack.pop_back();
+			opCount--;
+		}
+		opStack.push_back(lType);
+		opCount++;	// opStack is global, but we are tracing its local size
+		(*str)++;
 		if(!ParseTerminal(str))
-			return false;
-		if(!ParsePower(str))
-			ThrowError("ERROR: expression not found after multiplicative expression", (*str)->pos);
-		CALLBACK((addCmd((CmdID)(op == '*' ? cmdMul : (op == '/' ? cmdDiv : cmdMod))))(NULL, NULL));
+			ThrowError("ERROR: terminal expression not found after binary operation", (*str)->pos);
 	}
-	return true;
-}
-
-bool ParseAdditive(Lexeme** str)
-{
-	if(!ParseMultiplicative(str))
-		return false;
-	while(ParseLexem(str, lex_add) || ParseLexem(str, lex_sub))
+	while(opCount > 0)
 	{
-		char op = (*str)[-1].pos[0];
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseMultiplicative(str))
-			ThrowError("ERROR: expression not found after additive expression", (*str)->pos);
-		CALLBACK((addCmd((CmdID)(op == '+' ? cmdAdd : cmdSub)))(NULL, NULL));
-	}
-	return true;
-}
-
-bool ParseBinaryShift(Lexeme** str)
-{
-	if(!ParseAdditive(str))
-		return false;
-	while(ParseLexem(str, lex_shl) || ParseLexem(str, lex_shr))
-	{
-		char op = (*str)[-1].pos[0];
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseAdditive(str))
-			ThrowError("ERROR: expression not found after shift expression", (*str)->pos);
-		CALLBACK((addCmd((CmdID)(op == '<' ? cmdShl : cmdShr)))(NULL, NULL));
-	}
-	return true;
-}
-
-bool ParseComparision(Lexeme** str)
-{
-	if(!ParseBinaryShift(str))
-		return false;
-	while(ParseLexem(str, lex_less) || ParseLexem(str, lex_lequal) || ParseLexem(str, lex_greater) || ParseLexem(str, lex_gequal))
-	{
-		char op = (*str)[-1].pos[0];
-		char op2 = (*str)[-1].pos[1];
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseBinaryShift(str))
-			ThrowError("ERROR: expression not found after comparison expression", (*str)->pos);
-		CALLBACK((addCmd((CmdID)(op == '<' ? (op2 == '=' ? cmdLEqual : cmdLess) : (op2 == '=' ? cmdGEqual : cmdGreater))))(NULL, NULL));
-	}
-	return true;
-}
-
-bool  ParseStrongComparision(Lexeme** str)
-{
-	if(!ParseComparision(str))
-		return false;
-	while(ParseLexem(str, lex_equal) || ParseLexem(str, lex_nequal))
-	{
-		char op = (*str)[-1].pos[0];
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseComparision(str))
-			ThrowError("ERROR: expression not found after comparison expression", (*str)->pos);
-		CALLBACK((addCmd((CmdID)(op == '=' ? cmdEqual : cmdNEqual)))(NULL, NULL));
-	}
-	return true;
-}
-
-bool ParseBinaryAnd(Lexeme** str)
-{
-	if(!ParseStrongComparision(str))
-		return false;
-	while(ParseLexem(str, lex_bitand))
-	{
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseStrongComparision(str))
-			ThrowError("ERROR: expression not found after '&'", (*str)->pos);
-		CALLBACK((addCmd(cmdBitAnd))(NULL, NULL));
-	}
-	return true;
-}
-
-bool ParseBinaryXor(Lexeme** str)
-{
-	if(!ParseBinaryAnd(str))
-		return false;
-	while(ParseLexem(str, lex_bitxor))
-	{
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseBinaryAnd(str))
-			ThrowError("ERROR: expression not found after '^'", (*str)->pos);
-		CALLBACK((addCmd(cmdBitXor))(NULL, NULL));
-	}
-	return true;
-}
-
-bool ParseBinaryOr(Lexeme** str)
-{
-	if(!ParseBinaryXor(str))
-		return false;
-	while(ParseLexem(str, lex_bitor))
-	{
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseBinaryXor(str))
-			ThrowError("ERROR: expression not found after '|'", (*str)->pos);
-		CALLBACK((addCmd(cmdBitOr))(NULL, NULL));
-	}
-	return true;
-}
-
-bool ParseLogicalAnd(Lexeme** str)
-{
-	if(!ParseBinaryOr(str))
-		return false;
-	while(ParseLexem(str, lex_logand))
-	{
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseBinaryOr(str))
-			ThrowError("ERROR: expression not found after 'and'", (*str)->pos);
-		CALLBACK((addCmd(cmdLogAnd))(NULL, NULL));
-	}
-	return true;
-}
-
-bool ParseLogicalXor(Lexeme** str)
-{
-	if(!ParseLogicalAnd(str))
-		return false;
-	while(ParseLexem(str, lex_logxor))
-	{
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseLogicalAnd(str))
-			ThrowError("ERROR: expression not found after 'xor'", (*str)->pos);
-		CALLBACK((addCmd(cmdLogXor))(NULL, NULL));
-	}
-	return true;
-}
-
-bool ParseLogicalOr(Lexeme** str)
-{
-	if(!ParseLogicalXor(str))
-		return false;
-	while(ParseLexem(str, lex_logor))
-	{
-		if(!ParseTerminal(str))
-			return false;
-		if(!ParseLogicalXor(str))
-			ThrowError("ERROR: expression not found after 'or'", (*str)->pos);
-		CALLBACK((addCmd(cmdLogOr))(NULL, NULL));
+		CALLBACK(AddBinaryCommandNode(opHandler[opStack.back() - lex_add]));
+		opStack.pop_back();
+		opCount--;
 	}
 	return true;
 }
 
 bool ParseTernaryExpr(Lexeme** str)
 {
-	if(!ParseTerminal(str))
-		return false;
-	if(!ParseLogicalOr(str))
+	if(!ParseArithmetic(str))
 		return false;
 	while(ParseLexem(str, lex_questionmark))
 	{

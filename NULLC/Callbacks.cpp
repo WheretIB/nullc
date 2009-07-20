@@ -512,7 +512,7 @@ void popLastNodeCond(bool swap)
 	}
 }
 
-void addTwoAndCmpNode(CmdID id)
+void AddBinaryCommandNode(CmdID id)
 {
 	unsigned int aNodeType = nodeList[nodeList.size()-2]->GetNodeType();
 	unsigned int bNodeType = nodeList[nodeList.size()-1]->GetNodeType();
@@ -678,41 +678,6 @@ void addTwoAndCmpNode(CmdID id)
 	nodeList.push_back(new NodeTwoAndCmdOp(id));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
-}
-
-template<CmdID cmd> void createTwoAndCmd(char const* s, char const* e)
-{
-	(void)e;	// C4100
-	lastKnownStartPos = s;
-	addTwoAndCmpNode(cmd);
-}
-
-typedef void (*ParseFuncPtr)(char const* s, char const* e);
-
-ParseFuncPtr addCmd(CmdID cmd)
-{
-	if(cmd == cmdAdd) return &createTwoAndCmd<cmdAdd>;
-	if(cmd == cmdSub) return &createTwoAndCmd<cmdSub>;
-	if(cmd == cmdMul) return &createTwoAndCmd<cmdMul>;
-	if(cmd == cmdDiv) return &createTwoAndCmd<cmdDiv>;
-	if(cmd == cmdPow) return &createTwoAndCmd<cmdPow>;
-	if(cmd == cmdLess) return &createTwoAndCmd<cmdLess>;
-	if(cmd == cmdGreater) return &createTwoAndCmd<cmdGreater>;
-	if(cmd == cmdLEqual) return &createTwoAndCmd<cmdLEqual>;
-	if(cmd == cmdGEqual) return &createTwoAndCmd<cmdGEqual>;
-	if(cmd == cmdEqual) return &createTwoAndCmd<cmdEqual>;
-	if(cmd == cmdNEqual) return &createTwoAndCmd<cmdNEqual>;
-	if(cmd == cmdShl) return &createTwoAndCmd<cmdShl>;
-	if(cmd == cmdShr) return &createTwoAndCmd<cmdShr>;
-	if(cmd == cmdMod) return &createTwoAndCmd<cmdMod>;
-	if(cmd == cmdBitAnd) return &createTwoAndCmd<cmdBitAnd>;
-	if(cmd == cmdBitOr) return &createTwoAndCmd<cmdBitOr>;
-	if(cmd == cmdBitXor) return &createTwoAndCmd<cmdBitXor>;
-	if(cmd == cmdLogAnd) return &createTwoAndCmd<cmdLogAnd>;
-	if(cmd == cmdLogOr) return &createTwoAndCmd<cmdLogOr>;
-	if(cmd == cmdLogXor) return &createTwoAndCmd<cmdLogXor>;
-	ThrowError("ERROR: addCmd call with unknown command", lastKnownStartPos);
-	return NULL;
 }
 
 void addReturnNode(char const* s, char const* e)
