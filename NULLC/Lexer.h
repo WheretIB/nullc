@@ -40,8 +40,8 @@ enum LexemeType
 	lex_semiquote, lex_escape, lex_point, lex_comma, // " ' \ .
 	lex_inc, lex_dec, // ++ --
 	lex_add, lex_sub, lex_mul, lex_div, lex_mod, lex_pow, lex_less, lex_lequal, lex_shl, lex_greater, lex_gequal, lex_shr, lex_equal, lex_nequal, // + - * / % ** < <= << > >= >> == !=
-	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, // = += -= *= /= **=
 	lex_bitand, lex_bitor, lex_bitxor, lex_logand, lex_logor, lex_logxor, // & | ^ and or xor
+	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, // = += -= *= /= **=
 	lex_bitnot, lex_lognot,	// ~ !
 	lex_oparen, lex_cparen, lex_obracket, lex_cbracket, lex_ofigure, lex_cfigure, // ( ) [ ] { }
 	lex_questionmark, lex_colon, lex_semicolon, // ? : ;
@@ -57,8 +57,8 @@ static const int lexemLength[] =
 	1, 1, 1, 1, // " ' \ . ,
 	2, 2, // ++ --
 	1, 1, 1, 1, 1, 2, 1, 2, 2, 1, 2, 2, 2, 2, // + - * / % ** < <= << > >= >> == !=
-	1, 2, 2, 2, 2, 3, // = += -= *= /= **=
 	1, 1, 1, 3, 2, 3, // & | ^ and or xor
+	1, 2, 2, 2, 2, 3, // = += -= *= /= **=
 	1, 1,	// ~ !
 	1, 1, 1, 1, 1, 1, // ( ) [ ] { }
 	1, 1, 1, // ? : ;
