@@ -250,8 +250,12 @@ public:
 class FunctionInfo
 {
 public:
-	FunctionInfo(): params(8), external(8)
+	FunctionInfo(const char *funcName): params(8), external(8)
 	{
+		name = funcName;
+		nameLength = (int)strlen(name);
+		nameHash = GetStringHash(name);
+
 		address = 0;
 		codeSize = 0;
 		funcPtr = NULL;
@@ -266,6 +270,7 @@ public:
 	void		*funcPtr;				// Address of the function in memory
 
 	const char		*name;				// Function name
+	unsigned int	nameLength;
 	unsigned int	nameHash;
 
 	FastVector<VariableInfo> params;	// Parameter list

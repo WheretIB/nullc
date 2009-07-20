@@ -1023,7 +1023,7 @@ void AddGetAddressNode(char const* pos, char const* varName)
 				ThrowError("ERROR: Can't get a pointer to a build-in function", pos);
 			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 			{
-				char	*contextName = AllocateString((int)strlen(funcInfo[fID]->name) + 6);
+				char	*contextName = AllocateString(funcInfo[fID]->nameLength + 6);
 				sprintf(contextName, "$%s_ext", funcInfo[fID]->name);
 				unsigned int contextHash = GetStringHash(contextName);
 
@@ -1536,8 +1536,7 @@ void FunctionAdd(char const* pos, char const* funcName)
 	}
 	if(!currType)
 		ThrowError("ERROR: function return type cannot be auto", pos);
-	funcInfo.push_back(new FunctionInfo());
-	funcInfo.back()->name = funcNameCopy;
+	funcInfo.push_back(new FunctionInfo(funcNameCopy));
 	funcInfo.back()->vTopSize = (unsigned int)varInfoTop.size();
 	retTypeStack.push_back(currType);
 	funcInfo.back()->retType = currType;
@@ -1546,8 +1545,6 @@ void FunctionAdd(char const* pos, char const* funcName)
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
 		funcInfo.back()->type = FunctionInfo::LOCAL;
 	currDefinedFunc.push_back(funcInfo.back());
-
-	funcInfo.back()->nameHash = GetStringHash(funcInfo.back()->name);
 
 	if(varDefined && varInfo.back()->varType == NULL)
 		varTop += 8;
@@ -1573,7 +1570,7 @@ void FunctionStart(char const* pos)
 		varDefined = false;
 	}
 
-	char	*hiddenHame = AllocateString((int)strlen(funcInfo.back()->name) + 8);
+	char	*hiddenHame = AllocateString(funcInfo.back()->nameLength + 8);
 	sprintf(hiddenHame, "$%s_ext", funcInfo.back()->name);
 	currType = GetReferenceType(typeInt);
 	currAlign = 1;
@@ -1658,7 +1655,7 @@ void FunctionEnd(char const* pos, char const* funcName)
 		}
 		nodeList.push_back(temp);
 
-		char	*hiddenHame = AllocateString((int)strlen(lastFunc.name) + 8);
+		char	*hiddenHame = AllocateString(lastFunc.nameLength + 8);
 		sprintf(hiddenHame, "$%s_ext", lastFunc.name);
 
 		TypeInfo *saveCurrType = currType;
@@ -1868,7 +1865,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
 	{
-		char	*contextName = AllocateString((int)strlen(fInfo->name) + 6);
+		char	*contextName = AllocateString(fInfo->nameLength + 6);
 		sprintf(contextName, "$%s_ext", fInfo->name);
 		unsigned int contextHash = GetStringHash(contextName);
 

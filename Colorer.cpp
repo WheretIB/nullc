@@ -500,8 +500,7 @@ namespace ColorerGrammar
 				ColorCode(255, 0, 0, 0, 0, 1, s, e);
 				return;
 			}
-			funcs.push_back(new FunctionInfo());
-			funcs.back()->name = vName.c_str();
+			funcs.push_back(new FunctionInfo(vName.c_str()));
 	}
 
 	void FuncEnd(char const* s, char const* e)
