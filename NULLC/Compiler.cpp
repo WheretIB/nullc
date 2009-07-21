@@ -77,59 +77,59 @@ Compiler::Compiler()
 {
 	// Add types
 	TypeInfo* info;
-	info = new TypeInfo(DuplicateString("void"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("void"), 0, 0, 1, NULL);
 	info->size = 0;
 	info->type = TypeInfo::TYPE_VOID;
 	typeVoid = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("double"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("double"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->size = 8;
 	info->type = TypeInfo::TYPE_DOUBLE;
 	typeDouble = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("float"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("float"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->size = 4;
 	info->type = TypeInfo::TYPE_FLOAT;
 	typeFloat = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("long"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("long"), 0, 0, 1, NULL);
 	info->size = 8;
 	info->type = TypeInfo::TYPE_LONG;
 	typeLong = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("int"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("int"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->size = 4;
 	info->type = TypeInfo::TYPE_INT;
 	typeInt = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("short"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("short"), 0, 0, 1, NULL);
 	info->size = 2;
 	info->type = TypeInfo::TYPE_SHORT;
 	typeShort = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("char"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("char"), 0, 0, 1, NULL);
 	info->size = 1;
 	info->type = TypeInfo::TYPE_CHAR;
 	typeChar = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("float2"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("float2"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeFloat);
 	info->AddMemberVariable("y", typeFloat);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("float3"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("float3"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeFloat);
@@ -137,7 +137,7 @@ Compiler::Compiler()
 	info->AddMemberVariable("z", typeFloat);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("float4"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("float4"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeFloat);
@@ -148,14 +148,14 @@ Compiler::Compiler()
 
 	TypeInfo *typeFloat4 = info;
 
-	info = new TypeInfo(DuplicateString("double2"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("double2"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeDouble);
 	info->AddMemberVariable("y", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("double3"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("double3"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeDouble);
@@ -163,7 +163,7 @@ Compiler::Compiler()
 	info->AddMemberVariable("z", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("double4"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("double4"), 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeDouble);
@@ -172,7 +172,7 @@ Compiler::Compiler()
 	info->AddMemberVariable("w", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("float4x4"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("float4x4"), 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("row1", typeFloat4);
@@ -181,7 +181,7 @@ Compiler::Compiler()
 	info->AddMemberVariable("row4", typeFloat4);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(DuplicateString("file"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), DuplicateString("file"), 0, 0, 1, NULL);
 	info->size = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	typeFile = info;
@@ -189,7 +189,7 @@ Compiler::Compiler()
 
 	// Add functions
 	FunctionInfo	*fInfo;
-	fInfo = new FunctionInfo(DuplicateString("cos"));
+	fInfo = new FunctionInfo("cos");
 	fInfo->address = -1;
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -197,7 +197,7 @@ Compiler::Compiler()
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo(DuplicateString("sin"));
+	fInfo = new FunctionInfo("sin");
 	fInfo->address = -1;
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -205,7 +205,7 @@ Compiler::Compiler()
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo(DuplicateString("tan"));
+	fInfo = new FunctionInfo("tan");
 	fInfo->address = -1;
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -213,7 +213,7 @@ Compiler::Compiler()
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo(DuplicateString("ctg"));
+	fInfo = new FunctionInfo("ctg");
 	fInfo->address = -1;
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -221,7 +221,7 @@ Compiler::Compiler()
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo(DuplicateString("ceil"));
+	fInfo = new FunctionInfo("ceil");
 	fInfo->address = -1;
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -229,7 +229,7 @@ Compiler::Compiler()
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo(DuplicateString("floor"));
+	fInfo = new FunctionInfo("floor");
 	fInfo->address = -1;
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -237,7 +237,7 @@ Compiler::Compiler()
 	fInfo->funcType = GetFunctionType(fInfo);
 	funcInfo.push_back(fInfo);
 
-	fInfo = new FunctionInfo(DuplicateString("sqrt"));
+	fInfo = new FunctionInfo("sqrt");
 	fInfo->address = -1;
 	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
 	fInfo->retType = typeDouble;
@@ -264,7 +264,8 @@ Compiler::~Compiler()
 	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
-		delete[] funcInfo[i]->name;
+		if(funcInfo[i]->address == -1 && funcInfo[i]->funcPtr != NULL)
+			delete[] funcInfo[i]->name;
 		delete funcInfo[i];
 	}
 
@@ -294,10 +295,7 @@ void Compiler::ClearState()
 		delete[] typeInfo[i]->fullName;
 	}
 	for(unsigned int i = buildInFuncs; i < funcInfo.size(); i++)
-	{
-		delete[] funcInfo[i]->name;
 		delete funcInfo[i];
-	}
 
 	typeInfo.resize(buildInTypes);
 	TypeInfo::DeleteTypeInformation();
@@ -337,6 +335,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	if(!res)
 		return false;
 //return true;
+	funcInfo.back()->name = DuplicateString(funcInfo.back()->name);
 	funcInfo.back()->address = -1;
 	funcInfo.back()->funcPtr = (void*)ptr;
 
@@ -378,7 +377,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 		for(unsigned int n = 0; n < lastFunc.params.size(); n++)
 			funcType->paramType.push_back(lastFunc.params[n].varType);
 
-		typeInfo.push_back(new TypeInfo(NULL, 0, 0, 1, NULL, funcType));
+		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL, funcType));
 		typeInfo.back()->size = 8;
 
 		bestFit = typeInfo.back();
@@ -647,7 +646,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		fInfo->structSize = sizeof(ExternFuncInfo) + fInfo->nameLength + 1 + fInfo->paramCount * sizeof(unsigned int);
 
 		for(unsigned int n = 0; n < fInfo->paramCount; n++)
-			fInfo->paramList[n] = GetTypeIndexByPtr(CodeInfo::funcInfo[i]->params[n].varType);
+			fInfo->paramList[n] = CodeInfo::funcInfo[i]->params[n].varType->typeIndex;// GetTypeIndexByPtr(CodeInfo::funcInfo[i]->params[n].varType);
 
 		// ! write name after the pointer to name
 		char *namePtr = (char*)(&fInfo->name) + sizeof(fInfo->name);

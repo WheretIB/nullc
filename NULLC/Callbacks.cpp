@@ -1490,14 +1490,11 @@ void FunctionAdd(char const* pos, char const* funcName)
 			ThrowError(callbackError, pos);
 		}
 	}
-	char *funcNameCopy = NULL;
+	char *funcNameCopy = (char*)funcName;
 	if(newType)
 	{
-		funcNameCopy = new char[(int)strlen(newType->name) + 2 + strlen(funcName) + 1];
+		funcNameCopy = AllocateString((int)strlen(newType->name) + 2 + (int)strlen(funcName) + 1);
 		sprintf(funcNameCopy, "%s::%s", newType->name, funcName);
-	}else{
-		funcNameCopy = new char[strlen(funcName) + 1];
-		sprintf(funcNameCopy, "%s", funcName);
 	}
 	if(!currType)
 		ThrowError("ERROR: function return type cannot be auto", pos);
@@ -1951,7 +1948,7 @@ void TypeBegin(char const* s, char const* e)
 	char *typeNameCopy = new char[(int)(e - s) + 1];
 	sprintf(typeNameCopy, "%.*s", (int)(e-s), s);
 
-	newType = new TypeInfo(typeNameCopy, 0, 0, 1, NULL);
+	newType = new TypeInfo(typeInfo.size(), typeNameCopy, 0, 0, 1, NULL);
 	newType->type = TypeInfo::TYPE_COMPLEX;
 	newType->alignBytes = currAlign;
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
