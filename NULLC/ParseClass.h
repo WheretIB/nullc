@@ -29,7 +29,7 @@ public:
 	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	TypeInfo(const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType, FunctionType *functionType = NULL)
+	TypeInfo(unsigned int index, const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType, FunctionType *functionType = NULL)
 	{
 		assert(typeName != NULL || functionType != NULL || referenceLevel != 0 || arrayLevel != 0);
 		name = typeName;
@@ -56,6 +56,8 @@ public:
 
 		firstVariable = lastVariable = NULL;
 		firstFunction = lastFunction = NULL;
+
+		typeIndex = index;
 	}
 
 	const char		*name;	// base type name
@@ -77,6 +79,8 @@ public:
 	unsigned int	paddingBytes;
 
 	TypeInfo	*subType;
+
+	unsigned int	typeIndex;
 
 	TypeInfo	*refType;
 
