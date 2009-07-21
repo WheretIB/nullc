@@ -27,7 +27,7 @@ private:
 
 	Linker		*exLinker;
 
-	FastVector<ExternTypeInfo*>	&exTypes;
+	FastVector<ExternTypeInfo>	&exTypes;
 	FastVector<ExternFuncInfo*>	&exFunctions;
 	FastVector<ExternalFunctionInfo>	&exFuncInfo;
 

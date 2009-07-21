@@ -537,17 +537,11 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int size = sizeof(ByteCode);
 
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-	{
 		size += sizeof(ExternTypeInfo);
-		size += (int)CodeInfo::typeInfo[i]->GetFullNameLength() + 1;
-	}
 
 	unsigned int offsetToVar = size;
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
-	{
 		size += sizeof(ExternVarInfo);
-		size += (int)(CodeInfo::varInfo[i]->name.end - CodeInfo::varInfo[i]->name.begin + 1);//strlen(CodeInfo::varInfo[i]->name)+1;
-	}
 
 	unsigned int offsetToFunc = size;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
@@ -580,15 +574,11 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->firstType = tInfo;
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
-		tInfo->size = CodeInfo::typeInfo[i]->size;
-		tInfo->nameLength = (unsigned int)CodeInfo::typeInfo[i]->GetFullNameLength();
-		tInfo->structSize = sizeof(ExternTypeInfo) + tInfo->nameLength + 1;
+		tInfo->structSize = sizeof(ExternTypeInfo);
 
+		tInfo->size = CodeInfo::typeInfo[i]->size;
 		tInfo->type = (ExternTypeInfo::TypeCategory)CodeInfo::typeInfo[i]->type;
-		// ! write name after the pointer to name
-		char *namePtr = (char*)(&tInfo->name) + sizeof(tInfo->name);
-		memcpy(namePtr, CodeInfo::typeInfo[i]->GetFullTypeName(), tInfo->nameLength+1);
-		tInfo->name = namePtr;
+		tInfo->nameHash = CodeInfo::typeInfo[i]->GetFullNameHash();
 
 		if(i+1 == CodeInfo::typeInfo.size())
 			tInfo->next = NULL;
@@ -604,16 +594,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		varInfo->size = CodeInfo::varInfo[i]->varType->size;
-		varInfo->nameLength = (unsigned int)(CodeInfo::varInfo[i]->name.end - CodeInfo::varInfo[i]->name.begin);//strlen(CodeInfo::varInfo[i]->name);
-		varInfo->structSize = sizeof(ExternVarInfo) + varInfo->nameLength + 1;
+		varInfo->structSize = sizeof(ExternVarInfo);
 
 		varInfo->type = GetTypeIndexByPtr(CodeInfo::varInfo[i]->varType);
-
-		// ! write name after the pointer to name
-		char *namePtr = (char*)(&varInfo->name) + sizeof(varInfo->name);
-		memcpy(namePtr, CodeInfo::varInfo[i]->name.begin, varInfo->nameLength+1);
-		namePtr[varInfo->nameLength] = 0;
-		varInfo->name = namePtr;
+		varInfo->nameHash = GetStringHash(CodeInfo::varInfo[i]->name.begin, CodeInfo::varInfo[i]->name.end);
 
 		if(i+1 == CodeInfo::varInfo.size())
 			varInfo->next = NULL;
@@ -638,21 +622,15 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		offsetToGlobal += fInfo->codeSize;
 
 		fInfo->nameHash = CodeInfo::funcInfo[i]->nameHash;
-		fInfo->nameLength = CodeInfo::funcInfo[i]->nameLength;
 
 		fInfo->retType = GetTypeIndexByPtr(CodeInfo::funcInfo[i]->retType);
 		fInfo->paramCount = (unsigned int)CodeInfo::funcInfo[i]->params.size();
-		fInfo->paramList = (unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1);
+		fInfo->paramList = (unsigned int*)((char*)(&fInfo->nameHash) + sizeof(fInfo->nameHash));
 
-		fInfo->structSize = sizeof(ExternFuncInfo) + fInfo->nameLength + 1 + fInfo->paramCount * sizeof(unsigned int);
+		fInfo->structSize = sizeof(ExternFuncInfo) + fInfo->paramCount * sizeof(unsigned int);
 
 		for(unsigned int n = 0; n < fInfo->paramCount; n++)
-			fInfo->paramList[n] = CodeInfo::funcInfo[i]->params[n].varType->typeIndex;// GetTypeIndexByPtr(CodeInfo::funcInfo[i]->params[n].varType);
-
-		// ! write name after the pointer to name
-		char *namePtr = (char*)(&fInfo->name) + sizeof(fInfo->name);
-		memcpy(namePtr, CodeInfo::funcInfo[i]->name, fInfo->nameLength+1);
-		fInfo->name = namePtr;
+			fInfo->paramList[n] = CodeInfo::funcInfo[i]->params[n].varType->typeIndex;
 
 		if(i+1 == CodeInfo::funcInfo.size())
 			fInfo->next = NULL;
