@@ -418,7 +418,7 @@ namespace ColorerGrammar
 
 		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 		{
-			if(varInfo[i].name == vName)
+			if(std::string(varInfo[i].name.begin, varInfo[i].name.end) == vName)
 			{
 				ColorCode(255, 0, 0, 0, 0, 1, s, st);
 				logStream << "ERROR: Name '" << vName << "' is already taken for a variable in current scope\r\n";
@@ -431,7 +431,7 @@ namespace ColorerGrammar
 			return;
 		}
 
-		varInfo.push_back(VariableInfo(vName.c_str(), 0, NULL, currValConst));
+		varInfo.push_back(VariableInfo(InplaceStr(vName.c_str()), GetStringHash(vName.c_str()), 0, NULL, currValConst));
 		varSize = 1;
 	}
 
@@ -444,7 +444,7 @@ namespace ColorerGrammar
 		string vName = std::string(s, st);
 
 		int i = (int)varInfo.size()-1;
-		while(i >= 0 && varInfo[i].name != vName)
+		while(i >= 0 && std::string(varInfo[i].name.begin, varInfo[i].name.end) != vName)
 			i--;
 		if(i == -1)
 		{
@@ -469,7 +469,7 @@ namespace ColorerGrammar
 		string vName = std::string(s, st);
 
 		int i = (int)varInfo.size()-1;
-		while(i >= 0 && varInfo[i].name != vName)
+		while(i >= 0 && std::string(varInfo[i].name.begin, varInfo[i].name.end) != vName)
 			i--;
 		if(i == -1)
 		{
@@ -489,7 +489,7 @@ namespace ColorerGrammar
 	{
 		string vName = tempStr;
 		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
-			if(varInfo[i].name == vName)
+			if(std::string(varInfo[i].name.begin, varInfo[i].name.end) == vName)
 			{
 				ColorCode(255, 0, 0, 0, 0, 1, s, e);
 				logStream << "ERROR: Name '" << vName << "' is already taken for a variable in current scope\r\n";
@@ -511,7 +511,7 @@ namespace ColorerGrammar
 
 		funcs.back()->params.clear();
 		for(unsigned int i = 0; i < callArgCount.back(); i++)
-			funcs.back()->params.push_back(VariableInfo("param", 0, NULL));
+			funcs.back()->params.push_back(VariableInfo(InplaceStr("param"), GetStringHash("param"), 0, NULL));
 		callArgCount.pop_back();
 	}
 
@@ -533,7 +533,7 @@ namespace ColorerGrammar
 			if(i == -1)
 			{
 				i = (int)varInfo.size()-1;
-				while(i >= 0 && varInfo[i].name != fname)
+				while(i >= 0 && std::string(varInfo[i].name.begin, varInfo[i].name.end) != fname)
 					i--;
 				if(i != -1)
 					funcPtr = true;

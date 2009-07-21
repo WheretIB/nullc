@@ -70,9 +70,9 @@ void SetCurrentAlignment(unsigned int alignment)
 	currAlign = alignment;
 }
 
-int AddFunctionExternal(FunctionInfo* func, const char *name)
+int AddFunctionExternal(FunctionInfo* func, InplaceStr name)
 {
-	unsigned int hash = GetStringHash(name);
+	unsigned int hash = GetStringHash(name.begin, name.end);
 	for(unsigned int i = 0; i < func->external.size(); i++)
 		if(func->external[i].nameHash == hash)
 			return i;
@@ -80,7 +80,7 @@ int AddFunctionExternal(FunctionInfo* func, const char *name)
 #ifdef NULLC_LOG_FILES
 	fprintf(compileLog, "Function %s uses external variable %s\r\n", currDefinedFunc.back()->name.c_str(), name.c_str());
 #endif
-	func->external.push_back(FunctionInfo::ExternalName(name));
+	func->external.push_back(FunctionInfo::ExternalName(name, hash));
 	return (int)func->external.size()-1;
 }
 
@@ -755,19 +755,18 @@ void addTwoExprNode(char const* s, char const* e);
 
 unsigned int	offsetBytes = 0;
 
-void AddVariable(char const* pos, const char* varName)
+void AddVariable(char const* pos, InplaceStr varName)
 {
-	assert(varName != NULL);
 	lastKnownStartPos = pos;
 
-	unsigned int hash = GetStringHash(varName);
+	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// Check for variables with the same name in current scope
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
 	{
 		if(varInfo[i]->nameHash == hash)
 		{
-			sprintf(callbackError, "ERROR: Name '%s' is already taken for a variable in current scope", varName);
+			sprintf(callbackError, "ERROR: Name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 	}
@@ -776,19 +775,19 @@ void AddVariable(char const* pos, const char* varName)
 	{
 		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible)
 		{
-			sprintf(callbackError, "ERROR: Name '%s' is already taken for a function", varName);
+			sprintf(callbackError, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 	}
 
 	if(currType && currType->size == TypeInfo::UNSIZED_ARRAY)
 	{
-		sprintf(callbackError, "ERROR: variable '%s' can't be an unfixed size array", varName);
+		sprintf(callbackError, "ERROR: variable '%.*s' can't be an unfixed size array", varName.end-varName.begin, varName.begin);
 		ThrowError(callbackError, pos);
 	}
 	if(currType && currType->size > 64*1024*1024)
 	{
-		sprintf(callbackError, "ERROR: variable '%s' has to big length (>64 Mb)", varName);
+		sprintf(callbackError, "ERROR: variable '%.*s' has to big length (>64 Mb)", varName.end-varName.begin, varName.begin);
 		ThrowError(callbackError, pos);
 	}
 	
@@ -804,7 +803,7 @@ void AddVariable(char const* pos, const char* varName)
 			offsetBytes += offset;
 		}
 	}
-	varInfo.push_back(new VariableInfo(varName, varTop, currType, currValConst));
+	varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currValConst));
 	varDefined = true;
 	if(currType)
 		varTop += currType->size;
@@ -879,18 +878,18 @@ void SetTypeOfLastNode(char const* s, char const* e)
 void AddInplaceArray(char const* pos);
 void AddDereferenceNode(char const* s, char const* e);
 void AddArrayIndexNode(char const* s, char const* e);
-void AddMemberAccessNode(char const* pos, char const* varName);
+void AddMemberAccessNode(char const* pos, InplaceStr varName);
 void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int callArgCount);
 
 // Функция для получения адреса переменной, имя которое передаётся в параметрах
-void AddGetAddressNode(char const* pos, char const* varName)
+void AddGetAddressNode(char const* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
 
 	int fID = -1;
 
 	// Find variable name hash
-	unsigned int hash = GetStringHash(varName);
+	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// Find in variable list
 	int i = (int)varInfo.size()-1;
@@ -989,7 +988,7 @@ void AddGetAddressNode(char const* pos, char const* varName)
 			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 			{
 				char	*contextName = AllocateString(funcInfo[fID]->nameLength + 6);
-				sprintf(contextName, "$%s_ext", funcInfo[fID]->name);
+				int length = sprintf(contextName, "$%s_ext", funcInfo[fID]->name);
 				unsigned int contextHash = GetStringHash(contextName);
 
 				int i = (int)varInfo.size()-1;
@@ -999,7 +998,7 @@ void AddGetAddressNode(char const* pos, char const* varName)
 				{
 					nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
 				}else{
-					AddGetAddressNode(pos, contextName);
+					AddGetAddressNode(pos, InplaceStr(contextName, length));
 					currTypes.pop_back();
 				}
 			}
@@ -1090,12 +1089,11 @@ void FailedSetVariable(char const* s, char const* e)
 }
 
 // Функция вызывается для определния переменной с одновременным присваиванием ей значения
-void AddDefineVariableNode(char const* pos, const char* varName)
+void AddDefineVariableNode(char const* pos, InplaceStr varName)
 {
-	assert(varName != NULL);
 	lastKnownStartPos = pos;
 
-	unsigned int hash = GetStringHash(varName);
+	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// Ищем переменную по имени
 	int i = (int)varInfo.size()-1;
@@ -1103,7 +1101,7 @@ void AddDefineVariableNode(char const* pos, const char* varName)
 		i--;
 	if(i == -1)
 	{
-		sprintf(callbackError, "ERROR: variable '%s' is not defined", varName);
+		sprintf(callbackError, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 		ThrowError(callbackError, pos);
 	}
 	// Кладём в стек типов её тип
@@ -1166,7 +1164,7 @@ void AddDefineVariableNode(char const* pos, const char* varName)
 		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(pos, funcDefNode->GetFuncInfo()->name);
+		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 		currTypes.pop_back();
 		unifyTwo = true;
 		realCurrType = nodeList.back()->GetTypeInfo();
@@ -1259,7 +1257,7 @@ void AddSetVariableNode(char const* s, char const* e)
 		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(s, funcDefNode->GetFuncInfo()->name);
+		AddGetAddressNode(s, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 		currTypes.pop_back();
 		unifyTwo = true;
 		Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
@@ -1288,11 +1286,11 @@ void AddGetVariableNode(char const* s, char const* e)
 		nodeList.push_back(new NodeDereference(currTypes.back()));
 }
 
-void AddMemberAccessNode(char const* pos, char const* varName)
+void AddMemberAccessNode(char const* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
 
-	unsigned int hash = GetStringHash(varName);
+	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// Да, это локальная переменная с именем, как у глобальной!
 	TypeInfo *currType = currTypes.back();
@@ -1315,7 +1313,7 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 	{
 		unsigned int hash = currType->nameHash;
 		hash = StringHashContinue(hash, "::");
-		hash = StringHashContinue(hash, varName);
+		hash = StringHashContinue(hash, varName.begin, varName.end);
 
 		// Ищем функцию по имени
 		for(int k = 0; k < (int)funcInfo.size(); k++)
@@ -1324,7 +1322,7 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 			{
 				if(fID != -1)
 				{
-					sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
+					sprintf(callbackError, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 					ThrowError(callbackError, pos);
 				}
 				fID = k;
@@ -1332,7 +1330,7 @@ void AddMemberAccessNode(char const* pos, char const* varName)
 		}
 		if(fID == -1)
 		{
-			sprintf(callbackError, "ERROR: variable '%s' is not a member of '%s'", varName, currType->GetFullTypeName());
+			sprintf(callbackError, "ERROR: variable '%.*s' is not a member of '%s'", varName.end-varName.begin, varName.begin, currType->GetFullTypeName());
 			ThrowError(callbackError, pos);
 		}
 	}
@@ -1407,19 +1405,19 @@ struct AddModifyVariable
 void AddInplaceArray(char const* pos)
 {
 	char	*arrName = AllocateString(16);
-	sprintf(arrName, "$carr%d", inplaceArrayNum++);
+	int length = sprintf(arrName, "$carr%d", inplaceArrayNum++);
 
 	TypeInfo *saveCurrType = currType;
 	bool saveVarDefined = varDefined;
 
 	currType = NULL;
-	AddVariable(pos, arrName);
+	AddVariable(pos, InplaceStr(arrName, length));
 
-	AddDefineVariableNode(pos, arrName);
+	AddDefineVariableNode(pos, InplaceStr(arrName, length));
 	addPopNode(pos, pos);
 	currTypes.pop_back();
 
-	AddGetAddressNode(pos, arrName);
+	AddGetAddressNode(pos, InplaceStr(arrName, length));
 	AddGetVariableNode(pos, pos);
 
 	varDefined = saveVarDefined;
@@ -1512,11 +1510,12 @@ void FunctionAdd(char const* pos, char const* funcName)
 		varTop += 8;
 }
 
-void FunctionParameter(char const* pos, char const* paramName)
+void FunctionParameter(char const* pos, InplaceStr paramName)
 {
 	if(!currType)
 		ThrowError("ERROR: function parameter cannot be an auto type", pos);
-	funcInfo.back()->params.push_back(VariableInfo(paramName, 0, currType, currValConst));
+	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
+	funcInfo.back()->params.push_back(VariableInfo(paramName, hash, 0, currType, currValConst));
 	funcInfo.back()->allParamSize += currType->size;
 }
 void FunctionStart(char const* pos)
@@ -1533,10 +1532,10 @@ void FunctionStart(char const* pos)
 	}
 
 	char	*hiddenHame = AllocateString(funcInfo.back()->nameLength + 8);
-	sprintf(hiddenHame, "$%s_ext", funcInfo.back()->name);
+	int length = sprintf(hiddenHame, "$%s_ext", funcInfo.back()->name);
 	currType = GetReferenceType(typeInt);
 	currAlign = 1;
-	AddVariable(pos, hiddenHame);
+	AddVariable(pos, InplaceStr(hiddenHame, length));
 	varDefined = false;
 
 	funcInfo.back()->funcType = GetFunctionType(funcInfo.back());
@@ -1618,15 +1617,15 @@ void FunctionEnd(char const* pos, char const* funcName)
 		nodeList.push_back(temp);
 
 		char	*hiddenHame = AllocateString(lastFunc.nameLength + 8);
-		sprintf(hiddenHame, "$%s_ext", lastFunc.name);
+		int length = sprintf(hiddenHame, "$%s_ext", lastFunc.name);
 
 		TypeInfo *saveCurrType = currType;
 		bool saveVarDefined = varDefined;
 
 		currType = NULL;
-		AddVariable(pos, hiddenHame);
+		AddVariable(pos, InplaceStr(hiddenHame, length));
 
-		AddDefineVariableNode(pos, hiddenHame);
+		AddDefineVariableNode(pos, InplaceStr(hiddenHame, length));
 		addPopNode(pos, pos);
 		currTypes.pop_back();
 
@@ -1764,7 +1763,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		fType = fList[minRatingIndex]->funcType->funcType;
 		fInfo = fList[minRatingIndex];
 	}else{
-		AddGetAddressNode(pos, funcName);
+		AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
 		AddGetVariableNode(pos, NULL);
 		fType = nodeList.back()->GetTypeInfo()->funcType;
 	}
@@ -1788,7 +1787,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			(paramNodes[index]->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
 		{
 			NodeFuncDef*	funcDefNode = (NodeFuncDef*)(paramNodes[index]->GetNodeType() == typeNodeFuncDef ? paramNodes[index] : static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode());
-			AddGetAddressNode(pos, funcDefNode->GetFuncInfo()->name);
+			AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 			currTypes.pop_back();
 
 			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->GetTypeInfo());
@@ -1828,7 +1827,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
 	{
 		char	*contextName = AllocateString(fInfo->nameLength + 6);
-		sprintf(contextName, "$%s_ext", fInfo->name);
+		int length = sprintf(contextName, "$%s_ext", fInfo->name);
 		unsigned int contextHash = GetStringHash(contextName);
 
 		int i = (int)varInfo.size()-1;
@@ -1838,7 +1837,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		{
 			nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
 		}else{
-			AddGetAddressNode(pos, contextName);
+			AddGetAddressNode(pos, InplaceStr(contextName, length));
 			if(currTypes.back()->refLevel == 1)
 				AddDereferenceNode(pos, NULL);
 			currTypes.pop_back();
@@ -1964,7 +1963,7 @@ void TypeAddMember(char const* pos, const char* varName)
 		ThrowError("ERROR: auto cannot be used for class members", pos);
 	newType->AddMemberVariable(varName, currType);
 
-	AddVariable(pos, varName);
+	AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
 }
 
 void TypeFinish(char const* s, char const* e)
@@ -2045,9 +2044,9 @@ void CallbackInitialize()
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	inplaceArrayNum = 1;
 
-	varInfo.push_back(new VariableInfo("ERROR", 0, typeDouble, true));
-	varInfo.push_back(new VariableInfo("pi", 8, typeDouble, true));
-	varInfo.push_back(new VariableInfo("e", 16, typeDouble, true));
+	varInfo.push_back(new VariableInfo(InplaceStr("ERROR"), GetStringHash("ERROR"), 0, typeDouble, true));
+	varInfo.push_back(new VariableInfo(InplaceStr("pi"), GetStringHash("pi"), 8, typeDouble, true));
+	varInfo.push_back(new VariableInfo(InplaceStr("e"), GetStringHash("e"), 16, typeDouble, true));
 
 	varInfoTop.push_back(VarTopInfo(0,0));
 
