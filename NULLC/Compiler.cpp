@@ -46,7 +46,7 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 	if(apprPos)
 	{
 		const char *begin = apprPos;
-		while((begin > codeStart) && (*begin != '\n') && (*begin != '\r'))
+		while((begin >= codeStart) && (*begin != '\n') && (*begin != '\r'))
 			begin--;
 		if(begin < apprPos)
 			begin++;
