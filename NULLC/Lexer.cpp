@@ -2,19 +2,21 @@
 
 void	SkipSpace(const char** str)
 {
+	const char *curr = *str;
 	for(;;)
 	{
-		while((unsigned char)((*str)[0] - 1) < ' ')
-			(*str)++;
-		if((*str)[0] == '/'){
-			if((*str)[1] == '/')
+		while((unsigned char)(curr[0] - 1) < ' ')
+			curr++;
+		if(curr[0] == '/'){
+			if(curr[1] == '/')
 			{
-				while((*str)[0] != '\n' && (*str)[0] != '\0')
-					(*str)++;
-			}else if((*str)[1] == '*'){
-				while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
-					(*str)++;
-				(*str) += 2;
+				while(curr[0] != '\n' && curr[0] != '\0')
+					curr++;
+			}else if(curr[1] == '*'){
+				while(!(curr[0] == '*' && curr[1] == '/') && curr[0] != '\0')
+					curr++;
+				if(*curr)
+					curr += 2;
 			}else{
 				break;
 			}
@@ -22,6 +24,7 @@ void	SkipSpace(const char** str)
 			break;
 		}
 	}
+	*str = curr;
 }
 
 void	Lexer::Lexify(const char* code)
