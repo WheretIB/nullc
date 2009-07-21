@@ -191,7 +191,7 @@ Compiler::Compiler()
 	FunctionInfo	*fInfo;
 	fInfo = new FunctionInfo("cos");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
+	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -199,7 +199,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("sin");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
+	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -207,7 +207,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("tan");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
+	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -215,7 +215,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("ctg");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
+	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -223,7 +223,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("ceil");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
+	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -231,7 +231,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("floor");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
+	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -239,7 +239,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("sqrt");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
+	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -247,6 +247,7 @@ Compiler::Compiler()
 
 	buildInTypes = (int)typeInfo.size();
 	TypeInfo::SaveBuildinTop();
+	VariableInfo::SaveBuildinTop();
 	buildInFuncs = (int)funcInfo.size();
 
 #ifdef NULLC_LOG_FILES
@@ -259,14 +260,12 @@ Compiler::~Compiler()
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
 		delete typeInfo[i]->funcType;
-		//delete[] typeInfo[i]->name;
 		delete[] typeInfo[i]->fullName;
 	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
 		if(funcInfo[i]->address == -1 && funcInfo[i]->funcPtr != NULL)
 			delete[] funcInfo[i]->name;
-		delete funcInfo[i];
 	}
 
 	CallbackDeinitialize();
@@ -292,11 +291,8 @@ void Compiler::ClearState()
 	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
 	{
 		delete typeInfo[i]->funcType;
-		//delete[] typeInfo[i]->name;
 		delete[] typeInfo[i]->fullName;
 	}
-	for(unsigned int i = buildInFuncs; i < funcInfo.size(); i++)
-		delete funcInfo[i];
 
 	typeInfo.resize(buildInTypes);
 	TypeInfo::DeleteTypeInformation();
@@ -352,12 +348,13 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 		{
 			if(typeInfo[i]->funcType->retType != lastFunc.retType)
 				continue;
-			if(typeInfo[i]->funcType->paramType.size() != lastFunc.params.size())
+			if(typeInfo[i]->funcType->paramType.size() != lastFunc.paramCount)
 				continue;
 			bool good = true;
-			for(unsigned int n = 0; n < lastFunc.params.size(); n++)
+			unsigned int n = 0;
+			for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next, n++)
 			{
-				if(lastFunc.params[n].varType != typeInfo[i]->funcType->paramType[n])
+				if(curr->varType != typeInfo[i]->funcType->paramType[n])
 				{
 					good = false;
 					break;
@@ -375,8 +372,8 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	{
 		FunctionType *funcType = new FunctionType();
 		funcType->retType = lastFunc.retType;
-		for(unsigned int n = 0; n < lastFunc.params.size(); n++)
-			funcType->paramType.push_back(lastFunc.params[n].varType);
+		for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
+			funcType->paramType.push_back(curr->varType);
 
 		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL, funcType));
 		typeInfo.back()->size = 8;
@@ -388,6 +385,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 
 	buildInTypes = (int)typeInfo.size();
 	TypeInfo::SaveBuildinTop();
+	VariableInfo::SaveBuildinTop();
 
 	return true;
 }
@@ -415,7 +413,7 @@ bool Compiler::Compile(const char *str)
 	unsigned int t = clock();
 
 	lexer.Lexify(str);
-
+//return true;
 	bool res;
 
 	if(!setjmp(errorHandler))
@@ -549,7 +547,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	{
 		size += sizeof(ExternFuncInfo);
 		size += CodeInfo::funcInfo[i]->nameLength + 1;
-		size += (unsigned int)CodeInfo::funcInfo[i]->params.size() * sizeof(unsigned int);
+		size += (unsigned int)CodeInfo::funcInfo[i]->paramCount * sizeof(unsigned int);
 	}
 	unsigned int offsetToCode = size;
 	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
@@ -625,13 +623,14 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		fInfo->nameHash = CodeInfo::funcInfo[i]->nameHash;
 
 		fInfo->retType = GetTypeIndexByPtr(CodeInfo::funcInfo[i]->retType);
-		fInfo->paramCount = (unsigned int)CodeInfo::funcInfo[i]->params.size();
+		fInfo->paramCount = (unsigned int)CodeInfo::funcInfo[i]->paramCount;
 		fInfo->paramList = (unsigned int*)((char*)(&fInfo->nameHash) + sizeof(fInfo->nameHash));
 
 		fInfo->structSize = sizeof(ExternFuncInfo) + fInfo->paramCount * sizeof(unsigned int);
 
-		for(unsigned int n = 0; n < fInfo->paramCount; n++)
-			fInfo->paramList[n] = CodeInfo::funcInfo[i]->params[n].varType->typeIndex;
+		unsigned int n = 0;
+		for(VariableInfo *curr = CodeInfo::funcInfo[i]->firstParam; curr; curr = curr->next, n++)
+			fInfo->paramList[n] = curr->varType->typeIndex;
 
 		if(i+1 == CodeInfo::funcInfo.size())
 			fInfo->next = NULL;

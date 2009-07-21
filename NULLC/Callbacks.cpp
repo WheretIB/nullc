@@ -51,7 +51,10 @@ FastVector<FunctionInfo*>	currDefinedFunc(64);
 
 unsigned int	TypeInfo::buildInSize = 0;
 ChunkedStackPool<4092> TypeInfo::typeInfoPool;
+unsigned int	VariableInfo::buildInSize = 0;
 ChunkedStackPool<4092> VariableInfo::variablePool;
+unsigned int	FunctionInfo::buildInSize;
+ChunkedStackPool<4092>	FunctionInfo::functionPool;
 
 template<typename T> void	Swap(T& a, T& b)
 {
@@ -73,15 +76,16 @@ void SetCurrentAlignment(unsigned int alignment)
 int AddFunctionExternal(FunctionInfo* func, InplaceStr name)
 {
 	unsigned int hash = GetStringHash(name.begin, name.end);
-	for(unsigned int i = 0; i < func->external.size(); i++)
-		if(func->external[i].nameHash == hash)
+	unsigned int i = 0;
+	for(FunctionInfo::ExternalName *curr = func->firstExternal; curr; curr = curr->next, i++)
+		if(curr->nameHash == hash)
 			return i;
 
 #ifdef NULLC_LOG_FILES
 	fprintf(compileLog, "Function %s uses external variable %s\r\n", currDefinedFunc.back()->name.c_str(), name.c_str());
 #endif
-	func->external.push_back(FunctionInfo::ExternalName(name, hash));
-	return (int)func->external.size()-1;
+	func->AddExternal(name, hash);
+	return func->externalCount - 1;
 }
 
 long long parseInteger(char const* s, char const* e, int base)
@@ -950,7 +954,7 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 		int num = AddFunctionExternal(currFunc, varName);
 
 		TypeInfo *temp = GetReferenceType(typeInt);
-		temp = GetArrayType(temp, (int)currDefinedFunc.back()->external.size());
+		temp = GetArrayType(temp, (int)currDefinedFunc.back()->externalCount);
 		if(!temp)
 			ThrowLastError();
 		temp = GetReferenceType(temp);
@@ -1483,19 +1487,19 @@ void FunctionParameter(char const* pos, InplaceStr paramName)
 	if(!currType)
 		ThrowError("ERROR: function parameter cannot be an auto type", pos);
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
-	funcInfo.back()->params.push_back(VariableInfo(paramName, hash, 0, currType, currValConst));
+	funcInfo.back()->AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst));
 	funcInfo.back()->allParamSize += currType->size;
 }
 void FunctionStart(char const* pos)
 {
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 
-	for(int i = (int)funcInfo.back()->params.size()-1; i >= 0; i--)
+	for(VariableInfo *curr = funcInfo.back()->lastParam; curr; curr = curr->prev)
 	{
-		currValConst = funcInfo.back()->params[i].isConst;
-		currType = funcInfo.back()->params[i].varType;
+		currValConst = curr->isConst;
+		currType = curr->varType;
 		currAlign = 1;
-		AddVariable(pos, funcInfo.back()->params[i].name);
+		AddVariable(pos, curr->name);
 		varDefined = false;
 	}
 
@@ -1529,13 +1533,13 @@ void FunctionEnd(char const* pos, char const* funcName)
 	// Find all the functions with the same name
 	for(int n = 0; n < i; n++)
 	{
-		if(funcInfo[n]->nameHash == funcInfo[i]->nameHash && funcInfo[n]->params.size() == funcInfo[i]->params.size() && funcInfo[n]->visible)
+		if(funcInfo[n]->nameHash == funcInfo[i]->nameHash && funcInfo[n]->paramCount == funcInfo[i]->paramCount && funcInfo[n]->visible)
 		{
 			// Check all parameter types
 			bool paramsEqual = true;
-			for(unsigned int k = 0; k < funcInfo[i]->params.size(); k++)
+			for(VariableInfo *currN = funcInfo[n]->firstParam, *currI = funcInfo[i]->firstParam; currN; currN = currN->next, currI = currI->next)
 			{
-				if(funcInfo[n]->params[k].varType != funcInfo[i]->params[k].varType)
+				if(currN->varType != currI->varType)
 					paramsEqual = false;
 			}
 			if(paramsEqual)
@@ -1560,13 +1564,13 @@ void FunctionEnd(char const* pos, char const* funcName)
 	currDefinedFunc.pop_back();
 
 	// If function is local, create function parameters block
-	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.external.size() != 0)
+	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.externalCount != 0)
 	{
 		nodeList.push_back(new NodeZeroOP());
 		TypeInfo *targetType = GetReferenceType(typeInt);
 		if(!targetType)
 			ThrowLastError();
-		targetType = GetArrayType(targetType, (int)lastFunc.external.size());
+		targetType = GetArrayType(targetType, lastFunc.externalCount);
 		if(!targetType)
 			ThrowLastError();
 		nodeList.push_back(new NodeExpressionList(targetType));
@@ -1576,9 +1580,9 @@ void FunctionEnd(char const* pos, char const* funcName)
 
 		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp);
 
-		for(unsigned int n = 0; n < lastFunc.external.size(); n++)
+		for(FunctionInfo::ExternalName *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
-			AddGetAddressNode(pos, lastFunc.external[n].name);
+			AddGetAddressNode(pos, curr->name);
 			currTypes.pop_back();
 			arrayList->AddNode();
 		}
@@ -1651,17 +1655,18 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		unsigned int minRatingIndex = (unsigned int)~0;
 		for(unsigned int k = 0; k < count; k++)
 		{
-			if(fList[k]->params.size() != callArgCount)
+			if(fList[k]->paramCount != callArgCount)
 			{
 				fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
 				continue;
 			}
-			for(unsigned int n = 0; n < fList[k]->params.size(); n++)
+			unsigned int n = 0;
+			for(VariableInfo *curr = fList[k]->firstParam; curr; curr = curr->next, n++)//; n < fList[k]->params.size(); n++)
 			{
-				NodeZeroOP* activeNode = nodeList[nodeList.size()-fList[k]->params.size()+n];
+				NodeZeroOP* activeNode = nodeList[nodeList.size() - fList[k]->paramCount + n];
 				TypeInfo *paramType = activeNode->GetTypeInfo();
 				unsigned int	nodeType = activeNode->nodeType;
-				TypeInfo *expectedType = fList[k]->params[n].varType;
+				TypeInfo *expectedType = curr->varType;
 				if(expectedType != paramType)
 				{
 					if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
@@ -1697,8 +1702,8 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			for(unsigned int n = 0; n < count; n++)
 			{
 				errPos += sprintf(errPos, "  %s(", funcName);
-				for(unsigned int m = 0; m < fList[n]->params.size(); m++)
-					errPos += sprintf(errPos, "%s%s", fList[n]->params[m].varType->GetFullTypeName(), m != fList[n]->params.size()-1 ? ", " : "");
+				for(VariableInfo *curr = fList[n]->firstParam; curr; curr = curr->next)
+					errPos += sprintf(errPos, "%s%s", curr->varType->GetFullTypeName(), curr != fList[n]->lastParam ? ", " : "");
 				errPos += sprintf(errPos, ")\r\n");
 			}
 			lastError = CompilerError(errTemp, pos);
@@ -1720,8 +1725,8 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 					if(fRating[n] != minRating)
 						continue;
 					errPos += sprintf(errPos, "  %s(", funcName);
-					for(unsigned int m = 0; m < fList[n]->params.size(); m++)
-						errPos += sprintf(errPos, "%s%s", fList[n]->params[m].varType->GetFullTypeName(), m != fList[n]->params.size()-1 ? ", " : "");
+					for(VariableInfo *curr = fList[n]->firstParam; curr; curr = curr->next)
+						errPos += sprintf(errPos, "%s%s", curr->varType->GetFullTypeName(), curr != fList[n]->lastParam ? ", " : "");
 					errPos += sprintf(errPos, ")\r\n");
 				}
 				lastError = CompilerError(errTemp, pos);

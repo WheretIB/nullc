@@ -78,11 +78,11 @@ public:
 	unsigned int	alignBytes;
 	unsigned int	paddingBytes;
 
-	TypeInfo	*subType;
+	TypeInfo		*subType;
 
 	unsigned int	typeIndex;
 
-	TypeInfo	*refType;
+	TypeInfo		*refType;
 
 	const char*		GetFullTypeName()
 	{
@@ -224,7 +224,6 @@ public:
 	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool newisConst=true):
 		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype)
 	{
-		//nameHash = GetStringHash(name.begin, name.end);	
 	}
 
 	InplaceStr		name;		// Variable name
@@ -235,8 +234,11 @@ public:
 
 	bool			dataReserved;	// Tells if cmdPushV was used for this variable
 
-	TypeInfo*		varType;	// Pointer to the variable type info
+	TypeInfo		*varType;	// Pointer to the variable type info
 
+	VariableInfo	*next, *prev;		// For self-organizing lists
+
+// Specialized allocation
 	void*		operator new(unsigned int size)
 	{
 		return variablePool.Allocate(size);
@@ -247,14 +249,20 @@ public:
 		assert(!"Cannot delete VariableInfo");
 	}
 
+	static void		SaveBuildinTop()
+	{
+		buildInSize = variablePool.GetSize();
+	}
+
+	static	unsigned int	buildInSize;
 	static	ChunkedStackPool<4092>	variablePool;
-	static void	DeleteVariableInformation(){ variablePool.Clear(); }
+	static void	DeleteVariableInformation(){ variablePool.ClearTo(buildInSize); }
 };
 
 class FunctionInfo
 {
 public:
-	FunctionInfo(const char *funcName): params(8), external(8)
+	FunctionInfo(const char *funcName)
 	{
 		name = funcName;
 		nameLength = (int)strlen(name);
@@ -268,6 +276,40 @@ public:
 		type = NORMAL;
 		funcType = NULL;
 		allParamSize = 0;
+
+		firstParam = lastParam = NULL;
+		paramCount = 0;
+		firstExternal = lastExternal = NULL;
+		externalCount = 0;
+	}
+
+	void	AddParameter(VariableInfo *variable)
+	{
+		if(!lastParam)
+		{
+			firstParam = lastParam = variable;
+			firstParam->prev = NULL;
+		}else{
+			lastParam->next = variable;
+			lastParam->next->prev = lastParam;
+			lastParam = lastParam->next;
+		}
+		lastParam->next = NULL;
+		paramCount++;
+	}
+	void	AddExternal(InplaceStr external, unsigned int hash)
+	{
+		if(!lastExternal)
+		{
+			firstExternal = lastExternal = (ExternalName*)functionPool.Allocate(sizeof(ExternalName));
+		}else{
+			lastExternal->next = (ExternalName*)functionPool.Allocate(sizeof(ExternalName));
+			lastExternal = lastExternal->next;
+		}
+		lastExternal->next = NULL;
+		lastExternal->name = external;
+		lastExternal->nameHash = hash;
+		externalCount++;
 	}
 	int			address;				// Address of the beginning of function inside bytecode
 	int			codeSize;				// Size of a function bytecode
@@ -277,9 +319,11 @@ public:
 	unsigned int	nameLength;
 	unsigned int	nameHash;
 
-	FastVector<VariableInfo> params;	// Parameter list
+	VariableInfo	*firstParam, *lastParam;	// Parameter list
+	unsigned int	paramCount;
+
 	unsigned int	allParamSize;
-	unsigned int	vTopSize;				// For "return" operator, we need to know,
+	unsigned int	vTopSize;			// For "return" operator, we need to know,
 										// how many variables we need to remove from variable stack
 	TypeInfo*	retType;				// Function return type
 
@@ -301,10 +345,33 @@ public:
 		}
 		InplaceStr		name;
 		unsigned int	nameHash;
+
+		ExternalName	*next;
 	};
-	FastVector<ExternalName> external;	// External variable names
+	ExternalName	*firstExternal, *lastExternal;	// External variable names
+	unsigned int	externalCount;
 
 	TypeInfo	*funcType;				// Function type
+
+// Specialized allocation
+	void*		operator new(unsigned int size)
+	{
+		return functionPool.Allocate(size);
+	}
+	void		operator delete(void *ptr, unsigned int size)
+	{
+		(void)ptr; (void)size;
+		assert(!"Cannot delete FunctionInfo");
+	}
+
+	static void		SaveBuildinTop()
+	{
+		buildInSize = functionPool.GetSize();
+	}
+
+	static	unsigned int	buildInSize;
+	static	ChunkedStackPool<4092>	functionPool;
+	static void	DeleteVariableInformation(){ functionPool.ClearTo(buildInSize); }
 };
 
 //VarTopInfo holds information about variable stack state
