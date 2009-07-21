@@ -286,7 +286,8 @@ void Compiler::ClearState()
 	varInfo.clear();
 
 	for(unsigned int i = 0; i < buildInTypes; i++)
-		typeInfo[i]->refType = NULL;
+		if(typeInfo[i]->refType && typeInfo[i]->refType->typeIndex >= buildInTypes)
+			typeInfo[i]->refType = NULL;
 
 	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
 	{

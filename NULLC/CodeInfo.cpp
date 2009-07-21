@@ -19,15 +19,6 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 	if(type->refType)
 		return type->refType;
 
-	// Поищем нужный тип в списке
-	unsigned int targetRefLevel = type->refLevel+1;
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
-	{
-		if(type == typeInfo[i]->subType && type->nameHash == typeInfo[i]->nameHash && targetRefLevel == typeInfo[i]->refLevel)
-		{
-			return typeInfo[i];
-		}
-	}
 	// Создадим новый тип
 	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, type->refLevel + 1, 0, 1, type);
 	newInfo->size = 4;
@@ -60,7 +51,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	if(sizeInArgument == 0)
 	{
 		// В последнем узле должно находиться константное число
-		if(nodeList.back()->GetNodeType() == typeNodeNumber)
+		if(nodeList.back()->nodeType == typeNodeNumber)
 		{
 			TypeInfo *aType = nodeList.back()->GetTypeInfo();
 			NodeZeroOP* zOP = nodeList.back();

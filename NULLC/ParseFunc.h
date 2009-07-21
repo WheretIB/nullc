@@ -20,7 +20,7 @@ const unsigned int typeNodeThreeOp		= 13;
 const unsigned int typeNodeTwoAndCmdOp	= 14;
 
 const unsigned int typeNodeTwoOp		= 16;
-const unsigned int typeNodeVarDef		= 17;
+
 
 
 
@@ -28,12 +28,12 @@ const unsigned int typeNodeZeroOp		= 21;
 const unsigned int typeNodeWhileExpr	= 22;
 const unsigned int typeNodeDoWhileExpr	= 22;
 const unsigned int typeNodeBreakOp		= 23;
-const unsigned int typeNodeCaseExpr		= 24;
+
 const unsigned int typeNodeSwitchExpr	= 25;
 
 const unsigned int typeNodeNumber		= 27;
 const unsigned int typeNodeUnaryOp		= 28;
-const unsigned int typeNodeFuncParam	= 29;
+
 
 
 const unsigned int typeNodeExpressionList	= 32;
@@ -61,8 +61,6 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	// Получения размера кода, сгенерированного данным узлом
 	virtual unsigned int GetSize();
-	// Получение типа ячейки
-	virtual unsigned int GetNodeType(){ return typeNodeZeroOp; }
 	// Получение типа результата, возвращаемого ячейкой
 	virtual TypeInfo*	GetTypeInfo();
 	// Установка строки кода, с которым связана ячейка
@@ -84,6 +82,7 @@ protected:
 	TypeInfo	*typeInfo;
 	const char	*strBegin, *strEnd;
 public:
+	unsigned int nodeType;
 	NodeZeroOP	*prev, *next;	// For organizing intrusive node lists
 };
 
@@ -101,7 +100,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeOneOp; }
 
 	NodeZeroOP*	GetFirstNode(){ return first; }
 	void		SetFirstNode(NodeZeroOP* node){ first = node; }
@@ -118,7 +116,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeTwoOp; }
 
 	NodeZeroOP*	GetSecondNode(){ return second; }
 protected:
@@ -134,7 +131,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeThreeOp; }
 
 	NodeZeroOP*	GetTrirdNode(){ return third; }
 protected:
@@ -160,7 +156,12 @@ class NodeNumber: public NodeZeroOP
 {
 	typedef T NumType;
 public:
-	NodeNumber(NumType number, TypeInfo* ptrType){ num = number; typeInfo = ptrType; }
+	NodeNumber(NumType number, TypeInfo* ptrType)
+	{
+		num = number;
+		typeInfo = ptrType;
+		nodeType = typeNodeNumber;
+	}
 	virtual ~NodeNumber(){}
 
 	virtual void Compile()
@@ -178,7 +179,6 @@ public:
 		typedef AsmTypeTraits<T> Traits;
 		return Traits::dataType == DTYPE_FLOAT ? 2 : (sizeof(T)/4);
 	}
-	virtual unsigned int GetNodeType(){ return typeNodeNumber; }
 
 	NumType		 GetVal(){ return num; }
 	NumType		 GetLogNotVal(){ return !num; }
@@ -197,7 +197,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodePopOp; }
 protected:
 };
 
@@ -210,7 +209,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeUnaryOp; }
 protected:
 	CmdID	cmdID;
 };
@@ -224,7 +222,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeReturnOp; }
 protected:
 	unsigned int	popCnt;
 };
@@ -238,7 +235,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeExpression; }
 protected:
 };
 
@@ -251,7 +247,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeBlock; }
 protected:
 	unsigned int shift;
 	bool popAfter;
@@ -269,7 +264,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeFuncDef; }
 protected:
 	FunctionInfo	*funcInfo;
 	bool disabled;
@@ -290,7 +284,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeGetAddress; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -312,7 +305,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeVariableSet; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	int		addrShift;
@@ -328,7 +320,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeVariableModify; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	CmdID	cmdID;
@@ -345,7 +336,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeDereference; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	int		addrShift;
@@ -361,7 +351,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeArrayIndex; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -383,7 +372,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeShiftAddress; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -405,7 +393,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodePreOrPostOp; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	bool	incOp;
@@ -426,7 +413,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeFunctionAddress; }
 protected:
 	FunctionInfo	*funcInfo;
 };
@@ -441,7 +427,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeTwoAndCmdOp; }
 protected:
 	CmdID cmdID;
 };
@@ -455,7 +440,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeIfElseExpr; }
 protected:
 };
 
@@ -468,7 +452,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeForExpr; }
 protected:
 	NodeZeroOP*	fourth;
 };
@@ -482,7 +465,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeWhileExpr; }
 protected:
 };
 
@@ -495,7 +477,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeDoWhileExpr; }
 protected:
 };
 
@@ -508,7 +489,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeBreakOp; }
 protected:
 	unsigned int	popCnt;
 };
@@ -522,7 +502,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeContinueOp; }
 protected:
 	unsigned int	popCnt;
 };
@@ -538,7 +517,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeSwitchExpr; }
 protected:
 	NodeZeroOP	*conditionHead, *conditionTail;
 	NodeZeroOP	*blockHead, *blockTail;
@@ -558,7 +536,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeExpressionList; }
 protected:
 	NodeZeroOP	*tail;
 };
@@ -572,7 +549,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNodeFuncCall; }
 protected:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;
@@ -590,7 +566,6 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual unsigned int GetSize();
-	virtual unsigned int GetNodeType(){ return typeNode; }
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 };*/

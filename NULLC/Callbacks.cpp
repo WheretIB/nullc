@@ -293,11 +293,11 @@ void addPopNode(char const* s, char const* e)
 {
 	nodeList.back()->SetCodeInfo(s, e);
 	// Если последний узел в списке - узел с цислом, уберём его
-	if(nodeList.back()->GetNodeType() == typeNodeNumber)
+	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		nodeList.pop_back();
 		nodeList.push_back(new NodeZeroOP());
-	}else if(nodeList.back()->GetNodeType() == typeNodePreOrPostOp){
+	}else if(nodeList.back()->nodeType == typeNodePreOrPostOp){
 		// Если последний узел, это переменная, которую уменьшают или увеличивают на 1, не используя в
 		// далнейшем её значение, то можно произвести оптимизацию кода.
 		static_cast<NodePreOrPostOp*>(nodeList.back())->SetOptimised(true);
@@ -313,7 +313,7 @@ void addNegNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	// Если последний узел это число, то просто поменяем знак у константы
-	if(nodeList.back()->GetNodeType() == typeNodeNumber)
+	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->GetTypeInfo();
 		NodeZeroOP* zOP = nodeList.back();
@@ -345,7 +345,7 @@ void addLogNotNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
 	// Если последний узел в списке - число, то произведём действие во время копиляции
-	if(nodeList.back()->GetNodeType() == typeNodeNumber)
+	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->GetTypeInfo();
 		NodeZeroOP* zOP = nodeList.back();
@@ -373,7 +373,7 @@ void addLogNotNode(char const* s, char const* e)
 void addBitNotNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
-	if(nodeList.back()->GetNodeType() == typeNodeNumber)
+	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->GetTypeInfo();
 		NodeZeroOP* zOP = nodeList.back();
@@ -514,8 +514,8 @@ void popLastNodeCond(bool swap)
 
 void AddBinaryCommandNode(CmdID id)
 {
-	unsigned int aNodeType = nodeList[nodeList.size()-2]->GetNodeType();
-	unsigned int bNodeType = nodeList[nodeList.size()-1]->GetNodeType();
+	unsigned int aNodeType = nodeList[nodeList.size()-2]->nodeType;
+	unsigned int bNodeType = nodeList[nodeList.size()-1]->nodeType;
 	unsigned int shA = 2, shB = 1;	//Shifts to operand A and B in array
 	TypeInfo *aType, *bType;
 
@@ -1028,7 +1028,7 @@ void AddArrayIndexNode(char const* s, char const* e)
 		nodeList.push_back(temp);
 	}
 	// Если индекс - константное число и текущий узел - адрес
-	if(nodeList.back()->GetNodeType() == typeNodeNumber && nodeList[nodeList.size()-2]->GetNodeType() == typeNodeGetAddress)
+	if(nodeList.back()->nodeType == typeNodeNumber && nodeList[nodeList.size()-2]->nodeType == typeNodeGetAddress)
 	{
 		// Получаем значение сдвига
 		int shiftValue = 0;
@@ -1125,10 +1125,10 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 		if(realCurrType->subType == nodeType->subType)
 		{
 			// И если справа не находится узел получения значения переменной
-			if(nodeList.back()->GetNodeType() != typeNodeDereference)
+			if(nodeList.back()->nodeType != typeNodeDereference)
 			{
 				// Тогда, если справа - определение массива списком
-				if(nodeList.back()->GetNodeType() == typeNodeExpressionList)
+				if(nodeList.back()->nodeType == typeNodeExpressionList)
 				{
 					// Добавим узел, присваивающий скрытой переменной значения этого списка
 					AddInplaceArray(pos);
@@ -1160,10 +1160,10 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 		}
 	}
 	// Если переменной присваивается функция, то возьмём указатель на неё
-	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
-		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+	if(nodeList.back()->nodeType == typeNodeFuncDef ||
+		(nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
 	{
-		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
+		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->nodeType == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
 		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 		currTypes.pop_back();
 		unifyTwo = true;
@@ -1227,9 +1227,9 @@ void AddSetVariableNode(char const* s, char const* e)
 		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
 		if(realCurrType->subType == nodeType->subType)
 		{
-			if(nodeList.back()->GetNodeType() != typeNodeDereference)
+			if(nodeList.back()->nodeType != typeNodeDereference)
 			{
-				if(nodeList.back()->GetNodeType() == typeNodeExpressionList)
+				if(nodeList.back()->nodeType == typeNodeExpressionList)
 				{
 					AddInplaceArray(s);
 					currTypes.pop_back();
@@ -1253,10 +1253,10 @@ void AddSetVariableNode(char const* s, char const* e)
 				Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 		}
 	}
-	if(nodeList.back()->GetNodeType() == typeNodeFuncDef ||
-		(nodeList.back()->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+	if(nodeList.back()->nodeType == typeNodeFuncDef ||
+		(nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
 	{
-		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->GetNodeType() == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
+		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->nodeType == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
 		AddGetAddressNode(s, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 		currTypes.pop_back();
 		unifyTwo = true;
@@ -1337,7 +1337,7 @@ void AddMemberAccessNode(char const* pos, InplaceStr varName)
 	
 	if(fID == -1)
 	{
-		if(nodeList.back()->GetNodeType() == typeNodeGetAddress)
+		if(nodeList.back()->nodeType == typeNodeGetAddress)
 		{
 			static_cast<NodeGetAddress*>(nodeList.back())->ShiftToMember(curr);
 		}else{
@@ -1433,7 +1433,7 @@ void addOneExprNode(char const* s, char const* e)
 void addTwoExprNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	if(nodeList.back()->GetNodeType() != typeNodeExpressionList)
+	if(nodeList.back()->nodeType != typeNodeExpressionList)
 		addOneExprNode(NULL, NULL);
 	// Take the expression list from the top
 	NodeZeroOP* temp = nodeList.back();
@@ -1692,14 +1692,14 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			{
 				NodeZeroOP* activeNode = nodeList[nodeList.size()-fList[k]->params.size()+n];
 				TypeInfo *paramType = activeNode->GetTypeInfo();
-				unsigned int	nodeType = activeNode->GetNodeType();
+				unsigned int	nodeType = activeNode->nodeType;
 				TypeInfo *expectedType = fList[k]->params[n].varType;
 				if(expectedType != paramType)
 				{
 					if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 						fRating[k] += 5;
 					else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef ||
-							(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode)->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+							(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode)->GetFirstNode()->nodeType == typeNodeFuncDef))
 						fRating[k] += 5;
 					else if(expectedType->type == TypeInfo::TYPE_COMPLEX)
 						fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
@@ -1783,10 +1783,10 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		TypeInfo *expectedType = fType->paramType[i];
 		TypeInfo *realType = paramNodes[index]->GetTypeInfo();
 		
-		if(paramNodes[index]->GetNodeType() == typeNodeFuncDef ||
-			(paramNodes[index]->GetNodeType() == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->GetNodeType() == typeNodeFuncDef))
+		if(paramNodes[index]->nodeType == typeNodeFuncDef ||
+			(paramNodes[index]->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->nodeType == typeNodeFuncDef))
 		{
-			NodeFuncDef*	funcDefNode = (NodeFuncDef*)(paramNodes[index]->GetNodeType() == typeNodeFuncDef ? paramNodes[index] : static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode());
+			NodeFuncDef*	funcDefNode = (NodeFuncDef*)(paramNodes[index]->nodeType == typeNodeFuncDef ? paramNodes[index] : static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode());
 			AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 			currTypes.pop_back();
 
@@ -1795,9 +1795,9 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
 		}else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && expectedType->subType == realType->subType && expectedType != realType){
-			if(paramNodes[index]->GetNodeType() != typeNodeDereference)
+			if(paramNodes[index]->nodeType != typeNodeDereference)
 			{
-				if(paramNodes[index]->GetNodeType() == typeNodeExpressionList)
+				if(paramNodes[index]->nodeType == typeNodeExpressionList)
 				{
 					nodeList.push_back(paramNodes[index]);
 					AddInplaceArray(pos);

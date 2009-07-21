@@ -190,15 +190,17 @@ void	Lexer::Lexify(const char* code)
 
 				if(!(chartype_table[*pos] & ct_symbol))
 				{
-					if(lLength == 2)
+					switch(lLength)
 					{
+					case 2:
 						if(memcmp(code, "or", 2) == 0)
 							lType = lex_logor;
 						else if(memcmp(code, "if", 2) == 0)
 							lType = lex_if;
 						else if(memcmp(code, "do", 2) == 0)
 							lType = lex_do;
-					}else if(lLength == 3){
+						break;
+					case 3:
 						if(memcmp(code, "and", 3) == 0)
 							lType = lex_logand;
 						else if(memcmp(code, "xor", 3) == 0)
@@ -207,14 +209,16 @@ void	Lexer::Lexify(const char* code)
 							lType = lex_for;
 						else if(memcmp(code, "ref", 3) == 0)
 							lType = lex_ref;
-					}else if(lLength == 4){
+						break;
+					case 4:
 						if(memcmp(code, "case", 4) == 0)
 							lType = lex_case;
 						else if(memcmp(code, "else", 4) == 0)
 							lType = lex_else;
 						else if(memcmp(code, "auto", 4) == 0)
 							lType = lex_auto;
-					}else if(lLength == 5){
+						break;
+					case 5:
 						if(memcmp(code, "while", 5) == 0)
 							lType = lex_while;
 						else if(memcmp(code, "break", 5) == 0)
@@ -225,7 +229,8 @@ void	Lexer::Lexify(const char* code)
 							lType = lex_class;
 						else if(memcmp(code, "align", 5) == 0)
 							lType = lex_align;
-					}else if(lLength == 6){
+						break;
+					case 6:
 						if(memcmp(code, "switch", 6) == 0)
 							lType = lex_switch;
 						else if(memcmp(code, "return", 6) == 0)
@@ -234,10 +239,15 @@ void	Lexer::Lexify(const char* code)
 							lType = lex_typeof;
 						else if(memcmp(code, "sizeof", 6) == 0)
 							lType = lex_sizeof;
-					}else if(lLength == 7 && memcmp(code, "noalign", 7) == 0){
-						lType = lex_noalign;
-					}else if(lLength == 8 && memcmp(code, "continue", 8) == 0){
-						lType = lex_continue;
+						break;
+					case 7:
+						if(memcmp(code, "noalign", 7) == 0)
+							lType = lex_noalign;
+						break;
+					case 8:
+						if(memcmp(code, "continue", 8) == 0)
+							lType = lex_continue;
+						break;
 					}
 				}
 	

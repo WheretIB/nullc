@@ -193,6 +193,7 @@ NodeZeroOP::NodeZeroOP()
 	typeInfo = typeVoid;
 	strBegin = strEnd = NULL;
 	prev = next = NULL;
+	nodeType = typeNodeZeroOp;
 }
 NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 {
@@ -232,6 +233,7 @@ void NodeZeroOP::SetCodeInfo(const char* start, const char* end)
 NodeOneOP::NodeOneOP()
 {
 	first = NULL;
+	nodeType = typeNodeOneOp;
 }
 NodeOneOP::~NodeOneOP()
 {
@@ -263,6 +265,7 @@ unsigned int NodeOneOP::GetSize()
 NodeTwoOP::NodeTwoOP()
 {
 	second = NULL;
+	nodeType = typeNodeTwoOp;
 }
 NodeTwoOP::~NodeTwoOP()
 {
@@ -296,6 +299,7 @@ unsigned int NodeTwoOP::GetSize()
 NodeThreeOP::NodeThreeOP()
 {
 	third = NULL;
+	nodeType = typeNodeThreeOp;
 }
 NodeThreeOP::~NodeThreeOP()
 {
@@ -351,6 +355,7 @@ void NodeNumberPushCommand(asmDataType dt, char* data)
 NodePopOp::NodePopOp()
 {
 	first = TakeLastNode();
+	nodeType = typeNodePopOp;
 }
 NodePopOp::~NodePopOp()
 {
@@ -400,6 +405,8 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 	first = TakeLastNode();
 	// Тип результата такой же, как исходный
 	typeInfo = first->GetTypeInfo();
+
+	nodeType = typeNodeUnaryOp;
 }
 NodeUnaryOp::~NodeUnaryOp()
 {
@@ -446,6 +453,8 @@ NodeReturnOp::NodeReturnOp(unsigned int c, TypeInfo* tinfo)
 	typeInfo = tinfo;
 
 	first = TakeLastNode();
+
+	nodeType = typeNodeReturnOp;
 }
 NodeReturnOp::~NodeReturnOp()
 {
@@ -501,6 +510,8 @@ NodeExpression::NodeExpression(TypeInfo* realRetType)
 	typeInfo = realRetType;
 
 	first = TakeLastNode();
+
+	nodeType = typeNodeExpression;
 }
 NodeExpression::~NodeExpression()
 {
@@ -535,6 +546,8 @@ NodeBlock::NodeBlock(unsigned int varShift, bool postPop)
 
 	shift = varShift;
 	popAfter = postPop;
+
+	nodeType = typeNodeBlock;
 }
 NodeBlock::~NodeBlock()
 {
@@ -577,6 +590,8 @@ NodeFuncDef::NodeFuncDef(FunctionInfo *info)
 	disabled = false;
 
 	first = TakeLastNode();
+
+	nodeType = typeNodeFuncDef;
 }
 NodeFuncDef::~NodeFuncDef()
 {
@@ -658,6 +673,8 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 
 	if(funcInfo && funcInfo->type == FunctionInfo::THISCALL)
 		second = TakeLastNode();
+
+	nodeType = typeNodeFuncCall;
 }
 NodeFuncCall::~NodeFuncCall()
 {
@@ -847,6 +864,8 @@ NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, 
 		typeInfo = vInfo->varType;
 	else
 		typeInfo = retInfo;
+
+	nodeType = typeNodeGetAddress;
 }
 
 NodeGetAddress::~NodeGetAddress()
@@ -970,26 +989,27 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->GetNodeType() == typeNodeGetAddress)
+	if(first->nodeType == typeNodeGetAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
 		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
-	if(first->GetNodeType() == typeNodeShiftAddress)
+	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
-	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
+	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
+	nodeType = typeNodeVariableSet;
 }
 
 NodeVariableSet::~NodeVariableSet()
@@ -1115,26 +1135,28 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->GetNodeType() == typeNodeGetAddress)
+	if(first->nodeType == typeNodeGetAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
 		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
-	if(first->GetNodeType() == typeNodeShiftAddress)
+	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
-	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
+	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
+
+	nodeType = typeNodeVariableModify;
 }
 
 NodeVariableModify::~NodeVariableModify()
@@ -1257,7 +1279,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 	shiftValue = 0;
 	knownShift = false;
 
-	if(second->GetNodeType() == typeNodeNumber)
+	if(second->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = second->GetTypeInfo();
 		NodeZeroOP* zOP = second;
@@ -1278,6 +1300,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 		}
 		knownShift = true;
 	}
+	nodeType = typeNodeArrayIndex;
 }
 
 NodeArrayIndex::~NodeArrayIndex()
@@ -1357,26 +1380,27 @@ NodeDereference::NodeDereference(TypeInfo* type)
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->GetNodeType() == typeNodeGetAddress)
+	if(first->nodeType == typeNodeGetAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
 		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
-	if(first->GetNodeType() == typeNodeShiftAddress)
+	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
-	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
+	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
+	nodeType = typeNodeDereference;
 }
 
 NodeDereference::~NodeDereference()
@@ -1435,6 +1459,8 @@ NodeShiftAddress::NodeShiftAddress(unsigned int shift, TypeInfo* resType)
 	typeInfo = GetReferenceType(resType);
 
 	first = TakeLastNode();
+
+	nodeType = typeNodeShiftAddress;
 }
 
 NodeShiftAddress::~NodeShiftAddress()
@@ -1510,26 +1536,27 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->GetNodeType() == typeNodeGetAddress)
+	if(first->nodeType == typeNodeGetAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
 		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
-	if(first->GetNodeType() == typeNodeShiftAddress)
+	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
-	if(first->GetNodeType() == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
+	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
 		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
+	nodeType = typeNodePreOrPostOp;
 }
 
 NodePreOrPostOp::~NodePreOrPostOp()
@@ -1623,6 +1650,8 @@ NodeFunctionAddress::NodeFunctionAddress(FunctionInfo* functionInfo)
 
 	if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
 		first = TakeLastNode();
+
+	nodeType = typeNodeFunctionAddress;
 }
 
 NodeFunctionAddress::~NodeFunctionAddress()
@@ -1705,6 +1734,8 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 
 	// Найдём результирующий тип, после проведения операции
 	typeInfo = ChooseBinaryOpResultType(first->GetTypeInfo(), second->GetTypeInfo());
+
+	nodeType = typeNodeTwoAndCmdOp;
 }
 NodeTwoAndCmdOp::~NodeTwoAndCmdOp()
 {
@@ -1775,6 +1806,8 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 	// Следует исправить! BUG 0003
 	if(isTerm)
 		typeInfo = second->GetTypeInfo();
+
+	nodeType = typeNodeIfElseExpr;
 }
 NodeIfElseExpr::~NodeIfElseExpr()
 {
@@ -1846,6 +1879,8 @@ NodeForExpr::NodeForExpr()
 	third = TakeLastNode();
 	second = TakeLastNode();
 	first = TakeLastNode();
+
+	nodeType = typeNodeForExpr;
 }
 NodeForExpr::~NodeForExpr()
 {
@@ -1913,6 +1948,8 @@ NodeWhileExpr::NodeWhileExpr()
 {
 	second = TakeLastNode();
 	first = TakeLastNode();
+
+	nodeType = typeNodeWhileExpr;
 }
 NodeWhileExpr::~NodeWhileExpr()
 {
@@ -1970,6 +2007,8 @@ NodeDoWhileExpr::NodeDoWhileExpr()
 {
 	second = TakeLastNode();
 	first = TakeLastNode();
+
+	nodeType = typeNodeDoWhileExpr;
 }
 NodeDoWhileExpr::~NodeDoWhileExpr()
 {
@@ -2023,6 +2062,8 @@ NodeBreakOp::NodeBreakOp(unsigned int c)
 {
 	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
 	popCnt = c;
+
+	nodeType = typeNodeBreakOp;
 }
 NodeBreakOp::~NodeBreakOp()
 {
@@ -2057,6 +2098,8 @@ NodeContinueOp::NodeContinueOp(unsigned int c)
 {
 	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
 	popCnt = c;
+
+	nodeType = typeNodeContinueOp;
 }
 NodeContinueOp::~NodeContinueOp()
 {
@@ -2094,6 +2137,8 @@ NodeSwitchExpr::NodeSwitchExpr()
 	conditionHead = conditionTail = NULL;
 	blockHead = blockTail = NULL;
 	caseCount = 0;
+
+	nodeType = typeNodeSwitchExpr;
 }
 NodeSwitchExpr::~NodeSwitchExpr()
 {
@@ -2226,6 +2271,8 @@ NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 {
 	typeInfo = returnType;
 	tail = first = TakeLastNode();
+
+	nodeType = typeNodeExpressionList;
 }
 NodeExpressionList::~NodeExpressionList()
 {
