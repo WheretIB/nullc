@@ -191,7 +191,7 @@ Compiler::Compiler()
 	FunctionInfo	*fInfo;
 	fInfo = new FunctionInfo("cos");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -199,7 +199,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("sin");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -207,7 +207,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("tan");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -215,7 +215,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("ctg");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -223,7 +223,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("ceil");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -231,7 +231,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("floor");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -239,7 +239,7 @@ Compiler::Compiler()
 
 	fInfo = new FunctionInfo("sqrt");
 	fInfo->address = -1;
-	fInfo->params.push_back(VariableInfo("deg", 0, typeDouble));
+	fInfo->params.push_back(VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
 	fInfo->retType = typeDouble;
 	fInfo->vTopSize = 1;
 	fInfo->funcType = GetFunctionType(fInfo);
@@ -546,7 +546,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		size += sizeof(ExternVarInfo);
-		size += (int)strlen(CodeInfo::varInfo[i]->name)+1;
+		size += (int)(CodeInfo::varInfo[i]->name.end - CodeInfo::varInfo[i]->name.begin + 1);//strlen(CodeInfo::varInfo[i]->name)+1;
 	}
 
 	unsigned int offsetToFunc = size;
@@ -604,14 +604,15 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		varInfo->size = CodeInfo::varInfo[i]->varType->size;
-		varInfo->nameLength = (unsigned int)strlen(CodeInfo::varInfo[i]->name);
+		varInfo->nameLength = (unsigned int)(CodeInfo::varInfo[i]->name.end - CodeInfo::varInfo[i]->name.begin);//strlen(CodeInfo::varInfo[i]->name);
 		varInfo->structSize = sizeof(ExternVarInfo) + varInfo->nameLength + 1;
 
 		varInfo->type = GetTypeIndexByPtr(CodeInfo::varInfo[i]->varType);
 
 		// ! write name after the pointer to name
 		char *namePtr = (char*)(&varInfo->name) + sizeof(varInfo->name);
-		memcpy(namePtr, CodeInfo::varInfo[i]->name, varInfo->nameLength+1);
+		memcpy(namePtr, CodeInfo::varInfo[i]->name.begin, varInfo->nameLength+1);
+		namePtr[varInfo->nameLength] = 0;
 		varInfo->name = namePtr;
 
 		if(i+1 == CodeInfo::varInfo.size())

@@ -262,10 +262,7 @@ bool ParseFunctionVariables(Lexeme** str)
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 		ThrowError("ERROR: parameter name length is limited to 2048 symbols", (*str)->pos);
-	char	*paramName = (char*)stringPool.Allocate((*str)->length+1);
-	memcpy(paramName, (*str)->pos, (*str)->length);
-	paramName[(*str)->length] = 0;
-	CALLBACK(FunctionParameter((*str)->pos, paramName));
+	CALLBACK(FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
 	(*str)++;
 
 	while(ParseLexem(str, lex_comma))
@@ -278,10 +275,7 @@ bool ParseFunctionVariables(Lexeme** str)
 			ThrowError("ERROR: variable name not found after type in function variable list", (*str)->pos);
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError("ERROR: parameter name length is limited to 2048 symbols", (*str)->pos);
-		char	*paramName = (char*)stringPool.Allocate((*str)->length+1);
-		memcpy(paramName, (*str)->pos, (*str)->length);
-		paramName[(*str)->length] = 0;
-		CALLBACK(FunctionParameter((*str)->pos, paramName));
+		CALLBACK(FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
 		(*str)++;
 	}
 	return true;
@@ -360,10 +354,7 @@ bool ParseAddVariable(Lexeme** str)
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 		ThrowError("ERROR: variable name length is limited to 2048 symbols", (*str)->pos);
 
-	char	*varName = (char*)stringPool.Allocate((*str)->length+1);
-	memcpy(varName, (*str)->pos, (*str)->length);
-	varName[(*str)->length] = 0;
-
+	Lexeme *varName = *str;
 	(*str)++;
 
 	if(ParseLexem(str, lex_obracket))
@@ -375,13 +366,13 @@ bool ParseAddVariable(Lexeme** str)
 		CALLBACK(convertTypeToArray(NULL, NULL));
 	}
 	CALLBACK(pushType(NULL, NULL));
-	CALLBACK(AddVariable((*str)->pos, varName));
+	CALLBACK(AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length)));
 
 	if(ParseLexem(str, lex_set))
 	{
 		if(!ParseVaribleSet(str))
 			ThrowError("ERROR: expression not found after '='", (*str)->pos);
-		CALLBACK(AddDefineVariableNode((*str)->pos, varName));
+		CALLBACK(AddDefineVariableNode((*str)->pos, InplaceStr(varName->pos, varName->length)));
 		CALLBACK(addPopNode(NULL, NULL));
 		CALLBACK(popType(NULL, NULL));
 	}else{
@@ -682,12 +673,7 @@ bool  ParseVariable(Lexeme** str)
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 		ThrowError("ERROR: variable name length is limited to 2048 symbols", (*str)->pos);
-
-	char	*varName = (char*)stringPool.Allocate((*str)->length+1);
-	memcpy(varName, (*str)->pos, (*str)->length);
-	varName[(*str)->length] = 0;
-
-	CALLBACK(AddGetAddressNode((*str)->pos, varName));
+	CALLBACK(AddGetAddressNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
 	(*str)++;
 
 	while(ParsePostExpression(str));
@@ -708,13 +694,8 @@ bool  ParsePostExpression(Lexeme** str)
 		}
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError("ERROR: variable name length is limited to 2048 symbols", (*str)->pos);
-
-		char	*varName = (char*)stringPool.Allocate((*str)->length+1);
-		memcpy(varName, (*str)->pos, (*str)->length);
-		varName[(*str)->length] = 0;
+		CALLBACK(AddMemberAccessNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
 		(*str)++;
-
-		CALLBACK(AddMemberAccessNode((*str)->pos, varName));
 	}else if(ParseLexem(str, lex_obracket)){
 		if(!ParseVaribleSet(str))
 			ThrowError("ERROR: expression not found after '['", (*str)->pos);

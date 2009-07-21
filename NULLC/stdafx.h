@@ -29,7 +29,9 @@
 char*		DuplicateString(const char *str);
 
 unsigned int GetStringHash(const char *str);
+unsigned int GetStringHash(const char *str, const char *end);
 unsigned int StringHashContinue(unsigned int hash, const char *str);
+unsigned int StringHashContinue(unsigned int hash, const char *str, const char *end);
 
 template<typename T, bool zeroNewMemory = false>
 class FastVector
@@ -135,13 +137,12 @@ public:
 			curr = curr->next;
 			size = 0;
 			return Allocate(bytes);
-		}else{
-			curr->next = new StackChunk;
-			curr = curr->next;
-			curr->next = NULL;
-			size = 0;
-			return Allocate(bytes);
 		}
+		curr->next = new StackChunk;
+		curr = curr->next;
+		curr->next = NULL;
+		size = 0;
+		return Allocate(bytes);
 	}
 	unsigned int GetSize()
 	{
@@ -162,4 +163,18 @@ private:
 	};
 	StackChunk	*first, *curr;
 	unsigned int size;
+};
+
+// A string that doesn't terminate with a \0 character
+class InplaceStr
+{
+public:
+	InplaceStr(){ begin = NULL; end = NULL; }
+	// It is possible to construct it from \0-terminated string
+	explicit InplaceStr(const char *strBegin){ begin = strBegin; end = begin + strlen(begin); }
+	// And from non-terminating strings
+	InplaceStr(const char *strBegin, unsigned int length){ begin = strBegin; end = begin + length; }
+	InplaceStr(const char *strBegin, const char *strEnd){ begin = strBegin; end = strEnd; }
+
+	const char *begin, *end;
 };

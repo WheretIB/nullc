@@ -221,13 +221,13 @@ class VariableInfo
 {
 public:
 	VariableInfo(){}
-	VariableInfo(const char *newname, unsigned int newpos, TypeInfo* newtype, bool newisConst=true):
-		name(newname), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype)
+	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool newisConst=true):
+		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype)
 	{
-		nameHash = GetStringHash(name);	
+		//nameHash = GetStringHash(name.begin, name.end);	
 	}
 
-	const char		*name;		// Variable name
+	InplaceStr		name;		// Variable name
 	unsigned int	nameHash;	// Variable name hash
 
 	unsigned int	pos;		// Variable position in value stack
@@ -292,15 +292,14 @@ public:
 	{
 		ExternalName()
 		{
-			name = NULL;
 			nameHash = 0;
 		}
-		explicit ExternalName(const char *external)
+		explicit ExternalName(InplaceStr external, unsigned int hash)
 		{
 			name = external;
-			nameHash = GetStringHash(external);
+			nameHash = hash;
 		}
-		const char		*name;
+		InplaceStr		name;
 		unsigned int	nameHash;
 	};
 	FastVector<ExternalName> external;	// External variable names

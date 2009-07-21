@@ -56,7 +56,7 @@ void AddContinueNode(char const* s, char const* e);
 void SelectAutoType();
 void SelectTypeByIndex(unsigned int index);
 
-void AddVariable(char const* pos, const char* varName);
+void AddVariable(char const* pos, InplaceStr varName);
 
 void AddVariableReserveNode(char const* pos);
 
@@ -72,7 +72,7 @@ void GetTypeSize(char const* s, char const* e, bool sizeOfExpr);
 void SetTypeOfLastNode(char const* s, char const* e);
 
 // Функция для получения адреса переменной, имя которое передаётся в параметрах
-void AddGetAddressNode(char const* pos, char const* varName);
+void AddGetAddressNode(char const* pos, InplaceStr varName);
 
 // Функция вызывается для индексации массива
 void AddArrayIndexNode(char const* s, char const* e);
@@ -85,12 +85,12 @@ void AddDereferenceNode(char const* s, char const* e);
 void FailedSetVariable(char const* s, char const* e);
 
 // Функция вызывается для определния переменной с одновременным присваиванием ей значения
-void AddDefineVariableNode(char const* pos, const char* varName);
+void AddDefineVariableNode(char const* pos, InplaceStr varName);
 
 void AddSetVariableNode(char const* s, char const* e);
 
 void AddGetVariableNode(char const* s, char const* e);
-void AddMemberAccessNode(char const* pos, char const* varName);
+void AddMemberAccessNode(char const* pos, InplaceStr varName);
 
 void AddPreOrPostOpNode(bool isInc, bool prefixOp);
 
@@ -102,7 +102,7 @@ void addTwoExprNode(char const* s, char const* e);
 void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCount);
 
 void FunctionAdd(char const* pos, char const* funcName);
-void FunctionParameter(char const* pos, char const* paramName);
+void FunctionParameter(char const* pos, InplaceStr paramName);
 void FunctionStart(char const* pos);
 void FunctionEnd(char const* pos, char const* funcName);
 
