@@ -509,9 +509,9 @@ namespace ColorerGrammar
 		if(funcs.empty())
 			return;
 
-		funcs.back()->params.clear();
+		funcs.back()->paramCount = 0;
 		for(unsigned int i = 0; i < callArgCount.back(); i++)
-			funcs.back()->params.push_back(VariableInfo(InplaceStr("param"), GetStringHash("param"), 0, NULL));
+			funcs.back()->AddParameter(new VariableInfo(InplaceStr("param"), GetStringHash("param"), 0, NULL));
 		callArgCount.pop_back();
 	}
 
@@ -551,7 +551,7 @@ namespace ColorerGrammar
 				break;
 			}
 			foundFunction = true;
-			if(funcPtr || funcs[i]->params.size() == callArgCount.back())
+			if(funcPtr || funcs[i]->paramCount == callArgCount.back())
 				break;
 			i--;
 		}

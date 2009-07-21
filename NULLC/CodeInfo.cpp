@@ -131,12 +131,13 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 		{
 			if(typeInfo[i]->funcType->retType != info->retType)
 				continue;
-			if(typeInfo[i]->funcType->paramType.size() != info->params.size())
+			if(typeInfo[i]->funcType->paramType.size() != info->paramCount)
 				continue;
 			bool good = true;
-			for(unsigned int n = 0; n < info->params.size(); n++)
+			unsigned int n = 0;
+			for(VariableInfo *curr = info->firstParam; curr; curr = curr->next, n++)
 			{
-				if(info->params[n].varType != typeInfo[i]->funcType->paramType[n])
+				if(curr->varType != typeInfo[i]->funcType->paramType[n])
 				{
 					good = false;
 					break;
@@ -154,8 +155,8 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 	{
 		FunctionType *funcType = new FunctionType();
 		funcType->retType = info->retType;
-		for(unsigned int n = 0; n < info->params.size(); n++)
-			funcType->paramType.push_back(info->params[n].varType);
+		for(VariableInfo *curr = info->firstParam; curr; curr = curr->next)
+			funcType->paramType.push_back(curr->varType);
 
 		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL, funcType));
 		bestFit = typeInfo.back();
