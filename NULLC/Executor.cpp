@@ -555,7 +555,7 @@ void Executor::Run(const char* funcName)
 					val = sqrt(val);
 				else{
 					cmdStreamEnd = NULL;
-					printf(execError, "ERROR: there is no such function: %s", exFunctions[valind]->name);
+					printf(execError, "ERROR: Build-in function not found");
 					break;
 				}
 
@@ -1054,7 +1054,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 		add esp, bytesToPop;
 		mov fRes, eax;
 	}
-	if(exLinker->exTypes[exFunctions[funcID]->retType]->size != 0)
+	if(exLinker->exTypes[exFunctions[funcID]->retType].size != 0)
 	{
 		genStackPtr--;
 		*genStackPtr = fRes;

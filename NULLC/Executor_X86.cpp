@@ -484,10 +484,7 @@ bool ExecutorX86::TranslateToNative()
 			stackRelSize += 4;
 		}else if(cmd.cmd == cmdCallStd)
 		{
-			if(exFunctions[cmd.argument]->nameLength < 31)
-				Emit(INST_COMMENT, InlFmt("CALLSTD %s", exFunctions[cmd.argument]->name));
-			else
-				Emit(INST_COMMENT, InlFmt("CALLSTD %d", cmd.argument));
+			Emit(INST_COMMENT, InlFmt("CALLSTD %d", cmd.argument));
 
 			if(exFunctions[cmd.argument]->funcPtr == NULL)
 			{
@@ -539,13 +536,13 @@ bool ExecutorX86::TranslateToNative()
 				unsigned int bytesToPop = 0;
 				for(unsigned int i = 0; i < exFunctions[cmd.argument]->paramCount; i++)
 				{
-					bytesToPop += exTypes[exFunctions[cmd.argument]->paramList[i]]->size > 4 ? exTypes[exFunctions[cmd.argument]->paramList[i]]->size : 4;
+					bytesToPop += exTypes[exFunctions[cmd.argument]->paramList[i]].size > 4 ? exTypes[exFunctions[cmd.argument]->paramList[i]].size : 4;
 				}
 				Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)exFunctions[cmd.argument]->funcPtr));
 				Emit(o_call, x86Argument(rECX));
 				Emit(o_add, x86Argument(rESP), x86Argument(bytesToPop));
 				stackRelSize -= bytesToPop;
-				if(exTypes[exFunctions[cmd.argument]->retType]->size != 0)
+				if(exTypes[exFunctions[cmd.argument]->retType].size != 0)
 				{
 					Emit(o_push, x86Argument(rEAX));
 					stackRelSize += 4;

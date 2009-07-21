@@ -10,9 +10,7 @@ struct ExternTypeInfo
 	unsigned int	size;	// sizeof(type)
 	TypeCategory	type;
 
-	unsigned int	nameLength;
-	char			*name;	// needs fix up after load
-//	char			name[nameLength];
+	unsigned int	nameHash;
 };
 
 struct ExternVarInfo
@@ -23,9 +21,7 @@ struct ExternVarInfo
 	unsigned int	type;	// index in type array
 
 	unsigned int	size;
-	unsigned int	nameLength;
-	char			*name;	// needs fix up after load
-//	char			name[nameLength];
+	unsigned int	nameHash;
 };
 
 struct ExternFuncInfo
@@ -46,9 +42,6 @@ struct ExternFuncInfo
 	unsigned int	*paramList;	// needs fix up after load
 
 	unsigned int	nameHash;
-	unsigned int	nameLength;
-	char			*name;	// needs fix up after load
-//	char			name[nameLength];
 
 //	unsigned int	paramType[paramCount];
 };

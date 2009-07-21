@@ -2,7 +2,7 @@
 
 void	BytecodeFixup(ByteCode *code)
 {
-	char *bytecode = (char*)code;
+	/*char *bytecode = (char*)code;
 
 	ExternVarInfo *varInfo = (ExternVarInfo*)(bytecode + sizeof(ByteCode));
 	code->firstVar = varInfo;
@@ -34,7 +34,7 @@ void	BytecodeFixup(ByteCode *code)
 		fInfo = fInfo->next;
 	}
 
-	code->code = (bytecode + code->offsetToCode);
+	code->code = (bytecode + code->offsetToCode);*/
 }
 
 ExternTypeInfo*	FindFirstType(ByteCode *code)

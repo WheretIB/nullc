@@ -29,8 +29,8 @@ public:
 public:
 	char		linkError[512];
 
-	FastVector<ExternTypeInfo*>	exTypes;
-	FastVector<ExternVarInfo*>	exVariables;
+	FastVector<ExternTypeInfo>	exTypes;
+	FastVector<ExternVarInfo>	exVariables;
 	FastVector<ExternFuncInfo*>	exFunctions;
 	FastVector<VMCmd>			exCode;
 	unsigned int				globalVarSize;

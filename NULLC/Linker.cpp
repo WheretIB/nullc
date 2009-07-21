@@ -6,7 +6,7 @@ bool Linker::CreateExternalInfo(ExternFuncInfo *fInfo, ExternalFunctionInfo& ext
 	externalInfo.bytesToPop = 0;
 	for(unsigned int i = 0; i < fInfo->paramCount; i++)
 	{
-		unsigned int paramSize = exTypes[fInfo->paramList[i]]->size > 4 ? exTypes[fInfo->paramList[i]]->size : 4;
+		unsigned int paramSize = exTypes[fInfo->paramList[i]].size > 4 ? exTypes[fInfo->paramList[i]].size : 4;
 		externalInfo.bytesToPop += paramSize;
 	}
 	
@@ -70,11 +70,7 @@ Linker::~Linker()
 
 void Linker::CleanCode()
 {
-	for(unsigned int i = 0; i < exTypes.size(); i++)
-		delete[] (char*)exTypes[i];
 	exTypes.clear();
-	for(unsigned int i = 0; i < exVariables.size(); i++)
-		delete[] (char*)exVariables[i];
 	exVariables.clear();
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 		delete[] (char*)exFunctions[i];
@@ -85,16 +81,19 @@ void Linker::CleanCode()
 	offsetToGlobalCode = 0;
 }
 
+FastVector<unsigned int>	typeRemap(50);
+FastVector<unsigned int>	funcRemap(50);
+
 bool Linker::LinkCode(const char *code, int redefinitions)
 {
 	linkError[0] = 0;
 
-	FastVector<unsigned int>	typeRemap(50);
-	FastVector<unsigned int>	funcRemap(50);
-
 	ByteCode *bCode = (ByteCode*)code;
 
 	typeRemap.clear();
+
+	unsigned int oldTypeCount = exTypes.size();
+
 	// Add all types from bytecode to the list
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
 	for(unsigned int i = 0; i < bCode->typeCount; i++)
@@ -102,23 +101,20 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		const unsigned int index_none = ~0u;
 
 		unsigned int index = index_none;
-		for(unsigned int n = 0; n < exTypes.size() && index == index_none; n++)
-			if(strcmp(exTypes[n]->name, tInfo->name) == 0)
+		for(unsigned int n = 0; n < oldTypeCount && index == index_none; n++)
+			if(exTypes[n].nameHash == tInfo->nameHash)
 				index = n;
 
-		if(index != index_none && exTypes[index]->size != tInfo->size)
+		if(index != index_none && exTypes[index].size != tInfo->size)
 		{
-			sprintf(linkError, "Link Error: type '%s' is redefined with a different size", tInfo->name);
+			sprintf(linkError, "Link Error: type #%d is redefined with a different size", i);
 			return false;
 		}
 		if(index == index_none)
 		{
 			typeRemap.push_back(exTypes.size());
-			exTypes.push_back((ExternTypeInfo*)(new char[tInfo->structSize/* + 16*/]));
-			//memset(exTypes.back(), 0, tInfo->structSize+16);
-			memcpy(exTypes.back(), tInfo, tInfo->structSize);
-			exTypes.back()->name = (char*)(&exTypes.back()->name) + sizeof(exTypes.back()->name);
-			exTypes.back()->next = NULL;	// no one cares
+			exTypes.push_back(*tInfo);
+			exTypes.back().next = NULL;	// no one cares
 		}else{
 			typeRemap.push_back(index);
 		}
@@ -130,13 +126,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
 	for(unsigned int i = 0; i < bCode->variableCount; i++)
 	{
-		exVariables.push_back((ExternVarInfo*)(new char[vInfo->structSize]));
-		memcpy(exVariables.back(), vInfo, vInfo->structSize);
-
-		exVariables.back()->name = (char*)(&exVariables.back()->name) + sizeof(exVariables.back()->name);
-		exVariables.back()->next = NULL;	// no one cares
+		exVariables.push_back(*vInfo);
+		exVariables.back().next = NULL;	// no one cares
 		// Type index have to be updated
-		exVariables.back()->type = typeRemap[vInfo->type];
+		exVariables.back().type = typeRemap[vInfo->type];
 
 		vInfo = FindNextVar(vInfo);
 	}
@@ -148,6 +141,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int	oldOffsetToGlobalCode = offsetToGlobalCode;
 	funcRemap.clear();
 	unsigned int	allFunctionSize = 0;
+
+	unsigned int oldFunctionCount = exFunctions.size();
+
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo = FindNextFunc(fInfo))
@@ -157,8 +153,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		const unsigned int index_none = ~0u;
 
 		unsigned int index = index_none;
-		for(unsigned int n = 0; n < exFunctions.size() && index == index_none; n++)
-			if(strcmp(exFunctions[n]->name, fInfo->name) == 0)
+		for(unsigned int n = 0; n < oldFunctionCount && index == index_none; n++)
+			if(exFunctions[n]->nameHash == fInfo->nameHash)
 				index = n;
 
 		// Suppose, this is an overload function
@@ -167,12 +163,12 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		{
 			for(unsigned int n = 0; n < exFunctions.size() && isOverload == true; n++)
 			{
-				if(strcmp(exFunctions[n]->name, fInfo->name) == 0)
+				if(exFunctions[n]->nameHash == fInfo->nameHash)
 				{
 					if(fInfo->paramCount == exFunctions[n]->paramCount)
 					{
 						// If the parameter count is equal, test parameters
-						unsigned int *paramList = (unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1);
+						unsigned int *paramList = (unsigned int*)((char*)(&fInfo->nameHash) + sizeof(fInfo->nameHash));
 						unsigned int k;
 						for(k = 0; k < fInfo->paramCount; k++)
 							if(typeRemap[paramList[k]] != exFunctions[n]->paramList[k])
@@ -199,9 +195,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		{
 			if(redefinitions)
 			{
-				sprintf(linkError, "Warning: function '%s' is redefined", fInfo->name);
+				sprintf(linkError, "Warning: function #%d is redefined", i);
 			}else{
-				sprintf(linkError, "Link Error: function '%s' is redefined", fInfo->name);
+				sprintf(linkError, "Link Error: function #%d is redefined", i);
 				return false;
 			}
 		}
@@ -212,19 +208,19 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			exFunctions.push_back((ExternFuncInfo*)(new char[fInfo->structSize]));
 			memcpy(exFunctions.back(), fInfo, fInfo->structSize);
 
-			exFunctions.back()->name = (char*)(&exFunctions.back()->name) + sizeof(exFunctions.back()->name);
 			exFunctions.back()->next = NULL;	// no one cares
-			exFunctions.back()->paramList = (unsigned int*)((char*)(&exFunctions.back()->name) + sizeof(fInfo->name) + fInfo->nameLength + 1);
+			exFunctions.back()->paramList = (unsigned int*)((char*)(&exFunctions.back()->nameHash) + sizeof(fInfo->nameHash));
 
 			// Type index have to be updated
 			exFunctions.back()->retType = typeRemap[exFunctions.back()->retType];
-			if(exFunctions.back()->funcPtr != NULL && exTypes[exFunctions.back()->retType]->size > 8 && exTypes[exFunctions.back()->retType]->type != ExternTypeInfo::TYPE_DOUBLE)
+			if(exFunctions.back()->funcPtr != NULL && exTypes[exFunctions.back()->retType].size > 8 && exTypes[exFunctions.back()->retType].type != ExternTypeInfo::TYPE_DOUBLE)
 			{
 				strcpy(linkError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
 				return false;
 			}
+			unsigned int *oldParamList = (unsigned int*)((char*)(&fInfo->nameHash) + sizeof(fInfo->nameHash));
 			for(unsigned int n = 0; n < exFunctions.back()->paramCount; n++)
-				exFunctions.back()->paramList[n] = typeRemap[((unsigned int*)((char*)(&fInfo->name) + sizeof(fInfo->name) + fInfo->nameLength + 1))[n]];
+				exFunctions.back()->paramList[n] = typeRemap[oldParamList[n]];
 
 			// Add function code to the bytecode,
 			// shifting global code forward,
@@ -385,7 +381,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 		if(funcInfoPtr->funcPtr && !CreateExternalInfo(funcInfoPtr, exFuncInfo[n]))
 		{
-			sprintf(linkError, "Link Error: External function info failed for '%s'", funcInfoPtr->name);
+			sprintf(linkError, "Link Error: External function info failed for function #%d", n);
 			return false;
 		}
 	}
