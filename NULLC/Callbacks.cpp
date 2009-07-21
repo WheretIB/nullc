@@ -127,26 +127,34 @@ void blockEnd(char const* s, char const* e)
 	nodeList.push_back(new NodeBlock(varFormerTop-varTop));
 }
 
+// input is a symbol after '\'
+char UnescapeSybmol(char symbol)
+{
+	char res = -1;
+	if(symbol == 'n')
+		res = '\n';
+	else if(symbol == 'r')
+		res = '\r';
+	else if(symbol == 't')
+		res = '\t';
+	else if(symbol == '0')
+		res = '\0';
+	else if(symbol == '\'')
+		res = '\'';
+	else if(symbol == '\\')
+		res = '\\';
+	else
+		ThrowError("ERROR: unknown escape sequence", lastKnownStartPos);
+	return res;
+}
+
 // Функции для добавления узлов с константными числами разных типов
 void addNumberNodeChar(char const*s, char const*e)
 {
 	(void)e;	// C4100
 	char res = s[1];
 	if(res == '\\')
-	{
-		if(s[2] == 'n')
-			res = '\n';
-		if(s[2] == 'r')
-			res = '\r';
-		if(s[2] == 't')
-			res = '\t';
-		if(s[2] == '0')
-			res = '\0';
-		if(s[2] == '\'')
-			res = '\'';
-		if(s[2] == '\\')
-			res = '\\';
-	}
+		res = UnescapeSybmol(s[2]);
 	nodeList.push_back(new NodeNumber<int>(res, typeChar));
 }
 
@@ -260,20 +268,7 @@ void addStringNode(char const* s, char const* e)
 			if(*curr == '\\')
 			{
 				curr++;
-				if(*curr == 'n')
-					clean[i] = '\n';
-				if(*curr == 'r')
-					clean[i] = '\r';
-				if(*curr == 't')
-					clean[i] = '\t';
-				if(*curr == '0')
-					clean[i] = '\0';
-				if(*curr == '\'')
-					clean[i] = '\'';
-				if(*curr == '\"')
-					clean[i] = '\"';
-				if(*curr == '\\')
-					clean[i] = '\\';
+				clean[i] = UnescapeSybmol(*curr);
 			}
 		}
 		nodeList.push_back(new NodeNumber<int>(*(int*)clean, typeInt));
