@@ -76,11 +76,13 @@ double myGetPreciseTime()
 
 FILE* myFileOpen(ArrayPtr name, ArrayPtr access)
 {
+	variableData = (char*)nullcGetVariableData();
 	return fopen(reinterpret_cast<long long>(name.ptr)+variableData, reinterpret_cast<long long>(access.ptr)+variableData);
 }
 
 void myFileWrite(FILE* file, ArrayPtr arr)
 {
+	variableData = (char*)nullcGetVariableData();
 	fwrite(reinterpret_cast<long long>(arr.ptr)+variableData, 1, arr.len, file);
 }
 
@@ -93,17 +95,20 @@ void myFileWriteType(FILE* file, T val)
 template<typename T>
 void myFileWriteTypePtr(FILE* file, T* val)
 {
+	variableData = (char*)nullcGetVariableData();
 	fwrite(reinterpret_cast<long long>(val)+variableData, sizeof(T), 1, file);
 }
 
 void myFileRead(FILE* file, ArrayPtr arr)
 {
+	variableData = (char*)nullcGetVariableData();
 	fread(reinterpret_cast<long long>(arr.ptr)+variableData, 1, arr.len, file);
 }
 
 template<typename T>
 void myFileReadTypePtr(FILE* file, T* val)
 {
+	variableData = (char*)nullcGetVariableData();
 	fread(reinterpret_cast<long long>(val)+variableData, sizeof(T), 1, file);
 }
 
@@ -229,8 +234,8 @@ void draw_rect(int x, int y, int width, int height, int color)
 {
 	//DWORD written;
 	/*char buf[64];
-	sprintf(buf, "%d %d %d %d %d\r\n", x, y, width, height, color);
-	fwrite(buf, strlen(buf), 1, zeuxOut); */
+	printf("%d %d %d %d %d\r\n", x, y, width, height, color);*/
+	//fwrite(buf, strlen(buf), 1, zeuxOut);
 }
 
 char typeTest(int x, short y, char z, int d, long long u, float m, double k)
@@ -252,7 +257,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 {
 	(void)lpCmdLine;
 	(void)hPrevInstance;
-	buf = new char[400000];
+	buf = new char[100000];
 
 	MSG msg;
 	HACCEL hAccelTable;
@@ -271,7 +276,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	}
 
 	nullcInit();
-
 #define REGISTER(func, proto) nullcAddExternalFunction((void (*)())func, proto)
 REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int color);");
 
@@ -288,7 +292,7 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	colorer = NULL;
 
 	//typeTest(12, 14, 'c', 15, 5l, 5.0);
-	
+
 	nullcAddExternalFunction((void (*)())(typeTest), "char typeTest(int x, short y, char z, int d, long u, float m, double k);");
 
 	nullcAddExternalFunction((void (*)())(PrintFloat4), "void TestEx(float4 test);");
@@ -539,26 +543,26 @@ void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	char name[256];
 	HTREEITEM lastItem;
 
-	for(unsigned int mn = 0; mn < type->memberData.size(); mn++)
+	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)//for(unsigned int mn = 0; mn < type->memberData.size(); mn++)
 	{
-		TypeInfo::MemberInfo &mInfo = type->memberData[mn];
+		TypeInfo::MemberVariable &mInfo = *curr;//type->memberData[mn];
 
-		sprintf(name, "%s %s = ", mInfo.type->GetTypeName().c_str(), mInfo.name.c_str());
+		sprintf(name, "%s %s = ", mInfo.type->GetFullTypeName(), mInfo.name);
 
 		if(mInfo.type->type != TypeInfo::TYPE_COMPLEX && mInfo.type->arrLevel == 0)
-			strcat(name, GetSimpleVariableValue(mInfo.type, address+type->memberData[mn].offset));
+			strcat(name, GetSimpleVariableValue(mInfo.type, address + mInfo.offset));
 
 		if(mInfo.type->arrLevel == 1 && mInfo.type->subType->type == TypeInfo::TYPE_CHAR)
-			sprintf(name+strlen(name), "\"%s\"", (char*)(variableData+address+type->memberData[mn].offset));
+			sprintf(name+strlen(name), "\"%s\"", (char*)(variableData + address + mInfo.offset));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
 		if(mInfo.type->arrLevel != 0)
 		{
-			FillArrayVariableInfo(mInfo.type, address+type->memberData[mn].offset, lastItem);
+			FillArrayVariableInfo(mInfo.type, address + mInfo.offset, lastItem);
 		}else if(mInfo.type->type == TypeInfo::TYPE_COMPLEX){
-			FillComplexVariableInfo(mInfo.type, address+type->memberData[mn].offset, lastItem);
+			FillComplexVariableInfo(mInfo.type, address + mInfo.offset, lastItem);
 		}
 	}
 }
@@ -629,7 +633,7 @@ void FillVariableInfoTree()
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
 		address = currVar.pos;
-		sprintf(name, "%d: %s%s %s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetTypeName().c_str(), currVar.name.c_str());
+		sprintf(name, "%d: %s%s %s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetFullTypeName(), currVar.name);
 
 		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
 			strcat(name, GetSimpleVariableValue(currVar.varType, address));
@@ -663,7 +667,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	{
 	
 	case WM_COMMAND:
-		wmId    = LOWORD(wParam); 
+		wmId	= LOWORD(wParam); 
 		wmEvent = HIWORD(wParam);
 
 		if((HWND)lParam == hButtonCalc)
@@ -671,23 +675,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		
 			/*static*/ int callNum = -1;
 			callNum++;
-			GetWindowText(hTextArea, buf, 400000);
+			GetWindowText(hTextArea, buf, 100000);
 
 			DeInitConsole();
 
+			char	result[128];
+
 			nullcSetExecutor(NULLC_VM);
 			nullcSetExecutorOptions(false);
-			double execTime = 0.0;
+			double compTime = 0.0, bytecodeTime = 0.0, linkTime = 0.0, execTime = 0.0;
 			int kkk = 0;
-		//for(; kkk < 1; kkk++)
+			double time = myGetPreciseTime();
+		//for(kkk = 0; kkk < 30000; kkk++)
 		//{
 			nullres good = nullcCompile(buf);
-			nullcSaveListing("asm.txt");
+		//	nullcSaveListing("asm.txt");
+		//}
+			compTime += myGetPreciseTime()-time;
+			time = myGetPreciseTime();
 
 			char *bytecode;
+		//for(kkk = 0; kkk < 300000; kkk++)
+		//{
 			unsigned int size = nullcGetBytecode(&bytecode);
+		//	delete[] bytecode;
+		//}
+			bytecodeTime += myGetPreciseTime()-time;
+		//	unsigned int size = nullcGetBytecode(&bytecode);
+			time = myGetPreciseTime();
+		//for(kkk = 0; kkk < 300000; kkk++)
+		//{
 			nullcClean();
 			nullcLinkCode(bytecode, 1);
+		//}
+			linkTime += myGetPreciseTime()-time;
+
 			delete[] bytecode;
 			if(!good)
 			{
@@ -698,19 +720,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				double time = myGetPreciseTime();
 				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
 
-				char	result[128];
+				
 
 				if(goodRun)
 				{
 					const char *val = nullcGetResult();
 					execTime += myGetPreciseTime()-time;
-
-					/*if(val[0] != '1' || val[1] != 0)
-					{
-						char nbuf[64];
-						SetWindowText(hResult, _itoa(kkk, nbuf, 10));
-						break;
-					}*/
 
 					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
 
@@ -721,14 +736,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				}
 				SetWindowText(hResult, result);
 			}
-			SetWindowText(hLog, nullcGetCompilationLog());
+			//SetWindowText(hLog, nullcGetCompilationLog());
 		//}
+			//linkTime += myGetPreciseTime()-time;
+			//sprintf_s(result, 128, "compile: %f bytecode: %f link: %f", compTime, bytecodeTime, linkTime);
+			SetWindowText(hResult, result);
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{
 			/*static*/ int callNum = -1;
 			callNum++;
-			GetWindowText(hTextArea, buf, 400000);
+			GetWindowText(hTextArea, buf, 100000);
 
 			DeInitConsole();
 
@@ -819,10 +837,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
-		if(!colorer->ColorText())
+		/*if(!colorer->ColorText())
 		{
 			SetWindowText(hCode, colorer->GetError().c_str());
-		}
+		}*/
 		if(bRetFocus)
 		{
 			SetFocus(hTextArea);

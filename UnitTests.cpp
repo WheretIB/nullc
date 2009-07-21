@@ -71,7 +71,7 @@ void*	FindVar(const char* name)
 	for(unsigned int i = 0; i < varCount; i++)
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
-		if(strcmp(currVar.name, name) == 0)
+		if(strlen(name) == (unsigned int)(currVar.name.end - currVar.name.begin) && memcmp(currVar.name.begin, name, currVar.name.end - currVar.name.begin) == 0)
 			return (void*)(varData+currVar.pos);
 	}
 	return varData;
@@ -2830,6 +2830,32 @@ return 1;";
 			CHECK_INT("r4", 0, 2);
 			CHECK_INT("r5", 0, 2);
 
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testPriority = 
+"int func(){}\r\n\
+int a = 13, b = 17, c = 14;\r\n\
+int res[10];\r\n\
+res[0] = a + b * c;\r\n\
+res[1] = a + b ** (c-10) * a;\r\n\
+return 1;";
+	printf("\r\nOperation priority test\r\n");
+	testCount++;
+	for(int t = 0; t < 3; t++)
+	{
+		if(RunCode(testPriority, testTarget[t], testOpti[t], "1"))
+		{
+			lastFailed = false;
+			CHECK_DOUBLE("ERROR", 0, 0.0);
+			CHECK_INT("a", 0, 13);
+			CHECK_INT("b", 0, 17);
+			CHECK_INT("c", 0, 14);
+			int resExp[] = { 251, 1085786, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 1, 1, 0, 0, 1, 1, 0, 1 };
+			for(int i = 0; i < 2; i++)
+				CHECK_INT("res", i, resExp[i]);
 			if(!lastFailed)
 				passed[t]++;
 		}
