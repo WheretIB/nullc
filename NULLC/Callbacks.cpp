@@ -1945,7 +1945,7 @@ void TypeBegin(char const* s, char const* e)
 	if(currAlign > 16)
 		ThrowError("ERROR: alignment must me less than 16 bytes", s);
 
-	char *typeNameCopy = new char[(int)(e - s) + 1];
+	char *typeNameCopy = AllocateString((int)(e - s) + 1);
 	sprintf(typeNameCopy, "%.*s", (int)(e-s), s);
 
 	newType = new TypeInfo(typeInfo.size(), typeNameCopy, 0, 0, 1, NULL);

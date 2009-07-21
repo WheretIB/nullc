@@ -77,59 +77,59 @@ Compiler::Compiler()
 {
 	// Add types
 	TypeInfo* info;
-	info = new TypeInfo(typeInfo.size(), DuplicateString("void"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "void", 0, 0, 1, NULL);
 	info->size = 0;
 	info->type = TypeInfo::TYPE_VOID;
 	typeVoid = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("double"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "double", 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->size = 8;
 	info->type = TypeInfo::TYPE_DOUBLE;
 	typeDouble = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("float"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "float", 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->size = 4;
 	info->type = TypeInfo::TYPE_FLOAT;
 	typeFloat = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("long"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "long", 0, 0, 1, NULL);
 	info->size = 8;
 	info->type = TypeInfo::TYPE_LONG;
 	typeLong = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("int"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "int", 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->size = 4;
 	info->type = TypeInfo::TYPE_INT;
 	typeInt = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("short"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "short", 0, 0, 1, NULL);
 	info->size = 2;
 	info->type = TypeInfo::TYPE_SHORT;
 	typeShort = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("char"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "char", 0, 0, 1, NULL);
 	info->size = 1;
 	info->type = TypeInfo::TYPE_CHAR;
 	typeChar = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("float2"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "float2", 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeFloat);
 	info->AddMemberVariable("y", typeFloat);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("float3"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "float3", 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeFloat);
@@ -137,7 +137,7 @@ Compiler::Compiler()
 	info->AddMemberVariable("z", typeFloat);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("float4"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "float4", 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeFloat);
@@ -148,14 +148,14 @@ Compiler::Compiler()
 
 	TypeInfo *typeFloat4 = info;
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("double2"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "double2", 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeDouble);
 	info->AddMemberVariable("y", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("double3"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "double3", 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeDouble);
@@ -163,7 +163,7 @@ Compiler::Compiler()
 	info->AddMemberVariable("z", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("double4"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "double4", 0, 0, 1, NULL);
 	info->alignBytes = 8;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("x", typeDouble);
@@ -172,7 +172,7 @@ Compiler::Compiler()
 	info->AddMemberVariable("w", typeDouble);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("float4x4"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "float4x4", 0, 0, 1, NULL);
 	info->alignBytes = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	info->AddMemberVariable("row1", typeFloat4);
@@ -181,7 +181,7 @@ Compiler::Compiler()
 	info->AddMemberVariable("row4", typeFloat4);
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), DuplicateString("file"), 0, 0, 1, NULL);
+	info = new TypeInfo(typeInfo.size(), "file", 0, 0, 1, NULL);
 	info->size = 4;
 	info->type = TypeInfo::TYPE_COMPLEX;
 	typeFile = info;
@@ -259,7 +259,7 @@ Compiler::~Compiler()
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
 		delete typeInfo[i]->funcType;
-		delete[] typeInfo[i]->name;
+		//delete[] typeInfo[i]->name;
 		delete[] typeInfo[i]->fullName;
 	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
@@ -291,7 +291,7 @@ void Compiler::ClearState()
 	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
 	{
 		delete typeInfo[i]->funcType;
-		delete[] typeInfo[i]->name;
+		//delete[] typeInfo[i]->name;
 		delete[] typeInfo[i]->fullName;
 	}
 	for(unsigned int i = buildInFuncs; i < funcInfo.size(); i++)

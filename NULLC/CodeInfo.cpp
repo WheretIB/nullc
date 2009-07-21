@@ -29,7 +29,7 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 		}
 	}
 	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name ? DuplicateString(type->name) : NULL, type->refLevel + 1, 0, 1, type);
+	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, type->refLevel + 1, 0, 1, type);
 	newInfo->size = 4;
 	newInfo->type = TypeInfo::TYPE_INT;
 
@@ -108,7 +108,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 		}
 	}
 	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), DuplicateString(type->name), 0, type->arrLevel + 1, arrSize, type);
+	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, 0, type->arrLevel + 1, arrSize, type);
 
 	if(unFixed)
 	{
