@@ -795,7 +795,7 @@ void AddVariable(char const* pos, InplaceStr varName)
 	{
 		unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes;
 		if(activeAlign > 16)
-			ThrowError("ERROR: alignment must me less than 16 bytes", pos);
+			ThrowError("ERROR: alignment must be less than 16 bytes", pos);
 		if(activeAlign != 0 && varTop % activeAlign != 0)
 		{
 			unsigned int offset = activeAlign - (varTop % activeAlign);
@@ -1185,7 +1185,7 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 			// ¬ыбираем выравниваени. ”казанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
 			unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes;
 			if(activeAlign > 16)
-				ThrowError("ERROR: alignment must me less than 16 bytes", pos);
+				ThrowError("ERROR: alignment must be less than 16 bytes", pos);
 			// ≈сли требуетс€ выравнивание (нету спецификации noalign, и адрес ещЄ не выравнен)
 			if(activeAlign != 0 && varTop % activeAlign != 0)
 			{
@@ -1365,24 +1365,6 @@ void AddPreOrPostOpNode(bool isInc, bool prefixOp)
 	nodeList.push_back(new NodePreOrPostOp(currTypes.back(), isInc, prefixOp));
 }
 
-struct AddPreOrPostOp
-{
-	AddPreOrPostOp(bool isInc, bool isPrefixOp)
-	{
-		incOp = isInc;
-		prefixOp = isPrefixOp;
-	}
-
-	void operator() (char const* s, char const* e)
-	{
-		(void)e;	// C4100
-		lastKnownStartPos = s;
-		AddPreOrPostOpNode(incOp, prefixOp);
-	}
-	bool incOp;
-	bool prefixOp;
-};
-
 void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 {
 	lastKnownStartPos = s;
@@ -1392,15 +1374,6 @@ void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 		ThrowLastError();
 	nodeList.push_back(new NodeVariableModify(targetType, cmd));
 }
-
-template<CmdID cmd>
-struct AddModifyVariable
-{
-	void operator() (char const* s, char const* e)
-	{
-		AddModifyVariableNode(s, e, cmd);
-	}
-};
 
 void AddInplaceArray(char const* pos)
 {
@@ -1942,7 +1915,7 @@ void TypeBegin(char const* s, char const* e)
 	if((int)currAlign < 0)
 		ThrowError("ERROR: alignment must be a positive number", s);
 	if(currAlign > 16)
-		ThrowError("ERROR: alignment must me less than 16 bytes", s);
+		ThrowError("ERROR: alignment must be less than 16 bytes", s);
 
 	char *typeNameCopy = AllocateString((int)(e - s) + 1);
 	sprintf(typeNameCopy, "%.*s", (int)(e-s), s);
