@@ -258,10 +258,7 @@ Compiler::Compiler()
 Compiler::~Compiler()
 {
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
-	{
-		delete typeInfo[i]->funcType;
 		delete[] typeInfo[i]->fullName;
-	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
 		if(funcInfo[i]->address == -1 && funcInfo[i]->funcPtr != NULL)
@@ -289,10 +286,7 @@ void Compiler::ClearState()
 			typeInfo[i]->refType = NULL;
 
 	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
-	{
-		delete typeInfo[i]->funcType;
 		delete[] typeInfo[i]->fullName;
-	}
 
 	typeInfo.resize(buildInTypes);
 	TypeInfo::DeleteTypeInformation();
@@ -338,50 +332,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 
 	buildInFuncs++;
 
-	FunctionInfo	&lastFunc = *funcInfo.back();
-	// Find out the function type
-	TypeInfo	*bestFit = NULL;
-	// Search through active types
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
-	{
-		if(typeInfo[i]->funcType)
-		{
-			if(typeInfo[i]->funcType->retType != lastFunc.retType)
-				continue;
-			if(typeInfo[i]->funcType->paramType.size() != lastFunc.paramCount)
-				continue;
-			bool good = true;
-			unsigned int n = 0;
-			for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next, n++)
-			{
-				if(curr->varType != typeInfo[i]->funcType->paramType[n])
-				{
-					good = false;
-					break;
-				}
-			}
-			if(good)
-			{
-				bestFit = typeInfo[i];
-				break;
-			}
-		}
-	}
-	// If none found, create new
-	if(!bestFit)
-	{
-		FunctionType *funcType = new FunctionType();
-		funcType->retType = lastFunc.retType;
-		for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
-			funcType->paramType.push_back(curr->varType);
-
-		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL, funcType));
-		typeInfo.back()->size = 8;
-
-		bestFit = typeInfo.back();
-		bestFit->type = TypeInfo::TYPE_COMPLEX;
-	}
-	lastFunc.funcType = bestFit;
+	funcInfo.back()->funcType = CodeInfo::GetFunctionType(funcInfo.back());
 
 	buildInTypes = (int)typeInfo.size();
 	TypeInfo::SaveBuildinTop();

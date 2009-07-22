@@ -659,12 +659,12 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	if(!funcInfo)
 		first = TakeLastNode();
 
-	if(funcType->paramType.size() > 0)
+	if(funcType->paramCount > 0)
 		paramHead = paramTail = TakeLastNode();
 	else
 		paramHead = paramTail = NULL;
 	// Возьмём узлы каждого параметра
-	for(unsigned int i = 1; i < funcType->paramType.size(); i++)
+	for(unsigned int i = 1; i < funcType->paramCount; i++)
 	{
 		paramTail->next = TakeLastNode();
 		paramTail->next->prev = paramTail;
@@ -685,24 +685,23 @@ void NodeFuncCall::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	// Если имеются параметры, найдём их значения
-	unsigned int currParam = 0;
-
 	bool onlyStackTypes = true;
 	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL)
 	{
-		if(funcType->paramType.size() > 0)
+		if(funcType->paramCount > 0)
 		{
-			NodeZeroOP *curr = paramHead;
+			NodeZeroOP	*curr = paramHead;
+			TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
 			do
 			{
 				// Определим значение параметра
 				curr->Compile();
 				// Преобразуем его в тип входного параметра функции
-				ConvertFirstToSecond(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[funcType->paramType.size()-currParam-1]->type]);
-				if(funcType->paramType[funcType->paramType.size()-currParam-1] == typeFloat)
+				ConvertFirstToSecond(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[(*paramType)->type]);
+				if(*paramType == typeFloat)
 					cmdList.push_back(VMCmd(cmdDtoF));
-				currParam++;
 				curr = curr->next;
+				paramType--;
 			}while(curr);
 		}
 	}else{
@@ -713,21 +712,20 @@ void NodeFuncCall::Compile()
 			else
 				first->Compile();
 		}
-		if(funcType->paramType.size() > 0)
+		if(funcType->paramCount > 0)
 		{
-			NodeZeroOP *curr = paramTail;
+			NodeZeroOP	*curr = paramTail;
+			TypeInfo	**paramType = funcType->paramType;
 			do
 			{
 				// Определим значение параметра
 				curr->Compile();
 				// Преобразуем его в тип входного параметра функции
-				ConvertFirstToSecond(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
-				if(funcType->paramType[currParam]->type == TypeInfo::TYPE_CHAR ||
-					funcType->paramType[currParam]->type == TypeInfo::TYPE_SHORT ||
-					funcType->paramType[currParam]->type == TypeInfo::TYPE_FLOAT)
-						onlyStackTypes = false;
-				currParam++;
+				ConvertFirstToSecond(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[(*paramType)->type]);
+				if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
+					onlyStackTypes = false;
 				curr = curr->prev;
+				paramType++;
 			}while(curr);
 		}
 	}
@@ -739,7 +737,7 @@ void NodeFuncCall::Compile()
 	}else{					// Если функция определена пользователем
 		// Перенесём в локальные параметры прямо тут, фигле
 		unsigned int paramSize = 0;
-		for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
+		for(unsigned int i = 0; i < funcType->paramCount; i++)
 			paramSize += funcType->paramType[i]->size;
 		paramSize += ((!funcInfo || second) ? 4 : 0);
 		if(paramSize)
@@ -748,7 +746,7 @@ void NodeFuncCall::Compile()
 		unsigned int addr = 0;
 		if(!onlyStackTypes)
 		{
-			for(int i = int(funcType->paramType.size())-1; i >= 0; i--)
+			for(int i = funcType->paramCount-1; i >= 0; i--)
 			{
 				asmDataType newDT = podTypeToDataType[funcType->paramType[i]->type];
 				cmdList.push_back(VMCmd(cmdPopTypeTop[newDT>>2], newDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)funcType->paramType[i]->size, addr));
@@ -783,7 +781,7 @@ void NodeFuncCall::Compile()
 void NodeFuncCall::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetFullTypeName(), (funcInfo ? funcInfo->name : "$ptr"), funcType->paramType.size());
+	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetFullTypeName(), (funcInfo ? funcInfo->name : "$ptr"), funcType->paramCount);
 	GoDown();
 	if(first)
 		first->LogToStream(fGraph);
@@ -809,23 +807,23 @@ unsigned int NodeFuncCall::GetSize()
 
 	unsigned int currParam = 0;
 	bool onlyStackTypes = true;
-	if(funcType->paramType.size() > 0)
+	if(funcType->paramCount > 0)
 	{
 		NodeZeroOP	*curr = paramTail;
+		TypeInfo	**paramType = funcType->paramType;
 		do
 		{
-			paramSize += funcType->paramType[currParam]->size;
+			paramSize += (*paramType)->size;
 
 			size += curr->GetSize();
-			size += ConvertFirstToSecondSize(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[funcType->paramType[currParam]->type]);
-			if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && funcType->paramType[funcType->paramType.size()-currParam-1] == typeFloat)
+			size += ConvertFirstToSecondSize(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[(*paramType)->type]);
+			if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && *paramType == typeFloat)
 				size += 1;
-			if(funcType->paramType[funcType->paramType.size()-currParam-1]->type == TypeInfo::TYPE_CHAR ||
-				funcType->paramType[funcType->paramType.size()-currParam-1]->type == TypeInfo::TYPE_SHORT ||
-				funcType->paramType[funcType->paramType.size()-currParam-1]->type == TypeInfo::TYPE_FLOAT)
-					onlyStackTypes = false;
+			if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
+				onlyStackTypes = false;
 			currParam++;
 			curr = curr->prev;
+			paramType++;
 		}while(curr);
 	}
 	if(!funcInfo || second)
@@ -845,7 +843,7 @@ unsigned int NodeFuncCall::GetSize()
 		if(onlyStackTypes)
 			size += (paramSize ? 3 : 1);
 		else
-			size += (paramSize ? 2 : 1) + (unsigned int)(funcType->paramType.size());
+			size += (paramSize ? 2 : 1) + (unsigned int)(funcType->paramCount);
 	}
 
 	return size;

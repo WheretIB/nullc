@@ -12,6 +12,8 @@
 
 #include "nullcdef.h"
 
+#include <new>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

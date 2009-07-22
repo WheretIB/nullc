@@ -131,13 +131,14 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 		{
 			if(typeInfo[i]->funcType->retType != info->retType)
 				continue;
-			if(typeInfo[i]->funcType->paramType.size() != info->paramCount)
+			if(typeInfo[i]->funcType->paramCount != info->paramCount)
 				continue;
 			bool good = true;
 			unsigned int n = 0;
+			TypeInfo	**paramType = typeInfo[i]->funcType->paramType;
 			for(VariableInfo *curr = info->firstParam; curr; curr = curr->next, n++)
 			{
-				if(curr->varType != typeInfo[i]->funcType->paramType[n])
+				if(curr->varType != paramType[n])
 				{
 					good = false;
 					break;
@@ -153,13 +154,13 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 	// If none found, create new
 	if(!bestFit)
 	{
-		FunctionType *funcType = new FunctionType();
-		funcType->retType = info->retType;
-		for(VariableInfo *curr = info->firstParam; curr; curr = curr->next)
-			funcType->paramType.push_back(curr->varType);
-
-		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL, funcType));
+		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL));
 		bestFit = typeInfo.back();
+		bestFit->CreateFunctionType(info->retType, info->paramCount);
+
+		unsigned int i = 0;
+		for(VariableInfo *curr = info->firstParam; curr; curr = curr->next, i++)
+			bestFit->funcType->paramType[i] = curr->varType;
 
 #ifdef _DEBUG
 		bestFit->AddMemberVariable("context", typeInt);
