@@ -1,47 +1,24 @@
 #include "Lexer.h"
 
-void	SkipSpace(const char** str)
-{
-	const char *curr = *str;
-	for(;;)
-	{
-		while((unsigned char)(curr[0] - 1) < ' ')
-			curr++;
-		if(curr[0] == '/'){
-			if(curr[1] == '/')
-			{
-				while(curr[0] != '\n' && curr[0] != '\0')
-					curr++;
-			}else if(curr[1] == '*'){
-				while(!(curr[0] == '*' && curr[1] == '/') && curr[0] != '\0')
-					curr++;
-				if(*curr)
-					curr += 2;
-			}else{
-				break;
-			}
-		}else{
-			break;
-		}
-	}
-	*str = curr;
-}
-
 void	Lexer::Lexify(const char* code)
 {
 	lexems.clear();
 
+	LexemeType lType = lex_none;
+	int lLength = 0;
+
 	while(*code)
 	{
-		SkipSpace(&code);
-		if(!*code)
-			break;
-
-		LexemeType lType = lex_none;
-		int lLength = 0;
-
 		switch(*code)
 		{
+		case ' ':
+		case '\r':
+		case '\n':
+		case '\t':
+			code++;
+			while((unsigned char)(code[0] - 1) < ' ')
+				code++;
+			continue;
 		case '\"':
 			lType = lex_quotedstring;
 			{
@@ -91,9 +68,22 @@ void	Lexer::Lexify(const char* code)
 			}
 			break;
 		case '/':
-			lType = lex_div;
 			if(code[1] == '=')
+			{
 				lType = lex_divset;
+			}else if(code[1] == '/'){
+				while(code[0] != '\n' && code[0] != '\0')
+					code++;
+				continue;
+			}else if(code[1] == '*'){
+				while(!(code[0] == '*' && code[1] == '/') && code[0] != '\0')
+					code++;
+				if(*code)
+					code += 2;
+				continue;
+			}else{
+				lType = lex_div;
+			}
 			break;
 		case '%':
 			lType = lex_mod;
@@ -276,6 +266,8 @@ void	Lexer::Lexify(const char* code)
 		lexems.push_back(lex);
 
 		code += lLength;
+		lType = lex_none;
+		lLength = 0;
 	}
 	Lexeme lex;
 	lex.type = lex_none;
