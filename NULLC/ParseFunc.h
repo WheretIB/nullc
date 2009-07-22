@@ -59,8 +59,6 @@ public:
 	virtual void Compile();
 	// Вывод в лог параметров узла
 	virtual void LogToStream(FILE *fGraph);
-	// Получения размера кода, сгенерированного данным узлом
-	virtual unsigned int GetSize();
 	// Получение типа результата, возвращаемого ячейкой
 	virtual TypeInfo*	GetTypeInfo();
 	// Установка строки кода, с которым связана ячейка
@@ -82,6 +80,7 @@ protected:
 	TypeInfo	*typeInfo;
 	const char	*strBegin, *strEnd;
 public:
+	unsigned int codeSize;
 	unsigned int nodeType;
 	NodeZeroOP	*prev, *next;	// For organizing intrusive node lists
 };
@@ -99,7 +98,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 
 	NodeZeroOP*	GetFirstNode(){ return first; }
 	void		SetFirstNode(NodeZeroOP* node){ first = node; }
@@ -115,7 +113,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 
 	NodeZeroOP*	GetSecondNode(){ return second; }
 protected:
@@ -130,7 +127,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 
 	NodeZeroOP*	GetTrirdNode(){ return third; }
 protected:
@@ -140,14 +136,19 @@ protected:
 // Assembly type traits
 template <typename T> struct AsmTypeTraits;
 
-#define ASM_TYPE_TRAITS(type, dataTypeValue, stackTypeValue) template <> struct AsmTypeTraits<type> { static const asmDataType dataType = dataTypeValue; static const asmStackType stackType = stackTypeValue; }
+#define ASM_TYPE_TRAITS(type, dataTypeValue, stackTypeValue, nodeCodeSize) template <> struct AsmTypeTraits<type>\
+{\
+	static const asmDataType dataType = dataTypeValue;\
+	static const asmStackType stackType = stackTypeValue;\
+	static const unsigned int codeSize = nodeCodeSize;\
+}
 
-ASM_TYPE_TRAITS(char, DTYPE_CHAR, STYPE_INT);
-ASM_TYPE_TRAITS(short, DTYPE_SHORT, STYPE_INT);
-ASM_TYPE_TRAITS(int, DTYPE_INT, STYPE_INT);
-ASM_TYPE_TRAITS(long long, DTYPE_LONG, STYPE_LONG);
-ASM_TYPE_TRAITS(float, DTYPE_FLOAT, STYPE_DOUBLE); // float expands to double
-ASM_TYPE_TRAITS(double, DTYPE_DOUBLE, STYPE_DOUBLE);
+ASM_TYPE_TRAITS(char, DTYPE_CHAR, STYPE_INT, 1);
+ASM_TYPE_TRAITS(short, DTYPE_SHORT, STYPE_INT, 1);
+ASM_TYPE_TRAITS(int, DTYPE_INT, STYPE_INT, 1);
+ASM_TYPE_TRAITS(long long, DTYPE_LONG, STYPE_LONG, 2);
+ASM_TYPE_TRAITS(float, DTYPE_FLOAT, STYPE_DOUBLE, 2); // float expands to double
+ASM_TYPE_TRAITS(double, DTYPE_DOUBLE, STYPE_DOUBLE, 2);
 
 //Zero child operators
 void NodeNumberPushCommand(asmDataType dt, char* data);
@@ -155,29 +156,25 @@ template<typename T>
 class NodeNumber: public NodeZeroOP
 {
 	typedef T NumType;
+	typedef AsmTypeTraits<T> Traits;
 public:
 	NodeNumber(NumType number, TypeInfo* ptrType)
 	{
 		num = number;
 		typeInfo = ptrType;
+		codeSize = Traits::codeSize;
 		nodeType = typeNodeNumber;
 	}
 	virtual ~NodeNumber(){}
 
 	virtual void Compile()
 	{
-		typedef AsmTypeTraits<T> Traits;
 		NodeNumberPushCommand(Traits::dataType, (char*)(&num));
 	}
 	virtual void LogToStream(FILE *fGraph)
 	{
 		DrawLine(fGraph);
 		fprintf(fGraph, "%s Number\r\n", typeInfo->GetFullTypeName());
-	}
-	virtual unsigned int GetSize()
-	{
-		typedef AsmTypeTraits<T> Traits;
-		return Traits::dataType == DTYPE_FLOAT ? 2 : (sizeof(T)/4);
 	}
 
 	NumType		 GetVal(){ return num; }
@@ -196,7 +193,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 };
 
@@ -208,7 +204,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	CmdID	cmdID;
 };
@@ -221,7 +216,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	unsigned int	popCnt;
 };
@@ -234,7 +228,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 };
 
@@ -246,7 +239,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	unsigned int shift;
 	bool popAfter;
@@ -263,7 +255,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	FunctionInfo	*funcInfo;
 	bool disabled;
@@ -283,7 +274,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -304,7 +294,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	int		addrShift;
@@ -319,7 +308,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	CmdID	cmdID;
@@ -335,7 +323,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	int		addrShift;
@@ -350,7 +337,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -371,7 +357,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
@@ -392,7 +377,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 	bool	incOp;
@@ -412,7 +396,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	FunctionInfo	*funcInfo;
 };
@@ -426,7 +409,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	CmdID cmdID;
 };
@@ -439,7 +421,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 };
 
@@ -451,7 +432,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	NodeZeroOP*	fourth;
 };
@@ -464,7 +444,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 };
 
@@ -476,7 +455,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 };
 
@@ -488,7 +466,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	unsigned int	popCnt;
 };
@@ -501,7 +478,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	unsigned int	popCnt;
 };
@@ -516,7 +492,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	NodeZeroOP	*conditionHead, *conditionTail;
 	NodeZeroOP	*blockHead, *blockTail;
@@ -535,7 +510,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	NodeZeroOP	*tail;
 };
@@ -548,7 +522,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 protected:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;
@@ -565,7 +538,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual unsigned int GetSize();
 	virtual TypeInfo*	GetTypeInfo();
 protected:
 };*/

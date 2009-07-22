@@ -193,6 +193,7 @@ NodeZeroOP::NodeZeroOP()
 	typeInfo = typeVoid;
 	strBegin = strEnd = NULL;
 	prev = next = NULL;
+	codeSize = 0;
 	nodeType = typeNodeZeroOp;
 }
 NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
@@ -200,6 +201,8 @@ NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 	typeInfo = tinfo;
 	strBegin = strEnd = NULL;
 	prev = next = NULL;
+	codeSize = 0;
+	nodeType = typeNodeZeroOp;
 }
 NodeZeroOP::~NodeZeroOP()
 {
@@ -212,10 +215,6 @@ void NodeZeroOP::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s ZeroOp\r\n", typeInfo->GetFullTypeName());
-}
-unsigned int NodeZeroOP::GetSize()
-{
-	return 0;
 }
 TypeInfo* NodeZeroOP::GetTypeInfo()
 {
@@ -245,7 +244,7 @@ void NodeOneOP::Compile()
 
 	first->Compile();
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeOneOP::LogToStream(FILE *fGraph)
 {
@@ -254,10 +253,6 @@ void NodeOneOP::LogToStream(FILE *fGraph)
 	GoDown();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodeOneOP::GetSize()
-{
-	return first->GetSize();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -278,7 +273,7 @@ void NodeTwoOP::Compile()
 	NodeOneOP::Compile();
 	second->Compile();
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeTwoOP::LogToStream(FILE *fGraph)
 {
@@ -288,10 +283,6 @@ void NodeTwoOP::LogToStream(FILE *fGraph)
 	first->LogToStream(fGraph);
 	second->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodeTwoOP::GetSize()
-{
-	return NodeOneOP::GetSize() + second->GetSize();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -312,7 +303,7 @@ void NodeThreeOP::Compile()
 	NodeTwoOP::Compile();
 	third->Compile();
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeThreeOP::LogToStream(FILE *fGraph)
 {
@@ -323,10 +314,6 @@ void NodeThreeOP::LogToStream(FILE *fGraph)
 	second->LogToStream(fGraph);
 	third->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodeThreeOP::GetSize()
-{
-	return NodeTwoOP::GetSize() + third->GetSize();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -355,6 +342,9 @@ void NodeNumberPushCommand(asmDataType dt, char* data)
 NodePopOp::NodePopOp()
 {
 	first = TakeLastNode();
+	codeSize = first->codeSize;
+	if(first->GetTypeInfo() != typeVoid)
+		codeSize += 1;
 	nodeType = typeNodePopOp;
 }
 NodePopOp::~NodePopOp()
@@ -376,7 +366,7 @@ void NodePopOp::Compile()
 		cmdList.push_back(VMCmd(cmdPop, first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX ? first->GetTypeInfo()->size : stackTypeSize[podTypeToStackType[first->GetTypeInfo()->type]]));
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodePopOp::LogToStream(FILE *fGraph)
 {
@@ -385,14 +375,6 @@ void NodePopOp::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodePopOp::GetSize()
-{
-	unsigned int size = NodeOneOP::GetSize();
-	if(first->GetTypeInfo() != typeVoid)
-		size += 1;
-
-	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -406,6 +388,7 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 	// Тип результата такой же, как исходный
 	typeInfo = first->GetTypeInfo();
 
+	codeSize = first->codeSize + 1;
 	nodeType = typeNodeUnaryOp;
 }
 NodeUnaryOp::~NodeUnaryOp()
@@ -428,7 +411,7 @@ void NodeUnaryOp::Compile()
 	else
 		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 3)));
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeUnaryOp::LogToStream(FILE *fGraph)
 {
@@ -437,10 +420,6 @@ void NodeUnaryOp::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodeUnaryOp::GetSize()
-{
-	return NodeOneOP::GetSize() + 1;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -454,6 +433,7 @@ NodeReturnOp::NodeReturnOp(unsigned int c, TypeInfo* tinfo)
 
 	first = TakeLastNode();
 
+	codeSize = first->codeSize + 1 + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
 	nodeType = typeNodeReturnOp;
 }
 NodeReturnOp::~NodeReturnOp()
@@ -482,7 +462,7 @@ void NodeReturnOp::Compile()
 	else
 		cmdList.push_back(VMCmd(cmdReturn, 0, (unsigned short)(bitRetSimple | operType), popCnt));
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeReturnOp::LogToStream(FILE *fGraph)
 {
@@ -494,10 +474,6 @@ void NodeReturnOp::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodeReturnOp::GetSize()
-{
-	return NodeOneOP::GetSize() + 1 + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -511,6 +487,7 @@ NodeExpression::NodeExpression(TypeInfo* realRetType)
 
 	first = TakeLastNode();
 
+	codeSize = first->codeSize;
 	nodeType = typeNodeExpression;
 }
 NodeExpression::~NodeExpression()
@@ -523,7 +500,7 @@ void NodeExpression::Compile()
 
 	NodeOneOP::Compile();
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeExpression::LogToStream(FILE *fGraph)
 {
@@ -532,10 +509,6 @@ void NodeExpression::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodeExpression::GetSize()
-{
-	return NodeOneOP::GetSize();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -547,6 +520,7 @@ NodeBlock::NodeBlock(unsigned int varShift, bool postPop)
 	shift = varShift;
 	popAfter = postPop;
 
+	codeSize = first->codeSize + (popAfter ? 2 : 1) + (shift ? 1 : 0);
 	nodeType = typeNodeBlock;
 }
 NodeBlock::~NodeBlock()
@@ -567,7 +541,7 @@ void NodeBlock::Compile()
 	if(popAfter)
 		cmdList.push_back(VMCmd(cmdPopVTop));
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeBlock::LogToStream(FILE *fGraph)
 {
@@ -577,10 +551,8 @@ void NodeBlock::LogToStream(FILE *fGraph)
 	first->LogToStream(fGraph);
 	GoUp();
 }
-unsigned int NodeBlock::GetSize()
-{
-	return first->GetSize() + (popAfter ? 2 : 1) + (shift ? 1 : 0);
-}
+
+//////////////////////////////////////////////////////////////////////////
 
 NodeFuncDef::NodeFuncDef(FunctionInfo *info)
 {
@@ -591,6 +563,7 @@ NodeFuncDef::NodeFuncDef(FunctionInfo *info)
 
 	first = TakeLastNode();
 
+	codeSize = first->codeSize + 1;
 	nodeType = typeNodeFuncDef;
 }
 NodeFuncDef::~NodeFuncDef()
@@ -599,6 +572,7 @@ NodeFuncDef::~NodeFuncDef()
 
 void NodeFuncDef::Disable()
 {
+	codeSize = 0;
 	disabled = true;
 }
 
@@ -623,7 +597,7 @@ void NodeFuncDef::Compile()
 
 	funcInfo->codeSize = cmdList.size() - funcInfo->address;
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeFuncDef::LogToStream(FILE *fGraph)
 {
@@ -632,12 +606,6 @@ void NodeFuncDef::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodeFuncDef::GetSize()
-{
-	if(disabled)
-		return 0;
-	return first->GetSize() + 1;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -663,9 +631,23 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 		paramHead = paramTail = TakeLastNode();
 	else
 		paramHead = paramTail = NULL;
+
+	codeSize = 0;
+	bool onlyStackTypes = true;
+	TypeInfo	**paramType = funcType->paramType;
+	if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
+		onlyStackTypes = false;
+	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && *paramType == typeFloat)
+		codeSize += 1;
+
 	// Возьмём узлы каждого параметра
 	for(unsigned int i = 1; i < funcType->paramCount; i++)
 	{
+		paramType++;
+		if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
+			onlyStackTypes = false;
+		if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && *paramType == typeFloat)
+			codeSize += 1;
 		paramTail->next = TakeLastNode();
 		paramTail->next->prev = paramTail;
 		paramTail = paramTail->next;
@@ -673,7 +655,42 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 
 	if(funcInfo && funcInfo->type == FunctionInfo::THISCALL)
 		second = TakeLastNode();
+	
+	unsigned int paramSize = ((!funcInfo || second) ? 4 : 0);
 
+	if(funcType->paramCount > 0)
+	{
+		NodeZeroOP	*curr = paramTail;
+		TypeInfo	**paramType = funcType->paramType;
+		do
+		{
+			paramSize += (*paramType)->size;
+
+			codeSize += curr->codeSize;
+			codeSize += ConvertFirstToSecondSize(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[(*paramType)->type]);
+			curr = curr->prev;
+			paramType++;
+		}while(curr);
+	}
+	if(!funcInfo || second)
+	{
+		if(second)
+			codeSize += second->codeSize;
+		else
+			codeSize += first->codeSize;
+		if(!onlyStackTypes)
+			codeSize += 1;
+	}
+	
+	if(funcInfo && funcInfo->address == -1)
+	{
+		codeSize += 1;
+	}else{
+		if(onlyStackTypes)
+			codeSize += (paramSize ? 3 : 1);
+		else
+			codeSize += (paramSize ? 2 : 1) + (unsigned int)(funcType->paramCount);
+	}
 	nodeType = typeNodeFuncCall;
 }
 NodeFuncCall::~NodeFuncCall()
@@ -776,7 +793,7 @@ void NodeFuncCall::Compile()
 		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : -1));
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeFuncCall::LogToStream(FILE *fGraph)
 {
@@ -800,54 +817,6 @@ void NodeFuncCall::LogToStream(FILE *fGraph)
 	}while(curr);
 	GoUp();
 }
-unsigned int NodeFuncCall::GetSize()
-{
-	unsigned int size = 0;
-	unsigned int paramSize = ((!funcInfo || second) ? 4 : 0);
-
-	unsigned int currParam = 0;
-	bool onlyStackTypes = true;
-	if(funcType->paramCount > 0)
-	{
-		NodeZeroOP	*curr = paramTail;
-		TypeInfo	**paramType = funcType->paramType;
-		do
-		{
-			paramSize += (*paramType)->size;
-
-			size += curr->GetSize();
-			size += ConvertFirstToSecondSize(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[(*paramType)->type]);
-			if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && *paramType == typeFloat)
-				size += 1;
-			if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
-				onlyStackTypes = false;
-			currParam++;
-			curr = curr->prev;
-			paramType++;
-		}while(curr);
-	}
-	if(!funcInfo || second)
-	{
-		if(second)
-			size += second->GetSize();
-		else
-			size += first->GetSize();
-		if(!onlyStackTypes)
-			size += 1;
-	}
-	
-	if(funcInfo && funcInfo->address == -1)
-	{
-		size += 1;
-	}else{
-		if(onlyStackTypes)
-			size += (paramSize ? 3 : 1);
-		else
-			size += (paramSize ? 2 : 1) + (unsigned int)(funcType->paramCount);
-	}
-
-	return size;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // Новый узел для получения значения переменной
@@ -863,6 +832,7 @@ NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, 
 	else
 		typeInfo = retInfo;
 
+	codeSize = 1;
 	nodeType = typeNodeGetAddress;
 }
 
@@ -900,7 +870,7 @@ void NodeGetAddress::Compile()
 	else
 		cmdList.push_back(VMCmd(cmdGetAddr, varAddress));
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeGetAddress::LogToStream(FILE *fGraph)
@@ -912,11 +882,6 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 	else
 		fprintf(fGraph, "$$$");
 	fprintf(fGraph, " (%d %s)\r\n", (int)varAddress, (absAddress ? " absolute" : " relative"));
-}
-
-unsigned int NodeGetAddress::GetSize()
-{
-	return 1;
 }
 
 TypeInfo* NodeGetAddress::GetTypeInfo()
@@ -1007,6 +972,15 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
+
+	codeSize = second->codeSize;
+	if(!knownAddress)
+		codeSize += first->codeSize;
+	codeSize += ConvertFirstToSecondSize(podTypeToStackType[second->GetTypeInfo()->type], podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)]);
+	if(arrSetAll)
+		codeSize += 2;
+	else
+		codeSize += 1;
 	nodeType = typeNodeVariableSet;
 }
 
@@ -1046,7 +1020,7 @@ void NodeVariableSet::Compile()
 		}
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeVariableSet::LogToStream(FILE *fGraph)
@@ -1059,19 +1033,6 @@ void NodeVariableSet::LogToStream(FILE *fGraph)
 	GoDownB();
 	second->LogToStream(fGraph);
 	GoUp();
-}
-
-unsigned int NodeVariableSet::GetSize()
-{
-	unsigned int size = second->GetSize();
-	if(!knownAddress)
-		size += first->GetSize();
-	size += ConvertFirstToSecondSize(podTypeToStackType[second->GetTypeInfo()->type], podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)]);
-	if(arrSetAll)
-		size += 2;
-	else
-		size += 1;
-	return size;
 }
 
 TypeInfo* NodeVariableSet::GetTypeInfo()
@@ -1154,6 +1115,17 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 
+	asmStackType asmSTfirst = podTypeToStackType[typeInfo->type];
+	asmStackType asmSTsecond = podTypeToStackType[second->GetTypeInfo()->type];
+
+	codeSize = second->codeSize;
+	if(!knownAddress)
+		codeSize += 2 * first->codeSize;
+	codeSize += ConvertFirstForSecondSize(asmSTfirst, asmSTsecond);
+	asmStackType asmSTresult = ConvertFirstForSecondType(asmSTfirst, asmSTsecond);
+	codeSize += ConvertFirstForSecondSize(asmSTsecond, asmSTresult);
+	codeSize += ConvertFirstToSecondSize(asmSTresult, asmSTfirst);
+	codeSize += 3;
 	nodeType = typeNodeVariableModify;
 }
 
@@ -1224,7 +1196,7 @@ void NodeVariableModify::Compile()
 		cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeVariableModify::LogToStream(FILE *fGraph)
@@ -1237,22 +1209,6 @@ void NodeVariableModify::LogToStream(FILE *fGraph)
 	GoDownB();
 	second->LogToStream(fGraph);
 	GoUp();
-}
-
-unsigned int NodeVariableModify::GetSize()
-{
-	asmStackType asmSTfirst = podTypeToStackType[typeInfo->type];
-	asmStackType asmSTsecond = podTypeToStackType[second->GetTypeInfo()->type];
-
-	unsigned int size = second->GetSize();
-	if(!knownAddress)
-		size += 2 * first->GetSize();
-	size += ConvertFirstForSecondSize(asmSTfirst, asmSTsecond);
-	asmStackType asmSTresult = ConvertFirstForSecondType(asmSTfirst, asmSTsecond);
-	size += ConvertFirstForSecondSize(asmSTsecond, asmSTresult);
-	size += ConvertFirstToSecondSize(asmSTresult, asmSTfirst);
-	size += 3;
-	return size;
 }
 
 TypeInfo* NodeVariableModify::GetTypeInfo()
@@ -1298,6 +1254,11 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 		}
 		knownShift = true;
 	}
+
+	if(knownShift)
+		codeSize = first->codeSize + 2;
+	else
+		codeSize = first->codeSize + second->codeSize + 1 + (typeParent->subType->size == 1 && podTypeToStackType[second->GetTypeInfo()->type] == STYPE_INT ? 0 : 1);
 	nodeType = typeNodeArrayIndex;
 }
 
@@ -1335,7 +1296,7 @@ void NodeArrayIndex::Compile()
 	// Сложим с адресом, который был на вершине
 	cmdList.push_back(VMCmd(cmdAdd));
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeArrayIndex::LogToStream(FILE *fGraph)
@@ -1348,14 +1309,6 @@ void NodeArrayIndex::LogToStream(FILE *fGraph)
 	GoDownB();
 	second->LogToStream(fGraph);
 	GoUp();
-}
-
-unsigned int NodeArrayIndex::GetSize()
-{
-	if(knownShift)
-		return first->GetSize() + 2;
-	// else
-	return first->GetSize() + second->GetSize() + 1 + (typeParent->subType->size == 1 && podTypeToStackType[second->GetTypeInfo()->type] == STYPE_INT ? 0 : 1);
 }
 
 TypeInfo* NodeArrayIndex::GetTypeInfo()
@@ -1398,6 +1351,8 @@ NodeDereference::NodeDereference(TypeInfo* type)
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
+
+	codeSize = (!knownAddress ? first->codeSize : 0) + 1;
 	nodeType = typeNodeDereference;
 }
 
@@ -1427,7 +1382,7 @@ void NodeDereference::Compile()
 		cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeDereference::LogToStream(FILE *fGraph)
@@ -1437,11 +1392,6 @@ void NodeDereference::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-
-unsigned int NodeDereference::GetSize()
-{
-	return (!knownAddress ? first->GetSize() : 0) + 1;
 }
 
 TypeInfo* NodeDereference::GetTypeInfo()
@@ -1458,6 +1408,9 @@ NodeShiftAddress::NodeShiftAddress(unsigned int shift, TypeInfo* resType)
 
 	first = TakeLastNode();
 
+	codeSize = first->codeSize;
+	if(memberShift)
+		codeSize += 2;
 	nodeType = typeNodeShiftAddress;
 }
 
@@ -1481,7 +1434,7 @@ void NodeShiftAddress::Compile()
 		cmdList.push_back(VMCmd(cmdAdd));
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeShiftAddress::LogToStream(FILE *fGraph)
@@ -1491,14 +1444,6 @@ void NodeShiftAddress::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-
-unsigned int NodeShiftAddress::GetSize()
-{
-	unsigned int retSize = first->GetSize();
-	if(memberShift)
-		retSize += 2;
-	return retSize;
 }
 
 TypeInfo* NodeShiftAddress::GetTypeInfo()
@@ -1554,6 +1499,16 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 		first = static_cast<NodeArrayIndex*>(first)->first;
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
+
+	codeSize = (!knownAddress ? first->codeSize : 0);
+	if(knownAddress)
+	{
+		codeSize += 3;
+		if(!prefixOp)
+			codeSize++;
+	}else{
+		codeSize++;
+	}
 	nodeType = typeNodePreOrPostOp;
 }
 
@@ -1564,6 +1519,13 @@ NodePreOrPostOp::~NodePreOrPostOp()
 
 void NodePreOrPostOp::SetOptimised(bool doOptimisation)
 {
+	if(prefixOp)
+	{
+		if(!optimised && doOptimisation)
+			codeSize++;
+		if(optimised && !doOptimisation)
+			codeSize--;
+	}
 	optimised = doOptimisation;
 }
 
@@ -1605,7 +1567,7 @@ void NodePreOrPostOp::Compile()
 		cmdList.push_back(VMCmd(cmdAddAtTypeStk[asmDT>>2], optimised ? 0 : (prefixOp ? bitPushAfter : bitPushBefore), incOp ? 1 : -1, addrShift));
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodePreOrPostOp::LogToStream(FILE *fGraph)
@@ -1615,22 +1577,6 @@ void NodePreOrPostOp::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-
-unsigned int NodePreOrPostOp::GetSize()
-{
-	unsigned int size = (!knownAddress ? first->GetSize() : 0);
-	if(knownAddress)
-	{
-		size += 3;
-		if(!prefixOp && !optimised)
-			size++;
-		if(optimised)
-			size++;
-	}else{
-		size++;
-	}
-	return size;
 }
 
 TypeInfo* NodePreOrPostOp::GetTypeInfo()
@@ -1649,6 +1595,11 @@ NodeFunctionAddress::NodeFunctionAddress(FunctionInfo* functionInfo)
 	if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
 		first = TakeLastNode();
 
+	codeSize = 1;
+	if(funcInfo->type == FunctionInfo::NORMAL)
+		codeSize += 1;
+	else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
+		codeSize += first->codeSize;
 	nodeType = typeNodeFunctionAddress;
 }
 
@@ -1673,7 +1624,7 @@ void NodeFunctionAddress::Compile()
 		first->Compile();
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeFunctionAddress::LogToStream(FILE *fGraph)
@@ -1686,16 +1637,6 @@ void NodeFunctionAddress::LogToStream(FILE *fGraph)
 		first->LogToStream(fGraph);
 		GoUp();
 	}
-}
-
-unsigned int NodeFunctionAddress::GetSize()
-{
-	unsigned int size = 1;
-	if(funcInfo->type == FunctionInfo::NORMAL)
-		size += 1;
-	else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
-		size += first->GetSize();
-	return size;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1733,6 +1674,11 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	// Найдём результирующий тип, после проведения операции
 	typeInfo = ChooseBinaryOpResultType(first->GetTypeInfo(), second->GetTypeInfo());
 
+	asmStackType fST = podTypeToStackType[first->GetTypeInfo()->type], sST = podTypeToStackType[second->GetTypeInfo()->type];
+	codeSize = ConvertFirstForSecondSize(fST, sST);
+	fST = ConvertFirstForSecondType(fST, sST);
+	codeSize += ConvertFirstForSecondSize(sST, fST);
+	codeSize += first->codeSize + second->codeSize + 1;
 	nodeType = typeNodeTwoAndCmdOp;
 }
 NodeTwoAndCmdOp::~NodeTwoAndCmdOp()
@@ -1763,7 +1709,7 @@ void NodeTwoAndCmdOp::Compile()
 	else
 		assert(!"unknown operator type in NodeTwoAndCmdOp");
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeTwoAndCmdOp::LogToStream(FILE *fGraph)
 {
@@ -1777,15 +1723,6 @@ void NodeTwoAndCmdOp::LogToStream(FILE *fGraph)
 	GoDownB();
 	second->LogToStream(fGraph);
 	GoUp();
-}
-unsigned int NodeTwoAndCmdOp::GetSize()
-{
-	asmStackType fST = podTypeToStackType[first->GetTypeInfo()->type], sST = podTypeToStackType[second->GetTypeInfo()->type];
-	unsigned int resSize = 0;
-	resSize += ConvertFirstForSecondSize(fST, sST);
-	fST = ConvertFirstForSecondType(fST, sST);
-	resSize += ConvertFirstForSecondSize(sST, fST);
-	return NodeTwoOP::GetSize() + 1 + resSize;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1805,6 +1742,9 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 	if(isTerm)
 		typeInfo = second->GetTypeInfo();
 
+	codeSize = first->codeSize + second->codeSize + 1;
+	if(third)
+		codeSize += third->codeSize + 1;
 	nodeType = typeNodeIfElseExpr;
 }
 NodeIfElseExpr::~NodeIfElseExpr()
@@ -1825,7 +1765,7 @@ void NodeIfElseExpr::Compile()
 	first->Compile();
 
 	// Если false, перейдём в блок else или выйдем из оператора, если такого блока не имеется
-	cmdList.push_back(VMCmd(cmdJmpZType[aOT], 1 + cmdList.size() + second->GetSize() + (third ? 1 : 0)));
+	cmdList.push_back(VMCmd(cmdJmpZType[aOT], 1 + cmdList.size() + second->codeSize + (third ? 1 : 0)));
 
 	// Выполним блок для успешного прохождения условия (true)
 	second->Compile();
@@ -1833,13 +1773,13 @@ void NodeIfElseExpr::Compile()
 	if(third)
 	{
 		// Только поставим выход из оператора перед его кодом, чтобы не выполнять обе ветви
-		cmdList.push_back(VMCmd(cmdJmp, 1 + cmdList.size() + third->GetSize()));
+		cmdList.push_back(VMCmd(cmdJmp, 1 + cmdList.size() + third->codeSize));
 
 		// Выполним блок else (false)
 		third->Compile();
 	}
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeIfElseExpr::LogToStream(FILE *fGraph)
 {
@@ -1861,13 +1801,6 @@ void NodeIfElseExpr::LogToStream(FILE *fGraph)
 	}
 	GoUp();
 }
-unsigned int NodeIfElseExpr::GetSize()
-{
-	unsigned int size = first->GetSize() + second->GetSize() + 1;
-	if(third)
-		size += third->GetSize() + 1;
-	return size;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, выполняющий блок for(){}
@@ -1878,6 +1811,7 @@ NodeForExpr::NodeForExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
+	codeSize = first->codeSize + second->codeSize + third->codeSize + fourth->codeSize + 2;
 	nodeType = typeNodeForExpr;
 }
 NodeForExpr::~NodeForExpr()
@@ -1902,13 +1836,13 @@ void NodeForExpr::Compile()
 	second->Compile();
 
 	// Сохраним адрес для выхода из цикла оператором break;
-	breakAddr.push_back(cmdList.size() + 1 + third->GetSize() + fourth->GetSize() + 1);
+	breakAddr.push_back(cmdList.size() + 1 + third->codeSize + fourth->codeSize + 1);
 
 	// Если ложно, выйдем из цикла
 	cmdList.push_back(VMCmd(cmdJmpZType[aOT], breakAddr.back()));
 
 	// Сохраним адрес для перехода к следующей операции оператором continue;
-	continueAddr.push_back(cmdList.size()+fourth->GetSize());
+	continueAddr.push_back(cmdList.size()+fourth->codeSize);
 
 	// Выполним содержимое цикла
 	fourth->Compile();
@@ -1920,7 +1854,7 @@ void NodeForExpr::Compile()
 	breakAddr.pop_back();
 	continueAddr.pop_back();
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeForExpr::LogToStream(FILE *fGraph)
 {
@@ -1935,10 +1869,6 @@ void NodeForExpr::LogToStream(FILE *fGraph)
 	fourth->LogToStream(fGraph);
 	GoUp();
 }
-unsigned int NodeForExpr::GetSize()
-{
-	return NodeThreeOP::GetSize() + fourth->GetSize() + 2;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, выполняющий блок while(){}
@@ -1947,6 +1877,7 @@ NodeWhileExpr::NodeWhileExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
+	codeSize = first->codeSize + second->codeSize + 2;
 	nodeType = typeNodeWhileExpr;
 }
 NodeWhileExpr::~NodeWhileExpr()
@@ -1965,13 +1896,13 @@ void NodeWhileExpr::Compile()
 	first->Compile();
 
 	// Сохраним адрес для выхода из цикла оператором break;
-	breakAddr.push_back(cmdList.size() + 1 + second->GetSize() + 1);
+	breakAddr.push_back(cmdList.size() + 1 + second->codeSize + 1);
 
 	// Если оно ложно, выйдем из цикла
 	cmdList.push_back(VMCmd(cmdJmpZType[aOT], breakAddr.back()));
 
 	// Сохраним адрес для перехода к следующей операции оператором continue;
-	continueAddr.push_back(cmdList.size() + second->GetSize());
+	continueAddr.push_back(cmdList.size() + second->codeSize);
 
 	// Выполним содержимое цикла
 	second->Compile();
@@ -1981,7 +1912,7 @@ void NodeWhileExpr::Compile()
 	breakAddr.pop_back();
 	continueAddr.pop_back();
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeWhileExpr::LogToStream(FILE *fGraph)
 {
@@ -1994,10 +1925,6 @@ void NodeWhileExpr::LogToStream(FILE *fGraph)
 	second->LogToStream(fGraph);
 	GoUp();
 }
-unsigned int NodeWhileExpr::GetSize()
-{
-	return first->GetSize() + second->GetSize() + 2;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, выполняющий блок do{}while()
@@ -2006,6 +1933,7 @@ NodeDoWhileExpr::NodeDoWhileExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
+	codeSize = first->codeSize + second->codeSize + 1;
 	nodeType = typeNodeDoWhileExpr;
 }
 NodeDoWhileExpr::~NodeDoWhileExpr()
@@ -2021,10 +1949,10 @@ void NodeDoWhileExpr::Compile()
 
 	unsigned int posStart = cmdList.size();
 	// Сохраним адрес для выхода из цикла оператором break;
-	breakAddr.push_back(cmdList.size()+first->GetSize()+second->GetSize()+1);
+	breakAddr.push_back(cmdList.size() + first->codeSize + second->codeSize + 1);
 
 	// Сохраним адрес для перехода к следующей операции оператором continue;
-	continueAddr.push_back(cmdList.size()+first->GetSize());
+	continueAddr.push_back(cmdList.size() + first->codeSize);
 
 	// Выполним содержимое цикла
 	first->Compile();
@@ -2036,7 +1964,7 @@ void NodeDoWhileExpr::Compile()
 	breakAddr.pop_back();
 	continueAddr.pop_back();
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 {
@@ -2049,10 +1977,6 @@ void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 	second->LogToStream(fGraph);
 	GoUp();
 }
-unsigned int NodeDoWhileExpr::GetSize()
-{
-	return first->GetSize() + second->GetSize() + 1;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, производящий операцию break;
@@ -2061,6 +1985,7 @@ NodeBreakOp::NodeBreakOp(unsigned int c)
 	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
 	popCnt = c;
 
+	codeSize = 1 + popCnt;
 	nodeType = typeNodeBreakOp;
 }
 NodeBreakOp::~NodeBreakOp()
@@ -2077,16 +2002,12 @@ void NodeBreakOp::Compile()
 	// Выйдем из цикла
 	cmdList.push_back(VMCmd(cmdJmp, breakAddr.back()));
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeBreakOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s BreakExpression\r\n", typeInfo->GetFullTypeName());
-}
-unsigned int NodeBreakOp::GetSize()
-{
-	return (1+popCnt);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2097,6 +2018,7 @@ NodeContinueOp::NodeContinueOp(unsigned int c)
 	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
 	popCnt = c;
 
+	codeSize = 1 + popCnt;
 	nodeType = typeNodeContinueOp;
 }
 NodeContinueOp::~NodeContinueOp()
@@ -2114,16 +2036,12 @@ void NodeContinueOp::Compile()
 	// Выйдем из цикла
 	cmdList.push_back(VMCmd(cmdJmp, continueAddr.back()));
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeContinueOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s ContinueOp\r\n", typeInfo->GetFullTypeName());
-}
-unsigned int NodeContinueOp::GetSize()
-{
-	return (1+popCnt);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2136,6 +2054,8 @@ NodeSwitchExpr::NodeSwitchExpr()
 	blockHead = blockTail = NULL;
 	caseCount = 0;
 
+	codeSize = first->codeSize - 1;
+	codeSize += 4;
 	nodeType = typeNodeSwitchExpr;
 }
 NodeSwitchExpr::~NodeSwitchExpr()
@@ -2163,6 +2083,9 @@ void NodeSwitchExpr::AddCase()
 	}else{
 		conditionHead = conditionTail = TakeLastNode();
 	}
+	codeSize += conditionTail->codeSize;
+	codeSize += blockTail->codeSize + 2;
+	codeSize += 3;
 }
 
 void NodeSwitchExpr::Compile()
@@ -2181,10 +2104,10 @@ void NodeSwitchExpr::Compile()
 	// Найдём конец свитча
 	unsigned int switchEnd = cmdList.size() + 2 + caseCount * 3;
 	for(curr = conditionHead; curr; curr = curr->next)
-		switchEnd += curr->GetSize();
+		switchEnd += curr->codeSize;
 	unsigned int condEnd = switchEnd;
 	for(curr = blockHead; curr; curr = curr->next)
-		switchEnd += curr->GetSize() + 1 + (curr != blockTail ? 1 : 0);
+		switchEnd += curr->codeSize + 1 + (curr != blockTail ? 1 : 0);
 
 	// Сохраним адрес для оператора break;
 	breakAddr.push_back(switchEnd+1);
@@ -2208,7 +2131,7 @@ void NodeSwitchExpr::Compile()
 			cmdList.push_back(VMCmd(cmdEqualL));
 		// Если равны, перейдём на нужный кейс
 		cmdList.push_back(VMCmd(cmdJmpNZType[aOT], caseAddr));
-		caseAddr += currBlock->GetSize() + 2;
+		caseAddr += currBlock->codeSize + 2;
 	}
 	// Уберём с вершины стека значение по которому выбирался вариант кода
 	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
@@ -2230,7 +2153,7 @@ void NodeSwitchExpr::Compile()
 
 	breakAddr.pop_back();
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeSwitchExpr::LogToStream(FILE *fGraph)
 {
@@ -2250,18 +2173,6 @@ void NodeSwitchExpr::LogToStream(FILE *fGraph)
 	}
 	GoUp();
 }
-unsigned int NodeSwitchExpr::GetSize()
-{
-	unsigned int size = 0;
-	size += first->GetSize();
-	for(NodeZeroOP *curr = conditionHead; curr; curr = curr->next)
-		size += curr->GetSize();
-	for(NodeZeroOP *curr = blockHead; curr; curr = curr->next)
-		size += curr->GetSize() + 1 + (curr != blockTail ? 1 : 0);
-	size += 4;
-	size += (unsigned int)caseCount * 3;
-	return size;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, содержащий список выражений.
@@ -2270,6 +2181,7 @@ NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 	typeInfo = returnType;
 	tail = first = TakeLastNode();
 
+	codeSize = tail->codeSize;
 	nodeType = typeNodeExpressionList;
 }
 NodeExpressionList::~NodeExpressionList()
@@ -2283,12 +2195,14 @@ void NodeExpressionList::AddNode(bool reverse)
 	{
 		NodeZeroOP *firstNext = first;
 		first = TakeLastNode();
+		codeSize += first->nodeType == typeNodeFuncDef ? 0 : first->codeSize;
 		first->next = firstNext;
 		first->next->prev = first;
 	}else{
 		tail->next = TakeLastNode();
 		tail->next->prev = tail;
 		tail = tail->next;
+		codeSize += tail->nodeType == typeNodeFuncDef ? 0 : tail->codeSize;
 	}
 }
 
@@ -2309,7 +2223,7 @@ void NodeExpressionList::Compile()
 		curr = curr->next;
 	}while(curr);
 
-	assert((cmdList.size()-startCmdSize) == GetSize());
+	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeExpressionList::LogToStream(FILE *fGraph)
 {
@@ -2328,15 +2242,4 @@ void NodeExpressionList::LogToStream(FILE *fGraph)
 		curr = curr->next;
 	}while(curr);
 	GoUp();
-}
-unsigned int NodeExpressionList::GetSize()
-{
-	unsigned int size = 0;
-	NodeZeroOP	*curr = first;
-	do 
-	{
-		size += curr->GetSize();
-		curr = curr->next;
-	}while(curr);
-	return size;
 }
