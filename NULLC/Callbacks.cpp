@@ -88,7 +88,19 @@ int AddFunctionExternal(FunctionInfo* func, InplaceStr name)
 	return func->externalCount - 1;
 }
 
-long long parseInteger(char const* s, char const* e, int base)
+int parseInteger(const char* str)
+{
+	unsigned int digit;
+	int a = 0;
+	while((digit = *str - '0') < 10)
+	{
+		a = a * 10 + digit;
+		str++;
+	}
+	return a;
+}
+
+long long parseLong(char const* s, char const* e, int base)
 {
 	unsigned long long res = 0;
 	for(const char *p = s; p < e; p++)
@@ -103,6 +115,38 @@ long long parseInteger(char const* s, char const* e, int base)
 		res = res * base + digit;
 	}
 	return res;
+}
+
+double parseDouble(const char *str)
+{
+	unsigned int digit;
+	double integer = 0.0;
+	while((digit = *str - '0') < 10)
+	{
+		integer = integer * 10.0 + digit;
+		str++;
+	}
+
+	double fractional = 0.0;
+	double power = 0.1f;
+	
+	if(*str == '.')
+	{
+		str++;
+		while((digit = *str - '0') < 10)
+		{
+			fractional = fractional + power * digit;
+			power /= 10.0;
+			str++;
+		}
+	}
+	if(*str == 'e')
+	{
+		str++;
+		int power = parseInteger(str);
+		return (integer + fractional) * pow(10, (double)power);
+	}
+	return integer + fractional;
 }
 
 // Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
@@ -162,37 +206,25 @@ void addNumberNodeChar(char const*s, char const*e)
 	nodeList.push_back(new NodeNumber<int>(res, typeChar));
 }
 
-int fastatoi(const char* str)
-{
-	unsigned int digit;
-	int a = 0;
-	while((digit = *str - '0') < 10)
-	{
-		a = a * 10 + digit;
-		str++;
-	}
-	return a;
-}
-
 void addNumberNodeInt(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<int>(fastatoi(s), typeInt));
+	nodeList.push_back(new NodeNumber<int>(parseInteger(s), typeInt));
 }
 void addNumberNodeFloat(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<float>((float)atof(s), typeFloat));
+	nodeList.push_back(new NodeNumber<float>((float)parseDouble(s), typeFloat));
 }
 void addNumberNodeLong(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e, 10), typeLong));
+	nodeList.push_back(new NodeNumber<long long>(parseLong(s, e, 10), typeLong));
 }
 void addNumberNodeDouble(char const*s, char const*e)
 {
 	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<double>(atof(s), typeDouble));
+	nodeList.push_back(new NodeNumber<double>(parseDouble(s), typeDouble));
 }
 
 void addVoidNode(char const*s, char const*e)
@@ -207,9 +239,9 @@ void addHexInt(char const*s, char const*e)
 	if(int(e-s) > 16)
 		ThrowError("ERROR: Overflow in hexadecimal constant", s);
 	if(int(e-s) <= 8)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseInteger(s, e, 16), typeInt));
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(s, e, 16), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e, 16), typeLong));
+		nodeList.push_back(new NodeNumber<long long>(parseLong(s, e, 16), typeLong));
 }
 
 void addOctInt(char const*s, char const*e)
@@ -218,9 +250,9 @@ void addOctInt(char const*s, char const*e)
 	if(int(e-s) > 21)
 		ThrowError("ERROR: Overflow in octal constant", s);
 	if(int(e-s) <= 10)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseInteger(s, e, 8), typeInt));
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(s, e, 8), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e, 8), typeLong));
+		nodeList.push_back(new NodeNumber<long long>(parseLong(s, e, 8), typeLong));
 }
 
 void addBinInt(char const*s, char const*e)
@@ -228,9 +260,9 @@ void addBinInt(char const*s, char const*e)
 	if(int(e-s) > 64)
 		ThrowError("ERROR: Overflow in binary constant", s);
 	if(int(e-s) <= 32)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseInteger(s, e, 2), typeInt));
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(s, e, 2), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseInteger(s, e, 2), typeLong));
+		nodeList.push_back(new NodeNumber<long long>(parseLong(s, e, 2), typeLong));
 }
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
