@@ -1742,16 +1742,16 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 	}
 
 	paramNodes.clear();
-	for(unsigned int i = 0; i < fType->paramType.size(); i++)
+	for(unsigned int i = 0; i < fType->paramCount; i++)
 	{
 		paramNodes.push_back(nodeList.back());
 		nodeList.pop_back();
 	}
 	inplaceArray.clear();
 
-	for(unsigned int i = 0; i < fType->paramType.size(); i++)
+	for(unsigned int i = 0; i < fType->paramCount; i++)
 	{
-		unsigned int index = (unsigned int)(fType->paramType.size()) - i - 1;
+		unsigned int index = fType->paramCount - i - 1;
 
 		TypeInfo *expectedType = fType->paramType[i];
 		TypeInfo *realType = paramNodes[index]->GetTypeInfo();

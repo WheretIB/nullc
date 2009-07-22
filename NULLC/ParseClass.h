@@ -11,13 +11,16 @@ class FunctionInfo;
 class FunctionType
 {
 public:
-	FunctionType():paramType(16)
+	FunctionType()
 	{
 		retType = NULL;
+		paramType = NULL;
+		paramCount = 0;
 	}
 
-	TypeInfo	*retType;
-	FastVector<TypeInfo*>	paramType;
+	TypeInfo		*retType;
+	TypeInfo		**paramType;	// Array of pointers to type inforamtion
+	unsigned int	paramCount;
 };
 
 //Information about type
@@ -29,9 +32,8 @@ public:
 	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	TypeInfo(unsigned int index, const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType, FunctionType *functionType = NULL)
+	TypeInfo(unsigned int index, const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType)
 	{
-		assert(typeName != NULL || functionType != NULL || referenceLevel != 0 || arrayLevel != 0);
 		name = typeName;
 		nameHash = name ? GetStringHash(name) : (unsigned int)(~0);
 
@@ -46,7 +48,7 @@ public:
 		alignBytes = 0;
 		paddingBytes = 0;
 
-		funcType = functionType;
+		funcType = NULL;
 
 		refType = NULL;
 
@@ -102,16 +104,16 @@ public:
 			if(funcType)
 			{
 				// 7 is the length of " ref(", ")" and \0
-				unsigned int bufferSize = 7 + funcType->retType->GetFullNameLength() + funcType->paramType.size();
-				for(unsigned int i = 0; i < funcType->paramType.size(); i++)
-					bufferSize += funcType->paramType[i]->GetFullNameLength() + (i != funcType->paramType.size()-1 ? 2 : 0);
+				unsigned int bufferSize = 7 + funcType->retType->GetFullNameLength() + funcType->paramCount;
+				for(unsigned int i = 0; i < funcType->paramCount; i++)
+					bufferSize += funcType->paramType[i]->GetFullNameLength() + (i != funcType->paramCount-1 ? 2 : 0);
 				char *curr = new char[bufferSize+1];
 				fullName = curr;
 				curr += sprintf(curr, "%s ref(", funcType->retType->GetFullTypeName());
-				for(unsigned int i = 0; i < funcType->paramType.size(); i++)
+				for(unsigned int i = 0; i < funcType->paramCount; i++)
 				{
 					curr += sprintf(curr, "%s", funcType->paramType[i]->GetFullTypeName());
-					if(i != funcType->paramType.size()-1)
+					if(i != funcType->paramCount-1)
 						curr += sprintf(curr, ", ");
 				}
 				sprintf(curr, ")");
@@ -185,8 +187,16 @@ public:
 	MemberVariable	*firstVariable, *lastVariable;
 	MemberFunction	*firstFunction, *lastFunction;
 
-	FunctionType		*funcType;
+	FunctionType*	CreateFunctionType(TypeInfo *retType, unsigned int paramCount)
+	{
+		funcType = new (typeInfoPool.Allocate(sizeof(FunctionType))) FunctionType();
+		funcType->paramType = (TypeInfo**)typeInfoPool.Allocate(paramCount * sizeof(TypeInfo*));
+		funcType->paramCount = paramCount;
+		funcType->retType = retType;
+		return funcType;
+	}
 
+	FunctionType		*funcType;
 // Specialized allocation
 	void*		operator new(unsigned int size)
 	{
@@ -329,8 +339,8 @@ public:
 
 	bool		visible;				// true until function goes out of scope
 
-	enum FunctionType{ NORMAL, LOCAL, THISCALL };
-	FunctionType	type;
+	enum FunctionCategory{ NORMAL, LOCAL, THISCALL };
+	FunctionCategory	type;
 
 	struct ExternalName
 	{
