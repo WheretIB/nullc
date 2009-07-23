@@ -167,3 +167,21 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 	}
 	return bestFit;
 }
+
+int	CodeInfo::FindVariableByName(const InplaceStr& name)
+{
+	unsigned int hash = GetStringHash(name.begin, name.end);
+	for(int i = CodeInfo::varInfo.size()-1; i >= 0; i--)
+		if(CodeInfo::varInfo[i]->nameHash == hash)
+			return i;
+	return -1;
+}
+
+int CodeInfo::FindFunctionByName(const InplaceStr& name, int startPos)
+{
+	unsigned int hash = GetStringHash(name.begin, name.end);
+	for(int i = startPos; i < (int)CodeInfo::funcInfo.size(); i++)
+		if(CodeInfo::funcInfo[i]->nameHash == hash)
+			return i;
+	return -1;
+}
