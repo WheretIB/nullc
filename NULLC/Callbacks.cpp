@@ -802,13 +802,10 @@ void AddVariable(char const* pos, InplaceStr varName)
 		}
 	}
 	// Check for functions with the same name
-	for(unsigned int i = 0; i < funcInfo.size(); i++)
+	if(FindFunctionByName(hash, funcInfo.size() - 1) != -1)
 	{
-		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible)
-		{
-			sprintf(callbackError, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
-			ThrowError(callbackError, pos);
-		}
+		sprintf(callbackError, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
+		ThrowError(callbackError, pos);
 	}
 
 	if(currType && currType->size == TypeInfo::UNSIZED_ARRAY)
@@ -917,36 +914,25 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
 
-	int fID = -1;
-
-	// Find variable name hash
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// Find in variable list
-	//int i = FindVariableByName(varName);
-	int i = (int)varInfo.size()-1;
-	while(i >= 0 && varInfo[i]->nameHash != hash)
-		i--;
+	int i = FindVariableByName(hash);
 	if(i == -1)
 	{ 
-		// »щем функцию по имени
-		for(int k = 0; k < (int)funcInfo.size(); k++)
-		{
-			if(funcInfo[k]->nameHash == hash && funcInfo[k]->visible)
-			{
-				if(fID != -1)
-				{
-					sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
-					ThrowError(callbackError, pos);
-				}
-				fID = k;
-			}
-		}
+		int fID = FindFunctionByName(hash, funcInfo.size()-1);
 		if(fID == -1)
 		{
-			sprintf(callbackError, "ERROR: variable '%s' is not defined", varName);
+			sprintf(callbackError, "ERROR: function '%s' is not defined", varName);
 			ThrowError(callbackError, pos);
 		}
+
+		if(FindFunctionByName(hash, fID - 1) != -1)
+		{
+			sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
+			ThrowError(callbackError, pos);
+		}
+
 		//  ладЄм в стек типов тип
 		currTypes.push_back(funcInfo[fID]->funcType);
 
@@ -960,9 +946,7 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 			int length = sprintf(contextName, "$%s_ext", funcInfo[fID]->name);
 			unsigned int contextHash = GetStringHash(contextName);
 
-			int i = (int)varInfo.size()-1;
-			while(i >= 0 && varInfo[i]->nameHash != contextHash)
-				i--;
+			int i = FindVariableByName(contextHash);
 			if(i == -1)
 			{
 				nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
@@ -1124,9 +1108,7 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// »щем переменную по имени
-	int i = (int)varInfo.size()-1;
-	while(i >= 0 && varInfo[i]->nameHash != hash)
-		i--;
+	int i = FindVariableByName(hash);
 	if(i == -1)
 	{
 		sprintf(callbackError, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
@@ -1343,22 +1325,16 @@ void AddMemberAccessNode(char const* pos, InplaceStr varName)
 		hash = StringHashContinue(hash, "::");
 		hash = StringHashContinue(hash, varName.begin, varName.end);
 
-		// »щем функцию по имени
-		for(int k = 0; k < (int)funcInfo.size(); k++)
-		{
-			if(funcInfo[k]->nameHash == hash && funcInfo[k]->visible)
-			{
-				if(fID != -1)
-				{
-					sprintf(callbackError, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
-					ThrowError(callbackError, pos);
-				}
-				fID = k;
-			}
-		}
+		fID = FindFunctionByName(hash, funcInfo.size()-1);
 		if(fID == -1)
 		{
-			sprintf(callbackError, "ERROR: variable '%.*s' is not a member of '%s'", varName.end-varName.begin, varName.begin, currType->GetFullTypeName());
+			sprintf(callbackError, "ERROR: function '%s' is not defined", varName);
+			ThrowError(callbackError, pos);
+		}
+
+		if(FindFunctionByName(hash, fID - 1) != -1)
+		{
+			sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
 			ThrowError(callbackError, pos);
 		}
 	}
@@ -1555,10 +1531,7 @@ void FunctionEnd(char const* pos, char const* funcName)
 		funcNameHash = StringHashContinue(funcNameHash, funcName);
 	}
 
-	int i = (int)funcInfo.size()-1;
-	while(i >= 0 && funcInfo[i]->nameHash != funcNameHash)
-		i--;
-
+	int i = FindFunctionByName(funcNameHash, funcInfo.size()-1);
 	// Find all the functions with the same name
 	for(int n = 0; n < i; n++)
 	{
@@ -1651,9 +1624,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 	unsigned int funcNameHash = GetStringHash(funcName);
 
 	// Searching, if fname is actually a variable name (which means, either it is a pointer to function, or an error)
-	int vID = (int)varInfo.size()-1;
-	while(vID >= 0 && varInfo[vID]->nameHash != funcNameHash)
-		vID--;
+	int vID = FindVariableByName(funcNameHash);
 
 	FunctionInfo	*fInfo = NULL;
 	FunctionType	*fType = NULL;
@@ -1661,9 +1632,8 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 	if(vID == -1)
 	{
 		//Find all functions with given name
-		FunctionInfo *fList[32];
+		FunctionInfo	*fList[32];
 		unsigned int	fRating[32];
-		//memset(fRating, 0, 32*4);
 
 		unsigned int count = 0;
 		for(int k = 0; k < (int)funcInfo.size(); k++)
@@ -1832,9 +1802,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		int length = sprintf(contextName, "$%s_ext", fInfo->name);
 		unsigned int contextHash = GetStringHash(contextName);
 
-		int i = (int)varInfo.size()-1;
-		while(i >= 0 && varInfo[i]->nameHash != contextHash)
-			i--;
+		int i = FindVariableByName(contextHash);
 		if(i == -1)
 		{
 			nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));

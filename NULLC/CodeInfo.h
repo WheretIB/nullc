@@ -80,8 +80,8 @@ namespace CodeInfo
 	TypeInfo* GetFunctionType(FunctionInfo* info);
 
 	// Search for the variable starting from the end of a list. -1 is returned if the variable not found
-	int	FindVariableByName(const InplaceStr& name);
+	int	FindVariableByName(unsigned int hash);
 
-	// Search for the function starting from specified position in a list. -1 is returned if the variable not found
-	int FindFunctionByName(const InplaceStr& name, int startPos = 0);
+	// Search for the function from specified position to the beginning of a list. -1 is returned if the function not found
+	int FindFunctionByName(unsigned int hash, int startPos);
 };
