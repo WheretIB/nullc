@@ -20,9 +20,8 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 		return type->refType;
 
 	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, type->refLevel + 1, 0, 1, type);
+	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, type->refLevel + 1, 0, 1, type, TypeInfo::TYPE_INT);
 	newInfo->size = 4;
-	newInfo->type = TypeInfo::TYPE_INT;
 
 	type->refType = newInfo;
 
@@ -53,7 +52,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 		// В последнем узле должно находиться константное число
 		if(nodeList.back()->nodeType == typeNodeNumber)
 		{
-			TypeInfo *aType = nodeList.back()->GetTypeInfo();
+			TypeInfo *aType = nodeList.back()->typeInfo;
 			NodeZeroOP* zOP = nodeList.back();
 			if(aType == typeDouble)
 			{
@@ -99,7 +98,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 		}
 	}
 	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, 0, type->arrLevel + 1, arrSize, type);
+	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, 0, type->arrLevel + 1, arrSize, type, TypeInfo::TYPE_COMPLEX);
 
 	if(unFixed)
 	{
@@ -113,8 +112,6 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 			newInfo->size += 4 - (newInfo->size % 4);
 		}
 	}
-
-	newInfo->type = TypeInfo::TYPE_COMPLEX;
 
 	typeInfo.push_back(newInfo);
 	return newInfo;
@@ -154,7 +151,7 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 	// If none found, create new
 	if(!bestFit)
 	{
-		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL));
+		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX));
 		bestFit = typeInfo.back();
 		bestFit->CreateFunctionType(info->retType, info->paramCount);
 
@@ -167,7 +164,6 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 		bestFit->AddMemberVariable("ptr", typeInt);
 #endif
 		bestFit->size = 8;
-		bestFit->type = TypeInfo::TYPE_COMPLEX;
 	}
 	return bestFit;
 }

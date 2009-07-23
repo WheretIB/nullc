@@ -76,12 +76,14 @@ void DrawLine(FILE *fGraph)
 //				double * int = double, no transformations
 asmStackType	ConvertFirstForSecond(asmStackType first, asmStackType second)
 {
-	if((first == STYPE_INT || first == STYPE_LONG) && second == STYPE_DOUBLE)
+	if(first == STYPE_INT && second == STYPE_DOUBLE)
 	{
-		if(first == STYPE_INT)
-			cmdList.push_back(VMCmd(cmdItoD));
-		else
-			cmdList.push_back(VMCmd(cmdLtoD));
+		cmdList.push_back(VMCmd(cmdItoD));
+		return second;
+	}
+	if(first == STYPE_LONG && second == STYPE_DOUBLE)
+	{
+		cmdList.push_back(VMCmd(cmdLtoD));
 		return second;
 	}
 	if(first == STYPE_INT && second == STYPE_LONG)
@@ -216,10 +218,6 @@ void NodeZeroOP::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s ZeroOp\r\n", typeInfo->GetFullTypeName());
 }
-TypeInfo* NodeZeroOP::GetTypeInfo()
-{
-	return typeInfo;
-}
 
 void NodeZeroOP::SetCodeInfo(const char* start, const char* end)
 {
@@ -343,7 +341,7 @@ NodePopOp::NodePopOp()
 {
 	first = TakeLastNode();
 	codeSize = first->codeSize;
-	if(first->GetTypeInfo() != typeVoid)
+	if(first->typeInfo != typeVoid)
 		codeSize += 1;
 	nodeType = typeNodePopOp;
 }
@@ -360,10 +358,10 @@ void NodePopOp::Compile()
 
 	// Даём дочернему узлу вычислить значение
 	first->Compile();
-	if(first->GetTypeInfo() != typeVoid)
+	if(first->typeInfo != typeVoid)
 	{
 		// Убираем его с вершины стека
-		cmdList.push_back(VMCmd(cmdPop, first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX ? first->GetTypeInfo()->size : stackTypeSize[podTypeToStackType[first->GetTypeInfo()->type]]));
+		cmdList.push_back(VMCmd(cmdPop, first->typeInfo->type == TypeInfo::TYPE_COMPLEX ? first->typeInfo->size : stackTypeSize[first->typeInfo->stackType]));
 	}
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
@@ -386,7 +384,7 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 
 	first = TakeLastNode();
 	// Тип результата такой же, как исходный
-	typeInfo = first->GetTypeInfo();
+	typeInfo = first->typeInfo;
 
 	codeSize = first->codeSize + 1;
 	nodeType = typeNodeUnaryOp;
@@ -399,7 +397,7 @@ void NodeUnaryOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->GetTypeInfo()->type]];
+	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
 
 	// Даём дочернему узлу вычислить значение
 	first->Compile();
@@ -433,7 +431,7 @@ NodeReturnOp::NodeReturnOp(unsigned int c, TypeInfo* tinfo)
 
 	first = TakeLastNode();
 
-	codeSize = first->codeSize + 1 + (typeInfo ? ConvertFirstToSecondSize(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]) : 0);
+	codeSize = first->codeSize + 1 + (typeInfo ? ConvertFirstToSecondSize(first->typeInfo->stackType, typeInfo->stackType) : 0);
 	nodeType = typeNodeReturnOp;
 }
 NodeReturnOp::~NodeReturnOp()
@@ -451,11 +449,11 @@ void NodeReturnOp::Compile()
 	first->Compile();
 	// Преобразуем его в тип возвратного значения функции
 	if(typeInfo)
-		ConvertFirstToSecond(podTypeToStackType[first->GetTypeInfo()->type], podTypeToStackType[typeInfo->type]);
+		ConvertFirstToSecond(first->typeInfo->stackType, typeInfo->stackType);
 
 	// Выйдем из функции или программы
-	TypeInfo *retType = typeInfo ? typeInfo : first->GetTypeInfo();
-	asmOperType operType = operTypeForStackType[podTypeToStackType[retType->type]];
+	TypeInfo *retType = typeInfo ? typeInfo : first->typeInfo;
+	asmOperType operType = operTypeForStackType[retType->stackType];
 
 	if(retType->type == TypeInfo::TYPE_COMPLEX || retType->type == TypeInfo::TYPE_VOID)
 		cmdList.push_back(VMCmd(cmdReturn, 0, (unsigned short)retType->size, popCnt));
@@ -470,7 +468,7 @@ void NodeReturnOp::LogToStream(FILE *fGraph)
 	if(typeInfo)
 		fprintf(fGraph, "%s ReturnOp :\r\n", typeInfo->GetFullTypeName());
 	else
-		fprintf(fGraph, "%s ReturnOp :\r\n", first->GetTypeInfo()->GetFullTypeName());
+		fprintf(fGraph, "%s ReturnOp :\r\n", first->typeInfo->GetFullTypeName());
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -667,7 +665,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 			paramSize += (*paramType)->size;
 
 			codeSize += curr->codeSize;
-			codeSize += ConvertFirstToSecondSize(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[(*paramType)->type]);
+			codeSize += ConvertFirstToSecondSize(curr->typeInfo->stackType, (*paramType)->stackType);
 			curr = curr->prev;
 			paramType++;
 		}while(curr);
@@ -714,7 +712,7 @@ void NodeFuncCall::Compile()
 				// Определим значение параметра
 				curr->Compile();
 				// Преобразуем его в тип входного параметра функции
-				ConvertFirstToSecond(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[(*paramType)->type]);
+				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
 				if(*paramType == typeFloat)
 					cmdList.push_back(VMCmd(cmdDtoF));
 				curr = curr->next;
@@ -738,7 +736,7 @@ void NodeFuncCall::Compile()
 				// Определим значение параметра
 				curr->Compile();
 				// Преобразуем его в тип входного параметра функции
-				ConvertFirstToSecond(podTypeToStackType[curr->GetTypeInfo()->type], podTypeToStackType[(*paramType)->type]);
+				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
 				if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
 					onlyStackTypes = false;
 				curr = curr->prev;
@@ -765,7 +763,7 @@ void NodeFuncCall::Compile()
 		{
 			for(int i = funcType->paramCount-1; i >= 0; i--)
 			{
-				asmDataType newDT = podTypeToDataType[funcType->paramType[i]->type];
+				asmDataType newDT = funcType->paramType[i]->dataType;
 				cmdList.push_back(VMCmd(cmdPopTypeTop[newDT>>2], newDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)funcType->paramType[i]->size, addr));
 				addr += funcType->paramType[i]->size;
 			}
@@ -789,7 +787,7 @@ void NodeFuncCall::Compile()
 
 		// Вызовем по адресу
 		unsigned int ID = GetFuncIndexByPtr(funcInfo);
-		unsigned short helper = (unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[podTypeToStackType[typeInfo->type]]));
+		unsigned short helper = (unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[typeInfo->stackType]));
 		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : -1));
 	}
 
@@ -822,15 +820,14 @@ void NodeFuncCall::LogToStream(FILE *fGraph)
 // Новый узел для получения значения переменной
 NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, TypeInfo *retInfo)
 {
-	//assert(vInfo);
+	assert(retInfo);
+
 	varInfo = vInfo;
 	varAddress = vAddress;
 	absAddress = absAddr;
 
-	if(vInfo)
-		typeInfo = vInfo->varType;
-	else
-		typeInfo = retInfo;
+	typeOrig = retInfo;
+	typeInfo = GetReferenceType(typeOrig);
 
 	codeSize = 1;
 	nodeType = typeNodeGetAddress;
@@ -847,16 +844,18 @@ bool NodeGetAddress::IsAbsoluteAddress()
 
 void NodeGetAddress::IndexArray(int shift)
 {
-	assert(typeInfo->arrLevel != 0);
-	varAddress += typeInfo->subType->size * shift;
-	typeInfo = typeInfo->subType;
+	assert(typeOrig->arrLevel != 0);
+	varAddress += typeOrig->subType->size * shift;
+	typeOrig = typeOrig->subType;
+	typeInfo = GetReferenceType(typeOrig);
 }
 
 void NodeGetAddress::ShiftToMember(TypeInfo::MemberVariable *member)
 {
 	assert(member);
 	varAddress += member->offset;
-	typeInfo = member->type;
+	typeOrig = member->type;
+	typeInfo = GetReferenceType(typeOrig);
 }
 
 void NodeGetAddress::Compile()
@@ -876,17 +875,12 @@ void NodeGetAddress::Compile()
 void NodeGetAddress::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s GetAddress ", GetReferenceType(typeInfo)->GetFullTypeName());
+	fprintf(fGraph, "%s GetAddress ", typeInfo->GetFullTypeName());
 	if(varInfo)
 		fprintf(fGraph, "%s%s '%s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetFullTypeName(), varInfo->name);
 	else
 		fprintf(fGraph, "$$$");
 	fprintf(fGraph, " (%d %s)\r\n", (int)varAddress, (absAddress ? " absolute" : " relative"));
-}
-
-TypeInfo* NodeGetAddress::GetTypeInfo()
-{
-	return GetReferenceType(typeInfo);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -902,15 +896,15 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 
 	// Address of the target variable
 	first = TakeLastNode();
-	assert(first->GetTypeInfo()->refLevel != 0);
+	assert(first->typeInfo->refLevel != 0);
 
 	if(!swapNodes)
 		second = TakeLastNode();
 
 	// Если идёт первое определение переменной и массиву присваивается базовый тип
-	arrSetAll = (pushVar && typeInfo->arrLevel != 0 && second->GetTypeInfo()->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX);
+	arrSetAll = (pushVar && typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
-	if(second->GetTypeInfo() == typeVoid)
+	if(second->typeInfo == typeVoid)
 	{
 		char	errBuf[128];
 		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
@@ -920,28 +914,28 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 	if(typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->GetTypeInfo()->GetFullTypeName());
+		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 
 	// Если типы не равны
-	if(second->GetTypeInfo() != typeInfo)
+	if(second->typeInfo != typeInfo)
 	{
 		// Если это не встроенные базовые типы, или
 		// если различаются размерности массивов, и при этом не происходит первое определение переменной, или
 		// если различается глубина указателей, или
 		// если это указатель, глубина указателей равна, но при этом тип, на который указывает указатель отличается, то
 		// сообщим об ошибке несоответствия типов
-		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX) ||
-			(typeInfo->arrLevel != second->GetTypeInfo()->arrLevel && !arrSetAll) ||
-			(typeInfo->refLevel != second->GetTypeInfo()->refLevel) ||
-			(typeInfo->refLevel && typeInfo->refLevel == second->GetTypeInfo()->refLevel && typeInfo->subType != second->GetTypeInfo()->subType))
+		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX) ||
+			(typeInfo->arrLevel != second->typeInfo->arrLevel && !arrSetAll) ||
+			(typeInfo->refLevel != second->typeInfo->refLevel) ||
+			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
 		{
-			if(!(typeInfo->arrLevel != 0 && second->GetTypeInfo()->arrLevel == 0 && arrSetAll))
+			if(!(typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && arrSetAll))
 			{
 				char	errBuf[128];
-				_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->GetTypeInfo()->GetFullTypeName(), typeInfo->GetFullTypeName());
+				_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 				lastError = CompilerError(errBuf, lastKnownStartPos);
 				return;
 			}
@@ -973,10 +967,16 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 
+	if(arrSetAll)
+	{
+		elemCount = typeInfo->size / typeInfo->subType->size;
+		typeInfo = typeInfo->subType;
+	}
+
 	codeSize = second->codeSize;
 	if(!knownAddress)
 		codeSize += first->codeSize;
-	codeSize += ConvertFirstToSecondSize(podTypeToStackType[second->GetTypeInfo()->type], podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)]);
+	codeSize += ConvertFirstToSecondSize(second->typeInfo->stackType, typeInfo->stackType);
 	if(arrSetAll)
 		codeSize += 2;
 	else
@@ -995,18 +995,18 @@ void NodeVariableSet::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	asmStackType asmST = podTypeToStackType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)];
-	asmDataType asmDT = podTypeToDataType[(arrSetAll ? typeInfo->subType->type : typeInfo->type)];
+	asmStackType asmST = typeInfo->stackType;
+	asmDataType asmDT = typeInfo->dataType;
 
 	second->Compile();
-	ConvertFirstToSecond(podTypeToStackType[second->GetTypeInfo()->type], asmST);
+	ConvertFirstToSecond(second->typeInfo->stackType, asmST);
 
 	if(!knownAddress)
 		first->Compile();
 	if(arrSetAll)
 	{
 		assert(knownAddress);
-		cmdList.push_back(VMCmd(cmdPushImmt, typeInfo->size / typeInfo->subType->size));
+		cmdList.push_back(VMCmd(cmdPushImmt, elemCount));
 		cmdList.push_back(VMCmd(cmdSetRange, (unsigned short)(asmDT), addrShift));
 	}else{
 		if(knownAddress)
@@ -1035,11 +1035,6 @@ void NodeVariableSet::LogToStream(FILE *fGraph)
 	GoUp();
 }
 
-TypeInfo* NodeVariableSet::GetTypeInfo()
-{
-	return (arrSetAll ? typeInfo->subType : typeInfo);
-}
-
 //////////////////////////////////////////////////////////////////////////
 // Узел для изменения значения переменной (операции += -= *= /= и т.п.)
 
@@ -1054,9 +1049,9 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 
 	// Address of the target variable
 	first = TakeLastNode();
-	assert(first->GetTypeInfo()->refLevel != 0);
+	assert(first->typeInfo->refLevel != 0);
 
-	if(second->GetTypeInfo() == typeVoid)
+	if(second->typeInfo == typeVoid)
 	{
 		char	errBuf[128];
 		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
@@ -1066,25 +1061,25 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	if(typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->GetTypeInfo()->GetFullTypeName());
+		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 
 	// Если типы не равны
-	if(second->GetTypeInfo() != typeInfo)
+	if(second->typeInfo != typeInfo)
 	{
 		// Если это не встроенные базовые типы, или
 		// если различается глубина указателей, или
 		// если это указатель, глубина указателей равна, но при этом тип, на который указывает указатель отличается, то
 		// сообщим об ошибке несоответствия типов
-		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->GetTypeInfo()->type != TypeInfo::TYPE_COMPLEX) ||
-			(typeInfo->arrLevel != second->GetTypeInfo()->arrLevel) ||
-			(typeInfo->refLevel != second->GetTypeInfo()->refLevel) ||
-			(typeInfo->refLevel && typeInfo->refLevel == second->GetTypeInfo()->refLevel && typeInfo->subType != second->GetTypeInfo()->subType))
+		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX) ||
+			(typeInfo->arrLevel != second->typeInfo->arrLevel) ||
+			(typeInfo->refLevel != second->typeInfo->refLevel) ||
+			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
 		{
 			char	errBuf[128];
-			_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->GetTypeInfo()->GetFullTypeName(), typeInfo->GetFullTypeName());
+			_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
@@ -1115,8 +1110,8 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 
-	asmStackType asmSTfirst = podTypeToStackType[typeInfo->type];
-	asmStackType asmSTsecond = podTypeToStackType[second->GetTypeInfo()->type];
+	asmStackType asmSTfirst = typeInfo->stackType;
+	asmStackType asmSTsecond = second->typeInfo->stackType;
 
 	codeSize = second->codeSize;
 	if(!knownAddress)
@@ -1139,10 +1134,10 @@ void NodeVariableModify::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	asmStackType asmSTfirst = podTypeToStackType[typeInfo->type];
-	asmDataType asmDT = podTypeToDataType[typeInfo->type];
+	asmStackType asmSTfirst = typeInfo->stackType;
+	asmDataType asmDT = typeInfo->dataType;
 
-	asmStackType asmSTsecond = podTypeToStackType[second->GetTypeInfo()->type];
+	asmStackType asmSTsecond = second->typeInfo->stackType;
 
 	// Если надо, расчитаем адрес первого операнда
 	if(!knownAddress)
@@ -1211,11 +1206,6 @@ void NodeVariableModify::LogToStream(FILE *fGraph)
 	GoUp();
 }
 
-TypeInfo* NodeVariableModify::GetTypeInfo()
-{
-	return typeInfo;
-}
-
 //////////////////////////////////////////////////////////////////////////
 // Узел для получения элемента массива
 NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
@@ -1235,7 +1225,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 
 	if(second->nodeType == typeNodeNumber)
 	{
-		TypeInfo *aType = second->GetTypeInfo();
+		TypeInfo *aType = second->typeInfo;
 		NodeZeroOP* zOP = second;
 		if(aType == typeDouble)
 		{
@@ -1258,7 +1248,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 	if(knownShift)
 		codeSize = first->codeSize + 2;
 	else
-		codeSize = first->codeSize + second->codeSize + 1 + (typeParent->subType->size == 1 && podTypeToStackType[second->GetTypeInfo()->type] == STYPE_INT ? 0 : 1);
+		codeSize = first->codeSize + second->codeSize + 1 + (typeParent->subType->size == 1 && second->typeInfo->stackType == STYPE_INT ? 0 : 1);
 	nodeType = typeNodeArrayIndex;
 }
 
@@ -1272,7 +1262,7 @@ void NodeArrayIndex::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	asmOperType oAsmType = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
+	asmOperType oAsmType = operTypeForStackType[second->typeInfo->stackType];
 
 	// Возьмём указатель на начало массива
 	first->Compile();
@@ -1311,11 +1301,6 @@ void NodeArrayIndex::LogToStream(FILE *fGraph)
 	GoUp();
 }
 
-TypeInfo* NodeArrayIndex::GetTypeInfo()
-{
-	return typeInfo;
-}
-
 //////////////////////////////////////////////////////////////////////////
 // Узел для взятия значения по указателю
 
@@ -1325,7 +1310,7 @@ NodeDereference::NodeDereference(TypeInfo* type)
 	typeInfo = type;
 
 	first = TakeLastNode();
-	assert(first->GetTypeInfo()->refLevel != 0);
+	assert(first->typeInfo->refLevel != 0);
 
 	absAddress = true;
 	knownAddress = false;
@@ -1367,7 +1352,7 @@ void NodeDereference::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	asmDataType asmDT = podTypeToDataType[typeInfo->type];
+	asmDataType asmDT = typeInfo->dataType;
 	
 	if(!knownAddress)
 		first->Compile();
@@ -1392,11 +1377,6 @@ void NodeDereference::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-
-TypeInfo* NodeDereference::GetTypeInfo()
-{
-	return typeInfo;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1446,11 +1426,6 @@ void NodeShiftAddress::LogToStream(FILE *fGraph)
 	GoUp();
 }
 
-TypeInfo* NodeShiftAddress::GetTypeInfo()
-{
-	return typeInfo;
-}
-
 //////////////////////////////////////////////////////////////////////////
 // Узел для постинкримента или постдекримента
 NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
@@ -1459,7 +1434,7 @@ NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 	typeInfo = resType;
 
 	first = TakeLastNode();
-	assert(first->GetTypeInfo()->refLevel != 0);
+	assert(first->typeInfo->refLevel != 0);
 
 	incOp = isInc;
 
@@ -1536,9 +1511,9 @@ void NodePreOrPostOp::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	asmStackType asmST = podTypeToStackType[typeInfo->type];
-	asmDataType asmDT = podTypeToDataType[typeInfo->type];
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[typeInfo->type]];
+	asmStackType asmST = typeInfo->stackType;
+	asmDataType asmDT = typeInfo->dataType;
+	asmOperType aOT = operTypeForStackType[typeInfo->stackType];
 	
 	if(!knownAddress)
 		first->Compile();
@@ -1577,11 +1552,6 @@ void NodePreOrPostOp::LogToStream(FILE *fGraph)
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
-}
-
-TypeInfo* NodePreOrPostOp::GetTypeInfo()
-{
-	return typeInfo;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1650,31 +1620,31 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	first = TakeLastNode();
 
 	// На данный момент операции с композитными типами отсутствуют
-	if(first->GetTypeInfo()->refLevel == 0)
+	if(first->typeInfo->refLevel == 0)
 	{
-		if(first->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX || second->GetTypeInfo()->type == TypeInfo::TYPE_COMPLEX)
+		if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
 		{
 			char	errBuf[128];
-			_snprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->GetTypeInfo()->GetFullTypeName(), second->GetTypeInfo()->GetFullTypeName());
+			_snprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
 	}
-	if(first->GetTypeInfo() == typeVoid)
+	if(first->typeInfo == typeVoid)
 	{
 		lastError = CompilerError("ERROR: first operator returns void", lastKnownStartPos);
 		return;
 	}
-	if(second->GetTypeInfo() == typeVoid)
+	if(second->typeInfo == typeVoid)
 	{
 		lastError = CompilerError("ERROR: second operator returns void", lastKnownStartPos);
 		return;
 	}
 
 	// Найдём результирующий тип, после проведения операции
-	typeInfo = ChooseBinaryOpResultType(first->GetTypeInfo(), second->GetTypeInfo());
+	typeInfo = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
 
-	asmStackType fST = podTypeToStackType[first->GetTypeInfo()->type], sST = podTypeToStackType[second->GetTypeInfo()->type];
+	asmStackType fST = first->typeInfo->stackType, sST = second->typeInfo->stackType;
 	codeSize = ConvertFirstForSecondSize(fST, sST);
 	fST = ConvertFirstForSecondType(fST, sST);
 	codeSize += ConvertFirstForSecondSize(sST, fST);
@@ -1689,7 +1659,7 @@ void NodeTwoAndCmdOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	asmStackType fST = podTypeToStackType[first->GetTypeInfo()->type], sST = podTypeToStackType[second->GetTypeInfo()->type];
+	asmStackType fST = first->typeInfo->stackType, sST = second->typeInfo->stackType;
 	
 	// Найдём первое значение
 	first->Compile();
@@ -1740,7 +1710,7 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 	// Потенциальная ошибка имеется, когда разные результирующие варианты имеют разные типы.
 	// Следует исправить! BUG 0003
 	if(isTerm)
-		typeInfo = second->GetTypeInfo();
+		typeInfo = second->typeInfo;
 
 	codeSize = first->codeSize + second->codeSize + 1;
 	if(third)
@@ -1760,7 +1730,7 @@ void NodeIfElseExpr::Compile()
 
 	// Структура дочерних элементов: if(first) second; else third;
 	// Второй вариант: first ? second : third;
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->GetTypeInfo()->type]];
+	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
 	// Вычислим условие
 	first->Compile();
 
@@ -1826,7 +1796,7 @@ void NodeForExpr::Compile()
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Структура дочерних элементов: for(first, second, third) fourth;
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
+	asmOperType aOT = operTypeForStackType[second->typeInfo->stackType];
 
 	// Выполним инициализацию
 	first->Compile();
@@ -1889,7 +1859,7 @@ void NodeWhileExpr::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	// Структура дочерних элементов: while(first) second;
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[first->GetTypeInfo()->type]];
+	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
 
 	unsigned int posStart = cmdList.size();
 	// Выполним условие
@@ -1945,7 +1915,7 @@ void NodeDoWhileExpr::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	// Структура дочерних элементов: do{ first; }while(second)
-	asmOperType aOT = operTypeForStackType[podTypeToStackType[second->GetTypeInfo()->type]];
+	asmOperType aOT = operTypeForStackType[second->typeInfo->stackType];
 
 	unsigned int posStart = cmdList.size();
 	// Сохраним адрес для выхода из цикла оператором break;
@@ -2092,7 +2062,7 @@ void NodeSwitchExpr::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	asmStackType aST = podTypeToStackType[first->GetTypeInfo()->type];
+	asmStackType aST = first->typeInfo->stackType;
 	asmOperType aOT = operTypeForStackType[aST];
 	// Сохраним вершину стека переменных
 	cmdList.push_back(VMCmd(cmdPushVTop));
