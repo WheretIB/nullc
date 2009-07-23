@@ -1062,7 +1062,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 		/*if(exTypes[exFunctions[funcID]->retType]->type == TypeInfo::TYPE_COMPLEX)
 			genStackTypes.push_back((asmStackType)(0x80000000 | exTypes[exFunctions[funcID]->retType]->size));
 		else
-			genStackTypes.push_back(podTypeToStackType[exTypes[exFunctions[funcID]->retType]->type]);*/
+			genStackTypes.push_back(exTypes[exFunctions[funcID]->retType]->stackType);*/
 #endif
 	}
 	return true;

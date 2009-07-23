@@ -346,18 +346,18 @@ void addNegNode(char const* s, char const* e)
 	// ≈сли последний узел это число, то просто помен€ем знак у константы
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
-		TypeInfo *aType = nodeList.back()->GetTypeInfo();
+		TypeInfo *aType = nodeList.back()->typeInfo;
 		NodeZeroOP* zOP = nodeList.back();
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
-			Rd = new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->GetVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->GetVal(), zOP->typeInfo);
 		}else if(aType == typeFloat){
-			Rd = new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->GetVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->GetVal(), zOP->typeInfo);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->GetVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->GetVal(), zOP->typeInfo);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addNegNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, s);
@@ -378,18 +378,18 @@ void addLogNotNode(char const* s, char const* e)
 	// ≈сли последний узел в списке - число, то произведЄм действие во врем€ копил€ции
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
-		TypeInfo *aType = nodeList.back()->GetTypeInfo();
+		TypeInfo *aType = nodeList.back()->typeInfo;
 		NodeZeroOP* zOP = nodeList.back();
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
-			Rd = new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
 		}else if(aType == typeFloat){
-			Rd = new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addLogNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, s);
@@ -406,7 +406,7 @@ void addBitNotNode(char const* s, char const* e)
 	(void)e;	// C4100
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
-		TypeInfo *aType = nodeList.back()->GetTypeInfo();
+		TypeInfo *aType = nodeList.back()->typeInfo;
 		NodeZeroOP* zOP = nodeList.back();
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
@@ -415,9 +415,9 @@ void addBitNotNode(char const* s, char const* e)
 		}else if(aType == typeFloat){
 			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->typeInfo);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->GetTypeInfo());
+			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addBitNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, s);
@@ -553,8 +553,8 @@ void AddBinaryCommandNode(CmdID id)
 	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber)
 	{
 		//If we have operation between two known numbers, we can optimize code by calculating the result in place
-		aType = nodeList[nodeList.size()-2]->GetTypeInfo();
-		bType = nodeList[nodeList.size()-1]->GetTypeInfo();
+		aType = nodeList[nodeList.size()-2]->typeInfo;
+		bType = nodeList[nodeList.size()-1]->typeInfo;
 
 		//Swap operands, to reduce number of combinations
 		if((aType == typeFloat || aType == typeLong || aType == typeInt) && bType == typeDouble)
@@ -566,8 +566,8 @@ void AddBinaryCommandNode(CmdID id)
 
 		bool swapOper = shA != 2;
 
-		aType = nodeList[nodeList.size()-shA]->GetTypeInfo();
-		bType = nodeList[nodeList.size()-shB]->GetTypeInfo();
+		aType = nodeList[nodeList.size()-shA]->typeInfo;
+		bType = nodeList[nodeList.size()-shB]->typeInfo;
 		if(aType == typeDouble)
 		{
 			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shA]);
@@ -651,7 +651,7 @@ void AddBinaryCommandNode(CmdID id)
 
 		// ќптимизацию можно произвести, если число == 0 или число == 1
 		bool success = false;
-		bType = nodeList[nodeList.size()-shA]->GetTypeInfo();
+		bType = nodeList[nodeList.size()-shA]->typeInfo;
 		if(bType == typeDouble)
 		{
 			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shA]);
@@ -723,7 +723,7 @@ void addReturnNode(char const* s, char const* e)
 			t--;
 		}
 	}
-	TypeInfo *realRetType = nodeList.back()->GetTypeInfo();
+	TypeInfo *realRetType = nodeList.back()->typeInfo;
 	if(retTypeStack.back() && (retTypeStack.back()->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && retTypeStack.back() != realRetType)
 	{
 		sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), retTypeStack.back()->GetFullTypeName());
@@ -893,7 +893,7 @@ void GetTypeSize(char const* s, char const* e, bool sizeOfExpr)
 		ThrowError("ERROR: sizeof(auto) is illegal", s);
 	if(sizeOfExpr)
 	{
-		currTypes.back() = nodeList.back()->GetTypeInfo();
+		currTypes.back() = nodeList.back()->typeInfo;
 		nodeList.pop_back();
 	}
 	nodeList.push_back(new NodeNumber<int>(currTypes.back()->size, typeInt));
@@ -902,7 +902,7 @@ void GetTypeSize(char const* s, char const* e, bool sizeOfExpr)
 void SetTypeOfLastNode(char const* s, char const* e)
 {
 	(void)s; (void)e;	// C4100
-	currType = nodeList.back()->GetTypeInfo();
+	currType = nodeList.back()->typeInfo;
 	nodeList.pop_back();
 }
 
@@ -1010,7 +1010,7 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 				varAddress -= (int)(varInfoTop.back().varStackSize);
 
 			// —оздаем узел дл€ получени€ указател€ на переменную
-			nodeList.push_back(new NodeGetAddress(varInfo[i], varAddress, absAddress));
+			nodeList.push_back(new NodeGetAddress(varInfo[i], varAddress, absAddress, varInfo[i]->varType));
 		}else{
 			if(funcInfo[fID]->funcPtr != 0)
 				ThrowError("ERROR: Can't get a pointer to an extern function", pos);
@@ -1064,7 +1064,7 @@ void AddArrayIndexNode(char const* s, char const* e)
 		// ѕолучаем значение сдвига
 		int shiftValue = 0;
 		NodeZeroOP* indexNode = nodeList.back();
-		TypeInfo *aType = indexNode->GetTypeInfo();
+		TypeInfo *aType = indexNode->typeInfo;
 		NodeZeroOP* zOP = indexNode;
 		if(aType == typeDouble)
 		{
@@ -1143,15 +1143,15 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 
 	// ≈сли указатель на текущий тип равен NULL, значит тип переменной обозначен как автоматически выводимый (auto)
 	// ¬ таком случае, в качестве типа берЄтс€ возвращаемый последним узлом AST
-	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->GetTypeInfo();
+	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->typeInfo;
 
 	// ¬озможно, дл€ определени€ значени€ переменной понадобитс€ добавить вспомогательный узел дерева
 	// ѕеременна€ служит как флаг, обозначающий, что два узла надо объеденить в один
 	bool unifyTwo = false;
 	// ≈сли тип переменной - безразмерный массив, а присваеваетс€ ей значение другого типа
-	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->GetTypeInfo())
+	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->typeInfo)
 	{
-		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
+		TypeInfo *nodeType = nodeList.back()->typeInfo;
 		// ≈сли подтип обоих значений (предположительно, массивов) совпадает
 		if(realCurrType->subType == nodeType->subType)
 		{
@@ -1167,7 +1167,7 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 					unifyTwo = true;
 				}else{
 					// »наче, типы не совместимы, поэтому свидетельствуем об ошибке
-					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->GetTypeInfo()->GetFullTypeName(), realCurrType->GetFullTypeName());
+					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
 					ThrowError(callbackError, pos);
 				}
 			}
@@ -1198,7 +1198,7 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 		currTypes.pop_back();
 		unifyTwo = true;
-		realCurrType = nodeList.back()->GetTypeInfo();
+		realCurrType = nodeList.back()->typeInfo;
 		varDefined = true;
 		varTop -= realCurrType->size;
 	}
@@ -1232,13 +1232,13 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 	varSizeAdd += !varInfo[i]->dataReserved ? realCurrType->size : 0;
 	varInfo[i]->dataReserved = true;
 
-	nodeList.push_back(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress));
+	nodeList.push_back(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress, varInfo[i]->varType));
 
 	nodeList.push_back(new NodeVariableSet(realCurrType, varSizeAdd, false));
 
 	if(unifyTwo)
 	{
-		nodeList.push_back(new NodeExpressionList(nodeList.back()->GetTypeInfo()));
+		nodeList.push_back(new NodeExpressionList(nodeList.back()->typeInfo));
 		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
 		static_cast<NodeExpressionList*>(temp)->AddNode();
@@ -1253,9 +1253,9 @@ void AddSetVariableNode(char const* s, char const* e)
 
 	TypeInfo *realCurrType = currTypes.back();
 	bool unifyTwo = false;
-	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->GetTypeInfo())
+	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->typeInfo)
 	{
-		TypeInfo *nodeType = nodeList.back()->GetTypeInfo();
+		TypeInfo *nodeType = nodeList.back()->typeInfo;
 		if(realCurrType->subType == nodeType->subType)
 		{
 			if(nodeList.back()->nodeType != typeNodeDereference)
@@ -1266,7 +1266,7 @@ void AddSetVariableNode(char const* s, char const* e)
 					currTypes.pop_back();
 					unifyTwo = true;
 				}else{
-					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->GetTypeInfo()->GetFullTypeName(), realCurrType->GetFullTypeName());
+					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
 					ThrowError(callbackError, s);
 				}
 			}
@@ -1300,7 +1300,7 @@ void AddSetVariableNode(char const* s, char const* e)
 
 	if(unifyTwo)
 	{
-		nodeList.push_back(new NodeExpressionList(nodeList.back()->GetTypeInfo()));
+		nodeList.push_back(new NodeExpressionList(nodeList.back()->typeInfo));
 		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
 		static_cast<NodeExpressionList*>(temp)->AddNode();
@@ -1313,7 +1313,7 @@ void AddGetVariableNode(char const* s, char const* e)
 	(void)e;	// C4100
 	lastKnownStartPos = s;
 
-	if(nodeList.back()->GetTypeInfo()->funcType == NULL)
+	if(nodeList.back()->typeInfo->funcType == NULL)
 		nodeList.push_back(new NodeDereference(currTypes.back()));
 }
 
@@ -1388,7 +1388,7 @@ void AddMemberFunctionCall(char const* pos, char const* funcName, unsigned int c
 	char	*memberFuncName = AllocateString((int)strlen(currTypes.back()->name) + 2 + (int)strlen(funcName) + 1);
 	sprintf(memberFuncName, "%s::%s", currTypes.back()->name, funcName);
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
-	currTypes.back() = nodeList.back()->GetTypeInfo();
+	currTypes.back() = nodeList.back()->typeInfo;
 }
 
 void AddPreOrPostOpNode(bool isInc, bool prefixOp)
@@ -1400,7 +1400,7 @@ void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
 {
 	lastKnownStartPos = s;
 	(void)e;	// C4100
-	TypeInfo *targetType = GetDereferenceType(nodeList[nodeList.size()-2]->GetTypeInfo());
+	TypeInfo *targetType = GetDereferenceType(nodeList[nodeList.size()-2]->typeInfo);
 	if(!targetType)
 		ThrowLastError();
 	nodeList.push_back(new NodeVariableModify(targetType, cmd));
@@ -1451,7 +1451,7 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 	(void)e;
 	arrElementCount++;
 
-	TypeInfo *currType = nodeList[nodeList.size()-arrElementCount]->GetTypeInfo();
+	TypeInfo *currType = nodeList[nodeList.size()-arrElementCount]->typeInfo;
 
 	if(currType == typeShort || currType == typeChar)
 		currType = typeInt;
@@ -1467,7 +1467,7 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 
 	NodeExpressionList *arrayList = new NodeExpressionList(targetType);
 
-	TypeInfo *realType = nodeList.back()->GetTypeInfo();
+	TypeInfo *realType = nodeList.back()->typeInfo;
 	for(unsigned int i = 0; i < arrElementCount; i++)
 	{
 		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt) && !(realType == typeFloat && currType == typeDouble))
@@ -1696,7 +1696,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			for(VariableInfo *curr = fList[k]->firstParam; curr; curr = curr->next, n++)//; n < fList[k]->params.size(); n++)
 			{
 				NodeZeroOP* activeNode = nodeList[nodeList.size() - fList[k]->paramCount + n];
-				TypeInfo *paramType = activeNode->GetTypeInfo();
+				TypeInfo *paramType = activeNode->typeInfo;
 				unsigned int	nodeType = activeNode->nodeType;
 				TypeInfo *expectedType = curr->varType;
 				if(expectedType != paramType)
@@ -1729,7 +1729,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			char	*errPos = errTemp;
 			errPos += sprintf(errPos, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
 			for(unsigned int n = 0; n < callArgCount; n++)
-				errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+				errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 			errPos += sprintf(errPos, ")\r\n the only available are:\r\n");
 			for(unsigned int n = 0; n < count; n++)
 			{
@@ -1750,7 +1750,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 				char	*errPos = errTemp;
 				errPos += sprintf(errPos, "ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
 				for(unsigned int n = 0; n < callArgCount; n++)
-					errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->GetTypeInfo()->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+					errPos += sprintf(errPos, "%s%s", nodeList[nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 				errPos += sprintf(errPos, ")\r\n  candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
@@ -1770,7 +1770,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 	}else{
 		AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
 		AddGetVariableNode(pos, NULL);
-		fType = nodeList.back()->GetTypeInfo()->funcType;
+		fType = nodeList.back()->typeInfo->funcType;
 	}
 
 	paramNodes.clear();
@@ -1786,7 +1786,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		unsigned int index = fType->paramCount - i - 1;
 
 		TypeInfo *expectedType = fType->paramType[i];
-		TypeInfo *realType = paramNodes[index]->GetTypeInfo();
+		TypeInfo *realType = paramNodes[index]->typeInfo;
 		
 		if(paramNodes[index]->nodeType == typeNodeFuncDef ||
 			(paramNodes[index]->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->nodeType == typeNodeFuncDef))
@@ -1795,7 +1795,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 			currTypes.pop_back();
 
-			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->GetTypeInfo());
+			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->typeInfo);
 			nodeList.push_back(paramNodes[index]);
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
@@ -1816,7 +1816,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 					ThrowError(callbackError, pos);
 				}
 			}
-			unsigned int typeSize = (paramNodes[index]->GetTypeInfo()->size - paramNodes[index]->GetTypeInfo()->paddingBytes) / paramNodes[index]->GetTypeInfo()->subType->size;
+			unsigned int typeSize = (paramNodes[index]->typeInfo->size - paramNodes[index]->typeInfo->paddingBytes) / paramNodes[index]->typeInfo->subType->size;
 			nodeList.push_back(static_cast<NodeDereference*>(paramNodes[index])->GetFirstNode());
 			static_cast<NodeDereference*>(paramNodes[index])->SetFirstNode(NULL);
 			paramNodes[index] = NULL;
@@ -1862,7 +1862,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 			nodeList.push_back(inplaceArray[i]);
 		nodeList.push_back(temp);
 
-		nodeList.push_back(new NodeExpressionList(temp->GetTypeInfo()));
+		nodeList.push_back(new NodeExpressionList(temp->typeInfo));
 		for(unsigned int i = 0; i < inplaceArray.size(); i++)
 			addTwoExprNode(pos, pos);
 	}
@@ -1881,8 +1881,8 @@ void addIfElseNode(char const* s, char const* e)
 void addIfElseTermNode(char const* s, char const* e)
 {
 	(void)e;	// C4100
-	TypeInfo* typeA = nodeList[nodeList.size()-1]->GetTypeInfo();
-	TypeInfo* typeB = nodeList[nodeList.size()-2]->GetTypeInfo();
+	TypeInfo* typeA = nodeList[nodeList.size()-1]->typeInfo;
+	TypeInfo* typeB = nodeList[nodeList.size()-2]->typeInfo;
 	if(typeA != typeB)
 	{
 		sprintf(callbackError, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
@@ -1952,8 +1952,7 @@ void TypeBegin(char const* s, char const* e)
 	char *typeNameCopy = AllocateString((int)(e - s) + 1);
 	sprintf(typeNameCopy, "%.*s", (int)(e-s), s);
 
-	newType = new TypeInfo(typeInfo.size(), typeNameCopy, 0, 0, 1, NULL);
-	newType->type = TypeInfo::TYPE_COMPLEX;
+	newType = new TypeInfo(typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 

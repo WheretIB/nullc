@@ -59,8 +59,6 @@ public:
 	virtual void Compile();
 	// Вывод в лог параметров узла
 	virtual void LogToStream(FILE *fGraph);
-	// Получение типа результата, возвращаемого ячейкой
-	virtual TypeInfo*	GetTypeInfo();
 	// Установка строки кода, с которым связана ячейка
 	virtual void SetCodeInfo(const char* start, const char* end);
 
@@ -77,9 +75,9 @@ public:
 	static	ChunkedStackPool<4092>	nodePool;
 	static void	DeleteNodes(){ nodePool.Clear(); }
 protected:
-	TypeInfo	*typeInfo;
 	const char	*strBegin, *strEnd;
 public:
+	TypeInfo	*typeInfo;
 	unsigned int codeSize;
 	unsigned int nodeType;
 	NodeZeroOP	*prev, *next;	// For organizing intrusive node lists
@@ -274,13 +272,13 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
 	friend class NodeVariableModify;
 	friend class NodePreOrPostOp;
 
+	TypeInfo		*typeOrig;
 	VariableInfo	*varInfo;
 	int				varAddress;
 	bool			absAddress;
@@ -294,8 +292,8 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual TypeInfo*	GetTypeInfo();
 protected:
+	unsigned int	elemCount;	// If node sets all array, here is the element count
 	int		addrShift;
 	bool	absAddress, knownAddress, arrSetAll;
 };
@@ -308,7 +306,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual TypeInfo*	GetTypeInfo();
 protected:
 	CmdID	cmdID;
 	int		addrShift;
@@ -323,7 +320,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual TypeInfo*	GetTypeInfo();
 protected:
 	int		addrShift;
 	bool	absAddress, knownAddress;
@@ -337,7 +333,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
@@ -357,7 +352,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual TypeInfo*	GetTypeInfo();
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
@@ -377,7 +371,6 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual TypeInfo*	GetTypeInfo();
 protected:
 	bool	incOp;
 	bool	optimised;
@@ -538,6 +531,5 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-	virtual TypeInfo*	GetTypeInfo();
 protected:
 };*/

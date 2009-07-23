@@ -23,6 +23,9 @@ public:
 	unsigned int	paramCount;
 };
 
+static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
+static asmDataType podTypeToDataType[] = { DTYPE_COMPLEX_TYPE, (asmDataType)0, DTYPE_INT, DTYPE_FLOAT, DTYPE_LONG, DTYPE_DOUBLE, DTYPE_SHORT, DTYPE_CHAR };
+
 //Information about type
 class TypeInfo
 {
@@ -32,13 +35,16 @@ public:
 	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	TypeInfo(unsigned int index, const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType)
+	TypeInfo(unsigned int index, const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType, TypeCategory cat)
 	{
 		name = typeName;
 		nameHash = name ? GetStringHash(name) : (unsigned int)(~0);
 
 		size = 0;
-		type = TYPE_VOID;
+
+		type = cat;
+		stackType = podTypeToStackType[type];
+		dataType = podTypeToDataType[type];
 
 		refLevel = referenceLevel;
 		arrLevel = arrayLevel;
@@ -70,7 +76,10 @@ public:
 	unsigned int	fullNameHash;
 
 	unsigned int	size;	// sizeof(type)
+
 	TypeCategory	type;	// type id
+	asmStackType	stackType;
+	asmDataType		dataType;
 
 	unsigned int	refLevel;	// reference to a type depth
 	unsigned int	arrLevel;	// array to a type depth
@@ -217,9 +226,6 @@ public:
 	static	ChunkedStackPool<4092>	typeInfoPool;
 	static	void	DeleteTypeInformation(){ typeInfoPool.ClearTo(buildInSize); }
 };
-
-static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
-static asmDataType podTypeToDataType[] = { DTYPE_COMPLEX_TYPE, (asmDataType)0, DTYPE_INT, DTYPE_FLOAT, DTYPE_LONG, DTYPE_DOUBLE, DTYPE_SHORT, DTYPE_CHAR };
 
 extern TypeInfo*	typeVoid;
 extern TypeInfo*	typeInt;
