@@ -923,11 +923,12 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// Find in variable list
+	//int i = FindVariableByName(varName);
 	int i = (int)varInfo.size()-1;
 	while(i >= 0 && varInfo[i]->nameHash != hash)
 		i--;
 	if(i == -1)
-	{
+	{ 
 		// Ищем функцию по имени
 		for(int k = 0; k < (int)funcInfo.size(); k++)
 		{
@@ -946,62 +947,83 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 			sprintf(callbackError, "ERROR: variable '%s' is not defined", varName);
 			ThrowError(callbackError, pos);
 		}
-	}
-	// Кладём в стек типов её тип
-	if(fID == -1)
-		currTypes.push_back(varInfo[i]->varType);
-	else
+		// Кладём в стек типов тип
 		currTypes.push_back(funcInfo[fID]->funcType);
 
-	static unsigned int thisHash = GetStringHash("this");
-
-	if(newType && (currDefinedFunc.back()->type == FunctionInfo::THISCALL) && hash != thisHash)
-	{
-		bool member = false;
-		for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
-			if(curr->nameHash == hash)
-				member = true;
-		if(member)
+		if(funcInfo[fID]->funcPtr != 0)
+			ThrowError("ERROR: Can't get a pointer to an extern function", pos);
+		if(funcInfo[fID]->address == -1 && funcInfo[fID]->funcPtr == NULL)
+			ThrowError("ERROR: Can't get a pointer to a build-in function", pos);
+		if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 		{
-			// Переменные типа адресуются через указатель this
-			FunctionInfo *currFunc = currDefinedFunc.back();
+			char	*contextName = AllocateString(funcInfo[fID]->nameLength + 6);
+			int length = sprintf(contextName, "$%s_ext", funcInfo[fID]->name);
+			unsigned int contextHash = GetStringHash(contextName);
 
-			TypeInfo *temp = GetReferenceType(newType);
+			int i = (int)varInfo.size()-1;
+			while(i >= 0 && varInfo[i]->nameHash != contextHash)
+				i--;
+			if(i == -1)
+			{
+				nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
+			}else{
+				AddGetAddressNode(pos, InplaceStr(contextName, length));
+				currTypes.pop_back();
+			}
+		}
+
+		// Создаем узел для получения указателя на функцию
+		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
+	}else{
+		// Кладём в стек типов тип
+		currTypes.push_back(varInfo[i]->varType);
+
+		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL)
+		{
+			bool member = false;
+			for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
+				if(curr->nameHash == hash)
+					member = true;
+			if(member)
+			{
+				// Переменные типа адресуются через указатель this
+				FunctionInfo *currFunc = currDefinedFunc.back();
+
+				TypeInfo *temp = GetReferenceType(newType);
+				currTypes.push_back(temp);
+
+				nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+
+				AddDereferenceNode(pos, 0);
+				AddMemberAccessNode(pos, varName);
+
+				currTypes.pop_back();
+				return;
+			}
+		}
+
+		// Если мы находимся в локальной функции, и переменная находится в наружной области видимости
+		if((int)retTypeStack.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+		{
+			FunctionInfo *currFunc = currDefinedFunc.back();
+			// Добавим имя переменной в список внешних переменных функции
+			int num = AddFunctionExternal(currFunc, varName);
+
+			TypeInfo *temp = GetReferenceType(typeInt);
+			temp = GetArrayType(temp, (int)currDefinedFunc.back()->externalCount);
+			if(!temp)
+				ThrowLastError();
+			temp = GetReferenceType(temp);
 			currTypes.push_back(temp);
 
 			nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
-
-			AddDereferenceNode(pos, 0);
-			AddMemberAccessNode(pos, varName);
-
+			AddDereferenceNode(0,0);
+			nodeList.push_back(new NodeNumber<int>(num, typeInt));
+			AddArrayIndexNode(0,0);
+			AddDereferenceNode(0,0);
+			// Убрали текущий тип
 			currTypes.pop_back();
-			return;
-		}
-	}
-	// Если мы находимся в локальной функции, и переменная находится в наружной области видимости
-	if((int)retTypeStack.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i != -1 && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
-	{
-		FunctionInfo *currFunc = currDefinedFunc.back();
-		// Добавим имя переменной в список внешних переменных функции
-		int num = AddFunctionExternal(currFunc, varName);
-
-		TypeInfo *temp = GetReferenceType(typeInt);
-		temp = GetArrayType(temp, (int)currDefinedFunc.back()->externalCount);
-		if(!temp)
-			ThrowLastError();
-		temp = GetReferenceType(temp);
-		currTypes.push_back(temp);
-
-		nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
-		AddDereferenceNode(0,0);
-		nodeList.push_back(new NodeNumber<int>(num, typeInt));
-		AddArrayIndexNode(0,0);
-		AddDereferenceNode(0,0);
-		// Убрали текущий тип
-		currTypes.pop_back();
-	}else{
-		if(fID == -1)
-		{
+		}else{
 			// Если переменная находится в глобальной области видимости, её адрес - абсолютный, без сдвигов
 			bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
 
@@ -1011,31 +1033,6 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 
 			// Создаем узел для получения указателя на переменную
 			nodeList.push_back(new NodeGetAddress(varInfo[i], varAddress, absAddress, varInfo[i]->varType));
-		}else{
-			if(funcInfo[fID]->funcPtr != 0)
-				ThrowError("ERROR: Can't get a pointer to an extern function", pos);
-			if(funcInfo[fID]->address == -1 && funcInfo[fID]->funcPtr == NULL)
-				ThrowError("ERROR: Can't get a pointer to a build-in function", pos);
-			if(funcInfo[fID]->type == FunctionInfo::LOCAL)
-			{
-				char	*contextName = AllocateString(funcInfo[fID]->nameLength + 6);
-				int length = sprintf(contextName, "$%s_ext", funcInfo[fID]->name);
-				unsigned int contextHash = GetStringHash(contextName);
-
-				int i = (int)varInfo.size()-1;
-				while(i >= 0 && varInfo[i]->nameHash != contextHash)
-					i--;
-				if(i == -1)
-				{
-					nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
-				}else{
-					AddGetAddressNode(pos, InplaceStr(contextName, length));
-					currTypes.pop_back();
-				}
-			}
-
-			// Создаем узел для получения указателя на функцию
-			nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
 		}
 	}
 }
