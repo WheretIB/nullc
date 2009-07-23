@@ -5,7 +5,7 @@ void	Lexer::Lexify(const char* code)
 	lexems.clear();
 
 	LexemeType lType = lex_none;
-	int lLength = 0;
+	int lLength = 1;
 
 	while(*code)
 	{
@@ -45,32 +45,46 @@ void	Lexer::Lexify(const char* code)
 		case '+':
 			lType = lex_add;
 			if(code[1] == '=')
+			{
 				lType = lex_addset;
-			else if(code[1] == '+')
+				lLength = 2;
+			}else if(code[1] == '+'){
 				lType = lex_inc;
+				lLength = 2;
+			}
 			break;
 		case '-':
 			lType = lex_sub;
 			if(code[1] == '=')
+			{
 				lType = lex_subset;
-			else if(code[1] == '-')
+				lLength = 2;
+			}else if(code[1] == '-'){
 				lType = lex_dec;
+				lLength = 2;
+			}
 			break;
 		case '*':
 			lType = lex_mul;
 			if(code[1] == '=')
 			{
 				lType = lex_mulset;
+				lLength = 2;
 			}else if(code[1] == '*'){
 				lType = lex_pow;
+				lLength = 2;
 				if(code[2] == '=')
+				{
 					lType = lex_powset;
+					lLength = 3;
+				}
 			}
 			break;
 		case '/':
 			if(code[1] == '=')
 			{
 				lType = lex_divset;
+				lLength = 2;
 			}else if(code[1] == '/'){
 				while(code[0] != '\n' && code[0] != '\0')
 					code++;
@@ -91,26 +105,40 @@ void	Lexer::Lexify(const char* code)
 		case '<':
 			lType = lex_less;
 			if(code[1] == '=')
+			{
 				lType = lex_lequal;
-			else if(code[1] == '<')
+				lLength = 2;
+			}else if(code[1] == '<'){
 				lType = lex_shl;
+				lLength = 2;
+			}
 			break;
 		case '>':
 			lType = lex_greater;
 			if(code[1] == '=')
+			{
 				lType = lex_gequal;
-			else if(code[1] == '>')
+				lLength = 2;
+			}else if(code[1] == '>'){
 				lType = lex_shr;
+				lLength = 2;
+			}
 			break;
 		case '=':
 			lType = lex_set;
 			if(code[1] == '=')
+			{
 				lType = lex_equal;
+				lLength = 2;
+			}
 			break;
 		case '!':
 			lType = lex_lognot;
 			if(code[1] == '=')
+			{
 				lType = lex_nequal;
+				lLength = 2;
+			}
 			break;
 		case '~':
 			lType = lex_bitnot;
@@ -249,16 +277,10 @@ void	Lexer::Lexify(const char* code)
 				if(!(chartype_table[*code] & ct_start_symbol))
 				{
 					lType = lex_none;
-					lLength = 1;
 					break;
 				}
-			}else{
-				lLength = 1;	// unknown lexeme, let the parser handle
 			}
 		}
-		if(!lLength)
-			lLength = lexemLength[lType];
-
 		Lexeme lex;
 		lex.type = lType;
 		lex.length = lLength;
@@ -267,7 +289,7 @@ void	Lexer::Lexify(const char* code)
 
 		code += lLength;
 		lType = lex_none;
-		lLength = 0;
+		lLength = 1;
 	}
 	Lexeme lex;
 	lex.type = lex_none;

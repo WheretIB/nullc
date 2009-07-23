@@ -50,23 +50,6 @@ enum LexemeType
 	lex_const, lex_ref, lex_auto, lex_class, lex_noalign, lex_align, lex_typeof, lex_sizeof, // const ref auto class noalign align typeof sizeof
 };
 
-static const int lexemLength[] =
-{
-	0,
-	0, 0, 0,
-	1, 1, 1, 1, // " ' \ . ,
-	2, 2, // ++ --
-	1, 1, 1, 1, 1, 2, 1, 2, 2, 1, 2, 2, 2, 2, // + - * / % ** < <= << > >= >> == !=
-	1, 1, 1, 3, 2, 3, // & | ^ and or xor
-	1, 2, 2, 2, 2, 3, // = += -= *= /= **=
-	1, 1,	// ~ !
-	1, 1, 1, 1, 1, 1, // ( ) [ ] { }
-	1, 1, 1, // ? : ;
-	2, 4, 3, 5, 2, 6, 4,	// if else for while switch case
-	5, 8, 6, // break continue return
-	5, 3, 4, 5, 7, 5, 6, 6, // const ref auto class noalign align typeof sizeof
-};
-
 struct Lexeme
 {
 	LexemeType type;
