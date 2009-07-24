@@ -552,8 +552,10 @@ bool ExecutorX86::TranslateToNative()
 			cgFuncs[cmd.cmd](cmd);
 		}
 		
+#ifdef NULLC_LOG_FILES
 		if(stackRelSize + GetStackTrackInfo() == 0 && stackRelSizePrev != 0)
 			Emit(INST_COMMENT, "=====Stack restored=====");
+#endif
 	}
 	Emit(InlFmt("gLabel%d", pos));
 	Emit(o_pop, x86Argument(rEBP));
@@ -600,7 +602,7 @@ bool ExecutorX86::TranslateToNative()
 	{
 		//if(code-bytecode >= 0x0097)
 		//	__asm int 3;
-		x86Instruction cmd = instList[i];
+		x86Instruction &cmd = instList[i];
 		switch(cmd.name)
 		{
 		case o_none:

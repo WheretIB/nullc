@@ -83,9 +83,6 @@ struct LabelInfo
 	{
 		strncpy(label, newLabel, 16);
 		label[15] = 0;
-		for(unsigned int i = 0; i < strlen(label); i++)
-			if(label[i] == ' ' || label[i] == '\t')
-				label[i] = 0;
 		pos = newPos;
 	}
 
@@ -100,9 +97,6 @@ struct UnsatisfiedJump
 	{
 		strncpy(label, newLabel, 16);
 		label[15] = 0;
-		for(unsigned int i = 0; i < strlen(label); i++)
-			if(label[i] == ' ' || label[i] == '\t')
-				label[i] = 0;
 		isNear = newIsNear;
 		jmpPos = newJmpPos;
 	}
@@ -120,9 +114,6 @@ bool FindLabel(const char *name, LabelInfo& info)
 	char cleanName[16];
 	strncpy(cleanName, name, 16);
 	cleanName[15] = 0;
-	for(unsigned int i = 0; i < strlen(cleanName); i++)
-		if(cleanName[i] == ' ' || cleanName[i] == '\t')
-			cleanName[i] = 0;
 	for(unsigned int i = 0; i < labels.size(); i++)
 	{
 		if(strcmp(labels[i].label, cleanName) == 0)

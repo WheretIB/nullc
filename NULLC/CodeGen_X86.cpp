@@ -10,7 +10,12 @@ void Emit(const char* Label)
 }
 void Emit(int comment, const char* text)
 {
+#ifdef NULLC_LOG_FILES
 	myInstList->push_back(x86Instruction(comment, text));
+#else
+	(void)comment;
+	(void)text;
+#endif
 }
 void Emit(x86Command Name)
 {
