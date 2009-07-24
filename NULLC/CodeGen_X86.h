@@ -8,11 +8,28 @@
 
 char* InlFmt(const char *str, ...);
 
+void EMIT_LABEL(const char* Label);
+void EMIT_OP(x86Command op);
+void EMIT_OP_LABEL(x86Command op, const char* Label);
+void EMIT_OP_REG(x86Command op, x86Reg reg1);
+void EMIT_OP_FPUREG(x86Command op, x87Reg reg1);
+void EMIT_OP_NUM(x86Command op, unsigned int num);
+void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr);
+void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift);
+void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num);
+void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2);
+void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int addr);
+void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift);
+void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, const char* Label, unsigned int shift);
+void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg2);
+void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, x86Reg reg2);
+void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num);
+
 void ResetStackTracking();
 unsigned int GetStackTrackInfo();
 
 void SetParamBase(unsigned int base);
-void SetInstructionList(FastVector<x86Instruction> *instList);
+void SetInstructionList(FastVector<x86Instruction, true, true> *instList);
 
 void GenCodeCmdNop(VMCmd cmd);
 

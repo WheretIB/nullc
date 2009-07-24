@@ -425,13 +425,14 @@ bool ExecutorX86::TranslateToNative()
 
 #define Emit instList.push_back(x86Instruction()), instList.back() = x86Instruction
 
+	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
-
-	Emit(o_use32);
 
 	ResetStackTracking();
 	SetParamBase(paramBase);
 	SetInstructionList(&instList);
+
+	EMIT_OP(o_use32);
 
 	int stackRelSize = 0, stackRelSizePrev = 0;
 
@@ -443,7 +444,7 @@ bool ExecutorX86::TranslateToNative()
 		{
 			if(pos == instrNeedLabel[i])
 			{
-				Emit(InlFmt("gLabel%d", pos));
+				EMIT_LABEL(InlFmt("gLabel%d", pos));
 				break;
 			}
 		}
@@ -451,16 +452,16 @@ bool ExecutorX86::TranslateToNative()
 		{
 			if(pos == funcNeedLabel[i])
 			{
-				Emit(o_dd, x86Argument((('N' << 24) | pos)));
-				Emit(InlFmt("function%d", pos));
+				EMIT_OP_NUM(o_dd, (('N' << 24) | pos));
+				EMIT_LABEL(InlFmt("function%d", pos));
 				break;
 			}
 		}
 
 		if(pos == exLinker->offsetToGlobalCode)
 		{
-			Emit(o_dd, x86Argument((('G' << 24) | exLinker->offsetToGlobalCode)));
-			Emit(o_push, x86Argument(rEBP));
+			EMIT_OP_NUM(o_dd, (('G' << 24) | exLinker->offsetToGlobalCode));
+			EMIT_OP_REG(o_push, rEBP);
 		}
 
 		stackRelSizePrev = stackRelSize + GetStackTrackInfo();
@@ -476,10 +477,10 @@ bool ExecutorX86::TranslateToNative()
 
 			if(exFunctions[cmd.argument]->funcPtr == NULL)
 			{
-				Emit(o_lea, x86Argument(rEAX), x86Argument(InlFmt("function%d", exFunctions[cmd.argument]->address), binCodeStart));
-				Emit(o_push, x86Argument(rEAX));
+				EMIT_OP_REG_LABEL(o_lea, rEAX, InlFmt("function%d", exFunctions[cmd.argument]->address), binCodeStart);
+				EMIT_OP_REG(o_push, rEAX);
 			}else{
-				Emit(o_push, x86Argument((int)(long long)exFunctions[cmd.argument]->funcPtr));
+				EMIT_OP_NUM(o_push, (int)(long long)exFunctions[cmd.argument]->funcPtr);
 			}
 			stackRelSize += 4;
 		}else if(cmd.cmd == cmdCallStd)
@@ -488,46 +489,46 @@ bool ExecutorX86::TranslateToNative()
 
 			if(exFunctions[cmd.argument]->funcPtr == NULL)
 			{
-				Emit(o_fld, x86Argument(sQWORD, rESP, 0));
+				EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 				if(exFunctions[cmd.argument]->nameHash == GetStringHash("cos"))
 				{
-					Emit(o_fsincos);
-					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-					Emit(o_fstp, x86Argument(rST0));
+					EMIT_OP(o_fsincos);
+					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+					EMIT_OP_FPUREG(o_fstp, rST0);
 				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("sin")){
-					Emit(o_fsincos);
-					Emit(o_fstp, x86Argument(rST0));
-					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+					EMIT_OP(o_fsincos);
+					EMIT_OP_FPUREG(o_fstp, rST0);
+					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("tan")){
-					Emit(o_fptan);
-					Emit(o_fstp, x86Argument(rST0));
-					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+					EMIT_OP(o_fptan);
+					EMIT_OP_FPUREG(o_fstp, rST0);
+					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("ctg")){
-					Emit(o_fptan);
-					Emit(o_fdivrp);
-					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
+					EMIT_OP(o_fptan);
+					EMIT_OP(o_fdivrp);
+					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("ceil")){
-					Emit(o_push, x86Argument(rEAX));
-					Emit(o_fstcw, x86Argument(sWORD, rESP, 0));
-					Emit(o_mov, x86Argument(sWORD, rESP, 2), x86Argument(0x1BBF));
-					Emit(o_fldcw, x86Argument(sWORD, rESP, 2));
-					Emit(o_frndint);
-					Emit(o_fldcw, x86Argument(sWORD, rESP, 0));
-					Emit(o_fstp, x86Argument(sQWORD, rESP, 4));
-					Emit(o_pop, x86Argument(rEAX));
+					EMIT_OP_REG(o_push, rEAX);
+					EMIT_OP_RPTR(o_fstcw, sWORD, rESP, 0);
+					EMIT_OP_RPTR_NUM(o_mov, sWORD, rESP, 2, 0x1BBF);
+					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 2);
+					EMIT_OP(o_frndint);
+					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 0);
+					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 4);
+					EMIT_OP_REG(o_pop, rEAX);
 				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("floor")){
-					Emit(o_push, x86Argument(rEAX));
-					Emit(o_fstcw, x86Argument(sWORD, rESP, 0));
-					Emit(o_mov, x86Argument(sWORD, rESP, 2), x86Argument(0x17BF));
-					Emit(o_fldcw, x86Argument(sWORD, rESP, 2));
-					Emit(o_frndint);
-					Emit(o_fldcw, x86Argument(sWORD, rESP, 0));
-					Emit(o_fstp, x86Argument(sQWORD, rESP, 4));
-					Emit(o_pop, x86Argument(rEAX));
+					EMIT_OP_REG(o_push, rEAX);
+					EMIT_OP_RPTR(o_fstcw, sWORD, rESP, 0);
+					EMIT_OP_RPTR_NUM(o_mov, sWORD, rESP, 2, 0x17BF);
+					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 2);
+					EMIT_OP(o_frndint);
+					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 0);
+					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 4);
+					EMIT_OP_REG(o_pop, rEAX);
 				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("sqrt")){
-					Emit(o_fsqrt);
-					Emit(o_fstp, x86Argument(sQWORD, rESP, 0));
-					Emit(o_fstp, x86Argument(rST0));
+					EMIT_OP(o_fsqrt);
+					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+					EMIT_OP_FPUREG(o_fstp, rST0);
 				}else{
 					strcpy(execError, "cmdCallStd with unknown standard function");
 					return false;
@@ -538,13 +539,13 @@ bool ExecutorX86::TranslateToNative()
 				{
 					bytesToPop += exTypes[exFunctions[cmd.argument]->paramList[i]].size > 4 ? exTypes[exFunctions[cmd.argument]->paramList[i]].size : 4;
 				}
-				Emit(o_mov, x86Argument(rECX), x86Argument((int)(long long)exFunctions[cmd.argument]->funcPtr));
-				Emit(o_call, x86Argument(rECX));
-				Emit(o_add, x86Argument(rESP), x86Argument(bytesToPop));
+				EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)exFunctions[cmd.argument]->funcPtr);
+				EMIT_OP_REG(o_call, rECX);
+				EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
 				stackRelSize -= bytesToPop;
 				if(exTypes[exFunctions[cmd.argument]->retType].size != 0)
 				{
-					Emit(o_push, x86Argument(rEAX));
+					EMIT_OP_REG(o_push, rEAX);
 					stackRelSize += 4;
 				}
 			}
@@ -557,9 +558,9 @@ bool ExecutorX86::TranslateToNative()
 			Emit(INST_COMMENT, "=====Stack restored=====");
 #endif
 	}
-	Emit(InlFmt("gLabel%d", pos));
-	Emit(o_pop, x86Argument(rEBP));
-	Emit(o_ret);
+	EMIT_LABEL(InlFmt("gLabel%d", pos));
+	EMIT_OP_REG(o_pop, rEBP);
+	EMIT_OP(o_ret);
 
 #ifdef NULLC_LOG_FILES
 	FILE *noptAsm = fopen("asmX86_noopt.txt", "wb");
@@ -645,7 +646,7 @@ bool ExecutorX86::TranslateToNative()
 			{
 				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelName, cmd.argB.ptrNum);
 			}else{
-				if(cmd.argB.ptrMult != 1)
+				if(cmd.argB.ptrMult > 1)
 					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrMult, cmd.argB.ptrNum);
 				else
 					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrNum);

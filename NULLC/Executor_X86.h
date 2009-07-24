@@ -36,7 +36,7 @@ private:
 	FastVector<ExternalFunctionInfo>	&exFuncInfo;
 	FastVector<VMCmd>			&exCode;
 
-	FastVector<x86Instruction>	instList;
+	FastVector<x86Instruction, true, true>	instList;
 
 	int	optimize;
 	unsigned int		globalStartInBytecode;

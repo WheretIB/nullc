@@ -51,16 +51,14 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	*stream++ = mod | spare | RM;
 
 	unsigned char sibScale = 0;
-	if(multiplier == 1)
-		sibScale = 0 << 6;
-	else if(multiplier == 2)
+	if(multiplier == 2)
 		sibScale = 1 << 6;
 	else if(multiplier == 4)
 		sibScale = 2 << 6;
 	else if(multiplier == 8)
 		sibScale = 3 << 6;
-	else
-		assert(!"scale must be 1, 2, 4 or 8");
+	assert(multiplier == 0 || multiplier == 1 || multiplier == 2 || multiplier == 4 || multiplier == 8);
+
 	unsigned char sibIndex = (index != rNONE ? regCode[index] << 3 : regCode[rESP] << 3);
 	unsigned char sibBase = regCode[base];
 
