@@ -1,6 +1,6 @@
 #include "Optimizer_x86.h"
 
-unsigned int OptimizerX86::Optimize(FastVector<x86Instruction>& instList)
+unsigned int OptimizerX86::Optimize(FastVector<x86Instruction, true, true>& instList)
 {
 	unsigned int opti = 0;
 	start = &instList[0];
@@ -28,7 +28,7 @@ unsigned int OptimizerX86::SearchDown(unsigned int from)
 	return from;
 }
 
-unsigned int OptimizerX86::OptimizationPass(FastVector<x86Instruction>& instList)
+unsigned int OptimizerX86::OptimizationPass(FastVector<x86Instruction, true, true>& instList)
 {
 	unsigned int optimizeCount = 0;
 

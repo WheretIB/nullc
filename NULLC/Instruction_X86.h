@@ -130,10 +130,8 @@ struct x86Argument
 	enum ArgType{ argNone, argNumber, argReg, argFPReg, argPtr, argPtrLabel, argLabel };
 
 	// no argument
-	x86Argument()
-	{
-		Empty();
-	}
+	x86Argument(){ }
+
 	// immediate number
 	explicit x86Argument(int Num)
 	{
@@ -265,16 +263,15 @@ const int INST_COMMENT = 1;
 
 struct x86Instruction
 {
-	x86Instruction(){ name = o_other; }
+	x86Instruction(){ name = o_none; }
 	explicit x86Instruction(const char* Label){ name = o_label; assert(strlen(Label) < 16); strncpy(labelName, Label, 16); }
 	x86Instruction(int comment, const char* text){ (void)comment; name = o_other; assert(strlen(text) < 32); strncpy(labelName, text, 32); }
 	explicit x86Instruction(x86Command Name){ name = Name; }
 	x86Instruction(x86Command Name, const x86Argument& a){ name = Name; argA = a; }
 	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b){ name = Name; argA = a; argB = b; }
-	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b, const x86Argument& c){ name = Name; argA = a; argB = b; argC = c; }
 
 	x86Command	name;
-	x86Argument	argA, argB, argC;
+	x86Argument	argA, argB;
 
 	char	labelName[32];
 
@@ -297,11 +294,6 @@ struct x86Instruction
 		{
 			curr += sprintf(curr, ", ");
 			curr += argB.Decode(curr);
-		}
-		if(argC.type != x86Argument::argNone)
-		{
-			curr += sprintf(curr, ", ");
-			curr += argC.Decode(curr);
 		}
 
 		return (int)(curr-buf);

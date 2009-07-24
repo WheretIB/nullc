@@ -35,13 +35,16 @@ unsigned int GetStringHash(const char *str, const char *end);
 unsigned int StringHashContinue(unsigned int hash, const char *str);
 unsigned int StringHashContinue(unsigned int hash, const char *str, const char *end);
 
-template<typename T, bool zeroNewMemory = false>
+template<typename T, bool zeroNewMemory = false, bool skipConstructor = false>
 class FastVector
 {
 public:
 	FastVector()
 	{
-		data = new T[256];
+		if(!skipConstructor)
+			data = new T[256];
+		else
+			data = (T*)new char[sizeof(T) * 256];
 		if(zeroNewMemory)
 			memset(data, 0, 256 * sizeof(T));
 		max = 256;
@@ -49,14 +52,24 @@ public:
 	}
 	FastVector(unsigned int reserved)
 	{
-		data = new T[reserved];
+		if(!skipConstructor)
+			data = new T[reserved];
+		else
+			data = (T*)new char[sizeof(T) * reserved];
 		if(zeroNewMemory)
 			memset(data, 0, reserved * sizeof(T));
 		max = reserved;
 		m_size = 0;
 	}
-	~FastVector(){ delete[] data; }
+	~FastVector()
+	{
+		if(!skipConstructor)
+			delete[] data;
+		else
+			delete[] (char*)(data);
+	}
 
+	__forceinline T*		push_back(){ m_size++; if(m_size==max) grow(m_size); return &data[m_size - 1]; };
 	__forceinline void		push_back(const T& val){ data[m_size++] = val; if(m_size==max) grow(m_size); };
 	__forceinline void		push_back(const T* valptr, unsigned int count)
 	{
@@ -78,12 +91,18 @@ private:
 			newSize = max+(max>>1);
 		else
 			newSize += 32;
-		//assert(max+(max>>1) >= newSize);
-		T* ndata = new T[newSize];
+		T* ndata;
+		if(!skipConstructor)
+			ndata = new T[newSize];
+		else
+			ndata = (T*)new char[sizeof(T) * newSize];
 		if(zeroNewMemory)
-			memset(ndata, 0, newSize*sizeof(T));
-		memcpy(ndata, data, max*sizeof(T));
-		delete[] data;
+			memset(ndata, 0, newSize * sizeof(T));
+		memcpy(ndata, data, max * sizeof(T));
+		if(!skipConstructor)
+			delete[] data;
+		else
+			delete[] (char*)(data);
 		data=ndata;
 		max=newSize;
 	}
