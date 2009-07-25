@@ -170,19 +170,8 @@ char* InlFmt(const char *str, ...)
 	return storage;
 }
 
-static unsigned int stackRelSize = 0;
 static unsigned int paramBase = 0;
 static unsigned int aluLabels = 1;
-
-void ResetStackTracking()
-{
-	stackRelSize = 0;
-}
-
-unsigned int GetStackTrackInfo()
-{
-	return stackRelSize;
-}
 
 void SetParamBase(unsigned int base)
 {
@@ -206,7 +195,6 @@ void GenCodeCmdPushCharAbs(VMCmd cmd)
 
 	EMIT_OP_REG_ADDR(o_movsx, rEAX, sBYTE, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPushShortAbs(VMCmd cmd)
@@ -215,7 +203,6 @@ void GenCodeCmdPushShortAbs(VMCmd cmd)
 
 	EMIT_OP_REG_ADDR(o_movsx, rEAX, sWORD, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPushIntAbs(VMCmd cmd)
@@ -223,7 +210,6 @@ void GenCodeCmdPushIntAbs(VMCmd cmd)
 	Emit(INST_COMMENT, "PUSH int abs");
 
 	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPushFloatAbs(VMCmd cmd)
@@ -233,7 +219,6 @@ void GenCodeCmdPushFloatAbs(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_ADDR(o_fld, sDWORD, cmd.argument+paramBase);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	stackRelSize += 8;
 }
 
 void GenCodeCmdPushDorLAbs(VMCmd cmd)
@@ -242,7 +227,6 @@ void GenCodeCmdPushDorLAbs(VMCmd cmd)
 
 	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+4);
 	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase);
-	stackRelSize += 8;
 }
 
 void GenCodeCmdPushCmplxAbs(VMCmd cmd)
@@ -254,7 +238,6 @@ void GenCodeCmdPushCmplxAbs(VMCmd cmd)
 	{
 		currShift -= 4;
 		EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+currShift);
-		stackRelSize += 4;
 	}
 	assert(currShift == 0);
 }
@@ -266,7 +249,6 @@ void GenCodeCmdPushCharRel(VMCmd cmd)
 
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEBP, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPushShortRel(VMCmd cmd)
@@ -275,7 +257,6 @@ void GenCodeCmdPushShortRel(VMCmd cmd)
 
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEBP, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPushIntRel(VMCmd cmd)
@@ -283,7 +264,6 @@ void GenCodeCmdPushIntRel(VMCmd cmd)
 	Emit(INST_COMMENT, "PUSH int rel");
 
 	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPushFloatRel(VMCmd cmd)
@@ -293,7 +273,6 @@ void GenCodeCmdPushFloatRel(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fld, sDWORD, rEBP, cmd.argument+paramBase);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	stackRelSize += 8;
 }
 
 void GenCodeCmdPushDorLRel(VMCmd cmd)
@@ -302,7 +281,6 @@ void GenCodeCmdPushDorLRel(VMCmd cmd)
 
 	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+4);
 	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase);
-	stackRelSize += 8;
 }
 
 void GenCodeCmdPushCmplxRel(VMCmd cmd)
@@ -313,7 +291,6 @@ void GenCodeCmdPushCmplxRel(VMCmd cmd)
 	{
 		currShift -= 4;
 		EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+currShift);
-		stackRelSize += 4;
 	}
 	assert(currShift == 0);
 }
@@ -353,7 +330,6 @@ void GenCodeCmdPushFloatStk(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument+paramBase);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPushDorLStk(VMCmd cmd)
@@ -363,7 +339,6 @@ void GenCodeCmdPushDorLStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase+4);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPushCmplxStk(VMCmd cmd)
@@ -371,12 +346,10 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd)
 	Emit(INST_COMMENT, "PUSH complex stack");
 	unsigned int currShift = cmd.helper;
 	EMIT_OP_REG(o_pop, rEDX);
-	stackRelSize -= 4;
 	while(currShift >= 4)
 	{
 		currShift -= 4;
 		EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase+currShift);
-		stackRelSize += 4;
 	}
 	assert(currShift == 0);
 }
@@ -387,7 +360,6 @@ void GenCodeCmdPushImmt(VMCmd cmd)
 	Emit(INST_COMMENT, "PUSHIMMT");
 	
 	EMIT_OP_NUM(o_push, cmd.argument);
-	stackRelSize += 4;
 }
 
 
@@ -520,7 +492,6 @@ void GenCodeCmdMovCharStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument+paramBase, rEBX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdMovShortStk(VMCmd cmd)
@@ -530,7 +501,6 @@ void GenCodeCmdMovShortStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument+paramBase, rEBX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdMovIntStk(VMCmd cmd)
@@ -540,7 +510,6 @@ void GenCodeCmdMovIntStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument+paramBase, rEBX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdMovFloatStk(VMCmd cmd)
@@ -550,7 +519,6 @@ void GenCodeCmdMovFloatStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument+paramBase);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdMovDorLStk(VMCmd cmd)
@@ -567,14 +535,12 @@ void GenCodeCmdMovDorLStk(VMCmd cmd)
 		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument+paramBase + 4);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	}
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdMovCmplxStk(VMCmd cmd)
 {
 	Emit(INST_COMMENT, "MOV complex stack");
 	EMIT_OP_REG(o_pop, rEDX);
-	stackRelSize -= 4;
 	unsigned int currShift = 0;
 	while(currShift < cmd.helper)
 	{
@@ -597,7 +563,6 @@ void GenCodeCmdPopCharTop(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDI, cmd.argument+paramBase, rEBX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdPopShortTop(VMCmd cmd)
@@ -606,7 +571,6 @@ void GenCodeCmdPopShortTop(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDI, cmd.argument+paramBase, rEBX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdPopIntTop(VMCmd cmd)
@@ -614,7 +578,6 @@ void GenCodeCmdPopIntTop(VMCmd cmd)
 	Emit(INST_COMMENT, "POP int top");
 
 	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdPopFloatTop(VMCmd cmd)
@@ -624,7 +587,6 @@ void GenCodeCmdPopFloatTop(VMCmd cmd)
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rEDI, cmd.argument+paramBase);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdPopDorLTop(VMCmd cmd)
@@ -633,7 +595,6 @@ void GenCodeCmdPopDorLTop(VMCmd cmd)
 
 	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase);
 	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase + 4);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdPopCmplxTop(VMCmd cmd)
@@ -646,7 +607,6 @@ void GenCodeCmdPopCmplxTop(VMCmd cmd)
 		currShift += 4;
 	}
 	assert(currShift == cmd.helper);
-	stackRelSize -= cmd.helper;
 }
 
 
@@ -656,7 +616,6 @@ void GenCodeCmdPop(VMCmd cmd)
 	Emit(INST_COMMENT, "POP");
 
 	EMIT_OP_REG_NUM(o_add, rESP, cmd.argument);
-	stackRelSize -= cmd.argument;
 }
 
 
@@ -668,7 +627,6 @@ void GenCodeCmdDtoI(VMCmd cmd)
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fistp, sDWORD, rESP, 4);
 	EMIT_OP_REG_NUM(o_add, rESP, 4);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdDtoL(VMCmd cmd)
@@ -688,7 +646,6 @@ void GenCodeCmdDtoF(VMCmd cmd)
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rESP, 4);
 	EMIT_OP_REG_NUM(o_add, rESP, 4);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdItoD(VMCmd cmd)
@@ -699,7 +656,6 @@ void GenCodeCmdItoD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_REG(o_push, rEAX);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdLtoD(VMCmd cmd)
@@ -720,7 +676,6 @@ void GenCodeCmdItoL(VMCmd cmd)
 	EMIT_OP(o_cdq);
 	EMIT_OP_REG(o_push, rEDX);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdLtoI(VMCmd cmd)
@@ -730,7 +685,6 @@ void GenCodeCmdLtoI(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_RPTR(o_xchg, rEAX, sDWORD, rESP, 0);
-	stackRelSize -= 4;
 }
 
 
@@ -743,10 +697,8 @@ void GenCodeCmdImmtMul(VMCmd cmd)
 		EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 		EMIT_OP_RPTR(o_fistp, sDWORD, rESP, 4);
 		EMIT_OP_REG(o_pop, rEAX);
-		stackRelSize -= 4;
 	}else if(cmd.cmd == cmdImmtMulL){
 		EMIT_OP_REG(o_pop, rEAX);
-		stackRelSize -= 4;
 	}
 	
 	if(cmd.argument == 2)
@@ -774,7 +726,6 @@ void GenCodeCmdCopyDorL(VMCmd cmd)
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 4);
 	EMIT_OP_REG(o_push, rEAX);
 	EMIT_OP_REG(o_push, rEDX);
-	stackRelSize += 8;
 }
 
 void GenCodeCmdCopyI(VMCmd cmd)
@@ -784,7 +735,6 @@ void GenCodeCmdCopyI(VMCmd cmd)
 
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 0);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize += 4;
 }
 
 
@@ -799,7 +749,6 @@ void GenCodeCmdGetAddr(VMCmd cmd)
 	}else{
 		EMIT_OP_REG(o_push, rEBP);
 	}
-	stackRelSize += 4;
 }
 
 void GenCodeCmdSetRange(VMCmd cmd)
@@ -871,7 +820,6 @@ void GenCodeCmdJmpZI(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
 	EMIT_OP_LABEL(o_jz, InlFmt("near gLabel%d", cmd.argument));
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdJmpZD(VMCmd cmd)
@@ -885,7 +833,6 @@ void GenCodeCmdJmpZD(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
 	EMIT_OP_LABEL(o_jnp, InlFmt("near gLabel%d", cmd.argument));
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdJmpZL(VMCmd cmd)
@@ -896,7 +843,6 @@ void GenCodeCmdJmpZL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_or, rEDX, rEAX);
 	EMIT_OP_LABEL(o_jne, InlFmt("near gLabel%d", cmd.argument));
-	stackRelSize -= 8;
 }
 
 
@@ -907,7 +853,6 @@ void GenCodeCmdJmpNZI(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
 	EMIT_OP_LABEL(o_jnz, InlFmt("near gLabel%d", cmd.argument));
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdJmpNZD(VMCmd cmd)
@@ -921,7 +866,6 @@ void GenCodeCmdJmpNZD(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
 	EMIT_OP_LABEL(o_jp, InlFmt("near gLabel%d", cmd.argument));
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdJmpNZL(VMCmd cmd)
@@ -932,7 +876,6 @@ void GenCodeCmdJmpNZL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_or, rEDX, rEAX);
 	EMIT_OP_LABEL(o_je, InlFmt("near gLabel%d", cmd.argument));
-	stackRelSize -= 8;
 }
 
 
@@ -944,7 +887,6 @@ void GenCodeCmdCall(VMCmd cmd)
 	{
 		EMIT_OP_REG(o_pop, rEAX);
 		EMIT_OP_REG(o_call, rEAX);
-		stackRelSize -= 4;
 	}else{
 		EMIT_OP_LABEL(o_call, InlFmt("function%d", cmd.argument));
 	}
@@ -953,11 +895,9 @@ void GenCodeCmdCall(VMCmd cmd)
 		if((asmOperType)(cmd.helper & 0x0FFF) == OTYPE_INT)
 		{
 			EMIT_OP_REG(o_push, rEAX);
-			stackRelSize += 4;
 		}else{	// double or long
 			EMIT_OP_REG(o_push, rEAX);
 			EMIT_OP_REG(o_push, rEDX);
-			stackRelSize += 8;
 		}
 	}else{
 		assert(cmd.helper % 4 == 0);
@@ -988,7 +928,6 @@ void GenCodeCmdCall(VMCmd cmd)
 
 			EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 		}
-		stackRelSize += cmd.helper;
 	}
 }
 
@@ -1007,7 +946,6 @@ void GenCodeCmdReturn(VMCmd cmd)
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 		EMIT_OP_REG(o_pop, rEBP);
 		EMIT_OP(o_ret);
-		stackRelSize = 0;
 		return;
 	}
 	if(cmd.helper & bitRetSimple)
@@ -1015,17 +953,14 @@ void GenCodeCmdReturn(VMCmd cmd)
 		if((asmOperType)(cmd.helper & 0x0FFF) == OTYPE_INT)
 		{
 			EMIT_OP_REG(o_pop, rEAX);
-			stackRelSize -= 4;
 		}else{
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
-			stackRelSize -= 8;
 		}
 		for(unsigned int pops = 0; pops < (cmd.argument > 0 ? cmd.argument : 1); pops++)
 		{
 			EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 			EMIT_OP_REG(o_pop, rEBP);
-			stackRelSize -= 4;
 		}
 		if(cmd.argument == 0)
 			EMIT_OP_REG_NUM(o_mov, rEBX, cmd.helper & 0x0FFF);
@@ -1057,23 +992,19 @@ void GenCodeCmdReturn(VMCmd cmd)
 
 			EMIT_OP_REG_NUM(o_add, rESP, cmd.helper);
 		}
-		stackRelSize -= cmd.helper;
 		for(unsigned int pops = 0; pops < cmd.argument-1; pops++)
 		{
 			EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 			EMIT_OP_REG(o_pop, rEBP);
-			stackRelSize -= 4;
 		}
 		if(cmd.helper > 16)
 			EMIT_OP_REG_REG(o_mov, rEAX, rEDI);
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 		EMIT_OP_REG(o_pop, rEBP);
-		stackRelSize -= 4;
 		if(cmd.argument == 0)
 			EMIT_OP_REG_NUM(o_mov, rEBX, 16);
 	}
 	EMIT_OP(o_ret);
-	stackRelSize = 0;
 }
 
 
@@ -1084,7 +1015,6 @@ void GenCodeCmdPushVTop(VMCmd cmd)
 
 	EMIT_OP_REG(o_push, rEBP);
 	EMIT_OP_REG_REG(o_mov, rEBP, rEDI);
-	stackRelSize += 4;
 }
 
 void GenCodeCmdPopVTop(VMCmd cmd)
@@ -1094,7 +1024,6 @@ void GenCodeCmdPopVTop(VMCmd cmd)
 
 	EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 	EMIT_OP_REG(o_pop, rEBP);
-	stackRelSize -= 4;
 }
 
 
@@ -1112,7 +1041,6 @@ void GenCodeCmdAdd(VMCmd cmd)
 	Emit(INST_COMMENT, "ADD int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_add, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdSub(VMCmd cmd)
@@ -1121,7 +1049,6 @@ void GenCodeCmdSub(VMCmd cmd)
 	Emit(INST_COMMENT, "SUB int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_sub, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdMul(VMCmd cmd)
@@ -1132,7 +1059,6 @@ void GenCodeCmdMul(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG(o_imul, rEDX);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdDiv(VMCmd cmd)
@@ -1144,7 +1070,6 @@ void GenCodeCmdDiv(VMCmd cmd)
 	EMIT_OP(o_cdq);
 	EMIT_OP_RPTR(o_idiv, sDWORD, rESP, 0);
 	EMIT_OP_REG_RPTR(o_xchg, rEAX, sDWORD, rESP, 0);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdPow(VMCmd cmd)
@@ -1156,7 +1081,6 @@ void GenCodeCmdPow(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)intPow);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG(o_push, rEDX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdMod(VMCmd cmd)
@@ -1168,7 +1092,6 @@ void GenCodeCmdMod(VMCmd cmd)
 	EMIT_OP(o_cdq);
 	EMIT_OP_RPTR(o_idiv, sDWORD, rESP, 0);
 	EMIT_OP_REG_RPTR(o_xchg, rEDX, sDWORD, rESP, 0);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdLess(VMCmd cmd)
@@ -1180,7 +1103,6 @@ void GenCodeCmdLess(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_REG(o_setl, rECX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdGreater(VMCmd cmd)
@@ -1192,7 +1114,6 @@ void GenCodeCmdGreater(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_REG(o_setg, rECX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdLEqual(VMCmd cmd)
@@ -1204,7 +1125,6 @@ void GenCodeCmdLEqual(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_REG(o_setle, rECX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdGEqual(VMCmd cmd)
@@ -1216,7 +1136,6 @@ void GenCodeCmdGEqual(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_REG(o_setge, rECX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdEqual(VMCmd cmd)
@@ -1228,7 +1147,6 @@ void GenCodeCmdEqual(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_REG(o_sete, rECX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdNEqual(VMCmd cmd)
@@ -1240,7 +1158,6 @@ void GenCodeCmdNEqual(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_REG(o_setne, rECX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdShl(VMCmd cmd)
@@ -1251,7 +1168,6 @@ void GenCodeCmdShl(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_sal, rEAX, rECX);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdShr(VMCmd cmd)
@@ -1262,7 +1178,6 @@ void GenCodeCmdShr(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_sar, rEAX, rECX);
 	EMIT_OP_REG(o_push, rEAX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdBitAnd(VMCmd cmd)
@@ -1271,7 +1186,6 @@ void GenCodeCmdBitAnd(VMCmd cmd)
 	Emit(INST_COMMENT, "BAND int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_and, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdBitOr(VMCmd cmd)
@@ -1280,7 +1194,6 @@ void GenCodeCmdBitOr(VMCmd cmd)
 	Emit(INST_COMMENT, "BOR int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_or, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdBitXor(VMCmd cmd)
@@ -1289,7 +1202,6 @@ void GenCodeCmdBitXor(VMCmd cmd)
 	Emit(INST_COMMENT, "BXOR int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_xor, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdLogAnd(VMCmd cmd)
@@ -1307,7 +1219,6 @@ void GenCodeCmdLogAnd(VMCmd cmd)
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
 	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
 	aluLabels++;
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdLogOr(VMCmd cmd)
@@ -1325,7 +1236,6 @@ void GenCodeCmdLogOr(VMCmd cmd)
 	EMIT_OP_NUM(o_push, 0);
 	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
 	aluLabels++;
-	stackRelSize -= 4;
 }
 
 void GenCodeCmdLogXor(VMCmd cmd)
@@ -1341,7 +1251,6 @@ void GenCodeCmdLogXor(VMCmd cmd)
 	EMIT_OP_REG_REG(o_xor, rEAX, rECX);
 	EMIT_OP_REG(o_pop, rECX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 4;
 }
 
 
@@ -1353,7 +1262,6 @@ void GenCodeCmdAddL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_add, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_RPTR_REG(o_adc, sDWORD, rESP, 4, rEDX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdSubL(VMCmd cmd)
@@ -1364,7 +1272,6 @@ void GenCodeCmdSubL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_sub, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_RPTR_REG(o_sbb, sDWORD, rESP, 4, rEDX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdMulL(VMCmd cmd)
@@ -1376,7 +1283,6 @@ void GenCodeCmdMulL(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdDivL(VMCmd cmd)
@@ -1388,7 +1294,6 @@ void GenCodeCmdDivL(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdPowL(VMCmd cmd)
@@ -1400,7 +1305,6 @@ void GenCodeCmdPowL(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdModL(VMCmd cmd)
@@ -1412,7 +1316,6 @@ void GenCodeCmdModL(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdLessL(VMCmd cmd)
@@ -1434,7 +1337,6 @@ void GenCodeCmdLessL(VMCmd cmd)
 	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdGreaterL(VMCmd cmd)
@@ -1456,7 +1358,6 @@ void GenCodeCmdGreaterL(VMCmd cmd)
 	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdLEqualL(VMCmd cmd)
@@ -1478,7 +1379,6 @@ void GenCodeCmdLEqualL(VMCmd cmd)
 	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdGEqualL(VMCmd cmd)
@@ -1500,7 +1400,6 @@ void GenCodeCmdGEqualL(VMCmd cmd)
 	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdEqualL(VMCmd cmd)
@@ -1520,7 +1419,6 @@ void GenCodeCmdEqualL(VMCmd cmd)
 	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdNEqualL(VMCmd cmd)
@@ -1541,7 +1439,6 @@ void GenCodeCmdNEqualL(VMCmd cmd)
 	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdShlL(VMCmd cmd)
@@ -1551,7 +1448,6 @@ void GenCodeCmdShlL(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longShl);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdShrL(VMCmd cmd)
@@ -1561,7 +1457,6 @@ void GenCodeCmdShrL(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longShr);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdBitAndL(VMCmd cmd)
@@ -1572,7 +1467,6 @@ void GenCodeCmdBitAndL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_and, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_RPTR_REG(o_and, sDWORD, rESP, 4, rEDX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdBitOrL(VMCmd cmd)
@@ -1583,7 +1477,6 @@ void GenCodeCmdBitOrL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_or, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_RPTR_REG(o_or, sDWORD, rESP, 4, rEDX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdBitXorL(VMCmd cmd)
@@ -1594,7 +1487,6 @@ void GenCodeCmdBitXorL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_xor, sDWORD, rESP, 0, rEAX);
 	EMIT_OP_RPTR_REG(o_xor, sDWORD, rESP, 4, rEDX);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdLogAndL(VMCmd cmd)
@@ -1615,7 +1507,6 @@ void GenCodeCmdLogAndL(VMCmd cmd)
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 12, 0);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdLogOrL(VMCmd cmd)
@@ -1636,7 +1527,6 @@ void GenCodeCmdLogOrL(VMCmd cmd)
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 12, 0);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdLogXorL(VMCmd cmd)
@@ -1656,7 +1546,6 @@ void GenCodeCmdLogXorL(VMCmd cmd)
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 
@@ -1668,7 +1557,6 @@ void GenCodeCmdAddD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fadd, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdSubD(VMCmd cmd)
@@ -1679,7 +1567,6 @@ void GenCodeCmdSubD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fsub, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdMulD(VMCmd cmd)
@@ -1690,7 +1577,6 @@ void GenCodeCmdMulD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fmul, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdDivD(VMCmd cmd)
@@ -1701,7 +1587,6 @@ void GenCodeCmdDivD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fdiv, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdPowD(VMCmd cmd)
@@ -1714,7 +1599,6 @@ void GenCodeCmdPowD(VMCmd cmd)
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdModD(VMCmd cmd)
@@ -1727,7 +1611,6 @@ void GenCodeCmdModD(VMCmd cmd)
 	EMIT_OP_FPUREG(o_fstp, rST1);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdLessD(VMCmd cmd)
@@ -1748,7 +1631,6 @@ void GenCodeCmdLessD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdGreaterD(VMCmd cmd)
@@ -1769,7 +1651,6 @@ void GenCodeCmdGreaterD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdLEqualD(VMCmd cmd)
@@ -1790,7 +1671,6 @@ void GenCodeCmdLEqualD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdGEqualD(VMCmd cmd)
@@ -1811,7 +1691,6 @@ void GenCodeCmdGEqualD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdEqualD(VMCmd cmd)
@@ -1832,7 +1711,6 @@ void GenCodeCmdEqualD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 void GenCodeCmdNEqualD(VMCmd cmd)
@@ -1853,7 +1731,6 @@ void GenCodeCmdNEqualD(VMCmd cmd)
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	aluLabels++;
-	stackRelSize -= 8;
 }
 
 
@@ -2004,8 +1881,6 @@ void GenCodeCmdAddAtCharStk(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument+paramBase, rEAX);
 	if(cmd.flag == bitPushAfter)
 		EMIT_OP_REG(o_push, rEAX);
-	if(!cmd.flag)
-		stackRelSize -= 4;
 }
 
 void GenCodeCmdAddAtShortStk(VMCmd cmd)
@@ -2019,8 +1894,6 @@ void GenCodeCmdAddAtShortStk(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument+paramBase, rEAX);
 	if(cmd.flag == bitPushAfter)
 		EMIT_OP_REG(o_push, rEAX);
-	if(!cmd.flag)
-		stackRelSize -= 4;
 }
 
 void GenCodeCmdAddAtIntStk(VMCmd cmd)
@@ -2034,8 +1907,6 @@ void GenCodeCmdAddAtIntStk(VMCmd cmd)
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument+paramBase, rEAX);
 	if(cmd.flag == bitPushAfter)
 		EMIT_OP_REG(o_push, rEAX);
-	if(!cmd.flag)
-		stackRelSize -= 4;
 }
 
 void GenCodeCmdAddAtLongStk(VMCmd cmd)
@@ -2048,7 +1919,6 @@ void GenCodeCmdAddAtLongStk(VMCmd cmd)
 	{
 		EMIT_OP_REG(o_push, rEAX);
 		EMIT_OP_REG(o_push, rEDX);
-		stackRelSize += 4;
 	}
 	EMIT_OP_REG_NUM(cmd.helper == 1 ? o_add : o_sub, rEAX, 1);
 	EMIT_OP_REG_NUM(cmd.helper == 1 ? o_adc : o_sbb, rEDX, 0);
@@ -2058,7 +1928,6 @@ void GenCodeCmdAddAtLongStk(VMCmd cmd)
 	{
 		EMIT_OP_REG(o_push, rEAX);
 		EMIT_OP_REG(o_push, rEDX);
-		stackRelSize += 4;
 	}
 }
 
@@ -2076,7 +1945,6 @@ void GenCodeCmdAddAtFloatStk(VMCmd cmd)
 		EMIT_OP_RPTR(o_fst, sDWORD, rEDX, cmd.argument+paramBase);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-		stackRelSize += 4;
 	}else{
 		EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument+paramBase);
 	}
@@ -2084,7 +1952,6 @@ void GenCodeCmdAddAtFloatStk(VMCmd cmd)
 	{
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-		stackRelSize += 4;
 	}
 }
 
@@ -2102,7 +1969,6 @@ void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 		EMIT_OP_RPTR(o_fst, sQWORD, rEDX, cmd.argument+paramBase);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-		stackRelSize += 4;
 	}else{
 		EMIT_OP_RPTR(o_fstp, sQWORD, rEDX, cmd.argument+paramBase);
 	}
@@ -2110,6 +1976,5 @@ void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 	{
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-		stackRelSize += 4;
 	}
 }

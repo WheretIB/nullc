@@ -428,13 +428,10 @@ bool ExecutorX86::TranslateToNative()
 	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
-	ResetStackTracking();
 	SetParamBase(paramBase);
 	SetInstructionList(&instList);
 
 	EMIT_OP(o_use32);
-
-	int stackRelSize = 0, stackRelSizePrev = 0;
 
 	pos = 0;
 	while(pos < exCode.size())
@@ -464,8 +461,6 @@ bool ExecutorX86::TranslateToNative()
 			EMIT_OP_REG(o_push, rEBP);
 		}
 
-		stackRelSizePrev = stackRelSize + GetStackTrackInfo();
-
 	//	const char *descStr = cmdList->GetDescription(pos2);
 	//	if(descStr)
 	//		logASM << "\r\n  ; \"" << descStr << "\" codeinfo\r\n";
@@ -482,7 +477,6 @@ bool ExecutorX86::TranslateToNative()
 			}else{
 				EMIT_OP_NUM(o_push, (int)(long long)exFunctions[cmd.argument]->funcPtr);
 			}
-			stackRelSize += 4;
 		}else if(cmd.cmd == cmdCallStd)
 		{
 			Emit(INST_COMMENT, InlFmt("CALLSTD %d", cmd.argument));
@@ -542,21 +536,14 @@ bool ExecutorX86::TranslateToNative()
 				EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)exFunctions[cmd.argument]->funcPtr);
 				EMIT_OP_REG(o_call, rECX);
 				EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
-				stackRelSize -= bytesToPop;
 				if(exTypes[exFunctions[cmd.argument]->retType].size != 0)
 				{
 					EMIT_OP_REG(o_push, rEAX);
-					stackRelSize += 4;
 				}
 			}
 		}else{
 			cgFuncs[cmd.cmd](cmd);
 		}
-		
-#ifdef NULLC_LOG_FILES
-		if(stackRelSize + GetStackTrackInfo() == 0 && stackRelSizePrev != 0)
-			Emit(INST_COMMENT, "=====Stack restored=====");
-#endif
 	}
 	EMIT_LABEL(InlFmt("gLabel%d", pos));
 	EMIT_OP_REG(o_pop, rEBP);
