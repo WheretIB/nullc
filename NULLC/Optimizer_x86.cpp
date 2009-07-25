@@ -2,13 +2,22 @@
 
 unsigned int OptimizerX86::Optimize(FastVector<x86Instruction, true, true>& instList)
 {
-	unsigned int opti = 0;
+	unsigned int opti = 0, lastPass;
 	start = &instList[0];
 	end = &instList[instList.size()];
 
-	opti += OptimizationPass(instList);
-	opti += OptimizationPass(instList);
-	opti += OptimizationPass(instList);
+	lastPass = OptimizationPass(instList);
+	opti += lastPass;
+	if(lastPass)
+	{
+		lastPass = OptimizationPass(instList);
+		opti += lastPass;
+	}
+	if(lastPass)
+	{
+		lastPass = OptimizationPass(instList);
+		opti += lastPass;
+	}
 	return opti;
 }
 

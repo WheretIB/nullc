@@ -8,6 +8,11 @@
 
 char* InlFmt(const char *str, ...);
 
+// jump ID markers for assembly printout
+const unsigned int LABEL_FUNCTION = 1 << 30;
+const unsigned int LABEL_GLOBAL = 1 << 29;
+const unsigned int LABEL_ALU = 1 << 28;
+
 void EMIT_LABEL(const char* Label);
 void EMIT_OP(x86Command op);
 void EMIT_OP_LABEL(x86Command op, const char* Label);
@@ -24,9 +29,6 @@ void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, const char* Label, unsigned i
 void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg2);
 void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, x86Reg reg2);
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num);
-
-void ResetStackTracking();
-unsigned int GetStackTrackInfo();
 
 void SetParamBase(unsigned int base);
 void SetInstructionList(FastVector<x86Instruction, true, true> *instList);
