@@ -108,7 +108,7 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Reg regB, int shift);
 
 // lea dst, [label+shift]
-int x86LEA(unsigned char *stream, x86Reg dst, const char *label, int shift);
+int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift);
 // lea dst, [src+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int shift);
 // lea dst, [src*multiplier+shift]
@@ -205,7 +205,7 @@ int x86CDQ(unsigned char *stream);
 int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg);
 
 int x86CALL(unsigned char *stream, x86Reg address);
-int x86CALL(unsigned char *stream, const char* label);
+int x86CALL(unsigned char *stream, unsigned int labelID);
 int x86RET(unsigned char *stream);
 
 int x86REP_MOVSD(unsigned char *stream);
@@ -214,9 +214,10 @@ int x86INT(unsigned char *stream, int interrupt);
 
 int x86NOP(unsigned char *stream);
 
-int x86Jcc(unsigned char *stream, const char* label, x86Cond cond, bool isNear);
-int x86JMP(unsigned char *stream, const char* label, bool isNear);
+int x86Jcc(unsigned char *stream, unsigned int labelID, x86Cond cond, bool isNear);
+int x86JMP(unsigned char *stream, unsigned int labelID, bool isNear);
 
-void x86AddLabel(unsigned char *stream, const char* label);
+void x86AddLabel(unsigned char *stream, unsigned int labelID);
+void x86SatisfyJumps(FastVector<unsigned char*>& instPos);
 
 //int x86(unsigned char *stream);

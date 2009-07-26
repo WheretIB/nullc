@@ -181,21 +181,6 @@ struct x86Argument
 		type = argPtr;
 		ptrSize = Size; ptrReg[0] = RegA; ptrMult = Mult; ptrReg[1] = RegB; ptrNum = Num;
 	}
-	// label
-	x86Argument(const char* Label)
-	{
-		Empty();
-		type = argLabel;
-		assert(strlen(Label) < 16); strncpy(labelName, Label, 16);
-	}
-	// dword [label+number]
-	x86Argument(const char* Label, unsigned int Num)
-	{
-		Empty();
-		type = argPtrLabel;
-		assert(strlen(Label) < 16); strncpy(labelName, Label, 16);
-		ptrNum = Num;
-	}
 
 	void Empty()
 	{
@@ -208,7 +193,7 @@ struct x86Argument
 			return false;
 		if(ptrSize != r.ptrSize || ptrReg[0] != r.ptrReg[0] || ptrReg[1] != r.ptrReg[1] || ptrMult != r.ptrMult || ptrNum != r.ptrNum)
 			return false;
-		if(memcmp(labelName, r.labelName, 16) != 0)
+		if(labelID != r.labelID)
 			return false;
 		return true;
 	}
@@ -225,7 +210,7 @@ struct x86Argument
 	int		ptrMult;
 	int		ptrNum;
 
-	char	labelName[16];
+	unsigned int	labelID;
 
 	int	Decode(char *buf)
 	{
@@ -237,9 +222,9 @@ struct x86Argument
 		else if(type == argFPReg)
 			curr += sprintf(curr, "%s", x87RegText[fpArg]);
 		else if(type == argLabel)
-			curr += sprintf(curr, "%s", labelName);
+			curr += sprintf(curr, "'%d'", labelID);
 		else if(type == argPtrLabel)
-			curr += sprintf(curr, "[%s+%d]", labelName, ptrNum);
+			curr += sprintf(curr, "['%d'+%d]", labelID, ptrNum);
 		else if(type == argPtr){
 			curr += sprintf(curr, "%s [", x86SizeText[ptrSize]);
 			if(ptrReg[0] != rNONE)
@@ -264,8 +249,8 @@ const int INST_COMMENT = 1;
 struct x86Instruction
 {
 	x86Instruction(){ name = o_none; }
-	explicit x86Instruction(const char* Label){ name = o_label; assert(strlen(Label) < 16); strncpy(labelName, Label, 16); }
-	x86Instruction(int comment, const char* text){ (void)comment; name = o_other; assert(strlen(text) < 32); strncpy(labelName, text, 32); }
+	explicit x86Instruction(unsigned int LabelID){ name = o_label; labelID = LabelID; }
+	x86Instruction(int comment, const char* text){ (void)comment; (void)text; name = o_other; /*assert(strlen(text) < 32); strncpy(labelName, text, 32);*/ }
 	explicit x86Instruction(x86Command Name){ name = Name; }
 	x86Instruction(x86Command Name, const x86Argument& a){ name = Name; argA = a; }
 	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b){ name = Name; argA = a; argB = b; }
@@ -273,16 +258,16 @@ struct x86Instruction
 	x86Command	name;
 	x86Argument	argA, argB;
 
-	char	labelName[32];
+	unsigned int	labelID;
 
 	// returns string length
 	int	Decode(char *buf)
 	{
 		char *curr = buf;
 		if(name == o_label)
-			curr += sprintf(curr, "%s:", labelName);
+			curr += sprintf(curr, "%d:", labelID);
 		else if(name == o_other)
-			curr += sprintf(curr, "  ; %s", labelName);
+			curr += sprintf(curr, "  ; %d", labelID);
 		else
 			curr += sprintf(curr, "%s", x86CmdText[name]);
 		if(argA.type != x86Argument::argNone)

@@ -403,27 +403,9 @@ bool ExecutorX86::TranslateToNative()
 
 	unsigned int pos = 0;
 
-	FastVector<unsigned int> instrNeedLabel;	// нужен ли перед инструкцией лейбл метки
-	FastVector<unsigned int> funcNeedLabel;	// нужен ли перед инструкцией лейбл функции
-
 	globalStartInBytecode = 0xffffffff;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
-	{
 		exFuncInfo[i].startInByteCode = 0xffffffff;
-		if(exFunctions[i]->funcPtr == NULL && exFunctions[i]->address != -1)
-			funcNeedLabel.push_back(exFunctions[i]->address);
-	}
-
-	//Узнаем, кому нужны лейблы
-	while(pos < exCode.size())
-	{
-		const VMCmd &cmd = exCode[pos];
-		if(cmd.cmd >= cmdJmp && cmd.cmd <= cmdJmpNZL)
-			instrNeedLabel.push_back(cmd.argument);
-		pos++;
-	}
-
-#define Emit instList.push_back(x86Instruction()), instList.back() = x86Instruction
 
 	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
@@ -437,29 +419,8 @@ bool ExecutorX86::TranslateToNative()
 	while(pos < exCode.size())
 	{
 		const VMCmd &cmd = exCode[pos];
-		for(unsigned int i = 0; i < instrNeedLabel.size(); i++)
-		{
-			if(pos == instrNeedLabel[i])
-			{
-				EMIT_LABEL(InlFmt("gLabel%d", pos));
-				break;
-			}
-		}
-		for(unsigned int i = 0; i < funcNeedLabel.size(); i++)
-		{
-			if(pos == funcNeedLabel[i])
-			{
-				EMIT_OP_NUM(o_dd, (('N' << 24) | pos));
-				EMIT_LABEL(InlFmt("function%d", pos));
-				break;
-			}
-		}
 
-		if(pos == exLinker->offsetToGlobalCode)
-		{
-			EMIT_OP_NUM(o_dd, (('G' << 24) | exLinker->offsetToGlobalCode));
-			EMIT_OP_REG(o_push, rEBP);
-		}
+		EMIT_OP(o_dd);
 
 	//	const char *descStr = cmdList->GetDescription(pos2);
 	//	if(descStr)
@@ -468,18 +429,18 @@ bool ExecutorX86::TranslateToNative()
 
 		if(cmd.cmd == cmdFuncAddr)
 		{
-			Emit(INST_COMMENT, "FUNCADDR");
+			EMIT_COMMENT("FUNCADDR");
 
 			if(exFunctions[cmd.argument]->funcPtr == NULL)
 			{
-				EMIT_OP_REG_LABEL(o_lea, rEAX, InlFmt("function%d", exFunctions[cmd.argument]->address), binCodeStart);
+				EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + exFunctions[cmd.argument]->address, binCodeStart);
 				EMIT_OP_REG(o_push, rEAX);
 			}else{
 				EMIT_OP_NUM(o_push, (int)(long long)exFunctions[cmd.argument]->funcPtr);
 			}
 		}else if(cmd.cmd == cmdCallStd)
 		{
-			Emit(INST_COMMENT, InlFmt("CALLSTD %d", cmd.argument));
+			EMIT_COMMENT(InlFmt("CALLSTD %d", cmd.argument));
 
 			if(exFunctions[cmd.argument]->funcPtr == NULL)
 			{
@@ -545,7 +506,7 @@ bool ExecutorX86::TranslateToNative()
 			cgFuncs[cmd.cmd](cmd);
 		}
 	}
-	EMIT_LABEL(InlFmt("gLabel%d", pos));
+	EMIT_LABEL(LABEL_GLOBAL + pos);
 	EMIT_OP_REG(o_pop, rEBP);
 	EMIT_OP(o_ret);
 
@@ -584,12 +545,14 @@ bool ExecutorX86::TranslateToNative()
 	unsigned char *bytecode = binCode+20;
 	unsigned char *code = bytecode;
 
+	instAddress.resize(exCode.size());
+
 	x86ClearLabels();
+
+	pos = 0;
 
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
-		//if(code-bytecode >= 0x0097)
-		//	__asm int 3;
 		x86Instruction &cmd = instList[i];
 		switch(cmd.name)
 		{
@@ -631,7 +594,7 @@ bool ExecutorX86::TranslateToNative()
 		case o_lea:
 			if(cmd.argB.type == x86Argument::argPtrLabel)
 			{
-				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelName, cmd.argB.ptrNum);
+				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, cmd.argB.ptrNum);
 			}else{
 				if(cmd.argB.ptrMult > 1)
 					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrMult, cmd.argB.ptrNum);
@@ -655,50 +618,50 @@ bool ExecutorX86::TranslateToNative()
 			break;
 
 		case o_jmp:
-			code += x86JMP(code, cmd.argA.labelName, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86JMP(code, cmd.argA.labelID, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_ja:
-			code += x86Jcc(code, cmd.argA.labelName, condA, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condA, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jae:
-			code += x86Jcc(code, cmd.argA.labelName, condAE, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condAE, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jb:
-			code += x86Jcc(code, cmd.argA.labelName, condB, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condB, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jbe:
-			code += x86Jcc(code, cmd.argA.labelName, condBE, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condBE, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jc:
-			code += x86Jcc(code, cmd.argA.labelName, condC, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condC, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_je:
-			code += x86Jcc(code, cmd.argA.labelName, condE, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condE, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jz:
-			code += x86Jcc(code, cmd.argA.labelName, condZ, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condZ, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jg:
-			code += x86Jcc(code, cmd.argA.labelName, condG, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condG, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jl:
-			code += x86Jcc(code, cmd.argA.labelName, condL, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condL, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jne:
-			code += x86Jcc(code, cmd.argA.labelName, condNE, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condNE, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jnp:
-			code += x86Jcc(code, cmd.argA.labelName, condNP, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condNP, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jnz:
-			code += x86Jcc(code, cmd.argA.labelName, condNZ, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condNZ, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jp:
-			code += x86Jcc(code, cmd.argA.labelName, condP, memcmp(cmd.argA.labelName, "near", 4) == 0 ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condP, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_call:
 			if(cmd.argA.type == x86Argument::argLabel)
-				code += x86CALL(code, cmd.argA.labelName);
+				code += x86CALL(code, cmd.argA.labelID);
 			else
 				code += x86CALL(code, cmd.argA.reg);
 			break;
@@ -949,23 +912,18 @@ bool ExecutorX86::TranslateToNative()
 			code += x86INT(code, 3);
 			break;
 		case o_dd:
-			*(int*)code = cmd.argA.num;
 #ifdef NULLC_X86_CMP_FASM
+			*(int*)code = cmd.argA.num;
 			code += 4;
 #endif
-			for(unsigned int i = 0; i < exFunctions.size(); i++)
-			{
-				int marker = (('N' << 24) | exFunctions[i]->address);
-				if(marker == cmd.argA.num)
-					exFuncInfo[i].startInByteCode = (int)(code-bytecode);
-			}
-			if(cmd.argA.num == int(('G' << 24) | exLinker->offsetToGlobalCode))
-			{
-				globalStartInBytecode = (int)(code-bytecode);
-			}
+			instAddress[pos] = code;	// Save VM instruction address in x86 bytecode
+
+			if(pos == (int)exLinker->offsetToGlobalCode)
+				code += x86PUSH(code, rEBP);
+			pos++;
 			break;
 		case o_label:
-			x86AddLabel(code, cmd.labelName);
+			x86AddLabel(code, cmd.labelID);
 			break;
 		case o_use32:
 			break;
@@ -974,6 +932,12 @@ bool ExecutorX86::TranslateToNative()
 		}
 	}
 	binCodeSize = (unsigned int)(code-bytecode);
+
+	x86SatisfyJumps(instAddress);
+
+	for(unsigned int i = 0; i < exFunctions.size(); i++)
+		exFuncInfo[i].startInByteCode = (int)(instAddress[exFunctions[i]->address] - bytecode);
+	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - bytecode);
 
 #ifdef NULLC_X86_CMP_FASM
 	FILE *fMyCode = fopen("asmX86my.bin", "wb");

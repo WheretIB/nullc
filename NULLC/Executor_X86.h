@@ -37,6 +37,7 @@ private:
 	FastVector<VMCmd>			&exCode;
 
 	FastVector<x86Instruction, true, true>	instList;
+	FastVector<unsigned char*>	instAddress;
 
 	int	optimize;
 	unsigned int		globalStartInBytecode;
