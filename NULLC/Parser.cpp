@@ -134,7 +134,7 @@ bool ParseSelectType(Lexeme** str)
 		(*str)++;
 	}else if((*str)->type == lex_string){
 		unsigned int index;
-		if(!(index = ParseTypename(str)))
+		if((index = ParseTypename(str)) == 0)
 			return false;
 		CALLBACK(SelectTypeByIndex(index-1));
 	}else{

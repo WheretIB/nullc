@@ -130,11 +130,6 @@ void nullcClean()
 	linker->CleanCode();
 }
 
-void nullcFixupBytecode(char *bytecode)
-{
-	BytecodeFixup((ByteCode*)bytecode);
-}
-
 nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 {
 	if(!linker->LinkCode(bytecode, acceptRedefinitions))

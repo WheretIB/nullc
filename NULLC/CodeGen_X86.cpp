@@ -2,7 +2,6 @@
 
 #include "StdLib_X86.h"
 
-FastVector<x86Instruction, true, true>	*myInstList;
 x86Instruction	*x86Op = NULL;
 
 #ifdef NULLC_LOG_FILES
@@ -16,92 +15,91 @@ void EMIT_COMMENT(const char* text)
 
 void EMIT_LABEL(unsigned int labelID)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = o_label;
 	x86Op->labelID = labelID;
+	x86Op++;
 }
 void EMIT_OP(x86Command op)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
+	x86Op++;
 }
 void EMIT_OP_LABEL(x86Command op, unsigned int labelID)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argLabel;
 	x86Op->argA.labelID = labelID;
+	x86Op++;
 }
 void EMIT_OP_REG(x86Command op, x86Reg reg1)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
+	x86Op++;
 }
 void EMIT_OP_FPUREG(x86Command op, x87Reg reg1)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argFPReg;
 	x86Op->argA.fpArg = reg1;
+	x86Op++;
 }
 void EMIT_OP_NUM(x86Command op, unsigned int num)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argNumber;
 	x86Op->argA.num = num;
+	x86Op++;
 }
 
 void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
 	x86Op->argA.ptrNum = addr;
+	x86Op++;
 }
 void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
 	x86Op->argA.ptrReg[0] = reg2;
 	x86Op->argA.ptrNum = shift;
+	x86Op++;
 }
 void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
 	x86Op->argB.type = x86Argument::argNumber;
 	x86Op->argB.num = num;
+	x86Op++;
 }
 void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
 	x86Op->argB.type = x86Argument::argReg;
 	x86Op->argB.reg = reg2;
+	x86Op++;
 }
 void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int addr)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
 	x86Op->argB.type = x86Argument::argPtr;
 	x86Op->argB.ptrSize = size;
 	x86Op->argB.ptrNum = addr;
+	x86Op++;
 }
 void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
@@ -109,31 +107,31 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, uns
 	x86Op->argB.ptrSize = size;
 	x86Op->argB.ptrReg[0] = reg2;
 	x86Op->argB.ptrNum = shift;
+	x86Op++;
 }
 void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, unsigned int labelID, unsigned int shift)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
 	x86Op->argB.type = x86Argument::argPtrLabel;
 	x86Op->argB.labelID = labelID;
 	x86Op->argB.ptrNum = shift;
+	x86Op++;
 }
 void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg2)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
 	x86Op->argA.ptrNum = addr;
 	x86Op->argB.type = x86Argument::argReg;
 	x86Op->argB.reg = reg2;
+	x86Op++;
 }
 
 void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, x86Reg reg2)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
@@ -141,11 +139,11 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 	x86Op->argA.ptrNum = shift;
 	x86Op->argB.type = x86Argument::argReg;
 	x86Op->argB.reg = reg2;
+	x86Op++;
 }
 
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num)
 {
-	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
@@ -153,6 +151,7 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 	x86Op->argA.ptrNum = shift;
 	x86Op->argB.type = x86Argument::argNumber;
 	x86Op->argB.num = num;
+	x86Op++;
 }
 
 static unsigned int paramBase = 0;
@@ -163,9 +162,14 @@ void SetParamBase(unsigned int base)
 	paramBase = base;
 }
 
-void SetInstructionList(FastVector<x86Instruction, true, true> *instList)
+void SetLastInstruction(x86Instruction *pos)
 {
-	myInstList = instList;
+	x86Op = pos;
+}
+
+x86Instruction* GetLastInstruction()
+{
+	return x86Op;
 }
 
 void GenCodeCmdNop(VMCmd cmd)
@@ -217,14 +221,28 @@ void GenCodeCmdPushDorLAbs(VMCmd cmd)
 void GenCodeCmdPushCmplxAbs(VMCmd cmd)
 {
 	EMIT_COMMENT("PUSH complex abs");
-
-	unsigned int currShift = cmd.helper;
-	while(currShift >= 4)
+	if(cmd.helper == 0)
+		return;
+	if(cmd.helper <= 32)
 	{
-		currShift -= 4;
-		EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+currShift);
+		unsigned int currShift = cmd.helper;
+		while(currShift >= 4)
+		{
+			currShift -= 4;
+			EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+currShift);
+		}
+		assert(currShift == 0);
+	}else{
+		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
+		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+		EMIT_OP_REG_NUM(o_mov, rESI, cmd.argument+paramBase);
+		EMIT_OP_REG_REG(o_mov, rEDI, rESP);
+		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+		EMIT_OP(o_rep_movsd);
+
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
-	assert(currShift == 0);
 }
 
 
@@ -271,13 +289,28 @@ void GenCodeCmdPushDorLRel(VMCmd cmd)
 void GenCodeCmdPushCmplxRel(VMCmd cmd)
 {
 	EMIT_COMMENT("PUSH complex rel");
-	unsigned int currShift = cmd.helper;
-	while(currShift >= 4)
+	if(cmd.helper == 0)
+		return;
+	if(cmd.helper <= 32)
 	{
-		currShift -= 4;
-		EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+currShift);
+		unsigned int currShift = cmd.helper;
+		while(currShift >= 4)
+		{
+			currShift -= 4;
+			EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+currShift);
+		}
+		assert(currShift == 0);
+	}else{
+		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
+		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+		EMIT_OP_REG_RPTR(o_lea, rESI, sDWORD, rEBP, cmd.argument+paramBase);
+		EMIT_OP_REG_REG(o_mov, rEDI, rESP);
+		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+		EMIT_OP(o_rep_movsd);
+
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
-	assert(currShift == 0);
 }
 
 
@@ -329,14 +362,29 @@ void GenCodeCmdPushDorLStk(VMCmd cmd)
 void GenCodeCmdPushCmplxStk(VMCmd cmd)
 {
 	EMIT_COMMENT("PUSH complex stack");
-	unsigned int currShift = cmd.helper;
 	EMIT_OP_REG(o_pop, rEDX);
-	while(currShift >= 4)
+	if(cmd.helper == 0)
+		return;
+	if(cmd.helper <= 32)
 	{
-		currShift -= 4;
-		EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase+currShift);
+		unsigned int currShift = cmd.helper;
+		while(currShift >= 4)
+		{
+			currShift -= 4;
+			EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase+currShift);
+		}
+		assert(currShift == 0);
+	}else{
+		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
+		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+		EMIT_OP_REG_RPTR(o_lea, rESI, sDWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_REG_REG(o_mov, rEDI, rESP);
+		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+		EMIT_OP(o_rep_movsd);
+
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
-	assert(currShift == 0);
 }
 
 
@@ -398,14 +446,28 @@ void GenCodeCmdMovDorLAbs(VMCmd cmd)
 void GenCodeCmdMovCmplxAbs(VMCmd cmd)
 {
 	EMIT_COMMENT("MOV complex abs");
-	unsigned int currShift = 0;
-	while(currShift < cmd.helper)
+	if(cmd.helper == 0)
+		return;
+	if(cmd.helper <= 32)
 	{
-		EMIT_OP_ADDR(o_pop, sDWORD, cmd.argument+paramBase + currShift);
-		currShift += 4;
+		unsigned int currShift = 0;
+		while(currShift < cmd.helper)
+		{
+			EMIT_OP_ADDR(o_pop, sDWORD, cmd.argument+paramBase + currShift);
+			currShift += 4;
+		}
+		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
+		assert(currShift == cmd.helper);
+	}else{
+		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+		EMIT_OP_REG_REG(o_mov, rESI, rESP);
+		EMIT_OP_REG_NUM(o_mov, rEDI, cmd.argument+paramBase);
+		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+		EMIT_OP(o_rep_movsd);
+
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
-	EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
-	assert(currShift == cmd.helper);
 }
 
 
@@ -459,14 +521,28 @@ void GenCodeCmdMovDorLRel(VMCmd cmd)
 void GenCodeCmdMovCmplxRel(VMCmd cmd)
 {
 	EMIT_COMMENT("MOV complex rel");
-	unsigned int currShift = 0;
-	while(currShift < cmd.helper)
+	if(cmd.helper == 0)
+		return;
+	if(cmd.helper <= 32)
 	{
-		EMIT_OP_RPTR(o_pop, sDWORD, rEBP, cmd.argument+paramBase + currShift);
-		currShift += 4;
+		unsigned int currShift = 0;
+		while(currShift < cmd.helper)
+		{
+			EMIT_OP_RPTR(o_pop, sDWORD, rEBP, cmd.argument+paramBase + currShift);
+			currShift += 4;
+		}
+		assert(currShift == cmd.helper);
+		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
+	}else{
+		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+		EMIT_OP_REG_REG(o_mov, rESI, rESP);
+		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEBP, cmd.argument+paramBase);
+		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+		EMIT_OP(o_rep_movsd);
+
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
-	EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
-	assert(currShift == cmd.helper);
 }
 
 
@@ -526,14 +602,28 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 {
 	EMIT_COMMENT("MOV complex stack");
 	EMIT_OP_REG(o_pop, rEDX);
-	unsigned int currShift = 0;
-	while(currShift < cmd.helper)
+	if(cmd.helper == 0)
+		return;
+	if(cmd.helper <= 32)
 	{
-		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument+paramBase + currShift);
-		currShift += 4;
+		unsigned int currShift = 0;
+		while(currShift < cmd.helper)
+		{
+			EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument+paramBase + currShift);
+			currShift += 4;
+		}
+		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
+		assert(currShift == cmd.helper);
+	}else{
+		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+		EMIT_OP_REG_REG(o_mov, rESI, rESP);
+		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+		EMIT_OP(o_rep_movsd);
+
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
-	EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
-	assert(currShift == cmd.helper);
 }
 
 
@@ -585,13 +675,28 @@ void GenCodeCmdPopDorLTop(VMCmd cmd)
 void GenCodeCmdPopCmplxTop(VMCmd cmd)
 {
 	EMIT_COMMENT("POP complex top");
-	unsigned int currShift = 0;
-	while(currShift < cmd.helper)
+	if(cmd.helper == 0)
+		return;
+	if(cmd.helper <= 32)
 	{
-		EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase + currShift);
-		currShift += 4;
+		unsigned int currShift = 0;
+		while(currShift < cmd.helper)
+		{
+			EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase + currShift);
+			currShift += 4;
+		}
+		assert(currShift == cmd.helper);
+	}else{
+		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+		EMIT_OP_REG_REG(o_mov, rESI, rESP);
+		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDI, cmd.argument+paramBase);
+		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+		EMIT_OP(o_rep_movsd);
+
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
+		EMIT_OP_REG_NUM(o_add, rESP, cmd.helper);
 	}
-	assert(currShift == cmd.helper);
 }
 
 
@@ -738,7 +843,7 @@ void GenCodeCmdGetAddr(VMCmd cmd)
 
 void GenCodeCmdSetRange(VMCmd cmd)
 {
-	unsigned int elCount = (*myInstList)[myInstList->size()-2].argA.num;// ->back().argA.num;
+	unsigned int elCount = x86Op[-2].argA.num;//(*myInstList)[myInstList->size()-2].argA.num;// ->back().argA.num;
 	//myInstList->pop_back();
 
 	EMIT_COMMENT("SETRANGE");

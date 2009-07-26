@@ -41,8 +41,6 @@ void	nullcSaveListing(const char *fileName);
 
 // Clean all accumulated bytecode
 void nullcClean();
-// Bytecode has some pointers, useful for debugging purposes. It's not necessary to call this function.
-void nullcFixupBytecode(char *bytecode);
 
 // Link new chunk of code.
 // If 'acceptRedefinitions' is 0, then error will be generated is function name collisions are found
