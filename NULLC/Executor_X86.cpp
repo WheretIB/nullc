@@ -555,9 +555,11 @@ bool ExecutorX86::TranslateToNative()
 
 	pos = 0;
 
-	for(unsigned int i = 0; i < instList.size(); i++)
+	x86Instruction *curr = &instList[0];
+
+	for(unsigned int i = 0, e = instList.size(); i != e; i++)
 	{
-		x86Instruction &cmd = instList[i];
+		x86Instruction &cmd = *curr;	// Syntax sugar + too lazy to rewrite switch contents
 		switch(cmd.name)
 		{
 		case o_none:
@@ -934,6 +936,7 @@ bool ExecutorX86::TranslateToNative()
 		case o_other:
 			break;
 		}
+		curr++;
 	}
 	binCodeSize = (unsigned int)(code-bytecode);
 
