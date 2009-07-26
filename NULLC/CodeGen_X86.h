@@ -36,7 +36,9 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num);
 
 void SetParamBase(unsigned int base);
-void SetInstructionList(FastVector<x86Instruction, true, true> *instList);
+
+void SetLastInstruction(x86Instruction *pos);
+x86Instruction* GetLastInstruction();
 
 void GenCodeCmdNop(VMCmd cmd);
 

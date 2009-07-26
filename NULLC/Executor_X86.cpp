@@ -411,7 +411,7 @@ bool ExecutorX86::TranslateToNative()
 	instList.clear();
 
 	SetParamBase(paramBase);
-	SetInstructionList(&instList);
+	SetLastInstruction(&instList[0]);
 
 	EMIT_OP(o_use32);
 
@@ -420,11 +420,12 @@ bool ExecutorX86::TranslateToNative()
 	{
 		const VMCmd &cmd = exCode[pos];
 
+		instList.resize((int)(GetLastInstruction() - &instList[0]));
+		instList.reserve(instList.size() + 64);
+		SetLastInstruction(&instList[instList.size()]);
+
 		EMIT_OP(o_dd);
 
-	//	const char *descStr = cmdList->GetDescription(pos2);
-	//	if(descStr)
-	//		logASM << "\r\n  ; \"" << descStr << "\" codeinfo\r\n";
 		pos++;
 
 		if(cmd.cmd == cmdFuncAddr)
@@ -509,6 +510,7 @@ bool ExecutorX86::TranslateToNative()
 	EMIT_LABEL(LABEL_GLOBAL + pos);
 	EMIT_OP_REG(o_pop, rEBP);
 	EMIT_OP(o_ret);
+	instList.resize((int)(GetLastInstruction() - &instList[0]));
 
 #ifdef NULLC_LOG_FILES
 	FILE *noptAsm = fopen("asmX86_noopt.txt", "wb");
@@ -936,7 +938,8 @@ bool ExecutorX86::TranslateToNative()
 	x86SatisfyJumps(instAddress);
 
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
-		exFuncInfo[i].startInByteCode = (int)(instAddress[exFunctions[i]->address] - bytecode);
+		if(exFunctions[i]->address != -1)
+			exFuncInfo[i].startInByteCode = (int)(instAddress[exFunctions[i]->address] - bytecode);
 	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - bytecode);
 
 #ifdef NULLC_X86_CMP_FASM

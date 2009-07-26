@@ -76,8 +76,6 @@ struct ByteCode
 //	char			code[codeSize];
 };
 
-void	BytecodeFixup(ByteCode *code);
-
 ExternTypeInfo*	FindFirstType(ByteCode *code);
 ExternVarInfo*	FindFirstVar(ByteCode *code);
 ExternFuncInfo*	FindFirstFunc(ByteCode *code);
