@@ -20,15 +20,17 @@ unsigned char	encodeRegister(x86Reg reg, char spareField)
 }
 
 // encode [base], [base+displacement], [index*multiplier+displacement] and [index*multiplier+base+displacement]
-unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, unsigned int displacement, char spareField)
+unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, int displacement, char spareField)
 {
 	assert(index != rESP);
 	unsigned char* start = stream;
 
+	bool dispImm8 = (char)(displacement) == displacement;
+
 	unsigned char mod = 0;
 	if(displacement)
 	{
-		if((char)(displacement) == (int)displacement)
+		if(dispImm8)
 			mod = 1 << 6;
 		else
 			mod = 2 << 6;
@@ -67,11 +69,16 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	if(index != rNONE || base == rESP)
 		*stream++ = sibScale | sibIndex | sibBase;
 	
-	if(displacement < 256)
-		*stream = (unsigned char)displacement;
-	else
+	if(dispImm8)
+	{
+		*stream = (char)displacement;
+		if(mod)
+			stream++;
+	}else{
 		*(int*)stream = displacement;
-	return (int)(stream - start) + (mod == 0 ? (displacement == 0 ? 0 : 4) : (((char)(displacement) == (int)displacement) ? 1 : 4));
+		stream += 4;
+	}
+	return (int)(stream - start);
 }
 
 struct LabelInfo
@@ -1123,7 +1130,7 @@ void x86AddLabel(unsigned char *stream, unsigned int labelID)
 					*(char*)(uJmp.jmpPos+1) = (char)(stream-uJmp.jmpPos-2);
 				}
 			}
-			uJmp.labelID = -1;
+			uJmp.labelID = (unsigned int)-1;
 		}
 	}
 }
