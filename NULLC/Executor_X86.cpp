@@ -420,9 +420,11 @@ bool ExecutorX86::TranslateToNative()
 	{
 		const VMCmd &cmd = exCode[pos];
 
-		instList.resize((int)(GetLastInstruction() - &instList[0]));
-		instList.reserve(instList.size() + 64);
-		SetLastInstruction(&instList[instList.size()]);
+		unsigned int currSize = (int)(GetLastInstruction() - &instList[0]);
+		instList.m_size = currSize;
+		if(currSize + 64 >= instList.max)
+			instList.grow(currSize + 64);
+		SetLastInstruction(instList.data + currSize);
 
 		EMIT_OP(o_dd);
 

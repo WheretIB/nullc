@@ -84,7 +84,7 @@ public:
 	__forceinline void		resize(unsigned int newsize){ if(newsize >= max) grow(newsize); m_size = newsize; }
 	__forceinline void		shrink(unsigned int newSize){ m_size = newSize; }
 	__forceinline void		reserve(unsigned int ressize){ if(ressize >= max) grow(ressize); }
-private:
+
 	__inline void	grow(unsigned int newSize)
 	{
 		if(max+(max>>1) > newSize)
