@@ -5,34 +5,32 @@
 FastVector<x86Instruction, true, true>	*myInstList;
 x86Instruction	*x86Op = NULL;
 
-void Emit(int comment, const char* text)
-{
 #ifdef NULLC_LOG_FILES
+void EMIT_COMMENT(const char* text)
+{
 	myInstList->push_back(x86Instruction(comment, text));
-#else
-	(void)comment;
-	(void)text;
-#endif
 }
+#else
+#define EMIT_COMMENT(x)
+#endif
 
-void EMIT_LABEL(const char* Label)
+void EMIT_LABEL(unsigned int labelID)
 {
 	x86Op = myInstList->push_back();
 	x86Op->name = o_label;
-	assert(strlen(Label) < 16); strncpy(x86Op->labelName, Label, 16);
+	x86Op->labelID = labelID;
 }
 void EMIT_OP(x86Command op)
 {
 	x86Op = myInstList->push_back();
 	x86Op->name = op;
 }
-void EMIT_OP_LABEL(x86Command op, const char* Label)
+void EMIT_OP_LABEL(x86Command op, unsigned int labelID)
 {
 	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argLabel;
-	assert(strlen(Label) < 16);
-	strncpy(x86Op->argA.labelName, Label, 16);
+	x86Op->argA.labelID = labelID;
 }
 void EMIT_OP_REG(x86Command op, x86Reg reg1)
 {
@@ -112,15 +110,14 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, uns
 	x86Op->argB.ptrReg[0] = reg2;
 	x86Op->argB.ptrNum = shift;
 }
-void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, const char* Label, unsigned int shift)
+void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, unsigned int labelID, unsigned int shift)
 {
 	x86Op = myInstList->push_back();
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
 	x86Op->argB.type = x86Argument::argPtrLabel;
-	assert(strlen(Label) < 16);
-	strncpy(x86Op->argB.labelName, Label, 16);
+	x86Op->argB.labelID = labelID;
 	x86Op->argB.ptrNum = shift;
 }
 void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg2)
@@ -158,20 +155,8 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 	x86Op->argB.num = num;
 }
 
-
-#include <stdarg.h>
-
-char* InlFmt(const char *str, ...)
-{
-	static char storage[64];
-	va_list args;
-	va_start(args, str);
-	vsprintf(storage, str, args); 
-	return storage;
-}
-
 static unsigned int paramBase = 0;
-static unsigned int aluLabels = 1;
+static unsigned int aluLabels = LABEL_ALU;
 
 void SetParamBase(unsigned int base)
 {
@@ -191,7 +176,7 @@ void GenCodeCmdNop(VMCmd cmd)
 
 void GenCodeCmdPushCharAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH char abs");
+	EMIT_COMMENT("PUSH char abs");
 
 	EMIT_OP_REG_ADDR(o_movsx, rEAX, sBYTE, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
@@ -199,7 +184,7 @@ void GenCodeCmdPushCharAbs(VMCmd cmd)
 
 void GenCodeCmdPushShortAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH short abs");
+	EMIT_COMMENT("PUSH short abs");
 
 	EMIT_OP_REG_ADDR(o_movsx, rEAX, sWORD, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
@@ -207,14 +192,14 @@ void GenCodeCmdPushShortAbs(VMCmd cmd)
 
 void GenCodeCmdPushIntAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH int abs");
+	EMIT_COMMENT("PUSH int abs");
 
 	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase);
 }
 
 void GenCodeCmdPushFloatAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH float abs");
+	EMIT_COMMENT("PUSH float abs");
 
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_ADDR(o_fld, sDWORD, cmd.argument+paramBase);
@@ -223,7 +208,7 @@ void GenCodeCmdPushFloatAbs(VMCmd cmd)
 
 void GenCodeCmdPushDorLAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, cmd.flag ? "PUSH double abs" : "MOV long abs");
+	EMIT_COMMENT(cmd.flag ? "PUSH double abs" : "MOV long abs");
 
 	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+4);
 	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase);
@@ -231,7 +216,7 @@ void GenCodeCmdPushDorLAbs(VMCmd cmd)
 
 void GenCodeCmdPushCmplxAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH complex abs");
+	EMIT_COMMENT("PUSH complex abs");
 
 	unsigned int currShift = cmd.helper;
 	while(currShift >= 4)
@@ -245,7 +230,7 @@ void GenCodeCmdPushCmplxAbs(VMCmd cmd)
 
 void GenCodeCmdPushCharRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH char rel");
+	EMIT_COMMENT("PUSH char rel");
 
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEBP, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
@@ -253,7 +238,7 @@ void GenCodeCmdPushCharRel(VMCmd cmd)
 
 void GenCodeCmdPushShortRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH short rel");
+	EMIT_COMMENT("PUSH short rel");
 
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEBP, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
@@ -261,14 +246,14 @@ void GenCodeCmdPushShortRel(VMCmd cmd)
 
 void GenCodeCmdPushIntRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH int rel");
+	EMIT_COMMENT("PUSH int rel");
 
 	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase);
 }
 
 void GenCodeCmdPushFloatRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH float rel");
+	EMIT_COMMENT("PUSH float rel");
 
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fld, sDWORD, rEBP, cmd.argument+paramBase);
@@ -277,7 +262,7 @@ void GenCodeCmdPushFloatRel(VMCmd cmd)
 
 void GenCodeCmdPushDorLRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, cmd.flag ? "PUSH double rel" : "PUSH long rel");
+	EMIT_COMMENT(cmd.flag ? "PUSH double rel" : "PUSH long rel");
 
 	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+4);
 	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase);
@@ -285,7 +270,7 @@ void GenCodeCmdPushDorLRel(VMCmd cmd)
 
 void GenCodeCmdPushCmplxRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH complex rel");
+	EMIT_COMMENT("PUSH complex rel");
 	unsigned int currShift = cmd.helper;
 	while(currShift >= 4)
 	{
@@ -298,7 +283,7 @@ void GenCodeCmdPushCmplxRel(VMCmd cmd)
 
 void GenCodeCmdPushCharStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH char stack");
+	EMIT_COMMENT("PUSH char stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument+paramBase);
@@ -307,7 +292,7 @@ void GenCodeCmdPushCharStk(VMCmd cmd)
 
 void GenCodeCmdPushShortStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH short stack");
+	EMIT_COMMENT("PUSH short stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument+paramBase);
@@ -316,7 +301,7 @@ void GenCodeCmdPushShortStk(VMCmd cmd)
 
 void GenCodeCmdPushIntStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH int stack");
+	EMIT_COMMENT("PUSH int stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase);
@@ -324,7 +309,7 @@ void GenCodeCmdPushIntStk(VMCmd cmd)
 
 void GenCodeCmdPushFloatStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH float stack");
+	EMIT_COMMENT("PUSH float stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
@@ -334,7 +319,7 @@ void GenCodeCmdPushFloatStk(VMCmd cmd)
 
 void GenCodeCmdPushDorLStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, cmd.flag ? "PUSH double stack" : "PUSH long stack");
+	EMIT_COMMENT(cmd.flag ? "PUSH double stack" : "PUSH long stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase+4);
@@ -343,7 +328,7 @@ void GenCodeCmdPushDorLStk(VMCmd cmd)
 
 void GenCodeCmdPushCmplxStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSH complex stack");
+	EMIT_COMMENT("PUSH complex stack");
 	unsigned int currShift = cmd.helper;
 	EMIT_OP_REG(o_pop, rEDX);
 	while(currShift >= 4)
@@ -357,7 +342,7 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd)
 
 void GenCodeCmdPushImmt(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSHIMMT");
+	EMIT_COMMENT("PUSHIMMT");
 	
 	EMIT_OP_NUM(o_push, cmd.argument);
 }
@@ -365,7 +350,7 @@ void GenCodeCmdPushImmt(VMCmd cmd)
 
 void GenCodeCmdMovCharAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV char abs");
+	EMIT_COMMENT("MOV char abs");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_ADDR_REG(o_mov, sBYTE, cmd.argument+paramBase, rEBX);
@@ -373,7 +358,7 @@ void GenCodeCmdMovCharAbs(VMCmd cmd)
 
 void GenCodeCmdMovShortAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV short abs");
+	EMIT_COMMENT("MOV short abs");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_ADDR_REG(o_mov, sWORD, cmd.argument+paramBase, rEBX);
@@ -381,7 +366,7 @@ void GenCodeCmdMovShortAbs(VMCmd cmd)
 
 void GenCodeCmdMovIntAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV int abs");
+	EMIT_COMMENT("MOV int abs");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_ADDR_REG(o_mov, sDWORD, cmd.argument+paramBase, rEBX);
@@ -389,7 +374,7 @@ void GenCodeCmdMovIntAbs(VMCmd cmd)
 
 void GenCodeCmdMovFloatAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV float abs");
+	EMIT_COMMENT("MOV float abs");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_ADDR(o_fstp, sDWORD, cmd.argument+paramBase);
@@ -397,7 +382,7 @@ void GenCodeCmdMovFloatAbs(VMCmd cmd)
 
 void GenCodeCmdMovDorLAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, cmd.flag ? "MOV double abs" : "MOV long abs");
+	EMIT_COMMENT(cmd.flag ? "MOV double abs" : "MOV long abs");
 
 	if(cmd.flag)
 	{
@@ -412,7 +397,7 @@ void GenCodeCmdMovDorLAbs(VMCmd cmd)
 
 void GenCodeCmdMovCmplxAbs(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV complex abs");
+	EMIT_COMMENT("MOV complex abs");
 	unsigned int currShift = 0;
 	while(currShift < cmd.helper)
 	{
@@ -426,7 +411,7 @@ void GenCodeCmdMovCmplxAbs(VMCmd cmd)
 
 void GenCodeCmdMovCharRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV char rel");
+	EMIT_COMMENT("MOV char rel");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEBP, cmd.argument+paramBase, rEBX);
@@ -434,7 +419,7 @@ void GenCodeCmdMovCharRel(VMCmd cmd)
 
 void GenCodeCmdMovShortRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV short rel");
+	EMIT_COMMENT("MOV short rel");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sWORD, rEBP, cmd.argument+paramBase, rEBX);
@@ -442,7 +427,7 @@ void GenCodeCmdMovShortRel(VMCmd cmd)
 
 void GenCodeCmdMovIntRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV int rel");
+	EMIT_COMMENT("MOV int rel");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEBP, cmd.argument+paramBase, rEBX);
@@ -450,7 +435,7 @@ void GenCodeCmdMovIntRel(VMCmd cmd)
 
 void GenCodeCmdMovFloatRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV float rel");
+	EMIT_COMMENT("MOV float rel");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rEBP, cmd.argument+paramBase);
@@ -458,7 +443,7 @@ void GenCodeCmdMovFloatRel(VMCmd cmd)
 
 void GenCodeCmdMovDorLRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, cmd.flag ? "MOV double rel" : "MOV long rel");
+	EMIT_COMMENT(cmd.flag ? "MOV double rel" : "MOV long rel");
 
 	if(cmd.flag)
 	{
@@ -473,7 +458,7 @@ void GenCodeCmdMovDorLRel(VMCmd cmd)
 
 void GenCodeCmdMovCmplxRel(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV complex rel");
+	EMIT_COMMENT("MOV complex rel");
 	unsigned int currShift = 0;
 	while(currShift < cmd.helper)
 	{
@@ -487,7 +472,7 @@ void GenCodeCmdMovCmplxRel(VMCmd cmd)
 
 void GenCodeCmdMovCharStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV char stack");
+	EMIT_COMMENT("MOV char stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
@@ -496,7 +481,7 @@ void GenCodeCmdMovCharStk(VMCmd cmd)
 
 void GenCodeCmdMovShortStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV short stack");
+	EMIT_COMMENT("MOV short stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
@@ -505,7 +490,7 @@ void GenCodeCmdMovShortStk(VMCmd cmd)
 
 void GenCodeCmdMovIntStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV int stack");
+	EMIT_COMMENT("MOV int stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
@@ -514,7 +499,7 @@ void GenCodeCmdMovIntStk(VMCmd cmd)
 
 void GenCodeCmdMovFloatStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV float stack");
+	EMIT_COMMENT("MOV float stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
@@ -523,7 +508,7 @@ void GenCodeCmdMovFloatStk(VMCmd cmd)
 
 void GenCodeCmdMovDorLStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, cmd.flag ? "MOV double stack" : "MOV long stack");
+	EMIT_COMMENT(cmd.flag ? "MOV double stack" : "MOV long stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	if(cmd.flag)
@@ -539,7 +524,7 @@ void GenCodeCmdMovDorLStk(VMCmd cmd)
 
 void GenCodeCmdMovCmplxStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "MOV complex stack");
+	EMIT_COMMENT("MOV complex stack");
 	EMIT_OP_REG(o_pop, rEDX);
 	unsigned int currShift = 0;
 	while(currShift < cmd.helper)
@@ -559,7 +544,7 @@ void GenCodeCmdReserveV(VMCmd cmd)
 
 void GenCodeCmdPopCharTop(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "POP char top");
+	EMIT_COMMENT("POP char top");
 
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDI, cmd.argument+paramBase, rEBX);
@@ -567,7 +552,7 @@ void GenCodeCmdPopCharTop(VMCmd cmd)
 
 void GenCodeCmdPopShortTop(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "POP short top");
+	EMIT_COMMENT("POP short top");
 
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDI, cmd.argument+paramBase, rEBX);
@@ -575,14 +560,14 @@ void GenCodeCmdPopShortTop(VMCmd cmd)
 
 void GenCodeCmdPopIntTop(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "POP int top");
+	EMIT_COMMENT("POP int top");
 
 	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase);
 }
 
 void GenCodeCmdPopFloatTop(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "POP float top");
+	EMIT_COMMENT("POP float top");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rEDI, cmd.argument+paramBase);
@@ -591,7 +576,7 @@ void GenCodeCmdPopFloatTop(VMCmd cmd)
 
 void GenCodeCmdPopDorLTop(VMCmd cmd)
 {
-	Emit(INST_COMMENT, cmd.flag ? "POP double top" : "POP long top");
+	EMIT_COMMENT(cmd.flag ? "POP double top" : "POP long top");
 
 	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase);
 	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase + 4);
@@ -599,7 +584,7 @@ void GenCodeCmdPopDorLTop(VMCmd cmd)
 
 void GenCodeCmdPopCmplxTop(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "POP complex top");
+	EMIT_COMMENT("POP complex top");
 	unsigned int currShift = 0;
 	while(currShift < cmd.helper)
 	{
@@ -613,7 +598,7 @@ void GenCodeCmdPopCmplxTop(VMCmd cmd)
 
 void GenCodeCmdPop(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "POP");
+	EMIT_COMMENT("POP");
 
 	EMIT_OP_REG_NUM(o_add, rESP, cmd.argument);
 }
@@ -622,7 +607,7 @@ void GenCodeCmdPop(VMCmd cmd)
 void GenCodeCmdDtoI(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DTOI");
+	EMIT_COMMENT("DTOI");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fistp, sDWORD, rESP, 4);
@@ -632,7 +617,7 @@ void GenCodeCmdDtoI(VMCmd cmd)
 void GenCodeCmdDtoL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DTOL");
+	EMIT_COMMENT("DTOL");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fistp, sQWORD, rESP, 0);
@@ -641,7 +626,7 @@ void GenCodeCmdDtoL(VMCmd cmd)
 void GenCodeCmdDtoF(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DTOF");
+	EMIT_COMMENT("DTOF");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rESP, 4);
@@ -651,7 +636,7 @@ void GenCodeCmdDtoF(VMCmd cmd)
 void GenCodeCmdItoD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "ITOD");
+	EMIT_COMMENT("ITOD");
 
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_REG(o_push, rEAX);
@@ -661,7 +646,7 @@ void GenCodeCmdItoD(VMCmd cmd)
 void GenCodeCmdLtoD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LTOD");
+	EMIT_COMMENT("LTOD");
 
 	EMIT_OP_RPTR(o_fild, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
@@ -670,7 +655,7 @@ void GenCodeCmdLtoD(VMCmd cmd)
 void GenCodeCmdItoL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "ITOL");
+	EMIT_COMMENT("ITOL");
 
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP(o_cdq);
@@ -681,7 +666,7 @@ void GenCodeCmdItoL(VMCmd cmd)
 void GenCodeCmdLtoI(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LTOI");
+	EMIT_COMMENT("LTOI");
 
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_RPTR(o_xchg, rEAX, sDWORD, rESP, 0);
@@ -690,7 +675,7 @@ void GenCodeCmdLtoI(VMCmd cmd)
 
 void GenCodeCmdImmtMul(VMCmd cmd)
 {
-	Emit(INST_COMMENT, cmd.cmd == cmdImmtMulD ? "IMUL double" : (cmd.cmd == cmdImmtMulL ? "IMUL long" : "IMUL int"));
+	EMIT_COMMENT(cmd.cmd == cmdImmtMulD ? "IMUL double" : (cmd.cmd == cmdImmtMulL ? "IMUL long" : "IMUL int"));
 	
 	if(cmd.cmd == cmdImmtMulD)
 	{
@@ -720,7 +705,7 @@ void GenCodeCmdImmtMul(VMCmd cmd)
 void GenCodeCmdCopyDorL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "COPY qword");
+	EMIT_COMMENT("COPY qword");
 
 	EMIT_OP_REG_RPTR(o_mov, rEDX, sDWORD, rESP, 0);
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 4);
@@ -731,7 +716,7 @@ void GenCodeCmdCopyDorL(VMCmd cmd)
 void GenCodeCmdCopyI(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "COPY dword");
+	EMIT_COMMENT("COPY dword");
 
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 0);
 	EMIT_OP_REG(o_push, rEAX);
@@ -740,7 +725,7 @@ void GenCodeCmdCopyI(VMCmd cmd)
 
 void GenCodeCmdGetAddr(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "GETADDR");
+	EMIT_COMMENT("GETADDR");
 
 	if(cmd.argument)
 	{
@@ -753,10 +738,12 @@ void GenCodeCmdGetAddr(VMCmd cmd)
 
 void GenCodeCmdSetRange(VMCmd cmd)
 {
-	unsigned int elCount = myInstList->back().argA.num;
-	myInstList->pop_back();
+	unsigned int elCount = (*myInstList)[myInstList->size()-2].argA.num;// ->back().argA.num;
+	//myInstList->pop_back();
 
-	Emit(INST_COMMENT, "SETRANGE");
+	EMIT_COMMENT("SETRANGE");
+
+	EMIT_OP_REG(o_pop, rEBX);
 
 	//assert(exCode[pos-2].cmd == cmdPushImmt);	// previous command must be cmdPushImmt
 
@@ -773,9 +760,9 @@ void GenCodeCmdSetRange(VMCmd cmd)
 		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 0);
 		EMIT_OP_REG_RPTR(o_mov, rEDX, sDWORD, rESP, 4);
 	}
-	EMIT_LABEL(InlFmt("loopStart%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU + aluLabels);
 	EMIT_OP_REG_REG(o_cmp, rEBX, rECX);
-	EMIT_OP_LABEL(o_jg, InlFmt("loopEnd%d", aluLabels));
+	EMIT_OP_LABEL(o_jg, LABEL_ALU + aluLabels + 1);
 
 	switch(cmd.helper)
 	{
@@ -798,33 +785,33 @@ void GenCodeCmdSetRange(VMCmd cmd)
 		break;
 	}
 	EMIT_OP_REG_NUM(o_add, rEBX, typeSizeD[(cmd.helper>>2)&0x00000007]);
-	EMIT_OP_LABEL(o_jmp, InlFmt("loopStart%d", aluLabels));
-	EMIT_LABEL(InlFmt("loopEnd%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU + aluLabels);
+	EMIT_LABEL(LABEL_ALU + aluLabels + 1);
 	if(cmd.helper == DTYPE_FLOAT)
 		EMIT_OP_FPUREG(o_fstp, rST0);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 
 void GenCodeCmdJmp(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "JMP");
-	EMIT_OP_LABEL(o_jmp, InlFmt("near gLabel%d", cmd.argument));
+	EMIT_COMMENT("JMP");
+	EMIT_OP_LABEL(o_jmp, LABEL_GLOBAL | JUMP_NEAR | cmd.argument);
 }
 
 
 void GenCodeCmdJmpZI(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "JMPZ int");
+	EMIT_COMMENT("JMPZ int");
 
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
-	EMIT_OP_LABEL(o_jz, InlFmt("near gLabel%d", cmd.argument));
+	EMIT_OP_LABEL(o_jz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument);
 }
 
 void GenCodeCmdJmpZD(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "JMPZ double");
+	EMIT_COMMENT("JMPZ double");
 
 	EMIT_OP(o_fldz);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 0);
@@ -832,32 +819,32 @@ void GenCodeCmdJmpZD(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
-	EMIT_OP_LABEL(o_jnp, InlFmt("near gLabel%d", cmd.argument));
+	EMIT_OP_LABEL(o_jnp, LABEL_GLOBAL | JUMP_NEAR | cmd.argument);
 }
 
 void GenCodeCmdJmpZL(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "JMPZ long");
+	EMIT_COMMENT("JMPZ long");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_or, rEDX, rEAX);
-	EMIT_OP_LABEL(o_jne, InlFmt("near gLabel%d", cmd.argument));
+	EMIT_OP_LABEL(o_jne, LABEL_GLOBAL | JUMP_NEAR | cmd.argument);
 }
 
 
 void GenCodeCmdJmpNZI(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "JMPNZ int");
+	EMIT_COMMENT("JMPNZ int");
 
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
-	EMIT_OP_LABEL(o_jnz, InlFmt("near gLabel%d", cmd.argument));
+	EMIT_OP_LABEL(o_jnz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument);
 }
 
 void GenCodeCmdJmpNZD(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "JMPNZ double");
+	EMIT_COMMENT("JMPNZ double");
 
 	EMIT_OP(o_fldz);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 0);
@@ -865,30 +852,30 @@ void GenCodeCmdJmpNZD(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
-	EMIT_OP_LABEL(o_jp, InlFmt("near gLabel%d", cmd.argument));
+	EMIT_OP_LABEL(o_jp, LABEL_GLOBAL | JUMP_NEAR | cmd.argument);
 }
 
 void GenCodeCmdJmpNZL(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "JMPNZ long");
+	EMIT_COMMENT("JMPNZ long");
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_or, rEDX, rEAX);
-	EMIT_OP_LABEL(o_je, InlFmt("near gLabel%d", cmd.argument));
+	EMIT_OP_LABEL(o_je, LABEL_GLOBAL | JUMP_NEAR | cmd.argument);
 }
 
 
 void GenCodeCmdCall(VMCmd cmd)
 {
-	Emit(INST_COMMENT, InlFmt("CALL %d ret %s %d", cmd.argument, (cmd.helper & bitRetSimple ? "simple " : ""), (cmd.helper & 0x0FFF)));
+	EMIT_COMMENT(InlFmt("CALL %d ret %s %d", cmd.argument, (cmd.helper & bitRetSimple ? "simple " : ""), (cmd.helper & 0x0FFF)));
 
 	if(cmd.argument == -1)
 	{
 		EMIT_OP_REG(o_pop, rEAX);
 		EMIT_OP_REG(o_call, rEAX);
 	}else{
-		EMIT_OP_LABEL(o_call, InlFmt("function%d", cmd.argument));
+		EMIT_OP_LABEL(o_call, LABEL_FUNCTION | JUMP_NEAR | cmd.argument);
 	}
 	if(cmd.helper & bitRetSimple)
 	{
@@ -933,7 +920,7 @@ void GenCodeCmdCall(VMCmd cmd)
 
 void GenCodeCmdReturn(VMCmd cmd)
 {
-	Emit(INST_COMMENT, InlFmt("RET %d, %d %d", cmd.flag, cmd.argument, (cmd.helper & 0x0FFF)));
+	EMIT_COMMENT(InlFmt("RET %d, %d %d", cmd.flag, cmd.argument, (cmd.helper & 0x0FFF)));
 
 	if(cmd.flag & bitRetError)
 	{
@@ -1011,7 +998,7 @@ void GenCodeCmdReturn(VMCmd cmd)
 void GenCodeCmdPushVTop(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "PUSHT");
+	EMIT_COMMENT("PUSHT");
 
 	EMIT_OP_REG(o_push, rEBP);
 	EMIT_OP_REG_REG(o_mov, rEBP, rEDI);
@@ -1020,7 +1007,7 @@ void GenCodeCmdPushVTop(VMCmd cmd)
 void GenCodeCmdPopVTop(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "POPT");
+	EMIT_COMMENT("POPT");
 
 	EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 	EMIT_OP_REG(o_pop, rEBP);
@@ -1029,7 +1016,7 @@ void GenCodeCmdPopVTop(VMCmd cmd)
 
 void GenCodeCmdPushV(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "PUSHV");
+	EMIT_COMMENT("PUSHV");
 
 	EMIT_OP_REG_NUM(o_add, rEDI, cmd.argument);
 }
@@ -1038,7 +1025,7 @@ void GenCodeCmdPushV(VMCmd cmd)
 void GenCodeCmdAdd(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "ADD int");
+	EMIT_COMMENT("ADD int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_add, sDWORD, rESP, 0, rEAX);
 }
@@ -1046,7 +1033,7 @@ void GenCodeCmdAdd(VMCmd cmd)
 void GenCodeCmdSub(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "SUB int");
+	EMIT_COMMENT("SUB int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_sub, sDWORD, rESP, 0, rEAX);
 }
@@ -1054,7 +1041,7 @@ void GenCodeCmdSub(VMCmd cmd)
 void GenCodeCmdMul(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "MUL int");
+	EMIT_COMMENT("MUL int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG(o_imul, rEDX);
@@ -1064,7 +1051,7 @@ void GenCodeCmdMul(VMCmd cmd)
 void GenCodeCmdDiv(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DIV int");
+	EMIT_COMMENT("DIV int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_RPTR(o_xchg, rEAX, sDWORD, rESP, 0);
 	EMIT_OP(o_cdq);
@@ -1075,7 +1062,7 @@ void GenCodeCmdDiv(VMCmd cmd)
 void GenCodeCmdPow(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "POW int");
+	EMIT_COMMENT("POW int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)intPow);
@@ -1086,7 +1073,7 @@ void GenCodeCmdPow(VMCmd cmd)
 void GenCodeCmdMod(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "MOD int");
+	EMIT_COMMENT("MOD int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_RPTR(o_xchg, rEAX, sDWORD, rESP, 0);
 	EMIT_OP(o_cdq);
@@ -1097,7 +1084,7 @@ void GenCodeCmdMod(VMCmd cmd)
 void GenCodeCmdLess(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LESS int");
+	EMIT_COMMENT("LESS int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
@@ -1108,7 +1095,7 @@ void GenCodeCmdLess(VMCmd cmd)
 void GenCodeCmdGreater(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "GREATER int");
+	EMIT_COMMENT("GREATER int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
@@ -1119,7 +1106,7 @@ void GenCodeCmdGreater(VMCmd cmd)
 void GenCodeCmdLEqual(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LEQUAL int");
+	EMIT_COMMENT("LEQUAL int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
@@ -1130,7 +1117,7 @@ void GenCodeCmdLEqual(VMCmd cmd)
 void GenCodeCmdGEqual(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "GEQUAL int");
+	EMIT_COMMENT("GEQUAL int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
@@ -1141,7 +1128,7 @@ void GenCodeCmdGEqual(VMCmd cmd)
 void GenCodeCmdEqual(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "EQUAL int");
+	EMIT_COMMENT("EQUAL int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
@@ -1152,7 +1139,7 @@ void GenCodeCmdEqual(VMCmd cmd)
 void GenCodeCmdNEqual(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "NEQUAL int");
+	EMIT_COMMENT("NEQUAL int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
@@ -1163,7 +1150,7 @@ void GenCodeCmdNEqual(VMCmd cmd)
 void GenCodeCmdShl(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "SHL int");
+	EMIT_COMMENT("SHL int");
 	EMIT_OP_REG(o_pop, rECX);
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_sal, rEAX, rECX);
@@ -1173,7 +1160,7 @@ void GenCodeCmdShl(VMCmd cmd)
 void GenCodeCmdShr(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "SHR int");
+	EMIT_COMMENT("SHR int");
 	EMIT_OP_REG(o_pop, rECX);
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_sar, rEAX, rECX);
@@ -1183,7 +1170,7 @@ void GenCodeCmdShr(VMCmd cmd)
 void GenCodeCmdBitAnd(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "BAND int");
+	EMIT_COMMENT("BAND int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_and, sDWORD, rESP, 0, rEAX);
 }
@@ -1191,7 +1178,7 @@ void GenCodeCmdBitAnd(VMCmd cmd)
 void GenCodeCmdBitOr(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "BOR int");
+	EMIT_COMMENT("BOR int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_or, sDWORD, rESP, 0, rEAX);
 }
@@ -1199,7 +1186,7 @@ void GenCodeCmdBitOr(VMCmd cmd)
 void GenCodeCmdBitXor(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "BXOR int");
+	EMIT_COMMENT("BXOR int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_RPTR_REG(o_xor, sDWORD, rESP, 0, rEAX);
 }
@@ -1207,41 +1194,41 @@ void GenCodeCmdBitXor(VMCmd cmd)
 void GenCodeCmdLogAnd(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LAND int");
+	EMIT_COMMENT("LAND int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_NUM(o_cmp, rEAX, 0);
-	EMIT_OP_LABEL(o_je, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_je, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
-	aluLabels++;
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	aluLabels += 2;
 }
 
 void GenCodeCmdLogOr(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LOR int");
+	EMIT_COMMENT("LOR int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG_REG(o_or, rEAX, rEBX);
 	EMIT_OP_REG_NUM(o_cmp, rEAX, 0);
-	EMIT_OP_LABEL(o_je, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
 	EMIT_OP_NUM(o_push, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_NUM(o_push, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
-	aluLabels++;
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	aluLabels += 2;
 }
 
 void GenCodeCmdLogXor(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LXOR int");
+	EMIT_COMMENT("LXOR int");
 	EMIT_OP_REG_REG(o_xor, rEAX, rEAX);
 	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 0, 0);
 	EMIT_OP_REG(o_setne, rEAX);
@@ -1257,7 +1244,7 @@ void GenCodeCmdLogXor(VMCmd cmd)
 void GenCodeCmdAddL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "ADD long");
+	EMIT_COMMENT("ADD long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_add, sDWORD, rESP, 0, rEAX);
@@ -1267,7 +1254,7 @@ void GenCodeCmdAddL(VMCmd cmd)
 void GenCodeCmdSubL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "SUB long");
+	EMIT_COMMENT("SUB long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_sub, sDWORD, rESP, 0, rEAX);
@@ -1277,7 +1264,7 @@ void GenCodeCmdSubL(VMCmd cmd)
 void GenCodeCmdMulL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "MUL long");
+	EMIT_COMMENT("MUL long");
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longMul);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
@@ -1288,7 +1275,7 @@ void GenCodeCmdMulL(VMCmd cmd)
 void GenCodeCmdDivL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DIV long");
+	EMIT_COMMENT("DIV long");
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longDiv);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
@@ -1299,7 +1286,7 @@ void GenCodeCmdDivL(VMCmd cmd)
 void GenCodeCmdPowL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "POW long");
+	EMIT_COMMENT("POW long");
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longPow);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
@@ -1310,7 +1297,7 @@ void GenCodeCmdPowL(VMCmd cmd)
 void GenCodeCmdModL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "MOD long");
+	EMIT_COMMENT("MOD long");
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longMod);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
@@ -1321,130 +1308,130 @@ void GenCodeCmdModL(VMCmd cmd)
 void GenCodeCmdLessL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LESS long");
+	EMIT_COMMENT("LESS long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jg, InlFmt("SetZero%d", aluLabels));
-	EMIT_OP_LABEL(o_jl, InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jg, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jl, LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_jae, InlFmt("SetZero%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jae, LABEL_ALU | aluLabels);
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("OneSet%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	aluLabels++;
+	aluLabels += 3;
 }
 
 void GenCodeCmdGreaterL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "GREATER long");
+	EMIT_COMMENT("GREATER long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jl, InlFmt("SetZero%d", aluLabels));
-	EMIT_OP_LABEL(o_jg, InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jl, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jg, LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_jbe, InlFmt("SetZero%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jbe, LABEL_ALU | aluLabels);
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("OneSet%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	aluLabels++;
+	aluLabels += 3;
 }
 
 void GenCodeCmdLEqualL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LEQUAL long");
+	EMIT_COMMENT("LEQUAL long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jg, InlFmt("SetZero%d", aluLabels));
-	EMIT_OP_LABEL(o_jl, InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jg, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jl, LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_ja, InlFmt("SetZero%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_ja, LABEL_ALU | aluLabels);
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("OneSet%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	aluLabels++;
+	aluLabels += 3;
 }
 
 void GenCodeCmdGEqualL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "GEQUAL long");
+	EMIT_COMMENT("GEQUAL long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jl, InlFmt("SetZero%d", aluLabels));
-	EMIT_OP_LABEL(o_jg, InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jl, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jg, LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_jb, InlFmt("SetZero%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jb, LABEL_ALU | aluLabels);
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("OneSet%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	aluLabels++;
+	aluLabels += 3;
 }
 
 void GenCodeCmdEqualL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "EQUAL long");
+	EMIT_COMMENT("EQUAL long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jne, InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_jne, InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("OneSet%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 void GenCodeCmdNEqualL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "NEQUAL long");
+	EMIT_COMMENT("NEQUAL long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jne, InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_je, InlFmt("SetZero%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("OneSet%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	aluLabels++;
+	aluLabels += 3;
 }
 
 void GenCodeCmdShlL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "SHL long");
+	EMIT_COMMENT("SHL long");
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longShl);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
@@ -1453,7 +1440,7 @@ void GenCodeCmdShlL(VMCmd cmd)
 void GenCodeCmdShrL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "SHR long");
+	EMIT_COMMENT("SHR long");
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longShr);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
@@ -1462,7 +1449,7 @@ void GenCodeCmdShrL(VMCmd cmd)
 void GenCodeCmdBitAndL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "BAND long");
+	EMIT_COMMENT("BAND long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_and, sDWORD, rESP, 0, rEAX);
@@ -1472,7 +1459,7 @@ void GenCodeCmdBitAndL(VMCmd cmd)
 void GenCodeCmdBitOrL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "BOR long");
+	EMIT_COMMENT("BOR long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_or, sDWORD, rESP, 0, rEAX);
@@ -1482,7 +1469,7 @@ void GenCodeCmdBitOrL(VMCmd cmd)
 void GenCodeCmdBitXorL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "BXOR long");
+	EMIT_COMMENT("BXOR long");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_xor, sDWORD, rESP, 0, rEAX);
@@ -1492,47 +1479,47 @@ void GenCodeCmdBitXorL(VMCmd cmd)
 void GenCodeCmdLogAndL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LAND long");
+	EMIT_COMMENT("LAND long");
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 0);
 	EMIT_OP_REG_RPTR(o_or, rEAX, sDWORD, rESP, 4);
-	EMIT_OP_LABEL(o_jz, InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jz, LABEL_ALU | aluLabels);
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 8);
 	EMIT_OP_REG_RPTR(o_or, rEAX, sDWORD, rESP, 12);
-	EMIT_OP_LABEL(o_jz, InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jz, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 8, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("OneSet%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 8, 0);
-	EMIT_LABEL(InlFmt("OneSet%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 12, 0);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 void GenCodeCmdLogOrL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LOR long");
+	EMIT_COMMENT("LOR long");
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 0);
 	EMIT_OP_REG_RPTR(o_or, rEAX, sDWORD, rESP, 4);
-	EMIT_OP_LABEL(o_jnz, InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU | aluLabels);
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 8);
 	EMIT_OP_REG_RPTR(o_or, rEAX, sDWORD, rESP, 12);
-	EMIT_OP_LABEL(o_jnz, InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 8, 0);
-	EMIT_OP_LABEL(o_jmp, InlFmt("ZeroSet%d", aluLabels));
-	EMIT_LABEL(InlFmt("SetOne%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 8, 1);
-	EMIT_LABEL(InlFmt("ZeroSet%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 12, 0);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 void GenCodeCmdLogXorL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LXOR long");
+	EMIT_COMMENT("LXOR long");
 	EMIT_OP_REG_REG(o_xor, rEAX, rEAX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_REG_RPTR(o_or, rEBX, sDWORD, rESP, 4);
@@ -1552,7 +1539,7 @@ void GenCodeCmdLogXorL(VMCmd cmd)
 void GenCodeCmdAddD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "ADD double");
+	EMIT_COMMENT("ADD double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_RPTR(o_fadd, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
@@ -1562,7 +1549,7 @@ void GenCodeCmdAddD(VMCmd cmd)
 void GenCodeCmdSubD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "SUB double");
+	EMIT_COMMENT("SUB double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_RPTR(o_fsub, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
@@ -1572,7 +1559,7 @@ void GenCodeCmdSubD(VMCmd cmd)
 void GenCodeCmdMulD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "MUL double");
+	EMIT_COMMENT("MUL double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_RPTR(o_fmul, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
@@ -1582,7 +1569,7 @@ void GenCodeCmdMulD(VMCmd cmd)
 void GenCodeCmdDivD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DIV double");
+	EMIT_COMMENT("DIV double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_RPTR(o_fdiv, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
@@ -1592,7 +1579,7 @@ void GenCodeCmdDivD(VMCmd cmd)
 void GenCodeCmdPowD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "POW double");
+	EMIT_COMMENT("POW double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)doublePow);
@@ -1604,7 +1591,7 @@ void GenCodeCmdPowD(VMCmd cmd)
 void GenCodeCmdModD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "MOD double");
+	EMIT_COMMENT("MOD double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP(o_fprem);
@@ -1616,142 +1603,142 @@ void GenCodeCmdModD(VMCmd cmd)
 void GenCodeCmdLessD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LESS double");
+	EMIT_COMMENT("LESS double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x41);
-	EMIT_OP_LABEL(o_jne, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 void GenCodeCmdGreaterD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "GREATER double");
+	EMIT_COMMENT("GREATER double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x05);
-	EMIT_OP_LABEL(o_jp, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 void GenCodeCmdLEqualD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LEQUAL double");
+	EMIT_COMMENT("LEQUAL double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x01);
-	EMIT_OP_LABEL(o_jne, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 void GenCodeCmdGEqualD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "GEQUAL double");
+	EMIT_COMMENT("GEQUAL double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x41);
-	EMIT_OP_LABEL(o_jp, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 void GenCodeCmdEqualD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "EQUAL double");
+	EMIT_COMMENT("EQUAL double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
-	EMIT_OP_LABEL(o_jp, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 void GenCodeCmdNEqualD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "NEQUAL double");
+	EMIT_COMMENT("NEQUAL double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
-	EMIT_OP_LABEL(o_jnp, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jnp, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 
 void GenCodeCmdNeg(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "NEG int");
+	EMIT_COMMENT("NEG int");
 	EMIT_OP_RPTR(o_neg, sDWORD, rESP, 0);
 }
 
 void GenCodeCmdBitNot(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "BNOT int");
+	EMIT_COMMENT("BNOT int");
 	EMIT_OP_RPTR(o_not, sDWORD, rESP, 0);
 }
 
 void GenCodeCmdLogNot(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LNOT int");
+	EMIT_COMMENT("LNOT int");
 	EMIT_OP_REG_REG(o_xor, rEAX, rEAX);
 	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 0, 0);
 	EMIT_OP_REG(o_sete, rEAX);
@@ -1762,7 +1749,7 @@ void GenCodeCmdLogNot(VMCmd cmd)
 void GenCodeCmdNegL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "NEG long");
+	EMIT_COMMENT("NEG long");
 	EMIT_OP_RPTR(o_neg, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_NUM(o_adc, sDWORD, rESP, 4, 0);
 	EMIT_OP_RPTR(o_neg, sDWORD, rESP, 4);
@@ -1771,7 +1758,7 @@ void GenCodeCmdNegL(VMCmd cmd)
 void GenCodeCmdBitNotL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "BNOT long");
+	EMIT_COMMENT("BNOT long");
 	EMIT_OP_RPTR(o_not, sDWORD, rESP, 0);
 	EMIT_OP_RPTR(o_not, sDWORD, rESP, 4);
 }
@@ -1779,7 +1766,7 @@ void GenCodeCmdBitNotL(VMCmd cmd)
 void GenCodeCmdLogNotL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LNOT long");
+	EMIT_COMMENT("LNOT long");
 	EMIT_OP_REG_REG(o_xor, rEAX, rEAX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 4);
 	EMIT_OP_REG_RPTR(o_or, rEBX, sDWORD, rESP, 0);
@@ -1792,7 +1779,7 @@ void GenCodeCmdLogNotL(VMCmd cmd)
 void GenCodeCmdNegD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "NEG double");
+	EMIT_COMMENT("NEG double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP(o_fchs);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
@@ -1801,34 +1788,34 @@ void GenCodeCmdNegD(VMCmd cmd)
 void GenCodeCmdLogNotD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "LNOT double");
+	EMIT_COMMENT("LNOT double");
 	EMIT_OP(o_fldz);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 0);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
-	EMIT_OP_LABEL(o_jp, InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, InlFmt("pushedOne%d", aluLabels));
-	EMIT_LABEL(InlFmt("pushZero%d", aluLabels));
+	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(InlFmt("pushedOne%d", aluLabels));
+	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	aluLabels++;
+	aluLabels += 2;
 }
 
 
 void GenCodeCmdIncI(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "INC int");
+	EMIT_COMMENT("INC int");
 	EMIT_OP_RPTR_NUM(o_add, sDWORD, rESP, 0, 1);
 }
 
 void GenCodeCmdIncD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "INC double");
+	EMIT_COMMENT("INC double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP(o_fld1);
 	EMIT_OP(o_faddp);
@@ -1838,7 +1825,7 @@ void GenCodeCmdIncD(VMCmd cmd)
 void GenCodeCmdIncL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "INC long");
+	EMIT_COMMENT("INC long");
 	EMIT_OP_RPTR_NUM(o_add, sDWORD, rESP, 0, 1);
 	EMIT_OP_RPTR_NUM(o_adc, sDWORD, rESP, 0, 0);
 }
@@ -1847,14 +1834,14 @@ void GenCodeCmdIncL(VMCmd cmd)
 void GenCodeCmdDecI(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DEC int");
+	EMIT_COMMENT("DEC int");
 	EMIT_OP_RPTR_NUM(o_sub, sDWORD, rESP, 0, 1);
 }
 
 void GenCodeCmdDecD(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DEC double");
+	EMIT_COMMENT("DEC double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP(o_fld1);
 	EMIT_OP(o_fsubp);
@@ -1864,7 +1851,7 @@ void GenCodeCmdDecD(VMCmd cmd)
 void GenCodeCmdDecL(VMCmd cmd)
 {
 	(void)cmd;
-	Emit(INST_COMMENT, "DEC long");
+	EMIT_COMMENT("DEC long");
 	EMIT_OP_RPTR_NUM(o_sub, sDWORD, rESP, 0, 1);
 	EMIT_OP_RPTR_NUM(o_sbb, sDWORD, rESP, 0, 0);
 }
@@ -1872,7 +1859,7 @@ void GenCodeCmdDecL(VMCmd cmd)
 
 void GenCodeCmdAddAtCharStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "ADDAT char stack");
+	EMIT_COMMENT("ADDAT char stack");
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument+paramBase);
 	if(cmd.flag == bitPushBefore)
@@ -1885,7 +1872,7 @@ void GenCodeCmdAddAtCharStk(VMCmd cmd)
 
 void GenCodeCmdAddAtShortStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "ADDAT short stack");
+	EMIT_COMMENT("ADDAT short stack");
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument+paramBase);
 	if(cmd.flag == bitPushBefore)
@@ -1898,7 +1885,7 @@ void GenCodeCmdAddAtShortStk(VMCmd cmd)
 
 void GenCodeCmdAddAtIntStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "ADDAT int stack");
+	EMIT_COMMENT("ADDAT int stack");
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rEDX, cmd.argument+paramBase);
 	if(cmd.flag == bitPushBefore)
@@ -1911,7 +1898,7 @@ void GenCodeCmdAddAtIntStk(VMCmd cmd)
 
 void GenCodeCmdAddAtLongStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "ADDAT long stack");
+	EMIT_COMMENT("ADDAT long stack");
 	EMIT_OP_REG(o_pop, rECX);
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rECX, cmd.argument+paramBase);
 	EMIT_OP_REG_RPTR(o_mov, rEDX, sDWORD, rECX, cmd.argument+paramBase+4);
@@ -1933,7 +1920,7 @@ void GenCodeCmdAddAtLongStk(VMCmd cmd)
 
 void GenCodeCmdAddAtFloatStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "ADDAT float stack");
+	EMIT_COMMENT("ADDAT float stack");
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument+paramBase);
 	if(cmd.flag == bitPushBefore)
@@ -1957,7 +1944,7 @@ void GenCodeCmdAddAtFloatStk(VMCmd cmd)
 
 void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 {
-	Emit(INST_COMMENT, "ADDAT double stack");
+	EMIT_COMMENT("ADDAT double stack");
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_fld, sQWORD, rEDX, cmd.argument+paramBase);
 	if(cmd.flag == bitPushBefore)

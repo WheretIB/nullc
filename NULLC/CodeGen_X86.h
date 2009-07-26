@@ -6,16 +6,21 @@
 #include "ParseClass.h"
 #include "Bytecode.h"
 
-char* InlFmt(const char *str, ...);
-
+const unsigned int JUMP_NEAR = (unsigned int)(1 << 31);
 // jump ID markers for assembly printout
 const unsigned int LABEL_FUNCTION = 1 << 30;
-const unsigned int LABEL_GLOBAL = 1 << 29;
+const unsigned int LABEL_GLOBAL = 1 << 30;
 const unsigned int LABEL_ALU = 1 << 28;
 
-void EMIT_LABEL(const char* Label);
+#ifdef NULLC_LOG_FILES
+void EMIT_COMMENT(const char* text);
+#else
+#define EMIT_COMMENT(x)
+#endif
+
+void EMIT_LABEL(unsigned int labelID);
 void EMIT_OP(x86Command op);
-void EMIT_OP_LABEL(x86Command op, const char* Label);
+void EMIT_OP_LABEL(x86Command op, unsigned int labelID);
 void EMIT_OP_REG(x86Command op, x86Reg reg1);
 void EMIT_OP_FPUREG(x86Command op, x87Reg reg1);
 void EMIT_OP_NUM(x86Command op, unsigned int num);
@@ -25,7 +30,7 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num);
 void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2);
 void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int addr);
 void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift);
-void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, const char* Label, unsigned int shift);
+void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, unsigned int labelID, unsigned int shift);
 void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg2);
 void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, x86Reg reg2);
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num);
