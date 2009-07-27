@@ -189,28 +189,27 @@ struct x86Argument
 
 	bool operator==(const x86Argument& r)
 	{
-		if(type != r.type || reg != r.reg || num != r.num || fpArg != r.fpArg)
+		if(type != r.type || reg != r.reg)
 			return false;
 		if(ptrSize != r.ptrSize || ptrReg[0] != r.ptrReg[0] || ptrReg[1] != r.ptrReg[1] || ptrMult != r.ptrMult || ptrNum != r.ptrNum)
-			return false;
-		if(labelID != r.labelID)
 			return false;
 		return true;
 	}
 
 	ArgType	type;
 
-	x86Reg	reg;
-	int		num;
+	union
+	{
+		x86Reg	reg;				// Used only when type == argReg
+		int		num;				// Used only when type == argNumber
+		x87Reg	fpArg;				// Used only when type == argFPReg
+		unsigned int	labelID;	// Used only when type == argLabel or argPtrLabel
+		x86Size	ptrSize;			// Used only when type == argPtr
+	};
 
-	x87Reg	fpArg;
-
-	x86Size	ptrSize;
 	x86Reg	ptrReg[2];
 	int		ptrMult;
 	int		ptrNum;
-
-	unsigned int	labelID;
 
 	int	Decode(char *buf)
 	{
