@@ -40,3 +40,18 @@ unsigned int StringHashContinue(unsigned int hash, const char *str, const char *
 		hash = ((hash << 5) + hash) + (*str++);
 	return hash;
 }
+
+char* PrintInteger(char* str, int number)
+{
+	char buf[16];
+	char *curr = buf;
+	*curr++ = (char)(number % 10 + '0');
+	while(number /= 10)
+		*curr++ = (char)(number % 10 + '0');
+	do 
+	{
+		--curr;
+		*str++ = *curr;
+	}while(curr != buf);
+	return str;
+}

@@ -71,7 +71,7 @@ public:
 	const char		*name;	// base type name
 	unsigned int	nameHash;
 
-	const char		*fullName;	// full type name
+	char			*fullName;	// full type name
 	unsigned int	fullNameLength;
 	unsigned int	fullNameHash;
 
@@ -101,37 +101,58 @@ public:
 			return fullName;
 		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY)
 		{
-			fullName = new char[subType->GetFullNameLength() + 8 + 3]; // 8 for the digits of arrSize, and 3 for '[',']' and \0
-			sprintf((char*)fullName, "%s[%d]", subType->GetFullTypeName(), arrSize);
+			unsigned int subNameLength = subType->GetFullNameLength();
+			fullName = (char*)typeInfoPool.Allocate(subNameLength + 8 + 3); // 8 for the digits of arrSize, and 3 for '[', ']' and \0
+			memcpy((char*)fullName, subType->GetFullTypeName(), subNameLength);
+			fullName[subNameLength] = '[';
+			char *curr = PrintInteger(fullName + subNameLength + 1, arrSize);
+			curr[0] = ']';
+			curr[1] = 0;
+			fullNameLength = (int)(curr - fullName + 1);
 		}else if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY){
-			fullName = new char[subType->GetFullNameLength() + 3]; // 3 for '[',']' and \0
-			sprintf((char*)fullName, "%s[]", subType->GetFullTypeName());
+			unsigned int subNameLength = subType->GetFullNameLength();
+			fullName = (char*)typeInfoPool.Allocate(subNameLength + 3); // 3 for '[', ']' and \0
+			memcpy((char*)fullName, subType->GetFullTypeName(), subNameLength);
+			fullName[subNameLength] = '[';
+			fullName[subNameLength + 1] = ']';
+			fullName[subNameLength + 2] = 0;
+			fullNameLength = subNameLength + 2;
 		}else if(refLevel){
-			fullName = new char[subType->GetFullNameLength() + 5]; // 5 for " ref" and \0
-			sprintf((char*)fullName, "%s ref", subType->GetFullTypeName());
+			unsigned int subNameLength = subType->GetFullNameLength();
+			fullName = (char*)typeInfoPool.Allocate(subNameLength + 5); // 5 for " ref" and \0
+			memcpy((char*)fullName, subType->GetFullTypeName(), subNameLength);
+			memcpy((char*)fullName + subNameLength, " ref", 5);
+			fullNameLength = subNameLength + 4;
 		}else{
 			if(funcType)
 			{
+				unsigned int retNameLength = funcType->retType->GetFullNameLength() ;
 				// 7 is the length of " ref(", ")" and \0
-				unsigned int bufferSize = 7 + funcType->retType->GetFullNameLength() + funcType->paramCount;
+				unsigned int bufferSize = 7 + retNameLength;
 				for(unsigned int i = 0; i < funcType->paramCount; i++)
-					bufferSize += funcType->paramType[i]->GetFullNameLength() + (i != funcType->paramCount-1 ? 2 : 0);
-				char *curr = new char[bufferSize+1];
+					bufferSize += funcType->paramType[i]->GetFullNameLength() + (i != funcType->paramCount-1 ? 1 : 0);
+				char *curr = (char*)typeInfoPool.Allocate(bufferSize+1);
 				fullName = curr;
-				curr += sprintf(curr, "%s ref(", funcType->retType->GetFullTypeName());
+				memcpy(curr, funcType->retType->GetFullTypeName(), retNameLength);
+				memcpy(curr + retNameLength, " ref(", 5);
+				curr += retNameLength + 5;
 				for(unsigned int i = 0; i < funcType->paramCount; i++)
 				{
-					curr += sprintf(curr, "%s", funcType->paramType[i]->GetFullTypeName());
+					memcpy(curr, funcType->paramType[i]->GetFullTypeName(), funcType->paramType[i]->GetFullNameLength());
+					curr += funcType->paramType[i]->GetFullNameLength();
 					if(i != funcType->paramCount-1)
-						curr += sprintf(curr, ", ");
+						*curr++ = ',';
 				}
-				sprintf(curr, ")");
+				*curr++ = ')';
+				*curr++ = 0;
+				fullNameLength = bufferSize - 1;
 			}else{
-				fullName = new char[(int)strlen(name)+ 1]; // 1 for \0
-				sprintf((char*)fullName, "%s", name);
+				fullName = (char*)name;
+				fullNameLength = (int)strlen(name);
+				fullNameHash = nameHash;
+				return name;
 			}
 		}
-		fullNameLength = (int)strlen(fullName);
 		fullNameHash = GetStringHash(fullName);
 		return fullName;
 	}
