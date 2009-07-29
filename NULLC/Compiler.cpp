@@ -243,7 +243,7 @@ Compiler::Compiler()
 Compiler::~Compiler()
 {
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
-		delete[] typeInfo[i]->fullName;
+		typeInfo[i]->fullName = NULL;
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
 		if(funcInfo[i]->address == -1 && funcInfo[i]->funcPtr != NULL)
@@ -271,7 +271,7 @@ void Compiler::ClearState()
 			typeInfo[i]->refType = NULL;
 
 	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
-		delete[] typeInfo[i]->fullName;
+		typeInfo[i]->fullName = NULL;
 
 	typeInfo.resize(buildInTypes);
 	TypeInfo::DeleteTypeInformation();

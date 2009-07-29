@@ -34,6 +34,8 @@ unsigned int GetStringHash(const char *str, const char *end);
 unsigned int StringHashContinue(unsigned int hash, const char *str);
 unsigned int StringHashContinue(unsigned int hash, const char *str, const char *end);
 
+char* PrintInteger(char* str, int number);
+
 template<typename T, bool zeroNewMemory = false, bool skipConstructor = false>
 class FastVector
 {
@@ -147,6 +149,7 @@ public:
 	}
 	void*	Allocate(unsigned int bytes)
 	{
+		assert(bytes < chunkSize);
 		if(size + bytes < chunkSize)
 		{
 			size += bytes;
