@@ -443,7 +443,7 @@ bool ExecutorX86::TranslateToNative()
 			}
 		}else if(cmd.cmd == cmdCallStd)
 		{
-			EMIT_COMMENT(InlFmt("CALLSTD %d", cmd.argument));
+			EMIT_COMMENT("CALLSTD");
 
 			if(exFunctions[cmd.argument]->funcPtr == NULL)
 			{

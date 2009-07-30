@@ -335,7 +335,7 @@ bool Compiler::Compile(const char *str)
 
 #ifdef NULLC_LOG_FILES
 	FILE *fCode = fopen("code.txt", "wb");
-	fwrite(str.c_str(), 1, str.length(), fCode);
+	fwrite(str, 1, strlen(str), fCode);
 	fclose(fCode);
 #endif
 
@@ -397,27 +397,25 @@ bool Compiler::Compile(const char *str)
 #endif
 
 #ifdef NULLC_LOG_FILES
-	fprintf(compileLog, "\r\n%s", warningLog.c_str());
-
 	fprintf(compileLog, "\r\nActive types (%d):\r\n", typeInfo.size());
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
-		fprintf(compileLog, "%s (%d bytes)\r\n", typeInfo[i]->GetTypeName().c_str(), typeInfo[i]->size);
+		fprintf(compileLog, "%s (%d bytes)\r\n", typeInfo[i]->GetFullTypeName(), typeInfo[i]->size);
 
 	fprintf(compileLog, "\r\nActive functions (%d):\r\n", funcInfo.size());
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
 		FunctionInfo &currFunc = *funcInfo[i];
 		fprintf(compileLog, "%s", currFunc.type == FunctionInfo::LOCAL ? "local " : (currFunc.type == FunctionInfo::NORMAL ? "global " : "thiscall "));
-		fprintf(compileLog, "%s %s(", currFunc.retType->GetTypeName().c_str(), currFunc.name.c_str());
+		fprintf(compileLog, "%s %s(", currFunc.retType->GetFullTypeName(), currFunc.name);
 
-		for(unsigned int n = 0; n < currFunc.params.size(); n++)
-			fprintf(compileLog, "%s %s%s", currFunc.params[n].varType->GetTypeName().c_str(), currFunc.params[n].name.c_str(), (n==currFunc.params.size()-1 ? "" :", "));
+		for(VariableInfo *curr = currFunc.firstParam; curr; curr = curr->next)
+			fprintf(compileLog, "%s %s%s", curr->varType->GetFullTypeName(), curr->name, (curr == currFunc.lastParam ? "" : ", "));
 		
 		fprintf(compileLog, ")\r\n");
 		if(currFunc.type == FunctionInfo::LOCAL)
 		{
-			for(unsigned int n = 0; n < currFunc.external.size(); n++)
-				fprintf(compileLog, "  external var: %s\r\n", currFunc.external[n].c_str());
+			for(FunctionInfo::ExternalName *curr = currFunc.firstExternal; curr; curr = curr->next)
+				fprintf(compileLog, "  external var: %s\r\n", curr->name);
 		}
 	}
 	fflush(compileLog);
