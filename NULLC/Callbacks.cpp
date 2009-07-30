@@ -81,9 +81,6 @@ int AddFunctionExternal(FunctionInfo* func, InplaceStr name)
 		if(curr->nameHash == hash)
 			return i;
 
-#ifdef NULLC_LOG_FILES
-	fprintf(compileLog, "Function %s uses external variable %s\r\n", currDefinedFunc.back()->name.c_str(), name.c_str());
-#endif
 	func->AddExternal(name, hash);
 	return func->externalCount - 1;
 }

@@ -24,7 +24,7 @@ unsigned int OptimizerX86::Optimize(FastVector<x86Instruction, true, true>& inst
 unsigned int OptimizerX86::SearchUp(unsigned int from)
 {
 	from--;
-	while((start[from].name == o_other || start[from].name == o_none) && from != 0)
+	while((start[from].name == o_other || start[from].name == o_none || start[from].name == o_dd) && from != 0)
 		from--;
 	return from;
 }
@@ -32,7 +32,7 @@ unsigned int OptimizerX86::SearchUp(unsigned int from)
 unsigned int OptimizerX86::SearchDown(unsigned int from)
 {
 	from++;
-	while((start[from].name == o_other || start[from].name == o_none) && from != (unsigned int)(end-start))
+	while((start[from].name == o_other || start[from].name == o_none || start[from].name == o_dd) && from != (unsigned int)(end-start))
 		from++;
 	return from;
 }

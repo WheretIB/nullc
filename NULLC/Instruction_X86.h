@@ -228,7 +228,7 @@ struct x86Argument
 			curr += sprintf(curr, "%s [", x86SizeText[ptrSize]);
 			if(ptrReg[0] != rNONE)
 				curr += sprintf(curr, "%s", x86RegText[ptrReg[0]]);
-			if(ptrMult != 1)
+			if(ptrMult > 1)
 				curr += sprintf(curr, "*%d", ptrMult);
 			if(ptrReg[1] != rNONE)
 				curr += sprintf(curr, " + %s", x86RegText[ptrReg[1]]);
@@ -249,7 +249,6 @@ struct x86Instruction
 {
 	x86Instruction(){ name = o_none; }
 	explicit x86Instruction(unsigned int LabelID){ name = o_label; labelID = LabelID; }
-	x86Instruction(int comment, const char* text){ (void)comment; (void)text; name = o_other; /*assert(strlen(text) < 32); strncpy(labelName, text, 32);*/ }
 	explicit x86Instruction(x86Command Name){ name = Name; }
 	x86Instruction(x86Command Name, const x86Argument& a){ name = Name; argA = a; }
 	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b){ name = Name; argA = a; argB = b; }
@@ -257,7 +256,15 @@ struct x86Instruction
 	x86Command	name;
 	x86Argument	argA, argB;
 
+#ifdef NULLC_LOG_FILES
+	union
+	{
+		unsigned int	labelID;
+		const char		*comment;
+	};
+#else
 	unsigned int	labelID;
+#endif
 
 	// returns string length
 	int	Decode(char *buf)
@@ -265,19 +272,24 @@ struct x86Instruction
 		char *curr = buf;
 		if(name == o_label)
 			curr += sprintf(curr, "%d:", labelID);
+#ifdef NULLC_LOG_FILES
 		else if(name == o_other)
-			curr += sprintf(curr, "  ; %d", labelID);
+			curr += sprintf(curr, "  ; %s", comment);
+#endif
 		else
 			curr += sprintf(curr, "%s", x86CmdText[name]);
-		if(argA.type != x86Argument::argNone)
+		if(name != o_none)
 		{
-			curr += sprintf(curr, " ");
-			curr += argA.Decode(curr);
-		}
-		if(argB.type != x86Argument::argNone)
-		{
-			curr += sprintf(curr, ", ");
-			curr += argB.Decode(curr);
+			if(argA.type != x86Argument::argNone)
+			{
+				curr += sprintf(curr, " ");
+				curr += argA.Decode(curr);
+			}
+			if(argB.type != x86Argument::argNone)
+			{
+				curr += sprintf(curr, ", ");
+				curr += argB.Decode(curr);
+			}
 		}
 
 		return (int)(curr-buf);

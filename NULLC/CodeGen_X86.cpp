@@ -7,7 +7,9 @@ x86Instruction	*x86Op = NULL;
 #ifdef NULLC_LOG_FILES
 void EMIT_COMMENT(const char* text)
 {
-	myInstList->push_back(x86Instruction(comment, text));
+	x86Op->name = o_other;
+	x86Op->comment = text;
+	x86Op++;
 }
 #else
 #define EMIT_COMMENT(x)
@@ -973,7 +975,7 @@ void GenCodeCmdJmpNZL(VMCmd cmd)
 
 void GenCodeCmdCall(VMCmd cmd)
 {
-	EMIT_COMMENT(InlFmt("CALL %d ret %s %d", cmd.argument, (cmd.helper & bitRetSimple ? "simple " : ""), (cmd.helper & 0x0FFF)));
+	EMIT_COMMENT("CALL");
 
 	if(cmd.argument == -1)
 	{
@@ -1025,7 +1027,7 @@ void GenCodeCmdCall(VMCmd cmd)
 
 void GenCodeCmdReturn(VMCmd cmd)
 {
-	EMIT_COMMENT(InlFmt("RET %d, %d %d", cmd.flag, cmd.argument, (cmd.helper & 0x0FFF)));
+	EMIT_COMMENT("RET");
 
 	if(cmd.flag & bitRetError)
 	{
