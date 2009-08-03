@@ -140,5 +140,24 @@ int * long -> long * long				long * int -> long * long
 Затем результат приводиться к типу переменной a, после чего возможно присвоение нового значения переменной.
 	Пример: int a = 2; a *= 2.5; // a равно 5
 
-
-
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	Приоритет операций
+	Evaluation		Operation
+1	left-to-right	* (unary)
+2	left-to-right	. []
+3	left-to-right	& (unary) + (unary) - (unary) ~ ! ++ (prefix) -- (prefix)
+4	left-to-right	++ (postfix) -- (postfix)
+5	left-to-right	**
+6	left-to-right	/ * %
+7	left-to-right	+ -
+8	left-to-right	<< >>
+9	left-to-right	< <= > >=
+10	left-to-right	== !=
+11	left-to-right	&
+12	left-to-right	^
+13	left-to-right	|
+14	left-to-right	and
+15	left-to-right	xor
+16	left-to-right	or
+17	left-to-right	?:
+18	right-to-left	= += -= *= /= **=
