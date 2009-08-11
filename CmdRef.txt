@@ -251,16 +251,23 @@
 		ѕроизвести операцию над double значением на вершине стека
 
 	cmdIncI
+		”величить int на вершине стека на единицу
 	cmdIncD
+		”величить double на вершине стека на единицу
 	cmdIncL
+		”величить long на вершине стека на единицу
 
 	cmdDecI
+		”меньшить int на вершине стека на единицу
 	cmdDecD
+		”меньшить double на вершине стека на единицу
 	cmdDecL
+		”меньшить long на вершине стека на единицу
 
-	cmdAddAtCharStk
-	cmdAddAtShortStk
-	cmdAddAtIntStk
-	cmdAddAtLongStk
-	cmdAddAtFloatStk
-	cmdAddAtDoubleStk
+	cmdAddAtCharStk		helper, argument
+	cmdAddAtShortStk	helper, argument
+	cmdAddAtIntStk		helper, argument
+	cmdAddAtLongStk		helper, argument
+	cmdAddAtFloatStk	helper, argument
+	cmdAddAtDoubleStk	helper, argument
+		ѕрибавить helper к значению указанного типа в пам€ти по адресу argument со сдвигом на вершине стека
