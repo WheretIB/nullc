@@ -16,7 +16,7 @@ unsigned int stackGrowSize;
 unsigned int stackGrowCommit;
 
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
-			exFuncInfo(linker->exFuncInfo), exCode(linker->exCode), exTypes(linker->exTypes)
+			exCode(linker->exCode), exTypes(linker->exTypes)
 {
 	binCode = NULL;
 }
@@ -316,9 +316,9 @@ void ExecutorX86::Run(const char* funcName)
 		unsigned int fnameHash = GetStringHash(funcName);
 		for(int i = (int)exFunctions.size()-1; i >= 0; i--)
 		{
-			if(exFunctions[i]->nameHash == fnameHash)
+			if(exFunctions[i].nameHash == fnameHash)
 			{
-				funcPos = exFuncInfo[i].startInByteCode;
+				funcPos = exFunctions[i].startInByteCode;
 				break;
 			}
 		}
@@ -405,7 +405,7 @@ bool ExecutorX86::TranslateToNative()
 
 	globalStartInBytecode = 0xffffffff;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
-		exFuncInfo[i].startInByteCode = 0xffffffff;
+		exFunctions[i].startInByteCode = 0xffffffff;
 
 	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
@@ -434,38 +434,38 @@ bool ExecutorX86::TranslateToNative()
 		{
 			EMIT_COMMENT("FUNCADDR");
 
-			if(exFunctions[cmd.argument]->funcPtr == NULL)
+			if(exFunctions[cmd.argument].funcPtr == NULL)
 			{
-				EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + exFunctions[cmd.argument]->address, binCodeStart);
+				EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + exFunctions[cmd.argument].address, binCodeStart);
 				EMIT_OP_REG(o_push, rEAX);
 			}else{
-				EMIT_OP_NUM(o_push, (int)(long long)exFunctions[cmd.argument]->funcPtr);
+				EMIT_OP_NUM(o_push, (int)(long long)exFunctions[cmd.argument].funcPtr);
 			}
 		}else if(cmd.cmd == cmdCallStd)
 		{
 			EMIT_COMMENT("CALLSTD");
 
-			if(exFunctions[cmd.argument]->funcPtr == NULL)
+			if(exFunctions[cmd.argument].funcPtr == NULL)
 			{
 				EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-				if(exFunctions[cmd.argument]->nameHash == GetStringHash("cos"))
+				if(exFunctions[cmd.argument].nameHash == GetStringHash("cos"))
 				{
 					EMIT_OP(o_fsincos);
 					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 					EMIT_OP_FPUREG(o_fstp, rST0);
-				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("sin")){
+				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("sin")){
 					EMIT_OP(o_fsincos);
 					EMIT_OP_FPUREG(o_fstp, rST0);
 					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("tan")){
+				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("tan")){
 					EMIT_OP(o_fptan);
 					EMIT_OP_FPUREG(o_fstp, rST0);
 					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("ctg")){
+				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("ctg")){
 					EMIT_OP(o_fptan);
 					EMIT_OP(o_fdivrp);
 					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("ceil")){
+				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("ceil")){
 					EMIT_OP_REG(o_push, rEAX);
 					EMIT_OP_RPTR(o_fstcw, sWORD, rESP, 0);
 					EMIT_OP_RPTR_NUM(o_mov, sWORD, rESP, 2, 0x1BBF);
@@ -474,7 +474,7 @@ bool ExecutorX86::TranslateToNative()
 					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 0);
 					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 4);
 					EMIT_OP_REG(o_pop, rEAX);
-				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("floor")){
+				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("floor")){
 					EMIT_OP_REG(o_push, rEAX);
 					EMIT_OP_RPTR(o_fstcw, sWORD, rESP, 0);
 					EMIT_OP_RPTR_NUM(o_mov, sWORD, rESP, 2, 0x17BF);
@@ -483,7 +483,7 @@ bool ExecutorX86::TranslateToNative()
 					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 0);
 					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 4);
 					EMIT_OP_REG(o_pop, rEAX);
-				}else if(exFunctions[cmd.argument]->nameHash == GetStringHash("sqrt")){
+				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("sqrt")){
 					EMIT_OP(o_fsqrt);
 					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 					EMIT_OP_FPUREG(o_fstp, rST0);
@@ -492,15 +492,11 @@ bool ExecutorX86::TranslateToNative()
 					return false;
 				}
 			}else{
-				unsigned int bytesToPop = 0;
-				for(unsigned int i = 0; i < exFunctions[cmd.argument]->paramCount; i++)
-				{
-					bytesToPop += exTypes[exFunctions[cmd.argument]->paramList[i]].size > 4 ? exTypes[exFunctions[cmd.argument]->paramList[i]].size : 4;
-				}
-				EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)exFunctions[cmd.argument]->funcPtr);
+				unsigned int bytesToPop = exFunctions[cmd.argument].bytesToPop;
+				EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)exFunctions[cmd.argument].funcPtr);
 				EMIT_OP_REG(o_call, rECX);
 				EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
-				if(exTypes[exFunctions[cmd.argument]->retType].size != 0)
+				if(exFunctions[cmd.argument].retSize != 0)
 				{
 					EMIT_OP_REG(o_push, rEAX);
 				}
@@ -943,8 +939,8 @@ bool ExecutorX86::TranslateToNative()
 	x86SatisfyJumps(instAddress);
 
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
-		if(exFunctions[i]->address != -1)
-			exFuncInfo[i].startInByteCode = (int)(instAddress[exFunctions[i]->address] - bytecode);
+		if(exFunctions[i].address != -1)
+			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].address] - bytecode);
 	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - bytecode);
 
 #ifdef NULLC_X86_CMP_FASM

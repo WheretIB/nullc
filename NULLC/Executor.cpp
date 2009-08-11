@@ -32,8 +32,7 @@ long long vmLongPow(long long num, long long pow)
 	return res;
 }
 
-Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions),
-			exFuncInfo(linker->exFuncInfo), exTypes(linker->exTypes)
+Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions), exTypes(linker->exTypes)
 {
 	DBG(executeLog = fopen("log.txt", "wb"));
 
@@ -91,9 +90,9 @@ void Executor::Run(const char* funcName)
 		unsigned int fnameHash = GetStringHash(funcName);
 		for(int i = (int)exFunctions.size()-1; i >= 0; i--)
 		{
-			if(exFunctions[i]->nameHash == fnameHash)
+			if(exFunctions[i].nameHash == fnameHash)
 			{
-				funcPos = exFunctions[i]->address;
+				funcPos = exFunctions[i].address;
 				break;
 			}
 		}
@@ -428,13 +427,13 @@ void Executor::Run(const char* funcName)
 			*genStackPtr = cmd.argument + paramTop.back();
 			break;
 		case cmdFuncAddr:
-			assert(sizeof(exFunctions[cmd.argument]->funcPtr) == 4);
+			assert(sizeof(exFunctions[cmd.argument].funcPtr) == 4);
 
 			genStackPtr--;
-			if(exFunctions[cmd.argument]->funcPtr == NULL)
-				*genStackPtr = exFunctions[cmd.argument]->address;
+			if(exFunctions[cmd.argument].funcPtr == NULL)
+				*genStackPtr = exFunctions[cmd.argument].address;
 			else
-				*genStackPtr = (unsigned int)((unsigned long long)(exFunctions[cmd.argument]->funcPtr));
+				*genStackPtr = (unsigned int)((unsigned long long)(exFunctions[cmd.argument].funcPtr));
 			break;
 
 		case cmdSetRange:
@@ -535,23 +534,23 @@ void Executor::Run(const char* funcName)
 		case cmdCallStd:
 		{
 			unsigned int valind = cmd.argument;
-			if(exFunctions[valind]->funcPtr == NULL)
+			if(exFunctions[valind].funcPtr == NULL)
 			{
 				double val = *(double*)(genStackPtr);
 
-				if(exFunctions[valind]->nameHash == GetStringHash("cos"))
+				if(exFunctions[valind].nameHash == GetStringHash("cos"))
 					val = cos(val);
-				else if(exFunctions[valind]->nameHash == GetStringHash("sin"))
+				else if(exFunctions[valind].nameHash == GetStringHash("sin"))
 					val = sin(val);
-				else if(exFunctions[valind]->nameHash == GetStringHash("tan"))
+				else if(exFunctions[valind].nameHash == GetStringHash("tan"))
 					val = tan(val);
-				else if(exFunctions[valind]->nameHash == GetStringHash("ctg"))
+				else if(exFunctions[valind].nameHash == GetStringHash("ctg"))
 					val = 1.0/tan(val);
-				else if(exFunctions[valind]->nameHash == GetStringHash("ceil"))
+				else if(exFunctions[valind].nameHash == GetStringHash("ceil"))
 					val = ceil(val);
-				else if(exFunctions[valind]->nameHash == GetStringHash("floor"))
+				else if(exFunctions[valind].nameHash == GetStringHash("floor"))
 					val = floor(val);
-				else if(exFunctions[valind]->nameHash == GetStringHash("sqrt"))
+				else if(exFunctions[valind].nameHash == GetStringHash("sqrt"))
 					val = sqrt(val);
 				else{
 					cmdStreamEnd = NULL;
@@ -1027,7 +1026,7 @@ void Executor::Run(const char* funcName)
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
-	unsigned int bytesToPop = exFuncInfo[funcID].bytesToPop;
+	unsigned int bytesToPop = exFunctions[funcID].bytesToPop;
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	/*unsigned int typeSizeS[] = { 4, 8, 4, 8 };
 	unsigned int paramSize = bytesToPop;
@@ -1046,7 +1045,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	}
 	genStackPtr += bytesToPop/4;
 
-	void* fPtr = exFunctions[funcID]->funcPtr;
+	void* fPtr = exFunctions[funcID].funcPtr;
 	unsigned int fRes;
 	__asm{
 		mov eax, fPtr;
@@ -1054,7 +1053,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 		add esp, bytesToPop;
 		mov fRes, eax;
 	}
-	if(exLinker->exTypes[exFunctions[funcID]->retType].size != 0)
+	if(exFunctions[funcID].retSize != 0)
 	{
 		genStackPtr--;
 		*genStackPtr = fRes;

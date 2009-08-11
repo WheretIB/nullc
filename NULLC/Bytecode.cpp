@@ -12,26 +12,10 @@ ExternVarInfo*	FindFirstVar(ByteCode *code)
 
 ExternFuncInfo*	FindFirstFunc(ByteCode *code)
 {
-
 	return (ExternFuncInfo*)((char*)(code) + code->offsetToFirstFunc);
 }
 
 char*			FindCode(ByteCode *code)
 {
 	return ((char*)(code) + code->offsetToCode);
-}
-
-ExternTypeInfo*	FindNextType(ExternTypeInfo *type)
-{
-	return (ExternTypeInfo*)((char*)(type) + type->structSize);
-}
-
-ExternVarInfo*	FindNextVar(ExternVarInfo *var)
-{
-	return (ExternVarInfo*)((char*)(var) + var->structSize);
-}
-
-ExternFuncInfo*	FindNextFunc(ExternFuncInfo *func)
-{
-	return (ExternFuncInfo*)((char*)(func) + func->structSize);
 }

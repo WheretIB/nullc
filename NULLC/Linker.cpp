@@ -1,62 +1,5 @@
 #include "Linker.h"
 
-#if defined(_MSC_VER)
-bool Linker::CreateExternalInfo(ExternFuncInfo *fInfo, ExternalFunctionInfo& externalInfo)
-{
-	externalInfo.bytesToPop = 0;
-	for(unsigned int i = 0; i < fInfo->paramCount; i++)
-	{
-		unsigned int paramSize = exTypes[fInfo->paramList[i]].size > 4 ? exTypes[fInfo->paramList[i]].size : 4;
-		externalInfo.bytesToPop += paramSize;
-	}
-	
-	return true;
-}
-#elif defined(__CELLOS_LV2__)
-bool Linker::CreateExternalInfo(ExternFuncInfo *fInfo, ExternalFunctionInfo& externalInfo)
-{
-	unsigned int rCount = 0, fCount = 0;
-	unsigned int rMaxCount = sizeof(externalInfo.rOffsets) / sizeof(externalInfo.rOffsets[0]);
-	unsigned int fMaxCount = sizeof(externalInfo.fOffsets) / sizeof(externalInfo.fOffsets[0]);
-
-	// parse all parameters, fill offsets
-	unsigned int offset = 0;
-
-	for (unsigned int i = 0; i < fInfo->paramCount; i++)
-	{
-		const ExternTypeInfo& type = *exTypes[fInfo->paramList[i]];
-
-		switch (type.type)
-		{
-		case ExternTypeInfo::TYPE_CHAR:
-		case ExternTypeInfo::TYPE_SHORT:
-		case ExternTypeInfo::TYPE_INT:
-			if (rCount >= rMaxCount) return false; // too many r parameters
-			externalInfo.rOffsets[rCount++] = offset;
-			offset++;
-			break;
-
-		case ExternTypeInfo::TYPE_FLOAT:
-		case ExternTypeInfo::TYPE_DOUBLE:
-			if (fCount >= fMaxCount || rCount >= rMaxCount) return false; // too many f/r parameters
-			externalInfo.rOffsets[rCount++] = offset;
-			externalInfo.fOffsets[fCount++] = offset;
-			offset += 2;
-			break;
-
-		default:
-			return false; // unsupported type
-		}
-	}
-
-	// clear remaining offsets
-	for (unsigned int i = rCount; i < rMaxCount; ++i) externalInfo.rOffsets[i] = 0;
-	for (unsigned int i = fCount; i < fMaxCount; ++i) externalInfo.fOffsets[i] = 0;
-
-	return true;
-}
-#endif
-
 Linker::Linker(): exTypes(50), exVariables(50), exFunctions(50)
 {
 	globalVarSize = 0;
@@ -72,8 +15,6 @@ void Linker::CleanCode()
 {
 	exTypes.clear();
 	exVariables.clear();
-	for(unsigned int i = 0; i < exFunctions.size(); i++)
-		delete[] (char*)exFunctions[i];
 	exFunctions.clear();
 	exCode.clear();
 
@@ -114,12 +55,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		{
 			typeRemap.push_back(exTypes.size());
 			exTypes.push_back(*tInfo);
-			exTypes.back().next = NULL;	// no one cares
 		}else{
 			typeRemap.push_back(index);
 		}
 
-		tInfo = FindNextType(tInfo);
+		tInfo++;
 	}
 
 	// Add all global variables
@@ -127,11 +67,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = 0; i < bCode->variableCount; i++)
 	{
 		exVariables.push_back(*vInfo);
-		exVariables.back().next = NULL;	// no one cares
 		// Type index have to be updated
 		exVariables.back().type = typeRemap[vInfo->type];
 
-		vInfo = FindNextVar(vInfo);
+		vInfo++;
 	}
 
 	unsigned int oldGlobalSize = globalVarSize;
@@ -146,7 +85,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo = FindNextFunc(fInfo))
+	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo++)
 	{
 		allFunctionSize += fInfo->codeSize;
 		
@@ -154,44 +93,17 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 		unsigned int index = index_none;
 		for(unsigned int n = 0; n < oldFunctionCount && index == index_none; n++)
-			if(exFunctions[n]->nameHash == fInfo->nameHash)
+			if(fInfo->isVisible && exFunctions[n].nameHash == fInfo->nameHash && exFunctions[n].funcType == fInfo->funcType)
 				index = n;
 
-		// Suppose, this is an overload function
-		bool isOverload = true;
-		if(index != index_none)
-		{
-			for(unsigned int n = 0; n < exFunctions.size() && isOverload == true; n++)
-			{
-				if(exFunctions[n]->nameHash == fInfo->nameHash)
-				{
-					if(fInfo->paramCount == exFunctions[n]->paramCount)
-					{
-						// If the parameter count is equal, test parameters
-						unsigned int *paramList = (unsigned int*)((char*)(&fInfo->nameHash) + sizeof(fInfo->nameHash));
-						unsigned int k;
-						for(k = 0; k < fInfo->paramCount; k++)
-							if(typeRemap[paramList[k]] != exFunctions[n]->paramList[k])
-								break;
-						if(k == fInfo->paramCount)
-						{
-							isOverload = false;
-							index = n;
-						}
-					}
-				}
-			}
-			if(!exFunctions[index]->isVisible)
-				isOverload = true;
-		}
 		// If the function exists and is build-in or external, skip
-		if(index != index_none && !isOverload && exFunctions[index]->address == -1)
+		if(index != index_none && exFunctions[index].address == -1)
 		{
 			funcRemap.push_back(index);
 			continue;
 		}
 		// If the function exists and is internal, check if redefinition is allowed
-		if(index != index_none && !isOverload)
+		if(index != index_none)
 		{
 			if(redefinitions)
 			{
@@ -201,32 +113,28 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				return false;
 			}
 		}
-		if(index == index_none || isOverload)
+		if(index == index_none)
 		{
 			funcRemap.push_back(exFunctions.size());
+			exFunctions.push_back(*fInfo);
 
-			exFunctions.push_back((ExternFuncInfo*)(new char[fInfo->structSize]));
-			memcpy(exFunctions.back(), fInfo, fInfo->structSize);
-
-			exFunctions.back()->next = NULL;	// no one cares
-			exFunctions.back()->paramList = (unsigned int*)((char*)(&exFunctions.back()->nameHash) + sizeof(fInfo->nameHash));
-
-			// Type index have to be updated
-			exFunctions.back()->retType = typeRemap[exFunctions.back()->retType];
-			if(exFunctions.back()->funcPtr != NULL && exTypes[exFunctions.back()->retType].size > 8 && exTypes[exFunctions.back()->retType].type != ExternTypeInfo::TYPE_DOUBLE)
+			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retSize > 8)
 			{
-				strcpy(linkError, "ERROR: user functions with return type size larger than 4 bytes are not supported");
+				strcpy(linkError, "ERROR: user functions with return type size larger than 8 bytes are not supported");
 				return false;
 			}
-			unsigned int *oldParamList = (unsigned int*)((char*)(&fInfo->nameHash) + sizeof(fInfo->nameHash));
-			for(unsigned int n = 0; n < exFunctions.back()->paramCount; n++)
-				exFunctions.back()->paramList[n] = typeRemap[oldParamList[n]];
-
+#if defined(__CELLOS_LV2__)
+			if(!exFunctions.back().ps3Callable)
+			{
+				sprintf(linkError, "Link Error: External function #%d is not callable on PS3", n);
+				return false;
+			}
+#endif
 			// Add function code to the bytecode,
 			// shifting global code forward,
 			// fixing all jump addresses in global code
 
-			if(exFunctions.back()->address != -1)
+			if(exFunctions.back().address != -1)
 			{
 				unsigned int shift = fInfo->codeSize;
 				unsigned int oldCodeSize = exCode.size();
@@ -239,7 +147,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				memcpy(&exCode[offsetToGlobalCode], FindCode(bCode) + fInfo->address * sizeof(VMCmd), shift * sizeof(VMCmd));
 				// Update function position
 			
-				exFunctions.back()->address = offsetToGlobalCode;
+				exFunctions.back().address = offsetToGlobalCode;
 				// Update global code start
 				offsetToGlobalCode += shift;
 			}
@@ -251,11 +159,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	for(unsigned int i = oldExFuncSize; i < exFunctions.size(); i++)
 	{
-		if(exFunctions[i]->address != -1)
+		if(exFunctions[i].address != -1)
 		{
 			// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in function code
-			int pos = exFunctions[i]->address;
-			while(pos < exFunctions[i]->address + exFunctions[i]->codeSize)
+			int pos = exFunctions[i].address;
+			while(pos < exFunctions[i].address + exFunctions[i].codeSize)
 			{
 				VMCmd &cmd = exCode[pos];
 				pos++;
@@ -282,11 +190,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				case cmdJmpNZI:
 				case cmdJmpNZD:
 				case cmdJmpNZL:
-					cmd.argument += exFunctions[i]->address - exFunctions[i]->oldAddress;
+					cmd.argument += exFunctions[i].address - exFunctions[i].oldAddress;
 					break;
 				case cmdCall:
 					if(cmd.argument != CALL_BY_POINTER)
-						cmd.argument = exFunctions[funcRemap[cmd.argument]]->address;
+						cmd.argument = exFunctions[funcRemap[cmd.argument]].address;
 					break;
 				case cmdCallStd:
 					cmd.argument = funcRemap[cmd.argument];
@@ -326,12 +234,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	// Insert function code
 	memcpy(&exCode[oldCodeSize], FindCode(bCode) + allFunctionSize * sizeof(VMCmd), (bCode->codeSize - allFunctionSize) * sizeof(VMCmd));
 
-//	exCode.resize(bCode->codeSize);
-//	memcpy(&exCode[0], FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
-
 	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
 	pos = oldCodeSize;
-//	unsigned int pos = 0;
 	while(pos < exCode.size())
 	{
 		VMCmd &cmd = exCode[pos];
@@ -363,7 +267,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			break;
 		case cmdCall:
 			if(cmd.argument != CALL_BY_POINTER)
-				cmd.argument = exFunctions[funcRemap[cmd.argument]]->address;
+				cmd.argument = exFunctions[funcRemap[cmd.argument]].address;
 			break;
 		case cmdCallStd:
 			cmd.argument = funcRemap[cmd.argument];
@@ -371,18 +275,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		case cmdFuncAddr:
 			cmd.argument = funcRemap[cmd.argument];
 			break;
-		}
-	}
-
-	exFuncInfo.resize(exFunctions.size());
-	for(unsigned int n = 0; n < exFunctions.size(); n++)
-	{
-		ExternFuncInfo* funcInfoPtr = exFunctions[n];
-
-		if(funcInfoPtr->funcPtr && !CreateExternalInfo(funcInfoPtr, exFuncInfo[n]))
-		{
-			sprintf(linkError, "Link Error: External function info failed for function #%d", n);
-			return false;
 		}
 	}
 

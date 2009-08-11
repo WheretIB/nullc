@@ -5,7 +5,6 @@ struct ExternTypeInfo
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
 	unsigned int	structSize;
-	ExternTypeInfo	*next;	// needs fix up after load
 
 	unsigned int	size;	// sizeof(type)
 	TypeCategory	type;
@@ -16,7 +15,6 @@ struct ExternTypeInfo
 struct ExternVarInfo
 {
 	unsigned int	structSize;
-	ExternVarInfo	*next;	// needs fix up after load
 
 	unsigned int	type;	// index in type array
 
@@ -27,23 +25,26 @@ struct ExternVarInfo
 struct ExternFuncInfo
 {
 	unsigned int	structSize;
-	ExternFuncInfo	*next;	// needs fix up after load
 
 	int				oldAddress;
 	int				address;
 	int				codeSize;
 	void			*funcPtr;
 	int				isVisible;
-	enum FunctionType{ NORMAL, LOCAL, THISCALL };
-	FunctionType	funcType;
 
-	unsigned int	retType;	// index in type array
-	unsigned int	paramCount;
-	unsigned int	*paramList;	// needs fix up after load
+	unsigned int	retSize;	// size of the return type
+	unsigned int	funcType;	// index to the type array
+
+	unsigned int startInByteCode;
+
+// For x86 function call
+	unsigned int bytesToPop;
+// For PS3 function call
+	unsigned int rOffsets[8];
+	unsigned int fOffsets[8];
+	unsigned int ps3Callable;
 
 	unsigned int	nameHash;
-
-//	unsigned int	paramType[paramCount];
 };
 
 struct ByteCode
@@ -62,6 +63,10 @@ struct ByteCode
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
 	ExternFuncInfo	*firstFunc;
 
+	unsigned int	parameterCount;
+	unsigned int	offsetToFirstParameter;
+	unsigned int	*firstParameter;
+
 	unsigned int	codeSize;
 	unsigned int	offsetToCode;
 	unsigned int	globalCodeStart;
@@ -73,6 +78,8 @@ struct ByteCode
 
 //	ExternFuncInfo	functions[functionCount];	// info about first function
 
+//	unsigned int	parameters[paramCount];	// function parameter types
+
 //	char			code[codeSize];
 };
 
@@ -80,7 +87,3 @@ ExternTypeInfo*	FindFirstType(ByteCode *code);
 ExternVarInfo*	FindFirstVar(ByteCode *code);
 ExternFuncInfo*	FindFirstFunc(ByteCode *code);
 char*			FindCode(ByteCode *code);
-
-ExternTypeInfo*	FindNextType(ExternTypeInfo *type);
-ExternVarInfo*	FindNextVar(ExternVarInfo *var);
-ExternFuncInfo*	FindNextFunc(ExternFuncInfo *func);
