@@ -32,8 +32,7 @@ private:
 	Linker		*exLinker;
 
 	FastVector<ExternTypeInfo>	&exTypes;
-	FastVector<ExternFuncInfo*>	&exFunctions;
-	FastVector<ExternalFunctionInfo>	&exFuncInfo;
+	FastVector<ExternFuncInfo>	&exFunctions;
 	FastVector<VMCmd>			&exCode;
 
 	FastVector<x86Instruction, true, true>	instList;

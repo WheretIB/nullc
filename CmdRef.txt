@@ -12,184 +12,255 @@
 	L - long 8 байт
 	I - int 4 байта
 
-Флаг команды CmdFlag (2 байта):
-	//биты: хххx B A 9 x 7 6 5 432 10
-	биты 01 - Тип данных на верхушке основного стека
-		0 - int
-		1 - long
-		2 - float (больше не поддерживается)
-		3 - double
-	биты 234 - Тип данных переменной
-		0 - char
-		1 - short
-		2 - int
-		3 - long
-		4 - float
-		5 - double
-	бит 5 - Переменная находяться по 4-ёх байтному относительному адресу,
-			к адресу применяется сдвиг до базы стека переменных. База стека вершин храниться с стеке баз.
-	бит 6 - Переменная находяться по 4-ёх байтному абсолютному адресу.
-	бит 7 - Переменная находяться по 4-ёх байтному относительному адресу,
-			к адресу применяется сдвиг до вершины стека переменных.
-	
-	
-	бит 9 - Для адреса применяется сдвиг находящийся в стеке
-	бит A - Финальный адресс проверяется на превышение размера указанного в инструкции
-	бит B - Финальный адресс проверяется на превышение размера находящегося в стеке
-	биты х - зарезервированы
-
-	Расположение адреса, размера, сдвига и данных в стеке идёт с следующем порядке:
-	[value]
-	[size]
-	[shift] - вершина стека.
-	Каждое из этих полей отсутствует, если не используется инструкцией.
-	
-Флаг операции OperFlag (1 байт):
-	биты xxxxxx 01
-	
-	биты 01 - Тип над которым работает операция
-		0 - double
-		1 - float (больше не поддерживается)
-		2 - long
-		3 - int
-		
-Флаг возврата RetFlag (2 байта):
-	биты FE.. xxxx xxxx xxxx
-	
-	бит F - команда должна остановить выполнение, так как пользователь не вернул значение из функции
-	бит E - возвращается базовый тип, в битах "х" - тип переменной в виде OperFlag
-			Если бит не установлен, в битах "x" - размер возращаемого значения в байтах
-
-Значения в [] опциональны, и могут отсутствовать.
-
-Синтаксис команды: Команда, [Флаг (CmdFlag или OperFlag)], [Данные команды]
+Команды имеют фиксированный размер. Формат команды:
+	идентификатор команды - 1 байт
+	флаг (flag) - 1 байт
+	вспомогательное поле (helper) - 2 байта
+	аргумент (argument) - 4 байта
 
 Список доступных команд и их описание:
-	NOP // (cmdNop = 0) No OPeration
+	NOP // (cmdNop) No OPeration
 		Отсутствие операции (может свидетельствовать об ошибке в байткоде)
-		
-	CTI OperFlag, UINT size // (cmdCTI = 103) Convert To Index
-		Конвентирует число на вершине стека в int и умножает на size
 
-  Основные команды
-	PUSH CmdFlag, [val], [address], [size] // (cmdPush = 100) PUSH
-		  Кладёт на вершину основного стека значение, которое может следовать за командой (val), 
-		или может браться из стека переменных, если предоставлен адрес.
-		  В зависимости от значений CmdFlag, значение адреса может изменяться.
-		  Так как в основном стеке могут находится только значения double, long и int, а переменная
-		может иметь типы char, short, int, long, float и double, команда производит необходимое
-		преобразование. Типы указаны в CmdFlag (биты 01 и 234)
-		
-	POP CmdFlag // (cmdPop = 101) POP
-		Убирает значение с вершины основного стека. Тип указан в CmdFlag (биты 01)
+	cmdPushCharAbs	argument
+	cmdPushShortAbs	argument
+	cmdPushIntAbs	argument
+	cmdPushFloatAbs	argument
+	cmdPushDorLAbs	argument
+		Положить значение, указанного типа, из памяти по адресу argument в стек 
+	cmdPushCmplxAbs	helper, argument
+		Положить значение размером, указанным в helper, из памяти по адресу argument в стек 
 
-	MOV CmdFlag, [address], [size] // (cmdMov = 102) MOVe
-		  Копирует значение с вершины основного стека в переменную по адресу.
-		  В зависимости от значений CmdFlag, значение адреса может изменяться.
-		  Типы указаны в CmdFlag (биты 01 и 234)
-		  
-	RTOI CmdFlag // (cmdRTOI = 104) Real TO Int
-		Преобразует вещественное значение на вершине стека в целочисленное.
-		Исходный тип указан в битах 01 CmdFlag. Единственное возможное значение - double
-		Целевой тип указан в битах 234 CmdFlag. Возможные значения - int, long
-	
-	ITOR CmdFlag // (cmdITOR = 105) Int TO Real
-		Преобразует целочисленное число на вершине стека в вещественное.
-		Исходный тип указан в битах 01 CmdFlag. Возможные значения - int, long
-		Целевой тип указан в битах 234 CmdFlag. Единственное возможное значение - double
-	
-	ITOL // (cmdITOL = 106) Int TO Long
-		Преобразует int на вершине стека в long
-		
-	LTOI // (cmdLTOI = 107) Long TO Int
-		Преобразует long на вершине стека в int
-	
-	SWAP CmdFlag // (cmdSwap = 108) SWAP
-		Менять два значение на верху стека местами.
-		Тип самого верхнего значения описан битами 234 CmdFlag.
-		Тип второго значения описа битами 01 CmgFlag.
-	
-	COPY OperFlag // (cmdCopy = 109) COPY
-		Дублирует значение на верхушке стека. Тип описан в флаге.
-	
-  Условные и безусловные переходы
-	JMP address // (cmdJmp = 110) unconditional JuMP
-		Безусловные переход по адресу.
-		
-	JMPZ OperFlag, address // (cmdJmpZ = 111) JuMP on Zero
-		Условные переход по адресу, если значение на верхушке стека равно нулю.
-		Операция удаляет значение на верхушке стека.
-		
-	JMPNZ OperFlag, address // (cmdJmpNZ = 112) JuMP on Not Zero
-		Условные переход по адресу, если значение на верхушке стека не равно нулю.
-		Операция удаляет значение на верхушке стека.
+	cmdPushCharRel	argument
+	cmdPushShortRel	argument
+	cmdPushIntRel	argument
+	cmdPushFloatRel	argument
+	cmdPushDorLRel	argument
+		Положить значение, указанного типа, из памяти по относительному адресу argument в стек 
+	cmdPushCmplxRel	helper, argument
+		Положить значение размером, указанным в helper, из памяти по относительному адресу argument в стек 
 
-  Команды для функций
-	CALL address RetFlag// (cmdCall = 113) CALL function
-		Вызов функции по адресу. Адрес следующей за этой операции кладётся в стек вызовов.
-		Также известен размер возвращаемого типа в байтах.
-		
-	CALLSTD UINT len, char name[] // (cmdCallStd = 114) CALL STanDart function
-		Вызов предопределённой функции. Имя функции длинною len следует за командой.
-		Доступные функции:
-			clock - кладёт на вершину время в милисекундах (int)
-			cos, sin, tan, ctg, ceil, floor, sqrt - берут double на вершине стека, и заменяют результатом (double)
+	cmdPushCharStk	argument
+	cmdPushShortStk	argument
+	cmdPushIntStk	argument
+	cmdPushFloatStk	argument
+	cmdPushDorLStk	argument
+		Положить значение, указанного типа, из памяти по адресу argument со сдвигом на вершине стека в стек 
+	cmdPushCmplxStk	helper, argument
+		Положить значение размером, указанным в helper, из памяти по адресу argument со сдвигом на вершине стека в стек 
 
-	RET RetFlag, short popCount// (cmdReturn = 115) RETurn
-		Возврат из функции или из программы. Адрес возврата берётся с вершины стека вызовов и убирается от туда.
-		Если стек вызовов пуст, но выполняется данная команда, происходит выход из программы.
-		Перед возвратом функция выполняет popCount раз функционал команды POPT
-		OperFlag команде для информации. (И помогает в x86)
+	cmdPushImmt	argument
+		Положить аргумент (4 байта) в стек
 
-  Команды для работы со стеком переменных
-	PUSHT // (cmdPushVTop = 116) PUSH Top
-		Сохранить размер стека переменных в стек баз стека переменных.
-		
-	POPT // (cmdPopVTop = 117) POP Top
-		Восстановить предыдущий размер стека переменных и убрать последнюю базу со стека баз.
-	
-	PUSHV count // (cmdPushV = 118) PUSH Variable
-		Увеличивает размер стека переменных на указанное количество байт.
+	cmdMovCharAbs	argument
+	cmdMovShortAbs	argument
+	cmdMovIntAbs	argument
+	cmdMovFloatAbs	argument
+	cmdMovDorLAbs	argument
+		Скопировать значение указанного типа с вершины стека в память по адресу argument
+	cmdMovCmplxAbs	helper, argument
+		Скопировать значение указанного в helper размера с вершины стека в память по адресу argument
 
-  Бинарные операции
-	Работают с double, long, int:
-	ADD OperFlag // (cmdAdd	= 130) ADD
-	SUB OperFlag // (cmdSub	= 131) SUBstract
-	MUL OperFlag // (cmdMul	= 132) MULtiply
-	DIV OperFlag // (cmdDiv	= 133) DIVide
-	POW OperFlag // (cmdPow	= 134) POWer
-	MOD OperFlag // (cmdMod	= 135) MOD
-	LESS OperFlag // (cmdLess = 136) LESS
-	GRT OperFlag // (cmdGreater	= 137) GReaTer
-	LEQL OperFlag // (cmdLEqual = 138) Less or EQuaL
-	GEQL OperFlag // (cmdGEqual = 139) Greater or EQuaL
-	EQL OperFlag // (cmdEqual = 140) EQuaL
-	NEQL OperFlag // (cmdNEqual = 141) Not EQuaL
+	cmdMovCharRel	argument
+	cmdMovShortRel	argument
+	cmdMovIntRel	argument
+	cmdMovFloatRel	argument
+	cmdMovDorLRel	argument
+		Скопировать значение указанного типа с вершины стека в память по относительному адресу argument
+	cmdMovCmplxRel	helper, argument
+		Скопировать значение указанного в helper размера с вершины стека в память по относительному адресу argument
 
-	Работают с long, int:
-	SHL OperFlag // (cmdShl	= 142) SHift Left
-	SHR OperFlag // (cmdShr	= 143) SHift Right
-	BAND OperFlag // (cmdBitAnd	= 144) Binary AND
-	BOR OperFlag // (cmdBitOr = 145) Binary OR
-	BXOR OperFlag // (cmdBitXor = 146) Binary eXclusive OR
-	LAND OperFlag // (cmdLogAnd = 147) Logical AND
-	LOR OperFlag // (cmdLogOr = 148) Logical OR
-	LXOR OperFlag // (cmdLogXor	= 149) Logical eXclusive OR
+	cmdMovCharStk	argument
+	cmdMovShortStk	argument
+	cmdMovIntStk	argument
+	cmdMovFloatStk	argument
+	cmdMovDorLStk	argument
+		Скопировать значение указанного типа с вершины стека в память по адресу argument со сдвигом на вершине стека
+	cmdMovCmplxStk	helper, argument
+		Скопировать значение указанного в helper размера с вершины стека в память по адресу argument со сдвигом на вершине стека
 
-  Унарные операции
-	Работают с double, long, int:
-	NEG OperFlag // (cmdNeg	= 160) NEGate
-	INC OperFlag // (cmdInc	= 161) INCrement
-	DEC OperFlag // (cmdDec	= 162) DECrement
-	LNOT OperFlag // (cmdLogNot	= 164) Logical NOT
+	cmdReserveV		argument
+		зарезервировать argument байт места в стеке переменных
 
-	Работают с long, int:
-	BNOT OperFlag // (cmdBitNot	= 163) Binary NOT
+	cmdPopCharTop	argument
+	cmdPopShortTop	argument
+	cmdPopIntTop	argument
+	cmdPopFloatTop	argument
+	cmdPopDorLTop	argument
+		Скопировать и убрать со стека значение указанного типа с вершины стека в память по адресу argument + размер стека переменных
+	cmdPopCmplxTop	helper, argument
+		Скопировать значение указанного в helper размера с вершины стека в память по адресу argument + размер стека переменных
 
-  Особые унарные операции (Изменяют значения сразу в стеке переменных)
-	Работают с double, long, int:
-	INCAT CmdFlag, [address], [shift], [size] // (cmdIncAt = 171) INCrement AT
-	DECAT CmdFlag, [address], [shift], [size] // (cmdDecAt = 172) DECrement AT
-		В зависимости от значений CmdFlag, значение адреса может изменяться в соответствии с полями
-		address, shift и size, которые могут находится как в стеке, так и за командой.
-		Тип указан в CmdFlag (биты 234)
+	cmdPop	argument
+		убрать argument байт со стека
+
+	cmdDtoI
+		Преобразовать double на вершине стека в int
+	cmdDtoL
+		Преобразовать double на вершине стека в long
+	cmdDtoF
+		Преобразовать double на вершине стека в float
+	cmdItoD
+		Преобразовать int на вершине стека в double
+	cmdLtoD
+		Преобразовать long на вершине стека в double
+	cmdItoL
+		Преобразовать int на вершине стека в long
+	cmdLtoI
+		Преобразовать long на вершине стека в int
+
+	cmdImmtMulD	argument
+		Сконвентирлвать double на вершине стека в int и умножить на argument
+	cmdImmtMulL	argument
+		Сконвентирлвать long на вершине стека в int и умножить на argument
+	cmdImmtMulI	argument
+		Умножить int на верхушке стека на argument
+
+	cmdCopyDorL
+		Продублировать double или long значение на верхушке стека
+	cmdCopyI
+		Продублировать int на верхушке стека
+
+	cmdGetAddr	argument
+		Положить в стек int равный (argument + parameter_base)
+
+	cmdFuncAddr	argument
+		Положить в стек адрес функции по индексу argument
+
+	cmdSetRange	helper, argument
+		Установить значение всем элементам массива.
+		Начальная позиция - argument, количество элементов - на вершине стека.
+		Тип элемента - helper
+
+	cmdJmp	argument
+		Безусловный переход по адресу в argument
+
+	cmdJmpZI	argument
+		перейти по адресу в argument, если int на вершине стека равен 0.
+		int убирается со стека.
+	cmdJmpZD	argument
+		перейти по адресу в argument, если double на вершине стека равен 0.
+		double убирается со стека.
+	cmdJmpZL	argument
+		перейти по адресу в argument, если long на вершине стека равен 0.
+		long убирается со стека.
+
+	cmdJmpNZI	argument
+		перейти по адресу в argument, если int на вершине стека не равен 0.
+		int убирается со стека.
+	cmdJmpNZD	argument
+		перейти по адресу в argument, если double на вершине стека не равен 0.
+		double убирается со стека.
+	cmdJmpNZL	argument
+		перейти по адресу в argument, если long на вершине стека не равен 0.
+		long убирается со стека.
+
+	cmdCall		argument
+		Вызов внутренней функции по адресу в argument, если argument не равен -1.
+		Если argument равен -1, адрес функции берётся и убирается с вершины стека.
+	cmdCallStd	argument
+		Вызов внешней или встроенной функции
+
+	cmdReturn	flag, helper, argument
+		Возврат из функции и выполнение cmdPopVTop argument раз.
+		Если flag установлен в bitRetError, выполнение программы останавливается с ошибкой, что функция не вернула значение.
+		helper содержит идентификатор возвращаемого типа, если установлен бит bitRetSimple или размер возвращаемого типа, если бит не установлен.
+
+	cmdPushVTop
+		Положить количество активных переменных в стек вершин стека переменных
+
+	cmdPopVTop
+		Сократить стек переменных до предыдущего значения вершины и убрать значение вершины из стека значений вершин
+
+	cmdPushV	argument
+		Расширить стек переменных на argument байт
+
+	cmdAdd		// a + b
+	cmdSub		// a - b
+	cmdMul		// a * b
+	cmdDiv		// a / b
+	cmdPow		// a ** b (power)
+	cmdMod		// a % b
+	cmdLess		// a < b
+	cmdGreater	// a > b
+	cmdLEqual	// a <= b
+	cmdGEqual	// a >= b
+	cmdEqual	// a == b
+	cmdNEqual	// a != b
+	cmdShl		// a << b
+	cmdShr		// a >> b
+	cmdBitAnd	// a & b	binary AND/бинарное И
+	cmdBitOr	// a | b	binary OR/бинарное ИЛИ
+	cmdBitXor	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
+	cmdLogAnd	// a && b	logical AND/логическое И
+	cmdLogOr	// a || b	logical OR/логическое ИЛИ
+	cmdLogXor	// a ^^ b	logical XOR/логическое Исключающее ИЛИ
+		Взять два int значения с вершины стека, выполнить необходимую операцию, и поместить результат (int) в стек.
+		b с вершины стека, a - следующее за вершиной значение
+
+	cmdAddL		// a + b
+	cmdSubL		// a - b
+	cmdMulL		// a * b
+	cmdDivL		// a / b
+	cmdPowL		// a ** b (power)
+	cmdModL		// a % b
+	cmdLessL	// a < b
+	cmdGreaterL	// a > b
+	cmdLEqualL	// a <= b
+	cmdGEqualL	// a >= b
+	cmdEqualL	// a == b
+	cmdNEqualL	// a != b
+	cmdShlL		// a << b
+	cmdShrL		// a >> b
+	cmdBitAndL	// a & b	binary AND/бинарное И
+	cmdBitOrL	// a | b	binary OR/бинарное ИЛИ
+	cmdBitXorL	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
+	cmdLogAndL	// a && b	logical AND/логическое И
+	cmdLogOrL	// a || b	logical OR/логическое ИЛИ
+	cmdLogXorL	// a logical_xor b	logical XOR/логическое Исключающее ИЛИ
+		Взять два long значения с вершины стека, выполнить необходимую операцию, и поместить результат (long) в стек.
+		b с вершины стека, a - следующее за вершиной значение
+
+	cmdAddD		// a + b
+	cmdSubD		// a - b
+	cmdMulD		// a * b
+	cmdDivD		// a / b
+	cmdPowD		// a ** b (power)
+	cmdModD		// a % b
+	cmdLessD	// a < b
+	cmdGreaterD	// a > b
+	cmdLEqualD	// a <= b
+	cmdGEqualD	// a >= b
+	cmdEqualD	// a == b
+	cmdNEqualD	// a != b
+		Взять два double значения с вершины стека, выполнить необходимую операцию, и поместить результат (double) в стек.
+		b с вершины стека, a - следующее за вершиной значение
+
+	cmdNeg		// negation
+	cmdBitNot	// ~	binary NOT
+	cmdLogNot	// !	logical NOT
+		Произвести операцию над int значением на вершине стека
+
+	cmdNegL		// negation
+	cmdBitNotL	// ~	binary NOT
+	cmdLogNotL	// !	logical NOT
+		Произвести операцию над long значением на вершине стека
+
+	cmdNegD		// negation
+	cmdLogNotD	// !	logical NOT
+		Произвести операцию над double значением на вершине стека
+
+	cmdIncI
+	cmdIncD
+	cmdIncL
+
+	cmdDecI
+	cmdDecD
+	cmdDecL
+
+	cmdAddAtCharStk
+	cmdAddAtShortStk
+	cmdAddAtIntStk
+	cmdAddAtLongStk
+	cmdAddAtFloatStk
+	cmdAddAtDoubleStk
