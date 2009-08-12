@@ -49,6 +49,7 @@
 				WarningLevel="4"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="4"
+				CompileAs="2"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -107,6 +108,7 @@
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS"
 				ExceptionHandling="0"
 				RuntimeLibrary="2"
+				DisableLanguageExtensions="false"
 				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
 				AssemblerOutput="4"
@@ -252,6 +254,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\InstructionSet.h"
+				>
+			</File>
+			<File
 				RelativePath=".\nullc.h"
 				>
 			</File>
@@ -261,10 +267,6 @@
 			</File>
 			<File
 				RelativePath=".\ParseClass.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ParseCommand.h"
 				>
 			</File>
 			<File
@@ -300,19 +302,19 @@
 				>
 			</File>
 			<File
-				RelativePath=".\ParseFunc.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\ParseFunc.h"
-				>
-			</File>
-			<File
 				RelativePath=".\Parser.cpp"
 				>
 			</File>
 			<File
 				RelativePath=".\Parser.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SyntaxTree.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SyntaxTree.h"
 				>
 			</File>
 		</Filter>
