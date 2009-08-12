@@ -1,6 +1,6 @@
 #pragma once
 #include "stdafx.h"
-#include "ParseCommand.h"
+#include "InstructionSet.h"
 
 void CallbackInitialize();
 

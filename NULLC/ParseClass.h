@@ -1,7 +1,7 @@
 #pragma once
 #include "stdafx.h"
 
-#include "ParseCommand.h"
+#include "InstructionSet.h"
 
 class NodeZeroOP;
 
@@ -19,7 +19,7 @@ public:
 	}
 
 	TypeInfo		*retType;
-	TypeInfo		**paramType;	// Array of pointers to type inforamtion
+	TypeInfo		**paramType;	// Array of pointers to type information
 	unsigned int	paramCount;
 };
 

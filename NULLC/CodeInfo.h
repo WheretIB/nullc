@@ -1,7 +1,7 @@
 #pragma once
 #include "ParseClass.h"
-#include "ParseCommand.h"
-#include "ParseFunc.h"
+#include "InstructionSet.h"
+#include "SyntaxTree.h"
 
 #include "Compiler.h"
 

@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "ParseFunc.h"
+#include "SyntaxTree.h"
 
 #include "CodeInfo.h"
 using namespace CodeInfo;
