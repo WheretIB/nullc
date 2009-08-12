@@ -97,7 +97,7 @@ int parseInteger(const char* str)
 	return a;
 }
 
-long long parseLong(char const* s, char const* e, int base)
+long long parseLong(const char* s, const char* e, int base)
 {
 	unsigned long long res = 0;
 	for(const char *p = s; p < e; p++)
@@ -148,17 +148,15 @@ double parseDouble(const char *str)
 
 // Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
 // будет вернутся после окончания блока.
-void blockBegin(char const* s, char const* e)
+void BeginBlock()
 {
-	(void)s; (void)e;	// C4100
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 	funcInfoTop.push_back((unsigned int)funcInfo.size());
 }
 // Вызывается в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечивая
 // их выход из области видимости. Также уменьшает вершину стека переменных в байтах.
-void blockEnd(char const* s, char const* e)
+void EndBlock()
 {
-	(void)s; (void)e;	// C4100
 	unsigned int varFormerTop = varTop;
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 		varInfo.pop_back();
@@ -194,81 +192,75 @@ char UnescapeSybmol(char symbol)
 }
 
 // Функции для добавления узлов с константными числами разных типов
-void addNumberNodeChar(char const*s, char const*e)
+void AddNumberNodeChar(const char* pos)
 {
-	(void)e;	// C4100
-	char res = s[1];
+	char res = pos[1];
 	if(res == '\\')
-		res = UnescapeSybmol(s[2]);
+		res = UnescapeSybmol(pos[2]);
 	nodeList.push_back(new NodeNumber<int>(res, typeChar));
 }
 
-void addNumberNodeInt(char const*s, char const*e)
+void AddNumberNodeInt(const char* pos)
 {
-	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<int>(parseInteger(s), typeInt));
+	nodeList.push_back(new NodeNumber<int>(parseInteger(pos), typeInt));
 }
-void addNumberNodeFloat(char const*s, char const*e)
+void AddNumberNodeFloat(const char* pos)
 {
-	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<float>((float)parseDouble(s), typeFloat));
+	nodeList.push_back(new NodeNumber<float>((float)parseDouble(pos), typeFloat));
 }
-void addNumberNodeLong(char const*s, char const*e)
+void AddNumberNodeLong(const char* pos, const char* end)
 {
-	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<long long>(parseLong(s, e, 10), typeLong));
+	nodeList.push_back(new NodeNumber<long long>(parseLong(pos, end, 10), typeLong));
 }
-void addNumberNodeDouble(char const*s, char const*e)
+void AddNumberNodeDouble(const char* pos)
 {
-	(void)e;	// C4100
-	nodeList.push_back(new NodeNumber<double>(parseDouble(s), typeDouble));
+	nodeList.push_back(new NodeNumber<double>(parseDouble(pos), typeDouble));
 }
 
-void addVoidNode(char const*s, char const*e)
+void AddVoidNode()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeZeroOP());
 }
 
-void addHexInt(char const*s, char const*e)
+void AddHexInteger(const char* pos, const char* end)
 {
-	s += 2;
-	if(int(e-s) > 16)
-		ThrowError("ERROR: Overflow in hexadecimal constant", s);
-	if(int(e-s) <= 8)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(s, e, 16), typeInt));
+	pos += 2;
+	if(int(end - pos) > 16)
+		ThrowError("ERROR: Overflow in hexadecimal constant", pos);
+	if(int(end - pos) <= 8)
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(pos, end, 16), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseLong(s, e, 16), typeLong));
+		nodeList.push_back(new NodeNumber<long long>(parseLong(pos, end, 16), typeLong));
 }
 
-void addOctInt(char const*s, char const*e)
+void AddOctInteger(const char* pos, const char* end)
 {
-	s++;
-	if(int(e-s) > 21)
-		ThrowError("ERROR: Overflow in octal constant", s);
-	if(int(e-s) <= 10)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(s, e, 8), typeInt));
+	pos++;
+	if(int(end - pos) > 21)
+		ThrowError("ERROR: Overflow in octal constant", pos);
+	if(int(end - pos) <= 10)
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(pos, end, 8), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseLong(s, e, 8), typeLong));
+		nodeList.push_back(new NodeNumber<long long>(parseLong(pos, end, 8), typeLong));
 }
 
-void addBinInt(char const*s, char const*e)
+void AddBinInteger(const char* pos, const char* end)
 {
-	if(int(e-s) > 64)
-		ThrowError("ERROR: Overflow in binary constant", s);
-	if(int(e-s) <= 32)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(s, e, 2), typeInt));
+	if(int(end - pos) > 64)
+		ThrowError("ERROR: Overflow in binary constant", pos);
+	if(int(end - pos) <= 32)
+		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(pos, end, 2), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseLong(s, e, 2), typeLong));
+		nodeList.push_back(new NodeNumber<long long>(parseLong(pos, end, 2), typeLong));
 }
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
 // но зато не надо писать отдельный класс с одинаковыми действиями внутри.
-void addStringNode(char const* s, char const* e)
+void AddStringNode(const char* s, const char* e)
 {
 	lastKnownStartPos = s;
 
-	const char *curr = s+1, *end = e-1;
+	const char *curr = s + 1, *end = e - 1;
 	unsigned int len = 0;
 	// Find the length of the string with collapsed escape-sequences
 	for(; curr < end; curr++, len++)
@@ -276,11 +268,11 @@ void addStringNode(char const* s, char const* e)
 		if(*curr == '\\')
 			curr++;
 	}
-	curr = s+1;
-	end = e-1;
+	curr = s + 1;
+	end = e - 1;
 
 	nodeList.push_back(new NodeZeroOP());
-	TypeInfo *targetType = GetArrayType(typeChar, len+1);
+	TypeInfo *targetType = GetArrayType(typeChar, len + 1);
 	if(!targetType)
 		ThrowLastError();
 	nodeList.push_back(new NodeExpressionList(targetType));
@@ -317,7 +309,7 @@ void addStringNode(char const* s, char const* e)
 
 // Функция для создания узла, который уберёт значение со стека переменных
 // Узел заберёт к себе последний узел в списке.
-void addPopNode(char const* s, char const* e)
+void AddPopNode(const char* s, const char* e)
 {
 	nodeList.back()->SetCodeInfo(s, e);
 	// Если последний узел в списке - узел с цислом, уберём его
@@ -337,9 +329,8 @@ void addPopNode(char const* s, char const* e)
 
 // Функция для создания узла, которые поменяет знак значения в стеке
 // Узел заберёт к себе последний узел в списке.
-void addNegNode(char const* s, char const* e)
+void AddNegateNode(const char* pos)
 {
-	(void)e;	// C4100
 	// Если последний узел это число, то просто поменяем знак у константы
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
@@ -357,7 +348,7 @@ void addNegNode(char const* s, char const* e)
 			Rd = new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addNegNode() ERROR: unknown type %s", aType->name);
-			ThrowError(callbackError, s);
+			ThrowError(callbackError, pos);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -369,9 +360,8 @@ void addNegNode(char const* s, char const* e)
 
 // Функция для создания узла, которые произведёт логическое отрицания над значением в стеке
 // Узел заберёт к себе последний узел в списке.
-void addLogNotNode(char const* s, char const* e)
+void AddLogNotNode(const char* pos)
 {
-	(void)e;	// C4100
 	// Если последний узел в списке - число, то произведём действие во время копиляции
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
@@ -389,7 +379,7 @@ void addLogNotNode(char const* s, char const* e)
 			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addLogNotNode() ERROR: unknown type %s", aType->name);
-			ThrowError(callbackError, s);
+			ThrowError(callbackError, pos);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -398,9 +388,8 @@ void addLogNotNode(char const* s, char const* e)
 		nodeList.push_back(new NodeUnaryOp(cmdLogNot));
 	}
 }
-void addBitNotNode(char const* s, char const* e)
+void AddBitNotNode(const char* pos)
 {
-	(void)e;	// C4100
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->typeInfo;
@@ -408,16 +397,16 @@ void addBitNotNode(char const* s, char const* e)
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
-			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
+			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", pos);
 		}else if(aType == typeFloat){
-			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", s);
+			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", pos);
 		}else if(aType == typeLong){
 			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->typeInfo);
 		}else if(aType == typeInt){
 			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addBitNotNode() ERROR: unknown type %s", aType->name);
-			ThrowError(callbackError, s);
+			ThrowError(callbackError, pos);
 		}
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
@@ -528,7 +517,7 @@ template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 	return 0.0;
 }
 
-void popLastNodeCond(bool swap)
+void RemoveLastNode(bool swap)
 {
 	if(swap)
 	{
@@ -654,48 +643,48 @@ void AddBinaryCommandNode(CmdID id)
 			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shA]);
 			if(Ad->GetVal() == 0.0 && id == cmdMul)
 			{
-				popLastNodeCond(shA == 1); // a*0.0 -> 0.0
+				RemoveLastNode(shA == 1); // a*0.0 -> 0.0
 				success = true;
 			}
 			if((Ad->GetVal() == 0.0 && id == cmdAdd) || (Ad->GetVal() == 1.0 && id == cmdMul))
 			{
-				popLastNodeCond(shA == 2); // a+0.0 -> a || a*1.0 -> a
+				RemoveLastNode(shA == 2); // a+0.0 -> a || a*1.0 -> a
 				success = true;
 			}
 		}else if(bType == typeFloat){
 			NodeNumber<float> *Ad = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shA]);
 			if(Ad->GetVal() == 0.0f && id == cmdMul)
 			{
-				popLastNodeCond(shA == 1); // a*0.0f -> 0.0f
+				RemoveLastNode(shA == 1); // a*0.0f -> 0.0f
 				success = true;
 			}
 			if((Ad->GetVal() == 0.0f && id == cmdAdd) || (Ad->GetVal() == 1.0f && id == cmdMul))
 			{
-				popLastNodeCond(shA == 2); // a+0.0f -> a || a*1.0f -> a
+				RemoveLastNode(shA == 2); // a+0.0f -> a || a*1.0f -> a
 				success = true;
 			}
 		}else if(bType == typeLong){
 			NodeNumber<long long> *Ad = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shA]);
 			if(Ad->GetVal() == 0 && id == cmdMul)
 			{
-				popLastNodeCond(shA == 1); // a*0L -> 0L
+				RemoveLastNode(shA == 1); // a*0L -> 0L
 				success = true;
 			}
 			if((Ad->GetVal() == 0 && id == cmdAdd) || (Ad->GetVal() == 1 && id == cmdMul))
 			{
-				popLastNodeCond(shA == 2); // a+0L -> a || a*1L -> a
+				RemoveLastNode(shA == 2); // a+0L -> a || a*1L -> a
 				success = true;
 			}
 		}else if(bType == typeInt){
 			NodeNumber<int> *Ad = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shA]);
 			if(Ad->GetVal() == 0 && id == cmdMul)
 			{
-				popLastNodeCond(shA == 1); // a*0 -> 0
+				RemoveLastNode(shA == 1); // a*0 -> 0
 				success = true;
 			}
 			if((Ad->GetVal() == 0 && id == cmdAdd) || (Ad->GetVal() == 1 && id == cmdMul))
 			{
-				popLastNodeCond(shA == 2); // a+0 -> a || a*1 -> a
+				RemoveLastNode(shA == 2); // a+0 -> a || a*1 -> a
 				success = true;
 			}
 		}
@@ -708,7 +697,7 @@ void AddBinaryCommandNode(CmdID id)
 		ThrowLastError();
 }
 
-void addReturnNode(char const* s, char const* e)
+void AddReturnNode(const char* pos, const char* end)
 {
 	int t = (int)varInfoTop.size();
 	int c = 0;
@@ -724,26 +713,25 @@ void addReturnNode(char const* s, char const* e)
 	if(retTypeStack.back() && (retTypeStack.back()->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && retTypeStack.back() != realRetType)
 	{
 		sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), retTypeStack.back()->GetFullTypeName());
-		ThrowError(callbackError, s);
+		ThrowError(callbackError, pos);
 	}
 	if(retTypeStack.back() && retTypeStack.back()->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
-		ThrowError("ERROR: function returning a value", s);
+		ThrowError("ERROR: function returning a value", pos);
 	if(retTypeStack.back() && retTypeStack.back() != typeVoid && realRetType == typeVoid)
 	{
 		sprintf(callbackError, "ERROR: function should return %s", retTypeStack.back()->GetFullTypeName());
-		ThrowError(callbackError, s);
+		ThrowError(callbackError, pos);
 	}
 	if(!retTypeStack.back() && realRetType == typeVoid)
-		ThrowError("ERROR: global return cannot accept void", s);
+		ThrowError("ERROR: global return cannot accept void", pos);
 	nodeList.push_back(new NodeReturnOp(c, retTypeStack.back()));
-	nodeList.back()->SetCodeInfo(s, e);
+	nodeList.back()->SetCodeInfo(pos, end);
 }
 
-void addBreakNode(char const* s, char const* e)
+void AddBreakNode(const char* pos)
 {
-	(void)e;	// C4100
 	if(cycleBeginVarTop.size() == 0)
-		ThrowError("ERROR: break used outside loop statement", s);
+		ThrowError("ERROR: break used outside loop statement", pos);
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	while(t > (int)cycleBeginVarTop.back())
@@ -754,11 +742,10 @@ void addBreakNode(char const* s, char const* e)
 	nodeList.push_back(new NodeBreakOp(c));
 }
 
-void AddContinueNode(char const* s, char const* e)
+void AddContinueNode(const char* pos)
 {
-	(void)e;	// C4100
 	if(cycleBeginVarTop.size() == 0)
-		ThrowError("ERROR: continue used outside loop statement", s);
+		ThrowError("ERROR: continue used outside loop statement", pos);
 	int t = (int)varInfoTop.size();
 	int c = 0;
 	while(t > (int)cycleBeginVarTop.back())
@@ -779,11 +766,9 @@ void SelectTypeByIndex(unsigned int index)
 	currType = typeInfo[index];
 }
 
-void addTwoExprNode(char const* s, char const* e);
-
 unsigned int	offsetBytes = 0;
 
-void AddVariable(char const* pos, InplaceStr varName)
+void AddVariable(const char* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
 
@@ -834,7 +819,7 @@ void AddVariable(char const* pos, InplaceStr varName)
 		varTop += currType->size;
 }
 
-void AddVariableReserveNode(char const* pos)
+void AddVariableReserveNode(const char* pos)
 {
 	assert(varDefined);
 	if(!currType)
@@ -845,33 +830,29 @@ void AddVariableReserveNode(char const* pos)
 	offsetBytes = 0;
 }
 
-void pushType(char const* s, char const* e)
+void PushType()
 {
-	(void)s; (void)e;	// C4100
 	currTypes.push_back(currType);
 }
 
-void popType(char const* s, char const* e)
+void PopType()
 {
-	(void)s; (void)e;	// C4100
 	currTypes.pop_back();
 }
 
-void convertTypeToRef(char const* s, char const* e)
+void ConvertTypeToReference(const char* pos)
 {
-	(void)e;	// C4100
-	lastKnownStartPos = s;
+	lastKnownStartPos = pos;
 	if(!currType)
-		ThrowError("ERROR: auto variable cannot have reference flag", s);
+		ThrowError("ERROR: auto variable cannot have reference flag", pos);
 	currType = GetReferenceType(currType);
 }
 
-void convertTypeToArray(char const* s, char const* e)
+void ConvertTypeToArray(const char* pos)
 {
-	(void)e;	// C4100
-	lastKnownStartPos = s;
+	lastKnownStartPos = pos;
 	if(!currType)
-		ThrowError("ERROR: cannot specify array size for auto variable", s);
+		ThrowError("ERROR: cannot specify array size for auto variable", pos);
 	currType = GetArrayType(currType);
 	if(!currType)
 		ThrowLastError();
@@ -880,11 +861,10 @@ void convertTypeToArray(char const* s, char const* e)
 //////////////////////////////////////////////////////////////////////////
 //					New functions for work with variables
 
-void GetTypeSize(char const* s, char const* e, bool sizeOfExpr)
+void GetTypeSize(const char* pos, bool sizeOfExpr)
 {
-	(void)e;	// C4100
 	if(!sizeOfExpr && !currTypes.back())
-		ThrowError("ERROR: sizeof(auto) is illegal", s);
+		ThrowError("ERROR: sizeof(auto) is illegal", pos);
 	if(sizeOfExpr)
 	{
 		currTypes.back() = nodeList.back()->typeInfo;
@@ -893,21 +873,16 @@ void GetTypeSize(char const* s, char const* e, bool sizeOfExpr)
 	nodeList.push_back(new NodeNumber<int>(currTypes.back()->size, typeInt));
 }
 
-void SetTypeOfLastNode(char const* s, char const* e)
+void SetTypeOfLastNode()
 {
-	(void)s; (void)e;	// C4100
 	currType = nodeList.back()->typeInfo;
 	nodeList.pop_back();
 }
 
-void AddInplaceArray(char const* pos);
-void AddDereferenceNode(char const* s, char const* e);
-void AddArrayIndexNode(char const* s, char const* e);
-void AddMemberAccessNode(char const* pos, InplaceStr varName);
-void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int callArgCount);
+void AddInplaceArray(const char* pos);
 
 // Функция для получения адреса переменной, имя которое передаётся в параметрах
-void AddGetAddressNode(char const* pos, InplaceStr varName)
+void AddGetAddressNode(const char* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
 
@@ -975,7 +950,7 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 
 				nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 
-				AddDereferenceNode(pos, 0);
+				AddDereferenceNode(pos);
 				AddMemberAccessNode(pos, varName);
 
 				currTypes.pop_back();
@@ -998,10 +973,10 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 			currTypes.push_back(temp);
 
 			nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
-			AddDereferenceNode(0,0);
+			AddDereferenceNode(pos);
 			nodeList.push_back(new NodeNumber<int>(num, typeInt));
-			AddArrayIndexNode(0,0);
-			AddDereferenceNode(0,0);
+			AddArrayIndexNode(pos);
+			AddDereferenceNode(pos);
 			// Убрали текущий тип
 			currTypes.pop_back();
 		}else{
@@ -1019,14 +994,13 @@ void AddGetAddressNode(char const* pos, InplaceStr varName)
 }
 
 // Функция вызывается для индексации массива
-void AddArrayIndexNode(char const* s, char const* e)
+void AddArrayIndexNode(const char* pos)
 {
-	(void)e;	// C4100
-	lastKnownStartPos = s;
+	lastKnownStartPos = pos;
 
 	// Тип должен быть массивом
 	if(currTypes.back()->arrLevel == 0)
-		ThrowError("ERROR: indexing variable that is not an array", s);
+		ThrowError("ERROR: indexing variable that is not an array", pos);
 	// Если это безразмерный массив (указатель на массив)
 	if(currTypes.back()->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
@@ -1055,14 +1029,14 @@ void AddArrayIndexNode(char const* s, char const* e)
 			shiftValue = static_cast<NodeNumber<int>* >(zOP)->GetVal();
 		}else{
 			sprintf(callbackError, "AddArrayIndexNode() ERROR: unknown index type %s", aType->name);
-			ThrowError(callbackError, lastKnownStartPos);
+			ThrowError(callbackError, pos);
 		}
 
 		// Проверим индекс на выход за пределы массива
 		if(shiftValue < 0)
-			ThrowError("ERROR: Array index cannot be negative", s);
+			ThrowError("ERROR: Array index cannot be negative", pos);
 		if((unsigned int)shiftValue >= currTypes.back()->arrSize)
-			ThrowError("ERROR: Array index out of bounds", s);
+			ThrowError("ERROR: Array index out of bounds", pos);
 
 		// Индексируем относительно него
 		static_cast<NodeGetAddress*>(nodeList[nodeList.size()-2])->IndexArray(shiftValue);
@@ -1076,10 +1050,9 @@ void AddArrayIndexNode(char const* s, char const* e)
 }
 
 // Функция вызывается для разыменования указателя
-void AddDereferenceNode(char const* s, char const* e)
+void AddDereferenceNode(const char* pos)
 {
-	(void)e;	// C4100
-	lastKnownStartPos = s;
+	lastKnownStartPos = pos;
 
 	// Создаём узел разыменования
 	nodeList.push_back(new NodeDereference(currTypes.back()));
@@ -1091,14 +1064,13 @@ void AddDereferenceNode(char const* s, char const* e)
 
 // Компилятор в начале предполагает, что после переменной будет слодовать знак присваивания
 // Часто его нету, поэтому требуется удалить узел
-void FailedSetVariable(char const* s, char const* e)
+void FailedSetVariable()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.pop_back();
 }
 
 // Функция вызывается для определния переменной с одновременным присваиванием ей значения
-void AddDefineVariableNode(char const* pos, InplaceStr varName)
+void AddDefineVariableNode(const char* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
 
@@ -1222,10 +1194,9 @@ void AddDefineVariableNode(char const* pos, InplaceStr varName)
 	}
 }
 
-void AddSetVariableNode(char const* s, char const* e)
+void AddSetVariableNode(const char* pos)
 {
-	(void)e;
-	lastKnownStartPos = s;
+	lastKnownStartPos = pos;
 
 	TypeInfo *realCurrType = currTypes.back();
 	bool unifyTwo = false;
@@ -1238,12 +1209,12 @@ void AddSetVariableNode(char const* s, char const* e)
 			{
 				if(nodeList.back()->nodeType == typeNodeExpressionList)
 				{
-					AddInplaceArray(s);
+					AddInplaceArray(pos);
 					currTypes.pop_back();
 					unifyTwo = true;
 				}else{
 					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
-					ThrowError(callbackError, s);
+					ThrowError(callbackError, pos);
 				}
 			}
 			NodeZeroOP	*oldNode = nodeList.back();
@@ -1264,7 +1235,7 @@ void AddSetVariableNode(char const* s, char const* e)
 		(nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->nodeType == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(s, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
+		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 		currTypes.pop_back();
 		unifyTwo = true;
 		Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
@@ -1284,16 +1255,15 @@ void AddSetVariableNode(char const* s, char const* e)
 	}
 }
 
-void AddGetVariableNode(char const* s, char const* e)
+void AddGetVariableNode(const char* pos)
 {
-	(void)e;	// C4100
-	lastKnownStartPos = s;
+	lastKnownStartPos = pos;
 
 	if(nodeList.back()->typeInfo->funcType == NULL)
 		nodeList.push_back(new NodeDereference(currTypes.back()));
 }
 
-void AddMemberAccessNode(char const* pos, InplaceStr varName)
+void AddMemberAccessNode(const char* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
 
@@ -1353,7 +1323,7 @@ void AddMemberAccessNode(char const* pos, InplaceStr varName)
 	}
 }
 
-void AddMemberFunctionCall(char const* pos, char const* funcName, unsigned int callArgCount)
+void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
 {
 	char	*memberFuncName = AllocateString((int)strlen(currTypes.back()->name) + 2 + (int)strlen(funcName) + 1);
 	sprintf(memberFuncName, "%s::%s", currTypes.back()->name, funcName);
@@ -1366,17 +1336,17 @@ void AddPreOrPostOpNode(bool isInc, bool prefixOp)
 	nodeList.push_back(new NodePreOrPostOp(currTypes.back(), isInc, prefixOp));
 }
 
-void AddModifyVariableNode(char const* s, char const* e, CmdID cmd)
+void AddModifyVariableNode(const char* pos, CmdID cmd)
 {
-	lastKnownStartPos = s;
-	(void)e;	// C4100
+	lastKnownStartPos = pos;
+
 	TypeInfo *targetType = GetDereferenceType(nodeList[nodeList.size()-2]->typeInfo);
 	if(!targetType)
 		ThrowLastError();
 	nodeList.push_back(new NodeVariableModify(targetType, cmd));
 }
 
-void AddInplaceArray(char const* pos)
+void AddInplaceArray(const char* pos)
 {
 	char	*arrName = AllocateString(16);
 	int length = sprintf(arrName, "$carr%d", inplaceArrayNum++);
@@ -1388,27 +1358,25 @@ void AddInplaceArray(char const* pos)
 	AddVariable(pos, InplaceStr(arrName, length));
 
 	AddDefineVariableNode(pos, InplaceStr(arrName, length));
-	addPopNode(pos, pos);
+	AddPopNode(pos, pos);
 	currTypes.pop_back();
 
 	AddGetAddressNode(pos, InplaceStr(arrName, length));
-	AddGetVariableNode(pos, pos);
+	AddGetVariableNode(pos);
 
 	varDefined = saveVarDefined;
 	currType = saveCurrType;
 }
 
 //////////////////////////////////////////////////////////////////////////
-void addOneExprNode(char const* s, char const* e)
+void AddOneExpressionNode()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeExpressionList());
 }
-void addTwoExprNode(char const* s, char const* e)
+void AddTwoExpressionNode()
 {
-	(void)s; (void)e;	// C4100
 	if(nodeList.back()->nodeType != typeNodeExpressionList)
-		addOneExprNode(NULL, NULL);
+		AddOneExpressionNode();
 	// Take the expression list from the top
 	NodeZeroOP* temp = nodeList.back();
 	nodeList.pop_back();
@@ -1416,9 +1384,8 @@ void addTwoExprNode(char const* s, char const* e)
 	nodeList.push_back(temp);
 }
 
-void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCount)
+void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 {
-	(void)e;
 	arrElementCount++;
 
 	TypeInfo *currType = nodeList[nodeList.size()-arrElementCount]->typeInfo;
@@ -1428,7 +1395,7 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 	if(currType == typeFloat)
 		currType = typeDouble;
 	if(currType == typeVoid)
-		ThrowError("ERROR: array cannot be constructed from void type elements", s);
+		ThrowError("ERROR: array cannot be constructed from void type elements", pos);
 
 	nodeList.push_back(new NodeZeroOP());
 	TypeInfo *targetType = GetArrayType(currType, arrElementCount);
@@ -1443,7 +1410,7 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 		if(realType != currType && !((realType == typeShort || realType == typeChar) && currType == typeInt) && !(realType == typeFloat && currType == typeDouble))
 		{
 			sprintf(callbackError, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currType->GetFullTypeName());
-			ThrowError(callbackError, s);
+			ThrowError(callbackError, pos);
 		}
 		arrayList->AddNode(false);
 	}
@@ -1451,7 +1418,7 @@ void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCo
 	nodeList.push_back(arrayList);
 }
 
-void FunctionAdd(char const* pos, char const* funcName)
+void FunctionAdd(const char* pos, const char* funcName)
 {
 	unsigned int funcNameHash = GetStringHash(funcName);
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
@@ -1484,7 +1451,7 @@ void FunctionAdd(char const* pos, char const* funcName)
 		varTop += 8;
 }
 
-void FunctionParameter(char const* pos, InplaceStr paramName)
+void FunctionParameter(const char* pos, InplaceStr paramName)
 {
 	if(!currType)
 		ThrowError("ERROR: function parameter cannot be an auto type", pos);
@@ -1492,7 +1459,7 @@ void FunctionParameter(char const* pos, InplaceStr paramName)
 	funcInfo.back()->AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst));
 	funcInfo.back()->allParamSize += currType->size;
 }
-void FunctionStart(char const* pos)
+void FunctionStart(const char* pos)
 {
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 
@@ -1515,7 +1482,7 @@ void FunctionStart(char const* pos)
 	funcInfo.back()->funcType = GetFunctionType(funcInfo.back());
 }
 
-void FunctionEnd(char const* pos, char const* funcName)
+void FunctionEnd(const char* pos, const char* funcName)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
@@ -1597,12 +1564,12 @@ void FunctionEnd(char const* pos, char const* funcName)
 		AddVariable(pos, InplaceStr(hiddenHame, length));
 
 		AddDefineVariableNode(pos, InplaceStr(hiddenHame, length));
-		addPopNode(pos, pos);
+		AddPopNode(pos, pos);
 		currTypes.pop_back();
 
 		varDefined = saveVarDefined;
 		currType = saveCurrType;
-		addTwoExprNode(pos, pos);
+		AddTwoExpressionNode();
 	}
 
 	if(newType)
@@ -1616,7 +1583,7 @@ void FunctionEnd(char const* pos, char const* funcName)
 FastVector<NodeZeroOP*> paramNodes(32);
 FastVector<NodeZeroOP*> inplaceArray(32);
 
-void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int callArgCount)
+void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount)
 {
 	unsigned int funcNameHash = GetStringHash(funcName);
 
@@ -1733,7 +1700,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		fInfo = fList[minRatingIndex];
 	}else{
 		AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
-		AddGetVariableNode(pos, NULL);
+		AddGetVariableNode(pos);
 		fType = nodeList.back()->typeInfo->funcType;
 	}
 
@@ -1806,7 +1773,7 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 		}else{
 			AddGetAddressNode(pos, InplaceStr(contextName, length));
 			if(currTypes.back()->refLevel == 1)
-				AddDereferenceNode(pos, NULL);
+				AddDereferenceNode(pos);
 			currTypes.pop_back();
 		}
 	}
@@ -1826,73 +1793,63 @@ void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int cal
 
 		nodeList.push_back(new NodeExpressionList(temp->typeInfo));
 		for(unsigned int i = 0; i < inplaceArray.size(); i++)
-			addTwoExprNode(pos, pos);
+			AddTwoExpressionNode();
 	}
 }
 
-void addIfNode(char const* s, char const* e)
+void AddIfNode()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeIfElseExpr(false));
 }
-void addIfElseNode(char const* s, char const* e)
+void AddIfElseNode()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeIfElseExpr(true));
 }
-void addIfElseTermNode(char const* s, char const* e)
+void AddIfElseTermNode(const char* pos)
 {
-	(void)e;	// C4100
 	TypeInfo* typeA = nodeList[nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->typeInfo;
 	if(typeA != typeB)
 	{
 		sprintf(callbackError, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
-		ThrowError(callbackError, s);
+		ThrowError(callbackError, pos);
 	}
 	nodeList.push_back(new NodeIfElseExpr(true, true));
 }
 
-void saveVarTop(char const* s, char const* e)
+void SaveVariableTop()
 {
-	(void)s; (void)e;	// C4100
 	cycleBeginVarTop.push_back((unsigned int)varInfoTop.size());
 }
-void addForNode(char const* s, char const* e)
+void AddForNode()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeForExpr());
 	cycleBeginVarTop.pop_back();
 }
-void addWhileNode(char const* s, char const* e)
+void AddWhileNode()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeWhileExpr());
 	cycleBeginVarTop.pop_back();
 }
-void addDoWhileNode(char const* s, char const* e)
+void AddDoWhileNode()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeDoWhileExpr());
 	cycleBeginVarTop.pop_back();
 }
 
-void preSwitchNode(char const* s, char const* e)
+void BeginSwitch()
 {
-	(void)s; (void)e;	// C4100
 	cycleBeginVarTop.push_back((unsigned int)varInfoTop.size());
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 	nodeList.push_back(new NodeSwitchExpr());
 }
-void addCaseNode(char const* s, char const* e)
+void AddCaseNode()
 {
-	(void)s; (void)e;	// C4100
 	NodeZeroOP* temp = nodeList[nodeList.size()-3];
 	static_cast<NodeSwitchExpr*>(temp)->AddCase();
 }
-void addSwitchNode(char const* s, char const* e)
+void EndSwitch()
 {
-	(void)s; (void)e;	// C4100
 	cycleBeginVarTop.pop_back();
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
 	{
@@ -1902,17 +1859,17 @@ void addSwitchNode(char const* s, char const* e)
 	varInfoTop.pop_back();
 }
 
-void TypeBegin(char const* s, char const* e)
+void TypeBegin(const char* pos, const char* end)
 {
 	if(newType)
-		ThrowError("ERROR: Different type is being defined", s);
+		ThrowError("ERROR: Different type is being defined", pos);
 	if((int)currAlign < 0)
-		ThrowError("ERROR: alignment must be a positive number", s);
+		ThrowError("ERROR: alignment must be a positive number", pos);
 	if(currAlign > 16)
-		ThrowError("ERROR: alignment must be less than 16 bytes", s);
+		ThrowError("ERROR: alignment must be less than 16 bytes", pos);
 
-	char *typeNameCopy = AllocateString((int)(e - s) + 1);
-	sprintf(typeNameCopy, "%.*s", (int)(e-s), s);
+	char *typeNameCopy = AllocateString((int)(end - pos) + 1);
+	sprintf(typeNameCopy, "%.*s", (int)(end - pos), pos);
 
 	newType = new TypeInfo(typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
@@ -1923,7 +1880,7 @@ void TypeBegin(char const* s, char const* e)
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 }
 
-void TypeAddMember(char const* pos, const char* varName)
+void TypeAddMember(const char* pos, const char* varName)
 {
 	if(!currType)
 		ThrowError("ERROR: auto cannot be used for class members", pos);
@@ -1932,9 +1889,8 @@ void TypeAddMember(char const* pos, const char* varName)
 	AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
 }
 
-void TypeFinish(char const* s, char const* e)
+void TypeFinish()
 {
-	(void)s; (void)e;	// C4100
 	if(newType->size % 4 != 0)
 	{
 		newType->paddingBytes = 4 - (newType->size % 4);
@@ -1943,7 +1899,7 @@ void TypeFinish(char const* s, char const* e)
 
 	nodeList.push_back(new NodeZeroOP());
 	for(TypeInfo::MemberFunction *curr = newType->firstFunction; curr; curr = curr->next)
-		addTwoExprNode(0,0);
+		AddTwoExpressionNode();
 
 	newType = NULL;
 
@@ -1954,21 +1910,20 @@ void TypeFinish(char const* s, char const* e)
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void addUnfixedArraySize(char const*s, char const*e)
+void AddUnfixedArraySize()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.push_back(new NodeNumber<int>(1, typeVoid));
 }
 
 // Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
-void SetStringToLastNode(char const *s, char const *e)
+void SetStringToLastNode(const char* pos, const char* end)
 {
-	nodeList.back()->SetCodeInfo(s, e);
+	nodeList.back()->SetCodeInfo(pos, end);
 }
 struct StringIndex
 {
 	StringIndex(){}
-	StringIndex(char const *s, char const *e)
+	StringIndex(const char *s, const char *e)
 	{
 		indexS = s;
 		indexE = e;
@@ -1977,14 +1932,13 @@ struct StringIndex
 };
 
 FastVector<StringIndex> sIndexes(16);
-void SaveStringIndex(char const *s, char const *e)
+void SaveStringIndex(const char *s, const char *e)
 {
 	assert(e > s);
 	sIndexes.push_back(StringIndex(s, e));
 }
-void SetStringFromIndex(char const *s, char const *e)
+void SetStringFromIndex()
 {
-	(void)s; (void)e;	// C4100
 	nodeList.back()->SetCodeInfo(sIndexes.back().indexS, sIndexes.back().indexE);
 	sIndexes.pop_back();
 }

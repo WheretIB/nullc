@@ -9,128 +9,128 @@ void SetCurrentAlignment(unsigned int alignment);
 
 // Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
 // будет вернутся после окончания блока.
-void blockBegin(char const* s, char const* e);
+void BeginBlock();
 // Вызывается в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечивая
 // их выход из области видимости. Также уменьшает вершину стека переменных в байтах.
-void blockEnd(char const* s, char const* e);
+void EndBlock();
 
 // Функции для добавления узлов с константными числами разных типов
-void addNumberNodeChar(char const*s, char const*e);
-void addNumberNodeInt(char const*s, char const*e);
-void addNumberNodeFloat(char const*s, char const*e);
-void addNumberNodeLong(char const*s, char const*e);
-void addNumberNodeDouble(char const*s, char const*e);
+void AddNumberNodeChar(const char* pos);
+void AddNumberNodeInt(const char* pos);
+void AddNumberNodeFloat(const char* pos);
+void AddNumberNodeLong(const char* pos, const char* end);
+void AddNumberNodeDouble(const char* pos);
 
-void addVoidNode(char const*s, char const*e);
+void AddVoidNode();
 
-void addHexInt(char const*s, char const*e);
-void addOctInt(char const*s, char const*e);
-void addBinInt(char const*s, char const*e);
+void AddHexInteger(const char* pos, const char* end);
+void AddOctInteger(const char* pos, const char* end);
+void AddBinInteger(const char* pos, const char* end);
 
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
 // но зато не надо писать отдельный класс с одинаковыми действиями внутри.
-void addStringNode(char const*s, char const*e);
+void AddStringNode(const char* s, const char* e);
 
 // Функция для создания узла, который уберёт значение со стека переменных
 // Узел заберёт к себе последний узел в списке.
-void addPopNode(char const* s, char const* e);
+void AddPopNode(const char* s, const char* e);
 
 // Функция для создания узла, которые поменяет знак значения в стеке
 // Узел заберёт к себе последний узел в списке.
-void addNegNode(char const* s, char const* e);
+void AddNegateNode(const char* pos);
 
 // Функция для создания узла, которые произведёт логическое отрицания над значением в стеке
 // Узел заберёт к себе последний узел в списке.
-void addLogNotNode(char const* s, char const* e);
-void addBitNotNode(char const* s, char const* e);
+void AddLogNotNode(const char* pos);
+void AddBitNotNode(const char* pos);
 
 void AddBinaryCommandNode(CmdID id);
 
-void addReturnNode(char const* s, char const* e);
+void AddReturnNode(const char* pos, const char* end);
 
-void addBreakNode(char const* s, char const* e);
+void AddBreakNode(const char* pos);
 
-void AddContinueNode(char const* s, char const* e);
+void AddContinueNode(const char* pos);
 
 void SelectAutoType();
 void SelectTypeByIndex(unsigned int index);
 
-void AddVariable(char const* pos, InplaceStr varName);
+void AddVariable(const char* pos, InplaceStr varName);
 
-void AddVariableReserveNode(char const* pos);
+void AddVariableReserveNode(const char* pos);
 
-void pushType(char const* s, char const* e);
-void popType(char const* s, char const* e);
+void PushType();
+void PopType();
 
-void convertTypeToRef(char const* s, char const* e);
+void ConvertTypeToReference(const char* pos);
 
-void convertTypeToArray(char const* s, char const* e);
+void ConvertTypeToArray(const char* pos);
 
-void GetTypeSize(char const* s, char const* e, bool sizeOfExpr);
+void GetTypeSize(const char* pos, bool sizeOfExpr);
 
-void SetTypeOfLastNode(char const* s, char const* e);
+void SetTypeOfLastNode();
 
 // Функция для получения адреса переменной, имя которое передаётся в параметрах
-void AddGetAddressNode(char const* pos, InplaceStr varName);
+void AddGetAddressNode(const char* pos, InplaceStr varName);
 
 // Функция вызывается для индексации массива
-void AddArrayIndexNode(char const* s, char const* e);
+void AddArrayIndexNode(const char* pos);
 
 // Функция вызывается для разыменования указателя
-void AddDereferenceNode(char const* s, char const* e);
+void AddDereferenceNode(const char* pos);
 
 // Компилятор в начале предполагает, что после переменной будет слодовать знак присваивания
 // Часто его нету, поэтому требуется удалить узел
-void FailedSetVariable(char const* s, char const* e);
+void FailedSetVariable();
 
 // Функция вызывается для определния переменной с одновременным присваиванием ей значения
-void AddDefineVariableNode(char const* pos, InplaceStr varName);
+void AddDefineVariableNode(const char* pos, InplaceStr varName);
 
-void AddSetVariableNode(char const* s, char const* e);
+void AddSetVariableNode(const char* pos);
 
-void AddGetVariableNode(char const* s, char const* e);
-void AddMemberAccessNode(char const* pos, InplaceStr varName);
+void AddGetVariableNode(const char* pos);
+void AddMemberAccessNode(const char* pos, InplaceStr varName);
 
 void AddPreOrPostOpNode(bool isInc, bool prefixOp);
 
-void AddModifyVariableNode(char const* s, char const* e, CmdID cmd);
+void AddModifyVariableNode(const char* pos, CmdID cmd);
 
-void addOneExprNode(char const* s, char const* e);
-void addTwoExprNode(char const* s, char const* e);
+void AddOneExpressionNode();
+void AddTwoExpressionNode();
 
-void addArrayConstructor(char const* s, char const* e, unsigned int arrElementCount);
+void AddArrayConstructor(const char* pos, unsigned int arrElementCount);
 
-void FunctionAdd(char const* pos, char const* funcName);
-void FunctionParameter(char const* pos, InplaceStr paramName);
-void FunctionStart(char const* pos);
-void FunctionEnd(char const* pos, char const* funcName);
+void FunctionAdd(const char* pos, const char* funcName);
+void FunctionParameter(const char* pos, InplaceStr paramName);
+void FunctionStart(const char* pos);
+void FunctionEnd(const char* pos, const char* funcName);
 
-void AddFunctionCallNode(char const* pos, char const* funcName, unsigned int callArgCount);
-void AddMemberFunctionCall(char const* pos, char const* funcName, unsigned int callArgCount);
+void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount);
+void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount);
 
-void addIfNode(char const* s, char const* e);
-void addIfElseNode(char const* s, char const* e);
-void addIfElseTermNode(char const* s, char const* e);
+void AddIfNode();
+void AddIfElseNode();
+void AddIfElseTermNode(const char* pos);
 
-void saveVarTop(char const* s, char const* e);
-void addForNode(char const* s, char const* e);
-void addWhileNode(char const* s, char const* e);
-void addDoWhileNode(char const* s, char const* e);
+void SaveVariableTop();
+void AddForNode();
+void AddWhileNode();
+void AddDoWhileNode();
 
-void preSwitchNode(char const* s, char const* e);
-void addCaseNode(char const* s, char const* e);
-void addSwitchNode(char const* s, char const* e);
+void BeginSwitch();
+void AddCaseNode();
+void EndSwitch();
 
-void TypeBegin(char const* s, char const* e);
-void TypeAddMember(char const* pos, const char* varName);
-void TypeFinish(char const* s, char const* e);
+void TypeBegin(const char* pos, const char* end);
+void TypeAddMember(const char* pos, const char* varName);
+void TypeFinish();
 
-void addUnfixedArraySize(char const*s, char const*e);
+void AddUnfixedArraySize();
 
 // Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
-void SetStringToLastNode(char const *s, char const *e);
-void SaveStringIndex(char const *s, char const *e);
-void SetStringFromIndex(char const *s, char const *e);
+void SetStringToLastNode(const char* pos, const char* end);
+void SaveStringIndex(const char *s, const char *e);
+void SetStringFromIndex();
 
 void CallbackDeinitialize();
