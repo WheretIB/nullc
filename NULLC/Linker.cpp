@@ -169,19 +169,20 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				pos++;
 				switch(cmd.cmd)
 				{
-				case cmdPushCharAbs:
-				case cmdPushShortAbs:
-				case cmdPushIntAbs:
-				case cmdPushFloatAbs:
-				case cmdPushDorLAbs:
-				case cmdPushCmplxAbs:
-				case cmdMovCharAbs:
-				case cmdMovShortAbs:
-				case cmdMovIntAbs:
-				case cmdMovFloatAbs:
-				case cmdMovDorLAbs:
-				case cmdMovCmplxAbs:
-					cmd.argument += oldGlobalSize;
+				case cmdPushChar:
+				case cmdPushShort:
+				case cmdPushInt:
+				case cmdPushFloat:
+				case cmdPushDorL:
+				case cmdPushCmplx:
+				case cmdMovChar:
+				case cmdMovShort:
+				case cmdMovInt:
+				case cmdMovFloat:
+				case cmdMovDorL:
+				case cmdMovCmplx:
+					if(cmd.flag == ADDRESS_ABOLUTE)
+						cmd.argument += oldGlobalSize;
 					break;
 				case cmdJmp:
 				case cmdJmpZI:
@@ -242,19 +243,20 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		pos++;
 		switch(cmd.cmd)
 		{
-		case cmdPushCharAbs:
-		case cmdPushShortAbs:
-		case cmdPushIntAbs:
-		case cmdPushFloatAbs:
-		case cmdPushDorLAbs:
-		case cmdPushCmplxAbs:
-		case cmdMovCharAbs:
-		case cmdMovShortAbs:
-		case cmdMovIntAbs:
-		case cmdMovFloatAbs:
-		case cmdMovDorLAbs:
-		case cmdMovCmplxAbs:
-			cmd.argument += oldGlobalSize;
+		case cmdPushChar:
+		case cmdPushShort:
+		case cmdPushInt:
+		case cmdPushFloat:
+		case cmdPushDorL:
+		case cmdPushCmplx:
+		case cmdMovChar:
+		case cmdMovShort:
+		case cmdMovInt:
+		case cmdMovFloat:
+		case cmdMovDorL:
+		case cmdMovCmplx:
+			if(cmd.flag == ADDRESS_ABOLUTE)
+				cmd.argument += oldGlobalSize;
 			break;
 		case cmdJmp:
 		case cmdJmpZI:

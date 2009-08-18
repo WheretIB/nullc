@@ -148,61 +148,29 @@ void Executor::Run(const char* funcName)
 		case cmdNop:
 			assert(!"cmdNop looks like error");
 			break;
-		case cmdPushCharAbs:
+		case cmdPushChar:
 			genStackPtr--;
-			*genStackPtr = genParams[cmd.argument];
+			*genStackPtr = genParams[cmd.argument + (paramTop.back() * cmd.flag)];
 			break;
-		case cmdPushShortAbs:
+		case cmdPushShort:
 			genStackPtr--;
-			*genStackPtr =  *((short*)(&genParams[cmd.argument]));
+			*genStackPtr =  *((short*)(&genParams[cmd.argument + (paramTop.back() * cmd.flag)]));
 			break;
-		case cmdPushIntAbs:
+		case cmdPushInt:
 			genStackPtr--;
-			*genStackPtr = *((int*)(&genParams[cmd.argument]));
+			*genStackPtr = *((int*)(&genParams[cmd.argument + (paramTop.back() * cmd.flag)]));
 			break;
-		case cmdPushFloatAbs:
+		case cmdPushFloat:
 			genStackPtr -= 2;
-			*(double*)(genStackPtr) = (double)*((float*)(&genParams[cmd.argument]));
+			*(double*)(genStackPtr) = (double)*((float*)(&genParams[cmd.argument + (paramTop.back() * cmd.flag)]));
 			break;
-		case cmdPushDorLAbs:
+		case cmdPushDorL:
 			genStackPtr -= 2;
-			*(double*)(genStackPtr) = *((double*)(&genParams[cmd.argument]));
+			*(double*)(genStackPtr) = *((double*)(&genParams[cmd.argument + (paramTop.back() * cmd.flag)]));
 			break;
-		case cmdPushCmplxAbs:
+		case cmdPushCmplx:
 		{
-			unsigned int currShift = cmd.helper;
-			while(currShift >= 4)
-			{
-				currShift -= 4;
-				genStackPtr--;
-				*genStackPtr = *((unsigned int*)(&genParams[cmd.argument + currShift]));
-			}
-		}
-			break;
-
-		case cmdPushCharRel:
-			genStackPtr--;
-			*genStackPtr = genParams[cmd.argument + paramTop.back()];
-			break;
-		case cmdPushShortRel:
-			genStackPtr--;
-			*genStackPtr =  *((short*)(&genParams[cmd.argument + paramTop.back()]));
-			break;
-		case cmdPushIntRel:
-			genStackPtr--;
-			*genStackPtr = *((int*)(&genParams[cmd.argument + paramTop.back()]));
-			break;
-		case cmdPushFloatRel:
-			genStackPtr -= 2;
-			*(double*)(genStackPtr) = (double)*((float*)(&genParams[cmd.argument + paramTop.back()]));
-			break;
-		case cmdPushDorLRel:
-			genStackPtr -= 2;
-			*(double*)(genStackPtr) = *((double*)(&genParams[cmd.argument + paramTop.back()]));
-			break;
-		case cmdPushCmplxRel:
-		{
-			int valind = cmd.argument + paramTop.back();
+			int valind = cmd.argument + (paramTop.back() * cmd.flag);
 			unsigned int currShift = cmd.helper;
 			while(currShift >= 4)
 			{
@@ -249,51 +217,24 @@ void Executor::Run(const char* funcName)
 			*genStackPtr = cmd.argument;
 			break;
 
-		case cmdMovCharAbs:
-			genParams[cmd.argument] = (unsigned char)(*genStackPtr);
+		case cmdMovChar:
+			genParams[cmd.argument + (paramTop.back() * cmd.flag)] = (unsigned char)(*genStackPtr);
 			break;
-		case cmdMovShortAbs:
-			*((unsigned short*)(&genParams[cmd.argument])) = (unsigned short)(*genStackPtr);
+		case cmdMovShort:
+			*((unsigned short*)(&genParams[cmd.argument + (paramTop.back() * cmd.flag)])) = (unsigned short)(*genStackPtr);
 			break;
-		case cmdMovIntAbs:
-			*((int*)(&genParams[cmd.argument])) = (int)(*genStackPtr);
+		case cmdMovInt:
+			*((int*)(&genParams[cmd.argument + (paramTop.back() * cmd.flag)])) = (int)(*genStackPtr);
 			break;
-		case cmdMovFloatAbs:
-			*((float*)(&genParams[cmd.argument])) = (float)*(double*)(genStackPtr);
+		case cmdMovFloat:
+			*((float*)(&genParams[cmd.argument + (paramTop.back() * cmd.flag)])) = (float)*(double*)(genStackPtr);
 			break;
-		case cmdMovDorLAbs:
-			*((long long*)(&genParams[cmd.argument])) = *(long long*)(genStackPtr);
+		case cmdMovDorL:
+			*((long long*)(&genParams[cmd.argument + (paramTop.back() * cmd.flag)])) = *(long long*)(genStackPtr);
 			break;
-		case cmdMovCmplxAbs:
+		case cmdMovCmplx:
 		{
-			unsigned int currShift = cmd.helper;
-			while(currShift >= 4)
-			{
-				currShift -= 4;
-				*((unsigned int*)(&genParams[cmd.argument + currShift])) = *(genStackPtr+(currShift>>2));
-			}
-			assert(currShift == 0);
-		}
-			break;
-
-		case cmdMovCharRel:
-			genParams[cmd.argument + paramTop.back()] = (unsigned char)(*genStackPtr);
-			break;
-		case cmdMovShortRel:
-			*((unsigned short*)(&genParams[cmd.argument + paramTop.back()])) = (unsigned short)(*genStackPtr);
-			break;
-		case cmdMovIntRel:
-			*((int*)(&genParams[cmd.argument + paramTop.back()])) = (int)(*genStackPtr);
-			break;
-		case cmdMovFloatRel:
-			*((float*)(&genParams[cmd.argument + paramTop.back()])) = (float)*(double*)(genStackPtr);
-			break;
-		case cmdMovDorLRel:
-			*((long long*)(&genParams[cmd.argument + paramTop.back()])) = *(long long*)(genStackPtr);
-			break;
-		case cmdMovCmplxRel:
-		{
-			int valind = cmd.argument + paramTop.back();
+			int valind = cmd.argument + (paramTop.back() * cmd.flag);
 			unsigned int currShift = cmd.helper;
 			while(currShift >= 4)
 			{

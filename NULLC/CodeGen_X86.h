@@ -42,19 +42,12 @@ x86Instruction* GetLastInstruction();
 
 void GenCodeCmdNop(VMCmd cmd);
 
-void GenCodeCmdPushCharAbs(VMCmd cmd);
-void GenCodeCmdPushShortAbs(VMCmd cmd);
-void GenCodeCmdPushIntAbs(VMCmd cmd);
-void GenCodeCmdPushFloatAbs(VMCmd cmd);
-void GenCodeCmdPushDorLAbs(VMCmd cmd);
-void GenCodeCmdPushCmplxAbs(VMCmd cmd);
-
-void GenCodeCmdPushCharRel(VMCmd cmd);
-void GenCodeCmdPushShortRel(VMCmd cmd);
-void GenCodeCmdPushIntRel(VMCmd cmd);
-void GenCodeCmdPushFloatRel(VMCmd cmd);
-void GenCodeCmdPushDorLRel(VMCmd cmd);
-void GenCodeCmdPushCmplxRel(VMCmd cmd);
+void GenCodeCmdPushChar(VMCmd cmd);
+void GenCodeCmdPushShort(VMCmd cmd);
+void GenCodeCmdPushInt(VMCmd cmd);
+void GenCodeCmdPushFloat(VMCmd cmd);
+void GenCodeCmdPushDorL(VMCmd cmd);
+void GenCodeCmdPushCmplx(VMCmd cmd);
 
 void GenCodeCmdPushCharStk(VMCmd cmd);
 void GenCodeCmdPushShortStk(VMCmd cmd);
@@ -65,19 +58,12 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd);
 
 void GenCodeCmdPushImmt(VMCmd cmd);
 
-void GenCodeCmdMovCharAbs(VMCmd cmd);
-void GenCodeCmdMovShortAbs(VMCmd cmd);
-void GenCodeCmdMovIntAbs(VMCmd cmd);
-void GenCodeCmdMovFloatAbs(VMCmd cmd);
-void GenCodeCmdMovDorLAbs(VMCmd cmd);
-void GenCodeCmdMovCmplxAbs(VMCmd cmd);
-
-void GenCodeCmdMovCharRel(VMCmd cmd);
-void GenCodeCmdMovShortRel(VMCmd cmd);
-void GenCodeCmdMovIntRel(VMCmd cmd);
-void GenCodeCmdMovFloatRel(VMCmd cmd);
-void GenCodeCmdMovDorLRel(VMCmd cmd);
-void GenCodeCmdMovCmplxRel(VMCmd cmd);
+void GenCodeCmdMovChar(VMCmd cmd);
+void GenCodeCmdMovShort(VMCmd cmd);
+void GenCodeCmdMovInt(VMCmd cmd);
+void GenCodeCmdMovFloat(VMCmd cmd);
+void GenCodeCmdMovDorL(VMCmd cmd);
+void GenCodeCmdMovCmplx(VMCmd cmd);
 
 void GenCodeCmdMovCharStk(VMCmd cmd);
 void GenCodeCmdMovShortStk(VMCmd cmd);
