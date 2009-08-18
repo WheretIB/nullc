@@ -116,19 +116,12 @@ bool ExecutorX86::Initialize()
 
 	cgFuncs[cmdNop] = GenCodeCmdNop;
 
-	cgFuncs[cmdPushCharAbs] = GenCodeCmdPushCharAbs;
-	cgFuncs[cmdPushShortAbs] = GenCodeCmdPushShortAbs;
-	cgFuncs[cmdPushIntAbs] = GenCodeCmdPushIntAbs;
-	cgFuncs[cmdPushFloatAbs] = GenCodeCmdPushFloatAbs;
-	cgFuncs[cmdPushDorLAbs] = GenCodeCmdPushDorLAbs;
-	cgFuncs[cmdPushCmplxAbs] = GenCodeCmdPushCmplxAbs;
-
-	cgFuncs[cmdPushCharRel] = GenCodeCmdPushCharRel;
-	cgFuncs[cmdPushShortRel] = GenCodeCmdPushShortRel;
-	cgFuncs[cmdPushIntRel] = GenCodeCmdPushIntRel;
-	cgFuncs[cmdPushFloatRel] = GenCodeCmdPushFloatRel;
-	cgFuncs[cmdPushDorLRel] = GenCodeCmdPushDorLRel;
-	cgFuncs[cmdPushCmplxRel] = GenCodeCmdPushCmplxRel;
+	cgFuncs[cmdPushChar] = GenCodeCmdPushChar;
+	cgFuncs[cmdPushShort] = GenCodeCmdPushShort;
+	cgFuncs[cmdPushInt] = GenCodeCmdPushInt;
+	cgFuncs[cmdPushFloat] = GenCodeCmdPushFloat;
+	cgFuncs[cmdPushDorL] = GenCodeCmdPushDorL;
+	cgFuncs[cmdPushCmplx] = GenCodeCmdPushCmplx;
 
 	cgFuncs[cmdPushCharStk] = GenCodeCmdPushCharStk;
 	cgFuncs[cmdPushShortStk] = GenCodeCmdPushShortStk;
@@ -139,19 +132,12 @@ bool ExecutorX86::Initialize()
 
 	cgFuncs[cmdPushImmt] = GenCodeCmdPushImmt;
 
-	cgFuncs[cmdMovCharAbs] = GenCodeCmdMovCharAbs;
-	cgFuncs[cmdMovShortAbs] = GenCodeCmdMovShortAbs;
-	cgFuncs[cmdMovIntAbs] = GenCodeCmdMovIntAbs;
-	cgFuncs[cmdMovFloatAbs] = GenCodeCmdMovFloatAbs;
-	cgFuncs[cmdMovDorLAbs] = GenCodeCmdMovDorLAbs;
-	cgFuncs[cmdMovCmplxAbs] = GenCodeCmdMovCmplxAbs;
-
-	cgFuncs[cmdMovCharRel] = GenCodeCmdMovCharRel;
-	cgFuncs[cmdMovShortRel] = GenCodeCmdMovShortRel;
-	cgFuncs[cmdMovIntRel] = GenCodeCmdMovIntRel;
-	cgFuncs[cmdMovFloatRel] = GenCodeCmdMovFloatRel;
-	cgFuncs[cmdMovDorLRel] = GenCodeCmdMovDorLRel;
-	cgFuncs[cmdMovCmplxRel] = GenCodeCmdMovCmplxRel;
+	cgFuncs[cmdMovChar] = GenCodeCmdMovChar;
+	cgFuncs[cmdMovShort] = GenCodeCmdMovShort;
+	cgFuncs[cmdMovInt] = GenCodeCmdMovInt;
+	cgFuncs[cmdMovFloat] = GenCodeCmdMovFloat;
+	cgFuncs[cmdMovDorL] = GenCodeCmdMovDorL;
+	cgFuncs[cmdMovCmplx] = GenCodeCmdMovCmplx;
 
 	cgFuncs[cmdMovCharStk] = GenCodeCmdMovCharStk;
 	cgFuncs[cmdMovShortStk] = GenCodeCmdMovShortStk;

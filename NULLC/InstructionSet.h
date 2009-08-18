@@ -16,6 +16,8 @@ typedef unsigned char CmdID;
 // 4) стек вызовов. Сохраняет указатели на код. Используется для возврата из функций.
 
 const unsigned int CALL_BY_POINTER = (unsigned int)-1;
+const unsigned char ADDRESS_ABOLUTE = 0;
+const unsigned char ADDRESS_RELATIVE = 1;
 
 enum InstructionCode
 {
@@ -25,19 +27,12 @@ enum InstructionCode
 
 	// push a number on top of general stack
 	// положить значение на верхушку стека
-	cmdPushCharAbs,
-	cmdPushShortAbs,
-	cmdPushIntAbs,
-	cmdPushFloatAbs,
-	cmdPushDorLAbs,
-	cmdPushCmplxAbs,
-
-	cmdPushCharRel,
-	cmdPushShortRel,
-	cmdPushIntRel,
-	cmdPushFloatRel,
-	cmdPushDorLRel,
-	cmdPushCmplxRel,
+	cmdPushChar,
+	cmdPushShort,
+	cmdPushInt,
+	cmdPushFloat,
+	cmdPushDorL,
+	cmdPushCmplx,
 
 	cmdPushCharStk,
 	cmdPushShortStk,
@@ -51,19 +46,12 @@ enum InstructionCode
 
 	// copy's number from top of stack to value in value stack
 	// скопировать значение с верхушки стека в память где располагаются переменные
-	cmdMovCharAbs,
-	cmdMovShortAbs,
-	cmdMovIntAbs,
-	cmdMovFloatAbs,
-	cmdMovDorLAbs,
-	cmdMovCmplxAbs,
-
-	cmdMovCharRel,
-	cmdMovShortRel,
-	cmdMovIntRel,
-	cmdMovFloatRel,
-	cmdMovDorLRel,
-	cmdMovCmplxRel,
+	cmdMovChar,
+	cmdMovShort,
+	cmdMovInt,
+	cmdMovFloat,
+	cmdMovDorL,
+	cmdMovCmplx,
 
 	cmdMovCharStk,
 	cmdMovShortStk,
@@ -255,12 +243,10 @@ enum InstructionCode
 static char *vmInstructionText[] =
 {
 	"Nop",
-	"PushCharAbs", "PushShortAbs", "PushIntAbs", "PushFloatAbs", "PushDorLAbs", "PushCmplxAbs",
-	"PushCharRel", "PushShortRel", "PushIntRel", "PushFloatRel", "PushDorLRel", "PushCmplxRel",
+	"PushChar", "PushShort", "PushInt", "PushFloat", "PushDorL", "PushCmplx",
 	"PushCharStk", "PushShortStk", "PushIntStk", "PushFloatStk", "PushDorLStk", "PushCmplxStk",
 	"PushImmt",
-	"MovCharAbs", "MovShortAbs", "MovIntAbs", "MovFloatAbs", "MovDorLAbs", "MovCmplxAbs",
-	"MovCharRel", "MovShortRel", "MovIntRel", "MovFloatRel", "MovDorLRel", "MovCmplxRel",
+	"MovChar", "MovShort", "MovInt", "MovFloat", "MovDorL", "MovCmplx",
 	"MovCharStk", "MovShortStk", "MovIntStk", "MovFloatStk", "MovDorLStk", "MovCmplxStk",
 	"ReserveV",
 	"PopCharTop", "PopShortTop", "PopIntTop", "PopFloatTop", "PopDorLTop", "PopCmplxTop",
@@ -324,19 +310,12 @@ struct VMCmd
 
 		switch(cmd)
 		{
-		case cmdPushCharAbs:
-		case cmdPushShortAbs:
-		case cmdPushIntAbs:
-		case cmdPushFloatAbs:
-		case cmdPushDorLAbs:
-		case cmdPushCmplxAbs:
-
-		case cmdPushCharRel:
-		case cmdPushShortRel:
-		case cmdPushIntRel:
-		case cmdPushFloatRel:
-		case cmdPushDorLRel:
-		case cmdPushCmplxRel:
+		case cmdPushChar:
+		case cmdPushShort:
+		case cmdPushInt:
+		case cmdPushFloat:
+		case cmdPushDorL:
+		case cmdPushCmplx:
 
 		case cmdPushCharStk:
 		case cmdPushShortStk:
@@ -351,19 +330,12 @@ struct VMCmd
 			curr += sprintf(curr, " %d", argument);
 			break;
 
-		case cmdMovCharAbs:
-		case cmdMovShortAbs:
-		case cmdMovIntAbs:
-		case cmdMovFloatAbs:
-		case cmdMovDorLAbs:
-		case cmdMovCmplxAbs:
-
-		case cmdMovCharRel:
-		case cmdMovShortRel:
-		case cmdMovIntRel:
-		case cmdMovFloatRel:
-		case cmdMovDorLRel:
-		case cmdMovCmplxRel:
+		case cmdMovChar:
+		case cmdMovShort:
+		case cmdMovInt:
+		case cmdMovFloat:
+		case cmdMovDorL:
+		case cmdMovCmplx:
 
 		case cmdMovCharStk:
 		case cmdMovShortStk:
@@ -500,12 +472,10 @@ static asmDataType dataTypeForStackType[] = { DTYPE_INT, DTYPE_LONG, (asmDataTyp
 static asmStackType stackTypeForDataTypeArr[] = { STYPE_INT, STYPE_INT, STYPE_INT, STYPE_LONG, STYPE_DOUBLE, STYPE_DOUBLE, STYPE_COMPLEX_TYPE };
 __forceinline asmStackType stackTypeForDataType(asmDataType dt){ return stackTypeForDataTypeArr[dt/4]; }
 
-static InstructionCode cmdPushTypeAbs[] = { cmdPushCharAbs, cmdPushShortAbs, cmdPushIntAbs, cmdPushDorLAbs, cmdPushFloatAbs, cmdPushDorLAbs, cmdPushCmplxAbs };
-static InstructionCode cmdPushTypeRel[] = { cmdPushCharRel, cmdPushShortRel, cmdPushIntRel, cmdPushDorLRel, cmdPushFloatRel, cmdPushDorLRel, cmdPushCmplxRel };
+static InstructionCode cmdPushType[] = { cmdPushChar, cmdPushShort, cmdPushInt, cmdPushDorL, cmdPushFloat, cmdPushDorL, cmdPushCmplx };
 static InstructionCode cmdPushTypeStk[] = { cmdPushCharStk, cmdPushShortStk, cmdPushIntStk, cmdPushDorLStk, cmdPushFloatStk, cmdPushDorLStk, cmdPushCmplxStk };
 
-static InstructionCode cmdMovTypeAbs[] = { cmdMovCharAbs, cmdMovShortAbs, cmdMovIntAbs, cmdMovDorLAbs, cmdMovFloatAbs, cmdMovDorLAbs, cmdMovCmplxAbs };
-static InstructionCode cmdMovTypeRel[] = { cmdMovCharRel, cmdMovShortRel, cmdMovIntRel, cmdMovDorLRel, cmdMovFloatRel, cmdMovDorLRel, cmdMovCmplxRel };
+static InstructionCode cmdMovType[] = { cmdMovChar, cmdMovShort, cmdMovInt, cmdMovDorL, cmdMovFloat, cmdMovDorL, cmdMovCmplx };
 static InstructionCode cmdMovTypeStk[] = { cmdMovCharStk, cmdMovShortStk, cmdMovIntStk, cmdMovDorLStk, cmdMovFloatStk, cmdMovDorLStk, cmdMovCmplxStk };
 
 static InstructionCode cmdPopTypeTop[] = { cmdPopCharTop, cmdPopShortTop, cmdPopIntTop, cmdPopDorLTop, cmdPopFloatTop, cmdPopDorLTop, cmdPopCmplxTop };

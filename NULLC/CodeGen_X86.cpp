@@ -180,49 +180,67 @@ void GenCodeCmdNop(VMCmd cmd)
 	EMIT_OP(o_nop);
 }
 
-void GenCodeCmdPushCharAbs(VMCmd cmd)
+void GenCodeCmdPushChar(VMCmd cmd)
 {
-	EMIT_COMMENT("PUSH char abs");
+	EMIT_COMMENT("PUSH char");
 
-	EMIT_OP_REG_ADDR(o_movsx, rEAX, sBYTE, cmd.argument+paramBase);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+		EMIT_OP_REG_ADDR(o_movsx, rEAX, sBYTE, cmd.argument+paramBase);
+	else
+		EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEBP, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
 }
 
-void GenCodeCmdPushShortAbs(VMCmd cmd)
+void GenCodeCmdPushShort(VMCmd cmd)
 {
-	EMIT_COMMENT("PUSH short abs");
+	EMIT_COMMENT("PUSH short");
 
-	EMIT_OP_REG_ADDR(o_movsx, rEAX, sWORD, cmd.argument+paramBase);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+		EMIT_OP_REG_ADDR(o_movsx, rEAX, sWORD, cmd.argument+paramBase);
+	else
+		EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEBP, cmd.argument+paramBase);
 	EMIT_OP_REG(o_push, rEAX);
 }
 
-void GenCodeCmdPushIntAbs(VMCmd cmd)
+void GenCodeCmdPushInt(VMCmd cmd)
 {
-	EMIT_COMMENT("PUSH int abs");
+	EMIT_COMMENT("PUSH int");
 
-	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+		EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase);
+	else
+		EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase);
 }
 
-void GenCodeCmdPushFloatAbs(VMCmd cmd)
+void GenCodeCmdPushFloat(VMCmd cmd)
 {
-	EMIT_COMMENT("PUSH float abs");
+	EMIT_COMMENT("PUSH float");
 
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
-	EMIT_OP_ADDR(o_fld, sDWORD, cmd.argument+paramBase);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+		EMIT_OP_ADDR(o_fld, sDWORD, cmd.argument+paramBase);
+	else
+		EMIT_OP_RPTR(o_fld, sDWORD, rEBP, cmd.argument+paramBase);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
-void GenCodeCmdPushDorLAbs(VMCmd cmd)
+void GenCodeCmdPushDorL(VMCmd cmd)
 {
-	EMIT_COMMENT(cmd.flag ? "PUSH double abs" : "MOV long abs");
+	EMIT_COMMENT("PUSH DorL");
 
-	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+4);
-	EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+	{
+		EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+4);
+		EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase);
+	}else{
+		EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+4);
+		EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase);
+	}
 }
 
-void GenCodeCmdPushCmplxAbs(VMCmd cmd)
+void GenCodeCmdPushCmplx(VMCmd cmd)
 {
-	EMIT_COMMENT("PUSH complex abs");
+	EMIT_COMMENT("PUSH complex");
 	if(cmd.helper == 0)
 		return;
 	if(cmd.helper <= 32)
@@ -231,14 +249,20 @@ void GenCodeCmdPushCmplxAbs(VMCmd cmd)
 		while(currShift >= 4)
 		{
 			currShift -= 4;
-			EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+currShift);
+			if(cmd.flag == ADDRESS_ABOLUTE)
+				EMIT_OP_ADDR(o_push, sDWORD, cmd.argument+paramBase+currShift);
+			else
+				EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+currShift);
 		}
 		assert(currShift == 0);
 	}else{
 		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
 		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 
-		EMIT_OP_REG_NUM(o_mov, rESI, cmd.argument+paramBase);
+		if(cmd.flag == ADDRESS_ABOLUTE)
+			EMIT_OP_REG_NUM(o_mov, rESI, cmd.argument+paramBase);
+		else
+			EMIT_OP_REG_RPTR(o_lea, rESI, sDWORD, rEBP, cmd.argument+paramBase);
 		EMIT_OP_REG_REG(o_mov, rEDI, rESP);
 		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
 		EMIT_OP(o_rep_movsd);
@@ -246,75 +270,6 @@ void GenCodeCmdPushCmplxAbs(VMCmd cmd)
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
 }
-
-
-void GenCodeCmdPushCharRel(VMCmd cmd)
-{
-	EMIT_COMMENT("PUSH char rel");
-
-	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEBP, cmd.argument+paramBase);
-	EMIT_OP_REG(o_push, rEAX);
-}
-
-void GenCodeCmdPushShortRel(VMCmd cmd)
-{
-	EMIT_COMMENT("PUSH short rel");
-
-	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEBP, cmd.argument+paramBase);
-	EMIT_OP_REG(o_push, rEAX);
-}
-
-void GenCodeCmdPushIntRel(VMCmd cmd)
-{
-	EMIT_COMMENT("PUSH int rel");
-
-	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase);
-}
-
-void GenCodeCmdPushFloatRel(VMCmd cmd)
-{
-	EMIT_COMMENT("PUSH float rel");
-
-	EMIT_OP_REG_NUM(o_sub, rESP, 8);
-	EMIT_OP_RPTR(o_fld, sDWORD, rEBP, cmd.argument+paramBase);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-}
-
-void GenCodeCmdPushDorLRel(VMCmd cmd)
-{
-	EMIT_COMMENT(cmd.flag ? "PUSH double rel" : "PUSH long rel");
-
-	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+4);
-	EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase);
-}
-
-void GenCodeCmdPushCmplxRel(VMCmd cmd)
-{
-	EMIT_COMMENT("PUSH complex rel");
-	if(cmd.helper == 0)
-		return;
-	if(cmd.helper <= 32)
-	{
-		unsigned int currShift = cmd.helper;
-		while(currShift >= 4)
-		{
-			currShift -= 4;
-			EMIT_OP_RPTR(o_push, sDWORD, rEBP, cmd.argument+paramBase+currShift);
-		}
-		assert(currShift == 0);
-	}else{
-		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
-		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
-
-		EMIT_OP_REG_RPTR(o_lea, rESI, sDWORD, rEBP, cmd.argument+paramBase);
-		EMIT_OP_REG_REG(o_mov, rEDI, rESP);
-		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
-		EMIT_OP(o_rep_movsd);
-
-		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
-	}
-}
-
 
 void GenCodeCmdPushCharStk(VMCmd cmd)
 {
@@ -398,131 +353,68 @@ void GenCodeCmdPushImmt(VMCmd cmd)
 }
 
 
-void GenCodeCmdMovCharAbs(VMCmd cmd)
+void GenCodeCmdMovChar(VMCmd cmd)
 {
-	EMIT_COMMENT("MOV char abs");
+	EMIT_COMMENT("MOV char");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_ADDR_REG(o_mov, sBYTE, cmd.argument+paramBase, rEBX);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+		EMIT_OP_ADDR_REG(o_mov, sBYTE, cmd.argument+paramBase, rEBX);
+	else
+		EMIT_OP_RPTR_REG(o_mov, sBYTE, rEBP, cmd.argument+paramBase, rEBX);
 }
 
-void GenCodeCmdMovShortAbs(VMCmd cmd)
+void GenCodeCmdMovShort(VMCmd cmd)
 {
-	EMIT_COMMENT("MOV short abs");
+	EMIT_COMMENT("MOV short");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_ADDR_REG(o_mov, sWORD, cmd.argument+paramBase, rEBX);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+		EMIT_OP_ADDR_REG(o_mov, sWORD, cmd.argument+paramBase, rEBX);
+	else
+		EMIT_OP_RPTR_REG(o_mov, sWORD, rEBP, cmd.argument+paramBase, rEBX);
 }
 
-void GenCodeCmdMovIntAbs(VMCmd cmd)
+void GenCodeCmdMovInt(VMCmd cmd)
 {
-	EMIT_COMMENT("MOV int abs");
+	EMIT_COMMENT("MOV int");
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_ADDR_REG(o_mov, sDWORD, cmd.argument+paramBase, rEBX);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, cmd.argument+paramBase, rEBX);
+	else
+		EMIT_OP_RPTR_REG(o_mov, sDWORD, rEBP, cmd.argument+paramBase, rEBX);
 }
 
-void GenCodeCmdMovFloatAbs(VMCmd cmd)
+void GenCodeCmdMovFloat(VMCmd cmd)
 {
-	EMIT_COMMENT("MOV float abs");
+	EMIT_COMMENT("MOV float");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-	EMIT_OP_ADDR(o_fstp, sDWORD, cmd.argument+paramBase);
+	if(cmd.flag == ADDRESS_ABOLUTE)
+		EMIT_OP_ADDR(o_fstp, sDWORD, cmd.argument+paramBase);
+	else
+		EMIT_OP_RPTR(o_fstp, sDWORD, rEBP, cmd.argument+paramBase);
 }
 
-void GenCodeCmdMovDorLAbs(VMCmd cmd)
+void GenCodeCmdMovDorL(VMCmd cmd)
 {
-	EMIT_COMMENT(cmd.flag ? "MOV double abs" : "MOV long abs");
+	EMIT_COMMENT("MOV DorL");
 
-	if(cmd.flag)
+	if(cmd.flag == ADDRESS_ABOLUTE)
 	{
-		EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-		EMIT_OP_ADDR(o_fstp, sQWORD, cmd.argument+paramBase);
-	}else{
 		EMIT_OP_ADDR(o_pop, sDWORD, cmd.argument+paramBase);
 		EMIT_OP_ADDR(o_pop, sDWORD, cmd.argument+paramBase + 4);
-		EMIT_OP_REG_NUM(o_sub, rESP, 8);
-	}
-}
-
-void GenCodeCmdMovCmplxAbs(VMCmd cmd)
-{
-	EMIT_COMMENT("MOV complex abs");
-	if(cmd.helper == 0)
-		return;
-	if(cmd.helper <= 32)
-	{
-		unsigned int currShift = 0;
-		while(currShift < cmd.helper)
-		{
-			EMIT_OP_ADDR(o_pop, sDWORD, cmd.argument+paramBase + currShift);
-			currShift += 4;
-		}
-		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
-		assert(currShift == cmd.helper);
-	}else{
-		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
-
-		EMIT_OP_REG_REG(o_mov, rESI, rESP);
-		EMIT_OP_REG_NUM(o_mov, rEDI, cmd.argument+paramBase);
-		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
-		EMIT_OP(o_rep_movsd);
-
-		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
-	}
-}
-
-
-void GenCodeCmdMovCharRel(VMCmd cmd)
-{
-	EMIT_COMMENT("MOV char rel");
-
-	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEBP, cmd.argument+paramBase, rEBX);
-}
-
-void GenCodeCmdMovShortRel(VMCmd cmd)
-{
-	EMIT_COMMENT("MOV short rel");
-
-	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_RPTR_REG(o_mov, sWORD, rEBP, cmd.argument+paramBase, rEBX);
-}
-
-void GenCodeCmdMovIntRel(VMCmd cmd)
-{
-	EMIT_COMMENT("MOV int rel");
-
-	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEBP, cmd.argument+paramBase, rEBX);
-}
-
-void GenCodeCmdMovFloatRel(VMCmd cmd)
-{
-	EMIT_COMMENT("MOV float rel");
-
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sDWORD, rEBP, cmd.argument+paramBase);
-}
-
-void GenCodeCmdMovDorLRel(VMCmd cmd)
-{
-	EMIT_COMMENT(cmd.flag ? "MOV double rel" : "MOV long rel");
-
-	if(cmd.flag)
-	{
-		EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-		EMIT_OP_RPTR(o_fstp, sQWORD, rEBP, cmd.argument+paramBase);
 	}else{
 		EMIT_OP_RPTR(o_pop, sDWORD, rEBP, cmd.argument+paramBase);
 		EMIT_OP_RPTR(o_pop, sDWORD, rEBP, cmd.argument+paramBase + 4);
-		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	}
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 }
 
-void GenCodeCmdMovCmplxRel(VMCmd cmd)
+void GenCodeCmdMovCmplx(VMCmd cmd)
 {
-	EMIT_COMMENT("MOV complex rel");
+	EMIT_COMMENT("MOV complex");
 	if(cmd.helper == 0)
 		return;
 	if(cmd.helper <= 32)
@@ -530,23 +422,28 @@ void GenCodeCmdMovCmplxRel(VMCmd cmd)
 		unsigned int currShift = 0;
 		while(currShift < cmd.helper)
 		{
-			EMIT_OP_RPTR(o_pop, sDWORD, rEBP, cmd.argument+paramBase + currShift);
+			if(cmd.flag == ADDRESS_ABOLUTE)
+				EMIT_OP_ADDR(o_pop, sDWORD, cmd.argument+paramBase + currShift);
+			else
+				EMIT_OP_RPTR(o_pop, sDWORD, rEBP, cmd.argument+paramBase + currShift);
 			currShift += 4;
 		}
-		assert(currShift == cmd.helper);
 		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
+		assert(currShift == cmd.helper);
 	}else{
 		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 
 		EMIT_OP_REG_REG(o_mov, rESI, rESP);
-		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEBP, cmd.argument+paramBase);
+		if(cmd.flag == ADDRESS_ABOLUTE)
+			EMIT_OP_REG_NUM(o_mov, rEDI, cmd.argument+paramBase);
+		else
+			EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEBP, cmd.argument+paramBase);
 		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
 		EMIT_OP(o_rep_movsd);
 
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
 }
-
 
 void GenCodeCmdMovCharStk(VMCmd cmd)
 {
