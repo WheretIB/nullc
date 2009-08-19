@@ -710,6 +710,12 @@ void AddReturnNode(const char* pos, const char* end)
 		}
 	}
 	TypeInfo *realRetType = nodeList.back()->typeInfo;
+	if(!retTypeStack.back() && currDefinedFunc.size() != 0)
+	{
+		retTypeStack.back() = realRetType;
+		currDefinedFunc.back()->retType = realRetType;
+		currDefinedFunc.back()->funcType = GetFunctionType(currDefinedFunc.back());
+	}
 	if(retTypeStack.back() && (retTypeStack.back()->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && retTypeStack.back() != realRetType)
 	{
 		sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), retTypeStack.back()->GetFullTypeName());
@@ -1435,8 +1441,6 @@ void FunctionAdd(const char* pos, const char* funcName)
 		funcNameCopy = AllocateString((int)strlen(newType->name) + 2 + (int)strlen(funcName) + 1);
 		sprintf(funcNameCopy, "%s::%s", newType->name, funcName);
 	}
-	if(!currType)
-		ThrowError("ERROR: function return type cannot be auto", pos);
 	funcInfo.push_back(new FunctionInfo(funcNameCopy));
 	funcInfo.back()->vTopSize = (unsigned int)varInfoTop.size();
 	retTypeStack.push_back(currType);
@@ -1479,7 +1483,7 @@ void FunctionStart(const char* pos)
 	AddVariable(pos, InplaceStr(hiddenHame, length));
 	varDefined = false;
 
-	funcInfo.back()->funcType = GetFunctionType(funcInfo.back());
+	funcInfo.back()->funcType = funcInfo.back()->retType ? GetFunctionType(funcInfo.back()) : NULL;
 }
 
 void FunctionEnd(const char* pos, const char* funcName)

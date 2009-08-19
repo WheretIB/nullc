@@ -825,9 +825,13 @@ bool ParseTerminal(Lexeme** str)
 	}
 	if(ParseGroup(str))
 		return true;
-	if(((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) || ((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
+	if(((*str)->type == lex_auto) ||
+		((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) ||
+		((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
+	{
 		if(ParseFunctionDefinition(str))
 			return true;
+	}
 	if(ParseFunctionCall(str, false))
 		return true;
 	if(ParseVariable(str))
