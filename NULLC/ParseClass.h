@@ -126,7 +126,7 @@ public:
 		}else{
 			if(funcType)
 			{
-				unsigned int retNameLength = funcType->retType->GetFullNameLength() ;
+				unsigned int retNameLength = funcType->retType->GetFullNameLength();
 				// 7 is the length of " ref(", ")" and \0
 				unsigned int bufferSize = 7 + retNameLength;
 				for(unsigned int i = 0; i < funcType->paramCount; i++)

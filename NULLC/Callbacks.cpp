@@ -1050,6 +1050,8 @@ void AddArrayIndexNode(const char* pos)
 	}else{
 		// Иначе создаём узел индексации
 		nodeList.push_back(new NodeArrayIndex(currTypes.back()));
+		if(!lastError.IsEmpty())
+			ThrowLastError();
 	}
 	// Теперь текущий тип - тип элемента массива
 	currTypes.back() = currTypes.back()->subType;
@@ -1152,7 +1154,8 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 		currTypes.pop_back();
 		unifyTwo = true;
-		realCurrType = nodeList.back()->typeInfo;
+		if(!currTypes.back())
+			realCurrType = nodeList.back()->typeInfo;
 		varDefined = true;
 		varTop -= realCurrType->size;
 	}
@@ -1189,6 +1192,8 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	nodeList.push_back(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress, varInfo[i]->varType));
 
 	nodeList.push_back(new NodeVariableSet(realCurrType, varSizeAdd, false));
+	if(!lastError.IsEmpty())
+		ThrowLastError();
 
 	if(unifyTwo)
 	{
@@ -1340,6 +1345,8 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 void AddPreOrPostOpNode(bool isInc, bool prefixOp)
 {
 	nodeList.push_back(new NodePreOrPostOp(currTypes.back(), isInc, prefixOp));
+	if(!lastError.IsEmpty())
+		ThrowLastError();
 }
 
 void AddModifyVariableNode(const char* pos, CmdID cmd)
@@ -1350,6 +1357,8 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 	if(!targetType)
 		ThrowLastError();
 	nodeList.push_back(new NodeVariableModify(targetType, cmd));
+	if(!lastError.IsEmpty())
+		ThrowLastError();
 }
 
 void AddInplaceArray(const char* pos)
@@ -1530,6 +1539,11 @@ void FunctionEnd(const char* pos, const char* funcName)
 	nodeList.push_back(new NodeFuncDef(funcInfo[i]));
 	funcDefList.push_back(nodeList.back());
 
+	if(!currDefinedFunc.back()->retType)
+	{
+		currDefinedFunc.back()->retType = typeVoid;
+		currDefinedFunc.back()->funcType = GetFunctionType(currDefinedFunc.back());
+	}
 	retTypeStack.pop_back();
 	currDefinedFunc.pop_back();
 
