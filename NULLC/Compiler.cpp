@@ -270,7 +270,7 @@ void Compiler::ClearState()
 		if(typeInfo[i]->refType && typeInfo[i]->refType->typeIndex >= buildInTypes)
 			typeInfo[i]->refType = NULL;
 
-	for(unsigned int i = buildInTypes; i < typeInfo.size(); i++)
+	for(unsigned int i = 0; i < typeInfo.size(); i++)
 		typeInfo[i]->fullName = NULL;
 
 	typeInfo.resize(buildInTypes);
