@@ -4,48 +4,38 @@
 #include "ParseClass.h"
 
 //////////////////////////////////////////////////////////////////////////
-const unsigned int typeNodeBlock		= 1;
-const unsigned int typeNodeExpression	= 2;
-const unsigned int typeNodeForExpr		= 3;
-const unsigned int typeNodeFuncCall		= 4;
-const unsigned int typeNodeFuncDef		= 5;
-const unsigned int typeNodeIfElseExpr	= 6;
-
-const unsigned int typeNodeOneOp		= 8;
-const unsigned int typeNodePopOp		= 9;
-
-
-const unsigned int typeNodeReturnOp		= 12;
-const unsigned int typeNodeThreeOp		= 13;
-const unsigned int typeNodeTwoAndCmdOp	= 14;
-
-const unsigned int typeNodeTwoOp		= 16;
-
-
-
-
-const unsigned int typeNodeZeroOp		= 21;
-const unsigned int typeNodeWhileExpr	= 22;
-const unsigned int typeNodeDoWhileExpr	= 22;
-const unsigned int typeNodeBreakOp		= 23;
-
-const unsigned int typeNodeSwitchExpr	= 25;
-
-const unsigned int typeNodeNumber		= 27;
-const unsigned int typeNodeUnaryOp		= 28;
-
-
-
-const unsigned int typeNodeExpressionList	= 32;
-const unsigned int typeNodeArrayIndex	= 33;
-const unsigned int typeNodeDereference	= 34;
-const unsigned int typeNodeShiftAddress	= 35;
-const unsigned int typeNodeGetAddress	= 36;
-const unsigned int typeNodeVariableSet	= 37;
-const unsigned int typeNodePreOrPostOp	= 38;
-const unsigned int typeNodeFunctionAddress	= 39;
-const unsigned int typeNodeContinueOp		= 40;
-const unsigned int typeNodeVariableModify	= 41;
+enum NodeType
+{
+	typeNodeBlock,
+	typeNodeExpression,
+	typeNodeForExpr,
+	typeNodeFuncCall,
+	typeNodeFuncDef,
+	typeNodeIfElseExpr,
+	typeNodeOneOp,
+	typeNodePopOp,
+	typeNodeReturnOp,
+	typeNodeThreeOp,
+	typeNodeTwoAndCmdOp,
+	typeNodeTwoOp,
+	typeNodeZeroOp,
+	typeNodeWhileExpr,
+	typeNodeDoWhileExpr,
+	typeNodeBreakOp,
+	typeNodeSwitchExpr,
+	typeNodeNumber,
+	typeNodeUnaryOp,
+	typeNodeExpressionList,
+	typeNodeArrayIndex,
+	typeNodeDereference,
+	typeNodeShiftAddress,
+	typeNodeGetAddress,
+	typeNodeVariableSet,
+	typeNodePreOrPostOp,
+	typeNodeFunctionAddress,
+	typeNodeContinueOp,
+	typeNodeVariableModify,
+};
 //////////////////////////////////////////////////////////////////////////
 
 class NodeZeroOP
@@ -75,12 +65,12 @@ public:
 	static	ChunkedStackPool<4092>	nodePool;
 	static void	DeleteNodes(){ nodePool.Clear(); }
 protected:
-	const char	*strBegin, *strEnd;
+	const char		*strBegin, *strEnd;
 public:
-	TypeInfo	*typeInfo;
-	unsigned int codeSize;
-	unsigned int nodeType;
-	NodeZeroOP	*prev, *next;	// For organizing intrusive node lists
+	TypeInfo		*typeInfo;
+	unsigned int	codeSize;
+	NodeType		nodeType;
+	NodeZeroOP		*prev, *next;	// For organizing intrusive node lists
 };
 
 void	GoDown();
