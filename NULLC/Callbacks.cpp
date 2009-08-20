@@ -197,24 +197,24 @@ void AddNumberNodeChar(const char* pos)
 	char res = pos[1];
 	if(res == '\\')
 		res = UnescapeSybmol(pos[2]);
-	nodeList.push_back(new NodeNumber<int>(res, typeChar));
+	nodeList.push_back(new NodeNumber(int(res), typeInt));
 }
 
 void AddNumberNodeInt(const char* pos)
 {
-	nodeList.push_back(new NodeNumber<int>(parseInteger(pos), typeInt));
+	nodeList.push_back(new NodeNumber(parseInteger(pos), typeInt));
 }
 void AddNumberNodeFloat(const char* pos)
 {
-	nodeList.push_back(new NodeNumber<float>((float)parseDouble(pos), typeFloat));
+	nodeList.push_back(new NodeNumber((float)parseDouble(pos), typeFloat));
 }
 void AddNumberNodeLong(const char* pos, const char* end)
 {
-	nodeList.push_back(new NodeNumber<long long>(parseLong(pos, end, 10), typeLong));
+	nodeList.push_back(new NodeNumber(parseLong(pos, end, 10), typeLong));
 }
 void AddNumberNodeDouble(const char* pos)
 {
-	nodeList.push_back(new NodeNumber<double>(parseDouble(pos), typeDouble));
+	nodeList.push_back(new NodeNumber(parseDouble(pos), typeDouble));
 }
 
 void AddVoidNode()
@@ -228,9 +228,9 @@ void AddHexInteger(const char* pos, const char* end)
 	if(int(end - pos) > 16)
 		ThrowError("ERROR: Overflow in hexadecimal constant", pos);
 	if(int(end - pos) <= 8)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(pos, end, 16), typeInt));
+		nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 16), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseLong(pos, end, 16), typeLong));
+		nodeList.push_back(new NodeNumber(parseLong(pos, end, 16), typeLong));
 }
 
 void AddOctInteger(const char* pos, const char* end)
@@ -239,9 +239,9 @@ void AddOctInteger(const char* pos, const char* end)
 	if(int(end - pos) > 21)
 		ThrowError("ERROR: Overflow in octal constant", pos);
 	if(int(end - pos) <= 10)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(pos, end, 8), typeInt));
+		nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 8), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseLong(pos, end, 8), typeLong));
+		nodeList.push_back(new NodeNumber(parseLong(pos, end, 8), typeLong));
 }
 
 void AddBinInteger(const char* pos, const char* end)
@@ -249,9 +249,9 @@ void AddBinInteger(const char* pos, const char* end)
 	if(int(end - pos) > 64)
 		ThrowError("ERROR: Overflow in binary constant", pos);
 	if(int(end - pos) <= 32)
-		nodeList.push_back(new NodeNumber<int>((unsigned int)parseLong(pos, end, 2), typeInt));
+		nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 2), typeInt));
 	else
-		nodeList.push_back(new NodeNumber<long long>(parseLong(pos, end, 2), typeLong));
+		nodeList.push_back(new NodeNumber(parseLong(pos, end, 2), typeLong));
 }
 // Функция для создания узла, который кладёт массив в стек
 // Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
@@ -296,12 +296,12 @@ void AddStringNode(const char* s, const char* e)
 				clean[i] = UnescapeSybmol(*curr);
 			}
 		}
-		nodeList.push_back(new NodeNumber<int>(*(int*)clean, typeInt));
+		nodeList.push_back(new NodeNumber(*(int*)clean, typeInt));
 		arrayList->AddNode();
 	}
 	if(len % 4 == 0)
 	{
-		nodeList.push_back(new NodeNumber<int>(0, typeInt));
+		nodeList.push_back(new NodeNumber(0, typeInt));
 		arrayList->AddNode();
 	}
 	nodeList.push_back(temp);
@@ -339,13 +339,11 @@ void AddNegateNode(const char* pos)
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
-			Rd = new NodeNumber<double>(-static_cast<NodeNumber<double>* >(zOP)->GetVal(), zOP->typeInfo);
-		}else if(aType == typeFloat){
-			Rd = new NodeNumber<float>(-static_cast<NodeNumber<float>* >(zOP)->GetVal(), zOP->typeInfo);
+			Rd = new NodeNumber(-static_cast<NodeNumber*>(zOP)->GetDouble(), zOP->typeInfo);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber<long long>(-static_cast<NodeNumber<long long>* >(zOP)->GetVal(), zOP->typeInfo);
+			Rd = new NodeNumber(-static_cast<NodeNumber*>(zOP)->GetLong(), zOP->typeInfo);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber<int>(-static_cast<NodeNumber<int>* >(zOP)->GetVal(), zOP->typeInfo);
+			Rd = new NodeNumber(-static_cast<NodeNumber*>(zOP)->GetInteger(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addNegNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
@@ -370,13 +368,11 @@ void AddLogNotNode(const char* pos)
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble)
 		{
-			Rd = new NodeNumber<double>(static_cast<NodeNumber<double>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
-		}else if(aType == typeFloat){
-			Rd = new NodeNumber<float>(static_cast<NodeNumber<float>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
+			Rd = new NodeNumber(!static_cast<NodeNumber*>(zOP)->GetDouble(), zOP->typeInfo);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
+			Rd = new NodeNumber(!static_cast<NodeNumber*>(zOP)->GetLong(), zOP->typeInfo);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetLogNotVal(), zOP->typeInfo);
+			Rd = new NodeNumber(!static_cast<NodeNumber*>(zOP)->GetInteger(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addLogNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
@@ -401,9 +397,9 @@ void AddBitNotNode(const char* pos)
 		}else if(aType == typeFloat){
 			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", pos);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber<long long>(static_cast<NodeNumber<long long>* >(zOP)->GetBitNotVal(), zOP->typeInfo);
+			Rd = new NodeNumber(~static_cast<NodeNumber*>(zOP)->GetLong(), zOP->typeInfo);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber<int>(static_cast<NodeNumber<int>* >(zOP)->GetBitNotVal(), zOP->typeInfo);
+			Rd = new NodeNumber(~static_cast<NodeNumber*>(zOP)->GetInteger(), zOP->typeInfo);
 		}else{
 			sprintf(callbackError, "addBitNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
@@ -556,60 +552,33 @@ void AddBinaryCommandNode(CmdID id)
 		bType = nodeList[nodeList.size()-shB]->typeInfo;
 		if(aType == typeDouble)
 		{
-			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shA]);
-			NodeNumber<double>* Rd = NULL;
+			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
+			NodeNumber *Bd = static_cast<NodeNumber*>(nodeList[nodeList.size()-shB]);
+			NodeNumber *Rd = NULL;
 			if(bType == typeDouble)
-			{
-				NodeNumber<double> *Bd = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), Bd->GetVal()), typeDouble);
-			}else if(bType == typeFloat){
-				NodeNumber<float> *Bd = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble);
-			}else if(bType == typeLong){
-				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble);
-			}else if(bType == typeInt){
-				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<double>(optDoOperation<double>(id, Ad->GetVal(), (double)Bd->GetVal(), swapOper), typeDouble);
-			}
-			nodeList.pop_back();
-			nodeList.pop_back();
-			nodeList.push_back(Rd);
-		}else if(aType == typeFloat){
-			NodeNumber<float> *Ad = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shA]);
-			NodeNumber<float>* Rd = NULL;
-			if(bType == typeFloat){
-				NodeNumber<float> *Bd = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), Bd->GetVal()), typeFloat);
-			}else if(bType == typeLong){
-				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), (float)Bd->GetVal(), swapOper), typeFloat);
-			}else if(bType == typeInt){
-				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<float>(optDoOperation<float>(id, Ad->GetVal(), (float)Bd->GetVal(), swapOper), typeFloat);
-			}
+				Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), Bd->GetDouble()), typeDouble);
+			else if(bType == typeLong)
+				Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), (double)Bd->GetLong(), swapOper), typeDouble);
+			else if(bType == typeInt)
+				Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), (double)Bd->GetInteger(), swapOper), typeDouble);
 			nodeList.pop_back();
 			nodeList.pop_back();
 			nodeList.push_back(Rd);
 		}else if(aType == typeLong){
-			NodeNumber<long long> *Ad = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shA]);
-			NodeNumber<long long>* Rd = NULL;
-			if(bType == typeLong){
-				NodeNumber<long long> *Bd = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<long long>(optDoOperation<long long>(id, Ad->GetVal(), Bd->GetVal()), typeLong);
-			}else if(bType == typeInt){
-				NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shB]);
-				Rd = new NodeNumber<long long>(optDoOperation<long long>(id, Ad->GetVal(), (long long)Bd->GetVal(), swapOper), typeLong);
-			}
+			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
+			NodeNumber *Bd = static_cast<NodeNumber*>(nodeList[nodeList.size()-shB]);
+			NodeNumber *Rd = NULL;
+			if(bType == typeLong)
+				Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), Bd->GetLong()), typeLong);
+			else if(bType == typeInt)
+				Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), (long long)Bd->GetInteger(), swapOper), typeLong);
 			nodeList.pop_back();
 			nodeList.pop_back();
 			nodeList.push_back(Rd);
 		}else if(aType == typeInt){
-			NodeNumber<int> *Ad = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shA]);
-			NodeNumber<int>* Rd;
-			//bType is also int!
-			NodeNumber<int> *Bd = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shB]);
-			Rd = new NodeNumber<int>(optDoOperation<int>(id, Ad->GetVal(), Bd->GetVal()), typeInt);
+			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
+			NodeNumber *Bd = static_cast<NodeNumber*>(nodeList[nodeList.size()-shB]);
+			NodeNumber *Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger()), typeInt);
 			nodeList.pop_back();
 			nodeList.pop_back();
 			nodeList.push_back(Rd);
@@ -640,49 +609,37 @@ void AddBinaryCommandNode(CmdID id)
 		bType = nodeList[nodeList.size()-shA]->typeInfo;
 		if(bType == typeDouble)
 		{
-			NodeNumber<double> *Ad = static_cast<NodeNumber<double>* >(nodeList[nodeList.size()-shA]);
-			if(Ad->GetVal() == 0.0 && id == cmdMul)
+			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
+			if(Ad->GetDouble() == 0.0 && id == cmdMul)
 			{
 				RemoveLastNode(shA == 1); // a*0.0 -> 0.0
 				success = true;
 			}
-			if((Ad->GetVal() == 0.0 && id == cmdAdd) || (Ad->GetVal() == 1.0 && id == cmdMul))
+			if((Ad->GetDouble() == 0.0 && id == cmdAdd) || (Ad->GetDouble() == 1.0 && id == cmdMul))
 			{
 				RemoveLastNode(shA == 2); // a+0.0 -> a || a*1.0 -> a
 				success = true;
 			}
-		}else if(bType == typeFloat){
-			NodeNumber<float> *Ad = static_cast<NodeNumber<float>* >(nodeList[nodeList.size()-shA]);
-			if(Ad->GetVal() == 0.0f && id == cmdMul)
-			{
-				RemoveLastNode(shA == 1); // a*0.0f -> 0.0f
-				success = true;
-			}
-			if((Ad->GetVal() == 0.0f && id == cmdAdd) || (Ad->GetVal() == 1.0f && id == cmdMul))
-			{
-				RemoveLastNode(shA == 2); // a+0.0f -> a || a*1.0f -> a
-				success = true;
-			}
 		}else if(bType == typeLong){
-			NodeNumber<long long> *Ad = static_cast<NodeNumber<long long>* >(nodeList[nodeList.size()-shA]);
-			if(Ad->GetVal() == 0 && id == cmdMul)
+			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
+			if(Ad->GetLong() == 0 && id == cmdMul)
 			{
 				RemoveLastNode(shA == 1); // a*0L -> 0L
 				success = true;
 			}
-			if((Ad->GetVal() == 0 && id == cmdAdd) || (Ad->GetVal() == 1 && id == cmdMul))
+			if((Ad->GetLong() == 0 && id == cmdAdd) || (Ad->GetLong() == 1 && id == cmdMul))
 			{
 				RemoveLastNode(shA == 2); // a+0L -> a || a*1L -> a
 				success = true;
 			}
 		}else if(bType == typeInt){
-			NodeNumber<int> *Ad = static_cast<NodeNumber<int>* >(nodeList[nodeList.size()-shA]);
-			if(Ad->GetVal() == 0 && id == cmdMul)
+			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
+			if(Ad->GetInteger() == 0 && id == cmdMul)
 			{
 				RemoveLastNode(shA == 1); // a*0 -> 0
 				success = true;
 			}
-			if((Ad->GetVal() == 0 && id == cmdAdd) || (Ad->GetVal() == 1 && id == cmdMul))
+			if((Ad->GetInteger() == 0 && id == cmdAdd) || (Ad->GetInteger() == 1 && id == cmdMul))
 			{
 				RemoveLastNode(shA == 2); // a+0 -> a || a*1 -> a
 				success = true;
@@ -876,7 +833,7 @@ void GetTypeSize(const char* pos, bool sizeOfExpr)
 		currTypes.back() = nodeList.back()->typeInfo;
 		nodeList.pop_back();
 	}
-	nodeList.push_back(new NodeNumber<int>(currTypes.back()->size, typeInt));
+	nodeList.push_back(new NodeNumber((int)currTypes.back()->size, typeInt));
 }
 
 void SetTypeOfLastNode()
@@ -927,7 +884,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			int i = FindVariableByName(contextHash);
 			if(i == -1)
 			{
-				nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
+				nodeList.push_back(new NodeNumber(0, GetReferenceType(typeInt)));
 			}else{
 				AddGetAddressNode(pos, InplaceStr(contextName, length));
 				currTypes.pop_back();
@@ -980,7 +937,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 
 			nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 			AddDereferenceNode(pos);
-			nodeList.push_back(new NodeNumber<int>(num, typeInt));
+			nodeList.push_back(new NodeNumber(num, typeInt));
 			AddArrayIndexNode(pos);
 			AddDereferenceNode(pos);
 			// Убрали текущий тип
@@ -1026,13 +983,11 @@ void AddArrayIndexNode(const char* pos)
 		NodeZeroOP* zOP = indexNode;
 		if(aType == typeDouble)
 		{
-			shiftValue = (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
-		}else if(aType == typeFloat){
-			shiftValue = (int)static_cast<NodeNumber<float>* >(zOP)->GetVal();
+			shiftValue = (int)static_cast<NodeNumber*>(zOP)->GetDouble();
 		}else if(aType == typeLong){
-			shiftValue = (int)static_cast<NodeNumber<long long>* >(zOP)->GetVal();
+			shiftValue = (int)static_cast<NodeNumber*>(zOP)->GetLong();
 		}else if(aType == typeInt){
-			shiftValue = static_cast<NodeNumber<int>* >(zOP)->GetVal();
+			shiftValue = static_cast<NodeNumber*>(zOP)->GetInteger();
 		}else{
 			sprintf(callbackError, "AddArrayIndexNode() ERROR: unknown index type %s", aType->name);
 			ThrowError(callbackError, pos);
@@ -1139,7 +1094,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 			// Конструктор списка захватит предыдущий узел в себя
 			NodeExpressionList *listExpr = new NodeExpressionList(varInfo[i]->varType);
 			// Создадим узел, возвращающий число - размер массива
-			nodeList.push_back(new NodeNumber<int>(typeSize, typeInt));
+			nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
 			// Добавим в список
 			listExpr->AddNode();
 			// Положим список в список узлов
@@ -1234,7 +1189,7 @@ void AddSetVariableNode(const char* pos)
 
 			unsigned int typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
 			NodeExpressionList *listExpr = new NodeExpressionList(realCurrType);
-			nodeList.push_back(new NodeNumber<int>(typeSize, typeInt));
+			nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
 
@@ -1770,7 +1725,7 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			static_cast<NodeDereference*>(paramNodes[index])->SetFirstNode(NULL);
 			paramNodes[index] = NULL;
 			NodeExpressionList *listExpr = new NodeExpressionList(varInfo[i]->varType);
-			nodeList.push_back(new NodeNumber<int>(typeSize, typeInt));
+			nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
 		}else{
@@ -1787,7 +1742,7 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		int i = FindVariableByName(contextHash);
 		if(i == -1)
 		{
-			nodeList.push_back(new NodeNumber<int>(0, GetReferenceType(typeInt)));
+			nodeList.push_back(new NodeNumber(0, GetReferenceType(typeInt)));
 		}else{
 			AddGetAddressNode(pos, InplaceStr(contextName, length));
 			if(currTypes.back()->refLevel == 1)
@@ -1930,7 +1885,7 @@ void TypeFinish()
 
 void AddUnfixedArraySize()
 {
-	nodeList.push_back(new NodeNumber<int>(1, typeVoid));
+	nodeList.push_back(new NodeNumber(1, typeVoid));
 }
 
 // Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует

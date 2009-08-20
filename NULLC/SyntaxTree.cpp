@@ -315,26 +315,19 @@ void NodeThreeOP::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Вспомогательная функция для NodeNumber<T>
-void NodeNumberPushCommand(asmDataType dt, char* data)
+// Узел который кладёт число в стек
+void NodeNumber::Compile()
 {
-	if(dt == DTYPE_CHAR)
-		cmdList.push_back(VMCmd(cmdPushImmt, (int)*data));
-	else if(dt == DTYPE_SHORT)
-		cmdList.push_back(VMCmd(cmdPushImmt, (int)*(short*)data));
-	else if(dt == DTYPE_INT)
-		cmdList.push_back(VMCmd(cmdPushImmt, *(int*)data));
-	else if(dt == DTYPE_FLOAT){
-		double val = (double)*(float*)(data);
-		cmdList.push_back(VMCmd(cmdPushImmt, ((int*)(&val))[1]));
-		cmdList.push_back(VMCmd(cmdPushImmt, ((int*)(&val))[0]));
-	}else if(dt == DTYPE_DOUBLE || dt == DTYPE_LONG){
-		cmdList.push_back(VMCmd(cmdPushImmt, *(int*)(data + 4)));
-		cmdList.push_back(VMCmd(cmdPushImmt, *(int*)(data)));
-	}else{
-		assert(!"complex type cannot be pushed immediately");
-	}
+	if(codeSize == 2)
+		cmdList.push_back(VMCmd(cmdPushImmt, quad.high));
+	cmdList.push_back(VMCmd(cmdPushImmt, quad.low));
 }
+void NodeNumber::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s Number\r\n", typeInfo->GetFullTypeName());
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Узел, убирающий с вершины стека значение, оставленное дочерним узлом
 NodePopOp::NodePopOp()
@@ -803,7 +796,7 @@ void NodeFuncCall::LogToStream(FILE *fGraph)
 	if(second)
 		second->LogToStream(fGraph);
 	NodeZeroOP	*curr = paramTail;
-	do
+	while(curr)
 	{
 		if(curr == paramHead)
 		{
@@ -812,7 +805,7 @@ void NodeFuncCall::LogToStream(FILE *fGraph)
 		}
 		curr->LogToStream(fGraph);
 		curr = curr->prev;
-	}while(curr);
+	}
 	GoUp();
 }
 
@@ -877,7 +870,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s GetAddress ", typeInfo->GetFullTypeName());
 	if(varInfo)
-		fprintf(fGraph, "%s%s '%s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetFullTypeName(), varInfo->name);
+		fprintf(fGraph, "%s%s '%.*s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetFullTypeName(), varInfo->name.end-varInfo->name.begin, varInfo->name.begin);
 	else
 		fprintf(fGraph, "$$$");
 	fprintf(fGraph, " (%d %s)\r\n", (int)varAddress, (absAddress ? " absolute" : " relative"));
@@ -918,6 +911,11 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
+
+	/*if(second->nodeType == typeNodeNumber)
+	{
+		ConvertNumberNode((NodeNumber*)second)->ConvertTo(typeInfo);
+	}*/
 
 	// Если типы не равны
 	if(second->typeInfo != typeInfo)
@@ -1220,13 +1218,11 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 		NodeZeroOP* zOP = second;
 		if(aType == typeDouble)
 		{
-			shiftValue = typeParent->subType->size * (int)static_cast<NodeNumber<double>* >(zOP)->GetVal();
-		}else if(aType == typeFloat){
-			shiftValue = typeParent->subType->size * (int)static_cast<NodeNumber<float>* >(zOP)->GetVal();
+			shiftValue = typeParent->subType->size * (int)static_cast<NodeNumber*>(zOP)->GetDouble();
 		}else if(aType == typeLong){
-			shiftValue = typeParent->subType->size * (int)static_cast<NodeNumber<long long>* >(zOP)->GetVal();
+			shiftValue = typeParent->subType->size * (int)static_cast<NodeNumber*>(zOP)->GetLong();
 		}else if(aType == typeInt){
-			shiftValue = typeParent->subType->size * static_cast<NodeNumber<int>* >(zOP)->GetVal();
+			shiftValue = typeParent->subType->size * static_cast<NodeNumber*>(zOP)->GetInteger();
 		}else{
 			char	errBuf[128];
 			_snprintf(errBuf, 128, "NodeArrayIndex() ERROR: unknown type %s", aType->name);

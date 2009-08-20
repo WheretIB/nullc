@@ -38,7 +38,7 @@ public:
 	TypeInfo(unsigned int index, const char *typeName, unsigned int referenceLevel, unsigned int arrayLevel, unsigned int arraySize, TypeInfo *childType, TypeCategory cat)
 	{
 		name = typeName;
-		nameHash = name ? GetStringHash(name) : (unsigned int)(~0);
+		nameHash = name ? GetStringHash(name) : ~0u;
 
 		size = 0;
 
@@ -59,8 +59,8 @@ public:
 		refType = NULL;
 
 		fullName = NULL;
-		fullNameLength = (unsigned int)(~0);
-		fullNameHash = (unsigned int)(~0);
+		fullNameLength = ~0u;
+		fullNameHash = ~0u;
 
 		firstVariable = lastVariable = NULL;
 		firstFunction = lastFunction = NULL;

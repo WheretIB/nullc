@@ -323,7 +323,7 @@ struct VMCmd
 		case cmdPushFloatStk:
 		case cmdPushDorLStk:
 		case cmdPushCmplxStk:
-			curr += sprintf(curr, " [%d] sizeof(%d)", argument, helper);
+			curr += sprintf(curr, " [%d%s] sizeof(%d)", argument, flag ? " + base" : "", helper);
 			break;
 
 		case cmdPushImmt:
@@ -343,7 +343,7 @@ struct VMCmd
 		case cmdMovFloatStk:
 		case cmdMovDorLStk:
 		case cmdMovCmplxStk:
-			curr += sprintf(curr, " [%d] sizeof(%d)", argument, helper);
+			curr += sprintf(curr, " [%d%s] sizeof(%d)", argument, flag ? " + base" : "", helper);
 			break;
 
 		case cmdReserveV:
