@@ -131,55 +131,50 @@ protected:
 	NodeZeroOP*	third;
 };
 
-// Assembly type traits
-template <typename T> struct AsmTypeTraits;
-
-#define ASM_TYPE_TRAITS(type, dataTypeValue, stackTypeValue, nodeCodeSize) template <> struct AsmTypeTraits<type>\
-{\
-	static const asmDataType dataType = dataTypeValue;\
-	static const asmStackType stackType = stackTypeValue;\
-	static const unsigned int codeSize = nodeCodeSize;\
-}
-
-ASM_TYPE_TRAITS(char, DTYPE_CHAR, STYPE_INT, 1);
-ASM_TYPE_TRAITS(short, DTYPE_SHORT, STYPE_INT, 1);
-ASM_TYPE_TRAITS(int, DTYPE_INT, STYPE_INT, 1);
-ASM_TYPE_TRAITS(long long, DTYPE_LONG, STYPE_LONG, 2);
-ASM_TYPE_TRAITS(float, DTYPE_FLOAT, STYPE_DOUBLE, 2); // float expands to double
-ASM_TYPE_TRAITS(double, DTYPE_DOUBLE, STYPE_DOUBLE, 2);
-
 //Zero child operators
-void NodeNumberPushCommand(asmDataType dt, char* data);
-template<typename T>
 class NodeNumber: public NodeZeroOP
 {
-	typedef T NumType;
-	typedef AsmTypeTraits<T> Traits;
 public:
-	NodeNumber(NumType number, TypeInfo* ptrType)
+	NodeNumber(int number, TypeInfo* ptrType)
 	{
-		num = number;
+		integer = number;
+		codeSize = 1;
 		typeInfo = ptrType;
-		codeSize = Traits::codeSize;
+		nodeType = typeNodeNumber;
+	}
+	NodeNumber(long long number, TypeInfo* ptrType)
+	{
+		integer64 = number;
+		codeSize = 2;
+		typeInfo = ptrType;
+		nodeType = typeNodeNumber;
+	}
+	NodeNumber(double number, TypeInfo* ptrType)
+	{
+		real = number;
+		codeSize = 2;
+		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
 	}
 	virtual ~NodeNumber(){}
 
-	virtual void Compile()
-	{
-		NodeNumberPushCommand(Traits::dataType, (char*)(&num));
-	}
-	virtual void LogToStream(FILE *fGraph)
-	{
-		DrawLine(fGraph);
-		fprintf(fGraph, "%s Number\r\n", typeInfo->GetFullTypeName());
-	}
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
 
-	NumType		 GetVal(){ return num; }
-	NumType		 GetLogNotVal(){ return !num; }
-	NumType		 GetBitNotVal(){ return ~num; }
+	int			GetInteger(){ assert(typeInfo == typeInt); return integer; }
+	long long	GetLong(){ assert(typeInfo == typeLong); return integer64; }
+	double		GetDouble(){ assert(typeInfo == typeDouble); return real; }
 protected:
-	NumType		num;
+	union
+	{
+		int integer;
+		long long	integer64;
+		double real;
+		struct QuadWord
+		{
+			int low, high;
+		} quad;
+	};
 };
 
 //One child operators

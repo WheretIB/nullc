@@ -908,9 +908,13 @@ bool ParseTernaryExpr(Lexeme** str)
 
 bool ParseVaribleSet(Lexeme** str)
 {
-	if(((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) || ((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
+	if(((*str)->type == lex_auto) ||
+		((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) ||
+		((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
+	{
 		if(ParseFunctionDefinition(str))
 			return true;
+	}
 	
 	Lexeme *start = *str;
 	if(ParseVariable(str))
