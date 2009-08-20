@@ -656,16 +656,9 @@ void AddBinaryCommandNode(CmdID id)
 
 void AddReturnNode(const char* pos, const char* end)
 {
-	int t = (int)varInfoTop.size();
-	int c = 0;
-	if(funcInfo.size() != 0)
-	{
-		while(t > (int)funcInfo.back()->vTopSize)
-		{
-			c++;
-			t--;
-		}
-	}
+	int varTopPopCount = funcInfo.size() != 0 ? (varInfoTop.size() - funcInfo.back()->vTopSize) : 0;
+	varTopPopCount = varTopPopCount > 0 ? varTopPopCount : 0;
+
 	TypeInfo *realRetType = nodeList.back()->typeInfo;
 	if(!retTypeStack.back() && currDefinedFunc.size() != 0)
 	{
@@ -687,7 +680,7 @@ void AddReturnNode(const char* pos, const char* end)
 	}
 	if(!retTypeStack.back() && realRetType == typeVoid)
 		ThrowError("ERROR: global return cannot accept void", pos);
-	nodeList.push_back(new NodeReturnOp(c, retTypeStack.back()));
+	nodeList.push_back(new NodeReturnOp(varTopPopCount, retTypeStack.back()));
 	nodeList.back()->SetCodeInfo(pos, end);
 }
 
@@ -695,28 +688,20 @@ void AddBreakNode(const char* pos)
 {
 	if(cycleBeginVarTop.size() == 0)
 		ThrowError("ERROR: break used outside loop statement", pos);
-	int t = (int)varInfoTop.size();
-	int c = 0;
-	while(t > (int)cycleBeginVarTop.back())
-	{
-		c++;
-		t--;
-	}
-	nodeList.push_back(new NodeBreakOp(c));
+
+	int varTopPopCount = varInfoTop.size() - cycleBeginVarTop.back();
+	varTopPopCount = varTopPopCount > 0 ? varTopPopCount : 0;
+	nodeList.push_back(new NodeBreakOp(varTopPopCount));
 }
 
 void AddContinueNode(const char* pos)
 {
 	if(cycleBeginVarTop.size() == 0)
 		ThrowError("ERROR: continue used outside loop statement", pos);
-	int t = (int)varInfoTop.size();
-	int c = 0;
-	while(t > (int)cycleBeginVarTop.back())
-	{
-		c++;
-		t--;
-	}
-	nodeList.push_back(new NodeContinueOp(c));
+
+	int varTopPopCount = varInfoTop.size() - cycleBeginVarTop.back();
+	varTopPopCount = varTopPopCount > 0 ? varTopPopCount : 0;
+	nodeList.push_back(new NodeContinueOp(varTopPopCount));
 }
 
 void SelectAutoType()
@@ -1118,18 +1103,18 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	// ѕеременна€ показывает, на сколько байт расширить стек переменных
 	unsigned int varSizeAdd = offsetBytes;	// ѕо умолчанию, она хранит выравнивающий сдвиг
 	offsetBytes = 0;	//  оторый сразу же обнул€етс€
-	// ≈сли тип не был ранее известен, значит в функции добавлени€ переменной выравнивание не было произведено
+	// ≈сли тип не был ранее известен, значит, в функции добавлени€ переменной выравнивание не было произведено
 	if(!currTypes.back())
 	{
 		// ≈сли выравнивание по умолчанию дл€ типа значени€ справа не равно нулю (без выравнивани€)
 		// »ли если выравнивание указано пользователем
 		if(realCurrType->alignBytes != 0 || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 		{
-			// ¬ыбираем выравниваени. ”казанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
+			// ¬ыбираем выравнивание. ”казанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
 			unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes;
 			if(activeAlign > 16)
 				ThrowError("ERROR: alignment must be less than 16 bytes", pos);
-			// ≈сли требуетс€ выравнивание (нету спецификации noalign, и адрес ещЄ не выравнен)
+			// ≈сли требуетс€ выравнивание (нету спецификации noalign, и адрес ещЄ не выровнен)
 			if(activeAlign != 0 && varTop % activeAlign != 0)
 			{
 				unsigned int offset = activeAlign - (varTop % activeAlign);
