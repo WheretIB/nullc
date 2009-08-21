@@ -155,7 +155,7 @@ void BeginBlock()
 }
 // ¬ызываетс€ в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечива€
 // их выход из области видимости. “акже уменьшает вершину стека переменных в байтах.
-void EndBlock()
+void EndBlock(bool createNode, bool genPopVTop, bool hideFunctions)
 {
 	unsigned int varFormerTop = varTop;
 	while(varInfo.size() > varInfoTop.back().activeVarCnt)
@@ -163,11 +163,15 @@ void EndBlock()
 	varTop = varInfoTop.back().varStackSize;
 	varInfoTop.pop_back();
 
-	for(unsigned int i = funcInfoTop.back(); i < funcInfo.size(); i++)
-		funcInfo[i]->visible = false;
+	if(hideFunctions)
+	{
+		for(unsigned int i = funcInfoTop.back(); i < funcInfo.size(); i++)
+			funcInfo[i]->visible = false;
+	}
 	funcInfoTop.pop_back();
 
-	nodeList.push_back(new NodeBlock(varFormerTop-varTop));
+	if(createNode)
+		nodeList.push_back(new NodeBlock(varFormerTop-varTop, genPopVTop));
 }
 
 // input is a symbol after '\'
@@ -843,13 +847,13 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		int fID = FindFunctionByName(hash, funcInfo.size()-1);
 		if(fID == -1)
 		{
-			sprintf(callbackError, "ERROR: function '%s' is not defined", varName);
+			sprintf(callbackError, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 
 		if(FindFunctionByName(hash, fID - 1) != -1)
 		{
-			sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
+			sprintf(callbackError, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 
@@ -1246,13 +1250,13 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		fID = FindFunctionByName(hash, funcInfo.size()-1);
 		if(fID == -1)
 		{
-			sprintf(callbackError, "ERROR: function '%s' is not defined", varName);
+			sprintf(callbackError, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 
 		if(FindFunctionByName(hash, fID - 1) != -1)
 		{
-			sprintf(callbackError, "ERROR: there are more than one '%s' function, and the decision isn't clear", varName);
+			sprintf(callbackError, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 	}
@@ -1414,7 +1418,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 }
 void FunctionStart(const char* pos)
 {
-	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
+	BeginBlock();
 
 	for(VariableInfo *curr = funcInfo.back()->lastParam; curr; curr = curr->prev)
 	{
@@ -1469,12 +1473,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 		}
 	}
 
-	unsigned int varFormerTop = varTop;
-	while(varInfo.size() > varInfoTop.back().activeVarCnt)
-		varInfo.pop_back();
-	varTop = varInfoTop.back().varStackSize;
-	varInfoTop.pop_back();
-	nodeList.push_back(new NodeBlock(varFormerTop-varTop, false));
+	EndBlock(true, false);
 
 	nodeList.push_back(new NodeFuncDef(funcInfo[i]));
 	funcDefList.push_back(nodeList.back());
@@ -1798,7 +1797,7 @@ void AddDoWhileNode()
 void BeginSwitch()
 {
 	cycleBeginVarTop.push_back((unsigned int)varInfoTop.size());
-	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
+	BeginBlock();
 	nodeList.push_back(new NodeSwitchExpr());
 }
 void AddCaseNode()
@@ -1809,12 +1808,7 @@ void AddCaseNode()
 void EndSwitch()
 {
 	cycleBeginVarTop.pop_back();
-	while(varInfo.size() > varInfoTop.back().activeVarCnt)
-	{
-		varTop--;
-		varInfo.pop_back();
-	}
-	varInfoTop.pop_back();
+	EndBlock(false);
 }
 
 void TypeBegin(const char* pos, const char* end)
@@ -1834,8 +1828,8 @@ void TypeBegin(const char* pos, const char* end)
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 
 	typeInfo.push_back(newType);
-	
-	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
+
+	BeginBlock();
 }
 
 void TypeAddMember(const char* pos, const char* varName)
@@ -1861,10 +1855,7 @@ void TypeFinish()
 
 	newType = NULL;
 
-	while(varInfo.size() > varInfoTop.back().activeVarCnt)
-		varInfo.pop_back();
-	varTop = varInfoTop.back().varStackSize;
-	varInfoTop.pop_back();
+	EndBlock(false, false, false);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
