@@ -409,13 +409,13 @@ bool Compiler::Compile(const char *str)
 		fprintf(compileLog, "%s %s(", currFunc.retType->GetFullTypeName(), currFunc.name);
 
 		for(VariableInfo *curr = currFunc.firstParam; curr; curr = curr->next)
-			fprintf(compileLog, "%s %s%s", curr->varType->GetFullTypeName(), curr->name, (curr == currFunc.lastParam ? "" : ", "));
+			fprintf(compileLog, "%s %.*s%s", curr->varType->GetFullTypeName(), curr->name.end-curr->name.begin, curr->name.begin, (curr == currFunc.lastParam ? "" : ", "));
 		
 		fprintf(compileLog, ")\r\n");
 		if(currFunc.type == FunctionInfo::LOCAL)
 		{
 			for(FunctionInfo::ExternalName *curr = currFunc.firstExternal; curr; curr = curr->next)
-				fprintf(compileLog, "  external var: %s\r\n", curr->name);
+				fprintf(compileLog, "  external var: %.*s\r\n", curr->name.end-curr->name.begin, curr->name.begin);
 		}
 	}
 	fflush(compileLog);
