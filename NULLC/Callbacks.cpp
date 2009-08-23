@@ -195,6 +195,16 @@ char UnescapeSybmol(char symbol)
 	return res;
 }
 
+unsigned int GetAlignmentOffset(const char *pos, unsigned int alignment)
+{
+	if(alignment > 16)
+		ThrowError("ERROR: alignment must be less than 16 bytes", pos);
+	// Если требуется выравнивание (нету спецификации noalign, и адрес ещё не выровнен)
+	if(alignment != 0 && varTop % alignment != 0)
+		return alignment - (varTop % alignment);
+	return 0;
+}
+
 // Функции для добавления узлов с константными числами разных типов
 void AddNumberNodeChar(const char* pos)
 {
@@ -755,15 +765,9 @@ void AddVariable(const char* pos, InplaceStr varName)
 	
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 	{
-		unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes;
-		if(activeAlign > 16)
-			ThrowError("ERROR: alignment must be less than 16 bytes", pos);
-		if(activeAlign != 0 && varTop % activeAlign != 0)
-		{
-			unsigned int offset = activeAlign - (varTop % activeAlign);
-			varTop += offset;
-			offsetBytes += offset;
-		}
+		unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes);
+		varTop += offset;
+		offsetBytes += offset;
 	}
 	varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currValConst));
 	varDefined = true;
@@ -1115,17 +1119,10 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 		if(realCurrType->alignBytes != 0 || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 		{
 			// Выбираем выравнивание. Указанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
-			unsigned int activeAlign = currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes;
-			if(activeAlign > 16)
-				ThrowError("ERROR: alignment must be less than 16 bytes", pos);
-			// Если требуется выравнивание (нету спецификации noalign, и адрес ещё не выровнен)
-			if(activeAlign != 0 && varTop % activeAlign != 0)
-			{
-				unsigned int offset = activeAlign - (varTop % activeAlign);
-				varSizeAdd += offset;
-				varInfo[i]->pos += offset;
-				varTop += offset;
-			}
+			unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes);
+			varSizeAdd += offset;
+			varInfo[i]->pos += offset;
+			varTop += offset;
 		}
 		varInfo[i]->varType = realCurrType;
 		varTop += realCurrType->size;
