@@ -158,8 +158,7 @@ void BeginBlock()
 void EndBlock(bool createNode, bool genPopVTop, bool hideFunctions)
 {
 	unsigned int varFormerTop = varTop;
-	while(varInfo.size() > varInfoTop.back().activeVarCnt)
-		varInfo.pop_back();
+	varInfo.shrink(varInfoTop.back().activeVarCnt);
 	varTop = varInfoTop.back().varStackSize;
 	varInfoTop.pop_back();
 
@@ -1537,11 +1536,45 @@ void FunctionEnd(const char* pos, const char* funcName)
 FastVector<NodeZeroOP*> paramNodes(32);
 FastVector<NodeZeroOP*> inplaceArray(32);
 
+unsigned int GetFunctionRating(FunctionInfo *currFunc, unsigned int callArgCount)
+{
+	if(currFunc->paramCount != callArgCount)
+		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
+
+	unsigned int fRating = 0;
+	unsigned int n = 0;
+	for(VariableInfo *curr = currFunc->firstParam; curr; curr = curr->next, n++)
+	{
+		NodeZeroOP* activeNode = nodeList[nodeList.size() - currFunc->paramCount + n];
+		TypeInfo *paramType = activeNode->typeInfo;
+		unsigned int	nodeType = activeNode->nodeType;
+		TypeInfo *expectedType = curr->varType;
+		if(expectedType != paramType)
+		{
+			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
+				fRating += 5;
+			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef ||
+					(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode)->GetFirstNode()->nodeType == typeNodeFuncDef))
+				fRating += 5;
+			else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX)
+				return ~0u;	// If one of types is complex, and they aren't equal, function cannot match
+			else if(paramType->subType != expectedType->subType)
+				return ~0u;	// Pointer or array with a different type inside. Doesn't matter if simple or complex.
+			else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
+				fRating += 1;
+		}
+	}
+	return fRating;
+}
+
+FastVector<FunctionInfo*>	bestFuncList;
+FastVector<unsigned int>	bestFuncRating;
+
 void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount)
 {
 	unsigned int funcNameHash = GetStringHash(funcName);
 
-	// Searching, if fname is actually a variable name (which means, either it is a pointer to function, or an error)
+	// Searching, if function name is actually a variable name (which means, either it is a pointer to function, or an error)
 	int vID = FindVariableByName(funcNameHash);
 
 	FunctionInfo	*fInfo = NULL;
@@ -1550,65 +1583,35 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	if(vID == -1)
 	{
 		//Find all functions with given name
-		FunctionInfo	*fList[32];
-		unsigned int	fRating[32];
+		bestFuncList.clear();
 
-		unsigned int count = 0;
-		for(int k = 0; k < (int)funcInfo.size(); k++)
+		for(unsigned int k = 0; k < funcInfo.size(); k++)
 		{
 			if(funcInfo[k]->nameHash == funcNameHash && funcInfo[k]->visible)
-			{
-				fRating[count] = 0;
-				fList[count++] = funcInfo[k];
-			}
+				bestFuncList.push_back(funcInfo[k]);
 		}
+		unsigned int count = bestFuncList.size();
 		if(count == 0)
 		{
 			sprintf(callbackError, "ERROR: function '%s' is undefined", funcName);
 			ThrowError(callbackError, pos);
 		}
 		// Find the best suited function
-		unsigned int minRating = 1024*1024;
-		unsigned int minRatingIndex = (unsigned int)~0;
+		bestFuncRating.resize(count);
+
+		unsigned int minRating = ~0u;
+		unsigned int minRatingIndex = ~0u;
 		for(unsigned int k = 0; k < count; k++)
 		{
-			if(fList[k]->paramCount != callArgCount)
+			bestFuncRating[k] = GetFunctionRating(bestFuncList[k], callArgCount);
+			if(bestFuncRating[k] < minRating)
 			{
-				fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
-				continue;
-			}
-			unsigned int n = 0;
-			for(VariableInfo *curr = fList[k]->firstParam; curr; curr = curr->next, n++)//; n < fList[k]->params.size(); n++)
-			{
-				NodeZeroOP* activeNode = nodeList[nodeList.size() - fList[k]->paramCount + n];
-				TypeInfo *paramType = activeNode->typeInfo;
-				unsigned int	nodeType = activeNode->nodeType;
-				TypeInfo *expectedType = curr->varType;
-				if(expectedType != paramType)
-				{
-					if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
-						fRating[k] += 5;
-					else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef ||
-							(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode)->GetFirstNode()->nodeType == typeNodeFuncDef))
-						fRating[k] += 5;
-					else if(expectedType->type == TypeInfo::TYPE_COMPLEX)
-						fRating[k] += 65000;	// Definitely, this isn't the function we are trying to call. Function excepts different complex type.
-					else if(paramType->type == TypeInfo::TYPE_COMPLEX)
-						fRating[k] += 65000;	// Again. Function excepts complex type, and all we have is simple type (cause previous condition failed).
-					else if(paramType->subType != expectedType->subType)
-						fRating[k] += 65000;	// Pointer or array with a different types inside. Doesn't matter if simple or complex.
-					else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
-						fRating[k] += 1;
-				}
-			}
-			if(fRating[k] < minRating)
-			{
-				minRating = fRating[k];
+				minRating = bestFuncRating[k];
 				minRatingIndex = k;
 			}
 		}
 		// Maybe the function we found can't be used at all
-		if(minRating > 1000)
+		if(minRatingIndex == -1)
 		{
 			char errTemp[512];
 			char	*errPos = errTemp;
@@ -1619,8 +1622,8 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			for(unsigned int n = 0; n < count; n++)
 			{
 				errPos += sprintf(errPos, "  %s(", funcName);
-				for(VariableInfo *curr = fList[n]->firstParam; curr; curr = curr->next)
-					errPos += sprintf(errPos, "%s%s", curr->varType->GetFullTypeName(), curr != fList[n]->lastParam ? ", " : "");
+				for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
+					errPos += sprintf(errPos, "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
 				errPos += sprintf(errPos, ")\r\n");
 			}
 			lastError = CompilerError(errTemp, pos);
@@ -1629,7 +1632,7 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		// Check, is there are more than one function, that share the same rating
 		for(unsigned int k = 0; k < count; k++)
 		{
-			if(k != minRatingIndex && fRating[k] == minRating)
+			if(k != minRatingIndex && bestFuncRating[k] == minRating)
 			{
 				char errTemp[512];
 				char	*errPos = errTemp;
@@ -1639,19 +1642,19 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				errPos += sprintf(errPos, ")\r\n  candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
-					if(fRating[n] != minRating)
+					if(bestFuncRating[n] != minRating)
 						continue;
 					errPos += sprintf(errPos, "  %s(", funcName);
-					for(VariableInfo *curr = fList[n]->firstParam; curr; curr = curr->next)
-						errPos += sprintf(errPos, "%s%s", curr->varType->GetFullTypeName(), curr != fList[n]->lastParam ? ", " : "");
+					for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
+						errPos += sprintf(errPos, "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
 					errPos += sprintf(errPos, ")\r\n");
 				}
 				lastError = CompilerError(errTemp, pos);
 				ThrowLastError();
 			}
 		}
-		fType = fList[minRatingIndex]->funcType->funcType;
-		fInfo = fList[minRatingIndex];
+		fType = bestFuncList[minRatingIndex]->funcType->funcType;
+		fInfo = bestFuncList[minRatingIndex];
 	}else{
 		AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
 		AddGetVariableNode(pos);
@@ -1763,7 +1766,7 @@ void AddIfElseTermNode(const char* pos)
 {
 	TypeInfo* typeA = nodeList[nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->typeInfo;
-	if(typeA != typeB)
+	if(typeA != typeB && (typeA->type == TypeInfo::TYPE_COMPLEX || typeB->type == TypeInfo::TYPE_COMPLEX))
 	{
 		sprintf(callbackError, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
 		ThrowError(callbackError, pos);

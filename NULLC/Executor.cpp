@@ -835,7 +835,8 @@ void Executor::Run(const char* funcName)
 				genStackPtr--;
 				*genStackPtr = *((char*)(&genParams[shift + cmd.argument]));
 			}
-			*((char*)(&genParams[shift + cmd.argument])) += (char)(short)cmd.helper;
+			char *address = (char*)&genParams[shift + cmd.argument];
+			*address = *address + (char)(short)cmd.helper;
 			if(cmd.flag == bitPushAfter)
 			{
 				genStackPtr--;
@@ -852,7 +853,8 @@ void Executor::Run(const char* funcName)
 				genStackPtr--;
 				*genStackPtr = *((short*)(&genParams[shift + cmd.argument]));
 			}
-			*((short*)(&genParams[shift + cmd.argument])) += (short)cmd.helper;
+			short *address = (short*)&genParams[shift + cmd.argument];
+			*address = *address + (short)cmd.helper;
 			if(cmd.flag == bitPushAfter)
 			{
 				genStackPtr--;

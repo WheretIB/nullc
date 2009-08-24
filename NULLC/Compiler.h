@@ -29,7 +29,7 @@ public:
 	}
 	static const char *codeStart;
 private:
-	char error[128];
+	char error[256];
 	char line[128];
 	unsigned int shift;
 	unsigned int lineNum;

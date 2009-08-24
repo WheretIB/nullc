@@ -1680,14 +1680,12 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 	second = TakeLastNode();
 	first = TakeLastNode();
 	// Если это условный оператор, то имеется тип результата отличный от void
-	// Потенциальная ошибка имеется, когда разные результирующие варианты имеют разные типы.
-	// Следует исправить! BUG 0003
 	if(isTerm)
-		typeInfo = second->typeInfo;
+		typeInfo = second->typeInfo != third->typeInfo ? ChooseBinaryOpResultType(second->typeInfo, third->typeInfo) : second->typeInfo;
 
 	codeSize = first->codeSize + second->codeSize + 1;
 	if(third)
-		codeSize += third->codeSize + 1;
+		codeSize += third->codeSize + 1 + (second->typeInfo != third->typeInfo ? 1 : 0);
 	nodeType = typeNodeIfElseExpr;
 }
 NodeIfElseExpr::~NodeIfElseExpr()
@@ -1708,18 +1706,22 @@ void NodeIfElseExpr::Compile()
 	first->Compile();
 
 	// Если false, перейдём в блок else или выйдем из оператора, если такого блока не имеется
-	cmdList.push_back(VMCmd(cmdJmpZType[aOT], 1 + cmdList.size() + second->codeSize + (third ? 1 : 0)));
+	cmdList.push_back(VMCmd(cmdJmpZType[aOT], 1 + cmdList.size() + second->codeSize + (third ? 1 + ConvertFirstForSecondSize(second->typeInfo->stackType, third->typeInfo->stackType) : 0)));
 
 	// Выполним блок для успешного прохождения условия (true)
 	second->Compile();
+	if(typeInfo != typeVoid)
+		ConvertFirstForSecond(second->typeInfo->stackType, third->typeInfo->stackType);
 	// Если есть блок else, выполним его
 	if(third)
 	{
 		// Только поставим выход из оператора перед его кодом, чтобы не выполнять обе ветви
-		cmdList.push_back(VMCmd(cmdJmp, 1 + cmdList.size() + third->codeSize));
+		cmdList.push_back(VMCmd(cmdJmp, 1 + cmdList.size() + third->codeSize + ConvertFirstForSecondSize(third->typeInfo->stackType, second->typeInfo->stackType)));
 
 		// Выполним блок else (false)
 		third->Compile();
+		if(typeInfo != typeVoid)
+			ConvertFirstForSecond(third->typeInfo->stackType, second->typeInfo->stackType);
 	}
 
 	assert((cmdList.size()-startCmdSize) == codeSize);

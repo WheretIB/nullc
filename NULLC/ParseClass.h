@@ -299,7 +299,7 @@ public:
 class FunctionInfo
 {
 public:
-	FunctionInfo(const char *funcName)
+	explicit FunctionInfo(const char *funcName)
 	{
 		name = funcName;
 		nameLength = (int)strlen(name);
