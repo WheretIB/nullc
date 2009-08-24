@@ -1,8 +1,9 @@
 #pragma once
 
 #ifdef _MSC_VER
-#pragma warning(disable: 4996)
-#pragma warning(disable: 4127)
+#pragma warning(disable: 4996)	// function is deprecated
+#pragma warning(disable: 4127)	// conditional expression is constant
+#pragma warning(disable: 4611)	// interaction between '_setjmp' and C++ object destruction is non-portable
 #endif
 
 #ifndef _MSC_VER
@@ -40,18 +41,7 @@ template<typename T, bool zeroNewMemory = false, bool skipConstructor = false>
 class FastVector
 {
 public:
-	FastVector()
-	{
-		if(!skipConstructor)
-			data = new T[256];
-		else
-			data = (T*)new char[sizeof(T) * 256];
-		if(zeroNewMemory)
-			memset(data, 0, 256 * sizeof(T));
-		max = 256;
-		m_size = 0;
-	}
-	FastVector(unsigned int reserved)
+	explicit FastVector(unsigned int reserved = 256)
 	{
 		if(!skipConstructor)
 			data = new T[reserved];
@@ -158,14 +148,14 @@ public:
 		if(curr->next)
 		{
 			curr = curr->next;
-			size = 0;
-			return Allocate(bytes);
+			size = bytes;
+			return curr->data;
 		}
 		curr->next = new StackChunk;
 		curr = curr->next;
 		curr->next = NULL;
-		size = 0;
-		return Allocate(bytes);
+		size = bytes;
+		return curr->data;
 	}
 	unsigned int GetSize()
 	{
