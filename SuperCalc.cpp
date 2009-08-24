@@ -233,8 +233,8 @@ void PrintLong(long long lg)
 void draw_rect(int x, int y, int width, int height, int color)
 {
 	//DWORD written;
-	/*char buf[64];
-	printf("%d %d %d %d %d\r\n", x, y, width, height, color);*/
+	//char buf[64];
+	//printf("%d %d %d %d %d\r\n", x, y, width, height, color);
 	//fwrite(buf, strlen(buf), 1, zeuxOut);
 }
 
@@ -543,9 +543,9 @@ void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	char name[256];
 	HTREEITEM lastItem;
 
-	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)//for(unsigned int mn = 0; mn < type->memberData.size(); mn++)
+	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 	{
-		TypeInfo::MemberVariable &mInfo = *curr;//type->memberData[mn];
+		TypeInfo::MemberVariable &mInfo = *curr;
 
 		sprintf(name, "%s %s = ", mInfo.type->GetFullTypeName(), mInfo.name);
 
@@ -633,7 +633,7 @@ void FillVariableInfoTree()
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
 		address = currVar.pos;
-		sprintf(name, "%d: %s%s %s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetFullTypeName(), currVar.name);
+		sprintf(name, "%d: %s%s %.*s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetFullTypeName(), currVar.name.end-currVar.name.begin, currVar.name.begin);
 
 		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
 			strcat(name, GetSimpleVariableValue(currVar.varType, address));
@@ -683,21 +683,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			nullcSetExecutor(NULLC_VM);
 			nullcSetExecutorOptions(false);
+
+			//nullcSetExecutor(NULLC_X86);
+			//nullcSetExecutorOptions(true);
 			double compTime = 0.0, bytecodeTime = 0.0, linkTime = 0.0, execTime = 0.0;
 			int kkk = 0;
 			double time = myGetPreciseTime();
 		//for(kkk = 0; kkk < 30000; kkk++)
 		//{
+		//	double time = myGetPreciseTime();
 			nullres good = nullcCompile(buf);
-		//	nullcSaveListing("asm.txt");
+			nullcSaveListing("asm.txt");
 		//}
 			compTime += myGetPreciseTime()-time;
 			time = myGetPreciseTime();
 
-			char *bytecode;
+			char *bytecode = NULL;
 		//for(kkk = 0; kkk < 300000; kkk++)
 		//{
-			unsigned int size = nullcGetBytecode(&bytecode);
+			if(good)
+				nullcGetBytecode(&bytecode);
 		//	delete[] bytecode;
 		//}
 			bytecodeTime += myGetPreciseTime()-time;
@@ -705,8 +710,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			time = myGetPreciseTime();
 		//for(kkk = 0; kkk < 300000; kkk++)
 		//{
-			nullcClean();
-			nullcLinkCode(bytecode, 1);
+			if(good)
+			{
+				nullcClean();
+				nullcLinkCode(bytecode, 1);
+			}
 		//}
 			linkTime += myGetPreciseTime()-time;
 
@@ -719,8 +727,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				
 				double time = myGetPreciseTime();
 				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
-
-				
 
 				if(goodRun)
 				{
@@ -739,7 +745,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			//SetWindowText(hLog, nullcGetCompilationLog());
 		//}
 			//linkTime += myGetPreciseTime()-time;
-			//sprintf_s(result, 128, "compile: %f bytecode: %f link: %f", compTime, bytecodeTime, linkTime);
+		//	sprintf_s(result, 128, "compile: %f bytecode: %f link: %f", compTime, bytecodeTime, linkTime);
 			SetWindowText(hResult, result);
 		}
 		if((HWND)lParam == hButtonCalcX86)
@@ -754,7 +760,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			nullcSetExecutorOptions(!!Button_GetCheck(hDoOptimize));
 
 			char	result[128];
-
+//double time = myGetPreciseTime();
 			nullres good = nullcCompile(buf);
 			nullcSaveListing("asm.txt");
 
