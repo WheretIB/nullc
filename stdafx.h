@@ -6,6 +6,8 @@
 
 #include <stdlib.h>
 
+#pragma warning(disable: 4275)
+
 #define _HAS_EXCEPTIONS 0
 
 #include <string>

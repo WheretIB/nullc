@@ -328,6 +328,25 @@ void NodeNumber::LogToStream(FILE *fGraph)
 	fprintf(fGraph, "%s Number\r\n", typeInfo->GetFullTypeName());
 }
 
+bool NodeNumber::ConvertTo(TypeInfo *target)
+{
+	if(target == typeInt)
+	{
+		integer = GetInteger();
+		codeSize = 1;
+	}else if(target == typeDouble || target == typeFloat){
+		real = GetDouble();
+		codeSize = 2;
+	}else if(target == typeLong){
+		integer64 = GetLong();
+		codeSize = 2;
+	}else{
+		return false;
+	}
+	typeInfo = target;
+	return true;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ”зел, убирающий с вершины стека значение, оставленное дочерним узлом
 NodePopOp::NodePopOp()
@@ -912,10 +931,8 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		return;
 	}
 
-	/*if(second->nodeType == typeNodeNumber)
-	{
-		ConvertNumberNode((NodeNumber*)second)->ConvertTo(typeInfo);
-	}*/
+	if(second->nodeType == typeNodeNumber)
+		static_cast<NodeNumber*>(second)->ConvertTo(typeInfo);
 
 	// ≈сли типы не равны
 	if(second->typeInfo != typeInfo)
@@ -1214,21 +1231,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 
 	if(second->nodeType == typeNodeNumber)
 	{
-		TypeInfo *aType = second->typeInfo;
-		NodeZeroOP* zOP = second;
-		if(aType == typeDouble)
-		{
-			shiftValue = typeParent->subType->size * (int)static_cast<NodeNumber*>(zOP)->GetDouble();
-		}else if(aType == typeLong){
-			shiftValue = typeParent->subType->size * (int)static_cast<NodeNumber*>(zOP)->GetLong();
-		}else if(aType == typeInt){
-			shiftValue = typeParent->subType->size * static_cast<NodeNumber*>(zOP)->GetInteger();
-		}else{
-			char	errBuf[128];
-			_snprintf(errBuf, 128, "NodeArrayIndex() ERROR: unknown type %s", aType->name);
-			lastError = CompilerError(errBuf, lastKnownStartPos);
-			return;
-		}
+		shiftValue = typeParent->subType->size * static_cast<NodeNumber*>(second)->GetInteger();
 		knownShift = true;
 	}
 
