@@ -54,12 +54,8 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 		{
 			TypeInfo *aType = nodeList.back()->typeInfo;
 			NodeZeroOP* zOP = nodeList.back();
-			if(aType == typeDouble)
+			if(aType == typeDouble || aType == typeLong || aType == typeInt)
 			{
-				arrSize = (int)static_cast<NodeNumber*>(zOP)->GetDouble();
-			}else if(aType == typeLong){
-				arrSize = (int)static_cast<NodeNumber*>(zOP)->GetLong();
-			}else if(aType == typeInt){
 				arrSize = static_cast<NodeNumber*>(zOP)->GetInteger();
 			}else if(aType == typeVoid){
 				arrSize = -1;

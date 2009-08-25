@@ -244,7 +244,7 @@ char typeTest(int x, short y, char z, int d, long long u, float m, double k)
 	DWORD written;
 	char buf[64];
 	sprintf(buf, "%d %d %d %d %I64d %f %f", x, y, z, d, u, m, k);
-	WriteFile(conStdOut, buf, strlen(buf), &written, NULL); 
+	WriteFile(conStdOut, buf, (DWORD)strlen(buf), &written, NULL); 
 	return 12;
 }
 

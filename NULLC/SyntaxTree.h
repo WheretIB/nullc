@@ -151,9 +151,32 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 
-	int			GetInteger(){ assert(typeInfo == typeInt); return integer; }
-	long long	GetLong(){ assert(typeInfo == typeLong); return integer64; }
-	double		GetDouble(){ assert(typeInfo == typeDouble); return real; }
+	int			GetInteger()
+	{
+		if(typeInfo == typeInt)
+			return integer;
+		else if(typeInfo == typeDouble || typeInfo == typeFloat)
+			return (int)real;
+		return (int)integer64;
+	}
+	long long	GetLong()
+	{
+		if(typeInfo == typeLong)
+			return integer64;
+		else if(typeInfo == typeDouble || typeInfo == typeFloat)
+			return (long long)real;
+		return integer;
+	}
+	double		GetDouble()
+	{
+		if(typeInfo == typeDouble || typeInfo == typeFloat)
+			return real;
+		else if(typeInfo == typeInt)
+			return integer;
+		return (double)integer64;
+	}
+
+	bool		ConvertTo(TypeInfo *target);
 protected:
 	union
 	{

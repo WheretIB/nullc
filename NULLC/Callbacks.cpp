@@ -547,55 +547,33 @@ void AddBinaryCommandNode(CmdID id)
 
 	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber)
 	{
+		NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size() - 2]);
+		NodeNumber *Bd = static_cast<NodeNumber*>(nodeList[nodeList.size() - 1]);
+		nodeList.pop_back();
+		nodeList.pop_back();
+
 		//If we have operation between two known numbers, we can optimize code by calculating the result in place
-		aType = nodeList[nodeList.size()-2]->typeInfo;
-		bType = nodeList[nodeList.size()-1]->typeInfo;
+		aType = Ad->typeInfo;
+		bType = Bd->typeInfo;
 
+		bool swapOper = false;
 		//Swap operands, to reduce number of combinations
-		if((aType == typeFloat || aType == typeLong || aType == typeInt) && bType == typeDouble)
-			Swap(shA, shB);
-		if((aType == typeLong || aType == typeInt) && bType == typeFloat)
-			Swap(shA, shB);
-		if(aType == typeInt && bType == typeLong)
-			Swap(shA, shB);
-
-		bool swapOper = shA != 2;
-
-		aType = nodeList[nodeList.size()-shA]->typeInfo;
-		bType = nodeList[nodeList.size()-shB]->typeInfo;
-		if(aType == typeDouble)
+		if(((aType == typeFloat || aType == typeLong || aType == typeInt) && bType == typeDouble) ||
+			((aType == typeLong || aType == typeInt) && bType == typeFloat) ||
+			(aType == typeInt && bType == typeLong))
 		{
-			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
-			NodeNumber *Bd = static_cast<NodeNumber*>(nodeList[nodeList.size()-shB]);
-			NodeNumber *Rd = NULL;
-			if(bType == typeDouble)
-				Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), Bd->GetDouble()), typeDouble);
-			else if(bType == typeLong)
-				Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), (double)Bd->GetLong(), swapOper), typeDouble);
-			else if(bType == typeInt)
-				Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), (double)Bd->GetInteger(), swapOper), typeDouble);
-			nodeList.pop_back();
-			nodeList.pop_back();
-			nodeList.push_back(Rd);
-		}else if(aType == typeLong){
-			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
-			NodeNumber *Bd = static_cast<NodeNumber*>(nodeList[nodeList.size()-shB]);
-			NodeNumber *Rd = NULL;
-			if(bType == typeLong)
-				Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), Bd->GetLong()), typeLong);
-			else if(bType == typeInt)
-				Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), (long long)Bd->GetInteger(), swapOper), typeLong);
-			nodeList.pop_back();
-			nodeList.pop_back();
-			nodeList.push_back(Rd);
-		}else if(aType == typeInt){
-			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
-			NodeNumber *Bd = static_cast<NodeNumber*>(nodeList[nodeList.size()-shB]);
-			NodeNumber *Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger()), typeInt);
-			nodeList.pop_back();
-			nodeList.pop_back();
-			nodeList.push_back(Rd);
+			Swap(Ad, Bd);
+			swapOper = true;
 		}
+
+		NodeNumber *Rd = NULL;
+		if(Ad->typeInfo == typeDouble || Ad->typeInfo == typeFloat)
+			Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), Bd->GetDouble(), swapOper), typeDouble);
+		else if(Ad->typeInfo == typeLong)
+			Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), Bd->GetLong(), swapOper), typeLong);
+		else if(Ad->typeInfo == typeInt)
+			Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger(), swapOper), typeInt);
+		nodeList.push_back(Rd);
 		return;	// Оптимизация удалась, выходим
 	}
 	if(aNodeType == typeNodeNumber || bNodeType == typeNodeNumber)
@@ -969,21 +947,7 @@ void AddArrayIndexNode(const char* pos)
 	if(nodeList.back()->nodeType == typeNodeNumber && nodeList[nodeList.size()-2]->nodeType == typeNodeGetAddress)
 	{
 		// Получаем значение сдвига
-		int shiftValue = 0;
-		NodeZeroOP* indexNode = nodeList.back();
-		TypeInfo *aType = indexNode->typeInfo;
-		NodeZeroOP* zOP = indexNode;
-		if(aType == typeDouble)
-		{
-			shiftValue = (int)static_cast<NodeNumber*>(zOP)->GetDouble();
-		}else if(aType == typeLong){
-			shiftValue = (int)static_cast<NodeNumber*>(zOP)->GetLong();
-		}else if(aType == typeInt){
-			shiftValue = static_cast<NodeNumber*>(zOP)->GetInteger();
-		}else{
-			sprintf(callbackError, "AddArrayIndexNode() ERROR: unknown index type %s", aType->name);
-			ThrowError(callbackError, pos);
-		}
+		int shiftValue = static_cast<NodeNumber*>(nodeList.back())->GetInteger();
 
 		// Проверим индекс на выход за пределы массива
 		if(shiftValue < 0)
