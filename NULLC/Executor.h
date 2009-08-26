@@ -33,8 +33,9 @@ private:
 	FastVector<asmStackType>	genStackTypes;
 
 	FastVector<char, true>	genParams;
-	FastVector<unsigned int>	paramTop;
 	FastVector<VMCmd*>	fcallStack;
+
+	unsigned int	paramBase;
 
 	unsigned int	*genStackBase;
 	unsigned int	*genStackPtr;

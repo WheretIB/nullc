@@ -453,7 +453,7 @@ enum asmDataType
 enum asmOperType
 {
 	OTYPE_DOUBLE,
-	OTYPE_FLOAT_DEPRECATED,
+	OTYPE_COMPLEX,
 	OTYPE_LONG,
 	OTYPE_INT,
 };
@@ -461,7 +461,7 @@ enum asmOperType
 static int		stackTypeSize[] = { 4, 8, -1, 8 };
 // Conversion of asmStackType to appropriate asmOperType
 // Преобразование asmStackType в подходящий asmOperType
-static asmOperType operTypeForStackType[] = { OTYPE_INT, OTYPE_LONG, (asmOperType)0, OTYPE_DOUBLE };
+static asmOperType operTypeForStackType[] = { OTYPE_INT, OTYPE_LONG, OTYPE_COMPLEX, OTYPE_DOUBLE };
 
 // Conversion of asmStackType to appropriate asmDataType
 // Преобразование asmStackType в подходящий asmDataType
@@ -495,7 +495,7 @@ const unsigned int	bitPushAfter = 2;	// положить значение в стек после изменения
 
 // constants for RetFlag creation from different bits
 // константы для создания флага возврата из отдельных битов
-const unsigned int	bitRetError		= 1;	// пользователь забыл возвратить значение, остановить выполнение
+const unsigned int	bitRetError		= 1 << 7;	// пользователь забыл возвратить значение, остановить выполнение
 const unsigned int	bitRetSimple	= 1 << 15;	// пользователь забыл возвратить значение, остановить выполнение
 
 const int	COMMANDE_LENGTH = 8;

@@ -434,10 +434,10 @@ void NodeUnaryOp::LogToStream(FILE *fGraph)
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, выполняющий возврат из функции или из программы
-NodeReturnOp::NodeReturnOp(unsigned int c, TypeInfo* tinfo)
+NodeReturnOp::NodeReturnOp(unsigned int frameCount, TypeInfo* tinfo)
 {
 	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
-	popCnt = c;
+	stackFrameCount = frameCount;
 	// Тип результата предоставлен извне
 	typeInfo = tinfo;
 
@@ -467,10 +467,10 @@ void NodeReturnOp::Compile()
 	TypeInfo *retType = typeInfo ? typeInfo : first->typeInfo;
 	asmOperType operType = operTypeForStackType[retType->stackType];
 
-	if(retType->type == TypeInfo::TYPE_COMPLEX || retType->type == TypeInfo::TYPE_VOID)
-		cmdList.push_back(VMCmd(cmdReturn, 0, (unsigned short)retType->size, popCnt));
-	else
-		cmdList.push_back(VMCmd(cmdReturn, 0, (unsigned short)(bitRetSimple | operType), popCnt));
+	unsigned int retSize = retType == typeFloat ? 8 : retType->size;
+	if(retSize != 0 && retSize < 4)
+		retSize = 4;
+	cmdList.push_back(VMCmd(cmdReturn, (unsigned char)operType, (unsigned short)stackFrameCount, retSize));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
 }
@@ -598,11 +598,11 @@ void NodeFuncDef::Compile()
 
 	if(funcInfo->retType == typeVoid)
 	{
-		cmdList.push_back(VMCmd(cmdReturn, 0, 0, 1));
+		cmdList.push_back(VMCmd(cmdReturn, 0, 1, 0));
 		// Если функция не возвращает значения, то это пустой ret
 	}else{
 		// Остановим программу с ошибкой
-		cmdList.push_back(VMCmd(cmdReturn, bitRetError, 0, 1));
+		cmdList.push_back(VMCmd(cmdReturn, bitRetError, 1, 0));
 	}
 
 	funcInfo->codeSize = cmdList.size() - funcInfo->address;

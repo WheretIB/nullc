@@ -932,41 +932,41 @@ void GenCodeCmdReturn(VMCmd cmd)
 		EMIT_OP_NUM(o_int, 3);
 		return;
 	}
-	if(cmd.helper == 0)
+	if(cmd.argument == 0)
 	{
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 		EMIT_OP_REG(o_pop, rEBP);
 		EMIT_OP(o_ret);
 		return;
 	}
-	if(cmd.helper & bitRetSimple)
+	if(cmd.flag != OTYPE_COMPLEX)
 	{
-		if((asmOperType)(cmd.helper & 0x0FFF) == OTYPE_INT)
+		if(cmd.flag == OTYPE_INT)
 		{
 			EMIT_OP_REG(o_pop, rEAX);
 		}else{
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
 		}
-		for(unsigned int pops = 0; pops < (cmd.argument > 0 ? cmd.argument : 1); pops++)
+		for(int pops = 0; pops < (cmd.helper > 0 ? cmd.helper : 1); pops++)
 		{
 			EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 			EMIT_OP_REG(o_pop, rEBP);
 		}
-		if(cmd.argument == 0)
-			EMIT_OP_REG_NUM(o_mov, rEBX, cmd.helper & 0x0FFF);
+		if(cmd.helper == 0)
+			EMIT_OP_REG_NUM(o_mov, rEBX, cmd.flag);
 	}else{
-		if(cmd.helper == 4)
+		if(cmd.argument == 4)
 		{
 			EMIT_OP_REG(o_pop, rEAX);
-		}else if(cmd.helper == 8){
+		}else if(cmd.argument == 8){
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
-		}else if(cmd.helper == 12){
+		}else if(cmd.argument == 12){
 			EMIT_OP_REG(o_pop, rECX);
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
-		}else if(cmd.helper == 16){
+		}else if(cmd.argument == 16){
 			EMIT_OP_REG(o_pop, rEBX);
 			EMIT_OP_REG(o_pop, rECX);
 			EMIT_OP_REG(o_pop, rEDX);
@@ -976,23 +976,23 @@ void GenCodeCmdReturn(VMCmd cmd)
 			EMIT_OP_REG_REG(o_mov, rESI, rESP);
 
 			EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDI, paramBase);
-			EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+			EMIT_OP_REG_NUM(o_mov, rECX, cmd.argument >> 2);
 			EMIT_OP(o_rep_movsd);
 
 			EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 
-			EMIT_OP_REG_NUM(o_add, rESP, cmd.helper);
+			EMIT_OP_REG_NUM(o_add, rESP, cmd.argument);
 		}
-		for(unsigned int pops = 0; pops < cmd.argument-1; pops++)
+		for(int pops = 0; pops < cmd.helper-1; pops++)
 		{
 			EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 			EMIT_OP_REG(o_pop, rEBP);
 		}
-		if(cmd.helper > 16)
+		if(cmd.argument > 16)
 			EMIT_OP_REG_REG(o_mov, rEAX, rEDI);
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 		EMIT_OP_REG(o_pop, rEBP);
-		if(cmd.argument == 0)
+		if(cmd.helper == 0)
 			EMIT_OP_REG_NUM(o_mov, rEBX, 16);
 	}
 	EMIT_OP(o_ret);
