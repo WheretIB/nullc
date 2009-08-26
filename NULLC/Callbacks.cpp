@@ -647,8 +647,8 @@ void AddBinaryCommandNode(CmdID id)
 
 void AddReturnNode(const char* pos, const char* end)
 {
-	int varTopPopCount = funcInfo.size() != 0 ? (varInfoTop.size() - funcInfo.back()->vTopSize) : 0;
-	varTopPopCount = varTopPopCount > 0 ? varTopPopCount : 0;
+	int stackFrameCount = currDefinedFunc.size() != 0 ? (varInfoTop.size() - currDefinedFunc.back()->vTopSize) : 0;
+	assert(stackFrameCount >= 0);
 
 	TypeInfo *realRetType = nodeList.back()->typeInfo;
 	if(!retTypeStack.back() && currDefinedFunc.size() != 0)
@@ -671,7 +671,7 @@ void AddReturnNode(const char* pos, const char* end)
 	}
 	if(!retTypeStack.back() && realRetType == typeVoid)
 		ThrowError("ERROR: global return cannot accept void", pos);
-	nodeList.push_back(new NodeReturnOp(varTopPopCount, retTypeStack.back()));
+	nodeList.push_back(new NodeReturnOp(stackFrameCount, retTypeStack.back()));
 	nodeList.back()->SetCodeInfo(pos, end);
 }
 

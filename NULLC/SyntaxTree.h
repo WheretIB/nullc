@@ -217,13 +217,13 @@ protected:
 class NodeReturnOp: public NodeOneOP
 {
 public:
-	NodeReturnOp(unsigned int c, TypeInfo* tinfo);
+	NodeReturnOp(unsigned int frameCount, TypeInfo* tinfo);
 	virtual ~NodeReturnOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 protected:
-	unsigned int	popCnt;
+	unsigned int	stackFrameCount;
 };
 
 class NodeExpression: public NodeOneOP
