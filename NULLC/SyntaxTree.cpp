@@ -434,11 +434,10 @@ void NodeUnaryOp::LogToStream(FILE *fGraph)
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, выполняющий возврат из функции или из программы
-NodeReturnOp::NodeReturnOp(unsigned int frameCount, TypeInfo* tinfo)
+NodeReturnOp::NodeReturnOp(int localRet, TypeInfo* tinfo)
 {
-	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
-	stackFrameCount = frameCount;
-	// Тип результата предоставлен извне
+	localReturn = localRet;
+	// Result type is set from outside
 	typeInfo = tinfo;
 
 	first = TakeLastNode();
@@ -470,7 +469,7 @@ void NodeReturnOp::Compile()
 	unsigned int retSize = retType == typeFloat ? 8 : retType->size;
 	if(retSize != 0 && retSize < 4)
 		retSize = 4;
-	cmdList.push_back(VMCmd(cmdReturn, (unsigned char)operType, (unsigned short)stackFrameCount, retSize));
+	cmdList.push_back(VMCmd(cmdReturn, (unsigned char)operType, (unsigned short)localReturn, retSize));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
 }
@@ -522,58 +521,18 @@ void NodeExpression::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел c содержимым блока {}
-NodeBlock::NodeBlock(unsigned int varShift, bool postPop)
-{
-	first = TakeLastNode();
 
-	shift = varShift;
-	popAfter = postPop;
-
-	codeSize = first->codeSize + (popAfter ? 2 : 1) + (shift ? 1 : 0);
-	nodeType = typeNodeBlock;
-}
-NodeBlock::~NodeBlock()
-{
-}
-
-void NodeBlock::Compile()
-{
-	unsigned int startCmdSize = cmdList.size();
-
-	// Сохраним значение вершины стека переменных
-	cmdList.push_back(VMCmd(cmdPushVTop));
-	if(shift)
-		cmdList.push_back(VMCmd(cmdPushV, shift));
-	// Выполним содержимое блока (то же что first->Compile())
-	first->Compile();
-	// Востановим значение вершины стека переменных
-	if(popAfter)
-		cmdList.push_back(VMCmd(cmdPopVTop));
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
-}
-void NodeBlock::LogToStream(FILE *fGraph)
-{
-	DrawLine(fGraph);
-	fprintf(fGraph, "%s Block (%d)\r\n", typeInfo->GetFullTypeName(), shift);
-	GoDownB();
-	first->LogToStream(fGraph);
-	GoUp();
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-NodeFuncDef::NodeFuncDef(FunctionInfo *info)
+NodeFuncDef::NodeFuncDef(FunctionInfo *info, unsigned int varShift)
 {
 	// Структура описания функции
 	funcInfo = info;
+	shift = varShift;
 
 	disabled = false;
 
 	first = TakeLastNode();
 
-	codeSize = first->codeSize + 1;
+	codeSize = first->codeSize + 2;
 	nodeType = typeNodeFuncDef;
 }
 NodeFuncDef::~NodeFuncDef()
@@ -593,6 +552,9 @@ void NodeFuncDef::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	funcInfo->address = cmdList.size();
+
+	// Save previous stack frame, and expand current by shift bytes
+	cmdList.push_back(VMCmd(cmdPushVTop, shift));
 	// Сгенерируем код функции
 	first->Compile();
 
@@ -1928,12 +1890,9 @@ void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 
 //////////////////////////////////////////////////////////////////////////
 // Узел, производящий операцию break;
-NodeBreakOp::NodeBreakOp(unsigned int c)
+NodeBreakOp::NodeBreakOp()
 {
-	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
-	popCnt = c;
-
-	codeSize = 1 + popCnt;
+	codeSize = 1;
 	nodeType = typeNodeBreakOp;
 }
 NodeBreakOp::~NodeBreakOp()
@@ -1944,10 +1903,7 @@ void NodeBreakOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	// Уберём значения со стека вершин стека переменных
-	for(unsigned int i = 0; i < popCnt; i++)
-		cmdList.push_back(VMCmd(cmdPopVTop));
-	// Выйдем из цикла
+	// Break the loop
 	cmdList.push_back(VMCmd(cmdJmp, breakAddr.back()));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
@@ -1961,12 +1917,9 @@ void NodeBreakOp::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Узел, производящий досрочный переход к следующей итерации цикла
 
-NodeContinueOp::NodeContinueOp(unsigned int c)
+NodeContinueOp::NodeContinueOp()
 {
-	// Сколько значений нужно убрать со стека вершин стека переменных (о_О)
-	popCnt = c;
-
-	codeSize = 1 + popCnt;
+	codeSize = 1;
 	nodeType = typeNodeContinueOp;
 }
 NodeContinueOp::~NodeContinueOp()
@@ -1977,11 +1930,7 @@ void NodeContinueOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	// Уберём значения со стека вершин стека переменных
-	for(unsigned int i = 0; i < popCnt; i++)
-		cmdList.push_back(VMCmd(cmdPopVTop));
-
-	// Выйдем из цикла
+	// Continue the loop
 	cmdList.push_back(VMCmd(cmdJmp, continueAddr.back()));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
@@ -2003,7 +1952,7 @@ NodeSwitchExpr::NodeSwitchExpr()
 	caseCount = 0;
 
 	codeSize = first->codeSize - 1;
-	codeSize += 4;
+	codeSize += 2;
 	nodeType = typeNodeSwitchExpr;
 }
 NodeSwitchExpr::~NodeSwitchExpr()
@@ -2042,8 +1991,7 @@ void NodeSwitchExpr::Compile()
 
 	asmStackType aST = first->typeInfo->stackType;
 	asmOperType aOT = operTypeForStackType[aST];
-	// Сохраним вершину стека переменных
-	cmdList.push_back(VMCmd(cmdPushVTop));
+
 	// Найдём значение по которому будем выбирать вариант кода
 	first->Compile();
 
@@ -2058,7 +2006,7 @@ void NodeSwitchExpr::Compile()
 		switchEnd += curr->codeSize + 1 + (curr != blockTail ? 1 : 0);
 
 	// Сохраним адрес для оператора break;
-	breakAddr.push_back(switchEnd+1);
+	breakAddr.push_back(switchEnd);
 
 	// Сгенерируем код для всех case'ов
 	unsigned int caseAddr = condEnd;
@@ -2096,8 +2044,7 @@ void NodeSwitchExpr::Compile()
 		}
 	}
 
-	// Востановим вершину стека значений
-	cmdList.push_back(VMCmd(cmdPopVTop));
+	assert(switchEnd == cmdList.size());
 
 	breakAddr.pop_back();
 

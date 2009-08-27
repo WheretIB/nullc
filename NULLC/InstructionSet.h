@@ -8,12 +8,8 @@ typedef unsigned char CmdID;
 
 // виртуальная машина имеет несколько стеков для переменных различного назначения:
 // 1) основной стек. Сюда помещаются числа, адреса и производятся операции над ними.
-// 1a) стек куда помещаются идентификаторы типа переменных в основном стеке. Используется для отладки,
-//		а также для определения типа переменной при вызове встроенных функций.
 // 2) стек переменных. Сюда помещаются значения активных переменных.
-// 3) стек для хранения количества переменных в стеке переменных. Используется для удаления переменных при
-//		выходе из области видимости.
-// 4) стек вызовов. Сохраняет указатели на код. Используется для возврата из функций.
+// 3) стек вызовов. Сохраняет указатели на код. Используется для возврата из функций.
 
 const unsigned int CALL_BY_POINTER = (unsigned int)-1;
 const unsigned char ADDRESS_ABOLUTE = 0;
@@ -139,12 +135,6 @@ enum InstructionCode
 		// save active variable count to "top value" stack
 		// сохранить количество активных переменных в стек вершин стека переменных
 	cmdPushVTop,
-		// pop data from variable stack until last top position and remove last top position
-		// убрать данные из стека переменных до предыдущего значения вершины и убрать значение вершины из стека значений вершин
-	cmdPopVTop,
-		// shift value stack top
-		// добавить указанное в команде количество байт в стек переменных
-	cmdPushV,
 
 	// binary commands
 	// they take two top numbers (both the same type!), remove them from stack,
@@ -257,7 +247,7 @@ static char *vmInstructionText[] =
 	"GetAddr", "FuncAddr", "SetRange",
 	"Jmp", "JmpZI", "JmpZD", "JmpZL", "JmpNZI", "JmpNZD", "JmpNZL",
 	"Call", "CallStd", "Return",
-	"PushVTop", "PopVTop", "PushV",
+	"PushVTop",
 	"Add", "Sub", "Mul", "Div", "Pow", "Mod", "Less", "Greater", "LEqual", "GEqual", "Equal", "NEqual",
 	"Shl", "Shr", "BitAnd", "BitOr", "BitXor", "LogAnd", "LogOr", "LogXor",
 	"AddL", "SubL", "MulL", "DivL", "PowL", "ModL", "LessL", "GreaterL", "LEqualL", "GEqualL", "EqualL", "NEqualL",
@@ -399,11 +389,7 @@ struct VMCmd
 			break;
 
 		case cmdReturn:
-			curr += sprintf(curr, " flag: %d sizeof: %d popcnt: %d", (int)flag, helper, argument);
-			break;
-
-		case cmdPushV:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " %s flag: %d sizeof: %d", helper ? "local" : "global", (int)flag, argument);
 			break;
 
 		case cmdAddAtCharStk:

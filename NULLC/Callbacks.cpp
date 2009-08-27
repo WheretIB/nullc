@@ -154,12 +154,10 @@ void BeginBlock()
 	funcInfoTop.push_back((unsigned int)funcInfo.size());
 }
 // ¬ызываетс€ в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечива€
-// их выход из области видимости. “акже уменьшает вершину стека переменных в байтах.
-void EndBlock(bool createNode, bool genPopVTop, bool hideFunctions)
+// их выход из области видимости.
+void EndBlock(bool hideFunctions)
 {
-	unsigned int varFormerTop = varTop;
 	varInfo.shrink(varInfoTop.back().activeVarCnt);
-	varTop = varInfoTop.back().varStackSize;
 	varInfoTop.pop_back();
 
 	if(hideFunctions)
@@ -168,9 +166,6 @@ void EndBlock(bool createNode, bool genPopVTop, bool hideFunctions)
 			funcInfo[i]->visible = false;
 	}
 	funcInfoTop.pop_back();
-
-	if(createNode)
-		nodeList.push_back(new NodeBlock(varFormerTop-varTop, genPopVTop));
 }
 
 // input is a symbol after '\'
@@ -210,7 +205,7 @@ void AddNumberNodeChar(const char* pos)
 	char res = pos[1];
 	if(res == '\\')
 		res = UnescapeSybmol(pos[2]);
-	nodeList.push_back(new NodeNumber(int(res), typeInt));
+	nodeList.push_back(new NodeNumber(int(res), typeChar));
 }
 
 void AddNumberNodeInt(const char* pos)
@@ -647,8 +642,7 @@ void AddBinaryCommandNode(CmdID id)
 
 void AddReturnNode(const char* pos, const char* end)
 {
-	int stackFrameCount = currDefinedFunc.size() != 0 ? (varInfoTop.size() - currDefinedFunc.back()->vTopSize) : 0;
-	assert(stackFrameCount >= 0);
+	int localReturn = currDefinedFunc.size() != 0;
 
 	TypeInfo *realRetType = nodeList.back()->typeInfo;
 	if(!retTypeStack.back() && currDefinedFunc.size() != 0)
@@ -671,7 +665,7 @@ void AddReturnNode(const char* pos, const char* end)
 	}
 	if(!retTypeStack.back() && realRetType == typeVoid)
 		ThrowError("ERROR: global return cannot accept void", pos);
-	nodeList.push_back(new NodeReturnOp(stackFrameCount, retTypeStack.back()));
+	nodeList.push_back(new NodeReturnOp(localReturn, retTypeStack.back()));
 	nodeList.back()->SetCodeInfo(pos, end);
 }
 
@@ -680,9 +674,7 @@ void AddBreakNode(const char* pos)
 	if(cycleBeginVarTop.size() == 0)
 		ThrowError("ERROR: break used outside loop statement", pos);
 
-	int varTopPopCount = varInfoTop.size() - cycleBeginVarTop.back();
-	varTopPopCount = varTopPopCount > 0 ? varTopPopCount : 0;
-	nodeList.push_back(new NodeBreakOp(varTopPopCount));
+	nodeList.push_back(new NodeBreakOp());
 }
 
 void AddContinueNode(const char* pos)
@@ -690,9 +682,7 @@ void AddContinueNode(const char* pos)
 	if(cycleBeginVarTop.size() == 0)
 		ThrowError("ERROR: continue used outside loop statement", pos);
 
-	int varTopPopCount = varInfoTop.size() - cycleBeginVarTop.back();
-	varTopPopCount = varTopPopCount > 0 ? varTopPopCount : 0;
-	nodeList.push_back(new NodeContinueOp(varTopPopCount));
+	nodeList.push_back(new NodeContinueOp());
 }
 
 void SelectAutoType()
@@ -914,11 +904,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			currTypes.pop_back();
 		}else{
 			// ≈сли переменна€ находитс€ в глобальной области видимости, еЄ адрес - абсолютный, без сдвигов
-			bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
+			bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || currDefinedFunc.size() == 0;
 
 			int varAddress = varInfo[i]->pos;
 			if(!absAddress)
-				varAddress -= (int)(varInfoTop.back().varStackSize);
+				varAddress -= (int)(varInfoTop[currDefinedFunc.back()->vTopSize].varStackSize);
 
 			// —оздаем узел дл€ получени€ указател€ на переменную
 			nodeList.push_back(new NodeGetAddress(varInfo[i], varAddress, absAddress, varInfo[i]->varType));
@@ -1006,7 +996,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	currTypes.push_back(varInfo[i]->varType);
 
 	// ≈сли переменна€ находитс€ в глобальной области видимости, еЄ адрес - абсолютный, без сдвигов
-	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0;
+	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0 || currDefinedFunc.size() == 0;
 
 	// ≈сли указатель на текущий тип равен NULL, значит тип переменной обозначен как автоматически выводимый (auto)
 	// ¬ таком случае, в качестве типа берЄтс€ возвращаемый последним узлом AST
@@ -1093,7 +1083,11 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	varSizeAdd += !varInfo[i]->dataReserved ? realCurrType->size : 0;
 	varInfo[i]->dataReserved = true;
 
-	nodeList.push_back(new NodeGetAddress(varInfo[i], varInfo[i]->pos-(int)(varInfoTop.back().varStackSize), absAddress, varInfo[i]->varType));
+	unsigned int varPosition = varInfo[i]->pos;
+	if(!absAddress)
+		varPosition -= (int)(varInfoTop[currDefinedFunc.back()->vTopSize].varStackSize);
+
+	nodeList.push_back(new NodeGetAddress(varInfo[i], varPosition, absAddress, varInfo[i]->varType));
 
 	nodeList.push_back(new NodeVariableSet(realCurrType, varSizeAdd, false));
 	if(!lastError.IsEmpty())
@@ -1433,9 +1427,11 @@ void FunctionEnd(const char* pos, const char* funcName)
 		}
 	}
 
-	EndBlock(true, false);
+	EndBlock();
+	unsigned int varFormerTop = varTop;
+	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
 
-	nodeList.push_back(new NodeFuncDef(funcInfo[i]));
+	nodeList.push_back(new NodeFuncDef(funcInfo[i], varFormerTop-varTop));
 	funcDefList.push_back(nodeList.back());
 
 	if(!currDefinedFunc.back()->retType)
@@ -1772,7 +1768,7 @@ void AddCaseNode()
 void EndSwitch()
 {
 	cycleBeginVarTop.pop_back();
-	EndBlock(false);
+	EndBlock();
 }
 
 void TypeBegin(const char* pos, const char* end)
@@ -1812,6 +1808,7 @@ void TypeFinish()
 		newType->paddingBytes = 4 - (newType->size % 4);
 		newType->size += 4 - (newType->size % 4);
 	}
+	varTop -= newType->size;
 
 	nodeList.push_back(new NodeZeroOP());
 	for(TypeInfo::MemberFunction *curr = newType->firstFunction; curr; curr = curr->next)
@@ -1819,7 +1816,7 @@ void TypeFinish()
 
 	newType = NULL;
 
-	EndBlock(false, false, false);
+	EndBlock(false);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -30,8 +30,6 @@ private:
 	FastVector<ExternTypeInfo>	&exTypes;
 	FastVector<ExternFuncInfo>	&exFunctions;
 
-	FastVector<asmStackType>	genStackTypes;
-
 	FastVector<char, true>	genParams;
 	FastVector<VMCmd*>	fcallStack;
 

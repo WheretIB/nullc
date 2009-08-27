@@ -191,8 +191,6 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdReturn] = GenCodeCmdReturn;
 
 	cgFuncs[cmdPushVTop] = GenCodeCmdPushVTop;
-	cgFuncs[cmdPopVTop] = GenCodeCmdPopVTop;
-	cgFuncs[cmdPushV] = GenCodeCmdPushV;
 
 	cgFuncs[cmdAdd] = GenCodeCmdAdd;
 	cgFuncs[cmdSub] = GenCodeCmdSub;

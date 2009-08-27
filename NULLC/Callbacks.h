@@ -12,7 +12,7 @@ void SetCurrentAlignment(unsigned int alignment);
 void BeginBlock();
 // ¬ызываетс€ в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечива€
 // их выход из области видимости. “акже уменьшает вершину стека переменных в байтах.
-void EndBlock(bool createNode = true, bool genPopVTop = true, bool hideFunctions = true);
+void EndBlock(bool hideFunctions = true);
 
 // ‘ункции дл€ добавлени€ узлов с константными числами разных типов
 void AddNumberNodeChar(const char* pos);

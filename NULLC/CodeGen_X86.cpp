@@ -742,15 +742,11 @@ void GenCodeCmdGetAddr(VMCmd cmd)
 
 void GenCodeCmdSetRange(VMCmd cmd)
 {
-	unsigned int elCount = x86Op[-2].argA.num;//(*myInstList)[myInstList->size()-2].argA.num;// ->back().argA.num;
-	//myInstList->pop_back();
+	unsigned int elCount = x86Op[-2].argA.num;
 
 	EMIT_COMMENT("SETRANGE");
 
 	EMIT_OP_REG(o_pop, rEBX);
-
-	//assert(exCode[pos-2].cmd == cmdPushImmt);	// previous command must be cmdPushImmt
-
 	unsigned int typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
 
 	// start address
@@ -948,11 +944,8 @@ void GenCodeCmdReturn(VMCmd cmd)
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
 		}
-		for(int pops = 0; pops < (cmd.helper > 0 ? cmd.helper : 1); pops++)
-		{
-			EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
-			EMIT_OP_REG(o_pop, rEBP);
-		}
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
+		EMIT_OP_REG(o_pop, rEBP);
 		if(cmd.helper == 0)
 			EMIT_OP_REG_NUM(o_mov, rEBX, cmd.flag);
 	}else{
@@ -983,11 +976,6 @@ void GenCodeCmdReturn(VMCmd cmd)
 
 			EMIT_OP_REG_NUM(o_add, rESP, cmd.argument);
 		}
-		for(int pops = 0; pops < cmd.helper-1; pops++)
-		{
-			EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
-			EMIT_OP_REG(o_pop, rEBP);
-		}
 		if(cmd.argument > 16)
 			EMIT_OP_REG_REG(o_mov, rEAX, rEDI);
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
@@ -1006,25 +994,9 @@ void GenCodeCmdPushVTop(VMCmd cmd)
 
 	EMIT_OP_REG(o_push, rEBP);
 	EMIT_OP_REG_REG(o_mov, rEBP, rEDI);
-}
-
-void GenCodeCmdPopVTop(VMCmd cmd)
-{
-	(void)cmd;
-	EMIT_COMMENT("POPT");
-
-	EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
-	EMIT_OP_REG(o_pop, rEBP);
-}
-
-
-void GenCodeCmdPushV(VMCmd cmd)
-{
-	EMIT_COMMENT("PUSHV");
 
 	EMIT_OP_REG_NUM(o_add, rEDI, cmd.argument);
 }
-
 
 void GenCodeCmdAdd(VMCmd cmd)
 {

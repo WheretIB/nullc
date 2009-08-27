@@ -2338,12 +2338,6 @@ auto s1 = 5;\r\n\
 auto f1 = &s1;\r\n\
 int d1 = 3;\r\n\
 int ref df1 = &d1;\r\n\
-{\r\n\
-auto d2 = *f1;\r\n\
-auto d3 = f1;\r\n\
-d1 = d2;\r\n\
-df1 = d3;\r\n\
-}\r\n\
 \r\n\
 auto k = { 1,4,8,64,7};\r\n\
 auto kr = { &k[4], &k[3], &k[2], &k[1], &k[0] };\r\n\
@@ -2403,6 +2397,12 @@ int r2a = spec[2][1]; // 8\r\n\
 int r2b = spec[j][1]; // 8\r\n\
 int r2c = spec[1][j]; // 6\r\n\
 int r2d = spec[i][j]; // 6\r\n\
+{\r\n\
+auto d2 = *f1;\r\n\
+auto d3 = f1;\r\n\
+d1 = d2;\r\n\
+df1 = d3;\r\n\
+}\r\n\
 return 1;";
 	printf("\r\nNew get and set functions test\r\n");
 	testCount++;
@@ -2674,7 +2674,7 @@ return 1;";
 			CHECK_INT("res2c", 0, 210);
 			CHECK_INT("res2d", 0, 212);
 
-			CHECK_INT("fp3", 0, 68);
+			CHECK_INT("fp3", 0, 84);
 			CHECK_INT("res3a", 0, 306);
 			CHECK_INT("res3b", 0, 308);
 			CHECK_INT("res3c", 0, 310);
