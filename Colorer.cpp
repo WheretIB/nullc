@@ -9,7 +9,6 @@ using namespace supspi;
 #include "richedit.h"
 #include <windowsx.h>
 
-#include "NULLC/ParseClass.h"
 #include "Colorer.h"
 
 class ColorCodeCallback
@@ -55,10 +54,7 @@ namespace ColorerGrammar
 
 	const char *codeStart;
 
-	std::vector<FunctionInfo*>	funcs;
 	std::vector<std::string>	typeInfo;
-	std::vector<VariableInfo>	varInfo;
-	std::vector<VarTopInfo>		varInfoTop;
 	std::vector<unsigned int>	callArgCount;
 
 	// Callbacks
@@ -135,6 +131,7 @@ namespace ColorerGrammar
 
 	void	ParseSpace(char** str)
 	{
+		char *old = *str;
 		for(;;)
 		{
 			while((unsigned char)((*str)[0] - 1) < ' ')
@@ -155,6 +152,7 @@ namespace ColorerGrammar
 				break;
 			}
 		}
+		ColorComment(old, *str);
 	}
 
 	class Grammar
@@ -388,174 +386,43 @@ namespace ColorerGrammar
 		Rule code;
 	};
 
-	bool CheckIfDeclared(const std::string& str, bool forFunction = false)
+	bool CheckIfDeclared(const std::string& str)
 	{
 		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "return" || str=="switch" || str=="case")
 		{
 			logStream << "ERROR: The name '" << str << "' is reserved" << "\r\n";
 			return true;
 		}
-		if(!forFunction)
-		{
-			for(unsigned int i = 0; i < funcs.size(); i++)
-			{
-				if(funcs[i]->name == str)
-				{
-					logStream << "ERROR: Name '" << str << "' is already taken for a function" << "\r\n";
-					return true;
-				}
-			}
-		}
 		return false;
 	}
 	void AddVar(char const* s, char const* e)
 	{
-		(void)e;	// C4100
-		const char* st=s;
-		while(isalnum(*st) || *st == '_')
-			st++;
-		string vName = std::string(s, st);
-
-		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
-		{
-			if(std::string(varInfo[i].name.begin, varInfo[i].name.end) == vName)
-			{
-				ColorCode(255, 0, 0, 0, 0, 1, s, st);
-				logStream << "ERROR: Name '" << vName << "' is already taken for a variable in current scope\r\n";
-				return;
-			}
-		}
-		if(CheckIfDeclared(vName))
-		{
-			ColorCode(255, 0, 0, 0, 0, 1, s, st);
-			return;
-		}
-
-		varInfo.push_back(VariableInfo(InplaceStr(vName.c_str()), GetStringHash(vName.c_str()), 0, NULL, currValConst));
-		varSize = 1;
+		(void)s; (void)e;	// C4100
 	}
 
 	void SetVar(char const* s, char const* e)
 	{
-		(void)e;	// C4100
-		const char* st=s;
-		while(isalnum(*st) || *st == '_')
-			st++;
-		string vName = std::string(s, st);
-
-		int i = (int)varInfo.size()-1;
-		while(i >= 0 && std::string(varInfo[i].name.begin, varInfo[i].name.end) != vName)
-			i--;
-		if(i == -1)
-		{
-			ColorCode(255, 0, 0, 0, 0, 1, s, st);
-			//logStream << "ERROR: variable '" << vName << "' is not defined\r\n";
-			return;
-		}
-		if(varInfo[i].isConst)
-		{
-			ColorCode(255, 0, 0, 0, 0, 1, s, st);
-			logStream << "ERROR: cannot change constant parameter '" << vName << "'\r\n";
-			return;
-		}
+		(void)s; (void)e;	// C4100
 	}
 
 	void GetVar(char const* s, char const* e)
 	{
-		(void)e;	// C4100
-		const char* st=s;
-		while(isalnum(*st) || *st == '_')
-			st++;
-		string vName = std::string(s, st);
-
-		int i = (int)varInfo.size()-1;
-		while(i >= 0 && std::string(varInfo[i].name.begin, varInfo[i].name.end) != vName)
-			i--;
-		if(i == -1)
-		{
-			i = (int)funcs.size()-1;
-			while(i >= 0 && funcs[i]->name != vName)
-				i--;
-		}
-		if(i == -1)
-		{
-			ColorCode(255,0,0,0,0,1,s,st);
-			logStream << "ERROR: variable '" << vName << "' is not defined\r\n";
-			return;
-		}
+		(void)s; (void)e;	// C4100
 	}
 
 	void FuncAdd(char const* s, char const* e)
 	{
-		string vName = tempStr;
-		for(unsigned int i = varInfoTop.back().activeVarCnt; i < varInfo.size(); i++)
-			if(std::string(varInfo[i].name.begin, varInfo[i].name.end) == vName)
-			{
-				ColorCode(255, 0, 0, 0, 0, 1, s, e);
-				logStream << "ERROR: Name '" << vName << "' is already taken for a variable in current scope\r\n";
-				return;
-			}
-			if(CheckIfDeclared(vName))
-			{
-				ColorCode(255, 0, 0, 0, 0, 1, s, e);
-				return;
-			}
-			funcs.push_back(new FunctionInfo(vName.c_str()));
+		(void)s; (void)e;	// C4100
 	}
 
 	void FuncEnd(char const* s, char const* e)
 	{
 		(void)s; (void)e;	// C4100
-		if(funcs.empty())
-			return;
-
-		funcs.back()->paramCount = 0;
-		for(unsigned int i = 0; i < callArgCount.back(); i++)
-			funcs.back()->AddParameter(new VariableInfo(InplaceStr("param"), GetStringHash("param"), 0, NULL));
-		callArgCount.pop_back();
 	}
 
 	void FuncCall(char const* s, char const* e)
 	{
-		const char* st=s;
-		while(isalnum(*st) || *st == '_')
-			st++;
-		string fname = std::string(s, st);
-
-		//Find function
-		bool foundFunction = false;
-		bool funcPtr = false;
-		int i = (int)funcs.size()-1;
-		while(true)
-		{
-			while(i >= 0 && funcs[i]->name != fname)
-				i--;
-			if(i == -1)
-			{
-				i = (int)varInfo.size()-1;
-				while(i >= 0 && std::string(varInfo[i].name.begin, varInfo[i].name.end) != fname)
-					i--;
-				if(i != -1)
-					funcPtr = true;
-			}
-			if(i == -1)
-			{
-				if(!foundFunction)
-				{
-					ColorCode(255,0,0,0,0,1,s,st);
-					logStream << "ERROR: function '" << fname << "' is undefined\r\n";
-				}else{
-					ColorCode(255,0,0,0,0,1,s,e);
-					logStream << "ERROR: none of the functions '" << fname << "' takes " << (unsigned int)callArgCount.back() << " arguments\r\n";
-				}
-				break;
-			}
-			foundFunction = true;
-			if(funcPtr || funcs[i]->paramCount == callArgCount.back())
-				break;
-			i--;
-		}
-		callArgCount.pop_back();
+		(void)s; (void)e;	// C4100
 	}
 
 	std::string newType;
@@ -580,17 +447,10 @@ namespace ColorerGrammar
 	void BlockBegin(char const* s, char const* e)
 	{
 		(void)s; (void)e;	// C4100
-		varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 	}
 	void BlockEnd(char const* s, char const* e)
 	{
 		(void)s; (void)e;	// C4100
-		while(varInfo.size() > varInfoTop.back().activeVarCnt)
-		{
-			varTop--;// -= varInfo.back().count;
-			varInfo.pop_back();
-		}
-		varInfoTop.pop_back();
 	}
 
 	void LogStrAndInfo(char const* s, char const* e)
@@ -636,10 +496,7 @@ Colorer::~Colorer()
 bool Colorer::ColorText()
 {
 	lastError = "";
-	ColorerGrammar::varInfoTop.clear();
-	ColorerGrammar::varInfo.clear();
 
-	unsigned int oldFuncCount = 0;
 	ColorerGrammar::typeInfo.clear();
 
 	ColorerGrammar::typeInfo.push_back("void");
@@ -653,8 +510,6 @@ bool Colorer::ColorText()
 	ColorerGrammar::typeInfo.push_back("float3");
 	ColorerGrammar::typeInfo.push_back("float4");
 	ColorerGrammar::typeInfo.push_back("float4x4");
-
-	ColorerGrammar::varInfoTop.push_back(VarTopInfo(0,0));
 
 	ColorerGrammar::callArgCount.clear();
 	ColorerGrammar::varSize = 1;
@@ -681,10 +536,6 @@ bool Colorer::ColorText()
 		lastError = "Syntax error";
 		return false;
 	}
-
-	for(unsigned int i = oldFuncCount; i < ColorerGrammar::funcs.size(); i++)
-		delete ColorerGrammar::funcs[i];
-	ColorerGrammar::funcs.clear();
 
 	if(ColorerGrammar::logStream.str().length() != 0)
 	{
