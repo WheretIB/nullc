@@ -6,7 +6,6 @@
 //////////////////////////////////////////////////////////////////////////
 enum NodeType
 {
-	typeNodeBlock,
 	typeNodeExpression,
 	typeNodeForExpr,
 	typeNodeFuncCall,
@@ -153,11 +152,11 @@ public:
 
 	int			GetInteger()
 	{
-		if(typeInfo == typeInt)
-			return integer;
+		if(typeInfo == typeLong)
+			return (int)integer64;
 		else if(typeInfo == typeDouble || typeInfo == typeFloat)
 			return (int)real;
-		return (int)integer64;
+		return integer;
 	}
 	long long	GetLong()
 	{
@@ -171,9 +170,9 @@ public:
 	{
 		if(typeInfo == typeDouble || typeInfo == typeFloat)
 			return real;
-		else if(typeInfo == typeInt)
-			return integer;
-		return (double)integer64;
+		else if(typeInfo == typeLong)
+			return (double)integer64;
+		return integer;
 	}
 
 	bool		ConvertTo(TypeInfo *target);
@@ -217,13 +216,13 @@ protected:
 class NodeReturnOp: public NodeOneOP
 {
 public:
-	NodeReturnOp(unsigned int frameCount, TypeInfo* tinfo);
+	NodeReturnOp(int localRet, TypeInfo* tinfo);
 	virtual ~NodeReturnOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 protected:
-	unsigned int	stackFrameCount;
+	int	localReturn;
 };
 
 class NodeExpression: public NodeOneOP
@@ -237,23 +236,10 @@ public:
 protected:
 };
 
-class NodeBlock: public NodeOneOP
-{
-public:
-	NodeBlock(unsigned int varShift, bool postPop = true);
-	virtual ~NodeBlock();
-
-	virtual void Compile();
-	virtual void LogToStream(FILE *fGraph);
-protected:
-	unsigned int shift;
-	bool popAfter;
-};
-
 class NodeFuncDef: public NodeOneOP
 {
 public:
-	NodeFuncDef(FunctionInfo *info);
+	NodeFuncDef(FunctionInfo *info, unsigned int varShift);
 	virtual ~NodeFuncDef();
 
 	virtual void Disable();
@@ -263,6 +249,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 protected:
 	FunctionInfo	*funcInfo;
+	unsigned int shift;
 	bool disabled;
 };
 
@@ -462,25 +449,23 @@ protected:
 class NodeBreakOp: public NodeZeroOP
 {
 public:
-	NodeBreakOp(unsigned int c);
+	NodeBreakOp();
 	virtual ~NodeBreakOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 protected:
-	unsigned int	popCnt;
 };
 
 class NodeContinueOp: public NodeZeroOP
 {
 public:
-	NodeContinueOp(unsigned int c);
+	NodeContinueOp();
 	virtual ~NodeContinueOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 protected:
-	unsigned int	popCnt;
 };
 
 class NodeSwitchExpr: public NodeOneOP

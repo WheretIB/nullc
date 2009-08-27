@@ -63,7 +63,6 @@ void Executor::Run(const char* funcName)
 	fcallStack.clear();
 
 	genParams.clear();
-	genStackTypes.clear();
 
 	double tempVal = 0.0;
 	genParams.push_back((char*)(&tempVal), 8);
@@ -73,11 +72,6 @@ void Executor::Run(const char* funcName)
 	genParams.push_back((char*)(&tempVal), 8);
 	
 	genParams.resize(exLinker->globalVarSize);
-
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-	//unsigned int typeSizeS[] = { 4, 8, 4, 8 };
-	//unsigned int typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
-#endif
 
 	execError[0] = 0;
 
@@ -312,7 +306,6 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdPop:
-			//genStackPtr += cmd.argument >> 2;
 			genStackPtr = (unsigned int*)((char*)(genStackPtr) + cmd.argument);
 			break;
 
@@ -522,13 +515,10 @@ void Executor::Run(const char* funcName)
 				unsigned int *retValue = genStackPtr;
 				genStackPtr = (unsigned int*)((char*)(genStackPtr) + cmd.argument);
 
-				// TODO: move (cmd.argument > 0 ? cmd.argument : 1) to compilation stage
-				for(int pops = 0; pops < (cmd.helper > 0 ? cmd.helper : 1); pops++)
-				{
-					genParams.shrink(paramBase);
-					paramBase = *genStackPtr;
-					genStackPtr++;
-				}
+				genParams.shrink(paramBase);
+				paramBase = *genStackPtr;
+				genStackPtr++;
+
 				genStackPtr = (unsigned int*)((char*)(genStackPtr) - cmd.argument);
 				memmove(genStackPtr, retValue, cmd.argument);
 			}
@@ -546,14 +536,6 @@ void Executor::Run(const char* funcName)
 			genStackPtr--;
 			*genStackPtr = paramBase;
 			paramBase = genParams.size();
-			break;
-		case cmdPopVTop:
-			genParams.shrink(paramBase);
-			paramBase = *genStackPtr;
-			genStackPtr++;
-			break;
-
-		case cmdPushV:
 			genParams.resize(genParams.size() + cmd.argument);
 			break;
 
@@ -953,25 +935,6 @@ void Executor::Run(const char* funcName)
 		}
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-		/*unsigned int typeSizeS[] = { 1, 2, 0, 2 };
-		m_FileStream << " stack size " << genStackSize << "; stack vals " << genStackTypes.size() << "; param size " << genParams.size() << ";  // ";
-		assert(genStackTypes.size() < (1 << 16));
-		for(unsigned int i = 0, k = 0; i < genStackTypes.size(); i++)
-		{
-			if(genStackTypes[i] & 0x80000000)
-			{
-				m_FileStream << "complex " << (genStackTypes[i] & ~0x80000000) << " bytes";
-				k += genStackTypes[i] & ~0x80000000;
-			}else{
-				if(genStackTypes[i] == STYPE_DOUBLE)
-					m_FileStream << "double " << *((double*)(genStackPtr+k)) << ", ";
-				if(genStackTypes[i] == STYPE_LONG)
-					m_FileStream << "long " << *((long*)(genStackPtr+k)) << ", ";
-				if(genStackTypes[i] == STYPE_INT)
-					m_FileStream << "int " << *((int*)(genStackPtr+k)) << ", ";
-				k += typeSizeS[genStackTypes[i]];
-			}
-		}*/
 		fprintf(executeLog, ";\r\n");
 		fflush(executeLog);
 #endif
@@ -983,15 +946,7 @@ void Executor::Run(const char* funcName)
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
 	unsigned int bytesToPop = exFunctions[funcID].bytesToPop;
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-	/*unsigned int typeSizeS[] = { 4, 8, 4, 8 };
-	unsigned int paramSize = bytesToPop;
-	while(paramSize > 0)
-	{
-		paramSize -= genStackTypes.back() & 0x80000000 ? genStackTypes.back() & ~0x80000000 : typeSizeS[genStackTypes.back()];
-		genStackTypes.pop_back();
-	}*/
-#endif
+
 	unsigned int *stackStart = (genStackPtr+bytesToPop/4-1);
 	for(unsigned int i = 0; i < bytesToPop/4; i++)
 	{
@@ -1013,12 +968,6 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	{
 		genStackPtr--;
 		*genStackPtr = fRes;
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-		/*if(exTypes[exFunctions[funcID]->retType]->type == TypeInfo::TYPE_COMPLEX)
-			genStackTypes.push_back((asmStackType)(0x80000000 | exTypes[exFunctions[funcID]->retType]->size));
-		else
-			genStackTypes.push_back(exTypes[exFunctions[funcID]->retType]->stackType);*/
-#endif
 	}
 	return true;
 }
