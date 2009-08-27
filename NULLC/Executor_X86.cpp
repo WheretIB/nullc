@@ -898,10 +898,6 @@ bool ExecutorX86::TranslateToNative()
 			code += x86INT(code, 3);
 			break;
 		case o_dd:
-#ifdef NULLC_X86_CMP_FASM
-			*(int*)code = cmd.argA.num;
-			code += 4;
-#endif
 			instAddress[pos] = code;	// Save VM instruction address in x86 bytecode
 
 			if(pos == (int)exLinker->offsetToGlobalCode)
@@ -927,66 +923,6 @@ bool ExecutorX86::TranslateToNative()
 			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].address] - bytecode);
 	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - bytecode);
 
-#ifdef NULLC_X86_CMP_FASM
-	FILE *fMyCode = fopen("asmX86my.bin", "wb");
-	fwrite(bytecode, 1, code-bytecode, fMyCode);
-	fclose(fMyCode);
-
-	// debug
-	unsigned char *bytecodeCopy = new unsigned char[code-bytecode+1];
-	memcpy(bytecodeCopy, bytecode, code-bytecode);
-
-	STARTUPINFO stInfo;
-	PROCESS_INFORMATION prInfo;
-
-	// Compile using fasm
-	memset(&stInfo, 0, sizeof(stInfo));
-	stInfo.cb = sizeof(stInfo);
-	stInfo.dwFlags = STARTF_USESHOWWINDOW;
-	stInfo.wShowWindow = SW_HIDE;
-	memset(&prInfo, 0, sizeof(prInfo));
-
-	DeleteFile("asmX86.bin");
-
-	if(!CreateProcess(NULL, "fasm.exe asmX86.txt", NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo))
-	{
-		strcpy(execError, "Failed to create process");
-		return false;
-	}
-
-	if(WAIT_TIMEOUT == WaitForSingleObject(prInfo.hProcess, 5000))
-	{
-		strcpy(execError, "Compilation to x86 binary took too much time (timeout=5sec)");
-		return false;
-	}
-
-	CloseHandle(prInfo.hProcess);
-	CloseHandle(prInfo.hThread);
-
-	FILE *fCode = fopen("asmX86.bin", "rb");
-	if(!fCode)
-	{
-		strcpy(execError, "Failed to open output file");
-		return false;
-	}
-	
-	fseek(fCode, 0, SEEK_END);
-	unsigned int size = ftell(fCode);
-	fseek(fCode, 0, SEEK_SET);
-	if(size > 200000)
-	{
-		strcpy(execError, "Byte code is too big (size > 200000)");
-		return false;
-	}
-	fread(binCode+20, 1, size, fCode);
-	binCodeSize = size;
-
-	for(int i = 0; i < code-bytecode; i++)
-		if(binCode[i+20] != bytecodeCopy[i])
-			__asm int 3;
-
-	delete[] bytecodeCopy;
-#endif NULLC_X86_CMP_FASM
 	return true;
 }
 

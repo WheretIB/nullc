@@ -124,7 +124,7 @@ void Executor::Run(const char* funcName)
 	{
 		const VMCmd &cmd = *cmdStream;
 		//const unsigned int argument = cmd.argument;
-		DBG(PrintInstructionText(executeLog, cmd, paramTop.back(), genParams.size()));
+		DBG(PrintInstructionText(executeLog, cmd, paramBase, genParams.size()));
 		cmdStream++;
 
 #ifdef NULLC_VM_DEBUG
