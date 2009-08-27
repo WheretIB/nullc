@@ -843,10 +843,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
-		/*if(!colorer->ColorText())
+		if(!colorer->ColorText())
 		{
 			SetWindowText(hCode, colorer->GetError().c_str());
-		}*/
+		}
 		if(bRetFocus)
 		{
 			SetFocus(hTextArea);
