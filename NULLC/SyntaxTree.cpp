@@ -1579,6 +1579,13 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 		return;
 	}
 
+	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdBitAnd && cmd <= cmdLogXor))
+	{
+		lastError = CompilerError("ERROR: binary operations are not available on floating-point numbers", lastKnownStartPos);
+		return;
+	}
+	//bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
+
 	// Найдём результирующий тип, после проведения операции
 	typeInfo = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
 

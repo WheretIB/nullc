@@ -415,6 +415,8 @@ void AddBitNotNode(const char* pos)
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
+		if(nodeList.back()->typeInfo == typeDouble || nodeList.back()->typeInfo == typeFloat)
+			ThrowError("ERROR: binary NOT is not available on floating-point numbers", pos);
 		nodeList.push_back(new NodeUnaryOp(cmdBitNot));
 	}
 }

@@ -162,7 +162,7 @@ enum InstructionCode
 	cmdBitXor,	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
 	cmdLogAnd,	// a && b	logical AND/логическое И
 	cmdLogOr,	// a || b	logical OR/логическое ИЛИ
-	cmdLogXor,	// a logical_xor b	logical XOR/логическое Исключающее ИЛИ
+	cmdLogXor,	// a ^^ b	logical XOR/логическое Исключающее ИЛИ
 
 	cmdAddL,	// a + b
 	cmdSubL,	// a - b
@@ -183,7 +183,7 @@ enum InstructionCode
 	cmdBitXorL,	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
 	cmdLogAndL,	// a && b	logical AND/логическое И
 	cmdLogOrL,	// a || b	logical OR/логическое ИЛИ
-	cmdLogXorL,	// a logical_xor b	logical XOR/логическое Исключающее ИЛИ
+	cmdLogXorL,	// a ^^ b	logical XOR/логическое Исключающее ИЛИ
 
 	cmdAddD,	// a + b
 	cmdSubD,	// a - b
