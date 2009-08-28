@@ -23,7 +23,7 @@ NodeZeroOP*	TakeLastNode()
 FastVector<unsigned int>	breakAddr(64);
 FastVector<unsigned int>	continueAddr(64);
 
-static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "bin.and", "bin.or", "bin.xor", "log.and", "log.or", "log.xor"};
+static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "and", "or", "xor"};
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -186,7 +186,7 @@ unsigned int	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
 // class implementation
 
 //////////////////////////////////////////////////////////////////////////
-// Узел не имеющий дочерних узлов
+// Node that doesn't have any child nodes
 
 ChunkedStackPool<4092>	NodeZeroOP::nodePool;
 
@@ -226,7 +226,8 @@ void NodeZeroOP::SetCodeInfo(const char* start, const char* end)
 	strEnd = end;
 }
 //////////////////////////////////////////////////////////////////////////
-// Узел, имеющий один дочерний узел
+// Node that have one child node
+
 NodeOneOP::NodeOneOP()
 {
 	first = NULL;
@@ -254,7 +255,8 @@ void NodeOneOP::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, имеющий два дочерних узла
+// Node that have two child nodes
+
 NodeTwoOP::NodeTwoOP()
 {
 	second = NULL;
@@ -284,7 +286,8 @@ void NodeTwoOP::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, имеющий три дочерних узла
+// Node that have three child nodes
+
 NodeThreeOP::NodeThreeOP()
 {
 	third = NULL;
@@ -315,7 +318,8 @@ void NodeThreeOP::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел который кладёт число в стек
+// Node that puts a number on top of the stack
+
 void NodeNumber::Compile()
 {
 	if(codeSize == 2)
@@ -348,7 +352,8 @@ bool NodeNumber::ConvertTo(TypeInfo *target)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, убирающий с вершины стека значение, оставленное дочерним узлом
+// Node that removes value left on top of the stack by child node
+
 NodePopOp::NodePopOp()
 {
 	first = TakeLastNode();
@@ -368,11 +373,11 @@ void NodePopOp::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	// Даём дочернему узлу вычислить значение
+	// Child node computes value
 	first->Compile();
 	if(first->typeInfo != typeVoid)
 	{
-		// Убираем его с вершины стека
+		// Removing it from top of the stack
 		cmdList.push_back(VMCmd(cmdPop, first->typeInfo->type == TypeInfo::TYPE_COMPLEX ? first->typeInfo->size : stackTypeSize[first->typeInfo->stackType]));
 	}
 
@@ -388,14 +393,15 @@ void NodePopOp::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, производящий выбраную унарную операцию над значением на вершине стека
+// Node that applies selected operation on value on top of the stack
+
 NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 {
-	// Унарная операция
+	// Unary operation
 	cmdID = cmd;
 
 	first = TakeLastNode();
-	// Тип результата такой же, как исходный
+	// Resulting type is the same as source type
 	typeInfo = first->typeInfo;
 
 	codeSize = first->codeSize + 1;
@@ -411,9 +417,9 @@ void NodeUnaryOp::Compile()
 
 	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
 
-	// Даём дочернему узлу вычислить значение
+	// Child node computes value
 	first->Compile();
-	// Выполним команду
+	// Execute command
 	if(aOT == OTYPE_INT)
 		cmdList.push_back(VMCmd((InstructionCode)cmdID));
 	else if(aOT == OTYPE_DOUBLE)
@@ -433,7 +439,8 @@ void NodeUnaryOp::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, выполняющий возврат из функции или из программы
+// Node that returns from function or program
+
 NodeReturnOp::NodeReturnOp(int localRet, TypeInfo* tinfo)
 {
 	localReturn = localRet;
@@ -456,13 +463,13 @@ void NodeReturnOp::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	// Найдём значение, которое будем возвращать
+	// Compute value that we're going to return
 	first->Compile();
-	// Преобразуем его в тип возвратного значения функции
+	// Convert it to the return type of the function
 	if(typeInfo)
 		ConvertFirstToSecond(first->typeInfo->stackType, typeInfo->stackType);
 
-	// Выйдем из функции или программы
+	// Return from function or program
 	TypeInfo *retType = typeInfo ? typeInfo : first->typeInfo;
 	asmOperType operType = operTypeForStackType[retType->stackType];
 
@@ -486,46 +493,13 @@ void NodeReturnOp::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, содержащий выражение. Работает как NodeOneOP за исключением записи в лог.
-// В основном такие узлы самостоятельны, и не оставляют за собой ничего (возвращают void)
-// Но иногда можно назначить им тип, который они возвратят
-// (чтобы не плодить лишних классов, делающих всего одно дополнительное действие)
-NodeExpression::NodeExpression(TypeInfo* realRetType)
-{
-	typeInfo = realRetType;
-
-	first = TakeLastNode();
-
-	codeSize = first->codeSize;
-	nodeType = typeNodeExpression;
-}
-NodeExpression::~NodeExpression()
-{
-}
-
-void NodeExpression::Compile()
-{
-	unsigned int startCmdSize = cmdList.size();
-
-	NodeOneOP::Compile();
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
-}
-void NodeExpression::LogToStream(FILE *fGraph)
-{
-	DrawLine(fGraph);
-	fprintf(fGraph, "%s Expression :\r\n", typeInfo->GetFullTypeName());
-	GoDownB();
-	first->LogToStream(fGraph);
-	GoUp();
-}
-
-//////////////////////////////////////////////////////////////////////////
+// Nodes that compiles function
 
 NodeFuncDef::NodeFuncDef(FunctionInfo *info, unsigned int varShift)
 {
-	// Структура описания функции
+	// Function description
 	funcInfo = info;
+	// Size of all local variables
 	shift = varShift;
 
 	disabled = false;
@@ -555,15 +529,15 @@ void NodeFuncDef::Compile()
 
 	// Save previous stack frame, and expand current by shift bytes
 	cmdList.push_back(VMCmd(cmdPushVTop, shift));
-	// Сгенерируем код функции
+	// Generate function code
 	first->Compile();
 
 	if(funcInfo->retType == typeVoid)
 	{
+		// If function returns void, this is implicit return
 		cmdList.push_back(VMCmd(cmdReturn, 0, 1, 0));
-		// Если функция не возвращает значения, то это пустой ret
 	}else{
-		// Остановим программу с ошибкой
+		// Stop program execution if user forgot the return statement
 		cmdList.push_back(VMCmd(cmdReturn, bitRetError, 1, 0));
 	}
 
@@ -581,16 +555,17 @@ void NodeFuncDef::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, производящий вызов функции
+// Node that calls function
+
 NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 {
-	// Структура описания функции
+	// Function description
 	funcInfo = info;
 
-	// Структура описания типа функции
+	// Function type description
 	funcType = type;
 
-	// Тип результата - тип возвратного значения функции
+	// Result type is fetched from function type
 	typeInfo = funcType->retType;
 
 	if(funcInfo && funcInfo->type == FunctionInfo::LOCAL)
@@ -612,7 +587,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && *paramType == typeFloat)
 		codeSize += 1;
 
-	// Возьмём узлы каждого параметра
+	// Take nodes for all parameters
 	for(unsigned int i = 1; i < funcType->paramCount; i++)
 	{
 		paramType++;
@@ -673,7 +648,7 @@ void NodeFuncCall::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	// Если имеются параметры, найдём их значения
+	// Find parameter values
 	bool onlyStackTypes = true;
 	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL)
 	{
@@ -683,9 +658,9 @@ void NodeFuncCall::Compile()
 			TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
 			do
 			{
-				// Определим значение параметра
+				// Compute parameter value
 				curr->Compile();
-				// Преобразуем его в тип входного параметра функции
+				// Convert it to type that function expects
 				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
 				if(*paramType == typeFloat)
 					cmdList.push_back(VMCmd(cmdDtoF));
@@ -707,9 +682,9 @@ void NodeFuncCall::Compile()
 			TypeInfo	**paramType = funcType->paramType;
 			do
 			{
-				// Определим значение параметра
+				// Compute parameter value
 				curr->Compile();
-				// Преобразуем его в тип входного параметра функции
+				// Convert it to type that function expects
 				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
 				if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
 					onlyStackTypes = false;
@@ -718,13 +693,13 @@ void NodeFuncCall::Compile()
 			}while(curr);
 		}
 	}
-	if(funcInfo && funcInfo->address == -1)		// Если функция встроенная
+	if(funcInfo && funcInfo->address == -1)		// If the function is build-in or external
 	{
-		// Вызовем по имени
+		// Call it by function index
 		unsigned int ID = GetFuncIndexByPtr(funcInfo);
 		cmdList.push_back(VMCmd(cmdCallStd, ID));
-	}else{					// Если функция определена пользователем
-		// Перенесём в локальные параметры прямо тут, фигле
+	}else{					// If the function is defined by user
+		// Lets move parameters to function local variables
 		unsigned int paramSize = 0;
 		for(unsigned int i = 0; i < funcType->paramCount; i++)
 			paramSize += funcType->paramType[i]->size;
@@ -759,7 +734,7 @@ void NodeFuncCall::Compile()
 		}
 
 
-		// Вызовем по адресу
+		// Call by function address in bytecode
 		unsigned int ID = GetFuncIndexByPtr(funcInfo);
 		unsigned short helper = (unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[typeInfo->stackType]));
 		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : -1));
@@ -791,7 +766,8 @@ void NodeFuncCall::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Новый узел для получения значения переменной
+// Node that fetches variable value
+
 NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, TypeInfo *retInfo)
 {
 	assert(retInfo);
@@ -858,7 +834,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел для присвоения значения переменной
+// Node that sets value to the variable
 
 NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, bool swapNodes)
 {
@@ -875,7 +851,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 	if(!swapNodes)
 		second = TakeLastNode();
 
-	// Если идёт первое определение переменной и массиву присваивается базовый тип
+	// If this is the first array definition and value is array sub-type, we set it to all array elements
 	arrSetAll = (pushVar && typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->typeInfo == typeVoid)
@@ -896,14 +872,13 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 	if(second->nodeType == typeNodeNumber)
 		static_cast<NodeNumber*>(second)->ConvertTo(typeInfo);
 
-	// Если типы не равны
+	// If types don't match
 	if(second->typeInfo != typeInfo)
 	{
-		// Если это не встроенные базовые типы, или
-		// если различаются размерности массивов, и при этом не происходит первое определение переменной, или
-		// если различается глубина указателей, или
-		// если это указатель, глубина указателей равна, но при этом тип, на который указывает указатель отличается, то
-		// сообщим об ошибке несоответствия типов
+		// If it is not build-in basic types
+		// Or if array dimension differ and it is not special array definition
+		// Or if the pointer depths aren't the same
+		// Or if pointers point to different types
 		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX) ||
 			(typeInfo->arrLevel != second->typeInfo->arrLevel && !arrSetAll) ||
 			(typeInfo->refLevel != second->typeInfo->refLevel) ||
@@ -1010,7 +985,7 @@ void NodeVariableSet::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел для изменения значения переменной (операции += -= *= /= и т.п.)
+// Node to change variable value with following operations: += -= *= /= **=
 
 NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 {
@@ -1040,13 +1015,13 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		return;
 	}
 
-	// Если типы не равны
+	// If types don't match
 	if(second->typeInfo != typeInfo)
 	{
-		// Если это не встроенные базовые типы, или
-		// если различается глубина указателей, или
-		// если это указатель, глубина указателей равна, но при этом тип, на который указывает указатель отличается, то
-		// сообщим об ошибке несоответствия типов
+		// If it is not build-in basic types
+		// Or if array dimension differ
+		// Or if the pointer depths aren't the same
+		// Or if pointers point to different types
 		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX) ||
 			(typeInfo->arrLevel != second->typeInfo->arrLevel) ||
 			(typeInfo->refLevel != second->typeInfo->refLevel) ||
@@ -1113,25 +1088,23 @@ void NodeVariableModify::Compile()
 
 	asmStackType asmSTsecond = second->typeInfo->stackType;
 
-	// Если надо, расчитаем адрес первого операнда
+	// Calculate address of the first operand, if it isn't known
 	if(!knownAddress)
 		first->Compile();
 
-	// И положим его в стек
+	// Put first operand on top of the stack
 	if(knownAddress)
-	{
 		cmdList.push_back(VMCmd(cmdPushType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
-	}else{
+	else
 		cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
-	}
 
-	// Преобразуем, если надо, в тип, который получается после проведения выбранной операции
+	// Convert it to the type that results from operation made between two operands.
 	asmStackType asmSTresult = ConvertFirstForSecond(asmSTfirst, asmSTsecond);
 
-	// Оперделим второй операнд
+	// Calculate second operand value
 	second->Compile();
 
-	// Преобразуем, если надо, в тип, который получается после проведения выбранной операции
+	// Convert it to the type that results from operation made between two operands.
 	ConvertFirstForSecond(asmSTsecond, asmSTresult);
 
 	// Произведём операцию со значениями
@@ -1144,14 +1117,14 @@ void NodeVariableModify::Compile()
 	else
 		assert(!"unknown operator type in NodeVariableModify");
 
-	// Преобразуем результат в тип первого операнда
+	// Convert to the type of first operand
 	ConvertFirstToSecond(asmSTresult, asmSTfirst);
 
-	// Если надо, расчитаем адрес первого операнда
+	// Calculate address of the first operand, if it isn't known
 	if(!knownAddress)
 		first->Compile();
 
-	// И запишем новое значение переменной
+	// Put first operand on top of the stack
 	if(knownAddress)
 	{
 		cmdList.push_back(VMCmd(cmdMovType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
@@ -1175,17 +1148,18 @@ void NodeVariableModify::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел для получения элемента массива
+// Node that calculates address of the array element
+
 NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 {
 	assert(parentType);
 	typeParent = parentType;
 	typeInfo = GetReferenceType(parentType->subType);
 
-	// получить узел, расчитывающий индекс
+	// Node that calculates array index
 	second = TakeLastNode();
 
-	// получить узел, расчитывающий адрес начала массива
+	// Node that calculates address of the first array element
 	first = TakeLastNode();
 
 	shiftValue = 0;
@@ -1216,16 +1190,16 @@ void NodeArrayIndex::Compile()
 
 	asmOperType oAsmType = operTypeForStackType[second->typeInfo->stackType];
 
-	// Возьмём указатель на начало массива
+	// Get address of the first array element
 	first->Compile();
 
 	if(knownShift)
 	{
 		cmdList.push_back(VMCmd(cmdPushImmt, shiftValue));
 	}else{
-		// Вычислим индекс
+		// Compute index value
 		second->Compile();
-		// Переведём его в целое число.  Умножив на размер элемента
+		// Convert it to integer and multiply by the size of the element
 		if(typeParent->subType->size != 1)
 		{
 			cmdList.push_back(VMCmd(cmdImmtMulType[oAsmType], typeParent->subType->size));
@@ -1235,7 +1209,7 @@ void NodeArrayIndex::Compile()
 		}
 
 	}
-	// Сложим с адресом, который был на вершине
+	// Add it to the address of the first element
 	cmdList.push_back(VMCmd(cmdAdd));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
@@ -1254,7 +1228,7 @@ void NodeArrayIndex::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел для взятия значения по указателю
+// Node to get value by address (dereference pointer)
 
 NodeDereference::NodeDereference(TypeInfo* type)
 {
@@ -1329,7 +1303,8 @@ void NodeDereference::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел сдвигающий адрес до члена класса
+// Node that shifts address to the class member
+
 NodeShiftAddress::NodeShiftAddress(unsigned int shift, TypeInfo* resType)
 {
 	memberShift = shift;
@@ -1354,12 +1329,13 @@ void NodeShiftAddress::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
+	// Get variable address
 	first->Compile();
 
 	if(memberShift)
 	{
 		cmdList.push_back(VMCmd(cmdPushImmt, memberShift));
-		// Сложим с адресом, который был на вершине
+		// Add the shift to the address
 		cmdList.push_back(VMCmd(cmdAdd));
 	}
 
@@ -1376,7 +1352,8 @@ void NodeShiftAddress::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел для постинкримента или постдекримента
+// Node for increment and decrement operations
+
 NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
 {
 	assert(resType);
@@ -1493,7 +1470,7 @@ void NodePreOrPostOp::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, получающий адрес функции
+// Node that gets function address
 
 NodeFunctionAddress::NodeFunctionAddress(FunctionInfo* functionInfo)
 {
@@ -1548,16 +1525,17 @@ void NodeFunctionAddress::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, производящий бинарную операцию с двумя значениями
-NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
+// Node that applies binary operation on two values
+
+NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 {
-	// Бинарная операция
+	// Binary operation
 	cmdID = cmd;
 
 	second = TakeLastNode();
 	first = TakeLastNode();
 
-	// На данный момент операции с композитными типами отсутствуют
+	// Binary operations on complex types are not present at the moment
 	if(first->typeInfo->refLevel == 0)
 	{
 		if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
@@ -1586,7 +1564,7 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	}
 	//bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
 
-	// Найдём результирующий тип, после проведения операции
+	// Find the type or resulting value
 	typeInfo = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
 
 	asmStackType fST = first->typeInfo->stackType, sST = second->typeInfo->stackType;
@@ -1594,27 +1572,27 @@ NodeTwoAndCmdOp::NodeTwoAndCmdOp(CmdID cmd)
 	fST = ConvertFirstForSecondType(fST, sST);
 	codeSize += ConvertFirstForSecondSize(sST, fST);
 	codeSize += first->codeSize + second->codeSize + 1;
-	nodeType = typeNodeTwoAndCmdOp;
+	nodeType = typeNodeBinaryOp;
 }
-NodeTwoAndCmdOp::~NodeTwoAndCmdOp()
+NodeBinaryOp::~NodeBinaryOp()
 {
 }
 
-void NodeTwoAndCmdOp::Compile()
+void NodeBinaryOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
 	asmStackType fST = first->typeInfo->stackType, sST = second->typeInfo->stackType;
 	
-	// Найдём первое значение
+	// Compute first value
 	first->Compile();
-	// Преобразуем, если надо, в тип, который получается после проведения выбранной операции
+	// Convert it to the resulting type
 	fST = ConvertFirstForSecond(fST, sST);
-	// Найдём второе значение
+	// Compute second value
 	second->Compile();
-	// Преобразуем, если надо, в тип, который получается после проведения выбранной операции
+	// Convert it to the result type
 	sST = ConvertFirstForSecond(sST, fST);
-	// Произведём операцию со значениями
+	// Apply binary operation
 	if(fST == STYPE_INT)
 		cmdList.push_back(VMCmd((InstructionCode)(cmdID)));
 	else if(fST == STYPE_LONG)
@@ -1626,10 +1604,10 @@ void NodeTwoAndCmdOp::Compile()
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
 }
-void NodeTwoAndCmdOp::LogToStream(FILE *fGraph)
+void NodeBinaryOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s TwoAndCmd<%s> :\r\n", typeInfo->GetFullTypeName(), binCommandToText[cmdID-cmdAdd]);
+	fprintf(fGraph, "%s NodeBinaryOp<%s> :\r\n", typeInfo->GetFullTypeName(), binCommandToText[cmdID-cmdAdd]);
 	assert(cmdID >= cmdAdd);
 	assert(cmdID <= cmdNEqualD);
 	GoDown();
@@ -1641,17 +1619,18 @@ void NodeTwoAndCmdOp::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, выполняющий блок if(){}else{} или условный оператор ?:
+// Node for compilation of if(){}else{} statement and conditional operator ?:
+
 NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 {
-	// Если имеется блок else{}
+	// If else block is present
 	if(haveElse)
 	{
 		third = TakeLastNode();
 	}
 	second = TakeLastNode();
 	first = TakeLastNode();
-	// Если это условный оператор, то имеется тип результата отличный от void
+	// If it is a conditional operator, the there is a resulting type different than void
 	if(isTerm)
 		typeInfo = second->typeInfo != third->typeInfo ? ChooseBinaryOpResultType(second->typeInfo, third->typeInfo) : second->typeInfo;
 
@@ -1671,29 +1650,37 @@ void NodeIfElseExpr::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	// Структура дочерних элементов: if(first) second; else third;
-	// Второй вариант: first ? second : third;
+	// Child node structure: if(first) second; else third;
+	// Or, for conditional operator: first ? second : third;
 	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
-	// Вычислим условие
+	// Compute condition
 	first->Compile();
 
-	// Если false, перейдём в блок else или выйдем из оператора, если такого блока не имеется
-	cmdList.push_back(VMCmd(cmdJmpZType[aOT], 1 + cmdList.size() + second->codeSize + (third ? 1 + ConvertFirstForSecondSize(second->typeInfo->stackType, third->typeInfo->stackType) : 0)));
+	// If false, jump to 'else' block, or out of statement, if there is no 'else'
+	cmdList.push_back(VMCmd(cmdJmpZType[aOT], 0));	// Jump address will be fixed later on
+	VMCmd *jmpOnFalse = &cmdList.back(), *jmpToEnd = NULL;
 
-	// Выполним блок для успешного прохождения условия (true)
+	// Compile block for condition == true
 	second->Compile();
 	if(typeInfo != typeVoid)
 		ConvertFirstForSecond(second->typeInfo->stackType, third->typeInfo->stackType);
-	// Если есть блок else, выполним его
+
+	jmpOnFalse->argument = cmdList.size();	// Fixup jump address
+	// If 'else' block is present, compile it
 	if(third)
 	{
-		// Только поставим выход из оператора перед его кодом, чтобы не выполнять обе ветви
-		cmdList.push_back(VMCmd(cmdJmp, 1 + cmdList.size() + third->codeSize + ConvertFirstForSecondSize(third->typeInfo->stackType, second->typeInfo->stackType)));
+		// Put jump to exit statement at the end of main block
+		cmdList.push_back(VMCmd(cmdJmp, 0));	// Jump address will be fixed later on
+		jmpToEnd = &cmdList.back();
 
-		// Выполним блок else (false)
+		jmpOnFalse->argument = cmdList.size(); // Fixup jump address
+
+		// Compile block for condition == false
 		third->Compile();
 		if(typeInfo != typeVoid)
 			ConvertFirstForSecond(third->typeInfo->stackType, second->typeInfo->stackType);
+
+		jmpToEnd->argument = cmdList.size(); // Fixup jump address
 	}
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
@@ -1720,7 +1707,8 @@ void NodeIfElseExpr::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, выполняющий блок for(){}
+// Nod for compilation of for(){}
+
 NodeForExpr::NodeForExpr()
 {
 	fourth = TakeLastNode();
@@ -1742,30 +1730,30 @@ void NodeForExpr::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	// Структура дочерних элементов: for(first, second, third) fourth;
+	// Child node structure: for(first, second, third) fourth;
 	asmOperType aOT = operTypeForStackType[second->typeInfo->stackType];
 
-	// Выполним инициализацию
+	// Compile initialization node
 	first->Compile();
 	unsigned int posTestExpr = cmdList.size();
 
-	// Найдём результат условия
+	// Compute condition value
 	second->Compile();
 
-	// Сохраним адрес для выхода из цикла оператором break;
+	// Save exit address for break operator
 	breakAddr.push_back(cmdList.size() + 1 + third->codeSize + fourth->codeSize + 1);
 
-	// Если ложно, выйдем из цикла
+	// If condition == false, exit loop
 	cmdList.push_back(VMCmd(cmdJmpZType[aOT], breakAddr.back()));
 
-	// Сохраним адрес для перехода к следующей операции оператором continue;
+	// Save address for continue operator
 	continueAddr.push_back(cmdList.size()+fourth->codeSize);
 
-	// Выполним содержимое цикла
+	// Compile loop contents
 	fourth->Compile();
-	// Выполним операцию, проводимую после каждой итерации
+	// Compile operation, executed after each cycle
 	third->Compile();
-	// Перейдём на проверку условия
+	// Jump to condition check
 	cmdList.push_back(VMCmd(cmdJmp, posTestExpr));
 
 	breakAddr.pop_back();
@@ -1788,7 +1776,8 @@ void NodeForExpr::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, выполняющий блок while(){}
+// Node for compilation of while(){}
+
 NodeWhileExpr::NodeWhileExpr()
 {
 	second = TakeLastNode();
@@ -1805,25 +1794,25 @@ void NodeWhileExpr::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	// Структура дочерних элементов: while(first) second;
+	// Child node structure: while(first) second;
 	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
 
 	unsigned int posStart = cmdList.size();
-	// Выполним условие
+	// Compute condition value
 	first->Compile();
 
-	// Сохраним адрес для выхода из цикла оператором break;
+	// Save exit address for break operator
 	breakAddr.push_back(cmdList.size() + 1 + second->codeSize + 1);
 
-	// Если оно ложно, выйдем из цикла
+	// If condition == false, exit loop
 	cmdList.push_back(VMCmd(cmdJmpZType[aOT], breakAddr.back()));
 
-	// Сохраним адрес для перехода к следующей операции оператором continue;
+	// Save address for continue operator
 	continueAddr.push_back(cmdList.size() + second->codeSize);
 
-	// Выполним содержимое цикла
+	// Compile loop contents
 	second->Compile();
-	// Перейдём на проверку условия
+	// Jump to condition check
 	cmdList.push_back(VMCmd(cmdJmp, posStart));
 
 	breakAddr.pop_back();
@@ -1844,7 +1833,8 @@ void NodeWhileExpr::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, выполняющий блок do{}while()
+// Node for compilation of do{}while()
+
 NodeDoWhileExpr::NodeDoWhileExpr()
 {
 	second = TakeLastNode();
@@ -1861,21 +1851,21 @@ void NodeDoWhileExpr::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	// Структура дочерних элементов: do{ first; }while(second)
+	// Child node structure: do{ first; }while(second)
 	asmOperType aOT = operTypeForStackType[second->typeInfo->stackType];
 
 	unsigned int posStart = cmdList.size();
-	// Сохраним адрес для выхода из цикла оператором break;
+	// Save exit address for break operator
 	breakAddr.push_back(cmdList.size() + first->codeSize + second->codeSize + 1);
 
-	// Сохраним адрес для перехода к следующей операции оператором continue;
+	// Save address for continue operator
 	continueAddr.push_back(cmdList.size() + first->codeSize);
 
-	// Выполним содержимое цикла
+	// Compile loop contents
 	first->Compile();
-	// Выполним условие
+	// Compute condition value
 	second->Compile();
-	// Если условие верно, перейдём к выполнению следующей итерации цикла
+	// Jump to beginning if condition == true
 	cmdList.push_back(VMCmd(cmdJmpNZType[aOT], posStart));
 
 	breakAddr.pop_back();
@@ -1896,7 +1886,8 @@ void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, производящий операцию break;
+// Node for break operation
+
 NodeBreakOp::NodeBreakOp()
 {
 	codeSize = 1;
@@ -1922,7 +1913,7 @@ void NodeBreakOp::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, производящий досрочный переход к следующей итерации цикла
+// Node for continue operation
 
 NodeContinueOp::NodeContinueOp()
 {
@@ -1949,10 +1940,11 @@ void NodeContinueOp::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, определяющий код для switch
+// Node for compilation of switch
+
 NodeSwitchExpr::NodeSwitchExpr()
 {
-	// Возьмём узел с условием
+	// Take node with value
 	first = TakeLastNode();
 	conditionHead = conditionTail = NULL;
 	blockHead = blockTail = NULL;
@@ -1969,7 +1961,7 @@ NodeSwitchExpr::~NodeSwitchExpr()
 void NodeSwitchExpr::AddCase()
 {
 	caseCount++;
-	// Возьмём с верхушки блок
+	// Take case block from the top
 	if(blockTail)
 	{
 		blockTail->next = TakeLastNode();
@@ -1978,7 +1970,7 @@ void NodeSwitchExpr::AddCase()
 	}else{
 		blockHead = blockTail = TakeLastNode();
 	}
-	// Возьмём условие для блока
+	// Take case condition from the top
 	if(conditionTail)
 	{
 		conditionTail->next = TakeLastNode();
@@ -1999,12 +1991,12 @@ void NodeSwitchExpr::Compile()
 	asmStackType aST = first->typeInfo->stackType;
 	asmOperType aOT = operTypeForStackType[aST];
 
-	// Найдём значение по которому будем выбирать вариант кода
+	// Compute value
 	first->Compile();
 
 	NodeZeroOP *curr, *currBlock;
 
-	// Найдём конец свитча
+	// Find address of the end of the switch
 	unsigned int switchEnd = cmdList.size() + 2 + caseCount * 3;
 	for(curr = conditionHead; curr; curr = curr->next)
 		switchEnd += curr->codeSize;
@@ -2012,10 +2004,10 @@ void NodeSwitchExpr::Compile()
 	for(curr = blockHead; curr; curr = curr->next)
 		switchEnd += curr->codeSize + 1 + (curr != blockTail ? 1 : 0);
 
-	// Сохраним адрес для оператора break;
+	// Save exit address form break operator
 	breakAddr.push_back(switchEnd);
 
-	// Сгенерируем код для всех case'ов
+	// Generate code for all cases
 	unsigned int caseAddr = condEnd;
 	for(curr = conditionHead, currBlock = blockHead; curr; curr = curr->next, currBlock = currBlock->next)
 	{
@@ -2025,24 +2017,24 @@ void NodeSwitchExpr::Compile()
 			cmdList.push_back(VMCmd(cmdCopyDorL));
 
 		curr->Compile();
-		// Сравним на равенство
+		// Compare for equality
 		if(aOT == OTYPE_INT)
 			cmdList.push_back(VMCmd(cmdEqual));
 		else if(aOT == OTYPE_DOUBLE)
 			cmdList.push_back(VMCmd(cmdEqualD));
 		else
 			cmdList.push_back(VMCmd(cmdEqualL));
-		// Если равны, перейдём на нужный кейс
+		// If equal, jump to corresponding case block
 		cmdList.push_back(VMCmd(cmdJmpNZType[aOT], caseAddr));
 		caseAddr += currBlock->codeSize + 2;
 	}
-	// Уберём с вершины стека значение по которому выбирался вариант кода
+	// Remove value by which we switched from stack
 	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 
 	cmdList.push_back(VMCmd(cmdJmp, switchEnd));
 	for(curr = blockHead; curr; curr = curr->next)
 	{
-		// Уберём с вершины стека значение по которому выбирался вариант кода
+		// Remove value by which we switched from stack
 		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 		curr->Compile();
 		if(curr != blockTail)
@@ -2077,7 +2069,8 @@ void NodeSwitchExpr::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Узел, содержащий список выражений.
+// Node that contains list of expressions
+
 NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 {
 	typeInfo = returnType;

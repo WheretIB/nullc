@@ -6,7 +6,6 @@
 //////////////////////////////////////////////////////////////////////////
 enum NodeType
 {
-	typeNodeExpression,
 	typeNodeForExpr,
 	typeNodeFuncCall,
 	typeNodeFuncDef,
@@ -15,7 +14,7 @@ enum NodeType
 	typeNodePopOp,
 	typeNodeReturnOp,
 	typeNodeThreeOp,
-	typeNodeTwoAndCmdOp,
+	typeNodeBinaryOp,
 	typeNodeTwoOp,
 	typeNodeZeroOp,
 	typeNodeWhileExpr,
@@ -225,17 +224,6 @@ protected:
 	int	localReturn;
 };
 
-class NodeExpression: public NodeOneOP
-{
-public:
-	NodeExpression(TypeInfo* realRetType = typeVoid);
-	virtual ~NodeExpression();
-
-	virtual void Compile();
-	virtual void LogToStream(FILE *fGraph);
-protected:
-};
-
 class NodeFuncDef: public NodeOneOP
 {
 public:
@@ -389,11 +377,11 @@ protected:
 };
 //////////////////////////////////////////////////////////////////////////
 
-class NodeTwoAndCmdOp: public NodeTwoOP
+class NodeBinaryOp: public NodeTwoOP
 {
 public:
-	NodeTwoAndCmdOp(CmdID cmd);
-	virtual ~NodeTwoAndCmdOp();
+	NodeBinaryOp(CmdID cmd);
+	virtual ~NodeBinaryOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);

@@ -4,6 +4,8 @@
 
 #include "Linker.h"
 
+const int ERROR_BUFFER_SIZE = 512;
+
 class Executor
 {
 public:
@@ -22,7 +24,7 @@ private:
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	FILE*		executeLog;
 #endif
-	char		execError[512];
+	char		execError[ERROR_BUFFER_SIZE];
 	char		execResult[64];
 
 	Linker		*exLinker;
