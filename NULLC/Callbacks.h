@@ -109,17 +109,17 @@ void FunctionEnd(const char* pos, const char* funcName);
 void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount);
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount);
 
-void AddIfNode();
-void AddIfElseNode();
+void AddIfNode(const char* pos);
+void AddIfElseNode(const char* pos);
 void AddIfElseTermNode(const char* pos);
 
 void SaveVariableTop();
-void AddForNode();
-void AddWhileNode();
-void AddDoWhileNode();
+void AddForNode(const char* pos);
+void AddWhileNode(const char* pos);
+void AddDoWhileNode(const char* pos);
 
-void BeginSwitch();
-void AddCaseNode();
+void BeginSwitch(const char* pos);
+void AddCaseNode(const char* pos);
 void EndSwitch();
 
 void TypeBegin(const char* pos, const char* end);

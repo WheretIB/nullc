@@ -583,10 +583,10 @@ void AddBinaryCommandNode(CmdID id)
 		}
 
 		// Оптимизацию можно произвести, если второй операнд - typeNodeTwoAndCmdOp или typeNodeVarGet
-		if(bNodeType != typeNodeTwoAndCmdOp && bNodeType != typeNodeDereference)
+		if(bNodeType != typeNodeBinaryOp && bNodeType != typeNodeDereference)
 		{
 			// Иначе, выходим без оптимизаций
-			nodeList.push_back(new NodeTwoAndCmdOp(id));
+			nodeList.push_back(new NodeBinaryOp(id));
 			if(!lastError.IsEmpty())
 				ThrowLastError();
 			return;
@@ -637,7 +637,7 @@ void AddBinaryCommandNode(CmdID id)
 			return;
 	}
 	// Оптимизации не удались, сделаем операцию полностью
-	nodeList.push_back(new NodeTwoAndCmdOp(id));
+	nodeList.push_back(new NodeBinaryOp(id));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
 }
@@ -1716,16 +1716,25 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	}
 }
 
-void AddIfNode()
+void AddIfNode(const char* pos)
 {
+	assert(nodeList.size() >= 2);
+	if(nodeList[nodeList.size()-2]->typeInfo == typeVoid)
+		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeIfElseExpr(false));
 }
-void AddIfElseNode()
+void AddIfElseNode(const char* pos)
 {
+	assert(nodeList.size() >= 3);
+	if(nodeList[nodeList.size()-3]->typeInfo == typeVoid)
+		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeIfElseExpr(true));
 }
 void AddIfElseTermNode(const char* pos)
 {
+	assert(nodeList.size() >= 3);
+	if(nodeList[nodeList.size()-3]->typeInfo == typeVoid)
+		ThrowError("ERROR: condition type cannot be void", pos);
 	TypeInfo* typeA = nodeList[nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->typeInfo;
 	if(typeA != typeB && (typeA->type == TypeInfo::TYPE_COMPLEX || typeB->type == TypeInfo::TYPE_COMPLEX))
@@ -1740,30 +1749,45 @@ void SaveVariableTop()
 {
 	cycleBeginVarTop.push_back((unsigned int)varInfoTop.size());
 }
-void AddForNode()
+void AddForNode(const char* pos)
 {
+	assert(nodeList.size() >= 4);
+	if(nodeList[nodeList.size()-3]->typeInfo == typeVoid)
+		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeForExpr());
 	cycleBeginVarTop.pop_back();
 }
-void AddWhileNode()
+void AddWhileNode(const char* pos)
 {
+	assert(nodeList.size() >= 2);
+	if(nodeList[nodeList.size()-2]->typeInfo == typeVoid)
+		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeWhileExpr());
 	cycleBeginVarTop.pop_back();
 }
-void AddDoWhileNode()
+void AddDoWhileNode(const char* pos)
 {
+	assert(nodeList.size() >= 2);
+	if(nodeList[nodeList.size()-1]->typeInfo == typeVoid)
+		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeDoWhileExpr());
 	cycleBeginVarTop.pop_back();
 }
 
-void BeginSwitch()
+void BeginSwitch(const char* pos)
 {
+	assert(nodeList.size() >= 1);
+	if(nodeList[nodeList.size()-1]->typeInfo == typeVoid)
+		ThrowError("ERROR: cannot switch by void type", pos);
 	cycleBeginVarTop.push_back((unsigned int)varInfoTop.size());
 	BeginBlock();
 	nodeList.push_back(new NodeSwitchExpr());
 }
-void AddCaseNode()
+void AddCaseNode(const char* pos)
 {
+	assert(nodeList.size() >= 3);
+	if(nodeList[nodeList.size()-2]->typeInfo == typeVoid)
+		ThrowError("ERROR: case value type cannot be void", pos);
 	NodeZeroOP* temp = nodeList[nodeList.size()-3];
 	static_cast<NodeSwitchExpr*>(temp)->AddCase();
 }

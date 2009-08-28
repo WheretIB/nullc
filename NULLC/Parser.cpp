@@ -443,6 +443,7 @@ bool ParseIfExpr(Lexeme** str)
 
 	if(!ParseLexem(str, lex_oparen))
 		ThrowError("ERROR: '(' not found after 'if'", (*str)->pos);
+	const char *condPos = (*str)->pos;
 	if(!ParseVaribleSet(str))
 		ThrowError("ERROR: condition not found in 'if' statement", (*str)->pos);
 	if(!ParseLexem(str, lex_cparen))
@@ -455,9 +456,9 @@ bool ParseIfExpr(Lexeme** str)
 	{
 		if(!ParseExpression(str))
 			ThrowError("ERROR: expression not found after 'else'", (*str)->pos);
-		CALLBACK(AddIfElseNode());
+		CALLBACK(AddIfElseNode(condPos));
 	}else{
-		CALLBACK(AddIfNode());
+		CALLBACK(AddIfNode(condPos));
 	}
 	CALLBACK(SetStringFromIndex());
 	return true;
@@ -493,6 +494,7 @@ bool  ParseForExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError("ERROR: ';' not found after initializer in 'for'", (*str)->pos);
 
+	const char *condPos = (*str)->pos;
 	if(!ParseVaribleSet(str))
 		ThrowError("ERROR: condition not found in 'for' statement", (*str)->pos);
 
@@ -519,7 +521,7 @@ bool  ParseForExpr(Lexeme** str)
 
 	if(!ParseExpression(str))
 		ThrowError("ERROR: body not found after 'for' header", (*str)->pos);
-	CALLBACK(AddForNode());
+	CALLBACK(AddForNode(condPos));
 	CALLBACK(SetStringFromIndex());
 	return true;
 
@@ -533,6 +535,8 @@ bool  ParseWhileExpr(Lexeme** str)
 	CALLBACK(SaveVariableTop());
 	if(!ParseLexem(str, lex_oparen))
 		ThrowError("ERROR: '(' not found after 'while'", (*str)->pos);
+
+	const char *condPos = (*str)->pos;
 	if(!ParseVaribleSet(str))
 		ThrowError("ERROR: expression expected after 'while('", (*str)->pos);
 	if(!ParseLexem(str, lex_cparen))
@@ -540,7 +544,7 @@ bool  ParseWhileExpr(Lexeme** str)
 
 	if(!ParseExpression(str))
 		ThrowError("ERROR: expression expected after 'while(...)'", (*str)->pos);
-	CALLBACK(AddWhileNode());
+	CALLBACK(AddWhileNode(condPos));
 	return true;
 }
 
@@ -558,12 +562,14 @@ bool  ParseDoWhileExpr(Lexeme** str)
 		ThrowError("ERROR: 'while' expected after 'do' statement", (*str)->pos);
 	if(!ParseLexem(str, lex_oparen))
 		ThrowError("ERROR: '(' not found after 'while'", (*str)->pos);
+
+	const char *condPos = (*str)->pos;
 	if(!ParseVaribleSet(str))
 		ThrowError("ERROR: expression expected after 'while('", (*str)->pos);
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError("ERROR: closing ')' not found after expression in 'while' statement", (*str)->pos);
 
-	CALLBACK(AddDoWhileNode());
+	CALLBACK(AddDoWhileNode(condPos));
 
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError("ERROR: while(...) should be followed by ';'", (*str)->pos);
@@ -578,9 +584,10 @@ bool  ParseSwitchExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_oparen))
 		ThrowError("ERROR: '(' not found after 'switch'", (*str)->pos);
 
+	const char *condPos = (*str)->pos;
 	if(!ParseVaribleSet(str))
 		ThrowError("ERROR: expression not found after 'switch('", (*str)->pos);
-	CALLBACK(BeginSwitch());
+	CALLBACK(BeginSwitch(condPos));
 
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError("ERROR: closing ')' not found after expression in 'switch' statement", (*str)->pos);
@@ -590,6 +597,7 @@ bool  ParseSwitchExpr(Lexeme** str)
 
 	while(ParseLexem(str, lex_case))
 	{
+		const char *condPos = (*str)->pos;
 		if(!ParseVaribleSet(str))
 			ThrowError("ERROR: expression expected after 'case'", (*str)->pos);
 		if(!ParseLexem(str, lex_colon))
@@ -599,7 +607,7 @@ bool  ParseSwitchExpr(Lexeme** str)
 			ThrowError("ERROR: expression expected after 'case:'", (*str)->pos);
 		while(ParseExpression(str))
 			CALLBACK(AddTwoExpressionNode());
-		CALLBACK(AddCaseNode());
+		CALLBACK(AddCaseNode(condPos));
 	}
 
 	if(!ParseLexem(str, lex_cfigure))
@@ -891,6 +899,7 @@ bool ParseArithmetic(Lexeme** str)
 
 bool ParseTernaryExpr(Lexeme** str)
 {
+	const char *condPos = (*str)->pos;
 	if(!ParseArithmetic(str))
 		return false;
 	while(ParseLexem(str, lex_questionmark))
@@ -901,7 +910,7 @@ bool ParseTernaryExpr(Lexeme** str)
 			ThrowError("ERROR: ':' not found after expression in ternary operator", (*str)->pos);
 		if(!ParseVaribleSet(str))
 			ThrowError("ERROR: expression not found after ':'", (*str)->pos);
-		CALLBACK(AddIfElseTermNode((*str)->pos));
+		CALLBACK(AddIfElseTermNode(condPos));
 	}
 	return true;
 }
