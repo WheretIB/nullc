@@ -470,7 +470,7 @@ bool  ParseForExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_for))
 		return false;
 	
-	CALLBACK(SaveVariableTop());
+	CALLBACK(IncreaseCycleDepth());
 	
 	if(!ParseLexem(str, lex_oparen))
 		ThrowError("ERROR: '(' not found after 'for'", (*str)->pos);
@@ -532,7 +532,7 @@ bool  ParseWhileExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_while))
 		return false;
 	
-	CALLBACK(SaveVariableTop());
+	CALLBACK(IncreaseCycleDepth());
 	if(!ParseLexem(str, lex_oparen))
 		ThrowError("ERROR: '(' not found after 'while'", (*str)->pos);
 
@@ -553,7 +553,7 @@ bool  ParseDoWhileExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_do))
 		return false;
 
-	CALLBACK(SaveVariableTop());
+	CALLBACK(IncreaseCycleDepth());
 
 	if(!ParseExpression(str))
 		ThrowError("ERROR: expression expected after 'do'", (*str)->pos);

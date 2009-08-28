@@ -7,29 +7,26 @@ using namespace CodeInfo;
 char	callbackError[256];
 
 // Temp variables
-// Временные переменные:
 
-// Выравнивание переменной или класса в байтах
+// Current variable alignment, in bytes
 unsigned int currAlign;
 
-// Была ли определена переменная (для addVarSetNode)
+// Is some variable being defined at the moment
 bool varDefined;
 
-// Является ли текущая переменная константной
+// Is current variable const
 bool currValConst;
 
-// Номер скрытой переменной - константного массива
+// Number of implicit array
 unsigned int inplaceArrayNum;
 
-// Информация о вершинах стека переменных. При компиляции он служит для того, чтобы
-// Удалять информацию о переменных, когда они выходят из области видимости
+// Stack of variable count top.
+// Used to find how many variables are to be removed when their visibility ends.
+// Also used to know how much space for local variables is required in stack frame.
 FastVector<VarTopInfo>		varInfoTop(64);
 
-// Некоторые конструкции допускают оператор break, который должен знать, на сколько сдвинуть базу стека
-// переменных, чтобы привести её в то состояние, в которым она находилась бы, если бы конструкция
-// завершилась без преждевременного выхода. Этот стек (конструкции могут быть вложенными) хранит размер
-// varInfoTop.
-FastVector<unsigned int>			cycleBeginVarTop(64);
+// Cycle depth stack is used to determine what is the depth of the loop when compiling operators break and continue
+FastVector<unsigned int>	cycleDepth(64);
 
 // Информация о количестве определённых функций на разных вложенностях блоков.
 // Служит для того чтобы убирать функции по мере выхода из области видимости.
@@ -673,7 +670,7 @@ void AddReturnNode(const char* pos, const char* end)
 
 void AddBreakNode(const char* pos)
 {
-	if(cycleBeginVarTop.size() == 0)
+	if(cycleDepth.back() == 0)
 		ThrowError("ERROR: break used outside loop statement", pos);
 
 	nodeList.push_back(new NodeBreakOp());
@@ -681,7 +678,7 @@ void AddBreakNode(const char* pos)
 
 void AddContinueNode(const char* pos)
 {
-	if(cycleBeginVarTop.size() == 0)
+	if(cycleDepth.back() == 0)
 		ThrowError("ERROR: continue used outside loop statement", pos);
 
 	nodeList.push_back(new NodeContinueOp());
@@ -1375,6 +1372,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 void FunctionStart(const char* pos)
 {
 	BeginBlock();
+	cycleDepth.push_back(0);
 
 	for(VariableInfo *curr = funcInfo.back()->lastParam; curr; curr = curr->prev)
 	{
@@ -1429,6 +1427,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 		}
 	}
 
+	cycleDepth.pop_back();
 	EndBlock();
 	unsigned int varFormerTop = varTop;
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
@@ -1745,9 +1744,10 @@ void AddIfElseTermNode(const char* pos)
 	nodeList.push_back(new NodeIfElseExpr(true, true));
 }
 
-void SaveVariableTop()
+void IncreaseCycleDepth()
 {
-	cycleBeginVarTop.push_back((unsigned int)varInfoTop.size());
+	assert(cycleDepth.size() != 0);
+	cycleDepth.back()++;
 }
 void AddForNode(const char* pos)
 {
@@ -1755,7 +1755,9 @@ void AddForNode(const char* pos)
 	if(nodeList[nodeList.size()-3]->typeInfo == typeVoid)
 		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeForExpr());
-	cycleBeginVarTop.pop_back();
+
+	assert(cycleDepth.size() != 0);
+	cycleDepth.back()--;
 }
 void AddWhileNode(const char* pos)
 {
@@ -1763,7 +1765,9 @@ void AddWhileNode(const char* pos)
 	if(nodeList[nodeList.size()-2]->typeInfo == typeVoid)
 		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeWhileExpr());
-	cycleBeginVarTop.pop_back();
+
+	assert(cycleDepth.size() != 0);
+	cycleDepth.back()--;
 }
 void AddDoWhileNode(const char* pos)
 {
@@ -1771,7 +1775,9 @@ void AddDoWhileNode(const char* pos)
 	if(nodeList[nodeList.size()-1]->typeInfo == typeVoid)
 		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeDoWhileExpr());
-	cycleBeginVarTop.pop_back();
+
+	assert(cycleDepth.size() != 0);
+	cycleDepth.back()--;
 }
 
 void BeginSwitch(const char* pos)
@@ -1779,7 +1785,10 @@ void BeginSwitch(const char* pos)
 	assert(nodeList.size() >= 1);
 	if(nodeList[nodeList.size()-1]->typeInfo == typeVoid)
 		ThrowError("ERROR: cannot switch by void type", pos);
-	cycleBeginVarTop.push_back((unsigned int)varInfoTop.size());
+
+	assert(cycleDepth.size() != 0);
+	cycleDepth.back()++;
+
 	BeginBlock();
 	nodeList.push_back(new NodeSwitchExpr());
 }
@@ -1793,7 +1802,9 @@ void AddCaseNode(const char* pos)
 }
 void EndSwitch()
 {
-	cycleBeginVarTop.pop_back();
+	assert(cycleDepth.size() != 0);
+	cycleDepth.back()--;
+
 	EndBlock();
 }
 
@@ -1881,12 +1892,8 @@ void SetStringFromIndex()
 
 void CallbackInitialize()
 {
-	varInfoTop.clear();
-	funcInfoTop.clear();
-
 	VariableInfo::DeleteVariableInformation();
 
-	retTypeStack.clear();
 	currDefinedFunc.clear();
 
 	currTypes.clear();
@@ -1904,10 +1911,16 @@ void CallbackInitialize()
 	varInfo.push_back(new VariableInfo(InplaceStr("pi"), GetStringHash("pi"), 8, typeDouble, true));
 	varInfo.push_back(new VariableInfo(InplaceStr("e"), GetStringHash("e"), 16, typeDouble, true));
 
+	varInfoTop.clear();
 	varInfoTop.push_back(VarTopInfo(0,0));
 
+	funcInfoTop.clear();
 	funcInfoTop.push_back(0);
 
+	cycleDepth.clear();
+	cycleDepth.push_back(0);
+
+	retTypeStack.clear();
 	retTypeStack.push_back(NULL);	//global return can return anything
 }
 
