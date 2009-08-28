@@ -20,21 +20,20 @@ bool currValConst;
 // Number of implicit array
 unsigned int inplaceArrayNum;
 
-// Stack of variable count top.
+// Stack of variable counts.
 // Used to find how many variables are to be removed when their visibility ends.
 // Also used to know how much space for local variables is required in stack frame.
 FastVector<VarTopInfo>		varInfoTop(64);
 
+// Stack of function counts.
+// Used to find how many functions are to be removed when their visibility ends.
+FastVector<unsigned int>	funcInfoTop(64);
+
 // Cycle depth stack is used to determine what is the depth of the loop when compiling operators break and continue
 FastVector<unsigned int>	cycleDepth(64);
 
-// Информация о количестве определённых функций на разных вложенностях блоков.
-// Служит для того чтобы убирать функции по мере выхода из области видимости.
-FastVector<unsigned int>			funcInfoTop(64);
-
-// Стек, который хранит типы значений, которые возвращает функция.
-// Функции можно определять одну в другой
-FastVector<TypeInfo*>		retTypeStack(64);
+// Stack of functions that are being defined at the moment
+FastVector<FunctionInfo*>	currDefinedFunc(64);
 
 // Информация о типе текущей переменной
 TypeInfo*	currType = NULL;
@@ -43,8 +42,6 @@ FastVector<TypeInfo*>		currTypes(64);
 
 // Для определения новых типов
 TypeInfo *newType = NULL;
-
-FastVector<FunctionInfo*>	currDefinedFunc(64);
 
 unsigned int	TypeInfo::buildInSize = 0;
 ChunkedStackPool<4092> TypeInfo::typeInfoPool;
@@ -644,27 +641,33 @@ void AddReturnNode(const char* pos, const char* end)
 	int localReturn = currDefinedFunc.size() != 0;
 
 	TypeInfo *realRetType = nodeList.back()->typeInfo;
-	if(!retTypeStack.back() && currDefinedFunc.size() != 0)
+	TypeInfo *expectedType = NULL;
+	if(currDefinedFunc.size() != 0)
 	{
-		retTypeStack.back() = realRetType;
-		currDefinedFunc.back()->retType = realRetType;
-		currDefinedFunc.back()->funcType = GetFunctionType(currDefinedFunc.back());
+		if(!currDefinedFunc.back()->retType)
+		{
+			currDefinedFunc.back()->retType = realRetType;
+			currDefinedFunc.back()->funcType = GetFunctionType(currDefinedFunc.back());
+		}
+		expectedType = currDefinedFunc.back()->retType;
+		if((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType)
+		{
+			sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
+			ThrowError(callbackError, pos);
+		}
+		if(expectedType->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
+			ThrowError("ERROR: function returning a value", pos);
+		if(expectedType != typeVoid && realRetType == typeVoid)
+		{
+			sprintf(callbackError, "ERROR: function should return %s", expectedType->GetFullTypeName());
+			ThrowError(callbackError, pos);
+		}
+	}else{
+		if(currDefinedFunc.size() == 0 && realRetType == typeVoid)
+			ThrowError("ERROR: global return cannot accept void", pos);
+		expectedType = realRetType;
 	}
-	if(retTypeStack.back() && (retTypeStack.back()->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && retTypeStack.back() != realRetType)
-	{
-		sprintf(callbackError, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), retTypeStack.back()->GetFullTypeName());
-		ThrowError(callbackError, pos);
-	}
-	if(retTypeStack.back() && retTypeStack.back()->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
-		ThrowError("ERROR: function returning a value", pos);
-	if(retTypeStack.back() && retTypeStack.back() != typeVoid && realRetType == typeVoid)
-	{
-		sprintf(callbackError, "ERROR: function should return %s", retTypeStack.back()->GetFullTypeName());
-		ThrowError(callbackError, pos);
-	}
-	if(!retTypeStack.back() && realRetType == typeVoid)
-		ThrowError("ERROR: global return cannot accept void", pos);
-	nodeList.push_back(new NodeReturnOp(localReturn, retTypeStack.back()));
+	nodeList.push_back(new NodeReturnOp(localReturn, expectedType));
 	nodeList.back()->SetCodeInfo(pos, end);
 }
 
@@ -881,7 +884,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		}
 
 		// Если мы находимся в локальной функции, и переменная находится в наружной области видимости
-		if((int)retTypeStack.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+		if(currDefinedFunc.size() != 0 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 		{
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			// Добавим имя переменной в список внешних переменных функции
@@ -1349,7 +1352,6 @@ void FunctionAdd(const char* pos, const char* funcName)
 	}
 	funcInfo.push_back(new FunctionInfo(funcNameCopy));
 	funcInfo.back()->vTopSize = (unsigned int)varInfoTop.size();
-	retTypeStack.push_back(currType);
 	funcInfo.back()->retType = currType;
 	if(newType)
 		funcInfo.back()->type = FunctionInfo::THISCALL;
@@ -1440,7 +1442,6 @@ void FunctionEnd(const char* pos, const char* funcName)
 		currDefinedFunc.back()->retType = typeVoid;
 		currDefinedFunc.back()->funcType = GetFunctionType(currDefinedFunc.back());
 	}
-	retTypeStack.pop_back();
 	currDefinedFunc.pop_back();
 
 	// If function is local, create function parameters block
@@ -1919,9 +1920,6 @@ void CallbackInitialize()
 
 	cycleDepth.clear();
 	cycleDepth.push_back(0);
-
-	retTypeStack.clear();
-	retTypeStack.push_back(NULL);	//global return can return anything
 }
 
 void CallbackDeinitialize()
