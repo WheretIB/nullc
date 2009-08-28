@@ -113,7 +113,8 @@ void AddIfNode(const char* pos);
 void AddIfElseNode(const char* pos);
 void AddIfElseTermNode(const char* pos);
 
-void SaveVariableTop();
+void IncreaseCycleDepth();
+
 void AddForNode(const char* pos);
 void AddWhileNode(const char* pos);
 void AddDoWhileNode(const char* pos);
