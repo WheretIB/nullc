@@ -556,12 +556,44 @@ void AddBinaryCommandNode(CmdID id)
 		else if(Ad->typeInfo == typeInt)
 			Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger(), swapOper), typeInt);
 		nodeList.push_back(Rd);
-	}else{
-		// Optimisations failed, perform operation in run-time
-		nodeList.push_back(new NodeBinaryOp(id));
-		if(!lastError.IsEmpty())
-			ThrowLastError();
+		return;
+	}else if(aNodeType == typeNodeNumber || bNodeType == typeNodeNumber){
+		NodeZeroOP *opA = nodeList[nodeList.size() - 2];
+		NodeZeroOP *opB = nodeList[nodeList.size() - 1];
+
+		bool nodesAreSwaped = false;
+		if(aNodeType != typeNodeNumber)
+		{
+			Swap(opA, opB);
+			nodesAreSwaped = true;
+		}
+
+		// 1 * anything == anything		anything * 1 == anything
+		// 0 + anything == anything		anything + 0 == anything
+		if((id == cmdMul && static_cast<NodeNumber*>(opA)->GetDouble() == 1.0) ||
+			(id == cmdAdd && static_cast<NodeNumber*>(opA)->GetDouble() == 0.0))
+		{
+			RemoveLastNode(!nodesAreSwaped);
+			return;
+		}
+		// 0 - anything = -anything		anything - 0 == anything
+		if(id == cmdSub && static_cast<NodeNumber*>(opA)->GetDouble() == 0.0)
+		{
+			if(!nodesAreSwaped)
+			{
+				RemoveLastNode(!nodesAreSwaped);
+				AddNegateNode(NULL);
+			}else{
+				RemoveLastNode(!nodesAreSwaped);
+			}
+			return;
+		}
 	}
+
+	// Optimizations failed, perform operation in run-time
+	nodeList.push_back(new NodeBinaryOp(id));
+	if(!lastError.IsEmpty())
+		ThrowLastError();
 }
 
 void AddReturnNode(const char* pos, const char* end)
@@ -943,7 +975,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 				// Then, to the right of assignment operator there is array definition using inplace array
 				if(nodeList.back()->nodeType == typeNodeExpressionList)
 				{
-					// Create node for assignment of inplace array to implicit variableДобавим узел, присваивающий скрытой переменной значения этого списка
+					// Create node for assignment of inplace array to implicit variable
 					AddInplaceArray(pos);
 					// Now we have two nodes, so they are to be unified
 					unifyTwo = true;
