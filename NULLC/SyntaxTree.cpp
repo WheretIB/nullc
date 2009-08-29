@@ -836,7 +836,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Node that sets value to the variable
 
-NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, bool swapNodes)
+NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, bool swapNodes)
 {
 	assert(targetType);
 	typeInfo = targetType;
@@ -852,7 +852,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, boo
 		second = TakeLastNode();
 
 	// If this is the first array definition and value is array sub-type, we set it to all array elements
-	arrSetAll = (pushVar && typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
+	arrSetAll = (firstDefinition && typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->typeInfo == typeVoid)
 	{
@@ -1557,7 +1557,7 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 		return;
 	}
 
-	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdBitAnd && cmd <= cmdLogXor))
+	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
 	{
 		lastError = CompilerError("ERROR: binary operations are not available on floating-point numbers", lastKnownStartPos);
 		return;
