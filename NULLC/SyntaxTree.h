@@ -270,7 +270,7 @@ protected:
 class NodeVariableSet: public NodeTwoOP
 {
 public:
-			NodeVariableSet(TypeInfo* targetType, unsigned int pushVar, bool swapNodes);
+			NodeVariableSet(TypeInfo* targetType, bool firstDefinition, bool swapNodes);
 	virtual ~NodeVariableSet();
 
 	virtual void Compile();

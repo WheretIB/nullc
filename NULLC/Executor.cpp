@@ -939,6 +939,22 @@ void Executor::Run(const char* funcName)
 		fflush(executeLog);
 #endif
 	}
+	// Print call stack on error
+	/*if(cmdStreamEnd == NULL)
+	{
+		char *currPos = execError + strlen(execError);
+		while(fcallStack.size())
+		{
+			int address = int(fcallStack.back() - cmdStreamBase);
+			if(address != -1)
+			{
+				for(unsigned int i = 0; i < 
+			}else{
+				if((currPos - execError) + strlen("unknown (-1)") < ERROR_BUFFER_SIZE)
+					currPos = strcpy(execError, "unknown (-1)");
+			}
+		}
+	}*/
 }
 
 #ifdef _MSC_VER

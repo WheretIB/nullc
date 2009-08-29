@@ -35,19 +35,20 @@ FastVector<unsigned int>	cycleDepth(64);
 // Stack of functions that are being defined at the moment
 FastVector<FunctionInfo*>	currDefinedFunc(64);
 
-// Информация о типе текущей переменной
+// Information about current type
 TypeInfo*	currType = NULL;
-// Стек для конструкций arr[arr[i.a.b].y].x;
+
+// Stack of current types
 FastVector<TypeInfo*>		currTypes(64);
 
-// Для определения новых типов
+// For new type creation
 TypeInfo *newType = NULL;
 
 unsigned int	TypeInfo::buildInSize = 0;
 ChunkedStackPool<4092> TypeInfo::typeInfoPool;
 unsigned int	VariableInfo::buildInSize = 0;
 ChunkedStackPool<4092> VariableInfo::variablePool;
-unsigned int	FunctionInfo::buildInSize;
+unsigned int	FunctionInfo::buildInSize = 0;
 ChunkedStackPool<4092>	FunctionInfo::functionPool;
 
 template<typename T> void	Swap(T& a, T& b)
@@ -140,15 +141,13 @@ double parseDouble(const char *str)
 	return integer + fractional;
 }
 
-// Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
-// будет вернутся после окончания блока.
+// Saves number of defined variables and functions
 void BeginBlock()
 {
 	varInfoTop.push_back(VarTopInfo((unsigned int)varInfo.size(), varTop));
 	funcInfoTop.push_back((unsigned int)funcInfo.size());
 }
-// Вызывается в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечивая
-// их выход из области видимости.
+// Restores previous number of defined variables and functions to hide those that lost visibility
 void EndBlock(bool hideFunctions)
 {
 	varInfo.shrink(varInfoTop.back().activeVarCnt);
@@ -162,7 +161,7 @@ void EndBlock(bool hideFunctions)
 	funcInfoTop.pop_back();
 }
 
-// input is a symbol after '\'
+// Input is a symbol after '\'
 char UnescapeSybmol(char symbol)
 {
 	char res = -1;
@@ -187,13 +186,13 @@ unsigned int GetAlignmentOffset(const char *pos, unsigned int alignment)
 {
 	if(alignment > 16)
 		ThrowError("ERROR: alignment must be less than 16 bytes", pos);
-	// Если требуется выравнивание (нету спецификации noalign, и адрес ещё не выровнен)
+	// If alignment is set and address is not aligned
 	if(alignment != 0 && varTop % alignment != 0)
 		return alignment - (varTop % alignment);
 	return 0;
 }
 
-// Функции для добавления узлов с константными числами разных типов
+// Functions used to add node for constant numbers of different type
 void AddNumberNodeChar(const char* pos)
 {
 	char res = pos[1];
@@ -217,11 +216,6 @@ void AddNumberNodeLong(const char* pos, const char* end)
 void AddNumberNodeDouble(const char* pos)
 {
 	nodeList.push_back(new NodeNumber(parseDouble(pos), typeDouble));
-}
-
-void AddVoidNode()
-{
-	nodeList.push_back(new NodeZeroOP());
 }
 
 void AddHexInteger(const char* pos, const char* end)
@@ -255,9 +249,13 @@ void AddBinInteger(const char* pos, const char* end)
 	else
 		nodeList.push_back(new NodeNumber(parseLong(pos, end, 2), typeLong));
 }
-// Функция для создания узла, который кладёт массив в стек
-// Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
-// но зато не надо писать отдельный класс с одинаковыми действиями внутри.
+
+void AddVoidNode()
+{
+	nodeList.push_back(new NodeZeroOP());
+}
+
+// Function that places string on stack, using list of NodeNumber in NodeExpressionList
 void AddStringNode(const char* s, const char* e)
 {
 	lastKnownStartPos = s;
@@ -309,43 +307,39 @@ void AddStringNode(const char* s, const char* e)
 	nodeList.push_back(temp);
 }
 
-// Функция для создания узла, который уберёт значение со стека переменных
-// Узел заберёт к себе последний узел в списке.
+// Function that creates node that removes value on top of the stack
 void AddPopNode(const char* s, const char* e)
 {
 	nodeList.back()->SetCodeInfo(s, e);
-	// Если последний узел в списке - узел с цислом, уберём его
+	// If the last node is a number, remove it completely
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		nodeList.pop_back();
 		nodeList.push_back(new NodeZeroOP());
 	}else if(nodeList.back()->nodeType == typeNodePreOrPostOp){
-		// Если последний узел, это переменная, которую уменьшают или увеличивают на 1, не используя в
-		// далнейшем её значение, то можно произвести оптимизацию кода.
+		// If the last node is increment or decrement, then we do not need to keep the value on stack, and some optimizations can be done
 		static_cast<NodePreOrPostOp*>(nodeList.back())->SetOptimised(true);
 	}else{
-		// Иначе просто создадим узёл, как и планировали в начале
+		// Otherwise, just create node
 		nodeList.push_back(new NodePopOp());
 	}
 }
 
-// Функция для создания узла, которые поменяет знак значения в стеке
-// Узел заберёт к себе последний узел в списке.
+// Function that creates unary operation node that changes sign of value
 void AddNegateNode(const char* pos)
 {
-	// Если последний узел это число, то просто поменяем знак у константы
+	// If the last node is a number, we can just change sign of constant
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->typeInfo;
-		NodeZeroOP* zOP = nodeList.back();
 		NodeZeroOP* Rd = NULL;
-		if(aType == typeDouble)
+		if(aType == typeDouble || aType == typeFloat)
 		{
-			Rd = new NodeNumber(-static_cast<NodeNumber*>(zOP)->GetDouble(), zOP->typeInfo);
+			Rd = new NodeNumber(-static_cast<NodeNumber*>(nodeList.back())->GetDouble(), aType);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber(-static_cast<NodeNumber*>(zOP)->GetLong(), zOP->typeInfo);
+			Rd = new NodeNumber(-static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber(-static_cast<NodeNumber*>(zOP)->GetInteger(), zOP->typeInfo);
+			Rd = new NodeNumber(-static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
 			sprintf(callbackError, "addNegNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
@@ -353,28 +347,26 @@ void AddNegateNode(const char* pos)
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
-		// Иначе просто создадим узёл, как и планировали в начале
+		// Otherwise, just create node
 		nodeList.push_back(new NodeUnaryOp(cmdNeg));
 	}
 }
 
-// Функция для создания узла, которые произведёт логическое отрицания над значением в стеке
-// Узел заберёт к себе последний узел в списке.
+// Function that creates unary operation node for logical NOT
 void AddLogNotNode(const char* pos)
 {
-	// Если последний узел в списке - число, то произведём действие во время копиляции
+	// If the last node is a number, we can just make operation in compile-time
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->typeInfo;
-		NodeZeroOP* zOP = nodeList.back();
 		NodeZeroOP* Rd = NULL;
-		if(aType == typeDouble)
+		if(aType == typeDouble || aType == typeFloat)
 		{
-			Rd = new NodeNumber(!static_cast<NodeNumber*>(zOP)->GetDouble(), zOP->typeInfo);
+			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetDouble(), aType);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber(!static_cast<NodeNumber*>(zOP)->GetLong(), zOP->typeInfo);
+			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber(!static_cast<NodeNumber*>(zOP)->GetInteger(), zOP->typeInfo);
+			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
 			sprintf(callbackError, "addLogNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
@@ -382,26 +374,26 @@ void AddLogNotNode(const char* pos)
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
-		// Иначе просто создадим узёл, как и планировали в начале
+		// Otherwise, just create node
 		nodeList.push_back(new NodeUnaryOp(cmdLogNot));
 	}
 }
+
+// Function that creates unary operation node for binary NOT
 void AddBitNotNode(const char* pos)
 {
+	// If the last node is a number, we can just make operation in compile-time
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->typeInfo;
-		NodeZeroOP* zOP = nodeList.back();
 		NodeZeroOP* Rd = NULL;
-		if(aType == typeDouble)
+		if(aType == typeDouble || aType == typeFloat)
 		{
 			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", pos);
-		}else if(aType == typeFloat){
-			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", pos);
 		}else if(aType == typeLong){
-			Rd = new NodeNumber(~static_cast<NodeNumber*>(zOP)->GetLong(), zOP->typeInfo);
+			Rd = new NodeNumber(~static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
 		}else if(aType == typeInt){
-			Rd = new NodeNumber(~static_cast<NodeNumber*>(zOP)->GetInteger(), zOP->typeInfo);
+			Rd = new NodeNumber(~static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
 			sprintf(callbackError, "addBitNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
@@ -415,6 +407,7 @@ void AddBitNotNode(const char* pos)
 	}
 }
 
+// Functions to apply binary operations in compile-time
 template<typename T>
 T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 {
@@ -533,8 +526,6 @@ void AddBinaryCommandNode(CmdID id)
 {
 	unsigned int aNodeType = nodeList[nodeList.size()-2]->nodeType;
 	unsigned int bNodeType = nodeList[nodeList.size()-1]->nodeType;
-	unsigned int shA = 2, shB = 1;	//Shifts to operand A and B in array
-	TypeInfo *aType, *bType;
 
 	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber)
 	{
@@ -543,12 +534,12 @@ void AddBinaryCommandNode(CmdID id)
 		nodeList.pop_back();
 		nodeList.pop_back();
 
-		//If we have operation between two known numbers, we can optimize code by calculating the result in place
-		aType = Ad->typeInfo;
-		bType = Bd->typeInfo;
+		// If we have operation between two known numbers, we can optimize code by calculating the result in compile-time
+		TypeInfo *aType = Ad->typeInfo;
+		TypeInfo *bType = Bd->typeInfo;
 
 		bool swapOper = false;
-		//Swap operands, to reduce number of combinations
+		// Swap operands, to reduce number of combinations
 		if(((aType == typeFloat || aType == typeLong || aType == typeInt) && bType == typeDouble) ||
 			((aType == typeLong || aType == typeInt) && bType == typeFloat) ||
 			(aType == typeInt && bType == typeLong))
@@ -565,75 +556,12 @@ void AddBinaryCommandNode(CmdID id)
 		else if(Ad->typeInfo == typeInt)
 			Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger(), swapOper), typeInt);
 		nodeList.push_back(Rd);
-		return;	// Оптимизация удалась, выходим
+	}else{
+		// Optimisations failed, perform operation in run-time
+		nodeList.push_back(new NodeBinaryOp(id));
+		if(!lastError.IsEmpty())
+			ThrowLastError();
 	}
-	if(aNodeType == typeNodeNumber || bNodeType == typeNodeNumber)
-	{
-		// Если один из узлов - число, то поменяем операторы местами так, чтобы узел с числом был в A
-		if(bNodeType == typeNodeNumber)
-		{
-			Swap(shA, shB);
-			Swap(aNodeType, bNodeType);
-		}
-
-		// Оптимизацию можно произвести, если второй операнд - typeNodeTwoAndCmdOp или typeNodeVarGet
-		if(bNodeType != typeNodeBinaryOp && bNodeType != typeNodeDereference)
-		{
-			// Иначе, выходим без оптимизаций
-			nodeList.push_back(new NodeBinaryOp(id));
-			if(!lastError.IsEmpty())
-				ThrowLastError();
-			return;
-		}
-
-		// Оптимизацию можно произвести, если число == 0 или число == 1
-		bool success = false;
-		bType = nodeList[nodeList.size()-shA]->typeInfo;
-		if(bType == typeDouble)
-		{
-			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
-			if(Ad->GetDouble() == 0.0 && id == cmdMul)
-			{
-				RemoveLastNode(shA == 1); // a*0.0 -> 0.0
-				success = true;
-			}
-			if((Ad->GetDouble() == 0.0 && id == cmdAdd) || (Ad->GetDouble() == 1.0 && id == cmdMul))
-			{
-				RemoveLastNode(shA == 2); // a+0.0 -> a || a*1.0 -> a
-				success = true;
-			}
-		}else if(bType == typeLong){
-			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
-			if(Ad->GetLong() == 0 && id == cmdMul)
-			{
-				RemoveLastNode(shA == 1); // a*0L -> 0L
-				success = true;
-			}
-			if((Ad->GetLong() == 0 && id == cmdAdd) || (Ad->GetLong() == 1 && id == cmdMul))
-			{
-				RemoveLastNode(shA == 2); // a+0L -> a || a*1L -> a
-				success = true;
-			}
-		}else if(bType == typeInt){
-			NodeNumber *Ad = static_cast<NodeNumber*>(nodeList[nodeList.size()-shA]);
-			if(Ad->GetInteger() == 0 && id == cmdMul)
-			{
-				RemoveLastNode(shA == 1); // a*0 -> 0
-				success = true;
-			}
-			if((Ad->GetInteger() == 0 && id == cmdAdd) || (Ad->GetInteger() == 1 && id == cmdMul))
-			{
-				RemoveLastNode(shA == 2); // a+0 -> a || a*1 -> a
-				success = true;
-			}
-		}
-		if(success)	// Оптимизация удалась, выходим сразу
-			return;
-	}
-	// Оптимизации не удались, сделаем операцию полностью
-	nodeList.push_back(new NodeBinaryOp(id));
-	if(!lastError.IsEmpty())
-		ThrowLastError();
 }
 
 void AddReturnNode(const char* pos, const char* end)
@@ -697,8 +625,6 @@ void SelectTypeByIndex(unsigned int index)
 	currType = typeInfo[index];
 }
 
-unsigned int	offsetBytes = 0;
-
 void AddVariable(const char* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
@@ -736,7 +662,6 @@ void AddVariable(const char* pos, InplaceStr varName)
 	{
 		unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes);
 		varTop += offset;
-		offsetBytes += offset;
 	}
 	varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currValConst));
 	varDefined = true;
@@ -752,7 +677,6 @@ void AddVariableReserveNode(const char* pos)
 	nodeList.push_back(new NodeZeroOP());
 	varInfo.back()->dataReserved = true;
 	varDefined = 0;
-	offsetBytes = 0;
 }
 
 void PushType()
@@ -806,7 +730,7 @@ void SetTypeOfLastNode()
 
 void AddInplaceArray(const char* pos);
 
-// Функция для получения адреса переменной, имя которое передаётся в параметрах
+// Function that retrieves variable address
 void AddGetAddressNode(const char* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
@@ -830,7 +754,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			ThrowError(callbackError, pos);
 		}
 
-		// Кладём в стек типов тип
+		// Push the type in type stack
 		currTypes.push_back(funcInfo[fID]->funcType);
 
 		if(funcInfo[fID]->funcPtr != 0)
@@ -853,10 +777,10 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			}
 		}
 
-		// Создаем узел для получения указателя на функцию
+		// Create node that retrieves function address
 		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
 	}else{
-		// Кладём в стек типов тип
+		// Push the type in type stack
 		currTypes.push_back(varInfo[i]->varType);
 
 		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL)
@@ -867,7 +791,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 					member = true;
 			if(member)
 			{
-				// Переменные типа адресуются через указатель this
+				// Class members are accessed through 'this' pointer
 				FunctionInfo *currFunc = currDefinedFunc.back();
 
 				TypeInfo *temp = GetReferenceType(newType);
@@ -883,11 +807,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			}
 		}
 
-		// Если мы находимся в локальной функции, и переменная находится в наружной области видимости
+		// If we try to access external variable from local function
 		if(currDefinedFunc.size() != 0 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 		{
 			FunctionInfo *currFunc = currDefinedFunc.back();
-			// Добавим имя переменной в список внешних переменных функции
+			// Add variable name to the list of function external variables
 			int num = AddFunctionExternal(currFunc, varName);
 
 			TypeInfo *temp = GetReferenceType(typeInt);
@@ -902,154 +826,152 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			nodeList.push_back(new NodeNumber(num, typeInt));
 			AddArrayIndexNode(pos);
 			AddDereferenceNode(pos);
-			// Убрали текущий тип
+			// Remove current type
 			currTypes.pop_back();
 		}else{
-			// Если переменная находится в глобальной области видимости, её адрес - абсолютный, без сдвигов
+			// If variable is in global scope, use absolute address
 			bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || currDefinedFunc.size() == 0;
 
 			int varAddress = varInfo[i]->pos;
 			if(!absAddress)
 				varAddress -= (int)(varInfoTop[currDefinedFunc.back()->vTopSize].varStackSize);
 
-			// Создаем узел для получения указателя на переменную
+			// Create node that places variable address on stack
 			nodeList.push_back(new NodeGetAddress(varInfo[i], varAddress, absAddress, varInfo[i]->varType));
 		}
 	}
 }
 
-// Функция вызывается для индексации массива
+// Function for array indexing
 void AddArrayIndexNode(const char* pos)
 {
 	lastKnownStartPos = pos;
 
-	// Тип должен быть массивом
+	// Current type must be an array
 	if(currTypes.back()->arrLevel == 0)
 		ThrowError("ERROR: indexing variable that is not an array", pos);
-	// Если это безразмерный массив (указатель на массив)
+	// If it is array without explicit size (pointer to array)
 	if(currTypes.back()->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
-		// То перед индексацией необходимо получить указатель на массив, который хранится в переменной
+		// Then, before indexing it, we need to get address from this variable
 		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
 		nodeList.push_back(new NodeDereference(GetReferenceType(currTypes.back()->subType)));
 		nodeList.push_back(temp);
 	}
-	// Если индекс - константное число и текущий узел - адрес
+	// If index is a number and previous node is an address, then indexing can be done in compile-time
 	if(nodeList.back()->nodeType == typeNodeNumber && nodeList[nodeList.size()-2]->nodeType == typeNodeGetAddress)
 	{
-		// Получаем значение сдвига
+		// Get shift value
 		int shiftValue = static_cast<NodeNumber*>(nodeList.back())->GetInteger();
 
-		// Проверим индекс на выход за пределы массива
+		// Check bounds
 		if(shiftValue < 0)
 			ThrowError("ERROR: Array index cannot be negative", pos);
 		if((unsigned int)shiftValue >= currTypes.back()->arrSize)
 			ThrowError("ERROR: Array index out of bounds", pos);
 
-		// Индексируем относительно него
+		// Index array
 		static_cast<NodeGetAddress*>(nodeList[nodeList.size()-2])->IndexArray(shiftValue);
 		nodeList.pop_back();
 	}else{
-		// Иначе создаём узел индексации
+		// Otherwise, create array indexing node
 		nodeList.push_back(new NodeArrayIndex(currTypes.back()));
 		if(!lastError.IsEmpty())
 			ThrowLastError();
 	}
-	// Теперь текущий тип - тип элемента массива
+	// Change current type to array element type
 	currTypes.back() = currTypes.back()->subType;
 }
 
-// Функция вызывается для разыменования указателя
+// Function for pointer dereferencing
 void AddDereferenceNode(const char* pos)
 {
 	lastKnownStartPos = pos;
 
-	// Создаём узел разыменования
+	// Create dereference node
 	nodeList.push_back(new NodeDereference(currTypes.back()));
-	// Теперь текущий тип - тип на который указывала ссылка
+	// Change current type to type that pointer pointed to
 	currTypes.back() = GetDereferenceType(currTypes.back());
 	if(!currTypes.back())
 		ThrowLastError();
 }
 
-// Компилятор в начале предполагает, что после переменной будет слодовать знак присваивания
-// Часто его нету, поэтому требуется удалить узел
+// Compiler expects that after variable there will be assignment operator
+// If it's not the case, last node has to be removed
 void FailedSetVariable()
 {
 	nodeList.pop_back();
 }
 
-// Функция вызывается для определния переменной с одновременным присваиванием ей значения
+// Function for variable assignment in place of definition
 void AddDefineVariableNode(const char* pos, InplaceStr varName)
 {
 	lastKnownStartPos = pos;
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
-	// Ищем переменную по имени
 	int i = FindVariableByName(hash);
 	if(i == -1)
 	{
 		sprintf(callbackError, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 		ThrowError(callbackError, pos);
 	}
-	// Кладём в стек типов её тип
+	// Put variable type in type stack
 	currTypes.push_back(varInfo[i]->varType);
 
-	// Если переменная находится в глобальной области видимости, её адрес - абсолютный, без сдвигов
-	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || varInfoTop.back().varStackSize == 0 || currDefinedFunc.size() == 0;
+	// If variable is in global scope, use absolute address
+	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || currDefinedFunc.size() == 0;
 
-	// Если указатель на текущий тип равен NULL, значит тип переменной обозначен как автоматически выводимый (auto)
-	// В таком случае, в качестве типа берётся возвращаемый последним узлом AST
+	// If current type is set to NULL, it means that current type is auto
+	// Is such case, type is retrieved from last AST node
 	TypeInfo *realCurrType = currTypes.back() ? currTypes.back() : nodeList.back()->typeInfo;
 
-	// Возможно, для определения значения переменной понадобится добавить вспомогательный узел дерева
-	// Переменная служит как флаг, обозначающий, что два узла надо объеденить в один
+	// Maybe additional node will be needed to define variable
+	// Variable signalizes that two nodes need to be unified in one
 	bool unifyTwo = false;
-	// Если тип переменной - безразмерный массив, а присваевается ей значение другого типа
+	// If variable type is array without explicit size, and it is being defined with value of different type
 	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->typeInfo)
 	{
 		TypeInfo *nodeType = nodeList.back()->typeInfo;
-		// Если подтип обоих значений (предположительно, массивов) совпадает
+		// If subtype of both variables (presumably, arrays) is equal
 		if(realCurrType->subType == nodeType->subType)
 		{
-			// И если справа не находится узел получения значения переменной
+			// And if to the right of assignment operator there is no pointer dereference
 			if(nodeList.back()->nodeType != typeNodeDereference)
 			{
-				// Тогда, если справа - определение массива списком
+				// Then, to the right of assignment operator there is array definition using inplace array
 				if(nodeList.back()->nodeType == typeNodeExpressionList)
 				{
-					// Добавим узел, присваивающий скрытой переменной значения этого списка
+					// Create node for assignment of inplace array to implicit variableДобавим узел, присваивающий скрытой переменной значения этого списка
 					AddInplaceArray(pos);
-					// Добавили лишний узел, потребуется их объеденить в конце
+					// Now we have two nodes, so they are to be unified
 					unifyTwo = true;
 				}else{
-					// Иначе, типы не совместимы, поэтому свидетельствуем об ошибке
+					// Or if not, then types aren't compatible, so throw error
 					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
 					ThrowError(callbackError, pos);
 				}
 			}
-			// Далее, так как мы присваиваем безразменому массиву значение размерного,
-			// нам надо преобразовать его в пару указатель;размер
-			// Возьмём указатель на массив, он - узел, находящийся в узле разыменования указателя
+			// Because we are assigning array of explicit size to a pointer to array, we have to put a pair of pointer:size on top of stack
+			// Take pointer to an array (node that is inside of pointer dereference node)
 			NodeZeroOP	*oldNode = nodeList.back();
 			nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
 			static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
-			// Найдем размер массива
+			// Find the size of an array
 			unsigned int typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
-			// Создадим список выражений, возвращающий тип безразмерного массива
-			// Конструктор списка захватит предыдущий узел в себя
+			// Create expression list with return type of implicit size array
+			// Node constructor will take last node
 			NodeExpressionList *listExpr = new NodeExpressionList(varInfo[i]->varType);
-			// Создадим узел, возвращающий число - размер массива
+			// Create node that places array size on top of the stack
 			nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
-			// Добавим в список
+			// Add it to expression list
 			listExpr->AddNode();
-			// Положим список в список узлов
+			// Add expression list to node list
 			nodeList.push_back(listExpr);
 		}
 	}
-	// Если переменной присваивается функция, то возьмём указатель на неё
+	// If a function is being assigned to variable, then take it's address
 	if(nodeList.back()->nodeType == typeNodeFuncDef ||
 		(nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
 	{
@@ -1062,27 +984,20 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 		varDefined = true;
 		varTop -= realCurrType->size;
 	}
-
-	// Переменная показывает, на сколько байт расширить стек переменных
-	unsigned int varSizeAdd = offsetBytes;	// По умолчанию, она хранит выравнивающий сдвиг
-	offsetBytes = 0;	// Который сразу же обнуляется
-	// Если тип не был ранее известен, значит, в функции добавления переменной выравнивание не было произведено
+	// If type wasn't known until assignment, it means that variable alignment wasn't performed in AddVariable function
 	if(!currTypes.back())
 	{
-		// Если выравнивание по умолчанию для типа значения справа не равно нулю (без выравнивания)
-		// Или если выравнивание указано пользователем
+		// If type has default alignment or if user specified it
 		if(realCurrType->alignBytes != 0 || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 		{
-			// Выбираем выравнивание. Указанное пользователем имеет больший приоритет, чем выравнивание по умолчанию
+			// Find address offset. Alignment selected by user has higher priority than default alignment
 			unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes);
-			varSizeAdd += offset;
 			varInfo[i]->pos += offset;
 			varTop += offset;
 		}
 		varInfo[i]->varType = realCurrType;
 		varTop += realCurrType->size;
 	}
-	varSizeAdd += !varInfo[i]->dataReserved ? realCurrType->size : 0;
 	varInfo[i]->dataReserved = true;
 
 	unsigned int varPosition = varInfo[i]->pos;
@@ -1091,7 +1006,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 
 	nodeList.push_back(new NodeGetAddress(varInfo[i], varPosition, absAddress, varInfo[i]->varType));
 
-	nodeList.push_back(new NodeVariableSet(realCurrType, varSizeAdd, false));
+	nodeList.push_back(new NodeVariableSet(realCurrType, true, false));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
 
@@ -1180,7 +1095,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
-	// Да, это локальная переменная с именем, как у глобальной!
+	// Beware that there is a global variable with the same name
 	TypeInfo *currType = currTypes.back();
 
 	if(currType->refLevel == 1)
@@ -1227,7 +1142,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		}
 		currTypes.back() = curr->type;
 	}else{
-		// Создаем узел для получения указателя на функцию
+		// Node that gets function address
 		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
 
 		currTypes.back() = funcInfo[fID]->funcType;
@@ -1863,7 +1778,7 @@ void AddUnfixedArraySize()
 	nodeList.push_back(new NodeNumber(1, typeVoid));
 }
 
-// Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
+// This function map source code lines to instructions
 void SetStringToLastNode(const char* pos, const char* end)
 {
 	nodeList.back()->SetCodeInfo(pos, end);
