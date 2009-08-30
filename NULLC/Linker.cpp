@@ -185,12 +185,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 						cmd.argument += oldGlobalSize;
 					break;
 				case cmdJmp:
-				case cmdJmpZI:
-				case cmdJmpZD:
-				case cmdJmpZL:
-				case cmdJmpNZI:
-				case cmdJmpNZD:
-				case cmdJmpNZL:
+				case cmdJmpZ:
+				case cmdJmpNZ:
 					cmd.argument += exFunctions[i].address - exFunctions[i].oldAddress;
 					break;
 				case cmdCall:
@@ -218,12 +214,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		switch(cmd.cmd)
 		{
 		case cmdJmp:
-		case cmdJmpZI:
-		case cmdJmpZD:
-		case cmdJmpZL:
-		case cmdJmpNZI:
-		case cmdJmpNZD:
-		case cmdJmpNZL:
+		case cmdJmpZ:
+		case cmdJmpNZ:
 			cmd.argument += offsetToGlobalCode - oldOffsetToGlobalCode;
 		}
 	}
@@ -259,12 +251,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				cmd.argument += oldGlobalSize;
 			break;
 		case cmdJmp:
-		case cmdJmpZI:
-		case cmdJmpZD:
-		case cmdJmpZL:
-		case cmdJmpNZI:
-		case cmdJmpNZD:
-		case cmdJmpNZL:
+		case cmdJmpZ:
+		case cmdJmpNZ:
 			cmd.argument += oldCodeSize - allFunctionSize;
 			break;
 		case cmdCall:

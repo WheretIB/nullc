@@ -99,12 +99,8 @@ void GenCodeCmdGetAddr(VMCmd cmd);
 void GenCodeCmdSetRange(VMCmd cmd);
 
 void GenCodeCmdJmp(VMCmd cmd);
-void GenCodeCmdJmpZI(VMCmd cmd);
-void GenCodeCmdJmpZD(VMCmd cmd);
-void GenCodeCmdJmpZL(VMCmd cmd);
-void GenCodeCmdJmpNZI(VMCmd cmd);
-void GenCodeCmdJmpNZD(VMCmd cmd);
-void GenCodeCmdJmpNZL(VMCmd cmd);
+void GenCodeCmdJmpZ(VMCmd cmd);
+void GenCodeCmdJmpNZ(VMCmd cmd);
 
 void GenCodeCmdCall(VMCmd cmd);
 void GenCodeCmdReturn(VMCmd cmd);

@@ -1171,10 +1171,11 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 		knownShift = true;
 	}
 
+	codeSize = first->codeSize + 1;
 	if(knownShift)
-		codeSize = first->codeSize + 2;
+		codeSize += 1;
 	else
-		codeSize = first->codeSize + second->codeSize + 1 + (typeParent->subType->size == 1 && second->typeInfo->stackType == STYPE_INT ? 0 : 1);
+		codeSize += second->codeSize + (second->typeInfo->stackType != STYPE_INT ? 1 : 0) + (typeParent->subType->size != 1 ? 1 : 0);
 	nodeType = typeNodeArrayIndex;
 }
 
@@ -1188,8 +1189,6 @@ void NodeArrayIndex::Compile()
 	if(strBegin && strEnd)
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
-	asmOperType oAsmType = operTypeForStackType[second->typeInfo->stackType];
-
 	// Get address of the first array element
 	first->Compile();
 
@@ -1200,14 +1199,10 @@ void NodeArrayIndex::Compile()
 		// Compute index value
 		second->Compile();
 		// Convert it to integer and multiply by the size of the element
+		if(second->typeInfo->stackType != STYPE_INT)
+			cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 		if(typeParent->subType->size != 1)
-		{
-			cmdList.push_back(VMCmd(cmdImmtMulType[oAsmType], typeParent->subType->size));
-		}else{
-			if(oAsmType != OTYPE_INT)
-				cmdList.push_back(VMCmd(oAsmType == OTYPE_DOUBLE ? cmdDtoI : cmdLtoI));
-		}
-
+			cmdList.push_back(VMCmd(cmdImmtMul, typeParent->subType->size));
 	}
 	// Add it to the address of the first element
 	cmdList.push_back(VMCmd(cmdAdd));
@@ -1562,10 +1557,11 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 		lastError = CompilerError("ERROR: binary operations are not available on floating-point numbers", lastKnownStartPos);
 		return;
 	}
-	//bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
+
+	bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
 
 	// Find the type or resulting value
-	typeInfo = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
+	typeInfo = logicalOp ? typeInt : ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
 
 	asmStackType fST = first->typeInfo->stackType, sST = second->typeInfo->stackType;
 	codeSize = ConvertFirstForSecondSize(fST, sST);
@@ -1637,6 +1633,8 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 	codeSize = first->codeSize + second->codeSize + 1;
 	if(third)
 		codeSize += third->codeSize + 1 + (second->typeInfo != third->typeInfo ? 1 : 0);
+	if(first->typeInfo->stackType != STYPE_INT)
+		codeSize++;
 	nodeType = typeNodeIfElseExpr;
 }
 NodeIfElseExpr::~NodeIfElseExpr()
@@ -1652,12 +1650,14 @@ void NodeIfElseExpr::Compile()
 
 	// Child node structure: if(first) second; else third;
 	// Or, for conditional operator: first ? second : third;
-	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
+
 	// Compute condition
 	first->Compile();
 
+	if(first->typeInfo->stackType != STYPE_INT)
+		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 	// If false, jump to 'else' block, or out of statement, if there is no 'else'
-	cmdList.push_back(VMCmd(cmdJmpZType[aOT], 0));	// Jump address will be fixed later on
+	cmdList.push_back(VMCmd(cmdJmpZ, 0));	// Jump address will be fixed later on
 	VMCmd *jmpOnFalse = &cmdList.back(), *jmpToEnd = NULL;
 
 	// Compile block for condition == true
@@ -1717,6 +1717,8 @@ NodeForExpr::NodeForExpr()
 	first = TakeLastNode();
 
 	codeSize = first->codeSize + second->codeSize + third->codeSize + fourth->codeSize + 2;
+	if(second->typeInfo->stackType != STYPE_INT)
+		codeSize++;
 	nodeType = typeNodeForExpr;
 }
 NodeForExpr::~NodeForExpr()
@@ -1731,7 +1733,6 @@ void NodeForExpr::Compile()
 		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
 
 	// Child node structure: for(first, second, third) fourth;
-	asmOperType aOT = operTypeForStackType[second->typeInfo->stackType];
 
 	// Compile initialization node
 	first->Compile();
@@ -1740,11 +1741,14 @@ void NodeForExpr::Compile()
 	// Compute condition value
 	second->Compile();
 
+	if(second->typeInfo->stackType != STYPE_INT)
+		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
+
 	// Save exit address for break operator
 	breakAddr.push_back(cmdList.size() + 1 + third->codeSize + fourth->codeSize + 1);
 
 	// If condition == false, exit loop
-	cmdList.push_back(VMCmd(cmdJmpZType[aOT], breakAddr.back()));
+	cmdList.push_back(VMCmd(cmdJmpZ, breakAddr.back()));
 
 	// Save address for continue operator
 	continueAddr.push_back(cmdList.size()+fourth->codeSize);
@@ -1784,6 +1788,8 @@ NodeWhileExpr::NodeWhileExpr()
 	first = TakeLastNode();
 
 	codeSize = first->codeSize + second->codeSize + 2;
+	if(first->typeInfo->stackType != STYPE_INT)
+		codeSize++;
 	nodeType = typeNodeWhileExpr;
 }
 NodeWhileExpr::~NodeWhileExpr()
@@ -1795,17 +1801,19 @@ void NodeWhileExpr::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	// Child node structure: while(first) second;
-	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
 
 	unsigned int posStart = cmdList.size();
 	// Compute condition value
 	first->Compile();
 
+	if(first->typeInfo->stackType != STYPE_INT)
+		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
+
 	// Save exit address for break operator
 	breakAddr.push_back(cmdList.size() + 1 + second->codeSize + 1);
 
 	// If condition == false, exit loop
-	cmdList.push_back(VMCmd(cmdJmpZType[aOT], breakAddr.back()));
+	cmdList.push_back(VMCmd(cmdJmpZ, breakAddr.back()));
 
 	// Save address for continue operator
 	continueAddr.push_back(cmdList.size() + second->codeSize);
@@ -1841,6 +1849,8 @@ NodeDoWhileExpr::NodeDoWhileExpr()
 	first = TakeLastNode();
 
 	codeSize = first->codeSize + second->codeSize + 1;
+	if(second->typeInfo->stackType != STYPE_INT)
+		codeSize++;
 	nodeType = typeNodeDoWhileExpr;
 }
 NodeDoWhileExpr::~NodeDoWhileExpr()
@@ -1852,7 +1862,6 @@ void NodeDoWhileExpr::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	// Child node structure: do{ first; }while(second)
-	asmOperType aOT = operTypeForStackType[second->typeInfo->stackType];
 
 	unsigned int posStart = cmdList.size();
 	// Save exit address for break operator
@@ -1865,8 +1874,11 @@ void NodeDoWhileExpr::Compile()
 	first->Compile();
 	// Compute condition value
 	second->Compile();
+	if(second->typeInfo->stackType != STYPE_INT)
+		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
+
 	// Jump to beginning if condition == true
-	cmdList.push_back(VMCmd(cmdJmpNZType[aOT], posStart));
+	cmdList.push_back(VMCmd(cmdJmpNZ, posStart));
 
 	breakAddr.pop_back();
 	continueAddr.pop_back();
@@ -2025,7 +2037,7 @@ void NodeSwitchExpr::Compile()
 		else
 			cmdList.push_back(VMCmd(cmdEqualL));
 		// If equal, jump to corresponding case block
-		cmdList.push_back(VMCmd(cmdJmpNZType[aOT], caseAddr));
+		cmdList.push_back(VMCmd(cmdJmpNZ, caseAddr));
 		caseAddr += currBlock->codeSize + 2;
 	}
 	// Remove value by which we switched from stack
