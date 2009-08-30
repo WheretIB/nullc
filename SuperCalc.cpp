@@ -843,10 +843,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
-		if(!colorer->ColorText())
+		/*if(!colorer->ColorText())
 		{
 			SetWindowText(hCode, colorer->GetError().c_str());
-		}
+		}*/
 		if(bRetFocus)
 		{
 			SetFocus(hTextArea);
@@ -857,17 +857,54 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		break;
 	case WM_LBUTTONUP:
 		break;
+	case WM_GETMINMAXINFO:
+	{
+		MINMAXINFO	*info = (MINMAXINFO*)lParam;
+		info->ptMinTrackSize.x = 400;
+		info->ptMinTrackSize.y = 200;
+	}
+		break;
 	case WM_SIZE:
 	{
-		SetWindowPos(hTextArea, HWND_TOP, 5,5,LOWORD(lParam)-10, (int)(5.0/9.0*HIWORD(lParam)), NULL);
-		SetWindowPos(hButtonCalc, HWND_TOP, 5,7+(int)(5.0/9.0*HIWORD(lParam)),100, 30, NULL);
-		SetWindowPos(hButtonCalcX86, HWND_TOP, (int)(LOWORD(lParam))-135,7+(int)(5.0/9.0*HIWORD(lParam)),130, 30, NULL);
-		SetWindowPos(hDoOptimize, HWND_TOP, (int)(LOWORD(lParam))-235,7+(int)(5.0/9.0*HIWORD(lParam)),95, 30, NULL);
-		SetWindowPos(hResult, HWND_TOP, 110,7+(int)(5.0/9.0*HIWORD(lParam)),(int)(LOWORD(lParam))-345, 30, NULL);
-		unsigned int widt = (LOWORD(lParam)-20)/4;
-		SetWindowPos(hCode, HWND_TOP, 5,40+(int)(5.0/9.0*HIWORD(lParam)),2*widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);
-		SetWindowPos(hLog, HWND_TOP, 2*widt+10,40+(int)(5.0/9.0*HIWORD(lParam)),widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);
-		SetWindowPos(hVars, HWND_TOP, 3*widt+15,40+(int)(5.0/9.0*HIWORD(lParam)),widt, (int)(3.0/9.0*HIWORD(lParam)), NULL);
+		unsigned int width = LOWORD(lParam), height = HIWORD(lParam);
+		unsigned int mainPadding = 5, subPadding = 2;
+
+		unsigned int middleHeight = 30;
+		unsigned int heightTopandBottom = height - mainPadding * 2 - middleHeight - subPadding * 2;
+
+		unsigned int topHeight = int(heightTopandBottom / 100.0 * 60.0);	// 60 %
+		unsigned int bottomHeight = int(heightTopandBottom / 100.0 * 40.0);	// 40 %
+
+		unsigned int middleOffsetY = mainPadding + topHeight + subPadding;
+
+		SetWindowPos(hTextArea,		HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
+
+		unsigned int buttonWidth = 120;
+		unsigned int resultWidth = width - 3 * buttonWidth - 2 * mainPadding - subPadding * 3;
+
+		unsigned int calcOffsetX = mainPadding;
+		unsigned int resultOffsetX = calcOffsetX + buttonWidth + subPadding;
+		unsigned int optOffsetX = resultOffsetX + resultWidth + subPadding;
+		unsigned int x86OffsetX = optOffsetX + buttonWidth + subPadding;
+
+		SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+		SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
+		SetWindowPos(hDoOptimize,	HWND_TOP, optOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+		SetWindowPos(hButtonCalcX86,HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+		unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
+
+		unsigned int bottomWidth = width - 2 * mainPadding - 2 * subPadding;
+		unsigned int leftOffsetX = mainPadding;
+		unsigned int leftWidth = int(bottomWidth / 100.0 * 50.0);	// 50 %
+		unsigned int middleOffsetX = leftOffsetX + leftWidth + subPadding;
+		unsigned int middleWidth = int(bottomWidth / 100.0 * 25.0);	// 25 %
+		unsigned int rightOffsetX = middleOffsetX + middleWidth + subPadding;
+		unsigned int rightWidth = int(bottomWidth / 100.0 * 25.0);	// 25 %
+
+		SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY, leftWidth, bottomHeight, NULL);
+		SetWindowPos(hLog,			HWND_TOP, middleOffsetX, bottomOffsetY, middleWidth, bottomHeight, NULL);
+		SetWindowPos(hVars,			HWND_TOP, rightOffsetX, bottomOffsetY, rightWidth, bottomHeight, NULL);
 	}
 		break;
 	default:
