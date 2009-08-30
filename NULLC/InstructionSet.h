@@ -81,11 +81,8 @@ enum InstructionCode
 	cmdItoL,	// int to long
 	cmdLtoI,	// long to int
 
-	// converts number on top of the stack to integer and multiples it by some number [int after instruction]
-	// конвентирует число на вершине стека в int и умножает на некоторое число [int за инструкцией]
-	cmdImmtMulD,	// double on top of the stack
-	cmdImmtMulL,	// long on top of the stack
-	cmdImmtMulI,	// int on top of the stack
+	// multiples integer on top of stack by some number
+	cmdImmtMul,
 
 	// copy value on top of the stack, and push it on the top again
 	// скопировать значение на верхушке стека и добавить его в стек
@@ -110,14 +107,11 @@ enum InstructionCode
 
 	// jump on zero
 	// переход, если значение на вершине == 0
-	cmdJmpZI,
-	cmdJmpZD,
-	cmdJmpZL,
+	cmdJmpZ,
+
 	// jump on not zero
 	// переход, если значение на вершине != 0
-	cmdJmpNZI,
-	cmdJmpNZD,
-	cmdJmpNZL,
+	cmdJmpNZ,
 
 	// call script function
 	// вызов функции, определённой в скрипте
@@ -242,10 +236,10 @@ static char *vmInstructionText[] =
 	"PopCharTop", "PopShortTop", "PopIntTop", "PopFloatTop", "PopDorLTop", "PopCmplxTop",
 	"Pop",
 	"DtoI", "DtoL", "DtoF", "ItoD", "LtoD", "ItoL", "LtoI",
-	"ImmtMulD", "ImmtMulL", "ImmtMulI",
+	"ImmtMul",
 	"CopyDorL", "CopyI",
 	"GetAddr", "FuncAddr", "SetRange",
-	"Jmp", "JmpZI", "JmpZD", "JmpZL", "JmpNZI", "JmpNZD", "JmpNZL",
+	"Jmp", "JmpZ", "JmpNZ",
 	"Call", "CallStd", "Return",
 	"PushVTop",
 	"Add", "Sub", "Mul", "Div", "Pow", "Mod", "Less", "Greater", "LEqual", "GEqual", "Equal", "NEqual",
@@ -350,18 +344,8 @@ struct VMCmd
 			break;
 
 		case cmdPop:
-			curr += sprintf(curr, " %d", argument);
-			break;
-
-		case cmdImmtMulD:
-		case cmdImmtMulL:
-		case cmdImmtMulI:
-			curr += sprintf(curr, " %d", argument);
-			break;
-
+		case cmdImmtMul:
 		case cmdGetAddr:
-			curr += sprintf(curr, " %d", argument);
-			break;
 		case cmdFuncAddr:
 			curr += sprintf(curr, " %d", argument);
 			break;
@@ -371,12 +355,8 @@ struct VMCmd
 			break;
 
 		case cmdJmp:
-		case cmdJmpZI:
-		case cmdJmpZD:
-		case cmdJmpZL:
-		case cmdJmpNZI:
-		case cmdJmpNZD:
-		case cmdJmpNZL:
+		case cmdJmpZ:
+		case cmdJmpNZ:
 			curr += sprintf(curr, " %d", argument);
 			break;
 
@@ -465,10 +445,6 @@ static InstructionCode cmdMovType[] = { cmdMovChar, cmdMovShort, cmdMovInt, cmdM
 static InstructionCode cmdMovTypeStk[] = { cmdMovCharStk, cmdMovShortStk, cmdMovIntStk, cmdMovDorLStk, cmdMovFloatStk, cmdMovDorLStk, cmdMovCmplxStk };
 
 static InstructionCode cmdPopTypeTop[] = { cmdPopCharTop, cmdPopShortTop, cmdPopIntTop, cmdPopDorLTop, cmdPopFloatTop, cmdPopDorLTop, cmdPopCmplxTop };
-
-static InstructionCode cmdImmtMulType[] = { cmdImmtMulD, cmdNop, cmdImmtMulL, cmdImmtMulI };
-static InstructionCode cmdJmpZType[] = { cmdJmpZD, cmdNop, cmdJmpZL, cmdJmpZI };
-static InstructionCode cmdJmpNZType[] = { cmdJmpNZD, cmdNop, cmdJmpNZL, cmdJmpNZI };
 
 static InstructionCode cmdIncType[] = { cmdIncD, cmdNop, cmdIncL, cmdIncI };
 static InstructionCode cmdDecType[] = { cmdDecD, cmdNop, cmdDecL, cmdDecI };

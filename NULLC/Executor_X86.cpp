@@ -165,9 +165,7 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdItoL] = GenCodeCmdItoL;
 	cgFuncs[cmdLtoI] = GenCodeCmdLtoI;
 
-	cgFuncs[cmdImmtMulD] = GenCodeCmdImmtMul;
-	cgFuncs[cmdImmtMulL] = GenCodeCmdImmtMul;
-	cgFuncs[cmdImmtMulI] = GenCodeCmdImmtMul;
+	cgFuncs[cmdImmtMul] = GenCodeCmdImmtMul;
 
 	cgFuncs[cmdCopyDorL] = GenCodeCmdCopyDorL;
 	cgFuncs[cmdCopyI] = GenCodeCmdCopyI;
@@ -178,13 +176,8 @@ bool ExecutorX86::Initialize()
 
 	cgFuncs[cmdJmp] = GenCodeCmdJmp;
 
-	cgFuncs[cmdJmpZI] = GenCodeCmdJmpZI;
-	cgFuncs[cmdJmpZD] = GenCodeCmdJmpZD;
-	cgFuncs[cmdJmpZL] = GenCodeCmdJmpZL;
-
-	cgFuncs[cmdJmpNZI] = GenCodeCmdJmpNZI;
-	cgFuncs[cmdJmpNZD] = GenCodeCmdJmpNZD;
-	cgFuncs[cmdJmpNZL] = GenCodeCmdJmpNZL;
+	cgFuncs[cmdJmpZ] = GenCodeCmdJmpZ;
+	cgFuncs[cmdJmpNZ] = GenCodeCmdJmpNZ;
 
 	cgFuncs[cmdCall] = GenCodeCmdCall;
 

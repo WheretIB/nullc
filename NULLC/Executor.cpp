@@ -336,15 +336,7 @@ void Executor::Run(const char* funcName)
 			*genStackPtr = *(genStackPtr-1);
 			break;
 
-		case cmdImmtMulD:
-			*(genStackPtr+1) = cmd.argument * int(*(double*)(genStackPtr));
-			genStackPtr++;
-			break;
-		case cmdImmtMulL:
-			*(genStackPtr+1) = cmd.argument * int(*(long long*)(genStackPtr));
-			genStackPtr++;
-			break;
-		case cmdImmtMulI:
+		case cmdImmtMul:
 			*genStackPtr = cmd.argument * (*genStackPtr);
 			break;
 
@@ -416,36 +408,16 @@ void Executor::Run(const char* funcName)
 			cmdStream = cmdStreamBase + cmd.argument;
 			break;
 
-		case cmdJmpZI:
+		case cmdJmpZ:
 			if(*genStackPtr == 0)
 				cmdStream = cmdStreamBase + cmd.argument;
 			genStackPtr++;
 			break;
-		case cmdJmpZD:
-			if(*(double*)(genStackPtr) == 0.0)
-				cmdStream = cmdStreamBase + cmd.argument;
-			genStackPtr += 2;
-			break;
-		case cmdJmpZL:
-			if(*(long long*)(genStackPtr) == 0L)
-				cmdStream = cmdStreamBase + cmd.argument;
-			genStackPtr += 2;
-			break;
 
-		case cmdJmpNZI:
+		case cmdJmpNZ:
 			if(*genStackPtr != 0)
 				cmdStream = cmdStreamBase + cmd.argument;
 			genStackPtr++;
-			break;
-		case cmdJmpNZD:
-			if(*(double*)(genStackPtr) != 0.0)
-				cmdStream = cmdStreamBase + cmd.argument;
-			genStackPtr += 2;
-			break;
-		case cmdJmpNZL:
-			if(*(long long*)(genStackPtr) != 0L)
-				cmdStream = cmdStreamBase + cmd.argument;
-			genStackPtr += 2;
 			break;
 
 		case cmdCall:
@@ -669,28 +641,28 @@ void Executor::Run(const char* funcName)
 			genStackPtr += 2;
 			break;
 		case cmdLessL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) < *(long long*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) < *(long long*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdGreaterL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) > *(long long*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) > *(long long*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdLEqualL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) <= *(long long*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) <= *(long long*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdGEqualL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) >= *(long long*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) >= *(long long*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdEqualL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) == *(long long*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) == *(long long*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdNEqualL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) != *(long long*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) != *(long long*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdShlL:
 			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) << *(long long*)(genStackPtr);
@@ -713,16 +685,16 @@ void Executor::Run(const char* funcName)
 			genStackPtr += 2;
 			break;
 		case cmdLogAndL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) && *(long long*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) && *(long long*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdLogOrL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) || *(long long*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) || *(long long*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdLogXorL:
-			*(long long*)(genStackPtr+2) = !!(*(long long*)(genStackPtr+2)) ^ !!(*(long long*)(genStackPtr));
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = !!(*(long long*)(genStackPtr+2)) ^ !!(*(long long*)(genStackPtr));
+			genStackPtr += 3;
 			break;
 
 		case cmdAddD:
@@ -750,28 +722,28 @@ void Executor::Run(const char* funcName)
 			genStackPtr += 2;
 			break;
 		case cmdLessD:
-			*(double*)(genStackPtr+2) = *(double*)(genStackPtr+2) < *(double*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) < *(double*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdGreaterD:
-			*(double*)(genStackPtr+2) = *(double*)(genStackPtr+2) > *(double*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) > *(double*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdLEqualD:
-			*(double*)(genStackPtr+2) = *(double*)(genStackPtr+2) <= *(double*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) <= *(double*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdGEqualD:
-			*(double*)(genStackPtr+2) = *(double*)(genStackPtr+2) >= *(double*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) >= *(double*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdEqualD:
-			*(double*)(genStackPtr+2) = *(double*)(genStackPtr+2) == *(double*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) == *(double*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 		case cmdNEqualD:
-			*(double*)(genStackPtr+2) = *(double*)(genStackPtr+2) != *(double*)(genStackPtr);
-			genStackPtr += 2;
+			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) != *(double*)(genStackPtr);
+			genStackPtr += 3;
 			break;
 
 		case cmdNeg:
