@@ -493,8 +493,18 @@ Colorer::~Colorer()
 	delete syntax;
 }
 
+CHARFORMAT2 cf;
+
 bool Colorer::ColorText()
 {
+	ZeroMemory(&cf, sizeof(CHARFORMAT2));
+	cf.cbSize = sizeof(CHARFORMAT2);
+	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_FACE | CFM_ITALIC | CFM_UNDERLINE;
+	cf.bCharSet = ANSI_CHARSET;
+	cf.bPitchAndFamily = DEFAULT_PITCH;
+	cf.bUnderlineType = CFU_UNDERLINEDOUBLE;
+	strcpy(cf.szFaceName, "Courier New");
+
 	lastError = "";
 
 	ColorerGrammar::typeInfo.clear();
@@ -560,18 +570,14 @@ void Colorer::ColorCode(int red, int green, int blue, int bold, int ital, int un
 		under=1;
 		errUnderline = 0;
 	}
-	//logstr << richEdit << " " << red << " " << green << " " << blue << " " << std::string(start, end) << "\r\n";
-	CHARFORMAT2 cf;
-	ZeroMemory(&cf, sizeof(CHARFORMAT2));
-	cf.cbSize = sizeof(CHARFORMAT2);
-	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_FACE | CFM_ITALIC | CFM_UNDERLINE;
-	cf.dwEffects = CFE_BOLD * bold | CFE_ITALIC * ital | CFE_UNDERLINE * under;
-	cf.crTextColor = RGB(red,green,blue);
-	cf.bCharSet = ANSI_CHARSET;
-	cf.bPitchAndFamily = DEFAULT_PITCH;
-	cf.bUnderlineType = CFU_UNDERLINEDOUBLE;
 	
-	strcpy(cf.szFaceName, "Courier New");
-	Edit_SetSel(richEdit, start-strBuf, end-strBuf);
+	cf.dwEffects = CFE_BOLD * bold | CFE_ITALIC * ital | CFE_UNDERLINE * under;
+	cf.crTextColor = RGB(red, green, blue);
+
+	CHARRANGE	chRange;
+	chRange.cpMin = start - strBuf;
+	chRange.cpMax = end - strBuf;
+
+	SendMessage(richEdit, EM_EXSETSEL, 0, (LPARAM)&chRange);
 	SendMessage(richEdit, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
 }
