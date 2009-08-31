@@ -1675,8 +1675,8 @@ void GenCodeCmdLogNotL(VMCmd cmd)
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 4);
 	EMIT_OP_REG_RPTR(o_or, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_REG(o_setz, rEAX);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEAX);
+	EMIT_OP_REG_NUM(o_add, rESP, 4);
 }
 
 
@@ -1695,6 +1695,7 @@ void GenCodeCmdLogNotD(VMCmd cmd)
 	EMIT_COMMENT("LNOT double");
 	EMIT_OP(o_fldz);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 0);
+	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
 	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
@@ -1703,8 +1704,6 @@ void GenCodeCmdLogNotD(VMCmd cmd)
 	EMIT_LABEL(LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
 	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
-	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 	aluLabels += 2;
 }
 

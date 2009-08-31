@@ -763,14 +763,16 @@ void Executor::Run(const char* funcName)
 			*(long long*)(genStackPtr) = ~*(long long*)(genStackPtr);
 			break;
 		case cmdLogNotL:
-			*(long long*)(genStackPtr) = !*(long long*)(genStackPtr);
+			*(int*)(genStackPtr+1) = !*(long long*)(genStackPtr);
+			genStackPtr++;
 			break;
 
 		case cmdNegD:
 			*(double*)(genStackPtr) = -*(double*)(genStackPtr);
 			break;
 		case cmdLogNotD:
-			*(double*)(genStackPtr) = fabs(*(double*)(genStackPtr)) < 1e-10;
+			*(int*)(genStackPtr+1) = *(double*)(genStackPtr) == 0.0;
+			genStackPtr++;
 			break;
 		
 		case cmdIncI:

@@ -401,8 +401,8 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 	cmdID = cmd;
 
 	first = TakeLastNode();
-	// Resulting type is the same as source type
-	typeInfo = first->typeInfo;
+	// Resulting type is the same as source type with exception for logical NOT
+	typeInfo = cmd == cmdLogNot ? typeInt : first->typeInfo;
 
 	codeSize = first->codeSize + 1;
 	nodeType = typeNodeUnaryOp;
