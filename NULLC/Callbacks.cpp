@@ -355,15 +355,14 @@ void AddNegateNode(const char* pos)
 // Function that creates unary operation node for logical NOT
 void AddLogNotNode(const char* pos)
 {
+	if(nodeList.back()->typeInfo == typeDouble || nodeList.back()->typeInfo == typeFloat)
+		ThrowError("ERROR: logical NOT is not available on floating-point numbers", pos);
 	// If the last node is a number, we can just make operation in compile-time
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;
-		if(aType == typeDouble || aType == typeFloat)
-		{
-			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetDouble(), aType);
-		}else if(aType == typeLong){
+		if(aType == typeLong){
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
 		}else if(aType == typeInt){
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
@@ -382,15 +381,14 @@ void AddLogNotNode(const char* pos)
 // Function that creates unary operation node for binary NOT
 void AddBitNotNode(const char* pos)
 {
+	if(nodeList.back()->typeInfo == typeDouble || nodeList.back()->typeInfo == typeFloat)
+		ThrowError("ERROR: binary NOT is not available on floating-point numbers", pos);
 	// If the last node is a number, we can just make operation in compile-time
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;
-		if(aType == typeDouble || aType == typeFloat)
-		{
-			ThrowError("ERROR: bitwise NOT cannot be used on floating point numbers", pos);
-		}else if(aType == typeLong){
+		if(aType == typeLong){
 			Rd = new NodeNumber(~static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
 		}else if(aType == typeInt){
 			Rd = new NodeNumber(~static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
@@ -401,8 +399,6 @@ void AddBitNotNode(const char* pos)
 		nodeList.pop_back();
 		nodeList.push_back(Rd);
 	}else{
-		if(nodeList.back()->typeInfo == typeDouble || nodeList.back()->typeInfo == typeFloat)
-			ThrowError("ERROR: binary NOT is not available on floating-point numbers", pos);
 		nodeList.push_back(new NodeUnaryOp(cmdBitNot));
 	}
 }

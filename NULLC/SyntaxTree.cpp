@@ -422,10 +422,10 @@ void NodeUnaryOp::Compile()
 	// Execute command
 	if(aOT == OTYPE_INT)
 		cmdList.push_back(VMCmd((InstructionCode)cmdID));
-	else if(aOT == OTYPE_DOUBLE)
-		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 6)));
+	else if(aOT == OTYPE_LONG)
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 1)));
 	else
-		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 3)));
+		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 2)));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
 }

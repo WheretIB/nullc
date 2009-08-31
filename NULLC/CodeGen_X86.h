@@ -174,7 +174,6 @@ void GenCodeCmdBitNotL(VMCmd cmd);
 void GenCodeCmdLogNotL(VMCmd cmd);
 
 void GenCodeCmdNegD(VMCmd cmd);
-void GenCodeCmdLogNotD(VMCmd cmd);
 
 void GenCodeCmdIncI(VMCmd cmd);
 void GenCodeCmdIncD(VMCmd cmd);
