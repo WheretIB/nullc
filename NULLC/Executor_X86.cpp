@@ -241,15 +241,14 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdNEqualD] = GenCodeCmdNEqualD;
 
 	cgFuncs[cmdNeg] = GenCodeCmdNeg;
-	cgFuncs[cmdBitNot] = GenCodeCmdBitNot;
-	cgFuncs[cmdLogNot] = GenCodeCmdLogNot;
-
 	cgFuncs[cmdNegL] = GenCodeCmdNegL;
-	cgFuncs[cmdBitNotL] = GenCodeCmdBitNotL;
-	cgFuncs[cmdLogNotL] = GenCodeCmdLogNotL;
-
 	cgFuncs[cmdNegD] = GenCodeCmdNegD;
-	cgFuncs[cmdLogNotD] = GenCodeCmdLogNotD;
+
+	cgFuncs[cmdBitNot] = GenCodeCmdBitNot;
+	cgFuncs[cmdBitNotL] = GenCodeCmdBitNotL;
+
+	cgFuncs[cmdLogNot] = GenCodeCmdLogNot;
+	cgFuncs[cmdLogNotL] = GenCodeCmdLogNotL;
 
 	cgFuncs[cmdIncI] = GenCodeCmdIncI;
 	cgFuncs[cmdIncD] = GenCodeCmdIncD;

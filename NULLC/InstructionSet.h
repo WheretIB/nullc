@@ -197,16 +197,14 @@ enum InstructionCode
 	// унарные операции [используется флаг операции, смотрите CmdRef.txt]
 	// они меняют значение на вершине стека
 	cmdNeg,		// negation
+	cmdNegL,
+	cmdNegD,
+
 	cmdBitNot,	// ~	binary NOT
+	cmdBitNotL,
+
 	cmdLogNot,	// !	logical NOT
-
-	cmdNegL,	// negation
-	cmdBitNotL,	// ~	binary NOT
-	cmdLogNotL,	// !	logical NOT
-
-	cmdNegD,	// negation
-	noBitNotD,	// not available for double
-	cmdLogNotD,	// !	logical NOT
+	cmdLogNotL,
 
 	cmdIncI,
 	cmdIncD,

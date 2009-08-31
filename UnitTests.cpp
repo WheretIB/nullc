@@ -187,7 +187,6 @@ res[9] = a >= b;\r\n\
 res[10] = a <= b;\r\n\
 res[11] = a == b;\r\n\
 res[12] = a != b;\r\n\
-res[13] = !a;\r\n\
 return a+b;";
 
 const char	*testLongOp = 

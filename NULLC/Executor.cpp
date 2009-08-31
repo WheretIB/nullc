@@ -749,29 +749,25 @@ void Executor::Run(const char* funcName)
 		case cmdNeg:
 			*(int*)(genStackPtr) = -*(int*)(genStackPtr);
 			break;
-		case cmdBitNot:
-			*(int*)(genStackPtr) = ~*(int*)(genStackPtr);
-			break;
-		case cmdLogNot:
-			*(int*)(genStackPtr) = !*(int*)(genStackPtr);
-			break;
-
 		case cmdNegL:
 			*(long long*)(genStackPtr) = -*(long long*)(genStackPtr);
+			break;
+		case cmdNegD:
+			*(double*)(genStackPtr) = -*(double*)(genStackPtr);
+			break;
+
+		case cmdBitNot:
+			*(int*)(genStackPtr) = ~*(int*)(genStackPtr);
 			break;
 		case cmdBitNotL:
 			*(long long*)(genStackPtr) = ~*(long long*)(genStackPtr);
 			break;
+
+		case cmdLogNot:
+			*(int*)(genStackPtr) = !*(int*)(genStackPtr);
+			break;
 		case cmdLogNotL:
 			*(int*)(genStackPtr+1) = !*(long long*)(genStackPtr);
-			genStackPtr++;
-			break;
-
-		case cmdNegD:
-			*(double*)(genStackPtr) = -*(double*)(genStackPtr);
-			break;
-		case cmdLogNotD:
-			*(int*)(genStackPtr+1) = *(double*)(genStackPtr) == 0.0;
 			genStackPtr++;
 			break;
 		
