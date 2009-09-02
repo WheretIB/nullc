@@ -38,7 +38,8 @@ unsigned int areaTextSize = 0;
 
 bool	areaCreated = false;
 HFONT	areaFont[4];
-HWND	areaWnd;
+HWND	areaWnd = 0;
+
 PAINTSTRUCT areaPS;
 int		areaWidth, areaHeight;
 unsigned int charWidth, charHeight;
@@ -92,10 +93,11 @@ void SetStyleToSelection(unsigned int start, unsigned int end, int style)
 	int skip = 0;
 	for(unsigned int i = start; i < start + length; i++)
 	{
-		curr->data[i - skip].style = (char)style;
-		if(i - skip > curr->length)
+		if(i - skip < curr->length)
 		{
-			skip += curr->length + 2;
+			curr->data[i - skip].style = (char)style;
+		}else{
+			skip += curr->length + 1;
 			curr = curr->next;
 		}
 	}
@@ -106,7 +108,7 @@ void RegisterTextarea(const char *className, HINSTANCE hInstance)
 	WNDCLASSEX wcex;
 
 	wcex.cbSize			= sizeof(WNDCLASSEX); 
-	wcex.style			= 0;//CS_HREDRAW | CS_VREDRAW;
+	wcex.style			= 0;
 	wcex.lpfnWndProc	= (WNDPROC)TextareaProc;
 	wcex.cbClsExtra		= 0;
 	wcex.cbWndExtra		= 0;
@@ -241,11 +243,11 @@ void ReDraw()
 				charRect.left += charWidth;
 				charRect.right += charWidth;
 			}
+			charRect.right = areaWidth - 17;
+			FillRect(hdc, &charRect, areaBrushWhite);
 		}else{
 			currChar += curr->length;
 		}
-		charRect.right = areaWidth;
-		FillRect(hdc, &charRect, areaBrushWhite);
 		charRect.left = padLeft;
 		charRect.right = charRect.left + charWidth;
 		charRect.top += charHeight;
@@ -306,6 +308,7 @@ void InputEnter()
 {
 	lineCount++;
 	AreaLine *nLine = new AreaLine;
+	memset(nLine, 0, sizeof(AreaLine));
 	if(currLine->next)
 	{
 		currLine->next->prev = nLine;
@@ -329,6 +332,7 @@ void InputEnter()
 		if(diff >= currLine->maxLength)
 		{
 			currLine->data = new AreaChar[diff + diff / 2];
+			memset(currLine->data, 0, sizeof(AreaChar) * diff + diff / 2);
 			currLine->maxLength = diff + diff / 2;
 		}
 		memcpy(currLine->data, &currLine->prev->data[cursorCharX], diff * sizeof(AreaChar));
@@ -345,8 +349,11 @@ void InputEnter()
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	HDC hdc;
+	SCROLLINFO sbInfo;
+	sbInfo.nMax = 0;
 
-	areaWnd = hWnd;
+	if(!areaWnd)
+		areaWnd = hWnd;
 	switch(message)
 	{
 	case WM_CREATE:
@@ -364,12 +371,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		areaPenBlack1px = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
 
 		areaBrushWhite = CreateSolidBrush(RGB(255, 255, 255));
+
 		EndPaint(areaWnd, &areaPS);
 		
 		areaTextSize = 64 * 1024;
 		areaText = new char[areaTextSize];
 
 		firstLine = new AreaLine;
+		memset(firstLine, 0, sizeof(AreaLine));
 		firstLine->data = firstLine->startBuf;
 		firstLine->next = firstLine->prev = NULL;
 		firstLine->length = 0;
@@ -389,6 +398,15 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	case WM_SIZE:
 		areaWidth = LOWORD(lParam);
 		areaHeight = HIWORD(lParam);
+
+		sbInfo.cbSize = sizeof(SCROLLINFO);
+		sbInfo.fMask = SIF_RANGE | SIF_PAGE;
+		sbInfo.nMin = 0;
+		sbInfo.nMax = lineCount;
+		sbInfo.nPage = charHeight ? areaHeight / charHeight : 1;
+		SetScrollInfo(areaWnd, SB_VERT, &sbInfo, false);
+
+		InvalidateRect(areaWnd, NULL, true);
 		break;
 	case WM_MOUSEACTIVATE:
 		SetFocus(areaWnd);
@@ -418,6 +436,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					{
 						AreaChar *nChars = new AreaChar[sum + sum / 2];
 						currLine->maxLength = sum + sum / 2;
+						memset(nChars, 0, sizeof(AreaChar) * currLine->maxLength);
 						memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
 						currLine->data = nChars;
 					}
@@ -514,6 +533,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				{
 					AreaChar *nChars = new AreaChar[sum + sum / 2];
 					currLine->maxLength = sum + sum / 2;
+					memset(nChars, 0, sizeof(AreaChar) * currLine->maxLength);
 					memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
 					currLine->data = nChars;
 				}
@@ -552,6 +572,42 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			shiftCharY = 0;
 		if(shiftCharY >= int(lineCount) - 1)
 			shiftCharY = lineCount - 2;
+		InvalidateRect(areaWnd, NULL, false);
+
+		memset(&sbInfo, 0, sizeof(SCROLLINFO));
+		sbInfo.cbSize = sizeof(SCROLLINFO);
+		sbInfo.fMask = SIF_POS;
+		sbInfo.nPos = shiftCharY;
+		SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
+		break;
+	case WM_VSCROLL:
+		switch(LOWORD(wParam))
+		{
+		case SB_LINEDOWN:
+			shiftCharY++;
+			break;
+		case SB_LINEUP:
+			shiftCharY--;
+			break;
+		case SB_PAGEDOWN:
+			shiftCharY += charHeight ? areaHeight / charHeight : 1;
+			break;
+		case SB_PAGEUP:
+			shiftCharY -= charHeight ? areaHeight / charHeight : 1;
+			break;
+		case SB_THUMBPOSITION:
+		case SB_THUMBTRACK:
+			shiftCharY = HIWORD(wParam);
+			break;
+		}
+		if(shiftCharY < 0)
+			shiftCharY = 0;
+		if(shiftCharY >= int(lineCount) - 1)
+			shiftCharY = lineCount - 2;
+		sbInfo.cbSize = sizeof(SCROLLINFO);
+		sbInfo.fMask = SIF_POS;
+		sbInfo.nPos = shiftCharY;
+		SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
 		InvalidateRect(areaWnd, NULL, false);
 		break;
 	default:
