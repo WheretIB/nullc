@@ -15,7 +15,7 @@ struct TextStyle
 	char	color[3];
 	char	font;
 };
-TextStyle	tStyle[16];
+TextStyle	tStyle[FONT_STYLE_COUNT];
 
 struct AreaChar
 {
@@ -33,43 +33,57 @@ struct AreaLine
 	AreaLine		*prev, *next;
 };
 
+// Buffer for linear text
 char	*areaText = NULL;
-AreaChar	*areaTextEx = NULL;
-
+// Buffer for linear text style information
+char	*areaTextEx = NULL;
+// Reserved size of linear buffer
 unsigned int areaTextSize = 0;
+// Current size of linear buffer
+unsigned int overallLength = 0;
 
 bool	areaCreated = false;
-HFONT	areaFont[4];
 HWND	areaWnd = 0;
+
+HFONT	areaFont[4];
 
 PAINTSTRUCT areaPS;
 int		areaWidth, areaHeight;
+// Single character width and height (using monospaced font)
 unsigned int charWidth, charHeight;
+// Cursor position in text, in symbols
 unsigned int cursorCharX = 0, cursorCharY = 0;
+// Horizontal and vertical scroll positions, in symbols
 int shiftCharX = 0, shiftCharY = 0;
+// Padding to the left of the first symbol
 unsigned int padLeft = 5;
-unsigned int overallLength = 0;
 
 unsigned int lineCount = 0;
+// Longest line in characters for horizontal scrolling
 int longestLine = 0;
 
+// Flag shows, if colorer should be issued to update text
 bool needUpdate = false;
 
+// A few pens and brushes for rendering
 HPEN	areaPenWhite1px, areaPenBlack1px;
 HBRUSH	areaBrushWhite, areaBrushBlack;
 
 AreaLine	*firstLine = NULL;
+// Current line is the line, where cursor is placed
 AreaLine	*currLine = NULL;
 
+// For text selection, here are starting and ending positions (in symbols)
 int dragStartX, dragStartY;
 int dragEndX, dragEndY;
+// And a flag that shows if the selection is active
 bool selectionOn = false;
 
-LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam);
-
+// Set style parameters. bold\italics\underline flags don't work together
 bool SetTextStyle(unsigned int id, char red, char green, char blue, bool bold, bool italics, bool underline)
 {
-	if(id >= 16)
+	// There are FONT_STYLE_COUNT styles available
+	if(id >= FONT_STYLE_COUNT)
 		return false;
 	tStyle[id].color[0] = red;
 	tStyle[id].color[1] = green;
@@ -84,55 +98,67 @@ bool SetTextStyle(unsigned int id, char red, char green, char blue, bool bold, b
 	return true;
 }
 
-void ExtendSolidTextBuf(unsigned int size)
+// Function is used to reserve space in linear text buffer
+void ExtendLinearTextBuffer()
 {
-	if(size >= areaTextSize)
-	{
-		areaTextSize = size + size / 2;
-		delete[] areaText;
-		delete[] areaTextEx;
-		areaText = new char[areaTextSize];
-		areaTextEx = new AreaChar[areaTextSize];
-	}
-}
-
-void BeginStyleUpdate()
-{
+	// Size that is needed is calculated by summing lengths of all lines
 	overallLength = 0;
 	AreaLine *curr = firstLine;
 	while(curr)
 	{
-		overallLength += curr->length + 2;	// additional 2 for \r\n
+		// AreaLine doesn't have the line endings (or any other special symbols)
+		// But GetAreaText() returns text with \r\n at the end, so we have to add
+		overallLength += curr->length + 2;	// additional 2 bytes for \r\n
 		curr = curr->next;
 	}
-
-	ExtendSolidTextBuf(overallLength);
+	if(overallLength >= areaTextSize)
+	{
+		// Reserve more than is needed
+		areaTextSize = overallLength + overallLength / 2;
+		delete[] areaText;
+		delete[] areaTextEx;
+		areaText = new char[areaTextSize];
+		areaTextEx = new char[areaTextSize];
+	}
 }
 
+// Function called before setting style to text parts. It reserves needed space in linear buffer
+void BeginStyleUpdate()
+{
+	ExtendLinearTextBuffer();
+}
+
+// Style is changed for linear buffer
 void SetStyleToSelection(unsigned int start, unsigned int end, int style)
 {
+	// Simply set style to the specified range of symbols
 	for(unsigned int i = start; i <= end; i++)
-		areaTextEx[i].style = (char)style;
+		areaTextEx[i] = (char)style;
 }
 
+// Function is called after setting style to text parts. It copies style information from linear buffer to AreaLine list
 void EndStyleUpdate()
 {
 	AreaLine *curr = firstLine;
+	// i has the position inside linear buffer
+	// n has the position inside a line
 	for(unsigned int i = 0, n = 0; i < overallLength;)
 	{
-		if(n < curr->length)
+		if(n < curr->length)	// Until n reaches line size, add style information to it
 		{
-			curr->data[n].style = areaTextEx[i].style;
+			curr->data[n].style = areaTextEx[i];
 			i++;
 			n++;
-		}else{
-			i += 2;
-			n = 0;
-			curr = curr->next;
+		}else{	// After that,
+			i += 2;		// skip the \r\n symbols, present after each line in linear buffer
+			n = 0;		// Returning to the first symbol
+			curr = curr->next;	// At the next line.
 		}
 	}
 }
 
+// This function register RichTextarea window class, so it can be created with CreateWindow call in client application
+// Because there is global state for this control, only one instance can be created.
 void RegisterTextarea(const char *className, HINSTANCE hInstance)
 {
 	WNDCLASSEX wcex;
@@ -153,36 +179,36 @@ void RegisterTextarea(const char *className, HINSTANCE hInstance)
 	RegisterClassEx(&wcex);
 }
 
+// Function that returns text with line ending in linear buffer
 const char* GetAreaText()
 {
-	AreaLine *curr = NULL;
-	// Calculate length of all text
-	overallLength = 0;
-	curr = firstLine;
-	while(curr)
-	{
-		overallLength += curr->length + 2;	// additional 2 for \r\n
-		curr = curr->next;
-	}
-
-	ExtendSolidTextBuf(overallLength);
+	// Reserve size of all text
+	ExtendLinearTextBuffer();
 
 	char	*currChar = areaText;
-	curr = firstLine;
+	AreaLine *curr = firstLine;
+	// For every line
 	while(curr)
 	{
+		// Append line contents to the buffer
 		for(unsigned int i = 0; i < curr->length; i++, currChar++)
 			*currChar = curr->data[i].ch;
+		// Append line ending
 		*currChar++ = '\r';
 		*currChar++ = '\n';
+		// Move to the next line
 		curr = curr->next;
 	}
+	// Terminate buffer at the end
 	*currChar = 0;
 	return areaText;
 };
 
+// Function that sets the text in text area
 void SetAreaText(const char *text)
 {
+	// Because we are not holding text as a simple string,
+	// we simulate how this text is written symbol by symbol
 	while(*text)
 	{
 		if(*text >= 0x20)
@@ -191,11 +217,15 @@ void SetAreaText(const char *text)
 			InputEnter();
 		*text++;
 	}
+	// Colorer should update text
 	needUpdate = true;
-	cursorCharX = dragStartX = 0;
-	cursorCharY = dragStartY = 0;
+	// Reset cursor and selection
+	cursorCharX = dragStartX = dragEndX = 0;
+	cursorCharY = dragStartY = dragEndY = 0;
+	selectionOn = false;
 }
 
+// Force redraw
 void UpdateArea()
 {
 	InvalidateRect(areaWnd, NULL, false);
@@ -211,97 +241,121 @@ void ResetUpdate()
 	needUpdate = false;
 }
 
+// Selection made by user can have ending point _before_ the starting point
+// This function is called to sort them out, but it doesn't change the global state (function is called to redraw selection, while user is still dragging his mouse)
 void SortSelPoints(unsigned int &startX, unsigned int &endX, unsigned int &startY, unsigned int &endY)
 {
+	// At first, save points as they are.
 	startX = dragStartX;
 	endX = dragEndX;
 	startY = dragStartY;
 	endY = dragEndY;
+	// If this is a single line selection and end is before start at X axis, swap them
 	if(dragEndX < dragStartX && dragStartY == dragEndY)
 	{
 		startX = dragEndX;
 		endX = dragStartX;
 	}
+	// If it a multiple line selection, and points are placed in a wrong order, swap X and Y components
 	if(dragEndY < dragStartY)
 	{
 		startY = dragEndY;
 		endY = dragStartY;
 
-		startX = dragEndX, endX = dragStartX;
+		startX = dragEndX;
+		endX = dragStartX;
 	}
 }
+
+// Update scrollbars, according to the scrolled text
+void	UpdateScrollBar()
+{
+	SCROLLINFO sbInfo;
+	sbInfo.cbSize = sizeof(SCROLLINFO);
+	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+	sbInfo.nMin = 0;
+	sbInfo.nMax = lineCount;
+	sbInfo.nPage = charHeight ? (areaHeight) / charHeight : 1;
+	sbInfo.nPos = shiftCharY;
+	SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
+
+	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+	sbInfo.nMin = 0;
+	sbInfo.nMax = longestLine;
+	sbInfo.nPage = charWidth ? (areaWidth - 17) / charWidth : 1;
+	sbInfo.nPos = shiftCharX;
+	SetScrollInfo(areaWnd, SB_HORZ, &sbInfo, true);
+}
+
 
 void ReDraw()
 {
 	if(!areaCreated)
 		return;
 
+	// Windows will tell, what part we have to update
 	RECT updateRect;
 	if(!GetUpdateRect(areaWnd, &updateRect, false))
 		return;
 
+	// Find the first line for current vertical scroll position
 	AreaLine *startLine = firstLine;
 	for(int i = 0; i < shiftCharY; i++)
 		startLine = startLine->next;
 
 	AreaLine *curr = NULL;
-	// Calculate length of all text
-	overallLength = 0;
-	curr = startLine;
-	while(curr)
-	{
-		overallLength += curr->length;
-		curr = curr->next;
-	}
 
-	ExtendSolidTextBuf(overallLength);
-
+	// Start drawing
 	HDC hdc = BeginPaint(areaWnd, &areaPS);
 	FontStyle currFont = FONT_REGULAR;
 	SelectFont(hdc, areaFont[currFont]);
 
+	// Find out the size of a single symbol
 	RECT charRect = { 0, 0, 0, 0 };
 	DrawText(hdc, "W", 1, &charRect, DT_CALCRECT);
 	charWidth = charRect.right;
 	charHeight = charRect.bottom;
 
-	char	*currChar = areaText;
-	curr = startLine;
-	unsigned int currLine = shiftCharY;
+	// Find the length of the longest line in text (should move to someplace that is more appropriate)
+	curr = firstLine;
 	longestLine = 0;
 	while(curr)
 	{
-		if(currLine < (shiftCharY + areaHeight / charHeight + 1))
-			for(unsigned int i = 0; i < curr->length; i++, currChar++)
-				*currChar = curr->data[i].ch;
 		longestLine = longestLine < (int)curr->length ? (int)curr->length : longestLine;
-		currLine++;
 		curr = curr->next;
 	}
+	// Reset horizontal scroll position, if longest line can fit to window
+	if(longestLine < int(areaWidth / charWidth) - 1)
+		shiftCharX = 0;
+	UpdateScrollBar();
 
+	// Setup the box of the first symbol
 	charRect.left = padLeft;
 	charRect.right = charRect.left + charWidth;
 
-	currChar = areaText;
-	curr = startLine;
-
+	// Find the selection range
 	unsigned int startX, startY, endX, endY;
 	SortSelPoints(startX, endX, startY, endY);
 
-	currLine = shiftCharY;
+	curr = startLine;
+	unsigned int currLine = shiftCharY;
+	// While they are lines and they didn't go out of view
 	while(curr && charRect.top < updateRect.bottom)
 	{
+		// If line box is inside update rect
 		if(charRect.bottom > updateRect.top)
 		{
-			currChar += shiftCharX > (int)curr->length ? (int)curr->length : shiftCharX;
-			for(unsigned int i = shiftCharX; i < curr->length; i++, currChar++)
+			// Draw line symbols
+			for(unsigned int i = shiftCharX; i < curr->length; i++)
 			{
 				TextStyle &style = tStyle[curr->data[i].style];
+				// Find out, if the symbol is in the selected range
 				bool selected = false;
 				if(startY == endY)
 					selected = i >= startX && i < endX && currLine == startY;
 				else
 					selected = (currLine == startY && i >= startX) || (currLine == endY && i < endX) || (currLine > startY && currLine < endY);
+				// If character is in the selection range and selection is active, invert colors
 				if(selected && selectionOn)
 				{
 					SetBkColor(hdc, RGB(0,0,0));
@@ -310,21 +364,23 @@ void ReDraw()
 					SetBkColor(hdc, RGB(255,255,255));
 					SetTextColor(hdc, RGB(style.color[0], style.color[1], style.color[2]));
 				}
-				
+				// If symbol has different font, change it
 				if(style.font != currFont)
 				{
 					currFont = (FontStyle)style.font;
 					SelectFont(hdc, areaFont[currFont]);
 				}
-				DrawText(hdc, currChar, 1, &charRect, 0);
+				// Draw character
+				DrawText(hdc, &curr->data[i].ch, 1, &charRect, 0);
+				// Shift the box to the next position
 				charRect.left += charWidth;
 				charRect.right += charWidth;
 			}
+			// Fill the end of the line with white color (17 is the length of a scrollbar)
 			charRect.right = areaWidth - 17;
 			FillRect(hdc, &charRect, areaBrushWhite);
-		}else{
-			currChar += curr->length;
 		}
+		// Shift to the beginning of the next line
 		charRect.left = padLeft;
 		charRect.right = charRect.left + charWidth;
 		charRect.top += charHeight;
@@ -332,6 +388,7 @@ void ReDraw()
 		curr = curr->next;
 		currLine++;
 	}
+	// Fill the empty space after text with white color
 	if(charRect.top < areaHeight)
 	{
 		charRect.left = padLeft;
@@ -423,25 +480,6 @@ void InputEnter()
 	cursorCharY++;
 	cursorCharX = 0;
 	InvalidateRect(areaWnd, NULL, true);
-}
-
-void	UpdateScrollBar()
-{
-	SCROLLINFO sbInfo;
-	sbInfo.cbSize = sizeof(SCROLLINFO);
-	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
-	sbInfo.nMin = 0;
-	sbInfo.nMax = lineCount;
-	sbInfo.nPage = charHeight ? (areaHeight) / charHeight : 1;
-	sbInfo.nPos = shiftCharY;
-	SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
-
-	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
-	sbInfo.nMin = 0;
-	sbInfo.nMax = longestLine;
-	sbInfo.nPage = charWidth ? (areaWidth - 17) / charWidth : 1;
-	sbInfo.nPos = shiftCharX;
-	SetScrollInfo(areaWnd, SB_HORZ, &sbInfo, true);
 }
 
 void	ClampShift()
@@ -573,7 +611,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		
 		areaTextSize = 16 * 1024;
 		areaText = new char[areaTextSize];
-		areaTextEx = new AreaChar[areaTextSize];
+		areaTextEx = new char[areaTextSize];
 
 		firstLine = new AreaLine;
 		memset(firstLine, 0, sizeof(AreaLine));
