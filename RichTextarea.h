@@ -5,6 +5,8 @@
 #define _WIN32_WINDOWS 0x0501
 #include <windows.h>
 
+#define FONT_STYLE_COUNT 16
+
 bool SetTextStyle(unsigned int id, char red, char green, char blue, bool bold, bool italics, bool underline);
 
 void BeginStyleUpdate();
