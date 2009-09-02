@@ -530,7 +530,7 @@ bool Colorer::ColorText(char *text, void (*ColFunc)(unsigned int, unsigned int, 
 	ColorerGrammar::codeStart = text;
 
 	errUnderline = false;
-	ColorCode(COLOR_ERR, text, text+strlen(text));
+	//ColorCode(COLOR_ERR, text, text+strlen(text));
 
 	ParseResult pRes = Parse(syntax->code, text, ColorerGrammar::ParseSpace);
 	if(pRes == PARSE_ABORTED)

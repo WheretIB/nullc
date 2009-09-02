@@ -6,7 +6,10 @@
 #include <windows.h>
 
 bool SetTextStyle(unsigned int id, char red, char green, char blue, bool bold, bool italics, bool underline);
+
+void BeginStyleUpdate();
 void SetStyleToSelection(unsigned int start, unsigned int end, int style);
+void EndStyleUpdate();
 
 void RegisterTextarea(const char *className, HINSTANCE hInstance);
 
@@ -15,6 +18,7 @@ void SetAreaText(const char *text);
 
 void UpdateArea();
 bool NeedUpdate();
+void ResetUpdate();
 
 void InputChar(char ch);
 void InputEnter();

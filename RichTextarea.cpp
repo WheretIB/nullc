@@ -34,6 +34,8 @@ struct AreaLine
 };
 
 char	*areaText = NULL;
+AreaChar	*areaTextEx = NULL;
+
 unsigned int areaTextSize = 0;
 
 bool	areaCreated = false;
@@ -77,27 +79,48 @@ bool SetTextStyle(unsigned int id, char red, char green, char blue, bool bold, b
 	return true;
 }
 
-void SetStyleToSelection(unsigned int start, unsigned int end, int style)
+void ExtendSolidTextBuf(unsigned int size)
 {
-	if(end >= overallLength)
-		return;
-	int length = end - start;
-	AreaLine *curr = firstLine;
-	while(curr && start >= curr->length + 2)
+	if(size >= areaTextSize)
 	{
-		start -= curr->length + 2;
+		areaTextSize = size + size / 2;
+		delete[] areaText;
+		delete[] areaTextEx;
+		areaText = new char[areaTextSize];
+		areaTextEx = new AreaChar[areaTextSize];
+	}
+}
+
+void BeginStyleUpdate()
+{
+	overallLength = 0;
+	AreaLine *curr = firstLine;
+	while(curr)
+	{
+		overallLength += curr->length + 2;	// additional 2 for \r\n
 		curr = curr->next;
 	}
-	if(!curr)
-		return;
-	int skip = 0;
-	for(unsigned int i = start; i < start + length; i++)
+
+	ExtendSolidTextBuf(overallLength);
+}
+
+void SetStyleToSelection(unsigned int start, unsigned int end, int style)
+{
+	for(int i = start; i <= end; i++)
+		areaTextEx[i].style = (char)style;
+}
+
+void EndStyleUpdate()
+{
+	AreaLine *curr = firstLine;
+	for(int i = 0, n = 0; i < overallLength; i++, n++)
 	{
-		if(i - skip < curr->length)
+		if(n < curr->length)
 		{
-			curr->data[i - skip].style = (char)style;
+			curr->data[n].style = areaTextEx[i].style;
 		}else{
-			skip += curr->length + 1;
+			i += 1;
+			n = -1;
 			curr = curr->next;
 		}
 	}
@@ -135,12 +158,7 @@ const char* GetAreaText()
 		curr = curr->next;
 	}
 
-	if(overallLength >= areaTextSize)
-	{
-		areaTextSize = overallLength + 1;
-		delete[] areaText;
-		areaText = new char[areaTextSize];
-	}
+	ExtendSolidTextBuf(overallLength);
 
 	char	*currChar = areaText;
 	curr = firstLine;
@@ -177,8 +195,11 @@ void UpdateArea()
 bool NeedUpdate()
 {
 	bool ret = needUpdate;
-	needUpdate = false;
 	return ret;
+}
+void ResetUpdate()
+{
+	needUpdate = false;
 }
 
 void ReDraw()
@@ -204,12 +225,7 @@ void ReDraw()
 		curr = curr->next;
 	}
 
-	if(overallLength >= areaTextSize)
-	{
-		areaTextSize = overallLength + 1;
-		delete[] areaText;
-		areaText = new char[areaTextSize];
-	}
+	ExtendSolidTextBuf(overallLength);
 
 	char	*currChar = areaText;
 	curr = startLine;
@@ -415,8 +431,9 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 
 		EndPaint(areaWnd, &areaPS);
 		
-		areaTextSize = 64 * 1024;
+		areaTextSize = 16 * 1024;
 		areaText = new char[areaTextSize];
+		areaTextEx = new AreaChar[areaTextSize];
 
 		firstLine = new AreaLine;
 		memset(firstLine, 0, sizeof(AreaLine));
