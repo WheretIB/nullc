@@ -442,6 +442,85 @@ void	CheckCursorBounds()
 	UpdateScrollBar();
 }
 
+void DeleteSelection()
+{
+	if(!selectionOn)
+		return;
+
+	unsigned int startX = dragStartX, endX = dragEndX;
+	unsigned int startY = dragStartY, endY = dragEndY;
+	if(dragEndX < dragStartX && dragStartY == dragEndY)
+	{
+		startX = dragEndX;
+		endX = dragStartX;
+	}
+	if(dragEndY < dragStartY)
+	{
+		startY = dragEndY;
+		endY = dragStartY;
+
+		startX = dragEndX, endX = dragStartX;
+	}
+
+	if(startY == endY)
+	{
+		AreaLine *curr = firstLine;
+		for(int i = 0; i < startY; i++)
+			curr = curr->next;
+		endX = endX > curr->length ? curr->length : endX;
+		startX = startX > curr->length ? curr->length : startX;
+		memmove(&curr->data[startX], &curr->data[endX], (curr->length - endX) * sizeof(AreaChar));
+		curr->length -= endX - startX;
+		selectionOn = false;
+		cursorCharX = startX;
+	}else{
+		endY = endY > lineCount ? lineCount-1 : endY;
+
+		AreaLine *first = firstLine;
+		for(int i = 0; i < startY; i++)
+			first = first->next;
+		AreaLine *last = first;
+		for(int i = startY; i < endY; i++)
+			last = last->next;
+
+		first->length = startX > first->length ? first->length : startX;
+
+		endX = endX > last->length ? last->length : endX;
+
+		memmove(&last->data[0], &last->data[endX], (last->length - endX) * sizeof(AreaChar));
+		last->length -= endX;
+		if(last->length < 0)
+			last->length = 0;
+
+		unsigned int sum = first->length + last->length;
+		if(sum >= first->maxLength)
+		{
+			AreaChar *nChars = new AreaChar[sum + sum / 2];
+			first->maxLength = sum + sum / 2;
+			memset(nChars, 0, sizeof(AreaChar) * first->maxLength);
+			memcpy(nChars, first->data, first->length * sizeof(AreaChar));
+			first->data = nChars;
+		}
+		memcpy(&first->data[first->length], last->data, last->length * sizeof(AreaChar));
+		first->length = sum;
+
+		for(int i = startY; i < endY; i++)
+		{
+			AreaLine *oldLine = first->next;
+			if(first->next->next)
+				first->next->next->prev = first;
+			first->next = first->next->next;
+			delete oldLine;
+
+			lineCount--;
+		}
+		selectionOn = false;
+		cursorCharX = startX;
+		cursorCharY = startY;
+	}
+	InvalidateRect(areaWnd, NULL, false);
+}
+
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	HDC hdc;
@@ -506,49 +585,60 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	case WM_CHAR:
 		if((wParam & 0xFF) >= 0x20)
 		{
+			if(selectionOn)
+				DeleteSelection();
 			InputChar((char)(wParam & 0xFF));
 		}else if((wParam & 0xFF) == '\r'){
+			if(selectionOn)
+				DeleteSelection();
 			InputEnter();
 		}else if((wParam & 0xFF) == '\b'){
-			if(cursorCharX)
+			if(selectionOn)
 			{
-				if(cursorCharX != currLine->length)
-					memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
-				currLine->length--;
-				cursorCharX--;
-				RECT invalid = { cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
-				InvalidateRect(areaWnd, &invalid, false);
+				DeleteSelection();
 			}else{
-				if(currLine->prev)
+				if(cursorCharX)
 				{
-					currLine = currLine->prev;
-					unsigned int sum = currLine->length + currLine->next->length;
-					if(sum >= currLine->maxLength)
+					if(cursorCharX != currLine->length)
+						memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
+					currLine->length--;
+					cursorCharX--;
+					RECT invalid = { cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+					InvalidateRect(areaWnd, &invalid, false);
+				}else{
+					if(currLine->prev)
 					{
-						AreaChar *nChars = new AreaChar[sum + sum / 2];
-						currLine->maxLength = sum + sum / 2;
-						memset(nChars, 0, sizeof(AreaChar) * currLine->maxLength);
-						memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
-						currLine->data = nChars;
+						currLine = currLine->prev;
+						unsigned int sum = currLine->length + currLine->next->length;
+						if(sum >= currLine->maxLength)
+						{
+							AreaChar *nChars = new AreaChar[sum + sum / 2];
+							currLine->maxLength = sum + sum / 2;
+							memset(nChars, 0, sizeof(AreaChar) * currLine->maxLength);
+							memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
+							currLine->data = nChars;
+						}
+						memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
+						currLine->length = sum;
+
+						AreaLine *oldLine = currLine->next;
+						if(currLine->next->next)
+							currLine->next->next->prev = currLine;
+						currLine->next = currLine->next->next;
+						delete oldLine;
+
+						lineCount--;
+
+						cursorCharX = sum;
+						cursorCharY--;
+
+						InvalidateRect(areaWnd, NULL, true);
 					}
-					memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
-					currLine->length = sum;
-
-					AreaLine *oldLine = currLine->next;
-					if(currLine->next->next)
-						currLine->next->next->prev = currLine;
-					currLine->next = currLine->next->next;
-					delete oldLine;
-
-					lineCount--;
-
-					cursorCharX = sum;
-					cursorCharY--;
-
-					InvalidateRect(areaWnd, NULL, true);
 				}
 			}
 		}else if((wParam & 0xFF) == 22){
+			if(selectionOn)
+				DeleteSelection();
 			OpenClipboard(areaWnd);
 			HANDLE clipData = GetClipboardData(CF_TEXT);
 			if(clipData)
@@ -613,35 +703,41 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}
 			}
 		}else if(wParam == VK_DELETE){
-			if(cursorCharX != currLine->length)
+			if(selectionOn)
 			{
-				memmove(&currLine->data[cursorCharX], &currLine->data[cursorCharX+1], (currLine->length - cursorCharX) * sizeof(AreaChar));
-				currLine->length--;
-				RECT invalid = { cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
-				InvalidateRect(areaWnd, &invalid, false);
+				DeleteSelection();
 				return 0;
 			}else{
-				unsigned int sum = currLine->length + currLine->next->length;
-				if(sum >= currLine->maxLength)
+				if(cursorCharX != currLine->length)
 				{
-					AreaChar *nChars = new AreaChar[sum + sum / 2];
-					currLine->maxLength = sum + sum / 2;
-					memset(nChars, 0, sizeof(AreaChar) * currLine->maxLength);
-					memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
-					currLine->data = nChars;
+					memmove(&currLine->data[cursorCharX], &currLine->data[cursorCharX+1], (currLine->length - cursorCharX) * sizeof(AreaChar));
+					currLine->length--;
+					RECT invalid = { cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+					InvalidateRect(areaWnd, &invalid, false);
+					return 0;
+				}else if(currLine->next){
+					unsigned int sum = currLine->length + currLine->next->length;
+					if(sum >= currLine->maxLength)
+					{
+						AreaChar *nChars = new AreaChar[sum + sum / 2];
+						currLine->maxLength = sum + sum / 2;
+						memset(nChars, 0, sizeof(AreaChar) * currLine->maxLength);
+						memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
+						currLine->data = nChars;
+					}
+					memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
+					currLine->length = sum;
+
+					AreaLine *oldLine = currLine->next;
+					if(currLine->next->next)
+						currLine->next->next->prev = currLine;
+					currLine->next = currLine->next->next;
+					delete oldLine;
+
+					lineCount--;
+					InvalidateRect(areaWnd, NULL, true);
+					return 0;
 				}
-				memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
-				currLine->length = sum;
-
-				AreaLine *oldLine = currLine->next;
-				if(currLine->next->next)
-					currLine->next->next->prev = currLine;
-				currLine->next = currLine->next->next;
-				delete oldLine;
-
-				lineCount--;
-				InvalidateRect(areaWnd, NULL, true);
-				return 0;
 			}
 		}
 		AreaCursorUpdate(areaWnd, 0, NULL, 0);
