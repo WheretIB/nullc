@@ -400,21 +400,25 @@ void ReDraw()
 	EndPaint(areaWnd, &areaPS);
 }
 
-HPEN currPen = 0;
+// Global variable that holds how many ticks have passed after last I-bar cursor reset
+// Reset is used so that cursor will always be visible after key or mouse events
 int	ibarState = 0;
-
 VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
 {
 	(void)dwTime;
 	(void)uMsg;
+	// Check that it is our timer
 	if(idEvent != 0)
 		return;
-	currPen = ibarState % 16 < 8 ? areaPenBlack1px : areaPenWhite1px;
+	// Ticks go more frequently than I-bar cursor switches its state
+	HPEN currPen = ibarState % 16 < 8 ? areaPenBlack1px : areaPenWhite1px;
+
+	// Must be used so that painting could be done
 	InvalidateRect(areaWnd, NULL, false);
 	HDC hdc = BeginPaint(areaWnd, &areaPS);
 
+	// While selecting pen, we check if our window is active. Cursor shouldn't blink if focus is on some other window
 	SelectPen(hdc, GetFocus() == hwnd ? currPen : areaPenWhite1px);
-	currPen = currPen == areaPenWhite1px ? areaPenBlack1px : areaPenWhite1px;
 
 	MoveToEx(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight, NULL);
 	LineTo(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight + charHeight);
@@ -423,8 +427,10 @@ VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
 	ibarState++;
 }
 
+// Function for single char insertion at the cursor position
 void InputChar(char ch)
 {
+	// We need to reallocate line buffer if it is full
 	if(currLine->length == currLine->maxLength)
 	{
 		AreaChar	*newData = new AreaChar[currLine->maxLength + (currLine->maxLength >> 1)];
@@ -434,19 +440,27 @@ void InputChar(char ch)
 		currLine->data = newData;
 		currLine->maxLength += currLine->maxLength >> 1;
 	}
+	// If cursor is in the middle of the line, we need to move characters after it to the right
 	if(cursorCharX != currLine->length)
 		memmove(&currLine->data[cursorCharX+1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
 	currLine->data[cursorCharX].ch = ch;
 	currLine->length++;
+	// Move cursor forward
 	cursorCharX++;
-	InvalidateRect(areaWnd, NULL, false);
+	// Force redraw on the modified line
+	RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+	InvalidateRect(areaWnd, &invalid, false);
 }
 
+// Function that adds line break at the cursor position
 void InputEnter()
 {
+	// Increment line count
 	lineCount++;
+	// Create new line
 	AreaLine *nLine = new AreaLine;
 	memset(nLine, 0, sizeof(AreaLine));
+	// Link new line with others
 	if(currLine->next)
 	{
 		currLine->next->prev = nLine;
@@ -458,30 +472,42 @@ void InputEnter()
 	nLine->prev = currLine;
 	currLine = currLine->next;
 
+	// Default state
 	currLine->length = 0;
 	currLine->maxLength = 32;
 	currLine->data = currLine->startBuf;
 
 	currLine->data[0].style = currLine->prev->length ? currLine->prev->data[currLine->prev->length-1].style : 0;
 
+	// If line break is in the middle of the line
 	if(cursorCharX != currLine->prev->length)
 	{
+		// Find, how much symbols will move to the next line
 		unsigned int diff = currLine->prev->length - cursorCharX;
+		// If it is more than the line can handle, extend character buffer
 		if(diff >= currLine->maxLength)
 		{
 			currLine->data = new AreaChar[diff + diff / 2];
 			memset(currLine->data, 0, sizeof(AreaChar) * diff + diff / 2);
 			currLine->maxLength = diff + diff / 2;
 		}
+		// Copy symbols to the new line
 		memcpy(currLine->data, &currLine->prev->data[cursorCharX], diff * sizeof(AreaChar));
+		// Shrink old
 		currLine->prev->length = cursorCharX;
+		// Extend new
 		currLine->length = diff;
 	}
+	// Move cursor to the next line
 	cursorCharY++;
 	cursorCharX = 0;
-	InvalidateRect(areaWnd, NULL, true);
+
+	// Force redraw on the modified line and all that goes after it
+	RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * charHeight, areaWidth, areaHeight };
+	InvalidateRect(areaWnd, &invalid, false);
 }
 
+// Windows scrollbar can scroll beyond valid positions
 void	ClampShift()
 {
 	if(shiftCharY < 0)
@@ -494,63 +520,84 @@ void	ClampShift()
 		shiftCharX = longestLine;
 }
 
+// Check that the cursor is visible (called, when editing text)
+// If it's not, shift scroll positions, so it will be visible once again
 void	CheckCursorBounds()
 {
 	if(charHeight && int(cursorCharY) > (areaHeight-32) / charHeight + shiftCharY)
-	{
 		shiftCharY = cursorCharY - (areaHeight-32) / charHeight;
-		ClampShift();
-		InvalidateRect(areaWnd, NULL, true);
-	}
-	if(int(cursorCharY) - shiftCharY < 0)
-	{
-		shiftCharY = cursorCharY - 2;
-		ClampShift();
-		InvalidateRect(areaWnd, NULL, true);
-	}
+	else if(int(cursorCharY) < shiftCharY)
+		shiftCharY = cursorCharY - 1;
+	else if(charWidth && int(cursorCharX) > (areaWidth-32) / charWidth + shiftCharX)
+		shiftCharX = cursorCharX - (areaWidth-32) / charWidth;
+	else if(int(cursorCharX) < shiftCharX)
+		shiftCharX = cursorCharX - 1;
+	else
+		return;
+
+	ClampShift();
+	InvalidateRect(areaWnd, NULL, true);
 	UpdateScrollBar();
 }
 
+// Remove characters in active selection
 void DeleteSelection()
 {
+	// Selection must be active
 	if(!selectionOn)
 		return;
 
+	// Sort selection points
 	unsigned int startX, startY, endX, endY;
 	SortSelPoints(startX, endX, startY, endY);
 
+	// Clamp selection points in Y axis
 	startY = startY > lineCount ? lineCount - 1 : startY;
 	endY = endY > lineCount ? lineCount-1 : endY;
 
+	// For single-line selection
 	if(startY == endY)
 	{
+		// Find selected line
 		AreaLine *curr = firstLine;
 		for(unsigned int i = 0; i < startY; i++)
 			curr = curr->next;
+		// Clamp selection points in Z axis
 		endX = endX > curr->length ? curr->length : endX;
 		startX = startX > curr->length ? curr->length : startX;
+		// Move text after selection to the start of selection
 		memmove(&curr->data[startX], &curr->data[endX], (curr->length - endX) * sizeof(AreaChar));
+		// Shrink length
 		curr->length -= endX - startX;
-		selectionOn = false;
+		// Move cursor and disable selection mode
 		cursorCharX = startX;
-	}else{
+		selectionOn = false;
+	}else{	// For multi-line selection
+		// Find first selection line
 		AreaLine *first = firstLine;
 		for(unsigned int i = 0; i < startY; i++)
 			first = first->next;
+		// Find last selection line
 		AreaLine *last = first;
 		for(unsigned int i = startY; i < endY; i++)
 			last = last->next;
 
+		// Shrink first line
 		first->length = startX > first->length ? first->length : startX;
 
+		// Clamp ending X position
 		endX = endX > last->length ? last->length : endX;
 
+		// Move unselected part of last line to the beginning if the line
 		memmove(&last->data[0], &last->data[endX], (last->length - endX) * sizeof(AreaChar));
+		// Shrink last line lenth
 		last->length -= endX;
 		if(last->length < 0)
 			last->length = 0;
 
+		// Append last line contents to the first line
 		unsigned int sum = first->length + last->length;
+		// Check if there is enough room
 		if(sum >= first->maxLength)
 		{
 			AreaChar *nChars = new AreaChar[sum + sum / 2];
@@ -559,9 +606,12 @@ void DeleteSelection()
 			memcpy(nChars, first->data, first->length * sizeof(AreaChar));
 			first->data = nChars;
 		}
+		// Copy
 		memcpy(&first->data[first->length], last->data, last->length * sizeof(AreaChar));
+		// Extend length
 		first->length = sum;
 
+		// Remove lines after the first line, including the last
 		for(unsigned int i = startY; i < endY; i++)
 		{
 			AreaLine *oldLine = first->next;
@@ -572,9 +622,12 @@ void DeleteSelection()
 
 			lineCount--;
 		}
+		// Disable selection mode
 		selectionOn = false;
+		// Move cursor to starting position
 		cursorCharX = startX;
 		cursorCharY = startY;
+		// Change current line
 		currLine = first;
 	}
 	UpdateScrollBar();
@@ -582,6 +635,7 @@ void DeleteSelection()
 	InvalidateRect(areaWnd, NULL, false);
 }
 
+// Textarea message handler
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	HDC hdc;
@@ -592,6 +646,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	{
 	case WM_CREATE:
 		hdc = BeginPaint(areaWnd, &areaPS);
+		// Create font for every FONT_STYLE
 		areaFont[FONT_REGULAR] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, false, false,
 			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
 		areaFont[FONT_BOLD] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_BOLD, false, false, false,
@@ -601,6 +656,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		areaFont[FONT_UNDERLINED] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, true, false,
 			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
 
+		// Create pens and brushes
 		areaPenWhite1px = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
 		areaPenBlack1px = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
 
@@ -609,10 +665,12 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 
 		EndPaint(areaWnd, &areaPS);
 		
+		// Init linear text buffer
 		areaTextSize = 16 * 1024;
 		areaText = new char[areaTextSize];
 		areaTextEx = new char[areaTextSize];
 
+		// Create first line of text
 		firstLine = new AreaLine;
 		memset(firstLine, 0, sizeof(AreaLine));
 		firstLine->data = firstLine->startBuf;
@@ -644,32 +702,44 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		EnableWindow(areaWnd, true);
 		break;
 	case WM_CHAR:
-		if((wParam & 0xFF) >= 0x20)
+		if((wParam & 0xFF) >= 0x20)	// If it isn't special symbol
 		{
+			// Remove selection
 			if(selectionOn)
 				DeleteSelection();
+			// Insert symbol
 			InputChar((char)(wParam & 0xFF));
-		}else if((wParam & 0xFF) == '\r'){
+		}else if((wParam & 0xFF) == '\r'){	// Line break
+			// Remove selection
 			if(selectionOn)
 				DeleteSelection();
+			// Insert symbol
 			InputEnter();
-		}else if((wParam & 0xFF) == '\b'){
+		}else if((wParam & 0xFF) == '\b'){	// Backspace
+			// Remove selection
 			if(selectionOn)
 			{
 				DeleteSelection();
 			}else{
+				// If cursor is not at the beginning of a line
 				if(cursorCharX)
 				{
+					// If cursor is in the middle, move characters to the vacant position
 					if(cursorCharX != currLine->length)
 						memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
+					// Shrink line size and move cursor
 					currLine->length--;
 					cursorCharX--;
+					// Force redraw on the updated region
 					RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
 					InvalidateRect(areaWnd, &invalid, false);
 				}else{
+					// If there is a line before current
 					if(currLine->prev)
 					{
+						// Add current line to the previous, as if are removing the line break
 						currLine = currLine->prev;
+						// Check if there is enough space
 						unsigned int sum = currLine->length + currLine->next->length;
 						if(sum >= currLine->maxLength)
 						{
@@ -679,9 +749,11 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 							memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
 							currLine->data = nChars;
 						}
+						// Append one line to the other
 						memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
 						currLine->length = sum;
 
+						// Remove line that was current before event
 						AreaLine *oldLine = currLine->next;
 						if(currLine->next->next)
 							currLine->next->next->prev = currLine;
@@ -690,20 +762,26 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 
 						lineCount--;
 
+						// Place cursor at the end of line
 						cursorCharX = sum;
 						cursorCharY--;
 
-						InvalidateRect(areaWnd, NULL, true);
+						// Force redraw on the updated region
+						RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * charHeight, areaWidth, areaHeight };
+						InvalidateRect(areaWnd, &invalid, true);
 					}
 				}
 			}
-		}else if((wParam & 0xFF) == 22){
+		}else if((wParam & 0xFF) == 22){	// Ctrl+V
+			// Remove selection
 			if(selectionOn)
 				DeleteSelection();
+			// Get pasted text
 			OpenClipboard(areaWnd);
 			HANDLE clipData = GetClipboardData(CF_TEXT);
 			if(clipData)
 			{
+				// Simulate as if the text was written
 				char *str = (char*)clipData;
 				while(*str)
 				{
@@ -715,39 +793,54 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}
 			}
 			CloseClipboard();
+			// Force update on whole window
 			InvalidateRect(areaWnd, NULL, false);
-		}else if((wParam & 0xFF) == 1){
+		}else if((wParam & 0xFF) == 1){	// Ctrl+A
+			// Select all
 			selectionOn = true;
 			dragStartX = 0;
 			dragStartY = 0;
+			// Find last line to know end cursor position
 			AreaLine *curr = firstLine;
 			int line = 0;
 			while(curr->next)
 				curr = curr->next, line++;
 			dragEndX = curr->length;
 			dragEndY = line;
+			// Force update on whole window
 			InvalidateRect(areaWnd, NULL, false);
-		}else if(selectionOn && ((wParam & 0xFF) == 3 || (wParam & 0xFF) == 24)){
+		}else if(selectionOn && ((wParam & 0xFF) == 3 || (wParam & 0xFF) == 24)){	// Ctrl+C and Ctrl+X
+			// Get linear text
 			const char *start = GetAreaText();
 			AreaLine *curr = firstLine;
 
+			// Sort selection range
 			unsigned int startX, startY, endX, endY;
 			SortSelPoints(startX, endX, startY, endY);
 
+			// Clamp selection points in Y axis
+			startY = startY > lineCount ? lineCount - 1 : startY;
+			endY = endY > lineCount ? lineCount-1 : endY;
+
+			// Find first line start in linear buffer
 			for(unsigned int i = 0; i < startY; i++)
 			{
 				start += curr->length + 2;
 				curr = curr->next;
 			}
 			const char *end = start;
+			// Move start to the first selected symbol
 			start += (startX < curr->length ? startX : curr->length);
+			// Find last line start in linear buffer
 			for(unsigned int i = startY; i < endY; i++)
 			{
 				end += curr->length + 2;
 				curr = curr->next;
 			}
+			// Move end to the last selected symbol
 			end += (endX < curr->length ? endX : curr->length);
 
+			// Copy to clipboard
 			OpenClipboard(areaWnd);
 			EmptyClipboard();
 			HGLOBAL hClipboardData = GlobalAlloc(GMEM_DDESHARE, end - start + 1);
@@ -756,6 +849,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			GlobalUnlock(hClipboardData);
 			SetClipboardData(CF_TEXT, hClipboardData);
 			CloseClipboard();
+			// If it is a cut operation, remove selection
 			if((wParam & 0xFF) == 24)
 				DeleteSelection();
 		}
@@ -763,7 +857,9 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		needUpdate = true;
 		break;
 	case WM_KEYDOWN:
+		// If key is pressed, remove I-bar
 		AreaCursorUpdate(NULL, 0, NULL, 0);
+		// First four to move cursor
 		if(wParam == VK_DOWN)
 		{
 			if(currLine->next)
@@ -773,6 +869,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				if(cursorCharX > currLine->length)
 					cursorCharX = currLine->length;
 			}
+			selectionOn = false;
 		}else if(wParam == VK_UP){
 			if(currLine->prev)
 			{
@@ -781,6 +878,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				if(cursorCharX > currLine->length)
 					cursorCharX = currLine->length;
 			}
+			selectionOn = false;
 		}else if(wParam == VK_LEFT){
 			if(cursorCharX > 0)
 			{
@@ -793,6 +891,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					cursorCharY--;
 				}
 			}
+			selectionOn = false;
 		}else if(wParam == VK_RIGHT){
 			if(cursorCharX < currLine->length)
 			{
@@ -802,25 +901,32 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				{
 					currLine = currLine->next;
 					cursorCharY++;
-					if(cursorCharX > currLine->length)
-						cursorCharX = currLine->length;
+					cursorCharX = 0;
 				}
 			}
-		}else if(wParam == VK_DELETE){
+			selectionOn = false;
+		}else if(wParam == VK_DELETE){	// Delete
+			// Remove selection, if active
 			if(selectionOn)
 			{
 				DeleteSelection();
 				return 0;
 			}else{
+				// If the cursor is not at the end of the line
 				if(cursorCharX != currLine->length)
 				{
+					// Move characters to vacant space
 					memmove(&currLine->data[cursorCharX], &currLine->data[cursorCharX+1], (currLine->length - cursorCharX) * sizeof(AreaChar));
+					// Shrink line size
 					currLine->length--;
+					// Force redraw on updated region
 					RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
 					InvalidateRect(areaWnd, &invalid, false);
 					return 0;
-				}else if(currLine->next){
+				}else if(currLine->next){	// If delete was pressed on the end of the line and there is a line afterwards
+					// Merge next line with current
 					unsigned int sum = currLine->length + currLine->next->length;
+					// Find out, if we have needed space
 					if(sum >= currLine->maxLength)
 					{
 						AreaChar *nChars = new AreaChar[sum + sum / 2];
@@ -829,9 +935,12 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 						memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
 						currLine->data = nChars;
 					}
+					// Append next line to current
 					memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
+					// Extend length
 					currLine->length = sum;
 
+					// Remove next line
 					AreaLine *oldLine = currLine->next;
 					if(currLine->next->next)
 						currLine->next->next->prev = currLine;
@@ -839,12 +948,15 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					delete oldLine;
 
 					lineCount--;
+					// Force update on whole window
 					InvalidateRect(areaWnd, NULL, true);
 					return 0;
 				}
 			}
 		}
+		// Reset I-bar tick count, so it will be visible
 		ibarState = 0;
+		// Draw I-bar
 		AreaCursorUpdate(areaWnd, 0, NULL, 0);
 		CheckCursorBounds();
 		
@@ -871,14 +983,13 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			{
 				while(dragStartX != 0 && (isdigit(curr->data[dragStartX - 1].ch) || curr->data[dragStartX - 1].ch == '.'))
 					dragStartX--;
-				while(dragEndX < (int)curr->length && (isdigit(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '.'))
+				while(dragEndX < (int)curr->length - 1 && (isdigit(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '.'))
 					dragEndX++;
 				dragEndX++;
-			}else if(isalnum(symb) || symb == '_')
-			{
+			}else if(isalnum(symb) || symb == '_'){
 				while(dragStartX != 0 && (isalnum(curr->data[dragStartX - 1].ch) || curr->data[dragStartX - 1].ch == '_'))
 					dragStartX--;
-				while(dragEndX < (int)curr->length && (isalnum(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '_'))
+				while(dragEndX < (int)curr->length - 1 && (isalnum(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '_'))
 					dragEndX++;
 				dragEndX++;
 			}else{
