@@ -857,8 +857,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		lastUpdate = GetTickCount();
 	}
 		break;
-	case WM_LBUTTONUP:
-		break;
 	case WM_GETMINMAXINFO:
 	{
 		MINMAXINFO	*info = (MINMAXINFO*)lParam;

@@ -51,7 +51,7 @@ unsigned int padLeft = 5;
 unsigned int overallLength = 0;
 
 unsigned int lineCount = 0;
-unsigned int longestLine = 0;
+int longestLine = 0;
 
 bool needUpdate = false;
 
@@ -118,14 +118,16 @@ void SetStyleToSelection(unsigned int start, unsigned int end, int style)
 void EndStyleUpdate()
 {
 	AreaLine *curr = firstLine;
-	for(unsigned int i = 0, n = 0; i < overallLength; i++, n++)
+	for(unsigned int i = 0, n = 0; i < overallLength;)
 	{
 		if(n < curr->length)
 		{
 			curr->data[n].style = areaTextEx[i].style;
+			i++;
+			n++;
 		}else{
-			i += 1;
-			n = -1;
+			i += 2;
+			n = 0;
 			curr = curr->next;
 		}
 	}
@@ -136,7 +138,7 @@ void RegisterTextarea(const char *className, HINSTANCE hInstance)
 	WNDCLASSEX wcex;
 
 	wcex.cbSize			= sizeof(WNDCLASSEX); 
-	wcex.style			= 0;
+	wcex.style			= CS_DBLCLKS;
 	wcex.lpfnWndProc	= (WNDPROC)TextareaProc;
 	wcex.cbClsExtra		= 0;
 	wcex.cbWndExtra		= 0;
@@ -272,7 +274,7 @@ void ReDraw()
 		if(currLine < (shiftCharY + areaHeight / charHeight + 1))
 			for(unsigned int i = 0; i < curr->length; i++, currChar++)
 				*currChar = curr->data[i].ch;
-		longestLine = longestLine < curr->length ? curr->length : longestLine;
+		longestLine = longestLine < (int)curr->length ? (int)curr->length : longestLine;
 		currLine++;
 		curr = curr->next;
 	}
@@ -291,7 +293,7 @@ void ReDraw()
 	{
 		if(charRect.bottom > updateRect.top)
 		{
-			currChar += shiftCharX > curr->length ? curr->length : shiftCharX;
+			currChar += shiftCharX > (int)curr->length ? (int)curr->length : shiftCharX;
 			for(unsigned int i = shiftCharX; i < curr->length; i++, currChar++)
 			{
 				TextStyle &style = tStyle[curr->data[i].style];
@@ -342,14 +344,15 @@ void ReDraw()
 }
 
 HPEN currPen = 0;
+int	ibarState = 0;
+
 VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
 {
 	(void)dwTime;
 	(void)uMsg;
 	if(idEvent != 0)
 		return;
-	if(!currPen)
-		currPen = areaPenBlack1px;
+	currPen = ibarState % 16 < 8 ? areaPenBlack1px : areaPenWhite1px;
 	InvalidateRect(areaWnd, NULL, false);
 	HDC hdc = BeginPaint(areaWnd, &areaPS);
 
@@ -359,6 +362,8 @@ VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
 	MoveToEx(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight, NULL);
 	LineTo(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight + charHeight);
 	EndPaint(areaWnd, &areaPS);
+
+	ibarState++;
 }
 
 void InputChar(char ch)
@@ -476,10 +481,13 @@ void DeleteSelection()
 	unsigned int startX, startY, endX, endY;
 	SortSelPoints(startX, endX, startY, endY);
 
+	startY = startY > lineCount ? lineCount - 1 : startY;
+	endY = endY > lineCount ? lineCount-1 : endY;
+
 	if(startY == endY)
 	{
 		AreaLine *curr = firstLine;
-		for(int i = 0; i < startY; i++)
+		for(unsigned int i = 0; i < startY; i++)
 			curr = curr->next;
 		endX = endX > curr->length ? curr->length : endX;
 		startX = startX > curr->length ? curr->length : startX;
@@ -488,13 +496,11 @@ void DeleteSelection()
 		selectionOn = false;
 		cursorCharX = startX;
 	}else{
-		endY = endY > lineCount ? lineCount-1 : endY;
-
 		AreaLine *first = firstLine;
-		for(int i = 0; i < startY; i++)
+		for(unsigned int i = 0; i < startY; i++)
 			first = first->next;
 		AreaLine *last = first;
-		for(int i = startY; i < endY; i++)
+		for(unsigned int i = startY; i < endY; i++)
 			last = last->next;
 
 		first->length = startX > first->length ? first->length : startX;
@@ -518,7 +524,7 @@ void DeleteSelection()
 		memcpy(&first->data[first->length], last->data, last->length * sizeof(AreaChar));
 		first->length = sum;
 
-		for(int i = startY; i < endY; i++)
+		for(unsigned int i = startY; i < endY; i++)
 		{
 			AreaLine *oldLine = first->next;
 			if(first->next->next)
@@ -581,7 +587,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 
 		lineCount = 1;
 
-		SetTimer(areaWnd, 0, 500, AreaCursorUpdate);
+		SetTimer(areaWnd, 0, 62, AreaCursorUpdate);
 		areaCreated = true;
 		break;
 	case WM_PAINT:
@@ -690,14 +696,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			unsigned int startX, startY, endX, endY;
 			SortSelPoints(startX, endX, startY, endY);
 
-			for(int i = 0; i < startY; i++)
+			for(unsigned int i = 0; i < startY; i++)
 			{
 				start += curr->length + 2;
 				curr = curr->next;
 			}
 			const char *end = start;
 			start += (startX < curr->length ? startX : curr->length);
-			for(int i = startY; i < endY; i++)
+			for(unsigned int i = startY; i < endY; i++)
 			{
 				end += curr->length + 2;
 				curr = curr->next;
@@ -710,7 +716,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			char *pchData = (char*)GlobalLock(hClipboardData);
 			memcpy(pchData, start, end - start);
 			GlobalUnlock(hClipboardData);
-			HANDLE clipData = SetClipboardData(CF_TEXT, hClipboardData);
+			SetClipboardData(CF_TEXT, hClipboardData);
 			CloseClipboard();
 			if((wParam & 0xFF) == 24)
 				DeleteSelection();
@@ -800,9 +806,50 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}
 			}
 		}
+		ibarState = 0;
 		AreaCursorUpdate(areaWnd, 0, NULL, 0);
 		CheckCursorBounds();
 		
+		break;
+	case WM_LBUTTONDBLCLK:
+		dragEndY = dragStartY = HIWORD(lParam) / charHeight + shiftCharY;
+		if(dragStartY > (int)lineCount)
+			break;
+		dragStartX = 1;
+		dragEndX = 5;
+
+		{
+			AreaLine *curr = firstLine;
+			for(int i = 0; i < dragStartY; i++)
+				curr = curr->next;
+
+			dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
+			if(dragStartX > (int)curr->length && curr->length != 0)
+				dragStartX = curr->length - 1;
+			dragEndX = dragStartX;
+
+			char symb = curr->data[dragStartX].ch;
+			if(isdigit(symb))
+			{
+				while(dragStartX != 0 && (isdigit(curr->data[dragStartX - 1].ch) || curr->data[dragStartX - 1].ch == '.'))
+					dragStartX--;
+				while(dragEndX < (int)curr->length && (isdigit(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '.'))
+					dragEndX++;
+				dragEndX++;
+			}else if(isalnum(symb) || symb == '_')
+			{
+				while(dragStartX != 0 && (isalnum(curr->data[dragStartX - 1].ch) || curr->data[dragStartX - 1].ch == '_'))
+					dragStartX--;
+				while(dragEndX < (int)curr->length && (isalnum(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '_'))
+					dragEndX++;
+				dragEndX++;
+			}else{
+				dragEndX++;
+			}
+
+			selectionOn = curr->length != 0;
+		}
+		InvalidateRect(areaWnd, NULL, false);
 		break;
 	case WM_LBUTTONDOWN:
 		dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
@@ -831,6 +878,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			currLine = currLine->next;
 		if(cursorCharX > currLine->length)
 			cursorCharX = currLine->length;
+		ibarState = 0;
 		break;
 	case WM_MOUSEWHEEL:
 		shiftCharY -= (GET_WHEEL_DELTA_WPARAM(wParam) / 120) * 3;
