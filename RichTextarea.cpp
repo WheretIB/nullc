@@ -224,20 +224,25 @@ void ReDraw()
 
 	currChar = areaText;
 	curr = startLine;
-	while(curr && charRect.top < areaHeight)
+	while(curr && charRect.top < updateRect.bottom)
 	{
-		for(unsigned int i = 0; i < curr->length; i++, currChar++)
+		if(charRect.bottom > updateRect.top)
 		{
-			TextStyle &style = tStyle[curr->data[i].style];
-			if(style.font != currFont)
+			for(unsigned int i = 0; i < curr->length; i++, currChar++)
 			{
-				currFont = (FontStyle)style.font;
-				SelectFont(hdc, areaFont[currFont]);
+				TextStyle &style = tStyle[curr->data[i].style];
+				if(style.font != currFont)
+				{
+					currFont = (FontStyle)style.font;
+					SelectFont(hdc, areaFont[currFont]);
+				}
+				SetTextColor(hdc, RGB(style.color[0], style.color[1], style.color[2]));
+				DrawText(hdc, currChar, 1, &charRect, 0);
+				charRect.left += charWidth;
+				charRect.right += charWidth;
 			}
-			SetTextColor(hdc, RGB(style.color[0], style.color[1], style.color[2]));
-			DrawText(hdc, currChar, 1, &charRect, 0);
-			charRect.left += charWidth;
-			charRect.right += charWidth;
+		}else{
+			currChar += curr->length;
 		}
 		charRect.right = areaWidth;
 		FillRect(hdc, &charRect, areaBrushWhite);
@@ -396,12 +401,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		}else if((wParam & 0xFF) == '\r'){
 			InputEnter();
 		}else if((wParam & 0xFF) == '\b'){
-			if(cursorCharX)//currLine->length)
+			if(cursorCharX)
 			{
 				if(cursorCharX != currLine->length)
 					memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
 				currLine->length--;
 				cursorCharX--;
+				RECT invalid = { cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+				InvalidateRect(areaWnd, &invalid, false);
 			}else{
 				if(currLine->prev)
 				{
@@ -428,8 +435,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					cursorCharX = sum;
 					cursorCharY--;
 				}
+				InvalidateRect(areaWnd, NULL, true);
 			}
-			InvalidateRect(areaWnd, NULL, true);
 		}else if((wParam & 0xFF) == 22){
 			OpenClipboard(areaWnd);
 			HANDLE clipData = GetClipboardData(CF_TEXT);
@@ -492,6 +499,36 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					if(cursorCharX > currLine->length)
 						cursorCharX = currLine->length;
 				}
+			}
+		}else if(wParam == VK_DELETE){
+			if(cursorCharX != currLine->length)
+			{
+				memmove(&currLine->data[cursorCharX], &currLine->data[cursorCharX+1], (currLine->length - cursorCharX) * sizeof(AreaChar));
+				currLine->length--;
+				RECT invalid = { cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+				InvalidateRect(areaWnd, &invalid, false);
+				return 0;
+			}else{
+				unsigned int sum = currLine->length + currLine->next->length;
+				if(sum >= currLine->maxLength)
+				{
+					AreaChar *nChars = new AreaChar[sum + sum / 2];
+					currLine->maxLength = sum + sum / 2;
+					memcpy(nChars, currLine->data, currLine->length * sizeof(AreaChar));
+					currLine->data = nChars;
+				}
+				memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
+				currLine->length = sum;
+
+				AreaLine *oldLine = currLine->next;
+				if(currLine->next->next)
+					currLine->next->next->prev = currLine;
+				currLine->next = currLine->next->next;
+				delete oldLine;
+
+				lineCount--;
+				InvalidateRect(areaWnd, NULL, true);
+				return 0;
 			}
 		}
 		AreaCursorUpdate(areaWnd, 0, NULL, 0);
