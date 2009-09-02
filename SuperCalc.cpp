@@ -441,9 +441,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		fileContent[textSize] = 0;
 		fclose(startText);
 	}
-	hTextArea = CreateWindow("NULLCTEXT", NULL,
-		WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
-		5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
+	hTextArea = CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
 	SetAreaText(fileContent ? fileContent : "int a = 5;\r\nint ref b = &a;\r\nreturn 1;");
 
 	delete[] fileContent;
