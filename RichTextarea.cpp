@@ -2,10 +2,18 @@
 
 #include <windowsx.h>
 
+enum FontStyle
+{
+	FONT_REGULAR,
+	FONT_BOLD,
+	FONT_ITALIC,
+	FONT_UNDERLINED,
+};
+
 struct TextStyle
 {
 	char	color[3];
-	bool	bold, italics, underline;
+	char	font;
 };
 TextStyle	tStyle[16];
 
@@ -29,7 +37,7 @@ char	*areaText = NULL;
 unsigned int areaTextSize = 0;
 
 bool	areaCreated = false;
-HFONT	areaFont;
+HFONT	areaFont[4];
 HWND	areaWnd;
 PAINTSTRUCT areaPS;
 int		areaWidth, areaHeight;
@@ -58,30 +66,38 @@ bool SetTextStyle(unsigned int id, char red, char green, char blue, bool bold, b
 	tStyle[id].color[0] = red;
 	tStyle[id].color[1] = green;
 	tStyle[id].color[2] = blue;
-	tStyle[id].bold = bold;
-	tStyle[id].italics = italics;
-	tStyle[id].underline = underline;
+	tStyle[id].font = FONT_REGULAR;
+	if(bold)
+		tStyle[id].font = FONT_BOLD;
+	if(italics)
+		tStyle[id].font = FONT_ITALIC;
+	if(underline)
+		tStyle[id].font = FONT_UNDERLINED;
 	return true;
 }
 
 void SetStyleToSelection(unsigned int start, unsigned int end, int style)
 {
-	if(start >= overallLength)
+	if(end >= overallLength)
 		return;
 	int length = end - start;
 	AreaLine *curr = firstLine;
-	while(curr && start >= curr->length)
+	while(curr && start >= curr->length + 2)
 	{
 		start -= curr->length + 2;
 		curr = curr->next;
 	}
 	if(!curr)
 		return;
+	int skip = 0;
 	for(unsigned int i = start; i < start + length; i++)
 	{
-		curr->data[i].style = (char)style;
-		if(i >= curr->length)
-			break;
+		curr->data[i - skip].style = (char)style;
+		if(i - skip > curr->length)
+		{
+			skip += curr->length + 2;
+			curr = curr->next;
+		}
 	}
 }
 
@@ -195,8 +211,8 @@ void ReDraw()
 	}
 
 	HDC hdc = BeginPaint(areaWnd, &areaPS);
-	SelectFont(hdc, areaFont);
-	//SelectBrush(hdc, areaBrushWhite);
+	FontStyle currFont = FONT_REGULAR;
+	SelectFont(hdc, areaFont[currFont]);
 
 	RECT charRect = { 0, 0, 0, 0 };
 	DrawText(hdc, "W", 1, &charRect, DT_CALCRECT);
@@ -213,6 +229,11 @@ void ReDraw()
 		for(unsigned int i = 0; i < curr->length; i++, currChar++)
 		{
 			TextStyle &style = tStyle[curr->data[i].style];
+			if(style.font != currFont)
+			{
+				currFont = (FontStyle)style.font;
+				SelectFont(hdc, areaFont[currFont]);
+			}
 			SetTextColor(hdc, RGB(style.color[0], style.color[1], style.color[2]));
 			DrawText(hdc, currChar, 1, &charRect, 0);
 			charRect.left += charWidth;
@@ -240,6 +261,8 @@ void ReDraw()
 HPEN currPen = 0;
 VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
 {
+	(void)dwTime;
+	(void)uMsg;
 	if(idEvent != 0)
 		return;
 	if(!currPen)
@@ -323,9 +346,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	{
 	case WM_CREATE:
 		hdc = BeginPaint(areaWnd, &areaPS);
-		areaFont = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, false, false,
+		areaFont[FONT_REGULAR] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, false, false,
 			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
-		areaCreated = true;
+		areaFont[FONT_BOLD] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_BOLD, false, false, false,
+			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
+		areaFont[FONT_ITALIC] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, true, false, false,
+			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
+		areaFont[FONT_UNDERLINED] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, true, false,
+			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
 
 		areaPenWhite1px = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
 		areaPenBlack1px = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
@@ -348,6 +376,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		lineCount = 1;
 
 		SetTimer(areaWnd, 0, 500, AreaCursorUpdate);
+		areaCreated = true;
 		break;
 	case WM_PAINT:
 		ReDraw();
@@ -475,7 +504,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		if(cursorCharY >= lineCount)
 			cursorCharY = lineCount - 1;
 		currLine = firstLine;
-		for(int i = 0; i < cursorCharY; i++)
+		for(unsigned int i = 0; i < cursorCharY; i++)
 			currLine = currLine->next;
 		if(cursorCharX > currLine->length)
 			cursorCharX = currLine->length;
@@ -484,7 +513,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		shiftCharY -= (GET_WHEEL_DELTA_WPARAM(wParam) / 120) * 3;
 		if(shiftCharY < 0)
 			shiftCharY = 0;
-		if(shiftCharY >= lineCount - 1)
+		if(shiftCharY >= int(lineCount) - 1)
 			shiftCharY = lineCount - 2;
 		InvalidateRect(areaWnd, NULL, false);
 		break;

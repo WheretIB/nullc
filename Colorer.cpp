@@ -149,10 +149,12 @@ namespace ColorerGrammar
 				{
 					while((*str)[0] != '\n' && (*str)[0] != '\0')
 						(*str)++;
+					ColorComment(COLOR_COMMENT, old, *str);
 				}else if((*str)[1] == '*'){
 					while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
 						(*str)++;
 					(*str) += 2;
+					ColorComment(COLOR_COMMENT, old, *str);
 				}else{
 					break;
 				}
@@ -160,7 +162,6 @@ namespace ColorerGrammar
 				break;
 			}
 		}
-		ColorComment(old, *str);
 	}
 
 	class Grammar

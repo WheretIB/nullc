@@ -457,7 +457,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	SetTextStyle(1,    0,   0, 255, 0, 0, 0);
 	SetTextStyle(2,  128, 128, 128, 0, 0, 0);
 	SetTextStyle(3,   50,  50,  50, 0, 0, 0);
-	SetTextStyle(4,  136,   0,   0, 0, 0, 0);
+	SetTextStyle(4,  136,   0,   0, 0, 1, 0);
 	SetTextStyle(5,    0,   0,   0, 0, 0, 0);
 	SetTextStyle(6,    0,   0,   0, 1, 0, 0);
 	SetTextStyle(7,    0, 150,   0, 0, 0, 0);
