@@ -51,6 +51,7 @@ unsigned int padLeft = 5;
 unsigned int overallLength = 0;
 
 unsigned int lineCount = 0;
+unsigned int longestLine = 0;
 
 bool needUpdate = false;
 
@@ -253,15 +254,6 @@ void ReDraw()
 
 	ExtendSolidTextBuf(overallLength);
 
-	char	*currChar = areaText;
-	curr = startLine;
-	while(curr)
-	{
-		for(unsigned int i = 0; i < curr->length; i++, currChar++)
-			*currChar = curr->data[i].ch;
-		curr = curr->next;
-	}
-
 	HDC hdc = BeginPaint(areaWnd, &areaPS);
 	FontStyle currFont = FONT_REGULAR;
 	SelectFont(hdc, areaFont[currFont]);
@@ -270,6 +262,20 @@ void ReDraw()
 	DrawText(hdc, "W", 1, &charRect, DT_CALCRECT);
 	charWidth = charRect.right;
 	charHeight = charRect.bottom;
+
+	char	*currChar = areaText;
+	curr = startLine;
+	unsigned int currLine = shiftCharY;
+	longestLine = 0;
+	while(curr)
+	{
+		if(currLine < (shiftCharY + areaHeight / charHeight + 1))
+			for(unsigned int i = 0; i < curr->length; i++, currChar++)
+				*currChar = curr->data[i].ch;
+		longestLine = longestLine < curr->length ? curr->length : longestLine;
+		currLine++;
+		curr = curr->next;
+	}
 
 	charRect.left = padLeft;
 	charRect.right = charRect.left + charWidth;
@@ -280,12 +286,13 @@ void ReDraw()
 	unsigned int startX, startY, endX, endY;
 	SortSelPoints(startX, endX, startY, endY);
 
-	unsigned int currLine = shiftCharY;
+	currLine = shiftCharY;
 	while(curr && charRect.top < updateRect.bottom)
 	{
 		if(charRect.bottom > updateRect.top)
 		{
-			for(unsigned int i = 0; i < curr->length; i++, currChar++)
+			currChar += shiftCharX > curr->length ? curr->length : shiftCharX;
+			for(unsigned int i = shiftCharX; i < curr->length; i++, currChar++)
 			{
 				TextStyle &style = tStyle[curr->data[i].style];
 				bool selected = false;
@@ -349,8 +356,8 @@ VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
 	SelectPen(hdc, GetFocus() == hwnd ? currPen : areaPenWhite1px);
 	currPen = currPen == areaPenWhite1px ? areaPenBlack1px : areaPenWhite1px;
 
-	MoveToEx(hdc, padLeft + cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, NULL);
-	LineTo(hdc, padLeft + cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight + charHeight);
+	MoveToEx(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight, NULL);
+	LineTo(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight + charHeight);
 	EndPaint(areaWnd, &areaPS);
 }
 
@@ -420,9 +427,16 @@ void	UpdateScrollBar()
 	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
 	sbInfo.nMin = 0;
 	sbInfo.nMax = lineCount;
-	sbInfo.nPage = charHeight ? areaHeight / charHeight : 1;
+	sbInfo.nPage = charHeight ? (areaHeight) / charHeight : 1;
 	sbInfo.nPos = shiftCharY;
 	SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
+
+	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+	sbInfo.nMin = 0;
+	sbInfo.nMax = longestLine;
+	sbInfo.nPage = charWidth ? (areaWidth - 17) / charWidth : 1;
+	sbInfo.nPos = shiftCharX;
+	SetScrollInfo(areaWnd, SB_HORZ, &sbInfo, true);
 }
 
 void	ClampShift()
@@ -431,6 +445,10 @@ void	ClampShift()
 		shiftCharY = 0;
 	if(shiftCharY >= int(lineCount) - 1)
 		shiftCharY = lineCount - 1;
+	if(shiftCharX < 0)
+		shiftCharX = 0;
+	if(shiftCharX > longestLine)
+		shiftCharX = longestLine;
 }
 
 void	CheckCursorBounds()
@@ -602,7 +620,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 						memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
 					currLine->length--;
 					cursorCharX--;
-					RECT invalid = { cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+					RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
 					InvalidateRect(areaWnd, &invalid, false);
 				}else{
 					if(currLine->prev)
@@ -754,7 +772,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				{
 					memmove(&currLine->data[cursorCharX], &currLine->data[cursorCharX+1], (currLine->length - cursorCharX) * sizeof(AreaChar));
 					currLine->length--;
-					RECT invalid = { cursorCharX * charWidth, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+					RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
 					InvalidateRect(areaWnd, &invalid, false);
 					return 0;
 				}else if(currLine->next){
@@ -787,7 +805,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		
 		break;
 	case WM_LBUTTONDOWN:
-		dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth;
+		dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
 		dragStartY = HIWORD(lParam) / charHeight + shiftCharY;
 		selectionOn = false;
 		InvalidateRect(areaWnd, NULL, false);
@@ -795,7 +813,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	case WM_MOUSEMOVE:
 		if(wParam != MK_LBUTTON)
 			break;
-		dragEndX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth;
+		dragEndX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
 		dragEndY = HIWORD(lParam) / charHeight + shiftCharY;
 		if(dragStartX != dragEndX || dragStartY != dragEndY)
 			selectionOn = true;
@@ -803,7 +821,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		AreaCursorUpdate(NULL, 0, NULL, 0);
 		if(message == WM_MOUSEMOVE)
 			InvalidateRect(areaWnd, NULL, false);
-		cursorCharX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth;
+		cursorCharX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
 		cursorCharY = HIWORD(lParam) / charHeight + shiftCharY;
 
 		if(cursorCharY >= lineCount)
@@ -839,6 +857,26 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		case SB_THUMBPOSITION:
 		case SB_THUMBTRACK:
 			shiftCharY = HIWORD(wParam);
+			break;
+		}
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
+		break;
+	case WM_HSCROLL:
+		switch(LOWORD(wParam))
+		{
+		case SB_LINEDOWN:
+		case SB_PAGEDOWN:
+			shiftCharX++;
+			break;
+		case SB_LINEUP:
+		case SB_PAGEUP:
+			shiftCharX--;
+			break;
+		case SB_THUMBPOSITION:
+		case SB_THUMBTRACK:
+			shiftCharX = HIWORD(wParam);
 			break;
 		}
 		ClampShift();
