@@ -962,74 +962,101 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		
 		break;
 	case WM_LBUTTONDBLCLK:
+		// Find line number, where double-click happened
 		dragEndY = dragStartY = HIWORD(lParam) / charHeight + shiftCharY;
+		// Clamp it to the line count
 		if(dragStartY > (int)lineCount)
 			break;
-		dragStartX = 1;
-		dragEndX = 5;
-
+		
 		{
+			// Find selected line
 			AreaLine *curr = firstLine;
 			for(int i = 0; i < dragStartY; i++)
 				curr = curr->next;
 
+			// Find horizontal position
 			dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
+			// Clamp horizontal position to line length
 			if(dragStartX > (int)curr->length && curr->length != 0)
 				dragStartX = curr->length - 1;
 			dragEndX = dragStartX;
 
+			// Find, what character is at the cursor position
 			char symb = curr->data[dragStartX].ch;
-			if(isdigit(symb))
+			// If it is a digit
+			if(isdigit(symb) || symb == '.')
 			{
+				// Extend region to the left, to include all digits and '.'
 				while(dragStartX != 0 && (isdigit(curr->data[dragStartX - 1].ch) || curr->data[dragStartX - 1].ch == '.'))
 					dragStartX--;
+				// Extend region to the right, to include all digits and '.'
 				while(dragEndX < (int)curr->length - 1 && (isdigit(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '.'))
 					dragEndX++;
-				dragEndX++;
-			}else if(isalnum(symb) || symb == '_'){
+			}else if(isalpha(symb) || symb == '_'){	// If it isn't a digit, but a alpha letter or '_'
+				// Extend region to the left, to include all alpha-numerical letters and '_'
 				while(dragStartX != 0 && (isalnum(curr->data[dragStartX - 1].ch) || curr->data[dragStartX - 1].ch == '_'))
 					dragStartX--;
+				// Extend region to the right, to include all alpha-numerical letters and '_'
 				while(dragEndX < (int)curr->length - 1 && (isalnum(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '_'))
 					dragEndX++;
-				dragEndX++;
-			}else{
-				dragEndX++;
 			}
+			// Additional shift needed
+			dragEndX++;
 
+			// Selection is active is the length of selected string is not 0
 			selectionOn = curr->length != 0;
 		}
+		// Force whole window redraw
 		InvalidateRect(areaWnd, NULL, false);
 		break;
 	case WM_LBUTTONDOWN:
+		// When left mouse button is pressed, save position as selection start, and disable selection mode
 		dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
 		dragStartY = HIWORD(lParam) / charHeight + shiftCharY;
-		selectionOn = false;
-		InvalidateRect(areaWnd, NULL, false);
+		if(selectionOn)
+		{
+			selectionOn = false;
+			// Force whole window redraw
+			InvalidateRect(areaWnd, NULL, false);
+		}
 		break;
 	case WM_MOUSEMOVE:
+		// If mouse if moving with the left mouse down
 		if(wParam != MK_LBUTTON)
 			break;
+		// Track the cursor position which is the selection end
 		dragEndX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
 		dragEndY = HIWORD(lParam) / charHeight + shiftCharY;
+		// If current position differs from starting position, enable selection mode
 		if(dragStartX != dragEndX || dragStartY != dragEndY)
 			selectionOn = true;
+		// No break!
 	case WM_LBUTTONUP:
+		// If left mouse button is released, or we are continuing previous case
+		// Remove I-bar
 		AreaCursorUpdate(NULL, 0, NULL, 0);
+		// If we are continuing previous case, force window redraw
 		if(message == WM_MOUSEMOVE)
 			InvalidateRect(areaWnd, NULL, false);
+		// Find cursor position
 		cursorCharX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
 		cursorCharY = HIWORD(lParam) / charHeight + shiftCharY;
 
+		// Clamp cursor position (notice, that we never clamped selection cursor positions)
 		if(cursorCharY >= lineCount)
 			cursorCharY = lineCount - 1;
+		// Find selected line
 		currLine = firstLine;
 		for(unsigned int i = 0; i < cursorCharY; i++)
 			currLine = currLine->next;
+		// To clamp horizontal position
 		if(cursorCharX > currLine->length)
 			cursorCharX = currLine->length;
+		// Reset I-bar tick count
 		ibarState = 0;
 		break;
 	case WM_MOUSEWHEEL:
+		// Mouse wheel scroll text vertically
 		shiftCharY -= (GET_WHEEL_DELTA_WPARAM(wParam) / 120) * 3;
 		ClampShift();
 		InvalidateRect(areaWnd, NULL, false);
@@ -1037,6 +1064,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		UpdateScrollBar();
 		break;
 	case WM_VSCROLL:
+		// Vertical scroll events
 		switch(LOWORD(wParam))
 		{
 		case SB_LINEDOWN:
@@ -1061,6 +1089,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		InvalidateRect(areaWnd, NULL, false);
 		break;
 	case WM_HSCROLL:
+		// Horizontal scroll events
 		switch(LOWORD(wParam))
 		{
 		case SB_LINEDOWN:
