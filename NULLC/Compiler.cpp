@@ -64,6 +64,7 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 		memcpy(line, begin, len);
 		line[len] = 0;
 		shift = (unsigned int)(apprPos-begin);
+		shift = shift > 128 ? 0 : shift;
 	}else{
 		line[0] = 0;
 		shift = 0;
