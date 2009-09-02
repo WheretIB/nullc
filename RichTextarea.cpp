@@ -136,7 +136,11 @@ const char* GetAreaText()
 	}
 
 	if(overallLength >= areaTextSize)
-		areaTextSize += areaTextSize >> 1;
+	{
+		areaTextSize = overallLength + 1;
+		delete[] areaText;
+		areaText = new char[areaTextSize];
+	}
 
 	char	*currChar = areaText;
 	curr = firstLine;
@@ -201,7 +205,11 @@ void ReDraw()
 	}
 
 	if(overallLength >= areaTextSize)
-		areaTextSize += areaTextSize >> 1;
+	{
+		areaTextSize = overallLength + 1;
+		delete[] areaText;
+		areaText = new char[areaTextSize];
+	}
 
 	char	*currChar = areaText;
 	curr = startLine;
@@ -342,15 +350,48 @@ void InputEnter()
 	cursorCharY++;
 	cursorCharX = 0;
 	InvalidateRect(areaWnd, NULL, true);
-	if(charHeight && cursorCharY > (areaHeight-32) / charHeight + shiftCharY)
-		shiftCharY++;
+}
+
+void	UpdateScrollBar()
+{
+	SCROLLINFO sbInfo;
+	sbInfo.cbSize = sizeof(SCROLLINFO);
+	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+	sbInfo.nMin = 0;
+	sbInfo.nMax = lineCount;
+	sbInfo.nPage = charHeight ? areaHeight / charHeight : 1;
+	sbInfo.nPos = shiftCharY;
+	SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
+}
+
+void	ClampShift()
+{
+	if(shiftCharY < 0)
+		shiftCharY = 0;
+	if(shiftCharY >= int(lineCount) - 1)
+		shiftCharY = lineCount - 2;
+}
+
+void	CheckCursorBounds()
+{
+	if(charHeight && int(cursorCharY) > (areaHeight-32) / charHeight + shiftCharY)
+	{
+		shiftCharY = cursorCharY - (areaHeight-32) / charHeight;
+		ClampShift();
+		InvalidateRect(areaWnd, NULL, true);
+	}
+	if(int(cursorCharY) - shiftCharY < 0)
+	{
+		shiftCharY = cursorCharY - 2;
+		ClampShift();
+		InvalidateRect(areaWnd, NULL, true);
+	}
+	UpdateScrollBar();
 }
 
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	HDC hdc;
-	SCROLLINFO sbInfo;
-	sbInfo.nMax = 0;
 
 	if(!areaWnd)
 		areaWnd = hWnd;
@@ -399,12 +440,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		areaWidth = LOWORD(lParam);
 		areaHeight = HIWORD(lParam);
 
-		sbInfo.cbSize = sizeof(SCROLLINFO);
-		sbInfo.fMask = SIF_RANGE | SIF_PAGE;
-		sbInfo.nMin = 0;
-		sbInfo.nMax = lineCount;
-		sbInfo.nPage = charHeight ? areaHeight / charHeight : 1;
-		SetScrollInfo(areaWnd, SB_VERT, &sbInfo, false);
+		UpdateScrollBar();
 
 		InvalidateRect(areaWnd, NULL, true);
 		break;
@@ -453,8 +489,9 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 
 					cursorCharX = sum;
 					cursorCharY--;
+
+					InvalidateRect(areaWnd, NULL, true);
 				}
-				InvalidateRect(areaWnd, NULL, true);
 			}
 		}else if((wParam & 0xFF) == 22){
 			OpenClipboard(areaWnd);
@@ -473,6 +510,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			}
 			CloseClipboard();
 		}
+		CheckCursorBounds();
 		needUpdate = true;
 		break;
 	case WM_KEYDOWN:
@@ -552,6 +590,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			}
 		}
 		AreaCursorUpdate(areaWnd, 0, NULL, 0);
+		CheckCursorBounds();
+		
 		break;
 	case WM_LBUTTONDOWN:
 		AreaCursorUpdate(NULL, 0, NULL, 0);
@@ -568,17 +608,10 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		break;
 	case WM_MOUSEWHEEL:
 		shiftCharY -= (GET_WHEEL_DELTA_WPARAM(wParam) / 120) * 3;
-		if(shiftCharY < 0)
-			shiftCharY = 0;
-		if(shiftCharY >= int(lineCount) - 1)
-			shiftCharY = lineCount - 2;
+		ClampShift();
 		InvalidateRect(areaWnd, NULL, false);
 
-		memset(&sbInfo, 0, sizeof(SCROLLINFO));
-		sbInfo.cbSize = sizeof(SCROLLINFO);
-		sbInfo.fMask = SIF_POS;
-		sbInfo.nPos = shiftCharY;
-		SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
+		UpdateScrollBar();
 		break;
 	case WM_VSCROLL:
 		switch(LOWORD(wParam))
@@ -600,14 +633,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			shiftCharY = HIWORD(wParam);
 			break;
 		}
-		if(shiftCharY < 0)
-			shiftCharY = 0;
-		if(shiftCharY >= int(lineCount) - 1)
-			shiftCharY = lineCount - 2;
-		sbInfo.cbSize = sizeof(SCROLLINFO);
-		sbInfo.fMask = SIF_POS;
-		sbInfo.nPos = shiftCharY;
-		SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
+		ClampShift();
+		UpdateScrollBar();
 		InvalidateRect(areaWnd, NULL, false);
 		break;
 	default:

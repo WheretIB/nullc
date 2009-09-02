@@ -330,6 +330,8 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	LoadString(hInstance, IDC_SUPERCALC, szWindowClass, MAX_LOADSTRING);
 	MyRegisterClass(hInstance);
 
+	lastUpdate = 0;
+
 	// Perform application initialization:
 	if(!InitInstance(hInstance, nCmdShow)) 
 	{
@@ -809,14 +811,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			}
 			SetWindowText(hLog, nullcGetCompilationLog());
 		}
-		if((HWND)lParam == hTextArea)
-		{
-			if(wmEvent == EN_CHANGE)
-			{
-				needTextUpdate = true;
-				lastUpdate = GetTickCount();
-			}
-		}
 		// Parse the menu selections:
 		switch (wmId)
 		{
@@ -846,7 +840,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		break;
 	case WM_TIMER:
 	{
-		if(!NeedUpdate() || (GetTickCount()-lastUpdate < 500))
+		if(!NeedUpdate() || (GetTickCount()-lastUpdate < 1000))
 			break;
 		string str = "";
 		SetWindowText(hCode, str.c_str());
@@ -857,6 +851,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		}
 		UpdateArea();
 		needTextUpdate = false;
+		lastUpdate = GetTickCount();
 	}
 		break;
 	case WM_LBUTTONUP:
