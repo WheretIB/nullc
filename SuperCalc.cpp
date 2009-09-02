@@ -2,10 +2,11 @@
 #include "SuperCalc.h"
 
 #define WIN32_LEAN_AND_MEAN
+#define _WIN32_WINNT 0x0501
+#define _WIN32_WINDOWS 0x0501
 #include <windows.h>
 
 #include "commctrl.h"
-#include "richedit.h"
 #pragma comment(lib, "comctl32.lib")
 #include <windowsx.h>
 
@@ -20,6 +21,8 @@
 #include "Colorer.h"
 
 #include "UnitTests.h"
+
+#include "RichTextarea.h"
 
 #define MAX_LOADSTRING 100
 
@@ -265,7 +268,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	bool runUnitTests = true;
+	bool runUnitTests = false;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -359,7 +362,7 @@ WORD MyRegisterClass(HINSTANCE hInstance)
 
 	wcex.cbSize = sizeof(WNDCLASSEX); 
 
-	wcex.style			= CS_HREDRAW | CS_VREDRAW;
+	wcex.style			= 0;//CS_HREDRAW | CS_VREDRAW;
 	wcex.lpfnWndProc	= (WNDPROC)WndProc;
 	wcex.cbClsExtra		= 0;
 	wcex.cbWndExtra		= 0;
@@ -424,6 +427,8 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	/*HMODULE sss = */LoadLibrary("RICHED32.dll");
 
+	RegisterTextarea("NULLCTEXT", hInstance);
+
 	FILE *startText = fopen("code.txt", "rb");
 	char *fileContent = NULL;
 	if(startText)
@@ -436,19 +441,32 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		fileContent[textSize] = 0;
 		fclose(startText);
 	}
-	hTextArea = CreateWindow("RICHEDIT", fileContent ? fileContent : "int a = 5;\r\nint ref b = &a;\r\nreturn 1;",
-		WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
+	hTextArea = CreateWindow("NULLCTEXT", NULL,
+		WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE,
 		5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
-	delete fileContent;
+	SetAreaText(fileContent ? fileContent : "int a = 5;\r\nint ref b = &a;\r\nreturn 1;");
+
+	delete[] fileContent;
 	fileContent = NULL;
 	if(!hTextArea)
 		return 0;
 	ShowWindow(hTextArea, nCmdShow);
 	UpdateWindow(hTextArea);
 
+	SetTextStyle(0,    0,   0,   0, 0, 0, 0);
+	SetTextStyle(1,    0,   0, 255, 0, 0, 0);
+	SetTextStyle(2,  128, 128, 128, 0, 0, 0);
+	SetTextStyle(3,   50,  50,  50, 0, 0, 0);
+	SetTextStyle(4,  136,   0,   0, 0, 0, 0);
+	SetTextStyle(5,    0,   0,   0, 0, 0, 0);
+	SetTextStyle(6,    0,   0,   0, 1, 0, 0);
+	SetTextStyle(7,    0, 150,   0, 0, 0, 0);
+	SetTextStyle(8,    0, 150,   0, 0, 1, 0);
+	SetTextStyle(9,  255,   0,   0, 0, 0, 1);
+	SetTextStyle(10, 255,   0, 255, 0, 0, 0);
+
 	colorer = new Colorer(hTextArea);
 
-	SendMessage(hTextArea, EM_SETEVENTMASK, 0, ENM_CHANGE);
 	unsigned int widt = (800-25)/4;
 
 	hCode = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
@@ -675,7 +693,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		
 			/*static*/ int callNum = -1;
 			callNum++;
-			GetWindowText(hTextArea, buf, 100000);
+			strcpy(buf, GetAreaText());
 
 			DeInitConsole();
 
@@ -752,7 +770,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		{
 			/*static*/ int callNum = -1;
 			callNum++;
-			GetWindowText(hTextArea, buf, 100000);
+			strcpy(buf, GetAreaText());
 
 			DeInitConsole();
 
@@ -830,28 +848,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		break;
 	case WM_TIMER:
 	{
-		if(!needTextUpdate || (GetTickCount()-lastUpdate < 500))
+		if(!NeedUpdate() || (GetTickCount()-lastUpdate < 500))
 			break;
-		bool bRetFocus = false;
-		CHARRANGE cr;
-		if(GetFocus() == hTextArea)
-		{
-			bRetFocus = true;
-			SendMessage(hTextArea, (unsigned int)EM_EXGETSEL, 0L, (LPARAM)&cr);  
-			SetFocus(hWnd);
-		}
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
-		/*if(!colorer->ColorText())
+		if(!colorer->ColorText((char*)GetAreaText(), SetStyleToSelection))
 		{
 			SetWindowText(hCode, colorer->GetError().c_str());
-		}*/
-		if(bRetFocus)
-		{
-			SetFocus(hTextArea);
-			Edit_SetSel(hTextArea, cr.cpMin, cr.cpMax);
 		}
+		UpdateArea();
 		needTextUpdate = false;
 	}
 		break;

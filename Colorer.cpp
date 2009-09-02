@@ -11,38 +11,46 @@ using namespace supspi;
 
 #include "Colorer.h"
 
+enum COLOR_STYLE
+{
+	COLOR_CODE,
+	COLOR_RWORD,
+	COLOR_VAR,
+	COLOR_VARDEF,
+	COLOR_FUNC,
+	COLOR_TEXT,
+	COLOR_BOLD,
+	COLOR_REAL,
+	COLOR_INT,
+	COLOR_ERR,
+	COLOR_COMMENT,
+};
+
 class ColorCodeCallback
 {
 public:
 	ColorCodeCallback()
 	{
 		colorer = NULL;
-		colRed = colGreen = colBlue = 0;
-		styleBold = styleItalic = styleUnderlined = 0;
+		style = COLOR_CODE;
 	}
-	ColorCodeCallback(Colorer* col, int red, int green, int blue, int bold, int ital, int under)
+	ColorCodeCallback(Colorer* col, int nStyle)
 	{
 		colorer = col;
-		colRed = red;
-		colGreen = green;
-		colBlue = blue;
-		styleBold = bold;
-		styleItalic = ital;
-		styleUnderlined = under;
+		style = nStyle;
 	}
 
 	void operator()(const char* start, const char* end)
 	{
-		colorer->ColorCode(colRed, colGreen, colBlue, styleBold, styleItalic, styleUnderlined, start, end);
+		colorer->ColorCode(style, start, end);
 	}
-	void operator()(int red, int green, int blue, int bold, int ital, int under, const char* start, const char* end)
+	void operator()(int style, const char* start, const char* end)
 	{
-		colorer->ColorCode(red, green, blue, bold, ital, under, start, end);
+		colorer->ColorCode(style, start, end);
 	}
 private:
 	Colorer *colorer;
-	int colRed, colGreen, colBlue;
-	int styleBold, styleItalic, styleUnderlined;
+	int style;
 };
 
 namespace ColorerGrammar
@@ -441,7 +449,7 @@ namespace ColorerGrammar
 		if(s == e)
 			e++;
 		if(logStr.length() != 0)
-			ColorCode(255,0,0,0,0,1,s,e);
+			ColorCode(COLOR_ERR, s, e);
 		logStr = "";
 	}
 	void BlockBegin(char const* s, char const* e)
@@ -468,35 +476,34 @@ Colorer::Colorer(HWND rich): richEdit(rich)
 {
 	syntax = new ColorerGrammar::Grammar();
 
-	strBuf = new char[400000];//Should be enough
+	ColorerGrammar::ColorRWord	= ColorCodeCallback(this, COLOR_RWORD);
+	ColorerGrammar::ColorVar	= ColorCodeCallback(this, COLOR_VAR);
+	ColorerGrammar::ColorVarDef	= ColorCodeCallback(this, COLOR_VARDEF);
+	ColorerGrammar::ColorFunc	= ColorCodeCallback(this, COLOR_FUNC);
+	ColorerGrammar::ColorText	= ColorCodeCallback(this, COLOR_TEXT);
+	ColorerGrammar::ColorBold	= ColorCodeCallback(this, COLOR_BOLD);
+	ColorerGrammar::ColorReal	= ColorCodeCallback(this, COLOR_REAL);
+	ColorerGrammar::ColorInt	= ColorCodeCallback(this, COLOR_INT);
+	ColorerGrammar::ColorErr	= ColorCodeCallback(this, COLOR_ERR);
+	ColorerGrammar::ColorComment= ColorCodeCallback(this, COLOR_COMMENT);
 
-	ColorerGrammar::ColorRWord	= ColorCodeCallback(this, 0,0,255,0,0,0);
-	ColorerGrammar::ColorVar	= ColorCodeCallback(this, 128,128,128,0,0,0);
-	ColorerGrammar::ColorVarDef	= ColorCodeCallback(this, 50,50,50,0,0,0);
-	ColorerGrammar::ColorFunc	= ColorCodeCallback(this, 136,0,0,0,0,0);
-	ColorerGrammar::ColorText	= ColorCodeCallback(this, 0,0,0,0,0,0);
-	ColorerGrammar::ColorBold	= ColorCodeCallback(this, 0,0,0,1,0,0);
-	ColorerGrammar::ColorReal	= ColorCodeCallback(this, 0,150,0,0,0,0);
-	ColorerGrammar::ColorInt	= ColorCodeCallback(this, 0,150,0,0,1,0);
-	ColorerGrammar::ColorErr	= ColorCodeCallback(this, 255,0,0,0,0,1);
-	ColorerGrammar::ColorComment= ColorCodeCallback(this, 255,0,255,0,0,0);
-
-	ColorerGrammar::ColorCode	= ColorCodeCallback(this, 0, 0, 0, 0, 0, 0);
+	ColorerGrammar::ColorCode	= ColorCodeCallback(this, COLOR_CODE);
 
 	syntax->InitGrammar();
 }
 Colorer::~Colorer()
 {
-	delete[] strBuf;
-
 	syntax->DeInitGrammar();
 	delete syntax;
 }
 
 CHARFORMAT2 cf;
+void (*ColorFunc)(unsigned int, unsigned int, int);
 
-bool Colorer::ColorText()
+bool Colorer::ColorText(char *text, void (*ColFunc)(unsigned int, unsigned int, int))
 {
+	ColorFunc = ColFunc;
+
 	ZeroMemory(&cf, sizeof(CHARFORMAT2));
 	cf.cbSize = sizeof(CHARFORMAT2);
 	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_FACE | CFM_ITALIC | CFM_UNDERLINE;
@@ -527,15 +534,12 @@ bool Colorer::ColorText()
 
 	ColorerGrammar::logStream.str("");
 
-	ColorerGrammar::codeStart = strBuf;
-
-	memset(strBuf, 0, GetWindowTextLength(richEdit)+5);
-	GetWindowText(richEdit, strBuf, 400000);
+	ColorerGrammar::codeStart = text;
 
 	errUnderline = false;
-	ColorCode(255,0,0,0,0,0, strBuf, strBuf+strlen(strBuf));
+	ColorCode(COLOR_ERR, text, text+strlen(text));
 
-	ParseResult pRes = Parse(syntax->code, strBuf, ColorerGrammar::ParseSpace);
+	ParseResult pRes = Parse(syntax->code, text, ColorerGrammar::ParseSpace);
 	if(pRes == PARSE_ABORTED)
 	{
 		lastError = ColorerGrammar::lastError;
@@ -560,24 +564,22 @@ std::string Colorer::GetError()
 	return lastError;
 }
 
-void Colorer::ColorCode(int red, int green, int blue, int bold, int ital, int under, const char* start, const char* end)
+void Colorer::ColorCode(int style, const char* start, const char* end)
 {
 	if(errUnderline)
 	{
-		red=255;
+		/*red=255;
 		green=blue=0;
 		bold=ital=0;
-		under=1;
+		under=1;*/
 		errUnderline = 0;
 	}
 	
-	cf.dwEffects = CFE_BOLD * bold | CFE_ITALIC * ital | CFE_UNDERLINE * under;
-	cf.crTextColor = RGB(red, green, blue);
+	/*cf.dwEffects = CFE_BOLD * bold | CFE_ITALIC * ital | CFE_UNDERLINE * under;
+	cf.crTextColor = RGB(red, green, blue);*/
 
-	CHARRANGE	chRange;
-	chRange.cpMin = start - strBuf;
-	chRange.cpMax = end - strBuf;
+	unsigned int cpMin = start - ColorerGrammar::codeStart;
+	unsigned int cpMax = end - ColorerGrammar::codeStart;
 
-	SendMessage(richEdit, EM_EXSETSEL, 0, (LPARAM)&chRange);
-	SendMessage(richEdit, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
+	ColorFunc(cpMin, cpMax, style);
 }

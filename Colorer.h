@@ -33,14 +33,14 @@ public:
 	Colorer(HWND rich);
 	~Colorer();
 
-	bool	ColorText();
+	bool	ColorText(char *text, void (*)(unsigned int, unsigned int, int));
 	std::string		GetError();
 private:
 	ColorerGrammar::Grammar	*syntax;
 
 	friend class ColorCodeCallback;
 
-	void	ColorCode(int red, int green, int blue, int bold, int ital, int under, const char* start, const char* end);
+	void	ColorCode(int style, const char* start, const char* end);
 
 	bool	errUnderline;
 
