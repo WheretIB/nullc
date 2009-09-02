@@ -498,20 +498,11 @@ Colorer::~Colorer()
 	delete syntax;
 }
 
-CHARFORMAT2 cf;
 void (*ColorFunc)(unsigned int, unsigned int, int);
 
 bool Colorer::ColorText(char *text, void (*ColFunc)(unsigned int, unsigned int, int))
 {
 	ColorFunc = ColFunc;
-
-	ZeroMemory(&cf, sizeof(CHARFORMAT2));
-	cf.cbSize = sizeof(CHARFORMAT2);
-	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_FACE | CFM_ITALIC | CFM_UNDERLINE;
-	cf.bCharSet = ANSI_CHARSET;
-	cf.bPitchAndFamily = DEFAULT_PITCH;
-	cf.bUnderlineType = CFU_UNDERLINEDOUBLE;
-	strcpy(cf.szFaceName, "Courier New");
 
 	lastError = "";
 
@@ -528,6 +519,7 @@ bool Colorer::ColorText(char *text, void (*ColFunc)(unsigned int, unsigned int, 
 	ColorerGrammar::typeInfo.push_back("float3");
 	ColorerGrammar::typeInfo.push_back("float4");
 	ColorerGrammar::typeInfo.push_back("float4x4");
+	ColorerGrammar::typeInfo.push_back("file");
 
 	ColorerGrammar::callArgCount.clear();
 	ColorerGrammar::varSize = 1;
@@ -567,20 +559,11 @@ std::string Colorer::GetError()
 
 void Colorer::ColorCode(int style, const char* start, const char* end)
 {
-	if(errUnderline)
-	{
-		/*red=255;
-		green=blue=0;
-		bold=ital=0;
-		under=1;*/
-		errUnderline = 0;
-	}
-	
-	/*cf.dwEffects = CFE_BOLD * bold | CFE_ITALIC * ital | CFE_UNDERLINE * under;
-	cf.crTextColor = RGB(red, green, blue);*/
-
 	unsigned int cpMin = start - ColorerGrammar::codeStart;
 	unsigned int cpMax = end - ColorerGrammar::codeStart;
 
-	ColorFunc(cpMin, cpMax, style);
+	if(errUnderline)
+		ColorFunc(cpMin, cpMax, COLOR_ERR);
+	else
+		ColorFunc(cpMin, cpMax, style);
 }
