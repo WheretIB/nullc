@@ -845,11 +845,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
+		BeginStyleUpdate();
 		if(!colorer->ColorText((char*)GetAreaText(), SetStyleToSelection))
 		{
 			SetWindowText(hCode, colorer->GetError().c_str());
 		}
+		EndStyleUpdate();
 		UpdateArea();
+		ResetUpdate();
 		needTextUpdate = false;
 		lastUpdate = GetTickCount();
 	}
