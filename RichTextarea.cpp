@@ -208,6 +208,26 @@ void ResetUpdate()
 	needUpdate = false;
 }
 
+void SortSelPoints(unsigned int &startX, unsigned int &endX, unsigned int &startY, unsigned int &endY)
+{
+	startX = dragStartX;
+	endX = dragEndX;
+	startY = dragStartY;
+	endY = dragEndY;
+	if(dragEndX < dragStartX && dragStartY == dragEndY)
+	{
+		startX = dragEndX;
+		endX = dragStartX;
+	}
+	if(dragEndY < dragStartY)
+	{
+		startY = dragEndY;
+		endY = dragStartY;
+
+		startX = dragEndX, endX = dragStartX;
+	}
+}
+
 void ReDraw()
 {
 	if(!areaCreated)
@@ -257,20 +277,8 @@ void ReDraw()
 	currChar = areaText;
 	curr = startLine;
 
-	unsigned int startX = dragStartX, endX = dragEndX;
-	unsigned int startY = dragStartY, endY = dragEndY;
-	if(dragEndX < dragStartX && dragStartY == dragEndY)
-	{
-		startX = dragEndX;
-		endX = dragStartX;
-	}
-	if(dragEndY < dragStartY)
-	{
-		startY = dragEndY;
-		endY = dragStartY;
-
-		startX = dragEndX, endX = dragStartX;
-	}
+	unsigned int startX, startY, endX, endY;
+	SortSelPoints(startX, endX, startY, endY);
 
 	unsigned int currLine = shiftCharY;
 	while(curr && charRect.top < updateRect.bottom)
@@ -422,7 +430,7 @@ void	ClampShift()
 	if(shiftCharY < 0)
 		shiftCharY = 0;
 	if(shiftCharY >= int(lineCount) - 1)
-		shiftCharY = lineCount - 2;
+		shiftCharY = lineCount - 1;
 }
 
 void	CheckCursorBounds()
@@ -447,20 +455,8 @@ void DeleteSelection()
 	if(!selectionOn)
 		return;
 
-	unsigned int startX = dragStartX, endX = dragEndX;
-	unsigned int startY = dragStartY, endY = dragEndY;
-	if(dragEndX < dragStartX && dragStartY == dragEndY)
-	{
-		startX = dragEndX;
-		endX = dragStartX;
-	}
-	if(dragEndY < dragStartY)
-	{
-		startY = dragEndY;
-		endY = dragStartY;
-
-		startX = dragEndX, endX = dragStartX;
-	}
+	unsigned int startX, startY, endX, endY;
+	SortSelPoints(startX, endX, startY, endY);
 
 	if(startY == endY)
 	{
@@ -517,7 +513,10 @@ void DeleteSelection()
 		selectionOn = false;
 		cursorCharX = startX;
 		cursorCharY = startY;
+		currLine = first;
 	}
+	UpdateScrollBar();
+	ClampShift();
 	InvalidateRect(areaWnd, NULL, false);
 }
 
@@ -654,6 +653,49 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}
 			}
 			CloseClipboard();
+			InvalidateRect(areaWnd, NULL, false);
+		}else if((wParam & 0xFF) == 1){
+			selectionOn = true;
+			dragStartX = 0;
+			dragStartY = 0;
+			AreaLine *curr = firstLine;
+			int line = 0;
+			while(curr->next)
+				curr = curr->next, line++;
+			dragEndX = curr->length;
+			dragEndY = line;
+			InvalidateRect(areaWnd, NULL, false);
+		}else if(selectionOn && ((wParam & 0xFF) == 3 || (wParam & 0xFF) == 24)){
+			const char *start = GetAreaText();
+			AreaLine *curr = firstLine;
+
+			unsigned int startX, startY, endX, endY;
+			SortSelPoints(startX, endX, startY, endY);
+
+			for(int i = 0; i < startY; i++)
+			{
+				start += curr->length + 2;
+				curr = curr->next;
+			}
+			const char *end = start;
+			start += (startX < curr->length ? startX : curr->length);
+			for(int i = startY; i < endY; i++)
+			{
+				end += curr->length + 2;
+				curr = curr->next;
+			}
+			end += (endX < curr->length ? endX : curr->length);
+
+			OpenClipboard(areaWnd);
+			EmptyClipboard();
+			HGLOBAL hClipboardData = GlobalAlloc(GMEM_DDESHARE, end - start + 1);
+			char *pchData = (char*)GlobalLock(hClipboardData);
+			memcpy(pchData, start, end - start);
+			GlobalUnlock(hClipboardData);
+			HANDLE clipData = SetClipboardData(CF_TEXT, hClipboardData);
+			CloseClipboard();
+			if((wParam & 0xFF) == 24)
+				DeleteSelection();
 		}
 		CheckCursorBounds();
 		needUpdate = true;
