@@ -55,10 +55,14 @@ unsigned int lineCount = 0;
 bool needUpdate = false;
 
 HPEN	areaPenWhite1px, areaPenBlack1px;
-HBRUSH	areaBrushWhite;
+HBRUSH	areaBrushWhite, areaBrushBlack;
 
 AreaLine	*firstLine = NULL;
 AreaLine	*currLine = NULL;
+
+int dragStartX, dragStartY;
+int dragEndX, dragEndY;
+bool selectionOn = false;
 
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam);
 
@@ -106,14 +110,14 @@ void BeginStyleUpdate()
 
 void SetStyleToSelection(unsigned int start, unsigned int end, int style)
 {
-	for(int i = start; i <= end; i++)
+	for(unsigned int i = start; i <= end; i++)
 		areaTextEx[i].style = (char)style;
 }
 
 void EndStyleUpdate()
 {
 	AreaLine *curr = firstLine;
-	for(int i = 0, n = 0; i < overallLength; i++, n++)
+	for(unsigned int i = 0, n = 0; i < overallLength; i++, n++)
 	{
 		if(n < curr->length)
 		{
@@ -185,6 +189,8 @@ void SetAreaText(const char *text)
 		*text++;
 	}
 	needUpdate = true;
+	cursorCharX = dragStartX = 0;
+	cursorCharY = dragStartY = 0;
 }
 
 void UpdateArea()
@@ -250,6 +256,23 @@ void ReDraw()
 
 	currChar = areaText;
 	curr = startLine;
+
+	unsigned int startX = dragStartX, endX = dragEndX;
+	unsigned int startY = dragStartY, endY = dragEndY;
+	if(dragEndX < dragStartX && dragStartY == dragEndY)
+	{
+		startX = dragEndX;
+		endX = dragStartX;
+	}
+	if(dragEndY < dragStartY)
+	{
+		startY = dragEndY;
+		endY = dragStartY;
+
+		startX = dragEndX, endX = dragStartX;
+	}
+
+	unsigned int currLine = shiftCharY;
 	while(curr && charRect.top < updateRect.bottom)
 	{
 		if(charRect.bottom > updateRect.top)
@@ -257,12 +280,25 @@ void ReDraw()
 			for(unsigned int i = 0; i < curr->length; i++, currChar++)
 			{
 				TextStyle &style = tStyle[curr->data[i].style];
+				bool selected = false;
+				if(startY == endY)
+					selected = i >= startX && i < endX && currLine == startY;
+				else
+					selected = (currLine == startY && i >= startX) || (currLine == endY && i < endX) || (currLine > startY && currLine < endY);
+				if(selected && selectionOn)
+				{
+					SetBkColor(hdc, RGB(0,0,0));
+					SetTextColor(hdc, RGB(255-style.color[0], 255-style.color[1], 255-style.color[2]));
+				}else{
+					SetBkColor(hdc, RGB(255,255,255));
+					SetTextColor(hdc, RGB(style.color[0], style.color[1], style.color[2]));
+				}
+				
 				if(style.font != currFont)
 				{
 					currFont = (FontStyle)style.font;
 					SelectFont(hdc, areaFont[currFont]);
 				}
-				SetTextColor(hdc, RGB(style.color[0], style.color[1], style.color[2]));
 				DrawText(hdc, currChar, 1, &charRect, 0);
 				charRect.left += charWidth;
 				charRect.right += charWidth;
@@ -277,6 +313,7 @@ void ReDraw()
 		charRect.top += charHeight;
 		charRect.bottom += charHeight;
 		curr = curr->next;
+		currLine++;
 	}
 	if(charRect.top < areaHeight)
 	{
@@ -428,6 +465,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		areaPenBlack1px = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
 
 		areaBrushWhite = CreateSolidBrush(RGB(255, 255, 255));
+		areaBrushBlack = CreateSolidBrush(RGB(0, 0, 0));
 
 		EndPaint(areaWnd, &areaPS);
 		
@@ -611,7 +649,22 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		
 		break;
 	case WM_LBUTTONDOWN:
+		dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth;
+		dragStartY = HIWORD(lParam) / charHeight + shiftCharY;
+		selectionOn = false;
+		InvalidateRect(areaWnd, NULL, false);
+		break;
+	case WM_MOUSEMOVE:
+		if(wParam != MK_LBUTTON)
+			break;
+		dragEndX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth;
+		dragEndY = HIWORD(lParam) / charHeight + shiftCharY;
+		if(dragStartX != dragEndX || dragStartY != dragEndY)
+			selectionOn = true;
+	case WM_LBUTTONUP:
 		AreaCursorUpdate(NULL, 0, NULL, 0);
+		if(message == WM_MOUSEMOVE)
+			InvalidateRect(areaWnd, NULL, false);
 		cursorCharX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth;
 		cursorCharY = HIWORD(lParam) / charHeight + shiftCharY;
 
