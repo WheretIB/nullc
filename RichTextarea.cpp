@@ -1,5 +1,7 @@
 #include "RichTextarea.h"
 
+#include "ObjectPool.h"
+
 #include <windowsx.h>
 
 enum FontStyle
@@ -25,13 +27,29 @@ struct AreaChar
 
 struct AreaLine
 {
-	AreaChar		startBuf[32];
+	AreaLine(){}
+
+	AreaChar		startBuf[DEFAULT_STRING_LENGTH];
 	AreaChar		*data;
 	unsigned int	length;
 	unsigned int	maxLength;
 
 	AreaLine		*prev, *next;
+
+	static ObjectBlockPool<AreaLine, 32>	*pool;
+	void*		operator new(unsigned int size)
+	{
+		(void)size;
+		return pool->Create();
+	}
+	void		operator delete(void *ptr, unsigned int size)
+	{
+		(void)size;
+		pool->Destroy((AreaLine*)ptr);
+	}
 };
+
+ObjectBlockPool<AreaLine, 32>*	AreaLine::pool = NULL;
 
 // Buffer for linear text
 char	*areaText = NULL;
@@ -80,7 +98,7 @@ int dragEndX, dragEndY;
 bool selectionOn = false;
 
 // Set style parameters. bold\italics\underline flags don't work together
-bool SetTextStyle(unsigned int id, char red, char green, char blue, bool bold, bool italics, bool underline)
+bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline)
 {
 	// There are FONT_STYLE_COUNT styles available
 	if(id >= FONT_STYLE_COUNT)
@@ -125,7 +143,7 @@ void ExtendLinearTextBuffer()
 void ExtendLine(AreaLine *line, unsigned int size)
 {
 	// If there isn't enough space
-	if(size > line->length)
+	if(size > line->maxLength)
 	{
 		AreaChar	*nChars = new AreaChar[size + size / 2];
 		line->maxLength = size + size / 2;
@@ -208,6 +226,18 @@ void RegisterTextarea(const char *className, HINSTANCE hInstance)
 	RegisterClassEx(&wcex);
 }
 
+void ClearAreaText()
+{
+	firstLine->length = 0;
+	lineCount = 0;
+	longestLine = 0;
+	currLine = firstLine;
+	while(currLine->next)
+		DeleteLine(currLine->next);
+	currLine = firstLine;
+	firstLine->next = NULL;
+}
+
 // Function that returns text with line ending in linear buffer
 const char* GetAreaText()
 {
@@ -237,14 +267,7 @@ const char* GetAreaText()
 void SetAreaText(const char *text)
 {
 	// Remove current text
-	firstLine->length = 0;
-	lineCount = 0;
-	longestLine = 0;
-	currLine = firstLine;
-	while(currLine->next)
-		DeleteLine(currLine->next);
-	currLine = firstLine;
-	firstLine->next = NULL;
+	ClearAreaText();
 	// Because we are not holding text as a simple string,
 	// we simulate how this text is written symbol by symbol
 	while(*text)
@@ -507,7 +530,7 @@ void InputEnter()
 
 	// Default state
 	currLine->length = 0;
-	currLine->maxLength = 32;
+	currLine->maxLength = DEFAULT_STRING_LENGTH;
 	currLine->data = currLine->startBuf;
 
 	currLine->data[0].style = currLine->prev->length ? currLine->prev->data[currLine->prev->length-1].style : 0;
@@ -672,6 +695,9 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	switch(message)
 	{
 	case WM_CREATE:
+		if(!AreaLine::pool)
+			AreaLine::pool = new ObjectBlockPool<AreaLine, 32>();
+
 		hdc = BeginPaint(areaWnd, &areaPS);
 		// Create font for every FONT_STYLE
 		areaFont[FONT_REGULAR] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, false, false,
@@ -703,7 +729,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		firstLine->data = firstLine->startBuf;
 		firstLine->next = firstLine->prev = NULL;
 		firstLine->length = 0;
-		firstLine->maxLength = 32;
+		firstLine->maxLength = DEFAULT_STRING_LENGTH;
 		
 		currLine = firstLine;
 		currLine->data[0].style = 0;
@@ -712,6 +738,16 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 
 		SetTimer(areaWnd, 0, 62, AreaCursorUpdate);
 		areaCreated = true;
+		break;
+	case WM_DESTROY:
+		ClearAreaText();
+		DeleteLine(firstLine);
+		delete[] areaText;
+		delete[] areaTextEx;
+		delete AreaLine::pool;
+		areaText = NULL;
+		areaTextEx = NULL;
+		AreaLine::pool = NULL;
 		break;
 	case WM_ERASEBKGND:
 		break;

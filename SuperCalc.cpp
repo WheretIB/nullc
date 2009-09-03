@@ -453,17 +453,17 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hTextArea, nCmdShow);
 	UpdateWindow(hTextArea);
 
-	SetTextStyle(0,    0,   0,   0, 0, 0, 0);
-	SetTextStyle(1,    0,   0, 255, 0, 0, 0);
-	SetTextStyle(2,  128, 128, 128, 0, 0, 0);
-	SetTextStyle(3,   50,  50,  50, 0, 0, 0);
-	SetTextStyle(4,  136,   0,   0, 0, 1, 0);
-	SetTextStyle(5,    0,   0,   0, 0, 0, 0);
-	SetTextStyle(6,    0,   0,   0, 1, 0, 0);
-	SetTextStyle(7,    0, 150,   0, 0, 0, 0);
-	SetTextStyle(8,    0, 150,   0, 0, 1, 0);
-	SetTextStyle(9,  255,   0,   0, 0, 0, 1);
-	SetTextStyle(10, 255,   0, 255, 0, 0, 0);
+	SetTextStyle(0,    0,   0,   0, false, false, false);
+	SetTextStyle(1,    0,   0, 255, false, false, false);
+	SetTextStyle(2,  128, 128, 128, false, false, false);
+	SetTextStyle(3,   50,  50,  50, false, false, false);
+	SetTextStyle(4,  136,   0,   0, false,  true, false);
+	SetTextStyle(5,    0,   0,   0, false, false, false);
+	SetTextStyle(6,    0,   0,   0,  true, false, false);
+	SetTextStyle(7,    0, 150,   0, false, false, false);
+	SetTextStyle(8,    0, 150,   0, false,  true, false);
+	SetTextStyle(9,  255,   0,   0, false, false,  true);
+	SetTextStyle(10, 255,   0, 255, false, false, false);
 
 	colorer = new Colorer(hTextArea);
 
@@ -840,7 +840,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		break;
 	case WM_TIMER:
 	{
-		if(!NeedUpdate() || (GetTickCount()-lastUpdate < 1000))
+		if(!NeedUpdate() || (GetTickCount()-lastUpdate < 100))
 			break;
 		string str = "";
 		SetWindowText(hCode, str.c_str());
