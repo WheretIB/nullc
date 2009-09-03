@@ -173,7 +173,7 @@ void DeleteLine(AreaLine *dead)
 }
 
 // Last edited position
-int maximumEnd;
+unsigned int maximumEnd;
 
 // Function called before setting style to text parts. It reserves needed space in linear buffer
 void BeginStyleUpdate()
@@ -976,6 +976,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		needUpdate = true;
 		break;
 	case WM_KEYDOWN:
+		if(wParam == VK_CONTROL)
+			break;
 		// If key is pressed, remove I-bar
 		AreaCursorUpdate(NULL, 0, NULL, 0);
 		// Reset I-bar tick count, so it will be visible
@@ -991,27 +993,44 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		// First four to move cursor
 		if(wParam == VK_DOWN)
 		{
-			if(currLine->next)
+			if(GetAsyncKeyState(VK_CONTROL))
 			{
-				currLine = currLine->next;
-				cursorCharY++;
-				if(cursorCharX > currLine->length)
-					cursorCharX = currLine->length;
+				shiftCharY++;
+			}else{
+				if(currLine->next)
+				{
+					currLine = currLine->next;
+					cursorCharY++;
+					if(cursorCharX > currLine->length)
+						cursorCharX = currLine->length;
+				}
 			}
-			ScrollToCursor();
 		}else if(wParam == VK_UP){
-			if(currLine->prev)
+			if(GetAsyncKeyState(VK_CONTROL))
 			{
-				currLine = currLine->prev;
-				cursorCharY--;
-				if(cursorCharX > currLine->length)
-					cursorCharX = currLine->length;
+				shiftCharY--;
+			}else{
+				if(currLine->prev)
+				{
+					currLine = currLine->prev;
+					cursorCharY--;
+					if(cursorCharX > currLine->length)
+						cursorCharX = currLine->length;
+				}
 			}
-			ScrollToCursor();
 		}else if(wParam == VK_LEFT){
 			if(cursorCharX > 0)
 			{
 				cursorCharX--;
+				if(GetAsyncKeyState(VK_CONTROL))
+				{
+					if(isspace(currLine->data[cursorCharX - 1].ch))
+						while(cursorCharX >= 1 && isspace(currLine->data[cursorCharX - 1].ch))
+							cursorCharX--;
+					else
+						while(cursorCharX >= 1 && (isalnum(currLine->data[cursorCharX - 1].ch) || currLine->data[cursorCharX - 1].ch == '_' || currLine->data[cursorCharX - 1].ch == '.'))
+							cursorCharX--;
+				}
 			}else{
 				if(currLine->prev)
 				{
@@ -1020,11 +1039,19 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					cursorCharY--;
 				}
 			}
-			ScrollToCursor();
 		}else if(wParam == VK_RIGHT){
 			if(cursorCharX < currLine->length)
 			{
 				cursorCharX++;
+				if(GetAsyncKeyState(VK_CONTROL))
+				{
+					if(isspace(currLine->data[cursorCharX].ch))
+						while((cursorCharX < currLine->length) && isspace(currLine->data[cursorCharX].ch))
+							cursorCharX++;
+					else
+						while((cursorCharX < currLine->length) && (isalnum(currLine->data[cursorCharX].ch) || currLine->data[cursorCharX].ch == '_' || currLine->data[cursorCharX].ch == '.'))
+							cursorCharX++;
+				}
 			}else{
 				if(currLine->next)
 				{
@@ -1033,7 +1060,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					cursorCharX = 0;
 				}
 			}
-			ScrollToCursor();
 		}else if(wParam == VK_DELETE){	// Delete
 			// Remove selection, if active
 			if(selectionOn)
@@ -1130,6 +1156,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		}
 		if(wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT)
 		{
+			if(!GetAsyncKeyState(VK_CONTROL))
+				ScrollToCursor();
 			if(GetAsyncKeyState(VK_SHIFT))
 			{
 				dragEndX = cursorCharX;
@@ -1140,6 +1168,13 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			}
 			// Draw cursor
 			AreaCursorUpdate(areaWnd, 0, NULL, 0);
+			// Ctrl+Arrows
+			if(GetAsyncKeyState(VK_CONTROL))
+			{
+				ClampShift();
+				UpdateScrollBar();
+				InvalidateRect(areaWnd, NULL, false);
+			}
 		}
 		break;
 	case WM_LBUTTONDBLCLK:
