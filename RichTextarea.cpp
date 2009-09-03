@@ -888,11 +888,20 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			dragEndY = line;
 			// Force update on whole window
 			InvalidateRect(areaWnd, NULL, false);
-		}else if(selectionOn && ((wParam & 0xFF) == 3 || (wParam & 0xFF) == 24)){	// Ctrl+C and Ctrl+X
+		}else if(((wParam & 0xFF) == 3 || (wParam & 0xFF) == 24)){	// Ctrl+C and Ctrl+X
 			// Get linear text
 			const char *start = GetAreaText();
 			AreaLine *curr = firstLine;
 
+			bool genuineSelection = selectionOn;
+			if(!selectionOn)
+			{
+				dragStartX = 0;
+				dragEndX = currLine->length;
+				dragStartY = cursorCharY;
+				dragEndY = cursorCharY;
+				selectionOn = true;
+			}
 			// Sort selection range
 			SortSelPoints(startX, endX, startY, endY);
 
@@ -930,6 +939,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			// If it is a cut operation, remove selection
 			if((wParam & 0xFF) == 24)
 				DeleteSelection();
+			if(!genuineSelection)
+				selectionOn = false;
 		}
 		ScrollToCursor();
 		needUpdate = true;
@@ -1057,6 +1068,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				shiftCharY = 0;
 				cursorCharX = 0;
 				cursorCharY = 0;
+			}else{
+				if(cursorCharX == 0)
+				{
+					while(cursorCharX < currLine->length && (currLine->data[cursorCharX].ch == ' ' || currLine->data[cursorCharX].ch == '\t'))
+						cursorCharX++;
+				}else{
+					cursorCharX = 0;
+				}
 			}
 			ClampShift();
 			UpdateScrollBar();
@@ -1069,6 +1088,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				cursorCharX = ~0u;
 				cursorCharY = lineCount;
 				ClampCursorBounds();
+			}else{
+				cursorCharX = currLine->length;
 			}
 			ClampShift();
 			UpdateScrollBar();
