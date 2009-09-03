@@ -950,6 +950,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		AreaCursorUpdate(NULL, 0, NULL, 0);
 		// Reset I-bar tick count, so it will be visible
 		ibarState = 0;
+		// Selection using Shift+Arrows
+		if(GetAsyncKeyState(VK_SHIFT) && !selectionOn && (wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT))
+		{
+			dragStartX = cursorCharX;
+			dragStartY = cursorCharY;
+			selectionOn = true;
+			InvalidateRect(areaWnd, NULL, false);
+		}
 		// First four to move cursor
 		if(wParam == VK_DOWN)
 		{
@@ -960,7 +968,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				if(cursorCharX > currLine->length)
 					cursorCharX = currLine->length;
 			}
-			selectionOn = false;
 			ScrollToCursor();
 		}else if(wParam == VK_UP){
 			if(currLine->prev)
@@ -970,7 +977,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				if(cursorCharX > currLine->length)
 					cursorCharX = currLine->length;
 			}
-			selectionOn = false;
 			ScrollToCursor();
 		}else if(wParam == VK_LEFT){
 			if(cursorCharX > 0)
@@ -984,7 +990,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					cursorCharY--;
 				}
 			}
-			selectionOn = false;
 			ScrollToCursor();
 		}else if(wParam == VK_RIGHT){
 			if(cursorCharX < currLine->length)
@@ -998,7 +1003,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					cursorCharX = 0;
 				}
 			}
-			selectionOn = false;
 			ScrollToCursor();
 		}else if(wParam == VK_DELETE){	// Delete
 			// Remove selection, if active
@@ -1049,7 +1053,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			ClampShift();
 			UpdateScrollBar();
 			InvalidateRect(areaWnd, NULL, false);
-			return 0;
 		}else if(wParam == VK_NEXT){	// Page down
 			if(GetAsyncKeyState(VK_CONTROL))
 			{
@@ -1061,7 +1064,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			ClampShift();
 			UpdateScrollBar();
 			InvalidateRect(areaWnd, NULL, false);
-			return 0;
 		}else if(wParam == VK_HOME){
 			if(GetAsyncKeyState(VK_CONTROL))
 			{
@@ -1080,7 +1082,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			ClampShift();
 			UpdateScrollBar();
 			InvalidateRect(areaWnd, NULL, false);
-			return 0;
 		}else if(wParam == VK_END){
 			if(GetAsyncKeyState(VK_CONTROL))
 			{
@@ -1094,9 +1095,20 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			ClampShift();
 			UpdateScrollBar();
 			InvalidateRect(areaWnd, NULL, false);
-			return 0;
 		}
-
+		if(wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT)
+		{
+			if(GetAsyncKeyState(VK_SHIFT))
+			{
+				dragEndX = cursorCharX;
+				dragEndY = cursorCharY;
+				InvalidateRect(areaWnd, NULL, false);
+			}else{
+				selectionOn = false;
+			}
+			// Draw cursor
+			AreaCursorUpdate(areaWnd, 0, NULL, 0);
+		}
 		break;
 	case WM_LBUTTONDBLCLK:
 		// Find line number, where double-click happened
@@ -1161,8 +1173,21 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			RECT invalid = { 0, (startY - shiftCharY) * charHeight, areaWidth, (endY - shiftCharY + 1) * charHeight };
 			InvalidateRect(areaWnd, &invalid, false);
 		}
-		dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
-		dragStartY = HIWORD(lParam) / charHeight + shiftCharY;
+		if(GetAsyncKeyState(VK_SHIFT))
+		{
+			if(!selectionOn)
+			{
+				dragStartX = cursorCharX;
+				dragStartY = cursorCharY;
+			}
+			dragEndX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
+			dragEndY = HIWORD(lParam) / charHeight + shiftCharY;
+			selectionOn = true;
+			InvalidateRect(areaWnd, NULL, false);
+		}else{
+			dragStartX = (LOWORD(lParam) - padLeft + charWidth / 2) / charWidth + shiftCharX;
+			dragStartY = HIWORD(lParam) / charHeight + shiftCharY;
+		}
 		break;
 	case WM_MOUSEMOVE:
 		// If mouse if moving with the left mouse down
@@ -1180,6 +1205,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			selectionOn = true;
 		// No break!
 	case WM_LBUTTONUP:
+		if(GetAsyncKeyState(VK_SHIFT))
+			break;
 		// If left mouse button is released, or we are continuing previous case
 		// Remove I-bar
 		AreaCursorUpdate(NULL, 0, NULL, 0);
