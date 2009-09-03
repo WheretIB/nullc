@@ -573,22 +573,48 @@ void	ClampShift()
 
 // Check that the cursor is visible (called, when editing text)
 // If it's not, shift scroll positions, so it will be visible once again
-void	CheckCursorBounds()
+void	ScrollToCursor()
 {
+	bool updated = false;
 	if(charHeight && int(cursorCharY) > (areaHeight-32) / charHeight + shiftCharY)
+	{
 		shiftCharY = cursorCharY - (areaHeight-32) / charHeight;
-	else if(int(cursorCharY) < shiftCharY)
+		updated = true;
+	}
+	if(int(cursorCharY) < shiftCharY)
+	{
 		shiftCharY = cursorCharY - 1;
-	else if(charWidth && int(cursorCharX) > (areaWidth-32) / charWidth + shiftCharX)
+		updated = true;
+	}
+	if(charWidth && int(cursorCharX) > (areaWidth-32) / charWidth + shiftCharX)
+	{
 		shiftCharX = cursorCharX - (areaWidth-32) / charWidth;
-	else if(int(cursorCharX) < shiftCharX)
+		updated = true;
+	}
+	if(int(cursorCharX) < shiftCharX)
+	{
 		shiftCharX = cursorCharX - 1;
-	else
+		updated = true;
+	}
+	if(!updated)
 		return;
-
 	ClampShift();
 	InvalidateRect(areaWnd, NULL, false);
 	UpdateScrollBar();
+}
+
+// Function checks if the cursor is placed on a valid position, and if not, moves it
+void	ClampCursorBounds()
+{
+	if(cursorCharY >= lineCount)
+		cursorCharY = lineCount - 1;
+	// Find selected line
+	currLine = firstLine;
+	for(unsigned int i = 0; i < cursorCharY; i++)
+		currLine = currLine->next;
+	// To clamp horizontal position
+	if(cursorCharX > currLine->length)
+		cursorCharX = currLine->length;
 }
 
 // Remove characters in active selection
@@ -905,12 +931,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			if((wParam & 0xFF) == 24)
 				DeleteSelection();
 		}
-		CheckCursorBounds();
+		ScrollToCursor();
 		needUpdate = true;
 		break;
 	case WM_KEYDOWN:
 		// If key is pressed, remove I-bar
 		AreaCursorUpdate(NULL, 0, NULL, 0);
+		// Reset I-bar tick count, so it will be visible
+		ibarState = 0;
 		// First four to move cursor
 		if(wParam == VK_DOWN)
 		{
@@ -922,6 +950,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					cursorCharX = currLine->length;
 			}
 			selectionOn = false;
+			ScrollToCursor();
 		}else if(wParam == VK_UP){
 			if(currLine->prev)
 			{
@@ -931,6 +960,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					cursorCharX = currLine->length;
 			}
 			selectionOn = false;
+			ScrollToCursor();
 		}else if(wParam == VK_LEFT){
 			if(cursorCharX > 0)
 			{
@@ -944,6 +974,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}
 			}
 			selectionOn = false;
+			ScrollToCursor();
 		}else if(wParam == VK_RIGHT){
 			if(cursorCharX < currLine->length)
 			{
@@ -957,6 +988,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}
 			}
 			selectionOn = false;
+			ScrollToCursor();
 		}else if(wParam == VK_DELETE){	// Delete
 			// Remove selection, if active
 			if(selectionOn)
@@ -994,25 +1026,56 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					return 0;
 				}
 			}
+			ScrollToCursor();
 		}else if(wParam == VK_PRIOR){	// Page up
-			shiftCharY -= charHeight ? areaHeight / charHeight : 1;
+			if(GetAsyncKeyState(VK_CONTROL))
+			{
+				cursorCharY = shiftCharY;
+				ClampCursorBounds();
+			}else{
+				shiftCharY -= charHeight ? areaHeight / charHeight : 1;
+			}
 			ClampShift();
 			UpdateScrollBar();
 			InvalidateRect(areaWnd, NULL, false);
 			return 0;
 		}else if(wParam == VK_NEXT){	// Page down
-			shiftCharY += charHeight ? areaHeight / charHeight : 1;
+			if(GetAsyncKeyState(VK_CONTROL))
+			{
+				cursorCharY = shiftCharY + (charHeight ? areaHeight / charHeight : 1);
+				ClampCursorBounds();
+			}else{
+				shiftCharY += charHeight ? areaHeight / charHeight : 1;
+			}
+			ClampShift();
+			UpdateScrollBar();
+			InvalidateRect(areaWnd, NULL, false);
+			return 0;
+		}else if(wParam == VK_HOME){
+			if(GetAsyncKeyState(VK_CONTROL))
+			{
+				shiftCharY = 0;
+				cursorCharX = 0;
+				cursorCharY = 0;
+			}
+			ClampShift();
+			UpdateScrollBar();
+			InvalidateRect(areaWnd, NULL, false);
+			return 0;
+		}else if(wParam == VK_END){
+			if(GetAsyncKeyState(VK_CONTROL))
+			{
+				shiftCharY = lineCount;
+				cursorCharX = ~0u;
+				cursorCharY = lineCount;
+				ClampCursorBounds();
+			}
 			ClampShift();
 			UpdateScrollBar();
 			InvalidateRect(areaWnd, NULL, false);
 			return 0;
 		}
-		// Reset I-bar tick count, so it will be visible
-		ibarState = 0;
-		// Draw I-bar
-		AreaCursorUpdate(areaWnd, 0, NULL, 0);
-		CheckCursorBounds();
-		
+
 		break;
 	case WM_LBUTTONDBLCLK:
 		// Find line number, where double-click happened
@@ -1116,15 +1179,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		cursorCharY = HIWORD(lParam) / charHeight + shiftCharY;
 
 		// Clamp cursor position (notice, that we never clamped selection cursor positions)
-		if(cursorCharY >= lineCount)
-			cursorCharY = lineCount - 1;
-		// Find selected line
-		currLine = firstLine;
-		for(unsigned int i = 0; i < cursorCharY; i++)
-			currLine = currLine->next;
-		// To clamp horizontal position
-		if(cursorCharX > currLine->length)
-			cursorCharX = currLine->length;
+		ClampCursorBounds();
 		// Reset I-bar tick count
 		ibarState = 0;
 		break;
