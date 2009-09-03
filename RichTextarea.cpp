@@ -97,6 +97,9 @@ int dragEndX, dragEndY;
 // And a flag that shows if the selection is active
 bool selectionOn = false;
 
+// Is symbol overwrite on
+bool insertionMode = false;
+
 // Set style parameters. bold\italics\underline flags don't work together
 bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline)
 {
@@ -169,10 +172,14 @@ void DeleteLine(AreaLine *dead)
 	delete dead;
 }
 
+// Last edited position
+int maximumEnd;
+
 // Function called before setting style to text parts. It reserves needed space in linear buffer
 void BeginStyleUpdate()
 {
 	ExtendLinearTextBuffer();
+	maximumEnd = 0;
 }
 
 // Style is changed for linear buffer
@@ -181,6 +188,7 @@ void SetStyleToSelection(unsigned int start, unsigned int end, int style)
 	// Simply set style to the specified range of symbols
 	for(unsigned int i = start; i <= end; i++)
 		areaTextEx[i] = (char)style;
+	maximumEnd = maximumEnd < end ? end : maximumEnd;
 }
 
 // Function is called after setting style to text parts. It copies style information from linear buffer to AreaLine list
@@ -189,7 +197,8 @@ void EndStyleUpdate()
 	AreaLine *curr = firstLine;
 	// i has the position inside linear buffer
 	// n has the position inside a line
-	for(unsigned int i = 0, n = 0; i < overallLength;)
+	// Update only to the last edited position
+	for(unsigned int i = 0, n = 0; i < maximumEnd;)
 	{
 		if(n < curr->length)	// Until n reaches line size, add style information to it
 		{
@@ -486,6 +495,14 @@ VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
 
 	MoveToEx(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight, NULL);
 	LineTo(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight + charHeight);
+
+	if(insertionMode)
+	{
+		// Draw full box
+		LineTo(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth + charWidth, (cursorCharY - shiftCharY) * charHeight + charHeight);
+		LineTo(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth+ charWidth, (cursorCharY - shiftCharY) * charHeight);
+		LineTo(hdc, padLeft + (cursorCharX - shiftCharX) * charWidth, (cursorCharY - shiftCharY) * charHeight);
+	}
 	EndPaint(areaWnd, &areaPS);
 
 	ibarState++;
@@ -795,6 +812,19 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	case WM_CHAR:
 		if((wParam & 0xFF) >= 0x20)	// If it isn't special symbol
 		{
+			// If insert mode, create selection
+			if(insertionMode)
+			{
+				selectionOn = true;
+				dragStartX = cursorCharX;
+				dragEndY = dragStartY = cursorCharY;
+				dragEndX = cursorCharX + 1;
+				if(dragEndX > currLine->length)
+				{
+					dragEndY = cursorCharY + 1;
+					dragEndX = 0;
+				}
+			}
 			// Remove selection
 			if(selectionOn)
 				DeleteSelection();
@@ -1095,6 +1125,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			ClampShift();
 			UpdateScrollBar();
 			InvalidateRect(areaWnd, NULL, false);
+		}else if(wParam == VK_INSERT){
+			insertionMode = !insertionMode;
 		}
 		if(wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT)
 		{
