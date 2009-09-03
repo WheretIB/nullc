@@ -229,7 +229,7 @@ void RegisterTextarea(const char *className, HINSTANCE hInstance)
 void ClearAreaText()
 {
 	firstLine->length = 0;
-	lineCount = 0;
+	lineCount = 1;
 	longestLine = 0;
 	currLine = firstLine;
 	while(currLine->next)
@@ -994,6 +994,18 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					return 0;
 				}
 			}
+		}else if(wParam == VK_PRIOR){	// Page up
+			shiftCharY -= charHeight ? areaHeight / charHeight : 1;
+			ClampShift();
+			UpdateScrollBar();
+			InvalidateRect(areaWnd, NULL, false);
+			return 0;
+		}else if(wParam == VK_NEXT){	// Page down
+			shiftCharY += charHeight ? areaHeight / charHeight : 1;
+			ClampShift();
+			UpdateScrollBar();
+			InvalidateRect(areaWnd, NULL, false);
+			return 0;
 		}
 		// Reset I-bar tick count, so it will be visible
 		ibarState = 0;
