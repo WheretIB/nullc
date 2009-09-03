@@ -559,8 +559,8 @@ std::string Colorer::GetError()
 
 void Colorer::ColorCode(int style, const char* start, const char* end)
 {
-	unsigned int cpMin = start - ColorerGrammar::codeStart;
-	unsigned int cpMax = end - ColorerGrammar::codeStart;
+	unsigned int cpMin = (unsigned int)(start - ColorerGrammar::codeStart);
+	unsigned int cpMax = (unsigned int)(end - ColorerGrammar::codeStart);
 
 	if(errUnderline)
 		ColorFunc(cpMin, cpMax, COLOR_ERR);

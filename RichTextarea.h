@@ -6,8 +6,9 @@
 #include <windows.h>
 
 #define FONT_STYLE_COUNT 16
+#define DEFAULT_STRING_LENGTH 64
 
-bool SetTextStyle(unsigned int id, char red, char green, char blue, bool bold, bool italics, bool underline);
+bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline);
 
 void BeginStyleUpdate();
 void SetStyleToSelection(unsigned int start, unsigned int end, int style);
