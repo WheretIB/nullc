@@ -1163,6 +1163,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				dragEndX = cursorCharX;
 				dragEndY = cursorCharY;
 				InvalidateRect(areaWnd, NULL, false);
+				return 0;
 			}else{
 				selectionOn = false;
 			}
