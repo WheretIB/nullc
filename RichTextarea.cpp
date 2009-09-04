@@ -1153,6 +1153,9 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			InvalidateRect(areaWnd, NULL, false);
 		}else if(wParam == VK_INSERT){
 			insertionMode = !insertionMode;
+		}else if(wParam == VK_ESCAPE){
+			selectionOn = false;
+			InvalidateRect(areaWnd, NULL, false);
 		}
 		if(wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT)
 		{
@@ -1166,6 +1169,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				return 0;
 			}else{
 				selectionOn = false;
+				InvalidateRect(areaWnd, NULL, false);
+				return 0;
 			}
 			// Draw cursor
 			AreaCursorUpdate(areaWnd, 0, NULL, 0);
