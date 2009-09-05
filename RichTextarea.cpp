@@ -466,13 +466,13 @@ void ReDraw()
 						n += shift - 1;
 						while(shift--)
 						{
-							DrawText(hdc, " ", 1, &charRect, 0);
+							ExtTextOut(hdc, charRect.left, charRect.top, ETO_CLIPPED, &charRect, " ", 1, NULL);
 							charRect.left += charWidth;
 							charRect.right += charWidth;
 						}
 					}else{
 						// Draw character
-						DrawText(hdc, &curr->data[i].ch, 1, &charRect, DT_NOPREFIX);
+						ExtTextOut(hdc, charRect.left, charRect.top, ETO_CLIPPED, &charRect, &curr->data[i].ch, 1, NULL);
 						// Shift the box to the next position
 						charRect.left += charWidth;
 						charRect.right += charWidth;
