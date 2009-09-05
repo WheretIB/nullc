@@ -465,7 +465,7 @@ void ReDraw()
 					}
 				}else{
 					// Draw character
-					DrawText(hdc, &curr->data[i].ch, 1, &charRect, 0);
+					DrawText(hdc, &curr->data[i].ch, 1, &charRect, DT_NOPREFIX);
 					// Shift the box to the next position
 					charRect.left += charWidth;
 					charRect.right += charWidth;
@@ -1153,7 +1153,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			if(GetAsyncKeyState(VK_CONTROL))
 				shiftCharY++;
 			// If Ctrl is not pressed or if it is and cursor is out of sight
-			if(!GetAsyncKeyState(VK_CONTROL) || (GetAsyncKeyState(VK_CONTROL) && cursorCharY < shiftCharY))
+			if(!GetAsyncKeyState(VK_CONTROL) || (GetAsyncKeyState(VK_CONTROL) && int(cursorCharY) < shiftCharY))
 			{
 				// If there is a next line, move to it
 				if(currLine->next)
@@ -1169,7 +1169,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			if(GetAsyncKeyState(VK_CONTROL))
 				shiftCharY--;
 			// If Ctrl is not pressed or if it is and cursor is out of sight
-			if(!GetAsyncKeyState(VK_CONTROL) || (GetAsyncKeyState(VK_CONTROL) && cursorCharY > (shiftCharY + areaHeight / charHeight - 1)))
+			if(!GetAsyncKeyState(VK_CONTROL) || (GetAsyncKeyState(VK_CONTROL) && int(cursorCharY) > (shiftCharY + areaHeight / charHeight - 1)))
 			{
 				// If there is a previous line, move to it
 				if(currLine->prev)
