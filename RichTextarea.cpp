@@ -837,6 +837,91 @@ bool IsPressed(int key)
 	return !!(GetKeyState(key) & 0x80000000);
 }
 
+void OnCopyOrCut(bool cut)
+{
+	// Get linear text
+	const char *start = GetAreaText();
+	AreaLine *curr = firstLine;
+
+	// If there is no selection, remember this fact, and select current line
+	bool genuineSelection = selectionOn;
+	if(!selectionOn)
+	{
+		dragStartX = 0;
+		dragEndX = currLine->length;
+		dragStartY = cursorCharY;
+		dragEndY = cursorCharY;
+		selectionOn = true;
+	}
+	// Sort selection range
+	unsigned int startX, startY, endX, endY;
+	SortSelPoints(startX, endX, startY, endY);
+
+	// Clamp selection points in Y axis
+	startY = startY > lineCount ? lineCount - 1 : startY;
+	endY = endY > lineCount ? lineCount-1 : endY;
+
+	// Find first line start in linear buffer
+	for(unsigned int i = 0; i < startY; i++)
+	{
+		start += curr->length + 2;
+		curr = curr->next;
+	}
+	const char *end = start;
+	// Move start to the first selected symbol
+	start += (startX < curr->length ? startX : curr->length);
+	// Find last line start in linear buffer
+	for(unsigned int i = startY; i < endY; i++)
+	{
+		end += curr->length + 2;
+		curr = curr->next;
+	}
+	// Move end to the last selected symbol
+	end += (endX < curr->length ? endX : curr->length);
+
+	// Copy to clipboard
+	OpenClipboard(areaWnd);
+	EmptyClipboard();
+	HGLOBAL hClipboardData = GlobalAlloc(GMEM_DDESHARE, end - start + 1);
+	char *pchData = (char*)GlobalLock(hClipboardData);
+	memcpy(pchData, start, end - start);
+	GlobalUnlock(hClipboardData);
+	SetClipboardData(CF_TEXT, hClipboardData);
+	CloseClipboard();
+	// If it is a cut operation, remove selection
+	if(cut)
+		DeleteSelection();
+	// If we had to make an artificial selection, disable it
+	if(!genuineSelection)
+		selectionOn = false;
+}
+
+void OnPaste()
+{
+	// Remove selection
+	if(selectionOn)
+		DeleteSelection();
+	// Get pasted text
+	OpenClipboard(areaWnd);
+	HANDLE clipData = GetClipboardData(CF_TEXT);
+	if(clipData)
+	{
+		// Simulate as if the text was written
+		char *str = (char*)clipData;
+		while(*str)
+		{
+			if(*str >= 0x20 || *str == '\t')
+				InputChar(*str);
+			else if(*str == '\r')
+				InputEnter();
+			str++;
+		}
+	}
+	CloseClipboard();
+	// Force update on whole window
+	InvalidateRect(areaWnd, NULL, false);
+}
+
 // Textarea message handler
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
@@ -931,10 +1016,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				dragEndY = dragStartY = cursorCharY;
 				dragEndX = cursorCharX + 1;
 				if(dragEndX > int(currLine->length))
-				{
-					dragEndY = cursorCharY + 1;
-					dragEndX = 0;
-				}
+					selectionOn = false;
 			}
 			// Remove selection
 			if(selectionOn)
@@ -1041,28 +1123,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}
 			}
 		}else if((wParam & 0xFF) == 22){	// Ctrl+V
-			// Remove selection
-			if(selectionOn)
-				DeleteSelection();
-			// Get pasted text
-			OpenClipboard(areaWnd);
-			HANDLE clipData = GetClipboardData(CF_TEXT);
-			if(clipData)
-			{
-				// Simulate as if the text was written
-				char *str = (char*)clipData;
-				while(*str)
-				{
-					if(*str >= 0x20 || *str == '\t')
-						InputChar(*str);
-					else if(*str == '\r')
-						InputEnter();
-					str++;
-				}
-			}
-			CloseClipboard();
-			// Force update on whole window
-			InvalidateRect(areaWnd, NULL, false);
+			OnPaste();
 		}else if((wParam & 0xFF) == 1){	// Ctrl+A
 			// Select all
 			selectionOn = true;
@@ -1078,66 +1139,13 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			// Force update on whole window
 			InvalidateRect(areaWnd, NULL, false);
 		}else if(((wParam & 0xFF) == 3 || (wParam & 0xFF) == 24)){	// Ctrl+C and Ctrl+X
-			// Get linear text
-			const char *start = GetAreaText();
-			AreaLine *curr = firstLine;
-
-			// If there is no selection, remember this fact, and select current line
-			bool genuineSelection = selectionOn;
-			if(!selectionOn)
-			{
-				dragStartX = 0;
-				dragEndX = currLine->length;
-				dragStartY = cursorCharY;
-				dragEndY = cursorCharY;
-				selectionOn = true;
-			}
-			// Sort selection range
-			SortSelPoints(startX, endX, startY, endY);
-
-			// Clamp selection points in Y axis
-			startY = startY > lineCount ? lineCount - 1 : startY;
-			endY = endY > lineCount ? lineCount-1 : endY;
-
-			// Find first line start in linear buffer
-			for(unsigned int i = 0; i < startY; i++)
-			{
-				start += curr->length + 2;
-				curr = curr->next;
-			}
-			const char *end = start;
-			// Move start to the first selected symbol
-			start += (startX < curr->length ? startX : curr->length);
-			// Find last line start in linear buffer
-			for(unsigned int i = startY; i < endY; i++)
-			{
-				end += curr->length + 2;
-				curr = curr->next;
-			}
-			// Move end to the last selected symbol
-			end += (endX < curr->length ? endX : curr->length);
-
-			// Copy to clipboard
-			OpenClipboard(areaWnd);
-			EmptyClipboard();
-			HGLOBAL hClipboardData = GlobalAlloc(GMEM_DDESHARE, end - start + 1);
-			char *pchData = (char*)GlobalLock(hClipboardData);
-			memcpy(pchData, start, end - start);
-			GlobalUnlock(hClipboardData);
-			SetClipboardData(CF_TEXT, hClipboardData);
-			CloseClipboard();
-			// If it is a cut operation, remove selection
-			if((wParam & 0xFF) == 24)
-				DeleteSelection();
-			// If we had to make an artificial selection, disable it
-			if(!genuineSelection)
-				selectionOn = false;
+			OnCopyOrCut((wParam & 0xFF) == 24);
 		}
 		ScrollToCursor();
 		needUpdate = true;
 		break;
 	case WM_KEYDOWN:
-		if(wParam == VK_CONTROL)
+		if(wParam == VK_CONTROL || wParam == VK_SHIFT)
 			break;
 		// If key is pressed, remove I-bar
 		AreaCursorUpdate(NULL, 0, NULL, 0);
@@ -1156,7 +1164,10 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		{
 			// If Ctrl is pressed, scroll vertically
 			if(IsPressed(VK_CONTROL))
+			{
 				shiftCharY++;
+				ClampShift();
+			}
 			// If Ctrl is not pressed or if it is and cursor is out of sight
 			if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) < shiftCharY))
 			{
@@ -1172,7 +1183,10 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		}else if(wParam == VK_UP){
 			// If Ctrl is pressed, scroll vertically
 			if(IsPressed(VK_CONTROL))
+			{
 				shiftCharY--;
+				ClampShift();
+			}
 			// If Ctrl is not pressed or if it is and cursor is out of sight
 			if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) > (shiftCharY + areaHeight / charHeight - 1)))
 			{
@@ -1259,6 +1273,12 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}
 			}
 		}else if(wParam == VK_DELETE){	// Delete
+			// Shift+Delete is a cut operation
+			if(IsPressed(VK_SHIFT))
+			{
+				OnCopyOrCut(true);
+				return 0;
+			}
 			// Remove selection, if active
 			if(selectionOn)
 			{
@@ -1334,6 +1354,11 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				cursorCharY = 0;
 				ClampCursorBounds();
 			}else{
+				if(IsPressed(VK_SHIFT) && !selectionOn)
+				{
+					dragStartX = cursorCharX;
+					dragStartY = cursorCharY;
+				}
 				if(cursorCharX == 0)
 				{
 					// If we are at the beginning of a line, move through all the spaces
@@ -1342,6 +1367,13 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				}else{
 					// Move cursor to the beginning of the line
 					cursorCharX = 0;
+				}
+				if(IsPressed(VK_SHIFT))
+				{
+					dragEndX = cursorCharX;
+					dragEndY = cursorCharY;
+					if(dragStartX != dragEndX || dragStartY != dragEndY)
+						selectionOn = true;
 				}
 			}
 			ClampShift();
@@ -1357,13 +1389,37 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				cursorCharY = lineCount;
 				ClampCursorBounds();
 			}else{
+				if(IsPressed(VK_SHIFT))
+				{
+					dragStartX = cursorCharX;
+					dragStartY = cursorCharY;
+				}
 				// Move cursor to the end of the line
 				cursorCharX = currLine->length;
+				if(IsPressed(VK_SHIFT))
+				{
+					dragEndX = cursorCharX;
+					dragEndY = cursorCharY;
+					if(dragStartX != dragEndX || dragStartY != dragEndY)
+						selectionOn = true;
+				}
 			}
 			ClampShift();
 			UpdateScrollBar();
 			InvalidateRect(areaWnd, NULL, false);
 		}else if(wParam == VK_INSERT){
+			// Shift+Insert is a paste operation
+			if(IsPressed(VK_SHIFT))
+			{
+				OnPaste();
+				return 0;
+			}
+			// Ctrl+Insert is a copy operation
+			if(IsPressed(VK_CONTROL))
+			{
+				OnCopyOrCut(false);
+				return 0;
+			}
 			// Toggle input mode between insert\overwrite
 			insertionMode = !insertionMode;
 		}else if(wParam == VK_ESCAPE){
