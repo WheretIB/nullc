@@ -832,6 +832,11 @@ void DeleteSelection()
 	InvalidateRect(areaWnd, NULL, false);
 }
 
+bool IsPressed(int key)
+{
+	return !!(GetKeyState(key) & 0x80000000);
+}
+
 // Textarea message handler
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
@@ -950,7 +955,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 						// Inserting in front
 						cursorCharX = 0;
 						// If it's a Shift+Tab
-						if(GetAsyncKeyState(VK_SHIFT))
+						if(IsPressed(VK_SHIFT))
 						{
 							// We have to remove a number of whitespaces so the length of removed whitespaces will be equal to tab size
 							int toRemove = 0;
@@ -1139,7 +1144,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		// Reset I-bar tick count, so it will be visible
 		ibarState = 0;
 		// Start selection if Shift+Arrows are in use, and selection is disabled
-		if(GetAsyncKeyState(VK_SHIFT) && !selectionOn && (wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT))
+		if(IsPressed(VK_SHIFT) && !selectionOn && (wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT))
 		{
 			dragStartX = cursorCharX;
 			dragStartY = cursorCharY;
@@ -1150,10 +1155,10 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		if(wParam == VK_DOWN)
 		{
 			// If Ctrl is pressed, scroll vertically
-			if(GetAsyncKeyState(VK_CONTROL))
+			if(IsPressed(VK_CONTROL))
 				shiftCharY++;
 			// If Ctrl is not pressed or if it is and cursor is out of sight
-			if(!GetAsyncKeyState(VK_CONTROL) || (GetAsyncKeyState(VK_CONTROL) && int(cursorCharY) < shiftCharY))
+			if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) < shiftCharY))
 			{
 				// If there is a next line, move to it
 				if(currLine->next)
@@ -1166,10 +1171,10 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			}
 		}else if(wParam == VK_UP){
 			// If Ctrl is pressed, scroll vertically
-			if(GetAsyncKeyState(VK_CONTROL))
+			if(IsPressed(VK_CONTROL))
 				shiftCharY--;
 			// If Ctrl is not pressed or if it is and cursor is out of sight
-			if(!GetAsyncKeyState(VK_CONTROL) || (GetAsyncKeyState(VK_CONTROL) && int(cursorCharY) > (shiftCharY + areaHeight / charHeight - 1)))
+			if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) > (shiftCharY + areaHeight / charHeight - 1)))
 			{
 				// If there is a previous line, move to it
 				if(currLine->prev)
@@ -1182,7 +1187,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			}
 		}else if(wParam == VK_LEFT){
 			// If Shift is not pressed and there is an active selection
-			if(!GetAsyncKeyState(VK_SHIFT) && selectionOn)
+			if(!IsPressed(VK_SHIFT) && selectionOn)
 			{
 				// Sort selection range
 				SortSelPoints(startX, endX, startY, endY);
@@ -1197,7 +1202,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					// Move left
 					cursorCharX--;
 					// If Ctrl is pressed
-					if(GetAsyncKeyState(VK_CONTROL))
+					if(IsPressed(VK_CONTROL))
 					{
 						// If on space character, move through all the spaces
 						if(isspace(currLine->data[cursorCharX - 1].ch))
@@ -1219,7 +1224,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			}
 		}else if(wParam == VK_RIGHT){
 			// If Shift is not pressed and there is an active selection
-			if(!GetAsyncKeyState(VK_SHIFT) && selectionOn)
+			if(!IsPressed(VK_SHIFT) && selectionOn)
 			{
 				// Sort selection range
 				SortSelPoints(startX, endX, startY, endY);
@@ -1233,7 +1238,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				{
 					cursorCharX++;
 					// If Ctrl is pressed
-					if(GetAsyncKeyState(VK_CONTROL))
+					if(IsPressed(VK_CONTROL))
 					{
 						// If on space character, move through all the spaces
 						if(isspace(currLine->data[cursorCharX].ch))
@@ -1293,7 +1298,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			ScrollToCursor();
 		}else if(wParam == VK_PRIOR){	// Page up
 			// If Ctrl is pressed
-			if(GetAsyncKeyState(VK_CONTROL))
+			if(IsPressed(VK_CONTROL))
 			{
 				// Move to the start of view
 				cursorCharY = shiftCharY;
@@ -1307,7 +1312,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			InvalidateRect(areaWnd, NULL, false);
 		}else if(wParam == VK_NEXT){	// Page down
 			// If Ctrl is pressed
-			if(GetAsyncKeyState(VK_CONTROL))
+			if(IsPressed(VK_CONTROL))
 			{
 				// Move to the end of view
 				cursorCharY = shiftCharY + (charHeight ? areaHeight / charHeight : 1);
@@ -1321,7 +1326,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			InvalidateRect(areaWnd, NULL, false);
 		}else if(wParam == VK_HOME){
 			// If Ctrl is pressed
-			if(GetAsyncKeyState(VK_CONTROL))
+			if(IsPressed(VK_CONTROL))
 			{
 				// Move view and cursor to the beginning of the text
 				shiftCharY = 0;
@@ -1344,7 +1349,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			InvalidateRect(areaWnd, NULL, false);
 		}else if(wParam == VK_END){
 			// If Ctrl is pressed
-			if(GetAsyncKeyState(VK_CONTROL))
+			if(IsPressed(VK_CONTROL))
 			{
 				// Move view and cursor to the end of the text
 				shiftCharY = lineCount;
@@ -1369,10 +1374,10 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		if(wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT)
 		{
 			// If Ctrl is not pressed, center view around cursor
-			if(!GetAsyncKeyState(VK_CONTROL))
+			if(!IsPressed(VK_CONTROL))
 				ScrollToCursor();
 			// If Shift is pressed, set end of selection, redraw window and return
-			if(GetAsyncKeyState(VK_SHIFT))
+			if(IsPressed(VK_SHIFT))
 			{
 				dragEndX = cursorCharX;
 				dragEndY = cursorCharY;
@@ -1381,7 +1386,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			}else{
 				// Or disable selection, and if control is not pressed, update window and return
 				selectionOn = false;
-				if(!GetAsyncKeyState(VK_CONTROL))
+				if(!IsPressed(VK_CONTROL))
 				{
 					InvalidateRect(areaWnd, NULL, false);
 					return 0;
@@ -1390,7 +1395,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			// Draw cursor
 			AreaCursorUpdate(areaWnd, 0, NULL, 0);
 			// Handle Ctrl+Arrows
-			if(GetAsyncKeyState(VK_CONTROL))
+			if(IsPressed(VK_CONTROL))
 			{
 				ClampShift();
 				UpdateScrollBar();
@@ -1448,7 +1453,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		break;
 	case WM_LBUTTONDOWN:
 		// When left mouse button is pressed, disable selection mode and save position as selection start
-		if(selectionOn && !GetAsyncKeyState(VK_SHIFT))
+		if(selectionOn && !IsPressed(VK_SHIFT))
 		{
 			selectionOn = false;
 			// Sort selection range
@@ -1457,7 +1462,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			RECT invalid = { 0, (startY - shiftCharY) * charHeight, areaWidth, (endY - shiftCharY + 1) * charHeight };
 			InvalidateRect(areaWnd, &invalid, false);
 		}
-		if(GetAsyncKeyState(VK_SHIFT))
+		if(IsPressed(VK_SHIFT))
 		{
 			// If there is no selection, start it
 			if(!selectionOn)
@@ -1490,7 +1495,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			selectionOn = true;
 		// No break!
 	case WM_LBUTTONUP:
-		if(GetAsyncKeyState(VK_SHIFT))
+		if(IsPressed(VK_SHIFT))
 			break;
 		// If left mouse button is released, or we are continuing previous case
 		// Remove I-bar
