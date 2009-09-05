@@ -429,46 +429,54 @@ void ReDraw()
 			// Draw line symbols
 			for(unsigned int i = 0, n = 0; i < curr->length; i++, n++)
 			{
-				TextStyle &style = tStyle[curr->data[i].style];
-				// Find out, if the symbol is in the selected range
-				bool selected = false;
-				if(startY == endY)
-					selected = i >= startX && i < endX && currLine == startY;
-				else
-					selected = (currLine == startY && i >= startX) || (currLine == endY && i < endX) || (currLine > startY && currLine < endY);
-				// If character is in the selection range and selection is active, invert colors
-				if(selected && selectionOn)
+				if(charRect.right < -4 * charWidth)
 				{
-					SetBkColor(hdc, RGB(51, 153, 255));
-					SetTextColor(hdc, RGB(255, 255, 255));
-				}else{
-					SetBkColor(hdc, RGB(255, 255, 255));
-					SetTextColor(hdc, RGB(style.color[0], style.color[1], style.color[2]));
-				}
-				// If symbol has different font, change it
-				if(style.font != currFont)
-				{
-					currFont = (FontStyle)style.font;
-					SelectFont(hdc, areaFont[currFont]);
-				}
-				// If this is a tab
-				if(curr->data[i].ch =='\t')
-				{
-					// Find out shift size
-					int shift = 4 - n % 4;
+					int shift = curr->data[i].ch =='\t' ? 4 - n % 4 : 1;
 					n += shift - 1;
-					while(shift--)
+					charRect.left += shift * charWidth;
+					charRect.right += shift * charWidth;
+				}else{
+					TextStyle &style = tStyle[curr->data[i].style];
+					// Find out, if the symbol is in the selected range
+					bool selected = false;
+					if(startY == endY)
+						selected = i >= startX && i < endX && currLine == startY;
+					else
+						selected = (currLine == startY && i >= startX) || (currLine == endY && i < endX) || (currLine > startY && currLine < endY);
+					// If character is in the selection range and selection is active, invert colors
+					if(selected && selectionOn)
 					{
-						DrawText(hdc, " ", 1, &charRect, 0);
+						SetBkColor(hdc, RGB(51, 153, 255));
+						SetTextColor(hdc, RGB(255, 255, 255));
+					}else{
+						SetBkColor(hdc, RGB(255, 255, 255));
+						SetTextColor(hdc, RGB(style.color[0], style.color[1], style.color[2]));
+					}
+					// If symbol has different font, change it
+					if(style.font != currFont)
+					{
+						currFont = (FontStyle)style.font;
+						SelectFont(hdc, areaFont[currFont]);
+					}
+					// If this is a tab
+					if(curr->data[i].ch =='\t')
+					{
+						// Find out shift size
+						int shift = 4 - n % 4;
+						n += shift - 1;
+						while(shift--)
+						{
+							DrawText(hdc, " ", 1, &charRect, 0);
+							charRect.left += charWidth;
+							charRect.right += charWidth;
+						}
+					}else{
+						// Draw character
+						DrawText(hdc, &curr->data[i].ch, 1, &charRect, DT_NOPREFIX);
+						// Shift the box to the next position
 						charRect.left += charWidth;
 						charRect.right += charWidth;
 					}
-				}else{
-					// Draw character
-					DrawText(hdc, &curr->data[i].ch, 1, &charRect, DT_NOPREFIX);
-					// Shift the box to the next position
-					charRect.left += charWidth;
-					charRect.right += charWidth;
 				}
 				// Break if out of view
 				if(charRect.left > areaWidth - int(charWidth))
@@ -580,6 +588,8 @@ void InputEnter()
 	}
 	currLine->next = nLine;
 	nLine->prev = currLine;
+
+	// Switch to the next line
 	currLine = currLine->next;
 
 	// Default state
@@ -1137,8 +1147,22 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			// Remove selection
 			if(selectionOn)
 				DeleteSelection();
-			// Insert symbol
+			// Find current indentation
+			int characterIdent = 0;
+			int effectiveIdent = 0;
+			while(characterIdent < int(currLine->length) && isspace(currLine->data[characterIdent].ch))
+			{
+				effectiveIdent += currLine->data[characterIdent].ch == '\t' ? 4 - (effectiveIdent % 4) : 1;
+				characterIdent++;
+			}
+			// Insert line break
 			InputEnter();
+			// Add identation
+			while(effectiveIdent > 0)
+			{
+				InputChar('\t');
+				effectiveIdent -= 4;
+			}
 		}else if((wParam & 0xFF) == '\b'){	// Backspace
 			// Remove selection
 			if(selectionOn)
@@ -1370,10 +1394,10 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				ClampCursorBounds();
 			}else{
 				int identWidth = 0;
-				while(identWidth < currLine->length && (currLine->data[identWidth].ch == ' ' || currLine->data[identWidth].ch == '\t'))
+				while(identWidth < int(currLine->length) && (currLine->data[identWidth].ch == ' ' || currLine->data[identWidth].ch == '\t'))
 					identWidth++;
 				// If we are at the beginning of a line, move through all the spaces
-				if(cursorCharX == 0 || cursorCharX != identWidth)
+				if(cursorCharX == 0 || int(cursorCharX) != identWidth)
 					cursorCharX = identWidth;
 				else	// Move cursor to the beginning of the line
 					cursorCharX = 0;
@@ -1542,15 +1566,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		// If current position differs from starting position, enable selection mode
 		if(dragStartX != dragEndX || dragStartY != dragEndY)
 			selectionOn = true;
-		// No break!
-	case WM_LBUTTONUP:
-		if(IsPressed(VK_SHIFT))
-			break;
-		// If left mouse button is released, or we are continuing previous case
-		// Remove I-bar
-		AreaCursorUpdate(NULL, 0, NULL, 0);
-		// If we are continuing previous case, force window redraw
-		if(message == WM_MOUSEMOVE)
+
 		{
 			// Sort selection range
 			unsigned int newStartY, newEndY;
@@ -1561,6 +1577,15 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			RECT invalid = { 0, (newStartY - shiftCharY) * charHeight, areaWidth, (newEndY - shiftCharY + 1) * charHeight };
 			InvalidateRect(areaWnd, &invalid, false);
 		}
+		// Find cursor position
+		currLine = ClientToCursor(LOWORD(lParam), HIWORD(lParam), cursorCharX, cursorCharY, true);
+		break;
+	case WM_LBUTTONUP:
+		if(IsPressed(VK_SHIFT))
+			break;
+		// If left mouse button is released, or we are continuing previous case
+		// Remove I-bar
+		AreaCursorUpdate(NULL, 0, NULL, 0);
 		// Find cursor position
 		currLine = ClientToCursor(LOWORD(lParam), HIWORD(lParam), cursorCharX, cursorCharY, true);
 		// Reset I-bar tick count
