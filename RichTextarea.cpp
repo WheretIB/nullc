@@ -922,6 +922,46 @@ void OnPaste()
 	InvalidateRect(areaWnd, NULL, false);
 }
 
+void DeletePreviousChar()
+{
+	// If cursor is not at the beginning of a line
+	if(cursorCharX)
+	{
+		// If cursor is in the middle, move characters to the vacant position
+		if(cursorCharX != currLine->length)
+			memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
+		// Shrink line size and move cursor
+		currLine->length--;
+		cursorCharX--;
+		// Force redraw on the updated region
+		RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}else if(currLine->prev){	// If it's at the beginning of a line and there is a line before current
+		// Add current line to the previous, as if are removing the line break
+		currLine = currLine->prev;
+		// Check if there is enough space
+		unsigned int sum = currLine->length + currLine->next->length;
+		ExtendLine(currLine, sum);
+		// Append one line to the other
+		memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
+
+		// Update cursor position
+		cursorCharX = currLine->length;
+		cursorCharY--;
+
+		// Update line length
+		currLine->length = sum;
+
+		// Remove line that was current before event
+		DeleteLine(currLine->next);
+		lineCount--;
+
+		// Force redraw on the updated region
+		RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * charHeight, areaWidth, areaHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}
+}
+
 // Textarea message handler
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
@@ -1064,10 +1104,32 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 					ClampCursorBounds();
 					InvalidateRect(areaWnd, NULL, false);
 					return 0;
+				}else if((wParam & 0xFF) == '\t' && IsPressed(VK_SHIFT)){
+					cursorCharX = startX;
+					cursorCharY = startY;
+					// Clamp cursor position and select first line
+					ClampCursorBounds();
+					if(startX && isspace(currLine->data[startX-1].ch))
+					{
+						DeletePreviousChar();
+						if(startY == endY)
+						{
+							cursorCharX = endX - 1;
+							if(dragStartX == startX)
+								dragStartX = --startX;
+							else
+								dragEndX = --startX;
+						}
+					}
+					return 0;
 				}else{
 					// Otherwise, just remove selection
 					DeleteSelection();
 				}
+			}else if((wParam & 0xFF) == '\t' && IsPressed(VK_SHIFT)){
+				if(cursorCharX && isspace(currLine->data[cursorCharX-1].ch))
+					DeletePreviousChar();
+				return 0;
 			}
 			// Insert symbol
 			InputChar((char)(wParam & 0xFF));
@@ -1083,44 +1145,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			{
 				DeleteSelection();
 			}else{
-				// If cursor is not at the beginning of a line
-				if(cursorCharX)
-				{
-					// If cursor is in the middle, move characters to the vacant position
-					if(cursorCharX != currLine->length)
-						memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
-					// Shrink line size and move cursor
-					currLine->length--;
-					cursorCharX--;
-					// Force redraw on the updated region
-					RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
-					InvalidateRect(areaWnd, &invalid, false);
-				}else{
-					// If there is a line before current
-					if(currLine->prev)
-					{
-						// Add current line to the previous, as if are removing the line break
-						currLine = currLine->prev;
-						// Check if there is enough space
-						unsigned int sum = currLine->length + currLine->next->length;
-						ExtendLine(currLine, sum);
-						// Append one line to the other
-						memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
-						currLine->length = sum;
-
-						// Remove line that was current before event
-						DeleteLine(currLine->next);
-						lineCount--;
-
-						// Place cursor at the end of line
-						cursorCharX = sum;
-						cursorCharY--;
-
-						// Force redraw on the updated region
-						RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * charHeight, areaWidth, areaHeight };
-						InvalidateRect(areaWnd, &invalid, false);
-					}
-				}
+				DeletePreviousChar();
 			}
 		}else if((wParam & 0xFF) == 22){	// Ctrl+V
 			OnPaste();
@@ -1284,35 +1309,18 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				DeleteSelection();
 				return 0;
 			}else{
-				// If the cursor is not at the end of the line
-				if(cursorCharX != currLine->length)
+				// Move to the next character
+				if(cursorCharX < currLine->length)
 				{
-					// Move characters to vacant space
-					memmove(&currLine->data[cursorCharX], &currLine->data[cursorCharX+1], (currLine->length - cursorCharX) * sizeof(AreaChar));
-					// Shrink line size
-					currLine->length--;
-					// Force redraw on updated region
-					RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
-					InvalidateRect(areaWnd, &invalid, false);
-					return 0;
-				}else if(currLine->next){	// If delete was pressed on the end of the line and there is a line afterwards
-					// Merge next line with current
-					unsigned int sum = currLine->length + currLine->next->length;
-					// Find out, if we have needed space
-					ExtendLine(currLine, sum);
-					// Append next line to current
-					memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
-					// Extend length
-					currLine->length = sum;
-
-					// Remove next line
-					DeleteLine(currLine->next);
-					lineCount--;
-					// Force redraw on the updated region
-					RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * charHeight, areaWidth, areaHeight };
-					InvalidateRect(areaWnd, &invalid, false);
+					cursorCharX++;
+				}else if(currLine->next){
+					currLine = currLine->next;
+					cursorCharY++;
+					cursorCharX = 0;
+				}else{
 					return 0;
 				}
+				DeletePreviousChar();
 			}
 			ScrollToCursor();
 		}else if(wParam == VK_PRIOR){	// Page up
