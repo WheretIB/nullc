@@ -1152,12 +1152,11 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		// Reset I-bar tick count, so it will be visible
 		ibarState = 0;
 		// Start selection if Shift+Arrows are in use, and selection is disabled
-		if(IsPressed(VK_SHIFT) && !selectionOn && (wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT))
+		if(IsPressed(VK_SHIFT) && !selectionOn && (wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT ||
+													wParam == VK_PRIOR || wParam == VK_NEXT || wParam == VK_HOME || wParam == VK_END))
 		{
 			dragStartX = cursorCharX;
 			dragStartY = cursorCharY;
-			selectionOn = true;
-			InvalidateRect(areaWnd, NULL, false);
 		}
 		// First four to move cursor
 		if(wParam == VK_DOWN)
@@ -1325,7 +1324,11 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				ClampCursorBounds();
 			}else{
 				// Scroll view
-				shiftCharY -= charHeight ? areaHeight / charHeight : 1;
+				cursorCharY -= charHeight ? areaHeight / charHeight : 1;
+				if(int(cursorCharY) < 0)
+					cursorCharY = 0;
+				ClampCursorBounds();
+				ScrollToCursor();
 			}
 			ClampShift();
 			UpdateScrollBar();
@@ -1339,7 +1342,11 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				ClampCursorBounds();
 			}else{
 				// Scroll view
-				shiftCharY += charHeight ? areaHeight / charHeight : 1;
+				cursorCharY += charHeight ? areaHeight / charHeight : 1;
+				if(int(cursorCharY) < 0)
+					cursorCharY = 0;
+				ClampCursorBounds();
+				ScrollToCursor();
 			}
 			ClampShift();
 			UpdateScrollBar();
@@ -1354,27 +1361,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				cursorCharY = 0;
 				ClampCursorBounds();
 			}else{
-				if(IsPressed(VK_SHIFT) && !selectionOn)
-				{
-					dragStartX = cursorCharX;
-					dragStartY = cursorCharY;
-				}
-				if(cursorCharX == 0)
-				{
-					// If we are at the beginning of a line, move through all the spaces
-					while(cursorCharX < currLine->length && (currLine->data[cursorCharX].ch == ' ' || currLine->data[cursorCharX].ch == '\t'))
-						cursorCharX++;
-				}else{
-					// Move cursor to the beginning of the line
+				int identWidth = 0;
+				while(identWidth < currLine->length && (currLine->data[identWidth].ch == ' ' || currLine->data[identWidth].ch == '\t'))
+					identWidth++;
+				// If we are at the beginning of a line, move through all the spaces
+				if(cursorCharX == 0 || cursorCharX != identWidth)
+					cursorCharX = identWidth;
+				else	// Move cursor to the beginning of the line
 					cursorCharX = 0;
-				}
-				if(IsPressed(VK_SHIFT))
-				{
-					dragEndX = cursorCharX;
-					dragEndY = cursorCharY;
-					if(dragStartX != dragEndX || dragStartY != dragEndY)
-						selectionOn = true;
-				}
 			}
 			ClampShift();
 			UpdateScrollBar();
@@ -1389,20 +1383,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				cursorCharY = lineCount;
 				ClampCursorBounds();
 			}else{
-				if(IsPressed(VK_SHIFT))
-				{
-					dragStartX = cursorCharX;
-					dragStartY = cursorCharY;
-				}
 				// Move cursor to the end of the line
 				cursorCharX = currLine->length;
-				if(IsPressed(VK_SHIFT))
-				{
-					dragEndX = cursorCharX;
-					dragEndY = cursorCharY;
-					if(dragStartX != dragEndX || dragStartY != dragEndY)
-						selectionOn = true;
-				}
 			}
 			ClampShift();
 			UpdateScrollBar();
@@ -1427,7 +1409,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			selectionOn = false;
 			InvalidateRect(areaWnd, NULL, false);
 		}
-		if(wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT)
+		if(wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT ||
+			wParam == VK_PRIOR || wParam == VK_NEXT || wParam == VK_HOME || wParam == VK_END)
 		{
 			// If Ctrl is not pressed, center view around cursor
 			if(!IsPressed(VK_CONTROL))
@@ -1437,6 +1420,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			{
 				dragEndX = cursorCharX;
 				dragEndY = cursorCharY;
+				if(dragStartX != dragEndX || dragStartY != dragEndY)
+					selectionOn = true;
 				InvalidateRect(areaWnd, NULL, false);
 				return 0;
 			}else{
