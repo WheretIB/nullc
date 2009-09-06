@@ -85,7 +85,7 @@ bool needUpdate = false;
 
 // A few pens and brushes for rendering
 HPEN	areaPenWhite1px, areaPenBlack1px;
-HBRUSH	areaBrushWhite, areaBrushBlack;
+HBRUSH	areaBrushWhite, areaBrushBlack, areaBrushSelected;
 
 AreaLine	*firstLine = NULL;
 // Current line is the line, where cursor is placed
@@ -374,6 +374,12 @@ void	FindLongestLine()
 	}
 }
 
+// Get shift after symbol ch in characters from current position to the next
+int GetCharShift(char ch, int currPos)
+{
+	return ch == '\t' ? TAB_SIZE - currPos % TAB_SIZE : 1;
+}
+
 void ReDraw()
 {
 	if(!areaCreated)
@@ -427,12 +433,11 @@ void ReDraw()
 		if(charRect.bottom > updateRect.top)
 		{
 			// Draw line symbols
-			for(unsigned int i = 0, n = 0; i < curr->length; i++, n++)
+			for(unsigned int i = 0, posInChars = 0; i < curr->length; i++)
 			{
-				if(charRect.right < -4 * charWidth)
+				int shift = GetCharShift(curr->data[i].ch, posInChars);
+				if(charRect.right < -TAB_SIZE * charWidth)
 				{
-					int shift = curr->data[i].ch =='\t' ? 4 - n % 4 : 1;
-					n += shift - 1;
 					charRect.left += shift * charWidth;
 					charRect.right += shift * charWidth;
 				}else{
@@ -458,26 +463,21 @@ void ReDraw()
 						currFont = (FontStyle)style.font;
 						SelectFont(hdc, areaFont[currFont]);
 					}
-					// If this is a tab
+					// If this is a tab, draw rectangle of appropriate size
 					if(curr->data[i].ch =='\t')
 					{
-						// Find out shift size
-						int shift = 4 - n % 4;
-						n += shift - 1;
-						while(shift--)
-						{
-							ExtTextOut(hdc, charRect.left, charRect.top, ETO_CLIPPED, &charRect, " ", 1, NULL);
-							charRect.left += charWidth;
-							charRect.right += charWidth;
-						}
-					}else{
-						// Draw character
+						charRect.right = charRect.left + shift * charWidth;
+						FillRect(hdc, &charRect, selected && selectionOn ? areaBrushSelected : areaBrushWhite);
+					}else{	// Draw character
 						ExtTextOut(hdc, charRect.left, charRect.top, ETO_CLIPPED, &charRect, &curr->data[i].ch, 1, NULL);
-						// Shift the box to the next position
-						charRect.left += charWidth;
-						charRect.right += charWidth;
 					}
 				}
+				posInChars += shift;
+
+				// Shift the box to the next position
+				charRect.left += shift * charWidth;
+				charRect.right = charRect.left + charWidth;
+
 				// Break if out of view
 				if(charRect.left > areaWidth - int(charWidth))
 					break;
@@ -526,14 +526,13 @@ VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
 	InvalidateRect(areaWnd, NULL, false);
 	HDC hdc = BeginPaint(areaWnd, &areaPS);
 
-	int	xPos = padLeft - shiftCharX * charWidth, n = 0;
+	// Find cursor position in characters
+	int	posInChars = 0;
 	for(unsigned int i = 0; i < cursorCharX; i++)
-	{
-		int shift = currLine->data[i].ch == '\t' ? (4 - n % 4) : 1;
-		xPos += shift * charWidth;
-		n += shift;
-	}
-	int chWidth = (currLine->data[cursorCharX].ch == '\t' ? (4 - n % 4) : 1) * charWidth;
+		posInChars += GetCharShift(currLine->data[i].ch, posInChars);
+	// Calculate cursor position in pixels
+	int	xPos = padLeft - shiftCharX * charWidth + posInChars * charWidth;
+	int chWidth = GetCharShift(currLine->data[cursorCharX].ch, posInChars) * charWidth;
 
 	// While selecting pen, we check if our window is active. Cursor shouldn't blink if focus is on some other window
 	SelectPen(hdc, GetFocus() == hwnd ? currPen : areaPenWhite1px);
@@ -675,19 +674,13 @@ void	CursorToClient(unsigned int xCursor, unsigned int yCursor, int &xPos, int &
 	for(unsigned int i = 0; i < yCursor; i++)
 		curr = curr->next;
 
-	// Start with padding
-	xPos = padLeft;
-	// For every symbol until cursor
-	for(unsigned int i = 0, n = 0; i < xCursor; i++)
-	{
-		// Find the length of a symbol
-		int shift = curr->data[i].ch == '\t' ? (4 - n % 4) : 1;
-		// Advance position in pixels and in characters
-		xPos += shift * charWidth;
-		n += shift;
-	}
-	// Subtract horizontal scroll value
-	xPos -= shiftCharX * charWidth;
+	int posInChars = 0;
+	// Find cursor position in characters
+	for(unsigned int i = 0; i < xCursor; i++)
+		posInChars += GetCharShift(curr->data[i].ch, posInChars);
+
+	// Start with padding, add position in pixels and subtract horizontal scroll value
+	xPos = padLeft + posInChars * charWidth - shiftCharX * charWidth;
 	// Find Y local coordinate
 	yPos = (yCursor - shiftCharY) * charHeight + charHeight / 2;
 }
@@ -715,16 +708,16 @@ AreaLine* ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int
 	// Starting cursor position
 	cursorX = 0;
 	// Starting X position in characters
-	int n = 0;
+	int posInChars = 0;
 	// Until we reach virtual X coordinate or line ends
 	while(cursorX < curr->length && vCurrX < vMouseX)
 	{
 		// Find the length of a symbol
-		int shift = curr->data[cursorX].ch == '\t' ? (4 - n % 4) : 1;
+		int shift = GetCharShift(curr->data[cursorX].ch, posInChars);
 		// Advance cursor, position in pixels and position in characters
 		cursorX++;
 		vCurrX += shift * charWidth;
-		n += shift;
+		posInChars += shift;
 	}
 	if(clampX)
 	{
@@ -1028,6 +1021,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 
 		areaBrushWhite = CreateSolidBrush(RGB(255, 255, 255));
 		areaBrushBlack = CreateSolidBrush(RGB(0, 0, 0));
+		areaBrushSelected = CreateSolidBrush(RGB(51, 153, 255));
 
 		EndPaint(areaWnd, &areaPS);
 		
@@ -1081,7 +1075,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		break;
 	case WM_CHAR:
 		if((wParam & 0xFF) >= 0x20 || (wParam & 0xFF) == '\t')	// If it isn't special symbol or it is a Tab
-			{
+		{
 			// If insert mode, create selection
 			if(insertionMode)
 			{
@@ -1115,11 +1109,11 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 						{
 							// We have to remove a number of whitespaces so the length of removed whitespaces will be equal to tab size
 							int toRemove = 0;
-							// So we select a maximum of 4 spaces
-							while(toRemove < min(4, int(currLine->length)) && currLine->data[toRemove].ch == ' ')
+							// So we select a maximum of TAB_SIZE spaces
+							while(toRemove < min(TAB_SIZE, int(currLine->length)) && currLine->data[toRemove].ch == ' ')
 								toRemove++;
 							// And if we haven't reached our goal, and there is a Tab symbol
-							if(toRemove < min(4, int(currLine->length)) && currLine->data[toRemove].ch == '\t')
+							if(toRemove < min(TAB_SIZE, int(currLine->length)) && currLine->data[toRemove].ch == '\t')
 								toRemove++;	// Select it too
 							// Remove characters
 							memmove(&currLine->data[0], &currLine->data[toRemove], (currLine->length - toRemove) * sizeof(AreaChar));
@@ -1176,7 +1170,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			int effectiveIdent = 0;
 			while(characterIdent < int(currLine->length) && isspace(currLine->data[characterIdent].ch))
 			{
-				effectiveIdent += currLine->data[characterIdent].ch == '\t' ? 4 - (effectiveIdent % 4) : 1;
+				effectiveIdent += GetCharShift(currLine->data[characterIdent].ch, effectiveIdent);
 				characterIdent++;
 			}
 			// Insert line break
@@ -1185,7 +1179,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			while(effectiveIdent > 0)
 			{
 				InputChar('\t');
-				effectiveIdent -= 4;
+				effectiveIdent -= TAB_SIZE;
 			}
 		}else if((wParam & 0xFF) == '\b'){	// Backspace
 			// Remove selection
