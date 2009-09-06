@@ -972,6 +972,30 @@ void DeletePreviousChar()
 	}
 }
 
+int AdvanceCursor(AreaLine *line, int cursorX, bool left)
+{
+	// Advance direction
+	int dir = left ? -1 : 1;
+
+	// Find, what character is at the cursor position
+	char symb = line->data[cursorX + (left ? -1 : 0)].ch;
+
+	// If it's a digit, move to the left, skipping all digits and '.'
+	if(isdigit(symb) || symb == '.')
+	{
+		while(((left && cursorX != 0) || (!left && cursorX < int(line->length))) && (isdigit(line->data[cursorX + dir].ch) || line->data[cursorX + dir].ch == '.'))
+			cursorX += dir;
+	}else if(isalpha(symb) || symb == '_'){	// If it's an alphanumerical or '_', move to the left, skipping all of them
+		while(((left && cursorX != 0) || (!left && cursorX < int(line->length))) && (isalnum(line->data[cursorX + dir].ch) || line->data[cursorX + dir].ch == '_'))
+			cursorX += dir;
+	}else{
+		if(cursorX != 0 && left)
+			cursorX--;
+	}
+
+	return cursorX;
+}
+
 // Textarea message handler
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
@@ -1157,7 +1181,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			}
 			// Insert line break
 			InputEnter();
-			// Add identation
+			// Add indentation
 			while(effectiveIdent > 0)
 			{
 				InputChar('\t');
@@ -1261,18 +1285,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				// If the cursor is not at the beginning of the line
 				if(cursorCharX > 0)
 				{
-					// Move left
-					cursorCharX--;
-					// If Ctrl is pressed
 					if(IsPressed(VK_CONTROL))
 					{
-						// If on space character, move through all the spaces
-						if(isspace(currLine->data[cursorCharX - 1].ch))
-							while(cursorCharX >= 1 && isspace(currLine->data[cursorCharX - 1].ch))
-								cursorCharX--;
-						else	// Otherwise, move to the beginning of a word or number
-							while(cursorCharX >= 1 && (isalnum(currLine->data[cursorCharX - 1].ch) || currLine->data[cursorCharX - 1].ch == '_' || currLine->data[cursorCharX - 1].ch == '.'))
-								cursorCharX--;
+						// Skip spaces
+						while(cursorCharX > 1 && isspace(currLine->data[cursorCharX - 1].ch))
+							cursorCharX--;
+						cursorCharX = AdvanceCursor(currLine, cursorCharX, true);
+					}else{
+						cursorCharX--;
 					}
 				}else{
 					// Otherwise, move to the end of the previous line
@@ -1298,17 +1318,15 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				// If the cursor is not at the end of the line
 				if(cursorCharX < currLine->length)
 				{
-					cursorCharX++;
-					// If Ctrl is pressed
 					if(IsPressed(VK_CONTROL))
 					{
-						// If on space character, move through all the spaces
-						if(isspace(currLine->data[cursorCharX].ch))
-							while((cursorCharX < currLine->length) && isspace(currLine->data[cursorCharX].ch))
-								cursorCharX++;
-						else	// Otherwise, move to the beginning of a word or number
-							while((cursorCharX < currLine->length) && (isalnum(currLine->data[cursorCharX].ch) || currLine->data[cursorCharX].ch == '_' || currLine->data[cursorCharX].ch == '.'))
-								cursorCharX++;
+						cursorCharX = AdvanceCursor(currLine, cursorCharX, false);
+						// Skip spaces
+						while(cursorCharX < currLine->length && isspace(currLine->data[cursorCharX + 1].ch))
+							cursorCharX++;
+						cursorCharX++;
+					}else{
+						cursorCharX++;
 					}
 				}else{
 					// Otherwise, move to the start of the next line
@@ -1479,40 +1497,16 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	case WM_LBUTTONDBLCLK:
 		{
 			// Find cursor position
-			AreaLine *curr = ClientToCursor(LOWORD(lParam), HIWORD(lParam), dragStartX, dragStartY, false);
+			AreaLine *curr = ClientToCursor(LOWORD(lParam), HIWORD(lParam), dragStartX, dragStartY, true);
+
 			// Clamp horizontal position to line length
 			if(dragStartX >= (int)curr->length && curr->length != 0)
 				dragStartX = curr->length - 1;
 			dragEndX = dragStartX;
 			dragEndY = dragStartY;
 
-			// Find, what character is at the cursor position
-			char symb = curr->data[dragStartX].ch;
-			// If it is a digit
-			if(isdigit(symb) || symb == '.')
-			{
-				// Extend region to the left, to include all digits and '.'
-				while(dragStartX != 0 && (isdigit(curr->data[dragStartX - 1].ch) || curr->data[dragStartX - 1].ch == '.'))
-					dragStartX--;
-				// Extend region to the right, to include all digits and '.'
-				while(int(dragEndX) < int(curr->length) - 1 && (isdigit(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '.'))
-					dragEndX++;
-			}else if(isalpha(symb) || symb == '_'){	// If it isn't a digit, but a alpha letter or '_'
-				// Extend region to the left, to include all alpha-numerical letters and '_'
-				while(dragStartX != 0 && (isalnum(curr->data[dragStartX - 1].ch) || curr->data[dragStartX - 1].ch == '_'))
-					dragStartX--;
-				// Extend region to the right, to include all alpha-numerical letters and '_'
-				while(int(dragEndX) < int(curr->length) - 1 && (isalnum(curr->data[dragEndX + 1].ch) || curr->data[dragEndX + 1].ch == '_'))
-					dragEndX++;
-			}else if(isspace(symb)){
-				while(dragStartX != 0 && isspace(curr->data[dragStartX - 1].ch))
-					dragStartX--;
-				while(int(dragEndX) < int(curr->length) - 1 && isspace(curr->data[dragEndX + 1].ch))
-					dragEndX++;
-			}
-			// Additional shift needed
-			dragEndX++;
-			cursorCharX = dragEndX;
+			dragStartX = AdvanceCursor(curr, dragStartX, true);
+			dragEndX = AdvanceCursor(curr, dragEndX, false) + 1;
 
 			// Selection is active is the length of selected string is not 0
 			selectionOn = curr->length != 0;
