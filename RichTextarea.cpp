@@ -840,6 +840,74 @@ bool IsPressed(int key)
 	return !!(GetKeyState(key) & 0x80000000);
 }
 
+
+void DeletePreviousChar()
+{
+	// If cursor is not at the beginning of a line
+	if(cursorCharX)
+	{
+		// If cursor is in the middle, move characters to the vacant position
+		if(cursorCharX != currLine->length)
+			memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
+		// Shrink line size and move cursor
+		currLine->length--;
+		cursorCharX--;
+		// Force redraw on the updated region
+		RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}else if(currLine->prev){	// If it's at the beginning of a line and there is a line before current
+		// Add current line to the previous, as if are removing the line break
+		currLine = currLine->prev;
+		// Check if there is enough space
+		unsigned int sum = currLine->length + currLine->next->length;
+		ExtendLine(currLine, sum);
+		// Append one line to the other
+		memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
+
+		// Update cursor position
+		cursorCharX = currLine->length;
+		cursorCharY--;
+
+		// Update line length
+		currLine->length = sum;
+
+		// Remove line that was current before event
+		DeleteLine(currLine->next);
+		lineCount--;
+
+		// Force redraw on the updated region
+		RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * charHeight, areaWidth, areaHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}
+}
+
+int AdvanceCursor(AreaLine *line, int cursorX, bool left)
+{
+	// Advance direction
+	int dir = left ? -1 : 1;
+
+	// Find, what character is at the cursor position
+	char symb = line->data[cursorX + (left ? -1 : 0)].ch;
+
+	int minX = left ? 1 : 0;
+	int maxX = left ? line->length : line->length - 1;
+
+	// If it's a digit, move to the left, skipping all digits and '.'
+	if(isdigit(symb) || symb == '.')
+	{
+		while((cursorX >= minX && cursorX <= maxX) && (isdigit(line->data[cursorX + dir].ch) || line->data[cursorX + dir].ch == '.'))
+			cursorX += dir;
+	}else if(isalpha(symb) || symb == '_'){	// If it's an alphanumerical or '_', move to the left, skipping all of them
+		while((cursorX >= minX && cursorX <= maxX) && (isalnum(line->data[cursorX + dir].ch) || line->data[cursorX + dir].ch == '_'))
+			cursorX += dir;
+	}else{
+		if(cursorX != 0 && left)
+			cursorX--;
+	}
+
+	return cursorX;
+}
+
 void OnCopyOrCut(bool cut)
 {
 	// Get linear text
@@ -925,75 +993,485 @@ void OnPaste()
 	InvalidateRect(areaWnd, NULL, false);
 }
 
-void DeletePreviousChar()
+void OnCreate()
 {
-	// If cursor is not at the beginning of a line
-	if(cursorCharX)
-	{
-		// If cursor is in the middle, move characters to the vacant position
-		if(cursorCharX != currLine->length)
-			memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
-		// Shrink line size and move cursor
-		currLine->length--;
-		cursorCharX--;
-		// Force redraw on the updated region
-		RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
-		InvalidateRect(areaWnd, &invalid, false);
-	}else if(currLine->prev){	// If it's at the beginning of a line and there is a line before current
-		// Add current line to the previous, as if are removing the line break
-		currLine = currLine->prev;
-		// Check if there is enough space
-		unsigned int sum = currLine->length + currLine->next->length;
-		ExtendLine(currLine, sum);
-		// Append one line to the other
-		memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
+	if(!AreaLine::pool)
+		AreaLine::pool = new ObjectBlockPool<AreaLine, 32>();
 
-		// Update cursor position
-		cursorCharX = currLine->length;
-		cursorCharY--;
+	HDC hdc = BeginPaint(areaWnd, &areaPS);
+	// Create font for every FONT_STYLE
+	areaFont[FONT_REGULAR] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, false, false,
+		RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
+	areaFont[FONT_BOLD] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_BOLD, false, false, false,
+		RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
+	areaFont[FONT_ITALIC] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, true, false, false,
+		RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
+	areaFont[FONT_UNDERLINED] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, true, false,
+		RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
 
-		// Update line length
-		currLine->length = sum;
+	// Create pens and brushes
+	areaPenWhite1px = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+	areaPenBlack1px = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
 
-		// Remove line that was current before event
-		DeleteLine(currLine->next);
-		lineCount--;
+	areaBrushWhite = CreateSolidBrush(RGB(255, 255, 255));
+	areaBrushBlack = CreateSolidBrush(RGB(0, 0, 0));
+	areaBrushSelected = CreateSolidBrush(RGB(51, 153, 255));
 
-		// Force redraw on the updated region
-		RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * charHeight, areaWidth, areaHeight };
-		InvalidateRect(areaWnd, &invalid, false);
-	}
+	EndPaint(areaWnd, &areaPS);
+	
+	// Init linear text buffer
+	areaTextSize = 16 * 1024;
+	areaText = new char[areaTextSize];
+	areaTextEx = new char[areaTextSize];
+
+	// Create first line of text
+	firstLine = new AreaLine;
+	memset(firstLine, 0, sizeof(AreaLine));
+	firstLine->data = firstLine->startBuf;
+	firstLine->next = firstLine->prev = NULL;
+	firstLine->length = 0;
+	firstLine->maxLength = DEFAULT_STRING_LENGTH;
+	
+	currLine = firstLine;
+	currLine->data[0].style = 0;
+
+	lineCount = 1;
+
+	SetTimer(areaWnd, 0, 62, AreaCursorUpdate);
+	areaCreated = true;
 }
 
-int AdvanceCursor(AreaLine *line, int cursorX, bool left)
+void OnDestroy()
 {
-	// Advance direction
-	int dir = left ? -1 : 1;
+	ClearAreaText();
+	DeleteLine(firstLine);
+	delete[] areaText;
+	delete[] areaTextEx;
+	delete AreaLine::pool;
+	areaText = NULL;
+	areaTextEx = NULL;
+	AreaLine::pool = NULL;
+}
 
-	// Find, what character is at the cursor position
-	char symb = line->data[cursorX + (left ? -1 : 0)].ch;
-
-	// If it's a digit, move to the left, skipping all digits and '.'
-	if(isdigit(symb) || symb == '.')
+void OnCharacter(char ch)
+{
+	unsigned int startX, startY, endX, endY;
+	if(ch >= 0x20 || ch == '\t')	// If it isn't special symbol or it is a Tab
 	{
-		while(((left && cursorX != 0) || (!left && cursorX < int(line->length))) && (isdigit(line->data[cursorX + dir].ch) || line->data[cursorX + dir].ch == '.'))
-			cursorX += dir;
-	}else if(isalpha(symb) || symb == '_'){	// If it's an alphanumerical or '_', move to the left, skipping all of them
-		while(((left && cursorX != 0) || (!left && cursorX < int(line->length))) && (isalnum(line->data[cursorX + dir].ch) || line->data[cursorX + dir].ch == '_'))
-			cursorX += dir;
-	}else{
-		if(cursorX != 0 && left)
-			cursorX--;
+		// If insert mode, create selection
+		if(insertionMode)
+		{
+			selectionOn = true;
+			dragStartX = cursorCharX;
+			dragEndY = dragStartY = cursorCharY;
+			dragEndX = cursorCharX + 1;
+			if(dragEndX > int(currLine->length))
+				selectionOn = false;
+		}
+		// Remove selection
+		if(selectionOn)
+		{
+			SortSelPoints(startX, endX, startY, endY);
+			// If Tab key was pressed, and we have a multiple-line selection,
+			// depending on the state of Shift key,
+			// we either need to add Tab character at the beginning of each line
+			// or we have to remove whitespace at the beginning of the each line
+			if(ch == '\t' && startY != endY)
+			{
+				cursorCharY = startY;
+				// Clamp cursor position and select first line
+				ClampCursorBounds();
+				// For every selected line
+				for(unsigned int i = startY; i <= endY; i++)
+				{
+					// Inserting in front
+					cursorCharX = 0;
+					// If it's a Shift+Tab
+					if(IsPressed(VK_SHIFT))
+					{
+						// We have to remove a number of whitespaces so the length of removed whitespaces will be equal to tab size
+						int toRemove = 0;
+						// So we select a maximum of TAB_SIZE spaces
+						while(toRemove < min(TAB_SIZE, int(currLine->length)) && currLine->data[toRemove].ch == ' ')
+							toRemove++;
+						// And if we haven't reached our goal, and there is a Tab symbol
+						if(toRemove < min(TAB_SIZE, int(currLine->length)) && currLine->data[toRemove].ch == '\t')
+							toRemove++;	// Select it too
+						// Remove characters
+						memmove(&currLine->data[0], &currLine->data[toRemove], (currLine->length - toRemove) * sizeof(AreaChar));
+						// Shrink line length
+						currLine->length -= toRemove;
+					}else{	// Simply Tab, insert symbol
+						InputChar(ch);
+					}
+					currLine = currLine->next;
+					cursorCharY++;
+				}
+				// Restore cursor position
+				cursorCharX = endX;
+				cursorCharY--;
+				// Clamp cursor position and update current line
+				ClampCursorBounds();
+				InvalidateRect(areaWnd, NULL, false);
+				return;
+			}else if(ch == '\t' && IsPressed(VK_SHIFT)){
+				cursorCharX = startX;
+				cursorCharY = startY;
+				// Clamp cursor position and select first line
+				ClampCursorBounds();
+				if(startX && isspace(currLine->data[startX-1].ch))
+				{
+					DeletePreviousChar();
+					if(startY == endY)
+					{
+						cursorCharX = endX - 1;
+						if(dragStartX == startX)
+							dragStartX = --startX;
+						else
+							dragEndX = --startX;
+					}
+				}
+				return;
+			}else{
+				// Otherwise, just remove selection
+				DeleteSelection();
+			}
+		}else if(ch == '\t' && IsPressed(VK_SHIFT)){
+			if(cursorCharX && isspace(currLine->data[cursorCharX-1].ch))
+				DeletePreviousChar();
+			return;
+		}
+		// Insert symbol
+		InputChar(ch);
+	}else if(ch == '\r'){	// Line break
+		// Remove selection
+		if(selectionOn)
+			DeleteSelection();
+		// Find current indentation
+		int characterIdent = 0;
+		int effectiveIdent = 0;
+		while(characterIdent < int(currLine->length) && isspace(currLine->data[characterIdent].ch))
+		{
+			effectiveIdent += GetCharShift(currLine->data[characterIdent].ch, effectiveIdent);
+			characterIdent++;
+		}
+		// Insert line break
+		InputEnter();
+		// Add indentation
+		while(effectiveIdent > 0)
+		{
+			InputChar('\t');
+			effectiveIdent -= TAB_SIZE;
+		}
+	}else if(ch == '\b'){	// Backspace
+		// Remove selection
+		if(selectionOn)
+		{
+			DeleteSelection();
+		}else{
+			DeletePreviousChar();
+		}
+	}else if(ch == 22){	// Ctrl+V
+		OnPaste();
+	}else if(ch == 1){	// Ctrl+A
+		// Select all
+		selectionOn = true;
+		dragStartX = 0;
+		dragStartY = 0;
+		// Find last line to know end cursor position
+		AreaLine *curr = firstLine;
+		int line = 0;
+		while(curr->next)
+			curr = curr->next, line++;
+		dragEndX = curr->length;
+		dragEndY = line;
+		// Force update on whole window
+		InvalidateRect(areaWnd, NULL, false);
+	}else if(ch == 3 || ch == 24){	// Ctrl+C and Ctrl+X
+		OnCopyOrCut(ch == 24);
 	}
+	ScrollToCursor();
+	needUpdate = true;
+}
 
-	return cursorX;
+void OnKeyEvent(int key)
+{
+	unsigned int startX, startY, endX, endY;
+
+	// If key is pressed, remove I-bar
+	AreaCursorUpdate(NULL, 0, NULL, 0);
+	// Reset I-bar tick count, so it will be visible
+	ibarState = 0;
+	// Start selection if Shift+Arrows are in use, and selection is disabled
+	if(IsPressed(VK_SHIFT) && !selectionOn && (key == VK_DOWN || key == VK_UP || key == VK_LEFT || key == VK_RIGHT ||
+												key == VK_PRIOR || key == VK_NEXT || key == VK_HOME || key == VK_END))
+	{
+		dragStartX = cursorCharX;
+		dragStartY = cursorCharY;
+	}
+	// First four to move cursor
+	if(key == VK_DOWN)
+	{
+		// If Ctrl is pressed, scroll vertically
+		if(IsPressed(VK_CONTROL))
+		{
+			shiftCharY++;
+			ClampShift();
+		}
+		// If Ctrl is not pressed or if it is and cursor is out of sight
+		if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) < shiftCharY))
+		{
+			// If there is a next line, move to it
+			if(currLine->next)
+			{
+				int oldPosX, oldPosY;
+				CursorToClient(cursorCharX, cursorCharY, oldPosX, oldPosY);
+				currLine = currLine->next;
+				ClientToCursor(oldPosX, oldPosY + charHeight, cursorCharX, cursorCharY, true);
+			}
+		}
+	}else if(key == VK_UP){
+		// If Ctrl is pressed, scroll vertically
+		if(IsPressed(VK_CONTROL))
+		{
+			shiftCharY--;
+			ClampShift();
+		}
+		// If Ctrl is not pressed or if it is and cursor is out of sight
+		if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) > (shiftCharY + areaHeight / charHeight - 1)))
+		{
+			// If there is a previous line, move to it
+			if(currLine->prev)
+			{
+				int oldPosX, oldPosY;
+				CursorToClient(cursorCharX, cursorCharY, oldPosX, oldPosY);
+				currLine = currLine->prev;
+				ClientToCursor(oldPosX, oldPosY - charHeight, cursorCharX, cursorCharY, true);
+			}
+		}
+	}else if(key == VK_LEFT){
+		// If Shift is not pressed and there is an active selection
+		if(!IsPressed(VK_SHIFT) && selectionOn)
+		{
+			// Sort selection range
+			SortSelPoints(startX, endX, startY, endY);
+			// Set cursor position to the start of selection
+			cursorCharX = startX;
+			cursorCharY = startY;
+			ClampCursorBounds();
+		}else{
+			// If the cursor is not at the beginning of the line
+			if(cursorCharX > 0)
+			{
+				if(IsPressed(VK_CONTROL))
+				{
+					// Skip spaces
+					while(cursorCharX > 1 && isspace(currLine->data[cursorCharX - 1].ch))
+						cursorCharX--;
+					cursorCharX = AdvanceCursor(currLine, cursorCharX, true);
+				}else{
+					cursorCharX--;
+				}
+			}else{
+				// Otherwise, move to the end of the previous line
+				if(currLine->prev)
+				{
+					currLine = currLine->prev;
+					cursorCharX = currLine->length;
+					cursorCharY--;
+				}
+			}
+		}
+	}else if(key == VK_RIGHT){
+		// If Shift is not pressed and there is an active selection
+		if(!IsPressed(VK_SHIFT) && selectionOn)
+		{
+			// Sort selection range
+			SortSelPoints(startX, endX, startY, endY);
+			// Set cursor position to the end of selection
+			cursorCharX = endX;
+			cursorCharY = endY;
+			ClampCursorBounds();
+		}else{
+			// If the cursor is not at the end of the line
+			if(cursorCharX < currLine->length)
+			{
+				if(IsPressed(VK_CONTROL))
+				{
+					cursorCharX = AdvanceCursor(currLine, cursorCharX, false);
+					// Skip spaces
+					while(cursorCharX < currLine->length && isspace(currLine->data[cursorCharX + 1].ch))
+						cursorCharX++;
+					cursorCharX++;
+				}else{
+					cursorCharX++;
+				}
+			}else{
+				// Otherwise, move to the start of the next line
+				if(currLine->next)
+				{
+					currLine = currLine->next;
+					cursorCharY++;
+					cursorCharX = 0;
+				}
+			}
+		}
+	}else if(key == VK_DELETE){	// Delete
+		// Shift+Delete is a cut operation
+		if(IsPressed(VK_SHIFT))
+		{
+			OnCopyOrCut(true);
+			return;
+		}
+		// Remove selection, if active
+		if(selectionOn)
+		{
+			DeleteSelection();
+			return;
+		}else{
+			// Move to the next character
+			if(cursorCharX < currLine->length)
+			{
+				cursorCharX++;
+			}else if(currLine->next){
+				currLine = currLine->next;
+				cursorCharY++;
+				cursorCharX = 0;
+			}else{
+				return;
+			}
+			DeletePreviousChar();
+		}
+		ScrollToCursor();
+	}else if(key == VK_PRIOR){	// Page up
+		// If Ctrl is pressed
+		if(IsPressed(VK_CONTROL))
+		{
+			// Move to the start of view
+			cursorCharY = shiftCharY;
+			ClampCursorBounds();
+		}else{
+			// Scroll view
+			cursorCharY -= charHeight ? areaHeight / charHeight : 1;
+			if(int(cursorCharY) < 0)
+				cursorCharY = 0;
+			ClampCursorBounds();
+			ScrollToCursor();
+		}
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
+	}else if(key == VK_NEXT){	// Page down
+		// If Ctrl is pressed
+		if(IsPressed(VK_CONTROL))
+		{
+			// Move to the end of view
+			cursorCharY = shiftCharY + (charHeight ? areaHeight / charHeight : 1);
+			ClampCursorBounds();
+		}else{
+			// Scroll view
+			cursorCharY += charHeight ? areaHeight / charHeight : 1;
+			if(int(cursorCharY) < 0)
+				cursorCharY = 0;
+			ClampCursorBounds();
+			ScrollToCursor();
+		}
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
+	}else if(key == VK_HOME){
+		// If Ctrl is pressed
+		if(IsPressed(VK_CONTROL))
+		{
+			// Move view and cursor to the beginning of the text
+			shiftCharY = 0;
+			cursorCharX = 0;
+			cursorCharY = 0;
+			ClampCursorBounds();
+		}else{
+			int identWidth = 0;
+			while(identWidth < int(currLine->length) && (currLine->data[identWidth].ch == ' ' || currLine->data[identWidth].ch == '\t'))
+				identWidth++;
+			// If we are at the beginning of a line, move through all the spaces
+			if(cursorCharX == 0 || int(cursorCharX) != identWidth)
+				cursorCharX = identWidth;
+			else	// Move cursor to the beginning of the line
+				cursorCharX = 0;
+		}
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
+	}else if(key == VK_END){
+		// If Ctrl is pressed
+		if(IsPressed(VK_CONTROL))
+		{
+			// Move view and cursor to the end of the text
+			shiftCharY = lineCount;
+			cursorCharX = ~0u;
+			cursorCharY = lineCount;
+			ClampCursorBounds();
+		}else{
+			// Move cursor to the end of the line
+			cursorCharX = currLine->length;
+		}
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
+	}else if(key == VK_INSERT){
+		// Shift+Insert is a paste operation
+		if(IsPressed(VK_SHIFT))
+		{
+			OnPaste();
+		}else if(IsPressed(VK_CONTROL)){	// Ctrl+Insert is a copy operation
+			OnCopyOrCut(false);
+		}else{
+			// Toggle input mode between insert\overwrite
+			insertionMode = !insertionMode;
+		}
+	}else if(key == VK_ESCAPE){
+		// Disable selection
+		selectionOn = false;
+		InvalidateRect(areaWnd, NULL, false);
+	}
+	if(key == VK_DOWN || key == VK_UP || key == VK_LEFT || key == VK_RIGHT ||
+		key == VK_PRIOR || key == VK_NEXT || key == VK_HOME || key == VK_END)
+	{
+		// If Ctrl is not pressed, center view around cursor
+		if(!IsPressed(VK_CONTROL))
+			ScrollToCursor();
+		// If Shift is pressed, set end of selection, redraw window and return
+		if(IsPressed(VK_SHIFT))
+		{
+			dragEndX = cursorCharX;
+			dragEndY = cursorCharY;
+			if(dragStartX != dragEndX || dragStartY != dragEndY)
+				selectionOn = true;
+			InvalidateRect(areaWnd, NULL, false);
+			return;
+		}else{
+			// Or disable selection, and if control is not pressed, update window and return
+			selectionOn = false;
+			if(!IsPressed(VK_CONTROL))
+			{
+				InvalidateRect(areaWnd, NULL, false);
+				return;
+			}
+		}
+		// Draw cursor
+		AreaCursorUpdate(areaWnd, 0, NULL, 0);
+		// Handle Ctrl+Arrows
+		if(IsPressed(VK_CONTROL))
+		{
+			ClampShift();
+			UpdateScrollBar();
+			InvalidateRect(areaWnd, NULL, false);
+		}
+	}
 }
 
 // Textarea message handler
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
-	HDC hdc;
-
 	unsigned int startX, startY, endX, endY;
 
 	if(!areaWnd)
@@ -1001,60 +1479,10 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	switch(message)
 	{
 	case WM_CREATE:
-		if(!AreaLine::pool)
-			AreaLine::pool = new ObjectBlockPool<AreaLine, 32>();
-
-		hdc = BeginPaint(areaWnd, &areaPS);
-		// Create font for every FONT_STYLE
-		areaFont[FONT_REGULAR] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, false, false,
-			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
-		areaFont[FONT_BOLD] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_BOLD, false, false, false,
-			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
-		areaFont[FONT_ITALIC] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, true, false, false,
-			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
-		areaFont[FONT_UNDERLINED] = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, true, false,
-			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Consolas");
-
-		// Create pens and brushes
-		areaPenWhite1px = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
-		areaPenBlack1px = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-
-		areaBrushWhite = CreateSolidBrush(RGB(255, 255, 255));
-		areaBrushBlack = CreateSolidBrush(RGB(0, 0, 0));
-		areaBrushSelected = CreateSolidBrush(RGB(51, 153, 255));
-
-		EndPaint(areaWnd, &areaPS);
-		
-		// Init linear text buffer
-		areaTextSize = 16 * 1024;
-		areaText = new char[areaTextSize];
-		areaTextEx = new char[areaTextSize];
-
-		// Create first line of text
-		firstLine = new AreaLine;
-		memset(firstLine, 0, sizeof(AreaLine));
-		firstLine->data = firstLine->startBuf;
-		firstLine->next = firstLine->prev = NULL;
-		firstLine->length = 0;
-		firstLine->maxLength = DEFAULT_STRING_LENGTH;
-		
-		currLine = firstLine;
-		currLine->data[0].style = 0;
-
-		lineCount = 1;
-
-		SetTimer(areaWnd, 0, 62, AreaCursorUpdate);
-		areaCreated = true;
+		OnCreate();
 		break;
 	case WM_DESTROY:
-		ClearAreaText();
-		DeleteLine(firstLine);
-		delete[] areaText;
-		delete[] areaTextEx;
-		delete AreaLine::pool;
-		areaText = NULL;
-		areaTextEx = NULL;
-		AreaLine::pool = NULL;
+		OnDestroy();
 		break;
 	case WM_ERASEBKGND:
 		break;
@@ -1074,419 +1502,12 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		EnableWindow(areaWnd, true);
 		break;
 	case WM_CHAR:
-		if((wParam & 0xFF) >= 0x20 || (wParam & 0xFF) == '\t')	// If it isn't special symbol or it is a Tab
-		{
-			// If insert mode, create selection
-			if(insertionMode)
-			{
-				selectionOn = true;
-				dragStartX = cursorCharX;
-				dragEndY = dragStartY = cursorCharY;
-				dragEndX = cursorCharX + 1;
-				if(dragEndX > int(currLine->length))
-					selectionOn = false;
-			}
-			// Remove selection
-			if(selectionOn)
-			{
-				SortSelPoints(startX, endX, startY, endY);
-				// If Tab key was pressed, and we have a multiple-line selection,
-				// depending on the state of Shift key,
-				// we either need to add Tab character at the beginning of each line
-				// or we have to remove whitespace at the beginning of the each line
-				if((wParam & 0xFF) == '\t' && startY != endY)
-				{
-					cursorCharY = startY;
-					// Clamp cursor position and select first line
-					ClampCursorBounds();
-					// For every selected line
-					for(unsigned int i = startY; i <= endY; i++)
-					{
-						// Inserting in front
-						cursorCharX = 0;
-						// If it's a Shift+Tab
-						if(IsPressed(VK_SHIFT))
-						{
-							// We have to remove a number of whitespaces so the length of removed whitespaces will be equal to tab size
-							int toRemove = 0;
-							// So we select a maximum of TAB_SIZE spaces
-							while(toRemove < min(TAB_SIZE, int(currLine->length)) && currLine->data[toRemove].ch == ' ')
-								toRemove++;
-							// And if we haven't reached our goal, and there is a Tab symbol
-							if(toRemove < min(TAB_SIZE, int(currLine->length)) && currLine->data[toRemove].ch == '\t')
-								toRemove++;	// Select it too
-							// Remove characters
-							memmove(&currLine->data[0], &currLine->data[toRemove], (currLine->length - toRemove) * sizeof(AreaChar));
-							// Shrink line length
-							currLine->length -= toRemove;
-						}else{	// Simply Tab, insert symbol
-							InputChar((char)(wParam & 0xFF));
-						}
-						currLine = currLine->next;
-						cursorCharY++;
-					}
-					// Restore cursor position
-					cursorCharX = endX;
-					cursorCharY--;
-					// Clamp cursor position and update current line
-					ClampCursorBounds();
-					InvalidateRect(areaWnd, NULL, false);
-					return 0;
-				}else if((wParam & 0xFF) == '\t' && IsPressed(VK_SHIFT)){
-					cursorCharX = startX;
-					cursorCharY = startY;
-					// Clamp cursor position and select first line
-					ClampCursorBounds();
-					if(startX && isspace(currLine->data[startX-1].ch))
-					{
-						DeletePreviousChar();
-						if(startY == endY)
-						{
-							cursorCharX = endX - 1;
-							if(dragStartX == startX)
-								dragStartX = --startX;
-							else
-								dragEndX = --startX;
-						}
-					}
-					return 0;
-				}else{
-					// Otherwise, just remove selection
-					DeleteSelection();
-				}
-			}else if((wParam & 0xFF) == '\t' && IsPressed(VK_SHIFT)){
-				if(cursorCharX && isspace(currLine->data[cursorCharX-1].ch))
-					DeletePreviousChar();
-				return 0;
-			}
-			// Insert symbol
-			InputChar((char)(wParam & 0xFF));
-		}else if((wParam & 0xFF) == '\r'){	// Line break
-			// Remove selection
-			if(selectionOn)
-				DeleteSelection();
-			// Find current indentation
-			int characterIdent = 0;
-			int effectiveIdent = 0;
-			while(characterIdent < int(currLine->length) && isspace(currLine->data[characterIdent].ch))
-			{
-				effectiveIdent += GetCharShift(currLine->data[characterIdent].ch, effectiveIdent);
-				characterIdent++;
-			}
-			// Insert line break
-			InputEnter();
-			// Add indentation
-			while(effectiveIdent > 0)
-			{
-				InputChar('\t');
-				effectiveIdent -= TAB_SIZE;
-			}
-		}else if((wParam & 0xFF) == '\b'){	// Backspace
-			// Remove selection
-			if(selectionOn)
-			{
-				DeleteSelection();
-			}else{
-				DeletePreviousChar();
-			}
-		}else if((wParam & 0xFF) == 22){	// Ctrl+V
-			OnPaste();
-		}else if((wParam & 0xFF) == 1){	// Ctrl+A
-			// Select all
-			selectionOn = true;
-			dragStartX = 0;
-			dragStartY = 0;
-			// Find last line to know end cursor position
-			AreaLine *curr = firstLine;
-			int line = 0;
-			while(curr->next)
-				curr = curr->next, line++;
-			dragEndX = curr->length;
-			dragEndY = line;
-			// Force update on whole window
-			InvalidateRect(areaWnd, NULL, false);
-		}else if(((wParam & 0xFF) == 3 || (wParam & 0xFF) == 24)){	// Ctrl+C and Ctrl+X
-			OnCopyOrCut((wParam & 0xFF) == 24);
-		}
-		ScrollToCursor();
-		needUpdate = true;
+		OnCharacter((char)(wParam & 0xFF));
 		break;
 	case WM_KEYDOWN:
 		if(wParam == VK_CONTROL || wParam == VK_SHIFT)
 			break;
-		// If key is pressed, remove I-bar
-		AreaCursorUpdate(NULL, 0, NULL, 0);
-		// Reset I-bar tick count, so it will be visible
-		ibarState = 0;
-		// Start selection if Shift+Arrows are in use, and selection is disabled
-		if(IsPressed(VK_SHIFT) && !selectionOn && (wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT ||
-													wParam == VK_PRIOR || wParam == VK_NEXT || wParam == VK_HOME || wParam == VK_END))
-		{
-			dragStartX = cursorCharX;
-			dragStartY = cursorCharY;
-		}
-		// First four to move cursor
-		if(wParam == VK_DOWN)
-		{
-			// If Ctrl is pressed, scroll vertically
-			if(IsPressed(VK_CONTROL))
-			{
-				shiftCharY++;
-				ClampShift();
-			}
-			// If Ctrl is not pressed or if it is and cursor is out of sight
-			if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) < shiftCharY))
-			{
-				// If there is a next line, move to it
-				if(currLine->next)
-				{
-					int oldPosX, oldPosY;
-					CursorToClient(cursorCharX, cursorCharY, oldPosX, oldPosY);
-					currLine = currLine->next;
-					ClientToCursor(oldPosX, oldPosY + charHeight, cursorCharX, cursorCharY, true);
-				}
-			}
-		}else if(wParam == VK_UP){
-			// If Ctrl is pressed, scroll vertically
-			if(IsPressed(VK_CONTROL))
-			{
-				shiftCharY--;
-				ClampShift();
-			}
-			// If Ctrl is not pressed or if it is and cursor is out of sight
-			if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) > (shiftCharY + areaHeight / charHeight - 1)))
-			{
-				// If there is a previous line, move to it
-				if(currLine->prev)
-				{
-					int oldPosX, oldPosY;
-					CursorToClient(cursorCharX, cursorCharY, oldPosX, oldPosY);
-					currLine = currLine->prev;
-					ClientToCursor(oldPosX, oldPosY - charHeight, cursorCharX, cursorCharY, true);
-				}
-			}
-		}else if(wParam == VK_LEFT){
-			// If Shift is not pressed and there is an active selection
-			if(!IsPressed(VK_SHIFT) && selectionOn)
-			{
-				// Sort selection range
-				SortSelPoints(startX, endX, startY, endY);
-				// Set cursor position to the start of selection
-				cursorCharX = startX;
-				cursorCharY = startY;
-				ClampCursorBounds();
-			}else{
-				// If the cursor is not at the beginning of the line
-				if(cursorCharX > 0)
-				{
-					if(IsPressed(VK_CONTROL))
-					{
-						// Skip spaces
-						while(cursorCharX > 1 && isspace(currLine->data[cursorCharX - 1].ch))
-							cursorCharX--;
-						cursorCharX = AdvanceCursor(currLine, cursorCharX, true);
-					}else{
-						cursorCharX--;
-					}
-				}else{
-					// Otherwise, move to the end of the previous line
-					if(currLine->prev)
-					{
-						currLine = currLine->prev;
-						cursorCharX = currLine->length;
-						cursorCharY--;
-					}
-				}
-			}
-		}else if(wParam == VK_RIGHT){
-			// If Shift is not pressed and there is an active selection
-			if(!IsPressed(VK_SHIFT) && selectionOn)
-			{
-				// Sort selection range
-				SortSelPoints(startX, endX, startY, endY);
-				// Set cursor position to the end of selection
-				cursorCharX = endX;
-				cursorCharY = endY;
-				ClampCursorBounds();
-			}else{
-				// If the cursor is not at the end of the line
-				if(cursorCharX < currLine->length)
-				{
-					if(IsPressed(VK_CONTROL))
-					{
-						cursorCharX = AdvanceCursor(currLine, cursorCharX, false);
-						// Skip spaces
-						while(cursorCharX < currLine->length && isspace(currLine->data[cursorCharX + 1].ch))
-							cursorCharX++;
-						cursorCharX++;
-					}else{
-						cursorCharX++;
-					}
-				}else{
-					// Otherwise, move to the start of the next line
-					if(currLine->next)
-					{
-						currLine = currLine->next;
-						cursorCharY++;
-						cursorCharX = 0;
-					}
-				}
-			}
-		}else if(wParam == VK_DELETE){	// Delete
-			// Shift+Delete is a cut operation
-			if(IsPressed(VK_SHIFT))
-			{
-				OnCopyOrCut(true);
-				return 0;
-			}
-			// Remove selection, if active
-			if(selectionOn)
-			{
-				DeleteSelection();
-				return 0;
-			}else{
-				// Move to the next character
-				if(cursorCharX < currLine->length)
-				{
-					cursorCharX++;
-				}else if(currLine->next){
-					currLine = currLine->next;
-					cursorCharY++;
-					cursorCharX = 0;
-				}else{
-					return 0;
-				}
-				DeletePreviousChar();
-			}
-			ScrollToCursor();
-		}else if(wParam == VK_PRIOR){	// Page up
-			// If Ctrl is pressed
-			if(IsPressed(VK_CONTROL))
-			{
-				// Move to the start of view
-				cursorCharY = shiftCharY;
-				ClampCursorBounds();
-			}else{
-				// Scroll view
-				cursorCharY -= charHeight ? areaHeight / charHeight : 1;
-				if(int(cursorCharY) < 0)
-					cursorCharY = 0;
-				ClampCursorBounds();
-				ScrollToCursor();
-			}
-			ClampShift();
-			UpdateScrollBar();
-			InvalidateRect(areaWnd, NULL, false);
-		}else if(wParam == VK_NEXT){	// Page down
-			// If Ctrl is pressed
-			if(IsPressed(VK_CONTROL))
-			{
-				// Move to the end of view
-				cursorCharY = shiftCharY + (charHeight ? areaHeight / charHeight : 1);
-				ClampCursorBounds();
-			}else{
-				// Scroll view
-				cursorCharY += charHeight ? areaHeight / charHeight : 1;
-				if(int(cursorCharY) < 0)
-					cursorCharY = 0;
-				ClampCursorBounds();
-				ScrollToCursor();
-			}
-			ClampShift();
-			UpdateScrollBar();
-			InvalidateRect(areaWnd, NULL, false);
-		}else if(wParam == VK_HOME){
-			// If Ctrl is pressed
-			if(IsPressed(VK_CONTROL))
-			{
-				// Move view and cursor to the beginning of the text
-				shiftCharY = 0;
-				cursorCharX = 0;
-				cursorCharY = 0;
-				ClampCursorBounds();
-			}else{
-				int identWidth = 0;
-				while(identWidth < int(currLine->length) && (currLine->data[identWidth].ch == ' ' || currLine->data[identWidth].ch == '\t'))
-					identWidth++;
-				// If we are at the beginning of a line, move through all the spaces
-				if(cursorCharX == 0 || int(cursorCharX) != identWidth)
-					cursorCharX = identWidth;
-				else	// Move cursor to the beginning of the line
-					cursorCharX = 0;
-			}
-			ClampShift();
-			UpdateScrollBar();
-			InvalidateRect(areaWnd, NULL, false);
-		}else if(wParam == VK_END){
-			// If Ctrl is pressed
-			if(IsPressed(VK_CONTROL))
-			{
-				// Move view and cursor to the end of the text
-				shiftCharY = lineCount;
-				cursorCharX = ~0u;
-				cursorCharY = lineCount;
-				ClampCursorBounds();
-			}else{
-				// Move cursor to the end of the line
-				cursorCharX = currLine->length;
-			}
-			ClampShift();
-			UpdateScrollBar();
-			InvalidateRect(areaWnd, NULL, false);
-		}else if(wParam == VK_INSERT){
-			// Shift+Insert is a paste operation
-			if(IsPressed(VK_SHIFT))
-			{
-				OnPaste();
-				return 0;
-			}
-			// Ctrl+Insert is a copy operation
-			if(IsPressed(VK_CONTROL))
-			{
-				OnCopyOrCut(false);
-				return 0;
-			}
-			// Toggle input mode between insert\overwrite
-			insertionMode = !insertionMode;
-		}else if(wParam == VK_ESCAPE){
-			// Disable selection
-			selectionOn = false;
-			InvalidateRect(areaWnd, NULL, false);
-		}
-		if(wParam == VK_DOWN || wParam == VK_UP || wParam == VK_LEFT || wParam == VK_RIGHT ||
-			wParam == VK_PRIOR || wParam == VK_NEXT || wParam == VK_HOME || wParam == VK_END)
-		{
-			// If Ctrl is not pressed, center view around cursor
-			if(!IsPressed(VK_CONTROL))
-				ScrollToCursor();
-			// If Shift is pressed, set end of selection, redraw window and return
-			if(IsPressed(VK_SHIFT))
-			{
-				dragEndX = cursorCharX;
-				dragEndY = cursorCharY;
-				if(dragStartX != dragEndX || dragStartY != dragEndY)
-					selectionOn = true;
-				InvalidateRect(areaWnd, NULL, false);
-				return 0;
-			}else{
-				// Or disable selection, and if control is not pressed, update window and return
-				selectionOn = false;
-				if(!IsPressed(VK_CONTROL))
-				{
-					InvalidateRect(areaWnd, NULL, false);
-					return 0;
-				}
-			}
-			// Draw cursor
-			AreaCursorUpdate(areaWnd, 0, NULL, 0);
-			// Handle Ctrl+Arrows
-			if(IsPressed(VK_CONTROL))
-			{
-				ClampShift();
-				UpdateScrollBar();
-				InvalidateRect(areaWnd, NULL, false);
-			}
-		}
+		OnKeyEvent((int)wParam);
 		break;
 	case WM_LBUTTONDBLCLK:
 		{

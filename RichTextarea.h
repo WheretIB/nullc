@@ -7,6 +7,7 @@
 
 #define FONT_STYLE_COUNT 16
 #define DEFAULT_STRING_LENGTH 64
+#define TAB_SIZE 4
 
 bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline);
 
