@@ -27,7 +27,13 @@ struct AreaChar
 
 struct AreaLine
 {
-	AreaLine(){}
+	AreaLine()
+	{
+		length = 0;
+		maxLength = DEFAULT_STRING_LENGTH;
+		data = startBuf;
+		prev = next = NULL;
+	}
 
 	AreaChar		startBuf[DEFAULT_STRING_LENGTH];
 	AreaChar		*data;
@@ -50,6 +56,52 @@ struct AreaLine
 };
 
 ObjectBlockPool<AreaLine, 32>*	AreaLine::pool = NULL;
+
+void ExtendLine(AreaLine *line, unsigned int size)
+{
+	// If there isn't enough space
+	if(size > line->maxLength)
+	{
+		AreaChar	*nChars = new AreaChar[size + size / 2];
+		line->maxLength = size + size / 2;
+		// Clear memory
+		memset(nChars, 0, sizeof(AreaChar) * line->maxLength);
+		// Copy old data
+		memcpy(nChars, line->data, line->length * sizeof(AreaChar));
+		// Delete old data if it's not an internal buffer
+		if(line->data != line->startBuf)
+			delete[] line->data;
+		line->data = nChars;
+	}
+}
+
+AreaLine* InsertLineAfter(AreaLine *curr)
+{
+	AreaLine *nLine = new AreaLine();
+	// Link new line with others
+	if(curr && curr->next)
+	{
+		curr->next->prev = nLine;
+		nLine->next = curr->next;
+	}else{
+		nLine->next = NULL;
+	}
+	if(curr)
+		curr->next = nLine;
+	nLine->prev = curr;
+	return nLine;
+}
+
+void DeleteLine(AreaLine *dead)
+{
+	if(dead->prev)
+		dead->prev->next = dead->next;
+	if(dead->next)
+		dead->next->prev = dead->prev;
+	if(dead->data != dead->startBuf)
+		delete[] dead->data;
+	delete dead;
+}
 
 // Buffer for linear text
 char	*areaText = NULL;
@@ -100,6 +152,153 @@ bool selectionOn = false;
 // Is symbol overwrite on
 bool insertionMode = false;
 
+// Class that tracks text change for Ctrl+Z\Ctrl+Y
+class HistoryManager
+{
+public:
+	HistoryManager()
+	{
+		firstShot = lastShot = NULL;
+	}
+	~HistoryManager()
+	{
+	}
+
+	enum ChangeFlag
+	{
+		LINES_CHANGED = 1 << 0,
+		LINES_ADDED = 1 << 1,
+		LINES_DELETED = 1 << 2,
+	};
+
+	void	ResetHistory()
+	{
+		while(firstShot)
+		{
+			AreaLine *line = firstShot->first;
+			while(line)
+			{
+				AreaLine *next = line->next;
+				DeleteLine(line);
+				line = next;
+			}
+			Snapshot *next = firstShot->nextShot;
+			delete firstShot;
+			firstShot = next;
+		}
+	}
+	void	TakeSnapshot(AreaLine *start, ChangeFlag changeFlag, unsigned int linesAffected)
+	{
+		if(!firstShot)
+		{
+			firstShot = lastShot = new Snapshot;
+			firstShot->prevShot = lastShot->nextShot = NULL;
+		}else{
+			lastShot->nextShot = new Snapshot;
+			lastShot->nextShot->prevShot = lastShot;
+			lastShot->nextShot->nextShot = NULL;
+			lastShot = lastShot->nextShot;
+		}
+		lastShot->lines = linesAffected;
+		lastShot->first = NULL;
+		lastShot->type = changeFlag;
+		lastShot->cursorX = cursorCharX;
+		lastShot->cursorY = cursorCharY;
+
+		lastShot->startLine = 0;
+		AreaLine *src = firstLine;
+		while(src != start)
+		{
+			src = src->next;
+			lastShot->startLine++;
+		}
+		if((changeFlag == LINES_CHANGED) || (changeFlag == LINES_ADDED))
+		{
+			AreaLine *nLine = InsertLineAfter(NULL);
+			ExtendLine(nLine, src->length);
+			memcpy(nLine->data, src->data, src->length * sizeof(AreaChar));
+			nLine->length = src->length;
+
+			lastShot->first = nLine;
+		}else if(changeFlag == LINES_DELETED){
+			AreaLine *curr = NULL;
+			for(unsigned int i = 0; i < linesAffected; i++)
+			{
+				AreaLine *nLine = InsertLineAfter(curr);
+				ExtendLine(nLine, src->length);
+				memcpy(nLine->data, src->data, src->length * sizeof(AreaChar));
+				nLine->length = src->length;
+				
+				if(!curr)
+					lastShot->first = nLine;
+				curr = nLine;
+
+				src = src->next;
+			}
+		}
+	}
+
+	void	Undo()
+	{
+		if(!lastShot)
+			return;
+
+		cursorCharX = lastShot->cursorX;
+		cursorCharY = lastShot->cursorY;
+
+		currLine = firstLine;
+		for(unsigned int i = 0; i < lastShot->startLine; i++)
+			currLine = currLine->next;
+		ExtendLine(currLine, lastShot->first->length);
+		memcpy(currLine->data, lastShot->first->data, lastShot->first->length * sizeof(AreaChar));
+		currLine->length = lastShot->first->length;
+		if((lastShot->type == LINES_CHANGED) || (lastShot->type == LINES_ADDED))
+		{
+			
+			if(lastShot->type == LINES_ADDED)
+			{
+				for(unsigned int i = 0; i < lastShot->lines; i++)
+					DeleteLine(currLine->next);
+			}
+		}else if(lastShot->type == LINES_DELETED){
+			AreaLine *curr = lastShot->first->next;
+			for(unsigned int i = 0; i < lastShot->lines-1; i++)
+			{
+				currLine = InsertLineAfter(currLine);
+				ExtendLine(currLine, curr->length);
+				memcpy(currLine->data, curr->data, curr->length * sizeof(AreaChar));
+				currLine->length = curr->length;
+				curr = curr->next;
+			}
+		}
+
+		if(lastShot->prevShot)
+		{
+			lastShot = lastShot->prevShot;
+			delete lastShot->nextShot;	// What about all the lines?
+			lastShot->nextShot = NULL;
+		}else{
+			delete lastShot;	// What about all the lines?
+			firstShot = lastShot = NULL;
+		}
+		InvalidateRect(areaWnd, NULL, false);
+	}
+
+	struct Snapshot
+	{
+		unsigned int	type;
+		unsigned int	lines, startLine;
+		AreaLine		*first;
+
+		unsigned int	cursorX, cursorY;
+
+		Snapshot		*nextShot, *prevShot;
+	};
+
+	Snapshot	*firstShot, *lastShot;
+};
+HistoryManager	*history = NULL;
+
 // Set style parameters. bold\italics\underline flags don't work together
 bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline)
 {
@@ -141,35 +340,6 @@ void ExtendLinearTextBuffer()
 		areaText = new char[areaTextSize];
 		areaTextEx = new char[areaTextSize];
 	}
-}
-
-void ExtendLine(AreaLine *line, unsigned int size)
-{
-	// If there isn't enough space
-	if(size > line->maxLength)
-	{
-		AreaChar	*nChars = new AreaChar[size + size / 2];
-		line->maxLength = size + size / 2;
-		// Clear memory
-		memset(nChars, 0, sizeof(AreaChar) * line->maxLength);
-		// Copy old data
-		memcpy(nChars, line->data, line->length * sizeof(AreaChar));
-		// Delete old data if it's not an internal buffer
-		if(line->data != line->startBuf)
-			delete[] line->data;
-		line->data = nChars;
-	}
-}
-
-void DeleteLine(AreaLine *dead)
-{
-	if(dead->prev)
-		dead->prev->next = dead->next;
-	if(dead->next)
-		dead->next->prev = dead->prev;
-	if(dead->data != dead->startBuf)
-		delete[] dead->data;
-	delete dead;
 }
 
 // Last edited position
@@ -293,6 +463,8 @@ void SetAreaText(const char *text)
 	cursorCharX = dragStartX = dragEndX = 0;
 	cursorCharY = dragStartY = dragEndY = 0;
 	selectionOn = false;
+
+	history->ResetHistory();
 }
 
 // Force redraw
@@ -561,6 +733,8 @@ void InputChar(char ch)
 	if(cursorCharX != currLine->length)
 		memmove(&currLine->data[cursorCharX+1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
 	currLine->data[cursorCharX].ch = ch;
+	if(cursorCharX != 0)
+		currLine->data[cursorCharX].style = currLine->data[cursorCharX-1].style;
 	currLine->length++;
 	// Move cursor forward
 	cursorCharX++;
@@ -574,27 +748,9 @@ void InputEnter()
 {
 	// Increment line count
 	lineCount++;
-	// Create new line
-	AreaLine *nLine = new AreaLine;
-	memset(nLine, 0, sizeof(AreaLine));
-	// Link new line with others
-	if(currLine->next)
-	{
-		currLine->next->prev = nLine;
-		nLine->next = currLine->next;
-	}else{
-		nLine->next = NULL;
-	}
-	currLine->next = nLine;
-	nLine->prev = currLine;
-
-	// Switch to the next line
-	currLine = currLine->next;
-
-	// Default state
-	currLine->length = 0;
-	currLine->maxLength = DEFAULT_STRING_LENGTH;
-	currLine->data = currLine->startBuf;
+	
+	// Insert new line after current and switch to it
+	currLine = InsertLineAfter(currLine);
 
 	currLine->data[0].style = currLine->prev->length ? currLine->prev->data[currLine->prev->length-1].style : 0;
 
@@ -764,28 +920,27 @@ void DeleteSelection()
 	startY = startY > lineCount ? lineCount - 1 : startY;
 	endY = endY > lineCount ? lineCount-1 : endY;
 
+	// Find first selection line
+	AreaLine *first = firstLine;
+	for(unsigned int i = 0; i < startY; i++)
+		first = first->next;
+
+	history->TakeSnapshot(first, HistoryManager::LINES_DELETED, (endY - startY)+1);
+
 	// For single-line selection
 	if(startY == endY)
 	{
-		// Find selected line
-		AreaLine *curr = firstLine;
-		for(unsigned int i = 0; i < startY; i++)
-			curr = curr->next;
 		// Clamp selection points in Z axis
-		endX = endX > curr->length ? curr->length : endX;
-		startX = startX > curr->length ? curr->length : startX;
+		endX = endX > first->length ? first->length : endX;
+		startX = startX > first->length ? first->length : startX;
 		// Move text after selection to the start of selection
-		memmove(&curr->data[startX], &curr->data[endX], (curr->length - endX) * sizeof(AreaChar));
+		memmove(&first->data[startX], &first->data[endX], (first->length - endX) * sizeof(AreaChar));
 		// Shrink length
-		curr->length -= endX - startX;
+		first->length -= endX - startX;
 		// Move cursor and disable selection mode
 		cursorCharX = startX;
 		selectionOn = false;
 	}else{	// For multi-line selection
-		// Find first selection line
-		AreaLine *first = firstLine;
-		for(unsigned int i = 0; i < startY; i++)
-			first = first->next;
 		// Find last selection line
 		AreaLine *last = first;
 		for(unsigned int i = startY; i < endY; i++)
@@ -846,6 +1001,7 @@ void DeletePreviousChar()
 	// If cursor is not at the beginning of a line
 	if(cursorCharX)
 	{
+		history->TakeSnapshot(currLine, HistoryManager::LINES_CHANGED, 1);
 		// If cursor is in the middle, move characters to the vacant position
 		if(cursorCharX != currLine->length)
 			memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
@@ -858,6 +1014,8 @@ void DeletePreviousChar()
 	}else if(currLine->prev){	// If it's at the beginning of a line and there is a line before current
 		// Add current line to the previous, as if are removing the line break
 		currLine = currLine->prev;
+
+		history->TakeSnapshot(currLine, HistoryManager::LINES_DELETED, 2);
 		// Check if there is enough space
 		unsigned int sum = currLine->length + currLine->next->length;
 		ExtendLine(currLine, sum);
@@ -972,13 +1130,24 @@ void OnPaste()
 	// Remove selection
 	if(selectionOn)
 		DeleteSelection();
+	
 	// Get pasted text
 	OpenClipboard(areaWnd);
 	HANDLE clipData = GetClipboardData(CF_TEXT);
 	if(clipData)
 	{
-		// Simulate as if the text was written
+		// Find line count
 		char *str = (char*)clipData;
+		unsigned int linesAdded = 0;
+		do
+		{
+			if(*str == '\r')
+				linesAdded++;
+		}while(*str++);
+		history->TakeSnapshot(currLine, HistoryManager::LINES_ADDED, linesAdded);
+
+		str = (char*)clipData;
+		// Simulate as if the text was written
 		while(*str)
 		{
 			if(*str >= 0x20 || *str == '\t')
@@ -1025,17 +1194,12 @@ void OnCreate()
 	areaTextEx = new char[areaTextSize];
 
 	// Create first line of text
-	firstLine = new AreaLine;
-	memset(firstLine, 0, sizeof(AreaLine));
-	firstLine->data = firstLine->startBuf;
-	firstLine->next = firstLine->prev = NULL;
-	firstLine->length = 0;
-	firstLine->maxLength = DEFAULT_STRING_LENGTH;
-	
-	currLine = firstLine;
+	currLine = firstLine = InsertLineAfter(NULL);
 	currLine->data[0].style = 0;
 
 	lineCount = 1;
+
+	history = new HistoryManager();
 
 	SetTimer(areaWnd, 0, 62, AreaCursorUpdate);
 	areaCreated = true;
@@ -1058,6 +1222,14 @@ void OnCharacter(char ch)
 	unsigned int startX, startY, endX, endY;
 	if(ch >= 0x20 || ch == '\t')	// If it isn't special symbol or it is a Tab
 	{
+		static unsigned int lastCursorX = ~0u, lastCursorY = ~0u;
+		if(cursorCharX != lastCursorX || cursorCharY != lastCursorY)
+		{
+			history->TakeSnapshot(currLine, HistoryManager::LINES_CHANGED, 1);
+			lastCursorX = cursorCharX;
+			lastCursorY = cursorCharY;
+		}
+		lastCursorX++;
 		// If insert mode, create selection
 		if(insertionMode)
 		{
@@ -1144,6 +1316,7 @@ void OnCharacter(char ch)
 		// Insert symbol
 		InputChar(ch);
 	}else if(ch == '\r'){	// Line break
+		history->TakeSnapshot(currLine, HistoryManager::LINES_ADDED, 1);
 		// Remove selection
 		if(selectionOn)
 			DeleteSelection();
@@ -1189,6 +1362,8 @@ void OnCharacter(char ch)
 		InvalidateRect(areaWnd, NULL, false);
 	}else if(ch == 3 || ch == 24){	// Ctrl+C and Ctrl+X
 		OnCopyOrCut(ch == 24);
+	}else if(ch == 26){	// Ctrl+Z
+		history->Undo();
 	}
 	ScrollToCursor();
 	needUpdate = true;
