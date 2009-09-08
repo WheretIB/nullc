@@ -201,6 +201,12 @@ public:
 		// Save cursor position
 		lastShot->cursorX = cursorCharX;
 		lastShot->cursorY = cursorCharY;
+		// Save selection state
+		lastShot->selectStartX = dragStartX;
+		lastShot->selectStartY = dragStartY;
+		lastShot->selectEndX = dragEndX;
+		lastShot->selectEndY = dragEndY;
+		lastShot->selectionOn = selectionOn;
 
 		lastShot->first = NULL;
 		// Find the number of a line, where edit starts
@@ -242,6 +248,12 @@ public:
 		// Restore cursor position
 		cursorCharX = lastShot->cursorX;
 		cursorCharY = lastShot->cursorY;
+		// Restore selection state
+		dragStartX = lastShot->selectStartX;
+		dragStartY = lastShot->selectStartY;
+		dragEndX = lastShot->selectEndX;
+		dragEndY = lastShot->selectEndY;
+		selectionOn = lastShot->selectionOn;
 
 		// Set currLine to the old one
 		currLine = firstLine;
@@ -303,6 +315,8 @@ public:
 		AreaLine		*first;
 
 		unsigned int	cursorX, cursorY;
+		unsigned int	selectStartX, selectStartY, selectEndX, selectEndY;
+		bool			selectionOn;
 
 		Snapshot		*nextShot, *prevShot;
 	};
@@ -1056,11 +1070,15 @@ int AdvanceCursor(AreaLine *line, int cursorX, bool left)
 	// Advance direction
 	int dir = left ? -1 : 1;
 
+	// If out of bounds, return as it is
+	if(line->length == 0 || (left && cursorX == 0) || (unsigned int)cursorX >= line->length)
+		return cursorX;
+
 	// Find, what character is at the cursor position
 	char symb = line->data[cursorX + (left ? -1 : 0)].ch;
 
 	int minX = left ? 1 : 0;
-	int maxX = left ? line->length : line->length - 1;
+	int maxX = left ? line->length : line->length - 2;
 
 	// If it's a digit, move to the left, skipping all digits and '.'
 	if(isdigit(symb) || symb == '.')
@@ -1489,7 +1507,7 @@ void OnKeyEvent(int key)
 				{
 					cursorCharX = AdvanceCursor(currLine, cursorCharX, false);
 					// Skip spaces
-					while(cursorCharX < currLine->length && isspace(currLine->data[cursorCharX + 1].ch))
+					while(int(cursorCharX) < int(currLine->length)-1 && isspace(currLine->data[cursorCharX + 1].ch))
 						cursorCharX++;
 					cursorCharX++;
 				}else{
@@ -1658,6 +1676,26 @@ void OnKeyEvent(int key)
 	}
 }
 
+void ExtendSelectionFromPoint(unsigned int xPos, unsigned int yPos)
+{
+	// Find cursor position
+	AreaLine *curr = ClientToCursor(xPos, yPos, dragStartX, dragStartY, true);
+
+	if(curr->length == 0)
+		return;
+	// Clamp horizontal position to line length
+	if(dragStartX >= (int)curr->length && curr->length != 0)
+		dragStartX = curr->length - 1;
+	dragEndX = dragStartX;
+	dragEndY = dragStartY;
+
+	dragStartX = AdvanceCursor(curr, dragStartX, true);
+	dragEndX = AdvanceCursor(curr, dragEndX, false) + 1;
+
+	// Selection is active is the length of selected string is not 0
+	selectionOn = curr->length != 0;
+}
+
 // Textarea message handler
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
@@ -1699,22 +1737,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		OnKeyEvent((int)wParam);
 		break;
 	case WM_LBUTTONDBLCLK:
-		{
-			// Find cursor position
-			AreaLine *curr = ClientToCursor(LOWORD(lParam), HIWORD(lParam), dragStartX, dragStartY, true);
-
-			// Clamp horizontal position to line length
-			if(dragStartX >= (int)curr->length && curr->length != 0)
-				dragStartX = curr->length - 1;
-			dragEndX = dragStartX;
-			dragEndY = dragStartY;
-
-			dragStartX = AdvanceCursor(curr, dragStartX, true);
-			dragEndX = AdvanceCursor(curr, dragEndX, false) + 1;
-
-			// Selection is active is the length of selected string is not 0
-			selectionOn = curr->length != 0;
-		}
+		ExtendSelectionFromPoint(LOWORD(lParam), HIWORD(lParam));
 		if(selectionOn)
 		{
 			// Force line redraw
@@ -1747,24 +1770,36 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			cursorCharY = dragEndY;
 			selectionOn = true;
 			InvalidateRect(areaWnd, NULL, false);
+		}else if(IsPressed(VK_CONTROL)){
+			ExtendSelectionFromPoint(LOWORD(lParam), HIWORD(lParam));
+			InvalidateRect(areaWnd, NULL, false);
 		}else{
 			ClientToCursor(LOWORD(lParam), HIWORD(lParam), dragStartX, dragStartY, false);
 		}
 		break;
 	case WM_MOUSEMOVE:
 		// If mouse if moving with the left mouse down
-		if(wParam != MK_LBUTTON)
+		if(!(wParam & MK_LBUTTON))
 			break;
 
 		// Sort old selection range
 		SortSelPoints(startX, endX, startY, endY);
 
 		// Track the cursor position which is the selection end
-		ClientToCursor(LOWORD(lParam), HIWORD(lParam), dragEndX, dragEndY, false);
+		currLine = ClientToCursor(LOWORD(lParam), HIWORD(lParam), dragEndX, dragEndY, false);
+
+		if(IsPressed(VK_CONTROL))
+		{
+			if(dragEndY > dragStartY || dragEndX > dragStartX)
+				dragEndX = AdvanceCursor(currLine, dragEndX, false) + 1;
+			else
+				dragEndX = AdvanceCursor(currLine, dragEndX, true);
+		}
+
 		// If current position differs from starting position, enable selection mode
 		if(dragStartX != dragEndX || dragStartY != dragEndY)
 			selectionOn = true;
-
+		// Redraw selection
 		{
 			// Sort selection range
 			unsigned int newStartY, newEndY;
