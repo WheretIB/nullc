@@ -173,38 +173,37 @@ public:
 
 	void	ResetHistory()
 	{
+		// While we have snapshots, delete them
 		while(firstShot)
 		{
-			AreaLine *line = firstShot->first;
-			while(line)
-			{
-				AreaLine *next = line->next;
-				DeleteLine(line);
-				line = next;
-			}
 			Snapshot *next = firstShot->nextShot;
 			delete firstShot;
 			firstShot = next;
 		}
+		firstShot = lastShot = NULL;
 	}
 	void	TakeSnapshot(AreaLine *start, ChangeFlag changeFlag, unsigned int linesAffected)
 	{
+		// Create linked list
 		if(!firstShot)
 		{
 			firstShot = lastShot = new Snapshot;
 			firstShot->prevShot = lastShot->nextShot = NULL;
-		}else{
+		}else{	// Or add element to it
 			lastShot->nextShot = new Snapshot;
 			lastShot->nextShot->prevShot = lastShot;
 			lastShot->nextShot->nextShot = NULL;
 			lastShot = lastShot->nextShot;
 		}
-		lastShot->lines = linesAffected;
-		lastShot->first = NULL;
+		// Type of edit and lines affected by it
 		lastShot->type = changeFlag;
+		lastShot->lines = linesAffected;
+		// Save cursor position
 		lastShot->cursorX = cursorCharX;
 		lastShot->cursorY = cursorCharY;
 
+		lastShot->first = NULL;
+		// Find the number of a line, where edit starts
 		lastShot->startLine = 0;
 		AreaLine *src = firstLine;
 		while(src != start)
@@ -212,56 +211,55 @@ public:
 			src = src->next;
 			lastShot->startLine++;
 		}
-		if((changeFlag == LINES_CHANGED) || (changeFlag == LINES_ADDED))
+		// Copy affected lines to snapshot line list.
+		// (unless the edit creates a number of new lines, in which case we have to save only one)
+		AreaLine *curr = NULL;
+		for(unsigned int i = 0; i < (changeFlag == LINES_ADDED ? 1 : linesAffected); i++)
 		{
-			AreaLine *nLine = InsertLineAfter(NULL);
-			ExtendLine(nLine, src->length);
-			memcpy(nLine->data, src->data, src->length * sizeof(AreaChar));
-			nLine->length = src->length;
-
-			lastShot->first = nLine;
-		}else if(changeFlag == LINES_DELETED){
-			AreaLine *curr = NULL;
-			for(unsigned int i = 0; i < linesAffected; i++)
-			{
-				AreaLine *nLine = InsertLineAfter(curr);
-				ExtendLine(nLine, src->length);
-				memcpy(nLine->data, src->data, src->length * sizeof(AreaChar));
-				nLine->length = src->length;
-				
-				if(!curr)
-					lastShot->first = nLine;
-				curr = nLine;
-
-				src = src->next;
-			}
+			// Copy line
+			curr = InsertLineAfter(curr);
+			ExtendLine(curr, src->length);
+			memcpy(curr->data, src->data, src->length * sizeof(AreaChar));
+			curr->length = src->length;
+			
+			// Set the first line, if not set
+			if(!lastShot->first)
+				lastShot->first = curr;
+			// Move to the next
+			src = src->next;
 		}
 	}
 
 	void	Undo()
 	{
+		// If there are no snapshots, exit
 		if(!lastShot)
 			return;
 
+		// Disable selection
+		selectionOn = false;
+
+		// Restore cursor position
 		cursorCharX = lastShot->cursorX;
 		cursorCharY = lastShot->cursorY;
 
+		// Set currLine to the old one
 		currLine = firstLine;
 		for(unsigned int i = 0; i < lastShot->startLine; i++)
 			currLine = currLine->next;
+		// Copy previous contents of current line
 		ExtendLine(currLine, lastShot->first->length);
 		memcpy(currLine->data, lastShot->first->data, lastShot->first->length * sizeof(AreaChar));
 		currLine->length = lastShot->first->length;
-		if((lastShot->type == LINES_CHANGED) || (lastShot->type == LINES_ADDED))
+		// If lines were added by edit, remove them
+		if(lastShot->type == LINES_ADDED)
 		{
-			
-			if(lastShot->type == LINES_ADDED)
-			{
-				for(unsigned int i = 0; i < lastShot->lines; i++)
-					DeleteLine(currLine->next);
-			}
-		}else if(lastShot->type == LINES_DELETED){
+			lineCount -= lastShot->lines;
+			for(unsigned int i = 0; i < lastShot->lines; i++)
+				DeleteLine(currLine->next);
+		}else if(lastShot->type == LINES_DELETED){	// If lines were deleted by edit, restore them
 			AreaLine *curr = lastShot->first->next;
+			lineCount += lastShot->lines - 1;
 			for(unsigned int i = 0; i < lastShot->lines-1; i++)
 			{
 				currLine = InsertLineAfter(currLine);
@@ -272,21 +270,35 @@ public:
 			}
 		}
 
+		// Remove snapshot
 		if(lastShot->prevShot)
 		{
 			lastShot = lastShot->prevShot;
-			delete lastShot->nextShot;	// What about all the lines?
+			delete lastShot->nextShot;
 			lastShot->nextShot = NULL;
 		}else{
-			delete lastShot;	// What about all the lines?
+			delete lastShot;
 			firstShot = lastShot = NULL;
 		}
+		// Update window
 		InvalidateRect(areaWnd, NULL, false);
 	}
 
 	struct Snapshot
 	{
-		unsigned int	type;
+		~Snapshot()
+		{
+			AreaLine *line = first;
+			// Delete all the lines in snapshot
+			while(line)
+			{
+				AreaLine *next = line->next;
+				DeleteLine(line);
+				line = next;
+			}
+		}
+
+		ChangeFlag		type;
 		unsigned int	lines, startLine;
 		AreaLine		*first;
 
@@ -1222,6 +1234,7 @@ void OnCharacter(char ch)
 	unsigned int startX, startY, endX, endY;
 	if(ch >= 0x20 || ch == '\t')	// If it isn't special symbol or it is a Tab
 	{
+		// We add a history snapshot only if cursor position changed since last character input
 		static unsigned int lastCursorX = ~0u, lastCursorY = ~0u;
 		if(cursorCharX != lastCursorX || cursorCharY != lastCursorY)
 		{
@@ -1229,6 +1242,7 @@ void OnCharacter(char ch)
 			lastCursorX = cursorCharX;
 			lastCursorY = cursorCharY;
 		}
+		// Compensate the caret movement
 		lastCursorX++;
 		// If insert mode, create selection
 		if(insertionMode)
