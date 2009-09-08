@@ -17,6 +17,7 @@ void EndStyleUpdate();
 
 void RegisterTextarea(const char *className, HINSTANCE hInstance);
 
+void ClearAreaText();
 const char* GetAreaText();
 void SetAreaText(const char *text);
 
