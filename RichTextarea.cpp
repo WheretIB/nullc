@@ -588,11 +588,6 @@ void ReDraw()
 	if(!GetUpdateRect(areaWnd, &updateRect, false))
 		return;
 
-	// Find the first line for current vertical scroll position
-	AreaLine *startLine = firstLine;
-	for(int i = 0; i < shiftCharY; i++)
-		startLine = startLine->next;
-
 	AreaLine *curr = NULL;
 
 	// Start drawing
@@ -610,9 +605,16 @@ void ReDraw()
 	FindLongestLine();
 
 	// Reset horizontal scroll position, if longest line can fit to window
-	if(longestLine < int(areaWidth / charWidth) - 1)
+	if(longestLine < areaWidth / charWidth - 1)
 		shiftCharX = 0;
+	if(int(lineCount) < areaHeight / charHeight)
+		shiftCharY = 0;
 	UpdateScrollBar();
+
+	// Find the first line for current vertical scroll position
+	AreaLine *startLine = firstLine;
+	for(int i = 0; i < shiftCharY; i++)
+		startLine = startLine->next;
 
 	// Setup the box of the first symbol
 	charRect.left = padLeft - shiftCharX * charWidth;
@@ -883,7 +885,7 @@ AreaLine* ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int
 		curr = curr->next;
 
 	// Convert local X coordinate to virtual X coordinate (no padding and scroll shifts)
-	int vMouseX = xPos - padLeft + shiftCharX * charWidth - charWidth / 2;
+	int vMouseX = xPos - padLeft + shiftCharX * charWidth;
 	// Starting X  position in pixels
 	int vCurrX = 0;
 
@@ -892,10 +894,13 @@ AreaLine* ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int
 	// Starting X position in characters
 	int posInChars = 0;
 	// Until we reach virtual X coordinate or line ends
-	while(cursorX < curr->length && vCurrX < vMouseX)
+	while(cursorX < curr->length)
 	{
 		// Find the length of a symbol
 		int shift = GetCharShift(curr->data[cursorX].ch, posInChars);
+		// Exit if current position with half of a character if bigger than mouse position
+		if(vCurrX + shift * charWidth / 2 > vMouseX)
+			break;
 		// Advance cursor, position in pixels and position in characters
 		cursorX++;
 		vCurrX += shift * charWidth;
@@ -1071,7 +1076,7 @@ int AdvanceCursor(AreaLine *line, int cursorX, bool left)
 	int dir = left ? -1 : 1;
 
 	// If out of bounds, return as it is
-	if(line->length == 0 || (left && cursorX == 0) || (unsigned int)cursorX >= line->length)
+	if(line->length == 0 || (left && cursorX == 0) || cursorX > (int)(line->length)-dir)
 		return cursorX;
 
 	// Find, what character is at the cursor position
@@ -1740,12 +1745,18 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		ExtendSelectionFromPoint(LOWORD(lParam), HIWORD(lParam));
 		if(selectionOn)
 		{
+			cursorCharX = dragEndX;
+			cursorCharY = dragEndY;
 			// Force line redraw
 			RECT invalid = { 0, (dragStartY - shiftCharY) * charHeight, areaWidth, (dragEndY - shiftCharY + 1) * charHeight };
 			InvalidateRect(areaWnd, &invalid, false);
 		}
 		break;
 	case WM_LBUTTONDOWN:
+		// Remove cursor
+		AreaCursorUpdate(NULL, 0, NULL, 0);
+		// Reset I-bar tick count
+		ibarState = 0;
 		// When left mouse button is pressed, disable selection mode and save position as selection start
 		if(selectionOn && !IsPressed(VK_SHIFT))
 		{
@@ -1772,9 +1783,14 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			InvalidateRect(areaWnd, NULL, false);
 		}else if(IsPressed(VK_CONTROL)){
 			ExtendSelectionFromPoint(LOWORD(lParam), HIWORD(lParam));
+			cursorCharX = dragEndX;
+			cursorCharY = dragEndY;
 			InvalidateRect(areaWnd, NULL, false);
 		}else{
-			ClientToCursor(LOWORD(lParam), HIWORD(lParam), dragStartX, dragStartY, false);
+			// Set drag start and cursor position to where the user have clicked
+			currLine = ClientToCursor(LOWORD(lParam), HIWORD(lParam), dragStartX, dragStartY, true);
+			cursorCharX = dragStartX;
+			cursorCharY = dragStartY;
 		}
 		break;
 	case WM_MOUSEMOVE:
@@ -1794,6 +1810,12 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 				dragEndX = AdvanceCursor(currLine, dragEndX, false) + 1;
 			else
 				dragEndX = AdvanceCursor(currLine, dragEndX, true);
+			dragEndX = dragEndX > currLine->length ? currLine->length : dragEndX;
+			cursorCharX = dragEndX;
+			cursorCharY = dragEndY;
+		}else{
+			// Find cursor position
+			currLine = ClientToCursor(LOWORD(lParam), HIWORD(lParam), cursorCharX, cursorCharY, true);
 		}
 
 		// If current position differs from starting position, enable selection mode
@@ -1810,19 +1832,6 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			RECT invalid = { 0, (newStartY - shiftCharY) * charHeight, areaWidth, (newEndY - shiftCharY + 1) * charHeight };
 			InvalidateRect(areaWnd, &invalid, false);
 		}
-		// Find cursor position
-		currLine = ClientToCursor(LOWORD(lParam), HIWORD(lParam), cursorCharX, cursorCharY, true);
-		break;
-	case WM_LBUTTONUP:
-		if(IsPressed(VK_SHIFT))
-			break;
-		// If left mouse button is released, or we are continuing previous case
-		// Remove I-bar
-		AreaCursorUpdate(NULL, 0, NULL, 0);
-		// Find cursor position
-		currLine = ClientToCursor(LOWORD(lParam), HIWORD(lParam), cursorCharX, cursorCharY, true);
-		// Reset I-bar tick count
-		ibarState = 0;
 		break;
 	case WM_MOUSEWHEEL:
 		// Mouse wheel scroll text vertically
