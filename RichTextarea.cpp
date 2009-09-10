@@ -394,7 +394,7 @@ void EndStyleUpdate()
 	// i has the position inside linear buffer
 	// n has the position inside a line
 	// Update only to the last edited position
-	for(unsigned int i = 0, n = 0; i < maximumEnd;)
+	for(unsigned int i = 0, n = 0; i < maximumEnd && curr;)
 	{
 		if(n < curr->length)	// Until n reaches line size, add style information to it
 		{

@@ -448,7 +448,7 @@ void Compiler::SaveListing(const char *fileName)
 	for(unsigned int i = 0; i < CodeInfo::cmdList.size(); i++)
 	{
 		CodeInfo::cmdList[i].Decode(instBuf);
-		fprintf(compiledAsm, "%s\r\n", instBuf);
+		fprintf(compiledAsm, "%d %s\r\n", i, instBuf);
 	}
 	fclose(compiledAsm);
 #else

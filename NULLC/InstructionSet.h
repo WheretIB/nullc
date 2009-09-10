@@ -245,9 +245,9 @@ static char *vmInstructionText[] =
 	"AddL", "SubL", "MulL", "DivL", "PowL", "ModL", "LessL", "GreaterL", "LEqualL", "GEqualL", "EqualL", "NEqualL",
 	"ShlL", "ShrL", "BitAndL", "BitOrL", "BitXorL", "LogAndL", "LogOrL", "LogXorL",
 	"AddD", "SubD", "MulD", "DivD", "PowD", "ModD", "LessD", "GreaterD", "LEqualD", "GEqualD", "EqualD", "NEqualD",
-	"Neg", "BitNot", "LogNot",
-	"NegL", "BitNotL", "LogNotL",
-	"NegD", "noBitNotD", "LogNotD",
+	"Neg", "NegL", "NegD",
+	"BitNot", "BitNotL",
+	"LogNot", "LogNotL",
 	"IncI", "IncD", "IncL",
 	"DecI", "DecD", "DecL",
 	"AddAtCharStk", "AddAtShortStk", "AddAtIntStk", "AddAtLongStk", "AddAtFloatStk", "AddAtDoubleStk"

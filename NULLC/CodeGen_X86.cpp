@@ -1117,7 +1117,7 @@ void GenCodeCmdLogAnd(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_NUM(o_cmp, rEAX, 0);
 	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
-	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 0, 0);
 	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
 	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);

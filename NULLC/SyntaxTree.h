@@ -437,23 +437,25 @@ protected:
 class NodeBreakOp: public NodeZeroOP
 {
 public:
-	NodeBreakOp();
+	NodeBreakOp(unsigned int breakDepth);
 	virtual ~NodeBreakOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 protected:
+	unsigned int breakDepth;
 };
 
 class NodeContinueOp: public NodeZeroOP
 {
 public:
-	NodeContinueOp();
+	NodeContinueOp(unsigned int continueDepth);
 	virtual ~NodeContinueOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 protected:
+	unsigned int continueDepth;
 };
 
 class NodeSwitchExpr: public NodeOneOP
