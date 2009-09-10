@@ -63,14 +63,6 @@ void Executor::Run(const char* funcName)
 	fcallStack.clear();
 
 	genParams.clear();
-
-	double tempVal = 0.0;
-	genParams.push_back((char*)(&tempVal), 8);
-	tempVal = 3.1415926535897932384626433832795;
-	genParams.push_back((char*)(&tempVal), 8);
-	tempVal = 2.7182818284590452353602874713527;
-	genParams.push_back((char*)(&tempVal), 8);
-	
 	genParams.resize(exLinker->globalVarSize);
 
 	execError[0] = 0;

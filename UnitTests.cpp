@@ -139,7 +139,7 @@ bool	RunCode(const char *code, unsigned int executor, bool optimization, const c
 
 const char *testIntOp =
 "// Integer tests\r\n\
-int res[27];\r\n\
+int res[33];\r\n\
 int a = 14, b = 3, c = 0;\r\n\
 res[0] = a+b; // 17\r\n\
 res[1] = a-b; // 11\r\n\
@@ -160,14 +160,21 @@ res[15] = a >> b; // 1\r\n\
 res[16] = a & b; // 2\r\n\
 res[17] = a | b; // 15\r\n\
 res[18] = a ^ b; // 13\r\n\
-res[19] = a and b; // 1\r\n\
-res[20] = a or b; // 1\r\n\
-res[21] = a xor b; // 0\r\n\
-res[22] = a and c; // 0\r\n\
-res[23] = a or c; // 1\r\n\
-res[24] = a xor c; // 1\r\n\
-res[25] = !a; // 0\r\n\
-res[26] = !c; // 1\r\n\
+int o = 0, i = 1;\r\n\
+res[19] = o and o;\r\n\
+res[20] = o and i;\r\n\
+res[21] = i and o;\r\n\
+res[22] = i and i;\r\n\
+res[23] = o or o;\r\n\
+res[24] = o or i;\r\n\
+res[25] = i or o;\r\n\
+res[26] = i or i;\r\n\
+res[27] = o xor o;\r\n\
+res[28] = o xor i;\r\n\
+res[29] = i xor o;\r\n\
+res[30] = i xor i;\r\n\
+res[31] = !i; // 0\r\n\
+res[32] = !o; // 1\r\n\
 return a >> b;";
 
 const char	*testDoubleOp = 
@@ -191,7 +198,7 @@ return a+b;";
 
 const char	*testLongOp = 
 "// Long tests\r\n\
-long res[24];\r\n\
+long res[34];\r\n\
 long a = 4494967296l, b = 594967296l, c = 3;\r\n\
 res[0] = a+b; // 5089934592\r\n\
 res[1] = a-b; // 3900000000\r\n\
@@ -213,10 +220,21 @@ res[16] = a >> c; // 561870912\r\n\
 res[17] = a & b; // 56771072\r\n\
 res[18] = a | b; // 5033163520\r\n\
 res[19] = a ^ b; // 4976392448\r\n\
-res[20] = a and b; // 1\r\n\
-res[21] = a or b; // 1\r\n\
-res[22] = a xor b; // 0\r\n\
-res[23] = !a; // 0\r\n\
+long o = 0, i = 1;\r\n\
+res[20] = o and o;\r\n\
+res[21] = o and i;\r\n\
+res[22] = i and o;\r\n\
+res[23] = i and i;\r\n\
+res[24] = o or o;\r\n\
+res[25] = o or i;\r\n\
+res[26] = i or o;\r\n\
+res[27] = i or i;\r\n\
+res[28] = o xor o;\r\n\
+res[29] = o xor i;\r\n\
+res[30] = i xor o;\r\n\
+res[31] = i xor i;\r\n\
+res[32] = !i; // 0\r\n\
+res[33] = !o; // 1\r\n\
 \r\n\
 return 1;";
 
@@ -407,7 +425,7 @@ void	RunTests()
 			CHECK_INT("a", 0, 14);
 			CHECK_INT("b", 0, 3);
 			CHECK_INT("c", 0, 0);
-			int resExp[] = { 17, 11, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 1, 1, 0, 0, 1, 1, 0, 1 };
+			int resExp[] = { 17, 11, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
 			for(int i = 0; i < 27; i++)
 				CHECK_INT("res", i, resExp[i]);
 			if(!lastFailed)
@@ -443,7 +461,7 @@ void	RunTests()
 			CHECK_LONG("b", 0, 594967296ll);
 			CHECK_LONG("c", 0, 3ll);
 			long long resExp[] = { 5089934592ll, 3900000000ll, -4494967296ll, -4494967297ll, 2674358537709551616ll, 7, 330196224, 210609828468829063ll, 1, 0, 1, 0, 0, 1,
-				35959738368, 105553116266496ll, 561870912, 56771072, 5033163520, 4976392448, 1, 1, 0, 0 };
+				35959738368, 105553116266496ll, 561870912, 56771072, 5033163520, 4976392448, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
 			for(int i = 0; i < 24; i++)
 				CHECK_LONG("res", i, resExp[i]);
 			if(!lastFailed)
@@ -841,14 +859,15 @@ return 1;";
 
 const char	*testBuildinFunc = 
 "// Build-In function checks\r\n\
+double Pi = 3.1415926583;\r\n\
 double res[20];\r\n\
 res[0] = cos(0); // 1.0\r\n\
-res[1] = cos(pi/3.0); // 0.5\r\n\
-res[2] = cos(pi); // -1.0\r\n\
+res[1] = cos(Pi/3.0); // 0.5\r\n\
+res[2] = cos(Pi); // -1.0\r\n\
 \r\n\
 res[3] = sin(0); // 0.0\r\n\
-res[4] = sin(pi/6.0); // 0.5\r\n\
-res[5] = sin(pi); // 0.0\r\n\
+res[4] = sin(Pi/6.0); // 0.5\r\n\
+res[5] = sin(Pi); // 0.0\r\n\
 \r\n\
 res[6] = ceil(1.5); // 2.0\r\n\
 res[7] = floor(1.5); // 1.0\r\n\
@@ -856,12 +875,12 @@ res[8] = ceil(-1.5); // -1.0\r\n\
 res[9] = floor(-1.5); // -2.0\r\n\
 \r\n\
 res[10] = tan(0); // 0.0\r\n\
-res[11] = tan(pi/4.0); // 1.0\r\n\
-res[12] = tan(pi/2.0); // +inf\r\n\
+res[11] = tan(Pi/4.0); // 1.0\r\n\
+res[12] = tan(Pi/2.0); // +inf\r\n\
 \r\n\
 res[13] = ctg(0); // +inf\r\n\
-res[14] = ctg(pi/4.0); // 1.0\r\n\
-res[15] = ctg(pi/2.0); // 0.0\r\n\
+res[14] = ctg(Pi/4.0); // 1.0\r\n\
+res[15] = ctg(Pi/2.0); // 0.0\r\n\
 \r\n\
 res[16] = sqrt(1.0); // 1.0\r\n\
 res[17] = sqrt(0.0); // 0.0\r\n\
@@ -1000,7 +1019,7 @@ float4 b;\r\n\
 a = 12.0; // should fail\r\n\
 b = a; // should fail\r\n\
 return 1;";
-/*	printf("\r\nComplex fail test\r\n");
+	printf("\r\nComplex fail test\r\n");
 	testCount++;
 	for(int t = 0; t < 3; t++)
 	{
@@ -1008,7 +1027,7 @@ return 1;";
 			passed[t]++;
 		else
 			printf("Should have failed");
-	}*/
+	}
 
 
 const char	*testIncDec = 
@@ -2855,6 +2874,62 @@ return 1;";
 			int resExp[] = { 251, 1085786, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 1, 1, 0, 0, 1, 1, 0, 1 };
 			for(int i = 0; i < 2; i++)
 				CHECK_INT("res", i, resExp[i]);
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testAutoReturn = 
+"auto f1(){ }\r\n\
+auto f2(){ return 3; }\r\n\
+return f2();";
+	printf("\r\nAuto return type tests\r\n");
+	testCount++;
+	for(int t = 0; t < 3; t++)
+	{
+		if(RunCode(testAutoReturn, testTarget[t], testOpti[t], "3"))
+		{
+			lastFailed = false;
+			CHECK_DOUBLE("ERROR", 0, 0.0);
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	const char	*testDepthBreakContinue = 
+"int i, k = 0;\r\n\
+for(i = 0; i < 4; i++)\r\n\
+{\r\n\
+	for(int j = 0;j < 4;j++)\r\n\
+	{\r\n\
+		if(j == 2 and i == 2)\r\n\
+			break 2;\r\n\
+		k++;\r\n\
+	}\r\n\
+}\r\n\
+int a = k;\r\n\
+k = 0;\r\n\
+for(i = 0; i < 4;i ++)\r\n\
+{\r\n\
+	for(int j = 0; j < 4; j++)\r\n\
+	{\r\n\
+		if(j == 2 and i == 2)\r\n\
+			continue 2;\r\n\
+		k++;\r\n\
+	}\r\n\
+}\r\n\
+int b = k;\r\n\
+return a + b;";
+	printf("\r\nMulti-depth break and continue\r\n");
+	testCount++;
+	for(int t = 0; t < 3; t++)
+	{
+		if(RunCode(testDepthBreakContinue, testTarget[t], testOpti[t], "24"))
+		{
+			lastFailed = false;
+			CHECK_DOUBLE("ERROR", 0, 0.0);
+			CHECK_INT("a", 0, 10);
+			CHECK_INT("b", 0, 14);
 			if(!lastFailed)
 				passed[t]++;
 		}

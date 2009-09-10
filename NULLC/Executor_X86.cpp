@@ -280,10 +280,6 @@ void ExecutorX86::Run(const char* funcName)
 
 	stackReallocs = 0;
 
-	*(double*)(paramData) = 0.0;
-	*(double*)(paramData+8) = 3.1415926535897932384626433832795;
-	*(double*)(paramData+16) = 2.7182818284590452353602874713527;
-
 	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
 
 	if(funcName)
@@ -491,6 +487,8 @@ bool ExecutorX86::TranslateToNative()
 	char instBuf[128];
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
+		if(instList[i].name == o_dd)
+			continue;
 		instList[i].Decode(instBuf);
 		fprintf(noptAsm, "%s\r\n", instBuf);
 	}
@@ -509,7 +507,7 @@ bool ExecutorX86::TranslateToNative()
 #ifdef NULLC_LOG_FILES
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
-		if(instList[i].name == o_other)
+		if(instList[i].name == o_dd || instList[i].name == o_other)
 			continue;
 		instList[i].Decode(instBuf);
 		fprintf(fAsm, "%s\r\n", instBuf);

@@ -629,18 +629,34 @@ void AddReturnNode(const char* pos, const char* end)
 
 void AddBreakNode(const char* pos)
 {
-	if(cycleDepth.back() == 0)
+	unsigned int breakDepth = 1;
+	if(nodeList.back()->nodeType == typeNodeNumber)
+		breakDepth = static_cast<NodeNumber*>(nodeList.back())->GetInteger();
+	else if(nodeList.back()->nodeType != typeNodeZeroOp)
+		ThrowError("ERROR: break must be followed by ';' or a constant", pos);
+
+	nodeList.pop_back();
+
+	if(cycleDepth.back() < breakDepth)
 		ThrowError("ERROR: break used outside loop statement", pos);
 
-	nodeList.push_back(new NodeBreakOp());
+	nodeList.push_back(new NodeBreakOp(breakDepth));
 }
 
 void AddContinueNode(const char* pos)
 {
-	if(cycleDepth.back() == 0)
+	unsigned int continueDepth = 1;
+	if(nodeList.back()->nodeType == typeNodeNumber)
+		continueDepth = static_cast<NodeNumber*>(nodeList.back())->GetInteger();
+	else if(nodeList.back()->nodeType != typeNodeZeroOp)
+		ThrowError("ERROR: continue must be followed by ';' or a constant", pos);
+
+	nodeList.pop_back();
+
+	if(cycleDepth.back() < continueDepth)
 		ThrowError("ERROR: continue used outside loop statement", pos);
 
-	nodeList.push_back(new NodeContinueOp());
+	nodeList.push_back(new NodeContinueOp(continueDepth));
 }
 
 void SelectAutoType()
@@ -1302,7 +1318,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 		funcInfo.back()->type = FunctionInfo::LOCAL;
 	currDefinedFunc.push_back(funcInfo.back());
 
-	if(varDefined && varInfo.back()->varType == NULL)
+	if(varDefined && varInfo.size() != 0 && varInfo.back()->varType == NULL)
 		varTop += 8;
 }
 
@@ -1850,10 +1866,6 @@ void CallbackInitialize()
 
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	inplaceArrayNum = 1;
-
-	varInfo.push_back(new VariableInfo(InplaceStr("ERROR"), GetStringHash("ERROR"), 0, typeDouble, true));
-	varInfo.push_back(new VariableInfo(InplaceStr("pi"), GetStringHash("pi"), 8, typeDouble, true));
-	varInfo.push_back(new VariableInfo(InplaceStr("e"), GetStringHash("e"), 16, typeDouble, true));
 
 	varInfoTop.clear();
 	varInfoTop.push_back(VarTopInfo(0,0));

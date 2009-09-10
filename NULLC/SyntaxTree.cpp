@@ -1531,15 +1531,12 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 	first = TakeLastNode();
 
 	// Binary operations on complex types are not present at the moment
-	if(first->typeInfo->refLevel == 0)
+	if(first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0 || first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
 	{
-		if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		{
-			char	errBuf[128];
-			_snprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
-			lastError = CompilerError(errBuf, lastKnownStartPos);
-			return;
-		}
+		char	errBuf[128];
+		_snprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+		lastError = CompilerError(errBuf, lastKnownStartPos);
+		return;
 	}
 	if(first->typeInfo == typeVoid)
 	{
@@ -1900,10 +1897,12 @@ void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Node for break operation
 
-NodeBreakOp::NodeBreakOp()
+NodeBreakOp::NodeBreakOp(unsigned int brDepth)
 {
 	codeSize = 1;
 	nodeType = typeNodeBreakOp;
+
+	breakDepth = brDepth;
 }
 NodeBreakOp::~NodeBreakOp()
 {
@@ -1914,7 +1913,7 @@ void NodeBreakOp::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	// Break the loop
-	cmdList.push_back(VMCmd(cmdJmp, breakAddr.back()));
+	cmdList.push_back(VMCmd(cmdJmp, breakAddr[breakAddr.size()-breakDepth]));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
 }
@@ -1927,10 +1926,12 @@ void NodeBreakOp::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Node for continue operation
 
-NodeContinueOp::NodeContinueOp()
+NodeContinueOp::NodeContinueOp(unsigned int contDepth)
 {
 	codeSize = 1;
 	nodeType = typeNodeContinueOp;
+
+	continueDepth = contDepth;
 }
 NodeContinueOp::~NodeContinueOp()
 {
@@ -1941,7 +1942,7 @@ void NodeContinueOp::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	// Continue the loop
-	cmdList.push_back(VMCmd(cmdJmp, continueAddr.back()));
+	cmdList.push_back(VMCmd(cmdJmp, continueAddr[continueAddr.size()-continueDepth]));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
 }

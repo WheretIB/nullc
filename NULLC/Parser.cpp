@@ -637,6 +637,9 @@ bool  ParseBreakExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_break))
 		return false;
 
+	if(!ParseTerminal(str))
+		AddVoidNode();
+
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError("ERROR: break must be followed by ';'", (*str)->pos);
 	CALLBACK(AddBreakNode(pos));
@@ -648,6 +651,9 @@ bool  ParseContinueExpr(Lexeme** str)
 	const char *pos = (*str)->pos;
 	if(!ParseLexem(str, lex_continue))
 		return false;
+
+	if(!ParseTerminal(str))
+		AddVoidNode();
 
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError("ERROR: continue must be followed by ';'", (*str)->pos);

@@ -335,8 +335,8 @@ namespace ColorerGrammar
 				*(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
 				('}' >> epsP)[ColorBold];
 			returnExpr		=	strWP("return")[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return must be followed by ';'")]);
-			breakExpr		=	strWP("break")[ColorRWord] >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break must be followed by ';'")]);
-			continueExpr		=	strWP("continue")[ColorRWord] >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);
+			breakExpr		=	strWP("break")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break must be followed by ';'")]);
+			continueExpr		=	strWP("continue")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);
 
 			group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
 			term1		=
