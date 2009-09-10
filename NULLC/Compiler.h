@@ -43,6 +43,7 @@ public:
 	~Compiler();
 
 	bool	AddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
+	bool	AddType(const char* typedecl);
 
 	bool	Compile(const char *str);
 	const char*		GetError();
@@ -54,4 +55,7 @@ private:
 	void	ClearState();
 
 	Lexer	lexer;
+
+	unsigned int buildInFuncs;
+	unsigned int basicTypes, buildInTypes;
 };

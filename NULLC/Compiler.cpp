@@ -29,9 +29,6 @@ TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
 TypeInfo*	typeFile = NULL;
 
-unsigned int buildInFuncs;
-unsigned int buildInTypes;
-
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
 	Init(errStr, apprPos ? apprPos : NULL);
@@ -53,7 +50,7 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 
 		lineNum = 1;
 		const char *scan = codeStart;
-		while(scan < begin)
+		while(scan && scan < begin)
 			if(*(scan++) == '\n')
 				lineNum++;
 
@@ -79,7 +76,10 @@ const char *CompilerError::codeStart = NULL;
 
 Compiler::Compiler()
 {
-	// Add types
+	buildInFuncs = 0;
+	buildInTypes = 0;
+
+	// Add basic types
 	TypeInfo* info;
 	info = new TypeInfo(typeInfo.size(), "void", 0, 0, 1, NULL, TypeInfo::TYPE_VOID);
 	info->size = 0;
@@ -119,62 +119,21 @@ Compiler::Compiler()
 	typeChar = info;
 	typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), "float2", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 4;
-	info->AddMemberVariable("x", typeFloat);
-	info->AddMemberVariable("y", typeFloat);
-	typeInfo.push_back(info);
+	basicTypes = buildInTypes = (int)typeInfo.size();
+	TypeInfo::SaveBuildinTop();
 
-	info = new TypeInfo(typeInfo.size(), "float3", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 4;
-	info->AddMemberVariable("x", typeFloat);
-	info->AddMemberVariable("y", typeFloat);
-	info->AddMemberVariable("z", typeFloat);
-	typeInfo.push_back(info);
+	// Add complex types
+	AddType("align(4) class float2{ float x, y; }");
+	AddType("align(4) class float3{ float x, y, z; float dp3(){ return x*x+y*y+z*z; } }");
+	AddType("align(4) class float4{ float x, y, z, w; }");
 
-	info = new TypeInfo(typeInfo.size(), "float4", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 4;
-	info->AddMemberVariable("x", typeFloat);
-	info->AddMemberVariable("y", typeFloat);
-	info->AddMemberVariable("z", typeFloat);
-	info->AddMemberVariable("w", typeFloat);
-	typeInfo.push_back(info);
+	AddType("align(8) class double2{ double x, y; }");
+	AddType("align(8) class double3{ double x, y, z; }");
+	AddType("align(8) class double4{ double x, y, z, w; }");
 
-	TypeInfo *typeFloat4 = info;
+	AddType("align(4) class float4x4{ float4 row1, row2, row3, row4; }");
 
-	info = new TypeInfo(typeInfo.size(), "double2", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 8;
-	info->AddMemberVariable("x", typeDouble);
-	info->AddMemberVariable("y", typeDouble);
-	typeInfo.push_back(info);
-
-	info = new TypeInfo(typeInfo.size(), "double3", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 8;
-	info->AddMemberVariable("x", typeDouble);
-	info->AddMemberVariable("y", typeDouble);
-	info->AddMemberVariable("z", typeDouble);
-	typeInfo.push_back(info);
-
-	info = new TypeInfo(typeInfo.size(), "double4", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 8;
-	info->AddMemberVariable("x", typeDouble);
-	info->AddMemberVariable("y", typeDouble);
-	info->AddMemberVariable("z", typeDouble);
-	info->AddMemberVariable("w", typeDouble);
-	typeInfo.push_back(info);
-
-	info = new TypeInfo(typeInfo.size(), "float4x4", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 4;
-	info->AddMemberVariable("row1", typeFloat4);
-	info->AddMemberVariable("row2", typeFloat4);
-	info->AddMemberVariable("row3", typeFloat4);
-	info->AddMemberVariable("row4", typeFloat4);
-	typeInfo.push_back(info);
-
-	info = new TypeInfo(typeInfo.size(), "file", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->size = 4;
-	typeFile = info;
-	typeInfo.push_back(info);
+	AddType("class file{ int id; }");
 
 	// Add functions
 	FunctionInfo	*fInfo;
@@ -314,7 +273,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	}
 	if(!res)
 		return false;
-//return true;
+
 	funcInfo.back()->name = DuplicateString(funcInfo.back()->name);
 	funcInfo.back()->address = -1;
 	funcInfo.back()->funcPtr = (void*)ptr;
@@ -326,6 +285,48 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	buildInTypes = (int)typeInfo.size();
 	TypeInfo::SaveBuildinTop();
 	VariableInfo::SaveBuildinTop();
+
+	return true;
+}
+
+bool Compiler::AddType(const char* typedecl)
+{
+	ClearState();
+
+	bool res;
+
+	lexer.Lexify(typedecl);
+
+	if(!setjmp(errorHandler))
+	{
+		Lexeme *start = lexer.GetStreamStart();
+		res = ParseClassDefinition(&start);
+	}else{
+		lastError = CompilerError("Parsing failed", NULL);
+		return false;
+	}
+	if(!res)
+		return false;
+
+	TypeInfo *definedType = typeInfo[buildInTypes];
+	definedType->name = DuplicateString(definedType->name);
+	TypeInfo::MemberVariable	*currV = definedType->firstVariable;
+	while(currV)
+	{
+		currV->name = DuplicateString(currV->name);
+		currV = currV->next;
+	}
+	TypeInfo::MemberFunction	*currF = definedType->firstFunction;
+	while(currF)
+	{
+		currF->func->name = DuplicateString(currF->func->name);
+		currF = currF->next;
+	}
+
+	buildInTypes = (int)typeInfo.size();
+	TypeInfo::SaveBuildinTop();
+	VariableInfo::SaveBuildinTop();
+	FunctionInfo::SaveBuildinTop();
 
 	return true;
 }
@@ -353,7 +354,7 @@ bool Compiler::Compile(const char *str)
 	unsigned int t = clock();
 
 	lexer.Lexify(str);
-//return true;
+
 	bool res;
 
 	if(!setjmp(errorHandler))
@@ -368,7 +369,7 @@ bool Compiler::Compile(const char *str)
 		lastError = CompilerError("Parsing failed", NULL);
 		return false;
 	}
-//return true;
+
 	unsigned int tem = clock()-t;
 #ifdef NULLC_LOG_FILES
 	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);

@@ -77,6 +77,14 @@ nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	return good;
 }
 
+nullres	nullcAddType(const char* typedecl)
+{
+	nullres good = compiler->AddType(typedecl);
+	if(good == 0)
+		compileError = compiler->GetError();
+	return good;
+}
+
 nullres	nullcCompile(const char* code)
 {
 	compileError = "";
