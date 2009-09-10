@@ -637,8 +637,10 @@ void AddBreakNode(const char* pos)
 
 	nodeList.pop_back();
 
+	if(breakDepth == 0)
+		ThrowError("ERROR: break level cannot be 0", pos);
 	if(cycleDepth.back() < breakDepth)
-		ThrowError("ERROR: break used outside loop statement", pos);
+		ThrowError("ERROR: break level is greater that loop depth", pos);
 
 	nodeList.push_back(new NodeBreakOp(breakDepth));
 }
@@ -653,8 +655,10 @@ void AddContinueNode(const char* pos)
 
 	nodeList.pop_back();
 
+	if(continueDepth == 0)
+		ThrowError("ERROR: continue level cannot be 0", pos);
 	if(cycleDepth.back() < continueDepth)
-		ThrowError("ERROR: continue used outside loop statement", pos);
+		ThrowError("ERROR: continue level is greater that loop depth", pos);
 
 	nodeList.push_back(new NodeContinueOp(continueDepth));
 }
