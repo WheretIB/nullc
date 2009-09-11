@@ -401,8 +401,8 @@ void	RunTests()
 			if(varInfo)
 			{
 				bool lastFailed = false;
-				CHECK_INT("ERROR", 6, 9);
-				CHECK_INT("ERROR", 13, 20);
+				CHECK_INT("ERROR", 0, 9);
+				CHECK_INT("ERROR", 1, 20);
 				if(!lastFailed)
 					passed[t]++;
 			}
@@ -421,7 +421,6 @@ void	RunTests()
 		if(RunCode(testIntOp, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			CHECK_INT("a", 0, 14);
 			CHECK_INT("b", 0, 3);
 			CHECK_INT("c", 0, 0);
@@ -439,7 +438,6 @@ void	RunTests()
 		if(RunCode(testDoubleOp, testTarget[t], testOpti[t], "17.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			CHECK_DOUBLE("a", 0, 14.0);
 			CHECK_DOUBLE("b", 0, 3.0);
 			double resExp[] = { 17.0, 11.0, -14.0, 42.0, 14.0/3.0, 2.0, 2744.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0};
@@ -456,7 +454,6 @@ void	RunTests()
 		if(RunCode(testLongOp, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			CHECK_LONG("a", 0, 4494967296ll);
 			CHECK_LONG("b", 0, 594967296ll);
 			CHECK_LONG("c", 0, 3ll);
@@ -475,7 +472,6 @@ void	RunTests()
 		if(RunCode(tesIncDec, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			const char *name[] = { "a", "b", "c", "d", "e", "f" };
 			int	value[] = { 9, 1, 5, 5, 8, 2 };
@@ -512,7 +508,6 @@ void	RunTests()
 		if(RunCode(testCmplxType1, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			CHECK_FLOAT("f1", 0, 1);
 
 			CHECK_FLOAT("f2", 0, 14);
@@ -538,7 +533,6 @@ void	RunTests()
 		if(RunCode(testCmplxType2, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			float values[] = { 1, 0, 100, 9, 4, 101, 17, 8, 102, 25, 12, 103, 33, 16, 104, 41, 20, 105, 49, 24, 106, 57, 28, 107, 65, 32, 108, 73, 36, 109 };
 			for(int i = 0; i < 30; i++)
@@ -565,7 +559,6 @@ return a.x;";
 		if(RunCode(testMislead, testTarget[t], testOpti[t], "2.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_FLOAT("a", 0, 2.0f);
 			CHECK_FLOAT("a", 1, 5.0f);
@@ -587,7 +580,6 @@ return 1;";
 		if(RunCode(testCmplx3, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_FLOAT("mat", 1, 5.0f);
 
@@ -609,7 +601,6 @@ return d[5];";
 		if(RunCode(testCycle, testTarget[t], testOpti[t], "0.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("a", 0, 5);
 			double values[] = { -2.0, 1.0, 4.0, 7.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
@@ -631,7 +622,6 @@ return 1+test(2, 3, 4);	// 11";
 		if(RunCode(testFuncCall1, testTarget[t], testOpti[t], "11"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -651,7 +641,6 @@ return b+test(2, 3, 4);";
 		if(RunCode(testFuncCall2, testTarget[t], testOpti[t], "13"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -668,7 +657,6 @@ return fib(1);";
 		if(RunCode(testFuncCall3, testTarget[t], testOpti[t], "5"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -685,7 +673,6 @@ return fib(4);";
 		if(RunCode(testRecursion, testTarget[t], testOpti[t], "3"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -707,7 +694,6 @@ return 5;";
 		if(RunCode(testIndirection, testTarget[t], testOpti[t], "5"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("res", 0, 1);
 			CHECK_INT("res", 1, 13);
@@ -739,7 +725,6 @@ return 2+test(2, 3)+a**b;";
 		if(RunCode(testAllInOne, testTarget[t], testOpti[t], "19.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("a", 0, 5);
 			CHECK_FLOAT("b", 0, 1.0f);
@@ -771,7 +756,6 @@ return c;";
 		if(RunCode(testLongSpeed, testTarget[t], testOpti[t], "21611482313284249L"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_LONG("a", 0, 43);
 			CHECK_LONG("b", 0, 10);
@@ -817,7 +801,6 @@ return 1;";
 		if(RunCode(testTypeConv, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("ia", 0, 3);
 			CHECK_INT("ib", 0, 5);
@@ -846,7 +829,6 @@ return 1;";
 		if(RunCode(testArrayFill, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			for(int i = 0; i < 10; i++)
 				CHECK_INT("a", i, 5);
@@ -894,7 +876,6 @@ return 1;";
 		if(RunCode(testBuildinFunc, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			double resExp[] = { 1.0, 0.5, -1.0, 0.0, 0.5, 0.0, 2.0, 1.0, -1.0, -2.0,
 								0.0, 1.0, 0,0, 1.0, 0.0, 1.0, 0.0, 3.0 };
@@ -918,7 +899,6 @@ return a**2.0;";
 		if(RunCode(testDoublePow, testTarget[t], testOpti[t], "0.810000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_DOUBLE("a", 0, 0.9);
 
@@ -952,7 +932,6 @@ return clamp(abs(-1.5), 0.0, 1.0);";
 		if(RunCode(testFuncCall4, testTarget[t], testOpti[t], "1.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -977,7 +956,6 @@ return res;";
 		if(RunCode(testFuncCall5, testTarget[t], testOpti[t], "11"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("res", 0, 11);
 
@@ -1004,7 +982,6 @@ return abs(-0.5);";
 		if(RunCode(testFuncCall6, testTarget[t], testOpti[t], "0.500000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -1047,7 +1024,6 @@ return 1;";
 		if(RunCode(testIncDec, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("test", 0, 7);
 			CHECK_INT("test", 1, 7);
@@ -1081,12 +1057,8 @@ return testA(&a);";
 		if(RunCode(testPointers, testTarget[t], testOpti[t], "325"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_INT("a", 0, 65);
-			CHECK_INT("b", 0, 24);
 			CHECK_INT("c", 0, 5);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1119,14 +1091,11 @@ return length(b);";
 		if(RunCode(testPointersCmplx, testTarget[t], testOpti[t], "1.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_FLOAT("a", 0, 12.0f/13.0f);
 			CHECK_FLOAT("a", 1, 4.0f/13.0f);
 			CHECK_FLOAT("a", 2, 3.0f/13.0f);
 			CHECK_FLOAT("a", 3, 1.0f);
-			CHECK_INT("b", 0, 24);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1145,11 +1114,7 @@ return b.x;";
 		if(RunCode(testPointersCmplx2, testTarget[t], testOpti[t], "5.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_FLOAT("a", 0, 5.0);
-			CHECK_INT("b", 0, 24);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1169,11 +1134,7 @@ return testA(b);";
 		if(RunCode(testPointers2, testTarget[t], testOpti[t], "5.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_FLOAT("a", 0, 5.0);
-			CHECK_INT("b", 0, 24);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1197,8 +1158,6 @@ return 1;";
 		if(RunCode(testOptiA, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_INT("a", 0, 12);
 			CHECK_INT("res", 0, 12);
 			CHECK_INT("res", 1, 0);
@@ -1206,7 +1165,6 @@ return 1;";
 			CHECK_INT("res", 3, 12);
 			CHECK_INT("res", 4, 24);
 			CHECK_INT("res", 5, 36);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1238,12 +1196,6 @@ return 1;";
 		if(RunCode(testPointers3, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
-			CHECK_INT("a", 0, 36);
-			CHECK_INT("b", 0, 60);
-			CHECK_INT("c", 0, 64);
-
 			CHECK_INT("arr", 1, 5);
 			CHECK_INT("arr", 3, 55);
 
@@ -1252,7 +1204,6 @@ return 1;";
 
 			CHECK_FLOAT("arrF", 8, 8.0);
 			CHECK_FLOAT("arrF", 9, 12.0);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1278,11 +1229,8 @@ return fib(/*40*/15, &calls);";
 		if(RunCode(testCalls, testTarget[t], testOpti[t], "610"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_INT("calltest", 0, 1219);
 			CHECK_INT("calls", 0, 1219);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1303,11 +1251,8 @@ return nx;";
 		if(RunCode(testNegate, testTarget[t], testOpti[t], "-5.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_DOUBLE("x", 0, 5.0);
 			CHECK_DOUBLE("nx", 0, -5.0);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1383,7 +1328,6 @@ return u;";
 		if(RunCode(testSwitch, testTarget[t], testOpti[t], "12"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("u", 0, 12);
 			CHECK_INT("a", 0, 3);
@@ -1422,7 +1366,6 @@ return 1;";
 		if(RunCode(testClass1, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("one", 0, 3);
 			CHECK_FLOAT("one", 3, 2.0f);
@@ -1448,7 +1391,6 @@ return 3;";
 		if(RunCode(testVarMod, testTarget[t], testOpti[t], "3"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("index", 0, 2);
 			for(int i = 0; i < 10; i++)
@@ -1502,7 +1444,6 @@ return 1;";
 		if(RunCode(testClass2, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_CHAR("c", 0, 66);
 			CHECK_SHORT("u", 0, 15);
@@ -1559,7 +1500,6 @@ return test(n, m); // 56.0";
 		if(RunCode(testCmplx4, testTarget[t], testOpti[t], "56.000000"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			float values[] = { 6, 3, 5, 0, 2, 3, 7, 0, 12, 4.7f, 0, 11, 3, 5, 0, 2.5f, 1.2f, 5, 6, 5.9f, 5.9f, 5.9f, 5.9f, 12, 4.7f, 0, 2 };
 			for(int i = 0; i < 4; i++)
@@ -1619,7 +1559,6 @@ return mat.row1.y;";
 		if(RunCode(testSpeed, testTarget[t], testOpti[t], "1.#INF00"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -1649,7 +1588,6 @@ return *u;";
 		if(RunCode(testAuto, testTarget[t], testOpti[t], "15"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("b", 0, 15);
 			CHECK_DOUBLE("c", 0, 12.0);
@@ -1667,9 +1605,6 @@ return *u;";
 
 			for(int i = 0; i < 10; i++)
 				CHECK_FLOAT("ar", i, 3.0);
-
-			CHECK_INT("u", 0, 24);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1687,7 +1622,6 @@ return 1;";
 		if(RunCode(testCharArr, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_STR("str1", 0, "");
 			CHECK_STR("str2", 0, "a");
@@ -1721,7 +1655,6 @@ return 0;";
 		if(RunCode(testCharArr2, testTarget[t], testOpti[t], "0"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_STR("arr", 0, "hehe");
 			CHECK_STR("arr", 8, "haha");
@@ -1767,19 +1700,16 @@ return sum(u);";
 		if(RunCode(testArrPtr, testTarget[t], testOpti[t], "112"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("u", 1, 5);
 			CHECK_INT("u", 2, 2);
 			CHECK_INT("u", 3, 5);
 			CHECK_INT("u", 4, 100);
 
-			CHECK_INT("k", 0, 24);
 			CHECK_INT("k", 1, 7);
 
 			CHECK_INT("uu", 7, 100);
 
-			CHECK_INT("kk", 0, 64);
 			CHECK_INT("kk", 1, 7);
 
 			CHECK_STR("name", 0, "omfg");
@@ -1811,15 +1741,12 @@ return test(uh, 3);";
 		if(RunCode(testFile, testTarget[t], testOpti[t], "309"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_STR("uh", 0, "ehhhe");
 			CHECK_STR("$carr1", 0, "haha.txt");
 			CHECK_STR("$carr2", 0, "wb");
 			CHECK_STR("text", 0, "Hello file!!!");
 
 			CHECK_INT("k", 0, 5464321);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1877,8 +1804,6 @@ return 1;";
 		if(RunCode(testFile2, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_STR("name", 0, "extern.bin");
 			CHECK_STR("acc", 0, "wb");
 			CHECK_STR("acc2", 0, "rb");
@@ -1899,7 +1824,6 @@ return 1;";
 			CHECK_SHORT("shR2", 0, 1069);
 			CHECK_INT("numR2", 0, 12568);
 			CHECK_LONG("lnumR2", 0, 4586564);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1923,10 +1847,7 @@ return 'n';";
 		if(RunCode(testEscape, testTarget[t], testOpti[t], "110"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_STR("name", 0, "09\n");
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1946,13 +1867,10 @@ return 1;";
 		if(RunCode(testPrint, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_STR("ts", 0, "Hello World!\r\noh\toh\r\n");
 			CHECK_STR("$carr1", 0, "hello");
 			CHECK_STR("$carr2", 0, "world");
 			CHECK_STR("mo", 0, "!!!");
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -1986,12 +1904,9 @@ return b[1];";
 		if(RunCode(testVarGetSet1, testTarget[t], testOpti[t], "4"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			int val[] = { 4, 4, 4, 5, 7, 9, 5, 7, 5, 5, };
 			for(int i = 0; i < 10; i++)
 				CHECK_INT("a", i, val[i]);
-			CHECK_INT("b", 0, 24);
 			CHECK_INT("b", 1, 10);
 
 			CHECK_FLOAT("c", 1, 5.0f);
@@ -1999,7 +1914,6 @@ return b[1];";
 			CHECK_INT("t1", 0, 4);
 			CHECK_INT("t2", 0, 10);
 			CHECK_INT("i", 0, 3);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2024,8 +1938,6 @@ return 1;";
 		if(RunCode(testArrays, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_INT("kl", 0, 10);
 			CHECK_FLOAT("kl2", 0, 5.0f);
 			CHECK_FLOAT("kl2", 1, 3.0f);
@@ -2034,7 +1946,6 @@ return 1;";
 
 			CHECK_INT("kl5", 0, 12);
 			CHECK_STR("kl4", 0, "kjskadjaskd");
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2068,8 +1979,6 @@ return 1;";
 		if(RunCode(testArrays2, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_INT("n", 0, 10);
 			CHECK_INT("n", 1, 12);
 			CHECK_INT("n", 2, 11);
@@ -2088,7 +1997,6 @@ return 1;";
 			CHECK_INT("$carr1", 1, 12);
 			CHECK_INT("$carr1", 2, 14);
 			CHECK_INT("$carr1", 3, 16);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2120,13 +2028,10 @@ return 4;";
 		if(RunCode(testVisibility, testTarget[t], testOpti[t], "4"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_INT("u", 0, 5);
 			CHECK_INT("t1", 0, 9);
 			CHECK_INT("t2", 0, 12);
 			CHECK_INT("i", 0, 4);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2161,11 +2066,8 @@ return r; // 19398";
 		if(RunCode(testLocalFunc1, testTarget[t], testOpti[t], "19398"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_INT("g1", 0, 3);
 			CHECK_INT("r", 0, 19398);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2205,11 +2107,8 @@ return r; // 990579";
 		if(RunCode(testLocalFunc2, testTarget[t], testOpti[t], "990579"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_INT("g1", 0, 3);
 			CHECK_INT("r", 0, 990579);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2232,17 +2131,12 @@ return 1;";
 		if(RunCode(testStrings, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
-
 			CHECK_STR("hm", 0, "World\r\n");
 			CHECK_STR("$carr1", 0, "hello\r\n");
 
-			CHECK_INT("nm", 0, 64);
 			CHECK_INT("nm", 1, 8);
 
-			CHECK_INT("um", 0, 64);
 			CHECK_INT("um", 1, 8);
-
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2271,7 +2165,6 @@ return 1;";
 		if(RunCode(testMultiCtor, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_FLOAT("g", 0, 4.0f);
 			CHECK_FLOAT("g", 1, 6.0f);
@@ -2339,7 +2232,6 @@ return a;";
 		if(RunCode(testHexConst, testTarget[t], testOpti[t], "-559038737"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("a", 0, -559038737);
 			CHECK_INT("b", 0, 51966);
@@ -2429,12 +2321,11 @@ return 1;";
 		if(RunCode(testGetSet, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("s1", 0, 5);
-			CHECK_INT("f1", 0, 24);
+			CHECK_INT("f1", 0, 0);
 			CHECK_INT("d1", 0, 5);
-			CHECK_INT("df1", 0, 24);
+			CHECK_INT("df1", 0, 0);
 
 			CHECK_INT("k", 0, 1);
 			CHECK_INT("k", 1, 4);
@@ -2442,13 +2333,13 @@ return 1;";
 			CHECK_INT("k", 3, 64);
 			CHECK_INT("k", 4, 7);
 
-			CHECK_INT("kr", 0, 56);
-			CHECK_INT("kr", 1, 52);
-			CHECK_INT("kr", 2, 48);
-			CHECK_INT("kr", 3, 44);
-			CHECK_INT("kr", 4, 40);
+			CHECK_INT("kr", 0, 32);
+			CHECK_INT("kr", 1, 28);
+			CHECK_INT("kr", 2, 24);
+			CHECK_INT("kr", 3, 20);
+			CHECK_INT("kr", 4, 16);
 
-			CHECK_INT("krr", 0, 60);
+			CHECK_INT("krr", 0, 36);
 			CHECK_INT("t1", 0, 5);
 
 			CHECK_FLOAT("t2", 0, 6.0f);
@@ -2457,22 +2348,22 @@ return 1;";
 			CHECK_FLOAT("t3", 4, 5.0f);
 			CHECK_FLOAT("t3", 10, 14.0f);
 
-			CHECK_INT("t4", 0, 84);
-			CHECK_INT("t5", 0, 88);
-			CHECK_INT("t6", 0, 104);
-			CHECK_INT("t7", 0, 120);
+			CHECK_INT("t4", 0, 60);
+			CHECK_INT("t5", 0, 64);
+			CHECK_INT("t6", 0, 80);
+			CHECK_INT("t7", 0, 96);
 
-			CHECK_INT("t8", 0, 24);
-			CHECK_INT("t8", 1, 84);
+			CHECK_INT("t8", 0, 0);
+			CHECK_INT("t8", 1, 60);
 
-			CHECK_INT("t9", 0, 24);
-			CHECK_INT("t9", 1, 24);
-			CHECK_INT("t9", 2, 24);
-			CHECK_INT("t9", 3, 24);
-			CHECK_INT("t9", 4, 24);
-			CHECK_INT("t9", 5, 84);
+			CHECK_INT("t9", 0, 0);
+			CHECK_INT("t9", 1, 0);
+			CHECK_INT("t9", 2, 0);
+			CHECK_INT("t9", 3, 0);
+			CHECK_INT("t9", 4, 0);
+			CHECK_INT("t9", 5, 60);
 
-			CHECK_INT("t10", 0, 196);
+			CHECK_INT("t10", 0, 172);
 
 			CHECK_FLOAT("er2", 0, 4.0f);
 			CHECK_FLOAT("er1", 0, 8.0f);
@@ -2534,7 +2425,6 @@ return 1;";
 		if(RunCode(testSizeof, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("t1", 0, 4);
 			CHECK_INT("t2", 0, 16);
@@ -2569,7 +2459,6 @@ return 1;";
 		if(RunCode(testTypeof, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("i", 0, 1);
 			CHECK_INT("m", 0, 0);
@@ -2607,7 +2496,6 @@ return 1;";
 		if(RunCode(testClassMethod, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2678,7 +2566,6 @@ return 1;";
 		if(RunCode(testClosure, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("global", 0, 100);
 			CHECK_INT("fp", 0, 0);
@@ -2692,7 +2579,7 @@ return 1;";
 			CHECK_INT("res2c", 0, 210);
 			CHECK_INT("res2d", 0, 212);
 
-			CHECK_INT("fp3", 0, 84);
+			//CHECK_INT("fp3", 0, 60);
 			CHECK_INT("res3a", 0, 306);
 			CHECK_INT("res3b", 0, 308);
 			CHECK_INT("res3c", 0, 310);
@@ -2746,7 +2633,6 @@ return 1;";
 		if(RunCode(testClosure2, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("n", 0, 5);
 			CHECK_INT("a", 0, 0);
@@ -2787,7 +2673,6 @@ return main();";
 		if(RunCode(testClosure3, testTarget[t], testOpti[t], "8"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -2811,7 +2696,6 @@ return a+b;";
 		if(RunCode(testClosure4, testTarget[t], testOpti[t], "7"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -2840,7 +2724,6 @@ return 1;";
 		if(RunCode(testClosure5, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 
 			CHECK_INT("r1", 0, 2);
 			CHECK_INT("r2", 0, 2);
@@ -2867,7 +2750,6 @@ return 1;";
 		if(RunCode(testPriority, testTarget[t], testOpti[t], "1"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			CHECK_INT("a", 0, 13);
 			CHECK_INT("b", 0, 17);
 			CHECK_INT("c", 0, 14);
@@ -2890,7 +2772,6 @@ return f2();";
 		if(RunCode(testAutoReturn, testTarget[t], testOpti[t], "3"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2927,7 +2808,6 @@ return a + b;";
 		if(RunCode(testDepthBreakContinue, testTarget[t], testOpti[t], "24"))
 		{
 			lastFailed = false;
-			CHECK_DOUBLE("ERROR", 0, 0.0);
 			CHECK_INT("a", 0, 10);
 			CHECK_INT("b", 0, 14);
 			if(!lastFailed)
