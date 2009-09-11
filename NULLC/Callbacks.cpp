@@ -856,7 +856,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		}
 
 		// If we try to access external variable from local function
-		if(currDefinedFunc.size() != 0 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+		if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) &&
+			i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 		{
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			// Add variable name to the list of function external variables
@@ -878,7 +879,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			currTypes.pop_back();
 		}else{
 			// If variable is in global scope, use absolute address
-			bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || currDefinedFunc.size() == 0;
+			bool absAddress = currDefinedFunc.size() == 0 || ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[currDefinedFunc[0]->vTopSize].varStackSize));
 
 			int varAddress = varInfo[i]->pos;
 			if(!absAddress)
@@ -969,7 +970,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	currTypes.push_back(varInfo[i]->varType);
 
 	// If variable is in global scope, use absolute address
-	bool absAddress = ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[1].varStackSize)) || currDefinedFunc.size() == 0;
+	bool absAddress = currDefinedFunc.size() == 0 || ((varInfoTop.size() > 1) && (varInfo[i]->pos < varInfoTop[currDefinedFunc[0]->vTopSize].varStackSize));
 
 	// If current type is set to NULL, it means that current type is auto
 	// Is such case, type is retrieved from last AST node
@@ -1865,7 +1866,7 @@ void CallbackInitialize()
 	funcDefList.clear();
 
 	varDefined = 0;
-	varTop = 24;
+	varTop = 0;
 	newType = NULL;
 
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
