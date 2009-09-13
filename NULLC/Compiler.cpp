@@ -206,7 +206,26 @@ Compiler::Compiler()
 Compiler::~Compiler()
 {
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
+	{
 		typeInfo[i]->fullName = NULL;
+		if(typeInfo[i]->name && i >= basicTypes && i < buildInTypes)
+		{
+			delete[] typeInfo[i]->name;
+			typeInfo[i]->name = NULL;
+			TypeInfo::MemberVariable	*currV = typeInfo[i]->firstVariable;
+			while(currV)
+			{
+				delete[] currV->name;
+				currV = currV->next;
+			}
+			TypeInfo::MemberFunction	*currF = typeInfo[i]->firstFunction;
+			while(currF)
+			{
+				delete[] currF->func->name;
+				currF = currF->next;
+			}
+		}
+	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
 		if(funcInfo[i]->address == -1 && funcInfo[i]->funcPtr != NULL)
