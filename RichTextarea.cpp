@@ -1247,9 +1247,11 @@ void OnDestroy()
 	delete[] areaText;
 	delete[] areaTextEx;
 	delete AreaLine::pool;
+	delete history;
 	areaText = NULL;
 	areaTextEx = NULL;
 	AreaLine::pool = NULL;
+	history = NULL;
 }
 
 void OnCharacter(char ch)

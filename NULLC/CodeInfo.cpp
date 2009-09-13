@@ -20,7 +20,7 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 		return type->refType;
 
 	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, type->refLevel + 1, 0, 1, type, TypeInfo::TYPE_INT);
+	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, type->refLevel + 1, 0, 1, type, TypeInfo::TYPE_INT);
 	newInfo->size = 4;
 
 	type->refType = newInfo;
@@ -86,13 +86,13 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	unsigned int targetArrLevel = type->arrLevel+1;
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
-		if(type == typeInfo[i]->subType && type->nameHash == typeInfo[i]->nameHash && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (unsigned int)arrSize)
+		if(type == typeInfo[i]->subType && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (unsigned int)arrSize)
 		{
 			return typeInfo[i];
 		}
 	}
 	// Создадим новый тип
-	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), type->name, 0, type->arrLevel + 1, arrSize, type, TypeInfo::TYPE_COMPLEX);
+	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, 0, type->arrLevel + 1, arrSize, type, TypeInfo::TYPE_COMPLEX);
 
 	if(unFixed)
 	{
