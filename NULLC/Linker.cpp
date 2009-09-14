@@ -118,7 +118,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			funcRemap.push_back(exFunctions.size());
 			exFunctions.push_back(*fInfo);
 
-			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retSize > 8)
+			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retType == ExternFuncInfo::RETURN_UNKNOWN)
 			{
 				strcpy(linkError, "ERROR: user functions with return type size larger than 8 bytes are not supported");
 				return false;

@@ -417,61 +417,17 @@ bool ExecutorX86::TranslateToNative()
 		{
 			EMIT_COMMENT("CALLSTD");
 
-			if(exFunctions[cmd.argument].funcPtr == NULL)
+			unsigned int bytesToPop = exFunctions[cmd.argument].bytesToPop;
+			EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)exFunctions[cmd.argument].funcPtr);
+			EMIT_OP_REG(o_call, rECX);
+			EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
+			if(exFunctions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
 			{
-				EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-				if(exFunctions[cmd.argument].nameHash == GetStringHash("cos"))
-				{
-					EMIT_OP(o_fsincos);
-					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-					EMIT_OP_FPUREG(o_fstp, rST0);
-				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("sin")){
-					EMIT_OP(o_fsincos);
-					EMIT_OP_FPUREG(o_fstp, rST0);
-					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("tan")){
-					EMIT_OP(o_fptan);
-					EMIT_OP_FPUREG(o_fstp, rST0);
-					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("ctg")){
-					EMIT_OP(o_fptan);
-					EMIT_OP(o_fdivrp);
-					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("ceil")){
-					EMIT_OP_REG(o_push, rEAX);
-					EMIT_OP_RPTR(o_fstcw, sWORD, rESP, 0);
-					EMIT_OP_RPTR_NUM(o_mov, sWORD, rESP, 2, 0x1BBF);
-					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 2);
-					EMIT_OP(o_frndint);
-					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 0);
-					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 4);
-					EMIT_OP_REG(o_pop, rEAX);
-				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("floor")){
-					EMIT_OP_REG(o_push, rEAX);
-					EMIT_OP_RPTR(o_fstcw, sWORD, rESP, 0);
-					EMIT_OP_RPTR_NUM(o_mov, sWORD, rESP, 2, 0x17BF);
-					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 2);
-					EMIT_OP(o_frndint);
-					EMIT_OP_RPTR(o_fldcw, sWORD, rESP, 0);
-					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 4);
-					EMIT_OP_REG(o_pop, rEAX);
-				}else if(exFunctions[cmd.argument].nameHash == GetStringHash("sqrt")){
-					EMIT_OP(o_fsqrt);
-					EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-					EMIT_OP_FPUREG(o_fstp, rST0);
-				}else{
-					strcpy(execError, "cmdCallStd with unknown standard function");
-					return false;
-				}
-			}else{
-				unsigned int bytesToPop = exFunctions[cmd.argument].bytesToPop;
-				EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)exFunctions[cmd.argument].funcPtr);
-				EMIT_OP_REG(o_call, rECX);
-				EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
-				if(exFunctions[cmd.argument].retSize != 0)
-				{
-					EMIT_OP_REG(o_push, rEAX);
-				}
+				EMIT_OP_REG(o_push, rEAX);
+			}else if(exFunctions[cmd.argument].retType == ExternFuncInfo::RETURN_DOUBLE){
+				EMIT_OP_REG(o_push, rEAX);
+				EMIT_OP_REG(o_push, rEAX);
+				EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 			}
 		}else{
 			cgFuncs[cmd.cmd](cmd);

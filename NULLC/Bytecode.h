@@ -32,7 +32,14 @@ struct ExternFuncInfo
 	void			*funcPtr;
 	int				isVisible;
 
-	unsigned int	retSize;	// size of the return type
+	enum ReturnType
+	{
+		RETURN_UNKNOWN,
+		RETURN_VOID,
+		RETURN_INT,
+		RETURN_DOUBLE
+	};
+	unsigned int	retType;	// one of the ReturnType enumeration values
 	unsigned int	funcType;	// index to the type array
 
 	unsigned int startInByteCode;

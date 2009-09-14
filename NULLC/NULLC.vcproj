@@ -310,6 +310,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\StdLib.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\StdLib.h"
+				>
+			</File>
+			<File
 				RelativePath=".\SyntaxTree.cpp"
 				>
 			</File>
