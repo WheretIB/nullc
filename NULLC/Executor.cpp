@@ -432,40 +432,8 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdCallStd:
-		{
-			unsigned int valind = cmd.argument;
-			if(exFunctions[valind].funcPtr == NULL)
-			{
-				double val = *(double*)(genStackPtr);
-
-				if(exFunctions[valind].nameHash == GetStringHash("cos"))
-					val = cos(val);
-				else if(exFunctions[valind].nameHash == GetStringHash("sin"))
-					val = sin(val);
-				else if(exFunctions[valind].nameHash == GetStringHash("tan"))
-					val = tan(val);
-				else if(exFunctions[valind].nameHash == GetStringHash("ctg"))
-					val = 1.0/tan(val);
-				else if(exFunctions[valind].nameHash == GetStringHash("ceil"))
-					val = ceil(val);
-				else if(exFunctions[valind].nameHash == GetStringHash("floor"))
-					val = floor(val);
-				else if(exFunctions[valind].nameHash == GetStringHash("sqrt"))
-					val = sqrt(val);
-				else{
-					cmdStreamEnd = NULL;
-					printf(execError, "ERROR: Build-in function not found");
-					break;
-				}
-
-				if(fabs(val) < 1e-10)
-					val = 0.0;
-				*(double*)(genStackPtr) = val;
-			}else{
-				if(!RunExternalFunction(valind))
-					cmdStreamEnd = NULL;
-			}
-		}
+			if(!RunExternalFunction(cmd.argument))
+				cmdStreamEnd = NULL;
 			break;
 
 		case cmdReturn:
@@ -935,18 +903,17 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	genStackPtr += bytesToPop/4;
 
 	void* fPtr = exFunctions[funcID].funcPtr;
-	unsigned int fRes;
-	__asm{
-		mov eax, fPtr;
-		call eax;
-		add esp, bytesToPop;
-		mov fRes, eax;
-	}
-	if(exFunctions[funcID].retSize != 0)
+	if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_VOID)
 	{
+		((void (*)())fPtr)();
+	}else if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_INT){
 		genStackPtr--;
-		*genStackPtr = fRes;
+		*genStackPtr = ((int (*)())fPtr)();
+	}else if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_DOUBLE){
+		genStackPtr -= 2;
+		*(double*)genStackPtr = ((double (*)())fPtr)();
 	}
+	__asm add esp, bytesToPop;
 	return true;
 }
 #elif defined(__CELLOS_LV2__)

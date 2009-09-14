@@ -10,6 +10,8 @@ using namespace CodeInfo;
 #include "Parser.h"
 #include "Callbacks.h"
 
+#include "StdLib.h"
+
 #include <time.h>
 
 jmp_buf CodeInfo::errorHandler;
@@ -135,68 +137,23 @@ Compiler::Compiler()
 
 	AddType("class file{ int id; }");
 
-	// Add functions
-	FunctionInfo	*fInfo;
-	fInfo = new FunctionInfo("cos");
-	fInfo->address = -1;
-	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
-	fInfo->retType = typeDouble;
-	fInfo->vTopSize = 1;
-	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);
+	AddExternalFunction((void (*)())nullcCos, "double cos(double deg);");
+	AddExternalFunction((void (*)())nullcSin, "double sin(double deg);");
+	AddExternalFunction((void (*)())nullcTan, "double tan(double deg);");
+	AddExternalFunction((void (*)())nullcCosh, "double cosh(double deg);");
+	AddExternalFunction((void (*)())nullcSinh, "double sinh(double deg);");
+	AddExternalFunction((void (*)())nullcTanh, "double tanh(double deg);");
+	AddExternalFunction((void (*)())nullcAcos, "double acos(double deg);");
+	AddExternalFunction((void (*)())nullcAsin, "double asin(double deg);");
+	AddExternalFunction((void (*)())nullcAtan, "double atan(double deg);");
+	AddExternalFunction((void (*)())nullcCtg, "double ctg(double deg);");
 
-	fInfo = new FunctionInfo("sin");
-	fInfo->address = -1;
-	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
-	fInfo->retType = typeDouble;
-	fInfo->vTopSize = 1;
-	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);
+	AddExternalFunction((void (*)())nullcCeil, "double ceil(double num);");
+	AddExternalFunction((void (*)())nullcFloor, "double floor(double num);");
+	AddExternalFunction((void (*)())nullcExp, "double exp(double num);");
+	AddExternalFunction((void (*)())nullcLog, "double log(double num);");
 
-	fInfo = new FunctionInfo("tan");
-	fInfo->address = -1;
-	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
-	fInfo->retType = typeDouble;
-	fInfo->vTopSize = 1;
-	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);
-
-	fInfo = new FunctionInfo("ctg");
-	fInfo->address = -1;
-	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
-	fInfo->retType = typeDouble;
-	fInfo->vTopSize = 1;
-	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);
-
-	fInfo = new FunctionInfo("ceil");
-	fInfo->address = -1;
-	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
-	fInfo->retType = typeDouble;
-	fInfo->vTopSize = 1;
-	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);
-
-	fInfo = new FunctionInfo("floor");
-	fInfo->address = -1;
-	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
-	fInfo->retType = typeDouble;
-	fInfo->vTopSize = 1;
-	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);
-
-	fInfo = new FunctionInfo("sqrt");
-	fInfo->address = -1;
-	fInfo->AddParameter(new VariableInfo(InplaceStr("deg"), GetStringHash("deg"), 0, typeDouble));
-	fInfo->retType = typeDouble;
-	fInfo->vTopSize = 1;
-	fInfo->funcType = GetFunctionType(fInfo);
-	funcInfo.push_back(fInfo);
-
-	buildInTypes = (int)typeInfo.size();
-	TypeInfo::SaveBuildinTop();
-	VariableInfo::SaveBuildinTop();
-	buildInFuncs = (int)funcInfo.size();
+	AddExternalFunction((void (*)())nullcSqrt, "double sqrt(double num);");
 
 #ifdef NULLC_LOG_FILES
 	compileLog = NULL;
@@ -645,7 +602,17 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		funcInfo.nameHash = refFunc->nameHash;
 
-		funcInfo.retSize = refFunc->retType->size;
+		funcInfo.retType = ExternFuncInfo::RETURN_UNKNOWN;
+		if(funcInfo.funcPtr)
+		{
+			if(refFunc->retType->type == TypeInfo::TYPE_VOID)
+				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
+			else if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
+				funcInfo.retType = ExternFuncInfo::RETURN_DOUBLE;
+			else if(refFunc->retType->type != TypeInfo::TYPE_COMPLEX || refFunc->retType->size == 4)
+				funcInfo.retType = ExternFuncInfo::RETURN_INT;
+		}
+
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 
 		CreateExternalInfo(funcInfo, *refFunc);
