@@ -373,7 +373,7 @@ bool ParseAddVariable(Lexeme** str)
 		if(!ParseVaribleSet(str))
 			ThrowError("ERROR: expression not found after '='", (*str)->pos);
 		CALLBACK(AddDefineVariableNode((*str)->pos, InplaceStr(varName->pos, varName->length)));
-		CALLBACK(AddPopNode(NULL, NULL));
+		CALLBACK(AddPopNode((*str)->pos));
 		CALLBACK(PopType());
 	}else{
 		CALLBACK(AddVariableReserveNode((*str)->pos));
@@ -384,10 +384,8 @@ bool ParseAddVariable(Lexeme** str)
 
 bool ParseVariableDefineSub(Lexeme** str)
 {
-	const char *old = (*str)->pos;
 	if(!ParseAddVariable(str))
 		return false;
-	CALLBACK(SetStringToLastNode(old, (*str)->pos));
 
 	while(ParseLexem(str, lex_comma))
 	{
@@ -437,7 +435,6 @@ bool ParseVariableDefine(Lexeme** str)
 
 bool ParseIfExpr(Lexeme** str)
 {
-	const char *pos = (*str)->pos;
 	if(!ParseLexem(str, lex_if))
 		return false;
 
@@ -448,7 +445,6 @@ bool ParseIfExpr(Lexeme** str)
 		ThrowError("ERROR: condition not found in 'if' statement", (*str)->pos);
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError("ERROR: closing ')' not found after 'if' condition", (*str)->pos);
-	CALLBACK(SaveStringIndex(pos, (*str)->pos));
 	if(!ParseExpression(str))
 		ThrowError("ERROR: expression not found after 'if'", (*str)->pos);
 
@@ -460,13 +456,11 @@ bool ParseIfExpr(Lexeme** str)
 	}else{
 		CALLBACK(AddIfNode(condPos));
 	}
-	CALLBACK(SetStringFromIndex());
 	return true;
 }
 
 bool  ParseForExpr(Lexeme** str)
 {
-	const char *pos = (*str)->pos;
 	if(!ParseLexem(str, lex_for))
 		return false;
 	
@@ -487,7 +481,7 @@ bool  ParseForExpr(Lexeme** str)
 			if(!ParseVaribleSet(str))
 				CALLBACK(AddVoidNode());
 			else
-				CALLBACK(AddPopNode(NULL, NULL));
+				CALLBACK(AddPopNode((*str)->pos));
 		}
 	}
 
@@ -511,18 +505,15 @@ bool  ParseForExpr(Lexeme** str)
 		if(!ParseVaribleSet(str))
 			CALLBACK(AddVoidNode());
 		else
-			CALLBACK(AddPopNode(NULL, NULL));
+			CALLBACK(AddPopNode((*str)->pos));
 	}
 
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError("ERROR: ')' not found after 'for' statement", (*str)->pos);
 
-	CALLBACK(SaveStringIndex(pos, (*str)->pos));
-
 	if(!ParseExpression(str))
 		ThrowError("ERROR: body not found after 'for' header", (*str)->pos);
 	CALLBACK(AddForNode(condPos));
-	CALLBACK(SetStringFromIndex());
 	return true;
 
 }
@@ -627,7 +618,7 @@ bool  ParseReturnExpr(Lexeme** str)
 
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError("ERROR: return must be followed by ';'", (*str)->pos);
-	CALLBACK(AddReturnNode(start, (*str)->pos));
+	CALLBACK(AddReturnNode(start));
 	return true;
 }
 
@@ -1021,9 +1012,10 @@ bool ParseExpression(Lexeme** str)
 		return true;
 	if(ParseVaribleSet(str))
 	{
+		const char *pos = (*str)->pos;
 		if(!ParseLexem(str, lex_semicolon))
 			ThrowError("ERROR: ';' not found after expression", (*str)->pos);
-		CALLBACK(AddPopNode(NULL, NULL));
+		CALLBACK(AddPopNode(pos));
 		return true;
 	}
 	return false;

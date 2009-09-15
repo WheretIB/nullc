@@ -193,7 +193,7 @@ ChunkedStackPool<4092>	NodeZeroOP::nodePool;
 NodeZeroOP::NodeZeroOP()
 {
 	typeInfo = typeVoid;
-	strBegin = strEnd = NULL;
+	sourcePos = NULL;
 	prev = next = NULL;
 	codeSize = 0;
 	nodeType = typeNodeZeroOp;
@@ -201,7 +201,7 @@ NodeZeroOP::NodeZeroOP()
 NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 {
 	typeInfo = tinfo;
-	strBegin = strEnd = NULL;
+	sourcePos = NULL;
 	prev = next = NULL;
 	codeSize = 0;
 	nodeType = typeNodeZeroOp;
@@ -219,11 +219,9 @@ void NodeZeroOP::LogToStream(FILE *fGraph)
 	fprintf(fGraph, "%s ZeroOp\r\n", typeInfo->GetFullTypeName());
 }
 
-void NodeZeroOP::SetCodeInfo(const char* start, const char* end)
+void NodeZeroOP::SetCodeInfo(const char* newSourcePos)
 {
-	assert(end >= start);
-	strBegin = start;
-	strEnd = end;
+	sourcePos = newSourcePos;
 }
 //////////////////////////////////////////////////////////////////////////
 // Node that have one child node
@@ -370,8 +368,8 @@ void NodePopOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Child node computes value
 	first->Compile();
@@ -460,8 +458,8 @@ void NodeReturnOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Compute value that we're going to return
 	first->Compile();
@@ -584,7 +582,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	TypeInfo	**paramType = funcType->paramType;
 	if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
 		onlyStackTypes = false;
-	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && *paramType == typeFloat)
+	if(funcInfo && funcInfo->address == -1 && *paramType == typeFloat)
 		codeSize += 1;
 
 	// Take nodes for all parameters
@@ -593,7 +591,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 		paramType++;
 		if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
 			onlyStackTypes = false;
-		if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL && *paramType == typeFloat)
+		if(funcInfo && funcInfo->address == -1 && *paramType == typeFloat)
 			codeSize += 1;
 		paramTail->next = TakeLastNode();
 		paramTail->next->prev = paramTail;
@@ -650,7 +648,7 @@ void NodeFuncCall::Compile()
 
 	// Find parameter values
 	bool onlyStackTypes = true;
-	if(funcInfo && funcInfo->address == -1 && funcInfo->funcPtr != NULL)
+	if(funcInfo && funcInfo->address == -1)
 	{
 		if(funcType->paramCount > 0)
 		{
@@ -811,8 +809,8 @@ void NodeGetAddress::ShiftToMember(TypeInfo::MemberVariable *member)
 void NodeGetAddress::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	if(absAddress)
 		cmdList.push_back(VMCmd(cmdPushImmt, varAddress));
@@ -944,8 +942,8 @@ NodeVariableSet::~NodeVariableSet()
 void NodeVariableSet::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	asmStackType asmST = typeInfo->stackType;
 	asmDataType asmDT = typeInfo->dataType;
@@ -1080,8 +1078,8 @@ NodeVariableModify::~NodeVariableModify()
 void NodeVariableModify::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	asmStackType asmSTfirst = typeInfo->stackType;
 	asmDataType asmDT = typeInfo->dataType;
@@ -1186,8 +1184,8 @@ NodeArrayIndex::~NodeArrayIndex()
 void NodeArrayIndex::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Get address of the first array element
 	first->Compile();
@@ -1270,8 +1268,8 @@ NodeDereference::~NodeDereference()
 void NodeDereference::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	asmDataType asmDT = typeInfo->dataType;
 	
@@ -1321,8 +1319,8 @@ NodeShiftAddress::~NodeShiftAddress()
 void NodeShiftAddress::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Get variable address
 	first->Compile();
@@ -1429,8 +1427,8 @@ void NodePreOrPostOp::SetOptimised(bool doOptimisation)
 void NodePreOrPostOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	asmStackType asmST = typeInfo->stackType;
 	asmDataType asmDT = typeInfo->dataType;
@@ -1491,8 +1489,8 @@ NodeFunctionAddress::~NodeFunctionAddress()
 void NodeFunctionAddress::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	unsigned int ID = GetFuncIndexByPtr(funcInfo);
 	cmdList.push_back(VMCmd(cmdFuncAddr, ID));
@@ -1642,8 +1640,8 @@ void NodeIfElseExpr::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Child node structure: if(first) second; else third;
 	// Or, for conditional operator: first ? second : third;
@@ -1726,8 +1724,8 @@ void NodeForExpr::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
 
-	if(strBegin && strEnd)
-		cmdInfoList.AddDescription(cmdList.size(), strBegin, strEnd);
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Child node structure: for(first, second, third) fourth;
 
@@ -1911,6 +1909,8 @@ NodeBreakOp::~NodeBreakOp()
 void NodeBreakOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Break the loop
 	cmdList.push_back(VMCmd(cmdJmp, breakAddr[breakAddr.size()-breakDepth]));
@@ -1940,6 +1940,8 @@ NodeContinueOp::~NodeContinueOp()
 void NodeContinueOp::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Continue the loop
 	cmdList.push_back(VMCmd(cmdJmp, continueAddr[continueAddr.size()-continueDepth]));

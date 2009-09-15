@@ -308,9 +308,8 @@ void AddStringNode(const char* s, const char* e)
 }
 
 // Function that creates node that removes value on top of the stack
-void AddPopNode(const char* s, const char* e)
+void AddPopNode(const char* pos)
 {
-	nodeList.back()->SetCodeInfo(s, e);
 	// If the last node is a number, remove it completely
 	if(nodeList.back()->nodeType == typeNodeNumber)
 	{
@@ -323,6 +322,7 @@ void AddPopNode(const char* s, const char* e)
 		// Otherwise, just create node
 		nodeList.push_back(new NodePopOp());
 	}
+	nodeList.back()->SetCodeInfo(pos);
 }
 
 // Function that creates unary operation node that changes sign of value
@@ -592,7 +592,7 @@ void AddBinaryCommandNode(CmdID id)
 		ThrowLastError();
 }
 
-void AddReturnNode(const char* pos, const char* end)
+void AddReturnNode(const char* pos)
 {
 	int localReturn = currDefinedFunc.size() != 0;
 
@@ -624,7 +624,7 @@ void AddReturnNode(const char* pos, const char* end)
 		expectedType = realRetType;
 	}
 	nodeList.push_back(new NodeReturnOp(localReturn, expectedType));
-	nodeList.back()->SetCodeInfo(pos, end);
+	nodeList.back()->SetCodeInfo(pos);
 }
 
 void AddBreakNode(const char* pos)
@@ -643,6 +643,7 @@ void AddBreakNode(const char* pos)
 		ThrowError("ERROR: break level is greater that loop depth", pos);
 
 	nodeList.push_back(new NodeBreakOp(breakDepth));
+	nodeList.back()->SetCodeInfo(pos);
 }
 
 void AddContinueNode(const char* pos)
@@ -661,6 +662,7 @@ void AddContinueNode(const char* pos)
 		ThrowError("ERROR: continue level is greater that loop depth", pos);
 
 	nodeList.push_back(new NodeContinueOp(continueDepth));
+	nodeList.back()->SetCodeInfo(pos);
 }
 
 void SelectAutoType()
@@ -807,8 +809,6 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 
 		if(funcInfo[fID]->funcPtr != 0)
 			ThrowError("ERROR: Can't get a pointer to an extern function", pos);
-		if(funcInfo[fID]->address == -1 && funcInfo[fID]->funcPtr == NULL)
-			ThrowError("ERROR: Can't get a pointer to a build-in function", pos);
 		if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 		{
 			char	*contextName = AllocateString(funcInfo[fID]->nameLength + 6);
@@ -1237,7 +1237,7 @@ void AddInplaceArray(const char* pos)
 	AddVariable(pos, InplaceStr(arrName, length));
 
 	AddDefineVariableNode(pos, InplaceStr(arrName, length));
-	AddPopNode(pos, pos);
+	AddPopNode(pos);
 	currTypes.pop_back();
 
 	AddGetAddressNode(pos, InplaceStr(arrName, length));
@@ -1443,7 +1443,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 		AddVariable(pos, InplaceStr(hiddenHame, length));
 
 		AddDefineVariableNode(pos, InplaceStr(hiddenHame, length));
-		AddPopNode(pos, pos);
+		AddPopNode(pos);
 		currTypes.pop_back();
 
 		varDefined = saveVarDefined;
@@ -1686,6 +1686,7 @@ void AddIfNode(const char* pos)
 	if(nodeList[nodeList.size()-2]->typeInfo == typeVoid)
 		ThrowError("ERROR: condition type cannot be void", pos);
 	nodeList.push_back(new NodeIfElseExpr(false));
+	nodeList.back()->SetCodeInfo(pos);
 }
 void AddIfElseNode(const char* pos)
 {
@@ -1825,34 +1826,6 @@ void TypeFinish()
 void AddUnfixedArraySize()
 {
 	nodeList.push_back(new NodeNumber(1, typeVoid));
-}
-
-// This function map source code lines to instructions
-void SetStringToLastNode(const char* pos, const char* end)
-{
-	nodeList.back()->SetCodeInfo(pos, end);
-}
-struct StringIndex
-{
-	StringIndex(){}
-	StringIndex(const char *s, const char *e)
-	{
-		indexS = s;
-		indexE = e;
-	}
-	const char *indexS, *indexE;
-};
-
-FastVector<StringIndex> sIndexes(16);
-void SaveStringIndex(const char *s, const char *e)
-{
-	assert(e > s);
-	sIndexes.push_back(StringIndex(s, e));
-}
-void SetStringFromIndex()
-{
-	nodeList.back()->SetCodeInfo(sIndexes.back().indexS, sIndexes.back().indexE);
-	sIndexes.pop_back();
 }
 
 void CallbackInitialize()
