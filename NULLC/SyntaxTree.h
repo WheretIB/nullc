@@ -48,7 +48,7 @@ public:
 	// Вывод в лог параметров узла
 	virtual void LogToStream(FILE *fGraph);
 	// Установка строки кода, с которым связана ячейка
-	virtual void SetCodeInfo(const char* start, const char* end);
+	virtual void SetCodeInfo(const char* newSourcePos);
 
 	void*		operator new(unsigned int size)
 	{
@@ -63,7 +63,7 @@ public:
 	static	ChunkedStackPool<4092>	nodePool;
 	static void	DeleteNodes(){ nodePool.Clear(); }
 protected:
-	const char		*strBegin, *strEnd;
+	const char		*sourcePos;
 public:
 	TypeInfo		*typeInfo;
 	unsigned int	codeSize;

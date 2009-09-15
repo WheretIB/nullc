@@ -185,7 +185,7 @@ Compiler::~Compiler()
 	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
 	{
-		if(funcInfo[i]->address == -1 && funcInfo[i]->funcPtr != NULL)
+		if(funcInfo[i]->address == -1)
 			delete[] funcInfo[i]->name;
 	}
 
@@ -362,6 +362,9 @@ bool Compiler::Compile(const char *str)
 	}
 	if(nodeList.back())
 		nodeList.back()->Compile();
+
+	cmdInfoList.FindLineNumbers();
+
 	tem = clock()-t;
 #ifdef NULLC_LOG_FILES
 	fprintf(fTime, "Compile time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
@@ -425,10 +428,23 @@ void Compiler::SaveListing(const char *fileName)
 #ifdef NULLC_LOG_FILES
 	FILE *compiledAsm = fopen(fileName, "wb");
 	char instBuf[128];
+	unsigned int line = 0, lastLine = ~0u;
+	const char *lastSourcePos = CompilerError::codeStart;
 	for(unsigned int i = 0; i < CodeInfo::cmdList.size(); i++)
 	{
+		while((line < cmdInfoList.sourceInfo.size() - 1) && (i >= cmdInfoList.sourceInfo[line + 1].byteCodePos))
+			line++;
+		if(line != lastLine)
+		{
+			lastLine = line;
+			if(cmdInfoList.sourceInfo[line].sourceEnd > lastSourcePos)
+			{
+				fprintf(compiledAsm, "%.*s\r\n", cmdInfoList.sourceInfo[line].sourceEnd - lastSourcePos, lastSourcePos);
+				lastSourcePos = cmdInfoList.sourceInfo[line].sourceEnd;
+			}
+		}
 		CodeInfo::cmdList[i].Decode(instBuf);
-		fprintf(compiledAsm, "%d %s\r\n", i, instBuf);
+		fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
 	}
 	fclose(compiledAsm);
 #else

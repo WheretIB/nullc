@@ -34,7 +34,7 @@ void AddStringNode(const char* s, const char* e);
 
 // Функция для создания узла, который уберёт значение со стека переменных
 // Узел заберёт к себе последний узел в списке.
-void AddPopNode(const char* s, const char* e);
+void AddPopNode(const char* pos);
 
 // Функция для создания узла, которые поменяет знак значения в стеке
 // Узел заберёт к себе последний узел в списке.
@@ -47,10 +47,8 @@ void AddBitNotNode(const char* pos);
 
 void AddBinaryCommandNode(CmdID id);
 
-void AddReturnNode(const char* pos, const char* end);
-
+void AddReturnNode(const char* pos);
 void AddBreakNode(const char* pos);
-
 void AddContinueNode(const char* pos);
 
 void SelectAutoType();
@@ -128,10 +126,5 @@ void TypeAddMember(const char* pos, const char* varName);
 void TypeFinish();
 
 void AddUnfixedArraySize();
-
-// Эти функции вызываются, чтобы привязать строку кода к узлу, который его компилирует
-void SetStringToLastNode(const char* pos, const char* end);
-void SaveStringIndex(const char *s, const char *e);
-void SetStringFromIndex();
 
 void CallbackDeinitialize();

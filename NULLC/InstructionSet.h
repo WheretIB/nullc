@@ -465,18 +465,21 @@ class SourceInfo
 	struct SourceLine
 	{
 		SourceLine(){}
-		SourceLine(unsigned int position, unsigned int beginPos, unsigned int endPos)
+		SourceLine(unsigned int position, const char *pos)
 		{
 			byteCodePos = position;
-			beginOffset = beginPos;
-			endOffset = endPos;
+			sourcePos = pos;
 		}
 
 		unsigned int	byteCodePos;	// Позиция в байткоде, к которой относится строка
-		unsigned int	beginOffset, endOffset;
+		const char		*sourcePos, *sourceEnd;
+		unsigned int	sourceLine;
 	};
 public:
-	SourceInfo(){ sourceStart = NULL; }
+	SourceInfo()
+	{
+		sourceStart = NULL;
+	}
 
 	void	SetSourceStart(const char *start)
 	{
@@ -486,23 +489,25 @@ public:
 	{
 		sourceInfo.clear();
 	}
-	void		AddDescription(unsigned int position, const char* start, const char* end)
+	void		AddDescription(unsigned int instructionNum, const char* pos)
 	{
-		assert(sourceStart != NULL);
-		sourceInfo.push_back(SourceLine(position, (unsigned int)(start - sourceStart), (unsigned int)(end - sourceStart)));
+		sourceInfo.push_back(SourceLine(instructionNum, pos));
 	}
-	SourceLine*	GetDescription(unsigned int position)
+	void		FindLineNumbers()
 	{
-		for(int s = 0, e = (int)sourceInfo.size(); s != e; s++)
+		for(unsigned int i = 0; i < sourceInfo.size(); i++)
 		{
-			if(sourceInfo[s].byteCodePos == position)
-				return &sourceInfo[s];
-			if(sourceInfo[s].byteCodePos > position)
-				return NULL;
+			SourceLine &curr = sourceInfo[i];
+			curr.sourceEnd = curr.sourcePos;
+			while(curr.sourcePos != sourceStart && *(curr.sourcePos-1) != '\n')
+				curr.sourcePos--;
+			while(*(curr.sourceEnd+1) != '\n' && *(curr.sourceEnd+1) != '\0')
+				curr.sourceEnd++;
+			if(*(curr.sourceEnd+1) != '\0')
+				curr.sourceEnd++;
 		}
-		return NULL;
 	}
-private:
+
 	const char *sourceStart;
 	FastVector<SourceLine>	sourceInfo;	// Список строк к коду
 };

@@ -413,8 +413,7 @@ bool ExecutorX86::TranslateToNative()
 			}else{
 				EMIT_OP_NUM(o_push, (int)(long long)exFunctions[cmd.argument].funcPtr);
 			}
-		}else if(cmd.cmd == cmdCallStd)
-		{
+		}else if(cmd.cmd == cmdCallStd){
 			EMIT_COMMENT("CALLSTD");
 
 			unsigned int bytesToPop = exFunctions[cmd.argument].bytesToPop;
