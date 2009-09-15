@@ -311,7 +311,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 
 	if(!ParseCode(str))
 		CALLBACK(AddVoidNode());
-	CALLBACK(FunctionEnd((*str)->pos, functionName));
+	CALLBACK(FunctionEnd(start->pos, functionName));
 	
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError("ERROR: '}' not found after function body", (*str)->pos);

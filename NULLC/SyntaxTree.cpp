@@ -523,6 +523,9 @@ void NodeFuncDef::Compile()
 		return;
 	unsigned int startCmdSize = cmdList.size();
 
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
 	funcInfo->address = cmdList.size();
 
 	// Save previous stack frame, and expand current by shift bytes
@@ -1653,29 +1656,29 @@ void NodeIfElseExpr::Compile()
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 	// If false, jump to 'else' block, or out of statement, if there is no 'else'
 	cmdList.push_back(VMCmd(cmdJmpZ, 0));	// Jump address will be fixed later on
-	VMCmd *jmpOnFalse = &cmdList.back(), *jmpToEnd = NULL;
+	unsigned int jmpOnFalse = cmdList.size()-1;
 
 	// Compile block for condition == true
 	second->Compile();
 	if(typeInfo != typeVoid)
 		ConvertFirstForSecond(second->typeInfo->stackType, third->typeInfo->stackType);
 
-	jmpOnFalse->argument = cmdList.size();	// Fixup jump address
+	cmdList[jmpOnFalse].argument = cmdList.size();	// Fixup jump address
 	// If 'else' block is present, compile it
 	if(third)
 	{
 		// Put jump to exit statement at the end of main block
 		cmdList.push_back(VMCmd(cmdJmp, 0));	// Jump address will be fixed later on
-		jmpToEnd = &cmdList.back();
+		unsigned int jmpToEnd = cmdList.size()-1;
 
-		jmpOnFalse->argument = cmdList.size(); // Fixup jump address
+		cmdList[jmpOnFalse].argument = cmdList.size();	// Fixup jump address
 
 		// Compile block for condition == false
 		third->Compile();
 		if(typeInfo != typeVoid)
 			ConvertFirstForSecond(third->typeInfo->stackType, second->typeInfo->stackType);
 
-		jmpToEnd->argument = cmdList.size(); // Fixup jump address
+		cmdList[jmpToEnd].argument = cmdList.size();	// Fixup jump address
 	}
 
 	assert((cmdList.size()-startCmdSize) == codeSize);

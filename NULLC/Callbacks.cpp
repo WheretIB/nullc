@@ -1399,6 +1399,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
 
 	nodeList.push_back(new NodeFuncDef(funcInfo[i], varFormerTop-varTop));
+	nodeList.back()->SetCodeInfo(pos);
 	funcDefList.push_back(nodeList.back());
 
 	if(!currDefinedFunc.back()->retType)
