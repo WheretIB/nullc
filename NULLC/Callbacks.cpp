@@ -1026,6 +1026,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->nodeType == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
 		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
+		funcDefNode->GetFuncInfo()->visible = false;
 		currTypes.pop_back();
 		unifyTwo = true;
 		if(!currTypes.back())
@@ -1111,6 +1112,7 @@ void AddSetVariableNode(const char* pos)
 	{
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->nodeType == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
 		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
+		funcDefNode->GetFuncInfo()->visible = false;
 		currTypes.pop_back();
 		unifyTwo = true;
 		Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
@@ -1608,6 +1610,7 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			NodeFuncDef*	funcDefNode = (NodeFuncDef*)(paramNodes[index]->nodeType == typeNodeFuncDef ? paramNodes[index] : static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode());
 			AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
+			funcDefNode->GetFuncInfo()->visible = false;
 			currTypes.pop_back();
 
 			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->typeInfo);
