@@ -2599,29 +2599,29 @@ const char	*testClosure2 =
 int test(int n, typeof(f) ptr){ return ptr(n); }\r\n\
 \r\n\
 int n = 5;\r\n\
-auto a = int clA(int b){ return b + 5; };\r\n\
-auto b = int clB(int b){ return b + n; };\r\n\
+auto a = int lambda(int b){ return b + 5; };\r\n\
+auto b = int lambda(int b){ return b + n; };\r\n\
 \r\n\
-int res1 = test(3, int cl(int b){ return b+n; });\r\n\
+int res1 = test(3, int lambda(int b){ return b+n; });\r\n\
 \r\n\
 int resA, resB, resC, resD, resE, resF;\r\n\
 {\r\n\
   int d = 7;\r\n\
   typeof(f) a0, a1;\r\n\
-  a0 = int cl22(int b){ return b + 2; };\r\n\
-  a1 = int cl23(int b){ return b + d; };\r\n\
+  a0 = int lambda(int b){ return b + 2; };\r\n\
+  a1 = int lambda(int b){ return b + d; };\r\n\
 \r\n\
   resA = a0(3);\r\n\
   resB = a1(3);\r\n\
 \r\n\
-  auto b0 = int cl24(int b){ return b + 2; };\r\n\
-  auto b1 = int cl25(int b){ return b + d; };\r\n\
+  auto b0 = int lambda(int b){ return b + 2; };\r\n\
+  auto b1 = int lambda(int b){ return b + d; };\r\n\
 \r\n\
   resC = b0(4);\r\n\
   resD = b1(4);\r\n\
 \r\n\
-  resE = test(5, int cl26(int b){ return b + 2; });\r\n\
-  resF = test(5, int cl27(int b){ return b + d; });\r\n\
+  resE = test(5, int lambda(int b){ return b + 2; });\r\n\
+  resF = test(5, int lambda(int b){ return b + d; });\r\n\
 }\r\n\
 int c=0;\r\n\
 \r\n\
@@ -2661,7 +2661,7 @@ const char	*testClosure3 =
   int test(int n, typeof(f) ptr){ return ptr(n); }\r\n\
  \r\n\
   int n = 5;\r\n\
-  int res1 = test(3, int cl(int b){ return b+n; });\r\n\
+  int res1 = test(3, int lambda(int b){ return b+n; });\r\n\
   return res1;\r\n\
 }\r\n\
 \r\n\

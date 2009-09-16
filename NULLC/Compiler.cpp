@@ -441,6 +441,8 @@ void Compiler::SaveListing(const char *fileName)
 			{
 				fprintf(compiledAsm, "%.*s\r\n", cmdInfoList.sourceInfo[line].sourceEnd - lastSourcePos, lastSourcePos);
 				lastSourcePos = cmdInfoList.sourceInfo[line].sourceEnd;
+			}else{
+				fprintf(compiledAsm, "%.*s\r\n", cmdInfoList.sourceInfo[line].sourceEnd - cmdInfoList.sourceInfo[line].sourcePos, cmdInfoList.sourceInfo[line].sourcePos);
 			}
 		}
 		CodeInfo::cmdList[i].Decode(instBuf);
