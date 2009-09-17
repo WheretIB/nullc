@@ -195,6 +195,7 @@ namespace ColorerGrammar
 				) >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
 
 			classdef	=
+				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
 				strP("class")[ColorRWord] >>
 				(varname[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
 				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText][BlockBegin] >>
@@ -210,7 +211,7 @@ namespace ColorerGrammar
 						(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
 					)
 				) >>
-				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd][AddType];
+				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd];
 
 			funccall	=	varname[ColorFunc] >> 
 				strP("(")[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >>
@@ -238,7 +239,7 @@ namespace ColorerGrammar
 				)[OnError];
 			funcdef		=
 				typeExpr >>
-				(varname - typenameP(varname))[ColorFunc][SetTempStr] >>
+				varname[ColorFunc][SetTempStr] >>
 				chP('(')[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
 				(
 					(*(symb | digitP))[ColorErr] >>
@@ -275,6 +276,7 @@ namespace ColorerGrammar
 				((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: expression not found after '='")])) | epsP);
 			vardefsub	=	addvarp >> *(chP(',')[ColorText] >> vardefsub);
 			vardef		=
+				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
 				typeExpr >>
 				constExpr >>
 				vardefsub;
@@ -434,15 +436,9 @@ namespace ColorerGrammar
 		(void)s; (void)e;	// C4100
 	}
 
-	std::string newType;
 	void StartType(char const* s, char const* e)
 	{
-		newType = std::string(s, e);
-	}
-	void AddType(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-		typeInfo.push_back(newType);
+		typeInfo.push_back(std::string(s, e));
 	}
 
 	void OnError(char const* s, char const* e)
