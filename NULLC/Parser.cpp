@@ -287,17 +287,27 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if(!ParseSelectType(str))
 		return false;
 
-	if((*str)->type != lex_string || (*str)[1].type != lex_oparen)
+	if(((*str)->type != lex_string || (*str)[1].type != lex_oparen) && (start->type != lex_auto || (*str)->type != lex_oparen))
 	{
 		*str = start;
 		return false;
 	}
-	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-		ThrowError("ERROR: function name length is limited to 2048 symbols", (*str)->pos);
-	char	*functionName = (char*)stringPool.Allocate((*str)->length+1);
-	memcpy(functionName, (*str)->pos, (*str)->length);
-	functionName[(*str)->length] = 0;
-	(*str) += 2;
+	char	*functionName = NULL;
+	if((*str)->type == lex_string)
+	{
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError("ERROR: function name length is limited to 2048 symbols", (*str)->pos);
+		functionName = (char*)stringPool.Allocate((*str)->length+1);
+		memcpy(functionName, (*str)->pos, (*str)->length);
+		functionName[(*str)->length] = 0;
+		(*str)++;
+	}else{
+		static int unnamedFuncCount = 0;
+		functionName = (char*)stringPool.Allocate(16);
+		sprintf(functionName, "$func%d", unnamedFuncCount);
+		unnamedFuncCount++;
+	}
+	(*str)++;
 
 	CALLBACK(FunctionAdd((*str)->pos, functionName));
 
