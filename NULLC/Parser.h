@@ -18,7 +18,6 @@ bool ParseFunctionCall(Lexeme** str);
 
 bool ParseFunctionVariables(Lexeme** str);
 bool ParseFunctionDefinition(Lexeme** str);
-bool ParseFunctionPrototype(Lexeme** str);
 
 bool ParseAlignment(Lexeme** str);
 

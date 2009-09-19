@@ -238,9 +238,14 @@ namespace ColorerGrammar
 					)
 				)[OnError];
 			funcdef		=
-				typeExpr >>
-				varname[ColorFunc][SetTempStr] >>
-				chP('(')[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
+				(
+					(strP("auto")[ColorRWord] >> chP('(')[ColorBold]) |
+					(typeExpr >> (
+						varname[ColorFunc] |
+						(strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("and") | strP("or") | strP("xor") |
+						chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^'))[ColorText]
+					)[SetTempStr]) >> chP('(')[ColorBold]
+				)[PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
 				(
 					(*(symb | digitP))[ColorErr] >>
 					funcvars

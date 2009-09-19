@@ -66,6 +66,8 @@ namespace CodeInfo
 
 	extern jmp_buf	errorHandler;
 
+	extern bool		buildinCompilation;
+
 	//////////////////////////////////////////////////////////////////////////
 	// Функция возвращает тип - указателя на исходный
 	TypeInfo* GetReferenceType(TypeInfo* type);

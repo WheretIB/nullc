@@ -6,6 +6,10 @@ using namespace CodeInfo;
 
 ChunkedStackPool<4092>	stringPool;
 
+// indexed by [lexeme - lex_add]
+char opPrecedence[] = { 2, 2, 1, 1, 1, 0, 4, 4, 3, 4, 4, 3, 5, 5, 6, 8, 7, 9, 11, 10 /* + - * / % ** < <= << > >= >> == != & | ^ and or xor */ };
+CmdID opHandler[] = { cmdAdd, cmdSub, cmdMul, cmdDiv, cmdMod, cmdPow, cmdLess, cmdLEqual, cmdShl, cmdGreater, cmdGEqual, cmdShr, cmdEqual, cmdNEqual, cmdBitAnd, cmdBitOr, cmdBitXor, cmdLogAnd, cmdLogOr, cmdLogXor };
+
 char*	AllocateString(unsigned int size)
 {
 	return (char*)stringPool.Allocate(size);
@@ -287,7 +291,8 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if(!ParseSelectType(str))
 		return false;
 
-	if(((*str)->type != lex_string || (*str)[1].type != lex_oparen) && (start->type != lex_auto || (*str)->type != lex_oparen))
+	Lexeme *name = *str;
+	if((((*str)->type != lex_string && (*str)->type < lex_add && (*str)->type > lex_logxor) || (*str)[1].type != lex_oparen) && (start->type != lex_auto || (*str)->type != lex_oparen))
 	{
 		*str = start;
 		return false;
@@ -301,6 +306,12 @@ bool ParseFunctionDefinition(Lexeme** str)
 		memcpy(functionName, (*str)->pos, (*str)->length);
 		functionName[(*str)->length] = 0;
 		(*str)++;
+	}else if((*str)->type >= lex_add && (*str)->type <= lex_logxor){
+		functionName = (char*)stringPool.Allocate(3);
+		functionName[0] = '$';
+		functionName[1] = (char)(opHandler[name->type - lex_add]);
+		functionName[2] = 0;
+		(*str)++;
 	}else{
 		static int unnamedFuncCount = 0;
 		functionName = (char*)stringPool.Allocate(16);
@@ -312,47 +323,31 @@ bool ParseFunctionDefinition(Lexeme** str)
 	CALLBACK(FunctionAdd((*str)->pos, functionName));
 
 	ParseFunctionVariables(str);
-	CALLBACK(FunctionStart((*str)->pos));
 
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError("ERROR: ')' not found after function variable list", (*str)->pos);
+
+	if(ParseLexem(str, lex_semicolon))
+	{
+		if(name->type >= lex_add && name->type <= lex_logxor)
+			CALLBACK(FunctionToOperator(start->pos, opHandler[name->type - lex_add]));
+		return true;
+	}
+
+	CALLBACK(FunctionStart((*str)->pos));
 	if(!ParseLexem(str, lex_ofigure))
 		ThrowError("ERROR: '{' not found after function header", (*str)->pos);
 
 	if(!ParseCode(str))
 		CALLBACK(AddVoidNode());
-	CALLBACK(FunctionEnd(start->pos, functionName));
-	
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError("ERROR: '}' not found after function body", (*str)->pos);
-	return true;
-}
 
-bool ParseFunctionPrototype(Lexeme** str)
-{
-	if(!ParseSelectType(str))
-		ThrowError("ERROR: function prototype must begin with type name", (*str)->pos);
+	if(name->type >= lex_add && name->type <= lex_logxor)
+		CALLBACK(FunctionToOperator(start->pos, opHandler[name->type - lex_add]));
 
-	if((*str)->type != lex_string)
-		ThrowError("ERROR: function not found after type", (*str)->pos);
-	if((*str)[1].type != lex_oparen)
-		ThrowError("ERROR: '(' not found after function name", (*str)->pos);
+	CALLBACK(FunctionEnd(start->pos, functionName));
 
-	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-		ThrowError("ERROR: function name length is limited to 2048 symbols", (*str)->pos);
-	char	*functionName = (char*)stringPool.Allocate((*str)->length+1);
-	memcpy(functionName, (*str)->pos, (*str)->length);
-	functionName[(*str)->length] = 0;
-	(*str) += 2;
-
-	CALLBACK(FunctionAdd((*str)->pos, functionName));
-
-	ParseFunctionVariables(str);
-
-	if(!ParseLexem(str, lex_cparen))
-		ThrowError("ERROR: ')' not found after function variable list", (*str)->pos);
-	if(!ParseLexem(str, lex_semicolon))
-		ThrowError("ERROR: ';' not found after function header", (*str)->pos);
 	return true;
 }
 
@@ -869,9 +864,6 @@ bool ParseTerminal(Lexeme** str)
 	return false;
 }
 
-// indexed by [lexeme - lex_add]
-char opPrecedence[] = { 2, 2, 1, 1, 1, 0, 4, 4, 3, 4, 4, 3, 5, 5, 6, 8, 7, 9, 11, 10 /* + - * / % ** < <= << > >= >> == != & | ^ and or xor */ };
-CmdID opHandler[] = { cmdAdd, cmdSub, cmdMul, cmdDiv, cmdMod, cmdPow, cmdLess, cmdLEqual, cmdShl, cmdGreater, cmdGEqual, cmdShr, cmdEqual, cmdNEqual, cmdBitAnd, cmdBitOr, cmdBitXor, cmdLogAnd, cmdLogOr, cmdLogXor };
 // operator stack
 FastVector<LexemeType>	opStack(64);
 
