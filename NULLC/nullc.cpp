@@ -26,6 +26,7 @@ unsigned int				CodeInfo::globalSize = 0;
 unsigned int				CodeInfo::varTop = 0;
 FastVector<NodeZeroOP*>		CodeInfo::funcDefList(32);
 const char*					CodeInfo::lastKnownStartPos = NULL;
+bool						CodeInfo::buildinCompilation = false;
 
 Compiler*	compiler;
 Linker*		linker;

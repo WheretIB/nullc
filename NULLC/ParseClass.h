@@ -40,6 +40,7 @@ public:
 		name = typeName;
 		nameHash = name ? GetStringHash(name) : ~0u;
 
+		memset(hasOperator, 0, cmdLogXor - cmdAdd + 1);
 		size = 0;
 
 		type = cat;
@@ -210,12 +211,18 @@ public:
 	struct MemberFunction
 	{
 		FunctionInfo	*func;
-		NodeZeroOP		*defNode;
 
 		MemberFunction	*next;
 	};
 	MemberVariable	*firstVariable, *lastVariable;
 	MemberFunction	*firstFunction, *lastFunction;
+
+	enum OperatorType
+	{
+		USER_OPERATOR = 1,
+		BUILDIN_OPERATOR = 2,
+	};
+	char			hasOperator[cmdLogXor - cmdAdd + 1];
 
 	FunctionType*	CreateFunctionType(TypeInfo *retType, unsigned int paramCount)
 	{

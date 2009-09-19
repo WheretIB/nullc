@@ -175,12 +175,6 @@ Compiler::~Compiler()
 				delete[] currV->name;
 				currV = currV->next;
 			}
-			TypeInfo::MemberFunction	*currF = typeInfo[i]->firstFunction;
-			while(currF)
-			{
-				delete[] currF->func->name;
-				currF = currF->next;
-			}
 		}
 	}
 	for(unsigned int i = 0; i < funcInfo.size(); i++)
@@ -206,8 +200,12 @@ void Compiler::ClearState()
 	varInfo.clear();
 
 	for(unsigned int i = 0; i < buildInTypes; i++)
+	{
 		if(typeInfo[i]->refType && typeInfo[i]->refType->typeIndex >= buildInTypes)
 			typeInfo[i]->refType = NULL;
+		for(unsigned int n = 0; n < cmdLogXor - cmdAdd + 1; n++)
+			typeInfo[i]->hasOperator[n] &= ~TypeInfo::USER_OPERATOR;
+	}
 
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
 		typeInfo[i]->fullName = NULL;
@@ -234,6 +232,7 @@ void Compiler::ClearState()
 bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 {
 	ClearState();
+	CodeInfo::buildinCompilation = true;
 
 	bool res;
 
@@ -242,7 +241,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	if(!setjmp(errorHandler))
 	{
 		Lexeme *start = lexer.GetStreamStart();
-		res = ParseFunctionPrototype(&start);
+		res = ParseFunctionDefinition(&start);
 	}else{
 		lastError = CompilerError("Parsing failed", NULL);
 		return false;
@@ -254,11 +253,10 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	funcInfo.back()->address = -1;
 	funcInfo.back()->funcPtr = (void*)ptr;
 
-	buildInFuncs++;
-
 	funcInfo.back()->funcType = CodeInfo::GetFunctionType(funcInfo.back());
 
-	buildInTypes = (int)typeInfo.size();
+	buildInFuncs = funcInfo.size();
+	buildInTypes = typeInfo.size();
 	TypeInfo::SaveBuildinTop();
 	VariableInfo::SaveBuildinTop();
 
@@ -268,6 +266,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 bool Compiler::AddType(const char* typedecl)
 {
 	ClearState();
+	CodeInfo::buildinCompilation = true;
 
 	bool res;
 
@@ -310,6 +309,7 @@ bool Compiler::AddType(const char* typedecl)
 bool Compiler::Compile(const char *str)
 {
 	ClearState();
+	CodeInfo::buildinCompilation = false;
 
 	cmdInfoList.Clear();
 	cmdList.clear();

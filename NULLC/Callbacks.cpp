@@ -587,7 +587,23 @@ void AddBinaryCommandNode(CmdID id)
 	}
 
 	// Optimizations failed, perform operation in run-time
-	nodeList.push_back(new NodeBinaryOp(id));
+	if(nodeList[nodeList.size()-2]->typeInfo->hasOperator[id - cmdAdd])
+	{
+		TypeInfo *base = nodeList[nodeList.size()-2]->typeInfo;
+		TypeInfo::MemberFunction *curr = base->firstFunction;
+		while(curr)
+		{
+			if(curr->func->name[0] == '$' && curr->func->name[1] == id && curr->func->lastParam->varType == nodeList[nodeList.size()-1]->typeInfo)
+				break;
+			curr = curr->next;
+		}
+		if(curr)
+			AddFunctionCallNode(lastKnownStartPos, curr->func->name, 2);
+		else
+			nodeList.push_back(new NodeBinaryOp(id));
+	}else{
+		nodeList.push_back(new NodeBinaryOp(id));
+	}
 	if(!lastError.IsEmpty())
 		ThrowLastError();
 }
@@ -1317,12 +1333,14 @@ void FunctionAdd(const char* pos, const char* funcName)
 		sprintf(funcNameCopy, "%s::%s", newType->name, funcName);
 	}
 	funcInfo.push_back(new FunctionInfo(funcNameCopy));
-	funcInfo.back()->vTopSize = (unsigned int)varInfoTop.size();
-	funcInfo.back()->retType = currType;
+	FunctionInfo &lastFunc = *funcInfo.back();
+
+	lastFunc.vTopSize = (unsigned int)varInfoTop.size();
+	lastFunc.retType = currType;
 	if(newType)
-		funcInfo.back()->type = FunctionInfo::THISCALL;
+		lastFunc.type = FunctionInfo::THISCALL;
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
-		funcInfo.back()->type = FunctionInfo::LOCAL;
+		lastFunc.type = FunctionInfo::LOCAL;
 	currDefinedFunc.push_back(funcInfo.back());
 
 	if(varDefined && varInfo.size() != 0 && varInfo.back()->varType == NULL)
@@ -1334,15 +1352,19 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	if(!currType)
 		ThrowError("ERROR: function parameter cannot be an auto type", pos);
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
-	funcInfo.back()->AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst));
-	funcInfo.back()->allParamSize += currType->size;
+	FunctionInfo &lastFunc = *funcInfo.back();
+
+	lastFunc.AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst));
+	lastFunc.allParamSize += currType->size;
 }
 void FunctionStart(const char* pos)
 {
+	FunctionInfo &lastFunc = *funcInfo.back();
+
 	BeginBlock();
 	cycleDepth.push_back(0);
 
-	for(VariableInfo *curr = funcInfo.back()->lastParam; curr; curr = curr->prev)
+	for(VariableInfo *curr = lastFunc.lastParam; curr; curr = curr->prev)
 	{
 		currValConst = curr->isConst;
 		currType = curr->varType;
@@ -1351,14 +1373,14 @@ void FunctionStart(const char* pos)
 		varDefined = false;
 	}
 
-	char	*hiddenHame = AllocateString(funcInfo.back()->nameLength + 8);
-	int length = sprintf(hiddenHame, "$%s_ext", funcInfo.back()->name);
+	char	*hiddenHame = AllocateString(lastFunc.nameLength + 8);
+	int length = sprintf(hiddenHame, "$%s_ext", lastFunc.name);
 	currType = GetReferenceType(typeInt);
 	currAlign = 1;
 	AddVariable(pos, InplaceStr(hiddenHame, length));
 	varDefined = false;
 
-	funcInfo.back()->funcType = funcInfo.back()->retType ? GetFunctionType(funcInfo.back()) : NULL;
+	lastFunc.funcType = lastFunc.retType ? GetFunctionType(funcInfo.back()) : NULL;
 }
 
 void FunctionEnd(const char* pos, const char* funcName)
@@ -1458,8 +1480,20 @@ void FunctionEnd(const char* pos, const char* funcName)
 	{
 		newType->AddMemberFunction();
 		newType->lastFunction->func = &lastFunc;
-		newType->lastFunction->defNode = nodeList.back();
 	}
+}
+
+void FunctionToOperator(const char* pos, CmdID cmd)
+{
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
+	if(lastFunc.paramCount != 2)
+		ThrowError("ERROR: binary operator definition or overload must accept exactly two arguments", pos);
+	if(lastFunc.type != FunctionInfo::NORMAL)
+		ThrowError("ERROR: binary operator definition or overload must be placed in global scope", pos);
+
+	lastFunc.firstParam->varType->hasOperator[cmd - cmdAdd] = (char)(CodeInfo::buildinCompilation ? TypeInfo::BUILDIN_OPERATOR : TypeInfo::USER_OPERATOR);
+	lastFunc.firstParam->varType->AddMemberFunction();
+	lastFunc.firstParam->varType->lastFunction->func = &lastFunc;
 }
 
 FastVector<NodeZeroOP*> paramNodes(32);
