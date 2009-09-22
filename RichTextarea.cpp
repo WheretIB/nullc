@@ -457,11 +457,14 @@ const char* GetAreaText()
 		// Append line contents to the buffer
 		for(unsigned int i = 0; i < curr->length; i++, currChar++)
 			*currChar = curr->data[i].ch;
-		// Append line ending
-		*currChar++ = '\r';
-		*currChar++ = '\n';
 		// Move to the next line
 		curr = curr->next;
+		if(curr)
+		{
+			// Append line ending
+			*currChar++ = '\r';
+			*currChar++ = '\n';
+		}
 	}
 	// Terminate buffer at the end
 	*currChar = 0;

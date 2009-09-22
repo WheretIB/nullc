@@ -338,7 +338,7 @@ void AddNegateNode(const char* pos)
 			Rd = new NodeNumber(-static_cast<NodeNumber*>(nodeList.back())->GetDouble(), aType);
 		}else if(aType == typeLong){
 			Rd = new NodeNumber(-static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
-		}else if(aType == typeInt){
+		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
 			Rd = new NodeNumber(-static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
 			sprintf(callbackError, "addNegNode() ERROR: unknown type %s", aType->name);
@@ -364,7 +364,7 @@ void AddLogNotNode(const char* pos)
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeLong){
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
-		}else if(aType == typeInt){
+		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
 			sprintf(callbackError, "addLogNotNode() ERROR: unknown type %s", aType->name);
@@ -390,7 +390,7 @@ void AddBitNotNode(const char* pos)
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeLong){
 			Rd = new NodeNumber(~static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
-		}else if(aType == typeInt){
+		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
 			Rd = new NodeNumber(~static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
 			sprintf(callbackError, "addBitNotNode() ERROR: unknown type %s", aType->name);
@@ -536,9 +536,9 @@ void AddBinaryCommandNode(CmdID id)
 
 		bool swapOper = false;
 		// Swap operands, to reduce number of combinations
-		if(((aType == typeFloat || aType == typeLong || aType == typeInt) && bType == typeDouble) ||
-			((aType == typeLong || aType == typeInt) && bType == typeFloat) ||
-			(aType == typeInt && bType == typeLong))
+		if(((aType == typeFloat || aType == typeLong || aType == typeInt || aType == typeShort || aType == typeChar) && bType == typeDouble) ||
+			((aType == typeLong || aType == typeInt || aType == typeShort || aType == typeChar) && bType == typeFloat) ||
+			((aType == typeInt || aType == typeShort || aType == typeChar) && bType == typeLong))
 		{
 			Swap(Ad, Bd);
 			swapOper = true;
@@ -549,7 +549,7 @@ void AddBinaryCommandNode(CmdID id)
 			Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), Bd->GetDouble(), swapOper), typeDouble);
 		else if(Ad->typeInfo == typeLong)
 			Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), Bd->GetLong(), swapOper), typeLong);
-		else if(Ad->typeInfo == typeInt)
+		else if(Ad->typeInfo == typeInt || Ad->typeInfo == typeShort || Ad->typeInfo == typeChar)
 			Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger(), swapOper), typeInt);
 		nodeList.push_back(Rd);
 		return;
@@ -586,24 +586,12 @@ void AddBinaryCommandNode(CmdID id)
 		}
 	}
 
+	const char *opNames[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "and", "or", "xor" };
 	// Optimizations failed, perform operation in run-time
-	if(nodeList[nodeList.size()-2]->typeInfo->hasOperator[id - cmdAdd])
-	{
-		TypeInfo *base = nodeList[nodeList.size()-2]->typeInfo;
-		TypeInfo::MemberFunction *curr = base->firstFunction;
-		while(curr)
-		{
-			if(curr->func->name[0] == '$' && curr->func->name[1] == id && curr->func->lastParam->varType == nodeList[nodeList.size()-1]->typeInfo)
-				break;
-			curr = curr->next;
-		}
-		if(curr)
-			AddFunctionCallNode(lastKnownStartPos, curr->func->name, 2);
-		else
-			nodeList.push_back(new NodeBinaryOp(id));
-	}else{
+	if(nodeList[nodeList.size()-2]->typeInfo->type == TypeInfo::TYPE_COMPLEX || nodeList[nodeList.size()-1]->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+		AddFunctionCallNode(lastKnownStartPos, opNames[id - cmdAdd], 2);
+	else
 		nodeList.push_back(new NodeBinaryOp(id));
-	}
 	if(!lastError.IsEmpty())
 		ThrowLastError();
 }

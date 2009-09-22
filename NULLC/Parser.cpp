@@ -298,19 +298,13 @@ bool ParseFunctionDefinition(Lexeme** str)
 		return false;
 	}
 	char	*functionName = NULL;
-	if((*str)->type == lex_string)
+	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor))
 	{
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError("ERROR: function name length is limited to 2048 symbols", (*str)->pos);
 		functionName = (char*)stringPool.Allocate((*str)->length+1);
 		memcpy(functionName, (*str)->pos, (*str)->length);
 		functionName[(*str)->length] = 0;
-		(*str)++;
-	}else if((*str)->type >= lex_add && (*str)->type <= lex_logxor){
-		functionName = (char*)stringPool.Allocate(3);
-		functionName[0] = '$';
-		functionName[1] = (char)(opHandler[name->type - lex_add]);
-		functionName[2] = 0;
 		(*str)++;
 	}else{
 		static int unnamedFuncCount = 0;
