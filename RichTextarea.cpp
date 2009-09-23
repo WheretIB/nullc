@@ -876,6 +876,10 @@ void	CursorToClient(unsigned int xCursor, unsigned int yCursor, int &xPos, int &
 // Position X coordinate is clamped when clampX is set
 AreaLine* ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int &cursorY, bool clampX)
 {
+	if(yPos > 32768)
+		yPos = 0;
+	if(xPos > 32768)
+		xPos = 0;
 	// Find vertical cursor position
 	cursorY = yPos / charHeight + shiftCharY - (yPos < 0 ? 1 : 0);
 
@@ -1758,6 +1762,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		}
 		break;
 	case WM_LBUTTONDOWN:
+		// Capture mouse
+		SetCapture(areaWnd);
 		// Remove cursor
 		AreaCursorUpdate(NULL, 0, NULL, 0);
 		// Reset I-bar tick count
@@ -1837,6 +1843,9 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			RECT invalid = { 0, (newStartY - shiftCharY) * charHeight, areaWidth, (newEndY - shiftCharY + 1) * charHeight };
 			InvalidateRect(areaWnd, &invalid, false);
 		}
+		break;
+	case WM_LBUTTONUP:
+		ReleaseCapture();
 		break;
 	case WM_MOUSEWHEEL:
 		// Mouse wheel scroll text vertically
