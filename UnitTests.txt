@@ -31,7 +31,7 @@ return 1;
 
 //////////////////////////////////////////////////////////////////////////
 // Complex type test (array)
-float3 fa[10];
+float3[10] fa;
 for(int i = 0; i < 10; i++)
 {
 	fa[i].x = i*8;
@@ -60,13 +60,13 @@ return 1;
 
 //////////////////////////////////////////////////////////////////////////
 int a=5;
-double d[10];
+double[10] d;
 for(int i = 0; i < a; i++)
 d[i] = i*2 + i-2;
 return d[5];
 
 //////////////////////////////////////////////////////////////////////////
-double d[10];
+double[10] d;
 return d[5];
 
 //////////////////////////////////////////////////////////////////////////
@@ -97,7 +97,7 @@ return fib(4);
 
 //////////////////////////////////////////////////////////////////////////
 // Array indirection and optimisation test
-int res[5]=1;
+int[5] res=1;
 res[1] = 13;
 res[2] = 3;
 res[res[2]] = 4;
@@ -107,10 +107,10 @@ return 5;
 //////////////////////////////////////////////////////////////////////////
 // Some test ^_^
 int a=0;
-int b[512]=0;
+int[512] b=0;
 while(a < 256)
 {
-  char c[16];
+  char[16] c;
   char ref d = &c[0];
   a = ++a + b[a];
 }
@@ -118,7 +118,7 @@ return 0;
 
 //////////////////////////////////////////////////////////////////////////
 // Integer tests
-int res[27];
+int[27] res;
 int a = 14, b = 3, c = 0;
 res[0] = a+b; // 17
 res[1] = a-b; // 11
@@ -152,7 +152,7 @@ return a >> b;
 
 //////////////////////////////////////////////////////////////////////////
 // Floating point tests
-double res[15];
+double[15] res;
 double a = 14.0, b = 3.0;
 res[0] = a+b;
 res[1] = a-b;
@@ -173,7 +173,7 @@ return a+b;
 
 //////////////////////////////////////////////////////////////////////////
 // Long tests
-long res[24];
+long[24] res;
 long a = 4494967296l, b = 594967296l, c = 3;
 res[0] = a+b; // 5089934592
 res[1] = a-b; // 3900000000
@@ -233,8 +233,9 @@ return 1;
 // Old all-in-one test
 double test(float x, float y){ /*teste*/return x**2*y; }
 int a=5;
-float b, c[3]=14**2-134;
-double d[10];
+float b;
+float[3] c=14**2-134;
+double[10] d;
 for(int i = 0; i< 10; i++)
 d[i] = test(i*2, i-2);
 double n=1;
@@ -275,12 +276,12 @@ return 1;
 
 //////////////////////////////////////////////////////////////////////////
 // Array fill test
-int a[10]=5;
+int[10] a=5;
 return 1;
 
 //////////////////////////////////////////////////////////////////////////
 // Build-In function checks
-double res[20];
+double[20] res;
 res[0] = cos(0); // 1.0
 res[1] = cos(pi/3.0); // 0.5
 res[2] = cos(pi); // -1.0
@@ -361,7 +362,7 @@ b = a; // should fail
 return 1;
 
 //////////////////////////////////////////////////////////////////////////
-int test[5]=0;
+int[5] test=0;
 for(int i = 0; i < 5; i++)
 {
   test[i] = 1;
@@ -372,7 +373,7 @@ for(int i = 0; i < 5; i++)
 return 1;
 
 //////////////////////////////////////////////////////////////////////////
-int test[2]=0;
+int[2] test=0;
 for(int i = 0; i < 2; i++)
   test[i] = test[i]++;
 return 1;
@@ -431,7 +432,7 @@ return 1;
 
 //////////////////////////////////////////////////////////////////////////
 int a = 12;
-int res[6];
+int[6] res;
 res[0] = a + 0;
 res[1] = a * 0;
 res[2] = a * 1;
@@ -441,8 +442,8 @@ res[5] = a*3*1;
 return 1;
 
 //////////////////////////////////////////////////////////////////////////
-int arr[5];
-float4 arrF[4];
+int[5] arr;
+float4[4] arrF;
 int ref a = &arr[3];
 *a = 55;
 float4 ref b = &arrF[1];
@@ -494,14 +495,14 @@ return test();
 
 //////////////////////////////////////////////////////////////////////////
 // Array out of bound check (negative)
-int arr[10] = 5;
+int[10] arr = 5;
 int badID1 = cos(125)*4;
 arr[badID1] = 4;
 return badID1;
 
 //////////////////////////////////////////////////////////////////////////
 // Array out of bound check (overflow)
-int arr[10] = 5;
+int[10] arr = 5;
 int badID1 = sqrt(256);
 arr[badID1] = 4;
 return badID1;
@@ -550,7 +551,7 @@ return 1;
 // Variable modify test
 int slow(int how){ for(int i = 0; i < how; i++){ how = how-1; } return 2; }
 int index = 2;
-int arr[10] = 4;
+int[10] arr = 4;
 arr[slow(/*40000000*/1000)] += 16; // 330 ms total. target - 140ms
 return 3;
 
@@ -568,9 +569,9 @@ class Two
   int d;
 }
 Two two, twonext;
-float3[2] fa[4];
-int[2] ia[4];
-double da[8];
+float3[2][4] fa;
+int[2][4] ia;
+double[8] da;
 char c = 66;
 short u = 15;
 long l = 45645l;
@@ -811,7 +812,7 @@ return cos(n);
 
 
 //////////////////////////////////////////////////////////////////////////
-int a[10]=4;
+int[10] a=4;
 int[] b = a;
 float4 c;
 c.y = 5.0f;
@@ -942,7 +943,7 @@ return r; // 990579
 
 //////////////////////////////////////////////////////////////////////////
 int test(char[] text){ Print(text); return 2; }
-int arr[10];
+int[10] arr;
 auto hm = "World\r\n";
 char[] nm = hm;
 char[] um = nm;
@@ -1147,7 +1148,7 @@ res3d = proxy(2, 6, fp3);
 
 int type(int[3] x){ return 0; }
 
-int foobar(typeof(type) f) { int x[3]; x = {5, 6, 7}; return f(x); }
+int foobar(typeof(type) f) { int[3] x; x = {5, 6, 7}; return f(x); }
 int result;
 {
   int local1 = 5, local2 = 2;
@@ -1212,3 +1213,89 @@ int main()
 return main();
 
 //////////////////////////////////////////////////////////////////////////
+
+int progress_slider_position = 0;
+
+int clip(int value, int left, int right)
+{
+	return value < left ? left : value > right ? right : value;
+}
+
+void draw_progress_text(int progress_x, int progress_y, int clip_left, int clip_right)
+{
+	// 60x8
+	auto pattern =
+	{
+		{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+		{0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+		{0,1,0,0,1,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,1,1,0,0,1,1,0,0},
+		{0,1,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,0,1,0,1,1,0,0,1,1,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0},
+		{0,1,0,0,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0},
+		{0,1,0,0,1,0,1,0,0,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0,0,0},
+		{0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,0,1,0,1,1,0,0,0,0,1,1,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,1,1,0},
+		{0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0}
+	};
+
+	auto pattern_x_offset = 80;
+	auto pattern_cell_width = 8;
+	auto pattern_cell_height = 8;
+	auto pattern_color = 0xff202020;
+
+	for (auto y = 0; y < 8; ++y)
+	{
+		for (auto x = 0; x < 60; ++x)
+		{
+			if (!pattern[y][x]) continue;
+
+			int left = progress_x + pattern_x_offset + pattern_cell_width * x;
+			int right = left + pattern_cell_width;
+
+			int clipped_left = clip(left, clip_left, clip_right);
+			int clipped_right = clip(right, clip_left, clip_right);
+
+			draw_rect(clipped_left, progress_y + pattern_cell_height * y, clipped_right - clipped_left, pattern_cell_height, pattern_color);
+		}
+	}
+}
+
+void draw_progress_bar_part(int progress_x, int progress_y, int x, int y, int width, int height)
+{
+	draw_rect(x, y, width, height, 0xffffffff);
+	draw_progress_text(progress_x, progress_y, x, x + width);
+}
+
+int draw_progress_bar()
+{
+	auto progress_width = 640;
+	auto progress_height = 64;
+	auto progress_margin = 8;
+	auto progress_slider_width = 128;
+	auto progress_slider_speed = 8;
+
+	// progress bar background
+	auto progress_x = 640 - progress_width/2;
+	auto progress_y = 360 - progress_height/2;
+
+	draw_rect(progress_x - progress_margin, progress_y - progress_margin, progress_width + progress_margin * 2, progress_height + progress_margin * 2, 0xff808080);
+
+	// progress slider
+	auto progress_slider_left = progress_slider_position % progress_width;
+	auto progress_slider_right = (progress_slider_position + progress_slider_width) % progress_width;
+
+	if (progress_slider_left < progress_slider_right)
+	{
+		draw_progress_bar_part(progress_x, progress_y, progress_x + progress_slider_left, progress_y, progress_slider_right - progress_slider_left, progress_height);
+	}
+	else
+	{
+		draw_progress_bar_part(progress_x, progress_y, progress_x, progress_y, progress_slider_right, progress_height);
+		draw_progress_bar_part(progress_x, progress_y, progress_x + progress_slider_left, progress_y, progress_width - progress_slider_left, progress_height);
+	}
+
+	progress_slider_position += progress_slider_speed;
+
+	return 0;
+}
+for(int i = 0; i < 10000; i++)
+	draw_progress_bar();
+return i;

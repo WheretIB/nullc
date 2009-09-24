@@ -139,7 +139,7 @@ bool	RunCode(const char *code, unsigned int executor, bool optimization, const c
 
 const char *testIntOp =
 "// Integer tests\r\n\
-int res[33];\r\n\
+int[33] res;\r\n\
 int a = 14, b = 3, c = 0;\r\n\
 res[0] = a+b; // 17\r\n\
 res[1] = a-b; // 11\r\n\
@@ -179,7 +179,7 @@ return a >> b;";
 
 const char	*testDoubleOp = 
 "// Floating point tests\r\n\
-double res[15];\r\n\
+double[15] res;\r\n\
 double a = 14.0, b = 3.0;\r\n\
 res[0] = a+b;\r\n\
 res[1] = a-b;\r\n\
@@ -198,7 +198,7 @@ return a+b;";
 
 const char	*testLongOp = 
 "// Long tests\r\n\
-long res[34];\r\n\
+long[34] res;\r\n\
 long a = 4494967296l, b = 594967296l, c = 3;\r\n\
 res[0] = a+b; // 5089934592\r\n\
 res[1] = a-b; // 3900000000\r\n\
@@ -294,7 +294,7 @@ return 1;";
 
 const char	*testCmplxType2 = 
 "// Complex type test (array)\r\n\
-float3 fa[10];\r\n\
+float3[10] fa;\r\n\
 for(int i = 0; i < 10; i++)\r\n\
 {\r\n\
 	fa[i].x = i*8;\r\n\
@@ -590,7 +590,7 @@ return 1;";
 
 const char	*testCycle = 
 "int a=5;\r\n\
-double d[10]=0.0;\r\n\
+double[10] d=0.0;\r\n\
 for(int i = 0; i < a; i++)\r\n\
 d[i] = i*2 + i-2;\r\n\
 return d[5];";
@@ -681,7 +681,7 @@ return fib(4);";
 
 const char	*testIndirection = 
 "// Array indirection and optimization test\r\n\
-int res[5]=1;\r\n\
+int[5] res=1;\r\n\
 res[1] = 13;\r\n\
 res[2] = 3;\r\n\
 res[res[2]] = 4;\r\n\
@@ -711,8 +711,9 @@ const char	*testAllInOne =
 "// Old all-in-one test\r\n\
 double test(float x, float y){ /*teste*/return x**2*y; }\r\n\
 int a=5;\r\n\
-float b=1, c[3]=14**2-134;\r\n\
-double d[10];\r\n\
+float b=1;\r\n\
+float[3] c=14**2-134;\r\n\
+double[10] d;\r\n\
 for(int i = 0; i< 10; i++)\r\n\
 d[i] = test(i*2, i-2);\r\n\
 double n=1;\r\n\
@@ -820,7 +821,7 @@ return 1;";
 
 const char	*testArrayFill = 
 "// Array fill test\r\n\
-int a[10]=5;\r\n\
+int[10] a=5;\r\n\
 return 1;";
 	printf("\r\nArray fill test\r\n");
 	testCount++;
@@ -842,7 +843,7 @@ return 1;";
 const char	*testBuildinFunc = 
 "// Build-In function checks\r\n\
 double Pi = 3.1415926583;\r\n\
-double res[20];\r\n\
+double[20] res;\r\n\
 res[0] = cos(0); // 1.0\r\n\
 res[1] = cos(Pi/3.0); // 0.5\r\n\
 res[2] = cos(Pi); // -1.0\r\n\
@@ -1008,7 +1009,7 @@ return 1;";
 
 
 const char	*testIncDec = 
-"int test[5]=0;\r\n\
+"int[5] test=0;\r\n\
 for(int i = 0; i < 5; i++)\r\n\
 {\r\n\
   test[i] = 1;\r\n\
@@ -1143,7 +1144,7 @@ return testA(b);";
 
 const char	*testOptiA = 
 "int a = 12;\r\n\
-int res[6];\r\n\
+int[6] res;\r\n\
 res[0] = a + 0;\r\n\
 res[1] = a * 0;\r\n\
 res[2] = a * 1;\r\n\
@@ -1172,8 +1173,8 @@ return 1;";
 
 
 const char	*testPointers3 = 
-"int arr[5];\r\n\
-float4 arrF[4];\r\n\
+"int[5] arr;\r\n\
+float4[4] arrF;\r\n\
 int ref a = &arr[3];\r\n\
 *a = 55;\r\n\
 float4 ref b = &arrF[1];\r\n\
@@ -1381,7 +1382,7 @@ const char	*testVarMod =
 "// Variable modify test\r\n\
 int slow(int how){ for(int i = 0; i < how; i++){ how = how-1; } return 2; }\r\n\
 int index = 2;\r\n\
-int arr[10] = 4;\r\n\
+int[10] arr = 4;\r\n\
 arr[slow(/*40000000*/1000)] += 16; // 330 ms total. target - 140ms\r\n\
 return 3;";
 	printf("\r\nVariable modify test\r\n");
@@ -1423,9 +1424,9 @@ class Two\r\n\
   int d;\r\n\
 }\r\n\
 Two two, twonext;\r\n\
-float3[2] fa[4];\r\n\
-int[2] ia[4];\r\n\
-double da[8];\r\n\
+float3[2][4] fa;\r\n\
+int[2][4] ia;\r\n\
+double[8] da;\r\n\
 char c = 66;\r\n\
 short u = 15;\r\n\
 long l = 45645l;\r\n\
@@ -1879,7 +1880,7 @@ return 1;";
 
 
 const char	*testVarGetSet1 = 
-"int a[10]=4;\r\n\
+"int[10] a=4;\r\n\
 int[] b = a;\r\n\
 float4 c;\r\n\
 c.y = 5.0f;\r\n\
@@ -2118,7 +2119,7 @@ return r; // 990579";
 
 const char	*testStrings = 
 "int test(char[] text){ return 2; }\r\n\
-int arr[10];\r\n\
+int[10] arr;\r\n\
 auto hm = \"World\\r\\n\";\r\n\
 char[] nm = hm;\r\n\
 char[] um = nm;\r\n\
@@ -2545,7 +2546,7 @@ res3d = proxy(2, 6, fp3);\r\n\
 \r\n\
 int type(int[3] x){ return 0; }\r\n\
 \r\n\
-int foobar(typeof(type) f) { int x[3]; x = {5, 6, 7}; return f(x); }\r\n\
+int foobar(typeof(type) f) { int[3] x; x = {5, 6, 7}; return f(x); }\r\n\
 int result;\r\n\
 {\r\n\
   int local1 = 5, local2 = 2;\r\n\
@@ -2739,7 +2740,7 @@ return 1;";
 const char	*testPriority = 
 "int func(){}\r\n\
 int a = 13, b = 17, c = 14;\r\n\
-int res[10];\r\n\
+int[10] res;\r\n\
 res[0] = a + b * c;\r\n\
 res[1] = a + b ** (c-10) * a;\r\n\
 return 1;";
