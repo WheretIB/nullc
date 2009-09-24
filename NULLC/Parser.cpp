@@ -357,13 +357,8 @@ bool ParseAddVariable(Lexeme** str)
 	(*str)++;
 
 	if(ParseLexem(str, lex_obracket))
-	{
-		if(!ParseTernaryExpr(str))
-			CALLBACK(AddUnfixedArraySize());
-		if(!ParseLexem(str, lex_cbracket))
-			ThrowError("ERROR: Matching ']' not found", (*str)->pos);
-		CALLBACK(ConvertTypeToArray((*str)->pos));
-	}
+		ThrowError("ERROR: array size must be specified after typename", (*str)->pos);
+
 	CALLBACK(PushType());
 	CALLBACK(AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length)));
 
@@ -969,7 +964,7 @@ bool ParseBlock(Lexeme** str)
 		return false;
 	CALLBACK(BeginBlock());
 	if(!ParseCode(str))
-		ThrowError("ERROR: {} block cannot be empty", (*str)->pos);
+		CALLBACK(AddVoidNode());
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError("ERROR: closing '}' not found", (*str)->pos);
 	CALLBACK(EndBlock());

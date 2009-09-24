@@ -93,15 +93,30 @@ namespace ColorerGrammar
 			logStream << err << "\r\n";
 
 			const char *begin = s;
-			while((begin > codeStart) && (*begin != '\n') && (*begin != '\r'))
+			while((begin >= codeStart) && (*begin != '\n') && (*begin != '\r'))
 				begin--;
-			begin++;
+			if(begin < s)
+				begin++;
 
 			const char *end = s;
 			while((*end != '\r') && (*end != '\n') && (*end != 0))
 				end++;
 
-			logStream << "  at \"" << std::string(begin,end) << '\"';
+			if((end-begin) < 2048)
+			{
+				char line[2048];
+				for(int k = 0; k < (end-begin); k++)
+				{
+					if(begin[k] < 0x20)
+						line[k] = ' ';
+					else
+						line[k] = begin[k];
+				}
+				line[end-begin] = 0;
+				logStream << "  at \"" << line << '\"';
+			}else{
+				logStream << "  at \"" << std::string(begin,end) << '\"';
+			}
 			logStream << "\r\n      ";
 			for(unsigned int i = 0; i < (unsigned int)(s-begin); i++)
 				logStream << ' ';
@@ -151,6 +166,7 @@ namespace ColorerGrammar
 						(*str)++;
 					ColorComment(COLOR_COMMENT, old, *str);
 				}else if((*str)[1] == '*'){
+					(*str) += 2;
 					while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
 						(*str)++;
 					(*str) += 2;
@@ -276,7 +292,7 @@ namespace ColorerGrammar
 			addvarp		=
 				(
 				varname[ColorVarDef] >> epsP[AssignVar<unsigned int>(varSize,1)] >> 
-				!(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])
+				!chP('[')[LogError("ERROR: unexpected '[', array size must be specified after typename")]
 				)[AddVar] >>
 				((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: expression not found after '='")])) | epsP);
 			vardefsub	=	addvarp >> *(chP(',')[ColorText] >> vardefsub);
@@ -284,7 +300,7 @@ namespace ColorerGrammar
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
 				typeExpr >>
 				constExpr >>
-				vardefsub;
+				(vardefsub | epsP[LogError("ERROR: variable definition after typename is incorrect")]);
 
 			ifExpr			=
 				strWP("if")[ColorRWord] >>
@@ -385,9 +401,11 @@ namespace ColorerGrammar
 				) |
 				term4_9;
 
-			block	=	chP('{')[ColorBold][BlockBegin] >> code >> chP('}')[ColorBold][BlockEnd];
-			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' >> epsP)[ColorText]) | breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr | (term5 >> +(';' >> epsP)[ColorText]));
-			code	=	*(funcdef | expr);
+			block	=	chP('{')[ColorBold][BlockBegin] >> (code | epsP) >> (chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: } not found after block")]);
+			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' | epsP[LogError("ERROR: ; not found after variable definition")])[ColorText]) |
+				breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr |
+				(term5 >> (+chP(';')[ColorText] | epsP[LogError("ERROR: ; not found after expression")])));
+			code	=	*(funcdef | expr | (+alnumP)[LogError("ERROR: unexpected symbol")]);
 		}
 		void DeInitGrammar()
 		{
@@ -540,10 +558,7 @@ bool Colorer::ColorText(char *text, void (*ColFunc)(unsigned int, unsigned int, 
 		return false;
 	}
 	if(pRes != PARSE_OK)
-	{
-		lastError = "Syntax error";
-		return false;
-	}
+		ColorerGrammar::logStream << "ERROR: Syntax error, unable to continue";
 
 	if(ColorerGrammar::logStream.str().length() != 0)
 	{
