@@ -126,7 +126,7 @@ Compiler::Compiler()
 
 	// Add complex types
 	AddType("align(4) class float2{ float x, y; }");
-	AddType("align(4) class float3{ float x, y, z; float dp3(){ return x*x+y*y+z*z; } }");
+	AddType("align(4) class float3{ float x, y, z; ");//float dp3(){ return x*x+y*y+z*z; } }");
 	AddType("align(4) class float4{ float x, y, z, w; }");
 
 	AddType("align(8) class double2{ double x, y; }");
