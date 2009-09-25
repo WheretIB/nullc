@@ -1140,7 +1140,9 @@ void AddGetVariableNode(const char* pos)
 {
 	lastKnownStartPos = pos;
 
-	if(nodeList.back()->typeInfo->funcType == NULL)
+	if(nodeList.back()->nodeType == typeNodeNumber && nodeList.back()->typeInfo == typeVoid)
+		nodeList.back()->typeInfo = typeInt;
+	else if(nodeList.back()->typeInfo->funcType == NULL)
 		nodeList.push_back(new NodeDereference(currTypes.back()));
 }
 
@@ -1160,6 +1162,11 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		if(!currTypes.back())
 			ThrowLastError();
 		currType = currTypes.back();
+	}else if(currType->arrLevel != 0 && currType->arrSize != TypeInfo::UNSIZED_ARRAY){
+		nodeList.pop_back();
+		nodeList.push_back(new NodeNumber((int)currType->arrSize, typeVoid));
+		currType = typeInt;
+		return;
 	}
  
 	int fID = -1;
@@ -1480,8 +1487,6 @@ void FunctionToOperator(const char* pos, CmdID cmd)
 		ThrowError("ERROR: binary operator definition or overload must be placed in global scope", pos);
 
 	lastFunc.firstParam->varType->hasOperator[cmd - cmdAdd] = (char)(CodeInfo::buildinCompilation ? TypeInfo::BUILDIN_OPERATOR : TypeInfo::USER_OPERATOR);
-	lastFunc.firstParam->varType->AddMemberFunction();
-	lastFunc.firstParam->varType->lastFunction->func = &lastFunc;
 }
 
 FastVector<NodeZeroOP*> paramNodes(32);

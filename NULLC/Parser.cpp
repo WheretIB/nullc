@@ -272,8 +272,7 @@ bool ParseFunctionVariables(Lexeme** str)
 	while(ParseLexem(str, lex_comma))
 	{
 		ParseIsConst(str);
-		if(!ParseSelectType(str))
-			ThrowError("ERROR: type name not found after ',' in function variable list", (*str)->pos);
+		ParseSelectType(str);
 
 		if((*str)->type != lex_string)
 			ThrowError("ERROR: variable name not found after type in function variable list", (*str)->pos);

@@ -248,8 +248,7 @@ namespace ColorerGrammar
 				*(
 					strP(",")[ColorText] >>
 					(
-						typeExpr >>
-						constExpr >>
+						!(typeExpr >> constExpr) >>
 						((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")])
 					)
 				)[OnError];
