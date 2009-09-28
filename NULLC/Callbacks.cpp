@@ -1002,7 +1002,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 					unifyTwo = true;
 				}else{
 					// Or if not, then types aren't compatible, so throw error
-					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
+					sprintf(callbackError, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
 					ThrowError(callbackError, pos);
 				}
 			}
@@ -1093,7 +1093,7 @@ void AddSetVariableNode(const char* pos)
 					currTypes.pop_back();
 					unifyTwo = true;
 				}else{
-					sprintf(callbackError, "ERROR: cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
+					sprintf(callbackError, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
 					ThrowError(callbackError, pos);
 				}
 			}
@@ -1656,6 +1656,7 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 					nodeList.pop_back();
 					inplaceArray.push_back(nodeList.back());
 					nodeList.pop_back();
+					currTypes.pop_back();
 				}else{
 					sprintf(callbackError, "ERROR: array expected as a parameter %d", i);
 					ThrowError(callbackError, pos);

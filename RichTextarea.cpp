@@ -877,7 +877,13 @@ void	CursorToClient(unsigned int xCursor, unsigned int yCursor, int &xPos, int &
 AreaLine* ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int &cursorY, bool clampX)
 {
 	if(yPos > 32768)
+	{
+		if(shiftCharY > 0)
+			shiftCharY--;
 		yPos = 0;
+	}
+	if(yPos > (areaHeight + charHeight) && shiftCharY < lineCount - (areaHeight / charHeight) - 1)
+		shiftCharY++;
 	if(xPos > 32768)
 		xPos = 0;
 	// Find vertical cursor position
@@ -1254,6 +1260,7 @@ void OnDestroy()
 	delete[] areaText;
 	delete[] areaTextEx;
 	delete AreaLine::pool;
+	history->ResetHistory();
 	delete history;
 	areaText = NULL;
 	areaTextEx = NULL;

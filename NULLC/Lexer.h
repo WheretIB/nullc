@@ -40,7 +40,7 @@ enum LexemeType
 	lex_semiquote, lex_escape, lex_point, lex_comma, // " ' \ .
 	lex_inc, lex_dec, // ++ --
 	lex_add, lex_sub, lex_mul, lex_div, lex_mod, lex_pow, lex_less, lex_lequal, lex_shl, lex_greater, lex_gequal, lex_shr, lex_equal, lex_nequal, // + - * / % ** < <= << > >= >> == !=
-	lex_bitand, lex_bitor, lex_bitxor, lex_logand, lex_logor, lex_logxor, // & | ^ and or xor
+	lex_bitand, lex_bitor, lex_bitxor, lex_logand, lex_logor, lex_logxor, // & | ^ && || ^^
 	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, // = += -= *= /= **=
 	lex_bitnot, lex_lognot,	// ~ !
 	lex_oparen, lex_cparen, lex_obracket, lex_cbracket, lex_ofigure, lex_cfigure, // ( ) [ ] { }
