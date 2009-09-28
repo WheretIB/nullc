@@ -815,10 +815,7 @@ void NodeGetAddress::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
-	if(absAddress)
-		cmdList.push_back(VMCmd(cmdPushImmt, varAddress));
-	else
-		cmdList.push_back(VMCmd(cmdGetAddr, varAddress));
+	cmdList.push_back(VMCmd(cmdGetAddr, absAddress ? 0 : 1, varAddress));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
 }
@@ -858,14 +855,14 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	if(second->typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
+		_snprintf(errBuf, 128, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 	if(typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+		_snprintf(errBuf, 128, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
@@ -1004,14 +1001,14 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	if(second->typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
+		_snprintf(errBuf, 128, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 	if(typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+		_snprintf(errBuf, 128, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
