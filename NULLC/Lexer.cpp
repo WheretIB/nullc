@@ -145,12 +145,27 @@ void	Lexer::Lexify(const char* code)
 			break;
 		case '&':
 			lType = lex_bitand;
+			if(code[1] == '&')
+			{
+				lType = lex_logand;
+				lLength = 2;
+			}
 			break;
 		case '|':
 			lType = lex_bitor;
+			if(code[1] == '|')
+			{
+				lType = lex_logor;
+				lLength = 2;
+			}
 			break;
 		case '^':
 			lType = lex_bitxor;
+			if(code[1] == '^')
+			{
+				lType = lex_logxor;
+				lLength = 2;
+			}
 			break;
 		case '(':
 			lType = lex_oparen;
@@ -214,19 +229,13 @@ void	Lexer::Lexify(const char* code)
 					switch(lLength)
 					{
 					case 2:
-						if(memcmp(code, "or", 2) == 0)
-							lType = lex_logor;
-						else if(memcmp(code, "if", 2) == 0)
+						if(memcmp(code, "if", 2) == 0)
 							lType = lex_if;
 						else if(memcmp(code, "do", 2) == 0)
 							lType = lex_do;
 						break;
 					case 3:
-						if(memcmp(code, "and", 3) == 0)
-							lType = lex_logand;
-						else if(memcmp(code, "xor", 3) == 0)
-							lType = lex_logxor;
-						else if(memcmp(code, "for", 3) == 0)
+						if(memcmp(code, "for", 3) == 0)
 							lType = lex_for;
 						else if(memcmp(code, "ref", 3) == 0)
 							lType = lex_ref;

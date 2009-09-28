@@ -64,7 +64,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Riched20.lib"
 				OutputFile="bin/SuperCalcDBG.exe"
 				LinkIncremental="2"
 				IgnoreAllDefaultLibraries="false"
