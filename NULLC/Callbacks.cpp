@@ -782,7 +782,8 @@ void SetTypeOfLastNode()
 	nodeList.pop_back();
 }
 
-void AddInplaceArray(const char* pos);
+bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
+bool ConvertFunctionToPointer(const char* pos);
 
 // Function that retrieves variable address
 void AddGetAddressNode(const char* pos, InplaceStr varName)
@@ -984,54 +985,12 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	// Variable signalizes that two nodes need to be unified in one
 	bool unifyTwo = false;
 	// If variable type is array without explicit size, and it is being defined with value of different type
-	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->typeInfo)
-	{
-		TypeInfo *nodeType = nodeList.back()->typeInfo;
-		// If subtype of both variables (presumably, arrays) is equal
-		if(realCurrType->subType == nodeType->subType)
-		{
-			// And if to the right of assignment operator there is no pointer dereference
-			if(nodeList.back()->nodeType != typeNodeDereference)
-			{
-				// Then, to the right of assignment operator there is array definition using inplace array
-				if(nodeList.back()->nodeType == typeNodeExpressionList)
-				{
-					// Create node for assignment of inplace array to implicit variable
-					AddInplaceArray(pos);
-					// Now we have two nodes, so they are to be unified
-					unifyTwo = true;
-				}else{
-					// Or if not, then types aren't compatible, so throw error
-					sprintf(callbackError, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
-					ThrowError(callbackError, pos);
-				}
-			}
-			// Because we are assigning array of explicit size to a pointer to array, we have to put a pair of pointer:size on top of stack
-			// Take pointer to an array (node that is inside of pointer dereference node)
-			NodeZeroOP	*oldNode = nodeList.back();
-			nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
-			static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
-			// Find the size of an array
-			unsigned int typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
-			// Create expression list with return type of implicit size array
-			// Node constructor will take last node
-			NodeExpressionList *listExpr = new NodeExpressionList(varInfo[i]->varType);
-			// Create node that places array size on top of the stack
-			nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
-			// Add it to expression list
-			listExpr->AddNode();
-			// Add expression list to node list
-			nodeList.push_back(listExpr);
-		}
-	}
+	if(ConvertArrayToUnsized(pos, realCurrType))
+		unifyTwo = true;
+
 	// If a function is being assigned to variable, then take it's address
-	if(nodeList.back()->nodeType == typeNodeFuncDef ||
-		(nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
+	if(ConvertFunctionToPointer(pos))
 	{
-		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->nodeType == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
-		funcDefNode->GetFuncInfo()->visible = false;
-		currTypes.pop_back();
 		unifyTwo = true;
 		if(!currTypes.back())
 			realCurrType = nodeList.back()->typeInfo;
@@ -1079,48 +1038,14 @@ void AddSetVariableNode(const char* pos)
 	lastKnownStartPos = pos;
 
 	TypeInfo *realCurrType = currTypes.back();
+
 	bool unifyTwo = false;
-	if(realCurrType->arrSize == TypeInfo::UNSIZED_ARRAY && realCurrType != nodeList.back()->typeInfo)
-	{
-		TypeInfo *nodeType = nodeList.back()->typeInfo;
-		if(realCurrType->subType == nodeType->subType)
-		{
-			if(nodeList.back()->nodeType != typeNodeDereference)
-			{
-				if(nodeList.back()->nodeType == typeNodeExpressionList)
-				{
-					AddInplaceArray(pos);
-					currTypes.pop_back();
-					unifyTwo = true;
-				}else{
-					sprintf(callbackError, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), realCurrType->GetFullTypeName());
-					ThrowError(callbackError, pos);
-				}
-			}
-			NodeZeroOP	*oldNode = nodeList.back();
-			nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
-			static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
-
-			unsigned int typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
-			NodeExpressionList *listExpr = new NodeExpressionList(realCurrType);
-			nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
-			listExpr->AddNode();
-			nodeList.push_back(listExpr);
-
-			if(unifyTwo)
-				Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
-		}
-	}
-	if(nodeList.back()->nodeType == typeNodeFuncDef ||
-		(nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
-	{
-		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->nodeType == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
-		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
-		funcDefNode->GetFuncInfo()->visible = false;
-		currTypes.pop_back();
+	if(ConvertArrayToUnsized(pos, realCurrType))
 		unifyTwo = true;
+	if(ConvertFunctionToPointer(pos))
+		unifyTwo = true;
+	if(unifyTwo)
 		Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
-	}
 
 	nodeList.push_back(new NodeVariableSet(currTypes.back(), 0, true));
 	if(!lastError.IsEmpty())
@@ -1258,6 +1183,64 @@ void AddInplaceArray(const char* pos)
 
 	varDefined = saveVarDefined;
 	currType = saveCurrType;
+}
+
+bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
+{
+	bool unifyTwo = false;
+	TypeInfo *nodeType = nodeList.back()->typeInfo;
+	// If subtype of both variables (presumably, arrays) is equal
+	if(dstType->arrSize == TypeInfo::UNSIZED_ARRAY && dstType != nodeType && dstType->subType == nodeType->subType)
+	{
+		// And if to the right of assignment operator there is no pointer dereference
+		if(nodeList.back()->nodeType != typeNodeDereference)
+		{
+			// Then, to the right of assignment operator there is array definition using inplace array
+			if(nodeList.back()->nodeType == typeNodeExpressionList || nodeList.back()->nodeType == typeNodeFuncCall)
+			{
+				// Create node for assignment of inplace array to implicit variable
+				AddInplaceArray(pos);
+				currTypes.pop_back();
+				// Now we have two nodes, so they are to be unified
+				unifyTwo = true;
+			}else{
+				// Or if not, then types aren't compatible, so throw error
+				sprintf(callbackError, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
+				ThrowError(callbackError, pos);
+			}
+		}
+		// Because we are assigning array of explicit size to a pointer to array, we have to put a pair of pointer:size on top of stack
+		// Take pointer to an array (node that is inside of pointer dereference node)
+		NodeZeroOP	*oldNode = nodeList.back();
+		nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
+		static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
+		// Find the size of an array
+		unsigned int typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
+		// Create expression list with return type of implicit size array
+		// Node constructor will take last node
+		NodeExpressionList *listExpr = new NodeExpressionList(dstType);
+		// Create node that places array size on top of the stack
+		nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
+		// Add it to expression list
+		listExpr->AddNode();
+		// Add expression list to node list
+		nodeList.push_back(listExpr);
+	}
+	return unifyTwo;
+}
+
+bool ConvertFunctionToPointer(const char* pos)
+{
+	if(nodeList.back()->nodeType == typeNodeFuncDef ||
+		(nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
+	{
+		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(nodeList.back()->nodeType == typeNodeFuncDef ? nodeList.back() : static_cast<NodeExpressionList*>(nodeList.back())->GetFirstNode());
+		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
+		funcDefNode->GetFuncInfo()->visible = false;
+		currTypes.pop_back();
+		return true;
+	}
+	return false;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1629,49 +1612,16 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	{
 		unsigned int index = fType->paramCount - i - 1;
 
-		TypeInfo *expectedType = fType->paramType[i];
-		TypeInfo *realType = paramNodes[index]->typeInfo;
-		
-		if(paramNodes[index]->nodeType == typeNodeFuncDef ||
-			(paramNodes[index]->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode()->nodeType == typeNodeFuncDef))
+		nodeList.push_back(paramNodes[index]);
+		if(ConvertFunctionToPointer(pos))
 		{
-			NodeFuncDef*	funcDefNode = (NodeFuncDef*)(paramNodes[index]->nodeType == typeNodeFuncDef ? paramNodes[index] : static_cast<NodeExpressionList*>(paramNodes[index])->GetFirstNode());
-			AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
-			funcDefNode->GetFuncInfo()->visible = false;
-			currTypes.pop_back();
-
 			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->typeInfo);
-			nodeList.push_back(paramNodes[index]);
 			listExpr->AddNode();
 			nodeList.push_back(listExpr);
-		}else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && expectedType->subType == realType->subType && expectedType != realType){
-			if(paramNodes[index]->nodeType != typeNodeDereference)
-			{
-				if(paramNodes[index]->nodeType == typeNodeExpressionList)
-				{
-					nodeList.push_back(paramNodes[index]);
-					AddInplaceArray(pos);
-
-					paramNodes[index] = nodeList.back();
-					nodeList.pop_back();
-					inplaceArray.push_back(nodeList.back());
-					nodeList.pop_back();
-					currTypes.pop_back();
-				}else{
-					sprintf(callbackError, "ERROR: array expected as a parameter %d", i);
-					ThrowError(callbackError, pos);
-				}
-			}
-			unsigned int typeSize = (paramNodes[index]->typeInfo->size - paramNodes[index]->typeInfo->paddingBytes) / paramNodes[index]->typeInfo->subType->size;
-			nodeList.push_back(static_cast<NodeDereference*>(paramNodes[index])->GetFirstNode());
-			static_cast<NodeDereference*>(paramNodes[index])->SetFirstNode(NULL);
-			paramNodes[index] = NULL;
-			NodeExpressionList *listExpr = new NodeExpressionList(varInfo[i]->varType);
-			nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
-			listExpr->AddNode();
-			nodeList.push_back(listExpr);
-		}else{
-			nodeList.push_back(paramNodes[index]);
+		}else if(ConvertArrayToUnsized(pos, fType->paramType[i])){
+			inplaceArray.push_back(nodeList[nodeList.size()-2]);
+			nodeList[nodeList.size()-2] = nodeList.back();
+			nodeList.pop_back();
 		}
 	}
 
