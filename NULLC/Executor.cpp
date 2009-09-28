@@ -62,6 +62,7 @@ void Executor::Run(const char* funcName)
 	}
 	fcallStack.clear();
 
+	genParams.reserve(1024 * 1024);
 	genParams.clear();
 	genParams.resize(exLinker->globalVarSize);
 
@@ -170,21 +171,21 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdPushCharStk:
-			*genStackPtr = genParams[cmd.argument + *genStackPtr];
+			*genStackPtr = *((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushShortStk:
-			*genStackPtr =  *((short*)(&genParams[cmd.argument + *genStackPtr]));
+			*genStackPtr =  *(short*)((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushIntStk:
-			*genStackPtr = *((int*)(&genParams[cmd.argument + *genStackPtr]));
+			*genStackPtr = *(int*)((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushFloatStk:
 			genStackPtr--;
-			*(double*)(genStackPtr) = (double)*((float*)(&genParams[cmd.argument + *(genStackPtr+1)]));
+			*(double*)(genStackPtr) = (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr+1));
 			break;
 		case cmdPushDorLStk:
 			genStackPtr--;
-			*(double*)(genStackPtr) = *((double*)(&genParams[cmd.argument + *(genStackPtr+1)]));
+			*(double*)(genStackPtr) = *(double*)((char*)NULL + cmd.argument + *(genStackPtr+1));
 			break;
 		case cmdPushCmplxStk:
 		{
@@ -195,7 +196,7 @@ void Executor::Run(const char* funcName)
 			{
 				currShift -= 4;
 				genStackPtr--;
-				*genStackPtr = *((unsigned int*)(&genParams[shift + currShift]));
+				*genStackPtr = *(unsigned int*)((char*)NULL + shift + currShift);
 			}
 		}
 			break;
@@ -235,23 +236,23 @@ void Executor::Run(const char* funcName)
 
 		case cmdMovCharStk:
 			genStackPtr++;
-			genParams[cmd.argument + *(genStackPtr-1)] = (unsigned char)(*genStackPtr);
+			*((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned char)(*genStackPtr);
 			break;
 		case cmdMovShortStk:
 			genStackPtr++;
-			*((unsigned short*)(&genParams[cmd.argument + *(genStackPtr-1)])) = (unsigned short)(*genStackPtr);
+			*(unsigned short*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned short)(*genStackPtr);
 			break;
 		case cmdMovIntStk:
 			genStackPtr++;
-			*((int*)(&genParams[cmd.argument + *(genStackPtr-1)])) = (int)(*genStackPtr);
+			*(int*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (int)(*genStackPtr);
 			break;
 		case cmdMovFloatStk:
 			genStackPtr++;
-			*((float*)(&genParams[cmd.argument + *(genStackPtr-1)])) = (float)*(double*)(genStackPtr);
+			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)*(double*)(genStackPtr);
 			break;
 		case cmdMovDorLStk:
 			genStackPtr++;
-			*((long long*)(&genParams[cmd.argument + *(genStackPtr-1)])) = *(long long*)(genStackPtr);
+			*(long long*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = *(long long*)(genStackPtr);
 			break;
 		case cmdMovCmplxStk:
 		{
@@ -261,7 +262,7 @@ void Executor::Run(const char* funcName)
 			while(currShift >= 4)
 			{
 				currShift -= 4;
-				*((unsigned int*)(&genParams[shift + currShift])) = *(genStackPtr+(currShift>>2));
+				*(unsigned int*)((char*)NULL + shift + currShift) = *(genStackPtr+(currShift>>2));
 			}
 			assert(currShift == 0);
 		}
@@ -344,7 +345,7 @@ void Executor::Run(const char* funcName)
 
 		case cmdGetAddr:
 			genStackPtr--;
-			*genStackPtr = cmd.argument + paramBase;
+			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(long long)&genParams[0];
 			break;
 		case cmdFuncAddr:
 			assert(sizeof(exFunctions[cmd.argument].funcPtr) == 4);
@@ -758,14 +759,14 @@ void Executor::Run(const char* funcName)
 			if(cmd.flag == bitPushBefore)
 			{
 				genStackPtr--;
-				*genStackPtr = *((char*)(&genParams[shift + cmd.argument]));
+				*genStackPtr = *((char*)NULL + shift + cmd.argument);
 			}
-			char *address = (char*)&genParams[shift + cmd.argument];
+			char *address = ((char*)NULL + shift + cmd.argument);
 			*address = *address + (char)(short)cmd.helper;
 			if(cmd.flag == bitPushAfter)
 			{
 				genStackPtr--;
-				*genStackPtr = *((char*)(&genParams[shift + cmd.argument]));
+				*genStackPtr = *((char*)NULL + shift + cmd.argument);
 			}
 		}
 			break;
@@ -776,14 +777,14 @@ void Executor::Run(const char* funcName)
 			if(cmd.flag == bitPushBefore)
 			{
 				genStackPtr--;
-				*genStackPtr = *((short*)(&genParams[shift + cmd.argument]));
+				*genStackPtr = *(short*)((char*)NULL + shift + cmd.argument);
 			}
-			short *address = (short*)&genParams[shift + cmd.argument];
+			short *address = (short*)((char*)NULL + shift + cmd.argument);
 			*address = *address + (short)cmd.helper;
 			if(cmd.flag == bitPushAfter)
 			{
 				genStackPtr--;
-				*genStackPtr = *((short*)(&genParams[shift + cmd.argument]));
+				*genStackPtr = *(short*)((char*)NULL + shift + cmd.argument);
 			}
 		}
 			break;
@@ -794,13 +795,13 @@ void Executor::Run(const char* funcName)
 			if(cmd.flag == bitPushBefore)
 			{
 				genStackPtr--;
-				*genStackPtr = *((int*)(&genParams[shift + cmd.argument]));
+				*genStackPtr = *(int*)((char*)NULL + shift + cmd.argument);
 			}
-			*((int*)(&genParams[shift + cmd.argument])) += (int)(short)cmd.helper;
+			*(int*)((char*)NULL + shift + cmd.argument) += (int)(short)cmd.helper;
 			if(cmd.flag == bitPushAfter)
 			{
 				genStackPtr--;
-				*genStackPtr = *((int*)(&genParams[shift + cmd.argument]));
+				*genStackPtr = *(int*)((char*)NULL + shift + cmd.argument);
 			}
 		}
 			break;
@@ -811,15 +812,13 @@ void Executor::Run(const char* funcName)
 			if(cmd.flag == bitPushBefore)
 			{
 				genStackPtr -= 2;
-				*genStackPtr = *(int*)(&genParams[shift + cmd.argument]);
-				*(genStackPtr+1) = *(int*)(&genParams[shift + cmd.argument+4]);
+				*(long long*)(genStackPtr) = *(long long*)((char*)NULL + shift + cmd.argument);
 			}
-			*((long long*)(&genParams[shift + cmd.argument])) += (long long)(short)cmd.helper;
+			*(long long*)((char*)NULL + shift + cmd.argument) += (long long)(short)cmd.helper;
 			if(cmd.flag == bitPushAfter)
 			{
 				genStackPtr -= 2;
-				*genStackPtr = *(int*)(&genParams[shift + cmd.argument]);
-				*(genStackPtr+1) = *(int*)(&genParams[shift + cmd.argument+4]);
+				*(long long*)(genStackPtr) = *(long long*)((char*)NULL + shift + cmd.argument);
 			}
 		}
 			break;
@@ -829,16 +828,14 @@ void Executor::Run(const char* funcName)
 			genStackPtr++;
 			if(cmd.flag == bitPushBefore)
 			{
-				double res = (double)(*((float*)(&genParams[shift + cmd.argument])));
 				genStackPtr -= 2;
-				*(double*)(genStackPtr) = res;
+				*(double*)(genStackPtr) = (double)*(float*)((char*)NULL + shift + cmd.argument);
 			}
-			*((float*)(&genParams[shift + cmd.argument])) += (float)(short)cmd.helper;
+			*(float*)((char*)NULL + shift + cmd.argument) += (float)(short)cmd.helper;
 			if(cmd.flag == bitPushAfter)
 			{
-				double res = (double)(*((float*)(&genParams[shift + cmd.argument])));
 				genStackPtr -= 2;
-				*(double*)(genStackPtr) = res;
+				*(double*)(genStackPtr) = (double)*(float*)((char*)NULL + shift + cmd.argument);
 			}
 		}
 			break;
@@ -849,15 +846,13 @@ void Executor::Run(const char* funcName)
 			if(cmd.flag == bitPushBefore)
 			{
 				genStackPtr -= 2;
-				*genStackPtr = *(int*)(&genParams[shift + cmd.argument]);
-				*(genStackPtr+1) = *(int*)(&genParams[shift + cmd.argument+4]);
+				*(double*)(genStackPtr) = *(double*)((char*)NULL + shift + cmd.argument);
 			}
-			*((double*)(&genParams[shift + cmd.argument])) += (double)(short)cmd.helper;
+			*(double*)((char*)NULL + shift + cmd.argument) += (double)(short)cmd.helper;
 			if(cmd.flag == bitPushAfter)
 			{
 				genStackPtr -= 2;
-				*genStackPtr = *(int*)(&genParams[shift + cmd.argument]);
-				*(genStackPtr+1) = *(int*)(&genParams[shift + cmd.argument+4]);
+				*(double*)(genStackPtr) = *(double*)((char*)NULL + shift + cmd.argument);
 			}
 		}
 			break;

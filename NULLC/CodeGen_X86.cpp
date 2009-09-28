@@ -276,7 +276,7 @@ void GenCodeCmdPushCharStk(VMCmd cmd)
 	EMIT_COMMENT("PUSH char stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument+paramBase);
+	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument);
 	EMIT_OP_REG(o_push, rEAX);
 }
 
@@ -285,7 +285,7 @@ void GenCodeCmdPushShortStk(VMCmd cmd)
 	EMIT_COMMENT("PUSH short stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument);
 	EMIT_OP_REG(o_push, rEAX);
 }
 
@@ -294,7 +294,7 @@ void GenCodeCmdPushIntStk(VMCmd cmd)
 	EMIT_COMMENT("PUSH int stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
 }
 
 void GenCodeCmdPushFloatStk(VMCmd cmd)
@@ -303,7 +303,7 @@ void GenCodeCmdPushFloatStk(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
-	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
@@ -312,8 +312,8 @@ void GenCodeCmdPushDorLStk(VMCmd cmd)
 	EMIT_COMMENT(cmd.flag ? "PUSH double stack" : "PUSH long stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase+4);
-	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+4);
+	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
 }
 
 void GenCodeCmdPushCmplxStk(VMCmd cmd)
@@ -328,14 +328,14 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd)
 		while(currShift >= 4)
 		{
 			currShift -= 4;
-			EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+paramBase+currShift);
+			EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+currShift);
 		}
 		assert(currShift == 0);
 	}else{
 		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
 		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 
-		EMIT_OP_REG_RPTR(o_lea, rESI, sDWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_REG_RPTR(o_lea, rESI, sDWORD, rEDX, cmd.argument);
 		EMIT_OP_REG_REG(o_mov, rEDI, rESP);
 		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
 		EMIT_OP(o_rep_movsd);
@@ -451,7 +451,7 @@ void GenCodeCmdMovCharStk(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument+paramBase, rEBX);
+	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument, rEBX);
 }
 
 void GenCodeCmdMovShortStk(VMCmd cmd)
@@ -460,7 +460,7 @@ void GenCodeCmdMovShortStk(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument+paramBase, rEBX);
+	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument, rEBX);
 }
 
 void GenCodeCmdMovIntStk(VMCmd cmd)
@@ -469,7 +469,7 @@ void GenCodeCmdMovIntStk(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument+paramBase, rEBX);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument, rEBX);
 }
 
 void GenCodeCmdMovFloatStk(VMCmd cmd)
@@ -478,7 +478,7 @@ void GenCodeCmdMovFloatStk(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument);
 }
 
 void GenCodeCmdMovDorLStk(VMCmd cmd)
@@ -489,10 +489,10 @@ void GenCodeCmdMovDorLStk(VMCmd cmd)
 	if(cmd.flag)
 	{
 		EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-		EMIT_OP_RPTR(o_fstp, sQWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_RPTR(o_fstp, sQWORD, rEDX, cmd.argument);
 	}else{
-		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument+paramBase);
-		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument+paramBase + 4);
+		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument);
+		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument + 4);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	}
 }
@@ -508,7 +508,7 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 		unsigned int currShift = 0;
 		while(currShift < cmd.helper)
 		{
-			EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument+paramBase + currShift);
+			EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument + currShift);
 			currShift += 4;
 		}
 		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
@@ -517,7 +517,7 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 
 		EMIT_OP_REG_REG(o_mov, rESI, rESP);
-		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDX, cmd.argument);
 		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
 		EMIT_OP(o_rep_movsd);
 
@@ -722,13 +722,11 @@ void GenCodeCmdGetAddr(VMCmd cmd)
 {
 	EMIT_COMMENT("GETADDR");
 
-	if(cmd.argument)
-	{
-		EMIT_OP_REG_RPTR(o_lea, rEAX, sDWORD, rEBP, cmd.argument);
-		EMIT_OP_REG(o_push, rEAX);
-	}else{
-		EMIT_OP_REG(o_push, rEBP);
-	}
+	if(cmd.helper)
+		EMIT_OP_REG_RPTR(o_lea, rEAX, sDWORD, rEBP, cmd.argument + paramBase);
+	else
+		EMIT_OP_REG_NUM(o_mov, rEAX, cmd.argument + paramBase);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 void GenCodeCmdSetRange(VMCmd cmd)
@@ -1764,11 +1762,11 @@ void GenCodeCmdAddAtCharStk(VMCmd cmd)
 {
 	EMIT_COMMENT("ADDAT char stack");
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument+paramBase);
+	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument);
 	if(cmd.flag == bitPushBefore)
 		EMIT_OP_REG(o_push, rEAX);
 	EMIT_OP_REG_NUM(cmd.helper == 1 ? o_add : o_sub, rEAX, 1);
-	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument+paramBase, rEAX);
+	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument, rEAX);
 	if(cmd.flag == bitPushAfter)
 		EMIT_OP_REG(o_push, rEAX);
 }
@@ -1777,11 +1775,11 @@ void GenCodeCmdAddAtShortStk(VMCmd cmd)
 {
 	EMIT_COMMENT("ADDAT short stack");
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument);
 	if(cmd.flag == bitPushBefore)
 		EMIT_OP_REG(o_push, rEAX);
 	EMIT_OP_REG_NUM(cmd.helper == 1 ? o_add : o_sub, rEAX, 1);
-	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument+paramBase, rEAX);
+	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument, rEAX);
 	if(cmd.flag == bitPushAfter)
 		EMIT_OP_REG(o_push, rEAX);
 }
@@ -1790,11 +1788,11 @@ void GenCodeCmdAddAtIntStk(VMCmd cmd)
 {
 	EMIT_COMMENT("ADDAT int stack");
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rEDX, cmd.argument);
 	if(cmd.flag == bitPushBefore)
 		EMIT_OP_REG(o_push, rEAX);
 	EMIT_OP_REG_NUM(cmd.helper == 1 ? o_add : o_sub, rEAX, 1);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument+paramBase, rEAX);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument, rEAX);
 	if(cmd.flag == bitPushAfter)
 		EMIT_OP_REG(o_push, rEAX);
 }
@@ -1803,8 +1801,8 @@ void GenCodeCmdAddAtLongStk(VMCmd cmd)
 {
 	EMIT_COMMENT("ADDAT long stack");
 	EMIT_OP_REG(o_pop, rECX);
-	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rECX, cmd.argument+paramBase);
-	EMIT_OP_REG_RPTR(o_mov, rEDX, sDWORD, rECX, cmd.argument+paramBase+4);
+	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rECX, cmd.argument);
+	EMIT_OP_REG_RPTR(o_mov, rEDX, sDWORD, rECX, cmd.argument+4);
 	if(cmd.flag == bitPushBefore)
 	{
 		EMIT_OP_REG(o_push, rEAX);
@@ -1812,8 +1810,8 @@ void GenCodeCmdAddAtLongStk(VMCmd cmd)
 	}
 	EMIT_OP_REG_NUM(cmd.helper == 1 ? o_add : o_sub, rEAX, 1);
 	EMIT_OP_REG_NUM(cmd.helper == 1 ? o_adc : o_sbb, rEDX, 0);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rECX, cmd.argument+paramBase, rEAX);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rECX, cmd.argument+paramBase+4, rEDX);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rECX, cmd.argument, rEAX);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rECX, cmd.argument+4, rEDX);
 	if(cmd.flag == bitPushAfter)
 	{
 		EMIT_OP_REG(o_push, rEAX);
@@ -1825,18 +1823,18 @@ void GenCodeCmdAddAtFloatStk(VMCmd cmd)
 {
 	EMIT_COMMENT("ADDAT float stack");
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument);
 	if(cmd.flag == bitPushBefore)
 		EMIT_OP_FPUREG(o_fld, rST0);
 	EMIT_OP(o_fld1);
 	EMIT_OP(cmd.helper == 1 ? o_faddp : o_fsubp);
 	if(cmd.flag == bitPushAfter)
 	{
-		EMIT_OP_RPTR(o_fst, sDWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_RPTR(o_fst, sDWORD, rEDX, cmd.argument);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 	}else{
-		EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument);
 	}
 	if(cmd.flag == bitPushBefore)
 	{
@@ -1849,18 +1847,18 @@ void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 {
 	EMIT_COMMENT("ADDAT double stack");
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_RPTR(o_fld, sQWORD, rEDX, cmd.argument+paramBase);
+	EMIT_OP_RPTR(o_fld, sQWORD, rEDX, cmd.argument);
 	if(cmd.flag == bitPushBefore)
 		EMIT_OP_FPUREG(o_fld, rST0);
 	EMIT_OP(o_fld1);
 	EMIT_OP(cmd.helper == 1 ? o_faddp : o_fsubp);
 	if(cmd.flag == bitPushAfter)
 	{
-		EMIT_OP_RPTR(o_fst, sQWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_RPTR(o_fst, sQWORD, rEDX, cmd.argument);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 	}else{
-		EMIT_OP_RPTR(o_fstp, sQWORD, rEDX, cmd.argument+paramBase);
+		EMIT_OP_RPTR(o_fstp, sQWORD, rEDX, cmd.argument);
 	}
 	if(cmd.flag == bitPushBefore)
 	{

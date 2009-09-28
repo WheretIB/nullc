@@ -30,12 +30,12 @@ bool lastFailed;
 struct ArrayPtr{ char* ptr; int len; };
 FILE* mFileOpen(ArrayPtr name, ArrayPtr access)
 {
-	return fopen(reinterpret_cast<long long>(name.ptr)+varData, reinterpret_cast<long long>(access.ptr)+varData);
+	return fopen(name.ptr, access.ptr);
 }
 
 void mFileWrite(FILE* file, ArrayPtr arr)
 {
-	fwrite(reinterpret_cast<long long>(arr.ptr)+varData, 1, arr.len, file);
+	fwrite(arr.ptr, 1, arr.len, file);
 }
 
 template<typename T>
@@ -47,18 +47,18 @@ void mFileWriteType(FILE* file, T val)
 template<typename T>
 void mFileWriteTypePtr(FILE* file, T* val)
 {
-	fwrite(reinterpret_cast<long long>(val)+varData, sizeof(T), 1, file);
+	fwrite(val, sizeof(T), 1, file);
 }
 
 void mFileRead(FILE* file, ArrayPtr arr)
 {
-	fread(reinterpret_cast<long long>(arr.ptr)+varData, 1, arr.len, file);
+	fread(arr.ptr, 1, arr.len, file);
 }
 
 template<typename T>
 void mFileReadTypePtr(FILE* file, T* val)
 {
-	fread(reinterpret_cast<long long>(val)+varData, sizeof(T), 1, file);
+	fread(val, sizeof(T), 1, file);
 }
 
 void mFileClose(FILE* file)
@@ -161,18 +161,18 @@ res[16] = a & b; // 2\r\n\
 res[17] = a | b; // 15\r\n\
 res[18] = a ^ b; // 13\r\n\
 int o = 0, i = 1;\r\n\
-res[19] = o and o;\r\n\
-res[20] = o and i;\r\n\
-res[21] = i and o;\r\n\
-res[22] = i and i;\r\n\
-res[23] = o or o;\r\n\
-res[24] = o or i;\r\n\
-res[25] = i or o;\r\n\
-res[26] = i or i;\r\n\
-res[27] = o xor o;\r\n\
-res[28] = o xor i;\r\n\
-res[29] = i xor o;\r\n\
-res[30] = i xor i;\r\n\
+res[19] = o && o;\r\n\
+res[20] = o && i;\r\n\
+res[21] = i && o;\r\n\
+res[22] = i && i;\r\n\
+res[23] = o || o;\r\n\
+res[24] = o || i;\r\n\
+res[25] = i || o;\r\n\
+res[26] = i || i;\r\n\
+res[27] = o ^^ o;\r\n\
+res[28] = o ^^ i;\r\n\
+res[29] = i ^^ o;\r\n\
+res[30] = i ^^ i;\r\n\
 res[31] = !i; // 0\r\n\
 res[32] = !o; // 1\r\n\
 return a >> b;";
@@ -221,18 +221,18 @@ res[17] = a & b; // 56771072\r\n\
 res[18] = a | b; // 5033163520\r\n\
 res[19] = a ^ b; // 4976392448\r\n\
 long o = 0, i = 1;\r\n\
-res[20] = o and o;\r\n\
-res[21] = o and i;\r\n\
-res[22] = i and o;\r\n\
-res[23] = i and i;\r\n\
-res[24] = o or o;\r\n\
-res[25] = o or i;\r\n\
-res[26] = i or o;\r\n\
-res[27] = i or i;\r\n\
-res[28] = o xor o;\r\n\
-res[29] = o xor i;\r\n\
-res[30] = i xor o;\r\n\
-res[31] = i xor i;\r\n\
+res[20] = o && o;\r\n\
+res[21] = o && i;\r\n\
+res[22] = i && o;\r\n\
+res[23] = i && i;\r\n\
+res[24] = o || o;\r\n\
+res[25] = o || i;\r\n\
+res[26] = i || o;\r\n\
+res[27] = i || i;\r\n\
+res[28] = o ^^ o;\r\n\
+res[29] = o ^^ i;\r\n\
+res[30] = i ^^ o;\r\n\
+res[31] = i ^^ i;\r\n\
 res[32] = !i; // 0\r\n\
 res[33] = !o; // 1\r\n\
 \r\n\
@@ -2324,9 +2324,7 @@ return 1;";
 			lastFailed = false;
 
 			CHECK_INT("s1", 0, 5);
-			CHECK_INT("f1", 0, 0);
 			CHECK_INT("d1", 0, 5);
-			CHECK_INT("df1", 0, 0);
 
 			CHECK_INT("k", 0, 1);
 			CHECK_INT("k", 1, 4);
@@ -2334,13 +2332,6 @@ return 1;";
 			CHECK_INT("k", 3, 64);
 			CHECK_INT("k", 4, 7);
 
-			CHECK_INT("kr", 0, 32);
-			CHECK_INT("kr", 1, 28);
-			CHECK_INT("kr", 2, 24);
-			CHECK_INT("kr", 3, 20);
-			CHECK_INT("kr", 4, 16);
-
-			CHECK_INT("krr", 0, 36);
 			CHECK_INT("t1", 0, 5);
 
 			CHECK_FLOAT("t2", 0, 6.0f);
@@ -2348,23 +2339,6 @@ return 1;";
 
 			CHECK_FLOAT("t3", 4, 5.0f);
 			CHECK_FLOAT("t3", 10, 14.0f);
-
-			CHECK_INT("t4", 0, 60);
-			CHECK_INT("t5", 0, 64);
-			CHECK_INT("t6", 0, 80);
-			CHECK_INT("t7", 0, 96);
-
-			CHECK_INT("t8", 0, 0);
-			CHECK_INT("t8", 1, 60);
-
-			CHECK_INT("t9", 0, 0);
-			CHECK_INT("t9", 1, 0);
-			CHECK_INT("t9", 2, 0);
-			CHECK_INT("t9", 3, 0);
-			CHECK_INT("t9", 4, 0);
-			CHECK_INT("t9", 5, 60);
-
-			CHECK_INT("t10", 0, 172);
 
 			CHECK_FLOAT("er2", 0, 4.0f);
 			CHECK_FLOAT("er1", 0, 8.0f);
@@ -2784,7 +2758,7 @@ for(i = 0; i < 4; i++)\r\n\
 {\r\n\
 	for(int j = 0;j < 4;j++)\r\n\
 	{\r\n\
-		if(j == 2 and i == 2)\r\n\
+		if(j == 2 && i == 2)\r\n\
 			break 2;\r\n\
 		k++;\r\n\
 	}\r\n\
@@ -2795,7 +2769,7 @@ for(i = 0; i < 4;i ++)\r\n\
 {\r\n\
 	for(int j = 0; j < 4; j++)\r\n\
 	{\r\n\
-		if(j == 2 and i == 2)\r\n\
+		if(j == 2 && i == 2)\r\n\
 			continue 2;\r\n\
 		k++;\r\n\
 	}\r\n\

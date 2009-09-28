@@ -79,14 +79,12 @@ double myGetPreciseTime()
 
 FILE* myFileOpen(ArrayPtr name, ArrayPtr access)
 {
-	variableData = (char*)nullcGetVariableData();
-	return fopen(reinterpret_cast<long long>(name.ptr)+variableData, reinterpret_cast<long long>(access.ptr)+variableData);
+	return fopen(name.ptr, access.ptr);
 }
 
 void myFileWrite(FILE* file, ArrayPtr arr)
 {
-	variableData = (char*)nullcGetVariableData();
-	fwrite(reinterpret_cast<long long>(arr.ptr)+variableData, 1, arr.len, file);
+	fwrite(arr.ptr, 1, arr.len, file);
 }
 
 template<typename T>
@@ -98,21 +96,18 @@ void myFileWriteType(FILE* file, T val)
 template<typename T>
 void myFileWriteTypePtr(FILE* file, T* val)
 {
-	variableData = (char*)nullcGetVariableData();
-	fwrite(reinterpret_cast<long long>(val)+variableData, sizeof(T), 1, file);
+	fwrite(val, sizeof(T), 1, file);
 }
 
 void myFileRead(FILE* file, ArrayPtr arr)
 {
-	variableData = (char*)nullcGetVariableData();
-	fread(reinterpret_cast<long long>(arr.ptr)+variableData, 1, arr.len, file);
+	fread(arr.ptr, 1, arr.len, file);
 }
 
 template<typename T>
 void myFileReadTypePtr(FILE* file, T* val)
 {
-	variableData = (char*)nullcGetVariableData();
-	fread(reinterpret_cast<long long>(val)+variableData, sizeof(T), 1, file);
+	fread(val, sizeof(T), 1, file);
 }
 
 void myFileClose(FILE* file)
@@ -169,7 +164,7 @@ void WriteToConsole(ArrayPtr data)
 {
 	InitConsole();
 	DWORD written;
-	WriteFile(conStdOut, reinterpret_cast<long long>(data.ptr)+variableData, data.len-1, &written, NULL); 
+	WriteFile(conStdOut, data.ptr, data.len-1, &written, NULL); 
 }
 
 void ReadIntFromConsole(int* val)
@@ -178,7 +173,7 @@ void ReadIntFromConsole(int* val)
 	char temp[128];
 	DWORD read;
 	ReadFile(conStdIn, temp, 128, &read, NULL);
-	*(int*)(reinterpret_cast<long long>(val)+variableData) = atoi(temp);
+	*val = atoi(temp);
 
 	DWORD written;
 	WriteFile(conStdOut, "\r\n", 2, &written, NULL); 
@@ -192,7 +187,7 @@ int ReadTextFromConsole(ArrayPtr data)
 	DWORD read;
 	ReadFile(conStdIn, buffer, 2048, &read, NULL);
 	buffer[read-1] = 0;
-	char *target = reinterpret_cast<long long>(data.ptr) + variableData;
+	char *target = data.ptr;
 	int c = 0;
 	for(unsigned int i = 0; i < read; i++)
 	{
@@ -251,6 +246,21 @@ char typeTest(int x, short y, char z, int d, long long u, float m, double k)
 	return 12;
 }
 
+void allocArray(ArrayPtr &arr, int count)
+{
+	//ArrayPtr arr;
+	arr.ptr = (char*)(new int[count]);
+	arr.len = count;
+	//return *(long long*)(&arr);
+}
+
+void allocCharArray(ArrayPtr &arr, int count)
+{
+	arr.ptr = new char[(count + 3) & ~0x3];
+	memset(arr.ptr, 0, (count + 3) & ~0x3);
+	arr.len = count;
+}
+
 char* buf;
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
@@ -268,7 +278,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	bool runUnitTests = true;
+	bool runUnitTests = false;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -296,34 +306,37 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 
 	//typeTest(12, 14, 'c', 15, 5l, 5.0);
 
-	nullcAddExternalFunction((void (*)())(typeTest), "char typeTest(int x, short y, char z, int d, long u, float m, double k);");
+	REGISTER(typeTest, "char typeTest(int x, short y, char z, int d, long u, float m, double k);");
 
-	nullcAddExternalFunction((void (*)())(PrintFloat4), "void TestEx(float4 test);");
-	nullcAddExternalFunction((void (*)())(PrintLong), "void TestEx2(long test);");
+	REGISTER(PrintFloat4, "void TestEx(float4 test);");
+	REGISTER(PrintLong, "void TestEx2(long test);");
 
-	nullcAddExternalFunction((void (*)())(myGetTime), "int clock();");
+	REGISTER(myGetTime, "int clock();");
 
-	nullcAddExternalFunction((void (*)())(myFileOpen), "file FileOpen(char[] name, char[] access);");
-	nullcAddExternalFunction((void (*)())(myFileClose), "void FileClose(file fID);");
-	nullcAddExternalFunction((void (*)())(myFileWrite), "void FileWrite(file fID, char[] arr);");
-	nullcAddExternalFunction((void (*)())(myFileWriteTypePtr<char>), "void FileWrite(file fID, char ref data);");
-	nullcAddExternalFunction((void (*)())(myFileWriteTypePtr<short>), "void FileWrite(file fID, short ref data);");
-	nullcAddExternalFunction((void (*)())(myFileWriteTypePtr<int>), "void FileWrite(file fID, int ref data);");
-	nullcAddExternalFunction((void (*)())(myFileWriteTypePtr<long long>), "void FileWrite(file fID, long ref data);");
-	nullcAddExternalFunction((void (*)())(myFileWriteType<char>), "void FileWrite(file fID, char data);");
-	nullcAddExternalFunction((void (*)())(myFileWriteType<short>), "void FileWrite(file fID, short data);");
-	nullcAddExternalFunction((void (*)())(myFileWriteType<int>), "void FileWrite(file fID, int data);");
-	nullcAddExternalFunction((void (*)())(myFileWriteType<long long>), "void FileWrite(file fID, long data);");
+	REGISTER(myFileOpen, "file FileOpen(char[] name, char[] access);");
+	REGISTER(myFileClose, "void FileClose(file fID);");
+	REGISTER(myFileWrite, "void FileWrite(file fID, char[] arr);");
+	REGISTER(myFileWriteTypePtr<char>, "void FileWrite(file fID, char ref data);");
+	REGISTER(myFileWriteTypePtr<short>, "void FileWrite(file fID, short ref data);");
+	REGISTER(myFileWriteTypePtr<int>, "void FileWrite(file fID, int ref data);");
+	REGISTER(myFileWriteTypePtr<long long>, "void FileWrite(file fID, long ref data);");
+	REGISTER(myFileWriteType<char>, "void FileWrite(file fID, char data);");
+	REGISTER(myFileWriteType<short>, "void FileWrite(file fID, short data);");
+	REGISTER(myFileWriteType<int>, "void FileWrite(file fID, int data);");
+	REGISTER(myFileWriteType<long long>, "void FileWrite(file fID, long data);");
 
-	nullcAddExternalFunction((void (*)())(myFileRead), "void FileRead(file fID, char[] arr);");
-	nullcAddExternalFunction((void (*)())(myFileReadTypePtr<char>), "void FileRead(file fID, char ref data);");
-	nullcAddExternalFunction((void (*)())(myFileReadTypePtr<short>), "void FileRead(file fID, short ref data);");
-	nullcAddExternalFunction((void (*)())(myFileReadTypePtr<int>), "void FileRead(file fID, int ref data);");
-	nullcAddExternalFunction((void (*)())(myFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
+	REGISTER(myFileRead, "void FileRead(file fID, char[] arr);");
+	REGISTER(myFileReadTypePtr<char>, "void FileRead(file fID, char ref data);");
+	REGISTER(myFileReadTypePtr<short>, "void FileRead(file fID, short ref data);");
+	REGISTER(myFileReadTypePtr<int>, "void FileRead(file fID, int ref data);");
+	REGISTER(myFileReadTypePtr<long long>, "void FileRead(file fID, long ref data);");
 
-	nullcAddExternalFunction((void (*)())(WriteToConsole), "void Print(char[] text);");
-	nullcAddExternalFunction((void (*)())(ReadIntFromConsole), "void Input(int ref num);");
-	nullcAddExternalFunction((void (*)())(ReadTextFromConsole), "int Input(char[] buf);");
+	REGISTER(WriteToConsole, "void Print(char[] text);");
+	REGISTER(ReadIntFromConsole, "void Input(int ref num);");
+	REGISTER(ReadTextFromConsole, "int Input(char[] buf);");
+
+	REGISTER(allocArray, "void alloc(int[] ref arr, int count);");
+	REGISTER(allocCharArray, "void alloc(char[] ref arr, int count);");
 
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -570,8 +583,10 @@ void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 		if(mInfo.type->type != TypeInfo::TYPE_COMPLEX && mInfo.type->arrLevel == 0)
 			strcat(name, GetSimpleVariableValue(mInfo.type, address + mInfo.offset));
 
-		if(mInfo.type->arrLevel == 1 && mInfo.type->subType->type == TypeInfo::TYPE_CHAR)
+		if(mInfo.type->arrLevel == 1 && mInfo.type->arrSize != -1 && mInfo.type->subType->type == TypeInfo::TYPE_CHAR)
 			sprintf(name+strlen(name), "\"%s\"", (char*)(variableData + address + mInfo.offset));
+		if(mInfo.type->arrSize == -1)
+			sprintf(name+strlen(name), "\"%s\" address: %d, size: %d", *((char**)(variableData + address)), *((int*)&variableData[address]), *((int*)&variableData[address+4]));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
@@ -601,7 +616,7 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	if(arrSize == -1)
 	{
 		arrSize = *((int*)&variableData[address+4]);
-		address = *((int*)&variableData[address]);
+		address = *((int*)&variableData[address]) - (int)variableData;
 	}
 	for(unsigned int n = 0; n < arrSize; n++, address += subType->size)
 	{
@@ -614,8 +629,10 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 		}
 		sprintf(name, "[%d]: ", n);
 
-		if(subType->arrLevel == 1 && subType->subType->type == TypeInfo::TYPE_CHAR)
+		if(subType->arrLevel == 1 && subType->arrSize != -1 && subType->subType->type == TypeInfo::TYPE_CHAR)
 			sprintf(name+strlen(name), "\"%s\"", (char*)(variableData+address));
+		if(subType->arrSize == -1)
+			sprintf(name+strlen(name), "\"%s\" address: %d, size: %d", *((char**)(variableData + address)), *((int*)&variableData[address]), *((int*)&variableData[address+4]));
 
 		if(subType->type != TypeInfo::TYPE_COMPLEX && subType->arrLevel == 0)
 			strcat(name, GetSimpleVariableValue(subType, address));
@@ -656,11 +673,10 @@ void FillVariableInfoTree()
 		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
 			strcat(name, GetSimpleVariableValue(currVar.varType, address));
 
-		if(currVar.varType->arrLevel == 1 && currVar.varType->subType->type == TypeInfo::TYPE_CHAR)
+		if(currVar.varType->arrLevel == 1 && currVar.varType->arrSize != -1 && currVar.varType->subType->type == TypeInfo::TYPE_CHAR)
 			sprintf(name+strlen(name), "\"%s\"", (char*)(variableData+address));
-
 		if(currVar.varType->arrSize == -1)
-			sprintf(name+strlen(name), " address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
+			sprintf(name+strlen(name), "\"%s\" address: %d, size: %d", *((char**)(variableData + address)), *((int*)&variableData[address]), *((int*)&variableData[address+4]));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
@@ -731,16 +747,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(good)
 			{
 				nullcClean();
-				nullcLinkCode(bytecode, 1);
+				if(!nullcLinkCode(bytecode, 1))
+				{
+					good = false;
+					SetWindowText(hCode, nullcGetRuntimeError());
+				}
+			}else{
+				SetWindowText(hCode, nullcGetCompilationError());
 			}
 		//}
 			linkTime += myGetPreciseTime()-time;
 
 			delete[] bytecode;
-			if(!good)
+			if(good)
 			{
-				SetWindowText(hCode, nullcGetCompilationError());
-			}else{
 				variableData = (char*)nullcGetVariableData();
 				
 				double time = myGetPreciseTime();
@@ -754,7 +774,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
 
 					variableData = (char*)nullcGetVariableData();
-					//FillVariableInfoTree();
+					FillVariableInfoTree();
 				}else{
 					sprintf_s(result, 128, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
 				}
@@ -764,7 +784,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		//}
 			//linkTime += myGetPreciseTime()-time;
 		//	sprintf_s(result, 128, "compile: %f bytecode: %f link: %f", compTime, bytecodeTime, linkTime);
-			SetWindowText(hResult, result);
+		//	SetWindowText(hResult, result);
 		}
 		if((HWND)lParam == hButtonCalcX86)
 		{
