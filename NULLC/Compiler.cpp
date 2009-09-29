@@ -627,8 +627,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
 			else if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
 				funcInfo.retType = ExternFuncInfo::RETURN_DOUBLE;
-			else if(refFunc->retType->type != TypeInfo::TYPE_COMPLEX || refFunc->retType->size == 4)
+			else if(refFunc->retType->type == TypeInfo::TYPE_INT || refFunc->retType->size <= 4)
 				funcInfo.retType = ExternFuncInfo::RETURN_INT;
+			else if(refFunc->retType->type == TypeInfo::TYPE_LONG || refFunc->retType->size == 8)
+				funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 		}
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;

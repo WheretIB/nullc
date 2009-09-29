@@ -907,6 +907,9 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	}else if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_DOUBLE){
 		genStackPtr -= 2;
 		*(double*)genStackPtr = ((double (*)())fPtr)();
+	}else if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_LONG){
+		genStackPtr -= 2;
+		*(long long*)genStackPtr = ((long long (*)())fPtr)();
 	}
 	__asm add esp, bytesToPop;
 	return true;

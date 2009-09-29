@@ -190,7 +190,7 @@ namespace ColorerGrammar
 			symb		=	graphP - alnumP - chP(')');
 			symb2		=	graphP - alphaP;
 			varname		=	lexemeD[alphaP >> *(alnumP | '_')];
-			typeName	=	varname - strP("return") ;
+			typeName	=	varname - strP("return");
 
 			arrayDef	=
 				(
@@ -372,6 +372,7 @@ namespace ColorerGrammar
 				longestD[(intP >> (chP('l') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
 				(chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorVar]) >> chP('\'')[ColorText]) |
 				(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
+				(strP("new")[ColorRWord] >> typenameP(typeName)[ColorRWord] >> !(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])) |
 				group | funccall[FuncCall] |
 				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++") | strP("--") | ('.' >> funccall) | epsP)[ColorText]);
 			term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));

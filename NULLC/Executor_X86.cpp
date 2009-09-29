@@ -427,6 +427,9 @@ bool ExecutorX86::TranslateToNative()
 				EMIT_OP_REG(o_push, rEAX);
 				EMIT_OP_REG(o_push, rEAX);
 				EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+			}else if(exFunctions[cmd.argument].retType == ExternFuncInfo::RETURN_LONG){
+				EMIT_OP_REG(o_push, rEDX);
+				EMIT_OP_REG(o_push, rEAX);
 			}
 		}else{
 			cgFuncs[cmd.cmd](cmd);

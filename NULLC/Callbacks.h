@@ -99,6 +99,8 @@ void AddTwoExpressionNode();
 
 void AddArrayConstructor(const char* pos, unsigned int arrElementCount);
 
+void AddTypeAllocation(const char* pos);
+
 void FunctionAdd(const char* pos, const char* funcName);
 void FunctionParameter(const char* pos, InplaceStr paramName);
 void FunctionStart(const char* pos);

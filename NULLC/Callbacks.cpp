@@ -1190,41 +1190,54 @@ bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 	bool unifyTwo = false;
 	TypeInfo *nodeType = nodeList.back()->typeInfo;
 	// If subtype of both variables (presumably, arrays) is equal
-	if(dstType->arrSize == TypeInfo::UNSIZED_ARRAY && dstType != nodeType && dstType->subType == nodeType->subType)
+	if(dstType->arrSize == TypeInfo::UNSIZED_ARRAY && dstType != nodeType)
 	{
-		// And if to the right of assignment operator there is no pointer dereference
-		if(nodeList.back()->nodeType != typeNodeDereference)
+		bool createList = false;
+		int typeSize = 0;
+		if(dstType->subType == nodeType->subType)
 		{
-			// Then, to the right of assignment operator there is array definition using inplace array
-			if(nodeList.back()->nodeType == typeNodeExpressionList || nodeList.back()->nodeType == typeNodeFuncCall)
+			// And if to the right of assignment operator there is no pointer dereference
+			if(nodeList.back()->nodeType != typeNodeDereference)
 			{
-				// Create node for assignment of inplace array to implicit variable
-				AddInplaceArray(pos);
-				currTypes.pop_back();
-				// Now we have two nodes, so they are to be unified
-				unifyTwo = true;
-			}else{
-				// Or if not, then types aren't compatible, so throw error
-				sprintf(callbackError, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
-				ThrowError(callbackError, pos);
+				// Then, to the right of assignment operator there is array definition using inplace array
+				if(nodeList.back()->nodeType == typeNodeExpressionList || nodeList.back()->nodeType == typeNodeFuncCall)
+				{
+					// Create node for assignment of inplace array to implicit variable
+					AddInplaceArray(pos);
+					currTypes.pop_back();
+					// Now we have two nodes, so they are to be unified
+					unifyTwo = true;
+				}else{
+					// Or if not, then types aren't compatible, so throw error
+					sprintf(callbackError, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
+					ThrowError(callbackError, pos);
+				}
 			}
+			// Because we are assigning array of explicit size to a pointer to array, we have to put a pair of pointer:size on top of stack
+			// Take pointer to an array (node that is inside of pointer dereference node)
+			NodeZeroOP	*oldNode = nodeList.back();
+			nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
+			static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
+			// Find the size of an array
+			typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
+			createList = true;
+		}else if(nodeType->refLevel == 1 && dstType->subType == nodeType->subType->subType){
+			// Set the size of an array
+			typeSize = nodeType->subType->arrSize;
+			createList = true;
 		}
-		// Because we are assigning array of explicit size to a pointer to array, we have to put a pair of pointer:size on top of stack
-		// Take pointer to an array (node that is inside of pointer dereference node)
-		NodeZeroOP	*oldNode = nodeList.back();
-		nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
-		static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
-		// Find the size of an array
-		unsigned int typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
-		// Create expression list with return type of implicit size array
-		// Node constructor will take last node
-		NodeExpressionList *listExpr = new NodeExpressionList(dstType);
-		// Create node that places array size on top of the stack
-		nodeList.push_back(new NodeNumber((int)typeSize, typeInt));
-		// Add it to expression list
-		listExpr->AddNode();
-		// Add expression list to node list
-		nodeList.push_back(listExpr);
+		if(createList)
+		{
+			// Create expression list with return type of implicit size array
+			// Node constructor will take last node
+			NodeExpressionList *listExpr = new NodeExpressionList(dstType);
+			// Create node that places array size on top of the stack
+			nodeList.push_back(new NodeNumber(typeSize, typeInt));
+			// Add it to expression list
+			listExpr->AddNode();
+			// Add expression list to node list
+			nodeList.push_back(listExpr);
+		}
 	}
 	return unifyTwo;
 }
@@ -1291,6 +1304,18 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	}
 
 	nodeList.push_back(arrayList);
+}
+
+void AddTypeAllocation(const char* pos)
+{
+	if(currType->arrLevel == 0)
+	{
+		AddFunctionCallNode(pos, "__newS", 1);
+		nodeList.back()->typeInfo = CodeInfo::GetReferenceType(currType);
+	}else{
+		AddFunctionCallNode(pos, "__newA", 2);
+		nodeList.back()->typeInfo = currType;
+	}
 }
 
 void FunctionAdd(const char* pos, const char* funcName)

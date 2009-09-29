@@ -849,8 +849,11 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	if(!swapNodes)
 		second = TakeLastNode();
 
+	if(typeInfo->arrLevel < 2 && typeInfo->refLevel == 0 && second->nodeType == typeNodeNumber)
+		static_cast<NodeNumber*>(second)->ConvertTo(typeInfo);
+
 	// If this is the first array definition and value is array sub-type, we set it to all array elements
-	arrSetAll = (firstDefinition && typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
+	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->typeInfo == typeVoid)
 	{
@@ -866,10 +869,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
-
-	if(second->nodeType == typeNodeNumber)
-		static_cast<NodeNumber*>(second)->ConvertTo(typeInfo);
-
+	
 	// If types don't match
 	if(second->typeInfo != typeInfo)
 	{

@@ -37,7 +37,8 @@ struct ExternFuncInfo
 		RETURN_UNKNOWN,
 		RETURN_VOID,
 		RETURN_INT,
-		RETURN_DOUBLE
+		RETURN_DOUBLE,
+		RETURN_LONG,
 	};
 	unsigned int	retType;	// one of the ReturnType enumeration values
 	unsigned int	funcType;	// index to the type array
