@@ -805,6 +805,33 @@ bool ParseTerminal(Lexeme** str)
 		CALLBACK(PopType());
 		return true;
 	}
+	if(ParseLexem(str, lex_new))
+	{
+		const char *pos = (*str)->pos;
+		int index;
+		if((index = ParseTypename(str)) == 0)
+			ThrowError("ERROR: Type name expected after 'new'", (*str)->pos);
+		CALLBACK(SelectTypeByIndex(index - 1));
+
+		CALLBACK(PushType());
+		CALLBACK(GetTypeSize((*str)->pos, false));
+
+		if(ParseLexem(str, lex_obracket))
+		{
+			CALLBACK(PopType());
+			CALLBACK(AddUnfixedArraySize());
+			CALLBACK(ConvertTypeToArray((*str)->pos));
+			CALLBACK(PushType());
+
+			if(!ParseTernaryExpr(str))
+				ThrowError("ERROR: expression not found after '['", (*str)->pos);
+			if(!ParseLexem(str, lex_cbracket))
+				ThrowError("ERROR: ']' not found after expression", (*str)->pos);
+		}
+		CALLBACK(AddTypeAllocation(pos));
+		CALLBACK(PopType());
+		return true;
+	}
 	if(ParseLexem(str, lex_ofigure))
 	{
 		unsigned int arrElementCount = 0;

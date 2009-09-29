@@ -239,6 +239,8 @@ void	Lexer::Lexify(const char* code)
 							lType = lex_for;
 						else if(memcmp(code, "ref", 3) == 0)
 							lType = lex_ref;
+						else if(memcmp(code, "new", 3) == 0)
+							lType = lex_new;
 						break;
 					case 4:
 						if(memcmp(code, "case", 4) == 0)
