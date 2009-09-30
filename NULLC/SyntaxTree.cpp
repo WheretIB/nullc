@@ -1163,17 +1163,9 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 	shiftValue = 0;
 	knownShift = false;
 
-	if(second->nodeType == typeNodeNumber)
+	if(second->nodeType == typeNodeNumber && typeParent->arrSize != -1)
 	{
 		shiftValue = typeParent->subType->size * static_cast<NodeNumber*>(second)->GetInteger();
-		// If we're indexing an array with implicit size, then two values (pointer:size) will be put on top of stack
-		// But since we know index value, it means that the check was already performed
-		// And the only thing we need on top of the stack is pointer
-		if(typeParent->arrSize == -1)
-		{
-			nodeList.push_back(static_cast<NodeDereference*>(first)->GetFirstNode());
-			first = new NodeDereference(GetReferenceType(typeParent->subType));
-		}
 		knownShift = true;
 	}
 
