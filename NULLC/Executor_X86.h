@@ -23,8 +23,6 @@ public:
 	const char*	GetExecError();
 
 	char*	GetVariableData();
-
-	void	SetOptimization(int toggle);
 private:
 	char	execError[256];
 	char	execResult[64];
@@ -38,7 +36,6 @@ private:
 	FastVector<x86Instruction, true, true>	instList;
 	FastVector<unsigned char*>	instAddress;
 
-	int	optimize;
 	unsigned int		globalStartInBytecode;
 
 	char			*paramData;

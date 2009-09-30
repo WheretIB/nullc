@@ -77,15 +77,14 @@ void*	FindVar(const char* name)
 	return varData;
 }
 
-bool	RunCode(const char *code, unsigned int executor, bool optimization, const char* expected)
+bool	RunCode(const char *code, unsigned int executor, const char* expected)
 {
 	//if(executor != NULLC_VM)
 	//	return false;
 	nullcSetExecutor(executor);
-	nullcSetExecutorOptions(optimization);
 
-	char buf[128];
-	sprintf(buf, "%s opt. %s ", executor == NULLC_VM ? "VM, " : "X86,", optimization ? "on. " : "off.");
+	char buf[256];
+	sprintf(buf, "%s", executor == NULLC_VM ? "VM " : "X86");
 
 	double time = myGetPreciseTime();
 	nullres good = nullcCompile(code);
@@ -348,11 +347,10 @@ void	RunTests()
 	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
 
 
-	int passed[] = { 0, 0, 0 };
+	int passed[] = { 0, 0 };
 	int testCount = 0;
 
-	unsigned int	testTarget[] = { NULLC_VM, NULLC_X86, NULLC_X86 };
-	bool			testOpti[] = { false, false, true };
+	unsigned int	testTarget[] = { NULLC_VM, NULLC_X86, };
 
 //////////////////////////////////////////////////////////////////////////
 	printf("\r\nTwo bytecode merge test 1\r\n");
@@ -365,10 +363,9 @@ void	RunTests()
 	bytecodeA = NULL;
 	bytecodeB = NULL;
 
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
 		nullcSetExecutor(testTarget[t]);
-		nullcSetExecutorOptions(testOpti[t]);
 
 		nullres good = nullcCompile(partA1);
 		nullcSaveListing("asm.txt");
@@ -416,9 +413,9 @@ void	RunTests()
 	// Number operation test
 	printf("\r\nInteger operation test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testIntOp, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testIntOp, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 14);
@@ -433,9 +430,9 @@ void	RunTests()
 	}
 	printf("\r\nDouble operation test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testDoubleOp, testTarget[t], testOpti[t], "17.000000"))
+		if(RunCode(testDoubleOp, testTarget[t], "17.000000"))
 		{
 			lastFailed = false;
 			CHECK_DOUBLE("a", 0, 14.0);
@@ -449,9 +446,9 @@ void	RunTests()
 	}
 	printf("\r\nLong operation test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testLongOp, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testLongOp, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_LONG("a", 0, 4494967296ll);
@@ -467,9 +464,9 @@ void	RunTests()
 	}
 	printf("\r\nDecrement and increment tests for all types\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(tesIncDec, testTarget[t], testOpti[t], "1"))
+		if(RunCode(tesIncDec, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -503,9 +500,9 @@ void	RunTests()
 	// Complex type tests
 	printf("\r\nComplex type test (simple)\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testCmplxType1, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testCmplxType1, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_FLOAT("f1", 0, 1);
@@ -528,9 +525,9 @@ void	RunTests()
 	}
 	printf("\r\nComplex type test (complex)\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testCmplxType2, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testCmplxType2, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -554,9 +551,9 @@ a.y = a/*[gg]*/.x + 3;\r\n\
 return a.x;";
 	printf("\r\nCompiler mislead test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testMislead, testTarget[t], testOpti[t], "2.000000"))
+		if(RunCode(testMislead, testTarget[t], "2.000000"))
 		{
 			lastFailed = false;
 
@@ -575,9 +572,9 @@ mat.row1.y = 5;\r\n\
 return 1;";
 	printf("\r\nComplex type test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testCmplx3, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testCmplx3, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -596,9 +593,9 @@ d[i] = i*2 + i-2;\r\n\
 return d[5];";
 	printf("\r\nArray test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testCycle, testTarget[t], testOpti[t], "0.000000"))
+		if(RunCode(testCycle, testTarget[t], "0.000000"))
 		{
 			lastFailed = false;
 
@@ -617,9 +614,9 @@ const char	*testFuncCall1 =
 return 1+test(2, 3, 4);	// 11";
 	printf("\r\nFunction call test 1\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFuncCall1, testTarget[t], testOpti[t], "11"))
+		if(RunCode(testFuncCall1, testTarget[t], "11"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -636,9 +633,9 @@ b = 3;\r\n\
 return b+test(2, 3, 4);";
 	printf("\r\nFunction call test 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFuncCall2, testTarget[t], testOpti[t], "13"))
+		if(RunCode(testFuncCall2, testTarget[t], "13"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -652,9 +649,9 @@ const char	*testFuncCall3 =
 return fib(1);";
 	printf("\r\nFunction call test 3\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFuncCall3, testTarget[t], testOpti[t], "5"))
+		if(RunCode(testFuncCall3, testTarget[t], "5"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -668,9 +665,9 @@ const char	*testRecursion =
 return fib(4);";
 	printf("\r\nRecursion test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testRecursion, testTarget[t], testOpti[t], "3"))
+		if(RunCode(testRecursion, testTarget[t], "3"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -689,9 +686,9 @@ res[res[res[2]]] = 12;\r\n\
 return 5;";
 	printf("\r\nArray indirection and optimization test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testIndirection, testTarget[t], testOpti[t], "5"))
+		if(RunCode(testIndirection, testTarget[t], "5"))
 		{
 			lastFailed = false;
 
@@ -721,9 +718,9 @@ while(1){ n*=2; if(n>1000) break; }\r\n\
 return 2+test(2, 3)+a**b;";
 	printf("\r\nOld all-in-one test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testAllInOne, testTarget[t], testOpti[t], "19.000000"))
+		if(RunCode(testAllInOne, testTarget[t], "19.000000"))
 		{
 			lastFailed = false;
 
@@ -752,9 +749,9 @@ for(int i = 0; i < 1000; i++)\r\n\
 return c;";
 	printf("\r\nlongPow speed test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testLongSpeed, testTarget[t], testOpti[t], "21611482313284249L"))
+		if(RunCode(testLongSpeed, testTarget[t], "21611482313284249L"))
 		{
 			lastFailed = false;
 
@@ -774,9 +771,9 @@ int a=5, b =0;\r\n\
 return a/b;";
 	printf("\r\n Division by zero handling\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(!RunCode(testDivZero, testTarget[t], testOpti[t], "ERROR: Integer division by zero"))
+		if(!RunCode(testDivZero, testTarget[t], "ERROR: Integer division by zero"))
 			passed[t]++;
 		else
 			printf("Should have failed");
@@ -797,9 +794,9 @@ lc = da;\r\n\
 return 1;";
 	printf("\r\nType conversions\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testTypeConv, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testTypeConv, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -825,9 +822,9 @@ int[10] a=5;\r\n\
 return 1;";
 	printf("\r\nArray fill test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testArrayFill, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testArrayFill, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -872,9 +869,9 @@ res[18] = sqrt(9.0); // 3.0\r\n\
 return 1;";
 	printf("\r\nBuild-In function checks\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testBuildinFunc, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testBuildinFunc, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -895,9 +892,9 @@ const char	*testDoublePow =
 return a**2.0;";
 	printf("\r\nDouble power\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testDoublePow, testTarget[t], testOpti[t], "0.810000"))
+		if(RunCode(testDoublePow, testTarget[t], "0.810000"))
 		{
 			lastFailed = false;
 
@@ -928,9 +925,9 @@ double abs(double x)\r\n\
 return clamp(abs(-1.5), 0.0, 1.0);";
 	printf("\r\nFunction call test 4\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFuncCall4, testTarget[t], testOpti[t], "1.000000"))
+		if(RunCode(testFuncCall4, testTarget[t], "1.000000"))
 		{
 			lastFailed = false;
 
@@ -952,9 +949,9 @@ res = 1+test(x, 3, 4);\r\n\
 return res;";
 	printf("\r\nFunction Call test 5\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFuncCall5, testTarget[t], testOpti[t], "11"))
+		if(RunCode(testFuncCall5, testTarget[t], "11"))
 		{
 			lastFailed = false;
 
@@ -978,9 +975,9 @@ const char	*testFuncCall6 =
 return abs(-0.5);";
 	printf("\r\nFunction call test 6\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFuncCall6, testTarget[t], testOpti[t], "0.500000"))
+		if(RunCode(testFuncCall6, testTarget[t], "0.500000"))
 		{
 			lastFailed = false;
 
@@ -999,9 +996,9 @@ b = a; // should fail\r\n\
 return 1;";
 	printf("\r\nComplex fail test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(!RunCode(testCmplxFail, testTarget[t], testOpti[t], "1"))
+		if(!RunCode(testCmplxFail, testTarget[t], "1"))
 			passed[t]++;
 		else
 			printf("Should have failed");
@@ -1020,9 +1017,9 @@ for(int i = 0; i < 5; i++)\r\n\
 return 1;";
 	printf("\r\nInc dec test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testIncDec, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testIncDec, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -1053,9 +1050,9 @@ testB(b);\r\n\
 return testA(&a);";
 	printf("\r\nPointers\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testPointers, testTarget[t], testOpti[t], "325"))
+		if(RunCode(testPointers, testTarget[t], "325"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 65);
@@ -1087,9 +1084,9 @@ normalize(&a);\r\n\
 return length(b);";
 	printf("\r\nPointers on complex\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testPointersCmplx, testTarget[t], testOpti[t], "1.000000"))
+		if(RunCode(testPointersCmplx, testTarget[t], "1.000000"))
 		{
 			lastFailed = false;
 
@@ -1110,9 +1107,9 @@ b.x = 5.0f;\r\n\
 return b.x;";
 	printf("\r\nPointers on complex 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testPointersCmplx2, testTarget[t], testOpti[t], "5.000000"))
+		if(RunCode(testPointersCmplx2, testTarget[t], "5.000000"))
 		{
 			lastFailed = false;
 			CHECK_FLOAT("a", 0, 5.0);
@@ -1130,9 +1127,9 @@ a.x = 5.0f;\r\n\
 return testA(b);";
 	printf("\r\nPointers 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testPointers2, testTarget[t], testOpti[t], "5.000000"))
+		if(RunCode(testPointers2, testTarget[t], "5.000000"))
 		{
 			lastFailed = false;
 			CHECK_FLOAT("a", 0, 5.0);
@@ -1154,9 +1151,9 @@ res[5] = a*3*1;\r\n\
 return 1;";
 	printf("\r\nSimple optimizations\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testOptiA, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testOptiA, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 12);
@@ -1192,9 +1189,9 @@ float ref c = &arrF[1].y;\r\n\
 return 1;";
 	printf("\r\nPointers test 3\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testPointers3, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testPointers3, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_INT("arr", 1, 5);
@@ -1225,9 +1222,9 @@ int calls = 0;\r\n\
 return fib(/*40*/15, &calls);";
 	printf("\r\nCall number test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testCalls, testTarget[t], testOpti[t], "610"))
+		if(RunCode(testCalls, testTarget[t], "610"))
 		{
 			lastFailed = false;
 			CHECK_INT("calltest", 0, 1219);
@@ -1247,9 +1244,9 @@ nx = neg(x);\r\n\
 return nx;";
 	printf("\r\nNegate test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testNegate, testTarget[t], testOpti[t], "-5.000000"))
+		if(RunCode(testNegate, testTarget[t], "-5.000000"))
 		{
 			lastFailed = false;
 			CHECK_DOUBLE("x", 0, 5.0);
@@ -1268,9 +1265,9 @@ int fa(float i){ return i*3.0f; }\r\n\
 return fa(5.0f) * fa(2, 3.0);";
 	printf("\r\nFunction overload test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFuncOverload, testTarget[t], testOpti[t], "90"))
+		if(RunCode(testFuncOverload, testTarget[t], "90"))
 			passed[t]++;
 	}
 
@@ -1281,9 +1278,9 @@ int test(){ 1; } // temporary\r\n\
 return test();";
 	printf("\r\nFunction with no return handling\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(!RunCode(testFuncNoReturn, testTarget[t], testOpti[t], "1"))
+		if(!RunCode(testFuncNoReturn, testTarget[t], "1"))
 			passed[t]++;
 		else
 			printf("Should have failed");
@@ -1298,9 +1295,9 @@ n[i] = 3;\r\n\
 return 1;";
 	printf("\r\nArray out of bounds error check 1\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(!RunCode(testBounds1, testTarget[t], testOpti[t], "1"))
+		if(!RunCode(testBounds1, testTarget[t], "1"))
 			passed[t]++;
 		else
 			printf("Should have failed");
@@ -1315,9 +1312,9 @@ nn[i] = 3;\r\n\
 return 1;";
 	printf("\r\nArray out of bounds error check 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(!RunCode(testBounds2, testTarget[t], testOpti[t], "1"))
+		if(!RunCode(testBounds2, testTarget[t], "1"))
 			passed[t]++;
 		else
 			printf("Should have failed");
@@ -1336,9 +1333,9 @@ int[][] xr = x;\r\n\
 return xr[1][3];";
 	printf("\r\nArray out of bounds error check 3\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(!RunCode(testBounds3, testTarget[t], testOpti[t], "1"))
+		if(!RunCode(testBounds3, testTarget[t], "1"))
 			passed[t]++;
 		else
 			printf("Should have failed");
@@ -1364,9 +1361,9 @@ int a = 3, b = 0;\r\n\
 return u;";
 	printf("\r\nSwitch test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testSwitch, testTarget[t], testOpti[t], "12"))
+		if(RunCode(testSwitch, testTarget[t], "12"))
 		{
 			lastFailed = false;
 
@@ -1402,9 +1399,9 @@ two.c.x = 2;\r\n\
 return 1;";
 	printf("\r\nClass test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testClass1, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testClass1, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -1427,9 +1424,9 @@ arr[slow(/*40000000*/1000)] += 16; // 330 ms total. target - 140ms\r\n\
 return 3;";
 	printf("\r\nVariable modify test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testVarMod, testTarget[t], testOpti[t], "3"))
+		if(RunCode(testVarMod, testTarget[t], "3"))
 		{
 			lastFailed = false;
 
@@ -1480,9 +1477,9 @@ twonext = two;\r\n\
 return 1;";
 	printf("\r\nClass test 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testClass2, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testClass2, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -1536,9 +1533,9 @@ float iArrSum = sum(iArr);\r\n\
 return test(n, m); // 56.0";
 	printf("\r\nComplex types test #3\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testCmplx4, testTarget[t], testOpti[t], "56.000000"))
+		if(RunCode(testCmplx4, testTarget[t], "56.000000"))
 		{
 			lastFailed = false;
 
@@ -1595,9 +1592,9 @@ for(int i = 0; i < /*10000000*/1000; i++)\r\n\
 return mat.row1.y;";
 	printf("\r\nSpeed tests\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testSpeed, testTarget[t], testOpti[t], "1.#INF00"))
+		if(RunCode(testSpeed, testTarget[t], "1.#INF00"))
 		{
 			lastFailed = false;
 
@@ -1624,9 +1621,9 @@ auto u = &b;\r\n\
 return *u;";
 	printf("\r\nAuto type tests\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testAuto, testTarget[t], testOpti[t], "15"))
+		if(RunCode(testAuto, testTarget[t], "15"))
 		{
 			lastFailed = false;
 
@@ -1658,9 +1655,9 @@ auto str4 = \"abc\", str5 = \"abcd\", string = \"Hello World!\";\r\n\
 return 1;";
 	printf("\r\nChar array test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testCharArr, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testCharArr, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -1691,9 +1688,9 @@ kl.uhu = \"tyty\";\r\n\
 return 0;";
 	printf("\r\nChar array test 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testCharArr2, testTarget[t], testOpti[t], "0"))
+		if(RunCode(testCharArr2, testTarget[t], "0"))
 		{
 			lastFailed = false;
 
@@ -1736,9 +1733,9 @@ print(\"does work\");\r\n\
 return sum(u);";
 	printf("\r\nImplicit pointers to arrays\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testArrPtr, testTarget[t], testOpti[t], "112"))
+		if(RunCode(testArrPtr, testTarget[t], "112"))
 		{
 			lastFailed = false;
 
@@ -1777,9 +1774,9 @@ FileClose(n);\r\n\
 return test(uh, 3);";
 	printf("\r\nFile and something else test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFile, testTarget[t], testOpti[t], "309"))
+		if(RunCode(testFile, testTarget[t], "309"))
 		{
 			lastFailed = false;
 			CHECK_STR("uh", 0, "ehhhe");
@@ -1840,9 +1837,9 @@ FileClose(test);\r\n\
 return 1;";
 	printf("\r\nFile test 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testFile2, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testFile2, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_STR("name", 0, "extern.bin");
@@ -1883,9 +1880,9 @@ for(int i = 0; i < 10; i++)\r\n\
 return 'n';";
 	printf("\r\nEscape sequences\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testEscape, testTarget[t], testOpti[t], "110"))
+		if(RunCode(testEscape, testTarget[t], "110"))
 		{
 			lastFailed = false;
 			CHECK_STR("name", 0, "09\n");
@@ -1903,9 +1900,9 @@ auto mo = \"!!!\";\r\n\
 return 1;";
 	printf("\r\nPrint test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testPrint, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testPrint, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_STR("ts", 0, "Hello World!\r\noh\toh\r\n");
@@ -1940,9 +1937,9 @@ b[4]--;\r\n\
 return b[1];";
 	printf("\r\nVariable get and set\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testVarGetSet1, testTarget[t], testOpti[t], "4"))
+		if(RunCode(testVarGetSet1, testTarget[t], "4"))
 		{
 			lastFailed = false;
 			int val[] = { 4, 4, 4, 5, 7, 9, 5, 7, 5, 5, };
@@ -1974,9 +1971,9 @@ int kl5 = test3(kl4);\r\n\
 return 1;";
 	printf("\r\nArrays test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testArrays, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testArrays, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_INT("kl", 0, 10);
@@ -2015,9 +2012,9 @@ int ns = sum(n), ts = sum({10, 12, 14, 16});\r\n\
 return 1;";
 	printf("\r\nArray test 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testArrays2, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testArrays2, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_INT("n", 0, 10);
@@ -2064,9 +2061,9 @@ for({int i = 0;}; i < 4; {i++;})\r\n\
 return 4;";
 	printf("\r\nFunction visibility test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testVisibility, testTarget[t], testOpti[t], "4"))
+		if(RunCode(testVisibility, testTarget[t], "4"))
 		{
 			lastFailed = false;
 			CHECK_INT("u", 0, 5);
@@ -2102,9 +2099,9 @@ int r; // (28)\r\n\
 return r; // 19398";
 	printf("\r\nLocal function context test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testLocalFunc1, testTarget[t], testOpti[t], "19398"))
+		if(RunCode(testLocalFunc1, testTarget[t], "19398"))
 		{
 			lastFailed = false;
 			CHECK_INT("g1", 0, 3);
@@ -2143,9 +2140,9 @@ int r; // (28)\r\n\
 return r; // 990579";
 	printf("\r\nLocal function context test 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testLocalFunc2, testTarget[t], testOpti[t], "990579"))
+		if(RunCode(testLocalFunc2, testTarget[t], "990579"))
 		{
 			lastFailed = false;
 			CHECK_INT("g1", 0, 3);
@@ -2167,9 +2164,9 @@ arr[test(\"hello\\r\\n\")] += 3;\r\n\
 return 1;";
 	printf("\r\nStrings test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testStrings, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testStrings, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_STR("hm", 0, "World\r\n");
@@ -2201,9 +2198,9 @@ auto f = { 1.0f, 2.0f };\r\n\
 return 1;";
 	printf("\r\nMultidimensional array constructor test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testMultiCtor, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testMultiCtor, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -2268,9 +2265,9 @@ auto c = 0x7fffffffffffffff;\r\n\
 return a;";
 	printf("\r\nHexademical constants\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testHexConst, testTarget[t], testOpti[t], "-559038737"))
+		if(RunCode(testHexConst, testTarget[t], "-559038737"))
 		{
 			lastFailed = false;
 
@@ -2357,9 +2354,9 @@ df1 = d3;\r\n\
 return 1;";
 	printf("\r\nNew get and set functions test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testGetSet, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testGetSet, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -2435,9 +2432,9 @@ int t5 = sizeof(t2*0.5); // 8\r\n\
 return 1;";
 	printf("\r\nsizeof tests\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testSizeof, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testSizeof, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -2469,9 +2466,9 @@ int rr = sizeof(typeof(fr));\r\n\
 return 1;";
 	printf("\r\ntypeof tests\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testTypeof, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testTypeof, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -2506,9 +2503,9 @@ float w;\r\n\
 return 1;";
 	printf("\r\nClass method test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testClassMethod, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testClassMethod, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -2576,9 +2573,9 @@ char ee;\r\n\
 return 1;";
 	printf("\r\nClosure test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testClosure, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testClosure, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -2643,9 +2640,9 @@ int c=0;\r\n\
 return 1;";
 	printf("\r\nClosure test 2\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testClosure2, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testClosure2, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -2683,9 +2680,9 @@ const char	*testClosure3 =
 return main();";
 	printf("\r\nClosure test 3\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testClosure3, testTarget[t], testOpti[t], "8"))
+		if(RunCode(testClosure3, testTarget[t], "8"))
 		{
 			lastFailed = false;
 
@@ -2706,9 +2703,9 @@ int b = 1 + ff(int f1(){ return 1 + ff(int f2(){ return 1 + ff(int f3(){ return 
 return a+b;";
 	printf("\r\nClosure test 4\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testClosure4, testTarget[t], testOpti[t], "7"))
+		if(RunCode(testClosure4, testTarget[t], "7"))
 		{
 			lastFailed = false;
 
@@ -2734,9 +2731,9 @@ r5 = a2();\r\n\
 return 1;";
 	printf("\r\nClosure test 5\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testClosure5, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testClosure5, testTarget[t], "1"))
 		{
 			lastFailed = false;
 
@@ -2760,9 +2757,9 @@ res[1] = a + b ** (c-10) * a;\r\n\
 return 1;";
 	printf("\r\nOperation priority test\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testPriority, testTarget[t], testOpti[t], "1"))
+		if(RunCode(testPriority, testTarget[t], "1"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 13);
@@ -2782,9 +2779,9 @@ auto f2(){ return 3; }\r\n\
 return f2();";
 	printf("\r\nAuto return type tests\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testAutoReturn, testTarget[t], testOpti[t], "3"))
+		if(RunCode(testAutoReturn, testTarget[t], "3"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -2818,9 +2815,9 @@ int b = k;\r\n\
 return a + b;";
 	printf("\r\nMulti-depth break and continue\r\n");
 	testCount++;
-	for(int t = 0; t < 3; t++)
+	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testDepthBreakContinue, testTarget[t], testOpti[t], "24"))
+		if(RunCode(testDepthBreakContinue, testTarget[t], "24"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 10);
@@ -2833,8 +2830,7 @@ return a + b;";
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount);
 	printf("X86 passed %d of %d tests\r\n", passed[1], testCount);
-	printf("X86opt passed %d of %d tests\r\n", passed[2], testCount);
-	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2], testCount*3);
+	printf("Passed %d of %d tests\r\n", passed[0]+passed[1], testCount*2);
 
 	printf("Compilation time: %f\r\n", timeCompile);
 	printf("Get listing time: %f\r\n", timeGetListing);
