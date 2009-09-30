@@ -711,6 +711,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			DeInitConsole();
 
+			SetWindowText(hCode, "");
+			SetWindowText(hResult, "");
+
 			char	result[128];
 
 			nullcSetExecutor(NULLC_VM);
@@ -770,13 +773,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					execTime += myGetPreciseTime()-time;
 
 					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
+					SetWindowText(hResult, result);
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
 				}else{
 					sprintf_s(result, 128, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
+					SetWindowText(hCode, result);
 				}
-				SetWindowText(hResult, result);
 			}
 			//SetWindowText(hLog, nullcGetCompilationLog());
 		//}
@@ -791,6 +795,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			strcpy(buf, GetAreaText());
 
 			DeInitConsole();
+
+			SetWindowText(hCode, "");
+			SetWindowText(hResult, "");
 
 			nullcSetExecutor(NULLC_X86);
 			nullcSetExecutorOptions(!!Button_GetCheck(hDoOptimize));
@@ -819,13 +826,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					double execTime = myGetPreciseTime()-time;
 
 					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime);
+					SetWindowText(hResult, result);
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
 				}else{
 					sprintf_s(result, 128, "%s", nullcGetRuntimeError());
+					SetWindowText(hCode, result);
 				}
-				SetWindowText(hResult, result);
 			}
 			SetWindowText(hLog, nullcGetCompilationLog());
 		}

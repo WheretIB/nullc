@@ -1173,7 +1173,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 	if(knownShift)
 		codeSize += 1;
 	else
-		codeSize += second->codeSize + (second->typeInfo->stackType != STYPE_INT ? 1 : 0) + (typeParent->subType->size != 1 ? 1 : 0);
+		codeSize += second->codeSize + (second->typeInfo->stackType != STYPE_INT ? 1 : 0) + 1;
 	nodeType = typeNodeArrayIndex;
 }
 
@@ -1199,8 +1199,7 @@ void NodeArrayIndex::Compile()
 		// Convert it to integer and multiply by the size of the element
 		if(second->typeInfo->stackType != STYPE_INT)
 			cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
-		if(typeParent->subType->size != 1)
-			cmdList.push_back(VMCmd(cmdImmtMul, typeParent->subType->size));
+		cmdList.push_back(VMCmd(cmdImmtMul, typeParent->subType->size, typeParent->arrSize));
 	}
 	// Add it to the address of the first element
 	cmdList.push_back(VMCmd(cmdAdd));
