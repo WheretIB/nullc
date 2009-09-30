@@ -681,18 +681,25 @@ void GenCodeCmdImmtMul(VMCmd cmd)
 {
 	EMIT_COMMENT("IMUL int");
 	
-	if(cmd.argument == 2)
+	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 0, cmd.argument);
+	EMIT_OP_LABEL(o_jb, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_REG(o_xor, rECX, rECX);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
+	if(cmd.helper == 2)
 	{
 		EMIT_OP_RPTR_NUM(o_shl, sDWORD, rESP, 0, 1);
-	}else if(cmd.argument == 4){
+	}else if(cmd.helper == 4){
 		EMIT_OP_RPTR_NUM(o_shl, sDWORD, rESP, 0, 2);
-	}else if(cmd.argument == 8){
+	}else if(cmd.helper == 8){
 		EMIT_OP_RPTR_NUM(o_shl, sDWORD, rESP, 0, 3);
-	}else if(cmd.argument == 16){
+	}else if(cmd.helper == 16){
 		EMIT_OP_RPTR_NUM(o_shl, sDWORD, rESP, 0, 4);
 	}else{
 		EMIT_OP_REG(o_pop, rEAX);
-		EMIT_OP_REG_NUM(o_imul, rEAX, cmd.argument);
+		EMIT_OP_REG_NUM(o_imul, rEAX, cmd.helper);
 		EMIT_OP_REG(o_push, rEAX);
 	}
 }

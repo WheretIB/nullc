@@ -378,7 +378,7 @@ bool ParseAddVariable(Lexeme** str)
 bool ParseVariableDefineSub(Lexeme** str)
 {
 	if(!ParseAddVariable(str))
-		return false;
+		ThrowError("ERROR: variable name not found after type name", (*str)->pos);
 
 	while(ParseLexem(str, lex_comma))
 	{

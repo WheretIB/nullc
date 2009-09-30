@@ -1807,6 +1807,8 @@ void TypeAddMember(const char* pos, const char* varName)
 	if(!currType)
 		ThrowError("ERROR: auto cannot be used for class members", pos);
 	newType->AddMemberVariable(varName, currType);
+	if(newType->size > 64 * 1024)
+		ThrowError("ERROR: class size cannot exceed 65535 bytes", pos);
 
 	AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
 }

@@ -9,6 +9,8 @@
 	#define DBG(x)
 #endif
 
+#include "CodeInfo.h"
+
 long long vmLongPow(long long num, long long pow)
 {
 	if(pow == 0)
@@ -330,7 +332,13 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdImmtMul:
-			*genStackPtr = cmd.argument * (*genStackPtr);
+			if(*genStackPtr >= (unsigned int)cmd.argument)
+			{
+				cmdStreamEnd = NULL;
+				strcpy(execError, "ERROR: array index out of bounds");
+				break;
+			}
+			*genStackPtr = cmd.helper * (*genStackPtr);
 			break;
 
 		case cmdCopyDorL:
@@ -865,9 +873,18 @@ void Executor::Run(const char* funcName)
 #endif
 	}
 	// Print call stack on error
-	/*if(cmdStreamEnd == NULL)
+	if(cmdStreamEnd == NULL)
 	{
-		char *currPos = execError + strlen(execError);
+		unsigned int line = 0;
+		unsigned int i = cmdStream - cmdStreamBase;
+		while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
+				line++;
+
+		char buf[512];
+		sprintf(buf, " (at %.*s)", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+		strcat(execError, buf);
+		
+		/*char *currPos = execError + strlen(execError);
 		while(fcallStack.size())
 		{
 			int address = int(fcallStack.back() - cmdStreamBase);
@@ -878,8 +895,8 @@ void Executor::Run(const char* funcName)
 				if((currPos - execError) + strlen("unknown (-1)") < ERROR_BUFFER_SIZE)
 					currPos = strcpy(execError, "unknown (-1)");
 			}
-		}
-	}*/
+		}*/
+	}
 }
 
 #ifdef _MSC_VER
