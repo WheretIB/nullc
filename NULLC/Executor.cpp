@@ -892,7 +892,7 @@ void Executor::Run(const char* funcName)
 				line++;
 
 		char buf[512];
-		sprintf(buf, " (at %.*s)", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+		sprintf(buf, " (at %.*s)", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
 		strcat(execError, buf);
 		
 		/*char *currPos = execError + strlen(execError);

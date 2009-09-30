@@ -43,7 +43,6 @@ const char* executeLog;
 char* compileLog;
 
 unsigned int currExec = 0;
-bool	execOptimize = false;
 
 void	nullcInit()
 {
@@ -63,11 +62,6 @@ void	nullcSetExecutor(unsigned int id)
 {
 	currExec = id;
 	CodeInfo::activeExecutor = currExec;
-}
-
-void	nullcSetExecutorOptions(int optimize)
-{
-	execOptimize = !!optimize;
 }
 
 nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
@@ -149,7 +143,6 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 	executeLog = linker->GetLinkError();
 	if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		executorX86->SetOptimization(execOptimize);
 		bool res = executorX86->TranslateToNative();
 		if(!res)
 		{

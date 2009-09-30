@@ -4,7 +4,6 @@
 #include "Executor_X86.h"
 #include "CodeGen_X86.h"
 #include "Translator_X86.h"
-#include "Optimizer_x86.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -442,28 +441,8 @@ bool ExecutorX86::TranslateToNative()
 	instList.resize((int)(GetLastInstruction() - &instList[0]));
 
 #ifdef NULLC_LOG_FILES
-	FILE *noptAsm = fopen("asmX86_noopt.txt", "wb");
-	char instBuf[128];
-	for(unsigned int i = 0; i < instList.size(); i++)
-	{
-		if(instList[i].name == o_dd)
-			continue;
-		instList[i].Decode(instBuf);
-		fprintf(noptAsm, "%s\r\n", instBuf);
-	}
-	fclose(noptAsm);
-#endif
-
-#ifdef NULLC_LOG_FILES
-	DeleteFile("asmX86.txt");
 	FILE *fAsm = fopen("asmX86.txt", "wb");
-#endif
-	if(optimize)
-	{
-		OptimizerX86 optiMan;
-		optiMan.Optimize(instList);
-	}
-#ifdef NULLC_LOG_FILES
+	char instBuf[128];
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
 		if(instList[i].name == o_dd || instList[i].name == o_other)
@@ -902,11 +881,6 @@ const char* ExecutorX86::GetResult()
 const char*	ExecutorX86::GetExecError()
 {
 	return execError;
-}
-
-void ExecutorX86::SetOptimization(int toggle)
-{
-	optimize = toggle;
 }
 
 char* ExecutorX86::GetVariableData()

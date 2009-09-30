@@ -39,7 +39,6 @@ LRESULT CALLBACK	About(HWND, unsigned int, WPARAM, LPARAM);
 HWND hWnd;
 HWND hButtonCalc;	//calculate button
 HWND hButtonCalcX86;//calculate button
-HWND hDoOptimize;	//optimization checkbox
 HWND hTextArea;		//code text area (rich edit)
 HWND hResult;		//label with execution result
 HWND hCode;			//disabled text area for errors and asm-like code output
@@ -230,6 +229,7 @@ void PrintLong(long long lg)
 
 void draw_rect(int x, int y, int width, int height, int color)
 {
+	(void)x; (void)y; (void)width; (void)height; (void)color;
 	//DWORD written;
 	//char buf[64];
 	//printf("%d %d %d %d %d\r\n", x, y, width, height, color);
@@ -276,7 +276,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	bool runUnitTests = false;
+	bool runUnitTests = true;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -423,13 +423,6 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	ShowWindow(hButtonCalcX86, nCmdShow);
 	UpdateWindow(hButtonCalcX86);
-
-	hDoOptimize = CreateWindow("BUTTON", "Optimize", BS_AUTOCHECKBOX | WS_CHILD,
-		800-240, 185, 90, 30, hWnd, NULL, hInstance, NULL);
-	if(!hDoOptimize)
-		return 0;
-	ShowWindow(hDoOptimize, nCmdShow);
-	UpdateWindow(hDoOptimize);
 
 	INITCOMMONCONTROLSEX commControlTypes;
 	commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
@@ -614,7 +607,7 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	if(arrSize == -1)
 	{
 		arrSize = *((int*)&variableData[address+4]);
-		address = *((int*)&variableData[address]) - (int)variableData;
+		address = *((int*)&variableData[address]) - (int)(long long)variableData;
 	}
 	for(unsigned int n = 0; n < arrSize; n++, address += subType->size)
 	{
@@ -717,7 +710,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			char	result[128];
 
 			nullcSetExecutor(NULLC_VM);
-			nullcSetExecutorOptions(false);
 
 			//nullcSetExecutor(NULLC_X86);
 			//nullcSetExecutorOptions(true);
@@ -800,7 +792,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			SetWindowText(hResult, "");
 
 			nullcSetExecutor(NULLC_X86);
-			nullcSetExecutorOptions(!!Button_GetCheck(hDoOptimize));
 
 			char	result[128];
 //double time = myGetPreciseTime();
@@ -906,16 +897,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		SetWindowPos(hTextArea,		HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
 
 		unsigned int buttonWidth = 120;
-		unsigned int resultWidth = width - 3 * buttonWidth - 2 * mainPadding - subPadding * 3;
+		unsigned int resultWidth = width - 2 * buttonWidth - 2 * mainPadding - subPadding * 3;
 
 		unsigned int calcOffsetX = mainPadding;
 		unsigned int resultOffsetX = calcOffsetX + buttonWidth + subPadding;
-		unsigned int optOffsetX = resultOffsetX + resultWidth + subPadding;
-		unsigned int x86OffsetX = optOffsetX + buttonWidth + subPadding;
+		unsigned int x86OffsetX = resultOffsetX + resultWidth + subPadding;
 
 		SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 		SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
-		SetWindowPos(hDoOptimize,	HWND_TOP, optOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 		SetWindowPos(hButtonCalcX86,HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 		unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;

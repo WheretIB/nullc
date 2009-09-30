@@ -16,7 +16,6 @@ void	nullcInit();
 #define NULLC_VM	0
 #define NULLC_X86	1
 void	nullcSetExecutor(unsigned int id);
-void	nullcSetExecutorOptions(int optimize);
 
 // prototype contains function prototype as if it was written in NULLC. It mush be followed by ';'
 nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
