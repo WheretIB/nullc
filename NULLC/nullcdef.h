@@ -13,7 +13,7 @@
 //#define NULLC_VM_PROFILE_INSTRUCTIONS
 //#define NULLC_VM_DEBUG
 
-//#define NULLC_LOG_FILES
+#define NULLC_LOG_FILES
 
 #ifdef _MSC_VER
 #define NULLC_BUILD_X86_JIT

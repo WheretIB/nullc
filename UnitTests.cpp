@@ -85,7 +85,7 @@ bool	RunCode(const char *code, unsigned int executor, bool optimization, const c
 	nullcSetExecutorOptions(optimization);
 
 	char buf[128];
-	sprintf(buf, "%s optimization %s ", executor == NULLC_VM ? "VM, " : "X86,", optimization ? "on. " : "off.");
+	sprintf(buf, "%s opt. %s ", executor == NULLC_VM ? "VM, " : "X86,", optimization ? "on. " : "off.");
 
 	double time = myGetPreciseTime();
 	nullres good = nullcCompile(code);
@@ -1279,7 +1279,7 @@ const char	*testFuncNoReturn =
 "// Function with no return handling\r\n\
 int test(){ 1; } // temporary\r\n\
 return test();";
-/*	printf("\r\nFunction with no return handling\r\n");
+	printf("\r\nFunction with no return handling\r\n");
 	testCount++;
 	for(int t = 0; t < 3; t++)
 	{
@@ -1287,22 +1287,62 @@ return test();";
 			passed[t]++;
 		else
 			printf("Should have failed");
-	}*/
+	}
 
-/*
-const char	*testNegBound = 
-"// Array out of bound check (negative)\r\n\
-int arr[10] = 5;\r\n\
-int badID1 = cos(0.0)*-4;\r\n\
-arr[badID1] = 4;\r\n\
-return badID1;";
 
-const char	*testPosBound = 
-"// Array out of bound check (overflow)\r\n\
-int arr[10] = 5;\r\n\
-int badID1 = sqrt(256.0);\r\n\
-arr[badID1] = 4;\r\n\
-return badID1;";*/
+const char	*testBounds1 = 
+"// Array out of bound check \r\n\
+int[4] n;\r\n\
+int i = 4;\r\n\
+n[i] = 3;\r\n\
+return 1;";
+	printf("\r\nArray out of bounds error check 1\r\n");
+	testCount++;
+	for(int t = 0; t < 3; t++)
+	{
+		if(!RunCode(testBounds1, testTarget[t], testOpti[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testBounds2 = 
+"// Array out of bound check 2\r\n\
+int[4] n;\r\n\
+int[] nn = n;\r\n\
+int i = 4;\r\n\
+nn[i] = 3;\r\n\
+return 1;";
+	printf("\r\nArray out of bounds error check 2\r\n");
+	testCount++;
+	for(int t = 0; t < 3; t++)
+	{
+		if(!RunCode(testBounds2, testTarget[t], testOpti[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testBounds3 = 
+"// Array out of bound check 3\r\n\
+auto x0 = { 1, 2 };\r\n\
+auto x1 = { 1, 2, 3 };\r\n\
+auto x2 = { 1, 2, 3, 4 };\r\n\
+int[3][] x;\r\n\
+x[0] = x0;\r\n\
+x[1] = x1;\r\n\
+x[2] = x2;\r\n\
+int[][] xr = x;\r\n\
+return xr[1][3];";
+	printf("\r\nArray out of bounds error check 3\r\n");
+	testCount++;
+	for(int t = 0; t < 3; t++)
+	{
+		if(!RunCode(testBounds3, testTarget[t], testOpti[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
 
 const char	*testSwitch = 
 "// Switch test!\r\n\
