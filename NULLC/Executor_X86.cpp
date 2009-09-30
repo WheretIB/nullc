@@ -165,7 +165,8 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdItoL] = GenCodeCmdItoL;
 	cgFuncs[cmdLtoI] = GenCodeCmdLtoI;
 
-	cgFuncs[cmdImmtMul] = GenCodeCmdImmtMul;
+	cgFuncs[cmdIndex] = GenCodeCmdIndex;
+	cgFuncs[cmdIndexStk] = GenCodeCmdIndex;
 
 	cgFuncs[cmdCopyDorL] = GenCodeCmdCopyDorL;
 	cgFuncs[cmdCopyI] = GenCodeCmdCopyI;
@@ -658,7 +659,10 @@ bool ExecutorX86::TranslateToNative()
 				else
 					code += x86ADD(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
 			}else{
-				code += x86ADD(code, cmd.argA.reg, cmd.argB.num);
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86ADD(code, cmd.argA.reg, cmd.argB.reg);
+				else
+					code += x86ADD(code, cmd.argA.reg, cmd.argB.num);
 			}
 			break;
 		case o_adc:

@@ -616,6 +616,13 @@ int x86ADD(unsigned char *stream, x86Reg dst, int num)
 	*(int*)(stream+2) = num;
 	return 6;
 }
+// add dst, src
+int x86ADD(unsigned char *stream, x86Reg dst, x86Reg src)
+{
+	stream[0] = 0x01;
+	stream[1] = encodeRegister(dst, regCode[src]);
+	return 2;
+}
 // add dword [reg+shift], num
 int x86ADD(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
 {

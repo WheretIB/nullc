@@ -81,8 +81,10 @@ enum InstructionCode
 	cmdItoL,	// int to long
 	cmdLtoI,	// long to int
 
-	// multiples integer on top of stack by some number
-	cmdImmtMul,
+	// multiples integer on top of stack by some number (indexes array) and performs value bound check
+	cmdIndex,
+	// array size is on stack
+	cmdIndexStk,
 
 	// copy value on top of the stack, and push it on the top again
 	// скопировать значение на верхушке стека и добавить его в стек
@@ -234,7 +236,7 @@ static char *vmInstructionText[] =
 	"PopCharTop", "PopShortTop", "PopIntTop", "PopFloatTop", "PopDorLTop", "PopCmplxTop",
 	"Pop",
 	"DtoI", "DtoL", "DtoF", "ItoD", "LtoD", "ItoL", "LtoI",
-	"ImmtMul",
+	"Index", "IndexStk",
 	"CopyDorL", "CopyI",
 	"GetAddr", "FuncAddr", "SetRange",
 	"Jmp", "JmpZ", "JmpNZ",
@@ -342,7 +344,8 @@ struct VMCmd
 			break;
 
 		case cmdPop:
-		case cmdImmtMul:
+		case cmdIndex:
+		case cmdIndexStk:
 		case cmdGetAddr:
 		case cmdFuncAddr:
 			curr += sprintf(curr, " %d", argument);

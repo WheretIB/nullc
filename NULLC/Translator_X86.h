@@ -119,6 +119,8 @@ int x86NEG(unsigned char *stream, x86Size, x86Reg reg, int shift);
 
 // add dst, num
 int x86ADD(unsigned char *stream, x86Reg dst, int num);
+// add dst, src
+int x86ADD(unsigned char *stream, x86Reg dst, x86Reg src);
 // add dword [reg+shift], num
 int x86ADD(unsigned char *stream, x86Size, x86Reg reg, int shift, int num);
 // add dword [reg+shift], op2

@@ -677,30 +677,44 @@ void GenCodeCmdLtoI(VMCmd cmd)
 }
 
 
-void GenCodeCmdImmtMul(VMCmd cmd)
+void GenCodeCmdIndex(VMCmd cmd)
 {
 	EMIT_COMMENT("IMUL int");
-	
-	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 0, cmd.argument);
+
+	if(cmd.cmd == cmdIndex)
+	{
+		EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 0, cmd.argument);
+	}else{
+		EMIT_OP_REG_RPTR(o_mov, rECX, sDWORD, rESP, 8);
+		EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rECX);
+	}
 	EMIT_OP_LABEL(o_jb, LABEL_ALU + aluLabels);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_NUM(o_int, 3);
 	EMIT_LABEL(LABEL_ALU + aluLabels);
 	aluLabels++;
 
+	EMIT_OP_REG(o_pop, rEAX);	// Take index
+	// Multiply it
 	if(cmd.helper == 2)
 	{
-		EMIT_OP_RPTR_NUM(o_shl, sDWORD, rESP, 0, 1);
+		EMIT_OP_REG_NUM(o_shl, rEAX, 1);
 	}else if(cmd.helper == 4){
-		EMIT_OP_RPTR_NUM(o_shl, sDWORD, rESP, 0, 2);
+		EMIT_OP_REG_NUM(o_shl, rEAX, 2);
 	}else if(cmd.helper == 8){
-		EMIT_OP_RPTR_NUM(o_shl, sDWORD, rESP, 0, 3);
+		EMIT_OP_REG_NUM(o_shl, rEAX, 3);
 	}else if(cmd.helper == 16){
-		EMIT_OP_RPTR_NUM(o_shl, sDWORD, rESP, 0, 4);
+		EMIT_OP_REG_NUM(o_shl, rEAX, 4);
 	}else{
-		EMIT_OP_REG(o_pop, rEAX);
 		EMIT_OP_REG_NUM(o_imul, rEAX, cmd.helper);
-		EMIT_OP_REG(o_push, rEAX);
+	}
+	if(cmd.cmd == cmdIndex)
+	{
+		EMIT_OP_RPTR_REG(o_add, sDWORD, rESP, 0, rEAX);	// Add it to address
+	}else{
+		EMIT_OP_REG(o_pop, rEDX);
+		EMIT_OP_REG_REG(o_add, rEAX, rEDX);	// Add it to address
+		EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
 	}
 }
 

@@ -910,7 +910,7 @@ void AddArrayIndexNode(const char* pos)
 		// Then, before indexing it, we need to get address from this variable
 		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
-		nodeList.push_back(new NodeDereference(GetReferenceType(currTypes.back()->subType)));
+		nodeList.push_back(new NodeDereference(currTypes.back()));
 		nodeList.push_back(temp);
 	}
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
