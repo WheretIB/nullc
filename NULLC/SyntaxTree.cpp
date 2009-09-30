@@ -1166,12 +1166,20 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 	if(second->nodeType == typeNodeNumber)
 	{
 		shiftValue = typeParent->subType->size * static_cast<NodeNumber*>(second)->GetInteger();
+		// If we're indexing an array with implicit size, then two values (pointer:size) will be put on top of stack
+		// But since we know index value, it means that the check was already performed
+		// And the only thing we need on top of the stack is pointer
+		if(typeParent->arrSize == -1)
+		{
+			nodeList.push_back(static_cast<NodeDereference*>(first)->GetFirstNode());
+			first = new NodeDereference(GetReferenceType(typeParent->subType));
+		}
 		knownShift = true;
 	}
 
-	codeSize = first->codeSize + 1;
+	codeSize = first->codeSize;
 	if(knownShift)
-		codeSize += 1;
+		codeSize += 2;
 	else
 		codeSize += second->codeSize + (second->typeInfo->stackType != STYPE_INT ? 1 : 0) + 1;
 	nodeType = typeNodeArrayIndex;
@@ -1193,16 +1201,16 @@ void NodeArrayIndex::Compile()
 	if(knownShift)
 	{
 		cmdList.push_back(VMCmd(cmdPushImmt, shiftValue));
+		// Add it to the address of the first element
+		cmdList.push_back(VMCmd(cmdAdd));
 	}else{
 		// Compute index value
 		second->Compile();
 		// Convert it to integer and multiply by the size of the element
 		if(second->typeInfo->stackType != STYPE_INT)
 			cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
-		cmdList.push_back(VMCmd(cmdImmtMul, typeParent->subType->size, typeParent->arrSize));
+		cmdList.push_back(VMCmd(typeParent->arrSize == -1 ? cmdIndexStk :  cmdIndex, (unsigned short)typeParent->subType->size, typeParent->arrSize));
 	}
-	// Add it to the address of the first element
-	cmdList.push_back(VMCmd(cmdAdd));
 
 	assert((cmdList.size()-startCmdSize) == codeSize);
 }

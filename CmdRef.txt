@@ -109,12 +109,15 @@
 	cmdLtoI
 		Преобразовать long на вершине стека в int
 
-	cmdImmtMulD	argument
-		Сконвентирлвать double на вершине стека в int и умножить на argument
-	cmdImmtMulL	argument
-		Сконвентирлвать long на вершине стека в int и умножить на argument
-	cmdImmtMulI	argument
-		Умножить int на верхушке стека на argument
+	cmdIndex	helper, argument
+		Используется для индексации массивов
+		helper сожержит размер элемента, argument - размер массива
+		
+		Иструкция умножает int на верхушке стека на helper, а затем складывает два значения на верхушке стека
+
+	cmdIndexStk	helper, argument
+		Вариант предыдущей инструкции, только размер массива лежит в стеке (argument == -1).
+		Расположение данные на стеке: индекс, начало массива, размер массива.
 
 	cmdCopyDorL
 		Продублировать double или long значение на верхушке стека

@@ -331,14 +331,25 @@ void Executor::Run(const char* funcName)
 			*genStackPtr = *(genStackPtr-1);
 			break;
 
-		case cmdImmtMul:
+		case cmdIndex:
 			if(*genStackPtr >= (unsigned int)cmd.argument)
 			{
 				cmdStreamEnd = NULL;
 				strcpy(execError, "ERROR: array index out of bounds");
 				break;
 			}
-			*genStackPtr = cmd.helper * (*genStackPtr);
+			*(int*)(genStackPtr+1) += cmd.helper * (*genStackPtr);
+			genStackPtr++;
+			break;
+		case cmdIndexStk:
+			if(*genStackPtr >= *(genStackPtr+2))
+			{
+				cmdStreamEnd = NULL;
+				strcpy(execError, "ERROR: array index out of bounds");
+				break;
+			}
+			*(int*)(genStackPtr+2) = *(genStackPtr+1) + cmd.helper * (*genStackPtr);
+			genStackPtr += 2;
 			break;
 
 		case cmdCopyDorL:
@@ -876,7 +887,7 @@ void Executor::Run(const char* funcName)
 	if(cmdStreamEnd == NULL)
 	{
 		unsigned int line = 0;
-		unsigned int i = cmdStream - cmdStreamBase;
+		unsigned int i = (unsigned int)(cmdStream - cmdStreamBase);
 		while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
 				line++;
 

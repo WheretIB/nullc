@@ -882,7 +882,7 @@ AreaLine* ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int
 			shiftCharY--;
 		yPos = 0;
 	}
-	if(yPos > (areaHeight + charHeight) && shiftCharY < lineCount - (areaHeight / charHeight) - 1)
+	if(yPos > (areaHeight + charHeight) && shiftCharY < int(lineCount) - (areaHeight / charHeight) - 1)
 		shiftCharY++;
 	if(xPos > 32768)
 		xPos = 0;
@@ -1257,10 +1257,11 @@ void OnDestroy()
 {
 	ClearAreaText();
 	DeleteLine(firstLine);
+	history->ResetHistory();
+
 	delete[] areaText;
 	delete[] areaTextEx;
 	delete AreaLine::pool;
-	history->ResetHistory();
 	delete history;
 	areaText = NULL;
 	areaTextEx = NULL;
@@ -1840,16 +1841,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		if(dragStartX != dragEndX || dragStartY != dragEndY)
 			selectionOn = true;
 		// Redraw selection
-		{
-			// Sort selection range
-			unsigned int newStartY, newEndY;
-			SortSelPoints(startX, endX, newStartY, newEndY);
-			newStartY = min(newStartY, startY);
-			newEndY = max(newEndY, endY);
-			// Force selected part redraw
-			RECT invalid = { 0, (newStartY - shiftCharY) * charHeight, areaWidth, (newEndY - shiftCharY + 1) * charHeight };
-			InvalidateRect(areaWnd, &invalid, false);
-		}
+		InvalidateRect(areaWnd, NULL, false);
 		break;
 	case WM_LBUTTONUP:
 		ReleaseCapture();

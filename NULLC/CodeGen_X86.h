@@ -90,7 +90,7 @@ void GenCodeCmdLtoD(VMCmd cmd);
 void GenCodeCmdItoL(VMCmd cmd);
 void GenCodeCmdLtoI(VMCmd cmd);
 
-void GenCodeCmdImmtMul(VMCmd cmd);
+void GenCodeCmdIndex(VMCmd cmd);
 
 void GenCodeCmdCopyDorL(VMCmd cmd);
 void GenCodeCmdCopyI(VMCmd cmd);
