@@ -1027,17 +1027,16 @@ void AddSetVariableNode(const char* pos)
 {
 	lastKnownStartPos = pos;
 
-	TypeInfo *realCurrType = nodeList.back()->typeInfo;
+	CheckForImmutable(nodeList[nodeList.size()-2]->typeInfo, pos);
 
 	bool unifyTwo = false;
-	if(ConvertArrayToUnsized(pos, realCurrType))
+	if(ConvertArrayToUnsized(pos, nodeList[nodeList.size()-2]->typeInfo->subType))
 		unifyTwo = true;
 	if(ConvertFunctionToPointer(pos))
 		unifyTwo = true;
 	if(unifyTwo)
 		Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 
-	CheckForImmutable(nodeList[nodeList.size()-2]->typeInfo, pos);
 	nodeList.push_back(new NodeVariableSet(nodeList[nodeList.size()-2]->typeInfo, 0, true));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
@@ -1338,7 +1337,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 		lastFunc.type = FunctionInfo::THISCALL;
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
 		lastFunc.type = FunctionInfo::LOCAL;
-	if(!(chartype_table[funcName[0]] & ct_start_symbol))
+	if(funcName[0] != '$' && !(chartype_table[funcName[0]] & ct_start_symbol))
 		lastFunc.visible = false;
 	currDefinedFunc.push_back(funcInfo.back());
 
@@ -1421,7 +1420,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 	unsigned int varFormerTop = varTop;
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
 
-	nodeList.push_back(new NodeFuncDef(funcInfo[i], varFormerTop-varTop));
+	nodeList.push_back(new NodeFuncDef(&lastFunc, varFormerTop-varTop));
 	nodeList.back()->SetCodeInfo(pos);
 	funcDefList.push_back(nodeList.back());
 
