@@ -2204,6 +2204,8 @@ auto c = { g, h, j };\r\n\
 auto d = { { {g}, {h} }, { {h}, {j} } };\r\n\
 \r\n\
 auto f = { 1.0f, 2.0f };\r\n\
+int[] k;\r\n\
+k = { 1, 2, 3, 4 };\r\n\
 return 1;";
 	printf("\r\nMultidimensional array constructor test\r\n");
 	testCount++;
@@ -2259,6 +2261,8 @@ return 1;";
 
 			CHECK_DOUBLE("f", 0, 1.0);
 			CHECK_DOUBLE("f", 1, 2.0);
+
+			CHECK_INT("k", 1, 4);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -2798,7 +2802,7 @@ return f2();";
 		}
 	}
 
-	const char	*testDepthBreakContinue = 
+const char	*testDepthBreakContinue = 
 "int i, k = 0;\r\n\
 for(i = 0; i < 4; i++)\r\n\
 {\r\n\
@@ -2831,6 +2835,120 @@ return a + b;";
 			lastFailed = false;
 			CHECK_INT("a", 0, 10);
 			CHECK_INT("b", 0, 14);
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testMissingTests = 
+"long a1 = 01, a2 = 0377, a3 = 01777777, a4 = 017777777777777777;\r\n\
+long b1 = 0b, b2 = 1b, b3 = 1111111111100001010100101b, b4 = 101010101101010101011010101010011101011010010101110101010101001b;\r\n\
+\r\n\
+double c1 = 1e-3, c2 = 1e6, c3=123e2, c4=0.121e-4;\r\n\
+\r\n\
+char[] d1 = \"\\\\\\\'\\0\";\r\n\
+\r\n\
+int d2 = !4, d3 = ~5, d4 = -12;\r\n\
+float e2 = -1.0f;\r\n\
+double e3 = -3.0;\r\n\
+long e4 = !324324234324234423l, e5 = ~89435763476541l, e6 = -1687313675313735l;\r\n\
+int f1 = 2 << 4;\r\n\
+long f2 = 3l << 12l;\r\n\
+double f3 = 4.0 && 3.0;\r\n\
+\r\n\
+int f4 = 0 - f1;\r\n\
+double f5 = 2 * 3.0, f6 = f1 - 0.0;\r\n\
+\r\n\
+return 1;";
+	printf("\r\nGroup of tests\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testMissingTests, testTarget[t], "1"))
+		{
+			lastFailed = false;
+			CHECK_LONG("a1", 0, 1);
+			CHECK_LONG("a2", 0, 255);
+			CHECK_LONG("a3", 0, 524287);
+			CHECK_LONG("a4", 0, 562949953421311);
+
+			CHECK_LONG("b1", 0, 0);
+			CHECK_LONG("b2", 0, 1);
+			CHECK_LONG("b3", 0, 33538725);
+			CHECK_LONG("b4", 0, 6154922420991617705);
+
+			CHECK_DOUBLE("c1", 0, 1e-3);
+			CHECK_DOUBLE("c2", 0, 1e6);
+			CHECK_DOUBLE("c3", 0, 123e2);
+			CHECK_DOUBLE("c4", 0, 0.121e-4);
+
+			CHECK_INT("d1", 1, 4);
+
+			CHECK_CHAR("$carr1", 0, '\\');
+			CHECK_CHAR("$carr1", 1, '\'');
+			CHECK_CHAR("$carr1", 2, 0);
+			CHECK_CHAR("$carr1", 3, 0);
+
+			CHECK_INT("d2", 0, !4);
+			CHECK_INT("d3", 0, ~5);
+			CHECK_INT("d4", 0, -12);
+
+			CHECK_FLOAT("e2", 0, -1.0f);
+			CHECK_DOUBLE("e3", 0, -3.0);
+
+			CHECK_LONG("e4", 0, !324324234324234423l);
+			CHECK_LONG("e5", 0, ~89435763476541l);
+			CHECK_LONG("e6", 0, -1687313675313735l);
+
+			CHECK_INT("f1", 0, 2 << 4);
+			CHECK_LONG("f2", 0, 3l << 12l);
+			CHECK_DOUBLE("f3", 0, 1.0);
+
+			CHECK_INT("f4", 0, -(2 << 4));
+			CHECK_DOUBLE("f5", 0, 6.0);
+			CHECK_DOUBLE("f6", 0, (2 << 4));
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testMissingTests2 =
+"auto a = {1,2,3,4};\r\n\
+int[] b = a;\r\n\
+int[] ref c = &b;\r\n\
+int d = c[2];\r\n\
+int e = a.size;\r\n\
+\r\n\
+int[] f = *c;\r\n\
+int[4] ref g = &a;\r\n\
+int[] h = g;\r\n\
+int j = g.size;\r\n\
+\r\n\
+auto n1 = auto(int a){ return -a; };\r\n\
+auto n2 = auto(){};\r\n\
+int n1test(int a){}\r\n\
+void n2test(){}\r\n\
+typeof(n1test) n1_ = n1;\r\n\
+typeof(n2test) n2_ = n2;\r\n\
+typeof(n1test) n11 = int n11f(int a){ return ~a; };\r\n\
+typeof(n2test) n22 = void n22f(){};\r\n\
+int k1 = n1(5), k2 = n1_(12), k3 = n11(7);\r\n\
+return 1;";
+	printf("\r\nGroup of tests 2\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testMissingTests2, testTarget[t], "1"))
+		{
+			lastFailed = false;
+			CHECK_INT("d", 0, 3);
+			CHECK_INT("e", 0, 4);
+
+			CHECK_INT("k1", 0, -5);
+			CHECK_INT("k2", 0, -12);
+			CHECK_INT("k3", 0, ~7);
+
 			if(!lastFailed)
 				passed[t]++;
 		}

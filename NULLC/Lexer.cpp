@@ -215,7 +215,11 @@ void	Lexer::Lexify(const char* code)
 				while(isDigit(*pos))
 					pos++;
 				if(*pos == 'e')
+				{
 					pos++;
+					if(*pos == '-')
+						pos++;
+				}
 				while(isDigit(*pos))
 					pos++;
 				lLength = (int)(pos - code);

@@ -132,8 +132,10 @@ double parseDouble(const char *str)
 	if(*str == 'e')
 	{
 		str++;
-		int power = parseInteger(str);
-		return (integer + fractional) * pow(10, (double)power);
+		if(*str == '-')
+			return (integer + fractional) * pow(10.0, (double)-parseInteger(str+1));
+		else
+			return (integer + fractional) * pow(10.0, (double)parseInteger(str));
 	}
 	return integer + fractional;
 }
@@ -369,7 +371,7 @@ void AddLogNotNode(const char* pos)
 		TypeInfo *aType = nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeLong){
-			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
+			Rd = new NodeNumber((long long)!static_cast<NodeNumber*>(nodeList.back())->GetLong(), aType);
 		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
@@ -808,11 +810,9 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 
 			int i = FindVariableByName(contextHash);
 			if(i == -1)
-			{
 				nodeList.push_back(new NodeNumber(0, GetReferenceType(typeInt)));
-			}else{
+			else
 				AddGetAddressNode(pos, InplaceStr(contextName, length));
-			}
 		}
 
 		// Create node that retrieves function address
@@ -985,7 +985,6 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 		if(!varInfo[i]->varType)
 			realCurrType = nodeList.back()->typeInfo;
 		varDefined = true;
-		varTop -= realCurrType->size;
 	}
 	// If type wasn't known until assignment, it means that variable alignment wasn't performed in AddVariable function
 	if(!varInfo[i]->varType)
@@ -1081,7 +1080,11 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		currentType = GetDereferenceType(currentType);
 		if(!currentType)
 			ThrowLastError();
-	}else if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY){
+	}
+	if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
+	{
+		if(hash != GetStringHash("size"))
+			ThrowError("ERROR: Array doesn't have member with this name", pos);
 		nodeList.pop_back();
 		nodeList.push_back(new NodeNumber((int)currentType->arrSize, typeVoid));
 		currentType = typeInt;
@@ -1116,11 +1119,9 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	if(fID == -1)
 	{
 		if(nodeList.back()->nodeType == typeNodeGetAddress)
-		{
 			static_cast<NodeGetAddress*>(nodeList.back())->ShiftToMember(curr);
-		}else{
+		else
 			nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
-		}
 	}else{
 		// Node that gets function address
 		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
@@ -1216,6 +1217,11 @@ bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 			typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
 			createList = true;
 		}else if(nodeType->refLevel == 1 && dstType->subType == nodeType->subType->subType){
+			if(nodeType->subType->arrSize == TypeInfo::UNSIZED_ARRAY)
+			{
+				sprintf(callbackError, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
+				ThrowError(callbackError, pos);
+			}
 			// Set the size of an array
 			typeSize = nodeType->subType->arrSize;
 			createList = true;
