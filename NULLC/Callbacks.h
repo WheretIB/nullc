@@ -58,9 +58,6 @@ void AddVariable(const char* pos, InplaceStr varName);
 
 void AddVariableReserveNode(const char* pos);
 
-void PushType();
-void PopType();
-
 void ConvertTypeToReference(const char* pos);
 
 void ConvertTypeToArray(const char* pos);
@@ -90,7 +87,7 @@ void AddSetVariableNode(const char* pos);
 void AddGetVariableNode(const char* pos);
 void AddMemberAccessNode(const char* pos, InplaceStr varName);
 
-void AddPreOrPostOpNode(bool isInc, bool prefixOp);
+void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp);
 
 void AddModifyVariableNode(const char* pos, CmdID cmd);
 

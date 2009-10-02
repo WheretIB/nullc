@@ -1225,6 +1225,8 @@ void NodeArrayIndex::LogToStream(FILE *fGraph)
 NodeDereference::NodeDereference()
 {
 	first = TakeLastNode();
+	assert(first->typeInfo);
+	assert(first->typeInfo->subType);
 	typeInfo = first->typeInfo->subType;
 
 	absAddress = true;
@@ -1343,13 +1345,11 @@ void NodeShiftAddress::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Node for increment and decrement operations
 
-NodePreOrPostOp::NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp)
+NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 {
-	assert(resType);
-	typeInfo = resType;
-
 	first = TakeLastNode();
 	assert(first->typeInfo->refLevel != 0);
+	typeInfo = first->typeInfo->subType;
 
 	incOp = isInc;
 
