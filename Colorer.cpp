@@ -256,10 +256,13 @@ namespace ColorerGrammar
 				(
 					(strP("auto")[ColorRWord] >> chP('(')[ColorBold]) |
 					(typeExpr >> (
-						varname[ColorFunc] |
-						(strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("and") | strP("or") | strP("xor") |
-						chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^'))[ColorText]
-					)[SetTempStr]) >> chP('(')[ColorBold]
+						(varname[ColorFunc] >> chP('(')[ColorBold]) |
+						(	strP("operator")[ColorRWord] >>
+							(strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("and") | strP("or") | strP("xor") |
+							chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') | (chP('[') >> chP(']')))[ColorText] >>
+							chP('(')[ColorBold]
+						)
+					)[SetTempStr])
 				)[PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
 				(
 					(*(symb | digitP))[ColorErr] >>
@@ -374,7 +377,7 @@ namespace ColorerGrammar
 				(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
 				(strP("new")[ColorRWord] >> typenameP(typeName)[ColorRWord] >> !(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])) |
 				group | funccall[FuncCall] |
-				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++") | strP("--") | ('.' >> funccall) | epsP)[ColorText]);
+				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall) | epsP));
 			term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
 			term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));
 			term4	=	term3 >> *((chP('+') | chP('-'))[ColorText] >> (term3 | epsP[LogError("ERROR: expression not found after operator")]));

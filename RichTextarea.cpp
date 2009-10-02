@@ -1698,13 +1698,13 @@ void OnKeyEvent(int key)
 	}
 }
 
-void ExtendSelectionFromPoint(unsigned int xPos, unsigned int yPos)
+AreaLine* ExtendSelectionFromPoint(unsigned int xPos, unsigned int yPos)
 {
 	// Find cursor position
 	AreaLine *curr = ClientToCursor(xPos, yPos, dragStartX, dragStartY, true);
 
 	if(curr->length == 0)
-		return;
+		return curr;
 	// Clamp horizontal position to line length
 	if(dragStartX >= (int)curr->length && curr->length != 0)
 		dragStartX = curr->length - 1;
@@ -1716,6 +1716,8 @@ void ExtendSelectionFromPoint(unsigned int xPos, unsigned int yPos)
 
 	// Selection is active is the length of selected string is not 0
 	selectionOn = curr->length != 0;
+
+	return curr;
 }
 
 // Textarea message handler
@@ -1801,7 +1803,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 			selectionOn = true;
 			InvalidateRect(areaWnd, NULL, false);
 		}else if(IsPressed(VK_CONTROL)){
-			ExtendSelectionFromPoint(LOWORD(lParam), HIWORD(lParam));
+			currLine = ExtendSelectionFromPoint(LOWORD(lParam), HIWORD(lParam));
 			cursorCharX = dragEndX;
 			cursorCharY = dragEndY;
 			InvalidateRect(areaWnd, NULL, false);

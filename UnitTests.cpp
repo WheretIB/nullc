@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <vadefs.h>
 
+#ifndef _DEBUG
+	#define FAILURE_TEST
+#endif
+
 double timeCompile;
 double timeGetListing;
 double timeGetBytecode;
@@ -764,6 +768,7 @@ return c;";
 		}
 	}
 
+#ifdef FAILURE_TEST
 
 const char	*testDivZero = 
 "// Division by zero handling\r\n\
@@ -778,7 +783,7 @@ return a/b;";
 		else
 			printf("Should have failed");
 	}
-
+#endif
 
 const char	*testTypeConv = 
 "// Type conversions\r\n\
@@ -986,6 +991,7 @@ return abs(-0.5);";
 		}
 	}
 
+#ifdef FAILURE_TEST
 
 const char	*testCmplxFail = 
 "//Some complexness %)\r\n\
@@ -1004,6 +1010,7 @@ return 1;";
 			printf("Should have failed");
 	}
 
+#endif
 
 const char	*testIncDec = 
 "int[5] test=0;\r\n\
@@ -1271,6 +1278,7 @@ return fa(5.0f) * fa(2, 3.0);";
 			passed[t]++;
 	}
 
+#ifdef FAILURE_TEST
 
 const char	*testFuncNoReturn = 
 "// Function with no return handling\r\n\
@@ -1340,6 +1348,7 @@ return xr[1][3];";
 		else
 			printf("Should have failed");
 	}
+#endif
 
 const char	*testSwitch = 
 "// Switch test!\r\n\

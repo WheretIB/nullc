@@ -437,7 +437,7 @@ void Executor::Run(const char* funcName)
 			if(genStackPtr <= genStackBase+8)
 			{
 				cmdStreamEnd = NULL;
-				printf(execError, "ERROR: stack overflow");
+				strcpy(execError, "ERROR: stack overflow");
 				break;
 			}
 			unsigned int fAddress = cmd.argument;

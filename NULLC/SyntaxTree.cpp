@@ -837,7 +837,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, bool swapNodes)
 {
 	assert(targetType);
-	typeInfo = targetType;
+	typeInfo = targetType->subType;
 
 	if(swapNodes)
 		second = TakeLastNode();
@@ -988,7 +988,7 @@ void NodeVariableSet::LogToStream(FILE *fGraph)
 NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 {
 	assert(targetType);
-	typeInfo = targetType;
+	typeInfo = targetType->subType;
 
 	cmdID = cmd;
 
@@ -1222,13 +1222,10 @@ void NodeArrayIndex::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Node to get value by address (dereference pointer)
 
-NodeDereference::NodeDereference(TypeInfo* type)
+NodeDereference::NodeDereference()
 {
-	assert(type);
-	typeInfo = type;
-
 	first = TakeLastNode();
-	assert(first->typeInfo->refLevel != 0);
+	typeInfo = first->typeInfo->subType;
 
 	absAddress = true;
 	knownAddress = false;
@@ -2090,7 +2087,7 @@ NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 	typeInfo = returnType;
 	tail = first = TakeLastNode();
 
-	codeSize = tail->codeSize;
+	codeSize = first->nodeType == typeNodeFuncDef ? 0 : first->codeSize;
 	nodeType = typeNodeExpressionList;
 }
 NodeExpressionList::~NodeExpressionList()
