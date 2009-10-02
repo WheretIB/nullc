@@ -291,10 +291,23 @@ bool ParseFunctionDefinition(Lexeme** str)
 		return false;
 
 	Lexeme *name = *str;
-	if((((*str)->type != lex_string && (*str)->type < lex_add && (*str)->type > lex_logxor) || (*str)[1].type != lex_oparen) && (start->type != lex_auto || (*str)->type != lex_oparen))
+	if((name->type != lex_string || name[1].type != lex_oparen) &&
+		(name->type != lex_operator || (name[1].type < lex_add || name[1].type > lex_logxor && name[1].type != lex_obracket)) &&
+		(start->type != lex_auto || name->type != lex_oparen))
 	{
 		*str = start;
 		return false;
+	}
+	if((*str)->type == lex_operator)
+	{
+		(*str)++;
+		if((*str)->type == lex_obracket)
+		{
+			if((*str)[1].type != lex_cbracket)
+				ThrowError("ERROR: ']' not found after '[' in operator definition", (*str)->pos);
+			else
+				(*str)++;
+		}
 	}
 	char	*functionName = NULL;
 	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor))
@@ -304,6 +317,10 @@ bool ParseFunctionDefinition(Lexeme** str)
 		functionName = (char*)stringPool.Allocate((*str)->length+1);
 		memcpy(functionName, (*str)->pos, (*str)->length);
 		functionName[(*str)->length] = 0;
+		(*str)++;
+	}else if((*str)->type == lex_cbracket){
+		functionName = (char*)stringPool.Allocate(16);
+		sprintf(functionName, "[]");
 		(*str)++;
 	}else{
 		static int unnamedFuncCount = 0;
@@ -322,8 +339,8 @@ bool ParseFunctionDefinition(Lexeme** str)
 
 	if(ParseLexem(str, lex_semicolon))
 	{
-		if(name->type >= lex_add && name->type <= lex_logxor)
-			CALLBACK(FunctionToOperator(start->pos, opHandler[name->type - lex_add]));
+		if(name[1].type >= lex_add && name[1].type <= lex_logxor || name[1].type == lex_obracket)
+			CALLBACK(FunctionToOperator(start->pos));
 		return true;
 	}
 
@@ -336,8 +353,8 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError("ERROR: '}' not found after function body", (*str)->pos);
 
-	if(name->type >= lex_add && name->type <= lex_logxor)
-		CALLBACK(FunctionToOperator(start->pos, opHandler[name->type - lex_add]));
+	if(name[1].type >= lex_add && name[1].type <= lex_logxor || name[1].type == lex_obracket)
+		CALLBACK(FunctionToOperator(start->pos));
 
 	CALLBACK(FunctionEnd(start->pos, functionName));
 

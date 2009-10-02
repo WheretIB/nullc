@@ -707,7 +707,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			SetWindowText(hCode, "");
 			SetWindowText(hResult, "");
 
-			char	result[128];
+			char	result[512];
 
 			nullcSetExecutor(NULLC_VM);
 
@@ -764,13 +764,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					const char *val = nullcGetResult();
 					execTime += myGetPreciseTime()-time;
 
-					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
+					sprintf_s(result, 512, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
 					SetWindowText(hResult, result);
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
 				}else{
-					sprintf_s(result, 128, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
+					sprintf_s(result, 512, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
 					SetWindowText(hCode, result);
 				}
 			}

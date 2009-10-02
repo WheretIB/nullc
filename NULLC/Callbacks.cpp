@@ -192,6 +192,15 @@ unsigned int GetAlignmentOffset(const char *pos, unsigned int alignment)
 	return 0;
 }
 
+void CheckForImmutable(TypeInfo* type, const char* pos)
+{
+	if(type->refLevel == 0)
+	{
+		char	errBuf[128];
+		_snprintf(errBuf, 128, "ERROR: cannot change immutable value of type %s", type->GetFullTypeName());
+		ThrowError(errBuf, pos);
+	}
+}
 // Functions used to add node for constant numbers of different type
 void AddNumberNodeChar(const char* pos)
 {
@@ -588,9 +597,7 @@ void AddBinaryCommandNode(CmdID id)
 
 	const char *opNames[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "and", "or", "xor" };
 	// Optimizations failed, perform operation in run-time
-	if(nodeList[nodeList.size()-2]->typeInfo->type == TypeInfo::TYPE_COMPLEX || nodeList[nodeList.size()-1]->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		AddFunctionCallNode(lastKnownStartPos, opNames[id - cmdAdd], 2);
-	else
+	if(!AddFunctionCallNode(lastKnownStartPos, opNames[id - cmdAdd], 2, true))
 		nodeList.push_back(new NodeBinaryOp(id));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
@@ -834,7 +841,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
 	}else{
 		// Push the type in type stack
-		currTypes.push_back(varInfo[i]->varType);
+		currTypes.push_back(GetReferenceType(varInfo[i]->varType));
 
 		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL)
 		{
@@ -848,7 +855,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 				FunctionInfo *currFunc = currDefinedFunc.back();
 
 				TypeInfo *temp = GetReferenceType(newType);
-				currTypes.push_back(temp);
+				currTypes.push_back(GetReferenceType(temp));
 
 				nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 
@@ -873,7 +880,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			if(!temp)
 				ThrowLastError();
 			temp = GetReferenceType(temp);
-			currTypes.push_back(temp);
+			currTypes.push_back(GetReferenceType(temp));
 
 			nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 			AddDereferenceNode(pos);
@@ -901,18 +908,40 @@ void AddArrayIndexNode(const char* pos)
 {
 	lastKnownStartPos = pos;
 
-	// Current type must be an array
-	if(currTypes.back()->arrLevel == 0)
+	if(AddFunctionCallNode(lastKnownStartPos, "[]", 2, true))
+	{
+		currTypes.back() = nodeList.back()->typeInfo;
+		return;
+	}
+	if(currTypes.back()->refLevel == 0)
 		ThrowError("ERROR: indexing variable that is not an array", pos);
+	currTypes.back() = GetDereferenceType(currTypes.back());
+
+	// If we are indexing pointer to array
+	if(currTypes.back()->refLevel == 1 && currTypes.back()->subType->arrLevel != 0)
+	{
+		// Then, before indexing it, we need to get address from this variable
+		NodeZeroOP* temp = nodeList.back();
+		nodeList.pop_back();
+		nodeList.push_back(new NodeDereference());
+		nodeList.push_back(temp);
+		currTypes.back() = currTypes.back()->subType;
+	}
 	// If it is array without explicit size (pointer to array)
 	if(currTypes.back()->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		// Then, before indexing it, we need to get address from this variable
 		NodeZeroOP* temp = nodeList.back();
 		nodeList.pop_back();
-		nodeList.push_back(new NodeDereference(currTypes.back()));
+		nodeList.push_back(new NodeDereference());
 		nodeList.push_back(temp);
 	}
+	
+	
+	// Current type must be an array
+	if(currTypes.back()->arrLevel == 0)
+		ThrowError("ERROR: indexing variable that is not an array", pos);
+	
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
 	if(nodeList.back()->nodeType == typeNodeNumber && nodeList[nodeList.size()-2]->nodeType == typeNodeGetAddress)
 	{
@@ -935,7 +964,7 @@ void AddArrayIndexNode(const char* pos)
 			ThrowLastError();
 	}
 	// Change current type to array element type
-	currTypes.back() = currTypes.back()->subType;
+	currTypes.back() = GetReferenceType(currTypes.back()->subType);
 }
 
 // Function for pointer dereferencing
@@ -943,12 +972,12 @@ void AddDereferenceNode(const char* pos)
 {
 	lastKnownStartPos = pos;
 
-	// Create dereference node
-	nodeList.push_back(new NodeDereference(currTypes.back()));
 	// Change current type to type that pointer pointed to
 	currTypes.back() = GetDereferenceType(currTypes.back());
 	if(!currTypes.back())
 		ThrowLastError();
+	// Create dereference node
+	nodeList.push_back(new NodeDereference());
 }
 
 // Compiler expects that after variable there will be assignment operator
@@ -1019,7 +1048,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 
 	nodeList.push_back(new NodeGetAddress(varInfo[i], varPosition, absAddress, varInfo[i]->varType));
 
-	nodeList.push_back(new NodeVariableSet(realCurrType, true, false));
+	nodeList.push_back(new NodeVariableSet(GetReferenceType(realCurrType), true, false));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
 
@@ -1047,6 +1076,7 @@ void AddSetVariableNode(const char* pos)
 	if(unifyTwo)
 		Swap(nodeList[nodeList.size()-2], nodeList[nodeList.size()-3]);
 
+	CheckForImmutable(currTypes.back(), pos);
 	nodeList.push_back(new NodeVariableSet(currTypes.back(), 0, true));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
@@ -1067,8 +1097,13 @@ void AddGetVariableNode(const char* pos)
 
 	if(nodeList.back()->nodeType == typeNodeNumber && nodeList.back()->typeInfo == typeVoid)
 		nodeList.back()->typeInfo = typeInt;
-	else if(nodeList.back()->typeInfo->funcType == NULL)
-		nodeList.push_back(new NodeDereference(currTypes.back()));
+	else if(nodeList.back()->typeInfo->funcType == NULL && nodeList.back()->typeInfo->refLevel != 0)
+	{
+		currTypes.back() = GetDereferenceType(currTypes.back());
+		if(!currTypes.back())
+			ThrowLastError();
+		nodeList.push_back(new NodeDereference(/*currTypes.back()*/));
+	}
 }
 
 void AddMemberAccessNode(const char* pos, InplaceStr varName)
@@ -1077,16 +1112,18 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
+	assert(currTypes.back()->refLevel != 0);
+
 	// Beware that there is a global variable with the same name
-	TypeInfo *currType = currTypes.back();
+	TypeInfo *currType = currTypes.back()->subType;
 
 	if(currType->refLevel == 1)
 	{
-		nodeList.push_back(new NodeDereference(currTypes.back()));
-		currTypes.back() = GetDereferenceType(currTypes.back());
-		if(!currTypes.back())
+		nodeList.push_back(new NodeDereference());
+		currType = GetDereferenceType(currType);
+		if(!currType)
 			ThrowLastError();
-		currType = currTypes.back();
+		currTypes.back() = currType;
 	}else if(currType->arrLevel != 0 && currType->arrSize != TypeInfo::UNSIZED_ARRAY){
 		nodeList.pop_back();
 		nodeList.push_back(new NodeNumber((int)currType->arrSize, typeVoid));
@@ -1127,7 +1164,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		}else{
 			nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
 		}
-		currTypes.back() = curr->type;
+		currTypes.back() = GetReferenceType(curr->type);
 	}else{
 		// Node that gets function address
 		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
@@ -1138,14 +1175,23 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
 {
-	char	*memberFuncName = AllocateString((int)strlen(currTypes.back()->name) + 2 + (int)strlen(funcName) + 1);
-	sprintf(memberFuncName, "%s::%s", currTypes.back()->name, funcName);
+	if(!currTypes.back()->subType->name)
+	{
+		char	errBuf[128];
+		_snprintf(errBuf, 128, "ERROR: Type %s doesn't have any methods", currTypes.back()->subType->GetFullTypeName());
+		ThrowError(errBuf, pos);
+	}
+	char	*memberFuncName = AllocateString((int)strlen(currTypes.back()->subType->name) + 2 + (int)strlen(funcName) + 1);
+	sprintf(memberFuncName, "%s::%s", currTypes.back()->subType->name, funcName);
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
 	currTypes.back() = nodeList.back()->typeInfo;
 }
 
 void AddPreOrPostOpNode(bool isInc, bool prefixOp)
 {
+	currTypes.back() = GetDereferenceType(currTypes.back());
+	if(!currTypes.back())
+		ThrowLastError();
 	nodeList.push_back(new NodePreOrPostOp(currTypes.back(), isInc, prefixOp));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
@@ -1155,10 +1201,8 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 {
 	lastKnownStartPos = pos;
 
-	TypeInfo *targetType = GetDereferenceType(nodeList[nodeList.size()-2]->typeInfo);
-	if(!targetType)
-		ThrowLastError();
-	nodeList.push_back(new NodeVariableModify(targetType, cmd));
+	CheckForImmutable(nodeList[nodeList.size()-2]->typeInfo, pos);
+	nodeList.push_back(new NodeVariableModify(nodeList[nodeList.size()-2]->typeInfo, cmd));
 	if(!lastError.IsEmpty())
 		ThrowLastError();
 }
@@ -1344,6 +1388,8 @@ void FunctionAdd(const char* pos, const char* funcName)
 		lastFunc.type = FunctionInfo::THISCALL;
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
 		lastFunc.type = FunctionInfo::LOCAL;
+	if(!(chartype_table[funcName[0]] & ct_start_symbol))
+		lastFunc.visible = false;
 	currDefinedFunc.push_back(funcInfo.back());
 
 	if(varDefined && varInfo.size() != 0 && varInfo.back()->varType == NULL)
@@ -1486,15 +1532,14 @@ void FunctionEnd(const char* pos, const char* funcName)
 	}
 }
 
-void FunctionToOperator(const char* pos, CmdID cmd)
+void FunctionToOperator(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(lastFunc.paramCount != 2)
 		ThrowError("ERROR: binary operator definition or overload must accept exactly two arguments", pos);
 	if(lastFunc.type != FunctionInfo::NORMAL)
 		ThrowError("ERROR: binary operator definition or overload must be placed in global scope", pos);
-
-	lastFunc.firstParam->varType->hasOperator[cmd - cmdAdd] = (char)(CodeInfo::buildinCompilation ? TypeInfo::BUILDIN_OPERATOR : TypeInfo::USER_OPERATOR);
+	lastFunc.visible = true;
 }
 
 FastVector<NodeZeroOP*> paramNodes(32);
@@ -1534,7 +1579,7 @@ unsigned int GetFunctionRating(FunctionInfo *currFunc, unsigned int callArgCount
 FastVector<FunctionInfo*>	bestFuncList;
 FastVector<unsigned int>	bestFuncRating;
 
-void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount)
+bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
 {
 	unsigned int funcNameHash = GetStringHash(funcName);
 
@@ -1557,6 +1602,8 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		unsigned int count = bestFuncList.size();
 		if(count == 0)
 		{
+			if(silent)
+				return false;
 			sprintf(callbackError, "ERROR: function '%s' is undefined", funcName);
 			ThrowError(callbackError, pos);
 		}
@@ -1577,6 +1624,8 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		// Maybe the function we found can't be used at all
 		if(minRatingIndex == -1)
 		{
+			if(silent)
+				return false;
 			char errTemp[512];
 			char	*errPos = errTemp;
 			errPos += sprintf(errPos, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
@@ -1662,7 +1711,7 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			nodeList.push_back(new NodeNumber(0, GetReferenceType(typeInt)));
 		}else{
 			AddGetAddressNode(pos, InplaceStr(contextName, length));
-			if(currTypes.back()->refLevel == 1)
+			if(currTypes.back()->refLevel == 2)
 				AddDereferenceNode(pos);
 			currTypes.pop_back();
 		}
@@ -1685,6 +1734,7 @@ void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		for(unsigned int i = 0; i < inplaceArray.size(); i++)
 			AddTwoExpressionNode();
 	}
+	return true;
 }
 
 void AddIfNode(const char* pos)

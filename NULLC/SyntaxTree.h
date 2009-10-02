@@ -298,7 +298,7 @@ protected:
 class NodeDereference: public NodeOneOP
 {
 public:
-			NodeDereference(TypeInfo* type);
+			NodeDereference();
 	virtual ~NodeDereference();
 
 	virtual void Compile();

@@ -90,6 +90,7 @@ void	Lexer::Lexify(const char* code)
 					code++;
 				continue;
 			}else if(code[1] == '*'){
+				code += 2;
 				while(!(code[0] == '*' && code[1] == '/') && code[0] != '\0')
 					code++;
 				if(*code)
@@ -279,6 +280,8 @@ void	Lexer::Lexify(const char* code)
 					case 8:
 						if(memcmp(code, "continue", 8) == 0)
 							lType = lex_continue;
+						else if(memcmp(code, "operator", 8) == 0)
+							lType = lex_operator;
 						break;
 					}
 				}

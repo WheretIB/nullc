@@ -105,9 +105,9 @@ void FunctionAdd(const char* pos, const char* funcName);
 void FunctionParameter(const char* pos, InplaceStr paramName);
 void FunctionStart(const char* pos);
 void FunctionEnd(const char* pos, const char* funcName);
-void FunctionToOperator(const char* pos, CmdID cmd);
+void FunctionToOperator(const char* pos);
 
-void AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount);
+bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount);
 
 void AddIfNode(const char* pos);
