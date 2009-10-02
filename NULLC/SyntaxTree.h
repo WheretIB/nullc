@@ -347,7 +347,7 @@ protected:
 class NodePreOrPostOp: public NodeOneOP
 {
 public:
-			NodePreOrPostOp(TypeInfo* resType, bool isInc, bool preOp);
+			NodePreOrPostOp(bool isInc, bool preOp);
 	virtual ~NodePreOrPostOp();
 
 			void SetOptimised(bool doOptimisation);
