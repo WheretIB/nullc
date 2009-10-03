@@ -276,7 +276,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	bool runUnitTests = true;
+	bool runUnitTests = false;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -716,10 +716,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			double compTime = 0.0, bytecodeTime = 0.0, linkTime = 0.0, execTime = 0.0;
 			int kkk = 0;
 			double time = myGetPreciseTime();
+			nullres good;
 		//for(kkk = 0; kkk < 30000; kkk++)
 		//{
 		//	double time = myGetPreciseTime();
-			nullres good = nullcCompile(buf);
+			good = nullcCompile(buf);
 			nullcSaveListing("asm.txt");
 		//}
 			compTime += myGetPreciseTime()-time;
