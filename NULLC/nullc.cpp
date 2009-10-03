@@ -40,7 +40,7 @@ const char*	compileError;
 const char* executeResult;
 const char* executeLog;
 
-char* compileLog;
+char* compilationLog;
 
 unsigned int currExec = 0;
 
@@ -54,7 +54,7 @@ void	nullcInit()
 	executorX86->Initialize();
 #endif
 #ifdef NULLC_LOG_FILES
-	compileLog = NULL;
+	compilationLog = NULL;
 #endif
 }
 
@@ -108,12 +108,12 @@ const char*	nullcGetCompilationLog()
 	fseek(cLog, 0, SEEK_END);
 	unsigned int size = ftell(cLog);
 	fseek(cLog, 0, SEEK_SET);
-	delete[] compileLog;
-	compileLog = new char[size+1];
-	fread(compileLog, 1, size, cLog);
-	compileLog[size] = 0;
+	delete[] compilationLog;
+	compilationLog = new char[size+1];
+	fread(compilationLog, 1, size, cLog);
+	compilationLog[size] = 0;
 	fclose(cLog);
-	return compileLog;
+	return compilationLog;
 #else
 	return "";
 #endif
@@ -249,7 +249,7 @@ void	nullcDeinit()
 	executorX86 = NULL;
 #endif
 #ifdef NULLC_LOG_FILES
-	delete[] compileLog;
-	compileLog = NULL;
+	delete[] compilationLog;
+	compilationLog = NULL;
 #endif
 }

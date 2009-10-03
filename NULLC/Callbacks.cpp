@@ -675,14 +675,19 @@ void AddContinueNode(const char* pos)
 	nodeList.back()->SetCodeInfo(pos);
 }
 
-void SelectAutoType()
+void SelectTypeByPointer(void* type)
 {
-	currType = NULL;
+	currType = (TypeInfo*)type;
 }
 
 void SelectTypeByIndex(unsigned int index)
 {
 	currType = typeInfo[index];
+}
+
+void* GetSelectedType()
+{
+	return (void*)currType;
 }
 
 void AddVariable(const char* pos, InplaceStr varName)
@@ -1346,9 +1351,6 @@ void FunctionAdd(const char* pos, const char* funcName)
 	if(funcName[0] != '$' && !(chartype_table[funcName[0]] & ct_start_symbol))
 		lastFunc.visible = false;
 	currDefinedFunc.push_back(funcInfo.back());
-
-	if(varDefined && varInfo.size() != 0 && varInfo.back()->varType == NULL)
-		varTop += 8;
 }
 
 void FunctionParameter(const char* pos, InplaceStr paramName)

@@ -125,21 +125,21 @@ class NodeNumber: public NodeZeroOP
 public:
 	NodeNumber(int number, TypeInfo* ptrType)
 	{
-		integer = number;
+		num.integer = number;
 		codeSize = 1;
 		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
 	}
 	NodeNumber(long long number, TypeInfo* ptrType)
 	{
-		integer64 = number;
+		num.integer64 = number;
 		codeSize = 2;
 		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
 	}
 	NodeNumber(double number, TypeInfo* ptrType)
 	{
-		real = number;
+		num.real = number;
 		codeSize = 2;
 		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
@@ -152,31 +152,31 @@ public:
 	int			GetInteger()
 	{
 		if(typeInfo == typeLong)
-			return (int)integer64;
+			return (int)num.integer64;
 		else if(typeInfo == typeDouble || typeInfo == typeFloat)
-			return (int)real;
-		return integer;
+			return (int)num.real;
+		return num.integer;
 	}
 	long long	GetLong()
 	{
 		if(typeInfo == typeLong)
-			return integer64;
+			return num.integer64;
 		else if(typeInfo == typeDouble || typeInfo == typeFloat)
-			return (long long)real;
-		return integer;
+			return (long long)num.real;
+		return num.integer;
 	}
 	double		GetDouble()
 	{
 		if(typeInfo == typeDouble || typeInfo == typeFloat)
-			return real;
+			return num.real;
 		else if(typeInfo == typeLong)
-			return (double)integer64;
-		return integer;
+			return (double)num.integer64;
+		return num.integer;
 	}
 
 	bool		ConvertTo(TypeInfo *target);
 protected:
-	union
+	union Numbers
 	{
 		int integer;
 		long long	integer64;
@@ -185,7 +185,7 @@ protected:
 		{
 			int low, high;
 		} quad;
-	};
+	} num;
 };
 
 //One child operators

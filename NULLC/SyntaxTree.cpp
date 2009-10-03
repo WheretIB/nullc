@@ -321,8 +321,8 @@ void NodeThreeOP::LogToStream(FILE *fGraph)
 void NodeNumber::Compile()
 {
 	if(codeSize == 2)
-		cmdList.push_back(VMCmd(cmdPushImmt, quad.high));
-	cmdList.push_back(VMCmd(cmdPushImmt, quad.low));
+		cmdList.push_back(VMCmd(cmdPushImmt, num.quad.high));
+	cmdList.push_back(VMCmd(cmdPushImmt, num.quad.low));
 }
 void NodeNumber::LogToStream(FILE *fGraph)
 {
@@ -334,13 +334,13 @@ bool NodeNumber::ConvertTo(TypeInfo *target)
 {
 	if(target == typeInt)
 	{
-		integer = GetInteger();
+		num.integer = GetInteger();
 		codeSize = 1;
 	}else if(target == typeDouble || target == typeFloat){
-		real = GetDouble();
+		num.real = GetDouble();
 		codeSize = 2;
 	}else if(target == typeLong){
-		integer64 = GetLong();
+		num.integer64 = GetLong();
 		codeSize = 2;
 	}else{
 		return false;
@@ -738,7 +738,7 @@ void NodeFuncCall::Compile()
 		// Call by function address in bytecode
 		unsigned int ID = GetFuncIndexByPtr(funcInfo);
 		unsigned short helper = (unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[typeInfo->stackType]));
-		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : -1));
+		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : CALL_BY_POINTER));
 	}
 
 	assert((cmdList.size()-startCmdSize) == codeSize);

@@ -910,7 +910,7 @@ void Executor::Run(const char* funcName)
 	}
 }
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__CELLOS_LV2__))
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
@@ -919,8 +919,13 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	unsigned int *stackStart = (genStackPtr+bytesToPop/4-1);
 	for(unsigned int i = 0; i < bytesToPop/4; i++)
 	{
+#ifdef __GNUC__
+		asm("movl %0, %%eax"::"r"(stackStart):"%eax");
+		asm("pushl (%eax)");
+#else
 		__asm mov eax, dword ptr[stackStart]
 		__asm push dword ptr[eax];
+#endif
 		stackStart--;
 	}
 	genStackPtr += bytesToPop/4;
@@ -939,7 +944,11 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 		genStackPtr -= 2;
 		*(long long*)genStackPtr = ((long long (*)())fPtr)();
 	}
+#ifdef __GNUC__
+	asm("addl %0, %%esp"::"r"(bytesToPop):"%esp");
+#else
 	__asm add esp, bytesToPop;
+#endif
 	return true;
 }
 #elif defined(__CELLOS_LV2__)
@@ -970,6 +979,11 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	}
 
 	return true;
+}
+#else
+bool Executor::RunExternalFunction(unsigned int funcID)
+{
+	return false;
 }
 #endif
 
