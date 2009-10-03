@@ -45,7 +45,7 @@ void AddNegateNode(const char* pos);
 void AddLogNotNode(const char* pos);
 void AddBitNotNode(const char* pos);
 
-void AddBinaryCommandNode(CmdID id);
+void AddBinaryCommandNode(const char* pos, CmdID id);
 
 void AddReturnNode(const char* pos);
 void AddBreakNode(const char* pos);

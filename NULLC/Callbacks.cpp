@@ -468,7 +468,7 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 		return !!a ^ !!b;
 	if(cmd == cmdLogOr)
 		return a || b;
-	ThrowError("ERROR: optDoSpecial<int> call with unknown command", lastKnownStartPos);
+	assert(!"optDoSpecial<int> with unknown command");
 	return 0;
 }
 template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
@@ -491,26 +491,30 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 		return !!a ^ !!b;
 	if(cmd == cmdLogOr)
 		return a || b;
-	ThrowError("ERROR: optDoSpecial<long long> call with unknown command", lastKnownStartPos);
+	assert(!"optDoSpecial<long long> with unknown command");
 	return 0;
 }
 template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 {
-	if(cmd == cmdShl)
-		ThrowError("ERROR: optDoSpecial<double> call with << operation is illegal", lastKnownStartPos);
-	if(cmd == cmdShr)
-		ThrowError("ERROR: optDoSpecial<double> call with >> operation is illegal", lastKnownStartPos);
 	if(cmd == cmdMod)
 		return fmod(a,b);
-	if(cmd >= cmdBitAnd && cmd <= cmdBitXor)
-		ThrowError("ERROR: optDoSpecial<double> call with binary operation is illegal", lastKnownStartPos);
+	if(cmd == cmdShl)
+		ThrowError("ERROR: << is illegal for floating-point numbers", lastKnownStartPos);
+	if(cmd == cmdShr)
+		ThrowError("ERROR: >> is illegal for floating-point numbers", lastKnownStartPos);
+	if(cmd == cmdBitAnd)
+		ThrowError("ERROR: & is illegal for floating-point numbers", lastKnownStartPos);
+	if(cmd == cmdBitOr)
+		ThrowError("ERROR: | is illegal for floating-point numbers", lastKnownStartPos);
+	if(cmd == cmdBitXor)
+		ThrowError("ERROR: ^ is illegal for floating-point numbers", lastKnownStartPos);
 	if(cmd == cmdLogAnd)
-		return (int)a && (int)b;
+		ThrowError("ERROR: && is illegal for floating-point numbers", lastKnownStartPos);
 	if(cmd == cmdLogXor)
-		return !!(int)a ^ !!(int)b;
+		ThrowError("ERROR: || is illegal for floating-point numbers", lastKnownStartPos);
 	if(cmd == cmdLogOr)
-		return (int)a || (int)b;
-	ThrowError("ERROR: optDoSpecial<double> call with unknown command", lastKnownStartPos);
+		ThrowError("ERROR: ^^ is illegal for floating-point numbers", lastKnownStartPos);
+	assert(!"optDoSpecial<double> with unknown command");
 	return 0.0;
 }
 
@@ -526,8 +530,10 @@ void RemoveLastNode(bool swap)
 	}
 }
 
-void AddBinaryCommandNode(CmdID id)
+void AddBinaryCommandNode(const char* pos, CmdID id)
 {
+	lastKnownStartPos = pos;
+
 	unsigned int aNodeType = nodeList[nodeList.size()-2]->nodeType;
 	unsigned int bNodeType = nodeList[nodeList.size()-1]->nodeType;
 
@@ -709,12 +715,6 @@ void AddVariable(const char* pos, InplaceStr varName)
 	if(FindFunctionByName(hash, funcInfo.size() - 1) != -1)
 	{
 		sprintf(callbackError, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
-		ThrowError(callbackError, pos);
-	}
-
-	if(currType && currType->size == TypeInfo::UNSIZED_ARRAY)
-	{
-		sprintf(callbackError, "ERROR: variable '%.*s' can't be an unfixed size array", varName.end-varName.begin, varName.begin);
 		ThrowError(callbackError, pos);
 	}
 
@@ -1788,8 +1788,6 @@ void TypeBegin(const char* pos, const char* end)
 {
 	if(newType)
 		ThrowError("ERROR: Different type is being defined", pos);
-	if((int)currAlign < 0)
-		ThrowError("ERROR: alignment must be a positive number", pos);
 	if(currAlign > 16)
 		ThrowError("ERROR: alignment must be less than 16 bytes", pos);
 

@@ -166,8 +166,8 @@ int * long -> long * long				long * int -> long * long
 11	left-to-right	&
 12	left-to-right	^
 13	left-to-right	|
-14	left-to-right	and
-15	left-to-right	xor
-16	left-to-right	or
+14	left-to-right	&&
+15	left-to-right	^^
+16	left-to-right	||
 17	left-to-right	?:
 18	right-to-left	= += -= *= /= **=

@@ -99,7 +99,8 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 
 	if(!good)
 	{
-		printf("%s Compilation failed: %s\r\n", buf, nullcGetCompilationError());
+		if(expected)
+			printf("%s Compilation failed: %s", buf, nullcGetCompilationError());
 		return false;
 	}else{
 		char *bytecode;
@@ -2869,7 +2870,6 @@ double e3 = -3.0;\r\n\
 long e4 = !324324234324234423l, e5 = ~89435763476541l, e6 = -1687313675313735l;\r\n\
 int f1 = 2 << 4;\r\n\
 long f2 = 3l << 12l;\r\n\
-double f3 = 4.0 && 3.0;\r\n\
 \r\n\
 int f4 = 0 - f1;\r\n\
 double f5 = 2 * 3.0, f6 = f1 - 0.0;\r\n\
@@ -2917,7 +2917,6 @@ return 1;";
 
 			CHECK_INT("f1", 0, 2 << 4);
 			CHECK_LONG("f2", 0, 3l << 12l);
-			CHECK_DOUBLE("f3", 0, 1.0);
 
 			CHECK_INT("f4", 0, -(2 << 4));
 			CHECK_DOUBLE("f5", 0, 6.0);
@@ -2987,6 +2986,11 @@ c1 *= 2;\r\n\
 }while(c1 < 500);\r\n\
 \r\n\
 class A{ char x, y; }\r\n\
+\r\n\
+int opt1 = ((12 / 3) < 8) != ((5 >= 7) == (5 <= 3)) + (18 >> 2) % (4 & 4 ^ 0 | 0xffff) + (5 && 1 || 3 ^^ 2);\r\n\
+long opt2 = 18l >> 2l % 5l ^ 9l | 12l & 13l;\r\n\
+long opt3 = 1l && 1l || 1l ^^ 1l;\r\n\
+double opt4 = 8.0 % 3.0;\r\n\
 return 1;";
 	printf("\r\nGroup of tests 3\r\n");
 	testCount++;
@@ -3005,6 +3009,12 @@ return 1;";
 			CHECK_INT("b3", 0, 7);
 
 			CHECK_INT("c1", 0, 512);
+
+			CHECK_INT("opt1", 0, (((12 / 3) < 8) ? 1 : 0) != (((5 >= 7) == (5 <= 3)) ? 1 : 0) + (18 >> 2) % (4 & 4 ^ 0 | 0xffff) + ((5 && 1 || (0)) ? 1 : 0));
+			CHECK_LONG("opt2", 0, 18l >> 2l % 5l ^ 9l | 12l & 13l);
+			CHECK_LONG("opt3", 0, 1);
+
+			CHECK_DOUBLE("opt4", 0, 2.0);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -3073,6 +3083,86 @@ return m[1][3] + 2;";
 				passed[t]++;
 		}
 	}
+
+#define TEST_FOR_FAIL(name, str)	printf(name"\r\n"); if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }
+	
+	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
+	//TEST_FOR_FAIL("", "");
+	TEST_FOR_FAIL("Unknown escape sequence", "return '\\p';");
+	TEST_FOR_FAIL("Wrong alignment", "align(32) int a; return 0;");
+	TEST_FOR_FAIL("Change of immutable value", "int i; return *i = 5;");
+	TEST_FOR_FAIL("Hex overflow", "return 0xbeefbeefbeefbeefb;");
+	TEST_FOR_FAIL("Oct overflow", "return 03333333333333333333333;");
+	TEST_FOR_FAIL("Bin overflow", "return 10000000000000000000000000000000000000000000000000000000000000000b;");
+	TEST_FOR_FAIL("Logical not on double", "return !0.5;");
+	TEST_FOR_FAIL("Binary not on double", "return ~0.4;");
+
+	TEST_FOR_FAIL("No << on float", "return 1.0 << 2.0;");
+	TEST_FOR_FAIL("No >> on float", "return 1.0 >> 2.0;");
+	TEST_FOR_FAIL("No | on float", "return 1.0 | 2.0;");
+	TEST_FOR_FAIL("No & on float", "return 1.0 & 2.0;");
+	TEST_FOR_FAIL("No ^ on float", "return 1.0 ^ 2.0;");
+	TEST_FOR_FAIL("No && on float", "return 1.0 && 2.0;");
+	TEST_FOR_FAIL("No || on float", "return 1.0 || 2.0;");
+	TEST_FOR_FAIL("No ^^ on float", "return 1.0 ^^ 2.0;");
+
+	TEST_FOR_FAIL("Wrong return", "int a(){ return {1,2};} return 1;");
+	TEST_FOR_FAIL("Shouldn't return anything", "void a(){ return 1; } return 1;");
+	TEST_FOR_FAIL("Should return something", "int a(){ return; } return 1;");
+	TEST_FOR_FAIL("Global return doesn't accept void", "void a(){} return a();");
+
+	TEST_FOR_FAIL("Break followed by trash", "int a; break a; return 1;");
+	TEST_FOR_FAIL("Break with depth 0", "break 0; return 1;");
+	TEST_FOR_FAIL("Break with depth too big", "while(1){ break 2; } return 1;");
+
+	TEST_FOR_FAIL("continue followed by trash", "int a; continue a; return 1;");
+	TEST_FOR_FAIL("continue with depth 0", "continue 0; return 1;");
+	TEST_FOR_FAIL("continue with depth too big", "while(1){ continue 2; } return 1;");
+
+	TEST_FOR_FAIL("Variable redefinition", "int a, a; return 1;");
+	TEST_FOR_FAIL("Variable hides function", "void a(){} int a; return 1;");
+
+	TEST_FOR_FAIL("Uninit auto", "auto a; return 1;");
+	TEST_FOR_FAIL("Reference to auto", "auto ref a; return 1;");
+	TEST_FOR_FAIL("Array of auto", "auto[4] a; return 1;");
+	TEST_FOR_FAIL("sizeof auto", "return sizeof(auto);");
+
+	TEST_FOR_FAIL("Unknown function", "return b;");
+	TEST_FOR_FAIL("Unclear decision", "void a(int b){} void a(float b){} return a;");
+	TEST_FOR_FAIL("Variable of unknown type used", "auto a = a + 1; return a;");
+
+	TEST_FOR_FAIL("Indexing not an array", "int a; return a[5];");
+	TEST_FOR_FAIL("Array underflow", "int[4] a; a[-1] = 2; return 1;");
+	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;");
+
+	TEST_FOR_FAIL("No matching function", "int f(int a, b){} int f(int a, long b){} return f(1)'");
+	TEST_FOR_FAIL("No clear decision", "int f(int a, b){} int f(int a, long b){} int f(){} return f(1, 3.0)'");
+
+	TEST_FOR_FAIL("Array without member", "int[4] a; return a.m;");
+	TEST_FOR_FAIL("No methods", "int[4] i; return i.ok();");
+	TEST_FOR_FAIL("void array", "void f(){} return { f(), f() };");
+	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;");
+	TEST_FOR_FAIL("Auto parameter", "auto(auto a){} return 1;");
+	TEST_FOR_FAIL("Function redefine", "int a(int b){} int a(int c){} return 1;");
+	TEST_FOR_FAIL("Wrong overload", "int operator*(int a){} return 1;");
+	TEST_FOR_FAIL("Overload in the wrong place", "int f(){ int operator+(int a, b){}} return 1;");
+	TEST_FOR_FAIL("No member function", "int a; return a.ok();");
+	TEST_FOR_FAIL("Unclear decision - member function", "class test{ void a(int b){} void a(float b){} } test t; return t.a;");
+	TEST_FOR_FAIL("No function", "return k();");
+
+	TEST_FOR_FAIL("void condition", "void f(){} if(f()){} return 1;");
+	TEST_FOR_FAIL("void condition", "void f(){} if(f()){}else{} return 1;");
+	TEST_FOR_FAIL("void condition", "void f(){} return f() ? 1 : 0;");
+	TEST_FOR_FAIL("void condition", "void f(){} for(int i = 0; f(); i++){} return 1;");
+	TEST_FOR_FAIL("void condition", "void f(){} while(f()){} return 1;");
+	TEST_FOR_FAIL("void condition", "void f(){} do{}while(f()); return 1;");
+	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;");
+	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;");
+
+	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;");
+	TEST_FOR_FAIL("class wrong alignment", "align(32) class test{int a;} return 1;");
+	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;");
+	TEST_FOR_FAIL("class is too big", "class nobiggy{ int[128][128][4] a; } return 1;");
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount);

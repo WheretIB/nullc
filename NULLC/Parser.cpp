@@ -168,6 +168,7 @@ bool ParseIsConst(Lexeme** str)
 
 bool ParseClassDefinition(Lexeme** str)
 {
+	Lexeme *curr = *str;
 	if(!ParseAlignment(str))
 		CALLBACK(SetCurrentAlignment(0));
 
@@ -218,6 +219,7 @@ bool ParseClassDefinition(Lexeme** str)
 		CALLBACK(TypeFinish());
 		return true;
 	}
+	*str = curr;
 	return false;
 }
 
@@ -896,7 +898,7 @@ bool ParseArithmetic(Lexeme** str)
 		LexemeType lType = (*str)->type;
 		while(opCount > 0 && opPrecedence[opStack.back() - lex_add] <= opPrecedence[lType - lex_add])
 		{
-			CALLBACK(AddBinaryCommandNode(opHandler[opStack.back() - lex_add]));
+			CALLBACK(AddBinaryCommandNode((*str)->pos, opHandler[opStack.back() - lex_add]));
 			opStack.pop_back();
 			opCount--;
 		}
@@ -908,7 +910,7 @@ bool ParseArithmetic(Lexeme** str)
 	}
 	while(opCount > 0)
 	{
-		CALLBACK(AddBinaryCommandNode(opHandler[opStack.back() - lex_add]));
+		CALLBACK(AddBinaryCommandNode((*str)->pos, opHandler[opStack.back() - lex_add]));
 		opStack.pop_back();
 		opCount--;
 	}
