@@ -823,6 +823,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		// Create node that retrieves function address
 		nodeList.push_back(new NodeFunctionAddress(funcInfo[fID]));
 	}else{
+		if(!varInfo[i]->varType)
+		{
+			sprintf(callbackError, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
+			ThrowError(callbackError, pos);
+		}
 		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL)
 		{
 			bool member = false;
