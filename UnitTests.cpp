@@ -319,6 +319,20 @@ char*	Format(const char *str, ...)
 	return ptr;
 }
 
+
+int	newS(int size)
+{
+	return (int)(long long)(new char[size]);
+}
+
+ArrayPtr	newA(int size, int count)
+{
+	ArrayPtr ret;
+	ret.ptr = new char[count * size];
+	ret.len = count;
+	return ret;
+}
+
 void	RunTests()
 {
 	timeCompile = 0.0;
@@ -349,6 +363,8 @@ void	RunTests()
 	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<int>), "void FileRead(file fID, int ref data);");
 	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
 
+	nullcAddExternalFunction((void (*)())newS, "int __newS(int size);");
+	nullcAddExternalFunction((void (*)())newA, "int[] __newA(int size, int count);");
 
 	int passed[] = { 0, 0 };
 	int testCount = 0;
@@ -2959,7 +2975,18 @@ return 1;";
 	}
 
 const char	*testMissingTests3 =
-"auto a = {1,2,3,4};\r\n\
+"int max(int a, b, c){ return a > b ? (a > c ? a : c) : (b > c ? b : c); }\r\n\
+int max(int a, b){ if(a > b) return a; else return b; }\r\n\
+int max2(int a, b, c){ if(a > b) return max(a, c); else return max(b, c); }\r\n\
+int a1 = max(1, 2, 3), a2 = max(1, 0, 2), a3 = max(7, 6, 5);\r\n\
+int b1 = max2(1, 2, 3), b2 = max2(1, 0, 2), b3 = max2(7, 6, 5);\r\n\
+\r\n\
+int c1 = 1;\r\n\
+do{\r\n\
+c1 *= 2;\r\n\
+}while(c1 < 500);\r\n\
+\r\n\
+class A{ char x, y; }\r\n\
 return 1;";
 	printf("\r\nGroup of tests 3\r\n");
 	testCount++;
@@ -2969,6 +2996,78 @@ return 1;";
 		{
 			lastFailed = false;
 			
+			CHECK_INT("a1", 0, 3);
+			CHECK_INT("a2", 0, 2);
+			CHECK_INT("a3", 0, 7);
+
+			CHECK_INT("b1", 0, 3);
+			CHECK_INT("b2", 0, 2);
+			CHECK_INT("b3", 0, 7);
+
+			CHECK_INT("c1", 0, 512);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testMissingTests4 =
+"class matrix\r\n\
+{\r\n\
+    float[] arr;\r\n\
+    int width, height;\r\n\
+}\r\n\
+matrix matrix(int width, height){ matrix ret; ret.arr = new float[width * height]; ret.width = width; ret.height = height; return ret; }\r\n\
+class row\r\n\
+{\r\n\
+    matrix ref parent;\r\n\
+    int x;\r\n\
+}\r\n\
+row operator[](matrix ref a, int x){ row ret; ret.x = x; ret.parent = a; return ret; }\r\n\
+float ref operator[](row a, int y){ return &a.parent.arr[y * a.parent.width + a.x]; }\r\n\
+\r\n\
+matrix m = matrix(4, 4);\r\n\
+m[1][3] = 4;\r\n\
+\r\n\
+int int(int a){ return a; }\r\n\
+int operator+(float a, int n){ return int(a) + n; }\r\n\
+\r\n\
+int min(int a, b){ return a < b ? a : b; }\r\n\
+int ref rsize = new int;\r\n\
+int[] operator+(int[] a, b){ int[] res = new int[min(a.size, b.size)]; for(int i = 0; i < res.size; i++) res[i] = a[i] + b[i]; *rsize = res.size; return res; }\r\n\
+auto k = { 1, 2, 3, 4 } + { 4, 2, 5, 3 };\r\n\
+int[] pass(int[] a){ return a; }\r\n\
+auto i = pass({ 4, 7 });\r\n\
+int k1 = k[0], k2 = k[1], k3 = k[2], k4 = k[3];\r\n\
+return m[1][3] + 2;";
+	printf("\r\nGroup of tests 4\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testMissingTests4, testTarget[t], "6"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("$carr1", 0, 1);
+			CHECK_INT("$carr1", 1, 2);
+			CHECK_INT("$carr1", 2, 3);
+			CHECK_INT("$carr1", 3, 4);
+
+			CHECK_INT("$carr2", 0, 4);
+			CHECK_INT("$carr2", 1, 2);
+			CHECK_INT("$carr2", 2, 5);
+			CHECK_INT("$carr2", 3, 3);
+
+			CHECK_INT("$carr3", 0, 4);
+			CHECK_INT("$carr3", 1, 7);
+
+			CHECK_INT("k", 1, 4);
+			CHECK_INT("i", 1, 2);
+
+			CHECK_INT("k1", 0, 5);
+			CHECK_INT("k2", 0, 4);
+			CHECK_INT("k3", 0, 8);
+			CHECK_INT("k4", 0, 7);
 
 			if(!lastFailed)
 				passed[t]++;
