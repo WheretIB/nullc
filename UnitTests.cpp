@@ -4,7 +4,6 @@
 #include "NULLC/ParseClass.h"
 
 #include <stdio.h>
-#include <vadefs.h>
 
 #ifndef _DEBUG
 	#define FAILURE_TEST
@@ -2926,14 +2925,18 @@ int[] h = g;\r\n\
 int j = g.size;\r\n\
 \r\n\
 auto n1 = auto(int a){ return -a; };\r\n\
-auto n2 = auto(){};\r\n\
+auto n2 = auto(){}, n4 = int ff(){};\r\n\
 int n1test(int a){}\r\n\
 void n2test(){}\r\n\
 typeof(n1test) n1_ = n1;\r\n\
 typeof(n2test) n2_ = n2;\r\n\
-typeof(n1test) n11 = int n11f(int a){ return ~a; };\r\n\
-typeof(n2test) n22 = void n22f(){};\r\n\
+typeof(n1test) n11 = int n11f(int a){ return ~a; }, n33;\r\n\
+typeof(n2test) n22 = void n22f(){}, n44;\r\n\
 int k1 = n1(5), k2 = n1_(12), k3 = n11(7);\r\n\
+n33 = auto(int n){ return n*1024; };\r\n\
+n44 = auto(){};\r\n\
+int k4 = n33(4);\r\n\
+n44();\r\n\
 return 1;";
 	printf("\r\nGroup of tests 2\r\n");
 	testCount++;
@@ -2948,6 +2951,24 @@ return 1;";
 			CHECK_INT("k1", 0, -5);
 			CHECK_INT("k2", 0, -12);
 			CHECK_INT("k3", 0, ~7);
+			CHECK_INT("k4", 0, 4096);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testMissingTests3 =
+"auto a = {1,2,3,4};\r\n\
+return 1;";
+	printf("\r\nGroup of tests 3\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testMissingTests3, testTarget[t], "1"))
+		{
+			lastFailed = false;
+			
 
 			if(!lastFailed)
 				passed[t]++;

@@ -51,8 +51,9 @@ void AddReturnNode(const char* pos);
 void AddBreakNode(const char* pos);
 void AddContinueNode(const char* pos);
 
-void SelectAutoType();
+void SelectTypeByPointer(void* type);
 void SelectTypeByIndex(unsigned int index);
+void* GetSelectedType();
 
 void AddVariable(const char* pos, InplaceStr varName);
 

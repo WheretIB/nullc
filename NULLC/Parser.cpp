@@ -134,13 +134,13 @@ bool ParseSelectType(Lexeme** str)
 			ThrowError("ERROR: expression not found after typeof(", (*str)->pos);
 		}
 	}else if((*str)->type == lex_auto){
-		CALLBACK(SelectAutoType());
+		CALLBACK(SelectTypeByPointer(NULL));
 		(*str)++;
 	}else if((*str)->type == lex_string){
 		unsigned int index;
 		if((index = ParseTypename(str)) == 0)
 			return false;
-		CALLBACK(SelectTypeByIndex(index-1));
+		CALLBACK(SelectTypeByIndex(index - 1));
 	}else{
 		return false;
 	}
@@ -391,11 +391,13 @@ bool ParseAddVariable(Lexeme** str)
 
 bool ParseVariableDefineSub(Lexeme** str)
 {
+	void* currType = GetSelectedType();
 	if(!ParseAddVariable(str))
 		ThrowError("ERROR: variable name not found after type name", (*str)->pos);
 
 	while(ParseLexem(str, lex_comma))
 	{
+		SelectTypeByPointer(currType);
 		if(!ParseAddVariable(str))
 			ThrowError("ERROR: next variable definition excepted after ','", (*str)->pos);
 		CALLBACK(AddTwoExpressionNode());
