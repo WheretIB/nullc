@@ -994,6 +994,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	// If type wasn't known until assignment, it means that variable alignment wasn't performed in AddVariable function
 	if(!varInfo[i]->varType)
 	{
+		varInfo[i]->pos = varTop;
 		// If type has default alignment or if user specified it
 		if(realCurrType->alignBytes != 0 || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 		{
