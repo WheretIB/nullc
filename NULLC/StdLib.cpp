@@ -77,3 +77,17 @@ double nullcSqrt(double num)
 	return sqrt(num);
 }
 
+int strEqual(ArrayPtr a, ArrayPtr b)
+{
+	if(a.len != b.len)
+		return 0;
+	for(int i = 0; i < a.len; i++)
+		if(a.ptr[i] != b.ptr[i])
+			return 0;
+	return 1;
+}
+
+int strNEqual(ArrayPtr a, ArrayPtr b)
+{
+	return !strEqual(a, b);
+}

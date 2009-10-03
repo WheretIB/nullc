@@ -792,8 +792,9 @@ bool ParseTerminal(Lexeme** str)
 		const char *start = (*str)->pos;
 		(*str)++;
 		ParseLexem(str, lex_escape);
-		if(!ParseLexem(str, lex_string) && !ParseLexem(str, lex_number))
+		if((*str)->length != 1)
 			ThrowError("ERROR: character not found after '", (*str)->pos);
+		(*str)++;
 		if(!ParseLexem(str, lex_semiquote))
 			ThrowError("ERROR: ' not found after character", (*str)->pos);
 		CALLBACK(AddNumberNodeChar(start));

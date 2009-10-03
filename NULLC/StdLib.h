@@ -1,5 +1,7 @@
 #pragma once
 
+struct ArrayPtr{ char* ptr; int len; };
+
 double nullcCos(double deg);
 double nullcSin(double deg);
 double nullcTan(double deg);
@@ -17,3 +19,6 @@ double nullcExp(double num);
 double nullcLog(double num);
 
 double nullcSqrt(double num);
+
+int strEqual(ArrayPtr a, ArrayPtr b);
+int strNEqual(ArrayPtr a, ArrayPtr b);

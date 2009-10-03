@@ -203,6 +203,7 @@ void CheckForImmutable(TypeInfo* type, const char* pos)
 // Functions used to add node for constant numbers of different type
 void AddNumberNodeChar(const char* pos)
 {
+	lastKnownStartPos = pos + 1;
 	char res = pos[1];
 	if(res == '\\')
 		res = UnescapeSybmol(pos[2]);

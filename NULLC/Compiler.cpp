@@ -155,6 +155,9 @@ Compiler::Compiler()
 
 	AddExternalFunction((void (*)())nullcSqrt, "double sqrt(double num);");
 
+	AddExternalFunction((void (*)())strEqual, "int operator==(char[] a, b);");
+	AddExternalFunction((void (*)())strNEqual, "int operator!=(char[] a, b);");
+
 #ifdef NULLC_LOG_FILES
 	compileLog = NULL;
 #endif
@@ -318,10 +321,6 @@ bool Compiler::Compile(const char *str)
 	fclose(fCode);
 #endif
 
-#ifdef NULLC_LOG_FILES
-	FILE *fTime = fopen("time.txt", "wb");
-#endif
-
 	CompilerError::codeStart = str;
 	cmdInfoList.SetSourceStart(str);
 
@@ -346,6 +345,7 @@ bool Compiler::Compile(const char *str)
 
 	unsigned int tem = clock()-t;
 #ifdef NULLC_LOG_FILES
+	FILE *fTime = fopen("time.txt", "wb");
 	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
 #endif
 
