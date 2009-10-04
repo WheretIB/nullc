@@ -1003,7 +1003,7 @@ void GenCodeCmdPow(VMCmd cmd)
 	EMIT_COMMENT("POW int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEBX);
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)intPow);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)intPow);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG(o_push, rEDX);
 }
@@ -1203,7 +1203,7 @@ void GenCodeCmdMulL(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("MUL long");
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longMul);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)longMul);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
@@ -1214,7 +1214,7 @@ void GenCodeCmdDivL(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("DIV long");
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longDiv);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)longDiv);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
@@ -1225,7 +1225,7 @@ void GenCodeCmdPowL(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("POW long");
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longPow);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)longPow);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
@@ -1236,7 +1236,7 @@ void GenCodeCmdModL(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("MOD long");
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longMod);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)longMod);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
@@ -1370,7 +1370,7 @@ void GenCodeCmdShlL(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("SHL long");
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longShl);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)longShl);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 }
@@ -1379,7 +1379,7 @@ void GenCodeCmdShrL(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("SHR long");
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)longShr);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)longShr);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 }

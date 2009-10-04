@@ -1163,7 +1163,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 	shiftValue = 0;
 	knownShift = false;
 
-	if(second->nodeType == typeNodeNumber && typeParent->arrSize != -1)
+	if(second->nodeType == typeNodeNumber && typeParent->arrSize != TypeInfo::UNSIZED_ARRAY)
 	{
 		shiftValue = typeParent->subType->size * static_cast<NodeNumber*>(second)->GetInteger();
 		knownShift = true;
@@ -1201,7 +1201,7 @@ void NodeArrayIndex::Compile()
 		// Convert it to integer and multiply by the size of the element
 		if(second->typeInfo->stackType != STYPE_INT)
 			cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
-		cmdList.push_back(VMCmd(typeParent->arrSize == -1 ? cmdIndexStk :  cmdIndex, (unsigned short)typeParent->subType->size, typeParent->arrSize));
+		cmdList.push_back(VMCmd(typeParent->arrSize == TypeInfo::UNSIZED_ARRAY ? cmdIndexStk :  cmdIndex, (unsigned short)typeParent->subType->size, typeParent->arrSize));
 	}
 
 	assert((cmdList.size()-startCmdSize) == codeSize);

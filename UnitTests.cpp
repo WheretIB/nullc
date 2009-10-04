@@ -323,7 +323,7 @@ char*	Format(const char *str, ...)
 
 int	newS(int size)
 {
-	return (int)(long long)(new char[size]);
+	return (int)(intptr_t)(new char[size]);
 }
 
 ArrayPtr	newA(int size, int count)

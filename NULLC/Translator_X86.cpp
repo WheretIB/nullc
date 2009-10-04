@@ -1124,7 +1124,7 @@ void x86AddLabel(unsigned char *stream, unsigned int labelID)
 			{
 				*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos-5);
 			}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
-				*(int*)(uJmp.jmpPos+2) = (int)(long long)(stream);
+				*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(stream);
 			}else{
 				if(uJmp.isNear)
 				{
@@ -1153,7 +1153,7 @@ void x86SatisfyJumps(FastVector<unsigned char*>& instPos)
 		{
 			*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-5);
 		}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
-			*(int*)(uJmp.jmpPos+2) = (int)(long long)(instPos[uJmp.labelID&0x00ffffff]);
+			*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(instPos[uJmp.labelID&0x00ffffff]);
 		}else{
 			if(uJmp.isNear)
 			{

@@ -5,6 +5,7 @@
 	#define NCDECL _cdecl
 #else
 	#define NCDECL
+	typedef int intptr_t;
 #endif
 
 #define NULLC_MAX_VARIABLE_NAME_LENGTH 2048
