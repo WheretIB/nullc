@@ -269,9 +269,15 @@ namespace ColorerGrammar
 					funcvars
 				) >>
 				(chP(')')[ColorBold][FuncEnd] | epsP[LogError("ERROR: ')' expected after function parameter list")]) >>
-				(chP('{')[ColorBold] | epsP[LogError("ERROR: '{' not found after function header")]) >>
-				(code | epsP[LogError("ERROR: function body not found")]) >>
-				(chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: '}' not found after function body")]);
+				(
+					chP(';')[ColorBold] |
+					(
+						chP('{')[ColorBold] >>
+						(code | epsP[LogError("ERROR: function body not found")]) >>
+						(chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: '}' not found after function body")])
+					) |
+					epsP[LogError("ERROR: unexpected symbol after function header")]
+				);
 
 			appval		=
 				(
@@ -355,10 +361,27 @@ namespace ColorerGrammar
 				(')' | epsP[LogError("ERROR: ')' not found after 'while' condition")])[ColorText] >>
 				(';' | epsP[LogError("ERROR: ';' expected after 'do...while' statement")])[ColorText];
 
-			switchExpr		=	strWP("switch")[ColorRWord] >> ('(' >> epsP)[ColorText] >> term5 >> (')' >> epsP)[ColorText] >> ('{' >> epsP)[ColorBold] >> 
-				(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
-				*(strWP("case")[ColorRWord] >> term5 >> (':' >> epsP)[ColorText] >> expr >> *expr) >>
-				('}' >> epsP)[ColorBold];
+			switchExpr		=
+				strWP("switch")[ColorRWord] >>
+				(
+					('(' | epsP[LogError("ERROR: '(' not found after 'switch'")])[ColorText] >>
+					(term5 | epsP[LogError("ERROR: condition not found in 'switch' statement")]) >>
+					(')' | epsP[LogError("ERROR: ')' not found after 'switch' condition")])[ColorText]
+				) >>
+				('{' | epsP[LogError("ERROR: '{' expected")])[ColorBold] >> 
+				(
+					(strWP("case") | epsP[LogError("ERROR: case not found in switch expression")])[ColorRWord] >>
+					(term5 | epsP[LogError("ERROR: case condition expected")]) >>
+					(':' | epsP[LogError("ERROR: ':' not found after case condition")])[ColorText] >>
+					*expr
+				) >>
+				*(
+					strWP("case")[ColorRWord] >>
+					(term5 | epsP[LogError("ERROR: case condition expected")]) >>
+					(':' | epsP[LogError("ERROR: ':' not found after case condition")])[ColorText] >>
+					*expr
+				) >>
+				('}' | epsP[LogError("ERROR: '}' expected")])[ColorBold];
 			returnExpr		=	strWP("return")[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return must be followed by ';'")]);
 			breakExpr		=	strWP("break")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break must be followed by ';'")]);
 			continueExpr		=	strWP("continue")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);

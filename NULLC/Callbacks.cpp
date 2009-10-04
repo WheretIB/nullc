@@ -1358,18 +1358,31 @@ void FunctionAdd(const char* pos, const char* funcName)
 		funcNameCopy = AllocateString((int)strlen(newType->name) + 2 + (int)strlen(funcName) + 1);
 		sprintf(funcNameCopy, "%s::%s", newType->name, funcName);
 	}
-	funcInfo.push_back(new FunctionInfo(funcNameCopy));
-	FunctionInfo &lastFunc = *funcInfo.back();
+	funcNameHash = GetStringHash(funcNameCopy);
+	int k = funcInfo.size();
+	do
+	{
+		k = FindFunctionByName(funcNameHash, k-1);
+	}while(k != -1 && funcInfo[k]->implemented);
 
-	lastFunc.vTopSize = (unsigned int)varInfoTop.size();
-	lastFunc.retType = currType;
+	FunctionInfo* lastFunc = NULL;
+	if(k != -1)
+	{
+		lastFunc = funcInfo[k];
+	}else{
+		funcInfo.push_back(new FunctionInfo(funcNameCopy));
+		lastFunc = funcInfo.back();
+	}
+
+	lastFunc->vTopSize = (unsigned int)varInfoTop.size();
+	lastFunc->retType = currType;
 	if(newType)
-		lastFunc.type = FunctionInfo::THISCALL;
+		lastFunc->type = FunctionInfo::THISCALL;
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
-		lastFunc.type = FunctionInfo::LOCAL;
+		lastFunc->type = FunctionInfo::LOCAL;
 	if(funcName[0] != '$' && !(chartype_table[funcName[0]] & ct_start_symbol))
-		lastFunc.visible = false;
-	currDefinedFunc.push_back(funcInfo.back());
+		lastFunc->visible = false;
+	currDefinedFunc.push_back(lastFunc);
 }
 
 void FunctionParameter(const char* pos, InplaceStr paramName)
@@ -1382,9 +1395,19 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	lastFunc.AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst));
 	lastFunc.allParamSize += currType->size;
 }
+
+void FunctionPrototype()
+{
+	FunctionInfo &lastFunc = *funcInfo.back();
+	lastFunc.funcType = lastFunc.retType ? GetFunctionType(funcInfo.back()) : NULL;
+	currDefinedFunc.pop_back();
+}
+
 void FunctionStart(const char* pos)
 {
 	FunctionInfo &lastFunc = *funcInfo.back();
+	lastFunc.implemented = true;
+	lastFunc.funcType = lastFunc.retType ? GetFunctionType(funcInfo.back()) : NULL;
 
 	BeginBlock();
 	cycleDepth.push_back(0);
@@ -1404,8 +1427,6 @@ void FunctionStart(const char* pos)
 	currAlign = 1;
 	AddVariable(pos, InplaceStr(hiddenHame, length));
 	varDefined = false;
-
-	lastFunc.funcType = lastFunc.retType ? GetFunctionType(funcInfo.back()) : NULL;
 }
 
 void FunctionEnd(const char* pos, const char* funcName)

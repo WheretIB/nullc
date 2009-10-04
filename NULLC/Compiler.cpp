@@ -253,8 +253,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	funcInfo.back()->name = DuplicateString(funcInfo.back()->name);
 	funcInfo.back()->address = -1;
 	funcInfo.back()->funcPtr = (void*)ptr;
-
-	funcInfo.back()->funcType = CodeInfo::GetFunctionType(funcInfo.back());
+	funcInfo.back()->implemented = true;
 
 	buildInFuncs = funcInfo.size();
 	buildInTypes = typeInfo.size();
@@ -619,17 +618,14 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.nameHash = refFunc->nameHash;
 
 		funcInfo.retType = ExternFuncInfo::RETURN_UNKNOWN;
-		if(funcInfo.funcPtr)
-		{
-			if(refFunc->retType->type == TypeInfo::TYPE_VOID)
-				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
-			else if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
-				funcInfo.retType = ExternFuncInfo::RETURN_DOUBLE;
-			else if(refFunc->retType->type == TypeInfo::TYPE_INT || refFunc->retType->size <= 4)
-				funcInfo.retType = ExternFuncInfo::RETURN_INT;
-			else if(refFunc->retType->type == TypeInfo::TYPE_LONG || refFunc->retType->size == 8)
-				funcInfo.retType = ExternFuncInfo::RETURN_LONG;
-		}
+		if(refFunc->retType->type == TypeInfo::TYPE_VOID)
+			funcInfo.retType = ExternFuncInfo::RETURN_VOID;
+		else if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
+			funcInfo.retType = ExternFuncInfo::RETURN_DOUBLE;
+		else if(refFunc->retType->type == TypeInfo::TYPE_INT || refFunc->retType->size <= 4)
+			funcInfo.retType = ExternFuncInfo::RETURN_INT;
+		else if(refFunc->retType->type == TypeInfo::TYPE_LONG || refFunc->retType->size == 8)
+			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 
