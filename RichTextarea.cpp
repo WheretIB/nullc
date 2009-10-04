@@ -1724,6 +1724,7 @@ AreaLine* ExtendSelectionFromPoint(unsigned int xPos, unsigned int yPos)
 LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	unsigned int startX, startY, endX, endY;
+	static int lastX, lastY;
 
 	if(!areaWnd)
 		areaWnd = hWnd;
@@ -1761,7 +1762,7 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		OnKeyEvent((int)wParam);
 		break;
 	case WM_LBUTTONDBLCLK:
-		ExtendSelectionFromPoint(LOWORD(lParam), HIWORD(lParam));
+		currLine = ExtendSelectionFromPoint(LOWORD(lParam), HIWORD(lParam));
 		if(selectionOn)
 		{
 			cursorCharX = dragEndX;
@@ -1772,6 +1773,8 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		}
 		break;
 	case WM_LBUTTONDOWN:
+		lastX = LOWORD(lParam);
+		lastY = HIWORD(lParam);
 		// Capture mouse
 		SetCapture(areaWnd);
 		// Remove cursor
@@ -1816,8 +1819,11 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 		break;
 	case WM_MOUSEMOVE:
 		// If mouse if moving with the left mouse down
-		if(!(wParam & MK_LBUTTON))
+		if(!(wParam & MK_LBUTTON) || (lastX == LOWORD(lParam) && lastY == HIWORD(lParam)))
 			break;
+
+		lastX = LOWORD(lParam);
+		lastY = HIWORD(lParam);
 
 		// Sort old selection range
 		SortSelPoints(startX, endX, startY, endY);
