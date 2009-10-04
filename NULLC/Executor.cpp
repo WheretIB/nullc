@@ -364,7 +364,7 @@ void Executor::Run(const char* funcName)
 
 		case cmdGetAddr:
 			genStackPtr--;
-			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(long long)&genParams[0];
+			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)&genParams[0];
 			break;
 		case cmdFuncAddr:
 			assert(sizeof(exFunctions[cmd.argument].funcPtr) == 4);
@@ -373,7 +373,7 @@ void Executor::Run(const char* funcName)
 			if(exFunctions[cmd.argument].funcPtr == NULL)
 				*genStackPtr = exFunctions[cmd.argument].address;
 			else
-				*genStackPtr = (unsigned int)((unsigned long long)(exFunctions[cmd.argument].funcPtr));
+				*genStackPtr = (unsigned int)(intptr_t)(exFunctions[cmd.argument].funcPtr);
 			break;
 
 		case cmdSetRange:
@@ -891,22 +891,27 @@ void Executor::Run(const char* funcName)
 		while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
 				line++;
 
-		char buf[512];
-		sprintf(buf, " (at %.*s)", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
-		strcat(execError, buf);
-		
-		/*char *currPos = execError + strlen(execError);
-		while(fcallStack.size())
+		char *currPos = execError + strlen(execError);
+
+		currPos += sprintf(currPos, " (at %.*s)\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+
+		currPos += sprintf(currPos, "Call stack:\r\n");
+		int address = int(cmdStream - cmdStreamBase);
+		do
 		{
-			int address = int(fcallStack.back() - cmdStreamBase);
-			if(address != -1)
+			currPos += sprintf(currPos, "%d\r\n", address);
+			if(!fcallStack.size())
+				break;
+			address = int(fcallStack.back() - cmdStreamBase);
+			fcallStack.pop_back();
+			/*if(address != -1)
 			{
 				for(unsigned int i = 0; i < 
 			}else{
 				if((currPos - execError) + strlen("unknown (-1)") < ERROR_BUFFER_SIZE)
 					currPos = strcpy(execError, "unknown (-1)");
-			}
-		}*/
+			}*/
+		}while(true);
 	}
 }
 

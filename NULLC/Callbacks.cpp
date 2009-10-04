@@ -425,7 +425,11 @@ T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 	if(cmd == cmdMul)
 		return a * b;
 	if(cmd == cmdDiv)
+	{
+		if(b == 0)
+			ThrowError("ERROR: Division by zero during constant folding", lastKnownStartPos);
 		return a / b;
+	}
 	if(cmd == cmdPow)
 		return (T)pow((double)a, (double)b);
 	if(cmd == cmdLess)
@@ -456,7 +460,11 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 	if(cmd == cmdShr)
 		return a >> b;
 	if(cmd == cmdMod)
+	{
+		if(b == 0)
+			ThrowError("ERROR: Modulus division by zero during constant folding", lastKnownStartPos);
 		return a % b;
+	}
 	if(cmd == cmdBitAnd)
 		return a & b;
 	if(cmd == cmdBitXor)
@@ -479,7 +487,11 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 	if(cmd == cmdShr)
 		return a >> b;
 	if(cmd == cmdMod)
+	{
+		if(b == 0)
+			ThrowError("ERROR: Modulus division by zero during constant folding", lastKnownStartPos);
 		return a % b;
+	}
 	if(cmd == cmdBitAnd)
 		return a & b;
 	if(cmd == cmdBitXor)
@@ -1584,7 +1596,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			}
 		}
 		// Maybe the function we found can't be used at all
-		if(minRatingIndex == -1)
+		if(minRatingIndex == ~0u)
 		{
 			if(silent)
 				return false;

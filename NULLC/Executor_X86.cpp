@@ -411,13 +411,13 @@ bool ExecutorX86::TranslateToNative()
 				EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + exFunctions[cmd.argument].address, binCodeStart);
 				EMIT_OP_REG(o_push, rEAX);
 			}else{
-				EMIT_OP_NUM(o_push, (int)(long long)exFunctions[cmd.argument].funcPtr);
+				EMIT_OP_NUM(o_push, (int)(intptr_t)exFunctions[cmd.argument].funcPtr);
 			}
 		}else if(cmd.cmd == cmdCallStd){
 			EMIT_COMMENT("CALLSTD");
 
 			unsigned int bytesToPop = exFunctions[cmd.argument].bytesToPop;
-			EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)exFunctions[cmd.argument].funcPtr);
+			EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)exFunctions[cmd.argument].funcPtr);
 			EMIT_OP_REG(o_call, rECX);
 			EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
 			if(exFunctions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)

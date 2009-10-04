@@ -607,7 +607,7 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	if(arrSize == -1)
 	{
 		arrSize = *((int*)&variableData[address+4]);
-		address = *((int*)&variableData[address]) - (int)(long long)variableData;
+		address = *((int*)&variableData[address]) - (int)(intptr_t)variableData;
 	}
 	for(unsigned int n = 0; n < arrSize; n++, address += subType->size)
 	{
