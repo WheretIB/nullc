@@ -42,8 +42,8 @@ HWND hButtonCalcX86;//calculate button
 HWND hTextArea;		//code text area (rich edit)
 HWND hResult;		//label with execution result
 HWND hCode;			//disabled text area for errors and asm-like code output
-HWND hLog;			//disabled text area for log information of AST creation
 HWND hVars;			//disabled text area that shows values of all variables in global scope
+HWND hStatus;
 
 //colorer, compiler and executor
 Colorer*	colorer;
@@ -431,7 +431,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	if(!commControlsAvailable)
 		return 0;
 
-	/*HMODULE sss = */LoadLibrary("RICHED32.dll");
+	hStatus = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "Ready", hWnd, 0);
 
 	RegisterTextarea("NULLCTEXT", hInstance);
 
@@ -449,6 +449,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	}
 	hTextArea = CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
 	SetAreaText(fileContent ? fileContent : "int a = 5;\r\nint ref b = &a;\r\nreturn 1;");
+	SetStatusBar(hStatus);
 
 	delete[] fileContent;
 	fileContent = NULL;
@@ -480,13 +481,6 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hCode, nCmdShow);
 	UpdateWindow(hCode);
 	SendMessage(hCode, WM_SETFONT, (WPARAM)CreateFont(15,0,0,0,0,0,0,0,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,FF_DONTCARE,"Courier New"), 0);
-
-	hLog = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
-		2*widt+10, 200, widt-100, 165, hWnd, NULL, hInstance, NULL);
-	if(!hLog)
-		return 0;
-	ShowWindow(hLog, nCmdShow);
-	UpdateWindow(hLog);
 
 	hVars = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS,
 		3*widt+15, 225, widt, 165, hWnd, NULL, hInstance, NULL);
@@ -827,7 +821,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					SetWindowText(hCode, result);
 				}
 			}
-			SetWindowText(hLog, nullcGetCompilationLog());
 		}
 		// Parse the menu selections:
 		switch (wmId)
@@ -912,15 +905,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		unsigned int bottomWidth = width - 2 * mainPadding - 2 * subPadding;
 		unsigned int leftOffsetX = mainPadding;
-		unsigned int leftWidth = int(bottomWidth / 100.0 * 50.0);	// 50 %
-		unsigned int middleOffsetX = leftOffsetX + leftWidth + subPadding;
-		unsigned int middleWidth = int(bottomWidth / 100.0 * 25.0);	// 25 %
-		unsigned int rightOffsetX = middleOffsetX + middleWidth + subPadding;
+		unsigned int leftWidth = int(bottomWidth / 100.0 * 75.0);	// 75 %
+		unsigned int rightOffsetX = leftOffsetX + leftWidth + subPadding;
 		unsigned int rightWidth = int(bottomWidth / 100.0 * 25.0);	// 25 %
 
-		SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY, leftWidth, bottomHeight, NULL);
-		SetWindowPos(hLog,			HWND_TOP, middleOffsetX, bottomOffsetY, middleWidth, bottomHeight, NULL);
-		SetWindowPos(hVars,			HWND_TOP, rightOffsetX, bottomOffsetY, rightWidth, bottomHeight, NULL);
+		SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY, leftWidth, bottomHeight-16, NULL);
+		SetWindowPos(hVars,			HWND_TOP, rightOffsetX, bottomOffsetY, rightWidth, bottomHeight-16, NULL);
+
+		SetWindowPos(hStatus,			HWND_TOP, 0, height-16, width, height, NULL);
+
+		InvalidateRect(hButtonCalc, NULL, true);
+		InvalidateRect(hResult, NULL, true);
+		InvalidateRect(hButtonCalcX86, NULL, true);
+		InvalidateRect(hStatus, NULL, true);
+		InvalidateRect(hVars, NULL, true);
 	}
 		break;
 	default:

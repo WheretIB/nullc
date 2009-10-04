@@ -114,6 +114,7 @@ unsigned int overallLength = 0;
 
 bool	areaCreated = false;
 HWND	areaWnd = 0;
+HWND	areaStatus = 0;
 
 HFONT	areaFont[4];
 
@@ -496,6 +497,16 @@ void SetAreaText(const char *text)
 	history->ResetHistory();
 }
 
+void SetStatusBar(HWND status)
+{
+	const int SB_SETPARTS = (WM_USER+4);
+	const int parts = 5;
+	int	miniPart = 64;
+	int widths[parts] = { areaWidth - 4 * miniPart, areaWidth - 3 * miniPart, areaWidth - 2 * miniPart, areaWidth - miniPart, -1 };
+	areaStatus = status;
+	SendMessage(areaStatus, SB_SETPARTS, parts, (LPARAM)widths);
+}
+
 // Force redraw
 void UpdateArea()
 {
@@ -751,6 +762,19 @@ VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
 		LineTo(hdc, xPos, (cursorCharY - shiftCharY) * charHeight);
 	}
 	EndPaint(areaWnd, &areaPS);
+
+	if(areaStatus)
+	{
+		char buf[256];
+		sprintf(buf, "Ln %d", cursorCharY + 1);
+		SendMessage(areaStatus, (WM_USER+1), 1, (LPARAM)buf);
+		sprintf(buf, "Col %d", (xPos - padLeft) / charWidth + 1);
+		SendMessage(areaStatus, (WM_USER+1), 2, (LPARAM)buf);
+		sprintf(buf, "Ch %d", cursorCharX + 1);
+		SendMessage(areaStatus, (WM_USER+1), 3, (LPARAM)buf);
+		sprintf(buf, "%s", insertionMode ? "OVR" : "INS");
+		SendMessage(areaStatus, (WM_USER+1), 4, (LPARAM)buf);
+	}
 
 	ibarState++;
 }
@@ -1744,6 +1768,9 @@ LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LP
 	case WM_SIZE:
 		areaWidth = LOWORD(lParam);
 		areaHeight = HIWORD(lParam);
+
+		if(areaStatus)
+			SetStatusBar(areaStatus);
 
 		UpdateScrollBar();
 
