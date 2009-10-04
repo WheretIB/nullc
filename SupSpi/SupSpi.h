@@ -196,8 +196,8 @@ namespace supspi
 		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			(void)space;
-			//if(space)
-			//	space(str);	// Skip spaces before lexeme
+			if(space)
+				space(str);	// Skip spaces before lexeme
 			return m_sub->Parse(str, NULL);
 		}
 	private:
