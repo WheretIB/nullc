@@ -348,7 +348,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 		return true;
 	}
 
-	CALLBACK(FunctionStart((*str)->pos));
+	CALLBACK(FunctionStart((*str-1)->pos));
 	if(!ParseLexem(str, lex_ofigure))
 		ThrowError("ERROR: '{' not found after function header", (*str)->pos);
 

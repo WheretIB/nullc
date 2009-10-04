@@ -111,7 +111,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 		nullcClean();
 		timeClean += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
-		bool linkgood = nullcLinkCode(bytecode, 1);
+		int linkgood = nullcLinkCode(bytecode, 1);
 		timeLinkCode += myGetPreciseTime() - time;
 		delete[] bytecode;
 

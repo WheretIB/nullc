@@ -21,6 +21,8 @@ void ClearAreaText();
 const char* GetAreaText();
 void SetAreaText(const char *text);
 
+void SetStatusBar(HWND status);
+
 void UpdateArea();
 bool NeedUpdate();
 void ResetUpdate();

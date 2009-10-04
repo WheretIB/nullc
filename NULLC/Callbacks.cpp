@@ -1369,6 +1369,10 @@ void FunctionAdd(const char* pos, const char* funcName)
 	if(k != -1)
 	{
 		lastFunc = funcInfo[k];
+		lastFunc->allParamSize = 0;
+
+		lastFunc->firstParam = lastFunc->lastParam = NULL;
+		lastFunc->paramCount = 0;
 	}else{
 		funcInfo.push_back(new FunctionInfo(funcNameCopy));
 		lastFunc = funcInfo.back();
@@ -1390,7 +1394,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	if(!currType)
 		ThrowError("ERROR: function parameter cannot be an auto type", pos);
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
-	FunctionInfo &lastFunc = *funcInfo.back();
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
 	lastFunc.AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst));
 	lastFunc.allParamSize += currType->size;
@@ -1398,14 +1402,14 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 
 void FunctionPrototype()
 {
-	FunctionInfo &lastFunc = *funcInfo.back();
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	lastFunc.funcType = lastFunc.retType ? GetFunctionType(funcInfo.back()) : NULL;
 	currDefinedFunc.pop_back();
 }
 
 void FunctionStart(const char* pos)
 {
-	FunctionInfo &lastFunc = *funcInfo.back();
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	lastFunc.implemented = true;
 	lastFunc.funcType = lastFunc.retType ? GetFunctionType(funcInfo.back()) : NULL;
 
