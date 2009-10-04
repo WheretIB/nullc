@@ -282,6 +282,7 @@ void ExecutorX86::Run(const char* funcName)
 
 	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
 
+	int functionID = -1;
 	if(funcName)
 	{
 		unsigned int funcPos = (unsigned int)-1;
@@ -291,6 +292,7 @@ void ExecutorX86::Run(const char* funcName)
 			if(exFunctions[i].nameHash == fnameHash)
 			{
 				funcPos = exFunctions[i].startInByteCode;
+				functionID = i;
 				break;
 			}
 		}
@@ -365,7 +367,21 @@ void ExecutorX86::Run(const char* funcName)
 
 	runResult = res1;
 	runResult2 = res2;
-	runResultType = (asmOperType)resT;
+	if(functionID == -1)
+	{
+		runResultType = (asmOperType)resT;
+	}else{
+		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
+		{
+			runResultType = OTYPE_COMPLEX;
+		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT){
+			runResultType = OTYPE_INT;
+		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE){
+			runResultType = OTYPE_DOUBLE;
+		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG){
+			runResultType = OTYPE_LONG;
+		}
+	}
 }
 #pragma warning(default: 4731)
 

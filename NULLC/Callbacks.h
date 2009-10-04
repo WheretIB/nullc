@@ -101,6 +101,7 @@ void AddTypeAllocation(const char* pos);
 
 void FunctionAdd(const char* pos, const char* funcName);
 void FunctionParameter(const char* pos, InplaceStr paramName);
+void FunctionPrototype();
 void FunctionStart(const char* pos);
 void FunctionEnd(const char* pos, const char* funcName);
 void FunctionToOperator(const char* pos);

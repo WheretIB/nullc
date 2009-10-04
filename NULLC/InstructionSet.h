@@ -19,7 +19,7 @@ enum InstructionCode
 {
 	// no operation
 	// отсутствие операции
-	cmdNop = -1,
+	cmdNop = 0,
 
 	// push a number on top of general stack
 	// положить значение на верхушку стека
@@ -290,7 +290,7 @@ struct VMCmd
     int Decode(char *buf)
 	{
 		char *curr = buf;
-		curr += sprintf(curr, "%s", vmInstructionText[cmd+1]);
+		curr += sprintf(curr, "%s", vmInstructionText[cmd]);
 
 		switch(cmd)
 		{

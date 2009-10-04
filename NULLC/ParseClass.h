@@ -309,6 +309,7 @@ public:
 		funcPtr = NULL;
 		retType = NULL;
 		visible = true;
+		implemented = false;
 		type = NORMAL;
 		funcType = NULL;
 		allParamSize = 0;
@@ -364,6 +365,7 @@ public:
 	TypeInfo*	retType;				// Function return type
 
 	bool		visible;				// true until function goes out of scope
+	bool		implemented;			// false if only function prototype has been found.
 
 	enum FunctionCategory{ NORMAL, LOCAL, THISCALL };
 	FunctionCategory	type;

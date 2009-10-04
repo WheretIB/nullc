@@ -341,8 +341,10 @@ bool ParseFunctionDefinition(Lexeme** str)
 
 	if(ParseLexem(str, lex_semicolon))
 	{
+		CALLBACK(AddVoidNode());
 		if(name[1].type >= lex_add && name[1].type <= lex_logxor || name[1].type == lex_obracket)
 			CALLBACK(FunctionToOperator(start->pos));
+		CALLBACK(FunctionPrototype());
 		return true;
 	}
 
@@ -606,7 +608,7 @@ bool  ParseSwitchExpr(Lexeme** str)
 			ThrowError("ERROR: ':' not found after 'case' expression", (*str)->pos);
 
 		if(!ParseExpression(str))
-			ThrowError("ERROR: expression expected after 'case:'", (*str)->pos);
+			CALLBACK(AddVoidNode());
 		while(ParseExpression(str))
 			CALLBACK(AddTwoExpressionNode());
 		CALLBACK(AddCaseNode(condPos));

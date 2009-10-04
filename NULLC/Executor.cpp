@@ -70,7 +70,7 @@ void Executor::Run(const char* funcName)
 
 	execError[0] = 0;
 
-	unsigned int funcPos = 0;
+	unsigned int funcPos = ~0ul;
 	if(funcName)
 	{
 		unsigned int fnameHash = GetStringHash(funcName);
@@ -82,7 +82,7 @@ void Executor::Run(const char* funcName)
 				break;
 			}
 		}
-		if(funcPos == 0)
+		if(funcPos == ~0ul)
 		{
 			sprintf(execError, "ERROR: starting function %s not found", funcName);
 			return;
@@ -112,8 +112,11 @@ void Executor::Run(const char* funcName)
 
 	paramBase = 0;
 
-	genStackPtr--;
-	*genStackPtr = 0;
+	if(!funcName)
+	{
+		genStackPtr--;
+		*genStackPtr = 0;
+	}
 
 	while(cmdStream < cmdStreamEnd)
 	{
@@ -446,6 +449,12 @@ void Executor::Run(const char* funcName)
 				fAddress = *genStackPtr;
 				genStackPtr++;
 			}
+			/*if(fAddress == 0)
+			{
+				cmdStreamEnd = NULL;
+				strcpy(execError, "ERROR: Undefined function call");
+				break;
+			}*/
 			fcallStack.push_back(cmdStream);
 			cmdStream = cmdStreamBase + fAddress;
 		}
@@ -476,7 +485,7 @@ void Executor::Run(const char* funcName)
 			}
 			if(fcallStack.size() == 0)
 			{
-				retType = (asmOperType)cmd.flag;
+				retType = (asmOperType)(int)cmd.flag;
 				cmdStream = cmdStreamEnd;
 				break;
 			}
@@ -1000,7 +1009,7 @@ const char* Executor::GetResult()
 		return execResult;
 	}
 	if(genStackSize-1 > 2)
-		{
+	{
 		strcpy(execResult, "There are more than one value on the stack");
 		return execResult;
 	}
