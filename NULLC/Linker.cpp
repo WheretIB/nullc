@@ -76,19 +76,18 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int oldGlobalSize = globalVarSize;
 	globalVarSize += bCode->globalVarSize;
 
-	unsigned int	oldExFuncSize = exFunctions.size();
-	unsigned int	oldOffsetToGlobalCode = offsetToGlobalCode;
 	funcRemap.clear();
-	unsigned int	allFunctionSize = 0;
-
 	unsigned int oldFunctionCount = exFunctions.size();
+
+	// Add new code
+	unsigned int oldCodeSize = exCode.size();
+	exCode.resize(oldCodeSize + bCode->codeSize);
+	memcpy(&exCode[oldCodeSize], FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo++)
 	{
-		allFunctionSize += fInfo->codeSize;
-		
 		const unsigned int index_none = ~0u;
 
 		unsigned int index = index_none;
@@ -126,109 +125,26 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 #if defined(__CELLOS_LV2__)
 			if(!exFunctions.back().ps3Callable)
 			{
-				sprintf(linkError, "Link Error: External function #%d is not callable on PS3", n);
+				sprintf(linkError, "Link Error: External function #%d is not callable on PS3", i);
 				return false;
 			}
 #endif
-			// Add function code to the bytecode,
-			// shifting global code forward,
-			// fixing all jump addresses in global code
-
-			if(exFunctions.back().address != -1)
+			if(exFunctions.back().address == 0)
 			{
-				unsigned int shift = fInfo->codeSize;
-				unsigned int oldCodeSize = exCode.size();
-				// Expand bytecode
-				exCode.resize(exCode.size() + shift);
-				// Move global code
-				if(oldCodeSize-offsetToGlobalCode > 0)
-					memmove(&exCode[offsetToGlobalCode] + shift, &exCode[offsetToGlobalCode], (oldCodeSize-offsetToGlobalCode) * sizeof(VMCmd));
-				// Insert function code
-				memcpy(&exCode[offsetToGlobalCode], FindCode(bCode) + fInfo->address * sizeof(VMCmd), shift * sizeof(VMCmd));
-				// Update function position
-			
-				exFunctions.back().address = offsetToGlobalCode;
-				// Update global code start
-				offsetToGlobalCode += shift;
+				sprintf(linkError, "Link Error: External function #%d doesn't have implementation", i);
+				return false;
 			}
+			// Update internal function address
+			if(exFunctions.back().address != -1)
+				exFunctions.back().address = oldCodeSize + fInfo->address;
 		}else{
 			funcRemap.push_back(index);
 			assert(!"No function rewrite at the moment");
 		}
 	}
 
-	for(unsigned int i = oldExFuncSize; i < exFunctions.size(); i++)
-	{
-		if(exFunctions[i].address != -1)
-		{
-			// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in function code
-			int pos = exFunctions[i].address;
-			while(pos < exFunctions[i].address + exFunctions[i].codeSize)
-			{
-				VMCmd &cmd = exCode[pos];
-				pos++;
-				switch(cmd.cmd)
-				{
-				case cmdPushChar:
-				case cmdPushShort:
-				case cmdPushInt:
-				case cmdPushFloat:
-				case cmdPushDorL:
-				case cmdPushCmplx:
-				case cmdMovChar:
-				case cmdMovShort:
-				case cmdMovInt:
-				case cmdMovFloat:
-				case cmdMovDorL:
-				case cmdMovCmplx:
-					if(cmd.flag == ADDRESS_ABOLUTE)
-						cmd.argument += oldGlobalSize;
-					break;
-				case cmdJmp:
-				case cmdJmpZ:
-				case cmdJmpNZ:
-					cmd.argument += exFunctions[i].address - exFunctions[i].oldAddress;
-					break;
-				case cmdCall:
-					if(cmd.argument != CALL_BY_POINTER)
-						cmd.argument = exFunctions[funcRemap[cmd.argument]].address;
-					break;
-				case cmdCallStd:
-					cmd.argument = funcRemap[cmd.argument];
-					break;
-				case cmdFuncAddr:
-					cmd.argument = funcRemap[cmd.argument];
-					break;
-				}
-			}
-		}
-	}
-
-	unsigned int oldCodeSize = exCode.size();
-	// Fix cmdJmp* in old code
-	unsigned int pos = offsetToGlobalCode;
-	while(pos < oldCodeSize)
-	{
-		VMCmd &cmd = exCode[pos];
-		pos++;
-		switch(cmd.cmd)
-		{
-		case cmdJmp:
-		case cmdJmpZ:
-		case cmdJmpNZ:
-			cmd.argument += offsetToGlobalCode - oldOffsetToGlobalCode;
-		}
-	}
-
-	// Add new global code
-
-	// Expand bytecode
-	exCode.resize(exCode.size() + bCode->codeSize - allFunctionSize);
-	// Insert function code
-	memcpy(&exCode[oldCodeSize], FindCode(bCode) + allFunctionSize * sizeof(VMCmd), (bCode->codeSize - allFunctionSize) * sizeof(VMCmd));
-
 	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
-	pos = oldCodeSize;
+	unsigned int pos = oldCodeSize;
 	while(pos < exCode.size())
 	{
 		VMCmd &cmd = exCode[pos];
@@ -250,10 +166,14 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			if(cmd.flag == ADDRESS_ABOLUTE)
 				cmd.argument += oldGlobalSize;
 			break;
+		case cmdGetAddr:
+			if(cmd.helper == ADDRESS_ABOLUTE)
+				cmd.argument += oldGlobalSize;
+			break;
 		case cmdJmp:
 		case cmdJmpZ:
 		case cmdJmpNZ:
-			cmd.argument += oldCodeSize - allFunctionSize;
+			cmd.argument += oldCodeSize;
 			break;
 		case cmdCall:
 			if(cmd.argument != CALL_BY_POINTER)
@@ -274,7 +194,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = 0; i < exCode.size(); i++)
 	{
 		exCode[i].Decode(instBuf);
-		fprintf(linkAsm, "%s\r\n", instBuf);
+		fprintf(linkAsm, "// %d %s\r\n", i, instBuf);
 	}
 	fclose(linkAsm);
 #endif
