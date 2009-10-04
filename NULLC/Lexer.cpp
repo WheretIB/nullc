@@ -31,7 +31,15 @@ void	Lexer::Lexify(const char* code)
 			}
 			break;
 		case '\'':
-			lType = lex_semiquote;
+			lType = lex_semiquotedchar;
+			{
+				const char *pos = code;
+				pos++;
+				while(!(*pos == '\'' && pos[-1] != '\\'))
+					pos++;
+				pos++;
+				lLength = (int)(pos - code);
+			}
 			break;
 		case '\\':
 			lType = lex_escape;
