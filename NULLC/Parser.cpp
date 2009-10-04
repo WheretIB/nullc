@@ -789,17 +789,12 @@ bool ParseTerminal(Lexeme** str)
 		(*str)++;
 		return true;
 	}
-	if((*str)->type == lex_semiquote)
+	if((*str)->type == lex_semiquotedchar)
 	{
-		const char *start = (*str)->pos;
+		if(((*str)->length > 3 && (*str)->pos[1] != '\\') || (*str)->length > 4)
+			ThrowError("ERROR: only one character can be inside single quotes", (*str)->pos);
+		CALLBACK(AddNumberNodeChar((*str)->pos));
 		(*str)++;
-		ParseLexem(str, lex_escape);
-		if((*str)->length != 1)
-			ThrowError("ERROR: character not found after '", (*str)->pos);
-		(*str)++;
-		if(!ParseLexem(str, lex_semiquote))
-			ThrowError("ERROR: ' not found after character", (*str)->pos);
-		CALLBACK(AddNumberNodeChar(start));
 		return true;
 	}
 	if(ParseLexem(str, lex_sizeof))
