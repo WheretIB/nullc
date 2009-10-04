@@ -111,9 +111,15 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 		nullcClean();
 		timeClean += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
-		nullcLinkCode(bytecode, 1);
+		bool linkgood = nullcLinkCode(bytecode, 1);
 		timeLinkCode += myGetPreciseTime() - time;
 		delete[] bytecode;
+
+		if(!linkgood)
+		{
+			printf("%s Link failed: %s\r\n", buf, nullcGetCompilationError());
+			return false;
+		}
 
 		varData = (char*)nullcGetVariableData();
 
@@ -376,8 +382,8 @@ void	RunTests()
 	printf("\r\nTwo bytecode merge test 1\r\n");
 	testCount++;
 
-	const char *partA1 = "int a = 5; int test(int b){ return a += b; } test(4);";
-	const char *partB1 = "int aa = 15; int testA(int b){ return aa += b; } testA(5); return aa;";
+	const char *partA1 = "int a = 5; int test(int ref a, int b){ return *a += b; } test(&a, 4);";
+	const char *partB1 = "int aa = 15; int testA(int ref a, int b){ return *a += b + 1; } testA(&aa, 5); return aa;";
 
 	char *bytecodeA, *bytecodeB;
 	bytecodeA = NULL;
@@ -397,13 +403,24 @@ void	RunTests()
 		good = nullcCompile(partB1);
 		nullcSaveListing("asm.txt");
 		if(!good)
+		{
 			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
-		else
+			break;
+		}else{
 			nullcGetBytecode(&bytecodeB);
+		}
 
 		nullcClean();
-		nullcLinkCode(bytecodeA, 0);
-		nullcLinkCode(bytecodeB, 0);
+		if(!nullcLinkCode(bytecodeA, 0))
+		{
+			printf("Compilation failed: %s\r\n", nullcGetRuntimeError());
+			break;
+		}
+		if(!nullcLinkCode(bytecodeB, 0))
+		{
+			printf("Compilation failed: %s\r\n", nullcGetRuntimeError());
+			break;
+		}
 
 		nullres goodRun = nullcRun();
 		if(goodRun)
@@ -411,15 +428,15 @@ void	RunTests()
 			const char* val = nullcGetResult();
 			varData = (char*)nullcGetVariableData();
 
-			if(strcmp(val, "20") != 0)
-				printf("Failed (%s != %s)\r\n", val, "20");
+			if(strcmp(val, "21") != 0)
+				printf("Failed (%s != %s)\r\n", val, "21");
 			varCount = 0;
 			varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
 			if(varInfo)
 			{
 				bool lastFailed = false;
 				CHECK_INT("ERROR", 0, 9);
-				CHECK_INT("ERROR", 1, 20);
+				CHECK_INT("ERROR", 1, 21);
 				if(!lastFailed)
 					passed[t]++;
 			}

@@ -352,11 +352,13 @@ bool Compiler::Compile(const char *str)
 	CodeInfo::globalSize = varTop;
 
 	t = clock();
+	cmdList.push_back(VMCmd(cmdJmp));
 	for(unsigned int i = 0; i < funcDefList.size(); i++)
 	{
 		funcDefList[i]->Compile();
 		((NodeFuncDef*)funcDefList[i])->Disable();
 	}
+	cmdList[0].argument = cmdList.size();
 	if(nodeList.back())
 		nodeList.back()->Compile();
 
