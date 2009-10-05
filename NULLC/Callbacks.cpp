@@ -1806,6 +1806,7 @@ void BeginSwitch(const char* pos)
 	BeginBlock();
 	nodeList.push_back(new NodeSwitchExpr());
 }
+
 void AddCaseNode(const char* pos)
 {
 	assert(nodeList.size() >= 3);
@@ -1814,6 +1815,14 @@ void AddCaseNode(const char* pos)
 	NodeZeroOP* temp = nodeList[nodeList.size()-3];
 	static_cast<NodeSwitchExpr*>(temp)->AddCase();
 }
+
+void AddDefaultNode()
+{
+	assert(nodeList.size() >= 2);
+	NodeZeroOP* temp = nodeList[nodeList.size()-2];
+	static_cast<NodeSwitchExpr*>(temp)->AddDefault();
+}
+
 void EndSwitch()
 {
 	assert(cycleDepth.size() != 0);

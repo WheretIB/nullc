@@ -281,7 +281,7 @@ namespace ColorerGrammar
 
 			appval		=
 				(
-					(varname - strP("case"))[ColorVar] >> ~chP('(') >>
+					(varname - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >>
 					*(
 						chP('[')[ColorText] >> 
 						term5 >> 
@@ -369,16 +369,15 @@ namespace ColorerGrammar
 					(')' | epsP[LogError("ERROR: ')' not found after 'switch' condition")])[ColorText]
 				) >>
 				('{' | epsP[LogError("ERROR: '{' expected")])[ColorBold] >> 
-				(
-					(strWP("case") | epsP[LogError("ERROR: case not found in switch expression")])[ColorRWord] >>
-					(term5 | epsP[LogError("ERROR: case condition expected")]) >>
-					(':' | epsP[LogError("ERROR: ':' not found after case condition")])[ColorText] >>
-					*expr
-				) >>
 				*(
 					strWP("case")[ColorRWord] >>
 					(term5 | epsP[LogError("ERROR: case condition expected")]) >>
 					(':' | epsP[LogError("ERROR: ':' not found after case condition")])[ColorText] >>
+					*expr
+				) >>
+				!(
+					strWP("default")[ColorRWord] >>
+					(':' | epsP[LogError("ERROR: ':' not found after default")])[ColorText] >>
 					*expr
 				) >>
 				('}' | epsP[LogError("ERROR: '}' expected")])[ColorBold];

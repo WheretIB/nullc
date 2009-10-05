@@ -449,12 +449,12 @@ void Executor::Run(const char* funcName)
 				fAddress = *genStackPtr;
 				genStackPtr++;
 			}
-			/*if(fAddress == 0)
+			if(fAddress == 0)
 			{
 				cmdStreamEnd = NULL;
-				strcpy(execError, "ERROR: Undefined function call");
+				strcpy(execError, "ERROR: Invalid function pointer");
 				break;
-			}*/
+			}
 			fcallStack.push_back(cmdStream);
 			cmdStream = cmdStreamBase + fAddress;
 		}
@@ -896,7 +896,7 @@ void Executor::Run(const char* funcName)
 	if(cmdStreamEnd == NULL)
 	{
 		unsigned int line = 0;
-		unsigned int i = (unsigned int)(cmdStream - cmdStreamBase);
+		unsigned int i = (unsigned int)(cmdStream - cmdStreamBase) - 1;
 		while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
 				line++;
 
