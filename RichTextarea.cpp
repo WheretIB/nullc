@@ -326,6 +326,8 @@ public:
 };
 HistoryManager	*history = NULL;
 
+void	ScrollToCursor();
+
 // Set style parameters. bold\italics\underline flags don't work together
 bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline)
 {
@@ -563,7 +565,7 @@ void	UpdateScrollBar()
 
 	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
 	sbInfo.nMin = 0;
-	sbInfo.nMax = longestLine;
+	sbInfo.nMax = longestLine + 1;
 	sbInfo.nPage = charWidth ? (areaWidth - charWidth) / charWidth : 1;
 	sbInfo.nPos = shiftCharX;
 	SetScrollInfo(areaWnd, SB_HORZ, &sbInfo, true);
@@ -650,11 +652,8 @@ void ReDraw()
 			for(unsigned int i = 0, posInChars = 0; i < curr->length; i++)
 			{
 				int shift = GetCharShift(curr->data[i].ch, posInChars);
-				if(charRect.right < -TAB_SIZE * charWidth)
+				if(charRect.right > -TAB_SIZE * charWidth)
 				{
-					charRect.left += shift * charWidth;
-					charRect.right += shift * charWidth;
-				}else{
 					TextStyle &style = tStyle[curr->data[i].style];
 					// Find out, if the symbol is in the selected range
 					bool selected = false;
@@ -768,7 +767,7 @@ VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
 		char buf[256];
 		sprintf(buf, "Ln %d", cursorCharY + 1);
 		SendMessage(areaStatus, (WM_USER+1), 1, (LPARAM)buf);
-		sprintf(buf, "Col %d", (xPos - padLeft) / charWidth + 1);
+		sprintf(buf, "Col %d", posInChars + 1);
 		SendMessage(areaStatus, (WM_USER+1), 2, (LPARAM)buf);
 		sprintf(buf, "Ch %d", cursorCharX + 1);
 		SendMessage(areaStatus, (WM_USER+1), 3, (LPARAM)buf);
@@ -793,6 +792,7 @@ void InputChar(char ch)
 	currLine->length++;
 	// Move cursor forward
 	cursorCharX++;
+	ScrollToCursor();
 	// Force redraw on the modified line
 	RECT invalid = { 0, (cursorCharY - shiftCharY) * charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * charHeight };
 	InvalidateRect(areaWnd, &invalid, false);
@@ -1422,6 +1422,7 @@ void OnCharacter(char ch)
 		}else{
 			DeletePreviousChar();
 		}
+		ScrollToCursor();
 	}else if(ch == 22){	// Ctrl+V
 		OnPaste();
 	}else if(ch == 1){	// Ctrl+A
