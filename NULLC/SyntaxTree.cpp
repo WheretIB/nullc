@@ -1959,9 +1959,10 @@ NodeSwitchExpr::NodeSwitchExpr()
 	first = TakeLastNode();
 	conditionHead = conditionTail = NULL;
 	blockHead = blockTail = NULL;
+	defaultCase = NULL;
 	caseCount = 0;
 
-	codeSize = first->codeSize - 1;
+	codeSize = first->codeSize;
 	codeSize += 2;
 	nodeType = typeNodeSwitchExpr;
 }
@@ -1971,6 +1972,8 @@ NodeSwitchExpr::~NodeSwitchExpr()
 
 void NodeSwitchExpr::AddCase()
 {
+	if(caseCount == 0)
+		codeSize--;
 	caseCount++;
 	// Take case block from the top
 	if(blockTail)
@@ -1995,6 +1998,12 @@ void NodeSwitchExpr::AddCase()
 	codeSize += 3;
 }
 
+void NodeSwitchExpr::AddDefault()
+{
+	defaultCase = TakeLastNode();
+	codeSize += defaultCase->codeSize;
+}
+
 void NodeSwitchExpr::Compile()
 {
 	unsigned int startCmdSize = cmdList.size();
@@ -2014,6 +2023,9 @@ void NodeSwitchExpr::Compile()
 	unsigned int condEnd = switchEnd;
 	for(curr = blockHead; curr; curr = curr->next)
 		switchEnd += curr->codeSize + 1 + (curr != blockTail ? 1 : 0);
+	unsigned int defaultPos = switchEnd;
+	if(defaultCase)
+		switchEnd += defaultCase->codeSize;
 
 	// Save exit address form break operator
 	breakAddr.push_back(switchEnd);
@@ -2042,17 +2054,17 @@ void NodeSwitchExpr::Compile()
 	// Remove value by which we switched from stack
 	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 
-	cmdList.push_back(VMCmd(cmdJmp, switchEnd));
+	cmdList.push_back(VMCmd(cmdJmp, defaultPos));
 	for(curr = blockHead; curr; curr = curr->next)
 	{
 		// Remove value by which we switched from stack
 		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 		curr->Compile();
 		if(curr != blockTail)
-		{
 			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 2));
-		}
 	}
+	if(defaultCase)
+		defaultCase->Compile();
 
 	assert(switchEnd == cmdList.size());
 

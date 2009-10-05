@@ -599,19 +599,22 @@ bool  ParseSwitchExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_ofigure))
 		ThrowError("ERROR: '{' not found after 'switch(...)'", (*str)->pos);
 
-	while(ParseLexem(str, lex_case))
+	while(ParseLexem(str, lex_case) || ParseLexem(str, lex_default))
 	{
-		const char *condPos = (*str)->pos;
-		if(!ParseVaribleSet(str))
-			ThrowError("ERROR: expression expected after 'case'", (*str)->pos);
+		Lexeme *condPos = *str;
+		if(condPos[-1].type == lex_case && !ParseVaribleSet(str))
+			ThrowError("ERROR: expression expected after 'case' of 'default'", (*str)->pos);
 		if(!ParseLexem(str, lex_colon))
-			ThrowError("ERROR: ':' not found after 'case' expression", (*str)->pos);
+			ThrowError("ERROR: ':' expected", (*str)->pos);
 
 		if(!ParseExpression(str))
 			CALLBACK(AddVoidNode());
 		while(ParseExpression(str))
 			CALLBACK(AddTwoExpressionNode());
-		CALLBACK(AddCaseNode(condPos));
+		if(condPos[-1].type == lex_default)
+			CALLBACK(AddDefaultNode());
+		else
+			CALLBACK(AddCaseNode(condPos->pos));
 	}
 
 	if(!ParseLexem(str, lex_cfigure))

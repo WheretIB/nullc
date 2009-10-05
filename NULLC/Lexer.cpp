@@ -288,6 +288,8 @@ void	Lexer::Lexify(const char* code)
 					case 7:
 						if(memcmp(code, "noalign", 7) == 0)
 							lType = lex_noalign;
+						else if(memcmp(code, "default", 7) == 0)
+							lType = lex_default;
 						break;
 					case 8:
 						if(memcmp(code, "continue", 8) == 0)

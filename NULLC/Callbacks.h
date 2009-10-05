@@ -121,6 +121,7 @@ void AddDoWhileNode(const char* pos);
 
 void BeginSwitch(const char* pos);
 void AddCaseNode(const char* pos);
+void AddDefaultNode();
 void EndSwitch();
 
 void TypeBegin(const char* pos, const char* end);

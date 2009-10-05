@@ -465,12 +465,14 @@ public:
 	virtual ~NodeSwitchExpr();
 
 			void AddCase();
+			void AddDefault();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 protected:
 	NodeZeroOP	*conditionHead, *conditionTail;
 	NodeZeroOP	*blockHead, *blockTail;
+	NodeZeroOP	*defaultCase;
 
 	unsigned int	caseCount;
 };
