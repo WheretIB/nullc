@@ -978,18 +978,18 @@ typedef unsigned int (*SimpleFunctionPtr)(
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
 	// cast function pointer so we can call it
-	SimpleFunctionPtr code = (SimpleFunctionPtr)exFunctions[funcID]->funcPtr;
+	SimpleFunctionPtr code = (SimpleFunctionPtr)exFunctions[funcID].funcPtr;
 
 	// call function
-	#define R(i) *(const unsigned int*)(const void*)(genStackPtr + exFuncInfo[funcID].rOffsets[i])
-	#define F(i) *(const double*)(const void*)(genStackPtr + exFuncInfo[funcID].fOffsets[i])
+	#define R(i) *(const unsigned int*)(const void*)(genStackPtr + exFunctions[funcID].rOffsets[i])
+	#define F(i) *(const double*)(const void*)(genStackPtr + exFunctions[funcID].fOffsets[i])
 
 	unsigned int result = code(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 
 	#undef F
 	#undef R
 
-	if (exTypes[exFunctions[funcID]->retType]->size != 0)
+	if (exTypes[exFunctions[funcID].retType].size != 0)
 	{
 		genStackPtr--;
 		*genStackPtr = result;
