@@ -858,14 +858,14 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	if(second->typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
+		SafeSprintf(errBuf, 128, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 	if(typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+		SafeSprintf(errBuf, 128, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
@@ -885,7 +885,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 			if(!(typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && arrSetAll))
 			{
 				char	errBuf[128];
-				_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
+				SafeSprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 				lastError = CompilerError(errBuf, lastKnownStartPos);
 				return;
 			}
@@ -1001,14 +1001,14 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	if(second->typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
+		SafeSprintf(errBuf, 128, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
 	if(typeInfo == typeVoid)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+		SafeSprintf(errBuf, 128, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
@@ -1026,7 +1026,7 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
 		{
 			char	errBuf[128];
-			_snprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
+			SafeSprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 			lastError = CompilerError(errBuf, lastKnownStartPos);
 			return;
 		}
@@ -1356,7 +1356,7 @@ NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetFullTypeName());
+		SafeSprintf(errBuf, 128, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}
@@ -1528,7 +1528,7 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 	if(first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0 || first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+		SafeSprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return;
 	}

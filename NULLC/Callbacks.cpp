@@ -98,8 +98,7 @@ long long parseLong(const char* s, const char* e, int base)
 		int digit = ((*p >= '0' && *p <= '9') ? *p - '0' : (*p & ~0x20) - 'A' + 10);
 		if(digit < 0 || digit > base)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: Digit %d is not allowed in base %d", digit, base);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Digit %d is not allowed in base %d", digit, base);
 			ThrowError(callbackError, p);
 		}
 		res = res * base + digit;
@@ -196,8 +195,7 @@ void CheckForImmutable(TypeInfo* type, const char* pos)
 {
 	if(type->refLevel == 0)
 	{
-		_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: cannot change immutable value of type %s", type->GetFullTypeName());
-		callbackError[ERR_BUF_SIZE-1] = '\0';
+		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: cannot change immutable value of type %s", type->GetFullTypeName());
 		ThrowError(callbackError, pos);
 	}
 }
@@ -351,8 +349,7 @@ void AddNegateNode(const char* pos)
 		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
 			Rd = new NodeNumber(-static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
-			_snprintf(callbackError, ERR_BUF_SIZE, "addNegNode() ERROR: unknown type %s", aType->name);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "addNegNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
 		}
 		nodeList.pop_back();
@@ -378,8 +375,7 @@ void AddLogNotNode(const char* pos)
 		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
-			_snprintf(callbackError, ERR_BUF_SIZE, "addLogNotNode() ERROR: unknown type %s", aType->name);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "addLogNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
 		}
 		nodeList.pop_back();
@@ -405,8 +401,7 @@ void AddBitNotNode(const char* pos)
 		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
 			Rd = new NodeNumber(~static_cast<NodeNumber*>(nodeList.back())->GetInteger(), aType);
 		}else{
-			_snprintf(callbackError, ERR_BUF_SIZE, "addBitNotNode() ERROR: unknown type %s", aType->name);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "addBitNotNode() ERROR: unknown type %s", aType->name);
 			ThrowError(callbackError, pos);
 		}
 		nodeList.pop_back();
@@ -641,16 +636,14 @@ void AddReturnNode(const char* pos)
 		expectedType = currDefinedFunc.back()->retType;
 		if((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
 			ThrowError(callbackError, pos);
 		}
 		if(expectedType->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
 			ThrowError("ERROR: function returning a value", pos);
 		if(expectedType != typeVoid && realRetType == typeVoid)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: function should return %s", expectedType->GetFullTypeName());
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function should return %s", expectedType->GetFullTypeName());
 			ThrowError(callbackError, pos);
 		}
 	}else{
@@ -726,16 +719,14 @@ void AddVariable(const char* pos, InplaceStr varName)
 	{
 		if(varInfo[i]->nameHash == hash)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 	}
 	// Check for functions with the same name
 	if(FindFunctionByName(hash, funcInfo.size() - 1) != -1)
 	{
-		_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
-		callbackError[ERR_BUF_SIZE-1] = '\0';
+		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
 		ThrowError(callbackError, pos);
 	}
 
@@ -816,15 +807,13 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		int fID = FindFunctionByName(hash, funcInfo.size()-1);
 		if(fID == -1)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 
 		if(FindFunctionByName(hash, fID - 1) != -1)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 
@@ -848,8 +837,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 	}else{
 		if(!varInfo[i]->varType)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL)
@@ -994,8 +982,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	int i = FindVariableByName(hash);
 	if(i == -1)
 	{
-		_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
-		callbackError[ERR_BUF_SIZE-1] = '\0';
+		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 		ThrowError(callbackError, pos);
 	}
 
@@ -1141,15 +1128,13 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		fID = FindFunctionByName(hash, funcInfo.size()-1);
 		if(fID == -1)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 
 		if(FindFunctionByName(hash, fID - 1) != -1)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 			ThrowError(callbackError, pos);
 		}
 	}
@@ -1171,9 +1156,8 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	TypeInfo *parentType = nodeList[nodeList.size()-callArgCount-1]->typeInfo->subType;
 	if(!parentType->name)
 	{
-		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
-		ThrowError(errBuf, pos);
+		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
+		ThrowError(callbackError, pos);
 	}
 	char	*memberFuncName = AllocateString((int)strlen(parentType->name) + 2 + (int)strlen(funcName) + 1);
 	sprintf(memberFuncName, "%s::%s", parentType->name, funcName);
@@ -1242,8 +1226,7 @@ bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 					unifyTwo = true;
 				}else{
 					// Or if not, then types aren't compatible, so throw error
-					_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
-					callbackError[ERR_BUF_SIZE-1] = '\0';
+					SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
 					ThrowError(callbackError, pos);
 				}
 			}
@@ -1258,8 +1241,7 @@ bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 		}else if(nodeType->refLevel == 1 && dstType->subType == nodeType->subType->subType){
 			if(nodeType->subType->arrSize == TypeInfo::UNSIZED_ARRAY)
 			{
-				_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
-				callbackError[ERR_BUF_SIZE-1] = '\0';
+				SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Cannot convert from %s to %s", nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
 				ThrowError(callbackError, pos);
 			}
 			// Set the size of an array
@@ -1336,8 +1318,7 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	{
 		if(realType != currentType && !((realType == typeShort || realType == typeChar) && currentType == typeInt) && !(realType == typeFloat && currentType == typeDouble))
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
 			ThrowError(callbackError, pos);
 		}
 		arrayList->AddNode(false);
@@ -1365,8 +1346,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 	{
 		if(varInfo[i]->nameHash == funcNameHash)
 		{
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%s' is already taken for a variable in current scope", funcName);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%s' is already taken for a variable in current scope", funcName);
 			ThrowError(callbackError, pos);
 		}
 	}
@@ -1479,8 +1459,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 			}
 			if(paramsEqual)
 			{
-				_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is being defined with the same set of parameters", funcInfo[i]->name);
-				callbackError[ERR_BUF_SIZE-1] = '\0';
+				SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is being defined with the same set of parameters", funcInfo[i]->name);
 				ThrowError(callbackError, pos);
 			}
 		}
@@ -1622,8 +1601,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			if(silent)
 				return false;
-			_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is undefined", funcName);
-			callbackError[ERR_BUF_SIZE-1] = '\0';
+			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is undefined", funcName);
 			ThrowError(callbackError, pos);
 		}
 		// Find the best suited function
@@ -1647,18 +1625,17 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				return false;
 			char	errTemp[512];
 			char	*errPos = errTemp;
-			errPos += _snprintf(errPos, 512, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
+			errPos += SafeSprintf(errPos, 512, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
 			for(unsigned int n = 0; n < callArgCount; n++)
-				errPos += _snprintf(errPos, 512 - int(errPos - errTemp), "%s%s", nodeList[nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
-			errPos += _snprintf(errPos, 512 - int(errPos - errTemp), ")\r\n the only available are:\r\n");
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", nodeList[nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n the only available are:\r\n");
 			for(unsigned int n = 0; n < count; n++)
 			{
-				errPos += _snprintf(errPos, 512 - int(errPos - errTemp), "  %s(", funcName);
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "  %s(", funcName);
 				for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
-					errPos += _snprintf(errPos, 512 - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
-				errPos += _snprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
+					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
 			}
-			errTemp[511] = '\0';
 			lastError = CompilerError(errTemp, pos);
 			ThrowLastError();
 		}
@@ -1669,20 +1646,19 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			{
 				char errTemp[512];
 				char	*errPos = errTemp;
-				errPos += _snprintf(errPos, 512, "ERROR: Ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
+				errPos += SafeSprintf(errPos, 512, "ERROR: Ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
 				for(unsigned int n = 0; n < callArgCount; n++)
-					errPos += _snprintf(errPos, 512 - int(errPos - errTemp), "%s%s", nodeList[nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
-				errPos += _snprintf(errPos, 512 - int(errPos - errTemp), ")\r\n  candidates are:\r\n");
+					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", nodeList[nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n  candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
 					if(bestFuncRating[n] != minRating)
 						continue;
-					errPos += _snprintf(errPos, 512 - int(errPos - errTemp), "  %s(", funcName);
+					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "  %s(", funcName);
 					for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
-						errPos += _snprintf(errPos, 512 - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
-					errPos += _snprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
+						errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
+					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
 				}
-				errTemp[511] = '\0';
 				lastError = CompilerError(errTemp, pos);
 				ThrowLastError();
 			}
@@ -1774,8 +1750,7 @@ void AddIfElseTermNode(const char* pos)
 	TypeInfo* typeB = nodeList[nodeList.size()-2]->typeInfo;
 	if(typeA != typeB && (typeA->type == TypeInfo::TYPE_COMPLEX || typeB->type == TypeInfo::TYPE_COMPLEX))
 	{
-		_snprintf(callbackError, ERR_BUF_SIZE, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
-		callbackError[ERR_BUF_SIZE-1] = '\0';
+		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
 		ThrowError(callbackError, pos);
 	}
 	nodeList.push_back(new NodeIfElseExpr(true, true));

@@ -35,7 +35,7 @@ TypeInfo* CodeInfo::GetDereferenceType(TypeInfo* type)
 	if(!type->subType || type->refLevel == 0)
 	{
 		char	errBuf[128];
-		_snprintf(errBuf, 128, "ERROR: Cannot dereference type '%s' - there is no result type available", type->GetFullTypeName());
+		SafeSprintf(errBuf, 128, "ERROR: Cannot dereference type '%s' - there is no result type available", type->GetFullTypeName());
 		lastError = CompilerError(errBuf, lastKnownStartPos);
 		return NULL;
 	}
@@ -62,7 +62,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 				unFixed = true;
 			}else{
 				char	errBuf[128];
-				_snprintf(errBuf, 128, "ERROR: Unknown type of constant number node '%s'", aType->name);
+				SafeSprintf(errBuf, 128, "ERROR: Unknown type of constant number node '%s'", aType->name);
 				lastError = CompilerError(errBuf, lastKnownStartPos);
 				return NULL;
 			}

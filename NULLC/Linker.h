@@ -4,6 +4,8 @@
 
 #include "Bytecode.h"
 
+const int LINK_ERROR_BUFFER_SIZE = 512;
+
 class Linker
 {
 public:
@@ -16,7 +18,7 @@ public:
 	const char*	GetLinkError();
 
 public:
-	char		linkError[512];
+	char		linkError[LINK_ERROR_BUFFER_SIZE];
 
 	FastVector<ExternTypeInfo>	exTypes;
 	FastVector<ExternVarInfo>	exVariables;
