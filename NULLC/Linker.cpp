@@ -49,7 +49,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 		if(index != index_none && exTypes[index].size != tInfo->size)
 		{
-			sprintf(linkError, "Link Error: type #%d is redefined with a different size", i);
+			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type #%d is redefined with a different size", i);
 			return false;
 		}
 		if(index == index_none)
@@ -112,9 +112,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		{
 			if(redefinitions)
 			{
-				sprintf(linkError, "Warning: function '%s' is redefined", (char*)(bCode) + bCode->offsetToSymbols + exFunctions[index].offsetToName);
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Warning: function '%s' is redefined", (char*)(bCode) + bCode->offsetToSymbols + exFunctions[index].offsetToName);
 			}else{
-				sprintf(linkError, "Link Error: function '%s' is redefined", (char*)(bCode) + bCode->offsetToSymbols + exFunctions[index].offsetToName);
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", (char*)(bCode) + bCode->offsetToSymbols + exFunctions[index].offsetToName);
 				return false;
 			}
 		}
@@ -131,13 +131,13 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 #if defined(__CELLOS_LV2__)
 			if(!exFunctions.back().ps3Callable)
 			{
-				sprintf(linkError, "Link Error: External function '%s' is not callable on PS3", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' is not callable on PS3", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
 				return false;
 			}
 #endif
 			if(exFunctions.back().address == 0)
 			{
-				sprintf(linkError, "Link Error: External function '%s' doesn't have implementation", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' doesn't have implementation", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
 				return false;
 			}
 			// Move based pointer to the new section of symbol information

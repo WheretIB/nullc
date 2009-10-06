@@ -8,7 +8,6 @@
 
 #ifndef _MSC_VER
 #define __forceinline inline // TODO: NULLC_FORCEINLINE?
-#define _snprintf snprintf
 #endif
 
 #include "nullcdef.h"
@@ -17,6 +16,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
+
 #include <string.h>
 #include <setjmp.h>
 
@@ -36,7 +37,9 @@ unsigned int GetStringHash(const char *str, const char *end);
 unsigned int StringHashContinue(unsigned int hash, const char *str);
 unsigned int StringHashContinue(unsigned int hash, const char *str, const char *end);
 
-char* PrintInteger(char* str, int number);
+char*	PrintInteger(char* str, int number);
+
+int		SafeSprintf(char* dst, size_t size, const char* src, ...);
 
 template<typename T, bool zeroNewMemory = false, bool skipConstructor = false>
 class FastVector

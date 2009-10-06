@@ -55,3 +55,13 @@ char* PrintInteger(char* str, int number)
 	}while(curr != buf);
 	return str;
 }
+
+int	SafeSprintf(char* dst, size_t size, const char* src, ...)
+{
+	va_list args;
+	va_start(args, src);
+
+	int result = vsnprintf(dst, size, src, args);
+	dst[size-1] = '\0';
+	return result;
+}

@@ -84,8 +84,7 @@ void Executor::Run(const char* funcName)
 		}
 		if(funcPos == ~0ul)
 		{
-			_snprintf(execError, ERROR_BUFFER_SIZE, "ERROR: starting function %s not found", funcName);
-			execError[ERROR_BUFFER_SIZE-1] = '\0';
+			SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: starting function %s not found", funcName);
 			return;
 		}
 	}
@@ -898,7 +897,7 @@ void Executor::Run(const char* funcName)
 	{
 		char *currPos = execError + strlen(execError);
 
-		currPos += _snprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
+		currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 		int address = int(cmdStream - cmdStreamBase);
 		do
 		{
@@ -907,16 +906,16 @@ void Executor::Run(const char* funcName)
 				if(address >= exFunctions[i].address && address <= (exFunctions[i].address + exFunctions[i].codeSize))
 					funcID = i;
 			if(funcID != -1)
-				currPos += _snprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "%s", &exLinker->exSymbols[exFunctions[funcID].offsetToName]);
+				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "%s", &exLinker->exSymbols[exFunctions[funcID].offsetToName]);
 			else
-				currPos += _snprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "%s", address == -1 ? "external" : "global scope");
+				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "%s", address == -1 ? "external" : "global scope");
 			if(address != -1)
 			{
 				unsigned int line = 0;
 				unsigned int i = address - 1;
 				while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
 						line++;
-				currPos += _snprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " (at %.*s)\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " (at %.*s)\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
 			}
 
 			if(!fcallStack.size())
