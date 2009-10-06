@@ -8,6 +8,7 @@
 
 #ifndef _MSC_VER
 #define __forceinline inline // TODO: NULLC_FORCEINLINE?
+#define _snprintf snprintf
 #endif
 
 #include "nullcdef.h"
