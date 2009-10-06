@@ -84,7 +84,8 @@ void Executor::Run(const char* funcName)
 		}
 		if(funcPos == ~0ul)
 		{
-			sprintf(execError, "ERROR: starting function %s not found", funcName);
+			_snprintf(execError, ERROR_BUFFER_SIZE, "ERROR: starting function %s not found", funcName);
+			execError[ERROR_BUFFER_SIZE-1] = '\0';
 			return;
 		}
 	}
@@ -895,31 +896,33 @@ void Executor::Run(const char* funcName)
 	// Print call stack on error
 	if(cmdStreamEnd == NULL)
 	{
-		unsigned int line = 0;
-		unsigned int i = (unsigned int)(cmdStream - cmdStreamBase) - 1;
-		while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
-				line++;
-
 		char *currPos = execError + strlen(execError);
 
-		currPos += sprintf(currPos, " (at %.*s)\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
-
-		currPos += sprintf(currPos, "Call stack:\r\n");
+		currPos += _snprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 		int address = int(cmdStream - cmdStreamBase);
 		do
 		{
-			currPos += sprintf(currPos, "%d\r\n", address);
+			int funcID = -1;
+			for(unsigned int i = 0; i < exFunctions.size(); i++)
+				if(address >= exFunctions[i].address && address <= (exFunctions[i].address + exFunctions[i].codeSize))
+					funcID = i;
+			if(funcID != -1)
+				currPos += _snprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "%s", &exLinker->exSymbols[exFunctions[funcID].offsetToName]);
+			else
+				currPos += _snprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "%s", address == -1 ? "external" : "global scope");
+			if(address != -1)
+			{
+				unsigned int line = 0;
+				unsigned int i = address - 1;
+				while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
+						line++;
+				currPos += _snprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " (at %.*s)\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+			}
+
 			if(!fcallStack.size())
 				break;
 			address = int(fcallStack.back() - cmdStreamBase);
 			fcallStack.pop_back();
-			/*if(address != -1)
-			{
-				for(unsigned int i = 0; i < 
-			}else{
-				if((currPos - execError) + strlen("unknown (-1)") < ERROR_BUFFER_SIZE)
-					currPos = strcpy(execError, "unknown (-1)");
-			}*/
 		}while(true);
 	}
 }

@@ -759,20 +759,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					const char *val = nullcGetResult();
 					execTime += myGetPreciseTime()-time;
 
-					sprintf_s(result, 512, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
+					_snprintf(result, 512, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
+					result[511] = '\0';
 					SetWindowText(hResult, result);
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
 				}else{
-					sprintf_s(result, 512, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
+					_snprintf(result, 512, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
+					result[511] = '\0';
 					SetWindowText(hCode, result);
 				}
 			}
 			//SetWindowText(hLog, nullcGetCompilationLog());
 		//}
 			//linkTime += myGetPreciseTime()-time;
-		//	sprintf_s(result, 128, "compile: %f bytecode: %f link: %f", compTime, bytecodeTime, linkTime);
+		//	_snprintf(result, 128, "compile: %f bytecode: %f link: %f", compTime, bytecodeTime, linkTime);
+		//	result[511] = '\0';
 		//	SetWindowText(hResult, result);
 		}
 		if((HWND)lParam == hButtonCalcX86)
@@ -788,7 +791,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			nullcSetExecutor(NULLC_X86);
 
-			char	result[128];
+			char	result[512];
 //double time = myGetPreciseTime();
 			nullres good = nullcCompile(buf);
 			nullcSaveListing("asm.txt");
@@ -811,13 +814,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					const char *val = nullcGetResult();
 					double execTime = myGetPreciseTime()-time;
 
-					sprintf_s(result, 128, "The answer is: %s [in %f]", val, execTime);
+					_snprintf(result, 512, "The answer is: %s [in %f]", val, execTime);
+					result[511] = '\0';
 					SetWindowText(hResult, result);
 
 					variableData = (char*)nullcGetVariableData();
 					FillVariableInfoTree();
 				}else{
-					sprintf_s(result, 128, "%s", nullcGetRuntimeError());
+					_snprintf(result, 512, "%s", nullcGetRuntimeError());
+					result[511] = '\0';
 					SetWindowText(hCode, result);
 				}
 			}

@@ -541,12 +541,20 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int offsetToFirstParameter = size;
 
 	unsigned int parameterCount = 0;
+	unsigned int symbolStorageSize = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	{
 		parameterCount += (unsigned int)CodeInfo::funcInfo[i]->paramCount;
+		symbolStorageSize += CodeInfo::funcInfo[i]->nameLength + 1;
+
+	}
 	size += parameterCount * sizeof(unsigned int);
 
 	unsigned int offsetToCode = size;
 	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
+
+	unsigned int offsetToSymbols = size;
+	size += symbolStorageSize;
 
 	*bytecode = new char[size];
 
@@ -568,6 +576,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->codeSize = CodeInfo::cmdList.size();
 	code->offsetToCode = offsetToCode;
+
+	code->symbolLength = symbolStorageSize;
+	code->offsetToSymbols = offsetToSymbols;
+	code->debugSymbols = (*bytecode) + offsetToSymbols;
 
 	ExternTypeInfo *tInfo = FindFirstType(code);
 	code->firstType = tInfo;
@@ -601,6 +613,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		vInfo++;
 	}
 
+	char*	symbolPos = code->debugSymbols;
 	unsigned int parameterOffset = 0;
 	unsigned int offsetToGlobal = 0;
 	ExternFuncInfo *fInfo = FindFirstFunc(code);
@@ -637,6 +650,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		for(VariableInfo *curr = refFunc->firstParam; curr; curr = curr->next, parameterOffset++)
 			code->firstParameter[parameterOffset] = curr->varType->typeIndex;
+
+		funcInfo.offsetToName = int(symbolPos - code->debugSymbols);
+		memcpy(symbolPos, refFunc->name, refFunc->nameLength + 1);
+		symbolPos += refFunc->nameLength + 1;
 
 		// Fill up next
 		fInfo++;

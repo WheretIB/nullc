@@ -22,6 +22,7 @@ public:
 	FastVector<ExternVarInfo>	exVariables;
 	FastVector<ExternFuncInfo>	exFunctions;
 	FastVector<VMCmd>			exCode;
+	FastVector<char>			exSymbols;
 	unsigned int				globalVarSize;
 	unsigned int				offsetToGlobalCode;
 };
