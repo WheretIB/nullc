@@ -26,6 +26,8 @@ struct ExternFuncInfo
 {
 	unsigned int	structSize;
 
+	unsigned int	offsetToName;
+
 	int				oldAddress;
 	int				address;
 	int				codeSize;
@@ -43,14 +45,14 @@ struct ExternFuncInfo
 	unsigned int	retType;	// one of the ReturnType enumeration values
 	unsigned int	funcType;	// index to the type array
 
-	unsigned int startInByteCode;
+	unsigned int	startInByteCode;
 
 // For x86 function call
-	unsigned int bytesToPop;
+	unsigned int	bytesToPop;
 // For PS3 function call
-	unsigned int rOffsets[8];
-	unsigned int fOffsets[8];
-	unsigned int ps3Callable;
+	unsigned int	rOffsets[8];
+	unsigned int	fOffsets[8];
+	unsigned int	ps3Callable;
 
 	unsigned int	nameHash;
 };
@@ -80,6 +82,10 @@ struct ByteCode
 	unsigned int	globalCodeStart;
 	char			*code;	// needs fix up after load
 
+	unsigned int	symbolLength;
+	unsigned int	offsetToSymbols;
+	char			*debugSymbols;
+
 //	ExternTypeInfo	types[typeCount];	// data about variables
 
 //	ExternVarInfo	variables[variableCount];	// data about variables
@@ -89,6 +95,8 @@ struct ByteCode
 //	unsigned int	parameters[paramCount];	// function parameter types
 
 //	char			code[codeSize];
+
+//	char			debugSymbols[symbolLength];
 };
 
 ExternTypeInfo*	FindFirstType(ByteCode *code);

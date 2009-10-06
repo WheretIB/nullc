@@ -1,6 +1,6 @@
 #include "Linker.h"
 
-Linker::Linker(): exTypes(50), exVariables(50), exFunctions(50)
+Linker::Linker(): exTypes(50), exVariables(50), exFunctions(50), exSymbols(4096)
 {
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -17,6 +17,7 @@ void Linker::CleanCode()
 	exVariables.clear();
 	exFunctions.clear();
 	exCode.clear();
+	exSymbols.clear();
 
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -79,6 +80,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	funcRemap.clear();
 	unsigned int oldFunctionCount = exFunctions.size();
 
+	// Add new symbols
+	unsigned int oldSymbolSize = exSymbols.size();
+	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
+	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
+
 	// Add new code
 	unsigned int oldCodeSize = exCode.size();
 	exCode.resize(oldCodeSize + bCode->codeSize);
@@ -106,9 +112,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		{
 			if(redefinitions)
 			{
-				sprintf(linkError, "Warning: function #%d is redefined", i);
+				sprintf(linkError, "Warning: function '%s' is redefined", (char*)(bCode) + bCode->offsetToSymbols + exFunctions[index].offsetToName);
 			}else{
-				sprintf(linkError, "Link Error: function #%d is redefined", i);
+				sprintf(linkError, "Link Error: function '%s' is redefined", (char*)(bCode) + bCode->offsetToSymbols + exFunctions[index].offsetToName);
 				return false;
 			}
 		}
@@ -125,15 +131,18 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 #if defined(__CELLOS_LV2__)
 			if(!exFunctions.back().ps3Callable)
 			{
-				sprintf(linkError, "Link Error: External function #%d is not callable on PS3", i);
+				sprintf(linkError, "Link Error: External function '%s' is not callable on PS3", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
 				return false;
 			}
 #endif
 			if(exFunctions.back().address == 0)
 			{
-				sprintf(linkError, "Link Error: External function #%d doesn't have implementation", i);
+				sprintf(linkError, "Link Error: External function '%s' doesn't have implementation", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
 				return false;
 			}
+			// Move based pointer to the new section of symbol information
+			exFunctions.back().offsetToName += oldSymbolSize;
+
 			// Update internal function address
 			if(exFunctions.back().address != -1)
 				exFunctions.back().address = oldCodeSize + fInfo->address;
