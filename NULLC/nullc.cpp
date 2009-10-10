@@ -161,11 +161,6 @@ const char*	nullcGetLinkLog()
 	return executeLog;
 }
 
-nullres	emptyCallback(unsigned int)
-{
-	return true;
-}
-
 nullres	nullcRun()
 {
 	return nullcRunFunction(NULL);
@@ -176,7 +171,6 @@ nullres	nullcRunFunction(const char* funcName)
 	nullres good = true;
 	if(currExec == NULLC_VM)
 	{
-		executor->SetCallback((bool (*)(unsigned int))(emptyCallback));
 		executor->Run(funcName);
 		const char* error = executor->GetExecError();
 		if(error[0] == 0)
