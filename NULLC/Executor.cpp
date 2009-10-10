@@ -987,6 +987,8 @@ MAKE_FUNC_PTR_TYPE(long long, LongFunctionPtr)
 
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
+	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
+
 	// call function
 	#define R(i) *(const unsigned int*)(const void*)(genStackPtr + exFunctions[funcID].rOffsets[i])
 	#define F(i) *(const double*)(const void*)(genStackPtr + exFunctions[funcID].fOffsets[i])
@@ -1000,18 +1002,19 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	case ExternFuncInfo::RETURN_INT:
 		genStackPtr--;
 		// cast function pointer so we can call it and call it
-		*genStackPtr = ((IntFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+		*(genStackPtr+dwordsToPop) = ((IntFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 		break;
 	case ExternFuncInfo::RETURN_DOUBLE:
 		genStackPtr -= 2;
 		// cast function pointer so we can call it and call it
-		*(double*)genStackPtr = ((DoubleFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+		*(double*)(genStackPtr+dwordsToPop) = ((DoubleFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 		break;
 	case ExternFuncInfo::RETURN_LONG:
 		genStackPtr -= 2;
 		// cast function pointer so we can call it and call it
-		*(long long*)genStackPtr = ((LongFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+		*(long long*)(genStackPtr+dwordsToPop) = ((LongFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 	}
+	genStackPtr += dwordsToPop;
 
 	#undef F
 	#undef R
