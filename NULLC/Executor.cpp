@@ -976,42 +976,45 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 
 #elif defined(__CELLOS_LV2__)
 // PS3 implementation
-typedef unsigned int (*SimpleFunctionPtr)(
-	unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned,
-	double, double, double, double, double, double, double, double
+#define MAKE_FUNC_PTR_TYPE(retType, typeName) typedef retType (*typeName)(			\
+	unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned,	\
+	double, double, double, double, double, double, double, double					\
 	);
+MAKE_FUNC_PTR_TYPE(void, VoidFunctionPtr)
+MAKE_FUNC_PTR_TYPE(int, IntFunctionPtr)
+MAKE_FUNC_PTR_TYPE(double, DoubleFunctionPtr)
+MAKE_FUNC_PTR_TYPE(long long, LongFunctionPtr)
 
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
-	// cast function pointer so we can call it
-	SimpleFunctionPtr code = (SimpleFunctionPtr)exFunctions[funcID].funcPtr;
-
 	// call function
 	#define R(i) *(const unsigned int*)(const void*)(genStackPtr + exFunctions[funcID].rOffsets[i])
 	#define F(i) *(const double*)(const void*)(genStackPtr + exFunctions[funcID].fOffsets[i])
 
-	unsigned int result = code(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
-
-	#undef F
-	#undef R
-
 	switch(exFunctions[funcID].retType)
 	{
 	case ExternFuncInfo::RETURN_VOID:
-		((void (*)())fPtr)();
+		// cast function pointer so we can call it and call it
+		((VoidFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 		break;
 	case ExternFuncInfo::RETURN_INT:
 		genStackPtr--;
-		*genStackPtr = ((int (*)())fPtr)();
+		// cast function pointer so we can call it and call it
+		*genStackPtr = ((IntFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 		break;
 	case ExternFuncInfo::RETURN_DOUBLE:
 		genStackPtr -= 2;
-		*(double*)genStackPtr = ((double (*)())fPtr)();
+		// cast function pointer so we can call it and call it
+		*(double*)genStackPtr = ((DoubleFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 		break;
 	case ExternFuncInfo::RETURN_LONG:
 		genStackPtr -= 2;
-		*(long long*)genStackPtr = ((long long (*)())fPtr)();
+		// cast function pointer so we can call it and call it
+		*(long long*)genStackPtr = ((LongFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 	}
+
+	#undef F
+	#undef R
 
 	return true;
 }
