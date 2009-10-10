@@ -38,8 +38,6 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 {
 	DBG(executeLog = fopen("log.txt", "wb"));
 
-	m_RunCallback = NULL;
-
 	genStackBase = NULL;
 	genStackPtr = NULL;
 	genStackTop = NULL;
@@ -48,7 +46,6 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 Executor::~Executor()
 {
 	DBG(fclose(executeLog));
-	m_RunCallback = NULL;
 
 	delete[] genStackBase;
 }
@@ -462,7 +459,10 @@ void Executor::Run(const char* funcName)
 
 		case cmdCallStd:
 			if(!RunExternalFunction(cmd.argument))
+			{
 				cmdStreamEnd = NULL;
+				strcpy(execError, "ERROR: External function call failed");
+			}
 			break;
 
 		case cmdReturn:
@@ -915,7 +915,8 @@ void Executor::Run(const char* funcName)
 				unsigned int i = address - 1;
 				while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
 						line++;
-				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " (at %.*s)\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " (at %.*s)\r\n",
+					CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
 			}
 
 			if(!fcallStack.size())
@@ -931,32 +932,37 @@ void Executor::Run(const char* funcName)
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
 	unsigned int bytesToPop = exFunctions[funcID].bytesToPop;
+	void* fPtr = exFunctions[funcID].funcPtr;
+	unsigned int retType = exFunctions[funcID].retType;
 
-	unsigned int *stackStart = (genStackPtr+bytesToPop/4-1);
-	for(unsigned int i = 0; i < bytesToPop/4; i++)
+	unsigned int *stackStart = (genStackPtr + (bytesToPop >> 2) - 1);
+	for(unsigned int i = 0; i < (bytesToPop >> 2); i++)
 	{
 #ifdef __GNUC__
 		asm("movl %0, %%eax"::"r"(stackStart):"%eax");
 		asm("pushl (%eax)");
 #else
-		__asm mov eax, dword ptr[stackStart]
-		__asm push dword ptr[eax];
+		__asm{ mov eax, dword ptr[stackStart] }
+		__asm{ push dword ptr[eax] }
 #endif
 		stackStart--;
 	}
-	genStackPtr += bytesToPop/4;
+	genStackPtr += (bytesToPop >> 2);
 
-	void* fPtr = exFunctions[funcID].funcPtr;
-	if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_VOID)
+	switch(retType)
 	{
+	case ExternFuncInfo::RETURN_VOID:
 		((void (*)())fPtr)();
-	}else if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_INT){
+		break;
+	case ExternFuncInfo::RETURN_INT:
 		genStackPtr--;
 		*genStackPtr = ((int (*)())fPtr)();
-	}else if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_DOUBLE){
+		break;
+	case ExternFuncInfo::RETURN_DOUBLE:
 		genStackPtr -= 2;
 		*(double*)genStackPtr = ((double (*)())fPtr)();
-	}else if(exFunctions[funcID].retType == ExternFuncInfo::RETURN_LONG){
+		break;
+	case ExternFuncInfo::RETURN_LONG:
 		genStackPtr -= 2;
 		*(long long*)genStackPtr = ((long long (*)())fPtr)();
 	}
@@ -967,6 +973,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 #endif
 	return true;
 }
+
 #elif defined(__CELLOS_LV2__)
 // PS3 implementation
 typedef unsigned int (*SimpleFunctionPtr)(
@@ -988,10 +995,22 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	#undef F
 	#undef R
 
-	if (exTypes[exFunctions[funcID].retType].size != 0)
+	switch(exFunctions[funcID].retType)
 	{
+	case ExternFuncInfo::RETURN_VOID:
+		((void (*)())fPtr)();
+		break;
+	case ExternFuncInfo::RETURN_INT:
 		genStackPtr--;
-		*genStackPtr = result;
+		*genStackPtr = ((int (*)())fPtr)();
+		break;
+	case ExternFuncInfo::RETURN_DOUBLE:
+		genStackPtr -= 2;
+		*(double*)genStackPtr = ((double (*)())fPtr)();
+		break;
+	case ExternFuncInfo::RETURN_LONG:
+		genStackPtr -= 2;
+		*(long long*)genStackPtr = ((long long (*)())fPtr)();
 	}
 
 	return true;
@@ -1042,11 +1061,6 @@ const char*	Executor::GetExecError()
 char* Executor::GetVariableData()
 {
 	return &genParams[0];
-}
-
-void Executor::SetCallback(bool (*Func)(unsigned int))
-{
-	m_RunCallback = Func;
 }
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
