@@ -236,12 +236,12 @@ void draw_rect(int x, int y, int width, int height, int color)
 	//fwrite(buf, strlen(buf), 1, zeuxOut);
 }
 
-char typeTest(int x, short y, char z, int d, long long u, float m, double k)
+char typeTest(int x, short y, char z, int d, long long u, float m, int s, double k, int t)
 {
 	InitConsole();
 	DWORD written;
 	char buf[64];
-	sprintf(buf, "%d %d %d %d %I64d %f %f", x, y, z, d, u, m, k);
+	sprintf(buf, "%d %d %d %d %I64d %f %d %f %d", x, y, z, d, u, m, s, k, t);
 	WriteFile(conStdOut, buf, (DWORD)strlen(buf), &written, NULL); 
 	return 12;
 }
@@ -304,7 +304,7 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 
 	//typeTest(12, 14, 'c', 15, 5l, 5.0);
 
-	REGISTER(typeTest, "char typeTest(int x, short y, char z, int d, long u, float m, double k);");
+	REGISTER(typeTest, "char typeTest(int x, short y, char z, int d, long u, float m, int s, double k, int t);");
 
 	REGISTER(PrintFloat4, "void TestEx(float4 test);");
 	REGISTER(PrintLong, "void TestEx2(long test);");

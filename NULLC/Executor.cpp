@@ -272,32 +272,8 @@ void Executor::Run(const char* funcName)
 
 		case cmdReserveV:
 			genParams.reserve(genParams.size() + cmd.argument);
-			break;
-
-		case cmdPopCharTop:
-			genParams[cmd.argument + genParams.size()] = *(char*)(genStackPtr);
-			genStackPtr++;
-			break;
-		case cmdPopShortTop:
-			*((short*)(&genParams[cmd.argument + genParams.size()])) = *(short*)(genStackPtr);
-			genStackPtr++;
-			break;
-		case cmdPopIntTop:
-			*((unsigned int*)(&genParams[cmd.argument + genParams.size()])) = *genStackPtr;
-			genStackPtr++;
-			break;
-		case cmdPopFloatTop:
-			*((float*)(&genParams[cmd.argument + genParams.size()])) = float(*(double*)(genStackPtr));
-			genStackPtr += 2;
-			break;
-		case cmdPopDorLTop:
-			*((unsigned int*)(&genParams[cmd.argument + genParams.size()])) = *genStackPtr;
-			*((unsigned int*)(&genParams[cmd.argument + genParams.size() + 4])) = *(genStackPtr+1);
-			genStackPtr += 2;
-			break;
-		case cmdPopCmplxTop:
-			memcpy((char*)&genParams[cmd.argument + genParams.size()], genStackPtr, cmd.helper);
-			genStackPtr += cmd.helper >> 2;
+			memcpy((char*)&genParams[genParams.size()], genStackPtr, cmd.argument);
+			genStackPtr += cmd.argument >> 2;
 			break;
 
 		case cmdPop:
@@ -445,6 +421,11 @@ void Executor::Run(const char* funcName)
 			{
 				fAddress = *genStackPtr;
 				genStackPtr++;
+				// External function call by pointer
+				if(!genStackPtr)
+				{
+					// ...
+				}
 			}
 			if(fAddress == 0)
 			{

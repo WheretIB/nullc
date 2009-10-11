@@ -147,13 +147,6 @@ bool ExecutorX86::Initialize()
 
 	cgFuncs[cmdReserveV] = GenCodeCmdReserveV;
 
-	cgFuncs[cmdPopCharTop] = GenCodeCmdPopCharTop;
-	cgFuncs[cmdPopShortTop] = GenCodeCmdPopShortTop;
-	cgFuncs[cmdPopIntTop] = GenCodeCmdPopIntTop;
-	cgFuncs[cmdPopFloatTop] = GenCodeCmdPopFloatTop;
-	cgFuncs[cmdPopDorLTop] = GenCodeCmdPopDorLTop;
-	cgFuncs[cmdPopCmplxTop] = GenCodeCmdPopCmplxTop;
-
 	cgFuncs[cmdPop] = GenCodeCmdPop;
 
 	cgFuncs[cmdDtoI] = GenCodeCmdDtoI;

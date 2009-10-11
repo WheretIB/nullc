@@ -878,7 +878,7 @@ return 1;";
 const char	*testBuildinFunc = 
 "// Build-In function checks\r\n\
 double Pi = 3.1415926583;\r\n\
-double[20] res;\r\n\
+double[27] res;\r\n\
 res[0] = cos(0); // 1.0\r\n\
 res[1] = cos(Pi/3.0); // 0.5\r\n\
 res[2] = cos(Pi); // -1.0\r\n\
@@ -904,18 +904,32 @@ res[16] = sqrt(1.0); // 1.0\r\n\
 res[17] = sqrt(0.0); // 0.0\r\n\
 res[18] = sqrt(9.0); // 3.0\r\n\
 \r\n\
-return 1;";
+res[19] = cosh(1.0); // \r\n\
+res[20] = sinh(1.0); // \r\n\
+res[21] = tanh(1.0); // \r\n\
+\r\n\
+res[22] = acos(0.5); // Pi/3.0\r\n\
+res[23] = asin(0.5); // Pi/6.0\r\n\
+res[24] = atan(1.0); // Pi/4.0\r\n\
+\r\n\
+res[25] = exp(1.0); // E\r\n\
+res[26] = log(2.7182818284590452353602874713527); // 1.0\r\n\
+\r\n\
+return (\"hello\" == \"hello\") + (\"world\" != \"World\") + (\"world\" != \"worl\");";
 	printf("\r\nBuild-In function checks\r\n");
 	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testBuildinFunc, testTarget[t], "1"))
+		if(RunCode(testBuildinFunc, testTarget[t], "3"))
 		{
 			lastFailed = false;
 
 			double resExp[] = { 1.0, 0.5, -1.0, 0.0, 0.5, 0.0, 2.0, 1.0, -1.0, -2.0,
-								0.0, 1.0, 0,0, 1.0, 0.0, 1.0, 0.0, 3.0 };
-			for(int i = 0; i < 19; i++)
+								0.0, 1.0, 0,0, 1.0, 0.0, 1.0, 0.0, 3.0, 
+								1.5430806348152437784779056207571, 1.1752011936438014568823818505956, 0.76159415595576488811945828260479,
+								1.0471975511965977461542144610932, 0.52359877559829887307710723054658, 0.78539816339744830961566084581988,
+								2.7182818284590452353602874713527, 1.0 };
+			for(int i = 0; i < 27; i++)
 				if(i != 12 && i != 13)
 					CHECK_DOUBLE("res", i, resExp[i]);
 
@@ -3101,7 +3115,7 @@ return m[1][3] + 2;";
 		}
 	}
 
-#define TEST_FOR_FAIL(name, str)	printf(name"\r\n"); if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }
+#define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
 	//TEST_FOR_FAIL("", "");
@@ -3180,6 +3194,106 @@ return m[1][3] + 2;";
 	TEST_FOR_FAIL("class wrong alignment", "align(32) class test{int a;} return 1;");
 	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;");
 	TEST_FOR_FAIL("class is too big", "class nobiggy{ int[128][128][4] a; } return 1;");
+
+	TEST_FOR_FAIL("array size not const", "int[cos(12) * 16] a; return a[0];");
+	TEST_FOR_FAIL("array size not positive", "int[-16] a; return a[0];");
+	TEST_FOR_FAIL("cannot dereference if not a reference", "int a; return *a;");
+
+	//TEST_FOR_FAIL("parsing", "");
+
+	TEST_FOR_FAIL("parsing", "return 0x;");
+	TEST_FOR_FAIL("parsing", "int[12 a;");
+	TEST_FOR_FAIL("parsing", "typeof 12 a;");
+	TEST_FOR_FAIL("parsing", "typeof(12 a;");
+	TEST_FOR_FAIL("parsing", "typeof() a;");
+	TEST_FOR_FAIL("parsing", "class{}");
+	TEST_FOR_FAIL("parsing", "class Test int a;");
+	TEST_FOR_FAIL("parsing", "class Test{ int; }");
+	TEST_FOR_FAIL("parsing", "class Test{ int a, ; }");
+	TEST_FOR_FAIL("parsing", "class Test{ int a, b }");
+	TEST_FOR_FAIL("parsing", "class Test{ int a; return 5;");
+	TEST_FOR_FAIL("parsing", "auto(int a, ){}");
+	TEST_FOR_FAIL("parsing", "void f(int a, b){} return a(1, );");
+	TEST_FOR_FAIL("parsing", "void f(int a, b){} return a(1, 2;");
+	TEST_FOR_FAIL("parsing", "int operator[(int a, b){ return a+b; }");
+	TEST_FOR_FAIL("parsing", "auto(int a, b{}");
+	TEST_FOR_FAIL("parsing", "auto(int a, b) return 0;");
+	TEST_FOR_FAIL("parsing", "auto(int a, b){ return a+b; return 1;");
+	TEST_FOR_FAIL("parsing", "int a[4];");
+	TEST_FOR_FAIL("parsing", "int a=;");
+	TEST_FOR_FAIL("parsing", "int = 3;");
+	TEST_FOR_FAIL("parsing", "int a, ;");
+	TEST_FOR_FAIL("parsing", "align int a=2;");
+	TEST_FOR_FAIL("parsing", "align() int a = 2;");
+	TEST_FOR_FAIL("parsing", "align(2 int a;");
+	TEST_FOR_FAIL("parsing", "if");
+	TEST_FOR_FAIL("parsing", "if(");
+	TEST_FOR_FAIL("parsing", "if(1");
+	TEST_FOR_FAIL("parsing", "if(1)");
+	TEST_FOR_FAIL("parsing", "if(1) 1; else ");
+	TEST_FOR_FAIL("parsing", "for");
+	TEST_FOR_FAIL("parsing", "for({})");
+	TEST_FOR_FAIL("parsing", "for(;1<2)");
+	TEST_FOR_FAIL("parsing", "for({)");
+	TEST_FOR_FAIL("parsing", "for(;;)");
+	TEST_FOR_FAIL("parsing", "for(;1<2;{)");
+	TEST_FOR_FAIL("parsing", "for(;1<2;{})");
+	TEST_FOR_FAIL("parsing", "for(;1<2;)");
+	TEST_FOR_FAIL("parsing", "for(;1<2");
+	TEST_FOR_FAIL("parsing", "for(;1<2;{}");
+	TEST_FOR_FAIL("parsing", "while");
+	TEST_FOR_FAIL("parsing", "while(");
+	TEST_FOR_FAIL("parsing", "while(1");
+	TEST_FOR_FAIL("parsing", "while(1)");
+	TEST_FOR_FAIL("parsing", "do");
+	TEST_FOR_FAIL("parsing", "do 1;");
+	TEST_FOR_FAIL("parsing", "do 1; while");
+	TEST_FOR_FAIL("parsing", "do 1; while(");
+	TEST_FOR_FAIL("parsing", "do 1; while(1");
+	TEST_FOR_FAIL("parsing", "do 1; while(0)");
+	TEST_FOR_FAIL("parsing", "switch");
+	TEST_FOR_FAIL("parsing", "switch(");
+	TEST_FOR_FAIL("parsing", "switch(2");
+	TEST_FOR_FAIL("parsing", "switch(2)");
+	TEST_FOR_FAIL("parsing", "switch(2){ case");
+	TEST_FOR_FAIL("parsing", "switch(2){ case 2");
+	TEST_FOR_FAIL("parsing", "switch(2){ case 2:");
+	TEST_FOR_FAIL("parsing", "switch(2){ default:");
+	TEST_FOR_FAIL("parsing", "return");
+	TEST_FOR_FAIL("parsing", "break");
+	TEST_FOR_FAIL("parsing", "for(;1;) continue; continue");
+	TEST_FOR_FAIL("parsing", "(");
+	TEST_FOR_FAIL("parsing", "(1");
+	TEST_FOR_FAIL("parsing", "*");
+	TEST_FOR_FAIL("parsing", "int i; i.");
+	TEST_FOR_FAIL("parsing", "int[4] i; i[");
+	TEST_FOR_FAIL("parsing", "int[4] i; i[2");
+	TEST_FOR_FAIL("parsing", "&");
+	TEST_FOR_FAIL("parsing", "!");
+	TEST_FOR_FAIL("parsing", "~");
+	TEST_FOR_FAIL("parsing", "--");
+	TEST_FOR_FAIL("parsing", "++");
+	TEST_FOR_FAIL("parsing", "+");
+	TEST_FOR_FAIL("parsing", "-");
+	TEST_FOR_FAIL("parsing", "'aa'");
+	TEST_FOR_FAIL("parsing", "sizeof");
+	TEST_FOR_FAIL("parsing", "sizeof(");
+	TEST_FOR_FAIL("parsing", "sizeof(int");
+	TEST_FOR_FAIL("parsing", "new");
+	TEST_FOR_FAIL("parsing", "new int[");
+	TEST_FOR_FAIL("parsing", "new int[12");
+	TEST_FOR_FAIL("parsing", "auto a = {");
+	TEST_FOR_FAIL("parsing", "auto a = {1,");
+	TEST_FOR_FAIL("parsing", "auto a = {1,2");
+	TEST_FOR_FAIL("parsing", "return 1+;");
+	TEST_FOR_FAIL("parsing", "1?");
+	TEST_FOR_FAIL("parsing", "1?2");
+	TEST_FOR_FAIL("parsing", "1?2:");
+	TEST_FOR_FAIL("parsing", "int i; i+=;");
+	TEST_FOR_FAIL("parsing", "int i; i**=;");
+	TEST_FOR_FAIL("parsing", "int i");
+	TEST_FOR_FAIL("parsing", "int i; i = 5");
+	TEST_FOR_FAIL("parsing", "{");
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount);

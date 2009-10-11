@@ -318,6 +318,8 @@ public:
 		paramCount = 0;
 		firstExternal = lastExternal = NULL;
 		externalCount = 0;
+		firstLocal = lastLocal = NULL;
+		localCount = 0;
 	}
 
 	void	AddParameter(VariableInfo *variable)
@@ -388,6 +390,9 @@ public:
 	};
 	ExternalName	*firstExternal, *lastExternal;	// External variable names
 	unsigned int	externalCount;
+
+	VariableInfo	*firstLocal, *lastLocal;	// Local variable list. Filled in when function comes to an end.
+	unsigned int	localCount;
 
 	TypeInfo	*funcType;				// Function type
 

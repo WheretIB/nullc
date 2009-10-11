@@ -17,6 +17,12 @@ double nullcTan(double deg)
 	return tan(deg);
 }
 
+double nullcCtg(double deg)
+{
+	return 1.0 / tan(deg);
+}
+
+
 double nullcCosh(double deg)
 {
 	return cosh(deg);
@@ -32,6 +38,12 @@ double nullcTanh(double deg)
 	return tanh(deg);
 }
 
+double nullcCoth(double deg)
+{
+	return 1.0 / tanh(deg);
+}
+
+
 double nullcAcos(double deg)
 {
 	return acos(deg);
@@ -45,11 +57,6 @@ double nullcAsin(double deg)
 double nullcAtan(double deg)
 {
 	return atan(deg);
-}
-
-double nullcCtg(double deg)
-{
-	return 1.0 / tan(deg);
 }
 
 double nullcCeil(double num)

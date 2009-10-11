@@ -74,12 +74,6 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd);
 
 void GenCodeCmdReserveV(VMCmd cmd);
 
-void GenCodeCmdPopCharTop(VMCmd cmd);
-void GenCodeCmdPopShortTop(VMCmd cmd);
-void GenCodeCmdPopIntTop(VMCmd cmd);
-void GenCodeCmdPopFloatTop(VMCmd cmd);
-void GenCodeCmdPopDorLTop(VMCmd cmd);
-void GenCodeCmdPopCmplxTop(VMCmd cmd);
 void GenCodeCmdPop(VMCmd cmd);
 
 void GenCodeCmdDtoI(VMCmd cmd);
