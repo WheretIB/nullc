@@ -817,8 +817,6 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			ThrowError(callbackError, pos);
 		}
 
-		if(funcInfo[fID]->funcPtr != 0)
-			ThrowError("ERROR: Can't get a pointer to an extern function", pos);
 		if(funcInfo[fID]->type == FunctionInfo::LOCAL)
 		{
 			char	*contextName = AllocateString(funcInfo[fID]->nameLength + 6);
@@ -1078,9 +1076,9 @@ void AddGetVariableNode(const char* pos)
 	lastKnownStartPos = pos;
 
 	if(nodeList.back()->nodeType == typeNodeNumber && nodeList.back()->typeInfo == typeVoid)
-		nodeList.back()->typeInfo = typeInt;
-	else if(nodeList.back()->typeInfo->funcType == NULL && nodeList.back()->typeInfo->refLevel != 0)
 	{
+		nodeList.back()->typeInfo = typeInt;
+	}else if(nodeList.back()->typeInfo->funcType == NULL){
 		CheckForImmutable(nodeList.back()->typeInfo, pos);
 		nodeList.push_back(new NodeDereference());
 	}
@@ -1391,11 +1389,13 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 {
 	if(!currType)
 		ThrowError("ERROR: function parameter cannot be an auto type", pos);
+	if(currType == typeVoid)
+		ThrowError("ERROR: function parameter cannot be a void type", pos);
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
 	lastFunc.AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst));
-	lastFunc.allParamSize += currType->size;
+	lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
 }
 
 void FunctionPrototype()
@@ -1418,7 +1418,7 @@ void FunctionStart(const char* pos)
 	{
 		currValConst = curr->isConst;
 		currType = curr->varType;
-		currAlign = 1;
+		currAlign = 4;
 		AddVariable(pos, curr->name);
 		varDefined = false;
 	}
@@ -1426,7 +1426,7 @@ void FunctionStart(const char* pos)
 	char	*hiddenHame = AllocateString(lastFunc.nameLength + 8);
 	int length = sprintf(hiddenHame, "$%s_ext", lastFunc.name);
 	currType = GetReferenceType(typeInt);
-	currAlign = 1;
+	currAlign = 4;
 	AddVariable(pos, InplaceStr(hiddenHame, length));
 	varDefined = false;
 }
@@ -1466,6 +1466,19 @@ void FunctionEnd(const char* pos, const char* funcName)
 	}
 
 	cycleDepth.pop_back();
+	// Save info about all local variables
+	for(int i = varInfo.size()-1; i > varInfoTop.back().activeVarCnt + lastFunc.paramCount; i--)
+	{
+		VariableInfo *firstNext = lastFunc.firstLocal;
+		lastFunc.firstLocal = varInfo[i];
+		lastFunc.firstLocal->next = firstNext;
+		if(lastFunc.firstLocal->next)
+			lastFunc.firstLocal->next->prev = lastFunc.firstLocal;
+		lastFunc.localCount++;
+	}
+	if(lastFunc.firstLocal)
+		lastFunc.firstLocal->prev = NULL;
+
 	EndBlock();
 	unsigned int varFormerTop = varTop;
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;

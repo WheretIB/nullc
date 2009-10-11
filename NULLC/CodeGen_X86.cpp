@@ -528,76 +528,29 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 
 void GenCodeCmdReserveV(VMCmd cmd)
 {
-	(void)cmd;
-}
-
-void GenCodeCmdPopCharTop(VMCmd cmd)
-{
-	EMIT_COMMENT("POP char top");
-
-	EMIT_OP_REG(o_pop, rEBX);
-	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDI, cmd.argument+paramBase, rEBX);
-}
-
-void GenCodeCmdPopShortTop(VMCmd cmd)
-{
-	EMIT_COMMENT("POP short top");
-
-	EMIT_OP_REG(o_pop, rEBX);
-	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDI, cmd.argument+paramBase, rEBX);
-}
-
-void GenCodeCmdPopIntTop(VMCmd cmd)
-{
-	EMIT_COMMENT("POP int top");
-
-	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase);
-}
-
-void GenCodeCmdPopFloatTop(VMCmd cmd)
-{
-	EMIT_COMMENT("POP float top");
-
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sDWORD, rEDI, cmd.argument+paramBase);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
-}
-
-void GenCodeCmdPopDorLTop(VMCmd cmd)
-{
-	EMIT_COMMENT(cmd.flag ? "POP double top" : "POP long top");
-
-	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase);
-	EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase + 4);
-}
-
-void GenCodeCmdPopCmplxTop(VMCmd cmd)
-{
-	EMIT_COMMENT("POP complex top");
-	if(cmd.helper == 0)
+	if(cmd.argument == 0)
 		return;
-	if(cmd.helper <= 32)
+	if(cmd.argument <= 32)
 	{
 		unsigned int currShift = 0;
-		while(currShift < cmd.helper)
+		while(currShift < cmd.argument)
 		{
-			EMIT_OP_RPTR(o_pop, sDWORD, rEDI, cmd.argument+paramBase + currShift);
+			EMIT_OP_RPTR(o_pop, sDWORD, rEDI, paramBase + currShift);
 			currShift += 4;
 		}
-		assert(currShift == cmd.helper);
+		assert(currShift == cmd.argument);
 	}else{
 		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 
 		EMIT_OP_REG_REG(o_mov, rESI, rESP);
-		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDI, cmd.argument+paramBase);
-		EMIT_OP_REG_NUM(o_mov, rECX, cmd.helper >> 2);
+		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDI, paramBase);
+		EMIT_OP_REG_NUM(o_mov, rECX, cmd.argument >> 2);
 		EMIT_OP(o_rep_movsd);
 
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
-		EMIT_OP_REG_NUM(o_add, rESP, cmd.helper);
+		EMIT_OP_REG_NUM(o_add, rESP, cmd.argument);
 	}
 }
-
 
 
 void GenCodeCmdPop(VMCmd cmd)

@@ -56,16 +56,9 @@ enum InstructionCode
 	cmdMovDorLStk,
 	cmdMovCmplxStk,
 
-	// pop a value from top of the stack to [address + value_top]
-	// переместить зачение по адресу [address + value_top] и убрать со стека
+	// pop a value from top of the stack to [value_top]
+	// переместить зачения со стека по адресу [value_top]
 	cmdReserveV,
-
-	cmdPopCharTop,
-	cmdPopShortTop,
-	cmdPopIntTop,
-	cmdPopFloatTop,
-	cmdPopDorLTop,
-	cmdPopCmplxTop,
 
 	// removes a number of bytes from top
 	// убрать заданное кол-во байт со стека с верхушки стека
@@ -233,7 +226,6 @@ static char *vmInstructionText[] =
 	"MovChar", "MovShort", "MovInt", "MovFloat", "MovDorL", "MovCmplx",
 	"MovCharStk", "MovShortStk", "MovIntStk", "MovFloatStk", "MovDorLStk", "MovCmplxStk",
 	"ReserveV",
-	"PopCharTop", "PopShortTop", "PopIntTop", "PopFloatTop", "PopDorLTop", "PopCmplxTop",
 	"Pop",
 	"DtoI", "DtoL", "DtoF", "ItoD", "LtoD", "ItoL", "LtoI",
 	"Index", "IndexStk",
@@ -332,15 +324,6 @@ struct VMCmd
 
 		case cmdReserveV:
 			curr += sprintf(curr, " %d", argument);
-			break;
-
-		case cmdPopCharTop:
-		case cmdPopShortTop:
-		case cmdPopIntTop:
-		case cmdPopFloatTop:
-		case cmdPopDorLTop:
-		case cmdPopCmplxTop:
-			curr += sprintf(curr, " [%d] sizeof(%d)", argument, helper);
 			break;
 
 		case cmdPop:
@@ -444,8 +427,6 @@ static InstructionCode cmdPushTypeStk[] = { cmdPushCharStk, cmdPushShortStk, cmd
 
 static InstructionCode cmdMovType[] = { cmdMovChar, cmdMovShort, cmdMovInt, cmdMovDorL, cmdMovFloat, cmdMovDorL, cmdMovCmplx };
 static InstructionCode cmdMovTypeStk[] = { cmdMovCharStk, cmdMovShortStk, cmdMovIntStk, cmdMovDorLStk, cmdMovFloatStk, cmdMovDorLStk, cmdMovCmplxStk };
-
-static InstructionCode cmdPopTypeTop[] = { cmdPopCharTop, cmdPopShortTop, cmdPopIntTop, cmdPopDorLTop, cmdPopFloatTop, cmdPopDorLTop, cmdPopCmplxTop };
 
 static InstructionCode cmdIncType[] = { cmdIncD, cmdNop, cmdIncL, cmdIncI };
 static InstructionCode cmdDecType[] = { cmdDecD, cmdNop, cmdDecL, cmdDecI };

@@ -581,20 +581,15 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 		paramHead = paramTail = NULL;
 
 	codeSize = 0;
-	bool onlyStackTypes = true;
 	TypeInfo	**paramType = funcType->paramType;
-	if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
-		onlyStackTypes = false;
-	if(funcInfo && funcInfo->address == -1 && *paramType == typeFloat)
+	if(*paramType == typeFloat)
 		codeSize += 1;
 
 	// Take nodes for all parameters
 	for(unsigned int i = 1; i < funcType->paramCount; i++)
 	{
 		paramType++;
-		if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
-			onlyStackTypes = false;
-		if(funcInfo && funcInfo->address == -1 && *paramType == typeFloat)
+		if(*paramType == typeFloat)
 			codeSize += 1;
 		paramTail->next = TakeLastNode();
 		paramTail->next->prev = paramTail;
@@ -603,7 +598,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 
 	if(funcInfo && funcInfo->type == FunctionInfo::THISCALL)
 		second = TakeLastNode();
-	
+
 	unsigned int paramSize = ((!funcInfo || second) ? 4 : 0);
 
 	if(funcType->paramCount > 0)
@@ -626,19 +621,12 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 			codeSize += second->codeSize;
 		else
 			codeSize += first->codeSize;
-		if(!onlyStackTypes)
-			codeSize += 1;
 	}
 	
 	if(funcInfo && funcInfo->address == -1)
-	{
 		codeSize += 1;
-	}else{
-		if(onlyStackTypes)
-			codeSize += (paramSize ? 3 : 1);
-		else
-			codeSize += (paramSize ? 2 : 1) + (unsigned int)(funcType->paramCount);
-	}
+	else
+		codeSize += (paramSize ? 2 : 1);
 	nodeType = typeNodeFuncCall;
 }
 NodeFuncCall::~NodeFuncCall()
@@ -650,7 +638,6 @@ void NodeFuncCall::Compile()
 	unsigned int startCmdSize = cmdList.size();
 
 	// Find parameter values
-	bool onlyStackTypes = true;
 	if(funcInfo && funcInfo->address == -1)
 	{
 		if(funcType->paramCount > 0)
@@ -687,8 +674,8 @@ void NodeFuncCall::Compile()
 				curr->Compile();
 				// Convert it to type that function expects
 				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
-				if(*paramType == typeChar || *paramType == typeShort || *paramType == typeFloat)
-					onlyStackTypes = false;
+				if(*paramType == typeFloat)
+					cmdList.push_back(VMCmd(cmdDtoF));
 				curr = curr->prev;
 				paramType++;
 			}while(curr);
@@ -703,37 +690,10 @@ void NodeFuncCall::Compile()
 		// Lets move parameters to function local variables
 		unsigned int paramSize = 0;
 		for(unsigned int i = 0; i < funcType->paramCount; i++)
-			paramSize += funcType->paramType[i]->size;
+			paramSize += funcType->paramType[i]->size < 4 ? 4 : funcType->paramType[i]->size;
 		paramSize += ((!funcInfo || second) ? 4 : 0);
 		if(paramSize)
 			cmdList.push_back(VMCmd(cmdReserveV, paramSize));
-
-		unsigned int addr = 0;
-		if(!onlyStackTypes)
-		{
-			for(int i = funcType->paramCount-1; i >= 0; i--)
-			{
-				asmDataType newDT = funcType->paramType[i]->dataType;
-				cmdList.push_back(VMCmd(cmdPopTypeTop[newDT>>2], newDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)funcType->paramType[i]->size, addr));
-				addr += funcType->paramType[i]->size;
-			}
-		}
-
-		if(!funcInfo || second)
-		{
-			if(!onlyStackTypes)
-				cmdList.push_back(VMCmd(cmdPopIntTop, 4, addr));
-		}
-		if(onlyStackTypes && paramSize != 0)
-		{
-			if(paramSize == 4)
-				cmdList.push_back(VMCmd(cmdPopTypeTop[DTYPE_INT>>2], 0, (unsigned short)paramSize, addr));
-			else if(paramSize == 8)
-				cmdList.push_back(VMCmd(cmdPopTypeTop[DTYPE_LONG>>2], 0, (unsigned short)paramSize, addr));
-			else
-				cmdList.push_back(VMCmd(cmdPopTypeTop[DTYPE_COMPLEX_TYPE>>2], 0, (unsigned short)paramSize, addr));
-		}
-
 
 		// Call by function address in bytecode
 		unsigned int ID = GetFuncIndexByPtr(funcInfo);
@@ -1493,7 +1453,7 @@ void NodeFunctionAddress::Compile()
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
-		cmdList.push_back(VMCmd(cmdPushImmt, 0));
+		cmdList.push_back(VMCmd(cmdPushImmt, funcInfo->funcPtr ? ~0ul : 0));
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
 		first->Compile();
 	}

@@ -5,13 +5,16 @@ struct ArrayPtr{ char* ptr; int len; };
 double nullcCos(double deg);
 double nullcSin(double deg);
 double nullcTan(double deg);
+double nullcCtg(double deg);
+
 double nullcCosh(double deg);
 double nullcSinh(double deg);
 double nullcTanh(double deg);
+double nullcCoth(double deg);
+
 double nullcAcos(double deg);
 double nullcAsin(double deg);
 double nullcAtan(double deg);
-double nullcCtg(double deg);
 
 double nullcCeil(double num);
 double nullcFloor(double num);
