@@ -233,7 +233,6 @@ void Compiler::ClearState()
 bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 {
 	ClearState();
-	CodeInfo::buildinCompilation = true;
 
 	bool res;
 
@@ -266,7 +265,6 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 bool Compiler::AddType(const char* typedecl)
 {
 	ClearState();
-	CodeInfo::buildinCompilation = true;
 
 	bool res;
 
@@ -309,7 +307,6 @@ bool Compiler::AddType(const char* typedecl)
 bool Compiler::Compile(const char *str)
 {
 	ClearState();
-	CodeInfo::buildinCompilation = false;
 
 	cmdInfoList.Clear();
 	cmdList.clear();
@@ -347,9 +344,6 @@ bool Compiler::Compile(const char *str)
 	FILE *fTime = fopen("time.txt", "wb");
 	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
 #endif
-
-	// Emulate global block end
-	CodeInfo::globalSize = varTop;
 
 	t = clock();
 	cmdList.push_back(VMCmd(cmdJmp));
@@ -563,7 +557,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->typeCount = (unsigned int)CodeInfo::typeInfo.size();
 
-	code->globalVarSize = varTop;
+	code->globalVarSize = GetGlobalSize();
 	code->variableCount = (unsigned int)CodeInfo::varInfo.size();
 	code->offsetToFirstVar = offsetToVar;
 
