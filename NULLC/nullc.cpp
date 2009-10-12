@@ -22,11 +22,8 @@ FastVector<TypeInfo*>		CodeInfo::typeInfo(64);
 SourceInfo					CodeInfo::cmdInfoList;
 FastVector<VMCmd>			CodeInfo::cmdList;
 FastVector<NodeZeroOP*>		CodeInfo::nodeList(64);
-unsigned int				CodeInfo::globalSize = 0;
-unsigned int				CodeInfo::varTop = 0;
 FastVector<NodeZeroOP*>		CodeInfo::funcDefList(32);
 const char*					CodeInfo::lastKnownStartPos = NULL;
-bool						CodeInfo::buildinCompilation = false;
 
 Compiler*	compiler;
 Linker*		linker;

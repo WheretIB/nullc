@@ -130,4 +130,5 @@ void TypeFinish();
 
 void AddUnfixedArraySize();
 
+unsigned int GetGlobalSize();
 void CallbackDeinitialize();

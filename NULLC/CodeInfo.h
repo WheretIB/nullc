@@ -45,12 +45,6 @@ namespace CodeInfo
 	extern SourceInfo				cmdInfoList;
 	extern FastVector<VMCmd>		cmdList;
 
-	// The size of all global variables in bytes
-	extern unsigned int				globalSize;
-
-	// вершина стека переменных
-	extern unsigned int				varTop;
-
 	// —писок узлов, которые определ€ют код функции
 	extern FastVector<NodeZeroOP*>	funcDefList;
 
@@ -65,8 +59,6 @@ namespace CodeInfo
 	extern const char* lastKnownStartPos;
 
 	extern jmp_buf	errorHandler;
-
-	extern bool		buildinCompilation;
 
 	//////////////////////////////////////////////////////////////////////////
 	// ‘ункци€ возвращает тип - указател€ на исходный
