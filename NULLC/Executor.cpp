@@ -13,11 +13,13 @@
 
 long long vmLongPow(long long num, long long pow)
 {
+	if(pow < 0)
+		return (num == 1 ? 1 : 0);
 	if(pow == 0)
 		return 1;
 	if(pow == 1)
 		return num;
-	if(pow > 36)
+	if(pow > 64)
 		return num;
 	long long res = 1;
 	int power = (int)pow;
@@ -61,6 +63,7 @@ void Executor::Run(const char* funcName)
 	}
 	fcallStack.clear();
 
+	// $$$ Temporal solution to prevent stack from resizing, until there will be code that fixes pointers to stack variables. 
 	genParams.reserve(1024 * 1024);
 	genParams.clear();
 	genParams.resize(exLinker->globalVarSize);
@@ -271,9 +274,12 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdReserveV:
-			genParams.reserve(genParams.size() + cmd.argument);
-			memcpy((char*)&genParams[genParams.size()], genStackPtr, cmd.argument);
+		{
+			int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
+			genParams.reserve(genParams.size() + alignOffset + cmd.argument);
+			memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, cmd.argument);
 			genStackPtr += cmd.argument >> 2;
+		}
 			break;
 
 		case cmdPop:
@@ -478,7 +484,9 @@ void Executor::Run(const char* funcName)
 			genStackPtr--;
 			*genStackPtr = paramBase;
 			paramBase = genParams.size();
-			genParams.resize(genParams.size() + cmd.argument);
+			// Align on a 16-byte boundary
+			paramBase += (paramBase % 16 != 0) ? (16 - (paramBase % 16)) : 0;
+			genParams.resize(paramBase + cmd.argument);
 			break;
 
 		case cmdAdd:

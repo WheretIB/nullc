@@ -910,7 +910,8 @@ void GenCodeCmdPushVTop(VMCmd cmd)
 	EMIT_OP_REG(o_push, rEBP);
 	EMIT_OP_REG_REG(o_mov, rEBP, rEDI);
 
-	EMIT_OP_REG_NUM(o_add, rEDI, cmd.argument);
+	if(cmd.argument)
+		EMIT_OP_REG_NUM(o_add, rEDI, (cmd.argument & 0xfffffff0) ? (cmd.argument & 0xfffffff0) + 16 : cmd.argument);
 }
 
 void GenCodeCmdAdd(VMCmd cmd)

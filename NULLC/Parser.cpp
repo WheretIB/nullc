@@ -344,7 +344,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 		CALLBACK(AddVoidNode());
 		if(name[1].type >= lex_add && name[1].type <= lex_logxor || name[1].type == lex_obracket)
 			CALLBACK(FunctionToOperator(start->pos));
-		CALLBACK(FunctionPrototype());
+		CALLBACK(FunctionPrototype(start->pos));
 		return true;
 	}
 
