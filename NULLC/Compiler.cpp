@@ -617,7 +617,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		ExternFuncInfo &funcInfo = *fInfo;
 		FunctionInfo *refFunc = CodeInfo::funcInfo[i];
 
-		funcInfo.oldAddress = funcInfo.address = refFunc->address;
+		if(refFunc->codeSize == 0 && refFunc->address != -1 && (refFunc->address & 0x80000000))
+			funcInfo.oldAddress = funcInfo.address = CodeInfo::funcInfo[refFunc->address & ~0x80000000]->address;
+		else
+			funcInfo.oldAddress = funcInfo.address = refFunc->address;
 		funcInfo.codeSize = refFunc->codeSize;
 		funcInfo.funcPtr = refFunc->funcPtr;
 		funcInfo.isVisible = refFunc->visible;
