@@ -20,9 +20,6 @@ NodeZeroOP*	TakeLastNode()
 	return last;
 }
 
-FastVector<unsigned int>	breakAddr(64);
-FastVector<unsigned int>	continueAddr(64);
-
 static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "and", "or", "xor"};
 
 //////////////////////////////////////////////////////////////////////////
@@ -195,7 +192,6 @@ NodeZeroOP::NodeZeroOP()
 	typeInfo = typeVoid;
 	sourcePos = NULL;
 	prev = next = NULL;
-	codeSize = 0;
 	nodeType = typeNodeZeroOp;
 }
 NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
@@ -203,7 +199,6 @@ NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 	typeInfo = tinfo;
 	sourcePos = NULL;
 	prev = next = NULL;
-	codeSize = 0;
 	nodeType = typeNodeZeroOp;
 }
 NodeZeroOP::~NodeZeroOP()
@@ -237,11 +232,7 @@ NodeOneOP::~NodeOneOP()
 
 void NodeOneOP::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	first->Compile();
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeOneOP::LogToStream(FILE *fGraph)
 {
@@ -266,12 +257,8 @@ NodeTwoOP::~NodeTwoOP()
 
 void NodeTwoOP::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	NodeOneOP::Compile();
 	second->Compile();
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeTwoOP::LogToStream(FILE *fGraph)
 {
@@ -297,12 +284,8 @@ NodeThreeOP::~NodeThreeOP()
 
 void NodeThreeOP::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	NodeTwoOP::Compile();
 	third->Compile();
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeThreeOP::LogToStream(FILE *fGraph)
 {
@@ -320,7 +303,8 @@ void NodeThreeOP::LogToStream(FILE *fGraph)
 
 void NodeNumber::Compile()
 {
-	if(codeSize == 2)
+	assert(typeInfo->size <= 8);
+	if(typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(cmdPushImmt, num.quad.high));
 	cmdList.push_back(VMCmd(cmdPushImmt, num.quad.low));
 }
@@ -335,13 +319,10 @@ bool NodeNumber::ConvertTo(TypeInfo *target)
 	if(target == typeInt)
 	{
 		num.integer = GetInteger();
-		codeSize = 1;
 	}else if(target == typeDouble || target == typeFloat){
 		num.real = GetDouble();
-		codeSize = 2;
 	}else if(target == typeLong){
 		num.integer64 = GetLong();
-		codeSize = 2;
 	}else{
 		return false;
 	}
@@ -355,9 +336,6 @@ bool NodeNumber::ConvertTo(TypeInfo *target)
 NodePopOp::NodePopOp()
 {
 	first = TakeLastNode();
-	codeSize = first->codeSize;
-	if(first->typeInfo != typeVoid)
-		codeSize += 1;
 	nodeType = typeNodePopOp;
 }
 NodePopOp::~NodePopOp()
@@ -366,8 +344,6 @@ NodePopOp::~NodePopOp()
 
 void NodePopOp::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -378,8 +354,6 @@ void NodePopOp::Compile()
 		// Removing it from top of the stack
 		cmdList.push_back(VMCmd(cmdPop, first->typeInfo->type == TypeInfo::TYPE_COMPLEX ? first->typeInfo->size : stackTypeSize[first->typeInfo->stackType]));
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodePopOp::LogToStream(FILE *fGraph)
 {
@@ -402,7 +376,6 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 	// Resulting type is the same as source type with exception for logical NOT
 	typeInfo = cmd == cmdLogNot ? typeInt : first->typeInfo;
 
-	codeSize = first->codeSize + 1;
 	nodeType = typeNodeUnaryOp;
 }
 NodeUnaryOp::~NodeUnaryOp()
@@ -411,8 +384,6 @@ NodeUnaryOp::~NodeUnaryOp()
 
 void NodeUnaryOp::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
 
 	// Child node computes value
@@ -424,8 +395,6 @@ void NodeUnaryOp::Compile()
 		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 1)));
 	else
 		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 2)));
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeUnaryOp::LogToStream(FILE *fGraph)
 {
@@ -447,7 +416,6 @@ NodeReturnOp::NodeReturnOp(int localRet, TypeInfo* tinfo)
 
 	first = TakeLastNode();
 
-	codeSize = first->codeSize + 1 + (typeInfo ? ConvertFirstToSecondSize(first->typeInfo->stackType, typeInfo->stackType) : 0);
 	nodeType = typeNodeReturnOp;
 }
 NodeReturnOp::~NodeReturnOp()
@@ -456,8 +424,6 @@ NodeReturnOp::~NodeReturnOp()
 
 void NodeReturnOp::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -475,8 +441,6 @@ void NodeReturnOp::Compile()
 	if(retSize != 0 && retSize < 4)
 		retSize = 4;
 	cmdList.push_back(VMCmd(cmdReturn, (unsigned char)operType, (unsigned short)localReturn, retSize));
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeReturnOp::LogToStream(FILE *fGraph)
 {
@@ -504,7 +468,6 @@ NodeFuncDef::NodeFuncDef(FunctionInfo *info, unsigned int varShift)
 
 	first = TakeLastNode();
 
-	codeSize = first->codeSize + 2;
 	nodeType = typeNodeFuncDef;
 }
 NodeFuncDef::~NodeFuncDef()
@@ -513,7 +476,6 @@ NodeFuncDef::~NodeFuncDef()
 
 void NodeFuncDef::Disable()
 {
-	codeSize = 0;
 	disabled = true;
 }
 
@@ -521,8 +483,6 @@ void NodeFuncDef::Compile()
 {
 	if(disabled)
 		return;
-	unsigned int startCmdSize = cmdList.size();
-
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -543,8 +503,6 @@ void NodeFuncDef::Compile()
 	}
 
 	funcInfo->codeSize = cmdList.size() - funcInfo->address;
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeFuncDef::LogToStream(FILE *fGraph)
 {
@@ -580,17 +538,9 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	else
 		paramHead = paramTail = NULL;
 
-	codeSize = 0;
-	TypeInfo	**paramType = funcType->paramType;
-	if(*paramType == typeFloat)
-		codeSize += 1;
-
 	// Take nodes for all parameters
 	for(unsigned int i = 1; i < funcType->paramCount; i++)
 	{
-		paramType++;
-		if(*paramType == typeFloat)
-			codeSize += 1;
 		paramTail->next = TakeLastNode();
 		paramTail->next->prev = paramTail;
 		paramTail = paramTail->next;
@@ -599,34 +549,6 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	if(funcInfo && funcInfo->type == FunctionInfo::THISCALL)
 		second = TakeLastNode();
 
-	unsigned int paramSize = ((!funcInfo || second) ? 4 : 0);
-
-	if(funcType->paramCount > 0)
-	{
-		NodeZeroOP	*curr = paramTail;
-		TypeInfo	**paramType = funcType->paramType;
-		do
-		{
-			paramSize += (*paramType)->size;
-
-			codeSize += curr->codeSize;
-			codeSize += ConvertFirstToSecondSize(curr->typeInfo->stackType, (*paramType)->stackType);
-			curr = curr->prev;
-			paramType++;
-		}while(curr);
-	}
-	if(!funcInfo || second)
-	{
-		if(second)
-			codeSize += second->codeSize;
-		else
-			codeSize += first->codeSize;
-	}
-	
-	if(funcInfo && funcInfo->address == -1)
-		codeSize += 1;
-	else
-		codeSize += (paramSize ? 2 : 1);
 	nodeType = typeNodeFuncCall;
 }
 NodeFuncCall::~NodeFuncCall()
@@ -635,8 +557,6 @@ NodeFuncCall::~NodeFuncCall()
 
 void NodeFuncCall::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	// Find parameter values
 	if(funcInfo && funcInfo->address == -1)
 	{
@@ -700,8 +620,6 @@ void NodeFuncCall::Compile()
 		unsigned short helper = (unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[typeInfo->stackType]));
 		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : CALL_BY_POINTER));
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeFuncCall::LogToStream(FILE *fGraph)
 {
@@ -740,7 +658,6 @@ NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, 
 	typeOrig = retInfo;
 	typeInfo = GetReferenceType(typeOrig);
 
-	codeSize = 1;
 	nodeType = typeNodeGetAddress;
 }
 
@@ -771,13 +688,10 @@ void NodeGetAddress::ShiftToMember(TypeInfo::MemberVariable *member)
 
 void NodeGetAddress::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	cmdList.push_back(VMCmd(cmdGetAddr, absAddress ? 0 : 1, varAddress));
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeGetAddress::LogToStream(FILE *fGraph)
@@ -883,14 +797,6 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 		typeInfo = typeInfo->subType;
 	}
 
-	codeSize = second->codeSize;
-	if(!knownAddress)
-		codeSize += first->codeSize;
-	codeSize += ConvertFirstToSecondSize(second->typeInfo->stackType, typeInfo->stackType);
-	if(arrSetAll)
-		codeSize += 2;
-	else
-		codeSize += 1;
 	nodeType = typeNodeVariableSet;
 }
 
@@ -901,7 +807,6 @@ NodeVariableSet::~NodeVariableSet()
 
 void NodeVariableSet::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -926,8 +831,6 @@ void NodeVariableSet::Compile()
 			cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], asmST == STYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 		}
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeVariableSet::LogToStream(FILE *fGraph)
@@ -1017,17 +920,6 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 
-	asmStackType asmSTfirst = typeInfo->stackType;
-	asmStackType asmSTsecond = second->typeInfo->stackType;
-
-	codeSize = second->codeSize;
-	if(!knownAddress)
-		codeSize += 2 * first->codeSize;
-	codeSize += ConvertFirstForSecondSize(asmSTfirst, asmSTsecond);
-	asmStackType asmSTresult = ConvertFirstForSecondType(asmSTfirst, asmSTsecond);
-	codeSize += ConvertFirstForSecondSize(asmSTsecond, asmSTresult);
-	codeSize += ConvertFirstToSecondSize(asmSTresult, asmSTfirst);
-	codeSize += 3;
 	nodeType = typeNodeVariableModify;
 }
 
@@ -1037,7 +929,6 @@ NodeVariableModify::~NodeVariableModify()
 
 void NodeVariableModify::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -1089,8 +980,6 @@ void NodeVariableModify::Compile()
 	}else{
 		cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeVariableModify::LogToStream(FILE *fGraph)
@@ -1129,11 +1018,6 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 		knownShift = true;
 	}
 
-	codeSize = first->codeSize;
-	if(knownShift)
-		codeSize += 2;
-	else
-		codeSize += second->codeSize + (second->typeInfo->stackType != STYPE_INT ? 1 : 0) + 1;
 	nodeType = typeNodeArrayIndex;
 }
 
@@ -1143,7 +1027,6 @@ NodeArrayIndex::~NodeArrayIndex()
 
 void NodeArrayIndex::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -1163,8 +1046,6 @@ void NodeArrayIndex::Compile()
 			cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 		cmdList.push_back(VMCmd(typeParent->arrSize == TypeInfo::UNSIZED_ARRAY ? cmdIndexStk :  cmdIndex, (unsigned short)typeParent->subType->size, typeParent->arrSize));
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeArrayIndex::LogToStream(FILE *fGraph)
@@ -1214,7 +1095,6 @@ NodeDereference::NodeDereference()
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 
-	codeSize = (!knownAddress ? first->codeSize : 0) + 1;
 	nodeType = typeNodeDereference;
 }
 
@@ -1225,7 +1105,6 @@ NodeDereference::~NodeDereference()
 
 void NodeDereference::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -1235,13 +1114,9 @@ void NodeDereference::Compile()
 		first->Compile();
 
 	if(knownAddress)
-	{
 		cmdList.push_back(VMCmd(cmdPushType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
-	}else{
+	else
 		cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
-	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeDereference::LogToStream(FILE *fGraph)
@@ -1263,9 +1138,6 @@ NodeShiftAddress::NodeShiftAddress(unsigned int shift, TypeInfo* resType)
 
 	first = TakeLastNode();
 
-	codeSize = first->codeSize;
-	if(memberShift)
-		codeSize += 2;
 	nodeType = typeNodeShiftAddress;
 }
 
@@ -1276,7 +1148,6 @@ NodeShiftAddress::~NodeShiftAddress()
 
 void NodeShiftAddress::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -1289,8 +1160,6 @@ void NodeShiftAddress::Compile()
 		// Add the shift to the address
 		cmdList.push_back(VMCmd(cmdAdd));
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeShiftAddress::LogToStream(FILE *fGraph)
@@ -1350,15 +1219,6 @@ NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 
-	codeSize = (!knownAddress ? first->codeSize : 0);
-	if(knownAddress)
-	{
-		codeSize += 3;
-		if(!prefixOp)
-			codeSize++;
-	}else{
-		codeSize++;
-	}
 	nodeType = typeNodePreOrPostOp;
 }
 
@@ -1369,20 +1229,12 @@ NodePreOrPostOp::~NodePreOrPostOp()
 
 void NodePreOrPostOp::SetOptimised(bool doOptimisation)
 {
-	if(prefixOp)
-	{
-		if(!optimised && doOptimisation)
-			codeSize++;
-		if(optimised && !doOptimisation)
-			codeSize--;
-	}
 	optimised = doOptimisation;
 }
 
 
 void NodePreOrPostOp::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -1405,8 +1257,6 @@ void NodePreOrPostOp::Compile()
 	}else{
 		cmdList.push_back(VMCmd(cmdAddAtTypeStk[asmDT>>2], optimised ? 0 : (prefixOp ? bitPushAfter : bitPushBefore), incOp ? 1 : -1, addrShift));
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodePreOrPostOp::LogToStream(FILE *fGraph)
@@ -1429,11 +1279,6 @@ NodeFunctionAddress::NodeFunctionAddress(FunctionInfo* functionInfo)
 	if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
 		first = TakeLastNode();
 
-	codeSize = 1;
-	if(funcInfo->type == FunctionInfo::NORMAL)
-		codeSize += 1;
-	else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
-		codeSize += first->codeSize;
 	nodeType = typeNodeFunctionAddress;
 }
 
@@ -1444,7 +1289,6 @@ NodeFunctionAddress::~NodeFunctionAddress()
 
 void NodeFunctionAddress::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -1457,8 +1301,6 @@ void NodeFunctionAddress::Compile()
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
 		first->Compile();
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 
 void NodeFunctionAddress::LogToStream(FILE *fGraph)
@@ -1514,11 +1356,6 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 	// Find the type or resulting value
 	typeInfo = logicalOp ? typeInt : ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
 
-	asmStackType fST = first->typeInfo->stackType, sST = second->typeInfo->stackType;
-	codeSize = ConvertFirstForSecondSize(fST, sST);
-	fST = ConvertFirstForSecondType(fST, sST);
-	codeSize += ConvertFirstForSecondSize(sST, fST);
-	codeSize += first->codeSize + second->codeSize + 1;
 	nodeType = typeNodeBinaryOp;
 }
 NodeBinaryOp::~NodeBinaryOp()
@@ -1527,8 +1364,6 @@ NodeBinaryOp::~NodeBinaryOp()
 
 void NodeBinaryOp::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	asmStackType fST = first->typeInfo->stackType, sST = second->typeInfo->stackType;
 	
 	// Compute first value
@@ -1548,8 +1383,6 @@ void NodeBinaryOp::Compile()
 		cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddD)));
 	else
 		assert(!"unknown operator type in NodeTwoAndCmdOp");
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeBinaryOp::LogToStream(FILE *fGraph)
 {
@@ -1581,11 +1414,6 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 	if(isTerm)
 		typeInfo = second->typeInfo != third->typeInfo ? ChooseBinaryOpResultType(second->typeInfo, third->typeInfo) : second->typeInfo;
 
-	codeSize = first->codeSize + second->codeSize + 1;
-	if(third)
-		codeSize += third->codeSize + 1 + (second->typeInfo != third->typeInfo ? 1 : 0);
-	if(first->typeInfo->stackType != STYPE_INT)
-		codeSize++;
 	nodeType = typeNodeIfElseExpr;
 }
 NodeIfElseExpr::~NodeIfElseExpr()
@@ -1594,8 +1422,6 @@ NodeIfElseExpr::~NodeIfElseExpr()
 
 void NodeIfElseExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -1608,7 +1434,7 @@ void NodeIfElseExpr::Compile()
 	if(first->typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 	// If false, jump to 'else' block, or out of statement, if there is no 'else'
-	cmdList.push_back(VMCmd(cmdJmpZ, 0));	// Jump address will be fixed later on
+	cmdList.push_back(VMCmd(cmdJmpZ, ~0ul));	// Jump address will be fixed later on
 	unsigned int jmpOnFalse = cmdList.size()-1;
 
 	// Compile block for condition == true
@@ -1621,7 +1447,7 @@ void NodeIfElseExpr::Compile()
 	if(third)
 	{
 		// Put jump to exit statement at the end of main block
-		cmdList.push_back(VMCmd(cmdJmp, 0));	// Jump address will be fixed later on
+		cmdList.push_back(VMCmd(cmdJmp, ~0ul));	// Jump address will be fixed later on
 		unsigned int jmpToEnd = cmdList.size()-1;
 
 		cmdList[jmpOnFalse].argument = cmdList.size();	// Fixup jump address
@@ -1633,8 +1459,6 @@ void NodeIfElseExpr::Compile()
 
 		cmdList[jmpToEnd].argument = cmdList.size();	// Fixup jump address
 	}
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeIfElseExpr::LogToStream(FILE *fGraph)
 {
@@ -1667,9 +1491,6 @@ NodeForExpr::NodeForExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
-	codeSize = first->codeSize + second->codeSize + third->codeSize + fourth->codeSize + 2;
-	if(second->typeInfo->stackType != STYPE_INT)
-		codeSize++;
 	nodeType = typeNodeForExpr;
 }
 NodeForExpr::~NodeForExpr()
@@ -1678,8 +1499,6 @@ NodeForExpr::~NodeForExpr()
 
 void NodeForExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
@@ -1695,26 +1514,22 @@ void NodeForExpr::Compile()
 	if(second->typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 
-	// Save exit address for break operator
-	breakAddr.push_back(cmdList.size() + 1 + third->codeSize + fourth->codeSize + 1);
-
 	// If condition == false, exit loop
-	cmdList.push_back(VMCmd(cmdJmpZ, breakAddr.back()));
-
-	// Save address for continue operator
-	continueAddr.push_back(cmdList.size()+fourth->codeSize);
+	cmdList.push_back(VMCmd(cmdJmpZ, 0));
+	VMCmd	*exitJmp = &cmdList.back();	// Fixup later
 
 	// Compile loop contents
 	fourth->Compile();
+
+	unsigned int posPostOp = cmdList.size();
 	// Compile operation, executed after each cycle
 	third->Compile();
 	// Jump to condition check
 	cmdList.push_back(VMCmd(cmdJmp, posTestExpr));
 
-	breakAddr.pop_back();
-	continueAddr.pop_back();
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
+	exitJmp->argument = cmdList.size();
+	NodeContinueOp::SatisfyJumps(posPostOp);
+	NodeBreakOp::SatisfyJumps(cmdList.size());
 }
 void NodeForExpr::LogToStream(FILE *fGraph)
 {
@@ -1738,9 +1553,6 @@ NodeWhileExpr::NodeWhileExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
-	codeSize = first->codeSize + second->codeSize + 2;
-	if(first->typeInfo->stackType != STYPE_INT)
-		codeSize++;
 	nodeType = typeNodeWhileExpr;
 }
 NodeWhileExpr::~NodeWhileExpr()
@@ -1749,8 +1561,6 @@ NodeWhileExpr::~NodeWhileExpr()
 
 void NodeWhileExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	// Child node structure: while(first) second;
 
 	unsigned int posStart = cmdList.size();
@@ -1760,24 +1570,19 @@ void NodeWhileExpr::Compile()
 	if(first->typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 
-	// Save exit address for break operator
-	breakAddr.push_back(cmdList.size() + 1 + second->codeSize + 1);
-
 	// If condition == false, exit loop
-	cmdList.push_back(VMCmd(cmdJmpZ, breakAddr.back()));
-
-	// Save address for continue operator
-	continueAddr.push_back(cmdList.size() + second->codeSize);
+	cmdList.push_back(VMCmd(cmdJmpZ, 0));
+	VMCmd	*exitJmp = &cmdList.back();	// Fixup later
 
 	// Compile loop contents
 	second->Compile();
+
 	// Jump to condition check
 	cmdList.push_back(VMCmd(cmdJmp, posStart));
 
-	breakAddr.pop_back();
-	continueAddr.pop_back();
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
+	exitJmp->argument = cmdList.size();
+	NodeContinueOp::SatisfyJumps(posStart);
+	NodeBreakOp::SatisfyJumps(cmdList.size());
 }
 void NodeWhileExpr::LogToStream(FILE *fGraph)
 {
@@ -1799,9 +1604,6 @@ NodeDoWhileExpr::NodeDoWhileExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
-	codeSize = first->codeSize + second->codeSize + 1;
-	if(second->typeInfo->stackType != STYPE_INT)
-		codeSize++;
 	nodeType = typeNodeDoWhileExpr;
 }
 NodeDoWhileExpr::~NodeDoWhileExpr()
@@ -1810,19 +1612,13 @@ NodeDoWhileExpr::~NodeDoWhileExpr()
 
 void NodeDoWhileExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	// Child node structure: do{ first; }while(second)
 
 	unsigned int posStart = cmdList.size();
-	// Save exit address for break operator
-	breakAddr.push_back(cmdList.size() + first->codeSize + second->codeSize + 1);
-
-	// Save address for continue operator
-	continueAddr.push_back(cmdList.size() + first->codeSize);
-
 	// Compile loop contents
 	first->Compile();
+
+	unsigned int posCond = cmdList.size();
 	// Compute condition value
 	second->Compile();
 	if(second->typeInfo->stackType != STYPE_INT)
@@ -1831,10 +1627,8 @@ void NodeDoWhileExpr::Compile()
 	// Jump to beginning if condition == true
 	cmdList.push_back(VMCmd(cmdJmpNZ, posStart));
 
-	breakAddr.pop_back();
-	continueAddr.pop_back();
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
+	NodeContinueOp::SatisfyJumps(posCond);
+	NodeBreakOp::SatisfyJumps(cmdList.size());
 }
 void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 {
@@ -1849,11 +1643,32 @@ void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
+void SatisfyJumps(FastVector<VMCmd*>& jumpList, unsigned int pos)
+{
+	for(unsigned int i = 0; i < jumpList.size();)
+	{
+		if(jumpList[i]->argument == 1)
+		{
+			// If level is equal to 1, replace it with jump position
+			jumpList[i]->argument = pos;
+			// Remove element by replacing with the last one
+			jumpList[i] = jumpList.back();
+			jumpList.pop_back();
+		}else{
+			// Otherwise, change level
+			jumpList[i]->argument--;
+			i++;
+		}
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
 // Node for break operation
+
+FastVector<VMCmd*>	NodeBreakOp::fixQueue(32);
 
 NodeBreakOp::NodeBreakOp(unsigned int brDepth)
 {
-	codeSize = 1;
 	nodeType = typeNodeBreakOp;
 
 	breakDepth = brDepth;
@@ -1864,14 +1679,12 @@ NodeBreakOp::~NodeBreakOp()
 
 void NodeBreakOp::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Break the loop
-	cmdList.push_back(VMCmd(cmdJmp, breakAddr[breakAddr.size()-breakDepth]));
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
+	cmdList.push_back(VMCmd(cmdJmp, breakDepth));
+	fixQueue.push_back(&cmdList.back());
 }
 void NodeBreakOp::LogToStream(FILE *fGraph)
 {
@@ -1879,12 +1692,18 @@ void NodeBreakOp::LogToStream(FILE *fGraph)
 	fprintf(fGraph, "%s BreakExpression\r\n", typeInfo->GetFullTypeName());
 }
 
+void NodeBreakOp::SatisfyJumps(unsigned int pos)
+{
+	::SatisfyJumps(fixQueue, pos);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Node for continue operation
 
+FastVector<VMCmd*>	NodeContinueOp::fixQueue(32);
+
 NodeContinueOp::NodeContinueOp(unsigned int contDepth)
 {
-	codeSize = 1;
 	nodeType = typeNodeContinueOp;
 
 	continueDepth = contDepth;
@@ -1895,14 +1714,12 @@ NodeContinueOp::~NodeContinueOp()
 
 void NodeContinueOp::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Continue the loop
-	cmdList.push_back(VMCmd(cmdJmp, continueAddr[continueAddr.size()-continueDepth]));
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
+	cmdList.push_back(VMCmd(cmdJmp, continueDepth));
+	fixQueue.push_back(&cmdList.back());
 }
 void NodeContinueOp::LogToStream(FILE *fGraph)
 {
@@ -1910,8 +1727,15 @@ void NodeContinueOp::LogToStream(FILE *fGraph)
 	fprintf(fGraph, "%s ContinueOp\r\n", typeInfo->GetFullTypeName());
 }
 
+void NodeContinueOp::SatisfyJumps(unsigned int pos)
+{
+	::SatisfyJumps(fixQueue, pos);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Node for compilation of switch
+
+FastVector<VMCmd*>	NodeSwitchExpr::fixQueue(32);
 
 NodeSwitchExpr::NodeSwitchExpr()
 {
@@ -1922,8 +1746,6 @@ NodeSwitchExpr::NodeSwitchExpr()
 	defaultCase = NULL;
 	caseCount = 0;
 
-	codeSize = first->codeSize;
-	codeSize += 2;
 	nodeType = typeNodeSwitchExpr;
 }
 NodeSwitchExpr::~NodeSwitchExpr()
@@ -1932,8 +1754,6 @@ NodeSwitchExpr::~NodeSwitchExpr()
 
 void NodeSwitchExpr::AddCase()
 {
-	if(caseCount == 0)
-		codeSize--;
 	caseCount++;
 	// Take case block from the top
 	if(blockTail)
@@ -1953,45 +1773,26 @@ void NodeSwitchExpr::AddCase()
 	}else{
 		conditionHead = conditionTail = TakeLastNode();
 	}
-	codeSize += conditionTail->codeSize;
-	codeSize += blockTail->codeSize + 2;
-	codeSize += 3;
 }
 
 void NodeSwitchExpr::AddDefault()
 {
 	defaultCase = TakeLastNode();
-	codeSize += defaultCase->codeSize;
 }
 
 void NodeSwitchExpr::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	asmStackType aST = first->typeInfo->stackType;
 	asmOperType aOT = operTypeForStackType[aST];
+
+	unsigned int queueStart = fixQueue.size(), queueCurr = queueStart;
 
 	// Compute value
 	first->Compile();
 
 	NodeZeroOP *curr, *currBlock;
 
-	// Find address of the end of the switch
-	unsigned int switchEnd = cmdList.size() + 2 + caseCount * 3;
-	for(curr = conditionHead; curr; curr = curr->next)
-		switchEnd += curr->codeSize;
-	unsigned int condEnd = switchEnd;
-	for(curr = blockHead; curr; curr = curr->next)
-		switchEnd += curr->codeSize + 1 + (curr != blockTail ? 1 : 0);
-	unsigned int defaultPos = switchEnd;
-	if(defaultCase)
-		switchEnd += defaultCase->codeSize;
-
-	// Save exit address form break operator
-	breakAddr.push_back(switchEnd);
-
 	// Generate code for all cases
-	unsigned int caseAddr = condEnd;
 	for(curr = conditionHead, currBlock = blockHead; curr; curr = curr->next, currBlock = currBlock->next)
 	{
 		if(aOT == OTYPE_INT)
@@ -2008,29 +1809,36 @@ void NodeSwitchExpr::Compile()
 		else
 			cmdList.push_back(VMCmd(cmdEqualL));
 		// If equal, jump to corresponding case block
-		cmdList.push_back(VMCmd(cmdJmpNZ, caseAddr));
-		caseAddr += currBlock->codeSize + 2;
+		cmdList.push_back(VMCmd(cmdJmpNZ, 0));
+		fixQueue.push_back(&cmdList.back());	// Fixup later
 	}
 	// Remove value by which we switched from stack
 	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 
-	cmdList.push_back(VMCmd(cmdJmp, defaultPos));
+	cmdList.push_back(VMCmd(cmdJmp, 0));
+	fixQueue.push_back(&cmdList.back());	// Fixup later
 	for(curr = blockHead; curr; curr = curr->next)
 	{
+		fixQueue[queueCurr++]->argument = cmdList.size();
 		// Remove value by which we switched from stack
 		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 		curr->Compile();
 		if(curr != blockTail)
 			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 2));
 	}
+	fixQueue[queueCurr++]->argument = cmdList.size();
 	if(defaultCase)
 		defaultCase->Compile();
 
-	assert(switchEnd == cmdList.size());
-
-	breakAddr.pop_back();
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
+	for(unsigned int i = 0; i < NodeContinueOp::fixQueue.size(); i++)
+	{
+		if(NodeContinueOp::fixQueue[i]->argument == 1)
+		{
+			ThrowError("ERROR: cannot continue inside switch", NULL);
+		}
+	}
+	fixQueue.shrink(queueStart);
+	NodeBreakOp::SatisfyJumps(cmdList.size());
 }
 void NodeSwitchExpr::LogToStream(FILE *fGraph)
 {
@@ -2059,7 +1867,6 @@ NodeExpressionList::NodeExpressionList(TypeInfo *returnType)
 	typeInfo = returnType;
 	tail = first = TakeLastNode();
 
-	codeSize = first->nodeType == typeNodeFuncDef ? 0 : first->codeSize;
 	nodeType = typeNodeExpressionList;
 }
 NodeExpressionList::~NodeExpressionList()
@@ -2073,14 +1880,12 @@ void NodeExpressionList::AddNode(bool reverse)
 	{
 		NodeZeroOP *firstNext = first;
 		first = TakeLastNode();
-		codeSize += first->nodeType == typeNodeFuncDef ? 0 : first->codeSize;
 		first->next = firstNext;
 		first->next->prev = first;
 	}else{
 		tail->next = TakeLastNode();
 		tail->next->prev = tail;
 		tail = tail->next;
-		codeSize += tail->nodeType == typeNodeFuncDef ? 0 : tail->codeSize;
 	}
 }
 
@@ -2092,16 +1897,12 @@ NodeZeroOP* NodeExpressionList::GetFirstNode()
 
 void NodeExpressionList::Compile()
 {
-	unsigned int startCmdSize = cmdList.size();
-
 	NodeZeroOP	*curr = first;
 	do 
 	{
 		curr->Compile();
 		curr = curr->next;
 	}while(curr);
-
-	assert((cmdList.size()-startCmdSize) == codeSize);
 }
 void NodeExpressionList::LogToStream(FILE *fGraph)
 {

@@ -30,13 +30,12 @@ bool lastFailed;
 #define CHECK_CHAR(var, index, expected) if(((char*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((char*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_STR(var, index, expected) if(strcmp(((char*)FindVar(var)+index), (expected)) != 0){ printf(" Failed %s[%d] == %s (got %s)\r\n", #var, index, expected, ((char*)FindVar(var))+index); lastFailed = true; }
 
-struct ArrayPtr{ char* ptr; int len; };
-FILE* mFileOpen(ArrayPtr name, ArrayPtr access)
+FILE* mFileOpen(NullCArray name, NullCArray access)
 {
 	return fopen(name.ptr, access.ptr);
 }
 
-void mFileWrite(FILE* file, ArrayPtr arr)
+void mFileWrite(FILE* file, NullCArray arr)
 {
 	fwrite(arr.ptr, 1, arr.len, file);
 }
@@ -53,7 +52,7 @@ void mFileWriteTypePtr(FILE* file, T* val)
 	fwrite(val, sizeof(T), 1, file);
 }
 
-void mFileRead(FILE* file, ArrayPtr arr)
+void mFileRead(FILE* file, NullCArray arr)
 {
 	fread(arr.ptr, 1, arr.len, file);
 }
@@ -332,9 +331,9 @@ int	newS(int size)
 	return (int)(intptr_t)(new char[size]);
 }
 
-ArrayPtr	newA(int size, int count)
+NullCArray	newA(int size, int count)
 {
-	ArrayPtr ret;
+	NullCArray ret;
 	ret.ptr = new char[count * size];
 	ret.len = count;
 	return ret;
@@ -382,8 +381,8 @@ void	RunTests()
 	printf("\r\nTwo bytecode merge test 1\r\n");
 	testCount++;
 
-	const char *partA1 = "int a = 5; int test(int ref a, int b){ return *a += b; } test(&a, 4);";
-	const char *partB1 = "int aa = 15; int testA(int ref a, int b){ return *a += b + 1; } testA(&aa, 5); return aa;";
+	const char *partA1 = "int a = 5;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\n";
+	const char *partB1 = "int aa = 15;\r\nint testA(int ref a, int b)\r\n{\r\n\treturn *a += b + 1;\r\n}\r\ntestA(&aa, 5);\r\nreturn aa;\r\n";
 
 	char *bytecodeA, *bytecodeB;
 	bytecodeA = NULL;
@@ -3041,7 +3040,7 @@ return 1;";
 
 			CHECK_INT("c1", 0, 512);
 
-			CHECK_INT("opt1", 0, (((12 / 3) < 8) ? 1 : 0) != (((5 >= 7) == (5 <= 3)) ? 1 : 0) + (18 >> 2) % (4 & 4 ^ 0 | 0xffff) + ((5 && 1 || (0)) ? 1 : 0));
+			CHECK_INT("opt1", 0, (1 != 1 + (18 >> 2) % (4 & 4 ^ 0 | 0xffff) + 1) ? 1 : 0);
 			CHECK_LONG("opt2", 0, 18l >> 2l % 5l ^ 9l | 12l & 13l);
 			CHECK_LONG("opt3", 0, 1);
 

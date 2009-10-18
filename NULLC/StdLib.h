@@ -1,6 +1,5 @@
 #pragma once
-
-struct ArrayPtr{ char* ptr; int len; };
+#include "nullcdef.h"
 
 double nullcCos(double deg);
 double nullcSin(double deg);
@@ -23,5 +22,5 @@ double nullcLog(double num);
 
 double nullcSqrt(double num);
 
-int strEqual(ArrayPtr a, ArrayPtr b);
-int strNEqual(ArrayPtr a, ArrayPtr b);
+int strEqual(NullCArray a, NullCArray b);
+int strNEqual(NullCArray a, NullCArray b);

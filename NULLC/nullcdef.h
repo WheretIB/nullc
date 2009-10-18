@@ -8,6 +8,13 @@
 	typedef int intptr_t;
 #endif
 
+// Wrapper over NULLC array, for use in external functions
+struct NullCArray
+{
+	char* ptr;
+	unsigned int len;
+};
+
 #define NULLC_MAX_VARIABLE_NAME_LENGTH 2048
 
 //#define NULLC_VM_LOG_INSTRUCTION_EXECUTION

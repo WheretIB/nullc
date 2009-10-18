@@ -34,10 +34,6 @@ const char*	nullcGetCompilationError();
 unsigned int nullcGetBytecode(char **bytecode);
 
 // Function work only if NULLC_LOG_FILES is defined
-// for debug purposes, or simple curiosity, this function returns some information, generated during compilation
-const char*	nullcGetCompilationLog();
-
-// Function work only if NULLC_LOG_FILES is defined
 // this function returns string with last bytecode disassembly
 void	nullcSaveListing(const char *fileName);
 
