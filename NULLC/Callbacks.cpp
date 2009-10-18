@@ -1425,7 +1425,8 @@ void FunctionEnd(const char* pos, const char* funcName)
 	// Find all the functions with the same name
 	for(int n = 0; n < i; n++)
 	{
-		if(CodeInfo::funcInfo[n]->nameHash == CodeInfo::funcInfo[i]->nameHash && CodeInfo::funcInfo[n]->paramCount == CodeInfo::funcInfo[i]->paramCount && CodeInfo::funcInfo[n]->visible)
+		if(CodeInfo::funcInfo[n]->nameHash == CodeInfo::funcInfo[i]->nameHash && CodeInfo::funcInfo[n]->paramCount == CodeInfo::funcInfo[i]->paramCount &&
+			CodeInfo::funcInfo[n]->visible && CodeInfo::funcInfo[n]->retType == CodeInfo::funcInfo[i]->retType)
 		{
 			// Check all parameter types
 			bool paramsEqual = true;
@@ -1441,8 +1442,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 					SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is being defined with the same set of parameters", CodeInfo::funcInfo[i]->name);
 					ThrowError(callbackError, pos);
 				}else{
-					CodeInfo::funcInfo[n]->address = CodeInfo::funcInfo[i]->address;
-					CodeInfo::funcInfo[n]->visible = false;
+					CodeInfo::funcInfo[n]->address = i | 0x80000000;
 				}
 			}
 		}
