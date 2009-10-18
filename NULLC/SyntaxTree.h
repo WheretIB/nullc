@@ -66,14 +66,9 @@ protected:
 	const char		*sourcePos;
 public:
 	TypeInfo		*typeInfo;
-	unsigned int	codeSize;
 	NodeType		nodeType;
 	NodeZeroOP		*prev, *next;	// For organizing intrusive node lists
 };
-
-void	GoDown();
-void	GoUp();
-void	DrawLine(FILE *fGraph);
 
 //////////////////////////////////////////////////////////////////////////
 class NodeOneOP: public NodeZeroOP
@@ -126,21 +121,18 @@ public:
 	NodeNumber(int number, TypeInfo* ptrType)
 	{
 		num.integer = number;
-		codeSize = 1;
 		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
 	}
 	NodeNumber(long long number, TypeInfo* ptrType)
 	{
 		num.integer64 = number;
-		codeSize = 2;
 		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
 	}
 	NodeNumber(double number, TypeInfo* ptrType)
 	{
 		num.real = number;
-		codeSize = 2;
 		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
 	}
@@ -442,6 +434,9 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+
+	static	void SatisfyJumps(unsigned int pos);
+	static FastVector<VMCmd*>	fixQueue;
 protected:
 	unsigned int breakDepth;
 };
@@ -454,6 +449,9 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+
+	static	void SatisfyJumps(unsigned int pos);
+	static FastVector<VMCmd*>	fixQueue;
 protected:
 	unsigned int continueDepth;
 };
@@ -475,6 +473,8 @@ protected:
 	NodeZeroOP	*defaultCase;
 
 	unsigned int	caseCount;
+
+	static FastVector<VMCmd*>	fixQueue;
 };
 
 class NodeExpressionList: public NodeOneOP

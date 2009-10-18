@@ -56,8 +56,6 @@ char *variableData = NULL;
 void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
 void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
 
-struct ArrayPtr{ char* ptr; int len; };
-
 int myGetTime()
 {
 	LARGE_INTEGER freq, count;
@@ -76,12 +74,12 @@ double myGetPreciseTime()
 	return temp*1000.0;
 }
 
-FILE* myFileOpen(ArrayPtr name, ArrayPtr access)
+FILE* myFileOpen(NullCArray name, NullCArray access)
 {
 	return fopen(name.ptr, access.ptr);
 }
 
-void myFileWrite(FILE* file, ArrayPtr arr)
+void myFileWrite(FILE* file, NullCArray arr)
 {
 	fwrite(arr.ptr, 1, arr.len, file);
 }
@@ -98,7 +96,7 @@ void myFileWriteTypePtr(FILE* file, T* val)
 	fwrite(val, sizeof(T), 1, file);
 }
 
-void myFileRead(FILE* file, ArrayPtr arr)
+void myFileRead(FILE* file, NullCArray arr)
 {
 	fread(arr.ptr, 1, arr.len, file);
 }
@@ -159,7 +157,7 @@ void DeInitConsole()
 	consoleActive = false;
 }
 
-void WriteToConsole(ArrayPtr data)
+void WriteToConsole(NullCArray data)
 {
 	InitConsole();
 	DWORD written;
@@ -178,7 +176,7 @@ void ReadIntFromConsole(int* val)
 	WriteFile(conStdOut, "\r\n", 2, &written, NULL); 
 }
 
-int ReadTextFromConsole(ArrayPtr data)
+int ReadTextFromConsole(NullCArray data)
 {
 	char buffer[2048];
 
@@ -196,7 +194,7 @@ int ReadTextFromConsole(ArrayPtr data)
 		if(c < 0)
 			c = 0;
 	}
-	if(c < data.len)
+	if((unsigned int)c < data.len)
 		buffer[c-1] = 0;
 	else
 		buffer[data.len-1] = 0;
@@ -204,7 +202,7 @@ int ReadTextFromConsole(ArrayPtr data)
 
 	DWORD written;
 	WriteFile(conStdOut, "\r\n", 2, &written, NULL);
-	return (c < data.len ? c : data.len);
+	return ((unsigned int)c < data.len ? c : data.len);
 }
 
 struct float4c{ float x, y, z, w; };
@@ -251,9 +249,9 @@ int	allocSimple(int size)
 	return (int)(long long)(new char[size]);
 }
 
-ArrayPtr	allocArray(int size, int count)
+NullCArray	allocArray(int size, int count)
 {
-	ArrayPtr ret;
+	NullCArray ret;
 	ret.ptr = new char[count * size];
 	ret.len = count;
 	return ret;

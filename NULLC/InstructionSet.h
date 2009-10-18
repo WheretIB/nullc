@@ -331,6 +331,7 @@ struct VMCmd
 		case cmdIndexStk:
 		case cmdGetAddr:
 		case cmdFuncAddr:
+		case cmdPushVTop:
 			curr += sprintf(curr, " %d", argument);
 			break;
 

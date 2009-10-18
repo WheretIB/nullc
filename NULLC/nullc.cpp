@@ -96,26 +96,6 @@ unsigned int nullcGetBytecode(char **bytecode)
 	return compiler->GetBytecode(bytecode);
 }
 
-const char*	nullcGetCompilationLog()
-{
-#ifdef NULLC_LOG_FILES
-	FILE *cLog = fopen("compilelog.txt", "rb");
-	if(!cLog)
-		return "";
-	fseek(cLog, 0, SEEK_END);
-	unsigned int size = ftell(cLog);
-	fseek(cLog, 0, SEEK_SET);
-	delete[] compilationLog;
-	compilationLog = new char[size+1];
-	fread(compilationLog, 1, size, cLog);
-	compilationLog[size] = 0;
-	fclose(cLog);
-	return compilationLog;
-#else
-	return "";
-#endif
-}
-
 void	nullcSaveListing(const char *fileName)
 {
 #ifdef NULLC_LOG_FILES
