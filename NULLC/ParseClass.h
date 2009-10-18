@@ -257,8 +257,8 @@ class VariableInfo
 {
 public:
 	VariableInfo(){}
-	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool newisConst=true):
-		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype)
+	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool newisConst, bool global):
+		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype), isGlobal(global)
 	{
 	}
 
@@ -267,6 +267,7 @@ public:
 
 	unsigned int	pos;		// Variable position in value stack
 	bool			isConst;	// Constant flag
+	bool			isGlobal;
 
 	bool			dataReserved;	// Tells if cmdPushV was used for this variable
 

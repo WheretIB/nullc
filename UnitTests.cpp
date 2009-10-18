@@ -3114,6 +3114,49 @@ return m[1][3] + 2;";
 		}
 	}
 
+const char	*testMissingTests5 =
+"long a = 3, a2 = 1;\r\n\
+long b1 = a ** 27;\r\n\
+long b2 = a2 ** 16884;\r\n\
+long b3 = a ** -0;\r\n\
+long b4 = a ** -1;\r\n\
+char f;\r\n\
+char ref k(){ align(16) char a; return &a; }\r\n\
+char ref r(){ align(16) char a; return k(); }\r\n\
+align(16) char ref i = r();\r\n\
+char ref k2(){ align(16) char a; return &a; }\r\n\
+char ref r2(){ align(16) char a; return k(); }\r\n\
+char ref i2 = r2();\r\n\
+return 1;";
+	printf("\r\nGroup of tests 5\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testMissingTests5, testTarget[t], "1"))
+		{
+			lastFailed = false;
+			
+			CHECK_LONG("b1", 0, 7625597484987ll);
+			CHECK_LONG("b2", 0, 1);
+			CHECK_LONG("b3", 0, 1);
+			CHECK_LONG("b4", 0, 0);
+
+			if(((int*)FindVar("i"))[0] % 16 != 0)
+			{
+				printf(" %s Failed. i unaligned\r\n", t == 0 ? "VM" : "X86");
+				lastFailed = true;
+			}
+			if(((int*)FindVar("i2"))[0] % 16 != 0)
+			{
+				printf(" %s Failed. i2 unaligned\r\n", t == 0 ? "VM" : "X86");
+				lastFailed = true;
+			}
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");

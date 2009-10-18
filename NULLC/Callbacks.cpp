@@ -737,7 +737,7 @@ void AddVariable(const char* pos, InplaceStr varName)
 		unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes);
 		varTop += offset;
 	}
-	CodeInfo::varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currValConst));
+	CodeInfo::varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currValConst, currDefinedFunc.size() == 0));
 	varDefined = true;
 	if(currType)
 		varTop += currType->size;
@@ -880,15 +880,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			AddArrayIndexNode(pos);
 			AddDereferenceNode(pos);
 		}else{
-			// If variable is in global scope, use absolute address
-			bool absAddress = currDefinedFunc.size() == 0 || ((varInfoTop.size() > 1) && (CodeInfo::varInfo[i]->pos < varInfoTop[currDefinedFunc[0]->vTopSize].varStackSize));
-
-			int varAddress = CodeInfo::varInfo[i]->pos;
-			if(!absAddress)
-				varAddress -= (int)(varInfoTop[currDefinedFunc.back()->vTopSize].varStackSize);
-
 			// Create node that places variable address on stack
-			CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], varAddress, absAddress, CodeInfo::varInfo[i]->varType));
+			CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
 		}
 	}
 }
@@ -986,9 +979,6 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 		ThrowError(callbackError, pos);
 	}
 
-	// If variable is in global scope, use absolute address
-	bool absAddress = currDefinedFunc.size() == 0 || ((varInfoTop.size() > 1) && (CodeInfo::varInfo[i]->pos < varInfoTop[currDefinedFunc[0]->vTopSize].varStackSize));
-
 	// If current type is set to NULL, it means that current type is auto
 	// Is such case, type is retrieved from last AST node
 	TypeInfo *realCurrType = CodeInfo::varInfo[i]->varType ? CodeInfo::varInfo[i]->varType : CodeInfo::nodeList.back()->typeInfo;
@@ -1025,11 +1015,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	}
 	CodeInfo::varInfo[i]->dataReserved = true;
 
-	unsigned int varPosition = CodeInfo::varInfo[i]->pos;
-	if(!absAddress)
-		varPosition -= (int)(varInfoTop[currDefinedFunc.back()->vTopSize].varStackSize);
-
-	CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], varPosition, absAddress, CodeInfo::varInfo[i]->varType));
+	CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
 
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::GetReferenceType(realCurrType), true, false));
 	if(!CodeInfo::lastError.IsEmpty())
@@ -1357,24 +1343,9 @@ void FunctionAdd(const char* pos, const char* funcName)
 		sprintf(funcNameCopy, "%s::%s", newType->name, funcName);
 	}
 	funcNameHash = GetStringHash(funcNameCopy);
-	int k = CodeInfo::funcInfo.size();
-	do
-	{
-		k = CodeInfo::FindFunctionByName(funcNameHash, k-1);
-	}while(k != -1 && CodeInfo::funcInfo[k]->implemented);
 
-	FunctionInfo* lastFunc = NULL;
-	if(k != -1)
-	{
-		lastFunc = CodeInfo::funcInfo[k];
-		lastFunc->allParamSize = 0;
-
-		lastFunc->firstParam = lastFunc->lastParam = NULL;
-		lastFunc->paramCount = 0;
-	}else{
-		CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy));
-		lastFunc = CodeInfo::funcInfo.back();
-	}
+	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy));
+	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
 	lastFunc->vTopSize = (unsigned int)varInfoTop.size();
 	lastFunc->retType = currType;
@@ -1396,14 +1367,16 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	lastFunc.AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst));
+	lastFunc.AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst, false));
 	lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
 }
 
-void FunctionPrototype()
+void FunctionPrototype(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
-	lastFunc.funcType = lastFunc.retType ? CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()) : NULL;
+	if(!lastFunc.retType)
+		ThrowError("ERROR: function prototype with unresolved return type", pos);
+	lastFunc.funcType = CodeInfo::GetFunctionType(CodeInfo::funcInfo.back());
 	currDefinedFunc.pop_back();
 }
 
@@ -1415,6 +1388,8 @@ void FunctionStart(const char* pos)
 
 	BeginBlock();
 	cycleDepth.push_back(0);
+
+	varTop = 0;
 
 	for(VariableInfo *curr = lastFunc.lastParam; curr; curr = curr->prev)
 	{
@@ -1461,8 +1436,14 @@ void FunctionEnd(const char* pos, const char* funcName)
 			}
 			if(paramsEqual)
 			{
-				SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is being defined with the same set of parameters", CodeInfo::funcInfo[i]->name);
-				ThrowError(callbackError, pos);
+				if(CodeInfo::funcInfo[n]->implemented)
+				{
+					SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is being defined with the same set of parameters", CodeInfo::funcInfo[i]->name);
+					ThrowError(callbackError, pos);
+				}else{
+					CodeInfo::funcInfo[n]->address = CodeInfo::funcInfo[i]->address;
+					CodeInfo::funcInfo[n]->visible = false;
+				}
 			}
 		}
 	}
@@ -1481,11 +1462,11 @@ void FunctionEnd(const char* pos, const char* funcName)
 	if(lastFunc.firstLocal)
 		lastFunc.firstLocal->prev = NULL;
 
-	EndBlock();
 	unsigned int varFormerTop = varTop;
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
+	EndBlock();
 
-	CodeInfo::nodeList.push_back(new NodeFuncDef(&lastFunc, varFormerTop-varTop));
+	CodeInfo::nodeList.push_back(new NodeFuncDef(&lastFunc, varFormerTop));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 	CodeInfo::funcDefList.push_back(CodeInfo::nodeList.back());
 
