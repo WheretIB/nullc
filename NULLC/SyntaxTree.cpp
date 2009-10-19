@@ -143,43 +143,6 @@ TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 	return NULL;
 }
 
-unsigned int ConvertFirstForSecondSize(asmStackType first, asmStackType second)
-{
-	if((first == STYPE_INT || first == STYPE_LONG) && second == STYPE_DOUBLE)
-		return 1;
-	if(first == STYPE_INT && second == STYPE_LONG)
-		return 1;
-	return 0;
-}
-asmStackType	ConvertFirstForSecondType(asmStackType first, asmStackType second)
-{
-	if((first == STYPE_INT || first == STYPE_LONG) && second == STYPE_DOUBLE)
-		return STYPE_DOUBLE;
-	if(first == STYPE_INT && second == STYPE_LONG)
-		return STYPE_LONG;
-	return first;
-}
-
-unsigned int	ConvertFirstToSecondSize(asmStackType first, asmStackType second)
-{
-	if(second == STYPE_DOUBLE)
-	{
-		if(first == STYPE_INT || first == STYPE_LONG)
-			return 1;
-	}else if(second == STYPE_LONG){
-		if(first == STYPE_INT)
-			return 1;
-		else if(first == STYPE_DOUBLE)
-			return 1;
-	}else if(second == STYPE_INT){
-		if(first == STYPE_DOUBLE)
-			return 1;
-		else if(first == STYPE_LONG)
-			return 1;
-	}
-	return 0;
-}
-
 // class implementation
 
 //////////////////////////////////////////////////////////////////////////
