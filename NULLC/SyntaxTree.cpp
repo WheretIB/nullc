@@ -730,19 +730,9 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->typeInfo == typeVoid)
-	{
-		char	errBuf[128];
-		SafeSprintf(errBuf, 128, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
-		lastError = CompilerError(errBuf, lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 	if(typeInfo == typeVoid)
-	{
-		char	errBuf[128];
-		SafeSprintf(errBuf, 128, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
-		lastError = CompilerError(errBuf, lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 	
 	// If types don't match
 	if(second->typeInfo != typeInfo)
@@ -757,12 +747,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
 		{
 			if(!(typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && arrSetAll))
-			{
-				char	errBuf[128];
-				SafeSprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
-				lastError = CompilerError(errBuf, lastKnownStartPos);
-				return;
-			}
+				ThrowError(lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 		}
 	}
 
@@ -862,19 +847,9 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	assert(first->typeInfo->refLevel != 0);
 
 	if(second->typeInfo == typeVoid)
-	{
-		char	errBuf[128];
-		SafeSprintf(errBuf, 128, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
-		lastError = CompilerError(errBuf, lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 	if(typeInfo == typeVoid)
-	{
-		char	errBuf[128];
-		SafeSprintf(errBuf, 128, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
-		lastError = CompilerError(errBuf, lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 
 	// If types don't match
 	if(second->typeInfo != typeInfo)
@@ -888,10 +863,7 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 			(typeInfo->refLevel != second->typeInfo->refLevel) ||
 			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
 		{
-			char	errBuf[128];
-			SafeSprintf(errBuf, 128, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
-			lastError = CompilerError(errBuf, lastKnownStartPos);
-			return;
+			ThrowError(lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 		}
 	}
 
@@ -1183,12 +1155,7 @@ NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 	incOp = isInc;
 
 	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
-	{
-		char	errBuf[128];
-		SafeSprintf(errBuf, 128, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetFullTypeName());
-		lastError = CompilerError(errBuf, lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetFullTypeName());
 
 	prefixOp = preOp;
 
@@ -1328,28 +1295,14 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 
 	// Binary operations on complex types are not present at the moment
 	if(first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0 || first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-	{
-		char	errBuf[128];
-		SafeSprintf(errBuf, 128, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
-		lastError = CompilerError(errBuf, lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 	if(first->typeInfo == typeVoid)
-	{
-		lastError = CompilerError("ERROR: first operator returns void", lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: first operator returns void");
 	if(second->typeInfo == typeVoid)
-	{
-		lastError = CompilerError("ERROR: second operator returns void", lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: second operator returns void");
 
 	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
-	{
-		lastError = CompilerError("ERROR: binary operations are not available on floating-point numbers", lastKnownStartPos);
-		return;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
 
 	bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
 
@@ -1833,9 +1786,7 @@ void NodeSwitchExpr::Compile()
 	for(unsigned int i = 0; i < NodeContinueOp::fixQueue.size(); i++)
 	{
 		if(NodeContinueOp::fixQueue[i]->argument == 1)
-		{
-			ThrowError("ERROR: cannot continue inside switch", NULL);
-		}
+			ThrowError(NULL, "ERROR: cannot continue inside switch");
 	}
 	fixQueue.shrink(queueStart);
 	NodeBreakOp::SatisfyJumps(cmdList.size());

@@ -3241,6 +3241,12 @@ return 1;";
 	TEST_FOR_FAIL("array size not positive", "int[-16] a; return a[0];");
 	TEST_FOR_FAIL("cannot dereference if not a reference", "int a; return *a;");
 
+	TEST_FOR_FAIL("function parameter cannot be a void type", "int f(void a){ return 0; } return 1;");
+	TEST_FOR_FAIL("function prototype with unresolved return type", "auto f(); return 1;");
+	TEST_FOR_FAIL("Division by zero during constant folding", "return 5 / 0;");
+	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;");
+	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("parsing", "return 0x;");

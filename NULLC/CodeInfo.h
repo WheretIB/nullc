@@ -5,8 +5,7 @@
 
 #include "Compiler.h"
 
-void ThrowError(const char* err, const char* pos);
-void ThrowLastError();
+void ThrowError(const char* pos, const char* err, ...);
 
 // Немного предопределённых базовых типов
 extern TypeInfo*	typeVoid;

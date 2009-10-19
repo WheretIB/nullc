@@ -2,13 +2,17 @@
 #include "CodeInfo.h"
 #include "Bytecode.h"
 
-void ThrowError(const char* err, const char* pos)
+void ThrowError(const char* pos, const char* err, ...)
 {
-	CodeInfo::lastError = CompilerError(err, pos);
-	longjmp(CodeInfo::errorHandler, 1);
-}
-void ThrowLastError()
-{
+	char errorText[512];
+
+	va_list args;
+	va_start(args, err);
+
+	vsnprintf(errorText, 512, err, args);
+	errorText[512-1] = '\0';
+
+	CodeInfo::lastError = CompilerError(errorText, pos);
 	longjmp(CodeInfo::errorHandler, 1);
 }
 
@@ -33,12 +37,7 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 TypeInfo* CodeInfo::GetDereferenceType(TypeInfo* type)
 {
 	if(!type->subType || type->refLevel == 0)
-	{
-		char	errBuf[128];
-		SafeSprintf(errBuf, 128, "ERROR: Cannot dereference type '%s' - there is no result type available", type->GetFullTypeName());
-		lastError = CompilerError(errBuf, lastKnownStartPos);
-		return NULL;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: Cannot dereference type '%s' - there is no result type available", type->GetFullTypeName());
 	return type->subType;
 }
 
@@ -61,15 +60,11 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 				arrSize = -1;
 				unFixed = true;
 			}else{
-				char	errBuf[128];
-				SafeSprintf(errBuf, 128, "ERROR: Unknown type of constant number node '%s'", aType->name);
-				lastError = CompilerError(errBuf, lastKnownStartPos);
-				return NULL;
+				ThrowError(lastKnownStartPos, "ERROR: Unknown type of constant number node '%s'", aType->name);
 			}
 			nodeList.pop_back();
 		}else{
-			lastError = CompilerError("ERROR: Array size must be a constant expression", lastKnownStartPos);
-			return NULL;
+			ThrowError(lastKnownStartPos, "ERROR: Array size must be a constant expression");
 		}
 	}else{
 		arrSize = sizeInArgument;
@@ -78,10 +73,8 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	}
 
 	if(!unFixed && arrSize < 1)
-	{
-		lastError = CompilerError("ERROR: Array size can't be negative or zero", lastKnownStartPos);
-		return NULL;
-	}
+		ThrowError(lastKnownStartPos, "ERROR: Array size can't be negative or zero");
+
 	// Поищем нужный тип в списке
 	unsigned int targetArrLevel = type->arrLevel+1;
 	for(unsigned int i = 0; i < typeInfo.size(); i++)

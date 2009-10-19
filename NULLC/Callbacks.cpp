@@ -3,9 +3,6 @@
 
 #include "Parser.h"
 
-const int ERR_BUF_SIZE = 256;
-char	callbackError[ERR_BUF_SIZE];
-
 // Temp variables
 
 // variable position from base of current stack frame
@@ -99,10 +96,7 @@ long long parseLong(const char* s, const char* e, int base)
 	{
 		int digit = ((*p >= '0' && *p <= '9') ? *p - '0' : (*p & ~0x20) - 'A' + 10);
 		if(digit < 0 || digit > base)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Digit %d is not allowed in base %d", digit, base);
-			ThrowError(callbackError, p);
-		}
+			ThrowError(p, "ERROR: Digit %d is not allowed in base %d", digit, base);
 		res = res * base + digit;
 	}
 	return res;
@@ -179,14 +173,14 @@ char UnescapeSybmol(char symbol)
 	else if(symbol == '\\')
 		res = '\\';
 	else
-		ThrowError("ERROR: unknown escape sequence", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unknown escape sequence");
 	return res;
 }
 
 unsigned int GetAlignmentOffset(const char *pos, unsigned int alignment)
 {
 	if(alignment > 16)
-		ThrowError("ERROR: alignment must be less than 16 bytes", pos);
+		ThrowError(pos, "ERROR: alignment must be less than 16 bytes");
 	// If alignment is set and address is not aligned
 	if(alignment != 0 && varTop % alignment != 0)
 		return alignment - (varTop % alignment);
@@ -196,10 +190,7 @@ unsigned int GetAlignmentOffset(const char *pos, unsigned int alignment)
 void CheckForImmutable(TypeInfo* type, const char* pos)
 {
 	if(type->refLevel == 0)
-	{
-		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: cannot change immutable value of type %s", type->GetFullTypeName());
-		ThrowError(callbackError, pos);
-	}
+		ThrowError(pos, "ERROR: cannot change immutable value of type %s", type->GetFullTypeName());
 }
 // Functions used to add node for constant numbers of different type
 void AddNumberNodeChar(const char* pos)
@@ -232,7 +223,7 @@ void AddHexInteger(const char* pos, const char* end)
 {
 	pos += 2;
 	if(int(end - pos) > 16)
-		ThrowError("ERROR: Overflow in hexadecimal constant", pos);
+		ThrowError(pos, "ERROR: Overflow in hexadecimal constant");
 	if(int(end - pos) <= 8)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 16), typeInt));
 	else
@@ -243,7 +234,7 @@ void AddOctInteger(const char* pos, const char* end)
 {
 	pos++;
 	if(int(end - pos) > 21)
-		ThrowError("ERROR: Overflow in octal constant", pos);
+		ThrowError(pos, "ERROR: Overflow in octal constant");
 	if(int(end - pos) <= 10)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 8), typeInt));
 	else
@@ -253,7 +244,7 @@ void AddOctInteger(const char* pos, const char* end)
 void AddBinInteger(const char* pos, const char* end)
 {
 	if(int(end - pos) > 64)
-		ThrowError("ERROR: Overflow in binary constant", pos);
+		ThrowError(pos, "ERROR: Overflow in binary constant");
 	if(int(end - pos) <= 32)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 2), typeInt));
 	else
@@ -283,8 +274,6 @@ void AddStringNode(const char* s, const char* e)
 
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
 	TypeInfo *targetType = CodeInfo::GetArrayType(typeChar, len + 1);
-	if(!targetType)
-		ThrowLastError();
 	CodeInfo::nodeList.push_back(new NodeExpressionList(targetType));
 
 	NodeZeroOP* temp = CodeInfo::nodeList.back();
@@ -344,16 +333,14 @@ void AddNegateNode(const char* pos)
 		TypeInfo *aType = CodeInfo::nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeDouble || aType == typeFloat)
-		{
 			Rd = new NodeNumber(-static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetDouble(), aType);
-		}else if(aType == typeLong){
+		else if(aType == typeLong)
 			Rd = new NodeNumber(-static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetLong(), aType);
-		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
+		else if(aType == typeInt || aType == typeShort || aType == typeChar)
 			Rd = new NodeNumber(-static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), aType);
-		}else{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "addNegNode() ERROR: unknown type %s", aType->name);
-			ThrowError(callbackError, pos);
-		}
+		else
+			ThrowError(pos, "addNegNode() ERROR: unknown type %s", aType->name);
+
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(Rd);
 	}else{
@@ -366,20 +353,19 @@ void AddNegateNode(const char* pos)
 void AddLogNotNode(const char* pos)
 {
 	if(CodeInfo::nodeList.back()->typeInfo == typeDouble || CodeInfo::nodeList.back()->typeInfo == typeFloat)
-		ThrowError("ERROR: logical NOT is not available on floating-point numbers", pos);
+		ThrowError(pos, "ERROR: logical NOT is not available on floating-point numbers");
 	// If the last node is a number, we can just make operation in compile-time
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = CodeInfo::nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;
-		if(aType == typeLong){
+		if(aType == typeLong)
 			Rd = new NodeNumber((long long)!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetLong(), aType);
-		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
+		else if(aType == typeInt || aType == typeShort || aType == typeChar)
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), aType);
-		}else{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "addLogNotNode() ERROR: unknown type %s", aType->name);
-			ThrowError(callbackError, pos);
-		}
+		else
+			ThrowError(pos, "addLogNotNode() ERROR: unknown type %s", aType->name);
+
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(Rd);
 	}else{
@@ -392,20 +378,19 @@ void AddLogNotNode(const char* pos)
 void AddBitNotNode(const char* pos)
 {
 	if(CodeInfo::nodeList.back()->typeInfo == typeDouble || CodeInfo::nodeList.back()->typeInfo == typeFloat)
-		ThrowError("ERROR: binary NOT is not available on floating-point numbers", pos);
+		ThrowError(pos, "ERROR: binary NOT is not available on floating-point numbers");
 	// If the last node is a number, we can just make operation in compile-time
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 	{
 		TypeInfo *aType = CodeInfo::nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;
-		if(aType == typeLong){
+		if(aType == typeLong)
 			Rd = new NodeNumber(~static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetLong(), aType);
-		}else if(aType == typeInt || aType == typeShort || aType == typeChar){
+		else if(aType == typeInt || aType == typeShort || aType == typeChar)
 			Rd = new NodeNumber(~static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), aType);
-		}else{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "addBitNotNode() ERROR: unknown type %s", aType->name);
-			ThrowError(callbackError, pos);
-		}
+		else
+			ThrowError(pos, "addBitNotNode() ERROR: unknown type %s", aType->name);
+
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(Rd);
 	}else{
@@ -428,7 +413,7 @@ T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 	if(cmd == cmdDiv)
 	{
 		if(b == 0)
-			ThrowError("ERROR: Division by zero during constant folding", CodeInfo::lastKnownStartPos);
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Division by zero during constant folding");
 		return a / b;
 	}
 	if(cmd == cmdPow)
@@ -451,7 +436,7 @@ template<typename T>
 T optDoSpecial(CmdID cmd, T a, T b)
 {
 	(void)cmd; (void)b; (void)a;	// C4100
-	ThrowError("ERROR: optDoSpecial call with unknown type", lastKnownStartPos);
+	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: optDoSpecial call with unknown type");
 	return 0;
 }
 template<> int optDoSpecial<>(CmdID cmd, int a, int b)
@@ -463,7 +448,7 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 	if(cmd == cmdMod)
 	{
 		if(b == 0)
-			ThrowError("ERROR: Modulus division by zero during constant folding", CodeInfo::lastKnownStartPos);
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Modulus division by zero during constant folding");
 		return a % b;
 	}
 	if(cmd == cmdBitAnd)
@@ -490,7 +475,7 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 	if(cmd == cmdMod)
 	{
 		if(b == 0)
-			ThrowError("ERROR: Modulus division by zero during constant folding", CodeInfo::lastKnownStartPos);
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Modulus division by zero during constant folding");
 		return a % b;
 	}
 	if(cmd == cmdBitAnd)
@@ -513,21 +498,21 @@ template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 	if(cmd == cmdMod)
 		return fmod(a,b);
 	if(cmd == cmdShl)
-		ThrowError("ERROR: << is illegal for floating-point numbers", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: << is illegal for floating-point numbers");
 	if(cmd == cmdShr)
-		ThrowError("ERROR: >> is illegal for floating-point numbers", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: >> is illegal for floating-point numbers");
 	if(cmd == cmdBitAnd)
-		ThrowError("ERROR: & is illegal for floating-point numbers", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: & is illegal for floating-point numbers");
 	if(cmd == cmdBitOr)
-		ThrowError("ERROR: | is illegal for floating-point numbers", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: | is illegal for floating-point numbers");
 	if(cmd == cmdBitXor)
-		ThrowError("ERROR: ^ is illegal for floating-point numbers", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: ^ is illegal for floating-point numbers");
 	if(cmd == cmdLogAnd)
-		ThrowError("ERROR: && is illegal for floating-point numbers", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: && is illegal for floating-point numbers");
 	if(cmd == cmdLogXor)
-		ThrowError("ERROR: || is illegal for floating-point numbers", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: || is illegal for floating-point numbers");
 	if(cmd == cmdLogOr)
-		ThrowError("ERROR: ^^ is illegal for floating-point numbers", CodeInfo::lastKnownStartPos);
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: ^^ is illegal for floating-point numbers");
 	assert(!"optDoSpecial<double> with unknown command");
 	return 0.0;
 }
@@ -618,8 +603,6 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 	// Optimizations failed, perform operation in run-time
 	if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2, true))
 		CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
-	if(!CodeInfo::lastError.IsEmpty())
-		ThrowLastError();
 }
 
 void AddReturnNode(const char* pos)
@@ -637,20 +620,14 @@ void AddReturnNode(const char* pos)
 		}
 		expectedType = currDefinedFunc.back()->retType;
 		if((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
 		if(expectedType->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
-			ThrowError("ERROR: function returning a value", pos);
+			ThrowError(pos, "ERROR: function returning a value");
 		if(expectedType != typeVoid && realRetType == typeVoid)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function should return %s", expectedType->GetFullTypeName());
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
 	}else{
 		if(currDefinedFunc.size() == 0 && realRetType == typeVoid)
-			ThrowError("ERROR: global return cannot accept void", pos);
+			ThrowError(pos, "ERROR: global return cannot accept void");
 		expectedType = realRetType;
 	}
 	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType));
@@ -663,14 +640,14 @@ void AddBreakNode(const char* pos)
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 		breakDepth = static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger();
 	else if(CodeInfo::nodeList.back()->nodeType != typeNodeZeroOp)
-		ThrowError("ERROR: break must be followed by ';' or a constant", pos);
+		ThrowError(pos, "ERROR: break must be followed by ';' or a constant");
 
 	CodeInfo::nodeList.pop_back();
 
 	if(breakDepth == 0)
-		ThrowError("ERROR: break level cannot be 0", pos);
+		ThrowError(pos, "ERROR: break level cannot be 0");
 	if(cycleDepth.back() < breakDepth)
-		ThrowError("ERROR: break level is greater that loop depth", pos);
+		ThrowError(pos, "ERROR: break level is greater that loop depth");
 
 	CodeInfo::nodeList.push_back(new NodeBreakOp(breakDepth));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
@@ -682,14 +659,14 @@ void AddContinueNode(const char* pos)
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 		continueDepth = static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger();
 	else if(CodeInfo::nodeList.back()->nodeType != typeNodeZeroOp)
-		ThrowError("ERROR: continue must be followed by ';' or a constant", pos);
+		ThrowError(pos, "ERROR: continue must be followed by ';' or a constant");
 
 	CodeInfo::nodeList.pop_back();
 
 	if(continueDepth == 0)
-		ThrowError("ERROR: continue level cannot be 0", pos);
+		ThrowError(pos, "ERROR: continue level cannot be 0");
 	if(cycleDepth.back() < continueDepth)
-		ThrowError("ERROR: continue level is greater that loop depth", pos);
+		ThrowError(pos, "ERROR: continue level is greater that loop depth");
 
 	CodeInfo::nodeList.push_back(new NodeContinueOp(continueDepth));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
@@ -720,17 +697,11 @@ void AddVariable(const char* pos, InplaceStr varName)
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
 	{
 		if(CodeInfo::varInfo[i]->nameHash == hash)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: Name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 	}
 	// Check for functions with the same name
 	if(CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size() - 1) != -1)
-	{
-		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
-		ThrowError(callbackError, pos);
-	}
+		ThrowError(pos, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
 
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 	{
@@ -747,7 +718,7 @@ void AddVariableReserveNode(const char* pos)
 {
 	assert(varDefined);
 	if(!currType)
-		ThrowError("ERROR: auto variable must be initialized in place of definition", pos);
+		ThrowError(pos, "ERROR: auto variable must be initialized in place of definition");
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
 	CodeInfo::varInfo.back()->dataReserved = true;
 	varDefined = 0;
@@ -757,7 +728,7 @@ void ConvertTypeToReference(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	if(!currType)
-		ThrowError("ERROR: auto variable cannot have reference flag", pos);
+		ThrowError(pos, "ERROR: auto variable cannot have reference flag");
 	currType = CodeInfo::GetReferenceType(currType);
 }
 
@@ -765,10 +736,8 @@ void ConvertTypeToArray(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	if(!currType)
-		ThrowError("ERROR: cannot specify array size for auto variable", pos);
+		ThrowError(pos, "ERROR: cannot specify array size for auto variable");
 	currType = CodeInfo::GetArrayType(currType);
-	if(!currType)
-		ThrowLastError();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -777,7 +746,7 @@ void ConvertTypeToArray(const char* pos)
 void GetTypeSize(const char* pos, bool sizeOfExpr)
 {
 	if(!sizeOfExpr && !currType)
-		ThrowError("ERROR: sizeof(auto) is illegal", pos);
+		ThrowError(pos, "ERROR: sizeof(auto) is illegal");
 	if(sizeOfExpr)
 	{
 		currType = CodeInfo::nodeList.back()->typeInfo;
@@ -808,16 +777,10 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 	{ 
 		int fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 		if(fID == -1)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 
 		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 
 		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL)
 		{
@@ -836,10 +799,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(CodeInfo::funcInfo[fID]));
 	}else{
 		if(!CodeInfo::varInfo[i]->varType)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
 		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL)
 		{
 			bool member = false;
@@ -870,8 +830,6 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 
 			TypeInfo *temp = CodeInfo::GetReferenceType(typeInt);
 			temp = CodeInfo::GetArrayType(temp, (int)currDefinedFunc.back()->externalCount);
-			if(!temp)
-				ThrowLastError();
 			temp = CodeInfo::GetReferenceType(temp);
 
 			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
@@ -896,7 +854,7 @@ void AddArrayIndexNode(const char* pos)
 
 	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	if(currentType->refLevel == 0)
-		ThrowError("ERROR: indexing variable that is not an array", pos);
+		ThrowError(pos, "ERROR: indexing variable that is not an array");
 	currentType = CodeInfo::GetDereferenceType(currentType);
 
 	// If we are indexing pointer to array
@@ -921,7 +879,7 @@ void AddArrayIndexNode(const char* pos)
 	
 	// Current type must be an array
 	if(currentType->arrLevel == 0)
-		ThrowError("ERROR: indexing variable that is not an array", pos);
+		ThrowError(pos, "ERROR: indexing variable that is not an array");
 	
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeGetAddress)
@@ -931,9 +889,9 @@ void AddArrayIndexNode(const char* pos)
 
 		// Check bounds
 		if(shiftValue < 0)
-			ThrowError("ERROR: Array index cannot be negative", pos);
+			ThrowError(pos, "ERROR: Array index cannot be negative");
 		if((unsigned int)shiftValue >= currentType->arrSize)
-			ThrowError("ERROR: Array index out of bounds", pos);
+			ThrowError(pos, "ERROR: Array index out of bounds");
 
 		// Index array
 		static_cast<NodeGetAddress*>(CodeInfo::nodeList[CodeInfo::nodeList.size()-2])->IndexArray(shiftValue);
@@ -941,8 +899,6 @@ void AddArrayIndexNode(const char* pos)
 	}else{
 		// Otherwise, create array indexing node
 		CodeInfo::nodeList.push_back(new NodeArrayIndex(currentType));
-		if(!CodeInfo::lastError.IsEmpty())
-			ThrowLastError();
 	}
 }
 
@@ -952,8 +908,8 @@ void AddDereferenceNode(const char* pos)
 	CodeInfo::lastKnownStartPos = pos;
 
 	// Change current type to type that pointer pointed to
-	if(!CodeInfo::GetDereferenceType(CodeInfo::nodeList.back()->typeInfo))
-		ThrowLastError();
+	CodeInfo::GetDereferenceType(CodeInfo::nodeList.back()->typeInfo);
+
 	// Create dereference node
 	CodeInfo::nodeList.push_back(new NodeDereference());
 }
@@ -974,10 +930,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 
 	int i = CodeInfo::FindVariableByName(hash);
 	if(i == -1)
-	{
-		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
-		ThrowError(callbackError, pos);
-	}
+		ThrowError(pos, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 
 	// If current type is set to NULL, it means that current type is auto
 	// Is such case, type is retrieved from last AST node
@@ -1018,8 +971,6 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
 
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::GetReferenceType(realCurrType), true, false));
-	if(!CodeInfo::lastError.IsEmpty())
-		ThrowLastError();
 
 	if(unifyTwo)
 	{
@@ -1046,8 +997,6 @@ void AddSetVariableNode(const char* pos)
 		Swap(CodeInfo::nodeList[CodeInfo::nodeList.size()-2], CodeInfo::nodeList[CodeInfo::nodeList.size()-3]);
 
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, 0, true));
-	if(!CodeInfo::lastError.IsEmpty())
-		ThrowLastError();
 
 	if(unifyTwo)
 	{
@@ -1087,13 +1036,11 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	{
 		CodeInfo::nodeList.push_back(new NodeDereference());
 		currentType = CodeInfo::GetDereferenceType(currentType);
-		if(!currentType)
-			ThrowLastError();
 	}
 	if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
 	{
 		if(hash != GetStringHash("size"))
-			ThrowError("ERROR: Array doesn't have member with this name", pos);
+			ThrowError(pos, "ERROR: Array doesn't have member with this name");
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(new NodeNumber((int)currentType->arrSize, typeVoid));
 		currentType = typeInt;
@@ -1113,16 +1060,10 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 
 		fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 		if(fID == -1)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 
 		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 	}
 	
 	if(fID == -1)
@@ -1141,10 +1082,7 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 {
 	TypeInfo *parentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo->subType;
 	if(!parentType->name)
-	{
-		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
-		ThrowError(callbackError, pos);
-	}
+		ThrowError(pos, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
 	char	*memberFuncName = AllocateString((int)strlen(parentType->name) + 2 + (int)strlen(funcName) + 1);
 	sprintf(memberFuncName, "%s::%s", parentType->name, funcName);
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
@@ -1154,8 +1092,6 @@ void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)
 {
 	CheckForImmutable(CodeInfo::nodeList.back()->typeInfo, pos);
 	CodeInfo::nodeList.push_back(new NodePreOrPostOp(isInc, prefixOp));
-	if(!CodeInfo::lastError.IsEmpty())
-		ThrowLastError();
 }
 
 void AddModifyVariableNode(const char* pos, CmdID cmd)
@@ -1164,8 +1100,6 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 	CodeInfo::nodeList.push_back(new NodeVariableModify(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, cmd));
-	if(!CodeInfo::lastError.IsEmpty())
-		ThrowLastError();
 }
 
 void AddInplaceArray(const char* pos)
@@ -1212,8 +1146,7 @@ bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 					unifyTwo = true;
 				}else{
 					// Or if not, then types aren't compatible, so throw error
-					SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Cannot convert from %s to %s", CodeInfo::nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
-					ThrowError(callbackError, pos);
+					ThrowError(pos, "ERROR: Cannot convert from %s to %s", CodeInfo::nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
 				}
 			}
 			// Because we are assigning array of explicit size to a pointer to array, we have to put a pair of pointer:size on top of stack
@@ -1226,10 +1159,7 @@ bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 			createList = true;
 		}else if(nodeType->refLevel == 1 && dstType->subType == nodeType->subType->subType){
 			if(nodeType->subType->arrSize == TypeInfo::UNSIZED_ARRAY)
-			{
-				SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Cannot convert from %s to %s", CodeInfo::nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
-				ThrowError(callbackError, pos);
-			}
+				ThrowError(pos, "ERROR: Cannot convert from %s to %s", CodeInfo::nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
 			// Set the size of an array
 			typeSize = nodeType->subType->arrSize;
 			createList = true;
@@ -1290,12 +1220,10 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	if(currentType == typeFloat)
 		currentType = typeDouble;
 	if(currentType == typeVoid)
-		ThrowError("ERROR: array cannot be constructed from void type elements", pos);
+		ThrowError(pos, "ERROR: array cannot be constructed from void type elements");
 
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
 	TypeInfo *targetType = CodeInfo::GetArrayType(currentType, arrElementCount);
-	if(!targetType)
-		ThrowLastError();
 
 	NodeExpressionList *arrayList = new NodeExpressionList(targetType);
 
@@ -1303,10 +1231,7 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	for(unsigned int i = 0; i < arrElementCount; i++)
 	{
 		if(realType != currentType && !((realType == typeShort || realType == typeChar) && currentType == typeInt) && !(realType == typeFloat && currentType == typeDouble))
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
 		arrayList->AddNode(false);
 	}
 
@@ -1331,10 +1256,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
 	{
 		if(CodeInfo::varInfo[i]->nameHash == funcNameHash)
-		{
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: Name '%s' is already taken for a variable in current scope", funcName);
-			ThrowError(callbackError, pos);
-		}
+			ThrowError(pos, "ERROR: Name '%s' is already taken for a variable in current scope", funcName);
 	}
 	char *funcNameCopy = (char*)funcName;
 	if(newType)
@@ -1361,9 +1283,9 @@ void FunctionAdd(const char* pos, const char* funcName)
 void FunctionParameter(const char* pos, InplaceStr paramName)
 {
 	if(!currType)
-		ThrowError("ERROR: function parameter cannot be an auto type", pos);
+		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 	if(currType == typeVoid)
-		ThrowError("ERROR: function parameter cannot be a void type", pos);
+		ThrowError(pos, "ERROR: function parameter cannot be a void type");
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
@@ -1375,7 +1297,7 @@ void FunctionPrototype(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(!lastFunc.retType)
-		ThrowError("ERROR: function prototype with unresolved return type", pos);
+		ThrowError(pos, "ERROR: function prototype with unresolved return type");
 	lastFunc.funcType = CodeInfo::GetFunctionType(CodeInfo::funcInfo.back());
 	currDefinedFunc.pop_back();
 }
@@ -1438,12 +1360,9 @@ void FunctionEnd(const char* pos, const char* funcName)
 			if(paramsEqual)
 			{
 				if(CodeInfo::funcInfo[n]->implemented)
-				{
-					SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is being defined with the same set of parameters", CodeInfo::funcInfo[i]->name);
-					ThrowError(callbackError, pos);
-				}else{
+					ThrowError(pos, "ERROR: function '%s' is being defined with the same set of parameters", CodeInfo::funcInfo[i]->name);
+				else
 					CodeInfo::funcInfo[n]->address = i | 0x80000000;
-				}
 			}
 		}
 	}
@@ -1482,11 +1401,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 	{
 		CodeInfo::nodeList.push_back(new NodeZeroOP());
 		TypeInfo *targetType = CodeInfo::GetReferenceType(typeInt);
-		if(!targetType)
-			ThrowLastError();
 		targetType = CodeInfo::GetArrayType(targetType, lastFunc.externalCount);
-		if(!targetType)
-			ThrowLastError();
 		CodeInfo::nodeList.push_back(new NodeExpressionList(targetType));
 
 		NodeZeroOP* temp = CodeInfo::nodeList.back();
@@ -1529,9 +1444,9 @@ void FunctionToOperator(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(lastFunc.paramCount != 2)
-		ThrowError("ERROR: binary operator definition or overload must accept exactly two arguments", pos);
+		ThrowError(pos, "ERROR: binary operator definition or overload must accept exactly two arguments");
 	if(lastFunc.type != FunctionInfo::NORMAL)
-		ThrowError("ERROR: binary operator definition or overload must be placed in global scope", pos);
+		ThrowError(pos, "ERROR: binary operator definition or overload must be placed in global scope");
 	lastFunc.visible = true;
 }
 
@@ -1597,8 +1512,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			if(silent)
 				return false;
-			SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: function '%s' is undefined", funcName);
-			ThrowError(callbackError, pos);
+			ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
 		}
 		// Find the best suited function
 		bestFuncRating.resize(count);
@@ -1632,8 +1546,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
 				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
 			}
-			CodeInfo::lastError = CompilerError(errTemp, pos);
-			ThrowLastError();
+			ThrowError(pos, errTemp);
 		}
 		// Check, is there are more than one function, that share the same rating
 		for(unsigned int k = 0; k < count; k++)
@@ -1655,8 +1568,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 						errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
 					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
 				}
-				CodeInfo::lastError = CompilerError(errTemp, pos);
-				ThrowLastError();
+				ThrowError(pos, errTemp);
 			}
 		}
 		fType = bestFuncList[minRatingIndex]->funcType->funcType;
@@ -1726,7 +1638,7 @@ void AddIfNode(const char* pos)
 {
 	assert(CodeInfo::nodeList.size() >= 2);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo == typeVoid)
-		ThrowError("ERROR: condition type cannot be void", pos);
+		ThrowError(pos, "ERROR: condition type cannot be void");
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(false));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
@@ -1734,21 +1646,18 @@ void AddIfElseNode(const char* pos)
 {
 	assert(CodeInfo::nodeList.size() >= 3);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->typeInfo == typeVoid)
-		ThrowError("ERROR: condition type cannot be void", pos);
+		ThrowError(pos, "ERROR: condition type cannot be void");
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true));
 }
 void AddIfElseTermNode(const char* pos)
 {
 	assert(CodeInfo::nodeList.size() >= 3);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->typeInfo == typeVoid)
-		ThrowError("ERROR: condition type cannot be void", pos);
+		ThrowError(pos, "ERROR: condition type cannot be void");
 	TypeInfo* typeA = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	if(typeA != typeB && (typeA->type == TypeInfo::TYPE_COMPLEX || typeB->type == TypeInfo::TYPE_COMPLEX))
-	{
-		SafeSprintf(callbackError, ERR_BUF_SIZE, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
-		ThrowError(callbackError, pos);
-	}
+		ThrowError(pos, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true, true));
 }
 
@@ -1761,7 +1670,7 @@ void AddForNode(const char* pos)
 {
 	assert(CodeInfo::nodeList.size() >= 4);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->typeInfo == typeVoid)
-		ThrowError("ERROR: condition type cannot be void", pos);
+		ThrowError(pos, "ERROR: condition type cannot be void");
 	CodeInfo::nodeList.push_back(new NodeForExpr());
 
 	assert(cycleDepth.size() != 0);
@@ -1771,7 +1680,7 @@ void AddWhileNode(const char* pos)
 {
 	assert(CodeInfo::nodeList.size() >= 2);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo == typeVoid)
-		ThrowError("ERROR: condition type cannot be void", pos);
+		ThrowError(pos, "ERROR: condition type cannot be void");
 	CodeInfo::nodeList.push_back(new NodeWhileExpr());
 
 	assert(cycleDepth.size() != 0);
@@ -1781,7 +1690,7 @@ void AddDoWhileNode(const char* pos)
 {
 	assert(CodeInfo::nodeList.size() >= 2);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo == typeVoid)
-		ThrowError("ERROR: condition type cannot be void", pos);
+		ThrowError(pos, "ERROR: condition type cannot be void");
 	CodeInfo::nodeList.push_back(new NodeDoWhileExpr());
 
 	assert(cycleDepth.size() != 0);
@@ -1792,7 +1701,7 @@ void BeginSwitch(const char* pos)
 {
 	assert(CodeInfo::nodeList.size() >= 1);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo == typeVoid)
-		ThrowError("ERROR: cannot switch by void type", pos);
+		ThrowError(pos, "ERROR: cannot switch by void type");
 
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()++;
@@ -1805,7 +1714,7 @@ void AddCaseNode(const char* pos)
 {
 	assert(CodeInfo::nodeList.size() >= 3);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo == typeVoid)
-		ThrowError("ERROR: case value type cannot be void", pos);
+		ThrowError(pos, "ERROR: case value type cannot be void");
 	NodeZeroOP* temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-3];
 	static_cast<NodeSwitchExpr*>(temp)->AddCase();
 }
@@ -1828,9 +1737,9 @@ void EndSwitch()
 void TypeBegin(const char* pos, const char* end)
 {
 	if(newType)
-		ThrowError("ERROR: Different type is being defined", pos);
+		ThrowError(pos, "ERROR: Different type is being defined");
 	if(currAlign > 16)
-		ThrowError("ERROR: alignment must be less than 16 bytes", pos);
+		ThrowError(pos, "ERROR: alignment must be less than 16 bytes");
 
 	char *typeNameCopy = AllocateString((int)(end - pos) + 1);
 	sprintf(typeNameCopy, "%.*s", (int)(end - pos), pos);
@@ -1847,10 +1756,10 @@ void TypeBegin(const char* pos, const char* end)
 void TypeAddMember(const char* pos, const char* varName)
 {
 	if(!currType)
-		ThrowError("ERROR: auto cannot be used for class members", pos);
+		ThrowError(pos, "ERROR: auto cannot be used for class members");
 	newType->AddMemberVariable(varName, currType);
 	if(newType->size > 64 * 1024)
-		ThrowError("ERROR: class size cannot exceed 65535 bytes", pos);
+		ThrowError(pos, "ERROR: class size cannot exceed 65535 bytes");
 
 	AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
 }
