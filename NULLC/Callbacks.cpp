@@ -1504,7 +1504,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		for(unsigned int k = 0; k < CodeInfo::funcInfo.size(); k++)
 		{
-			if(CodeInfo::funcInfo[k]->nameHash == funcNameHash && CodeInfo::funcInfo[k]->visible)
+			if(CodeInfo::funcInfo[k]->nameHash == funcNameHash && CodeInfo::funcInfo[k]->visible && !((CodeInfo::funcInfo[k]->address & 0x80000000) && (CodeInfo::funcInfo[k]->address != -1)))
 				bestFuncList.push_back(CodeInfo::funcInfo[k]);
 		}
 		unsigned int count = bestFuncList.size();
