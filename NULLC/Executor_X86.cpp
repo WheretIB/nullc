@@ -10,11 +10,98 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-unsigned int paramDataBase;
-unsigned int reservedStack;
-unsigned int commitedStack;
-unsigned int stackGrowSize;
-unsigned int stackGrowCommit;
+namespace NULLC
+{
+	struct DataStackHeader
+	{
+		unsigned int	unused1, unused2;
+		unsigned int	instructionPtr;
+		int				nextElement;
+	};
+
+	DataStackHeader	*dataHead;
+
+	unsigned int paramDataBase;
+	unsigned int reservedStack;
+	unsigned int commitedStack;
+	unsigned int stackGrowSize;
+	unsigned int stackGrowCommit;
+
+	int runResult = 0;
+	int runResult2 = 0;
+	asmOperType runResultType = OTYPE_DOUBLE;
+
+	unsigned int stackTrace[32];
+
+	unsigned int stackReallocs;
+
+	unsigned int expCodePublic;
+	unsigned int expAllocCode;
+	unsigned int expECXstate;
+
+	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
+	{
+		expECXstate = expInfo->ContextRecord->Ecx;
+		expCodePublic = expCode;
+		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW)
+		{
+			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
+			int *paramData = &dataHead->nextElement;
+			int count = 0;
+			while(count < 31 && paramData)
+			{
+				stackTrace[count++] = paramData[-1];
+				paramData = (int*)(long long)(*paramData);
+			}
+			stackTrace[count] = 0;
+			dataHead->nextElement = NULL;
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+		if(expCode == EXCEPTION_ACCESS_VIOLATION)
+		{
+			if(expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
+				expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase+64*1024)
+			{
+				// Проверим, не привысии ли мы объём доступной памяти
+				if(reservedStack > 512*1024*1024)
+				{
+					expAllocCode = 4;
+					return EXCEPTION_EXECUTE_HANDLER;
+				}
+				// Разрешим использование последней страницы зарезервированной памяти
+				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+commitedStack)), stackGrowSize-stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+				{
+					expAllocCode = 1; // failed to commit all old memory
+					return EXCEPTION_EXECUTE_HANDLER;
+				}
+				// Зарезервируем ещё память прямо после предыдущего блока
+				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS))
+				{
+					expAllocCode = 2; // failed to reserve new memory
+					return EXCEPTION_EXECUTE_HANDLER;
+				}
+				// Разрешим использование всей зарезервированной памяти кроме последней страницы
+				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+				{
+					expAllocCode = 3; // failed to commit new memory
+					return EXCEPTION_EXECUTE_HANDLER;
+				}
+				// Обновим переменные
+				commitedStack = reservedStack;
+				reservedStack += stackGrowSize;
+				commitedStack += stackGrowCommit;
+				stackReallocs++;
+
+				return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
+			}
+		}
+
+		return (DWORD)EXCEPTION_CONTINUE_SEARCH;
+	}
+
+	typedef void (*codegenCallback)(VMCmd);
+	codegenCallback cgFuncs[cmdAddAtDoubleStk+1];
+}
 
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
 			exCode(linker->exCode), exTypes(linker->exTypes)
@@ -28,86 +115,14 @@ ExecutorX86::~ExecutorX86()
 	delete[] binCode;
 }
 
-int runResult = 0;
-int runResult2 = 0;
-asmOperType runResultType = OTYPE_DOUBLE;
-
-unsigned int stackTrace[16];
-
-unsigned int stackReallocs;
-
-unsigned int expCodePublic;
-unsigned int expAllocCode;
-unsigned int expECXstate;
-DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
-{
-	expECXstate = expInfo->ContextRecord->Ecx;
-	expCodePublic = expCode;
-	if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW)
-	{
-		int *paramDate = (int*)(long long)paramDataBase;
-		paramDate[2] = expInfo->ContextRecord->Eip;
-		paramDate += 3;
-		int count = 0;
-		while(count < 15 && paramDate)
-		{
-			stackTrace[count++] = paramDate[-1];
-			paramDate = (int*)(long long)(*paramDate);
-		}
-		stackTrace[count] = 0;
-		((int*)(long long)paramDataBase)[3] = 0;
-		return EXCEPTION_EXECUTE_HANDLER;
-	}
-	if(expCode == EXCEPTION_ACCESS_VIOLATION)
-	{
-		if(expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
-			expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase+64*1024)
-		{
-			// Проверим, не привысии ли мы объём доступной памяти
-			if(reservedStack > 512*1024*1024)
-			{
-				expAllocCode = 4;
-				return EXCEPTION_EXECUTE_HANDLER;
-			}
-			// Разрешим использование последней страницы зарезервированной памяти
-			if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+commitedStack)), stackGrowSize-stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
-			{
-				expAllocCode = 1; // failed to commit all old memory
-				return EXCEPTION_EXECUTE_HANDLER;
-			}
-			// Зарезервируем ещё память прямо после предыдущего блока
-			if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS))
-			{
-				expAllocCode = 2; // failed to reserve new memory
-				return EXCEPTION_EXECUTE_HANDLER;
-			}
-			// Разрешим использование всей зарезервированной памяти кроме последней страницы
-			if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
-			{
-				expAllocCode = 3; // failed to commit new memory
-				return EXCEPTION_EXECUTE_HANDLER;
-			}
-			// Обновим переменные
-			commitedStack = reservedStack;
-			reservedStack += stackGrowSize;
-			commitedStack += stackGrowCommit;
-			stackReallocs++;
-
-			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
-		}
-	}
-
-	return (DWORD)EXCEPTION_CONTINUE_SEARCH;
-}
-
-typedef void (*codegenCallback)(VMCmd);
-codegenCallback cgFuncs[cmdAddAtDoubleStk+1];
-
 bool ExecutorX86::Initialize()
 {
+	using namespace NULLC;
+
 	stackGrowSize = 128*4096;
 	stackGrowCommit = 64*4096;
 
+	char *paramData = NULL;
 	// Request memory at address
 	if(NULL == (paramData = (char*)VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
 	{
@@ -123,7 +138,11 @@ bool ExecutorX86::Initialize()
 	reservedStack = stackGrowSize;
 	commitedStack = stackGrowCommit;
 	
-	paramDataBase = paramBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
+	assert(sizeof(DataStackHeader) % 16 == 0);
+
+	paramBase = paramData + sizeof(DataStackHeader);
+	paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
+	dataHead = (DataStackHeader*)paramData;
 
 	binCode = new unsigned char[200000];
 	memset(binCode, 0x90, 20);
@@ -280,6 +299,8 @@ bool ExecutorX86::Initialize()
 #pragma warning(disable: 4731)
 void ExecutorX86::Run(const char* funcName)
 {
+	using namespace NULLC;
+
 	if(!exCode.size())
 	{
 		strcpy(execError, "ERROR: no code to run");
@@ -444,7 +465,7 @@ bool ExecutorX86::TranslateToNative()
 	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
-	SetParamBase(paramBase+16);
+	SetParamBase((unsigned int)(long long)paramBase);
 	SetLastInstruction(&instList[0]);
 
 	EMIT_OP(o_use32);
@@ -494,7 +515,7 @@ bool ExecutorX86::TranslateToNative()
 				EMIT_OP_REG(o_push, rEAX);
 			}
 		}else{
-			cgFuncs[cmd.cmd](cmd);
+			NULLC::cgFuncs[cmd.cmd](cmd);
 		}
 	}
 	EMIT_LABEL(LABEL_GLOBAL + pos);
@@ -922,10 +943,10 @@ bool ExecutorX86::TranslateToNative()
 const char* ExecutorX86::GetResult()
 {
 	long long combined = 0;
-	*((int*)(&combined)) = runResult2;
-	*((int*)(&combined)+1) = runResult;
+	*((int*)(&combined)) = NULLC::runResult2;
+	*((int*)(&combined)+1) = NULLC::runResult;
 
-	switch(runResultType)
+	switch(NULLC::runResultType)
 	{
 	case OTYPE_DOUBLE:
 		sprintf(execResult, "%f", *(double*)(&combined));
@@ -934,7 +955,7 @@ const char* ExecutorX86::GetResult()
 		sprintf(execResult, "%I64dL", combined);
 		break;
 	case OTYPE_INT:
-		sprintf(execResult, "%d", runResult);
+		sprintf(execResult, "%d", NULLC::runResult);
 		break;
 	}
 	return execResult;
@@ -947,7 +968,7 @@ const char*	ExecutorX86::GetExecError()
 
 char* ExecutorX86::GetVariableData()
 {
-	return paramData+16;
+	return paramBase;
 }
 
 #endif
