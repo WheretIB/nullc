@@ -24,7 +24,7 @@ public:
 
 	char*	GetVariableData();
 private:
-	char	execError[256];
+	char	execError[512];
 	char	execResult[64];
 
 	Linker		*exLinker;
