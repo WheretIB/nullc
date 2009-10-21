@@ -5,6 +5,8 @@
 #include "CodeGen_X86.h"
 #include "Translator_X86.h"
 
+#include "CodeInfo.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -30,6 +32,8 @@ int runResult = 0;
 int runResult2 = 0;
 asmOperType runResultType = OTYPE_DOUBLE;
 
+unsigned int stackTrace[16];
+
 unsigned int stackReallocs;
 
 unsigned int expCodePublic;
@@ -40,7 +44,20 @@ DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	expECXstate = expInfo->ContextRecord->Ecx;
 	expCodePublic = expCode;
 	if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW)
+	{
+		int *paramDate = (int*)(long long)paramDataBase;
+		paramDate[2] = expInfo->ContextRecord->Eip;
+		paramDate += 3;
+		int count = 0;
+		while(count < 15 && paramDate)
+		{
+			stackTrace[count++] = paramDate[-1];
+			paramDate = (int*)(long long)(*paramDate);
+		}
+		stackTrace[count] = 0;
+		((int*)(long long)paramDataBase)[3] = 0;
 		return EXCEPTION_EXECUTE_HANDLER;
+	}
 	if(expCode == EXCEPTION_ACCESS_VIOLATION)
 	{
 		if(expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
@@ -338,13 +355,13 @@ void ExecutorX86::Run(const char* funcName)
 		}
 	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
-			strcpy(execError, "ERROR: integer division by zero");
+			strcpy(execError, "ERROR: Integer division by zero");
 		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate != 0xFFFFFFFF)
-			strcpy(execError, "ERROR: array index out of bounds");
+			strcpy(execError, "ERROR: Array index out of bounds");
 		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
-			strcpy(execError, "ERROR: function didn't return a value");
+			strcpy(execError, "ERROR: Function didn't return a value");
 		if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
-			strcpy(execError, "ERROR: stack overflow");
+			strcpy(execError, "ERROR: Stack overflow");
 		if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
 		{
 			if(expAllocCode == 1)
@@ -375,6 +392,42 @@ void ExecutorX86::Run(const char* funcName)
 			runResultType = OTYPE_LONG;
 		}
 	}
+
+	if(execError[0] != '\0')
+	{
+		char *currPos = execError + strlen(execError);
+		currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "\r\nCall stack:\r\n");
+
+		unsigned int *stackTop = stackTrace;
+		while(*stackTop)
+		{
+			unsigned int address = 0;
+			for(; address < instAddress.size(); address++)
+			{
+				if(*stackTop < (unsigned int)(long long)instAddress[address])
+					break;
+			}
+
+			int funcID = -1;
+			for(unsigned int i = 0; i < exFunctions.size(); i++)
+				if((int)address >= exFunctions[i].address && (int)address <= (exFunctions[i].address + exFunctions[i].codeSize))
+					funcID = i;
+			if(funcID != -1)
+				currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "%s", &exLinker->exSymbols[exFunctions[funcID].offsetToName]);
+			else
+				currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "%s", address == -1 ? "external" : "global scope");
+			if(address != -1)
+			{
+				unsigned int line = 0;
+				unsigned int i = address - 1;
+				while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
+						line++;
+				currPos += SafeSprintf(currPos, 512 - int(currPos - execError), " (at %.*s)\r\n",
+					CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+			}
+			stackTop++;
+		}
+	}
 }
 #pragma warning(default: 4731)
 
@@ -391,7 +444,7 @@ bool ExecutorX86::TranslateToNative()
 	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
-	SetParamBase(paramBase);
+	SetParamBase(paramBase+16);
 	SetLastInstruction(&instList[0]);
 
 	EMIT_OP(o_use32);
@@ -894,7 +947,7 @@ const char*	ExecutorX86::GetExecError()
 
 char* ExecutorX86::GetVariableData()
 {
-	return paramData;
+	return paramData+16;
 }
 
 #endif

@@ -788,9 +788,15 @@ void GenCodeCmdCall(VMCmd cmd)
 	if(cmd.argument == -1)
 	{
 		EMIT_OP_REG(o_pop, rEAX);
+		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
 		EMIT_OP_REG(o_call, rEAX);
+		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 	}else{
+		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
 		EMIT_OP_LABEL(o_call, LABEL_FUNCTION | JUMP_NEAR | cmd.argument);
+		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 	}
 	if(cmd.helper & bitRetSimple)
 	{
