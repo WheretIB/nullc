@@ -38,8 +38,7 @@ private:
 
 	unsigned int		globalStartInBytecode;
 
-	char			*paramData;
-	unsigned int	paramBase;
+	char			*paramBase;
 
 	unsigned char	*binCode;
 	unsigned int	binCodeStart;
