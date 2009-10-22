@@ -183,6 +183,18 @@ const char*	nullcGetRuntimeError()
 	return executeLog;
 }
 
+void nullcThrowError(const char* error)
+{
+	if(currExec == NULLC_VM)
+	{
+		executor->Stop(error);
+	}else if(currExec == NULLC_X86){
+#ifdef NULLC_BUILD_X86_JIT
+		executorX86->Stop(error);
+#endif
+	}
+}
+
 const char*	nullcGetResult()
 {
 	return executeResult;

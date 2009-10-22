@@ -1,6 +1,7 @@
 #pragma once
 #include "nullcdef.h"
 
+void nullcAssert(int val);
 double nullcCos(double deg);
 double nullcSin(double deg);
 double nullcTan(double deg);

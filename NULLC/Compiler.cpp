@@ -137,6 +137,8 @@ Compiler::Compiler()
 
 	AddType("class file{ int id; }");
 
+	AddExternalFunction((void (*)())nullcAssert, "void assert(int val);");
+
 	AddExternalFunction((void (*)())nullcCos, "double cos(double deg);");
 	AddExternalFunction((void (*)())nullcSin, "double sin(double deg);");
 	AddExternalFunction((void (*)())nullcTan, "double tan(double deg);");

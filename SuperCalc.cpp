@@ -205,6 +205,19 @@ int ReadTextFromConsole(NullCArray data)
 	return ((unsigned int)c < data.len ? c : data.len);
 }
 
+void SetConsoleCursorPos(int x, int y)
+{
+	if(x < 0 || y < 0)
+	{
+		nullcThrowError("SetConsoleCursorPos: Negative values are not allowed");
+		return;
+	}
+	COORD coords;
+	coords.X = x;
+	coords.Y = y;
+	SetConsoleCursorPosition(conStdOut, coords);
+}
+
 struct float4c{ float x, y, z, w; };
 
 void PrintFloat4(float4c n)
@@ -330,7 +343,7 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	REGISTER(WriteToConsole, "void Print(char[] text);");
 	REGISTER(ReadIntFromConsole, "void Input(int ref num);");
 	REGISTER(ReadTextFromConsole, "int Input(char[] buf);");
-
+	REGISTER(SetConsoleCursorPos, "void SetConsoleCursorPos(int x, y);");
 	REGISTER(allocSimple, "int __newS(int size);");
 	REGISTER(allocArray, "int[] __newA(int size, int count);");
 
