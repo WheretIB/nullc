@@ -38,7 +38,7 @@ LRESULT CALLBACK	About(HWND, unsigned int, WPARAM, LPARAM);
 //Window handles
 HWND hWnd;
 HWND hButtonCalc;	//calculate button
-HWND hButtonCalcX86;//calculate button
+HWND hJITEnabled;//calculate button
 HWND hTextArea;		//code text area (rich edit)
 HWND hResult;		//label with execution result
 HWND hCode;			//disabled text area for errors and asm-like code output
@@ -213,8 +213,8 @@ void SetConsoleCursorPos(int x, int y)
 		return;
 	}
 	COORD coords;
-	coords.X = x;
-	coords.Y = y;
+	coords.X = (short)x;
+	coords.Y = (short)y;
 	SetConsoleCursorPosition(conStdOut, coords);
 }
 
@@ -428,12 +428,12 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hButtonCalc, nCmdShow);
 	UpdateWindow(hButtonCalc);
 
-	hButtonCalcX86 = CreateWindow("BUTTON", "Run Native X86", WS_CHILD,
+	hJITEnabled = CreateWindow("BUTTON", "X86 JIT", BS_AUTOCHECKBOX | WS_CHILD,
 		800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
-	if(!hButtonCalcX86)
+	if(!hJITEnabled)
 		return 0;
-	ShowWindow(hButtonCalcX86, nCmdShow);
-	UpdateWindow(hButtonCalcX86);
+	ShowWindow(hJITEnabled, nCmdShow);
+	UpdateWindow(hJITEnabled);
 
 	INITCOMMONCONTROLSEX commControlTypes;
 	commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
@@ -687,24 +687,75 @@ void FillVariableInfoTree()
 	}
 }
 
+struct RunResult
+{
+	bool	finished;
+	nullres	result;
+	double	time;
+	HWND	wnd;
+} runRes;
+HANDLE calcThread = INVALID_HANDLE_VALUE;
+
+DWORD WINAPI CalcThread(void* param)
+{
+	RunResult &rres = *(RunResult*)param;
+	rres.finished = false;
+	rres.result = false;
+	double time = myGetPreciseTime();
+	nullres goodRun = nullcRunFunction(NULL);
+	rres.time = myGetPreciseTime() - time;
+	rres.finished = true;
+	rres.result = goodRun;
+	SendMessage(rres.wnd, WM_USER + 1, 0, 0);
+	ExitThread(goodRun);
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
 	HDC hdc;
 
+	char	result[512];
+
 	switch (message) 
 	{
-	
+	case WM_CREATE:
+		runRes.finished = true;
+		runRes.wnd = hWnd;
+		break;
+	case WM_USER + 1:
+		SetWindowText(hButtonCalc, "Calculate");
+
+		if(runRes.result)
+		{
+			const char *val = nullcGetResult();
+
+			_snprintf(result, 512, "The answer is: %s [in %f]", val, runRes.time);
+			result[511] = '\0';
+			SetWindowText(hResult, result);
+
+			variableData = (char*)nullcGetVariableData();
+			FillVariableInfoTree();
+		}else{
+			_snprintf(result, 512, "%s", nullcGetRuntimeError());
+			result[511] = '\0';
+			SetWindowText(hCode, result);
+		}
+		break;
 	case WM_COMMAND:
 		wmId	= LOWORD(wParam); 
 		wmEvent = HIWORD(wParam);
 
 		if((HWND)lParam == hButtonCalc)
 		{
-		
-			/*static*/ int callNum = -1;
-			callNum++;
+			if(!runRes.finished)
+			{
+				TerminateThread(calcThread, 0);
+				SetWindowText(hButtonCalc, "Calculate");
+				runRes.finished = true;
+				break;
+			}
 			strcpy(buf, GetAreaText());
 
 			DeInitConsole();
@@ -712,130 +763,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			SetWindowText(hCode, "");
 			SetWindowText(hResult, "");
 
-			char	result[512];
+			nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_VM);
 
-			nullcSetExecutor(NULLC_VM);
-
-			//nullcSetExecutor(NULLC_X86);
-			//nullcSetExecutorOptions(true);
-			double compTime = 0.0, bytecodeTime = 0.0, linkTime = 0.0, execTime = 0.0;
-			int kkk = 0;
-			double time = myGetPreciseTime();
-			nullres good;
-		//for(kkk = 0; kkk < 30000; kkk++)
-		//{
-		//	double time = myGetPreciseTime();
-			good = nullcCompile(buf);
+			nullres good = nullcCompile(buf);
 			nullcSaveListing("asm.txt");
-		//}
-			compTime += myGetPreciseTime()-time;
-			time = myGetPreciseTime();
-
-			char *bytecode = NULL;
-		//for(kkk = 0; kkk < 300000; kkk++)
-		//{
-			if(good)
-				nullcGetBytecode(&bytecode);
-		//	delete[] bytecode;
-		//}
-			bytecodeTime += myGetPreciseTime()-time;
-		//	unsigned int size = nullcGetBytecode(&bytecode);
-			time = myGetPreciseTime();
-		//for(kkk = 0; kkk < 300000; kkk++)
-		//{
+		
 			if(good)
 			{
+				char *bytecode = NULL;
+				nullcGetBytecode(&bytecode);
 				nullcClean();
 				if(!nullcLinkCode(bytecode, 1))
 				{
 					good = false;
 					SetWindowText(hCode, nullcGetRuntimeError());
 				}
+				delete[] bytecode;
 			}else{
 				SetWindowText(hCode, nullcGetCompilationError());
 			}
-		//}
-			linkTime += myGetPreciseTime()-time;
 
-			delete[] bytecode;
 			if(good)
 			{
-				variableData = (char*)nullcGetVariableData();
-				
-				double time = myGetPreciseTime();
-				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
-
-				if(goodRun)
-				{
-					const char *val = nullcGetResult();
-					execTime += myGetPreciseTime()-time;
-
-					_snprintf(result, 512, "The answer is: %s [in %f]", val, execTime/(kkk+1.0));
-					result[511] = '\0';
-					SetWindowText(hResult, result);
-
-					variableData = (char*)nullcGetVariableData();
-					FillVariableInfoTree();
-				}else{
-					_snprintf(result, 512, "%s [in %f]", nullcGetRuntimeError(), myGetPreciseTime()-time);
-					result[511] = '\0';
-					SetWindowText(hCode, result);
-				}
-			}
-			//SetWindowText(hLog, nullcGetCompilationLog());
-		//}
-			//linkTime += myGetPreciseTime()-time;
-		//	_snprintf(result, 128, "compile: %f bytecode: %f link: %f", compTime, bytecodeTime, linkTime);
-		//	result[511] = '\0';
-		//	SetWindowText(hResult, result);
-		}
-		if((HWND)lParam == hButtonCalcX86)
-		{
-			/*static*/ int callNum = -1;
-			callNum++;
-			strcpy(buf, GetAreaText());
-
-			DeInitConsole();
-
-			SetWindowText(hCode, "");
-			SetWindowText(hResult, "");
-
-			nullcSetExecutor(NULLC_X86);
-
-			char	result[512];
-//double time = myGetPreciseTime();
-			nullres good = nullcCompile(buf);
-			nullcSaveListing("asm.txt");
-
-			char *bytecode;
-			nullcGetBytecode(&bytecode);
-			nullcClean();
-			nullcLinkCode(bytecode, 1);
-			delete[] bytecode;
-			if(!good)
-			{
-				SetWindowText(hCode, nullcGetCompilationError());
-			}else{
-				variableData = (char*)nullcGetVariableData();
-				
-				double time = myGetPreciseTime();
-				nullres goodRun = nullcRunFunction(callNum%2 ? "draw_progress_bar" : NULL);
-				if(goodRun)
-				{
-					const char *val = nullcGetResult();
-					double execTime = myGetPreciseTime()-time;
-
-					_snprintf(result, 512, "The answer is: %s [in %f]", val, execTime);
-					result[511] = '\0';
-					SetWindowText(hResult, result);
-
-					variableData = (char*)nullcGetVariableData();
-					FillVariableInfoTree();
-				}else{
-					_snprintf(result, 512, "%s", nullcGetRuntimeError());
-					result[511] = '\0';
-					SetWindowText(hCode, result);
-				}
+				SetWindowText(hButtonCalc, "Abort");
+				calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
 			}
 		}
 		// Parse the menu selections:
@@ -915,7 +866,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 		SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
-		SetWindowPos(hButtonCalcX86,HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+		SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 		unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
 
@@ -928,11 +879,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY, leftWidth, bottomHeight-16, NULL);
 		SetWindowPos(hVars,			HWND_TOP, rightOffsetX, bottomOffsetY, rightWidth, bottomHeight-16, NULL);
 
-		SetWindowPos(hStatus,			HWND_TOP, 0, height-16, width, height, NULL);
+		SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
 
 		InvalidateRect(hButtonCalc, NULL, true);
 		InvalidateRect(hResult, NULL, true);
-		InvalidateRect(hButtonCalcX86, NULL, true);
+		InvalidateRect(hJITEnabled, NULL, true);
 		InvalidateRect(hStatus, NULL, true);
 		InvalidateRect(hVars, NULL, true);
 	}
