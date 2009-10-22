@@ -11,6 +11,7 @@ const unsigned int JUMP_NEAR = (unsigned int)(1 << 31);
 const unsigned int LABEL_FUNCTION = 1 << 30;
 const unsigned int LABEL_GLOBAL = 1 << 30;
 const unsigned int LABEL_ALU = 1 << 28;
+const unsigned int LABEL_SPECIAL = 1 << 27;
 
 #ifdef NULLC_LOG_FILES
 void EMIT_COMMENT(const char* text);

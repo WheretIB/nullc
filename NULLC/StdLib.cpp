@@ -1,6 +1,13 @@
 #include "StdLib.h"
 
+#include "nullc.h"
 #include <math.h>
+
+void nullcAssert(int val)
+{
+	if(!val)
+		nullcThrowError("Assertion failed");
+}
 
 double nullcCos(double deg)
 {

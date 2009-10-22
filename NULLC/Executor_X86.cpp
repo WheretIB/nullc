@@ -308,6 +308,7 @@ void ExecutorX86::Run(const char* funcName)
 	}
 
 	execError[0] = 0;
+	callContinue = 1;
 
 	stackReallocs = 0;
 
@@ -377,21 +378,21 @@ void ExecutorX86::Run(const char* funcName)
 	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			strcpy(execError, "ERROR: Integer division by zero");
-		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate != 0xFFFFFFFF)
+		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0)
 			strcpy(execError, "ERROR: Array index out of bounds");
-		if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
+		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
 			strcpy(execError, "ERROR: Function didn't return a value");
-		if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
+		else if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
 			strcpy(execError, "ERROR: Stack overflow");
-		if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
+		else if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
 		{
 			if(expAllocCode == 1)
 				strcpy(execError, "ERROR: Failed to commit old stack memory");
-			if(expAllocCode == 2)
+			else if(expAllocCode == 2)
 				strcpy(execError, "ERROR: Failed to reserve new stack memory");
-			if(expAllocCode == 3)
+			else if(expAllocCode == 3)
 				strcpy(execError, "ERROR: Failed to commit new stack memory");
-			if(expAllocCode == 4)
+			else if(expAllocCode == 4)
 				strcpy(execError, "ERROR: No more memory (512Mb maximum exceeded)");
 		}
 	}
@@ -452,6 +453,12 @@ void ExecutorX86::Run(const char* funcName)
 }
 #pragma warning(default: 4731)
 
+void ExecutorX86::Stop(const char* error)
+{
+	callContinue = false;
+	SafeSprintf(execError, 512, error);
+}
+
 bool ExecutorX86::TranslateToNative()
 {
 	execError[0] = 0;
@@ -502,6 +509,16 @@ bool ExecutorX86::TranslateToNative()
 			unsigned int bytesToPop = exFunctions[cmd.argument].bytesToPop;
 			EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)exFunctions[cmd.argument].funcPtr);
 			EMIT_OP_REG(o_call, rECX);
+
+			static int continueLabel = 0;
+			EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)&callContinue);
+			EMIT_OP_REG_REG(o_test, rECX, rECX);
+			EMIT_OP_LABEL(o_jnz, LABEL_SPECIAL | continueLabel);
+			EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
+			EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
+			EMIT_LABEL(LABEL_SPECIAL | continueLabel);
+			continueLabel++;
+
 			EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
 			if(exFunctions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
 			{

@@ -69,6 +69,7 @@ void Executor::Run(const char* funcName)
 	genParams.resize(exLinker->globalVarSize);
 
 	execError[0] = 0;
+	callContinue = true;
 
 	unsigned int funcPos = ~0ul;
 	if(funcName)
@@ -430,7 +431,9 @@ void Executor::Run(const char* funcName)
 				// External function call by pointer
 				if(!genStackPtr)
 				{
-					// ...
+					cmdStreamEnd = NULL;
+					strcpy(execError, "ERROR: unimplemented");
+					break;
 				}
 			}
 			if(fAddress == 0)
@@ -446,10 +449,7 @@ void Executor::Run(const char* funcName)
 
 		case cmdCallStd:
 			if(!RunExternalFunction(cmd.argument))
-			{
 				cmdStreamEnd = NULL;
-				strcpy(execError, "ERROR: External function call failed");
-			}
 			break;
 
 		case cmdReturn:
@@ -916,6 +916,12 @@ void Executor::Run(const char* funcName)
 	}
 }
 
+void Executor::Stop(const char* error)
+{
+	callContinue = false;
+	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
+}
+
 #if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__CELLOS_LV2__))
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID)
@@ -960,7 +966,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 #else
 	__asm add esp, bytesToPop;
 #endif
-	return true;
+	return callContinue;
 }
 
 #elif defined(__CELLOS_LV2__)
@@ -1008,11 +1014,12 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	#undef F
 	#undef R
 
-	return true;
+	return callContinue;
 }
 #else
 bool Executor::RunExternalFunction(unsigned int funcID)
 {
+	strcpy(execError, "ERROR: External function call failed");
 	return false;
 }
 #endif

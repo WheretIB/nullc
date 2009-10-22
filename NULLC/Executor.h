@@ -13,6 +13,7 @@ public:
 	~Executor();
 
 	void	Run(const char* funcName = NULL);
+	void	Stop(const char* error);
 
 	const char*	GetResult();
 	const char*	GetExecError();
@@ -40,6 +41,8 @@ private:
 	unsigned int	*genStackTop;
 
 	asmOperType		retType;
+
+	bool			callContinue;
 
 	bool RunExternalFunction(unsigned int funcID);
 

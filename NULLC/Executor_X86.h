@@ -18,8 +18,9 @@ public:
 	bool	TranslateToNative();
 
 	void	Run(const char* funcName = NULL);
-	const char*	GetResult();
+	void	Stop(const char* error);
 
+	const char*	GetResult();
 	const char*	GetExecError();
 
 	char*	GetVariableData();
@@ -43,6 +44,8 @@ private:
 	unsigned char	*binCode;
 	unsigned int	binCodeStart;
 	unsigned int	binCodeSize;
+
+	int			callContinue;
 
 	void operator=(ExecutorX86& r){ (void)r; assert(false); }
 };

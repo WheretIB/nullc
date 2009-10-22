@@ -51,6 +51,7 @@ const char*	nullcGetLinkLog();
 nullres	nullcRun();
 nullres	nullcRunFunction(const char* funcName);
 const char*	nullcGetRuntimeError();
+void	nullcThrowError(const char* error);
 
 const char*	nullcGetResult();
 void*	nullcGetVariableData();
