@@ -1313,7 +1313,7 @@ void FunctionStart(const char* pos)
 
 	varTop = 0;
 
-	for(VariableInfo *curr = lastFunc.lastParam; curr; curr = curr->prev)
+	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
 	{
 		currValConst = curr->isConst;
 		currType = curr->varType;

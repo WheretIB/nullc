@@ -521,48 +521,25 @@ NodeFuncCall::~NodeFuncCall()
 void NodeFuncCall::Compile()
 {
 	// Find parameter values
-	if(funcInfo && funcInfo->address == -1)
+	if(second)
+		second->Compile();
+	else if(first)
+		first->Compile();
+	if(funcType->paramCount > 0)
 	{
-		if(funcType->paramCount > 0)
+		NodeZeroOP	*curr = paramHead;
+		TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
+		do
 		{
-			NodeZeroOP	*curr = paramHead;
-			TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
-			do
-			{
-				// Compute parameter value
-				curr->Compile();
-				// Convert it to type that function expects
-				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
-				if(*paramType == typeFloat)
-					cmdList.push_back(VMCmd(cmdDtoF));
-				curr = curr->next;
-				paramType--;
-			}while(curr);
-		}
-	}else{
-		if(!funcInfo || second)
-		{
-			if(second)
-				second->Compile();
-			else
-				first->Compile();
-		}
-		if(funcType->paramCount > 0)
-		{
-			NodeZeroOP	*curr = paramTail;
-			TypeInfo	**paramType = funcType->paramType;
-			do
-			{
-				// Compute parameter value
-				curr->Compile();
-				// Convert it to type that function expects
-				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
-				if(*paramType == typeFloat)
-					cmdList.push_back(VMCmd(cmdDtoF));
-				curr = curr->prev;
-				paramType++;
-			}while(curr);
-		}
+			// Compute parameter value
+			curr->Compile();
+			// Convert it to type that function expects
+			ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
+			if(*paramType == typeFloat)
+				cmdList.push_back(VMCmd(cmdDtoF));
+			curr = curr->next;
+			paramType--;
+		}while(curr);
 	}
 	if(funcInfo && funcInfo->address == -1)		// If the function is build-in or external
 	{
@@ -574,7 +551,7 @@ void NodeFuncCall::Compile()
 		unsigned int paramSize = 0;
 		for(unsigned int i = 0; i < funcType->paramCount; i++)
 			paramSize += funcType->paramType[i]->size < 4 ? 4 : funcType->paramType[i]->size;
-		paramSize += ((!funcInfo || second) ? 4 : 0);
+		paramSize += (second || first) ? 4 : 0;
 		if(paramSize)
 			cmdList.push_back(VMCmd(cmdReserveV, paramSize));
 
