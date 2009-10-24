@@ -381,8 +381,8 @@ void	RunTests()
 	printf("\r\nTwo bytecode merge test 1\r\n");
 	testCount++;
 
-	const char *partA1 = "int a = 5;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\n";
-	const char *partB1 = "int aa = 15;\r\nint testA(int ref a, int b)\r\n{\r\n\treturn *a += b + 1;\r\n}\r\ntestA(&aa, 5);\r\nreturn aa;\r\n";
+	const char *partA1 = "int a = 5;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\nvoid run(){ test(&a, 4); }\r\n";
+	const char *partB1 = "int aa = 15;\r\nint testA(int ref a, int b)\r\n{\r\n\treturn *a += b + 1;\r\n}\r\ntestA(&aa, 5);\r\nvoid runA(){ testA(&aa, 5); }\r\nreturn aa;\r\n";
 
 	char *bytecodeA, *bytecodeB;
 	bytecodeA = NULL;
@@ -420,30 +420,36 @@ void	RunTests()
 			printf("Compilation failed: %s\r\n", nullcGetRuntimeError());
 			break;
 		}
-
-		nullres goodRun = nullcRun();
-		if(goodRun)
-		{
-			const char* val = nullcGetResult();
-			varData = (char*)nullcGetVariableData();
-
-			if(strcmp(val, "21") != 0)
-				printf("Failed (%s != %s)\r\n", val, "21");
-			varCount = 0;
-			varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
-			if(varInfo)
-			{
-				bool lastFailed = false;
-				CHECK_INT("ERROR", 0, 9);
-				CHECK_INT("ERROR", 1, 21);
-				if(!lastFailed)
-					passed[t]++;
-			}
-		}else{
-			printf("Execution failed: %s\r\n", nullcGetRuntimeError());
-		}
 		delete[] bytecodeA;
 		delete[] bytecodeB;
+
+		if(!nullcRunFunction(NULL))
+		{
+			printf("Execution failed: %s\r\n", nullcGetRuntimeError());
+		}else{
+			if(!nullcRunFunction("run"))
+			{
+				printf("Execution failed: %s\r\n", nullcGetRuntimeError());
+			}else{
+				if(!nullcRunFunction("runA"))
+				{
+					printf("Execution failed: %s\r\n", nullcGetRuntimeError());
+				}else{
+					varData = (char*)nullcGetVariableData();
+
+					varCount = 0;
+					varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
+					if(varInfo)
+					{
+						bool lastFailed = false;
+						CHECK_INT("ERROR", 0, 13);
+						CHECK_INT("ERROR", 1, 27);
+						if(!lastFailed)
+							passed[t]++;
+					}
+				}
+			}
+		}
 	}
 //////////////////////////////////////////////////////////////////////////
 	// Number operation test

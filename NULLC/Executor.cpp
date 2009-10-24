@@ -1039,17 +1039,17 @@ const char* Executor::GetResult()
 	switch(retType)
 	{
 	case OTYPE_DOUBLE:
-		sprintf(execResult, "%f", *(double*)(genStackPtr));
+		SafeSprintf(execResult, 64, "%f", *(double*)(genStackPtr));
 		break;
 	case OTYPE_LONG:
 #ifdef _MSC_VER
-		sprintf(execResult, "%I64dL", *(long long*)(genStackPtr));
+		SafeSprintf(execResult, 64, "%I64dL", *(long long*)(genStackPtr));
 #else
-		sprintf(execResult, "%lld", *(long long*)(genStackPtr));
+		SafeSprintf(execResult, 64, "%lld", *(long long*)(genStackPtr));
 #endif
 		break;
 	case OTYPE_INT:
-		sprintf(execResult, "%d", *(int*)(genStackPtr));
+		SafeSprintf(execResult, 64, "%d", *(int*)(genStackPtr));
 		break;
 	}
 	return execResult;

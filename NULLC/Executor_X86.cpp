@@ -966,13 +966,17 @@ const char* ExecutorX86::GetResult()
 	switch(NULLC::runResultType)
 	{
 	case OTYPE_DOUBLE:
-		sprintf(execResult, "%f", *(double*)(&combined));
+		SafeSprintf(execResult, 64, "%f", *(double*)(&combined));
 		break;
 	case OTYPE_LONG:
-		sprintf(execResult, "%I64dL", combined);
+#ifdef _MSC_VER
+		SafeSprintf(execResult, 64, "%I64dL", combined);
+#else
+		SafeSprintf(execResult, 64, "%lld", combined);
+#endif
 		break;
 	case OTYPE_INT:
-		sprintf(execResult, "%d", NULLC::runResult);
+		SafeSprintf(execResult, 64, "%d", NULLC::runResult);
 		break;
 	}
 	return execResult;

@@ -301,19 +301,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 #define REGISTER(func, proto) nullcAddExternalFunction((void (*)())func, proto)
 REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int color);");
 
-	//nullcDeinit();
-	//nullcInit();
-	/*
-	const char *code="return 2+2;"; nullcCompile(code);
-	unsigned int time; nullcExecuteVM(&time, NULL);
-	const char *res = nullcGetResult();
-
-	nullcDeinit();
-	return 0;
-*/
 	colorer = NULL;
-
-	//typeTest(12, 14, 'c', 15, 5l, 5.0);
 
 	REGISTER(typeTest, "char typeTest(int x, short y, char z, int d, long u, float m, int s, double k, int t);");
 
