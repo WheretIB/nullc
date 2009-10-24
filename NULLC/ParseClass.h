@@ -227,11 +227,11 @@ public:
 
 	FunctionType		*funcType;
 // Specialized allocation
-	void*		operator new(unsigned int size)
+	void*		operator new(size_t size)
 	{
-		return typeInfoPool.Allocate(size);
+		return typeInfoPool.Allocate((unsigned int)size);
 	}
-	void		operator delete(void *ptr, unsigned int size)
+	void		operator delete(void *ptr, size_t size)
 	{
 		(void)ptr; (void)size;
 		assert(!"Cannot delete TypeInfo");
@@ -276,11 +276,11 @@ public:
 	VariableInfo	*next, *prev;		// For self-organizing lists
 
 // Specialized allocation
-	void*		operator new(unsigned int size)
+	void*		operator new(size_t size)
 	{
-		return variablePool.Allocate(size);
+		return variablePool.Allocate((unsigned int)size);
 	}
-	void		operator delete(void *ptr, unsigned int size)
+	void		operator delete(void *ptr, size_t size)
 	{
 		(void)ptr; (void)size;
 		assert(!"Cannot delete VariableInfo");
@@ -398,11 +398,11 @@ public:
 	TypeInfo	*funcType;				// Function type
 
 // Specialized allocation
-	void*		operator new(unsigned int size)
+	void*		operator new(size_t size)
 	{
-		return functionPool.Allocate(size);
+		return functionPool.Allocate((unsigned int)size);
 	}
-	void		operator delete(void *ptr, unsigned int size)
+	void		operator delete(void *ptr, size_t size)
 	{
 		(void)ptr; (void)size;
 		assert(!"Cannot delete FunctionInfo");

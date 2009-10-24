@@ -1,6 +1,7 @@
 #include "CodeGen_X86.h"
-
 #include "StdLib_X86.h"
+
+#ifdef NULLC_BUILD_X86_JIT
 
 x86Instruction	*x86Op = NULL;
 
@@ -1847,3 +1848,4 @@ void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 	}
 }
+#endif
