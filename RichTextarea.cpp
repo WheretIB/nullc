@@ -43,12 +43,12 @@ struct AreaLine
 	AreaLine		*prev, *next;
 
 	static ObjectBlockPool<AreaLine, 32>	*pool;
-	void*		operator new(unsigned int size)
+	void*		operator new(size_t size)
 	{
 		(void)size;
 		return pool->Create();
 	}
-	void		operator delete(void *ptr, unsigned int size)
+	void		operator delete(void *ptr, size_t size)
 	{
 		(void)size;
 		pool->Destroy((AreaLine*)ptr);

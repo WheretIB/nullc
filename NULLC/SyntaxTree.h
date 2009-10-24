@@ -50,11 +50,11 @@ public:
 	// ”становка строки кода, с которым св€зана €чейка
 	virtual void SetCodeInfo(const char* newSourcePos);
 
-	void*		operator new(unsigned int size)
+	void*		operator new(size_t size)
 	{
-		return nodePool.Allocate(size);
+		return nodePool.Allocate((unsigned int)size);
 	}
-	void		operator delete(void *ptr, unsigned int size)
+	void		operator delete(void *ptr, size_t size)
 	{
 		(void)ptr; (void)size;
 		assert(!"Cannot delete NodeZeroOp");

@@ -350,13 +350,14 @@ void Executor::Run(const char* funcName)
 			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)&genParams[0];
 			break;
 		case cmdFuncAddr:
-			assert(sizeof(exFunctions[cmd.argument].funcPtr) == 4);
-
 			genStackPtr--;
 			if(exFunctions[cmd.argument].funcPtr == NULL)
+			{
 				*genStackPtr = exFunctions[cmd.argument].address;
-			else
+			}else{
+				assert(sizeof(exFunctions[cmd.argument].funcPtr) == 4);
 				*genStackPtr = (unsigned int)(intptr_t)(exFunctions[cmd.argument].funcPtr);
+			}
 			break;
 
 		case cmdSetRange:
@@ -937,8 +938,13 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 		asm("movl %0, %%eax"::"r"(stackStart):"%eax");
 		asm("pushl (%eax)");
 #else
+	#ifndef _M_X64
 		__asm{ mov eax, dword ptr[stackStart] }
 		__asm{ push dword ptr[eax] }
+	#else
+		strcpy(execError, "ERROR: No external call on x64");
+		return false;
+	#endif
 #endif
 		stackStart--;
 	}
@@ -964,7 +970,12 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 #ifdef __GNUC__
 	asm("addl %0, %%esp"::"r"(bytesToPop):"%esp");
 #else
-	__asm add esp, bytesToPop;
+	#ifndef _M_X64
+		__asm add esp, bytesToPop;
+	#else
+		strcpy(execError, "ERROR: No external call on x64");
+		return false;
+	#endif
 #endif
 	return callContinue;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef NULLC_BUILD_X86_JIT
 // Implementations of some functions, called from user binary code
 
 __declspec(naked) void intPow()
@@ -536,3 +537,4 @@ __declspec(naked) void longShr()
 		ret
 	}
 }
+#endif
