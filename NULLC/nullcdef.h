@@ -23,7 +23,7 @@ struct NullCArray
 
 #define NULLC_LOG_FILES
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(_M_X64)
 #define NULLC_BUILD_X86_JIT
 #endif
 

@@ -3253,6 +3253,8 @@ return 1;";
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;");
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;");
 
+	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("parsing", "return 0x;");

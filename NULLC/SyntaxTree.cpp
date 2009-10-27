@@ -491,7 +491,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	typeInfo = funcType->retType;
 
 	if(funcInfo && funcInfo->type == FunctionInfo::LOCAL)
-		second = TakeLastNode();
+		first = TakeLastNode();
 
 	if(!funcInfo)
 		first = TakeLastNode();
@@ -510,7 +510,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	}
 
 	if(funcInfo && funcInfo->type == FunctionInfo::THISCALL)
-		second = TakeLastNode();
+		first = TakeLastNode();
 
 	nodeType = typeNodeFuncCall;
 }
@@ -521,9 +521,7 @@ NodeFuncCall::~NodeFuncCall()
 void NodeFuncCall::Compile()
 {
 	// Find parameter values
-	if(second)
-		second->Compile();
-	else if(first)
+	if(first)
 		first->Compile();
 	if(funcType->paramCount > 0)
 	{
@@ -551,7 +549,7 @@ void NodeFuncCall::Compile()
 		unsigned int paramSize = 0;
 		for(unsigned int i = 0; i < funcType->paramCount; i++)
 			paramSize += funcType->paramType[i]->size < 4 ? 4 : funcType->paramType[i]->size;
-		paramSize += (second || first) ? 4 : 0;
+		paramSize += first ? 4 : 0;
 		if(paramSize)
 			cmdList.push_back(VMCmd(cmdReserveV, paramSize));
 
@@ -568,8 +566,6 @@ void NodeFuncCall::LogToStream(FILE *fGraph)
 	GoDown();
 	if(first)
 		first->LogToStream(fGraph);
-	if(second)
-		second->LogToStream(fGraph);
 	NodeZeroOP	*curr = paramTail;
 	while(curr)
 	{

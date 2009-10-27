@@ -492,7 +492,7 @@ protected:
 	NodeZeroOP	*tail;
 };
 
-class NodeFuncCall: public NodeTwoOP
+class NodeFuncCall: public NodeOneOP
 {
 public:
 	NodeFuncCall(FunctionInfo *info, FunctionType *type);
