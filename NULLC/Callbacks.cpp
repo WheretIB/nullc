@@ -1577,6 +1577,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
 		AddGetVariableNode(pos);
 		fType = CodeInfo::nodeList.back()->typeInfo->funcType;
+		if(!fType)
+			ThrowError(pos, "ERROR: variable is not a pointer to function");
 	}
 
 	paramNodes.clear();
