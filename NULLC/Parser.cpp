@@ -855,7 +855,14 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 	}
 	if(ParseGroup(str))
+	{
+		bool hadPost = false;
+		while(ParsePostExpression(str))
+			hadPost = true;
+		if(hadPost)
+			CALLBACK(AddGetVariableNode((*str)->pos));
 		return true;
+	}
 	if(((*str)->type == lex_auto) ||
 		((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) ||
 		((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
@@ -864,7 +871,14 @@ bool ParseTerminal(Lexeme** str)
 			return true;
 	}
 	if(ParseFunctionCall(str, false))
+	{
+		bool hadPost = false;
+		while(ParsePostExpression(str))
+			hadPost = true;
+		if(hadPost)
+			CALLBACK(AddGetVariableNode((*str)->pos));
 		return true;
+	}
 	if(ParseVariable(str))
 	{
 		if(ParseLexem(str, lex_dec))

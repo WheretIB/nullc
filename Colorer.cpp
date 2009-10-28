@@ -279,24 +279,8 @@ namespace ColorerGrammar
 					epsP[LogError("ERROR: unexpected symbol after function header")]
 				);
 
-			appval		=
-				(
-					(varname - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >>
-					*(
-						chP('[')[ColorText] >> 
-						term5 >> 
-						chP(']')[ColorText]
-					) >>
-					*(
-						chP('.')[ColorText] >>
-						varname[ColorVar] >> (~chP('(') | nothingP) >>
-						*(
-							chP('[')[ColorText] >>
-							term5 >>
-							chP(']')[ColorText]
-						)
-					)
-				);
+			postExpr	=	(chP('[')[ColorText] >> term5 >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	varname[ColorVar] >> (~chP('(') | nothingP));
+			appval		=	(varname - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
 			addvarp		=
 				(
 				varname[ColorVarDef] >> epsP[AssignVar<unsigned int>(varSize,1)] >> 
@@ -398,7 +382,8 @@ namespace ColorerGrammar
 				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorVar]) >> chP('\'')[ColorText]] |
 				(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
 				(strP("new")[ColorRWord] >> typenameP(typeName)[ColorRWord] >> !(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])) |
-				group | funccall[FuncCall] |
+				(group >> *postExpr) |
+				(funccall[FuncCall] >> *postExpr) |
 				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall) | epsP));
 			term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
 			term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));
@@ -440,7 +425,7 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, funcvars;
-		Rule appval, varname, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName;
+		Rule appval, varname, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr;
 		// Main rule
 		Rule code;
 	};

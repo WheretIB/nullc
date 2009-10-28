@@ -48,6 +48,8 @@ ChunkedStackPool<4092> VariableInfo::variablePool;
 unsigned int	FunctionInfo::buildInSize = 0;
 ChunkedStackPool<4092>	FunctionInfo::functionPool;
 
+void AddInplaceVariable(const char* pos);
+
 template<typename T> void	Swap(T& a, T& b)
 {
 	T temp = a;
@@ -852,7 +854,18 @@ void AddArrayIndexNode(const char* pos)
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", 2, true))
 		return;
 
+	bool unifyTwo = false;
+
 	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
+	if(currentType->arrLevel != 0)
+	{
+		NodeZeroOP *index = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		AddInplaceVariable(pos);
+		currentType = CodeInfo::GetReferenceType(currentType);
+		CodeInfo::nodeList.push_back(index);
+		unifyTwo = true;
+	}
 	if(currentType->refLevel == 0)
 		ThrowError(pos, "ERROR: indexing variable that is not an array");
 	currentType = CodeInfo::GetDereferenceType(currentType);
@@ -899,6 +912,14 @@ void AddArrayIndexNode(const char* pos)
 	}else{
 		// Otherwise, create array indexing node
 		CodeInfo::nodeList.push_back(new NodeArrayIndex(currentType));
+	}
+	if(unifyTwo)
+	{
+		CodeInfo::nodeList.push_back(new NodeExpressionList(CodeInfo::nodeList.back()->typeInfo));
+		NodeZeroOP* temp = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		static_cast<NodeExpressionList*>(temp)->AddNode();
+		CodeInfo::nodeList.push_back(temp);
 	}
 }
 
@@ -1027,8 +1048,15 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
+	bool unifyTwo = false;
 	// Beware that there is a global variable with the same name
 	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
+	if(currentType->refLevel == 0 && currentType->type == TypeInfo::TYPE_COMPLEX)
+	{
+		AddInplaceVariable(pos);
+		currentType = CodeInfo::GetReferenceType(currentType);
+		unifyTwo = true;
+	}
 	CheckForImmutable(currentType, pos);
 
 	currentType = currentType->subType;
@@ -1076,6 +1104,15 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		// Node that gets function address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(CodeInfo::funcInfo[fID]));
 	}
+
+	if(unifyTwo)
+	{
+		CodeInfo::nodeList.push_back(new NodeExpressionList(CodeInfo::nodeList.back()->typeInfo));
+		NodeZeroOP* temp = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		static_cast<NodeExpressionList*>(temp)->AddNode();
+		CodeInfo::nodeList.push_back(temp);
+	}
 }
 
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
@@ -1102,7 +1139,7 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 	CodeInfo::nodeList.push_back(new NodeVariableModify(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, cmd));
 }
 
-void AddInplaceArray(const char* pos)
+void AddInplaceVariable(const char* pos)
 {
 	char	*arrName = AllocateString(16);
 	int length = sprintf(arrName, "$carr%d", inplaceArrayNum++);
@@ -1117,7 +1154,6 @@ void AddInplaceArray(const char* pos)
 	AddPopNode(pos);
 
 	AddGetAddressNode(pos, InplaceStr(arrName, length));
-	AddGetVariableNode(pos);
 
 	varDefined = saveVarDefined;
 	currType = saveCurrType;
@@ -1141,7 +1177,9 @@ bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 				if(CodeInfo::nodeList.back()->nodeType == typeNodeExpressionList || CodeInfo::nodeList.back()->nodeType == typeNodeFuncCall)
 				{
 					// Create node for assignment of inplace array to implicit variable
-					AddInplaceArray(pos);
+					AddInplaceVariable(pos);
+					// Push array on stack
+					AddGetVariableNode(pos);
 					// Now we have two nodes, so they are to be unified
 					unifyTwo = true;
 				}else{
