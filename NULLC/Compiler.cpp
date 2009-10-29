@@ -137,28 +137,35 @@ Compiler::Compiler()
 
 	AddType("class file{ int id; }");
 
-	AddExternalFunction((void (*)())nullcAssert, "void assert(int val);");
+	AddExternalFunction((void (*)())NULLC::Assert, "void assert(int val);");
 
-	AddExternalFunction((void (*)())nullcCos, "double cos(double deg);");
-	AddExternalFunction((void (*)())nullcSin, "double sin(double deg);");
-	AddExternalFunction((void (*)())nullcTan, "double tan(double deg);");
-	AddExternalFunction((void (*)())nullcCosh, "double cosh(double deg);");
-	AddExternalFunction((void (*)())nullcSinh, "double sinh(double deg);");
-	AddExternalFunction((void (*)())nullcTanh, "double tanh(double deg);");
-	AddExternalFunction((void (*)())nullcAcos, "double acos(double deg);");
-	AddExternalFunction((void (*)())nullcAsin, "double asin(double deg);");
-	AddExternalFunction((void (*)())nullcAtan, "double atan(double deg);");
-	AddExternalFunction((void (*)())nullcCtg, "double ctg(double deg);");
+	AddExternalFunction((void (*)())NULLC::Cos, "double cos(double deg);");
+	AddExternalFunction((void (*)())NULLC::Sin, "double sin(double deg);");
+	AddExternalFunction((void (*)())NULLC::Tan, "double tan(double deg);");
+	AddExternalFunction((void (*)())NULLC::Cosh, "double cosh(double deg);");
+	AddExternalFunction((void (*)())NULLC::Sinh, "double sinh(double deg);");
+	AddExternalFunction((void (*)())NULLC::Tanh, "double tanh(double deg);");
+	AddExternalFunction((void (*)())NULLC::Acos, "double acos(double deg);");
+	AddExternalFunction((void (*)())NULLC::Asin, "double asin(double deg);");
+	AddExternalFunction((void (*)())NULLC::Atan, "double atan(double deg);");
+	AddExternalFunction((void (*)())NULLC::Ctg, "double ctg(double deg);");
 
-	AddExternalFunction((void (*)())nullcCeil, "double ceil(double num);");
-	AddExternalFunction((void (*)())nullcFloor, "double floor(double num);");
-	AddExternalFunction((void (*)())nullcExp, "double exp(double num);");
-	AddExternalFunction((void (*)())nullcLog, "double log(double num);");
+	AddExternalFunction((void (*)())NULLC::Ceil, "double ceil(double num);");
+	AddExternalFunction((void (*)())NULLC::Floor, "double floor(double num);");
+	AddExternalFunction((void (*)())NULLC::Exp, "double exp(double num);");
+	AddExternalFunction((void (*)())NULLC::Log, "double log(double num);");
 
-	AddExternalFunction((void (*)())nullcSqrt, "double sqrt(double num);");
+	AddExternalFunction((void (*)())NULLC::Sqrt, "double sqrt(double num);");
 
-	AddExternalFunction((void (*)())strEqual, "int operator==(char[] a, b);");
-	AddExternalFunction((void (*)())strNEqual, "int operator!=(char[] a, b);");
+	AddExternalFunction((void (*)())NULLC::StrEqual, "int operator==(char[] a, b);");
+	AddExternalFunction((void (*)())NULLC::StrNEqual, "int operator!=(char[] a, b);");
+
+	AddExternalFunction((void (*)())NULLC::Int, "char char(char a);");
+	AddExternalFunction((void (*)())NULLC::Int, "short short(short a);");
+	AddExternalFunction((void (*)())NULLC::Int, "int int(int a);");
+	AddExternalFunction((void (*)())NULLC::Long, "long long(long a);");
+	AddExternalFunction((void (*)())NULLC::Float, "float float(float a);");
+	AddExternalFunction((void (*)())NULLC::Double, "double double(double a);");
 
 #ifdef NULLC_LOG_FILES
 	compileLog = NULL;
