@@ -1,27 +1,37 @@
 #pragma once
 #include "nullcdef.h"
 
-void nullcAssert(int val);
-double nullcCos(double deg);
-double nullcSin(double deg);
-double nullcTan(double deg);
-double nullcCtg(double deg);
+namespace NULLC
+{
+	void	Assert(int val);
+	double	Cos(double deg);
+	double	Sin(double deg);
+	double	Tan(double deg);
+	double	Ctg(double deg);
 
-double nullcCosh(double deg);
-double nullcSinh(double deg);
-double nullcTanh(double deg);
-double nullcCoth(double deg);
+	double	Cosh(double deg);
+	double	Sinh(double deg);
+	double	Tanh(double deg);
+	double	Coth(double deg);
 
-double nullcAcos(double deg);
-double nullcAsin(double deg);
-double nullcAtan(double deg);
+	double	Acos(double deg);
+	double	Asin(double deg);
+	double	Atan(double deg);
 
-double nullcCeil(double num);
-double nullcFloor(double num);
-double nullcExp(double num);
-double nullcLog(double num);
+	double	Ceil(double num);
+	double	Floor(double num);
+	double	Exp(double num);
+	double	Log(double num);
 
-double nullcSqrt(double num);
+	double	Sqrt(double num);
 
-int strEqual(NullCArray a, NullCArray b);
-int strNEqual(NullCArray a, NullCArray b);
+	int		StrEqual(NullCArray a, NullCArray b);
+	int		StrNEqual(NullCArray a, NullCArray b);
+
+	// Basic type constructors
+	int			Int(int a);
+	long long	Long(long long a);
+	float		Float(float a);
+	double		Double(double a);
+	
+}
