@@ -37,8 +37,8 @@ bool ParseContinueExpr(Lexeme** str);
 
 bool ParseGroup(Lexeme** str);
 
-bool ParseVariable(Lexeme** str);
-bool ParsePostExpression(Lexeme** str);
+bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall);
+bool ParsePostExpression(Lexeme** str, bool *isFunctionCall);
 
 bool ParseTerminal(Lexeme** str);
 bool ParsePower(Lexeme** str);

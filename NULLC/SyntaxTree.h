@@ -364,7 +364,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-protected:
+
 	FunctionInfo	*funcInfo;
 };
 //////////////////////////////////////////////////////////////////////////

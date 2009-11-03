@@ -470,7 +470,7 @@ bool ParseIfExpr(Lexeme** str)
 	return true;
 }
 
-bool  ParseForExpr(Lexeme** str)
+bool ParseForExpr(Lexeme** str)
 {
 	if(!ParseLexem(str, lex_for))
 		return false;
@@ -529,7 +529,7 @@ bool  ParseForExpr(Lexeme** str)
 
 }
 
-bool  ParseWhileExpr(Lexeme** str)
+bool ParseWhileExpr(Lexeme** str)
 {
 	if(!ParseLexem(str, lex_while))
 		return false;
@@ -550,7 +550,7 @@ bool  ParseWhileExpr(Lexeme** str)
 	return true;
 }
 
-bool  ParseDoWhileExpr(Lexeme** str)
+bool ParseDoWhileExpr(Lexeme** str)
 {
 	if(!ParseLexem(str, lex_do))
 		return false;
@@ -578,7 +578,7 @@ bool  ParseDoWhileExpr(Lexeme** str)
 	return true;
 }
 
-bool  ParseSwitchExpr(Lexeme** str)
+bool ParseSwitchExpr(Lexeme** str)
 {
 	if(!ParseLexem(str, lex_switch))
 		return false;
@@ -621,7 +621,7 @@ bool  ParseSwitchExpr(Lexeme** str)
 	return true;
 }
 
-bool  ParseReturnExpr(Lexeme** str)
+bool ParseReturnExpr(Lexeme** str)
 {
 	const char* start = (*str)->pos;
 	if(!ParseLexem(str, lex_return))
@@ -636,7 +636,7 @@ bool  ParseReturnExpr(Lexeme** str)
 	return true;
 }
 
-bool  ParseBreakExpr(Lexeme** str)
+bool ParseBreakExpr(Lexeme** str)
 {
 	const char *pos = (*str)->pos;
 	if(!ParseLexem(str, lex_break))
@@ -651,7 +651,7 @@ bool  ParseBreakExpr(Lexeme** str)
 	return true;
 }
 
-bool  ParseContinueExpr(Lexeme** str)
+bool ParseContinueExpr(Lexeme** str)
 {
 	const char *pos = (*str)->pos;
 	if(!ParseLexem(str, lex_continue))
@@ -666,7 +666,7 @@ bool  ParseContinueExpr(Lexeme** str)
 	return true;
 }
 
-bool  ParseGroup(Lexeme** str)
+bool ParseGroup(Lexeme** str)
 {
 	if(!ParseLexem(str, lex_oparen))
 		return false;
@@ -678,7 +678,7 @@ bool  ParseGroup(Lexeme** str)
 	return true;
 }
 
-bool  ParseVariable(Lexeme** str)
+bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 {
 	if(ParseLexem(str, lex_mul))
 	{
@@ -696,15 +696,20 @@ bool  ParseVariable(Lexeme** str)
 	CALLBACK(AddGetAddressNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
 	(*str)++;
 
-	while(ParsePostExpression(str));
+	bool isFuncCall = false;
+	while(ParsePostExpression(str, &isFuncCall));
+	if(lastIsFunctionCall)
+		*lastIsFunctionCall = isFuncCall;
 	return true;
 }
 
-bool  ParsePostExpression(Lexeme** str)
+bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 {
 	Lexeme *start = *str;
 	if(ParseLexem(str, lex_point))
 	{
+		if(isFunctionCall)
+			*isFunctionCall = false;
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: member variable expected after '.'");
 		if((*str)[1].type == lex_oparen)
@@ -717,11 +722,36 @@ bool  ParsePostExpression(Lexeme** str)
 		CALLBACK(AddMemberAccessNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
 		(*str)++;
 	}else if(ParseLexem(str, lex_obracket)){
+		if(isFunctionCall)
+			*isFunctionCall = false;
 		if(!ParseVaribleSet(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '['");
 		if(!ParseLexem(str, lex_cbracket))
 			ThrowError((*str)->pos, "ERROR: ']' not found after expression");
 		CALLBACK(AddArrayIndexNode((*str)->pos));
+	}else if(ParseLexem(str, lex_oparen)){
+		if(isFunctionCall)
+			*isFunctionCall = true;
+
+		NodeZeroOP *fAddress = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+
+		unsigned int callArgCount = 0;
+		if(ParseVaribleSet(str))
+		{
+			callArgCount++;
+			while(ParseLexem(str, lex_comma))
+			{
+				if(!ParseVaribleSet(str))
+					ThrowError((*str)->pos, "ERROR: expression not found after ',' in function parameter list");
+				callArgCount++;
+			}
+		}
+		if(!ParseLexem(str, lex_cparen))
+			ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
+
+		CodeInfo::nodeList.push_back(fAddress);
+		CALLBACK(AddFunctionCallNode((*str)->pos, NULL, callArgCount));
 	}else{
 		return false;
 	}
@@ -854,12 +884,13 @@ bool ParseTerminal(Lexeme** str)
 		CALLBACK(AddArrayConstructor((*str)->pos, arrElementCount));
 		return true;
 	}
+	bool lastIsFunctionCall = false;
 	if(ParseGroup(str))
 	{
 		bool hadPost = false;
-		while(ParsePostExpression(str))
+		while(ParsePostExpression(str, &lastIsFunctionCall))
 			hadPost = true;
-		if(hadPost)
+		if(hadPost && !lastIsFunctionCall)
 			CALLBACK(AddGetVariableNode((*str)->pos));
 		return true;
 	}
@@ -873,13 +904,13 @@ bool ParseTerminal(Lexeme** str)
 	if(ParseFunctionCall(str, false))
 	{
 		bool hadPost = false;
-		while(ParsePostExpression(str))
+		while(ParsePostExpression(str, &lastIsFunctionCall))
 			hadPost = true;
-		if(hadPost)
+		if(hadPost && !lastIsFunctionCall)
 			CALLBACK(AddGetVariableNode((*str)->pos));
 		return true;
 	}
-	if(ParseVariable(str))
+	if(ParseVariable(str, &lastIsFunctionCall))
 	{
 		if(ParseLexem(str, lex_dec))
 		{
@@ -891,7 +922,8 @@ bool ParseTerminal(Lexeme** str)
 			if(!ParseFunctionCall(str, true))
 				ThrowError((*str)->pos, "ERROR: function call is excepted after '.'");
 		}else{
-			CALLBACK(AddGetVariableNode((*str)->pos));
+			if(!lastIsFunctionCall)
+				CALLBACK(AddGetVariableNode((*str)->pos));
 		}
 		return true;
 	}
@@ -1052,7 +1084,7 @@ bool ParseExpression(Lexeme** str)
 	return false;
 }
 
-bool  ParseCode(Lexeme** str)
+bool ParseCode(Lexeme** str)
 {
 	if(!ParseFunctionDefinition(str))
 	{
