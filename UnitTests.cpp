@@ -3075,7 +3075,6 @@ float ref operator[](row a, int y){ return &a.parent.arr[y * a.parent.width + a.
 matrix m = matrix(4, 4);\r\n\
 m[1][3] = 4;\r\n\
 \r\n\
-int int(int a){ return a; }\r\n\
 int operator+(float a, int n){ return int(a) + n; }\r\n\
 \r\n\
 int min(int a, b){ return a < b ? a : b; }\r\n\
@@ -3157,6 +3156,50 @@ return 1;";
 				printf(" %s Failed. i2 unaligned\r\n", t == 0 ? "VM" : "X86");
 				lastFailed = true;
 			}
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testIndirectPointers =
+"int f(int a){}\r\n\
+\r\n\
+typeof(f)[2] farr;\r\n\
+\r\n\
+farr[0] = auto(int c){ return -c; };\r\n\
+farr[1] = auto(int d){ return 2*d; };\r\n\
+\r\n\
+typeof(f) func(int i){ return farr[i]; }\r\n\
+typeof(func) farr2 = func;\r\n\
+auto getarr(){ return { farr[1], farr[0] }; }\r\n\
+\r\n\
+int a1 = farr[0](12);\r\n\
+int a2 = farr[1](12);\r\n\
+int b1 = func(0)(12);\r\n\
+int b2 = func(1)(12);\r\n\
+int c1 = getarr()[0](12);\r\n\
+int c2 = getarr()[1](12);\r\n\
+int d1 = farr2(0)(12);\r\n\
+int d2 = farr2(1)(12);\r\n\
+\r\n\
+return (func(1))(12);";
+	printf("\r\nIndirect function pointers\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testIndirectPointers, testTarget[t], "24"))
+		{
+			lastFailed = false;
+			
+			CHECK_INT("a1", 0, -12);
+			CHECK_INT("a2", 0, 24);
+			CHECK_INT("b1", 0, -12);
+			CHECK_INT("b2", 0, 24);
+			CHECK_INT("c1", 0, 24);
+			CHECK_INT("c2", 0, -12);
+			CHECK_INT("d1", 0, -12);
+			CHECK_INT("d2", 0, 24);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -3254,6 +3297,12 @@ return 1;";
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;");
 
 	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);");
+
+	TEST_FOR_FAIL("Function pointer call with wrong argument count", "int f(int a){ return -a; } auto foo = f; auto b = foo(); return foo(1, 2);");
+	TEST_FOR_FAIL("Function pointer call with wrong argument types", "int f(int a){ return -a; } auto foo = f; float4 v; return foo(v);");
+
+	TEST_FOR_FAIL("Indirect function pointer call with wrong argument count", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; auto b = foo[0](); return foo(1, 2);");
+	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);");
 
 	//TEST_FOR_FAIL("parsing", "");
 

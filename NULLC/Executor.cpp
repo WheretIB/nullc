@@ -149,7 +149,7 @@ void Executor::Run(const char* funcName)
 			break;
 		case cmdPushShort:
 			genStackPtr--;
-			*genStackPtr =  *((short*)(&genParams[cmd.argument + (paramBase * cmd.flag)]));
+			*genStackPtr = *((short*)(&genParams[cmd.argument + (paramBase * cmd.flag)]));
 			break;
 		case cmdPushInt:
 			genStackPtr--;
@@ -180,7 +180,7 @@ void Executor::Run(const char* funcName)
 			*genStackPtr = *((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushShortStk:
-			*genStackPtr =  *(short*)((char*)NULL + cmd.argument + *genStackPtr);
+			*genStackPtr = *(short*)((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushIntStk:
 			*genStackPtr = *(int*)((char*)NULL + cmd.argument + *genStackPtr);

@@ -923,7 +923,7 @@ AreaLine* ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int
 
 	// Convert local X coordinate to virtual X coordinate (no padding and scroll shifts)
 	int vMouseX = xPos - padLeft + shiftCharX * charWidth;
-	// Starting X  position in pixels
+	// Starting X position in pixels
 	int vCurrX = 0;
 
 	// Starting cursor position

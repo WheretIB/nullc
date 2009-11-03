@@ -176,7 +176,7 @@ int x86FILD(unsigned char *stream, x86Size size, x86Reg reg)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xdb : 0xdf;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, size == sDWORD ?  0 : 5);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, size == sDWORD ? 0 : 5);
 	return 1+asize;
 }
 

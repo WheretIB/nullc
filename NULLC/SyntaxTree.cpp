@@ -952,7 +952,7 @@ void NodeArrayIndex::Compile()
 		// Convert it to integer and multiply by the size of the element
 		if(second->typeInfo->stackType != STYPE_INT)
 			cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
-		cmdList.push_back(VMCmd(typeParent->arrSize == TypeInfo::UNSIZED_ARRAY ? cmdIndexStk :  cmdIndex, (unsigned short)typeParent->subType->size, typeParent->arrSize));
+		cmdList.push_back(VMCmd(typeParent->arrSize == TypeInfo::UNSIZED_ARRAY ? cmdIndexStk : cmdIndex, (unsigned short)typeParent->subType->size, typeParent->arrSize));
 	}
 }
 

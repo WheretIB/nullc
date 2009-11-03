@@ -1491,19 +1491,18 @@ void FunctionToOperator(const char* pos)
 FastVector<NodeZeroOP*> paramNodes(32);
 FastVector<NodeZeroOP*> inplaceArray(32);
 
-unsigned int GetFunctionRating(FunctionInfo *currFunc, unsigned int callArgCount)
+unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount)
 {
 	if(currFunc->paramCount != callArgCount)
 		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
 
 	unsigned int fRating = 0;
-	unsigned int n = 0;
-	for(VariableInfo *curr = currFunc->firstParam; curr; curr = curr->next, n++)
+	for(unsigned int i = 0; i < currFunc->paramCount; i++)//TypeInfo *expectedType = currFunc->paramType; curr; curr = curr->next, n++)
 	{
-		NodeZeroOP* activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size() - currFunc->paramCount + n];
+		NodeZeroOP* activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size() - currFunc->paramCount + i];
 		TypeInfo *paramType = activeNode->typeInfo;
 		unsigned int	nodeType = activeNode->nodeType;
-		TypeInfo *expectedType = curr->varType;
+		TypeInfo *expectedType = currFunc->paramType[i];
 		if(expectedType != paramType)
 		{
 			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
@@ -1527,7 +1526,7 @@ FastVector<unsigned int>	bestFuncRating;
 
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
 {
-	unsigned int funcNameHash = GetStringHash(funcName);
+	unsigned int funcNameHash = funcName ? GetStringHash(funcName) : ~0u;
 
 	// Searching, if function name is actually a variable name (which means, either it is a pointer to function, or an error)
 	int vID = CodeInfo::FindVariableByName(funcNameHash);
@@ -1535,7 +1534,9 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	FunctionInfo	*fInfo = NULL;
 	FunctionType	*fType = NULL;
 
-	if(vID == -1)
+	NodeZeroOP	*funcAddr = NULL;
+
+	if(vID == -1 && funcName)
 	{
 		//Find all functions with given name
 		bestFuncList.clear();
@@ -1559,7 +1560,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		unsigned int minRatingIndex = ~0u;
 		for(unsigned int k = 0; k < count; k++)
 		{
-			bestFuncRating[k] = GetFunctionRating(bestFuncList[k], callArgCount);
+			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, callArgCount);
 			if(bestFuncRating[k] < minRating)
 			{
 				minRating = bestFuncRating[k];
@@ -1612,15 +1613,22 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		fType = bestFuncList[minRatingIndex]->funcType->funcType;
 		fInfo = bestFuncList[minRatingIndex];
 	}else{
-		AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
+		if(funcName)
+			AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
 		AddGetVariableNode(pos);
-		fType = CodeInfo::nodeList.back()->typeInfo->funcType;
+		funcAddr = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		fType = funcAddr->typeInfo->funcType;
 		if(!fType)
 			ThrowError(pos, "ERROR: variable is not a pointer to function");
+		if(callArgCount != fType->paramCount)
+			ThrowError(pos, "ERROR: function expects %d arguments, while %d are supplied", fType->paramCount, callArgCount);
+		if(GetFunctionRating(fType, callArgCount) == ~0u)
+			ThrowError(pos, "ERROR: there is no conversion from specified arguments and the ones that function accepts");
 	}
 
 	paramNodes.clear();
-	for(unsigned int i = 0; i < fType->paramCount; i++)
+	for(unsigned int i = 0; i < callArgCount; i++)
 	{
 		paramNodes.push_back(CodeInfo::nodeList.back());
 		CodeInfo::nodeList.pop_back();
@@ -1657,6 +1665,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			AddGetAddressNode(pos, InplaceStr(contextName, length));
 	}
 
+	if(funcAddr)
+		CodeInfo::nodeList.push_back(funcAddr);
 	CodeInfo::nodeList.push_back(new NodeFuncCall(fInfo, fType));
 
 	if(inplaceArray.size() > 0)
