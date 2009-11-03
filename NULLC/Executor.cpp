@@ -430,7 +430,7 @@ void Executor::Run(const char* funcName)
 				fAddress = *genStackPtr;
 				genStackPtr++;
 				// External function call by pointer
-				if(genStackPtr[-2] == -1)
+				if(genStackPtr[-2] == ~0u)
 				{
 					cmdStreamEnd = NULL;
 					strcpy(execError, "ERROR: External function pointers are unsupported");
