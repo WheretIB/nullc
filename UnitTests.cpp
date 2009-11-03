@@ -130,7 +130,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 			const char* val = nullcGetResult();
 			varData = (char*)nullcGetVariableData();
 
-			if(strcmp(val, expected) != 0)
+			if(expected && strcmp(val, expected) != 0)
 			{
 				printf("%s Failed (%s != %s)\r\n", buf, val, expected);
 				return false;
@@ -3183,12 +3183,22 @@ int c2 = getarr()[1](12);\r\n\
 int d1 = farr2(0)(12);\r\n\
 int d2 = farr2(1)(12);\r\n\
 \r\n\
-return (func(1))(12);";
+class Del\r\n\
+{\r\n\
+  int classLocal;\r\n\
+\r\n\
+  int test(int a){ return classLocal + a; }\r\n\
+}\r\n\
+Del cls;\r\n\
+cls.classLocal = 300;\r\n\
+farr[0] = cls.test;\r\n\
+\r\n\
+return (farr[0])(12);";
 	printf("\r\nIndirect function pointers\r\n");
 	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testIndirectPointers, testTarget[t], "24"))
+		if(RunCode(testIndirectPointers, testTarget[t], "312"))
 		{
 			lastFailed = false;
 			
@@ -3206,7 +3216,29 @@ return (func(1))(12);";
 		}
 	}
 
-#define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); }
+const char	*testArrayMemberAfterCall =
+"float2 float2(float x,y){ float2 r; r.x=x;r.y=y; return r; }\r\n\
+float2[2] f(){ return { float2(12,13), float2(14,15) }; }\r\n\
+int x = (f())[0].x;\r\n\
+int y = float2(45, 98).y;\r\n\
+return int(f()[1].y);";
+	printf("\r\nArray and class member access after function call\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testArrayMemberAfterCall, testTarget[t], "15"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("x", 0, 12);
+			CHECK_INT("y", 0, 98);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+#define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
 	//TEST_FOR_FAIL("", "");
@@ -3303,6 +3335,12 @@ return (func(1))(12);";
 
 	TEST_FOR_FAIL("Indirect function pointer call with wrong argument count", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; auto b = foo[0](); return foo(1, 2);");
 	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);");
+
+	TEST_FOR_FAIL("Array element type mistmatch", "float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;");
+	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;");
+
+	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];");
+	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;");
 
 	//TEST_FOR_FAIL("parsing", "");
 

@@ -1265,9 +1265,9 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 
 	NodeExpressionList *arrayList = new NodeExpressionList(targetType);
 
-	TypeInfo *realType = CodeInfo::nodeList.back()->typeInfo;
 	for(unsigned int i = 0; i < arrElementCount; i++)
 	{
+		TypeInfo *realType = CodeInfo::nodeList.back()->typeInfo;
 		if(realType != currentType && !((realType == typeShort || realType == typeChar) && currentType == typeInt) && !(realType == typeFloat && currentType == typeDouble))
 			ThrowError(pos, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
 		arrayList->AddNode(false);
