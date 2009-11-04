@@ -12,7 +12,6 @@
 
 #include "Bytecode.h"
 
-unsigned int CodeInfo::activeExecutor = 0;
 
 CompilerError				CodeInfo::lastError;
 
@@ -58,20 +57,11 @@ void	nullcInit()
 void	nullcSetExecutor(unsigned int id)
 {
 	currExec = id;
-	CodeInfo::activeExecutor = currExec;
 }
 
 nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 {
 	nullres good = compiler->AddExternalFunction(ptr, prototype);
-	if(good == 0)
-		compileError = compiler->GetError();
-	return good;
-}
-
-nullres	nullcAddType(const char* typedecl)
-{
-	nullres good = compiler->AddType(typedecl);
 	if(good == 0)
 		compileError = compiler->GetError();
 	return good;

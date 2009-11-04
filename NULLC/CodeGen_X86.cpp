@@ -1334,6 +1334,8 @@ void GenCodeCmdShlL(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)longShl);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
 }
 
 void GenCodeCmdShrL(VMCmd cmd)
@@ -1343,6 +1345,8 @@ void GenCodeCmdShrL(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)longShr);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 4, rEDX);
+	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
 }
 
 void GenCodeCmdBitAndL(VMCmd cmd)
