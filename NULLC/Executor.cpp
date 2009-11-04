@@ -71,6 +71,8 @@ void Executor::Run(const char* funcName)
 	execError[0] = 0;
 	callContinue = true;
 
+	retType = (asmOperType)-1;
+
 	unsigned int funcPos = ~0ul;
 	if(funcName)
 	{
@@ -1061,6 +1063,9 @@ const char* Executor::GetResult()
 		break;
 	case OTYPE_INT:
 		SafeSprintf(execResult, 64, "%d", *(int*)(genStackPtr));
+		break;
+	default:
+		SafeSprintf(execResult, 64, "no return value");
 		break;
 	}
 	return execResult;

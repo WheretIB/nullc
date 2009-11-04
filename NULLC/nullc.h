@@ -20,9 +20,6 @@ void	nullcSetExecutor(unsigned int id);
 // prototype contains function prototype as if it was written in NULLC. It mush be followed by ';'
 nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
 
-// typedecl contains class definition written in NULLC. Type becomes build-in.
-nullres	nullcAddType(const char* typedecl);
-
 // compiles the code (!) and returns 1 on success
 nullres	nullcCompile(const char* code);
 

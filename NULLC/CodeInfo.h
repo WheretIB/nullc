@@ -7,7 +7,7 @@
 
 void ThrowError(const char* pos, const char* err, ...);
 
-// Немного предопределённых базовых типов
+// Some basic predefined types
 extern TypeInfo*	typeVoid;
 extern TypeInfo*	typeChar;
 extern TypeInfo*	typeShort;
@@ -17,13 +17,11 @@ extern TypeInfo*	typeLong;
 extern TypeInfo*	typeDouble;
 extern TypeInfo*	typeFile;
 
-// Информация о коде, используемых функциях, переменных, типов.
+// Information about code, function, variables, types, node, etc
 namespace CodeInfo
 {
 	static const unsigned int EXEC_VM = 0;
 	static const unsigned int EXEC_X86 = 1;
-
-	extern unsigned int		activeExecutor;
 
 	extern CompilerError	lastError;
 
@@ -60,16 +58,16 @@ namespace CodeInfo
 	extern jmp_buf	errorHandler;
 
 	//////////////////////////////////////////////////////////////////////////
-	// Функция возвращает тип - указателя на исходный
+	// Function returns reference type for the type
 	TypeInfo* GetReferenceType(TypeInfo* type);
 
-	// Функиця возвращает тип, получаемый при разименовании указателя
+	// Function returns type that reference points to
 	TypeInfo* GetDereferenceType(TypeInfo* type);
 
-	// Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
+	// Function returns type that is an array for passed type
 	TypeInfo* GetArrayType(TypeInfo* type, unsigned int sizeInArgument = 0);
 
-	// Функция возвращает тип функции
+	// Function return function type
 	TypeInfo* GetFunctionType(FunctionInfo* info);
 
 	// Search for the variable starting from the end of a list. -1 is returned if the variable not found

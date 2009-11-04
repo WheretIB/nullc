@@ -17,38 +17,44 @@ void ThrowError(const char* pos, const char* err, ...)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Функция возвращает тип - указателя на исходный
+// Function returns reference type for the type
 TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 {
+	// If type already has reference type, return it
 	if(type->refType)
 		return type->refType;
 
-	// Создадим новый тип
+	// Create new type
 	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, type->refLevel + 1, 0, 1, type, TypeInfo::TYPE_INT);
 	newInfo->size = 4;
 
+	// Save it for future use
 	type->refType = newInfo;
 
 	typeInfo.push_back(newInfo);
 	return newInfo;
 }
 
-// Функиця возвращает тип, получаемый при разименовании указателя
+// Function returns type that reference points to
 TypeInfo* CodeInfo::GetDereferenceType(TypeInfo* type)
 {
+	// If it's not a reference, or a reference to an invalid type, return error
 	if(!type->subType || type->refLevel == 0)
 		ThrowError(lastKnownStartPos, "ERROR: Cannot dereference type '%s' - there is no result type available", type->GetFullTypeName());
+
+	// Return type
 	return type->subType;
 }
 
-// Функция возвращает тип - массив исходных типов (кол-во элементов в varSize)
+// Function returns type that is an array for passed type
 TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 {
 	int arrSize = -1;
 	bool unFixed = false;
+	// If size wasn't passed through argument, then it can be found in previous node
 	if(sizeInArgument == 0)
 	{
-		// В последнем узле должно находиться константное число
+		// It must be a constant type
 		if(nodeList.back()->nodeType == typeNodeNumber)
 		{
 			TypeInfo *aType = nodeList.back()->typeInfo;
@@ -56,7 +62,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 			if(aType->type != TypeInfo::TYPE_COMPLEX && aType->type != TypeInfo::TYPE_VOID)
 			{
 				arrSize = static_cast<NodeNumber*>(zOP)->GetInteger();
-			}else if(aType == typeVoid){
+			}else if(aType == typeVoid){	// If number type is void, then array with explicit type must be created
 				arrSize = -1;
 				unFixed = true;
 			}else{
@@ -75,8 +81,8 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	if(!unFixed && arrSize < 1)
 		ThrowError(lastKnownStartPos, "ERROR: Array size can't be negative or zero");
 
-	// Поищем нужный тип в списке
-	unsigned int targetArrLevel = type->arrLevel+1;
+	// Search type list for the type that we need
+	unsigned int targetArrLevel = type->arrLevel + 1;
 	for(unsigned int i = 0; i < typeInfo.size(); i++)
 	{
 		if(type == typeInfo[i]->subType && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (unsigned int)arrSize)
@@ -84,7 +90,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 			return typeInfo[i];
 		}
 	}
-	// Создадим новый тип
+	// If not found, create new type
 	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, 0, type->arrLevel + 1, arrSize, type, TypeInfo::TYPE_COMPLEX);
 
 	if(unFixed)
@@ -104,6 +110,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	return newInfo;
 }
 
+// Function return function type
 TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 {
 	// Find out the function type

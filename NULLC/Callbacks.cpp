@@ -623,13 +623,15 @@ void AddReturnNode(const char* pos)
 		expectedType = currDefinedFunc.back()->retType;
 		if((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType)
 			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
-		if(expectedType->type == TypeInfo::TYPE_VOID && realRetType != typeVoid)
+		if(expectedType == typeVoid && realRetType != typeVoid)
 			ThrowError(pos, "ERROR: function returning a value");
 		if(expectedType != typeVoid && realRetType == typeVoid)
 			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
 	}else{
-		if(currDefinedFunc.size() == 0 && realRetType == typeVoid)
+		if(realRetType == typeVoid)
 			ThrowError(pos, "ERROR: global return cannot accept void");
+		else if(realRetType->type == TypeInfo::TYPE_COMPLEX)
+			ThrowError(pos, "ERROR: global return cannot accept complex types");
 		expectedType = realRetType;
 	}
 	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType));
@@ -914,13 +916,7 @@ void AddArrayIndexNode(const char* pos)
 		CodeInfo::nodeList.push_back(new NodeArrayIndex(currentType));
 	}
 	if(unifyTwo)
-	{
-		CodeInfo::nodeList.push_back(new NodeExpressionList(CodeInfo::nodeList.back()->typeInfo));
-		NodeZeroOP* temp = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		static_cast<NodeExpressionList*>(temp)->AddNode();
-		CodeInfo::nodeList.push_back(temp);
-	}
+		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
 // Function for pointer dereferencing
@@ -994,13 +990,7 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::GetReferenceType(realCurrType), true, false));
 
 	if(unifyTwo)
-	{
-		CodeInfo::nodeList.push_back(new NodeExpressionList(CodeInfo::nodeList.back()->typeInfo));
-		NodeZeroOP* temp = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		static_cast<NodeExpressionList*>(temp)->AddNode();
-		CodeInfo::nodeList.push_back(temp);
-	}
+		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
 void AddSetVariableNode(const char* pos)
@@ -1020,13 +1010,7 @@ void AddSetVariableNode(const char* pos)
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, 0, true));
 
 	if(unifyTwo)
-	{
-		CodeInfo::nodeList.push_back(new NodeExpressionList(CodeInfo::nodeList.back()->typeInfo));
-		NodeZeroOP* temp = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		static_cast<NodeExpressionList*>(temp)->AddNode();
-		CodeInfo::nodeList.push_back(temp);
-	}
+		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
 void AddGetVariableNode(const char* pos)
@@ -1106,13 +1090,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	}
 
 	if(unifyTwo)
-	{
-		CodeInfo::nodeList.push_back(new NodeExpressionList(CodeInfo::nodeList.back()->typeInfo));
-		NodeZeroOP* temp = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		static_cast<NodeExpressionList*>(temp)->AddNode();
-		CodeInfo::nodeList.push_back(temp);
-	}
+		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
@@ -1232,14 +1210,14 @@ bool ConvertFunctionToPointer(const char* pos)
 }
 
 //////////////////////////////////////////////////////////////////////////
-void AddOneExpressionNode()
+void AddOneExpressionNode(void *retType)
 {
-	CodeInfo::nodeList.push_back(new NodeExpressionList());
+	CodeInfo::nodeList.push_back(new NodeExpressionList(retType ? (TypeInfo*)retType : typeVoid));
 }
-void AddTwoExpressionNode()
+void AddTwoExpressionNode(void *retType)
 {
 	if(CodeInfo::nodeList.back()->nodeType != typeNodeExpressionList)
-		AddOneExpressionNode();
+		AddOneExpressionNode(retType);
 	// Take the expression list from the top
 	NodeZeroOP* temp = CodeInfo::nodeList.back();
 	CodeInfo::nodeList.pop_back();

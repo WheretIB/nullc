@@ -43,11 +43,11 @@ public:
 	explicit NodeZeroOP(TypeInfo* tinfo);
 	virtual ~NodeZeroOP();
 
-	// Генерация кода
+	// Code generation
 	virtual void Compile();
-	// Вывод в лог параметров узла
+	// Graph formatted printout to file
 	virtual void LogToStream(FILE *fGraph);
-	// Установка строки кода, с которым связана ячейка
+	// Binding of code position to bytecode that node generates
 	virtual void SetCodeInfo(const char* newSourcePos);
 
 	void*		operator new(size_t size)

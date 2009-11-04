@@ -62,31 +62,31 @@ namespace NULLC
 			if(expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
 				expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase+64*1024)
 			{
-				// Проверим, не привысии ли мы объём доступной памяти
+				// Check that we haven't exceeded available memory
 				if(reservedStack > 512*1024*1024)
 				{
 					expAllocCode = 4;
 					return EXCEPTION_EXECUTE_HANDLER;
 				}
-				// Разрешим использование последней страницы зарезервированной памяти
+				// Allow the use of last reserved memory page
 				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+commitedStack)), stackGrowSize-stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
 				{
 					expAllocCode = 1; // failed to commit all old memory
 					return EXCEPTION_EXECUTE_HANDLER;
 				}
-				// Зарезервируем ещё память прямо после предыдущего блока
+				// Reserve new memory right after the block
 				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS))
 				{
 					expAllocCode = 2; // failed to reserve new memory
 					return EXCEPTION_EXECUTE_HANDLER;
 				}
-				// Разрешим использование всей зарезервированной памяти кроме последней страницы
+				// Allow access to all new reserved memory, except for the last memory page
 				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
 				{
 					expAllocCode = 3; // failed to commit new memory
 					return EXCEPTION_EXECUTE_HANDLER;
 				}
-				// Обновим переменные
+				// Update variables
 				commitedStack = reservedStack;
 				reservedStack += stackGrowSize;
 				commitedStack += stackGrowCommit;
@@ -347,25 +347,25 @@ void ExecutorX86::Run(const char* funcName)
 	{
 		__asm
 		{
-			pusha ; // Сохраним все регистры
+			pusha ; // Save all registers
 			mov eax, binCodeStart ;
 			
-			// Выравниваем стек на границу 8 байт
+			// Align stack to a 8-byte boundary
 			lea ebx, [esp+8];
 			and ebx, 0fh;
 			mov ecx, 16;
 			sub ecx, ebx;
 			sub esp, ecx;
 
-			push ecx; // Сохраним на сколько сдвинули стек
-			push ebp; // Сохраним базу стека (её придётся востановить до popa)
+			push ecx; // Save alignment size
+			push ebp; // Save stack base pointer (must be restored before popa)
 
 			mov edi, varSize ;
 			mov ebp, 0h ;
 
-			call eax ; // в ebx тип вернувшегося значения
+			call eax ; // Return type is placed in ebx
 
-			pop ebp; // Востановим базу стека
+			pop ebp; // Restore stack base
 			pop ecx;
 			add esp, ecx;
 
@@ -537,6 +537,7 @@ bool ExecutorX86::TranslateToNative()
 	}
 	EMIT_LABEL(LABEL_GLOBAL + pos);
 	EMIT_OP_REG(o_pop, rEBP);
+	EMIT_OP_REG_NUM(o_mov, rEBX, ~0u);
 	EMIT_OP(o_ret);
 	instList.resize((int)(GetLastInstruction() - &instList[0]));
 
@@ -977,6 +978,9 @@ const char* ExecutorX86::GetResult()
 		break;
 	case OTYPE_INT:
 		SafeSprintf(execResult, 64, "%d", NULLC::runResult);
+		break;
+	default:
+		SafeSprintf(execResult, 64, "no return value");
 		break;
 	}
 	return execResult;

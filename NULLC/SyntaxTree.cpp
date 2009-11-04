@@ -864,7 +864,7 @@ void NodeVariableModify::Compile()
 	// Convert it to the type that results from operation made between two operands.
 	ConvertFirstForSecond(asmSTsecond, asmSTresult);
 
-	// Произведём операцию со значениями
+	// Make a binary operation of corresponding type
 	if(asmSTresult == STYPE_INT)
 		cmdList.push_back(VMCmd((InstructionCode)(cmdID)));
 	else if(asmSTresult == STYPE_LONG)

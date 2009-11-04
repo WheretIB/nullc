@@ -7,14 +7,12 @@ void CallbackInitialize();
 void SetTypeConst(bool isConst);
 void SetCurrentAlignment(unsigned int alignment);
 
-// Вызывается в начале блока {}, чтобы сохранить количество определённых переменных, к которому можно
-// будет вернутся после окончания блока.
+// Function is called when block {} is opened, to save the number of defined variables and functions
 void BeginBlock();
-// Вызывается в конце блока {}, чтобы убрать информацию о переменных внутри блока, тем самым обеспечивая
-// их выход из области видимости. Также уменьшает вершину стека переменных в байтах.
+// Function is called when block {} is closed, to restore previous number of defined variables and functions to hide those that lost visibility
 void EndBlock(bool hideFunctions = true);
 
-// Функции для добавления узлов с константными числами разных типов
+// Functions for adding nodes with constant numbers of different types
 void AddNumberNodeChar(const char* pos);
 void AddNumberNodeInt(const char* pos);
 void AddNumberNodeFloat(const char* pos);
@@ -27,22 +25,18 @@ void AddHexInteger(const char* pos, const char* end);
 void AddOctInteger(const char* pos, const char* end);
 void AddBinInteger(const char* pos, const char* end);
 
-// Функция для создания узла, который кладёт массив в стек
-// Используется NodeExpressionList, что не является самым быстрым и красивым вариантом
-// но зато не надо писать отдельный класс с одинаковыми действиями внутри.
+// Function that places string on stack, using list of NodeNumber in NodeExpressionList
 void AddStringNode(const char* s, const char* e);
 
-// Функция для создания узла, который уберёт значение со стека переменных
-// Узел заберёт к себе последний узел в списке.
+// Function that creates node that removes value on top of the stack
 void AddPopNode(const char* pos);
 
-// Функция для создания узла, которые поменяет знак значения в стеке
-// Узел заберёт к себе последний узел в списке.
+// Function that creates unary operation node that changes sign of value
 void AddNegateNode(const char* pos);
 
-// Функция для создания узла, которые произведёт логическое отрицания над значением в стеке
-// Узел заберёт к себе последний узел в списке.
+// Function that creates unary operation node for logical NOT
 void AddLogNotNode(const char* pos);
+// Function that creates unary operation node for binary NOT
 void AddBitNotNode(const char* pos);
 
 void AddBinaryCommandNode(const char* pos, CmdID id);
@@ -67,20 +61,20 @@ void GetTypeSize(const char* pos, bool sizeOfExpr);
 
 void SetTypeOfLastNode();
 
-// Функция для получения адреса переменной, имя которое передаётся в параметрах
+// Function that retrieves variable address
 void AddGetAddressNode(const char* pos, InplaceStr varName);
 
-// Функция вызывается для индексации массива
+// Function for array indexing
 void AddArrayIndexNode(const char* pos);
 
-// Функция вызывается для разыменования указателя
+// Function for pointer dereferencing
 void AddDereferenceNode(const char* pos);
 
-// Компилятор в начале предполагает, что после переменной будет слодовать знак присваивания
-// Часто его нету, поэтому требуется удалить узел
+// Compiler expects that after variable there will be assignment operator
+// If it's not the case, last node has to be removed
 void FailedSetVariable();
 
-// Функция вызывается для определния переменной с одновременным присваиванием ей значения
+// Function for variable assignment in place of definition
 void AddDefineVariableNode(const char* pos, InplaceStr varName);
 
 void AddSetVariableNode(const char* pos);
@@ -92,8 +86,8 @@ void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp);
 
 void AddModifyVariableNode(const char* pos, CmdID cmd);
 
-void AddOneExpressionNode();
-void AddTwoExpressionNode();
+void AddOneExpressionNode(void *retType = NULL);
+void AddTwoExpressionNode(void *retType = NULL);
 
 void AddArrayConstructor(const char* pos, unsigned int arrElementCount);
 
