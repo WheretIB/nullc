@@ -145,7 +145,7 @@ void InitConsole()
 	conStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
 
 	DWORD fdwMode = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT; 
-    SetConsoleMode(conStdIn, fdwMode);
+	SetConsoleMode(conStdIn, fdwMode);
 	SetConsoleCtrlHandler(ConsoleEvent, 1);
 }
 
@@ -473,7 +473,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	unsigned int widt = (800-25)/4;
 
-	hCode = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER |  WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
+	hCode = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
 		5, 225, widt*2, 165, hWnd, NULL, hInstance, NULL);
 	if(!hCode)
 		return 0;

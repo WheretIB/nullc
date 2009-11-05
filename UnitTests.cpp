@@ -3341,6 +3341,7 @@ return int(f()[1].y);";
 
 	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];");
 	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;");
+	TEST_FOR_FAIL("Type redefinition", "class int{ int a, b; } return 1;");
 
 	//TEST_FOR_FAIL("parsing", "");
 
