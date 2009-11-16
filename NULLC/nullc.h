@@ -12,6 +12,7 @@ typedef unsigned char nullres;
 
 // Initialize NULLC
 void	nullcInit();
+void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(size_t), void (NCDECL *deallocFunc)(void*));
 
 #define NULLC_VM	0
 #define NULLC_X86	1

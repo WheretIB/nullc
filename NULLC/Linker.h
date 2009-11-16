@@ -27,5 +27,8 @@ public:
 	FastVector<char>			exSymbols;
 	unsigned int				globalVarSize;
 	unsigned int				offsetToGlobalCode;
+
+	FastVector<unsigned int>	typeRemap;
+	FastVector<unsigned int>	funcRemap;
 };
 

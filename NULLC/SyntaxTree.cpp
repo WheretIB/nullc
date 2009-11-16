@@ -2,16 +2,9 @@
 #include "SyntaxTree.h"
 
 #include "CodeInfo.h"
-using namespace CodeInfo;
-
-unsigned int GetFuncIndexByPtr(FunctionInfo* funcInfo)
-{
-	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
-		if(CodeInfo::funcInfo[i] == funcInfo)
-			return i;
-
-	return ~0u;
-}
+using CodeInfo::nodeList;
+using CodeInfo::cmdList;
+using CodeInfo::cmdInfoList;
 
 NodeZeroOP*	TakeLastNode()
 {
@@ -542,7 +535,7 @@ void NodeFuncCall::Compile()
 	if(funcInfo && funcInfo->address == -1)		// If the function is build-in or external
 	{
 		// Call it by function index
-		unsigned int ID = GetFuncIndexByPtr(funcInfo);
+		unsigned int ID = CodeInfo::FindFunctionByPtr(funcInfo);
 		cmdList.push_back(VMCmd(cmdCallStd, ID));
 	}else{					// If the function is defined by user
 		// Lets move parameters to function local variables
@@ -554,7 +547,7 @@ void NodeFuncCall::Compile()
 			cmdList.push_back(VMCmd(cmdReserveV, paramSize));
 
 		// Call by function address in bytecode
-		unsigned int ID = GetFuncIndexByPtr(funcInfo);
+		unsigned int ID = CodeInfo::FindFunctionByPtr(funcInfo);
 		unsigned short helper = (unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[typeInfo->stackType]));
 		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : CALL_BY_POINTER));
 	}
@@ -592,7 +585,7 @@ NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, 
 	absAddress = absAddr;
 
 	typeOrig = retInfo;
-	typeInfo = GetReferenceType(typeOrig);
+	typeInfo = CodeInfo::GetReferenceType(typeOrig);
 
 	nodeType = typeNodeGetAddress;
 }
@@ -611,7 +604,7 @@ void NodeGetAddress::IndexArray(int shift)
 	assert(typeOrig->arrLevel != 0);
 	varAddress += typeOrig->subType->size * shift;
 	typeOrig = typeOrig->subType;
-	typeInfo = GetReferenceType(typeOrig);
+	typeInfo = CodeInfo::GetReferenceType(typeOrig);
 }
 
 void NodeGetAddress::ShiftToMember(TypeInfo::MemberVariable *member)
@@ -619,7 +612,7 @@ void NodeGetAddress::ShiftToMember(TypeInfo::MemberVariable *member)
 	assert(member);
 	varAddress += member->offset;
 	typeOrig = member->type;
-	typeInfo = GetReferenceType(typeOrig);
+	typeInfo = CodeInfo::GetReferenceType(typeOrig);
 }
 
 void NodeGetAddress::Compile()
@@ -666,9 +659,9 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->typeInfo == typeVoid)
-		ThrowError(lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 	if(typeInfo == typeVoid)
-		ThrowError(lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 	
 	// If types don't match
 	if(second->typeInfo != typeInfo)
@@ -683,7 +676,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
 		{
 			if(!(typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && arrSetAll))
-				ThrowError(lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
+				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 		}
 	}
 
@@ -783,9 +776,9 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	assert(first->typeInfo->refLevel != 0);
 
 	if(second->typeInfo == typeVoid)
-		ThrowError(lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 	if(typeInfo == typeVoid)
-		ThrowError(lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 
 	// If types don't match
 	if(second->typeInfo != typeInfo)
@@ -799,7 +792,7 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 			(typeInfo->refLevel != second->typeInfo->refLevel) ||
 			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
 		{
-			ThrowError(lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 		}
 	}
 
@@ -909,7 +902,7 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 {
 	assert(parentType);
 	typeParent = parentType;
-	typeInfo = GetReferenceType(parentType->subType);
+	typeInfo = CodeInfo::GetReferenceType(parentType->subType);
 
 	// Node that calculates array index
 	second = TakeLastNode();
@@ -1042,7 +1035,7 @@ void NodeDereference::LogToStream(FILE *fGraph)
 NodeShiftAddress::NodeShiftAddress(unsigned int shift, TypeInfo* resType)
 {
 	memberShift = shift;
-	typeInfo = GetReferenceType(resType);
+	typeInfo = CodeInfo::GetReferenceType(resType);
 
 	first = TakeLastNode();
 
@@ -1091,7 +1084,7 @@ NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 	incOp = isInc;
 
 	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
-		ThrowError(lastKnownStartPos, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetFullTypeName());
 
 	prefixOp = preOp;
 
@@ -1195,7 +1188,7 @@ void NodeFunctionAddress::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
-	unsigned int ID = GetFuncIndexByPtr(funcInfo);
+	unsigned int ID = CodeInfo::FindFunctionByPtr(funcInfo);
 	cmdList.push_back(VMCmd(cmdFuncAddr, ID));
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
@@ -1231,14 +1224,14 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 
 	// Binary operations on complex types are not present at the moment
 	if(first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0 || first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		ThrowError(lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 	if(first->typeInfo == typeVoid)
-		ThrowError(lastKnownStartPos, "ERROR: first operator returns void");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operator returns void");
 	if(second->typeInfo == typeVoid)
-		ThrowError(lastKnownStartPos, "ERROR: second operator returns void");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: second operator returns void");
 
 	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
-		ThrowError(lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
 
 	bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
 
@@ -1554,7 +1547,7 @@ void SatisfyJumps(FastVector<VMCmd*>& jumpList, unsigned int pos)
 //////////////////////////////////////////////////////////////////////////
 // Node for break operation
 
-FastVector<VMCmd*>	NodeBreakOp::fixQueue(32);
+FastVector<VMCmd*>	NodeBreakOp::fixQueue;
 
 NodeBreakOp::NodeBreakOp(unsigned int brDepth)
 {
@@ -1589,7 +1582,7 @@ void NodeBreakOp::SatisfyJumps(unsigned int pos)
 //////////////////////////////////////////////////////////////////////////
 // Node for continue operation
 
-FastVector<VMCmd*>	NodeContinueOp::fixQueue(32);
+FastVector<VMCmd*>	NodeContinueOp::fixQueue;
 
 NodeContinueOp::NodeContinueOp(unsigned int contDepth)
 {
@@ -1624,7 +1617,7 @@ void NodeContinueOp::SatisfyJumps(unsigned int pos)
 //////////////////////////////////////////////////////////////////////////
 // Node for compilation of switch
 
-FastVector<VMCmd*>	NodeSwitchExpr::fixQueue(32);
+FastVector<VMCmd*>	NodeSwitchExpr::fixQueue;
 
 NodeSwitchExpr::NodeSwitchExpr()
 {

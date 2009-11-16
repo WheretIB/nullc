@@ -126,3 +126,4 @@ void AddUnfixedArraySize();
 
 unsigned int GetGlobalSize();
 void CallbackDeinitialize();
+void CallbackReset();

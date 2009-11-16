@@ -466,6 +466,11 @@ public:
 		sourceStart = NULL;
 	}
 
+	void	Reset()
+	{
+		sourceInfo.reset();
+	}
+
 	void	SetSourceStart(const char *start)
 	{
 		sourceStart = start;

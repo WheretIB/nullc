@@ -62,6 +62,7 @@ public:
 
 	static	ChunkedStackPool<4092>	nodePool;
 	static void	DeleteNodes(){ nodePool.Clear(); }
+	static void	ResetNodes(){ nodePool.~ChunkedStackPool(); }
 protected:
 	const char		*sourcePos;
 public:
@@ -467,14 +468,14 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+
+	static FastVector<VMCmd*>	fixQueue;
 protected:
 	NodeZeroOP	*conditionHead, *conditionTail;
 	NodeZeroOP	*blockHead, *blockTail;
 	NodeZeroOP	*defaultCase;
 
 	unsigned int	caseCount;
-
-	static FastVector<VMCmd*>	fixQueue;
 };
 
 class NodeExpressionList: public NodeOneOP

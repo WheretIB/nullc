@@ -7,6 +7,7 @@
 
 #ifndef _DEBUG
 	#define FAILURE_TEST
+	#define SPEED_TEST
 #endif
 
 double timeCompile;
@@ -339,6 +340,31 @@ NullCArray	newA(int size, int count)
 	return ret;
 }
 
+FILE *allocLog = NULL;
+void* testAlloc(size_t size)
+{
+	if(!allocLog)
+		allocLog = fopen("testAlloc.txt", "wb");
+	static size_t overall = 0;
+	static int allocs = 0;
+	overall += size;
+	allocs++;
+	fprintf(allocLog, "%d Alloc of %u bytes (Total %u)\r\n", allocs, size, overall);
+	fflush(allocLog);
+	return malloc(size);
+}
+void testDealloc(void* ptr)
+{
+	free(ptr);
+}
+
+#ifdef SPEED_TEST
+void speedTestStub(int x, int y, int width, int height, int color)
+{
+	(void)x; (void)y; (void)width; (void)height; (void)color;
+}
+#endif
+
 void	RunTests()
 {
 	timeCompile = 0.0;
@@ -349,7 +375,7 @@ void	RunTests()
 	timeRun = 0.0;
 
 	// Init NULLC
-	nullcInit();
+	nullcInitCustomAlloc(testAlloc, testDealloc);
 
 	nullcAddExternalFunction((void (*)())(mFileOpen), "file FileOpen(char[] name, char[] access);");
 	nullcAddExternalFunction((void (*)())(mFileClose), "void FileClose(file fID);");
@@ -371,6 +397,10 @@ void	RunTests()
 
 	nullcAddExternalFunction((void (*)())newS, "int __newS(int size);");
 	nullcAddExternalFunction((void (*)())newA, "int[] __newA(int size, int count);");
+
+#ifdef SPEED_TEST
+	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");
+#endif
 
 	int passed[] = { 0, 0 };
 	int testCount = 0;
@@ -3451,6 +3481,111 @@ return int(f()[1].y);";
 	printf("Link time: %f\r\n", timeLinkCode);
 	printf("Run time: %f\r\n", timeRun);
 
+#ifdef SPEED_TEST
+const char	*testCompileSpeed =
+"int progress_slider_position = 0;\r\n\
+\r\n\
+int clip(int value, int left, int right){	return value < left ? left : value > right ? right : value;}\r\n\
+\r\n\
+void draw_progress_text(int progress_x, int progress_y, int clip_left, int clip_right)\r\n\
+{\r\n\
+	// 60x8\r\n\
+	auto pattern =\r\n\
+	{\r\n\
+		{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},\r\n\
+		{0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},\r\n\
+		{0,1,0,0,1,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,1,1,0,0,1,1,0,0},\r\n\
+		{0,1,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,0,1,0,1,1,0,0,1,1,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0},\r\n\
+		{0,1,0,0,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0},\r\n\
+		{0,1,0,0,1,0,1,0,0,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0,0,0},\r\n\
+		{0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,0,1,0,1,1,0,0,0,0,1,1,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,1,1,0},\r\n\
+		{0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0}\r\n\
+	};\r\n\
+\r\n\
+	auto pattern_x_offset = 80;\r\n\
+	auto pattern_cell_width = 8;\r\n\
+	auto pattern_cell_height = 8;\r\n\
+	auto pattern_color = 0xff202020;\r\n\
+\r\n\
+	for (auto y = 0; y < 8; ++y)\r\n\
+	{\r\n\
+		for (auto x = 0; x < 60; ++x)\r\n\
+		{\r\n\
+			if (!pattern[y][x]) continue;\r\n\
+\r\n\
+			int left = progress_x + pattern_x_offset + pattern_cell_width * x;\r\n\
+			int right = left + pattern_cell_width;\r\n\
+\r\n\
+			int clipped_left = clip(left, clip_left, clip_right);\r\n\
+			int clipped_right = clip(right, clip_left, clip_right);\r\n\
+\r\n\
+			draw_rect(clipped_left, progress_y + pattern_cell_height * y, clipped_right - clipped_left, pattern_cell_height, pattern_color);\r\n\
+		}\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+void draw_progress_bar_part(int progress_x, int progress_y, int x, int y, int width, int height)\r\n\
+{\r\n\
+	draw_rect(x, y, width, height, 0xffffffff);\r\n\
+	draw_progress_text(progress_x, progress_y, x, x + width);\r\n\
+}\r\n\
+\r\n\
+int draw_progress_bar()\r\n\
+{\r\n\
+	auto progress_width = 640;\r\n\
+	auto progress_height = 64;\r\n\
+	auto progress_margin = 8;\r\n\
+	auto progress_slider_width = 128;\r\n\
+	auto progress_slider_speed = 8;\r\n\
+\r\n\
+	// progress bar background\r\n\
+	auto progress_x = 640 - progress_width/2;\r\n\
+	auto progress_y = 360 - progress_height/2;\r\n\
+\r\n\
+	draw_rect(progress_x - progress_margin, progress_y - progress_margin, progress_width + progress_margin * 2, progress_height + progress_margin * 2, 0xff808080);\r\n\
+\r\n\
+	// progress slider\r\n\
+	auto progress_slider_left = progress_slider_position % progress_width;\r\n\
+	auto progress_slider_right = (progress_slider_position + progress_slider_width) % progress_width;\r\n\
+\r\n\
+	if (progress_slider_left < progress_slider_right)\r\n\
+	{\r\n\
+		draw_progress_bar_part(progress_x, progress_y, progress_x + progress_slider_left, progress_y, progress_slider_right - progress_slider_left, progress_height);\r\n\
+	}\r\n\
+	else\r\n\
+	{\r\n\
+		draw_progress_bar_part(progress_x, progress_y, progress_x, progress_y, progress_slider_right, progress_height);\r\n\
+		draw_progress_bar_part(progress_x, progress_y, progress_x + progress_slider_left, progress_y, progress_width - progress_slider_left, progress_height);\r\n\
+	}\r\n\
+\r\n\
+	progress_slider_position += progress_slider_speed;\r\n\
+\r\n\
+	return 0;\r\n\
+}\r\n\
+for(int i = 0; i < 10000; i++)\r\n\
+	draw_progress_bar();\r\n\
+return i;";
+
+	nullcSetExecutor(NULLC_VM);
+
+	double time = myGetPreciseTime();
+	for(int i = 0; i < 1000; i++)
+	{
+		nullres good = nullcCompile(testCompileSpeed);
+
+		if(good)
+		{
+			char *bytecode = NULL;
+			nullcGetBytecode(&bytecode);
+			nullcClean();
+			nullcLinkCode(bytecode, 0);
+			delete[] bytecode;
+		}
+	}
+	time = myGetPreciseTime() - time;
+
+	printf("Speed test run time: %f Average: %f\r\n", time, time / 1000.0);
+#endif
 	// Deinit NULLC
 	nullcDeinit();
 }

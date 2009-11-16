@@ -56,6 +56,8 @@ private:
 
 	Lexer	lexer;
 
+	ChunkedStackPool<1020>	dupStrings;
+
 	unsigned int buildInFuncs;
 	unsigned int basicTypes, buildInTypes;
 };
