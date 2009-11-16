@@ -75,4 +75,7 @@ namespace CodeInfo
 
 	// Search for the function from specified position to the beginning of a list. -1 is returned if the function not found
 	int FindFunctionByName(unsigned int hash, int startPos);
+
+	// Search for the function index by having pointer to it
+	unsigned int FindFunctionByPtr(FunctionInfo* funcInfo);
 };

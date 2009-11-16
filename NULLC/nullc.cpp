@@ -17,11 +17,11 @@ CompilerError				CodeInfo::lastError;
 
 FastVector<FunctionInfo*>	CodeInfo::funcInfo;
 FastVector<VariableInfo*>	CodeInfo::varInfo;
-FastVector<TypeInfo*>		CodeInfo::typeInfo(64);
+FastVector<TypeInfo*>		CodeInfo::typeInfo;
 SourceInfo					CodeInfo::cmdInfoList;
 FastVector<VMCmd>			CodeInfo::cmdList;
-FastVector<NodeZeroOP*>		CodeInfo::nodeList(64);
-FastVector<NodeZeroOP*>		CodeInfo::funcDefList(32);
+FastVector<NodeZeroOP*>		CodeInfo::nodeList;
+FastVector<NodeZeroOP*>		CodeInfo::funcDefList;
 const char*					CodeInfo::lastKnownStartPos = NULL;
 
 Compiler*	compiler;
@@ -36,21 +36,24 @@ const char*	compileError;
 const char* executeResult;
 const char* executeLog;
 
-char* compilationLog;
-
 unsigned int currExec = 0;
 
 void	nullcInit()
 {
-	compiler = new Compiler();
-	linker = new Linker();
-	executor = new Executor(linker);
+	nullcInitCustomAlloc(NULL, NULL);
+}
+
+void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(size_t), void (NCDECL *deallocFunc)(void*))
+{
+	NULLC::alloc = allocFunc ? allocFunc : NULLC::defaultAlloc;
+	NULLC::dealloc = deallocFunc ? deallocFunc : NULLC::defaultDealloc;
+
+	compiler = NULLC::construct<Compiler>();
+	linker = NULLC::construct<Linker>();
+	executor = new(NULLC::alloc(sizeof(Executor))) Executor(linker);
 #ifdef NULLC_BUILD_X86_JIT
-	executorX86 = new ExecutorX86(linker);
+	executorX86 = new(NULLC::alloc(sizeof(ExecutorX86))) ExecutorX86(linker);
 	executorX86->Initialize();
-#endif
-#ifdef NULLC_LOG_FILES
-	compilationLog = NULL;
 #endif
 }
 
@@ -211,18 +214,24 @@ void**	nullcGetVariableInfo(unsigned int* count)
 
 void	nullcDeinit()
 {
-	delete compiler;
+	NULLC::destruct(compiler);
 	compiler = NULL;
-	delete linker;
+	NULLC::destruct(linker);
 	linker = NULL;
-	delete executor;
+	NULLC::destruct(executor);
 	executor = NULL;
 #ifdef NULLC_BUILD_X86_JIT
-	delete executorX86;
+	NULLC::destruct(executorX86);
 	executorX86 = NULL;
 #endif
-#ifdef NULLC_LOG_FILES
-	delete[] compilationLog;
-	compilationLog = NULL;
-#endif
+
+	CodeInfo::funcInfo.reset();
+	CodeInfo::varInfo.reset();
+	CodeInfo::typeInfo.reset();
+
+	CodeInfo::cmdList.reset();
+	CodeInfo::nodeList.reset();
+	CodeInfo::funcDefList.reset();
+
+	CodeInfo::cmdInfoList.Reset();
 }

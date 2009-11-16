@@ -3,7 +3,7 @@
 #include "Lexer.h"
 
 char*	AllocateString(unsigned int size);
-void ClearStringList();
+void	ClearStringList();
 
 unsigned int ParseTypename(Lexeme** str);
 
@@ -59,3 +59,5 @@ bool ParseVaribleSet(Lexeme** str);
 bool ParseBlock(Lexeme** str);
 bool ParseExpression(Lexeme** str);
 bool ParseCode(Lexeme** str);
+
+void ParseReset();

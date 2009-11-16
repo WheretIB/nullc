@@ -2,6 +2,7 @@
 
 #include "Instruction_X86.h"
 
+void x86ResetLabels();
 void x86ClearLabels();
 
 int x86FLDZ(unsigned char* stream);

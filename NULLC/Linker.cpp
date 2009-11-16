@@ -23,9 +23,6 @@ void Linker::CleanCode()
 	offsetToGlobalCode = 0;
 }
 
-FastVector<unsigned int>	typeRemap(50);
-FastVector<unsigned int>	funcRemap(50);
-
 bool Linker::LinkCode(const char *code, int redefinitions)
 {
 	linkError[0] = 0;

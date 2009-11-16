@@ -23,17 +23,17 @@ unsigned int inplaceArrayNum;
 // Stack of variable counts.
 // Used to find how many variables are to be removed when their visibility ends.
 // Also used to know how much space for local variables is required in stack frame.
-FastVector<VarTopInfo>		varInfoTop(64);
+FastVector<VarTopInfo>		varInfoTop;
 
 // Stack of function counts.
 // Used to find how many functions are to be removed when their visibility ends.
-FastVector<unsigned int>	funcInfoTop(64);
+FastVector<unsigned int>	funcInfoTop;
 
 // Cycle depth stack is used to determine what is the depth of the loop when compiling operators break and continue
-FastVector<unsigned int>	cycleDepth(64);
+FastVector<unsigned int>	cycleDepth;
 
 // Stack of functions that are being defined at the moment
-FastVector<FunctionInfo*>	currDefinedFunc(64);
+FastVector<FunctionInfo*>	currDefinedFunc;
 
 // Information about current type
 TypeInfo*	currType = NULL;
@@ -47,6 +47,12 @@ unsigned int	VariableInfo::buildInSize = 0;
 ChunkedStackPool<4092> VariableInfo::variablePool;
 unsigned int	FunctionInfo::buildInSize = 0;
 ChunkedStackPool<4092>	FunctionInfo::functionPool;
+
+FastVector<FunctionInfo*>	bestFuncList;
+FastVector<unsigned int>	bestFuncRating;
+
+FastVector<NodeZeroOP*>	paramNodes;
+FastVector<NodeZeroOP*>	inplaceArray;
 
 void AddInplaceVariable(const char* pos);
 
@@ -1466,9 +1472,6 @@ void FunctionToOperator(const char* pos)
 	lastFunc.visible = true;
 }
 
-FastVector<NodeZeroOP*> paramNodes(32);
-FastVector<NodeZeroOP*> inplaceArray(32);
-
 unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount)
 {
 	if(currFunc->paramCount != callArgCount)
@@ -1498,9 +1501,6 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 	}
 	return fRating;
 }
-
-FastVector<FunctionInfo*>	bestFuncList;
-FastVector<unsigned int>	bestFuncRating;
 
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
 {
@@ -1855,4 +1855,20 @@ unsigned int GetGlobalSize()
 void CallbackDeinitialize()
 {
 	VariableInfo::DeleteVariableInformation();
+}
+
+void CallbackReset()
+{
+	varInfoTop.reset();
+	funcInfoTop.reset();
+	cycleDepth.reset();
+	currDefinedFunc.reset();
+	bestFuncList.reset();
+	bestFuncRating.reset();
+	paramNodes.reset();
+	inplaceArray.reset();
+
+	TypeInfo::typeInfoPool.~ChunkedStackPool();
+	VariableInfo::variablePool.~ChunkedStackPool();
+	FunctionInfo::functionPool.~ChunkedStackPool();
 }

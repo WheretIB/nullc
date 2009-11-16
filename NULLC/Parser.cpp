@@ -931,7 +931,7 @@ bool ParseTerminal(Lexeme** str)
 }
 
 // operator stack
-FastVector<LexemeType>	opStack(64);
+FastVector<LexemeType>	opStack;
 
 bool ParseArithmetic(Lexeme** str)
 {
@@ -1096,4 +1096,10 @@ bool ParseCode(Lexeme** str)
 	else
 		CALLBACK(AddOneExpressionNode());
 	return true;
+}
+
+void ParseReset()
+{
+	opStack.reset();
+	stringPool.~ChunkedStackPool();
 }

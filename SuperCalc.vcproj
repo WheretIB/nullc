@@ -682,10 +682,6 @@
 			RelativePath=".\TODOlist.txt"
 			>
 		</File>
-		<File
-			RelativePath=".\UnitTests.txt"
-			>
-		</File>
 	</Files>
 	<Globals>
 	</Globals>

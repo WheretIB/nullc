@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 #include "CodeInfo.h"
-using namespace CodeInfo;
 
 #include "Bytecode.h"
 
@@ -83,45 +82,45 @@ Compiler::Compiler()
 
 	// Add basic types
 	TypeInfo* info;
-	info = new TypeInfo(typeInfo.size(), "void", 0, 0, 1, NULL, TypeInfo::TYPE_VOID);
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "void", 0, 0, 1, NULL, TypeInfo::TYPE_VOID);
 	info->size = 0;
 	typeVoid = info;
-	typeInfo.push_back(info);
+	CodeInfo::typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), "double", 0, 0, 1, NULL, TypeInfo::TYPE_DOUBLE);
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "double", 0, 0, 1, NULL, TypeInfo::TYPE_DOUBLE);
 	info->alignBytes = 8;
 	info->size = 8;
 	typeDouble = info;
-	typeInfo.push_back(info);
+	CodeInfo::typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), "float", 0, 0, 1, NULL, TypeInfo::TYPE_FLOAT);
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "float", 0, 0, 1, NULL, TypeInfo::TYPE_FLOAT);
 	info->alignBytes = 4;
 	info->size = 4;
 	typeFloat = info;
-	typeInfo.push_back(info);
+	CodeInfo::typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), "long", 0, 0, 1, NULL, TypeInfo::TYPE_LONG);
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "long", 0, 0, 1, NULL, TypeInfo::TYPE_LONG);
 	info->size = 8;
 	typeLong = info;
-	typeInfo.push_back(info);
+	CodeInfo::typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), "int", 0, 0, 1, NULL, TypeInfo::TYPE_INT);
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "int", 0, 0, 1, NULL, TypeInfo::TYPE_INT);
 	info->alignBytes = 4;
 	info->size = 4;
 	typeInt = info;
-	typeInfo.push_back(info);
+	CodeInfo::typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), "short", 0, 0, 1, NULL, TypeInfo::TYPE_SHORT);
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "short", 0, 0, 1, NULL, TypeInfo::TYPE_SHORT);
 	info->size = 2;
 	typeShort = info;
-	typeInfo.push_back(info);
+	CodeInfo::typeInfo.push_back(info);
 
-	info = new TypeInfo(typeInfo.size(), "char", 0, 0, 1, NULL, TypeInfo::TYPE_CHAR);
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "char", 0, 0, 1, NULL, TypeInfo::TYPE_CHAR);
 	info->size = 1;
 	typeChar = info;
-	typeInfo.push_back(info);
+	CodeInfo::typeInfo.push_back(info);
 
-	basicTypes = buildInTypes = (int)typeInfo.size();
+	basicTypes = buildInTypes = (int)CodeInfo::typeInfo.size();
 	TypeInfo::SaveBuildinTop();
 
 	// Add complex types
@@ -174,32 +173,20 @@ Compiler::Compiler()
 
 Compiler::~Compiler()
 {
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
-	{
-		typeInfo[i]->fullName = NULL;
-		if(typeInfo[i]->name && i >= basicTypes && i < buildInTypes)
-		{
-			delete[] typeInfo[i]->name;
-			typeInfo[i]->name = NULL;
-			TypeInfo::MemberVariable	*currV = typeInfo[i]->firstVariable;
-			while(currV)
-			{
-				delete[] currV->name;
-				currV = currV->next;
-			}
-		}
-	}
-	for(unsigned int i = 0; i < funcInfo.size(); i++)
-	{
-		if(funcInfo[i]->address == -1)
-			delete[] funcInfo[i]->name;
-	}
+	ParseReset();
 
 	CallbackDeinitialize();
+	CallbackReset();
 
-	varInfo.clear();
-	funcInfo.clear();
-	typeInfo.clear();
+	CodeInfo::varInfo.clear();
+	CodeInfo::funcInfo.clear();
+	CodeInfo::typeInfo.clear();
+
+	NodeBreakOp::fixQueue.reset();
+	NodeContinueOp::fixQueue.reset();
+	NodeSwitchExpr::fixQueue.reset();
+
+	NodeZeroOP::ResetNodes();
 
 #ifdef NULLC_LOG_FILES
 	if(compileLog)
@@ -209,23 +196,23 @@ Compiler::~Compiler()
 
 void Compiler::ClearState()
 {
-	varInfo.clear();
+	CodeInfo::varInfo.clear();
 
 	for(unsigned int i = 0; i < buildInTypes; i++)
 	{
-		if(typeInfo[i]->refType && typeInfo[i]->refType->typeIndex >= buildInTypes)
-			typeInfo[i]->refType = NULL;
+		if(CodeInfo::typeInfo[i]->refType && CodeInfo::typeInfo[i]->refType->typeIndex >= buildInTypes)
+			CodeInfo::typeInfo[i]->refType = NULL;
 	}
 
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
-		typeInfo[i]->fullName = NULL;
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+		CodeInfo::typeInfo[i]->fullName = NULL;
 
-	typeInfo.resize(buildInTypes);
+	CodeInfo::typeInfo.resize(buildInTypes);
 	TypeInfo::DeleteTypeInformation();
 
-	funcInfo.resize(buildInFuncs);
+	CodeInfo::funcInfo.resize(buildInFuncs);
 
-	nodeList.clear();
+	CodeInfo::nodeList.clear();
 
 	ClearStringList();
 
@@ -236,7 +223,7 @@ void Compiler::ClearState()
 		fclose(compileLog);
 	compileLog = fopen("compilelog.txt", "wb");
 #endif
-	lastError = CompilerError();
+	CodeInfo::lastError = CompilerError();
 }
 
 bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
@@ -247,24 +234,24 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 
 	lexer.Lexify(prototype);
 
-	if(!setjmp(errorHandler))
+	if(!setjmp(CodeInfo::errorHandler))
 	{
 		Lexeme *start = lexer.GetStreamStart();
 		res = ParseFunctionDefinition(&start);
 	}else{
-		lastError = CompilerError("Parsing failed", NULL);
+		CodeInfo::lastError = CompilerError("Parsing failed", NULL);
 		return false;
 	}
 	if(!res)
 		return false;
 
-	funcInfo.back()->name = DuplicateString(funcInfo.back()->name);
-	funcInfo.back()->address = -1;
-	funcInfo.back()->funcPtr = (void*)ptr;
-	funcInfo.back()->implemented = true;
+	CodeInfo::funcInfo.back()->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(CodeInfo::funcInfo.back()->name) + 1), CodeInfo::funcInfo.back()->name);
+	CodeInfo::funcInfo.back()->address = -1;
+	CodeInfo::funcInfo.back()->funcPtr = (void*)ptr;
+	CodeInfo::funcInfo.back()->implemented = true;
 
-	buildInFuncs = funcInfo.size();
-	buildInTypes = typeInfo.size();
+	buildInFuncs = CodeInfo::funcInfo.size();
+	buildInTypes = CodeInfo::typeInfo.size();
 	TypeInfo::SaveBuildinTop();
 	VariableInfo::SaveBuildinTop();
 
@@ -279,33 +266,33 @@ bool Compiler::AddType(const char* typedecl)
 
 	lexer.Lexify(typedecl);
 
-	if(!setjmp(errorHandler))
+	if(!setjmp(CodeInfo::errorHandler))
 	{
 		Lexeme *start = lexer.GetStreamStart();
 		res = ParseClassDefinition(&start);
 	}else{
-		lastError = CompilerError("Parsing failed", NULL);
+		CodeInfo::lastError = CompilerError("Parsing failed", NULL);
 		return false;
 	}
 	if(!res)
 		return false;
 
-	TypeInfo *definedType = typeInfo[buildInTypes];
-	definedType->name = DuplicateString(definedType->name);
+	TypeInfo *definedType = CodeInfo::typeInfo[buildInTypes];
+	definedType->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(definedType->name) + 1), definedType->name);
 	TypeInfo::MemberVariable	*currV = definedType->firstVariable;
 	while(currV)
 	{
-		currV->name = DuplicateString(currV->name);
+		currV->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(currV->name) + 1), currV->name);
 		currV = currV->next;
 	}
 	TypeInfo::MemberFunction	*currF = definedType->firstFunction;
 	while(currF)
 	{
-		currF->func->name = DuplicateString(currF->func->name);
+		currF->func->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(currF->func->name) + 1), currF->func->name);
 		currF = currF->next;
 	}
 
-	buildInTypes = (int)typeInfo.size();
+	buildInTypes = (int)CodeInfo::typeInfo.size();
 	TypeInfo::SaveBuildinTop();
 	VariableInfo::SaveBuildinTop();
 	FunctionInfo::SaveBuildinTop();
@@ -317,8 +304,8 @@ bool Compiler::Compile(const char *str)
 {
 	ClearState();
 
-	cmdInfoList.Clear();
-	cmdList.clear();
+	CodeInfo::cmdInfoList.Clear();
+	CodeInfo::cmdList.clear();
 
 #ifdef NULLC_LOG_FILES
 	FILE *fCode = fopen("code.txt", "wb");
@@ -327,7 +314,7 @@ bool Compiler::Compile(const char *str)
 #endif
 
 	CompilerError::codeStart = str;
-	cmdInfoList.SetSourceStart(str);
+	CodeInfo::cmdInfoList.SetSourceStart(str);
 
 	unsigned int t = clock();
 
@@ -335,7 +322,7 @@ bool Compiler::Compile(const char *str)
 
 	bool res;
 
-	if(!setjmp(errorHandler))
+	if(!setjmp(CodeInfo::errorHandler))
 	{
 		Lexeme *start = lexer.GetStreamStart();
 		res = ParseCode(&start);
@@ -344,7 +331,7 @@ bool Compiler::Compile(const char *str)
 	}
 	if(!res)
 	{
-		lastError = CompilerError("Parsing failed", NULL);
+		CodeInfo::lastError = CompilerError("Parsing failed", NULL);
 		return false;
 	}
 
@@ -355,17 +342,17 @@ bool Compiler::Compile(const char *str)
 #endif
 
 	t = clock();
-	cmdList.push_back(VMCmd(cmdJmp));
-	for(unsigned int i = 0; i < funcDefList.size(); i++)
+	CodeInfo::cmdList.push_back(VMCmd(cmdJmp));
+	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
 	{
-		funcDefList[i]->Compile();
-		((NodeFuncDef*)funcDefList[i])->Disable();
+		CodeInfo::funcDefList[i]->Compile();
+		((NodeFuncDef*)CodeInfo::funcDefList[i])->Disable();
 	}
-	cmdList[0].argument = cmdList.size();
-	if(nodeList.back())
-		nodeList.back()->Compile();
+	CodeInfo::cmdList[0].argument = CodeInfo::cmdList.size();
+	if(CodeInfo::nodeList.back())
+		CodeInfo::nodeList.back()->Compile();
 
-	cmdInfoList.FindLineNumbers();
+	CodeInfo::cmdInfoList.FindLineNumbers();
 
 	tem = clock()-t;
 #ifdef NULLC_LOG_FILES
@@ -375,22 +362,22 @@ bool Compiler::Compile(const char *str)
 
 #ifdef NULLC_LOG_FILES
 	FILE *fGraph = fopen("graph.txt", "wb");
-	for(unsigned int i = 0; i < funcDefList.size(); i++)
-		funcDefList[i]->LogToStream(fGraph);
-	if(nodeList.back())
-		nodeList.back()->LogToStream(fGraph);
+	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
+		CodeInfo::funcDefList[i]->LogToStream(fGraph);
+	if(CodeInfo::nodeList.back())
+		CodeInfo::nodeList.back()->LogToStream(fGraph);
 	fclose(fGraph);
 #endif
 
 #ifdef NULLC_LOG_FILES
-	fprintf(compileLog, "\r\nActive types (%d):\r\n", typeInfo.size());
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
-		fprintf(compileLog, "%s (%d bytes)\r\n", typeInfo[i]->GetFullTypeName(), typeInfo[i]->size);
+	fprintf(compileLog, "\r\nActive types (%d):\r\n", CodeInfo::typeInfo.size());
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+		fprintf(compileLog, "%s (%d bytes)\r\n", CodeInfo::typeInfo[i]->GetFullTypeName(), CodeInfo::typeInfo[i]->size);
 
-	fprintf(compileLog, "\r\nActive functions (%d):\r\n", funcInfo.size());
-	for(unsigned int i = 0; i < funcInfo.size(); i++)
+	fprintf(compileLog, "\r\nActive functions (%d):\r\n", CodeInfo::funcInfo.size());
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
-		FunctionInfo &currFunc = *funcInfo[i];
+		FunctionInfo &currFunc = *CodeInfo::funcInfo[i];
 		fprintf(compileLog, "%s", currFunc.type == FunctionInfo::LOCAL ? "local " : (currFunc.type == FunctionInfo::NORMAL ? "global " : "thiscall "));
 		fprintf(compileLog, "%s %s(", currFunc.retType->GetFullTypeName(), currFunc.name);
 
@@ -407,13 +394,13 @@ bool Compiler::Compile(const char *str)
 	fflush(compileLog);
 #endif
 
-	if(nodeList.back())
-		nodeList.pop_back();
+	if(CodeInfo::nodeList.back())
+		CodeInfo::nodeList.pop_back();
 	NodeZeroOP::DeleteNodes();
 
-	if(nodeList.size() != 0)
+	if(CodeInfo::nodeList.size() != 0)
 	{
-		lastError = CompilerError("Compilation failed, AST contains more than one node", NULL);
+		CodeInfo::lastError = CompilerError("Compilation failed, AST contains more than one node", NULL);
 		return false;
 	}
 
@@ -422,7 +409,7 @@ bool Compiler::Compile(const char *str)
 
 const char* Compiler::GetError()
 {
-	return lastError.GetErrorString();
+	return CodeInfo::lastError.GetErrorString();
 }
 
 void Compiler::SaveListing(const char *fileName)
@@ -434,17 +421,17 @@ void Compiler::SaveListing(const char *fileName)
 	const char *lastSourcePos = CompilerError::codeStart;
 	for(unsigned int i = 0; i < CodeInfo::cmdList.size(); i++)
 	{
-		while((line < cmdInfoList.sourceInfo.size() - 1) && (i >= cmdInfoList.sourceInfo[line + 1].byteCodePos))
+		while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
 			line++;
 		if(line != lastLine)
 		{
 			lastLine = line;
-			if(cmdInfoList.sourceInfo[line].sourceEnd > lastSourcePos)
+			if(CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd > lastSourcePos)
 			{
-				fprintf(compiledAsm, "%.*s\r\n", cmdInfoList.sourceInfo[line].sourceEnd - lastSourcePos, lastSourcePos);
-				lastSourcePos = cmdInfoList.sourceInfo[line].sourceEnd;
+				fprintf(compiledAsm, "%.*s\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - lastSourcePos, lastSourcePos);
+				lastSourcePos = CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd;
 			}else{
-				fprintf(compiledAsm, "%.*s\r\n", cmdInfoList.sourceInfo[line].sourceEnd - cmdInfoList.sourceInfo[line].sourcePos, cmdInfoList.sourceInfo[line].sourcePos);
+				fprintf(compiledAsm, "%.*s\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
 			}
 		}
 		CodeInfo::cmdList[i].Decode(instBuf);

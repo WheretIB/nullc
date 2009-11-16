@@ -164,16 +164,27 @@ TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
 
 int	CodeInfo::FindVariableByName(unsigned int hash)
 {
-	for(int i = CodeInfo::varInfo.size()-1; i >= 0; i--)
-		if(CodeInfo::varInfo[i]->nameHash == hash)
+	for(int i = varInfo.size()-1; i >= 0; i--)
+		if(varInfo[i]->nameHash == hash)
 			return i;
+
 	return -1;
 }
 
 int CodeInfo::FindFunctionByName(unsigned int hash, int startPos)
 {
 	for(int i = startPos; i >= 0; i--)
-		if(CodeInfo::funcInfo[i]->nameHash == hash && CodeInfo::funcInfo[i]->visible)
+		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible)
 			return i;
+
 	return -1;
+}
+
+unsigned int CodeInfo::FindFunctionByPtr(FunctionInfo* funcPtr)
+{
+	for(unsigned int i = 0; i < funcInfo.size(); i++)
+		if(funcInfo[i] == funcPtr)
+			return i;
+
+	return ~0u;
 }

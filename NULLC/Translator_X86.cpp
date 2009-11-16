@@ -109,8 +109,8 @@ struct UnsatisfiedJump
 	unsigned char *jmpPos;
 };
 
-FastVector<LabelInfo>	labels(16);
-FastVector<UnsatisfiedJump> pendingJumps(16);
+FastVector<LabelInfo>	labels;
+FastVector<UnsatisfiedJump> pendingJumps;
 
 bool FindLabel(unsigned int labelID, LabelInfo& info)
 {
@@ -123,6 +123,12 @@ bool FindLabel(unsigned int labelID, LabelInfo& info)
 		}
 	}
 	return false;
+}
+
+void x86ResetLabels()
+{
+	labels.reset();
+	pendingJumps.reset();
 }
 
 void x86ClearLabels()

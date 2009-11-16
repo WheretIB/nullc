@@ -113,6 +113,8 @@ ExecutorX86::~ExecutorX86()
 	VirtualFree(reinterpret_cast<void*>(0x20000000), 0, MEM_RELEASE);
 
 	delete[] binCode;
+
+	x86ResetLabels();
 }
 
 bool ExecutorX86::Initialize()
@@ -483,7 +485,7 @@ bool ExecutorX86::TranslateToNative()
 		const VMCmd &cmd = exCode[pos];
 
 		unsigned int currSize = (int)(GetLastInstruction() - &instList[0]);
-		instList.m_size = currSize;
+		instList.count = currSize;
 		if(currSize + 64 >= instList.max)
 			instList.grow(currSize + 64);
 		SetLastInstruction(instList.data + currSize);
