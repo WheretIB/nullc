@@ -10,8 +10,10 @@
 #pragma comment(lib, "comctl32.lib")
 #include <windowsx.h>
 
+#pragma warning(disable: 4201)
 #include <MMSystem.h>
 #pragma comment(lib, "Winmm.lib")
+#pragma warning(default: 4201)
 
 #include <iostream>
 
@@ -23,6 +25,7 @@
 #include "UnitTests.h"
 
 #include "RichTextarea.h"
+#include "TabbedFiles.h"
 
 #define MAX_LOADSTRING 100
 
@@ -35,20 +38,20 @@ bool				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, unsigned int, WPARAM, LPARAM);
 LRESULT CALLBACK	About(HWND, unsigned int, WPARAM, LPARAM);
 
-//Window handles
+// Window handles
 HWND hWnd;
-HWND hButtonCalc;	//calculate button
-HWND hJITEnabled;//calculate button
-HWND hTextArea;		//code text area (rich edit)
-HWND hResult;		//label with execution result
-HWND hCode;			//disabled text area for errors and asm-like code output
-HWND hVars;			//disabled text area that shows values of all variables in global scope
+HWND hButtonCalc;	// calculate button
+HWND hJITEnabled;	// jit enable button
+HWND hTabs;
+HWND hTextArea;		// code text area (rich edit)
+HWND hResult;		// label with execution result
+HWND hCode;			// disabled text area for errors and asm-like code output
+HWND hVars;			// disabled text area that shows values of all variables in global scope
 HWND hStatus;
 
-//colorer, compiler and executor
 Colorer*	colorer;
 
-//for text update
+// for text update
 bool needTextUpdate;
 DWORD lastUpdate;
 
@@ -374,14 +377,14 @@ WORD MyRegisterClass(HINSTANCE hInstance)
 
 	wcex.cbSize = sizeof(WNDCLASSEX); 
 
-	wcex.style			= 0;//CS_HREDRAW | CS_VREDRAW;
+	wcex.style			= 0;
 	wcex.lpfnWndProc	= (WNDPROC)WndProc;
 	wcex.cbClsExtra		= 0;
 	wcex.cbWndExtra		= 0;
 	wcex.hInstance		= hInstance;
 	wcex.hIcon			= LoadIcon(hInstance, (LPCTSTR)IDI_SUPERCALC);
 	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW+1);
+	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.lpszMenuName	= (LPCTSTR)IDC_SUPERCALC;
 	wcex.lpszClassName	= szWindowClass;
 	wcex.hIconSm		= LoadIcon(wcex.hInstance, (LPCTSTR)IDI_SMALL);
@@ -392,7 +395,7 @@ WORD MyRegisterClass(HINSTANCE hInstance)
 char* GetLastErrorDesc()
 {
 	char* msgBuf = NULL;
-	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 		NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 		reinterpret_cast<LPSTR>(&msgBuf), 0, NULL);
 	return msgBuf;
@@ -402,22 +405,19 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // Store instance handle in our global variable
 
-	hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-		100, 100, 900, 450, NULL, NULL, hInstance, NULL);
+	hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW, 100, 100, 900, 450, NULL, NULL, hInstance, NULL);
 	if(!hWnd)
 		return 0;
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
-	hButtonCalc = CreateWindow("BUTTON", "Calculate", WS_CHILD,
-		5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
+	hButtonCalc = CreateWindow("BUTTON", "Calculate", WS_CHILD, 5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
 	if(!hButtonCalc)
 		return 0;
 	ShowWindow(hButtonCalc, nCmdShow);
 	UpdateWindow(hButtonCalc);
 
-	hJITEnabled = CreateWindow("BUTTON", "X86 JIT", BS_AUTOCHECKBOX | WS_CHILD,
-		800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
+	hJITEnabled = CreateWindow("BUTTON", "X86 JIT", BS_AUTOCHECKBOX | WS_CHILD, 800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
 	if(!hJITEnabled)
 		return 0;
 	ShowWindow(hJITEnabled, nCmdShow);
@@ -432,9 +432,20 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	hStatus = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "Ready", hWnd, 0);
 
+	TabbedFiles::RegisterTabbedFiles("NULLCTABS", hInstance);
+
+	hTabs = CreateWindow("NULLCTABS", "tabs", WS_CHILD/* | WS_BORDER*/, 5, 4, 800, 20, hWnd, 0, hInstance, 0);
+	if(!hTabs)
+		return 0;
+	ShowWindow(hTabs, nCmdShow);
+	UpdateWindow(hTabs);
+	TabbedFiles::AddTab(hTabs, "main.nc");
+	TabbedFiles::AddTab(hTabs, "stdlib.nc");
+	TabbedFiles::AddTab(hTabs, "generic.nc");
+
 	RegisterTextarea("NULLCTEXT", hInstance);
 
-	FILE *startText = fopen("code.txt", "rb");
+	FILE *startText = fopen("main.nc", "rb");
 	char *fileContent = NULL;
 	if(startText)
 	{
@@ -471,31 +482,30 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	colorer = new Colorer(hTextArea);
 
-	unsigned int widt = (800-25)/4;
+	unsigned int width = (800 - 25) / 4;
 
 	hCode = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
-		5, 225, widt*2, 165, hWnd, NULL, hInstance, NULL);
+		5, 225, width*2, 165, hWnd, NULL, hInstance, NULL);
 	if(!hCode)
 		return 0;
 	ShowWindow(hCode, nCmdShow);
 	UpdateWindow(hCode);
-	SendMessage(hCode, WM_SETFONT, (WPARAM)CreateFont(15,0,0,0,0,0,0,0,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,FF_DONTCARE,"Courier New"), 0);
+	SendMessage(hCode, WM_SETFONT, (WPARAM)CreateFont(15, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE, "Courier New"), 0);
 
 	hVars = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS,
-		3*widt+15, 225, widt, 165, hWnd, NULL, hInstance, NULL);
+		3*width+15, 225, width, 165, hWnd, NULL, hInstance, NULL);
 	if(!hVars)
 		return 0;
 	ShowWindow(hVars, nCmdShow);
 	UpdateWindow(hVars);
 
-	hResult = CreateWindow("STATIC", "The result will be here", WS_CHILD,
-		110, 185, 300, 30, hWnd, NULL, hInstance, NULL);
+	hResult = CreateWindow("STATIC", "The result will be here", WS_CHILD, 110, 185, 300, 30, hWnd, NULL, hInstance, NULL);
 	if(!hResult)
 		return 0;
 	ShowWindow(hResult, nCmdShow);
 	UpdateWindow(hResult);
 
-	PostMessage(hWnd, WM_SIZE, 0, (394<<16)+(900-16));
+	PostMessage(hWnd, WM_SIZE, 0, (394 << 16) + (900 - 16));
 
 	SetTimer(hWnd, 1, 500, 0);
 	return TRUE;
@@ -746,6 +756,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			}
 			strcpy(buf, GetAreaText());
 
+			FILE *mainCode = fopen("main.nc", "wb");
+			if(mainCode)
+			{
+				fwrite(buf, 1, strlen(buf), mainCode);
+				fclose(mainCode);
+			}
+
 			DeInitConsole();
 
 			SetWindowText(hCode, "");
@@ -843,7 +860,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		unsigned int middleOffsetY = mainPadding + topHeight + subPadding;
 
-		SetWindowPos(hTextArea,		HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
+		unsigned int tabHeight = 20;
+		SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
+
+		SetWindowPos(hTextArea,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
 
 		unsigned int buttonWidth = 120;
 		unsigned int resultWidth = width - 2 * buttonWidth - 2 * mainPadding - subPadding * 3;

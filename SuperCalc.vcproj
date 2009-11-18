@@ -594,6 +594,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\TabbedFiles.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\UnitTests.cpp"
 				>
 			</File>
@@ -621,6 +625,10 @@
 			</File>
 			<File
 				RelativePath=".\SuperCalc.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TabbedFiles.h"
 				>
 			</File>
 			<File

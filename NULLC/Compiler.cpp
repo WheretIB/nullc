@@ -307,12 +307,6 @@ bool Compiler::Compile(const char *str)
 	CodeInfo::cmdInfoList.Clear();
 	CodeInfo::cmdList.clear();
 
-#ifdef NULLC_LOG_FILES
-	FILE *fCode = fopen("code.txt", "wb");
-	fwrite(str, 1, strlen(str), fCode);
-	fclose(fCode);
-#endif
-
 	CompilerError::codeStart = str;
 	CodeInfo::cmdInfoList.SetSourceStart(str);
 
