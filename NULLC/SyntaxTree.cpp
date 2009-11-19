@@ -1397,8 +1397,8 @@ void NodeForExpr::Compile()
 		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 
 	// If condition == false, exit loop
+	unsigned int exitJmp = cmdList.size();
 	cmdList.push_back(VMCmd(cmdJmpZ, 0));
-	VMCmd	*exitJmp = &cmdList.back();	// Fixup later
 
 	// Compile loop contents
 	fourth->Compile();
@@ -1409,7 +1409,7 @@ void NodeForExpr::Compile()
 	// Jump to condition check
 	cmdList.push_back(VMCmd(cmdJmp, posTestExpr));
 
-	exitJmp->argument = cmdList.size();
+	cmdList[exitJmp].argument = cmdList.size();
 	NodeContinueOp::SatisfyJumps(posPostOp);
 	NodeBreakOp::SatisfyJumps(cmdList.size());
 }
@@ -1453,8 +1453,8 @@ void NodeWhileExpr::Compile()
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 
 	// If condition == false, exit loop
+	unsigned int exitJmp = cmdList.size();
 	cmdList.push_back(VMCmd(cmdJmpZ, 0));
-	VMCmd	*exitJmp = &cmdList.back();	// Fixup later
 
 	// Compile loop contents
 	second->Compile();
@@ -1462,7 +1462,7 @@ void NodeWhileExpr::Compile()
 	// Jump to condition check
 	cmdList.push_back(VMCmd(cmdJmp, posStart));
 
-	exitJmp->argument = cmdList.size();
+	cmdList[exitJmp].argument = cmdList.size();
 	NodeContinueOp::SatisfyJumps(posStart);
 	NodeBreakOp::SatisfyJumps(cmdList.size());
 }
@@ -1525,20 +1525,20 @@ void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
-void SatisfyJumps(FastVector<VMCmd*>& jumpList, unsigned int pos)
+void SatisfyJumps(FastVector<unsigned int>& jumpList, unsigned int pos)
 {
 	for(unsigned int i = 0; i < jumpList.size();)
 	{
-		if(jumpList[i]->argument == 1)
+		if(cmdList[jumpList[i]].argument == 1)//jumpList[i]->argument == 1)
 		{
 			// If level is equal to 1, replace it with jump position
-			jumpList[i]->argument = pos;
+			cmdList[jumpList[i]].argument = pos;
 			// Remove element by replacing with the last one
 			jumpList[i] = jumpList.back();
 			jumpList.pop_back();
 		}else{
 			// Otherwise, change level
-			jumpList[i]->argument--;
+			cmdList[jumpList[i]].argument--;
 			i++;
 		}
 	}
@@ -1547,7 +1547,7 @@ void SatisfyJumps(FastVector<VMCmd*>& jumpList, unsigned int pos)
 //////////////////////////////////////////////////////////////////////////
 // Node for break operation
 
-FastVector<VMCmd*>	NodeBreakOp::fixQueue;
+FastVector<unsigned int>	NodeBreakOp::fixQueue;
 
 NodeBreakOp::NodeBreakOp(unsigned int brDepth)
 {
@@ -1565,8 +1565,8 @@ void NodeBreakOp::Compile()
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Break the loop
+	fixQueue.push_back(cmdList.size());
 	cmdList.push_back(VMCmd(cmdJmp, breakDepth));
-	fixQueue.push_back(&cmdList.back());
 }
 void NodeBreakOp::LogToStream(FILE *fGraph)
 {
@@ -1582,7 +1582,7 @@ void NodeBreakOp::SatisfyJumps(unsigned int pos)
 //////////////////////////////////////////////////////////////////////////
 // Node for continue operation
 
-FastVector<VMCmd*>	NodeContinueOp::fixQueue;
+FastVector<unsigned int>	NodeContinueOp::fixQueue;
 
 NodeContinueOp::NodeContinueOp(unsigned int contDepth)
 {
@@ -1600,8 +1600,8 @@ void NodeContinueOp::Compile()
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	// Continue the loop
+	fixQueue.push_back(cmdList.size());
 	cmdList.push_back(VMCmd(cmdJmp, continueDepth));
-	fixQueue.push_back(&cmdList.back());
 }
 void NodeContinueOp::LogToStream(FILE *fGraph)
 {
@@ -1617,7 +1617,7 @@ void NodeContinueOp::SatisfyJumps(unsigned int pos)
 //////////////////////////////////////////////////////////////////////////
 // Node for compilation of switch
 
-FastVector<VMCmd*>	NodeSwitchExpr::fixQueue;
+FastVector<unsigned int>	NodeSwitchExpr::fixQueue;
 
 NodeSwitchExpr::NodeSwitchExpr()
 {
@@ -1691,30 +1691,30 @@ void NodeSwitchExpr::Compile()
 		else
 			cmdList.push_back(VMCmd(cmdEqualL));
 		// If equal, jump to corresponding case block
+		fixQueue.push_back(cmdList.size());
 		cmdList.push_back(VMCmd(cmdJmpNZ, 0));
-		fixQueue.push_back(&cmdList.back());	// Fixup later
 	}
 	// Remove value by which we switched from stack
 	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 
+	fixQueue.push_back(cmdList.size());
 	cmdList.push_back(VMCmd(cmdJmp, 0));
-	fixQueue.push_back(&cmdList.back());	// Fixup later
 	for(curr = blockHead; curr; curr = curr->next)
 	{
-		fixQueue[queueCurr++]->argument = cmdList.size();
+		cmdList[fixQueue[queueCurr++]].argument = cmdList.size();
 		// Remove value by which we switched from stack
 		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 		curr->Compile();
 		if(curr != blockTail)
 			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 2));
 	}
-	fixQueue[queueCurr++]->argument = cmdList.size();
+	cmdList[fixQueue[queueCurr++]].argument = cmdList.size();
 	if(defaultCase)
 		defaultCase->Compile();
 
 	for(unsigned int i = 0; i < NodeContinueOp::fixQueue.size(); i++)
 	{
-		if(NodeContinueOp::fixQueue[i]->argument == 1)
+		if(cmdList[NodeContinueOp::fixQueue[i]].argument == 1)
 			ThrowError(NULL, "ERROR: cannot continue inside switch");
 	}
 	fixQueue.shrink(queueStart);
