@@ -437,7 +437,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 
 	static	void SatisfyJumps(unsigned int pos);
-	static FastVector<VMCmd*>	fixQueue;
+	static FastVector<unsigned int>	fixQueue;
 protected:
 	unsigned int breakDepth;
 };
@@ -452,7 +452,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 
 	static	void SatisfyJumps(unsigned int pos);
-	static FastVector<VMCmd*>	fixQueue;
+	static FastVector<unsigned int>	fixQueue;
 protected:
 	unsigned int continueDepth;
 };
@@ -469,7 +469,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 
-	static FastVector<VMCmd*>	fixQueue;
+	static FastVector<unsigned int>	fixQueue;
 protected:
 	NodeZeroOP	*conditionHead, *conditionTail;
 	NodeZeroOP	*blockHead, *blockTail;
