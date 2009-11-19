@@ -30,10 +30,10 @@ namespace ColorerGrammar
 class Colorer
 {
 public:
-	Colorer(HWND rich);
+	Colorer();
 	~Colorer();
 
-	bool	ColorText(char *text, void (*)(unsigned int, unsigned int, int));
+	bool	ColorText(HWND wnd, char *text, void (*)(HWND, unsigned int, unsigned int, int));
 	std::string		GetError();
 private:
 	ColorerGrammar::Grammar	*syntax;

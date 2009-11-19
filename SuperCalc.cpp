@@ -43,13 +43,14 @@ HWND hWnd;
 HWND hButtonCalc;	// calculate button
 HWND hJITEnabled;	// jit enable button
 HWND hTabs;
-HWND hTextArea;		// code text area (rich edit)
 HWND hResult;		// label with execution result
 HWND hCode;			// disabled text area for errors and asm-like code output
 HWND hVars;			// disabled text area that shows values of all variables in global scope
 HWND hStatus;
 
 Colorer*	colorer;
+
+std::vector<HWND>	richEdits;
 
 // for text update
 bool needTextUpdate;
@@ -401,6 +402,28 @@ char* GetLastErrorDesc()
 	return msgBuf;
 }
 
+void AddTabWithFile(const char* filename, HINSTANCE hInstance)
+{
+	richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 5, 780, 175, hWnd, NULL, hInstance, NULL));
+	TabbedFiles::AddTab(hTabs, filename, richEdits.back());
+	ShowWindow(richEdits.back(), SW_HIDE);
+
+	FILE *startText = fopen(filename, "rb");
+	char *fileContent = NULL;
+	if(startText)
+	{
+		fseek(startText, 0, SEEK_END);
+		unsigned int textSize = ftell(startText);
+		fseek(startText, 0, SEEK_SET);
+		fileContent = new char[textSize+1];
+		fread(fileContent, 1, textSize, startText);
+		fileContent[textSize] = 0;
+		fclose(startText);
+	}
+	RichTextarea::SetAreaText(richEdits.back(), fileContent ? fileContent : "return 0;");
+	delete[] fileContent;
+}
+
 bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // Store instance handle in our global variable
@@ -433,54 +456,43 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	hStatus = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "Ready", hWnd, 0);
 
 	TabbedFiles::RegisterTabbedFiles("NULLCTABS", hInstance);
+	RichTextarea::RegisterTextarea("NULLCTEXT", hInstance);
 
 	hTabs = CreateWindow("NULLCTABS", "tabs", WS_CHILD/* | WS_BORDER*/, 5, 4, 800, 20, hWnd, 0, hInstance, 0);
 	if(!hTabs)
 		return 0;
 	ShowWindow(hTabs, nCmdShow);
-	UpdateWindow(hTabs);
-	TabbedFiles::AddTab(hTabs, "main.nc");
-	TabbedFiles::AddTab(hTabs, "stdlib.nc");
-	TabbedFiles::AddTab(hTabs, "generic.nc");
 
-	RegisterTextarea("NULLCTEXT", hInstance);
-
-	FILE *startText = fopen("main.nc", "rb");
-	char *fileContent = NULL;
-	if(startText)
+	// Load tab information
+	FILE *tabInfo = fopen("nullc_tab.cfg", "rb");
+	if(!tabInfo)
 	{
-		fseek(startText, 0, SEEK_END);
-		unsigned int textSize = ftell(startText);
-		fseek(startText, 0, SEEK_SET);
-		fileContent = new char[textSize+1];
-		fread(fileContent, 1, textSize, startText);
-		fileContent[textSize] = 0;
-		fclose(startText);
+		AddTabWithFile("main.nc", hInstance);
+	}else{
+		char filename[MAX_PATH];
+		while(fscanf(tabInfo, "%s", filename) != -1)
+			AddTabWithFile(filename, hInstance);
+		fclose(tabInfo);
 	}
-	hTextArea = CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 5, 780, 175, hWnd, NULL, hInstance, NULL);
-	SetAreaText(fileContent ? fileContent : "int a = 5;\r\nint ref b = &a;\r\nreturn 1;");
-	SetStatusBar(hStatus);
+	ShowWindow(richEdits[0], SW_SHOW);
 
-	delete[] fileContent;
-	fileContent = NULL;
-	if(!hTextArea)
-		return 0;
-	ShowWindow(hTextArea, nCmdShow);
-	UpdateWindow(hTextArea);
+	UpdateWindow(hTabs);
 
-	SetTextStyle(0,    0,   0,   0, false, false, false);
-	SetTextStyle(1,    0,   0, 255, false, false, false);
-	SetTextStyle(2,  128, 128, 128, false, false, false);
-	SetTextStyle(3,   50,  50,  50, false, false, false);
-	SetTextStyle(4,  136,   0,   0, false,  true, false);
-	SetTextStyle(5,    0,   0,   0, false, false, false);
-	SetTextStyle(6,    0,   0,   0,  true, false, false);
-	SetTextStyle(7,    0, 150,   0, false, false, false);
-	SetTextStyle(8,    0, 150,   0, false,  true, false);
-	SetTextStyle(9,  255,   0,   0, false, false,  true);
-	SetTextStyle(10, 255,   0, 255, false, false, false);
+	RichTextarea::SetStatusBar(hStatus, 900);
 
-	colorer = new Colorer(hTextArea);
+	RichTextarea::SetTextStyle(0,    0,   0,   0, false, false, false);
+	RichTextarea::SetTextStyle(1,    0,   0, 255, false, false, false);
+	RichTextarea::SetTextStyle(2,  128, 128, 128, false, false, false);
+	RichTextarea::SetTextStyle(3,   50,  50,  50, false, false, false);
+	RichTextarea::SetTextStyle(4,  136,   0,   0, false,  true, false);
+	RichTextarea::SetTextStyle(5,    0,   0,   0, false, false, false);
+	RichTextarea::SetTextStyle(6,    0,   0,   0,  true, false, false);
+	RichTextarea::SetTextStyle(7,    0, 150,   0, false, false, false);
+	RichTextarea::SetTextStyle(8,    0, 150,   0, false,  true, false);
+	RichTextarea::SetTextStyle(9,  255,   0,   0, false, false,  true);
+	RichTextarea::SetTextStyle(10, 255,   0, 255, false, false, false);
+
+	colorer = new Colorer();
 
 	unsigned int width = (800 - 25) / 4;
 
@@ -754,7 +766,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				runRes.finished = true;
 				break;
 			}
-			strcpy(buf, GetAreaText());
+			strcpy(buf, RichTextarea::GetAreaText(TabbedFiles::GetCurrentTab(hTabs)));
 
 			FILE *mainCode = fopen("main.nc", "wb");
 			if(mainCode)
@@ -823,19 +835,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		break;
 	case WM_TIMER:
 	{
-		if(!NeedUpdate() || (GetTickCount()-lastUpdate < 100))
+		if(!RichTextarea::NeedUpdate(TabbedFiles::GetCurrentTab(hTabs)) || (GetTickCount()-lastUpdate < 100))
 			break;
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
-		BeginStyleUpdate();
-		if(!colorer->ColorText((char*)GetAreaText(), SetStyleToSelection))
+		RichTextarea::BeginStyleUpdate(TabbedFiles::GetCurrentTab(hTabs));
+		if(!colorer->ColorText(TabbedFiles::GetCurrentTab(hTabs), (char*)RichTextarea::GetAreaText(TabbedFiles::GetCurrentTab(hTabs)), RichTextarea::SetStyleToSelection))
 		{
 			SetWindowText(hCode, colorer->GetError().c_str());
 		}
-		EndStyleUpdate();
-		UpdateArea();
-		ResetUpdate();
+		RichTextarea::EndStyleUpdate(TabbedFiles::GetCurrentTab(hTabs));
+		RichTextarea::UpdateArea(TabbedFiles::GetCurrentTab(hTabs));
+		RichTextarea::ResetUpdate(TabbedFiles::GetCurrentTab(hTabs));
 		needTextUpdate = false;
 		lastUpdate = GetTickCount();
 	}
@@ -863,7 +875,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		unsigned int tabHeight = 20;
 		SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
 
-		SetWindowPos(hTextArea,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+		for(unsigned int i = 0; i < richEdits.size(); i++)
+			SetWindowPos(richEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
 
 		unsigned int buttonWidth = 120;
 		unsigned int resultWidth = width - 2 * buttonWidth - 2 * mainPadding - subPadding * 3;

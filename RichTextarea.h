@@ -9,26 +9,27 @@
 #define DEFAULT_STRING_LENGTH 64
 #define TAB_SIZE 4
 
-bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline);
+namespace RichTextarea
+{
+	bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline);
 
-void BeginStyleUpdate();
-void SetStyleToSelection(unsigned int start, unsigned int end, int style);
-void EndStyleUpdate();
+	void BeginStyleUpdate(HWND wnd);
+	void SetStyleToSelection(HWND wnd, unsigned int start, unsigned int end, int style);
+	void EndStyleUpdate(HWND wnd);
 
-void RegisterTextarea(const char *className, HINSTANCE hInstance);
+	void ClearAreaText(HWND wnd);
+	const char* GetAreaText(HWND wnd);
+	void SetAreaText(HWND wnd, const char *text);
 
-void ClearAreaText();
-const char* GetAreaText();
-void SetAreaText(const char *text);
+	void UpdateArea(HWND wnd);
+	bool NeedUpdate(HWND wnd);
+	void ResetUpdate(HWND wnd);
 
-void SetStatusBar(HWND status);
+	void SetStatusBar(HWND status, unsigned int barWidth);
 
-void UpdateArea();
-bool NeedUpdate();
-void ResetUpdate();
+	void RegisterTextarea(const char *className, HINSTANCE hInstance);
+	void UnregisterTextarea();
 
-void InputChar(char ch);
-void InputEnter();
-
-LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam);
-VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
+	LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam);
+	VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
+}

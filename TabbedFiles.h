@@ -7,7 +7,9 @@
 
 namespace TabbedFiles
 {
-	void AddTab(HWND wnd, const char* filename);
+	void AddTab(HWND wnd, const char* filename, HWND childWindow);
+
+	HWND GetCurrentTab(HWND wnd);
 
 	void RegisterTabbedFiles(const char *className, HINSTANCE hInstance);
 	LRESULT CALLBACK TabbedFilesProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam);
