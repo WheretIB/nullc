@@ -502,7 +502,7 @@ namespace ColorerGrammar
 	}
 };
 
-Colorer::Colorer(HWND rich): richEdit(rich)
+Colorer::Colorer()
 {
 	syntax = new ColorerGrammar::Grammar();
 
@@ -527,10 +527,11 @@ Colorer::~Colorer()
 	delete syntax;
 }
 
-void (*ColorFunc)(unsigned int, unsigned int, int);
+void (*ColorFunc)(HWND, unsigned int, unsigned int, int);
 
-bool Colorer::ColorText(char *text, void (*ColFunc)(unsigned int, unsigned int, int))
+bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int, unsigned int, int))
 {
+	richEdit = wnd;
 	ColorFunc = ColFunc;
 
 	lastError = "";
@@ -589,7 +590,7 @@ void Colorer::ColorCode(int style, const char* start, const char* end)
 	unsigned int cpMax = (unsigned int)(end - ColorerGrammar::codeStart);
 
 	if(errUnderline)
-		ColorFunc(cpMin, cpMax, COLOR_ERR);
+		ColorFunc(richEdit, cpMin, cpMax, COLOR_ERR);
 	else
-		ColorFunc(cpMin, cpMax, style);
+		ColorFunc(richEdit, cpMin, cpMax, style);
 }

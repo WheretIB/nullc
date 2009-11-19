@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+#pragma warning(disable: 4996)
+
 #ifdef _WIN64
 	#define WND_PTR_TYPE LONG_PTR
 #else
@@ -21,8 +23,12 @@ struct TabbedFilesData
 	bool			leftMouseDown;
 
 	unsigned int	tabCount;
-	const char		*tabNames[TAB_MAX_COUNT];
-	unsigned int	tabWidths[TAB_MAX_COUNT];
+	struct TabInfo
+	{
+		const char		*name;
+		unsigned int	width;
+		HWND			window;
+	}	tabInfo[TAB_MAX_COUNT];
 
 	HFONT			mainFont;
 	HPEN			brWhite, brGray, brLightGray, brRed, brGradient[15];
@@ -35,7 +41,7 @@ namespace TabbedFiles
 		return (TabbedFilesData*)(intptr_t)GetWindowLongPtr(wnd, 0);
 	}
 
-	unsigned int		CursorToIndex(HWND wnd, unsigned int x, unsigned int *leftover = NULL)
+	unsigned int		CursorToIndex(HWND wnd, unsigned int x)
 	{
 		TabbedFilesData	*data = GetData(wnd);
 
@@ -45,15 +51,13 @@ namespace TabbedFiles
 		unsigned int retValue = ~0u;
 		for(unsigned int i = 0; i < data->tabCount; i++)
 		{
-			if(x < data->tabWidths[i])
+			if(x < data->tabInfo[i].width)
 			{
 				retValue = i;
 				break;
 			}
-			x -= data->tabWidths[i];
+			x -= data->tabInfo[i].width;
 		}
-		if(leftover)
-			*leftover = x;
 		return retValue;
 	}
 
@@ -64,7 +68,7 @@ namespace TabbedFiles
 		TabbedFilesData	*data = GetData(wnd);
 		memset(data, 0, sizeof(TabbedFilesData));
 
-		data->selectedTab = 1;
+		data->selectedTab = 0;
 
 		PAINTSTRUCT paintData;
 		HDC hdc = BeginPaint(wnd, &paintData);
@@ -106,7 +110,7 @@ namespace TabbedFiles
 		for(unsigned int i = 0; i < data->tabCount; i++)
 		{
 			RECT textRect = { 0, 0, 0, 0 };
-			DrawText(hdc, data->tabNames[i], (int)strlen(data->tabNames[i]), &textRect, DT_CALCRECT);
+			DrawText(hdc, data->tabInfo[i].name, (int)strlen(data->tabInfo[i].name), &textRect, DT_CALCRECT);
 
 			// Graphics
 			if(i == data->selectedTab)
@@ -150,15 +154,14 @@ namespace TabbedFiles
 
 			// Text
 			RECT textRectMod = { textRect.left + leftPos + 16, 3, textRect.right + leftPos, TAB_HEIGHT };
-			SetBkColor(hdc, i == data->selectedTab ? RGB(255, 255, 255) : RGB(192, 192, 192));
 			SetBkMode(hdc, TRANSPARENT);
-			ExtTextOut(hdc, textRectMod.left, textRectMod.top, 0, &textRectMod, data->tabNames[i], (int)strlen(data->tabNames[i]), NULL);
+			ExtTextOut(hdc, textRectMod.left, textRectMod.top, 0, &textRectMod, data->tabInfo[i].name, (int)strlen(data->tabInfo[i].name), NULL);
 			SetBkMode(hdc, OPAQUE);
 
 			// Advance
 			leftPos += textRect.right - textRect.left + 12;
 
-			data->tabWidths[i] = textRect.right - textRect.left + 12;
+			data->tabInfo[i].width = textRect.right - textRect.left + 12;
 		}
 
 		EndPaint(wnd, &paintData);
@@ -184,10 +187,13 @@ namespace TabbedFiles
 				data->selectedTab = newTab;
 				InvalidateRect(wnd, NULL, false);
 			}
-			
 		}else{
 			data->leftMouseDown = false;
 			ReleaseCapture();
+			for(unsigned int i = 0; i < data->tabCount; i++)
+				ShowWindow(data->tabInfo[i].window, SW_HIDE);
+			ShowWindow(data->tabInfo[data->selectedTab].window, SW_SHOW);
+			InvalidateRect(wnd, NULL, true);
 		}
 		(void)y;
 	}
@@ -200,13 +206,11 @@ namespace TabbedFiles
 			unsigned int newTab = CursorToIndex(wnd, x);
 			if(newTab != -1 && newTab != data->selectedTab)
 			{
-				std::swap(data->tabWidths[data->selectedTab], data->tabWidths[newTab]);
+				std::swap(data->tabInfo[data->selectedTab].width, data->tabInfo[newTab].width);
 				if(CursorToIndex(wnd, x) != newTab)
-				{
-					std::swap(data->tabWidths[data->selectedTab], data->tabWidths[newTab]);
 					return;
-				}
-				std::swap(data->tabNames[data->selectedTab], data->tabNames[newTab]);
+				std::swap(data->tabInfo[data->selectedTab].width, data->tabInfo[newTab].width);
+				std::swap(data->tabInfo[data->selectedTab], data->tabInfo[newTab]);
 				data->selectedTab = newTab;
 				InvalidateRect(wnd, NULL, true);
 			}
@@ -215,7 +219,7 @@ namespace TabbedFiles
 	}
 };
 
-void TabbedFiles::AddTab(HWND wnd, const char* filename)
+void TabbedFiles::AddTab(HWND wnd, const char* filename, HWND childWindow)
 {
 	TabbedFilesData	*data = GetData(wnd);
 	if(data->tabCount >= TAB_MAX_COUNT)
@@ -223,7 +227,16 @@ void TabbedFiles::AddTab(HWND wnd, const char* filename)
 		MessageBox(wnd, "Maximum limit of opened tabs exceeded", "ERROR", MB_OK);
 		return;
 	}
-	data->tabNames[data->tabCount++] = filename;
+	data->tabInfo[data->tabCount].name = strdup(filename);
+	data->tabInfo[data->tabCount].window = childWindow;
+	data->tabCount++;
+}
+
+HWND TabbedFiles::GetCurrentTab(HWND wnd)
+{
+	TabbedFilesData	*data = GetData(wnd);
+
+	return data->tabInfo[data->selectedTab].window;
 }
 
 void TabbedFiles::RegisterTabbedFiles(const char *className, HINSTANCE hInstance)
@@ -251,25 +264,25 @@ LRESULT CALLBACK TabbedFiles::TabbedFilesProc(HWND hWnd, unsigned int message, W
 	switch(message)
 	{
 	case WM_CREATE:
-		TabbedFiles::OnCreate(hWnd);
+		OnCreate(hWnd);
 		break;
 	case WM_DESTROY:
-		TabbedFiles::OnDestroy(hWnd);
+		OnDestroy(hWnd);
 		break;
 	case WM_PAINT:
-		TabbedFiles::OnPaint(hWnd);
+		OnPaint(hWnd);
 		break;
 	case WM_SIZE:
-		TabbedFiles::OnSize(hWnd, LOWORD(lParam), HIWORD(lParam));
+		OnSize(hWnd, LOWORD(lParam), HIWORD(lParam));
 		break;
 	case WM_LBUTTONDOWN:
-		TabbedFiles::OnMouseLeft(hWnd, true, LOWORD(lParam), HIWORD(lParam));
+		OnMouseLeft(hWnd, true, LOWORD(lParam), HIWORD(lParam));
 		break;
 	case WM_LBUTTONUP:
-		TabbedFiles::OnMouseLeft(hWnd, false, LOWORD(lParam), HIWORD(lParam));
+		OnMouseLeft(hWnd, false, LOWORD(lParam), HIWORD(lParam));
 		break;
 	case WM_MOUSEMOVE:
-		TabbedFiles::OnMouseMove(hWnd, LOWORD(lParam), HIWORD(lParam));
+		OnMouseMove(hWnd, LOWORD(lParam), HIWORD(lParam));
 		break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
