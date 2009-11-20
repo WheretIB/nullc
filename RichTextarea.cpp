@@ -224,6 +224,57 @@ struct TextareaData
 	bool selectionOn;
 
 	HistoryManager	*history;
+
+	// Windows scrollbar can scroll beyond valid positions
+	void	ClampShift();
+
+	// Check that the cursor is visible (called, when editing text)
+	// If it's not, shift scroll positions, so it will be visible once again
+	void	ScrollToCursor();
+
+	// Convert cursor position to local pixel coordinates
+	void	CursorToClient(unsigned int xCursor, unsigned int yCursor, int &xPos, int &yPos);
+
+	// Convert local pixel coordinates to cursor position
+	// Position X coordinate is clamped when clampX is set
+	AreaLine* ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int &cursorY, bool clampX);
+
+	// Function checks if the cursor is placed on a valid position, and if not, moves it
+	void	ClampCursorBounds();
+
+	// Function is used to reserve space in linear text buffer
+	void ExtendLinearTextBuffer();
+
+	// Selection made by user can have ending point _before_ the starting point
+	// This function is called to sort them out, but it doesn't change the global state (function is called to redraw selection, while user is still dragging his mouse)
+	void SortSelPoints(unsigned int &startX, unsigned int &endX, unsigned int &startY, unsigned int &endY);
+
+	// Update scrollbars, according to the scrolled text
+	void	UpdateScrollBar();
+
+	// Function puts longest line size to a global variable
+	// Size is in characters, but the Tab can be represented with more that one
+	void	FindLongestLine();
+	
+	// Remove characters in active selection
+	void DeleteSelection();
+
+	void DeletePreviousChar();
+
+	AreaLine* ExtendSelectionFromPoint(unsigned int xPos, unsigned int yPos);
+
+	void InputChar(char ch);
+	void InputEnter();
+
+	void OnCopyOrCut(bool cut);
+	void OnPaste();
+	void OnCharacter(char ch);
+	void OnKeyEvent(int key);
+	void OnPaint();
+	void OnSize(unsigned int width, unsigned int height);
+	void OnLeftMouseDoubleclick(unsigned int x, unsigned int y);
+	void OnLeftMouseDown(unsigned int x, unsigned int y);
+	void OnMouseMove(unsigned int x, unsigned int y);
 };
 
 // Class that tracks text change for Ctrl+Z\Ctrl+Y
@@ -451,55 +502,51 @@ namespace RichTextarea
 		sharedCreated = true;
 	}
 
-	// Function is used to reserve space in linear text buffer
-	void ExtendLinearTextBuffer(TextareaData *data);
+	void OnCreate(HWND wnd)
+	{
+		SetWindowLongPtr(wnd, 0, (WND_PTR_TYPE)(intptr_t)new TextareaData);
 
-	// Selection made by user can have ending point _before_ the starting point
-	// This function is called to sort them out, but it doesn't change the global state (function is called to redraw selection, while user is still dragging his mouse)
-	void SortSelPoints(TextareaData *data, unsigned int &startX, unsigned int &endX, unsigned int &startY, unsigned int &endY);
+		TextareaData	*data = GetData(wnd);
+		memset(data, 0, sizeof(TextareaData));
 
-	// Update scrollbars, according to the scrolled text
-	void	UpdateScrollBar(TextareaData *data);
+		CreateShared(wnd);
 
-	// Function puts longest line size to a global variable
-	// Size is in characters, but the Tab can be represented with more that one
-	void	FindLongestLine(TextareaData *data);
-	
-	void OnPaint(HWND wnd);
+		// Init linear text buffer
+		data->areaTextSize = 16 * 1024;
+		data->areaText = new char[data->areaTextSize];
+		data->areaTextEx = new char[data->areaTextSize];
 
-	// Windows scrollbar can scroll beyond valid positions
-	void	ClampShift(TextareaData *data);
+		// Create first line of text
+		data->currLine = data->firstLine = InsertLineAfter(NULL);
+		data->currLine->data[0].style = 0;
 
-	// Check that the cursor is visible (called, when editing text)
-	// If it's not, shift scroll positions, so it will be visible once again
-	void	ScrollToCursor(TextareaData *data);
+		data->lineCount = 1;
 
-	// Convert cursor position to local pixel coordinates
-	void	CursorToClient(TextareaData *data, unsigned int xCursor, unsigned int yCursor, int &xPos, int &yPos);
+		data->history = new HistoryManager(data);
 
-	// Convert local pixel coordinates to cursor position
-	// Position X coordinate is clamped when clampX is set
-	AreaLine* ClientToCursor(TextareaData *data, int xPos, int yPos, unsigned int &cursorX, unsigned int &cursorY, bool clampX);
+		data->areaWnd = wnd;
 
-	// Function checks if the cursor is placed on a valid position, and if not, moves it
-	void	ClampCursorBounds(TextareaData *data);
+		static int timerID = 1;
+		SetTimer(wnd, timerID++, 62, AreaCursorUpdate);
+	}
 
-	// Remove characters in active selection
-	void DeleteSelection(TextareaData *data);
+	void OnDestroy(HWND wnd)
+	{
+		TextareaData *data = GetData(wnd);
 
-	void DeletePreviousChar(TextareaData *data);
+		ClearAreaText(wnd);
+		DeleteLine(data->firstLine);
+		data->history->ResetHistory();
 
-	AreaLine* ExtendSelectionFromPoint(TextareaData *data, unsigned int xPos, unsigned int yPos);
+		delete[] data->areaText;
+		delete[] data->areaTextEx;
+		delete data->history;
+		data->areaText = NULL;
+		data->areaTextEx = NULL;
+		data->history = NULL;
 
-	void InputChar(TextareaData *data, char ch);
-	void InputEnter(TextareaData *data);
-
-	void OnCopyOrCut(HWND wnd, bool cut);
-	void OnPaste(HWND wnd);
-	void OnCreate(HWND wnd);
-	void OnDestroy(HWND wnd);
-	void OnCharacter(HWND wnd, char ch);
-	void OnKeyEvent(HWND wnd, int key);
+		delete data;
+	}
 }
 
 // Set style parameters. bold\italics\underline flags don't work together
@@ -522,26 +569,26 @@ bool RichTextarea::SetTextStyle(unsigned int id, unsigned char red, unsigned cha
 }
 
 // Function is used to reserve space in linear text buffer
-void RichTextarea::ExtendLinearTextBuffer(TextareaData *data)
+void TextareaData::ExtendLinearTextBuffer()
 {
 	// Size that is needed is calculated by summing lengths of all lines
-	data->overallLength = 0;
-	AreaLine *curr = data->firstLine;
+	overallLength = 0;
+	AreaLine *curr = firstLine;
 	while(curr)
 	{
 		// AreaLine doesn't have the line endings (or any other special symbols)
 		// But GetAreaText() returns text with \r\n at the end, so we have to add
-		data->overallLength += curr->length + 2;	// additional 2 bytes for \r\n
+		overallLength += curr->length + 2;	// additional 2 bytes for \r\n
 		curr = curr->next;
 	}
-	if(data->overallLength >= data->areaTextSize)
+	if(overallLength >= areaTextSize)
 	{
 		// Reserve more than is needed
-		data->areaTextSize = data->overallLength + data->overallLength / 2;
-		delete[] data->areaText;
-		delete[] data->areaTextEx;
-		data->areaText = new char[data->areaTextSize];
-		data->areaTextEx = new char[data->areaTextSize];
+		areaTextSize = overallLength + overallLength / 2;
+		delete[] areaText;
+		delete[] areaTextEx;
+		areaText = new char[areaTextSize];
+		areaTextEx = new char[areaTextSize];
 	}
 }
 
@@ -553,7 +600,7 @@ void RichTextarea::BeginStyleUpdate(HWND wnd)
 {
 	TextareaData *data = GetData(wnd);
 
-	ExtendLinearTextBuffer(data);
+	data->ExtendLinearTextBuffer();
 	maximumEnd = 0;
 }
 
@@ -612,7 +659,7 @@ const char* RichTextarea::GetAreaText(HWND wnd)
 	TextareaData *data = GetData(wnd);
 
 	// Reserve size of all text
-	ExtendLinearTextBuffer(data);
+	data->ExtendLinearTextBuffer();
 
 	char	*currChar = data->areaText;
 	AreaLine *curr = data->firstLine;
@@ -648,9 +695,9 @@ void RichTextarea::SetAreaText(HWND wnd, const char *text)
 	while(*text)
 	{
 		if(*text >= 0x20 || *text == '\t')
-			InputChar(data, *text);
+			data->InputChar(*text);
 		else if(*text == '\r')
-			InputEnter(data);
+			data->InputEnter();
 		*text++;
 	}
 	// Colorer should update text
@@ -697,114 +744,112 @@ void RichTextarea::ResetUpdate(HWND wnd)
 
 // Selection made by user can have ending point _before_ the starting point
 // This function is called to sort them out, but it doesn't change the global state (function is called to redraw selection, while user is still dragging his mouse)
-void RichTextarea::SortSelPoints(TextareaData *data, unsigned int &startX, unsigned int &endX, unsigned int &startY, unsigned int &endY)
+void TextareaData::SortSelPoints(unsigned int &startX, unsigned int &endX, unsigned int &startY, unsigned int &endY)
 {
 	// At first, save points as they are.
-	startX = data->dragStartX;
-	endX = data->dragEndX;
-	startY = data->dragStartY;
-	endY = data->dragEndY;
+	startX = dragStartX;
+	endX = dragEndX;
+	startY = dragStartY;
+	endY = dragEndY;
 	// If this is a single line selection and end is before start at X axis, swap them
-	if(data->dragEndX < data->dragStartX && data->dragStartY == data->dragEndY)
+	if(dragEndX < dragStartX && dragStartY == dragEndY)
 	{
-		startX = data->dragEndX;
-		endX = data->dragStartX;
+		startX = dragEndX;
+		endX = dragStartX;
 	}
 	// If it a multiple line selection, and points are placed in a wrong order, swap X and Y components
-	if(data->dragEndY < data->dragStartY)
+	if(dragEndY < dragStartY)
 	{
-		startY = data->dragEndY;
-		endY = data->dragStartY;
+		startY = dragEndY;
+		endY = dragStartY;
 
-		startX = data->dragEndX;
-		endX = data->dragStartX;
+		startX = dragEndX;
+		endX = dragStartX;
 	}
 }
 
 // Update scrollbars, according to the scrolled text
-void	RichTextarea::UpdateScrollBar(TextareaData *data)
+void	TextareaData::UpdateScrollBar()
 {
 	SCROLLINFO sbInfo;
 	sbInfo.cbSize = sizeof(SCROLLINFO);
 	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
 	sbInfo.nMin = 0;
-	sbInfo.nMax = data->lineCount;
-	sbInfo.nPage = charHeight ? (data->areaHeight) / charHeight : 1;
-	sbInfo.nPos = data->shiftCharY;
-	SetScrollInfo(data->areaWnd, SB_VERT, &sbInfo, true);
+	sbInfo.nMax = lineCount;
+	sbInfo.nPage = RichTextarea::charHeight ? (areaHeight) / RichTextarea::charHeight : 1;
+	sbInfo.nPos = shiftCharY;
+	SetScrollInfo(areaWnd, SB_VERT, &sbInfo, true);
 
 	sbInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
 	sbInfo.nMin = 0;
-	sbInfo.nMax = data->longestLine + 1;
-	sbInfo.nPage = charWidth ? (data->areaWidth - charWidth) / charWidth : 1;
-	sbInfo.nPos = data->shiftCharX;
-	SetScrollInfo(data->areaWnd, SB_HORZ, &sbInfo, true);
+	sbInfo.nMax = longestLine + 1;
+	sbInfo.nPage = RichTextarea::charWidth ? (areaWidth - RichTextarea::charWidth) / RichTextarea::charWidth : 1;
+	sbInfo.nPos = shiftCharX;
+	SetScrollInfo(areaWnd, SB_HORZ, &sbInfo, true);
 }
 
 // Function puts longest line size to a global variable
 // Size is in characters, but the Tab can be represented with more that one
-void	RichTextarea::FindLongestLine(TextareaData *data)
+void	TextareaData::FindLongestLine()
 {
-	AreaLine *curr = data->firstLine;
-	data->longestLine = 0;
+	AreaLine *curr = firstLine;
+	longestLine = 0;
 	while(curr)
 	{
 		int length = 0;
 		for(unsigned int i = 0; i < curr->length; i++, length++)
 			if(curr->data[i].ch == '\t')
 				length += 3;
-		data->longestLine = data->longestLine < length ? length : data->longestLine;
+		longestLine = longestLine < length ? length : longestLine;
 		curr = curr->next;
 	}
 }
 
-void RichTextarea::OnPaint(HWND wnd)
+void TextareaData::OnPaint()
 {
-	TextareaData *data = GetData(wnd);
-
 	// Windows will tell, what part we have to update
 	RECT updateRect;
-	if(!GetUpdateRect(wnd, &updateRect, false))
+	if(!GetUpdateRect(areaWnd, &updateRect, false))
 		return;
 
 	AreaLine *curr = NULL;
 
 	// Start drawing
-	HDC hdc = BeginPaint(wnd, &areaPS);
+	HDC hdc = BeginPaint(areaWnd, &RichTextarea::areaPS);
 	FontStyle currFont = FONT_REGULAR;
-	SelectFont(hdc, areaFont[currFont]);
+	SelectFont(hdc, RichTextarea::areaFont[currFont]);
 
 	// Find out the size of a single symbol
 	RECT charRect = { 0, 0, 0, 0 };
 	DrawText(hdc, "W", 1, &charRect, DT_CALCRECT);
-	charWidth = charRect.right;
-	charHeight = charRect.bottom;
+	RichTextarea::charWidth = charRect.right;
+	RichTextarea::charHeight = charRect.bottom;
 
 	// Find the length of the longest line in text (should move to someplace that is more appropriate)
-	FindLongestLine(data);
+	FindLongestLine();
 
 	// Reset horizontal scroll position, if longest line can fit to window
-	if(data->longestLine < data->areaWidth / charWidth - 1)
-		data->shiftCharX = 0;
-	if(int(data->lineCount) < data->areaHeight / charHeight)
-		data->shiftCharY = 0;
-	UpdateScrollBar(data);
+	if(longestLine < areaWidth / RichTextarea::charWidth - 1)
+		shiftCharX = 0;
+	if(int(lineCount) < areaHeight / RichTextarea::charHeight)
+		shiftCharY = 0;
+	UpdateScrollBar();
 
 	// Find the first line for current vertical scroll position
-	AreaLine *startLine = data->firstLine;
-	for(int i = 0; i < data->shiftCharY; i++)
+	AreaLine *startLine = firstLine;
+	for(int i = 0; i < shiftCharY; i++)
 		startLine = startLine->next;
 
 	// Setup the box of the first symbol
-	charRect.left = padLeft - data->shiftCharX * charWidth;
-	charRect.right = charRect.left + charWidth;
+	charRect.left = RichTextarea::padLeft - shiftCharX * RichTextarea::charWidth;
+	charRect.right = charRect.left + RichTextarea::charWidth;
 
 	// Find the selection range
 	unsigned int startX, startY, endX, endY;
-	SortSelPoints(data, startX, endX, startY, endY);
+	SortSelPoints(startX, endX, startY, endY);
 
 	curr = startLine;
-	unsigned int currLine = data->shiftCharY;
+	unsigned int currLine = shiftCharY;
 	// While they are lines and they didn't go out of view
 	while(curr && charRect.top < updateRect.bottom)
 	{
@@ -815,7 +860,7 @@ void RichTextarea::OnPaint(HWND wnd)
 			for(unsigned int i = 0, posInChars = 0; i < curr->length; i++)
 			{
 				int shift = GetCharShift(curr->data[i].ch, posInChars);
-				if(charRect.right > -TAB_SIZE * charWidth)
+				if(charRect.right > -TAB_SIZE * RichTextarea::charWidth)
 				{
 					TextStyle &style = tStyle[curr->data[i].style];
 					// Find out, if the symbol is in the selected range
@@ -825,7 +870,7 @@ void RichTextarea::OnPaint(HWND wnd)
 					else
 						selected = (currLine == startY && i >= startX) || (currLine == endY && i < endX) || (currLine > startY && currLine < endY);
 					// If character is in the selection range and selection is active, invert colors
-					if(selected && data->selectionOn)
+					if(selected && selectionOn)
 					{
 						SetBkColor(hdc, RGB(51, 153, 255));
 						SetTextColor(hdc, RGB(255, 255, 255));
@@ -837,13 +882,13 @@ void RichTextarea::OnPaint(HWND wnd)
 					if(style.font != currFont)
 					{
 						currFont = (FontStyle)style.font;
-						SelectFont(hdc, areaFont[currFont]);
+						SelectFont(hdc, RichTextarea::areaFont[currFont]);
 					}
 					// If this is a tab, draw rectangle of appropriate size
 					if(curr->data[i].ch =='\t')
 					{
-						charRect.right = charRect.left + shift * charWidth;
-						FillRect(hdc, &charRect, selected && data->selectionOn ? areaBrushSelected : areaBrushWhite);
+						charRect.right = charRect.left + shift * RichTextarea::charWidth;
+						FillRect(hdc, &charRect, selected && selectionOn ? RichTextarea::areaBrushSelected : RichTextarea::areaBrushWhite);
 					}else{	// Draw character
 						ExtTextOut(hdc, charRect.left, charRect.top, ETO_CLIPPED, &charRect, &curr->data[i].ch, 1, NULL);
 					}
@@ -851,38 +896,38 @@ void RichTextarea::OnPaint(HWND wnd)
 				posInChars += shift;
 
 				// Shift the box to the next position
-				charRect.left += shift * charWidth;
-				charRect.right = charRect.left + charWidth;
+				charRect.left += shift * RichTextarea::charWidth;
+				charRect.right = charRect.left + RichTextarea::charWidth;
 
 				// Break if out of view
-				if(charRect.left > data->areaWidth - int(charWidth))
+				if(charRect.left > areaWidth - int(RichTextarea::charWidth))
 					break;
 			}
 			// Fill the end of the line with white color
-			charRect.right = data->areaWidth - charWidth;
-			FillRect(hdc, &charRect, areaBrushWhite);
+			charRect.right = areaWidth - RichTextarea::charWidth;
+			FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
 			charRect.left = 0;
-			charRect.right = padLeft;
-			FillRect(hdc, &charRect, areaBrushWhite);//*/curr == ::currLine ? areaBrushBlack : areaBrushWhite);
+			charRect.right = RichTextarea::padLeft;
+			FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
 		}
 		// Shift to the beginning of the next line
-		charRect.left = padLeft - data->shiftCharX * charWidth;
-		charRect.right = charRect.left + charWidth;
-		charRect.top += charHeight;
-		charRect.bottom += charHeight;
+		charRect.left = RichTextarea::padLeft - shiftCharX * RichTextarea::charWidth;
+		charRect.right = charRect.left + RichTextarea::charWidth;
+		charRect.top += RichTextarea::charHeight;
+		charRect.bottom += RichTextarea::charHeight;
 		curr = curr->next;
 		currLine++;
 	}
 	// Fill the empty space after text with white color
-	if(charRect.top < data->areaHeight)
+	if(charRect.top < areaHeight)
 	{
-		charRect.left = padLeft;
-		charRect.right = data->areaWidth;
-		charRect.bottom = data->areaHeight;
-		FillRect(hdc, &charRect, areaBrushWhite);
+		charRect.left = RichTextarea::padLeft;
+		charRect.right = areaWidth;
+		charRect.bottom = areaHeight;
+		FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
 	}
 
-	EndPaint(data->areaWnd, &areaPS);
+	EndPaint(areaWnd, &RichTextarea::areaPS);
 }
 
 // Global variable that holds how many ticks have passed after last I-bar cursor reset
@@ -944,109 +989,109 @@ VOID CALLBACK RichTextarea::AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEv
 }
 
 // Function for single char insertion at the cursor position
-void RichTextarea::InputChar(TextareaData* data, char ch)
+void TextareaData::InputChar(char ch)
 {
 	// We need to reallocate line buffer if it is full
-	ExtendLine(data->currLine, data->currLine->length + 1);
+	ExtendLine(currLine, currLine->length + 1);
 	// If cursor is in the middle of the line, we need to move characters after it to the right
-	if(data->cursorCharX != data->currLine->length)
-		memmove(&data->currLine->data[data->cursorCharX+1], &data->currLine->data[data->cursorCharX], (data->currLine->length - data->cursorCharX) * sizeof(AreaChar));
-	data->currLine->data[data->cursorCharX].ch = ch;
-	if(data->cursorCharX != 0)
-		data->currLine->data[data->cursorCharX].style = data->currLine->data[data->cursorCharX-1].style;
-	data->currLine->length++;
+	if(cursorCharX != currLine->length)
+		memmove(&currLine->data[cursorCharX+1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
+	currLine->data[cursorCharX].ch = ch;
+	if(cursorCharX != 0)
+		currLine->data[cursorCharX].style = currLine->data[cursorCharX-1].style;
+	currLine->length++;
 	// Move cursor forward
-	data->cursorCharX++;
-	ScrollToCursor(data);
+	cursorCharX++;
+	ScrollToCursor();
 	// Force redraw on the modified line
-	RECT invalid = { 0, (data->cursorCharY - data->shiftCharY) * charHeight, data->areaWidth, (data->cursorCharY - data->shiftCharY + 1) * charHeight };
-	InvalidateRect(data->areaWnd, &invalid, false);
+	RECT invalid = { 0, (cursorCharY - shiftCharY) * RichTextarea::charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * RichTextarea::charHeight };
+	InvalidateRect(areaWnd, &invalid, false);
 }
 
 // Function that adds line break at the cursor position
-void RichTextarea::InputEnter(TextareaData* data)
+void TextareaData::InputEnter()
 {
 	// Increment line count
-	data->lineCount++;
+	lineCount++;
 	
 	// Insert new line after current and switch to it
-	data->currLine = InsertLineAfter(data->currLine);
+	currLine = InsertLineAfter(currLine);
 
-	data->currLine->data[0].style = data->currLine->prev->length ? data->currLine->prev->data[data->currLine->prev->length-1].style : 0;
+	currLine->data[0].style = currLine->prev->length ? currLine->prev->data[currLine->prev->length-1].style : 0;
 
 	// If line break is in the middle of the line
-	if(data->cursorCharX != data->currLine->prev->length)
+	if(cursorCharX != currLine->prev->length)
 	{
 		// Find, how much symbols will move to the next line
-		unsigned int diff = data->currLine->prev->length - data->cursorCharX;
+		unsigned int diff = currLine->prev->length - cursorCharX;
 		// If it is more than the line can handle, extend character buffer
-		ExtendLine(data->currLine, diff);
+		ExtendLine(currLine, diff);
 		// Copy symbols to the new line
-		memcpy(data->currLine->data, &data->currLine->prev->data[data->cursorCharX], diff * sizeof(AreaChar));
+		memcpy(currLine->data, &currLine->prev->data[cursorCharX], diff * sizeof(AreaChar));
 		// Shrink old
-		data->currLine->prev->length = data->cursorCharX;
+		currLine->prev->length = cursorCharX;
 		// Extend new
-		data->currLine->length = diff;
+		currLine->length = diff;
 	}
 	// Move cursor to the next line
-	data->cursorCharY++;
-	data->cursorCharX = 0;
+	cursorCharY++;
+	cursorCharX = 0;
 
 	// Force redraw on the modified line and all that goes after it
-	RECT invalid = { 0, (data->cursorCharY - data->shiftCharY - 1) * charHeight, data->areaWidth, data->areaHeight };
-	InvalidateRect(data->areaWnd, &invalid, false);
+	RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * RichTextarea::charHeight, areaWidth, areaHeight };
+	InvalidateRect(areaWnd, &invalid, false);
 }
 
 // Windows scrollbar can scroll beyond valid positions
-void	RichTextarea::ClampShift(TextareaData *data)
+void	TextareaData::ClampShift()
 {
-	if(data->shiftCharY < 0)
-		data->shiftCharY = 0;
-	if(data->shiftCharY >= int(data->lineCount) - 1)
-		data->shiftCharY = data->lineCount - 1;
-	if(data->shiftCharX < 0)
-		data->shiftCharX = 0;
-	if(data->shiftCharX > data->longestLine)
-		data->shiftCharX = data->longestLine;
+	if(shiftCharY < 0)
+		shiftCharY = 0;
+	if(shiftCharY >= int(lineCount) - 1)
+		shiftCharY = lineCount - 1;
+	if(shiftCharX < 0)
+		shiftCharX = 0;
+	if(shiftCharX > longestLine)
+		shiftCharX = longestLine;
 }
 
 // Check that the cursor is visible (called, when editing text)
 // If it's not, shift scroll positions, so it will be visible once again
-void	RichTextarea::ScrollToCursor(TextareaData *data)
+void	TextareaData::ScrollToCursor()
 {
 	bool updated = false;
-	if(charHeight && int(data->cursorCharY) > (data->areaHeight-32) / charHeight + data->shiftCharY)
+	if(RichTextarea::charHeight && int(cursorCharY) > (areaHeight-32) / RichTextarea::charHeight + shiftCharY)
 	{
-		data->shiftCharY = data->cursorCharY - (data->areaHeight-32) / charHeight;
+		shiftCharY = cursorCharY - (areaHeight-32) / RichTextarea::charHeight;
 		updated = true;
 	}
-	if(int(data->cursorCharY) < data->shiftCharY)
+	if(int(cursorCharY) < shiftCharY)
 	{
-		data->shiftCharY = data->cursorCharY - 1;
+		shiftCharY = cursorCharY - 1;
 		updated = true;
 	}
-	if(charWidth && int(data->cursorCharX) > (data->areaWidth-32) / charWidth + data->shiftCharX)
+	if(RichTextarea::charWidth && int(cursorCharX) > (areaWidth-32) / RichTextarea::charWidth + shiftCharX)
 	{
-		data->shiftCharX = data->cursorCharX - (data->areaWidth-32) / charWidth;
+		shiftCharX = cursorCharX - (areaWidth-32) / RichTextarea::charWidth;
 		updated = true;
 	}
-	if(int(data->cursorCharX) < data->shiftCharX)
+	if(int(cursorCharX) < shiftCharX)
 	{
-		data->shiftCharX = data->cursorCharX - 1;
+		shiftCharX = cursorCharX - 1;
 		updated = true;
 	}
 	if(!updated)
 		return;
-	ClampShift(data);
-	InvalidateRect(data->areaWnd, NULL, false);
-	UpdateScrollBar(data);
+	ClampShift();
+	InvalidateRect(areaWnd, NULL, false);
+	UpdateScrollBar();
 }
 
 // Convert cursor position to local pixel coordinates
-void	RichTextarea::CursorToClient(TextareaData *data, unsigned int xCursor, unsigned int yCursor, int &xPos, int &yPos)
+void	TextareaData::CursorToClient(unsigned int xCursor, unsigned int yCursor, int &xPos, int &yPos)
 {
 	// Find the line where the cursor is placed
-	AreaLine *curr = data->firstLine;
+	AreaLine *curr = firstLine;
 	for(unsigned int i = 0; i < yCursor; i++)
 		curr = curr->next;
 
@@ -1056,38 +1101,38 @@ void	RichTextarea::CursorToClient(TextareaData *data, unsigned int xCursor, unsi
 		posInChars += GetCharShift(curr->data[i].ch, posInChars);
 
 	// Start with padding, add position in pixels and subtract horizontal scroll value
-	xPos = padLeft + posInChars * charWidth - data->shiftCharX * charWidth;
+	xPos = RichTextarea::padLeft + posInChars * RichTextarea::charWidth - shiftCharX * RichTextarea::charWidth;
 	// Find Y local coordinate
-	yPos = (yCursor - data->shiftCharY) * charHeight + charHeight / 2;
+	yPos = (yCursor - shiftCharY) * RichTextarea::charHeight + RichTextarea::charHeight / 2;
 }
 
 // Convert local pixel coordinates to cursor position
 // Position X coordinate is clamped when clampX is set
-AreaLine* RichTextarea::ClientToCursor(TextareaData *data, int xPos, int yPos, unsigned int &cursorX, unsigned int &cursorY, bool clampX)
+AreaLine* TextareaData::ClientToCursor(int xPos, int yPos, unsigned int &cursorX, unsigned int &cursorY, bool clampX)
 {
 	if(yPos > 32768)
 	{
-		if(data->shiftCharY > 0)
-			data->shiftCharY--;
+		if(shiftCharY > 0)
+			shiftCharY--;
 		yPos = 0;
 	}
-	if(yPos > (data->areaHeight + charHeight) && data->shiftCharY < int(data->lineCount) - (data->areaHeight / charHeight) - 1)
-		data->shiftCharY++;
+	if(yPos > (areaHeight + RichTextarea::charHeight) && shiftCharY < int(lineCount) - (areaHeight / RichTextarea::charHeight) - 1)
+		shiftCharY++;
 	if(xPos > 32768)
 		xPos = 0;
 	// Find vertical cursor position
-	cursorY = yPos / charHeight + data->shiftCharY - (yPos < 0 ? 1 : 0);
+	cursorY = yPos / RichTextarea::charHeight + shiftCharY - (yPos < 0 ? 1 : 0);
 
 	// Clamp vertical position
-	if(cursorY >= data->lineCount)
-		cursorY = data->lineCount - 1;
+	if(cursorY >= lineCount)
+		cursorY = lineCount - 1;
 	// Change current line
-	AreaLine *curr = data->firstLine;
+	AreaLine *curr = firstLine;
 	for(unsigned int i = 0; i < cursorY; i++)
 		curr = curr->next;
 
 	// Convert local X coordinate to virtual X coordinate (no padding and scroll shifts)
-	int vMouseX = xPos - padLeft + data->shiftCharX * charWidth;
+	int vMouseX = xPos - RichTextarea::padLeft + shiftCharX * RichTextarea::charWidth;
 	// Starting X position in pixels
 	int vCurrX = 0;
 
@@ -1101,11 +1146,11 @@ AreaLine* RichTextarea::ClientToCursor(TextareaData *data, int xPos, int yPos, u
 		// Find the length of a symbol
 		int shift = GetCharShift(curr->data[cursorX].ch, posInChars);
 		// Exit if current position with half of a character if bigger than mouse position
-		if(vCurrX + shift * charWidth / 2 > vMouseX)
+		if(vCurrX + shift * RichTextarea::charWidth / 2 > vMouseX)
 			break;
 		// Advance cursor, position in pixels and position in characters
 		cursorX++;
-		vCurrX += shift * charWidth;
+		vCurrX += shift * RichTextarea::charWidth;
 		posInChars += shift;
 	}
 	if(clampX)
@@ -1119,46 +1164,46 @@ AreaLine* RichTextarea::ClientToCursor(TextareaData *data, int xPos, int yPos, u
 }
 
 // Function checks if the cursor is placed on a valid position, and if not, moves it
-void	RichTextarea::ClampCursorBounds(TextareaData *data)
+void	TextareaData::ClampCursorBounds()
 {
-	if(data->cursorCharY >= data->lineCount)
-		data->cursorCharY = data->lineCount - 1;
+	if(cursorCharY >= lineCount)
+		cursorCharY = lineCount - 1;
 	// Find selected line
-	data->currLine = data->firstLine;
-	for(unsigned int i = 0; i < data->cursorCharY; i++)
-		data->currLine = data->currLine->next;
+	currLine = firstLine;
+	for(unsigned int i = 0; i < cursorCharY; i++)
+		currLine = currLine->next;
 	// To clamp horizontal position
-	if(data->cursorCharX > data->currLine->length)
-		data->cursorCharX = data->currLine->length;
+	if(cursorCharX > currLine->length)
+		cursorCharX = currLine->length;
 }
 
 // Remove characters in active selection
-void RichTextarea::DeleteSelection(TextareaData *data)
+void TextareaData::DeleteSelection()
 {
 	// Selection must be active
-	if(!data->selectionOn)
+	if(!selectionOn)
 		return;
 
 	// Sort selection points
 	unsigned int startX, startY, endX, endY;
-	SortSelPoints(data, startX, endX, startY, endY);
+	SortSelPoints(startX, endX, startY, endY);
 
 	// If both points are outside the text, exit
-	if(startY > data->lineCount && endY > data->lineCount)
+	if(startY > lineCount && endY > lineCount)
 	{
-		data->selectionOn = false;
+		selectionOn = false;
 		return;
 	}
 	// Clamp selection points in Y axis
-	startY = startY > data->lineCount ? data->lineCount - 1 : startY;
-	endY = endY > data->lineCount ? data->lineCount-1 : endY;
+	startY = startY > lineCount ? lineCount - 1 : startY;
+	endY = endY > lineCount ? lineCount-1 : endY;
 
 	// Find first selection line
-	AreaLine *first = data->firstLine;
+	AreaLine *first = firstLine;
 	for(unsigned int i = 0; i < startY; i++)
 		first = first->next;
 
-	data->history->TakeSnapshot(first, HistoryManager::LINES_DELETED, (endY - startY)+1);
+	history->TakeSnapshot(first, HistoryManager::LINES_DELETED, (endY - startY)+1);
 
 	// For single-line selection
 	if(startY == endY)
@@ -1171,8 +1216,8 @@ void RichTextarea::DeleteSelection(TextareaData *data)
 		// Shrink length
 		first->length -= endX - startX;
 		// Move cursor and disable selection mode
-		data->cursorCharX = startX;
-		data->selectionOn = false;
+		cursorCharX = startX;
+		selectionOn = false;
 	}else{	// For multi-line selection
 		// Find last selection line
 		AreaLine *last = first;
@@ -1183,8 +1228,8 @@ void RichTextarea::DeleteSelection(TextareaData *data)
 		first->length = startX > first->length ? first->length : startX;
 
 		// Move cursor to starting position
-		data->cursorCharX = first->length;
-		data->cursorCharY = startY;
+		cursorCharX = first->length;
+		cursorCharY = startY;
 
 		// Clamp ending X position
 		endX = endX > last->length ? last->length : endX;
@@ -1209,88 +1254,86 @@ void RichTextarea::DeleteSelection(TextareaData *data)
 		for(unsigned int i = startY; i < endY; i++)
 		{
 			DeleteLine(first->next);
-			data->lineCount--;
+			lineCount--;
 		}
 		// Disable selection mode
-		data->selectionOn = false;
+		selectionOn = false;
 		// Change current line
-		data->currLine = first;
-		if(data->lineCount == 0)
-			data->lineCount = 1;
+		currLine = first;
+		if(lineCount == 0)
+			lineCount = 1;
 	}
-	UpdateScrollBar(data);
-	ClampShift(data);
-	InvalidateRect(data->areaWnd, NULL, false);
+	UpdateScrollBar();
+	ClampShift();
+	InvalidateRect(areaWnd, NULL, false);
 }
 
-void RichTextarea::DeletePreviousChar(TextareaData *data)
+void TextareaData::DeletePreviousChar()
 {
 	// If cursor is not at the beginning of a line
-	if(data->cursorCharX)
+	if(cursorCharX)
 	{
-		data->history->TakeSnapshot(data->currLine, HistoryManager::LINES_CHANGED, 1);
+		history->TakeSnapshot(currLine, HistoryManager::LINES_CHANGED, 1);
 		// If cursor is in the middle, move characters to the vacant position
-		if(data->cursorCharX != data->currLine->length)
-			memmove(&data->currLine->data[data->cursorCharX-1], &data->currLine->data[data->cursorCharX], (data->currLine->length - data->cursorCharX) * sizeof(AreaChar));
+		if(cursorCharX != currLine->length)
+			memmove(&currLine->data[cursorCharX-1], &currLine->data[cursorCharX], (currLine->length - cursorCharX) * sizeof(AreaChar));
 		// Shrink line size and move cursor
-		data->currLine->length--;
-		data->cursorCharX--;
+		currLine->length--;
+		cursorCharX--;
 		// Force redraw on the updated region
-		RECT invalid = { 0, (data->cursorCharY - data->shiftCharY) * charHeight, data->areaWidth, (data->cursorCharY - data->shiftCharY + 1) * charHeight };
-		InvalidateRect(data->areaWnd, &invalid, false);
-	}else if(data->currLine->prev){	// If it's at the beginning of a line and there is a line before current
+		RECT invalid = { 0, (cursorCharY - shiftCharY) * RichTextarea::charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * RichTextarea::charHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}else if(currLine->prev){	// If it's at the beginning of a line and there is a line before current
 		// Add current line to the previous, as if are removing the line break
-		data->currLine = data->currLine->prev;
+		currLine = currLine->prev;
 
-		data->history->TakeSnapshot(data->currLine, HistoryManager::LINES_DELETED, 2);
+		history->TakeSnapshot(currLine, HistoryManager::LINES_DELETED, 2);
 		// Check if there is enough space
-		unsigned int sum = data->currLine->length + data->currLine->next->length;
-		ExtendLine(data->currLine, sum);
+		unsigned int sum = currLine->length + currLine->next->length;
+		ExtendLine(currLine, sum);
 		// Append one line to the other
-		memcpy(&data->currLine->data[data->currLine->length], data->currLine->next->data, data->currLine->next->length * sizeof(AreaChar));
+		memcpy(&currLine->data[currLine->length], currLine->next->data, currLine->next->length * sizeof(AreaChar));
 
 		// Update cursor position
-		data->cursorCharX = data->currLine->length;
-		data->cursorCharY--;
+		cursorCharX = currLine->length;
+		cursorCharY--;
 
 		// Update line length
-		data->currLine->length = sum;
+		currLine->length = sum;
 
 		// Remove line that was current before event
-		DeleteLine(data->currLine->next);
-		data->lineCount--;
+		DeleteLine(currLine->next);
+		lineCount--;
 
 		// Force redraw on the updated region
-		RECT invalid = { 0, (data->cursorCharY - data->shiftCharY - 1) * charHeight, data->areaWidth, data->areaHeight };
-		InvalidateRect(data->areaWnd, &invalid, false);
+		RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * RichTextarea::charHeight, areaWidth, areaHeight };
+		InvalidateRect(areaWnd, &invalid, false);
 	}
 }
 
-void RichTextarea::OnCopyOrCut(HWND wnd, bool cut)
+void TextareaData::OnCopyOrCut(bool cut)
 {
-	TextareaData *data = GetData(wnd);
-
 	// Get linear text
-	const char *start = GetAreaText(wnd);
-	AreaLine *curr = data->firstLine;
+	const char *start = RichTextarea::GetAreaText(areaWnd);
+	AreaLine *curr = firstLine;
 
 	// If there is no selection, remember this fact, and select current line
-	bool genuineSelection = data->selectionOn;
-	if(!data->selectionOn)
+	bool genuineSelection = selectionOn;
+	if(!selectionOn)
 	{
-		data->dragStartX = 0;
-		data->dragEndX = data->currLine->length;
-		data->dragStartY = data->cursorCharY;
-		data->dragEndY = data->cursorCharY;
-		data->selectionOn = true;
+		dragStartX = 0;
+		dragEndX = currLine->length;
+		dragStartY = cursorCharY;
+		dragEndY = cursorCharY;
+		selectionOn = true;
 	}
 	// Sort selection range
 	unsigned int startX, startY, endX, endY;
-	SortSelPoints(data, startX, endX, startY, endY);
+	SortSelPoints(startX, endX, startY, endY);
 
 	// Clamp selection points in Y axis
-	startY = startY > data->lineCount ? data->lineCount - 1 : startY;
-	endY = endY > data->lineCount ? data->lineCount-1 : endY;
+	startY = startY > lineCount ? lineCount - 1 : startY;
+	endY = endY > lineCount ? lineCount-1 : endY;
 
 	// Find first line start in linear buffer
 	for(unsigned int i = 0; i < startY; i++)
@@ -1311,7 +1354,7 @@ void RichTextarea::OnCopyOrCut(HWND wnd, bool cut)
 	end += (endX < curr->length ? endX : curr->length);
 
 	// Copy to clipboard
-	OpenClipboard(wnd);
+	OpenClipboard(areaWnd);
 	EmptyClipboard();
 	HGLOBAL hClipboardData = GlobalAlloc(GMEM_DDESHARE, end - start + 1);
 	char *pchData = (char*)GlobalLock(hClipboardData);
@@ -1321,22 +1364,20 @@ void RichTextarea::OnCopyOrCut(HWND wnd, bool cut)
 	CloseClipboard();
 	// If it is a cut operation, remove selection
 	if(cut)
-		DeleteSelection(data);
+		DeleteSelection();
 	// If we had to make an artificial selection, disable it
 	if(!genuineSelection)
-		data->selectionOn = false;
+		selectionOn = false;
 }
 
-void RichTextarea::OnPaste(HWND wnd)
+void TextareaData::OnPaste()
 {
-	TextareaData *data = GetData(wnd);
-
 	// Remove selection
-	if(data->selectionOn)
-		DeleteSelection(data);
+	if(selectionOn)
+		DeleteSelection();
 	
 	// Get pasted text
-	OpenClipboard(wnd);
+	OpenClipboard(areaWnd);
 	HANDLE clipData = GetClipboardData(CF_TEXT);
 	if(clipData)
 	{
@@ -1348,243 +1389,191 @@ void RichTextarea::OnPaste(HWND wnd)
 			if(*str == '\r')
 				linesAdded++;
 		}while(*str++);
-		data->history->TakeSnapshot(data->currLine, HistoryManager::LINES_ADDED, linesAdded);
+		history->TakeSnapshot(currLine, HistoryManager::LINES_ADDED, linesAdded);
 
 		str = (char*)clipData;
 		// Simulate as if the text was written
 		while(*str)
 		{
 			if(*str >= 0x20 || *str == '\t')
-				InputChar(data, *str);
+				InputChar(*str);
 			else if(*str == '\r')
-				InputEnter(data);
+				InputEnter();
 			str++;
 		}
 	}
 	CloseClipboard();
 	// Force update on whole window
-	InvalidateRect(wnd, NULL, false);
+	InvalidateRect(areaWnd, NULL, false);
 }
 
-void RichTextarea::OnCreate(HWND wnd)
+void TextareaData::OnCharacter(char ch)
 {
-	SetWindowLongPtr(wnd, 0, (WND_PTR_TYPE)(intptr_t)new TextareaData);
-
-	TextareaData	*data = GetData(wnd);
-	memset(data, 0, sizeof(TextareaData));
-
-	CreateShared(wnd);
-
-	// Init linear text buffer
-	data->areaTextSize = 16 * 1024;
-	data->areaText = new char[data->areaTextSize];
-	data->areaTextEx = new char[data->areaTextSize];
-
-	// Create first line of text
-	data->currLine = data->firstLine = InsertLineAfter(NULL);
-	data->currLine->data[0].style = 0;
-
-	data->lineCount = 1;
-
-	data->history = new HistoryManager(data);
-
-	data->areaWnd = wnd;
-
-	static int timerID = 1;
-	SetTimer(wnd, timerID++, 62, AreaCursorUpdate);
-}
-
-void RichTextarea::OnDestroy(HWND wnd)
-{
-	TextareaData *data = GetData(wnd);
-
-	ClearAreaText(wnd);
-	DeleteLine(data->firstLine);
-	data->history->ResetHistory();
-
-	delete[] data->areaText;
-	delete[] data->areaTextEx;
-	delete data->history;
-	data->areaText = NULL;
-	data->areaTextEx = NULL;
-	data->history = NULL;
-
-	delete data;
-}
-
-void RichTextarea::OnCharacter(HWND wnd, char ch)
-{
-	TextareaData *data = GetData(wnd);
-
 	unsigned int startX, startY, endX, endY;
 	if(ch >= 0x20 || ch == '\t')	// If it isn't special symbol or it is a Tab
 	{
 		// We add a history snapshot only if cursor position changed since last character input
 		static unsigned int lastCursorX = ~0u, lastCursorY = ~0u;
-		if(data->cursorCharX != lastCursorX || data->cursorCharY != lastCursorY)
+		if(cursorCharX != lastCursorX || cursorCharY != lastCursorY)
 		{
-			data->history->TakeSnapshot(data->currLine, HistoryManager::LINES_CHANGED, 1);
-			lastCursorX = data->cursorCharX;
-			lastCursorY = data->cursorCharY;
+			history->TakeSnapshot(currLine, HistoryManager::LINES_CHANGED, 1);
+			lastCursorX = cursorCharX;
+			lastCursorY = cursorCharY;
 		}
 		// Compensate the caret movement
 		lastCursorX++;
 		// If insert mode, create selection
-		if(insertionMode)
+		if(RichTextarea::insertionMode)
 		{
-			data->selectionOn = true;
-			data->dragStartX = data->cursorCharX;
-			data->dragEndY = data->dragStartY = data->cursorCharY;
-			data->dragEndX = data->cursorCharX + 1;
-			if(data->dragEndX > int(data->currLine->length))
-				data->selectionOn = false;
+			selectionOn = true;
+			dragStartX = cursorCharX;
+			dragEndY = dragStartY = cursorCharY;
+			dragEndX = cursorCharX + 1;
+			if(dragEndX > int(currLine->length))
+				selectionOn = false;
 		}
 		// Remove selection
-		if(data->selectionOn)
+		if(selectionOn)
 		{
-			SortSelPoints(data, startX, endX, startY, endY);
+			SortSelPoints(startX, endX, startY, endY);
 			// If Tab key was pressed, and we have a multiple-line selection,
 			// depending on the state of Shift key,
 			// we either need to add Tab character at the beginning of each line
 			// or we have to remove whitespace at the beginning of the each line
 			if(ch == '\t' && startY != endY)
 			{
-				data->cursorCharY = startY;
+				cursorCharY = startY;
 				// Clamp cursor position and select first line
-				ClampCursorBounds(data);
+				ClampCursorBounds();
 				// For every selected line
 				for(unsigned int i = startY; i <= endY; i++)
 				{
 					// Inserting in front
-					data->cursorCharX = 0;
+					cursorCharX = 0;
 					// If it's a Shift+Tab
 					if(IsPressed(VK_SHIFT))
 					{
 						// We have to remove a number of whitespaces so the length of removed whitespaces will be equal to tab size
 						int toRemove = 0;
 						// So we select a maximum of TAB_SIZE spaces
-						while(toRemove < min(TAB_SIZE, int(data->currLine->length)) && data->currLine->data[toRemove].ch == ' ')
+						while(toRemove < min(TAB_SIZE, int(currLine->length)) && currLine->data[toRemove].ch == ' ')
 							toRemove++;
 						// And if we haven't reached our goal, and there is a Tab symbol
-						if(toRemove < min(TAB_SIZE, int(data->currLine->length)) && data->currLine->data[toRemove].ch == '\t')
+						if(toRemove < min(TAB_SIZE, int(currLine->length)) && currLine->data[toRemove].ch == '\t')
 							toRemove++;	// Select it too
 						// Remove characters
-						memmove(&data->currLine->data[0], &data->currLine->data[toRemove], (data->currLine->length - toRemove) * sizeof(AreaChar));
+						memmove(&currLine->data[0], &currLine->data[toRemove], (currLine->length - toRemove) * sizeof(AreaChar));
 						// Shrink line length
-						data->currLine->length -= toRemove;
+						currLine->length -= toRemove;
 					}else{	// Simply Tab, insert symbol
-						InputChar(data, ch);
+						InputChar(ch);
 					}
-					data->currLine = data->currLine->next;
-					data->cursorCharY++;
+					currLine = currLine->next;
+					cursorCharY++;
 				}
 				// Restore cursor position
-				data->cursorCharX = endX;
-				data->cursorCharY--;
+				cursorCharX = endX;
+				cursorCharY--;
 				// Clamp cursor position and update current line
-				ClampCursorBounds(data);
-				InvalidateRect(data->areaWnd, NULL, false);
+				ClampCursorBounds();
+				InvalidateRect(areaWnd, NULL, false);
 				return;
 			}else if(ch == '\t' && IsPressed(VK_SHIFT)){
-				data->cursorCharX = startX;
-				data->cursorCharY = startY;
+				cursorCharX = startX;
+				cursorCharY = startY;
 				// Clamp cursor position and select first line
-				ClampCursorBounds(data);
-				if(startX && isspace(data->currLine->data[startX-1].ch))
+				ClampCursorBounds();
+				if(startX && isspace(currLine->data[startX-1].ch))
 				{
-					DeletePreviousChar(data);
+					DeletePreviousChar();
 					if(startY == endY)
 					{
-						data->cursorCharX = endX - 1;
-						if(data->dragStartX == startX)
-							data->dragStartX = --startX;
+						cursorCharX = endX - 1;
+						if(dragStartX == startX)
+							dragStartX = --startX;
 						else
-							data->dragEndX = --startX;
+							dragEndX = --startX;
 					}
 				}
 				return;
 			}else{
 				// Otherwise, just remove selection
-				DeleteSelection(data);
+				DeleteSelection();
 			}
 		}else if(ch == '\t' && IsPressed(VK_SHIFT)){
-			if(data->cursorCharX && isspace(data->currLine->data[data->cursorCharX-1].ch))
-				DeletePreviousChar(data);
+			if(cursorCharX && isspace(currLine->data[cursorCharX-1].ch))
+				DeletePreviousChar();
 			return;
 		}
 		// Insert symbol
-		InputChar(data, ch);
+		InputChar(ch);
 	}else if(ch == '\r'){	// Line break
-		data->history->TakeSnapshot(data->currLine, HistoryManager::LINES_ADDED, 1);
+		history->TakeSnapshot(currLine, HistoryManager::LINES_ADDED, 1);
 		// Remove selection
-		if(data->selectionOn)
-			DeleteSelection(data);
+		if(selectionOn)
+			DeleteSelection();
 		// Find current indentation
 		int characterIdent = 0;
 		int effectiveIdent = 0;
-		while(characterIdent < int(data->currLine->length) && isspace(data->currLine->data[characterIdent].ch))
+		while(characterIdent < int(currLine->length) && isspace(currLine->data[characterIdent].ch))
 		{
-			effectiveIdent += GetCharShift(data->currLine->data[characterIdent].ch, effectiveIdent);
+			effectiveIdent += GetCharShift(currLine->data[characterIdent].ch, effectiveIdent);
 			characterIdent++;
 		}
 		// Insert line break
-		InputEnter(data);
+		InputEnter();
 		// Add indentation
 		while(effectiveIdent > 0)
 		{
-			InputChar(data, '\t');
+			InputChar('\t');
 			effectiveIdent -= TAB_SIZE;
 		}
 	}else if(ch == '\b'){	// Backspace
 		// Remove selection
-		if(data->selectionOn)
-		{
-			DeleteSelection(data);
-		}else{
-			DeletePreviousChar(data);
-		}
-		ScrollToCursor(data);
+		if(selectionOn)
+			DeleteSelection();
+		else
+			DeletePreviousChar();
+		ScrollToCursor();
 	}else if(ch == 22){	// Ctrl+V
-		OnPaste(wnd);
+		OnPaste();
 	}else if(ch == 1){	// Ctrl+A
 		// Select all
-		data->selectionOn = true;
-		data->dragStartX = 0;
-		data->dragStartY = 0;
+		selectionOn = true;
+		dragStartX = 0;
+		dragStartY = 0;
 		// Find last line to know end cursor position
-		AreaLine *curr = data->firstLine;
+		AreaLine *curr = firstLine;
 		int line = 0;
 		while(curr->next)
 			curr = curr->next, line++;
-		data->dragEndX = curr->length;
-		data->dragEndY = line;
+		dragEndX = curr->length;
+		dragEndY = line;
 		// Force update on whole window
-		InvalidateRect(wnd, NULL, false);
+		InvalidateRect(areaWnd, NULL, false);
 	}else if(ch == 3 || ch == 24){	// Ctrl+C and Ctrl+X
-		OnCopyOrCut(wnd, ch == 24);
+		OnCopyOrCut(ch == 24);
 	}else if(ch == 26){	// Ctrl+Z
-		data->history->Undo();
+		history->Undo();
 	}
-	ScrollToCursor(data);
-	data->needUpdate = true;
+	ScrollToCursor();
+	needUpdate = true;
 }
 
-void RichTextarea::OnKeyEvent(HWND wnd, int key)
+void TextareaData::OnKeyEvent(int key)
 {
-	TextareaData *data = GetData(wnd);
-
 	unsigned int startX, startY, endX, endY;
 
 	// If key is pressed, remove I-bar
-	AreaCursorUpdate(wnd, 0, NULL, 0);
+	RichTextarea::AreaCursorUpdate(areaWnd, 0, NULL, 0);
 	// Reset I-bar tick count, so it will be visible
 	ibarState = 0;
 	// Start selection if Shift+Arrows are in use, and selection is disabled
-	if(IsPressed(VK_SHIFT) && !data->selectionOn && (key == VK_DOWN || key == VK_UP || key == VK_LEFT || key == VK_RIGHT ||
+	if(IsPressed(VK_SHIFT) && !selectionOn && (key == VK_DOWN || key == VK_UP || key == VK_LEFT || key == VK_RIGHT ||
 												key == VK_PRIOR || key == VK_NEXT || key == VK_HOME || key == VK_END))
 	{
-		data->dragStartX = data->cursorCharX;
-		data->dragStartY = data->cursorCharY;
+		dragStartX = cursorCharX;
+		dragStartY = cursorCharY;
 	}
 	// First four to move cursor
 	if(key == VK_DOWN)
@@ -1592,104 +1581,104 @@ void RichTextarea::OnKeyEvent(HWND wnd, int key)
 		// If Ctrl is pressed, scroll vertically
 		if(IsPressed(VK_CONTROL))
 		{
-			data->shiftCharY++;
-			ClampShift(data);
+			shiftCharY++;
+			ClampShift();
 		}
 		// If Ctrl is not pressed or if it is and cursor is out of sight
-		if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(data->cursorCharY) < data->shiftCharY))
+		if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) < shiftCharY))
 		{
 			// If there is a next line, move to it
-			if(data->currLine->next)
+			if(currLine->next)
 			{
 				int oldPosX, oldPosY;
-				CursorToClient(data, data->cursorCharX, data->cursorCharY, oldPosX, oldPosY);
-				data->currLine = data->currLine->next;
-				ClientToCursor(data, oldPosX, oldPosY + charHeight, data->cursorCharX, data->cursorCharY, true);
+				CursorToClient(cursorCharX, cursorCharY, oldPosX, oldPosY);
+				currLine = currLine->next;
+				ClientToCursor(oldPosX, oldPosY + RichTextarea::charHeight, cursorCharX, cursorCharY, true);
 			}
 		}
 	}else if(key == VK_UP){
 		// If Ctrl is pressed, scroll vertically
 		if(IsPressed(VK_CONTROL))
 		{
-			data->shiftCharY--;
-			ClampShift(data);
+			shiftCharY--;
+			ClampShift();
 		}
 		// If Ctrl is not pressed or if it is and cursor is out of sight
-		if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(data->cursorCharY) > (data->shiftCharY + data->areaHeight / charHeight - 1)))
+		if(!IsPressed(VK_CONTROL) || (IsPressed(VK_CONTROL) && int(cursorCharY) > (shiftCharY + areaHeight / RichTextarea::charHeight - 1)))
 		{
 			// If there is a previous line, move to it
-			if(data->currLine->prev)
+			if(currLine->prev)
 			{
 				int oldPosX, oldPosY;
-				CursorToClient(data, data->cursorCharX, data->cursorCharY, oldPosX, oldPosY);
-				data->currLine = data->currLine->prev;
-				ClientToCursor(data, oldPosX, oldPosY - charHeight, data->cursorCharX, data->cursorCharY, true);
+				CursorToClient(cursorCharX, cursorCharY, oldPosX, oldPosY);
+				currLine = currLine->prev;
+				ClientToCursor(oldPosX, oldPosY - RichTextarea::charHeight, cursorCharX, cursorCharY, true);
 			}
 		}
 	}else if(key == VK_LEFT){
 		// If Shift is not pressed and there is an active selection
-		if(!IsPressed(VK_SHIFT) && data->selectionOn)
+		if(!IsPressed(VK_SHIFT) && selectionOn)
 		{
 			// Sort selection range
-			SortSelPoints(data, startX, endX, startY, endY);
+			SortSelPoints(startX, endX, startY, endY);
 			// Set cursor position to the start of selection
-			data->cursorCharX = startX;
-			data->cursorCharY = startY;
-			ClampCursorBounds(data);
+			cursorCharX = startX;
+			cursorCharY = startY;
+			ClampCursorBounds();
 		}else{
 			// If the cursor is not at the beginning of the line
-			if(data->cursorCharX > 0)
+			if(cursorCharX > 0)
 			{
 				if(IsPressed(VK_CONTROL))
 				{
 					// Skip spaces
-					while(data->cursorCharX > 1 && isspace(data->currLine->data[data->cursorCharX - 1].ch))
-						data->cursorCharX--;
-					data->cursorCharX = AdvanceCursor(data->currLine, data->cursorCharX, true);
+					while(cursorCharX > 1 && isspace(currLine->data[cursorCharX - 1].ch))
+						cursorCharX--;
+					cursorCharX = AdvanceCursor(currLine, cursorCharX, true);
 				}else{
-					data->cursorCharX--;
+					cursorCharX--;
 				}
 			}else{
 				// Otherwise, move to the end of the previous line
-				if(data->currLine->prev)
+				if(currLine->prev)
 				{
-					data->currLine = data->currLine->prev;
-					data->cursorCharX = data->currLine->length;
-					data->cursorCharY--;
+					currLine = currLine->prev;
+					cursorCharX = currLine->length;
+					cursorCharY--;
 				}
 			}
 		}
 	}else if(key == VK_RIGHT){
 		// If Shift is not pressed and there is an active selection
-		if(!IsPressed(VK_SHIFT) && data->selectionOn)
+		if(!IsPressed(VK_SHIFT) && selectionOn)
 		{
 			// Sort selection range
-			SortSelPoints(data, startX, endX, startY, endY);
+			SortSelPoints(startX, endX, startY, endY);
 			// Set cursor position to the end of selection
-			data->cursorCharX = endX;
-			data->cursorCharY = endY;
-			ClampCursorBounds(data);
+			cursorCharX = endX;
+			cursorCharY = endY;
+			ClampCursorBounds();
 		}else{
 			// If the cursor is not at the end of the line
-			if(data->cursorCharX < data->currLine->length)
+			if(cursorCharX < currLine->length)
 			{
 				if(IsPressed(VK_CONTROL))
 				{
-					data->cursorCharX = AdvanceCursor(data->currLine, data->cursorCharX, false);
+					cursorCharX = AdvanceCursor(currLine, cursorCharX, false);
 					// Skip spaces
-					while(int(data->cursorCharX) < int(data->currLine->length)-1 && isspace(data->currLine->data[data->cursorCharX + 1].ch))
-						data->cursorCharX++;
-					data->cursorCharX++;
+					while(int(cursorCharX) < int(currLine->length)-1 && isspace(currLine->data[cursorCharX + 1].ch))
+						cursorCharX++;
+					cursorCharX++;
 				}else{
-					data->cursorCharX++;
+					cursorCharX++;
 				}
 			}else{
 				// Otherwise, move to the start of the next line
-				if(data->currLine->next)
+				if(currLine->next)
 				{
-					data->currLine = data->currLine->next;
-					data->cursorCharY++;
-					data->cursorCharX = 0;
+					currLine = currLine->next;
+					cursorCharY++;
+					cursorCharX = 0;
 				}
 			}
 		}
@@ -1697,181 +1686,280 @@ void RichTextarea::OnKeyEvent(HWND wnd, int key)
 		// Shift+Delete is a cut operation
 		if(IsPressed(VK_SHIFT))
 		{
-			OnCopyOrCut(wnd, true);
+			OnCopyOrCut(true);
 			return;
 		}
 		// Remove selection, if active
-		if(data->selectionOn)
+		if(selectionOn)
 		{
-			DeleteSelection(data);
+			DeleteSelection();
 			return;
 		}else{
 			// Move to the next character
-			if(data->cursorCharX < data->currLine->length)
+			if(cursorCharX < currLine->length)
 			{
-				data->cursorCharX++;
-			}else if(data->currLine->next){
-				data->currLine = data->currLine->next;
-				data->cursorCharY++;
-				data->cursorCharX = 0;
+				cursorCharX++;
+			}else if(currLine->next){
+				currLine = currLine->next;
+				cursorCharY++;
+				cursorCharX = 0;
 			}else{
 				return;
 			}
-			DeletePreviousChar(data);
+			DeletePreviousChar();
 		}
-		ScrollToCursor(data);
+		ScrollToCursor();
 	}else if(key == VK_PRIOR){	// Page up
 		// If Ctrl is pressed
 		if(IsPressed(VK_CONTROL))
 		{
 			// Move to the start of view
-			data->cursorCharY = data->shiftCharY;
-			ClampCursorBounds(data);
+			cursorCharY = shiftCharY;
+			ClampCursorBounds();
 		}else{
 			// Scroll view
-			data->cursorCharY -= charHeight ? data->areaHeight / charHeight : 1;
-			if(int(data->cursorCharY) < 0)
-				data->cursorCharY = 0;
-			ClampCursorBounds(data);
-			ScrollToCursor(data);
+			cursorCharY -= RichTextarea::charHeight ? areaHeight / RichTextarea::charHeight : 1;
+			if(int(cursorCharY) < 0)
+				cursorCharY = 0;
+			ClampCursorBounds();
+			ScrollToCursor();
 		}
-		ClampShift(data);
-		UpdateScrollBar(data);
-		InvalidateRect(data->areaWnd, NULL, false);
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
 	}else if(key == VK_NEXT){	// Page down
 		// If Ctrl is pressed
 		if(IsPressed(VK_CONTROL))
 		{
 			// Move to the end of view
-			data->cursorCharY = data->shiftCharY + (charHeight ? data->areaHeight / charHeight : 1);
-			ClampCursorBounds(data);
+			cursorCharY = shiftCharY + (RichTextarea::charHeight ? areaHeight / RichTextarea::charHeight : 1);
+			ClampCursorBounds();
 		}else{
 			// Scroll view
-			data->cursorCharY += charHeight ? data->areaHeight / charHeight : 1;
-			if(int(data->cursorCharY) < 0)
-				data->cursorCharY = 0;
-			ClampCursorBounds(data);
-			ScrollToCursor(data);
+			cursorCharY += RichTextarea::charHeight ? areaHeight / RichTextarea::charHeight : 1;
+			if(int(cursorCharY) < 0)
+				cursorCharY = 0;
+			ClampCursorBounds();
+			ScrollToCursor();
 		}
-		ClampShift(data);
-		UpdateScrollBar(data);
-		InvalidateRect(data->areaWnd, NULL, false);
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
 	}else if(key == VK_HOME){
 		// If Ctrl is pressed
 		if(IsPressed(VK_CONTROL))
 		{
 			// Move view and cursor to the beginning of the text
-			data->shiftCharY = 0;
-			data->cursorCharX = 0;
-			data->cursorCharY = 0;
-			ClampCursorBounds(data);
+			shiftCharY = 0;
+			cursorCharX = 0;
+			cursorCharY = 0;
+			ClampCursorBounds();
 		}else{
 			int identWidth = 0;
-			while(identWidth < int(data->currLine->length) && (data->currLine->data[identWidth].ch == ' ' || data->currLine->data[identWidth].ch == '\t'))
+			while(identWidth < int(currLine->length) && (currLine->data[identWidth].ch == ' ' || currLine->data[identWidth].ch == '\t'))
 				identWidth++;
 			// If we are at the beginning of a line, move through all the spaces
-			if(data->cursorCharX == 0 || int(data->cursorCharX) != identWidth)
-				data->cursorCharX = identWidth;
+			if(cursorCharX == 0 || int(cursorCharX) != identWidth)
+				cursorCharX = identWidth;
 			else	// Move cursor to the beginning of the line
-				data->cursorCharX = 0;
+				cursorCharX = 0;
 		}
-		ClampShift(data);
-		UpdateScrollBar(data);
-		InvalidateRect(data->areaWnd, NULL, false);
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
 	}else if(key == VK_END){
 		// If Ctrl is pressed
 		if(IsPressed(VK_CONTROL))
 		{
 			// Move view and cursor to the end of the text
-			data->shiftCharY = data->lineCount;
-			data->cursorCharX = ~0u;
-			data->cursorCharY = data->lineCount;
-			ClampCursorBounds(data);
+			shiftCharY = lineCount;
+			cursorCharX = ~0u;
+			cursorCharY = lineCount;
+			ClampCursorBounds();
 		}else{
 			// Move cursor to the end of the line
-			data->cursorCharX = data->currLine->length;
+			cursorCharX = currLine->length;
 		}
-		ClampShift(data);
-		UpdateScrollBar(data);
-		InvalidateRect(data->areaWnd, NULL, false);
+		ClampShift();
+		UpdateScrollBar();
+		InvalidateRect(areaWnd, NULL, false);
 	}else if(key == VK_INSERT){
 		// Shift+Insert is a paste operation
 		if(IsPressed(VK_SHIFT))
 		{
-			OnPaste(wnd);
+			OnPaste();
 		}else if(IsPressed(VK_CONTROL)){	// Ctrl+Insert is a copy operation
-			OnCopyOrCut(wnd, false);
+			OnCopyOrCut(false);
 		}else{
 			// Toggle input mode between insert\overwrite
-			insertionMode = !insertionMode;
+			RichTextarea::insertionMode = !RichTextarea::insertionMode;
 		}
 	}else if(key == VK_ESCAPE){
 		// Disable selection
-		data->selectionOn = false;
-		InvalidateRect(data->areaWnd, NULL, false);
+		selectionOn = false;
+		InvalidateRect(areaWnd, NULL, false);
 	}
 	if(key == VK_DOWN || key == VK_UP || key == VK_LEFT || key == VK_RIGHT ||
 		key == VK_PRIOR || key == VK_NEXT || key == VK_HOME || key == VK_END)
 	{
 		// If Ctrl is not pressed, center view around cursor
 		if(!IsPressed(VK_CONTROL))
-			ScrollToCursor(data);
+			ScrollToCursor();
 		// If Shift is pressed, set end of selection, redraw window and return
 		if(IsPressed(VK_SHIFT))
 		{
-			data->dragEndX = data->cursorCharX;
-			data->dragEndY = data->cursorCharY;
-			if(data->dragStartX != data->dragEndX || data->dragStartY != data->dragEndY)
-				data->selectionOn = true;
-			InvalidateRect(data->areaWnd, NULL, false);
+			dragEndX = cursorCharX;
+			dragEndY = cursorCharY;
+			if(dragStartX != dragEndX || dragStartY != dragEndY)
+				selectionOn = true;
+			InvalidateRect(areaWnd, NULL, false);
 			return;
 		}else{
 			// Or disable selection, and if control is not pressed, update window and return
-			data->selectionOn = false;
+			selectionOn = false;
 			if(!IsPressed(VK_CONTROL))
 			{
-				InvalidateRect(data->areaWnd, NULL, false);
+				InvalidateRect(areaWnd, NULL, false);
 				return;
 			}
 		}
 		// Draw cursor
-		AreaCursorUpdate(data->areaWnd, 0, NULL, 0);
+		RichTextarea::AreaCursorUpdate(areaWnd, 0, NULL, 0);
 		// Handle Ctrl+Arrows
 		if(IsPressed(VK_CONTROL))
 		{
-			ClampShift(data);
-			UpdateScrollBar(data);
-			InvalidateRect(data->areaWnd, NULL, false);
+			ClampShift();
+			UpdateScrollBar();
+			InvalidateRect(areaWnd, NULL, false);
 		}
 	}
 }
 
-AreaLine* RichTextarea::ExtendSelectionFromPoint(TextareaData *data, unsigned int xPos, unsigned int yPos)
+void TextareaData::OnSize(unsigned int width, unsigned int height)
+{
+	areaWidth = width;
+	areaHeight = height;
+
+	if(RichTextarea::areaStatus)
+		RichTextarea::SetStatusBar(RichTextarea::areaStatus, areaWidth);
+
+	UpdateScrollBar();
+
+	InvalidateRect(areaWnd, NULL, false);
+}
+
+void TextareaData::OnLeftMouseDoubleclick(unsigned int x, unsigned int y)
+{
+	currLine = ExtendSelectionFromPoint(x, y);
+	if(selectionOn)
+	{
+		cursorCharX = dragEndX;
+		cursorCharY = dragEndY;
+		// Force line redraw
+		RECT invalid = { 0, (dragStartY - shiftCharY) * RichTextarea::charHeight, areaWidth, (dragEndY - shiftCharY + 1) * RichTextarea::charHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}
+}
+
+void TextareaData::OnLeftMouseDown(unsigned int x, unsigned int y)
+{
+	unsigned int startX, startY, endX, endY;
+
+	// Capture mouse
+	SetCapture(areaWnd);
+	// Remove cursor
+	RichTextarea::AreaCursorUpdate(areaWnd, 0, NULL, 0);
+	// Reset I-bar tick count
+	ibarState = 0;
+	// When left mouse button is pressed, disable selection mode and save position as selection start
+	if(selectionOn && !IsPressed(VK_SHIFT))
+	{
+		selectionOn = false;
+		// Sort selection range
+		SortSelPoints(startX, endX, startY, endY);
+		// Force selected part redraw
+		RECT invalid = { 0, (startY - shiftCharY) * RichTextarea::charHeight, areaWidth, (endY - shiftCharY + 1) * RichTextarea::charHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}
+	if(IsPressed(VK_SHIFT))
+	{
+		// If there is no selection, start it
+		if(!selectionOn)
+		{
+			dragStartX = cursorCharX;
+			dragStartY = cursorCharY;
+		}
+		// Update end of selection
+		currLine = ClientToCursor(x, y, dragEndX, dragEndY, true);
+		cursorCharX = dragEndX;
+		cursorCharY = dragEndY;
+		selectionOn = true;
+		InvalidateRect(areaWnd, NULL, false);
+	}else if(IsPressed(VK_CONTROL)){
+		currLine = ExtendSelectionFromPoint(x, y);
+		cursorCharX = dragEndX;
+		cursorCharY = dragEndY;
+		InvalidateRect(areaWnd, NULL, false);
+	}else{
+		// Set drag start and cursor position to where the user have clicked
+		currLine = ClientToCursor(x, y, dragStartX, dragStartY, true);
+		cursorCharX = dragStartX;
+		cursorCharY = dragStartY;
+	}
+}
+
+void TextareaData::OnMouseMove(unsigned int x, unsigned int y)
+{
+	unsigned int startX, startY, endX, endY;
+
+	// Sort old selection range
+	SortSelPoints(startX, endX, startY, endY);
+
+	// Track the cursor position which is the selection end
+	currLine = ClientToCursor(x, y, dragEndX, dragEndY, false);
+
+	if(IsPressed(VK_CONTROL))
+	{
+		if(dragEndY > dragStartY || dragEndX > dragStartX)
+			dragEndX = AdvanceCursor(currLine, dragEndX, false) + 1;
+		else
+			dragEndX = AdvanceCursor(currLine, dragEndX, true);
+		dragEndX = dragEndX > currLine->length ? currLine->length : dragEndX;
+		cursorCharX = dragEndX;
+		cursorCharY = dragEndY;
+	}else{
+		// Find cursor position
+		currLine = ClientToCursor(x, y, cursorCharX, cursorCharY, true);
+	}
+
+	// If current position differs from starting position, enable selection mode
+	if(dragStartX != dragEndX || dragStartY != dragEndY)
+		selectionOn = true;
+	// Redraw selection
+	InvalidateRect(areaWnd, NULL, false);
+}
+
+AreaLine* TextareaData::ExtendSelectionFromPoint(unsigned int xPos, unsigned int yPos)
 {
 	// Find cursor position
-	AreaLine *curr = ClientToCursor(data, xPos, yPos, data->dragStartX, data->dragStartY, true);
+	AreaLine *curr = ClientToCursor(xPos, yPos, dragStartX, dragStartY, true);
 
 	if(curr->length == 0)
 		return curr;
 	// Clamp horizontal position to line length
-	if(data->dragStartX >= (int)curr->length && curr->length != 0)
-		data->dragStartX = curr->length - 1;
-	data->dragEndX = data->dragStartX;
-	data->dragEndY = data->dragStartY;
+	if(dragStartX >= (int)curr->length && curr->length != 0)
+		dragStartX = curr->length - 1;
+	dragEndX = dragStartX;
+	dragEndY = dragStartY;
 
-	data->dragStartX = AdvanceCursor(curr, data->dragStartX, true);
-	data->dragEndX = AdvanceCursor(curr, data->dragEndX, false) + 1;
+	dragStartX = AdvanceCursor(curr, dragStartX, true);
+	dragEndX = AdvanceCursor(curr, dragEndX, false) + 1;
 
 	// Selection is active is the length of selected string is not 0
-	data->selectionOn = curr->length != 0;
+	selectionOn = curr->length != 0;
 
 	return curr;
 }
-/*
-void RichTextarea::SetActiveWindow(HWND wnd)
-{
-	activeWnd = wnd;
-}*/
 
 // This function register RichTextarea window class, so it can be created with CreateWindow call in client application
 // Because there is global state for this control, only one instance can be created.
@@ -1904,7 +1992,6 @@ void RichTextarea::UnregisterTextarea()
 // Textarea message handler
 LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
-	unsigned int startX, startY, endX, endY;
 	static int lastX, lastY;
 
 	TextareaData *data = GetData(hWnd);
@@ -1920,86 +2007,31 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 	case WM_ERASEBKGND:
 		break;
 	case WM_PAINT:
-		OnPaint(hWnd);
+		data->OnPaint();
 		break;
 	case WM_SIZE:
-		data->areaWidth = LOWORD(lParam);
-		data->areaHeight = HIWORD(lParam);
-
-		if(areaStatus)
-			SetStatusBar(areaStatus, data->areaWidth);
-
-		UpdateScrollBar(data);
-
-		InvalidateRect(hWnd, NULL, false);
+		data->OnSize(LOWORD(lParam), HIWORD(lParam));
 		break;
 	case WM_MOUSEACTIVATE:
 		SetFocus(hWnd);
 		EnableWindow(hWnd, true);
 		break;
 	case WM_CHAR:
-		OnCharacter(hWnd, (char)(wParam & 0xFF));
+		data->OnCharacter((char)(wParam & 0xFF));
 		break;
 	case WM_KEYDOWN:
 		if(wParam == VK_CONTROL || wParam == VK_SHIFT)
 			break;
-		OnKeyEvent(hWnd, (int)wParam);
+		data->OnKeyEvent((int)wParam);
 		break;
 	case WM_LBUTTONDBLCLK:
-		data->currLine = ExtendSelectionFromPoint(data, LOWORD(lParam), HIWORD(lParam));
-		if(data->selectionOn)
-		{
-			data->cursorCharX = data->dragEndX;
-			data->cursorCharY = data->dragEndY;
-			// Force line redraw
-			RECT invalid = { 0, (data->dragStartY - data->shiftCharY) * charHeight, data->areaWidth, (data->dragEndY - data->shiftCharY + 1) * charHeight };
-			InvalidateRect(hWnd, &invalid, false);
-		}
+		data->OnLeftMouseDoubleclick(LOWORD(lParam), HIWORD(lParam));
 		break;
 	case WM_LBUTTONDOWN:
 		lastX = LOWORD(lParam);
 		lastY = HIWORD(lParam);
-		// Capture mouse
-		SetCapture(hWnd);
-		// Remove cursor
-		AreaCursorUpdate(hWnd, 0, NULL, 0);
-		// Reset I-bar tick count
-		ibarState = 0;
-		// When left mouse button is pressed, disable selection mode and save position as selection start
-		if(data->selectionOn && !IsPressed(VK_SHIFT))
-		{
-			data->selectionOn = false;
-			// Sort selection range
-			SortSelPoints(data, startX, endX, startY, endY);
-			// Force selected part redraw
-			RECT invalid = { 0, (startY - data->shiftCharY) * charHeight, data->areaWidth, (endY - data->shiftCharY + 1) * charHeight };
-			InvalidateRect(hWnd, &invalid, false);
-		}
-		if(IsPressed(VK_SHIFT))
-		{
-			// If there is no selection, start it
-			if(!data->selectionOn)
-			{
-				data->dragStartX = data->cursorCharX;
-				data->dragStartY = data->cursorCharY;
-			}
-			// Update end of selection
-			data->currLine = ClientToCursor(data, LOWORD(lParam), HIWORD(lParam), data->dragEndX, data->dragEndY, true);
-			data->cursorCharX = data->dragEndX;
-			data->cursorCharY = data->dragEndY;
-			data->selectionOn = true;
-			InvalidateRect(hWnd, NULL, false);
-		}else if(IsPressed(VK_CONTROL)){
-			data->currLine = ExtendSelectionFromPoint(data, LOWORD(lParam), HIWORD(lParam));
-			data->cursorCharX = data->dragEndX;
-			data->cursorCharY = data->dragEndY;
-			InvalidateRect(hWnd, NULL, false);
-		}else{
-			// Set drag start and cursor position to where the user have clicked
-			data->currLine = ClientToCursor(data, LOWORD(lParam), HIWORD(lParam), data->dragStartX, data->dragStartY, true);
-			data->cursorCharX = data->dragStartX;
-			data->cursorCharY = data->dragStartY;
-		}
+
+		data->OnLeftMouseDown(LOWORD(lParam), HIWORD(lParam));
 		break;
 	case WM_MOUSEMOVE:
 		// If mouse if moving with the left mouse down
@@ -2009,31 +2041,7 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 		lastX = LOWORD(lParam);
 		lastY = HIWORD(lParam);
 
-		// Sort old selection range
-		SortSelPoints(data, startX, endX, startY, endY);
-
-		// Track the cursor position which is the selection end
-		data->currLine = ClientToCursor(data, LOWORD(lParam), HIWORD(lParam), data->dragEndX, data->dragEndY, false);
-
-		if(IsPressed(VK_CONTROL))
-		{
-			if(data->dragEndY > data->dragStartY || data->dragEndX > data->dragStartX)
-				data->dragEndX = AdvanceCursor(data->currLine, data->dragEndX, false) + 1;
-			else
-				data->dragEndX = AdvanceCursor(data->currLine, data->dragEndX, true);
-			data->dragEndX = data->dragEndX > data->currLine->length ? data->currLine->length : data->dragEndX;
-			data->cursorCharX = data->dragEndX;
-			data->cursorCharY = data->dragEndY;
-		}else{
-			// Find cursor position
-			data->currLine = ClientToCursor(data, LOWORD(lParam), HIWORD(lParam), data->cursorCharX, data->cursorCharY, true);
-		}
-
-		// If current position differs from starting position, enable selection mode
-		if(data->dragStartX != data->dragEndX || data->dragStartY != data->dragEndY)
-			data->selectionOn = true;
-		// Redraw selection
-		InvalidateRect(hWnd, NULL, false);
+		data->OnMouseMove(LOWORD(lParam), HIWORD(lParam));
 		break;
 	case WM_LBUTTONUP:
 		ReleaseCapture();
@@ -2041,10 +2049,10 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 	case WM_MOUSEWHEEL:
 		// Mouse wheel scroll text vertically
 		data->shiftCharY -= (GET_WHEEL_DELTA_WPARAM(wParam) / 120) * 3;
-		ClampShift(data);
+		data->ClampShift();
 		InvalidateRect(hWnd, NULL, false);
 
-		UpdateScrollBar(data);
+		data->UpdateScrollBar();
 		break;
 	case WM_VSCROLL:
 		// Vertical scroll events
@@ -2067,8 +2075,8 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 			data->shiftCharY = HIWORD(wParam);
 			break;
 		}
-		ClampShift(data);
-		UpdateScrollBar(data);
+		data->ClampShift();
+		data->UpdateScrollBar();
 		InvalidateRect(hWnd, NULL, false);
 		break;
 	case WM_HSCROLL:
@@ -2088,8 +2096,8 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 			data->shiftCharX = HIWORD(wParam);
 			break;
 		}
-		ClampShift(data);
-		UpdateScrollBar(data);
+		data->ClampShift();
+		data->UpdateScrollBar();
 		InvalidateRect(hWnd, NULL, false);
 		break;
 	default:
