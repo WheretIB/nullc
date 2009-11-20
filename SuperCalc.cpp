@@ -24,8 +24,8 @@
 
 #include "UnitTests.h"
 
-#include "RichTextarea.h"
-#include "TabbedFiles.h"
+#include "GUI/RichTextarea.h"
+#include "GUI/TabbedFiles.h"
 
 #define MAX_LOADSTRING 100
 
