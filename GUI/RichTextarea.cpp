@@ -1,6 +1,6 @@
 #include "RichTextarea.h"
 
-#include "ObjectPool.h"
+#include "../ObjectPool.h"
 
 #include <windowsx.h>
 
