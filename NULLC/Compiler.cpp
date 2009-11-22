@@ -320,6 +320,11 @@ bool Compiler::Compile(const char *str)
 	{
 		Lexeme *start = lexer.GetStreamStart();
 		res = ParseCode(&start);
+		if(start->type != lex_none)
+		{
+			CodeInfo::lastError = CompilerError("Unexpected symbol", start->pos);
+			return false;
+		}
 	}else{
 		return false;
 	}
