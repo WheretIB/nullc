@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "SuperCalc.h"
 
-#define WIN32_LEAN_AND_MEAN
+//#define WIN32_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x0501
 #define _WIN32_WINDOWS 0x0501
 #include <windows.h>
@@ -43,10 +43,13 @@ HWND hWnd;
 HWND hButtonCalc;	// calculate button
 HWND hJITEnabled;	// jit enable button
 HWND hTabs;
+HWND hNewTab, hNewFilename, hNewFile;
 HWND hResult;		// label with execution result
 HWND hCode;			// disabled text area for errors and asm-like code output
 HWND hVars;			// disabled text area that shows values of all variables in global scope
 HWND hStatus;
+
+HFONT	fontMonospace, fontDefault;
 
 Colorer*	colorer;
 
@@ -385,7 +388,7 @@ WORD MyRegisterClass(HINSTANCE hInstance)
 	wcex.hInstance		= hInstance;
 	wcex.hIcon			= LoadIcon(hInstance, (LPCTSTR)IDI_SUPERCALC);
 	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW);
 	wcex.lpszMenuName	= (LPCTSTR)IDC_SUPERCALC;
 	wcex.lpszClassName	= szWindowClass;
 	wcex.hIconSm		= LoadIcon(wcex.hInstance, (LPCTSTR)IDI_SMALL);
@@ -404,11 +407,14 @@ char* GetLastErrorDesc()
 
 void AddTabWithFile(const char* filename, HINSTANCE hInstance)
 {
-	richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 5, 780, 175, hWnd, NULL, hInstance, NULL));
-	TabbedFiles::AddTab(hTabs, filename, richEdits.back());
+	char buf[1024];
+	char *file = NULL;
+	GetFullPathName(filename, 1024, buf, &file);
+	richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 25, 780, 175, hWnd, NULL, hInstance, NULL));
+	TabbedFiles::AddTab(hTabs, buf, richEdits.back());
 	ShowWindow(richEdits.back(), SW_HIDE);
 
-	FILE *startText = fopen(filename, "rb");
+	FILE *startText = fopen(buf, "rb");
 	char *fileContent = NULL;
 	if(startText)
 	{
@@ -420,8 +426,45 @@ void AddTabWithFile(const char* filename, HINSTANCE hInstance)
 		fileContent[textSize] = 0;
 		fclose(startText);
 	}
-	RichTextarea::SetAreaText(richEdits.back(), fileContent ? fileContent : "return 0;");
+	RichTextarea::SetAreaText(richEdits.back(), fileContent ? fileContent : "");
 	delete[] fileContent;
+
+	RichTextarea::BeginStyleUpdate(richEdits.back());
+	colorer->ColorText(richEdits.back(), (char*)RichTextarea::GetAreaText(richEdits.back()), RichTextarea::SetStyleToSelection);
+	RichTextarea::EndStyleUpdate(richEdits.back());
+	RichTextarea::UpdateArea(richEdits.back());
+	RichTextarea::ResetUpdate(richEdits.back());
+}
+
+bool SaveFileFromTab(const char *file, const char *data)
+{
+	FILE *fSave = fopen(file, "wb");
+	if(!fSave)
+	{
+		MessageBox(hWnd, "File cannot be saved", "Warning", MB_OK);
+		return false;
+	}else{
+		fwrite(data, 1, strlen(data), fSave);
+		fclose(fSave);
+	}
+	return true;
+}
+
+void CloseTabWithFile(TabbedFiles::TabInfo &info)
+{
+	if(info.dirty && MessageBox(hWnd, "File was changed. Save changes?", "Warning", MB_YESNO) == IDYES)
+	{
+		SaveFileFromTab(info.name, RichTextarea::GetAreaText(info.window));
+	}
+	DestroyWindow(info.window);
+	for(unsigned int i = 0; i < richEdits.size(); i++)
+	{
+		if(richEdits[i] == info.window)
+		{
+			richEdits.erase(richEdits.begin() + i);
+			break;
+		}
+	}
 }
 
 bool InitInstance(HINSTANCE hInstance, int nCmdShow)
@@ -434,17 +477,21 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
-	hButtonCalc = CreateWindow("BUTTON", "Calculate", WS_CHILD, 5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
+	PAINTSTRUCT ps;
+	HDC hdc = BeginPaint(hWnd, &ps);
+	fontMonospace = CreateFont(-9 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE, "Courier New");
+	fontDefault = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE, "Arial");
+	EndPaint(hWnd, &ps);
+
+	hButtonCalc = CreateWindow("BUTTON", "Calculate", WS_VISIBLE | WS_CHILD, 5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
 	if(!hButtonCalc)
 		return 0;
-	ShowWindow(hButtonCalc, nCmdShow);
-	UpdateWindow(hButtonCalc);
+	SendMessage(hButtonCalc, WM_SETFONT, (WPARAM)fontDefault, 0);
 
-	hJITEnabled = CreateWindow("BUTTON", "X86 JIT", BS_AUTOCHECKBOX | WS_CHILD, 800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
+	hJITEnabled = CreateWindow("BUTTON", "X86 JIT", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
 	if(!hJITEnabled)
 		return 0;
-	ShowWindow(hJITEnabled, nCmdShow);
-	UpdateWindow(hJITEnabled);
+	SendMessage(hJITEnabled, WM_SETFONT, (WPARAM)fontDefault, 0);
 
 	INITCOMMONCONTROLSEX commControlTypes;
 	commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
@@ -458,10 +505,11 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	TabbedFiles::RegisterTabbedFiles("NULLCTABS", hInstance);
 	RichTextarea::RegisterTextarea("NULLCTEXT", hInstance);
 
-	hTabs = CreateWindow("NULLCTABS", "tabs", WS_CHILD/* | WS_BORDER*/, 5, 4, 800, 20, hWnd, 0, hInstance, 0);
+	colorer = new Colorer();
+
+	hTabs = CreateWindow("NULLCTABS", "tabs", WS_VISIBLE | WS_CHILD, 5, 4, 800, 20, hWnd, 0, hInstance, 0);
 	if(!hTabs)
 		return 0;
-	ShowWindow(hTabs, nCmdShow);
 
 	// Load tab information
 	FILE *tabInfo = fopen("nullc_tab.cfg", "rb");
@@ -475,6 +523,20 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		fclose(tabInfo);
 	}
 	ShowWindow(richEdits[0], SW_SHOW);
+
+	TabbedFiles::SetOnCloseTab(hTabs, CloseTabWithFile);
+	TabbedFiles::SetNewTabWindow(hTabs, hNewTab = CreateWindow("STATIC", "", WS_CHILD | SS_GRAYFRAME, 5, 25, 780, 175, hWnd, NULL, hInstance, NULL));
+	HWND createPanel = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD, 5, 5, 190, 60, hNewTab, NULL, hInstance, NULL);
+	/*HWND panel0 = */CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD | SS_ETCHEDFRAME, 0, 0, 190, 60, createPanel, NULL, hInstance, NULL);
+	HWND panel1 = CreateWindow("STATIC", "File name: ", WS_VISIBLE | WS_CHILD, 5, 5, 100, 20, createPanel, NULL, hInstance, NULL);
+	hNewFilename = CreateWindow("EDIT", "", WS_VISIBLE | WS_CHILD, 80, 5, 100, 20, createPanel, NULL, hInstance, NULL);
+	hNewFile = CreateWindow("BUTTON", "Create", WS_VISIBLE | WS_CHILD, 5, 30, 100, 25, createPanel, NULL, hInstance, NULL);
+
+	SetWindowLong(createPanel, GWL_WNDPROC, (LONG)(intptr_t)WndProc);
+
+	SendMessage(panel1, WM_SETFONT, (WPARAM)fontDefault, 0);
+	SendMessage(hNewFilename, WM_SETFONT, (WPARAM)fontDefault, 0);
+	SendMessage(hNewFile, WM_SETFONT, (WPARAM)fontDefault, 0);
 
 	UpdateWindow(hTabs);
 
@@ -492,8 +554,6 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	RichTextarea::SetTextStyle(9,  255,   0,   0, false, false,  true);
 	RichTextarea::SetTextStyle(10, 255,   0, 255, false, false, false);
 
-	colorer = new Colorer();
-
 	unsigned int width = (800 - 25) / 4;
 
 	hCode = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
@@ -502,7 +562,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	ShowWindow(hCode, nCmdShow);
 	UpdateWindow(hCode);
-	SendMessage(hCode, WM_SETFONT, (WPARAM)CreateFont(15, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE, "Courier New"), 0);
+	SendMessage(hCode, WM_SETFONT, (WPARAM)fontMonospace, 0);
 
 	hVars = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS,
 		3*width+15, 225, width, 165, hWnd, NULL, hInstance, NULL);
@@ -516,32 +576,12 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	ShowWindow(hResult, nCmdShow);
 	UpdateWindow(hResult);
+	SendMessage(hResult, WM_SETFONT, (WPARAM)fontDefault, 0);
 
 	PostMessage(hWnd, WM_SIZE, 0, (394 << 16) + (900 - 16));
 
 	SetTimer(hWnd, 1, 500, 0);
 	return TRUE;
-}
-
-nullres RunCallback(unsigned int cmdNum)
-{
-	std::string str;
-	char num[32];
-	str = std::string("SuperCalc [") + _itoa(cmdNum, num, 10) + "]";
-	SetWindowText(hWnd, str.c_str());
-	UpdateWindow(hWnd);
-	static int ignore = false;
-	if(cmdNum % 300000000 == 0 && !ignore)
-	{
-		int butSel = MessageBox(hWnd, "Code execution can take a long time. Do you wish to continue?\r\nPress Cancel if you don't want to see this warning again", "Warning: long execution time", MB_YESNOCANCEL);
-		if(butSel == IDYES)
-			return true;
-		else if(butSel == IDNO)
-			return false;
-		else
-			ignore = true;
-	}
-	return true;
 }
 
 const char* GetSimpleVariableValue(TypeInfo* type, int address)
@@ -726,13 +766,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	PAINTSTRUCT ps;
 	HDC hdc;
 
+	char fileName[512];
+	fileName[0] = 0;
+	OPENFILENAME openData = { sizeof(OPENFILENAME), hWnd, NULL, "NULLC Files\0*.nc\0All Files\0*.*\0\0", NULL, 0, 0, fileName, 512,
+		NULL, 0, NULL, NULL, OFN_ALLOWMULTISELECT | OFN_EXPLORER, 0, 0, 0, 0, 0, 0, NULL, 0, 0 };
+
 	char	result[512];
 
-	switch (message) 
+	switch(message) 
 	{
 	case WM_CREATE:
 		runRes.finished = true;
 		runRes.wnd = hWnd;
+		break;
+	case WM_DESTROY:
+		{
+			FILE *tabInfo = fopen("nullc_tab.cfg", "wb");
+			for(unsigned int i = 0; i < richEdits.size(); i++)
+			{
+				fprintf(tabInfo, "%s\r\n", TabbedFiles::GetTabInfo(hTabs, i).name);
+			}
+			fclose(tabInfo);
+		}
+		PostQuitMessage(0);
 		break;
 	case WM_USER + 1:
 		SetWindowText(hButtonCalc, "Calculate");
@@ -754,7 +810,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		}
 		break;
 	case WM_COMMAND:
-		wmId	= LOWORD(wParam); 
+		wmId	= LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
 
 		if((HWND)lParam == hButtonCalc)
@@ -766,13 +822,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				runRes.finished = true;
 				break;
 			}
-			strcpy(buf, RichTextarea::GetAreaText(TabbedFiles::GetCurrentTab(hTabs)));
+			unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+			strcpy(buf, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window));
 
-			FILE *mainCode = fopen("main.nc", "wb");
-			if(mainCode)
+			for(unsigned int i = 0; i < richEdits.size(); i++)
 			{
-				fwrite(buf, 1, strlen(buf), mainCode);
-				fclose(mainCode);
+				if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
+				{
+					TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
+					RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
+					InvalidateRect(hTabs, NULL, true);
+				}
 			}
 
 			DeInitConsole();
@@ -805,19 +865,115 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				SetWindowText(hButtonCalc, "Abort");
 				calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
 			}
+		}else if((HWND)lParam == hNewFile){
+			GetWindowText(hNewFilename, fileName, 512);
+			SetWindowText(hNewFilename, "");
+			if(!strstr(fileName, ".nc"))
+				strcat(fileName, ".nc");
+			// Check if file is already opened
+			for(unsigned int i = 0; i < richEdits.size(); i++)
+			{
+				if(strcmp(TabbedFiles::GetTabInfo(hTabs, i).name, fileName) == 0)
+				{
+					TabbedFiles::SetCurrentTab(hTabs, i);
+					return 0;
+				}
+			}
+			FILE *fNew = fopen(fileName, "rb");
+
+			char *filePart = NULL;
+			GetFullPathName(fileName, 512, result, &filePart);
+			if(fNew)
+			{
+				int action = MessageBox(hWnd, "File already exists, overwrite?", "Warning", MB_YESNOCANCEL);
+				if(action == IDYES)
+				{
+					richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, 780, 175, ::hWnd, NULL, hInst, NULL));
+					TabbedFiles::AddTab(hTabs, result, richEdits.back());
+					TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
+					TabbedFiles::GetTabInfo(hTabs, (int)richEdits.size() - 1).dirty = true;
+				}else if(action == IDNO){
+					fclose(fNew);
+					AddTabWithFile(fileName, hInst);
+					TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
+				}
+				fclose(fNew);
+			}else{
+				richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, 780, 175, ::hWnd, NULL, hInst, NULL));
+				TabbedFiles::AddTab(hTabs, result, richEdits.back());
+				TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
+				TabbedFiles::GetTabInfo(hTabs, (int)richEdits.size() - 1).dirty = true;
+			}
 		}
 		// Parse the menu selections:
 		switch (wmId)
 		{
-		case IDM_ABOUT:
-			//DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
-			break;
 		case IDM_EXIT:
 			DestroyWindow(hWnd);
 			break;
-		case ID_FILE_SAVE:
-			break;
 		case ID_FILE_LOAD:
+			if(GetOpenFileName(&openData))
+			{
+				const char *file = fileName;
+				const char *path = fileName;
+				const char *separator = "\\";
+				// Skip path
+				file += strlen(file) + 1;
+				// Single file isn't divided by path\file, so step back
+				if(!*file)
+				{
+					path = "";
+					separator = "";
+					file = fileName;
+				}
+				// For all files
+				while(*file)
+				{
+					strcpy(result, path);
+					strcat(result, separator);
+					strcat(result, file);
+
+					bool opened = false;
+					// Check if file is already opened
+					for(unsigned int i = 0; i < richEdits.size(); i++)
+					{
+						if(_stricmp(TabbedFiles::GetTabInfo(hTabs, i).name, result) == 0)
+						{
+							TabbedFiles::SetCurrentTab(hTabs, i);
+							opened = true;
+							break;
+						}
+					}
+					if(!opened)
+					{
+						AddTabWithFile(result, hInst);
+						TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
+					}
+					file += strlen(file) + 1;
+				}
+			}
+			break;
+		case ID_FILE_SAVE:
+			{
+				unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+				if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, id).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window)))
+				{
+					TabbedFiles::GetTabInfo(hTabs, id).dirty = false;
+					RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, id).window);
+					InvalidateRect(hTabs, NULL, true);
+				}
+			}
+			break;
+		case ID_FILE_SAVEALL:
+			for(unsigned int i = 0; i < richEdits.size(); i++)
+			{
+				if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
+				{
+					TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
+					RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
+					InvalidateRect(hTabs, NULL, true);
+				}
+			}
 			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -830,24 +986,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			EndPaint(hWnd, &ps);
 		}
 		break;
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
 	case WM_TIMER:
 	{
-		if(!RichTextarea::NeedUpdate(TabbedFiles::GetCurrentTab(hTabs)) || (GetTickCount()-lastUpdate < 100))
+		unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+
+		EnableMenuItem(GetMenu(hWnd), ID_FILE_SAVE, TabbedFiles::GetTabInfo(hTabs, id).dirty ? MF_ENABLED : MF_DISABLED);
+
+		for(unsigned int i = 0; i < richEdits.size(); i++)
+		{
+			if(!TabbedFiles::GetTabInfo(hTabs, i).dirty && RichTextarea::NeedUpdate(TabbedFiles::GetTabInfo(hTabs, i).window))
+			{
+				TabbedFiles::GetTabInfo(hTabs, i).dirty = true;
+				InvalidateRect(hTabs, NULL, false);
+			}
+		}
+
+		HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+		if(!RichTextarea::NeedUpdate(wnd) || (GetTickCount()-lastUpdate < 100))
 			break;
 		string str = "";
 		SetWindowText(hCode, str.c_str());
 
-		RichTextarea::BeginStyleUpdate(TabbedFiles::GetCurrentTab(hTabs));
-		if(!colorer->ColorText(TabbedFiles::GetCurrentTab(hTabs), (char*)RichTextarea::GetAreaText(TabbedFiles::GetCurrentTab(hTabs)), RichTextarea::SetStyleToSelection))
+		RichTextarea::BeginStyleUpdate(wnd);
+		if(!colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection))
 		{
 			SetWindowText(hCode, colorer->GetError().c_str());
 		}
-		RichTextarea::EndStyleUpdate(TabbedFiles::GetCurrentTab(hTabs));
-		RichTextarea::UpdateArea(TabbedFiles::GetCurrentTab(hTabs));
-		RichTextarea::ResetUpdate(TabbedFiles::GetCurrentTab(hTabs));
+		RichTextarea::EndStyleUpdate(wnd);
+		RichTextarea::UpdateArea(wnd);
+		RichTextarea::ResetUpdate(wnd);
 		needTextUpdate = false;
 		lastUpdate = GetTickCount();
 	}
@@ -856,7 +1023,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	{
 		MINMAXINFO	*info = (MINMAXINFO*)lParam;
 		info->ptMinTrackSize.x = 400;
-		info->ptMinTrackSize.y = 200;
+		info->ptMinTrackSize.y = 300;
 	}
 		break;
 	case WM_SIZE:
@@ -877,6 +1044,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		for(unsigned int i = 0; i < richEdits.size(); i++)
 			SetWindowPos(richEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+		SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
 
 		unsigned int buttonWidth = 120;
 		unsigned int resultWidth = width - 2 * buttonWidth - 2 * mainPadding - subPadding * 3;
@@ -902,6 +1070,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
 
+		InvalidateRect(hNewTab, NULL, true);
 		InvalidateRect(hButtonCalc, NULL, true);
 		InvalidateRect(hResult, NULL, true);
 		InvalidateRect(hJITEnabled, NULL, true);

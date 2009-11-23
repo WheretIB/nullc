@@ -23,15 +23,14 @@ struct TabbedFilesData
 	bool			leftMouseDown;
 
 	unsigned int	tabCount;
-	struct TabInfo
-	{
-		const char		*name;
-		unsigned int	width;
-		HWND			window;
-	}	tabInfo[TAB_MAX_COUNT];
+	TabbedFiles::TabInfo	tabInfo[TAB_MAX_COUNT + 1];
 
-	HFONT			mainFont;
-	HPEN			brWhite, brGray, brLightGray, brRed, brGradient[15];
+	void	(*closeHandler)(TabbedFiles::TabInfo &tab);
+
+	HFONT	mainFont, miniFont;
+	HPEN	brWhite, brGray, brRed, brGradient[15];
+
+	HWND	newTab, closeButton;
 };
 
 namespace TabbedFiles
@@ -49,7 +48,7 @@ namespace TabbedFiles
 		x -= 15;
 
 		unsigned int retValue = ~0u;
-		for(unsigned int i = 0; i < data->tabCount; i++)
+		for(unsigned int i = 0; i < data->tabCount + 1; i++)
 		{
 			if(x < data->tabInfo[i].width)
 			{
@@ -75,16 +74,22 @@ namespace TabbedFiles
 
 		data->mainFont = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, false, false,
 			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Arial");
+		data->miniFont = CreateFont(-8 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, FW_REGULAR, false, false, false,
+			RUSSIAN_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Arial");
 
-		data->brWhite = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
-		data->brGray = CreatePen(PS_SOLID, 1, RGB(160, 160, 160));
-		data->brLightGray = CreatePen(PS_SOLID, 1, RGB(192, 192, 192));
-		data->brRed = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
+		data->brWhite =	CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+		data->brGray =	CreatePen(PS_SOLID, 1, RGB(160, 160, 160));
+		data->brRed =	CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
 
 		for(int i = 0; i < 15; i++)
 			data->brGradient[i] = CreatePen(PS_SOLID, 1, RGB(186 + 4*i, 186 + 4*i, 186 + 4*i));
 
 		EndPaint(wnd, &paintData);
+
+		data->closeButton = CreateWindow("BUTTON", "X", WS_VISIBLE | WS_CHILD | BS_FLAT, 200, 0, 10, 10, wnd, NULL, NULL, 0);
+
+		data->newTab = NULL;
+		data->closeHandler = NULL;
 	}
 
 	void OnDestroy(HWND wnd)
@@ -107,10 +112,10 @@ namespace TabbedFiles
 		MoveToEx(hdc, 0, TAB_HEIGHT, NULL);
 		LineTo(hdc, data->width, TAB_HEIGHT);
 
-		for(unsigned int i = 0; i < data->tabCount; i++)
+		for(unsigned int i = 0; i < data->tabCount + 1; i++)
 		{
 			RECT textRect = { 0, 0, 0, 0 };
-			DrawText(hdc, data->tabInfo[i].name, (int)strlen(data->tabInfo[i].name), &textRect, DT_CALCRECT);
+			DrawText(hdc, data->tabInfo[i].last, (int)strlen(data->tabInfo[i].last), &textRect, DT_CALCRECT);
 
 			// Graphics
 			if(i == data->selectedTab)
@@ -155,7 +160,15 @@ namespace TabbedFiles
 			// Text
 			RECT textRectMod = { textRect.left + leftPos + 16, 3, textRect.right + leftPos, TAB_HEIGHT };
 			SetBkMode(hdc, TRANSPARENT);
-			ExtTextOut(hdc, textRectMod.left, textRectMod.top, 0, &textRectMod, data->tabInfo[i].name, (int)strlen(data->tabInfo[i].name), NULL);
+			ExtTextOut(hdc, textRectMod.left, textRectMod.top, 0, &textRectMod, data->tabInfo[i].last, (int)strlen(data->tabInfo[i].last), NULL);
+
+			if(data->tabInfo[i].dirty)
+			{
+				SelectFont(hdc, data->mainFont);
+				textRectMod.left += textRect.right - textRect.left;
+				ExtTextOut(hdc, textRectMod.left, textRectMod.top, 0, &textRectMod, "*", 1, NULL);
+				SelectFont(hdc, data->mainFont);
+			}
 			SetBkMode(hdc, OPAQUE);
 
 			// Advance
@@ -171,6 +184,7 @@ namespace TabbedFiles
 	{
 		TabbedFilesData	*data = GetData(wnd);
 		data->width = width;
+		SetWindowPos(data->closeButton, NULL, width - 15, 0, 15, 15, NULL);
 		(void)height;
 	}
 
@@ -190,7 +204,7 @@ namespace TabbedFiles
 		}else{
 			data->leftMouseDown = false;
 			ReleaseCapture();
-			for(unsigned int i = 0; i < data->tabCount; i++)
+			for(unsigned int i = 0; i < data->tabCount + 1; i++)
 				ShowWindow(data->tabInfo[i].window, SW_HIDE);
 			ShowWindow(data->tabInfo[data->selectedTab].window, SW_SHOW);
 			InvalidateRect(wnd, NULL, true);
@@ -204,6 +218,8 @@ namespace TabbedFiles
 		if(data->leftMouseDown)
 		{
 			unsigned int newTab = CursorToIndex(wnd, x);
+			if(data->selectedTab == data->tabCount || newTab == data->tabCount)
+				return;
 			if(newTab != -1 && newTab != data->selectedTab)
 			{
 				std::swap(data->tabInfo[data->selectedTab].width, data->tabInfo[newTab].width);
@@ -217,6 +233,32 @@ namespace TabbedFiles
 		}
 		(void)y;
 	}
+
+	void OnCommand(HWND wnd, HWND child)
+	{
+		TabbedFilesData	*data = GetData(wnd);
+		if(child == data->closeButton && data->selectedTab != data->tabCount)
+		{
+			if(data->closeHandler)
+				data->closeHandler(data->tabInfo[data->selectedTab]);
+			ShowWindow(data->tabInfo[data->selectedTab].window, SW_HIDE);
+			if(data->tabCount < 2)
+			{
+				data->tabCount = 0;
+				data->selectedTab = 0;
+				data->tabInfo[0].name = data->tabInfo[0].last = "+";
+				data->tabInfo[0].window = data->newTab;
+			}else{
+				for(unsigned int i = data->selectedTab; i < data->tabCount + 1; i++)
+					data->tabInfo[i] = data->tabInfo[i+1];
+				data->tabCount--;
+				data->selectedTab = data->selectedTab ? data->selectedTab - 1 : 0;
+			}
+			ShowWindow(data->tabInfo[data->selectedTab].window, SW_SHOW);
+			InvalidateRect(wnd, NULL, true);
+			SetFocus(wnd);
+		}
+	}
 };
 
 void TabbedFiles::AddTab(HWND wnd, const char* filename, HWND childWindow)
@@ -228,15 +270,55 @@ void TabbedFiles::AddTab(HWND wnd, const char* filename, HWND childWindow)
 		return;
 	}
 	data->tabInfo[data->tabCount].name = strdup(filename);
+	const char *filePart = strrchr(data->tabInfo[data->tabCount].name, '\\');
+	data->tabInfo[data->tabCount].last = filePart ? filePart + 1 : data->tabInfo[data->tabCount].name;
 	data->tabInfo[data->tabCount].window = childWindow;
+	data->tabInfo[data->tabCount].dirty = false;
 	data->tabCount++;
+
+	data->tabInfo[data->tabCount].name = data->tabInfo[data->tabCount].last = "+";
+	data->tabInfo[data->tabCount].window = data->newTab;
 }
 
-HWND TabbedFiles::GetCurrentTab(HWND wnd)
+void TabbedFiles::SetNewTabWindow(HWND wnd, HWND newTab)
 {
 	TabbedFilesData	*data = GetData(wnd);
 
-	return data->tabInfo[data->selectedTab].window;
+	data->newTab = newTab;
+	data->tabInfo[data->tabCount].name = data->tabInfo[data->tabCount].last = "+";
+	data->tabInfo[data->tabCount].window = newTab;
+}
+
+unsigned int TabbedFiles::GetCurrentTab(HWND wnd)
+{
+	TabbedFilesData	*data = GetData(wnd);
+
+	return data->selectedTab;
+}
+
+void TabbedFiles::SetCurrentTab(HWND wnd, unsigned int id)
+{
+	TabbedFilesData	*data = GetData(wnd);
+
+	data->selectedTab = id;
+	for(unsigned int i = 0; i < data->tabCount + 1; i++)
+		ShowWindow(data->tabInfo[i].window, SW_HIDE);
+	ShowWindow(data->tabInfo[data->selectedTab].window, SW_SHOW);
+	InvalidateRect(wnd, NULL, true);
+}
+
+TabbedFiles::TabInfo& TabbedFiles::GetTabInfo(HWND wnd, unsigned int id)
+{
+	TabbedFilesData	*data = GetData(wnd);
+
+	return data->tabInfo[id];
+}
+
+void TabbedFiles::SetOnCloseTab(HWND wnd, void (*OnClose)(TabInfo &tab))
+{
+	TabbedFilesData	*data = GetData(wnd);
+
+	data->closeHandler = OnClose;
 }
 
 void TabbedFiles::RegisterTabbedFiles(const char *className, HINSTANCE hInstance)
@@ -251,7 +333,7 @@ void TabbedFiles::RegisterTabbedFiles(const char *className, HINSTANCE hInstance
 	wcex.hInstance		= hInstance;
 	wcex.hIcon			= NULL;
 	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW);
 	wcex.lpszMenuName	= NULL;
 	wcex.lpszClassName	= className;
 	wcex.hIconSm		= NULL;
@@ -283,6 +365,9 @@ LRESULT CALLBACK TabbedFiles::TabbedFilesProc(HWND hWnd, unsigned int message, W
 		break;
 	case WM_MOUSEMOVE:
 		OnMouseMove(hWnd, LOWORD(lParam), HIWORD(lParam));
+		break;
+	case WM_COMMAND:
+		OnCommand(hWnd, (HWND)lParam);
 		break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
