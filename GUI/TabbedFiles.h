@@ -7,9 +7,23 @@
 
 namespace TabbedFiles
 {
-	void AddTab(HWND wnd, const char* filename, HWND childWindow);
+	struct TabInfo
+	{
+		const char		*name, *last;
+		unsigned int	width;
+		HWND			window;
+		bool			dirty;
+	};
 
-	HWND GetCurrentTab(HWND wnd);
+	void AddTab(HWND wnd, const char* filename, HWND childWindow);
+	void SetNewTabWindow(HWND wnd, HWND newTab);
+
+	unsigned int GetCurrentTab(HWND wnd);
+	void	SetCurrentTab(HWND wnd, unsigned int id);
+
+	TabInfo& GetTabInfo(HWND wnd, unsigned int id);
+
+	void	SetOnCloseTab(HWND wnd, void (*OnClose)(TabInfo &tab));
 
 	void RegisterTabbedFiles(const char *className, HINSTANCE hInstance);
 	LRESULT CALLBACK TabbedFilesProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam);

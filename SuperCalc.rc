@@ -42,8 +42,9 @@ IDC_SUPERCALC MENU
 BEGIN
     POPUP "&File"
     BEGIN
-        MENUITEM "Save",                        ID_FILE_SAVE
-        MENUITEM "Load",                        ID_FILE_LOAD
+        MENUITEM "Open",                        ID_FILE_LOAD
+        MENUITEM "Save",                        ID_FILE_SAVE, INACTIVE
+        MENUITEM "Save All",                    ID_FILE_SAVEALL
         MENUITEM SEPARATOR
         MENUITEM "E&xit",                       IDM_EXIT
     END
@@ -55,29 +56,6 @@ END
 // Accelerator
 //
 
-IDC_SUPERCALC ACCELERATORS 
-BEGIN
-    "?",            IDM_ABOUT,              ASCII,  ALT
-    "/",            IDM_ABOUT,              ASCII,  ALT
-END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Dialog
-//
-
-IDD_ABOUTBOX DIALOG  22, 17, 230, 75
-STYLE DS_SETFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
-CAPTION "About"
-FONT 8, "System"
-BEGIN
-    ICON            IDI_SUPERCALC,IDC_MYICON,14,9,16,16
-    LTEXT           "SuperCalc Version 1.0",IDC_STATIC,49,10,119,8,
-                    SS_NOPREFIX
-    LTEXT           "Copyright (C) 2007",IDC_STATIC,49,20,119,8
-    DEFPUSHBUTTON   "OK",IDOK,195,6,30,11,WS_GROUP
-END
 
 
 #ifdef APSTUDIO_INVOKED

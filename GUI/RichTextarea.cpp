@@ -732,6 +732,9 @@ bool RichTextarea::NeedUpdate(HWND wnd)
 {
 	TextareaData *data = GetData(wnd);
 
+	if(!data)
+		return false;
+
 	bool ret = data->needUpdate;
 	return ret;
 }
@@ -904,7 +907,7 @@ void TextareaData::OnPaint()
 					break;
 			}
 			// Fill the end of the line with white color
-			charRect.right = areaWidth - RichTextarea::charWidth;
+			charRect.right = areaWidth;
 			FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
 			charRect.left = 0;
 			charRect.right = RichTextarea::padLeft;
@@ -921,7 +924,7 @@ void TextareaData::OnPaint()
 	// Fill the empty space after text with white color
 	if(charRect.top < areaHeight)
 	{
-		charRect.left = RichTextarea::padLeft;
+		charRect.left = 0;
 		charRect.right = areaWidth;
 		charRect.bottom = areaHeight;
 		FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
@@ -1975,7 +1978,7 @@ void RichTextarea::RegisterTextarea(const char *className, HINSTANCE hInstance)
 	wcex.hInstance		= hInstance;
 	wcex.hIcon			= NULL;
 	wcex.hCursor		= LoadCursor(NULL, IDC_IBEAM);
-	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW+1);
+	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.lpszMenuName	= NULL;
 	wcex.lpszClassName	= className;
 	wcex.hIconSm		= NULL;

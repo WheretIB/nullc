@@ -117,6 +117,6 @@ public:
 private:
 	MySmallBlock*	freeBlocks;
 	MyLargeBlock*	activePages;
-	UINT	lastNum;
+	unsigned int	lastNum;
 	int		allocated;
 };
