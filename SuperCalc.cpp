@@ -49,6 +49,8 @@ HWND hCode;			// disabled text area for errors and asm-like code output
 HWND hVars;			// disabled text area that shows values of all variables in global scope
 HWND hStatus;
 
+unsigned int areaWidth = 400, areaHeight = 300;
+
 HFONT	fontMonospace, fontDefault;
 
 Colorer*	colorer;
@@ -410,22 +412,24 @@ void AddTabWithFile(const char* filename, HINSTANCE hInstance)
 	char buf[1024];
 	char *file = NULL;
 	GetFullPathName(filename, 1024, buf, &file);
-	richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 25, 780, 175, hWnd, NULL, hInstance, NULL));
-	TabbedFiles::AddTab(hTabs, buf, richEdits.back());
-	ShowWindow(richEdits.back(), SW_HIDE);
 
 	FILE *startText = fopen(buf, "rb");
 	char *fileContent = NULL;
-	if(startText)
-	{
-		fseek(startText, 0, SEEK_END);
-		unsigned int textSize = ftell(startText);
-		fseek(startText, 0, SEEK_SET);
-		fileContent = new char[textSize+1];
-		fread(fileContent, 1, textSize, startText);
-		fileContent[textSize] = 0;
-		fclose(startText);
-	}
+	if(!startText)
+		return;
+
+	richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, hWnd, NULL, hInstance, NULL));
+	TabbedFiles::AddTab(hTabs, buf, richEdits.back());
+	ShowWindow(richEdits.back(), SW_HIDE);
+	
+	fseek(startText, 0, SEEK_END);
+	unsigned int textSize = ftell(startText);
+	fseek(startText, 0, SEEK_SET);
+	fileContent = new char[textSize+1];
+	fread(fileContent, 1, textSize, startText);
+	fileContent[textSize] = 0;
+	fclose(startText);
+
 	RichTextarea::SetAreaText(richEdits.back(), fileContent ? fileContent : "");
 	delete[] fileContent;
 
@@ -888,7 +892,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				int action = MessageBox(hWnd, "File already exists, overwrite?", "Warning", MB_YESNOCANCEL);
 				if(action == IDYES)
 				{
-					richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, 780, 175, ::hWnd, NULL, hInst, NULL));
+					richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, ::hWnd, NULL, hInst, NULL));
 					TabbedFiles::AddTab(hTabs, result, richEdits.back());
 					TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
 					TabbedFiles::GetTabInfo(hTabs, (int)richEdits.size() - 1).dirty = true;
@@ -899,7 +903,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				}
 				fclose(fNew);
 			}else{
-				richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, 780, 175, ::hWnd, NULL, hInst, NULL));
+				richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, ::hWnd, NULL, hInst, NULL));
 				TabbedFiles::AddTab(hTabs, result, richEdits.back());
 				TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
 				TabbedFiles::GetTabInfo(hTabs, (int)richEdits.size() - 1).dirty = true;
@@ -1042,6 +1046,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		unsigned int tabHeight = 20;
 		SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
 
+		areaWidth = width - mainPadding * 2;
+		areaHeight = topHeight - tabHeight;
 		for(unsigned int i = 0; i < richEdits.size(); i++)
 			SetWindowPos(richEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
 		SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
