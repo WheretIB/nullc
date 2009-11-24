@@ -27,6 +27,7 @@ namespace NULLC
 
 	int		StrEqual(NullCArray a, NullCArray b);
 	int		StrNEqual(NullCArray a, NullCArray b);
+	NullCArray	StrConcatenate(NullCArray a, NullCArray b);
 
 	// Basic type constructors
 	int			Int(int a);

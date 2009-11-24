@@ -156,8 +156,9 @@ Compiler::Compiler()
 
 	AddExternalFunction((void (*)())NULLC::Sqrt, "double sqrt(double num);");
 
-	AddExternalFunction((void (*)())NULLC::StrEqual, "int operator==(char[] a, b);");
-	AddExternalFunction((void (*)())NULLC::StrNEqual, "int operator!=(char[] a, b);");
+	AddExternalFunction((void (*)())NULLC::StrEqual, "int operator ==(char[] a, b);");
+	AddExternalFunction((void (*)())NULLC::StrNEqual, "int operator !=(char[] a, b);");
+	AddExternalFunction((void (*)())NULLC::StrConcatenate, "char[] operator +(char[] a, b);");
 
 	AddExternalFunction((void (*)())NULLC::Int, "char char(char a);");
 	AddExternalFunction((void (*)())NULLC::Int, "short short(short a);");

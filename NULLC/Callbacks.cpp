@@ -607,7 +607,7 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		}
 	}
 
-	const char *opNames[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "and", "or", "xor" };
+	const char *opNames[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "&&", "||", "^^" };
 	// Optimizations failed, perform operation in run-time
 	if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2, true))
 		CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
@@ -1003,6 +1003,9 @@ void AddSetVariableNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
+		return;
+
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 
 	bool unifyTwo = false;
@@ -1118,6 +1121,13 @@ void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)
 void AddModifyVariableNode(const char* pos, CmdID cmd)
 {
 	CodeInfo::lastKnownStartPos = pos;
+
+	// Only five operators
+	assert(cmd - cmdAdd < 5);
+	// Operator names
+	const char *opNames[] = { "+=", "-=", "*=", "/=", "**=" };
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[cmd - cmdAdd], 2, true))
+		return;
 
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 	CodeInfo::nodeList.push_back(new NodeVariableModify(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, cmd));

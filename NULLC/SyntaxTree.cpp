@@ -779,6 +779,8 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 	if(typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: There is no build-in operator for types %s and %s", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 
 	// If types don't match
 	if(second->typeInfo != typeInfo)
