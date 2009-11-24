@@ -292,7 +292,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 
 	Lexeme *name = *str;
 	if((name->type != lex_string || name[1].type != lex_oparen) &&
-		(name->type != lex_operator || (name[1].type < lex_add || name[1].type > lex_logxor && name[1].type != lex_obracket)) &&
+		(name->type != lex_operator || !((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset))) &&
 		(start->type != lex_auto || name->type != lex_oparen))
 	{
 		*str = start;
@@ -310,7 +310,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 		}
 	}
 	char	*functionName = NULL;
-	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor))
+	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_powset))
 	{
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: function name length is limited to 2048 symbols");
@@ -340,7 +340,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if(ParseLexem(str, lex_semicolon))
 	{
 		CALLBACK(AddVoidNode());
-		if(name[1].type >= lex_add && name[1].type <= lex_logxor || name[1].type == lex_obracket)
+		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset))
 			CALLBACK(FunctionToOperator(start->pos));
 		CALLBACK(FunctionPrototype(start->pos));
 		return true;
@@ -355,7 +355,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError((*str)->pos, "ERROR: '}' not found after function body");
 
-	if(name[1].type >= lex_add && name[1].type <= lex_logxor || name[1].type == lex_obracket)
+	if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset))
 		CALLBACK(FunctionToOperator(start->pos));
 
 	CALLBACK(FunctionEnd(start->pos, functionName));

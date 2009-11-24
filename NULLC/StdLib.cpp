@@ -2,6 +2,7 @@
 
 #include "nullc.h"
 #include <math.h>
+#include <string.h>
 
 void NULLC::Assert(int val)
 {
@@ -104,6 +105,19 @@ int NULLC::StrEqual(NullCArray a, NullCArray b)
 int NULLC::StrNEqual(NullCArray a, NullCArray b)
 {
 	return !StrEqual(a, b);
+}
+
+NullCArray NULLC::StrConcatenate(NullCArray a, NullCArray b)
+{
+	NullCArray ret;
+
+	ret.len = a.len + b.len - 1;
+	ret.ptr = new char[ret.len];	// $$$ memory leak
+
+	memcpy(ret.ptr, a.ptr, a.len);
+	memcpy(ret.ptr + a.len - 1, b.ptr, b.len);
+
+	return ret;
 }
 
 int NULLC::Int(int a)
