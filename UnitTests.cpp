@@ -326,20 +326,6 @@ char*	Format(const char *str, ...)
 	return ptr;
 }
 
-
-int	newS(int size)
-{
-	return (int)(intptr_t)(new char[size]);
-}
-
-NullCArray	newA(int size, int count)
-{
-	NullCArray ret;
-	ret.ptr = new char[count * size];
-	ret.len = count;
-	return ret;
-}
-
 FILE *allocLog = NULL;
 void* testAlloc(size_t size)
 {
@@ -394,9 +380,6 @@ void	RunTests()
 	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<short>), "void FileRead(file fID, short ref data);");
 	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<int>), "void FileRead(file fID, int ref data);");
 	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
-
-	nullcAddExternalFunction((void (*)())newS, "int __newS(int size);");
-	nullcAddExternalFunction((void (*)())newA, "int[] __newA(int size, int count);");
 
 #ifdef SPEED_TEST
 	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");

@@ -28,6 +28,7 @@ namespace NULLC
 	int		StrEqual(NullCArray a, NullCArray b);
 	int		StrNEqual(NullCArray a, NullCArray b);
 	NullCArray	StrConcatenate(NullCArray a, NullCArray b);
+	NullCArray	StrConcatenateAndSet(NullCArray *a, NullCArray b);
 
 	// Basic type constructors
 	int			Int(int a);
@@ -35,4 +36,8 @@ namespace NULLC
 	float		Float(float a);
 	double		Double(double a);
 	
+	void*		AllocObject(int size);
+	NullCArray	AllocArray(int size, int count);
+	void		ClearMemory();
+	void		ResetMemory();
 }

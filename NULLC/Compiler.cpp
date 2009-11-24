@@ -159,6 +159,7 @@ Compiler::Compiler()
 	AddExternalFunction((void (*)())NULLC::StrEqual, "int operator ==(char[] a, b);");
 	AddExternalFunction((void (*)())NULLC::StrNEqual, "int operator !=(char[] a, b);");
 	AddExternalFunction((void (*)())NULLC::StrConcatenate, "char[] operator +(char[] a, b);");
+	AddExternalFunction((void (*)())NULLC::StrConcatenateAndSet, "char[] operator +=(char[] ref a, char[] b);");
 
 	AddExternalFunction((void (*)())NULLC::Int, "char char(char a);");
 	AddExternalFunction((void (*)())NULLC::Int, "short short(short a);");
@@ -166,6 +167,9 @@ Compiler::Compiler()
 	AddExternalFunction((void (*)())NULLC::Long, "long long(long a);");
 	AddExternalFunction((void (*)())NULLC::Float, "float float(float a);");
 	AddExternalFunction((void (*)())NULLC::Double, "double double(double a);");
+
+	AddExternalFunction((void (*)())NULLC::AllocObject, "int __newS(int size);");
+	AddExternalFunction((void (*)())NULLC::AllocArray, "int[] __newA(int size, int count);");
 
 #ifdef NULLC_LOG_FILES
 	compileLog = NULL;

@@ -266,19 +266,6 @@ char typeTest(int x, short y, char z, int d, long long u, float m, int s, double
 	return 12;
 }
 
-int	allocSimple(int size)
-{
-	return (int)(long long)(new char[size]);
-}
-
-NullCArray	allocArray(int size, int count)
-{
-	NullCArray ret;
-	ret.ptr = new char[count * size];
-	ret.len = count;
-	return ret;
-}
-
 char* buf;
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
@@ -341,8 +328,6 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	REGISTER(ReadIntFromConsole, "void Input(int ref num);");
 	REGISTER(ReadTextFromConsole, "int Input(char[] buf);");
 	REGISTER(SetConsoleCursorPos, "void SetConsoleCursorPos(int x, y);");
-	REGISTER(allocSimple, "int __newS(int size);");
-	REGISTER(allocArray, "int[] __newA(int size, int count);");
 
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -797,9 +782,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			for(unsigned int i = 0; i < richEdits.size(); i++)
 			{
 				fprintf(tabInfo, "%s\r\n", TabbedFiles::GetTabInfo(hTabs, i).name);
+				DestroyWindow(richEdits[i]);
 			}
 			fclose(tabInfo);
 		}
+		RichTextarea::UnregisterTextarea();
 		PostQuitMessage(0);
 		break;
 	case WM_USER + 1:
