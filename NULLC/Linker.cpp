@@ -1,4 +1,5 @@
 #include "Linker.h"
+#include "StdLib.h"
 
 Linker::Linker(): exTypes(50), exVariables(50), exFunctions(50), exSymbols(4096)
 {
@@ -21,6 +22,8 @@ void Linker::CleanCode()
 
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
+
+	NULLC::ClearMemory();
 }
 
 bool Linker::LinkCode(const char *code, int redefinitions)

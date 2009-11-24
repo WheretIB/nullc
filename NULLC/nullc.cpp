@@ -11,7 +11,7 @@
 #endif
 
 #include "Bytecode.h"
-
+#include "StdLib.h"
 
 CompilerError				CodeInfo::lastError;
 
@@ -224,6 +224,7 @@ void	nullcDeinit()
 	NULLC::destruct(executorX86);
 	executorX86 = NULL;
 #endif
+	NULLC::ResetMemory();
 
 	CodeInfo::funcInfo.reset();
 	CodeInfo::varInfo.reset();

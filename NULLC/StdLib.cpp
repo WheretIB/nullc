@@ -4,6 +4,51 @@
 #include <math.h>
 #include <string.h>
 
+#include "stdafx.h"
+#include "Pool.h"
+
+namespace NULLC
+{
+	const unsigned int poolBlockSize = 16 * 1024;
+	const unsigned int minGlobalBlockSize = 8 * 1024;
+
+	ChunkedStackPool<poolBlockSize>	globalPool;
+	FastVector<void*>				globalObjects;
+}
+
+void* NULLC::AllocObject(int size)
+{
+	if(size >= minGlobalBlockSize)
+	{
+		globalObjects.push_back(new char[size]);
+		return globalObjects.back();
+	}
+	return globalPool.Allocate(size);
+}
+
+NullCArray NULLC::AllocArray(int size, int count)
+{
+	NullCArray ret;
+	ret.ptr = (char*)AllocObject(count * size);
+	ret.len = count;
+	return ret;
+}
+
+void NULLC::ClearMemory()
+{
+	globalPool.Clear();
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+		delete (char*)globalObjects[i];
+	globalObjects.clear();
+}
+
+void NULLC::ResetMemory()
+{
+	ClearMemory();
+	globalPool.~ChunkedStackPool();
+	globalObjects.reset();
+}
+
 void NULLC::Assert(int val)
 {
 	if(!val)
@@ -112,12 +157,17 @@ NullCArray NULLC::StrConcatenate(NullCArray a, NullCArray b)
 	NullCArray ret;
 
 	ret.len = a.len + b.len - 1;
-	ret.ptr = new char[ret.len];	// $$$ memory leak
+	ret.ptr = (char*)AllocObject(ret.len);
 
 	memcpy(ret.ptr, a.ptr, a.len);
 	memcpy(ret.ptr + a.len - 1, b.ptr, b.len);
 
 	return ret;
+}
+
+NullCArray NULLC::StrConcatenateAndSet(NullCArray *a, NullCArray b)
+{
+	return *a = StrConcatenate(*a, b);
 }
 
 int NULLC::Int(int a)
