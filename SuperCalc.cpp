@@ -519,14 +519,17 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	FILE *tabInfo = fopen("nullc_tab.cfg", "rb");
 	if(!tabInfo)
 	{
-		AddTabWithFile("main.nc", hInstance);
+		richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, hWnd, NULL, hInstance, NULL));
+		TabbedFiles::AddTab(hTabs, "main.nc", richEdits.back());
+		ShowWindow(richEdits.back(), SW_HIDE);
+
+		RichTextarea::SetAreaText(richEdits.back(), "");
 	}else{
 		char filename[MAX_PATH];
 		while(fscanf(tabInfo, "%s", filename) != -1)
 			AddTabWithFile(filename, hInstance);
 		fclose(tabInfo);
 	}
-	ShowWindow(richEdits[0], SW_SHOW);
 
 	TabbedFiles::SetOnCloseTab(hTabs, CloseTabWithFile);
 	TabbedFiles::SetNewTabWindow(hTabs, hNewTab = CreateWindow("STATIC", "", WS_CHILD | SS_GRAYFRAME, 5, 25, 780, 175, hWnd, NULL, hInstance, NULL));
@@ -543,6 +546,11 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	SendMessage(hNewFile, WM_SETFONT, (WPARAM)fontDefault, 0);
 
 	UpdateWindow(hTabs);
+
+	if(!richEdits.empty())
+		ShowWindow(richEdits[0], SW_SHOW);
+	else
+		ShowWindow(hNewTab, SW_SHOW);
 
 	RichTextarea::SetStatusBar(hStatus, 900);
 
