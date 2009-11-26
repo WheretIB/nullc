@@ -921,7 +921,7 @@ void Executor::Run(const char* funcName)
 					ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
 					const char *typeName = &exLinker->exSymbols[exTypes[lInfo.type].offsetToName];
 					const char *localName = &exLinker->exSymbols[lInfo.offsetToName];
-					currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " %s %d: %s %s (at base+%d)\r\n", lInfo.parameter ? "param" : "local", i, typeName, localName, lInfo.offset);
+					currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " %s %d: %s %s (at base+%d size %d)\r\n", lInfo.parameter ? "param" : "local", i, typeName, localName, lInfo.offset, exTypes[lInfo.type].size);
 				}
 			}
 #endif

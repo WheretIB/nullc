@@ -938,7 +938,7 @@ void TextareaData::OnPaint()
 int	ibarState = 0;
 VOID CALLBACK RichTextarea::AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
 {
-	if(!hwnd || GetFocus() != hwnd)
+	if(!hwnd || (GetFocus() != hwnd && ibarState != 0))
 		return;
 
 	TextareaData *data = GetData(hwnd);
@@ -1690,12 +1690,14 @@ void TextareaData::OnKeyEvent(int key)
 		if(IsPressed(VK_SHIFT))
 		{
 			OnCopyOrCut(true);
+			needUpdate = true;
 			return;
 		}
 		// Remove selection, if active
 		if(selectionOn)
 		{
 			DeleteSelection();
+			needUpdate = true;
 			return;
 		}else{
 			// Move to the next character
@@ -1712,6 +1714,7 @@ void TextareaData::OnKeyEvent(int key)
 			DeletePreviousChar();
 		}
 		ScrollToCursor();
+		needUpdate = true;
 	}else if(key == VK_PRIOR){	// Page up
 		// If Ctrl is pressed
 		if(IsPressed(VK_CONTROL))
@@ -2011,6 +2014,10 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 		break;
 	case WM_PAINT:
 		data->OnPaint();
+		break;
+	case WM_KILLFOCUS:
+		ibarState = 0;
+		RichTextarea::AreaCursorUpdate(hWnd, 0, NULL, 0);
 		break;
 	case WM_SIZE:
 		data->OnSize(LOWORD(lParam), HIWORD(lParam));
