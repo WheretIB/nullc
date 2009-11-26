@@ -4,8 +4,6 @@ struct ExternTypeInfo
 {
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
-	unsigned int	structSize;
-
 	unsigned int	offsetToName;
 
 	unsigned int	size;	// sizeof(type)
@@ -16,8 +14,6 @@ struct ExternTypeInfo
 
 struct ExternVarInfo
 {
-	unsigned int	structSize;
-
 	unsigned int	type;	// index in type array
 
 	unsigned int	size;
@@ -36,8 +32,6 @@ struct ExternLocalInfo
 
 struct ExternFuncInfo
 {
-	unsigned int	structSize;
-
 	unsigned int	offsetToName;
 
 	int				oldAddress;

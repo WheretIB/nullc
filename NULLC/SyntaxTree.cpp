@@ -464,9 +464,12 @@ void NodeFuncDef::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s FuncDef %s %s\r\n", typeInfo->GetFullTypeName(), funcInfo->name, (disabled ? " disabled" : ""));
-	GoDownB();
-	first->LogToStream(fGraph);
-	GoUp();
+	if(!disabled)
+	{
+		GoDownB();
+		first->LogToStream(fGraph);
+		GoUp();
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
