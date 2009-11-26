@@ -6,6 +6,8 @@ struct ExternTypeInfo
 
 	unsigned int	structSize;
 
+	unsigned int	offsetToName;
+
 	unsigned int	size;	// sizeof(type)
 	TypeCategory	type;
 
@@ -20,6 +22,16 @@ struct ExternVarInfo
 
 	unsigned int	size;
 	unsigned int	nameHash;
+};
+
+struct ExternLocalInfo
+{
+	bool			parameter;
+
+	unsigned int	type;
+	unsigned int	offset;
+
+	unsigned int	offsetToName;
 };
 
 struct ExternFuncInfo
@@ -47,6 +59,9 @@ struct ExternFuncInfo
 
 	unsigned int	startInByteCode;
 
+	unsigned int	offsetToFirstLocal;
+	unsigned int	localCount;
+
 // For x86 function call
 	unsigned int	bytesToPop;
 // For PS3 function call
@@ -73,9 +88,9 @@ struct ByteCode
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
 	ExternFuncInfo	*firstFunc;
 
-	unsigned int	parameterCount;
-	unsigned int	offsetToFirstParameter;
-	unsigned int	*firstParameter;
+	unsigned int	localCount;
+	unsigned int	offsetToLocals;
+	ExternLocalInfo	*firstLocal;
 
 	unsigned int	codeSize;
 	unsigned int	offsetToCode;
@@ -92,7 +107,7 @@ struct ByteCode
 
 //	ExternFuncInfo	functions[functionCount];	// info about first function
 
-//	unsigned int	parameters[paramCount];	// function parameter types
+//	ExternLocalInfo	locals[localCount];	// Function locals (including parameters)
 
 //	char			code[codeSize];
 

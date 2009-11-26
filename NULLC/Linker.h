@@ -23,6 +23,7 @@ public:
 	FastVector<ExternTypeInfo>	exTypes;
 	FastVector<ExternVarInfo>	exVariables;
 	FastVector<ExternFuncInfo>	exFunctions;
+	FastVector<ExternLocalInfo>	exLocals;
 	FastVector<VMCmd>			exCode;
 	FastVector<char>			exSymbols;
 	unsigned int				globalVarSize;
