@@ -800,9 +800,12 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 
 			int i = CodeInfo::FindVariableByName(contextHash);
 			if(i == -1)
+			{
 				CodeInfo::nodeList.push_back(new NodeNumber(0, CodeInfo::GetReferenceType(typeInt)));
-			else
+			}else{
 				AddGetAddressNode(pos, InplaceStr(contextName, length));
+				AddGetVariableNode(pos);
+			}
 		}
 
 		// Create node that retrieves function address
@@ -1431,9 +1434,33 @@ void FunctionEnd(const char* pos, const char* funcName)
 	// If function is local, create function parameters block
 	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.externalCount != 0)
 	{
-		CodeInfo::nodeList.push_back(new NodeZeroOP());
 		TypeInfo *targetType = CodeInfo::GetReferenceType(typeInt);
 		targetType = CodeInfo::GetArrayType(targetType, lastFunc.externalCount);
+
+		char	*hiddenHame = AllocateString(lastFunc.nameLength + 8);
+		int length = sprintf(hiddenHame, "$%s_ext", lastFunc.name);
+
+		TypeInfo *saveCurrType = currType;
+		bool saveVarDefined = varDefined;
+
+		// Create a pointer to array
+		currType = NULL;
+		AddVariable(pos, InplaceStr(hiddenHame, length));
+
+		// Allocate array in dynamic memory
+		CodeInfo::nodeList.push_back(new NodeNumber((int)targetType->size, typeInt));
+		AddFunctionCallNode(pos, "__newS", 1);
+		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(targetType);
+
+		// Set it to pointer variable
+		AddDefineVariableNode(pos, InplaceStr(hiddenHame, length));
+		AddPopNode(pos);
+
+		// Copy array to created memory
+		AddGetAddressNode(pos, InplaceStr(hiddenHame, length));
+		AddDereferenceNode(pos);
+
+		CodeInfo::nodeList.push_back(new NodeZeroOP());
 		CodeInfo::nodeList.push_back(new NodeExpressionList(targetType));
 
 		NodeZeroOP* temp = CodeInfo::nodeList.back();
@@ -1448,20 +1475,12 @@ void FunctionEnd(const char* pos, const char* funcName)
 		}
 		CodeInfo::nodeList.push_back(temp);
 
-		char	*hiddenHame = AllocateString(lastFunc.nameLength + 8);
-		int length = sprintf(hiddenHame, "$%s_ext", lastFunc.name);
-
-		TypeInfo *saveCurrType = currType;
-		bool saveVarDefined = varDefined;
-
-		currType = NULL;
-		AddVariable(pos, InplaceStr(hiddenHame, length));
-
-		AddDefineVariableNode(pos, InplaceStr(hiddenHame, length));
+		AddSetVariableNode(pos);
 		AddPopNode(pos);
 
 		varDefined = saveVarDefined;
 		currType = saveCurrType;
+		AddTwoExpressionNode();
 		AddTwoExpressionNode();
 	}
 
@@ -1648,9 +1667,12 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		int i = CodeInfo::FindVariableByName(contextHash);
 		if(i == -1)
+		{
 			CodeInfo::nodeList.push_back(new NodeNumber(0, CodeInfo::GetReferenceType(typeInt)));
-		else
+		}else{
 			AddGetAddressNode(pos, InplaceStr(contextName, length));
+			AddGetVariableNode(pos);
+		}
 	}
 
 	if(funcAddr)
