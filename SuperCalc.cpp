@@ -294,10 +294,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	}
 
 	nullcInit();
-#define REGISTER(func, proto) nullcAddExternalFunction((void (*)())func, proto)
-REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int color);");
 
-	colorer = NULL;
+	#define REGISTER(func, proto) nullcAddExternalFunction((void (*)())func, proto)
+	REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int color);");
 
 	REGISTER(typeTest, "char typeTest(int x, short y, char z, int d, long u, float m, int s, double k, int t);");
 
@@ -328,6 +327,8 @@ REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int col
 	REGISTER(ReadIntFromConsole, "void Input(int ref num);");
 	REGISTER(ReadTextFromConsole, "int Input(char[] buf);");
 	REGISTER(SetConsoleCursorPos, "void SetConsoleCursorPos(int x, y);");
+
+	colorer = NULL;
 
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);

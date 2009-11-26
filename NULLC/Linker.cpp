@@ -1,7 +1,7 @@
 #include "Linker.h"
 #include "StdLib.h"
 
-Linker::Linker(): exTypes(50), exVariables(50), exFunctions(50), exSymbols(4096)
+Linker::Linker(): exTypes(64), exVariables(64), exFunctions(64), exSymbols(4096), exLocals(64)
 {
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -19,6 +19,7 @@ void Linker::CleanCode()
 	exFunctions.clear();
 	exCode.clear();
 	exSymbols.clear();
+	exLocals.clear();
 
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -84,6 +85,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int oldSymbolSize = exSymbols.size();
 	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
 	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
+
+	// Add new locals
+	unsigned int oldLocalsSize = exLocals.size();
+	exLocals.resize(oldLocalsSize + bCode->localCount);
+	memcpy(&exLocals[oldLocalsSize], (char*)(bCode) + bCode->offsetToLocals, bCode->localCount * sizeof(ExternLocalInfo));
 
 	// Add new code
 	unsigned int oldCodeSize = exCode.size();

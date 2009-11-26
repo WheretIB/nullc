@@ -907,9 +907,24 @@ void Executor::Run(const char* funcName)
 				unsigned int i = address - 1;
 				while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
 						line++;
-				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " (at %.*s)\r\n",
-					CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+				const char *codeStart = CodeInfo::cmdInfoList.sourceInfo[line].sourcePos;
+				while(*codeStart == ' ' || *codeStart == '\t')
+					codeStart++;
+				int codeLength = (int)(CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - codeStart) - 1;
+				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " (at %.*s)\r\n", codeLength, codeStart);
 			}
+#ifdef NULLC_STACK_TRACE_WITH_LOCALS
+			if(funcID != -1)
+			{
+				for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
+				{
+					ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+					const char *typeName = &exLinker->exSymbols[exTypes[lInfo.type].offsetToName];
+					const char *localName = &exLinker->exSymbols[lInfo.offsetToName];
+					currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " %s %d: %s %s (at base+%d)\r\n", lInfo.parameter ? "param" : "local", i, typeName, localName, lInfo.offset);
+				}
+			}
+#endif
 
 			if(!fcallStack.size())
 				break;
