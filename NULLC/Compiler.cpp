@@ -345,11 +345,18 @@ bool Compiler::Compile(const char *str)
 	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
 #endif
 
+#ifdef NULLC_LOG_FILES
+	FILE *fGraph = fopen("graph.txt", "wb");
+#endif
+
 	t = clock();
 	CodeInfo::cmdList.push_back(VMCmd(cmdJmp));
 	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
 	{
 		CodeInfo::funcDefList[i]->Compile();
+#ifdef NULLC_LOG_FILES
+		CodeInfo::funcDefList[i]->LogToStream(fGraph);
+#endif
 		((NodeFuncDef*)CodeInfo::funcDefList[i])->Disable();
 	}
 	CodeInfo::cmdList[0].argument = CodeInfo::cmdList.size();
@@ -365,9 +372,8 @@ bool Compiler::Compile(const char *str)
 #endif
 
 #ifdef NULLC_LOG_FILES
-	FILE *fGraph = fopen("graph.txt", "wb");
-	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
-		CodeInfo::funcDefList[i]->LogToStream(fGraph);
+	//for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
+	//	CodeInfo::funcDefList[i]->LogToStream(fGraph);
 	if(CodeInfo::nodeList.back())
 		CodeInfo::nodeList.back()->LogToStream(fGraph);
 	fclose(fGraph);
@@ -597,8 +603,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		ExternTypeInfo &typeInfo = *tInfo;
 		TypeInfo &refType = *CodeInfo::typeInfo[i];
 
-		typeInfo.structSize = sizeof(ExternTypeInfo);
-
 		typeInfo.offsetToName = int(symbolPos - code->debugSymbols);
 		memcpy(symbolPos, refType.GetFullTypeName(), refType.GetFullNameLength() + 1);
 		symbolPos += refType.GetFullNameLength() + 1;
@@ -618,8 +622,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		ExternVarInfo &varInfo = *vInfo;
 
 		varInfo.size = CodeInfo::varInfo[i]->varType->size;
-		varInfo.structSize = sizeof(ExternVarInfo);
-
 		varInfo.type = GetTypeIndexByPtr(CodeInfo::varInfo[i]->varType);
 		varInfo.nameHash = GetStringHash(CodeInfo::varInfo[i]->name.begin, CodeInfo::varInfo[i]->name.end);
 
@@ -627,7 +629,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		vInfo++;
 	}
 
-	//unsigned int parameterOffset = 0;
 	unsigned int localOffset = 0;
 	unsigned int offsetToGlobal = 0;
 	ExternFuncInfo *fInfo = FindFirstFunc(code);
@@ -662,8 +663,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 
 		CreateExternalInfo(funcInfo, *refFunc);
-
-		funcInfo.structSize = sizeof(ExternFuncInfo);
 
 		funcInfo.offsetToFirstLocal = localOffset;
 
