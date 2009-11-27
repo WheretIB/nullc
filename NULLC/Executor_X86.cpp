@@ -384,6 +384,8 @@ void ExecutorX86::Run(const char* funcName)
 			strcpy(execError, "ERROR: Array index out of bounds");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
 			strcpy(execError, "ERROR: Function didn't return a value");
+		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xDEADBEEF)
+			strcpy(execError, "ERROR: Null pointer access");
 		else if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
 			strcpy(execError, "ERROR: Stack overflow");
 		else if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)

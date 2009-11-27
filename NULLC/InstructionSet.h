@@ -491,10 +491,9 @@ public:
 			curr.sourceEnd = curr.sourcePos;
 			while(curr.sourcePos != sourceStart && *(curr.sourcePos-1) != '\n')
 				curr.sourcePos--;
-			while(*(curr.sourceEnd+1) != '\n' && *(curr.sourceEnd+1) != '\0')
+			while(*(curr.sourceEnd+1) != '\n' && *(curr.sourceEnd) != '\0')
 				curr.sourceEnd++;
-			if(*(curr.sourceEnd+1) != '\0')
-				curr.sourceEnd++;
+			curr.sourceEnd++;
 		}
 	}
 
