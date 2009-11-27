@@ -33,6 +33,7 @@ enum NodeType
 	typeNodeFunctionAddress,
 	typeNodeContinueOp,
 	typeNodeVariableModify,
+	typeNodeGetUpvalue,
 };
 //////////////////////////////////////////////////////////////////////////
 
@@ -258,6 +259,18 @@ protected:
 	VariableInfo	*varInfo;
 	int				varAddress;
 	bool			absAddress;
+};
+
+class NodeGetUpvalue: public NodeZeroOP
+{
+public:
+			NodeGetUpvalue(int closureOffset, int closureElement, TypeInfo *retInfo);
+	virtual ~NodeGetUpvalue();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+protected:
+	int			closurePos, closureElem;
 };
 
 class NodeVariableSet: public NodeTwoOP
