@@ -73,7 +73,7 @@ void SetCurrentAlignment(unsigned int alignment)
 	currAlign = alignment;
 }
 
-int AddFunctionExternal(FunctionInfo* func, InplaceStr name)
+int AddFunctionExternal(FunctionInfo* func, InplaceStr name, TypeInfo* type)
 {
 	unsigned int hash = GetStringHash(name.begin, name.end);
 	unsigned int i = 0;
@@ -82,6 +82,7 @@ int AddFunctionExternal(FunctionInfo* func, InplaceStr name)
 			return i;
 
 	func->AddExternal(name, hash);
+	func->externalSize += type->size < 4 ? 4 : type->size;
 	return func->externalCount - 1;
 }
 
@@ -794,8 +795,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 
 		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL)
 		{
-			char	*contextName = AllocateString(CodeInfo::funcInfo[fID]->nameLength + 6);
-			int length = sprintf(contextName, "$%s_ext", CodeInfo::funcInfo[fID]->name);
+			char	*contextName = AllocateString(CodeInfo::funcInfo[fID]->nameLength + 24);
+			int length = sprintf(contextName, "$%s_%p_ext", CodeInfo::funcInfo[fID]->name, CodeInfo::funcInfo[fID]);
 			unsigned int contextHash = GetStringHash(contextName);
 
 			int i = CodeInfo::FindVariableByName(contextHash);
@@ -839,7 +840,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		{
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			// Add variable name to the list of function external variables
-			int num = AddFunctionExternal(currFunc, varName);
+			int num = AddFunctionExternal(currFunc, varName, CodeInfo::varInfo[i]->varType);
 
 			TypeInfo *temp = CodeInfo::GetReferenceType(typeInt);
 			temp = CodeInfo::GetArrayType(temp, (int)currDefinedFunc.back()->externalCount);
@@ -1357,8 +1358,8 @@ void FunctionStart(const char* pos)
 		varDefined = false;
 	}
 
-	char	*hiddenHame = AllocateString(lastFunc.nameLength + 8);
-	int length = sprintf(hiddenHame, "$%s_ext", lastFunc.name);
+	char	*hiddenHame = AllocateString(lastFunc.nameLength + 24);
+	int length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
 	currType = CodeInfo::GetReferenceType(typeInt);
 	currAlign = 4;
 	AddVariable(pos, InplaceStr(hiddenHame, length));
@@ -1437,8 +1438,8 @@ void FunctionEnd(const char* pos, const char* funcName)
 		TypeInfo *targetType = CodeInfo::GetReferenceType(typeInt);
 		targetType = CodeInfo::GetArrayType(targetType, lastFunc.externalCount);
 
-		char	*hiddenHame = AllocateString(lastFunc.nameLength + 8);
-		int length = sprintf(hiddenHame, "$%s_ext", lastFunc.name);
+		char	*hiddenHame = AllocateString(lastFunc.nameLength + 24);
+		int length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
 
 		TypeInfo *saveCurrType = currType;
 		bool saveVarDefined = varDefined;
@@ -1448,7 +1449,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 		AddVariable(pos, InplaceStr(hiddenHame, length));
 
 		// Allocate array in dynamic memory
-		CodeInfo::nodeList.push_back(new NodeNumber((int)targetType->size, typeInt));
+		CodeInfo::nodeList.push_back(new NodeNumber((int)(targetType->size + lastFunc.externalSize), typeInt));
 		AddFunctionCallNode(pos, "__newS", 1);
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(targetType);
 
@@ -1661,8 +1662,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
 	{
-		char	*contextName = AllocateString(fInfo->nameLength + 6);
-		int length = sprintf(contextName, "$%s_ext", fInfo->name);
+		char	*contextName = AllocateString(fInfo->nameLength + 24);
+		int length = sprintf(contextName, "$%s_%p_ext", fInfo->name, fInfo);
 		unsigned int contextHash = GetStringHash(contextName);
 
 		int i = CodeInfo::FindVariableByName(contextHash);

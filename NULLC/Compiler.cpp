@@ -216,6 +216,7 @@ void Compiler::ClearState()
 	TypeInfo::DeleteTypeInformation();
 
 	CodeInfo::funcInfo.resize(buildInFuncs);
+	FunctionInfo::DeleteFunctionInformation();
 
 	CodeInfo::nodeList.clear();
 
@@ -259,6 +260,7 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	buildInTypes = CodeInfo::typeInfo.size();
 	TypeInfo::SaveBuildinTop();
 	VariableInfo::SaveBuildinTop();
+	FunctionInfo::SaveBuildinTop();
 
 	return true;
 }
