@@ -842,15 +842,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			// Add variable name to the list of function external variables
 			int num = AddFunctionExternal(currFunc, varName, CodeInfo::varInfo[i]->varType);
 
-			TypeInfo *temp = CodeInfo::GetReferenceType(typeInt);
-			temp = CodeInfo::GetArrayType(temp, (int)currDefinedFunc.back()->externalCount);
-			temp = CodeInfo::GetReferenceType(temp);
-
-			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
-			AddDereferenceNode(pos);
-			CodeInfo::nodeList.push_back(new NodeNumber(num, typeInt));
-			AddArrayIndexNode(pos);
-			AddDereferenceNode(pos);
+			assert(currFunc->allParamSize % 4 == 0);
+			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc->allParamSize, num, CodeInfo::GetReferenceType(CodeInfo::varInfo[i]->varType)));
 		}else{
 			// Create node that places variable address on stack
 			CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));

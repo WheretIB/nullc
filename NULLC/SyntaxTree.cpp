@@ -638,6 +638,34 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 }
 
 //////////////////////////////////////////////////////////////////////////
+NodeGetUpvalue::NodeGetUpvalue(int closureOffset, int closureElement, TypeInfo *retInfo)
+{
+	closurePos = closureOffset;
+	closureElem = closureElement;
+	typeInfo = retInfo;
+
+	nodeType = typeNodeGetUpvalue;
+}
+
+NodeGetUpvalue::~NodeGetUpvalue()
+{
+}
+
+void NodeGetUpvalue::Compile()
+{
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
+	cmdList.push_back(VMCmd(cmdPushInt, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
+	cmdList.push_back(VMCmd(cmdPushIntStk, 0, (unsigned short)typeInfo->size, closureElem * 4));
+}
+
+void NodeGetUpvalue::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s GetUpvalue (base + %d)[%d]\r\n", typeInfo->GetFullTypeName(), closurePos, closureElem);
+}
+//////////////////////////////////////////////////////////////////////////
 // Node that sets value to the variable
 
 NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, bool swapNodes)
