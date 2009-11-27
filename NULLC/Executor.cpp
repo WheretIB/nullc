@@ -121,6 +121,8 @@ void Executor::Run(const char* funcName)
 		*genStackPtr = 0;
 	}
 
+#define RUNTIME_ERROR(test, desc)	if(test){ cmdStreamEnd = NULL; strcpy(execError, desc); break; }
+
 	while(cmdStream < cmdStreamEnd)
 	{
 		const VMCmd &cmd = *cmdStream;
@@ -179,24 +181,30 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdPushCharStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			*genStackPtr = *((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushShortStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			*genStackPtr = *(short*)((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushIntStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			*genStackPtr = *(int*)((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushFloatStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			genStackPtr--;
 			*(double*)(genStackPtr) = (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr+1));
 			break;
 		case cmdPushDorLStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			genStackPtr--;
 			*(double*)(genStackPtr) = *(double*)((char*)NULL + cmd.argument + *(genStackPtr+1));
 			break;
 		case cmdPushCmplxStk:
 		{
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			unsigned int shift = cmd.argument + *genStackPtr;
 			genStackPtr++;
 			unsigned int currShift = cmd.helper;
@@ -243,27 +251,33 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdMovCharStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			genStackPtr++;
 			*((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned char)(*genStackPtr);
 			break;
 		case cmdMovShortStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			genStackPtr++;
 			*(unsigned short*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned short)(*genStackPtr);
 			break;
 		case cmdMovIntStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			genStackPtr++;
 			*(int*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (int)(*genStackPtr);
 			break;
 		case cmdMovFloatStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			genStackPtr++;
 			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)*(double*)(genStackPtr);
 			break;
 		case cmdMovDorLStk:
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			genStackPtr++;
 			*(long long*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = *(long long*)(genStackPtr);
 			break;
 		case cmdMovCmplxStk:
 		{
+			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
 			unsigned int shift = cmd.argument + *genStackPtr;
 			genStackPtr++;
 			unsigned int currShift = cmd.helper;
@@ -317,22 +331,12 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdIndex:
-			if(*genStackPtr >= (unsigned int)cmd.argument)
-			{
-				cmdStreamEnd = NULL;
-				strcpy(execError, "ERROR: array index out of bounds");
-				break;
-			}
+			RUNTIME_ERROR(*genStackPtr >= (unsigned int)cmd.argument, "ERROR: array index out of bounds");
 			*(int*)(genStackPtr+1) += cmd.helper * (*genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdIndexStk:
-			if(*genStackPtr >= *(genStackPtr+2))
-			{
-				cmdStreamEnd = NULL;
-				strcpy(execError, "ERROR: array index out of bounds");
-				break;
-			}
+			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr+2), "ERROR: array index out of bounds");
 			*(int*)(genStackPtr+2) = *(genStackPtr+1) + cmd.helper * (*genStackPtr);
 			genStackPtr += 2;
 			break;
@@ -420,31 +424,16 @@ void Executor::Run(const char* funcName)
 
 		case cmdCall:
 		{
-			if(genStackPtr <= genStackBase+8)
-			{
-				cmdStreamEnd = NULL;
-				strcpy(execError, "ERROR: stack overflow");
-				break;
-			}
+			RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
 			unsigned int fAddress = cmd.argument;
 			if(fAddress == CALL_BY_POINTER)
 			{
 				fAddress = *genStackPtr;
 				genStackPtr++;
 				// External function call by pointer
-				if(genStackPtr[-2] == ~0u)
-				{
-					cmdStreamEnd = NULL;
-					strcpy(execError, "ERROR: External function pointers are unsupported");
-					break;
-				}
+				RUNTIME_ERROR(genStackPtr[-2] == ~0u, "ERROR: External function pointers are unsupported");
 			}
-			if(fAddress == 0)
-			{
-				cmdStreamEnd = NULL;
-				strcpy(execError, "ERROR: Invalid function pointer");
-				break;
-			}
+			RUNTIME_ERROR(fAddress == 0, "ERROR: Invalid function pointer");
 			fcallStack.push_back(cmdStream);
 			cmdStream = cmdStreamBase + fAddress;
 		}
@@ -456,12 +445,7 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdReturn:
-			if(cmd.flag & bitRetError)
-			{
-				cmdStreamEnd = NULL;
-				strcpy(execError, "ERROR: function didn't return a value");
-				break;
-			}
+			RUNTIME_ERROR(cmd.flag & bitRetError, "ERROR: function didn't return a value");
 			{
 				unsigned int *retValue = genStackPtr;
 				genStackPtr = (unsigned int*)((char*)(genStackPtr) + cmd.argument);

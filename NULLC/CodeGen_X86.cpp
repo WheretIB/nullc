@@ -277,6 +277,14 @@ void GenCodeCmdPushCharStk(VMCmd cmd)
 	EMIT_COMMENT("PUSH char stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument);
 	EMIT_OP_REG(o_push, rEAX);
 }
@@ -286,6 +294,14 @@ void GenCodeCmdPushShortStk(VMCmd cmd)
 	EMIT_COMMENT("PUSH short stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument);
 	EMIT_OP_REG(o_push, rEAX);
 }
@@ -295,6 +311,14 @@ void GenCodeCmdPushIntStk(VMCmd cmd)
 	EMIT_COMMENT("PUSH int stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
 }
 
@@ -303,6 +327,14 @@ void GenCodeCmdPushFloatStk(VMCmd cmd)
 	EMIT_COMMENT("PUSH float stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
@@ -313,6 +345,14 @@ void GenCodeCmdPushDorLStk(VMCmd cmd)
 	EMIT_COMMENT(cmd.flag ? "PUSH double stack" : "PUSH long stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+4);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
 }
@@ -321,6 +361,14 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd)
 {
 	EMIT_COMMENT("PUSH complex stack");
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	if(cmd.helper == 0)
 		return;
 	if(cmd.helper <= 32)
@@ -451,6 +499,14 @@ void GenCodeCmdMovCharStk(VMCmd cmd)
 	EMIT_COMMENT("MOV char stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument, rEBX);
 }
@@ -460,6 +516,14 @@ void GenCodeCmdMovShortStk(VMCmd cmd)
 	EMIT_COMMENT("MOV short stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument, rEBX);
 }
@@ -469,6 +533,14 @@ void GenCodeCmdMovIntStk(VMCmd cmd)
 	EMIT_COMMENT("MOV int stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument, rEBX);
 }
@@ -478,6 +550,14 @@ void GenCodeCmdMovFloatStk(VMCmd cmd)
 	EMIT_COMMENT("MOV float stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument);
 }
@@ -487,6 +567,14 @@ void GenCodeCmdMovDorLStk(VMCmd cmd)
 	EMIT_COMMENT(cmd.flag ? "MOV double stack" : "MOV long stack");
 
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	if(cmd.flag)
 	{
 		EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
@@ -502,6 +590,14 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 {
 	EMIT_COMMENT("MOV complex stack");
 	EMIT_OP_REG(o_pop, rEDX);
+
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
 	if(cmd.helper == 0)
 		return;
 	if(cmd.helper <= 32)
