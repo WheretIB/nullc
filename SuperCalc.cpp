@@ -511,9 +511,23 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 		RichTextarea::SetAreaText(richEdits.back(), "");
 	}else{
-		char filename[MAX_PATH];
-		while(fscanf(tabInfo, "%s", filename) != -1)
-			AddTabWithFile(filename, hInstance);
+		fseek(tabInfo, 0, SEEK_END);
+		unsigned int textSize = ftell(tabInfo);
+		fseek(tabInfo, 0, SEEK_SET);
+		char *fileContent = new char[textSize+1];
+		fread(fileContent, 1, textSize, tabInfo);
+		fileContent[textSize] = 0;
+		fclose(tabInfo);
+
+		char *start = fileContent;
+		while(char *end = strchr(start, '\r'))
+		{
+			*end = 0;
+			AddTabWithFile(start, hInstance);
+			start = end + 2;
+		}
+		delete[] fileContent;
+
 		fclose(tabInfo);
 	}
 
