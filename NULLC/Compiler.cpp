@@ -447,7 +447,10 @@ void Compiler::SaveListing(const char *fileName)
 			}
 		}
 		CodeInfo::cmdList[i].Decode(instBuf);
-		fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
+		if((CodeInfo::cmdList[i].cmd == cmdCall || CodeInfo::cmdList[i].cmd == cmdCallStd) && CodeInfo::cmdList[i].argument != -1)
+			fprintf(compiledAsm, "// %d %s (%s)\r\n", i, instBuf, CodeInfo::funcInfo[CodeInfo::cmdList[i].argument]->name);
+		else
+			fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
 	}
 	fclose(compiledAsm);
 #else

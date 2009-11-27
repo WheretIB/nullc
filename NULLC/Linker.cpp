@@ -148,6 +148,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			}
 			// Move based pointer to the new section of symbol information
 			exFunctions.back().offsetToName += oldSymbolSize;
+			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
 
 			// Update internal function address
 			if(exFunctions.back().address != -1)
@@ -207,7 +208,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = 0; i < exCode.size(); i++)
 	{
 		exCode[i].Decode(instBuf);
-		fprintf(linkAsm, "// %d %s\r\n", i, instBuf);
+		if(exCode[i].cmd == cmdCallStd && exCode[i].argument != -1)
+			fprintf(linkAsm, "// %d %s (%s)\r\n", i, instBuf, &exSymbols[exFunctions[exCode[i].argument].offsetToName]);
+		else
+			fprintf(linkAsm, "// %d %s\r\n", i, instBuf);
 	}
 	fclose(linkAsm);
 #endif
