@@ -1910,6 +1910,9 @@ void CallbackReset()
 	inplaceArray.reset();
 
 	TypeInfo::typeInfoPool.~ChunkedStackPool();
+	TypeInfo::SaveBuildinTop();
 	VariableInfo::variablePool.~ChunkedStackPool();
+	VariableInfo::SaveBuildinTop();
 	FunctionInfo::functionPool.~ChunkedStackPool();
+	FunctionInfo::SaveBuildinTop();
 }
