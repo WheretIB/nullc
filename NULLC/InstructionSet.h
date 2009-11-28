@@ -215,6 +215,10 @@ enum InstructionCode
 	cmdAddAtLongStk,
 	cmdAddAtFloatStk,
 	cmdAddAtDoubleStk,
+
+	cmdCreateClosure,
+
+	cmdEnumCount,
 };
 
 static char *vmInstructionText[] =
@@ -244,7 +248,8 @@ static char *vmInstructionText[] =
 	"LogNot", "LogNotL",
 	"IncI", "IncD", "IncL",
 	"DecI", "DecD", "DecL",
-	"AddAtCharStk", "AddAtShortStk", "AddAtIntStk", "AddAtLongStk", "AddAtFloatStk", "AddAtDoubleStk"
+	"AddAtCharStk", "AddAtShortStk", "AddAtIntStk", "AddAtLongStk", "AddAtFloatStk", "AddAtDoubleStk",
+	"CreateClosure"
 };
 
 struct VMCmd
@@ -346,11 +351,11 @@ struct VMCmd
 			break;
 
 		case cmdCall:
-			curr += sprintf(curr, " id/address: %d helper: %d", argument, helper);
+			curr += sprintf(curr, " Function id: %d helper: %d", argument, helper);
 			break;
 
 		case cmdCallStd:
-			curr += sprintf(curr, " ID: %d", argument);
+			curr += sprintf(curr, " Function id: %d", argument);
 			break;
 
 		case cmdReturn:
@@ -365,6 +370,8 @@ struct VMCmd
 		case cmdAddAtDoubleStk:
 			curr += sprintf(curr, " [stk + %d] flag: %d helper: %d", argument, (int)flag, helper);
 			break;
+		case cmdCreateClosure:
+			curr += sprintf(curr, " Function id: %d", argument);
 		}
 		return (int)(curr-buf);
 	}

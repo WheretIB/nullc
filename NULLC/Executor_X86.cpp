@@ -20,6 +20,7 @@ namespace NULLC
 	};
 
 	DataStackHeader	*dataHead;
+	char* parameterHead;
 
 	unsigned int paramDataBase;
 	unsigned int reservedStack;
@@ -100,7 +101,7 @@ namespace NULLC
 	}
 
 	typedef void (*codegenCallback)(VMCmd);
-	codegenCallback cgFuncs[cmdAddAtDoubleStk+1];
+	codegenCallback cgFuncs[cmdEnumCount];
 }
 
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
@@ -142,7 +143,7 @@ bool ExecutorX86::Initialize()
 	
 	assert(sizeof(DataStackHeader) % 16 == 0);
 
-	paramBase = paramData + sizeof(DataStackHeader);
+	parameterHead = paramBase = paramData + sizeof(DataStackHeader);
 	paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
 	dataHead = (DataStackHeader*)paramData;
 
@@ -295,6 +296,8 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdAddAtLongStk] = GenCodeCmdAddAtLongStk;
 	cgFuncs[cmdAddAtFloatStk] = GenCodeCmdAddAtFloatStk;
 	cgFuncs[cmdAddAtDoubleStk] = GenCodeCmdAddAtDoubleStk;
+
+	cgFuncs[cmdCreateClosure] = GenCodeCmdCreateClosure;
 	return true;
 }
 
@@ -463,6 +466,28 @@ void ExecutorX86::Stop(const char* error)
 	SafeSprintf(execError, 512, error);
 }
 
+namespace NULLC
+{
+	Linker *linker = NULL;
+}
+
+void ClosureCreate(unsigned int paramBase, unsigned int helper, unsigned int argument, unsigned int **closure)
+{
+	ExternFuncInfo &func = NULLC::linker->exFunctions[argument];
+	ExternLocalInfo *externals = &NULLC::linker->exLocals[func.offsetToFirstLocal + func.localCount];
+	for(unsigned int i = 0; i < func.externCount; i++)
+	{
+		if(externals[i].closeFuncList)
+		{
+			closure[i] = (unsigned int*)(externals[i].target + paramBase + NULLC::parameterHead);
+		}else{
+			unsigned int **prevClosure = (unsigned int**)(NULLC::parameterHead + helper + paramBase);
+
+			closure[i] = (unsigned int*)(intptr_t)(*prevClosure)[externals[i].target];
+		}
+	}
+}
+
 bool ExecutorX86::TranslateToNative()
 {
 	execError[0] = 0;
@@ -478,6 +503,9 @@ bool ExecutorX86::TranslateToNative()
 
 	SetParamBase((unsigned int)(long long)paramBase);
 	SetLastInstruction(&instList[0]);
+	SetClosureCreateFunc(ClosureCreate);
+
+	NULLC::linker = exLinker;
 
 	EMIT_OP(o_use32);
 

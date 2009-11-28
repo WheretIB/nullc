@@ -338,18 +338,17 @@ public:
 		lastParam->next = NULL;
 		paramCount++;
 	}
-	void	AddExternal(InplaceStr external, unsigned int hash)
+	void	AddExternal(VariableInfo *var)
 	{
 		if(!lastExternal)
 		{
-			firstExternal = lastExternal = (ExternalName*)functionPool.Allocate(sizeof(ExternalName));
+			firstExternal = lastExternal = (ExternalInfo*)functionPool.Allocate(sizeof(ExternalInfo));
 		}else{
-			lastExternal->next = (ExternalName*)functionPool.Allocate(sizeof(ExternalName));
+			lastExternal->next = (ExternalInfo*)functionPool.Allocate(sizeof(ExternalInfo));
 			lastExternal = lastExternal->next;
 		}
 		lastExternal->next = NULL;
-		lastExternal->name = external;
-		lastExternal->nameHash = hash;
+		lastExternal->variable = var;
 		externalCount++;
 	}
 	int			address;				// Address of the beginning of function inside bytecode
@@ -374,23 +373,16 @@ public:
 	enum FunctionCategory{ NORMAL, LOCAL, THISCALL };
 	FunctionCategory	type;
 
-	struct ExternalName
+	struct ExternalInfo
 	{
-		ExternalName()
-		{
-			nameHash = 0;
-		}
-		explicit ExternalName(InplaceStr external, unsigned int hash)
-		{
-			name = external;
-			nameHash = hash;
-		}
-		InplaceStr		name;
-		unsigned int	nameHash;
+		VariableInfo	*variable;
 
-		ExternalName	*next;
+		bool			targetLocal;	// Target in local scope
+		int				targetPos;
+
+		ExternalInfo	*next;
 	};
-	ExternalName	*firstExternal, *lastExternal;	// External variable names
+	ExternalInfo	*firstExternal, *lastExternal;	// External variable names
 	unsigned int	externalCount;
 	unsigned int	externalSize;
 

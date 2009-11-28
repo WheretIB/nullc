@@ -860,7 +860,25 @@ void Executor::Run(const char* funcName)
 			}
 		}
 			break;
-		
+		case cmdCreateClosure:
+		{
+			unsigned int *closure = (unsigned int*)(intptr_t)*genStackPtr;
+			genStackPtr++;
+
+			ExternFuncInfo &func = exFunctions[cmd.argument];
+			ExternLocalInfo *externals = &exLinker->exLocals[func.offsetToFirstLocal + func.localCount];
+			for(unsigned int i = 0; i < func.externCount; i++)
+			{
+				if(externals[i].closeFuncList)
+				{
+					closure[i] = externals[i].target + paramBase + (int)(intptr_t)&genParams[0];
+				}else{
+					unsigned int *prevClosure = (unsigned int*)(intptr_t)*(int*)(&genParams[cmd.helper + paramBase]);
+					closure[i] = prevClosure[externals[i].target];
+				}
+			}
+		}
+			break;
 		}
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
@@ -900,12 +918,16 @@ void Executor::Run(const char* funcName)
 #ifdef NULLC_STACK_TRACE_WITH_LOCALS
 			if(funcID != -1)
 			{
-				for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
+				for(unsigned int i = 0; i < exFunctions[funcID].localCount + exFunctions[funcID].externCount; i++)
 				{
 					ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
 					const char *typeName = &exLinker->exSymbols[exTypes[lInfo.type].offsetToName];
 					const char *localName = &exLinker->exSymbols[lInfo.offsetToName];
-					currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " %s %d: %s %s (at base+%d size %d)\r\n", lInfo.parameter ? "param" : "local", i, typeName, localName, lInfo.offset, exTypes[lInfo.type].size);
+					const char *localType = lInfo.paramType == ExternLocalInfo::PARAMETER ? "param" : (lInfo.paramType == ExternLocalInfo::EXTERNAL ? "extern" : "local");
+					const char *offsetType = (lInfo.paramType == ExternLocalInfo::PARAMETER || lInfo.paramType == ExternLocalInfo::LOCAL) ? "base" :
+						(lInfo.closeFuncList ? "local" : "closure");
+					currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " %s %d: %s %s (at %s+%d size %d)\r\n",
+						localType, i, typeName, localName, offsetType, lInfo.offset, exTypes[lInfo.type].size);
 				}
 			}
 #endif

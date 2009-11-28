@@ -73,16 +73,15 @@ void SetCurrentAlignment(unsigned int alignment)
 	currAlign = alignment;
 }
 
-int AddFunctionExternal(FunctionInfo* func, InplaceStr name, TypeInfo* type)
+int AddFunctionExternal(FunctionInfo* func, VariableInfo* var)
 {
-	unsigned int hash = GetStringHash(name.begin, name.end);
+	unsigned int hash = var->nameHash;
 	unsigned int i = 0;
-	for(FunctionInfo::ExternalName *curr = func->firstExternal; curr; curr = curr->next, i++)
-		if(curr->nameHash == hash)
+	for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next, i++)
+		if(curr->variable->nameHash == hash)
 			return i;
 
-	func->AddExternal(name, hash);
-	func->externalSize += type->size < 4 ? 4 : type->size;
+	func->AddExternal(var);
 	return func->externalCount - 1;
 }
 
@@ -840,7 +839,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		{
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			// Add variable name to the list of function external variables
-			int num = AddFunctionExternal(currFunc, varName, CodeInfo::varInfo[i]->varType);
+			int num = AddFunctionExternal(currFunc, CodeInfo::varInfo[i]);
 
 			assert(currFunc->allParamSize % 4 == 0);
 			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc->allParamSize, num, CodeInfo::GetReferenceType(CodeInfo::varInfo[i]->varType)));
@@ -1448,33 +1447,32 @@ void FunctionEnd(const char* pos, const char* funcName)
 
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, InplaceStr(hiddenHame, length));
-		AddPopNode(pos);
 
-		// Copy array to created memory
-		AddGetAddressNode(pos, InplaceStr(hiddenHame, length));
-		AddDereferenceNode(pos);
+		CodeInfo::nodeList.push_back(new NodeDereference(&lastFunc, currDefinedFunc.back()->allParamSize));
 
-		CodeInfo::nodeList.push_back(new NodeZeroOP());
-		CodeInfo::nodeList.push_back(new NodeExpressionList(targetType));
-
-		NodeZeroOP* temp = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-
-		NodeExpressionList *arrayList = static_cast<NodeExpressionList*>(temp);
-
-		for(FunctionInfo::ExternalName *curr = lastFunc.firstExternal; curr; curr = curr->next)
+		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
-			AddGetAddressNode(pos, curr->name);
-			arrayList->AddNode();
-		}
-		CodeInfo::nodeList.push_back(temp);
+			// Find in variable list
+			int i = CodeInfo::FindVariableByName(curr->variable->nameHash);
+			if(i == -1)
+				ThrowError(pos, "Can't capture function");
 
-		AddSetVariableNode(pos);
-		AddPopNode(pos);
+			if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) &&
+				i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+			{
+				// Add variable name to the list of function external variables
+				int num = AddFunctionExternal(currDefinedFunc.back(), CodeInfo::varInfo[i]);
+
+				curr->targetLocal = false;
+				curr->targetPos = num;
+			}else{
+				curr->targetLocal = true;
+				curr->targetPos = CodeInfo::varInfo[i]->pos;
+			}
+		}
 
 		varDefined = saveVarDefined;
 		currType = saveCurrType;
-		AddTwoExpressionNode();
 		AddTwoExpressionNode();
 	}
 
