@@ -55,6 +55,8 @@ FastVector<NodeZeroOP*>	paramNodes;
 FastVector<NodeZeroOP*>	inplaceArray;
 
 void AddInplaceVariable(const char* pos);
+bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
+bool ConvertFunctionToPointer(const char* pos);
 
 template<typename T> void	Swap(T& a, T& b)
 {
@@ -617,6 +619,10 @@ void AddReturnNode(const char* pos)
 {
 	bool localReturn = currDefinedFunc.size() != 0;
 
+	bool unifyTwo = false;
+	if(ConvertFunctionToPointer(pos))
+		unifyTwo = true;
+
 	TypeInfo *realRetType = CodeInfo::nodeList.back()->typeInfo;
 	TypeInfo *expectedType = NULL;
 	if(currDefinedFunc.size() != 0)
@@ -642,6 +648,8 @@ void AddReturnNode(const char* pos)
 	}
 	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType, currDefinedFunc.size() ? currDefinedFunc.back() : NULL));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
+	if(unifyTwo)
+		AddTwoExpressionNode();
 }
 
 void AddBreakNode(const char* pos)
@@ -770,9 +778,6 @@ void SetTypeOfLastNode()
 	currType = CodeInfo::nodeList.back()->typeInfo;
 	CodeInfo::nodeList.pop_back();
 }
-
-bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
-bool ConvertFunctionToPointer(const char* pos);
 
 // Function that retrieves variable address
 void AddGetAddressNode(const char* pos, InplaceStr varName)
