@@ -21,9 +21,12 @@ void* NULLC::AllocObject(int size)
 	if(size >= minGlobalBlockSize)
 	{
 		globalObjects.push_back(new char[size]);
+		memset(globalObjects.back(), 0, size);
 		return globalObjects.back();
 	}
-	return globalPool.Allocate(size);
+	void *data = globalPool.Allocate(size);
+	memset(data, 0, size);
+	return data;
 }
 
 NullCArray NULLC::AllocArray(int size, int count)

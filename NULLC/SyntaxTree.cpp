@@ -997,7 +997,7 @@ void NodeArrayIndex::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Node to get value by address (dereference pointer)
 
-NodeDereference::NodeDereference()
+NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetToPrevClosure)
 {
 	first = TakeLastNode();
 	assert(first->typeInfo);
@@ -1007,6 +1007,8 @@ NodeDereference::NodeDereference()
 	absAddress = true;
 	knownAddress = false;
 	addrShift = 0;
+	closureFunc = setClosure;
+	offsetToPreviousClosure = offsetToPrevClosure;
 
 	if(first->nodeType == typeNodeGetAddress)
 	{
@@ -1043,20 +1045,26 @@ void NodeDereference::Compile()
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	asmDataType asmDT = typeInfo->dataType;
-	
-	if(!knownAddress)
-		first->Compile();
 
-	if(knownAddress)
-		cmdList.push_back(VMCmd(cmdPushType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
-	else
-		cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+	if(closureFunc)
+	{
+		first->Compile();
+		cmdList.push_back(VMCmd(cmdCreateClosure, (unsigned short)offsetToPreviousClosure, CodeInfo::FindFunctionByPtr(closureFunc)));
+	}else{
+		if(!knownAddress)
+			first->Compile();
+
+		if(knownAddress)
+			cmdList.push_back(VMCmd(cmdPushType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
+		else
+			cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+	}
 }
 
 void NodeDereference::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s Dereference\r\n", typeInfo->GetFullTypeName());
+	fprintf(fGraph, "%s Dereference%s\r\n", typeInfo->GetFullTypeName(), closureFunc ? " and create closure" : "");
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();

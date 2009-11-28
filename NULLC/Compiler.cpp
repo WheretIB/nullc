@@ -399,8 +399,8 @@ bool Compiler::Compile(const char *str)
 		fprintf(compileLog, ")\r\n");
 		if(currFunc.type == FunctionInfo::LOCAL)
 		{
-			for(FunctionInfo::ExternalName *curr = currFunc.firstExternal; curr; curr = curr->next)
-				fprintf(compileLog, "  external var: %.*s\r\n", curr->name.end-curr->name.begin, curr->name.begin);
+			for(FunctionInfo::ExternalInfo *curr = currFunc.firstExternal; curr; curr = curr->next)
+				fprintf(compileLog, "  external var: %.*s\r\n", curr->variable->name.end-curr->variable->name.begin, curr->variable->name.begin);
 		}
 	}
 	fflush(compileLog);
@@ -551,21 +551,24 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	unsigned int offsetToFirstLocal = size;
 
-	unsigned int parameterCount = 0;
 	unsigned int localCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
-		parameterCount += (unsigned int)CodeInfo::funcInfo[i]->paramCount;
-		localCount += (unsigned int)CodeInfo::funcInfo[i]->localCount;
-		symbolStorageSize += CodeInfo::funcInfo[i]->nameLength + 1;
+		FunctionInfo	*func = CodeInfo::funcInfo[i];
+		symbolStorageSize += func->nameLength + 1;
 
-		for(VariableInfo *curr = CodeInfo::funcInfo[i]->firstParam; curr; curr = curr->next)
+		localCount += (unsigned int)func->paramCount;
+		for(VariableInfo *curr = func->firstParam; curr; curr = curr->next)
 			symbolStorageSize += (unsigned int)(curr->name.end - curr->name.begin) + 1;
 
-		for(VariableInfo *curr = CodeInfo::funcInfo[i]->firstLocal; curr; curr = curr->next)
+		localCount += (unsigned int)func->localCount;
+		for(VariableInfo *curr = func->firstLocal; curr; curr = curr->next)
 			symbolStorageSize += (unsigned int)(curr->name.end - curr->name.begin) + 1;
+
+		localCount += (unsigned int)func->externalCount;
+		for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next)
+			symbolStorageSize += (unsigned int)(curr->variable->name.end - curr->variable->name.begin) + 1;
 	}
-	size += parameterCount * sizeof(ExternLocalInfo);
 	size += localCount * sizeof(ExternLocalInfo);
 
 	unsigned int offsetToCode = size;
@@ -588,7 +591,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->functionCount = (unsigned int)CodeInfo::funcInfo.size();
 	code->offsetToFirstFunc = offsetToFunc;
 
-	code->localCount = localCount + parameterCount;
+	code->localCount = localCount;
 	code->offsetToLocals = offsetToFirstLocal;
 	code->firstLocal = (ExternLocalInfo*)((char*)(code) + code->offsetToLocals);
 
@@ -671,12 +674,12 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		funcInfo.offsetToFirstLocal = localOffset;
 
-		bool parameters = refFunc->firstParam ? true : false;
+		ExternLocalInfo::LocalType paramType = refFunc->firstParam ? ExternLocalInfo::PARAMETER : ExternLocalInfo::LOCAL;
 		if(refFunc->firstParam)
 			refFunc->lastParam->next = refFunc->firstLocal;
 		for(VariableInfo *curr = refFunc->firstParam ? refFunc->firstParam : refFunc->firstLocal; curr; curr = curr->next, localOffset++)
 		{
-			code->firstLocal[localOffset].parameter = parameters;
+			code->firstLocal[localOffset].paramType = paramType;
 			code->firstLocal[localOffset].type = GetTypeIndexByPtr(curr->varType);
 			code->firstLocal[localOffset].offset = curr->pos;
 			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
@@ -684,12 +687,24 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			symbolPos += curr->name.end - curr->name.begin;
 			*symbolPos++ = 0;
 			if(curr->next == refFunc->firstLocal)
-				parameters = false;
+				paramType = ExternLocalInfo::LOCAL;
 		}
 		if(refFunc->firstParam)
 			refFunc->lastParam->next = NULL;
-
 		funcInfo.localCount = localOffset - funcInfo.offsetToFirstLocal;
+
+		for(FunctionInfo::ExternalInfo *curr = refFunc->firstExternal; curr; curr = curr->next, localOffset++)
+		{
+			code->firstLocal[localOffset].paramType = ExternLocalInfo::EXTERNAL;
+			code->firstLocal[localOffset].type = GetTypeIndexByPtr(curr->variable->varType);
+			code->firstLocal[localOffset].target = curr->targetPos;
+			code->firstLocal[localOffset].closeFuncList = curr->targetLocal ? 1 : 0;	// $$$ temp hack
+			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
+			memcpy(symbolPos, curr->variable->name.begin, curr->variable->name.end - curr->variable->name.begin + 1);
+			symbolPos += curr->variable->name.end - curr->variable->name.begin;
+			*symbolPos++ = 0;
+		}
+		funcInfo.externCount = refFunc->externalCount;
 
 		funcInfo.offsetToName = int(symbolPos - code->debugSymbols);
 		memcpy(symbolPos, refFunc->name, refFunc->nameLength + 1);

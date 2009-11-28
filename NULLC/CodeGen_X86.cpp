@@ -1948,4 +1948,23 @@ void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 	}
 }
+
+void (*funcPtr)(unsigned int, unsigned int, unsigned int, unsigned int**) = NULL;
+void SetClosureCreateFunc(void (*f)(unsigned int, unsigned int, unsigned int, unsigned int**))
+{
+	funcPtr = f;
+}
+
+void GenCodeCmdCreateClosure(VMCmd cmd)
+{
+	EMIT_COMMENT("CREATECLOSURE");
+
+	EMIT_OP_NUM(o_push, cmd.argument);
+	EMIT_OP_NUM(o_push, cmd.helper);
+	EMIT_OP_REG(o_push, rEBP);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)funcPtr);
+	EMIT_OP_REG(o_call, rECX);
+	EMIT_OP_REG(o_pop, rEBP);
+	EMIT_OP_REG_NUM(o_add, rESP, 12);
+}
 #endif

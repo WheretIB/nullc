@@ -197,6 +197,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			break;
 		case cmdCallStd:
 		case cmdFuncAddr:
+		case cmdCreateClosure:
 			cmd.argument = funcRemap[cmd.argument];
 			break;
 		}

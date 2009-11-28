@@ -304,7 +304,7 @@ protected:
 class NodeDereference: public NodeOneOP
 {
 public:
-			NodeDereference();
+			NodeDereference(FunctionInfo* setClosure = NULL, unsigned int offsetToPrevClosure = 0);
 	virtual ~NodeDereference();
 
 	virtual void Compile();
@@ -312,6 +312,8 @@ public:
 protected:
 	int		addrShift;
 	bool	absAddress, knownAddress;
+	FunctionInfo	*closureFunc;
+	unsigned int	offsetToPreviousClosure;
 };
 
 class NodeArrayIndex: public NodeTwoOP
