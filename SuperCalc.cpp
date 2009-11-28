@@ -783,7 +783,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	OPENFILENAME openData = { sizeof(OPENFILENAME), hWnd, NULL, "NULLC Files\0*.nc\0All Files\0*.*\0\0", NULL, 0, 0, fileName, 512,
 		NULL, 0, NULL, NULL, OFN_ALLOWMULTISELECT | OFN_EXPLORER, 0, 0, 0, 0, 0, 0, NULL, 0, 0 };
 
-	char	result[512];
+	char	result[1024];
 
 	switch(message) 
 	{
@@ -811,15 +811,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		{
 			const char *val = nullcGetResult();
 
-			_snprintf(result, 512, "The answer is: %s [in %f]", val, runRes.time);
-			result[511] = '\0';
+			_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+			result[1023] = '\0';
 			SetWindowText(hResult, result);
 
 			variableData = (char*)nullcGetVariableData();
 			FillVariableInfoTree();
 		}else{
-			_snprintf(result, 512, "%s", nullcGetRuntimeError());
-			result[511] = '\0';
+			_snprintf(result, 1024, "%s", nullcGetRuntimeError());
+			result[1023] = '\0';
 			SetWindowText(hCode, result);
 		}
 		break;

@@ -149,6 +149,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			// Move based pointer to the new section of symbol information
 			exFunctions.back().offsetToName += oldSymbolSize;
 			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
+			exFunctions.back().externalList = NULL;
 
 			// Update internal function address
 			if(exFunctions.back().address != -1)
@@ -198,6 +199,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		case cmdCallStd:
 		case cmdFuncAddr:
 		case cmdCreateClosure:
+		case cmdCloseUpvals:
 			cmd.argument = funcRemap[cmd.argument];
 			break;
 		}

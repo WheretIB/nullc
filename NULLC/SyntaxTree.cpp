@@ -364,9 +364,11 @@ void NodeUnaryOp::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Node that returns from function or program
 
-NodeReturnOp::NodeReturnOp(int localRet, TypeInfo* tinfo)
+NodeReturnOp::NodeReturnOp(bool localRet, TypeInfo* tinfo, FunctionInfo* parentFunc)
 {
 	localReturn = localRet;
+	parentFunction = parentFunc;
+
 	// Result type is set from outside
 	typeInfo = tinfo;
 
@@ -396,6 +398,8 @@ void NodeReturnOp::Compile()
 	unsigned int retSize = retType == typeFloat ? 8 : retType->size;
 	if(retSize != 0 && retSize < 4)
 		retSize = 4;
+	if(parentFunction && parentFunction->closeUpvals)
+		cmdList.push_back(VMCmd(cmdCloseUpvals, CodeInfo::FindFunctionByPtr(parentFunction)));
 	cmdList.push_back(VMCmd(cmdReturn, (unsigned char)operType, (unsigned short)localReturn, retSize));
 }
 void NodeReturnOp::LogToStream(FILE *fGraph)
@@ -657,7 +661,7 @@ void NodeGetUpvalue::Compile()
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	cmdList.push_back(VMCmd(cmdPushInt, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
-	cmdList.push_back(VMCmd(cmdPushIntStk, 0, (unsigned short)typeInfo->size, closureElem * 4));
+	cmdList.push_back(VMCmd(cmdPushIntStk, 0, (unsigned short)typeInfo->size, closureElem));
 }
 
 void NodeGetUpvalue::LogToStream(FILE *fGraph)

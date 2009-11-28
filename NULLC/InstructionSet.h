@@ -217,6 +217,7 @@ enum InstructionCode
 	cmdAddAtDoubleStk,
 
 	cmdCreateClosure,
+	cmdCloseUpvals,
 
 	cmdEnumCount,
 };
@@ -249,7 +250,7 @@ static char *vmInstructionText[] =
 	"IncI", "IncD", "IncL",
 	"DecI", "DecD", "DecL",
 	"AddAtCharStk", "AddAtShortStk", "AddAtIntStk", "AddAtLongStk", "AddAtFloatStk", "AddAtDoubleStk",
-	"CreateClosure"
+	"CreateClosure", "CloseUpvals"
 };
 
 struct VMCmd
@@ -371,6 +372,7 @@ struct VMCmd
 			curr += sprintf(curr, " [stk + %d] flag: %d helper: %d", argument, (int)flag, helper);
 			break;
 		case cmdCreateClosure:
+		case cmdCloseUpvals:
 			curr += sprintf(curr, " Function id: %d", argument);
 		}
 		return (int)(curr-buf);

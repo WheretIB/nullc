@@ -209,13 +209,14 @@ protected:
 class NodeReturnOp: public NodeOneOP
 {
 public:
-	NodeReturnOp(int localRet, TypeInfo* tinfo);
+	NodeReturnOp(bool localRet, TypeInfo* tinfo, FunctionInfo* parentFunc = NULL);
 	virtual ~NodeReturnOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 protected:
-	int	localReturn;
+	bool			localReturn;
+	FunctionInfo	*parentFunction;
 };
 
 class NodeFuncDef: public NodeOneOP

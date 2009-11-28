@@ -1949,10 +1949,10 @@ void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 	}
 }
 
-void (*funcPtr)(unsigned int, unsigned int, unsigned int, unsigned int**) = NULL;
-void SetClosureCreateFunc(void (*f)(unsigned int, unsigned int, unsigned int, unsigned int**))
+void (*closureCreateFunc)(unsigned int, unsigned int, unsigned int, unsigned int*) = NULL;
+void SetClosureCreateFunc(void (*f)(unsigned int, unsigned int, unsigned int, unsigned int*))
 {
-	funcPtr = f;
+	closureCreateFunc = f;
 }
 
 void GenCodeCmdCreateClosure(VMCmd cmd)
@@ -1962,9 +1962,28 @@ void GenCodeCmdCreateClosure(VMCmd cmd)
 	EMIT_OP_NUM(o_push, cmd.argument);
 	EMIT_OP_NUM(o_push, cmd.helper);
 	EMIT_OP_REG(o_push, rEBP);
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)funcPtr);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)closureCreateFunc);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG(o_pop, rEBP);
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 }
+
+void (*upvaluesCloseFunc)(unsigned int, unsigned int) = NULL;
+void SetUpvaluesCloseFunc(void (*f)(unsigned int, unsigned int))
+{
+	upvaluesCloseFunc = f;
+}
+
+void GenCodeCmdCloseUpvalues(VMCmd cmd)
+{
+	EMIT_COMMENT("CLOSEUPVALUES");
+
+	EMIT_OP_NUM(o_push, cmd.argument);
+	EMIT_OP_REG(o_push, rEBP);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)upvaluesCloseFunc);
+	EMIT_OP_REG(o_call, rECX);
+	EMIT_OP_REG(o_pop, rEBP);
+	EMIT_OP_REG_NUM(o_add, rESP, 4);
+}
+
 #endif
