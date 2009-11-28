@@ -4,7 +4,7 @@
 
 #include "Linker.h"
 
-const int ERROR_BUFFER_SIZE = 512;
+const int ERROR_BUFFER_SIZE = 1024;
 
 class Executor
 {

@@ -862,21 +862,42 @@ void Executor::Run(const char* funcName)
 			break;
 		case cmdCreateClosure:
 		{
-			unsigned int *closure = (unsigned int*)(intptr_t)*genStackPtr;
+			unsigned int *start, *closure = start = (unsigned int*)(intptr_t)*genStackPtr;
 			genStackPtr++;
 
 			ExternFuncInfo &func = exFunctions[cmd.argument];
 			ExternLocalInfo *externals = &exLinker->exLocals[func.offsetToFirstLocal + func.localCount];
 			for(unsigned int i = 0; i < func.externCount; i++)
 			{
-				if(externals[i].closeFuncList)
+				ExternFuncInfo *varParent = &exFunctions[externals[i].closeFuncList & ~0x80000000];
+				if(externals[i].closeFuncList & 0x80000000)
 				{
-					closure[i] = externals[i].target + paramBase + (int)(intptr_t)&genParams[0];
+					closure[0] = externals[i].target + paramBase + (int)(intptr_t)&genParams[0];
 				}else{
 					unsigned int *prevClosure = (unsigned int*)(intptr_t)*(int*)(&genParams[cmd.helper + paramBase]);
-					closure[i] = prevClosure[externals[i].target];
+					closure[0] = prevClosure[externals[i].target >> 2];
 				}
+				closure[1] = (unsigned int)(intptr_t)varParent->externalList;
+				closure[2] = externals[i].size;
+				varParent->externalList = closure;
+				closure += (externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2);
 			}
+		}
+			break;
+		case cmdCloseUpvals:
+		{
+			ExternFuncInfo &func = exFunctions[cmd.argument];
+			unsigned int *curr = func.externalList;
+			while(curr && *curr >= (paramBase + (int)(intptr_t)&genParams[0]))
+			{
+				unsigned int *next = (unsigned int*)(intptr_t)curr[1];
+				unsigned int size = curr[2];
+
+				memcpy(&curr[1], (unsigned int*)(intptr_t)curr[0], size);
+				curr[0] = (unsigned int)(intptr_t)&curr[1];
+				curr = next;
+			}
+			func.externalList = curr;
 		}
 			break;
 		}
@@ -925,7 +946,7 @@ void Executor::Run(const char* funcName)
 					const char *localName = &exLinker->exSymbols[lInfo.offsetToName];
 					const char *localType = lInfo.paramType == ExternLocalInfo::PARAMETER ? "param" : (lInfo.paramType == ExternLocalInfo::EXTERNAL ? "extern" : "local");
 					const char *offsetType = (lInfo.paramType == ExternLocalInfo::PARAMETER || lInfo.paramType == ExternLocalInfo::LOCAL) ? "base" :
-						(lInfo.closeFuncList ? "local" : "closure");
+						(lInfo.closeFuncList & 0x80000000 ? "local" : "closure");
 					currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " %s %d: %s %s (at %s+%d size %d)\r\n",
 						localType, i, typeName, localName, offsetType, lInfo.offset, exTypes[lInfo.type].size);
 				}

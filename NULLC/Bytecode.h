@@ -25,11 +25,11 @@ struct ExternLocalInfo
 	enum LocalType{ PARAMETER, LOCAL, EXTERNAL };
 	LocalType		paramType;
 
-	unsigned int	type;
+	unsigned int	type, size;
 	union
 	{
 		unsigned int	offset;
-		int				target;	// Negative for pointer in previous closure
+		unsigned int	target;	// Negative for pointer in previous closure
 	};
 	unsigned int	closeFuncList;
 
@@ -62,6 +62,8 @@ struct ExternFuncInfo
 	unsigned int	offsetToFirstLocal;
 	unsigned int	localCount;
 	unsigned int	externCount;
+
+	unsigned int	*externalList;
 
 // For x86 function call
 	unsigned int	bytesToPop;

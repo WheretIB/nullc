@@ -697,8 +697,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		{
 			code->firstLocal[localOffset].paramType = ExternLocalInfo::EXTERNAL;
 			code->firstLocal[localOffset].type = GetTypeIndexByPtr(curr->variable->varType);
+			code->firstLocal[localOffset].size = curr->variable->varType->size;
 			code->firstLocal[localOffset].target = curr->targetPos;
-			code->firstLocal[localOffset].closeFuncList = curr->targetLocal ? 1 : 0;	// $$$ temp hack
+			code->firstLocal[localOffset].closeFuncList = curr->targetFunc | (curr->targetLocal ? 0x80000000 : 0);
 			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
 			memcpy(symbolPos, curr->variable->name.begin, curr->variable->name.end - curr->variable->name.begin + 1);
 			symbolPos += curr->variable->name.end - curr->variable->name.begin;

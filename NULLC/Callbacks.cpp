@@ -73,16 +73,16 @@ void SetCurrentAlignment(unsigned int alignment)
 	currAlign = alignment;
 }
 
-int AddFunctionExternal(FunctionInfo* func, VariableInfo* var)
+FunctionInfo::ExternalInfo* AddFunctionExternal(FunctionInfo* func, VariableInfo* var)
 {
 	unsigned int hash = var->nameHash;
 	unsigned int i = 0;
 	for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next, i++)
 		if(curr->variable->nameHash == hash)
-			return i;
+			return curr;
 
 	func->AddExternal(var);
-	return func->externalCount - 1;
+	return func->lastExternal;
 }
 
 int parseInteger(const char* str)
@@ -615,7 +615,7 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 
 void AddReturnNode(const char* pos)
 {
-	int localReturn = currDefinedFunc.size() != 0;
+	bool localReturn = currDefinedFunc.size() != 0;
 
 	TypeInfo *realRetType = CodeInfo::nodeList.back()->typeInfo;
 	TypeInfo *expectedType = NULL;
@@ -640,7 +640,7 @@ void AddReturnNode(const char* pos)
 			ThrowError(pos, "ERROR: global return cannot accept complex types");
 		expectedType = realRetType;
 	}
-	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType));
+	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType, currDefinedFunc.size() ? currDefinedFunc.back() : NULL));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
 
@@ -839,10 +839,10 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		{
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			// Add variable name to the list of function external variables
-			int num = AddFunctionExternal(currFunc, CodeInfo::varInfo[i]);
+			FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, CodeInfo::varInfo[i]);
 
 			assert(currFunc->allParamSize % 4 == 0);
-			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc->allParamSize, num, CodeInfo::GetReferenceType(CodeInfo::varInfo[i]->varType)));
+			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(CodeInfo::varInfo[i]->varType)));
 		}else{
 			// Create node that places variable address on stack
 			CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
@@ -1457,18 +1457,30 @@ void FunctionEnd(const char* pos, const char* funcName)
 			if(i == -1)
 				ThrowError(pos, "Can't capture function");
 
+			FunctionInfo *parentFunc = currDefinedFunc.back();
+			for(unsigned int k = 0; k < currDefinedFunc.size()-1; k++)
+			{
+				if(i >= (int)varInfoTop[currDefinedFunc[k]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc[k+1]->vTopSize].activeVarCnt)
+				{
+					parentFunc = currDefinedFunc[k];
+					break;
+				}
+			}
+
 			if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) &&
 				i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 			{
 				// Add variable name to the list of function external variables
-				int num = AddFunctionExternal(currDefinedFunc.back(), CodeInfo::varInfo[i]);
+				FunctionInfo::ExternalInfo *external = AddFunctionExternal(currDefinedFunc.back(), CodeInfo::varInfo[i]);
 
 				curr->targetLocal = false;
-				curr->targetPos = num;
+				curr->targetPos = external->closurePos;
 			}else{
 				curr->targetLocal = true;
 				curr->targetPos = CodeInfo::varInfo[i]->pos;
 			}
+			curr->targetFunc = CodeInfo::FindFunctionByPtr(parentFunc);
+			parentFunc->closeUpvals = true;
 		}
 
 		varDefined = saveVarDefined;

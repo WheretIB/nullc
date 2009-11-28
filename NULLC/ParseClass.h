@@ -320,6 +320,7 @@ public:
 		firstExternal = lastExternal = NULL;
 		externalCount = 0;
 		externalSize = 0;
+		closeUpvals = false;
 		firstLocal = lastLocal = NULL;
 		localCount = 0;
 	}
@@ -349,6 +350,8 @@ public:
 		}
 		lastExternal->next = NULL;
 		lastExternal->variable = var;
+		lastExternal->closurePos = externalSize;
+		externalSize += 4 + (var->varType->size < 8 ? 8 : var->varType->size);	// Pointer and a place for the union{variable, {pointer, size}}
 		externalCount++;
 	}
 	int			address;				// Address of the beginning of function inside bytecode
@@ -378,13 +381,16 @@ public:
 		VariableInfo	*variable;
 
 		bool			targetLocal;	// Target in local scope
-		int				targetPos;
+		unsigned int	targetPos;		// Target address
+		unsigned int	targetFunc;		// Target function ID
+		unsigned int	closurePos;		// Position in closure
 
 		ExternalInfo	*next;
 	};
 	ExternalInfo	*firstExternal, *lastExternal;	// External variable names
 	unsigned int	externalCount;
 	unsigned int	externalSize;
+	bool			closeUpvals;
 
 	VariableInfo	*firstLocal, *lastLocal;	// Local variable list. Filled in when function comes to an end.
 	unsigned int	localCount;

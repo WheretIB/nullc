@@ -298,6 +298,8 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdAddAtDoubleStk] = GenCodeCmdAddAtDoubleStk;
 
 	cgFuncs[cmdCreateClosure] = GenCodeCmdCreateClosure;
+	cgFuncs[cmdCloseUpvals] = GenCodeCmdCloseUpvalues;
+
 	return true;
 }
 
@@ -471,21 +473,42 @@ namespace NULLC
 	Linker *linker = NULL;
 }
 
-void ClosureCreate(unsigned int paramBase, unsigned int helper, unsigned int argument, unsigned int **closure)
+void ClosureCreate(unsigned int paramBase, unsigned int helper, unsigned int argument, unsigned int *closure)
 {
 	ExternFuncInfo &func = NULLC::linker->exFunctions[argument];
 	ExternLocalInfo *externals = &NULLC::linker->exLocals[func.offsetToFirstLocal + func.localCount];
 	for(unsigned int i = 0; i < func.externCount; i++)
 	{
-		if(externals[i].closeFuncList)
+		ExternFuncInfo *varParent = &NULLC::linker->exFunctions[externals[i].closeFuncList & ~0x80000000];
+		if(externals[i].closeFuncList & 0x80000000)
 		{
-			closure[i] = (unsigned int*)(externals[i].target + paramBase + NULLC::parameterHead);
+			closure[0] = (unsigned int)(intptr_t)(externals[i].target + paramBase + NULLC::parameterHead);
 		}else{
 			unsigned int **prevClosure = (unsigned int**)(NULLC::parameterHead + helper + paramBase);
 
-			closure[i] = (unsigned int*)(intptr_t)(*prevClosure)[externals[i].target];
+			closure[0] = (*prevClosure)[externals[i].target >> 2];
 		}
+		closure[1] = (unsigned int)(intptr_t)varParent->externalList;
+		closure[2] = externals[i].size;
+		varParent->externalList = closure;
+		closure += (externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2);
 	}
+}
+
+void CloseUpvalues(unsigned int paramBase, unsigned int argument)
+{
+	ExternFuncInfo &func = NULLC::linker->exFunctions[argument];
+	unsigned int *curr = func.externalList;
+	while(curr && *curr >= (paramBase + (unsigned int)(intptr_t)NULLC::parameterHead))
+	{
+		unsigned int *next = (unsigned int*)(intptr_t)curr[1];
+		unsigned int size = curr[2];
+
+		memcpy(&curr[1], (unsigned int*)(intptr_t)curr[0], size);
+		curr[0] = (unsigned int)(intptr_t)&curr[1];
+		curr = next;
+	}
+	func.externalList = curr;
 }
 
 bool ExecutorX86::TranslateToNative()
@@ -504,6 +527,7 @@ bool ExecutorX86::TranslateToNative()
 	SetParamBase((unsigned int)(long long)paramBase);
 	SetLastInstruction(&instList[0]);
 	SetClosureCreateFunc(ClosureCreate);
+	SetUpvaluesCloseFunc(CloseUpvalues);
 
 	NULLC::linker = exLinker;
 
