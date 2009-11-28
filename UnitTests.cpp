@@ -3251,6 +3251,67 @@ return int(f()[1].y);";
 		}
 	}
 
+const char	*testUpvalues1 =
+"auto generator(int i)\r\n\
+{\r\n\
+	return auto(){ return i++; };\r\n\
+}\r\n\
+auto a = generator(3);\r\n\
+int i1 = a();	// 3\r\n\
+auto b = generator(3);\r\n\
+int i2 = a();	// 4\r\n\
+int i3 = b();	// 3\r\n\
+int i4 = a();	// 5\r\n\
+return b();		// 4";
+	printf("\r\nClosure with upvalues test 1\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testUpvalues1, testTarget[t], "4"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("i1", 0, 3);
+			CHECK_INT("i2", 0, 4);
+			CHECK_INT("i3", 0, 3);
+			CHECK_INT("i4", 0, 5);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testUpvalues2 =
+"int type(int x, y){}\r\n\
+\r\n\
+auto binder(int x, typeof(type) func)\r\n\
+{\r\n\
+	return auto(int y){ return func(x, y); };\r\n\
+}\r\n\
+\r\n\
+int adder(int x, y){ return x + y; }\r\n\
+auto add3 = binder(3, adder);\r\n\
+auto add13 = binder(13, adder);\r\n\
+\r\n\
+int i1 = add3(5);	// 8\r\n\
+int i2 = add13(7);	// 20\r\n\
+return add3(add13(4));";
+	printf("\r\nClosure with upvalues test 2\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testUpvalues2, testTarget[t], "20"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("i1", 0, 8);
+			CHECK_INT("i2", 0, 20);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");

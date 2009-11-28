@@ -1432,9 +1432,6 @@ void FunctionEnd(const char* pos, const char* funcName)
 	// If function is local, create function parameters block
 	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.externalCount != 0)
 	{
-		TypeInfo *targetType = CodeInfo::GetReferenceType(typeInt);
-		targetType = CodeInfo::GetArrayType(targetType, lastFunc.externalCount);
-
 		char	*hiddenHame = AllocateString(lastFunc.nameLength + 24);
 		int length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
 
@@ -1446,9 +1443,9 @@ void FunctionEnd(const char* pos, const char* funcName)
 		AddVariable(pos, InplaceStr(hiddenHame, length));
 
 		// Allocate array in dynamic memory
-		CodeInfo::nodeList.push_back(new NodeNumber((int)(targetType->size + lastFunc.externalSize), typeInt));
+		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
 		AddFunctionCallNode(pos, "__newS", 1);
-		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(targetType);
+		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetArrayType(typeInt, lastFunc.externalSize / 4));
 
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, InplaceStr(hiddenHame, length));
