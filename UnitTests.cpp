@@ -3312,6 +3312,70 @@ return add3(add13(4));";
 		}
 	}
 
+	// Test checks if values of recursive function are captured correctly and that at the end of recursive function, it closes only upvalues that target it's stack frame
+const char	*testUpvalues3 =
+"int funct(int ref dr){}\r\n\
+\r\n\
+typeof(funct) f1, f2;\r\n\
+\r\n\
+int k1, k2, k3 = 0;\r\n\
+int dh;\r\n\
+\r\n\
+int func(int k)\r\n\
+{\r\n\
+	int d = 2;\r\n\
+	int func1(int r)\r\n\
+	{\r\n\
+		int b = k += 3;\r\n\
+		\r\n\
+		int func2(int ref dr)\r\n\
+		{\r\n\
+			d += 300;\r\n\
+			b += 2;\r\n\
+			*dr = d;\r\n\
+			return b;\r\n\
+		}\r\n\
+		if(r)\r\n\
+		{\r\n\
+			k1 = func1(r-1);\r\n\
+			f2 = func2;\r\n\
+		}else{\r\n\
+			f1 = func2;\r\n\
+		}\r\n\
+		k3 += func2(&dh);\r\n\
+		return b;\r\n\
+	}\r\n\
+	k2 = func1(1);\r\n\
+	return d;\r\n\
+}\r\n\
+int ddd = func(5);\r\n\
+int aa, bb;\r\n\
+int a = f1(&aa);\r\n\
+int b = f2(&bb);\r\n\
+return 1;";
+	printf("\r\nClosure with upvalues test 3\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testUpvalues3, testTarget[t], "1"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("k1", 0, 13);
+			CHECK_INT("k2", 0, 10);
+			CHECK_INT("k3", 0, 23);
+			CHECK_INT("dh", 0, 602);
+			CHECK_INT("ddd", 0, 602);
+			CHECK_INT("aa", 0, 902);
+			CHECK_INT("bb", 0, 902);
+			CHECK_INT("a", 0, 15);
+			CHECK_INT("b", 0, 12);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");

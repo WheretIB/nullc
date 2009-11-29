@@ -862,7 +862,7 @@ void Executor::Run(const char* funcName)
 			break;
 		case cmdCreateClosure:
 		{
-			unsigned int *start, *closure = start = (unsigned int*)(intptr_t)*genStackPtr;
+			ExternFuncInfo::Upvalue *closure = (ExternFuncInfo::Upvalue*)(intptr_t)*genStackPtr;
 			genStackPtr++;
 
 			ExternFuncInfo &func = exFunctions[cmd.argument];
@@ -872,29 +872,29 @@ void Executor::Run(const char* funcName)
 				ExternFuncInfo *varParent = &exFunctions[externals[i].closeFuncList & ~0x80000000];
 				if(externals[i].closeFuncList & 0x80000000)
 				{
-					closure[0] = externals[i].target + paramBase + (int)(intptr_t)&genParams[0];
+					closure->ptr = (unsigned int*)(externals[i].target + paramBase + &genParams[0]);
 				}else{
 					unsigned int *prevClosure = (unsigned int*)(intptr_t)*(int*)(&genParams[cmd.helper + paramBase]);
-					closure[0] = prevClosure[externals[i].target >> 2];
+					closure->ptr = (unsigned int*)(intptr_t)prevClosure[externals[i].target >> 2];
 				}
-				closure[1] = (unsigned int)(intptr_t)varParent->externalList;
-				closure[2] = externals[i].size;
+				closure->next = varParent->externalList;
+				closure->size = externals[i].size;
 				varParent->externalList = closure;
-				closure += (externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2);
+				closure = (ExternFuncInfo::Upvalue*)((int*)closure + ((externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2)));
 			}
 		}
 			break;
 		case cmdCloseUpvals:
 		{
 			ExternFuncInfo &func = exFunctions[cmd.argument];
-			unsigned int *curr = func.externalList;
-			while(curr && *curr >= (paramBase + (int)(intptr_t)&genParams[0]))
+			ExternFuncInfo::Upvalue *curr = func.externalList;
+			while(curr && (char*)curr->ptr >= paramBase + &genParams[0])
 			{
-				unsigned int *next = (unsigned int*)(intptr_t)curr[1];
-				unsigned int size = curr[2];
+				ExternFuncInfo::Upvalue *next = curr->next;
+				unsigned int size = curr->size;
 
-				memcpy(&curr[1], (unsigned int*)(intptr_t)curr[0], size);
-				curr[0] = (unsigned int)(intptr_t)&curr[1];
+				memcpy(&curr->next, curr->ptr, size);
+				curr->ptr = (unsigned int*)&curr->next;
 				curr = next;
 			}
 			func.externalList = curr;
