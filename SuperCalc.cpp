@@ -266,8 +266,6 @@ char typeTest(int x, short y, char z, int d, long long u, float m, int s, double
 	return 12;
 }
 
-char* buf;
-
 int APIENTRY WinMain(HINSTANCE	hInstance,
 					HINSTANCE	hPrevInstance,
 					LPTSTR		lpCmdLine,
@@ -275,7 +273,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 {
 	(void)lpCmdLine;
 	(void)hPrevInstance;
-	buf = new char[100000];
 
 	MSG msg;
 	HACCEL hAccelTable;
@@ -283,7 +280,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	bool runUnitTests = false;
+	bool runUnitTests = true;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -357,8 +354,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	delete colorer;
 
 	nullcDeinit();
-
-	delete[] buf;
 
 	return (int) msg.wParam;
 }
@@ -837,7 +832,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				break;
 			}
 			unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-			strcpy(buf, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window));
+			const char *source = RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window);
 
 			for(unsigned int i = 0; i < richEdits.size(); i++)
 			{
@@ -856,7 +851,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_VM);
 
-			nullres good = nullcCompile(buf);
+			nullres good = nullcCompile(source);
 			nullcSaveListing("asm.txt");
 		
 			if(good)

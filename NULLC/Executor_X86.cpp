@@ -108,6 +108,9 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 			exCode(linker->exCode), exTypes(linker->exTypes)
 {
 	binCode = NULL;
+	binCodeStart = NULL;
+	binCodeSize = 0;
+	binCodeReserved = 0;
 }
 ExecutorX86::~ExecutorX86()
 {
@@ -146,11 +149,6 @@ bool ExecutorX86::Initialize()
 	parameterHead = paramBase = paramData + sizeof(DataStackHeader);
 	paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
 	dataHead = (DataStackHeader*)paramData;
-
-	binCode = new unsigned char[200000];
-	memset(binCode, 0x90, 20);
-	binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
-	binCodeSize = 0;
 
 	cgFuncs[cmdNop] = GenCodeCmdNop;
 
@@ -319,7 +317,7 @@ void ExecutorX86::Run(const char* funcName)
 
 	stackReallocs = 0;
 
-	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[20]));
+	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
 
 	int functionID = -1;
 	if(funcName)
@@ -554,7 +552,7 @@ bool ExecutorX86::TranslateToNative()
 
 			if(exFunctions[cmd.argument].funcPtr == NULL)
 			{
-				EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + exFunctions[cmd.argument].address, binCodeStart);
+				EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + exFunctions[cmd.argument].address, 0);
 				EMIT_OP_REG(o_push, rEAX);
 			}else{
 				EMIT_OP_NUM(o_push, (int)(intptr_t)exFunctions[cmd.argument].funcPtr);
@@ -610,8 +608,15 @@ bool ExecutorX86::TranslateToNative()
 	fclose(fAsm);
 #endif
 
+	if(instList.size() * 4 > binCodeReserved)
+	{
+		delete[] binCode;
+		binCodeReserved = (instList.size() / 1024) * 4096 + 4096;
+		binCode = new unsigned char[binCodeReserved];
+		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
+	}
 	// Translate to x86
-	unsigned char *bytecode = binCode+20;
+	unsigned char *bytecode = binCode + 16;
 	unsigned char *code = bytecode;
 
 	instAddress.resize(exCode.size());
@@ -665,7 +670,7 @@ bool ExecutorX86::TranslateToNative()
 		case o_lea:
 			if(cmd.argB.type == x86Argument::argPtrLabel)
 			{
-				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, cmd.argB.ptrNum);
+				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, (unsigned int)(intptr_t)bytecode/*cmd.argB.ptrNum*/);
 			}else{
 				if(cmd.argB.ptrMult > 1)
 					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrMult, cmd.argB.ptrNum);

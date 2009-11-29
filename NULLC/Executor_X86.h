@@ -43,7 +43,7 @@ private:
 
 	unsigned char	*binCode;
 	unsigned int	binCodeStart;
-	unsigned int	binCodeSize;
+	unsigned int	binCodeSize, binCodeReserved;
 
 	int			callContinue;
 
