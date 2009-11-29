@@ -74,6 +74,7 @@ void Executor::Run(const char* funcName)
 	retType = (asmOperType)-1;
 
 	unsigned int funcPos = ~0ul;
+	int functionID = -1;
 	if(funcName)
 	{
 		unsigned int fnameHash = GetStringHash(funcName);
@@ -81,7 +82,18 @@ void Executor::Run(const char* funcName)
 		{
 			if(exFunctions[i].nameHash == fnameHash)
 			{
+				functionID = i;
 				funcPos = exFunctions[i].address;
+				if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
+				{
+					retType = OTYPE_COMPLEX;
+				}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT){
+					retType = OTYPE_INT;
+				}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE){
+					retType = OTYPE_DOUBLE;
+				}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG){
+					retType = OTYPE_LONG;
+				}
 				break;
 			}
 		}
@@ -459,7 +471,8 @@ void Executor::Run(const char* funcName)
 			}
 			if(fcallStack.size() == 0)
 			{
-				retType = (asmOperType)(int)cmd.flag;
+				if(retType == -1)
+					retType = (asmOperType)(int)cmd.flag;
 				cmdStream = cmdStreamEnd;
 				break;
 			}
