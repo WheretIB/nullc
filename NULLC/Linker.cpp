@@ -160,6 +160,12 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		}
 	}
 
+	for(unsigned int i = oldLocalsSize; i < oldLocalsSize + bCode->localCount; i++)
+	{
+		if(exLocals[i].paramType == ExternLocalInfo::EXTERNAL)
+			exLocals[i].closeFuncList = funcRemap[exLocals[i].closeFuncList & ~0x80000000] | (exLocals[i].closeFuncList & 0x80000000);
+	}
+
 	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
 	unsigned int pos = oldCodeSize;
 	while(pos < exCode.size())
