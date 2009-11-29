@@ -1146,7 +1146,13 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
 {
 	// Check if type has any member functions
-	TypeInfo *parentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo->subType;
+	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo;
+	if(currentType->refLevel == 2)
+	{
+		CodeInfo::nodeList.push_back(new NodeDereference());
+		currentType = CodeInfo::GetDereferenceType(currentType);
+	}
+	TypeInfo *parentType = currentType->subType;
 	if(!parentType->name)
 		ThrowError(pos, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
 	// Construct name in a form of Class::Function
