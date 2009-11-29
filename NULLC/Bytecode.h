@@ -63,7 +63,13 @@ struct ExternFuncInfo
 	unsigned int	localCount;
 	unsigned int	externCount;
 
-	unsigned int	*externalList;
+	struct Upvalue
+	{
+		unsigned int	*ptr;
+		Upvalue			*next;
+		unsigned int	size;
+	};
+	Upvalue			*externalList;
 
 // For x86 function call
 	unsigned int	bytesToPop;

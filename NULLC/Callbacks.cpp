@@ -17,8 +17,8 @@ bool varDefined;
 // Is current variable const
 bool currValConst;
 
-// Number of implicit array
-unsigned int inplaceArrayNum;
+// Number of implicit variable
+unsigned int inplaceVariableNum;
 
 // Stack of variable counts.
 // Used to find how many variables are to be removed when their visibility ends.
@@ -75,6 +75,7 @@ void SetCurrentAlignment(unsigned int alignment)
 	currAlign = alignment;
 }
 
+// Finds variable inside function external variable list, and if not found, adds it to a list
 FunctionInfo::ExternalInfo* AddFunctionExternal(FunctionInfo* func, VariableInfo* var)
 {
 	unsigned int hash = var->nameHash;
@@ -234,6 +235,7 @@ void AddHexInteger(const char* pos, const char* end)
 	pos += 2;
 	if(int(end - pos) > 16)
 		ThrowError(pos, "ERROR: Overflow in hexadecimal constant");
+	// If number overflows integer number, create long number
 	if(int(end - pos) <= 8)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 16), typeInt));
 	else
@@ -245,6 +247,7 @@ void AddOctInteger(const char* pos, const char* end)
 	pos++;
 	if(int(end - pos) > 21)
 		ThrowError(pos, "ERROR: Overflow in octal constant");
+	// If number overflows integer number, create long number
 	if(int(end - pos) <= 10)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 8), typeInt));
 	else
@@ -255,6 +258,7 @@ void AddBinInteger(const char* pos, const char* end)
 {
 	if(int(end - pos) > 64)
 		ThrowError(pos, "ERROR: Overflow in binary constant");
+	// If number overflows integer number, create long number
 	if(int(end - pos) <= 32)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 2), typeInt));
 	else
@@ -619,20 +623,26 @@ void AddReturnNode(const char* pos)
 {
 	bool localReturn = currDefinedFunc.size() != 0;
 
+	// If new function is returned, convert it to pointer
 	bool unifyTwo = false;
 	if(ConvertFunctionToPointer(pos))
 		unifyTwo = true;
 
+	// Type that is being returned
 	TypeInfo *realRetType = CodeInfo::nodeList.back()->typeInfo;
+	// Type that should be returned
 	TypeInfo *expectedType = NULL;
 	if(currDefinedFunc.size() != 0)
 	{
+		// If return type is auto, set it to type that is being returned
 		if(!currDefinedFunc.back()->retType)
 		{
 			currDefinedFunc.back()->retType = realRetType;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back());
 		}
+		// Take expected return type
 		expectedType = currDefinedFunc.back()->retType;
+		// Check for errors
 		if((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType)
 			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
 		if(expectedType == typeVoid && realRetType != typeVoid)
@@ -640,12 +650,15 @@ void AddReturnNode(const char* pos)
 		if(expectedType != typeVoid && realRetType == typeVoid)
 			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
 	}else{
+		// Check for errors
 		if(realRetType == typeVoid)
 			ThrowError(pos, "ERROR: global return cannot accept void");
 		else if(realRetType->type == TypeInfo::TYPE_COMPLEX)
 			ThrowError(pos, "ERROR: global return cannot accept complex types");
+		// Global return return type is auto, so we take type that is being returned
 		expectedType = realRetType;
 	}
+	// Add node and link source to instruction
 	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType, currDefinedFunc.size() ? currDefinedFunc.back() : NULL));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 	if(unifyTwo)
@@ -655,6 +668,7 @@ void AddReturnNode(const char* pos)
 void AddBreakNode(const char* pos)
 {
 	unsigned int breakDepth = 1;
+	// break depth is 1 by default, but can be set to a constant number
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 		breakDepth = static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger();
 	else if(CodeInfo::nodeList.back()->nodeType != typeNodeZeroOp)
@@ -662,11 +676,13 @@ void AddBreakNode(const char* pos)
 
 	CodeInfo::nodeList.pop_back();
 
+	// Check for errors
 	if(breakDepth == 0)
 		ThrowError(pos, "ERROR: break level cannot be 0");
 	if(cycleDepth.back() < breakDepth)
 		ThrowError(pos, "ERROR: break level is greater that loop depth");
 
+	// Add node and link source to instruction
 	CodeInfo::nodeList.push_back(new NodeBreakOp(breakDepth));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
@@ -674,6 +690,7 @@ void AddBreakNode(const char* pos)
 void AddContinueNode(const char* pos)
 {
 	unsigned int continueDepth = 1;
+	// continue depth is 1 by default, but can be set to a constant number
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 		continueDepth = static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger();
 	else if(CodeInfo::nodeList.back()->nodeType != typeNodeZeroOp)
@@ -681,11 +698,13 @@ void AddContinueNode(const char* pos)
 
 	CodeInfo::nodeList.pop_back();
 
+	// Check for errors
 	if(continueDepth == 0)
 		ThrowError(pos, "ERROR: continue level cannot be 0");
 	if(cycleDepth.back() < continueDepth)
 		ThrowError(pos, "ERROR: continue level is greater that loop depth");
 
+	// Add node and link source to instruction
 	CodeInfo::nodeList.push_back(new NodeContinueOp(continueDepth));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
@@ -842,8 +861,9 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) &&
 			i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 		{
+			// If that variable is not in current scope, we have to get it through current closure
 			FunctionInfo *currFunc = currDefinedFunc.back();
-			// Add variable name to the list of function external variables
+			// Add variable to the list of function external variables
 			FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, CodeInfo::varInfo[i]);
 
 			assert(currFunc->allParamSize % 4 == 0);
@@ -860,12 +880,15 @@ void AddArrayIndexNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	// Call overloaded operator with error suppression
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", 2, true))
 		return;
 
 	bool unifyTwo = false;
 
+	// Get array type
 	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
+	// If it's an inplace array, set it to hidden variable, and put it's address on stack
 	if(currentType->arrLevel != 0)
 	{
 		NodeZeroOP *index = CodeInfo::nodeList.back();
@@ -877,6 +900,7 @@ void AddArrayIndexNode(const char* pos)
 	}
 	if(currentType->refLevel == 0)
 		ThrowError(pos, "ERROR: indexing variable that is not an array");
+	// Get result type
 	currentType = CodeInfo::GetDereferenceType(currentType);
 
 	// If we are indexing pointer to array
@@ -1004,11 +1028,13 @@ void AddSetVariableNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	// Call overloaded operator with error suppression
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
 		return;
 
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 
+	// Make necessary implicit conversions
 	bool unifyTwo = false;
 	if(ConvertArrayToUnsized(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType))
 		unifyTwo = true;
@@ -1027,6 +1053,8 @@ void AddGetVariableNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	// If array size is known at compile time, then it's placed on stack when "array.size" is compiled, but member access usually shifts pointer, that is dereferenced now
+	// So in this special case, dereferencing is not done. Yeah...
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo == typeVoid)
 	{
 		CodeInfo::nodeList.back()->typeInfo = typeInt;
@@ -1043,8 +1071,11 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	bool unifyTwo = false;
-	// Beware that there is a global variable with the same name
+	// Get variable type
 	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
+	// For member access, we expect to se a pointer to variable on top of the stack, so the shift to a member could be made
+	// But if structure was returned from a function, then we have it on stack "by variable", so we save it to a hidden variable
+	// And we take a pointer to that variable
 	if(currentType->refLevel == 0 && currentType->type == TypeInfo::TYPE_COMPLEX)
 	{
 		AddInplaceVariable(pos);
@@ -1053,12 +1084,15 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	}
 	CheckForImmutable(currentType, pos);
 
+	// Get type after dereference
 	currentType = currentType->subType;
+	// If it's still a dereference, dereference it again (so that "var.member" will work if var is a pointer)
 	if(currentType->refLevel == 1)
 	{
 		CodeInfo::nodeList.push_back(new NodeDereference());
 		currentType = CodeInfo::GetDereferenceType(currentType);
 	}
+	// If it's an array, only member that can be accessed is .size
 	if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
 	{
 		if(hash != GetStringHash("size"))
@@ -1069,17 +1103,21 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		return;
 	}
  
+	// Find member
 	int fID = -1;
 	TypeInfo::MemberVariable *curr = currentType->firstVariable;
 	for(; curr; curr = curr->next)
 		if(curr->nameHash == hash)
 			break;
+	// If member variable is not found, try searching for member function
 	if(!curr)
 	{
+		// Construct function name in a for of Class::Function
 		unsigned int hash = currentType->nameHash;
 		hash = StringHashContinue(hash, "::");
 		hash = StringHashContinue(hash, varName.begin, varName.end);
 
+		// Search for it
 		fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 		if(fID == -1)
 			ThrowError(pos, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
@@ -1088,14 +1126,16 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 	}
 	
+	// In case of a variable
 	if(fID == -1)
 	{
+		// Shift pointer to member
 		if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
 			static_cast<NodeGetAddress*>(CodeInfo::nodeList.back())->ShiftToMember(curr);
 		else
 			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
 	}else{
-		// Node that gets function address
+		// In case of a function, get it's address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(CodeInfo::funcInfo[fID]));
 	}
 
@@ -1105,11 +1145,14 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
 {
+	// Check if type has any member functions
 	TypeInfo *parentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo->subType;
 	if(!parentType->name)
 		ThrowError(pos, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
+	// Construct name in a form of Class::Function
 	char	*memberFuncName = AllocateString((int)strlen(parentType->name) + 2 + (int)strlen(funcName) + 1);
 	sprintf(memberFuncName, "%s::%s", parentType->name, funcName);
+	// Call it
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
 }
 
@@ -1127,9 +1170,11 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 	assert(cmd - cmdAdd < 5);
 	// Operator names
 	const char *opNames[] = { "+=", "-=", "*=", "/=", "**=" };
+	// Call overloaded operator with error suppression
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[cmd - cmdAdd], 2, true))
 		return;
 
+	// Add node for variable modification
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 	CodeInfo::nodeList.push_back(new NodeVariableModify(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, cmd));
 }
@@ -1137,19 +1182,24 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 void AddInplaceVariable(const char* pos)
 {
 	char	*arrName = AllocateString(16);
-	int length = sprintf(arrName, "$carr%d", inplaceArrayNum++);
+	int length = sprintf(arrName, "$carr%d", inplaceVariableNum++);
 
+	// Save variable creation state
 	TypeInfo *saveCurrType = currType;
 	bool saveVarDefined = varDefined;
 
+	// Set type to auto
 	currType = NULL;
+	// Add hidden variable
 	AddVariable(pos, InplaceStr(arrName, length));
-
+	// Set it to value on top of the stack
 	AddDefineVariableNode(pos, InplaceStr(arrName, length));
+	// Remove it from stack
 	AddPopNode(pos);
-
+	// Put pointer to hidden variable on stack
 	AddGetAddressNode(pos, InplaceStr(arrName, length));
 
+	// Restore variable creation state
 	varDefined = saveVarDefined;
 	currType = saveCurrType;
 }
@@ -1215,9 +1265,11 @@ bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 
 bool ConvertFunctionToPointer(const char* pos)
 {
+	// If node is a function definition or a pair of { function definition, function closure setup }
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeFuncDef ||
 		(CodeInfo::nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(CodeInfo::nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
 	{
+		// Take it's address and hide it's name
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(CodeInfo::nodeList.back()->nodeType == typeNodeFuncDef ? CodeInfo::nodeList.back() : static_cast<NodeExpressionList*>(CodeInfo::nodeList.back())->GetFirstNode());
 		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
 		funcDefNode->GetFuncInfo()->visible = false;
@@ -1263,8 +1315,12 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	for(unsigned int i = 0; i < arrElementCount; i++)
 	{
 		TypeInfo *realType = CodeInfo::nodeList.back()->typeInfo;
-		if(realType != currentType && !((realType == typeShort || realType == typeChar) && currentType == typeInt) && !(realType == typeFloat && currentType == typeDouble))
-			ThrowError(pos, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
+		if(realType != currentType &&
+			!((realType == typeShort || realType == typeChar) && currentType == typeInt) &&
+			!((realType == typeShort || realType == typeChar || realType == typeInt || realType == typeFloat) && currentType == typeDouble))
+				ThrowError(pos, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
+		if((realType == typeShort || realType == typeChar || realType == typeInt) && currentType == typeDouble)
+			AddFunctionCallNode(pos, "double", 1);
 		arrayList->AddNode(false);
 	}
 
@@ -1457,8 +1513,9 @@ void FunctionEnd(const char* pos, const char* funcName)
 			// Find in variable list
 			int i = CodeInfo::FindVariableByName(curr->variable->nameHash);
 			if(i == -1)
-				ThrowError(pos, "Can't capture function");
+				ThrowError(pos, "Can't capture variable %.*s", curr->variable->name.end-curr->variable->name.begin, curr->variable->name.begin);
 
+			// Find the function that scopes target variable
 			FunctionInfo *parentFunc = currDefinedFunc.back();
 			for(unsigned int k = 0; k < currDefinedFunc.size()-1; k++)
 			{
@@ -1469,6 +1526,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 				}
 			}
 
+			// If variable is not in current scope, get it through closure
 			if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) &&
 				i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 			{
@@ -1478,6 +1536,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 				curr->targetLocal = false;
 				curr->targetPos = external->closurePos;
 			}else{
+				// Or get it from current scope
 				curr->targetLocal = true;
 				curr->targetPos = CodeInfo::varInfo[i]->pos;
 			}
@@ -1635,7 +1694,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		if(!fType)
 			ThrowError(pos, "ERROR: variable is not a pointer to function");
 		if(callArgCount != fType->paramCount)
-			ThrowError(pos, "ERROR: function expects %d arguments, while %d are supplied", fType->paramCount, callArgCount);
+			ThrowError(pos, "ERROR: function expects %d argument(s), while %d are supplied", fType->paramCount, callArgCount);
 		if(GetFunctionRating(fType, callArgCount) == ~0u)
 			ThrowError(pos, "ERROR: there is no conversion from specified arguments and the ones that function accepts");
 	}
@@ -1873,7 +1932,7 @@ void CallbackInitialize()
 	newType = NULL;
 
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
-	inplaceArrayNum = 1;
+	inplaceVariableNum = 1;
 
 	varInfoTop.clear();
 	varInfoTop.push_back(VarTopInfo(0,0));

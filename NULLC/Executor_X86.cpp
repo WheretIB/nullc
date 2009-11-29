@@ -490,7 +490,7 @@ void ClosureCreate(unsigned int paramBase, unsigned int helper, unsigned int arg
 		}
 		closure[1] = (unsigned int)(intptr_t)varParent->externalList;
 		closure[2] = externals[i].size;
-		varParent->externalList = closure;
+		varParent->externalList = (ExternFuncInfo::Upvalue*)closure;
 		closure += (externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2);
 	}
 }
@@ -498,7 +498,7 @@ void ClosureCreate(unsigned int paramBase, unsigned int helper, unsigned int arg
 void CloseUpvalues(unsigned int paramBase, unsigned int argument)
 {
 	ExternFuncInfo &func = NULLC::linker->exFunctions[argument];
-	unsigned int *curr = func.externalList;
+	unsigned int *curr = (unsigned int*)func.externalList;
 	while(curr && *curr >= (paramBase + (unsigned int)(intptr_t)NULLC::parameterHead))
 	{
 		unsigned int *next = (unsigned int*)(intptr_t)curr[1];
@@ -508,7 +508,7 @@ void CloseUpvalues(unsigned int paramBase, unsigned int argument)
 		curr[0] = (unsigned int)(intptr_t)&curr[1];
 		curr = next;
 	}
-	func.externalList = curr;
+	func.externalList = (ExternFuncInfo::Upvalue*)curr;
 }
 
 bool ExecutorX86::TranslateToNative()
