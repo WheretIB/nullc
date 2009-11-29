@@ -1361,7 +1361,10 @@ void FunctionAdd(const char* pos, const char* funcName)
 	lastFunc->vTopSize = (unsigned int)varInfoTop.size();
 	lastFunc->retType = currType;
 	if(newType)
+	{
 		lastFunc->type = FunctionInfo::THISCALL;
+		lastFunc->parentClass = newType;
+	}
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
 		lastFunc->type = FunctionInfo::LOCAL;
 	if(funcName[0] != '$' && !(chartype_table[funcName[0]] & ct_start_symbol))
@@ -1412,8 +1415,12 @@ void FunctionStart(const char* pos)
 	}
 
 	char	*hiddenHame = AllocateString(lastFunc.nameLength + 24);
-	int length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
-	currType = CodeInfo::GetReferenceType(typeInt);
+	int length = 0;
+	if(lastFunc.type == FunctionInfo::THISCALL)
+		length = sprintf(hiddenHame, "this");
+	else
+		length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
+	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
 	AddVariable(pos, InplaceStr(hiddenHame, length));
 	varDefined = false;

@@ -314,6 +314,7 @@ public:
 		type = NORMAL;
 		funcType = NULL;
 		allParamSize = 0;
+		parentClass = NULL;
 
 		firstParam = lastParam = NULL;
 		paramCount = 0;
@@ -368,7 +369,8 @@ public:
 	unsigned int	allParamSize;
 	unsigned int	vTopSize;			// For "return" operator, we need to know,
 										// how many variables we need to remove from variable stack
-	TypeInfo*	retType;				// Function return type
+	TypeInfo	*retType;				// Function return type
+	TypeInfo	*parentClass;
 
 	bool		visible;				// true until function goes out of scope
 	bool		implemented;			// false if only function prototype has been found.
