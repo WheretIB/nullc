@@ -982,13 +982,6 @@ void AddDereferenceNode(const char* pos)
 	CodeInfo::nodeList.push_back(new NodeDereference());
 }
 
-// Compiler expects that after variable there will be assignment operator
-// If it's not the case, last node has to be removed
-void FailedSetVariable()
-{
-	CodeInfo::nodeList.pop_back();
-}
-
 // Function for variable assignment in place of definition
 void AddDefineVariableNode(const char* pos, InplaceStr varName)
 {

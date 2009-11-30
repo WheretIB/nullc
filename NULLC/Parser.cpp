@@ -972,8 +972,7 @@ bool ParseTerminal(Lexeme** str)
 		if(ParseLexem(str, lex_dec))
 		{
 			CALLBACK(AddPreOrPostOpNode((*str)->pos, false, false));
-		}else if(ParseLexem(str, lex_inc))
-		{
+		}else if(ParseLexem(str, lex_inc)){
 			CALLBACK(AddPreOrPostOpNode((*str)->pos, true, false));
 		}else if(ParseLexem(str, lex_point)){
 			if(!ParseFunctionCall(str, true))
@@ -983,6 +982,31 @@ bool ParseTerminal(Lexeme** str)
 				hadPost = true;
 			if(hadPost && !lastIsFunctionCall)
 				CALLBACK(AddGetVariableNode((*str)->pos));
+		}else if(ParseLexem(str, lex_set)){
+			if(ParseVaribleSet(str))
+			{
+				CALLBACK(AddSetVariableNode((*str)->pos));
+				return true;
+			}else{
+				ThrowError((*str)->pos, "ERROR: expression not found after '='");
+			}
+		}else if(ParseLexem(str, lex_addset) || ParseLexem(str, lex_subset) || ParseLexem(str, lex_mulset) || ParseLexem(str, lex_divset)){
+			char op = (*str-1)->pos[0];
+			if(ParseVaribleSet(str))
+			{
+				CALLBACK(AddModifyVariableNode((*str)->pos, (CmdID)(op == '+' ? cmdAdd : (op == '-' ? cmdSub : (op == '*' ? cmdMul : cmdDiv)))));
+				return true;
+			}else{
+				ThrowError((*str)->pos, "ERROR: expression not found after assignment operator");
+			}
+		}else if(ParseLexem(str, lex_powset)){
+			if(ParseVaribleSet(str))
+			{
+				CALLBACK(AddModifyVariableNode((*str)->pos, cmdPow));
+				return true;
+			}else{
+				ThrowError((*str)->pos, "ERROR: expression not found after '**='");
+			}
 		}else{
 			if(!lastIsFunctionCall)
 				CALLBACK(AddGetVariableNode((*str)->pos));
@@ -1050,42 +1074,6 @@ bool ParseVaribleSet(Lexeme** str)
 	{
 		if(ParseFunctionDefinition(str))
 			return true;
-	}
-	
-	Lexeme *start = *str;
-	if(ParseVariable(str))
-	{
-		char op = (*str)->pos[0];
-		if(ParseLexem(str, lex_set))
-		{
-			if(ParseVaribleSet(str))
-			{
-				CALLBACK(AddSetVariableNode((*str)->pos));
-				return true;
-			}else{
-				CALLBACK(FailedSetVariable());
-				*str = start;
-			}
-		}else if(ParseLexem(str, lex_addset) || ParseLexem(str, lex_subset) || ParseLexem(str, lex_mulset) || ParseLexem(str, lex_divset)){
-			if(ParseVaribleSet(str))
-			{
-				CALLBACK(AddModifyVariableNode((*str)->pos, (CmdID)(op == '+' ? cmdAdd : (op == '-' ? cmdSub : (op == '*' ? cmdMul : cmdDiv)))));
-				return true;
-			}else{
-				ThrowError((*str)->pos, "ERROR: expression not found after assignment operator");
-			}
-		}else if(ParseLexem(str, lex_powset)){
-			if(ParseVaribleSet(str))
-			{
-				CALLBACK(AddModifyVariableNode((*str)->pos, cmdPow));
-				return true;
-			}else{
-				ThrowError((*str)->pos, "ERROR: expression not found after '**='");
-			}
-		}else{
-			CALLBACK(FailedSetVariable());
-			*str = start;
-		}
 	}
 	if(!ParseTernaryExpr(str))
 		return false;

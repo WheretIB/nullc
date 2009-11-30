@@ -70,10 +70,6 @@ void AddArrayIndexNode(const char* pos);
 // Function for pointer dereferencing
 void AddDereferenceNode(const char* pos);
 
-// Compiler expects that after variable there will be assignment operator
-// If it's not the case, last node has to be removed
-void FailedSetVariable();
-
 // Function for variable assignment in place of definition
 void AddDefineVariableNode(const char* pos, InplaceStr varName);
 
