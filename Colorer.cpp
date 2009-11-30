@@ -229,7 +229,9 @@ namespace ColorerGrammar
 				) >>
 				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd];
 
-			funccall	=	varname[ColorFunc] >> 
+			funccall	=	varname[ColorFunc] >> fcallpart;
+
+			fcallpart	=
 				strP("(")[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >>
 				!(
 					term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] >>
@@ -384,9 +386,9 @@ namespace ColorerGrammar
 				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorVar]) >> chP('\'')[ColorText]] |
 				(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
 				(strP("new")[ColorRWord] >> typenameP(typeName)[ColorRWord] >> !(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])) |
-				(group >> *postExpr) |
-				(funccall[FuncCall] >> *postExpr) |
-				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall) | epsP));
+				(group >> *(postExpr | fcallpart)) |
+				(funccall[FuncCall] >> *(postExpr | fcallpart)) |
+				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall >> *(postExpr | fcallpart)) | epsP));
 			term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
 			term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));
 			term4	=	term3 >> *((chP('+') | chP('-'))[ColorText] >> (term3 | epsP[LogError("ERROR: expression not found after operator")]));
@@ -426,7 +428,7 @@ namespace ColorerGrammar
 
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
-		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, funcvars;
+		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
 		Rule appval, varname, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr;
 		// Main rule
 		Rule code;
