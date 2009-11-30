@@ -36,6 +36,7 @@ namespace CodeInfo
 	// Информация о типах
 	// Information about types
 	extern FastVector<TypeInfo*>		typeInfo;
+	extern FastVector<AliasInfo>		aliasInfo;
 
 	// Поток комманд
 	// Command stream

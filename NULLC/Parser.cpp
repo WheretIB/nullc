@@ -38,6 +38,14 @@ unsigned int ParseTypename(Lexeme** str)
 
 	unsigned int hash = GetStringHash((*str)->pos, (*str)->pos + (*str)->length);
 
+	for(unsigned int s = 0, e = CodeInfo::aliasInfo.size(); s != e; s++)
+	{
+		if(CodeInfo::aliasInfo[s].nameHash == hash)
+		{
+			(*str)++;
+			return CodeInfo::aliasInfo[s].targetType->typeIndex + 1;
+		}
+	}
 	for(unsigned int s = 0, e = CodeInfo::typeInfo.size(); s != e; s++)
 	{
 		if(CodeInfo::typeInfo[s]->nameHash == hash)
@@ -1127,6 +1135,25 @@ bool ParseExpression(Lexeme** str)
 		return true;
 	if(ParseSwitchExpr(str))
 		return true;
+	if(ParseLexem(str, lex_typedef))
+	{
+		if(!ParseSelectType(str))
+			ThrowError((*str)->pos, "ERROR: typename expected after typedef");
+
+		if(ParseSelectType(str))
+			ThrowError((*str - 1)->pos, "ERROR: there is already a type or an alias with the same name");
+		if((*str)->type != lex_string)
+			ThrowError((*str)->pos, "ERROR: alias name expected after typename in typedef expression");
+
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
+		CALLBACK(AddAliasType(InplaceStr((*str)->pos, (*str)->length)));
+		(*str)++;
+		if(!ParseLexem(str, lex_semicolon))
+			ThrowError((*str)->pos, "ERROR: ';' not found after typedef");
+		CALLBACK(AddVoidNode());
+		return true;
+	}
 	if(ParseVaribleSet(str))
 	{
 		const char *pos = (*str)->pos;

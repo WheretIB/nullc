@@ -235,7 +235,7 @@ void	Lexer::Lexify(const char* code)
 				const char *pos = code;
 				while(chartype_table[*pos] & ct_symbol)
 					pos++;
-				lLength = (int)(pos-code);
+				lLength = (int)(pos - code);
 
 				if(!(chartype_table[*pos] & ct_symbol))
 				{
@@ -290,6 +290,8 @@ void	Lexer::Lexify(const char* code)
 							lType = lex_noalign;
 						else if(memcmp(code, "default", 7) == 0)
 							lType = lex_default;
+						else if(memcmp(code, "typedef", 7) == 0)
+							lType = lex_typedef;
 						break;
 					case 8:
 						if(memcmp(code, "continue", 8) == 0)

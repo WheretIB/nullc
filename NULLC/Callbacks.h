@@ -122,6 +122,8 @@ void TypeBegin(const char* pos, const char* end);
 void TypeAddMember(const char* pos, const char* varName);
 void TypeFinish();
 
+void AddAliasType(InplaceStr aliasName);
+
 void AddUnfixedArraySize();
 
 unsigned int GetGlobalSize();
