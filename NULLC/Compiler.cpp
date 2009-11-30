@@ -186,6 +186,7 @@ Compiler::~Compiler()
 	CodeInfo::varInfo.clear();
 	CodeInfo::funcInfo.clear();
 	CodeInfo::typeInfo.clear();
+	CodeInfo::aliasInfo.clear();
 
 	NodeBreakOp::fixQueue.reset();
 	NodeContinueOp::fixQueue.reset();
@@ -214,6 +215,7 @@ void Compiler::ClearState()
 
 	CodeInfo::typeInfo.resize(buildInTypes);
 	TypeInfo::DeleteTypeInformation();
+	CodeInfo::aliasInfo.clear();
 
 	CodeInfo::funcInfo.resize(buildInFuncs);
 	FunctionInfo::DeleteFunctionInformation();

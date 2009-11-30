@@ -3583,6 +3583,11 @@ return 1;";
 	TEST_FOR_FAIL("parsing", "{");
 	TEST_FOR_FAIL("parsing", "auto ref() a;");
 	TEST_FOR_FAIL("parsing", "int ref(int ref(int, auto), double) b;");
+	TEST_FOR_FAIL("parsing", "typedef");
+	TEST_FOR_FAIL("parsing", "typedef double");
+	TEST_FOR_FAIL("parsing", "typedef double somename");
+	TEST_FOR_FAIL("parsing", "typedef double int;");
+	TEST_FOR_FAIL("parsing", "typedef double somename; typedef int somename;");
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount);

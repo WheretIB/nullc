@@ -373,9 +373,19 @@ namespace ColorerGrammar
 					*expr
 				) >>
 				('}' | epsP[LogError("ERROR: '}' expected")])[ColorBold];
+
+			typeDef			=	strWP("typedef")[ColorRWord] >>
+				(typeExpr | epsP[LogError("ERROR: typename expected after typedef")]) >>
+				(
+					(typeExpr >> epsP[LogError("ERROR: there is already a type or an alias with the same name")]) |
+					varname[StartType][ColorRWord] |
+					epsP[LogError("ERROR: alias name expected after typename in typedef expression")]
+				) >>
+				(chP(';') | epsP[LogError("ERROR: ';' expected after typedef")]);
+
 			returnExpr		=	strWP("return")[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return must be followed by ';'")]);
 			breakExpr		=	strWP("break")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break must be followed by ';'")]);
-			continueExpr		=	strWP("continue")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);
+			continueExpr	=	strWP("continue")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);
 
 			group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
 			term1		=
@@ -421,7 +431,7 @@ namespace ColorerGrammar
 
 			block	=	chP('{')[ColorBold][BlockBegin] >> (code | epsP) >> (chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: } not found after block")]);
 			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' | epsP[LogError("ERROR: ; not found after variable definition")])[ColorText]) |
-				breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | returnExpr |
+				breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | typeDef | returnExpr |
 				(term5 >> (+chP(';')[ColorText] | epsP[LogError("ERROR: ; not found after expression")])));
 			code	=	*(funcdef | expr | (+alnumP)[LogError("ERROR: unexpected symbol")]);
 		}
@@ -431,7 +441,7 @@ namespace ColorerGrammar
 		}
 
 		// Parsing rules
-		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr;
+		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
 		Rule appval, varname, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr;
 		// Main rule

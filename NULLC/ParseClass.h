@@ -247,6 +247,14 @@ public:
 	static	void	DeleteTypeInformation(){ typeInfoPool.ClearTo(buildInSize); }
 };
 
+struct AliasInfo
+{
+	InplaceStr		name;
+	unsigned int	nameHash;
+
+	TypeInfo		*targetType;
+};
+
 extern TypeInfo*	typeVoid;
 extern TypeInfo*	typeInt;
 extern TypeInfo*	typeFloat;
