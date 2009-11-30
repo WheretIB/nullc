@@ -361,7 +361,8 @@ void	RunTests()
 	timeRun = 0.0;
 
 	// Init NULLC
-	nullcInitCustomAlloc(testAlloc, testDealloc);
+	nullcInit();
+	//nullcInitCustomAlloc(testAlloc, testDealloc);
 
 	nullcAddExternalFunction((void (*)())(mFileOpen), "file FileOpen(char[] name, char[] access);");
 	nullcAddExternalFunction((void (*)())(mFileClose), "void FileClose(file fID);");
@@ -3376,6 +3377,43 @@ return 1;";
 		}
 	}
 
+const char	*testMemberFuncCallPostExpr =
+"class foo\r\n\
+{\r\n\
+	float2 v;\r\n\
+	int[3] arr;\r\n\
+	auto init(){ v.x = 4; v.y = 9; arr = { 12, 14, 17 }; }\r\n\
+	auto vec(){ return v; }\r\n\
+	auto array(){ return arr; }\r\n\
+	auto func(){ return auto(){ return *this; }; }\r\n\
+}\r\n\
+foo f;\r\n\
+f.init();\r\n\
+float f1 = f.vec().x;\r\n\
+float f2 = f.func()().v.y;\r\n\
+int i1 = f.array()[0];\r\n\
+int i2 = f.func()().arr[1];\r\n\
+//int i3 = f.func()().func()()[2]\r\n\
+return 1;";
+	printf("\r\nMember function call post expressions\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testMemberFuncCallPostExpr, testTarget[t], "1"))
+		{
+			lastFailed = false;
+
+			CHECK_FLOAT("f1", 0, 4);
+			CHECK_FLOAT("f2", 0, 9);
+			CHECK_INT("i1", 0, 12);
+			CHECK_INT("i2", 0, 14);
+			//CHECK_INT("i3", 0, 17);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
@@ -3677,9 +3715,12 @@ return i;";
 	nullcSetExecutor(NULLC_VM);
 
 	double time = myGetPreciseTime();
+	double compileTime = 0.0;
+	double linkTime = 0.0;
 	for(int i = 0; i < 1000; i++)
 	{
 		nullres good = nullcCompile(testCompileSpeed);
+		compileTime += myGetPreciseTime() - time;
 
 		if(good)
 		{
@@ -3689,10 +3730,13 @@ return i;";
 			nullcLinkCode(bytecode, 0);
 			delete[] bytecode;
 		}
+		linkTime += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
 	}
-	time = myGetPreciseTime() - time;
 
-	printf("Speed test run time: %f Average: %f\r\n", time, time / 1000.0);
+	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 1000.0);
+	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 1000.0, (linkTime - compileTime) / 1000.0);
+	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 1000.0);
 #endif
 	// Deinit NULLC
 	nullcDeinit();
