@@ -116,6 +116,12 @@ bool ParseArrayDefinition(Lexeme** str)
 	return true;
 }
 
+struct TypeHandler
+{
+	TypeInfo	*varType;
+	TypeHandler	*next;
+};
+
 bool ParseSelectType(Lexeme** str)
 {
 	if((*str)->type == lex_typeof)
@@ -147,7 +153,40 @@ bool ParseSelectType(Lexeme** str)
 	{
 		if(ParseLexem(str, lex_ref))
 		{
-			CALLBACK(ConvertTypeToReference((*str)->pos));
+			if(ParseLexem(str, lex_oparen))
+			{
+				// Prepare function type
+				TypeInfo *retType = (TypeInfo*)CALLBACK(GetSelectedType());
+				if(!retType)
+					ThrowError((*str)->pos, "ERROR: return type of a function type cannot be auto");
+				TypeHandler *first = NULL, *handle = NULL;
+				unsigned int count = 0;
+				if(ParseSelectType(str))
+				{
+					count++;
+					first = handle = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
+					handle->varType = (TypeInfo*)CALLBACK(GetSelectedType());
+					handle->next = NULL;
+					if(!handle->varType)
+						ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
+					while(ParseLexem(str, lex_comma))
+					{
+						count++;
+						ParseSelectType(str);
+						handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
+						handle = handle->next;
+						handle->varType = (TypeInfo*)CALLBACK(GetSelectedType());
+						handle->next = NULL;
+						if(!handle->varType)
+							ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
+					}
+				}
+				CALLBACK(SelectTypeByPointer(CodeInfo::GetFunctionType(retType, first, count)));
+				if(!ParseLexem(str, lex_cparen))
+					ThrowError((*str)->pos, "ERROR: ) not found after function type parameter list");
+			}else{
+				CALLBACK(ConvertTypeToReference((*str)->pos));
+			}
 		}else{
 			if(!ParseArrayDefinition(str))
 				break;

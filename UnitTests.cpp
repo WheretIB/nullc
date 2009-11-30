@@ -2611,15 +2611,13 @@ res3b = fp3(2, 4);\r\n\
 res3c = proxy(2, 5, cls.test);\r\n\
 res3d = proxy(2, 6, fp3);\r\n\
 \r\n\
-int type(int[3] x){ return 0; }\r\n\
-\r\n\
-int foobar(typeof(type) f) { int[3] x; x = {5, 6, 7}; return f(x); }\r\n\
+int foobar(int ref(int[3]) f) { int[3] x; x = {5, 6, 7}; return f(x); }\r\n\
 int result;\r\n\
 {\r\n\
   int local1 = 5, local2 = 2;\r\n\
   typeof(foobar) local3 = foobar;\r\n\
 \r\n\
-  int bar(typeof(type) x){ return local3(x); }\r\n\
+  int bar(int ref(int[3]) x){ return local3(x); }\r\n\
   int foo(int[3] x){ return local1 + x[local2]; }\r\n\
 \r\n\
   result = bar(foo);\r\n\
@@ -2662,9 +2660,7 @@ return 1;";
 
 
 const char	*testClosure2 = 
-"int f(int a){ 1; }\r\n\
-\r\n\
-int test(int n, typeof(f) ptr){ return ptr(n); }\r\n\
+"int test(int n, int ref(int) ptr){ return ptr(n); }\r\n\
 \r\n\
 int n = 5;\r\n\
 auto a = int lambda(int b){ return b + 5; };\r\n\
@@ -2675,7 +2671,7 @@ int res1 = test(3, int lambda(int b){ return b+n; });\r\n\
 int resA, resB, resC, resD, resE, resF;\r\n\
 {\r\n\
   int d = 7;\r\n\
-  typeof(f) a0, a1;\r\n\
+  int ref(int) a0, a1;\r\n\
   a0 = int lambda(int b){ return b + 2; };\r\n\
   a1 = int lambda(int b){ return b + d; };\r\n\
 \r\n\
@@ -2725,9 +2721,8 @@ return 1;";
 const char	*testClosure3 = 
 "int main()\r\n\
 {\r\n\
-  int f(int a){ 1; }\r\n\
-  int test(int n, typeof(f) ptr){ return ptr(n); }\r\n\
- \r\n\
+  int test(int n, int ref(int) ptr){ return ptr(n); }\r\n\
+\r\n\
   int n = 5;\r\n\
   int res1 = test(3, int lambda(int b){ return b+n; });\r\n\
   return res1;\r\n\
@@ -2748,13 +2743,12 @@ return main();";
 	}
 
 const char	*testClosure4 = 
-"int func(){}\r\n\
-int a = 0;\r\n\
+"int a = 0;\r\n\
 {\r\n\
-int ff(typeof(func) f){ return f(); }\r\n\
+int ff(int ref() f){ return f(); }\r\n\
 a = 1 + ff(int f1(){ return 1 + ff(int f2(){ return 1; }); });\r\n\
 }\r\n\
-int ff(typeof(func) f){ return f(); }\r\n\
+int ff(int ref() f){ return f(); }\r\n\
 int b = 1 + ff(int f1(){ return 1 + ff(int f2(){ return 1 + ff(int f3(){ return 1; }); }); });\r\n\
 return a+b;";
 	printf("\r\nClosure test 4\r\n");
@@ -2771,12 +2765,11 @@ return a+b;";
 	}
 
 const char	*testClosure5 = 
-"int func(){}\r\n\
-int r1, r2, r3, r4, r5;\r\n\
+"int r1, r2, r3, r4, r5;\r\n\
 {\r\n\
-int ff(typeof(func) f){ return f(); }\r\n\
-typeof(func) a1 = int f1(){ return 1 + ff(int f2(){ return 1; }); };\r\n\
-typeof(func) a2;\r\n\
+int ff(int ref() f){ return f(); }\r\n\
+int ref() a1 = int f1(){ return 1 + ff(int f2(){ return 1; }); };\r\n\
+int ref() a2;\r\n\
 a2 = int f3(){ return 1 + ff(int f4(){ return 1; }); };\r\n\
 r1 = ff(int f5(){ return 1 + ff(int f6(){ return 1; }); });\r\n\
 r2 = ff(a1);\r\n\
@@ -2968,12 +2961,10 @@ int j = g.size;\r\n\
 \r\n\
 auto n1 = auto(int a){ return -a; };\r\n\
 auto n2 = auto(){}, n4 = int ff(){};\r\n\
-int n1test(int a){}\r\n\
-void n2test(){}\r\n\
-typeof(n1test) n1_ = n1;\r\n\
-typeof(n2test) n2_ = n2;\r\n\
-typeof(n1test) n11 = int n11f(int a){ return ~a; }, n33;\r\n\
-typeof(n2test) n22 = void n22f(){}, n44;\r\n\
+int ref(int) n1_ = n1;\r\n\
+void ref() n2_ = n2;\r\n\
+int ref(int) n11 = int n11f(int a){ return ~a; }, n33;\r\n\
+void ref() n22 = void n22f(){}, n44;\r\n\
 int k1 = n1(5), k2 = n1_(12), k3 = n11(7);\r\n\
 n33 = auto(int n){ return n*1024; };\r\n\
 n44 = auto(){};\r\n\
@@ -3154,14 +3145,12 @@ return 1;";
 	}
 
 const char	*testIndirectPointers =
-"int f(int a){}\r\n\
-\r\n\
-typeof(f)[2] farr;\r\n\
+"int ref(int)[2] farr;\r\n\
 \r\n\
 farr[0] = auto(int c){ return -c; };\r\n\
 farr[1] = auto(int d){ return 2*d; };\r\n\
 \r\n\
-typeof(f) func(int i){ return farr[i]; }\r\n\
+int ref(int) func(int i){ return farr[i]; }\r\n\
 typeof(func) farr2 = func;\r\n\
 auto getarr(){ return { farr[1], farr[0] }; }\r\n\
 \r\n\
@@ -3260,9 +3249,7 @@ return b();		// 4";
 	}
 
 const char	*testUpvalues2 =
-"int type(int x, y){}\r\n\
-\r\n\
-auto binder(int x, typeof(type) func)\r\n\
+"auto binder(int x, int ref(int, int) func)\r\n\
 {\r\n\
 	return auto(int y){ return func(x, y); };\r\n\
 }\r\n\
@@ -3292,9 +3279,7 @@ return add3(add13(4));";
 
 	// Test checks if values of recursive function are captured correctly and that at the end of recursive function, it closes only upvalues that target it's stack frame
 const char	*testUpvalues3 =
-"int funct(int ref dr){}\r\n\
-\r\n\
-typeof(funct) f1, f2;\r\n\
+"int ref(int ref) f1, f2;\r\n\
 \r\n\
 int k1, k2, k3 = 0;\r\n\
 int dh;\r\n\
@@ -3596,6 +3581,8 @@ return 1;";
 	TEST_FOR_FAIL("parsing", "int i");
 	TEST_FOR_FAIL("parsing", "int i; i = 5");
 	TEST_FOR_FAIL("parsing", "{");
+	TEST_FOR_FAIL("parsing", "auto ref() a;");
+	TEST_FOR_FAIL("parsing", "int ref(int ref(int, auto), double) b;");
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount);

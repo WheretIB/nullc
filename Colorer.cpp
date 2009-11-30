@@ -208,7 +208,11 @@ namespace ColorerGrammar
 						(term5 | epsP[LogError("ERROR: expression not found in 'typeof' statement")]) >>
 						(chP(')')[ColorText] | epsP[LogError("ERROR: ')' not found after 'typeof' statement")])
 					)
-				) >> *(lexemeD[strP("ref") >> (~alnumP | nothingP)][ColorRWord] | arrayDef);
+				) >>
+				*(
+					(strWP("ref")[ColorRWord] >> !(chP('(')[ColorText] >> !typeExpr >> *(chP(',')[ColorText] >> typeExpr) >> chP(')')[ColorText])) |
+					arrayDef
+				);
 
 			classdef	=
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
