@@ -941,16 +941,6 @@ bool ParseTerminal(Lexeme** str)
 		CALLBACK(AddArrayConstructor((*str)->pos, arrElementCount));
 		return true;
 	}
-	bool lastIsFunctionCall = false;
-	if(ParseGroup(str))
-	{
-		bool hadPost = false;
-		while(ParsePostExpression(str, &lastIsFunctionCall))
-			hadPost = true;
-		if(hadPost && !lastIsFunctionCall)
-			CALLBACK(AddGetVariableNode((*str)->pos));
-		return true;
-	}
 	if(((*str)->type == lex_auto) ||
 		((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) ||
 		((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
@@ -958,17 +948,22 @@ bool ParseTerminal(Lexeme** str)
 		if(ParseFunctionDefinition(str))
 			return true;
 	}
-	if(ParseFunctionCall(str, false))
+	bool lastIsFunctionCall = false;
+	bool needDereference = false;
+	if(ParseGroup(str))
 	{
 		bool hadPost = false;
 		while(ParsePostExpression(str, &lastIsFunctionCall))
 			hadPost = true;
 		if(hadPost && !lastIsFunctionCall)
-			CALLBACK(AddGetVariableNode((*str)->pos));
-		return true;
-	}
-	if(ParseVariable(str, &lastIsFunctionCall))
-	{
+			needDereference = true;
+	}else if(ParseFunctionCall(str, false)){
+		bool hadPost = false;
+		while(ParsePostExpression(str, &lastIsFunctionCall))
+			hadPost = true;
+		if(hadPost && !lastIsFunctionCall)
+			needDereference = true;
+	}else if(ParseVariable(str, &lastIsFunctionCall)){
 		if(ParseLexem(str, lex_dec))
 		{
 			CALLBACK(AddPreOrPostOpNode((*str)->pos, false, false));
@@ -981,39 +976,36 @@ bool ParseTerminal(Lexeme** str)
 			while(ParsePostExpression(str, &lastIsFunctionCall))
 				hadPost = true;
 			if(hadPost && !lastIsFunctionCall)
-				CALLBACK(AddGetVariableNode((*str)->pos));
-		}else if(ParseLexem(str, lex_set)){
-			if(ParseVaribleSet(str))
-			{
-				CALLBACK(AddSetVariableNode((*str)->pos));
-				return true;
-			}else{
-				ThrowError((*str)->pos, "ERROR: expression not found after '='");
-			}
-		}else if(ParseLexem(str, lex_addset) || ParseLexem(str, lex_subset) || ParseLexem(str, lex_mulset) || ParseLexem(str, lex_divset)){
-			char op = (*str-1)->pos[0];
-			if(ParseVaribleSet(str))
-			{
-				CALLBACK(AddModifyVariableNode((*str)->pos, (CmdID)(op == '+' ? cmdAdd : (op == '-' ? cmdSub : (op == '*' ? cmdMul : cmdDiv)))));
-				return true;
-			}else{
-				ThrowError((*str)->pos, "ERROR: expression not found after assignment operator");
-			}
-		}else if(ParseLexem(str, lex_powset)){
-			if(ParseVaribleSet(str))
-			{
-				CALLBACK(AddModifyVariableNode((*str)->pos, cmdPow));
-				return true;
-			}else{
-				ThrowError((*str)->pos, "ERROR: expression not found after '**='");
-			}
+				needDereference = true;
 		}else{
 			if(!lastIsFunctionCall)
-				CALLBACK(AddGetVariableNode((*str)->pos));
+				needDereference = true;
 		}
-		return true;
+	}else{
+		return false;
 	}
-	return false;
+	if(ParseLexem(str, lex_set))
+	{
+		if(ParseVaribleSet(str))
+			CALLBACK(AddSetVariableNode((*str)->pos));
+		else
+			ThrowError((*str)->pos, "ERROR: expression not found after '='");
+	}else if(ParseLexem(str, lex_addset) || ParseLexem(str, lex_subset) || ParseLexem(str, lex_mulset) || ParseLexem(str, lex_divset)){
+		char op = (*str-1)->pos[0];
+		if(ParseVaribleSet(str))
+			CALLBACK(AddModifyVariableNode((*str)->pos, (CmdID)(op == '+' ? cmdAdd : (op == '-' ? cmdSub : (op == '*' ? cmdMul : cmdDiv)))));
+		else
+			ThrowError((*str)->pos, "ERROR: expression not found after assignment operator");
+	}else if(ParseLexem(str, lex_powset)){
+		if(ParseVaribleSet(str))
+			CALLBACK(AddModifyVariableNode((*str)->pos, cmdPow));
+		else
+			ThrowError((*str)->pos, "ERROR: expression not found after '**='");
+	}else{
+		if(needDereference)
+			CALLBACK(AddGetVariableNode((*str)->pos));
+	}
+	return true;
 }
 
 // operator stack

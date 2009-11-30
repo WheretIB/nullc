@@ -3376,6 +3376,36 @@ return 1;";
 		}
 	}
 
+const char	*testLeftValueExtends =
+"int v = 0;\r\n\
+int v2 = 12, v4 = 15;\r\n\
+auto k = { 3, 4, 9 };\r\n\
+int ref f(){ return &v; }\r\n\
+auto g(){ return &k; }\r\n\
+f() = 5;\r\n\
+g()[0] = 12;\r\n\
+g()[1] = 18;\r\n\
+(v2 > 5 ? &v2 : &v4) = 5;\r\n\
+return 1;";
+	printf("\r\nClosure with upvalues test 1\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testLeftValueExtends, testTarget[t], "1"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("v", 0, 5);
+			CHECK_INT("k", 0, 12);
+			CHECK_INT("k", 1, 18);
+			CHECK_INT("v2", 0, 5);
+			CHECK_INT("v4", 0, 15);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
