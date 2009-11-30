@@ -88,6 +88,19 @@ FunctionInfo::ExternalInfo* AddFunctionExternal(FunctionInfo* func, VariableInfo
 	return func->lastExternal;
 }
 
+char* GetClassFunctionName(TypeInfo* type, const char* funcName)
+{
+	char	*memberFuncName = AllocateString((int)strlen(type->name) + 2 + (int)strlen(funcName) + 1);
+	sprintf(memberFuncName, "%s::%s", type->name, funcName);
+	return memberFuncName;
+}
+char* GetClassFunctionName(TypeInfo* type, InplaceStr funcName)
+{
+	char	*memberFuncName = AllocateString((int)strlen(type->name) + 2 + (int)(funcName.end - funcName.begin) + 1);
+	sprintf(memberFuncName, "%s::%.*s", type->name, (int)(funcName.end - funcName.begin), funcName.begin);
+	return memberFuncName;
+}
+
 int parseInteger(const char* str)
 {
 	unsigned int digit;
@@ -808,8 +821,15 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 	// Find in variable list
 	int i = CodeInfo::FindVariableByName(hash);
 	if(i == -1)
-	{ 
-		int fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
+	{
+		int fID = -1;
+		if(newType)
+		{
+			unsigned int hash = GetStringHash(GetClassFunctionName(newType, varName));
+			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
+		}
+		if(fID == -1)
+			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 		if(fID == -1)
 			ThrowError(pos, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 
@@ -1156,8 +1176,7 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	if(!parentType->name)
 		ThrowError(pos, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
 	// Construct name in a form of Class::Function
-	char	*memberFuncName = AllocateString((int)strlen(parentType->name) + 2 + (int)strlen(funcName) + 1);
-	sprintf(memberFuncName, "%s::%s", parentType->name, funcName);
+	char *memberFuncName = GetClassFunctionName(parentType, funcName);
 	// Call it
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
 }
@@ -1355,10 +1374,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 	}
 	char *funcNameCopy = (char*)funcName;
 	if(newType)
-	{
-		funcNameCopy = AllocateString((int)strlen(newType->name) + 2 + (int)strlen(funcName) + 1);
-		sprintf(funcNameCopy, "%s::%s", newType->name, funcName);
-	}
+		funcNameCopy = GetClassFunctionName(newType, funcName);
 	funcNameHash = GetStringHash(funcNameCopy);
 
 	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy));
@@ -1562,7 +1578,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 		AddTwoExpressionNode();
 	}
 
-	if(newType)
+	if(newType && lastFunc.type == FunctionInfo::THISCALL)
 	{
 		newType->AddMemberFunction();
 		newType->lastFunction->func = &lastFunc;
@@ -1626,9 +1642,12 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		//Find all functions with given name
 		bestFuncList.clear();
 
+		unsigned int funcNameHash2 = ~0u;
+		/*if(newType)
+			funcNameHash2 = GetStringHash(GetClassFunctionName(newType, funcName));*/
 		for(unsigned int k = 0; k < CodeInfo::funcInfo.size(); k++)
 		{
-			if(CodeInfo::funcInfo[k]->nameHash == funcNameHash && CodeInfo::funcInfo[k]->visible && !((CodeInfo::funcInfo[k]->address & 0x80000000) && (CodeInfo::funcInfo[k]->address != -1)))
+			if((CodeInfo::funcInfo[k]->nameHash == funcNameHash || CodeInfo::funcInfo[k]->nameHash == funcNameHash2) && CodeInfo::funcInfo[k]->visible && !((CodeInfo::funcInfo[k]->address & 0x80000000) && (CodeInfo::funcInfo[k]->address != -1)))
 				bestFuncList.push_back(CodeInfo::funcInfo[k]);
 		}
 		unsigned int count = bestFuncList.size();
