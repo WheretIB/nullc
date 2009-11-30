@@ -651,7 +651,7 @@ void AddReturnNode(const char* pos)
 		if(!currDefinedFunc.back()->retType)
 		{
 			currDefinedFunc.back()->retType = realRetType;
-			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back());
+			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 		}
 		// Take expected return type
 		expectedType = currDefinedFunc.back()->retType;
@@ -1412,7 +1412,7 @@ void FunctionPrototype(const char* pos)
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(!lastFunc.retType)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
-	lastFunc.funcType = CodeInfo::GetFunctionType(CodeInfo::funcInfo.back());
+	lastFunc.funcType = CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()->retType, CodeInfo::funcInfo.back()->firstParam, CodeInfo::funcInfo.back()->paramCount);
 	currDefinedFunc.pop_back();
 }
 
@@ -1420,7 +1420,7 @@ void FunctionStart(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	lastFunc.implemented = true;
-	lastFunc.funcType = lastFunc.retType ? CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()) : NULL;
+	lastFunc.funcType = lastFunc.retType ? CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()->retType, CodeInfo::funcInfo.back()->firstParam, CodeInfo::funcInfo.back()->paramCount) : NULL;
 
 	BeginBlock();
 	cycleDepth.push_back(0);
@@ -1510,7 +1510,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 	if(!currDefinedFunc.back()->retType)
 	{
 		currDefinedFunc.back()->retType = typeVoid;
-		currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back());
+		currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 	}
 	currDefinedFunc.pop_back();
 

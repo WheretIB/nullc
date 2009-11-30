@@ -67,8 +67,58 @@ namespace CodeInfo
 	// Function returns type that is an array for passed type
 	TypeInfo* GetArrayType(TypeInfo* type, unsigned int sizeInArgument = 0);
 
-	// Function return function type
-	TypeInfo* GetFunctionType(FunctionInfo* info);
+	// Function returns function type
+	template<typename T>
+	TypeInfo* GetFunctionType(TypeInfo* retType, T* paramTypes, unsigned int paramCount)
+	{
+		// Find out the function type
+		TypeInfo	*bestFit = NULL;
+		// Search through active types
+		for(unsigned int i = 0; i < typeInfo.size(); i++)
+		{
+			if(typeInfo[i]->funcType)
+			{
+				if(typeInfo[i]->funcType->retType != retType)
+					continue;
+				if(typeInfo[i]->funcType->paramCount != paramCount)
+					continue;
+				bool good = true;
+				unsigned int n = 0;
+				TypeInfo	**paramType = typeInfo[i]->funcType->paramType;
+				for(T *curr = paramTypes; curr; curr = curr->next, n++)
+				{
+					if(curr->varType != paramType[n])
+					{
+						good = false;
+						break;
+					}
+				}
+				if(good)
+				{
+					bestFit = typeInfo[i];
+					break;
+				}
+			}
+		}
+		// If none found, create new
+		if(!bestFit)
+		{
+			typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX));
+			bestFit = typeInfo.back();
+			bestFit->CreateFunctionType(retType, paramCount);
+
+			unsigned int i = 0;
+			for(T *curr = paramTypes; curr; curr = curr->next, i++)
+				bestFit->funcType->paramType[i] = curr->varType;
+
+	#ifdef _DEBUG
+			bestFit->AddMemberVariable("context", typeInt);
+			bestFit->AddMemberVariable("ptr", typeInt);
+	#endif
+			bestFit->size = 8;
+		}
+		return bestFit;
+	}
 
 	// Search for the variable starting from the end of a list. -1 is returned if the variable not found
 	int	FindVariableByName(unsigned int hash);

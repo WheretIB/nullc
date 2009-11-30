@@ -110,58 +110,6 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	return newInfo;
 }
 
-// Function return function type
-TypeInfo* CodeInfo::GetFunctionType(FunctionInfo* info)
-{
-	// Find out the function type
-	TypeInfo	*bestFit = NULL;
-	// Search through active types
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
-	{
-		if(typeInfo[i]->funcType)
-		{
-			if(typeInfo[i]->funcType->retType != info->retType)
-				continue;
-			if(typeInfo[i]->funcType->paramCount != info->paramCount)
-				continue;
-			bool good = true;
-			unsigned int n = 0;
-			TypeInfo	**paramType = typeInfo[i]->funcType->paramType;
-			for(VariableInfo *curr = info->firstParam; curr; curr = curr->next, n++)
-			{
-				if(curr->varType != paramType[n])
-				{
-					good = false;
-					break;
-				}
-			}
-			if(good)
-			{
-				bestFit = typeInfo[i];
-				break;
-			}
-		}
-	}
-	// If none found, create new
-	if(!bestFit)
-	{
-		typeInfo.push_back(new TypeInfo(typeInfo.size(), NULL, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX));
-		bestFit = typeInfo.back();
-		bestFit->CreateFunctionType(info->retType, info->paramCount);
-
-		unsigned int i = 0;
-		for(VariableInfo *curr = info->firstParam; curr; curr = curr->next, i++)
-			bestFit->funcType->paramType[i] = curr->varType;
-
-#ifdef _DEBUG
-		bestFit->AddMemberVariable("context", typeInt);
-		bestFit->AddMemberVariable("ptr", typeInt);
-#endif
-		bestFit->size = 8;
-	}
-	return bestFit;
-}
-
 int	CodeInfo::FindVariableByName(unsigned int hash)
 {
 	for(int i = varInfo.size()-1; i >= 0; i--)
