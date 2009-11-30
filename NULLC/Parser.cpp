@@ -921,6 +921,11 @@ bool ParseTerminal(Lexeme** str)
 		}else if(ParseLexem(str, lex_point)){
 			if(!ParseFunctionCall(str, true))
 				ThrowError((*str)->pos, "ERROR: function call is excepted after '.'");
+			bool hadPost = false;
+			while(ParsePostExpression(str, &lastIsFunctionCall))
+				hadPost = true;
+			if(hadPost && !lastIsFunctionCall)
+				CALLBACK(AddGetVariableNode((*str)->pos));
 		}else{
 			if(!lastIsFunctionCall)
 				CALLBACK(AddGetVariableNode((*str)->pos));
