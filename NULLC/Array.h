@@ -58,7 +58,7 @@ public:
 	};
 	__forceinline T&		back(){ return data[count-1]; }
 	__forceinline unsigned int		size(){ return count; }
-	__forceinline void		pop_back(){ count--; }
+	__forceinline void		pop_back(){ assert(count > 0); count--; }
 	__forceinline void		clear(){ count = 0; }
 	__forceinline T&		operator[](unsigned int index){ return data[index]; }
 	__forceinline void		resize(unsigned int newsize){ if(newsize >= max) grow(newsize); count = newsize; }
