@@ -480,6 +480,8 @@ bool ParseForExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_oparen))
 		ThrowError((*str)->pos, "ERROR: '(' not found after 'for'");
 	
+	CALLBACK(BeginBlock());
+
 	if(ParseLexem(str, lex_ofigure))
 	{
 		if(!ParseCode(str))
@@ -522,8 +524,16 @@ bool ParseForExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: ')' not found after 'for' statement");
 
-	if(!ParseExpression(str))
+	if(ParseLexem(str, lex_ofigure))
+	{
+		if(!ParseCode(str))
+			CALLBACK(AddVoidNode());
+		if(!ParseLexem(str, lex_cfigure))
+			ThrowError((*str)->pos, "ERROR: closing '}' not found");
+	}else if(!ParseExpression(str))
 		ThrowError((*str)->pos, "ERROR: body not found after 'for' header");
+
+	CALLBACK(EndBlock());
 	CALLBACK(AddForNode(condPos));
 	return true;
 

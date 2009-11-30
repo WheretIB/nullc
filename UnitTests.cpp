@@ -1057,27 +1057,6 @@ return abs(-0.5);";
 		}
 	}
 
-#ifdef FAILURE_TEST
-
-const char	*testCmplxFail = 
-"//Some complexness %)\r\n\
-float3 a;\r\n\
-float4 b;\r\n\
-a = 12.0; // should fail\r\n\
-b = a; // should fail\r\n\
-return 1;";
-	printf("\r\nComplex fail test\r\n");
-	testCount++;
-	for(int t = 0; t < 2; t++)
-	{
-		if(!RunCode(testCmplxFail, testTarget[t], "1"))
-			passed[t]++;
-		else
-			printf("Should have failed");
-	}
-
-#endif
-
 const char	*testIncDec = 
 "int[5] test=0;\r\n\
 for(int i = 0; i < 5; i++)\r\n\
@@ -2026,7 +2005,6 @@ return b[1];";
 
 			CHECK_INT("t1", 0, 4);
 			CHECK_INT("t2", 0, 10);
-			CHECK_INT("i", 0, 3);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2144,7 +2122,6 @@ return 4;";
 			CHECK_INT("u", 0, 5);
 			CHECK_INT("t1", 0, 9);
 			CHECK_INT("t2", 0, 12);
-			CHECK_INT("i", 0, 4);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -3518,6 +3495,11 @@ return 1;";
 	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];");
 	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;");
 	TEST_FOR_FAIL("Type redefinition", "class int{ int a, b; } return 1;");
+
+	TEST_FOR_FAIL("Illegal conversion 1", "float3 a; a = 12.0; return 1;");
+	TEST_FOR_FAIL("Illegal conversion 2", "float4 b; b = a; return 1;");
+
+	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;");
 
 	//TEST_FOR_FAIL("parsing", "");
 
