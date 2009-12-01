@@ -1174,6 +1174,14 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		CodeInfo::nodeList.push_back(new NodeDereference());
 		currentType = CodeInfo::GetDereferenceType(currentType);
 	}
+	bool unifyTwo = false;
+	if(currentType->refLevel == 0 && currentType->type == TypeInfo::TYPE_COMPLEX)
+	{
+		AddInplaceVariable(pos);
+		currentType = CodeInfo::GetReferenceType(currentType);
+		unifyTwo = true;
+	}
+	CheckForImmutable(currentType, pos);
 	TypeInfo *parentType = currentType->subType;
 	if(!parentType->name)
 		ThrowError(pos, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
@@ -1181,6 +1189,8 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	char *memberFuncName = GetClassFunctionName(parentType, funcName);
 	// Call it
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
+	if(unifyTwo)
+		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
 void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)

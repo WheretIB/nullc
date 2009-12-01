@@ -3421,6 +3421,7 @@ const char	*testMemberFuncCallPostExpr =
 	auto vec(){ return v; }\r\n\
 	auto array(){ return arr; }\r\n\
 	auto func(){ return auto(){ return *this; }; }\r\n\
+	auto func2(){ return auto(){ return this; }; }\r\n\
 }\r\n\
 foo f;\r\n\
 f.init();\r\n\
@@ -3428,7 +3429,12 @@ float f1 = f.vec().x;\r\n\
 float f2 = f.func()().v.y;\r\n\
 int i1 = f.array()[0];\r\n\
 int i2 = f.func()().arr[1];\r\n\
-//int i3 = f.func()().func()()[2]\r\n\
+int i3 = f.func()().func()().arr[2];\r\n\
+\r\n\
+float f3 = f.func2()().v.y;\r\n\
+int i4 = f.func2()().arr[0];\r\n\
+int i5 = f.func2()().func2()().arr[1];\r\n\
+int i6 = f.func()().func2()().arr[2];\r\n\
 return 1;";
 	printf("\r\nMember function call post expressions\r\n");
 	testCount++;
@@ -3440,9 +3446,13 @@ return 1;";
 
 			CHECK_FLOAT("f1", 0, 4);
 			CHECK_FLOAT("f2", 0, 9);
+			CHECK_FLOAT("f3", 0, 9);
 			CHECK_INT("i1", 0, 12);
 			CHECK_INT("i2", 0, 14);
-			//CHECK_INT("i3", 0, 17);
+			CHECK_INT("i3", 0, 17);
+			CHECK_INT("i4", 0, 12);
+			CHECK_INT("i5", 0, 14);
+			CHECK_INT("i6", 0, 17);
 
 			if(!lastFailed)
 				passed[t]++;
