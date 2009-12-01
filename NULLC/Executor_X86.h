@@ -5,7 +5,7 @@
 
 #include "ParseClass.h"
 
-#include "Linker.h"
+#include "Executor_Common.h"
 
 class ExecutorX86
 {

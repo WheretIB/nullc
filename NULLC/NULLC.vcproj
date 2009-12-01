@@ -560,6 +560,14 @@
 				RelativePath=".\Executor.h"
 				>
 			</File>
+			<File
+				RelativePath=".\Executor_Common.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Executor_Common.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Executor_X86"

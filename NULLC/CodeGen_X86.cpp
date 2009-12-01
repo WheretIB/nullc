@@ -1949,8 +1949,8 @@ void GenCodeCmdAddAtDoubleStk(VMCmd cmd)
 	}
 }
 
-void (*closureCreateFunc)(unsigned int, unsigned int, unsigned int, unsigned int*) = NULL;
-void SetClosureCreateFunc(void (*f)(unsigned int, unsigned int, unsigned int, unsigned int*))
+void (*closureCreateFunc)() = NULL;
+void SetClosureCreateFunc(void (*f)())
 {
 	closureCreateFunc = f;
 }
@@ -1961,15 +1961,15 @@ void GenCodeCmdCreateClosure(VMCmd cmd)
 
 	EMIT_OP_NUM(o_push, cmd.argument);
 	EMIT_OP_NUM(o_push, cmd.helper);
-	EMIT_OP_REG(o_push, rEBP);
+	EMIT_OP_REG_RPTR(o_lea, rEBX, sDWORD, rEBP, paramBase);
+	EMIT_OP_REG(o_push, rEBX);
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)closureCreateFunc);
 	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG(o_pop, rEBP);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
+	EMIT_OP_REG_NUM(o_add, rESP, 16);
 }
 
-void (*upvaluesCloseFunc)(unsigned int, unsigned int, unsigned int) = NULL;
-void SetUpvaluesCloseFunc(void (*f)(unsigned int, unsigned int, unsigned int))
+void (*upvaluesCloseFunc)() = NULL;
+void SetUpvaluesCloseFunc(void (*f)())
 {
 	upvaluesCloseFunc = f;
 }
@@ -1980,11 +1980,11 @@ void GenCodeCmdCloseUpvalues(VMCmd cmd)
 
 	EMIT_OP_NUM(o_push, cmd.argument);
 	EMIT_OP_NUM(o_push, cmd.helper);
-	EMIT_OP_REG(o_push, rEBP);
+	EMIT_OP_REG_RPTR(o_lea, rEBX, sDWORD, rEBP, paramBase);
+	EMIT_OP_REG(o_push, rEBX);
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)upvaluesCloseFunc);
 	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG(o_pop, rEBP);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 12);
 }
 
 #endif
