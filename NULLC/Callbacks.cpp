@@ -1641,17 +1641,29 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	NodeZeroOP	*funcAddr = NULL;
 
+	if(newType)
+	{
+		char *name = GetClassFunctionName(newType, funcName);
+		unsigned int hash = GetStringHash(name);
+		if(CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1) != -1)
+		{
+			funcNameHash = hash;
+			funcName = name;
+
+			FunctionInfo *currFunc = currDefinedFunc.back();
+			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
+			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+			AddDereferenceNode(pos);
+		}
+	}
 	if(vID == -1 && funcName)
 	{
 		//Find all functions with given name
 		bestFuncList.clear();
 
-		unsigned int funcNameHash2 = ~0u;
-		/*if(newType)
-			funcNameHash2 = GetStringHash(GetClassFunctionName(newType, funcName));*/
 		for(unsigned int k = 0; k < CodeInfo::funcInfo.size(); k++)
 		{
-			if((CodeInfo::funcInfo[k]->nameHash == funcNameHash || CodeInfo::funcInfo[k]->nameHash == funcNameHash2) && CodeInfo::funcInfo[k]->visible && !((CodeInfo::funcInfo[k]->address & 0x80000000) && (CodeInfo::funcInfo[k]->address != -1)))
+			if(CodeInfo::funcInfo[k]->nameHash == funcNameHash && CodeInfo::funcInfo[k]->visible && !((CodeInfo::funcInfo[k]->address & 0x80000000) && (CodeInfo::funcInfo[k]->address != -1)))
 				bestFuncList.push_back(CodeInfo::funcInfo[k]);
 		}
 		unsigned int count = bestFuncList.size();
