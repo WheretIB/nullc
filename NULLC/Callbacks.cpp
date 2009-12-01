@@ -830,6 +830,9 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		{
 			unsigned int hash = GetStringHash(GetClassFunctionName(newType, varName));
 			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
+
+			if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
+				ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 		}
 		if(fID == -1)
 			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
@@ -853,6 +856,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 				AddGetAddressNode(pos, InplaceStr(contextName, length));
 				AddGetVariableNode(pos);
 			}
+		}else if(CodeInfo::funcInfo[fID]->type == FunctionInfo::THISCALL){
+			FunctionInfo *currFunc = currDefinedFunc.back();
+			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
+			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+			AddDereferenceNode(pos);
 		}
 
 		// Create node that retrieves function address
