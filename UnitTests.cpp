@@ -3339,6 +3339,79 @@ return 1;";
 		}
 	}
 
+	// Partial upvalue list closure
+const char	*testUpvalues4 =
+"int ref()[4] arr;\r\n\
+\r\n\
+int func()\r\n\
+{\r\n\
+	int m = 8;\r\n\
+	for(int i = 0; i < 2; i++)\r\n\
+	{\r\n\
+		int a = 5 * (i + 1);\r\n\
+		arr[i*2+0] = auto(){ return a + m; };\r\n\
+		int b = i - 3;\r\n\
+		arr[i*2+1] = auto(){ return b + m; };\r\n\
+	}\r\n\
+	m = 12;\r\n\
+	return 0;\r\n\
+}\r\n\
+int clear()\r\n\
+{\r\n\
+	int[20] clr = 0;\r\n\
+	int ref a = &clr[0];\r\n\
+	return *a;\r\n\
+}\r\n\
+func();\r\n\
+clear();\r\n\
+int i1 = arr[0]();\r\n\
+int i2 = arr[1]();\r\n\
+int i3 = arr[2]();\r\n\
+int i4 = arr[3]();\r\n\
+return 1;";
+	printf("\r\nClosure with upvalues test 4\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testUpvalues4, testTarget[t], "1"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("i1", 0, 17);
+			CHECK_INT("i2", 0, 9);
+			CHECK_INT("i3", 0, 22);
+			CHECK_INT("i4", 0, 10);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testUpvalues5 =
+"int func()\r\n\
+{\r\n\
+	auto f = auto init() { return 1; };\r\n\
+	for (int i = 0; i < 10; ++i)\r\n\
+	{\r\n\
+		auto temp = f;\r\n\
+		f = auto next() { return 1 + temp();  };\r\n\
+	}\r\n\
+	auto g = f();\r\n\
+	return g;\r\n\
+}\r\n\
+return func();";
+	printf("\r\nClosure with upvalues test 5\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testUpvalues5, testTarget[t], "11"))
+		{
+			lastFailed = false;
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 const char	*testMemberFuncCallPostExpr =
 "class foo\r\n\
 {\r\n\
@@ -3387,7 +3460,7 @@ g()[0] = 12;\r\n\
 g()[1] = 18;\r\n\
 (v2 > 5 ? &v2 : &v4) = 5;\r\n\
 return 1;";
-	printf("\r\nClosure with upvalues test 1\r\n");
+	printf("\r\nL-value extended cases\r\n");
 	testCount++;
 	for(int t = 0; t < 2; t++)
 	{

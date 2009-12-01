@@ -885,7 +885,7 @@ void Executor::Run(const char* funcName)
 				ExternFuncInfo *varParent = &exFunctions[externals[i].closeFuncList & ~0x80000000];
 				if(externals[i].closeFuncList & 0x80000000)
 				{
-					closure->ptr = (unsigned int*)(externals[i].target + paramBase + &genParams[0]);
+					closure->ptr = (unsigned int*)&genParams[externals[i].target + paramBase];
 				}else{
 					unsigned int *prevClosure = (unsigned int*)(intptr_t)*(int*)(&genParams[cmd.helper + paramBase]);
 					closure->ptr = (unsigned int*)(intptr_t)prevClosure[externals[i].target >> 2];
@@ -899,18 +899,29 @@ void Executor::Run(const char* funcName)
 			break;
 		case cmdCloseUpvals:
 		{
-			ExternFuncInfo &func = exFunctions[cmd.argument];
-			ExternFuncInfo::Upvalue *curr = func.externalList;
-			while(curr && (char*)curr->ptr >= paramBase + &genParams[0])
+			ExternFuncInfo &func = exFunctions[cmd.helper];
+			ExternFuncInfo::Upvalue *curr = func.externalList, *prev = NULL;
+			while(curr && (char*)curr->ptr >= &genParams[paramBase])
 			{
 				ExternFuncInfo::Upvalue *next = curr->next;
 				unsigned int size = curr->size;
 
-				memcpy(&curr->next, curr->ptr, size);
-				curr->ptr = (unsigned int*)&curr->next;
+				// Close only in part of scope
+				if((char*)curr->ptr >= &genParams[paramBase + cmd.argument])
+				{
+					// delete from list
+					if(prev)
+						prev->next = curr->next;
+					else
+						func.externalList = curr->next;
+
+					memcpy(&curr->next, curr->ptr, size);
+					curr->ptr = (unsigned int*)&curr->next;
+				}else{
+					prev = curr;
+				}
 				curr = next;
 			}
-			func.externalList = curr;
 		}
 			break;
 		}
