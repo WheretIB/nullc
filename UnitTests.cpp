@@ -3479,6 +3479,32 @@ return 1;";
 		}
 	}
 
+const char	*testClassFuncReturn =
+"class Test\r\n\
+{\r\n\
+	int i;\r\n\
+	int foo(){ return i; }\r\n\
+	auto bar(){ return foo; }\r\n\
+}\r\n\
+Test a;\r\n\
+a.i = 5;\r\n\
+auto k = a.bar()();\r\n\
+return 1;";
+	printf("\r\nClass function return\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testClassFuncReturn, testTarget[t], "1"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("k", 0, 5);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+	
 #define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
@@ -3588,6 +3614,9 @@ return 1;";
 	TEST_FOR_FAIL("Illegal conversion 2", "float4 b; b = a; return 1;");
 
 	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;");
+
+	TEST_FOR_FAIL("Class function return unclear 1", "class Test{int i;int foo(){ return i; }int foo(int k){ return i; }auto bar(){ return foo; }}return 1;");
+	TEST_FOR_FAIL("Class function return unclear 2", "int foo(){ return 2; }class Test{int i;int foo(){ return i; }auto bar(){ return foo; }}return 1;");
 
 	//TEST_FOR_FAIL("parsing", "");
 
