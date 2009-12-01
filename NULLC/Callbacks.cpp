@@ -815,7 +815,7 @@ void SetTypeOfLastNode()
 }
 
 // Function that retrieves variable address
-void AddGetAddressNode(const char* pos, InplaceStr varName)
+void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunction)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -831,7 +831,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			unsigned int hash = GetStringHash(GetClassFunctionName(newType, varName));
 			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 
-			if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
+			if(!preferLastFunction && CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 				ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 		}
 		if(fID == -1)
@@ -839,7 +839,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		if(fID == -1)
 			ThrowError(pos, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 
-		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
+		if(!preferLastFunction && CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 
 		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL)
@@ -857,9 +857,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 				AddGetVariableNode(pos);
 			}
 		}else if(CodeInfo::funcInfo[fID]->type == FunctionInfo::THISCALL){
-			FunctionInfo *currFunc = currDefinedFunc.back();
-			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
-			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+			AddGetAddressNode(pos, InplaceStr("this", 4));
 			AddDereferenceNode(pos);
 		}
 
@@ -1300,7 +1298,7 @@ bool ConvertFunctionToPointer(const char* pos)
 	{
 		// Take it's address and hide it's name
 		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(CodeInfo::nodeList.back()->nodeType == typeNodeFuncDef ? CodeInfo::nodeList.back() : static_cast<NodeExpressionList*>(CodeInfo::nodeList.back())->GetFirstNode());
-		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength));
+		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength), true);
 		funcDefNode->GetFuncInfo()->visible = false;
 		return true;
 	}
@@ -1650,9 +1648,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			funcNameHash = hash;
 			funcName = name;
 
-			FunctionInfo *currFunc = currDefinedFunc.back();
-			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
-			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+			AddGetAddressNode(pos, InplaceStr("this", 4));
 			AddDereferenceNode(pos);
 		}
 	}
