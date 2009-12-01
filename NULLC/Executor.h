@@ -2,7 +2,7 @@
 #include "stdafx.h"
 #include "ParseClass.h"
 
-#include "Linker.h"
+#include "Executor_Common.h"
 
 const int ERROR_BUFFER_SIZE = 1024;
 

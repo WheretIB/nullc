@@ -9,8 +9,6 @@
 	#define DBG(x)
 #endif
 
-#include "CodeInfo.h"
-
 long long vmLongPow(long long num, long long pow)
 {
 	if(pow < 0)
@@ -62,6 +60,8 @@ void Executor::Run(const char* funcName)
 		return;
 	}
 	fcallStack.clear();
+
+	CommonSetLinker(exLinker);
 
 	// $$$ Temporal solution to prevent stack from resizing, until there will be code that fixes pointers to stack variables. 
 	genParams.reserve(1024 * 1024);
@@ -874,55 +874,11 @@ void Executor::Run(const char* funcName)
 		}
 			break;
 		case cmdCreateClosure:
-		{
-			ExternFuncInfo::Upvalue *closure = (ExternFuncInfo::Upvalue*)(intptr_t)*genStackPtr;
+			ClosureCreate(&genParams[paramBase], cmd.helper, cmd.argument, (ExternFuncInfo::Upvalue*)(intptr_t)*genStackPtr);
 			genStackPtr++;
-
-			ExternFuncInfo &func = exFunctions[cmd.argument];
-			ExternLocalInfo *externals = &exLinker->exLocals[func.offsetToFirstLocal + func.localCount];
-			for(unsigned int i = 0; i < func.externCount; i++)
-			{
-				ExternFuncInfo *varParent = &exFunctions[externals[i].closeFuncList & ~0x80000000];
-				if(externals[i].closeFuncList & 0x80000000)
-				{
-					closure->ptr = (unsigned int*)&genParams[externals[i].target + paramBase];
-				}else{
-					unsigned int *prevClosure = (unsigned int*)(intptr_t)*(int*)(&genParams[cmd.helper + paramBase]);
-					closure->ptr = (unsigned int*)(intptr_t)prevClosure[externals[i].target >> 2];
-				}
-				closure->next = varParent->externalList;
-				closure->size = externals[i].size;
-				varParent->externalList = closure;
-				closure = (ExternFuncInfo::Upvalue*)((int*)closure + ((externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2)));
-			}
-		}
 			break;
 		case cmdCloseUpvals:
-		{
-			ExternFuncInfo &func = exFunctions[cmd.helper];
-			ExternFuncInfo::Upvalue *curr = func.externalList, *prev = NULL;
-			while(curr && (char*)curr->ptr >= &genParams[paramBase])
-			{
-				ExternFuncInfo::Upvalue *next = curr->next;
-				unsigned int size = curr->size;
-
-				// Close only in part of scope
-				if((char*)curr->ptr >= &genParams[paramBase + cmd.argument])
-				{
-					// delete from list
-					if(prev)
-						prev->next = curr->next;
-					else
-						func.externalList = curr->next;
-
-					memcpy(&curr->next, curr->ptr, size);
-					curr->ptr = (unsigned int*)&curr->next;
-				}else{
-					prev = curr;
-				}
-				curr = next;
-			}
-		}
+			CloseUpvalues(&genParams[paramBase], cmd.helper, cmd.argument);
 			break;
 		}
 
@@ -940,42 +896,7 @@ void Executor::Run(const char* funcName)
 		int address = int(cmdStream - cmdStreamBase);
 		do
 		{
-			int funcID = -1;
-			for(unsigned int i = 0; i < exFunctions.size(); i++)
-				if(address >= exFunctions[i].address && address <= (exFunctions[i].address + exFunctions[i].codeSize))
-					funcID = i;
-			if(funcID != -1)
-				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "%s", &exLinker->exSymbols[exFunctions[funcID].offsetToName]);
-			else
-				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "%s", address == -1 ? "external" : "global scope");
-			if(address != -1)
-			{
-				unsigned int line = 0;
-				unsigned int i = address - 1;
-				while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
-						line++;
-				const char *codeStart = CodeInfo::cmdInfoList.sourceInfo[line].sourcePos;
-				while(*codeStart == ' ' || *codeStart == '\t')
-					codeStart++;
-				int codeLength = (int)(CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - codeStart) - 1;
-				currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " (at %.*s)\r\n", codeLength, codeStart);
-			}
-#ifdef NULLC_STACK_TRACE_WITH_LOCALS
-			if(funcID != -1)
-			{
-				for(unsigned int i = 0; i < exFunctions[funcID].localCount + exFunctions[funcID].externCount; i++)
-				{
-					ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-					const char *typeName = &exLinker->exSymbols[exTypes[lInfo.type].offsetToName];
-					const char *localName = &exLinker->exSymbols[lInfo.offsetToName];
-					const char *localType = lInfo.paramType == ExternLocalInfo::PARAMETER ? "param" : (lInfo.paramType == ExternLocalInfo::EXTERNAL ? "extern" : "local");
-					const char *offsetType = (lInfo.paramType == ExternLocalInfo::PARAMETER || lInfo.paramType == ExternLocalInfo::LOCAL) ? "base" :
-						(lInfo.closeFuncList & 0x80000000 ? "local" : "closure");
-					currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), " %s %d: %s %s (at %s+%d size %d)\r\n",
-						localType, i, typeName, localName, offsetType, lInfo.offset, exTypes[lInfo.type].size);
-				}
-			}
-#endif
+			currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError));
 
 			if(!fcallStack.size())
 				break;

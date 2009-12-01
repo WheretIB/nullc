@@ -762,7 +762,6 @@ bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 
 bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 {
-	Lexeme *start = *str;
 	if(ParseLexem(str, lex_point))
 	{
 		if((*str)->type != lex_string)

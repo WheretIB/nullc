@@ -437,23 +437,8 @@ void ExecutorX86::Run(const char* funcName)
 					break;
 			}
 
-			int funcID = -1;
-			for(unsigned int i = 0; i < exFunctions.size(); i++)
-				if((int)address >= exFunctions[i].address && (int)address <= (exFunctions[i].address + exFunctions[i].codeSize))
-					funcID = i;
-			if(funcID != -1)
-				currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "%s", &exLinker->exSymbols[exFunctions[funcID].offsetToName]);
-			else
-				currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "%s", address == -1 ? "external" : "global scope");
-			if(address != -1)
-			{
-				unsigned int line = 0;
-				unsigned int i = address - 1;
-				while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
-						line++;
-				currPos += SafeSprintf(currPos, 512 - int(currPos - execError), " (at %.*s)\r\n",
-					CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos-1, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
-			}
+			currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
+
 			stackTop++;
 		}
 	}
@@ -464,60 +449,6 @@ void ExecutorX86::Stop(const char* error)
 {
 	callContinue = false;
 	SafeSprintf(execError, 512, error);
-}
-
-namespace NULLC
-{
-	Linker *linker = NULL;
-}
-
-void ClosureCreate(unsigned int paramBase, unsigned int helper, unsigned int argument, unsigned int *closure)
-{
-	ExternFuncInfo &func = NULLC::linker->exFunctions[argument];
-	ExternLocalInfo *externals = &NULLC::linker->exLocals[func.offsetToFirstLocal + func.localCount];
-	for(unsigned int i = 0; i < func.externCount; i++)
-	{
-		ExternFuncInfo *varParent = &NULLC::linker->exFunctions[externals[i].closeFuncList & ~0x80000000];
-		if(externals[i].closeFuncList & 0x80000000)
-		{
-			closure[0] = (unsigned int)(intptr_t)(externals[i].target + paramBase + NULLC::parameterHead);
-		}else{
-			unsigned int **prevClosure = (unsigned int**)(NULLC::parameterHead + helper + paramBase);
-
-			closure[0] = (*prevClosure)[externals[i].target >> 2];
-		}
-		closure[1] = (unsigned int)(intptr_t)varParent->externalList;
-		closure[2] = externals[i].size;
-		varParent->externalList = (ExternFuncInfo::Upvalue*)closure;
-		closure += (externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2);
-	}
-}
-
-void CloseUpvalues(unsigned int paramBase, unsigned int helper, unsigned int argument)
-{
-	ExternFuncInfo &func = NULLC::linker->exFunctions[helper];
-	ExternFuncInfo::Upvalue *curr = func.externalList, *prev = NULL;
-	while(curr && (char*)curr->ptr >= (paramBase + NULLC::parameterHead))
-	{
-		ExternFuncInfo::Upvalue *next = curr->next;
-		unsigned int size = curr->size;
-
-		// Close only in part of scope
-		if((char*)curr->ptr >= (paramBase + NULLC::parameterHead + argument))
-		{
-			// delete from list
-			if(prev)
-				prev->next = curr->next;
-			else
-				func.externalList = curr->next;
-
-			memcpy(&curr->next, curr->ptr, size);
-			curr->ptr = (unsigned int*)&curr->next;
-		}else{
-			prev = curr;
-		}
-		curr = next;
-	}
 }
 
 bool ExecutorX86::TranslateToNative()
@@ -535,10 +466,10 @@ bool ExecutorX86::TranslateToNative()
 
 	SetParamBase((unsigned int)(long long)paramBase);
 	SetLastInstruction(&instList[0]);
-	SetClosureCreateFunc(ClosureCreate);
-	SetUpvaluesCloseFunc(CloseUpvalues);
+	SetClosureCreateFunc((void(*)())ClosureCreate);
+	SetUpvaluesCloseFunc((void(*)())CloseUpvalues);
 
-	NULLC::linker = exLinker;
+	CommonSetLinker(exLinker);
 
 	EMIT_OP(o_use32);
 
