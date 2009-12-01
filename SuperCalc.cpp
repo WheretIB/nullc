@@ -173,6 +173,15 @@ void WriteToConsole(NullCArray data)
 	WriteFile(conStdOut, data.ptr, data.len-1, &written, NULL); 
 }
 
+void WriteIntConsole(int num)
+{
+	InitConsole();
+	char buf[64];
+	sprintf(buf, "%d\r\n", num);
+	DWORD written;
+	WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
+}
+
 void ReadIntFromConsole(int* val)
 {
 	InitConsole();
@@ -320,6 +329,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	REGISTER(myFileReadTypePtr<int>, "void FileRead(file fID, int ref data);");
 	REGISTER(myFileReadTypePtr<long long>, "void FileRead(file fID, long ref data);");
 
+	REGISTER(WriteIntConsole, "void Print(int text);");
 	REGISTER(WriteToConsole, "void Print(char[] text);");
 	REGISTER(ReadIntFromConsole, "void Input(int ref num);");
 	REGISTER(ReadTextFromConsole, "int Input(char[] buf);");

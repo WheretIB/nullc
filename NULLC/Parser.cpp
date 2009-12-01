@@ -765,19 +765,20 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 	Lexeme *start = *str;
 	if(ParseLexem(str, lex_point))
 	{
-		if(isFunctionCall)
-			*isFunctionCall = false;
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: member variable expected after '.'");
+		if(isFunctionCall)
+			*isFunctionCall = (*str)[1].type == lex_oparen;
 		if((*str)[1].type == lex_oparen)
 		{
-			*str = start;
-			return false;
+			if(!ParseFunctionCall(str, true))
+				ThrowError((*str)->pos, "ERROR: function call is excepted after '.'");
+		}else{
+			if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+				ThrowError((*str)->pos, "ERROR: variable name length is limited to 2048 symbols");
+			CALLBACK(AddMemberAccessNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
+			(*str)++;
 		}
-		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-			ThrowError((*str)->pos, "ERROR: variable name length is limited to 2048 symbols");
-		CALLBACK(AddMemberAccessNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
-		(*str)++;
 	}else if(ParseLexem(str, lex_obracket)){
 		if(isFunctionCall)
 			*isFunctionCall = false;
@@ -969,14 +970,6 @@ bool ParseTerminal(Lexeme** str)
 			CALLBACK(AddPreOrPostOpNode((*str)->pos, false, false));
 		}else if(ParseLexem(str, lex_inc)){
 			CALLBACK(AddPreOrPostOpNode((*str)->pos, true, false));
-		}else if(ParseLexem(str, lex_point)){
-			if(!ParseFunctionCall(str, true))
-				ThrowError((*str)->pos, "ERROR: function call is excepted after '.'");
-			bool hadPost = false;
-			while(ParsePostExpression(str, &lastIsFunctionCall))
-				hadPost = true;
-			if(hadPost && !lastIsFunctionCall)
-				needDereference = true;
 		}else{
 			if(!lastIsFunctionCall)
 				needDereference = true;
