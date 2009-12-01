@@ -205,8 +205,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		case cmdCallStd:
 		case cmdFuncAddr:
 		case cmdCreateClosure:
-		case cmdCloseUpvals:
 			cmd.argument = funcRemap[cmd.argument];
+			break;
+		case cmdCloseUpvals:
+			cmd.helper = (unsigned short)funcRemap[cmd.helper];
 			break;
 		}
 	}

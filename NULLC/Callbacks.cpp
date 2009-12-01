@@ -169,6 +169,9 @@ void BeginBlock()
 // Restores previous number of defined variables and functions to hide those that lost visibility
 void EndBlock(bool hideFunctions)
 {
+	if(currDefinedFunc.size() > 0 && currDefinedFunc.back()->closeUpvals)
+		CodeInfo::nodeList.push_back(new NodeBlock(currDefinedFunc.back(), varInfoTop.back().varStackSize));
+
 	CodeInfo::varInfo.shrink(varInfoTop.back().activeVarCnt);
 	varInfoTop.pop_back();
 

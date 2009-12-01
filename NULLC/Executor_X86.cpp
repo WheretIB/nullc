@@ -493,20 +493,31 @@ void ClosureCreate(unsigned int paramBase, unsigned int helper, unsigned int arg
 	}
 }
 
-void CloseUpvalues(unsigned int paramBase, unsigned int argument)
+void CloseUpvalues(unsigned int paramBase, unsigned int helper, unsigned int argument)
 {
-	ExternFuncInfo &func = NULLC::linker->exFunctions[argument];
-	unsigned int *curr = (unsigned int*)func.externalList;
-	while(curr && *curr >= (paramBase + (unsigned int)(intptr_t)NULLC::parameterHead))
+	ExternFuncInfo &func = NULLC::linker->exFunctions[helper];
+	ExternFuncInfo::Upvalue *curr = func.externalList, *prev = NULL;
+	while(curr && (char*)curr->ptr >= (paramBase + NULLC::parameterHead))
 	{
-		unsigned int *next = (unsigned int*)(intptr_t)curr[1];
-		unsigned int size = curr[2];
+		ExternFuncInfo::Upvalue *next = curr->next;
+		unsigned int size = curr->size;
 
-		memcpy(&curr[1], (unsigned int*)(intptr_t)curr[0], size);
-		curr[0] = (unsigned int)(intptr_t)&curr[1];
+		// Close only in part of scope
+		if((char*)curr->ptr >= (paramBase + NULLC::parameterHead + argument))
+		{
+			// delete from list
+			if(prev)
+				prev->next = curr->next;
+			else
+				func.externalList = curr->next;
+
+			memcpy(&curr->next, curr->ptr, size);
+			curr->ptr = (unsigned int*)&curr->next;
+		}else{
+			prev = curr;
+		}
 		curr = next;
 	}
-	func.externalList = (ExternFuncInfo::Upvalue*)curr;
 }
 
 bool ExecutorX86::TranslateToNative()

@@ -372,8 +372,11 @@ struct VMCmd
 			curr += sprintf(curr, " [stk + %d] flag: %d helper: %d", argument, (int)flag, helper);
 			break;
 		case cmdCreateClosure:
-		case cmdCloseUpvals:
 			curr += sprintf(curr, " Function id: %d", argument);
+			break;
+		case cmdCloseUpvals:
+			curr += sprintf(curr, " Function id: %d Stack offset: %d", helper, argument);
+			break;
 		}
 		return (int)(curr-buf);
 	}

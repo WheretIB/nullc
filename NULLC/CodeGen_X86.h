@@ -188,5 +188,5 @@ void GenCodeCmdAddAtDoubleStk(VMCmd cmd);
 void SetClosureCreateFunc(void (*f)(unsigned int, unsigned int, unsigned int, unsigned int*));
 void GenCodeCmdCreateClosure(VMCmd cmd);
 
-void SetUpvaluesCloseFunc(void (*f)(unsigned int, unsigned int));
+void SetUpvaluesCloseFunc(void (*f)(unsigned int, unsigned int, unsigned int));
 void GenCodeCmdCloseUpvalues(VMCmd cmd);

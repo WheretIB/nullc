@@ -399,7 +399,7 @@ void NodeReturnOp::Compile()
 	if(retSize != 0 && retSize < 4)
 		retSize = 4;
 	if(parentFunction && parentFunction->closeUpvals)
-		cmdList.push_back(VMCmd(cmdCloseUpvals, CodeInfo::FindFunctionByPtr(parentFunction)));
+		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned short)CodeInfo::FindFunctionByPtr(parentFunction), 0));
 	cmdList.push_back(VMCmd(cmdReturn, (unsigned char)operType, (unsigned short)localReturn, retSize));
 }
 void NodeReturnOp::LogToStream(FILE *fGraph)
@@ -414,6 +414,40 @@ void NodeReturnOp::LogToStream(FILE *fGraph)
 	GoUp();
 }
 
+//////////////////////////////////////////////////////////////////////////
+
+NodeBlock::NodeBlock(FunctionInfo* parentFunc, unsigned int shift)
+{
+	parentFunction = parentFunc;
+	stackFrameShift = shift;
+
+	first = TakeLastNode();
+
+	nodeType = typeNodeBlockOp;
+}
+NodeBlock::~NodeBlock()
+{
+}
+
+void NodeBlock::Compile()
+{
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
+	// Compute value that we're going to return
+	first->Compile();
+	if(parentFunction->closeUpvals)
+		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned short)CodeInfo::FindFunctionByPtr(parentFunction), stackFrameShift));
+}
+
+void NodeBlock::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s BlockOp (close upvalues from offset %d of function %s) %s:\r\n", first->typeInfo->GetFullTypeName(), stackFrameShift, parentFunction->name, parentFunction->closeUpvals ? "yes" : "no");
+	GoDownB();
+	first->LogToStream(fGraph);
+	GoUp();
+}
 //////////////////////////////////////////////////////////////////////////
 // Nodes that compiles function
 

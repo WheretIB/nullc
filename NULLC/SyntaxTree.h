@@ -34,6 +34,7 @@ enum NodeType
 	typeNodeContinueOp,
 	typeNodeVariableModify,
 	typeNodeGetUpvalue,
+	typeNodeBlockOp,
 };
 //////////////////////////////////////////////////////////////////////////
 
@@ -217,6 +218,19 @@ public:
 protected:
 	bool			localReturn;
 	FunctionInfo	*parentFunction;
+};
+
+class NodeBlock: public NodeOneOP
+{
+public:
+	NodeBlock(FunctionInfo* parentFunc, unsigned int shift);
+	virtual ~NodeBlock();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+protected:
+	FunctionInfo	*parentFunction;
+	unsigned int	stackFrameShift;
 };
 
 class NodeFuncDef: public NodeOneOP

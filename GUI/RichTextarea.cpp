@@ -1415,6 +1415,7 @@ void TextareaData::OnCharacter(char ch)
 	unsigned int startX, startY, endX, endY;
 	if(ch >= 0x20 || ch == '\t')	// If it isn't special symbol or it is a Tab
 	{
+		needUpdate = true;
 		// We add a history snapshot only if cursor position changed since last character input
 		static unsigned int lastCursorX = ~0u, lastCursorY = ~0u;
 		if(cursorCharX != lastCursorX || cursorCharY != lastCursorY)
@@ -1531,6 +1532,7 @@ void TextareaData::OnCharacter(char ch)
 			InputChar('\t');
 			effectiveIdent -= TAB_SIZE;
 		}
+		needUpdate = true;
 	}else if(ch == '\b'){	// Backspace
 		// Remove selection
 		if(selectionOn)
@@ -1538,8 +1540,10 @@ void TextareaData::OnCharacter(char ch)
 		else
 			DeletePreviousChar();
 		ScrollToCursor();
+		needUpdate = true;
 	}else if(ch == 22){	// Ctrl+V
 		OnPaste();
+		needUpdate = true;
 	}else if(ch == 1){	// Ctrl+A
 		// Select all
 		selectionOn = true;
@@ -1556,11 +1560,12 @@ void TextareaData::OnCharacter(char ch)
 		InvalidateRect(areaWnd, NULL, false);
 	}else if(ch == 3 || ch == 24){	// Ctrl+C and Ctrl+X
 		OnCopyOrCut(ch == 24);
+		needUpdate = ch == 24 ? true : false;
 	}else if(ch == 26){	// Ctrl+Z
 		history->Undo();
+		needUpdate = true;
 	}
 	ScrollToCursor();
-	needUpdate = true;
 }
 
 void TextareaData::OnKeyEvent(int key)
