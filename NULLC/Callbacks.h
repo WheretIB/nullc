@@ -62,7 +62,7 @@ void GetTypeSize(const char* pos, bool sizeOfExpr);
 void SetTypeOfLastNode();
 
 // Function that retrieves variable address
-void AddGetAddressNode(const char* pos, InplaceStr varName);
+void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunction = false);
 
 // Function for array indexing
 void AddArrayIndexNode(const char* pos);
