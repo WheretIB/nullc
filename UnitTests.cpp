@@ -3279,7 +3279,8 @@ return add3(add13(4));";
 
 	// Test checks if values of recursive function are captured correctly and that at the end of recursive function, it closes only upvalues that target it's stack frame
 const char	*testUpvalues3 =
-"int ref(int ref) f1, f2;\r\n\
+"typedef int ref(int ref) myFunc;\r\n\
+myFunc f1, f2;\r\n\
 \r\n\
 int k1, k2, k3 = 0;\r\n\
 int dh;\r\n\

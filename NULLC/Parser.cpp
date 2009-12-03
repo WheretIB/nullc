@@ -1132,6 +1132,7 @@ bool ParseExpression(Lexeme** str)
 		ParseSwitchExpr(str);
 		break;
 	case lex_typedef:
+		(*str)++;
 		if(!ParseSelectType(str))
 			ThrowError((*str)->pos, "ERROR: typename expected after typedef");
 
