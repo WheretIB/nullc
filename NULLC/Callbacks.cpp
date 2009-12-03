@@ -36,10 +36,10 @@ FastVector<unsigned int>	cycleDepth;
 FastVector<FunctionInfo*>	currDefinedFunc;
 
 // Information about current type
-TypeInfo*	currType = NULL;
+TypeInfo*		currType = NULL;
 
 // For new type creation
-TypeInfo *newType = NULL;
+TypeInfo*		newType = NULL;
 
 unsigned int	TypeInfo::buildInSize = 0;
 ChunkedStackPool<4092> TypeInfo::typeInfoPool;
@@ -90,14 +90,14 @@ FunctionInfo::ExternalInfo* AddFunctionExternal(FunctionInfo* func, VariableInfo
 
 char* GetClassFunctionName(TypeInfo* type, const char* funcName)
 {
-	char	*memberFuncName = AllocateString((int)strlen(type->name) + 2 + (int)strlen(funcName) + 1);
-	sprintf(memberFuncName, "%s::%s", type->name, funcName);
+	char	*memberFuncName = AllocateString(type->GetFullNameLength() + 2 + (int)strlen(funcName) + 1);
+	sprintf(memberFuncName, "%s::%s", type->GetFullTypeName(), funcName);
 	return memberFuncName;
 }
 char* GetClassFunctionName(TypeInfo* type, InplaceStr funcName)
 {
-	char	*memberFuncName = AllocateString((int)strlen(type->name) + 2 + (int)(funcName.end - funcName.begin) + 1);
-	sprintf(memberFuncName, "%s::%.*s", type->name, (int)(funcName.end - funcName.begin), funcName.begin);
+	char	*memberFuncName = AllocateString(type->GetFullNameLength() + 2 + (int)(funcName.end - funcName.begin) + 1);
+	sprintf(memberFuncName, "%s::%.*s", type->GetFullTypeName(), (int)(funcName.end - funcName.begin), funcName.begin);
 	return memberFuncName;
 }
 
@@ -1183,7 +1183,7 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	}
 	CheckForImmutable(currentType, pos);
 	TypeInfo *parentType = currentType->subType;
-	if(!parentType->name)
+	if(!parentType->methodCount)
 		ThrowError(pos, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
 	// Construct name in a form of Class::Function
 	char *memberFuncName = GetClassFunctionName(parentType, funcName);
@@ -1468,7 +1468,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 
 	if(newType)
 	{
-		funcNameHash = newType->nameHash;
+		funcNameHash = newType->GetFullNameHash();
 		funcNameHash = StringHashContinue(funcNameHash, "::");
 		funcNameHash = StringHashContinue(funcNameHash, funcName);
 	}
@@ -1591,10 +1591,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 	}
 
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
-	{
-		newType->AddMemberFunction();
-		newType->lastFunction->func = &lastFunc;
-	}
+		newType->methodCount++;
 }
 
 void FunctionToOperator(const char* pos)
@@ -1932,6 +1929,7 @@ void TypeBegin(const char* pos, const char* end)
 	newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
+	newType->methodCount = 0;
 
 	CodeInfo::typeInfo.push_back(newType);
 
@@ -1959,11 +1957,31 @@ void TypeFinish()
 	varTop -= newType->size;
 
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
-	for(TypeInfo::MemberFunction *curr = newType->firstFunction; curr; curr = curr->next)
+	for(unsigned int i = 0; i < newType->methodCount; i++)
 		AddTwoExpressionNode();
 
 	newType = NULL;
 
+	EndBlock(false);
+}
+
+void TypeContinue(const char* pos)
+{
+	newType = currType;
+	BeginBlock();
+	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
+	{
+		currValConst = false;
+		currType = curr->type;
+		currAlign = 4;
+		AddVariable(pos, InplaceStr(curr->name));
+		varDefined = false;
+	}
+}
+
+void TypeStop()
+{
+	newType = NULL;
 	EndBlock(false);
 }
 

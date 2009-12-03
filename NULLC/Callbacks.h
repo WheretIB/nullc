@@ -117,6 +117,8 @@ void EndSwitch();
 void TypeBegin(const char* pos, const char* end);
 void TypeAddMember(const char* pos, const char* varName);
 void TypeFinish();
+void TypeContinue(const char* pos);
+void TypeStop();
 
 void AddAliasType(InplaceStr aliasName);
 

@@ -3515,7 +3515,92 @@ return 1;";
 				passed[t]++;
 		}
 	}
+
+const char	*testClassExternalMethodInt =
+"auto int:toString()\r\n\
+{\r\n\
+	int copy = *this, len = 0;\r\n\
+	while(copy)\r\n\
+	{\r\n\
+		len++;\r\n\
+		copy /= 10;\r\n\
+	}\r\n\
+	char[] val = new char[len+1];\r\n\
+	copy = *this;\r\n\
+	while(copy)\r\n\
+	{\r\n\
+		val[--len] = copy % 10 + '0';\r\n\
+		copy /= 10;\r\n\
+	}\r\n\
+	return val;\r\n\
+}\r\n\
+int n = 19;\r\n\
+auto nv = n.toString();\r\n\
+return nv[0] + nv[1];";
+	printf("\r\nClass externally defined method (int)\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testClassExternalMethodInt, testTarget[t], "106"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
 	
+const char	*testClassMethodString =
+"typedef char[] string;\r\n\
+string string:reverse()\r\n\
+{\r\n\
+	for(int i = 0; i < (this.size-1) / 2; i++)\r\n\
+	{\r\n\
+		char tmp = this[i];\r\n\
+		this[i] = this[this.size-i-2];\r\n\
+		this[this.size-i-2] = tmp;\r\n\
+	}\r\n\
+	return *this;\r\n\
+}\r\n\
+string a = \"hello\";\r\n\
+string b = a.reverse();\r\n\
+return b[0] - 'o';";
+	printf("\r\nClass externally defined method (char[])\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testClassMethodString, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testClassExternalMethod =
+"class Foo\r\n\
+{\r\n\
+	int bar;\r\n\
+}\r\n\
+\r\n\
+int Foo:GetBar(){ return bar; }\r\n\
+Foo a;\r\n\
+a.bar = 14;\r\n\
+\r\n\
+return a.GetBar();";
+	printf("\r\nClass externally defined method (custom)\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testClassExternalMethod, testTarget[t], "14"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
 #define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
@@ -3628,6 +3713,9 @@ return 1;";
 
 	TEST_FOR_FAIL("Class function return unclear 1", "class Test{int i;int foo(){ return i; }int foo(int k){ return i; }auto bar(){ return foo; }}return 1;");
 	TEST_FOR_FAIL("Class function return unclear 2", "int foo(){ return 2; }class Test{int i;int foo(){ return i; }auto bar(){ return foo; }}return 1;");
+
+	TEST_FOR_FAIL("Class externally defined method 1", "int dontexist:do(){ return 0; } return 1;");
+	TEST_FOR_FAIL("Class externally defined method 2", "int int:(){ return *this; } return 1;");
 
 	//TEST_FOR_FAIL("parsing", "");
 

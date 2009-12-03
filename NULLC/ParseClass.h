@@ -63,7 +63,7 @@ public:
 		fullNameHash = ~0u;
 
 		firstVariable = lastVariable = NULL;
-		firstFunction = lastFunction = NULL;
+		methodCount = 0;
 
 		typeIndex = index;
 	}
@@ -187,17 +187,6 @@ public:
 		lastVariable->offset = size;
 		size += type->size;
 	}
-	void	AddMemberFunction()
-	{
-		if(!lastFunction)
-		{
-			firstFunction = lastFunction = (MemberFunction*)typeInfoPool.Allocate(sizeof(MemberFunction));
-		}else{
-			lastFunction->next = (MemberFunction*)typeInfoPool.Allocate(sizeof(MemberFunction));
-			lastFunction = lastFunction->next;
-		}
-		lastFunction->next = NULL;
-	}
 	struct MemberVariable
 	{
 		const char		*name;
@@ -207,14 +196,8 @@ public:
 
 		MemberVariable	*next;
 	};
-	struct MemberFunction
-	{
-		FunctionInfo	*func;
-
-		MemberFunction	*next;
-	};
 	MemberVariable	*firstVariable, *lastVariable;
-	MemberFunction	*firstFunction, *lastFunction;
+	unsigned int	methodCount;
 
 	FunctionType*	CreateFunctionType(TypeInfo *retType, unsigned int paramCount)
 	{
