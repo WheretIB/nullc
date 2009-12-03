@@ -382,6 +382,12 @@ bool ParseFunctionDefinition(Lexeme** str)
 		sprintf(functionName, "$func%d", unnamedFuncCount);
 		unnamedFuncCount++;
 	}
+
+	if((*str)->type != lex_oparen)
+	{
+		*str = name;
+		return false;
+	}
 	(*str)++;
 
 	CALLBACK(FunctionAdd((*str)->pos, functionName));
