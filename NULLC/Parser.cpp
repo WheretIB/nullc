@@ -412,6 +412,8 @@ bool ParseFunctionDefinition(Lexeme** str)
 		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset))
 			CALLBACK(FunctionToOperator(start->pos));
 		CALLBACK(FunctionPrototype(start->pos));
+		if(typeMethod)
+			CALLBACK(TypeStop());
 		return true;
 	}
 

@@ -168,6 +168,8 @@ Compiler::Compiler()
 	AddExternalFunction((void (*)())NULLC::Float, "float float(float a);");
 	AddExternalFunction((void (*)())NULLC::Double, "double double(double a);");
 
+	AddExternalFunction((void (*)())NULLC::IntToStr, "char[] int:str();");
+
 	AddExternalFunction((void (*)())NULLC::AllocObject, "int __newS(int size);");
 	AddExternalFunction((void (*)())NULLC::AllocArray, "int[] __newA(int size, int count);");
 
@@ -467,7 +469,7 @@ unsigned int GetTypeIndexByPtr(TypeInfo* type)
 
 bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 {
-	fInfo.bytesToPop = 0;
+	fInfo.bytesToPop = refFunc.type == FunctionInfo::THISCALL ? 4 : 0;
 	for(VariableInfo *curr = refFunc.firstParam; curr; curr = curr->next)
 	{
 		unsigned int paramSize = curr->varType->size > 4 ? curr->varType->size : 4;
