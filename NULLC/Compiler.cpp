@@ -296,12 +296,6 @@ bool Compiler::AddType(const char* typedecl)
 		currV->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(currV->name) + 1), currV->name);
 		currV = currV->next;
 	}
-	TypeInfo::MemberFunction	*currF = definedType->firstFunction;
-	while(currF)
-	{
-		currF->func->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(currF->func->name) + 1), currF->func->name);
-		currF = currF->next;
-	}
 
 	buildInTypes = (int)CodeInfo::typeInfo.size();
 	TypeInfo::SaveBuildinTop();

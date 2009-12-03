@@ -350,6 +350,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 	
 	if((*str)->type != lex_string && (*str)->type != lex_operator && !((*str)->type == lex_oparen && (*str - 1)->type == lex_auto))
 		return false;
+	bool typeMethod = false;
 	if((*str)->type == lex_operator)
 	{
 		(*str)++;
@@ -360,9 +361,17 @@ bool ParseFunctionDefinition(Lexeme** str)
 			else
 				(*str)++;
 		}
-	}/*else if(name->type == lex_string && name[1].type == lex_colon){
-		
-	}*/
+	}else if((*str)->type == lex_string && (*str + 1)->type == lex_colon){
+		TypeInfo *retType = (TypeInfo*)CALLBACK(GetSelectedType());
+		if(!ParseSelectType(str))
+			ThrowError((*str)->pos, "ERROR: class name expected before ':'");
+		(*str)++;
+		if((*str)->type != lex_string)
+			ThrowError((*str)->pos, "ERROR: function name expected after ':'");
+		CALLBACK(TypeContinue((*str)->pos));
+		CALLBACK(SelectTypeByPointer(retType));
+		typeMethod = true;
+	}
 	char	*functionName = NULL;
 	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_powset))
 	{
@@ -420,6 +429,8 @@ bool ParseFunctionDefinition(Lexeme** str)
 
 	CALLBACK(FunctionEnd(start->pos, functionName));
 
+	if(typeMethod)
+		CALLBACK(TypeStop());
 	return true;
 }
 
