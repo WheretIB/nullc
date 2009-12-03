@@ -245,7 +245,9 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	if(!setjmp(CodeInfo::errorHandler))
 	{
 		Lexeme *start = lexer.GetStreamStart();
-		res = ParseFunctionDefinition(&start);
+		res = ParseSelectType(&start);
+		if(res)
+			res = ParseFunctionDefinition(&start);
 	}else{
 		CodeInfo::lastError = CompilerError("Parsing failed", NULL);
 		return false;

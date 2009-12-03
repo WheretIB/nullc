@@ -21,7 +21,6 @@ void ClearStringList()
 }
 
 #define CALLBACK(x) x
-//#define CALLBACK(x) 1
 
 inline bool ParseLexem(Lexeme** str, LexemeType type)
 {
@@ -115,11 +114,18 @@ bool ParseArrayDefinition(Lexeme** str)
 	if(!ParseLexem(str, lex_obracket))
 		return false;
 
-	if(!ParseTernaryExpr(str))
+	if((*str)->type == lex_cbracket)
+	{
+		(*str)++;
 		CALLBACK(AddUnfixedArraySize());
-	if(!ParseLexem(str, lex_cbracket))
-		ThrowError((*str)->pos, "ERROR: Matching ']' not found");
-	ParseArrayDefinition(str);
+	}else{
+		if(!ParseTernaryExpr(str))
+			ThrowError((*str)->pos, "ERROR: unexpected expression after '['");
+		if(!ParseLexem(str, lex_cbracket))
+			ThrowError((*str)->pos, "ERROR: Matching ']' not found");
+	}
+	if((*str)->type == lex_obracket)
+		ParseArrayDefinition(str);
 	CALLBACK(ConvertTypeToArray((*str)->pos));
 	return true;
 }
@@ -157,10 +163,13 @@ bool ParseSelectType(Lexeme** str)
 		return false;
 	}
 
-	for(;;)
+	bool run = true;
+	while(run)
 	{
-		if(ParseLexem(str, lex_ref))
+		switch((*str)->type)
 		{
+		case lex_ref:
+			(*str)++;
 			if(ParseLexem(str, lex_oparen))
 			{
 				// Prepare function type
@@ -195,9 +204,12 @@ bool ParseSelectType(Lexeme** str)
 			}else{
 				CALLBACK(ConvertTypeToReference((*str)->pos));
 			}
-		}else{
-			if(!ParseArrayDefinition(str))
-				break;
+			break;
+		case lex_obracket:
+			ParseArrayDefinition(str);
+			break;
+		default:
+			run = false;
 		}
 	}
 	return true;
@@ -226,13 +238,13 @@ bool ParseClassDefinition(Lexeme** str)
 		if(!ParseLexem(str, lex_ofigure))
 			ThrowError((*str)->pos, "ERROR: '{' not found after class name");
 
-		for(;;)
+		while((*str)->type != lex_cfigure)
 		{
-			if(!ParseFunctionDefinition(str))
+			if(!ParseSelectType(str))
+				break;
+			bool isVarDef = ((*str)->type == lex_string) && ((*str + 1)->type == lex_comma || (*str + 1)->type == lex_semicolon || (*str + 1)->type == lex_set);
+			if(isVarDef || !ParseFunctionDefinition(str))
 			{
-				if(!ParseSelectType(str))
-					break;
-
 				if((*str)->type != lex_string)
 					ThrowError((*str)->pos, "ERROR: class member name expected after type");
 				if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
@@ -333,18 +345,11 @@ bool ParseFunctionVariables(Lexeme** str)
 
 bool ParseFunctionDefinition(Lexeme** str)
 {
-	Lexeme *start = *str;
-	if(!ParseSelectType(str))
-		return false;
-
+	Lexeme *start = *str - 1;
 	Lexeme *name = *str;
-	if((name->type != lex_string || name[1].type != lex_oparen) &&
-		(name->type != lex_operator || !((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset))) &&
-		(start->type != lex_auto || name->type != lex_oparen))
-	{
-		*str = start;
+	
+	if((*str)->type != lex_string && (*str)->type != lex_operator && !((*str)->type == lex_oparen && (*str - 1)->type == lex_auto))
 		return false;
-	}
 	if((*str)->type == lex_operator)
 	{
 		(*str)++;
@@ -355,7 +360,9 @@ bool ParseFunctionDefinition(Lexeme** str)
 			else
 				(*str)++;
 		}
-	}
+	}/*else if(name->type == lex_string && name[1].type == lex_colon){
+		
+	}*/
 	char	*functionName = NULL;
 	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_powset))
 	{
@@ -817,52 +824,53 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 
 bool ParseTerminal(Lexeme** str)
 {
-	if((*str)->type == lex_number)
-		return ParseNumber(str);
-	if(ParseLexem(str, lex_bitand))
+	int negCount = 0;
+	switch((*str)->type)
 	{
+	case lex_number:
+		return ParseNumber(str);
+		break;
+	case lex_bitand:
+		(*str)++;
 		if(!ParseVariable(str))
 			ThrowError((*str)->pos, "ERROR: variable not found after '&'");
 		return true;
-	}
-	if(ParseLexem(str, lex_lognot))
-	{
+		break;
+	case lex_lognot:
+		(*str)++;
 		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '!'");
 		CALLBACK(AddLogNotNode((*str)->pos));
 		return true;
-	}
-	if(ParseLexem(str, lex_bitnot))
-	{
+		break;
+	case lex_bitnot:
+		(*str)++;
 		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '~'");
 		CALLBACK(AddBitNotNode((*str)->pos));
 		return true;
-	}
-	if(ParseLexem(str, lex_dec))
-	{
+		break;
+	case lex_dec:
+		(*str)++;
 		if(!ParseVariable(str))
 			ThrowError((*str)->pos, "ERROR: variable not found after '--'");
 		CALLBACK(AddPreOrPostOpNode((*str)->pos, false, true));
 		return true;
-	}
-	if(ParseLexem(str, lex_inc))
-	{
+		break;
+	case lex_inc:
+		(*str)++;
 		if(!ParseVariable(str))
 			ThrowError((*str)->pos, "ERROR: variable not found after '++'");
 		CALLBACK(AddPreOrPostOpNode((*str)->pos, true, true));
 		return true;
-	}
-	if(ParseLexem(str, lex_add))
-	{
+		break;
+	case lex_add:
 		while(ParseLexem(str, lex_add));
 		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '+'");
 		return true;
-	}
-	if(ParseLexem(str, lex_sub))
-	{
-		int negCount = 1;
+		break;
+	case lex_sub:
 		while(ParseLexem(str, lex_sub))
 			negCount++;
 		if(!ParseTerminal(str))
@@ -870,23 +878,21 @@ bool ParseTerminal(Lexeme** str)
 		if(negCount % 2 == 1)
 			CALLBACK(AddNegateNode((*str)->pos));
 		return true;
-	}
-	if((*str)->type == lex_quotedstring)
-	{
+		break;
+	case lex_quotedstring:
 		CALLBACK(AddStringNode((*str)->pos, (*str)->pos+(*str)->length));
 		(*str)++;
 		return true;
-	}
-	if((*str)->type == lex_semiquotedchar)
-	{
+		break;
+	case lex_semiquotedchar:
 		if(((*str)->length > 3 && (*str)->pos[1] != '\\') || (*str)->length > 4)
 			ThrowError((*str)->pos, "ERROR: only one character can be inside single quotes");
 		CALLBACK(AddNumberNodeChar((*str)->pos));
 		(*str)++;
 		return true;
-	}
-	if(ParseLexem(str, lex_sizeof))
-	{
+		break;
+	case lex_sizeof:
+		(*str)++;
 		if(!ParseLexem(str, lex_oparen))
 			ThrowError((*str)->pos, "ERROR: sizeof must be followed by '('");
 		if(ParseSelectType(str))
@@ -901,9 +907,10 @@ bool ParseTerminal(Lexeme** str)
 		if(!ParseLexem(str, lex_cparen))
 			ThrowError((*str)->pos, "ERROR: ')' not found after expression in sizeof");
 		return true;
-	}
-	if(ParseLexem(str, lex_new))
+		break;
+	case lex_new:
 	{
+		(*str)++;
 		const char *pos = (*str)->pos;
 		int index;
 		if((index = ParseTypename(str)) == 0)
@@ -925,8 +932,10 @@ bool ParseTerminal(Lexeme** str)
 		CALLBACK(AddTypeAllocation(pos));
 		return true;
 	}
-	if(ParseLexem(str, lex_ofigure))
+		break;
+	case lex_ofigure:
 	{
+		(*str)++;
 		unsigned int arrElementCount = 0;
 		if(!ParseTernaryExpr(str))
 			ThrowError((*str)->pos, "ERROR: value not found after '{'");
@@ -941,29 +950,37 @@ bool ParseTerminal(Lexeme** str)
 		CALLBACK(AddArrayConstructor((*str)->pos, arrElementCount));
 		return true;
 	}
-	if(((*str)->type == lex_auto) ||
-		((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) ||
-		((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
+		break;
+	case lex_typeof:
+	case lex_auto:
+	case lex_string:
 	{
-		if(ParseFunctionDefinition(str))
-			return true;
+		bool isFunctionCall = (*str)->type != lex_typeof && (*str)->type != lex_auto && (*str + 1)->type == lex_oparen;
+		if(!isFunctionCall && ParseSelectType(str))
+		{
+			if(ParseFunctionDefinition(str))
+				return true;
+			ThrowError((*str)->pos, "ERROR: '}' not found after inline array");
+		}
+	}
+		break;
 	}
 	bool lastIsFunctionCall = false;
 	bool needDereference = false;
-	if(ParseGroup(str))
+	if((*str)->type == lex_oparen && ParseGroup(str))
 	{
 		bool hadPost = false;
 		while(ParsePostExpression(str, &lastIsFunctionCall))
 			hadPost = true;
 		if(hadPost && !lastIsFunctionCall)
 			needDereference = true;
-	}else if(ParseFunctionCall(str, false)){
+	}else if((*str)->type == lex_string && (*str + 1)->type == lex_oparen && ParseFunctionCall(str, false)){
 		bool hadPost = false;
 		while(ParsePostExpression(str, &lastIsFunctionCall))
 			hadPost = true;
 		if(hadPost && !lastIsFunctionCall)
 			needDereference = true;
-	}else if(ParseVariable(str, &lastIsFunctionCall)){
+	}else if(((*str)->type == lex_string || (*str)->type == lex_mul) && ParseVariable(str, &lastIsFunctionCall)){
 		if(ParseLexem(str, lex_dec))
 		{
 			CALLBACK(AddPreOrPostOpNode((*str)->pos, false, false));
@@ -1052,13 +1069,6 @@ bool ParseTernaryExpr(Lexeme** str)
 
 bool ParseVaribleSet(Lexeme** str)
 {
-	if(((*str)->type == lex_auto) ||
-		((*str)->type == lex_typeof && (*str)[1].type == lex_oparen) ||
-		((*str)->type == lex_string) && ((*str)[1].type == lex_string || (*str)[1].type == lex_ref || (*str)[1].type == lex_obracket))
-	{
-		if(ParseFunctionDefinition(str))
-			return true;
-	}
 	if(!ParseTernaryExpr(str))
 		return false;
 	return true;
@@ -1081,34 +1091,47 @@ bool ParseExpression(Lexeme** str)
 {
 	while(ParseLexem(str, lex_semicolon));
 
-	if(ParseClassDefinition(str))
-		return true;
-	if(ParseVariableDefine(str))
+	switch((*str)->type)
 	{
-		if(!ParseLexem(str, lex_semicolon))
-			ThrowError((*str)->pos, "ERROR: ';' not found after variable definition");
-		return true;
-	}
-	if(ParseBlock(str))
-		return true;
-	if(ParseBreakExpr(str))
-		return true;
-	if(ParseContinueExpr(str))
-		return true;
-	if(ParseReturnExpr(str))
-		return true;
-	if(ParseIfExpr(str))
-		return true;
-	if(ParseForExpr(str))
-		return true;
-	if(ParseWhileExpr(str))
-		return true;
-	if(ParseDoWhileExpr(str))
-		return true;
-	if(ParseSwitchExpr(str))
-		return true;
-	if(ParseLexem(str, lex_typedef))
-	{
+	case lex_align:
+	case lex_noalign:
+		if(ParseVariableDefine(str))
+		{
+			if(!ParseLexem(str, lex_semicolon))
+				ThrowError((*str)->pos, "ERROR: ';' not found after variable definition");
+			return true;
+		}
+	case lex_class:
+		ParseClassDefinition(str);
+		break;
+	case lex_ofigure:
+		ParseBlock(str);
+		break;
+	case lex_return:
+		ParseReturnExpr(str);
+		break;
+	case lex_break:
+		ParseBreakExpr(str);
+		break;
+	case lex_continue:
+		ParseContinueExpr(str);
+		break;
+	case lex_if:
+		ParseIfExpr(str);
+		break;
+	case lex_for:
+		ParseForExpr(str);
+		break;
+	case lex_while:
+		ParseWhileExpr(str);
+		break;
+	case lex_do:
+		ParseDoWhileExpr(str);
+		break;
+	case lex_switch:
+		ParseSwitchExpr(str);
+		break;
+	case lex_typedef:
 		if(!ParseSelectType(str))
 			ThrowError((*str)->pos, "ERROR: typename expected after typedef");
 
@@ -1124,27 +1147,41 @@ bool ParseExpression(Lexeme** str)
 		if(!ParseLexem(str, lex_semicolon))
 			ThrowError((*str)->pos, "ERROR: ';' not found after typedef");
 		CALLBACK(AddVoidNode());
-		return true;
+		break;
+	default:
+		if(ParseSelectType(str))
+		{
+			bool isVarDef = ((*str)->type == lex_string) && ((*str + 1)->type == lex_comma || (*str + 1)->type == lex_semicolon || (*str + 1)->type == lex_set);
+			if(!isVarDef)
+				if(ParseFunctionDefinition(str))
+					return true;
+
+			CALLBACK(SetCurrentAlignment(0xFFFFFFFF));
+			if(!ParseVariableDefineSub(str))
+				ThrowError((*str)->pos, "ERROR: variable name not found after typename");
+			if(!ParseLexem(str, lex_semicolon))
+				ThrowError((*str)->pos, "ERROR: ';' not found after variable definition");
+			return true;
+		}
+		if(ParseVaribleSet(str))
+		{
+			const char *pos = (*str)->pos;
+			if(!ParseLexem(str, lex_semicolon))
+				ThrowError((*str)->pos, "ERROR: ';' not found after expression");
+			CALLBACK(AddPopNode(pos));
+			return true;
+		}
+		return false;
 	}
-	if(ParseVaribleSet(str))
-	{
-		const char *pos = (*str)->pos;
-		if(!ParseLexem(str, lex_semicolon))
-			ThrowError((*str)->pos, "ERROR: ';' not found after expression");
-		CALLBACK(AddPopNode(pos));
-		return true;
-	}
-	return false;
+	return true;
 }
 
 bool ParseCode(Lexeme** str)
 {
-	if(!ParseFunctionDefinition(str))
-	{
-		if(!ParseExpression(str))
-			return false;
-	}
-	if(ParseCode(str))
+	if(!ParseExpression(str))
+		return false;
+
+	if((*str)->type != lex_cfigure && ParseCode(str))
 		CALLBACK(AddTwoExpressionNode());
 	else
 		CALLBACK(AddOneExpressionNode());
