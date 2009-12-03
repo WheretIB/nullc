@@ -192,3 +192,21 @@ double NULLC::Double(double a)
 {
 	return a;
 }
+
+NullCArray NULLC::IntToStr(int* r)
+{
+	int number = *r;
+	char buf[16];
+	char *curr = buf;
+	*curr++ = (char)(number % 10 + '0');
+	while(number /= 10)
+		*curr++ = (char)(number % 10 + '0');
+	NullCArray arr = AllocArray(1, (int)(curr - buf) + 1);
+	char *str = arr.ptr;
+	do 
+	{
+		--curr;
+		*str++ = *curr;
+	}while(curr != buf);
+	return arr;
+}

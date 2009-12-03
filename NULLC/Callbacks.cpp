@@ -1426,6 +1426,9 @@ void FunctionPrototype(const char* pos)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
 	lastFunc.funcType = CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()->retType, CodeInfo::funcInfo.back()->firstParam, CodeInfo::funcInfo.back()->paramCount);
 	currDefinedFunc.pop_back();
+
+	if(newType && lastFunc.type == FunctionInfo::THISCALL)
+		newType->methodCount++;
 }
 
 void FunctionStart(const char* pos)

@@ -35,6 +35,8 @@ namespace NULLC
 	long long	Long(long long a);
 	float		Float(float a);
 	double		Double(double a);
+
+	NullCArray	IntToStr(int* r);
 	
 	void*		AllocObject(int size);
 	NullCArray	AllocArray(int size, int count);
