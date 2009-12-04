@@ -68,6 +68,10 @@ void Executor::Run(const char* funcName)
 	genParams.clear();
 	genParams.resize(exLinker->globalVarSize);
 
+	// If global code is executed, reset all global variables
+	if(!funcName)
+		memset(&genParams[0], 0, exLinker->globalVarSize);
+
 	execError[0] = 0;
 	callContinue = true;
 

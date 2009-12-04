@@ -40,6 +40,7 @@ TypeInfo*		currType = NULL;
 
 // For new type creation
 TypeInfo*		newType = NULL;
+unsigned int	methodCount = 0;
 
 unsigned int	TypeInfo::buildInSize = 0;
 ChunkedStackPool<4092> TypeInfo::typeInfoPool;
@@ -1424,9 +1425,6 @@ void FunctionPrototype(const char* pos)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
 	lastFunc.funcType = CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()->retType, CodeInfo::funcInfo.back()->firstParam, CodeInfo::funcInfo.back()->paramCount);
 	currDefinedFunc.pop_back();
-
-	if(newType && lastFunc.type == FunctionInfo::THISCALL)
-		newType->methodCount++;
 }
 
 void FunctionStart(const char* pos)
@@ -1592,7 +1590,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 	}
 
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
-		newType->methodCount++;
+		methodCount++;
 }
 
 void FunctionToOperator(const char* pos)
@@ -1930,7 +1928,7 @@ void TypeBegin(const char* pos, const char* end)
 	newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
-	newType->methodCount = 0;
+	methodCount = 0;
 
 	CodeInfo::typeInfo.push_back(newType);
 
@@ -1958,7 +1956,7 @@ void TypeFinish()
 	varTop -= newType->size;
 
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
-	for(unsigned int i = 0; i < newType->methodCount; i++)
+	for(unsigned int i = 0; i < methodCount; i++)
 		AddTwoExpressionNode();
 
 	newType = NULL;

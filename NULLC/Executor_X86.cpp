@@ -341,6 +341,7 @@ void ExecutorX86::Run(const char* funcName)
 		binCodeStart += funcPos;
 	}else{
 		binCodeStart += globalStartInBytecode;
+		memset(parameterHead, 0, exLinker->globalVarSize);
 	}
 
 	unsigned int varSize = exLinker->globalVarSize ? ((exLinker->globalVarSize & 0xfffffff0) + 16) : 0;
