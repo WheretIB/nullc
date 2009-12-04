@@ -1183,8 +1183,6 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	}
 	CheckForImmutable(currentType, pos);
 	TypeInfo *parentType = currentType->subType;
-	if(!parentType->methodCount)
-		ThrowError(pos, "ERROR: Type %s doesn't have any methods", parentType->GetFullTypeName());
 	// Construct name in a form of Class::Function
 	char *memberFuncName = GetClassFunctionName(parentType, funcName);
 	// Call it
