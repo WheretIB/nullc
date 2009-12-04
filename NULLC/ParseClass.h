@@ -63,7 +63,6 @@ public:
 		fullNameHash = ~0u;
 
 		firstVariable = lastVariable = NULL;
-		methodCount = 0;
 
 		typeIndex = index;
 	}
@@ -197,7 +196,6 @@ public:
 		MemberVariable	*next;
 	};
 	MemberVariable	*firstVariable, *lastVariable;
-	unsigned int	methodCount;
 
 	FunctionType*	CreateFunctionType(TypeInfo *retType, unsigned int paramCount)
 	{
