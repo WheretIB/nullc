@@ -341,7 +341,7 @@ bool Compiler::ImportModule(char* bytecode)
 		if(index == INDEX_NONE)
 		{
 			typeRemap.push_back(CodeInfo::typeInfo.size());
-			TypeInfo *newInfo = NULL;
+			TypeInfo *newInfo = NULL, *tempInfo = NULL;
 			switch(tInfo->subCat)
 			{
 			case ExternTypeInfo::CAT_FUNCTION:
@@ -357,6 +357,33 @@ bool Compiler::ImportModule(char* bytecode)
 				newInfo->AddMemberVariable("ptr", typeInt);
 #endif
 				newInfo->size = 8;
+				break;
+			case ExternTypeInfo::CAT_ARRAY:
+				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
+				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, 0, tempInfo->arrLevel + 1, tInfo->arrSize, tempInfo, TypeInfo::TYPE_COMPLEX));
+				newInfo = CodeInfo::typeInfo.back();
+
+				if(tInfo->arrSize == -1)
+				{
+					newInfo->size = 4;
+					newInfo->AddMemberVariable("size", typeInt);
+				}else{
+					newInfo->size = tempInfo->size * tInfo->arrSize;
+					if(newInfo->size % 4 != 0)
+					{
+						newInfo->paddingBytes = 4 - (newInfo->size % 4);
+						newInfo->size += 4 - (newInfo->size % 4);
+					}
+				}
+				break;
+			case ExternTypeInfo::CAT_POINTER:
+				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
+				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, tempInfo->refLevel + 1, 0, 1, tempInfo, TypeInfo::TYPE_INT));
+				newInfo = CodeInfo::typeInfo.back();
+				newInfo->size = 4;
+
+				// Save it for future use
+				CodeInfo::typeInfo[typeRemap[tInfo->subType]]->refType = newInfo;
 				break;
 			default:
 				SafeSprintf(errBuf, 256, "ERROR: new type in module named %s unsupported", (symbols + tInfo->offsetToName));
@@ -857,12 +884,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			memberList[memberOffset++] = GetTypeIndexByPtr(refType.funcType->retType);
 			for(unsigned int k = 0; k < refType.funcType->paramCount; k++)
 				memberList[memberOffset++] = GetTypeIndexByPtr(refType.funcType->paramType[k]);
-		}else if(refType.type == TypeInfo::TYPE_COMPLEX){	// Complex type
-			typeInfo.subCat = ExternTypeInfo::CAT_CLASS;
-			typeInfo.memberCount = refType.memberCount;
-			typeInfo.memberOffset = memberOffset;
-			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
-				memberList[memberOffset++] = GetTypeIndexByPtr(curr->type);
 		}else if(refType.arrLevel != 0){				// Array type
 			typeInfo.subCat = ExternTypeInfo::CAT_ARRAY;
 			typeInfo.arrSize = refType.arrSize;
@@ -870,6 +891,12 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		}else if(refType.refLevel != 0){				// Pointer type
 			typeInfo.subCat = ExternTypeInfo::CAT_POINTER;
 			typeInfo.subType = GetTypeIndexByPtr(refType.subType);
+		}else if(refType.type == TypeInfo::TYPE_COMPLEX){	// Complex type
+			typeInfo.subCat = ExternTypeInfo::CAT_CLASS;
+			typeInfo.memberCount = refType.memberCount;
+			typeInfo.memberOffset = memberOffset;
+			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
+				memberList[memberOffset++] = GetTypeIndexByPtr(curr->type);
 		}else{
 			typeInfo.subCat = ExternTypeInfo::CAT_NONE;
 		}
