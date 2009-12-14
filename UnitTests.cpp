@@ -1635,7 +1635,7 @@ Float test(Float p){ p.x *= 2.0f; return p; }\r\n\
 float2 test(float2 p){ p.y *= 2.0f; return p; }\r\n\
 float3 test(float3 p){ p.y *= 2.0f; return p; }\r\n\
 float4 test(float4 p){ p.y *= 2.0f; return p; }\r\n\
-for(int i = 0; i < /*10000000*/1000; i++)\r\n\
+for(int i = 0; i < 100; i++)\r\n\
 {\r\n\
   mat = test(mat);\r\n\
   f = test(f);\r\n\
@@ -1643,12 +1643,12 @@ for(int i = 0; i < /*10000000*/1000; i++)\r\n\
   f3 = test(f3);\r\n\
   f4 = test(f4);\r\n\
 }\r\n\
-return mat.row1.y;";
+return int(mat.row1.y);";
 	printf("\r\nSpeed tests\r\n");
 	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testSpeed, testTarget[t], "1.#INF00"))
+		if(RunCode(testSpeed, testTarget[t], "0"))
 		{
 			lastFailed = false;
 

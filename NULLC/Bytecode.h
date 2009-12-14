@@ -9,6 +9,20 @@ struct ExternTypeInfo
 	unsigned int	size;	// sizeof(type)
 	TypeCategory	type;
 
+	enum SubCategory{ CAT_NONE, CAT_ARRAY, CAT_POINTER, CAT_FUNCTION, CAT_CLASS, };
+	SubCategory		subCat;
+
+	union
+	{
+		unsigned int	arrSize;
+		unsigned int	memberCount;
+	};
+	union
+	{
+		unsigned int	subType;
+		unsigned int	memberOffset;
+	};
+
 	unsigned int	nameHash;
 };
 
@@ -29,7 +43,7 @@ struct ExternLocalInfo
 	union
 	{
 		unsigned int	offset;
-		unsigned int	target;	// Negative for pointer in previous closure
+		unsigned int	target;
 	};
 	unsigned int	closeFuncList;
 
@@ -60,6 +74,7 @@ struct ExternFuncInfo
 	unsigned int	startInByteCode;
 
 	unsigned int	offsetToFirstLocal;
+	unsigned int	paramCount;
 	unsigned int	localCount;
 	unsigned int	externCount;
 
@@ -81,12 +96,26 @@ struct ExternFuncInfo
 	unsigned int	nameHash;
 };
 
+struct ExternModuleInfo
+{
+	const char		*name;
+	unsigned int	nameOffset;
+
+	unsigned int	funcStart;
+	unsigned int	funcCount;
+};
+
 struct ByteCode
 {
 	unsigned int	size;	// Overall size
 
 	unsigned int	typeCount;
+	unsigned int	memberCount;
 	ExternTypeInfo	*firstType;
+
+	unsigned int		dependsCount;
+	unsigned int		offsetToFirstModule;
+	ExternModuleInfo	*firstModule;
 	
 	unsigned int	globalVarSize;	// size of all global variables, in bytes
 	unsigned int	variableCount;	//
@@ -94,6 +123,7 @@ struct ByteCode
 	ExternVarInfo	*firstVar;
 
 	unsigned int	functionCount;	//
+	unsigned int	oldFunctionCount;
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
 	ExternFuncInfo	*firstFunc;
 
@@ -110,7 +140,11 @@ struct ByteCode
 	unsigned int	offsetToSymbols;
 	char			*debugSymbols;
 
-//	ExternTypeInfo	types[typeCount];	// data about variables
+//	ExternTypeInfo	types[typeCount];
+
+//	ExternModuleInfo	modules[dependsCount];
+
+//	unsigned int	complexTypeMemberTypes[];
 
 //	ExternVarInfo	variables[variableCount];	// data about variables
 

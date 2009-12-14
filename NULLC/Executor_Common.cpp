@@ -14,24 +14,6 @@ void CommonSetLinker(Linker* linker)
 
 void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, ExternFuncInfo::Upvalue* closure)
 {
-	/*ExternFuncInfo &func = NULLC::commonLinker->exFunctions[argument];
-	ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
-	for(unsigned int i = 0; i < func.externCount; i++)
-	{
-		ExternFuncInfo *varParent = &NULLC::commonLinker->exFunctions[externals[i].closeFuncList & ~0x80000000];
-		if(externals[i].closeFuncList & 0x80000000)
-		{
-			closure[0] = (unsigned int)(intptr_t)(externals[i].target + paramBase + NULLC::parameterHead);
-		}else{
-			unsigned int **prevClosure = (unsigned int**)(NULLC::parameterHead + helper + paramBase);
-
-			closure[0] = (*prevClosure)[externals[i].target >> 2];
-		}
-		closure[1] = (unsigned int)(intptr_t)varParent->externalList;
-		closure[2] = externals[i].size;
-		varParent->externalList = (ExternFuncInfo::Upvalue*)closure;
-		closure += (externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2);
-	}*/
 	ExternFuncInfo &func = NULLC::commonLinker->exFunctions[argument];
 	ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
 	for(unsigned int i = 0; i < func.externCount; i++)
