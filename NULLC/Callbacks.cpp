@@ -42,11 +42,8 @@ TypeInfo*		currType = NULL;
 TypeInfo*		newType = NULL;
 unsigned int	methodCount = 0;
 
-unsigned int	TypeInfo::buildInSize = 0;
 ChunkedStackPool<4092> TypeInfo::typeInfoPool;
-unsigned int	VariableInfo::buildInSize = 0;
 ChunkedStackPool<4092> VariableInfo::variablePool;
-unsigned int	FunctionInfo::buildInSize = 0;
 ChunkedStackPool<4092>	FunctionInfo::functionPool;
 
 FastVector<FunctionInfo*>	bestFuncList;
@@ -1081,6 +1078,8 @@ void AddGetVariableNode(const char* pos)
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo == typeVoid)
 	{
 		CodeInfo::nodeList.back()->typeInfo = typeInt;
+	}else if(CodeInfo::nodeList.back()->typeInfo == NULL){
+		ThrowError(pos, "ERROR: Variable type is unknown");
 	}else if(CodeInfo::nodeList.back()->typeInfo->funcType == NULL){
 		CheckForImmutable(CodeInfo::nodeList.back()->typeInfo, pos);
 		CodeInfo::nodeList.push_back(new NodeDereference());
@@ -2001,7 +2000,7 @@ void AddUnfixedArraySize()
 
 void CallbackInitialize()
 {
-	VariableInfo::DeleteVariableInformation();
+	//VariableInfo::DeleteVariableInformation();
 
 	currDefinedFunc.clear();
 
@@ -2029,11 +2028,6 @@ unsigned int GetGlobalSize()
 	return varTop;
 }
 
-void CallbackDeinitialize()
-{
-	VariableInfo::DeleteVariableInformation();
-}
-
 void CallbackReset()
 {
 	varInfoTop.reset();
@@ -2046,9 +2040,9 @@ void CallbackReset()
 	inplaceArray.reset();
 
 	TypeInfo::typeInfoPool.~ChunkedStackPool();
-	TypeInfo::SaveBuildinTop();
+	TypeInfo::SetPoolTop(0);
 	VariableInfo::variablePool.~ChunkedStackPool();
-	VariableInfo::SaveBuildinTop();
+	VariableInfo::SetPoolTop(0);
 	FunctionInfo::functionPool.~ChunkedStackPool();
-	FunctionInfo::SaveBuildinTop();
+	FunctionInfo::SetPoolTop(0);
 }

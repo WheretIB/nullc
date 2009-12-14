@@ -49,6 +49,7 @@ public:
 		refLevel = referenceLevel;
 		arrLevel = arrayLevel;
 		arrSize = arraySize;
+		memberCount = 0;
 		subType = childType;
 
 		alignBytes = 0;
@@ -84,6 +85,7 @@ public:
 	unsigned int	arrLevel;	// array to a type depth
 
 	unsigned int	arrSize;	// element count for an array
+	unsigned int	memberCount;
 
 	unsigned int	alignBytes;
 	unsigned int	paddingBytes;
@@ -185,6 +187,7 @@ public:
 		lastVariable->type = type;
 		lastVariable->offset = size;
 		size += type->size;
+		memberCount++;
 	}
 	struct MemberVariable
 	{
@@ -218,14 +221,15 @@ public:
 		assert(!"Cannot delete TypeInfo");
 	}
 
-	static void		SaveBuildinTop()
+	static unsigned int	GetPoolTop()
 	{
-		buildInSize = typeInfoPool.GetSize();
+		return typeInfoPool.GetSize();
 	}
-
-	static	unsigned int	buildInSize;
+	static void		SetPoolTop(unsigned int top)
+	{
+		typeInfoPool.ClearTo(top);
+	}
 	static	ChunkedStackPool<4092>	typeInfoPool;
-	static	void	DeleteTypeInformation(){ typeInfoPool.ClearTo(buildInSize); }
 };
 
 struct AliasInfo
@@ -275,14 +279,15 @@ public:
 		assert(!"Cannot delete VariableInfo");
 	}
 
-	static void		SaveBuildinTop()
+	static unsigned int	GetPoolTop()
 	{
-		buildInSize = variablePool.GetSize();
+		return variablePool.GetSize();
 	}
-
-	static	unsigned int	buildInSize;
+	static void		SetPoolTop(unsigned int top)
+	{
+		variablePool.ClearTo(top);
+	}
 	static	ChunkedStackPool<4092>	variablePool;
-	static void	DeleteVariableInformation(){ variablePool.ClearTo(buildInSize); }
 };
 
 class FunctionInfo
@@ -399,14 +404,15 @@ public:
 		assert(!"Cannot delete FunctionInfo");
 	}
 
-	static void		SaveBuildinTop()
+	static unsigned int	GetPoolTop()
 	{
-		buildInSize = functionPool.GetSize();
+		return functionPool.GetSize();
 	}
-
-	static	unsigned int	buildInSize;
+	static void		SetPoolTop(unsigned int top)
+	{
+		functionPool.ClearTo(top);
+	}
 	static	ChunkedStackPool<4092>	functionPool;
-	static void	DeleteFunctionInformation(){ functionPool.ClearTo(buildInSize); }
 };
 
 //VarTopInfo holds information about variable stack state

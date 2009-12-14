@@ -1,6 +1,7 @@
 #pragma once
 #include "stdafx.h"
 #include "Lexer.h"
+#include "Bytecode.h"
 
 class CompilerError
 {
@@ -29,7 +30,11 @@ public:
 	}
 	static const char *codeStart;
 private:
-	char error[256];
+	friend class Compiler;
+
+	static const unsigned int ERROR_LENGTH = 256;
+
+	char error[ERROR_LENGTH];
 	char line[128];
 	unsigned int shift;
 	unsigned int lineNum;
@@ -45,19 +50,23 @@ public:
 	bool	AddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
 	bool	AddType(const char* typedecl);
 
-	bool	Compile(const char *str);
+	bool	Compile(const char* str, bool noClear = false);
 	const char*		GetError();
 	
-	void	SaveListing(const char *fileName);
+	void	SaveListing(const char* fileName);
 
-	unsigned int	GetBytecode(char **bytecode);
+	unsigned int	GetBytecode(char** bytecode);
 private:
 	void	ClearState();
+	bool	ImportModule(char* bytecode);
 
 	Lexer	lexer;
 
 	ChunkedStackPool<1020>	dupStrings;
 
+	FastVector<ExternModuleInfo>	activeModules;
+
 	unsigned int buildInFuncs;
 	unsigned int basicTypes, buildInTypes;
+	unsigned int typeTop, funcTop, varTop;
 };

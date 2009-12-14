@@ -33,6 +33,40 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	ByteCode *bCode = (ByteCode*)code;
 
+	FastVector<unsigned int>	funcRemap(bCode->functionCount);
+	funcRemap.resize(bCode->oldFunctionCount);
+	for(unsigned int i = 0; i < bCode->functionCount; i++)
+		funcRemap[i] = i;
+
+	unsigned int moduleFuncCount = 0;
+
+	// Resolve dependencies
+	if(bCode->dependsCount != 0)
+	{
+		ExternModuleInfo *mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
+		for(unsigned int i = 0; i < bCode->dependsCount; i++)
+		{
+			const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
+			if(FILE *module = fopen(path, "rb"))
+			{
+				fseek(module, 0, SEEK_END);
+				unsigned int bcSize = ftell(module);
+				fseek(module, 0, SEEK_SET);
+				char *bytecode = new char[bcSize];
+				fread(bytecode, 1, bcSize, module);
+				fclose(module);
+
+				if(!LinkCode(bytecode, false))
+					SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
+				moduleFuncCount += mInfo->funcCount;
+			}
+			unsigned int funcCount = exFunctions.size();
+			for(unsigned int n = mInfo->funcStart; n < mInfo->funcStart + mInfo->funcCount; n++)
+				funcRemap[n] = funcCount - mInfo->funcCount + n - mInfo->funcStart;
+			mInfo++;
+		}
+	}
+
 	typeRemap.clear();
 
 	unsigned int oldTypeCount = exTypes.size();
@@ -85,6 +119,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int oldSymbolSize = exSymbols.size();
 	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
 	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
+	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
 
 	// Add new locals
 	unsigned int oldLocalsSize = exLocals.size();
@@ -100,6 +135,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo++)
 	{
+		if(i >= bCode->oldFunctionCount && i < bCode->oldFunctionCount + moduleFuncCount)
+			continue;
+
 		const unsigned int index_none = ~0u;
 
 		unsigned int index = index_none;
@@ -110,7 +148,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		// If the function exists and is build-in or external, skip
 		if(index != index_none && exFunctions[index].address == -1)
 		{
-			funcRemap.push_back(index);
+			//funcRemap.push_back(index);
 			continue;
 		}
 		// If the function exists and is internal, check if redefinition is allowed
@@ -118,9 +156,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		{
 			if(redefinitions)
 			{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Warning: function '%s' is redefined", (char*)(bCode) + bCode->offsetToSymbols + exFunctions[index].offsetToName);
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Warning: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
 			}else{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", (char*)(bCode) + bCode->offsetToSymbols + exFunctions[index].offsetToName);
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
 				return false;
 			}
 		}
@@ -155,7 +193,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			if(exFunctions.back().address != -1)
 				exFunctions.back().address = oldCodeSize + fInfo->address;
 		}else{
-			funcRemap.push_back(index);
+			//funcRemap.push_back(index);
 			assert(!"No function rewrite at the moment");
 		}
 	}

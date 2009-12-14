@@ -1,9 +1,12 @@
 #include "Lexer.h"
 
-void	Lexer::Lexify(const char* code)
+void Lexer::Clear()
 {
 	lexems.clear();
+}
 
+void Lexer::Lexify(const char* code)
+{
 	LexemeType lType = lex_none;
 	int lLength = 1;
 
@@ -284,6 +287,8 @@ void	Lexer::Lexify(const char* code)
 							lType = lex_typeof;
 						else if(memcmp(code, "sizeof", 6) == 0)
 							lType = lex_sizeof;
+						else if(memcmp(code, "import", 6) == 0)
+							lType = lex_import;
 						break;
 					case 7:
 						if(memcmp(code, "noalign", 7) == 0)
@@ -328,7 +333,12 @@ void	Lexer::Lexify(const char* code)
 	lexems.push_back(lex);
 }
 
-Lexeme*	Lexer::GetStreamStart()
+Lexeme* Lexer::GetStreamStart()
 {
 	return &lexems[0];
+}
+
+unsigned int Lexer::GetStreamSize()
+{
+	return lexems.size();
 }

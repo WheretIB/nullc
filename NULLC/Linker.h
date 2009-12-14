@@ -30,6 +30,6 @@ public:
 	unsigned int				offsetToGlobalCode;
 
 	FastVector<unsigned int>	typeRemap;
-	FastVector<unsigned int>	funcRemap;
+	//FastVector<unsigned int>	funcRemap;
 };
 
