@@ -12,6 +12,8 @@ struct ExternTypeInfo
 	enum SubCategory{ CAT_NONE, CAT_ARRAY, CAT_POINTER, CAT_FUNCTION, CAT_CLASS, };
 	SubCategory		subCat;
 
+	unsigned int	defaultAlign;
+
 	union
 	{
 		unsigned int	arrSize;

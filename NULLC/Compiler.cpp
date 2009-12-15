@@ -385,11 +385,29 @@ bool Compiler::ImportModule(char* bytecode)
 				// Save it for future use
 				CodeInfo::typeInfo[typeRemap[tInfo->subType]]->refType = newInfo;
 				break;
+			case ExternTypeInfo::CAT_CLASS:
+			{
+				unsigned int strLength = (unsigned int)strlen(symbols + tInfo->offsetToName) + 1;
+				const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), symbols + tInfo->offsetToName);
+				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX));
+				newInfo = CodeInfo::typeInfo.back();
+
+				const char *memberName = symbols + tInfo->offsetToName + strLength;
+				for(unsigned int n = 0; n < tInfo->memberCount; n++)
+				{
+					strLength = (unsigned int)strlen(memberName) + 1;
+					nameCopy = strcpy((char*)dupStrings.Allocate(strLength), memberName);
+					memberName += strLength;
+					newInfo->AddMemberVariable(nameCopy, CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]]);
+				}
+			}
+				break;
 			default:
 				SafeSprintf(errBuf, 256, "ERROR: new type in module named %s unsupported", (symbols + tInfo->offsetToName));
 				CodeInfo::lastError = CompilerError(errBuf, "Module link");
 				return false;
 			}
+			newInfo->alignBytes = tInfo->defaultAlign;
 		}else{
 			// Type full check
 			if(CodeInfo::typeInfo[index]->type != tInfo->type)
@@ -454,12 +472,16 @@ bool Compiler::Compile(const char* str, bool noClear)
 	unsigned int t = clock();
 
 	if(!noClear)
+	{
 		lexer.Clear();
+		moduleSource.clear();
+	}
 	unsigned int lexStreamStart = lexer.GetStreamSize();
 	lexer.Lexify(str);
 
 	char	*moduleName[32];
 	char	*moduleData[32];
+	int		moduleSize[32];
 	unsigned int moduleCount = 0;
 
 	Lexeme *start = &lexer.GetStreamStart()[lexStreamStart];
@@ -511,7 +533,9 @@ bool Compiler::Compile(const char* str, bool noClear)
 				fseek(rawModule, 0, SEEK_END);
 				unsigned int textSize = ftell(rawModule);
 				fseek(rawModule, 0, SEEK_SET);
-				char *fileContent = new char[textSize+1];
+				//unsigned int srcOffset = moduleSource.size();
+				//moduleSource.resize(srcOffset + textSize + 1);
+				char *fileContent = /*&moduleSource[srcOffset];//*/new char[textSize+1];
 				fread(fileContent, 1, textSize, rawModule);
 				fileContent[textSize] = 0;
 
@@ -522,6 +546,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 					fclose(rawModule);
 					return false;
 				}
+				delete[] fileContent;
+				//moduleSource.shrink(srcOffset);
 				start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
 				fclose(rawModule);
 				char *bytecode = NULL;
@@ -538,6 +564,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 					return false;
 				}
 				moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(path) + 1), path);
+				moduleSize[moduleCount] = bcSize;
 				moduleData[moduleCount++] = bytecode;
 			}else{
 				CodeInfo::lastError = CompilerError("ERROR: module or source file can't be found", name->pos);
@@ -556,7 +583,14 @@ bool Compiler::Compile(const char* str, bool noClear)
 		activeModules.back().name = moduleName[i];
 		activeModules.back().funcStart = CodeInfo::funcInfo.size();
 		if(!ImportModule(moduleData[i]))
+		{
+			delete[] moduleData[i];
 			return false;
+		}
+#ifdef _DEBUG
+		memset(moduleData[i], 0, moduleSize[i]);
+#endif
+		delete[] moduleData[i];
 		activeModules.back().funcCount = CodeInfo::funcInfo.size() - activeModules.back().funcStart;
 	}
 
@@ -782,6 +816,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		TypeInfo *type = CodeInfo::typeInfo[i];
 
 		symbolStorageSize += type->GetFullNameLength() + 1;
+		for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
+			symbolStorageSize += (unsigned int)strlen(curr->name) + 1;
+
 		allMemberCount += type->funcType ? type->funcType->paramCount + 1 : type->memberCount;
 	}
 	size += allMemberCount * sizeof(unsigned int);
@@ -876,6 +913,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.type = (ExternTypeInfo::TypeCategory)refType.type;
 		typeInfo.nameHash = refType.GetFullNameHash();
 
+		typeInfo.defaultAlign = refType.alignBytes;
+
 		if(refType.funcType != 0)						// Function type
 		{
 			typeInfo.subCat = ExternTypeInfo::CAT_FUNCTION;
@@ -896,7 +935,11 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			typeInfo.memberCount = refType.memberCount;
 			typeInfo.memberOffset = memberOffset;
 			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
+			{
 				memberList[memberOffset++] = GetTypeIndexByPtr(curr->type);
+				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
+				symbolPos += strlen(curr->name) + 1;
+			}
 		}else{
 			typeInfo.subCat = ExternTypeInfo::CAT_NONE;
 		}
