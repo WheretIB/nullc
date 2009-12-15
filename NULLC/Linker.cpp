@@ -20,6 +20,7 @@ void Linker::CleanCode()
 	exCode.clear();
 	exSymbols.clear();
 	exLocals.clear();
+	exModules.clear();
 
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -38,8 +39,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	if(funcRemap.size() == 0)
 	{
-		funcRemap.resize(bCode->oldFunctionCount);
-		for(unsigned int i = 0; i < bCode->oldFunctionCount; i++)
+		funcRemap.resize(bCode->externalFunctionCount);
+		for(unsigned int i = 0; i < bCode->externalFunctionCount; i++)
 			funcRemap[i] = i;
 	}
 
@@ -52,26 +53,64 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		for(unsigned int i = 0; i < bCode->dependsCount; i++)
 		{
 			const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
-			if(FILE *module = fopen(path, "rb"))
+			
+			//Search for it in loaded modules
+			int loadedId = -1;
+			for(unsigned int n = 0; n < exModules.size(); n++)
 			{
-				fseek(module, 0, SEEK_END);
-				unsigned int bcSize = ftell(module);
-				fseek(module, 0, SEEK_SET);
-				char *bytecode = new char[bcSize];
-				fread(bytecode, 1, bcSize, module);
-				fclose(module);
-
-				if(!LinkCode(bytecode, false))
+				if(exModules[n].nameHash == GetStringHash(path))
 				{
-					delete[] bytecode;
-					SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
+					loadedId = n;
+					break;
 				}
-				delete[] bytecode;
-				moduleFuncCount += mInfo->funcCount;
 			}
-			unsigned int funcCount = exFunctions.size();
+			if(loadedId == -1)
+			{
+				if(FILE *module = fopen(path, "rb"))
+				{
+					fseek(module, 0, SEEK_END);
+					unsigned int bcSize = ftell(module);
+					fseek(module, 0, SEEK_SET);
+					char *bytecode = new char[bcSize];
+					fread(bytecode, 1, bcSize, module);
+					fclose(module);
+
+					if(!LinkCode(bytecode, false))
+					{
+						delete[] bytecode;
+						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
+						return false;
+					}
+					delete[] bytecode;
+				}
+				exModules.push_back(*mInfo);
+				exModules.back().name = NULL;
+				exModules.back().nameHash = GetStringHash(path);
+				exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
+				loadedId = exModules.size() - 1;
+			}
+			moduleFuncCount += mInfo->funcCount;
+			mInfo++;
+		}
+		mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
+		// Fixup function table
+		for(unsigned int i = 0; i < bCode->dependsCount; i++)
+		{
+			const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
+
+			//Search for it in loaded modules
+			int loadedId = -1;
+			for(unsigned int n = 0; n < exModules.size(); n++)
+			{
+				if(exModules[n].nameHash == GetStringHash(path))
+				{
+					loadedId = n;
+					break;
+				}
+			}
+			ExternModuleInfo *rInfo = &exModules[loadedId];
 			for(unsigned int n = mInfo->funcStart; n < mInfo->funcStart + mInfo->funcCount; n++)
-				funcRemap[n] = funcCount - mInfo->funcCount + n - mInfo->funcStart;
+				funcRemap[n] = rInfo->funcStart + n - mInfo->funcStart;
 			mInfo++;
 		}
 	}
@@ -143,7 +182,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo++)
 	{
-		if(i >= bCode->oldFunctionCount && i < bCode->oldFunctionCount + moduleFuncCount)
+		if(i >= bCode->externalFunctionCount && i < bCode->externalFunctionCount + moduleFuncCount)
 			continue;
 
 		const unsigned int index_none = ~0u;
@@ -169,7 +208,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		}
 		if(index == index_none)
 		{
-			if(i >= bCode->oldFunctionCount)
+			if(i >= bCode->externalFunctionCount)
 				funcRemap.push_back(exFunctions.size());
 			exFunctions.push_back(*fInfo);
 

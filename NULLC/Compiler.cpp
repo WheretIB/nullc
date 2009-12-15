@@ -316,7 +316,7 @@ bool Compiler::AddType(const char* typedecl)
 	return true;
 }
 
-bool Compiler::ImportModule(char* bytecode)
+bool Compiler::ImportModule(char* bytecode, const char* pos)
 {
 	char errBuf[256];
 	ByteCode *bCode = (ByteCode*)bytecode;
@@ -404,7 +404,7 @@ bool Compiler::ImportModule(char* bytecode)
 				break;
 			default:
 				SafeSprintf(errBuf, 256, "ERROR: new type in module named %s unsupported", (symbols + tInfo->offsetToName));
-				CodeInfo::lastError = CompilerError(errBuf, "Module link");
+				CodeInfo::lastError = CompilerError(errBuf, pos);
 				return false;
 			}
 			newInfo->alignBytes = tInfo->defaultAlign;
@@ -413,7 +413,7 @@ bool Compiler::ImportModule(char* bytecode)
 			if(CodeInfo::typeInfo[index]->type != tInfo->type)
 			{
 				SafeSprintf(errBuf, 256, "ERROR: there already is a type named %s with a different structure", CodeInfo::typeInfo[index]->GetFullTypeName());
-				CodeInfo::lastError = CompilerError(errBuf, "Module link");
+				CodeInfo::lastError = CompilerError(errBuf, pos);
 				return false;
 			}
 			typeRemap.push_back(index);
@@ -427,8 +427,8 @@ bool Compiler::ImportModule(char* bytecode)
 	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
 
 	unsigned int oldFuncCount = CodeInfo::funcInfo.size();
-	fInfo += bCode->oldFunctionCount;
-	for(unsigned int i = bCode->oldFunctionCount; i < bCode->functionCount; i++)
+	fInfo += bCode->externalFunctionCount + bCode->moduleFunctionCount;
+	for(unsigned int i = bCode->externalFunctionCount + bCode->moduleFunctionCount; i < bCode->functionCount; i++)
 	{
 		const unsigned int INDEX_NONE = ~0u;
 
@@ -460,7 +460,7 @@ bool Compiler::ImportModule(char* bytecode)
 			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
 		}else{
 			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined.", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName());
-			CodeInfo::lastError = CompilerError(errBuf, "Module link");
+			CodeInfo::lastError = CompilerError(errBuf, pos);
 			return false;
 		}
 
@@ -586,7 +586,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		activeModules.push_back();
 		activeModules.back().name = moduleName[i];
 		activeModules.back().funcStart = CodeInfo::funcInfo.size();
-		if(!ImportModule(moduleData[i]))
+		if(!ImportModule(moduleData[i], moduleName[i]))
 		{
 			delete[] moduleData[i];
 			return false;
@@ -830,10 +830,12 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	}
 	size += allMemberCount * sizeof(unsigned int);
 
+	unsigned int functionsInModules = 0;
 	unsigned int offsetToModule = size;
 	size += activeModules.size() * sizeof(ExternModuleInfo);
 	for(unsigned int i = 0; i < activeModules.size(); i++)
 	{
+		functionsInModules += activeModules[i].funcCount;
 		symbolStorageSize += (unsigned int)strlen(activeModules[i].name) + 1;
 	}
 
@@ -887,7 +889,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->offsetToFirstVar = offsetToVar;
 
 	code->functionCount = (unsigned int)CodeInfo::funcInfo.size();
-	code->oldFunctionCount = buildInFuncs;
+	code->externalFunctionCount = buildInFuncs;
+	code->moduleFunctionCount = functionsInModules;
 	code->offsetToFirstFunc = offsetToFunc;
 
 	code->localCount = localCount;
