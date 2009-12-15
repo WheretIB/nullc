@@ -58,7 +58,7 @@ public:
 	unsigned int	GetBytecode(char** bytecode);
 private:
 	void	ClearState();
-	bool	ImportModule(char* bytecode);
+	bool	ImportModule(char* bytecode, const char* pos);
 
 	Lexer	lexer;
 

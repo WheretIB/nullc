@@ -101,6 +101,7 @@ struct ExternFuncInfo
 struct ExternModuleInfo
 {
 	const char		*name;
+	unsigned int	nameHash;
 	unsigned int	nameOffset;
 
 	unsigned int	funcStart;
@@ -125,7 +126,8 @@ struct ByteCode
 	ExternVarInfo	*firstVar;
 
 	unsigned int	functionCount;	//
-	unsigned int	oldFunctionCount;
+	unsigned int	externalFunctionCount;
+	unsigned int	moduleFunctionCount;
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
 	ExternFuncInfo	*firstFunc;
 
