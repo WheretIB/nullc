@@ -293,6 +293,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	if(runUnitTests)
 	{
 		AllocConsole();
+
 		freopen("CONOUT$", "w", stdout);
 		freopen("CONIN$", "r", stdin);
 

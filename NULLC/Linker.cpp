@@ -24,6 +24,9 @@ void Linker::CleanCode()
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
 
+	typeRemap.clear();
+	funcRemap.clear();
+
 	NULLC::ClearMemory();
 }
 
@@ -33,10 +36,12 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	ByteCode *bCode = (ByteCode*)code;
 
-	FastVector<unsigned int>	funcRemap(bCode->functionCount);
-	funcRemap.resize(bCode->oldFunctionCount);
-	for(unsigned int i = 0; i < bCode->functionCount; i++)
-		funcRemap[i] = i;
+	if(funcRemap.size() == 0)
+	{
+		funcRemap.resize(bCode->oldFunctionCount);
+		for(unsigned int i = 0; i < bCode->oldFunctionCount; i++)
+			funcRemap[i] = i;
+	}
 
 	unsigned int moduleFuncCount = 0;
 
@@ -116,7 +121,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int oldGlobalSize = globalVarSize;
 	globalVarSize += bCode->globalVarSize;
 
-	funcRemap.clear();
 	unsigned int oldFunctionCount = exFunctions.size();
 
 	// Add new symbols
@@ -151,10 +155,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 		// If the function exists and is build-in or external, skip
 		if(index != index_none && exFunctions[index].address == -1)
-		{
-			//funcRemap.push_back(index);
 			continue;
-		}
 		// If the function exists and is internal, check if redefinition is allowed
 		if(index != index_none)
 		{
@@ -168,7 +169,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		}
 		if(index == index_none)
 		{
-			//if(i >= bCode->oldFunctionCount)
+			if(i >= bCode->oldFunctionCount)
 				funcRemap.push_back(exFunctions.size());
 			exFunctions.push_back(*fInfo);
 
@@ -198,7 +199,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			if(exFunctions.back().address != -1)
 				exFunctions.back().address = oldCodeSize + fInfo->address;
 		}else{
-			//funcRemap.push_back(index);
+			funcRemap.push_back(index);
 			assert(!"No function rewrite at the moment");
 		}
 	}

@@ -3915,7 +3915,7 @@ int draw_progress_bar()\r\n\
 }\r\n\
 for(int i = 0; i < 10000; i++)\r\n\
 	draw_progress_bar();\r\n\
-return i;";
+return 0;";
 
 	nullcSetExecutor(NULLC_VM);
 
@@ -3934,6 +3934,9 @@ return i;";
 			nullcClean();
 			nullcLinkCode(bytecode, 0);
 			delete[] bytecode;
+		}else{
+			printf("Compilation failed: %s", nullcGetCompilationError());
+			break;
 		}
 		linkTime += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
