@@ -57,7 +57,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				fclose(module);
 
 				if(!LinkCode(bytecode, false))
+				{
+					delete[] bytecode;
 					SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
+				}
+				delete[] bytecode;
 				moduleFuncCount += mInfo->funcCount;
 			}
 			unsigned int funcCount = exFunctions.size();
@@ -164,7 +168,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		}
 		if(index == index_none)
 		{
-			funcRemap.push_back(exFunctions.size());
+			//if(i >= bCode->oldFunctionCount)
+				funcRemap.push_back(exFunctions.size());
 			exFunctions.push_back(*fInfo);
 
 			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retType == ExternFuncInfo::RETURN_UNKNOWN)
