@@ -441,7 +441,10 @@ bool Compiler::ImportModule(char* bytecode)
 
 		if(index == INDEX_NONE)
 		{
-			CodeInfo::funcInfo.push_back(new FunctionInfo(symbols + fInfo->offsetToName));
+			unsigned int strLength = (unsigned int)strlen(symbols + fInfo->offsetToName) + 1;
+			const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), symbols + fInfo->offsetToName);
+
+			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy));
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
 			lastFunc->retType = CodeInfo::typeInfo[typeRemap[fInfo->retType]];
@@ -546,7 +549,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 					fclose(rawModule);
 					return false;
 				}
-				delete[] fileContent;
 				//moduleSource.shrink(srcOffset);
 				start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
 				fclose(rawModule);
@@ -557,6 +559,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 				FILE *module = fopen(path, "wb");
 				fwrite(bytecode, 1, bcSize, module);
 				fclose(module);
+
+				delete[] fileContent;
 
 				if(moduleCount == 32)
 				{
@@ -816,8 +820,11 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		TypeInfo *type = CodeInfo::typeInfo[i];
 
 		symbolStorageSize += type->GetFullNameLength() + 1;
-		for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
-			symbolStorageSize += (unsigned int)strlen(curr->name) + 1;
+		if(type->type == TypeInfo::TYPE_COMPLEX && type->subType == NULL && type->funcType == NULL)
+		{
+			for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
+				symbolStorageSize += (unsigned int)strlen(curr->name) + 1;
+		}
 
 		allMemberCount += type->funcType ? type->funcType->paramCount + 1 : type->memberCount;
 	}
