@@ -3,6 +3,88 @@
 
 namespace supspi
 {
+	template<int chunkSize>
+	class ChunkedStackPool
+	{
+	public:
+		ChunkedStackPool()
+		{
+			curr = first = &one;
+			first->next = NULL;
+			size = 0;
+		}
+		~ChunkedStackPool()
+		{
+			first = first->next;
+			while(first)
+			{
+				StackChunk *next = first->next;
+				delete first;
+				first = next;
+			}
+			curr = first = &one;
+			first->next = NULL;
+			size = 0;
+		}
+
+		void	Clear()
+		{
+			curr = first;
+			size = 0;
+		}
+		void	ClearTo(unsigned int bytes)
+		{
+			curr = first;
+			while(bytes > chunkSize)
+			{
+				assert(curr->next != NULL);
+				curr = curr->next;
+				bytes -= chunkSize;
+			}
+			size = bytes;
+		}
+		void*	Allocate(unsigned int bytes)
+		{
+			assert(bytes < chunkSize);
+			if(size + bytes < chunkSize)
+			{
+				size += bytes;
+				return curr->data + size - bytes;
+			}
+			if(curr->next)
+			{
+				curr = curr->next;
+				size = bytes;
+				return curr->data;
+			}
+			curr->next = new StackChunk;
+			curr = curr->next;
+			curr->next = NULL;
+			size = bytes;
+			return curr->data;
+		}
+		unsigned int GetSize()
+		{
+			unsigned int wholeSize = 0;
+			StackChunk *temp = first;
+			while(temp != curr)
+			{
+				wholeSize += chunkSize;
+				temp = temp->next;
+			}
+			return wholeSize + size;
+		}
+	private:
+		struct StackChunk
+		{
+			StackChunk *next;
+			char		data[chunkSize];
+		};
+		StackChunk	*first, *curr;
+		StackChunk	one;
+		unsigned int size;
+	};
+
 	typedef void (*callBack)(char const*, char const*);
 
 	template<typename T>
@@ -112,8 +194,24 @@ namespace supspi
 
 		virtual bool	Parse(char** str, SpaceRule space) = 0;
 
+		static	void	DeleteParsers()
+		{
+			parserPool.Clear();
+		}
+
 		static bool continueParse;
+
+		void*		operator new(size_t size)
+		{
+			return parserPool.Allocate((unsigned int)size);
+		}
+		void		operator delete(void *ptr, size_t size)
+		{
+			(void)ptr; (void)size;
+			assert(!"Cannot delete parser");
+		}
 	protected:
+		static ChunkedStackPool<4092>	parserPool;
 	};
 
 	extern std::vector<BaseP*>	parserList;

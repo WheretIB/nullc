@@ -4,6 +4,8 @@ namespace supspi
 {
 	bool BaseP::continueParse = true;
 
+	ChunkedStackPool<4092>	BaseP::parserPool;
+
 	std::vector<BaseP*>	uniqueParserList;
 	std::vector<BaseP*>	parserList;
 
@@ -78,11 +80,7 @@ namespace supspi
 
 	void		DeleteParsers()
 	{
-		for(int i = 0; i < (int)uniqueParserList.size(); i++)
-		{
-			delete uniqueParserList[i];
-			uniqueParserList[i] = NULL;
-		}
+		BaseP::DeleteParsers();
 		uniqueParserList.resize(0);
 		parserList.resize(0);
 	}
