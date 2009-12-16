@@ -19,6 +19,24 @@ void BinaryCache::Terminate()
 	cache.clear();
 }
 
+void BinaryCache::PutBytecode(const char* path, char* bytecode)
+{
+	unsigned int hash = GetStringHash(path);
+	unsigned int i = 0;
+	for(; i < cache.size(); i++)
+	{
+		if(hash == cache[i].nameHash)
+			break;
+	}
+	assert(i == cache.size());
+
+	BinaryCache::CodeDescriptor *desc = cache.push_back();
+	unsigned int pathLen = (unsigned int)strlen(path);
+	desc->name = strcpy((char*)NULLC::alloc(pathLen + 1), path);
+	desc->nameHash = hash;
+	desc->binary = bytecode;
+}
+
 char* BinaryCache::GetBytecode(const char* path)
 {
 	unsigned int hash = GetStringHash(path);
@@ -31,13 +49,13 @@ char* BinaryCache::GetBytecode(const char* path)
 	if(i != cache.size())
 		return cache[i].binary;
 
-	BinaryCache::CodeDescriptor *desc = cache.push_back();
-	unsigned int pathLen = (unsigned int)strlen(path);
-	desc->name = strcpy((char*)NULLC::alloc(pathLen + 1), path);
-	desc->nameHash = hash;
-
 	if(FILE *module = fopen(path, "rb"))
 	{
+		BinaryCache::CodeDescriptor *desc = cache.push_back();
+		unsigned int pathLen = (unsigned int)strlen(path);
+		desc->name = strcpy((char*)NULLC::alloc(pathLen + 1), path);
+		desc->nameHash = hash;
+
 		fseek(module, 0, SEEK_END);
 		unsigned int bcSize = ftell(module);
 		fseek(module, 0, SEEK_SET);

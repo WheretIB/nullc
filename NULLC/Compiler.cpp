@@ -553,6 +553,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 
 				delete[] fileContent;
 
+				BinaryCache::PutBytecode(path, bytecode);
+
 				if(moduleCount == 32)
 				{
 					CodeInfo::lastError = CompilerError("ERROR: temporary limit for 32 modules", name->pos);

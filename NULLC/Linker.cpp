@@ -47,67 +47,64 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	unsigned int moduleFuncCount = 0;
 
-	// Resolve dependencies
-	if(bCode->dependsCount != 0)
+	ExternModuleInfo *mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
+	for(unsigned int i = 0; i < bCode->dependsCount; i++)
 	{
-		ExternModuleInfo *mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
-		for(unsigned int i = 0; i < bCode->dependsCount; i++)
+		const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
+		
+		//Search for it in loaded modules
+		int loadedId = -1;
+		for(unsigned int n = 0; n < exModules.size(); n++)
 		{
-			const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
-			
-			//Search for it in loaded modules
-			int loadedId = -1;
-			for(unsigned int n = 0; n < exModules.size(); n++)
+			if(exModules[n].nameHash == GetStringHash(path))
 			{
-				if(exModules[n].nameHash == GetStringHash(path))
-				{
-					loadedId = n;
-					break;
-				}
+				loadedId = n;
+				break;
 			}
-			if(loadedId == -1)
+		}
+		if(loadedId == -1)
+		{
+			if(char *bytecode = BinaryCache::GetBytecode(path))
 			{
-				if(char *bytecode = BinaryCache::GetBytecode(path))
+				if(!LinkCode(bytecode, false))
 				{
-					if(!LinkCode(bytecode, false))
-					{
-						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
-						return false;
-					}
-				}else{
-					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailed to load module %s", path);
+					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
 					return false;
 				}
-				exModules.push_back(*mInfo);
-				exModules.back().name = NULL;
-				exModules.back().nameHash = GetStringHash(path);
-				exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
-				loadedId = exModules.size() - 1;
+			}else{
+				SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailed to load module %s", path);
+				return false;
 			}
-			moduleFuncCount += mInfo->funcCount;
-			mInfo++;
+			exModules.push_back(*mInfo);
+			exModules.back().name = NULL;
+			exModules.back().nameHash = GetStringHash(path);
+			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
+			loadedId = exModules.size() - 1;
 		}
-		mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
-		// Fixup function table
-		for(unsigned int i = 0; i < bCode->dependsCount; i++)
-		{
-			const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
+		moduleFuncCount += mInfo->funcCount;
+		mInfo++;
+	}
 
-			//Search for it in loaded modules
-			int loadedId = -1;
-			for(unsigned int n = 0; n < exModules.size(); n++)
+	mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
+	// Fixup function table
+	for(unsigned int i = 0; i < bCode->dependsCount; i++)
+	{
+		const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
+
+		//Search for it in loaded modules
+		int loadedId = -1;
+		for(unsigned int n = 0; n < exModules.size(); n++)
+		{
+			if(exModules[n].nameHash == GetStringHash(path))
 			{
-				if(exModules[n].nameHash == GetStringHash(path))
-				{
-					loadedId = n;
-					break;
-				}
+				loadedId = n;
+				break;
 			}
-			ExternModuleInfo *rInfo = &exModules[loadedId];
-			for(unsigned int n = mInfo->funcStart; n < mInfo->funcStart + mInfo->funcCount; n++)
-				funcRemap[n] = rInfo->funcStart + n - mInfo->funcStart;
-			mInfo++;
 		}
+		ExternModuleInfo *rInfo = &exModules[loadedId];
+		for(unsigned int n = mInfo->funcStart; n < mInfo->funcStart + mInfo->funcCount; n++)
+			funcRemap[n] = rInfo->funcStart + n - mInfo->funcStart;
+		mInfo++;
 	}
 
 	typeRemap.clear();
