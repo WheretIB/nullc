@@ -6,6 +6,7 @@ namespace BinaryCache
 	void Initialize();
 	void Terminate();
 
+	void	PutBytecode(const char* path, char* bytecode);
 	char*	GetBytecode(const char* path);
 
 	struct	CodeDescriptor
