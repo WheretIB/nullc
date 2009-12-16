@@ -38,13 +38,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	ByteCode *bCode = (ByteCode*)code;
 
-	if(funcRemap.size() == 0)
-	{
-		funcRemap.resize(bCode->externalFunctionCount);
-		for(unsigned int i = 0; i < bCode->externalFunctionCount; i++)
-			funcRemap[i] = i;
-	}
-
 	unsigned int moduleFuncCount = 0;
 
 	ExternModuleInfo *mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
@@ -84,6 +77,12 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		moduleFuncCount += mInfo->funcCount;
 		mInfo++;
 	}
+
+	funcRemap.resize(bCode->functionCount);
+	for(unsigned int i = 0; i < bCode->externalFunctionCount; i++)
+		funcRemap[i] = i;
+	for(unsigned int i = bCode->externalFunctionCount + moduleFuncCount; i < bCode->functionCount; i++)
+		funcRemap[i] = (exFunctions.size() ? exFunctions.size() - bCode->externalFunctionCount + moduleFuncCount : 0) + i;
 
 	mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
 	// Fixup function table
@@ -200,8 +199,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		}
 		if(index == index_none)
 		{
-			if(i >= bCode->externalFunctionCount)
-				funcRemap.push_back(exFunctions.size());
 			exFunctions.push_back(*fInfo);
 
 			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retType == ExternFuncInfo::RETURN_UNKNOWN)
@@ -230,7 +227,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			if(exFunctions.back().address != -1)
 				exFunctions.back().address = oldCodeSize + fInfo->address;
 		}else{
-			funcRemap.push_back(index);
 			assert(!"No function rewrite at the moment");
 		}
 	}

@@ -932,6 +932,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			DestroyWindow(hWnd);
 			break;
 		case ID_FILE_LOAD:
+			GetCurrentDirectory(512, result + 512);
 			if(GetOpenFileName(&openData))
 			{
 				const char *file = fileName;
@@ -972,6 +973,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					file += strlen(file) + 1;
 				}
 			}
+			SetCurrentDirectory(result + 512);
 			break;
 		case ID_FILE_SAVE:
 			{
