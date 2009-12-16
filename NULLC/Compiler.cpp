@@ -11,6 +11,8 @@
 
 #include "StdLib.h"
 
+#include "BinaryCache.h"
+
 #include <time.h>
 
 jmp_buf CodeInfo::errorHandler;
@@ -484,7 +486,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 
 	char	*moduleName[32];
 	char	*moduleData[32];
-	int		moduleSize[32];
 	unsigned int moduleCount = 0;
 
 	Lexeme *start = &lexer.GetStreamStart()[lexStreamStart];
@@ -517,28 +518,19 @@ bool Compiler::Compile(const char* str, bool noClear)
 			return false;
 		}
 		start++;
-		/*SafeSprintf(cPath, 256 - int(cPath - path), ".ncm");
-		if(FILE *module = fopen(path, "rb"))
+		SafeSprintf(cPath, 256 - int(cPath - path), ".ncm");
+		if(char *bytecode = BinaryCache::GetBytecode(path))
 		{
-			fseek(module, 0, SEEK_END);
-			unsigned int bcSize = ftell(module);
-			fseek(module, 0, SEEK_SET);
-			char *bytecode = new char[bcSize];
-			fread(bytecode, 1, bcSize, module);
-			fclose(module);
-
-			if(!ImportModule(path, bytecode))
-				return false;
-		}else*/{
+			moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(path) + 1), path);
+			moduleData[moduleCount++] = bytecode;
+		}else{
 			SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
 			if(FILE *rawModule = fopen(path, "rb"))
 			{
 				fseek(rawModule, 0, SEEK_END);
 				unsigned int textSize = ftell(rawModule);
 				fseek(rawModule, 0, SEEK_SET);
-				//unsigned int srcOffset = moduleSource.size();
-				//moduleSource.resize(srcOffset + textSize + 1);
-				char *fileContent = /*&moduleSource[srcOffset];//*/new char[textSize+1];
+				char *fileContent = new char[textSize+1];
 				fread(fileContent, 1, textSize, rawModule);
 				fileContent[textSize] = 0;
 
@@ -549,7 +541,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 					fclose(rawModule);
 					return false;
 				}
-				//moduleSource.shrink(srcOffset);
 				start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
 				fclose(rawModule);
 				char *bytecode = NULL;
@@ -568,7 +559,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 					return false;
 				}
 				moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(path) + 1), path);
-				moduleSize[moduleCount] = bcSize;
 				moduleData[moduleCount++] = bytecode;
 			}else{
 				CodeInfo::lastError = CompilerError("ERROR: module or source file can't be found", name->pos);
@@ -591,10 +581,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 			delete[] moduleData[i];
 			return false;
 		}
-#ifdef _DEBUG
-		memset(moduleData[i], 0, moduleSize[i]);
-#endif
-		delete[] moduleData[i];
 		activeModules.back().funcCount = CodeInfo::funcInfo.size() - activeModules.back().funcStart;
 	}
 

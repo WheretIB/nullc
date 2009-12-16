@@ -431,6 +431,10 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath=".\BinaryCache.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Bytecode.cpp"
 				>
 			</File>
@@ -458,6 +462,10 @@
 			>
 			<File
 				RelativePath=".\Array.h"
+				>
+			</File>
+			<File
+				RelativePath=".\BinaryCache.h"
 				>
 			</File>
 			<File
