@@ -1,5 +1,6 @@
 #include "Linker.h"
 #include "StdLib.h"
+#include "BinaryCache.h"
 
 Linker::Linker(): exTypes(64), exVariables(64), exFunctions(64), exSymbols(4096), exLocals(64)
 {
@@ -66,22 +67,16 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			}
 			if(loadedId == -1)
 			{
-				if(FILE *module = fopen(path, "rb"))
+				if(char *bytecode = BinaryCache::GetBytecode(path))
 				{
-					fseek(module, 0, SEEK_END);
-					unsigned int bcSize = ftell(module);
-					fseek(module, 0, SEEK_SET);
-					char *bytecode = new char[bcSize];
-					fread(bytecode, 1, bcSize, module);
-					fclose(module);
-
 					if(!LinkCode(bytecode, false))
 					{
-						delete[] bytecode;
 						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
 						return false;
 					}
-					delete[] bytecode;
+				}else{
+					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailed to load module %s", path);
+					return false;
 				}
 				exModules.push_back(*mInfo);
 				exModules.back().name = NULL;

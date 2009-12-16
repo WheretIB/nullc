@@ -12,6 +12,7 @@
 
 #include "Bytecode.h"
 #include "StdLib.h"
+#include "BinaryCache.h"
 
 CompilerError				CodeInfo::lastError;
 
@@ -215,6 +216,8 @@ void**	nullcGetVariableInfo(unsigned int* count)
 
 void	nullcDeinit()
 {
+	BinaryCache::Terminate();
+
 	NULLC::destruct(compiler);
 	compiler = NULL;
 	NULLC::destruct(linker);
