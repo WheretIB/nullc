@@ -80,7 +80,8 @@ const char *CompilerError::codeStart = NULL;
 Compiler::Compiler()
 {
 	buildInFuncs = 0;
-	buildInTypes = 0;
+	buildInTypes.clear();
+	buildInTypes.reserve(32);
 
 	// Add basic types
 	TypeInfo* info;
@@ -122,7 +123,10 @@ Compiler::Compiler()
 	typeChar = info;
 	CodeInfo::typeInfo.push_back(info);
 
-	basicTypes = buildInTypes = (int)CodeInfo::typeInfo.size();
+	buildInTypes.resize(CodeInfo::typeInfo.size());
+	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
+
+	CodeInfo::classCount = basicTypes = (int)CodeInfo::typeInfo.size();
 	typeTop = TypeInfo::GetPoolTop();
 
 	varTop = 0;
@@ -210,16 +214,20 @@ void Compiler::ClearState()
 {
 	CodeInfo::varInfo.clear();
 
-	for(unsigned int i = 0; i < buildInTypes; i++)
+	CodeInfo::classCount = basicTypes;
+
+	CodeInfo::typeInfo.resize(buildInTypes.size());
+	memcpy(&CodeInfo::typeInfo[0], &buildInTypes[0], buildInTypes.size() * sizeof(TypeInfo*));
+	for(unsigned int i = 0; i < buildInTypes.size(); i++)
 	{
-		if(CodeInfo::typeInfo[i]->refType && CodeInfo::typeInfo[i]->refType->typeIndex >= buildInTypes)
+		CodeInfo::typeInfo[i]->typeIndex = i;
+		if(CodeInfo::typeInfo[i]->refType && CodeInfo::typeInfo[i]->refType->typeIndex >= buildInTypes.size())
 			CodeInfo::typeInfo[i]->refType = NULL;
 	}
 
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 		CodeInfo::typeInfo[i]->fullName = NULL;
 
-	CodeInfo::typeInfo.resize(buildInTypes);
 	TypeInfo::SetPoolTop(typeTop);
 	CodeInfo::aliasInfo.clear();
 
@@ -273,7 +281,12 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	CodeInfo::funcInfo.back()->implemented = true;
 
 	buildInFuncs = CodeInfo::funcInfo.size();
-	buildInTypes = CodeInfo::typeInfo.size();
+
+	buildInTypes.resize(CodeInfo::typeInfo.size());
+	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
+
+	basicTypes = CodeInfo::classCount;
+
 	typeTop = TypeInfo::GetPoolTop();
 	varTop = VariableInfo::GetPoolTop();
 	funcTop = FunctionInfo::GetPoolTop();
@@ -301,7 +314,7 @@ bool Compiler::AddType(const char* typedecl)
 	if(!res)
 		return false;
 
-	TypeInfo *definedType = CodeInfo::typeInfo[buildInTypes];
+	TypeInfo *definedType = CodeInfo::typeInfo[buildInTypes.size()];
 	definedType->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(definedType->name) + 1), definedType->name);
 	TypeInfo::MemberVariable	*currV = definedType->firstVariable;
 	while(currV)
@@ -310,7 +323,11 @@ bool Compiler::AddType(const char* typedecl)
 		currV = currV->next;
 	}
 
-	buildInTypes = (int)CodeInfo::typeInfo.size();
+	buildInTypes.resize(CodeInfo::typeInfo.size());
+	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
+
+	basicTypes = CodeInfo::classCount;
+
 	typeTop = TypeInfo::GetPoolTop();
 	varTop = VariableInfo::GetPoolTop();
 	funcTop = FunctionInfo::GetPoolTop();
@@ -722,15 +739,6 @@ void Compiler::SaveListing(const char *fileName)
 #endif
 }
 
-unsigned int GetTypeIndexByPtr(TypeInfo* type)
-{
-	for(unsigned int n = 0; n < CodeInfo::typeInfo.size(); n++)
-		if(CodeInfo::typeInfo[n] == type)
-			return n;
-	assert(!"type not found");
-	return ~0u;
-}
-
 bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 {
 	fInfo.bytesToPop = refFunc.type == FunctionInfo::THISCALL ? 4 : 0;
@@ -918,23 +926,23 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			typeInfo.subCat = ExternTypeInfo::CAT_FUNCTION;
 			typeInfo.memberCount = refType.funcType->paramCount;
 			typeInfo.memberOffset = memberOffset;
-			memberList[memberOffset++] = GetTypeIndexByPtr(refType.funcType->retType);
+			memberList[memberOffset++] = refType.funcType->retType->typeIndex;
 			for(unsigned int k = 0; k < refType.funcType->paramCount; k++)
-				memberList[memberOffset++] = GetTypeIndexByPtr(refType.funcType->paramType[k]);
+				memberList[memberOffset++] = refType.funcType->paramType[k]->typeIndex;
 		}else if(refType.arrLevel != 0){				// Array type
 			typeInfo.subCat = ExternTypeInfo::CAT_ARRAY;
 			typeInfo.arrSize = refType.arrSize;
-			typeInfo.subType = GetTypeIndexByPtr(refType.subType);
+			typeInfo.subType = refType.subType->typeIndex;
 		}else if(refType.refLevel != 0){				// Pointer type
 			typeInfo.subCat = ExternTypeInfo::CAT_POINTER;
-			typeInfo.subType = GetTypeIndexByPtr(refType.subType);
+			typeInfo.subType = refType.subType->typeIndex;
 		}else if(refType.type == TypeInfo::TYPE_COMPLEX){	// Complex type
 			typeInfo.subCat = ExternTypeInfo::CAT_CLASS;
 			typeInfo.memberCount = refType.memberCount;
 			typeInfo.memberOffset = memberOffset;
 			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
 			{
-				memberList[memberOffset++] = GetTypeIndexByPtr(curr->type);
+				memberList[memberOffset++] = curr->type->typeIndex;
 				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
 				symbolPos += strlen(curr->name) + 1;
 			}
@@ -966,7 +974,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		ExternVarInfo &varInfo = *vInfo;
 
 		varInfo.size = CodeInfo::varInfo[i]->varType->size;
-		varInfo.type = GetTypeIndexByPtr(CodeInfo::varInfo[i]->varType);
+		varInfo.type = CodeInfo::varInfo[i]->varType->typeIndex;
 		varInfo.nameHash = GetStringHash(CodeInfo::varInfo[i]->name.begin, CodeInfo::varInfo[i]->name.end);
 
 		// Fill up next
@@ -1016,7 +1024,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		for(VariableInfo *curr = refFunc->firstParam ? refFunc->firstParam : refFunc->firstLocal; curr; curr = curr->next, localOffset++)
 		{
 			code->firstLocal[localOffset].paramType = paramType;
-			code->firstLocal[localOffset].type = GetTypeIndexByPtr(curr->varType);
+			code->firstLocal[localOffset].type = curr->varType->typeIndex;
 			code->firstLocal[localOffset].offset = curr->pos;
 			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
 			memcpy(symbolPos, curr->name.begin, curr->name.end - curr->name.begin + 1);
@@ -1035,7 +1043,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		for(FunctionInfo::ExternalInfo *curr = refFunc->firstExternal; curr; curr = curr->next, localOffset++)
 		{
 			code->firstLocal[localOffset].paramType = ExternLocalInfo::EXTERNAL;
-			code->firstLocal[localOffset].type = GetTypeIndexByPtr(curr->variable->varType);
+			code->firstLocal[localOffset].type = curr->variable->varType->typeIndex;
 			code->firstLocal[localOffset].size = curr->variable->varType->size;
 			code->firstLocal[localOffset].target = curr->targetPos;
 			code->firstLocal[localOffset].closeFuncList = curr->targetFunc | (curr->targetLocal ? 0x80000000 : 0);

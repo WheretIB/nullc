@@ -35,8 +35,9 @@ namespace CodeInfo
 
 	// Информация о типах
 	// Information about types
-	extern FastVector<TypeInfo*>		typeInfo;
-	extern FastVector<AliasInfo>		aliasInfo;
+	extern FastVector<TypeInfo*>	typeInfo;
+	extern FastVector<AliasInfo>	aliasInfo;
+	extern unsigned int				classCount;
 
 	// Поток комманд
 	// Command stream

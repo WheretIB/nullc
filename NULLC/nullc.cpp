@@ -20,6 +20,8 @@ FastVector<FunctionInfo*>	CodeInfo::funcInfo;
 FastVector<VariableInfo*>	CodeInfo::varInfo;
 FastVector<TypeInfo*>		CodeInfo::typeInfo;
 FastVector<AliasInfo>		CodeInfo::aliasInfo;
+unsigned int				CodeInfo::classCount = 0;
+
 SourceInfo					CodeInfo::cmdInfoList;
 FastVector<VMCmd>			CodeInfo::cmdList;
 FastVector<NodeZeroOP*>		CodeInfo::nodeList;

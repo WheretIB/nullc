@@ -64,10 +64,12 @@ private:
 
 	ChunkedStackPool<1020>	dupStrings;
 
+	FastVector<TypeInfo*>			buildInTypes;
+
 	FastVector<ExternModuleInfo>	activeModules;
 	FastVector<char>				moduleSource;
 
 	unsigned int buildInFuncs;
-	unsigned int basicTypes, buildInTypes;
+	unsigned int basicTypes;
 	unsigned int typeTop, funcTop, varTop;
 };
