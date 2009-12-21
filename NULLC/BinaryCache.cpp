@@ -3,10 +3,22 @@
 namespace BinaryCache
 {
 	FastVector<CodeDescriptor>	cache;
+	const char*	importPath;
+}
+
+void BinaryCache::SetImportPath(const char* path)
+{
+	importPath = path;
+}
+
+const char* BinaryCache::GetImportPath()
+{
+	return importPath;
 }
 
 void BinaryCache::Initialize()
 {
+	importPath = NULL;
 }
 
 void BinaryCache::Terminate()
@@ -17,6 +29,8 @@ void BinaryCache::Terminate()
 		delete[] cache[i].binary;
 	}
 	cache.clear();
+
+	//delete[] importPath;
 }
 
 void BinaryCache::PutBytecode(const char* path, char* bytecode)

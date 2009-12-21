@@ -61,6 +61,11 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(size_t), void (NCDECL *deall
 #endif
 }
 
+void	nullcSetImportPath(const char* path)
+{
+	BinaryCache::SetImportPath(path);
+}
+
 void	nullcSetExecutor(unsigned int id)
 {
 	currExec = id;
