@@ -301,6 +301,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	}
 
 	nullcInit();
+	nullcSetImportPath("Modules\\");
 
 	#define REGISTER(func, proto) nullcAddExternalFunction((void (*)())func, proto)
 	REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int color);");

@@ -14,6 +14,8 @@ typedef unsigned char nullres;
 void	nullcInit();
 void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(size_t), void (NCDECL *deallocFunc)(void*));
 
+void	nullcSetImportPath(const char* path);
+
 #define NULLC_VM	0
 #define NULLC_X86	1
 void	nullcSetExecutor(unsigned int id);

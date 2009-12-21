@@ -57,7 +57,14 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		}
 		if(loadedId == -1)
 		{
-			if(char *bytecode = BinaryCache::GetBytecode(path))
+			char fullPath[256];
+			SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath() ? BinaryCache::GetImportPath() : "", path);
+
+			char *bytecode = BinaryCache::GetBytecode(fullPath);
+			if(!bytecode && BinaryCache::GetImportPath())
+				bytecode = BinaryCache::GetBytecode(path);
+
+			if(bytecode)
 			{
 				if(!LinkCode(bytecode, false))
 				{

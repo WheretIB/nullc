@@ -505,18 +505,23 @@ bool Compiler::Compile(const char* str, bool noClear)
 	char	*moduleData[32];
 	unsigned int moduleCount = 0;
 
+	const char *importPath = BinaryCache::GetImportPath();
+
 	Lexeme *start = &lexer.GetStreamStart()[lexStreamStart];
 	while(start->type == lex_import)
 	{
 		start++;
-		char path[256], *cPath = path;
+		char path[256], *cPath = path, *pathNoImport = path;
 		Lexeme *name = start;
 		if(start->type != lex_string)
 		{
 			CodeInfo::lastError = CompilerError("ERROR: string expected after import", start->pos);
 			return false;
 		}
-		cPath += SafeSprintf(cPath, 256, "%.*s", start->length, start->pos);
+		cPath += SafeSprintf(cPath, 256, "%s%.*s", importPath ? importPath : "", start->length, start->pos);
+		if(importPath)
+			pathNoImport = path + strlen(importPath);
+
 		start++;
 		while(start->type == lex_point)
 		{
@@ -536,13 +541,24 @@ bool Compiler::Compile(const char* str, bool noClear)
 		}
 		start++;
 		SafeSprintf(cPath, 256 - int(cPath - path), ".ncm");
-		if(char *bytecode = BinaryCache::GetBytecode(path))
+		char *bytecode = BinaryCache::GetBytecode(path);
+		if(!bytecode && importPath)
+			bytecode = BinaryCache::GetBytecode(pathNoImport);
+
+		moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport);
+		if(bytecode)
 		{
-			moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(path) + 1), path);
 			moduleData[moduleCount++] = bytecode;
 		}else{
 			SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
-			if(FILE *rawModule = fopen(path, "rb"))
+			FILE *rawModule = fopen(path, "rb");
+			bool failedImportPath = false;
+			if(!rawModule && importPath)
+			{
+				failedImportPath = true;
+				rawModule = fopen(pathNoImport, "rb");
+			}
+			if(rawModule)
 			{
 				fseek(rawModule, 0, SEEK_END);
 				unsigned int textSize = ftell(rawModule);
@@ -564,20 +580,19 @@ bool Compiler::Compile(const char* str, bool noClear)
 				unsigned int bcSize = GetBytecode(&bytecode);
 
 				SafeSprintf(cPath, 256 - int(cPath - path), ".ncm");
-				FILE *module = fopen(path, "wb");
+				FILE *module = fopen(failedImportPath ? pathNoImport : path, "wb");
 				fwrite(bytecode, 1, bcSize, module);
 				fclose(module);
 
 				delete[] fileContent;
 
-				BinaryCache::PutBytecode(path, bytecode);
+				BinaryCache::PutBytecode(failedImportPath ? pathNoImport : path, bytecode);
 
 				if(moduleCount == 32)
 				{
 					CodeInfo::lastError = CompilerError("ERROR: temporary limit for 32 modules", name->pos);
 					return false;
 				}
-				moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(path) + 1), path);
 				moduleData[moduleCount++] = bytecode;
 			}else{
 				CodeInfo::lastError = CompilerError("ERROR: module or source file can't be found", name->pos);
