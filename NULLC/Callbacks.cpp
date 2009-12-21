@@ -1924,12 +1924,21 @@ void TypeBegin(const char* pos, const char* end)
 		if(CodeInfo::typeInfo[i]->nameHash == hash)
 			ThrowError(pos, "ERROR: '%s' is being redefined", typeNameCopy);
 	}
-	newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+	newType = new TypeInfo(CodeInfo::classCount, typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	methodCount = 0;
 
-	CodeInfo::typeInfo.push_back(newType);
+	if(CodeInfo::classCount == CodeInfo::typeInfo.size())
+	{
+		CodeInfo::typeInfo.push_back(newType);
+	}else{
+		CodeInfo::typeInfo[CodeInfo::classCount]->typeIndex = CodeInfo::typeInfo.size();
+		CodeInfo::typeInfo.push_back(CodeInfo::typeInfo[CodeInfo::classCount]);
+		CodeInfo::typeInfo[CodeInfo::classCount] = newType;
+	}
+	
+	CodeInfo::classCount++;
 
 	BeginBlock();
 }

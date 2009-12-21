@@ -1026,8 +1026,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
 		if(!RichTextarea::NeedUpdate(wnd) || (GetTickCount()-lastUpdate < 100))
 			break;
-		string str = "";
-		SetWindowText(hCode, str.c_str());
+		SetWindowText(hCode, "");
 
 		RichTextarea::BeginStyleUpdate(wnd);
 		if(!colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection))
