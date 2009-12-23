@@ -27,6 +27,10 @@
 #include "GUI/RichTextarea.h"
 #include "GUI/TabbedFiles.h"
 
+// NULLC modules
+#include "Modules/includes/file.h"
+#include "Modules/includes/io.h"
+
 #define MAX_LOADSTRING 100
 
 HINSTANCE hInst;
@@ -83,179 +87,6 @@ double myGetPreciseTime()
 	return temp*1000.0;
 }
 
-FILE* myFileOpen(NullCArray name, NullCArray access)
-{
-	return fopen(name.ptr, access.ptr);
-}
-
-void myFileWrite(FILE* file, NullCArray arr)
-{
-	fwrite(arr.ptr, 1, arr.len, file);
-}
-
-template<typename T>
-void myFileWriteType(FILE* file, T val)
-{
-	fwrite(&val, sizeof(T), 1, file);
-}
-
-template<typename T>
-void myFileWriteTypePtr(FILE* file, T* val)
-{
-	fwrite(val, sizeof(T), 1, file);
-}
-
-void myFileRead(FILE* file, NullCArray arr)
-{
-	fread(arr.ptr, 1, arr.len, file);
-}
-
-template<typename T>
-void myFileReadTypePtr(FILE* file, T* val)
-{
-	fread(val, sizeof(T), 1, file);
-}
-
-void myFileClose(FILE* file)
-{
-	fclose(file);
-}
-
-bool	consoleActive = false;
-HANDLE	conStdIn;
-HANDLE	conStdOut;
-
-void InitConsole();
-void DeInitConsole();
-
-// Does nothing at this point
-int __stdcall ConsoleEvent(DWORD eventType)
-{
-	switch(eventType)
-	{
-	case CTRL_C_EVENT:
-		return 1;
-	case CTRL_BREAK_EVENT:
-		return 1;
-	case CTRL_CLOSE_EVENT:
-		return 1;
-	default:
-		return 0;
-	}
-}
-
-void InitConsole()
-{
-	if(consoleActive)
-		return;
-	AllocConsole();
-	consoleActive = true;
-	conStdIn = GetStdHandle(STD_INPUT_HANDLE);
-	conStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-
-	DWORD fdwMode = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT; 
-	SetConsoleMode(conStdIn, fdwMode);
-	SetConsoleCtrlHandler(ConsoleEvent, 1);
-}
-
-void DeInitConsole()
-{
-	if(!consoleActive)
-		return;
-	FreeConsole();
-	consoleActive = false;
-}
-
-void WriteToConsole(NullCArray data)
-{
-	InitConsole();
-	DWORD written;
-	WriteFile(conStdOut, data.ptr, data.len-1, &written, NULL); 
-}
-
-void WriteIntConsole(int num)
-{
-	InitConsole();
-	char buf[64];
-	sprintf(buf, "%d\r\n", num);
-	DWORD written;
-	WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
-}
-
-void ReadIntFromConsole(int* val)
-{
-	InitConsole();
-	char temp[128];
-	DWORD read;
-	ReadFile(conStdIn, temp, 128, &read, NULL);
-	*val = atoi(temp);
-
-	DWORD written;
-	WriteFile(conStdOut, "\r\n", 2, &written, NULL); 
-}
-
-int ReadTextFromConsole(NullCArray data)
-{
-	char buffer[2048];
-
-	InitConsole();
-	DWORD read;
-	ReadFile(conStdIn, buffer, 2048, &read, NULL);
-	buffer[read-1] = 0;
-	char *target = data.ptr;
-	int c = 0;
-	for(unsigned int i = 0; i < read; i++)
-	{
-		buffer[c++] = buffer[i];
-		if(buffer[i] == '\b')
-			c -= 2;
-		if(c < 0)
-			c = 0;
-	}
-	if((unsigned int)c < data.len)
-		buffer[c-1] = 0;
-	else
-		buffer[data.len-1] = 0;
-	memcpy(target, buffer, data.len);
-
-	DWORD written;
-	WriteFile(conStdOut, "\r\n", 2, &written, NULL);
-	return ((unsigned int)c < data.len ? c : data.len);
-}
-
-void SetConsoleCursorPos(int x, int y)
-{
-	if(x < 0 || y < 0)
-	{
-		nullcThrowError("SetConsoleCursorPos: Negative values are not allowed");
-		return;
-	}
-	COORD coords;
-	coords.X = (short)x;
-	coords.Y = (short)y;
-	SetConsoleCursorPosition(conStdOut, coords);
-}
-
-struct float4c{ float x, y, z, w; };
-
-void PrintFloat4(float4c n)
-{
-	InitConsole();
-	DWORD written;
-	char temp[128];
-	sprintf(temp, "{%f, %f, %f, %f}\r\n", n.x, n.y, n.z, n.w);
-	WriteFile(conStdOut, temp, (unsigned int)strlen(temp), &written, NULL); 
-}
-
-void PrintLong(long long lg)
-{
-	InitConsole();
-	DWORD written;
-	char temp[128];
-	sprintf(temp, "{%I64d}\r\n", lg);
-	WriteFile(conStdOut, temp, (unsigned int)strlen(temp), &written, NULL); 
-}
-
 void draw_rect(int x, int y, int width, int height, int color)
 {
 	(void)x; (void)y; (void)width; (void)height; (void)color;
@@ -267,11 +98,12 @@ void draw_rect(int x, int y, int width, int height, int color)
 
 char typeTest(int x, short y, char z, int d, long long u, float m, int s, double k, int t)
 {
-	InitConsole();
-	DWORD written;
-	char buf[64];
-	sprintf(buf, "%d %d %d %d %I64d %f %d %f %d", x, y, z, d, u, m, s, k, t);
-	WriteFile(conStdOut, buf, (DWORD)strlen(buf), &written, NULL); 
+	AllocConsole();
+
+	freopen("CONOUT$", "w", stdout);
+	freopen("CONIN$", "r", stdin);
+
+	printf("%d %d %d %d %I64d %f %d %f %d", x, y, z, d, u, m, s, k, t);
 	return 12;
 }
 
@@ -308,34 +140,10 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	REGISTER(typeTest, "char typeTest(int x, short y, char z, int d, long u, float m, int s, double k, int t);");
 
-	REGISTER(PrintFloat4, "void TestEx(float4 test);");
-	REGISTER(PrintLong, "void TestEx2(long test);");
-
 	REGISTER(myGetTime, "int clock();");
 
-	REGISTER(myFileOpen, "file FileOpen(char[] name, char[] access);");
-	REGISTER(myFileClose, "void FileClose(file fID);");
-	REGISTER(myFileWrite, "void FileWrite(file fID, char[] arr);");
-	REGISTER(myFileWriteTypePtr<char>, "void FileWrite(file fID, char ref data);");
-	REGISTER(myFileWriteTypePtr<short>, "void FileWrite(file fID, short ref data);");
-	REGISTER(myFileWriteTypePtr<int>, "void FileWrite(file fID, int ref data);");
-	REGISTER(myFileWriteTypePtr<long long>, "void FileWrite(file fID, long ref data);");
-	REGISTER(myFileWriteType<char>, "void FileWrite(file fID, char data);");
-	REGISTER(myFileWriteType<short>, "void FileWrite(file fID, short data);");
-	REGISTER(myFileWriteType<int>, "void FileWrite(file fID, int data);");
-	REGISTER(myFileWriteType<long long>, "void FileWrite(file fID, long data);");
-
-	REGISTER(myFileRead, "void FileRead(file fID, char[] arr);");
-	REGISTER(myFileReadTypePtr<char>, "void FileRead(file fID, char ref data);");
-	REGISTER(myFileReadTypePtr<short>, "void FileRead(file fID, short ref data);");
-	REGISTER(myFileReadTypePtr<int>, "void FileRead(file fID, int ref data);");
-	REGISTER(myFileReadTypePtr<long long>, "void FileRead(file fID, long ref data);");
-
-	REGISTER(WriteIntConsole, "void Print(int text);");
-	REGISTER(WriteToConsole, "void Print(char[] text);");
-	REGISTER(ReadIntFromConsole, "void Input(int ref num);");
-	REGISTER(ReadTextFromConsole, "int Input(char[] buf);");
-	REGISTER(SetConsoleCursorPos, "void SetConsoleCursorPos(int x, y);");
+	nullcInitFileModule();
+	nullcInitIOModule();
 
 	colorer = NULL;
 
@@ -364,6 +172,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		}
 	}
 	delete colorer;
+
+	nullcDeinitFileModule();
 
 	nullcDeinit();
 
@@ -856,7 +666,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				}
 			}
 
-			DeInitConsole();
+			FreeConsole();
 
 			SetWindowText(hCode, "");
 			SetWindowText(hResult, "");

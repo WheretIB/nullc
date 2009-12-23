@@ -89,7 +89,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = 0; i < bCode->externalFunctionCount; i++)
 		funcRemap[i] = i;
 	for(unsigned int i = bCode->externalFunctionCount + moduleFuncCount; i < bCode->functionCount; i++)
-		funcRemap[i] = (exFunctions.size() ? exFunctions.size() - bCode->externalFunctionCount + moduleFuncCount : 0) + i;
+		funcRemap[i] = (exFunctions.size() ? exFunctions.size() - (bCode->externalFunctionCount + moduleFuncCount) : 0) + i;
 
 	mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
 	// Fixup function table

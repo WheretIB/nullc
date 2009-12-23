@@ -979,7 +979,7 @@ bool ParseTerminal(Lexeme** str)
 		{
 			if(ParseFunctionDefinition(str))
 				return true;
-			ThrowError((*str)->pos, "ERROR: '}' not found after inline array");
+			ThrowError((*str)->pos, "ERROR: function name not found after return type.");
 		}
 	}
 		break;

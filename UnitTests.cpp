@@ -3,6 +3,8 @@
 #include "NULLC/nullc.h"
 #include "NULLC/ParseClass.h"
 
+#include "Modules/includes/file.h"
+
 #include <stdio.h>
 
 #ifndef _DEBUG
@@ -30,44 +32,6 @@ bool lastFailed;
 #define CHECK_SHORT(var, index, expected) if(((short*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((short*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_CHAR(var, index, expected) if(((char*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((char*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_STR(var, index, expected) if(strcmp(((char*)FindVar(var)+index), (expected)) != 0){ printf(" Failed %s[%d] == %s (got %s)\r\n", #var, index, expected, ((char*)FindVar(var))+index); lastFailed = true; }
-
-FILE* mFileOpen(NullCArray name, NullCArray access)
-{
-	return fopen(name.ptr, access.ptr);
-}
-
-void mFileWrite(FILE* file, NullCArray arr)
-{
-	fwrite(arr.ptr, 1, arr.len, file);
-}
-
-template<typename T>
-void mFileWriteType(FILE* file, T val)
-{
-	fwrite(&val, sizeof(T), 1, file);
-}
-
-template<typename T>
-void mFileWriteTypePtr(FILE* file, T* val)
-{
-	fwrite(val, sizeof(T), 1, file);
-}
-
-void mFileRead(FILE* file, NullCArray arr)
-{
-	fread(arr.ptr, 1, arr.len, file);
-}
-
-template<typename T>
-void mFileReadTypePtr(FILE* file, T* val)
-{
-	fread(val, sizeof(T), 1, file);
-}
-
-void mFileClose(FILE* file)
-{
-	fclose(file);
-}
 
 void*	FindVar(const char* name)
 {
@@ -363,24 +327,9 @@ void	RunTests()
 	// Init NULLC
 	nullcInit();
 	//nullcInitCustomAlloc(testAlloc, testDealloc);
+	nullcSetImportPath("Modules\\");
 
-	nullcAddExternalFunction((void (*)())(mFileOpen), "file FileOpen(char[] name, char[] access);");
-	nullcAddExternalFunction((void (*)())(mFileClose), "void FileClose(file fID);");
-	nullcAddExternalFunction((void (*)())(mFileWrite), "void FileWrite(file fID, char[] arr);");
-	nullcAddExternalFunction((void (*)())(mFileWriteTypePtr<char>), "void FileWrite(file fID, char ref data);");
-	nullcAddExternalFunction((void (*)())(mFileWriteTypePtr<short>), "void FileWrite(file fID, short ref data);");
-	nullcAddExternalFunction((void (*)())(mFileWriteTypePtr<int>), "void FileWrite(file fID, int ref data);");
-	nullcAddExternalFunction((void (*)())(mFileWriteTypePtr<long long>), "void FileWrite(file fID, long ref data);");
-	nullcAddExternalFunction((void (*)())(mFileWriteType<char>), "void FileWrite(file fID, char data);");
-	nullcAddExternalFunction((void (*)())(mFileWriteType<short>), "void FileWrite(file fID, short data);");
-	nullcAddExternalFunction((void (*)())(mFileWriteType<int>), "void FileWrite(file fID, int data);");
-	nullcAddExternalFunction((void (*)())(mFileWriteType<long long>), "void FileWrite(file fID, long data);");
-
-	nullcAddExternalFunction((void (*)())(mFileRead), "void FileRead(file fID, char[] arr);");
-	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<char>), "void FileRead(file fID, char ref data);");
-	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<short>), "void FileRead(file fID, short ref data);");
-	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<int>), "void FileRead(file fID, int ref data);");
-	nullcAddExternalFunction((void (*)())(mFileReadTypePtr<long long>), "void FileRead(file fID, long ref data);");
+	nullcInitFileModule();
 
 #ifdef SPEED_TEST
 	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");
@@ -1815,16 +1764,17 @@ return sum(u);";
 
 const char	*testFile = 
 "// File and something else test\r\n\
+import std.file;\r\n\
 int test(char[] eh, int u){ int b = 0; for(int i=0;i<u;i++)b+=eh[i]; return b; }\r\n\
 \r\n\
 auto uh = \"ehhhe\";\r\n\
 int k = 5464321;\r\n\
-file n = FileOpen(\"haha.txt\", \"wb\");\r\n\
+File n = File(\"haha.txt\", \"wb\");\r\n\
 auto text = \"Hello file!!!\";\r\n\
-FileWrite(n, text);\r\n\
+n.Write(text);\r\n\
 \r\n\
-FileWrite(n, &k);\r\n\
-FileClose(n);\r\n\
+n.Write(k);\r\n\
+n.Close();\r\n\
 return test(uh, 3);";
 	printf("\r\nFile and something else test\r\n");
 	testCount++;
@@ -1847,6 +1797,7 @@ return test(uh, 3);";
 
 const char	*testFile2 = 
 "//File test\r\n\
+import std.file;\r\n\
 auto name = \"extern.bin\";\r\n\
 auto acc = \"wb\", acc2 = \"rb\";\r\n\
 \r\n\
@@ -1858,17 +1809,17 @@ int num = 12568;\r\n\
 long lnum = 4586564;\r\n\
 \r\n\
 // Write to file\r\n\
-file test = FileOpen(name, acc);\r\n\
-FileWrite(test, text);\r\n\
-FileWrite(test, &ch);\r\n\
-FileWrite(test, &sh);\r\n\
-FileWrite(test, &num);\r\n\
-FileWrite(test, &lnum);\r\n\
-FileWrite(test, ch);\r\n\
-FileWrite(test, sh);\r\n\
-FileWrite(test, num);\r\n\
-FileWrite(test, lnum);\r\n\
-FileClose(test);\r\n\
+File test = File(name, acc);\r\n\
+test.Write(text);\r\n\
+test.Write(ch);\r\n\
+test.Write(sh);\r\n\
+test.Write(num);\r\n\
+test.Write(lnum);\r\n\
+test.Write(ch);\r\n\
+test.Write(sh);\r\n\
+test.Write(num);\r\n\
+test.Write(lnum);\r\n\
+test.Close();\r\n\
 \r\n\
 // Perform to read\r\n\
 char[12] textR1;\r\n\
@@ -1877,17 +1828,17 @@ short shR1, shR2;\r\n\
 int numR1, numR2;\r\n\
 long lnumR1, lnumR2;\r\n\
 \r\n\
-test = FileOpen(name, acc2);\r\n\
-FileRead(test, textR1);\r\n\
-FileRead(test, &chR1);\r\n\
-FileRead(test, &shR1);\r\n\
-FileRead(test, &numR1);\r\n\
-FileRead(test, &lnumR1);\r\n\
-FileRead(test, &chR2);\r\n\
-FileRead(test, &shR2);\r\n\
-FileRead(test, &numR2);\r\n\
-FileRead(test, &lnumR2);\r\n\
-FileClose(test);\r\n\
+test.Open(name, acc2);\r\n\
+test.Read(textR1);\r\n\
+test.Read(&chR1);\r\n\
+test.Read(&shR1);\r\n\
+test.Read(&numR1);\r\n\
+test.Read(&lnumR1);\r\n\
+test.Read(&chR2);\r\n\
+test.Read(&shR2);\r\n\
+test.Read(&numR2);\r\n\
+test.Read(&lnumR2);\r\n\
+test.Close();\r\n\
 return 1;";
 	printf("\r\nFile test 2\r\n");
 	testCount++;
@@ -3834,7 +3785,7 @@ return a.GetBar();";
 
 #ifdef SPEED_TEST
 const char	*testCompileSpeed =
-"int progress_slider_position = 0;\r\n\
+"/*import nullclib;*/int progress_slider_position = 0;\r\n\
 \r\n\
 int clip(int value, int left, int right){	return value < left ? left : value > right ? right : value;}\r\n\
 \r\n\
@@ -3922,7 +3873,7 @@ return 0;";
 	double time = myGetPreciseTime();
 	double compileTime = 0.0;
 	double linkTime = 0.0;
-	for(int i = 0; i < 1000; i++)
+	for(int i = 0; i < 30000; i++)
 	{
 		nullres good = nullcCompile(testCompileSpeed);
 		compileTime += myGetPreciseTime() - time;
@@ -3942,10 +3893,13 @@ return 0;";
 		time = myGetPreciseTime();
 	}
 
-	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 1000.0);
-	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 1000.0, (linkTime - compileTime) / 1000.0);
-	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 1000.0);
+	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 30000.0);
+	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
+	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 30000.0);
 #endif
+
+	nullcDeinitFileModule();
+
 	// Deinit NULLC
 	nullcDeinit();
 }

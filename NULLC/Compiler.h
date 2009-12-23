@@ -48,6 +48,7 @@ public:
 	~Compiler();
 
 	bool	AddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
+	bool	AddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index);
 	bool	AddType(const char* typedecl);
 
 	bool	Compile(const char* str, bool noClear = false);
@@ -59,6 +60,7 @@ public:
 private:
 	void	ClearState();
 	bool	ImportModule(char* bytecode, const char* pos);
+	char*	BuildModule(const char* file, const char* altFile);
 
 	Lexer	lexer;
 

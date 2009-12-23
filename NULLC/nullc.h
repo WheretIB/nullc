@@ -20,8 +20,10 @@ void	nullcSetImportPath(const char* path);
 #define NULLC_X86	1
 void	nullcSetExecutor(unsigned int id);
 
-// prototype contains function prototype as if it was written in NULLC. It mush be followed by ';'
+// prototype contains function prototype as if it was written in NULLC. It must be followed by ';'
 nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
+
+nullres	nullcAddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index);
 
 // compiles the code (!) and returns 1 on success
 nullres	nullcCompile(const char* code);

@@ -79,6 +79,14 @@ nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	return good;
 }
 
+nullres	nullcAddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
+{
+	nullres good = compiler->AddModuleFunction(module, ptr, name, index);
+	if(good == 0)
+		compileError = compiler->GetError();
+	return good;
+}
+
 nullres	nullcCompile(const char* code)
 {
 	compileError = "";

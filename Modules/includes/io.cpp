@@ -1,0 +1,114 @@
+#include "io.h"
+#include "../../nullc/nullc.h"
+#include <windows.h>
+
+#include <stdio.h>
+
+namespace NULLCIO
+{
+	HANDLE	conStdIn;
+	HANDLE	conStdOut;
+
+	void InitConsole()
+	{
+		AllocConsole();
+
+		conStdIn = GetStdHandle(STD_INPUT_HANDLE);
+		conStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+		DWORD fdwMode = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT; 
+		SetConsoleMode(conStdIn, fdwMode);
+	}
+
+	void DeInitConsole()
+	{
+		FreeConsole();
+	}
+
+	void WriteToConsole(NullCArray data)
+	{
+		InitConsole();
+		DWORD written;
+		WriteFile(conStdOut, data.ptr, data.len-1, &written, NULL); 
+	}
+
+	void WriteIntConsole(int num)
+	{
+		InitConsole();
+		char buf[64];
+		sprintf(buf, "%d\r\n", num);
+		DWORD written;
+		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
+	}
+
+	void ReadIntFromConsole(int* val)
+	{
+		InitConsole();
+		char temp[128];
+		DWORD read;
+		ReadFile(conStdIn, temp, 128, &read, NULL);
+		*val = atoi(temp);
+
+		DWORD written;
+		WriteFile(conStdOut, "\r\n", 2, &written, NULL); 
+	}
+
+	int ReadTextFromConsole(NullCArray data)
+	{
+		char buffer[2048];
+
+		InitConsole();
+		DWORD read;
+		ReadFile(conStdIn, buffer, 2048, &read, NULL);
+		buffer[read-1] = 0;
+		char *target = data.ptr;
+		int c = 0;
+		for(unsigned int i = 0; i < read; i++)
+		{
+			buffer[c++] = buffer[i];
+			if(buffer[i] == '\b')
+				c -= 2;
+			if(c < 0)
+				c = 0;
+		}
+		if((unsigned int)c < data.len)
+			buffer[c-1] = 0;
+		else
+			buffer[data.len-1] = 0;
+		memcpy(target, buffer, data.len);
+
+		DWORD written;
+		WriteFile(conStdOut, "\r\n", 2, &written, NULL);
+		return ((unsigned int)c < data.len ? c : data.len);
+	}
+
+	void SetConsoleCursorPos(int x, int y)
+	{
+		if(x < 0 || y < 0)
+		{
+			nullcThrowError("SetConsoleCursorPos: Negative values are not allowed");
+			return;
+		}
+		COORD coords;
+		coords.X = (short)x;
+		coords.Y = (short)y;
+		SetConsoleCursorPosition(conStdOut, coords);
+	}
+}
+
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.io", (void(*)())NULLCIO::funcPtr, name, index)) return false;
+bool	nullcInitIOModule()
+{
+	REGISTER_FUNC(WriteToConsole, "Print", 0);
+	REGISTER_FUNC(WriteIntConsole, "Print", 1);
+	REGISTER_FUNC(ReadTextFromConsole, "Input", 0);
+	REGISTER_FUNC(ReadIntFromConsole, "Input", 1);
+	REGISTER_FUNC(SetConsoleCursorPos, "SetConsoleCursorPos", 0);
+
+	return true;
+}
+
+void	nullcDeinitIOModule()
+{
+
+}
