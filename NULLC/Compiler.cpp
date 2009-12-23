@@ -358,7 +358,9 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
 
 	unsigned int oldTypeCount = CodeInfo::typeInfo.size();
-	for(unsigned int i = 0; i < bCode->typeCount; i++)
+
+	unsigned int lastTypeNum = CodeInfo::typeInfo.size();
+	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
 	{
 		const unsigned int INDEX_NONE = ~0u;
 
@@ -369,7 +371,31 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 
 		if(index == INDEX_NONE)
 		{
-			typeRemap.push_back(CodeInfo::typeInfo.size());
+			typeRemap.push_back(lastTypeNum++);
+		}else{
+			// Type full check
+			if(CodeInfo::typeInfo[index]->type != tInfo->type)
+			{
+				SafeSprintf(errBuf, 256, "ERROR: there already is a type named %s with a different structure", CodeInfo::typeInfo[index]->GetFullTypeName());
+				CodeInfo::lastError = CompilerError(errBuf, pos);
+				return false;
+			}
+			typeRemap.push_back(index);
+		}
+	}
+
+	tInfo = FindFirstType(bCode);
+	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
+	{
+		const unsigned int INDEX_NONE = ~0u;
+
+		unsigned int index = INDEX_NONE;
+		for(unsigned int n = 0; n < oldTypeCount && index == INDEX_NONE; n++)
+			if(CodeInfo::typeInfo[n]->GetFullNameHash() == tInfo->nameHash)
+				index = n;
+
+		if(index == INDEX_NONE)
+		{
 			TypeInfo *newInfo = NULL, *tempInfo = NULL;
 			switch(tInfo->subCat)
 			{
@@ -418,21 +444,9 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 			{
 				unsigned int strLength = (unsigned int)strlen(symbols + tInfo->offsetToName) + 1;
 				const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), symbols + tInfo->offsetToName);
-				newInfo = new TypeInfo(CodeInfo::classCount, nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 
-				if(CodeInfo::classCount == CodeInfo::typeInfo.size())
-				{
-					CodeInfo::typeInfo.push_back(newInfo);
-				}else{
-					CodeInfo::typeInfo[CodeInfo::classCount]->typeIndex = CodeInfo::typeInfo.size();
-					CodeInfo::typeInfo.push_back(CodeInfo::typeInfo[CodeInfo::classCount]);
-					CodeInfo::typeInfo[CodeInfo::classCount] = newInfo;
-				}
-				
-				typeRemap[CodeInfo::classCount] = typeRemap.back();
-				typeRemap.back() = CodeInfo::classCount;
-
-				CodeInfo::classCount++;
+				CodeInfo::typeInfo.push_back(newInfo);
 
 				const char *memberName = symbols + tInfo->offsetToName + strLength;
 				for(unsigned int n = 0; n < tInfo->memberCount; n++)
@@ -458,10 +472,34 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 				CodeInfo::lastError = CompilerError(errBuf, pos);
 				return false;
 			}
-			typeRemap.push_back(index);
 		}
+	}
 
-		tInfo++;
+	// Put new classes in the beginning
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
+		if(CodeInfo::typeInfo[i]->type == TypeInfo::TYPE_COMPLEX && CodeInfo::typeInfo[i]->name != NULL && i > CodeInfo::classCount)
+		{
+			unsigned int n = 0;
+			for(; n < typeRemap.size(); n++)
+			{
+				if(typeRemap[n] == CodeInfo::classCount)
+					break;
+			}
+			assert(n != typeRemap.size());
+
+			CodeInfo::typeInfo[i]->typeIndex = CodeInfo::classCount;
+			CodeInfo::typeInfo[CodeInfo::classCount]->typeIndex = i;
+			TypeInfo *temp = CodeInfo::typeInfo[i];
+			CodeInfo::typeInfo[i] = CodeInfo::typeInfo[CodeInfo::classCount];
+			CodeInfo::typeInfo[CodeInfo::classCount] = temp;
+			
+			unsigned int tempIndex = typeRemap[CodeInfo::classCount];
+			typeRemap[CodeInfo::classCount] = typeRemap[n];
+			typeRemap[n] = tempIndex;
+
+			CodeInfo::classCount++;
+		}
 	}
 /*
 	// Import variables
@@ -497,7 +535,6 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy));
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
-			lastFunc->retType = CodeInfo::typeInfo[typeRemap[fInfo->retType]];
 			lastFunc->address = fInfo->funcPtr ? -1 : 0;
 			lastFunc->funcPtr = fInfo->funcPtr;
 
@@ -511,6 +548,10 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 			lastFunc->implemented = true;
 			lastFunc->type = strchr(lastFunc->name, ':') ? FunctionInfo::THISCALL : FunctionInfo::NORMAL;
 			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
+
+			lastFunc->retType = lastFunc->funcType->funcType->retType;
+
+			assert(lastFunc->funcType->funcType->paramCount == lastFunc->paramCount);
 		}else{
 			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined.", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName());
 			CodeInfo::lastError = CompilerError(errBuf, pos);

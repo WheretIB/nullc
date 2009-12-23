@@ -737,6 +737,38 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="win"
+				>
+				<File
+					RelativePath=".\Modules\includes\window.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\includes\window.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\win\window.nc"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="img"
+				>
+				<File
+					RelativePath=".\Modules\includes\canvas.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\includes\canvas.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\img\canvas.nc"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<File
 			RelativePath=".\CmdRef.txt"

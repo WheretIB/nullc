@@ -154,7 +154,7 @@ bool ParseSelectType(Lexeme** str)
 	}else if((*str)->type == lex_auto){
 		CALLBACK(SelectTypeByPointer(NULL));
 		(*str)++;
-	}else if((*str)->type == lex_string){
+	}else if((*str)->type == lex_string && (*str+1)->type != lex_oparen){
 		unsigned int index;
 		if((index = ParseTypename(str)) == 0)
 			return false;
