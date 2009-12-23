@@ -187,7 +187,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 		unsigned int index = index_none;
 		for(unsigned int n = 0; n < oldFunctionCount && index == index_none; n++)
-			if(fInfo->isVisible && exFunctions[n].nameHash == fInfo->nameHash && exFunctions[n].funcType == fInfo->funcType)
+			if(fInfo->isVisible && exFunctions[n].nameHash == fInfo->nameHash && exFunctions[n].funcType == typeRemap[fInfo->funcType])
 				index = n;
 
 		// If the function exists and is build-in or external, skip

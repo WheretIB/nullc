@@ -712,6 +712,30 @@
 					RelativePath=".\Modules\std\io.nc"
 					>
 				</File>
+				<File
+					RelativePath=".\Modules\includes\math.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\includes\math.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\std\math.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\includes\string.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\includes\string.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\std\string.nc"
+					>
+				</File>
 			</Filter>
 		</Filter>
 		<File
