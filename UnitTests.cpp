@@ -4,6 +4,7 @@
 #include "NULLC/ParseClass.h"
 
 #include "Modules/includes/file.h"
+#include "Modules/includes/math.h"
 
 #include <stdio.h>
 
@@ -240,6 +241,7 @@ return 1;";
 
 const char	*testCmplxType1 = 
 "// Complex type test (simple)\r\n\
+import std.math;\r\n\
 float f1;\r\n\
 float2 f2;\r\n\
 float3 f3;\r\n\
@@ -267,6 +269,7 @@ return 1;";
 
 const char	*testCmplxType2 = 
 "// Complex type test (array)\r\n\
+import std.math;\r\n\
 float3[10] fa;\r\n\
 for(int i = 0; i < 10; i++)\r\n\
 {\r\n\
@@ -330,6 +333,7 @@ void	RunTests()
 	nullcSetImportPath("Modules\\");
 
 	nullcInitFileModule();
+	nullcInitMathModule();
 
 #ifdef SPEED_TEST
 	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");
@@ -548,6 +552,7 @@ void	RunTests()
 
 	const char	*testMislead = 
 "// Compiler mislead test\r\n\
+import std.math;\r\n\
 float2 a;\r\n\
 a/*[gg]*/.x = 2;\r\n\
 a.y = a/*[gg]*/.x + 3;\r\n\
@@ -572,6 +577,7 @@ return a.x;";
 
 const char	*testCmplx3 = 
 "// Complex type test\r\n\
+import std.math;\r\n\
 float4x4 mat;\r\n\
 mat.row1.y = 5;\r\n\
 return 1;";
@@ -1066,6 +1072,7 @@ return testA(&a);";
 
 const char	*testPointersCmplx = 
 "// Pointers on complex!\r\n\
+import std.math;\r\n\
 double length(float4 ref v)\r\n\
 {\r\n\
 	return sqrt((v.x*v.x)+(v.y*v.y)+(v.z*v.z));\r\n\
@@ -1102,7 +1109,8 @@ return length(b);";
 
 
 const char	*testPointersCmplx2 = 
-"float4 a;\r\n\
+"import std.math;\r\n\
+float4 a;\r\n\
 float4 ref b = &a;\r\n\
 b.x = 5.0f;\r\n\
 return b.x;";
@@ -1121,7 +1129,8 @@ return b.x;";
 
 
 const char	*testPointers2 = 
-"double testA(float4 ref v){ return v.x; }\r\n\
+"import std.math;\r\n\
+double testA(float4 ref v){ return v.x; }\r\n\
 float4 a;\r\n\
 float4 ref b = &a;\r\n\
 a.x = 5.0f;\r\n\
@@ -1171,7 +1180,8 @@ return 1;";
 
 
 const char	*testPointers3 = 
-"int[5] arr;\r\n\
+"import std.math;\r\n\
+int[5] arr;\r\n\
 float4[4] arrF;\r\n\
 int ref a = &arr[3];\r\n\
 *a = 55;\r\n\
@@ -1382,6 +1392,7 @@ return u;";
 
 const char	*testClass1 = 
 "// Class test\r\n\
+import std.math;\r\n\
 class One\r\n\
 {\r\n\
   int a, b, c;\r\n\
@@ -1452,6 +1463,7 @@ return 3;";
 	
 const char	*testClass2 = 
 "// Class test 2\r\n\
+import std.math;\r\n\
 class One\r\n\
 {\r\n\
   int a, b, c;\r\n\
@@ -1505,11 +1517,10 @@ return 1;";
 
 const char	*testCmplx4 = 
 "//Complex types test #3\r\n\
+import std.math;\r\n\
 float test(float4 a, float4 b){ return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w; }\r\n\
 float4 test2(float4 u){ u.x += 5.0; return u; }\r\n\
-float4 float4(float x, float y, float z, float w){ float4 ret; ret.x = x; ret.y = y; ret.z = z; ret.w = w; return ret; }\r\n\
 float4 float4(float all){ float4 ret; ret.x = ret.y = ret.z = ret.w = all; return ret; }\r\n\
-float4 float4(float3 xyz, float w){ float4 ret; ret.x = xyz.x; ret.y = xyz.y; ret.z = xyz.z; ret.w = w; return ret; }\r\n\
 float sum(float[10] u){ float res = 0; for(int i = 0; i < 10; i++) res += u[i]; return res; }\r\n\
 float[10] inc(float[10] v){ float[10] res; for(int i = 0; i < 10; i++) res[i] = v[i]+1.0f; return res; }\r\n\
 float4 n, m;\r\n\
@@ -1573,6 +1584,7 @@ return test(n, m); // 56.0";
 
 const char	*testSpeed = 
 "// Speed tests\r\n\
+import std.math;\r\n\
 float4x4 mat;\r\n\
 class Float{ float x; }\r\n\
 Float f;\r\n\
@@ -1608,6 +1620,7 @@ return int(mat.row1.y);";
 
 const char	*testAuto = 
 "//Auto type tests\r\n\
+import std.math;\r\n\
 float lengthSqr(float3 ref f){ return f.x*f.x+f.y*f.y+f.z*f.z; }\r\n\
 float[10] tenArr(float n){ float[10] arr; for(int i = 0; i < 10; i++) arr[i] = n; return arr; }\r\n\
 auto b = 15;\r\n\
@@ -1922,7 +1935,8 @@ return 1;";
 
 
 const char	*testVarGetSet1 = 
-"int[10] a=4;\r\n\
+"import std.math;\r\n\
+int[10] a=4;\r\n\
 int[] b = a;\r\n\
 float4 c;\r\n\
 c.y = 5.0f;\r\n\
@@ -1963,7 +1977,8 @@ return b[1];";
 
 
 const char	*testArrays = 
-"int test(int a, int b, int c){ return a*b+c; }\r\n\
+"import std.math;\r\n\
+int test(int a, int b, int c){ return a*b+c; }\r\n\
 float test2(float4 b){ return b.x-b.y; }\r\n\
 int test3(char[] ch){ return ch.size; }\r\n\
 \r\n\
@@ -2186,6 +2201,7 @@ return 1;";
 
 const char	*testMultiCtor = 
 "// Multidimensional array constructor test\r\n\
+import std.math;\r\n\
 float3 float3(int[3] comp){ float3 ret; ret.x = comp[0]; ret.y = comp[1]; ret.z = comp[2]; return ret; }\r\n\
 float3 float3(float[3] comp){ float3 ret; ret.x = comp[0]; ret.y = comp[1]; ret.z = comp[2]; return ret; }\r\n\
 float3 float3(double[3] comp){ float3 ret; ret.x = comp[0]; ret.y = comp[1]; ret.z = comp[2]; return ret; }\r\n\
@@ -2289,6 +2305,7 @@ return a;";
 
 const char	*testGetSet = 
 "// New get and set functions test\r\n\
+import std.math;\r\n\
 auto s1 = 5;\r\n\
 auto f1 = &s1;\r\n\
 int d1 = 3;\r\n\
@@ -2431,6 +2448,7 @@ return 1;";
 
 const char	*testSizeof = 
 "//sizeof tests\r\n\
+import std.math;\r\n\
 int t1 = sizeof(int); // 4\r\n\
 int t2 = sizeof(float4); // 16\r\n\
 int t3 = sizeof({4,5,5}); // 12\r\n\
@@ -3148,7 +3166,7 @@ return (farr[0])(12);";
 	}
 
 const char	*testArrayMemberAfterCall =
-"float2 float2(float x,y){ float2 r; r.x=x;r.y=y; return r; }\r\n\
+"import std.math;\r\n\
 float2[2] f(){ return { float2(12,13), float2(14,15) }; }\r\n\
 int x = (f())[0].x;\r\n\
 int y = float2(45, 98).y;\r\n\
@@ -3365,7 +3383,8 @@ return func();";
 	}
 
 const char	*testMemberFuncCallPostExpr =
-"class foo\r\n\
+"import std.math;\r\n\
+class foo\r\n\
 {\r\n\
 	float2 v;\r\n\
 	int[3] arr;\r\n\
@@ -3650,8 +3669,8 @@ return a.GetBar();";
 	TEST_FOR_FAIL("Indirect function pointer call with wrong argument count", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; auto b = foo[0](); return foo(1, 2);");
 	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);");
 
-	TEST_FOR_FAIL("Array element type mistmatch", "float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;");
-	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;");
+	TEST_FOR_FAIL("Array element type mistmatch", "import std.math;\r\n\float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;");
+	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\n\float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;");
 
 	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];");
 	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;");
@@ -3899,6 +3918,7 @@ return 0;";
 #endif
 
 	nullcDeinitFileModule();
+	nullcDeinitMathModule();
 
 	// Deinit NULLC
 	nullcDeinit();

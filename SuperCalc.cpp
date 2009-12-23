@@ -30,6 +30,7 @@
 // NULLC modules
 #include "Modules/includes/file.h"
 #include "Modules/includes/io.h"
+#include "Modules/includes/math.h"
 
 #define MAX_LOADSTRING 100
 
@@ -144,6 +145,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	nullcInitFileModule();
 	nullcInitIOModule();
+	nullcInitMathModule();
 
 	colorer = NULL;
 
@@ -174,6 +176,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	delete colorer;
 
 	nullcDeinitFileModule();
+	nullcDeinitIOModule();
+	nullcDeinitMathModule();
 
 	nullcDeinit();
 

@@ -568,7 +568,7 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 	ColorerGrammar::typeInfo.push_back("float3");
 	ColorerGrammar::typeInfo.push_back("float4");
 	ColorerGrammar::typeInfo.push_back("float4x4");
-	ColorerGrammar::typeInfo.push_back("file");
+	ColorerGrammar::typeInfo.push_back("File");
 
 	ColorerGrammar::callArgCount.clear();
 	ColorerGrammar::varSize = 1;

@@ -132,17 +132,7 @@ Compiler::Compiler()
 	varTop = 0;
 	funcTop = 0;
 
-	// Add complex types
-	AddType("align(4) class float2{ float x, y; }");
-	AddType("align(4) class float3{ float x, y, z; }");
-	AddType("align(4) class float4{ float x, y, z, w; }");
-
-	AddType("align(8) class double2{ double x, y; }");
-	AddType("align(8) class double3{ double x, y, z; }");
-	AddType("align(8) class double4{ double x, y, z, w; }");
-
-	AddType("align(4) class float4x4{ float4 row1, row2, row3, row4; }");
-
+	// Add build-in functions
 	AddExternalFunction((void (*)())NULLC::Assert, "void assert(int val);");
 
 	AddExternalFunction((void (*)())NULLC::Cos, "double cos(double deg);");
@@ -355,47 +345,6 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	return true;
 }
 
-bool Compiler::AddType(const char* typedecl)
-{
-	ClearState();
-
-	bool res;
-
-	lexer.Clear();
-	lexer.Lexify(typedecl);
-
-	if(!setjmp(CodeInfo::errorHandler))
-	{
-		Lexeme *start = lexer.GetStreamStart();
-		res = ParseClassDefinition(&start);
-	}else{
-		CodeInfo::lastError = CompilerError("Parsing failed", NULL);
-		return false;
-	}
-	if(!res)
-		return false;
-
-	TypeInfo *definedType = CodeInfo::typeInfo[buildInTypes.size()];
-	definedType->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(definedType->name) + 1), definedType->name);
-	TypeInfo::MemberVariable	*currV = definedType->firstVariable;
-	while(currV)
-	{
-		currV->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(currV->name) + 1), currV->name);
-		currV = currV->next;
-	}
-
-	buildInTypes.resize(CodeInfo::typeInfo.size());
-	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
-
-	basicTypes = CodeInfo::classCount;
-
-	typeTop = TypeInfo::GetPoolTop();
-	varTop = VariableInfo::GetPoolTop();
-	funcTop = FunctionInfo::GetPoolTop();
-
-	return true;
-}
-
 bool Compiler::ImportModule(char* bytecode, const char* pos)
 {
 	char errBuf[256];
@@ -552,7 +501,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 			lastFunc->address = fInfo->funcPtr ? -1 : 0;
 			lastFunc->funcPtr = fInfo->funcPtr;
 
-			for(unsigned int n = 0; n < fInfo->localCount; n++)
+			for(unsigned int n = 0; n < fInfo->paramCount; n++)
 			{
 				ExternLocalInfo &lInfo = fLocals[fInfo->offsetToFirstLocal + n];
 				TypeInfo *currType = CodeInfo::typeInfo[typeRemap[lInfo.type]];
@@ -1130,6 +1079,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		funcInfo.offsetToFirstLocal = localOffset;
 
+		funcInfo.paramCount = refFunc->paramCount;
+
 		ExternLocalInfo::LocalType paramType = refFunc->firstParam ? ExternLocalInfo::PARAMETER : ExternLocalInfo::LOCAL;
 		if(refFunc->firstParam)
 			refFunc->lastParam->next = refFunc->firstLocal;
@@ -1143,10 +1094,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			symbolPos += curr->name.end - curr->name.begin;
 			*symbolPos++ = 0;
 			if(curr->next == refFunc->firstLocal)
-			{
-				funcInfo.paramCount = localOffset - funcInfo.offsetToFirstLocal;
 				paramType = ExternLocalInfo::LOCAL;
-			}
 		}
 		if(refFunc->firstParam)
 			refFunc->lastParam->next = NULL;
