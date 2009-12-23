@@ -29,8 +29,6 @@ void BinaryCache::Terminate()
 		delete[] cache[i].binary;
 	}
 	cache.clear();
-
-	//delete[] importPath;
 }
 
 void BinaryCache::PutBytecode(const char* path, char* bytecode)
@@ -62,23 +60,6 @@ char* BinaryCache::GetBytecode(const char* path)
 	}
 	if(i != cache.size())
 		return cache[i].binary;
-
-	if(FILE *module = fopen(path, "rb"))
-	{
-		BinaryCache::CodeDescriptor *desc = cache.push_back();
-		unsigned int pathLen = (unsigned int)strlen(path);
-		desc->name = strcpy((char*)NULLC::alloc(pathLen + 1), path);
-		desc->nameHash = hash;
-
-		fseek(module, 0, SEEK_END);
-		unsigned int bcSize = ftell(module);
-		fseek(module, 0, SEEK_SET);
-		desc->binary = new char[bcSize];
-		fread(desc->binary, 1, bcSize, module);
-		fclose(module);
-
-		return desc->binary;
-	}
 
 	return NULL;
 }

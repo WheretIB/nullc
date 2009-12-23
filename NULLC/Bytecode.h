@@ -30,10 +30,11 @@ struct ExternTypeInfo
 
 struct ExternVarInfo
 {
-	unsigned int	type;	// index in type array
-
-	unsigned int	size;
+	unsigned int	offsetToName;
 	unsigned int	nameHash;
+
+	unsigned int	type;	// index in type array
+	unsigned int	size;
 };
 
 struct ExternLocalInfo

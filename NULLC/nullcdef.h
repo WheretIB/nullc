@@ -22,7 +22,7 @@ struct NullCArray
 //#define NULLC_VM_DEBUG
 #define NULLC_STACK_TRACE_WITH_LOCALS
 
-#define NULLC_LOG_FILES
+//#define NULLC_LOG_FILES
 
 #if defined(_MSC_VER) && !defined(_M_X64)
 #define NULLC_BUILD_X86_JIT

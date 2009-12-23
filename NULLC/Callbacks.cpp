@@ -1988,6 +1988,7 @@ void TypeContinue(const char* pos)
 
 void TypeStop()
 {
+	varTop = varInfoTop.back().varStackSize;
 	newType = NULL;
 	EndBlock(false);
 }
@@ -2009,8 +2010,6 @@ void AddUnfixedArraySize()
 
 void CallbackInitialize()
 {
-	//VariableInfo::DeleteVariableInformation();
-
 	currDefinedFunc.clear();
 
 	CodeInfo::funcDefList.clear();

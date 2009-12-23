@@ -143,8 +143,6 @@ Compiler::Compiler()
 
 	AddType("align(4) class float4x4{ float4 row1, row2, row3, row4; }");
 
-	AddType("class file{ int id; }");
-
 	AddExternalFunction((void (*)())NULLC::Assert, "void assert(int val);");
 
 	AddExternalFunction((void (*)())NULLC::Cos, "double cos(double deg);");
@@ -294,6 +292,69 @@ bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 	return true;
 }
 
+bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
+{
+	char errBuf[256];
+
+	// Find module
+	const char *importPath = BinaryCache::GetImportPath();
+	char path[256], *pathNoImport = path, *cPath = path;
+	cPath += SafeSprintf(path, 256, "%s%.*s", importPath ? importPath : "", module, module);
+	if(importPath)
+		pathNoImport = path + strlen(importPath);
+
+	for(unsigned int i = 0, e = (unsigned int)strlen(path); i != e; i++)
+	{
+		if(path[i] == '.')
+			path[i] = '\\';
+	}
+	SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
+	char *bytecode = BinaryCache::GetBytecode(path);
+	if(!bytecode && importPath)
+		bytecode = BinaryCache::GetBytecode(pathNoImport);
+
+	// Create module if not found
+	if(!bytecode)
+		bytecode = BuildModule(path, pathNoImport);
+	if(!bytecode)
+	{
+		SafeSprintf(errBuf, 256, "Failed to build module %s", module);
+		CodeInfo::lastError = CompilerError(errBuf, NULL);
+		return false;
+	}
+
+	unsigned int hash = GetStringHash(name);
+	ByteCode *code = (ByteCode*)bytecode;
+
+	// Find function and set pointer
+	ExternFuncInfo *fInfo = FindFirstFunc(code);
+	
+	fInfo += code->externalFunctionCount + code->moduleFunctionCount;
+	for(unsigned int i = code->externalFunctionCount + code->moduleFunctionCount; i < code->functionCount; i++)
+	{
+		if(hash == fInfo->nameHash)
+		{
+			if(index == 0)
+			{
+				fInfo->address = -1;
+				fInfo->funcPtr = ptr;
+				index--;
+				break;
+			}
+			index--;
+		}
+		fInfo++;
+	}
+	if(index != -1)
+	{
+		SafeSprintf(errBuf, 256, "ERROR: function %s or one of it's overload is not found in module %s", name, module);
+		CodeInfo::lastError = CompilerError(errBuf, NULL);
+		return false;
+	}
+
+	return true;
+}
+
 bool Compiler::AddType(const char* typedecl)
 {
 	ClearState();
@@ -408,8 +469,21 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 			{
 				unsigned int strLength = (unsigned int)strlen(symbols + tInfo->offsetToName) + 1;
 				const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), symbols + tInfo->offsetToName);
-				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX));
-				newInfo = CodeInfo::typeInfo.back();
+				newInfo = new TypeInfo(CodeInfo::classCount, nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+
+				if(CodeInfo::classCount == CodeInfo::typeInfo.size())
+				{
+					CodeInfo::typeInfo.push_back(newInfo);
+				}else{
+					CodeInfo::typeInfo[CodeInfo::classCount]->typeIndex = CodeInfo::typeInfo.size();
+					CodeInfo::typeInfo.push_back(CodeInfo::typeInfo[CodeInfo::classCount]);
+					CodeInfo::typeInfo[CodeInfo::classCount] = newInfo;
+				}
+				
+				typeRemap[CodeInfo::classCount] = typeRemap.back();
+				typeRemap.back() = CodeInfo::classCount;
+
+				CodeInfo::classCount++;
 
 				const char *memberName = symbols + tInfo->offsetToName + strLength;
 				for(unsigned int n = 0; n < tInfo->memberCount; n++)
@@ -440,7 +514,15 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 
 		tInfo++;
 	}
-
+/*
+	// Import variables
+	ExternVarInfo *vInfo = FindFirstVar(bCode);
+	for(unsigned int i = 0; i< bCode->variableCount; i++)
+	{
+		SelectTypeByIndex(typeRemap[vInfo->type]);
+		AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName));
+	}
+*/
 	// Import functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
@@ -467,6 +549,8 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
 			lastFunc->retType = CodeInfo::typeInfo[typeRemap[fInfo->retType]];
+			lastFunc->address = fInfo->funcPtr ? -1 : 0;
+			lastFunc->funcPtr = fInfo->funcPtr;
 
 			for(unsigned int n = 0; n < fInfo->localCount; n++)
 			{
@@ -476,6 +560,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 				lastFunc->allParamSize += currType->size < 4 ? 4 : currType->size;
 			}
 			lastFunc->implemented = true;
+			lastFunc->type = strchr(lastFunc->name, ':') ? FunctionInfo::THISCALL : FunctionInfo::NORMAL;
 			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
 		}else{
 			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined.", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName());
@@ -487,6 +572,43 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 	}
 
 	return true;
+}
+
+char* Compiler::BuildModule(const char* file, const char* altFile)
+{
+	FILE *rawModule = fopen(file, "rb");
+	bool failedImportPath = false;
+	if(!rawModule && BinaryCache::GetImportPath())
+	{
+		failedImportPath = true;
+		rawModule = fopen(altFile, "rb");
+	}
+	if(rawModule)
+	{
+		fseek(rawModule, 0, SEEK_END);
+		unsigned int textSize = ftell(rawModule);
+		fseek(rawModule, 0, SEEK_SET);
+		char *fileContent = new char[textSize+1];
+		fread(fileContent, 1, textSize, rawModule);
+		fileContent[textSize] = 0;
+
+		if(!Compile(fileContent, true))
+		{
+			SafeSprintf(CodeInfo::lastError.error, 256 - strlen(CodeInfo::lastError.error), "%s [in module %s]", CodeInfo::lastError.error, file);
+			fclose(rawModule);
+			return false;
+		}
+		fclose(rawModule);
+		char *bytecode = NULL;
+		GetBytecode(&bytecode);
+
+		delete[] fileContent;
+
+		BinaryCache::PutBytecode(failedImportPath ? altFile : file, bytecode);
+
+		return bytecode;
+	}
+	return NULL;
 }
 
 bool Compiler::Compile(const char* str, bool noClear)
@@ -540,65 +662,27 @@ bool Compiler::Compile(const char* str, bool noClear)
 			return false;
 		}
 		start++;
-		SafeSprintf(cPath, 256 - int(cPath - path), ".ncm");
+		SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
 		char *bytecode = BinaryCache::GetBytecode(path);
 		if(!bytecode && importPath)
 			bytecode = BinaryCache::GetBytecode(pathNoImport);
 
-		moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport);
-		if(bytecode)
+		if(moduleCount == 32)
 		{
-			moduleData[moduleCount++] = bytecode;
-		}else{
-			SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
-			FILE *rawModule = fopen(path, "rb");
-			bool failedImportPath = false;
-			if(!rawModule && importPath)
-			{
-				failedImportPath = true;
-				rawModule = fopen(pathNoImport, "rb");
-			}
-			if(rawModule)
-			{
-				fseek(rawModule, 0, SEEK_END);
-				unsigned int textSize = ftell(rawModule);
-				fseek(rawModule, 0, SEEK_SET);
-				char *fileContent = new char[textSize+1];
-				fread(fileContent, 1, textSize, rawModule);
-				fileContent[textSize] = 0;
-
-				unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
-				if(!Compile(fileContent, true))
-				{
-					SafeSprintf(CodeInfo::lastError.error, 256 - strlen(CodeInfo::lastError.error), "%s [in module %s]", CodeInfo::lastError.error, path);
-					fclose(rawModule);
-					return false;
-				}
-				start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
-				fclose(rawModule);
-				char *bytecode = NULL;
-				unsigned int bcSize = GetBytecode(&bytecode);
-
-				SafeSprintf(cPath, 256 - int(cPath - path), ".ncm");
-				FILE *module = fopen(failedImportPath ? pathNoImport : path, "wb");
-				fwrite(bytecode, 1, bcSize, module);
-				fclose(module);
-
-				delete[] fileContent;
-
-				BinaryCache::PutBytecode(failedImportPath ? pathNoImport : path, bytecode);
-
-				if(moduleCount == 32)
-				{
-					CodeInfo::lastError = CompilerError("ERROR: temporary limit for 32 modules", name->pos);
-					return false;
-				}
-				moduleData[moduleCount++] = bytecode;
-			}else{
-				CodeInfo::lastError = CompilerError("ERROR: module or source file can't be found", name->pos);
-				return false;
-			}
+			CodeInfo::lastError = CompilerError("ERROR: temporary limit for 32 modules", name->pos);
+			return false;
 		}
+
+		moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport);
+		if(!bytecode)
+		{
+			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
+			bytecode = BuildModule(path, pathNoImport);
+			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
+		}
+		if(!bytecode)
+			return false;
+		moduleData[moduleCount++] = bytecode;
 	}
 
 	ClearState();
@@ -852,6 +936,12 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	unsigned int offsetToVar = size;
 	size += CodeInfo::varInfo.size() * sizeof(ExternVarInfo);
+	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
+	{
+		VariableInfo *curr = CodeInfo::varInfo[i];
+
+		symbolStorageSize += (unsigned int)(curr->name.end - curr->name.begin) + 1;
+	}
 
 	unsigned int offsetToFunc = size;
 	size += CodeInfo::funcInfo.size() * sizeof(ExternFuncInfo);
@@ -987,10 +1077,17 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		ExternVarInfo &varInfo = *vInfo;
+		VariableInfo *refVar = CodeInfo::varInfo[i];
 
-		varInfo.size = CodeInfo::varInfo[i]->varType->size;
-		varInfo.type = CodeInfo::varInfo[i]->varType->typeIndex;
-		varInfo.nameHash = GetStringHash(CodeInfo::varInfo[i]->name.begin, CodeInfo::varInfo[i]->name.end);
+		varInfo.offsetToName = int(symbolPos - code->debugSymbols);
+		memcpy(symbolPos, refVar->name.begin, refVar->name.end - refVar->name.begin + 1);
+		symbolPos += refVar->name.end - refVar->name.begin;
+		*symbolPos++ = 0;
+
+		varInfo.nameHash = GetStringHash(refVar->name.begin, refVar->name.end);
+
+		varInfo.type = refVar->varType->typeIndex;
+		varInfo.size = refVar->varType->size;
 
 		// Fill up next
 		vInfo++;

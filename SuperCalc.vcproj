@@ -682,6 +682,38 @@
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="Modules"
+			>
+			<Filter
+				Name="std"
+				>
+				<File
+					RelativePath=".\Modules\includes\file.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\includes\file.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\std\file.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\includes\io.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\includes\io.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\std\io.nc"
+					>
+				</File>
+			</Filter>
+		</Filter>
 		<File
 			RelativePath=".\CmdRef.txt"
 			>
