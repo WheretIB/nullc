@@ -887,6 +887,14 @@ void GenCodeCmdCall(VMCmd cmd)
 		EMIT_OP_REG(o_pop, rEAX);
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
+
+		EMIT_OP_REG_REG(o_test, rEAX, rEAX);
+		EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+		EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+		EMIT_OP_NUM(o_int, 3);
+		EMIT_LABEL(LABEL_ALU + aluLabels);
+		aluLabels++;
+
 		EMIT_OP_REG(o_call, rEAX);
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 	}else{

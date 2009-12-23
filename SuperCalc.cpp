@@ -31,6 +31,11 @@
 #include "Modules/includes/file.h"
 #include "Modules/includes/io.h"
 #include "Modules/includes/math.h"
+#include "Modules/includes/string.h"
+
+#include "Modules/includes/window.h"
+
+#include "Modules/includes/canvas.h"
 
 #define MAX_LOADSTRING 100
 
@@ -146,6 +151,10 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	nullcInitFileModule();
 	nullcInitIOModule();
 	nullcInitMathModule();
+	nullcInitStringModule();
+
+	nullcInitCanvasModule();
+	nullcInitWindowModule();
 
 	colorer = NULL;
 
@@ -178,6 +187,10 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	nullcDeinitFileModule();
 	nullcDeinitIOModule();
 	nullcDeinitMathModule();
+	nullcDeinitStringModule();
+
+	nullcDeinitCanvasModule();
+	nullcDeinitWindowModule();
 
 	nullcDeinit();
 
