@@ -961,6 +961,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int offsetToCode = size;
 	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
 
+	unsigned int offsetToInfo = size;
+	size += sizeof(unsigned int) * 2 * CodeInfo::cmdInfoList.sourceInfo.size();
+
 	unsigned int offsetToSymbols = size;
 	size += symbolStorageSize;
 
@@ -1161,6 +1164,14 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		// Fill up next
 		fInfo++;
+	}
+
+	unsigned int infoCount = CodeInfo::cmdInfoList.sourceInfo.size();
+	unsigned int *infoArray = (unsigned int*)((char*)code + offsetToInfo);
+	for(unsigned int i = 0; i < infoCount; i++)
+	{
+		infoArray[i * 2 + 0] = CodeInfo::cmdInfoList.sourceInfo[i].byteCodePos;
+		infoArray[i * 2 + 1] = (unsigned int)(CodeInfo::cmdInfoList.sourceInfo[i].sourcePos - CodeInfo::cmdInfoList.sourceStart);
 	}
 
 	code->code = FindCode(code);

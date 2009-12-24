@@ -94,6 +94,21 @@ namespace NULLCIO
 		coords.Y = (short)y;
 		SetConsoleCursorPosition(conStdOut, coords);
 	}
+
+	void GetKeyboardState(NullCArray arr)
+	{
+		if(arr.len < 256)
+			nullcThrowError("GetKeyboardState requires array with 256 or more elements");
+		::GetKeyboardState((unsigned char*)arr.ptr);
+	}
+
+	void GetMouseState(int* x, int* y)
+	{
+		POINT pos;
+		GetCursorPos(&pos);
+		*x = pos.x;
+		*y = pos.y;
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.io", (void(*)())NULLCIO::funcPtr, name, index)) return false;
@@ -104,6 +119,9 @@ bool	nullcInitIOModule()
 	REGISTER_FUNC(ReadTextFromConsole, "Input", 0);
 	REGISTER_FUNC(ReadIntFromConsole, "Input", 1);
 	REGISTER_FUNC(SetConsoleCursorPos, "SetConsoleCursorPos", 0);
+
+	REGISTER_FUNC(GetKeyboardState, "GetKeyboardState", 0);
+	REGISTER_FUNC(GetMouseState, "GetMouseState", 0);
 
 	return true;
 }

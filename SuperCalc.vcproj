@@ -752,6 +752,10 @@
 					RelativePath=".\Modules\win\window.nc"
 					>
 				</File>
+				<File
+					RelativePath=".\Modules\win\window_ex.nc"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="img"
@@ -766,6 +770,10 @@
 				</File>
 				<File
 					RelativePath=".\Modules\img\canvas.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\Modules\img\canvas_ex.nc"
 					>
 				</File>
 			</Filter>
