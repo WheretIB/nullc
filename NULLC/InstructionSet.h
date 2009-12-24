@@ -470,7 +470,6 @@ class SourceInfo
 
 		unsigned int	byteCodePos;	// ѕозици€ в байткоде, к которой относитс€ строка
 		const char		*sourcePos, *sourceEnd;
-		unsigned int	sourceLine;
 	};
 public:
 	SourceInfo()

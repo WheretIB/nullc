@@ -115,6 +115,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	typeRemap.clear();
 
+	unsigned int oldFunctionCount = exFunctions.size();
+	unsigned int oldSymbolSize = exSymbols.size();
+
 	unsigned int oldTypeCount = exTypes.size();
 
 	// Add all types from bytecode to the list
@@ -137,6 +140,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		{
 			typeRemap.push_back(exTypes.size());
 			exTypes.push_back(*tInfo);
+			exTypes.back().offsetToName += oldSymbolSize;
 		}else{
 			typeRemap.push_back(index);
 		}
@@ -158,10 +162,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int oldGlobalSize = globalVarSize;
 	globalVarSize += bCode->globalVarSize;
 
-	unsigned int oldFunctionCount = exFunctions.size();
-
 	// Add new symbols
-	unsigned int oldSymbolSize = exSymbols.size();
 	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
 	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
 	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
@@ -240,8 +241,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	for(unsigned int i = oldLocalsSize; i < oldLocalsSize + bCode->localCount; i++)
 	{
-		if(oldSymbolSize)
-			exLocals[i].offsetToName += oldSymbolSize;
+		exLocals[i].type = typeRemap[exLocals[i].type];
+		exLocals[i].offsetToName += oldSymbolSize;
 		if(exLocals[i].paramType == ExternLocalInfo::EXTERNAL)
 			exLocals[i].closeFuncList = funcRemap[exLocals[i].closeFuncList & ~0x80000000] | (exLocals[i].closeFuncList & 0x80000000);
 	}

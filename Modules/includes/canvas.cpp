@@ -11,33 +11,33 @@ namespace NULLCCanvas
 		canvas->height = height;
 	}
 
-	void CanvasClearRGB(char red, char green, char blue, Canvas* ptr)
+	void CanvasClearRGB(unsigned char red, unsigned char green, unsigned char blue, Canvas* ptr)
 	{
-		int color = (red << 24) | (green << 16) | (blue << 8) | 255;
+		int color = (red << 16) | (green << 8) | (blue) | (255 << 24);
 		for(int i = 0; i < ptr->width * ptr->height; i++)
 			((int*)ptr->data.ptr)[i] = color;
 	}
-	void CanvasClearRGBA(char red, char green, char blue, char alpha, Canvas* ptr)
+	void CanvasClearRGBA(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha, Canvas* ptr)
 	{
-		int color = (red << 24) | (green << 16) | (blue << 8) | alpha;
+		int color = (red << 16) | (green << 8) | (blue) | (alpha << 24);
 		for(int i = 0; i < ptr->width * ptr->height; i++)
 			((int*)ptr->data.ptr)[i] = color;
 	}
 
-	void CanvasSetColor(char red, char green, char blue, Canvas* ptr)
+	void CanvasSetColor(unsigned char red, unsigned char green, unsigned char blue, Canvas* ptr)
 	{
-		ptr->color = (red << 24) | (green << 16) | (blue << 8) | 255;
+		ptr->color = (red << 16) | (green << 8) | (blue) | (255 << 24);
 	}
 
-	void CanvasDrawLine(int x1, char y1, char x2, char y2, Canvas* ptr)
+	void CanvasDrawLine(int x1, int y1, int x2, int y2, Canvas* ptr)
 	{
 		(void)x1; (void)x2; (void)y1; (void)y2; (void)ptr;
 		nullcThrowError("Unimplemented");
 	}
-	void CanvasDrawRect(int x1, char y1, char x2, char y2, Canvas* ptr)
+	void CanvasDrawRect(int x1, int y1, int x2, int y2, Canvas* ptr)
 	{
-		for(int x = x1; x < x2; x++)
-			for(int y = y1; y < y2; y++)
+		for(int x = x1 < 0 ? 0 : x1, xe = x2 > ptr->width ? ptr->width : x2; x < xe; x++)
+			for(int y = y1 < 0 ? 0 : y1, ye = y2 > ptr->height ? ptr->height : y2; y < ye; y++)
 				((int*)ptr->data.ptr)[y*ptr->width + x] = ptr->color;
 	}
 	void CanvasDestroy(Canvas* ptr)
@@ -49,7 +49,7 @@ namespace NULLCCanvas
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("img.canvas", (void(*)())NULLCCanvas::funcPtr, name, index)) return false;
 bool	nullcInitCanvasModule()
 {
-	REGISTER_FUNC(CanvasCreate, "Canvas", 0);
+	if(!nullcAddModuleFunction("img.canvas_ex", (void(*)())NULLCCanvas::CanvasCreate, "Canvas", 0)) return false;
 
 	REGISTER_FUNC(CanvasClearRGB, "Canvas::Clear", 0);
 	REGISTER_FUNC(CanvasClearRGBA, "Canvas::Clear", 1);

@@ -136,6 +136,8 @@ struct ByteCode
 	unsigned int	offsetToLocals;
 	ExternLocalInfo	*firstLocal;
 
+	unsigned int	infoSize;
+
 	unsigned int	codeSize;
 	unsigned int	offsetToCode;
 	unsigned int	globalCodeStart;
@@ -158,6 +160,8 @@ struct ByteCode
 //	ExternLocalInfo	locals[localCount];	// Function locals (including parameters)
 
 //	char			code[codeSize];
+
+//	unsinged int	sourceInfo[infoLength * 2]
 
 //	char			debugSymbols[symbolLength];
 };

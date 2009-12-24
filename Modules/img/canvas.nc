@@ -1,13 +1,4 @@
-
-class Canvas
-{
-	int width, height;
-	
-	int color;
-	char[] data;
-}
-
-void Canvas(Canvas ref c, int width, height);
+import img.canvas_ex;
 
 Canvas Canvas(int width, height)
 {

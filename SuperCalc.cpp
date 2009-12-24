@@ -148,14 +148,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	REGISTER(myGetTime, "int clock();");
 
-	nullcInitFileModule();
-	nullcInitIOModule();
-	nullcInitMathModule();
-	nullcInitStringModule();
-
-	nullcInitCanvasModule();
-	nullcInitWindowModule();
-
 	colorer = NULL;
 
 	// Initialize global strings
@@ -170,6 +162,14 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	{
 		return FALSE;
 	}
+
+	nullcInitFileModule();
+	nullcInitIOModule();
+	nullcInitMathModule();
+	nullcInitStringModule();
+
+	nullcInitCanvasModule();
+	nullcInitWindowModule();
 
 	hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDC_SUPERCALC);
 

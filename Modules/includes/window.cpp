@@ -18,7 +18,11 @@ namespace NULLCWindow
 
 	void WindowCreate(Window* wnd, NullCArray title, int x, int y, int width, int height)
 	{
-		wnd->handle = CreateWindow("NCWND", title.ptr, WS_OVERLAPPED, x, y, width, height, NULL, NULL, NULL, 0);
+		wnd->handle = CreateWindow("NCWND", title.ptr, WS_OVERLAPPED | WS_VISIBLE, x, y, width, height, NULL, NULL, NULL, 0);
+		wnd->x = x;
+		wnd->y = y;
+		wnd->width = width;
+		wnd->height = height;
 	}
 
 	void WindowSetTitle(NullCArray title, Window* wnd)
@@ -27,13 +31,48 @@ namespace NULLCWindow
 	}
 	void WindowSetPosition(int x, int y, Window* wnd)
 	{
+		nullcThrowError("Unimplemented");
 	}
 	void WindowSetSize(int width, int height, Window* wnd)
 	{
+		nullcThrowError("Unimplemented");
 	}
 
 	void WindowDrawCanvas(NULLCCanvas::Canvas* c, int x, int y, Window* wnd)
 	{
+		PAINTSTRUCT ps;
+		BeginPaint(wnd->handle, &ps);
+		HDC dc = GetDC(wnd->handle);
+
+		BITMAPINFO bi;
+		memset(&bi, 0, sizeof(bi));
+		bi.bmiHeader.biSize = sizeof(bi);
+		bi.bmiHeader.biWidth = c->width;
+		bi.bmiHeader.biHeight = -c->height;
+		bi.bmiHeader.biPlanes = 1;
+		bi.bmiHeader.biBitCount = 32;
+		bi.bmiHeader.biCompression = BI_RGB;
+		bi.bmiHeader.biSizeImage;
+		bi.bmiHeader.biXPelsPerMeter;
+		bi.bmiHeader.biYPelsPerMeter;
+		bi.bmiHeader.biClrUsed;
+		bi.bmiHeader.biClrImportant;
+
+		SetDIBitsToDevice(dc, x, y, c->width, c->height, 0, 0, 0, c->height, c->data.ptr, &bi, DIB_RGB_COLORS);
+
+		EndPaint(wnd->handle, &ps);
+	}
+
+	void WindowUpdate(Window* wnd)
+	{
+		UpdateWindow(wnd->handle);
+
+		MSG msg;
+		while(PeekMessage(&msg, wnd->handle, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
 	}
 
 	void WindowClose(Window* wnd)
@@ -43,12 +82,17 @@ namespace NULLCWindow
 
 	void OnPaint(HWND wnd)
 	{
+		PAINTSTRUCT ps;
+		BeginPaint(wnd, &ps);
+		EndPaint(wnd, &ps);
 	}
 
 	LRESULT CALLBACK WindowProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 	{
 		switch(message)
 		{
+		case WM_CREATE:
+			break;
 		case WM_PAINT:
 			OnPaint(hWnd);
 			break;
@@ -84,11 +128,13 @@ bool	nullcInitWindowModule()
 {
 	NULLCWindow::RegisterClass("NCWND", NULL);
 
-	REGISTER_FUNC(WindowCreate, "Window", 0);
+	if(!nullcAddModuleFunction("win.window_ex", (void(*)())NULLCWindow::WindowCreate, "Window", 0)) return false;
 
 	REGISTER_FUNC(WindowSetTitle, "Window::SetTitle", 0);
 	REGISTER_FUNC(WindowSetPosition, "Window::SetPosition", 0);
 	REGISTER_FUNC(WindowSetSize, "Window::SetSize", 0);
+
+	REGISTER_FUNC(WindowUpdate, "Window::Update", 0);
 
 	REGISTER_FUNC(WindowDrawCanvas, "Window::DrawCanvas", 0);
 
