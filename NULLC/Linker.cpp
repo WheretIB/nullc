@@ -22,6 +22,8 @@ void Linker::CleanCode()
 	exSymbols.clear();
 	exLocals.clear();
 	exModules.clear();
+	exCodeInfo.clear();
+	exSource.clear();
 
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -85,6 +87,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		mInfo++;
 	}
 
+#ifdef LINK_VERBOSE_DEBUG_OUTPUT
+		printf("Function remap table is extended to %d functions (%d base, %d modules, %d new)\r\n", bCode->functionCount, bCode->externalFunctionCount, moduleFuncCount, bCode->functionCount-(bCode->externalFunctionCount + moduleFuncCount));
+#endif
 	funcRemap.resize(bCode->functionCount);
 	for(unsigned int i = 0; i < bCode->externalFunctionCount; i++)
 		funcRemap[i] = i;
@@ -172,10 +177,26 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	exLocals.resize(oldLocalsSize + bCode->localCount);
 	memcpy(&exLocals[oldLocalsSize], (char*)(bCode) + bCode->offsetToLocals, bCode->localCount * sizeof(ExternLocalInfo));
 
+	// Add new code information
+	unsigned int oldCodeInfoSize = exCodeInfo.size();
+	exCodeInfo.resize(oldCodeInfoSize + bCode->infoSize * 2);
+	memcpy(&exCodeInfo[oldCodeInfoSize], (char*)(bCode) + bCode->offsetToInfo, bCode->infoSize * sizeof(unsigned int) * 2);
+
+	// Add new source code
+	unsigned int oldSourceSize = exSource.size();
+	exSource.resize(oldSourceSize + bCode->sourceSize);
+	memcpy(&exSource[oldSourceSize], (char*)(bCode) + bCode->offsetToSource, bCode->sourceSize);
+
 	// Add new code
 	unsigned int oldCodeSize = exCode.size();
 	exCode.resize(oldCodeSize + bCode->codeSize);
 	memcpy(&exCode[oldCodeSize], FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
+
+	for(unsigned int i = oldCodeInfoSize / 2; i < exCodeInfo.size() / 2; i++)
+	{
+		exCodeInfo[i*2+0] += oldCodeSize;
+		exCodeInfo[i*2+1] += oldSourceSize;
+	}
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
@@ -234,6 +255,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			// Update internal function address
 			if(exFunctions.back().address != -1)
 				exFunctions.back().address = oldCodeSize + fInfo->address;
+
+#ifdef LINK_VERBOSE_DEBUG_OUTPUT
+			printf("Adding function %-16s (at address %4d [external %p])\r\n", &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
+#endif
 		}else{
 			assert(!"No function rewrite at the moment");
 		}

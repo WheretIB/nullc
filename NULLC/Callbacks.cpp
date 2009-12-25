@@ -1432,7 +1432,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	lastFunc.AddParameter(new VariableInfo(paramName, hash, 0, currType, currValConst, false));
+	lastFunc.AddParameter(new VariableInfo(paramName, hash, lastFunc.allParamSize, currType, currValConst, false));
 	lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
 }
 

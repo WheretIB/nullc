@@ -573,6 +573,9 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 		}
 		fclose(rawModule);
 		char *bytecode = NULL;
+#ifdef VERBOSE_DEBUG_OUTPUT
+		printf("Bytecode for module %s. ", file);
+#endif
 		GetBytecode(&bytecode);
 
 		delete[] fileContent;
@@ -950,6 +953,22 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int offsetToSymbols = size;
 	size += symbolStorageSize;
 
+	unsigned int sourceLength = (unsigned int)strlen(CodeInfo::cmdInfoList.sourceStart) + 1;
+	unsigned int offsetToSource = size;
+	size += sourceLength;
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+	printf("Statistics. Overall: %d bytes\r\n", size);
+	printf("Types: %db, ", offsetToModule - sizeof(ByteCode));
+	printf("Modules: %db, ", offsetToVar - offsetToModule);
+	printf("Variables: %db, ", offsetToFunc - offsetToVar);
+	printf("Functions: %db\r\n", offsetToFirstLocal - offsetToFunc);
+	printf("Locals: %db, ", offsetToCode - offsetToFirstLocal);
+	printf("Code: %db, ", offsetToInfo - offsetToCode);
+	printf("Code info: %db, ", offsetToSymbols - offsetToInfo);
+	printf("Symbols: %db, ", offsetToSource - offsetToSymbols);
+	printf("Source: %db\r\n\r\n", size - offsetToSource);
+#endif
 	*bytecode = new char[size];
 
 	ByteCode	*code = (ByteCode*)(*bytecode);
@@ -1115,6 +1134,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		{
 			code->firstLocal[localOffset].paramType = paramType;
 			code->firstLocal[localOffset].type = curr->varType->typeIndex;
+			code->firstLocal[localOffset].size = curr->varType->size;
 			code->firstLocal[localOffset].offset = curr->pos;
 			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
 			memcpy(symbolPos, curr->name.begin, curr->name.end - curr->name.begin + 1);
@@ -1127,19 +1147,23 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			refFunc->lastParam->next = NULL;
 		funcInfo.localCount = localOffset - funcInfo.offsetToFirstLocal;
 
-		for(FunctionInfo::ExternalInfo *curr = refFunc->firstExternal; curr; curr = curr->next, localOffset++)
+		ExternLocalInfo *lInfo = &code->firstLocal[localOffset];
+		for(FunctionInfo::ExternalInfo *curr = refFunc->firstExternal; curr; curr = curr->next, lInfo++)
 		{
-			code->firstLocal[localOffset].paramType = ExternLocalInfo::EXTERNAL;
-			code->firstLocal[localOffset].type = curr->variable->varType->typeIndex;
-			code->firstLocal[localOffset].size = curr->variable->varType->size;
-			code->firstLocal[localOffset].target = curr->targetPos;
-			code->firstLocal[localOffset].closeFuncList = curr->targetFunc | (curr->targetLocal ? 0x80000000 : 0);
-			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
-			memcpy(symbolPos, curr->variable->name.begin, curr->variable->name.end - curr->variable->name.begin + 1);
-			symbolPos += curr->variable->name.end - curr->variable->name.begin;
+			TypeInfo *vType = curr->variable->varType;
+			InplaceStr vName = curr->variable->name;
+			lInfo->paramType = ExternLocalInfo::EXTERNAL;
+			lInfo->type = vType->typeIndex;
+			lInfo->size = vType->size;
+			lInfo->target = curr->targetPos;
+			lInfo->closeFuncList = curr->targetFunc | (curr->targetLocal ? 0x80000000 : 0);
+			lInfo->offsetToName = int(symbolPos - code->debugSymbols);
+			memcpy(symbolPos, vName.begin, vName.end - vName.begin + 1);
+			symbolPos += vName.end - vName.begin;
 			*symbolPos++ = 0;
 		}
 		funcInfo.externCount = refFunc->externalCount;
+		localOffset += refFunc->externalCount;
 
 		funcInfo.offsetToName = int(symbolPos - code->debugSymbols);
 		memcpy(symbolPos, refFunc->name, refFunc->nameLength + 1);
@@ -1149,13 +1173,20 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		fInfo++;
 	}
 
+	code->offsetToInfo = offsetToInfo;
+	code->offsetToSource = offsetToSource;
+
 	unsigned int infoCount = CodeInfo::cmdInfoList.sourceInfo.size();
+	code->infoSize = infoCount;
 	unsigned int *infoArray = (unsigned int*)((char*)code + offsetToInfo);
 	for(unsigned int i = 0; i < infoCount; i++)
 	{
 		infoArray[i * 2 + 0] = CodeInfo::cmdInfoList.sourceInfo[i].byteCodePos;
 		infoArray[i * 2 + 1] = (unsigned int)(CodeInfo::cmdInfoList.sourceInfo[i].sourcePos - CodeInfo::cmdInfoList.sourceStart);
 	}
+	char *sourceCode = (char*)code + offsetToSource;
+	memcpy(sourceCode, CodeInfo::cmdInfoList.sourceStart, sourceLength);
+	code->sourceSize = sourceLength;
 
 	code->code = FindCode(code);
 	code->globalCodeStart = offsetToGlobal;

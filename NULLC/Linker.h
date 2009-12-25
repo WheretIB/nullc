@@ -27,6 +27,8 @@ public:
 	FastVector<ExternModuleInfo>	exModules;
 	FastVector<VMCmd>			exCode;
 	FastVector<char>			exSymbols;
+	FastVector<unsigned int>	exCodeInfo;
+	FastVector<char>			exSource;
 	unsigned int				globalVarSize;
 	unsigned int				offsetToGlobalCode;
 
