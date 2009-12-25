@@ -2,15 +2,6 @@
 
 namespace NULLCCanvas
 {
-	void CanvasCreate(Canvas* canvas, int width, int height)
-	{
-		canvas->color = 0;
-		canvas->data.ptr = (char*)new int[width*height];
-		canvas->data.len = width*height;
-		canvas->width = width;
-		canvas->height = height;
-	}
-
 	void CanvasClearRGB(unsigned char red, unsigned char green, unsigned char blue, Canvas* ptr)
 	{
 		int color = (red << 16) | (green << 8) | (blue) | (255 << 24);
@@ -49,8 +40,6 @@ namespace NULLCCanvas
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("img.canvas", (void(*)())NULLCCanvas::funcPtr, name, index)) return false;
 bool	nullcInitCanvasModule()
 {
-	if(!nullcAddModuleFunction("img.canvas_ex", (void(*)())NULLCCanvas::CanvasCreate, "Canvas", 0)) return false;
-
 	REGISTER_FUNC(CanvasClearRGB, "Canvas::Clear", 0);
 	REGISTER_FUNC(CanvasClearRGBA, "Canvas::Clear", 1);
 	REGISTER_FUNC(CanvasSetColor, "Canvas::SetColor", 0);

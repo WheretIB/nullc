@@ -12,7 +12,7 @@ typedef unsigned char nullres;
 
 // Initialize NULLC
 void	nullcInit();
-void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(size_t), void (NCDECL *deallocFunc)(void*));
+void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*));
 
 void	nullcSetImportPath(const char* path);
 

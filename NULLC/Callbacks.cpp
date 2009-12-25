@@ -1038,6 +1038,21 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 
 	CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
 
+	// Call overloaded operator with error suppression
+	if(!unifyTwo)
+	{
+		NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
+		
+		if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
+			return;
+
+		temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
+	}
+
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::GetReferenceType(realCurrType), true, false));
 
 	if(unifyTwo)
@@ -1079,7 +1094,7 @@ void AddGetVariableNode(const char* pos)
 	{
 		CodeInfo::nodeList.back()->typeInfo = typeInt;
 	}else if(CodeInfo::nodeList.back()->typeInfo == NULL){
-		ThrowError(pos, "ERROR: Variable type is unknown");
+		ThrowError(pos, "ERROR: variable type is unknown");
 	}else if(CodeInfo::nodeList.back()->typeInfo->funcType == NULL){
 		CheckForImmutable(CodeInfo::nodeList.back()->typeInfo, pos);
 		CodeInfo::nodeList.push_back(new NodeDereference());
@@ -1171,7 +1186,11 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo;
 	if(currentType->refLevel == 2)
 	{
+		if(callArgCount)
+			CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - callArgCount);
 		CodeInfo::nodeList.push_back(new NodeDereference());
+		if(callArgCount)
+			CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + callArgCount);
 		currentType = CodeInfo::GetDereferenceType(currentType);
 	}
 	bool unifyTwo = false;
@@ -1830,6 +1849,8 @@ void AddIfElseTermNode(const char* pos)
 		ThrowError(pos, "ERROR: condition type cannot be void");
 	TypeInfo* typeA = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
+	if(typeA == typeVoid || typeB == typeVoid)
+		ThrowError(pos, "ERROR: one of ternary operator ?: \r\n result type is void (%s : %s)", typeB->name, typeA->name);
 	if(typeA != typeB && (typeA->type == TypeInfo::TYPE_COMPLEX || typeB->type == TypeInfo::TYPE_COMPLEX))
 		ThrowError(pos, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true, true));

@@ -772,10 +772,6 @@
 					RelativePath=".\Modules\img\canvas.nc"
 					>
 				</File>
-				<File
-					RelativePath=".\Modules\img\canvas_ex.nc"
-					>
-				</File>
 			</Filter>
 		</Filter>
 		<File

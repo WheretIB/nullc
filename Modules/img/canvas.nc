@@ -1,9 +1,21 @@
-import img.canvas_ex;
+
+class Canvas
+{
+	int width, height;
+	
+	int color;
+	int[] data;
+}
 
 Canvas Canvas(int width, height)
 {
 	Canvas ret;
-	Canvas(&ret, width, height);
+	
+	ret.color = 0;
+	ret.data = new int[width*height];
+	ret.width = width;
+	ret.height = height;
+
 	return ret;
 }
 
@@ -14,5 +26,10 @@ void Canvas:SetColor(char red, green, blue);
 
 void Canvas:DrawLine(int x1, y1, x2, y2);
 void Canvas:DrawRect(int x1, y1, x2, y2);
+
+int[] Canvas:GetData()
+{
+	return data;
+}
 
 void Canvas:Destroy();

@@ -300,7 +300,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = 0; i < exCode.size(); i++)
 	{
 		exCode[i].Decode(instBuf);
-		if(exCode[i].cmd == cmdCallStd && exCode[i].argument != -1)
+		if(exCode[i].cmd == cmdCallStd && exCode[i].argument != ~0u)
 			fprintf(linkAsm, "// %d %s (%s)\r\n", i, instBuf, &exSymbols[exFunctions[exCode[i].argument].offsetToName]);
 		else
 			fprintf(linkAsm, "// %d %s\r\n", i, instBuf);

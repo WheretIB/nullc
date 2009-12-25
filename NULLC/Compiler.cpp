@@ -327,7 +327,7 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 			if(index == 0)
 			{
 				fInfo->address = -1;
-				fInfo->funcPtr = ptr;
+				fInfo->funcPtr = (void*)ptr;
 				index--;
 				break;
 			}
@@ -370,18 +370,9 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 				index = n;
 
 		if(index == INDEX_NONE)
-		{
 			typeRemap.push_back(lastTypeNum++);
-		}else{
-			// Type full check
-			if(CodeInfo::typeInfo[index]->type != tInfo->type)
-			{
-				SafeSprintf(errBuf, 256, "ERROR: there already is a type named %s with a different structure", CodeInfo::typeInfo[index]->GetFullTypeName());
-				CodeInfo::lastError = CompilerError(errBuf, pos);
-				return false;
-			}
+		else
 			typeRemap.push_back(index);
-		}
 	}
 
 	tInfo = FindFirstType(bCode);
@@ -418,7 +409,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, 0, tempInfo->arrLevel + 1, tInfo->arrSize, tempInfo, TypeInfo::TYPE_COMPLEX));
 				newInfo = CodeInfo::typeInfo.back();
 
-				if(tInfo->arrSize == -1)
+				if(tInfo->arrSize == ~0u)
 				{
 					newInfo->size = 4;
 					newInfo->AddMemberVariable("size", typeInt);
@@ -464,14 +455,6 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 				return false;
 			}
 			newInfo->alignBytes = tInfo->defaultAlign;
-		}else{
-			// Type full check
-			if(CodeInfo::typeInfo[index]->type != tInfo->type)
-			{
-				SafeSprintf(errBuf, 256, "ERROR: there already is a type named %s with a different structure", CodeInfo::typeInfo[index]->GetFullTypeName());
-				CodeInfo::lastError = CompilerError(errBuf, pos);
-				return false;
-			}
 		}
 	}
 
@@ -817,7 +800,7 @@ void Compiler::SaveListing(const char *fileName)
 			}
 		}
 		CodeInfo::cmdList[i].Decode(instBuf);
-		if((CodeInfo::cmdList[i].cmd == cmdCall || CodeInfo::cmdList[i].cmd == cmdCallStd) && CodeInfo::cmdList[i].argument != -1)
+		if((CodeInfo::cmdList[i].cmd == cmdCall || CodeInfo::cmdList[i].cmd == cmdCallStd) && CodeInfo::cmdList[i].argument != ~0u)
 			fprintf(compiledAsm, "// %d %s (%s)\r\n", i, instBuf, CodeInfo::funcInfo[CodeInfo::cmdList[i].argument]->name);
 		else
 			fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
