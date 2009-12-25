@@ -538,9 +538,9 @@ template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 	if(cmd == cmdLogAnd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: && is illegal for floating-point numbers");
 	if(cmd == cmdLogXor)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: || is illegal for floating-point numbers");
-	if(cmd == cmdLogOr)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: ^^ is illegal for floating-point numbers");
+	if(cmd == cmdLogOr)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: || is illegal for floating-point numbers");
 	assert(!"optDoSpecial<double> with unknown command");
 	return 0.0;
 }
@@ -1850,9 +1850,9 @@ void AddIfElseTermNode(const char* pos)
 	TypeInfo* typeA = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	if(typeA == typeVoid || typeB == typeVoid)
-		ThrowError(pos, "ERROR: one of ternary operator ?: \r\n result type is void (%s : %s)", typeB->name, typeA->name);
+		ThrowError(pos, "ERROR: one of ternary operator ?: result type is void (%s : %s)", typeB->name, typeA->name);
 	if(typeA != typeB && (typeA->type == TypeInfo::TYPE_COMPLEX || typeB->type == TypeInfo::TYPE_COMPLEX))
-		ThrowError(pos, "ERROR: ternary operator ?: \r\n result types are not equal (%s : %s)", typeB->name, typeA->name);
+		ThrowError(pos, "ERROR: ternary operator ?: result types are not equal (%s : %s)", typeB->name, typeA->name);
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true, true));
 }
 
