@@ -64,8 +64,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 
 	if(!good)
 	{
-		if(expected)
-			printf("%s Compilation failed: %s", buf, nullcGetCompilationError());
+		printf("%s Compilation failed: %s", buf, nullcGetCompilationError());
 		return false;
 	}else{
 		char *bytecode;
@@ -3721,231 +3720,248 @@ return k;";
 		}
 	}
 
-#define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
+#define TEST_FOR_FAIL(name, str, error)\
+{\
+	testCount++;\
+	nullres good = nullcCompile(str);\
+	if(!good)\
+	{\
+		char buf[512];\
+		strcpy(buf, strstr(nullcGetCompilationError(), "ERROR:"));\
+		*strchr(buf, '\r') = 0;\
+		if(strcmp(error, buf) != 0)\
+		{\
+			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);\
+		}else{\
+			passed[0]++; passed[1]++;\
+		}\
+	}\
+}
+
+	TEST_FOR_FAIL("Number not allowed in this base", "return 09;", "ERROR: Digit 9 is not allowed in base 8");
+	TEST_FOR_FAIL("Unknown escape sequence", "return '\\p';", "ERROR: unknown escape sequence");
+	TEST_FOR_FAIL("Wrong alignment", "align(32) int a; return 0;", "ERROR: alignment must be less than 16 bytes");
+	TEST_FOR_FAIL("Change of immutable value", "int i; return *i = 5;", "ERROR: cannot change immutable value of type int");
+	TEST_FOR_FAIL("Hex overflow", "return 0xbeefbeefbeefbeefb;", "ERROR: Overflow in hexadecimal constant");
+	TEST_FOR_FAIL("Oct overflow", "return 03333333333333333333333;", "ERROR: Overflow in octal constant");
+	TEST_FOR_FAIL("Bin overflow", "return 10000000000000000000000000000000000000000000000000000000000000000b;", "ERROR: Overflow in binary constant");
+	TEST_FOR_FAIL("Logical not on double", "return !0.5;", "ERROR: logical NOT is not available on floating-point numbers");
+	TEST_FOR_FAIL("Binary not on double", "return ~0.4;", "ERROR: binary NOT is not available on floating-point numbers");
+
+	TEST_FOR_FAIL("No << on float", "return 1.0 << 2.0;", "ERROR: << is illegal for floating-point numbers");
+	TEST_FOR_FAIL("No >> on float", "return 1.0 >> 2.0;", "ERROR: >> is illegal for floating-point numbers");
+	TEST_FOR_FAIL("No | on float", "return 1.0 | 2.0;", "ERROR: | is illegal for floating-point numbers");
+	TEST_FOR_FAIL("No & on float", "return 1.0 & 2.0;", "ERROR: & is illegal for floating-point numbers");
+	TEST_FOR_FAIL("No ^ on float", "return 1.0 ^ 2.0;", "ERROR: ^ is illegal for floating-point numbers");
+	TEST_FOR_FAIL("No && on float", "return 1.0 && 2.0;", "ERROR: && is illegal for floating-point numbers");
+	TEST_FOR_FAIL("No || on float", "return 1.0 || 2.0;", "ERROR: || is illegal for floating-point numbers");
+	TEST_FOR_FAIL("No ^^ on float", "return 1.0 ^^ 2.0;", "ERROR: ^^ is illegal for floating-point numbers");
+
+	TEST_FOR_FAIL("Wrong return", "int a(){ return {1,2};} return 1;", "ERROR: function returns int[2] but supposed to return int");
+	TEST_FOR_FAIL("Shouldn't return anything", "void a(){ return 1; } return 1;", "ERROR: function returning a value");
+	TEST_FOR_FAIL("Should return something", "int a(){ return; } return 1;", "ERROR: function should return int");
+	TEST_FOR_FAIL("Global return doesn't accept void", "void a(){} return a();", "ERROR: global return cannot accept void");
+	TEST_FOR_FAIL("Global return doesn't accept complex types", "void a(){} return a;", "ERROR: global return cannot accept complex types");
+
+	TEST_FOR_FAIL("Break followed by trash", "int a; break a; return 1;", "ERROR: break must be followed by ';' or a constant");
+	TEST_FOR_FAIL("Break with depth 0", "break 0; return 1;", "ERROR: break level cannot be 0");
+	TEST_FOR_FAIL("Break with depth too big", "while(1){ break 2; } return 1;", "ERROR: break level is greater that loop depth");
+
+	TEST_FOR_FAIL("continue followed by trash", "int a; continue a; return 1;", "ERROR: continue must be followed by ';' or a constant");
+	TEST_FOR_FAIL("continue with depth 0", "continue 0; return 1;", "ERROR: continue level cannot be 0");
+	TEST_FOR_FAIL("continue with depth too big", "while(1){ continue 2; } return 1;", "ERROR: continue level is greater that loop depth");
+
+	TEST_FOR_FAIL("Variable redefinition", "int a, a; return 1;", "ERROR: Name 'a' is already taken for a variable in current scope");
+	TEST_FOR_FAIL("Variable hides function", "void a(){} int a; return 1;", "ERROR: Name 'a' is already taken for a function");
+
+	TEST_FOR_FAIL("Uninit auto", "auto a; return 1;", "ERROR: auto variable must be initialized in place of definition");
+	TEST_FOR_FAIL("Reference to auto", "auto ref a; return 1;", "ERROR: auto variable cannot have reference flag");
+	TEST_FOR_FAIL("Array of auto", "auto[4] a; return 1;", "ERROR: cannot specify array size for auto variable");
+	TEST_FOR_FAIL("sizeof auto", "return sizeof(auto);", "ERROR: sizeof(auto) is illegal");
+
+	TEST_FOR_FAIL("Unknown function", "return b;", "ERROR: function 'b' is not defined");
+	TEST_FOR_FAIL("Unclear decision", "void a(int b){} void a(float b){} return a;", "ERROR: there are more than one 'a' function, and the decision isn't clear");
+	TEST_FOR_FAIL("Variable of unknown type used", "auto a = a + 1; return a;", "ERROR: variable 'a' is being used while its type is unknown");
+
+	TEST_FOR_FAIL("Indexing not an array", "int a; return a[5];", "ERROR: indexing variable that is not an array");
+	TEST_FOR_FAIL("Array underflow", "int[4] a; a[-1] = 2; return 1;", "ERROR: Array index cannot be negative");
+	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;", "ERROR: Array index out of bounds");
+
+	TEST_FOR_FAIL("No matching function", "int f(int a, b){} int f(int a, long b){} return f(1)'", "ERROR: can't find function 'f' with following parameters:");
+	TEST_FOR_FAIL("No clear decision", "int f(int a, b){} int f(int a, long b){} int f(){} return f(1, 3.0)'", "ERROR: Ambiguity, there is more than one overloaded function available for the call.");
+
+	TEST_FOR_FAIL("Array without member", "int[4] a; return a.m;", "ERROR: Array doesn't have member with this name");
+	TEST_FOR_FAIL("No methods", "int[4] i; return i.ok();", "ERROR: function 'int[4]::ok' is undefined");
+	TEST_FOR_FAIL("void array", "void f(){} return { f(), f() };", "ERROR: array cannot be constructed from void type elements");
+	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;", "ERROR: Name 'a' is already taken for a variable in current scope");
+	TEST_FOR_FAIL("Auto parameter", "auto(auto a){} return 1;", "ERROR: function parameter cannot be an auto type");
+	TEST_FOR_FAIL("Function redefine", "int a(int b){} int a(int c){} return 1;", "ERROR: function 'a' is being defined with the same set of parameters");
+	TEST_FOR_FAIL("Wrong overload", "int operator*(int a){} return 1;", "ERROR: binary operator definition or overload must accept exactly two arguments");
+	TEST_FOR_FAIL("Overload in the wrong place", "int f(){ int operator+(int a, b){}} return 1;", "ERROR: binary operator definition or overload must be placed in global scope");
+	TEST_FOR_FAIL("No member function", "int a; return a.ok();", "ERROR: function 'int::ok' is undefined");
+	TEST_FOR_FAIL("Unclear decision - member function", "class test{ void a(int b){} void a(float b){} } test t; return t.a;", "ERROR: there are more than one 'a' function, and the decision isn't clear");
+	TEST_FOR_FAIL("No function", "return k();", "ERROR: function 'k' is undefined");
+
+	TEST_FOR_FAIL("void condition", "void f(){} if(f()){} return 1;", "ERROR: condition type cannot be void");
+	TEST_FOR_FAIL("void condition", "void f(){} if(f()){}else{} return 1;", "ERROR: condition type cannot be void");
+	TEST_FOR_FAIL("void condition", "void f(){} return f() ? 1 : 0;", "ERROR: condition type cannot be void");
+	TEST_FOR_FAIL("void condition", "void f(){} for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be void");
+	TEST_FOR_FAIL("void condition", "void f(){} while(f()){} return 1;", "ERROR: condition type cannot be void");
+	TEST_FOR_FAIL("void condition", "void f(){} do{}while(f()); return 1;", "ERROR: condition type cannot be void");
+	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;", "ERROR: cannot switch by void type");
+	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;", "ERROR: case value type cannot be void");
+
+	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;", "ERROR: Different type is being defined");
+	TEST_FOR_FAIL("class wrong alignment", "align(32) class test{int a;} return 1;", "ERROR: alignment must be less than 16 bytes");
+	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;", "ERROR: auto cannot be used for class members");
+	TEST_FOR_FAIL("class is too big", "class nobiggy{ int[128][128][4] a; } return 1;", "ERROR: class size cannot exceed 65535 bytes");
+
+	TEST_FOR_FAIL("array size not const", "int[cos(12) * 16] a; return a[0];", "ERROR: Array size must be a constant expression");
+	TEST_FOR_FAIL("array size not positive", "int[-16] a; return a[0];", "ERROR: Array size can't be negative or zero");
+	TEST_FOR_FAIL("cannot dereference if not a reference", "int a; return *a;", "ERROR: cannot change immutable value of type int");
+
+	TEST_FOR_FAIL("function parameter cannot be a void type", "int f(void a){ return 0; } return 1;", "ERROR: function parameter cannot be a void type");
+	TEST_FOR_FAIL("function prototype with unresolved return type", "auto f(); return 1;", "ERROR: function prototype with unresolved return type");
+	TEST_FOR_FAIL("Division by zero during constant folding", "return 5 / 0;", "ERROR: Division by zero during constant folding");
+	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;", "ERROR: Modulus division by zero during constant folding");
+	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;", "ERROR: Modulus division by zero during constant folding");
+
+	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);", "ERROR: variable is not a pointer to function");
+
+	TEST_FOR_FAIL("Function pointer call with wrong argument count", "int f(int a){ return -a; } auto foo = f; auto b = foo(); return foo(1, 2);", "ERROR: function expects 1 argument(s), while 0 are supplied");
+	TEST_FOR_FAIL("Function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } auto foo = f; float4 v; return foo(v);", "ERROR: there is no conversion from specified arguments and the ones that function accepts");
+
+	TEST_FOR_FAIL("Indirect function pointer call with wrong argument count", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; auto b = foo[0](); return foo(1, 2);", "ERROR: function expects 1 argument(s), while 0 are supplied");
+	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);", "ERROR: there is no conversion from specified arguments and the ones that function accepts");
+
+	TEST_FOR_FAIL("Array element type mistmatch", "import std.math;\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;", "ERROR: element 1 doesn't match the type of element 0 (int)");
+	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;", "ERROR: ternary operator ?: result types are not equal (int : float2)");
+
+	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];", "ERROR: indexing variable that is not an array");
+	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;", "ERROR: Cannot convert from int[] ref to int[]");
+	TEST_FOR_FAIL("Type redefinition", "class int{ int a, b; } return 1;", "ERROR: 'int' is being redefined");
+
+	TEST_FOR_FAIL("Illegal conversion 1", "import std.math; float3 a; a = 12.0; return 1;", "ERROR: Cannot convert 'double' to 'float3'");
+	TEST_FOR_FAIL("Illegal conversion 2", "import std.math; float3 a; float4 b; b = a; return 1;", "ERROR: Cannot convert 'float3' to 'float4'");
+
+	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;", "ERROR: function 'i' is not defined");
+
+	TEST_FOR_FAIL("Class function return unclear 1", "class Test{int i;int foo(){ return i; }int foo(int k){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: there are more than one 'foo' function, and the decision isn't clear");
+	TEST_FOR_FAIL("Class function return unclear 2", "int foo(){ return 2; }class Test{int i;int foo(){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: there are more than one 'foo' function, and the decision isn't clear");
+
+	TEST_FOR_FAIL("Class externally defined method 1", "int dontexist:do(){ return 0; } return 1;", "ERROR: class name expected before ':'");
+	TEST_FOR_FAIL("Class externally defined method 2", "int int:(){ return *this; } return 1;", "ERROR: function name expected after ':'");
+
+	TEST_FOR_FAIL("Member variable or function is not found", "int a; a.b; return 1;", "ERROR: member variable or function 'b' is not defined in class 'int'");
+
+	TEST_FOR_FAIL("Inplace array element type mismatch", "auto a = { 12, 15.0 };", "ERROR: element 1 doesn't match the type of element 0 (int)");
+	TEST_FOR_FAIL("Ternary operator void return type", "void f(){} return 1 ? f() : 0.0;", "ERROR: one of ternary operator ?: result type is void (void : double)");
+	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; return 1 ? 12 : float2(3, 4);", "ERROR: ternary operator ?: result types are not equal (int : float2)");
+
+	TEST_FOR_FAIL("Variable type is unknow", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: variable type is unknown");
 	
-	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
-	//TEST_FOR_FAIL("", "");
-	TEST_FOR_FAIL("Unknown escape sequence", "return '\\p';");
-	TEST_FOR_FAIL("Wrong alignment", "align(32) int a; return 0;");
-	TEST_FOR_FAIL("Change of immutable value", "int i; return *i = 5;");
-	TEST_FOR_FAIL("Hex overflow", "return 0xbeefbeefbeefbeefb;");
-	TEST_FOR_FAIL("Oct overflow", "return 03333333333333333333333;");
-	TEST_FOR_FAIL("Bin overflow", "return 10000000000000000000000000000000000000000000000000000000000000000b;");
-	TEST_FOR_FAIL("Logical not on double", "return !0.5;");
-	TEST_FOR_FAIL("Binary not on double", "return ~0.4;");
-
-	TEST_FOR_FAIL("No << on float", "return 1.0 << 2.0;");
-	TEST_FOR_FAIL("No >> on float", "return 1.0 >> 2.0;");
-	TEST_FOR_FAIL("No | on float", "return 1.0 | 2.0;");
-	TEST_FOR_FAIL("No & on float", "return 1.0 & 2.0;");
-	TEST_FOR_FAIL("No ^ on float", "return 1.0 ^ 2.0;");
-	TEST_FOR_FAIL("No && on float", "return 1.0 && 2.0;");
-	TEST_FOR_FAIL("No || on float", "return 1.0 || 2.0;");
-	TEST_FOR_FAIL("No ^^ on float", "return 1.0 ^^ 2.0;");
-
-	TEST_FOR_FAIL("Wrong return", "int a(){ return {1,2};} return 1;");
-	TEST_FOR_FAIL("Shouldn't return anything", "void a(){ return 1; } return 1;");
-	TEST_FOR_FAIL("Should return something", "int a(){ return; } return 1;");
-	TEST_FOR_FAIL("Global return doesn't accept void", "void a(){} return a();");
-	TEST_FOR_FAIL("Global return doesn't accept complex types", "void a(){} return a;");
-
-	TEST_FOR_FAIL("Break followed by trash", "int a; break a; return 1;");
-	TEST_FOR_FAIL("Break with depth 0", "break 0; return 1;");
-	TEST_FOR_FAIL("Break with depth too big", "while(1){ break 2; } return 1;");
-
-	TEST_FOR_FAIL("continue followed by trash", "int a; continue a; return 1;");
-	TEST_FOR_FAIL("continue with depth 0", "continue 0; return 1;");
-	TEST_FOR_FAIL("continue with depth too big", "while(1){ continue 2; } return 1;");
-
-	TEST_FOR_FAIL("Variable redefinition", "int a, a; return 1;");
-	TEST_FOR_FAIL("Variable hides function", "void a(){} int a; return 1;");
-
-	TEST_FOR_FAIL("Uninit auto", "auto a; return 1;");
-	TEST_FOR_FAIL("Reference to auto", "auto ref a; return 1;");
-	TEST_FOR_FAIL("Array of auto", "auto[4] a; return 1;");
-	TEST_FOR_FAIL("sizeof auto", "return sizeof(auto);");
-
-	TEST_FOR_FAIL("Unknown function", "return b;");
-	TEST_FOR_FAIL("Unclear decision", "void a(int b){} void a(float b){} return a;");
-	TEST_FOR_FAIL("Variable of unknown type used", "auto a = a + 1; return a;");
-
-	TEST_FOR_FAIL("Indexing not an array", "int a; return a[5];");
-	TEST_FOR_FAIL("Array underflow", "int[4] a; a[-1] = 2; return 1;");
-	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;");
-
-	TEST_FOR_FAIL("No matching function", "int f(int a, b){} int f(int a, long b){} return f(1)'");
-	TEST_FOR_FAIL("No clear decision", "int f(int a, b){} int f(int a, long b){} int f(){} return f(1, 3.0)'");
-
-	TEST_FOR_FAIL("Array without member", "int[4] a; return a.m;");
-	TEST_FOR_FAIL("No methods", "int[4] i; return i.ok();");
-	TEST_FOR_FAIL("void array", "void f(){} return { f(), f() };");
-	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;");
-	TEST_FOR_FAIL("Auto parameter", "auto(auto a){} return 1;");
-	TEST_FOR_FAIL("Function redefine", "int a(int b){} int a(int c){} return 1;");
-	TEST_FOR_FAIL("Wrong overload", "int operator*(int a){} return 1;");
-	TEST_FOR_FAIL("Overload in the wrong place", "int f(){ int operator+(int a, b){}} return 1;");
-	TEST_FOR_FAIL("No member function", "int a; return a.ok();");
-	TEST_FOR_FAIL("Unclear decision - member function", "class test{ void a(int b){} void a(float b){} } test t; return t.a;");
-	TEST_FOR_FAIL("No function", "return k();");
-
-	TEST_FOR_FAIL("void condition", "void f(){} if(f()){} return 1;");
-	TEST_FOR_FAIL("void condition", "void f(){} if(f()){}else{} return 1;");
-	TEST_FOR_FAIL("void condition", "void f(){} return f() ? 1 : 0;");
-	TEST_FOR_FAIL("void condition", "void f(){} for(int i = 0; f(); i++){} return 1;");
-	TEST_FOR_FAIL("void condition", "void f(){} while(f()){} return 1;");
-	TEST_FOR_FAIL("void condition", "void f(){} do{}while(f()); return 1;");
-	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;");
-	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;");
-
-	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;");
-	TEST_FOR_FAIL("class wrong alignment", "align(32) class test{int a;} return 1;");
-	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;");
-	TEST_FOR_FAIL("class is too big", "class nobiggy{ int[128][128][4] a; } return 1;");
-
-	TEST_FOR_FAIL("array size not const", "int[cos(12) * 16] a; return a[0];");
-	TEST_FOR_FAIL("array size not positive", "int[-16] a; return a[0];");
-	TEST_FOR_FAIL("cannot dereference if not a reference", "int a; return *a;");
-
-	TEST_FOR_FAIL("function parameter cannot be a void type", "int f(void a){ return 0; } return 1;");
-	TEST_FOR_FAIL("function prototype with unresolved return type", "auto f(); return 1;");
-	TEST_FOR_FAIL("Division by zero during constant folding", "return 5 / 0;");
-	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;");
-	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;");
-
-	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);");
-
-	TEST_FOR_FAIL("Function pointer call with wrong argument count", "int f(int a){ return -a; } auto foo = f; auto b = foo(); return foo(1, 2);");
-	TEST_FOR_FAIL("Function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } auto foo = f; float4 v; return foo(v);");
-
-	TEST_FOR_FAIL("Indirect function pointer call with wrong argument count", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; auto b = foo[0](); return foo(1, 2);");
-	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);");
-
-	TEST_FOR_FAIL("Array element type mistmatch", "import std.math;\r\n\float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;");
-	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\n\float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;");
-
-	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];");
-	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;");
-	TEST_FOR_FAIL("Type redefinition", "class int{ int a, b; } return 1;");
-
-	TEST_FOR_FAIL("Illegal conversion 1", "import std.math; float3 a; a = 12.0; return 1;");
-	TEST_FOR_FAIL("Illegal conversion 2", "import std.math; float4 b; b = a; return 1;");
-
-	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;");
-
-	TEST_FOR_FAIL("Class function return unclear 1", "class Test{int i;int foo(){ return i; }int foo(int k){ return i; }auto bar(){ return foo; }}return 1;");
-	TEST_FOR_FAIL("Class function return unclear 2", "int foo(){ return 2; }class Test{int i;int foo(){ return i; }auto bar(){ return foo; }}return 1;");
-
-	TEST_FOR_FAIL("Class externally defined method 1", "int dontexist:do(){ return 0; } return 1;");
-	TEST_FOR_FAIL("Class externally defined method 2", "int int:(){ return *this; } return 1;");
-
-	TEST_FOR_FAIL("Member variable or function is not found", "int a; a.b; return 1;");
-
-	TEST_FOR_FAIL("Inplace array element type mismatch", "auto a = { 12, 15.0 };");
-	TEST_FOR_FAIL("Ternary operator void return type", "void f(){} return 1 ? f() : 0.0;");
-	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; return 1 ? 12 : float2(3, 4);");
-
 	//TEST_FOR_FAIL("parsing", "");
 
-	TEST_FOR_FAIL("parsing", "return 0x;");
-	TEST_FOR_FAIL("parsing", "int[12 a;");
-	TEST_FOR_FAIL("parsing", "typeof 12 a;");
-	TEST_FOR_FAIL("parsing", "typeof(12 a;");
-	TEST_FOR_FAIL("parsing", "typeof() a;");
-	TEST_FOR_FAIL("parsing", "class{}");
-	TEST_FOR_FAIL("parsing", "class Test int a;");
-	TEST_FOR_FAIL("parsing", "class Test{ int; }");
-	TEST_FOR_FAIL("parsing", "class Test{ int a, ; }");
-	TEST_FOR_FAIL("parsing", "class Test{ int a, b }");
-	TEST_FOR_FAIL("parsing", "class Test{ int a; return 5;");
-	TEST_FOR_FAIL("parsing", "auto(int a, ){}");
-	TEST_FOR_FAIL("parsing", "void f(int a, b){} return a(1, );");
-	TEST_FOR_FAIL("parsing", "void f(int a, b){} return a(1, 2;");
-	TEST_FOR_FAIL("parsing", "int operator[(int a, b){ return a+b; }");
-	TEST_FOR_FAIL("parsing", "auto(int a, b{}");
-	TEST_FOR_FAIL("parsing", "auto(int a, b) return 0;");
-	TEST_FOR_FAIL("parsing", "auto(int a, b){ return a+b; return 1;");
-	TEST_FOR_FAIL("parsing", "int a[4];");
-	TEST_FOR_FAIL("parsing", "int a=;");
-	TEST_FOR_FAIL("parsing", "int = 3;");
-	TEST_FOR_FAIL("parsing", "int a, ;");
-	TEST_FOR_FAIL("parsing", "align int a=2;");
-	TEST_FOR_FAIL("parsing", "align() int a = 2;");
-	TEST_FOR_FAIL("parsing", "align(2 int a;");
-	TEST_FOR_FAIL("parsing", "if");
-	TEST_FOR_FAIL("parsing", "if(");
-	TEST_FOR_FAIL("parsing", "if(1");
-	TEST_FOR_FAIL("parsing", "if(1)");
-	TEST_FOR_FAIL("parsing", "if(1) 1; else ");
-	TEST_FOR_FAIL("parsing", "for");
-	TEST_FOR_FAIL("parsing", "for({})");
-	TEST_FOR_FAIL("parsing", "for(;1<2)");
-	TEST_FOR_FAIL("parsing", "for({)");
-	TEST_FOR_FAIL("parsing", "for(;;)");
-	TEST_FOR_FAIL("parsing", "for(;1<2;{)");
-	TEST_FOR_FAIL("parsing", "for(;1<2;{})");
-	TEST_FOR_FAIL("parsing", "for(;1<2;)");
-	TEST_FOR_FAIL("parsing", "for(;1<2");
-	TEST_FOR_FAIL("parsing", "for(;1<2;{}");
-	TEST_FOR_FAIL("parsing", "while");
-	TEST_FOR_FAIL("parsing", "while(");
-	TEST_FOR_FAIL("parsing", "while(1");
-	TEST_FOR_FAIL("parsing", "while(1)");
-	TEST_FOR_FAIL("parsing", "do");
-	TEST_FOR_FAIL("parsing", "do 1;");
-	TEST_FOR_FAIL("parsing", "do 1; while");
-	TEST_FOR_FAIL("parsing", "do 1; while(");
-	TEST_FOR_FAIL("parsing", "do 1; while(1");
-	TEST_FOR_FAIL("parsing", "do 1; while(0)");
-	TEST_FOR_FAIL("parsing", "switch");
-	TEST_FOR_FAIL("parsing", "switch(");
-	TEST_FOR_FAIL("parsing", "switch(2");
-	TEST_FOR_FAIL("parsing", "switch(2)");
-	TEST_FOR_FAIL("parsing", "switch(2){ case");
-	TEST_FOR_FAIL("parsing", "switch(2){ case 2");
-	TEST_FOR_FAIL("parsing", "switch(2){ case 2:");
-	TEST_FOR_FAIL("parsing", "switch(2){ default:");
-	TEST_FOR_FAIL("parsing", "return");
-	TEST_FOR_FAIL("parsing", "break");
-	TEST_FOR_FAIL("parsing", "for(;1;) continue; continue");
-	TEST_FOR_FAIL("parsing", "(");
-	TEST_FOR_FAIL("parsing", "(1");
-	TEST_FOR_FAIL("parsing", "*");
-	TEST_FOR_FAIL("parsing", "int i; i.");
-	TEST_FOR_FAIL("parsing", "int[4] i; i[");
-	TEST_FOR_FAIL("parsing", "int[4] i; i[2");
-	TEST_FOR_FAIL("parsing", "&");
-	TEST_FOR_FAIL("parsing", "!");
-	TEST_FOR_FAIL("parsing", "~");
-	TEST_FOR_FAIL("parsing", "--");
-	TEST_FOR_FAIL("parsing", "++");
-	TEST_FOR_FAIL("parsing", "+");
-	TEST_FOR_FAIL("parsing", "-");
-	TEST_FOR_FAIL("parsing", "'aa'");
-	TEST_FOR_FAIL("parsing", "sizeof");
-	TEST_FOR_FAIL("parsing", "sizeof(");
-	TEST_FOR_FAIL("parsing", "sizeof(int");
-	TEST_FOR_FAIL("parsing", "new");
-	TEST_FOR_FAIL("parsing", "new int[");
-	TEST_FOR_FAIL("parsing", "new int[12");
-	TEST_FOR_FAIL("parsing", "auto a = {");
-	TEST_FOR_FAIL("parsing", "auto a = {1,");
-	TEST_FOR_FAIL("parsing", "auto a = {1,2");
-	TEST_FOR_FAIL("parsing", "return 1+;");
-	TEST_FOR_FAIL("parsing", "1?");
-	TEST_FOR_FAIL("parsing", "1?2");
-	TEST_FOR_FAIL("parsing", "1?2:");
-	TEST_FOR_FAIL("parsing", "int i; i+=;");
-	TEST_FOR_FAIL("parsing", "int i; i**=;");
-	TEST_FOR_FAIL("parsing", "int i");
-	TEST_FOR_FAIL("parsing", "int i; i = 5");
-	TEST_FOR_FAIL("parsing", "{");
-	TEST_FOR_FAIL("parsing", "auto ref() a;");
-	TEST_FOR_FAIL("parsing", "int ref(int ref(int, auto), double) b;");
-	TEST_FOR_FAIL("parsing", "typedef");
-	TEST_FOR_FAIL("parsing", "typedef double");
-	TEST_FOR_FAIL("parsing", "typedef double somename");
-	TEST_FOR_FAIL("parsing", "typedef double int;");
-	TEST_FOR_FAIL("parsing", "typedef double somename; typedef int somename;");
+	TEST_FOR_FAIL("parsing", "return 0x;", "ERROR: '0x' must be followed by number");
+	TEST_FOR_FAIL("parsing", "int[12 a;", "ERROR: Matching ']' not found");
+	TEST_FOR_FAIL("parsing", "typeof 12 a;", "ERROR: typeof must be followed by '('");
+	TEST_FOR_FAIL("parsing", "typeof(12 a;", "ERROR: ')' not found after expression in typeof");
+	TEST_FOR_FAIL("parsing", "typeof() a;", "ERROR: expression not found after typeof(");
+	TEST_FOR_FAIL("parsing", "class{}", "ERROR: class name expected");
+	TEST_FOR_FAIL("parsing", "class Test int a;", "ERROR: '{' not found after class name");
+	TEST_FOR_FAIL("parsing", "class Test{ int; }", "ERROR: class member name expected after type");
+	TEST_FOR_FAIL("parsing", "class Test{ int a, ; }", "ERROR: member name expected after ','");
+	TEST_FOR_FAIL("parsing", "class Test{ int a, b }", "ERROR: ';' not found after class member list");
+	TEST_FOR_FAIL("parsing", "class Test{ int a; return 5;", "ERROR: '}' not found after class definition");
+	TEST_FOR_FAIL("parsing", "auto(int a, ){}", "ERROR: variable name not found after type in function variable list");
+	TEST_FOR_FAIL("parsing", "void f(int a, b){} return a(1, );", "ERROR: expression not found after ',' in function parameter list");
+	TEST_FOR_FAIL("parsing", "void f(int a, b){} return a(1, 2;", "ERROR: ')' not found after function parameter list");
+	TEST_FOR_FAIL("parsing", "int operator[(int a, b){ return a+b; }", "ERROR: ']' not found after '[' in operator definition");
+	TEST_FOR_FAIL("parsing", "auto(int a, b{}", "ERROR: ')' not found after function variable list");
+	TEST_FOR_FAIL("parsing", "auto(int a, b) return 0;", "ERROR: '{' not found after function header");
+	TEST_FOR_FAIL("parsing", "auto(int a, b){ return a+b; return 1;", "ERROR: '}' not found after function body");
+	TEST_FOR_FAIL("parsing", "int a[4];", "ERROR: array size must be specified after typename");
+	TEST_FOR_FAIL("parsing", "int a=;", "ERROR: expression not found after '='");
+	TEST_FOR_FAIL("parsing", "int = 3;", "ERROR: variable name not found after type name");
+	TEST_FOR_FAIL("parsing", "int a, ;", "ERROR: next variable definition excepted after ','");
+	TEST_FOR_FAIL("parsing", "align int a=2;", "ERROR: '(' expected after align");
+	TEST_FOR_FAIL("parsing", "align() int a = 2;", "ERROR: alignment value not found after align(");
+	TEST_FOR_FAIL("parsing", "align(2 int a;", "ERROR: ')' expected after alignment value");
+	TEST_FOR_FAIL("parsing", "if", "ERROR: '(' not found after 'if'");
+	TEST_FOR_FAIL("parsing", "if(", "ERROR: condition not found in 'if' statement");
+	TEST_FOR_FAIL("parsing", "if(1", "ERROR: closing ')' not found after 'if' condition");
+	TEST_FOR_FAIL("parsing", "if(1)", "ERROR: expression not found after 'if'");
+	TEST_FOR_FAIL("parsing", "if(1) 1; else ", "ERROR: expression not found after 'else'");
+	TEST_FOR_FAIL("parsing", "for", "ERROR: '(' not found after 'for'");
+	TEST_FOR_FAIL("parsing", "for({})", "ERROR: ';' not found after initializer in 'for'");
+	TEST_FOR_FAIL("parsing", "for(;1<2)", "ERROR: ';' not found after condition in 'for'");
+	TEST_FOR_FAIL("parsing", "for({)", "ERROR: '}' not found after '{'");
+	TEST_FOR_FAIL("parsing", "for(;;)", "ERROR: condition not found in 'for' statement");
+	TEST_FOR_FAIL("parsing", "for(;1<2;{)", "ERROR: '}' not found after '{'");
+	TEST_FOR_FAIL("parsing", "for(;1<2;{})", "ERROR: body not found after 'for' header");
+	TEST_FOR_FAIL("parsing", "for(;1<2;)", "ERROR: body not found after 'for' header");
+	TEST_FOR_FAIL("parsing", "for(;1<2", "ERROR: ';' not found after condition in 'for'");
+	TEST_FOR_FAIL("parsing", "for(;1<2;{}", "ERROR: ')' not found after 'for' statement");
+	TEST_FOR_FAIL("parsing", "while", "ERROR: '(' not found after 'while'");
+	TEST_FOR_FAIL("parsing", "while(", "ERROR: expression expected after 'while('");
+	TEST_FOR_FAIL("parsing", "while(1", "ERROR: closing ')' not found after expression in 'while' statement");
+	TEST_FOR_FAIL("parsing", "while(1)", "ERROR: expression expected after 'while(...)'");
+	TEST_FOR_FAIL("parsing", "do", "ERROR: expression expected after 'do'");
+	TEST_FOR_FAIL("parsing", "do 1;", "ERROR: 'while' expected after 'do' statement");
+	TEST_FOR_FAIL("parsing", "do 1; while", "ERROR: '(' not found after 'while'");
+	TEST_FOR_FAIL("parsing", "do 1; while(", "ERROR: expression expected after 'while('");
+	TEST_FOR_FAIL("parsing", "do 1; while(1", "ERROR: closing ')' not found after expression in 'while' statement");
+	TEST_FOR_FAIL("parsing", "do 1; while(0)", "ERROR: while(...) should be followed by ';'");
+	TEST_FOR_FAIL("parsing", "switch", "ERROR: '(' not found after 'switch'");
+	TEST_FOR_FAIL("parsing", "switch(", "ERROR: expression not found after 'switch('");
+	TEST_FOR_FAIL("parsing", "switch(2", "ERROR: closing ')' not found after expression in 'switch' statement");
+	TEST_FOR_FAIL("parsing", "switch(2)", "ERROR: '{' not found after 'switch(...)'");
+	TEST_FOR_FAIL("parsing", "switch(2){ case", "ERROR: expression expected after 'case' of 'default'");
+	TEST_FOR_FAIL("parsing", "switch(2){ case 2", "ERROR: ':' expected");
+	TEST_FOR_FAIL("parsing", "switch(2){ case 2:", "ERROR: '}' not found after 'switch' statement");
+	TEST_FOR_FAIL("parsing", "switch(2){ default:", "ERROR: '}' not found after 'switch' statement");
+	TEST_FOR_FAIL("parsing", "return", "ERROR: return must be followed by ';'");
+	TEST_FOR_FAIL("parsing", "break", "ERROR: break must be followed by ';'");
+	TEST_FOR_FAIL("parsing", "for(;1;) continue; continue", "ERROR: continue must be followed by ';'");
+	TEST_FOR_FAIL("parsing", "(", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("parsing", "(1", "ERROR: closing ')' not found after '('");
+	TEST_FOR_FAIL("parsing", "*", "ERROR: variable name not found after '*'");
+	TEST_FOR_FAIL("parsing", "int i; i.", "ERROR: member variable expected after '.'");
+	TEST_FOR_FAIL("parsing", "int[4] i; i[", "ERROR: expression not found after '['");
+	TEST_FOR_FAIL("parsing", "int[4] i; i[2", "ERROR: ']' not found after expression");
+	TEST_FOR_FAIL("parsing", "&", "ERROR: variable not found after '&'");
+	TEST_FOR_FAIL("parsing", "!", "ERROR: expression not found after '!'");
+	TEST_FOR_FAIL("parsing", "~", "ERROR: expression not found after '~'");
+	TEST_FOR_FAIL("parsing", "--", "ERROR: variable not found after '--'");
+	TEST_FOR_FAIL("parsing", "++", "ERROR: variable not found after '++'");
+	TEST_FOR_FAIL("parsing", "+", "ERROR: expression not found after '+'");
+	TEST_FOR_FAIL("parsing", "-", "ERROR: expression not found after '-'");
+	TEST_FOR_FAIL("parsing", "'aa'", "ERROR: only one character can be inside single quotes");
+	TEST_FOR_FAIL("parsing", "sizeof", "ERROR: sizeof must be followed by '('");
+	TEST_FOR_FAIL("parsing", "sizeof(", "ERROR: expression or type not found after sizeof(");
+	TEST_FOR_FAIL("parsing", "sizeof(int", "ERROR: ')' not found after expression in sizeof");
+	TEST_FOR_FAIL("parsing", "new", "ERROR: Type name expected after 'new'");
+	TEST_FOR_FAIL("parsing", "new int[", "ERROR: expression not found after '['");
+	TEST_FOR_FAIL("parsing", "new int[12", "ERROR: ']' not found after expression");
+	TEST_FOR_FAIL("parsing", "auto a = {", "ERROR: value not found after '{'");
+	TEST_FOR_FAIL("parsing", "auto a = {1,", "ERROR: value not found after ','");
+	TEST_FOR_FAIL("parsing", "auto a = {1,2", "ERROR: '}' not found after inline array");
+	TEST_FOR_FAIL("parsing", "return 1+;", "ERROR: terminal expression not found after binary operation");
+	TEST_FOR_FAIL("parsing", "1?", "ERROR: expression not found after '?'");
+	TEST_FOR_FAIL("parsing", "1?2", "ERROR: ':' not found after expression in ternary operator");
+	TEST_FOR_FAIL("parsing", "1?2:", "ERROR: expression not found after ':'");
+	TEST_FOR_FAIL("parsing", "int i; i+=;", "ERROR: expression not found after assignment operator");
+	TEST_FOR_FAIL("parsing", "int i; i**=;", "ERROR: expression not found after '**='");
+	TEST_FOR_FAIL("parsing", "int i", "ERROR: ';' not found after variable definition");
+	TEST_FOR_FAIL("parsing", "int i; i = 5", "ERROR: ';' not found after expression");
+	TEST_FOR_FAIL("parsing", "{", "ERROR: closing '}' not found");
+	TEST_FOR_FAIL("parsing", "auto ref() a;", "ERROR: return type of a function type cannot be auto");
+	TEST_FOR_FAIL("parsing", "int ref(int ref(int, auto), double) b;", "ERROR: parameter type of a function type cannot be auto");
+	TEST_FOR_FAIL("parsing", "typedef", "ERROR: typename expected after typedef");
+	TEST_FOR_FAIL("parsing", "typedef double", "ERROR: alias name expected after typename in typedef expression");
+	TEST_FOR_FAIL("parsing", "typedef double somename", "ERROR: ';' not found after typedef");
+	TEST_FOR_FAIL("parsing", "typedef double int;", "ERROR: there is already a type or an alias with the same name");
+	TEST_FOR_FAIL("parsing", "typedef double somename; typedef int somename;", "ERROR: there is already a type or an alias with the same name");
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount);
