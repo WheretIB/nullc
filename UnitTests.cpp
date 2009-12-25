@@ -286,10 +286,10 @@ char*	Format(const char *str, ...)
 
 	char* ptr = text + (section++ % 16) * 4096;
 
-	va_list argptr;
-	_crt_va_start(argptr, str);
-	_vsnprintf(ptr, 1023, str, argptr);
-	_crt_va_end(argptr);
+	va_list args;
+	va_start(args, str);
+	vsnprintf(ptr, 1023, str, args);
+	va_end(args);
 	return ptr;
 }
 
@@ -464,7 +464,7 @@ void	RunTests()
 			CHECK_LONG("b", 0, 594967296ll);
 			CHECK_LONG("c", 0, 3ll);
 			long long resExp[] = { 5089934592ll, 3900000000ll, -4494967296ll, -4494967297ll, 2674358537709551616ll, 7, 330196224, 210609828468829063ll, 1, 0, 1, 0, 0, 1,
-				35959738368, 105553116266496ll, 561870912, 56771072, 5033163520, 4976392448, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
+				35959738368ll, 105553116266496ll, 561870912, 56771072, 5033163520ll, 4976392448ll, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
 			for(int i = 0; i < 24; i++)
 				CHECK_LONG("res", i, resExp[i]);
 			if(!lastFailed)
@@ -2874,12 +2874,12 @@ return 1;";
 			CHECK_LONG("a1", 0, 1);
 			CHECK_LONG("a2", 0, 255);
 			CHECK_LONG("a3", 0, 524287);
-			CHECK_LONG("a4", 0, 562949953421311);
+			CHECK_LONG("a4", 0, 562949953421311ll);
 
 			CHECK_LONG("b1", 0, 0);
 			CHECK_LONG("b2", 0, 1);
 			CHECK_LONG("b3", 0, 33538725);
-			CHECK_LONG("b4", 0, 6154922420991617705);
+			CHECK_LONG("b4", 0, 6154922420991617705ll);
 
 			CHECK_DOUBLE("c1", 0, 1e-3);
 			CHECK_DOUBLE("c2", 0, 1e6);
@@ -2900,12 +2900,12 @@ return 1;";
 			CHECK_FLOAT("e2", 0, -1.0f);
 			CHECK_DOUBLE("e3", 0, -3.0);
 
-			CHECK_LONG("e4", 0, !324324234324234423l);
-			CHECK_LONG("e5", 0, ~89435763476541l);
-			CHECK_LONG("e6", 0, -1687313675313735l);
+			CHECK_LONG("e4", 0, !324324234324234423ll);
+			CHECK_LONG("e5", 0, ~89435763476541ll);
+			CHECK_LONG("e6", 0, -1687313675313735ll);
 
 			CHECK_INT("f1", 0, 2 << 4);
-			CHECK_LONG("f2", 0, 3l << 12l);
+			CHECK_LONG("f2", 0, 3ll << 12ll);
 
 			CHECK_INT("f4", 0, -(2 << 4));
 			CHECK_DOUBLE("f5", 0, 6.0);
@@ -3571,6 +3571,156 @@ return a.GetBar();";
 				passed[t]++;
 		}
 	}
+
+const char	*testOverloadedOperator1 =
+"import std.math;\r\n\
+\r\n\
+void operator= (float4 ref a, float b){ a.x = a.y = a.y = a.z = b; }\r\n\
+float4 a, b = 16;\r\n\
+a = 12;\r\n\
+return int(a.x + b.z);";
+	printf("\r\nOverloaded operator =\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testOverloadedOperator1, testTarget[t], "28"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testOverloadedOperator2 =
+"class string{ int len; }\r\n\
+void operator=(string ref a, char[] str){ a.len = str.size; }\r\n\
+string b = \"assa\";\r\n\
+class funcholder{ int ref(int) ptr; }\r\n\
+void operator=(funcholder ref a, int ref(int) func){ a.ptr = func; }\r\n\
+int test(int a){ return -a; }\r\n\
+funcholder c = test;\r\n\
+return (c.ptr)(12);";
+	printf("\r\nOverloaded operator = with arrays and functions\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testOverloadedOperator2, testTarget[t], "-12"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("b", 0, 5);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testOverloadedOperator3 =
+"import std.math;\r\n\
+\r\n\
+void operator= (float4 ref a, float b){ a.x = a.y = a.y = a.z = b; }\r\n\
+void operator+= (float4 ref a, float b){ a.x += b; a.y += b; a.y += b; a.z += b; }\r\n\
+float4 a, b = 16;\r\n\
+a = 12;\r\n\
+a += 3;\r\n\
+return int(a.x + b.z);";
+	printf("\r\nOverloaded operator =\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testOverloadedOperator3, testTarget[t], "31"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testMemberFuncCallRef =
+"typedef char[] string;\r\n\
+\r\n\
+void string:set(int a)\r\n\
+{\r\n\
+	this[0] = a;\r\n\
+}\r\n\
+\r\n\
+string a = \"hello\";\r\n\
+auto b = &a;\r\n\
+b.set('m');\r\n\
+return b[0];";
+	printf("\r\nMember function call of a reference to a class\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testMemberFuncCallRef, testTarget[t], "109"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testInplaceArrayDouble =
+"double[] arr = { 12.0, 14, 18.0f };\r\n\
+return int(arr[0]+arr[1]+arr[2]);";
+	printf("\r\nInplace double array with integer elements\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testInplaceArrayDouble, testTarget[t], "44"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunctionPrototypes =
+"int func1();\r\n\
+int func2(){ return func1(); }\r\n\
+int func1(){ return 12; }\r\n\
+return func2();";
+	printf("\r\nFunction prototypes\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testFunctionPrototypes, testTarget[t], "12"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testInternalMemberFunctionCall =
+"class Test\r\n\
+{\r\n\
+	int i;\r\n\
+	int foo(){ return i; }\r\n\
+	auto bar(){ return foo(); }\r\n\
+}\r\n\
+Test a;\r\n\
+a.i = 5;\r\n\
+auto k = a.bar();\r\n\
+return k;";
+	printf("\r\nInternal member function call\r\n");
+	testCount++;
+	for(int t = 0; t < 2; t++)
+	{
+		if(RunCode(testInternalMemberFunctionCall, testTarget[t], "5"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #define TEST_FOR_FAIL(name, str) if(!RunCode(str, NULLC_VM, NULL)){ passed[0]++; passed[1]++; testCount++; }else{ printf("Failed:"name"\r\n"); testCount++; }
 	
 	TEST_FOR_FAIL("Number not allowed in this base", "return 09;");
@@ -3597,6 +3747,7 @@ return a.GetBar();";
 	TEST_FOR_FAIL("Shouldn't return anything", "void a(){ return 1; } return 1;");
 	TEST_FOR_FAIL("Should return something", "int a(){ return; } return 1;");
 	TEST_FOR_FAIL("Global return doesn't accept void", "void a(){} return a();");
+	TEST_FOR_FAIL("Global return doesn't accept complex types", "void a(){} return a;");
 
 	TEST_FOR_FAIL("Break followed by trash", "int a; break a; return 1;");
 	TEST_FOR_FAIL("Break with depth 0", "break 0; return 1;");
@@ -3664,10 +3815,10 @@ return a.GetBar();";
 	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);");
 
 	TEST_FOR_FAIL("Function pointer call with wrong argument count", "int f(int a){ return -a; } auto foo = f; auto b = foo(); return foo(1, 2);");
-	TEST_FOR_FAIL("Function pointer call with wrong argument types", "int f(int a){ return -a; } auto foo = f; float4 v; return foo(v);");
+	TEST_FOR_FAIL("Function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } auto foo = f; float4 v; return foo(v);");
 
 	TEST_FOR_FAIL("Indirect function pointer call with wrong argument count", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; auto b = foo[0](); return foo(1, 2);");
-	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);");
+	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);");
 
 	TEST_FOR_FAIL("Array element type mistmatch", "import std.math;\r\n\float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;");
 	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\n\float2 float2(float x,y)\r\n{\r\nfloat2 r;\r\nr.x=x;r.y=y;\r\nreturn r;\r\n}\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;");
@@ -3676,8 +3827,8 @@ return a.GetBar();";
 	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;");
 	TEST_FOR_FAIL("Type redefinition", "class int{ int a, b; } return 1;");
 
-	TEST_FOR_FAIL("Illegal conversion 1", "float3 a; a = 12.0; return 1;");
-	TEST_FOR_FAIL("Illegal conversion 2", "float4 b; b = a; return 1;");
+	TEST_FOR_FAIL("Illegal conversion 1", "import std.math; float3 a; a = 12.0; return 1;");
+	TEST_FOR_FAIL("Illegal conversion 2", "import std.math; float4 b; b = a; return 1;");
 
 	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;");
 
@@ -3686,6 +3837,12 @@ return a.GetBar();";
 
 	TEST_FOR_FAIL("Class externally defined method 1", "int dontexist:do(){ return 0; } return 1;");
 	TEST_FOR_FAIL("Class externally defined method 2", "int int:(){ return *this; } return 1;");
+
+	TEST_FOR_FAIL("Member variable or function is not found", "int a; a.b; return 1;");
+
+	TEST_FOR_FAIL("Inplace array element type mismatch", "auto a = { 12, 15.0 };");
+	TEST_FOR_FAIL("Ternary operator void return type", "void f(){} return 1 ? f() : 0.0;");
+	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; return 1 ? 12 : float2(3, 4);");
 
 	//TEST_FOR_FAIL("parsing", "");
 
@@ -3803,8 +3960,9 @@ return a.GetBar();";
 	printf("Run time: %f\r\n", timeRun);
 
 #ifdef SPEED_TEST
-const char	*testCompileSpeed =
-"/*import nullclib;*/int progress_slider_position = 0;\r\n\
+/*const char	*testCompileSpeed =
+"//import nullclib;\r\n\
+int progress_slider_position = 0;\r\n\
 \r\n\
 int clip(int value, int left, int right){	return value < left ? left : value > right ? right : value;}\r\n\
 \r\n\
@@ -3885,6 +4043,118 @@ int draw_progress_bar()\r\n\
 }\r\n\
 for(int i = 0; i < 10000; i++)\r\n\
 	draw_progress_bar();\r\n\
+return 0;";*/
+
+	const char	*testCompileSpeed =
+"import img.canvas;\r\n\
+import win.window;\r\n\
+import std.io;\r\n\
+\r\n\
+int width = 256;\r\n\
+int height = 256;\r\n\
+\r\n\
+float[] a = new float[width*height];\r\n\
+float[] b = new float[width*height];\r\n\
+\r\n\
+Canvas img = Canvas(width, height);\r\n\
+\r\n\
+int[] data = img.GetData();\r\n\
+\r\n\
+float get(float[] arr, int x, y){ return arr[x+y*width]; }\r\n\
+void set(float[] arr, int x, y, float val){ arr[x+y*width] = val; }\r\n\
+\r\n\
+void process(float[] from, float[] to)\r\n\
+{\r\n\
+	auto damping = 0.01;\r\n\
+	\r\n\
+	for(auto x = 2; x < width - 2; x++)\r\n\
+	{\r\n\
+		for(auto y = 2; y < height - 2; y++)\r\n\
+		{\r\n\
+			double sum = get(from, x-2, y);\r\n\
+			sum += get(from, x+2, y);\r\n\
+			sum += get(from, x, y-2);\r\n\
+			sum += get(from, x, y+2);\r\n\
+			sum += get(from, x-1, y);\r\n\
+			sum += get(from, x+1, y);\r\n\
+			sum += get(from, x, y-1);\r\n\
+			sum += get(from, x, y+1);\r\n\
+			sum += get(from, x-1, y-1);\r\n\
+			sum += get(from, x+1, y+1);\r\n\
+			sum += get(from, x+1, y-1);\r\n\
+			sum += get(from, x-1, y+1);\r\n\
+			sum *= 1.0/6.0;\r\n\
+			sum -= get(to, x, y);\r\n\
+			\r\n\
+			float val = sum - sum * damping;\r\n\
+			val = val < 0.0 ? 0.0 : val;\r\n\
+			val = val > 255.0 ? 255.0 : val;\r\n\
+			set(to, x, y, val);\r\n\
+		}\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+void render(float[] from, int[] to)\r\n\
+{\r\n\
+	for(auto x = 2; x < width - 2; x++)\r\n\
+	{\r\n\
+		for(auto y = 2; y < height - 2; y++)\r\n\
+		{\r\n\
+			float color = get(from, x, y);\r\n\
+			\r\n\
+			float progress = color / 256;\r\n\
+			float rMin = 31, rMax = 168, \r\n\
+			gMin = 57, gMax = 224, \r\n\
+			bMin = 116, bMax = 237;\r\n\
+			\r\n\
+			auto rDelta = (rMax - rMin) / 2.0;\r\n\
+			auto rValue = int(rMin + rDelta + rDelta * progress);\r\n\
+			auto gDelta = (gMax - gMin) / 2.0;\r\n\
+			auto gValue = int(gMin + gDelta + gDelta * progress);\r\n\
+			auto bDelta = (bMax - bMin) / 2.0;\r\n\
+			auto bValue = int(bMin + bDelta + bDelta * progress);\r\n\
+			\r\n\
+			to[x + y*width] = (rValue << 16) + (gValue << 8) + bValue;\r\n\
+		}\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+float[] bufA = a, bufB = b, temp;\r\n\
+\r\n\
+Window main = Window(\"Test\", 400, 300, 260, 275);\r\n\
+\r\n\
+int seed = 10;\r\n\
+int rand()\r\n\
+{\r\n\
+	seed = seed * 1103515245 + 12345;\r\n\
+	return (seed / 65536) % 32768;\r\n\
+}\r\n\
+\r\n\
+char[256] keys;\r\n\
+do\r\n\
+{\r\n\
+	int randPosX = rand() % 200; randPosX = randPosX < 0 ? -randPosX : randPosX;\r\n\
+	int randPosY = rand() % 200; randPosY = randPosY < 0 ? -randPosY : randPosY;\r\n\
+	randPosX += 25;\r\n\
+	randPosY += 25;\r\n\
+	for(int x = randPosX-10; x < randPosX+10; x++)\r\n\
+		for(int y = randPosY-10; y < randPosY+10; y++)\r\n\
+			set(a, x, y, 255);\r\n\
+\r\n\
+	render(bufA, data);\r\n\
+\r\n\
+	main.DrawCanvas(&img, -1, -1);\r\n\
+	\r\n\
+	process(bufA, bufB);\r\n\
+	temp = bufA;\r\n\
+	bufA = bufB;\r\n\
+	bufB = temp;\r\n\
+\r\n\
+	main.Update();\r\n\
+	GetKeyboardState(keys);\r\n\
+}while(!(keys[0x1B] & 0x80000000));\r\n\
+main.Close();\r\n\
+\r\n\
 return 0;";
 
 	nullcSetExecutor(NULLC_VM);

@@ -565,10 +565,14 @@ void FillVariableInfoTree()
 		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
 			strcat(name, GetSimpleVariableValue(currVar.varType, address));
 
+		char *cPos = name+strlen(name);
 		if(currVar.varType->arrLevel == 1 && currVar.varType->subType->type == TypeInfo::TYPE_CHAR)
-			sprintf(name+strlen(name), "\"%s\"", currVar.varType->arrSize != -1 ? (char*)(variableData + address) : *((char**)(variableData + address)));
+			_snprintf(cPos, 255-int(cPos - name), "\"%s\"", currVar.varType->arrSize != -1 ? (char*)(variableData + address) : *((char**)(variableData + address)));
+		name[255] = 0;
+		cPos = name+strlen(name);
 		if(currVar.varType->arrSize == -1)
-			sprintf(name+strlen(name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
+			_snprintf(cPos, 255-int(cPos - name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
+		name[255] = 0;
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);

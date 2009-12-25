@@ -30,16 +30,12 @@
 #define assert(expr)	((void)sizeof(!(expr)))
 #endif
 
-#include "Array.h"
-#include "Pool.h"
-#include "StrAlgo.h"
-
 namespace NULLC
 {
-	void*	defaultAlloc(size_t size);
+	void*	defaultAlloc(int size);
 	void	defaultDealloc(void* ptr);
 
-	extern void*	(*alloc)(size_t);
+	extern void*	(*alloc)(int);
 	extern void		(*dealloc)(void*);
 
 	template<typename T>
@@ -48,7 +44,7 @@ namespace NULLC
 		return new(alloc(sizeof(T))) T();
 	}
 	template<typename T>
-	static T*		construct(size_t count)
+	static T*		construct(int count)
 	{
 		return new(alloc(count * sizeof(T))) T[count];
 	}
@@ -68,3 +64,6 @@ namespace NULLC
 	}
 }
 
+#include "Array.h"
+#include "Pool.h"
+#include "StrAlgo.h"

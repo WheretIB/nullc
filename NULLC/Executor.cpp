@@ -197,30 +197,30 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdPushCharStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushShortStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *(short*)((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushIntStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *(int*)((char*)NULL + cmd.argument + *genStackPtr);
 			break;
 		case cmdPushFloatStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr--;
 			*(double*)(genStackPtr) = (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr+1));
 			break;
 		case cmdPushDorLStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr--;
 			*(double*)(genStackPtr) = *(double*)((char*)NULL + cmd.argument + *(genStackPtr+1));
 			break;
 		case cmdPushCmplxStk:
 		{
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			unsigned int shift = cmd.argument + *genStackPtr;
 			genStackPtr++;
 			unsigned int currShift = cmd.helper;
@@ -267,33 +267,33 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdMovCharStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned char)(*genStackPtr);
 			break;
 		case cmdMovShortStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*(unsigned short*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned short)(*genStackPtr);
 			break;
 		case cmdMovIntStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*(int*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (int)(*genStackPtr);
 			break;
 		case cmdMovFloatStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)*(double*)(genStackPtr);
 			break;
 		case cmdMovDorLStk:
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*(long long*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = *(long long*)(genStackPtr);
 			break;
 		case cmdMovCmplxStk:
 		{
-			RUNTIME_ERROR(*genStackPtr == NULL, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			unsigned int shift = cmd.argument + *genStackPtr;
 			genStackPtr++;
 			unsigned int currShift = cmd.helper;

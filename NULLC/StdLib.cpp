@@ -18,7 +18,7 @@ namespace NULLC
 
 void* NULLC::AllocObject(int size)
 {
-	if(size >= minGlobalBlockSize)
+	if((unsigned int)size >= minGlobalBlockSize)
 	{
 		globalObjects.push_back(new char[size]);
 		memset(globalObjects.back(), 0, size);
