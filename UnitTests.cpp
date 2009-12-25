@@ -331,21 +331,20 @@ void	RunTests()
 	//nullcInitCustomAlloc(testAlloc, testDealloc);
 	nullcSetImportPath("Modules\\");
 
-	nullcInitFileModule();
-	nullcInitMathModule();
-
 #ifdef SPEED_TEST
 	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");
 #endif
 
-	int passed[] = { 0, 0 };
-	int testCount = 0;
+	nullcInitFileModule();
+	nullcInitMathModule();
+
+	int passed[] = { 0, 0, 0 };
+	int testCount[] = { 0, 0, 0 };
 
 	unsigned int	testTarget[] = { NULLC_VM, NULLC_X86, };
 
 //////////////////////////////////////////////////////////////////////////
 	printf("\r\nTwo bytecode merge test 1\r\n");
-	testCount++;
 
 	const char *partA1 = "int a = 5;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\nvoid run(){ test(&a, 4); }\r\n";
 	const char *partB1 = "int aa = 15;\r\nint testA(int ref a, int b)\r\n{\r\n\treturn *a += b + 1;\r\n}\r\ntestA(&aa, 5);\r\nvoid runA(){ testA(&aa, 5); }\r\nreturn aa;\r\n";
@@ -356,6 +355,7 @@ void	RunTests()
 
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		nullcSetExecutor(testTarget[t]);
 
 		nullres good = nullcCompile(partA1);
@@ -420,9 +420,9 @@ void	RunTests()
 //////////////////////////////////////////////////////////////////////////
 	// Number operation test
 	printf("\r\nInteger operation test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testIntOp, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -437,9 +437,9 @@ void	RunTests()
 		}
 	}
 	printf("\r\nDouble operation test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testDoubleOp, testTarget[t], "17.000000"))
 		{
 			lastFailed = false;
@@ -453,9 +453,9 @@ void	RunTests()
 		}
 	}
 	printf("\r\nLong operation test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testLongOp, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -471,9 +471,9 @@ void	RunTests()
 		}
 	}
 	printf("\r\nDecrement and increment tests for all types\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(tesIncDec, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -507,9 +507,9 @@ void	RunTests()
 
 	// Complex type tests
 	printf("\r\nComplex type test (simple)\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testCmplxType1, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -532,9 +532,9 @@ void	RunTests()
 		}
 	}
 	printf("\r\nComplex type test (complex)\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testCmplxType2, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -559,9 +559,9 @@ a.y = a/*[gg]*/.x + 3;\r\n\
 // a.x = 2; a.y = 5\r\n\
 return a.x;";
 	printf("\r\nCompiler mislead test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMislead, testTarget[t], "2.000000"))
 		{
 			lastFailed = false;
@@ -581,9 +581,9 @@ float4x4 mat;\r\n\
 mat.row1.y = 5;\r\n\
 return 1;";
 	printf("\r\nComplex type test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testCmplx3, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -602,9 +602,9 @@ for(int i = 0; i < a; i++)\r\n\
 d[i] = i*2 + i-2;\r\n\
 return d[5];";
 	printf("\r\nArray test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testCycle, testTarget[t], "0.000000"))
 		{
 			lastFailed = false;
@@ -623,9 +623,9 @@ const char	*testFuncCall1 =
 "int test(int x, int y, int z){return x*y+z;}\r\n\
 return 1+test(2, 3, 4);	// 11";
 	printf("\r\nFunction call test 1\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFuncCall1, testTarget[t], "11"))
 		{
 			lastFailed = false;
@@ -642,9 +642,9 @@ if(7>5)\r\n\
 b = 3;\r\n\
 return b+test(2, 3, 4);";
 	printf("\r\nFunction call test 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFuncCall2, testTarget[t], "13"))
 		{
 			lastFailed = false;
@@ -658,9 +658,9 @@ const char	*testFuncCall3 =
 "int fib(int n){ if(n<3) return 5; return 10; }\r\n\
 return fib(1);";
 	printf("\r\nFunction call test 3\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFuncCall3, testTarget[t], "5"))
 		{
 			lastFailed = false;
@@ -674,9 +674,9 @@ const char	*testRecursion =
 "int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }\r\n\
 return fib(4);";
 	printf("\r\nRecursion test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testRecursion, testTarget[t], "3"))
 		{
 			lastFailed = false;
@@ -695,9 +695,9 @@ res[res[2]] = 4;\r\n\
 res[res[res[2]]] = 12;\r\n\
 return 5;";
 	printf("\r\nArray indirection and optimization test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testIndirection, testTarget[t], "5"))
 		{
 			lastFailed = false;
@@ -727,9 +727,9 @@ double n=1;\r\n\
 while(1){ n*=2; if(n>1000) break; }\r\n\
 return 2+test(2, 3)+a**b;";
 	printf("\r\nOld all-in-one test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testAllInOne, testTarget[t], "19.000000"))
 		{
 			lastFailed = false;
@@ -756,12 +756,12 @@ long a = 43l, b = 10l; \r\n\
 long c;\r\n\
 for(int i = 0; i < 1000; i++)\r\n\
   c = a**b;\r\n\
-return c;";
+return 0;";
 	printf("\r\nlongPow speed test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
-		if(RunCode(testLongSpeed, testTarget[t], "21611482313284249L"))
+		testCount[t]++;
+		if(RunCode(testLongSpeed, testTarget[t], "0"))
 		{
 			lastFailed = false;
 
@@ -773,23 +773,6 @@ return c;";
 				passed[t]++;
 		}
 	}
-
-#ifdef FAILURE_TEST
-
-const char	*testDivZero = 
-"// Division by zero handling\r\n\
-int a=5, b =0;\r\n\
-return a/b;";
-	printf("\r\n Division by zero handling\r\n");
-	testCount++;
-	for(int t = 0; t < 2; t++)
-	{
-		if(!RunCode(testDivZero, testTarget[t], "ERROR: Integer division by zero"))
-			passed[t]++;
-		else
-			printf("Should have failed");
-	}
-#endif
 
 const char	*testTypeConv = 
 "// Type conversions\r\n\
@@ -804,9 +787,9 @@ lb = ia;\r\n\
 lc = da;\r\n\
 return 1;";
 	printf("\r\nType conversions\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testTypeConv, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -832,9 +815,9 @@ const char	*testArrayFill =
 int[10] a=5;\r\n\
 return 1;";
 	printf("\r\nArray fill test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testArrayFill, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -890,9 +873,9 @@ res[26] = log(2.7182818284590452353602874713527); // 1.0\r\n\
 \r\n\
 return (\"hello\" == \"hello\") + (\"world\" != \"World\") + (\"world\" != \"worl\");";
 	printf("\r\nBuild-In function checks\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testBuildinFunc, testTarget[t], "3"))
 		{
 			lastFailed = false;
@@ -916,9 +899,9 @@ const char	*testDoublePow =
 "double a = 0.9;\r\n\
 return a**2.0;";
 	printf("\r\nDouble power\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testDoublePow, testTarget[t], "0.810000"))
 		{
 			lastFailed = false;
@@ -949,9 +932,9 @@ double abs(double x)\r\n\
 }\r\n\
 return clamp(abs(-1.5), 0.0, 1.0);";
 	printf("\r\nFunction call test 4\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFuncCall4, testTarget[t], "1.000000"))
 		{
 			lastFailed = false;
@@ -973,9 +956,9 @@ res = 1+test(x, 3, 4);\r\n\
 }\r\n\
 return res;";
 	printf("\r\nFunction Call test 5\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFuncCall5, testTarget[t], "11"))
 		{
 			lastFailed = false;
@@ -999,9 +982,9 @@ const char	*testFuncCall6 =
 }\r\n\
 return abs(-0.5);";
 	printf("\r\nFunction call test 6\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFuncCall6, testTarget[t], "0.500000"))
 		{
 			lastFailed = false;
@@ -1022,9 +1005,9 @@ for(int i = 0; i < 5; i++)\r\n\
 }\r\n\
 return 1;";
 	printf("\r\nInc dec test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testIncDec, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -1055,9 +1038,9 @@ c = *b;\r\n\
 testB(b);\r\n\
 return testA(&a);";
 	printf("\r\nPointers\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testPointers, testTarget[t], "325"))
 		{
 			lastFailed = false;
@@ -1090,9 +1073,9 @@ float4 ref b = &a;\r\n\
 normalize(&a);\r\n\
 return length(b);";
 	printf("\r\nPointers on complex\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testPointersCmplx, testTarget[t], "1.000000"))
 		{
 			lastFailed = false;
@@ -1114,9 +1097,9 @@ float4 ref b = &a;\r\n\
 b.x = 5.0f;\r\n\
 return b.x;";
 	printf("\r\nPointers on complex 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testPointersCmplx2, testTarget[t], "5.000000"))
 		{
 			lastFailed = false;
@@ -1135,9 +1118,9 @@ float4 ref b = &a;\r\n\
 a.x = 5.0f;\r\n\
 return testA(b);";
 	printf("\r\nPointers 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testPointers2, testTarget[t], "5.000000"))
 		{
 			lastFailed = false;
@@ -1159,9 +1142,9 @@ res[4] = a*2+0;\r\n\
 res[5] = a*3*1;\r\n\
 return 1;";
 	printf("\r\nSimple optimizations\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testOptiA, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -1198,9 +1181,9 @@ float ref c = &arrF[1].y;\r\n\
 }\r\n\
 return 1;";
 	printf("\r\nPointers test 3\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testPointers3, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -1231,9 +1214,9 @@ int fib(int n, int ref calls)\r\n\
 int calls = 0;\r\n\
 return fib(/*40*/15, &calls);";
 	printf("\r\nCall number test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testCalls, testTarget[t], "610"))
 		{
 			lastFailed = false;
@@ -1253,9 +1236,9 @@ for(int i = 0; i < /*50000000*/1000; i++)\r\n\
 nx = neg(x);\r\n\
 return nx;";
 	printf("\r\nNegate test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testNegate, testTarget[t], "-5.000000"))
 		{
 			lastFailed = false;
@@ -1274,84 +1257,12 @@ int fa(int i, double c){ return i*c; }\r\n\
 int fa(float i){ return i*3.0f; }\r\n\
 return fa(5.0f) * fa(2, 3.0);";
 	printf("\r\nFunction overload test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFuncOverload, testTarget[t], "90"))
 			passed[t]++;
 	}
-
-#ifdef FAILURE_TEST
-
-const char	*testFuncNoReturn = 
-"// Function with no return handling\r\n\
-int test(){ 1; } // temporary\r\n\
-return test();";
-	printf("\r\nFunction with no return handling\r\n");
-	testCount++;
-	for(int t = 0; t < 2; t++)
-	{
-		if(!RunCode(testFuncNoReturn, testTarget[t], "1"))
-			passed[t]++;
-		else
-			printf("Should have failed");
-	}
-
-
-const char	*testBounds1 = 
-"// Array out of bound check \r\n\
-int[4] n;\r\n\
-int i = 4;\r\n\
-n[i] = 3;\r\n\
-return 1;";
-	printf("\r\nArray out of bounds error check 1\r\n");
-	testCount++;
-	for(int t = 0; t < 2; t++)
-	{
-		if(!RunCode(testBounds1, testTarget[t], "1"))
-			passed[t]++;
-		else
-			printf("Should have failed");
-	}
-
-const char	*testBounds2 = 
-"// Array out of bound check 2\r\n\
-int[4] n;\r\n\
-int[] nn = n;\r\n\
-int i = 4;\r\n\
-nn[i] = 3;\r\n\
-return 1;";
-	printf("\r\nArray out of bounds error check 2\r\n");
-	testCount++;
-	for(int t = 0; t < 2; t++)
-	{
-		if(!RunCode(testBounds2, testTarget[t], "1"))
-			passed[t]++;
-		else
-			printf("Should have failed");
-	}
-
-const char	*testBounds3 = 
-"// Array out of bound check 3\r\n\
-auto x0 = { 1, 2 };\r\n\
-auto x1 = { 1, 2, 3 };\r\n\
-auto x2 = { 1, 2, 3, 4 };\r\n\
-int[3][] x;\r\n\
-x[0] = x0;\r\n\
-x[1] = x1;\r\n\
-x[2] = x2;\r\n\
-int[][] xr = x;\r\n\
-return xr[1][3];";
-	printf("\r\nArray out of bounds error check 3\r\n");
-	testCount++;
-	for(int t = 0; t < 2; t++)
-	{
-		if(!RunCode(testBounds3, testTarget[t], "1"))
-			passed[t]++;
-		else
-			printf("Should have failed");
-	}
-#endif
 
 const char	*testSwitch = 
 "// Switch test!\r\n\
@@ -1372,9 +1283,9 @@ int a = 3, b = 0;\r\n\
 }\r\n\
 return u;";
 	printf("\r\nSwitch test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testSwitch, testTarget[t], "12"))
 		{
 			lastFailed = false;
@@ -1411,9 +1322,9 @@ two.a.a = 14;\r\n\
 two.c.x = 2;\r\n\
 return 1;";
 	printf("\r\nClass test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClass1, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -1436,9 +1347,9 @@ int[10] arr = 4;\r\n\
 arr[slow(/*40000000*/1000)] += 16; // 330 ms total. target - 140ms\r\n\
 return 3;";
 	printf("\r\nVariable modify test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testVarMod, testTarget[t], "3"))
 		{
 			lastFailed = false;
@@ -1490,9 +1401,9 @@ two.d = 5;\r\n\
 twonext = two;\r\n\
 return 1;";
 	printf("\r\nClass test 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClass2, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -1545,9 +1456,9 @@ float[10] iArr = inc(arr);\r\n\
 float iArrSum = sum(iArr);\r\n\
 return test(n, m); // 56.0";
 	printf("\r\nComplex types test #3\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testCmplx4, testTarget[t], "56.000000"))
 		{
 			lastFailed = false;
@@ -1605,9 +1516,9 @@ for(int i = 0; i < 100; i++)\r\n\
 }\r\n\
 return int(mat.row1.y);";
 	printf("\r\nSpeed tests\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testSpeed, testTarget[t], "0"))
 		{
 			lastFailed = false;
@@ -1635,9 +1546,9 @@ auto ar = tenArr(3.0);\r\n\
 auto u = &b;\r\n\
 return *u;";
 	printf("\r\nAuto type tests\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testAuto, testTarget[t], "15"))
 		{
 			lastFailed = false;
@@ -1669,9 +1580,9 @@ auto str1 = \"\", str2 = \"a\", str3 = \"ab\";\r\n\
 auto str4 = \"abc\", str5 = \"abcd\", string = \"Hello World!\";\r\n\
 return 1;";
 	printf("\r\nChar array test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testCharArr, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -1702,9 +1613,9 @@ double f;\r\n\
 kl.uhu = \"tyty\";\r\n\
 return 0;";
 	printf("\r\nChar array test 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testCharArr2, testTarget[t], "0"))
 		{
 			lastFailed = false;
@@ -1747,9 +1658,9 @@ print(\"does work\");\r\n\
 \r\n\
 return sum(u);";
 	printf("\r\nImplicit pointers to arrays\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testArrPtr, testTarget[t], "112"))
 		{
 			lastFailed = false;
@@ -1789,9 +1700,9 @@ n.Write(k);\r\n\
 n.Close();\r\n\
 return test(uh, 3);";
 	printf("\r\nFile and something else test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFile, testTarget[t], "309"))
 		{
 			lastFailed = false;
@@ -1853,9 +1764,9 @@ test.Read(&lnumR2);\r\n\
 test.Close();\r\n\
 return 1;";
 	printf("\r\nFile test 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFile2, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -1896,9 +1807,9 @@ for(int i = 0; i < 10; i++)\r\n\
 \r\n\
 return 'n';";
 	printf("\r\nEscape sequences\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testEscape, testTarget[t], "110"))
 		{
 			lastFailed = false;
@@ -1916,9 +1827,9 @@ char[] mn = \"world\";\r\n\
 auto mo = \"!!!\";\r\n\
 return 1;";
 	printf("\r\nPrint test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testPrint, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -1954,9 +1865,9 @@ b[b[2]] = b[b[8]]++;\r\n\
 b[4]--;\r\n\
 return b[1];";
 	printf("\r\nVariable get and set\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testVarGetSet1, testTarget[t], "4"))
 		{
 			lastFailed = false;
@@ -1988,9 +1899,9 @@ auto kl4 = \"kjskadjaskd\";\r\n\
 int kl5 = test3(kl4);\r\n\
 return 1;";
 	printf("\r\nArrays test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testArrays, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2029,9 +1940,9 @@ auto l = { sh(1), sh(2), sh(3) };\r\n\
 int ns = sum(n), ts = sum({10, 12, 14, 16});\r\n\
 return 1;";
 	printf("\r\nArray test 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testArrays2, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2078,9 +1989,9 @@ for({int i = 0;}; i < 4; {i++;})\r\n\
 \r\n\
 return 4;";
 	printf("\r\nFunction visibility test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testVisibility, testTarget[t], "4"))
 		{
 			lastFailed = false;
@@ -2115,9 +2026,9 @@ int r; // (28)\r\n\
 \r\n\
 return r; // 19398";
 	printf("\r\nLocal function context test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testLocalFunc1, testTarget[t], "19398"))
 		{
 			lastFailed = false;
@@ -2156,9 +2067,9 @@ int r; // (28)\r\n\
 \r\n\
 return r; // 990579";
 	printf("\r\nLocal function context test 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testLocalFunc2, testTarget[t], "990579"))
 		{
 			lastFailed = false;
@@ -2180,9 +2091,9 @@ char[] um = nm;\r\n\
 arr[test(\"hello\\r\\n\")] += 3;\r\n\
 return 1;";
 	printf("\r\nStrings test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testStrings, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2217,9 +2128,9 @@ int[] k;\r\n\
 k = { 1, 2, 3, 4 };\r\n\
 return 1;";
 	printf("\r\nMultidimensional array constructor test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMultiCtor, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2286,9 +2197,9 @@ auto b = 0xcafe;\r\n\
 auto c = 0x7fffffffffffffff;\r\n\
 return a;";
 	printf("\r\nHexademical constants\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testHexConst, testTarget[t], "-559038737"))
 		{
 			lastFailed = false;
@@ -2376,9 +2287,9 @@ df1 = d3;\r\n\
 }\r\n\
 return 1;";
 	printf("\r\nNew get and set functions test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testGetSet, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2455,9 +2366,9 @@ int t4 = sizeof(t3); // 4\r\n\
 int t5 = sizeof(t2*0.5); // 8\r\n\
 return 1;";
 	printf("\r\nsizeof tests\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testSizeof, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2489,9 +2400,9 @@ int rr = sizeof(typeof(fr));\r\n\
 \r\n\
 return 1;";
 	printf("\r\ntypeof tests\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testTypeof, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2526,9 +2437,9 @@ float w;\r\n\
 \r\n\
 return 1;";
 	printf("\r\nClass method test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClassMethod, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2594,9 +2505,9 @@ int result;\r\n\
 char ee;\r\n\
 return 1;";
 	printf("\r\nClosure test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClosure, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2659,9 +2570,9 @@ int c=0;\r\n\
 \r\n\
 return 1;";
 	printf("\r\nClosure test 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClosure2, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2698,9 +2609,9 @@ const char	*testClosure3 =
 \r\n\
 return main();";
 	printf("\r\nClosure test 3\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClosure3, testTarget[t], "8"))
 		{
 			lastFailed = false;
@@ -2720,9 +2631,9 @@ int ff(int ref() f){ return f(); }\r\n\
 int b = 1 + ff(int f1(){ return 1 + ff(int f2(){ return 1 + ff(int f3(){ return 1; }); }); });\r\n\
 return a+b;";
 	printf("\r\nClosure test 4\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClosure4, testTarget[t], "7"))
 		{
 			lastFailed = false;
@@ -2747,9 +2658,9 @@ r5 = a2();\r\n\
 }\r\n\
 return 1;";
 	printf("\r\nClosure test 5\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClosure5, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2773,9 +2684,9 @@ res[0] = a + b * c;\r\n\
 res[1] = a + b ** (c-10) * a;\r\n\
 return 1;";
 	printf("\r\nOperation priority test\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testPriority, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2795,9 +2706,9 @@ const char	*testAutoReturn =
 auto f2(){ return 3; }\r\n\
 return f2();";
 	printf("\r\nAuto return type tests\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testAutoReturn, testTarget[t], "3"))
 		{
 			lastFailed = false;
@@ -2831,9 +2742,9 @@ for(i = 0; i < 4;i ++)\r\n\
 int b = k;\r\n\
 return a + b;";
 	printf("\r\nMulti-depth break and continue\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testDepthBreakContinue, testTarget[t], "24"))
 		{
 			lastFailed = false;
@@ -2864,9 +2775,9 @@ double f5 = 2 * 3.0, f6 = f1 - 0.0;\r\n\
 \r\n\
 return 1;";
 	printf("\r\nGroup of tests\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMissingTests, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2940,9 +2851,9 @@ int k4 = n33(4);\r\n\
 n44();\r\n\
 return 1;";
 	printf("\r\nGroup of tests 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMissingTests2, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -2979,9 +2890,9 @@ long opt3 = 1l && 1l || 1l ^^ 1l;\r\n\
 double opt4 = 8.0 % 3.0;\r\n\
 return 1;";
 	printf("\r\nGroup of tests 3\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMissingTests3, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -3036,9 +2947,9 @@ auto i = pass({ 4, 7 });\r\n\
 int k1 = k[0], k2 = k[1], k3 = k[2], k4 = k[3];\r\n\
 return m[1][3] + 2;";
 	printf("\r\nGroup of tests 4\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMissingTests4, testTarget[t], "6"))
 		{
 			lastFailed = false;
@@ -3084,9 +2995,9 @@ char ref r2(){ align(16) char a; return k(); }\r\n\
 char ref i2 = r2();\r\n\
 return 1;";
 	printf("\r\nGroup of tests 5\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMissingTests5, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -3143,9 +3054,9 @@ farr[0] = cls.test;\r\n\
 \r\n\
 return (farr[0])(12);";
 	printf("\r\nIndirect function pointers\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testIndirectPointers, testTarget[t], "312"))
 		{
 			lastFailed = false;
@@ -3171,9 +3082,9 @@ int x = (f())[0].x;\r\n\
 int y = float2(45, 98).y;\r\n\
 return int(f()[1].y);";
 	printf("\r\nArray and class member access after function call\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testArrayMemberAfterCall, testTarget[t], "15"))
 		{
 			lastFailed = false;
@@ -3199,9 +3110,9 @@ int i3 = b();	// 3\r\n\
 int i4 = a();	// 5\r\n\
 return b();		// 4";
 	printf("\r\nClosure with upvalues test 1\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testUpvalues1, testTarget[t], "4"))
 		{
 			lastFailed = false;
@@ -3230,9 +3141,9 @@ int i1 = add3(5);	// 8\r\n\
 int i2 = add13(7);	// 20\r\n\
 return add3(add13(4));";
 	printf("\r\nClosure with upvalues test 2\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testUpvalues2, testTarget[t], "20"))
 		{
 			lastFailed = false;
@@ -3286,9 +3197,9 @@ int a = f1(&aa);\r\n\
 int b = f2(&bb);\r\n\
 return 1;";
 	printf("\r\nClosure with upvalues test 3\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testUpvalues3, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -3339,9 +3250,9 @@ int i3 = arr[2]();\r\n\
 int i4 = arr[3]();\r\n\
 return 1;";
 	printf("\r\nClosure with upvalues test 4\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testUpvalues4, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -3370,9 +3281,9 @@ const char	*testUpvalues5 =
 }\r\n\
 return func();";
 	printf("\r\nClosure with upvalues test 5\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testUpvalues5, testTarget[t], "11"))
 		{
 			lastFailed = false;
@@ -3407,9 +3318,9 @@ int i5 = f.func2()().func2()().arr[1];\r\n\
 int i6 = f.func()().func2()().arr[2];\r\n\
 return 1;";
 	printf("\r\nMember function call post expressions\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMemberFuncCallPostExpr, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -3441,9 +3352,9 @@ g()[1] = 18;\r\n\
 (v2 > 5 ? &v2 : &v4) = 5;\r\n\
 return 1;";
 	printf("\r\nL-value extended cases\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testLeftValueExtends, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -3471,9 +3382,9 @@ a.i = 5;\r\n\
 auto k = a.bar()();\r\n\
 return 1;";
 	printf("\r\nClass function return\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClassFuncReturn, testTarget[t], "1"))
 		{
 			lastFailed = false;
@@ -3507,9 +3418,9 @@ int n = 19;\r\n\
 auto nv = n.toString();\r\n\
 return nv[0] + nv[1];";
 	printf("\r\nClass externally defined method (int)\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClassExternalMethodInt, testTarget[t], "106"))
 		{
 			lastFailed = false;
@@ -3535,9 +3446,9 @@ string a = \"hello\";\r\n\
 string b = a.reverse();\r\n\
 return b[0] - 'o';";
 	printf("\r\nClass externally defined method (char[])\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClassMethodString, testTarget[t], "0"))
 		{
 			lastFailed = false;
@@ -3559,9 +3470,9 @@ a.bar = 14;\r\n\
 \r\n\
 return a.GetBar();";
 	printf("\r\nClass externally defined method (custom)\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testClassExternalMethod, testTarget[t], "14"))
 		{
 			lastFailed = false;
@@ -3579,9 +3490,9 @@ float4 a, b = 16;\r\n\
 a = 12;\r\n\
 return int(a.x + b.z);";
 	printf("\r\nOverloaded operator =\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testOverloadedOperator1, testTarget[t], "28"))
 		{
 			lastFailed = false;
@@ -3601,9 +3512,9 @@ int test(int a){ return -a; }\r\n\
 funcholder c = test;\r\n\
 return (c.ptr)(12);";
 	printf("\r\nOverloaded operator = with arrays and functions\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testOverloadedOperator2, testTarget[t], "-12"))
 		{
 			lastFailed = false;
@@ -3625,9 +3536,9 @@ a = 12;\r\n\
 a += 3;\r\n\
 return int(a.x + b.z);";
 	printf("\r\nOverloaded operator =\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testOverloadedOperator3, testTarget[t], "31"))
 		{
 			lastFailed = false;
@@ -3650,9 +3561,9 @@ auto b = &a;\r\n\
 b.set('m');\r\n\
 return b[0];";
 	printf("\r\nMember function call of a reference to a class\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testMemberFuncCallRef, testTarget[t], "109"))
 		{
 			lastFailed = false;
@@ -3666,9 +3577,9 @@ const char	*testInplaceArrayDouble =
 "double[] arr = { 12.0, 14, 18.0f };\r\n\
 return int(arr[0]+arr[1]+arr[2]);";
 	printf("\r\nInplace double array with integer elements\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testInplaceArrayDouble, testTarget[t], "44"))
 		{
 			lastFailed = false;
@@ -3684,9 +3595,9 @@ int func2(){ return func1(); }\r\n\
 int func1(){ return 12; }\r\n\
 return func2();";
 	printf("\r\nFunction prototypes\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testFunctionPrototypes, testTarget[t], "12"))
 		{
 			lastFailed = false;
@@ -3708,9 +3619,9 @@ a.i = 5;\r\n\
 auto k = a.bar();\r\n\
 return k;";
 	printf("\r\nInternal member function call\r\n");
-	testCount++;
 	for(int t = 0; t < 2; t++)
 	{
+		testCount[t]++;
 		if(RunCode(testInternalMemberFunctionCall, testTarget[t], "5"))
 		{
 			lastFailed = false;
@@ -3720,9 +3631,95 @@ return k;";
 		}
 	}
 
+#ifdef FAILURE_TEST
+
+const char	*testDivZero = 
+"// Division by zero handling\r\n\
+int a=5, b =0;\r\n\
+return a/b;";
+	printf("\r\n Division by zero handling\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testDivZero, testTarget[t], "ERROR: Integer division by zero"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testFuncNoReturn = 
+"// Function with no return handling\r\n\
+int test(){ 1; } // temporary\r\n\
+return test();";
+	printf("\r\nFunction with no return handling\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testFuncNoReturn, testTarget[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+
+const char	*testBounds1 = 
+"// Array out of bound check \r\n\
+int[4] n;\r\n\
+int i = 4;\r\n\
+n[i] = 3;\r\n\
+return 1;";
+	printf("\r\nArray out of bounds error check 1\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testBounds1, testTarget[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testBounds2 = 
+"// Array out of bound check 2\r\n\
+int[4] n;\r\n\
+int[] nn = n;\r\n\
+int i = 4;\r\n\
+nn[i] = 3;\r\n\
+return 1;";
+	printf("\r\nArray out of bounds error check 2\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testBounds2, testTarget[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testBounds3 = 
+"// Array out of bound check 3\r\n\
+auto x0 = { 1, 2 };\r\n\
+auto x1 = { 1, 2, 3 };\r\n\
+auto x2 = { 1, 2, 3, 4 };\r\n\
+int[3][] x;\r\n\
+x[0] = x0;\r\n\
+x[1] = x1;\r\n\
+x[2] = x2;\r\n\
+int[][] xr = x;\r\n\
+return xr[1][3];";
+	printf("\r\nArray out of bounds error check 3\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testBounds3, testTarget[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+#endif
+
 #define TEST_FOR_FAIL(name, str, error)\
 {\
-	testCount++;\
+	testCount[2]++;\
 	nullres good = nullcCompile(str);\
 	if(!good)\
 	{\
@@ -3733,7 +3730,7 @@ return k;";
 		{\
 			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);\
 		}else{\
-			passed[0]++; passed[1]++;\
+			passed[2]++;\
 		}\
 	}\
 }
@@ -3964,9 +3961,10 @@ return k;";
 	TEST_FOR_FAIL("parsing", "typedef double somename; typedef int somename;", "ERROR: there is already a type or an alias with the same name");
 
 	// Conclusion
-	printf("VM passed %d of %d tests\r\n", passed[0], testCount);
-	printf("X86 passed %d of %d tests\r\n", passed[1], testCount);
-	printf("Passed %d of %d tests\r\n", passed[0]+passed[1], testCount*2);
+	printf("VM passed %d of %d tests\r\n", passed[0], testCount[0]);
+	printf("X86 passed %d of %d tests\r\n", passed[1], testCount[1]);
+	printf("Failure passed %d of %d tests\r\n", passed[2], testCount[2]);
+	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2], testCount[0]+testCount[1]+testCount[2]);
 
 	printf("Compilation time: %f\r\n", timeCompile);
 	printf("Get listing time: %f\r\n", timeGetListing);

@@ -70,6 +70,16 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 	FastVector<ExternTypeInfo> &exTypes = NULLC::commonLinker->exTypes;
 	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
 
+	struct SourceInfo
+	{
+		unsigned int byteCodePos;
+		unsigned int sourceOffset;
+	};
+
+	SourceInfo *exInfo = (SourceInfo*)&NULLC::commonLinker->exCodeInfo[0];
+	const char *source = &NULLC::commonLinker->exSource[0];
+	unsigned int infoSize = NULLC::commonLinker->exCodeInfo.size() / 2;
+
 	int funcID = -1;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 		if(address >= exFunctions[i].address && address <= (exFunctions[i].address + exFunctions[i].codeSize))
@@ -82,12 +92,15 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 	{
 		unsigned int line = 0;
 		unsigned int i = address - 1;
-		while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
+		while((line < infoSize - 1) && (i >= exInfo[line + 1].byteCodePos))
 				line++;
-		const char *codeStart = CodeInfo::cmdInfoList.sourceInfo[line].sourcePos;
+		const char *codeStart = source + exInfo[line].sourceOffset;
 		while(*codeStart == ' ' || *codeStart == '\t')
 			codeStart++;
-		int codeLength = (int)(CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - codeStart) - 1;
+		const char *codeEnd = codeStart;
+		while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
+			codeEnd++;
+		int codeLength = (int)(codeEnd - codeStart);
 		current += SafeSprintf(current, bufSize - int(current - start), " (at %.*s)\r\n", codeLength, codeStart);
 	}
 #ifdef NULLC_STACK_TRACE_WITH_LOCALS

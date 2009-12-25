@@ -127,7 +127,14 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
 
-	bool runUnitTests = false;
+#ifdef _DEBUG
+	AllocConsole();
+
+	freopen("CONOUT$", "w", stdout);
+	freopen("CONIN$", "r", stdin);
+#endif
+
+	bool runUnitTests = true;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -686,9 +693,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					InvalidateRect(hTabs, NULL, true);
 				}
 			}
-
+#ifndef _DEBUG
 			FreeConsole();
-
+#endif
 			SetWindowText(hCode, "");
 			SetWindowText(hResult, "");
 

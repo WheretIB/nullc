@@ -137,6 +137,7 @@ struct ByteCode
 	ExternLocalInfo	*firstLocal;
 
 	unsigned int	infoSize;
+	unsigned int	offsetToInfo;
 
 	unsigned int	codeSize;
 	unsigned int	offsetToCode;
@@ -146,6 +147,9 @@ struct ByteCode
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
 	char			*debugSymbols;
+
+	unsigned int	sourceSize;
+	unsigned int	offsetToSource;
 
 //	ExternTypeInfo	types[typeCount];
 
