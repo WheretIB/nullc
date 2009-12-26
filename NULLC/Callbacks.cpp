@@ -35,6 +35,42 @@ FastVector<unsigned int>	cycleDepth;
 // Stack of functions that are being defined at the moment
 FastVector<FunctionInfo*>	currDefinedFunc;
 
+FastVector<FunctionInfo*>	sortedFunc;
+void	AddFunctionToSortedList(void *info)
+{
+	sortedFunc.push_back((FunctionInfo*)info);
+	unsigned int n = sortedFunc.size() - 1;
+	while(n && ((FunctionInfo*)info)->nameHash < sortedFunc[n-1]->nameHash)
+	{
+		FunctionInfo *temp = sortedFunc[n-1];
+		sortedFunc[n-1] = sortedFunc[n];
+		sortedFunc[n] = temp;
+		n--;
+	}
+}
+// Finds a list of function, returns size of list, and offset to first element
+unsigned int FindFirstFunctionIndex(unsigned int nameHash)
+{
+	int lowerBound = -1;
+	int upperBound = sortedFunc.size();
+
+	int pointer;
+	while((pointer = (upperBound - lowerBound) >> 1) != 0)
+	{
+		pointer = lowerBound + pointer;
+		unsigned int hash = sortedFunc[pointer]->nameHash;
+		if(hash == nameHash)
+			break;
+		else if(hash < nameHash)
+			lowerBound = pointer;
+		else
+			upperBound = pointer;
+	}
+	while(pointer && sortedFunc[pointer-1]->nameHash == nameHash)
+		pointer--;
+	return pointer;
+}
+
 // Information about current type
 TypeInfo*		currType = NULL;
 
@@ -1409,6 +1445,8 @@ void FunctionAdd(const char* pos, const char* funcName)
 	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy));
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
+	AddFunctionToSortedList(lastFunc);
+
 	lastFunc->vTopSize = (unsigned int)varInfoTop.size();
 	lastFunc->retType = currType;
 	if(newType)
@@ -1681,10 +1719,13 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		//Find all functions with given name
 		bestFuncList.clear();
 
-		for(unsigned int k = 0; k < CodeInfo::funcInfo.size(); k++)
+		unsigned int index = FindFirstFunctionIndex(funcNameHash);
+
+		while(index < sortedFunc.size() && sortedFunc[index]->nameHash == funcNameHash)
 		{
-			if(CodeInfo::funcInfo[k]->nameHash == funcNameHash && CodeInfo::funcInfo[k]->visible && !((CodeInfo::funcInfo[k]->address & 0x80000000) && (CodeInfo::funcInfo[k]->address != -1)))
-				bestFuncList.push_back(CodeInfo::funcInfo[k]);
+			if(sortedFunc[index]->visible && !((sortedFunc[index]->address & 0x80000000) && (sortedFunc[index]->address != -1)))
+				bestFuncList.push_back(sortedFunc[index]);
+			index++;
 		}
 		unsigned int count = bestFuncList.size();
 		if(count == 0)
@@ -1750,6 +1791,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				ThrowError(pos, errTemp);
 			}
 		}
+
 		fType = bestFuncList[minRatingIndex]->funcType->funcType;
 		fInfo = bestFuncList[minRatingIndex];
 	}else{
@@ -2050,6 +2092,11 @@ void CallbackInitialize()
 
 	cycleDepth.clear();
 	cycleDepth.push_back(0);
+
+	sortedFunc.clear();
+
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		AddFunctionToSortedList(CodeInfo::funcInfo[i]);
 }
 
 unsigned int GetGlobalSize()

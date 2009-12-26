@@ -4,6 +4,8 @@
 
 void CallbackInitialize();
 
+void AddFunctionToSortedList(void *info);
+
 void SetTypeConst(bool isConst);
 void SetCurrentAlignment(unsigned int alignment);
 

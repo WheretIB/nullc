@@ -353,8 +353,10 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 
 		unsigned int index = INDEX_NONE;
 		for(unsigned int n = 0; n < oldTypeCount && index == INDEX_NONE; n++)
+		{
 			if(CodeInfo::typeInfo[n]->GetFullNameHash() == tInfo->nameHash)
 				index = n;
+		}
 
 		if(index == INDEX_NONE)
 			typeRemap.push_back(lastTypeNum++);
@@ -365,14 +367,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 	tInfo = FindFirstType(bCode);
 	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
 	{
-		const unsigned int INDEX_NONE = ~0u;
-
-		unsigned int index = INDEX_NONE;
-		for(unsigned int n = 0; n < oldTypeCount && index == INDEX_NONE; n++)
-			if(CodeInfo::typeInfo[n]->GetFullNameHash() == tInfo->nameHash)
-				index = n;
-
-		if(index == INDEX_NONE)
+		if(typeRemap[i] >= oldTypeCount)
 		{
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 			printf(" Importing type %s\r\n", symbols + tInfo->offsetToName);
@@ -490,6 +485,8 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 
 			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy));
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
+
+			AddFunctionToSortedList(lastFunc);
 
 			lastFunc->address = fInfo->funcPtr ? -1 : 0;
 			lastFunc->funcPtr = fInfo->funcPtr;
