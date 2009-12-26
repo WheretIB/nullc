@@ -1,5 +1,32 @@
 //double pi = 3.141592683;
 
+// scalar functions
+double	cos(double deg);
+double	sin(double deg);
+double	tan(double deg);
+double	ctg(double deg);
+
+double	cosh(double deg);
+double	sinh(double deg);
+double	tanh(double deg);
+double	coth(double deg);
+
+double	acos(double deg);
+double	asin(double deg);
+double	atan(double deg);
+
+double	ceil(double num);
+double	floor(double num);
+double	exp(double num);
+double	log(double num);
+
+double	sqrt(double num);
+	
+double clamp(double val, min, max);
+double saturate(double val);
+double abs(double val);
+
+// vector classes
 align(4) class float2
 {
 	float x, y;
@@ -38,18 +65,6 @@ float2 operator*(float a, float2 b)
 float2 operator/(float2 a, float b)
 {
 	return float2(a.x / b, a.y / b);
-}
-float dot(float2 a, float2 b)
-{
-	return a.x * b.x + a.y * b.y;
-}
-float ref operator[](float2 ref a, int index)
-{
-	if(index == 0)
-		return &a.x;
-	else if(index == 1)
-		return &a.y;
-	assert(0);
 }
 
 align(4) class float3
@@ -91,20 +106,6 @@ float3 operator*(float a, float3 b)
 float3 operator/(float3 a, float b)
 {
 	return float3(a.x / b, a.y / b, a.z / b);
-}
-float dot(float3 a, float3 b)
-{
-	return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-float ref operator[](float3 ref a, int index)
-{
-	if(index == 0)
-		return &a.x;
-	else if(index == 1)
-		return &a.y;
-	else if(index == 2)
-		return &a.z;
-	assert(0);
 }
 
 align(4) class float4
@@ -148,22 +149,6 @@ float4 operator/(float4 a, float b)
 {
 	return float4(a.x / b, a.y / b, a.z / b, a.w / b);
 }
-float dot(float4 a, float4 b)
-{
-	return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-}
-float ref operator[](float4 ref a, int index)
-{
-	if(index == 0)
-		return &a.x;
-	else if(index == 1)
-		return &a.y;
-	else if(index == 2)
-		return &a.z;
-	else if(index == 3)
-		return &a.w;
-	assert(0);
-}
 
 float3 float3(float2 xy, float z)
 {
@@ -199,3 +184,25 @@ align(4) class float4x4
 {
 	float4 row1, row2, row3, row4;
 }
+
+float3 reflect(float3 normal, float3 dir)
+{
+	//return 1;
+}
+
+float ref operator[](float2 ref a, int index);
+float ref operator[](float3 ref a, int index);
+float ref operator[](float4 ref a, int index);
+
+float float2:length();
+float float2:normalize();
+
+float float3:length();
+float float3:normalize();
+
+float float4:length();
+float float4:normalize();
+
+float dot(float2 a, float2 b);
+float dot(float3 a, float3 b);
+float dot(float4 a, float4 b);

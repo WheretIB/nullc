@@ -833,6 +833,7 @@ return 1;";
 
 const char	*testBuildinFunc = 
 "// Build-In function checks\r\n\
+import std.math;\r\n\
 double Pi = 3.1415926583;\r\n\
 double[27] res;\r\n\
 res[0] = cos(0); // 1.0\r\n\
@@ -2424,6 +2425,7 @@ return 1;";
 
 const char	*testClassMethod = 
 "// Class method test\r\n\
+import std.math;\r\n\
 class vec3\r\n\
 {\r\n\
 float x, y, z;\r\n\
@@ -3813,7 +3815,7 @@ return xr[1][3];";
 	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;", "ERROR: auto cannot be used for class members");
 	TEST_FOR_FAIL("class is too big", "class nobiggy{ int[128][128][4] a; } return 1;", "ERROR: class size cannot exceed 65535 bytes");
 
-	TEST_FOR_FAIL("array size not const", "int[cos(12) * 16] a; return a[0];", "ERROR: Array size must be a constant expression");
+	TEST_FOR_FAIL("array size not const", "import std.math; int[cos(12) * 16] a; return a[0];", "ERROR: Array size must be a constant expression");
 	TEST_FOR_FAIL("array size not positive", "int[-16] a; return a[0];", "ERROR: Array size can't be negative or zero");
 	TEST_FOR_FAIL("cannot dereference if not a reference", "int a; return *a;", "ERROR: cannot change immutable value of type int");
 
