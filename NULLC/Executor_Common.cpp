@@ -95,9 +95,14 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 		while((line < infoSize - 1) && (i >= exInfo[line + 1].byteCodePos))
 				line++;
 		const char *codeStart = source + exInfo[line].sourceOffset;
+		// Find beginning of the line
+		while(codeStart != source && *(codeStart-1) != '\n')
+			codeStart--;
+		// Skip whitespace
 		while(*codeStart == ' ' || *codeStart == '\t')
 			codeStart++;
 		const char *codeEnd = codeStart;
+		// Find ending of the line
 		while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
 			codeEnd++;
 		int codeLength = (int)(codeEnd - codeStart);
