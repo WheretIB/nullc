@@ -135,24 +135,6 @@ Compiler::Compiler()
 	// Add build-in functions
 	AddExternalFunction((void (*)())NULLC::Assert, "void assert(int val);");
 
-	AddExternalFunction((void (*)())NULLC::Cos, "double cos(double deg);");
-	AddExternalFunction((void (*)())NULLC::Sin, "double sin(double deg);");
-	AddExternalFunction((void (*)())NULLC::Tan, "double tan(double deg);");
-	AddExternalFunction((void (*)())NULLC::Cosh, "double cosh(double deg);");
-	AddExternalFunction((void (*)())NULLC::Sinh, "double sinh(double deg);");
-	AddExternalFunction((void (*)())NULLC::Tanh, "double tanh(double deg);");
-	AddExternalFunction((void (*)())NULLC::Acos, "double acos(double deg);");
-	AddExternalFunction((void (*)())NULLC::Asin, "double asin(double deg);");
-	AddExternalFunction((void (*)())NULLC::Atan, "double atan(double deg);");
-	AddExternalFunction((void (*)())NULLC::Ctg, "double ctg(double deg);");
-
-	AddExternalFunction((void (*)())NULLC::Ceil, "double ceil(double num);");
-	AddExternalFunction((void (*)())NULLC::Floor, "double floor(double num);");
-	AddExternalFunction((void (*)())NULLC::Exp, "double exp(double num);");
-	AddExternalFunction((void (*)())NULLC::Log, "double log(double num);");
-
-	AddExternalFunction((void (*)())NULLC::Sqrt, "double sqrt(double num);");
-
 	AddExternalFunction((void (*)())NULLC::StrEqual, "int operator ==(char[] a, b);");
 	AddExternalFunction((void (*)())NULLC::StrNEqual, "int operator !=(char[] a, b);");
 	AddExternalFunction((void (*)())NULLC::StrConcatenate, "char[] operator +(char[] a, b);");
@@ -353,6 +335,9 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 
 	FastVector<unsigned int>	typeRemap;
 
+#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+	printf("Importing module %s\r\n", pos);
+#endif
 	// Import types
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
 	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
@@ -387,6 +372,9 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 
 		if(index == INDEX_NONE)
 		{
+#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+			printf(" Importing type %s\r\n", symbols + tInfo->offsetToName);
+#endif
 			TypeInfo *newInfo = NULL, *tempInfo = NULL;
 			switch(tInfo->subCat)
 			{
@@ -458,32 +446,13 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 		}
 	}
 
-	// Put new classes in the beginning
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-	{
-		if(CodeInfo::typeInfo[i]->type == TypeInfo::TYPE_COMPLEX && CodeInfo::typeInfo[i]->name != NULL && i > CodeInfo::classCount)
-		{
-			unsigned int n = 0;
-			for(; n < typeRemap.size(); n++)
-			{
-				if(typeRemap[n] == CodeInfo::classCount)
-					break;
-			}
-			assert(n != typeRemap.size());
+	
 
-			CodeInfo::typeInfo[i]->typeIndex = CodeInfo::classCount;
-			CodeInfo::typeInfo[CodeInfo::classCount]->typeIndex = i;
-			TypeInfo *temp = CodeInfo::typeInfo[i];
-			CodeInfo::typeInfo[i] = CodeInfo::typeInfo[CodeInfo::classCount];
-			CodeInfo::typeInfo[CodeInfo::classCount] = temp;
-			
-			unsigned int tempIndex = typeRemap[CodeInfo::classCount];
-			typeRemap[CodeInfo::classCount] = typeRemap[n];
-			typeRemap[n] = tempIndex;
-
-			CodeInfo::classCount++;
-		}
-	}
+#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+	tInfo = FindFirstType(bCode);
+	for(unsigned int i = 0; i < typeRemap.size(); i++)
+		printf("Type\r\n\t%s\r\nis remaped from index %d to index %d with\r\n\t%s\r\ntype\r\n", symbols + tInfo[i].offsetToName, i, typeRemap[i], CodeInfo::typeInfo[typeRemap[i]]->GetFullTypeName());
+#endif
 /*
 	// Import variables
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
@@ -535,6 +504,17 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 			lastFunc->retType = lastFunc->funcType->funcType->retType;
 
 			assert(lastFunc->funcType->funcType->paramCount == lastFunc->paramCount);
+
+#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+			printf(" Importing function %s %s(", lastFunc->retType->GetFullTypeName(), lastFunc->name);
+			VariableInfo *curr = lastFunc->firstParam;
+			for(unsigned int n = 0; n < fInfo->paramCount; n++)
+			{
+				printf("%s%s %.*s", n == 0 ? "" : ", ", curr->varType->GetFullTypeName(), curr->name.end-curr->name.begin, curr->name.begin);
+				curr = curr->next;
+			}
+			printf(")\r\n");
+#endif
 		}else{
 			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined.", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName());
 			CodeInfo::lastError = CompilerError(errBuf, pos);
@@ -542,6 +522,20 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 		}
 
 		fInfo++;
+	}
+
+	// Put new classes in the beginning
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
+		if(CodeInfo::typeInfo[i]->type == TypeInfo::TYPE_COMPLEX && CodeInfo::typeInfo[i]->name != NULL && i > CodeInfo::classCount)
+		{
+			CodeInfo::typeInfo[i]->typeIndex = CodeInfo::classCount;
+			CodeInfo::typeInfo[CodeInfo::classCount]->typeIndex = i;
+			TypeInfo *temp = CodeInfo::typeInfo[i];
+			CodeInfo::typeInfo[i] = CodeInfo::typeInfo[CodeInfo::classCount];
+			CodeInfo::typeInfo[CodeInfo::classCount] = temp;
+			CodeInfo::classCount++;
+		}
 	}
 
 	return true;
