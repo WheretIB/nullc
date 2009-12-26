@@ -301,8 +301,10 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	// Find function and set pointer
 	ExternFuncInfo *fInfo = FindFirstFunc(code);
 	
-	fInfo += code->externalFunctionCount + code->moduleFunctionCount;
-	for(unsigned int i = code->externalFunctionCount + code->moduleFunctionCount; i < code->functionCount; i++)
+	unsigned int start = code->moduleFunctionCount ? 0 : code->externalFunctionCount;
+	unsigned int end = code->moduleFunctionCount ? code->functionCount - (code->moduleFunctionCount + code->externalFunctionCount) : code->functionCount;
+	fInfo += start;
+	for(unsigned int i = start; i < end; i++)
 	{
 		if(hash == fInfo->nameHash)
 		{
@@ -467,8 +469,10 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
 
 	unsigned int oldFuncCount = CodeInfo::funcInfo.size();
-	fInfo += bCode->externalFunctionCount + bCode->moduleFunctionCount;
-	for(unsigned int i = bCode->externalFunctionCount + bCode->moduleFunctionCount; i < bCode->functionCount; i++)
+	unsigned int start = bCode->moduleFunctionCount ? 0 : bCode->externalFunctionCount;
+	unsigned int end = bCode->moduleFunctionCount ? bCode->functionCount - (bCode->moduleFunctionCount + bCode->externalFunctionCount) : bCode->functionCount;
+	fInfo += start;
+	for(unsigned int i = start; i < end; i++)
 	{
 		const unsigned int INDEX_NONE = ~0u;
 
@@ -717,8 +721,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 	if(CodeInfo::nodeList.back())
 		CodeInfo::nodeList.back()->Compile();
 
-	CodeInfo::cmdInfoList.FindLineNumbers();
-
 	tem = clock()-t;
 #ifdef NULLC_LOG_FILES
 	fprintf(fTime, "Compile time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
@@ -788,12 +790,15 @@ void Compiler::SaveListing(const char *fileName)
 		if(line != lastLine)
 		{
 			lastLine = line;
-			if(CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd > lastSourcePos)
+			const char *codeEnd = CodeInfo::cmdInfoList.sourceInfo[line].sourcePos;
+			while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
+				codeEnd++;
+			if(codeEnd > lastSourcePos)
 			{
-				fprintf(compiledAsm, "%.*s\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - lastSourcePos, lastSourcePos);
-				lastSourcePos = CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd;
+				fprintf(compiledAsm, "%.*s\r\n", codeEnd - lastSourcePos, lastSourcePos);
+				lastSourcePos = codeEnd;
 			}else{
-				fprintf(compiledAsm, "%.*s\r\n", CodeInfo::cmdInfoList.sourceInfo[line].sourceEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+				fprintf(compiledAsm, "%.*s\r\n", codeEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
 			}
 		}
 		CodeInfo::cmdList[i].Decode(instBuf);
@@ -914,13 +919,16 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	}
 
 	unsigned int offsetToFunc = size;
-	size += CodeInfo::funcInfo.size() * sizeof(ExternFuncInfo);
+	size += (CodeInfo::funcInfo.size() - (functionsInModules ? buildInFuncs + functionsInModules : 0)) * sizeof(ExternFuncInfo);
 
 	unsigned int offsetToFirstLocal = size;
 
 	unsigned int localCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
+		if(functionsInModules && i < buildInFuncs + functionsInModules)
+			continue;
+		
 		FunctionInfo	*func = CodeInfo::funcInfo[i];
 		symbolStorageSize += func->nameLength + 1;
 
@@ -1088,6 +1096,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->firstFunc = fInfo;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
+		if(functionsInModules && i < buildInFuncs + functionsInModules)
+			continue;
 		ExternFuncInfo &funcInfo = *fInfo;
 		FunctionInfo *refFunc = CodeInfo::funcInfo[i];
 

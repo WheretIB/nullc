@@ -469,7 +469,7 @@ class SourceInfo
 		}
 
 		unsigned int	byteCodePos;	// ѕозици€ в байткоде, к которой относитс€ строка
-		const char		*sourcePos, *sourceEnd;
+		const char		*sourcePos;
 	};
 public:
 	SourceInfo()
@@ -493,19 +493,6 @@ public:
 	void		AddDescription(unsigned int instructionNum, const char* pos)
 	{
 		sourceInfo.push_back(SourceLine(instructionNum, pos));
-	}
-	void		FindLineNumbers()
-	{
-		for(unsigned int i = 0; i < sourceInfo.size(); i++)
-		{
-			SourceLine &curr = sourceInfo[i];
-			curr.sourceEnd = curr.sourcePos;
-			while(curr.sourcePos != sourceStart && *(curr.sourcePos-1) != '\n')
-				curr.sourcePos--;
-			while(*(curr.sourceEnd+1) != '\n' && *(curr.sourceEnd) != '\0')
-				curr.sourceEnd++;
-			curr.sourceEnd++;
-		}
 	}
 
 	const char *sourceStart;

@@ -68,6 +68,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 			if(bytecode)
 			{
+#ifdef VERBOSE_DEBUG_OUTPUT
+				printf("Linking %s.\r\n", path);
+#endif
 				if(!LinkCode(bytecode, false))
 				{
 					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
@@ -200,11 +203,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-	for(unsigned int i = 0; i < bCode->functionCount; i++, fInfo++)
+	unsigned int end = bCode->moduleFunctionCount ? bCode->functionCount - (bCode->moduleFunctionCount + bCode->externalFunctionCount) : bCode->functionCount;
+	for(unsigned int i = 0; i < end; i++, fInfo++)
 	{
-		if(i >= bCode->externalFunctionCount && i < bCode->externalFunctionCount + moduleFuncCount)
-			continue;
-
 		const unsigned int index_none = ~0u;
 
 		unsigned int index = index_none;
@@ -318,6 +319,30 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			break;
 		}
 	}
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+	unsigned int size = 0;
+	printf("Data managed by linker.\r\n");
+	printf("Types: %db, ", exTypes.size() * sizeof(ExternTypeInfo));
+	size += exTypes.size() * sizeof(ExternTypeInfo);
+	printf("Variables: %db, ", exVariables.size() * sizeof(ExternVarInfo));
+	size += exVariables.size() * sizeof(ExternVarInfo);
+	printf("Functions: %db, ", exFunctions.size() * sizeof(ExternFuncInfo));
+	size += exFunctions.size() * sizeof(ExternFuncInfo);
+	printf("Code: %db\r\n", exCode.size() * sizeof(VMCmd));
+	size += exCode.size() * sizeof(VMCmd);
+	printf("Symbols: %db, ", exSymbols.size() * sizeof(char));
+	size += exSymbols.size() * sizeof(char);
+	printf("Locals: %db, ", exLocals.size() * sizeof(ExternLocalInfo));
+	size += exLocals.size() * sizeof(ExternLocalInfo);
+	printf("Modules: %db, ", exModules.size() * sizeof(ExternModuleInfo));
+	size += exModules.size() * sizeof(ExternModuleInfo);
+	printf("Code info: %db, ", exCodeInfo.size() * sizeof(unsigned int) * 2);
+	size += exCodeInfo.size() * sizeof(unsigned int) * 2;
+	printf("Source: %db\r\n", exSource.size() * sizeof(char));
+	size += exSource.size() * sizeof(char);
+	printf("Overall: %d bytes\r\n\r\n", size);
+#endif
 
 #ifdef NULLC_LOG_FILES
 	FILE *linkAsm = fopen("link.txt", "wb");
