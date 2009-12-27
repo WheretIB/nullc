@@ -3667,6 +3667,7 @@ auto m = &a;\r\n\
 auto n = &b;\r\n\
 c = &b;\r\n\
 int ref l = d;\r\n\
+int p1 = l == &a;\r\n\
 return *l;";
 	printf("\r\nAuto reference type\r\n");
 	for(int t = 0; t < 2; t++)
@@ -3678,6 +3679,8 @@ return *l;";
 
 			CHECK_INT("a", 0, 17);
 			CHECK_DOUBLE("b", 0, 14.0);
+
+			CHECK_INT("p1", 0, 1);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -3880,7 +3883,7 @@ return *ll;";
 	TEST_FOR_FAIL("No clear decision", "int f(int a, b){} int f(int a, long b){} int f(){} return f(1, 3.0)'", "ERROR: Ambiguity, there is more than one overloaded function available for the call.");
 
 	TEST_FOR_FAIL("Array without member", "int[4] a; return a.m;", "ERROR: Array doesn't have member with this name");
-	TEST_FOR_FAIL("No methods", "int[4] i; return i.ok();", "ERROR: function 'int[4]::ok' is undefined");
+	TEST_FOR_FAIL("No methods", "int[4] i; return i.ok();", "ERROR: function 'int[]::ok' is undefined");
 	TEST_FOR_FAIL("void array", "void f(){} return { f(), f() };", "ERROR: array cannot be constructed from void type elements");
 	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;", "ERROR: Name 'a' is already taken for a variable in current scope");
 	TEST_FOR_FAIL("Auto parameter", "auto(auto a){} return 1;", "ERROR: function parameter cannot be an auto type");
@@ -3948,6 +3951,11 @@ return *ll;";
 	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; return 1 ? 12 : float2(3, 4);", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
 	TEST_FOR_FAIL("Variable type is unknow", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: variable type is unknown");
+
+	TEST_FOR_FAIL("Illegal pointer operation 1", "int ref a; a += a;", "ERROR: There is no build-in operator for types 'int ref' and 'int ref'");
+	TEST_FOR_FAIL("Illegal pointer operation 2", "int ref a; a++;", "ERROR: Increment is not supported on 'int ref'");
+	TEST_FOR_FAIL("Illegal pointer operation 3", "int ref a; a = a * 5;", "ERROR: Operation * is not supported on 'int ref' and 'int'");
+	TEST_FOR_FAIL("Illegal class operation", "import std.math; float2 v; v = ~v;", "ERROR: Unary operation '~' is not supported on 'float2'");
 	
 	//TEST_FOR_FAIL("parsing", "");
 
