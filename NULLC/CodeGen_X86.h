@@ -178,13 +178,6 @@ void GenCodeCmdDecI(VMCmd cmd);
 void GenCodeCmdDecD(VMCmd cmd);
 void GenCodeCmdDecL(VMCmd cmd);
 
-void GenCodeCmdAddAtCharStk(VMCmd cmd);
-void GenCodeCmdAddAtShortStk(VMCmd cmd);
-void GenCodeCmdAddAtIntStk(VMCmd cmd);
-void GenCodeCmdAddAtLongStk(VMCmd cmd);
-void GenCodeCmdAddAtFloatStk(VMCmd cmd);
-void GenCodeCmdAddAtDoubleStk(VMCmd cmd);
-
 void SetClosureCreateFunc(void (*f)());
 void GenCodeCmdCreateClosure(VMCmd cmd);
 

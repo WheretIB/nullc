@@ -209,13 +209,6 @@ enum InstructionCode
 	cmdDecD,
 	cmdDecL,
 
-	cmdAddAtCharStk,
-	cmdAddAtShortStk,
-	cmdAddAtIntStk,
-	cmdAddAtLongStk,
-	cmdAddAtFloatStk,
-	cmdAddAtDoubleStk,
-
 	cmdCreateClosure,
 	cmdCloseUpvals,
 
@@ -249,7 +242,6 @@ static char *vmInstructionText[] =
 	"LogNot", "LogNotL",
 	"IncI", "IncD", "IncL",
 	"DecI", "DecD", "DecL",
-	"AddAtCharStk", "AddAtShortStk", "AddAtIntStk", "AddAtLongStk", "AddAtFloatStk", "AddAtDoubleStk",
 	"CreateClosure", "CloseUpvals"
 };
 
@@ -363,14 +355,6 @@ struct VMCmd
 			curr += sprintf(curr, " %s flag: %d sizeof: %d", helper ? "local" : "global", (int)flag, argument);
 			break;
 
-		case cmdAddAtCharStk:
-		case cmdAddAtShortStk:
-		case cmdAddAtIntStk:
-		case cmdAddAtLongStk:
-		case cmdAddAtFloatStk:
-		case cmdAddAtDoubleStk:
-			curr += sprintf(curr, " [stk + %d] flag: %d helper: %d", argument, (int)flag, helper);
-			break;
 		case cmdCreateClosure:
 			curr += sprintf(curr, " Function id: %d", argument);
 			break;
@@ -443,8 +427,6 @@ static InstructionCode cmdMovTypeStk[] = { cmdMovCharStk, cmdMovShortStk, cmdMov
 
 static InstructionCode cmdIncType[] = { cmdIncD, cmdNop, cmdIncL, cmdIncI };
 static InstructionCode cmdDecType[] = { cmdDecD, cmdNop, cmdDecL, cmdDecI };
-
-static InstructionCode cmdAddAtTypeStk[] = { cmdAddAtCharStk, cmdAddAtShortStk, cmdAddAtIntStk, cmdAddAtLongStk, cmdAddAtFloatStk, cmdAddAtDoubleStk };
 
 // Для cmdIncAt и cmdDecAt
 const unsigned int	bitPushBefore = 1;	// положить значение в стек до изменения

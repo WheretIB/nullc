@@ -1254,8 +1254,21 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 
 void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)
 {
-	CheckForImmutable(CodeInfo::nodeList.back()->typeInfo, pos);
-	CodeInfo::nodeList.push_back(new NodePreOrPostOp(isInc, prefixOp));
+	NodeZeroOP *pointer = CodeInfo::nodeList.back();
+	CheckForImmutable(pointer->typeInfo, pos);
+
+	// For indexes that aren't known at compile-time
+	if(pointer->nodeType == typeNodeArrayIndex && !((NodeArrayIndex*)pointer)->knownShift)
+	{
+		// Create variable that will hold calculated pointer
+		AddInplaceVariable(pos);
+		// Get pointer from it
+		AddDereferenceNode(pos);
+		CodeInfo::nodeList.push_back(new NodePreOrPostOp(isInc, prefixOp));
+		AddTwoExpressionNode(CodeInfo::GetDereferenceType(pointer->typeInfo));
+	}else{
+		CodeInfo::nodeList.push_back(new NodePreOrPostOp(isInc, prefixOp));
+	}
 }
 
 void AddModifyVariableNode(const char* pos, CmdID cmd)
@@ -1270,15 +1283,32 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[cmd - cmdAdd], 2, true))
 		return;
 
+	NodeZeroOP *pointer = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+	NodeZeroOP *value = CodeInfo::nodeList.back();
 	// Add node for variable modification
-	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
-	CodeInfo::nodeList.push_back(new NodeVariableModify(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, cmd));
+	CheckForImmutable(pointer->typeInfo, pos);
+	// For indexes that aren't known at compile-time
+	if(pointer->nodeType == typeNodeArrayIndex && !((NodeArrayIndex*)pointer)->knownShift)
+	{
+		// Remove value
+		CodeInfo::nodeList.pop_back();
+		// Create variable that will hold calculated pointer
+		AddInplaceVariable(pos);
+		// Get pointer from it
+		AddDereferenceNode(pos);
+		// Restore value
+		CodeInfo::nodeList.push_back(value);
+		CodeInfo::nodeList.push_back(new NodeVariableModify(pointer->typeInfo, cmd));
+		AddTwoExpressionNode(CodeInfo::GetDereferenceType(pointer->typeInfo));
+	}else{
+		CodeInfo::nodeList.push_back(new NodeVariableModify(pointer->typeInfo, cmd));
+	}
 }
 
 void AddInplaceVariable(const char* pos)
 {
 	char	*arrName = AllocateString(16);
-	int length = sprintf(arrName, "$carr%d", inplaceVariableNum++);
+	int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
 
 	// Save variable creation state
 	TypeInfo *saveCurrType = currType;
