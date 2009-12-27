@@ -1885,4 +1885,17 @@ void GenCodeCmdCloseUpvalues(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 }
 
+void GenCodeCmdConvertPtr(VMCmd cmd)
+{
+	EMIT_COMMENT("CONVERTPTR");
+
+	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG_NUM(o_cmp, rEAX, cmd.argument);
+	EMIT_OP_LABEL(o_je, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, cmd.argument);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+}
+
 #endif

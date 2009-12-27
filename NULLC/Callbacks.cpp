@@ -91,6 +91,7 @@ FastVector<NodeZeroOP*>	inplaceArray;
 void AddInplaceVariable(const char* pos);
 bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
 bool ConvertFunctionToPointer(const char* pos);
+bool HandlePointerToObject(const char* pos, TypeInfo *dstType);
 
 template<typename T> void	Swap(T& a, T& b)
 {
@@ -815,8 +816,9 @@ void ConvertTypeToReference(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	if(!currType)
-		ThrowError(pos, "ERROR: auto variable cannot have reference flag");
-	currType = CodeInfo::GetReferenceType(currType);
+		currType = typeObject;
+	else
+		currType = CodeInfo::GetReferenceType(currType);
 }
 
 void ConvertTypeToArray(const char* pos)
@@ -1055,6 +1057,8 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 			realCurrType = CodeInfo::nodeList.back()->typeInfo;
 		varDefined = true;
 	}
+	HandlePointerToObject(pos, realCurrType);
+
 	// If type wasn't known until assignment, it means that variable alignment wasn't performed in AddVariable function
 	if(!CodeInfo::varInfo[i]->varType)
 	{
@@ -1111,6 +1115,8 @@ void AddSetVariableNode(const char* pos)
 		unifyTwo = true;
 	if(ConvertFunctionToPointer(pos))
 		unifyTwo = true;
+	HandlePointerToObject(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
+
 	if(unifyTwo)
 		Swap(CodeInfo::nodeList[CodeInfo::nodeList.size()-2], CodeInfo::nodeList[CodeInfo::nodeList.size()-3]);
 
@@ -1404,11 +1410,23 @@ bool ConvertFunctionToPointer(const char* pos)
 	return false;
 }
 
+bool HandlePointerToObject(const char* pos, TypeInfo *dstType)
+{
+	TypeInfo *srcType = CodeInfo::nodeList.back()->typeInfo;
+	if(!((dstType == typeObject) ^ (srcType == typeObject)))
+		return false;
+
+	CheckForImmutable(dstType == typeObject ? srcType : dstType, pos);
+	CodeInfo::nodeList.push_back(new NodeConvertPtr(dstType == typeObject ? typeObject : dstType));
+	return true;
+}
+
 //////////////////////////////////////////////////////////////////////////
 void AddOneExpressionNode(void *retType)
 {
 	CodeInfo::nodeList.push_back(new NodeExpressionList(retType ? (TypeInfo*)retType : typeVoid));
 }
+
 void AddTwoExpressionNode(void *retType)
 {
 	if(CodeInfo::nodeList.back()->nodeType != typeNodeExpressionList)
@@ -1714,6 +1732,8 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef ||
 					(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode)->GetFirstNode()->nodeType == typeNodeFuncDef))
 				fRating += 5;
+			else if(expectedType == typeObject && paramType->refLevel != 0)
+				fRating += 5;
 			else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX)
 				return ~0u;	// If one of types is complex, and they aren't equal, function cannot match
 			else if(paramType->subType != expectedType->subType)
@@ -1867,6 +1887,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			inplaceArray.push_back(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]);
 			CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = CodeInfo::nodeList.back();
 			CodeInfo::nodeList.pop_back();
+		}else{
+			HandlePointerToObject(pos, fType->paramType[i]);
 		}
 	}
 
