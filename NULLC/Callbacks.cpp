@@ -1241,20 +1241,28 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 			CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + callArgCount);
 		currentType = CodeInfo::GetDereferenceType(currentType);
 	}
-	bool unifyTwo = false;
+	int unifyNodes = 0;
 	if(currentType->refLevel == 0 && currentType->type == TypeInfo::TYPE_COMPLEX)
 	{
 		AddInplaceVariable(pos);
 		currentType = CodeInfo::GetReferenceType(currentType);
-		unifyTwo = true;
+		unifyNodes++;
 	}
 	CheckForImmutable(currentType, pos);
 	TypeInfo *parentType = currentType->subType;
+	if(parentType->arrLevel != 0 && parentType->arrSize != -1)
+	{
+		parentType = CodeInfo::GetArrayType(parentType->subType, ~0u);
+		if(ConvertArrayToUnsized(pos, parentType))
+			ThrowError(pos, "ERROR: Internal compiler error");
+		AddInplaceVariable(pos);
+		unifyNodes++;
+	}
 	// Construct name in a form of Class::Function
 	char *memberFuncName = GetClassFunctionName(parentType, funcName);
 	// Call it
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
-	if(unifyTwo)
+	while(unifyNodes--)
 		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 

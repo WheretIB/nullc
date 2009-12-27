@@ -888,8 +888,8 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
 	if(typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
-	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: There is no build-in operator for types %s and %s", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+	if(first->typeInfo->subType->refLevel != 0 || second->typeInfo->refLevel != 0 || typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: There is no build-in operator for types '%s' and '%s'", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 
 	// If types don't match
 	if(second->typeInfo != typeInfo)
@@ -1351,9 +1351,14 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 	second = TakeLastNode();
 	first = TakeLastNode();
 
+	bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
+
 	// Binary operations on complex types are not present at the moment
 	if(first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0 || first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+	{
+		if(!(first->typeInfo->refLevel == second->typeInfo->refLevel && logicalOp))
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+	}
 	if(first->typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operator returns void");
 	if(second->typeInfo == typeVoid)
@@ -1361,8 +1366,6 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 
 	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
-
-	bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
 
 	// Find the type or resulting value
 	typeInfo = logicalOp ? typeInt : ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
