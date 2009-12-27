@@ -14,6 +14,7 @@ NodeZeroOP*	TakeLastNode()
 }
 
 static char* binCommandToText[] = { "+", "-", "*", "/", "^", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "and", "or", "xor"};
+static char* unaryCommandToText[] = { "-", "-", "-", "~", "~", "!", "!" };
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -332,6 +333,9 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 	// Resulting type is the same as source type with exception for logical NOT
 	typeInfo = cmd == cmdLogNot ? typeInt : first->typeInfo;
 
+	if(first->typeInfo->refLevel != 0 || first->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Unary operation '%s' is not supported on '%s'", unaryCommandToText[cmdID - cmdNeg], first->typeInfo->GetFullTypeName());
+
 	nodeType = typeNodeUnaryOp;
 }
 NodeUnaryOp::~NodeUnaryOp()
@@ -482,8 +486,9 @@ void NodeFuncDef::Compile()
 
 	funcInfo->address = cmdList.size();
 
+	assert(funcInfo->allParamSize + 4 < 65536);
 	// Save previous stack frame, and expand current by shift bytes
-	cmdList.push_back(VMCmd(cmdPushVTop, shift));
+	cmdList.push_back(VMCmd(cmdPushVTop, (unsigned short)(funcInfo->allParamSize + 4), shift));
 	// Generate function code
 	first->Compile();
 
@@ -1137,7 +1142,11 @@ void NodeDereference::Compile()
 void NodeDereference::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s Dereference%s\r\n", typeInfo->GetFullTypeName(), closureFunc ? " and create closure" : "");
+	fprintf(fGraph, "%s Dereference%s", typeInfo->GetFullTypeName(), closureFunc ? " and create closure" : "");
+	if(knownAddress)
+		fprintf(fGraph, " at known address [%s%d]\r\n", absAddress ? "" : "base+", addrShift);
+	else
+		fprintf(fGraph, " at [ptr+%d]\r\n", addrShift);
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();
@@ -1152,6 +1161,14 @@ NodeShiftAddress::NodeShiftAddress(unsigned int shift, TypeInfo* resType)
 	typeInfo = CodeInfo::GetReferenceType(resType);
 
 	first = TakeLastNode();
+
+	if(first->nodeType == typeNodeShiftAddress)
+	{
+		memberShift += static_cast<NodeShiftAddress*>(first)->memberShift;
+		NodeZeroOP	*oldFirst = first;
+		first = static_cast<NodeShiftAddress*>(first)->first;
+		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
+	}
 
 	nodeType = typeNodeShiftAddress;
 }
@@ -1180,7 +1197,7 @@ void NodeShiftAddress::Compile()
 void NodeShiftAddress::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s ShiftAddress\r\n", typeInfo->GetFullTypeName());
+	fprintf(fGraph, "%s ShiftAddress [+%d]\r\n", typeInfo->GetFullTypeName(), memberShift);
 	GoDownB();
 	first->LogToStream(fGraph);
 	GoUp();

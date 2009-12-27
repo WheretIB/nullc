@@ -24,6 +24,15 @@ Garbage collection.
 
 Добавить импортирование переменных из модулей.
 Добавить возможность создания указателя на внешнюю функцию.
+tuples
+sized array member function transport to unsized array function
+extended use of FindFirstFunctionIndex
+internal function call externally with parameters
+internal function call by pointer externally
+function binder
+заменить AddPreOrPostOpNode на две функции
+возможность ++/-- как post expression.
+Операции сравнения должны работать над указателями.
 
 ГОТОВО: 2	ref переменные - ссылки
 ГОТОВО: 7	многомерные массивы
@@ -116,3 +125,4 @@ Garbage collection.
 ГОТОВО: Операторы для floatn
 ГОТОВО: Исправить двойное вычисление индекса для изменения значения массивов операциями += -= *= /= **=
 ГОТОВО: auto ref
+ГОТОВО: Унарные операторы не должны работать на указателях.

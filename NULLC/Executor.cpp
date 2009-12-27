@@ -491,6 +491,7 @@ void Executor::Run(const char* funcName)
 			// Align on a 16-byte boundary
 			paramBase += (paramBase % 16 != 0) ? (16 - (paramBase % 16)) : 0;
 			genParams.resize(paramBase + cmd.argument);
+			memset(&genParams[paramBase + cmd.helper], 0, cmd.argument - cmd.helper);
 			break;
 
 		case cmdAdd:
