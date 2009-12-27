@@ -339,7 +339,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-protected:
+public:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
 	friend class NodeVariableModify;

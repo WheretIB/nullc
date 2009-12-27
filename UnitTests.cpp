@@ -1678,7 +1678,7 @@ return sum(u);";
 			CHECK_INT("kk", 1, 7);
 
 			CHECK_STR("name", 0, "omfg");
-			CHECK_STR("$carr1", 0, "does work");
+			CHECK_STR("$temp1", 0, "does work");
 
 			if(!lastFailed)
 				passed[t]++;
@@ -1708,8 +1708,8 @@ return test(uh, 3);";
 		{
 			lastFailed = false;
 			CHECK_STR("uh", 0, "ehhhe");
-			CHECK_STR("$carr1", 0, "haha.txt");
-			CHECK_STR("$carr2", 0, "wb");
+			CHECK_STR("$temp1", 0, "haha.txt");
+			CHECK_STR("$temp2", 0, "wb");
 			CHECK_STR("text", 0, "Hello file!!!");
 
 			CHECK_INT("k", 0, 5464321);
@@ -1835,8 +1835,8 @@ return 1;";
 		{
 			lastFailed = false;
 			CHECK_STR("ts", 0, "Hello World!\r\noh\toh\r\n");
-			CHECK_STR("$carr1", 0, "hello");
-			CHECK_STR("$carr2", 0, "world");
+			CHECK_STR("$temp1", 0, "hello");
+			CHECK_STR("$temp2", 0, "world");
 			CHECK_STR("mo", 0, "!!!");
 			if(!lastFailed)
 				passed[t]++;
@@ -1961,10 +1961,10 @@ return 1;";
 			CHECK_INT("ns", 0, 189);
 			CHECK_INT("ts", 0, 52);
 
-			CHECK_INT("$carr1", 0, 10);
-			CHECK_INT("$carr1", 1, 12);
-			CHECK_INT("$carr1", 2, 14);
-			CHECK_INT("$carr1", 3, 16);
+			CHECK_INT("$temp1", 0, 10);
+			CHECK_INT("$temp1", 1, 12);
+			CHECK_INT("$temp1", 2, 14);
+			CHECK_INT("$temp1", 3, 16);
 			if(!lastFailed)
 				passed[t]++;
 		}
@@ -2099,7 +2099,7 @@ return 1;";
 		{
 			lastFailed = false;
 			CHECK_STR("hm", 0, "World\r\n");
-			CHECK_STR("$carr1", 0, "hello\r\n");
+			CHECK_STR("$temp1", 0, "hello\r\n");
 
 			CHECK_INT("nm", 1, 8);
 
@@ -2800,10 +2800,10 @@ return 1;";
 
 			CHECK_INT("d1", 1, 4);
 
-			CHECK_CHAR("$carr1", 0, '\\');
-			CHECK_CHAR("$carr1", 1, '\'');
-			CHECK_CHAR("$carr1", 2, 0);
-			CHECK_CHAR("$carr1", 3, 0);
+			CHECK_CHAR("$temp1", 0, '\\');
+			CHECK_CHAR("$temp1", 1, '\'');
+			CHECK_CHAR("$temp1", 2, 0);
+			CHECK_CHAR("$temp1", 3, 0);
 
 			CHECK_INT("d2", 0, !4);
 			CHECK_INT("d3", 0, ~5);
@@ -2956,18 +2956,18 @@ return m[1][3] + 2;";
 		{
 			lastFailed = false;
 
-			CHECK_INT("$carr1", 0, 1);
-			CHECK_INT("$carr1", 1, 2);
-			CHECK_INT("$carr1", 2, 3);
-			CHECK_INT("$carr1", 3, 4);
+			CHECK_INT("$temp1", 0, 1);
+			CHECK_INT("$temp1", 1, 2);
+			CHECK_INT("$temp1", 2, 3);
+			CHECK_INT("$temp1", 3, 4);
 
-			CHECK_INT("$carr2", 0, 4);
-			CHECK_INT("$carr2", 1, 2);
-			CHECK_INT("$carr2", 2, 5);
-			CHECK_INT("$carr2", 3, 3);
+			CHECK_INT("$temp2", 0, 4);
+			CHECK_INT("$temp2", 1, 2);
+			CHECK_INT("$temp2", 2, 5);
+			CHECK_INT("$temp2", 3, 3);
 
-			CHECK_INT("$carr3", 0, 4);
-			CHECK_INT("$carr3", 1, 7);
+			CHECK_INT("$temp3", 0, 4);
+			CHECK_INT("$temp3", 1, 7);
 
 			CHECK_INT("k", 1, 4);
 			CHECK_INT("i", 1, 2);
@@ -3627,6 +3627,32 @@ return k;";
 		if(RunCode(testInternalMemberFunctionCall, testTarget[t], "5"))
 		{
 			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testSingleArrayIndexCalculation =
+"int a = 0, b = 0;\r\n\
+int func(int ref v, int index){ *v += 5; return index; }\r\n\
+int[2] arr;\r\n\
+arr[func(&a, 0)] += 4;\r\n\
+arr[func(&b, 1)]++;\r\n\
+return 0;";
+	printf("\r\nSingle array index calculation\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testSingleArrayIndexCalculation, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("a", 0, 5);
+			CHECK_INT("b", 0, 5);
+
+			CHECK_INT("arr", 0, 4);
+			CHECK_INT("arr", 1, 1);
 
 			if(!lastFailed)
 				passed[t]++;

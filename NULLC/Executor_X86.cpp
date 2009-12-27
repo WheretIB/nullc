@@ -288,13 +288,6 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdDecD] = GenCodeCmdDecD;
 	cgFuncs[cmdDecL] = GenCodeCmdDecL;
 
-	cgFuncs[cmdAddAtCharStk] = GenCodeCmdAddAtCharStk;
-	cgFuncs[cmdAddAtShortStk] = GenCodeCmdAddAtShortStk;
-	cgFuncs[cmdAddAtIntStk] = GenCodeCmdAddAtIntStk;
-	cgFuncs[cmdAddAtLongStk] = GenCodeCmdAddAtLongStk;
-	cgFuncs[cmdAddAtFloatStk] = GenCodeCmdAddAtFloatStk;
-	cgFuncs[cmdAddAtDoubleStk] = GenCodeCmdAddAtDoubleStk;
-
 	cgFuncs[cmdCreateClosure] = GenCodeCmdCreateClosure;
 	cgFuncs[cmdCloseUpvals] = GenCodeCmdCloseUpvalues;
 
