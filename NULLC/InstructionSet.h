@@ -212,6 +212,9 @@ enum InstructionCode
 	cmdCreateClosure,
 	cmdCloseUpvals,
 
+	cmdPushTypeID,
+	cmdConvertPtr,
+
 	cmdEnumCount,
 };
 
@@ -242,7 +245,8 @@ static char *vmInstructionText[] =
 	"LogNot", "LogNotL",
 	"IncI", "IncD", "IncL",
 	"DecI", "DecD", "DecL",
-	"CreateClosure", "CloseUpvals"
+	"CreateClosure", "CloseUpvals",
+	"PushTypeID", "ConvertPtr"
 };
 
 struct VMCmd
@@ -360,6 +364,13 @@ struct VMCmd
 			break;
 		case cmdCloseUpvals:
 			curr += sprintf(curr, " Function id: %d Stack offset: %d", helper, argument);
+			break;
+
+		case cmdPushTypeID:
+			curr += sprintf(curr, " %d", argument);
+			break;
+		case cmdConvertPtr:
+			curr += sprintf(curr, " Type id: %d", argument);
 			break;
 		}
 		return (int)(curr-buf);

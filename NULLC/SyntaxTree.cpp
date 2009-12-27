@@ -703,6 +703,41 @@ void NodeGetUpvalue::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s GetUpvalue (base + %d)[%d]\r\n", typeInfo->GetFullTypeName(), closurePos, closureElem);
 }
+
+//////////////////////////////////////////////////////////////////////////
+NodeConvertPtr::NodeConvertPtr(TypeInfo *dstType)
+{
+	assert(dstType);
+
+	typeInfo = dstType;
+
+	first = TakeLastNode();
+	
+	nodeType = typeNodeConvertPtr;
+}
+NodeConvertPtr::~NodeConvertPtr()
+{
+}
+
+void NodeConvertPtr::Compile()
+{
+	first->Compile();
+	if(typeInfo == typeObject)
+	{
+		cmdList.push_back(VMCmd(cmdPushTypeID, first->typeInfo->subType->typeIndex));
+	}else{
+		cmdList.push_back(VMCmd(cmdConvertPtr, typeInfo->subType->typeIndex));
+	}
+}
+void NodeConvertPtr::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s ConvertPtr :\r\n", typeInfo->GetFullTypeName());
+	GoDownB();
+	first->LogToStream(fGraph);
+	GoUp();
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Node that sets value to the variable
 

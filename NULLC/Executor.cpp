@@ -780,6 +780,15 @@ void Executor::Run(const char* funcName)
 		case cmdCloseUpvals:
 			CloseUpvalues(&genParams[paramBase], cmd.helper, cmd.argument);
 			break;
+
+		case cmdConvertPtr:
+			if(*genStackPtr != cmd.argument)
+			{
+				SafeSprintf(execError, 1024, "ERROR: Cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[*genStackPtr].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
+				cmdStreamEnd = NULL;
+			}
+			genStackPtr++;
+			break;
 		}
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION

@@ -3659,6 +3659,53 @@ return 0;";
 		}
 	}
 
+const char	*testAutoReference1 =
+"int a = 17;\r\n\
+double b = 14.0;\r\n\
+auto ref c = &a, d = &a;\r\n\
+auto m = &a;\r\n\
+auto n = &b;\r\n\
+c = &b;\r\n\
+int ref l = d;\r\n\
+return *l;";
+	printf("\r\nAuto reference type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testAutoReference1, testTarget[t], "17"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("a", 0, 17);
+			CHECK_DOUBLE("b", 0, 14.0);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testAutoReference2 =
+"typedef auto ref object;\r\n\
+\r\n\
+void func(object p){ int ref a = p; *a = 9; }\r\n\
+int k = 4;\r\n\
+\r\n\
+func(&k);\r\n\
+\r\n\
+return k;";
+	printf("\r\nAuto reference type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testAutoReference2, testTarget[t], "9"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -3743,6 +3790,22 @@ return xr[1][3];";
 		else
 			printf("Should have failed");
 	}
+
+const char	*testAutoReferenceMismatch =
+"int a = 17;\r\n\
+auto ref d = &a;\r\n\
+double ref ll = d;\r\n\
+return *ll;";
+	printf("\r\nAuto reference type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testAutoReferenceMismatch, testTarget[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
 #endif
 
 #define TEST_FOR_FAIL(name, str, error)\
@@ -3760,6 +3823,8 @@ return xr[1][3];";
 		}else{\
 			passed[2]++;\
 		}\
+	}else{\
+		printf("Test \"%s\" failed to fail.\r\n", name);\
 	}\
 }
 
@@ -3800,7 +3865,6 @@ return xr[1][3];";
 	TEST_FOR_FAIL("Variable hides function", "void a(){} int a; return 1;", "ERROR: Name 'a' is already taken for a function");
 
 	TEST_FOR_FAIL("Uninit auto", "auto a; return 1;", "ERROR: auto variable must be initialized in place of definition");
-	TEST_FOR_FAIL("Reference to auto", "auto ref a; return 1;", "ERROR: auto variable cannot have reference flag");
 	TEST_FOR_FAIL("Array of auto", "auto[4] a; return 1;", "ERROR: cannot specify array size for auto variable");
 	TEST_FOR_FAIL("sizeof auto", "return sizeof(auto);", "ERROR: sizeof(auto) is illegal");
 

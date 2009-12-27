@@ -35,6 +35,7 @@ enum NodeType
 	typeNodeVariableModify,
 	typeNodeGetUpvalue,
 	typeNodeBlockOp,
+	typeNodeConvertPtr,
 };
 //////////////////////////////////////////////////////////////////////////
 
@@ -286,6 +287,17 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 protected:
 	int			closurePos, closureElem;
+};
+
+class NodeConvertPtr: public NodeOneOP
+{
+public:
+			NodeConvertPtr(TypeInfo *dstType);
+	virtual ~NodeConvertPtr();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+protected:
 };
 
 class NodeVariableSet: public NodeTwoOP

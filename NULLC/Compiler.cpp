@@ -30,7 +30,7 @@ TypeInfo*	typeInt = NULL;
 TypeInfo*	typeFloat = NULL;
 TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
-TypeInfo*	typeFile = NULL;
+TypeInfo*	typeObject = NULL;
 
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
@@ -121,6 +121,15 @@ Compiler::Compiler()
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "char", 0, 0, 1, NULL, TypeInfo::TYPE_CHAR);
 	info->size = 1;
 	typeChar = info;
+	CodeInfo::typeInfo.push_back(info);
+
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "auto ref", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+#ifdef _DEBUG
+	info->AddMemberVariable("type", typeInt);
+	info->AddMemberVariable("ptr", typeInt);
+#endif
+	info->size = 8;
+	typeObject = info;
 	CodeInfo::typeInfo.push_back(info);
 
 	buildInTypes.resize(CodeInfo::typeInfo.size());

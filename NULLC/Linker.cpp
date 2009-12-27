@@ -317,6 +317,13 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		case cmdCloseUpvals:
 			cmd.helper = (unsigned short)funcRemap[cmd.helper];
 			break;
+		case cmdPushTypeID:
+			cmd.cmd = cmdPushImmt;
+			cmd.argument = typeRemap[cmd.argument];
+			break;
+		case cmdConvertPtr:
+			cmd.argument = typeRemap[cmd.argument];
+			break;
 		}
 	}
 

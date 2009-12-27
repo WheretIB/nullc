@@ -174,7 +174,7 @@ namespace RichTextarea
 	// Padding to the left of the first symbol
 	unsigned int padLeft = 5;
 	// Single character width and height (using monospaced font)
-	int charWidth, charHeight;
+	int charWidth = 8, charHeight = 8;
 
 	// A few pens and brushes for rendering
 	HPEN	areaPenWhite1px, areaPenBlack1px;
