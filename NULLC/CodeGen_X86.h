@@ -37,6 +37,8 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num);
 
 void SetParamBase(unsigned int base);
+void SetFunctionList(ExternFuncInfo* list);
+void SetContinuePtr(int* continueVar);
 
 void SetLastInstruction(x86Instruction *pos);
 x86Instruction* GetLastInstruction();
@@ -73,8 +75,6 @@ void GenCodeCmdMovFloatStk(VMCmd cmd);
 void GenCodeCmdMovDorLStk(VMCmd cmd);
 void GenCodeCmdMovCmplxStk(VMCmd cmd);
 
-void GenCodeCmdReserveV(VMCmd cmd);
-
 void GenCodeCmdPop(VMCmd cmd);
 
 void GenCodeCmdDtoI(VMCmd cmd);
@@ -91,6 +91,8 @@ void GenCodeCmdCopyDorL(VMCmd cmd);
 void GenCodeCmdCopyI(VMCmd cmd);
 
 void GenCodeCmdGetAddr(VMCmd cmd);
+void GenCodeCmdFuncAddr(VMCmd cmd);
+
 void GenCodeCmdSetRange(VMCmd cmd);
 
 void GenCodeCmdJmp(VMCmd cmd);
@@ -98,6 +100,8 @@ void GenCodeCmdJmpZ(VMCmd cmd);
 void GenCodeCmdJmpNZ(VMCmd cmd);
 
 void GenCodeCmdCall(VMCmd cmd);
+void GenCodeCmdCallPtr(VMCmd cmd);
+void GenCodeCmdCallStd(VMCmd cmd);
 void GenCodeCmdReturn(VMCmd cmd);
 
 void GenCodeCmdPushVTop(VMCmd cmd);

@@ -56,10 +56,6 @@ enum InstructionCode
 	cmdMovDorLStk,
 	cmdMovCmplxStk,
 
-	// pop a value from top of the stack to [value_top]
-	// переместить зачения со стека по адресу [value_top]
-	cmdReserveV,
-
 	// removes a number of bytes from top
 	// убрать заданное кол-во байт со стека с верхушки стека
 	cmdPop,
@@ -111,6 +107,7 @@ enum InstructionCode
 	// call script function
 	// вызов функции, определённой в скрипте
 	cmdCall,
+	cmdCallPtr,
 	// call standard function
 	// вызов стандартных (встроенных) функций
 	cmdCallStd,
@@ -226,14 +223,13 @@ static char *vmInstructionText[] =
 	"PushImmt",
 	"MovChar", "MovShort", "MovInt", "MovFloat", "MovDorL", "MovCmplx",
 	"MovCharStk", "MovShortStk", "MovIntStk", "MovFloatStk", "MovDorLStk", "MovCmplxStk",
-	"ReserveV",
 	"Pop",
 	"DtoI", "DtoL", "DtoF", "ItoD", "LtoD", "ItoL", "LtoI",
 	"Index", "IndexStk",
 	"CopyDorL", "CopyI",
 	"GetAddr", "FuncAddr", "SetRange",
 	"Jmp", "JmpZ", "JmpNZ",
-	"Call", "CallStd", "Return",
+	"Call", "CallPtr", "CallStd", "Return",
 	"PushVTop",
 	"Add", "Sub", "Mul", "Div", "Pow", "Mod", "Less", "Greater", "LEqual", "GEqual", "Equal", "NEqual",
 	"Shl", "Shr", "BitAnd", "BitOr", "BitXor", "LogAnd", "LogOr", "LogXor",
@@ -324,10 +320,6 @@ struct VMCmd
 			curr += sprintf(curr, " [%d%s] sizeof(%d)", argument, flag ? " + base" : "", helper);
 			break;
 
-		case cmdReserveV:
-			curr += sprintf(curr, " %d", argument);
-			break;
-
 		case cmdPop:
 		case cmdIndex:
 		case cmdIndexStk:
@@ -348,7 +340,11 @@ struct VMCmd
 			break;
 
 		case cmdCall:
-			curr += sprintf(curr, " Function id: %d helper: %d", argument, helper);
+			curr += sprintf(curr, " Function id: %d ret size: %d", argument, helper);
+			break;
+
+		case cmdCallPtr:
+			curr += sprintf(curr, " Param size: %d ret size: %d", argument, helper);
 			break;
 
 		case cmdCallStd:

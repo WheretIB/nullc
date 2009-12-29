@@ -15,6 +15,13 @@ struct NullCArray
 	unsigned int len;
 };
 
+// Wrapper over NULLC auto ref class for use in external functions
+struct NULLCRef
+{
+	unsigned int typeID;
+	char* ptr;
+};
+
 #define NULLC_MAX_VARIABLE_NAME_LENGTH 2048
 
 //#define NULLC_VM_LOG_INSTRUCTION_EXECUTION

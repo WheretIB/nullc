@@ -16,11 +16,13 @@ public:
 		retType = NULL;
 		paramType = NULL;
 		paramCount = 0;
+		paramSize = 4;
 	}
 
 	TypeInfo		*retType;
 	TypeInfo		**paramType;	// Array of pointers to type information
 	unsigned int	paramCount;
+	unsigned int	paramSize;
 };
 
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };

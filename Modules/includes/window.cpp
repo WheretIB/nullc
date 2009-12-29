@@ -31,10 +31,12 @@ namespace NULLCWindow
 	}
 	void WindowSetPosition(int x, int y, Window* wnd)
 	{
+		(void)x; (void)y; (void)wnd;
 		nullcThrowError("Unimplemented");
 	}
 	void WindowSetSize(int width, int height, Window* wnd)
 	{
+		(void)width; (void)height; (void)wnd;
 		nullcThrowError("Unimplemented");
 	}
 

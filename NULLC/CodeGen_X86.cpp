@@ -4,6 +4,8 @@
 #ifdef NULLC_BUILD_X86_JIT
 
 x86Instruction	*x86Op = NULL;
+ExternFuncInfo	*x86Functions = NULL;
+int				*x86Continue = NULL;
 
 #ifdef NULLC_LOG_FILES
 void EMIT_COMMENT(const char* text)
@@ -163,6 +165,16 @@ static unsigned int aluLabels = LABEL_ALU;
 void SetParamBase(unsigned int base)
 {
 	paramBase = base;
+}
+
+void SetFunctionList(ExternFuncInfo *list)
+{
+	x86Functions = list;
+}
+
+void SetContinuePtr(int* continueVar)
+{
+	x86Continue = continueVar;
 }
 
 void SetLastInstruction(x86Instruction *pos)
@@ -622,34 +634,6 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 	}
 }
 
-
-void GenCodeCmdReserveV(VMCmd cmd)
-{
-	if(cmd.argument == 0)
-		return;
-	if(cmd.argument <= 32)
-	{
-		unsigned int currShift = 0;
-		while(currShift < cmd.argument)
-		{
-			EMIT_OP_RPTR(o_pop, sDWORD, rEDI, paramBase + currShift);
-			currShift += 4;
-		}
-		assert(currShift == cmd.argument);
-	}else{
-		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
-
-		EMIT_OP_REG_REG(o_mov, rESI, rESP);
-		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDI, paramBase);
-		EMIT_OP_REG_NUM(o_mov, rECX, cmd.argument >> 2);
-		EMIT_OP(o_rep_movsd);
-
-		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
-		EMIT_OP_REG_NUM(o_add, rESP, cmd.argument);
-	}
-}
-
-
 void GenCodeCmdPop(VMCmd cmd)
 {
 	EMIT_COMMENT("POP");
@@ -800,6 +784,19 @@ void GenCodeCmdGetAddr(VMCmd cmd)
 	EMIT_OP_REG(o_push, rEAX);
 }
 
+void GenCodeCmdFuncAddr(VMCmd cmd)
+{
+	EMIT_COMMENT("FUNCADDR");
+
+	if(x86Functions[cmd.argument].funcPtr == NULL)
+	{
+		EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + x86Functions[cmd.argument].address, 0);
+		EMIT_OP_REG(o_push, rEAX);
+	}else{
+		EMIT_OP_NUM(o_push, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
+	}
+}
+
 void GenCodeCmdSetRange(VMCmd cmd)
 {
 	unsigned int elCount = x86Op[-2].argA.num;
@@ -878,31 +875,35 @@ void GenCodeCmdJmpNZ(VMCmd cmd)
 	EMIT_OP_LABEL(o_jnz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument);
 }
 
-void GenCodeCmdCall(VMCmd cmd)
+void GenCodeCmdCallEpilog(unsigned int size)
 {
-	EMIT_COMMENT("CALL");
-
-	if(cmd.argument == -1)
+	if(size == 0)
+		return;
+	if(size <= 32)
 	{
-		EMIT_OP_REG(o_pop, rEAX);
-		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
-		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
-
-		EMIT_OP_REG_REG(o_test, rEAX, rEAX);
-		EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
-		EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
-		EMIT_OP_NUM(o_int, 3);
-		EMIT_LABEL(LABEL_ALU + aluLabels);
-		aluLabels++;
-
-		EMIT_OP_REG(o_call, rEAX);
-		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
+		unsigned int currShift = 0;
+		while(currShift < size)
+		{
+			EMIT_OP_RPTR(o_pop, sDWORD, rEDI, paramBase + currShift);
+			currShift += 4;
+		}
+		assert(currShift == size);
 	}else{
-		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
-		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
-		EMIT_OP_LABEL(o_call, LABEL_FUNCTION | JUMP_NEAR | cmd.argument);
-		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
+		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+		EMIT_OP_REG_REG(o_mov, rESI, rESP);
+		EMIT_OP_REG_RPTR(o_lea, rEDI, sDWORD, rEDI, paramBase);
+		EMIT_OP_REG_NUM(o_mov, rECX, size >> 2);
+		EMIT_OP(o_rep_movsd);
+
+		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
+		EMIT_OP_REG_NUM(o_add, rESP, size);
 	}
+}
+
+
+void GenCodeCmdCallProlog(VMCmd cmd)
+{
 	if(cmd.helper & bitRetSimple)
 	{
 		if((asmOperType)(cmd.helper & 0x0FFF) == OTYPE_INT)
@@ -941,6 +942,74 @@ void GenCodeCmdCall(VMCmd cmd)
 
 			EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 		}
+	}
+}
+
+void GenCodeCmdCall(VMCmd cmd)
+{
+	EMIT_COMMENT("CALL");
+
+	GenCodeCmdCallEpilog(x86Functions[cmd.argument].paramSize);
+
+	EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
+	EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
+	EMIT_OP_LABEL(o_call, LABEL_FUNCTION | JUMP_NEAR | x86Functions[cmd.argument].address);
+	EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
+	
+	GenCodeCmdCallProlog(cmd);
+}
+
+void GenCodeCmdCallPtr(VMCmd cmd)
+{
+	EMIT_COMMENT("CALLPTR");
+
+	GenCodeCmdCallEpilog(cmd.argument);
+
+	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
+	EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
+
+	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
+	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(LABEL_ALU + aluLabels);
+	aluLabels++;
+
+	EMIT_OP_REG(o_call, rEAX);
+	EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
+
+	GenCodeCmdCallProlog(cmd);
+}
+
+void GenCodeCmdCallStd(VMCmd cmd)
+{
+	EMIT_COMMENT("CALLSTD");
+
+	unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
+	EMIT_OP_REG(o_call, rECX);
+
+	static int continueLabel = 0;
+	EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
+	EMIT_OP_REG_REG(o_test, rECX, rECX);
+	EMIT_OP_LABEL(o_jnz, LABEL_SPECIAL | continueLabel);
+	EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
+	EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
+	EMIT_LABEL(LABEL_SPECIAL | continueLabel);
+	continueLabel++;
+
+	EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
+	if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
+	{
+		EMIT_OP_REG(o_push, rEAX);
+	}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_DOUBLE){
+		EMIT_OP_REG(o_push, rEAX);
+		EMIT_OP_REG(o_push, rEAX);
+		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+	}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_LONG){
+		EMIT_OP_REG(o_push, rEDX);
+		EMIT_OP_REG(o_push, rEAX);
 	}
 }
 

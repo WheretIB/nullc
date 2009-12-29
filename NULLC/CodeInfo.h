@@ -111,7 +111,10 @@ namespace CodeInfo
 
 			unsigned int i = 0;
 			for(T *curr = paramTypes; curr; curr = curr->next, i++)
+			{
 				bestFit->funcType->paramType[i] = curr->varType;
+				bestFit->funcType->paramSize += curr->varType->size;
+			}
 
 	#ifdef _DEBUG
 			bestFit->AddMemberVariable("context", typeInt);

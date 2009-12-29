@@ -21,6 +21,7 @@ public:
 	char		linkError[LINK_ERROR_BUFFER_SIZE];
 
 	FastVector<ExternTypeInfo>	exTypes;
+	FastVector<unsigned int>	exTypeExtra;
 	FastVector<ExternVarInfo>	exVariables;
 	FastVector<ExternFuncInfo>	exFunctions;
 	FastVector<ExternLocalInfo>	exLocals;
