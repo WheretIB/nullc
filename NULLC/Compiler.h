@@ -70,6 +70,8 @@ private:
 	FastVector<ExternModuleInfo>	activeModules;
 	FastVector<char>				moduleSource;
 
+	FastVector<unsigned int>		typeRemap;
+
 	unsigned int buildInFuncs;
 	unsigned int basicTypes;
 	unsigned int typeTop, funcTop, varTop;

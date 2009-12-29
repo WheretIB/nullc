@@ -30,9 +30,12 @@ private:
 
 	FastVector<ExternTypeInfo>	&exTypes;
 	FastVector<ExternFuncInfo>	&exFunctions;
+	char			*symbols;
 
 	FastVector<char, true>	genParams;
 	FastVector<VMCmd*>	fcallStack;
+
+	unsigned int	runningFunction;
 
 	unsigned int	paramBase;
 
@@ -45,6 +48,11 @@ private:
 	bool			callContinue;
 
 	bool RunExternalFunction(unsigned int funcID);
+
+	void FixupArray(unsigned int offset, const ExternTypeInfo& type);
+	void FixupClass(unsigned int offset, const ExternTypeInfo& type);
+
+	bool ExtendParameterStack(char* oldBase, unsigned int oldSize);
 
 	void operator=(Executor& r){ (void)r; assert(false); }
 };

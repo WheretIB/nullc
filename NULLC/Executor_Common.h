@@ -8,3 +8,8 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 void CloseUpvalues(char* paramBase, unsigned int helper, unsigned int argument);
 
 unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize);
+
+namespace NULLCTypeInfo
+{
+	NullCArray Typename(NULLCRef r);
+}

@@ -63,9 +63,9 @@ void Executor::Run(const char* funcName)
 
 	CommonSetLinker(exLinker);
 
-	// $$$ Temporal solution to prevent stack from resizing, until there will be code that fixes pointers to stack variables. 
-	genParams.reserve(1024 * 1024);
+	genParams.reserve(4096);
 	genParams.clear();
+	//genParams.reset();
 	genParams.resize(exLinker->globalVarSize);
 
 	// If global code is executed, reset all global variables
@@ -107,6 +107,7 @@ void Executor::Run(const char* funcName)
 			return;
 		}
 	}
+	runningFunction = functionID;
 
 	// General stack
 	if(!genStackBase)
@@ -306,15 +307,6 @@ void Executor::Run(const char* funcName)
 		}
 			break;
 
-		case cmdReserveV:
-		{
-			int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
-			genParams.reserve(genParams.size() + alignOffset + cmd.argument);
-			memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, cmd.argument);
-			genStackPtr += cmd.argument >> 2;
-		}
-			break;
-
 		case cmdPop:
 			genStackPtr = (unsigned int*)((char*)(genStackPtr) + cmd.argument);
 			break;
@@ -375,7 +367,7 @@ void Executor::Run(const char* funcName)
 			genStackPtr--;
 			if(exFunctions[cmd.argument].funcPtr == NULL)
 			{
-				*genStackPtr = exFunctions[cmd.argument].address;
+				*genStackPtr = cmd.argument;
 			}else{
 				assert(sizeof(exFunctions[cmd.argument].funcPtr) == 4);
 				*genStackPtr = (unsigned int)(intptr_t)(exFunctions[cmd.argument].funcPtr);
@@ -441,17 +433,38 @@ void Executor::Run(const char* funcName)
 		case cmdCall:
 		{
 			RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
-			unsigned int fAddress = cmd.argument;
-			if(fAddress == CALL_BY_POINTER)
-			{
-				fAddress = *genStackPtr;
-				genStackPtr++;
-				// External function call by pointer
-				RUNTIME_ERROR(genStackPtr[-2] == ~0u, "ERROR: External function pointers are unsupported");
-			}
+			unsigned int fAddress = exFunctions[cmd.argument].address;
 			RUNTIME_ERROR(fAddress == 0, "ERROR: Invalid function pointer");
 			fcallStack.push_back(cmdStream);
 			cmdStream = cmdStreamBase + fAddress;
+
+			char* oldBase = &genParams[0];
+			unsigned int paramSize = exFunctions[cmd.argument].paramSize;
+			unsigned int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
+			unsigned int paramsMax = genParams.max;
+			genParams.reserve(genParams.size() + alignOffset + paramSize);
+			memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, paramSize);
+			genStackPtr += paramSize >> 2;
+
+			if(genParams.size() + alignOffset + paramSize >= paramsMax)
+				ExtendParameterStack(oldBase, paramsMax);
+		}
+			break;
+
+		case cmdCallPtr:
+		{
+			unsigned int paramSize = cmd.argument;
+			int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
+			genParams.reserve(genParams.size() + alignOffset + paramSize);
+			memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, paramSize);
+			genStackPtr += paramSize >> 2;
+
+			RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
+			unsigned int fID = *genStackPtr++;
+			RUNTIME_ERROR(genStackPtr[-2] == ~0u, "ERROR: External function pointers are unsupported");
+			RUNTIME_ERROR(fID == 0, "ERROR: Invalid function pointer");
+			fcallStack.push_back(cmdStream);
+			cmdStream = cmdStreamBase + exFunctions[fID].address;
 		}
 			break;
 
@@ -490,6 +503,13 @@ void Executor::Run(const char* funcName)
 			paramBase = genParams.size();
 			// Align on a 16-byte boundary
 			paramBase += (paramBase % 16 != 0) ? (16 - (paramBase % 16)) : 0;
+			if(paramBase + cmd.argument >= genParams.max)
+			{
+				char* oldBase = &genParams[0];
+				unsigned int oldSize = genParams.max;
+				genParams.reserve(paramBase + cmd.argument);
+				ExtendParameterStack(oldBase, oldSize);
+			}
 			genParams.resize(paramBase + cmd.argument);
 			memset(&genParams[paramBase + cmd.helper], 0, cmd.argument - cmd.helper);
 			break;
@@ -933,6 +953,166 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	return false;
 }
 #endif
+
+namespace ExPriv
+{
+	char *oldBase;
+	char *newBase;
+	unsigned int oldSize;
+}
+//int calls = 0, fixed = 0;
+void FixupPointer(char*& ptr/*, char* oldBase, char* newBase, unsigned int oldSize*/)
+{
+	//calls++;
+	if(ptr >= ExPriv::oldBase && ptr < (ExPriv::oldBase + ExPriv::oldSize))
+	{
+		//fixed++;
+		//printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+		ptr = ptr - ExPriv::oldBase + ExPriv::newBase;
+	}
+}
+
+void Executor::FixupArray(unsigned int offset, const ExternTypeInfo& type)
+{
+	if(type.arrSize == -1)
+	{
+		FixupPointer(*(char**)(ExPriv::newBase + offset)/*, ExPriv::oldBase, ExPriv::newBase, ExPriv::oldSize*/);
+		return;
+	}
+	ExternTypeInfo &subType = exTypes[type.subType];
+	switch(subType.subCat)
+	{
+	case ExternTypeInfo::CAT_ARRAY:
+		//printf("Checking array of %s [at %d]\r\n", symbols + subType.offsetToName, offset);
+		for(unsigned int i = 0; i < type.arrSize; i++, offset += subType.size)
+			FixupArray(offset, subType);
+		break;
+	case ExternTypeInfo::CAT_POINTER:
+		//printf("Checking array of %s [at %d]\r\n", symbols + subType.offsetToName, offset);
+		for(unsigned int i = 0; i < type.arrSize; i++, offset += subType.size)
+			FixupPointer(*(char**)(ExPriv::newBase + offset)/*, ExPriv::oldBase, ExPriv::newBase, ExPriv::oldSize*/);
+		break;
+	case ExternTypeInfo::CAT_CLASS:
+		//printf("Checking array of %s [at %d]\r\n", symbols + subType.offsetToName, offset);
+		for(unsigned int i = 0; i < type.arrSize; i++, offset += subType.size)
+			FixupClass(offset, subType);
+		break;
+	default:
+		//printf("Skipping array of %s [at %d]\r\n", symbols + subType.offsetToName, offset);
+		break;
+	}
+}
+
+void Executor::FixupClass(unsigned int offset, const ExternTypeInfo& type)
+{
+	unsigned int *memberList = &exLinker->exTypeExtra[0];
+	//char *str = symbols + type.offsetToName;
+	//const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
+	for(unsigned int n = 0; n < type.memberCount; n++)
+	{
+		//unsigned int strLength = (unsigned int)strlen(memberName) + 1;
+		ExternTypeInfo &subType = exTypes[memberList[type.memberOffset + n]];
+		switch(subType.subCat)
+		{
+		case ExternTypeInfo::CAT_ARRAY:
+			//printf("Checking member %s %s [at %d]\r\n", symbols + subType.offsetToName, memberName, offset);
+			FixupArray(offset, subType);
+			break;
+		case ExternTypeInfo::CAT_POINTER:
+			//printf("Checking member %s %s [at %d]\r\n", symbols + subType.offsetToName, memberName, offset);
+			FixupPointer(*(char**)(ExPriv::newBase + offset)/*, ExPriv::oldBase, ExPriv::newBase, ExPriv::oldSize*/);
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			//printf("Checking member %s %s [at %d]\r\n", symbols + subType.offsetToName, memberName, offset);
+			FixupClass(offset, subType);
+			break;
+		default:
+			//printf("Skipping member %s %s [at %d]\r\n", symbols + subType.offsetToName, memberName, offset);
+			break;
+		}
+		//memberName += strLength;
+		offset += subType.size;
+	}
+}
+
+bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize)
+{
+	//printf("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
+	//printf("New base: %p-%p\r\n", genParams.data, genParams.data + genParams.max);
+
+	ExPriv::oldBase = oldBase;
+	ExPriv::newBase = genParams.data;
+	ExPriv::oldSize = oldSize;
+
+	symbols = &exLinker->exSymbols[0];
+
+	ExternVarInfo *vars = &exLinker->exVariables[0];
+	ExternTypeInfo *types = &exLinker->exTypes[0];
+	// Fix global variables
+	for(unsigned int i = 0; i < exLinker->exVariables.size(); i++)
+	{
+		unsigned int offset = vars[i].offset;
+		switch(types[vars[i].type].subCat)
+		{
+		case ExternTypeInfo::CAT_ARRAY:
+			//printf("Checking global %s %s [at %d]\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, offset);
+			FixupArray(offset, types[vars[i].type]);
+			break;
+		case ExternTypeInfo::CAT_POINTER:
+			//printf("Checking global %s %s [at %d]\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, offset);
+			FixupPointer(*(char**)(genParams.data + offset)/*, oldBase, genParams.data, oldSize*/);
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			//printf("Checking global %s %s [at %d]\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, offset);
+			FixupClass(offset, types[vars[i].type]);
+			break;
+		default:
+			//printf("Skipping global %s %s [at %d]\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, offset);
+			break;
+		}
+	}
+	int offset = exLinker->globalVarSize;
+	int i = 0;
+	if(runningFunction)
+		i = -1;
+	// Fixup local variables
+	for(; i < (int)fcallStack.size(); i++)
+	{
+		int funcID = i == -1 ? runningFunction : (fcallStack[i]-1)->argument;
+
+		if(funcID != -1)
+		{
+			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
+			//printf("In function %s (with offset of %d)\r\n", symbols + exFunctions[funcID].offsetToName, alignOffset);
+			offset += alignOffset;
+			for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
+			{
+				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+				switch(types[lInfo.type].subCat)
+				{
+				case ExternTypeInfo::CAT_ARRAY:
+					//printf("Checking local %s %s [at %d+%d] [at %d] (%p)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset, offset + lInfo.offset, *(int**)(genParams.data + offset + lInfo.offset));
+					FixupArray(offset + lInfo.offset, types[lInfo.type]);
+					break;
+				case ExternTypeInfo::CAT_POINTER:
+					//printf("Checking local %s %s [at %d+%d] [at %d] (%p)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset, offset + lInfo.offset, *(int**)(genParams.data + offset + lInfo.offset));
+					FixupPointer(*(char**)(genParams.data + offset + lInfo.offset)/*, oldBase, genParams.data, oldSize*/);
+					break;
+				case ExternTypeInfo::CAT_CLASS:
+					//printf("Checking local %s %s [at %d+%d] [at %d] (%p)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset, offset + lInfo.offset, *(int**)(genParams.data + offset + lInfo.offset));
+					FixupClass(offset + lInfo.offset, types[lInfo.type]);
+					break;
+				default:
+					//printf("Skipping local %s %s [at %d+%d] [at %d] (%p)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset, offset + lInfo.offset, *(int**)(genParams.data + offset + lInfo.offset));
+					break;
+				}
+			}
+			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + exFunctions[funcID].localCount - 1];
+			offset += lInfo.offset + lInfo.size;
+		}
+	}
+	return true;
+}
 
 const char* Executor::GetResult()
 {

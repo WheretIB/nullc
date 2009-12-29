@@ -126,3 +126,14 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 #endif
 	return (unsigned int)(current - start);
 }
+
+NullCArray NULLCTypeInfo::Typename(NULLCRef r)
+{
+	NullCArray ret;
+	FastVector<ExternTypeInfo> &exTypes = NULLC::commonLinker->exTypes;
+	char *symbols = &NULLC::commonLinker->exSymbols[0];
+
+	ret.ptr = exTypes[r.typeID].offsetToName + symbols;
+	ret.len = (unsigned int)strlen(ret.ptr) + 1;
+	return ret;
+}

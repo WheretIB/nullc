@@ -51,10 +51,12 @@ public:
 
 	__forceinline T*		push_back(){ count++; if(count==max) grow(count); return &data[count - 1]; };
 	__forceinline void		push_back(const T& val){ assert(data); data[count++] = val; if(count==max) grow(count); };
-	__forceinline void		push_back(const T* valptr, unsigned int count)
+	__forceinline void		push_back(const T* valptr, unsigned int elem)
 	{
-		if(count+count>=max) grow(count+count);
-		for(unsigned int i = 0; i < count; i++) data[count++] = valptr[i];
+		if(count+elem >= max)
+			grow(count+elem);
+		for(unsigned int i = 0; i < elem; i++)
+			data[count++] = valptr[i];
 	};
 	__forceinline T&		back(){ return data[count-1]; }
 	__forceinline unsigned int		size(){ return count; }

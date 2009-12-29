@@ -16,6 +16,7 @@ Linker::~Linker()
 void Linker::CleanCode()
 {
 	exTypes.clear();
+	exTypeExtra.clear();
 	exVariables.clear();
 	exFunctions.clear();
 	exCode.clear();
@@ -125,11 +126,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	unsigned int oldFunctionCount = exFunctions.size();
 	unsigned int oldSymbolSize = exSymbols.size();
-
 	unsigned int oldTypeCount = exTypes.size();
 
 	// Add all types from bytecode to the list
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
+	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
 	for(unsigned int i = 0; i < bCode->typeCount; i++)
 	{
 		const unsigned int index_none = ~0u;
@@ -149,6 +150,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			typeRemap.push_back(exTypes.size());
 			exTypes.push_back(*tInfo);
 			exTypes.back().offsetToName += oldSymbolSize;
+			if(tInfo->subCat == ExternTypeInfo::CAT_FUNCTION || tInfo->subCat == ExternTypeInfo::CAT_CLASS)
+			{
+				exTypes.back().memberOffset = exTypeExtra.size();
+				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount);
+			}
 		}else{
 			typeRemap.push_back(index);
 		}
@@ -306,9 +312,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			cmd.argument += oldCodeSize;
 			break;
 		case cmdCall:
-			if(cmd.argument != CALL_BY_POINTER)
-				cmd.argument = exFunctions[funcRemap[cmd.argument]].address;
-			break;
 		case cmdCallStd:
 		case cmdFuncAddr:
 		case cmdCreateClosure:

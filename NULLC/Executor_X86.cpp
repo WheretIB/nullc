@@ -184,8 +184,6 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdMovDorLStk] = GenCodeCmdMovDorLStk;
 	cgFuncs[cmdMovCmplxStk] = GenCodeCmdMovCmplxStk;
 
-	cgFuncs[cmdReserveV] = GenCodeCmdReserveV;
-
 	cgFuncs[cmdPop] = GenCodeCmdPop;
 
 	cgFuncs[cmdDtoI] = GenCodeCmdDtoI;
@@ -203,6 +201,7 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdCopyI] = GenCodeCmdCopyI;
 
 	cgFuncs[cmdGetAddr] = GenCodeCmdGetAddr;
+	cgFuncs[cmdFuncAddr] = GenCodeCmdFuncAddr;
 
 	cgFuncs[cmdSetRange] = GenCodeCmdSetRange;
 
@@ -212,6 +211,8 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdJmpNZ] = GenCodeCmdJmpNZ;
 
 	cgFuncs[cmdCall] = GenCodeCmdCall;
+	cgFuncs[cmdCallPtr] = GenCodeCmdCallPtr;
+	cgFuncs[cmdCallStd] = GenCodeCmdCallStd;
 
 	cgFuncs[cmdReturn] = GenCodeCmdReturn;
 
@@ -465,6 +466,8 @@ bool ExecutorX86::TranslateToNative()
 	instList.clear();
 
 	SetParamBase((unsigned int)(long long)paramBase);
+	SetFunctionList(&exFunctions[0]);
+	SetContinuePtr(&callContinue);
 	SetLastInstruction(&instList[0]);
 	SetClosureCreateFunc((void(*)())ClosureCreate);
 	SetUpvaluesCloseFunc((void(*)())CloseUpvalues);
@@ -487,49 +490,7 @@ bool ExecutorX86::TranslateToNative()
 		EMIT_OP(o_dd);
 
 		pos++;
-
-		if(cmd.cmd == cmdFuncAddr)
-		{
-			EMIT_COMMENT("FUNCADDR");
-
-			if(exFunctions[cmd.argument].funcPtr == NULL)
-			{
-				EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + exFunctions[cmd.argument].address, 0);
-				EMIT_OP_REG(o_push, rEAX);
-			}else{
-				EMIT_OP_NUM(o_push, (int)(intptr_t)exFunctions[cmd.argument].funcPtr);
-			}
-		}else if(cmd.cmd == cmdCallStd){
-			EMIT_COMMENT("CALLSTD");
-
-			unsigned int bytesToPop = exFunctions[cmd.argument].bytesToPop;
-			EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)exFunctions[cmd.argument].funcPtr);
-			EMIT_OP_REG(o_call, rECX);
-
-			static int continueLabel = 0;
-			EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)&callContinue);
-			EMIT_OP_REG_REG(o_test, rECX, rECX);
-			EMIT_OP_LABEL(o_jnz, LABEL_SPECIAL | continueLabel);
-			EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
-			EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
-			EMIT_LABEL(LABEL_SPECIAL | continueLabel);
-			continueLabel++;
-
-			EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
-			if(exFunctions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
-			{
-				EMIT_OP_REG(o_push, rEAX);
-			}else if(exFunctions[cmd.argument].retType == ExternFuncInfo::RETURN_DOUBLE){
-				EMIT_OP_REG(o_push, rEAX);
-				EMIT_OP_REG(o_push, rEAX);
-				EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-			}else if(exFunctions[cmd.argument].retType == ExternFuncInfo::RETURN_LONG){
-				EMIT_OP_REG(o_push, rEDX);
-				EMIT_OP_REG(o_push, rEAX);
-			}
-		}else{
-			NULLC::cgFuncs[cmd.cmd](cmd);
-		}
+		NULLC::cgFuncs[cmd.cmd](cmd);
 	}
 	EMIT_LABEL(LABEL_GLOBAL + pos);
 	EMIT_OP_REG(o_pop, rEBP);

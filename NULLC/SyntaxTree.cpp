@@ -562,6 +562,8 @@ void NodeFuncCall::Compile()
 	// Find parameter values
 	if(first)
 		first->Compile();
+	else if(funcInfo && funcInfo->address != -1)
+		cmdList.push_back(VMCmd(cmdPushImmt, 0));
 	if(funcType->paramCount > 0)
 	{
 		NodeZeroOP	*curr = paramHead;
@@ -580,22 +582,15 @@ void NodeFuncCall::Compile()
 	}
 	if(funcInfo && funcInfo->address == -1)		// If the function is build-in or external
 	{
-		// Call it by function index
 		unsigned int ID = CodeInfo::FindFunctionByPtr(funcInfo);
 		cmdList.push_back(VMCmd(cmdCallStd, ID));
 	}else{					// If the function is defined by user
-		// Lets move parameters to function local variables
-		unsigned int paramSize = 0;
-		for(unsigned int i = 0; i < funcType->paramCount; i++)
-			paramSize += funcType->paramType[i]->size < 4 ? 4 : funcType->paramType[i]->size;
-		paramSize += first ? 4 : 0;
-		if(paramSize)
-			cmdList.push_back(VMCmd(cmdReserveV, paramSize));
-
-		// Call by function address in bytecode
 		unsigned int ID = CodeInfo::FindFunctionByPtr(funcInfo);
 		unsigned short helper = (unsigned short)((typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->type == TypeInfo::TYPE_VOID) ? typeInfo->size : (bitRetSimple | operTypeForStackType[typeInfo->stackType]));
-		cmdList.push_back(VMCmd(cmdCall, helper, funcInfo ? ID : CALL_BY_POINTER));
+		if(funcInfo)
+			cmdList.push_back(VMCmd(cmdCall, helper, ID));
+		else
+			cmdList.push_back(VMCmd(cmdCallPtr, helper, funcType->paramSize));
 	}
 }
 void NodeFuncCall::LogToStream(FILE *fGraph)

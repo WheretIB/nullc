@@ -13,6 +13,8 @@
 
 #include "BinaryCache.h"
 
+#include "Executor_Common.h"
+
 #include <time.h>
 
 jmp_buf CodeInfo::errorHandler;
@@ -124,13 +126,12 @@ Compiler::Compiler()
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "auto ref", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-#ifdef _DEBUG
-	info->AddMemberVariable("type", typeInt);
-	info->AddMemberVariable("ptr", typeInt);
-#endif
-	info->size = 8;
 	typeObject = info;
 	CodeInfo::typeInfo.push_back(info);
+
+	info->AddMemberVariable("type", typeInt);
+	info->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
+	info->size = 8;
 
 	buildInTypes.resize(CodeInfo::typeInfo.size());
 	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
@@ -160,6 +161,8 @@ Compiler::Compiler()
 
 	AddExternalFunction((void (*)())NULLC::AllocObject, "int __newS(int size);");
 	AddExternalFunction((void (*)())NULLC::AllocArray, "int[] __newA(int size, int count);");
+
+	AddExternalFunction((void (*)())NULLCTypeInfo::Typename, "char[] typename(auto ref type);");
 
 #ifdef NULLC_LOG_FILES
 	compileLog = NULL;
@@ -344,7 +347,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 	ByteCode *bCode = (ByteCode*)bytecode;
 	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
 
-	FastVector<unsigned int>	typeRemap;
+	typeRemap.clear();
 
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 	printf("Importing module %s\r\n", pos);
@@ -390,7 +393,10 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 				newInfo->CreateFunctionType(CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset]]], tInfo->memberCount);
 
 				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
+				{
 					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]];
+					newInfo->funcType->paramSize += newInfo->funcType->paramType[n-1]->size;
+				}
 
 #ifdef _DEBUG
 				newInfo->AddMemberVariable("context", typeInt);
@@ -796,7 +802,14 @@ void Compiler::SaveListing(const char *fileName)
 		if(line != lastLine)
 		{
 			lastLine = line;
-			const char *codeEnd = CodeInfo::cmdInfoList.sourceInfo[line].sourcePos;
+			const char *codeStart = CodeInfo::cmdInfoList.sourceInfo[line].sourcePos;
+			// Find beginning of the line
+			while(codeStart != CodeInfo::cmdInfoList.sourceStart && *(codeStart-1) != '\n')
+				codeStart--;
+			// Skip whitespace
+			while(*codeStart == ' ' || *codeStart == '\t')
+				codeStart++;
+			const char *codeEnd = codeStart;
 			while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
 				codeEnd++;
 			if(codeEnd > lastSourcePos)
@@ -804,7 +817,7 @@ void Compiler::SaveListing(const char *fileName)
 				fprintf(compiledAsm, "%.*s\r\n", codeEnd - lastSourcePos, lastSourcePos);
 				lastSourcePos = codeEnd;
 			}else{
-				fprintf(compiledAsm, "%.*s\r\n", codeEnd - CodeInfo::cmdInfoList.sourceInfo[line].sourcePos, CodeInfo::cmdInfoList.sourceInfo[line].sourcePos);
+				fprintf(compiledAsm, "%.*s\r\n", codeEnd - codeStart, codeStart);
 			}
 		}
 		CodeInfo::cmdList[i].Decode(instBuf);
@@ -1090,7 +1103,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		varInfo.nameHash = GetStringHash(refVar->name.begin, refVar->name.end);
 
 		varInfo.type = refVar->varType->typeIndex;
-		varInfo.size = refVar->varType->size;
+		varInfo.offset = refVar->pos;
 
 		// Fill up next
 		vInfo++;
@@ -1108,9 +1121,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		FunctionInfo *refFunc = CodeInfo::funcInfo[i];
 
 		if(refFunc->codeSize == 0 && refFunc->address != -1 && (refFunc->address & 0x80000000))
-			funcInfo.oldAddress = funcInfo.address = CodeInfo::funcInfo[refFunc->address & ~0x80000000]->address;
+			funcInfo.address = CodeInfo::funcInfo[refFunc->address & ~0x80000000]->address;
 		else
-			funcInfo.oldAddress = funcInfo.address = refFunc->address;
+			funcInfo.address = refFunc->address;
 		funcInfo.codeSize = refFunc->codeSize;
 		funcInfo.funcPtr = refFunc->funcPtr;
 		funcInfo.isVisible = refFunc->visible;
@@ -1130,6 +1143,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
+		funcInfo.paramSize = refFunc->funcType->funcType->paramSize;
 
 		CreateExternalInfo(funcInfo, *refFunc);
 
