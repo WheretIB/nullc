@@ -312,7 +312,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			cmd.argument += oldCodeSize;
 			break;
 		case cmdCall:
-		case cmdCallStd:
 		case cmdFuncAddr:
 		case cmdCreateClosure:
 			cmd.argument = funcRemap[cmd.argument];
@@ -360,7 +359,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = 0; i < exCode.size(); i++)
 	{
 		exCode[i].Decode(instBuf);
-		if(exCode[i].cmd == cmdCallStd && exCode[i].argument != ~0u)
+		if(exCode[i].cmd == cmdCall)
 			fprintf(linkAsm, "// %d %s (%s)\r\n", i, instBuf, &exSymbols[exFunctions[exCode[i].argument].offsetToName]);
 		else
 			fprintf(linkAsm, "// %d %s\r\n", i, instBuf);

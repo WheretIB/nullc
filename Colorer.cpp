@@ -169,7 +169,8 @@ namespace ColorerGrammar
 					(*str) += 2;
 					while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
 						(*str)++;
-					(*str) += 2;
+					if((*str)[0])
+						(*str) += 2;
 					ColorComment(COLOR_COMMENT, old, *str);
 				}else{
 					break;
