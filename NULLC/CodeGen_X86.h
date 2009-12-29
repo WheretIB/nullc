@@ -101,7 +101,6 @@ void GenCodeCmdJmpNZ(VMCmd cmd);
 
 void GenCodeCmdCall(VMCmd cmd);
 void GenCodeCmdCallPtr(VMCmd cmd);
-void GenCodeCmdCallStd(VMCmd cmd);
 void GenCodeCmdReturn(VMCmd cmd);
 
 void GenCodeCmdPushVTop(VMCmd cmd);

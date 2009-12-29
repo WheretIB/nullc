@@ -949,14 +949,43 @@ void GenCodeCmdCall(VMCmd cmd)
 {
 	EMIT_COMMENT("CALL");
 
-	GenCodeCmdCallEpilog(x86Functions[cmd.argument].paramSize);
+	if(x86Functions[cmd.argument].address != -1)
+	{
+		GenCodeCmdCallEpilog(x86Functions[cmd.argument].paramSize);
 
-	EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
-	EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
-	EMIT_OP_LABEL(o_call, LABEL_FUNCTION | JUMP_NEAR | x86Functions[cmd.argument].address);
-	EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
-	
-	GenCodeCmdCallProlog(cmd);
+		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
+		EMIT_OP_LABEL(o_call, LABEL_FUNCTION | JUMP_NEAR | x86Functions[cmd.argument].address);
+		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
+		
+		GenCodeCmdCallProlog(cmd);
+	}else{
+		unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
+		EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
+		EMIT_OP_REG(o_call, rECX);
+
+		static int continueLabel = 0;
+		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
+		EMIT_OP_REG_REG(o_test, rECX, rECX);
+		EMIT_OP_LABEL(o_jnz, LABEL_SPECIAL | continueLabel);
+		EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
+		EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
+		EMIT_LABEL(LABEL_SPECIAL | continueLabel);
+		continueLabel++;
+
+		EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
+		if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
+		{
+			EMIT_OP_REG(o_push, rEAX);
+		}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_DOUBLE){
+			EMIT_OP_REG(o_push, rEAX);
+			EMIT_OP_REG(o_push, rEAX);
+			EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+		}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_LONG){
+			EMIT_OP_REG(o_push, rEDX);
+			EMIT_OP_REG(o_push, rEAX);
+		}
+	}
 }
 
 void GenCodeCmdCallPtr(VMCmd cmd)
@@ -980,37 +1009,6 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 	EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 
 	GenCodeCmdCallProlog(cmd);
-}
-
-void GenCodeCmdCallStd(VMCmd cmd)
-{
-	EMIT_COMMENT("CALLSTD");
-
-	unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
-	EMIT_OP_REG(o_call, rECX);
-
-	static int continueLabel = 0;
-	EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
-	EMIT_OP_REG_REG(o_test, rECX, rECX);
-	EMIT_OP_LABEL(o_jnz, LABEL_SPECIAL | continueLabel);
-	EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
-	EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
-	EMIT_LABEL(LABEL_SPECIAL | continueLabel);
-	continueLabel++;
-
-	EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
-	if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
-	{
-		EMIT_OP_REG(o_push, rEAX);
-	}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_DOUBLE){
-		EMIT_OP_REG(o_push, rEAX);
-		EMIT_OP_REG(o_push, rEAX);
-		EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_LONG){
-		EMIT_OP_REG(o_push, rEDX);
-		EMIT_OP_REG(o_push, rEAX);
-	}
 }
 
 void GenCodeCmdReturn(VMCmd cmd)

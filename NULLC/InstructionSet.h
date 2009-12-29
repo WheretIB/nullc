@@ -104,13 +104,10 @@ enum InstructionCode
 	// переход, если значение на вершине != 0
 	cmdJmpNZ,
 
-	// call script function
-	// вызов функции, определённой в скрипте
+	// call function
+	// вызов функции
 	cmdCall,
 	cmdCallPtr,
-	// call standard function
-	// вызов стандартных (встроенных) функций
-	cmdCallStd,
 
 	// return from function
 	// возврат из функции и выполнение POPT n раз, где n идёт за командой
@@ -229,7 +226,7 @@ static char *vmInstructionText[] =
 	"CopyDorL", "CopyI",
 	"GetAddr", "FuncAddr", "SetRange",
 	"Jmp", "JmpZ", "JmpNZ",
-	"Call", "CallPtr", "CallStd", "Return",
+	"Call", "CallPtr", "Return",
 	"PushVTop",
 	"Add", "Sub", "Mul", "Div", "Pow", "Mod", "Less", "Greater", "LEqual", "GEqual", "Equal", "NEqual",
 	"Shl", "Shr", "BitAnd", "BitOr", "BitXor", "LogAnd", "LogOr", "LogXor",
@@ -345,10 +342,6 @@ struct VMCmd
 
 		case cmdCallPtr:
 			curr += sprintf(curr, " Param size: %d ret size: %d", argument, helper);
-			break;
-
-		case cmdCallStd:
-			curr += sprintf(curr, " Function id: %d", argument);
 			break;
 
 		case cmdReturn:

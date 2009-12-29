@@ -47,7 +47,7 @@ private:
 
 	bool			callContinue;
 
-	bool RunExternalFunction(unsigned int funcID);
+	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
 
 	void FixupArray(unsigned int offset, const ExternTypeInfo& type);
 	void FixupClass(unsigned int offset, const ExternTypeInfo& type);

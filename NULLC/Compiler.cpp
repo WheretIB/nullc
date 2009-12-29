@@ -821,7 +821,7 @@ void Compiler::SaveListing(const char *fileName)
 			}
 		}
 		CodeInfo::cmdList[i].Decode(instBuf);
-		if((CodeInfo::cmdList[i].cmd == cmdCall || CodeInfo::cmdList[i].cmd == cmdCallStd) && CodeInfo::cmdList[i].argument != ~0u)
+		if(CodeInfo::cmdList[i].cmd == cmdCall)
 			fprintf(compiledAsm, "// %d %s (%s)\r\n", i, instBuf, CodeInfo::funcInfo[CodeInfo::cmdList[i].argument]->name);
 		else
 			fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
@@ -834,7 +834,7 @@ void Compiler::SaveListing(const char *fileName)
 
 bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 {
-	fInfo.bytesToPop = refFunc.type == FunctionInfo::THISCALL ? 4 : 0;
+	fInfo.bytesToPop = 4;
 	for(VariableInfo *curr = refFunc.firstParam; curr; curr = curr->next)
 	{
 		unsigned int paramSize = curr->varType->size > 4 ? curr->varType->size : 4;

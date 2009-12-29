@@ -365,13 +365,7 @@ void Executor::Run(const char* funcName)
 			break;
 		case cmdFuncAddr:
 			genStackPtr--;
-			if(exFunctions[cmd.argument].funcPtr == NULL)
-			{
-				*genStackPtr = cmd.argument;
-			}else{
-				assert(sizeof(exFunctions[cmd.argument].funcPtr) == 4);
-				*genStackPtr = (unsigned int)(intptr_t)(exFunctions[cmd.argument].funcPtr);
-			}
+			*genStackPtr = cmd.argument;
 			break;
 
 		case cmdSetRange:
@@ -434,43 +428,52 @@ void Executor::Run(const char* funcName)
 		{
 			RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
 			unsigned int fAddress = exFunctions[cmd.argument].address;
-			RUNTIME_ERROR(fAddress == 0, "ERROR: Invalid function pointer");
-			fcallStack.push_back(cmdStream);
-			cmdStream = cmdStreamBase + fAddress;
 
-			char* oldBase = &genParams[0];
-			unsigned int paramSize = exFunctions[cmd.argument].paramSize;
-			unsigned int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
-			unsigned int paramsMax = genParams.max;
-			genParams.reserve(genParams.size() + alignOffset + paramSize);
-			memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, paramSize);
-			genStackPtr += paramSize >> 2;
+			if(fAddress == -1)
+			{
+				if(!RunExternalFunction(cmd.argument, 0))
+					cmdStreamEnd = NULL;
+			}else{
+				fcallStack.push_back(cmdStream);
+				cmdStream = cmdStreamBase + fAddress;
 
-			if(genParams.size() + alignOffset + paramSize >= paramsMax)
-				ExtendParameterStack(oldBase, paramsMax);
+				char* oldBase = &genParams[0];
+				unsigned int paramSize = exFunctions[cmd.argument].paramSize;
+				unsigned int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
+				unsigned int paramsMax = genParams.max;
+				genParams.reserve(genParams.size() + alignOffset + paramSize);
+				memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, paramSize);
+				genStackPtr += paramSize >> 2;
+
+				if(genParams.size() + alignOffset + paramSize >= paramsMax)
+					ExtendParameterStack(oldBase, paramsMax);
+			}
 		}
 			break;
 
 		case cmdCallPtr:
 		{
 			unsigned int paramSize = cmd.argument;
-			int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
-			genParams.reserve(genParams.size() + alignOffset + paramSize);
-			memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, paramSize);
-			genStackPtr += paramSize >> 2;
-
-			RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
-			unsigned int fID = *genStackPtr++;
-			RUNTIME_ERROR(genStackPtr[-2] == ~0u, "ERROR: External function pointers are unsupported");
+			unsigned int fID = genStackPtr[paramSize >> 2];
 			RUNTIME_ERROR(fID == 0, "ERROR: Invalid function pointer");
-			fcallStack.push_back(cmdStream);
-			cmdStream = cmdStreamBase + exFunctions[fID].address;
-		}
-			break;
 
-		case cmdCallStd:
-			if(!RunExternalFunction(cmd.argument))
-				cmdStreamEnd = NULL;
+			if(exFunctions[fID].address == -1)
+			{
+				if(!RunExternalFunction(fID, 1))
+					cmdStreamEnd = NULL;
+			}else{
+				int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
+				genParams.reserve(genParams.size() + alignOffset + paramSize);
+				memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, paramSize);
+				genStackPtr += paramSize >> 2;
+				RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
+
+				genStackPtr++;
+
+				fcallStack.push_back(cmdStream);
+				cmdStream = cmdStreamBase + exFunctions[fID].address;
+			}
+		}
 			break;
 
 		case cmdReturn:
@@ -844,7 +847,7 @@ void Executor::Stop(const char* error)
 
 #if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__CELLOS_LV2__))
 // X86 implementation
-bool Executor::RunExternalFunction(unsigned int funcID)
+bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	unsigned int bytesToPop = exFunctions[funcID].bytesToPop;
 	void* fPtr = exFunctions[funcID].funcPtr;
@@ -867,7 +870,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 #endif
 		stackStart--;
 	}
-	genStackPtr += (bytesToPop >> 2);
+	genStackPtr += (bytesToPop >> 2) + extraPopDW;
 
 	switch(retType)
 	{
@@ -910,7 +913,7 @@ MAKE_FUNC_PTR_TYPE(int, IntFunctionPtr)
 MAKE_FUNC_PTR_TYPE(double, DoubleFunctionPtr)
 MAKE_FUNC_PTR_TYPE(long long, LongFunctionPtr)
 
-bool Executor::RunExternalFunction(unsigned int funcID)
+bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
 
@@ -947,7 +950,7 @@ bool Executor::RunExternalFunction(unsigned int funcID)
 	return callContinue;
 }
 #else
-bool Executor::RunExternalFunction(unsigned int funcID)
+bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	strcpy(execError, "ERROR: External function call failed");
 	return false;
