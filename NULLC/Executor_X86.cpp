@@ -41,6 +41,41 @@ namespace NULLC
 	unsigned int expEAXstate;
 	unsigned int expECXstate;
 
+	int ExtendMemory()
+	{
+		// Check that we haven't exceeded available memory
+		if(reservedStack > 512*1024*1024)
+		{
+			expAllocCode = 4;
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+		// Allow the use of last reserved memory page
+		if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+commitedStack)), stackGrowSize-stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+		{
+			expAllocCode = 1; // failed to commit all old memory
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+		// Reserve new memory right after the block
+		if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS))
+		{
+			expAllocCode = 2; // failed to reserve new memory
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+		// Allow access to all new reserved memory, except for the last memory page
+		if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+		{
+			expAllocCode = 3; // failed to commit new memory
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+		// Update variables
+		commitedStack = reservedStack;
+		reservedStack += stackGrowSize;
+		commitedStack += stackGrowCommit;
+		stackReallocs++;
+
+		return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
+	}
+
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
 		expEAXstate = expInfo->ContextRecord->Eax;
@@ -65,37 +100,7 @@ namespace NULLC
 			if(expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
 				expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase+64*1024)
 			{
-				// Check that we haven't exceeded available memory
-				if(reservedStack > 512*1024*1024)
-				{
-					expAllocCode = 4;
-					return EXCEPTION_EXECUTE_HANDLER;
-				}
-				// Allow the use of last reserved memory page
-				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+commitedStack)), stackGrowSize-stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
-				{
-					expAllocCode = 1; // failed to commit all old memory
-					return EXCEPTION_EXECUTE_HANDLER;
-				}
-				// Reserve new memory right after the block
-				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS))
-				{
-					expAllocCode = 2; // failed to reserve new memory
-					return EXCEPTION_EXECUTE_HANDLER;
-				}
-				// Allow access to all new reserved memory, except for the last memory page
-				if(!VirtualAlloc(reinterpret_cast<void*>(long long(paramDataBase+reservedStack)), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
-				{
-					expAllocCode = 3; // failed to commit new memory
-					return EXCEPTION_EXECUTE_HANDLER;
-				}
-				// Update variables
-				commitedStack = reservedStack;
-				reservedStack += stackGrowSize;
-				commitedStack += stackGrowCommit;
-				stackReallocs++;
-
-				return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
+				return ExtendMemory();
 			}
 		}
 
@@ -338,6 +343,8 @@ void ExecutorX86::Run(const char* funcName)
 		binCodeStart += funcPos;
 	}else{
 		binCodeStart += globalStartInBytecode;
+		while(NULLC::commitedStack < exLinker->globalVarSize)
+			ExtendMemory();
 		memset(parameterHead, 0, exLinker->globalVarSize);
 	}
 
