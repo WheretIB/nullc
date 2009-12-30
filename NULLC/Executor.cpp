@@ -438,7 +438,7 @@ void Executor::Run(const char* funcName)
 				cmdStream = cmdStreamBase + fAddress;
 
 				char* oldBase = &genParams[0];
-				unsigned int paramSize = exFunctions[cmd.argument].paramSize;
+				unsigned int paramSize = exFunctions[cmd.argument].bytesToPop;
 				unsigned int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
 				unsigned int paramsMax = genParams.max;
 				genParams.reserve(genParams.size() + alignOffset + paramSize);

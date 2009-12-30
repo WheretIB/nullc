@@ -951,7 +951,7 @@ void GenCodeCmdCall(VMCmd cmd)
 
 	if(x86Functions[cmd.argument].address != -1)
 	{
-		GenCodeCmdCallEpilog(x86Functions[cmd.argument].paramSize);
+		GenCodeCmdCallEpilog(x86Functions[cmd.argument].bytesToPop);
 
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);

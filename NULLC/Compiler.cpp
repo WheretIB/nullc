@@ -395,7 +395,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
 				{
 					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]];
-					newInfo->funcType->paramSize += newInfo->funcType->paramType[n-1]->size;
+					newInfo->funcType->paramSize += newInfo->funcType->paramType[n-1]->size > 4 ? newInfo->funcType->paramType[n-1]->size : 4;
 				}
 
 #ifdef _DEBUG
@@ -1143,7 +1143,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
-		funcInfo.paramSize = refFunc->funcType->funcType->paramSize;
 
 		CreateExternalInfo(funcInfo, *refFunc);
 
