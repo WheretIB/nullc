@@ -3709,6 +3709,25 @@ return k;";
 		}
 	}
 
+const char	*testParametersExtraordinaire =
+"char func(char a, b, c){ return a+b+c; }\r\n\
+auto u = func;\r\n\
+int i = u(1, 7, 18);\r\n\
+return func(1,7,18);";
+	printf("\r\nFunction parameters with different stack type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testParametersExtraordinaire, testTarget[t], "26"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("i", 0, 26);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 

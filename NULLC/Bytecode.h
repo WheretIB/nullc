@@ -72,7 +72,6 @@ struct ExternFuncInfo
 	};
 	unsigned int	retType;	// one of the ReturnType enumeration values
 	unsigned int	funcType;	// index to the type array
-	unsigned int	paramSize;
 
 	unsigned int	startInByteCode;
 
