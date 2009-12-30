@@ -317,6 +317,26 @@ void speedTestStub(int x, int y, int width, int height, int color)
 }
 #endif
 
+int TestInt(int a)
+{
+	return a;
+}
+
+long long TestLong(long long a)
+{
+	return a;
+
+}
+float TestFloat(float a)
+{
+	return a;
+}
+
+double TestDouble(double a)
+{
+	return a;
+}
+
 void	RunTests()
 {
 	timeCompile = 0.0;
@@ -334,6 +354,13 @@ void	RunTests()
 #ifdef SPEED_TEST
 	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");
 #endif
+
+	nullcAddExternalFunction((void (*)())TestInt, "char char_(char a);");
+	nullcAddExternalFunction((void (*)())TestInt, "short short_(short a);");
+	nullcAddExternalFunction((void (*)())TestInt, "int int_(int a);");
+	nullcAddExternalFunction((void (*)())TestLong, "long long_(long a);");
+	nullcAddExternalFunction((void (*)())TestFloat, "float float_(float a);");
+	nullcAddExternalFunction((void (*)())TestDouble, "double double_(double a);");
 
 	nullcInitFileModule();
 	nullcInitMathModule();
@@ -3728,6 +3755,45 @@ return func(1,7,18);";
 				passed[t]++;
 		}
 	}
+
+const char	*testExternalFunctionPtr =
+"import std.math;\r\n\
+auto Sqrt = sqrt;\r\n\
+auto Char = char_;\r\n\
+auto Short = short_;\r\n\
+auto Int = int_;\r\n\
+auto Long = long_;\r\n\
+auto Float = float_;\r\n\
+auto Double = double_;\r\n\
+auto t1 = Sqrt(9.0);\r\n\
+auto t2 = Char(24);\r\n\
+auto t3 = Short(57);\r\n\
+auto t4 = Int(2458);\r\n\
+auto t5 = Long(14841324198l);\r\n\
+auto t6 = Float(3.0);\r\n\
+auto t7 = Double(2.0);\r\n\
+return 1;";
+	printf("\r\nFunction parameters with different stack type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testExternalFunctionPtr, testTarget[t], "1"))
+		{
+			lastFailed = false;
+
+			CHECK_DOUBLE("t1", 0, 3.0);
+			CHECK_CHAR("t2", 0, 24);
+			CHECK_SHORT("t3", 0, 57);
+			CHECK_INT("t4", 0, 2458);
+			CHECK_LONG("t5", 0, 14841324198ll);
+			CHECK_FLOAT("t6", 0, 3.0);
+			CHECK_DOUBLE("t7", 0, 2.0);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 

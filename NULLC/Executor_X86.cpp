@@ -38,6 +38,7 @@ namespace NULLC
 	unsigned int expAllocCode;
 	unsigned int expEAXstate;
 	unsigned int expECXstate;
+	unsigned int expESPstate;
 
 	int ExtendMemory()
 	{
@@ -78,6 +79,7 @@ namespace NULLC
 	{
 		expEAXstate = expInfo->ContextRecord->Eax;
 		expECXstate = expInfo->ContextRecord->Ecx;
+		expESPstate = expInfo->ContextRecord->Esp;
 		expCodePublic = expCode;
 		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW)
 		{
@@ -392,7 +394,7 @@ void ExecutorX86::Run(const char* funcName)
 			strcpy(execError, "ERROR: Function didn't return a value");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xDEADBEEF)
 			strcpy(execError, "ERROR: Null pointer access");
-		else if(expCodePublic == EXCEPTION_BREAKPOINT)
+		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate != expESPstate)
 			SafeSprintf(execError, 512, "ERROR: Cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[expEAXstate].offsetToName], &exLinker->exSymbols[exLinker->exTypes[expECXstate].offsetToName]);
 		else if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
 			strcpy(execError, "ERROR: Stack overflow");
