@@ -13,19 +13,25 @@ namespace NULLC
 
 	ChunkedStackPool<poolBlockSize>	globalPool;
 	FastVector<void*>				globalObjects;
+	FastVector<void*>				objectsFromPool;
+
+	unsigned int defaultMark = 42;
 }
 
 void* NULLC::AllocObject(int size)
 {
 	if((unsigned int)size >= minGlobalBlockSize)
 	{
-		globalObjects.push_back(new char[size]);
-		memset(globalObjects.back(), 0, size);
-		return globalObjects.back();
+		globalObjects.push_back(new char[size + 4]);
+		memset(globalObjects.back(), 0, size + 4);
+		*(int*)globalObjects.back() = defaultMark;
+		return (char*)globalObjects.back() + 4;
 	}
-	void *data = globalPool.Allocate(size);
-	memset(data, 0, size);
-	return data;
+	char *data = (char*)globalPool.Allocate(size + 4);
+	objectsFromPool.push_back(data);
+	memset(data, 0, size + 4);
+	*(int*)data = defaultMark;
+	return data + 4;
 }
 
 NullCArray NULLC::AllocArray(int size, int count)
@@ -36,12 +42,35 @@ NullCArray NULLC::AllocArray(int size, int count)
 	return ret;
 }
 
+void NULLC::MarkMemory(unsigned int number)
+{
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+		*(int*)globalObjects[i] = number;
+	for(unsigned int i = 0; i < objectsFromPool.size(); i++)
+		*(int*)objectsFromPool[i] = number;
+}
+
+void NULLC::SweepMemory(unsigned int number)
+{
+	unsigned int unusedBlocks = 0;
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+		if(*(unsigned int*)globalObjects[i] == number)
+			unusedBlocks++;
+	printf("%d unused globally allocated blocks\r\n", unusedBlocks);
+	unusedBlocks = 0;
+	for(unsigned int i = 0; i < objectsFromPool.size(); i++)
+		if(*(unsigned int*)objectsFromPool[i] == number)
+			unusedBlocks++;
+	printf("%d unused pool allocated blocks\r\n", unusedBlocks);
+}
+
 void NULLC::ClearMemory()
 {
 	globalPool.Clear();
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 		delete (char*)globalObjects[i];
 	globalObjects.clear();
+	objectsFromPool.clear();
 }
 
 void NULLC::ResetMemory()
@@ -49,6 +78,7 @@ void NULLC::ResetMemory()
 	ClearMemory();
 	globalPool.~ChunkedStackPool();
 	globalObjects.reset();
+	objectsFromPool.reset();
 }
 
 void NULLC::Assert(int val)

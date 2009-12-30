@@ -20,6 +20,10 @@ namespace NULLC
 	
 	void*		AllocObject(int size);
 	NullCArray	AllocArray(int size, int count);
+
+	void		MarkMemory(unsigned int number);
+	void		SweepMemory(unsigned int number);
+
 	void		ClearMemory();
 	void		ResetMemory();
 }

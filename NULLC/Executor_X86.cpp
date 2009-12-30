@@ -5,8 +5,6 @@
 #include "CodeGen_X86.h"
 #include "Translator_X86.h"
 
-#include "CodeInfo.h"
-
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
