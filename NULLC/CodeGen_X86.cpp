@@ -992,23 +992,65 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 {
 	EMIT_COMMENT("CALLPTR");
 
-	GenCodeCmdCallEpilog(cmd.argument);
+	assert(cmd.argument >= 4);
+	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, cmd.argument-4, ~0u);
+	EMIT_OP_LABEL(o_jne, LABEL_ALU + aluLabels);
 
-	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
-	EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
+	// external function call
+	{
+		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, cmd.argument);
+		EMIT_OP_REG(o_call, rEAX);
+	 
+		static int continueLabel = 0;
+		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
+		EMIT_OP_REG_REG(o_test, rECX, rECX);
+		EMIT_OP_LABEL(o_jnz, LABEL_SPECIAL | continueLabel);
+		EMIT_OP_REG_REG(o_mov, rECX, rESP); // esp is very likely to contain neither 0 or ~0, so we can distinguish
+		EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
+		EMIT_LABEL(LABEL_SPECIAL | continueLabel);
+		continueLabel++;
+	 
+		EMIT_OP_REG_NUM(o_add, rESP, cmd.argument + 4);
+		if(cmd.helper == (bitRetSimple | OTYPE_INT))
+		{
+			EMIT_OP_REG(o_push, rEAX);
+		}else if(cmd.helper == (bitRetSimple | OTYPE_DOUBLE)){
+			EMIT_OP_REG(o_push, rEAX);
+			EMIT_OP_REG(o_push, rEAX);
+			EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+		}else if(cmd.helper == (bitRetSimple | OTYPE_LONG)){
+			EMIT_OP_REG(o_push, rEDX);
+			EMIT_OP_REG(o_push, rEAX);
+		}
 
-	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
-	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
-	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
-	aluLabels++;
+		EMIT_OP_LABEL(o_jmp, LABEL_ALU + aluLabels + 2);
+	}
 
-	EMIT_OP_REG(o_call, rEAX);
-	EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
+	// internal function call
+	{
+		EMIT_LABEL(LABEL_ALU + aluLabels);
 
-	GenCodeCmdCallProlog(cmd);
+		GenCodeCmdCallEpilog(cmd.argument);
+
+		EMIT_OP_REG(o_pop, rEAX);
+		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
+
+		EMIT_OP_REG_REG(o_test, rEAX, rEAX);
+		EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels + 1);
+		EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+		EMIT_OP_NUM(o_int, 3);
+		EMIT_LABEL(LABEL_ALU + aluLabels + 1);
+
+		EMIT_OP_REG(o_call, rEAX);
+		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
+
+		GenCodeCmdCallProlog(cmd);
+	}
+
+	EMIT_LABEL(LABEL_ALU + aluLabels + 2);
+
+	aluLabels += 3;
 }
 
 void GenCodeCmdReturn(VMCmd cmd)
