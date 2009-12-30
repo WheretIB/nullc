@@ -36,6 +36,7 @@ private:
 	FastVector<VMCmd*>	fcallStack;
 
 	unsigned int	runningFunction;
+	VMCmd			*cmdBase;
 
 	unsigned int	paramBase;
 
@@ -49,10 +50,11 @@ private:
 
 	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
 
+	void FixupPointer(char*& ptr, const ExternTypeInfo& type);
 	void FixupArray(unsigned int offset, const ExternTypeInfo& type);
 	void FixupClass(unsigned int offset, const ExternTypeInfo& type);
 
-	bool ExtendParameterStack(char* oldBase, unsigned int oldSize);
+	bool ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *current);
 
 	void operator=(Executor& r){ (void)r; assert(false); }
 };

@@ -127,6 +127,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int oldFunctionCount = exFunctions.size();
 	unsigned int oldSymbolSize = exSymbols.size();
 	unsigned int oldTypeCount = exTypes.size();
+	unsigned int oldMemberSize = exTypeExtra.size();
 
 	// Add all types from bytecode to the list
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
@@ -162,6 +163,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		tInfo++;
 	}
 
+	// Remap new member types
+	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
+		exTypeExtra[i] = typeRemap[exTypeExtra[i]];
+
 	// Add all global variables
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
 	for(unsigned int i = 0; i < bCode->variableCount; i++)
@@ -169,6 +174,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		exVariables.push_back(*vInfo);
 		// Type index have to be updated
 		exVariables.back().type = typeRemap[vInfo->type];
+		exVariables.back().offsetToName += oldSymbolSize;
 
 		vInfo++;
 	}
