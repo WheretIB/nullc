@@ -50,9 +50,11 @@ private:
 
 	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
 
-	void FixupPointer(char*& ptr, const ExternTypeInfo& type);
-	void FixupArray(unsigned int offset, const ExternTypeInfo& type);
-	void FixupClass(unsigned int offset, const ExternTypeInfo& type);
+	void FixupPointer(char* ptr, const ExternTypeInfo& type);
+	void FixupArray(char* ptr, const ExternTypeInfo& type);
+	void FixupClass(char* ptr, const ExternTypeInfo& type);
+
+	void FixupVariable(char* ptr, const ExternTypeInfo& type);
 
 	bool ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *current);
 

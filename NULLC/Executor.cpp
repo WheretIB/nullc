@@ -969,108 +969,83 @@ namespace ExPriv
 	char *newBase;
 	unsigned int oldSize;
 }
-//int calls = 0, fixed = 0;
-void Executor::FixupPointer(char*& ptr, const ExternTypeInfo& type)
+
+void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 {
-	//calls++;
-	if(ptr > (char*)0x00010000)
+	char **rPtr = (char**)ptr;
+	if(*rPtr > (char*)0x00010000)
 	{
-		if(ptr >= ExPriv::oldBase && ptr < (ExPriv::oldBase + ExPriv::oldSize))
+		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
 		{
-			//fixed++;
 //			printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
-			ptr = ptr - ExPriv::oldBase + ExPriv::newBase;
+			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
 		}else{
 			ExternTypeInfo &subType = exTypes[type.subType];
 //			printf("\tGlobal pointer %s %p\r\n", symbols + subType.offsetToName, ptr);
-			unsigned int *marker = (unsigned int*)(ptr - 4);
+			unsigned int *marker = (unsigned int*)(*rPtr)-1;
 //			printf("\tMarker is %d\r\n", *marker);
 			if(*marker == 42)
 			{
 				*marker = 0;
-				switch(subType.subCat)
-				{
-				case ExternTypeInfo::CAT_ARRAY:
-//					printf("\tChecking pointer to %s [at %p]\r\n", symbols + subType.offsetToName, ptr);
-					FixupArray((unsigned int)(ptr - ExPriv::newBase), subType);
-					break;
-				case ExternTypeInfo::CAT_POINTER:
-//					printf("\tChecking pointer to %s [at %d]\r\n", symbols + subType.offsetToName, ptr);
-					FixupPointer(*(char**)(ptr), subType);
-					break;
-				case ExternTypeInfo::CAT_CLASS:
-//					printf("\tChecking pointer to %s [at %d]\r\n", symbols + subType.offsetToName, ptr);
-					FixupClass((unsigned int)(ptr - ExPriv::newBase), subType);
-					break;
-				default:
-//					printf("\tSkipping pointer to %s [at %d]\r\n", symbols + subType.offsetToName, ptr);
-					break;
-				}
+				FixupVariable(*rPtr, subType);
 			}
 		}
 	}
 }
 
-void Executor::FixupArray(unsigned int offset, const ExternTypeInfo& type)
+void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 {
 	ExternTypeInfo &subType = exTypes[type.subType];
 	if(type.arrSize == -1)
 	{
-		FixupPointer(*(char**)(ExPriv::newBase + offset), subType);
+		FixupPointer(ptr, subType);
 		return;
 	}
 	switch(subType.subCat)
 	{
 	case ExternTypeInfo::CAT_ARRAY:
-//		printf("Checking array of %s [at %d]\r\n", symbols + subType.offsetToName, offset);
-		for(unsigned int i = 0; i < type.arrSize; i++, offset += subType.size)
-			FixupArray(offset, subType);
+		for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+			FixupArray(ptr, subType);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
-//		printf("Checking array of %s [at %d]\r\n", symbols + subType.offsetToName, offset);
-		for(unsigned int i = 0; i < type.arrSize; i++, offset += subType.size)
-			FixupPointer(*(char**)(ExPriv::newBase + offset), subType);
+		for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+			FixupPointer(ptr, subType);
 		break;
 	case ExternTypeInfo::CAT_CLASS:
-//		printf("Checking array of %s [at %d]\r\n", symbols + subType.offsetToName, offset);
-		for(unsigned int i = 0; i < type.arrSize; i++, offset += subType.size)
-			FixupClass(offset, subType);
-		break;
-	default:
-//		printf("Skipping array of %s [at %d]\r\n", symbols + subType.offsetToName, offset);
+		for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+			FixupClass(ptr, subType);
 		break;
 	}
 }
 
-void Executor::FixupClass(unsigned int offset, const ExternTypeInfo& type)
+void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 {
 	unsigned int *memberList = &exLinker->exTypeExtra[0];
-	char *str = symbols + type.offsetToName;
-	const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
+	//char *str = symbols + type.offsetToName;
+	//const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
 	for(unsigned int n = 0; n < type.memberCount; n++)
 	{
-		unsigned int strLength = (unsigned int)strlen(memberName) + 1;
+		//unsigned int strLength = (unsigned int)strlen(memberName) + 1;
 		ExternTypeInfo &subType = exTypes[memberList[type.memberOffset + n]];
-		switch(subType.subCat)
-		{
-		case ExternTypeInfo::CAT_ARRAY:
-//			printf("Checking member %s %s [at %d]\r\n", symbols + subType.offsetToName, memberName, offset);
-			FixupArray(offset, subType);
-			break;
-		case ExternTypeInfo::CAT_POINTER:
-//			printf("Checking member %s %s [at %d]\r\n", symbols + subType.offsetToName, memberName, offset);
-			FixupPointer(*(char**)(ExPriv::newBase + offset), subType);
-			break;
-		case ExternTypeInfo::CAT_CLASS:
-//			printf("Checking member %s %s [at %d]\r\n", symbols + subType.offsetToName, memberName, offset);
-			FixupClass(offset, subType);
-			break;
-		default:
-//			printf("Skipping member %s %s [at %d]\r\n", symbols + subType.offsetToName, memberName, offset);
-			break;
-		}
-		memberName += strLength;
-		offset += subType.size;
+		FixupVariable(ptr, subType);
+		//memberName += strLength;
+		ptr += subType.size;
+	}
+}
+
+void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
+{
+	switch(type.subCat)
+	{
+	case ExternTypeInfo::CAT_ARRAY:
+		FixupArray(ptr, type);
+		break;
+	case ExternTypeInfo::CAT_POINTER:
+		FixupPointer(ptr, type);
+		break;
+	case ExternTypeInfo::CAT_CLASS:
+		FixupClass(ptr, type);
+		break;
 	}
 }
 
@@ -1091,27 +1066,8 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 	ExternTypeInfo *types = &exLinker->exTypes[0];
 	// Fix global variables
 	for(unsigned int i = 0; i < exLinker->exVariables.size(); i++)
-	{
-		unsigned int offset = vars[i].offset;
-		switch(types[vars[i].type].subCat)
-		{
-		case ExternTypeInfo::CAT_ARRAY:
-//			printf("Checking global %s %s [at %d]\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, offset);
-			FixupArray(offset, types[vars[i].type]);
-			break;
-		case ExternTypeInfo::CAT_POINTER:
-//			printf("Checking global %s %s [at %d]\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, offset);
-			FixupPointer(*(char**)(genParams.data + offset), types[vars[i].type]);
-			break;
-		case ExternTypeInfo::CAT_CLASS:
-//			printf("Checking global %s %s [at %d]\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, offset);
-			FixupClass(offset, types[vars[i].type]);
-			break;
-		default:
-//			printf("Skipping global %s %s [at %d]\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, offset);
-			break;
-		}
-	}
+		FixupVariable(genParams.data + vars[i].offset, types[vars[i].type]);
+
 	int offset = exLinker->globalVarSize;
 	int n = 0;
 	fcallStack.push_back(current);
@@ -1140,24 +1096,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
 			{
 				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-				switch(types[lInfo.type].subCat)
-				{
-				case ExternTypeInfo::CAT_ARRAY:
-//					printf("Checking local %s %s [at %d+%d] [at %d] (%p)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset, offset + lInfo.offset, *(int**)(genParams.data + offset + lInfo.offset));
-					FixupArray(offset + lInfo.offset, types[lInfo.type]);
-					break;
-				case ExternTypeInfo::CAT_POINTER:
-//					printf("Checking local %s %s [at %d+%d] [at %d] (%p)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset, offset + lInfo.offset, *(int**)(genParams.data + offset + lInfo.offset));
-					FixupPointer(*(char**)(genParams.data + offset + lInfo.offset), types[lInfo.type]);
-					break;
-				case ExternTypeInfo::CAT_CLASS:
-//					printf("Checking local %s %s [at %d+%d] [at %d] (%p)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset, offset + lInfo.offset, *(int**)(genParams.data + offset + lInfo.offset));
-					FixupClass(offset + lInfo.offset, types[lInfo.type]);
-					break;
-				default:
-//					printf("Skipping local %s %s [at %d+%d] [at %d] (%p)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset, offset + lInfo.offset, *(int**)(genParams.data + offset + lInfo.offset));
-					break;
-				}
+				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
 			}
 			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + exFunctions[funcID].localCount - 1];
 			offset += lInfo.offset + lInfo.size;
