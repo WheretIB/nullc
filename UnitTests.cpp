@@ -3828,6 +3828,38 @@ return a;";
 		}
 	}
 
+const char	*testDefaultFuncVars2 =
+"auto generator(int from = 0){ return auto(){ return from++; }; }\r\n\
+\r\n\
+auto genEater(auto gen = generator(5))\r\n\
+{\r\n\
+	int ret = 0;\r\n\
+	for(int i = 0; i < 3; i++)\r\n\
+		ret += gen();\r\n\
+	return ret;\r\n\
+}\r\n\
+auto u = genEater();\r\n\
+auto v = genEater(generator());\r\n\
+auto w = genEater(generator(8));\r\n\
+\r\n\
+return 0;";
+	printf("\r\nDefault function parameter values 2\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testDefaultFuncVars2, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("u", 0, 18);
+			CHECK_INT("v", 0, 3);
+			CHECK_INT("w", 0, 27);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -4075,6 +4107,8 @@ return *ll;";
 	TEST_FOR_FAIL("Illegal pointer operation 2", "int ref a; a++;", "ERROR: Increment is not supported on 'int ref'");
 	TEST_FOR_FAIL("Illegal pointer operation 3", "int ref a; a = a * 5;", "ERROR: Operation * is not supported on 'int ref' and 'int'");
 	TEST_FOR_FAIL("Illegal class operation", "import std.math; float2 v; v = ~v;", "ERROR: Unary operation '~' is not supported on 'float2'");
+
+	TEST_FOR_FAIL("Default function parameter type mismatch", "import std.math;int f(int v = float3(3, 4, 5)){ return v; }return f();", "ERROR: Cannot convert from 'float3' to 'int'");
 	
 	//TEST_FOR_FAIL("parsing", "");
 
