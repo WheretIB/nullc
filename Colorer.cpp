@@ -250,13 +250,15 @@ namespace ColorerGrammar
 				!(
 					typeExpr >>
 					constExpr >>
-					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")])
+					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")]) >>
+					!(chP('=')[ColorText] >> term4_9)
 				) >>
 				*(
 					strP(",")[ColorText] >>
 					(
 						!(typeExpr >> constExpr) >>
-						((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")])
+						((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")]) >>
+						!(chP('=')[ColorText] >> term4_9)
 					)
 				)[OnError];
 			funcdef		=

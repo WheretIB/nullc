@@ -328,6 +328,13 @@ bool ParseFunctionVariables(Lexeme** str)
 	CALLBACK(FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
 	(*str)++;
 
+	if(ParseLexem(str, lex_set))
+	{
+		if(!ParseTernaryExpr(str))
+			ThrowError((*str)->pos, "ERROR: default parameter value not found after '='");
+		CALLBACK(FunctionParameterDefault());
+	}
+
 	while(ParseLexem(str, lex_comma))
 	{
 		ParseIsConst(str);
@@ -339,6 +346,13 @@ bool ParseFunctionVariables(Lexeme** str)
 			ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
 		CALLBACK(FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
 		(*str)++;
+		
+		if(ParseLexem(str, lex_set))
+		{
+			if(!ParseTernaryExpr(str))
+				ThrowError((*str)->pos, "ERROR: default parameter value not found after '='");
+			CALLBACK(FunctionParameterDefault());
+		}
 	}
 	return true;
 }
