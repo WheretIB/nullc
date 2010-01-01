@@ -24,6 +24,8 @@ namespace NULLC
 	void		MarkMemory(unsigned int number);
 	void		SweepMemory(unsigned int number);
 
+	void		CollectMemory();
+
 	void		ClearMemory();
 	void		ResetMemory();
 }

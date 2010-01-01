@@ -253,7 +253,7 @@ class VariableInfo
 public:
 	VariableInfo(){}
 	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool newisConst, bool global):
-		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), dataReserved(false), varType(newtype), isGlobal(global)
+		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), varType(newtype), isGlobal(global)
 	{
 	}
 
@@ -264,7 +264,7 @@ public:
 	bool			isConst;	// Constant flag
 	bool			isGlobal;
 
-	bool			dataReserved;	// Tells if cmdPushV was used for this variable
+	unsigned int	parentModule;
 
 	TypeInfo		*varType;	// Pointer to the variable type info
 

@@ -127,4 +127,6 @@ void AddAliasType(InplaceStr aliasName);
 void AddUnfixedArraySize();
 
 unsigned int GetGlobalSize();
+void SetGlobalSize(unsigned int offset);
+
 void CallbackReset();

@@ -137,3 +137,142 @@ NullCArray NULLCTypeInfo::Typename(NULLCRef r)
 	ret.len = (unsigned int)strlen(ret.ptr) + 1;
 	return ret;
 }
+
+namespace GC
+{
+	char	*unmanagableBase = 0;
+	char	*unmanagableTop = NULL;
+	unsigned int	checkedMarker = 0;
+
+	void CheckArray(char* ptr, const ExternTypeInfo& type);
+	void CheckClass(char* ptr, const ExternTypeInfo& type);
+	void CheckVariable(char* ptr, const ExternTypeInfo& type);
+
+	void MarkPointer(char* ptr, const ExternTypeInfo& type)
+	{
+		char **rPtr = (char**)ptr;
+		if(*rPtr > (char*)0x00010000)
+		{
+			if(*rPtr < unmanagableBase || *rPtr > unmanagableTop)
+			{
+				ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
+				printf("\tGlobal pointer %s %p\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, ptr);
+				unsigned int *marker = (unsigned int*)(*rPtr)-1;
+				printf("\tMarker is %d\r\n", *marker);
+				if(*marker != checkedMarker)
+				{
+					*marker = checkedMarker;
+					if(type.subCat != ExternTypeInfo::CAT_NONE)
+						CheckVariable(*rPtr, subType);
+				}
+			}
+		}
+	}
+
+	void CheckArray(char* ptr, const ExternTypeInfo& type)
+	{
+		ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
+		if(type.arrSize == -1)
+		{
+			MarkPointer(ptr, subType);
+			return;
+		}
+		switch(subType.subCat)
+		{
+		case ExternTypeInfo::CAT_ARRAY:
+			for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+				CheckArray(ptr, subType);
+			break;
+		case ExternTypeInfo::CAT_POINTER:
+			for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+				MarkPointer(ptr, subType);
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+				CheckClass(ptr, subType);
+			break;
+		}
+	}
+
+	void CheckClass(char* ptr, const ExternTypeInfo& type)
+	{
+		unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[0];
+		for(unsigned int n = 0; n < type.memberCount; n++)
+		{
+			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[type.memberOffset + n]];
+			CheckVariable(ptr, subType);
+			ptr += subType.size;
+		}
+	}
+
+	void CheckVariable(char* ptr, const ExternTypeInfo& type)
+	{
+		switch(type.subCat)
+		{
+		case ExternTypeInfo::CAT_ARRAY:
+			CheckArray(ptr, type);
+			break;
+		case ExternTypeInfo::CAT_POINTER:
+			MarkPointer(ptr, type);
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			CheckVariable(ptr, type);
+			break;
+		}
+	}
+}
+
+void SetUnmanagableRange(char* base, unsigned int size)
+{
+	GC::unmanagableBase = base;
+	GC::unmanagableTop = base + size;
+}
+
+void MarkUsedBlocks(unsigned int number)
+{
+	GC::checkedMarker = number;
+
+	printf("Unmanageable range: %p-%p\r\n", GC::unmanagableBase, GC::unmanagableTop);
+
+	ExternVarInfo *vars = &NULLC::commonLinker->exVariables[0];
+	ExternTypeInfo *types = &NULLC::commonLinker->exTypes[0];
+	// Fix global variables
+	for(unsigned int i = 0; i < NULLC::commonLinker->exVariables.size(); i++)
+		GC::CheckVariable(GC::unmanagableBase + vars[i].offset, types[vars[i].type]);
+
+	/*int offset = NULLC::commonLinker->globalVarSize;
+	int n = 0;
+	fcallStack.push_back(current);
+	// Fixup local variables
+	for(; n < (int)fcallStack.size(); n++)
+	{
+		int address = int(fcallStack[n]-cmdBase);
+		int funcID = -1;
+
+		int debugMatch = 0;
+		for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
+		{
+			if(address >= NULLC::commonLinker->exFunctions[i].address && address < (NULLC::commonLinker->exFunctions[i].address + NULLC::commonLinker->exFunctions[i].codeSize))
+			{
+				funcID = i;
+				debugMatch++;
+			}
+		}
+		assert(debugMatch < 2);
+
+		if(funcID != -1)
+		{
+			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
+//			printf("In function %s (with offset of %d)\r\n", symbols + exFunctions[funcID].offsetToName, alignOffset);
+			offset += alignOffset;
+			for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
+			{
+				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+				GC::CheckVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
+			}
+			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + exFunctions[funcID].localCount - 1];
+			offset += lInfo.offset + lInfo.size;
+		}
+	}
+	fcallStack.pop_back();*/
+}

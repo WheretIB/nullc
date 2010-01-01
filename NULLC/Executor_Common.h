@@ -13,3 +13,8 @@ namespace NULLCTypeInfo
 {
 	NullCArray Typename(NULLCRef r);
 }
+
+// Garbage collector
+
+void SetUnmanagableRange(char* base, unsigned int size);
+void MarkUsedBlocks(unsigned int number);

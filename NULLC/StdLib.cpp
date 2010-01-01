@@ -6,6 +6,8 @@
 #include "stdafx.h"
 #include "Pool.h"
 
+#include "Executor_Common.h"
+
 namespace NULLC
 {
 	const unsigned int poolBlockSize = 16 * 1024;
@@ -16,10 +18,25 @@ namespace NULLC
 	FastVector<void*>				objectsFromPool;
 
 	unsigned int defaultMark = 42;
+
+	unsigned int usedMemory = 0;
+
+	unsigned int collectableMinimum = 32 * 1024;
+	unsigned int globalMemoryLimit = 32 * 1024 * 1024;
 }
 
 void* NULLC::AllocObject(int size)
 {
+#ifdef ENABLE_GC
+	usedMemory += size;
+	if((unsigned int)size > collectableMinimum)
+	{
+		CollectMemory();
+	}else if((unsigned int)size > globalMemoryLimit){
+		nullcThrowError("Reached global memory maximum");
+		return NULL;
+	}
+#endif
 	if((unsigned int)size >= minGlobalBlockSize)
 	{
 		globalObjects.push_back(new char[size + 4]);
@@ -64,8 +81,36 @@ void NULLC::SweepMemory(unsigned int number)
 	printf("%d unused pool allocated blocks\r\n", unusedBlocks);
 }
 
+#ifdef ENABLE_GC
+void NULLC::CollectMemory()
+{
+	// All memory blocks are marked with 0
+	MarkMemory(0);
+	// Used memory blocks are marked with 1
+	MarkUsedBlocks(1);
+
+	// Globally allocated objects marked with 0 are deleted
+	unsigned int unusedBlocks = 0;
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	{
+		if(*(unsigned int*)globalObjects[i] == 0)
+		{
+			delete (char*)globalObjects[i];
+			globalObjects[i] = globalObjects.back();
+			globalObjects.pop_back();
+			unusedBlocks++;
+		}
+	}
+	printf("%d unused globally allocated blocks destroyed (%d remains)\r\n", unusedBlocks, globalObjects.size());
+
+	// Memory allocated from pool is defragmented
+}
+#endif
+
 void NULLC::ClearMemory()
 {
+	NULLC::usedMemory = 0;
+
 	globalPool.Clear();
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 		delete (char*)globalObjects[i];

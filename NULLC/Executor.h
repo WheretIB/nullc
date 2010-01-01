@@ -53,7 +53,6 @@ private:
 	void FixupPointer(char* ptr, const ExternTypeInfo& type);
 	void FixupArray(char* ptr, const ExternTypeInfo& type);
 	void FixupClass(char* ptr, const ExternTypeInfo& type);
-
 	void FixupVariable(char* ptr, const ExternTypeInfo& type);
 
 	bool ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *current);

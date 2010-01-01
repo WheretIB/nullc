@@ -35,6 +35,7 @@ struct NULLCRef
 //#define IMPORT_VERBOSE_DEBUG_OUTPUT
 //#define LINK_VERBOSE_DEBUG_OUTPUT
 #endif
+//#define ENABLE_GC
 
 #if defined(_MSC_VER) && !defined(_M_X64)
 #define NULLC_BUILD_X86_JIT
