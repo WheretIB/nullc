@@ -3799,7 +3799,7 @@ return 1;";
 
 const char	*testDefaultFuncVars1 =
 "int def = 4;\r\n\
-int func(int a = 5, b = def){ return a + b; }\r\n\
+int func(int a = 5.0, b = def){ return a + b; }\r\n\
 \r\n\
 int a = func();\r\n\
 int b = func(7);\r\n\
