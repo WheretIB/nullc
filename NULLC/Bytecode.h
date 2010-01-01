@@ -106,6 +106,8 @@ struct ExternModuleInfo
 
 	unsigned int	funcStart;
 	unsigned int	funcCount;
+
+	unsigned int	variableOffset;
 };
 
 struct ByteCode

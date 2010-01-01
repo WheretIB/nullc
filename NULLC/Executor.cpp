@@ -67,6 +67,8 @@ void Executor::Run(const char* funcName)
 	genParams.clear();
 	genParams.resize(exLinker->globalVarSize);
 
+	SetUnmanagableRange(genParams.data, genParams.max);
+
 	// If global code is executed, reset all global variables
 	if(!funcName)
 		memset(&genParams[0], 0, exLinker->globalVarSize);
@@ -987,7 +989,8 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 			if(*marker == 42)
 			{
 				*marker = 0;
-				FixupVariable(*rPtr, subType);
+				if(type.subCat != ExternTypeInfo::CAT_NONE)
+					FixupVariable(*rPtr, subType);
 			}
 		}
 	}
@@ -1053,6 +1056,8 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 {
 //	printf("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
 //	printf("New base: %p-%p\r\n", genParams.data, genParams.data + genParams.max);
+
+	SetUnmanagableRange(genParams.data, genParams.max);
 
 	NULLC::MarkMemory(42);
 

@@ -35,5 +35,6 @@ public:
 
 	FastVector<unsigned int>	typeRemap;
 	FastVector<unsigned int>	funcRemap;
+	FastVector<unsigned int>	moduleRemap;
 };
 

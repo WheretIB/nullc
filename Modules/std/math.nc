@@ -1,4 +1,12 @@
-//double pi = 3.141592683;
+// Constants
+class MathConstants
+{
+	double pi;
+	double e;
+}
+MathConstants math;
+math.pi = 3.14159265358979323846;
+math.e = 2.71828182845904523536;
 
 // scalar functions
 double	cos(double deg);
@@ -21,7 +29,7 @@ double	exp(double num);
 double	log(double num);
 
 double	sqrt(double num);
-	
+
 double clamp(double val, min, max);
 double saturate(double val);
 double abs(double val);
@@ -66,6 +74,30 @@ float2 operator/(float2 a, float b)
 {
 	return float2(a.x / b, a.y / b);
 }
+float2 ref operator +=(float2 ref a, float2 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	return a;
+}
+float2 ref operator -=(float2 ref a, float2 b)
+{
+	a.x -= b.x;
+	a.y -= b.y;
+	return a;
+}
+float2 ref operator *=(float2 ref a, float b)
+{
+	a.x *= b;
+	a.y *= b;
+	return a;
+}
+float2 ref operator /=(float2 ref a, float b)
+{
+	a.x /= b;
+	a.y /= b;
+	return a;
+}
 
 align(4) class float3
 {
@@ -106,6 +138,34 @@ float3 operator*(float a, float3 b)
 float3 operator/(float3 a, float b)
 {
 	return float3(a.x / b, a.y / b, a.z / b);
+}
+float3 ref operator +=(float3 ref a, float3 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	a.z += b.z;
+	return a;
+}
+float3 ref operator -=(float3 ref a, float3 b)
+{
+	a.x -= b.x;
+	a.y -= b.y;
+	a.z -= b.z;
+	return a;
+}
+float3 ref operator *=(float3 ref a, float b)
+{
+	a.x *= b;
+	a.y *= b;
+	a.z *= b;
+	return a;
+}
+float3 ref operator /=(float3 ref a, float b)
+{
+	a.x /= b;
+	a.y /= b;
+	a.z /= b;
+	return a;
 }
 
 align(4) class float4
@@ -148,6 +208,38 @@ float4 operator*(float a, float4 b)
 float4 operator/(float4 a, float b)
 {
 	return float4(a.x / b, a.y / b, a.z / b, a.w / b);
+}
+float4 ref operator +=(float4 ref a, float4 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	a.z += b.z;
+	a.w += b.w;
+	return a;
+}
+float4 ref operator -=(float4 ref a, float4 b)
+{
+	a.x -= b.x;
+	a.y -= b.y;
+	a.z -= b.z;
+	a.w -= b.w;
+	return a;
+}
+float4 ref operator *=(float4 ref a, float b)
+{
+	a.x *= b;
+	a.y *= b;
+	a.z *= b;
+	a.w *= b;
+	return a;
+}
+float4 ref operator /=(float4 ref a, float b)
+{
+	a.x /= b;
+	a.y /= b;
+	a.z /= b;
+	a.w /= b;
+	return a;
 }
 
 float3 float3(float2 xy, float z)

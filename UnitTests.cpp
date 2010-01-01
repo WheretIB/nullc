@@ -36,11 +36,14 @@ bool lastFailed;
 
 void*	FindVar(const char* name)
 {
+	unsigned int addressShift = 0;
 	for(unsigned int i = 0; i < varCount; i++)
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
+		if(currVar.pos >> 24)
+			addressShift += currVar.varType->size;
 		if(strlen(name) == (unsigned int)(currVar.name.end - currVar.name.begin) && memcmp(currVar.name.begin, name, currVar.name.end - currVar.name.begin) == 0)
-			return (void*)(varData+currVar.pos);
+			return (void*)(varData + addressShift + currVar.pos);
 	}
 	return varData;
 }

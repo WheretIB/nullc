@@ -808,7 +808,6 @@ void AddVariableReserveNode(const char* pos)
 	if(!currType)
 		ThrowError(pos, "ERROR: auto variable must be initialized in place of definition");
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
-	CodeInfo::varInfo.back()->dataReserved = true;
 	varDefined = 0;
 }
 
@@ -1074,7 +1073,6 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 		CodeInfo::varInfo[i]->varType = realCurrType;
 		varTop += realCurrType->size;
 	}
-	CodeInfo::varInfo[i]->dataReserved = true;
 
 	CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
 
@@ -2168,6 +2166,11 @@ void CallbackInitialize()
 unsigned int GetGlobalSize()
 {
 	return varTop;
+}
+
+void SetGlobalSize(unsigned int offset)
+{
+	varTop = offset;
 }
 
 void CallbackReset()

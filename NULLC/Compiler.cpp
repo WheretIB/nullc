@@ -341,7 +341,7 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	return true;
 }
 
-bool Compiler::ImportModule(char* bytecode, const char* pos)
+bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number)
 {
 	char errBuf[256];
 	ByteCode *bCode = (ByteCode*)bytecode;
@@ -463,17 +463,24 @@ bool Compiler::ImportModule(char* bytecode, const char* pos)
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 	tInfo = FindFirstType(bCode);
 	for(unsigned int i = 0; i < typeRemap.size(); i++)
-		printf("Type\r\n\t%s\r\nis remaped from index %d to index %d with\r\n\t%s\r\ntype\r\n", symbols + tInfo[i].offsetToName, i, typeRemap[i], CodeInfo::typeInfo[typeRemap[i]]->GetFullTypeName());
+		printf("Type\r\n\t%s\r\nis remapped from index %d to index %d with\r\n\t%s\r\ntype\r\n", symbols + tInfo[i].offsetToName, i, typeRemap[i], CodeInfo::typeInfo[typeRemap[i]]->GetFullTypeName());
 #endif
-/*
-	// Import variables
-	ExternVarInfo *vInfo = FindFirstVar(bCode);
-	for(unsigned int i = 0; i< bCode->variableCount; i++)
+
+	if(!setjmp(CodeInfo::errorHandler))
 	{
-		SelectTypeByIndex(typeRemap[vInfo->type]);
-		AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName));
+		// Import variables
+		ExternVarInfo *vInfo = FindFirstVar(bCode);
+		for(unsigned int i = 0; i < bCode->variableCount; i++, vInfo++)
+		{
+			SelectTypeByIndex(typeRemap[vInfo->type]);
+			AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName));
+			CodeInfo::varInfo.back()->parentModule = number;
+			CodeInfo::varInfo.back()->pos += (number << 24);
+		}
+	}else{
+		return false;
 	}
-*/
+
 	// Import functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
@@ -680,11 +687,9 @@ bool Compiler::Compile(const char* str, bool noClear)
 		activeModules.push_back();
 		activeModules.back().name = moduleName[i];
 		activeModules.back().funcStart = CodeInfo::funcInfo.size();
-		if(!ImportModule(moduleData[i], moduleName[i]))
-		{
-			delete[] moduleData[i];
+		if(!ImportModule(moduleData[i], moduleName[i], i+1))
 			return false;
-		}
+		SetGlobalSize(0);
 		activeModules.back().funcCount = CodeInfo::funcInfo.size() - activeModules.back().funcStart;
 	}
 
@@ -929,11 +934,14 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	}
 
 	unsigned int offsetToVar = size;
+	unsigned int globalVarCount = 0;
 	size += CodeInfo::varInfo.size() * sizeof(ExternVarInfo);
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		VariableInfo *curr = CodeInfo::varInfo[i];
-
+		if(curr->pos >> 24)
+			continue;
+		globalVarCount++;
 		symbolStorageSize += (unsigned int)(curr->name.end - curr->name.begin) + 1;
 	}
 
@@ -1002,7 +1010,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->firstModule = (ExternModuleInfo*)((char*)(code) + code->offsetToFirstModule);
 
 	code->globalVarSize = GetGlobalSize();
-	code->variableCount = (unsigned int)CodeInfo::varInfo.size();
+	code->variableCount = globalVarCount;
 	code->offsetToFirstVar = offsetToVar;
 
 	code->functionCount = (unsigned int)CodeInfo::funcInfo.size();
@@ -1094,6 +1102,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	{
 		ExternVarInfo &varInfo = *vInfo;
 		VariableInfo *refVar = CodeInfo::varInfo[i];
+
+		if(refVar->pos >> 24)
+			continue;
 
 		varInfo.offsetToName = int(symbolPos - code->debugSymbols);
 		memcpy(symbolPos, refVar->name.begin, refVar->name.end - refVar->name.begin + 1);

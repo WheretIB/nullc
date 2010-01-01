@@ -31,6 +31,7 @@ void Linker::CleanCode()
 
 	typeRemap.clear();
 	funcRemap.clear();
+	moduleRemap.clear();
 
 	NULLC::ClearMemory();
 }
@@ -67,6 +68,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			if(!bytecode && BinaryCache::GetImportPath())
 				bytecode = BinaryCache::GetBytecode(path);
 
+			unsigned int varSize = globalVarSize;
 			if(bytecode)
 			{
 #ifdef VERBOSE_DEBUG_OUTPUT
@@ -85,6 +87,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			exModules.back().name = NULL;
 			exModules.back().nameHash = GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
+			exModules.back().variableOffset = varSize;
+#ifdef VERBOSE_DEBUG_OUTPUT
+			printf("Module %s variables are found at %d.\r\n", path, varSize);
+#endif
 			loadedId = exModules.size() - 1;
 		}
 		moduleFuncCount += mInfo->funcCount;
@@ -100,12 +106,13 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = bCode->externalFunctionCount + moduleFuncCount; i < bCode->functionCount; i++)
 		funcRemap[i] = (exFunctions.size() ? exFunctions.size() - (bCode->externalFunctionCount + moduleFuncCount) : 0) + i;
 
+	moduleRemap.resize(bCode->dependsCount);
+
 	mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
 	// Fixup function table
 	for(unsigned int i = 0; i < bCode->dependsCount; i++)
 	{
 		const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
-
 		//Search for it in loaded modules
 		int loadedId = -1;
 		for(unsigned int n = 0; n < exModules.size(); n++)
@@ -119,6 +126,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		ExternModuleInfo *rInfo = &exModules[loadedId];
 		for(unsigned int n = mInfo->funcStart; n < mInfo->funcStart + mInfo->funcCount; n++)
 			funcRemap[n] = rInfo->funcStart + n - mInfo->funcStart;
+		moduleRemap[i] = loadedId;
+#ifdef VERBOSE_DEBUG_OUTPUT
+		printf("Module %d (%s) is found at index %d.\r\n", i, path, loadedId);
+#endif
 		mInfo++;
 	}
 
@@ -167,6 +178,15 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
 		exTypeExtra[i] = typeRemap[exTypeExtra[i]];
 
+	// Add new symbols
+	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
+	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
+	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);
+#endif
+
 	// Add all global variables
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
 	for(unsigned int i = 0; i < bCode->variableCount; i++)
@@ -175,17 +195,14 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		// Type index have to be updated
 		exVariables.back().type = typeRemap[vInfo->type];
 		exVariables.back().offsetToName += oldSymbolSize;
-
+#ifdef VERBOSE_DEBUG_OUTPUT
+		printf("Variable %s %s at %d\r\n", &exSymbols[0] + exTypes[exVariables.back().type].offsetToName, &exSymbols[0] + exVariables.back().offsetToName, exVariables.back().offset);
+#endif
 		vInfo++;
 	}
 
 	unsigned int oldGlobalSize = globalVarSize;
 	globalVarSize += bCode->globalVarSize;
-
-	// Add new symbols
-	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
-	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
-	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
 
 	// Add new locals
 	unsigned int oldLocalsSize = exLocals.size();
@@ -306,11 +323,24 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		case cmdMovDorL:
 		case cmdMovCmplx:
 			if(cmd.flag == ADDRESS_ABOLUTE)
-				cmd.argument += oldGlobalSize;
+			{
+				if(cmd.argument >> 24)
+					cmd.argument = (cmd.argument & 0x00ffffff) + exModules[moduleRemap[(cmd.argument >> 24) - 1]].variableOffset;
+				else
+					cmd.argument += oldGlobalSize;
+			}
 			break;
 		case cmdGetAddr:
 			if(cmd.helper == ADDRESS_ABOLUTE)
-				cmd.argument += oldGlobalSize;
+			{
+				if(cmd.argument >> 24)
+					cmd.argument = (cmd.argument & 0x00ffffff) + exModules[moduleRemap[(cmd.argument >> 24) - 1]].variableOffset;
+				else
+					cmd.argument += oldGlobalSize;
+			}
+			break;
+		case cmdSetRange:
+			cmd.argument += oldGlobalSize;
 			break;
 		case cmdJmp:
 		case cmdJmpZ:

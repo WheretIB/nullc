@@ -566,7 +566,6 @@ void FillVariableInfoTree()
 	for(unsigned int i = 0; i < varCount; i++)
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
-		address = currVar.pos;
 		sprintf(name, "%d: %s%s %.*s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetFullTypeName(), currVar.name.end-currVar.name.begin, currVar.name.begin);
 
 		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
