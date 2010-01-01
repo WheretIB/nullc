@@ -765,14 +765,8 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	// If types don't match
 	if(second->typeInfo != typeInfo)
 	{
-		// If it is not build-in basic types
-		// Or if array dimension differ and it is not special array definition
-		// Or if the pointer depths aren't the same
-		// Or if pointers point to different types
-		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX) ||
-			(typeInfo->arrLevel != second->typeInfo->arrLevel && !arrSetAll) ||
-			(typeInfo->refLevel != second->typeInfo->refLevel) ||
-			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
+		// If it is not build-in basic types or if pointers point to different types
+		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType)
 		{
 			if(!(typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && arrSetAll))
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
@@ -884,17 +878,9 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	// If types don't match
 	if(second->typeInfo != typeInfo)
 	{
-		// If it is not build-in basic types
-		// Or if array dimension differ
-		// Or if the pointer depths aren't the same
-		// Or if pointers point to different types
-		if(!(typeInfo->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX) ||
-			(typeInfo->arrLevel != second->typeInfo->arrLevel) ||
-			(typeInfo->refLevel != second->typeInfo->refLevel) ||
-			(typeInfo->refLevel && typeInfo->refLevel == second->typeInfo->refLevel && typeInfo->subType != second->typeInfo->subType))
-		{
+		// If it is not build-in basic types or if pointers point to different types
+		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
-		}
 	}
 
 	absAddress = true;
