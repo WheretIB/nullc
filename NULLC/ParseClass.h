@@ -253,7 +253,7 @@ class VariableInfo
 public:
 	VariableInfo(){}
 	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool newisConst, bool global):
-		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), varType(newtype), isGlobal(global)
+		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), varType(newtype), isGlobal(global), defaultValue(NULL)
 	{
 	}
 
@@ -267,6 +267,7 @@ public:
 	unsigned int	parentModule;
 
 	TypeInfo		*varType;	// Pointer to the variable type info
+	NodeZeroOP		*defaultValue;	// Default value code for function parameters
 
 	VariableInfo	*next, *prev;		// For self-organizing lists
 

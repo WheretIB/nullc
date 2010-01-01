@@ -1534,6 +1534,13 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
 }
 
+void FunctionParameterDefault()
+{
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
+	lastFunc.lastParam->defaultValue = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+}
+
 void FunctionPrototype(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
@@ -1803,11 +1810,32 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		unsigned int minRatingIndex = ~0u;
 		for(unsigned int k = 0; k < count; k++)
 		{
-			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, callArgCount);
+			unsigned int argumentCount = callArgCount;
+			// Act as if default parameter values were passed
+			if(argumentCount < bestFuncList[k]->funcType->funcType->paramCount)
+			{
+				// Move to the last parameter
+				VariableInfo *param = bestFuncList[k]->firstParam;
+				for(unsigned int i = 0; i < argumentCount; i++)
+					param = param->next;
+				// While there are default values, put them
+				while(param && param->defaultValue)
+				{
+					argumentCount++;
+					CodeInfo::nodeList.push_back(param->defaultValue);
+					param = param->next;
+				}
+			}
+			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, argumentCount);
 			if(bestFuncRating[k] < minRating)
 			{
 				minRating = bestFuncRating[k];
 				minRatingIndex = k;
+			}
+			while(argumentCount > callArgCount)
+			{
+				CodeInfo::nodeList.pop_back();
+				argumentCount--;
 			}
 		}
 		// Maybe the function we found can't be used at all
@@ -1869,6 +1897,23 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			ThrowError(pos, "ERROR: function expects %d argument(s), while %d are supplied", fType->paramCount, callArgCount);
 		if(GetFunctionRating(fType, callArgCount) == ~0u)
 			ThrowError(pos, "ERROR: there is no conversion from specified arguments and the ones that function accepts");
+	}
+
+	if(callArgCount < fType->paramCount)
+	{
+		// Move to the last parameter
+		VariableInfo *param = fInfo->firstParam;
+		for(unsigned int i = 0; i < callArgCount; i++)
+			param = param->next;
+		// While there are default values, put them
+		while(param && param->defaultValue)
+		{
+			callArgCount++;
+			NodeOneOP *wrap = new NodeOneOP();
+			wrap->SetFirstNode(param->defaultValue);
+			CodeInfo::nodeList.push_back(wrap);
+			param = param->next;
+		}
 	}
 
 	paramNodes.clear();

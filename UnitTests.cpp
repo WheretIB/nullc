@@ -3797,6 +3797,37 @@ return 1;";
 		}
 	}
 
+const char	*testDefaultFuncVars1 =
+"int def = 4;\r\n\
+int func(int a = 5, b = def){ return a + b; }\r\n\
+\r\n\
+int a = func();\r\n\
+int b = func(7);\r\n\
+def = 12;\r\n\
+int a2 = func();\r\n\
+int b2 = func(7);\r\n\
+int c = func(12, 8);\r\n\
+\r\n\
+return a;";
+	printf("\r\nDefault function parameter values\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testDefaultFuncVars1, testTarget[t], "9"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("a", 0, 9);
+			CHECK_INT("b", 0, 11);
+			CHECK_INT("a2", 0, 17);
+			CHECK_INT("b2", 0, 19);
+			CHECK_INT("c", 0, 20);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
