@@ -331,9 +331,10 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 
 	first = TakeLastNode();
 	// Resulting type is the same as source type with exception for logical NOT
-	typeInfo = cmd == cmdLogNot ? typeInt : first->typeInfo;
+	bool logicalOp = cmd == cmdLogNot;
+	typeInfo = logicalOp ? typeInt : first->typeInfo;
 
-	if(first->typeInfo->refLevel != 0 || first->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+	if((first->typeInfo->refLevel != 0 && !logicalOp) || first->typeInfo->type == TypeInfo::TYPE_COMPLEX)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Unary operation '%s' is not supported on '%s'", unaryCommandToText[cmdID - cmdNeg], first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeUnaryOp;
