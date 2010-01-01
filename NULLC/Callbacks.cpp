@@ -1523,20 +1523,38 @@ void FunctionAdd(const char* pos, const char* funcName)
 
 void FunctionParameter(const char* pos, InplaceStr paramName)
 {
-	if(!currType)
-		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 	if(currType == typeVoid)
 		ThrowError(pos, "ERROR: function parameter cannot be a void type");
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
+	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
+		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
+
 	lastFunc.AddParameter(new VariableInfo(paramName, hash, lastFunc.allParamSize, currType, currValConst, false));
-	lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
+	if(currType)
+		lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
 }
 
-void FunctionParameterDefault()
+void FunctionParameterDefault(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
+
+	TypeInfo *left = lastFunc.lastParam->varType;
+	TypeInfo *right = CodeInfo::nodeList.back()->typeInfo;
+
+	if(!lastFunc.lastParam->varType)
+	{
+		left = lastFunc.lastParam->varType = right;
+		lastFunc.allParamSize += right->size < 4 ? 4 : right->size;
+	}
+	if(right == typeVoid)
+		ThrowError(pos, "ERROR: Cannot convert from void to %s", left->GetFullTypeName());
+	
+	// If types don't match and it it is not build-in basic types or if pointers point to different types
+	if(left != right && (left->type == TypeInfo::TYPE_COMPLEX || right->type == TypeInfo::TYPE_COMPLEX || left->subType != right->subType))
+		ThrowError(pos, "ERROR: Cannot convert from '%s' to '%s'", right->GetFullTypeName(), left->GetFullTypeName());
+
 	lastFunc.lastParam->defaultValue = CodeInfo::nodeList.back();
 	CodeInfo::nodeList.pop_back();
 }
@@ -1553,6 +1571,9 @@ void FunctionPrototype(const char* pos)
 void FunctionStart(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
+	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
+		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
+
 	lastFunc.implemented = true;
 	lastFunc.funcType = lastFunc.retType ? CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()->retType, CodeInfo::funcInfo.back()->firstParam, CodeInfo::funcInfo.back()->paramCount) : NULL;
 
