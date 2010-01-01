@@ -84,8 +84,16 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 
-	NodeZeroOP*	GetFirstNode(){ return first; }
-	void		SetFirstNode(NodeZeroOP* node){ first = node; }
+	NodeZeroOP*	GetFirstNode()
+	{
+		return first;
+	}
+	void		SetFirstNode(NodeZeroOP* node)
+	{
+		first = node;
+		if(first)
+			typeInfo = first->typeInfo;
+	}
 protected:
 	NodeZeroOP*	first;
 };
