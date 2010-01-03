@@ -24,6 +24,9 @@ namespace NULLC
 	void		MarkMemory(unsigned int number);
 	void		SweepMemory(unsigned int number);
 
+	bool		IsBasePointer(void* ptr);
+	void*		GetBasePointer(void* ptr);
+
 	void		CollectMemory();
 
 	void		ClearMemory();

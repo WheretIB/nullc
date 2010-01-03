@@ -31,10 +31,6 @@ namespace NULLCCanvas
 			for(int y = y1 < 0 ? 0 : y1, ye = y2 > ptr->height ? ptr->height : y2; y < ye; y++)
 				((int*)ptr->data.ptr)[y*ptr->width + x] = ptr->color;
 	}
-	void CanvasDestroy(Canvas* ptr)
-	{
-		delete[] ptr->data.ptr;
-	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("img.canvas", (void(*)())NULLCCanvas::funcPtr, name, index)) return false;
@@ -45,8 +41,6 @@ bool	nullcInitCanvasModule()
 	REGISTER_FUNC(CanvasSetColor, "Canvas::SetColor", 0);
 	REGISTER_FUNC(CanvasDrawLine, "Canvas::DrawLine", 0);
 	REGISTER_FUNC(CanvasDrawRect, "Canvas::DrawRect", 0);
-
-	REGISTER_FUNC(CanvasDestroy, "Canvas::Destroy", 0);
 
 	return true;
 }

@@ -12,7 +12,7 @@ void SetCurrentAlignment(unsigned int alignment);
 // Function is called when block {} is opened, to save the number of defined variables and functions
 void BeginBlock();
 // Function is called when block {} is closed, to restore previous number of defined variables and functions to hide those that lost visibility
-void EndBlock(bool hideFunctions = true);
+void EndBlock(bool hideFunctions = true, bool saveLocals = true);
 
 // Functions for adding nodes with constant numbers of different types
 void AddNumberNodeChar(const char* pos);

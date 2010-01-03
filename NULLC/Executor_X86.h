@@ -24,6 +24,9 @@ public:
 	const char*	GetExecError();
 
 	char*	GetVariableData();
+
+	void			BeginCallStack();
+	unsigned int	GetNextAddress();
 private:
 	char	execError[512];
 	char	execResult[64];
@@ -46,6 +49,8 @@ private:
 	unsigned int	binCodeSize, binCodeReserved;
 
 	int			callContinue;
+
+	unsigned int	*callstackTop;
 
 	void operator=(ExecutorX86& r){ (void)r; assert(false); }
 };

@@ -72,6 +72,8 @@ namespace NULLC
 		commitedStack += stackGrowCommit;
 		stackReallocs++;
 
+		SetUnmanagableRange(parameterHead, reservedStack);
+
 		return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
 	}
 
@@ -156,6 +158,8 @@ bool ExecutorX86::Initialize()
 	parameterHead = paramBase = paramData + sizeof(DataStackHeader);
 	paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
 	dataHead = (DataStackHeader*)paramData;
+
+	SetUnmanagableRange(parameterHead, reservedStack);
 
 	cgFuncs[cmdNop] = GenCodeCmdNop;
 
@@ -964,6 +968,35 @@ const char*	ExecutorX86::GetExecError()
 char* ExecutorX86::GetVariableData()
 {
 	return paramBase;
+}
+
+void ExecutorX86::BeginCallStack()
+{
+	assert(0);
+	int *paramData = &NULLC::dataHead->nextElement;
+	int count = 0;
+	while(count < 31 && paramData)
+	{
+		NULLC::stackTrace[count++] = paramData[-1];
+		paramData = (int*)(long long)(*paramData);
+	}
+	NULLC::stackTrace[count] = 0;
+	NULLC::dataHead->nextElement = NULL;
+
+	callstackTop = NULLC::stackTrace;
+}
+
+unsigned int ExecutorX86::GetNextAddress()
+{
+	assert(0);
+	unsigned int address = 0;
+	for(; address < instAddress.size(); address++)
+	{
+		if(*callstackTop < (unsigned int)(long long)instAddress[address])
+			break;
+	}
+	callstackTop++;
+	return address;
 }
 
 #endif
