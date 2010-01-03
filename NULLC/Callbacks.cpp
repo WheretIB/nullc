@@ -202,10 +202,24 @@ void BeginBlock()
 	funcInfoTop.push_back((unsigned int)CodeInfo::funcInfo.size());
 }
 // Restores previous number of defined variables and functions to hide those that lost visibility
-void EndBlock(bool hideFunctions)
+void EndBlock(bool hideFunctions, bool saveLocals)
 {
 	if(currDefinedFunc.size() > 0 && currDefinedFunc.back()->closeUpvals)
 		CodeInfo::nodeList.push_back(new NodeBlock(currDefinedFunc.back(), varInfoTop.back().varStackSize));
+
+	if(currDefinedFunc.size() > 0 && saveLocals)
+	{
+		FunctionInfo &lastFunc = *currDefinedFunc.back();
+		for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
+		{
+			VariableInfo *firstNext = lastFunc.firstLocal;
+			lastFunc.firstLocal = CodeInfo::varInfo[i];
+			lastFunc.firstLocal->next = firstNext;
+			if(lastFunc.firstLocal->next)
+				lastFunc.firstLocal->next->prev = lastFunc.firstLocal;
+			lastFunc.localCount++;
+		}
+	}
 
 	CodeInfo::varInfo.shrink(varInfoTop.back().activeVarCnt);
 	varInfoTop.pop_back();
@@ -1656,7 +1670,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 
 	unsigned int varFormerTop = varTop;
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
-	EndBlock();
+	EndBlock(true, false);
 
 	CodeInfo::nodeList.push_back(new NodeFuncDef(&lastFunc, varFormerTop));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);

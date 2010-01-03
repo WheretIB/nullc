@@ -19,6 +19,9 @@ public:
 	const char*	GetExecError();
 
 	char*	GetVariableData();
+
+	void			BeginCallStack();
+	unsigned int	GetNextAddress();
 private:
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	FILE*		executeLog;
@@ -37,6 +40,7 @@ private:
 
 	unsigned int	runningFunction;
 	VMCmd			*cmdBase;
+	unsigned int	currentFrame;
 
 	unsigned int	paramBase;
 

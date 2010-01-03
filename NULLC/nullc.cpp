@@ -205,12 +205,12 @@ void nullcThrowError(const char* error)
 	}
 }
 
-const char*	nullcGetResult()
+const char* nullcGetResult()
 {
 	return executeResult;
 }
 
-void*	nullcGetVariableData()
+void* nullcGetVariableData()
 {
 	if(currExec == NULLC_VM)
 	{
@@ -223,13 +223,19 @@ void*	nullcGetVariableData()
 	return NULL;
 }
 
-void**	nullcGetVariableInfo(unsigned int* count)
+void** nullcGetVariableInfo(unsigned int* count)
 {
 	*count = (unsigned int)CodeInfo::varInfo.size();
 	return (void**)(&CodeInfo::varInfo[0]);
 }
 
-void	nullcDeinit()
+unsigned int nullcGetCurrentExecutor(void **exec)
+{
+	*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
+	return currExec;
+}
+
+void nullcDeinit()
 {
 	BinaryCache::Terminate();
 

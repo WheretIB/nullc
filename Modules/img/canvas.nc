@@ -31,5 +31,3 @@ int[] Canvas:GetData()
 {
 	return data;
 }
-
-void Canvas:Destroy();

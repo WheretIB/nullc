@@ -432,8 +432,10 @@ void Executor::Run(const char* funcName)
 
 			if(fAddress == -1)
 			{
+				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(cmd.argument, 0))
 					cmdStreamEnd = NULL;
+				fcallStack.pop_back();
 			}else{
 				fcallStack.push_back(cmdStream);
 				cmdStream = cmdStreamBase + fAddress;
@@ -461,8 +463,10 @@ void Executor::Run(const char* funcName)
 
 			if(exFunctions[fID].address == -1)
 			{
+				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(fID, 1))
 					cmdStreamEnd = NULL;
+				fcallStack.pop_back();
 			}else{
 				char* oldBase = &genParams[0];
 				unsigned int oldSize = genParams.max;
@@ -986,7 +990,7 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 //			printf("\tGlobal pointer %s %p\r\n", symbols + subType.offsetToName, ptr);
 			unsigned int *marker = (unsigned int*)(*rPtr)-1;
 //			printf("\tMarker is %d\r\n", *marker);
-			if(*marker == 42)
+			if(*marker == 42 && NULLC::IsBasePointer(*rPtr))
 			{
 				*marker = 0;
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
@@ -1157,6 +1161,15 @@ const char*	Executor::GetExecError()
 char* Executor::GetVariableData()
 {
 	return &genParams[0];
+}
+
+void Executor::BeginCallStack()
+{
+	currentFrame = 0;
+}
+unsigned int Executor::GetNextAddress()
+{
+	return currentFrame == fcallStack.size() ? ~0u : unsigned int(fcallStack[currentFrame++] - cmdBase);
 }
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION

@@ -17,4 +17,4 @@ namespace NULLCTypeInfo
 // Garbage collector
 
 void SetUnmanagableRange(char* base, unsigned int size);
-void MarkUsedBlocks(unsigned int number);
+void MarkUsedBlocks();

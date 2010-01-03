@@ -56,7 +56,9 @@ const char*	nullcGetRuntimeError();
 void	nullcThrowError(const char* error);
 
 const char*	nullcGetResult();
+
 void*	nullcGetVariableData();
+unsigned int	nullcGetCurrentExecutor(void **exec);
 
 void	nullcDeinit();
 
