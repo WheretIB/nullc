@@ -294,6 +294,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
 			printf("Adding function %-16s (at address %4d [external %p])\r\n", &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
+			printf("Closure list start: %d\r\n", exFunctions.back().closeListStart);
 #endif
 		}else{
 			assert(!"No function rewrite at the moment");

@@ -16,45 +16,60 @@ void CommonSetLinker(Linker* linker)
 	NULLC::commonLinker = linker;
 }
 
-void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, ExternFuncInfo::Upvalue* closure)
+void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, ExternFuncInfo::Upvalue* upvalue)
 {
+	// Function with a list of external variables to capture
 	ExternFuncInfo &func = NULLC::commonLinker->exFunctions[argument];
+	// Array of upvalue lists
 	ExternFuncInfo::Upvalue **externalList = &NULLC::commonLinker->exCloseLists[0];
+	// Function external list
 	ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
+	// For every function external
 	for(unsigned int i = 0; i < func.externCount; i++)
 	{
-		if(externals[i].closeListID & 0x80000000)
+		if(externals[i].closeListID & 0x80000000)	// If external variable can be found in current scope
 		{
-			closure->ptr = (unsigned int*)&paramBase[externals[i].target];
-		}else{
+			// Take a pointer to it
+			upvalue->ptr = (unsigned int*)&paramBase[externals[i].target];
+		}else{	// Otherwise, we have to get pointer from functions' existing closure
+			// Pointer to previous closure is the last function parameter (offset of cmd.helper from stack frame base)
 			unsigned int *prevClosure = (unsigned int*)(intptr_t)*(int*)(&paramBase[helper]);
-			closure->ptr = (unsigned int*)(intptr_t)prevClosure[externals[i].target >> 2];
+			// Take pointer from inside the closure (externals[i].target is in bytes, but array is of unsigned int elements)
+			upvalue->ptr = (unsigned int*)(intptr_t)prevClosure[externals[i].target >> 2];
 		}
-		closure->next = externalList[externals[i].closeListID];
-		closure->size = externals[i].size;
-		externalList[externals[i].closeListID] = closure;
-		closure = (ExternFuncInfo::Upvalue*)((int*)closure + ((externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2)));
+		// Next upvalue will be current list head
+		upvalue->next = externalList[externals[i].closeListID];
+		// Save variable size
+		upvalue->size = externals[i].size;
+		// Change list head to a new upvalue
+		externalList[externals[i].closeListID] = upvalue;
+		// Move to the next upvalue (upvalue size is max(sizeof(ExternFuncInfo::Upvalue), externals[i].size)
+		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2)));
 	}
 }
 
 void CloseUpvalues(char* paramBase, unsigned int argument)
 {
+	// Array of upvalue lists
 	ExternFuncInfo::Upvalue **externalList = &NULLC::commonLinker->exCloseLists[0];
-	ExternFuncInfo::Upvalue *curr = externalList[argument], *prev = NULL;
+	// Current upvalue and previous
+	ExternFuncInfo::Upvalue *curr = externalList[argument];
+	// While we have an upvalue that points to address larger than base (so that in recursive function call only last functions upvalues will be closed)
 	while(curr && (char*)curr->ptr >= paramBase)
 	{
+		// Save pointer to next upvalue
 		ExternFuncInfo::Upvalue *next = curr->next;
+		// And save the size of target variable
 		unsigned int size = curr->size;
 		
-		// delete from list
-		if(prev)
-			prev->next = curr->next;
-		else
-			externalList[argument] = curr->next;
+		// Delete upvalue from list (move global list head to the next element)
+		externalList[argument] = curr->next;
 
+		// Copy target variable data to upvalue
 		memcpy(&curr->next, curr->ptr, size);
 		curr->ptr = (unsigned int*)&curr->next;
 
+		// Proceed to the next upvalue
 		curr = next;
 	}
 }
