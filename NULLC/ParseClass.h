@@ -324,6 +324,7 @@ public:
 		localCount = 0;
 
 		maxBlockDepth = 0;
+		closeListStart = 0;
 	}
 
 	void	AddParameter(VariableInfo *variable)

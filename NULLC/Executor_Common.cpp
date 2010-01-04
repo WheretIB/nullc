@@ -218,7 +218,7 @@ namespace GC
 			MarkPointer(ptr, type);
 			break;
 		case ExternTypeInfo::CAT_CLASS:
-			CheckVariable(ptr, type);
+			CheckClass(ptr, type);
 			break;
 		}
 	}
