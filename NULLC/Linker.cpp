@@ -233,8 +233,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	}
 
 	unsigned int oldListCount = exCloseLists.size();
-	exCloseLists.resize(oldCodeSize + bCode->closureListCount);
-	memset(&exCloseLists[oldCodeSize], 0, bCode->closureListCount * sizeof(VMCmd));
+	exCloseLists.resize(oldListCount + bCode->closureListCount);
+	memset(&exCloseLists[oldListCount], 0, bCode->closureListCount * sizeof(unsigned int));
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
