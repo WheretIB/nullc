@@ -205,7 +205,10 @@ void BeginBlock()
 void EndBlock(bool hideFunctions, bool saveLocals)
 {
 	if(currDefinedFunc.size() > 0 && currDefinedFunc.back()->closeUpvals)
-		CodeInfo::nodeList.push_back(new NodeBlock(currDefinedFunc.back(), varInfoTop.back().varStackSize));
+	{
+		assert(varInfoTop.size() - currDefinedFunc.back()->vTopSize > 0);
+		CodeInfo::nodeList.push_back(new NodeBlock(currDefinedFunc.back(), varInfoTop.size() - currDefinedFunc.back()->vTopSize - 1));
+	}
 
 	if(currDefinedFunc.size() > 0 && saveLocals)
 	{
@@ -812,6 +815,7 @@ void AddVariable(const char* pos, InplaceStr varName)
 	}
 	CodeInfo::varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currValConst, currDefinedFunc.size() == 0));
 	varDefined = true;
+	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 	if(currType)
 		varTop += currType->size;
 }
@@ -1739,6 +1743,8 @@ void FunctionEnd(const char* pos, const char* funcName)
 				curr->targetPos = CodeInfo::varInfo[i]->pos;
 			}
 			curr->targetFunc = CodeInfo::FindFunctionByPtr(parentFunc);
+			if(varInfoTop.size() - parentFunc->vTopSize > parentFunc->maxBlockDepth)
+				parentFunc->maxBlockDepth = varInfoTop.size() - parentFunc->vTopSize;
 			parentFunc->closeUpvals = true;
 		}
 

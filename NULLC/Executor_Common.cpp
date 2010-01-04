@@ -19,50 +19,42 @@ void CommonSetLinker(Linker* linker)
 void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, ExternFuncInfo::Upvalue* closure)
 {
 	ExternFuncInfo &func = NULLC::commonLinker->exFunctions[argument];
+	ExternFuncInfo::Upvalue **externalList = &NULLC::commonLinker->exCloseLists[0];
 	ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
 	for(unsigned int i = 0; i < func.externCount; i++)
 	{
-		ExternFuncInfo *varParent = &NULLC::commonLinker->exFunctions[externals[i].closeFuncList & ~0x80000000];
-		if(externals[i].closeFuncList & 0x80000000)
+		if(externals[i].closeListID & 0x80000000)
 		{
 			closure->ptr = (unsigned int*)&paramBase[externals[i].target];
 		}else{
 			unsigned int *prevClosure = (unsigned int*)(intptr_t)*(int*)(&paramBase[helper]);
 			closure->ptr = (unsigned int*)(intptr_t)prevClosure[externals[i].target >> 2];
 		}
-		closure->next = varParent->externalList;
+		closure->next = externalList[externals[i].closeListID];
 		closure->size = externals[i].size;
-		varParent->externalList = closure;
+		externalList[externals[i].closeListID] = closure;
 		closure = (ExternFuncInfo::Upvalue*)((int*)closure + ((externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2)));
 	}
 }
 
-void CloseUpvalues(char* paramBase, unsigned int helper, unsigned int argument)
+void CloseUpvalues(char* paramBase, unsigned int argument)
 {
-	ExternFuncInfo &func = NULLC::commonLinker->exFunctions[helper];
-	ExternFuncInfo::Upvalue *curr = func.externalList, *prev = NULL;
-	//printf("searching after %d, fixing after %d\r\n", paramBase, paramBase + argument);
+	ExternFuncInfo::Upvalue **externalList = &NULLC::commonLinker->exCloseLists[0];
+	ExternFuncInfo::Upvalue *curr = externalList[argument], *prev = NULL;
 	while(curr && (char*)curr->ptr >= paramBase)
 	{
 		ExternFuncInfo::Upvalue *next = curr->next;
 		unsigned int size = curr->size;
 		
-		// Close only in part of scope
-		if((char*)curr->ptr >= (paramBase + argument))
-		{
-			//printf("fix\r\n");
-			// delete from list
-			if(prev)
-				prev->next = curr->next;
-			else
-				func.externalList = curr->next;
+		// delete from list
+		if(prev)
+			prev->next = curr->next;
+		else
+			externalList[argument] = curr->next;
 
-			memcpy(&curr->next, curr->ptr, size);
-			curr->ptr = (unsigned int*)&curr->next;
-		}else{
-			//printf("skip\r\n");
-			prev = curr;
-		}
+		memcpy(&curr->next, curr->ptr, size);
+		curr->ptr = (unsigned int*)&curr->next;
+
 		curr = next;
 	}
 }
@@ -125,7 +117,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 			const char *localName = &exSymbols[lInfo.offsetToName];
 			const char *localType = lInfo.paramType == ExternLocalInfo::PARAMETER ? "param" : (lInfo.paramType == ExternLocalInfo::EXTERNAL ? "extern" : "local");
 			const char *offsetType = (lInfo.paramType == ExternLocalInfo::PARAMETER || lInfo.paramType == ExternLocalInfo::LOCAL) ? "base" :
-				(lInfo.closeFuncList & 0x80000000 ? "local" : "closure");
+				(lInfo.closeListID & 0x80000000 ? "local" : "closure");
 			current += SafeSprintf(current, bufSize - int(current - start), " %s %d: %s %s (at %s+%d size %d)\r\n",
 				localType, i, typeName, localName, offsetType, lInfo.offset, exTypes[lInfo.type].size);
 		}
@@ -149,7 +141,6 @@ namespace GC
 {
 	char	*unmanagableBase = 0;
 	char	*unmanagableTop = NULL;
-	unsigned int	markCalls = 0, canMark = 0, markedCount = 0;
 
 	void CheckArray(char* ptr, const ExternTypeInfo& type);
 	void CheckClass(char* ptr, const ExternTypeInfo& type);
@@ -157,13 +148,11 @@ namespace GC
 
 	void MarkPointer(char* ptr, const ExternTypeInfo& type)
 	{
-		markCalls++;
 		char **rPtr = (char**)ptr;
 		if(*rPtr > (char*)0x00010000)
 		{
 			if(*rPtr < unmanagableBase || *rPtr > unmanagableTop)
 			{
-				canMark++;
 				ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
 				//printf("\tGlobal pointer %s %p (at %p)\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, *rPtr, ptr);
 				unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(*rPtr);
@@ -172,10 +161,9 @@ namespace GC
 				//printf("\tPointer base is %p\r\n", basePtr);
 				unsigned int *marker = (unsigned int*)(basePtr)-1;
 				//printf("\tMarker is %d\r\n", *marker);
-				if(*marker == 0)// != checkedMarker)
+				if(*marker == 0)
 				{
-					markedCount++;
-					*marker = *marker + 1;// = checkedMarker;
+					*marker = 1;
 					if(type.subCat != ExternTypeInfo::CAT_NONE)
 						CheckVariable(*rPtr, subType);
 				}
@@ -257,7 +245,6 @@ void MarkUsedBlocks()
 		//printf("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
 		GC::CheckVariable(GC::unmanagableBase + vars[i].offset, types[vars[i].type]);
 	}
-	//printf("Calls: %d, GetBase: %d, Marked: %d\r\n", GC::markCalls, GC::canMark, GC::markedCount);
 
 	void *unknownExec = NULL;
 	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
@@ -274,7 +261,7 @@ void MarkUsedBlocks()
 	// Mark local variables
 	while(true)
 	{
-		int address = -1;
+		int address = 0;
 		if(execID == NULLC_VM)
 		{
 			Executor *exec = (Executor*)unknownExec;
@@ -283,7 +270,7 @@ void MarkUsedBlocks()
 			ExecutorX86 *exec = (ExecutorX86*)unknownExec;
 			address = exec->GetNextAddress();
 		}
-		if(address == -1)
+		if(address == 0)
 			break;
 		int funcID = -1;
 
@@ -313,17 +300,14 @@ void MarkUsedBlocks()
 			offset += lInfo.offset + lInfo.size;
 		}
 	}
-	//printf("Calls: %d, GetBase: %d, Marked: %d\r\n", GC::markCalls, GC::canMark, GC::markedCount);
 
 	const unsigned int intHash = GetStringHash("int");
 	// Mark closure lists
-	unsigned int upvalCount = 0;
-	for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
+	for(unsigned int i = 0; i < NULLC::commonLinker->exCloseLists.size(); i++)
 	{
-		ExternFuncInfo::Upvalue *curr = functions[i].externalList;
+		ExternFuncInfo::Upvalue *curr = NULLC::commonLinker->exCloseLists[i];
 		while(curr)
 		{
-			upvalCount++;
 			assert(intHash == types[4].nameHash);
 			char *rRef1 = (char*)&curr->ptr;
 			GC::MarkPointer(rRef1, types[4]);
@@ -332,9 +316,4 @@ void MarkUsedBlocks()
 			curr = curr->next;
 		}
 	}
-	//printf("Upvalues: %d\r\n", upvalCount);
-	//printf("Calls: %d, GetBase: %d, Marked: %d\r\n", GC::markCalls, GC::canMark, GC::markedCount);
-	GC::markCalls = 0;
-	GC::canMark = 0;
-	GC::markedCount = 0;
 }

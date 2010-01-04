@@ -950,6 +950,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	unsigned int offsetToFirstLocal = size;
 
+	unsigned int clsListCount = 0;
 	unsigned int localCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
@@ -958,6 +959,12 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		
 		FunctionInfo	*func = CodeInfo::funcInfo[i];
 		symbolStorageSize += func->nameLength + 1;
+
+		if(func->closeUpvals)
+		{
+			clsListCount += func->maxBlockDepth;
+			assert(func->maxBlockDepth > 0);
+		}
 
 		localCount += (unsigned int)func->paramCount;
 		for(VariableInfo *curr = func->firstParam; curr; curr = curr->next)
@@ -972,6 +979,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			symbolStorageSize += (unsigned int)(curr->variable->name.end - curr->variable->name.begin) + 1;
 	}
 	size += localCount * sizeof(ExternLocalInfo);
+
+	size += clsListCount * sizeof(unsigned int);
 
 	unsigned int offsetToCode = size;
 	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
@@ -997,6 +1006,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	printf("Code info: %db, ", offsetToSymbols - offsetToInfo);
 	printf("Symbols: %db, ", offsetToSource - offsetToSymbols);
 	printf("Source: %db\r\n\r\n", size - offsetToSource);
+	printf("%d closure lists\r\n", clsListCount);
 #endif
 	*bytecode = new char[size];
 
@@ -1021,6 +1031,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->localCount = localCount;
 	code->offsetToLocals = offsetToFirstLocal;
 	code->firstLocal = (ExternLocalInfo*)((char*)(code) + code->offsetToLocals);
+
+	code->closureListCount = clsListCount;
 
 	code->codeSize = CodeInfo::cmdList.size();
 	code->offsetToCode = offsetToCode;
@@ -1124,6 +1136,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int offsetToGlobal = 0;
 	ExternFuncInfo *fInfo = FindFirstFunc(code);
 	code->firstFunc = fInfo;
+	clsListCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
 		if(functionsInModules && i < buildInFuncs + functionsInModules)
@@ -1190,7 +1203,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			lInfo->type = vType->typeIndex;
 			lInfo->size = vType->size;
 			lInfo->target = curr->targetPos;
-			lInfo->closeFuncList = curr->targetFunc | (curr->targetLocal ? 0x80000000 : 0);
+			lInfo->closeListID = (curr->variable->blockDepth - CodeInfo::funcInfo[curr->targetFunc]->vTopSize + CodeInfo::funcInfo[curr->targetFunc]->closeListStart - 1) | (curr->targetLocal ? 0x80000000 : 0);
+			assert(curr->variable->blockDepth - CodeInfo::funcInfo[curr->targetFunc]->vTopSize > 0);
 			lInfo->offsetToName = int(symbolPos - code->debugSymbols);
 			memcpy(symbolPos, vName.begin, vName.end - vName.begin + 1);
 			symbolPos += vName.end - vName.begin;
@@ -1202,6 +1216,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.offsetToName = int(symbolPos - code->debugSymbols);
 		memcpy(symbolPos, refFunc->name, refFunc->nameLength + 1);
 		symbolPos += refFunc->nameLength + 1;
+
+		funcInfo.closeListStart = refFunc->closeListStart = clsListCount;
+		if(refFunc->closeUpvals)
+			clsListCount += refFunc->maxBlockDepth;
 
 		// Fill up next
 		fInfo++;

@@ -48,7 +48,7 @@ struct ExternLocalInfo
 		unsigned int	offset;
 		unsigned int	target;
 	};
-	unsigned int	closeFuncList;
+	unsigned int	closeListID;
 
 	unsigned int	offsetToName;
 };
@@ -86,7 +86,7 @@ struct ExternFuncInfo
 		Upvalue			*next;
 		unsigned int	size;
 	};
-	Upvalue			*externalList;
+	unsigned int	closeListStart;
 
 // For x86 function call
 	unsigned int	bytesToPop;
@@ -136,6 +136,8 @@ struct ByteCode
 	unsigned int	localCount;
 	unsigned int	offsetToLocals;
 	ExternLocalInfo	*firstLocal;
+
+	unsigned int	closureListCount;
 
 	unsigned int	infoSize;
 	unsigned int	offsetToInfo;

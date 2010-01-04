@@ -253,7 +253,7 @@ class VariableInfo
 public:
 	VariableInfo(){}
 	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool newisConst, bool global):
-		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), varType(newtype), isGlobal(global), defaultValue(NULL)
+		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), varType(newtype), isGlobal(global), defaultValue(NULL), blockDepth(0)
 	{
 	}
 
@@ -265,6 +265,7 @@ public:
 	bool			isGlobal;
 
 	unsigned int	parentModule;
+	unsigned int	blockDepth;
 
 	TypeInfo		*varType;	// Pointer to the variable type info
 	NodeZeroOP		*defaultValue;	// Default value code for function parameters
@@ -321,6 +322,8 @@ public:
 		closeUpvals = false;
 		firstLocal = lastLocal = NULL;
 		localCount = 0;
+
+		maxBlockDepth = 0;
 	}
 
 	void	AddParameter(VariableInfo *variable)
@@ -364,6 +367,7 @@ public:
 	unsigned int	paramCount;
 
 	unsigned int	allParamSize;
+	unsigned int	maxBlockDepth;
 	unsigned int	vTopSize;			// For "return" operator, we need to know,
 										// how many variables we need to remove from variable stack
 	TypeInfo	*retType;				// Function return type
@@ -390,6 +394,7 @@ public:
 	unsigned int	externalCount;
 	unsigned int	externalSize;
 	bool			closeUpvals;
+	unsigned int	closeListStart;
 
 	VariableInfo	*firstLocal, *lastLocal;	// Local variable list. Filled in when function comes to an end.
 	unsigned int	localCount;
