@@ -814,7 +814,7 @@ void Executor::Run(const char* funcName)
 			genStackPtr++;
 			break;
 		case cmdCloseUpvals:
-			CloseUpvalues(&genParams[paramBase], cmd.helper, cmd.argument);
+			CloseUpvalues(&genParams[paramBase], cmd.argument);
 			break;
 
 		case cmdConvertPtr:
@@ -987,7 +987,7 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
 		}else{
 			ExternTypeInfo &subType = exTypes[type.subType];
-//			printf("\tGlobal pointer %s %p\r\n", symbols + subType.offsetToName, ptr);
+//			printf("\tGlobal pointer %s %p (at %p)\r\n", symbols + subType.offsetToName, *rPtr, ptr);
 			unsigned int *marker = (unsigned int*)(*rPtr)-1;
 //			printf("\tMarker is %d\r\n", *marker);
 			if(*marker == 42 && NULLC::IsBasePointer(*rPtr))
@@ -1112,9 +1112,6 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 		}
 	}
 	fcallStack.pop_back();
-#ifdef _DEBUG
-	NULLC::SweepMemory(42);
-#endif
 
 	return true;
 }
@@ -1169,7 +1166,7 @@ void Executor::BeginCallStack()
 }
 unsigned int Executor::GetNextAddress()
 {
-	return currentFrame == fcallStack.size() ? ~0u : unsigned int(fcallStack[currentFrame++] - cmdBase);
+	return currentFrame == fcallStack.size() ? 0 : unsigned int(fcallStack[currentFrame++] - cmdBase);
 }
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION

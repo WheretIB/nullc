@@ -972,7 +972,7 @@ char* ExecutorX86::GetVariableData()
 
 void ExecutorX86::BeginCallStack()
 {
-	assert(0);
+	NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
 	int *paramData = &NULLC::dataHead->nextElement;
 	int count = 0;
 	while(count < 31 && paramData)
@@ -983,19 +983,20 @@ void ExecutorX86::BeginCallStack()
 	NULLC::stackTrace[count] = 0;
 	NULLC::dataHead->nextElement = NULL;
 
-	callstackTop = NULLC::stackTrace;
+	callstackTop = NULLC::stackTrace + count - 1;
 }
 
 unsigned int ExecutorX86::GetNextAddress()
 {
-	assert(0);
+	if(int(callstackTop - NULLC::stackTrace) < 0)
+		return 0;
 	unsigned int address = 0;
 	for(; address < instAddress.size(); address++)
 	{
 		if(*callstackTop < (unsigned int)(long long)instAddress[address])
 			break;
 	}
-	callstackTop++;
+	callstackTop--;
 	return address;
 }
 

@@ -22,7 +22,6 @@ namespace NULLC
 	NullCArray	AllocArray(int size, int count);
 
 	void		MarkMemory(unsigned int number);
-	void		SweepMemory(unsigned int number);
 
 	bool		IsBasePointer(void* ptr);
 	void*		GetBasePointer(void* ptr);

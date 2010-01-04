@@ -30,8 +30,10 @@ public:
 	FastVector<char>			exSymbols;
 	FastVector<unsigned int>	exCodeInfo;
 	FastVector<char>			exSource;
+	FastVector<ExternFuncInfo::Upvalue*>	exCloseLists;
 	unsigned int				globalVarSize;
 	unsigned int				offsetToGlobalCode;
+
 
 	FastVector<unsigned int>	typeRemap;
 	FastVector<unsigned int>	funcRemap;

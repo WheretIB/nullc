@@ -25,6 +25,7 @@ void Linker::CleanCode()
 	exModules.clear();
 	exCodeInfo.clear();
 	exSource.clear();
+	exCloseLists.clear();
 
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -187,6 +188,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);
 #endif
 
+	unsigned int oldGlobalSize = globalVarSize;
+	globalVarSize += bCode->globalVarSize;
+
 	// Add all global variables
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
 	for(unsigned int i = 0; i < bCode->variableCount; i++)
@@ -195,14 +199,12 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		// Type index have to be updated
 		exVariables.back().type = typeRemap[vInfo->type];
 		exVariables.back().offsetToName += oldSymbolSize;
+		exVariables.back().offset += oldGlobalSize;
 #ifdef VERBOSE_DEBUG_OUTPUT
 		printf("Variable %s %s at %d\r\n", &exSymbols[0] + exTypes[exVariables.back().type].offsetToName, &exSymbols[0] + exVariables.back().offsetToName, exVariables.back().offset);
 #endif
 		vInfo++;
 	}
-
-	unsigned int oldGlobalSize = globalVarSize;
-	globalVarSize += bCode->globalVarSize;
 
 	// Add new locals
 	unsigned int oldLocalsSize = exLocals.size();
@@ -229,6 +231,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		exCodeInfo[i*2+0] += oldCodeSize;
 		exCodeInfo[i*2+1] += oldSourceSize;
 	}
+
+	unsigned int oldListCount = exCloseLists.size();
+	exCloseLists.resize(oldCodeSize + bCode->closureListCount);
+	memset(&exCloseLists[oldCodeSize], 0, bCode->closureListCount * sizeof(VMCmd));
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
@@ -280,7 +286,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			// Move based pointer to the new section of symbol information
 			exFunctions.back().offsetToName += oldSymbolSize;
 			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
-			exFunctions.back().externalList = NULL;
+			exFunctions.back().closeListStart += oldListCount;
 
 			// Update internal function address
 			if(exFunctions.back().address != -1)
@@ -299,7 +305,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		exLocals[i].type = typeRemap[exLocals[i].type];
 		exLocals[i].offsetToName += oldSymbolSize;
 		if(exLocals[i].paramType == ExternLocalInfo::EXTERNAL)
-			exLocals[i].closeFuncList = funcRemap[exLocals[i].closeFuncList & ~0x80000000] | (exLocals[i].closeFuncList & 0x80000000);
+			exLocals[i].closeListID += oldListCount;
 	}
 
 	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
@@ -353,7 +359,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			cmd.argument = funcRemap[cmd.argument];
 			break;
 		case cmdCloseUpvals:
-			cmd.helper = (unsigned short)funcRemap[cmd.helper];
+			cmd.argument += exFunctions[funcRemap[cmd.helper]].closeListStart;
 			break;
 		case cmdPushTypeID:
 			cmd.cmd = cmdPushImmt;

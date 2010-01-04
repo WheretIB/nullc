@@ -961,6 +961,8 @@ void GenCodeCmdCall(VMCmd cmd)
 		GenCodeCmdCallProlog(cmd);
 	}else{
 		unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
+
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 		EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
 		EMIT_OP_REG(o_call, rECX);
 
@@ -1986,12 +1988,11 @@ void GenCodeCmdCloseUpvalues(VMCmd cmd)
 	EMIT_COMMENT("CLOSEUPVALUES");
 
 	EMIT_OP_NUM(o_push, cmd.argument);
-	EMIT_OP_NUM(o_push, cmd.helper);
 	EMIT_OP_REG_RPTR(o_lea, rEBX, sDWORD, rEBP, paramBase);
 	EMIT_OP_REG(o_push, rEBX);
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)upvaluesCloseFunc);
 	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
 }
 
 void GenCodeCmdConvertPtr(VMCmd cmd)

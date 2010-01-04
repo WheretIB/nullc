@@ -12,8 +12,8 @@ template<int elemSize>
 union SmallBlock
 {
 	char			data[elemSize];
-	SmallBlock		*next;
 	unsigned int	marker;
+	SmallBlock		*next;
 };
 
 template<int elemSize, int countInBlock>
@@ -58,12 +58,10 @@ public:
 		{
 			result = freeBlocks;
 			freeBlocks = freeBlocks->next;
-			
 		}else{
 			if(lastNum == countInBlock)
 			{
 				MyLargeBlock* newPage = new(NULLC::alloc(sizeof(MyLargeBlock))) MyLargeBlock;
-				memset(newPage, 0, sizeof(MyLargeBlock));
 				newPage->next = activePages;
 				activePages = newPage;
 				lastNum = 0;
@@ -109,6 +107,20 @@ public:
 		}
 		return NULL;
 	}
+	void Mark(unsigned int number)
+	{
+		assert(number < 128);
+		MyLargeBlock *curr = activePages;
+		while(curr)
+		{
+			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
+			{
+				if(curr->page[i].marker < 128)
+					curr->page[i].marker = number;
+			}
+			curr = curr->next;
+		}
+	}
 	unsigned int FreeMarked(unsigned int number)
 	{
 		unsigned int freed = 0;
@@ -135,13 +147,12 @@ public:
 
 namespace NULLC
 {
-	const unsigned int poolBlockSize = 16 * 1024;
-	const unsigned int minGlobalBlockSize = 8 * 1024;
+	const unsigned int poolBlockSize = 64 * 1024;
 
 	unsigned int usedMemory = 0;
 
-	unsigned int baseMinimum = 32 * 1024;
-	unsigned int collectableMinimum = 32 * 1024;
+	unsigned int baseMinimum = 128 * 1024;
+	unsigned int collectableMinimum = 128 * 1024;
 	unsigned int globalMemoryLimit = 32 * 1024 * 1024;
 
 	ObjectBlockPool<8, poolBlockSize / 8>		pool8;
@@ -152,7 +163,6 @@ namespace NULLC
 	ObjectBlockPool<256, poolBlockSize / 256>	pool256;
 	ObjectBlockPool<512, poolBlockSize / 512>	pool512;
 
-	FastVector<void*>				objectsFromPool;
 	FastVector<void*>				globalObjects;
 }
 
@@ -202,8 +212,6 @@ void* NULLC::AllocObject(int size)
 			}
 		}
 	}
-	if(data != globalObjects.back())
-		objectsFromPool.push_back(data);
 	memset(data, 0, size);
 	*(int*)data = 0;
 	return (char*)data + 4;
@@ -221,22 +229,13 @@ void NULLC::MarkMemory(unsigned int number)
 {
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 		((unsigned int*)globalObjects[i])[1] = number;
-	for(unsigned int i = 0; i < objectsFromPool.size(); i++)
-		*(int*)objectsFromPool[i] = number;
-}
-
-void NULLC::SweepMemory(unsigned int number)
-{
-	unsigned int unusedBlocks = 0;
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
-		if(((unsigned int*)globalObjects[i])[1] == number)
-			unusedBlocks++;
-	printf("%d unused globally allocated blocks\r\n", unusedBlocks);
-	unusedBlocks = 0;
-	for(unsigned int i = 0; i < objectsFromPool.size(); i++)
-		if(*(unsigned int*)objectsFromPool[i] == number)
-			unusedBlocks++;
-	printf("%d unused pool allocated blocks\r\n", unusedBlocks);
+	pool8.Mark(number);
+	pool16.Mark(number);
+	pool32.Mark(number);
+	pool64.Mark(number);
+	pool128.Mark(number);
+	pool256.Mark(number);
+	pool512.Mark(number);
 }
 
 bool NULLC::IsBasePointer(void* ptr)
@@ -365,14 +364,12 @@ void NULLC::ClearMemory()
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 		delete (char*)globalObjects[i];
 	globalObjects.clear();
-	objectsFromPool.clear();
 }
 
 void NULLC::ResetMemory()
 {
 	ClearMemory();
 	globalObjects.reset();
-	objectsFromPool.reset();
 }
 
 void NULLC::Assert(int val)
