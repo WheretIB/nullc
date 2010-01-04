@@ -950,7 +950,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	unsigned int offsetToFirstLocal = size;
 
-	unsigned int clsListCount = 0;
+	unsigned int clsListCount = 1;
 	unsigned int localCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
