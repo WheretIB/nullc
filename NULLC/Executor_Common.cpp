@@ -156,7 +156,6 @@ NullCArray NULLCTypeInfo::Typename(NULLCRef r)
 //#define GC_DEBUG_PRINT printf
 
 // $$ How auto ref type is checked?
-// $$ Is it necessary to check every element of an unsized array?
 namespace GC
 {
 	// Range of memory that is not checked. Used to exclude pointers to stack from marking and GC
@@ -207,25 +206,35 @@ namespace GC
 	{
 		// Get array element type
 		ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
+		// Real array size (changed for unsized arrays)
+		unsigned int size = type.arrSize;
 		// If array type is an unsized array, check pointer that points to actual array contents
 		if(type.arrSize == -1)
 		{
+			// Get real array size
+			size = *(int*)(ptr + 4);
+			// Mark target data
 			MarkPointer(ptr, subType);
-			return;
+			// Switch pointer to array data
+			char **rPtr = (char**)ptr;
+			ptr = *rPtr;
+			// If initialized, return
+			if(!ptr)
+				return;
 		}
 		// Otherwise, check every array element is it's either array, pointer of class
 		switch(subType.subCat)
 		{
 		case ExternTypeInfo::CAT_ARRAY:
-			for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
 				CheckArray(ptr, subType);
 			break;
 		case ExternTypeInfo::CAT_POINTER:
-			for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
 				MarkPointer(ptr, subType);
 			break;
 		case ExternTypeInfo::CAT_CLASS:
-			for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
 				CheckClass(ptr, subType);
 			break;
 		}
