@@ -231,7 +231,11 @@ void** nullcGetVariableInfo(unsigned int* count)
 
 unsigned int nullcGetCurrentExecutor(void **exec)
 {
+#ifdef NULLC_BUILD_X86_JIT
 	*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
+#else
+	*exec = executor;
+#endif
 	return currExec;
 }
 

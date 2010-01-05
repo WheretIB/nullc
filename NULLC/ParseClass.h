@@ -387,6 +387,7 @@ public:
 		bool			targetLocal;	// Target in local scope
 		unsigned int	targetPos;		// Target address
 		unsigned int	targetFunc;		// Target function ID
+		unsigned int	targetDepth;
 		unsigned int	closurePos;		// Position in closure
 
 		ExternalInfo	*next;
