@@ -950,7 +950,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	unsigned int offsetToFirstLocal = size;
 
-	unsigned int clsListCount = 1;
+	unsigned int clsListCount = 0;
 	unsigned int localCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
@@ -1203,8 +1203,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			lInfo->type = vType->typeIndex;
 			lInfo->size = vType->size;
 			lInfo->target = curr->targetPos;
-			lInfo->closeListID = (curr->variable->blockDepth - CodeInfo::funcInfo[curr->targetFunc]->vTopSize + CodeInfo::funcInfo[curr->targetFunc]->closeListStart - 1) | (curr->targetLocal ? 0x80000000 : 0);
-			assert(curr->variable->blockDepth - CodeInfo::funcInfo[curr->targetFunc]->vTopSize > 0);
+			lInfo->closeListID = (curr->targetDepth + CodeInfo::funcInfo[curr->targetFunc]->closeListStart) | (curr->targetLocal ? 0x80000000 : 0);
 			lInfo->offsetToName = int(symbolPos - code->debugSymbols);
 			memcpy(symbolPos, vName.begin, vName.end - vName.begin + 1);
 			symbolPos += vName.end - vName.begin;

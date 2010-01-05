@@ -204,11 +204,8 @@ void BeginBlock()
 // Restores previous number of defined variables and functions to hide those that lost visibility
 void EndBlock(bool hideFunctions, bool saveLocals)
 {
-	if(currDefinedFunc.size() > 0 && currDefinedFunc.back()->closeUpvals)
-	{
-		assert(varInfoTop.size() - currDefinedFunc.back()->vTopSize > 0);
+	if(currDefinedFunc.size() > 0 && currDefinedFunc.back()->closeUpvals && (varInfoTop.size() - currDefinedFunc.back()->vTopSize - 1) < currDefinedFunc.back()->maxBlockDepth)
 		CodeInfo::nodeList.push_back(new NodeBlock(currDefinedFunc.back(), varInfoTop.size() - currDefinedFunc.back()->vTopSize - 1));
-	}
 
 	if(currDefinedFunc.size() > 0 && saveLocals)
 	{
@@ -1743,8 +1740,10 @@ void FunctionEnd(const char* pos, const char* funcName)
 				curr->targetPos = CodeInfo::varInfo[i]->pos;
 			}
 			curr->targetFunc = CodeInfo::FindFunctionByPtr(parentFunc);
-			if(varInfoTop.size() - parentFunc->vTopSize > parentFunc->maxBlockDepth)
-				parentFunc->maxBlockDepth = varInfoTop.size() - parentFunc->vTopSize;
+			curr->targetDepth = curr->variable->blockDepth - parentFunc->vTopSize - 1;
+
+			if(curr->variable->blockDepth - parentFunc->vTopSize > parentFunc->maxBlockDepth)
+				parentFunc->maxBlockDepth = curr->variable->blockDepth - parentFunc->vTopSize;
 			parentFunc->closeUpvals = true;
 		}
 

@@ -152,48 +152,68 @@ NullCArray NULLCTypeInfo::Typename(NULLCRef r)
 	return ret;
 }
 
+#define GC_DEBUG_PRINT (void)
+//#define GC_DEBUG_PRINT printf
+
+// $$ How auto ref type is checked?
+// $$ Is it necessary to check every element of an unsized array?
 namespace GC
 {
-	char	*unmanagableBase = 0;
-	char	*unmanagableTop = NULL;
+	// Range of memory that is not checked. Used to exclude pointers to stack from marking and GC
+	char	*unmanageableBase = NULL;
+	char	*unmanageableTop = NULL;
 
 	void CheckArray(char* ptr, const ExternTypeInfo& type);
 	void CheckClass(char* ptr, const ExternTypeInfo& type);
 	void CheckVariable(char* ptr, const ExternTypeInfo& type);
 
+	// Function that marks memory blocks belonging to GC
 	void MarkPointer(char* ptr, const ExternTypeInfo& type)
 	{
+		// We have pointer to stack that has a pointer inside, so 'ptr' is really a pointer to pointer
 		char **rPtr = (char**)ptr;
-		if(*rPtr > (char*)0x00010000)
+		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
+		if(*rPtr > (char*)0x00010000 || *rPtr < unmanageableBase || *rPtr > unmanageableTop)
 		{
-			if(*rPtr < unmanagableBase || *rPtr > unmanagableTop)
+			// Get type that pointer points to
+			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
+			GC_DEBUG_PRINT("\tGlobal pointer %s %p (at %p)\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, *rPtr, ptr);
+
+			// Get pointer to the start of memory block. Some pointers may point to the middle of memory blocks
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(*rPtr);
+			// If there is no base, this pointer points to memory that is not GCs memory
+			if(!basePtr)
+				return;
+			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
+
+			// Marker is 4 bytes before the block
+			unsigned int *marker = (unsigned int*)(basePtr)-1;
+			GC_DEBUG_PRINT("\tMarker is %d\r\n", *marker);
+
+			// If block is unmarked
+			if(*marker == 0)
 			{
-				ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
-				//printf("\tGlobal pointer %s %p (at %p)\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, *rPtr, ptr);
-				unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(*rPtr);
-				if(!basePtr)
-					return;
-				//printf("\tPointer base is %p\r\n", basePtr);
-				unsigned int *marker = (unsigned int*)(basePtr)-1;
-				//printf("\tMarker is %d\r\n", *marker);
-				if(*marker == 0)
-				{
-					*marker = 1;
-					if(type.subCat != ExternTypeInfo::CAT_NONE)
-						CheckVariable(*rPtr, subType);
-				}
+				// Mark block as used
+				*marker = 1;
+				// And if type is not simple, check memory to which pointer points to
+				if(type.subCat != ExternTypeInfo::CAT_NONE)
+					CheckVariable(*rPtr, subType);
 			}
 		}
 	}
 
+	// Function that checks arrays for pointers
 	void CheckArray(char* ptr, const ExternTypeInfo& type)
 	{
+		// Get array element type
 		ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
+		// If array type is an unsized array, check pointer that points to actual array contents
 		if(type.arrSize == -1)
 		{
 			MarkPointer(ptr, subType);
 			return;
 		}
+		// Otherwise, check every array element is it's either array, pointer of class
 		switch(subType.subCat)
 		{
 		case ExternTypeInfo::CAT_ARRAY:
@@ -211,17 +231,24 @@ namespace GC
 		}
 	}
 
+	// Function that checks classes for pointers
 	void CheckClass(char* ptr, const ExternTypeInfo& type)
 	{
+		// Get class member type list
 		unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[0];
+		// Check every member
 		for(unsigned int n = 0; n < type.memberCount; n++)
 		{
+			// Get member type
 			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[type.memberOffset + n]];
+			// Check member
 			CheckVariable(ptr, subType);
+			// Move pointer to the next member
 			ptr += subType.size;
 		}
 	}
 
+	// Function that decides, how variable of type 'type' should be checked for pointers
 	void CheckVariable(char* ptr, const ExternTypeInfo& type)
 	{
 		switch(type.subCat)
@@ -239,95 +266,122 @@ namespace GC
 	}
 }
 
+// Set range of memory that is not checked. Used to exclude pointers to stack from marking and GC
 void SetUnmanagableRange(char* base, unsigned int size)
 {
-	GC::unmanagableBase = base;
-	GC::unmanagableTop = base + size;
+	GC::unmanageableBase = base;
+	GC::unmanageableTop = base + size;
 }
 
+// Main function for marking all pointers in a program
 void MarkUsedBlocks()
 {
-	//printf("Unmanageable range: %p-%p\r\n", GC::unmanagableBase, GC::unmanagableTop);
+	GC_DEBUG_PRINT("Unmanageable range: %p-%p\r\n", GC::unmanageableBase, GC::unmanageableTop);
 
+	// Get information about programs' functions, variables, types and symbols (for debug output)
 	ExternFuncInfo	*functions = &NULLC::commonLinker->exFunctions[0];
 	ExternVarInfo	*vars = &NULLC::commonLinker->exVariables[0];
 	ExternTypeInfo	*types = &NULLC::commonLinker->exTypes[0];
-	//char			*symbols = &NULLC::commonLinker->exSymbols[0];
+	char			*symbols = &NULLC::commonLinker->exSymbols[0];
+	(void)symbols;
 
 	// Mark global variables
 	for(unsigned int i = 0; i < NULLC::commonLinker->exVariables.size(); i++)
 	{
-		//printf("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
-		GC::CheckVariable(GC::unmanagableBase + vars[i].offset, types[vars[i].type]);
+		GC_DEBUG_PRINT("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
+		GC::CheckVariable(GC::unmanageableBase + vars[i].offset, types[vars[i].type]);
 	}
 
+	// To check every stack frame, we have to get it first. But we have two different executors, so flow alternates depending on which executor we are running
 	void *unknownExec = NULL;
 	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
+
+	// Starting stack offset is equal to global variable size
 	int offset = NULLC::commonLinker->globalVarSize;
 	
+	// Init stack trace
 	if(execID == NULLC_VM)
 	{
 		Executor *exec = (Executor*)unknownExec;
 		exec->BeginCallStack();
 	}else{
+#ifdef NULLC_BUILD_X86_JIT
 		ExecutorX86 *exec = (ExecutorX86*)unknownExec;
 		exec->BeginCallStack();
+#endif
 	}
 	// Mark local variables
 	while(true)
 	{
 		int address = 0;
+		// Get next address from call stack
 		if(execID == NULLC_VM)
 		{
 			Executor *exec = (Executor*)unknownExec;
 			address = exec->GetNextAddress();
 		}else{
+#ifdef NULLC_BUILD_X86_JIT
 			ExecutorX86 *exec = (ExecutorX86*)unknownExec;
 			address = exec->GetNextAddress();
+#endif
 		}
+		// If failed, exit
 		if(address == 0)
 			break;
-		int funcID = -1;
 
-		int debugMatch = 0;
+		// Find corresponding function
+		int funcID = -1;
 		for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 		{
 			if(address >= functions[i].address && address < (functions[i].address + functions[i].codeSize))
 			{
 				funcID = i;
-				debugMatch++;
 			}
 		}
-		assert(debugMatch < 2);
 
+		// If we are not in global scope
 		if(funcID != -1)
 		{
+			// Align offset to the first variable (by 16 byte boundary)
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
-			//printf("In function %s (with offset of %d)\r\n", symbols + functions[funcID].offsetToName, alignOffset);
 			offset += alignOffset;
+			GC_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + functions[funcID].offsetToName, alignOffset);
+
+			// Check every function local
 			for(unsigned int i = 0; i < functions[funcID].localCount; i++)
 			{
+				// Get information about local
 				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + i];
-				//printf("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
-				GC::CheckVariable(GC::unmanagableBase + offset + lInfo.offset, types[lInfo.type]);
+				GC_DEBUG_PRINT("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
+				// Check it
+				GC::CheckVariable(GC::unmanageableBase + offset + lInfo.offset, types[lInfo.type]);
 			}
+			// Get last local information
 			ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + functions[funcID].localCount - 1];
+			// And shift stack pointer to the end of functions stack frame
 			offset += lInfo.offset + lInfo.size;
 		}
 	}
 
+	// For debug check that type #4 is indeed, int
 	const unsigned int intHash = GetStringHash("int");
-	// Mark closure lists
+
+	// Check pointers inside all unclosed upvalue lists
 	for(unsigned int i = 0; i < NULLC::commonLinker->exCloseLists.size(); i++)
 	{
+		// Get list head
 		ExternFuncInfo::Upvalue *curr = NULLC::commonLinker->exCloseLists[i];
+		// While there are upvalues
 		while(curr)
 		{
 			assert(intHash == types[4].nameHash);
+			// Mark upvalue target pointer
 			char *rRef1 = (char*)&curr->ptr;
 			GC::MarkPointer(rRef1, types[4]);
+			// Mark next upvalue
 			char *rRef2 = (char*)&curr->next;
 			GC::MarkPointer(rRef2, types[4]);
+			// Move to the next list element
 			curr = curr->next;
 		}
 	}
