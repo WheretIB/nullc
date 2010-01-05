@@ -1003,23 +1003,32 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 {
 	ExternTypeInfo &subType = exTypes[type.subType];
+	unsigned int size = type.arrSize;
 	if(type.arrSize == -1)
 	{
+		// Get real array size
+		size = *(int*)(ptr + 4);
+		// Mark target data
 		FixupPointer(ptr, subType);
-		return;
+		// Switch pointer to array data
+		char **rPtr = (char**)ptr;
+		ptr = *rPtr;
+		// If initialized, return
+		if(!ptr)
+			return;
 	}
 	switch(subType.subCat)
 	{
 	case ExternTypeInfo::CAT_ARRAY:
-		for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
 			FixupArray(ptr, subType);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
-		for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
 			FixupPointer(ptr, subType);
 		break;
 	case ExternTypeInfo::CAT_CLASS:
-		for(unsigned int i = 0; i < type.arrSize; i++, ptr += subType.size)
+		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
 			FixupClass(ptr, subType);
 		break;
 	}
