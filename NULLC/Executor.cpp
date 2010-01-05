@@ -974,6 +974,7 @@ namespace ExPriv
 	char *oldBase;
 	char *newBase;
 	unsigned int oldSize;
+	unsigned int objectName = GetStringHash("auto ref");
 }
 
 void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
@@ -1036,13 +1037,27 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 
 void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 {
+	const ExternTypeInfo *realType = &type;
+	if(type.nameHash == ExPriv::objectName)
+	{
+		// Get real variable type
+		realType = &exTypes[*(int*)ptr];
+		// Mark target data
+		FixupPointer(ptr + 4, *realType);
+		// Switch pointer to target
+		char **rPtr = (char**)(ptr + 4);
+		ptr = *rPtr;
+		// If initialized, return
+		if(!ptr)
+			return;
+	}
 	unsigned int *memberList = &exLinker->exTypeExtra[0];
 	//char *str = symbols + type.offsetToName;
 	//const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
-	for(unsigned int n = 0; n < type.memberCount; n++)
+	for(unsigned int n = 0; n < realType->memberCount; n++)
 	{
 		//unsigned int strLength = (unsigned int)strlen(memberName) + 1;
-		ExternTypeInfo &subType = exTypes[memberList[type.memberOffset + n]];
+		ExternTypeInfo &subType = exTypes[memberList[realType->memberOffset + n]];
 		FixupVariable(ptr, subType);
 		//memberName += strLength;
 		ptr += subType.size;

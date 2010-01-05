@@ -155,12 +155,12 @@ NullCArray NULLCTypeInfo::Typename(NULLCRef r)
 #define GC_DEBUG_PRINT (void)
 //#define GC_DEBUG_PRINT printf
 
-// $$ How auto ref type is checked?
 namespace GC
 {
 	// Range of memory that is not checked. Used to exclude pointers to stack from marking and GC
 	char	*unmanageableBase = NULL;
 	char	*unmanageableTop = NULL;
+	unsigned int	objectName = GetStringHash("auto ref");
 
 	void CheckArray(char* ptr, const ExternTypeInfo& type);
 	void CheckClass(char* ptr, const ExternTypeInfo& type);
@@ -243,13 +243,27 @@ namespace GC
 	// Function that checks classes for pointers
 	void CheckClass(char* ptr, const ExternTypeInfo& type)
 	{
+		const ExternTypeInfo *realType = &type;
+		if(type.nameHash == objectName)
+		{
+			// Get real variable type
+			realType = &NULLC::commonLinker->exTypes[*(int*)ptr];
+			// Mark target data
+			MarkPointer(ptr + 4, *realType);
+			// Switch pointer to target
+			char **rPtr = (char**)(ptr + 4);
+			ptr = *rPtr;
+			// If initialized, return
+			if(!ptr)
+				return;
+		}
 		// Get class member type list
 		unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[0];
 		// Check every member
-		for(unsigned int n = 0; n < type.memberCount; n++)
+		for(unsigned int n = 0; n < realType->memberCount; n++)
 		{
 			// Get member type
-			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[type.memberOffset + n]];
+			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[realType->memberOffset + n]];
 			// Check member
 			CheckVariable(ptr, subType);
 			// Move pointer to the next member
