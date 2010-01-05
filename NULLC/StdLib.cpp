@@ -32,7 +32,7 @@ class ObjectBlockPool
 public:
 	ObjectBlockPool()
 	{
-		freeBlocks = NULL;
+		freeBlocks = &lastBlock;
 		activePages = NULL;
 		lastNum = countInBlock;
 	}
@@ -46,7 +46,7 @@ public:
 			NULLC::dealloc(activePages);
 			activePages = following;
 		}while(activePages != NULL);
-		freeBlocks = NULL;
+		freeBlocks = &lastBlock;
 		activePages = NULL;
 		lastNum = countInBlock;
 	}
@@ -54,7 +54,7 @@ public:
 	void* Alloc()
 	{
 		MySmallBlock*	result;
-		if(freeBlocks)
+		if(freeBlocks && freeBlocks != &lastBlock)
 		{
 			result = freeBlocks;
 			freeBlocks = freeBlocks->next;
@@ -62,6 +62,7 @@ public:
 			if(lastNum == countInBlock)
 			{
 				MyLargeBlock* newPage = new(NULLC::alloc(sizeof(MyLargeBlock))) MyLargeBlock;
+				//memset(newPage, 0, sizeof(MyLargeBlock));
 				newPage->next = activePages;
 				activePages = newPage;
 				lastNum = 0;
@@ -140,6 +141,8 @@ public:
 		return freed;
 	}
 
+	MySmallBlock	lastBlock;
+
 	MySmallBlock	*freeBlocks;
 	MyLargeBlock	*activePages;
 	unsigned int	lastNum;
@@ -170,8 +173,8 @@ void* NULLC::AllocObject(int size)
 {
 	void *data = NULL;
 	size += 4;
+
 #ifdef ENABLE_GC
-	usedMemory += size;
 	if((unsigned int)usedMemory > collectableMinimum)
 	{
 		CollectMemory();
@@ -180,38 +183,54 @@ void* NULLC::AllocObject(int size)
 		return NULL;
 	}
 #endif
+	unsigned int realSize = size;
 	if(size <= 64)
 	{
 		if(size <= 16)
 		{
 			if(size <= 8)
+			{
 				data = pool8.Alloc();
-			else
+				realSize = 8;
+			}else{
 				data = pool16.Alloc();
+				realSize = 16;
+			}
 		}else{
 			if(size <= 32)
+			{
 				data = pool32.Alloc();
-			else
+				realSize = 32;
+			}else{
 				data = pool64.Alloc();
+				realSize = 64;
+			}
 		}
 	}else{
 		if(size <= 256)
 		{
 			if(size <= 128)
+			{
 				data = pool128.Alloc();
-			else
+				realSize = 128;
+			}else{
 				data = pool256.Alloc();
+				realSize = 256;
+			}
 		}else{
 			if(size <= 512)
 			{
 				data = pool512.Alloc();
+				realSize = 512;
 			}else{
 				globalObjects.push_back(new char[size+4]);
-				*(int*)globalObjects.back() = size;
+				realSize = *(int*)globalObjects.back() = size;
 				data = (char*)globalObjects.back() + 4;
 			}
 		}
 	}
+	usedMemory += realSize;
+
 	memset(data, 0, size);
 	*(int*)data = 0;
 	return (char*)data + 4;
