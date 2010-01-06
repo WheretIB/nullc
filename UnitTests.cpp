@@ -3860,6 +3860,48 @@ return 0;";
 		}
 	}
 
+const char	*testSmallClass =
+"class TestS{ short a; }\r\n\
+TestS b;\r\n\
+b.a = 6;\r\n\
+class TestC{ char a; }\r\n\
+TestC c;\r\n\
+c.a = 3;\r\n\
+int func(TestS a){ return a.a; }\r\n\
+int func(TestC a){ return a.a; }\r\n\
+return func(b) + func(c);";
+	printf("\r\nClass with size smaller that 4 bytes\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testSmallClass, testTarget[t], "9"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testExtraSmallClass =
+"class Test{ }\r\n\
+Test b;\r\n\
+int func(Test a, int b){ return b; }\r\n\
+return func(b, 4);";
+	printf("\r\nClass with size of 0 bytes\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testExtraSmallClass, testTarget[t], "4"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 

@@ -1,3 +1,5 @@
+// NULLC (c) NULL_PTR 2007-2010
+
 #include "Callbacks.h"
 #include "CodeInfo.h"
 
@@ -1548,7 +1550,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 
 	lastFunc.AddParameter(new VariableInfo(paramName, hash, lastFunc.allParamSize, currType, currValConst, false));
 	if(currType)
-		lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
+		lastFunc.allParamSize += currType->size < 4 ? (currType->size ? 4 : 0) : currType->size;
 }
 
 void FunctionParameterDefault(const char* pos)
@@ -1561,7 +1563,7 @@ void FunctionParameterDefault(const char* pos)
 	if(!lastFunc.lastParam->varType)
 	{
 		left = lastFunc.lastParam->varType = right;
-		lastFunc.allParamSize += right->size < 4 ? 4 : right->size;
+		lastFunc.allParamSize += right->size < 4 ? (right->size ? 4 : 0) : right->size;
 	}
 	if(right == typeVoid)
 		ThrowError(pos, "ERROR: Cannot convert from void to %s", left->GetFullTypeName());
@@ -2168,12 +2170,12 @@ void TypeAddMember(const char* pos, const char* varName)
 
 void TypeFinish()
 {
+	varTop -= newType->size;
 	if(newType->size % 4 != 0)
 	{
 		newType->paddingBytes = 4 - (newType->size % 4);
 		newType->size += 4 - (newType->size % 4);
 	}
-	varTop -= newType->size;
 
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
 	for(unsigned int i = 0; i < methodCount; i++)

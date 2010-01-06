@@ -1098,6 +1098,8 @@ void NodeDereference::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	if(typeInfo->size == 0)
+		return;
 	asmDataType asmDT = typeInfo->dataType;
 
 	if(closureFunc)
