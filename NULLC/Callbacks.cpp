@@ -1557,6 +1557,10 @@ void FunctionParameterDefault(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
+	bool unifyTwo = false;
+	if(ConvertFunctionToPointer(pos))
+		unifyTwo = true;
+
 	TypeInfo *left = lastFunc.lastParam->varType;
 	TypeInfo *right = CodeInfo::nodeList.back()->typeInfo;
 
@@ -1572,6 +1576,9 @@ void FunctionParameterDefault(const char* pos)
 	if(left != right && (left->type == TypeInfo::TYPE_COMPLEX || right->type == TypeInfo::TYPE_COMPLEX || left->subType != right->subType))
 		ThrowError(pos, "ERROR: Cannot convert from '%s' to '%s'", right->GetFullTypeName(), left->GetFullTypeName());
 
+	if(unifyTwo)
+		AddTwoExpressionNode(left);
+
 	lastFunc.lastParam->defaultValue = CodeInfo::nodeList.back();
 	CodeInfo::nodeList.pop_back();
 }
@@ -1581,7 +1588,7 @@ void FunctionPrototype(const char* pos)
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(!lastFunc.retType)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
-	lastFunc.funcType = CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()->retType, CodeInfo::funcInfo.back()->firstParam, CodeInfo::funcInfo.back()->paramCount);
+	lastFunc.funcType = CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount);
 	currDefinedFunc.pop_back();
 }
 
@@ -1592,7 +1599,7 @@ void FunctionStart(const char* pos)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 
 	lastFunc.implemented = true;
-	lastFunc.funcType = lastFunc.retType ? CodeInfo::GetFunctionType(CodeInfo::funcInfo.back()->retType, CodeInfo::funcInfo.back()->firstParam, CodeInfo::funcInfo.back()->paramCount) : NULL;
+	lastFunc.funcType = lastFunc.retType ? CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount) : NULL;
 
 	BeginBlock();
 	cycleDepth.push_back(0);

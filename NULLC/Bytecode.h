@@ -168,7 +168,7 @@ struct ByteCode
 
 //	char			code[codeSize];
 
-//	unsinged int	sourceInfo[infoLength * 2]
+//	unsigned int	sourceInfo[infoLength * 2]
 
 //	char			debugSymbols[symbolLength];
 };

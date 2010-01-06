@@ -3901,6 +3901,21 @@ return func(b, 4);";
 		}
 	}
 
+const char	*testDefaultFuncVars3 =
+"int test(auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + b; }\r\n\
+return test() + test(auto(int l){ return l * 2; });";
+	printf("\r\nDefault function parameter values 3\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testDefaultFuncVars3, testTarget[t], "19"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
 
 #ifdef FAILURE_TEST
 
