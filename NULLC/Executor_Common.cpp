@@ -152,7 +152,7 @@ NullCArray NULLCTypeInfo::Typename(NULLCRef r)
 	return ret;
 }
 
-#define GC_DEBUG_PRINT (void)
+#define GC_DEBUG_PRINT(...)
 //#define GC_DEBUG_PRINT printf
 
 namespace GC
@@ -209,7 +209,7 @@ namespace GC
 		// Real array size (changed for unsized arrays)
 		unsigned int size = type.arrSize;
 		// If array type is an unsized array, check pointer that points to actual array contents
-		if(type.arrSize == -1)
+		if(type.arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
 			// Get real array size
 			size = *(int*)(ptr + 4);

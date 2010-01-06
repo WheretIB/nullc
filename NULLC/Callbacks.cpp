@@ -1263,7 +1263,7 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	}
 	CheckForImmutable(currentType, pos);
 	TypeInfo *parentType = currentType->subType;
-	if(parentType->arrLevel != 0 && parentType->arrSize != -1)
+	if(parentType->arrLevel != 0 && parentType->arrSize != TypeInfo::UNSIZED_ARRAY)
 	{
 		parentType = CodeInfo::GetArrayType(parentType->subType, ~0u);
 		if(ConvertArrayToUnsized(pos, parentType))

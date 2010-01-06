@@ -409,7 +409,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, 0, tempInfo->arrLevel + 1, tInfo->arrSize, tempInfo, TypeInfo::TYPE_COMPLEX));
 				newInfo = CodeInfo::typeInfo.back();
 
-				if(tInfo->arrSize == ~0u)
+				if(tInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 				{
 					newInfo->size = 4;
 					newInfo->AddMemberVariable("size", typeInt);
