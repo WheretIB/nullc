@@ -1834,7 +1834,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		while(index < sortedFunc.size() && sortedFunc[index]->nameHash == funcNameHash)
 		{
-			if(sortedFunc[index]->visible && !((sortedFunc[index]->address & 0x80000000) && (sortedFunc[index]->address != -1)))
+			if(sortedFunc[index]->visible && !((sortedFunc[index]->address & 0x80000000) && (sortedFunc[index]->address != -1)) && sortedFunc[index]->funcType)
 				bestFuncList.push_back(sortedFunc[index]);
 			index++;
 		}

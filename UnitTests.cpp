@@ -4152,6 +4152,8 @@ return *ll;";
 
 	TEST_FOR_FAIL("Default function parameter type mismatch", "import std.math;int f(int v = float3(3, 4, 5)){ return v; }return f();", "ERROR: Cannot convert from 'float3' to 'int'");
 	
+	TEST_FOR_FAIL("Undefined function call in function parameters", "int func(int a = func()){ return 0; } return 0;", "ERROR: function 'func' is undefined");
+	
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("parsing", "return 0x;", "ERROR: '0x' must be followed by number");
