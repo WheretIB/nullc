@@ -171,6 +171,11 @@ namespace NULLC
 
 void* NULLC::AllocObject(int size)
 {
+	if(size < 0)
+	{
+		nullcThrowError("Requested memory size is less than zero.");
+		return NULL;
+	}
 	void *data = NULL;
 	size += 4;
 
@@ -230,6 +235,12 @@ void* NULLC::AllocObject(int size)
 		}
 	}
 	usedMemory += realSize;
+
+	if(data == NULL)
+	{
+		nullcThrowError("Allocation failed.");
+		return NULL;
+	}
 
 	memset(data, 0, size);
 	*(int*)data = 0;
