@@ -62,6 +62,7 @@ namespace NULLCWindow
 
 		SetDIBitsToDevice(dc, x, y, c->width, c->height, 0, 0, 0, c->height, c->data.ptr, &bi, DIB_RGB_COLORS);
 
+		ReleaseDC(wnd->handle, dc);
 		EndPaint(wnd->handle, &ps);
 	}
 

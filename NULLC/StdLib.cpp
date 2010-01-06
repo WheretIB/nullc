@@ -19,7 +19,7 @@ union SmallBlock
 template<int elemSize, int countInBlock>
 struct LargeBlock
 {
-	typedef typename SmallBlock<elemSize> Block;
+	typedef SmallBlock<elemSize> Block;
 	Block		page[countInBlock];
 	LargeBlock	*next;
 };
@@ -27,8 +27,8 @@ struct LargeBlock
 template<int elemSize, int countInBlock>
 class ObjectBlockPool
 {
-	typedef typename SmallBlock<elemSize> MySmallBlock;
-	typedef typename LargeBlock<elemSize, countInBlock> MyLargeBlock;
+	typedef SmallBlock<elemSize> MySmallBlock;
+	typedef LargeBlock<elemSize, countInBlock> MyLargeBlock;
 public:
 	ObjectBlockPool()
 	{

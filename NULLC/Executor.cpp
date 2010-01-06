@@ -430,7 +430,7 @@ void Executor::Run(const char* funcName)
 			RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
 			unsigned int fAddress = exFunctions[cmd.argument].address;
 
-			if(fAddress == -1)
+			if(fAddress == CALL_BY_POINTER)
 			{
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(cmd.argument, 0))
@@ -1005,7 +1005,7 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 {
 	ExternTypeInfo &subType = exTypes[type.subType];
 	unsigned int size = type.arrSize;
-	if(type.arrSize == -1)
+	if(type.arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		// Get real array size
 		size = *(int*)(ptr + 4);
@@ -1190,7 +1190,7 @@ void Executor::BeginCallStack()
 }
 unsigned int Executor::GetNextAddress()
 {
-	return currentFrame == fcallStack.size() ? 0 : unsigned int(fcallStack[currentFrame++] - cmdBase);
+	return currentFrame == fcallStack.size() ? 0 : (unsigned int)(fcallStack[currentFrame++] - cmdBase);
 }
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
