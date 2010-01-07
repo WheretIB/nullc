@@ -47,7 +47,7 @@ enum LexemeType
 	lex_questionmark, lex_colon, lex_semicolon, // ? : ;
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
 	lex_break, lex_continue, lex_return, // break continue return
-	lex_const, lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // const ref auto class noalign align
+	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // const ref auto class noalign align
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, // typeof sizeof new operator typedef import
 };
 

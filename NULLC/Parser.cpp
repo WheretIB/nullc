@@ -215,14 +215,6 @@ bool ParseSelectType(Lexeme** str)
 	return true;
 }
 
-bool ParseIsConst(Lexeme** str)
-{
-	CALLBACK(SetTypeConst(false));
-	if(ParseLexem(str, lex_const))
-		CALLBACK(SetTypeConst(true));
-	return true;
-}
-
 bool ParseClassDefinition(Lexeme** str)
 {
 	Lexeme *curr = *str;
@@ -316,7 +308,6 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 
 bool ParseFunctionVariables(Lexeme** str)
 {
-	ParseIsConst(str);
 	if(!ParseSelectType(str))
 		return true;
 
@@ -337,7 +328,6 @@ bool ParseFunctionVariables(Lexeme** str)
 
 	while(ParseLexem(str, lex_comma))
 	{
-		ParseIsConst(str);
 		ParseSelectType(str);
 
 		if((*str)->type != lex_string)
@@ -520,8 +510,6 @@ bool ParseVariableDefine(Lexeme** str)
 {
 	Lexeme *curr = *str;
 	CALLBACK(SetCurrentAlignment(0xFFFFFFFF));
-	if(!ParseIsConst(&curr))
-		return false;
 	ParseAlignment(&curr);
 	if(!ParseSelectType(&curr))
 		return false;
@@ -857,7 +845,6 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 
 bool ParseTerminal(Lexeme** str)
 {
-	int negCount = 0;
 	switch((*str)->type)
 	{
 	case lex_number:
@@ -904,6 +891,8 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 		break;
 	case lex_sub:
+	{
+		int negCount = 0;
 		while(ParseLexem(str, lex_sub))
 			negCount++;
 		if(!ParseTerminal(str))
@@ -911,6 +900,7 @@ bool ParseTerminal(Lexeme** str)
 		if(negCount % 2 == 1)
 			CALLBACK(AddNegateNode((*str)->pos));
 		return true;
+	}
 		break;
 	case lex_quotedstring:
 		CALLBACK(AddStringNode((*str)->pos, (*str)->pos+(*str)->length));

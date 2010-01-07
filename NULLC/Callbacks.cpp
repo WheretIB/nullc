@@ -16,9 +16,6 @@ unsigned int currAlign;
 // Is some variable being defined at the moment
 bool varDefined;
 
-// Is current variable const
-bool currValConst;
-
 // Number of implicit variable
 unsigned int inplaceVariableNum;
 
@@ -102,11 +99,6 @@ template<typename T> void	Swap(T& a, T& b)
 	b = temp;
 }
 
-void SetTypeConst(bool isConst)
-{
-	currValConst = isConst;
-}
-
 void SetCurrentAlignment(unsigned int alignment)
 {
 	currAlign = alignment;
@@ -174,10 +166,10 @@ double parseDouble(const char *str)
 	}
 
 	double fractional = 0.0;
-	double power = 0.1f;
 	
 	if(*str == '.')
 	{
+		double power = 0.1f;
 		str++;
 		while((digit = *str - '0') < 10)
 		{
@@ -812,7 +804,7 @@ void AddVariable(const char* pos, InplaceStr varName)
 		unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes);
 		varTop += offset;
 	}
-	CodeInfo::varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currValConst, currDefinedFunc.size() == 0));
+	CodeInfo::varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currDefinedFunc.size() == 0));
 	varDefined = true;
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 	if(currType)
@@ -1548,7 +1540,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 
-	lastFunc.AddParameter(new VariableInfo(paramName, hash, lastFunc.allParamSize, currType, currValConst, false));
+	lastFunc.AddParameter(new VariableInfo(paramName, hash, lastFunc.allParamSize, currType, false));
 	if(currType)
 		lastFunc.allParamSize += currType->size < 4 ? (currType->size ? 4 : 0) : currType->size;
 }
@@ -1608,7 +1600,6 @@ void FunctionStart(const char* pos)
 
 	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
 	{
-		currValConst = curr->isConst;
 		currType = curr->varType;
 		currAlign = 4;
 		AddVariable(pos, curr->name);
@@ -2199,7 +2190,6 @@ void TypeContinue(const char* pos)
 	BeginBlock();
 	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
 	{
-		currValConst = false;
 		currType = curr->type;
 		currAlign = 4;
 		AddVariable(pos, InplaceStr(curr->name));
@@ -2226,6 +2216,11 @@ void AddAliasType(InplaceStr aliasName)
 void AddUnfixedArraySize()
 {
 	CodeInfo::nodeList.push_back(new NodeNumber(1, typeVoid));
+}
+
+void RestoreScopedGlobals()
+{
+
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

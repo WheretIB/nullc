@@ -6,7 +6,6 @@ void CallbackInitialize();
 
 void AddFunctionToSortedList(void *info);
 
-void SetTypeConst(bool isConst);
 void SetCurrentAlignment(unsigned int alignment);
 
 // Function is called when block {} is opened, to save the number of defined variables and functions
@@ -126,6 +125,8 @@ void TypeStop();
 void AddAliasType(InplaceStr aliasName);
 
 void AddUnfixedArraySize();
+
+void RestoreScopedGlobals();
 
 unsigned int GetGlobalSize();
 void SetGlobalSize(unsigned int offset);

@@ -251,17 +251,25 @@ extern TypeInfo*	typeDouble;
 class VariableInfo
 {
 public:
-	VariableInfo(){}
-	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool newisConst, bool global):
-		name(varName), nameHash(varHash), pos(newpos), isConst(newisConst), varType(newtype), isGlobal(global), defaultValue(NULL), blockDepth(0)
+	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool global)
 	{
+		name = varName;
+		nameHash = varHash;
+		pos = newpos;
+		varType = newtype;
+		isGlobal = global;
+		
+		parentModule = 0;
+		blockDepth = 0;
+
+		defaultValue = NULL;
+		next = prev = NULL;
 	}
 
 	InplaceStr		name;		// Variable name
 	unsigned int	nameHash;	// Variable name hash
 
 	unsigned int	pos;		// Variable position in value stack
-	bool			isConst;	// Constant flag
 	bool			isGlobal;
 
 	unsigned int	parentModule;
@@ -430,7 +438,11 @@ public:
 class VarTopInfo
 {
 public:
-	VarTopInfo(){}
+	VarTopInfo()
+	{
+		activeVarCnt = 0;
+		varStackSize = 0;
+	}
 	VarTopInfo(unsigned int activeVariableCount, unsigned int variableStackSize)
 	{
 		activeVarCnt = activeVariableCount;
