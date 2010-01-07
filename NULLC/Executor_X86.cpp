@@ -26,6 +26,8 @@ namespace NULLC
 	unsigned int stackGrowSize;
 	unsigned int stackGrowCommit;
 
+	unsigned int binCodeStart, binCodeEnd;
+
 	int runResult = 0;
 	int runResult2 = 0;
 	asmOperType runResultType = OTYPE_DOUBLE;
@@ -79,6 +81,9 @@ namespace NULLC
 
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
+		if(expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd)
+			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
+
 		expEAXstate = expInfo->ContextRecord->Eax;
 		expECXstate = expInfo->ContextRecord->Ecx;
 		expESPstate = expInfo->ContextRecord->Esp;
@@ -532,6 +537,9 @@ bool ExecutorX86::TranslateToNative()
 		binCode = new unsigned char[binCodeReserved];
 		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
 	}
+	NULLC::binCodeStart = binCodeStart;
+	NULLC::binCodeEnd = binCodeStart + binCodeReserved;
+
 	// Translate to x86
 	unsigned char *bytecode = binCode + 16;
 	unsigned char *code = bytecode;
