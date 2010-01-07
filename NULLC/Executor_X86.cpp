@@ -120,6 +120,10 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	binCodeStart = NULL;
 	binCodeSize = 0;
 	binCodeReserved = 0;
+
+	paramBase = NULL;
+	globalStartInBytecode = 0;
+	callContinue = 1;
 }
 ExecutorX86::~ExecutorX86()
 {

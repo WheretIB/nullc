@@ -517,7 +517,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 			{
 				ExternLocalInfo &lInfo = fLocals[fInfo->offsetToFirstLocal + n];
 				TypeInfo *currType = CodeInfo::typeInfo[typeRemap[lInfo.type]];
-				lastFunc->AddParameter(new VariableInfo(InplaceStr(symbols + lInfo.offsetToName), GetStringHash(symbols + lInfo.offsetToName), 0, currType, false, false));
+				lastFunc->AddParameter(new VariableInfo(InplaceStr(symbols + lInfo.offsetToName), GetStringHash(symbols + lInfo.offsetToName), 0, currType, false));
 				lastFunc->allParamSize += currType->size < 4 ? (currType->size ? 4 : 0) : currType->size;
 			}
 			lastFunc->implemented = true;
@@ -723,6 +723,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 #ifdef NULLC_LOG_FILES
 	FILE *fGraph = fopen("graph.txt", "wb");
 #endif
+
+	RestoreScopedGlobals();
 
 	t = clock();
 	CodeInfo::cmdList.push_back(VMCmd(cmdJmp));

@@ -664,7 +664,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s GetAddress ", typeInfo->GetFullTypeName());
 	if(varInfo)
-		fprintf(fGraph, "%s%s '%.*s'", (varInfo->isConst ? "const " : ""), varInfo->varType->GetFullTypeName(), varInfo->name.end-varInfo->name.begin, varInfo->name.begin);
+		fprintf(fGraph, "%s '%.*s'", varInfo->varType->GetFullTypeName(), varInfo->name.end-varInfo->name.begin, varInfo->name.begin);
 	else
 		fprintf(fGraph, "$$$");
 	fprintf(fGraph, " (%d %s)\r\n", (int)varAddress, (absAddress ? " absolute" : " relative"));

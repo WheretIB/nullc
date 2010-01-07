@@ -368,8 +368,6 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 			start = end + 2;
 		}
 		delete[] fileContent;
-
-		fclose(tabInfo);
 	}
 
 	TabbedFiles::SetOnCloseTab(hTabs, CloseTabWithFile);
@@ -566,7 +564,7 @@ void FillVariableInfoTree()
 	for(unsigned int i = 0; i < varCount; i++)
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
-		sprintf(name, "%d: %s%s %.*s = ", address, (currVar.isConst ? "const " : ""), (*currVar.varType).GetFullTypeName(), currVar.name.end-currVar.name.begin, currVar.name.begin);
+		sprintf(name, "%d: %s %.*s = ", address, (*currVar.varType).GetFullTypeName(), currVar.name.end-currVar.name.begin, currVar.name.begin);
 
 		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
 			strcat(name, GetSimpleVariableValue(currVar.varType, address));

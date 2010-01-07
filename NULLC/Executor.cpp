@@ -41,6 +41,16 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 	genStackBase = NULL;
 	genStackPtr = NULL;
 	genStackTop = NULL;
+
+	callContinue = true;
+	retType = (asmOperType)-1;
+
+	paramBase = 0;
+	currentFrame = 0;
+	cmdBase = NULL;
+	runningFunction = ~0u;
+
+	symbols = NULL;
 }
 
 Executor::~Executor()
