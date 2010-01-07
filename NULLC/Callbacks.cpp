@@ -24,6 +24,8 @@ unsigned int inplaceVariableNum;
 // Also used to know how much space for local variables is required in stack frame.
 FastVector<VarTopInfo>		varInfoTop;
 
+VariableInfo	*lostGlobalList = NULL;
+
 // Stack of function counts.
 // Used to find how many functions are to be removed when their visibility ends.
 FastVector<unsigned int>	funcInfoTop;
@@ -213,6 +215,13 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 				lastFunc.firstLocal->next->prev = lastFunc.firstLocal;
 			lastFunc.localCount++;
 		}
+	}else if(currDefinedFunc.size() == 0 && saveLocals){
+		for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
+		{
+			CodeInfo::varInfo[i]->next = lostGlobalList;
+			lostGlobalList = CodeInfo::varInfo[i];
+		}
+		
 	}
 
 	CodeInfo::varInfo.shrink(varInfoTop.back().activeVarCnt);
@@ -2181,7 +2190,7 @@ void TypeFinish()
 
 	newType = NULL;
 
-	EndBlock(false);
+	EndBlock(false, false);
 }
 
 void TypeContinue(const char* pos)
@@ -2201,7 +2210,7 @@ void TypeStop()
 {
 	varTop = varInfoTop.back().varStackSize;
 	newType = NULL;
-	EndBlock(false);
+	EndBlock(false, false);
 }
 
 void AddAliasType(InplaceStr aliasName)
@@ -2220,7 +2229,11 @@ void AddUnfixedArraySize()
 
 void RestoreScopedGlobals()
 {
-
+	while(lostGlobalList)
+	{
+		CodeInfo::varInfo.push_back(lostGlobalList);
+		lostGlobalList = lostGlobalList->next;
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2245,6 +2258,8 @@ void CallbackInitialize()
 
 	cycleDepth.clear();
 	cycleDepth.push_back(0);
+
+	lostGlobalList = NULL;
 
 	sortedFunc.clear();
 

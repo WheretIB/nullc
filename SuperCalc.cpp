@@ -558,12 +558,20 @@ void FillVariableInfoTree()
 	helpInsert.item.mask = TVIF_TEXT;
 	helpInsert.item.cchTextMax = 0;
 
-	unsigned int address = 0;
+	unsigned int addressShift = 0;
+	unsigned int currModule = (*varInfo)->pos >> 24;
+
 	char name[256];
 	HTREEITEM lastItem;
 	for(unsigned int i = 0; i < varCount; i++)
 	{
 		VariableInfo &currVar = *(*(varInfo+i));
+		if(currModule != (currVar.pos >> 24))
+		{
+			addressShift += (*(varInfo+i-1))->pos + (*(varInfo+i-1))->varType->size;
+			currModule = currVar.pos >> 24;
+		}
+		unsigned int address = (currVar.pos & 0x00ffffff) + addressShift;
 		sprintf(name, "%d: %s %.*s = ", address, (*currVar.varType).GetFullTypeName(), currVar.name.end-currVar.name.begin, currVar.name.begin);
 
 		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
@@ -587,7 +595,6 @@ void FillVariableInfoTree()
 		}else if(currVar.varType->type == TypeInfo::TYPE_COMPLEX){
 			FillComplexVariableInfo(currVar.varType, address, lastItem);
 		}
-		address += currVar.varType->size;
 	}
 }
 
