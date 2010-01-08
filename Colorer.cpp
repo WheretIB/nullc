@@ -11,6 +11,10 @@ using namespace supspi;
 
 #include "Colorer.h"
 
+#include "nullc/nullc.h"
+#include "nullc/Bytecode.h"
+#include "nullc/StrAlgo.h"
+
 enum COLOR_STYLE
 {
 	COLOR_CODE,
@@ -437,7 +441,16 @@ namespace ColorerGrammar
 			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' | epsP[LogError("ERROR: ; not found after variable definition")])[ColorText]) |
 				breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | typeDef | returnExpr |
 				(term5 >> (+chP(';')[ColorText] | epsP[LogError("ERROR: ; not found after expression")])));
-			code	=	*(funcdef | expr | (+alnumP)[LogError("ERROR: unexpected symbol")]);
+			code	=	*(
+							strP("import")[ColorRWord] >>
+							((+alphaP)[ColorVar][ImportStart] | epsP[LogError("module name or folder expected")]) >>
+							*(
+								chP('.')[ColorText][ImportSeparator] >>
+								((+alphaP)[ColorVar][ImportName] | epsP[LogError("module name or folder expected")])
+							) >>
+							(chP(';')[ColorText][ImportEnd] | epsP[LogError("ERROR: ';' expected after import")])
+						) >>
+						*(funcdef | expr | (+alnumP)[LogError("ERROR: unexpected symbol")]);
 		}
 		void DeInitGrammar()
 		{
@@ -456,11 +469,54 @@ namespace ColorerGrammar
 	{
 		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "return" || str=="switch" || str=="case")
 		{
-			logStream << "ERROR: The name '" << str << "' is reserved" << "\r\n";
+			logStream << "ERROR: The name '" << str << "' is reserved\r\n";
 			return true;
 		}
 		return false;
 	}
+
+	std::string importPath;
+	void ImportStart(char const* s, char const* e)
+	{
+		importPath.assign(s, e);
+	}
+	void ImportSeparator(char const* s, char const* e)
+	{
+		(void)s; (void)e;	// C4100
+		importPath.append(1, '\\');
+	}
+	void ImportName(char const* s, char const* e)
+	{
+		importPath.append(s, e);
+	}
+	void ImportEnd(char const* s, char const* e)
+	{
+		(void)s; (void)e;	// C4100
+		importPath.append(".nc");
+		ByteCode *code = (ByteCode*)nullcGetModule(importPath.c_str());
+		if(!code)
+		{
+			logStream << "ERROR: Can't find module '" << importPath << "'\r\n";
+		}else{
+			ExternTypeInfo *tInfo = FindFirstType(code);
+			const char *symbols = (char*)(code) + code->offsetToSymbols;
+			for(unsigned int i = 0; i < code->typeCount; i++, tInfo++)
+			{
+				if(tInfo->subCat != ExternTypeInfo::CAT_CLASS)
+					continue;
+				bool found = false;
+				for(unsigned int n = 0; n < typeInfo.size() && !found; n++)
+				{
+					if(tInfo->nameHash == GetStringHash(typeInfo[n].c_str()))
+						found = true;
+				}
+				if(found)
+					continue;
+				typeInfo.push_back(symbols + tInfo->offsetToName);
+			}
+		}
+	}
+
 	void AddVar(char const* s, char const* e)
 	{
 		(void)s; (void)e;	// C4100
@@ -567,11 +623,6 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 	ColorerGrammar::typeInfo.push_back("long");
 	ColorerGrammar::typeInfo.push_back("float");
 	ColorerGrammar::typeInfo.push_back("double");
-	ColorerGrammar::typeInfo.push_back("float2");
-	ColorerGrammar::typeInfo.push_back("float3");
-	ColorerGrammar::typeInfo.push_back("float4");
-	ColorerGrammar::typeInfo.push_back("float4x4");
-	ColorerGrammar::typeInfo.push_back("File");
 
 	ColorerGrammar::callArgCount.clear();
 	ColorerGrammar::varSize = 1;

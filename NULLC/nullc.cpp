@@ -239,6 +239,16 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 	return currExec;
 }
 
+void* nullcGetModule(const char* path)
+{
+	char fullPath[256];
+	SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath(), path);
+	char *bytecode = BinaryCache::GetBytecode(fullPath);
+	if(!bytecode)
+		bytecode = BinaryCache::GetBytecode(path);
+	return bytecode;
+}
+
 void nullcDeinit()
 {
 	BinaryCache::Terminate();
