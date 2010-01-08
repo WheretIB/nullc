@@ -7,6 +7,11 @@ namespace ColorerGrammar
 {
 	class Grammar;
 
+	void ImportStart(char const* s, char const* e);
+	void ImportSeparator(char const* s, char const* e);
+	void ImportName(char const* s, char const* e);
+	void ImportEnd(char const* s, char const* e);
+
 	void AddVar(char const* s, char const* e);
 	void SetVar(char const* s, char const* e);
 	void GetVar(char const* s, char const* e);

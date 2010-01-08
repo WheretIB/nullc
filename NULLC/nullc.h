@@ -57,12 +57,13 @@ void	nullcThrowError(const char* error);
 
 const char*	nullcGetResult();
 
+// Not for everyday use 
 void*	nullcGetVariableData();
+void**	nullcGetVariableInfo(unsigned int* count);
 unsigned int	nullcGetCurrentExecutor(void **exec);
+void*	nullcGetModule(const char* path);
 
 void	nullcDeinit();
-
-void**	nullcGetVariableInfo(unsigned int* count);
 
 #ifdef __cplusplus
 }
