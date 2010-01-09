@@ -21,10 +21,10 @@ tuples
 extended use of FindFirstFunctionIndex
 internal function call externally with parameters
 internal function call by pointer externally
-function binder
 заменить AddPreOrPostOpNode на две функции
 возможность ++/-- как post expression.
 Добавить null pointer.
+Исправить логику вычисления аргументов операций && и ||
 
 ГОТОВО: 2	ref переменные - ссылки
 ГОТОВО: 7	многомерные массивы
