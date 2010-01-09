@@ -766,6 +766,16 @@ bool ParseGroup(Lexeme** str)
 	return true;
 }
 
+bool ParseString(Lexeme** str)
+{
+	if((*str)->type != lex_quotedstring)
+		return false;
+
+	CALLBACK(AddStringNode((*str)->pos, (*str)->pos+(*str)->length));
+	(*str)++;
+	return true;
+}
+
 bool ParseArray(Lexeme** str)
 {
 	if(!ParseLexem(str, lex_ofigure))
@@ -861,18 +871,20 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 
 		CodeInfo::nodeList.push_back(fAddress);
 		CALLBACK(AddFunctionCallNode((*str)->pos, NULL, callArgCount));
-	}/*else if(ParseLexem(str, lex_dec)){
-		if(isFunctionCall)
-			*isFunctionCall = true;
-		CALLBACK(AddPreOrPostOpNode((*str)->pos, false, false));
-	}else if(ParseLexem(str, lex_inc)){
-		if(isFunctionCall)
-			*isFunctionCall = true;
-		CALLBACK(AddPreOrPostOpNode((*str)->pos, true, false));
-	}*/else{
+	}else{
 		return false;
 	}
 	return true;
+}
+
+void ParsePostExpressions(Lexeme** str)
+{
+	bool lastIsFunctionCall = false;
+	bool hadPost = false;
+	while(ParsePostExpression(str, &lastIsFunctionCall))
+		hadPost = true;
+	if(hadPost && !lastIsFunctionCall && (*str)->type != lex_set && (*str)->type != lex_addset && (*str)->type != lex_subset && (*str)->type != lex_mulset && (*str)->type != lex_divset && (*str)->type != lex_powset)
+		CALLBACK(AddGetVariableNode((*str)->pos));
 }
 
 bool ParseTerminal(Lexeme** str)
@@ -983,9 +995,30 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 	}
 		break;
+	case lex_quotedstring:
+		ParseString(str);
+		ParsePostExpressions(str);
+		return true;
+		break;
+	case lex_ofigure:
+		ParseArray(str);
+		ParsePostExpressions(str);
+		return true;
+		break;
+	case lex_oparen:
+		ParseGroup(str);
+		ParsePostExpressions(str);
+		return true;
+		break;
+	case lex_string:
+		if((*str + 1)->type == lex_oparen)
+		{
+			ParseFunctionCall(str, false);
+			ParsePostExpressions(str);
+			return true;
+		}
 	case lex_typeof:
 	case lex_auto:
-	case lex_string:
 	{
 		bool isFunctionCall = (*str)->type != lex_typeof && (*str)->type != lex_auto && (*str + 1)->type == lex_oparen;
 		if(!isFunctionCall && ParseSelectType(str))
@@ -998,38 +1031,7 @@ bool ParseTerminal(Lexeme** str)
 		break;
 	}
 	bool lastIsFunctionCall = false;
-	if((*str)->type == lex_quotedstring)
-	{
-		CALLBACK(AddStringNode((*str)->pos, (*str)->pos+(*str)->length));
-		(*str)++;
-		/**/
-		bool hadPost = false;
-		while(ParsePostExpression(str, &lastIsFunctionCall))
-			hadPost = true;
-		if(hadPost && !lastIsFunctionCall && (*str)->type != lex_set && (*str)->type != lex_addset && (*str)->type != lex_subset && (*str)->type != lex_mulset && (*str)->type != lex_divset && (*str)->type != lex_powset)
-			CALLBACK(AddGetVariableNode((*str)->pos));//needDereference = true;
-	}else if((*str)->type == lex_ofigure && ParseArray(str)){
-		/**/
-		bool hadPost = false;
-		while(ParsePostExpression(str, &lastIsFunctionCall))
-			hadPost = true;
-		if(hadPost && !lastIsFunctionCall && (*str)->type != lex_set && (*str)->type != lex_addset && (*str)->type != lex_subset && (*str)->type != lex_mulset && (*str)->type != lex_divset && (*str)->type != lex_powset)
-			CALLBACK(AddGetVariableNode((*str)->pos));//needDereference = true;
-	}else if((*str)->type == lex_oparen && ParseGroup(str)){
-		/**/
-		bool hadPost = false;
-		while(ParsePostExpression(str, &lastIsFunctionCall))
-			hadPost = true;
-		if(hadPost && !lastIsFunctionCall && (*str)->type != lex_set && (*str)->type != lex_addset && (*str)->type != lex_subset && (*str)->type != lex_mulset && (*str)->type != lex_divset && (*str)->type != lex_powset)
-			CALLBACK(AddGetVariableNode((*str)->pos));//needDereference = true;
-	}else if((*str)->type == lex_string && (*str + 1)->type == lex_oparen && ParseFunctionCall(str, false)){
-		/**/
-		bool hadPost = false;
-		while(ParsePostExpression(str, &lastIsFunctionCall))
-			hadPost = true;
-		if(hadPost && !lastIsFunctionCall && (*str)->type != lex_set && (*str)->type != lex_addset && (*str)->type != lex_subset && (*str)->type != lex_mulset && (*str)->type != lex_divset && (*str)->type != lex_powset)
-			CALLBACK(AddGetVariableNode((*str)->pos));//needDereference = true;
-	}else if(((*str)->type == lex_string || (*str)->type == lex_mul) && ParseVariable(str, &lastIsFunctionCall)){
+	if(((*str)->type == lex_string || (*str)->type == lex_mul) && ParseVariable(str, &lastIsFunctionCall)){
 		if(ParseLexem(str, lex_dec))
 		{
 			CALLBACK(AddPreOrPostOpNode((*str)->pos, false, false));

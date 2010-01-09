@@ -1113,7 +1113,7 @@ void AddSetVariableNode(const char* pos)
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 
 	// Make necessary implicit conversions
-	ConvertArrayToUnsized(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType)/*)*/;
+	ConvertArrayToUnsized(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertFunctionToPointer(pos);
 	HandlePointerToObject(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 
@@ -1124,15 +1124,17 @@ void AddGetVariableNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	TypeInfo *lastType = CodeInfo::nodeList.back()->typeInfo;
+	if(!lastType)
+		ThrowError(pos, "ERROR: variable type is unknown");
+
 	// If array size is known at compile time, then it's placed on stack when "array.size" is compiled, but member access usually shifts pointer, that is dereferenced now
 	// So in this special case, dereferencing is not done. Yeah...
-	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo == typeVoid)
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && lastType == typeVoid)
 	{
 		CodeInfo::nodeList.back()->typeInfo = typeInt;
-	}else if(CodeInfo::nodeList.back()->typeInfo == NULL){
-		ThrowError(pos, "ERROR: variable type is unknown");
-	}else if(CodeInfo::nodeList.back()->typeInfo->funcType == NULL){
-		CheckForImmutable(CodeInfo::nodeList.back()->typeInfo, pos);
+	}else if(lastType->funcType == NULL){
+		CheckForImmutable(lastType, pos);
 		CodeInfo::nodeList.push_back(new NodeDereference());
 	}
 }

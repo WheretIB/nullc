@@ -391,16 +391,19 @@ void	RunTests()
 		nullres good = nullcCompile(partA1);
 		nullcSaveListing("asm.txt");
 		if(!good)
+		{
 			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
-		else
+			continue;
+		}else{
 			nullcGetBytecode(&bytecodeA);
+		}
 
 		good = nullcCompile(partB1);
 		nullcSaveListing("asm.txt");
 		if(!good)
 		{
 			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
-			break;
+			continue;
 		}else{
 			nullcGetBytecode(&bytecodeB);
 		}
@@ -409,7 +412,7 @@ void	RunTests()
 		if(!nullcLinkCode(bytecodeA, 0))
 		{
 			printf("Compilation failed: %s\r\n", nullcGetRuntimeError());
-			break;
+			continue;
 		}
 		if(!nullcLinkCode(bytecodeB, 0))
 		{
