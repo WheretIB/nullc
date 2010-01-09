@@ -1414,24 +1414,66 @@ void NodeBinaryOp::Compile()
 	
 	CompileExtra();
 
-	// Compute first value
-	first->Compile();
-	// Convert it to the resulting type
-	fST = ConvertFirstForSecond(fST, sST);
-	// Compute second value
-	second->Compile();
-	// Convert it to the result type
-	sST = ConvertFirstForSecond(sST, fST);
-	// Apply binary operation
-	if(fST == STYPE_INT)
-		cmdList.push_back(VMCmd((InstructionCode)(cmdID)));
-	else if(fST == STYPE_LONG)
-		cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddL)));
-	else if(fST == STYPE_DOUBLE)
-		cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddD)));
-	else
-		assert(!"unknown operator type in NodeTwoAndCmdOp");
+	if(cmdID == cmdLogOr || cmdID == cmdLogAnd)
+	{
+		first->Compile();
+		// Convert double to int as direct conversion
+		if(fST == STYPE_DOUBLE)
+			ConvertFirstToSecond(fST, STYPE_INT);
+		// Convert long to int with | operation between parts of long (otherwise, we would've truncated 64 bit value)
+		if(fST == STYPE_LONG)
+			cmdList.push_back(VMCmd(cmdBitOr));
+
+		// If it's operator || and first argument is true, jump to push 1 as result
+		// If it's operator ^^ and first argument is false, jump to push 0 as result
+		cmdList.push_back(VMCmd(cmdID == cmdLogOr ? cmdJmpNZ : cmdJmpZ, ~0ul));	// Jump address will be fixed later on
+		unsigned int specialJmp1 = cmdList.size() - 1;
+
+		second->Compile();
+		// Convert argument just like the first one
+		if(fST == STYPE_DOUBLE)
+			ConvertFirstToSecond(fST, STYPE_INT);
+		else if(fST == STYPE_LONG)
+			cmdList.push_back(VMCmd(cmdBitOr));
+
+		// If it's operator || and first argument is true, jump to push 1 as result
+		// If it's operator ^^ and first argument is false, jump to push 0 as result
+		cmdList.push_back(VMCmd(cmdID == cmdLogOr ? cmdJmpNZ : cmdJmpZ, ~0ul));	// Jump address will be fixed later on
+		unsigned int specialJmp2 = cmdList.size() - 1;
+
+		// If it's operator ||, result is zero, and if it's operator &&, result is 1
+		cmdList.push_back(VMCmd(cmdPushImmt, cmdID == cmdLogOr ? 0 : 1));
+
+		// Skip command that sets opposite result
+		cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 2));
+		// Fix up jumps
+		cmdList[specialJmp1].argument = cmdList.size();
+		cmdList[specialJmp2].argument = cmdList.size();
+		// If it's early jump, for operator ||, result is one, and if it's operator &&, result is 0
+		cmdList.push_back(VMCmd(cmdPushImmt, cmdID == cmdLogOr ? 1 : 0));
+	}else{
+		// Compute first value
+		first->Compile();
+		// Convert it to the resulting type
+		fST = ConvertFirstForSecond(fST, sST);
+
+		// Compute second value
+		second->Compile();
+		// Convert it to the result type
+		sST = ConvertFirstForSecond(sST, fST);
+
+		// Apply binary operation
+		if(fST == STYPE_INT)
+			cmdList.push_back(VMCmd((InstructionCode)(cmdID)));
+		else if(fST == STYPE_LONG)
+			cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddL)));
+		else if(fST == STYPE_DOUBLE)
+			cmdList.push_back(VMCmd((InstructionCode)(cmdID - cmdAdd + cmdAddD)));
+		else
+			assert(!"unknown operator type in NodeTwoAndCmdOp");
+	}
 }
+
 void NodeBinaryOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);

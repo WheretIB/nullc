@@ -3920,6 +3920,92 @@ return test() + test(auto(int l){ return l * 2; });";
 		}
 	}
 
+const char	*testPostExpressions =
+"typedef char[] string;\r\n\
+\r\n\
+int string:find(char a)\r\n\
+{\r\n\
+	int i = 0;\r\n\
+	while(i < this.size && this[i] != a)\r\n\
+		i++;\r\n\
+	if(i == this.size)\r\n\
+		i = -1;\r\n\
+	return i;\r\n\
+}\r\n\
+\r\n\
+int a = (\"hello\").size + \"me\".size;\r\n\
+int b = (\"hi\" + \"me\").size;\r\n\
+\r\n\
+int l = (\"Pota\" + \"to\").find('a');\r\n\
+int l2 = (\"Potato\").find('t');\r\n\
+\r\n\
+auto str = \"hello\";\r\n\
+int l3 = str.find('o');\r\n\
+char[] str2 = \"helloworld\";\r\n\
+int l4 = str.find('3');\r\n\
+\r\n\
+int a2 = ({1, 2, 3}).size;\r\n\
+int a3 = {1, 2, 3}.size;\r\n\
+int a4 = \"as\".size;\r\n\
+\r\n\
+return 0;";
+	printf("\r\nPost expressions on arrays and strings\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testPostExpressions, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("a", 0, 9);
+			CHECK_INT("b", 0, 5);
+			CHECK_INT("l", 0, 3);
+			CHECK_INT("l2", 0, 2);
+			CHECK_INT("l3", 0, 4);
+			CHECK_INT("l4", 0, -1);
+			CHECK_INT("a2", 0, 3);
+			CHECK_INT("a3", 0, 3);
+			CHECK_INT("a4", 0, 3);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testLogicalAnd =
+"int i = 0, m = 4;\r\n\
+i && (m = 3);\r\n\
+return m;";
+	printf("\r\nLogical && special case\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testLogicalAnd, testTarget[t], "4"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testLogicalOr =
+"int i = 1, m = 4;\r\n\
+i || (m = 3);\r\n\
+return m;";
+	printf("\r\nLogical || special case\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testLogicalOr, testTarget[t], "4"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
