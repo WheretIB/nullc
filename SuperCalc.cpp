@@ -400,10 +400,11 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	RichTextarea::SetTextStyle(4,  136,   0,   0, false,  true, false);
 	RichTextarea::SetTextStyle(5,    0,   0,   0, false, false, false);
 	RichTextarea::SetTextStyle(6,    0,   0,   0,  true, false, false);
-	RichTextarea::SetTextStyle(7,    0, 150,   0, false, false, false);
-	RichTextarea::SetTextStyle(8,    0, 150,   0, false,  true, false);
-	RichTextarea::SetTextStyle(9,  255,   0,   0, false, false,  true);
-	RichTextarea::SetTextStyle(10, 255,   0, 255, false, false, false);
+	RichTextarea::SetTextStyle(7,  136,   0,   0, false, false, false);
+	RichTextarea::SetTextStyle(8,    0, 150,   0, false, false, false);
+	RichTextarea::SetTextStyle(9,    0, 150,   0, false,  true, false);
+	RichTextarea::SetTextStyle(10, 255,   0,   0, false, false,  true);
+	RichTextarea::SetTextStyle(11, 255,   0, 255, false, false, false);
 
 	unsigned int width = (800 - 25) / 4;
 

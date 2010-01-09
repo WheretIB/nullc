@@ -2867,7 +2867,7 @@ int e = a.size;\r\n\
 \r\n\
 int[] f = *c;\r\n\
 int[4] ref g = &a;\r\n\
-int[] h = g;\r\n\
+int[] h = *g;\r\n\
 int j = g.size;\r\n\
 \r\n\
 auto n1 = auto(int a){ return -a; };\r\n\
@@ -4138,7 +4138,7 @@ return *ll;";
 	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
 	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];", "ERROR: indexing variable that is not an array");
-	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;", "ERROR: Cannot convert from int[] ref to int[]");
+	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;", "ERROR: Cannot convert 'int[] ref' to 'int[]'");
 	TEST_FOR_FAIL("Type redefinition", "class int{ int a, b; } return 1;", "ERROR: 'int' is being redefined");
 
 	TEST_FOR_FAIL("Illegal conversion 1", "import std.math; float3 a; a = 12.0; return 1;", "ERROR: Cannot convert 'double' to 'float3'");

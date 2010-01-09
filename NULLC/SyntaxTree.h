@@ -6,6 +6,7 @@
 //////////////////////////////////////////////////////////////////////////
 enum NodeType
 {
+	typeNodeZeroOp,
 	typeNodeForExpr,
 	typeNodeFuncCall,
 	typeNodeFuncDef,
@@ -16,7 +17,6 @@ enum NodeType
 	typeNodeThreeOp,
 	typeNodeBinaryOp,
 	typeNodeTwoOp,
-	typeNodeZeroOp,
 	typeNodeWhileExpr,
 	typeNodeDoWhileExpr,
 	typeNodeBreakOp,
@@ -52,6 +52,10 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	// Binding of code position to bytecode that node generates
 	virtual void SetCodeInfo(const char* newSourcePos);
+	// Add last node to the list as a new head
+	virtual void AddExtraNode();
+	// Compile extra nodes
+	virtual void CompileExtra();
 
 	void*		operator new(size_t size)
 	{
@@ -71,7 +75,7 @@ protected:
 public:
 	TypeInfo		*typeInfo;
 	NodeType		nodeType;
-	NodeZeroOP		*prev, *next;	// For organizing intrusive node lists
+	NodeZeroOP		*prev, *next, *head;	// For organizing intrusive node lists
 };
 
 //////////////////////////////////////////////////////////////////////////

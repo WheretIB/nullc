@@ -95,3 +95,4 @@ public:
 	T	one;
 	unsigned int	max, count;
 };
+
