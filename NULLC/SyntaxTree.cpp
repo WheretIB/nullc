@@ -148,14 +148,14 @@ NodeZeroOP::NodeZeroOP()
 {
 	typeInfo = typeVoid;
 	sourcePos = NULL;
-	prev = next = NULL;
+	prev = next = head = NULL;
 	nodeType = typeNodeZeroOp;
 }
 NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 {
 	typeInfo = tinfo;
 	sourcePos = NULL;
-	prev = next = NULL;
+	prev = next = head = NULL;
 	nodeType = typeNodeZeroOp;
 }
 NodeZeroOP::~NodeZeroOP()
@@ -175,6 +175,26 @@ void NodeZeroOP::SetCodeInfo(const char* newSourcePos)
 {
 	sourcePos = newSourcePos;
 }
+
+void NodeZeroOP::AddExtraNode()
+{
+	assert(nodeList.size() > 0);
+	nodeList.back()->next = head;
+	if(head)
+		head->prev = nodeList.back();
+	head = TakeLastNode();
+}
+
+void NodeZeroOP::CompileExtra()
+{
+	NodeZeroOP *curr = head;
+	while(curr)
+	{
+		curr->Compile();
+		curr = curr->next;
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Node that have one child node
 
@@ -189,6 +209,7 @@ NodeOneOP::~NodeOneOP()
 
 void NodeOneOP::Compile()
 {
+	CompileExtra();
 	first->Compile();
 }
 void NodeOneOP::LogToStream(FILE *fGraph)
@@ -214,6 +235,7 @@ NodeTwoOP::~NodeTwoOP()
 
 void NodeTwoOP::Compile()
 {
+	CompileExtra();
 	NodeOneOP::Compile();
 	second->Compile();
 }
@@ -241,6 +263,7 @@ NodeThreeOP::~NodeThreeOP()
 
 void NodeThreeOP::Compile()
 {
+	CompileExtra();
 	NodeTwoOP::Compile();
 	third->Compile();
 }
@@ -303,6 +326,7 @@ void NodePopOp::Compile()
 {
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+	CompileExtra();
 
 	// Child node computes value
 	first->Compile();
@@ -345,6 +369,8 @@ NodeUnaryOp::~NodeUnaryOp()
 
 void NodeUnaryOp::Compile()
 {
+	CompileExtra();
+
 	asmOperType aOT = operTypeForStackType[first->typeInfo->stackType];
 
 	// Child node computes value
@@ -389,6 +415,8 @@ void NodeReturnOp::Compile()
 {
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
+	CompileExtra();
 
 	// Compute value that we're going to return
 	first->Compile();
@@ -439,6 +467,8 @@ void NodeBlock::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	// Compute value that we're going to return
 	first->Compile();
 	if(parentFunction->closeUpvals)
@@ -480,6 +510,8 @@ void NodeFuncDef::Disable()
 
 void NodeFuncDef::Compile()
 {
+	CompileExtra();
+
 	if(disabled)
 		return;
 	if(sourcePos)
@@ -560,6 +592,8 @@ NodeFuncCall::~NodeFuncCall()
 
 void NodeFuncCall::Compile()
 {
+	CompileExtra();
+
 	// Find parameter values
 	if(first)
 		first->Compile();
@@ -656,6 +690,8 @@ void NodeGetAddress::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	cmdList.push_back(VMCmd(cmdGetAddr, absAddress ? 0 : 1, varAddress));
 }
 
@@ -689,6 +725,8 @@ void NodeGetUpvalue::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	cmdList.push_back(VMCmd(cmdPushInt, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
 	cmdList.push_back(VMCmd(cmdPushIntStk, 0, (unsigned short)typeInfo->size, closureElem));
 }
@@ -716,6 +754,8 @@ NodeConvertPtr::~NodeConvertPtr()
 
 void NodeConvertPtr::Compile()
 {
+	CompileExtra();
+
 	first->Compile();
 	if(typeInfo == typeObject)
 	{
@@ -816,6 +856,8 @@ void NodeVariableSet::Compile()
 {
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
+	CompileExtra();
 
 	asmStackType asmST = typeInfo->stackType;
 	asmDataType asmDT = typeInfo->dataType;
@@ -920,6 +962,8 @@ void NodeVariableModify::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	asmStackType asmSTfirst = typeInfo->stackType;
 	asmDataType asmDT = typeInfo->dataType;
 
@@ -1018,6 +1062,8 @@ void NodeArrayIndex::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	// Get address of the first array element
 	first->Compile();
 
@@ -1098,6 +1144,8 @@ void NodeDereference::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	if(typeInfo->size == 0)
 		return;
 	asmDataType asmDT = typeInfo->dataType;
@@ -1160,6 +1208,8 @@ void NodeShiftAddress::Compile()
 {
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
+	CompileExtra();
 
 	// Get variable address
 	first->Compile();
@@ -1243,6 +1293,8 @@ void NodePreOrPostOp::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	asmStackType asmST = typeInfo->stackType;
 	asmDataType asmDT = typeInfo->dataType;
 	asmOperType aOT = operTypeForStackType[typeInfo->stackType];
@@ -1294,6 +1346,8 @@ void NodeFunctionAddress::Compile()
 {
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
+	CompileExtra();
 
 	unsigned int ID = CodeInfo::FindFunctionByPtr(funcInfo);
 	cmdList.push_back(VMCmd(cmdFuncAddr, ID));
@@ -1358,6 +1412,8 @@ void NodeBinaryOp::Compile()
 {
 	asmStackType fST = first->typeInfo->stackType, sST = second->typeInfo->stackType;
 	
+	CompileExtra();
+
 	// Compute first value
 	first->Compile();
 	// Convert it to the resulting type
@@ -1416,6 +1472,8 @@ void NodeIfElseExpr::Compile()
 {
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
+	CompileExtra();
 
 	// Child node structure: if(first) second; else third;
 	// Or, for conditional operator: first ? second : third;
@@ -1494,6 +1552,8 @@ void NodeForExpr::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	// Child node structure: for(first, second, third) fourth;
 
 	// Compile initialization node
@@ -1555,6 +1615,8 @@ void NodeWhileExpr::Compile()
 {
 	// Child node structure: while(first) second;
 
+	CompileExtra();
+
 	unsigned int posStart = cmdList.size();
 	// Compute condition value
 	first->Compile();
@@ -1605,6 +1667,8 @@ NodeDoWhileExpr::~NodeDoWhileExpr()
 void NodeDoWhileExpr::Compile()
 {
 	// Child node structure: do{ first; }while(second)
+
+	CompileExtra();
 
 	unsigned int posStart = cmdList.size();
 	// Compile loop contents
@@ -1674,6 +1738,8 @@ void NodeBreakOp::Compile()
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
+	CompileExtra();
+
 	// Break the loop
 	fixQueue.push_back(cmdList.size());
 	cmdList.push_back(VMCmd(cmdJmp, breakDepth));
@@ -1708,6 +1774,8 @@ void NodeContinueOp::Compile()
 {
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
+	CompileExtra();
 
 	// Continue the loop
 	fixQueue.push_back(cmdList.size());
@@ -1774,6 +1842,8 @@ void NodeSwitchExpr::AddDefault()
 
 void NodeSwitchExpr::Compile()
 {
+	CompileExtra();
+
 	asmStackType aST = first->typeInfo->stackType;
 	asmOperType aOT = operTypeForStackType[aST];
 
@@ -1887,6 +1957,8 @@ NodeZeroOP* NodeExpressionList::GetFirstNode()
 
 void NodeExpressionList::Compile()
 {
+	CompileExtra();
+
 	NodeZeroOP	*curr = first;
 	do 
 	{

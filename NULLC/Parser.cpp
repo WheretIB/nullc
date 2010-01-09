@@ -284,6 +284,9 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	functionName[(*str)->length] = 0;
 	(*str) += 2;
 
+	if(memberFunctionCall)
+		CALLBACK(PrepareMemberCall((*str)->pos));
+
 	unsigned int callArgCount = 0;
 	if(ParseVaribleSet(str))
 	{
@@ -763,6 +766,27 @@ bool ParseGroup(Lexeme** str)
 	return true;
 }
 
+bool ParseArray(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_ofigure))
+		return false;
+
+	unsigned int arrElementCount = 0;
+	if(!ParseTernaryExpr(str))
+		ThrowError((*str)->pos, "ERROR: value not found after '{'");
+	while(ParseLexem(str, lex_comma))
+	{
+		if(!ParseTernaryExpr(str))
+			ThrowError((*str)->pos, "ERROR: value not found after ','");
+		arrElementCount++;
+	}
+	if(!ParseLexem(str, lex_cfigure))
+		ThrowError((*str)->pos, "ERROR: '}' not found after inline array");
+	CALLBACK(AddArrayConstructor((*str)->pos, arrElementCount));
+
+	return true;
+}
+
 bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 {
 	if(ParseLexem(str, lex_mul))
@@ -902,11 +926,6 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 	}
 		break;
-	case lex_quotedstring:
-		CALLBACK(AddStringNode((*str)->pos, (*str)->pos+(*str)->length));
-		(*str)++;
-		return true;
-		break;
 	case lex_semiquotedchar:
 		if(((*str)->length > 3 && (*str)->pos[1] != '\\') || (*str)->length > 4)
 			ThrowError((*str)->pos, "ERROR: only one character can be inside single quotes");
@@ -956,24 +975,6 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 	}
 		break;
-	case lex_ofigure:
-	{
-		(*str)++;
-		unsigned int arrElementCount = 0;
-		if(!ParseTernaryExpr(str))
-			ThrowError((*str)->pos, "ERROR: value not found after '{'");
-		while(ParseLexem(str, lex_comma))
-		{
-			if(!ParseTernaryExpr(str))
-				ThrowError((*str)->pos, "ERROR: value not found after ','");
-			arrElementCount++;
-		}
-		if(!ParseLexem(str, lex_cfigure))
-			ThrowError((*str)->pos, "ERROR: '}' not found after inline array");
-		CALLBACK(AddArrayConstructor((*str)->pos, arrElementCount));
-		return true;
-	}
-		break;
 	case lex_typeof:
 	case lex_auto:
 	case lex_string:
@@ -990,14 +991,32 @@ bool ParseTerminal(Lexeme** str)
 	}
 	bool lastIsFunctionCall = false;
 	bool needDereference = false;
-	if((*str)->type == lex_oparen && ParseGroup(str))
+	if((*str)->type == lex_quotedstring)
 	{
+		CALLBACK(AddStringNode((*str)->pos, (*str)->pos+(*str)->length));
+		(*str)++;
+		/**/
+		bool hadPost = false;
+		while(ParsePostExpression(str, &lastIsFunctionCall))
+			hadPost = true;
+		if(hadPost && !lastIsFunctionCall)
+			needDereference = true;
+	}else if((*str)->type == lex_ofigure && ParseArray(str)){
+		/**/
+		bool hadPost = false;
+		while(ParsePostExpression(str, &lastIsFunctionCall))
+			hadPost = true;
+		if(hadPost && !lastIsFunctionCall)
+			needDereference = true;
+	}else if((*str)->type == lex_oparen && ParseGroup(str)){
+		/**/
 		bool hadPost = false;
 		while(ParsePostExpression(str, &lastIsFunctionCall))
 			hadPost = true;
 		if(hadPost && !lastIsFunctionCall)
 			needDereference = true;
 	}else if((*str)->type == lex_string && (*str + 1)->type == lex_oparen && ParseFunctionCall(str, false)){
+		/**/
 		bool hadPost = false;
 		while(ParsePostExpression(str, &lastIsFunctionCall))
 			hadPost = true;

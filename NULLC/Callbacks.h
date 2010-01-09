@@ -99,6 +99,7 @@ void FunctionEnd(const char* pos, const char* funcName);
 void FunctionToOperator(const char* pos);
 
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
+void PrepareMemberCall(const char* pos);
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount);
 
 void AddIfNode(const char* pos);

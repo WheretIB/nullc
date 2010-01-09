@@ -24,6 +24,7 @@ enum COLOR_STYLE
 	COLOR_FUNC,
 	COLOR_TEXT,
 	COLOR_BOLD,
+	COLOR_CHAR,
 	COLOR_REAL,
 	COLOR_INT,
 	COLOR_ERR,
@@ -70,7 +71,7 @@ namespace ColorerGrammar
 	std::vector<unsigned int>	callArgCount;
 
 	// Callbacks
-	ColorCodeCallback ColorRWord, ColorVar, ColorVarDef, ColorFunc, ColorText, ColorReal, ColorInt, ColorBold, ColorErr, ColorComment;
+	ColorCodeCallback ColorRWord, ColorVar, ColorVarDef, ColorFunc, ColorText, ColorChar, ColorReal, ColorInt, ColorBold, ColorErr, ColorComment;
 	ColorCodeCallback ColorCode;
 
 	//Error log
@@ -295,7 +296,7 @@ namespace ColorerGrammar
 					epsP[LogError("ERROR: unexpected symbol after function header")]
 				);
 
-			postExpr	=	(chP('[')[ColorText] >> term5 >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	varname[ColorVar] >> (~chP('(') | nothingP)) | fcallpart;
+			postExpr	=	(chP('[')[ColorText] >> term5 >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	varname[ColorVar] >> !fcallpart) | fcallpart;
 			appval		=	(varname - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
 			addvarp		=
 				(
@@ -402,11 +403,11 @@ namespace ColorerGrammar
 				(chP('&')[ColorText] >> appval) |
 				((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
 				(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
-				(chP('\"')[ColorText] >> *((strP("\\\"") | strP("\\r") | strP("\\n") | strP("\\\'") | strP("\\\\") | strP("\\t") | strP("\\0"))[ColorReal] | (anycharP[ColorVar] - chP('\"'))) >> chP('\"')[ColorText]) |
+				(chP('\"')[ColorText] >> *((strP("\\\"") | strP("\\r") | strP("\\n") | strP("\\\'") | strP("\\\\") | strP("\\t") | strP("\\0"))[ColorReal] | (anycharP[ColorChar] - chP('\"'))) >> chP('\"')[ColorText] >> *postExpr) |
 				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][ColorReal] |
 				longestD[(intP >> (chP('l') | chP('b') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
-				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorVar]) >> chP('\'')[ColorText]] |
-				(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText]) |
+				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorChar]) >> chP('\'')[ColorText]] |
+				(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText] >> *postExpr) |
 				(strP("new")[ColorRWord] >> typenameP(typeName)[ColorRWord] >> !(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])) |
 				(group >> *postExpr) |
 				(funccall[FuncCall] >> *postExpr) |
@@ -590,10 +591,12 @@ Colorer::Colorer()
 	ColorerGrammar::ColorFunc	= ColorCodeCallback(this, COLOR_FUNC);
 	ColorerGrammar::ColorText	= ColorCodeCallback(this, COLOR_TEXT);
 	ColorerGrammar::ColorBold	= ColorCodeCallback(this, COLOR_BOLD);
+	ColorerGrammar::ColorChar	= ColorCodeCallback(this, COLOR_CHAR);
 	ColorerGrammar::ColorReal	= ColorCodeCallback(this, COLOR_REAL);
 	ColorerGrammar::ColorInt	= ColorCodeCallback(this, COLOR_INT);
 	ColorerGrammar::ColorErr	= ColorCodeCallback(this, COLOR_ERR);
 	ColorerGrammar::ColorComment= ColorCodeCallback(this, COLOR_COMMENT);
+	
 
 	ColorerGrammar::ColorCode	= ColorCodeCallback(this, COLOR_CODE);
 

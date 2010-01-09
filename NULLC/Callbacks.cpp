@@ -87,12 +87,19 @@ FastVector<FunctionInfo*>	bestFuncList;
 FastVector<unsigned int>	bestFuncRating;
 
 FastVector<NodeZeroOP*>	paramNodes;
-FastVector<NodeZeroOP*>	inplaceArray;
 
 void AddInplaceVariable(const char* pos);
-bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
-bool ConvertFunctionToPointer(const char* pos);
-bool HandlePointerToObject(const char* pos, TypeInfo *dstType);
+void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
+void ConvertFunctionToPointer(const char* pos);
+void HandlePointerToObject(const char* pos, TypeInfo *dstType);
+
+void AddExtraNode()
+{
+	NodeZeroOP *last = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+	last->AddExtraNode();
+	CodeInfo::nodeList.push_back(last);
+}
 
 template<typename T> void	Swap(T& a, T& b)
 {
@@ -692,9 +699,7 @@ void AddReturnNode(const char* pos)
 	bool localReturn = currDefinedFunc.size() != 0;
 
 	// If new function is returned, convert it to pointer
-	bool unifyTwo = false;
-	if(ConvertFunctionToPointer(pos))
-		unifyTwo = true;
+	ConvertFunctionToPointer(pos);
 
 	// Type that is being returned
 	TypeInfo *realRetType = CodeInfo::nodeList.back()->typeInfo;
@@ -729,8 +734,6 @@ void AddReturnNode(const char* pos)
 	// Add node and link source to instruction
 	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType, currDefinedFunc.size() ? currDefinedFunc.back() : NULL));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
-	if(unifyTwo)
-		AddTwoExpressionNode();
 }
 
 void AddBreakNode(const char* pos)
@@ -1055,25 +1058,15 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	if(i == -1)
 		ThrowError(pos, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 
+	// If a function is being assigned to variable, then take it's address
+	ConvertFunctionToPointer(pos);
+
 	// If current type is set to NULL, it means that current type is auto
 	// Is such case, type is retrieved from last AST node
 	TypeInfo *realCurrType = CodeInfo::varInfo[i]->varType ? CodeInfo::varInfo[i]->varType : CodeInfo::nodeList.back()->typeInfo;
 
-	// Maybe additional node will be needed to define variable
-	// Variable signalizes that two nodes need to be unified in one
-	bool unifyTwo = false;
 	// If variable type is array without explicit size, and it is being defined with value of different type
-	if(ConvertArrayToUnsized(pos, realCurrType))
-		unifyTwo = true;
-
-	// If a function is being assigned to variable, then take it's address
-	if(ConvertFunctionToPointer(pos))
-	{
-		unifyTwo = true;
-		if(!CodeInfo::varInfo[i]->varType)
-			realCurrType = CodeInfo::nodeList.back()->typeInfo;
-		varDefined = true;
-	}
+	ConvertArrayToUnsized(pos, realCurrType);
 	HandlePointerToObject(pos, realCurrType);
 
 	// If type wasn't known until assignment, it means that variable alignment wasn't performed in AddVariable function
@@ -1095,24 +1088,18 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
 
 	// Call overloaded operator with error suppression
-	if(!unifyTwo)
-	{
-		NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
-		CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
-		CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
-		
-		if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
-			return;
+	NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
+	CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+	CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
+	
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
+		return;
 
-		temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
-		CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
-		CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
-	}
+	temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
+	CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+	CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
 
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::GetReferenceType(realCurrType), true, false));
-
-	if(unifyTwo)
-		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
 void AddSetVariableNode(const char* pos)
@@ -1126,20 +1113,11 @@ void AddSetVariableNode(const char* pos)
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 
 	// Make necessary implicit conversions
-	bool unifyTwo = false;
-	if(ConvertArrayToUnsized(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType))
-		unifyTwo = true;
-	if(ConvertFunctionToPointer(pos))
-		unifyTwo = true;
+	ConvertArrayToUnsized(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType)/*)*/;
+	ConvertFunctionToPointer(pos);
 	HandlePointerToObject(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 
-	if(unifyTwo)
-		Swap(CodeInfo::nodeList[CodeInfo::nodeList.size()-2], CodeInfo::nodeList[CodeInfo::nodeList.size()-3]);
-
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, 0, true));
-
-	if(unifyTwo)
-		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
 void AddGetVariableNode(const char* pos)
@@ -1150,10 +1128,6 @@ void AddGetVariableNode(const char* pos)
 	// So in this special case, dereferencing is not done. Yeah...
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo == typeVoid)
 	{
-		CodeInfo::nodeList.back()->typeInfo = typeInt;
-	}else if(CodeInfo::nodeList.back()->nodeType == typeNodeExpressionList &&
-		static_cast<NodeExpressionList*>(CodeInfo::nodeList.back())->GetFirstNode()->next->nodeType == typeNodeNumber &&
-		static_cast<NodeExpressionList*>(CodeInfo::nodeList.back())->GetFirstNode()->next->typeInfo == typeVoid){	// Damn me!
 		CodeInfo::nodeList.back()->typeInfo = typeInt;
 	}else if(CodeInfo::nodeList.back()->typeInfo == NULL){
 		ThrowError(pos, "ERROR: variable type is unknown");
@@ -1200,7 +1174,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)currentType->arrSize, typeVoid));
 		currentType = typeInt;
 		if(unifyTwo)
-			AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
+			AddExtraNode();
 		return;
 	}
  
@@ -1244,42 +1218,43 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
+void PrepareMemberCall(const char* pos)
+{
+	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
+
+	// Implicit conversion of type ref ref to type ref
+	if(currentType->refLevel == 2)
+	{
+		CodeInfo::nodeList.push_back(new NodeDereference());
+		return;
+	}
+	// Implicit conversion from type[N] ref to type[]
+	if(currentType->refLevel == 1 && currentType->subType->arrLevel && currentType->subType->arrSize != TypeInfo::UNSIZED_ARRAY)
+	{
+		CodeInfo::nodeList.push_back(new NodeDereference());
+		currentType = CodeInfo::nodeList.back()->typeInfo;
+	}
+	// Implicit conversion from type to type ref
+	if(currentType->refLevel == 0 && currentType->type == TypeInfo::TYPE_COMPLEX){
+		// And from type[] to type[] ref
+		if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
+			ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(currentType->subType, TypeInfo::UNSIZED_ARRAY));
+
+		AddInplaceVariable(pos);
+		AddExtraNode();
+	}
+
+}
+
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
 {
 	// Check if type has any member functions
 	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo;
-	if(currentType->refLevel == 2)
-	{
-		if(callArgCount)
-			CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - callArgCount);
-		CodeInfo::nodeList.push_back(new NodeDereference());
-		if(callArgCount)
-			CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + callArgCount);
-		currentType = CodeInfo::GetDereferenceType(currentType);
-	}
-	int unifyNodes = 0;
-	if(currentType->refLevel == 0 && currentType->type == TypeInfo::TYPE_COMPLEX)
-	{
-		AddInplaceVariable(pos);
-		currentType = CodeInfo::GetReferenceType(currentType);
-		unifyNodes++;
-	}
 	CheckForImmutable(currentType, pos);
-	TypeInfo *parentType = currentType->subType;
-	if(parentType->arrLevel != 0 && parentType->arrSize != TypeInfo::UNSIZED_ARRAY)
-	{
-		parentType = CodeInfo::GetArrayType(parentType->subType, ~0u);
-		if(ConvertArrayToUnsized(pos, parentType))
-			ThrowError(pos, "ERROR: Internal compiler error");
-		AddInplaceVariable(pos);
-		unifyNodes++;
-	}
 	// Construct name in a form of Class::Function
-	char *memberFuncName = GetClassFunctionName(parentType, funcName);
+	char *memberFuncName = GetClassFunctionName(currentType->subType, funcName);
 	// Call it
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
-	while(unifyNodes--)
-		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
 void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)
@@ -1295,7 +1270,7 @@ void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)
 		// Get pointer from it
 		AddDereferenceNode(pos);
 		CodeInfo::nodeList.push_back(new NodePreOrPostOp(isInc, prefixOp));
-		AddTwoExpressionNode(CodeInfo::GetDereferenceType(pointer->typeInfo));
+		AddExtraNode();
 	}else{
 		CodeInfo::nodeList.push_back(new NodePreOrPostOp(isInc, prefixOp));
 	}
@@ -1329,7 +1304,7 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 		// Restore value
 		CodeInfo::nodeList.push_back(value);
 		CodeInfo::nodeList.push_back(new NodeVariableModify(pointer->typeInfo, cmd));
-		AddTwoExpressionNode(CodeInfo::GetDereferenceType(pointer->typeInfo));
+		AddExtraNode();
 	}else{
 		CodeInfo::nodeList.push_back(new NodeVariableModify(pointer->typeInfo, cmd));
 	}
@@ -1360,89 +1335,63 @@ void AddInplaceVariable(const char* pos)
 	currType = saveCurrType;
 }
 
-bool ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
+void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 {
-	bool unifyTwo = false;
 	TypeInfo *nodeType = CodeInfo::nodeList.back()->typeInfo;
-	// If subtype of both variables (presumably, arrays) is equal
-	if(dstType->arrSize == TypeInfo::UNSIZED_ARRAY && dstType != nodeType)
+	if(dstType->arrSize != TypeInfo::UNSIZED_ARRAY || dstType == nodeType)
+		return;
+	if(dstType->subType == nodeType->subType)
 	{
-		bool createList = false;
-		int typeSize = 0;
-		if(dstType->subType == nodeType->subType)
+		bool hasImplicitNode = false;
+		if(CodeInfo::nodeList.back()->nodeType != typeNodeDereference)
 		{
-			// And if to the right of assignment operator there is no pointer dereference
-			if(CodeInfo::nodeList.back()->nodeType != typeNodeDereference)
-			{
-				// Then, to the right of assignment operator there is array definition using inplace array
-				if(CodeInfo::nodeList.back()->nodeType == typeNodeExpressionList || CodeInfo::nodeList.back()->nodeType == typeNodeFuncCall)
-				{
-					// Create node for assignment of inplace array to implicit variable
-					AddInplaceVariable(pos);
-					// Push array on stack
-					AddGetVariableNode(pos);
-					// Now we have two nodes, so they are to be unified
-					unifyTwo = true;
-				}else{
-					// Or if not, then types aren't compatible, so throw error
-					ThrowError(pos, "ERROR: Cannot convert from %s to %s", CodeInfo::nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
-				}
-			}
-			// Because we are assigning array of explicit size to a pointer to array, we have to put a pair of pointer:size on top of stack
-			// Take pointer to an array (node that is inside of pointer dereference node)
+			AddInplaceVariable(pos);
+			hasImplicitNode = true;
+		}else{
 			NodeZeroOP	*oldNode = CodeInfo::nodeList.back();
 			CodeInfo::nodeList.back() = static_cast<NodeDereference*>(oldNode)->GetFirstNode();
 			static_cast<NodeDereference*>(oldNode)->SetFirstNode(NULL);
-			// Find the size of an array
-			typeSize = (nodeType->size - nodeType->paddingBytes) / nodeType->subType->size;
-			createList = true;
-		}else if(nodeType->refLevel == 1 && dstType->subType == nodeType->subType->subType){
-			if(nodeType->subType->arrSize == TypeInfo::UNSIZED_ARRAY)
-				ThrowError(pos, "ERROR: Cannot convert from %s to %s", CodeInfo::nodeList.back()->typeInfo->GetFullTypeName(), dstType->GetFullTypeName());
-			// Set the size of an array
-			typeSize = nodeType->subType->arrSize;
-			createList = true;
 		}
-		if(createList)
-		{
-			// Create expression list with return type of implicit size array
-			// Node constructor will take last node
-			NodeExpressionList *listExpr = new NodeExpressionList(dstType);
-			// Create node that places array size on top of the stack
-			CodeInfo::nodeList.push_back(new NodeNumber(typeSize, typeInt));
-			// Add it to expression list
+		
+		TypeInfo *inplaceType = CodeInfo::nodeList.back()->typeInfo;
+		assert(inplaceType->refLevel == 1);
+		assert(inplaceType->subType->arrLevel != 0);
+
+		NodeExpressionList *listExpr = new NodeExpressionList(dstType);
+		// Create node that places array size on top of the stack
+		CodeInfo::nodeList.push_back(new NodeNumber((int)inplaceType->subType->arrSize, typeInt));
+		// Add it to expression list
+		listExpr->AddNode();
+		if(hasImplicitNode)
 			listExpr->AddNode();
-			// Add expression list to node list
-			CodeInfo::nodeList.push_back(listExpr);
-		}
+		// Add expression list to node list
+		CodeInfo::nodeList.push_back(listExpr);
 	}
-	return unifyTwo;
 }
 
-bool ConvertFunctionToPointer(const char* pos)
+void ConvertFunctionToPointer(const char* pos)
 {
 	// If node is a function definition or a pair of { function definition, function closure setup }
-	if(CodeInfo::nodeList.back()->nodeType == typeNodeFuncDef ||
-		(CodeInfo::nodeList.back()->nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(CodeInfo::nodeList.back())->GetFirstNode()->nodeType == typeNodeFuncDef))
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeFuncDef)
 	{
 		// Take it's address and hide it's name
-		NodeFuncDef*	funcDefNode = (NodeFuncDef*)(CodeInfo::nodeList.back()->nodeType == typeNodeFuncDef ? CodeInfo::nodeList.back() : static_cast<NodeExpressionList*>(CodeInfo::nodeList.back())->GetFirstNode());
+		NodeFuncDef*	funcDefNode = (NodeFuncDef*)CodeInfo::nodeList.back();
 		AddGetAddressNode(pos, InplaceStr(funcDefNode->GetFuncInfo()->name, funcDefNode->GetFuncInfo()->nameLength), true);
+
+		AddExtraNode();
+
 		funcDefNode->GetFuncInfo()->visible = false;
-		return true;
 	}
-	return false;
 }
 
-bool HandlePointerToObject(const char* pos, TypeInfo *dstType)
+void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 {
 	TypeInfo *srcType = CodeInfo::nodeList.back()->typeInfo;
 	if(!((dstType == typeObject) ^ (srcType == typeObject)))
-		return false;
+		return;
 
 	CheckForImmutable(dstType == typeObject ? srcType : dstType, pos);
 	CodeInfo::nodeList.push_back(new NodeConvertPtr(dstType == typeObject ? typeObject : dstType));
-	return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1558,9 +1507,7 @@ void FunctionParameterDefault(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	bool unifyTwo = false;
-	if(ConvertFunctionToPointer(pos))
-		unifyTwo = true;
+	ConvertFunctionToPointer(pos);
 
 	TypeInfo *left = lastFunc.lastParam->varType;
 	TypeInfo *right = CodeInfo::nodeList.back()->typeInfo;
@@ -1576,9 +1523,6 @@ void FunctionParameterDefault(const char* pos)
 	// If types don't match and it it is not build-in basic types or if pointers point to different types
 	if(left != right && (left->type == TypeInfo::TYPE_COMPLEX || right->type == TypeInfo::TYPE_COMPLEX || left->subType != right->subType))
 		ThrowError(pos, "ERROR: Cannot convert from '%s' to '%s'", right->GetFullTypeName(), left->GetFullTypeName());
-
-	if(unifyTwo)
-		AddTwoExpressionNode(left);
 
 	lastFunc.lastParam->defaultValue = CodeInfo::nodeList.back();
 	CodeInfo::nodeList.pop_back();
@@ -1682,9 +1626,10 @@ void FunctionEnd(const char* pos, const char* funcName)
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
 	EndBlock(true, false);
 
-	CodeInfo::nodeList.push_back(new NodeFuncDef(&lastFunc, varFormerTop));
-	CodeInfo::nodeList.back()->SetCodeInfo(pos);
-	CodeInfo::funcDefList.push_back(CodeInfo::nodeList.back());
+	NodeZeroOP *funcNode = new NodeFuncDef(&lastFunc, varFormerTop);
+	CodeInfo::nodeList.push_back(funcNode);
+	funcNode->SetCodeInfo(pos);
+	CodeInfo::funcDefList.push_back(funcNode);
 
 	if(!currDefinedFunc.back()->retType)
 	{
@@ -1758,7 +1703,7 @@ void FunctionEnd(const char* pos, const char* funcName)
 
 		varDefined = saveVarDefined;
 		currType = saveCurrType;
-		AddTwoExpressionNode();
+		funcNode->AddExtraNode();
 	}
 
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
@@ -1791,8 +1736,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		{
 			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 				fRating += 5;
-			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef ||
-					(nodeType == typeNodeExpressionList && static_cast<NodeExpressionList*>(activeNode)->GetFirstNode()->nodeType == typeNodeFuncDef))
+			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef)
 				fRating += 5;
 			else if(expectedType == typeObject && paramType->refLevel != 0)
 				fRating += 5;
@@ -1971,25 +1915,16 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		paramNodes.push_back(CodeInfo::nodeList.back());
 		CodeInfo::nodeList.pop_back();
 	}
-	inplaceArray.clear();
 
 	for(unsigned int i = 0; i < fType->paramCount; i++)
 	{
 		unsigned int index = fType->paramCount - i - 1;
 
 		CodeInfo::nodeList.push_back(paramNodes[index]);
-		if(ConvertFunctionToPointer(pos))
-		{
-			NodeExpressionList* listExpr = new NodeExpressionList(paramNodes[index]->typeInfo);
-			listExpr->AddNode();
-			CodeInfo::nodeList.push_back(listExpr);
-		}else if(ConvertArrayToUnsized(pos, fType->paramType[i])){
-			inplaceArray.push_back(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]);
-			CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = CodeInfo::nodeList.back();
-			CodeInfo::nodeList.pop_back();
-		}else{
-			HandlePointerToObject(pos, fType->paramType[i]);
-		}
+
+		ConvertFunctionToPointer(pos);
+		ConvertArrayToUnsized(pos, fType->paramType[i]);
+		HandlePointerToObject(pos, fType->paramType[i]);
 	}
 
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
@@ -2012,18 +1947,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		CodeInfo::nodeList.push_back(funcAddr);
 	CodeInfo::nodeList.push_back(new NodeFuncCall(fInfo, fType));
 
-	if(inplaceArray.size() > 0)
-	{
-		NodeZeroOP* temp = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		for(unsigned int i = 0; i < inplaceArray.size(); i++)
-			CodeInfo::nodeList.push_back(inplaceArray[i]);
-		CodeInfo::nodeList.push_back(temp);
-
-		CodeInfo::nodeList.push_back(new NodeExpressionList(temp->typeInfo));
-		for(unsigned int i = 0; i < inplaceArray.size(); i++)
-			AddTwoExpressionNode();
-	}
 	return true;
 }
 
@@ -2286,7 +2209,6 @@ void CallbackReset()
 	bestFuncList.reset();
 	bestFuncRating.reset();
 	paramNodes.reset();
-	inplaceArray.reset();
 
 	TypeInfo::typeInfoPool.~ChunkedStackPool();
 	TypeInfo::SetPoolTop(0);
