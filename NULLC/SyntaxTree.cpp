@@ -1417,9 +1417,6 @@ void NodeBinaryOp::Compile()
 	if(cmdID == cmdLogOr || cmdID == cmdLogAnd)
 	{
 		first->Compile();
-		// Convert double to int as direct conversion
-		if(fST == STYPE_DOUBLE)
-			ConvertFirstToSecond(fST, STYPE_INT);
 		// Convert long to int with | operation between parts of long (otherwise, we would've truncated 64 bit value)
 		if(fST == STYPE_LONG)
 			cmdList.push_back(VMCmd(cmdBitOr));
@@ -1430,10 +1427,7 @@ void NodeBinaryOp::Compile()
 		unsigned int specialJmp1 = cmdList.size() - 1;
 
 		second->Compile();
-		// Convert argument just like the first one
-		if(fST == STYPE_DOUBLE)
-			ConvertFirstToSecond(fST, STYPE_INT);
-		else if(fST == STYPE_LONG)
+		if(fST == STYPE_LONG)
 			cmdList.push_back(VMCmd(cmdBitOr));
 
 		// If it's operator || and first argument is true, jump to push 1 as result
@@ -1655,9 +1649,12 @@ NodeWhileExpr::~NodeWhileExpr()
 
 void NodeWhileExpr::Compile()
 {
-	// Child node structure: while(first) second;
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	CompileExtra();
+
+	// Child node structure: while(first) second;
 
 	unsigned int posStart = cmdList.size();
 	// Compute condition value
@@ -1715,6 +1712,9 @@ void NodeDoWhileExpr::Compile()
 	unsigned int posStart = cmdList.size();
 	// Compile loop contents
 	first->Compile();
+
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	unsigned int posCond = cmdList.size();
 	// Compute condition value

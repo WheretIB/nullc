@@ -620,12 +620,7 @@ void Executor::Run(const char* funcName)
 			genStackPtr++;
 			break;
 		case cmdLogAnd:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) && *(int*)(genStackPtr);
-			genStackPtr++;
-			break;
 		case cmdLogOr:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) || *(int*)(genStackPtr);
-			genStackPtr++;
 			break;
 		case cmdLogXor:
 			*(int*)(genStackPtr+1) = !!(*(int*)(genStackPtr+1)) ^ !!(*(int*)(genStackPtr));
@@ -713,12 +708,7 @@ void Executor::Run(const char* funcName)
 			genStackPtr += 2;
 			break;
 		case cmdLogAndL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) && *(long long*)(genStackPtr);
-			genStackPtr += 3;
-			break;
 		case cmdLogOrL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) || *(long long*)(genStackPtr);
-			genStackPtr += 3;
 			break;
 		case cmdLogXorL:
 			*(int*)(genStackPtr+3) = !!(*(long long*)(genStackPtr+2)) ^ !!(*(long long*)(genStackPtr));

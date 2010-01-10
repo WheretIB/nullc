@@ -1966,6 +1966,7 @@ void AddIfElseNode(const char* pos)
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->typeInfo == typeVoid)
 		ThrowError(pos, "ERROR: condition type cannot be void");
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true));
+	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
 void AddIfElseTermNode(const char* pos)
 {
@@ -2002,6 +2003,7 @@ void AddWhileNode(const char* pos)
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo == typeVoid)
 		ThrowError(pos, "ERROR: condition type cannot be void");
 	CodeInfo::nodeList.push_back(new NodeWhileExpr());
+	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()--;
@@ -2012,6 +2014,7 @@ void AddDoWhileNode(const char* pos)
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo == typeVoid)
 		ThrowError(pos, "ERROR: condition type cannot be void");
 	CodeInfo::nodeList.push_back(new NodeDoWhileExpr());
+	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()--;
