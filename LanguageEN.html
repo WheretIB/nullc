@@ -29,22 +29,195 @@ span.comment
 	</head>
 	<body>
 <h2 align="center">NULLC Language reference</h2>
+<ol>
+	<li>Basics</li>
+	<ol>
+		<li><a href="#basictypes">Basic types</a></li>
+		<li><a href="#varalign">Variable alignment</a></li>
+		<li><a href="#typeauto">Type inference</a></li>
+	</ol>
+	<li>Expressions</li>
+	<ol>
+		<li><a href="#import">import expression</a></li>
+		<li><a href="#typeof">typeof expression</a></li>
+		<li><a href="#sizeof">sizeof expression</a></li>
+		<li><a href="#new">new expression</a></li>
+		<li><a href="#break">break expression</a></li>
+		<li><a href="#continue">continue expression</a></li>
+		<li><a href="#return">return expression</a></li>
+		<li><a href="#typedef">typedef expression</a></li>
+	</ol>
+	<li>Statements</li>
+	<ol>
+		<li><a href="#if">if statement</a></li>
+		<li><a href="#for">for statement</a></li>
+		<li><a href="#while">while statement</a></li>
+		<li><a href="#do">do...while statement</a></li>
+		<li><a href="#switch">switch statement</a></li>
+	</ol>
+	<li>Declarations</li>
+	<ol>
+		<li><a href="#classes">User classes</a></li>
+		<li><a href="#vardef">Variables</a></li>
+		<li><a href="#functions">Functions</a></li>
+		<ol>
+			<li><a href="#funclocal">Local functions</a></li>
+			<li><a href="#funcinline">Inline functions</a></li>
+			<li><a href="#funcoverload">Function overloading</a></li>
+			<li><a href="#funcoperators">Operator overloading</a></li>
+		</ol>
+		<li><a href="#arrunsized">Arrays with implicit size</a></li>
+	</ol>
+	<li>Appendix</li>
+	<ol>
+		<li><a href="#convrules">Rules applied to value types in a binary operation</a></li>
+		<li><a href="#oppriority">Operator priority</a></li>
+		<li><a href="#convimplicit">Implicit conversions</a></li>
+	</ol>
+</ol>
 <hr />
-<h3>Basic types</h3>
+<h2 align="center">1. Basics</h2>
+<h3><a name="basictypes">1.1 Basic types</a></h3>
 
-<table border="1px">
-<tr><th>Name</th><th>Size</th><th>Default alignment</th><th>Extra information</th></tr>
-<tr><td>void</td><td>0 bytes</td><td>no alignment</td><td>only allowed as a function return value (returns nothing)</td></tr>
-<tr><td>char</td><td>1 byte</td><td>no alignment</td><td>values: 0..255</td></tr>
-<tr><td>short</td><td>2 bytes</td><td>no alignment</td><td>values: -32768..32767</td></tr>
-<tr><td>int</td><td>4 bytes</td><td>4 bytes</td><td>values: -2147483648..2147483647</td></tr>
-<tr><td>long</td><td>8 bytes</td><td>no alignment</td><td>values: -9223372036854775808..9223372036854775807</td></tr>
-<tr><td>float</td><td>4 bytes</td><td>4 bytes</td><td>values: as per IEEE 754</td></tr>
-<tr><td>double</td><td>8 bytes</td><td>8 bytes</td><td>values: as per IEEE 754</td></tr>
-</table>
+	<table border="1px">
+	<tr><th>Name</th><th>Size</th><th>Default alignment</th><th>Extra information</th></tr>
+	<tr><td>void</td><td>0 bytes</td><td>no alignment</td><td>only allowed as a function return value (returns nothing)</td></tr>
+	<tr><td>char</td><td>1 byte</td><td>no alignment</td><td>values: 0..255</td></tr>
+	<tr><td>short</td><td>2 bytes</td><td>no alignment</td><td>values: -32768..32767</td></tr>
+	<tr><td>int</td><td>4 bytes</td><td>4 bytes</td><td>values: -2147483648..2147483647</td></tr>
+	<tr><td>long</td><td>8 bytes</td><td>no alignment</td><td>values: -9223372036854775808..9223372036854775807</td></tr>
+	<tr><td>float</td><td>4 bytes</td><td>4 bytes</td><td>values: as per IEEE 754</td></tr>
+	<tr><td>double</td><td>8 bytes</td><td>8 bytes</td><td>values: as per IEEE 754</td></tr>
+	</table>
 
 <hr />
-<h3>User-defined types</h3>
+<h3><a name="varalign">1.2 Variable alignment</a></h3>
+
+	Default type alignment can be changed using two statements:<br />
+	noalign before type name will disable any default type alignment:<br />
+	<p class="code">
+	<span class="rword">noalign</span> <span class="rword">type</span> name; <span class="comment">// variable "name" of type "type" will not be aligned</span>
+	</p>
+	align(bytes) before type name will force specified alignment:<br />
+	<p class="code">
+	<span class="rword">align</span>(<span class="real">8</span>) <span class="rword">type</span> name; <span class="comment">// variable "name" of type "type" will be aligned to a 8 byte boundary.</span>
+	</p>
+	Alignment must not exceed 16 bytes.<br />
+
+<hr />
+<h3><a name="typeauto">1.3 Type inference</a></h3>
+
+	When defining a variable, type name can be replaced with a keyword "auto".<br />
+	In this case, type will be inferred from r-value type.<br />
+	Here are some examples:
+	<p class="code">
+	<span class="rword">auto</span> i = <span class="real">5</span>; <span class="comment">// i will have type int</span><br />
+	<span class="rword">auto</span> n = &i; <span class="comment">// n will have type int ref</span><br />
+	<span class="rword">int</span>[<span class="real">10</span>] arr;<br />
+	<span class="rword">auto</span> copy = arr; <span class="comment">// copy will have type int[10]</span>
+	</p>
+	Alignment of automatic types works just like with explicitly specified types.<br />
+	<br />
+	auto can be used as a function return type. If a function has different exit points returning different type, an error occurs.<br />
+	auto can be used as a function argument type as long as this arguments has a default value.<br />
+<hr />
+<h2 align="center">2. Expressions</h2>
+<h3><a name="import">2.1 import expression</a></h3>
+	<span class="rword">import</span> expressions allows code to import functions, classes and variables from other files.<br />
+	<br />
+	<span class="rword">import</span> expressions must be placed at the beginning of a file before any other expression or definition.<br />
+	A file name without extension must be specified after <span class="rword">import</span>.<br />
+	Also, folder name is accepted after <span class="rword">import</span> keyword, then a point '.' and another folder\file name expected.<br />
+	<br />
+	Expression examples:<br />
+	<p class="code">
+	<span class="rword">import</span> a; <span class="comment">// builds a.nc file and imports functions, classes and variables from it</span><br />
+	<span class="rword">import</span> d.e; <span class="comment">// builds d\e.nc file and imports functions, classes and variables from it</span><br />
+	</p>
+<hr />
+<h3><a name="typeof">2.2 typeof operator</a></h3>
+	<span class="rword">typeof</span>(expression) allows to get type of an expression (expression will not be evaluated at run time).<br />
+	<br />
+	<span class="rword">typeof</span>(<span class="real">4</span>) is equal to specifying int.<br />
+	<span class="rword">typeof</span>(<span class="real">4</span> * <span class="real">0.2</span>) is equal to specifying double.<br />
+<hr />
+<h3><a name="sizeof">2.3 sizeof operator</a></h3>
+	<span class="rword">sizeof</span>(type) returns size of type.<br />
+	<span class="rword">sizeof</span>(expression) returns size of the expression type (it is equal to "<span class="rword">sizeof</span>(<span class="rword">typeof</span>(expression))")<br />
+<hr />
+<h3><a name="new">2.4 new expression</a></h3>
+	<span class="rword">new</span> expression allows to allocate memory from global heap.<br />
+	There are two versions of this expression - one is used to allocate classes and the second one is used to allocate arrays.<br />
+	<br />
+	Return type of "<span class="rword">new</span> type" is 'type ref'.<br />
+	Return type of "<span class="rword">new</span> type[N]", where N is an expression that results in a number is 'type[]'.<br />
+<hr />
+<h3><a name="break">2.5 break expression</a></h3>
+	<span class="rword">break</span> expression allows to end execution of a cycle.<br />
+	<br />
+	<span class="rword">break</span>; exits current cycle.<br />
+	<span class="rword">break</span> <span class="real">N</span>; where N is number, known at compile time exits from N cycles beginning from where it is written.<br />
+	<span class="rword">break</span> <span class="real">1</span>; is equal to <span class="rword">break</span>;<br />
+<hr />
+<h3><a name="continue">2.6 continue expression</a></h3>
+	<span class="rword">continue</span> expression allows to skip to the next iteration of a cycle.<br />
+	<br />
+	<span class="rword">continue</span>; skips to the end of current cycle.<br />
+	<span class="rword">continue</span> <span class="real">N</span>; where N is number, known at compile time exits from (N-1) cycles beginning from where it is written and skips to the next iteration of cycle it ends up.<br />
+	<span class="rword">continue</span> <span class="real">1</span>; is equal to <span class="rword">continue</span>;<br />
+<hr />
+<h3><a name="return">2.7 return expression</a></h3>
+	<span class="rword">return</span> expression allows to return a value or exit from a function, or to end execution of a program if placed in global scope.<br />
+	<br />
+	<span class="rword">return</span>; exits function, returning void type (nothing).<br />
+	<span class="rword">return</span> expr; exits function or ends program execution, returning result of "expr".<br />
+	<br />
+	<span class="rword">return</span> that is placed globally accepts only basic build-un types and cannot return void.<br />
+	When returning value from function, it is converted to functions return type if conversion is possible.<br />
+	If function return type is <a href="#typeauto">auto</a>, function return type is set to the type of "expr".<br />
+<hr />
+<h3><a name="typedef">2.8 typedef expression</a></h3>
+	<span class="rword">typedef</span> expression allows to create one-word aliases to other types.<br />
+	<br />
+	<span class="rword">typedef</span> doesn't create new type, it just allows its target type to have different names.<br />
+	<br />
+	Examples:
+	<p class="code">
+	<span class="rword">typedef</span> <span class="rword">int</span>[<span class="real">4</span>] fourInts;<br />
+	<span class="rword">typedef</span> <span class="rword">int</span> <span class="rword">ref</span>(<span class="rword">int</span>, <span class="rword">int</span>) drawCallback;<br />
+	</p>
+<hr />
+<h2 align="center">3. Statements</h2>
+
+<h3><a name="if">3.1 if statement</a></h3>
+	<span class="rword">if</span>(expr)<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;trueBody<br />
+	<span class="rword">else</span><br />
+	&nbsp;&nbsp;&nbsp;&nbsp;falseBody<br />
+	<br />
+	<span class="rword">if</span> statement evaluates result of expression "expr", and if result isn't equal to 0, evaluates expressions put in "trueBody". Otherwise, it evaluates expressions put in "falseBody".<br />
+	"trueBody" and "falseBody" may consist of a single expression or a block of expressions.<br />
+	<span class="rword">else</span> and "falseBody", may be omitted. In such case, if result of "expr" is zero, nothing is evaluated.<br />
+<hr />
+<h3><a name="for">3.2 for statement</a></h3>
+	<span class="rword">for</span>(initexpr; condexpr; iterexpr)<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;forBody<br />
+	<br />
+	<span class="rword">for</span> statement is a cycle that evaluates "initexpr", and executes "forBody" while "condexpr" evaluates to a non-zero value.<br />
+	"iterexpr" is evaluated at the end of every cycle.<br />
+	<br />
+	"forBody", "initexpr" and "iterexpr" may consist of a single expression or a block of expressions.<br />
+	"condexpr" must be a single expression with result type of int\long\double.<br />
+<hr />
+<h3><a name="while">3.3 while statement</a></h3>
+<hr />
+<h3><a name="do">3.4 do...while statement</a></h3>
+<hr />
+<h3><a name="switch">3.5 switch statement</a></h3>
+<hr />
+
+<h2 align="center">4. Declarations</h2>
+<h3><a name="classes">4.1 User classes</a></h3>
 
 <p class="code">
 <span class="rword">class</span> Name<br />
@@ -60,21 +233,8 @@ There is no default alignment by default. To specify alignment, put "noalign" of
 Specifying "noalign" is superfluous. Alignment must not exceed 16 bytes.<br />
 
 <hr />
-<h3>Variable alignment</h3>
 
-Default type alignment can be changed using two statements:<br />
-noalign before type name will disable any default type alignment:<br />
-<p class="code">
-<span class="rword">noalign</span> <span class="rword">type</span> name; <span class="comment">// variable "name" of type "type" will not be aligned</span>
-</p>
-align(bytes) before type name will force specified alignment:<br />
-<p class="code">
-<span class="rword">align</span>(<span class="real">8</span>) <span class="rword">type</span> name; <span class="comment">// variable "name" of type "type" will be aligned to a 8 byte boundary.</span>
-</p>
-Alignment must not exceed 16 bytes.<br />
-
-<hr />
-<h3>Variable definition</h3>
+<h3><a name="vardef">4.2 Variables</a></h3>
 
 Simple variable definition syntax is:
 <p class="code">
@@ -106,35 +266,19 @@ A value can be assigned to a variable in place of its definition, by writing "= 
 If array element is assigned to a type, then it will be a default value of all array elements.<br />
 
 <hr />
-<h3>Type inference</h3>
-
-When defining a variable, type name can be replaced with a keyword "auto".<br />
-In this case, type will be inferred from r-value type.<br />
-Here are some examples:
-<p class="code">
-<span class="rword">auto</span> i = <span class="real">5</span>; <span class="comment">// i will have type int</span><br />
-<span class="rword">auto</span> n = &i; <span class="comment">// n will have type int ref</span><br />
-<span class="rword">int</span>[<span class="real">10</span>] arr;<br />
-<span class="rword">auto</span> copy = arr; <span class="comment">// copy will have type int[10]</span>
-</p>
-Alignment of automatic types works just like with explicitly specified types.<br />
-<br />
-auto can be used as a function return type. If a function has different exit points returning different type, an error occurs.<br />
-auto can be used as a function argument type as long as this arguments has a default value.<br />
+		
+<h3><a name="functions">4.3 Functions</a></h3>
 <hr />
-<h3>typeof operator</h3>
-
-<span class="rword">typeof</span>(expression) allows to get type of an expression (expression will not be evaluated at run time).<br />
-<br />
-<span class="rword">typeof</span>(<span class="real">4</span>) is equal to specifying int.<br />
-<span class="rword">typeof</span>(<span class="real">4</span> * <span class="real">0.2</span>) is equal to specifying double.<br />
+<h3><a name="funclocal">4.3.1 Local functions</a></h3>
 <hr />
-<h3>sizeof operator</h3>
-
-<span class="rword">sizeof</span>(type) returns size of type.<br />
-<span class="rword">sizeof</span>(expression) returns size of the expression type (it is equal to "<span class="rword">sizeof</span>(<span class="rword">typeof</span>(expression))")<br />
+<h3><a name="funcinline">4.3.2 Inline functions</a></h3>
 <hr />
-<h3>Arrays with implicit size</h3>
+<h3><a name="funcoverload">4.3.3 Function overloading</a></h3>
+<hr />
+<h3><a name="funcoperators">4.3.4 Operator overloading</a></h3>
+<hr />
+
+<h3><a name="arrunsized">4.4 Arrays with implicit size</a></h3>
 
 Array with implicit type is defined like this:
 <p class="code">
@@ -160,8 +304,9 @@ To get array size, use its "size" field:
 </p>
 
 <hr />
+<h2 align="center">5. Appendix</h2>
 
-<h3>Rules applied to value types in a binary operation</h3>
+<h3><a name="convrules">5.1 Rules applied to value types in a binary operation</a></h3>
 
 Rule A:<br />
 Operations are made on three types: double, long and int.<br />
@@ -185,7 +330,7 @@ And result is converted to type of l-value.<br />
 a *= <span class="real">2.5</span>; <span class="comment">// a equals 5</span><br />
 </p>
 <hr />
-<h3>Operator priority</h3>
+<h3><a name="oppriority">5.2 Operator priority</a></h3>
 
 <table border="1px">
 <tr><th>#</th><th>Evaluation</th><th>Operation</th></tr>
@@ -210,12 +355,33 @@ a *= <span class="real">2.5</span>; <span class="comment">// a equals 5</span><b
 </table>
 
 <hr />
-<h3>Implicit conversions</h3>
+<h3><a name="convimplicit">5.3 Implicit conversions</a></h3>
 
 Apart from implicit conversions from one basic type to the other, there are following conversions between complex types:<br />
 	type[size] -> type[]<br />
 	type ref -> auto ref<br />
 	auto ref -> type ref<br />
 
+<hr />
+
+<h3><a name="extra">characters</a></h3>
+<hr />
+<h3><a name="extra">strings</a></h3>
+<hr />
+<h3><a name="extra">inline arrays</a></h3>
+<hr />
+<h3><a name="extra">escape sequences</a></h3>
+<hr />
+<h3><a name="extra">binary numbers</a></h3>
+<hr />
+<h3><a name="extra">octal numbers</a></h3>
+<hr />
+<h3><a name="extra">hexadecimal numbers</a></h3>
+<hr />
+<h3><a name="extra">auto ref type</a></h3>
+<hr />
+
 	</body>
+
+
 </html>
