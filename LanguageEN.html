@@ -57,7 +57,7 @@ span.comment
 Class consists of variables and functions in any order, but keep in mind, functions can only access member variables that are defined before them.<br />
 <br />
 There is no default alignment by default. To specify alignment, put "noalign" of "align(bytes)" before "class" keyword.<br />
-Specifing "noalign" is supeflous. Alignment must not exceed 16 bytes.<br />
+Specifying "noalign" is superfluous. Alignment must not exceed 16 bytes.<br />
 
 <hr />
 <h3>Variable alignment</h3>
@@ -109,7 +109,7 @@ If array element is assigned to a type, then it will be a default value of all a
 <h3>Type inference</h3>
 
 When defining a variable, type name can be replaced with a keyword "auto".<br />
-In this case, type will be infered from r-value type.<br />
+In this case, type will be inferred from r-value type.<br />
 Here are some examples:
 <p class="code">
 <span class="rword">auto</span> i = <span class="real">5</span>; <span class="comment">// i will have type int</span><br />
@@ -119,7 +119,7 @@ Here are some examples:
 </p>
 Alignment of automatic types works just like with explicitly specified types.<br />
 <br />
-auto can be used as a function return type. If a functions has different exit points returning different type, an error occures.<br />
+auto can be used as a function return type. If a function has different exit points returning different type, an error occurs.<br />
 auto can be used as a function argument type as long as this arguments has a default value.<br />
 <hr />
 <h3>typeof operator</h3>
@@ -153,7 +153,7 @@ arr1a = arr2;
 <span class="rword">int</span>[][<span class="real">3</span>] arr1a = arr1;<br />
 arr1a = arr2;
 </p>
-type[] size is 8 bytes (it consists of pointer to an array and asize field).<br />
+type[] size is 8 bytes (it consists of pointer to an array and a size field).<br />
 To get array size, use its "size" field:
 <p class="code">
 <span class="rword">int</span> count = arr1a.size;
@@ -178,7 +178,7 @@ If a binary operation is done on two different types, arguments are converted in
 This is done after applying "Rule A"<br />
 <br />
 Rule C:<br />
-In variable modification expression (+=, -=, *=, /=, **=) binary operaton is performed ar described in "Rule B",<br />
+In variable modification expression (+=, -=, *=, /=, **=) binary operation is performed as described in "Rule B",<br />
 And result is converted to type of l-value.<br />
 <p class="code">
 <span class="rword">int</span> a = <span class="real">2</span>;<br />
@@ -212,7 +212,7 @@ a *= <span class="real">2.5</span>; <span class="comment">// a equals 5</span><b
 <hr />
 <h3>Implicit conversions</h3>
 
-Apart from implicit convertions from one basic type to the other, there are following converions between complex types:<br />
+Apart from implicit conversions from one basic type to the other, there are following conversions between complex types:<br />
 	type[size] -> type[]<br />
 	type ref -> auto ref<br />
 	auto ref -> type ref<br />
