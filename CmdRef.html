@@ -1,0 +1,208 @@
+<html>
+	<head>
+		<title>NULLC Command reference</title>
+<style type="text/css">
+td
+{
+	text-align: center;
+}
+</style>
+	</head>
+<body>
+Relative address: address from the base of current stack frame<br />
+Absolute address: address from base of parameter stack<br />
+Distinct value types inside paramter stack:<br />
+<table border="1px">
+<tr><th>Type</th><th>Size</th></tr>
+<tr><td>double</td><td>8 bytes</td></tr>
+<tr><td>float</td><td>4 bytes</td></tr>
+<tr><td>long</td><td>8 bytes</td></tr>
+<tr><td>int</td><td>4 bytes</td></tr>
+<tr><td>short</td><td>2 bytes</td></tr>
+<tr><td>char</td><td>1 byte</td></tr>
+</table>
+Distinct value types inside temporary stack:<br />
+<table border="1px">
+<tr><th>Type</th><th>Size</th></tr>
+<tr><td>double</td><td>8 bytes</td></tr>
+<tr><td>long</td><td>8 bytes</td></tr>
+<tr><td>int</td><td>4 bytes</td></tr>
+</table>
+<hr />
+Command format:
+<table border="1px">
+<tr><td width="80px">8 bits</td><td width="80px">8 bits</td><td width="160px">16 bits</td><td width="320px">32 bits</td></tr>
+<tr><td>ID</td><td>Flag</td><td>Helper</td><td>Argument</td></tr>
+<tr><td colspan="4">64 bits</td></tr>
+</table>
+<br />
+Command list and their descriptions:<br />
+<table border="1px">
+<tr><td width="40px">ID</td><td width="40px">Flag</td><td width="80px">Helper</td><td width="160px">Argument</td><td>Desription</td></tr>
+<tr><td>cmdNop</td><td>-</td><td>-</td><td>-</td><td>No operation (May signalize an error in the bytecode)</td></tr>
+
+<tr><td>cmdPushChar</td><td rowspan=6>1\0</td><td rowspan=6>sizeof(type)</td><td rowspan=6>address</td><td rowspan=6>
+	Flag signalizes that the address is relative.<br />
+	sizeof is used only by cmdPushCmplx.<br />
+	Command places a value of specified type from parameter stack at address into temporary stack.</td></tr>
+<tr><td>cmdPushShort</td></tr>
+<tr><td>cmdPushInt</td></tr>
+<tr><td>cmdPushFloat</td></tr>
+<tr><td>cmdPushDorL</td></tr>
+<tr><td>cmdPushCmplx</td></tr>
+
+<tr><td>cmdPushCharStk</td><td rowspan=6>-</td><td rowspan=6>sizeof(type)</td><td rowspan=6>address shift</td><td rowspan=6>
+	Variable address is pop'ed from the top of temporary stack and a shift is applied to it.<br />
+	sizeof is used only by cmdPushCmplxStk.<br />
+	Value of specified type is pushed into temporary stack from computed address.<br />
+	A check is performed on pop'ed address, and execution stops if it's equal to zero.</td></tr>
+<tr><td>cmdPushShortStk</td></tr>
+<tr><td>cmdPushIntStk</td></tr>
+<tr><td>cmdPushFloatStk</td></tr>
+<tr><td>cmdPushDorLStk</td></tr>
+<tr><td>cmdPushCmplxStk</td></tr>
+
+<tr><td>cmdPushImmt</td><td>-</td><td>-</td><td>value</td><td>Pushes immediate 32bit value on top of temporary stack.</td></tr>
+
+<tr><td>cmdMovChar</td><td rowspan=6>1/0</td><td rowspan=6>sizeof(type)</td><td rowspan=6>address</td><td rowspan=6>
+	Flag signalizes that the address is relative.<br />
+	sizeof is used only by cmdMovCmplx.<br />
+	Copies a value of specified type from top of temporary stack to parameter stack at address.</td></tr>
+<tr><td>cmdMovShort</td></tr>
+<tr><td>cmdMovInt</td></tr>
+<tr><td>cmdMovFloat</td></tr>
+<tr><td>cmdMovDorL</td></tr>
+<tr><td>cmdMovCmplx</td></tr>
+
+<tr><td>cmdMovCharStk</td><td rowspan=6>-</td><td rowspan=6>sizeof(type)</td><td rowspan=6>address shift</td><td rowspan=6>
+	Variable address is pop'ed from the top of temporary stack and a shift is applied to it.<br />
+	sizeof is used only by cmdPushCmplxStk.<br />
+	Value of specified type is copied from temporary stack to computed address.<br />
+	A check is performed on pop'ed address, and execution stops if it's equal to zero.</td></tr>
+<tr><td>cmdMovShortStk</td></tr>
+<tr><td>cmdMovIntStk</td></tr>
+<tr><td>cmdMovFloatStk</td></tr>
+<tr><td>cmdMovDorLStk</td></tr>
+<tr><td>cmdMovCmplxStk</td></tr>
+
+<tr><td>cmdPop</td><td>-</td><td>-</td><td>count</td><td>Pops "count" bytes from temporary stack</td></tr>
+
+<tr><td>cmdDtoI</td><td>-</td><td>-</td><td>-</td><td>Converts double ot top of stack into int.</td></tr>
+<tr><td>cmdDtoL</td><td>-</td><td>-</td><td>-</td><td>Converts double ot top of stack into long.</td></tr>
+<tr><td>cmdDtoF</td><td>-</td><td>-</td><td>-</td><td>Converts double ot top of stack into float.</td></tr>
+<tr><td>cmdItoD</td><td>-</td><td>-</td><td>-</td><td>Converts int ot top of stack into double.</td></tr>
+<tr><td>cmdLtoD</td><td>-</td><td>-</td><td>-</td><td>Converts long ot top of stack into double.</td></tr>
+<tr><td>cmdItoL</td><td>-</td><td>-</td><td>-</td><td>Converts int ot top of stack into long.</td></tr>
+<tr><td>cmdLtoI</td><td>-</td><td>-</td><td>-</td><td>Converts long ot top of stack into int.</td></tr>
+
+<tr><td>cmdIndex</td><td>-</td><td>sizeof(element)</td><td>array size</td><td>
+	Pops integer index from top of stack.<br />
+	Index is compared with array size, and if it's greater or equal, execution stops with array out of bounds exception.<br />
+	After check, index is multiplied by array element size, and then, result is added to address on top of stack.</td></tr>
+
+<tr><td>cmdIndexStk</td><td>-</td><td>sizeof(element)</td><td>-</td><td>
+	Pops array size from from top of stack.<br />
+	Pops integer index from top of stack.<br />
+	Index is compared with array size, and if it's greater or equal, execution stops with array out of bounds exception.<br />
+	After check, index is multiplied by array element size, and then, result is added to address on top of stack.</td></tr>
+
+<tr><td>cmdCopyDorL</td><td>-</td><td>-</td><td>-</td><td>Duplicates 64 bit value on top of the stack.</td></tr>
+<tr><td>cmdCopyI</td><td>-</td><td>-</td><td>-</td><td>Duplicates 32 bit value on top of the stack.</td></tr>
+
+<tr><td>cmdGetAddr</td><td>1/0</td><td>-</td><td>address</td><td>Pushes address (argument + parameter_base) if flag is 0 and (argument + stack_frame_base) if flag is 1</td></tr>
+<tr><td>cmdFuncAddr</td><td>-</td><td>-</td><td>function ID</td><td>Pushes function address (32 bit) on top of stack</td></tr>
+
+<tr><td>cmdSetRange</td><td>-</td><td>-</td><td>-</td><td>...pending...</td></tr>
+
+<tr><td>cmdJmp</td><td>-</td><td>-</td><td>instruction</td><td>Jumps to specified instruction.</td></tr>
+<tr><td>cmdJmpZ</td><td>-</td><td>-</td><td>instruction</td><td>Pops an integer from top of stack, and if it's equal to zero, jump to specified instruction.</td></tr>
+<tr><td>cmdJmpNZ</td><td>-</td><td>-</td><td>instruction</td><td>Pops an integer from top of stack, and if it's not equal to zero, jump to specified instruction.</td></tr>
+
+<tr><td>cmdCall</td><td>-</td><td>-</td><td>-</td><td>...pending...</td></tr>
+<tr><td>cmdCallPtr</td><td>-</td><td>-</td><td>-</td><td>...pending...</td></tr>
+<tr><td>cmdReturn</td><td>-</td><td>-</td><td>-</td><td>...pending...</td></tr>
+
+<tr><td>cmdPushVTop</td><td>-</td><td>-</td><td>-</td><td>...pending...</td></tr>
+
+<tr><td>cmdAdd</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdSub</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdMul</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdDiv</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdPow</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdMod</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdLess</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdGreater</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdLEqual</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdGEqual</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdEqual</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdNEqual</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdShl</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdShr</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdBitAnd</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdBitOr</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdBitXor</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>skipLogAnd<td>-</td><td>-</td><td>-</td><td>Never executed</td></tr>
+<tr><td>skipLogOr<td>-</td><td>-</td><td>-</td><td>Never executed</td></tr>
+<tr><td>cmdLogXor</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+
+<tr><td>cmdAddL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdSubL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdMulL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdDivL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdPowL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdModL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdLessL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdGreaterL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdLEqualL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdGEqualL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdEqualL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdNEqualL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdShlL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdShrL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdBitAndL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdBitOrL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdBitXorL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>skipLogAndL</td><td>-</td><td>-</td><td>-</td><td>Never executed</td></tr>
+<tr><td>skipLogOrL</td><td>-</td><td>-</td><td>-</td><td>Never executed</td></tr>
+<tr><td>cmdLogXorL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+
+<tr><td>cmdAddD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdSubD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdMulD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdDivD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdPowD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdModD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdLessD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdGreaterD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdLEqualD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdGEqualD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdEqualD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdNEqualD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+
+<tr><td>cmdNeg</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdNegL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdNegD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+
+<tr><td>cmdBitNot</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdBitNotL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+
+<tr><td>cmdLogNot</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdLogNotL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+
+<tr><td>cmdIncI</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdIncD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdIncL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+
+<tr><td>cmdDecI</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdDecD</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdDecL</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+
+<tr><td>cmdCreateClosure<td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdCloseUpvals<td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>skipPushTypeID<td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>cmdConvertPtr<td>-</td><td>-</td><td>-</td><td>-</td></tr>
+		
+</table>
+
+	</body>
+</html>

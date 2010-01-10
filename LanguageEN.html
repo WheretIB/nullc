@@ -4,7 +4,7 @@
 <style type="text/css">
 p.code
 {
-	background: #ddd;
+	background: #eee;
 	font-family: Consolas, Courier New, monospace;
 	font-size: 10pt;
 }
@@ -16,6 +16,10 @@ span.func
 {
 	color: #880000;
 	font-style: italic;
+}
+span.var
+{
+	color: #555;
 }
 span.real
 {
@@ -190,30 +194,64 @@ span.comment
 <h2 align="center">3. Statements</h2>
 
 <h3><a name="if">3.1 if statement</a></h3>
-	<span class="rword">if</span>(expr)<br />
-	&nbsp;&nbsp;&nbsp;&nbsp;trueBody<br />
+	<p class="code">
+	<span class="rword">if</span>(<span class="var">expr</span>)<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">trueBody</span><br />
 	<span class="rword">else</span><br />
-	&nbsp;&nbsp;&nbsp;&nbsp;falseBody<br />
-	<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">falseBody</span><br />
+	</p>
 	<span class="rword">if</span> statement evaluates result of expression "expr", and if result isn't equal to 0, evaluates expressions put in "trueBody". Otherwise, it evaluates expressions put in "falseBody".<br />
 	"trueBody" and "falseBody" may consist of a single expression or a block of expressions.<br />
 	<span class="rword">else</span> and "falseBody", may be omitted. In such case, if result of "expr" is zero, nothing is evaluated.<br />
 <hr />
 <h3><a name="for">3.2 for statement</a></h3>
-	<span class="rword">for</span>(initexpr; condexpr; iterexpr)<br />
-	&nbsp;&nbsp;&nbsp;&nbsp;forBody<br />
-	<br />
-	<span class="rword">for</span> statement is a cycle that evaluates "initexpr", and executes "forBody" while "condexpr" evaluates to a non-zero value.<br />
+	<p class="code">
+	<span class="rword">for</span>(<span class="var">initexpr</span>; <span class="var">condexpr</span>; <span class="var">iterexpr</span>)<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">body</span><br />
+	</p>
+	<span class="rword">for</span> statement is a cycle that evaluates "initexpr", and executes "body" while "condexpr" evaluates to a non-zero value.<br />
 	"iterexpr" is evaluated at the end of every cycle.<br />
 	<br />
-	"forBody", "initexpr" and "iterexpr" may consist of a single expression or a block of expressions.<br />
+	"body", "initexpr" and "iterexpr" may consist of a single expression or a block of expressions.<br />
 	"condexpr" must be a single expression with result type of int\long\double.<br />
 <hr />
 <h3><a name="while">3.3 while statement</a></h3>
+	<p class="code">
+	<span class="rword">while</span>(<span class="var">condexpr</span>)<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">body</span><br />
+	</p>
+	<span class="rword">while</span> statement is a cycle that executes "body" while "condexpr" evaluates to a non-zero value.<br />
+	<br />
+	"body" may consist of a single expression or a block of expressions.<br />
+	"condexpr" must be a single expression with result type of int\long\double.<br />
 <hr />
 <h3><a name="do">3.4 do...while statement</a></h3>
+	<p class="code">
+	<span class="rword">do</span><br />
+	&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">body</span><br />
+	<span class="rword">while</span>(<span class="var">condexpr</span>)<br />
+	</p>
+	<span class="rword">do</span> statement is a cycle that executes "body" while "condexpr" evaluates to a non-zero value.<br />
+	Difference from while statement is that do statement evaluates body at least once, since condition is placed after the body.<br />
+	<br />
+	"body" may consist of a single expression or a block of expressions.<br />
+	"condexpr" must be a single expression with result type of int\long\double.<br />
 <hr />
 <h3><a name="switch">3.5 switch statement</a></h3>
+	<p class="code">
+	<span class="rword">switch</span>(<span class="var">expr</span>)<br />
+	{<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">case</span> <span class="real">A</span>:<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">caseBody</span>;<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">default</span>:<br />
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">defaultBody</span>;<br />
+	}<br />
+	</p>
+	<span class="rword">switch</span> statement evaluates result of "expr" and compares result with case label values. If result matches <span class="rword">case</span> value, a jump to a matched <span class="rword">case</span> label is made and all expressions after it are evaluated.<br />
+	If no case label value is equal to result, a jump to <span class="rword">default</span> label is made.<br />
+	<span class="rword">break</span>; expression can be used inside <span class="rword">switch</span> statement.<br />
+	<span class="rword">default</span> label can be omitted.<br />
+	<span class="rword">switch</span> without case labels, or without any expressions at all is legal.<br />
 <hr />
 
 <h2 align="center">4. Declarations</h2>
@@ -249,11 +287,15 @@ or
 <span class="rword">type</span>[] name;
 </p>
 If array size is specified, it must be a number known at compile type.<br />
-Second declaration is described in section "Arrays with implicit size".<br />
+Second declaration is described in section <a href="#arrunsized">"Arrays with implicit size"</a>.<br />
 <br />
 Pointers are defined by using "ref" keyword:
 <p class="code">
 <span class="rword">type</span> <span class="rword">ref</span> name;
+</p>
+Pointers to functions are defined by using "ref" keyword, followed by a list of function argument types in parenthesis:
+<p class="code">
+<span class="rword">type</span> <span class="rword">ref</span>(<span class="rword">type</span>, <span class="rword">type</span>) name;
 </p>
 More than one variable can be defined in one statement, by specifying variable names after a comma.<br />
 All variables defined in one statement have equal type.<br />
@@ -382,6 +424,4 @@ Apart from implicit conversions from one basic type to the other, there are foll
 <hr />
 
 	</body>
-
-
 </html>

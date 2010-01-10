@@ -775,7 +775,7 @@
 			</Filter>
 		</Filter>
 		<File
-			RelativePath=".\CmdRef.txt"
+			RelativePath=".\CmdRef.html"
 			>
 		</File>
 		<File
