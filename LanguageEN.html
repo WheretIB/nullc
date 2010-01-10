@@ -1,0 +1,215 @@
+<html>
+	<head>
+		<title>NULLC Language reference</title>
+<style type="text/css">
+p.code
+{
+	background: #ddd;
+}
+span.rword
+{
+	color: #00f;
+}
+span.func
+{
+	color: #880000;
+	font-style: italic;
+}
+span.comment
+{
+	color: #f0f;
+}
+</style>
+	</head>
+	<body>
+<h2 align="center">NULLC Language reference</h2>
+<hr />
+<h3>Basic types</h3>
+
+<table border="1px">
+<tr><th>Name</th><th>Size</th><th>Default alignment</th><th>Extra information</th></tr>
+<tr><td>void</td><td>0 bytes</td><td>no alignment</td><td>only allowed as a function return value (returns nothing)</td></tr>
+<tr><td>char</td><td>1 byte</td><td>no alignment</td><td>values: 0..255</td></tr>
+<tr><td>short</td><td>2 bytes</td><td>no alignment</td><td>values: -32768..32767</td></tr>
+<tr><td>int</td><td>4 bytes</td><td>4 bytes</td><td>values: -2147483648..2147483647</td></tr>
+<tr><td>long</td><td>8 bytes</td><td>no alignment</td><td>values: -9223372036854775808..9223372036854775807</td></tr>
+<tr><td>float</td><td>4 bytes</td><td>4 bytes</td><td>values: as per IEEE 754</td></tr>
+<tr><td>double</td><td>8 bytes</td><td>8 bytes</td><td>values: as per IEEE 754</td></tr>
+</table>
+
+<hr />
+<h3>User-defined types</h3>
+
+<p class="code">
+<span class="rword">class</span> Name<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">type</span> name, name, ...;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">type</span> <span class="func">function</span>(<span class="rword">type</span> arg, <span class="rword">type</span> arg, ...){ }<br />
+&nbsp;&nbsp;&nbsp;&nbsp;...<br />
+}<br />
+</p>
+Class consists of variables and functions in any order, but keep in mind, functions can only access member variables that are defined before them.<br />
+<br />
+There is no default alignment by default. To specify alignment, put "noalign" of "align(bytes)" before "class" keyword.<br />
+Specifing "noalign" is supeflous. Alignment must not exceed 16 bytes.<br />
+
+<hr />
+<h3>Variable alignment</h3>
+
+Default type alignment can be changed using two statements:<br />
+noalign before type name will disable any default type alignment:<br />
+<p class="code">
+<span class="rword">noalign</span> <span class="rword">type</span> name; <span class="comment">// variable "name" of type "type" will not be aligned</span>
+</p>
+align(bytes) before type name will force specified alignment:<br />
+<p class="code">
+<span class="rword">align</span>(8) <span class="rword">type</span> name; <span class="comment">// variable "name" of type "type" will be aligned to a 8 byte boundary.</span>
+</p>
+Alignment must not exceed 16 bytes.<br />
+
+<hr />
+<h3>Variable definition</h3>
+
+Simple variable definition syntax is:
+<p class="code">
+<span class="rword">type</span> name;
+</p>
+Arrays are defined like this:
+<p class="code">
+<span class="rword">type</span>[N] name;
+</p>
+or
+<p class="code">
+<span class="rword">type</span>[] name;
+</p>
+If array size is specified, it must be a number known at compile type.<br />
+Second declaration is described in section "Arrays with implicit size".<br />
+<br />
+Pointers are defined by using "ref" keyword:
+<p class="code">
+<span class="rword">type</span> <span class="rword">ref</span> name;
+</p>
+More than one variable can be defined in one statement, by specifying variable names after a comma.<br />
+All variables defined in one statement have equal type.<br />
+Different type modificators can be mixed together to form types like, for example:
+<p class="code">
+<span class="rword">int</span>[4][2] name; <span class="comment">// array of 4 arrays of two integers</span><br />
+<span class="rword">int</span> <span class="rword">ref</span>(<span class="rword">int</span>, <span class="rword">int</span>)[4] name; <span class="comment">// array of 4 pointers to functions, returning int</span>
+</p>
+A value can be assigned to a variable in place of its definition, by writing "= value" after its name.<br />
+If array element is assigned to a type, then it will be a default value of all array elements.<br />
+
+<hr />
+<h3>Type inference</h3>
+
+When defining a variable, type name can be replaced with a keyword "auto".<br />
+In this case, type will be infered from r-value type.<br />
+Here are some examples:
+<p class="code">
+<span class="rword">auto</span> i = 5; <span class="comment">// i will have type int</span><br />
+<span class="rword">auto</span> n = &i; <span class="comment">// n will have type int ref</span><br />
+<span class="rword">int</span>[10] arr;
+<span class="rword">auto</span> copy = arr; <span class="comment">// copy will have type int[10]</span>
+</p>
+Alignment of automatic types works just like with explicitly specified types.<br />
+<br />
+auto can be used as a function return type. If a functions has different exit points returning different type, an error occures.<br />
+auto can be used as a function argument type as long as this arguments has a default value.<br />
+<hr />
+<h3>typeof operator</h3>
+
+<span class="rword">typeof</span>(expression) allows to get type of an expression (expression will not be evaluated at run time).<br />
+<br />
+<span class="rword">typeof</span>(4) is equal to specifying int.<br />
+<span class="rword">typeof</span>(4 * 0.2) is equal to specifying double.<br />
+<hr />
+<h3>sizeof operator</h3>
+
+<span class="rword">sizeof</span>(type) returns size of type.<br />
+<span class="rword">sizeof</span>(expression) returns size of the expression type (it is equal to "<span class="rword">sizeof</span>(<span class="rword">typeof</span>(expression))")<br />
+<hr />
+<h3>Arrays with implicit size</h3>
+
+Array with implicit type is defined like this:
+<p class="code">
+<span class="rword">type</span>[] name;
+</p>
+Any array of the same type can be assigned to an array with implicit size.<br />
+<p class="code">
+<span class="rword">int</span>[7] arr1;<br />
+<span class="rword">int</span>[4] arr2;<br />
+<span class="rword">int</span>[] arr1a = arr1;<br />
+arr1a = arr2;
+</p>
+<p class="code">
+<span class="rword">int</span>[7][3] arr1;<br />
+<span class="rword">int</span>[4][3] arr2;<br />
+<span class="rword">int</span>[][3] arr1a = arr1;<br />
+arr1a = arr2;
+</p>
+type[] size is 8 bytes (it consists of pointer to an array and asize field).<br />
+To get array size, use its "size" field:
+<p class="code">
+<span class="rword">int</span> count = arr1a.size;
+</p>
+
+<hr />
+
+<h3>Rules applied to value types in a binary operation</h3>
+
+Rule A:<br />
+Operations are made on three types: double, long and int.<br />
+Because of this, different types are converted to these three types:<br />
+&nbsp;&nbsp;&nbsp;&nbsp;char -> int<br />
+&nbsp;&nbsp;&nbsp;&nbsp;short -> int<br />
+&nbsp;&nbsp;&nbsp;&nbsp;float -> double<br />
+
+Rule B:<br />
+If a binary operation is done on two different types, arguments are converted in a following fashion:<br />
+&nbsp;&nbsp;&nbsp;&nbsp;int * double -> double * double<br />
+&nbsp;&nbsp;&nbsp;&nbsp;long * double -> double * double<br />
+&nbsp;&nbsp;&nbsp;&nbsp;int * long -> long * long<br />
+This is done after applying "Rule A"<br />
+<br />
+Rule C:<br />
+In variable modification expression (+=, -=, *=, /=, **=) binary operaton is performed ar described in "Rule B",<br />
+And result is converted to type of l-value.<br />
+<p class="code">
+<span class="rword">int</span> a = 2;<br />
+a *= 2.5; <span class="comment">// a equals 5</span><br />
+</p>
+<hr />
+<h3>Operator priority</h3>
+
+<table border="1px">
+<tr><th>#</th><th>Evaluation</th><th>Operation</th></tr>
+<tr><td>1</td><td>left-to-right</td><td>* (unary)</td></tr>
+<tr><td>2</td><td>left-to-right</td><td>. []</td></tr>
+<tr><td>3</td><td>left-to-right</td><td>& (unary) + (unary) - (unary) ~ ! ++ (prefix) -- (prefix)</td></tr>
+<tr><td>4</td><td>left-to-right</td><td>++ (postfix) -- (postfix)</td></tr>
+<tr><td>5</td><td>left-to-right</td><td>**</td></tr>
+<tr><td>6</td><td>left-to-right</td><td>/ * %</td></tr>
+<tr><td>7</td><td>left-to-right</td><td>+ -</td></tr>
+<tr><td>8</td><td>left-to-right</td><td><< >></td></tr>
+<tr><td>9</td><td>left-to-right</td><td>< <= > >=</td></tr>
+<tr><td>10</td><td>left-to-right</td><td>== !=</td></tr>
+<tr><td>11</td><td>left-to-right</td><td>&</td></tr>
+<tr><td>12</td><td>left-to-right</td><td>^</td></tr>
+<tr><td>13</td><td>left-to-right</td><td>|</td></tr>
+<tr><td>14</td><td>left-to-right</td><td>&&</td></tr>
+<tr><td>15</td><td>left-to-right</td><td>^^</td></tr>
+<tr><td>16</td><td>left-to-right</td><td>||</td></tr>
+<tr><td>17</td><td>left-to-right</td><td>?:</td></tr>
+<tr><td>18</td><td>right-to-left</td><td>= += -= *= /= **=</td></tr>
+</table>
+
+<hr />
+<h3>Implicit conversions</h3>
+
+Apart from implicit convertions from one basic type to the other, there are following converions between complex types:<br />
+	type[size] -> type[]<br />
+	type ref -> auto ref<br />
+	auto ref -> type ref<br />
+
+	</body>
+</html>

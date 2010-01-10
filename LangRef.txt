@@ -12,19 +12,9 @@ float	| 4 байта	| значени€: IEEE	| ¬ыравниваетс€ на границу в 4 байта (ќ выравни
 double	| 8 байт	| значени€: IEEE	| ¬ыравниваетс€ на границу в 8 байт
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
-	¬строенные составные типы
-											
-float2	| align(4) class float2{ float x, y; }
-float3	| align(4) class float3{ float x, y, z; }
-float4	| align(4) class float4{ float x, y, z, w; }
-double2	| align(8) class double2{ double x, y; }
-double3	| align(8) class double3{ double x, y, z; }
-double4	| align(8) class double4{ double x, y, z, w; }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	ќпределение пользовательских типов
 
-{noalign или align(bytes)} class name
+[noalign или align(bytes)] class name
 {
 	type1 name1, name2, ...;
 	type2 name3, name4, ...;
@@ -169,3 +159,12 @@ int * long -> long * long				long * int -> long * long
 16	left-to-right	||
 17	left-to-right	?:
 18	right-to-left	= += -= *= /= **=
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+	Ќе€вные преобразовани€
+
+ роме не€вных преобразований между встроенными числовыми типами, имеютс€ следующие преобразовани€ между производными типами:
+	type[size] -> type[]
+	type ref -> auto ref
+	auto ref -> type ref
+
