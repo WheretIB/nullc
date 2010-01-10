@@ -1308,35 +1308,13 @@ void GenCodeCmdBitXor(VMCmd cmd)
 void GenCodeCmdLogAnd(VMCmd cmd)
 {
 	(void)cmd;
-	EMIT_COMMENT("LAND int");
-	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_REG_NUM(o_cmp, rEAX, 0);
-	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
-	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 0, 0);
-	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
-	aluLabels += 2;
+	assert(!"Unknown command cmdLogAnd");
 }
 
 void GenCodeCmdLogOr(VMCmd cmd)
 {
 	(void)cmd;
-	EMIT_COMMENT("LOR int");
-	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_REG(o_pop, rEBX);
-	EMIT_OP_REG_REG(o_or, rEAX, rEBX);
-	EMIT_OP_REG_NUM(o_cmp, rEAX, 0);
-	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
-	EMIT_OP_NUM(o_push, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
-	EMIT_OP_NUM(o_push, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
-	aluLabels += 2;
+	assert(!"Unknown command cmdLogOr");
 }
 
 void GenCodeCmdLogXor(VMCmd cmd)
@@ -1597,39 +1575,13 @@ void GenCodeCmdBitXorL(VMCmd cmd)
 void GenCodeCmdLogAndL(VMCmd cmd)
 {
 	(void)cmd;
-	EMIT_COMMENT("LAND long");
-	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 0);
-	EMIT_OP_REG_RPTR(o_or, rEAX, sDWORD, rESP, 4);
-	EMIT_OP_LABEL(o_jz, LABEL_ALU | aluLabels);
-	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 8);
-	EMIT_OP_REG_RPTR(o_or, rEAX, sDWORD, rESP, 12);
-	EMIT_OP_LABEL(o_jz, LABEL_ALU | aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 12, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 12, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
-	aluLabels += 2;
+	assert(!"Unknown command cmdLogAndL");
 }
 
 void GenCodeCmdLogOrL(VMCmd cmd)
 {
 	(void)cmd;
-	EMIT_COMMENT("LOR long");
-	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 0);
-	EMIT_OP_REG_RPTR(o_or, rEAX, sDWORD, rESP, 4);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU | aluLabels);
-	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 8);
-	EMIT_OP_REG_RPTR(o_or, rEAX, sDWORD, rESP, 12);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU | aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 12, 0);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 12, 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
-	aluLabels += 2;
+	assert(!"Unknown command cmdLogOrL");
 }
 
 void GenCodeCmdLogXorL(VMCmd cmd)

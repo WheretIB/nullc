@@ -221,9 +221,9 @@ struct x86Argument
 		else if(type == argFPReg)
 			curr += sprintf(curr, "%s", x87RegText[fpArg]);
 		else if(type == argLabel)
-			curr += sprintf(curr, "'%d'", labelID);
+			curr += sprintf(curr, "'0x%p'", (int*)(intptr_t)labelID);
 		else if(type == argPtrLabel)
-			curr += sprintf(curr, "['%d'+%d]", labelID, ptrNum);
+			curr += sprintf(curr, "['0x%p'+%d]", (int*)(intptr_t)labelID, ptrNum);
 		else if(type == argPtr){
 			curr += sprintf(curr, "%s [", x86SizeText[ptrSize]);
 			if(ptrReg[0] != rNONE)
@@ -271,7 +271,7 @@ struct x86Instruction
 	{
 		char *curr = buf;
 		if(name == o_label)
-			curr += sprintf(curr, "%d:", labelID);
+			curr += sprintf(curr, "0x%p:", (int*)(intptr_t)labelID);
 #ifdef NULLC_LOG_FILES
 		else if(name == o_other)
 			curr += sprintf(curr, "  ; %s", comment);

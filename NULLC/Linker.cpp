@@ -399,8 +399,43 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 #ifdef NULLC_LOG_FILES
 	FILE *linkAsm = fopen("link.txt", "wb");
 	char instBuf[128];
+	unsigned int line = 0, lastLine = ~0u;
+
+	struct SourceInfo
+	{
+		unsigned int byteCodePos;
+		unsigned int sourceOffset;
+	};
+
+	SourceInfo *info = (SourceInfo*)&exCodeInfo[0];
+	unsigned int infoSize = exCodeInfo.size() / 2;
+
+	const char *lastSourcePos = &exSource[0];
 	for(unsigned int i = 0; i < exCode.size(); i++)
 	{
+		while((line < infoSize - 1) && (i >= info[line + 1].byteCodePos))
+			line++;
+		if(line != lastLine)
+		{
+			lastLine = line;
+			const char *codeStart = &exSource[0] + info[line].sourceOffset;
+			// Find beginning of the line
+			while(codeStart != &exSource[0] && *(codeStart-1) != '\n')
+				codeStart--;
+			// Skip whitespace
+			while(*codeStart == ' ' || *codeStart == '\t')
+				codeStart++;
+			const char *codeEnd = codeStart;
+			while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
+				codeEnd++;
+			if(codeEnd > lastSourcePos)
+			{
+				fprintf(linkAsm, "%.*s\r\n", codeEnd - lastSourcePos, lastSourcePos);
+				lastSourcePos = codeEnd;
+			}else{
+				fprintf(linkAsm, "%.*s\r\n", codeEnd - codeStart, codeStart);
+			}
+		}
 		exCode[i].Decode(instBuf);
 		if(exCode[i].cmd == cmdCall)
 			fprintf(linkAsm, "// %d %s (%s)\r\n", i, instBuf, &exSymbols[exFunctions[exCode[i].argument].offsetToName]);

@@ -107,7 +107,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 		unsigned int line = 0;
 		unsigned int i = address - 1;
 		while((line < infoSize - 1) && (i >= exInfo[line + 1].byteCodePos))
-				line++;
+			line++;
 		const char *codeStart = source + exInfo[line].sourceOffset;
 		// Find beginning of the line
 		while(codeStart != source && *(codeStart-1) != '\n')
