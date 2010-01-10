@@ -5,6 +5,8 @@
 p.code
 {
 	background: #ddd;
+	font-family: Consolas, Courier New, monospace;
+	font-size: 10pt;
 }
 span.rword
 {
@@ -14,6 +16,10 @@ span.func
 {
 	color: #880000;
 	font-style: italic;
+}
+span.real
+{
+	color: #008800;
 }
 span.comment
 {
@@ -63,7 +69,7 @@ noalign before type name will disable any default type alignment:<br />
 </p>
 align(bytes) before type name will force specified alignment:<br />
 <p class="code">
-<span class="rword">align</span>(8) <span class="rword">type</span> name; <span class="comment">// variable "name" of type "type" will be aligned to a 8 byte boundary.</span>
+<span class="rword">align</span>(<span class="real">8</span>) <span class="rword">type</span> name; <span class="comment">// variable "name" of type "type" will be aligned to a 8 byte boundary.</span>
 </p>
 Alignment must not exceed 16 bytes.<br />
 
@@ -76,7 +82,7 @@ Simple variable definition syntax is:
 </p>
 Arrays are defined like this:
 <p class="code">
-<span class="rword">type</span>[N] name;
+<span class="rword">type</span>[<span class="real">N</span>] name;
 </p>
 or
 <p class="code">
@@ -93,8 +99,8 @@ More than one variable can be defined in one statement, by specifying variable n
 All variables defined in one statement have equal type.<br />
 Different type modificators can be mixed together to form types like, for example:
 <p class="code">
-<span class="rword">int</span>[4][2] name; <span class="comment">// array of 4 arrays of two integers</span><br />
-<span class="rword">int</span> <span class="rword">ref</span>(<span class="rword">int</span>, <span class="rword">int</span>)[4] name; <span class="comment">// array of 4 pointers to functions, returning int</span>
+<span class="rword">int</span>[<span class="real">4</span>][<span class="real">2</span>] name; <span class="comment">// array of 4 arrays of two integers</span><br />
+<span class="rword">int</span> <span class="rword">ref</span>(<span class="rword">int</span>, <span class="rword">int</span>)[<span class="real">4</span>] name; <span class="comment">// array of 4 pointers to functions, returning int</span>
 </p>
 A value can be assigned to a variable in place of its definition, by writing "= value" after its name.<br />
 If array element is assigned to a type, then it will be a default value of all array elements.<br />
@@ -106,9 +112,9 @@ When defining a variable, type name can be replaced with a keyword "auto".<br />
 In this case, type will be infered from r-value type.<br />
 Here are some examples:
 <p class="code">
-<span class="rword">auto</span> i = 5; <span class="comment">// i will have type int</span><br />
+<span class="rword">auto</span> i = <span class="real">5</span>; <span class="comment">// i will have type int</span><br />
 <span class="rword">auto</span> n = &i; <span class="comment">// n will have type int ref</span><br />
-<span class="rword">int</span>[10] arr;
+<span class="rword">int</span>[<span class="real">10</span>] arr;<br />
 <span class="rword">auto</span> copy = arr; <span class="comment">// copy will have type int[10]</span>
 </p>
 Alignment of automatic types works just like with explicitly specified types.<br />
@@ -120,8 +126,8 @@ auto can be used as a function argument type as long as this arguments has a def
 
 <span class="rword">typeof</span>(expression) allows to get type of an expression (expression will not be evaluated at run time).<br />
 <br />
-<span class="rword">typeof</span>(4) is equal to specifying int.<br />
-<span class="rword">typeof</span>(4 * 0.2) is equal to specifying double.<br />
+<span class="rword">typeof</span>(<span class="real">4</span>) is equal to specifying int.<br />
+<span class="rword">typeof</span>(<span class="real">4</span> * <span class="real">0.2</span>) is equal to specifying double.<br />
 <hr />
 <h3>sizeof operator</h3>
 
@@ -136,15 +142,15 @@ Array with implicit type is defined like this:
 </p>
 Any array of the same type can be assigned to an array with implicit size.<br />
 <p class="code">
-<span class="rword">int</span>[7] arr1;<br />
-<span class="rword">int</span>[4] arr2;<br />
+<span class="rword">int</span>[<span class="real">7</span>] arr1;<br />
+<span class="rword">int</span>[<span class="real">4</span>] arr2;<br />
 <span class="rword">int</span>[] arr1a = arr1;<br />
 arr1a = arr2;
 </p>
 <p class="code">
-<span class="rword">int</span>[7][3] arr1;<br />
-<span class="rword">int</span>[4][3] arr2;<br />
-<span class="rword">int</span>[][3] arr1a = arr1;<br />
+<span class="rword">int</span>[<span class="real">7</span>][<span class="real">3</span>] arr1;<br />
+<span class="rword">int</span>[<span class="real">4</span>][<span class="real">3</span>] arr2;<br />
+<span class="rword">int</span>[][<span class="real">3</span>] arr1a = arr1;<br />
 arr1a = arr2;
 </p>
 type[] size is 8 bytes (it consists of pointer to an array and asize field).<br />
@@ -175,8 +181,8 @@ Rule C:<br />
 In variable modification expression (+=, -=, *=, /=, **=) binary operaton is performed ar described in "Rule B",<br />
 And result is converted to type of l-value.<br />
 <p class="code">
-<span class="rword">int</span> a = 2;<br />
-a *= 2.5; <span class="comment">// a equals 5</span><br />
+<span class="rword">int</span> a = <span class="real">2</span>;<br />
+a *= <span class="real">2.5</span>; <span class="comment">// a equals 5</span><br />
 </p>
 <hr />
 <h3>Operator priority</h3>
