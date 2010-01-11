@@ -296,7 +296,7 @@ namespace ColorerGrammar
 					epsP[LogError("ERROR: unexpected symbol after function header")]
 				);
 
-			postExpr	=	(chP('[')[ColorText] >> term5 >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	varname[ColorVar] >> !fcallpart) | fcallpart;
+			postExpr	=	(chP('[')[ColorText] >> term5 >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	varname[ColorFunc] >> !fcallpart) | fcallpart;
 			appval		=	(varname - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
 			addvarp		=
 				(
