@@ -585,7 +585,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 		if(!Compile(fileContent, true))
 		{
 			unsigned int currLen = (unsigned int)strlen(CodeInfo::lastError.error);
-			SafeSprintf(CodeInfo::lastError.error+currLen, 256 - strlen(CodeInfo::lastError.error), " [in module %s]", CodeInfo::lastError.error, file);
+			SafeSprintf(CodeInfo::lastError.error+currLen, 256 - strlen(CodeInfo::lastError.error), " [in module %s]", file);
 			fclose(rawModule);
 			return false;
 		}

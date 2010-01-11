@@ -21,7 +21,7 @@ span.var
 {
 	color: #555;
 }
-span.real
+span.real 
 {
 	color: #008800;
 }
@@ -66,7 +66,8 @@ span.comment
 		<li><a href="#functions">Functions</a></li>
 		<ol>
 			<li><a href="#funclocal">Local functions</a></li>
-			<li><a href="#funcinline">Inline functions</a></li>
+			<li><a href="#funcmember">Member functions</a></li>
+			<li><a href="#funcinline">Function Literals</a></li>
 			<li><a href="#funcoverload">Function overloading</a></li>
 			<li><a href="#funcoperators">Operator overloading</a></li>
 		</ol>
@@ -310,14 +311,59 @@ If array element is assigned to a type, then it will be a default value of all a
 <hr />
 		
 <h3><a name="functions">4.3 Functions</a></h3>
+Global functions, nested (local) functions, member functions and function literals are supported.<br />
+<br />
+Function definition starts with a function return type, followed by name and a list of arguments in parenthesis.<br />
+List of arguments starts with a type that is followed by one or more parameter names, separated by comma. After a comma, a different type can be selected as well.<br />
+Function body must be enclosed in { } block.<br />
+<p class="code">
+<span class="rword">type</span> <span class="func">name</span>(<span class="rword">type</span> a, b, <span class="rword">type</span> c, d){ }
+</p>
+Function return type can be any type expression including <span class="rword">auto</span>.<br />
+Function argument type can be auto only if it has default argument value.<br />
+Function default argument value is specified by writing "= value" directly after argument name:<br />
+<p class="code">
+<span class="rword">auto</span> <span class="func">function</span>(<span class="rword">int</span> a = <span class="real">5</span>, <span class="auto">int</span> b = <span class="real">5.0</span>){ }
+</p>
+After first argument with a default value, the following arguments must all have a default value.<br />
 <hr />
 <h3><a name="funclocal">4.3.1 Local functions</a></h3>
+Functions can be defined within other functions.<br />
+Pointers to such functions remain valid after parent function ends.<br />
+This enables to make closures in NULLC.<br />
 <hr />
-<h3><a name="funcinline">4.3.2 Inline functions</a></h3>
+<h3><a name="funcmember">4.3.2 Member functions</a></h3>
+Functions can be defined not only inside class definitions, but also added to a class later.<br />
+The following syntax is used to define class member function outside class definition:<br />
+<p class="code">
+<span class="rword">type</span> <span class="rword">type</span>:<span class="func">function</span>(<span class="comment">/* arguments */</span>){ }
+</p>
+Type before a column must be a direct type name or an alias defined with <span class="rword">typedef</span> expression.<br />
+By using aliases it is possible to add member functions to array, reference and function types.<br />
+Adding member function to array types with explicit size is pointless, because such variables are converted to arrays with implicit size before function call.<br />
 <hr />
-<h3><a name="funcoverload">4.3.3 Function overloading</a></h3>
+<h3><a name="funcinline">4.3.3 Function Literals</a></h3>
+Functions can be written inside expressions, this could be used to define an anonymous function as a function argument, or to return function from function:
+<p class="code">
+<span class="rword">int</span> <span class="func">generateFrom</span>(<span class="rword">int</span> a)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="rword">int</span> <span class="func">gen</span>(){ <span class="rword">return</span> a++; };<br />
+}<br />
+</p>
+Function name can be omitted if function return type is set to auto:
+<p class="code">
+<span class="rword">auto</span> a = <span class="rword">auto</span>(<span class="rword">int</span> b){ <span class="rword">return</span> -b; };<br />
+<span class="rword">int</span> b = <span class="func">a</span>(5); <span class="comment">// b is -5</span><br />
+</p>
 <hr />
-<h3><a name="funcoperators">4.3.4 Operator overloading</a></h3>
+<h3><a name="funcoverload">4.3.4 Function overloading</a></h3>
+Functions can be overloaded. Better matching function will be selected during overloaded function call.
+<hr />
+<h3><a name="funcoperators">4.3.5 Operator overloading</a></h3>
+Operator overloading allows user to define operators that work with any type.<br />
+Following operators can be overloaded:<br />
++ - * / % ** < <= << > >= >> == != & | ^ && || ^^ = += -= *= /= **= []<br />
+For operators = += -= *= /= **= and [], first argument should be a reference to a type, but this is not necessary.<br />
 <hr />
 
 <h3><a name="arrunsized">4.4 Arrays with implicit size</a></h3>
