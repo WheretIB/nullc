@@ -404,6 +404,8 @@ NodeReturnOp::NodeReturnOp(bool localRet, TypeInfo* tinfo, FunctionInfo* parentF
 	typeInfo = tinfo;
 
 	first = TakeLastNode();
+	if(first->nodeType == typeNodeNumber && first->typeInfo != typeInfo)
+		((NodeNumber*)first)->ConvertTo(typeInfo);
 
 	nodeType = typeNodeReturnOp;
 }
@@ -569,14 +571,21 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 		first = TakeLastNode();
 
 	if(funcType->paramCount > 0)
+	{
 		paramHead = paramTail = TakeLastNode();
-	else
+		if(paramHead->nodeType == typeNodeNumber && funcType->paramType[0] != paramHead->typeInfo)
+			((NodeNumber*)paramHead)->ConvertTo(funcType->paramType[0]);
+	}else{
 		paramHead = paramTail = NULL;
+	}
 
 	// Take nodes for all parameters
 	for(unsigned int i = 1; i < funcType->paramCount; i++)
 	{
 		paramTail->next = TakeLastNode();
+		TypeInfo	*paramType = funcType->paramType[i];
+		if(paramTail->next->nodeType == typeNodeNumber && paramType != paramTail->next->typeInfo)
+			((NodeNumber*)paramTail->next)->ConvertTo(paramType);
 		paramTail->next->prev = paramTail;
 		paramTail = paramTail->next;
 	}
@@ -605,12 +614,18 @@ void NodeFuncCall::Compile()
 		TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
 		do
 		{
-			// Compute parameter value
-			curr->Compile();
-			// Convert it to type that function expects
-			ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
-			if(*paramType == typeFloat)
-				cmdList.push_back(VMCmd(cmdDtoF));
+			if(*paramType == typeFloat && curr->nodeType == typeNodeNumber)
+			{
+				float num = (float)((NodeNumber*)curr)->GetDouble();
+				cmdList.push_back(VMCmd(cmdPushImmt, *(int*)&num));
+			}else{
+				// Compute parameter value
+				curr->Compile();
+				// Convert it to type that function expects
+				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
+				if(*paramType == typeFloat)
+					cmdList.push_back(VMCmd(cmdDtoF));
+			}
 			curr = curr->next;
 			paramType--;
 		}while(curr);
@@ -1099,7 +1114,7 @@ void NodeArrayIndex::LogToStream(FILE *fGraph)
 
 NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetToPrevClosure)
 {
-	first = TakeLastNode();
+	originalNode = first = TakeLastNode();
 	assert(first->typeInfo);
 	assert(first->typeInfo->subType);
 	typeInfo = first->typeInfo->subType;
@@ -1109,6 +1124,7 @@ NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetTo
 	addrShift = 0;
 	closureFunc = setClosure;
 	offsetToPreviousClosure = offsetToPrevClosure;
+	neutralized = false;
 
 	if(first->nodeType == typeNodeGetAddress)
 	{
@@ -1138,6 +1154,10 @@ NodeDereference::~NodeDereference()
 {
 }
 
+void NodeDereference::Neutralize()
+{
+	neutralized = true;
+}
 
 void NodeDereference::Compile()
 {
@@ -1150,18 +1170,23 @@ void NodeDereference::Compile()
 		return;
 	asmDataType asmDT = typeInfo->dataType;
 
-	if(closureFunc)
+	if(neutralized)
 	{
-		first->Compile();
-		cmdList.push_back(VMCmd(cmdCreateClosure, (unsigned short)offsetToPreviousClosure, CodeInfo::FindFunctionByPtr(closureFunc)));
+		originalNode->Compile();
 	}else{
-		if(!knownAddress)
+		if(closureFunc)
+		{
 			first->Compile();
+			cmdList.push_back(VMCmd(cmdCreateClosure, (unsigned short)offsetToPreviousClosure, CodeInfo::FindFunctionByPtr(closureFunc)));
+		}else{
+			if(!knownAddress)
+				first->Compile();
 
-		if(knownAddress)
-			cmdList.push_back(VMCmd(cmdPushType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
-		else
-			cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+			if(knownAddress)
+				cmdList.push_back(VMCmd(cmdPushType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
+			else
+				cmdList.push_back(VMCmd(cmdPushTypeStk[asmDT>>2], asmDT == DTYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
+		}
 	}
 }
 
@@ -1401,6 +1426,11 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 
 	// Find the type or resulting value
 	typeInfo = logicalOp ? typeInt : ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
+
+	if(first->nodeType == typeNodeNumber && first->typeInfo != typeInfo)
+		((NodeNumber*)first)->ConvertTo(typeInfo);
+	if(second->nodeType == typeNodeNumber && second->typeInfo != typeInfo)
+		((NodeNumber*)second)->ConvertTo(typeInfo);
 
 	nodeType = typeNodeBinaryOp;
 }

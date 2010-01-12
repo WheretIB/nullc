@@ -346,13 +346,16 @@ public:
 			NodeDereference(FunctionInfo* setClosure = NULL, unsigned int offsetToPrevClosure = 0);
 	virtual ~NodeDereference();
 
+	virtual void Neutralize();
+
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-protected:
+private:
 	int		addrShift;
-	bool	absAddress, knownAddress;
+	bool	absAddress, knownAddress, neutralized;
 	FunctionInfo	*closureFunc;
 	unsigned int	offsetToPreviousClosure;
+	NodeZeroOP		*originalNode;
 };
 
 class NodeArrayIndex: public NodeTwoOP

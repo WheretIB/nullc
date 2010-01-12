@@ -1,6 +1,5 @@
 Stack arrays with variable size (?)
 
-Add optimization with known number conversion to desired type.
 Add warning for unusual conversions (?)
 
 Add ability to define inline arrays of types float, short and char.
@@ -126,3 +125,4 @@ DONE: Garbage collection.
 DON'T NEED: const flag must be inside type information, not variable information
 DONE: Fix && and || operators logic to support short-circuiting
 DONE: Information about variables at every line.
+DONE: Add optimization with known number conversion to desired type.

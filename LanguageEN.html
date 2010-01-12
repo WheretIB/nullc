@@ -453,18 +453,45 @@ Apart from implicit conversions from one basic type to the other, there are foll
 <hr />
 
 <h3><a name="extra">characters</a></h3>
+Characters are eclosed in single quotes ''.<br />
+No more that one character can be inside quotes (after processing eqcape sequences).<br />
 <hr />
 <h3><a name="extra">strings</a></h3>
+Strings are enclosed in doublequotes "".<br />
+Type of string is array of (length + 1) character.<br />
+Strings are 0-terminated.<br />
 <hr />
 <h3><a name="extra">inline arrays</a></h3>
+Arrays can be defined by writing all array elements, separated by commas in a { } block.<br />
+Multidimensional array can be also defined by using this.<br />
+For arrays of complex type, all array elements must have the same type.<br />
+It is impossible at the moment, to define array of char, short and float types.<br />
 <hr />
 <h3><a name="extra">escape sequences</a></h3>
+Escape sequences can be used inside character and string expressions.<br />
+Following escape sequences are supported:<br />
+<table border="1px">
+<tr><th>Sequence</th><th>Meaning</th></tr>
+<tr><td>\n</td><td>CR (Carriage return)</td></tr>
+<tr><td>\r</td><td>LF (Line feed)</td></tr>
+<tr><td>\t</td><td>Tab</td></tr>
+<tr><td>\0</td><td>0</td></tr>
+<tr><td>\'</td><td>single quote - '</td></tr>
+<tr><td>\"</td><td>double quote - "</td></tr>
+<tr><td>\\</td><td>backslash - \</td></tr>
+</table>
 <hr />
 <h3><a name="extra">binary numbers</a></h3>
+Numbers can be written in binary, and must be followed by letter 'b':<br />
+101b == 5
 <hr />
 <h3><a name="extra">octal numbers</a></h3>
+Numbers can be written in base 8, and must start with number 0:<br />
+077 == 63
 <hr />
 <h3><a name="extra">hexadecimal numbers</a></h3>
+Numbers can be written in base 16, and must start with '0x':<br />
+0x80 == 128
 <hr />
 <h3><a name="extra">auto ref type</a></h3>
 <hr />
