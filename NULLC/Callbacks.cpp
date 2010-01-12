@@ -256,6 +256,8 @@ char UnescapeSybmol(char symbol)
 		res = '\0';
 	else if(symbol == '\'')
 		res = '\'';
+	else if(symbol == '\"')
+		res = '\"';
 	else if(symbol == '\\')
 		res = '\\';
 	else
@@ -1740,6 +1742,8 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 				fRating += 5;
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef)
 				fRating += 5;
+			else if(expectedType->refLevel == paramType->refLevel+1 && expectedType->subType == paramType)
+				fRating += 5;
 			else if(expectedType == typeObject && paramType->refLevel != 0)
 				fRating += 5;
 			else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX)
@@ -1926,6 +1930,16 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		ConvertFunctionToPointer(pos);
 		ConvertArrayToUnsized(pos, fType->paramType[i]);
+		if(fType->paramType[i]->refLevel == CodeInfo::nodeList.back()->typeInfo->refLevel+1 && fType->paramType[i]->subType == CodeInfo::nodeList.back()->typeInfo)
+		{
+			if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
+			{
+				((NodeDereference*)CodeInfo::nodeList.back())->Neutralize();
+			}else{
+				AddInplaceVariable(pos);
+				AddExtraNode();
+			}
+		}
 		HandlePointerToObject(pos, fType->paramType[i]);
 	}
 
@@ -1957,6 +1971,15 @@ void AddIfNode(const char* pos)
 	assert(CodeInfo::nodeList.size() >= 2);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo == typeVoid)
 		ThrowError(pos, "ERROR: condition type cannot be void");
+	// If condition is constant
+	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeNumber)
+	{
+		int condition = ((NodeNumber*)CodeInfo::nodeList[CodeInfo::nodeList.size()-2])->GetInteger();
+		NodeZeroOP *remainingNode = condition ? CodeInfo::nodeList.back() : (new NodeZeroOP);
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.back() = remainingNode;
+		return;
+	}
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(false));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
@@ -1965,6 +1988,16 @@ void AddIfElseNode(const char* pos)
 	assert(CodeInfo::nodeList.size() >= 3);
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->typeInfo == typeVoid)
 		ThrowError(pos, "ERROR: condition type cannot be void");
+	// If condition is constant
+	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->nodeType == typeNodeNumber)
+	{
+		int condition = ((NodeNumber*)CodeInfo::nodeList[CodeInfo::nodeList.size()-3])->GetInteger();
+		NodeZeroOP *remainingNode = condition ? CodeInfo::nodeList[CodeInfo::nodeList.size()-2] : CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.back() = remainingNode;
+		return;
+	}
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }

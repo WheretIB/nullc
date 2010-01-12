@@ -569,7 +569,7 @@ void FillVariableInfoTree()
 		VariableInfo &currVar = *(*(varInfo+i));
 		if(currModule != (currVar.pos >> 24))
 		{
-			addressShift += (*(varInfo+i-1))->pos + (*(varInfo+i-1))->varType->size;
+			addressShift += ((*(varInfo+i-1))->pos & 0x00ffffff) + (*(varInfo+i-1))->varType->size;
 			currModule = currVar.pos >> 24;
 		}
 		unsigned int address = (currVar.pos & 0x00ffffff) + addressShift;
