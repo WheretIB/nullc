@@ -72,7 +72,7 @@ void AddArrayIndexNode(const char* pos);
 void AddDereferenceNode(const char* pos);
 
 // Function for variable assignment in place of definition
-void AddDefineVariableNode(const char* pos, InplaceStr varName);
+void AddDefineVariableNode(const char* pos, InplaceStr varName, bool noOverload = false);
 
 void AddSetVariableNode(const char* pos);
 

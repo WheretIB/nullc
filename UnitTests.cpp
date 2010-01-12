@@ -4006,6 +4006,53 @@ return m;";
 		}
 	}
 
+const char	*testImplicitToRef =
+"class float2\r\n\
+{\r\n\
+float x, y;\r\n\
+}\r\n\
+float2 float2(float x, y){ float2 ret; ret.x = x; ret.y = y; return ret; }\r\n\
+\r\n\
+float2 operator+(float2 ref a, float2 ref b){ return float2(a.x+b.x, a.y+b.y); }\r\n\
+float2 ref operator+=(float2 ref a, float2 ref b){ a.x += b.x; a.y += b.y; return a; }\r\n\
+float2 ref operator=(float2 ref a, float2 ref b){ a.x = b.x; a.y = b.y; return a; }\r\n\
+float2 a, b, c, d;\r\n\
+\r\n\
+a = float2(1, 3);\r\n\
+b = float2(5, 10);\r\n\
+c = a + b;\r\n\
+d = c + float2(100, 14);\r\n\
+\r\n\
+float2 aa;\r\n\
+aa += float2(1, 1);\r\n\
+float2 bb = float2(3, 4) += float2(1, 4);\r\n\
+return 0;";
+	printf("\r\nImplicit type to type ref conversions\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testImplicitToRef, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_FLOAT("a", 0, 1);
+			CHECK_FLOAT("a", 1, 3);
+			CHECK_FLOAT("b", 0, 5);
+			CHECK_FLOAT("b", 1, 10);
+			CHECK_FLOAT("c", 0, 6);
+			CHECK_FLOAT("c", 1, 13);
+			CHECK_FLOAT("d", 0, 106);
+			CHECK_FLOAT("d", 1, 27);
+			CHECK_FLOAT("aa", 0, 1);
+			CHECK_FLOAT("aa", 1, 1);
+			CHECK_FLOAT("bb", 0, 4);
+			CHECK_FLOAT("bb", 1, 8);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
