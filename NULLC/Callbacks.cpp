@@ -1050,7 +1050,7 @@ void AddDereferenceNode(const char* pos)
 }
 
 // Function for variable assignment in place of definition
-void AddDefineVariableNode(const char* pos, InplaceStr varName)
+void AddDefineVariableNode(const char* pos, InplaceStr varName, bool noOverload)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -1090,16 +1090,19 @@ void AddDefineVariableNode(const char* pos, InplaceStr varName)
 	CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
 
 	// Call overloaded operator with error suppression
-	NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
-	CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
-	CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
-	
-	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
-		return;
+	if(!noOverload)
+	{
+		NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
+		
+		if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
+			return;
 
-	temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
-	CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
-	CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
+		temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
+	}
 
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::GetReferenceType(realCurrType), true, false));
 }
@@ -1328,7 +1331,7 @@ void AddInplaceVariable(const char* pos)
 	// Add hidden variable
 	AddVariable(pos, InplaceStr(arrName, length));
 	// Set it to value on top of the stack
-	AddDefineVariableNode(pos, InplaceStr(arrName, length));
+	AddDefineVariableNode(pos, InplaceStr(arrName, length), true);
 	// Remove it from stack
 	AddPopNode(pos);
 	// Put pointer to hidden variable on stack
