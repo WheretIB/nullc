@@ -27,6 +27,9 @@ public:
 
 	void			BeginCallStack();
 	unsigned int	GetNextAddress();
+
+	void*			GetStackStart();
+	void*			GetStackEnd();
 private:
 	char	execError[512];
 	char	execResult[64];
@@ -43,6 +46,7 @@ private:
 	unsigned int		globalStartInBytecode;
 
 	char			*paramBase;
+	void			*genStackTop, *genStackPtr;
 
 	unsigned char	*binCode;
 	unsigned int	binCodeStart;

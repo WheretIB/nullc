@@ -388,24 +388,57 @@ void MarkUsedBlocks()
 
 	// For debug check that type #4 is indeed, int
 	const unsigned int intHash = GetStringHash("int");
+	assert(intHash == types[4].nameHash);
 
 	// Check pointers inside all unclosed upvalue lists
 	for(unsigned int i = 0; i < NULLC::commonLinker->exCloseLists.size(); i++)
 	{
-		// Get list head
+		// List head
 		ExternFuncInfo::Upvalue *curr = NULLC::commonLinker->exCloseLists[i];
-		// While there are upvalues
+		// Move list head while it points to unused upvalue
 		while(curr)
 		{
-			assert(intHash == types[4].nameHash);
-			// Mark upvalue target pointer
-			char *rRef1 = (char*)&curr->ptr;
-			GC::MarkPointer(rRef1, types[4]);
-			// Mark next upvalue
-			char *rRef2 = (char*)&curr->next;
-			GC::MarkPointer(rRef2, types[4]);
-			// Move to the next list element
-			curr = curr->next;
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(curr);
+			if(basePtr && basePtr[-1] == 0)
+			{
+				curr = curr->next;
+			}else{
+				break;
+			}
 		}
+		// Change list head in global data
+		NULLC::commonLinker->exCloseLists[i] = curr;
+		// Delete remaining unused upvalues from list
+		while(curr && curr->next)
+		{
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(curr->next);
+			if(basePtr && basePtr[-1] == 1)
+			{
+				curr = curr->next;
+			}else{
+				curr->next = curr->next->next;
+			}
+		}
+		
+	}
+
+	// Check for pointers in stack
+	char *tempStackBase = NULL, *tempStackTop = NULL;
+	if(execID == NULLC_VM)
+	{
+		Executor *exec = (Executor*)unknownExec;
+		tempStackBase = (char*)exec->GetStackStart();
+		tempStackTop = (char*)exec->GetStackEnd();
+	}else{
+#ifdef NULLC_BUILD_X86_JIT
+		ExecutorX86 *exec = (ExecutorX86*)unknownExec;
+		tempStackBase = (char*)exec->GetStackStart();
+		tempStackTop = (char*)exec->GetStackEnd();
+#endif
+	}
+	while(tempStackBase < tempStackTop)
+	{
+		GC::MarkPointer(tempStackBase, types[4]);
+		tempStackBase += 4;
 	}
 }

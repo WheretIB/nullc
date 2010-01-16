@@ -366,6 +366,7 @@ void ExecutorX86::Run(const char* funcName)
 	unsigned int res1 = 0;
 	unsigned int res2 = 0;
 	unsigned int resT = 0;
+	genStackPtr = genStackTop = &resT;
 	__try 
 	{
 		__asm
@@ -984,6 +985,7 @@ char* ExecutorX86::GetVariableData()
 
 void ExecutorX86::BeginCallStack()
 {
+	genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
 	NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
 	int *paramData = &NULLC::dataHead->nextElement;
 	int count = 0;
@@ -1010,6 +1012,15 @@ unsigned int ExecutorX86::GetNextAddress()
 	}
 	callstackTop--;
 	return address;
+}
+
+void* ExecutorX86::GetStackStart()
+{
+	return genStackPtr;
+}
+void* ExecutorX86::GetStackEnd()
+{
+	return genStackTop;
 }
 
 #endif
