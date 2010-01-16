@@ -44,7 +44,7 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 		// Change list head to a new upvalue
 		externalList[externals[i].closeListID] = upvalue;
 		// Move to the next upvalue (upvalue size is max(sizeof(ExternFuncInfo::Upvalue), externals[i].size)
-		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : (externals[i].size >> 2)));
+		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
 	}
 }
 
@@ -379,10 +379,15 @@ void MarkUsedBlocks()
 				// Check it
 				GC::CheckVariable(GC::unmanageableBase + offset + lInfo.offset, types[lInfo.type]);
 			}
-			// Get last local information
-			ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + functions[funcID].localCount - 1];
-			// And shift stack pointer to the end of functions stack frame
-			offset += lInfo.offset + lInfo.size;
+			if(functions[funcID].localCount)
+			{
+				// Get last local information
+				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + functions[funcID].localCount - 1];
+				// And shift stack pointer to the end of functions stack frame
+				offset += lInfo.offset + lInfo.size;
+			}else{
+				offset += 4;
+			}
 		}
 	}
 

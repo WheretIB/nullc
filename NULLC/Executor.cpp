@@ -1131,8 +1131,13 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
 				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
 			}
-			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + exFunctions[funcID].localCount - 1];
-			offset += lInfo.offset + lInfo.size;
+			if(exFunctions[funcID].localCount)
+			{
+				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + exFunctions[funcID].localCount - 1];
+				offset += lInfo.offset + lInfo.size;
+			}else{
+				offset += 4;	// There's one hidden parameter
+			}
 		}
 	}
 	fcallStack.pop_back();
