@@ -512,10 +512,12 @@ void NodeFuncDef::Disable()
 
 void NodeFuncDef::Compile()
 {
-	CompileExtra();
-
 	if(disabled)
+	{
+		CompileExtra();
 		return;
+	}
+
 	if(sourcePos)
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
