@@ -22,6 +22,9 @@ public:
 
 	void			BeginCallStack();
 	unsigned int	GetNextAddress();
+
+	void*			GetStackStart();
+	void*			GetStackEnd();
 private:
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	FILE*		executeLog;

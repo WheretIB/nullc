@@ -1193,6 +1193,14 @@ unsigned int Executor::GetNextAddress()
 	return currentFrame == fcallStack.size() ? 0 : (unsigned int)(fcallStack[currentFrame++] - cmdBase);
 }
 
+void* Executor::GetStackStart()
+{
+	return genStackPtr;
+}
+void* Executor::GetStackEnd()
+{
+	return genStackTop;
+}
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 // распечатать инструкцию в читабельном виде в поток
 void PrintInstructionText(FILE* logASM, VMCmd cmd, unsigned int rel, unsigned int top)
