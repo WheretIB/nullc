@@ -1159,6 +1159,7 @@ NodeDereference::~NodeDereference()
 void NodeDereference::Neutralize()
 {
 	neutralized = true;
+	typeInfo = originalNode->typeInfo;
 }
 
 void NodeDereference::Compile()

@@ -1203,7 +1203,6 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 		if(fID == -1)
 			ThrowError(pos, "ERROR: member variable or function '%.*s' is not defined in class '%s'", varName.end-varName.begin, varName.begin, currentType->GetFullTypeName());
-
 		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 	}
@@ -1542,6 +1541,8 @@ void FunctionPrototype(const char* pos)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
 	lastFunc.funcType = CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount);
 	currDefinedFunc.pop_back();
+	if(newType && lastFunc.type == FunctionInfo::THISCALL)
+		methodCount++;
 }
 
 void FunctionStart(const char* pos)
@@ -1747,7 +1748,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 				fRating += 5;
 			else if(expectedType->refLevel == paramType->refLevel+1 && expectedType->subType == paramType)
 				fRating += 5;
-			else if(expectedType == typeObject && paramType->refLevel != 0)
+			else if(expectedType == typeObject)
 				fRating += 5;
 			else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX)
 				return ~0u;	// If one of types is complex, and they aren't equal, function cannot match
@@ -1933,7 +1934,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		ConvertFunctionToPointer(pos);
 		ConvertArrayToUnsized(pos, fType->paramType[i]);
-		if(fType->paramType[i]->refLevel == CodeInfo::nodeList.back()->typeInfo->refLevel+1 && fType->paramType[i]->subType == CodeInfo::nodeList.back()->typeInfo)
+		if((fType->paramType[i]->refLevel == CodeInfo::nodeList.back()->typeInfo->refLevel+1 && fType->paramType[i]->subType == CodeInfo::nodeList.back()->typeInfo) ||
+			(CodeInfo::nodeList.back()->typeInfo->refLevel == 0 && fType->paramType[i] == typeObject))
 		{
 			if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
 			{
