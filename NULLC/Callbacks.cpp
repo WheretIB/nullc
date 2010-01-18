@@ -895,7 +895,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		if(fID == -1)
 			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 		if(fID == -1)
-			ThrowError(pos, "ERROR: function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
+			ThrowError(pos, "ERROR: variable or function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 
 		if(!preferLastFunction && CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);

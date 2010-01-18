@@ -177,31 +177,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\Modules\includes\canvas.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\ConsoleCalc.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\Modules\includes\file.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\Modules\includes\io.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\Modules\includes\math.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\Modules\includes\string.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\Modules\includes\window.cpp"
 				>
 			</File>
 		</Filter>
@@ -216,6 +192,70 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
+		</Filter>
+		<Filter
+			Name="Modules"
+			>
+			<Filter
+				Name="std"
+				>
+				<File
+					RelativePath="..\NULLC\includes\file.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\file.h"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\io.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\io.h"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\math.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\math.h"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\string.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\string.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="win"
+				>
+				<File
+					RelativePath="..\NULLC\includes\window.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\window.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="img"
+				>
+				<File
+					RelativePath="..\NULLC\includes\canvas.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\NULLC\includes\canvas.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 	</Files>
 	<Globals>

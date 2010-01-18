@@ -141,6 +141,61 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 	return (unsigned int)(current - start);
 }
 
+int NULLCTypeInfo::MemberCount(int* type)
+{
+	ExternTypeInfo &exType = NULLC::commonLinker->exTypes[*type];
+	if(exType.subCat != ExternTypeInfo::CAT_CLASS)
+	{
+		nullcThrowError("Type is not a class");
+		return 0;
+	}
+	return exType.memberCount;
+}
+int NULLCTypeInfo::MemberType(int member, int* type)
+{
+	ExternTypeInfo &exType = NULLC::commonLinker->exTypes[*type];
+	if(exType.subCat != ExternTypeInfo::CAT_CLASS)
+	{
+		nullcThrowError("Type is not a class");
+		return 0;
+	}
+	if((unsigned int)member > exType.memberCount)
+	{
+		nullcThrowError("Member number illegal");
+		return 0;
+	}
+	unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[0];
+	return memberList[exType.memberOffset + member];
+}
+NullCArray NULLCTypeInfo::MemberName(int member, int* type)
+{
+	NullCArray ret;
+
+	ExternTypeInfo &exType = NULLC::commonLinker->exTypes[*type];
+	if(exType.subCat != ExternTypeInfo::CAT_CLASS)
+	{
+		nullcThrowError("Type is not a class");
+		return NullCArray();
+	}
+	if((unsigned int)member > exType.memberCount)
+	{
+		nullcThrowError("Member number illegal");
+		return NullCArray();
+	}
+	char *symbols = &NULLC::commonLinker->exSymbols[0];
+	unsigned int strLength = (unsigned int)strlen(symbols + exType.offsetToName) + 1;
+	const char *memberName = symbols + exType.offsetToName + strLength;
+	for(int n = 0; n < member; n++)
+	{
+		strLength = (unsigned int)strlen(memberName) + 1;
+		memberName += strLength;
+	}
+
+	ret.ptr = (char*)memberName;
+	ret.len = (unsigned int)strlen(memberName) + 1;
+	return ret;
+}
+
 NullCArray NULLCTypeInfo::Typename(NULLCRef r)
 {
 	NullCArray ret;
@@ -150,6 +205,61 @@ NullCArray NULLCTypeInfo::Typename(NULLCRef r)
 	ret.ptr = exTypes[r.typeID].offsetToName + symbols;
 	ret.len = (unsigned int)strlen(ret.ptr) + 1;
 	return ret;
+}
+
+int NULLCTypeInfo::Typeid(NULLCRef r)
+{
+	return r.typeID;
+}
+
+int NULLCTypeInfo::IsFunction(int id)
+{
+	return NULLC::commonLinker->exTypes[id].subCat == ExternTypeInfo::CAT_FUNCTION;
+}
+
+int NULLCTypeInfo::IsClass(int id)
+{
+	return NULLC::commonLinker->exTypes[id].subCat == ExternTypeInfo::CAT_CLASS;
+}
+
+int NULLCTypeInfo::IsSimple(int id)
+{
+	return NULLC::commonLinker->exTypes[id].subCat == ExternTypeInfo::CAT_NONE;
+}
+
+int NULLCTypeInfo::IsArray(int id)
+{
+	return NULLC::commonLinker->exTypes[id].subCat == ExternTypeInfo::CAT_ARRAY;
+}
+
+int NULLCTypeInfo::IsPointer(int id)
+{
+	return NULLC::commonLinker->exTypes[id].subCat == ExternTypeInfo::CAT_POINTER;
+}
+
+int NULLCTypeInfo::IsFunctionRef(NULLCRef r)
+{
+	return NULLC::commonLinker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_FUNCTION;
+}
+
+int NULLCTypeInfo::IsClassRef(NULLCRef r)
+{
+	return NULLC::commonLinker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_CLASS;
+}
+
+int NULLCTypeInfo::IsSimpleRef(NULLCRef r)
+{
+	return NULLC::commonLinker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_NONE;
+}
+
+int NULLCTypeInfo::IsArrayRef(NULLCRef r)
+{
+	return NULLC::commonLinker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_ARRAY;
+}
+
+int NULLCTypeInfo::IsPointerRef(NULLCRef r)
+{
+	return NULLC::commonLinker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_POINTER;
 }
 
 #define GC_DEBUG_PRINT(...)
