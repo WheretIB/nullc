@@ -166,17 +166,17 @@ namespace NULLCMath
 		return len;
 	}
 
-	float dot2(float2 a, float2 b)
+	float dot2(float2 *a, float2 *b)
 	{
-		return a.x*b.x + a.y*b.y;
+		return a->x*b->x + a->y*b->y;
 	}
-	float dot3(float3 a, float3 b)
+	float dot3(float3 *a, float3 *b)
 	{
-		return a.x*b.x + a.y*b.y + a.z*b.z;
+		return a->x*b->x + a->y*b->y + a->z*b->z;
 	}
-	float dot4(float4 a, float4 b)
+	float dot4(float4 *a, float4 *b)
 	{
-		return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
+		return a->x*b->x + a->y*b->y + a->z*b->z + a->w*b->w;
 	}
 }
 
