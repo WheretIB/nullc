@@ -14,6 +14,8 @@
 #include "StdLib.h"
 #include "BinaryCache.h"
 
+#include "includes/typeinfo.h"
+
 CompilerError				CodeInfo::lastError;
 
 FastVector<FunctionInfo*>	CodeInfo::funcInfo;
@@ -42,12 +44,12 @@ const char* executeLog;
 
 unsigned int currExec = 0;
 
-void	nullcInit()
+void	nullcInit(const char* importPath)
 {
-	nullcInitCustomAlloc(NULL, NULL);
+	nullcInitCustomAlloc(NULL, NULL, importPath);
 }
 
-void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*))
+void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath)
 {
 	NULLC::alloc = allocFunc ? allocFunc : NULLC::defaultAlloc;
 	NULLC::dealloc = deallocFunc ? deallocFunc : NULLC::defaultDealloc;
@@ -59,11 +61,15 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	executorX86 = new(NULLC::alloc(sizeof(ExecutorX86))) ExecutorX86(linker);
 	executorX86->Initialize();
 #endif
+	BinaryCache::SetImportPath(importPath);
+
+	bool res = nullcInitTypeinfoModule(linker);
+	assert(res && "Failed to init typeinfo module");
 }
 
-void	nullcSetImportPath(const char* path)
+void	nullcSetImportPath(const char* importPath)
 {
-	BinaryCache::SetImportPath(path);
+	BinaryCache::SetImportPath(importPath);
 }
 
 void	nullcSetExecutor(unsigned int id)

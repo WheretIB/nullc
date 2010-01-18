@@ -23,8 +23,7 @@
 
 int main(int argc, char** argv)
 {
-	nullcInit();
-	nullcSetImportPath("Modules\\");
+	nullcInit("Modules\\");
 
 	nullcAddExternalFunction((void (*)())clock, "int clock();");
 	

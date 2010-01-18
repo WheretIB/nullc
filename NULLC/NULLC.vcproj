@@ -679,6 +679,18 @@
 					RelativePath="..\Modules\std\string.nc"
 					>
 				</File>
+				<File
+					RelativePath=".\includes\typeinfo.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\typeinfo.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\typeinfo.nc"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="win"
