@@ -271,6 +271,11 @@ float4 float4(float x, float3 yzw)
 {
 	return float4(x, yzw.x, yzw.y, yzw.z);
 }
+float4 ref operator=(float4 ref a, double[4] xyzw)
+{
+	*a = float4(xyzw[0], xyzw[1], xyzw[2], xyzw[3]);
+	return a;
+}
 
 align(4) class float4x4
 {
@@ -295,6 +300,6 @@ float float3:normalize();
 float float4:length();
 float float4:normalize();
 
-float dot(float2 a, float2 b);
-float dot(float3 a, float3 b);
-float dot(float4 a, float4 b);
+float dot(float2 ref a, float2 ref b);
+float dot(float3 ref a, float3 ref b);
+float dot(float4 ref a, float4 ref b);
