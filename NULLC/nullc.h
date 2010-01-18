@@ -11,10 +11,10 @@ extern "C"
 typedef unsigned char nullres;
 
 // Initialize NULLC
-void	nullcInit();
-void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*));
+void	nullcInit(const char* importPath);
+void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath);
 
-void	nullcSetImportPath(const char* path);
+void	nullcSetImportPath(const char* importPath);
 
 #define NULLC_VM	0
 #define NULLC_X86	1

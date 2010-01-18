@@ -162,50 +162,6 @@ Compiler::Compiler()
 	AddExternalFunction((void (*)())NULLC::AllocObject, "int __newS(int size);");
 	AddExternalFunction((void (*)())NULLC::AllocArray, "int[] __newA(int size, int count);");
 
-	// Type info module
-
-	bool res;
-	res = Compile(NULLCTypeInfo::typeInfoModule, false);
-	assert(res != false);
-
-	char *bytecode = NULL;
-	GetBytecode(&bytecode);
-	assert(bytecode != NULL);
-
-	BinaryCache::PutBytecode("std\\typeinfo.nc", bytecode);
-
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::Typename, "typename", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::Typeid, "typeid", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsFunction, "isFunction", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsFunctionRef, "isFunction", 1);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsClass, "isClass", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsClassRef, "isClass", 1);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsSimple, "isSimple", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsSimpleRef, "isSimple", 1);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsArray, "isArray", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsArrayRef, "isArray", 1);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsPointer, "isPointer", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::IsPointerRef, "isPointer", 1);
-	assert(res != false);
-
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::MemberCount, "typeid::memberCount", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::MemberType, "typeid::memberType", 0);
-	assert(res != false);
-	res = AddModuleFunction("std.typeinfo", (void (*)())NULLCTypeInfo::MemberName, "typeid::memberName", 0);
-	assert(res != false);
-
 #ifdef NULLC_LOG_FILES
 	compileLog = NULL;
 #endif

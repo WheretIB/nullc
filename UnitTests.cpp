@@ -350,9 +350,8 @@ void	RunTests()
 	timeRun = 0.0;
 
 	// Init NULLC
-	nullcInit();
-	//nullcInitCustomAlloc(testAlloc, testDealloc);
-	nullcSetImportPath("Modules\\");
+	nullcInit("Modules\\");
+	//nullcInitCustomAlloc(testAlloc, testDealloc, "Modules\\");
 
 #ifdef SPEED_TEST
 	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");
