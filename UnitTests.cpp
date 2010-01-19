@@ -4052,6 +4052,51 @@ return 0;";
 		}
 	}
 
+const char	*testClassMemberHide =
+"class Test{\r\n\
+int x, y;\r\n\
+int sum(int x){ return x + y; }\r\n\
+}\r\n\
+Test a;\r\n\
+a.x = 14;\r\n\
+a.y = 15;\r\n\
+return a.sum(5);";
+	printf("\r\nMember function hides members\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testClassMemberHide, testTarget[t], "20"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunctionWithArgumentsMember =
+"class Test{\r\n\
+int x, y;\r\n\
+int sum(int x){ return x + y; }\r\n\
+int sum(int x, ny){ y = ny; return sum(x); }\r\n\
+}\r\n\
+Test a;\r\n\
+a.x = 14;\r\n\
+a.y = 15;\r\n\
+return a.sum(5, 12);";
+	printf("\r\nMember function with arguments call from member function\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionWithArgumentsMember, testTarget[t], "17"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 

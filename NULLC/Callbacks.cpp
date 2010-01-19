@@ -924,7 +924,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 	}else{
 		if(!CodeInfo::varInfo[i]->varType)
 			ThrowError(pos, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
-		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL)
+		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL && CodeInfo::varInfo[i]->isGlobal)
 		{
 			bool member = false;
 			for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
@@ -1138,7 +1138,7 @@ void AddGetVariableNode(const char* pos)
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && lastType == typeVoid)
 	{
 		CodeInfo::nodeList.back()->typeInfo = typeInt;
-	}else if(lastType->funcType == NULL){
+	}else if(lastType->funcType == NULL && (lastType->refLevel != 0 || CodeInfo::nodeList.back()->nodeType != typeNodeFuncCall)){
 		CheckForImmutable(lastType, pos);
 		CodeInfo::nodeList.push_back(new NodeDereference());
 	}
@@ -1202,7 +1202,22 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		// Search for it
 		fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 		if(fID == -1)
+		{
+			// Try calling a "get" function
+			int memberNameLength = int(varName.end - varName.begin);
+			char *memberGet = AllocateString(memberNameLength + 2);
+			memcpy(memberGet, varName.begin, memberNameLength);
+			memberGet[memberNameLength] = '$';
+			memberGet[memberNameLength+1] = 0;
+			char *memberFuncName = GetClassFunctionName(currentType, memberGet);
+			if(AddFunctionCallNode(pos, memberFuncName, 0, true))
+			{
+				if(unifyTwo)
+					AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
+				return;
+			}
 			ThrowError(pos, "ERROR: member variable or function '%.*s' is not defined in class '%s'", varName.end-varName.begin, varName.begin, currentType->GetFullTypeName());
+		}
 		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 	}
@@ -1781,9 +1796,12 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			funcNameHash = hash;
 			funcName = name;
+			vID = -1;
 
 			AddGetAddressNode(pos, InplaceStr("this", 4));
 			AddDereferenceNode(pos);
+			funcAddr = CodeInfo::nodeList.back();
+			CodeInfo::nodeList.pop_back();
 		}
 	}
 	if(vID == -1 && funcName)
@@ -1926,6 +1944,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		CodeInfo::nodeList.pop_back();
 	}
 
+	if(funcAddr && newType)
+	{
+		CodeInfo::nodeList.push_back(funcAddr);
+		funcAddr = NULL;
+	}
 	for(unsigned int i = 0; i < fType->paramCount; i++)
 	{
 		unsigned int index = fType->paramCount - i - 1;
