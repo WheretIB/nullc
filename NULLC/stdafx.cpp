@@ -2,7 +2,7 @@
 
 void*	NULLC::defaultAlloc(int size)
 {
-	return ::new char[size];
+	return ::new(std::nothrow) char[size];
 }
 void	NULLC::defaultDealloc(void* ptr)
 {

@@ -57,7 +57,7 @@ Executor::~Executor()
 {
 	DBG(fclose(executeLog));
 
-	delete[] genStackBase;
+	NULLC::dealloc(genStackBase);
 }
 
 #define genStackSize (genStackTop-genStackPtr)
@@ -123,7 +123,7 @@ void Executor::Run(const char* funcName)
 	// General stack
 	if(!genStackBase)
 	{
-		genStackBase = new unsigned int[2048];		// Should be enough, but can grow
+		genStackBase = (unsigned int*)NULLC::alloc(sizeof(unsigned int) * 2048);	// Should be enough, but can grow
 		genStackTop = genStackBase + 2048;
 	}
 	genStackPtr = genStackTop - 1;

@@ -156,7 +156,7 @@ namespace NULLC
 
 	unsigned int baseMinimum = 128 * 1024;
 	unsigned int collectableMinimum = 128 * 1024;
-	unsigned int globalMemoryLimit = 32 * 1024 * 1024;
+	unsigned int globalMemoryLimit = 128 * 1024 * 1024;
 
 	ObjectBlockPool<8, poolBlockSize / 8>		pool8;
 	ObjectBlockPool<16, poolBlockSize / 16>		pool16;
@@ -180,12 +180,12 @@ void* NULLC::AllocObject(int size)
 	size += 4;
 
 #ifdef ENABLE_GC
-	if((unsigned int)usedMemory > collectableMinimum)
+	if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 	{
-		CollectMemory();
-	}else if((unsigned int)usedMemory > globalMemoryLimit){
 		nullcThrowError("Reached global memory maximum");
 		return NULL;
+	}else if((unsigned int)(usedMemory + size) > collectableMinimum){
+		CollectMemory();
 	}
 #endif
 	unsigned int realSize = size;
@@ -228,7 +228,12 @@ void* NULLC::AllocObject(int size)
 				data = pool512.Alloc();
 				realSize = 512;
 			}else{
-				globalObjects.push_back(new char[size+4]);
+				globalObjects.push_back(NULLC::alloc(size+4));
+				if(globalObjects.back() == NULL)
+				{
+					nullcThrowError("Allocation failed.");
+					return NULL;
+				}
 				realSize = *(int*)globalObjects.back() = size;
 				data = (char*)globalObjects.back() + 4;
 			}
@@ -337,7 +342,7 @@ void NULLC::CollectMemory()
 		if(((unsigned int*)globalObjects[i])[1] == 0)
 		{
 			usedMemory -= *(unsigned int*)globalObjects[i];
-			delete (char*)globalObjects[i];
+			NULLC::dealloc(globalObjects[i]);
 			globalObjects[i] = globalObjects.back();
 			globalObjects.pop_back();
 			unusedBlocks++;
@@ -392,7 +397,7 @@ void NULLC::ClearMemory()
 	pool512.~ObjectBlockPool();
 
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
-		delete (char*)globalObjects[i];
+		NULLC::dealloc(globalObjects[i]);
 	globalObjects.clear();
 }
 

@@ -244,20 +244,37 @@ bool ParseClassDefinition(Lexeme** str)
 				char	*memberName = (char*)stringPool.Allocate((*str)->length+1);
 				memcpy(memberName, (*str)->pos, (*str)->length);
 				memberName[(*str)->length] = 0;
-				CALLBACK(TypeAddMember((*str)->pos, memberName));
 				(*str)++;
 
-				while(ParseLexem(str, lex_comma))
+				if(ParseLexem(str, lex_point))
 				{
-					if((*str)->type != lex_string)
-						ThrowError((*str)->pos, "ERROR: member name expected after ','");
-					if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-						ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
-					char	*memberName = (char*)stringPool.Allocate((*str)->length+1);
-					memcpy(memberName, (*str)->pos, (*str)->length);
-					memberName[(*str)->length] = 0;
-					CALLBACK(TypeAddMember((*str)->pos, memberName));
-					(*str)++;
+					// Parse property
+					if((*str)->type != lex_string || (*str)->length != 3)
+						ThrowError((*str)->pos, "ERROR: 'get' or 'set' is expected after '.'");
+					if(memcmp((*str)->pos, "get", 3) == 0)
+					{
+						CALLBACK(FunctionAdd((*str)->pos, memberName));
+						ThrowError((*str)->pos, "ERROR: property");
+					}else if(memcmp((*str)->pos, "set", 3) == 0){
+						ThrowError((*str)->pos, "ERROR: set unimplemented");
+					}else{
+						ThrowError((*str)->pos, "ERROR: 'get' or 'set' is expected after '.'");
+					}
+				}else{
+					CALLBACK(TypeAddMember((*str-1)->pos, memberName));
+
+					while(ParseLexem(str, lex_comma))
+					{
+						if((*str)->type != lex_string)
+							ThrowError((*str)->pos, "ERROR: member name expected after ','");
+						if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+							ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
+						char	*memberName = (char*)stringPool.Allocate((*str)->length+1);
+						memcpy(memberName, (*str)->pos, (*str)->length);
+						memberName[(*str)->length] = 0;
+						CALLBACK(TypeAddMember((*str)->pos, memberName));
+						(*str)++;
+					}
 				}
 				if(!ParseLexem(str, lex_semicolon))
 					ThrowError((*str)->pos, "ERROR: ';' not found after class member list");
