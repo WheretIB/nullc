@@ -229,11 +229,16 @@ namespace ColorerGrammar
 					funcdef |
 					(
 						typeExpr >>
-						((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after type")]) >>
-						*(
-							chP(',')[ColorText] >>
-							((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after ','")])
-						) >>
+						(
+							((varname - typenameP(varname))[ColorVarDef] >> chP('.')[ColorText] >> strP("get")[ColorRWord] >> block) |
+							(
+								((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after type")]) >>
+								*(
+									chP(',')[ColorText] >>
+									((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after ','")])
+								) 
+							)
+						)>>
 						(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
 					)
 				) >>

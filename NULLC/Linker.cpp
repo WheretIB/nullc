@@ -411,7 +411,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int infoSize = exCodeInfo.size() / 2;
 
 	const char *lastSourcePos = &exSource[0];
-	for(unsigned int i = 0; i < exCode.size(); i++)
+	for(unsigned int i = 0; infoSize && i < exCode.size(); i++)
 	{
 		while((line < infoSize - 1) && (i >= info[line + 1].byteCodePos))
 			line++;

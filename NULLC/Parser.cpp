@@ -241,9 +241,10 @@ bool ParseClassDefinition(Lexeme** str)
 					ThrowError((*str)->pos, "ERROR: class member name expected after type");
 				if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 					ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
-				char	*memberName = (char*)stringPool.Allocate((*str)->length+1);
-				memcpy(memberName, (*str)->pos, (*str)->length);
-				memberName[(*str)->length] = 0;
+				unsigned int memberNameLength = (*str)->length;
+				char	*memberName = (char*)stringPool.Allocate(memberNameLength + 2);
+				memcpy(memberName, (*str)->pos, memberNameLength);
+				memberName[memberNameLength] = 0;
 				(*str)++;
 
 				if(ParseLexem(str, lex_point))
@@ -253,8 +254,14 @@ bool ParseClassDefinition(Lexeme** str)
 						ThrowError((*str)->pos, "ERROR: 'get' or 'set' is expected after '.'");
 					if(memcmp((*str)->pos, "get", 3) == 0)
 					{
+						memberName[memberNameLength] = '$';
+						memberName[memberNameLength + 1] = 0;
 						CALLBACK(FunctionAdd((*str)->pos, memberName));
-						ThrowError((*str)->pos, "ERROR: property");
+						(*str)++;
+						CALLBACK(FunctionStart((*str-1)->pos));
+						if(!ParseBlock(str))
+							ThrowError((*str)->pos, "ERROR: functoion body expected");
+						CALLBACK(FunctionEnd((*str-1)->pos, memberName));
 					}else if(memcmp((*str)->pos, "set", 3) == 0){
 						ThrowError((*str)->pos, "ERROR: set unimplemented");
 					}else{
@@ -1048,7 +1055,8 @@ bool ParseTerminal(Lexeme** str)
 		break;
 	}
 	bool lastIsFunctionCall = false;
-	if(((*str)->type == lex_string || (*str)->type == lex_mul) && ParseVariable(str, &lastIsFunctionCall)){
+	if(((*str)->type == lex_string || (*str)->type == lex_mul) && ParseVariable(str, &lastIsFunctionCall))
+	{
 		if(ParseLexem(str, lex_dec))
 		{
 			CALLBACK(AddPreOrPostOpNode((*str)->pos, false, false));
