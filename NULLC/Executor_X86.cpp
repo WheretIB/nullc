@@ -134,7 +134,7 @@ ExecutorX86::~ExecutorX86()
 {
 	VirtualFree(reinterpret_cast<void*>(0x20000000), 0, MEM_RELEASE);
 
-	delete[] binCode;
+	NULLC::dealloc(binCode);
 
 	x86ResetLabels();
 }
@@ -533,9 +533,9 @@ bool ExecutorX86::TranslateToNative()
 
 	if(instList.size() * 4 > binCodeReserved)
 	{
-		delete[] binCode;
+		NULLC::dealloc(binCode);
 		binCodeReserved = (instList.size() / 1024) * 4096 + 4096;
-		binCode = new unsigned char[binCodeReserved];
+		binCode = (unsigned char*)NULLC::alloc(binCodeReserved);
 		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
 	}
 	NULLC::binCodeStart = binCodeStart;

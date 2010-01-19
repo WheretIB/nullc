@@ -25,7 +25,7 @@ void BinaryCache::Terminate()
 {
 	for(unsigned int i = 0; i < cache.size(); i++)
 	{
-		delete[] cache[i].name;
+		NULLC::dealloc((void*)cache[i].name);
 		delete[] cache[i].binary;
 	}
 	cache.clear();

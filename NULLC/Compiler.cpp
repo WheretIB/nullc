@@ -576,7 +576,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 		fseek(rawModule, 0, SEEK_END);
 		unsigned int textSize = ftell(rawModule);
 		fseek(rawModule, 0, SEEK_SET);
-		char *fileContent = new char[textSize+1];
+		char *fileContent = (char*)NULLC::alloc(textSize+1);
 		fread(fileContent, 1, textSize, rawModule);
 		fileContent[textSize] = 0;
 
@@ -594,7 +594,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 #endif
 		GetBytecode(&bytecode);
 
-		delete[] fileContent;
+		NULLC::dealloc(fileContent);
 
 		BinaryCache::PutBytecode(failedImportPath ? altFile : file, bytecode);
 
