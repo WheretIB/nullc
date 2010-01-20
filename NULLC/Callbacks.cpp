@@ -810,7 +810,8 @@ void AddVariable(const char* pos, InplaceStr varName)
 			ThrowError(pos, "ERROR: Name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 	}
 	// Check for functions with the same name
-	if(CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size() - 1) != -1)
+	unsigned int index = FindFirstFunctionIndex(hash);
+	if(sortedFunc[index]->nameHash == hash)
 		ThrowError(pos, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
 
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
@@ -1495,6 +1496,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 
 	AddFunctionToSortedList(lastFunc);
 
+	lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;
 	lastFunc->vTopSize = (unsigned int)varInfoTop.size();
 	lastFunc->retType = currType;
 	if(newType)
@@ -1607,28 +1609,33 @@ void FunctionEnd(const char* pos, const char* funcName)
 		funcNameHash = StringHashContinue(funcNameHash, funcName);
 	}
 
-	int i = CodeInfo::FindFunctionByName(funcNameHash, CodeInfo::funcInfo.size()-1);
-	// Find all the functions with the same name
-	for(int n = 0; n < i; n++)
+	unsigned int index = FindFirstFunctionIndex(funcNameHash);
+	while(index < sortedFunc.size() && sortedFunc[index]->nameHash == funcNameHash)
 	{
-		if(CodeInfo::funcInfo[n]->nameHash == CodeInfo::funcInfo[i]->nameHash && CodeInfo::funcInfo[n]->paramCount == CodeInfo::funcInfo[i]->paramCount &&
-			CodeInfo::funcInfo[n]->visible && CodeInfo::funcInfo[n]->retType == CodeInfo::funcInfo[i]->retType)
+		if(sortedFunc[index] == &lastFunc)
+		{
+			index++;
+			continue;
+		}
+
+		if(sortedFunc[index]->paramCount == lastFunc.paramCount && sortedFunc[index]->visible && sortedFunc[index]->retType == lastFunc.retType)
 		{
 			// Check all parameter types
 			bool paramsEqual = true;
-			for(VariableInfo *currN = CodeInfo::funcInfo[n]->firstParam, *currI = CodeInfo::funcInfo[i]->firstParam; currN; currN = currN->next, currI = currI->next)
+			for(VariableInfo *currN = sortedFunc[index]->firstParam, *currI = lastFunc.firstParam; currN; currN = currN->next, currI = currI->next)
 			{
 				if(currN->varType != currI->varType)
 					paramsEqual = false;
 			}
 			if(paramsEqual)
 			{
-				if(CodeInfo::funcInfo[n]->implemented)
-					ThrowError(pos, "ERROR: function '%s' is being defined with the same set of parameters", CodeInfo::funcInfo[i]->name);
+				if(sortedFunc[index]->implemented)
+					ThrowError(pos, "ERROR: function '%s' is being defined with the same set of parameters", lastFunc.name);
 				else
-					CodeInfo::funcInfo[n]->address = i | 0x80000000;
+					sortedFunc[index]->address = lastFunc.indexInArr | 0x80000000;
 			}
 		}
+		index++;
 	}
 
 	cycleDepth.pop_back();
@@ -1790,12 +1797,14 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	if(newType)
 	{
-		char *name = GetClassFunctionName(newType, funcName);
-		unsigned int hash = GetStringHash(name);
-		if(CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1) != -1)
+		unsigned int hash = newType->nameHash;
+		hash = StringHashContinue(hash, "::");
+		hash = StringHashContinue(hash, funcName);
+
+		unsigned int index = FindFirstFunctionIndex(hash);
+		if(sortedFunc[index]->nameHash == hash)
 		{
 			funcNameHash = hash;
-			funcName = name;
 			vID = -1;
 
 			AddGetAddressNode(pos, InplaceStr("this", 4));

@@ -29,7 +29,7 @@ struct NULLCRef
 //#define NULLC_VM_DEBUG
 #define NULLC_STACK_TRACE_WITH_LOCALS
 
-#define NULLC_LOG_FILES
+//#define NULLC_LOG_FILES
 #if defined(_MSC_VER) && defined(_DEBUG)
 //#define VERBOSE_DEBUG_OUTPUT
 //#define IMPORT_VERBOSE_DEBUG_OUTPUT

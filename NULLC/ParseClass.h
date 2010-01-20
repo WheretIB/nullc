@@ -314,6 +314,7 @@ public:
 		address = 0;
 		codeSize = 0;
 		funcPtr = NULL;
+		indexInArr = 0;
 		retType = NULL;
 		visible = true;
 		implemented = false;
@@ -367,6 +368,7 @@ public:
 	int			address;				// Address of the beginning of function inside bytecode
 	int			codeSize;				// Size of a function bytecode
 	void		*funcPtr;				// Address of the function in memory
+	int			indexInArr;
 
 	const char		*name;				// Function name
 	unsigned int	nameLength;
