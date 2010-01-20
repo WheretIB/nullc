@@ -128,8 +128,16 @@ FunctionInfo::ExternalInfo* AddFunctionExternal(FunctionInfo* func, VariableInfo
 
 char* GetClassFunctionName(TypeInfo* type, const char* funcName)
 {
-	char	*memberFuncName = AllocateString(type->GetFullNameLength() + 2 + (int)strlen(funcName) + 1);
-	sprintf(memberFuncName, "%s::%s", type->GetFullTypeName(), funcName);
+	char *memberFuncName = AllocateString(type->GetFullNameLength() + 2 + (int)strlen(funcName) + 1);
+	char *curr = memberFuncName;
+	const char *typeName = type->GetFullTypeName();
+	while(*typeName)
+		*curr++ = *typeName++;
+	*curr++ = ':';
+	*curr++ = ':';
+	while(*funcName)
+		*curr++ = *funcName++;
+	*curr = 0;
 	return memberFuncName;
 }
 char* GetClassFunctionName(TypeInfo* type, InplaceStr funcName)
@@ -1587,9 +1595,12 @@ void FunctionStart(const char* pos)
 	char	*hiddenHame = AllocateString(lastFunc.nameLength + 24);
 	int length = 0;
 	if(lastFunc.type == FunctionInfo::THISCALL)
-		length = sprintf(hiddenHame, "this");
-	else
+	{
+		memcpy(hiddenHame, "this", 5);
+		length = 4;
+	}else{
 		length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
+	}
 	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
 	AddVariable(pos, InplaceStr(hiddenHame, length));
