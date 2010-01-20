@@ -935,11 +935,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			ThrowError(pos, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
 		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL && CodeInfo::varInfo[i]->isGlobal)
 		{
-			bool member = false;
-			for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
+			TypeInfo::MemberVariable *curr = newType->firstVariable;
+			for(; curr; curr = curr->next)
 				if(curr->nameHash == hash)
-					member = true;
-			if(member)
+					break;
+			if(curr)
 			{
 				// Class members are accessed through 'this' pointer
 				FunctionInfo *currFunc = currDefinedFunc.back();
@@ -948,7 +948,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 
 				AddDereferenceNode(pos);
-				AddMemberAccessNode(pos, varName);
+				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
 				return;
 			}
 		}
