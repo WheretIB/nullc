@@ -44,11 +44,14 @@ int main(int argc, char** argv)
 		return 0;
 	}
 	bool useX86 = false;
+	bool profile = false;
 	const char *fileName = NULL;
 	for(int i = 1; i < argc; i++)
 	{
 		if(strcmp(argv[i], "-x86") == 0)
 			useX86 = true;
+		if(strcmp(argv[i], "-p") == 0)
+			profile = true;
 		if(strstr(argv[i], ".nc"))
 			fileName = argv[i];
 	}
@@ -74,6 +77,15 @@ int main(int argc, char** argv)
 	fileContent[textSize] = 0;
 
 	char *bytecode = NULL;
+
+	if(profile)
+	{
+		int start = clock();
+		for(unsigned int i = 0; i < 5000; i++)
+			nullres good = nullcCompile(fileContent);
+		int end = clock();
+		printf("5000 compilations: %dms Single: %.2fms\r\n", end - start, (end - start) / 5000.0);
+	}
 
 	nullres good = nullcCompile(fileContent);
 	if(!good)

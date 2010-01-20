@@ -313,7 +313,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	fontDefault = CreateFont(-10 * GetDeviceCaps(hdc, LOGPIXELSY) / 72, 0, 0, 0, 0, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE, "Arial");
 	EndPaint(hWnd, &ps);
 
-	hButtonCalc = CreateWindow("BUTTON", "Calculate", WS_VISIBLE | WS_CHILD, 5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
+	hButtonCalc = CreateWindow("BUTTON", "Run", WS_VISIBLE | WS_CHILD, 5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
 	if(!hButtonCalc)
 		return 0;
 	SendMessage(hButtonCalc, WM_SETFONT, (WPARAM)fontDefault, 0);
@@ -654,7 +654,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		PostQuitMessage(0);
 		break;
 	case WM_USER + 1:
-		SetWindowText(hButtonCalc, "Calculate");
+		SetWindowText(hButtonCalc, "Run");
 
 		if(runRes.result)
 		{
@@ -681,7 +681,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(!runRes.finished)
 			{
 				TerminateThread(calcThread, 0);
-				SetWindowText(hButtonCalc, "Calculate");
+				SetWindowText(hButtonCalc, "Run");
 				runRes.finished = true;
 				break;
 			}
