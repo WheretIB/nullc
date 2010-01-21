@@ -232,14 +232,19 @@ namespace ColorerGrammar
 						(
 							(
 								(varname - typenameP(varname))[ColorVarDef] >>
-								chP('.')[ColorText] >>
-								(strP("get")[ColorRWord] | epsP[LogError("ERROR: 'get' is expected after '.'")]) >>
+								chP('{')[ColorText] >>
+								(strP("get")[ColorRWord] | epsP[LogError("ERROR: 'get' is expected after '{'")]) >>
 								(block | epsP[LogError("ERROR: function body expected after 'get'")]) >>
 								!(
-									chP('.')[ColorText] >>
-									(strP("set")[ColorRWord] | epsP[LogError("ERROR: 'set' is expected after '.'")]) >>
+									strP("set")[ColorRWord] >>
+									!(
+										chP('(') >>
+										((varname - typenameP(varname)) | epsP[LogError("ERROR: r-value name not found")]) >>
+										(chP(')') | epsP[LogError("ERROR: ')' is expected after r-value name")])
+									) >> 
 									(block | epsP[LogError("ERROR: function body expected after 'set'")])
-								)
+								) >>
+								(chP('}')[ColorText] | epsP[LogError("ERROR: '}' is expected after property")])
 							) | (
 								((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after type")]) >>
 								*(
