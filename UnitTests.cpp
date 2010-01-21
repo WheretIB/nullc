@@ -4102,12 +4102,15 @@ const char	*testAccessors =
 int x, y;\r\n\
 int sum.get{ return x + y; };\r\n\
 int[2] xy.get{ return {x, y}; }.set{ x = r[0]; y = r[1]; };\r\n\
+double doubleX.get{ return x; }.set(value){ x = value; return y; };\r\n\
 }\r\n\
 Test a;\r\n\
 a.x = 14;\r\n\
 a.y = 15;\r\n\
 int c = a.sum;\r\n\
 a.xy = { 5, 1 };\r\n\
+double b;\r\n\
+b = a.doubleX = 5.0;\r\n\
 return a.sum;";
 	printf("\r\nAccessors\r\n");
 	for(int t = 0; t < 2; t++)
@@ -4118,6 +4121,7 @@ return a.sum;";
 			lastFailed = false;
 
 			CHECK_INT("c", 0, 29);
+			CHECK_DOUBLE("b", 0, 1.0);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -4483,6 +4487,8 @@ return *ll;";
 	TEST_FOR_FAIL("parsing", "class Test{ int a.get } return 0;", "ERROR: function body expected after 'get'");
 	TEST_FOR_FAIL("parsing", "class Test{ int a.get{}. } return 0;", "ERROR: 'set' is expected after '.'");
 	TEST_FOR_FAIL("parsing", "class Test{ int a.get{}.set } return 0;", "ERROR: function body expected after 'set'");
+	TEST_FOR_FAIL("parsing", "class Test{ int a.get{}.set( } return 0;", "ERROR: r-value name not found after '('");
+	TEST_FOR_FAIL("parsing", "class Test{ int a.get{}.set(value } return 0;", "ERROR: ')' not found after r-value");
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount[0]);
