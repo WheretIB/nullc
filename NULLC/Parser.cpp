@@ -275,7 +275,19 @@ bool ParseClassDefinition(Lexeme** str)
 						CALLBACK(FunctionAdd((*str)->pos, memberName));
 						(*str)++;
 						SelectTypeByPointer(propType);
-						CALLBACK(FunctionParameter((*str)->pos, InplaceStr("r")));
+						if(ParseLexem(str, lex_oparen))
+						{
+							if((*str)->type != lex_string)
+								ThrowError((*str)->pos, "ERROR: r-value name not found after '('");
+							if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+								ThrowError((*str)->pos, "ERROR: r-value name length is limited to 2048 symbols");
+							CALLBACK(FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length)));
+							(*str)++;
+							if(!ParseLexem(str, lex_cparen))
+								ThrowError((*str)->pos, "ERROR: ')' not found after r-value");
+						}else{
+							CALLBACK(FunctionParameter((*str)->pos, InplaceStr("r")));
+						}
 						CALLBACK(FunctionStart((*str-1)->pos));
 						if(!ParseBlock(str))
 							ThrowError((*str)->pos, "ERROR: function body expected after 'set'");
