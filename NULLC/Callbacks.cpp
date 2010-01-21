@@ -1130,7 +1130,6 @@ void AddSetVariableNode(const char* pos)
 			memcpy(memberSet, fInfo->name, fInfo->nameLength);
 			memberSet[fInfo->nameLength-1] = '@';
 			memberSet[fInfo->nameLength] = 0;
-			NodeZeroOP *classThis = left;
 			CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = ((NodeFuncCall*)left)->GetFirstNode();
 			if(AddFunctionCallNode(pos, memberSet, 1, true))
 				return;
@@ -1768,6 +1767,8 @@ void FunctionEnd(const char* pos, const char* funcName)
 
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
 		methodCount++;
+
+	currType = lastFunc.retType;
 }
 
 void FunctionToOperator(const char* pos)

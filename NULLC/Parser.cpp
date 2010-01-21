@@ -249,7 +249,6 @@ bool ParseClassDefinition(Lexeme** str)
 
 				if(ParseLexem(str, lex_ofigure))
 				{
-					void *propType = GetSelectedType();
 					// Parse property
 					if((*str)->type != lex_string || (*str)->length != 3 || memcmp((*str)->pos, "get", 3) != 0)
 						ThrowError((*str)->pos, "ERROR: 'get' is expected after '{'");
@@ -263,15 +262,19 @@ bool ParseClassDefinition(Lexeme** str)
 					if(!ParseBlock(str))
 						ThrowError((*str)->pos, "ERROR: function body expected after 'get'");
 					CALLBACK(FunctionEnd((*str-1)->pos, memberName));
-
+					// Get function return type
+					void *propType = GetSelectedType();
 					if((*str)->type == lex_string || (*str)->length == 3 || memcmp((*str)->pos, "set", 3) == 0)
 					{
 						memberName[memberNameLength] = '@';
 						memberName[memberNameLength + 1] = 0;
+						// Set setter return type to auto
 						SelectTypeByPointer(NULL);
 						CALLBACK(FunctionAdd((*str)->pos, memberName));
 						(*str)++;
+						// Set setter parameter type to getter return type
 						SelectTypeByPointer(propType);
+						// Parse optional parameter name
 						if(ParseLexem(str, lex_oparen))
 						{
 							if((*str)->type != lex_string)
