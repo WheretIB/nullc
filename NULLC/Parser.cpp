@@ -249,23 +249,37 @@ bool ParseClassDefinition(Lexeme** str)
 
 				if(ParseLexem(str, lex_point))
 				{
+					void *propType = GetSelectedType();
 					// Parse property
-					if((*str)->type != lex_string || (*str)->length != 3)
-						ThrowError((*str)->pos, "ERROR: 'get' or 'set' is expected after '.'");
-					if(memcmp((*str)->pos, "get", 3) == 0)
+					if((*str)->type != lex_string || (*str)->length != 3 || memcmp((*str)->pos, "get", 3) != 0)
+						ThrowError((*str)->pos, "ERROR: 'get' is expected after '.'");
+					
+					memberName[memberNameLength] = '$';
+					memberName[memberNameLength + 1] = 0;
+					
+					CALLBACK(FunctionAdd((*str)->pos, memberName));
+					(*str)++;
+					CALLBACK(FunctionStart((*str-1)->pos));
+					if(!ParseBlock(str))
+						ThrowError((*str)->pos, "ERROR: function body expected after 'get'");
+					CALLBACK(FunctionEnd((*str-1)->pos, memberName));
+
+					if(ParseLexem(str, lex_point))
 					{
-						memberName[memberNameLength] = '$';
+						if((*str)->type != lex_string || (*str)->length != 3 || memcmp((*str)->pos, "set", 3) != 0)
+							ThrowError((*str)->pos, "ERROR: 'set' is expected after '.'");
+
+						memberName[memberNameLength] = '@';
 						memberName[memberNameLength + 1] = 0;
+						SelectTypeByPointer(NULL);
 						CALLBACK(FunctionAdd((*str)->pos, memberName));
 						(*str)++;
+						SelectTypeByPointer(propType);
+						CALLBACK(FunctionParameter((*str)->pos, InplaceStr("r")));
 						CALLBACK(FunctionStart((*str-1)->pos));
 						if(!ParseBlock(str))
-							ThrowError((*str)->pos, "ERROR: functoion body expected");
+							ThrowError((*str)->pos, "ERROR: function body expected after 'set'");
 						CALLBACK(FunctionEnd((*str-1)->pos, memberName));
-					}else if(memcmp((*str)->pos, "set", 3) == 0){
-						ThrowError((*str)->pos, "ERROR: set unimplemented");
-					}else{
-						ThrowError((*str)->pos, "ERROR: 'get' or 'set' is expected after '.'");
 					}
 				}else{
 					CALLBACK(TypeAddMember((*str-1)->pos, memberName));

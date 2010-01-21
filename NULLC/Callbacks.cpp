@@ -1120,6 +1120,25 @@ void AddSetVariableNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	NodeZeroOP *left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+	if(left->nodeType == typeNodeFuncCall && ((NodeFuncCall*)left)->funcInfo)
+	{
+		FunctionInfo *fInfo = ((NodeFuncCall*)left)->funcInfo;
+		if(fInfo->name[fInfo->nameLength-1] == '$')
+		{
+			char *memberSet = AllocateString(fInfo->nameLength+1);
+			memcpy(memberSet, fInfo->name, fInfo->nameLength);
+			memberSet[fInfo->nameLength-1] = '@';
+			memberSet[fInfo->nameLength] = 0;
+			NodeZeroOP *classThis = left;
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = ((NodeFuncCall*)left)->GetFirstNode();
+			if(AddFunctionCallNode(pos, memberSet, 1, true))
+				return;
+			else
+				CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = left;
+		}
+	}
+
 	// Call overloaded operator with error suppression
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
 		return;

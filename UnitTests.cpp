@@ -4097,6 +4097,33 @@ return a.sum(5, 12);";
 		}
 	}
 
+const char	*testAccessors =
+"class Test{\r\n\
+int x, y;\r\n\
+int sum.get{ return x + y; };\r\n\
+int[2] xy.get{ return {x, y}; }.set{ x = r[0]; y = r[1]; };\r\n\
+}\r\n\
+Test a;\r\n\
+a.x = 14;\r\n\
+a.y = 15;\r\n\
+int c = a.sum;\r\n\
+a.xy = { 5, 1 };\r\n\
+return a.sum;";
+	printf("\r\nAccessors\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testAccessors, testTarget[t], "6"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("c", 0, 29);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -4451,6 +4478,11 @@ return *ll;";
 	TEST_FOR_FAIL("parsing", "typedef double somename", "ERROR: ';' not found after typedef");
 	TEST_FOR_FAIL("parsing", "typedef double int;", "ERROR: there is already a type or an alias with the same name");
 	TEST_FOR_FAIL("parsing", "typedef double somename; typedef int somename;", "ERROR: there is already a type or an alias with the same name");
+
+	TEST_FOR_FAIL("parsing", "class Test{ int a. } return 0;", "ERROR: 'get' is expected after '.'");
+	TEST_FOR_FAIL("parsing", "class Test{ int a.get } return 0;", "ERROR: function body expected after 'get'");
+	TEST_FOR_FAIL("parsing", "class Test{ int a.get{}. } return 0;", "ERROR: 'set' is expected after '.'");
+	TEST_FOR_FAIL("parsing", "class Test{ int a.get{}.set } return 0;", "ERROR: function body expected after 'set'");
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount[0]);

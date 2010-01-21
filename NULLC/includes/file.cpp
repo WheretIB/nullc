@@ -129,7 +129,7 @@ namespace NULLCFile
 			nullcThrowError("Cannot read from a closed file.");
 			return;
 		}
-		if(arr.len != fread(arr.ptr, 1, arr.len, file->handle))
+		if(arr.len && (arr.len - 1) != fread(arr.ptr, 1, arr.len - 1, file->handle))
 			nullcThrowError("Failed to read from a file.");
 	}
 	void FileWrite(NullCArray arr, File* file)
@@ -139,7 +139,7 @@ namespace NULLCFile
 			nullcThrowError("Cannot write to a closed file.");
 			return;
 		}
-		if(arr.len != fwrite(arr.ptr, 1, arr.len, file->handle))
+		if(arr.len && (arr.len - 1) != fwrite(arr.ptr, 1, arr.len - 1, file->handle))
 			nullcThrowError("Failed to write to a file.");
 	}
 }

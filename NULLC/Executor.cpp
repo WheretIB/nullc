@@ -861,12 +861,13 @@ void Executor::Stop(const char* error)
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
-	unsigned int bytesToPop = exFunctions[funcID].bytesToPop;
+	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
+	//unsigned int bytesToPop = exFunctions[funcID].bytesToPop;
 	void* fPtr = exFunctions[funcID].funcPtr;
 	unsigned int retType = exFunctions[funcID].retType;
 
-	unsigned int *stackStart = (genStackPtr + (bytesToPop >> 2) - 1);
-	for(unsigned int i = 0; i < (bytesToPop >> 2); i++)
+	unsigned int *stackStart = (genStackPtr + dwordsToPop - 1);
+	for(unsigned int i = 0; i < dwordsToPop; i++)
 	{
 #ifdef __GNUC__
 		asm("movl %0, %%eax"::"r"(stackStart):"%eax");
@@ -882,7 +883,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 #endif
 		stackStart--;
 	}
-	genStackPtr += (bytesToPop >> 2) + extraPopDW;
+	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
 
 	switch(retType)
 	{
@@ -890,22 +891,25 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		((void (*)())fPtr)();
 		break;
 	case ExternFuncInfo::RETURN_INT:
-		genStackPtr--;
-		*genStackPtr = ((int (*)())fPtr)();
+		newStackPtr -= 1;
+		*newStackPtr = ((int (*)())fPtr)();
 		break;
 	case ExternFuncInfo::RETURN_DOUBLE:
-		genStackPtr -= 2;
-		*(double*)genStackPtr = ((double (*)())fPtr)();
+		newStackPtr -= 2;
+		*(double*)newStackPtr = ((double (*)())fPtr)();
 		break;
 	case ExternFuncInfo::RETURN_LONG:
-		genStackPtr -= 2;
-		*(long long*)genStackPtr = ((long long (*)())fPtr)();
+		newStackPtr -= 2;
+		*(long long*)newStackPtr = ((long long (*)())fPtr)();
 	}
+	genStackPtr = newStackPtr;
 #ifdef __GNUC__
-	asm("addl %0, %%esp"::"r"(bytesToPop):"%esp");
+	asm("movl %0, %%eax"::"r"(dwordsToPop):"%eax");
+	asm("leal (%eax*4 + %esp), %esp");
 #else
 	#ifndef _M_X64
-		__asm add esp, bytesToPop;
+		__asm mov eax, dwordsToPop
+		__asm lea esp, [eax * 4 + esp]
 	#else
 		strcpy(execError, "ERROR: No external call on x64");
 		return false;

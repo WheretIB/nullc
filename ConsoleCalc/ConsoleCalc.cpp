@@ -85,6 +85,18 @@ int main(int argc, char** argv)
 			nullres good = nullcCompile(fileContent);
 		int end = clock();
 		printf("5000 compilations: %dms Single: %.2fms\r\n", end - start, (end - start) / 5000.0);
+
+		start = clock();
+		for(unsigned int i = 0; i < 5000; i++)
+		{
+			nullres good = nullcCompile(fileContent);
+			nullcGetBytecode(&bytecode);
+
+			nullcClean();
+			nullcLinkCode(bytecode, 0);
+		}
+		end = clock();
+		printf("5000 comp. + link: %dms Single: %.2fms\r\n", end - start, (end - start) / 5000.0);
 	}
 
 	nullres good = nullcCompile(fileContent);
