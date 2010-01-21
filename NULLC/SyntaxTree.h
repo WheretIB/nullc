@@ -558,7 +558,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
-protected:
+public:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;
 

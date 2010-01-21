@@ -230,8 +230,17 @@ namespace ColorerGrammar
 					(
 						typeExpr >>
 						(
-							((varname - typenameP(varname))[ColorVarDef] >> chP('.')[ColorText] >> strP("get")[ColorRWord] >> block) |
 							(
+								(varname - typenameP(varname))[ColorVarDef] >>
+								chP('.')[ColorText] >>
+								(strP("get")[ColorRWord] | epsP[LogError("ERROR: 'get' is expected after '.'")]) >>
+								(block | epsP[LogError("ERROR: function body expected after 'get'")]) >>
+								!(
+									chP('.')[ColorText] >>
+									(strP("set")[ColorRWord] | epsP[LogError("ERROR: 'set' is expected after '.'")]) >>
+									(block | epsP[LogError("ERROR: function body expected after 'set'")])
+								)
+							) | (
 								((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after type")]) >>
 								*(
 									chP(',')[ColorText] >>
