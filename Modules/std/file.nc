@@ -27,3 +27,4 @@ void File:Read(double ref data);
 
 void File:Read(char[] arr);
 void File:Write(char[] arr);
+void File:Print(char[] arr);

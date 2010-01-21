@@ -2,6 +2,9 @@
 #include "../../nullc/nullc.h"
 
 #include <stdio.h>
+#include <string.h>
+
+#pragma warning(disable: 4996)
 
 namespace NULLCFile
 {
@@ -129,7 +132,7 @@ namespace NULLCFile
 			nullcThrowError("Cannot read from a closed file.");
 			return;
 		}
-		if(arr.len && (arr.len - 1) != fread(arr.ptr, 1, arr.len - 1, file->handle))
+		if(arr.len != fread(arr.ptr, 1, arr.len, file->handle))
 			nullcThrowError("Failed to read from a file.");
 	}
 	void FileWrite(NullCArray arr, File* file)
@@ -139,7 +142,18 @@ namespace NULLCFile
 			nullcThrowError("Cannot write to a closed file.");
 			return;
 		}
-		if(arr.len && (arr.len - 1) != fwrite(arr.ptr, 1, arr.len - 1, file->handle))
+		if(arr.len != fwrite(arr.ptr, 1, arr.len, file->handle))
+			nullcThrowError("Failed to write to a file.");
+	}
+	void FilePrint(NullCArray arr, File* file)
+	{
+		if(!file->handle)
+		{
+			nullcThrowError("Cannot write to a closed file.");
+			return;
+		}
+		unsigned int length = (unsigned int)strlen(arr.ptr);
+		if(length != fwrite(arr.ptr, 1, length, file->handle))
 			nullcThrowError("Failed to write to a file.");
 	}
 }
@@ -172,6 +186,7 @@ bool nullcInitFileModule()
 
 	REGISTER_FUNC(FileRead, "File::Read", 6);
 	REGISTER_FUNC(FileWrite, "File::Write", 6);
+	REGISTER_FUNC(FilePrint, "File::Print", 0);
 	return true;
 }
 
