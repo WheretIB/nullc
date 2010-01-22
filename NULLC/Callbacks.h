@@ -68,9 +68,6 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 // Function for array indexing
 void AddArrayIndexNode(const char* pos);
 
-// Function for pointer dereferencing
-void AddDereferenceNode(const char* pos);
-
 // Function for variable assignment in place of definition
 void AddDefineVariableNode(const char* pos, void* varInfo, bool noOverload = false);
 
