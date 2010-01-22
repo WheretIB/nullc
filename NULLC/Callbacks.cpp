@@ -1184,12 +1184,12 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	}
  
 	// Find member
-	int fID = -1;
 	TypeInfo::MemberVariable *curr = currentType->firstVariable;
 	for(; curr; curr = curr->next)
 		if(curr->nameHash == hash)
 			break;
 	// If member variable is not found, try searching for member function
+	FunctionInfo *memberFunc = NULL;
 	if(!curr)
 	{
 		// Construct function name in a for of Class::Function
@@ -1198,8 +1198,8 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		hash = StringHashContinue(hash, varName.begin, varName.end);
 
 		// Search for it
-		fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
-		if(fID == -1)
+		HashMap<FunctionInfo>::Node *func = funcMap.first(hash);
+		if(!func)
 		{
 			// Try calling a "get" function
 			int memberNameLength = int(varName.end - varName.begin);
@@ -1215,13 +1215,15 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 				return;
 			}
 			ThrowError(pos, "ERROR: member variable or function '%.*s' is not defined in class '%s'", varName.end-varName.begin, varName.begin, currentType->GetFullTypeName());
+		}else{
+			memberFunc = func->value;
 		}
-		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
+		if(func && funcMap.next(func))
 			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 	}
 	
 	// In case of a variable
-	if(fID == -1)
+	if(!memberFunc)
 	{
 		// Shift pointer to member
 		if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
@@ -1230,7 +1232,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
 	}else{
 		// In case of a function, get it's address
-		CodeInfo::nodeList.push_back(new NodeFunctionAddress(CodeInfo::funcInfo[fID]));
+		CodeInfo::nodeList.push_back(new NodeFunctionAddress(memberFunc));
 	}
 
 	if(unifyTwo)
@@ -1485,8 +1487,10 @@ void FunctionAdd(const char* pos, const char* funcName)
 	}
 	char *funcNameCopy = (char*)funcName;
 	if(newType)
+	{
 		funcNameCopy = GetClassFunctionName(newType, funcName);
-	funcNameHash = GetStringHash(funcNameCopy);
+		funcNameHash = GetStringHash(funcNameCopy);
+	}
 
 	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy));
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
@@ -1596,20 +1600,11 @@ void FunctionStart(const char* pos)
 	varDefined = false;
 }
 
-void FunctionEnd(const char* pos, const char* funcName)
+void FunctionEnd(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	unsigned int funcNameHash = GetStringHash(funcName);
-
-	if(newType)
-	{
-		funcNameHash = newType->GetFullNameHash();
-		funcNameHash = StringHashContinue(funcNameHash, "::");
-		funcNameHash = StringHashContinue(funcNameHash, funcName);
-	}
-
-	HashMap<FunctionInfo>::Node *curr = funcMap.first(funcNameHash);
+	HashMap<FunctionInfo>::Node *curr = funcMap.first(lastFunc.nameHash);
 	while(curr)
 	{
 		FunctionInfo *info = curr->value;

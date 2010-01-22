@@ -95,7 +95,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName);
 void FunctionParameterDefault(const char* pos);
 void FunctionPrototype(const char* pos);
 void FunctionStart(const char* pos);
-void FunctionEnd(const char* pos, const char* funcName);
+void FunctionEnd(const char* pos);
 void FunctionToOperator(const char* pos);
 
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
