@@ -893,11 +893,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				CodeInfo::nodeList.push_back(new NodeNumber(0, CodeInfo::GetReferenceType(typeInt)));
 			}else{
 				AddGetAddressNode(pos, InplaceStr(contextName, length));
-				AddGetVariableNode(pos);
+				CodeInfo::nodeList.push_back(new NodeDereference());
 			}
 		}else if(CodeInfo::funcInfo[fID]->type == FunctionInfo::THISCALL){
 			AddGetAddressNode(pos, InplaceStr("this", 4));
-			AddDereferenceNode(pos);
+			CodeInfo::nodeList.push_back(new NodeDereference());
 		}
 
 		// Create node that retrieves function address
@@ -918,8 +918,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 
 				TypeInfo *temp = CodeInfo::GetReferenceType(newType);
 				CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
-
-				AddDereferenceNode(pos);
+				CodeInfo::nodeList.push_back(new NodeDereference());
 				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
 				return;
 			}
@@ -1016,18 +1015,6 @@ void AddArrayIndexNode(const char* pos)
 	}
 	if(unifyTwo)
 		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
-}
-
-// Function for pointer dereferencing
-void AddDereferenceNode(const char* pos)
-{
-	CodeInfo::lastKnownStartPos = pos;
-
-	// Change current type to type that pointer pointed to
-	CodeInfo::GetDereferenceType(CodeInfo::nodeList.back()->typeInfo);
-
-	// Create dereference node
-	CodeInfo::nodeList.push_back(new NodeDereference());
 }
 
 // Function for variable assignment in place of definition
@@ -1285,7 +1272,7 @@ void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)
 		// Create variable that will hold calculated pointer
 		AddInplaceVariable(pos);
 		// Get pointer from it
-		AddDereferenceNode(pos);
+		CodeInfo::nodeList.push_back(new NodeDereference());
 		CodeInfo::nodeList.push_back(new NodePreOrPostOp(isInc, prefixOp));
 		AddExtraNode();
 	}else{
@@ -1317,7 +1304,7 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 		// Create variable that will hold calculated pointer
 		AddInplaceVariable(pos);
 		// Get pointer from it
-		AddDereferenceNode(pos);
+		CodeInfo::nodeList.push_back(new NodeDereference());
 		// Restore value
 		CodeInfo::nodeList.push_back(value);
 		CodeInfo::nodeList.push_back(new NodeVariableModify(pointer->typeInfo, cmd));
@@ -1796,8 +1783,10 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			funcNameHash = hash;
 
-			AddGetAddressNode(pos, InplaceStr("this", 4));
-			AddDereferenceNode(pos);
+			FunctionInfo *currFunc = currDefinedFunc.back();
+			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
+			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+			CodeInfo::nodeList.push_back(new NodeDereference());
 			funcAddr = CodeInfo::nodeList.back();
 			CodeInfo::nodeList.pop_back();
 		}else if(funcName){
