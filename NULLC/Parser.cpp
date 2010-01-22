@@ -261,7 +261,7 @@ bool ParseClassDefinition(Lexeme** str)
 					CALLBACK(FunctionStart((*str-1)->pos));
 					if(!ParseBlock(str))
 						ThrowError((*str)->pos, "ERROR: function body expected after 'get'");
-					CALLBACK(FunctionEnd((*str-1)->pos, memberName));
+					CALLBACK(FunctionEnd((*str-1)->pos));
 					// Get function return type
 					void *propType = GetSelectedType();
 					if((*str)->type == lex_string || (*str)->length == 3 || memcmp((*str)->pos, "set", 3) == 0)
@@ -291,7 +291,7 @@ bool ParseClassDefinition(Lexeme** str)
 						CALLBACK(FunctionStart((*str-1)->pos));
 						if(!ParseBlock(str))
 							ThrowError((*str)->pos, "ERROR: function body expected after 'set'");
-						CALLBACK(FunctionEnd((*str-1)->pos, memberName));
+						CALLBACK(FunctionEnd((*str-1)->pos));
 					}
 					if(!ParseLexem(str, lex_cfigure))
 						ThrowError((*str)->pos, "ERROR: '}' is expected after property");
@@ -488,7 +488,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset))
 		CALLBACK(FunctionToOperator(start->pos));
 
-	CALLBACK(FunctionEnd(start->pos, functionName));
+	CALLBACK(FunctionEnd(start->pos));
 
 	if(typeMethod)
 		CALLBACK(TypeStop());
