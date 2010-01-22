@@ -1779,10 +1779,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
 {
-	unsigned int funcNameHash = funcName ? GetStringHash(funcName) : ~0u;
-
-	// Searching, if function name is actually a variable name (which means, either it is a pointer to function, or an error)
-	int vID = CodeInfo::FindVariableByName(funcNameHash);
+	unsigned int funcNameHash = ~0u;
 
 	FunctionInfo	*fInfo = NULL;
 	FunctionType	*fType = NULL;
@@ -1798,34 +1795,42 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		if(funcMap.find(hash))
 		{
 			funcNameHash = hash;
-			vID = -1;
 
 			AddGetAddressNode(pos, InplaceStr("this", 4));
 			AddDereferenceNode(pos);
 			funcAddr = CodeInfo::nodeList.back();
 			CodeInfo::nodeList.pop_back();
+		}else if(funcName){
+			funcNameHash = GetStringHash(funcName);
 		}
+	}else if(funcName){
+		funcNameHash = GetStringHash(funcName);
 	}
+
+	//Find all functions with given name
+	bestFuncList.clear();
+
+	HashMap<FunctionInfo>::Node *curr = funcMap.first(funcNameHash);
+	while(curr)
+	{
+		FunctionInfo *func = curr->value;
+		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType)
+			bestFuncList.push_back(func);
+		curr = funcMap.next(curr);
+	}
+	unsigned int count = bestFuncList.size();
+	unsigned int vID = ~0u;
+	if(count == 0)
+	{
+		if(silent)
+			return false;
+		vID = CodeInfo::FindVariableByName(funcNameHash);
+		if(vID == -1 && funcName)
+			ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
+	}
+
 	if(vID == -1 && funcName)
 	{
-		//Find all functions with given name
-		bestFuncList.clear();
-
-		HashMap<FunctionInfo>::Node *curr = funcMap.first(funcNameHash);
-		while(curr)
-		{
-			FunctionInfo *func = curr->value;
-			if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType)
-				bestFuncList.push_back(func);
-			curr = funcMap.next(curr);
-		}
-		unsigned int count = bestFuncList.size();
-		if(count == 0)
-		{
-			if(silent)
-				return false;
-			ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
-		}
 		// Find the best suited function
 		bestFuncRating.resize(count);
 
@@ -1880,6 +1885,9 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
 			}
 			ThrowError(pos, errTemp);
+		}else{
+			fType = bestFuncList[minRatingIndex]->funcType->funcType;
+			fInfo = bestFuncList[minRatingIndex];
 		}
 		// Check, is there are more than one function, that share the same rating
 		for(unsigned int k = 0; k < count; k++)
@@ -1904,9 +1912,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				ThrowError(pos, errTemp);
 			}
 		}
-
-		fType = bestFuncList[minRatingIndex]->funcType->funcType;
-		fInfo = bestFuncList[minRatingIndex];
 	}else{
 		if(funcName)
 			AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
