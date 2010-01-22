@@ -509,16 +509,16 @@ bool ParseAddVariable(Lexeme** str)
 	if(ParseLexem(str, lex_obracket))
 		ThrowError((*str)->pos, "ERROR: array size must be specified after typename");
 
-	CALLBACK(AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length)));
+	void *varInfo = AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length));
 
 	if(ParseLexem(str, lex_set))
 	{
 		if(!ParseVaribleSet(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '='");
-		CALLBACK(AddDefineVariableNode((*str)->pos, InplaceStr(varName->pos, varName->length)));
-		CALLBACK(AddPopNode((*str)->pos));
+		AddDefineVariableNode((*str)->pos, varInfo);
+		AddPopNode((*str)->pos);
 	}else{
-		CALLBACK(AddVariableReserveNode((*str)->pos));
+		AddVariableReserveNode((*str)->pos);
 	}
 	return true;
 }

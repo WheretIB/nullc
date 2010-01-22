@@ -777,7 +777,7 @@ void* GetSelectedType()
 	return (void*)currType;
 }
 
-void AddVariable(const char* pos, InplaceStr varName)
+void* AddVariable(const char* pos, InplaceStr varName)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -803,6 +803,7 @@ void AddVariable(const char* pos, InplaceStr varName)
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 	if(currType)
 		varTop += currType->size;
+	return CodeInfo::varInfo.back();
 }
 
 void AddVariableReserveNode(const char* pos)
@@ -1030,44 +1031,39 @@ void AddDereferenceNode(const char* pos)
 }
 
 // Function for variable assignment in place of definition
-void AddDefineVariableNode(const char* pos, InplaceStr varName, bool noOverload)
+void AddDefineVariableNode(const char* pos, void* varInfo, bool noOverload)
 {
 	CodeInfo::lastKnownStartPos = pos;
-
-	unsigned int hash = GetStringHash(varName.begin, varName.end);
-
-	int i = CodeInfo::FindVariableByName(hash);
-	if(i == -1)
-		ThrowError(pos, "ERROR: variable '%.*s' is not defined", varName.end-varName.begin, varName.begin);
+	VariableInfo *variableInfo = (VariableInfo*)varInfo;
 
 	// If a function is being assigned to variable, then take it's address
 	ConvertFunctionToPointer(pos);
 
 	// If current type is set to NULL, it means that current type is auto
 	// Is such case, type is retrieved from last AST node
-	TypeInfo *realCurrType = CodeInfo::varInfo[i]->varType ? CodeInfo::varInfo[i]->varType : CodeInfo::nodeList.back()->typeInfo;
+	TypeInfo *realCurrType = variableInfo->varType ? variableInfo->varType : CodeInfo::nodeList.back()->typeInfo;
 
 	// If variable type is array without explicit size, and it is being defined with value of different type
 	ConvertArrayToUnsized(pos, realCurrType);
 	HandlePointerToObject(pos, realCurrType);
 
 	// If type wasn't known until assignment, it means that variable alignment wasn't performed in AddVariable function
-	if(!CodeInfo::varInfo[i]->varType)
+	if(!variableInfo->varType)
 	{
-		CodeInfo::varInfo[i]->pos = varTop;
+		variableInfo->pos = varTop;
 		// If type has default alignment or if user specified it
 		if(realCurrType->alignBytes != 0 || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 		{
 			// Find address offset. Alignment selected by user has higher priority than default alignment
 			unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes);
-			CodeInfo::varInfo[i]->pos += offset;
+			variableInfo->pos += offset;
 			varTop += offset;
 		}
-		CodeInfo::varInfo[i]->varType = realCurrType;
+		variableInfo->varType = realCurrType;
 		varTop += realCurrType->size;
 	}
 
-	CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
+	CodeInfo::nodeList.push_back(new NodeGetAddress(variableInfo, variableInfo->pos, variableInfo->isGlobal, variableInfo->varType));
 
 	// Call overloaded operator with error suppression
 	if(!noOverload)
@@ -1343,9 +1339,9 @@ void AddInplaceVariable(const char* pos)
 	// Set type to auto
 	currType = NULL;
 	// Add hidden variable
-	AddVariable(pos, InplaceStr(arrName, length));
+	void *varInfo = AddVariable(pos, InplaceStr(arrName, length));
 	// Set it to value on top of the stack
-	AddDefineVariableNode(pos, InplaceStr(arrName, length), true);
+	AddDefineVariableNode(pos, varInfo, true);
 	// Remove it from stack
 	AddPopNode(pos);
 	// Put pointer to hidden variable on stack
@@ -1667,7 +1663,7 @@ void FunctionEnd(const char* pos)
 	// If function is local, create function parameters block
 	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.externalCount != 0)
 	{
-		char	*hiddenHame = AllocateString(lastFunc.nameLength + 24);
+		char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
 		int length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
 
 		TypeInfo *saveCurrType = currType;
@@ -1675,7 +1671,7 @@ void FunctionEnd(const char* pos)
 
 		// Create a pointer to array
 		currType = NULL;
-		AddVariable(pos, InplaceStr(hiddenHame, length));
+		void *varInfo = AddVariable(pos, InplaceStr(hiddenHame, length));
 
 		// Allocate array in dynamic memory
 		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
@@ -1683,7 +1679,7 @@ void FunctionEnd(const char* pos)
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetArrayType(CodeInfo::GetReferenceType(typeInt), lastFunc.externalSize / 4));
 
 		// Set it to pointer variable
-		AddDefineVariableNode(pos, InplaceStr(hiddenHame, length));
+		AddDefineVariableNode(pos, varInfo);
 
 		CodeInfo::nodeList.push_back(new NodeDereference(&lastFunc, currDefinedFunc.back()->allParamSize));
 

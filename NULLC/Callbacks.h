@@ -50,7 +50,7 @@ void SelectTypeByPointer(void* type);
 void SelectTypeByIndex(unsigned int index);
 void* GetSelectedType();
 
-void AddVariable(const char* pos, InplaceStr varName);
+void* AddVariable(const char* pos, InplaceStr varName);
 
 void AddVariableReserveNode(const char* pos);
 
@@ -72,7 +72,7 @@ void AddArrayIndexNode(const char* pos);
 void AddDereferenceNode(const char* pos);
 
 // Function for variable assignment in place of definition
-void AddDefineVariableNode(const char* pos, InplaceStr varName, bool noOverload = false);
+void AddDefineVariableNode(const char* pos, void* varInfo, bool noOverload = false);
 
 void AddSetVariableNode(const char* pos);
 
