@@ -305,11 +305,11 @@ public:
 class FunctionInfo
 {
 public:
-	explicit FunctionInfo(const char *funcName)
+	explicit FunctionInfo(const char *funcName, unsigned int hash)
 	{
 		name = funcName;
 		nameLength = (int)strlen(name);
-		nameHash = GetStringHash(name);
+		nameHash = hash;
 
 		address = 0;
 		codeSize = 0;
