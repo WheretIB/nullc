@@ -1492,7 +1492,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 		funcNameHash = GetStringHash(funcNameCopy);
 	}
 
-	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy));
+	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy, funcNameHash));
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
 	AddFunctionToSortedList(lastFunc);

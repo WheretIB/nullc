@@ -503,7 +503,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 			unsigned int strLength = (unsigned int)strlen(symbols + fInfo->offsetToName) + 1;
 			const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), symbols + fInfo->offsetToName);
 
-			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy));
+			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy, fInfo->nameHash));
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
 			AddFunctionToSortedList(lastFunc);
