@@ -4128,6 +4128,26 @@ return a.sum;";
 		}
 	}
 
+const char	*testVariableHiding =
+"int a;\r\n\
+{\r\n\
+	auto a(){ };\r\n\
+	a();\r\n\
+}\r\n\
+return 0;";
+	printf("\r\nVariable hiding by function\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testVariableHiding, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 

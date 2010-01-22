@@ -356,22 +356,18 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 
 	unsigned int oldTypeCount = CodeInfo::typeInfo.size();
 
+	typeMap.clear();
+	for(unsigned int n = 0; n < oldTypeCount; n++)
+		typeMap.insert(CodeInfo::typeInfo[n]->GetFullNameHash(), CodeInfo::typeInfo[n]);
+
 	unsigned int lastTypeNum = CodeInfo::typeInfo.size();
 	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
 	{
-		const unsigned int INDEX_NONE = ~0u;
-
-		unsigned int index = INDEX_NONE;
-		for(unsigned int n = 0; n < oldTypeCount && index == INDEX_NONE; n++)
-		{
-			if(CodeInfo::typeInfo[n]->GetFullNameHash() == tInfo->nameHash)
-				index = n;
-		}
-
-		if(index == INDEX_NONE)
-			typeRemap.push_back(lastTypeNum++);
+		TypeInfo *info = typeMap.find(tInfo->nameHash);
+		if(info)
+			typeRemap.push_back(info->typeIndex);
 		else
-			typeRemap.push_back(index);
+			typeRemap.push_back(lastTypeNum++);
 	}
 
 	tInfo = FindFirstType(bCode);

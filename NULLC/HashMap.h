@@ -8,7 +8,7 @@ class HashMap
 	static const unsigned int	bucketCount = 1024;
 	static const unsigned int	bucketMask = bucketCount - 1;
 
-	ChunkedStackPool<2042>		nodePool;
+	ChunkedStackPool<4092>		nodePool;
 public:
 	struct Node
 	{

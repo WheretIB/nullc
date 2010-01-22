@@ -16,7 +16,6 @@ Fix module linkage with different set of base external functions.
 Compiled modules must recompile after changes.
 
 tuples
-extended use of FindFirstFunctionIndex
 internal function call externally with parameters
 internal function call by pointer externally
 Replace AddPreOrPostOpNode with two distinct functions (?)
@@ -126,3 +125,4 @@ DON'T NEED: const flag must be inside type information, not variable information
 DONE: Fix && and || operators logic to support short-circuiting
 DONE: Information about variables at every line.
 DONE: Add optimization with known number conversion to desired type.
+DONE: extended use of FindFirstFunctionIndex
