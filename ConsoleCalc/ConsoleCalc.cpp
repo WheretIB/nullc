@@ -103,7 +103,7 @@ int main(int argc, char** argv)
 	if(!good)
 	{
 		printf("Compilation failed: %s\r\n", nullcGetCompilationError());
-	}else{
+	}else if(!profile){
 		nullcGetBytecode(&bytecode);
 
 		nullcClean();

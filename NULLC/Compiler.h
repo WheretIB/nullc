@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "Lexer.h"
 #include "Bytecode.h"
+#include "HashMap.h"
 
 class CompilerError
 {
@@ -70,6 +71,7 @@ private:
 	FastVector<ExternModuleInfo>	activeModules;
 	FastVector<char>				moduleSource;
 
+	HashMap<TypeInfo>				typeMap;
 	FastVector<unsigned int>		typeRemap;
 
 	unsigned int buildInFuncs;
