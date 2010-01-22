@@ -4,6 +4,7 @@
 #include "CodeInfo.h"
 
 #include "Parser.h"
+#include "HashMap.h"
 
 // Temp variables
 
@@ -36,40 +37,11 @@ FastVector<unsigned int>	cycleDepth;
 // Stack of functions that are being defined at the moment
 FastVector<FunctionInfo*>	currDefinedFunc;
 
-FastVector<FunctionInfo*>	sortedFunc;
+HashMap<FunctionInfo>		funcMap;
+
 void	AddFunctionToSortedList(void *info)
 {
-	sortedFunc.push_back((FunctionInfo*)info);
-	unsigned int n = sortedFunc.size() - 1;
-	while(n && ((FunctionInfo*)info)->nameHash < sortedFunc[n-1]->nameHash)
-	{
-		FunctionInfo *temp = sortedFunc[n-1];
-		sortedFunc[n-1] = sortedFunc[n];
-		sortedFunc[n] = temp;
-		n--;
-	}
-}
-// Finds a list of function, returns size of list, and offset to first element
-unsigned int FindFirstFunctionIndex(unsigned int nameHash)
-{
-	int lowerBound = -1;
-	int upperBound = sortedFunc.size();
-
-	int pointer;
-	while((pointer = (upperBound - lowerBound) >> 1) != 0)
-	{
-		pointer = lowerBound + pointer;
-		unsigned int hash = sortedFunc[pointer]->nameHash;
-		if(hash == nameHash)
-			break;
-		else if(hash < nameHash)
-			lowerBound = pointer;
-		else
-			upperBound = pointer;
-	}
-	while(pointer && sortedFunc[pointer-1]->nameHash == nameHash)
-		pointer--;
-	return pointer;
+	funcMap.insert(((FunctionInfo*)info)->nameHash, (FunctionInfo*)info);
 }
 
 // Information about current type
@@ -818,8 +790,7 @@ void AddVariable(const char* pos, InplaceStr varName)
 			ThrowError(pos, "ERROR: Name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 	}
 	// Check for functions with the same name
-	unsigned int index = FindFirstFunctionIndex(hash);
-	if(sortedFunc[index]->nameHash == hash)
+	if(funcMap.find(hash))
 		ThrowError(pos, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
 
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
@@ -1638,33 +1609,34 @@ void FunctionEnd(const char* pos, const char* funcName)
 		funcNameHash = StringHashContinue(funcNameHash, funcName);
 	}
 
-	unsigned int index = FindFirstFunctionIndex(funcNameHash);
-	while(index < sortedFunc.size() && sortedFunc[index]->nameHash == funcNameHash)
+	HashMap<FunctionInfo>::Node *curr = funcMap.first(funcNameHash);
+	while(curr)
 	{
-		if(sortedFunc[index] == &lastFunc)
+		FunctionInfo *info = curr->value;
+		if(info == &lastFunc)
 		{
-			index++;
+			curr = funcMap.next(curr);
 			continue;
 		}
 
-		if(sortedFunc[index]->paramCount == lastFunc.paramCount && sortedFunc[index]->visible && sortedFunc[index]->retType == lastFunc.retType)
+		if(info->paramCount == lastFunc.paramCount && info->visible && info->retType == lastFunc.retType)
 		{
 			// Check all parameter types
 			bool paramsEqual = true;
-			for(VariableInfo *currN = sortedFunc[index]->firstParam, *currI = lastFunc.firstParam; currN; currN = currN->next, currI = currI->next)
+			for(VariableInfo *currN = info->firstParam, *currI = lastFunc.firstParam; currN; currN = currN->next, currI = currI->next)
 			{
 				if(currN->varType != currI->varType)
 					paramsEqual = false;
 			}
 			if(paramsEqual)
 			{
-				if(sortedFunc[index]->implemented)
+				if(info->implemented)
 					ThrowError(pos, "ERROR: function '%s' is being defined with the same set of parameters", lastFunc.name);
 				else
-					sortedFunc[index]->address = lastFunc.indexInArr | 0x80000000;
+					info->address = lastFunc.indexInArr | 0x80000000;
 			}
 		}
-		index++;
+		curr = funcMap.next(curr);
 	}
 
 	cycleDepth.pop_back();
@@ -1832,8 +1804,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		hash = StringHashContinue(hash, "::");
 		hash = StringHashContinue(hash, funcName);
 
-		unsigned int index = FindFirstFunctionIndex(hash);
-		if(sortedFunc[index]->nameHash == hash)
+		if(funcMap.find(hash))
 		{
 			funcNameHash = hash;
 			vID = -1;
@@ -1849,13 +1820,13 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		//Find all functions with given name
 		bestFuncList.clear();
 
-		unsigned int index = FindFirstFunctionIndex(funcNameHash);
-
-		while(index < sortedFunc.size() && sortedFunc[index]->nameHash == funcNameHash)
+		HashMap<FunctionInfo>::Node *curr = funcMap.first(funcNameHash);
+		while(curr)
 		{
-			if(sortedFunc[index]->visible && !((sortedFunc[index]->address & 0x80000000) && (sortedFunc[index]->address != -1)) && sortedFunc[index]->funcType)
-				bestFuncList.push_back(sortedFunc[index]);
-			index++;
+			FunctionInfo *func = curr->value;
+			if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType)
+				bestFuncList.push_back(func);
+			curr = funcMap.next(curr);
 		}
 		unsigned int count = bestFuncList.size();
 		if(count == 0)
@@ -2290,8 +2261,7 @@ void CallbackInitialize()
 
 	lostGlobalList = NULL;
 
-	sortedFunc.clear();
-
+	funcMap.clear();
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 		AddFunctionToSortedList(CodeInfo::funcInfo[i]);
 }

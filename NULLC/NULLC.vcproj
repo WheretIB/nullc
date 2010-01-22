@@ -477,6 +477,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\HashMap.h"
+				>
+			</File>
+			<File
 				RelativePath=".\InstructionSet.h"
 				>
 			</File>
