@@ -76,17 +76,18 @@ namespace CodeInfo
 		// Find out the function type
 		TypeInfo	*bestFit = NULL;
 		// Search through active types
-		for(unsigned int i = 0; i < typeInfo.size(); i++)
+		for(unsigned int i = classCount; i < typeInfo.size(); i++)
 		{
-			if(typeInfo[i]->funcType)
+			TypeInfo *type = typeInfo[i];
+			if(type->funcType)
 			{
-				if(typeInfo[i]->funcType->retType != retType)
+				if(type->funcType->retType != retType)
 					continue;
-				if(typeInfo[i]->funcType->paramCount != paramCount)
+				if(type->funcType->paramCount != paramCount)
 					continue;
 				bool good = true;
 				unsigned int n = 0;
-				TypeInfo	**paramType = typeInfo[i]->funcType->paramType;
+				TypeInfo	**paramType = type->funcType->paramType;
 				for(T *curr = paramTypes; curr; curr = curr->next, n++)
 				{
 					if(curr->varType != paramType[n])
@@ -97,7 +98,7 @@ namespace CodeInfo
 				}
 				if(good)
 				{
-					bestFit = typeInfo[i];
+					bestFit = type;
 					break;
 				}
 			}
