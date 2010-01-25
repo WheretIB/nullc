@@ -81,19 +81,6 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	return (int)(stream - start);
 }
 
-struct LabelInfo
-{
-	LabelInfo():pos(NULL){}
-	LabelInfo(unsigned int LabelID, const unsigned char *newPos)
-	{
-		labelID = LabelID;
-		pos = newPos;
-	}
-
-	unsigned int labelID;
-	const unsigned char *pos;
-};
-
 struct UnsatisfiedJump
 {
 	UnsatisfiedJump():jmpPos(NULL){}
@@ -109,21 +96,8 @@ struct UnsatisfiedJump
 	unsigned char *jmpPos;
 };
 
-FastVector<LabelInfo>	labels;
+FastVector<unsigned char*>	labels;
 FastVector<UnsatisfiedJump> pendingJumps;
-
-bool FindLabel(unsigned int labelID, LabelInfo& info)
-{
-	for(unsigned int i = 0; i < labels.size(); i++)
-	{
-		if(labels[i].labelID == labelID)
-		{
-			info = labels[i];
-			return true;
-		}
-	}
-	return false;
-}
 
 void x86ResetLabels()
 {
@@ -135,6 +109,11 @@ void x86ClearLabels()
 {
 	labels.clear();
 	pendingJumps.clear();
+}
+
+void x86ReserveLabels(unsigned int count)
+{
+	labels.resize(count);
 }
 
 int x86FLDZ(unsigned char* stream)
@@ -569,16 +548,12 @@ int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift)
 {
 	labelID &= 0x7FFFFFFF;
 	(void)shift;
-	LabelInfo info;
+
 	stream[0] = 0x8d;
-	if(!FindLabel(labelID, info))
-	{
-		pendingJumps.push_back(UnsatisfiedJump(labelID, false, stream));
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, rNONE, 0xcdcdcdcd, regCode[dst]);
-		assert(asize == 5);
-		return 1 + asize;
-	}
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rNONE, (int)(long long)info.pos, regCode[dst]);
+	
+	pendingJumps.push_back(UnsatisfiedJump(labelID, true, stream));
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rNONE, 0xcdcdcdcd, regCode[dst]);
+	assert(asize == 5);
 	return 1 + asize;
 }
 // lea dst, [src+shift]
@@ -1029,13 +1004,7 @@ int x86CALL(unsigned char *stream, unsigned int labelID)
 	labelID &= 0x7FFFFFFF;
 	stream[0] = 0xe8;
 
-	LabelInfo info;
-	if(!FindLabel(labelID, info))
-	{
-		pendingJumps.push_back(UnsatisfiedJump(labelID, true, stream));
-	}else{
-		*(int*)(stream+1) = (int)(info.pos-stream-5);
-	}
+	pendingJumps.push_back(UnsatisfiedJump(labelID, true, stream));
 	return 5;
 }
 int x86RET(unsigned char *stream)
@@ -1067,7 +1036,6 @@ int x86NOP(unsigned char *stream)
 int x86Jcc(unsigned char *stream, unsigned int labelID, x86Cond cond, bool isNear)
 {
 	labelID &= 0x7FFFFFFF;
-	LabelInfo info;
 
 	if(isNear)
 	{
@@ -1077,76 +1045,27 @@ int x86Jcc(unsigned char *stream, unsigned int labelID, x86Cond cond, bool isNea
 		stream[0] = 0x70 + condCode[cond];
 	}
 
-	if(!FindLabel(labelID, info))
-	{
-		pendingJumps.push_back(UnsatisfiedJump(labelID, isNear, stream));
-	}else{
-		if(isNear)
-		{
-			*(int*)(stream+2) = (int)(info.pos-stream-6);
-		}else{
-			assert(info.pos-stream + 128 < 256);
-			stream[1] = (char)(info.pos-stream-2);
-		}
-	}
+	pendingJumps.push_back(UnsatisfiedJump(labelID, isNear, stream));
 	return (isNear ? 6 : 2);
 }
 
 int x86JMP(unsigned char *stream, unsigned int labelID, bool isNear)
 {
 	labelID &= 0x7FFFFFFF;
-	LabelInfo info;
 
 	if(isNear)
 		stream[0] = 0xE9;
 	else
 		stream[0] = 0xEB;
 
-	if(!FindLabel(labelID, info))
-	{
-		pendingJumps.push_back(UnsatisfiedJump(labelID, isNear, stream));
-	}else{
-		if(isNear)
-		{
-			*(int*)(stream+1) = (int)(info.pos-stream-5);
-		}else{
-			assert(info.pos-stream + 128 < 256);
-			stream[1] = (char)(info.pos-stream-2);
-		}
-	}
+	pendingJumps.push_back(UnsatisfiedJump(labelID, isNear, stream));
 	return (isNear ? 5 : 2);
 }
 
 void x86AddLabel(unsigned char *stream, unsigned int labelID)
 {
-	assert((labelID & 0x0FFFFFFF) == labelID);
-	labelID &= 0x7FFFFFFF;
-	labels.push_back(LabelInfo(labelID, stream));
-	for(unsigned int i = 0; i < pendingJumps.size(); i++)
-	{
-		UnsatisfiedJump& uJmp = pendingJumps[i];
-		if(uJmp.labelID == labelID)
-		{
-			if(*uJmp.jmpPos == 0xe8)	// This one is for call label
-			{
-				*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos-5);
-			}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
-				*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(stream);
-			}else{
-				if(uJmp.isNear)
-				{
-					if(*uJmp.jmpPos == 0x0f)
-						*(int*)(uJmp.jmpPos+2) = (int)(stream-uJmp.jmpPos-6);
-					else
-						*(int*)(uJmp.jmpPos+1) = (int)(stream-uJmp.jmpPos-5);
-				}else{
-					assert(uJmp.jmpPos-stream + 128 < 256);
-					*(char*)(uJmp.jmpPos+1) = (char)(stream-uJmp.jmpPos-2);
-				}
-			}
-			uJmp.labelID = (unsigned int)-1;
-		}
-	}
+	assert(labelID < labels.size());
+	labels[labelID] = stream;
 }
 
 void x86SatisfyJumps(FastVector<unsigned char*>& instPos)
@@ -1154,23 +1073,28 @@ void x86SatisfyJumps(FastVector<unsigned char*>& instPos)
 	for(unsigned int i = 0; i < pendingJumps.size(); i++)
 	{
 		UnsatisfiedJump& uJmp = pendingJumps[i];
-		if(uJmp.labelID == -1)
-			continue;
-		if(*uJmp.jmpPos == 0xe8)	// This one is for call label
+		if(uJmp.isNear)
 		{
-			*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-5);
-		}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
-			*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(instPos[uJmp.labelID&0x00ffffff]);
-		}else{
-			if(uJmp.isNear)
+			if(*uJmp.jmpPos == 0xe8)	// This one is for call label
 			{
+				*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-5);
+			}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
+				*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(instPos[uJmp.labelID&0x00ffffff]);
+			}else{
 				if(*uJmp.jmpPos == 0x0f)
 					*(int*)(uJmp.jmpPos+2) = (int)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-6);
 				else
 					*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-5);
+			}
+		}else{
+			if(*uJmp.jmpPos == 0xe8)	// This one is for call label
+			{
+				*(int*)(uJmp.jmpPos+1) = (int)(labels[uJmp.labelID] - uJmp.jmpPos-5);
+			}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
+				*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(labels[uJmp.labelID]);
 			}else{
-				assert(uJmp.jmpPos - instPos[uJmp.labelID&0x00ffffff] + 128 < 256);
-				*(char*)(uJmp.jmpPos+1) = (char)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-2);
+				assert(uJmp.jmpPos - labels[uJmp.labelID] + 128 < 256);
+				*(char*)(uJmp.jmpPos+1) = (char)(labels[uJmp.labelID] - uJmp.jmpPos-2);
 			}
 		}
 	}

@@ -4,6 +4,7 @@
 
 void x86ResetLabels();
 void x86ClearLabels();
+void x86ReserveLabels(unsigned int count);
 
 int x86FLDZ(unsigned char* stream);
 int x86FLD1(unsigned char* stream);
