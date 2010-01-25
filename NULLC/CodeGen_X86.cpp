@@ -165,6 +165,7 @@ static unsigned int aluLabels = LABEL_ALU;
 void SetParamBase(unsigned int base)
 {
 	paramBase = base;
+	aluLabels = LABEL_ALU;
 }
 
 void SetFunctionList(ExternFuncInfo *list)
@@ -291,10 +292,10 @@ void GenCodeCmdPushCharStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument);
@@ -308,10 +309,10 @@ void GenCodeCmdPushShortStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument);
@@ -325,10 +326,10 @@ void GenCodeCmdPushIntStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
@@ -341,10 +342,10 @@ void GenCodeCmdPushFloatStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
@@ -359,10 +360,10 @@ void GenCodeCmdPushDorLStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+4);
@@ -375,10 +376,10 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	if(cmd.helper == 0)
@@ -513,10 +514,10 @@ void GenCodeCmdMovCharStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
@@ -530,10 +531,10 @@ void GenCodeCmdMovShortStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
@@ -547,10 +548,10 @@ void GenCodeCmdMovIntStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
@@ -564,10 +565,10 @@ void GenCodeCmdMovFloatStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
@@ -581,10 +582,10 @@ void GenCodeCmdMovDorLStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	if(cmd.flag)
@@ -604,10 +605,10 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 
 	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
-	EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	if(cmd.helper == 0)
@@ -722,10 +723,10 @@ void GenCodeCmdIndex(VMCmd cmd)
 		EMIT_OP_REG_RPTR(o_mov, rECX, sDWORD, rESP, 8);
 		EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rECX);
 	}
-	EMIT_OP_LABEL(o_jb, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jb, aluLabels);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 
 	EMIT_OP_REG(o_pop, rEAX);	// Take index
@@ -790,7 +791,7 @@ void GenCodeCmdFuncAddr(VMCmd cmd)
 
 	if(x86Functions[cmd.argument].funcPtr == NULL)
 	{
-		EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_FUNCTION + x86Functions[cmd.argument].address, 0);
+		EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_GLOBAL + x86Functions[cmd.argument].address, 0);
 		EMIT_OP_REG(o_push, rEAX);
 	}else{
 		EMIT_OP_NUM(o_push, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
@@ -817,9 +818,9 @@ void GenCodeCmdSetRange(VMCmd cmd)
 		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, 0);
 		EMIT_OP_REG_RPTR(o_mov, rEDX, sDWORD, rESP, 4);
 	}
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_REG_REG(o_cmp, rEBX, rECX);
-	EMIT_OP_LABEL(o_jg, LABEL_ALU + aluLabels + 1);
+	EMIT_OP_LABEL(o_jg, aluLabels + 1);
 
 	switch(cmd.helper)
 	{
@@ -842,8 +843,8 @@ void GenCodeCmdSetRange(VMCmd cmd)
 		break;
 	}
 	EMIT_OP_REG_NUM(o_add, rEBX, typeSizeD[(cmd.helper>>2)&0x00000007]);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU + aluLabels);
-	EMIT_LABEL(LABEL_ALU + aluLabels + 1);
+	EMIT_OP_LABEL(o_jmp, aluLabels);
+	EMIT_LABEL(aluLabels + 1);
 	if(cmd.helper == DTYPE_FLOAT)
 		EMIT_OP_FPUREG(o_fstp, rST0);
 	aluLabels += 2;
@@ -955,7 +956,7 @@ void GenCodeCmdCall(VMCmd cmd)
 
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
-		EMIT_OP_LABEL(o_call, LABEL_FUNCTION | JUMP_NEAR | x86Functions[cmd.argument].address);
+		EMIT_OP_LABEL(o_call, LABEL_GLOBAL | JUMP_NEAR | x86Functions[cmd.argument].address);
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 		
 		GenCodeCmdCallProlog(cmd);
@@ -969,11 +970,11 @@ void GenCodeCmdCall(VMCmd cmd)
 		static int continueLabel = 0;
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
 		EMIT_OP_REG_REG(o_test, rECX, rECX);
-		EMIT_OP_LABEL(o_jnz, LABEL_SPECIAL | continueLabel);
+		EMIT_OP_LABEL(o_jnz, aluLabels);
 		EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
 		EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
-		EMIT_LABEL(LABEL_SPECIAL | continueLabel);
-		continueLabel++;
+		EMIT_LABEL(aluLabels);
+		aluLabels++;
 
 		EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
 		if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
@@ -996,7 +997,7 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 
 	assert(cmd.argument >= 4);
 	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, cmd.argument-4, ~0u);
-	EMIT_OP_LABEL(o_jne, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_jne, aluLabels);
 
 	// external function call
 	{
@@ -1006,11 +1007,10 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 		static int continueLabel = 0;
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
 		EMIT_OP_REG_REG(o_test, rECX, rECX);
-		EMIT_OP_LABEL(o_jnz, LABEL_SPECIAL | continueLabel);
+		EMIT_OP_LABEL(o_jnz, aluLabels + 3);
 		EMIT_OP_REG_REG(o_mov, rECX, rESP); // esp is very likely to contain neither 0 or ~0, so we can distinguish
 		EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
-		EMIT_LABEL(LABEL_SPECIAL | continueLabel);
-		continueLabel++;
+		EMIT_LABEL(aluLabels + 3);
 	 
 		EMIT_OP_REG_NUM(o_add, rESP, cmd.argument + 4);
 		if(cmd.helper == (bitRetSimple | OTYPE_INT))
@@ -1025,12 +1025,12 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 			EMIT_OP_REG(o_push, rEAX);
 		}
 
-		EMIT_OP_LABEL(o_jmp, LABEL_ALU + aluLabels + 2);
+		EMIT_OP_LABEL(o_jmp, aluLabels + 2);
 	}
 
 	// internal function call
 	{
-		EMIT_LABEL(LABEL_ALU + aluLabels);
+		EMIT_LABEL(aluLabels);
 
 		GenCodeCmdCallEpilog(cmd.argument);
 
@@ -1039,10 +1039,10 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
 
 		EMIT_OP_REG_REG(o_test, rEAX, rEAX);
-		EMIT_OP_LABEL(o_jnz, LABEL_ALU + aluLabels + 1);
+		EMIT_OP_LABEL(o_jnz, aluLabels + 1);
 		EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 		EMIT_OP_NUM(o_int, 3);
-		EMIT_LABEL(LABEL_ALU + aluLabels + 1);
+		EMIT_LABEL(aluLabels + 1);
 
 		EMIT_OP_REG(o_call, rEAX);
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
@@ -1050,9 +1050,9 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 		GenCodeCmdCallProlog(cmd);
 	}
 
-	EMIT_LABEL(LABEL_ALU + aluLabels + 2);
+	EMIT_LABEL(aluLabels + 2);
 
-	aluLabels += 3;
+	aluLabels += 4;
 }
 
 void GenCodeCmdReturn(VMCmd cmd)
@@ -1404,16 +1404,16 @@ void GenCodeCmdLessL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jg, LABEL_ALU | aluLabels);
-	EMIT_OP_LABEL(o_jl, LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_jg, aluLabels);
+	EMIT_OP_LABEL(o_jl, aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_jae, LABEL_ALU | aluLabels);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_jae, aluLabels);
+	EMIT_LABEL(aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 2);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(aluLabels + 2);
 	EMIT_OP_REG(o_pop, rEAX);
 	aluLabels += 3;
 }
@@ -1425,16 +1425,16 @@ void GenCodeCmdGreaterL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jl, LABEL_ALU | aluLabels);
-	EMIT_OP_LABEL(o_jg, LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_jl, aluLabels);
+	EMIT_OP_LABEL(o_jg, aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_jbe, LABEL_ALU | aluLabels);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_jbe, aluLabels);
+	EMIT_LABEL(aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 2);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(aluLabels + 2);
 	EMIT_OP_REG(o_pop, rEAX);
 	aluLabels += 3;
 }
@@ -1446,16 +1446,16 @@ void GenCodeCmdLEqualL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jg, LABEL_ALU | aluLabels);
-	EMIT_OP_LABEL(o_jl, LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_jg, aluLabels);
+	EMIT_OP_LABEL(o_jl, aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_ja, LABEL_ALU | aluLabels);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_ja, aluLabels);
+	EMIT_LABEL(aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 2);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(aluLabels + 2);
 	EMIT_OP_REG(o_pop, rEAX);
 	aluLabels += 3;
 }
@@ -1467,16 +1467,16 @@ void GenCodeCmdGEqualL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jl, LABEL_ALU | aluLabels);
-	EMIT_OP_LABEL(o_jg, LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_jl, aluLabels);
+	EMIT_OP_LABEL(o_jg, aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_jb, LABEL_ALU | aluLabels);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_jb, aluLabels);
+	EMIT_LABEL(aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 2);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(aluLabels + 2);
 	EMIT_OP_REG(o_pop, rEAX);
 	aluLabels += 3;
 }
@@ -1488,14 +1488,14 @@ void GenCodeCmdEqualL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jne, aluLabels);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jne, aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(aluLabels + 1);
 	EMIT_OP_REG(o_pop, rEAX);
 	aluLabels += 2;
 }
@@ -1507,15 +1507,15 @@ void GenCodeCmdNEqualL(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 4, rEDX);
-	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_jne, aluLabels + 1);
 	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
-	EMIT_OP_LABEL(o_je, LABEL_ALU | aluLabels);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_OP_LABEL(o_je, aluLabels);
+	EMIT_LABEL(aluLabels + 1);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 2);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 2);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 4, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 2);
+	EMIT_LABEL(aluLabels + 2);
 	EMIT_OP_REG(o_pop, rEAX);
 	aluLabels += 3;
 }
@@ -1676,12 +1676,12 @@ void GenCodeCmdLessD(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x41);
-	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jne, aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
 
@@ -1694,12 +1694,12 @@ void GenCodeCmdGreaterD(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x05);
-	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jp, aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
 
@@ -1712,12 +1712,12 @@ void GenCodeCmdLEqualD(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x01);
-	EMIT_OP_LABEL(o_jne, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jne, aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
 
@@ -1730,12 +1730,12 @@ void GenCodeCmdGEqualD(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x41);
-	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jp, aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
 
@@ -1748,12 +1748,12 @@ void GenCodeCmdEqualD(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
-	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jp, aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
 
@@ -1766,12 +1766,12 @@ void GenCodeCmdNEqualD(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
-	EMIT_OP_LABEL(o_jnp, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jnp, aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
 
@@ -1849,12 +1849,12 @@ void GenCodeCmdLogNotD(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x44);
-	EMIT_OP_LABEL(o_jp, LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jp, aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
-	EMIT_OP_LABEL(o_jmp, LABEL_ALU | aluLabels + 1);
-	EMIT_LABEL(LABEL_ALU | aluLabels);
+	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
+	EMIT_LABEL(aluLabels);
 	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
-	EMIT_LABEL(LABEL_ALU | aluLabels + 1);
+	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
 
@@ -1953,10 +1953,10 @@ void GenCodeCmdConvertPtr(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_NUM(o_cmp, rEAX, cmd.argument);
-	EMIT_OP_LABEL(o_je, LABEL_ALU + aluLabels);
+	EMIT_OP_LABEL(o_je, aluLabels);
 	EMIT_OP_REG_NUM(o_mov, rECX, cmd.argument);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(LABEL_ALU + aluLabels);
+	EMIT_LABEL(aluLabels);
 	aluLabels++;
 }
 
