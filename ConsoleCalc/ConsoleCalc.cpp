@@ -76,51 +76,37 @@ int main(int argc, char** argv)
 	fread(fileContent, 1, textSize, ncFile);
 	fileContent[textSize] = 0;
 
-	char *bytecode = NULL;
-
 	if(profile)
 	{
 		int start = clock();
 		for(unsigned int i = 0; i < 5000; i++)
-			nullres good = nullcCompile(fileContent);
+			nullcCompile(fileContent);
 		int end = clock();
 		printf("5000 compilations: %dms Single: %.2fms\r\n", end - start, (end - start) / 5000.0);
 
 		start = clock();
 		for(unsigned int i = 0; i < 5000; i++)
-		{
-			nullres good = nullcCompile(fileContent);
-			nullcGetBytecode(&bytecode);
-
-			nullcClean();
-			nullcLinkCode(bytecode, 0);
-		}
+			nullcBuild(fileContent);
 		end = clock();
 		printf("5000 comp. + link: %dms Single: %.2fms\r\n", end - start, (end - start) / 5000.0);
 	}
 
-	nullres good = nullcCompile(fileContent);
+	nullres good = nullcBuild(fileContent);
 	if(!good)
 	{
-		printf("Compilation failed: %s\r\n", nullcGetCompilationError());
+		printf("Build failed: %s\r\n", nullcGetLastError());
 	}else if(!profile){
-		nullcGetBytecode(&bytecode);
-
-		nullcClean();
-		nullcLinkCode(bytecode, 0);
-
 		nullres goodRun = nullcRun();
 		if(goodRun)
 		{
 			const char* val = nullcGetResult();
 			printf("\r\n%s\r\n", val);
 		}else{
-			printf("Execution failed: %s\r\n", nullcGetRuntimeError());
+			printf("Execution failed: %s\r\n", nullcGetLastError());
 		}
-		delete[] bytecode;
 	}
 
 	delete[] fileContent;
 
-	nullcDeinit();
+	nullcTerminate();
 }

@@ -10,60 +10,72 @@ extern "C"
 
 typedef unsigned char nullres;
 
-// Initialize NULLC
+// NULLC initialization and termination
 void	nullcInit(const char* importPath);
 void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath);
-
 void	nullcSetImportPath(const char* importPath);
 
+void	nullcTerminate();
+
+// NULLC execution settings
 #define NULLC_VM	0
 #define NULLC_X86	1
 void	nullcSetExecutor(unsigned int id);
 
-// prototype contains function prototype as if it was written in NULLC. It must be followed by ';'
+// Prototype contains function prototype as if it was written in NULLC. It must be followed by ';'
 nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
-
 nullres	nullcAddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index);
 
-// compiles the code (!) and returns 1 on success
-nullres	nullcCompile(const char* code);
+//////////////////////////////////////////////////////////////////////////
+/*							Basic functions								*/
 
-// if compilation failed, this function will return compilation error
-const char*	nullcGetCompilationError();
+// Compiles and links code
+nullres		nullcBuild(const char* code);
+
+// Run global code
+nullres		nullcRun();
+// Run function code
+nullres		nullcRunFunction(const char* funcName);
+
+// Retrieve result
+const char*	nullcGetResult();
+
+// Returns last error description
+const char*	nullcGetLastError();
+
+//////////////////////////////////////////////////////////////////////////
+/*							Extended functions							*/
+
+// Compiles the code (!) and returns 1 on success
+nullres			nullcCompile(const char* code);
 
 // compiled bytecode to be used for linking and executing can be retrieved with this function
 // function returns bytecode size, and memory to which 'bytecode' points can be freed at any time
-unsigned int nullcGetBytecode(char **bytecode);
+unsigned int	nullcGetBytecode(char **bytecode);
 
 // Function work only if NULLC_LOG_FILES is defined
 // this function returns string with last bytecode disassembly
-void	nullcSaveListing(const char *fileName);
+void			nullcSaveListing(const char *fileName);
 
 // Clean all accumulated bytecode
-void nullcClean();
+void			nullcClean();
 
 // Link new chunk of code.
 // If 'acceptRedefinitions' is 0, then error will be generated is function name collisions are found
 // otherwise, old function code will be replaced with the new one.
 // Type or redefinition always generates an error.
 // If global variables with the same name are found, a warning is generated.
-nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions);
-const char*	nullcGetLinkLog();
+nullres			nullcLinkCode(const char *bytecode, int acceptRedefinitions);
 
-nullres	nullcRun();
-nullres	nullcRunFunction(const char* funcName);
-const char*	nullcGetRuntimeError();
-void	nullcThrowError(const char* error);
+void			nullcThrowError(const char* error);
 
-const char*	nullcGetResult();
+//////////////////////////////////////////////////////////////////////////
+/*							Debug functions								*/
 
-// Not for everyday use 
-void*	nullcGetVariableData();
-void**	nullcGetVariableInfo(unsigned int* count);
+void*			nullcGetVariableData();
+void**			nullcGetVariableInfo(unsigned int* count);
 unsigned int	nullcGetCurrentExecutor(void **exec);
-void*	nullcGetModule(const char* path);
-
-void	nullcDeinit();
+void*			nullcGetModule(const char* path);
 
 #ifdef __cplusplus
 }

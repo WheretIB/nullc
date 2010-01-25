@@ -37,10 +37,8 @@ Executor*	executor;
 	ExecutorX86*	executorX86;
 #endif
 
-const char*	compileError;
-
-const char* executeResult;
-const char* executeLog;
+const char* nulcExecuteResult = NULL;
+const char*	nullcLastError = NULL;
 
 unsigned int currExec = 0;
 
@@ -81,7 +79,7 @@ nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
 {
 	nullres good = compiler->AddExternalFunction(ptr, prototype);
 	if(good == 0)
-		compileError = compiler->GetError();
+		nullcLastError = compiler->GetError();
 	return good;
 }
 
@@ -89,22 +87,17 @@ nullres	nullcAddModuleFunction(const char* module, void (NCDECL *ptr)(), const c
 {
 	nullres good = compiler->AddModuleFunction(module, ptr, name, index);
 	if(good == 0)
-		compileError = compiler->GetError();
+		nullcLastError = compiler->GetError();
 	return good;
 }
 
 nullres	nullcCompile(const char* code)
 {
-	compileError = "";
+	nullcLastError = "";
 	nullres good = compiler->Compile(code);
 	if(good == 0)
-		compileError = compiler->GetError();
+		nullcLastError = compiler->GetError();
 	return good;
-}
-
-const char*	nullcGetCompilationError()
-{
-	return compileError;
 }
 
 unsigned int nullcGetBytecode(char **bytecode)
@@ -130,28 +123,36 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 {
 	if(!linker->LinkCode(bytecode, acceptRedefinitions))
 	{
-		executeLog = linker->GetLinkError();
+		nullcLastError = linker->GetLinkError();
 		return false;
 	}
-	executeLog = linker->GetLinkError();
+	nullcLastError = linker->GetLinkError();
 	if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		bool res = executorX86->TranslateToNative();
 		if(!res)
 		{
-			executeLog = executor->GetResult();
+			nullcLastError = executor->GetResult();
 		}
 #else
-		executeLog = "X86 JIT isn't available";
+		nullcLastError = "X86 JIT isn't available";
 		return false;
 #endif
 	}
 	return true;
 }
 
-const char*	nullcGetLinkLog()
+nullres nullcBuild(const char* code)
 {
-	return executeLog;
+	if(!nullcCompile(code))
+		return false;
+	char *bytecode = NULL;
+	nullcGetBytecode(&bytecode);
+	nullcClean();
+	if(!nullcLinkCode(bytecode, 1))
+		return false;
+	delete[] bytecode;
+	return true;
 }
 
 nullres	nullcRun()
@@ -168,10 +169,10 @@ nullres	nullcRunFunction(const char* funcName)
 		const char* error = executor->GetExecError();
 		if(error[0] == 0)
 		{
-			executeResult = executor->GetResult();
+			nulcExecuteResult = executor->GetResult();
 		}else{
 			good = false;
-			executeLog = error;
+			nullcLastError = error;
 		}
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
@@ -179,24 +180,20 @@ nullres	nullcRunFunction(const char* funcName)
 		const char* error = executorX86->GetExecError();
 		if(error[0] == 0)
 		{
-			executeResult = executorX86->GetResult();
+			nulcExecuteResult = executorX86->GetResult();
 		}else{
 			good = false;
-			executeLog = error;
+			nullcLastError = error;
 		}
 #else
 		good = false;
-		executeLog = "X86 JIT isn't available";
+		nullcLastError = "X86 JIT isn't available";
 #endif
 	}else{
 		good = false;
-		executeLog = "Unknown executor code";
+		nullcLastError = "Unknown executor code";
 	}
 	return good;
-}
-const char*	nullcGetRuntimeError()
-{
-	return executeLog;
 }
 
 void nullcThrowError(const char* error)
@@ -213,7 +210,12 @@ void nullcThrowError(const char* error)
 
 const char* nullcGetResult()
 {
-	return executeResult;
+	return nulcExecuteResult;
+}
+
+const char*	nullcGetLastError()
+{
+	return nullcLastError;
 }
 
 void* nullcGetVariableData()
@@ -255,7 +257,7 @@ void* nullcGetModule(const char* path)
 	return bytecode;
 }
 
-void nullcDeinit()
+void nullcTerminate()
 {
 	BinaryCache::Terminate();
 
