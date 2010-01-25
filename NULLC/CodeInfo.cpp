@@ -83,7 +83,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 
 	// Search type list for the type that we need
 	unsigned int targetArrLevel = type->arrLevel + 1;
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
+	for(unsigned int i = classCount; i < typeInfo.size(); i++)
 	{
 		if(type == typeInfo[i]->subType && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (unsigned int)arrSize)
 		{
