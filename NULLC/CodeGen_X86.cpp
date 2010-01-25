@@ -188,6 +188,11 @@ x86Instruction* GetLastInstruction()
 	return x86Op;
 }
 
+unsigned int GetLastALULabel()
+{
+	return aluLabels;
+}
+
 void GenCodeCmdNop(VMCmd cmd)
 {
 	(void)cmd;

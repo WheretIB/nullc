@@ -547,6 +547,7 @@ bool ExecutorX86::TranslateToNative()
 	instAddress.resize(exCode.size());
 
 	x86ClearLabels();
+	x86ReserveLabels(GetLastALULabel());
 
 	pos = 0;
 

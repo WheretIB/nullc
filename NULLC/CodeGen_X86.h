@@ -41,6 +41,8 @@ void SetContinuePtr(int* continueVar);
 void SetLastInstruction(x86Instruction *pos);
 x86Instruction* GetLastInstruction();
 
+unsigned int	GetLastALULabel();
+
 void GenCodeCmdNop(VMCmd cmd);
 
 void GenCodeCmdPushChar(VMCmd cmd);
