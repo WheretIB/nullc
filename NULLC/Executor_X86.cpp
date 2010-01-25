@@ -512,7 +512,6 @@ bool ExecutorX86::TranslateToNative()
 		pos++;
 		NULLC::cgFuncs[cmd.cmd](cmd);
 	}
-	EMIT_LABEL(LABEL_GLOBAL + pos);
 	EMIT_OP_REG(o_pop, rEBP);
 	EMIT_OP_REG_NUM(o_mov, rEBX, ~0u);
 	EMIT_OP(o_ret);

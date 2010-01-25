@@ -1119,6 +1119,7 @@ int x86JMP(unsigned char *stream, unsigned int labelID, bool isNear)
 
 void x86AddLabel(unsigned char *stream, unsigned int labelID)
 {
+	assert((labelID & 0x0FFFFFFF) == labelID);
 	labelID &= 0x7FFFFFFF;
 	labels.push_back(LabelInfo(labelID, stream));
 	for(unsigned int i = 0; i < pendingJumps.size(); i++)
