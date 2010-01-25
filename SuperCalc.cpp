@@ -198,7 +198,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	nullcDeinitCanvasModule();
 	nullcDeinitWindowModule();
 
-	nullcDeinit();
+	nullcTerminate();
 
 	return (int) msg.wParam;
 }
@@ -667,7 +667,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			variableData = (char*)nullcGetVariableData();
 			FillVariableInfoTree();
 		}else{
-			_snprintf(result, 1024, "%s", nullcGetRuntimeError());
+			_snprintf(result, 1024, "%s", nullcGetLastError());
 			result[1023] = '\0';
 			SetWindowText(hCode, result);
 		}
@@ -705,26 +705,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_VM);
 
-			nullres good = nullcCompile(source);
+			nullres good = nullcBuild(source);
 			nullcSaveListing("asm.txt");
 		
-			if(good)
+			if(!good)
 			{
-				char *bytecode = NULL;
-				nullcGetBytecode(&bytecode);
-				nullcClean();
-				if(!nullcLinkCode(bytecode, 1))
-				{
-					good = false;
-					SetWindowText(hCode, nullcGetRuntimeError());
-				}
-				delete[] bytecode;
+				SetWindowText(hCode, nullcGetLastError());
 			}else{
-				SetWindowText(hCode, nullcGetCompilationError());
-			}
-
-			if(good)
-			{
 				SetWindowText(hButtonCalc, "Abort");
 				calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
 			}

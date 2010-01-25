@@ -67,7 +67,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 
 	if(!good)
 	{
-		printf("%s Compilation failed: %s", buf, nullcGetCompilationError());
+		printf("%s Compilation failed: %s", buf, nullcGetLastError());
 		return false;
 	}else{
 		char *bytecode;
@@ -84,7 +84,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 
 		if(!linkgood)
 		{
-			printf("%s Link failed: %s\r\n", buf, nullcGetCompilationError());
+			printf("%s Link failed: %s\r\n", buf, nullcGetLastError());
 			return false;
 		}
 
@@ -104,7 +104,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 				return false;
 			}
 		}else{
-			printf("%s Execution failed: %s\r\n", buf, nullcGetRuntimeError());
+			printf("%s Execution failed: %s\r\n", buf, nullcGetLastError());
 			return false;
 		}
 	}
@@ -391,7 +391,7 @@ void	RunTests()
 		nullcSaveListing("asm.txt");
 		if(!good)
 		{
-			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			continue;
 		}else{
 			nullcGetBytecode(&bytecodeA);
@@ -401,7 +401,7 @@ void	RunTests()
 		nullcSaveListing("asm.txt");
 		if(!good)
 		{
-			printf("Compilation failed: %s\r\n", nullcGetCompilationError());
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			continue;
 		}else{
 			nullcGetBytecode(&bytecodeB);
@@ -410,12 +410,12 @@ void	RunTests()
 		nullcClean();
 		if(!nullcLinkCode(bytecodeA, 0))
 		{
-			printf("Compilation failed: %s\r\n", nullcGetRuntimeError());
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			continue;
 		}
 		if(!nullcLinkCode(bytecodeB, 0))
 		{
-			printf("Compilation failed: %s\r\n", nullcGetRuntimeError());
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			break;
 		}
 		delete[] bytecodeA;
@@ -423,15 +423,15 @@ void	RunTests()
 
 		if(!nullcRunFunction(NULL))
 		{
-			printf("Execution failed: %s\r\n", nullcGetRuntimeError());
+			printf("Execution failed: %s\r\n", nullcGetLastError());
 		}else{
 			if(!nullcRunFunction("run"))
 			{
-				printf("Execution failed: %s\r\n", nullcGetRuntimeError());
+				printf("Execution failed: %s\r\n", nullcGetLastError());
 			}else{
 				if(!nullcRunFunction("runA"))
 				{
-					printf("Execution failed: %s\r\n", nullcGetRuntimeError());
+					printf("Execution failed: %s\r\n", nullcGetLastError());
 				}else{
 					varData = (char*)nullcGetVariableData();
 
@@ -4257,7 +4257,7 @@ return *ll;";
 	if(!good)\
 	{\
 		char buf[512];\
-		strcpy(buf, strstr(nullcGetCompilationError(), "ERROR:"));\
+		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));\
 		*strchr(buf, '\r') = 0;\
 		if(strcmp(error, buf) != 0)\
 		{\
@@ -4738,7 +4738,7 @@ return 0;";
 			nullcLinkCode(bytecode, 0);
 			delete[] bytecode;
 		}else{
-			printf("Compilation failed: %s", nullcGetCompilationError());
+			printf("Compilation failed: %s", nullcGetLastError());
 			break;
 		}
 		linkTime += myGetPreciseTime() - time;
@@ -4753,6 +4753,6 @@ return 0;";
 	nullcDeinitFileModule();
 	nullcDeinitMathModule();
 
-	// Deinit NULLC
-	nullcDeinit();
+	// Terminate NULLC
+	nullcTerminate();
 }
