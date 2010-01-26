@@ -5,3 +5,5 @@
 bool	nullcInitTypeinfoModule(Linker* linker);
 
 void	nullcDeinitTypeinfoModule();
+
+unsigned int	nullcGetTypeSize(unsigned int typeID);

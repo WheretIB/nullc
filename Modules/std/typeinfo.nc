@@ -6,7 +6,6 @@ class typeid
 	typeid memberType(int member);
 	char[] memberName(int member);
 }
-char[] typename(auto ref type);
 typeid typeid(auto ref type);
 
 int isFunction(typeid type);
@@ -20,3 +19,6 @@ int isClass(auto ref type);
 int isSimple(auto ref type);
 int isArray(auto ref type);
 int isPointer(auto ref type);
+
+int typeid.size();
+char[] typeid.name();

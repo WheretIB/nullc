@@ -60,17 +60,6 @@ namespace NULLCTypeInfo
 		return ret;
 	}
 
-	NullCArray Typename(NULLCRef r)
-	{
-		NullCArray ret;
-		FastVector<ExternTypeInfo> &exTypes = linker->exTypes;
-		char *symbols = &linker->exSymbols[0];
-
-		ret.ptr = exTypes[r.typeID].offsetToName + symbols;
-		ret.len = (unsigned int)strlen(ret.ptr) + 1;
-		return ret;
-	}
-
 	int Typeid(NULLCRef r)
 	{
 		return r.typeID;
@@ -125,6 +114,22 @@ namespace NULLCTypeInfo
 	{
 		return linker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_POINTER;
 	}
+
+	unsigned int TypeSize(int* type)
+	{
+		return linker->exTypes[*type].size;
+	}
+
+	NullCArray TypeName(int* type)
+	{
+		NullCArray ret;
+		FastVector<ExternTypeInfo> &exTypes = linker->exTypes;
+		char *symbols = &linker->exSymbols[0];
+
+		ret.ptr = exTypes[*type].offsetToName + symbols;
+		ret.len = (unsigned int)strlen(ret.ptr) + 1;
+		return ret;
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
@@ -132,8 +137,8 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 {
 	NULLCTypeInfo::linker = linker;
 
-	REGISTER_FUNC(Typename, "typename", 0);
 	REGISTER_FUNC(Typeid, "typeid", 0);
+
 	REGISTER_FUNC(IsFunction, "isFunction", 0);
 	REGISTER_FUNC(IsFunctionRef, "isFunction", 1);
 	REGISTER_FUNC(IsClass, "isClass", 0);
@@ -149,10 +154,18 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 	REGISTER_FUNC(MemberType, "typeid::memberType", 0);
 	REGISTER_FUNC(MemberName, "typeid::memberName", 0);
 
+	REGISTER_FUNC(TypeSize, "typeid::size$", 0);
+	REGISTER_FUNC(TypeName, "typeid::name$", 0);
+
 	return true;
 }
 
 void	nullcDeinitTypeinfoModule()
 {
 
+}
+
+unsigned int	nullcGetTypeSize(unsigned int typeID)
+{
+	return NULLCTypeInfo::linker->exTypes[typeID].size;
 }
