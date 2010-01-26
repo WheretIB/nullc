@@ -1080,12 +1080,8 @@ void AddSetVariableNode(const char* pos)
 		FunctionInfo *fInfo = ((NodeFuncCall*)left)->funcInfo;
 		if(fInfo->name[fInfo->nameLength-1] == '$')
 		{
-			char *memberSet = AllocateString(fInfo->nameLength+1);
-			memcpy(memberSet, fInfo->name, fInfo->nameLength);
-			memberSet[fInfo->nameLength-1] = '@';
-			memberSet[fInfo->nameLength] = 0;
 			CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = ((NodeFuncCall*)left)->GetFirstNode();
-			if(AddFunctionCallNode(pos, memberSet, 1, true))
+			if(AddFunctionCallNode(pos, fInfo->name, 1, true))
 				return;
 			else
 				CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = left;
@@ -1119,7 +1115,7 @@ void AddGetVariableNode(const char* pos)
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && lastType == typeVoid)
 	{
 		CodeInfo::nodeList.back()->typeInfo = typeInt;
-	}else if(lastType->funcType == NULL && (lastType->refLevel != 0 || CodeInfo::nodeList.back()->nodeType != typeNodeFuncCall)){
+	}else if(lastType->funcType == NULL && lastType->refLevel != 0){
 		CheckForImmutable(lastType, pos);
 		CodeInfo::nodeList.push_back(new NodeDereference());
 	}

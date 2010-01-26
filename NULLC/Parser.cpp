@@ -266,8 +266,6 @@ bool ParseClassDefinition(Lexeme** str)
 					void *propType = GetSelectedType();
 					if((*str)->type == lex_string || (*str)->length == 3 || memcmp((*str)->pos, "set", 3) == 0)
 					{
-						memberName[memberNameLength] = '@';
-						memberName[memberNameLength + 1] = 0;
 						// Set setter return type to auto
 						SelectTypeByPointer(NULL);
 						CALLBACK(FunctionAdd((*str)->pos, memberName));
@@ -410,6 +408,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if((*str)->type != lex_string && (*str)->type != lex_operator && !((*str)->type == lex_oparen && (*str - 1)->type == lex_auto))
 		return false;
 	bool typeMethod = false;
+	bool funcProperty = false;
 	if((*str)->type == lex_operator)
 	{
 		(*str)++;
@@ -420,13 +419,15 @@ bool ParseFunctionDefinition(Lexeme** str)
 			else
 				(*str)++;
 		}
-	}else if((*str)->type == lex_string && (*str + 1)->type == lex_colon){
+	}else if((*str)->type == lex_string && ((*str + 1)->type == lex_colon || (*str + 1)->type == lex_point)){
 		TypeInfo *retType = (TypeInfo*)CALLBACK(GetSelectedType());
 		if(!ParseSelectType(str))
-			ThrowError((*str)->pos, "ERROR: class name expected before ':'");
+			ThrowError((*str)->pos, "ERROR: class name expected before ':' or '.'");
+		if((*str)->type == lex_point)
+			funcProperty = true;
 		(*str)++;
 		if((*str)->type != lex_string)
-			ThrowError((*str)->pos, "ERROR: function name expected after ':'");
+			ThrowError((*str)->pos, "ERROR: function name expected after ':' or '.'");
 		CALLBACK(TypeContinue((*str)->pos));
 		CALLBACK(SelectTypeByPointer(retType));
 		typeMethod = true;
@@ -436,9 +437,15 @@ bool ParseFunctionDefinition(Lexeme** str)
 	{
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: function name length is limited to 2048 symbols");
-		functionName = (char*)stringPool.Allocate((*str)->length+1);
+		functionName = (char*)stringPool.Allocate((*str)->length + 2);
 		memcpy(functionName, (*str)->pos, (*str)->length);
-		functionName[(*str)->length] = 0;
+		if(!funcProperty)
+		{
+			functionName[(*str)->length] = 0;
+		}else{
+			functionName[(*str)->length] = '$';
+			functionName[(*str)->length + 1] = 0;
+		}
 		(*str)++;
 	}else if((*str)->type == lex_cbracket){
 		functionName = (char*)stringPool.Allocate(16);
