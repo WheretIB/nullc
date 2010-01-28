@@ -238,9 +238,9 @@ namespace ColorerGrammar
 								!(
 									strP("set")[ColorRWord] >>
 									!(
-										chP('(') >>
-										((varname - typenameP(varname)) | epsP[LogError("ERROR: r-value name not found")]) >>
-										(chP(')') | epsP[LogError("ERROR: ')' is expected after r-value name")])
+										chP('(')[ColorText] >>
+										((varname - typenameP(varname))[ColorVarDef] | epsP[LogError("ERROR: r-value name not found")]) >>
+										(chP(')')[ColorText] | epsP[LogError("ERROR: ')' is expected after r-value name")])
 									) >> 
 									(block | epsP[LogError("ERROR: function body expected after 'set'")])
 								) >>
@@ -289,7 +289,7 @@ namespace ColorerGrammar
 				(
 					(strP("auto")[ColorRWord] >> chP('(')[ColorBold]) |
 					(typeExpr >> (
-						(typenameP(typeName)[ColorRWord] >> chP(':')[ColorBold] >> (varname[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >> chP('(')[ColorBold]) |
+						(typenameP(typeName)[ColorRWord] >> (chP(':') | chP('.'))[ColorBold] >> (varname[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >> chP('(')[ColorBold]) |
 						(varname[ColorFunc] >> chP('(')[ColorBold]) |
 						(	strP("operator")[ColorRWord] >>
 							(strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("and") | strP("or") | strP("xor") |
