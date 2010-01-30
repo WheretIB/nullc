@@ -905,7 +905,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	genStackPtr = newStackPtr;
 #ifdef __GNUC__
 	asm("movl %0, %%eax"::"r"(dwordsToPop):"%eax");
-	asm("leal (%eax*4 + %esp), %esp");
+	asm("leal (%esp, %eax, 0x4), %esp");
 #else
 	#ifndef _M_X64
 		__asm mov eax, dwordsToPop
