@@ -1810,11 +1810,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		if(silent)
 			return false;
 		vID = CodeInfo::FindVariableByName(funcNameHash);
-		if(vID == -1 && funcName)
+		if(vID == ~0u && funcName)
 			ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
 	}
 
-	if(vID == -1 && funcName)
+	if(vID == ~0u && funcName)
 	{
 		// Find the best suited function
 		bestFuncRating.resize(count);
