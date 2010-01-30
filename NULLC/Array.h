@@ -94,5 +94,9 @@ public:
 	T	*data;
 	T	one;
 	unsigned int	max, count;
+private:
+	// Disable assignment and copy constructor
+	void operator =(FastVector &r);
+	FastVector(FastVector &r);
 };
 
