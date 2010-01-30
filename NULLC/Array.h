@@ -18,6 +18,7 @@ public:
 			data = NULLC::construct<T>(reserved);
 		else
 			data = (T*)NULLC::alloc(sizeof(T) * reserved);
+		assert(data);
 		if(zeroNewMemory)
 			memset(data, 0, reserved * sizeof(T));
 		max = reserved;
@@ -33,7 +34,7 @@ public:
 				NULLC::dealloc(data);
 		}
 	}
-	void		reset()
+	void	reset()
 	{
 		if(data != &one)
 		{
@@ -49,38 +50,80 @@ public:
 		count = 0;
 	}
 
-	__forceinline T*		push_back(){ count++; if(count==max) grow(count); return &data[count - 1]; };
-	__forceinline void		push_back(const T& val){ assert(data); data[count++] = val; if(count==max) grow(count); };
-	__forceinline void		push_back(const T* valptr, unsigned int elem)
+	__forceinline T*		push_back()
 	{
-		if(count+elem >= max)
-			grow(count+elem);
-		for(unsigned int i = 0; i < elem; i++)
-			data[count++] = valptr[i];
+		count++;
+		if(count == max)
+			grow(count);
+		return &data[count - 1];
 	};
-	__forceinline T&		back(){ return data[count-1]; }
-	__forceinline unsigned int		size(){ return count; }
-	__forceinline void		pop_back(){ assert(count > 0); count--; }
-	__forceinline void		clear(){ count = 0; }
-	__forceinline T&		operator[](unsigned int index){ return data[index]; }
-	__forceinline void		resize(unsigned int newsize){ if(newsize >= max) grow(newsize); count = newsize; }
-	__forceinline void		shrink(unsigned int newSize){ count = newSize; }
-	__forceinline void		reserve(unsigned int ressize){ if(ressize >= max) grow(ressize); }
+	__forceinline void		push_back(const T& val)
+	{
+		assert(data);
+		data[count++] = val;
+		if(count == max)
+			grow(count);
+	};
+	__forceinline void		push_back(const T* valPtr, unsigned int elem)
+	{
+		if(count + elem >= max)
+			grow(count + elem);
+		for(unsigned int i = 0; i < elem; i++)
+			data[count++] = valPtr[i];
+	};
+	__forceinline T&		back()
+	{
+		return data[count-1];
+	}
+	__forceinline unsigned int		size()
+	{
+		return count;
+	}
+	__forceinline void		pop_back()
+	{
+		assert(count > 0);
+		count--;
+	}
+	__forceinline void		clear()
+	{
+		count = 0;
+	}
+	__forceinline T&		operator[](unsigned int index)
+	{
+		return data[index];
+	}
+	__forceinline void		resize(unsigned int newSize)
+	{
+		if(newSize >= max)
+			grow(newSize);
+		count = newSize;
+	}
+	__forceinline void		shrink(unsigned int newSize)
+	{
+		assert(newSize <= count);
+		count = newSize;
+	}
+	__forceinline void		reserve(unsigned int resSize)
+	{
+		if(resSize >= max)
+			grow(resSize);
+	}
 
 	__inline void	grow(unsigned int newSize)
 	{
-		if(max+(max>>1) > newSize)
-			newSize = max+(max>>1);
+		if(max + (max >> 1) > newSize)
+			newSize = max + (max >> 1);
 		else
 			newSize += 32;
-		T* ndata;
+		T* newData;
 		if(!skipConstructor)
-			ndata = NULLC::construct<T>(newSize);
+			newData = NULLC::construct<T>(newSize);
 		else
-			ndata = (T*)NULLC::alloc(sizeof(T) * newSize);
+			newData = (T*)NULLC::alloc(sizeof(T) * newSize);
+		assert(newData);
 		if(zeroNewMemory)
-			memset(ndata, 0, newSize * sizeof(T));
-		memcpy(ndata, data, max * sizeof(T));
+			memset(newData, 0, newSize * sizeof(T));
+		memcpy(newData, data, max * sizeof(T));
 		if(data != &one)
 		{
 			if(!skipConstructor)
@@ -88,8 +131,8 @@ public:
 			else
 				NULLC::dealloc(data);
 		}
-		data=ndata;
-		max=newSize;
+		data = newData;
+		max = newSize;
 	}
 	T	*data;
 	T	one;
