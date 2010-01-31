@@ -200,7 +200,7 @@ bool ParseSelectType(Lexeme** str)
 				}
 				CALLBACK(SelectTypeByPointer(CodeInfo::GetFunctionType(retType, first, count)));
 				if(!ParseLexem(str, lex_cparen))
-					ThrowError((*str)->pos, "ERROR: ) not found after function type parameter list");
+					ThrowError((*str)->pos, "ERROR: ')' not found after function type parameter list");
 			}else{
 				CALLBACK(ConvertTypeToReference((*str)->pos));
 			}
@@ -1268,8 +1268,7 @@ bool ParseExpression(Lexeme** str)
 					return true;
 
 			CALLBACK(SetCurrentAlignment(0xFFFFFFFF));
-			if(!ParseVariableDefineSub(str))
-				ThrowError((*str)->pos, "ERROR: variable name not found after typename");
+			ParseVariableDefineSub(str);
 			if(!ParseLexem(str, lex_semicolon))
 				ThrowError((*str)->pos, "ERROR: ';' not found after variable definition");
 			return true;

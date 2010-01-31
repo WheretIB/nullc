@@ -44,9 +44,6 @@ void Lexer::Lexify(const char* code)
 				lLength = (int)(pos - code);
 			}
 			break;
-		case '\\':
-			lType = lex_escape;
-			break;
 		case '.':
 			lType = lex_point;
 			break;
@@ -304,14 +301,9 @@ void Lexer::Lexify(const char* code)
 						break;
 					}
 				}
-	
+
 				if(lType == lex_none)
 					lType = lex_string;
-				if(!(chartype_table[*code] & ct_start_symbol))
-				{
-					lType = lex_none;
-					break;
-				}
 			}
 		}
 		Lexeme lex;

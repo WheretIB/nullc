@@ -1520,12 +1520,12 @@ void FunctionParameterDefault(const char* pos)
 		left = lastFunc.lastParam->varType = right;
 		lastFunc.allParamSize += right->size < 4 ? (right->size ? 4 : 0) : right->size;
 	}
-	if(right == typeVoid)
-		ThrowError(pos, "ERROR: Cannot convert from void to %s", left->GetFullTypeName());
+	if(left == typeVoid)
+		ThrowError(pos, "ERROR: function parameter cannot be a void type", right->GetFullTypeName(), left->GetFullTypeName());
 	
 	// If types don't match and it it is not build-in basic types or if pointers point to different types
-	if(left != right && (left->type == TypeInfo::TYPE_COMPLEX || right->type == TypeInfo::TYPE_COMPLEX || left->subType != right->subType))
-		ThrowError(pos, "ERROR: Cannot convert from '%s' to '%s'", right->GetFullTypeName(), left->GetFullTypeName());
+	if(right == typeVoid || (left != right && (left->type == TypeInfo::TYPE_COMPLEX || right->type == TypeInfo::TYPE_COMPLEX || left->subType != right->subType)))
+		ThrowError(pos, "ERROR: cannot convert from '%s' to '%s'", right->GetFullTypeName(), left->GetFullTypeName());
 
 	lastFunc.lastParam->defaultValue = CodeInfo::nodeList.back();
 	CodeInfo::nodeList.pop_back();

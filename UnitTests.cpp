@@ -2795,7 +2795,7 @@ long b1 = 0b, b2 = 1b, b3 = 1111111111100001010100101b, b4 = 1010101011010101010
 \r\n\
 double c1 = 1e-3, c2 = 1e6, c3=123e2, c4=0.121e-4;\r\n\
 \r\n\
-char[] d1 = \"\\\\\\\'\\0\";\r\n\
+char[] d1 = \"\\\\\\\'\\0\\\"\";\r\n\
 \r\n\
 int d2 = !4, d3 = ~5, d4 = -12;\r\n\
 float e2 = -1.0f;\r\n\
@@ -2830,12 +2830,13 @@ return 1;";
 			CHECK_DOUBLE("c3", 0, 123e2);
 			CHECK_DOUBLE("c4", 0, 0.121e-4);
 
-			CHECK_INT("d1", 1, 4);
+			CHECK_INT("d1", 1, 5);
 
 			CHECK_CHAR("$temp1", 0, '\\');
 			CHECK_CHAR("$temp1", 1, '\'');
 			CHECK_CHAR("$temp1", 2, 0);
-			CHECK_CHAR("$temp1", 3, 0);
+			CHECK_CHAR("$temp1", 3, '\"');
+			CHECK_CHAR("$temp1", 4, 0);
 
 			CHECK_INT("d2", 0, !4);
 			CHECK_INT("d3", 0, ~5);
@@ -4148,6 +4149,25 @@ return 0;";
 		}
 	}
 
+const char	*testPropertyAfterFunctionCall =
+"import std.math;\r\n\
+import std.typeinfo;\r\n\
+float4 u = float4(1, 2, 3, 4);\r\n\
+if(sizeof(u) == 16) u.x = 5; else u.x = 6;\r\n\
+return typeid(u.xyz).size;";
+	printf("\r\nProperty access after function call\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testPropertyAfterFunctionCall, testTarget[t], "12"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -4326,6 +4346,7 @@ return *ll;";
 	TEST_FOR_FAIL("void array", "void f(){} return { f(), f() };", "ERROR: array cannot be constructed from void type elements");
 	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;", "ERROR: Name 'a' is already taken for a variable in current scope");
 	TEST_FOR_FAIL("Auto parameter", "auto(auto a){} return 1;", "ERROR: function parameter cannot be an auto type");
+	TEST_FOR_FAIL("Auto parameter 2 ", "int func(auto a, int i){ return 0; } return 0;", "ERROR: function parameter cannot be an auto type");
 	TEST_FOR_FAIL("Function redefine", "int a(int b){} int a(int c){} return 1;", "ERROR: function 'a' is being defined with the same set of parameters");
 	TEST_FOR_FAIL("Wrong overload", "int operator*(int a){} return 1;", "ERROR: binary operator definition or overload must accept exactly two arguments");
 	TEST_FOR_FAIL("Overload in the wrong place", "int f(){ int operator+(int a, b){}} return 1;", "ERROR: binary operator definition or overload must be placed in global scope");
@@ -4395,10 +4416,13 @@ return *ll;";
 	TEST_FOR_FAIL("Illegal pointer operation 3", "int ref a; a = a * 5;", "ERROR: Operation * is not supported on 'int ref' and 'int'");
 	TEST_FOR_FAIL("Illegal class operation", "import std.math; float2 v; v = ~v;", "ERROR: Unary operation '~' is not supported on 'float2'");
 
-	TEST_FOR_FAIL("Default function parameter type mismatch", "import std.math;int f(int v = float3(3, 4, 5)){ return v; }return f();", "ERROR: Cannot convert from 'float3' to 'int'");
-	
+	TEST_FOR_FAIL("Default function parameter type mismatch", "import std.math;int f(int v = float3(3, 4, 5)){ return v; }return f();", "ERROR: cannot convert from 'float3' to 'int'");
+	TEST_FOR_FAIL("Default function parameter type mismatch 2", "void func(){} int test(int a = func()){ return a; } return 0;", "ERROR: cannot convert from 'void' to 'int'");
+	TEST_FOR_FAIL("Default function parameter of void type", "void func(){} int test(auto a = func()){ return a; } return 0;", "ERROR: function parameter cannot be a void type");
+
 	TEST_FOR_FAIL("Undefined function call in function parameters", "int func(int a = func()){ return 0; } return 0;", "ERROR: function 'func' is undefined");
-	
+	TEST_FOR_FAIL("Property set function is missing", "int int.test(){ return *this; } int a; a.test = 5; return a.test;", "ERROR: cannot change immutable value of type int");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("parsing", "return 0x;", "ERROR: '0x' must be followed by number");
@@ -4441,6 +4465,7 @@ return *ll;";
 	TEST_FOR_FAIL("parsing", "for(;1<2;)", "ERROR: body not found after 'for' header");
 	TEST_FOR_FAIL("parsing", "for(;1<2", "ERROR: ';' not found after condition in 'for'");
 	TEST_FOR_FAIL("parsing", "for(;1<2;{}", "ERROR: ')' not found after 'for' statement");
+	TEST_FOR_FAIL("parsing", "for(;1<2;{}){", "ERROR: closing '}' not found");
 	TEST_FOR_FAIL("parsing", "while", "ERROR: '(' not found after 'while'");
 	TEST_FOR_FAIL("parsing", "while(", "ERROR: expression expected after 'while('");
 	TEST_FOR_FAIL("parsing", "while(1", "ERROR: closing ')' not found after expression in 'while' statement");
@@ -4507,6 +4532,20 @@ return *ll;";
 	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{} set } return 0;", "ERROR: function body expected after 'set'");
 	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{} set( } return 0;", "ERROR: r-value name not found after '('");
 	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{} set(value } return 0;", "ERROR: ')' not found after r-value");
+	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{} set(value){ } ", "ERROR: '}' is expected after property");
+
+	TEST_FOR_FAIL("parsing", "int[$] a; return 0;", "ERROR: unexpected expression after '['");
+	TEST_FOR_FAIL("parsing", "int ref(auto, int) a; return 0;", "ERROR: parameter type of a function type cannot be auto");
+	TEST_FOR_FAIL("parsing", "int ref(float, int a; return 0;", "ERROR: ')' not found after function type parameter list");
+	TEST_FOR_FAIL("parsing", "int func(int){ }", "ERROR: variable name not found after type in function variable list");
+	TEST_FOR_FAIL("parsing", "int func(int a = ){ }", "ERROR: default parameter value not found after '='");
+	TEST_FOR_FAIL("parsing", "int func(float b, int a = ){ }", "ERROR: default parameter value not found after '='");
+
+	TEST_FOR_FAIL("parsing", "void func(){} auto duck(){ return func; } duck()(1,); ", "ERROR: expression not found after ',' in function parameter list");
+	TEST_FOR_FAIL("parsing", "void func(){} auto duck(){ return func; } duck()(1,2; ", "ERROR: ')' not found after function parameter list");
+	TEST_FOR_FAIL("parsing", "int b; auto a = typeof(b) (){}; ", "ERROR: function name not found after return type.");
+	TEST_FOR_FAIL("parsing", "int b; b = ", "ERROR: expression not found after '='");
+	TEST_FOR_FAIL("parsing", "noalign int a, b", "ERROR: ';' not found after variable definition");
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount[0]);
