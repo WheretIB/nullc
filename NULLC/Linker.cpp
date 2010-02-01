@@ -69,7 +69,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			if(!bytecode && BinaryCache::GetImportPath())
 				bytecode = BinaryCache::GetBytecode(path);
 
-			unsigned int varSize = globalVarSize;
 			if(bytecode)
 			{
 #ifdef VERBOSE_DEBUG_OUTPUT
@@ -88,9 +87,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			exModules.back().name = NULL;
 			exModules.back().nameHash = GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
-			exModules.back().variableOffset = varSize;
+			exModules.back().variableOffset = globalVarSize - ((ByteCode*)bytecode)->globalVarSize;
 #ifdef VERBOSE_DEBUG_OUTPUT
-			printf("Module %s variables are found at %d.\r\n", path, varSize);
+			printf("Module %s variables are found at %d (size is %d).\r\n", path, exModules.back().variableOffset, ((ByteCode*)bytecode)->globalVarSize);
 #endif
 			loadedId = exModules.size() - 1;
 		}

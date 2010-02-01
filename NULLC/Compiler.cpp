@@ -581,7 +581,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 			unsigned int currLen = (unsigned int)strlen(CodeInfo::lastError.error);
 			SafeSprintf(CodeInfo::lastError.error+currLen, 256 - strlen(CodeInfo::lastError.error), " [in module %s]", file);
 			fclose(rawModule);
-			return false;
+			return NULL;
 		}
 		fclose(rawModule);
 		char *bytecode = NULL;
@@ -595,6 +595,9 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 		BinaryCache::PutBytecode(failedImportPath ? altFile : file, bytecode);
 
 		return bytecode;
+	}else{
+		CodeInfo::lastError = CompilerError("", NULL);
+		SafeSprintf(CodeInfo::lastError.error, 256, "Module %s not found", altFile);
 	}
 	return NULL;
 }
