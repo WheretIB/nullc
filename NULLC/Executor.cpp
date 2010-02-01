@@ -1050,10 +1050,10 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 		FixupPointer(ptr + 4, *realType);
 		// Switch pointer to target
 		char **rPtr = (char**)(ptr + 4);
-		ptr = *rPtr;
-		// If initialized, return
-		if(!ptr)
-			return;
+		// Fixup target
+		FixupVariable(*rPtr, *realType);
+		// Exit
+		return;
 	}
 	unsigned int *memberList = &exLinker->exTypeExtra[0];
 	//char *str = symbols + type.offsetToName;
