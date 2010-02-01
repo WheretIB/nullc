@@ -241,10 +241,10 @@ namespace GC
 			MarkPointer(ptr + 4, *realType);
 			// Switch pointer to target
 			char **rPtr = (char**)(ptr + 4);
-			ptr = *rPtr;
-			// If initialized, return
-			if(!ptr)
-				return;
+			// Fixup target
+			CheckVariable(*rPtr, *realType);
+			// Exit
+			return;
 		}
 		// Get class member type list
 		unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[0];

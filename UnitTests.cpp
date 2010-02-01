@@ -4270,6 +4270,42 @@ return *ll;";
 
 #endif
 
+	// Parameter stack resize test is saved for last
+const char	*testStackResize =
+"class RefHold\r\n\
+{\r\n\
+	int ref c;\r\n\
+}\r\n\
+int a = 12;\r\n\
+int ref b = &a;\r\n\
+auto h = new RefHold;\r\n\
+h.c = b;\r\n\
+auto ref c = &a;\r\n\
+int ref[2] d;\r\n\
+int ref[] e = d;\r\n\
+e[0] = &a;\r\n\
+auto func()\r\n\
+{\r\n\
+	auto f2()\r\n\
+	{\r\n\
+		int[4096] arr;\r\n\
+	}\r\n\
+	f2();\r\n\
+	return *b;\r\n\
+}\r\n\
+int res = func();\r\n\
+int ref v = c;\r\n\
+return res + *h.c + *v + *e[0];";
+	printf("\r\nParemter stack resize\r\n");
+	testCount[0]++;
+	if(RunCode(testStackResize, testTarget[0], "48"))
+	{
+		lastFailed = false;
+
+		if(!lastFailed)
+			passed[0]++;
+	}
+
 #define TEST_FOR_FAIL(name, str, error)\
 {\
 	testCount[2]++;\
