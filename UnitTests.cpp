@@ -340,6 +340,39 @@ double TestDouble(double a)
 	return a;
 }
 
+const char *testModuleA = "import std.math; float4 a; a.x = 2;";
+
+const void* TestFileLoad(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+{
+	assert(name);
+	assert(size);
+	assert(nullcShouldFreePtr);
+
+	if(strcmp(name, "test\\a.nc") == 0)
+	{
+		*size = (int)strlen(testModuleA) + 1;
+		*nullcShouldFreePtr = false;
+		return testModuleA;
+	}
+
+	FILE *file = fopen(name, "rb");
+	if(file)
+	{
+		fseek(file, 0, SEEK_END);
+		*size = ftell(file);
+		fseek(file, 0, SEEK_SET);
+		char *fileContent = (char*)NULLC::alloc(*size + 1);
+		fread(fileContent, 1, *size, file);
+		fileContent[*size] = 0;
+		fclose(file);
+		*nullcShouldFreePtr = 1;
+		return fileContent;
+	}
+	*size = 0;
+	*nullcShouldFreePtr = false;
+	return NULL;
+}
+
 void	RunTests()
 {
 	timeCompile = 0.0;
@@ -352,6 +385,7 @@ void	RunTests()
 	// Init NULLC
 	nullcInit("Modules\\");
 	//nullcInitCustomAlloc(testAlloc, testDealloc, "Modules\\");
+	nullcSetFileReadHandler(TestFileLoad);
 
 #ifdef SPEED_TEST
 	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");
@@ -4168,6 +4202,43 @@ return typeid(u.xyz).size;";
 		}
 	}
 
+const char	*testGlobalVariablePositioning =
+"import test.a;\r\n\
+float4 b;\r\n\
+b.x = 12;\r\n\
+return int(a.x);";
+	printf("\r\nGlobal variable positioning\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testGlobalVariablePositioning, testTarget[t], "2"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testGlobalVariablePositioning2 =
+"import test.a;\r\n\
+import std.math;\r\n\
+float4 b;\r\n\
+b.x = 12;\r\n\
+return int(a.x);";
+	printf("\r\nGlobal variable positioning\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testGlobalVariablePositioning2, testTarget[t], "2"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -4282,7 +4353,9 @@ auto h = new RefHold;\r\n\
 h.c = b;\r\n\
 auto ref c = &a;\r\n\
 int ref[2] d;\r\n\
-int ref[] e = d;\r\n\
+int ref[] e = d, e0;\r\n\
+int[2][2] u;\r\n\
+RefHold[4] u2;\r\n\
 e[0] = &a;\r\n\
 auto func()\r\n\
 {\r\n\
@@ -4291,14 +4364,15 @@ auto func()\r\n\
 		int[4096] arr;\r\n\
 	}\r\n\
 	f2();\r\n\
-	return *b;\r\n\
+	return b;\r\n\
 }\r\n\
-int res = func();\r\n\
+int ref res = func();\r\n\
 int ref v = c;\r\n\
-return res + *h.c + *v + *e[0];";
+a = 10;\r\n\
+return *res + *h.c + *v + *e[0];";
 	printf("\r\nParemter stack resize\r\n");
 	testCount[0]++;
-	if(RunCode(testStackResize, testTarget[0], "48"))
+	if(RunCode(testStackResize, testTarget[0], "40"))
 	{
 		lastFailed = false;
 

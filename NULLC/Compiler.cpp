@@ -15,15 +15,10 @@
 
 #include "Executor_Common.h"
 
-#include <time.h>
-
 jmp_buf CodeInfo::errorHandler;
 //////////////////////////////////////////////////////////////////////////
 //						Code gen ops
 //////////////////////////////////////////////////////////////////////////
-#ifdef NULLC_LOG_FILES
-FILE*			compileLog;
-#endif
 
 TypeInfo*	typeVoid = NULL;
 TypeInfo*	typeChar = NULL;
@@ -161,10 +156,6 @@ Compiler::Compiler()
 
 	AddExternalFunction((void (*)())NULLC::AllocObject, "int __newS(int size);");
 	AddExternalFunction((void (*)())NULLC::AllocArray, "int[] __newA(int size, int count);");
-
-#ifdef NULLC_LOG_FILES
-	compileLog = NULL;
-#endif
 }
 
 Compiler::~Compiler()
@@ -183,11 +174,6 @@ Compiler::~Compiler()
 	NodeSwitchExpr::fixQueue.reset();
 
 	NodeZeroOP::ResetNodes();
-
-#ifdef NULLC_LOG_FILES
-	if(compileLog)
-		fclose(compileLog);
-#endif
 }
 
 void Compiler::ClearState()
@@ -222,11 +208,6 @@ void Compiler::ClearState()
 
 	CallbackInitialize();
 
-#ifdef NULLC_LOG_FILES
-	if(compileLog)
-		fclose(compileLog);
-	compileLog = fopen("compilelog.txt", "wb");
-#endif
 	CodeInfo::lastError = CompilerError();
 
 	CodeInfo::cmdInfoList.Clear();
@@ -560,52 +541,49 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 
 char* Compiler::BuildModule(const char* file, const char* altFile)
 {
-	FILE *rawModule = fopen(file, "rb");
+	unsigned int fileSize = 0;
+	int needDelete = false;
 	bool failedImportPath = false;
-	if(!rawModule && BinaryCache::GetImportPath())
+
+	char *fileContent = (char*)NULLC::fileLoad(file, &fileSize, &needDelete);
+	if(!fileContent && BinaryCache::GetImportPath())
 	{
 		failedImportPath = true;
-		rawModule = fopen(altFile, "rb");
+		fileContent = (char*)NULLC::fileLoad(altFile, &fileSize, &needDelete);
 	}
-	if(rawModule)
-	{
-		fseek(rawModule, 0, SEEK_END);
-		unsigned int textSize = ftell(rawModule);
-		fseek(rawModule, 0, SEEK_SET);
-		char *fileContent = (char*)NULLC::alloc(textSize+1);
-		fread(fileContent, 1, textSize, rawModule);
-		fileContent[textSize] = 0;
 
+	if(fileContent)
+	{
 		if(!Compile(fileContent, true))
 		{
 			unsigned int currLen = (unsigned int)strlen(CodeInfo::lastError.error);
 			SafeSprintf(CodeInfo::lastError.error+currLen, 256 - strlen(CodeInfo::lastError.error), " [in module %s]", file);
-			fclose(rawModule);
+
+			if(needDelete)
+				NULLC::dealloc(fileContent);
 			return NULL;
 		}
-		fclose(rawModule);
 		char *bytecode = NULL;
 #ifdef VERBOSE_DEBUG_OUTPUT
 		printf("Bytecode for module %s. ", file);
 #endif
 		GetBytecode(&bytecode);
 
-		NULLC::dealloc(fileContent);
+		if(needDelete)
+			NULLC::dealloc(fileContent);
 
 		BinaryCache::PutBytecode(failedImportPath ? altFile : file, bytecode);
 
 		return bytecode;
 	}else{
 		CodeInfo::lastError = CompilerError("", NULL);
-		SafeSprintf(CodeInfo::lastError.error, 256, "Module %s not found", altFile);
+		SafeSprintf(CodeInfo::lastError.error, 256, "ERROR: Module %s not found", altFile);
 	}
 	return NULL;
 }
 
 bool Compiler::Compile(const char* str, bool noClear)
 {
-	unsigned int t = clock();
-
 	if(!noClear)
 	{
 		lexer.Clear();
@@ -712,19 +690,12 @@ bool Compiler::Compile(const char* str, bool noClear)
 		return false;
 	}
 
-	unsigned int tem = clock()-t;
-#ifdef NULLC_LOG_FILES
-	FILE *fTime = fopen("time.txt", "wb");
-	fprintf(fTime, "Parsing and AST tree gen. time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
-#endif
-
 #ifdef NULLC_LOG_FILES
 	FILE *fGraph = fopen("graph.txt", "wb");
 #endif
 
 	RestoreScopedGlobals();
 
-	t = clock();
 	CodeInfo::cmdList.push_back(VMCmd(cmdJmp));
 	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
 	{
@@ -738,41 +709,10 @@ bool Compiler::Compile(const char* str, bool noClear)
 	if(CodeInfo::nodeList.back())
 		CodeInfo::nodeList.back()->Compile();
 
-	tem = clock()-t;
-#ifdef NULLC_LOG_FILES
-	fprintf(fTime, "Compile time: %d ms\r\n", tem * 1000 / CLOCKS_PER_SEC);
-	fclose(fTime);
-#endif
-
 #ifdef NULLC_LOG_FILES
 	if(CodeInfo::nodeList.back())
 		CodeInfo::nodeList.back()->LogToStream(fGraph);
 	fclose(fGraph);
-#endif
-
-#ifdef NULLC_LOG_FILES
-	fprintf(compileLog, "\r\nActive types (%d):\r\n", CodeInfo::typeInfo.size());
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-		fprintf(compileLog, "%s (%d bytes)\r\n", CodeInfo::typeInfo[i]->GetFullTypeName(), CodeInfo::typeInfo[i]->size);
-
-	fprintf(compileLog, "\r\nActive functions (%d):\r\n", CodeInfo::funcInfo.size());
-	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
-	{
-		FunctionInfo &currFunc = *CodeInfo::funcInfo[i];
-		fprintf(compileLog, "%s", currFunc.type == FunctionInfo::LOCAL ? "local " : (currFunc.type == FunctionInfo::NORMAL ? "global " : "thiscall "));
-		fprintf(compileLog, "%s %s(", currFunc.retType->GetFullTypeName(), currFunc.name);
-
-		for(VariableInfo *curr = currFunc.firstParam; curr; curr = curr->next)
-			fprintf(compileLog, "%s %.*s%s", curr->varType->GetFullTypeName(), curr->name.end-curr->name.begin, curr->name.begin, (curr == currFunc.lastParam ? "" : ", "));
-		
-		fprintf(compileLog, ")\r\n");
-		if(currFunc.type == FunctionInfo::LOCAL)
-		{
-			for(FunctionInfo::ExternalInfo *curr = currFunc.firstExternal; curr; curr = curr->next)
-				fprintf(compileLog, "  external var: %.*s\r\n", curr->variable->name.end-curr->variable->name.begin, curr->variable->name.begin);
-		}
-	}
-	fflush(compileLog);
 #endif
 
 	if(CodeInfo::nodeList.back())
