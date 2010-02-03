@@ -51,6 +51,7 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 {
 	NULLC::alloc = allocFunc ? allocFunc : NULLC::defaultAlloc;
 	NULLC::dealloc = deallocFunc ? deallocFunc : NULLC::defaultDealloc;
+	NULLC::fileLoad = NULLC::defaultFileLoad;
 
 	compiler = NULLC::construct<Compiler>();
 	linker = NULLC::construct<Linker>();
@@ -68,6 +69,11 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 void	nullcSetImportPath(const char* importPath)
 {
 	BinaryCache::SetImportPath(importPath);
+}
+
+void	nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name, unsigned int* size, int* nullcShouldFreePtr))
+{
+	NULLC::fileLoad = fileLoadFunc ? fileLoadFunc : NULLC::defaultFileLoad;
 }
 
 void	nullcSetExecutor(unsigned int id)
