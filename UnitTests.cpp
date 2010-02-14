@@ -4254,6 +4254,24 @@ const char	*testBytecodeButNoGlobal =
 		}
 	}
 
+const char	*testAutoRefToValue =
+"int b = 9;\r\n\
+auto ref a = &b;\r\n\
+int float(auto ref b){ return 5; }\r\n\
+return int(a) + float(a);";
+	printf("\r\nAuto ref to value conversion\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testAutoRefToValue, testTarget[t], "14"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
