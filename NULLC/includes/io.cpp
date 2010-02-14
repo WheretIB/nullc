@@ -29,7 +29,7 @@ namespace NULLCIO
 	{
 		InitConsole();
 		DWORD written;
-		WriteFile(conStdOut, data.ptr, strlen(data.ptr), &written, NULL); 
+		WriteFile(conStdOut, data.ptr, (DWORD)strlen(data.ptr), &written, NULL); 
 	}
 
 	void WriteIntConsole(int num)

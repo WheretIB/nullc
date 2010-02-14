@@ -40,7 +40,7 @@ TypeInfo* CodeInfo::GetDereferenceType(TypeInfo* type)
 {
 	// If it's not a reference, or a reference to an invalid type, return error
 	if(!type->subType || type->refLevel == 0)
-		ThrowError(lastKnownStartPos, "ERROR: Cannot dereference type '%s' - there is no result type available", type->GetFullTypeName());
+		ThrowError(lastKnownStartPos, "ERROR: cannot dereference type '%s' - there is no result type available", type->GetFullTypeName());
 
 	// Return type
 	return type->subType;
@@ -66,11 +66,11 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 				arrSize = -1;
 				unFixed = true;
 			}else{
-				ThrowError(lastKnownStartPos, "ERROR: Unknown type of constant number node '%s'", aType->name);
+				ThrowError(lastKnownStartPos, "ERROR: unknown type of constant number node '%s'", aType->name);
 			}
 			nodeList.pop_back();
 		}else{
-			ThrowError(lastKnownStartPos, "ERROR: Array size must be a constant expression");
+			ThrowError(lastKnownStartPos, "ERROR: array size must be a constant expression");
 		}
 	}else{
 		arrSize = sizeInArgument;
@@ -79,7 +79,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	}
 
 	if(!unFixed && arrSize < 1)
-		ThrowError(lastKnownStartPos, "ERROR: Array size can't be negative or zero");
+		ThrowError(lastKnownStartPos, "ERROR: array size can't be negative or zero");
 
 	// Search type list for the type that we need
 	unsigned int targetArrLevel = type->arrLevel + 1;

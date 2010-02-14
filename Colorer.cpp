@@ -489,7 +489,7 @@ namespace ColorerGrammar
 	{
 		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "return" || str=="switch" || str=="case")
 		{
-			logStream << "ERROR: The name '" << str << "' is reserved\r\n";
+			logStream << "ERROR: the name '" << str << "' is reserved\r\n";
 			return true;
 		}
 		return false;
@@ -516,7 +516,7 @@ namespace ColorerGrammar
 		ByteCode *code = (ByteCode*)nullcGetModule(importPath.c_str());
 		if(!code)
 		{
-			logStream << "ERROR: Can't find module '" << importPath << "'\r\n";
+			logStream << "ERROR: can't find module '" << importPath << "'\r\n";
 		}else{
 			ExternTypeInfo *tInfo = FindFirstType(code);
 			const char *symbols = (char*)(code) + code->offsetToSymbols;
@@ -664,7 +664,7 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 		return false;
 	}
 	if(pRes != PARSE_OK)
-		ColorerGrammar::logStream << "ERROR: Syntax error, unable to continue";
+		ColorerGrammar::logStream << "ERROR: syntax error, unable to continue";
 
 	if(ColorerGrammar::logStream.str().length() != 0)
 	{

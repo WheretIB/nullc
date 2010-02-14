@@ -150,12 +150,12 @@ bool ExecutorX86::Initialize()
 	// Request memory at address
 	if(NULL == (paramData = (char*)VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
 	{
-		strcpy(execError, "ERROR: Failed to reserve memory");
+		strcpy(execError, "ERROR: failed to reserve memory");
 		return false;
 	}
 	if(!VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
 	{
-		strcpy(execError, "ERROR: Failed to commit memory");
+		strcpy(execError, "ERROR: failed to commit memory");
 		return false;
 	}
 
@@ -401,27 +401,27 @@ void ExecutorX86::Run(const char* funcName)
 		}
 	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
-			strcpy(execError, "ERROR: Integer division by zero");
+			strcpy(execError, "ERROR: integer division by zero");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0)
-			strcpy(execError, "ERROR: Array index out of bounds");
+			strcpy(execError, "ERROR: array index out of bounds");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
-			strcpy(execError, "ERROR: Function didn't return a value");
+			strcpy(execError, "ERROR: function didn't return a value");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xDEADBEEF)
-			strcpy(execError, "ERROR: Null pointer access");
+			strcpy(execError, "ERROR: null pointer access");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate != expESPstate)
-			SafeSprintf(execError, 512, "ERROR: Cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[expEAXstate].offsetToName], &exLinker->exSymbols[exLinker->exTypes[expECXstate].offsetToName]);
+			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[expEAXstate].offsetToName], &exLinker->exSymbols[exLinker->exTypes[expECXstate].offsetToName]);
 		else if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
-			strcpy(execError, "ERROR: Stack overflow");
+			strcpy(execError, "ERROR: stack overflow");
 		else if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
 		{
 			if(expAllocCode == 1)
-				strcpy(execError, "ERROR: Failed to commit old stack memory");
+				strcpy(execError, "ERROR: failed to commit old stack memory");
 			else if(expAllocCode == 2)
-				strcpy(execError, "ERROR: Failed to reserve new stack memory");
+				strcpy(execError, "ERROR: failed to reserve new stack memory");
 			else if(expAllocCode == 3)
-				strcpy(execError, "ERROR: Failed to commit new stack memory");
+				strcpy(execError, "ERROR: failed to commit new stack memory");
 			else if(expAllocCode == 4)
-				strcpy(execError, "ERROR: No more memory (512Mb maximum exceeded)");
+				strcpy(execError, "ERROR: no more memory (512Mb maximum exceeded)");
 		}
 	}
 
