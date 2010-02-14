@@ -138,7 +138,7 @@ long long parseLong(const char* s, const char* e, int base)
 	{
 		int digit = ((*p >= '0' && *p <= '9') ? *p - '0' : (*p & ~0x20) - 'A' + 10);
 		if(digit < 0 || digit >= base)
-			ThrowError(p, "ERROR: Digit %d is not allowed in base %d", digit, base);
+			ThrowError(p, "ERROR: digit %d is not allowed in base %d", digit, base);
 		res = res * base + digit;
 	}
 	return res;
@@ -291,7 +291,7 @@ void AddHexInteger(const char* pos, const char* end)
 {
 	pos += 2;
 	if(int(end - pos) > 16)
-		ThrowError(pos, "ERROR: Overflow in hexadecimal constant");
+		ThrowError(pos, "ERROR: overflow in hexadecimal constant");
 	// If number overflows integer number, create long number
 	if(int(end - pos) <= 8)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 16), typeInt));
@@ -303,7 +303,7 @@ void AddOctInteger(const char* pos, const char* end)
 {
 	pos++;
 	if(int(end - pos) > 21)
-		ThrowError(pos, "ERROR: Overflow in octal constant");
+		ThrowError(pos, "ERROR: overflow in octal constant");
 	// If number overflows integer number, create long number
 	if(int(end - pos) <= 10)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 8), typeInt));
@@ -314,7 +314,7 @@ void AddOctInteger(const char* pos, const char* end)
 void AddBinInteger(const char* pos, const char* end)
 {
 	if(int(end - pos) > 64)
-		ThrowError(pos, "ERROR: Overflow in binary constant");
+		ThrowError(pos, "ERROR: overflow in binary constant");
 	// If number overflows integer number, create long number
 	if(int(end - pos) <= 32)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 2), typeInt));
@@ -484,7 +484,7 @@ T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 	if(cmd == cmdDiv)
 	{
 		if(b == 0)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Division by zero during constant folding");
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: division by zero during constant folding");
 		return a / b;
 	}
 	if(cmd == cmdPow)
@@ -519,7 +519,7 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 	if(cmd == cmdMod)
 	{
 		if(b == 0)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Modulus division by zero during constant folding");
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: modulus division by zero during constant folding");
 		return a % b;
 	}
 	if(cmd == cmdBitAnd)
@@ -546,7 +546,7 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 	if(cmd == cmdMod)
 	{
 		if(b == 0)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Modulus division by zero during constant folding");
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: modulus division by zero during constant folding");
 		return a % b;
 	}
 	if(cmd == cmdBitAnd)
@@ -792,11 +792,11 @@ void* AddVariable(const char* pos, InplaceStr varName)
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
 	{
 		if(CodeInfo::varInfo[i]->nameHash == hash)
-			ThrowError(pos, "ERROR: Name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
+			ThrowError(pos, "ERROR: name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 	}
 	// Check for functions with the same name
 	if(funcMap.find(hash))
-		ThrowError(pos, "ERROR: Name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
+		ThrowError(pos, "ERROR: name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
 
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 	{
@@ -1007,9 +1007,9 @@ void AddArrayIndexNode(const char* pos)
 
 		// Check bounds
 		if(shiftValue < 0)
-			ThrowError(pos, "ERROR: Array index cannot be negative");
+			ThrowError(pos, "ERROR: array index cannot be negative");
 		if((unsigned int)shiftValue >= currentType->arrSize)
-			ThrowError(pos, "ERROR: Array index out of bounds");
+			ThrowError(pos, "ERROR: array index out of bounds");
 
 		// Index array
 		static_cast<NodeGetAddress*>(CodeInfo::nodeList[CodeInfo::nodeList.size()-2])->IndexArray(shiftValue);
@@ -1158,7 +1158,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
 	{
 		if(hash != GetStringHash("size"))
-			ThrowError(pos, "ERROR: Array doesn't have member with this name");
+			ThrowError(pos, "ERROR: array doesn't have member with this name");
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(new NodeNumber((int)currentType->arrSize, typeVoid));
 		currentType = typeInt;
@@ -1422,6 +1422,21 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 
 	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-arrElementCount]->typeInfo;
 
+	bool arrayMulti = false;
+	if(currentType->arrLevel != 0)
+	{
+		for(unsigned int i = 0; i < arrElementCount; i++)
+		{
+			TypeInfo *nodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-arrElementCount+i]->typeInfo;
+			if(nodeType->subType != currentType->subType)
+				ThrowError(pos, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
+			if(nodeType != currentType)
+				arrayMulti = true;
+		}
+		if(arrayMulti)
+			currentType = CodeInfo::GetArrayType(currentType->subType, TypeInfo::UNSIZED_ARRAY);
+	}
+
 	if(currentType == typeShort || currentType == typeChar)
 		currentType = typeInt;
 	if(currentType == typeFloat)
@@ -1436,6 +1451,8 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 
 	for(unsigned int i = 0; i < arrElementCount; i++)
 	{
+		if(arrayMulti)
+			ConvertArrayToUnsized(pos, currentType);
 		TypeInfo *realType = CodeInfo::nodeList.back()->typeInfo;
 		if(realType != currentType &&
 			!((realType == typeShort || realType == typeChar) && currentType == typeInt) &&
@@ -1443,6 +1460,7 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 				ThrowError(pos, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
 		if((realType == typeShort || realType == typeChar || realType == typeInt) && currentType == typeDouble)
 			AddFunctionCallNode(pos, "double", 1);
+
 		arrayList->AddNode(false);
 	}
 
@@ -1467,7 +1485,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
 	{
 		if(CodeInfo::varInfo[i]->nameHash == funcNameHash)
-			ThrowError(pos, "ERROR: Name '%s' is already taken for a variable in current scope", funcName);
+			ThrowError(pos, "ERROR: name '%s' is already taken for a variable in current scope", funcName);
 	}
 	char *funcNameCopy = (char*)funcName;
 	if(newType)
@@ -1903,7 +1921,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			{
 				char errTemp[512];
 				char	*errPos = errTemp;
-				errPos += SafeSprintf(errPos, 512, "ERROR: Ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
+				errPos += SafeSprintf(errPos, 512, "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
 				for(unsigned int n = 0; n < callArgCount; n++)
 					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n  candidates are:\r\n");
@@ -2135,7 +2153,7 @@ void EndSwitch()
 void TypeBegin(const char* pos, const char* end)
 {
 	if(newType)
-		ThrowError(pos, "ERROR: Different type is being defined");
+		ThrowError(pos, "ERROR: different type is being defined");
 	if(currAlign > 16)
 		ThrowError(pos, "ERROR: alignment must be less than 16 bytes");
 

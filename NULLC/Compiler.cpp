@@ -577,7 +577,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 		return bytecode;
 	}else{
 		CodeInfo::lastError = CompilerError("", NULL);
-		SafeSprintf(CodeInfo::lastError.error, 256, "ERROR: Module %s not found", altFile);
+		SafeSprintf(CodeInfo::lastError.error, 256, "ERROR: module %s not found", altFile);
 	}
 	return NULL;
 }

@@ -359,7 +359,7 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 	typeInfo = logicalOp ? typeInt : first->typeInfo;
 
 	if((first->typeInfo->refLevel != 0 && !logicalOp) || first->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Unary operation '%s' is not supported on '%s'", unaryCommandToText[cmdID - cmdNeg], first->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmdID - cmdNeg], first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeUnaryOp;
 }
@@ -815,9 +815,9 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
 	if(typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 	
 	// If types don't match
 	if(second->typeInfo != typeInfo)
@@ -826,7 +826,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType)
 		{
 			if(!(typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && arrSetAll))
-				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
+				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 		}
 	}
 
@@ -928,18 +928,18 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	assert(first->typeInfo->refLevel != 0);
 
 	if(second->typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from void to %s", typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
 	if(typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert from %s to void", second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 	if(first->typeInfo->subType->refLevel != 0 || second->typeInfo->refLevel != 0 || typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: There is no build-in operator for types '%s' and '%s'", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: there is no build-in operator for types '%s' and '%s'", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 
 	// If types don't match
 	if(second->typeInfo != typeInfo)
 	{
 		// If it is not build-in basic types or if pointers point to different types
 		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 	}
 
 	absAddress = true;
@@ -1271,7 +1271,7 @@ NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 	incOp = isInc;
 
 	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: %s is not supported on '%s'", (isInc ? "Increment" : "Decrement"), typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: %s is not supported on '%s'", (isInc ? "increment" : "decrement"), typeInfo->GetFullTypeName());
 
 	prefixOp = preOp;
 
@@ -1415,9 +1415,9 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 
 	// Binary operations on complex types are not present at the moment
 	if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 	if((first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0) && !(first->typeInfo->refLevel == second->typeInfo->refLevel && logicalOp))
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 	
 	if(first->typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operator returns void");

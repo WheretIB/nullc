@@ -469,7 +469,7 @@ void Executor::Run(const char* funcName)
 		{
 			unsigned int paramSize = cmd.argument;
 			unsigned int fID = genStackPtr[paramSize >> 2];
-			RUNTIME_ERROR(fID == 0, "ERROR: Invalid function pointer");
+			RUNTIME_ERROR(fID == 0, "ERROR: invalid function pointer");
 
 			if(exFunctions[fID].address == -1)
 			{
@@ -556,7 +556,7 @@ void Executor::Run(const char* funcName)
 			{
 				*(int*)(genStackPtr+1) /= *(int*)(genStackPtr);
 			}else{
-				strcpy(execError, "ERROR: Integer division by zero");
+				strcpy(execError, "ERROR: integer division by zero");
 				cmdStreamEnd = NULL;
 			}
 			genStackPtr++;
@@ -570,7 +570,7 @@ void Executor::Run(const char* funcName)
 			{
 				*(int*)(genStackPtr+1) %= *(int*)(genStackPtr);
 			}else{
-				strcpy(execError, "ERROR: Integer division by zero");
+				strcpy(execError, "ERROR: integer division by zero");
 				cmdStreamEnd = NULL;
 			}
 			genStackPtr++;
@@ -644,7 +644,7 @@ void Executor::Run(const char* funcName)
 			{
 				*(long long*)(genStackPtr+2) /= *(long long*)(genStackPtr);
 			}else{
-				strcpy(execError, "ERROR: Integer division by zero");
+				strcpy(execError, "ERROR: integer division by zero");
 				cmdStreamEnd = NULL;
 			}
 			genStackPtr += 2;
@@ -658,7 +658,7 @@ void Executor::Run(const char* funcName)
 			{
 				*(long long*)(genStackPtr+2) %= *(long long*)(genStackPtr);
 			}else{
-				strcpy(execError, "ERROR: Integer division by zero");
+				strcpy(execError, "ERROR: integer division by zero");
 				cmdStreamEnd = NULL;
 			}
 			genStackPtr += 2;
@@ -820,7 +820,7 @@ void Executor::Run(const char* funcName)
 		case cmdConvertPtr:
 			if(*genStackPtr != cmd.argument)
 			{
-				SafeSprintf(execError, 1024, "ERROR: Cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[*genStackPtr].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
+				SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[*genStackPtr].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
 				cmdStreamEnd = NULL;
 			}
 			genStackPtr++;
@@ -877,7 +877,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		__asm{ mov eax, dword ptr[stackStart] }
 		__asm{ push dword ptr[eax] }
 	#else
-		strcpy(execError, "ERROR: No external call on x64");
+		strcpy(execError, "ERROR: no external call on x64");
 		return false;
 	#endif
 #endif
@@ -911,7 +911,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		__asm mov eax, dwordsToPop
 		__asm lea esp, [eax * 4 + esp]
 	#else
-		strcpy(execError, "ERROR: No external call on x64");
+		strcpy(execError, "ERROR: no external call on x64");
 		return false;
 	#endif
 #endif
@@ -968,7 +968,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 #else
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
-	strcpy(execError, "ERROR: External function call failed");
+	strcpy(execError, "ERROR: external function call failed");
 	return false;
 }
 #endif

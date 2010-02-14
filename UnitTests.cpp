@@ -373,6 +373,13 @@ const void* TestFileLoad(const char* name, unsigned int* size, int* nullcShouldF
 	return NULL;
 }
 
+void	RunTests2();
+
+int passed[] = { 0, 0, 0 };
+int testCount[] = { 0, 0, 0 };
+
+unsigned int	testTarget[] = { NULLC_VM, NULLC_X86 };
+
 void	RunTests()
 {
 	timeCompile = 0.0;
@@ -381,6 +388,9 @@ void	RunTests()
 	timeClean = 0.0;
 	timeLinkCode = 0.0;
 	timeRun = 0.0;
+
+	passed[0] = passed[1] = passed[2] = 0;
+	testCount[0] = testCount[1] = testCount[2] = 0;
 
 	// Init NULLC
 	nullcInit("Modules\\");
@@ -401,10 +411,7 @@ void	RunTests()
 	nullcInitFileModule();
 	nullcInitMathModule();
 
-	int passed[] = { 0, 0, 0 };
-	int testCount[] = { 0, 0, 0 };
-
-	unsigned int	testTarget[] = { NULLC_VM, NULLC_X86, };
+	
 
 //////////////////////////////////////////////////////////////////////////
 	printf("\r\nTwo bytecode merge test 1\r\n");
@@ -4272,6 +4279,54 @@ return int(a) + float(a);";
 		}
 	}
 
+const char	*testImplicitConversionOnReturn =
+"class array{ int[10] arr; int size; }\r\n\
+void array:push_back(auto ref a){ arr[size++] = int(a); }\r\n\
+auto ref operator[](array ref arr, int index){ assert(index<arr.size); return &arr.arr[index]; }\r\n\
+\r\n\
+array a;\r\n\
+a.push_back(1); a.push_back(5);\r\n\
+int[] test(){ return { 1, 2 }; }\r\n\
+return int(a[0]) + int(a[1]) + test()[0];";
+	printf("\r\nImplicit conversion on return from function\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testImplicitConversionOnReturn, testTarget[t], "7"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testInplaceArraysWithArrayElements =
+"auto arr = { \"one\", \"two\", \"three\" };\r\n\
+auto arr2 = {\r\n\
+	{ 57 },\r\n\
+	{ 12, 34 },\r\n\
+	{ 34, 48, 56 }\r\n\
+};\r\n\
+return arr2[1][1] + arr2[0][0] + arr2[2][2] + arr[1][1];";
+	printf("\r\nInplace arrays with array elements of different size\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testInplaceArraysWithArrayElements, testTarget[t], "266"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	RunTests2();
+}
+
+void	RunTests2()
+{
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -4282,7 +4337,7 @@ return a/b;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testDivZero, testTarget[t], "ERROR: Integer division by zero"))
+		if(!RunCode(testDivZero, testTarget[t], "ERROR: integer division by zero"))
 			passed[t]++;
 		else
 			printf("Should have failed");
@@ -4301,7 +4356,6 @@ return test();";
 		else
 			printf("Should have failed");
 	}
-
 
 const char	*testBounds1 = 
 "// Array out of bound check \r\n\
@@ -4433,13 +4487,13 @@ return *res + *h.c + *v + *e[0];";
 	}\
 }
 
-	TEST_FOR_FAIL("Number not allowed in this base", "return 08;", "ERROR: Digit 8 is not allowed in base 8");
+	TEST_FOR_FAIL("Number not allowed in this base", "return 08;", "ERROR: digit 8 is not allowed in base 8");
 	TEST_FOR_FAIL("Unknown escape sequence", "return '\\p';", "ERROR: unknown escape sequence");
 	TEST_FOR_FAIL("Wrong alignment", "align(32) int a; return 0;", "ERROR: alignment must be less than 16 bytes");
 	TEST_FOR_FAIL("Change of immutable value", "int i; return *i = 5;", "ERROR: cannot change immutable value of type int");
-	TEST_FOR_FAIL("Hex overflow", "return 0xbeefbeefbeefbeefb;", "ERROR: Overflow in hexadecimal constant");
-	TEST_FOR_FAIL("Oct overflow", "return 03333333333333333333333;", "ERROR: Overflow in octal constant");
-	TEST_FOR_FAIL("Bin overflow", "return 10000000000000000000000000000000000000000000000000000000000000000b;", "ERROR: Overflow in binary constant");
+	TEST_FOR_FAIL("Hex overflow", "return 0xbeefbeefbeefbeefb;", "ERROR: overflow in hexadecimal constant");
+	TEST_FOR_FAIL("Oct overflow", "return 03333333333333333333333;", "ERROR: overflow in octal constant");
+	TEST_FOR_FAIL("Bin overflow", "return 10000000000000000000000000000000000000000000000000000000000000000b;", "ERROR: overflow in binary constant");
 	TEST_FOR_FAIL("Logical not on double", "return !0.5;", "ERROR: logical NOT is not available on floating-point numbers");
 	TEST_FOR_FAIL("Binary not on double", "return ~0.4;", "ERROR: binary NOT is not available on floating-point numbers");
 
@@ -4466,8 +4520,8 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("continue with depth 0", "continue 0; return 1;", "ERROR: continue level cannot be 0");
 	TEST_FOR_FAIL("continue with depth too big", "while(1){ continue 2; } return 1;", "ERROR: continue level is greater that loop depth");
 
-	TEST_FOR_FAIL("Variable redefinition", "int a, a; return 1;", "ERROR: Name 'a' is already taken for a variable in current scope");
-	TEST_FOR_FAIL("Variable hides function", "void a(){} int a; return 1;", "ERROR: Name 'a' is already taken for a function");
+	TEST_FOR_FAIL("Variable redefinition", "int a, a; return 1;", "ERROR: name 'a' is already taken for a variable in current scope");
+	TEST_FOR_FAIL("Variable hides function", "void a(){} int a; return 1;", "ERROR: name 'a' is already taken for a function");
 
 	TEST_FOR_FAIL("Uninit auto", "auto a; return 1;", "ERROR: auto variable must be initialized in place of definition");
 	TEST_FOR_FAIL("Array of auto", "auto[4] a; return 1;", "ERROR: cannot specify array size for auto variable");
@@ -4478,16 +4532,16 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Variable of unknown type used", "auto a = a + 1; return a;", "ERROR: variable 'a' is being used while its type is unknown");
 
 	TEST_FOR_FAIL("Indexing not an array", "int a; return a[5];", "ERROR: indexing variable that is not an array");
-	TEST_FOR_FAIL("Array underflow", "int[4] a; a[-1] = 2; return 1;", "ERROR: Array index cannot be negative");
-	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;", "ERROR: Array index out of bounds");
+	TEST_FOR_FAIL("Array underflow", "int[4] a; a[-1] = 2; return 1;", "ERROR: array index cannot be negative");
+	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;", "ERROR: array index out of bounds");
 
 	TEST_FOR_FAIL("No matching function", "int f(int a, b){} int f(int a, long b){} return f(1)'", "ERROR: can't find function 'f' with following parameters:");
-	TEST_FOR_FAIL("No clear decision", "int f(int a, b){} int f(int a, long b){} int f(){} return f(1, 3.0)'", "ERROR: Ambiguity, there is more than one overloaded function available for the call.");
+	TEST_FOR_FAIL("No clear decision", "int f(int a, b){} int f(int a, long b){} int f(){} return f(1, 3.0)'", "ERROR: ambiguity, there is more than one overloaded function available for the call.");
 
-	TEST_FOR_FAIL("Array without member", "int[4] a; return a.m;", "ERROR: Array doesn't have member with this name");
+	TEST_FOR_FAIL("Array without member", "int[4] a; return a.m;", "ERROR: array doesn't have member with this name");
 	TEST_FOR_FAIL("No methods", "int[4] i; return i.ok();", "ERROR: function 'int[]::ok' is undefined");
 	TEST_FOR_FAIL("void array", "void f(){} return { f(), f() };", "ERROR: array cannot be constructed from void type elements");
-	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;", "ERROR: Name 'a' is already taken for a variable in current scope");
+	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;", "ERROR: name 'a' is already taken for a variable in current scope");
 	TEST_FOR_FAIL("Auto parameter", "auto(auto a){} return 1;", "ERROR: function parameter cannot be an auto type");
 	TEST_FOR_FAIL("Auto parameter 2 ", "int func(auto a, int i){ return 0; } return 0;", "ERROR: function parameter cannot be an auto type");
 	TEST_FOR_FAIL("Function redefine", "int a(int b){} int a(int c){} return 1;", "ERROR: function 'a' is being defined with the same set of parameters");
@@ -4506,19 +4560,19 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;", "ERROR: cannot switch by void type");
 	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;", "ERROR: case value type cannot be void");
 
-	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;", "ERROR: Different type is being defined");
+	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;", "ERROR: different type is being defined");
 	TEST_FOR_FAIL("class wrong alignment", "align(32) class test{int a;} return 1;", "ERROR: alignment must be less than 16 bytes");
 	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;", "ERROR: auto cannot be used for class members");
 	TEST_FOR_FAIL("class is too big", "class nobiggy{ int[128][128][4] a; } return 1;", "ERROR: class size cannot exceed 65535 bytes");
 
-	TEST_FOR_FAIL("array size not const", "import std.math; int[cos(12) * 16] a; return a[0];", "ERROR: Array size must be a constant expression");
-	TEST_FOR_FAIL("array size not positive", "int[-16] a; return a[0];", "ERROR: Array size can't be negative or zero");
+	TEST_FOR_FAIL("array size not const", "import std.math; int[cos(12) * 16] a; return a[0];", "ERROR: array size must be a constant expression");
+	TEST_FOR_FAIL("array size not positive", "int[-16] a; return a[0];", "ERROR: array size can't be negative or zero");
 
 	TEST_FOR_FAIL("function parameter cannot be a void type", "int f(void a){ return 0; } return 1;", "ERROR: function parameter cannot be a void type");
 	TEST_FOR_FAIL("function prototype with unresolved return type", "auto f(); return 1;", "ERROR: function prototype with unresolved return type");
-	TEST_FOR_FAIL("Division by zero during constant folding", "return 5 / 0;", "ERROR: Division by zero during constant folding");
-	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;", "ERROR: Modulus division by zero during constant folding");
-	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;", "ERROR: Modulus division by zero during constant folding");
+	TEST_FOR_FAIL("Division by zero during constant folding", "return 5 / 0;", "ERROR: division by zero during constant folding");
+	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;", "ERROR: modulus division by zero during constant folding");
+	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;", "ERROR: modulus division by zero during constant folding");
 
 	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);", "ERROR: variable is not a pointer to function");
 
@@ -4532,11 +4586,11 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
 	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];", "ERROR: indexing variable that is not an array");
-	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;", "ERROR: Cannot convert 'int[] ref' to 'int[]'");
+	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;", "ERROR: cannot convert 'int[] ref' to 'int[]'");
 	TEST_FOR_FAIL("Type redefinition", "class int{ int a, b; } return 1;", "ERROR: 'int' is being redefined");
 
-	TEST_FOR_FAIL("Illegal conversion 1", "import std.math; float3 a; a = 12.0; return 1;", "ERROR: Cannot convert 'double' to 'float3'");
-	TEST_FOR_FAIL("Illegal conversion 2", "import std.math; float3 a; float4 b; b = a; return 1;", "ERROR: Cannot convert 'float3' to 'float4'");
+	TEST_FOR_FAIL("Illegal conversion 1", "import std.math; float3 a; a = 12.0; return 1;", "ERROR: cannot convert 'double' to 'float3'");
+	TEST_FOR_FAIL("Illegal conversion 2", "import std.math; float3 a; float4 b; b = a; return 1;", "ERROR: cannot convert 'float3' to 'float4'");
 
 	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;", "ERROR: variable or function 'i' is not defined");
 
@@ -4554,10 +4608,10 @@ return *res + *h.c + *v + *e[0];";
 
 	TEST_FOR_FAIL("Variable type is unknow", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: variable type is unknown");
 
-	TEST_FOR_FAIL("Illegal pointer operation 1", "int ref a; a += a;", "ERROR: There is no build-in operator for types 'int ref' and 'int ref'");
-	TEST_FOR_FAIL("Illegal pointer operation 2", "int ref a; a++;", "ERROR: Increment is not supported on 'int ref'");
-	TEST_FOR_FAIL("Illegal pointer operation 3", "int ref a; a = a * 5;", "ERROR: Operation * is not supported on 'int ref' and 'int'");
-	TEST_FOR_FAIL("Illegal class operation", "import std.math; float2 v; v = ~v;", "ERROR: Unary operation '~' is not supported on 'float2'");
+	TEST_FOR_FAIL("Illegal pointer operation 1", "int ref a; a += a;", "ERROR: there is no build-in operator for types 'int ref' and 'int ref'");
+	TEST_FOR_FAIL("Illegal pointer operation 2", "int ref a; a++;", "ERROR: increment is not supported on 'int ref'");
+	TEST_FOR_FAIL("Illegal pointer operation 3", "int ref a; a = a * 5;", "ERROR: operation * is not supported on 'int ref' and 'int'");
+	TEST_FOR_FAIL("Illegal class operation", "import std.math; float2 v; v = ~v;", "ERROR: unary operation '~' is not supported on 'float2'");
 
 	TEST_FOR_FAIL("Default function parameter type mismatch", "import std.math;int f(int v = float3(3, 4, 5)){ return v; }return f();", "ERROR: cannot convert from 'float3' to 'int'");
 	TEST_FOR_FAIL("Default function parameter type mismatch 2", "void func(){} int test(int a = func()){ return a; } return 0;", "ERROR: cannot convert from 'void' to 'int'");
@@ -4565,12 +4619,13 @@ return *res + *h.c + *v + *e[0];";
 
 	TEST_FOR_FAIL("Undefined function call in function parameters", "int func(int a = func()){ return 0; } return 0;", "ERROR: function 'func' is undefined");
 	TEST_FOR_FAIL("Property set function is missing", "int int.test(){ return *this; } int a; a.test = 5; return a.test;", "ERROR: cannot change immutable value of type int");
-	TEST_FOR_FAIL("Illegal comparison", "return \"hello\" > 12;", "ERROR: Operation > is not supported on 'char[6]' and 'int'");
+	TEST_FOR_FAIL("Illegal comparison", "return \"hello\" > 12;", "ERROR: operation > is not supported on 'char[6]' and 'int'");
+	TEST_FOR_FAIL("Illegal array element", "auto a = { {15, 12 }, 14, {18, 48} };", "ERROR: element 1 doesn't match the type of element 0 (int[2])");
 
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("parsing", "return 0x;", "ERROR: '0x' must be followed by number");
-	TEST_FOR_FAIL("parsing", "int[12 a;", "ERROR: Matching ']' not found");
+	TEST_FOR_FAIL("parsing", "int[12 a;", "ERROR: matching ']' not found");
 	TEST_FOR_FAIL("parsing", "typeof 12 a;", "ERROR: typeof must be followed by '('");
 	TEST_FOR_FAIL("parsing", "typeof(12 a;", "ERROR: ')' not found after expression in typeof");
 	TEST_FOR_FAIL("parsing", "typeof() a;", "ERROR: expression not found after typeof(");
@@ -4648,7 +4703,7 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("parsing", "sizeof", "ERROR: sizeof must be followed by '('");
 	TEST_FOR_FAIL("parsing", "sizeof(", "ERROR: expression or type not found after sizeof(");
 	TEST_FOR_FAIL("parsing", "sizeof(int", "ERROR: ')' not found after expression in sizeof");
-	TEST_FOR_FAIL("parsing", "new", "ERROR: Type name expected after 'new'");
+	TEST_FOR_FAIL("parsing", "new", "ERROR: type name expected after 'new'");
 	TEST_FOR_FAIL("parsing", "new int[", "ERROR: expression not found after '['");
 	TEST_FOR_FAIL("parsing", "new int[12", "ERROR: ']' not found after expression");
 	TEST_FOR_FAIL("parsing", "auto a = {", "ERROR: value not found after '{'");

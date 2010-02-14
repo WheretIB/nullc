@@ -122,7 +122,7 @@ bool ParseArrayDefinition(Lexeme** str)
 		if(!ParseTernaryExpr(str))
 			ThrowError((*str)->pos, "ERROR: unexpected expression after '['");
 		if(!ParseLexem(str, lex_cbracket))
-			ThrowError((*str)->pos, "ERROR: Matching ']' not found");
+			ThrowError((*str)->pos, "ERROR: matching ']' not found");
 	}
 	if((*str)->type == lex_obracket)
 		ParseArrayDefinition(str);
@@ -1035,7 +1035,7 @@ bool ParseTerminal(Lexeme** str)
 		const char *pos = (*str)->pos;
 		int index;
 		if((index = ParseTypename(str)) == 0)
-			ThrowError((*str)->pos, "ERROR: Type name expected after 'new'");
+			ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
 		CALLBACK(SelectTypeByIndex(index - 1));
 
 		CALLBACK(GetTypeSize((*str)->pos, false));
