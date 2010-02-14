@@ -137,7 +137,7 @@ long long parseLong(const char* s, const char* e, int base)
 	for(const char *p = s; p < e; p++)
 	{
 		int digit = ((*p >= '0' && *p <= '9') ? *p - '0' : (*p & ~0x20) - 'A' + 10);
-		if(digit < 0 || digit > base)
+		if(digit < 0 || digit >= base)
 			ThrowError(p, "ERROR: Digit %d is not allowed in base %d", digit, base);
 		res = res * base + digit;
 	}

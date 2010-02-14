@@ -4239,6 +4239,21 @@ return int(a.x);";
 		}
 	}
 
+const char	*testBytecodeButNoGlobal =
+"int func(){ return 0; }";
+	printf("\r\nBytecode with no global code\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testBytecodeButNoGlobal, testTarget[t], "no return value"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -4400,7 +4415,7 @@ return *res + *h.c + *v + *e[0];";
 	}\
 }
 
-	TEST_FOR_FAIL("Number not allowed in this base", "return 09;", "ERROR: Digit 9 is not allowed in base 8");
+	TEST_FOR_FAIL("Number not allowed in this base", "return 08;", "ERROR: Digit 8 is not allowed in base 8");
 	TEST_FOR_FAIL("Unknown escape sequence", "return '\\p';", "ERROR: unknown escape sequence");
 	TEST_FOR_FAIL("Wrong alignment", "align(32) int a; return 0;", "ERROR: alignment must be less than 16 bytes");
 	TEST_FOR_FAIL("Change of immutable value", "int i; return *i = 5;", "ERROR: cannot change immutable value of type int");
@@ -4532,6 +4547,7 @@ return *res + *h.c + *v + *e[0];";
 
 	TEST_FOR_FAIL("Undefined function call in function parameters", "int func(int a = func()){ return 0; } return 0;", "ERROR: function 'func' is undefined");
 	TEST_FOR_FAIL("Property set function is missing", "int int.test(){ return *this; } int a; a.test = 5; return a.test;", "ERROR: cannot change immutable value of type int");
+	TEST_FOR_FAIL("Illegal comparison", "return \"hello\" > 12;", "ERROR: Operation > is not supported on 'char[6]' and 'int'");
 
 	//TEST_FOR_FAIL("parsing", "");
 
