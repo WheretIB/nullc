@@ -1414,11 +1414,11 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 	bool logicalOp = (cmd >= cmdLess && cmd <= cmdNEqual) || (cmd >= cmdLogAnd && cmd <= cmdLogXor);
 
 	// Binary operations on complex types are not present at the moment
-	if(first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0 || first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-	{
-		if(!(first->typeInfo->refLevel == second->typeInfo->refLevel && logicalOp))
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
-	}
+	if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+	if((first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0) && !(first->typeInfo->refLevel == second->typeInfo->refLevel && logicalOp))
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: Operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+	
 	if(first->typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operator returns void");
 	if(second->typeInfo == typeVoid)
