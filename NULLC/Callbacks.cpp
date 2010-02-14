@@ -682,9 +682,10 @@ void AddReturnNode(const char* pos)
 
 	// If new function is returned, convert it to pointer
 	ConvertFunctionToPointer(pos);
-
+	
 	// Type that is being returned
 	TypeInfo *realRetType = CodeInfo::nodeList.back()->typeInfo;
+
 	// Type that should be returned
 	TypeInfo *expectedType = NULL;
 	if(currDefinedFunc.size() != 0)
@@ -694,6 +695,10 @@ void AddReturnNode(const char* pos)
 		{
 			currDefinedFunc.back()->retType = realRetType;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
+		}else{
+			ConvertArrayToUnsized(pos, currDefinedFunc.back()->retType);
+			HandlePointerToObject(pos, currDefinedFunc.back()->retType);
+			realRetType = CodeInfo::nodeList.back()->typeInfo;
 		}
 		// Take expected return type
 		expectedType = currDefinedFunc.back()->retType;
