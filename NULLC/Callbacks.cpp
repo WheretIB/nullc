@@ -1791,6 +1791,23 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	}else if(funcName){
 		funcNameHash = GetStringHash(funcName);
 	}
+	if(!silent && callArgCount == 1 && CodeInfo::nodeList[CodeInfo::nodeList.size() - 1]->typeInfo == typeObject)
+	{
+		unsigned int autoRefToType = 0;
+		for(unsigned int i = 0; i < CodeInfo::classCount && !autoRefToType; i++)
+		{
+			if(CodeInfo::typeInfo[i]->nameHash == funcNameHash)
+				autoRefToType = i;
+		}
+		if(autoRefToType)
+		{
+			if(AddFunctionCallNode(pos, funcName, 1, true))
+				return true;
+			CodeInfo::nodeList.push_back(new NodeConvertPtr(CodeInfo::GetReferenceType(CodeInfo::typeInfo[autoRefToType])));
+			CodeInfo::nodeList.push_back(new NodeDereference());
+			return true;
+		}
+	}
 
 	//Find all functions with given name
 	bestFuncList.clear();
