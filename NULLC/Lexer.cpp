@@ -27,9 +27,10 @@ void Lexer::Lexify(const char* code)
 			{
 				const char *pos = code;
 				pos++;
-				while(!(*pos == '\"' && pos[-1] != '\\'))
+				while(*pos && !(*pos == '\"' && pos[-1] != '\\'))
 					pos++;
-				pos++;
+				if(*pos)
+					pos++;
 				lLength = (int)(pos - code);
 			}
 			break;
@@ -38,9 +39,10 @@ void Lexer::Lexify(const char* code)
 			{
 				const char *pos = code;
 				pos++;
-				while(!(*pos == '\'' && pos[-1] != '\\'))
+				while(*pos && !(*pos == '\'' && pos[-1] != '\\'))
 					pos++;
-				pos++;
+				if(*pos)
+					pos++;
 				lLength = (int)(pos - code);
 			}
 			break;
