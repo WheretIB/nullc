@@ -4624,6 +4624,9 @@ return *res + *h.c + *v + *e[0];";
 
 	//TEST_FOR_FAIL("parsing", "");
 
+	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return must be followed by ';'");
+	TEST_FOR_FAIL("lexer", "return '", "ERROR: return must be followed by ';'");
+
 	TEST_FOR_FAIL("parsing", "return 0x;", "ERROR: '0x' must be followed by number");
 	TEST_FOR_FAIL("parsing", "int[12 a;", "ERROR: matching ']' not found");
 	TEST_FOR_FAIL("parsing", "typeof 12 a;", "ERROR: typeof must be followed by '('");

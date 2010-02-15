@@ -958,7 +958,7 @@ VOID CALLBACK RichTextarea::AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEv
 		posInChars += GetCharShift(data->currLine->data[i].ch, posInChars);
 	// Calculate cursor position in pixels
 	int	xPos = padLeft - data->shiftCharX * charWidth + posInChars * charWidth;
-	int chWidth = GetCharShift(data->currLine->data[data->cursorCharX].ch, posInChars) * charWidth;
+	int chWidth = data->cursorCharX == data->currLine->length ? charWidth : GetCharShift(data->currLine->data[data->cursorCharX].ch, posInChars) * charWidth;
 
 	// While selecting pen, we check if our window is active. Cursor shouldn't blink if focus is on some other window
 	SelectPen(hdc, idEvent ? currPen : areaPenWhite1px);

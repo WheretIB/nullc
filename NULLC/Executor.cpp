@@ -123,8 +123,8 @@ void Executor::Run(const char* funcName)
 	// General stack
 	if(!genStackBase)
 	{
-		genStackBase = (unsigned int*)NULLC::alloc(sizeof(unsigned int) * 2048);	// Should be enough, but can grow
-		genStackTop = genStackBase + 2048;
+		genStackBase = (unsigned int*)NULLC::alloc(sizeof(unsigned int) * 8192 * 2);	// Should be enough, but can grow
+		genStackTop = genStackBase + 8192 * 2;
 	}
 	genStackPtr = genStackTop - 1;
 
