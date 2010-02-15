@@ -4357,6 +4357,21 @@ return 0;";
 		}
 	}
 
+const char	*testCompileTimeConversion =
+"return double(2) < 2.2;";
+	printf("\r\nCompile-time converision check\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testCompileTimeConversion, testTarget[t], "1"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 	RunTests2();
 }
 
