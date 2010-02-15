@@ -4322,6 +4322,41 @@ return arr2[1][1] + arr2[0][0] + arr2[2][2] + arr[1][1];";
 		}
 	}
 
+const char	*testBreakContinueTests =
+"int hadThis = 1;\r\n\
+\r\n\
+for(int k = 0; k < 10; k++)\r\n\
+{\r\n\
+	if(hadThis)\r\n\
+		continue;\r\n\
+\r\n\
+	for(int z = 1; z < 4; z++){}\r\n\
+	break;\r\n\
+}\r\n\
+for(int k2 = 0; 1; k2++)\r\n\
+{\r\n\
+	if(hadThis)\r\n\
+		break;\r\n\
+\r\n\
+	for(int z = 1; z < 4; z++){}\r\n\
+}\r\n\
+return 0;";
+	printf("\r\nMore break and continue tests\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testBreakContinueTests, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("k", 0, 10);
+			CHECK_INT("k2", 0, 0);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 	RunTests2();
 }
 
