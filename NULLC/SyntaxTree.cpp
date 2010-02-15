@@ -1603,6 +1603,8 @@ void NodeIfElseExpr::LogToStream(FILE *fGraph)
 //////////////////////////////////////////////////////////////////////////
 // Nod for compilation of for(){}
 
+unsigned int	currLoopDepth = 0;
+
 NodeForExpr::NodeForExpr()
 {
 	fourth = TakeLastNode();
@@ -1622,6 +1624,8 @@ void NodeForExpr::Compile()
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 
 	CompileExtra();
+
+	currLoopDepth++;
 
 	// Child node structure: for(first, second, third) fourth;
 
@@ -1651,6 +1655,8 @@ void NodeForExpr::Compile()
 	cmdList[exitJmp].argument = cmdList.size();
 	NodeContinueOp::SatisfyJumps(posPostOp);
 	NodeBreakOp::SatisfyJumps(cmdList.size());
+
+	currLoopDepth--;
 }
 void NodeForExpr::LogToStream(FILE *fGraph)
 {
@@ -1687,6 +1693,7 @@ void NodeWhileExpr::Compile()
 
 	CompileExtra();
 
+	currLoopDepth++;
 	// Child node structure: while(first) second;
 
 	unsigned int posStart = cmdList.size();
@@ -1709,6 +1716,8 @@ void NodeWhileExpr::Compile()
 	cmdList[exitJmp].argument = cmdList.size();
 	NodeContinueOp::SatisfyJumps(posStart);
 	NodeBreakOp::SatisfyJumps(cmdList.size());
+
+	currLoopDepth--;
 }
 void NodeWhileExpr::LogToStream(FILE *fGraph)
 {
@@ -1742,6 +1751,8 @@ void NodeDoWhileExpr::Compile()
 
 	CompileExtra();
 
+	currLoopDepth++;
+
 	unsigned int posStart = cmdList.size();
 	// Compile loop contents
 	first->Compile();
@@ -1760,6 +1771,8 @@ void NodeDoWhileExpr::Compile()
 
 	NodeContinueOp::SatisfyJumps(posCond);
 	NodeBreakOp::SatisfyJumps(cmdList.size());
+
+	currLoopDepth--;
 }
 void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 {
@@ -1778,7 +1791,7 @@ void SatisfyJumps(FastVector<unsigned int>& jumpList, unsigned int pos)
 {
 	for(unsigned int i = 0; i < jumpList.size();)
 	{
-		if(cmdList[jumpList[i]].argument == 1)//jumpList[i]->argument == 1)
+		if(cmdList[jumpList[i]].argument == currLoopDepth)//jumpList[i]->argument == 1)
 		{
 			// If level is equal to 1, replace it with jump position
 			cmdList[jumpList[i]].argument = pos;
@@ -1786,8 +1799,6 @@ void SatisfyJumps(FastVector<unsigned int>& jumpList, unsigned int pos)
 			jumpList[i] = jumpList.back();
 			jumpList.pop_back();
 		}else{
-			// Otherwise, change level
-			cmdList[jumpList[i]].argument--;
 			i++;
 		}
 	}
@@ -1817,7 +1828,7 @@ void NodeBreakOp::Compile()
 
 	// Break the loop
 	fixQueue.push_back(cmdList.size());
-	cmdList.push_back(VMCmd(cmdJmp, breakDepth));
+	cmdList.push_back(VMCmd(cmdJmp, currLoopDepth - breakDepth + 1));
 }
 void NodeBreakOp::LogToStream(FILE *fGraph)
 {
@@ -1854,7 +1865,7 @@ void NodeContinueOp::Compile()
 
 	// Continue the loop
 	fixQueue.push_back(cmdList.size());
-	cmdList.push_back(VMCmd(cmdJmp, continueDepth));
+	cmdList.push_back(VMCmd(cmdJmp, currLoopDepth - continueDepth + 1));
 }
 void NodeContinueOp::LogToStream(FILE *fGraph)
 {
@@ -1919,6 +1930,8 @@ void NodeSwitchExpr::Compile()
 {
 	CompileExtra();
 
+	currLoopDepth++;
+
 	asmStackType aST = first->typeInfo->stackType;
 	asmOperType aOT = operTypeForStackType[aST];
 
@@ -1974,6 +1987,8 @@ void NodeSwitchExpr::Compile()
 	}
 	fixQueue.shrink(queueStart);
 	NodeBreakOp::SatisfyJumps(cmdList.size());
+
+	currLoopDepth--;
 }
 void NodeSwitchExpr::LogToStream(FILE *fGraph)
 {
@@ -2058,4 +2073,11 @@ void NodeExpressionList::LogToStream(FILE *fGraph)
 		curr = curr->next;
 	}while(curr);
 	GoUp();
+}
+
+void ResetTreeGlobals()
+{
+	currLoopDepth = 0;
+	NodeBreakOp::fixQueue.clear();
+	NodeContinueOp::fixQueue.clear();
 }

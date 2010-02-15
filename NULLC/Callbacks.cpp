@@ -2285,6 +2285,8 @@ void CallbackInitialize()
 	funcMap.clear();
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 		AddFunctionToSortedList(CodeInfo::funcInfo[i]);
+
+	ResetTreeGlobals();
 }
 
 unsigned int GetGlobalSize()

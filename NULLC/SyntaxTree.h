@@ -3,6 +3,8 @@
 #include "InstructionSet.h"
 #include "ParseClass.h"
 
+void	ResetTreeGlobals();
+
 //////////////////////////////////////////////////////////////////////////
 enum NodeType
 {
