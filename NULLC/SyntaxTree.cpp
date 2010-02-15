@@ -1428,12 +1428,14 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
 
 	// Find the type or resulting value
-	typeInfo = logicalOp ? typeInt : ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
+	typeInfo = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
 
 	if(first->nodeType == typeNodeNumber && first->typeInfo != typeInfo)
 		((NodeNumber*)first)->ConvertTo(typeInfo);
 	if(second->nodeType == typeNodeNumber && second->typeInfo != typeInfo)
 		((NodeNumber*)second)->ConvertTo(typeInfo);
+
+	typeInfo = logicalOp ? typeInt : typeInfo;
 
 	nodeType = typeNodeBinaryOp;
 }
@@ -1791,7 +1793,7 @@ void SatisfyJumps(FastVector<unsigned int>& jumpList, unsigned int pos)
 {
 	for(unsigned int i = 0; i < jumpList.size();)
 	{
-		if(cmdList[jumpList[i]].argument == currLoopDepth)//jumpList[i]->argument == 1)
+		if(cmdList[jumpList[i]].argument == currLoopDepth)
 		{
 			// If level is equal to 1, replace it with jump position
 			cmdList[jumpList[i]].argument = pos;
