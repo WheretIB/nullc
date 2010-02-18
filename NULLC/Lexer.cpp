@@ -246,6 +246,8 @@ void Lexer::Lexify(const char* code)
 					case 2:
 						if(memcmp(code, "if", 2) == 0)
 							lType = lex_if;
+						else if(memcmp(code, "in", 2) == 0)
+							lType = lex_in;
 						else if(memcmp(code, "do", 2) == 0)
 							lType = lex_do;
 						break;
@@ -294,6 +296,8 @@ void Lexer::Lexify(const char* code)
 							lType = lex_default;
 						else if(memcmp(code, "typedef", 7) == 0)
 							lType = lex_typedef;
+						else if(memcmp(code, "nullptr", 7) == 0)
+							lType = lex_nullptr;
 						break;
 					case 8:
 						if(memcmp(code, "continue", 8) == 0)

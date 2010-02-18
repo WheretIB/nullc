@@ -21,6 +21,7 @@ void AddNumberNodeLong(const char* pos, const char* end);
 void AddNumberNodeDouble(const char* pos);
 
 void AddVoidNode();
+void AddNullPointer();
 
 void AddHexInteger(const char* pos, const char* end);
 void AddOctInteger(const char* pos, const char* end);
@@ -84,6 +85,8 @@ void AddOneExpressionNode(void *retType = NULL);
 void AddTwoExpressionNode(void *retType = NULL);
 
 void AddArrayConstructor(const char* pos, unsigned int arrElementCount);
+
+void AddArrayIterator(const char* pos, InplaceStr varName);
 
 void AddTypeAllocation(const char* pos);
 

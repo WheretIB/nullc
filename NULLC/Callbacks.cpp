@@ -327,6 +327,11 @@ void AddVoidNode()
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
 }
 
+void AddNullPointer()
+{
+	CodeInfo::nodeList.push_back(new NodeNumber(0, CodeInfo::GetReferenceType(typeVoid)));
+}
+
 // Function that places string on stack, using list of NodeNumber in NodeExpressionList
 void AddStringNode(const char* s, const char* e)
 {
@@ -703,7 +708,7 @@ void AddReturnNode(const char* pos)
 		// Take expected return type
 		expectedType = currDefinedFunc.back()->retType;
 		// Check for errors
-		if((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType)
+		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
 			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
 		if(expectedType == typeVoid && realRetType != typeVoid)
 			ThrowError(pos, "ERROR: function returning a value");
@@ -943,6 +948,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		}else{
 			// Create node that places variable address on stack
 			CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
+			if(CodeInfo::varInfo[i]->autoDeref)
+				AddGetVariableNode(pos);
 		}
 	}
 }
@@ -1392,6 +1399,11 @@ void ConvertFunctionToPointer(const char* pos)
 void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 {
 	TypeInfo *srcType = CodeInfo::nodeList.back()->typeInfo;
+	if(typeVoid->refType && srcType == typeVoid->refType && dstType->refLevel != 0)
+	{
+		CodeInfo::nodeList.back()->typeInfo = dstType;
+		return;
+	}
 	if(!((dstType == typeObject) ^ (srcType == typeObject)))
 		return;
 
@@ -1465,6 +1477,42 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	}
 
 	CodeInfo::nodeList.push_back(arrayList);
+}
+
+void AddArrayIterator(const char* pos, InplaceStr varName)
+{
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
+		CodeInfo::nodeList.back() = ((NodeOneOP*)CodeInfo::nodeList.back())->GetFirstNode();
+
+	// Initialization part
+	AddMemberFunctionCall(pos, "start", 0);
+
+	AddInplaceVariable(pos);
+	NodeZeroOP *getIterator = CodeInfo::nodeList.back();
+
+	AddMemberFunctionCall(pos, "next", 0);
+
+	currType = NULL;
+	VariableInfo *it = (VariableInfo*)AddVariable(pos, varName);
+	AddDefineVariableNode(pos, it);
+	AddPopNode(pos);
+	AddTwoExpressionNode(NULL);
+
+	// Condition part
+	AddGetAddressNode(pos, varName);
+	AddGetVariableNode(pos);
+
+	// Increment part
+	AddGetAddressNode(pos, varName);
+
+	NodeOneOP *wrap = new NodeOneOP();
+	wrap->SetFirstNode(getIterator);
+	CodeInfo::nodeList.push_back(wrap);
+	AddMemberFunctionCall(pos, "next", 0);
+	AddSetVariableNode(pos);
+	AddPopNode(pos);
+
+	it->autoDeref = true;
 }
 
 void AddTypeAllocation(const char* pos)

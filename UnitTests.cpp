@@ -4372,6 +4372,59 @@ const char	*testCompileTimeConversion =
 		}
 	}
 
+const char	*testForEachUserType =
+"class array\r\n\
+{\r\n\
+	int[] arr;\r\n\
+}\r\n\
+class array_iterator\r\n\
+{\r\n\
+	array ref arr;\r\n\
+	int pos;\r\n\
+}\r\n\
+auto array(int size)\r\n\
+{\r\n\
+	array ret;\r\n\
+	ret.arr = new int[size];\r\n\
+	return ret;\r\n\
+}\r\n\
+auto array:start()\r\n\
+{\r\n\
+	array_iterator iter;\r\n\
+	iter.arr = this;\r\n\
+	iter.pos = 0;\r\n\
+	return iter;\r\n\
+}\r\n\
+int ref array_iterator:next()\r\n\
+{\r\n\
+	if(pos >= arr.arr.size)\r\n\
+		return nullptr;\r\n\
+	return &arr.arr[pos++];\r\n\
+}\r\n\
+\r\n\
+array arr = array(16);\r\n\
+int u = 1;\r\n\
+for(i in arr)\r\n\
+	i = u++;\r\n\
+for(i in arr)\r\n\
+	i *= i;\r\n\
+int sum = 0;\r\n\
+for(i in arr)\r\n\
+	sum += i;\r\n\
+return sum;";
+	printf("\r\nFor each on user type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testForEachUserType, testTarget[t], "1496"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 	RunTests2();
 }
 
@@ -4671,7 +4724,8 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Property set function is missing", "int int.test(){ return *this; } int a; a.test = 5; return a.test;", "ERROR: cannot change immutable value of type int");
 	TEST_FOR_FAIL("Illegal comparison", "return \"hello\" > 12;", "ERROR: operation > is not supported on 'char[6]' and 'int'");
 	TEST_FOR_FAIL("Illegal array element", "auto a = { {15, 12 }, 14, {18, 48} };", "ERROR: element 1 doesn't match the type of element 0 (int[2])");
-
+	TEST_FOR_FAIL("Wrong return type", "int ref a(){ float b=5; return &b; } return 9;", "ERROR: function returns float ref but supposed to return int ref");
+	
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return must be followed by ';'");
