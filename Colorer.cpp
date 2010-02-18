@@ -347,19 +347,15 @@ namespace ColorerGrammar
 				strWP("for")[ColorRWord] >>
 				('(' | epsP[LogError("ERROR: '(' not found after 'for'")])[ColorText] >>
 				(
+					(varname[ColorVarDef] >> strWP("in")[ColorRWord] >> term5) |
 					(
-						chP('{')[ColorBold] >>
-						(code | epsP) >>
-						(chP('}')[ColorBold] | epsP[LogError("ERROR: '}' not found after '{'")])
-					) |
-					vardef |
-					term5 |
-					epsP
+						(block | vardef | term5 | epsP ) >>
+						(';' | epsP[LogError("ERROR: ';' not found after initializer in 'for'")])[ColorText] >>
+						(term5 | epsP[LogError("ERROR: condition not found in 'for' statement")]) >>
+						(';' | epsP[LogError("ERROR: ';' not found after condition in 'for'")])[ColorText] >>
+						(block | term5 | epsP)
+					)
 				) >>
-				(';' | epsP[LogError("ERROR: ';' not found after initializer in 'for'")])[ColorText] >>
-				(term5 | epsP[LogError("ERROR: condition not found in 'for' statement")]) >>
-				(';' | epsP[LogError("ERROR: ';' not found after condition in 'for'")])[ColorText] >>
-				(block | term5 | epsP) >>
 				(')' | epsP[LogError("ERROR: ')' not found after 'for' statement")])[ColorText] >>
 				(expr | epsP[LogError("ERROR: expression not found after 'for' statement")]);
 
@@ -418,6 +414,7 @@ namespace ColorerGrammar
 			group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
 			term1		=
 				funcdef |
+				strP("nullptr")[ColorRWord] |
 				(strP("sizeof")[ColorRWord] >> chP('(')[ColorText] >> (typeExpr | term5) >> chP(')')[ColorText]) |
 				(chP('&')[ColorText] >> appval) |
 				((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 

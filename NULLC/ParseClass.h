@@ -262,6 +262,8 @@ public:
 		parentModule = 0;
 		blockDepth = 0;
 
+		autoDeref = false;
+
 		defaultValue = NULL;
 		next = prev = NULL;
 	}
@@ -271,6 +273,7 @@ public:
 
 	unsigned int	pos;		// Variable position in value stack
 	bool			isGlobal;
+	bool			autoDeref;
 
 	unsigned int	parentModule;
 	unsigned int	blockDepth;

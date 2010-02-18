@@ -619,43 +619,60 @@ bool ParseForExpr(Lexeme** str)
 	
 	CALLBACK(BeginBlock());
 
-	if(ParseLexem(str, lex_ofigure))
+	const char *condPos = NULL;
+	if((*str+1)->type == lex_in)
 	{
-		if(!ParseCode(str))
-			CALLBACK(AddVoidNode());
-		if(!ParseLexem(str, lex_cfigure))
-			ThrowError((*str)->pos, "ERROR: '}' not found after '{'");
+		if((*str)->type != lex_string)
+			ThrowError((*str)->pos, "ERROR: variable name expected before 'in'");
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError((*str)->pos, "ERROR: variable name length is limited to 2048 symbols");
+		Lexeme	*varName = *str;
+		condPos = (*str)->pos;
+		(*str) += 2;	// Skip name and 'in'
+
+		// Parse expression
+		ParseTernaryExpr(str);
+
+		AddArrayIterator(varName->pos, InplaceStr(varName->pos, varName->length));
 	}else{
-		if(!ParseVariableDefine(str))
+		if(ParseLexem(str, lex_ofigure))
 		{
+			if(!ParseCode(str))
+				CALLBACK(AddVoidNode());
+			if(!ParseLexem(str, lex_cfigure))
+				ThrowError((*str)->pos, "ERROR: '}' not found after '{'");
+		}else{
+			if(!ParseVariableDefine(str))
+			{
+				if(!ParseVaribleSet(str))
+					CALLBACK(AddVoidNode());
+				else
+					CALLBACK(AddPopNode((*str)->pos));
+			}
+		}
+
+		if(!ParseLexem(str, lex_semicolon))
+			ThrowError((*str)->pos, "ERROR: ';' not found after initializer in 'for'");
+
+		condPos = (*str)->pos;
+		if(!ParseVaribleSet(str))
+			ThrowError((*str)->pos, "ERROR: condition not found in 'for' statement");
+
+		if(!ParseLexem(str, lex_semicolon))
+			ThrowError((*str)->pos, "ERROR: ';' not found after condition in 'for'");
+
+		if(ParseLexem(str, lex_ofigure))
+		{
+			if(!ParseCode(str))
+				CALLBACK(AddVoidNode());
+			if(!ParseLexem(str, lex_cfigure))
+				ThrowError((*str)->pos, "ERROR: '}' not found after '{'");
+		}else{
 			if(!ParseVaribleSet(str))
 				CALLBACK(AddVoidNode());
 			else
 				CALLBACK(AddPopNode((*str)->pos));
 		}
-	}
-
-	if(!ParseLexem(str, lex_semicolon))
-		ThrowError((*str)->pos, "ERROR: ';' not found after initializer in 'for'");
-
-	const char *condPos = (*str)->pos;
-	if(!ParseVaribleSet(str))
-		ThrowError((*str)->pos, "ERROR: condition not found in 'for' statement");
-
-	if(!ParseLexem(str, lex_semicolon))
-		ThrowError((*str)->pos, "ERROR: ';' not found after condition in 'for'");
-
-	if(ParseLexem(str, lex_ofigure))
-	{
-		if(!ParseCode(str))
-			CALLBACK(AddVoidNode());
-		if(!ParseLexem(str, lex_cfigure))
-			ThrowError((*str)->pos, "ERROR: '}' not found after '{'");
-	}else{
-		if(!ParseVaribleSet(str))
-			CALLBACK(AddVoidNode());
-		else
-			CALLBACK(AddPopNode((*str)->pos));
 	}
 
 	if(!ParseLexem(str, lex_cparen))
@@ -667,13 +684,13 @@ bool ParseForExpr(Lexeme** str)
 			CALLBACK(AddVoidNode());
 		if(!ParseLexem(str, lex_cfigure))
 			ThrowError((*str)->pos, "ERROR: closing '}' not found");
-	}else if(!ParseExpression(str))
+	}else if(!ParseExpression(str)){
 		ThrowError((*str)->pos, "ERROR: body not found after 'for' header");
+	}
 
 	CALLBACK(EndBlock());
 	CALLBACK(AddForNode(condPos));
 	return true;
-
 }
 
 bool ParseWhileExpr(Lexeme** str)
@@ -952,6 +969,11 @@ bool ParseTerminal(Lexeme** str)
 	{
 	case lex_number:
 		return ParseNumber(str);
+		break;
+	case lex_nullptr:
+		(*str)++;
+		AddNullPointer();
+		return true;
 		break;
 	case lex_bitand:
 		(*str)++;
