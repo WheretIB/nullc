@@ -195,7 +195,7 @@ namespace ColorerGrammar
 				!strP("const")[ColorRWord][AssignVar<bool>(currValConst, true)];
 			symb		=	graphP - alnumP - chP(')');
 			symb2		=	graphP - alphaP;
-			varname		=	lexemeD[alphaP >> *(alnumP | '_')];
+			varname		=	lexemeD[(alphaP | '_') >> *(alnumP | '_')];
 			typeName	=	varname - strP("return");
 
 			arrayDef	=
