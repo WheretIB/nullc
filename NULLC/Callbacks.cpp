@@ -609,6 +609,13 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	if(CodeInfo::nodeList.back()->typeInfo->funcType && CodeInfo::nodeList.back()->typeInfo->funcType == CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->funcType && (id == cmdEqual || id == cmdNEqual))
+	{
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = typeLong;
+		CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = typeLong;
+		CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
+		return;
+	}
 	unsigned int aNodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType;
 	unsigned int bNodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->nodeType;
 
