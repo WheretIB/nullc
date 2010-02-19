@@ -1143,9 +1143,8 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	// Get variable type
 	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
 	// For member access, we expect to see a pointer to variable on top of the stack, so the shift to a member could be made
-	// But if structure was returned from a function, then we have it on stack "by variable", so we save it to a hidden variable
-	// And we take a pointer to that variable
-	if(currentType->refLevel == 0 && currentType->type == TypeInfo::TYPE_COMPLEX)
+	// But if structure was, for example, returned from a function, then we have it on stack "by value", so we save it to a hidden variable and take a pointer to it
+	if(currentType->refLevel == 0)
 	{
 		AddInplaceVariable(pos);
 		currentType = CodeInfo::GetReferenceType(currentType);
@@ -1247,7 +1246,7 @@ void PrepareMemberCall(const char* pos)
 		currentType = CodeInfo::nodeList.back()->typeInfo;
 	}
 	// Implicit conversion from type to type ref
-	if(currentType->refLevel == 0 && currentType->type == TypeInfo::TYPE_COMPLEX){
+	if(currentType->refLevel == 0){
 		// And from type[] to type[] ref
 		if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
 			ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(currentType->subType, TypeInfo::UNSIZED_ARRAY));
