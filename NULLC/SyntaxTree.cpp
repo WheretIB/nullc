@@ -1462,7 +1462,7 @@ void NodeBinaryOp::Compile()
 		unsigned int specialJmp1 = cmdList.size() - 1;
 
 		second->Compile();
-		if(fST == STYPE_LONG)
+		if(sST == STYPE_LONG)
 			cmdList.push_back(VMCmd(cmdBitOr));
 
 		// If it's operator || and first argument is true, jump to push 1 as result
