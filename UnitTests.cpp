@@ -4425,6 +4425,22 @@ return sum;";
 		}
 	}
 
+const char	*testLongOrInt =
+"long a = 0;int b = 0;\r\n\
+return a || b;";
+	printf("\r\nLong or int\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testLongOrInt, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 	RunTests2();
 }
 
