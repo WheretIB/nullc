@@ -4441,6 +4441,28 @@ return a || b;";
 		}
 	}
 
+const char	*testLongIncDec =
+"long count = 0xfffffffff;\r\n\
+count--;\r\n\
+assert(count == 0xffffffffe);\r\n\
+count++;\r\n\
+assert(count == 0xfffffffff);\r\n\
+count++;\r\n\
+assert(count == 0x1000000000);\r\n\
+return count;";
+	printf("\r\nLong increment and decrement extra tests\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testLongIncDec, testTarget[t], "68719476736L"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 	RunTests2();
 }
 

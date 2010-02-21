@@ -1886,7 +1886,7 @@ void GenCodeCmdIncL(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("INC long");
 	EMIT_OP_RPTR_NUM(o_add, sDWORD, rESP, 0, 1);
-	EMIT_OP_RPTR_NUM(o_adc, sDWORD, rESP, 0, 0);
+	EMIT_OP_RPTR_NUM(o_adc, sDWORD, rESP, 4, 0);
 }
 
 
@@ -1912,7 +1912,7 @@ void GenCodeCmdDecL(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("DEC long");
 	EMIT_OP_RPTR_NUM(o_sub, sDWORD, rESP, 0, 1);
-	EMIT_OP_RPTR_NUM(o_sbb, sDWORD, rESP, 0, 0);
+	EMIT_OP_RPTR_NUM(o_sbb, sDWORD, rESP, 4, 0);
 }
 
 void (*closureCreateFunc)() = NULL;
