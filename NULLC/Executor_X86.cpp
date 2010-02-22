@@ -316,6 +316,9 @@ bool ExecutorX86::Initialize()
 	return true;
 }
 
+// Returns value as close as real ESP, at the program execution start
+void* getESP(){ __asm{ lea eax, [ebp-32] } }
+
 #pragma warning(disable: 4731)
 void ExecutorX86::Run(const char* funcName)
 {
@@ -326,6 +329,8 @@ void ExecutorX86::Run(const char* funcName)
 		strcpy(execError, "ERROR: no code to run");
 		return;
 	}
+
+	SetUnmanagableRange(parameterHead, reservedStack);
 
 	execError[0] = 0;
 	callContinue = 1;
@@ -366,7 +371,7 @@ void ExecutorX86::Run(const char* funcName)
 	unsigned int res1 = 0;
 	unsigned int res2 = 0;
 	unsigned int resT = 0;
-	genStackPtr = genStackTop = &resT;
+	genStackPtr = genStackTop = getESP();
 	__try 
 	{
 		__asm
