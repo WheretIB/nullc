@@ -88,7 +88,7 @@ namespace NULLC
 		expECXstate = expInfo->ContextRecord->Ecx;
 		expESPstate = expInfo->ContextRecord->Esp;
 		expCodePublic = expCode;
-		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW)
+		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_INT_OVERFLOW)
 		{
 			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
 			int *paramData = &dataHead->nextElement;
@@ -337,6 +337,8 @@ void ExecutorX86::Run(const char* funcName)
 
 	stackReallocs = 0;
 
+	NULLC::dataHead->nextElement = NULL;
+
 	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
 
 	int functionID = -1;
@@ -407,6 +409,8 @@ void ExecutorX86::Run(const char* funcName)
 	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			strcpy(execError, "ERROR: integer division by zero");
+		else if(expCodePublic == EXCEPTION_INT_OVERFLOW)
+			strcpy(execError, "ERROR: integer overflow");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0)
 			strcpy(execError, "ERROR: array index out of bounds");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)

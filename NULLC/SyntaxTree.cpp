@@ -812,7 +812,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 		static_cast<NodeNumber*>(second)->ConvertTo(typeInfo);
 
 	// If this is the first array definition and value is array sub-type, we set it to all array elements
-	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
+	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && typeInfo->arrSize != -1 && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());

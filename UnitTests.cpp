@@ -4583,7 +4583,7 @@ auto ref c = &a;\r\n\
 int ref[2] d;\r\n\
 int ref[] e = d, e0;\r\n\
 int[2][2] u;\r\n\
-RefHold[4] u2;\r\n\
+RefHold[] u2 = { *h, *h, *h };\r\n\
 e[0] = &a;\r\n\
 auto func()\r\n\
 {\r\n\
@@ -4653,11 +4653,11 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Global return doesn't accept void", "void a(){} return a();", "ERROR: global return cannot accept void");
 	TEST_FOR_FAIL("Global return doesn't accept complex types", "void a(){} return a;", "ERROR: global return cannot accept complex types");
 
-	TEST_FOR_FAIL("Break followed by trash", "int a; break a; return 1;", "ERROR: break must be followed by ';' or a constant");
+	TEST_FOR_FAIL("Break followed by trash", "int a; break a; return 1;", "ERROR: break statement must be followed by ';' or a constant");
 	TEST_FOR_FAIL("Break with depth 0", "break 0; return 1;", "ERROR: break level cannot be 0");
 	TEST_FOR_FAIL("Break with depth too big", "while(1){ break 2; } return 1;", "ERROR: break level is greater that loop depth");
 
-	TEST_FOR_FAIL("continue followed by trash", "int a; continue a; return 1;", "ERROR: continue must be followed by ';' or a constant");
+	TEST_FOR_FAIL("continue followed by trash", "int a; continue a; return 1;", "ERROR: continue statement must be followed by ';' or a constant");
 	TEST_FOR_FAIL("continue with depth 0", "continue 0; return 1;", "ERROR: continue level cannot be 0");
 	TEST_FOR_FAIL("continue with depth too big", "while(1){ continue 2; } return 1;", "ERROR: continue level is greater that loop depth");
 
@@ -4764,10 +4764,13 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Illegal array element", "auto a = { {15, 12 }, 14, {18, 48} };", "ERROR: element 1 doesn't match the type of element 0 (int[2])");
 	TEST_FOR_FAIL("Wrong return type", "int ref a(){ float b=5; return &b; } return 9;", "ERROR: function returns float ref but supposed to return int ref");
 	
+	TEST_FOR_FAIL("Global variable size limit", "char[32*1024*1024] arr;", "ERROR: global variable size limit exceeded");
+	TEST_FOR_FAIL("Unsized array initialization", "char[] arr = 1;", "ERROR: cannot convert 'int' to 'char[]'");
+	
 	//TEST_FOR_FAIL("parsing", "");
 
-	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return must be followed by ';'");
-	TEST_FOR_FAIL("lexer", "return '", "ERROR: return must be followed by ';'");
+	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
+	TEST_FOR_FAIL("lexer", "return '", "ERROR: return statement must be followed by ';'");
 
 	TEST_FOR_FAIL("parsing", "return 0x;", "ERROR: '0x' must be followed by number");
 	TEST_FOR_FAIL("parsing", "int[12 a;", "ERROR: matching ']' not found");
@@ -4828,9 +4831,9 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("parsing", "switch(2){ case 2", "ERROR: ':' expected");
 	TEST_FOR_FAIL("parsing", "switch(2){ case 2:", "ERROR: '}' not found after 'switch' statement");
 	TEST_FOR_FAIL("parsing", "switch(2){ default:", "ERROR: '}' not found after 'switch' statement");
-	TEST_FOR_FAIL("parsing", "return", "ERROR: return must be followed by ';'");
-	TEST_FOR_FAIL("parsing", "break", "ERROR: break must be followed by ';'");
-	TEST_FOR_FAIL("parsing", "for(;1;) continue; continue", "ERROR: continue must be followed by ';'");
+	TEST_FOR_FAIL("parsing", "return", "ERROR: return statement must be followed by ';'");
+	TEST_FOR_FAIL("parsing", "break", "ERROR: break statement must be followed by ';'");
+	TEST_FOR_FAIL("parsing", "for(;1;) continue; continue", "ERROR: continue statement must be followed by ';'");
 	TEST_FOR_FAIL("parsing", "(", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("parsing", "(1", "ERROR: closing ')' not found after '('");
 	TEST_FOR_FAIL("parsing", "*", "ERROR: variable name not found after '*'");

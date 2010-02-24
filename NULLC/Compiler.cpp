@@ -1029,6 +1029,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			}
 		}else{
 			typeInfo.subCat = ExternTypeInfo::CAT_NONE;
+			typeInfo.subType = 0;
 		}
 
 		// Fill up next

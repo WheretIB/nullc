@@ -162,6 +162,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			typeRemap.push_back(exTypes.size());
 			exTypes.push_back(*tInfo);
 			exTypes.back().offsetToName += oldSymbolSize;
+			
+			if(exTypes.back().subCat == ExternTypeInfo::CAT_ARRAY || exTypes.back().subCat == ExternTypeInfo::CAT_POINTER)
+				exTypes.back().subType = typeRemap[exTypes.back().subType];
 			if(tInfo->subCat == ExternTypeInfo::CAT_FUNCTION || tInfo->subCat == ExternTypeInfo::CAT_CLASS)
 			{
 				exTypes.back().memberOffset = exTypeExtra.size();

@@ -795,7 +795,7 @@ bool ParseReturnExpr(Lexeme** str)
 		CALLBACK(AddVoidNode());
 
 	if(!ParseLexem(str, lex_semicolon))
-		ThrowError((*str)->pos, "ERROR: return must be followed by ';'");
+		ThrowError((*str)->pos, "ERROR: return statement must be followed by ';'");
 	CALLBACK(AddReturnNode(start));
 	return true;
 }
@@ -810,7 +810,7 @@ bool ParseBreakExpr(Lexeme** str)
 		AddVoidNode();
 
 	if(!ParseLexem(str, lex_semicolon))
-		ThrowError((*str)->pos, "ERROR: break must be followed by ';'");
+		ThrowError((*str)->pos, "ERROR: break statement must be followed by ';'");
 	CALLBACK(AddBreakNode(pos));
 	return true;
 }
@@ -825,7 +825,7 @@ bool ParseContinueExpr(Lexeme** str)
 		AddVoidNode();
 
 	if(!ParseLexem(str, lex_semicolon))
-		ThrowError((*str)->pos, "ERROR: continue must be followed by ';'");
+		ThrowError((*str)->pos, "ERROR: continue statement must be followed by ';'");
 	CALLBACK(AddContinueNode(pos));
 	return true;
 }
