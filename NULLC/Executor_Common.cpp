@@ -156,7 +156,7 @@ namespace GC
 	void CheckVariable(char* ptr, const ExternTypeInfo& type);
 
 	// Function that marks memory blocks belonging to GC
-	void MarkPointer(char* ptr, const ExternTypeInfo& type)
+	void MarkPointer(char* ptr, const ExternTypeInfo& type, bool takeSubtype)
 	{
 		// We have pointer to stack that has a pointer inside, so 'ptr' is really a pointer to pointer
 		char **rPtr = (char**)ptr;
@@ -164,7 +164,6 @@ namespace GC
 		if(*rPtr > (char*)0x00010000 || *rPtr < unmanageableBase || *rPtr > unmanageableTop)
 		{
 			// Get type that pointer points to
-			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
 			GC_DEBUG_PRINT("\tGlobal pointer %s %p (at %p)\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, *rPtr, ptr);
 
 			// Get pointer to the start of memory block. Some pointers may point to the middle of memory blocks
@@ -185,7 +184,7 @@ namespace GC
 				*marker = 1;
 				// And if type is not simple, check memory to which pointer points to
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
-					CheckVariable(*rPtr, subType);
+					CheckVariable(*rPtr, takeSubtype ? NULLC::commonLinker->exTypes[type.subType] : type);
 			}
 		}
 	}
@@ -203,7 +202,7 @@ namespace GC
 			// Get real array size
 			size = *(int*)(ptr + 4);
 			// Mark target data
-			MarkPointer(ptr, subType);
+			MarkPointer(ptr, subType, false);
 			// Switch pointer to array data
 			char **rPtr = (char**)ptr;
 			ptr = *rPtr;
@@ -220,7 +219,7 @@ namespace GC
 			break;
 		case ExternTypeInfo::CAT_POINTER:
 			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
-				MarkPointer(ptr, subType);
+				MarkPointer(ptr, subType, true);
 			break;
 		case ExternTypeInfo::CAT_CLASS:
 			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
@@ -238,7 +237,7 @@ namespace GC
 			// Get real variable type
 			realType = &NULLC::commonLinker->exTypes[*(int*)ptr];
 			// Mark target data
-			MarkPointer(ptr + 4, *realType);
+			MarkPointer(ptr + 4, *realType, false);
 			// Switch pointer to target
 			char **rPtr = (char**)(ptr + 4);
 			// Fixup target
@@ -269,7 +268,7 @@ namespace GC
 			CheckArray(ptr, type);
 			break;
 		case ExternTypeInfo::CAT_POINTER:
-			MarkPointer(ptr, type);
+			MarkPointer(ptr, type, true);
 			break;
 		case ExternTypeInfo::CAT_CLASS:
 			CheckClass(ptr, type);
@@ -432,7 +431,7 @@ void MarkUsedBlocks()
 	}
 	while(tempStackBase < tempStackTop)
 	{
-		GC::MarkPointer(tempStackBase, types[4]);
+		GC::MarkPointer(tempStackBase, types[4], false);
 		tempStackBase += 4;
 	}
 }

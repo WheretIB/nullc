@@ -407,9 +407,9 @@ namespace ColorerGrammar
 				) >>
 				(chP(';') | epsP[LogError("ERROR: ';' expected after typedef")]);
 
-			returnExpr		=	strWP("return")[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return must be followed by ';'")]);
-			breakExpr		=	strWP("break")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break must be followed by ';'")]);
-			continueExpr	=	strWP("continue")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue must be followed by ';'")]);
+			returnExpr		=	strWP("return")[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return statement must be followed by ';'")]);
+			breakExpr		=	strWP("break")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break statement must be followed by ';'")]);
+			continueExpr	=	strWP("continue")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: continue statement must be followed by ';'")]);
 
 			group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
 			term1		=

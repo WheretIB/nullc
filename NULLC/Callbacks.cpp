@@ -742,7 +742,7 @@ void AddBreakNode(const char* pos)
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 		breakDepth = static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger();
 	else if(CodeInfo::nodeList.back()->nodeType != typeNodeZeroOp)
-		ThrowError(pos, "ERROR: break must be followed by ';' or a constant");
+		ThrowError(pos, "ERROR: break statement must be followed by ';' or a constant");
 
 	CodeInfo::nodeList.pop_back();
 
@@ -764,7 +764,7 @@ void AddContinueNode(const char* pos)
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 		continueDepth = static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger();
 	else if(CodeInfo::nodeList.back()->nodeType != typeNodeZeroOp)
-		ThrowError(pos, "ERROR: continue must be followed by ';' or a constant");
+		ThrowError(pos, "ERROR: continue statement must be followed by ';' or a constant");
 
 	CodeInfo::nodeList.pop_back();
 
@@ -820,6 +820,8 @@ void* AddVariable(const char* pos, InplaceStr varName)
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 	if(currType)
 		varTop += currType->size;
+	if(varTop > (1 << 24))
+		ThrowError(pos, "ERROR: global variable size limit exceeded");
 	return CodeInfo::varInfo.back();
 }
 

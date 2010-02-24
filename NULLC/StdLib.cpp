@@ -154,9 +154,9 @@ namespace NULLC
 
 	unsigned int usedMemory = 0;
 
-	unsigned int baseMinimum = 128 * 1024;
-	unsigned int collectableMinimum = 128 * 1024;
-	unsigned int globalMemoryLimit = 128 * 1024 * 1024;
+	unsigned int baseMinimum = 1024 * 1024;
+	unsigned int collectableMinimum = 1024 * 1024;
+	unsigned int globalMemoryLimit = 256 * 1024 * 1024;
 
 	ObjectBlockPool<8, poolBlockSize / 8>		pool8;
 	ObjectBlockPool<16, poolBlockSize / 16>		pool16;
@@ -377,10 +377,7 @@ void NULLC::CollectMemory()
 
 //	printf("%d used memory\r\n", usedMemory);
 
-	while(collectableMinimum < usedMemory)
-		collectableMinimum <<= 1;
-	if(usedMemory < baseMinimum)
-		collectableMinimum = baseMinimum;
+	collectableMinimum <<= 1;
 }
 #endif
 
