@@ -4767,6 +4767,9 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Global variable size limit", "char[32*1024*1024] arr;", "ERROR: global variable size limit exceeded");
 	TEST_FOR_FAIL("Unsized array initialization", "char[] arr = 1;", "ERROR: cannot convert 'int' to 'char[]'");
 	
+	TEST_FOR_FAIL("Invalid array index type A", "int[100] arr; void func(){} arr[func()] = 5;", "ERROR: cannot index array with type 'void'");
+	TEST_FOR_FAIL("Invalid array index type B", "import std.math; float2 a; int[100] arr; arr[a] = 7;", "ERROR: cannot index array with type 'float2'");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");

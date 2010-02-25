@@ -113,6 +113,13 @@ char typeTest(int x, short y, char z, int d, long long u, float m, int s, double
 	return 12;
 }
 
+int myStrStr(NullCArray a, NullCArray b)
+{
+	if(!strstr(a.ptr, b.ptr))
+		return 0;
+	return 1;
+}
+
 int APIENTRY WinMain(HINSTANCE	hInstance,
 					HINSTANCE	hPrevInstance,
 					LPTSTR		lpCmdLine,
@@ -153,6 +160,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	REGISTER(typeTest, "char typeTest(int x, short y, char z, int d, long u, float m, int s, double k, int t);");
 
 	REGISTER(myGetTime, "int clock();");
+	REGISTER(myStrStr, "int strstr(char[] a, b);");
 
 	colorer = NULL;
 
@@ -435,27 +443,38 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return TRUE;
 }
 
+// zero-terminated safe sprintf
+int	safeprintf(char* dst, size_t size, const char* src, ...)
+{
+	va_list args;
+	va_start(args, src);
+
+	int result = vsnprintf(dst, size, src, args);
+	dst[size-1] = '\0';
+	return result;
+}
+
 const char* GetSimpleVariableValue(TypeInfo* type, int address)
 {
 	static char val[256];
 	if(type->type == TypeInfo::TYPE_INT)
 	{
-		sprintf(val, "%d", *((int*)&variableData[address]));
+		safeprintf(val, 256, "%d", *((int*)&variableData[address]));
 	}else if(type->type == TypeInfo::TYPE_SHORT){
-		sprintf(val, "%d", *((short*)&variableData[address]));
+		safeprintf(val, 256, "%d", *((short*)&variableData[address]));
 	}else if(type->type == TypeInfo::TYPE_CHAR){
 		if(*((unsigned char*)&variableData[address]))
-			sprintf(val, "'%c' (%d)", *((unsigned char*)&variableData[address]), (int)(*((unsigned char*)&variableData[address])));
+			safeprintf(val, 256, "'%c' (%d)", *((unsigned char*)&variableData[address]), (int)(*((unsigned char*)&variableData[address])));
 		else
-			sprintf(val, "0");
+			safeprintf(val, 256, "0");
 	}else if(type->type == TypeInfo::TYPE_FLOAT){
-		sprintf(val, "%f", *((float*)&variableData[address]));
+		safeprintf(val, 256, "%f", *((float*)&variableData[address]));
 	}else if(type->type == TypeInfo::TYPE_LONG){
-		sprintf(val, "%I64d", *((long long*)&variableData[address]));
+		safeprintf(val, 256, "%I64d", *((long long*)&variableData[address]));
 	}else if(type->type == TypeInfo::TYPE_DOUBLE){
-		sprintf(val, "%f", *((double*)&variableData[address]));
+		safeprintf(val, 256, "%f", *((double*)&variableData[address]));
 	}else{
-		sprintf(val, "not basic type");
+		safeprintf(val, 256, "not basic type");
 	}
 	return val;
 }
@@ -473,17 +492,18 @@ void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 
 	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 	{
+		char *it = name;
 		TypeInfo::MemberVariable &mInfo = *curr;
 
-		sprintf(name, "%s %s = ", mInfo.type->GetFullTypeName(), mInfo.name);
+		it += safeprintf(it, 256 - int(it - name), "%s %s = ", mInfo.type->GetFullTypeName(), mInfo.name);
 
 		if(mInfo.type->type != TypeInfo::TYPE_COMPLEX && mInfo.type->arrLevel == 0)
-			strcat(name, GetSimpleVariableValue(mInfo.type, address + mInfo.offset));
+			it += safeprintf(it, 256 - int(it - name), "%s", GetSimpleVariableValue(mInfo.type, address + mInfo.offset));
 
 		if(mInfo.type->arrLevel == 1 && mInfo.type->arrSize != -1 && mInfo.type->subType->type == TypeInfo::TYPE_CHAR)
-			sprintf(name+strlen(name), "\"%s\"", (char*)(variableData + address + mInfo.offset));
+			it += safeprintf(it, 256 - int(it - name), "\"%s\"", (char*)(variableData + address + mInfo.offset));
 		if(mInfo.type->arrSize == -1)
-			sprintf(name+strlen(name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
+			it += safeprintf(it, 256 - int(it - name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
@@ -517,22 +537,23 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	}
 	for(unsigned int n = 0; n < arrSize; n++, address += subType->size)
 	{
+		char *it = name;
 		if(n > 100)
 		{
-			sprintf(name, "[%d]-[%d]...", n, type->arrSize);
+			it += safeprintf(it, 256 - int(it - name), "[%d]-[%d]...", n, type->arrSize);
 			helpInsert.item.pszText = name;
 			lastItem = TreeView_InsertItem(hVars, &helpInsert);
 			break;
 		}
-		sprintf(name, "[%d]: ", n);
+		it += safeprintf(it, 256 - int(it - name), "[%d]: ", n);
 
 		if(subType->arrLevel == 1 && subType->subType->type == TypeInfo::TYPE_CHAR)
-			sprintf(name+strlen(name), "\"%s\"", subType->arrSize != -1 ? (char*)(variableData+address) : *((char**)(variableData + address)));
+			it += safeprintf(it, 256 - int(it - name), "\"%s\"", subType->arrSize != -1 ? (char*)(variableData+address) : *((char**)(variableData + address)));
 		if(subType->arrSize == -1)
-			sprintf(name+strlen(name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
+			it += safeprintf(it, 256 - int(it - name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
 
 		if(subType->type != TypeInfo::TYPE_COMPLEX && subType->arrLevel == 0)
-			strcat(name, GetSimpleVariableValue(subType, address));
+			it += safeprintf(it, 256 - int(it - name), "%s", GetSimpleVariableValue(subType, address));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
@@ -565,6 +586,7 @@ void FillVariableInfoTree()
 	HTREEITEM lastItem;
 	for(unsigned int i = 0; i < varCount; i++)
 	{
+		char *it = name;
 		VariableInfo &currVar = *(*(varInfo+i));
 		if(currModule != (currVar.pos >> 24))
 		{
@@ -572,19 +594,15 @@ void FillVariableInfoTree()
 			currModule = currVar.pos >> 24;
 		}
 		unsigned int address = (currVar.pos & 0x00ffffff) + addressShift;
-		sprintf(name, "%d: %s %.*s = ", address, (*currVar.varType).GetFullTypeName(), currVar.name.end-currVar.name.begin, currVar.name.begin);
+		it += safeprintf(it, 256 - int(it - name), "%d: %s %.*s = ", address, (*currVar.varType).GetFullTypeName(), currVar.name.end-currVar.name.begin, currVar.name.begin);
 
 		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
-			strcat(name, GetSimpleVariableValue(currVar.varType, address));
+			it += safeprintf(it, 256 - int(it - name), "%s", GetSimpleVariableValue(currVar.varType, address));
 
-		char *cPos = name+strlen(name);
 		if(currVar.varType->arrLevel == 1 && currVar.varType->subType->type == TypeInfo::TYPE_CHAR)
-			_snprintf(cPos, 255-int(cPos - name), "\"%s\"", currVar.varType->arrSize != -1 ? (char*)(variableData + address) : *((char**)(variableData + address)));
-		name[255] = 0;
-		cPos = name+strlen(name);
+			it += safeprintf(it, 256 - int(it - name), "\"%s\"", currVar.varType->arrSize != -1 ? (char*)(variableData + address) : *((char**)(variableData + address)));
 		if(currVar.varType->arrSize == -1)
-			_snprintf(cPos, 255-int(cPos - name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
-		name[255] = 0;
+			it += safeprintf(it, 256 - int(it - name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
