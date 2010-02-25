@@ -1054,6 +1054,8 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 
 	// Node that calculates array index
 	second = TakeLastNode();
+	if(second->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_VOID)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot index array with type '%s'", second->typeInfo->GetFullTypeName());
 
 	// Node that calculates address of the first array element
 	first = TakeLastNode();
