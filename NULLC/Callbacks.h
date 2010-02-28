@@ -60,6 +60,7 @@ void ConvertTypeToReference(const char* pos);
 void ConvertTypeToArray(const char* pos);
 
 void GetTypeSize(const char* pos, bool sizeOfExpr);
+void GetTypeId();
 
 void SetTypeOfLastNode();
 

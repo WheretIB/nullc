@@ -866,6 +866,13 @@ void GetTypeSize(const char* pos, bool sizeOfExpr)
 	CodeInfo::nodeList.push_back(new NodeNumber((int)currType->size, typeInt));
 }
 
+void GetTypeId()
+{
+	CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(currType)));
+	CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject));
+	CodeInfo::nodeList.back()->typeInfo = typeTypeid;
+}
+
 void SetTypeOfLastNode()
 {
 	currType = CodeInfo::nodeList.back()->typeInfo;

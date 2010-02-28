@@ -1106,7 +1106,8 @@ bool ParseTerminal(Lexeme** str)
 		{
 			if(ParseFunctionDefinition(str))
 				return true;
-			ThrowError((*str)->pos, "ERROR: function name not found after return type.");
+			GetTypeId();
+			return true;
 		}
 	}
 		break;

@@ -4899,7 +4899,6 @@ return *res + *h.c + *v + *e[0];";
 
 	TEST_FOR_FAIL("parsing", "void func(){} auto duck(){ return func; } duck()(1,); ", "ERROR: expression not found after ',' in function parameter list");
 	TEST_FOR_FAIL("parsing", "void func(){} auto duck(){ return func; } duck()(1,2; ", "ERROR: ')' not found after function parameter list");
-	TEST_FOR_FAIL("parsing", "int b; auto a = typeof(b) (){}; ", "ERROR: function name not found after return type.");
 	TEST_FOR_FAIL("parsing", "int b; b = ", "ERROR: expression not found after '='");
 	TEST_FOR_FAIL("parsing", "noalign int a, b", "ERROR: ';' not found after variable definition");
 
