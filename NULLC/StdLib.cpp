@@ -410,6 +410,12 @@ void NULLC::Assert(int val)
 		nullcThrowError("Assertion failed");
 }
 
+void NULLC::Assert2(int val, NullCArray message)
+{
+	if(!val)
+		nullcThrowError(message.ptr);
+}
+
 int NULLC::StrEqual(NullCArray a, NullCArray b)
 {
 	if(a.len != b.len)

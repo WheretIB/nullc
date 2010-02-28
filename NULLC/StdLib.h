@@ -4,6 +4,7 @@
 namespace NULLC
 {
 	void	Assert(int val);
+	void	Assert2(int val, NullCArray message);
 
 	int		StrEqual(NullCArray a, NullCArray b);
 	int		StrNEqual(NullCArray a, NullCArray b);

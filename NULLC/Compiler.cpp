@@ -147,6 +147,7 @@ Compiler::Compiler()
 
 	// Add build-in functions
 	AddExternalFunction((void (*)())NULLC::Assert, "void assert(int val);");
+	AddExternalFunction((void (*)())NULLC::Assert2, "void assert(int val, char[] message);");
 
 	AddExternalFunction((void (*)())NULLC::StrEqual, "int operator ==(char[] a, b);");
 	AddExternalFunction((void (*)())NULLC::StrNEqual, "int operator !=(char[] a, b);");

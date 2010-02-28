@@ -130,6 +130,11 @@ namespace NULLCTypeInfo
 		ret.len = (unsigned int)strlen(ret.ptr) + 1;
 		return ret;
 	}
+
+	int TypesEqual(int a, int b)
+	{
+		return a == b;
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
@@ -156,6 +161,8 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 
 	REGISTER_FUNC(TypeSize, "typeid::size$", 0);
 	REGISTER_FUNC(TypeName, "typeid::name$", 0);
+
+	REGISTER_FUNC(TypesEqual, "==", 0);
 
 	return true;
 }
