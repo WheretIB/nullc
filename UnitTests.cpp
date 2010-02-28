@@ -4692,12 +4692,18 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Unclear decision - member function", "class test{ void a(int b){} void a(float b){} } test t; return t.a;", "ERROR: there are more than one 'a' function, and the decision isn't clear");
 	TEST_FOR_FAIL("No function", "return k();", "ERROR: function 'k' is undefined");
 
-	TEST_FOR_FAIL("void condition", "void f(){} if(f()){} return 1;", "ERROR: condition type cannot be void");
-	TEST_FOR_FAIL("void condition", "void f(){} if(f()){}else{} return 1;", "ERROR: condition type cannot be void");
-	TEST_FOR_FAIL("void condition", "void f(){} return f() ? 1 : 0;", "ERROR: condition type cannot be void");
-	TEST_FOR_FAIL("void condition", "void f(){} for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be void");
-	TEST_FOR_FAIL("void condition", "void f(){} while(f()){} return 1;", "ERROR: condition type cannot be void");
-	TEST_FOR_FAIL("void condition", "void f(){} do{}while(f()); return 1;", "ERROR: condition type cannot be void");
+	TEST_FOR_FAIL("void condition", "void f(){} if(f()){} return 1;", "ERROR: condition type cannot be 'void'");
+	TEST_FOR_FAIL("void condition", "void f(){} if(f()){}else{} return 1;", "ERROR: condition type cannot be 'void'");
+	TEST_FOR_FAIL("void condition", "void f(){} return f() ? 1 : 0;", "ERROR: condition type cannot be 'void'");
+	TEST_FOR_FAIL("void condition", "void f(){} for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'void'");
+	TEST_FOR_FAIL("void condition", "void f(){} while(f()){} return 1;", "ERROR: condition type cannot be 'void'");
+	TEST_FOR_FAIL("void condition", "void f(){} do{}while(f()); return 1;", "ERROR: condition type cannot be 'void'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} if(f()){} return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} if(f()){}else{} return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} return f() ? 1 : 0;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} while(f()){} return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} do{}while(f()); return 1;", "ERROR: condition type cannot be 'float4'");
 	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;", "ERROR: cannot switch by void type");
 	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;", "ERROR: case value type cannot be void");
 

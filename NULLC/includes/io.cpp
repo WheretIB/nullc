@@ -4,6 +4,10 @@
 
 #include <stdio.h>
 
+#if defined(_MSC_VER)
+	#pragma warning(disable: 4996)
+#endif
+
 namespace NULLCIO
 {
 	HANDLE	conStdIn;
@@ -35,8 +39,30 @@ namespace NULLCIO
 	void WriteIntConsole(int num)
 	{
 		InitConsole();
-		char buf[64];
-		sprintf(buf, "%d\r\n", num);
+		char buf[128];
+		sprintf(buf, "%d", num);
+		DWORD written;
+		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
+	}
+
+	void WriteDoubleConsole(double num)
+	{
+		InitConsole();
+		char buf[128];
+		sprintf(buf, "%.12f", num);
+		DWORD written;
+		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
+	}
+
+	void WriteLongConsole(long long num)
+	{
+		InitConsole();
+		char buf[128];
+#ifdef _MSC_VER
+		sprintf(buf, "%I64dL", num);
+#else
+		sprintf(buf, "%lld", num);
+#endif
 		DWORD written;
 		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
 	}
@@ -116,6 +142,8 @@ bool	nullcInitIOModule()
 {
 	REGISTER_FUNC(WriteToConsole, "Print", 0);
 	REGISTER_FUNC(WriteIntConsole, "Print", 1);
+	REGISTER_FUNC(WriteDoubleConsole, "Print", 2);
+	REGISTER_FUNC(WriteLongConsole, "Print", 3);
 	REGISTER_FUNC(ReadTextFromConsole, "Input", 0);
 	REGISTER_FUNC(ReadIntFromConsole, "Input", 1);
 	REGISTER_FUNC(SetConsoleCursorPos, "SetConsoleCursorPos", 0);

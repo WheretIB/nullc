@@ -648,6 +648,18 @@
 					>
 				</File>
 				<File
+					RelativePath=".\includes\hashmap.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\hashmap.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\hashmap.nc"
+					>
+				</File>
+				<File
 					RelativePath=".\includes\io.cpp"
 					>
 				</File>
@@ -657,6 +669,30 @@
 				</File>
 				<File
 					RelativePath="..\Modules\std\io.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\list.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\list.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\list.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\map.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\map.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\map.nc"
 					>
 				</File>
 				<File
@@ -693,6 +729,18 @@
 				</File>
 				<File
 					RelativePath="..\Modules\std\typeinfo.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\vector.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\vector.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\vector.nc"
 					>
 				</File>
 			</Filter>

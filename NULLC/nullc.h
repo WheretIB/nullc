@@ -45,6 +45,12 @@ const char*	nullcGetResult();
 const char*	nullcGetLastError();
 
 //////////////////////////////////////////////////////////////////////////
+/*							Interaction functions						*/
+
+// Allocates memory block that is managed by GC
+void*		nullcAllocate(unsigned int size);
+
+//////////////////////////////////////////////////////////////////////////
 /*							Extended functions							*/
 
 // Compiles the code (!) and returns 1 on success

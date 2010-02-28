@@ -263,6 +263,11 @@ void* nullcGetModule(const char* path)
 	return bytecode;
 }
 
+void* nullcAllocate(unsigned int size)
+{
+	return NULLC::AllocObject(size);
+}
+
 void nullcTerminate()
 {
 	BinaryCache::Terminate();

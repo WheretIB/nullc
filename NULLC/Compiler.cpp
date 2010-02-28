@@ -414,14 +414,9 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 
 				CodeInfo::typeInfo.push_back(newInfo);
 
-				const char *memberName = symbols + tInfo->offsetToName + strLength;
-				for(unsigned int n = 0; n < tInfo->memberCount; n++)
-				{
-					strLength = (unsigned int)strlen(memberName) + 1;
-					nameCopy = strcpy((char*)dupStrings.Allocate(strLength), memberName);
-					memberName += strLength;
-					newInfo->AddMemberVariable(nameCopy, CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]]);
-				}
+				// This two pointers are used later to fill type member information
+				newInfo->firstVariable = (TypeInfo::MemberVariable*)(symbols + tInfo->offsetToName + strLength);
+				newInfo->lastVariable = (TypeInfo::MemberVariable*)tInfo;
 			}
 				break;
 			default:
@@ -432,8 +427,28 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 			newInfo->alignBytes = tInfo->defaultAlign;
 		}
 	}
+	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
+	{
+		TypeInfo *type = CodeInfo::typeInfo[i];
+		if(type->type == TypeInfo::TYPE_COMPLEX && !type->funcType && !type->subType)
+		{
+#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+			printf(" Type %s fixup\r\n", type->name);
+#endif
+			// first and last variable pointer contained pointer that allow to fill all information about members
+			const char *memberName = (const char*)type->firstVariable;
+			ExternTypeInfo *typeInfo = (ExternTypeInfo*)type->lastVariable;
+			type->firstVariable = type->lastVariable = NULL;
 
-	
+			for(unsigned int n = 0; n < typeInfo->memberCount; n++)
+			{
+				unsigned int strLength = (unsigned int)strlen(memberName) + 1;
+				const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), memberName);
+				memberName += strLength;
+				type->AddMemberVariable(nameCopy, CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n]]]);
+			}
+		}
+	}
 
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 	tInfo = FindFirstType(bCode);

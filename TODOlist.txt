@@ -20,7 +20,13 @@ internal function call externally with parameters
 internal function call by pointer externally
 Replace AddPreOrPostOpNode with two distinct functions (?)
 Allow ++ and -- as post expression.
-Add null pointer.
+vector
+string
+hash_map
+list
+auto[]
+ability to save bytecode
+stand-alone compiler and executor
 
 DONE: ref variables - pointers
 DONE: multidimensional arrays
@@ -126,3 +132,4 @@ DONE: Fix && and || operators logic to support short-circuiting
 DONE: Information about variables at every line.
 DONE: Add optimization with known number conversion to desired type.
 DONE: extended use of FindFirstFunctionIndex
+DONE: Add null pointer.
