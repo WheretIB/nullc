@@ -16,6 +16,7 @@ extern TypeInfo*	typeFloat;
 extern TypeInfo*	typeLong;
 extern TypeInfo*	typeDouble;
 extern TypeInfo*	typeObject;
+extern TypeInfo*	typeTypeid;
 
 // Information about code, function, variables, types, node, etc
 namespace CodeInfo

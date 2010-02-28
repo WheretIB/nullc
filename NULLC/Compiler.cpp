@@ -28,6 +28,7 @@ TypeInfo*	typeFloat = NULL;
 TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
 TypeInfo*	typeObject = NULL;
+TypeInfo*	typeTypeid = NULL;
 
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
@@ -127,6 +128,13 @@ Compiler::Compiler()
 	info->AddMemberVariable("type", typeInt);
 	info->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
 	info->size = 8;
+
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "typeid", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+	typeTypeid = info;
+	CodeInfo::typeInfo.push_back(info);
+
+	info->AddMemberVariable("id", typeInt);
+	info->size = 4;
 
 	buildInTypes.resize(CodeInfo::typeInfo.size());
 	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));

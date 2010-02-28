@@ -427,6 +427,7 @@ namespace ColorerGrammar
 				(strP("new")[ColorRWord] >> typenameP(typeName)[ColorRWord] >> !(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])) |
 				(group >> *postExpr) |
 				(funccall[FuncCall] >> *postExpr) |
+				(typeExpr) |
 				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall >> *postExpr) | epsP));
 			term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
 			term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));

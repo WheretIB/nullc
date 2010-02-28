@@ -1,11 +1,8 @@
-class typeid
-{
-	int id;
 
-	int memberCount();
-	typeid memberType(int member);
-	char[] memberName(int member);
-}
+int typeid:memberCount();
+typeid typeid:memberType(int member);
+char[] typeid:memberName(int member);
+	
 typeid typeid(auto ref type);
 
 int isFunction(typeid type);

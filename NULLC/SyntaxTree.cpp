@@ -774,7 +774,7 @@ void NodeConvertPtr::Compile()
 	CompileExtra();
 
 	first->Compile();
-	if(typeInfo == typeObject)
+	if(typeInfo == typeObject || typeInfo == typeTypeid)
 	{
 		cmdList.push_back(VMCmd(cmdPushTypeID, first->typeInfo->subType->typeIndex));
 	}else{
