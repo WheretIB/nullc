@@ -349,7 +349,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			}
 			break;
 		case cmdSetRange:
-			cmd.argument += oldGlobalSize;
+			if(cmd.flag == ADDRESS_ABOLUTE)
+				cmd.argument += oldGlobalSize;
 			break;
 		case cmdJmp:
 		case cmdJmpZ:

@@ -888,7 +888,7 @@ void NodeVariableSet::Compile()
 	{
 		assert(knownAddress);
 		cmdList.push_back(VMCmd(cmdPushImmt, elemCount));
-		cmdList.push_back(VMCmd(cmdSetRange, (unsigned short)(asmDT), addrShift));
+		cmdList.push_back(VMCmd(cmdSetRange, absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)(asmDT), addrShift));
 	}else{
 		if(knownAddress)
 		{

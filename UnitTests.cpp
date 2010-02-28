@@ -410,7 +410,6 @@ void	RunTests()
 
 	nullcInitFileModule();
 	nullcInitMathModule();
-
 	
 
 //////////////////////////////////////////////////////////////////////////
@@ -4455,6 +4454,70 @@ return count;";
 	{
 		testCount[t]++;
 		if(RunCode(testLongIncDec, testTarget[t], "68719476736L"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testEuler90 =
+"import std.math;\r\n\
+int[210][7] arr;\r\n\
+int count = 0;\r\n\
+void gen()\r\n\
+{\r\n\
+	int[7] a;\r\n\
+	for(a[0] = 0; a[0] < 9; a[0]++)\r\n\
+		for(a[1] = a[0]+1; a[1] < 9; a[1]++)\r\n\
+			for(a[2] = a[1]+1; a[2] < 9; a[2]++)\r\n\
+				for(a[3] = a[2]+1; a[3] < 9; a[3]++)\r\n\
+					for(a[4] = a[3]+1; a[4] < 9; a[4]++)\r\n\
+						for(a[5] = a[4]+1; a[5] < 10; a[5]++)\r\n\
+							arr[count++] = a;\r\n\
+}\r\n\
+gen();\r\n\
+count = 0;\r\n\
+void func(int[] numbers, int nn)\r\n\
+{\r\n\
+	for(int n = nn + 1; n < 210; n++)\r\n\
+	{\r\n\
+		int[] a = arr[n];\r\n\
+		int[200] cubes = 0;\r\n\
+		a[6] = 0;\r\n\
+		if(a[0] == 6 || a[1] == 6 || a[2] == 6 || a[3] == 6 || a[4] == 6 || a[5] == 6)\r\n\
+			a[6] = 9;\r\n\
+		if(a[5] == 9)\r\n\
+			a[6] = 6;\r\n\
+		for(int i = 0; i < (numbers[6] == 0 ? 6 : 7); i++)\r\n\
+		{\r\n\
+			for(int j = 0; j < (a[6] == 0 ? 6 : 7); j++)\r\n\
+			{\r\n\
+				cubes[numbers[i] * 10 + a[j]] = 1;\r\n\
+				cubes[numbers[i] + a[j] * 10] = 1;\r\n\
+			}\r\n\
+		}\r\n\
+		if(cubes[1] && cubes[4] && cubes[9] && cubes[16] && cubes[25] && cubes[36] && cubes[49] && cubes[64] && cubes[81])\r\n\
+			count++;\r\n\
+	}\r\n\
+}\r\n\
+for(int n = 0; n < 10; n++)\r\n\
+{\r\n\
+	int[] a = arr[n];\r\n\
+	a[6] = 0;\r\n\
+	if(a[0] == 6 || a[1] == 6 || a[2] == 6 || a[3] == 6 || a[4] == 6 || a[5] == 6)\r\n\
+		a[6] = 9;\r\n\
+	if(a[5] == 9)\r\n\
+		a[6] = 6;\r\n\
+	func(a, n);\r\n\
+}\r\n\
+return count;";
+	printf("\r\nEuler 90 (with decreased N) set range check\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testEuler90, testTarget[t], "283"))
 		{
 			lastFailed = false;
 
