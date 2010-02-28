@@ -19,3 +19,4 @@ int isPointer(auto ref type);
 
 int typeid.size();
 char[] typeid.name();
+int operator==(typeid a, b);
