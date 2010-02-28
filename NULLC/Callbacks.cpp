@@ -1113,6 +1113,13 @@ void AddSetVariableNode(const char* pos)
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
 		return;
 
+	if(left->typeInfo == typeObject && CodeInfo::nodeList.back()->typeInfo->refLevel == 0)
+	{
+		NodeZeroOP *right = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.push_back(new NodeConvertPtr(CodeInfo::GetReferenceType(right->typeInfo)));
+		CodeInfo::nodeList.push_back(right);
+	}
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 
 	// Make necessary implicit conversions
@@ -2045,15 +2052,19 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		ConvertFunctionToPointer(pos);
 		ConvertArrayToUnsized(pos, fType->paramType[i]);
-		if((fType->paramType[i]->refLevel == CodeInfo::nodeList.back()->typeInfo->refLevel+1 && fType->paramType[i]->subType == CodeInfo::nodeList.back()->typeInfo) ||
+		// implicit conversion from type to type ref (or auto ref)
+		if((fType->paramType[i]->refLevel == CodeInfo::nodeList.back()->typeInfo->refLevel + 1 && fType->paramType[i]->subType == CodeInfo::nodeList.back()->typeInfo) ||
 			(CodeInfo::nodeList.back()->typeInfo->refLevel == 0 && fType->paramType[i] == typeObject))
 		{
-			if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
+			if(CodeInfo::nodeList.back()->typeInfo != typeObject)
 			{
-				((NodeDereference*)CodeInfo::nodeList.back())->Neutralize();
-			}else{
-				AddInplaceVariable(pos);
-				AddExtraNode();
+				if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
+				{
+					((NodeDereference*)CodeInfo::nodeList.back())->Neutralize();
+				}else{
+					AddInplaceVariable(pos);
+					AddExtraNode();
+				}
 			}
 		}
 		HandlePointerToObject(pos, fType->paramType[i]);
@@ -2084,9 +2095,9 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 void AddIfNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 2);
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo == typeVoid)
-		ThrowError(pos, "ERROR: condition type cannot be void");
+
 	// If condition is constant
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeNumber)
 	{
@@ -2101,9 +2112,9 @@ void AddIfNode(const char* pos)
 }
 void AddIfElseNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 3);
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->typeInfo == typeVoid)
-		ThrowError(pos, "ERROR: condition type cannot be void");
+
 	// If condition is constant
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->nodeType == typeNodeNumber)
 	{
@@ -2119,9 +2130,9 @@ void AddIfElseNode(const char* pos)
 }
 void AddIfElseTermNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 3);
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->typeInfo == typeVoid)
-		ThrowError(pos, "ERROR: condition type cannot be void");
+
 	TypeInfo* typeA = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	if(typeA == typeVoid || typeB == typeVoid)
@@ -2138,9 +2149,9 @@ void IncreaseCycleDepth()
 }
 void AddForNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 4);
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->typeInfo == typeVoid)
-		ThrowError(pos, "ERROR: condition type cannot be void");
+
 	CodeInfo::nodeList.push_back(new NodeForExpr());
 
 	assert(cycleDepth.size() != 0);
@@ -2148,9 +2159,9 @@ void AddForNode(const char* pos)
 }
 void AddWhileNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 2);
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo == typeVoid)
-		ThrowError(pos, "ERROR: condition type cannot be void");
+
 	CodeInfo::nodeList.push_back(new NodeWhileExpr());
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 
@@ -2159,9 +2170,9 @@ void AddWhileNode(const char* pos)
 }
 void AddDoWhileNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 2);
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo == typeVoid)
-		ThrowError(pos, "ERROR: condition type cannot be void");
+
 	CodeInfo::nodeList.push_back(new NodeDoWhileExpr());
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 

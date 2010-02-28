@@ -140,6 +140,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	unsigned int oldTypeCount = exTypes.size();
 	unsigned int oldMemberSize = exTypeExtra.size();
 
+	// Add new symbols
+	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
+	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
+	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
+
 	// Add all types from bytecode to the list
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
 	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
@@ -154,7 +159,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 		if(index != index_none && exTypes[index].size != tInfo->size)
 		{
-			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type #%d is redefined with a different size", i);
+			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[index].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[index].size, tInfo->size);
 			return false;
 		}
 		if(index == index_none)
@@ -180,11 +185,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	// Remap new member types
 	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
 		exTypeExtra[i] = typeRemap[exTypeExtra[i]];
-
-	// Add new symbols
-	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
-	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
-	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
 
 #ifdef VERBOSE_DEBUG_OUTPUT
 	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);

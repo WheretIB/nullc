@@ -32,6 +32,10 @@
 #include "NULLC/includes/io.h"
 #include "NULLC/includes/math.h"
 #include "NULLC/includes/string.h"
+#include "NULLC/includes/vector.h"
+#include "NULLC/includes/list.h"
+#include "NULLC/includes/map.h"
+#include "NULLC/includes/hashmap.h"
 
 #include "NULLC/includes/window.h"
 
@@ -185,6 +189,11 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	nullcInitCanvasModule();
 	nullcInitWindowModule();
 
+	nullcInitVectorModule();
+	nullcInitListModule();
+	nullcInitMapModule();
+	nullcInitHashmapModule();
+
 	hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDC_SUPERCALC);
 
 	// Main message loop:
@@ -205,6 +214,11 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	nullcDeinitCanvasModule();
 	nullcDeinitWindowModule();
+
+	nullcDeinitVectorModule();
+	nullcDeinitListModule();
+	nullcDeinitMapModule();
+	nullcDeinitHashmapModule();
 
 	nullcTerminate();
 
@@ -503,7 +517,7 @@ void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 		if(mInfo.type->arrLevel == 1 && mInfo.type->arrSize != -1 && mInfo.type->subType->type == TypeInfo::TYPE_CHAR)
 			it += safeprintf(it, 256 - int(it - name), "\"%s\"", (char*)(variableData + address + mInfo.offset));
 		if(mInfo.type->arrSize == -1)
-			it += safeprintf(it, 256 - int(it - name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
+			it += safeprintf(it, 256 - int(it - name), "address: %d, size: %d", *((int*)&variableData[address + mInfo.offset]), *((int*)&variableData[address + mInfo.offset+4]));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);

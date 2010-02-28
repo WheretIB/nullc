@@ -1526,11 +1526,13 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 {
 	// If else block is present
 	if(haveElse)
-	{
 		third = TakeLastNode();
-	}
+
 	second = TakeLastNode();
 	first = TakeLastNode();
+
+	if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || first->typeInfo->type == TypeInfo::TYPE_VOID)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", first->typeInfo->GetFullTypeName());
 	// If it is a conditional operator, the there is a resulting type different than void
 	if(isTerm)
 		typeInfo = second->typeInfo != third->typeInfo ? ChooseBinaryOpResultType(second->typeInfo, third->typeInfo) : second->typeInfo;
@@ -1616,6 +1618,9 @@ NodeForExpr::NodeForExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
+	if((second->typeInfo->type == TypeInfo::TYPE_COMPLEX && second->typeInfo != typeObject) || second->typeInfo->type == TypeInfo::TYPE_VOID)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", second->typeInfo->GetFullTypeName());
+
 	nodeType = typeNodeForExpr;
 }
 NodeForExpr::~NodeForExpr()
@@ -1639,8 +1644,9 @@ void NodeForExpr::Compile()
 
 	// Compute condition value
 	second->Compile();
-
-	if(second->typeInfo->stackType != STYPE_INT)
+	if(second->typeInfo == typeObject)
+		cmdList.push_back(VMCmd(cmdPop, 4));
+	else if(second->typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
 
 	// If condition == false, exit loop
@@ -1683,6 +1689,9 @@ NodeWhileExpr::NodeWhileExpr()
 {
 	second = TakeLastNode();
 	first = TakeLastNode();
+
+	if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || first->typeInfo->type == TypeInfo::TYPE_VOID)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeWhileExpr;
 }
@@ -1742,6 +1751,9 @@ NodeDoWhileExpr::NodeDoWhileExpr()
 {
 	second = TakeLastNode();
 	first = TakeLastNode();
+
+	if(second->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_VOID)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", second->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeDoWhileExpr;
 }
