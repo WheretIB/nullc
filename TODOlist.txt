@@ -25,6 +25,7 @@ string
 hash_map
 list
 auto[]
+sort
 ability to save bytecode
 stand-alone compiler and executor
 
