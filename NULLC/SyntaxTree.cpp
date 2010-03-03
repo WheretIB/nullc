@@ -1557,7 +1557,7 @@ void NodeIfElseExpr::Compile()
 	first->Compile();
 
 	if(first->typeInfo->stackType != STYPE_INT)
-		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
+		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : /*cmdLtoI*/cmdBitOr));
 	// If false, jump to 'else' block, or out of statement, if there is no 'else'
 	cmdList.push_back(VMCmd(cmdJmpZ, ~0ul));	// Jump address will be fixed later on
 	unsigned int jmpOnFalse = cmdList.size()-1;
@@ -1647,7 +1647,7 @@ void NodeForExpr::Compile()
 	if(second->typeInfo == typeObject)
 		cmdList.push_back(VMCmd(cmdPop, 4));
 	else if(second->typeInfo->stackType != STYPE_INT)
-		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
+		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : /*cmdLtoI*/cmdBitOr));
 
 	// If condition == false, exit loop
 	unsigned int exitJmp = cmdList.size();
@@ -1714,7 +1714,7 @@ void NodeWhileExpr::Compile()
 	first->Compile();
 
 	if(first->typeInfo->stackType != STYPE_INT)
-		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
+		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : /*cmdLtoI*/cmdBitOr));
 
 	// If condition == false, exit loop
 	unsigned int exitJmp = cmdList.size();
@@ -1780,7 +1780,7 @@ void NodeDoWhileExpr::Compile()
 	// Compute condition value
 	second->Compile();
 	if(second->typeInfo->stackType != STYPE_INT)
-		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdLtoI));
+		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : /*cmdLtoI*/cmdBitOr));
 
 	// Jump to beginning if condition == true
 	cmdList.push_back(VMCmd(cmdJmpNZ, posStart));
