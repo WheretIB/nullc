@@ -5,6 +5,7 @@
 
 #include "NULLC/includes/file.h"
 #include "NULLC/includes/math.h"
+#include "NULLC/includes/vector.h"
 
 #include <stdio.h>
 
@@ -410,7 +411,7 @@ void	RunTests()
 
 	nullcInitFileModule();
 	nullcInitMathModule();
-	
+	nullcInitVectorModule();
 
 //////////////////////////////////////////////////////////////////////////
 	printf("\r\nTwo bytecode merge test 1\r\n");
@@ -4531,6 +4532,39 @@ return count;";
 
 void	RunTests2()
 {
+
+const char	*testForEach2 =
+"import std.vector;\r\n\
+vector a = vector(int);\r\n\
+a.push_back(4);\r\n\
+a.push_back(8);\r\n\
+a.push_back(14);\r\n\
+\r\n\
+int sum = 0;\r\n\
+for(int i in a)\r\n\
+{\r\n\
+	sum += i;\r\n\
+	i *= 2;\r\n\
+}\r\n\
+int sum2 = 0;\r\n\
+for(int i in a)\r\n\
+{\r\n\
+	sum2 += i;\r\n\
+}\r\n\
+return sum + sum2;";
+	printf("\r\nFor each with specified element type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testForEach2, testTarget[t], "78"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -5208,6 +5242,7 @@ return 0;";
 
 	nullcDeinitFileModule();
 	nullcDeinitMathModule();
+	nullcDeinitVectorModule();
 
 	// Terminate NULLC
 	nullcTerminate();

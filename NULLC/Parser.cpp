@@ -620,8 +620,11 @@ bool ParseForExpr(Lexeme** str)
 	CALLBACK(BeginBlock());
 
 	const char *condPos = NULL;
-	if((*str+1)->type == lex_in)
+	Lexeme *curr = *str;
+	if((curr + 1)->type == lex_in || (ParseSelectType(&curr) && (curr + 1)->type == lex_in))
 	{
+		void *type = (*str + 1)->type == lex_in ? NULL : GetSelectedType();
+		*str = curr;
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: variable name expected before 'in'");
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
@@ -633,7 +636,7 @@ bool ParseForExpr(Lexeme** str)
 		// Parse expression
 		ParseTernaryExpr(str);
 
-		AddArrayIterator(varName->pos, InplaceStr(varName->pos, varName->length));
+		AddArrayIterator(varName->pos, InplaceStr(varName->pos, varName->length), type);
 	}else{
 		if(ParseLexem(str, lex_ofigure))
 		{
