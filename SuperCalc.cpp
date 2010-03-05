@@ -507,6 +507,7 @@ void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 	{
 		char *it = name;
+		memset(name, 0, 256);
 		TypeInfo::MemberVariable &mInfo = *curr;
 
 		it += safeprintf(it, 256 - int(it - name), "%s %s = ", mInfo.type->GetFullTypeName(), mInfo.name);
@@ -552,6 +553,7 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	for(unsigned int n = 0; n < arrSize; n++, address += subType->size)
 	{
 		char *it = name;
+		memset(name, 0, 256);
 		if(n > 100)
 		{
 			it += safeprintf(it, 256 - int(it - name), "[%d]-[%d]...", n, type->arrSize);
@@ -601,6 +603,7 @@ void FillVariableInfoTree()
 	for(unsigned int i = 0; i < varCount; i++)
 	{
 		char *it = name;
+		memset(name, 0, 256);
 		VariableInfo &currVar = *(*(varInfo+i));
 		if(currModule != (currVar.pos >> 24))
 		{
