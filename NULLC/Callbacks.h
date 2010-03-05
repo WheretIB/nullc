@@ -87,7 +87,7 @@ void AddTwoExpressionNode(void *retType = NULL);
 
 void AddArrayConstructor(const char* pos, unsigned int arrElementCount);
 
-void AddArrayIterator(const char* pos, InplaceStr varName);
+void AddArrayIterator(const char* pos, InplaceStr varName, void* type);
 
 void AddTypeAllocation(const char* pos);
 

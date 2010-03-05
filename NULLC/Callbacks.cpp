@@ -1501,7 +1501,7 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	CodeInfo::nodeList.push_back(arrayList);
 }
 
-void AddArrayIterator(const char* pos, InplaceStr varName)
+void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 {
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
 		CodeInfo::nodeList.back() = ((NodeOneOP*)CodeInfo::nodeList.back())->GetFirstNode();
@@ -1514,7 +1514,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName)
 
 	AddMemberFunctionCall(pos, "next", 0);
 
-	currType = NULL;
+	currType = (TypeInfo*)type ? CodeInfo::GetReferenceType((TypeInfo*)type) : NULL;
 	VariableInfo *it = (VariableInfo*)AddVariable(pos, varName);
 	AddDefineVariableNode(pos, it);
 	AddPopNode(pos);
