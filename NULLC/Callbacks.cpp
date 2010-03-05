@@ -1503,24 +1503,26 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 
 void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 {
-	// special implementation of for each for build-in arrays
-	if(CodeInfo::nodeList.back()->typeInfo->arrLevel)
+	// type size will be needed to shift pointer from one element to another
+	unsigned int typeSize = CodeInfo::nodeList.back()->typeInfo->subType ? CodeInfo::nodeList.back()->typeInfo->subType->size : ~0u;
+	unsigned int arrLevel = CodeInfo::nodeList.back()->typeInfo->arrLevel;
+
+	bool extraExpression = false;
+	// If value dereference was already called, but we need to get a pointer to array
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
 	{
-		// type size will be needed to shift pointer from one element to another
-		unsigned int typeSize = CodeInfo::nodeList.back()->typeInfo->subType->size;
+		CodeInfo::nodeList.back() = ((NodeOneOP*)CodeInfo::nodeList.back())->GetFirstNode();
+	}else{
+		// Or if it wasn't called, for example, inplace array definition/function call/etc, we make a temporary variable
+		AddInplaceVariable(pos);
+		// And flag that we have added an extra node
+		extraExpression = true;
+	}
 
-		bool extraExpression = false;
-		// if value dereference was already called, but we need to get a pointer to array
-		if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
-		{
-			CodeInfo::nodeList.back() = ((NodeOneOP*)CodeInfo::nodeList.back())->GetFirstNode();
-		}else{
-			// Or if it wasn't called, for example, inplace array definition/function call/etc, we make a temporary variable
-			AddInplaceVariable(pos);
-			// And flag that we have added an extra node
-			extraExpression = true;
-		}
-
+	// Special implementation of for each for build-in arrays
+	if(arrLevel)
+	{
+		assert(typeSize != ~0u);
 		// Add temporary variable that holds a pointer
 		AddInplaceVariable(pos);
 		NodeZeroOP *getArray = CodeInfo::nodeList.back();
@@ -1583,8 +1585,6 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 
 		return;
 	}
-	if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
-		CodeInfo::nodeList.back() = ((NodeOneOP*)CodeInfo::nodeList.back())->GetFirstNode();
 
 	// Initialization part "$tmp = arr.start();"
 	AddMemberFunctionCall(pos, "start", 0);
@@ -1599,6 +1599,8 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	AddDefineVariableNode(pos, it);
 	AddPopNode(pos);
 	AddTwoExpressionNode(NULL);
+	if(extraExpression)
+		AddTwoExpressionNode(NULL);
 
 	// Condition part "varName;"
 	AddGetAddressNode(pos, varName);
