@@ -4610,6 +4610,33 @@ return 0;";
 		}
 	}
 
+const char	*testForEach4 =
+"int sum = 0;\r\n\
+for(i in { 1, 2, 3 }, j in { 4, 5, 6, 7 })\r\n\
+	sum += i + j;\r\n\
+\r\n\
+int[3] arr1 = { 2, 6, 7 };\r\n\
+int[] arr2 = { 8, -4, 2 };\r\n\
+for(i in arr1, j in arr2)\r\n\
+	i += j;\r\n\
+return sum;";
+	printf("\r\nFor each with multiple arrays\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testForEach4, testTarget[t], "21"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("arr1", 0, 10);
+			CHECK_INT("arr1", 1, 2);
+			CHECK_INT("arr1", 2, 9);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 

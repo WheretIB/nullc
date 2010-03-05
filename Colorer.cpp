@@ -347,7 +347,7 @@ namespace ColorerGrammar
 				strWP("for")[ColorRWord] >>
 				('(' | epsP[LogError("ERROR: '(' not found after 'for'")])[ColorText] >>
 				(
-					(!typeExpr >> varname[ColorVarDef] >> strWP("in")[ColorRWord] >> term5) |
+					(!typeExpr >> varname[ColorVarDef] >> strWP("in")[ColorRWord] >> term5 >> *(chP(',')[ColorText] >> !typeExpr >> varname[ColorVarDef] >> strWP("in")[ColorRWord] >> term5)) |
 					(
 						(block | vardef | term5 | epsP ) >>
 						(';' | epsP[LogError("ERROR: ';' not found after initializer in 'for'")])[ColorText] >>

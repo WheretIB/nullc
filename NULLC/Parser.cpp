@@ -634,9 +634,32 @@ bool ParseForExpr(Lexeme** str)
 		(*str) += 2;	// Skip name and 'in'
 
 		// Parse expression
-		ParseTernaryExpr(str);
-
+		if(!ParseTernaryExpr(str))
+			ThrowError((*str)->pos, "ERROR:expression expected after 'in'");
 		AddArrayIterator(varName->pos, InplaceStr(varName->pos, varName->length), type);
+
+		while(ParseLexem(str, lex_comma))
+		{
+			void *type = NULL;
+			if(ParseSelectType(str))
+				type = GetSelectedType();
+
+			if((*str)->type != lex_string)
+				ThrowError((*str)->pos, "ERROR: variable name expected before 'in'");
+			if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+				ThrowError((*str)->pos, "ERROR: variable name length is limited to 2048 symbols");
+			Lexeme	*varName = *str;
+			condPos = (*str)->pos;
+			(*str)++;
+			if(!ParseLexem(str, lex_in))
+				ThrowError((*str)->pos, "ERROR: 'in' expected after variable name");
+
+			// Parse expression
+			if(!ParseTernaryExpr(str))
+				ThrowError((*str)->pos, "ERROR:expression expected after 'in'");
+			AddArrayIterator(varName->pos, InplaceStr(varName->pos, varName->length), type);
+			MergeArrayIterators();
+		}
 	}else{
 		if(ParseLexem(str, lex_ofigure))
 		{

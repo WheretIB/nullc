@@ -1503,7 +1503,7 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 
 void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 {
-	// special implementaton of for each for build-in arrays
+	// special implementation of for each for build-in arrays
 	if(CodeInfo::nodeList.back()->typeInfo->arrLevel)
 	{
 		// type size will be needed to shift pointer from one element to another
@@ -1521,7 +1521,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 			extraExpression = true;
 		}
 
-		// Add temporary variable that hold a pointer
+		// Add temporary variable that holds a pointer
 		AddInplaceVariable(pos);
 		NodeZeroOP *getArray = CodeInfo::nodeList.back();
 
@@ -1615,6 +1615,31 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	AddPopNode(pos);
 
 	it->autoDeref = true;
+}
+
+void MergeArrayIterators()
+{
+	NodeZeroOP *lastIter = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+	NodeZeroOP *lastCond = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+	NodeZeroOP *lastInit = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+	NodeZeroOP *firstIter = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+	NodeZeroOP *firstCond = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+
+	CodeInfo::nodeList.push_back(lastInit);
+	AddTwoExpressionNode(NULL);
+
+	CodeInfo::nodeList.push_back(firstCond);
+	CodeInfo::nodeList.push_back(lastCond);
+	CodeInfo::nodeList.push_back(new NodeBinaryOp(cmdLogAnd));
+
+	CodeInfo::nodeList.push_back(firstIter);
+	CodeInfo::nodeList.push_back(lastIter);
+	AddTwoExpressionNode(NULL);
 }
 
 void AddTypeAllocation(const char* pos)
