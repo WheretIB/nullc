@@ -1503,10 +1503,90 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 
 void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 {
+	// special implementaton of for each for build-in arrays
+	if(CodeInfo::nodeList.back()->typeInfo->arrLevel)
+	{
+		// type size will be needed to shift pointer from one element to another
+		unsigned int typeSize = CodeInfo::nodeList.back()->typeInfo->subType->size;
+
+		bool extraExpression = false;
+		// if value dereference was already called, but we need to get a pointer to array
+		if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
+		{
+			CodeInfo::nodeList.back() = ((NodeOneOP*)CodeInfo::nodeList.back())->GetFirstNode();
+		}else{
+			// Or if it wasn't called, for example, inplace array definition/function call/etc, we make a temporary variable
+			AddInplaceVariable(pos);
+			// And flag that we have added an extra node
+			extraExpression = true;
+		}
+
+		// Add temporary variable that hold a pointer
+		AddInplaceVariable(pos);
+		NodeZeroOP *getArray = CodeInfo::nodeList.back();
+
+		// Initialization part "varName = &arr[0];"
+		CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+		AddArrayIndexNode(pos);
+		currType = (TypeInfo*)type ? CodeInfo::GetReferenceType((TypeInfo*)type) : NULL;
+		VariableInfo *it = (VariableInfo*)AddVariable(pos, varName);
+		AddDefineVariableNode(pos, it);
+		AddPopNode(pos);
+
+		// Initialization part "$tmp = &arr[arr.size-1];"
+		NodeOneOP *wrap1 = new NodeOneOP();
+		wrap1->SetFirstNode(getArray);
+		CodeInfo::nodeList.push_back(wrap1);
+
+		NodeOneOP *wrap2 = new NodeOneOP();
+		wrap2->SetFirstNode(getArray);
+		CodeInfo::nodeList.push_back(wrap2);
+		AddMemberAccessNode(pos, InplaceStr("size"));
+		AddGetVariableNode(pos);
+		CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
+		CodeInfo::nodeList.push_back(new NodeBinaryOp(cmdSub));
+
+		AddArrayIndexNode(pos);
+		AddInplaceVariable(pos);
+		NodeZeroOP *getIterator = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+
+		// We have 2 or 3 expressions in initialization part, wrap them all in one
+		AddTwoExpressionNode(NULL);
+		AddTwoExpressionNode(NULL);
+		if(extraExpression)
+			AddTwoExpressionNode(NULL);
+
+		// Condition part "varName != $tmp;"
+		AddGetAddressNode(pos, varName);
+		AddGetVariableNode(pos);
+
+		CodeInfo::nodeList.push_back(getIterator);
+		AddGetVariableNode(pos);
+
+		CodeInfo::nodeList.push_back(new NodeBinaryOp(cmdLEqual));
+
+		// Increment part "varName++;"
+		AddGetAddressNode(pos, varName);
+		AddGetAddressNode(pos, varName);
+		AddGetVariableNode(pos);
+		TypeInfo *realType = CodeInfo::nodeList.back()->typeInfo;
+		// Enable pointer arithmetic for a moment
+		CodeInfo::nodeList.back()->typeInfo = typeInt;
+		CodeInfo::nodeList.push_back(new NodeNumber(int(typeSize), typeInt));
+		CodeInfo::nodeList.push_back(new NodeBinaryOp(cmdAdd));
+		CodeInfo::nodeList.back()->typeInfo = realType;
+		AddSetVariableNode(pos);
+		AddPopNode(pos);
+
+		it->autoDeref = true;
+
+		return;
+	}
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
 		CodeInfo::nodeList.back() = ((NodeOneOP*)CodeInfo::nodeList.back())->GetFirstNode();
 
-	// Initialization part
+	// Initialization part "$tmp = arr.start();"
 	AddMemberFunctionCall(pos, "start", 0);
 
 	AddInplaceVariable(pos);
@@ -1520,11 +1600,11 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	AddPopNode(pos);
 	AddTwoExpressionNode(NULL);
 
-	// Condition part
+	// Condition part "varName;"
 	AddGetAddressNode(pos, varName);
 	AddGetVariableNode(pos);
 
-	// Increment part
+	// Increment part "varName = $tmp.next();"
 	AddGetAddressNode(pos, varName);
 
 	NodeOneOP *wrap = new NodeOneOP();

@@ -4565,6 +4565,51 @@ return sum + sum2;";
 		}
 	}
 
+const char	*testForEach3 =
+"int[] arr1 = { 2, 6, 7 };\r\n\
+int sum1 = 0;\r\n\
+for(i in arr1)\r\n\
+	sum1 += i;\r\n\
+\r\n\
+int[3] arr2 = { 2, 6, 7 };\r\n\
+int sum2 = 0;\r\n\
+for(i in arr2)\r\n\
+	sum2 += i;\r\n\
+\r\n\
+auto arr3 = { { 2, 6, 7 }, { 1, 2, 3 } };\r\n\
+int sum3 = 0;\r\n\
+for(line in arr3)\r\n\
+	for(num in line)\r\n\
+		sum3 += num;\r\n\
+\r\n\
+auto func(){ return { 1, 6 }; }\r\n\
+int sum4 = 0;\r\n\
+for(i in func())\r\n\
+	sum4 += i;\r\n\
+\r\n\
+int sum5 = 0;\r\n\
+for(i in { 1, 2, 3 })\r\n\
+	sum5 += i;\r\n\
+return 0;";
+	printf("\r\nFor each for standard arrays\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testForEach3, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("sum1", 0, 15);
+			CHECK_INT("sum2", 0, 15);
+			CHECK_INT("sum3", 0, 21);
+			CHECK_INT("sum4", 0, 7);
+			CHECK_INT("sum5", 0, 6);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
