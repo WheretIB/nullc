@@ -1269,7 +1269,8 @@ void PrepareMemberCall(const char* pos)
 		currentType = CodeInfo::nodeList.back()->typeInfo;
 	}
 	// Implicit conversion from type to type ref
-	if(currentType->refLevel == 0){
+	if(currentType->refLevel == 0)
+	{
 		// And from type[] to type[] ref
 		if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
 			ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(currentType->subType, TypeInfo::UNSIZED_ARRAY));
@@ -1429,6 +1430,12 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 	if(!((dstType == typeObject) ^ (srcType == typeObject)))
 		return;
 
+	if(srcType == typeObject && dstType->refLevel == 0)
+	{
+		CodeInfo::nodeList.push_back(new NodeConvertPtr(CodeInfo::GetReferenceType(dstType)));
+		CodeInfo::nodeList.push_back(new NodeDereference());
+		return;
+	}
 	CheckForImmutable(dstType == typeObject ? srcType : dstType, pos);
 	CodeInfo::nodeList.push_back(new NodeConvertPtr(dstType == typeObject ? typeObject : dstType));
 }
@@ -1587,11 +1594,13 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	}
 
 	// Initialization part "$tmp = arr.start();"
+	PrepareMemberCall(pos);
 	AddMemberFunctionCall(pos, "start", 0);
 
 	AddInplaceVariable(pos);
 	NodeZeroOP *getIterator = CodeInfo::nodeList.back();
 
+	PrepareMemberCall(pos);
 	AddMemberFunctionCall(pos, "next", 0);
 
 	currType = (TypeInfo*)type ? CodeInfo::GetReferenceType((TypeInfo*)type) : NULL;
