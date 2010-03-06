@@ -4637,6 +4637,61 @@ return sum;";
 		}
 	}
 
+const char	*testEuler122 =
+"import std.vector;\r\n\
+vector masked = vector(int);\r\n\
+masked.resize(201);\r\n\
+masked[0] = masked[1] = 0;\r\n\
+ \r\n\
+void fill(vector ref curr, int depth)\r\n\
+{\r\n\
+    if(depth > 5)\r\n\
+        return;\r\n\
+ \r\n\
+    vector added = vector(int);\r\n\
+ \r\n\
+    for(int i in curr)\r\n\
+    {\r\n\
+        for(int j in curr)\r\n\
+        {\r\n\
+            if(i+j < 201 && (!int(masked[i+j]) || depth <= int(masked[i+j])))\r\n\
+            {\r\n\
+                masked[i+j] = depth;\r\n\
+                added.push_back(i+j);\r\n\
+            }\r\n\
+        }\r\n\
+    }\r\n\
+ \r\n\
+    for(i in added)\r\n\
+    {\r\n\
+        curr.push_back(i);\r\n\
+        fill(curr, depth + 1);\r\n\
+        curr.pop_back();\r\n\
+    }\r\n\
+}\r\n\
+vector row = vector(int);\r\n\
+row.reserve(201);\r\n\
+row.push_back(1);\r\n\
+ \r\n\
+fill(row, 1);\r\n\
+int sum = 0;\r\n\
+for(int i in masked)\r\n\
+    sum += i;\r\n\
+ \r\n\
+return sum;";
+	printf("\r\nEuler 122 (small depth) vector test\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testEuler122, testTarget[t], "79"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
