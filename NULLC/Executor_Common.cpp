@@ -358,6 +358,7 @@ void MarkUsedBlocks()
 			offset += alignOffset;
 			GC_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + functions[funcID].offsetToName, alignOffset);
 
+			unsigned int offsetToNextFrame = 4;
 			// Check every function local
 			for(unsigned int i = 0; i < functions[funcID].localCount; i++)
 			{
@@ -366,16 +367,11 @@ void MarkUsedBlocks()
 				GC_DEBUG_PRINT("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
 				// Check it
 				GC::CheckVariable(GC::unmanageableBase + offset + lInfo.offset, types[lInfo.type]);
+				if(lInfo.offset + lInfo.size > offsetToNextFrame)
+					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
-			if(functions[funcID].localCount)
-			{
-				// Get last local information
-				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + functions[funcID].localCount - 1];
-				// And shift stack pointer to the end of functions stack frame
-				offset += lInfo.offset + lInfo.size;
-			}else{
-				offset += 4;
-			}
+			offset += offsetToNextFrame;
+			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
 		}
 	}
 
