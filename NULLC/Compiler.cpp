@@ -418,7 +418,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 			case ExternTypeInfo::CAT_CLASS:
 			{
 				unsigned int strLength = (unsigned int)strlen(symbols + tInfo->offsetToName) + 1;
-				const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), symbols + tInfo->offsetToName);
+				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + tInfo->offsetToName);
 				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 
 				CodeInfo::typeInfo.push_back(newInfo);
@@ -452,7 +452,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 			for(unsigned int n = 0; n < typeInfo->memberCount; n++)
 			{
 				unsigned int strLength = (unsigned int)strlen(memberName) + 1;
-				const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), memberName);
+				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
 				memberName += strLength;
 				type->AddMemberVariable(nameCopy, CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n]]]);
 			}
@@ -502,7 +502,7 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 		if(index == INDEX_NONE)
 		{
 			unsigned int strLength = (unsigned int)strlen(symbols + fInfo->offsetToName) + 1;
-			const char *nameCopy = strcpy((char*)dupStrings.Allocate(strLength), symbols + fInfo->offsetToName);
+			const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + fInfo->offsetToName);
 
 			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy, fInfo->nameHash));
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
@@ -612,6 +612,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 	{
 		lexer.Clear();
 		moduleSource.clear();
+		dupStringsModule.Clear();
 	}
 	unsigned int lexStreamStart = lexer.GetStreamSize();
 	lexer.Lexify(str);
@@ -666,7 +667,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 			return false;
 		}
 
-		moduleName[moduleCount] = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport);
+		moduleName[moduleCount] = strcpy((char*)dupStringsModule.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport);
 		if(!bytecode)
 		{
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);

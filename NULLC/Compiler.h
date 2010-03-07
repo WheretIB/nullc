@@ -64,7 +64,8 @@ private:
 
 	Lexer	lexer;
 
-	ChunkedStackPool<1020>	dupStrings;
+	ChunkedStackPool<1020>			dupStrings;
+	ChunkedStackPool<4092>			dupStringsModule;
 
 	FastVector<TypeInfo*>			buildInTypes;
 
