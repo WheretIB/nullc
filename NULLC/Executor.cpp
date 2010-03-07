@@ -995,7 +995,7 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 //			printf("\tGlobal pointer %s %p (at %p)\r\n", symbols + subType.offsetToName, *rPtr, ptr);
 			unsigned int *marker = (unsigned int*)(*rPtr)-1;
 //			printf("\tMarker is %d\r\n", *marker);
-			if(*marker == 42 && NULLC::IsBasePointer(*rPtr))
+			if(NULLC::IsBasePointer(*rPtr) && *marker == 42)
 			{
 				*marker = 0;
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
