@@ -975,6 +975,13 @@ void AddArrayIndexNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->refLevel == 2)
+	{
+		NodeZeroOP *index = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.push_back(new NodeDereference());
+		CodeInfo::nodeList.push_back(index);
+	}
 	// Call overloaded operator with error suppression
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", 2, true))
 		return;
@@ -994,7 +1001,7 @@ void AddArrayIndexNode(const char* pos)
 		unifyTwo = true;
 	}
 	if(currentType->refLevel == 0)
-		ThrowError(pos, "ERROR: indexing variable that is not an array");
+		ThrowError(pos, "ERROR: indexing variable that is not an array (%s)", currentType->GetFullTypeName());
 	// Get result type
 	currentType = CodeInfo::GetDereferenceType(currentType);
 
@@ -1020,7 +1027,7 @@ void AddArrayIndexNode(const char* pos)
 	
 	// Current type must be an array
 	if(currentType->arrLevel == 0)
-		ThrowError(pos, "ERROR: indexing variable that is not an array");
+		ThrowError(pos, "ERROR: indexing variable that is not an array (%s)", currentType->GetFullTypeName());
 	
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeGetAddress)
@@ -1600,6 +1607,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	AddInplaceVariable(pos);
 	NodeZeroOP *getIterator = CodeInfo::nodeList.back();
 
+	// Initialization part "varName = $tmp.next();"
 	PrepareMemberCall(pos);
 	AddMemberFunctionCall(pos, "next", 0);
 
@@ -1612,8 +1620,11 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 		AddTwoExpressionNode(NULL);
 
 	// Condition part "varName;"
-	AddGetAddressNode(pos, varName);
-	AddGetVariableNode(pos);
+	NodeOneOP *wrapCond = new NodeOneOP();
+	wrapCond->SetFirstNode(getIterator);
+	CodeInfo::nodeList.push_back(wrapCond);
+	PrepareMemberCall(pos);
+	AddMemberFunctionCall(pos, "hasnext", 0);
 
 	// Increment part "varName = $tmp.next();"
 	AddGetAddressNode(pos, varName);
@@ -1621,6 +1632,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	NodeOneOP *wrap = new NodeOneOP();
 	wrap->SetFirstNode(getIterator);
 	CodeInfo::nodeList.push_back(wrap);
+	PrepareMemberCall(pos);
 	AddMemberFunctionCall(pos, "next", 0);
 	AddSetVariableNode(pos);
 	AddPopNode(pos);
@@ -1759,6 +1771,8 @@ void FunctionStart(const char* pos)
 
 	lastFunc.implemented = true;
 	lastFunc.funcType = lastFunc.retType ? CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount) : NULL;
+	if(!lastFunc.visible && (lastFunc.firstParam->varType->type == TypeInfo::TYPE_COMPLEX || lastFunc.firstParam->varType->subType))
+		lastFunc.visible = true;
 
 	BeginBlock();
 	cycleDepth.push_back(0);

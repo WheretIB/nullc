@@ -330,7 +330,7 @@ void NodePopOp::Compile()
 
 	// Child node computes value
 	first->Compile();
-	if(first->typeInfo != typeVoid)
+	if(first->typeInfo != typeVoid && first->typeInfo->size)
 	{
 		// Removing it from top of the stack
 		cmdList.push_back(VMCmd(cmdPop, first->typeInfo->type == TypeInfo::TYPE_COMPLEX ? first->typeInfo->size : stackTypeSize[first->typeInfo->stackType]));
@@ -1068,6 +1068,8 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 		shiftValue = typeParent->subType->size * static_cast<NodeNumber*>(second)->GetInteger();
 		knownShift = true;
 	}
+	if(!knownShift && typeParent->subType->size > 65535)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot index array when sizeof(%s) exceeds 65535 bytes", typeParent->subType->GetFullTypeName());
 
 	nodeType = typeNodeArrayIndex;
 }

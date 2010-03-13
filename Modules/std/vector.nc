@@ -38,13 +38,7 @@ auto vector:start()
 	return iter;
 }
 auto ref vector_iterator:next();
-/*
-{
-	if(pos >= arr.arr.size)
-		return nullptr;
-	return &arr.arr[pos++];
-}
-*/
+int vector_iterator:hasnext();
 
 void vector:push_back(auto ref val);
 void vector:pop_back();
