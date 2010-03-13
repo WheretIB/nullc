@@ -67,6 +67,12 @@ namespace NULLCIO
 		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
 	}
 
+	void WriteCharConsole(char ch)
+	{
+		DWORD written;
+		WriteFile(conStdOut, &ch, 1, &written, NULL); 
+	}
+
 	void ReadIntFromConsole(int* val)
 	{
 		InitConsole();
@@ -144,6 +150,7 @@ bool	nullcInitIOModule()
 	REGISTER_FUNC(WriteIntConsole, "Print", 1);
 	REGISTER_FUNC(WriteDoubleConsole, "Print", 2);
 	REGISTER_FUNC(WriteLongConsole, "Print", 3);
+	REGISTER_FUNC(WriteCharConsole, "Print", 4);
 	REGISTER_FUNC(ReadTextFromConsole, "Input", 0);
 	REGISTER_FUNC(ReadIntFromConsole, "Input", 1);
 	REGISTER_FUNC(SetConsoleCursorPos, "SetConsoleCursorPos", 0);

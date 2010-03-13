@@ -139,9 +139,14 @@ namespace NULLCVector
 		if(iter->pos >= iter->arr->size)
 			ret.ptr = NULL;
 		else
-			ret.ptr = iter->arr->data.ptr + iter->arr->elemSize * iter->pos++;
+			ret.ptr = iter->arr->data.ptr + iter->arr->elemSize * iter->pos;
+		iter->pos++;
 
 		return ret;
+	}
+	int VectorHasNext(vector_iterator* iter)
+	{
+		return iter->pos <= iter->arr->size;
 	}
 
 }
@@ -163,6 +168,7 @@ bool	nullcInitVectorModule()
 	REGISTER_FUNC(VectorCapacity, "vector::capacity", 0);
 
 	REGISTER_FUNC(VectorNext, "vector_iterator::next", 0);
+	REGISTER_FUNC(VectorHasNext, "vector_iterator::hasnext", 0);
 
 	return true;
 }

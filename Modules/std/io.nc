@@ -3,6 +3,7 @@ void Print(char[] text);
 void Print(int num);
 void Print(double num);
 void Print(long num);
+void Print(char ch);
 
 int Input(char[] buf);
 void Input(int ref num);
@@ -29,6 +30,11 @@ StdOut operator <<(StdOut out, char[] str)
 StdOut operator <<(StdOut out, StdEndline str)
 {
 	Print("\r\n");
+	return out;
+}
+StdOut operator <<(StdOut out, char ch)
+{
+	Print(ch);
 	return out;
 }
 StdOut operator <<(StdOut out, int num)

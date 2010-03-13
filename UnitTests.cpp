@@ -4397,9 +4397,14 @@ auto array:start()\r\n\
 }\r\n\
 int ref array_iterator:next()\r\n\
 {\r\n\
-	if(pos >= arr.arr.size)\r\n\
+	pos++;\r\n\
+	if(pos > arr.arr.size)\r\n\
 		return nullptr;\r\n\
-	return &arr.arr[pos++];\r\n\
+	return &arr.arr[pos-1];\r\n\
+}\r\n\
+int array_iterator:hasnext()\r\n\
+{\r\n\
+	return pos <= arr.arr.size;\r\n\
 }\r\n\
 \r\n\
 array arr = array(16);\r\n\
@@ -4896,7 +4901,7 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Unclear decision", "void a(int b){} void a(float b){} return a;", "ERROR: there are more than one 'a' function, and the decision isn't clear");
 	TEST_FOR_FAIL("Variable of unknown type used", "auto a = a + 1; return a;", "ERROR: variable 'a' is being used while its type is unknown");
 
-	TEST_FOR_FAIL("Indexing not an array", "int a; return a[5];", "ERROR: indexing variable that is not an array");
+	TEST_FOR_FAIL("Indexing not an array", "int a; return a[5];", "ERROR: indexing variable that is not an array (int)");
 	TEST_FOR_FAIL("Array underflow", "int[4] a; a[-1] = 2; return 1;", "ERROR: array index cannot be negative");
 	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;", "ERROR: array index out of bounds");
 
@@ -4956,7 +4961,7 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Array element type mistmatch", "import std.math;\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;", "ERROR: element 1 doesn't match the type of element 0 (int)");
 	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
-	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];", "ERROR: indexing variable that is not an array");
+	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];", "ERROR: indexing variable that is not an array (int)");
 	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;", "ERROR: cannot convert 'int[] ref' to 'int[]'");
 	TEST_FOR_FAIL("Type redefinition", "class int{ int a, b; } return 1;", "ERROR: 'int' is being redefined");
 
