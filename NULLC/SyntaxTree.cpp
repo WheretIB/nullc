@@ -358,7 +358,7 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 	bool logicalOp = cmd == cmdLogNot;
 	typeInfo = logicalOp ? typeInt : first->typeInfo;
 
-	if((first->typeInfo->refLevel != 0 && !logicalOp) || first->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+	if((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmdID - cmdNeg], first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeUnaryOp;
@@ -375,8 +375,11 @@ void NodeUnaryOp::Compile()
 
 	// Child node computes value
 	first->Compile();
+	if(first->typeInfo == typeObject)
+		cmdList.push_back(VMCmd(cmdPop, 4));
+
 	// Execute command
-	if(aOT == OTYPE_INT)
+	if(aOT == OTYPE_INT || first->typeInfo == typeObject)
 		cmdList.push_back(VMCmd((InstructionCode)cmdID));
 	else if(aOT == OTYPE_LONG)
 		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 1)));
@@ -1533,7 +1536,7 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 	second = TakeLastNode();
 	first = TakeLastNode();
 
-	if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || first->typeInfo->type == TypeInfo::TYPE_VOID)
+	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || first->typeInfo->type == TypeInfo::TYPE_VOID)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", first->typeInfo->GetFullTypeName());
 	// If it is a conditional operator, the there is a resulting type different than void
 	if(isTerm)
@@ -1558,7 +1561,9 @@ void NodeIfElseExpr::Compile()
 	// Compute condition
 	first->Compile();
 
-	if(first->typeInfo->stackType != STYPE_INT)
+	if(first->typeInfo == typeObject)
+		cmdList.push_back(VMCmd(cmdPop, 4));
+	else if(first->typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdBitOr));
 	// If false, jump to 'else' block, or out of statement, if there is no 'else'
 	cmdList.push_back(VMCmd(cmdJmpZ, ~0ul));	// Jump address will be fixed later on
@@ -1692,7 +1697,7 @@ NodeWhileExpr::NodeWhileExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
-	if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX || first->typeInfo->type == TypeInfo::TYPE_VOID)
+	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || first->typeInfo->type == TypeInfo::TYPE_VOID)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeWhileExpr;
@@ -1715,7 +1720,9 @@ void NodeWhileExpr::Compile()
 	// Compute condition value
 	first->Compile();
 
-	if(first->typeInfo->stackType != STYPE_INT)
+	if(first->typeInfo == typeObject)
+		cmdList.push_back(VMCmd(cmdPop, 4));
+	else if(first->typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdBitOr));
 
 	// If condition == false, exit loop
@@ -1754,7 +1761,7 @@ NodeDoWhileExpr::NodeDoWhileExpr()
 	second = TakeLastNode();
 	first = TakeLastNode();
 
-	if(second->typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_VOID)
+	if((second->typeInfo->type == TypeInfo::TYPE_COMPLEX && second->typeInfo != typeObject) || second->typeInfo->type == TypeInfo::TYPE_VOID)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", second->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeDoWhileExpr;
@@ -1781,7 +1788,9 @@ void NodeDoWhileExpr::Compile()
 	unsigned int posCond = cmdList.size();
 	// Compute condition value
 	second->Compile();
-	if(second->typeInfo->stackType != STYPE_INT)
+	if(second->typeInfo == typeObject)
+		cmdList.push_back(VMCmd(cmdPop, 4));
+	else if(second->typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdBitOr));
 
 	// Jump to beginning if condition == true

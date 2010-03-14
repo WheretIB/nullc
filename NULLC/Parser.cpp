@@ -619,10 +619,13 @@ bool ParseForExpr(Lexeme** str)
 	
 	CALLBACK(BeginBlock());
 
+	bool	isForEach = false;
 	const char *condPos = NULL;
 	Lexeme *curr = *str;
 	if((curr + 1)->type == lex_in || (ParseSelectType(&curr) && (curr + 1)->type == lex_in))
 	{
+		isForEach = true;
+
 		void *type = (*str + 1)->type == lex_in ? NULL : GetSelectedType();
 		*str = curr;
 		if((*str)->type != lex_string)
@@ -714,8 +717,11 @@ bool ParseForExpr(Lexeme** str)
 		ThrowError((*str)->pos, "ERROR: body not found after 'for' header");
 	}
 
-	CALLBACK(EndBlock());
-	CALLBACK(AddForNode(condPos));
+	EndBlock();
+	if(isForEach)
+		AddForEachNode(condPos);
+	else
+		AddForNode(condPos);
 	return true;
 }
 

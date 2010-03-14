@@ -65,6 +65,19 @@ namespace NULLCVector
 		vec->size--;
 	}
 
+	NULLCRef VectorFront(vector* vec)
+	{
+		NULLCRef ret = { 0, 0 };
+		if(!vec->size)
+		{
+			nullcThrowError("vector::front called on an empty vector");
+			return ret;
+		}
+		ret.typeID = vec->elemType;
+		ret.ptr = vec->data.ptr;
+		return ret;
+	}
+
 	NULLCRef VectorBack(vector* vec)
 	{
 		NULLCRef ret = { 0, 0 };
@@ -136,17 +149,13 @@ namespace NULLCVector
 	{
 		NULLCRef ret;
 		ret.typeID = iter->arr->elemType;
-		if(iter->pos >= iter->arr->size)
-			ret.ptr = NULL;
-		else
-			ret.ptr = iter->arr->data.ptr + iter->arr->elemSize * iter->pos;
-		iter->pos++;
+		ret.ptr = iter->arr->data.ptr + iter->arr->elemSize * iter->pos++;
 
 		return ret;
 	}
 	int VectorHasNext(vector_iterator* iter)
 	{
-		return iter->pos <= iter->arr->size;
+		return iter->pos < iter->arr->size;
 	}
 
 }
@@ -158,6 +167,7 @@ bool	nullcInitVectorModule()
 
 	REGISTER_FUNC(VectorPushBack, "vector::push_back", 0);
 	REGISTER_FUNC(VectorPopBack, "vector::pop_back", 0);
+	REGISTER_FUNC(VectorFront, "vector::front", 0);
 	REGISTER_FUNC(VectorBack, "vector::back", 0);
 	REGISTER_FUNC(VectorIndex, "[]", 0);
 	REGISTER_FUNC(VectorReserve, "vector::reserve", 0);
