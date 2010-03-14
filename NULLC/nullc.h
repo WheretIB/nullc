@@ -51,6 +51,10 @@ const char*	nullcGetLastError();
 void*		nullcAllocate(unsigned int size);
 
 //////////////////////////////////////////////////////////////////////////
+/*							Special modules								*/
+void		nullcInitTypeinfoModule();
+
+//////////////////////////////////////////////////////////////////////////
 /*							Extended functions							*/
 
 // Compiles the code (!) and returns 1 on success

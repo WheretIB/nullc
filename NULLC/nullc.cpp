@@ -61,9 +61,6 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	executorX86->Initialize();
 #endif
 	BinaryCache::SetImportPath(importPath);
-
-	bool res = nullcInitTypeinfoModule(linker);
-	assert(res && "Failed to init typeinfo module");
 }
 
 void	nullcSetImportPath(const char* importPath)
@@ -266,6 +263,11 @@ void* nullcGetModule(const char* path)
 void* nullcAllocate(unsigned int size)
 {
 	return NULLC::AllocObject(size);
+}
+
+void nullcInitTypeinfoModule()
+{
+	nullcInitTypeinfoModule(linker);
 }
 
 void nullcTerminate()

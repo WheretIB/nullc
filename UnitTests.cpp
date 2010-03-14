@@ -409,6 +409,7 @@ void	RunTests()
 	nullcAddExternalFunction((void (*)())TestFloat, "float float_(float a);");
 	nullcAddExternalFunction((void (*)())TestDouble, "double double_(double a);");
 
+	nullcInitTypeinfoModule();
 	nullcInitFileModule();
 	nullcInitMathModule();
 	nullcInitVectorModule();

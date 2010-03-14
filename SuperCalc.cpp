@@ -181,6 +181,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		return FALSE;
 	}
 
+	nullcInitTypeinfoModule();
+
 	nullcInitFileModule();
 	nullcInitIOModule();
 	nullcInitMathModule();
