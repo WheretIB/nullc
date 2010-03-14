@@ -2274,7 +2274,7 @@ return a;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testHexConst, testTarget[t], "-559038737"))
+		if(RunCode(testHexConst, testTarget[t], "3735928559L"))
 		{
 			lastFailed = false;
 
@@ -4397,14 +4397,11 @@ auto array:start()\r\n\
 }\r\n\
 int ref array_iterator:next()\r\n\
 {\r\n\
-	pos++;\r\n\
-	if(pos > arr.arr.size)\r\n\
-		return nullptr;\r\n\
-	return &arr.arr[pos-1];\r\n\
+	return &arr.arr[pos++];\r\n\
 }\r\n\
 int array_iterator:hasnext()\r\n\
 {\r\n\
-	return pos <= arr.arr.size;\r\n\
+	return pos < arr.arr.size;\r\n\
 }\r\n\
 \r\n\
 array arr = array(16);\r\n\
@@ -4689,6 +4686,60 @@ return sum;";
 	{
 		testCount[t]++;
 		if(RunCode(testEuler122, testTarget[t], "79"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunctionCompare =
+"int ref() _f = int _self()\r\n\
+{\r\n\
+	return _f == _self;\r\n\
+};\r\n\
+return _f();";
+	printf("\r\nFunction comparison\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionCompare, testTarget[t], "1"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testAutoRefCompare =
+"int sum = 0;\r\n\
+auto ref a = nullptr, b = &sum;\r\n\
+return a == b;";
+	printf("\r\nauto ref comparison\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testAutoRefCompare, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testAutoRefNot =
+"auto ref a = nullptr;\r\n\
+if(!a)\r\n\
+	return 1;\r\n\
+return 0;";
+	printf("\r\nunary not on auto ref\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testAutoRefNot, testTarget[t], "1"))
 		{
 			lastFailed = false;
 

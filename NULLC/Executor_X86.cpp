@@ -81,8 +81,8 @@ namespace NULLC
 
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
-		if(expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd)
-			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
+		//if(expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd)
+		//	return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 
 		expEAXstate = expInfo->ContextRecord->Eax;
 		expECXstate = expInfo->ContextRecord->Ecx;

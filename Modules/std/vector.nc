@@ -42,6 +42,7 @@ int vector_iterator:hasnext();
 
 void vector:push_back(auto ref val);
 void vector:pop_back();
+auto ref vector:front();
 auto ref vector:back();
 auto ref operator[](vector ref v, int index);
 void vector:reserve(int size);

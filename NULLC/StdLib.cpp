@@ -156,7 +156,7 @@ namespace NULLC
 
 	unsigned int baseMinimum = 1024 * 1024;
 	unsigned int collectableMinimum = 1024 * 1024;
-	unsigned int globalMemoryLimit = 256 * 1024 * 1024;
+	unsigned int globalMemoryLimit = 512 * 1024 * 1024;
 
 	ObjectBlockPool<8, poolBlockSize / 8>		pool8;
 	ObjectBlockPool<16, poolBlockSize / 16>		pool16;
@@ -437,6 +437,8 @@ NullCArray NULLC::StrConcatenate(NullCArray a, NullCArray b)
 
 	ret.len = a.len + b.len - 1;
 	ret.ptr = (char*)AllocObject(ret.len);
+	if(!ret.ptr)
+		return ret;
 
 	memcpy(ret.ptr, a.ptr, a.len);
 	memcpy(ret.ptr + a.len - 1, b.ptr, b.len);

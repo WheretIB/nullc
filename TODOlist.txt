@@ -20,7 +20,6 @@ internal function call externally with parameters
 internal function call by pointer externally
 Replace AddPreOrPostOpNode with two distinct functions (?)
 Allow ++ and -- as post expression.
-vector
 string
 hash_map
 list
@@ -134,3 +133,4 @@ DONE: Information about variables at every line.
 DONE: Add optimization with known number conversion to desired type.
 DONE: extended use of FindFirstFunctionIndex
 DONE: Add null pointer.
+DONE: vector

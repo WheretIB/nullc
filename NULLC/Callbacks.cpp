@@ -293,7 +293,7 @@ void AddHexInteger(const char* pos, const char* end)
 	if(int(end - pos) > 16)
 		ThrowError(pos, "ERROR: overflow in hexadecimal constant");
 	// If number overflows integer number, create long number
-	if(int(end - pos) <= 8)
+	if(int(end - pos) < 8)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 16), typeInt));
 	else
 		CodeInfo::nodeList.push_back(new NodeNumber(parseLong(pos, end, 16), typeLong));
@@ -316,7 +316,7 @@ void AddBinInteger(const char* pos, const char* end)
 	if(int(end - pos) > 64)
 		ThrowError(pos, "ERROR: overflow in binary constant");
 	// If number overflows integer number, create long number
-	if(int(end - pos) <= 32)
+	if(int(end - pos) < 32)
 		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 2), typeInt));
 	else
 		CodeInfo::nodeList.push_back(new NodeNumber(parseLong(pos, end, 2), typeLong));
@@ -609,12 +609,19 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
-	if(CodeInfo::nodeList.back()->typeInfo->funcType && CodeInfo::nodeList.back()->typeInfo->funcType == CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->funcType && (id == cmdEqual || id == cmdNEqual))
+	if(id == cmdEqual || id == cmdNEqual)
 	{
-		CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = typeLong;
-		CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = typeLong;
-		CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
-		return;
+		NodeZeroOP *left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+		NodeZeroOP *right = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
+
+		if((right->typeInfo->funcType && right->typeInfo->funcType == left->typeInfo->funcType) ||
+			(right->typeInfo == typeObject && right->typeInfo == left->typeInfo))
+		{
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = typeLong;
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = typeLong;
+			CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
+			return;
+		}
 	}
 	unsigned int aNodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType;
 	unsigned int bNodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->nodeType;
@@ -1537,62 +1544,42 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	if(arrLevel)
 	{
 		assert(typeSize != ~0u);
+
 		// Add temporary variable that holds a pointer
 		AddInplaceVariable(pos);
 		NodeZeroOP *getArray = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
 
-		// Initialization part "varName = &arr[0];"
+		// Initialization part "iterator_type $temp = 0;"
 		CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
-		AddArrayIndexNode(pos);
-		currType = (TypeInfo*)type ? CodeInfo::GetReferenceType((TypeInfo*)type) : NULL;
-		VariableInfo *it = (VariableInfo*)AddVariable(pos, varName);
-		AddDefineVariableNode(pos, it);
-		AddPopNode(pos);
-
-		// Initialization part "$tmp = &arr[arr.size-1];"
-		NodeOneOP *wrap1 = new NodeOneOP();
-		wrap1->SetFirstNode(getArray);
-		CodeInfo::nodeList.push_back(wrap1);
-
-		NodeOneOP *wrap2 = new NodeOneOP();
-		wrap2->SetFirstNode(getArray);
-		CodeInfo::nodeList.push_back(wrap2);
-		AddMemberAccessNode(pos, InplaceStr("size"));
-		AddGetVariableNode(pos);
-		CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
-		CodeInfo::nodeList.push_back(new NodeBinaryOp(cmdSub));
-
-		AddArrayIndexNode(pos);
 		AddInplaceVariable(pos);
 		NodeZeroOP *getIterator = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 
-		// We have 2 or 3 expressions in initialization part, wrap them all in one
-		AddTwoExpressionNode(NULL);
 		AddTwoExpressionNode(NULL);
 		if(extraExpression)
 			AddTwoExpressionNode(NULL);
 
-		// Condition part "varName != $tmp;"
-		AddGetAddressNode(pos, varName);
-		AddGetVariableNode(pos);
-
+		// Condition part "$temp < arr.size"
 		CodeInfo::nodeList.push_back(getIterator);
 		AddGetVariableNode(pos);
-
-		CodeInfo::nodeList.push_back(new NodeBinaryOp(cmdLEqual));
-
-		// Increment part "varName++;"
-		AddGetAddressNode(pos, varName);
-		AddGetAddressNode(pos, varName);
+		CodeInfo::nodeList.push_back(getArray);
+		AddMemberAccessNode(pos, InplaceStr("size"));
 		AddGetVariableNode(pos);
-		TypeInfo *realType = CodeInfo::nodeList.back()->typeInfo;
-		// Enable pointer arithmetic for a moment
-		CodeInfo::nodeList.back()->typeInfo = typeInt;
-		CodeInfo::nodeList.push_back(new NodeNumber(int(typeSize), typeInt));
-		CodeInfo::nodeList.push_back(new NodeBinaryOp(cmdAdd));
-		CodeInfo::nodeList.back()->typeInfo = realType;
-		AddSetVariableNode(pos);
+		CodeInfo::nodeList.push_back(new NodeBinaryOp(cmdLess));
+
+		// Iteration part "element_type varName = arr[$temp++];
+		NodeOneOP *wrap = new NodeOneOP();
+		wrap->SetFirstNode(getArray);
+		CodeInfo::nodeList.push_back(wrap);
+		NodeOneOP *wrap2 = new NodeOneOP();
+		wrap2->SetFirstNode(getIterator);
+		CodeInfo::nodeList.push_back(wrap2);
+		AddPreOrPostOpNode(pos, true, false);
+		AddArrayIndexNode(pos);
+		currType = (TypeInfo*)type ? CodeInfo::GetReferenceType((TypeInfo*)type) : NULL;
+		VariableInfo *it = (VariableInfo*)AddVariable(pos, varName);
+		AddDefineVariableNode(pos, it);
 		AddPopNode(pos);
 
 		it->autoDeref = true;
@@ -1600,26 +1587,27 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 		return;
 	}
 
-	// Initialization part "$tmp = arr.start();"
+	// Initialization part "iterator_type $temp = arr.start();"
 	PrepareMemberCall(pos);
 	AddMemberFunctionCall(pos, "start", 0);
 
 	AddInplaceVariable(pos);
+	// This node will return iterator variable
 	NodeZeroOP *getIterator = CodeInfo::nodeList.back();
 
-	// Initialization part "varName = $tmp.next();"
+	// We have to find out iterator return type
 	PrepareMemberCall(pos);
 	AddMemberFunctionCall(pos, "next", 0);
+	TypeInfo *iteratorReturnType = CodeInfo::nodeList.back()->typeInfo;
+	CodeInfo::nodeList.pop_back();
 
-	currType = (TypeInfo*)type ? CodeInfo::GetReferenceType((TypeInfo*)type) : NULL;
+	// Initialization part "element_type varName;"
+	currType = (TypeInfo*)type ? CodeInfo::GetReferenceType((TypeInfo*)type) : iteratorReturnType;
 	VariableInfo *it = (VariableInfo*)AddVariable(pos, varName);
-	AddDefineVariableNode(pos, it);
-	AddPopNode(pos);
-	AddTwoExpressionNode(NULL);
 	if(extraExpression)
 		AddTwoExpressionNode(NULL);
 
-	// Condition part "varName;"
+	// Condition part "$temp.hasnext()"
 	NodeOneOP *wrapCond = new NodeOneOP();
 	wrapCond->SetFirstNode(getIterator);
 	CodeInfo::nodeList.push_back(wrapCond);
@@ -1662,6 +1650,17 @@ void MergeArrayIterators()
 
 	CodeInfo::nodeList.push_back(firstIter);
 	CodeInfo::nodeList.push_back(lastIter);
+	AddTwoExpressionNode(NULL);
+}
+
+void AddForEachNode(const char* pos)
+{
+	// Unite increment_part and body
+	AddTwoExpressionNode(NULL);
+	// Generate while cycle
+	CodeInfo::nodeList.push_back(new NodeWhileExpr());
+	CodeInfo::nodeList.back()->SetCodeInfo(pos);
+	// Unite initialization_part and while
 	AddTwoExpressionNode(NULL);
 }
 
