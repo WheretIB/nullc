@@ -6,6 +6,8 @@ Linker::Linker(): exTypes(64), exVariables(64), exFunctions(64), exSymbols(4096)
 {
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
+
+	NULLC::SetLinker(this);
 }
 
 Linker::~Linker()

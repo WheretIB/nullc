@@ -20,10 +20,51 @@ namespace NULLCCanvas
 		ptr->color = (red << 16) | (green << 8) | (blue) | (255 << 24);
 	}
 
-	void CanvasDrawLine(int x1, int y1, int x2, int y2, Canvas* ptr)
+	int abs(int x){ return x < 0 ? -x : x; }
+	void swap(int &a, int &b){ int tmp = a; a = b; b = tmp; }
+
+	void CanvasDrawPoint(int x, int y, Canvas* ptr)
 	{
-		(void)x1; (void)x2; (void)y1; (void)y2; (void)ptr;
-		nullcThrowError("Unimplemented");
+		((int*)ptr->data.ptr)[y*ptr->width + x] = ptr->color;
+	}
+
+	void CanvasDrawLine(int x0, int y0, int x1, int y1, Canvas* ptr)
+	{
+		bool steep = abs(y1 - y0) > abs(x1 - x0);
+		if(steep)
+		{
+			swap(x0, y0);
+			swap(x1, y1);
+		}
+		if(x0 > x1)
+		{
+			swap(x0, x1);
+			swap(y0, y1);
+		}
+		int deltax = x1 - x0;
+		int deltay = abs(y1 - y0);
+		int error = deltax / 2;
+		int ystep = y0 < y1 ? 1 : -1;
+		int y = y0;
+		if(x0 < 0)
+			return;
+		for(int x = x0; x <= x1; x++)
+		{
+			if(steep)
+			{
+				if(x >= 0 && y < ptr->width && y >= 0 && x < ptr->height)
+					((int*)ptr->data.ptr)[x*ptr->width + y] = ptr->color;
+			}else{
+				if(x >= 0 && x < ptr->width && y >= 0 && y < ptr->height)
+					((int*)ptr->data.ptr)[y*ptr->width + x] = ptr->color;
+			}
+			error -= deltay;
+			if(error < 0)
+			{
+				y += ystep;
+				error += deltax;
+			}
+		}
 	}
 	void CanvasDrawRect(int x1, int y1, int x2, int y2, Canvas* ptr)
 	{
@@ -39,6 +80,7 @@ bool	nullcInitCanvasModule()
 	REGISTER_FUNC(CanvasClearRGB, "Canvas::Clear", 0);
 	REGISTER_FUNC(CanvasClearRGBA, "Canvas::Clear", 1);
 	REGISTER_FUNC(CanvasSetColor, "Canvas::SetColor", 0);
+	REGISTER_FUNC(CanvasDrawPoint, "Canvas::DrawPoint", 0);
 	REGISTER_FUNC(CanvasDrawLine, "Canvas::DrawLine", 0);
 	REGISTER_FUNC(CanvasDrawRect, "Canvas::DrawRect", 0);
 

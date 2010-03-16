@@ -1,8 +1,11 @@
 #pragma once
 #include "nullcdef.h"
+#include "Linker.h"
 
 namespace NULLC
 {
+	void	SetLinker(Linker *linker);
+
 	void	Assert(int val);
 	void	Assert2(int val, NullCArray message);
 
@@ -21,6 +24,7 @@ namespace NULLC
 	
 	void*		AllocObject(int size);
 	NullCArray	AllocArray(int size, int count);
+	NULLCRef	CopyObject(NULLCRef ptr);
 
 	void		MarkMemory(unsigned int number);
 

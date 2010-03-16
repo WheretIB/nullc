@@ -167,6 +167,13 @@ namespace NULLC
 	ObjectBlockPool<512, poolBlockSize / 512>	pool512;
 
 	FastVector<void*>				globalObjects;
+
+	Linker	*linker = NULL;
+}
+
+void NULLC::SetLinker(Linker *linker)
+{
+	NULLC::linker = linker;
 }
 
 void* NULLC::AllocObject(int size)
@@ -328,12 +335,12 @@ void* NULLC::GetBasePointer(void* ptr)
 #ifdef ENABLE_GC
 void NULLC::CollectMemory()
 {
+//	printf("%d used memory (%d collectable cap, %d max cap)\r\n", usedMemory, collectableMinimum, globalMemoryLimit);
+
 	// All memory blocks are marked with 0
 	MarkMemory(0);
 	// Used memory blocks are marked with 1
 	MarkUsedBlocks();
-
-//	printf("%d used memory (%d collectable cap, %d max cap)\r\n", usedMemory, collectableMinimum, globalMemoryLimit);
 
 	// Globally allocated objects marked with 0 are deleted
 	unsigned int unusedBlocks = 0;
@@ -414,6 +421,16 @@ void NULLC::Assert2(int val, NullCArray message)
 {
 	if(!val)
 		nullcThrowError(message.ptr);
+}
+
+NULLCRef NULLC::CopyObject(NULLCRef ptr)
+{
+	NULLCRef ret;
+	ret.typeID = ptr.typeID;
+	unsigned int objSize = linker->exTypes[ret.typeID].size;
+	ret.ptr = (char*)AllocObject(objSize);
+	memcpy(ret.ptr, ptr.ptr, objSize);
+	return ret;
 }
 
 int NULLC::StrEqual(NullCArray a, NullCArray b)
