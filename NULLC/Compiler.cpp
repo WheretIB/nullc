@@ -165,6 +165,7 @@ Compiler::Compiler()
 
 	AddExternalFunction((void (*)())NULLC::AllocObject, "int __newS(int size);");
 	AddExternalFunction((void (*)())NULLC::AllocArray, "int[] __newA(int size, int count);");
+	AddExternalFunction((void (*)())NULLC::CopyObject, "auto ref duplicate(auto ref obj);");
 }
 
 Compiler::~Compiler()

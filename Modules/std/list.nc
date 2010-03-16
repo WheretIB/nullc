@@ -39,45 +39,45 @@ list list(typeid type)
 
 void list:push_back(auto ref elem)
 {
-	if(!anyType)
-		assert(typeid(elem) == elemType, "list::push_back argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
+	if(!anyType && typeid(elem) != elemType)
+		assert(0, "list::push_back argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
 	if(!first)
 	{
 		first = last = new list_node;
 		first.prev = first.next = nullptr;
-		first.elem = elem;
+		first.elem = duplicate(elem);
 	}else{
 		last.next = new list_node;
 		last.next.prev = last;
 		last.next.next = nullptr;
 		last = last.next;
-		last.elem = elem;
+		last.elem = duplicate(elem);
 	}
 }
 void list:push_front(auto ref elem)
 {
-	if(!anyType)
-		assert(typeid(elem) == elemType, "list::push_back argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
+	if(!anyType && typeid(elem) != elemType)
+		assert(0, "list::push_front argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
 	if(!first)
 	{
 		first = last = new list_node;
 		first.prev = first.next = nullptr;
-		first.elem = elem;
+		first.elem = duplicate(elem);
 	}else{
 		first.prev = new list_node;
 		first.prev.next = first;
 		first.prev.prev = nullptr;
 		first = first.prev;
-		first.elem = elem;
+		first.elem = duplicate(elem);
 	}
 }
 void list:insert(list_node ref it, auto ref elem)
 {
-	if(!anyType)
-		assert(typeid(elem) == elemType, "list::push_back argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
+	if(!anyType && typeid(elem) != elemType)
+		assert(0, "list::insert argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
 	auto next = it.next;
 	it.next = new list_node;
-	it.next.elem = elem;
+	it.next.elem = duplicate(elem);
 	it.next.prev = it;
 	it.next.next = next;
 	if(next)
