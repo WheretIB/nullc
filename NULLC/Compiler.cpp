@@ -32,7 +32,7 @@ TypeInfo*	typeTypeid = NULL;
 
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
-	Init(errStr, apprPos ? apprPos : NULL);
+	Init(errStr, apprPos);
 }
 
 void CompilerError::Init(const char* errStr, const char* apprPos)
@@ -74,6 +74,28 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 }
 
 const char *CompilerError::codeStart = NULL;
+const char *nullcBaseCode = "\
+void assert(int val);\
+void assert(int val, char[] message);\
+\
+int operator ==(char[] a, b);\
+int operator !=(char[] a, b);\
+char[] operator +(char[] a, b);\
+char[] operator +=(char[] ref a, char[] b);\
+\
+char char(char a);\
+short short(short a);\
+int int(int a);\
+long long(long a);\
+float float(float a);\
+double double(double a);\
+\
+char[] int:str();\
+\
+int __newS(int size);\
+int[] __newA(int size, int count);\
+auto ref duplicate(auto ref obj);\
+";
 
 Compiler::Compiler()
 {
@@ -145,27 +167,35 @@ Compiler::Compiler()
 	varTop = 0;
 	funcTop = 0;
 
-	// Add build-in functions
-	AddExternalFunction((void (*)())NULLC::Assert, "void assert(int val);");
-	AddExternalFunction((void (*)())NULLC::Assert2, "void assert(int val, char[] message);");
+	// Add base module with build-in functions
+	bool res = Compile(nullcBaseCode);
+	assert(res && "Failed to compile base NULLC module");
 
-	AddExternalFunction((void (*)())NULLC::StrEqual, "int operator ==(char[] a, b);");
-	AddExternalFunction((void (*)())NULLC::StrNEqual, "int operator !=(char[] a, b);");
-	AddExternalFunction((void (*)())NULLC::StrConcatenate, "char[] operator +(char[] a, b);");
-	AddExternalFunction((void (*)())NULLC::StrConcatenateAndSet, "char[] operator +=(char[] ref a, char[] b);");
+	char *bytecode = NULL;
+	GetBytecode(&bytecode);
+	BinaryCache::PutBytecode("$base$.nc", bytecode);
 
-	AddExternalFunction((void (*)())NULLC::Int, "char char(char a);");
-	AddExternalFunction((void (*)())NULLC::Int, "short short(short a);");
-	AddExternalFunction((void (*)())NULLC::Int, "int int(int a);");
-	AddExternalFunction((void (*)())NULLC::Long, "long long(long a);");
-	AddExternalFunction((void (*)())NULLC::Float, "float float(float a);");
-	AddExternalFunction((void (*)())NULLC::Double, "double double(double a);");
+	AddModuleFunction("$base$", (void (*)())NULLC::Assert, "assert", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::Assert2, "assert", 1);
 
-	AddExternalFunction((void (*)())NULLC::IntToStr, "char[] int:str();");
+	AddModuleFunction("$base$", (void (*)())NULLC::StrEqual, "==", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::StrNEqual, "!=", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::StrConcatenate, "+", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::StrConcatenateAndSet, "+=", 0);
 
-	AddExternalFunction((void (*)())NULLC::AllocObject, "int __newS(int size);");
-	AddExternalFunction((void (*)())NULLC::AllocArray, "int[] __newA(int size, int count);");
-	AddExternalFunction((void (*)())NULLC::CopyObject, "auto ref duplicate(auto ref obj);");
+	AddModuleFunction("$base$", (void (*)())NULLC::Int, "char", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::Int, "short", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::Int, "int", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::Long, "long", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::Float, "float", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::Double, "double", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::IntToStr, "int::str", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::AllocArray, "__newA", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
+
 }
 
 Compiler::~Compiler()
@@ -224,47 +254,6 @@ void Compiler::ClearState()
 	CodeInfo::cmdList.clear();
 }
 
-bool Compiler::AddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
-{
-	ClearState();
-
-	bool res;
-
-	lexer.Clear();
-	lexer.Lexify(prototype);
-
-	if(!setjmp(CodeInfo::errorHandler))
-	{
-		Lexeme *start = lexer.GetStreamStart();
-		res = ParseSelectType(&start);
-		if(res)
-			res = ParseFunctionDefinition(&start);
-	}else{
-		CodeInfo::lastError = CompilerError("Parsing failed", NULL);
-		return false;
-	}
-	if(!res)
-		return false;
-
-	CodeInfo::funcInfo.back()->name = strcpy((char*)dupStrings.Allocate((unsigned int)strlen(CodeInfo::funcInfo.back()->name) + 1), CodeInfo::funcInfo.back()->name);
-	CodeInfo::funcInfo.back()->address = -1;
-	CodeInfo::funcInfo.back()->funcPtr = (void*)ptr;
-	CodeInfo::funcInfo.back()->implemented = true;
-
-	buildInFuncs = CodeInfo::funcInfo.size();
-
-	buildInTypes.resize(CodeInfo::typeInfo.size());
-	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
-
-	basicTypes = CodeInfo::classCount;
-
-	typeTop = TypeInfo::GetPoolTop();
-	varTop = VariableInfo::GetPoolTop();
-	funcTop = FunctionInfo::GetPoolTop();
-
-	return true;
-}
-
 bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
 {
 	char errBuf[256];
@@ -282,7 +271,7 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 			path[i] = '\\';
 	}
 	SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
-	char *bytecode = BinaryCache::GetBytecode(path);
+	const char *bytecode = BinaryCache::GetBytecode(path);
 	if(!bytecode && importPath)
 		bytecode = BinaryCache::GetBytecode(pathNoImport);
 
@@ -330,7 +319,7 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	return true;
 }
 
-bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number)
+bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int number)
 {
 	char errBuf[256];
 	ByteCode *bCode = (ByteCode*)bytecode;
@@ -430,8 +419,8 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 			}
 				break;
 			default:
-				SafeSprintf(errBuf, 256, "ERROR: new type in module named %s unsupported", (symbols + tInfo->offsetToName));
-				CodeInfo::lastError = CompilerError(errBuf, pos);
+				SafeSprintf(errBuf, 256, "ERROR: new type in module %s named %s unsupported", pos, (symbols + tInfo->offsetToName));
+				CodeInfo::lastError = CompilerError(errBuf, NULL);
 				return false;
 			}
 			newInfo->alignBytes = tInfo->defaultAlign;
@@ -539,8 +528,8 @@ bool Compiler::ImportModule(char* bytecode, const char* pos, unsigned int number
 			printf(")\r\n");
 #endif
 		}else{
-			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined.", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName());
-			CodeInfo::lastError = CompilerError(errBuf, pos);
+			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined. While importing %s", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName(), pos);
+			CodeInfo::lastError = CompilerError(errBuf, NULL);
 			return false;
 		}
 
@@ -618,9 +607,15 @@ bool Compiler::Compile(const char* str, bool noClear)
 	unsigned int lexStreamStart = lexer.GetStreamSize();
 	lexer.Lexify(str);
 
-	char	*moduleName[32];
-	char	*moduleData[32];
+	const char	*moduleName[32];
+	const char	*moduleData[32];
 	unsigned int moduleCount = 0;
+
+	if(BinaryCache::GetBytecode("$base$.nc"))
+	{
+		moduleName[moduleCount] = "$base$.nc";
+		moduleData[moduleCount++] = BinaryCache::GetBytecode("$base$.nc");
+	}
 
 	const char *importPath = BinaryCache::GetImportPath();
 
@@ -658,7 +653,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		}
 		start++;
 		SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
-		char *bytecode = BinaryCache::GetBytecode(path);
+		const char *bytecode = BinaryCache::GetBytecode(path);
 		if(!bytecode && importPath)
 			bytecode = BinaryCache::GetBytecode(pathNoImport);
 
@@ -689,7 +684,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		activeModules.push_back();
 		activeModules.back().name = moduleName[i];
 		activeModules.back().funcStart = CodeInfo::funcInfo.size();
-		if(!ImportModule(moduleData[i], moduleName[i], i+1))
+		if(!ImportModule(moduleData[i], moduleName[i], i + 1))
 			return false;
 		SetGlobalSize(0);
 		activeModules.back().funcCount = CodeInfo::funcInfo.size() - activeModules.back().funcStart;
@@ -704,7 +699,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		res = ParseCode(&start);
 		if(start->type != lex_none)
 		{
-			CodeInfo::lastError = CompilerError("Unexpected symbol", start->pos);
+			CodeInfo::lastError = CompilerError("ERROR: unexpected symbol", start->pos);
 			return false;
 		}
 	}else{
@@ -712,7 +707,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 	}
 	if(!res)
 	{
-		CodeInfo::lastError = CompilerError("Parsing failed", NULL);
+		CodeInfo::lastError = CompilerError("ERROR: module contains no code", str + strlen(str));
 		return false;
 	}
 
@@ -833,7 +828,7 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 			if(rCount >= rMaxCount)	// too many r parameters
 			{
 				fInfo.ps3Callable = 0;
-				return false;
+				break;
 			}
 			fInfo.rOffsets[rCount++] = offset;
 			offset++;
@@ -844,7 +839,7 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 			if(fCount >= fMaxCount || rCount >= rMaxCount) // too many f/r parameters
 			{
 				fInfo.ps3Callable = 0;
-				return false;
+				break;
 			}
 			fInfo.rOffsets[rCount++] = offset;
 			fInfo.fOffsets[fCount++] = offset;
@@ -853,7 +848,7 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 
 		default:
 			fInfo.ps3Callable = 0; // unsupported type
-			return false; 
+			break;
 		}
 	}
 
@@ -1043,6 +1038,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		}else if(refType.refLevel != 0){				// Pointer type
 			typeInfo.subCat = ExternTypeInfo::CAT_POINTER;
 			typeInfo.subType = refType.subType->typeIndex;
+			typeInfo.memberCount = 0;
 		}else if(refType.type == TypeInfo::TYPE_COMPLEX){	// Complex type
 			typeInfo.subCat = ExternTypeInfo::CAT_CLASS;
 			typeInfo.memberCount = refType.memberCount;
@@ -1056,6 +1052,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		}else{
 			typeInfo.subCat = ExternTypeInfo::CAT_NONE;
 			typeInfo.subType = 0;
+			typeInfo.memberCount = 0;
 		}
 
 		// Fill up next
@@ -1071,6 +1068,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		mInfo->funcStart = activeModules[i].funcStart;
 		mInfo->funcCount = activeModules[i].funcCount;
+
+		mInfo->variableOffset = 0;
+		mInfo->nameHash = ~0u;
 
 		mInfo++;
 	}
@@ -1150,6 +1150,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			code->firstLocal[localOffset].type = curr->varType->typeIndex;
 			code->firstLocal[localOffset].size = curr->varType->size;
 			code->firstLocal[localOffset].offset = curr->pos;
+			code->firstLocal[localOffset].closeListID = 0;
 			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
 			memcpy(symbolPos, curr->name.begin, curr->name.end - curr->name.begin + 1);
 			symbolPos += curr->name.end - curr->name.begin;

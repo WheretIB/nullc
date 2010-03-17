@@ -115,7 +115,6 @@ struct ByteCode
 	unsigned int	size;	// Overall size
 
 	unsigned int	typeCount;
-	unsigned int	memberCount;
 	ExternTypeInfo	*firstType;
 
 	unsigned int		dependsCount;

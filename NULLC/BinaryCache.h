@@ -6,8 +6,8 @@ namespace BinaryCache
 	void Initialize();
 	void Terminate();
 
-	void	PutBytecode(const char* path, char* bytecode);
-	char*	GetBytecode(const char* path);
+	void		PutBytecode(const char* path, const char* bytecode);
+	const char*	GetBytecode(const char* path);
 
 	void		SetImportPath(const char* path);
 	const char*	GetImportPath();
@@ -16,6 +16,6 @@ namespace BinaryCache
 	{
 		const char		*name;
 		unsigned int	nameHash;
-		char			*binary;
+		const char		*binary;
 	};
 }

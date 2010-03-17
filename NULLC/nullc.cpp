@@ -78,20 +78,72 @@ void	nullcSetExecutor(unsigned int id)
 	currExec = id;
 }
 
-nullres	nullcAddExternalFunction(void (NCDECL *ptr)(), const char* prototype)
-{
-	nullres good = compiler->AddExternalFunction(ptr, prototype);
-	if(good == 0)
-		nullcLastError = compiler->GetError();
-	return good;
-}
-
 nullres	nullcAddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
 {
 	nullres good = compiler->AddModuleFunction(module, ptr, name, index);
 	if(good == 0)
 		nullcLastError = compiler->GetError();
 	return good;
+}
+
+nullres nullcLoadModuleBySource(const char* module, const char* code)
+{
+	if(!nullcCompile(code))
+		return false;
+	if(strlen(module) > 512)
+	{
+		nullcLastError = "ERROR: module name is too long";
+		return false;
+	}
+
+	char	path[1024];
+	strcpy(path, module);
+	char	*pos = path;
+	while(*pos)
+		if(*pos++ == '.')
+			pos[-1] = '\\';
+	strcat(path, ".nc");
+
+	if(BinaryCache::GetBytecode(path))
+	{
+		nullcLastError = "ERROR: module already loaded";
+		return false;
+	}
+
+	char *bytecode = NULL;
+	nullcGetBytecode(&bytecode);
+	BinaryCache::PutBytecode(path, bytecode);
+	return 1;
+}
+
+nullres nullcLoadModuleByBinary(const char* module, const char* binary)
+{
+	if(strlen(module) > 512)
+	{
+		nullcLastError = "ERROR: module name is too long";
+		return false;
+	}
+
+	char	path[1024];
+	strcpy(path, module);
+	char	*pos = path;
+	while(*pos)
+		if(*pos++ == '.')
+			pos[-1] = '\\';
+	strcat(path, ".nc");
+
+	if(BinaryCache::GetBytecode(path))
+	{
+		nullcLastError = "ERROR: module already loaded";
+		return false;
+	}
+	// Duplicate binary
+	char *copy = (char*)NULLC::alloc(((ByteCode*)binary)->size);
+	memcpy(copy, binary, ((ByteCode*)binary)->size);
+	binary = copy;
+	// Load it into cache
+	BinaryCache::PutBytecode(path, binary);
+	return 1;
 }
 
 nullres	nullcCompile(const char* code)
@@ -199,14 +251,22 @@ nullres	nullcRunFunction(const char* funcName)
 	return good;
 }
 
-void nullcThrowError(const char* error)
+void nullcThrowError(const char* error, ...)
 {
+	va_list args;
+	va_start(args, error);
+
+	char buf[1024];
+
+	vsnprintf(buf, 1024, error, args);
+	buf[1024 - 1] = '\0';
+
 	if(currExec == NULLC_VM)
 	{
-		executor->Stop(error);
+		executor->Stop(buf);
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		executorX86->Stop(error);
+		executorX86->Stop(buf);
 #endif
 	}
 }
@@ -250,11 +310,11 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 	return currExec;
 }
 
-void* nullcGetModule(const char* path)
+const void* nullcGetModule(const char* path)
 {
 	char fullPath[256];
 	SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath(), path);
-	char *bytecode = BinaryCache::GetBytecode(fullPath);
+	const char *bytecode = BinaryCache::GetBytecode(fullPath);
 	if(!bytecode)
 		bytecode = BinaryCache::GetBytecode(path);
 	return bytecode;
@@ -265,9 +325,9 @@ void* nullcAllocate(unsigned int size)
 	return NULLC::AllocObject(size);
 }
 
-void nullcInitTypeinfoModule()
+int nullcInitTypeinfoModule()
 {
-	nullcInitTypeinfoModule(linker);
+	return nullcInitTypeinfoModule(linker);
 }
 
 void nullcTerminate()

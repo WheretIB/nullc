@@ -160,8 +160,3 @@ bool	nullcInitIOModule()
 
 	return true;
 }
-
-void	nullcDeinitIOModule()
-{
-
-}

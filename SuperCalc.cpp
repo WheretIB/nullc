@@ -36,6 +36,8 @@
 #include "NULLC/includes/list.h"
 #include "NULLC/includes/map.h"
 #include "NULLC/includes/hashmap.h"
+#include "NULLC/includes/random.h"
+#include "NULLC/includes/time.h"
 
 #include "NULLC/includes/window.h"
 
@@ -71,6 +73,9 @@ Colorer*	colorer;
 
 std::vector<HWND>	richEdits;
 
+const unsigned int INIT_BUFFER_SIZE = 4096;
+char	initError[INIT_BUFFER_SIZE];
+
 // for text update
 bool needTextUpdate;
 DWORD lastUpdate;
@@ -79,15 +84,6 @@ char *variableData = NULL;
 void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
 void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
 
-int myGetTime()
-{
-	LARGE_INTEGER freq, count;
-	QueryPerformanceFrequency(&freq);
-	QueryPerformanceCounter(&count);
-	double temp = double(count.QuadPart) / double(freq.QuadPart);
-	return int(temp*1000.0);
-}
-
 double myGetPreciseTime()
 {
 	LARGE_INTEGER freq, count;
@@ -95,33 +91,6 @@ double myGetPreciseTime()
 	QueryPerformanceCounter(&count);
 	double temp = double(count.QuadPart) / double(freq.QuadPart);
 	return temp*1000.0;
-}
-
-void draw_rect(int x, int y, int width, int height, int color)
-{
-	(void)x; (void)y; (void)width; (void)height; (void)color;
-	//DWORD written;
-	//char buf[64];
-	//printf("%d %d %d %d %d\r\n", x, y, width, height, color);
-	//fwrite(buf, strlen(buf), 1, zeuxOut);
-}
-
-char typeTest(int x, short y, char z, int d, long long u, float m, int s, double k, int t)
-{
-	AllocConsole();
-
-	freopen("CONOUT$", "w", stdout);
-	freopen("CONIN$", "r", stdin);
-
-	printf("%d %d %d %d %I64d %f %d %f %d", x, y, z, d, u, m, s, k, t);
-	return 12;
-}
-
-int myStrStr(NullCArray a, NullCArray b)
-{
-	if(!strstr(a.ptr, b.ptr))
-		return 0;
-	return 1;
 }
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
@@ -158,13 +127,63 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	nullcInit("Modules\\");
 
-	#define REGISTER(func, proto) nullcAddExternalFunction((void (*)())func, proto)
-	REGISTER(draw_rect, "void draw_rect(int x, int y, int width, int height, int color);");
+	memset(initError, 0, INIT_BUFFER_SIZE);
 
-	REGISTER(typeTest, "char typeTest(int x, short y, char z, int d, long u, float m, int s, double k, int t);");
+	// in possible, load precompiled modules from nullclib.ncm
+	FILE *modulePack = fopen("nullclib.ncm", "rb");
+	if(!modulePack)
+	{
+		strcat(initError, "WARNING: Failed to open precompiled module file nullclib.ncm\r\n");
+	}else{
+		fseek(modulePack, 0, SEEK_END);
+		unsigned int fileSize = ftell(modulePack);
+		fseek(modulePack, 0, SEEK_SET);
+		char *fileContent = new char[fileSize];
+		fread(fileContent, 1, fileSize, modulePack);
+		fclose(modulePack);
 
-	REGISTER(myGetTime, "int clock();");
-	REGISTER(myStrStr, "int strstr(char[] a, b);");
+		char *filePos = fileContent;
+		while((unsigned int)(filePos - fileContent) < fileSize)
+		{
+			char *moduleName = filePos;
+			filePos += strlen(moduleName) + 1;
+			char *binaryCode = filePos;
+			filePos += *(unsigned int*)binaryCode;
+			nullcLoadModuleByBinary(moduleName, binaryCode);
+		}
+
+		delete[] fileContent;
+	}
+
+	if(!nullcInitTypeinfoModule())
+		strcat(initError, "ERROR: Failed to init std.typeinfo module\r\n");
+
+	if(!nullcInitFileModule())
+		strcat(initError, "ERROR: Failed to init std.file module\r\n");
+	if(!nullcInitIOModule())
+		strcat(initError, "ERROR: Failed to init std.io module\r\n");
+	if(!nullcInitMathModule())
+		strcat(initError, "ERROR: Failed to init std.math module\r\n");
+	if(!nullcInitStringModule())
+		strcat(initError, "ERROR: Failed to init std.string module\r\n");
+
+	if(!nullcInitCanvasModule())
+		strcat(initError, "ERROR: Failed to init img.canvas module\r\n");
+	if(!nullcInitWindowModule())
+		strcat(initError, "ERROR: Failed to init win.window module\r\n");
+
+	if(!nullcInitVectorModule())
+		strcat(initError, "ERROR: Failed to init std.vector module\r\n");
+	if(!nullcInitListModule())
+		strcat(initError, "ERROR: Failed to init std.list module\r\n");
+	if(!nullcInitMapModule())
+		strcat(initError, "ERROR: Failed to init std.map module\r\n");
+	if(!nullcInitHashmapModule())
+		strcat(initError, "ERROR: Failed to init std.hashmap module\r\n");
+	if(!nullcInitRandomModule())
+		strcat(initError, "ERROR: Failed to init std.random module\r\n");
+	if(!nullcInitTimeModule())
+		strcat(initError, "ERROR: Failed to init std.time module\r\n");
 
 	colorer = NULL;
 
@@ -177,24 +196,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	// Perform application initialization:
 	if(!InitInstance(hInstance, nCmdShow)) 
-	{
-		return FALSE;
-	}
-
-	nullcInitTypeinfoModule();
-
-	nullcInitFileModule();
-	nullcInitIOModule();
-	nullcInitMathModule();
-	nullcInitStringModule();
-
-	nullcInitCanvasModule();
-	nullcInitWindowModule();
-
-	nullcInitVectorModule();
-	nullcInitListModule();
-	nullcInitMapModule();
-	nullcInitHashmapModule();
+		return 0;
 
 	hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDC_SUPERCALC);
 
@@ -208,19 +210,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		}
 	}
 	delete colorer;
-
-	nullcDeinitFileModule();
-	nullcDeinitIOModule();
-	nullcDeinitMathModule();
-	nullcDeinitStringModule();
-
-	nullcDeinitCanvasModule();
-	nullcDeinitWindowModule();
-
-	nullcDeinitVectorModule();
-	nullcDeinitListModule();
-	nullcDeinitMapModule();
-	nullcDeinitHashmapModule();
 
 	nullcTerminate();
 
@@ -431,7 +420,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	unsigned int width = (800 - 25) / 4;
 
-	hCode = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
+	hCode = CreateWindow("EDIT", initError, WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
 		5, 225, width*2, 165, hWnd, NULL, hInstance, NULL);
 	if(!hCode)
 		return 0;

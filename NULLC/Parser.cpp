@@ -1346,10 +1346,9 @@ bool ParseCode(Lexeme** str)
 	if(!ParseExpression(str))
 		return false;
 
-	if((*str)->type != lex_cfigure && ParseCode(str))
-		CALLBACK(AddTwoExpressionNode());
-	else
-		CALLBACK(AddOneExpressionNode());
+	while(ParseExpression(str))
+		AddTwoExpressionNode();
+
 	return true;
 }
 

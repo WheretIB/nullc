@@ -25,8 +25,6 @@ int main(int argc, char** argv)
 {
 	nullcInit("Modules\\");
 
-	nullcAddExternalFunction((void (*)())clock, "int clock();");
-	
 	nullcInitFileModule();
 	nullcInitMathModule();
 	nullcInitStringModule();

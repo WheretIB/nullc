@@ -708,6 +708,18 @@
 					>
 				</File>
 				<File
+					RelativePath=".\includes\random.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\random.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\random.nc"
+					>
+				</File>
+				<File
 					RelativePath=".\includes\string.cpp"
 					>
 				</File>
@@ -717,6 +729,18 @@
 				</File>
 				<File
 					RelativePath="..\Modules\std\string.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\time.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\time.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\time.nc"
 					>
 				</File>
 				<File

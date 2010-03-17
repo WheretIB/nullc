@@ -38,7 +38,7 @@ struct NULLCRef
 #define ENABLE_GC
 
 #if defined(_MSC_VER) && !defined(_M_X64)
-#define NULLC_BUILD_X86_JIT
+	#define NULLC_BUILD_X86_JIT
 #endif
 
 #endif
