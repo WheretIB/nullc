@@ -127,7 +127,6 @@ struct ByteCode
 	ExternVarInfo	*firstVar;
 
 	unsigned int	functionCount;	//
-	unsigned int	externalFunctionCount;
 	unsigned int	moduleFunctionCount;
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
 	ExternFuncInfo	*firstFunc;

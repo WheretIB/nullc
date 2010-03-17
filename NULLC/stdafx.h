@@ -52,12 +52,16 @@ namespace NULLC
 	template<typename T>
 	static void		destruct(T* ptr)
 	{
+		if(!ptr)
+			return;
 		ptr->~T();
 		dealloc((void*)ptr);
 	}
 	template<typename T>
 	static void		destruct(T* ptr, size_t count)
 	{
+		if(!ptr)
+			return;
 		for(size_t i = 0; i < count; i++)
 			ptr[i].~T();
 		dealloc(ptr);
