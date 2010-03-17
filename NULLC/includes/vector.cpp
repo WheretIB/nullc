@@ -38,7 +38,7 @@ namespace NULLCVector
 		// Check that we received type that is equal to array element type
 		if(val.typeID != vec->elemType)
 		{
-			nullcThrowError("vector::push_back received value that is different from vector type");
+			nullcThrowError("vector::push_back received value (%s) that is different from vector type (%s)", nullcGetTypeName(val.typeID), nullcGetTypeName(vec->elemType));
 			return;
 		}
 		// If not enough space
@@ -181,9 +181,4 @@ bool	nullcInitVectorModule()
 	REGISTER_FUNC(VectorHasNext, "vector_iterator::hasnext", 0);
 
 	return true;
-}
-
-void	nullcDeinitVectorModule()
-{
-
 }

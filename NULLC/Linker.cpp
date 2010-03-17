@@ -67,7 +67,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			char fullPath[256];
 			SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath() ? BinaryCache::GetImportPath() : "", path);
 
-			char *bytecode = BinaryCache::GetBytecode(fullPath);
+			const char *bytecode = BinaryCache::GetBytecode(fullPath);
 			if(!bytecode && BinaryCache::GetImportPath())
 				bytecode = BinaryCache::GetBytecode(path);
 
@@ -86,7 +86,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				return false;
 			}
 			exModules.push_back(*mInfo);
-			exModules.back().name = NULL;
+			exModules.back().name = path;
 			exModules.back().nameHash = GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
 			exModules.back().variableOffset = globalVarSize - ((ByteCode*)bytecode)->globalVarSize;
@@ -175,7 +175,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			if(tInfo->subCat == ExternTypeInfo::CAT_FUNCTION || tInfo->subCat == ExternTypeInfo::CAT_CLASS)
 			{
 				exTypes.back().memberOffset = exTypeExtra.size();
-				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount);
+				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount + (tInfo->subCat == ExternTypeInfo::CAT_FUNCTION ? 1 : 0));
 			}
 		}else{
 			typeRemap.push_back(index);

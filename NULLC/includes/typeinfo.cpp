@@ -10,7 +10,7 @@ namespace NULLCTypeInfo
 		ExternTypeInfo &exType = linker->exTypes[*type];
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
 		{
-			nullcThrowError("Type is not a class");
+			nullcThrowError("typeid::memberCount: type (%s) is not a class", &linker->exSymbols[exType.offsetToName]);
 			return 0;
 		}
 		return exType.memberCount;
@@ -20,12 +20,12 @@ namespace NULLCTypeInfo
 		ExternTypeInfo &exType = linker->exTypes[*type];
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
 		{
-			nullcThrowError("Type is not a class");
+			nullcThrowError("typeid::memberType: type (%s) is not a class", &linker->exSymbols[exType.offsetToName]);
 			return 0;
 		}
 		if((unsigned int)member > exType.memberCount)
 		{
-			nullcThrowError("Member number illegal");
+			nullcThrowError("typeid::memberType: member number illegal, type (%s) has only %d members", &linker->exSymbols[exType.offsetToName], exType.memberCount);
 			return 0;
 		}
 		unsigned int *memberList = &linker->exTypeExtra[0];
@@ -38,12 +38,12 @@ namespace NULLCTypeInfo
 		ExternTypeInfo &exType = linker->exTypes[*type];
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
 		{
-			nullcThrowError("Type is not a class");
+			nullcThrowError("typeid::memberName: type (%s) is not a class", &linker->exSymbols[exType.offsetToName]);
 			return NullCArray();
 		}
 		if((unsigned int)member > exType.memberCount)
 		{
-			nullcThrowError("Member number illegal");
+			nullcThrowError("typeid::memberName: member number illegal, type (%s) has only %d members", &linker->exSymbols[exType.offsetToName], exType.memberCount);
 			return NullCArray();
 		}
 		char *symbols = &linker->exSymbols[0];
@@ -139,6 +139,68 @@ namespace NULLCTypeInfo
 	{
 		return a != b;
 	}
+
+	int TypeSubType(int &typeID)
+	{
+		ExternTypeInfo &type = linker->exTypes[typeID];
+		if(type.subCat != ExternTypeInfo::CAT_ARRAY && type.subCat != ExternTypeInfo::CAT_POINTER)
+		{
+			nullcThrowError("typeid::subType received type (%s) that neither pointer nor array", &linker->exSymbols[type.offsetToName]);
+			return -1;
+		}
+		return type.subType;
+	}
+
+	int TypeArraySize(int &typeID)
+	{
+		ExternTypeInfo &type = linker->exTypes[typeID];
+		if(type.subCat != ExternTypeInfo::CAT_ARRAY)
+		{
+			nullcThrowError("typeid::arraySize received type (%s) that is not an array", &linker->exSymbols[type.offsetToName]);
+			return -1;
+		}
+		return type.arrSize;
+	}
+
+	int TypeReturnType(int &typeID)
+	{
+		ExternTypeInfo &type = linker->exTypes[typeID];
+		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
+		{
+			nullcThrowError("typeid::returnType received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
+			return -1;
+		}
+		unsigned int *memberList = &linker->exTypeExtra[0];
+		return memberList[type.memberOffset];
+	}
+
+	int TypeArgumentCount(int &typeID)
+	{
+		ExternTypeInfo &type = linker->exTypes[typeID];
+		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
+		{
+			nullcThrowError("typeid::argumentCount received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
+			return -1;
+		}
+		return type.memberCount;
+	}
+
+	int TypeArgumentType(int argument, int &typeID)
+	{
+		ExternTypeInfo &type = linker->exTypes[typeID];
+		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
+		{
+			nullcThrowError("typeid::argumentType received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
+			return -1;
+		}
+		if((unsigned int)argument > type.memberCount)
+		{
+			nullcThrowError("typeid::argumentType: argument number illegal, function (%s) has only %d argument(s)", &linker->exSymbols[type.offsetToName], type.memberCount);
+			return -1;
+		}
+		unsigned int *memberList = &linker->exTypeExtra[0];
+		return memberList[type.memberOffset + argument + 1];
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
@@ -169,15 +231,21 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 	REGISTER_FUNC(TypesEqual, "==", 0);
 	REGISTER_FUNC(TypesNEqual, "!=", 0);
 
+	REGISTER_FUNC(TypeSubType, "typeid::subType", 0);
+	REGISTER_FUNC(TypeArraySize, "typeid::arraySize", 0);
+	REGISTER_FUNC(TypeReturnType, "typeid::returnType", 0);
+	REGISTER_FUNC(TypeArgumentCount, "typeid::argumentCount", 0);
+	REGISTER_FUNC(TypeArgumentType, "typeid::argumentType", 0);
+
 	return true;
-}
-
-void	nullcDeinitTypeinfoModule()
-{
-
 }
 
 unsigned int	nullcGetTypeSize(unsigned int typeID)
 {
 	return NULLCTypeInfo::linker->exTypes[typeID].size;
+}
+
+const char*		nullcGetTypeName(unsigned int typeID)
+{
+	return &NULLCTypeInfo::linker->exSymbols[NULLCTypeInfo::linker->exTypes[typeID].offsetToName];
 }

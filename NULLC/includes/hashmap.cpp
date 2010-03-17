@@ -12,8 +12,3 @@ bool	nullcInitHashmapModule()
 
 	return true;
 }
-
-void	nullcDeinitHashmapModule()
-{
-
-}

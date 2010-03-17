@@ -1,8 +1,5 @@
+// std.typeinfo
 
-int typeid:memberCount();
-typeid typeid:memberType(int member);
-char[] typeid:memberName(int member);
-	
 typeid typeid(auto ref type);
 
 int isFunction(typeid type);
@@ -19,5 +16,83 @@ int isPointer(auto ref type);
 
 int typeid.size();
 char[] typeid.name();
+
+// For class types
+int		typeid:memberCount();
+typeid	typeid:memberType(int member);
+char[]	typeid:memberName(int member);
+
+// For array and pointer types
+typeid	typeid:subType();
+
+// for array types
+int		typeid:arraySize();
+
+// for function type
+typeid	typeid:returnType();
+int		typeid:argumentCount();
+typeid	typeid:argumentType(int argument);
+
+// type info comparison
 int operator==(typeid a, b);
 int operator!=(typeid a, b);
+
+// iteration over members
+class member_iterator
+{
+	typeid classID;
+	int pos;
+}
+class member_info
+{
+	typeid type;
+	char[] name;
+}
+auto typeid:members()
+{
+	member_iterator ret;
+	ret.classID = *this;
+	ret.pos = 0;
+	return ret;
+}
+auto member_iterator:start()
+{
+	return this;
+}
+auto member_iterator:hasnext()
+{
+	return pos < classID.memberCount();
+}
+auto member_iterator:next()
+{
+	member_info ret;
+	ret.type = classID.memberType(pos);
+	ret.name = classID.memberName(pos++);
+	return ret;
+}
+
+// iteration over arguments
+class argument_iterator
+{
+	typeid funcID;
+	int pos;
+}
+auto typeid:arguments()
+{
+	argument_iterator ret;
+	ret.funcID = *this;
+	ret.pos = 0;
+	return ret;
+}
+auto argument_iterator:start()
+{
+	return this;
+}
+auto argument_iterator:hasnext()
+{
+	return pos < funcID.argumentCount();
+}
+auto argument_iterator:next()
+{
+	return funcID.argumentType(pos++);
+}

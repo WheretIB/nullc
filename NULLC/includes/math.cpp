@@ -226,8 +226,3 @@ bool	nullcInitMathModule()
 	REGISTER_FUNC(dot4, "dot", 2);
 	return true;
 }
-
-void	nullcDeinitMathModule()
-{
-
-}

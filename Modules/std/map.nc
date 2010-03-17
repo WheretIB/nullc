@@ -1,0 +1,5 @@
+// std.map
+
+class map
+{
+}

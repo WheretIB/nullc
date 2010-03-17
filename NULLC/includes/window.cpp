@@ -145,8 +145,3 @@ bool	nullcInitWindowModule()
 
 	return true;
 }
-
-void	nullcDeinitWindowModule()
-{
-
-}

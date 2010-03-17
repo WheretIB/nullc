@@ -189,8 +189,3 @@ bool nullcInitFileModule()
 	REGISTER_FUNC(FilePrint, "File::Print", 0);
 	return true;
 }
-
-void nullcDeinitFileModule()
-{
-
-}

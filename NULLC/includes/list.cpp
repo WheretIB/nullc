@@ -12,8 +12,3 @@ bool	nullcInitListModule()
 
 	return true;
 }
-
-void	nullcDeinitListModule()
-{
-
-}

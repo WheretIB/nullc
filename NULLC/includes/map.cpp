@@ -12,8 +12,3 @@ bool	nullcInitMapModule()
 
 	return true;
 }
-
-void	nullcDeinitMapModule()
-{
-
-}

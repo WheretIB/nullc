@@ -17,16 +17,20 @@ public:
 	const char* GetErrorString() const
 	{
 		static char errBuf[512];
+		if(!lineNum)
+			return error;
 		char *curr = errBuf;
 		if(lineNum != 0)
 			curr += sprintf(curr, "line %d - ", lineNum);
 		curr += sprintf(curr, "%s", error);
 		if(line[0] != 0)
+		{
 			curr += sprintf(curr, "\r\n  at \"%s\"", line);
-		curr += sprintf(curr, "\r\n      ");
-		for(unsigned int i = 0; i < shift; i++)
-			*(curr++) = ' ';
-		curr += sprintf(curr, "^\r\n");
+			curr += sprintf(curr, "\r\n      ");
+			for(unsigned int i = 0; i < shift; i++)
+				*(curr++) = ' ';
+			curr += sprintf(curr, "^\r\n");
+		}
 		return errBuf;
 	}
 	static const char *codeStart;
@@ -48,7 +52,6 @@ public:
 	Compiler();
 	~Compiler();
 
-	bool	AddExternalFunction(void (NCDECL *ptr)(), const char* prototype);
 	bool	AddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index);
 
 	bool	Compile(const char* str, bool noClear = false);
@@ -59,7 +62,7 @@ public:
 	unsigned int	GetBytecode(char** bytecode);
 private:
 	void	ClearState();
-	bool	ImportModule(char* bytecode, const char* pos, unsigned int number);
+	bool	ImportModule(const char* bytecode, const char* pos, unsigned int number);
 	char*	BuildModule(const char* file, const char* altFile);
 
 	Lexer	lexer;

@@ -7,6 +7,10 @@
 #include "NULLC/includes/math.h"
 #include "NULLC/includes/vector.h"
 
+#include "NULLC/includes/canvas.h"
+#include "NULLC/includes/window.h"
+#include "NULLC/includes/io.h"
+
 #include <stdio.h>
 
 #ifndef _DEBUG
@@ -341,39 +345,6 @@ double TestDouble(double a)
 	return a;
 }
 
-const char *testModuleA = "import std.math; float4 a; a.x = 2;";
-
-const void* TestFileLoad(const char* name, unsigned int* size, int* nullcShouldFreePtr)
-{
-	assert(name);
-	assert(size);
-	assert(nullcShouldFreePtr);
-
-	if(strcmp(name, "test\\a.nc") == 0)
-	{
-		*size = (int)strlen(testModuleA) + 1;
-		*nullcShouldFreePtr = false;
-		return testModuleA;
-	}
-
-	FILE *file = fopen(name, "rb");
-	if(file)
-	{
-		fseek(file, 0, SEEK_END);
-		*size = ftell(file);
-		fseek(file, 0, SEEK_SET);
-		char *fileContent = (char*)NULLC::alloc(*size + 1);
-		fread(fileContent, 1, *size, file);
-		fileContent[*size] = 0;
-		fclose(file);
-		*nullcShouldFreePtr = 1;
-		return fileContent;
-	}
-	*size = 0;
-	*nullcShouldFreePtr = false;
-	return NULL;
-}
-
 void	RunTests2();
 
 int passed[] = { 0, 0, 0 };
@@ -396,23 +367,31 @@ void	RunTests()
 	// Init NULLC
 	nullcInit("Modules\\");
 	//nullcInitCustomAlloc(testAlloc, testDealloc, "Modules\\");
-	nullcSetFileReadHandler(TestFileLoad);
+	//nullcSetFileReadHandler(TestFileLoad);
 
 #ifdef SPEED_TEST
-	nullcAddExternalFunction((void (*)())speedTestStub, "void draw_rect(int x, int y, int width, int height, int color);");
+	nullcLoadModuleBySource("test.speed", "void draw_rect(int x, int y, int width, int height, int color);");
+	nullcAddModuleFunction("test.speed", (void (*)())speedTestStub, "draw_rect", 0);
 #endif
 
-	nullcAddExternalFunction((void (*)())TestInt, "char char_(char a);");
-	nullcAddExternalFunction((void (*)())TestInt, "short short_(short a);");
-	nullcAddExternalFunction((void (*)())TestInt, "int int_(int a);");
-	nullcAddExternalFunction((void (*)())TestLong, "long long_(long a);");
-	nullcAddExternalFunction((void (*)())TestFloat, "float float_(float a);");
-	nullcAddExternalFunction((void (*)())TestDouble, "double double_(double a);");
+	nullcLoadModuleBySource("test.a", "import std.math; float4 a; a.x = 2;");
+	nullcLoadModuleBySource("test1", "char char_(char a); short short_(short a); int int_(int a); long long_(long a); float float_(float a); double double_(double a);");
+
+	nullcAddModuleFunction("test1", (void (*)())TestInt, "char_", 0);
+	nullcAddModuleFunction("test1", (void (*)())TestInt, "short_", 0);
+	nullcAddModuleFunction("test1", (void (*)())TestInt, "int_", 0);
+	nullcAddModuleFunction("test1", (void (*)())TestLong, "long_", 0);
+	nullcAddModuleFunction("test1", (void (*)())TestFloat, "float_", 0);
+	nullcAddModuleFunction("test1", (void (*)())TestDouble, "double_", 0);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
 	nullcInitMathModule();
 	nullcInitVectorModule();
+
+	nullcInitIOModule();
+	nullcInitCanvasModule();
+	nullcInitWindowModule();
 
 //////////////////////////////////////////////////////////////////////////
 	printf("\r\nTwo bytecode merge test 1\r\n");
@@ -3806,6 +3785,7 @@ return func(1,7,18);";
 
 const char	*testExternalFunctionPtr =
 "import std.math;\r\n\
+import test1;\r\n\
 auto Sqrt = sqrt;\r\n\
 auto Char = char_;\r\n\
 auto Short = short_;\r\n\
@@ -4234,7 +4214,7 @@ import std.math;\r\n\
 float4 b;\r\n\
 b.x = 12;\r\n\
 return int(a.x);";
-	printf("\r\nGlobal variable positioning\r\n");
+	printf("\r\nGlobal variable positioning 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4897,7 +4877,8 @@ return *res + *h.c + *v + *e[0];";
 	{\
 		char buf[512];\
 		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));\
-		*strchr(buf, '\r') = 0;\
+		if(char *lineEnd = strchr(buf, '\r'))\
+			*lineEnd = 0;\
 		if(strcmp(error, buf) != 0)\
 		{\
 			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);\
@@ -5409,7 +5390,8 @@ return 0;";
 			char *bytecode = NULL;
 			nullcGetBytecode(&bytecode);
 			nullcClean();
-			nullcLinkCode(bytecode, 0);
+			if(!nullcLinkCode(bytecode, 0))
+				printf("Link failed: %s", nullcGetLastError());
 			delete[] bytecode;
 		}else{
 			printf("Compilation failed: %s", nullcGetLastError());
@@ -5423,10 +5405,6 @@ return 0;";
 	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
 	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 30000.0);
 #endif
-
-	nullcDeinitFileModule();
-	nullcDeinitMathModule();
-	nullcDeinitVectorModule();
 
 	// Terminate NULLC
 	nullcTerminate();

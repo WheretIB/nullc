@@ -22,7 +22,6 @@ Replace AddPreOrPostOpNode with two distinct functions (?)
 Allow ++ and -- as post expression.
 string
 hash_map
-list
 auto[]
 sort
 ability to save bytecode
@@ -134,3 +133,4 @@ DONE: Add optimization with known number conversion to desired type.
 DONE: extended use of FindFirstFunctionIndex
 DONE: Add null pointer.
 DONE: vector
+DONE: list

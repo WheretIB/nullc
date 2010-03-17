@@ -53,7 +53,7 @@ unsigned int	methodCount = 0;
 
 ChunkedStackPool<4092> TypeInfo::typeInfoPool;
 ChunkedStackPool<4092> VariableInfo::variablePool;
-ChunkedStackPool<4092>	FunctionInfo::functionPool;
+ChunkedStackPool<4092> FunctionInfo::functionPool;
 
 FastVector<FunctionInfo*>	bestFuncList;
 FastVector<unsigned int>	bestFuncRating;

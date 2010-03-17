@@ -31,7 +31,7 @@ void BinaryCache::Terminate()
 	cache.clear();
 }
 
-void BinaryCache::PutBytecode(const char* path, char* bytecode)
+void BinaryCache::PutBytecode(const char* path, const char* bytecode)
 {
 	unsigned int hash = GetStringHash(path);
 	unsigned int i = 0;
@@ -49,7 +49,7 @@ void BinaryCache::PutBytecode(const char* path, char* bytecode)
 	desc->binary = bytecode;
 }
 
-char* BinaryCache::GetBytecode(const char* path)
+const char* BinaryCache::GetBytecode(const char* path)
 {
 	unsigned int hash = GetStringHash(path);
 	unsigned int i = 0;

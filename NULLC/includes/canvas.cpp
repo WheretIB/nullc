@@ -86,8 +86,3 @@ bool	nullcInitCanvasModule()
 
 	return true;
 }
-
-void	nullcDeinitCanvasModule()
-{
-
-}
