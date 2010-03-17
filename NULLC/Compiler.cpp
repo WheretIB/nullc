@@ -99,7 +99,6 @@ auto ref duplicate(auto ref obj);\
 
 Compiler::Compiler()
 {
-	buildInFuncs = 0;
 	buildInTypes.clear();
 	buildInTypes.reserve(32);
 
@@ -161,11 +160,8 @@ Compiler::Compiler()
 	buildInTypes.resize(CodeInfo::typeInfo.size());
 	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
 
-	CodeInfo::classCount = basicTypes = (int)CodeInfo::typeInfo.size();
+	CodeInfo::classCount = (int)CodeInfo::typeInfo.size();
 	typeTop = TypeInfo::GetPoolTop();
-
-	varTop = 0;
-	funcTop = 0;
 
 	// Add base module with build-in functions
 	bool res = Compile(nullcBaseCode);
@@ -220,7 +216,7 @@ void Compiler::ClearState()
 {
 	CodeInfo::varInfo.clear();
 
-	CodeInfo::classCount = basicTypes;
+	CodeInfo::classCount = buildInTypes.size();
 
 	CodeInfo::typeInfo.resize(buildInTypes.size());
 	memcpy(&CodeInfo::typeInfo[0], &buildInTypes[0], buildInTypes.size() * sizeof(TypeInfo*));
@@ -237,14 +233,14 @@ void Compiler::ClearState()
 	TypeInfo::SetPoolTop(typeTop);
 	CodeInfo::aliasInfo.clear();
 
-	CodeInfo::funcInfo.resize(buildInFuncs);
-	FunctionInfo::SetPoolTop(funcTop);
+	CodeInfo::funcInfo.resize(0);
+	FunctionInfo::SetPoolTop(0);
 
 	CodeInfo::nodeList.clear();
 
 	ClearStringList();
 
-	VariableInfo::SetPoolTop(varTop);
+	VariableInfo::SetPoolTop(0);
 
 	CallbackInitialize();
 
@@ -291,10 +287,8 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	// Find function and set pointer
 	ExternFuncInfo *fInfo = FindFirstFunc(code);
 	
-	unsigned int start = code->moduleFunctionCount ? 0 : code->externalFunctionCount;
-	unsigned int end = code->moduleFunctionCount ? code->functionCount - (code->moduleFunctionCount + code->externalFunctionCount) : code->functionCount;
-	fInfo += start;
-	for(unsigned int i = start; i < end; i++)
+	unsigned int end = code->functionCount - code->moduleFunctionCount;
+	for(unsigned int i = 0; i < end; i++)
 	{
 		if(hash == fInfo->nameHash)
 		{
@@ -475,10 +469,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
 
 	unsigned int oldFuncCount = CodeInfo::funcInfo.size();
-	unsigned int start = bCode->moduleFunctionCount ? 0 : bCode->externalFunctionCount;
-	unsigned int end = bCode->moduleFunctionCount ? bCode->functionCount - (bCode->moduleFunctionCount + bCode->externalFunctionCount) : bCode->functionCount;
-	fInfo += start;
-	for(unsigned int i = start; i < end; i++)
+	unsigned int end = bCode->functionCount - bCode->moduleFunctionCount;
+	for(unsigned int i = 0; i < end; i++)
 	{
 		const unsigned int INDEX_NONE = ~0u;
 
@@ -907,7 +899,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	}
 
 	unsigned int offsetToFunc = size;
-	size += (CodeInfo::funcInfo.size() - (functionsInModules ? buildInFuncs + functionsInModules : 0)) * sizeof(ExternFuncInfo);
+	size += (CodeInfo::funcInfo.size() - functionsInModules) * sizeof(ExternFuncInfo);
 
 	unsigned int offsetToFirstLocal = size;
 
@@ -915,7 +907,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int localCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
-		if(functionsInModules && i < buildInFuncs + functionsInModules)
+		if(functionsInModules && i < functionsInModules)
 			continue;
 		
 		FunctionInfo	*func = CodeInfo::funcInfo[i];
@@ -985,7 +977,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->offsetToFirstVar = offsetToVar;
 
 	code->functionCount = (unsigned int)CodeInfo::funcInfo.size();
-	code->externalFunctionCount = buildInFuncs;
 	code->moduleFunctionCount = functionsInModules;
 	code->offsetToFirstFunc = offsetToFunc;
 
@@ -1106,7 +1097,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	clsListCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
-		if(functionsInModules && i < buildInFuncs + functionsInModules)
+		if(functionsInModules && i < functionsInModules)
 			continue;
 		ExternFuncInfo &funcInfo = *fInfo;
 		FunctionInfo *refFunc = CodeInfo::funcInfo[i];

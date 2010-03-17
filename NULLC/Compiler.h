@@ -78,7 +78,5 @@ private:
 	HashMap<TypeInfo>				typeMap;
 	FastVector<unsigned int>		typeRemap;
 
-	unsigned int buildInFuncs;
-	unsigned int basicTypes;
-	unsigned int typeTop, funcTop, varTop;
+	unsigned int typeTop;
 };

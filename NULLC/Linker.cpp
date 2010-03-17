@@ -100,13 +100,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	}
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
-		printf("Function remap table is extended to %d functions (%d base, %d modules, %d new)\r\n", bCode->functionCount, bCode->externalFunctionCount, moduleFuncCount, bCode->functionCount-(bCode->externalFunctionCount + moduleFuncCount));
+		printf("Function remap table is extended to %d functions (%d modules, %d new)\r\n", bCode->functionCount, moduleFuncCount, bCode->functionCount - moduleFuncCount);
 #endif
 	funcRemap.resize(bCode->functionCount);
-	for(unsigned int i = 0; i < bCode->externalFunctionCount; i++)
-		funcRemap[i] = i;
-	for(unsigned int i = bCode->externalFunctionCount + moduleFuncCount; i < bCode->functionCount; i++)
-		funcRemap[i] = (exFunctions.size() ? exFunctions.size() - (bCode->externalFunctionCount + moduleFuncCount) : 0) + i;
+	for(unsigned int i = moduleFuncCount; i < bCode->functionCount; i++)
+		funcRemap[i] = (exFunctions.size() ? exFunctions.size() - moduleFuncCount : 0) + i;
 
 	moduleRemap.resize(bCode->dependsCount);
 
@@ -242,7 +240,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-	unsigned int end = bCode->moduleFunctionCount ? bCode->functionCount - (bCode->moduleFunctionCount + bCode->externalFunctionCount) : bCode->functionCount;
+	unsigned int end = bCode->functionCount - bCode->moduleFunctionCount;
 	for(unsigned int i = 0; i < end; i++, fInfo++)
 	{
 		const unsigned int index_none = ~0u;

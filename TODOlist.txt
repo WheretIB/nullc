@@ -12,7 +12,6 @@ Fix alignment of statically allocated variables when global allocator returns me
 
 Breakpoints.
 
-Fix module linkage with different set of base external functions.
 Compiled modules must recompile after changes.
 
 tuples
@@ -134,3 +133,4 @@ DONE: extended use of FindFirstFunctionIndex
 DONE: Add null pointer.
 DONE: vector
 DONE: list
+DONE: Fix module linkage with different set of base external functions. - no more base external funcitons
