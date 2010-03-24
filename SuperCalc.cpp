@@ -55,15 +55,17 @@ LRESULT CALLBACK	WndProc(HWND, unsigned int, WPARAM, LPARAM);
 LRESULT CALLBACK	About(HWND, unsigned int, WPARAM, LPARAM);
 
 // Window handles
-HWND hWnd;
-HWND hButtonCalc;	// calculate button
-HWND hJITEnabled;	// jit enable button
-HWND hTabs;
+HWND hWnd;			// Main window
+HWND hButtonCalc;	// Run/Abort button
+HWND hContinue;		// Button that continues an interupted execution
+HWND hJITEnabled;	// JiT enable check box
+HWND hTabs;	
 HWND hNewTab, hNewFilename, hNewFile;
 HWND hResult;		// label with execution result
-HWND hCode;			// disabled text area for errors and asm-like code output
+HWND hCode;			// disabled text area for error messages and other information
 HWND hVars;			// disabled text area that shows values of all variables in global scope
-HWND hStatus;
+HWND hStatus;		// Main window status bar
+
 
 unsigned int areaWidth = 400, areaHeight = 300;
 
@@ -91,6 +93,14 @@ double myGetPreciseTime()
 	QueryPerformanceCounter(&count);
 	double temp = double(count.QuadPart) / double(freq.QuadPart);
 	return temp*1000.0;
+}
+
+HANDLE breakResponse = NULL;
+
+void IDEDebugBreak()
+{
+	SendMessage(hWnd, WM_USER + 2, 0, 0);
+	WaitForSingleObject(breakResponse, INFINITE);
 }
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
@@ -184,6 +194,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		strcat(initError, "ERROR: Failed to init std.random module\r\n");
 	if(!nullcInitTimeModule())
 		strcat(initError, "ERROR: Failed to init std.time module\r\n");
+
+	nullcLoadModuleBySource("ide.debug", "void _debugBreak();");
+	nullcAddModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);
 
 	colorer = NULL;
 
@@ -330,6 +343,11 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	if(!hButtonCalc)
 		return 0;
 	SendMessage(hButtonCalc, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	hContinue = CreateWindow("BUTTON", "Continue", WS_CHILD, 110, 185, 100, 30, hWnd, NULL, hInstance, NULL);
+	if(!hContinue)
+		return 0;
+	SendMessage(hContinue, WM_SETFONT, (WPARAM)fontDefault, 0);
 
 	hJITEnabled = CreateWindow("BUTTON", "X86 JIT", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
 	if(!hJITEnabled)
@@ -665,6 +683,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	case WM_CREATE:
 		runRes.finished = true;
 		runRes.wnd = hWnd;
+
+		breakResponse = CreateEvent(NULL, false, false, "NULLC Debug Break Continue Event");
 		break;
 	case WM_DESTROY:
 		{
@@ -698,15 +718,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			SetWindowText(hCode, result);
 		}
 		break;
+	case WM_USER + 2:
+		ShowWindow(hContinue, SW_SHOW);
+		variableData = (char*)nullcGetVariableData();
+		FillVariableInfoTree();
+
+		break;
 	case WM_COMMAND:
 		wmId	= LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
 
-		if((HWND)lParam == hButtonCalc)
+		if((HWND)lParam == hContinue)
 		{
-			if(!runRes.finished)
-			{
+			ShowWindow(hContinue, SW_HIDE);
+			SetEvent(breakResponse);
+		}else if((HWND)lParam == hButtonCalc){
+			if(!runRes.finished){
 				TerminateThread(calcThread, 0);
+				ShowWindow(hContinue, SW_HIDE);
 				SetWindowText(hButtonCalc, "Run");
 				runRes.finished = true;
 				break;
@@ -926,14 +955,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
 
 		unsigned int buttonWidth = 120;
-		unsigned int resultWidth = width - 2 * buttonWidth - 2 * mainPadding - subPadding * 3;
+		unsigned int resultWidth = width - 3 * buttonWidth - 3 * mainPadding - subPadding * 3;
 
 		unsigned int calcOffsetX = mainPadding;
-		unsigned int resultOffsetX = calcOffsetX + buttonWidth + subPadding;
+		unsigned int resultOffsetX = calcOffsetX * 2 + buttonWidth * 2 + subPadding;
 		unsigned int x86OffsetX = resultOffsetX + resultWidth + subPadding;
 
 		SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 		SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
+		SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
 		SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 		unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
