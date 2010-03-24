@@ -32,7 +32,9 @@ namespace NULLC
 	int runResult2 = 0;
 	asmOperType runResultType = OTYPE_DOUBLE;
 
-	unsigned int stackTrace[32];
+	const unsigned int STACK_TRACE_DEPTH = 1024;
+	unsigned int stackTrace[STACK_TRACE_DEPTH];
+	bool abnormalTermination;
 
 	unsigned int stackReallocs;
 
@@ -95,13 +97,15 @@ namespace NULLC
 			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
 			int *paramData = &dataHead->nextElement;
 			int count = 0;
-			while(count < 31 && paramData)
+			while(count < STACK_TRACE_DEPTH && paramData)
 			{
 				stackTrace[count++] = paramData[-1];
 				paramData = (int*)(long long)(*paramData);
 			}
 			stackTrace[count] = 0;
 			dataHead->nextElement = NULL;
+			abnormalTermination = true;
+
 			return EXCEPTION_EXECUTE_HANDLER;
 		}
 		if(expCode == EXCEPTION_ACCESS_VIOLATION)
@@ -380,6 +384,8 @@ void ExecutorX86::Run(const char* funcName)
 	unsigned long extraStack = 4096;
 	SetThreadStackGuarantee(&extraStack);
 
+	abnormalTermination = false;
+
 	__try 
 	{
 		__asm
@@ -463,20 +469,9 @@ void ExecutorX86::Run(const char* funcName)
 		char *currPos = execError + strlen(execError);
 		currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "\r\nCall stack:\r\n");
 
-		unsigned int *stackTop = stackTrace;
-		while(*stackTop)
-		{
-			unsigned int address = 0;
-			for(; address < instAddress.size(); address++)
-			{
-				if(*stackTop < (unsigned int)(long long)instAddress[address])
-					break;
-			}
-
+		BeginCallStack();
+		while(unsigned int address = GetNextAddress())
 			currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
-
-			stackTop++;
-		}
 	}
 }
 #pragma warning(default: 4731)
@@ -1002,17 +997,23 @@ char* ExecutorX86::GetVariableData()
 
 void ExecutorX86::BeginCallStack()
 {
-	genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
-	NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
-	int *paramData = &NULLC::dataHead->nextElement;
 	int count = 0;
-	while(count < 31 && paramData)
+	if(!NULLC::abnormalTermination)
 	{
-		NULLC::stackTrace[count++] = paramData[-1];
-		paramData = (int*)(long long)(*paramData);
+		genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
+		NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
+		int *paramData = &NULLC::dataHead->nextElement;
+		while(count < NULLC::STACK_TRACE_DEPTH && paramData)
+		{
+			NULLC::stackTrace[count++] = paramData[-1];
+			paramData = (int*)(long long)(*paramData);
+		}
+		NULLC::stackTrace[count] = 0;
+		NULLC::dataHead->nextElement = NULL;
+	}else{
+		while(count < NULLC::STACK_TRACE_DEPTH && NULLC::stackTrace[count++]);
+		count--;
 	}
-	NULLC::stackTrace[count] = 0;
-	NULLC::dataHead->nextElement = NULL;
 
 	callstackTop = NULLC::stackTrace + count - 1;
 }
