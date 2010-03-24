@@ -43,6 +43,9 @@ x86Instruction* GetLastInstruction();
 
 unsigned int	GetLastALULabel();
 
+void OptimizationLookBehind(bool allow);
+unsigned int GetOptimizationCount();
+
 void GenCodeCmdNop(VMCmd cmd);
 
 void GenCodeCmdPushChar(VMCmd cmd);

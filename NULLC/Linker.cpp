@@ -2,7 +2,7 @@
 #include "StdLib.h"
 #include "BinaryCache.h"
 
-Linker::Linker(): exTypes(64), exVariables(64), exFunctions(64), exSymbols(4096), exLocals(64)
+Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exSymbols(8192), exLocals(1024), jumpTargets(1024)
 {
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -28,6 +28,8 @@ void Linker::CleanCode()
 	exCodeInfo.clear();
 	exSource.clear();
 	exCloseLists.clear();
+
+	jumpTargets.clear();
 
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -356,8 +358,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		case cmdJmpZ:
 		case cmdJmpNZ:
 			cmd.argument += oldCodeSize;
+			jumpTargets.push_back(cmd.argument);
 			break;
 		case cmdCall:
+			jumpTargets.push_back(funcRemap[cmd.argument]);
 		case cmdFuncAddr:
 		case cmdCreateClosure:
 			cmd.argument = funcRemap[cmd.argument];

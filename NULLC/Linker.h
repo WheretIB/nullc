@@ -34,6 +34,7 @@ public:
 	unsigned int				globalVarSize;
 	unsigned int				offsetToGlobalCode;
 
+	FastVector<unsigned int>	jumpTargets;
 
 	FastVector<unsigned int>	typeRemap;
 	FastVector<unsigned int>	funcRemap;
