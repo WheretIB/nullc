@@ -2,7 +2,7 @@
 
 #include "CodeInfo.h"
 #include "StdLib.h"
-#include "nullc.h"
+#include "nullc_debug.h"
 #include "Executor.h"
 #include "Executor_X86.h"
 
@@ -255,7 +255,7 @@ namespace GC
 			// Check member
 			CheckVariable(ptr, subType);
 			// Move pointer to the next member
-			ptr += subType.size;
+			ptr += subType.size;	// $$$ and what about alignment?
 		}
 	}
 

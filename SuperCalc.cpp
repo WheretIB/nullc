@@ -18,7 +18,7 @@
 #include <iostream>
 
 #include "NULLC/nullc.h"
-#include "NULLC/ParseClass.h"
+#include "NULLC/nullc_debug.h"
 
 #include "Colorer.h"
 
@@ -82,9 +82,9 @@ char	initError[INIT_BUFFER_SIZE];
 bool needTextUpdate;
 DWORD lastUpdate;
 
-char *variableData = NULL;
-void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
-void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent);
+void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
+void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
+
 
 double myGetPreciseTime()
 {
@@ -477,32 +477,46 @@ int	safeprintf(char* dst, size_t size, const char* src, ...)
 	return result;
 }
 
-const char* GetSimpleVariableValue(TypeInfo* type, int address)
+ExternTypeInfo	*codeTypes = NULL;
+ExternFuncInfo	*codeFuntions = NULL;
+ExternLocalInfo	*codeLocals = NULL;
+unsigned int	*codeTypeExtra = NULL;
+char			*codeSymbols = NULL;
+
+const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 {
 	static char val[256];
-	if(type->type == TypeInfo::TYPE_INT)
+
+	switch(type.type)
 	{
-		safeprintf(val, 256, "%d", *((int*)&variableData[address]));
-	}else if(type->type == TypeInfo::TYPE_SHORT){
-		safeprintf(val, 256, "%d", *((short*)&variableData[address]));
-	}else if(type->type == TypeInfo::TYPE_CHAR){
-		if(*((unsigned char*)&variableData[address]))
-			safeprintf(val, 256, "'%c' (%d)", *((unsigned char*)&variableData[address]), (int)(*((unsigned char*)&variableData[address])));
+	case ExternTypeInfo::TYPE_CHAR:
+		if(*(unsigned char*)ptr)
+			safeprintf(val, 256, "'%c' (%d)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
 		else
 			safeprintf(val, 256, "0");
-	}else if(type->type == TypeInfo::TYPE_FLOAT){
-		safeprintf(val, 256, "%f", *((float*)&variableData[address]));
-	}else if(type->type == TypeInfo::TYPE_LONG){
-		safeprintf(val, 256, "%I64d", *((long long*)&variableData[address]));
-	}else if(type->type == TypeInfo::TYPE_DOUBLE){
-		safeprintf(val, 256, "%f", *((double*)&variableData[address]));
-	}else{
+		break;
+	case ExternTypeInfo::TYPE_SHORT:
+		safeprintf(val, 256, "%d", *(short*)ptr);
+		break;
+	case ExternTypeInfo::TYPE_INT:
+		safeprintf(val, 256, type.subType == 0 ? "%d" : "0x%x", *(int*)ptr);
+		break;
+	case ExternTypeInfo::TYPE_LONG:
+		safeprintf(val, 256, "%I64d", *(long long*)ptr);
+		break;
+	case ExternTypeInfo::TYPE_FLOAT:
+		safeprintf(val, 256, "%f", *(float*)ptr);
+		break;
+	case ExternTypeInfo::TYPE_DOUBLE:
+		safeprintf(val, 256, "%f", *(double*)ptr);
+		break;
+	default:
 		safeprintf(val, 256, "not basic type");
 	}
 	return val;
 }
 
-void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
+void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
 {
 	TVINSERTSTRUCT helpInsert;
 	helpInsert.hParent = parent;
@@ -513,35 +527,48 @@ void FillComplexVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	char name[256];
 	HTREEITEM lastItem;
 
-	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
+	unsigned int arrSize = (type.arrSize == ~0u) ? *(unsigned int*)(ptr + 4) : type.arrSize;
+	if(type.arrSize == ~0u)
 	{
+		arrSize = *(unsigned int*)(ptr + 4);
+		ptr = *(char**)ptr;
+	}
+
+	ExternTypeInfo	&subType = codeTypes[type.subType];
+	for(unsigned int i = 0; i < arrSize; i++, ptr += subType.size)
+	{
+		if(i > 100)
+			break;
 		char *it = name;
 		memset(name, 0, 256);
-		TypeInfo::MemberVariable &mInfo = *curr;
 
-		it += safeprintf(it, 256 - int(it - name), "%s %s = ", mInfo.type->GetFullTypeName(), mInfo.name);
+		it += safeprintf(it, 256 - int(it - name), "[%d]: ", i);
 
-		if(mInfo.type->type != TypeInfo::TYPE_COMPLEX && mInfo.type->arrLevel == 0)
-			it += safeprintf(it, 256 - int(it - name), "%s", GetSimpleVariableValue(mInfo.type, address + mInfo.offset));
-
-		if(mInfo.type->arrLevel == 1 && mInfo.type->arrSize != -1 && mInfo.type->subType->type == TypeInfo::TYPE_CHAR)
-			it += safeprintf(it, 256 - int(it - name), "\"%s\"", (char*)(variableData + address + mInfo.offset));
-		if(mInfo.type->arrSize == -1)
-			it += safeprintf(it, 256 - int(it - name), "address: %d, size: %d", *((int*)&variableData[address + mInfo.offset]), *((int*)&variableData[address + mInfo.offset+4]));
+		if(subType.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
+			it += safeprintf(it, 256 - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-		if(mInfo.type->arrLevel != 0)
+		switch(subType.subCat)
 		{
-			FillArrayVariableInfo(mInfo.type, address + mInfo.offset, lastItem);
-		}else if(mInfo.type->type == TypeInfo::TYPE_COMPLEX){
-			FillComplexVariableInfo(mInfo.type, address + mInfo.offset, lastItem);
+		case ExternTypeInfo::CAT_CLASS:
+			FillComplexVariableInfo(subType, ptr, lastItem);
+			break;
+		case ExternTypeInfo::CAT_ARRAY:
+			FillArrayVariableInfo(subType, ptr, lastItem);
+			break;
 		}
+	}
+	if(arrSize > 100)
+	{
+		safeprintf(name, 256, "[100]-[%d]...", 100, arrSize);
+		helpInsert.item.pszText = name;
+		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 	}
 }
 
-void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
+void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
 {
 	TVINSERTSTRUCT helpInsert;
 	helpInsert.hParent = parent;
@@ -549,95 +576,162 @@ void FillArrayVariableInfo(TypeInfo* type, int address, HTREEITEM parent)
 	helpInsert.item.mask = TVIF_TEXT;
 	helpInsert.item.cchTextMax = 0;
 
-	TypeInfo* subType = type->subType;
 	char name[256];
 	HTREEITEM lastItem;
 
-	unsigned int arrSize = type->arrSize;
-	if(arrSize == -1)
-	{
-		arrSize = *((int*)&variableData[address+4]);
-		address = *((int*)&variableData[address]) - (int)(intptr_t)variableData;
-	}
-	for(unsigned int n = 0; n < arrSize; n++, address += subType->size)
+	const char *memberName = codeSymbols + type.offsetToName + (unsigned int)strlen(codeSymbols + type.offsetToName) + 1;
+	for(unsigned int i = 0; i < type.memberCount; i++)
 	{
 		char *it = name;
 		memset(name, 0, 256);
-		if(n > 100)
-		{
-			it += safeprintf(it, 256 - int(it - name), "[%d]-[%d]...", n, type->arrSize);
-			helpInsert.item.pszText = name;
-			lastItem = TreeView_InsertItem(hVars, &helpInsert);
-			break;
-		}
-		it += safeprintf(it, 256 - int(it - name), "[%d]: ", n);
 
-		if(subType->arrLevel == 1 && subType->subType->type == TypeInfo::TYPE_CHAR)
-			it += safeprintf(it, 256 - int(it - name), "\"%s\"", subType->arrSize != -1 ? (char*)(variableData+address) : *((char**)(variableData + address)));
-		if(subType->arrSize == -1)
-			it += safeprintf(it, 256 - int(it - name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
+		ExternTypeInfo	&memberType = codeTypes[codeTypeExtra[type.memberOffset + i]];
 
-		if(subType->type != TypeInfo::TYPE_COMPLEX && subType->arrLevel == 0)
-			it += safeprintf(it, 256 - int(it - name), "%s", GetSimpleVariableValue(subType, address));
+		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, memberName);
+
+		if(memberType.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-		if(subType->arrLevel != 0)
+		switch(memberType.subCat)
 		{
-			FillArrayVariableInfo(subType, address, lastItem);
-		}else if(subType->type == TypeInfo::TYPE_COMPLEX){
-			FillComplexVariableInfo(subType, address, lastItem);
+		case ExternTypeInfo::CAT_CLASS:
+			FillComplexVariableInfo(memberType, ptr, lastItem);
+			break;
+		case ExternTypeInfo::CAT_ARRAY:
+			FillArrayVariableInfo(memberType, ptr, lastItem);
+			break;
 		}
+
+		memberName += (unsigned int)strlen(memberName) + 1;
+		ptr += memberType.size;	// $$ alignment?
 	}
 }
 
 void FillVariableInfoTree()
 {
-	unsigned int varCount = 0;
-	VariableInfo **varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
 	TreeView_DeleteAllItems(hVars);
 
-	TVINSERTSTRUCT helpInsert;
+	TVINSERTSTRUCT	helpInsert;
 	helpInsert.hParent = NULL;
 	helpInsert.hInsertAfter = TVI_ROOT;
 	helpInsert.item.mask = TVIF_TEXT;
 	helpInsert.item.cchTextMax = 0;
+	HTREEITEM	lastItem;
 
-	unsigned int addressShift = 0;
-	unsigned int currModule = (*varInfo)->pos >> 24;
+	char	*data = (char*)nullcGetVariableData();
+
+	unsigned int	variableCount = 0;
+	unsigned int	functionCount = 0;
+	ExternVarInfo	*vars = nullcDebugVariableInfo(&variableCount);
+	codeTypes		= nullcDebugTypeInfo(NULL);
+	codeFuntions	= nullcDebugFunctionInfo(&functionCount);
+	codeLocals		= nullcDebugLocalInfo(NULL);
+	codeTypeExtra	= nullcDebugTypeExtraInfo(NULL);
+	codeSymbols		= nullcDebugSymbols();
 
 	char name[256];
-	HTREEITEM lastItem;
-	for(unsigned int i = 0; i < varCount; i++)
+	unsigned int offset = 0;
+
+	for(unsigned int i = 0; i < variableCount; i++)
 	{
+		ExternTypeInfo	&type = codeTypes[vars[i].type];
+
 		char *it = name;
 		memset(name, 0, 256);
-		VariableInfo &currVar = *(*(varInfo+i));
-		if(currModule != (currVar.pos >> 24))
-		{
-			addressShift += ((*(varInfo+i-1))->pos & 0x00ffffff) + (*(varInfo+i-1))->varType->size;
-			currModule = currVar.pos >> 24;
-		}
-		unsigned int address = (currVar.pos & 0x00ffffff) + addressShift;
-		it += safeprintf(it, 256 - int(it - name), "%d: %s %.*s = ", address, (*currVar.varType).GetFullTypeName(), currVar.name.end-currVar.name.begin, currVar.name.begin);
+		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", data+vars[i].offset, codeSymbols + type.offsetToName, codeSymbols + vars[i].offsetToName);
 
-		if(currVar.varType->type != TypeInfo::TYPE_COMPLEX && currVar.varType->arrLevel == 0)
-			it += safeprintf(it, 256 - int(it - name), "%s", GetSimpleVariableValue(currVar.varType, address));
-
-		if(currVar.varType->arrLevel == 1 && currVar.varType->subType->type == TypeInfo::TYPE_CHAR)
-			it += safeprintf(it, 256 - int(it - name), "\"%s\"", currVar.varType->arrSize != -1 ? (char*)(variableData + address) : *((char**)(variableData + address)));
-		if(currVar.varType->arrSize == -1)
-			it += safeprintf(it, 256 - int(it - name), "address: %d, size: %d", *((int*)&variableData[address]), *((int*)&variableData[address+4]));
+		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + vars[i].offset));
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-		if(currVar.varType->arrLevel != 0)
+		switch(type.subCat)
 		{
-			FillArrayVariableInfo(currVar.varType, address, lastItem);
-		}else if(currVar.varType->type == TypeInfo::TYPE_COMPLEX){
-			FillComplexVariableInfo(currVar.varType, address, lastItem);
+		case ExternTypeInfo::CAT_CLASS:
+			FillComplexVariableInfo(type, data + vars[i].offset, lastItem);
+			break;
+		case ExternTypeInfo::CAT_ARRAY:
+			FillArrayVariableInfo(type, data + vars[i].offset, lastItem);
+			break;
+		}
+		if(vars[i].offset + type.size > offset)
+			offset = vars[i].offset + type.size;
+	}
+
+	nullcDebugBeginCallStack();
+	while(int address = nullcDebugGetStackFrame())
+	{
+		// Find corresponding function
+		int funcID = -1;
+		for(unsigned int i = 0; i < functionCount; i++)
+		{
+			if(address >= codeFuntions[i].address && address < (codeFuntions[i].address + codeFuntions[i].codeSize))
+			{
+				funcID = i;
+			}
+		}
+
+		// If we are not in global scope
+		if(funcID != -1)
+		{
+			ExternFuncInfo	&function = codeFuntions[funcID];
+
+			// Align offset to the first variable (by 16 byte boundary)
+			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
+			offset += alignOffset;
+
+			char *it = name;
+			it += safeprintf(it, 256 - int(it - name), "0x%x: function %s(", data + offset, codeSymbols + function.offsetToName);
+			for(unsigned int arg = 0; arg < function.paramCount; arg++)
+			{
+				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + arg];
+				it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
+			}
+			it += safeprintf(it, 256 - int(it - name), ")");
+
+			helpInsert.item.pszText = name;
+			lastItem = TreeView_InsertItem(hVars, &helpInsert);
+
+			TVINSERTSTRUCT localInfo;
+			localInfo.hParent = lastItem;
+			localInfo.hInsertAfter = TVI_LAST;
+			localInfo.item.mask = TVIF_TEXT;
+			localInfo.item.cchTextMax = 0;
+
+			unsigned int offsetToNextFrame = 4;
+			// Check every function local
+			for(unsigned int i = 0; i < function.localCount; i++)
+			{
+				// Get information about local
+				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + i];
+
+				char *it = name;
+				it += safeprintf(it, 256, "0x%x: %s %s", data + offset + lInfo.offset, codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
+
+				if(codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE || codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER)
+					it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset));
+
+				localInfo.item.pszText = name;
+				TreeView_InsertItem(hVars, &localInfo);
+
+				switch(codeTypes[lInfo.type].subCat)
+				{
+				case ExternTypeInfo::CAT_CLASS:
+					FillComplexVariableInfo(codeTypes[lInfo.type], data + vars[i].offset, lastItem);
+					break;
+				case ExternTypeInfo::CAT_ARRAY:
+					FillArrayVariableInfo(codeTypes[lInfo.type], data + vars[i].offset, lastItem);
+					break;
+				}
+
+				if(lInfo.offset + lInfo.size > offsetToNextFrame)
+					offsetToNextFrame = lInfo.offset + lInfo.size;
+			}
+			offset += offsetToNextFrame;
 		}
 	}
 }
@@ -710,17 +804,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			result[1023] = '\0';
 			SetWindowText(hResult, result);
 
-			variableData = (char*)nullcGetVariableData();
 			FillVariableInfoTree();
 		}else{
 			_snprintf(result, 1024, "%s", nullcGetLastError());
 			result[1023] = '\0';
 			SetWindowText(hCode, result);
+
+			FillVariableInfoTree();
 		}
 		break;
 	case WM_USER + 2:
 		ShowWindow(hContinue, SW_SHOW);
-		variableData = (char*)nullcGetVariableData();
 		FillVariableInfoTree();
 
 		break;

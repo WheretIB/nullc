@@ -11,8 +11,7 @@ using namespace supspi;
 
 #include "Colorer.h"
 
-#include "nullc/nullc.h"
-#include "nullc/Bytecode.h"
+#include "nullc/nullc_debug.h"
 #include "nullc/StrAlgo.h"
 
 enum COLOR_STYLE

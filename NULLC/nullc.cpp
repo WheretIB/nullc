@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "nullc.h"
+#include "nullc_debug.h"
 
 #include "CodeInfo.h"
 
@@ -10,7 +11,6 @@
 	#include "Executor_X86.h"
 #endif
 
-#include "Bytecode.h"
 #include "StdLib.h"
 #include "BinaryCache.h"
 
@@ -281,45 +281,6 @@ const char*	nullcGetLastError()
 	return nullcLastError;
 }
 
-void* nullcGetVariableData()
-{
-	if(currExec == NULLC_VM)
-	{
-		return executor->GetVariableData();
-	}else if(currExec == NULLC_X86){
-#ifdef NULLC_BUILD_X86_JIT
-		return executorX86->GetVariableData();
-#endif
-	}
-	return NULL;
-}
-
-void** nullcGetVariableInfo(unsigned int* count)
-{
-	*count = (unsigned int)CodeInfo::varInfo.size();
-	return (void**)(&CodeInfo::varInfo[0]);
-}
-
-unsigned int nullcGetCurrentExecutor(void **exec)
-{
-#ifdef NULLC_BUILD_X86_JIT
-	*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
-#else
-	*exec = executor;
-#endif
-	return currExec;
-}
-
-const void* nullcGetModule(const char* path)
-{
-	char fullPath[256];
-	SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath(), path);
-	const char *bytecode = BinaryCache::GetBytecode(fullPath);
-	if(!bytecode)
-		bytecode = BinaryCache::GetBytecode(path);
-	return bytecode;
-}
-
 void* nullcAllocate(unsigned int size)
 {
 	return NULLC::AllocObject(size);
@@ -357,3 +318,109 @@ void nullcTerminate()
 
 	CodeInfo::cmdInfoList.Reset();
 }
+
+//////////////////////////////////////////////////////////////////////////
+/*						nullc_debug.h functions							*/
+
+void* nullcGetVariableData()
+{
+	if(currExec == NULLC_VM)
+	{
+		return executor->GetVariableData();
+	}else if(currExec == NULLC_X86){
+#ifdef NULLC_BUILD_X86_JIT
+		return executorX86->GetVariableData();
+#endif
+	}
+	return NULL;
+}
+
+unsigned int nullcGetCurrentExecutor(void **exec)
+{
+#ifdef NULLC_BUILD_X86_JIT
+	*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
+#else
+	*exec = executor;
+#endif
+	return currExec;
+}
+
+const void* nullcGetModule(const char* path)
+{
+	char fullPath[256];
+	SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath(), path);
+	const char *bytecode = BinaryCache::GetBytecode(fullPath);
+	if(!bytecode)
+		bytecode = BinaryCache::GetBytecode(path);
+	return bytecode;
+}
+
+ExternTypeInfo* nullcDebugTypeInfo(unsigned int *count)
+{
+	if(count && linker)
+		*count = linker->exTypes.size();
+	return linker ? linker->exTypes.data : NULL;
+}
+
+unsigned int* nullcDebugTypeExtraInfo(unsigned int *count)
+{
+	if(count && linker)
+		*count = linker->exTypeExtra.size();
+	return linker ? linker->exTypeExtra.data : NULL;
+}
+
+ExternVarInfo* nullcDebugVariableInfo(unsigned int *count)
+{
+	if(count && linker)
+		*count = linker->exVariables.size();
+	return linker ? linker->exVariables.data : NULL;
+}
+
+ExternFuncInfo* nullcDebugFunctionInfo(unsigned int *count)
+{
+	if(count && linker)
+		*count = linker->exFunctions.size();
+	return linker ? linker->exFunctions.data : NULL;
+}
+
+ExternLocalInfo* nullcDebugLocalInfo(unsigned int *count)
+{
+	if(count && linker)
+		*count = linker->exLocals.size();
+	return linker ? linker->exLocals.data : NULL;
+}
+
+char* nullcDebugSymbols()
+{
+	return linker ? linker->exSymbols.data : NULL;
+}
+
+void nullcDebugBeginCallStack()
+{
+	if(currExec == NULLC_VM)
+	{
+		executor->BeginCallStack();
+	}else{
+#ifdef NULLC_BUILD_X86_JIT
+		executorX86->BeginCallStack();
+#endif
+	}
+}
+
+unsigned int nullcDebugGetStackFrame()
+{
+	unsigned int address = 0;
+	// Get next address from call stack
+	if(currExec == NULLC_VM)
+	{
+		address = executor->GetNextAddress();
+	}else{
+#ifdef NULLC_BUILD_X86_JIT
+		address = executorX86->GetNextAddress();
+#endif
+	}
+	return address;
+}
+
+
+
