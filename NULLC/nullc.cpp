@@ -338,9 +338,11 @@ void* nullcGetVariableData()
 unsigned int nullcGetCurrentExecutor(void **exec)
 {
 #ifdef NULLC_BUILD_X86_JIT
-	*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
+	if(exec)
+		*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
 #else
-	*exec = executor;
+	if(exec)
+		*exec = executor;
 #endif
 	return currExec;
 }
