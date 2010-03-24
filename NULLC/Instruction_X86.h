@@ -106,7 +106,6 @@ enum x86Command
 	o_frndint,
 
 	o_int,
-	o_dd,
 	o_label,
 	o_use32,
 	o_nop,
@@ -254,6 +253,7 @@ struct x86Instruction
 	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b){ name = Name; argA = a; argB = b; }
 
 	x86Command	name;
+	unsigned int	instID;
 	x86Argument	argA, argB;
 
 #ifdef NULLC_LOG_FILES

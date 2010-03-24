@@ -506,10 +506,12 @@ bool ExecutorX86::TranslateToNative()
 
 	EMIT_OP(o_use32);
 
+	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
+		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
 	pos = 0;
 	while(pos < exCode.size())
 	{
-		const VMCmd &cmd = exCode[pos];
+		VMCmd &cmd = exCode[pos];
 
 		unsigned int currSize = (int)(GetLastInstruction() - &instList[0]);
 		instList.count = currSize;
@@ -517,24 +519,36 @@ bool ExecutorX86::TranslateToNative()
 			instList.grow(currSize + 64);
 		SetLastInstruction(instList.data + currSize);
 
-		EMIT_OP(o_dd);
+		GetLastInstruction()->instID = pos + 1;
+
+		if(cmd.cmd & 0x80)
+		{
+			OptimizationLookBehind(false);
+			cmd.cmd &= ~0x80;
+		}
 
 		pos++;
 		NULLC::cgFuncs[cmd.cmd](cmd);
+
+		OptimizationLookBehind(true);
 	}
-	EMIT_OP(o_dd);
+	GetLastInstruction()->instID = pos + 1;
 	EMIT_OP_REG(o_pop, rEBP);
 	EMIT_OP_REG_NUM(o_mov, rEBX, ~0u);
 	EMIT_OP(o_ret);
 	instList.resize((int)(GetLastInstruction() - &instList[0]));
 
 #ifdef NULLC_LOG_FILES
+	printf("So far, %d optimizations\r\n", GetOptimizationCount());
+
 	FILE *fAsm = fopen("asmX86.txt", "wb");
 	char instBuf[128];
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
-		if(instList[i].name == o_dd || instList[i].name == o_other)
+		if(instList[i].name == o_other)
 			continue;
+		if(instList[i].instID)
+			fprintf(fAsm, "0x%x\r\n", 0xc0000000 | instList[i].instID);
 		instList[i].Decode(instBuf);
 		fprintf(fAsm, "%s\r\n", instBuf);
 	}
@@ -560,13 +574,18 @@ bool ExecutorX86::TranslateToNative()
 	x86ClearLabels();
 	x86ReserveLabels(GetLastALULabel());
 
-	pos = 0;
-
 	x86Instruction *curr = &instList[0];
 
 	for(unsigned int i = 0, e = instList.size(); i != e; i++)
 	{
 		x86Instruction &cmd = *curr;	// Syntax sugar + too lazy to rewrite switch contents
+		if(cmd.instID)
+		{
+			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
+
+			if(cmd.instID - 1 == (int)exLinker->offsetToGlobalCode)
+				code += x86PUSH(code, rEBP);
+		}
 		switch(cmd.name)
 		{
 		case o_none:
@@ -926,13 +945,6 @@ bool ExecutorX86::TranslateToNative()
 
 		case o_int:
 			code += x86INT(code, 3);
-			break;
-		case o_dd:
-			instAddress[pos] = code;	// Save VM instruction address in x86 bytecode
-
-			if(pos == (int)exLinker->offsetToGlobalCode)
-				code += x86PUSH(code, rEBP);
-			pos++;
 			break;
 		case o_label:
 			x86AddLabel(code, cmd.labelID);

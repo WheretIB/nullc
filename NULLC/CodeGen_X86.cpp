@@ -7,6 +7,14 @@ x86Instruction	*x86Op = NULL;
 ExternFuncInfo	*x86Functions = NULL;
 int				*x86Continue = NULL;
 
+bool			x86LookBehind = true;
+
+unsigned int optiCount = 0;
+unsigned int GetOptimizationCount()
+{
+	return optiCount;
+}
+
 #ifdef NULLC_LOG_FILES
 void EMIT_COMMENT(const char* text)
 {
@@ -38,6 +46,26 @@ void EMIT_OP_LABEL(x86Command op, unsigned int labelID)
 }
 void EMIT_OP_REG(x86Command op, x86Reg reg1)
 {
+#ifdef NULLC_OPTIMIZE_X86
+	if(x86LookBehind && op == o_pop)
+	{
+		x86Instruction &prev = x86Op[-1];
+		// Optimizations for "push num ... pop reg", "push [location] ... pop reg" and "push regA ... pop regB"
+		if(prev.name == o_push && (prev.argA.type == x86Argument::argNumber || prev.argA.type == x86Argument::argReg || prev.argA.type == x86Argument::argPtr))
+		{
+			prev.name = o_mov;
+			prev.argB = prev.argA;
+			prev.argA = x86Argument(reg1);
+			if(prev.argA == prev.argB)
+			{
+				optiCount++;
+				x86Op--;
+			}
+			optiCount++;
+			return;
+		}
+	}
+#endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
@@ -60,6 +88,22 @@ void EMIT_OP_NUM(x86Command op, unsigned int num)
 
 void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr)
 {
+#ifdef NULLC_OPTIMIZE_X86
+	if(x86LookBehind && op == o_pop)
+	{
+		x86Instruction &prev = x86Op[-1];
+		// Optimizations for "push num ... pop [location]" and "push register ... pop [location]"
+		if(prev.name == o_push && (prev.argA.type == x86Argument::argNumber || prev.argA.type == x86Argument::argReg))
+		{
+			prev.name = o_mov;
+			prev.argB = prev.argA;
+			prev.argA = x86Argument(size, addr);
+
+			optiCount++;
+			return;
+		}
+	}
+#endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
@@ -68,6 +112,21 @@ void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr)
 }
 void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 {
+#ifdef NULLC_OPTIMIZE_X86
+	if(x86LookBehind && op == o_pop)
+	{
+		x86Instruction &prev = x86Op[-1];
+		// Optimizations for "push num ... pop [reg+location]" and "push register ... pop [reg+location]"
+		if(prev.name == o_push && (prev.argA.type == x86Argument::argNumber || prev.argA.type == x86Argument::argReg))
+		{
+			prev.name = o_mov;
+			prev.argB = prev.argA;
+			prev.argA = x86Argument(size, reg2, shift);
+			optiCount++;
+			return;
+		}
+	}
+#endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
@@ -77,6 +136,36 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 }
 void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 {
+#ifdef NULLC_OPTIMIZE_X86
+	if(x86LookBehind)
+	{
+		x86Instruction &prev = x86Op[-1];
+		// sub reg, num; add reg, num
+		if(op == o_sub && prev.name == o_add && prev.argA.type == x86Argument::argReg && prev.argB.type == x86Argument::argNumber)
+		{
+			if(reg1 == prev.argA.reg && (int)num == prev.argB.num)
+			{
+				prev.argA.type = x86Argument::argNone;
+				prev.argB.type = x86Argument::argNone;
+				x86Op--;
+				optiCount++;
+				return;
+			}
+		}
+		// add reg, num; sub reg, num
+		if(op == o_add && prev.name == o_sub && prev.argA.type == x86Argument::argReg && prev.argB.type == x86Argument::argNumber)
+		{
+			if(reg1 == prev.argA.reg && (int)num == prev.argB.num)
+			{
+				prev.argA.type = x86Argument::argNone;
+				prev.argB.type = x86Argument::argNone;
+				x86Op--;
+				optiCount++;
+				return;
+			}
+		}
+	}
+#endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
 	x86Op->argA.reg = reg1;
@@ -157,6 +246,11 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 	x86Op->argB.type = x86Argument::argNumber;
 	x86Op->argB.num = num;
 	x86Op++;
+}
+
+void OptimizationLookBehind(bool allow)
+{
+	x86LookBehind = allow;
 }
 
 static unsigned int paramBase = 0;
@@ -805,7 +899,7 @@ void GenCodeCmdFuncAddr(VMCmd cmd)
 
 void GenCodeCmdSetRange(VMCmd cmd)
 {
-	unsigned int elCount = x86Op[-2].argA.num;
+	unsigned int elCount = x86Op[-1].argA.num;
 
 	EMIT_COMMENT("SETRANGE");
 

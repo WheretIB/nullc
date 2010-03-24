@@ -39,6 +39,7 @@ struct NULLCRef
 
 #if defined(_MSC_VER) && !defined(_M_X64)
 	#define NULLC_BUILD_X86_JIT
+	#define NULLC_OPTIMIZE_X86
 #endif
 
 typedef unsigned char nullres;
