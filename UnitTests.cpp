@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "UnitTests.h"
 #include "NULLC/nullc.h"
+#include "NULLC/nullc_debug.h"
+
 #include "NULLC/ParseClass.h"
 
 #include "NULLC/includes/file.h"
@@ -25,9 +27,10 @@ double timeClean;
 double timeLinkCode;
 double timeRun;
 
-char *varData = NULL;
-unsigned int varCount = 0;
-VariableInfo **varInfo = NULL;
+const char		*varData = NULL;
+unsigned int	variableCount = 0;
+ExternVarInfo	*varInfo = NULL;
+const char		*symbols = NULL;
 
 bool lastFailed;
 
@@ -41,16 +44,12 @@ bool lastFailed;
 
 void*	FindVar(const char* name)
 {
-	unsigned int addressShift = 0;
-	for(unsigned int i = 0; i < varCount; i++)
+	for(unsigned int i = 0; i < variableCount; i++)
 	{
-		VariableInfo &currVar = *(*(varInfo+i));
-		if(currVar.pos >> 24)
-			addressShift += currVar.varType->size;
-		if(strlen(name) == (unsigned int)(currVar.name.end - currVar.name.begin) && memcmp(currVar.name.begin, name, currVar.name.end - currVar.name.begin) == 0)
-			return (void*)(varData + addressShift + currVar.pos);
+		if(strcmp(name, symbols + varInfo[i].offsetToName) == 0)
+			return (void*)(varData + varInfo[i].offset);
 	}
-	return varData;
+	return (void*)varData;
 }
 
 bool	RunCode(const char *code, unsigned int executor, const char* expected)
@@ -93,8 +92,6 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 			return false;
 		}
 
-		varData = (char*)nullcGetVariableData();
-
 		time = myGetPreciseTime();
 		nullres goodRun = nullcRun();
 		timeRun += myGetPreciseTime() - time;
@@ -113,8 +110,10 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 			return false;
 		}
 	}
-	varCount = 0;
-	varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
+
+	varData = (char*)nullcGetVariableData();
+	varInfo = nullcDebugVariableInfo(&variableCount);
+	symbols = nullcDebugSymbols();
 	return true;
 }
 
@@ -456,13 +455,15 @@ void	RunTests()
 				}else{
 					varData = (char*)nullcGetVariableData();
 
-					varCount = 0;
-					varInfo = (VariableInfo**)nullcGetVariableInfo(&varCount);
+					varData = (char*)nullcGetVariableData();
+					varInfo = nullcDebugVariableInfo(&variableCount);
+					symbols = nullcDebugSymbols();
+
 					if(varInfo)
 					{
 						bool lastFailed = false;
-						CHECK_INT("ERROR", 0, 13);
-						CHECK_INT("ERROR", 1, 27);
+						CHECK_INT("a", 0, 13);
+						CHECK_INT("aa", 0, 27);
 						if(!lastFailed)
 							passed[t]++;
 					}

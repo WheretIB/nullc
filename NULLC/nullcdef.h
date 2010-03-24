@@ -41,4 +41,9 @@ struct NULLCRef
 	#define NULLC_BUILD_X86_JIT
 #endif
 
+typedef unsigned char nullres;
+
+#define NULLC_VM	0
+#define NULLC_X86	1
+
 #endif

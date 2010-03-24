@@ -8,11 +8,6 @@ extern "C"
 {
 #endif
 
-typedef unsigned char nullres;
-
-#define NULLC_VM	0
-#define NULLC_X86	1
-
 /************************************************************************/
 /*				NULLC initialization and termination					*/
 
@@ -91,14 +86,6 @@ void			nullcClean();
 	Type or redefinition always generates an error.
 	If global variables with the same name are found, a warning is generated. */
 nullres			nullcLinkCode(const char *bytecode, int acceptRedefinitions);
-
-/************************************************************************/
-/*							Debug functions								*/
-
-void*			nullcGetVariableData();
-void**			nullcGetVariableInfo(unsigned int* count);
-unsigned int	nullcGetCurrentExecutor(void **exec);
-const void*		nullcGetModule(const char* path);
 
 #ifdef __cplusplus
 }

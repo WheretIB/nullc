@@ -835,19 +835,14 @@ void Executor::Run(const char* funcName)
 	// Print call stack on error
 	if(cmdStreamEnd == NULL)
 	{
+		fcallStack.push_back(cmdStream);
+
 		char *currPos = execError + strlen(execError);
-
 		currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
-		int address = int(cmdStream - cmdStreamBase);
-		do
-		{
-			currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError));
 
-			if(!fcallStack.size())
-				break;
-			address = int(fcallStack.back() - cmdStreamBase);
-			fcallStack.pop_back();
-		}while(true);
+		BeginCallStack();
+		while(unsigned int address = GetNextAddress())
+			currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError));
 	}
 }
 
