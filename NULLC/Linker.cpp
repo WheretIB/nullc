@@ -73,19 +73,23 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			if(!bytecode && BinaryCache::GetImportPath())
 				bytecode = BinaryCache::GetBytecode(path);
 
-			if(bytecode)
+			// last module is not imported
+			if(strcmp(path, "__last.nc") != 0)
 			{
-#ifdef VERBOSE_DEBUG_OUTPUT
-				printf("Linking %s.\r\n", path);
-#endif
-				if(!LinkCode(bytecode, false))
+				if(bytecode)
 				{
-					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
+#ifdef VERBOSE_DEBUG_OUTPUT
+					printf("Linking %s.\r\n", path);
+#endif
+					if(!LinkCode(bytecode, false))
+					{
+						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
+						return false;
+					}
+				}else{
+					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailed to load module %s", path);
 					return false;
 				}
-			}else{
-				SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailed to load module %s", path);
-				return false;
 			}
 			exModules.push_back(*mInfo);
 			exModules.back().name = path;
@@ -227,6 +231,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	// Add new code
 	unsigned int oldCodeSize = exCode.size();
+	exCode.reserve(oldCodeSize + bCode->codeSize + 1);
 	exCode.resize(oldCodeSize + bCode->codeSize);
 	memcpy(&exCode[oldCodeSize], FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
 

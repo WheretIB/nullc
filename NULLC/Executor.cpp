@@ -135,8 +135,10 @@ void Executor::Run(const char* funcName)
 #endif
 	VMCmd *cmdStreamBase = cmdBase = &exLinker->exCode[0];
 	VMCmd *cmdStream = &exLinker->exCode[exLinker->offsetToGlobalCode];
-	VMCmd *cmdStreamEnd = &exLinker->exCode[0]+exLinker->exCode.size();
 #define cmdStreamPos (cmdStream-cmdStreamBase)
+
+	// Add return after the last instruction to end execution of code with no return at the end
+	exLinker->exCode[exLinker->exCode.size()] = VMCmd(cmdReturn, bitRetError, 0, 1);
 
 	if(funcName)
 		cmdStream = &exLinker->exCode[funcPos];
@@ -149,9 +151,11 @@ void Executor::Run(const char* funcName)
 		*genStackPtr = 0;
 	}
 
-#define RUNTIME_ERROR(test, desc)	if(test){ cmdStreamEnd = NULL; strcpy(execError, desc); break; }
+#define RUNTIME_ERROR(test, desc)	if(test){ cmdStream = NULL; strcpy(execError, desc); break; }
 
-	while(cmdStream < cmdStreamEnd)
+	bool	errorState = true;
+
+	while(cmdStream)
 	{
 		const VMCmd &cmd = *cmdStream;
 		//const unsigned int argument = cmd.argument;
@@ -444,7 +448,7 @@ void Executor::Run(const char* funcName)
 			{
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(cmd.argument, 0))
-					cmdStreamEnd = NULL;
+					cmdStream = NULL;
 				fcallStack.pop_back();
 			}else{
 				fcallStack.push_back(cmdStream);
@@ -475,7 +479,7 @@ void Executor::Run(const char* funcName)
 			{
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(fID, 1))
-					cmdStreamEnd = NULL;
+					cmdStream = NULL;
 				fcallStack.pop_back();
 			}else{
 				char* oldBase = &genParams[0];
@@ -499,7 +503,14 @@ void Executor::Run(const char* funcName)
 			break;
 
 		case cmdReturn:
-			RUNTIME_ERROR(cmd.flag & bitRetError, "ERROR: function didn't return a value");
+			if(cmd.flag & bitRetError)
+			{
+				cmdStream = NULL;
+				errorState = !cmd.argument;
+				if(errorState)
+					strcpy(execError, "ERROR: function didn't return a value");
+				break;
+			}
 			{
 				unsigned int *retValue = genStackPtr;
 				genStackPtr = (unsigned int*)((char*)(genStackPtr) + cmd.argument);
@@ -515,7 +526,8 @@ void Executor::Run(const char* funcName)
 			{
 				if(retType == -1)
 					retType = (asmOperType)(int)cmd.flag;
-				cmdStream = cmdStreamEnd;
+				cmdStream = NULL;
+				errorState = false;
 				break;
 			}
 			cmdStream = fcallStack.back();
@@ -557,7 +569,7 @@ void Executor::Run(const char* funcName)
 				*(int*)(genStackPtr+1) /= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
-				cmdStreamEnd = NULL;
+				cmdStream = NULL;
 			}
 			genStackPtr++;
 			break;
@@ -571,7 +583,7 @@ void Executor::Run(const char* funcName)
 				*(int*)(genStackPtr+1) %= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
-				cmdStreamEnd = NULL;
+				cmdStream = NULL;
 			}
 			genStackPtr++;
 			break;
@@ -645,7 +657,7 @@ void Executor::Run(const char* funcName)
 				*(long long*)(genStackPtr+2) /= *(long long*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
-				cmdStreamEnd = NULL;
+				cmdStream = NULL;
 			}
 			genStackPtr += 2;
 			break;
@@ -659,7 +671,7 @@ void Executor::Run(const char* funcName)
 				*(long long*)(genStackPtr+2) %= *(long long*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
-				cmdStreamEnd = NULL;
+				cmdStream = NULL;
 			}
 			genStackPtr += 2;
 			break;
@@ -821,7 +833,7 @@ void Executor::Run(const char* funcName)
 			if(*genStackPtr != cmd.argument)
 			{
 				SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[*genStackPtr].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
-				cmdStreamEnd = NULL;
+				cmdStream = NULL;
 			}
 			genStackPtr++;
 			break;
@@ -833,7 +845,7 @@ void Executor::Run(const char* funcName)
 #endif
 	}
 	// Print call stack on error
-	if(cmdStreamEnd == NULL)
+	if(errorState)
 	{
 		fcallStack.push_back(cmdStream);
 
