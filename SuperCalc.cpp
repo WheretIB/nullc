@@ -643,7 +643,7 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	helpInsert.item.pszText = name;
 	TreeView_InsertItem(hVars, &helpInsert);
 
-	safeprintf(name, 256, "void ref context = 0x%d", *(int*)(ptr));
+	safeprintf(name, 256, "void ref context = 0x%x", *(int*)(ptr));
 	helpInsert.item.pszText = name;
 	TreeView_InsertItem(hVars, &helpInsert);
 }
