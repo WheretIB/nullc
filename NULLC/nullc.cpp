@@ -15,7 +15,6 @@
 #include "BinaryCache.h"
 
 #include "includes/typeinfo.h"
-#include "includes/dynamic.h"
 
 CompilerError				CodeInfo::lastError;
 
@@ -61,7 +60,6 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	executorX86 = new(NULLC::alloc(sizeof(ExecutorX86))) ExecutorX86(linker);
 	executorX86->Initialize();
 #endif
-	BinaryCache::Initialize();
 	BinaryCache::SetImportPath(importPath);
 }
 
@@ -158,14 +156,6 @@ nullres	nullcCompile(const char* code)
 }
 
 unsigned int nullcGetBytecode(char **bytecode)
-{
-	unsigned int size = compiler->GetBytecode(bytecode);
-	// Load it into cache
-	BinaryCache::LastBytecode(*bytecode);
-	return size;
-}
-
-unsigned int nullcGetBytecodeNoCache(char **bytecode)
 {
 	return compiler->GetBytecode(bytecode);
 }
@@ -299,11 +289,6 @@ void* nullcAllocate(unsigned int size)
 int nullcInitTypeinfoModule()
 {
 	return nullcInitTypeinfoModule(linker);
-}
-
-int nullcInitDynamicModule()
-{
-	return nullcInitDynamicModule(linker);
 }
 
 void nullcTerminate()

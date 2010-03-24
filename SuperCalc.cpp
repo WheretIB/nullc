@@ -167,8 +167,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	if(!nullcInitTypeinfoModule())
 		strcat(initError, "ERROR: Failed to init std.typeinfo module\r\n");
-	if(!nullcInitDynamicModule())
-		strcat(initError, "ERROR: Failed to init std.dynamic module\r\n");
 
 	if(!nullcInitFileModule())
 		strcat(initError, "ERROR: Failed to init std.file module\r\n");
