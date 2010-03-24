@@ -146,16 +146,16 @@ Compiler::Compiler()
 	typeObject = info;
 	CodeInfo::typeInfo.push_back(info);
 
-	info->AddMemberVariable("type", typeInt);
-	info->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
-	info->size = 8;
-
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "typeid", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	typeTypeid = info;
 	CodeInfo::typeInfo.push_back(info);
 
 	info->AddMemberVariable("id", typeInt);
 	info->size = 4;
+
+	typeObject->AddMemberVariable("type", typeInt);
+	typeObject->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
+	typeObject->size = 8;
 
 	buildInTypes.resize(CodeInfo::typeInfo.size());
 	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));

@@ -546,6 +546,8 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 
 		if(subType.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
+		else if(&subType == &codeTypes[8])	// for typeid
+			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
@@ -583,6 +585,8 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 		if(memberType.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr));
+		else if(&memberType == &codeTypes[8])	// for typeid
+			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
@@ -594,10 +598,71 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	}
 }
 
+void FillAutoInfo(char* ptr, HTREEITEM parent)
+{
+	TVINSERTSTRUCT helpInsert;
+	helpInsert.hParent = parent;
+	helpInsert.hInsertAfter = TVI_LAST;
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.cchTextMax = 0;
+	char name[256];
+
+	safeprintf(name, 256, "typeid type = %d (%s)", *(int*)ptr, codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
+	helpInsert.item.pszText = name;
+	TreeView_InsertItem(hVars, &helpInsert);
+
+	safeprintf(name, 256, "%s ref ptr = 0x%x", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName, *(int*)(ptr + 4));
+	helpInsert.item.pszText = name;
+	TreeView_InsertItem(hVars, &helpInsert);
+}
+
+void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
+{
+	TVINSERTSTRUCT helpInsert;
+	helpInsert.hParent = parent;
+	helpInsert.hInsertAfter = TVI_LAST;
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.cchTextMax = 0;
+	char name[256];
+
+	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
+		return;
+
+	ExternFuncInfo	&function = codeFuntions[*(int*)(ptr + 4)];
+	ExternTypeInfo	&returnType = codeTypes[codeTypeExtra[type.memberOffset]];
+
+	char *it = name;
+	it += safeprintf(it, 256 - int(it - name), "function %d %s %s(", *(int*)(ptr + 4), codeSymbols + returnType.offsetToName, codeSymbols + function.offsetToName);
+	for(unsigned int arg = 0; arg < function.paramCount; arg++)
+	{
+		ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + arg];
+		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
+	}
+	it += safeprintf(it, 256 - int(it - name), ")");
+
+	helpInsert.item.pszText = name;
+	TreeView_InsertItem(hVars, &helpInsert);
+
+	safeprintf(name, 256, "void ref context = 0x%d", *(int*)(ptr));
+	helpInsert.item.pszText = name;
+	TreeView_InsertItem(hVars, &helpInsert);
+}
+
 void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
 {
+	if(&type == &codeTypes[8])	// typeid
+		return;
+	if(&type == &codeTypes[7])
+	{
+		FillAutoInfo(ptr, parent);	// auto ref
+		return;
+	}
+
 	switch(type.subCat)
 	{
+	case ExternTypeInfo::CAT_FUNCTION:
+		FillFunctionPointerInfo(type, ptr, parent);
+		break;
 	case ExternTypeInfo::CAT_CLASS:
 		FillComplexVariableInfo(type, ptr, parent);
 		break;
@@ -642,6 +707,8 @@ void FillVariableInfoTree()
 
 		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + vars[i].offset));
+		else if(&type == &codeTypes[8])	// for typeid
+			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + vars[i].offset)].offsetToName);
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
@@ -704,6 +771,8 @@ void FillVariableInfoTree()
 
 				if(codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE || codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER)
 					it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset));
+				else if(lInfo.type == 8)	// for typeid
+					it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + offset + lInfo.offset)].offsetToName);
 
 				localInfo.item.pszText = name;
 				TreeView_InsertItem(hVars, &localInfo);
