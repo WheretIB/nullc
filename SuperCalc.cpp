@@ -628,14 +628,14 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 		return;
 
-	ExternFuncInfo	&function = codeFuntions[*(int*)(ptr + 4)];
+	ExternFuncInfo	&func = codeFuntions[*(int*)(ptr + 4)];
 	ExternTypeInfo	&returnType = codeTypes[codeTypeExtra[type.memberOffset]];
 
 	char *it = name;
-	it += safeprintf(it, 256 - int(it - name), "function %d %s %s(", *(int*)(ptr + 4), codeSymbols + returnType.offsetToName, codeSymbols + function.offsetToName);
-	for(unsigned int arg = 0; arg < function.paramCount; arg++)
+	it += safeprintf(it, 256 - int(it - name), "function %d %s %s(", *(int*)(ptr + 4), codeSymbols + returnType.offsetToName, codeSymbols + func.offsetToName);
+	for(unsigned int arg = 0; arg < func.paramCount; arg++)
 	{
-		ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + arg];
+		ExternLocalInfo &lInfo = codeLocals[func.offsetToFirstLocal + arg];
 		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
 	}
 	it += safeprintf(it, 256 - int(it - name), ")");
@@ -645,7 +645,36 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 	safeprintf(name, 256, "void ref context = 0x%x", *(int*)(ptr));
 	helpInsert.item.pszText = name;
-	TreeView_InsertItem(hVars, &helpInsert);
+	HTREEITEM contextList = TreeView_InsertItem(hVars, &helpInsert);
+
+	TVINSERTSTRUCT nextInsert;
+	nextInsert.hParent = contextList;
+	nextInsert.hInsertAfter = TVI_LAST;
+	nextInsert.item.mask = TVIF_TEXT;
+	nextInsert.item.cchTextMax = 0;
+
+	ExternFuncInfo::Upvalue *upvalue = *(ExternFuncInfo::Upvalue**)(ptr);
+
+	ExternLocalInfo *externals = &codeLocals[func.offsetToFirstLocal + func.localCount];
+	for(unsigned int i = 0; i < func.externCount; i++)
+	{
+		char *it = name;
+		ExternTypeInfo &externType = codeTypes[externals[i].type];
+
+		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + externType.offsetToName, codeSymbols + externals[i].offsetToName);
+
+		if(externType.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(externType, (char*)upvalue->ptr));
+		else if(&externType == &codeTypes[8])	// for typeid
+			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(upvalue->ptr)].offsetToName);
+
+		nextInsert.item.pszText = name;
+		HTREEITEM lastItem = TreeView_InsertItem(hVars, &nextInsert);
+
+		FillVariableInfo(externType, (char*)upvalue->ptr, lastItem);
+
+		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
+	}
 }
 
 void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
