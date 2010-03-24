@@ -1964,7 +1964,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		if(expectedType != paramType)
 		{
 			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
-				fRating += 2;
+				fRating += 5;
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef)
 				fRating += 5;
 			else if(expectedType->refLevel == paramType->refLevel+1 && expectedType->subType == paramType)

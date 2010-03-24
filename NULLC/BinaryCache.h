@@ -9,8 +9,6 @@ namespace BinaryCache
 	void		PutBytecode(const char* path, const char* bytecode);
 	const char*	GetBytecode(const char* path);
 
-	void		LastBytecode(const char* bytecode);
-
 	void		SetImportPath(const char* path);
 	const char*	GetImportPath();
 

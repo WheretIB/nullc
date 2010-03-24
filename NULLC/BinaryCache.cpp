@@ -3,11 +3,7 @@
 namespace BinaryCache
 {
 	FastVector<CodeDescriptor>	cache;
-	const char*	importPath = NULL;
-
-	unsigned int	lastReserved = 0;
-	char*			lastBytecode = NULL;
-	const unsigned int	lastHash = GetStringHash("__last.nc");
+	const char*	importPath;
 }
 
 void BinaryCache::SetImportPath(const char* path)
@@ -23,8 +19,6 @@ const char* BinaryCache::GetImportPath()
 void BinaryCache::Initialize()
 {
 	importPath = NULL;
-	lastReserved = 0;
-	lastBytecode = NULL;
 }
 
 void BinaryCache::Terminate()
@@ -35,8 +29,6 @@ void BinaryCache::Terminate()
 		delete[] cache[i].binary;
 	}
 	cache.clear();
-
-	delete[] lastBytecode;
 }
 
 void BinaryCache::PutBytecode(const char* path, const char* bytecode)
@@ -60,9 +52,6 @@ void BinaryCache::PutBytecode(const char* path, const char* bytecode)
 const char* BinaryCache::GetBytecode(const char* path)
 {
 	unsigned int hash = GetStringHash(path);
-	if(hash == lastHash)
-		return lastBytecode;
-
 	unsigned int i = 0;
 	for(; i < cache.size(); i++)
 	{
@@ -73,16 +62,4 @@ const char* BinaryCache::GetBytecode(const char* path)
 		return cache[i].binary;
 
 	return NULL;
-}
-
-void BinaryCache::LastBytecode(const char* bytecode)
-{
-	unsigned int size = *(unsigned int*)bytecode;
-	if(size > lastReserved)
-	{
-		delete[] lastBytecode;
-		lastReserved = size + (size >> 1);
-		lastBytecode = new char[lastReserved];
-	}
-	memcpy(lastBytecode, bytecode, size);
 }
