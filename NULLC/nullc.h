@@ -62,6 +62,7 @@ void		nullcThrowError(const char* error, ...);
 /*							Special modules								*/
 
 int			nullcInitTypeinfoModule();
+int			nullcInitDynamicModule();
 
 /************************************************************************/
 /*							Extended functions							*/
@@ -72,6 +73,7 @@ nullres			nullcCompile(const char* code);
 /*	compiled bytecode to be used for linking and executing can be retrieved with this function
 	function returns bytecode size, and memory to which 'bytecode' points can be freed at any time	*/
 unsigned int	nullcGetBytecode(char **bytecode);
+unsigned int	nullcGetBytecodeNoCache(char **bytecode);
 
 /*	Function work only if NULLC_LOG_FILES is defined
 	this function returns string with last bytecode disassembly	*/
