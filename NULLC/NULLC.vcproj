@@ -640,6 +640,18 @@
 				Name="std"
 				>
 				<File
+					RelativePath=".\includes\dynamic.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\dynamic.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\dynamic.nc"
+					>
+				</File>
+				<File
 					RelativePath=".\includes\file.cpp"
 					>
 				</File>

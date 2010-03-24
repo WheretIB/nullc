@@ -11,15 +11,22 @@
 // Wrapper over NULLC array, for use in external functions
 struct NullCArray
 {
-	char* ptr;
-	unsigned int len;
+	char			*ptr;
+	unsigned int	len;
 };
 
 // Wrapper over NULLC auto ref class for use in external functions
 struct NULLCRef
 {
-	unsigned int typeID;
-	char* ptr;
+	unsigned int	typeID;
+	char			*ptr;
+};
+
+// Wrapper over NULLC function pointer for use in external functions
+struct NULLCFuncPtr
+{
+	void			*context;
+	unsigned int	id;
 };
 
 #define NULLC_MAX_VARIABLE_NAME_LENGTH 2048
@@ -39,7 +46,7 @@ struct NULLCRef
 
 #if defined(_MSC_VER) && !defined(_M_X64)
 	#define NULLC_BUILD_X86_JIT
-	#define NULLC_OPTIMIZE_X86
+	//#define NULLC_OPTIMIZE_X86
 #endif
 
 typedef unsigned char nullres;
