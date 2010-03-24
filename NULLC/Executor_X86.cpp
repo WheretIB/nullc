@@ -90,6 +90,8 @@ namespace NULLC
 		expCodePublic = expCode;
 		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_INT_OVERFLOW)
 		{
+			if(expCode == EXCEPTION_STACK_OVERFLOW)
+				_resetstkoflw();
 			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
 			int *paramData = &dataHead->nextElement;
 			int count = 0;
@@ -374,6 +376,10 @@ void ExecutorX86::Run(const char* funcName)
 	unsigned int res2 = 0;
 	unsigned int resT = 0;
 	genStackPtr = genStackTop = getESP();
+
+	unsigned long extraStack = 4096;
+	SetThreadStackGuarantee(&extraStack);
+
 	__try 
 	{
 		__asm

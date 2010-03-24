@@ -84,7 +84,7 @@ DWORD lastUpdate;
 
 void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
 void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
-
+void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
 
 double myGetPreciseTime()
 {
@@ -550,15 +550,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-		switch(subType.subCat)
-		{
-		case ExternTypeInfo::CAT_CLASS:
-			FillComplexVariableInfo(subType, ptr, lastItem);
-			break;
-		case ExternTypeInfo::CAT_ARRAY:
-			FillArrayVariableInfo(subType, ptr, lastItem);
-			break;
-		}
+		FillVariableInfo(subType, ptr, lastItem);
 	}
 	if(arrSize > 100)
 	{
@@ -595,18 +587,23 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-		switch(memberType.subCat)
-		{
-		case ExternTypeInfo::CAT_CLASS:
-			FillComplexVariableInfo(memberType, ptr, lastItem);
-			break;
-		case ExternTypeInfo::CAT_ARRAY:
-			FillArrayVariableInfo(memberType, ptr, lastItem);
-			break;
-		}
+		FillVariableInfo(memberType, ptr, lastItem);
 
 		memberName += (unsigned int)strlen(memberName) + 1;
 		ptr += memberType.size;	// $$ alignment?
+	}
+}
+
+void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
+{
+	switch(type.subCat)
+	{
+	case ExternTypeInfo::CAT_CLASS:
+		FillComplexVariableInfo(type, ptr, parent);
+		break;
+	case ExternTypeInfo::CAT_ARRAY:
+		FillArrayVariableInfo(type, ptr, parent);
+		break;
 	}
 }
 
@@ -649,15 +646,8 @@ void FillVariableInfoTree()
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-		switch(type.subCat)
-		{
-		case ExternTypeInfo::CAT_CLASS:
-			FillComplexVariableInfo(type, data + vars[i].offset, lastItem);
-			break;
-		case ExternTypeInfo::CAT_ARRAY:
-			FillArrayVariableInfo(type, data + vars[i].offset, lastItem);
-			break;
-		}
+		FillVariableInfo(type, data + vars[i].offset, lastItem);
+
 		if(vars[i].offset + type.size > offset)
 			offset = vars[i].offset + type.size;
 	}
@@ -718,15 +708,7 @@ void FillVariableInfoTree()
 				localInfo.item.pszText = name;
 				TreeView_InsertItem(hVars, &localInfo);
 
-				switch(codeTypes[lInfo.type].subCat)
-				{
-				case ExternTypeInfo::CAT_CLASS:
-					FillComplexVariableInfo(codeTypes[lInfo.type], data + vars[i].offset, lastItem);
-					break;
-				case ExternTypeInfo::CAT_ARRAY:
-					FillArrayVariableInfo(codeTypes[lInfo.type], data + vars[i].offset, lastItem);
-					break;
-				}
+				FillVariableInfo(codeTypes[lInfo.type], data + vars[i].offset, lastItem);
 
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
