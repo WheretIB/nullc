@@ -151,7 +151,7 @@ void Executor::Run(const char* funcName)
 		*genStackPtr = 0;
 	}
 
-#define RUNTIME_ERROR(test, desc)	if(test){ cmdStream = NULL; strcpy(execError, desc); break; }
+#define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
 
 	bool	errorState = true;
 
@@ -449,7 +449,8 @@ void Executor::Run(const char* funcName)
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(cmd.argument, 0))
 					cmdStream = NULL;
-				fcallStack.pop_back();
+				else
+					fcallStack.pop_back();
 			}else{
 				fcallStack.push_back(cmdStream);
 				cmdStream = cmdStreamBase + fAddress;
@@ -480,7 +481,8 @@ void Executor::Run(const char* funcName)
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(fID, 1))
 					cmdStream = NULL;
-				fcallStack.pop_back();
+				else
+					fcallStack.pop_back();
 			}else{
 				char* oldBase = &genParams[0];
 				unsigned int oldSize = genParams.max;
@@ -505,6 +507,7 @@ void Executor::Run(const char* funcName)
 		case cmdReturn:
 			if(cmd.flag & bitRetError)
 			{
+				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
 				errorState = !cmd.argument;
 				if(errorState)
@@ -569,6 +572,7 @@ void Executor::Run(const char* funcName)
 				*(int*)(genStackPtr+1) /= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
+				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
 			}
 			genStackPtr++;
@@ -583,6 +587,7 @@ void Executor::Run(const char* funcName)
 				*(int*)(genStackPtr+1) %= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
+				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
 			}
 			genStackPtr++;
@@ -657,6 +662,7 @@ void Executor::Run(const char* funcName)
 				*(long long*)(genStackPtr+2) /= *(long long*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
+				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
 			}
 			genStackPtr += 2;
@@ -671,6 +677,7 @@ void Executor::Run(const char* funcName)
 				*(long long*)(genStackPtr+2) %= *(long long*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
+				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
 			}
 			genStackPtr += 2;
@@ -833,6 +840,7 @@ void Executor::Run(const char* funcName)
 			if(*genStackPtr != cmd.argument)
 			{
 				SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[*genStackPtr].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
+				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
 			}
 			genStackPtr++;
@@ -847,8 +855,6 @@ void Executor::Run(const char* funcName)
 	// Print call stack on error
 	if(errorState)
 	{
-		fcallStack.push_back(cmdStream);
-
 		char *currPos = execError + strlen(execError);
 		currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
