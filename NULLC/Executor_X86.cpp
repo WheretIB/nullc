@@ -719,7 +719,7 @@ bool ExecutorX86::TranslateToNative()
 			}
 			break;
 		case o_fild:
-			code += x86FILD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0]);
+			code += x86FILD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			break;
 		case o_fistp:
 			code += x86FISTP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);

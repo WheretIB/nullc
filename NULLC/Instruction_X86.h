@@ -234,7 +234,7 @@ struct x86Argument
 			if(ptrReg[0] == rNONE && ptrReg[1] == rNONE)
 				curr += sprintf(curr, "%d", ptrNum);
 			else if(ptrNum != 0)
-				curr += sprintf(curr, "+%d", ptrNum);
+				curr += sprintf(curr, "%+d", ptrNum);
 			curr += sprintf(curr, "]");
 		}
 

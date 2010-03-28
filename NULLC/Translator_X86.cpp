@@ -137,7 +137,6 @@ int x86FLD(unsigned char *stream, x87Reg reg)
 	stream[1] = (unsigned char)(0xc0 + reg);
 	return 2;
 }
-
 // fld *word [reg+shift]
 int x86FLD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
@@ -156,12 +155,12 @@ int x86FLD(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int sh
 	return 1+asize;
 }
 
-// fild *word [reg]
-int x86FILD(unsigned char *stream, x86Size size, x86Reg reg)
+// fild *word [reg+shift]
+int x86FILD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xdb : 0xdf;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, size == sDWORD ? 0 : 5);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, size == sDWORD ? 0 : 5);
 	return 1+asize;
 }
 

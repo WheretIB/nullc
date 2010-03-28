@@ -16,8 +16,8 @@ int x86FLD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
 // fld *word [regA+regB+shift]
 int x86FLD(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift);
 
-// fild *word [reg]
-int x86FILD(unsigned char *stream, x86Size size, x86Reg reg);
+// fild *word [reg+shift]
+int x86FILD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
 
 // fst *word [reg+shift]
 int x86FST(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift);
