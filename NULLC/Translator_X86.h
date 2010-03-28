@@ -116,6 +116,8 @@ int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int shift);
 // lea dst, [src*multiplier+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int multiplier, int shift);
 
+// neg reg
+int x86NEG(unsigned char *stream, x86Reg reg);
 // neg dword [reg+shift]
 int x86NEG(unsigned char *stream, x86Size, x86Reg reg, int shift);
 
@@ -137,6 +139,8 @@ int x86ADC(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
 
 // sub dst, num
 int x86SUB(unsigned char *stream, x86Reg dst, int num);
+// sub dst, src
+int x86SUB(unsigned char *stream, x86Reg dst, x86Reg src);
 // sub dword [reg+shift], num
 int x86SUB(unsigned char *stream, x86Size, x86Reg reg, int shift, int num);
 // sub dword [reg+shift], op2
@@ -154,8 +158,10 @@ int x86IMUL(unsigned char *stream, x86Reg srcdst, int num);
 // imul src
 int x86IMUL(unsigned char *stream, x86Reg src);
 
-// idiv dword [reg]
-int x86IDIV(unsigned char *stream, x86Size, x86Reg reg);
+// idiv src
+int x86IDIV(unsigned char *stream, x86Reg src);
+// idiv dword [reg+shift]
+int x86IDIV(unsigned char *stream, x86Size, x86Reg reg, int shift);
 
 // shl reg, shift
 int x86SHL(unsigned char *stream, x86Reg reg, int shift);
@@ -167,6 +173,8 @@ int x86SAL(unsigned char *stream);
 // sar eax, cl
 int x86SAR(unsigned char *stream);
 
+// not reg
+int x86NOT(unsigned char *stream, x86Reg reg);
 // not dword [reg+shift]
 int x86NOT(unsigned char *stream, x86Size, x86Reg reg, int shift);
 

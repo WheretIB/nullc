@@ -570,7 +570,13 @@ int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int multiplier, int sh
 	return 1 + asize;
 }
 
-
+// neg reg
+int x86NEG(unsigned char *stream, x86Reg reg)
+{
+	stream[0] = 0xf7;
+	stream[1] = encodeRegister(reg, 3);
+	return 2;
+}
 // neg dword [reg+shift]
 int x86NEG(unsigned char *stream, x86Size size, x86Reg reg, int shift)
 {
@@ -690,6 +696,13 @@ int x86SUB(unsigned char *stream, x86Reg dst, int num)
 	*(int*)(stream+2) = num;
 	return 6;
 }
+// sub dst, src
+int x86SUB(unsigned char *stream, x86Reg dst, x86Reg src)
+{
+	stream[0] = 0x2B;
+	stream[1] = encodeRegister(src, regCode[dst]);
+	return 2;
+}
 // sub dword [reg+shift], num
 int x86SUB(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
 {
@@ -780,12 +793,19 @@ int x86IMUL(unsigned char *stream, x86Reg src)
 	return 2;
 }
 
-// idiv dword [reg]
-int x86IDIV(unsigned char *stream, x86Size size, x86Reg reg)
+// idiv src
+int x86IDIV(unsigned char *stream, x86Reg src)
+{
+	stream[0] = 0xf7;
+	stream[1] = encodeRegister(src, 7);
+	return 2;
+}
+// idiv dword [reg+shift]
+int x86IDIV(unsigned char *stream, x86Size size, x86Reg reg, int shift)
 {
 	assert(size == sDWORD);
 	stream[0] = 0xf7;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 7);
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
 	return 1+asize;
 }
 
@@ -831,6 +851,13 @@ int x86SAR(unsigned char *stream)
 	return 2;
 }
 
+// not reg
+int x86NOT(unsigned char *stream, x86Reg reg)
+{
+	stream[0] = 0xf7;
+	stream[1] = encodeRegister(reg, 2);
+	return 2;
+}
 // not dword [reg+shift]
 int x86NOT(unsigned char *stream, x86Size size, x86Reg reg, int shift)
 {
