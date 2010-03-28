@@ -291,7 +291,7 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 	}else if((op == o_fld || op == o_fild || op == o_fadd || op == o_fsub || op == o_fmul || op == o_fdiv || op == o_fcomp) && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
 		unsigned int index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
 
-		/*if(NULLC::stack[index].type == x86Argument::argPtr)
+		if(NULLC::stack[index].type == x86Argument::argPtr)
 		{
 			if(NULLC::stack[index].ptrReg[0] == rNONE)
 			{
@@ -300,7 +300,7 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 			}
 			reg2 = NULLC::stack[index].ptrReg[0];
 			shift = NULLC::stack[index].ptrNum;
-		}else*/{
+		}else{
 			NULLC::stackRead[index] = true;
 			if(size == sQWORD)
 			{
@@ -309,69 +309,11 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 			}
 		}
 	}else if((op == o_fstp) && size == sQWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
-
 		x86Argument &target1 = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
 		target1.type = x86Argument::argNone;
 		x86Argument &target2 = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2) - 1) % NULLC::STACK_STATE_SIZE];
 		target2.type = x86Argument::argNone;
-		
-		/*unsigned int index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
-		
-		if(!NULLC::stackRead[index] && NULLC::stack[index].type != x86Argument::argNone)
-		{
-			x86Instruction *curr = NULLC::stackUpdate[index] + x86Base;
-			if(curr->name == o_push)
-			{
-				NULLC::stackTop--;
-				x86Instruction *start = curr + 1;
-				while(start < x86Op)
-				{
-					// if esp was used directly, signal an error
-					assert(start->argA.type != x86Argument::argReg || start->argA.reg != rESP);
-					assert(start->argB.type != x86Argument::argReg || start->argB.reg != rESP);
-					
-					if(start->argA.type == x86Argument::argPtr && start->argA.ptrReg[0] == rESP)
-						start->argA.ptrNum -= 4;
-					if(start->argB.type == x86Argument::argPtr && start->argB.ptrReg[1] == rESP)
-						start->argB.ptrNum -= 4;
-				}
-			}
-			curr->name = o_none;
-			optiCount++;
-		}
-		NULLC::stack[index].type = x86Argument::argNone;
-
-		index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
-		
-		if(!NULLC::stackRead[index] && NULLC::stack[index].type != x86Argument::argNone)
-		{
-			x86Instruction *curr = NULLC::stackUpdate[index] + x86Base;
-			if(curr->name == o_push)
-			{
-				NULLC::stackTop--;
-				x86Instruction *start = curr + 1;
-				while(start < x86Op)
-				{
-					// if esp was used directly, signal an error
-					assert(start->argA.type != x86Argument::argReg || start->argA.reg != rESP);
-					assert(start->argB.type != x86Argument::argReg || start->argB.reg != rESP);
-					
-					if(start->argA.type == x86Argument::argPtr && start->argA.ptrReg[0] == rESP)
-						start->argA.ptrNum -= 4;
-					if(start->argB.type == x86Argument::argPtr && start->argB.ptrReg[1] == rESP)
-						start->argB.ptrNum -= 4;
-				}
-			}
-			curr->name = o_none;
-			optiCount++;
-		}
-		NULLC::stack[index].type = x86Argument::argNone;*/
-	}/*else if(op == o_fld && reg2 == rESP && shift == 0){
-		unsigned int index = (16 + NULLC::stackTop) % NULLC::STACK_STATE_SIZE;
-		NULLC::stackRead[index] = true;
-		index = (16 + NULLC::stackTop - 1) % NULLC::STACK_STATE_SIZE;
-		NULLC::stackRead[index] = true;
-	}*/
+	}
 	NULLC::regRead[reg2] = true;
 
 	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst)
@@ -400,50 +342,42 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 			{
 				x86Instruction *curr = NULLC::stackUpdate[index] + x86Base;
 				
+				int pos = 0;
 				if(curr->name == o_push)
 				{
 					removed += 4;
-					/*x86Instruction *start = curr;// + 1;
+					x86Instruction *start = curr;
 					while(++start < x86Op)
 					{
+						if(start->name == o_none)
+							continue;
+						if(start->name == o_push)
+							pos += 4;
+						if(start->name == o_pop)
+							pos -= 4;
 						if(start->name == o_add && start->argA.reg == rESP)
 						{
-							start->argB.num -= 4;
-							if(!start->argB.num)
-							{
-								start->name = o_none;
-								optiCount++;
-							}
+							pos -= start->argB.num;
 							continue;
 						}
 						if(start->name == o_sub && start->argA.reg == rESP)
 						{
-							start->argB.num -= 4;
-							if(!start->argB.num)
-							{
-								start->name = o_none;
-								optiCount++;
-							}
+							pos += start->argB.num;
 							continue;
 						}
 						// if esp was used directly, signal an error
-						assert(start->name == o_none || start->argA.type != x86Argument::argReg || start->argA.reg != rESP);
-						assert(start->name == o_none || start->argB.type != x86Argument::argReg || start->argB.reg != rESP);
+						assert(start->argA.type != x86Argument::argReg || start->argA.reg != rESP);
+						assert(start->argB.type != x86Argument::argReg || start->argB.reg != rESP);
 						
-						if(start->argA.type == x86Argument::argPtr && start->argA.ptrReg[0] == rESP)
+						if(start->argA.type == x86Argument::argPtr && start->argA.ptrReg[0] == rESP && start->argA.ptrNum >= pos)
 							start->argA.ptrNum -= 4;
-						if(start->argB.type == x86Argument::argPtr && start->argB.ptrReg[1] == rESP)
+						if(start->argB.type == x86Argument::argPtr && start->argB.ptrReg[0] == rESP && start->argB.ptrNum >= pos)
 							start->argB.ptrNum -= 4;
-						//start++;
-					}*/
+					}
 				}
-
-				//x86Command inst = curr->name;
 				curr->name = o_none;
 				optiCount++;
-				
 			}
-
 			NULLC::stack[index].type = x86Argument::argNone;
 		}
 		num -= removed;
