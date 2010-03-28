@@ -38,7 +38,7 @@ void SetParamBase(unsigned int base);
 void SetFunctionList(ExternFuncInfo* list);
 void SetContinuePtr(int* continueVar);
 
-void SetLastInstruction(x86Instruction *pos);
+void SetLastInstruction(x86Instruction *pos, x86Instruction *base);
 x86Instruction* GetLastInstruction();
 
 unsigned int	GetLastALULabel();

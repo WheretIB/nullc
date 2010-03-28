@@ -495,13 +495,11 @@ NullCArray NULLC::IntToStr(int* r)
 	char buf[16];
 	char *curr = buf;
 	if(number < 0)
-	{
-		number = -number;
 		sign = 1;
-	}
-	*curr++ = (char)(number % 10 + '0');
+
+	*curr++ = (char)(abs(number % 10) + '0');
 	while(number /= 10)
-		*curr++ = (char)(number % 10 + '0');
+		*curr++ = (char)(abs(number % 10) + '0');
 	if(sign)
 		*curr++ = '-';
 	NullCArray arr = AllocArray(1, (int)(curr - buf) + 1);

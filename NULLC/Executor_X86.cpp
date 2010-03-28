@@ -90,10 +90,14 @@ namespace NULLC
 		expECXstate = expInfo->ContextRecord->Ecx;
 		expESPstate = expInfo->ContextRecord->Esp;
 		expCodePublic = expCode;
-		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_INT_OVERFLOW)
+		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW ||
+			expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
 		{
 			if(expCode == EXCEPTION_STACK_OVERFLOW)
 				_resetstkoflw();
+			if(expCode == EXCEPTION_ACCESS_VIOLATION)
+				expECXstate = (unsigned int)expInfo->ExceptionRecord->ExceptionInformation[1];
+
 			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
 			int *paramData = &dataHead->nextElement;
 			int count = 0;
@@ -428,7 +432,7 @@ void ExecutorX86::Run(const char* funcName)
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
 			strcpy(execError, "ERROR: function didn't return a value");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xDEADBEEF)
-			strcpy(execError, "ERROR: null pointer access");
+			strcpy(execError, "ERROR: invalid function pointer");
 		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate != expESPstate)
 			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[expEAXstate].offsetToName], &exLinker->exSymbols[exLinker->exTypes[expECXstate].offsetToName]);
 		else if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
@@ -443,6 +447,8 @@ void ExecutorX86::Run(const char* funcName)
 				strcpy(execError, "ERROR: failed to commit new stack memory");
 			else if(expAllocCode == 4)
 				strcpy(execError, "ERROR: no more memory (512Mb maximum exceeded)");
+			else
+				SafeSprintf(execError, 512, "ERROR: access violation at address 0x%d", expECXstate);
 		}
 	}
 
@@ -498,7 +504,7 @@ bool ExecutorX86::TranslateToNative()
 	SetParamBase((unsigned int)(long long)paramBase);
 	SetFunctionList(&exFunctions[0]);
 	SetContinuePtr(&callContinue);
-	SetLastInstruction(&instList[0]);
+	SetLastInstruction(&instList[0], &instList[0]);
 	SetClosureCreateFunc((void(*)())ClosureCreate);
 	SetUpvaluesCloseFunc((void(*)())CloseUpvalues);
 
@@ -517,7 +523,7 @@ bool ExecutorX86::TranslateToNative()
 		instList.count = currSize;
 		if(currSize + 64 >= instList.max)
 			instList.grow(currSize + 64);
-		SetLastInstruction(instList.data + currSize);
+		SetLastInstruction(instList.data + currSize, instList.data);
 
 		GetLastInstruction()->instID = pos + 1;
 
@@ -820,7 +826,10 @@ bool ExecutorX86::TranslateToNative()
 			code += x86NOT(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
 			break;
 		case o_and:
-			code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+			if(cmd.argB.type == x86Argument::argReg)
+				code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+			else if(cmd.argB.type == x86Argument::argNumber)
+				code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
 			break;
 		case o_or:
 			if(cmd.argA.type == x86Argument::argPtr)
