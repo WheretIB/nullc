@@ -554,7 +554,7 @@ bool ExecutorX86::TranslateToNative()
 		if(instList[i].name == o_other)
 			continue;
 		if(instList[i].instID)
-			fprintf(fAsm, "0x%x\r\n", 0xc0000000 | instList[i].instID);
+			fprintf(fAsm, "0x%x\r\n", 0xc0000000 | (instList[i].instID - 1));
 		instList[i].Decode(instBuf);
 		fprintf(fAsm, "%s\r\n", instBuf);
 	}
