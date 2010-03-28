@@ -305,6 +305,13 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 		x86Argument &target = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
 		target.type = x86Argument::argNone;
 	}else if((op == o_fld || op == o_fild || op == o_fadd || op == o_fsub || op == o_fmul || op == o_fdiv || op == o_fcomp) && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
+		if(x86LookBehind && op == o_fld && x86Op[-1].name == o_fstp && x86Op[-1].argA.ptrSize == size && x86Op[-1].argA.ptrReg[0] == reg2 && x86Op[-1].argA.ptrNum == (int)shift)
+		{
+			x86Op[-1].name = o_fst;
+			optiCount++;
+			return;
+		}
+		
 		unsigned int index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
 
 		if(NULLC::stack[index].type == x86Argument::argPtr)
@@ -334,13 +341,6 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 		NULLC::stack[target].type = x86Argument::argFPReg;
 		NULLC::stackRead[target] = false;
 		NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
-	}
-
-	if(x86LookBehind && op == o_fld && x86Op[-1].name == o_fstp && x86Op[-1].argA.ptrSize == size && x86Op[-1].argA.ptrReg[0] == reg2 && x86Op[-1].argA.ptrNum == (int)shift)
-	{
-		x86Op[-1].name = o_fst;
-		optiCount++;
-		return;
 	}
 		
 	NULLC::regRead[reg2] = true;
@@ -427,8 +427,45 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 		while(bytes--)
 			NULLC::stack[(++NULLC::stackTop) % NULLC::STACK_STATE_SIZE].type = x86Argument::argNone;
 	}
-	if(op == o_mov)
+
+	if((op == o_add || op == o_sub) && reg1 == rESP)
 	{
+		x86Instruction &prev = x86Base[NULLC::regUpdate[rESP]];
+		if((prev.name == o_add || prev.name == o_sub) && prev.argB.type == x86Argument::argNumber)
+		{
+			x86Instruction *curr = &prev;
+			bool safe = true;
+			while(++curr < x86Op && safe)
+			{
+				if(curr->name == o_none)
+					continue;
+				if(curr->name == o_pop || curr->name == o_push || curr->name == o_label)
+					safe = false;
+				if(curr->name >= o_jmp && curr->name <= o_ret)
+					safe = false;
+				if(curr->argA.type == x86Argument::argPtr && curr->argA.ptrReg[0] == rESP)
+					safe = false;
+				if(curr->argB.type == x86Argument::argPtr && curr->argB.ptrReg[0] == rESP)
+					safe = false;
+				if(curr->argA.type == x86Argument::argReg && curr->argA.reg == rESP)
+					safe = false;
+				if(curr->argB.type == x86Argument::argReg && curr->argB.reg == rESP)
+					safe = false;
+			}
+			if(safe)
+			{
+				prev.argB.num = op == o_add ? (prev.name == o_sub ? prev.argB.num - num : prev.argB.num + num) : (prev.name == o_add ? prev.argB.num - num : prev.argB.num + num);
+				optiCount++;
+				if(prev.argB.num == 0)
+				{
+					prev.name = o_none;
+					optiCount++;
+				}
+				return;
+			}
+		}
+		NULLC::regUpdate[rESP] = (unsigned int)(x86Op - x86Base);
+	}else if(op == o_mov){
 		if(NULLC::reg[reg1].type != x86Argument::argNone)
 			KILL_REG(reg1);
 		NULLC::InvalidateDependand(reg1);
@@ -439,46 +476,9 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	}
 
-	if(x86LookBehind)
-	{
-		x86Instruction &prev = x86Op[-1];
-		// sub reg, num; add reg, num
-		if(op == o_sub && prev.name == o_add && prev.argA.type == x86Argument::argReg && prev.argB.type == x86Argument::argNumber)
-		{
-			if(reg1 == prev.argA.reg)
-			{
-				prev.argB.num -= num;
-				optiCount++;
-				if(prev.argB.num == 0)
-				{
-					prev.argA.type = x86Argument::argNone;
-					prev.argB.type = x86Argument::argNone;
-					x86Op--;
-					optiCount++;
-				}
-				return;
-			}
-		}
-		// add reg, num; sub reg, num
-		if(op == o_add && prev.name == o_sub && prev.argA.type == x86Argument::argReg && prev.argB.type == x86Argument::argNumber)
-		{
-			if(reg1 == prev.argA.reg)
-			{
-				prev.argB.num -= num;
-				optiCount++;
-				if(prev.argB.num == 0)
-				{
-					prev.argA.type = x86Argument::argNone;
-					prev.argB.type = x86Argument::argNone;
-					x86Op--;
-					optiCount++;
-				}
-				return;
-			}
-		}
-	}
 	if(op != o_add && op != o_sub && op != o_mov && op != o_test && op != o_imul && op != o_shl && op != o_cmp)
 		__asm int 3;
+
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
