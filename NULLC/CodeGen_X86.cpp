@@ -156,6 +156,9 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 			{
 				if(!(NULLC::stack[index].type == x86Argument::argReg && NULLC::stack[index].reg == reg1))
 				{
+					NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
+					NULLC::regRead[reg1] = false;
+
 					x86Op->name = o_mov;
 					x86Op->argA.type = x86Argument::argReg;
 					x86Op->argA.reg = reg1;
@@ -166,6 +169,7 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 				}
 				EMIT_OP_REG_NUM(o_add, rESP, 4);
 				NULLC::InvalidateDependand(reg1);
+				
 				return;
 			}
 			NULLC::stackTop--;
@@ -245,7 +249,7 @@ void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr)
 		NULLC::stackTop--;
 		NULLC::stack[index].type = x86Argument::argNone;
 	}
-	if(op != o_push && op != o_pop && op != o_fstp && op != o_fld)
+	if(op != o_push && op != o_pop && op != o_fstp && op != o_fld && op != o_fild && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp)
 		__asm int 3;
 #endif
 	x86Op->name = op;
@@ -284,18 +288,90 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 	}else if(size == sDWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
 		x86Argument &target = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
 		target.type = x86Argument::argNone;
-	}else if(size == sQWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
+	}else if((op == o_fld || op == o_fild || op == o_fadd || op == o_fsub || op == o_fmul || op == o_fdiv || op == o_fcomp) && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
+		unsigned int index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
+
+		/*if(NULLC::stack[index].type == x86Argument::argPtr)
+		{
+			if(NULLC::stack[index].ptrReg[0] == rNONE)
+			{
+				EMIT_OP_ADDR(op, size, NULLC::stack[index].ptrNum);
+				return;
+			}
+			reg2 = NULLC::stack[index].ptrReg[0];
+			shift = NULLC::stack[index].ptrNum;
+		}else*/{
+			NULLC::stackRead[index] = true;
+			if(size == sQWORD)
+			{
+				unsigned int index2 = (16 + NULLC::stackTop - (shift >> 2) - 1) % NULLC::STACK_STATE_SIZE;
+				NULLC::stackRead[index2] = true;
+			}
+		}
+	}else if((op == o_fstp) && size == sQWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
+
 		x86Argument &target1 = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
 		target1.type = x86Argument::argNone;
 		x86Argument &target2 = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2) - 1) % NULLC::STACK_STATE_SIZE];
 		target2.type = x86Argument::argNone;
-	}else if(op == o_fld && reg2 == rESP && shift == 0)
-	{
+		
+		/*unsigned int index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
+		
+		if(!NULLC::stackRead[index] && NULLC::stack[index].type != x86Argument::argNone)
+		{
+			x86Instruction *curr = NULLC::stackUpdate[index] + x86Base;
+			if(curr->name == o_push)
+			{
+				NULLC::stackTop--;
+				x86Instruction *start = curr + 1;
+				while(start < x86Op)
+				{
+					// if esp was used directly, signal an error
+					assert(start->argA.type != x86Argument::argReg || start->argA.reg != rESP);
+					assert(start->argB.type != x86Argument::argReg || start->argB.reg != rESP);
+					
+					if(start->argA.type == x86Argument::argPtr && start->argA.ptrReg[0] == rESP)
+						start->argA.ptrNum -= 4;
+					if(start->argB.type == x86Argument::argPtr && start->argB.ptrReg[1] == rESP)
+						start->argB.ptrNum -= 4;
+				}
+			}
+			curr->name = o_none;
+			optiCount++;
+		}
+		NULLC::stack[index].type = x86Argument::argNone;
+
+		index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
+		
+		if(!NULLC::stackRead[index] && NULLC::stack[index].type != x86Argument::argNone)
+		{
+			x86Instruction *curr = NULLC::stackUpdate[index] + x86Base;
+			if(curr->name == o_push)
+			{
+				NULLC::stackTop--;
+				x86Instruction *start = curr + 1;
+				while(start < x86Op)
+				{
+					// if esp was used directly, signal an error
+					assert(start->argA.type != x86Argument::argReg || start->argA.reg != rESP);
+					assert(start->argB.type != x86Argument::argReg || start->argB.reg != rESP);
+					
+					if(start->argA.type == x86Argument::argPtr && start->argA.ptrReg[0] == rESP)
+						start->argA.ptrNum -= 4;
+					if(start->argB.type == x86Argument::argPtr && start->argB.ptrReg[1] == rESP)
+						start->argB.ptrNum -= 4;
+				}
+			}
+			curr->name = o_none;
+			optiCount++;
+		}
+		NULLC::stack[index].type = x86Argument::argNone;*/
+	}/*else if(op == o_fld && reg2 == rESP && shift == 0){
 		unsigned int index = (16 + NULLC::stackTop) % NULLC::STACK_STATE_SIZE;
 		NULLC::stackRead[index] = true;
 		index = (16 + NULLC::stackTop - 1) % NULLC::STACK_STATE_SIZE;
 		NULLC::stackRead[index] = true;
-	}
+	}*/
 	NULLC::regRead[reg2] = true;
 
 	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst)
@@ -323,11 +399,49 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 			if(!NULLC::stackRead[index] && NULLC::stack[index].type != x86Argument::argNone)
 			{
 				x86Instruction *curr = NULLC::stackUpdate[index] + x86Base;
-				x86Command inst = curr->name;
+				
+				if(curr->name == o_push)
+				{
+					removed += 4;
+					/*x86Instruction *start = curr;// + 1;
+					while(++start < x86Op)
+					{
+						if(start->name == o_add && start->argA.reg == rESP)
+						{
+							start->argB.num -= 4;
+							if(!start->argB.num)
+							{
+								start->name = o_none;
+								optiCount++;
+							}
+							continue;
+						}
+						if(start->name == o_sub && start->argA.reg == rESP)
+						{
+							start->argB.num -= 4;
+							if(!start->argB.num)
+							{
+								start->name = o_none;
+								optiCount++;
+							}
+							continue;
+						}
+						// if esp was used directly, signal an error
+						assert(start->name == o_none || start->argA.type != x86Argument::argReg || start->argA.reg != rESP);
+						assert(start->name == o_none || start->argB.type != x86Argument::argReg || start->argB.reg != rESP);
+						
+						if(start->argA.type == x86Argument::argPtr && start->argA.ptrReg[0] == rESP)
+							start->argA.ptrNum -= 4;
+						if(start->argB.type == x86Argument::argPtr && start->argB.ptrReg[1] == rESP)
+							start->argB.ptrNum -= 4;
+						//start++;
+					}*/
+				}
+
+				//x86Command inst = curr->name;
 				curr->name = o_none;
 				optiCount++;
-				if(inst == o_push)
-					removed += 4;
+				
 			}
 
 			NULLC::stack[index].type = x86Argument::argNone;
@@ -363,24 +477,34 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 		// sub reg, num; add reg, num
 		if(op == o_sub && prev.name == o_add && prev.argA.type == x86Argument::argReg && prev.argB.type == x86Argument::argNumber)
 		{
-			if(reg1 == prev.argA.reg && (int)num == prev.argB.num)
+			if(reg1 == prev.argA.reg)
 			{
-				prev.argA.type = x86Argument::argNone;
-				prev.argB.type = x86Argument::argNone;
-				x86Op--;
+				prev.argB.num -= num;
 				optiCount++;
+				if(prev.argB.num == 0)
+				{
+					prev.argA.type = x86Argument::argNone;
+					prev.argB.type = x86Argument::argNone;
+					x86Op--;
+					optiCount++;
+				}
 				return;
 			}
 		}
 		// add reg, num; sub reg, num
 		if(op == o_add && prev.name == o_sub && prev.argA.type == x86Argument::argReg && prev.argB.type == x86Argument::argNumber)
 		{
-			if(reg1 == prev.argA.reg && (int)num == prev.argB.num)
+			if(reg1 == prev.argA.reg)
 			{
-				prev.argA.type = x86Argument::argNone;
-				prev.argB.type = x86Argument::argNone;
-				x86Op--;
+				prev.argB.num -= num;
 				optiCount++;
+				if(prev.argB.num == 0)
+				{
+					prev.argA.type = x86Argument::argNone;
+					prev.argB.type = x86Argument::argNone;
+					x86Op--;
+					optiCount++;
+				}
 				return;
 			}
 		}
@@ -1023,8 +1147,10 @@ void GenCodeCmdDtoI(VMCmd cmd)
 	EMIT_COMMENT("DTOI");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fistp, sDWORD, rESP, 4);
-	EMIT_OP_REG_NUM(o_add, rESP, 4);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_sub, rESP, 4);
+	EMIT_OP_RPTR(o_fistp, sDWORD, rESP, 0);
+	//EMIT_OP_REG_NUM(o_add, rESP, 4);
 }
 
 void GenCodeCmdDtoL(VMCmd cmd)
@@ -1033,6 +1159,8 @@ void GenCodeCmdDtoL(VMCmd cmd)
 	EMIT_COMMENT("DTOL");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fistp, sQWORD, rESP, 0);
 }
 
@@ -1042,8 +1170,10 @@ void GenCodeCmdDtoF(VMCmd cmd)
 	EMIT_COMMENT("DTOF");
 
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sDWORD, rESP, 4);
-	EMIT_OP_REG_NUM(o_add, rESP, 4);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_sub, rESP, 4);
+	EMIT_OP_RPTR(o_fstp, sDWORD, rESP, 0);
+	//EMIT_OP_REG_NUM(o_add, rESP, 4);
 }
 
 void GenCodeCmdItoD(VMCmd cmd)
@@ -1052,7 +1182,8 @@ void GenCodeCmdItoD(VMCmd cmd)
 	EMIT_COMMENT("ITOD");
 
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
-	EMIT_OP_REG(o_push, rEAX);
+	EMIT_OP_REG_NUM(o_sub, rESP, 4);
+	//EMIT_OP_REG(o_push, rEAX);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
@@ -1062,6 +1193,8 @@ void GenCodeCmdLtoD(VMCmd cmd)
 	EMIT_COMMENT("LTOD");
 
 	EMIT_OP_RPTR(o_fild, sQWORD, rESP, 0);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
@@ -1984,8 +2117,15 @@ void GenCodeCmdAddD(VMCmd cmd)
 	EMIT_COMMENT("ADD double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_RPTR(o_fadd, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 16);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
+	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+
+	/*
+	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
+	EMIT_OP_RPTR(o_fadd, sQWORD, rESP, 0);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);*/
 }
 
 void GenCodeCmdSubD(VMCmd cmd)
@@ -1994,8 +2134,9 @@ void GenCodeCmdSubD(VMCmd cmd)
 	EMIT_COMMENT("SUB double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_RPTR(o_fsub, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 16);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
+	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
 void GenCodeCmdMulD(VMCmd cmd)
@@ -2004,8 +2145,9 @@ void GenCodeCmdMulD(VMCmd cmd)
 	EMIT_COMMENT("MUL double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_RPTR(o_fmul, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 16);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
+	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
 void GenCodeCmdDivD(VMCmd cmd)
@@ -2014,8 +2156,9 @@ void GenCodeCmdDivD(VMCmd cmd)
 	EMIT_COMMENT("DIV double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
 	EMIT_OP_RPTR(o_fdiv, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 16);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
+	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
 void GenCodeCmdPowD(VMCmd cmd)
@@ -2024,10 +2167,12 @@ void GenCodeCmdPowD(VMCmd cmd)
 	EMIT_COMMENT("POW double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 16);
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)doublePow);
 	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
+	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+	//EMIT_OP_REG_NUM(o_add, rESP, 8);
 }
 
 void GenCodeCmdModD(VMCmd cmd)
@@ -2036,10 +2181,12 @@ void GenCodeCmdModD(VMCmd cmd)
 	EMIT_COMMENT("MOD double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 16);
 	EMIT_OP(o_fprem);
 	EMIT_OP_FPUREG(o_fstp, rST1);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
+	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+	//EMIT_OP_REG_NUM(o_add, rESP, 8);
 }
 
 void GenCodeCmdLessD(VMCmd cmd)
@@ -2048,14 +2195,14 @@ void GenCodeCmdLessD(VMCmd cmd)
 	EMIT_COMMENT("LESS double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
+	/*EMIT_OP_REG_NUM(o_add, rESP, 16);	//*/EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x41);
 	EMIT_OP_LABEL(o_jne, aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
+	/*EMIT_OP_NUM(o_push, 1);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
 	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
 	EMIT_LABEL(aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
+	/*EMIT_OP_NUM(o_push, 0);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
 	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
@@ -2066,14 +2213,14 @@ void GenCodeCmdGreaterD(VMCmd cmd)
 	EMIT_COMMENT("GREATER double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
+	/*EMIT_OP_REG_NUM(o_add, rESP, 16);	//*/EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x05);
 	EMIT_OP_LABEL(o_jp, aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
+	/*EMIT_OP_NUM(o_push, 1);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
 	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
 	EMIT_LABEL(aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
+	/*EMIT_OP_NUM(o_push, 0);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
 	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
@@ -2084,14 +2231,14 @@ void GenCodeCmdLEqualD(VMCmd cmd)
 	EMIT_COMMENT("LEQUAL double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
+	/*EMIT_OP_REG_NUM(o_add, rESP, 16);	//*/EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x01);
 	EMIT_OP_LABEL(o_jne, aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
+	/*EMIT_OP_NUM(o_push, 1);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
 	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
 	EMIT_LABEL(aluLabels);
-	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
+	/*EMIT_OP_NUM(o_push, 0);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
 	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
@@ -2211,7 +2358,9 @@ void GenCodeCmdNegD(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("NEG double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP(o_fchs);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
@@ -2246,8 +2395,10 @@ void GenCodeCmdIncD(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("INC double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP(o_fld1);
 	EMIT_OP(o_faddp);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
@@ -2272,8 +2423,10 @@ void GenCodeCmdDecD(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("DEC double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP(o_fld1);
 	EMIT_OP(o_fsubp);
+	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
