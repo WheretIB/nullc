@@ -95,7 +95,15 @@ void EMIT_OP(x86Command op)
 		NULLC::regRead[rEAX] = NULLC::regRead[rEBX] = NULLC::regRead[rECX] = NULLC::regRead[rEDX] = true;
 	}
 	if(op == o_rep_movsd)
+	{
 		NULLC::regRead[rECX] = NULLC::regRead[rESI] = NULLC::regRead[rEDI] = true;
+		assert(NULLC::reg[rECX].type == x86Argument::argNumber);
+		unsigned int stackEntryCount = NULLC::reg[rECX].num;
+		stackEntryCount = stackEntryCount > NULLC::STACK_STATE_SIZE ? NULLC::STACK_STATE_SIZE : stackEntryCount;
+		for(unsigned int i = 0; i < stackEntryCount; i++)
+			NULLC::stackRead[(16 + NULLC::stackTop - i) % NULLC::STACK_STATE_SIZE] = true;
+			
+	}
 #endif
 	x86Op->name = op;
 	x86Op++;
@@ -103,6 +111,17 @@ void EMIT_OP(x86Command op)
 void EMIT_OP_LABEL(x86Command op, unsigned int labelID)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	if(op == o_call)
+	{
+		if(NULLC::reg[rEAX].type != x86Argument::argNone)
+			KILL_REG(rEAX);
+		if(NULLC::reg[rEBX].type != x86Argument::argNone)
+			KILL_REG(rEBX);
+		if(NULLC::reg[rECX].type != x86Argument::argNone)
+			KILL_REG(rECX);
+		if(NULLC::reg[rEDX].type != x86Argument::argNone)
+			KILL_REG(rEDX);
+	}
 	if(op >= o_jmp && op <= o_ret)
 		NULLC::InvalidateState();
 #endif
@@ -160,7 +179,7 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 		NULLC::reg[rEAX].type = x86Argument::argNone;
 	}
 	NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
-	NULLC::regRead[reg1] = (op == o_push);
+	NULLC::regRead[reg1] = (op == o_push || op == o_imul);
 
 	if(op != o_push && op != o_pop && op != o_call && op != o_imul && op < o_setl && op > o_setnz)
 		__asm int 3;
@@ -292,30 +311,32 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	if(op == o_add && reg1 == rESP && num == 4)
-	{
-		unsigned int index = (NULLC::stackTop) % NULLC::STACK_STATE_SIZE;
-		if(!NULLC::stackRead[index] && NULLC::stack[index].type != x86Argument::argNone)
-		{
-			x86Instruction *curr = NULLC::stackUpdate[index] + x86Base;
-			x86Command inst = curr->name;
-			curr->name = o_none;
-			optiCount += 2;
-			if(inst == o_push)
-			{
-				NULLC::stackTop--;
-				return;
-			}
-		}
-		NULLC::stack[index].type = x86Argument::argNone;
-	}
 	if(op == o_add && reg1 == rESP)
 	{
 		unsigned int bytes = num >> 2;
+		unsigned int removed = 0;
+
 		while(bytes--)
 		{
 			unsigned int index = (NULLC::stackTop--) % NULLC::STACK_STATE_SIZE;
+
+			if(!NULLC::stackRead[index] && NULLC::stack[index].type != x86Argument::argNone)
+			{
+				x86Instruction *curr = NULLC::stackUpdate[index] + x86Base;
+				x86Command inst = curr->name;
+				curr->name = o_none;
+				optiCount++;
+				if(inst == o_push)
+					removed += 4;
+			}
+
 			NULLC::stack[index].type = x86Argument::argNone;
+		}
+		num -= removed;
+		if(!num)
+		{
+			optiCount++;
+			return;
 		}
 	}
 	if(op == o_sub && reg1 == rESP)

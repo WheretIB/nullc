@@ -299,7 +299,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 			// Update internal function address
 			if(exFunctions.back().address != -1)
+			{
 				exFunctions.back().address = oldCodeSize + fInfo->address;
+				jumpTargets.push_back(exFunctions.back().address);
+			}
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
 			printf("Adding function %-16s (at address %4d [external %p])\r\n", &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
@@ -366,7 +369,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			jumpTargets.push_back(cmd.argument);
 			break;
 		case cmdCall:
-			jumpTargets.push_back(funcRemap[cmd.argument]);
 		case cmdFuncAddr:
 		case cmdCreateClosure:
 			cmd.argument = funcRemap[cmd.argument];
