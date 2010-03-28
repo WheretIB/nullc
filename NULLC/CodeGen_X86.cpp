@@ -177,13 +177,19 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 		}
 		NULLC::InvalidateDependand(reg1);
 	}
-	if(op == o_imul)
+	if(op == o_imul || op == o_idiv)
 	{
 		NULLC::InvalidateDependand(rEAX);
 		NULLC::reg[rEAX].type = x86Argument::argNone;
+		if(op == o_idiv && NULLC::reg[reg1].type == x86Argument::argPtr)
+		{
+			EMIT_OP_RPTR(o_idiv, NULLC::reg[reg1].ptrSize, NULLC::reg[reg1].ptrReg[0], NULLC::reg[reg1].ptrNum);
+			return;
+		}
+	}else{
+		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
 	}
-	NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
-	NULLC::regRead[reg1] = (op == o_push || op == o_imul);
+	NULLC::regRead[reg1] = (op == o_push || op == o_imul || op == o_idiv);
 
 	if(op != o_push && op != o_pop && op != o_call && op != o_imul && op < o_setl && op > o_setnz)
 		__asm int 3;
@@ -1126,7 +1132,6 @@ void GenCodeCmdDtoI(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_REG_NUM(o_sub, rESP, 4);
 	EMIT_OP_RPTR(o_fistp, sDWORD, rESP, 0);
-	//EMIT_OP_REG_NUM(o_add, rESP, 4);
 }
 
 void GenCodeCmdDtoL(VMCmd cmd)
@@ -1149,7 +1154,6 @@ void GenCodeCmdDtoF(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_REG_NUM(o_sub, rESP, 4);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rESP, 0);
-	//EMIT_OP_REG_NUM(o_add, rESP, 4);
 }
 
 void GenCodeCmdItoD(VMCmd cmd)
@@ -1159,7 +1163,6 @@ void GenCodeCmdItoD(VMCmd cmd)
 
 	EMIT_OP_RPTR(o_fild, sDWORD, rESP, 0);
 	EMIT_OP_REG_NUM(o_sub, rESP, 4);
-	//EMIT_OP_REG(o_push, rEAX);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
@@ -1632,8 +1635,10 @@ void GenCodeCmdSub(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("SUB int");
+	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_RPTR_REG(o_sub, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG_REG(o_sub, rEAX, rEDX);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 void GenCodeCmdMul(VMCmd cmd)
@@ -1650,11 +1655,11 @@ void GenCodeCmdDiv(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("DIV int");
+	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_REG_RPTR(o_xchg, rEAX, sDWORD, rESP, 0);
 	EMIT_OP(o_cdq);
-	EMIT_OP_RPTR(o_idiv, sDWORD, rESP, 0);
-	EMIT_OP_REG_RPTR(o_xchg, rEAX, sDWORD, rESP, 0);
+	EMIT_OP_REG(o_idiv, rEBX);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 void GenCodeCmdPow(VMCmd cmd)
@@ -1672,11 +1677,11 @@ void GenCodeCmdMod(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("MOD int");
+	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_REG_RPTR(o_xchg, rEAX, sDWORD, rESP, 0);
 	EMIT_OP(o_cdq);
-	EMIT_OP_RPTR(o_idiv, sDWORD, rESP, 0);
-	EMIT_OP_REG_RPTR(o_xchg, rEDX, sDWORD, rESP, 0);
+	EMIT_OP_REG(o_idiv, rEBX);
+	EMIT_OP_REG(o_push, rEDX);
 }
 
 void GenCodeCmdLess(VMCmd cmd)
@@ -2096,12 +2101,6 @@ void GenCodeCmdAddD(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 16);
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-
-	/*
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
-	EMIT_OP_RPTR(o_fadd, sQWORD, rESP, 0);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);*/
 }
 
 void GenCodeCmdSubD(VMCmd cmd)
@@ -2148,7 +2147,6 @@ void GenCodeCmdPowD(VMCmd cmd)
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	//EMIT_OP_REG_NUM(o_add, rESP, 8);
 }
 
 void GenCodeCmdModD(VMCmd cmd)
@@ -2162,7 +2160,6 @@ void GenCodeCmdModD(VMCmd cmd)
 	EMIT_OP_FPUREG(o_fstp, rST1);
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	//EMIT_OP_REG_NUM(o_add, rESP, 8);
 }
 
 void GenCodeCmdLessD(VMCmd cmd)
@@ -2171,14 +2168,14 @@ void GenCodeCmdLessD(VMCmd cmd)
 	EMIT_COMMENT("LESS double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
-	/*EMIT_OP_REG_NUM(o_add, rESP, 16);	//*/EMIT_OP_REG_NUM(o_add, rESP, 12);
+	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x41);
 	EMIT_OP_LABEL(o_jne, aluLabels);
-	/*EMIT_OP_NUM(o_push, 1);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
+	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
 	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
 	EMIT_LABEL(aluLabels);
-	/*EMIT_OP_NUM(o_push, 0);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
+	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
 	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
@@ -2189,14 +2186,14 @@ void GenCodeCmdGreaterD(VMCmd cmd)
 	EMIT_COMMENT("GREATER double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
-	/*EMIT_OP_REG_NUM(o_add, rESP, 16);	//*/EMIT_OP_REG_NUM(o_add, rESP, 12);
+	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x05);
 	EMIT_OP_LABEL(o_jp, aluLabels);
-	/*EMIT_OP_NUM(o_push, 1);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
+	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
 	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
 	EMIT_LABEL(aluLabels);
-	/*EMIT_OP_NUM(o_push, 0);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
+	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
 	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
@@ -2207,14 +2204,14 @@ void GenCodeCmdLEqualD(VMCmd cmd)
 	EMIT_COMMENT("LEQUAL double");
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fcomp, sQWORD, rESP, 8);
-	/*EMIT_OP_REG_NUM(o_add, rESP, 16);	//*/EMIT_OP_REG_NUM(o_add, rESP, 12);
+	EMIT_OP_REG_NUM(o_add, rESP, 12);
 	EMIT_OP(o_fnstsw);
 	EMIT_OP_REG_NUM(o_test, rEAX, 0x01);
 	EMIT_OP_LABEL(o_jne, aluLabels);
-	/*EMIT_OP_NUM(o_push, 1);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
+	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 1);
 	EMIT_OP_LABEL(o_jmp, aluLabels + 1);
 	EMIT_LABEL(aluLabels);
-	/*EMIT_OP_NUM(o_push, 0);	//*/EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
+	EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESP, 0, 0);
 	EMIT_LABEL(aluLabels + 1);
 	aluLabels += 2;
 }
@@ -2278,14 +2275,18 @@ void GenCodeCmdNeg(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("NEG int");
-	EMIT_OP_RPTR(o_neg, sDWORD, rESP, 0);
+	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_neg, rEAX);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 void GenCodeCmdBitNot(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("BNOT int");
-	EMIT_OP_RPTR(o_not, sDWORD, rESP, 0);
+	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_not, rEAX);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 void GenCodeCmdLogNot(VMCmd cmd)
