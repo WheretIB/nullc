@@ -849,6 +849,22 @@ int x86AND(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
 	return 1 + asize;
 }
+// and dword [reg+shift], num
+int x86AND(unsigned char *stream, x86Size, x86Reg reg, int shift, int num)
+{
+	if((char)(num) == num)
+	{
+		stream[0] = 0x83;
+		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
+		stream[1+asize] = (char)(num);
+		return asize + 2;
+	}
+	// else
+	stream[0] = 0x81;
+	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
+	*(int*)(stream+1+asize) = num;
+	return asize + 5;
+}
 
 // or op1, op2
 int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2)
