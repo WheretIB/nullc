@@ -134,7 +134,17 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_call)
+	{
+		if(reg1 != rEAX && NULLC::reg[rEAX].type != x86Argument::argNone)
+			KILL_REG(rEAX);
+		if(reg1 != rEBX && NULLC::reg[rEBX].type != x86Argument::argNone)
+			KILL_REG(rEBX);
+		if(reg1 != rECX && NULLC::reg[rECX].type != x86Argument::argNone)
+			KILL_REG(rECX);
+		if(reg1 != rEDX && NULLC::reg[rEDX].type != x86Argument::argNone)
+			KILL_REG(rEDX);
 		NULLC::InvalidateState();
+	}
 	if(op == o_push)
 	{
 		if(NULLC::reg[reg1].type == x86Argument::argNumber)
@@ -315,23 +325,15 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 			}
 		}
 	}else if((op == o_fstp || op == o_fst) && size == sQWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
-		bool smart = x86LookBehind && x86Op[-1].name == o_sub && x86Op[-1].argA.reg == rESP && x86Op[-1].argB.num == 8;
-		
 		unsigned int target = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
-		NULLC::stack[target].type = smart ? x86Argument::argFPReg : x86Argument::argNone;
-		if(smart)
-		{
-			NULLC::stackRead[target] = false;
-			NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
-		}
+		NULLC::stack[target].type = x86Argument::argFPReg;
+		NULLC::stackRead[target] = false;
+		NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
+
 		target = (16 + NULLC::stackTop - (shift >> 2) - 1) % NULLC::STACK_STATE_SIZE;
-		//x86Argument &target2 = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2) - 1) % NULLC::STACK_STATE_SIZE];
-		NULLC::stack[target].type = smart ? x86Argument::argFPReg : x86Argument::argNone;
-		if(smart)
-		{
-			NULLC::stackRead[target] = false;
-			NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
-		}
+		NULLC::stack[target].type = x86Argument::argFPReg;
+		NULLC::stackRead[target] = false;
+		NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
 	}
 
 	if(x86LookBehind && op == o_fld && x86Op[-1].name == o_fstp && x86Op[-1].argA.ptrSize == size && x86Op[-1].argA.ptrReg[0] == reg2 && x86Op[-1].argA.ptrNum == (int)shift)
@@ -402,7 +404,12 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 							start->argB.ptrNum -= 4;
 					}
 				}
-				curr->name = o_none;
+				if(curr->name != o_fstp)
+				{
+					curr->name = o_none;
+				}else{
+					curr->argA = x86Argument(rST0);
+				}
 				optiCount++;
 			}
 			NULLC::stack[index].type = x86Argument::argNone;
@@ -1668,6 +1675,10 @@ void GenCodeCmdPow(VMCmd cmd)
 	EMIT_COMMENT("POW int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEBX);
+#ifdef NULLC_OPTIMIZE_X86
+	NULLC::regRead[rEAX] = true;
+	NULLC::regRead[rEBX] = true;
+#endif
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)intPow);
 	EMIT_OP_REG(o_call, rECX);
 	EMIT_OP_REG(o_push, rEDX);
