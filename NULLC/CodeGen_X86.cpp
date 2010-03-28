@@ -308,12 +308,33 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 				NULLC::stackRead[index2] = true;
 			}
 		}
-	}else if((op == o_fstp) && size == sQWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
-		x86Argument &target1 = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
-		target1.type = x86Argument::argNone;
-		x86Argument &target2 = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2) - 1) % NULLC::STACK_STATE_SIZE];
-		target2.type = x86Argument::argNone;
+	}else if((op == o_fstp || op == o_fst) && size == sQWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
+		bool smart = x86LookBehind && x86Op[-1].name == o_sub && x86Op[-1].argA.reg == rESP && x86Op[-1].argB.num == 8;
+		
+		unsigned int target = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
+		NULLC::stack[target].type = smart ? x86Argument::argFPReg : x86Argument::argNone;
+		if(smart)
+		{
+			NULLC::stackRead[target] = false;
+			NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
+		}
+		target = (16 + NULLC::stackTop - (shift >> 2) - 1) % NULLC::STACK_STATE_SIZE;
+		//x86Argument &target2 = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2) - 1) % NULLC::STACK_STATE_SIZE];
+		NULLC::stack[target].type = smart ? x86Argument::argFPReg : x86Argument::argNone;
+		if(smart)
+		{
+			NULLC::stackRead[target] = false;
+			NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
+		}
 	}
+
+	if(x86LookBehind && op == o_fld && x86Op[-1].name == o_fstp && x86Op[-1].argA.ptrSize == size && x86Op[-1].argA.ptrReg[0] == reg2 && x86Op[-1].argA.ptrNum == (int)shift)
+	{
+		x86Op[-1].name = o_fst;
+		optiCount++;
+		return;
+	}
+		
 	NULLC::regRead[reg2] = true;
 
 	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst)
@@ -659,6 +680,22 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 	x86Op++;
 }
 
+bool EMIT_POP_DOUBLE(x86Reg base, unsigned int address)
+{
+	x86Instruction &prev = x86Op[-1];
+	if(x86LookBehind && prev.name == o_fstp)
+	{
+		prev.name = o_fst;
+		if(base == rNONE)
+			EMIT_OP_ADDR(o_fstp, sQWORD, address);
+		else
+			EMIT_OP_RPTR(o_fstp, sQWORD, base, address);
+		optiCount += 3;
+		return true;
+	}
+	return false;
+}
+
 void OptimizationLookBehind(bool allow)
 {
 	x86LookBehind = allow;
@@ -933,6 +970,11 @@ void GenCodeCmdMovFloat(VMCmd cmd)
 void GenCodeCmdMovDorL(VMCmd cmd)
 {
 	EMIT_COMMENT("MOV DorL");
+
+#ifdef NULLC_OPTIMIZE_X86
+	if(EMIT_POP_DOUBLE(cmd.flag == ADDRESS_ABOLUTE ? rNONE : rEBP, cmd.argument+paramBase))
+		return;
+#endif
 
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	if(cmd.flag == ADDRESS_ABOLUTE)
