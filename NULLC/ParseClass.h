@@ -363,7 +363,7 @@ public:
 		parentClass = NULL;
 		parentFunc = NULL;
 
-		firstParam = lastParam = NULL;
+		extraParam = firstParam = lastParam = NULL;
 		paramCount = 0;
 		firstExternal = lastExternal = NULL;
 		externalCount = 0;
@@ -415,6 +415,7 @@ public:
 	unsigned int	nameHash;
 
 	VariableInfo	*firstParam, *lastParam;	// Parameter list
+	VariableInfo	*extraParam;	// closure/this pointer
 	unsigned int	paramCount;
 
 	unsigned int	allParamSize;

@@ -37,7 +37,7 @@ void OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo)
 	}else{
 		for(unsigned int k = 0; k < funcInfo->nameLength; k++)
 		{
-			if(fName[k] == ':' || fName[k] == '$')
+			if(fName[k] == ':' || fName[k] == '$' || fName[k] == '[' || fName[k] == ']')
 				fName[k] = '_';
 		}
 		for(unsigned int k = 0; k < CodeInfo::classCount; k++)
@@ -578,23 +578,32 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, ";\r\n");
 
 		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		VariableInfo *local = parentFunction->firstParam ? parentFunction->firstParam : parentFunction->firstLocal;
+		// Glue together parameter list, extra parameter and local list. Every list could be empty.
+		VariableInfo *curr = parentFunction->firstParam ? parentFunction->firstParam : (parentFunction->firstLocal ? parentFunction->firstLocal : parentFunction->extraParam);
 		if(parentFunction->firstParam)
-			parentFunction->lastParam->next = parentFunction->firstLocal;
-		for(; local; local = local->next)
+			parentFunction->lastParam->next = (parentFunction->firstLocal ? parentFunction->firstLocal : parentFunction->extraParam);
+		if(parentFunction->firstLocal)
+			parentFunction->lastLocal->next = parentFunction->extraParam;
+		unsigned int hashThis = GetStringHash("this");
+		for(; curr; curr = curr->next)
 		{
-			if(local->usedAsExternal)
+			if(curr->usedAsExternal)
 			{
-				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
-				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-				sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
+				const char *namePrefix = *curr->name.begin == '$' ? "__" : "";
+				unsigned int nameShift = *curr->name.begin == '$' ? 1 : 0;
+				sprintf(name, "%s%.*s_%d", namePrefix, curr->name.end - curr->name.begin-nameShift, curr->name.begin+nameShift, curr->pos);
 			
 				OutputIdent(fOut);
-				fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d_%s, &%s);\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name, name);
+				if(curr->nameHash == hashThis)
+					fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d___context, &__context);\r\n", CodeInfo::FindFunctionByPtr(curr->parentFunction));
+				else
+					fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d_%s, &%s);\r\n", CodeInfo::FindFunctionByPtr(curr->parentFunction), name, name);
 			}
 		}
 		if(parentFunction->firstParam)
 			parentFunction->lastParam->next = NULL;
+		if(parentFunction->firstLocal)
+			parentFunction->lastLocal->next = NULL;
 		OutputIdent(fOut);
 		fprintf(fOut, "return __nullcRetVar%d;\r\n", retVarID++);
 		return;
@@ -659,23 +668,32 @@ void NodeBlock::TranslateToC(FILE *fOut)
 {
 	first->TranslateToC(fOut);
 	char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
-	VariableInfo *local = parentFunction->firstParam ? parentFunction->firstParam : parentFunction->firstLocal;
+	// Glue together parameter list, extra parameter and local list. Every list could be empty.
+	VariableInfo *curr = parentFunction->firstParam ? parentFunction->firstParam : (parentFunction->firstLocal ? parentFunction->firstLocal : parentFunction->extraParam);
 	if(parentFunction->firstParam)
-		parentFunction->lastParam->next = parentFunction->firstLocal;
-	for(; local; local = local->next)
+		parentFunction->lastParam->next = (parentFunction->firstLocal ? parentFunction->firstLocal : parentFunction->extraParam);
+	if(parentFunction->firstLocal)
+		parentFunction->lastLocal->next = parentFunction->extraParam;
+	unsigned int hashThis = GetStringHash("this");
+	for(; curr; curr = curr->next)
 	{
-		if(local->usedAsExternal && local->blockDepth - parentFunction->vTopSize - 1 == stackFrameShift)
+		if(curr->usedAsExternal)
 		{
-			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
-			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-			sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
-
+			const char *namePrefix = *curr->name.begin == '$' ? "__" : "";
+			unsigned int nameShift = *curr->name.begin == '$' ? 1 : 0;
+			sprintf(name, "%s%.*s_%d", namePrefix, curr->name.end - curr->name.begin-nameShift, curr->name.begin+nameShift, curr->pos);
+		
 			OutputIdent(fOut);
-			fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d_%s, &%s);\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name, name);
+			if(curr->nameHash == hashThis)
+				fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d___context, &__context);\r\n", CodeInfo::FindFunctionByPtr(curr->parentFunction));
+			else
+				fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d_%s, &%s);\r\n", CodeInfo::FindFunctionByPtr(curr->parentFunction), name, name);
 		}
 	}
 	if(parentFunction->firstParam)
 		parentFunction->lastParam->next = NULL;
+	if(parentFunction->firstLocal)
+		parentFunction->lastLocal->next = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -919,6 +937,7 @@ void NodeFuncCall::LogToStream(FILE *fGraph)
 }
 void NodeFuncCall::TranslateToC(FILE *fOut)
 {
+	TranslateToCExtra(fOut);
 	if(funcInfo)
 		OutputCFunctionName(fOut, funcInfo);
 	if(!funcInfo)
@@ -1035,13 +1054,25 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 }
 void NodeGetAddress::TranslateToC(FILE *fOut)
 {
+	if(head)
+		fprintf(fOut, "(");
+	NodeZeroOP *curr = head;
+	while(curr)
+	{
+		assert(curr->nodeType == typeNodePopOp);
+		((NodePopOp*)curr)->GetFirstNode()->TranslateToC(fOut);
+		fprintf(fOut, ", ");
+		curr = curr->next;
+	}
 	TranslateToCEx(fOut, true);
+	if(head)
+		fprintf(fOut, ")");
 }
 void NodeGetAddress::TranslateToCEx(FILE *fOut, bool takeAddress)
 {
 	if(takeAddress)
 		fprintf(fOut, "&");
-	if(varInfo)
+	if(varInfo && varInfo->nameHash != GetStringHash("this"))
 	{
 		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
@@ -2009,16 +2040,21 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 		{
 			VariableInfo *closure = ((NodeGetAddress*)((NodeOneOP*)first)->GetFirstNode())->varInfo;
 
-			char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-			const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
-			unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
-			unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, closure->name.end - closure->name.begin-nameShift, closure->name.begin+nameShift, closure->pos);
-			for(unsigned int k = 0; k < length; k++)
+			if(closure->nameHash == GetStringHash("this"))
 			{
-				if(closureName[k] == ':' || closureName[k] == '$')
-					closureName[k] = '_';
+				fprintf(fOut, "__context");
+			}else{
+				char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+				const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
+				unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
+				unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, closure->name.end - closure->name.begin-nameShift, closure->name.begin+nameShift, closure->pos);
+				for(unsigned int k = 0; k < length; k++)
+				{
+					if(closureName[k] == ':' || closureName[k] == '$')
+						closureName[k] = '_';
+				}
+				fprintf(fOut, "%s", closureName);
 			}
-			fprintf(fOut, "%s", closureName);
 		}else{
 			first->TranslateToC(fOut);
 		}

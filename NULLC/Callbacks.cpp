@@ -198,6 +198,8 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 		{
 			VariableInfo *firstNext = lastFunc.firstLocal;
 			lastFunc.firstLocal = CodeInfo::varInfo[i];
+			if(!lastFunc.lastLocal)
+				lastFunc.lastLocal = lastFunc.firstLocal;
 			lastFunc.firstLocal->next = firstNext;
 			if(lastFunc.firstLocal->next)
 				lastFunc.firstLocal->next->prev = lastFunc.firstLocal;
@@ -823,7 +825,7 @@ void* AddVariable(const char* pos, InplaceStr varName)
 		unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes);
 		varTop += offset;
 	}
-	CodeInfo::varInfo.push_back(new VariableInfo(currDefinedFunc.back(), varName, hash, varTop, currType, currDefinedFunc.size() == 0));
+	CodeInfo::varInfo.push_back(new VariableInfo(currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL, varName, hash, varTop, currType, currDefinedFunc.size() == 0));
 	varDefined = true;
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 	if(currType)
@@ -1700,7 +1702,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 
 	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy, funcNameHash));
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
-	lastFunc->parentFunc = currDefinedFunc.back();
+	lastFunc->parentFunc = currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL;
 
 	AddFunctionToSortedList(lastFunc);
 
@@ -1805,7 +1807,7 @@ void FunctionStart(const char* pos)
 	}
 	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
-	AddVariable(pos, InplaceStr(hiddenHame, length));
+	lastFunc.extraParam = (VariableInfo*)AddVariable(pos, InplaceStr(hiddenHame, length));
 	varDefined = false;
 }
 
@@ -1849,6 +1851,8 @@ void FunctionEnd(const char* pos)
 	{
 		VariableInfo *firstNext = lastFunc.firstLocal;
 		lastFunc.firstLocal = CodeInfo::varInfo[i];
+		if(!lastFunc.lastLocal)
+			lastFunc.lastLocal = lastFunc.firstLocal;
 		lastFunc.firstLocal->next = firstNext;
 		if(lastFunc.firstLocal->next)
 			lastFunc.firstLocal->next->prev = lastFunc.firstLocal;
