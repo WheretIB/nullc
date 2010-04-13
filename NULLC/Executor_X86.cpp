@@ -561,6 +561,7 @@ bool ExecutorX86::TranslateToNative()
 		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
 	// Set iterator at beginning
 	SetLastInstruction(instList.data, instList.data);
+	OptimizationLookBehind(false);
 	// Now regenerate instructions
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
@@ -626,7 +627,7 @@ bool ExecutorX86::TranslateToNative()
 			switch(inst.argB.type)
 			{
 			case x86Argument::argNone:
-				EMIT_OP_RPTR(inst.name, inst.argA.ptrSize, inst.argA.ptrBase, inst.argA.ptrNum); // $$
+				EMIT_OP_RPTR(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum);
 				break;
 			case x86Argument::argNumber:
 				EMIT_OP_RPTR_NUM(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.num);
