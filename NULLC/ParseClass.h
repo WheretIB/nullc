@@ -67,7 +67,7 @@ public:
 
 		firstVariable = lastVariable = NULL;
 
-		typeIndex = index;
+		originalIndex = typeIndex = index;
 	}
 
 	const char		*name;	// base type name
@@ -94,7 +94,7 @@ public:
 
 	TypeInfo		*subType;
 
-	unsigned int	typeIndex;
+	unsigned int	typeIndex, originalIndex;
 
 	TypeInfo		*refType;
 
@@ -163,8 +163,16 @@ public:
 	{
 		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY)
 		{
-			subType->OutputCType(fOut, variable);
-			fprintf(fOut, "[%d]", subType->size < 4 ? arrSize + (4 - (arrSize * subType->size) % 4) / subType->size : arrSize);
+			const char* realName = GetFullTypeName();
+			while(*realName)
+			{
+				if(*realName == ' ' || *realName == '[' || *realName == ']')
+					fwrite("_", 1, 1, fOut);
+				else
+					fwrite(realName, 1, 1, fOut);
+				realName++;
+			}
+			fprintf(fOut, " %s", variable);
 		}else if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY){
 			fprintf(fOut, "NULLCArray %s", variable);
 		}else if(refLevel){

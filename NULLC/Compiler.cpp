@@ -799,39 +799,53 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	FILE *fC = fopen(fileName, "wb");
 
+	// Save all the types we need to translate
+	translationTypes.clear();
+	translationTypes.resize(CodeInfo::typeInfo.size());
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+		translationTypes[i] = NULL;
+
+	// Sort them in their original order of definition
+	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
+		translationTypes[CodeInfo::typeInfo[i]->originalIndex] = CodeInfo::typeInfo[i];
+
 	fprintf(fC, "#include \"runtime.h\"\r\n");
-	for(unsigned int i = buildInTypes.size(); i < CodeInfo::classCount; i++)
+	fprintf(fC, "// Array classes\r\n");
+	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 	{
-		TypeInfo *type = CodeInfo::typeInfo[i];
+		TypeInfo *type = translationTypes[i];
+		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || type->funcType)
+			continue;
 		fprintf(fC, "typedef struct\r\n{\r\n");
-		TypeInfo::MemberVariable *curr = type->firstVariable;
-		for(; curr; curr = curr->next)
+		if(type->arrLevel)
 		{
 			fprintf(fC, "\t");
-			curr->type->OutputCType(fC, curr->name);
-			fprintf(fC, ";\r\n");
+			type->subType->OutputCType(fC, "ptr");
+			fprintf(fC, "[%d];\r\n", type->arrSize);
+			fprintf(fC, "} ");
+			type->OutputCType(fC, ";");
+			fprintf(fC, "\r\n");
+		}else{
+			TypeInfo::MemberVariable *curr = type->firstVariable;
+			for(; curr; curr = curr->next)
+			{
+				fprintf(fC, "\t");
+				curr->type->OutputCType(fC, curr->name);
+				fprintf(fC, ";\r\n");
+			}
+			fprintf(fC, "} %s;\r\n", type->name);
 		}
-		fprintf(fC, "} %s;\r\n", type->name);
 	}
+
 	unsigned int functionsInModules = 0;
 	for(unsigned int i = 0; i < activeModules.size(); i++)
 		functionsInModules += activeModules[i].funcCount;
 	for(unsigned int i = activeModules[0].funcCount; i < functionsInModules; i++)
 	{
 		FunctionInfo *info = CodeInfo::funcInfo[i];
+		fprintf(fC, "extern ");
+		info->retType->OutputCType(fC, "");
 
-		if(info->retType->arrLevel == 0 || info->retType->arrSize == TypeInfo::UNSIZED_ARRAY)
-		{
-			fprintf(fC, "extern ");
-			info->retType->OutputCType(fC, "");
-		}else{
-			fprintf(fC, "typedef ");
-			char buf[64];
-			sprintf(buf, "f_r_type%u", info->retType->nameHash);
-			info->retType->OutputCType(fC, buf);
-			fprintf(fC, ";\r\n");
-			fprintf(fC, "extern %s", buf);
-		}
 		char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 		sprintf(fName, "%s", info->name);
 		if(const char *opName = info->GetOperatorName())
@@ -906,6 +920,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	fclose(fC);
 #else
 	(void)fileName;
+	(void)mainName;
 #endif
 }
 

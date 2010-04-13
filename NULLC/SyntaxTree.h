@@ -389,6 +389,11 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 public:
+	friend class NodeDereference;
+	friend class NodeVariableSet;
+	friend class NodeVariableModify;
+	friend class NodePreOrPostOp;
+
 	TypeInfo	*typeParent;
 	bool		knownShift;
 	int			shiftValue;
