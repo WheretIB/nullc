@@ -799,7 +799,7 @@ void Compiler::TranslateToC(const char* fileName)
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	FILE *fC = fopen(fileName, "wb");
 
-	fprintf(fC, "#include \"nullcinc.h\"\r\n");
+	fprintf(fC, "#include \"runtime.h\"\r\n");
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::classCount; i++)
 	{
 		TypeInfo *type = CodeInfo::typeInfo[i];

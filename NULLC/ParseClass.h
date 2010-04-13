@@ -161,7 +161,8 @@ public:
 	}
 	void OutputCType(FILE *fOut, const char *variable)
 	{
-		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY){
+		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY)
+		{
 			subType->OutputCType(fOut, variable);
 			fprintf(fOut, "[%d]", subType->size < 4 ? arrSize + (4 - (arrSize * subType->size) % 4) / subType->size : arrSize);
 		}else if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY){
@@ -174,6 +175,8 @@ public:
 		}else{
 			if(strcmp(name, "auto ref") == 0)
 				fprintf(fOut, "NULLCRef %s", variable);
+			else if(strcmp(name, "long") == 0)
+				fprintf(fOut, "long long %s", variable);
 			else if(strcmp(name, "typeid") == 0)
 				fprintf(fOut, "unsigned int %s", variable);
 			else

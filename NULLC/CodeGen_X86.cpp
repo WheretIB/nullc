@@ -166,6 +166,7 @@ void EMIT_OP_LABEL(x86Command op, unsigned int labelID, bool invalidate = true, 
 	}
 #else
 	(void)invalidate;
+	(void)longJump;
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argLabel;
