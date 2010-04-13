@@ -201,6 +201,8 @@ int x86CMP(unsigned char *stream, x86Reg reg, int num);
 int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);
 // cmp dword [index*mult+base+shift], op2
 int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
+// cmp op1, dword [index*mult+base+shift]
+int x86CMP(unsigned char *stream, x86Reg op1, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 // cmp dword [index*mult+base+shift], num
 int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int op2);
 
