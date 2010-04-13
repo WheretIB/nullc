@@ -755,6 +755,22 @@ int x86IMUL(unsigned char *stream, x86Reg srcdst, int num)
 	*(int*)(stream+2) = num;
 	return 6;
 }
+// imul dst, src
+int x86IMUL(unsigned char *stream, x86Reg dst, x86Reg src)
+{
+	stream[0] = 0x0f;
+	stream[1] = 0xaf;
+	stream[2] = encodeRegister(src, regCode[dst]);
+	return 3;
+}
+// imul dst, dword [index*mult+base+shift]
+int x86IMUL(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	stream[0] = 0x0f;
+	stream[1] = 0xaf;
+	unsigned int asize = encodeAddress(stream+2, index, multiplier, base, shift, regCode[dst]);
+	return 2+asize;
+}
 // imul src
 int x86IMUL(unsigned char *stream, x86Reg src)
 {

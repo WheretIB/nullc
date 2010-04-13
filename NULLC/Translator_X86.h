@@ -145,8 +145,12 @@ int x86SBB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 // sbb dword [index*mult+base+shift], op2
 int x86SBB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 
-// imul dst, num
+// imul srcdst, num
 int x86IMUL(unsigned char *stream, x86Reg srcdst, int num);
+// imul dst, src
+int x86IMUL(unsigned char *stream, x86Reg dst, x86Reg src);
+// imul dst, dword [index*mult+base+shift]
+int x86IMUL(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 // imul src
 int x86IMUL(unsigned char *stream, x86Reg src);
 

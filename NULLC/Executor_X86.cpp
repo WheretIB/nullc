@@ -798,8 +798,12 @@ bool ExecutorX86::TranslateToNative()
 			}
 			break;
 		case o_imul:
-			if(cmd.argB.type != x86Argument::argNone)
+			if(cmd.argB.type == x86Argument::argNumber)
 				code += x86IMUL(code, cmd.argA.reg, cmd.argB.num);
+			else if(cmd.argB.type == x86Argument::argReg)
+				code += x86IMUL(code, cmd.argA.reg, cmd.argB.reg);
+			else if(cmd.argB.type == x86Argument::argPtr)
+				code += x86IMUL(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			else
 				code += x86IMUL(code, cmd.argA.reg);
 			break;
