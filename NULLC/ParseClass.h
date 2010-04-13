@@ -159,6 +159,28 @@ public:
 		fullNameHash = GetStringHash(fullName);
 		return fullName;
 	}
+	void OutputCType(FILE *fOut, const char *variable)
+	{
+		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY){
+			subType->OutputCType(fOut, variable);
+			fprintf(fOut, "[%d]", subType->size < 4 ? arrSize + (4 - (arrSize * subType->size) % 4) / subType->size : arrSize);
+		}else if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY){
+			fprintf(fOut, "NULLCArray %s", variable);
+		}else if(refLevel){
+			subType->OutputCType(fOut, "");
+			fprintf(fOut, "* %s", variable);
+		}else if(funcType){
+			fprintf(fOut, "NULLCFuncPtr %s", variable);
+		}else{
+			if(strcmp(name, "auto ref") == 0)
+				fprintf(fOut, "NULLCRef %s", variable);
+			else if(strcmp(name, "typeid") == 0)
+				fprintf(fOut, "unsigned int %s", variable);
+			else
+				fprintf(fOut, "%s %s", name, variable);
+		}
+	}
+
 	unsigned int	GetFullNameLength()
 	{
 		if(fullName)
@@ -416,6 +438,51 @@ public:
 
 	TypeInfo	*funcType;				// Function type
 
+	const char*	GetOperatorName()
+	{
+		if(nameLength <= 3)
+		{
+			if(strcmp(name, "+") == 0)
+				return "__operatorAdd";
+			if(strcmp(name, "-") == 0)
+				return "__operatorSub";
+			if(strcmp(name, "*") == 0)
+				return "__operatorMul";
+			if(strcmp(name, "/") == 0)
+				return "__operatorDiv";
+			if(strcmp(name, "%") == 0)
+				return "__operatorMod";
+			if(strcmp(name, "**") == 0)
+				return "__operatorPow";
+			if(strcmp(name, "<") == 0)
+				return "__operatorLess";
+			if(strcmp(name, ">") == 0)
+				return "__operatorGreater";
+			if(strcmp(name, "<=") == 0)
+				return "__operatorLEqual";
+			if(strcmp(name, ">=") == 0)
+				return "__operatorGEqual";
+			if(strcmp(name, "==") == 0)
+				return "__operatorEqual";
+			if(strcmp(name, "!=") == 0)
+				return "__operatorNEqual";
+			if(strcmp(name, "<<") == 0)
+				return "__operatorShiftLeft";
+			if(strcmp(name, ">>") == 0)
+				return "__operatorShiftRight";
+			if(strcmp(name, "+=") == 0)
+				return "__operatorAddSet";
+			if(strcmp(name, "-=") == 0)
+				return "__operatorSubSet";
+			if(strcmp(name, "*=") == 0)
+				return "__operatorMulSet";
+			if(strcmp(name, "/=") == 0)
+				return "__operatorDivSet";
+			if(strcmp(name, "**=") == 0)
+				return "__operatorPowSet";
+		}
+		return NULL;
+	}
 // Specialized allocation
 	void*		operator new(size_t size)
 	{

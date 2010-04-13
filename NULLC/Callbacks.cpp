@@ -952,7 +952,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				TypeInfo *temp = CodeInfo::GetReferenceType(newType);
 				CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 				CodeInfo::nodeList.push_back(new NodeDereference());
-				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
+				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
 				return;
 			}
 		}
@@ -1035,7 +1035,8 @@ void AddArrayIndexNode(const char* pos)
 	// Current type must be an array
 	if(currentType->arrLevel == 0)
 		ThrowError(pos, "ERROR: indexing variable that is not an array (%s)", currentType->GetFullTypeName());
-	
+
+#ifndef NULLC_ENABLE_C_TRANSLATION
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeGetAddress)
 	{
@@ -1055,6 +1056,9 @@ void AddArrayIndexNode(const char* pos)
 		// Otherwise, create array indexing node
 		CodeInfo::nodeList.push_back(new NodeArrayIndex(currentType));
 	}
+#else
+	CodeInfo::nodeList.push_back(new NodeArrayIndex(currentType));
+#endif
 	if(unifyTwo)
 		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
@@ -1253,10 +1257,12 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	if(!memberFunc)
 	{
 		// Shift pointer to member
+#ifndef NULLC_ENABLE_C_TRANSLATION
 		if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
 			static_cast<NodeGetAddress*>(CodeInfo::nodeList.back())->ShiftToMember(curr);
 		else
-			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr->offset, curr->type));
+#endif
+			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
 	}else{
 		// In case of a function, get it's address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(memberFunc));

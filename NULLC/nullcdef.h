@@ -43,10 +43,15 @@ struct NULLCFuncPtr
 //#define LINK_VERBOSE_DEBUG_OUTPUT
 #endif
 #define ENABLE_GC
+//#define NULLC_ENABLE_C_TRANSLATION
 
 #if defined(_MSC_VER) && !defined(_M_X64)
 	#define NULLC_BUILD_X86_JIT
 	//#define NULLC_OPTIMIZE_X86
+#endif
+
+#if defined(NULLC_ENABLE_C_TRANSLATION) && defined(NULLC_OPTIMIZE_X86)
+	#error "Cannot enable translation to C and x86 optimizer simultaneously"
 #endif
 
 typedef unsigned char nullres;
