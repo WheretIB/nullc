@@ -569,6 +569,8 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 		EMIT_OP_REG_NUM(op, reg2, NULLC::reg[reg1].num);
 		EMIT_OP_REG_REG(o_mov, reg1, reg2);
 		return;
+	}else if(op == o_cmp){
+		NULLC::regRead[reg1] = true;
 	}else{
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	}
@@ -969,6 +971,7 @@ void GenCodeCmdPushShortStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument);
 	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushIntStk(VMCmd cmd)
@@ -977,6 +980,7 @@ void GenCodeCmdPushIntStk(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushFloatStk(VMCmd cmd)
@@ -987,6 +991,7 @@ void GenCodeCmdPushFloatStk(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushDorLStk(VMCmd cmd)
@@ -996,6 +1001,7 @@ void GenCodeCmdPushDorLStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+4);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushCmplxStk(VMCmd cmd)
@@ -1025,6 +1031,7 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd)
 
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
+	KILL_REG(rEDX);
 }
 
 
@@ -1148,6 +1155,7 @@ void GenCodeCmdMovCharStk(VMCmd cmd)
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument, rEBX);
 	KILL_REG(rEBX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovShortStk(VMCmd cmd)
@@ -1158,6 +1166,7 @@ void GenCodeCmdMovShortStk(VMCmd cmd)
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument, rEBX);
 	KILL_REG(rEBX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovIntStk(VMCmd cmd)
@@ -1168,6 +1177,7 @@ void GenCodeCmdMovIntStk(VMCmd cmd)
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument, rEBX);
 	KILL_REG(rEBX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovFloatStk(VMCmd cmd)
@@ -1177,6 +1187,7 @@ void GenCodeCmdMovFloatStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovDorLStk(VMCmd cmd)
@@ -1224,6 +1235,7 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdPop(VMCmd cmd)
@@ -1743,6 +1755,7 @@ void GenCodeCmdAdd(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_REG(o_add, rEAX, rEDX);
 	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdSub(VMCmd cmd)
@@ -1753,6 +1766,7 @@ void GenCodeCmdSub(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_sub, rEAX, rEDX);
 	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdMul(VMCmd cmd)
@@ -1807,10 +1821,13 @@ void GenCodeCmdLess(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("LESS int");
 	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
-	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG_REG(o_cmp, rEDX, rEAX);
 	EMIT_OP_REG(o_setl, rECX);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
+	EMIT_OP_REG(o_push, rECX);
+	KILL_REG(rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdGreater(VMCmd cmd)
@@ -1818,10 +1835,13 @@ void GenCodeCmdGreater(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("GREATER int");
 	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
-	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG_REG(o_cmp, rEDX, rEAX);
 	EMIT_OP_REG(o_setg, rECX);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
+	EMIT_OP_REG(o_push, rECX);
+	KILL_REG(rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdLEqual(VMCmd cmd)
@@ -1829,10 +1849,13 @@ void GenCodeCmdLEqual(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("LEQUAL int");
 	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
-	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG_REG(o_cmp, rEDX, rEAX);
 	EMIT_OP_REG(o_setle, rECX);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
+	EMIT_OP_REG(o_push, rECX);
+	KILL_REG(rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdGEqual(VMCmd cmd)
@@ -1840,10 +1863,13 @@ void GenCodeCmdGEqual(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("GEQUAL int");
 	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
-	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG_REG(o_cmp, rEDX, rEAX);
 	EMIT_OP_REG(o_setge, rECX);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
+	EMIT_OP_REG(o_push, rECX);
+	KILL_REG(rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdEqual(VMCmd cmd)
@@ -1851,10 +1877,13 @@ void GenCodeCmdEqual(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("EQUAL int");
 	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
-	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG_REG(o_cmp, rEDX, rEAX);
 	EMIT_OP_REG(o_sete, rECX);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
+	EMIT_OP_REG(o_push, rECX);
+	KILL_REG(rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdNEqual(VMCmd cmd)
@@ -1862,10 +1891,13 @@ void GenCodeCmdNEqual(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("NEQUAL int");
 	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
-	EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG_REG(o_cmp, rEDX, rEAX);
 	EMIT_OP_REG(o_setne, rECX);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rECX);
+	EMIT_OP_REG(o_push, rECX);
+	KILL_REG(rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdShl(VMCmd cmd)
@@ -1876,6 +1908,7 @@ void GenCodeCmdShl(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_sal, rEAX, rECX);
 	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rECX);
 }
 
 void GenCodeCmdShr(VMCmd cmd)
@@ -1886,6 +1919,7 @@ void GenCodeCmdShr(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_REG(o_sar, rEAX, rECX);
 	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rECX);
 }
 
 void GenCodeCmdBitAnd(VMCmd cmd)
@@ -1893,7 +1927,10 @@ void GenCodeCmdBitAnd(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("BAND int");
 	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_RPTR_REG(o_and, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
+	EMIT_OP_REG_REG(o_and, rEAX, rEDX);
+	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdBitOr(VMCmd cmd)
@@ -1901,7 +1938,10 @@ void GenCodeCmdBitOr(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("BOR int");
 	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_RPTR_REG(o_or, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
+	EMIT_OP_REG_REG(o_or, rEAX, rEDX);
+	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdBitXor(VMCmd cmd)
@@ -1909,7 +1949,10 @@ void GenCodeCmdBitXor(VMCmd cmd)
 	(void)cmd;
 	EMIT_COMMENT("BXOR int");
 	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_RPTR_REG(o_xor, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG(o_pop, rEDX);
+	EMIT_OP_REG_REG(o_xor, rEAX, rEDX);
+	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdLogAnd(VMCmd cmd)

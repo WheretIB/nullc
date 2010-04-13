@@ -864,6 +864,13 @@ int x86NOT(unsigned char *stream, x86Size size, x86Reg reg, int shift)
 	return 1 + asize;
 }
 
+// and op1, op2
+int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2)
+{
+	stream[0] = 0x21;
+	stream[1] = encodeRegister(op1, regCode[op2]);
+	return 2;
+}
 // and dword [reg+shift], op2
 int x86AND(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
 {

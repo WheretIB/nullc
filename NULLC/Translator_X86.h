@@ -176,6 +176,8 @@ int x86NOT(unsigned char *stream, x86Reg reg);
 // not dword [reg+shift]
 int x86NOT(unsigned char *stream, x86Size, x86Reg reg, int shift);
 
+// and op1, op2
+int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2);
 // and dword [reg+shift], op2
 int x86AND(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
 // and dword [reg+shift], num
