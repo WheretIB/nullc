@@ -79,6 +79,7 @@ void KILL_REG_IMPL(x86Reg reg)
 			curr->name = o_none;
 			optiCount++;
 		}
+		NULLC::reg[reg].type = x86Argument::argNone;
 	}
 }
 #define KILL_REG(reg)	KILL_REG_IMPL(reg)
@@ -562,6 +563,13 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 		return;
 	}else if(op == o_cmp){
 		NULLC::regRead[reg1] = true;
+	}else if(op == o_imul){
+		if(NULLC::reg[reg2].type == x86Argument::argPtr)
+		{
+			EMIT_OP_REG_RPTR(o_imul, reg1, sDWORD, NULLC::reg[reg2].ptrIndex, NULLC::reg[reg2].ptrMult, NULLC::reg[reg2].ptrBase, NULLC::reg[reg2].ptrNum);
+			return;
+		}
+		NULLC::reg[reg1].type = x86Argument::argNone;
 	}else{
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	}
@@ -600,7 +608,7 @@ void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int add
 void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	if(op != o_mov && op != o_lea && op != o_movsx && op != o_or)
+	if(op != o_mov && op != o_lea && op != o_movsx && op != o_or && op != o_imul)
 		__asm int 3;
 
 	if(op == o_mov && size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
@@ -632,15 +640,14 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, un
 		NULLC::reg[reg1] = x86Argument(size, index, mult, base, shift);
 		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
 		NULLC::regRead[reg1] = false;
-	}else if(op == o_lea){
+	}else if(op == o_lea || op == o_imul){
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	}
 	NULLC::regRead[base] = true;
+	NULLC::regRead[index] = true;
 
-	
 	if(size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
 		NULLC::stackRead[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE] = true;
-
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
@@ -1779,8 +1786,9 @@ void GenCodeCmdMul(VMCmd cmd)
 	EMIT_COMMENT("MUL int");
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG(o_pop, rEDX);
-	EMIT_OP_REG(o_imul, rEDX);
+	EMIT_OP_REG_REG(o_imul, rEAX, rEDX);
 	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdDiv(VMCmd cmd)
