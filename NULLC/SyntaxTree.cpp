@@ -704,7 +704,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 	{
 		funcInfo->retType->OutputCType(fOut, "");
 		char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		sprintf(fName, "%s", funcInfo->name);
+		sprintf(fName, funcInfo->type == FunctionInfo::LOCAL ? "%s_%d" : "%s", funcInfo->name, CodeInfo::FindFunctionByPtr(funcInfo));
 		if(const char *opName = funcInfo->GetOperatorName())
 		{
 			strcpy(fName, opName);
@@ -880,7 +880,7 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 	if(funcInfo)
 	{
 		char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		sprintf(fName, "%s", funcInfo->name);
+		sprintf(fName, funcInfo->type == FunctionInfo::LOCAL ? "%s_%d" : "%s", funcInfo->name, CodeInfo::FindFunctionByPtr(funcInfo));
 		if(const char *opName = funcInfo->GetOperatorName())
 		{
 			strcpy(fName, opName);
@@ -1928,6 +1928,11 @@ void NodeFunctionAddress::LogToStream(FILE *fGraph)
 		GoUp();
 	}
 }
+void NodeFunctionAddress::TranslateToC(FILE *fOut)
+{
+	fprintf(fOut, "__nullcMakeFunction(");
+
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node that applies binary operation on two values
@@ -2065,7 +2070,11 @@ void NodeBinaryOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, ")");
 	}
 	first->TranslateToC(fOut);
+	if(!(cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble)))
+		fprintf(fOut, ")");
 	fprintf(fOut, " %s ", cmdID == cmdLogXor ? "!=" : ((cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble)) ? "," : binCommandToText[cmdID-cmdAdd]));
+	if(!(cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble)))
+		fprintf(fOut, "(");
 	if(cmdID == cmdLogXor)
 		fprintf(fOut, "!!");
 	if(tmpType != second->typeInfo)
@@ -2822,22 +2831,27 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		}
 		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 			fprintf(fOut, "__makeNullcArray(");
-		else
-			fprintf(fOut, "{ ");
+		else{
+			typeInfo->OutputCType(fOut, "()");
+			end = end->next;
+		}
 
 		NodeZeroOP	*curr = tail;
+		unsigned int id = 0;
 		do 
 		{
+			if(typeInfo->arrLevel && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY)
+				fprintf(fOut, ".set(%d, ", id++);
 			curr->TranslateToC(fOut);
-			if(curr != end)
+			if(typeInfo->arrLevel && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY)
+				fprintf(fOut, ")");
+			else if(curr != end)
 				fprintf(fOut, ", ");
 			curr = curr->prev;
 		}while(curr != end->prev);
 
 		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 			fprintf(fOut, ")");
-		else
-			fprintf(fOut, " }");
 
 		if(first->nodeType == typeNodePopOp)
 			fprintf(fOut, ")");
