@@ -47,7 +47,7 @@ struct NULLCFuncPtr
 
 #if defined(_MSC_VER) && !defined(_M_X64)
 	#define NULLC_BUILD_X86_JIT
-	//#define NULLC_OPTIMIZE_X86
+	#define NULLC_OPTIMIZE_X86
 #endif
 
 #if defined(NULLC_ENABLE_C_TRANSLATION) && defined(NULLC_OPTIMIZE_X86)
