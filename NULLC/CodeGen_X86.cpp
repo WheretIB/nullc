@@ -12,6 +12,8 @@ namespace NULLC
 	bool			stackRead[STACK_STATE_SIZE];
 	unsigned int	stackTop = 0;
 
+	unsigned int	lastInvalidate = 0;
+
 	x86Argument		reg[9];
 	unsigned int	regUpdate[9];
 	bool			regRead[9];
@@ -488,7 +490,7 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 	if((op == o_add || op == o_sub) && reg1 == rESP)
 	{
 		x86Instruction &prev = x86Base[NULLC::regUpdate[rESP]];
-		if((prev.name == o_add || prev.name == o_sub) && prev.argB.type == x86Argument::argNumber)
+		if((prev.name == o_add || prev.name == o_sub) && prev.argB.type == x86Argument::argNumber && NULLC::regUpdate[rESP] > NULLC::lastInvalidate)
 		{
 			x86Instruction *curr = &prev;
 			bool safe = true;
@@ -602,15 +604,17 @@ void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int add
 void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	//if(op != o_mov && op != o_lea && op != o_movsx && op != o_or)
-	//	__asm int 3;
+	if(op != o_mov && op != o_lea && op != o_movsx && op != o_or)
+		__asm int 3;
 
-	if(op == o_mov)
+	if(op == o_mov || op == o_movsx || op == o_lea)
 	{
 		if(NULLC::reg[reg1].type != x86Argument::argNone)
 			KILL_REG(reg1);
 		NULLC::InvalidateDependand(reg1);
-
+	}
+	if(op == o_mov || op == o_movsx)
+	{
 		NULLC::reg[reg1] = x86Argument(size, reg2, shift);
 		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
 		NULLC::regRead[reg1] = false;
@@ -620,11 +624,6 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, uns
 	}
 	NULLC::regRead[reg2] = true;
 
-	if(op == o_xchg && size == sDWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
-	{
-		x86Argument &target = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
-		target.type = x86Argument::argNone;
-	}
 	if(op == o_mov && size == sDWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
 	{
 		x86Argument &target = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
@@ -782,7 +781,10 @@ void OptimizationLookBehind(bool allow)
 	x86LookBehind = allow;
 #ifdef NULLC_OPTIMIZE_X86
 	if(!allow)
+	{
+		NULLC::lastInvalidate = (unsigned int)(x86Op - x86Base);
 		NULLC::InvalidateState();
+	}
 #endif
 }
 
