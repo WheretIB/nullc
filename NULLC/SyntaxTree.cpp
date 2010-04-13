@@ -1168,6 +1168,11 @@ void NodeConvertPtr::LogToStream(FILE *fGraph)
 }
 void NodeConvertPtr::TranslateToC(FILE *fOut)
 {
+	if(typeInfo == typeTypeid)
+	{
+		fprintf(fOut, "%d", first->typeInfo->subType->typeIndex);
+		return;
+	}
 	TranslateToCExtra(fOut);
 	
 	if(typeInfo == typeObject || typeInfo == typeTypeid)
