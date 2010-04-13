@@ -309,13 +309,14 @@ protected:
 class NodeGetUpvalue: public NodeZeroOP
 {
 public:
-			NodeGetUpvalue(int closureOffset, int closureElement, TypeInfo *retInfo);
+			NodeGetUpvalue(FunctionInfo* functionInfo, int closureOffset, int closureElement, TypeInfo *retInfo);
 	virtual ~NodeGetUpvalue();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 protected:
+	FunctionInfo	*parentFunc;
 	int			closurePos, closureElem;
 };
 

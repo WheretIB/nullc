@@ -284,13 +284,15 @@ extern TypeInfo*	typeDouble;
 class VariableInfo
 {
 public:
-	VariableInfo(InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool global)
+	VariableInfo(FunctionInfo *parent, InplaceStr varName, unsigned int varHash, unsigned int newpos, TypeInfo* newtype, bool global)
 	{
 		name = varName;
 		nameHash = varHash;
 		pos = newpos;
 		varType = newtype;
 		isGlobal = global;
+		usedAsExternal = false;
+		parentFunction = parent;
 		
 		parentModule = 0;
 		blockDepth = 0;
@@ -305,8 +307,9 @@ public:
 	unsigned int	nameHash;	// Variable name hash
 
 	unsigned int	pos;		// Variable position in value stack
-	bool			isGlobal;
+	bool			isGlobal, usedAsExternal;
 	bool			autoDeref;
+	FunctionInfo	*parentFunction;
 
 	unsigned int	parentModule;
 	unsigned int	blockDepth;

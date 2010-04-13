@@ -498,7 +498,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			{
 				ExternLocalInfo &lInfo = fLocals[fInfo->offsetToFirstLocal + n];
 				TypeInfo *currType = CodeInfo::typeInfo[typeRemap[lInfo.type]];
-				lastFunc->AddParameter(new VariableInfo(InplaceStr(symbols + lInfo.offsetToName), GetStringHash(symbols + lInfo.offsetToName), 0, currType, false));
+				lastFunc->AddParameter(new VariableInfo(lastFunc, InplaceStr(symbols + lInfo.offsetToName), GetStringHash(symbols + lInfo.offsetToName), 0, currType, false));
 				lastFunc->allParamSize += currType->size < 4 ? (currType->size ? 4 : 0) : currType->size;
 			}
 			lastFunc->implemented = true;
@@ -840,10 +840,41 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	unsigned int functionsInModules = 0;
 	for(unsigned int i = 0; i < activeModules.size(); i++)
 		functionsInModules += activeModules[i].funcCount;
-	for(unsigned int i = activeModules[0].funcCount; i < functionsInModules; i++)
+	for(unsigned int i = functionsInModules; i < CodeInfo::funcInfo.size(); i++)
+	{
+		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		FunctionInfo *info = CodeInfo::funcInfo[i];
+		VariableInfo *local = info->firstParam;
+		for(; local; local = local->next)
+		{
+			if(local->usedAsExternal)
+			{
+				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
+				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
+				sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
+			
+				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
+			}
+		}
+		fprintf(fC, "__nullcUpvalue *__upvalue_%d___%s_%p_ext_%d = 0;\r\n", CodeInfo::FindFunctionByPtr(info), info->name, info, info->allParamSize);
+		local = info->firstLocal;
+		for(; local; local = local->next)
+		{
+			if(local->usedAsExternal)
+			{
+				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
+				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
+				sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
+			
+				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
+			}
+		}
+	}
+	for(unsigned int i = activeModules[0].funcCount; i < CodeInfo::funcInfo.size(); i++)
 	{
 		FunctionInfo *info = CodeInfo::funcInfo[i];
-		fprintf(fC, "extern ");
+		if(i < functionsInModules)
+			fprintf(fC, "extern ");
 		info->retType->OutputCType(fC, "");
 
 		char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
@@ -895,7 +926,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s%d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
 		if(varInfo->pos >> 24)
 			fprintf(fC, "extern ");
 		varInfo->varType->OutputCType(fC, vName);

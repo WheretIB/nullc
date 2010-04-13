@@ -95,6 +95,7 @@ FunctionInfo::ExternalInfo* AddFunctionExternal(FunctionInfo* func, VariableInfo
 			return curr;
 
 	func->AddExternal(var);
+	var->usedAsExternal = true;
 	return func->lastExternal;
 }
 
@@ -822,7 +823,7 @@ void* AddVariable(const char* pos, InplaceStr varName)
 		unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes);
 		varTop += offset;
 	}
-	CodeInfo::varInfo.push_back(new VariableInfo(varName, hash, varTop, currType, currDefinedFunc.size() == 0));
+	CodeInfo::varInfo.push_back(new VariableInfo(currDefinedFunc.back(), varName, hash, varTop, currType, currDefinedFunc.size() == 0));
 	varDefined = true;
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 	if(currType)
@@ -967,7 +968,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, CodeInfo::varInfo[i]);
 
 			assert(currFunc->allParamSize % 4 == 0);
-			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(CodeInfo::varInfo[i]->varType)));
+			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(CodeInfo::varInfo[i]->varType)));
 		}else{
 			// Create node that places variable address on stack
 			CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
@@ -1727,7 +1728,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 
-	lastFunc.AddParameter(new VariableInfo(paramName, hash, lastFunc.allParamSize, currType, false));
+	lastFunc.AddParameter(new VariableInfo(&lastFunc, paramName, hash, lastFunc.allParamSize, currType, false));
 	if(currType)
 		lastFunc.allParamSize += currType->size < 4 ? (currType->size ? 4 : 0) : currType->size;
 }
