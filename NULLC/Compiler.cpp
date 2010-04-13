@@ -825,8 +825,13 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			fprintf(fC, "[%d];\r\n\t", type->arrSize);
 			type->OutputCType(fC, "");
 			fprintf(fC, "& set(unsigned index, ");
-			type->subType->OutputCType(fC, "const &");
-			fprintf(fC, " val){ ptr[index] = val; return *this; }\r\n");
+			if(type->subType->arrLevel && type->subType->arrSize != TypeInfo::UNSIZED_ARRAY && type->subType->subType == typeChar)
+			{
+				fprintf(fC, "const char* val){ memcpy(ptr, val, %d); return *this; }\r\n", type->subType->arrSize);
+			}else{
+				type->subType->OutputCType(fC, "const &");
+				fprintf(fC, " val){ ptr[index] = val; return *this; }\r\n");
+			}
 			fprintf(fC, "};\r\n");
 		}else{
 			fprintf(fC, "typedef struct\r\n{\r\n");

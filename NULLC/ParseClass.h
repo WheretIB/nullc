@@ -166,7 +166,7 @@ public:
 			const char* realName = GetFullTypeName();
 			while(*realName)
 			{
-				if(*realName == ' ' || *realName == '[' || *realName == ']' || *realName == '(' || *realName == ')')
+				if(*realName == ' ' || *realName == '[' || *realName == ']' || *realName == '(' || *realName == ')' || *realName == ',')
 					fwrite("_", 1, 1, fOut);
 				else
 					fwrite(realName, 1, 1, fOut);

@@ -1245,7 +1245,7 @@ void NodeVariableSet::TranslateToC(FILE *fOut)
 			fprintf(fOut, "*(");
 			first->TranslateToC(fOut);
 			fprintf(fOut, ") = ");
-			if(first->typeInfo->subType != second->typeInfo || (first->typeInfo->refLevel && second->nodeType == typeNodeFuncCall))
+			if(first->typeInfo->subType != second->typeInfo || (first->typeInfo->subType->refLevel && second->nodeType == typeNodeFuncCall))
 			{
 				fprintf(fOut, "(");
 				first->typeInfo->subType->OutputCType(fOut, "");
@@ -1680,9 +1680,11 @@ void NodeDereference::TranslateToC(FILE *fOut)
 		else
 			fprintf(fOut, ";\r\n");
 	}else{
-		fprintf(fOut, "*(");
+		if(!neutralized)
+			fprintf(fOut, "*(");
 		first->TranslateToC(fOut);
-		fprintf(fOut, ")");
+		if(!neutralized)
+			fprintf(fOut, ")");
 	}
 }
 
@@ -2870,7 +2872,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		}
 		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 			fprintf(fOut, "__makeNullcArray(");
-		else{
+		else if(first->nodeType != typeNodePopOp){
 			typeInfo->OutputCType(fOut, "()");
 			end = first->next;
 		}
