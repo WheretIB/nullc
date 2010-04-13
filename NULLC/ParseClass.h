@@ -501,6 +501,10 @@ public:
 				return "__operatorPowSet";
 			if(strcmp(name, "[]") == 0)
 				return "__operatorIndex";
+			if(strcmp(name, "!") == 0)
+				return "__operatorLogNot";
+			if(strcmp(name, "~") == 0)
+				return "__operatorBitNot";
 		}
 		return NULL;
 	}

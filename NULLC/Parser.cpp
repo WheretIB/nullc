@@ -433,7 +433,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 		typeMethod = true;
 	}
 	char	*functionName = NULL;
-	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_powset))
+	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_powset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot)
 	{
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: function name length is limited to 2048 symbols");
@@ -475,7 +475,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if(ParseLexem(str, lex_semicolon))
 	{
 		CALLBACK(AddVoidNode());
-		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset))
+		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
 			CALLBACK(FunctionToOperator(start->pos));
 		CALLBACK(FunctionPrototype(start->pos));
 		if(typeMethod)
@@ -492,7 +492,7 @@ bool ParseFunctionDefinition(Lexeme** str)
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError((*str)->pos, "ERROR: '}' not found after function body");
 
-	if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset))
+	if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
 		CALLBACK(FunctionToOperator(start->pos));
 
 	CALLBACK(FunctionEnd(start->pos));
@@ -1045,6 +1045,7 @@ bool ParseTerminal(Lexeme** str)
 		while(ParseLexem(str, lex_add));
 		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '+'");
+		AddPositiveNode((*str)->pos);
 		return true;
 		break;
 	case lex_sub:

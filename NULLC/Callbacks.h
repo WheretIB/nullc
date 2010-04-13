@@ -33,6 +33,9 @@ void AddStringNode(const char* s, const char* e);
 // Function that creates node that removes value on top of the stack
 void AddPopNode(const char* pos);
 
+// For unary operator +
+void AddPositiveNode(const char* pos);
+
 // Function that creates unary operation node that changes sign of value
 void AddNegateNode(const char* pos);
 
