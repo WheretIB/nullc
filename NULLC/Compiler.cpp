@@ -890,32 +890,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			fprintf(fC, "extern ");
 		info->retType->OutputCType(fC, "");
 
-		char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		sprintf(fName, "%s", info->name);
-		if(const char *opName = info->GetOperatorName())
-		{
-			strcpy(fName, opName);
-		}else{
-			for(unsigned int k = 0; k < info->nameLength; k++)
-			{
-				if(fName[k] == ':')
-					fName[k] = '_';
-			}
-			for(unsigned int k = 0; k < CodeInfo::classCount; k++)
-			{
-				if(CodeInfo::typeInfo[k]->nameHash == info->nameHash)
-				{
-					strcat(fName, "__");
-					break;
-				}
-			}
-		}
-		unsigned int length = (unsigned int)strlen(fName);
-		if(fName[length-1] == '$')
-			fName[length-1] = '_';
-		fprintf(fC, " %s", fName);
-		if(info->type == FunctionInfo::LOCAL || !info->visible)
-			fprintf(fC, "_%d", CodeInfo::FindFunctionByPtr(info));
+		OutputCFunctionName(fC, info);
 		fprintf(fC, "(");
 
 		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];

@@ -27,8 +27,10 @@ void OutputIdent(FILE *fOut)
 
 void OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo)
 {
+	const char *namePrefix = *funcInfo->name == '$' ? "__" : "";
+	unsigned int nameShift = *funcInfo->name == '$' ? 1 : 0;
 	char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-	sprintf(fName, (funcInfo->type == FunctionInfo::LOCAL || !funcInfo->visible) ? "%s_%d" : "%s", funcInfo->name, CodeInfo::FindFunctionByPtr(funcInfo));
+	sprintf(fName, (funcInfo->type == FunctionInfo::LOCAL || !funcInfo->visible) ? "%s%s_%d" : "%s%s", namePrefix, funcInfo->name + nameShift, CodeInfo::FindFunctionByPtr(funcInfo));
 	if(const char *opName = funcInfo->GetOperatorName())
 	{
 		strcpy(fName, opName);
@@ -1243,7 +1245,7 @@ void NodeVariableSet::TranslateToC(FILE *fOut)
 			fprintf(fOut, "*(");
 			first->TranslateToC(fOut);
 			fprintf(fOut, ") = ");
-			if(first->typeInfo->subType != second->typeInfo)
+			if(first->typeInfo->subType != second->typeInfo || (first->typeInfo->refLevel && second->nodeType == typeNodeFuncCall))
 			{
 				fprintf(fOut, "(");
 				first->typeInfo->subType->OutputCType(fOut, "");
@@ -1636,7 +1638,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 
 		fprintf(fOut, "(__%.*s_%d = (", closure->name.end-closure->name.begin-1, closure->name.begin+1, closure->pos);
 		closure->varType->OutputCType(fOut, "");
-		fprintf(fOut, ")__newS(%d)),\r\n", closure->varType->subType->size);
+		fprintf(fOut, ")__newS(%d, (void*)0)),\r\n", closure->varType->subType->size);
 
 		unsigned int pos = 0;
 		for(FunctionInfo::ExternalInfo *curr = closureFunc->firstExternal; curr; curr = curr->next)
@@ -2239,6 +2241,8 @@ void NodeIfElseExpr::TranslateToC(FILE *fOut)
 // Nod for compilation of for(){}
 
 unsigned int	currLoopDepth = 0;
+const unsigned int TRANSLATE_MAX_LOOP_DEPTH = 64;
+unsigned int	currLoopID[TRANSLATE_MAX_LOOP_DEPTH];
 
 NodeForExpr::NodeForExpr()
 {
@@ -2313,6 +2317,7 @@ void NodeForExpr::LogToStream(FILE *fGraph)
 }
 void NodeForExpr::TranslateToC(FILE *fOut)
 {
+	currLoopDepth++;
 	first->TranslateToC(fOut);
 	OutputIdent(fOut);
 	fprintf(fOut, "while(");
@@ -2322,10 +2327,15 @@ void NodeForExpr::TranslateToC(FILE *fOut)
 	fprintf(fOut, "{\r\n");
 	indentDepth++;
 	fourth->TranslateToC(fOut);
+	fprintf(fOut, "continue%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
 	third->TranslateToC(fOut);
 	indentDepth--;
 	OutputIdent(fOut);
 	fprintf(fOut, "}\r\n");
+	fprintf(fOut, "break%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
+	currLoopDepth--;
+	assert(currLoopDepth < TRANSLATE_MAX_LOOP_DEPTH);
+	currLoopID[currLoopDepth]++;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2394,6 +2404,7 @@ void NodeWhileExpr::LogToStream(FILE *fGraph)
 }
 void NodeWhileExpr::TranslateToC(FILE *fOut)
 {
+	currLoopDepth++;
 	OutputIdent(fOut);
 	fprintf(fOut, "while(");
 	first->TranslateToC(fOut);
@@ -2402,9 +2413,14 @@ void NodeWhileExpr::TranslateToC(FILE *fOut)
 	fprintf(fOut, "{\r\n");
 	indentDepth++;
 	second->TranslateToC(fOut);
+	fprintf(fOut, "continue%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
 	indentDepth--;
 	OutputIdent(fOut);
 	fprintf(fOut, "}\r\n");
+	fprintf(fOut, "break%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
+	currLoopDepth--;
+	assert(currLoopDepth < TRANSLATE_MAX_LOOP_DEPTH);
+	currLoopID[currLoopDepth]++;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2524,7 +2540,7 @@ void NodeBreakOp::TranslateToC(FILE *fOut)
 	if(breakDepth == 1)
 		fprintf(fOut, "break;\r\n");
 	else
-		fprintf(fOut, "%%multilevel_break_unimplemented%%;\r\n");
+		fprintf(fOut, "goto break%d_%d;\r\n", currLoopID[currLoopDepth-1], currLoopDepth - breakDepth + 1);
 }
 
 void NodeBreakOp::SatisfyJumps(unsigned int pos)
@@ -2567,10 +2583,7 @@ void NodeContinueOp::LogToStream(FILE *fGraph)
 void NodeContinueOp::TranslateToC(FILE *fOut)
 {
 	OutputIdent(fOut);
-	if(continueDepth == 1)
-		fprintf(fOut, "continue;\r\n");
-	else
-		fprintf(fOut, "%%multilevel_continue_unimplemented%%;\r\n");
+	fprintf(fOut, "goto continue%d_%d;\r\n", currLoopID[currLoopDepth-1], currLoopDepth - continueDepth + 1);
 }
 
 void NodeContinueOp::SatisfyJumps(unsigned int pos)
@@ -2837,7 +2850,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			for(unsigned int i = 0; i < 4; i++)
 			{
 				unsigned char ch = (unsigned char)((dword->GetInteger() >> (i * 8)) & 0xff);
-				if(ch >= ' ' && ch <= 128)
+				if(ch >= ' ' && ch <= 128 && ch != '\"' && ch != '\\' && ch != '\'')
 					fprintf(fOut, "%c", ch);
 				else
 					fprintf(fOut, "\\x%x", ch);
@@ -2859,7 +2872,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			fprintf(fOut, "__makeNullcArray(");
 		else{
 			typeInfo->OutputCType(fOut, "()");
-			end = end->next;
+			end = first->next;
 		}
 
 		NodeZeroOP	*curr = tail;
@@ -2896,6 +2909,8 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 void ResetTreeGlobals()
 {
 	currLoopDepth = 0;
+	memset(currLoopID, 0, sizeof(unsigned int) * TRANSLATE_MAX_LOOP_DEPTH);
+	nodeDereferenceEndInComma = false;
 	NodeBreakOp::fixQueue.clear();
 	NodeContinueOp::fixQueue.clear();
 }
