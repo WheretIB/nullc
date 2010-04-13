@@ -194,6 +194,8 @@ int x86OR(unsigned char *stream, x86Reg op1, x86Size, x86Reg index, int multipli
 int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2);
 // xor dword [index*mult+base+shift], op2
 int x86XOR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
+// xor dword [index*mult+base+shift], num
+int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 
 // cmp reg, num
 int x86CMP(unsigned char *stream, x86Reg reg, int num);

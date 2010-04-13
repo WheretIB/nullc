@@ -940,6 +940,15 @@ int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
+// xor dword [index*mult+base+shift], num
+int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
+{
+	assert(size == sDWORD);
+	stream[0] = 0x81;
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 6);
+	*(int*)(stream+1+asize) = num;
+	return 5 + asize;
+}
 
 // cmp reg, num
 int x86CMP(unsigned char *stream, x86Reg reg, int num)

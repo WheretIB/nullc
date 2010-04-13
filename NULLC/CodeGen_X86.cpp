@@ -27,6 +27,61 @@ namespace NULLC
 		return regPool[regPoolPos++];
 	}
 
+	struct MemCache
+	{
+		x86Argument	address;
+		x86Argument value;
+	};
+	const unsigned int MEMORY_STATE_SIZE = 16;
+	MemCache	mCache[MEMORY_STATE_SIZE];
+	unsigned int	mCacheEntries = 0;
+
+	unsigned	MemFind(const x86Argument &address)
+	{
+		for(unsigned int i = 0; i < MEMORY_STATE_SIZE; i++)
+		{
+			if(mCache[i].value.type != x86Argument::argNone && mCache[i].address.type != x86Argument::argNone &&
+				mCache[i].address.ptrSize == address.ptrSize && mCache[i].address.ptrNum == address.ptrNum &&
+				mCache[i].address.ptrBase == address.ptrBase && mCache[i].address.ptrIndex == address.ptrIndex)
+			{
+				return i;
+			}
+		}
+		return ~0u;
+	}
+	void		MemWrite(const x86Argument &address, const x86Argument &value)
+	{
+		unsigned int index = MemFind(address);
+		if(index != ~0u)
+		{
+			if(index != 0)
+			{
+				MemCache tmp = mCache[0];
+				mCache[0] = mCache[index];
+				mCache[index] = tmp;
+			}
+			mCache[0].value = value;
+		}else{
+			unsigned int newIndex = mCacheEntries < MEMORY_STATE_SIZE ? mCacheEntries : MEMORY_STATE_SIZE - 1;
+			if(mCacheEntries < MEMORY_STATE_SIZE)
+				mCacheEntries++;
+			else
+				mCacheEntries = MEMORY_STATE_SIZE >> 1;	// Wrap to the middle
+
+			mCache[newIndex].address = address;
+			mCache[newIndex].value = value;
+		}
+	}
+	void		MemUpdate(unsigned int index)
+	{
+		if(index != 0)
+		{
+			MemCache tmp = mCache[0];
+			mCache[0] = mCache[index];
+			mCache[index] = tmp;
+		}
+	}
+
 	void	InvalidateState()
 	{
 		stackTop = 0;
@@ -34,16 +89,18 @@ namespace NULLC
 			stack[i].type = x86Argument::argNone;
 		for(unsigned int i = 0; i < 9; i++)
 			reg[i].type = x86Argument::argNone;
+		for(unsigned int i = 0; i < MEMORY_STATE_SIZE; i++)
+			mCache[i].address.type = x86Argument::argNone;
 	}
 
 	void	InvalidateDependand(x86Reg dreg)
 	{
 		for(unsigned int i = 0; i < NULLC::STACK_STATE_SIZE; i++)
 		{
-			if(NULLC::stack[i].type == x86Argument::argReg && NULLC::stack[i].reg == dreg)
-				NULLC::stack[i].type = x86Argument::argNone;
-			if(NULLC::stack[i].type == x86Argument::argPtr && (NULLC::stack[i].ptrBase == dreg || NULLC::stack[i].ptrIndex == dreg))
-				NULLC::stack[i].type = x86Argument::argNone;
+			if(stack[i].type == x86Argument::argReg && stack[i].reg == dreg)
+				stack[i].type = x86Argument::argNone;
+			if(stack[i].type == x86Argument::argPtr && (stack[i].ptrBase == dreg || stack[i].ptrIndex == dreg))
+				stack[i].type = x86Argument::argNone;
 		}
 		for(unsigned int i = 0; i < 9; i++)
 		{
@@ -51,6 +108,13 @@ namespace NULLC
 				reg[i].type = x86Argument::argNone;
 			if(reg[i].type == x86Argument::argPtr && (reg[i].ptrBase == dreg || reg[i].ptrIndex == dreg))
 				reg[i].type = x86Argument::argNone;
+		}
+		for(unsigned int i = 0; i < NULLC::MEMORY_STATE_SIZE; i++)
+		{
+			if(mCache[i].address.type == x86Argument::argReg && mCache[i].address.reg == dreg)
+				mCache[i].address.type = x86Argument::argNone;
+			if(mCache[i].address.type == x86Argument::argPtr && (mCache[i].address.ptrBase == dreg || mCache[i].address.ptrIndex == dreg))
+				mCache[i].address.type = x86Argument::argNone;
 		}
 	}
 }
@@ -130,6 +194,8 @@ void EMIT_OP(x86Command op)
 		stackEntryCount = stackEntryCount > NULLC::STACK_STATE_SIZE ? NULLC::STACK_STATE_SIZE : stackEntryCount;
 		for(unsigned int i = 0; i < stackEntryCount; i++)
 			NULLC::stackRead[(16 + NULLC::stackTop - i) % NULLC::STACK_STATE_SIZE] = true;
+		NULLC::InvalidateDependand(rECX);
+		NULLC::reg[rECX].type = x86Argument::argNone;
 	}else if(op == o_cdq){
 		NULLC::InvalidateDependand(rEDX);
 		NULLC::reg[rEDX].type = x86Argument::argNone;
@@ -167,6 +233,16 @@ void EMIT_OP_LABEL(x86Command op, unsigned int labelID, bool invalidate = true, 
 void EMIT_OP_REG(x86Command op, x86Reg reg1)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	if(op == o_neg && NULLC::reg[reg1].type == x86Argument::argNumber)
+	{
+		EMIT_OP_REG_NUM(o_mov, reg1, -NULLC::reg[reg1].num);
+		return;
+	}
+	if(op == o_not && NULLC::reg[reg1].type == x86Argument::argNumber)
+	{
+		EMIT_OP_REG_NUM(o_mov, reg1, ~NULLC::reg[reg1].num);
+		return;
+	}
 	if(op == o_call)
 	{
 		if(reg1 != rEAX)
@@ -424,6 +500,17 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	if(op == o_add && NULLC::reg[reg1].type == x86Argument::argNumber)
+	{
+		EMIT_OP_REG_NUM(o_mov, reg1, NULLC::reg[reg1].num + (int)num);
+		return;
+	}
+	if(op == o_sub && NULLC::reg[reg1].type == x86Argument::argNumber)
+	{
+		EMIT_OP_REG_NUM(o_mov, reg1, NULLC::reg[reg1].num - (int)num);
+		return;
+	}
+
 	if(op == o_add && reg1 == rESP)
 	{
 		unsigned int bytes = num >> 2;
@@ -532,6 +619,11 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 		}
 		NULLC::regUpdate[rESP] = (unsigned int)(x86Op - x86Base);
 	}else if(op == o_mov){
+		if(NULLC::reg[reg1].type == x86Argument::argNumber && NULLC::reg[reg1].num == (int)num)
+		{
+			optiCount++;
+			return;
+		}
 		KILL_REG(reg1);
 		NULLC::InvalidateDependand(reg1);
 		NULLC::reg[reg1] = x86Argument(num);
@@ -580,7 +672,7 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 		NULLC::reg[reg1] = x86Argument(reg2);
 		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
 		NULLC::regRead[reg1] = false;
-	}else if(op == o_add && NULLC::reg[reg2].type == x86Argument::argNumber){
+	}else if((op == o_add || op == o_sub) && NULLC::reg[reg2].type == x86Argument::argNumber){
 		EMIT_OP_REG_NUM(op, reg1, NULLC::reg[reg2].num);
 		return;
 	}else if(op == o_add && NULLC::reg[reg1].type == x86Argument::argNumber){
@@ -601,6 +693,11 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 		
 		NULLC::regRead[reg1] = true;
 	}else if(op == o_imul){
+		if(NULLC::reg[reg1].type == x86Argument::argNumber && NULLC::reg[reg2].type == x86Argument::argNumber)
+		{
+			EMIT_OP_REG_NUM(o_mov, reg1, NULLC::reg[reg1].num * NULLC::reg[reg2].num);
+			return;
+		}
 		if(NULLC::reg[reg2].type == x86Argument::argPtr)
 		{
 			EMIT_OP_REG_RPTR(o_imul, reg1, sDWORD, NULLC::reg[reg2].ptrIndex, NULLC::reg[reg2].ptrMult, NULLC::reg[reg2].ptrBase, NULLC::reg[reg2].ptrNum);
@@ -623,7 +720,17 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, un
 {
 #ifdef NULLC_OPTIMIZE_X86
 	x86Argument newArg = x86Argument(size, index, mult, base, shift);
-	/*if(op == o_mov && base != rESP)
+	unsigned int cIndex = NULLC::MemFind(newArg);
+	if(cIndex != ~0u)
+	{
+		if(NULLC::mCache[cIndex].value.type == x86Argument::argNumber)
+		{
+			EMIT_OP_REG_NUM(op, reg1, NULLC::mCache[cIndex].value.num);
+			NULLC::MemUpdate(cIndex);
+			return;
+		}
+	}
+	if(op == o_mov && base != rESP)
 	{
 		for(unsigned int i = rEAX; i <= rEDX; i++)
 		{
@@ -633,7 +740,7 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, un
 				return;
 			}
 		}
-	}*/
+	}
 	if(op != o_mov && op != o_lea && op != o_movsx && op != o_or && op != o_imul && op != o_cmp)
 		__asm int 3;
 
@@ -769,6 +876,19 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg index, int multiplier,
 	NULLC::regRead[reg2] = true;
 	NULLC::regRead[base] = true;
 	NULLC::regRead[index] = true;
+
+	if(op == o_mov && base != rESP)
+	{
+		x86Argument arg(size, index, multiplier, base, shift);
+		for(unsigned int i = rEAX; i <= rEDX; i++)
+		{
+			if(NULLC::reg[i].type == x86Argument::argPtr && NULLC::reg[i] == arg)
+				NULLC::reg[i].type = x86Argument::argNone;
+		}
+		if(NULLC::reg[reg2].type == x86Argument::argNone)
+			NULLC::reg[reg2] = arg;
+		NULLC::MemWrite(arg, x86Argument(reg2));
+	}
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
@@ -811,6 +931,16 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg index, int multiplier,
 	}
 	NULLC::regRead[base] = true;
 	NULLC::regRead[index] = true;
+	if(op == o_mov && base != rESP)
+	{
+		x86Argument arg(size, index, multiplier, base, shift);
+		for(unsigned int i = rEAX; i <= rEDX; i++)
+		{
+			if(NULLC::reg[i].type == x86Argument::argPtr && NULLC::reg[i] == arg)
+				NULLC::reg[i].type = x86Argument::argNone;
+		}
+		NULLC::MemWrite(arg, x86Argument(num));
+	}
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
