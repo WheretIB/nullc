@@ -918,7 +918,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL)
 		{
 			char	*contextName = AllocateString(CodeInfo::funcInfo[fID]->nameLength + 24);
-			int length = sprintf(contextName, "$%s_%p_ext", CodeInfo::funcInfo[fID]->name, CodeInfo::funcInfo[fID]);
+			int length = sprintf(contextName, "$%s_%d_ext", CodeInfo::funcInfo[fID]->name, CodeInfo::FindFunctionByPtr(CodeInfo::funcInfo[fID]));
 			unsigned int contextHash = GetStringHash(contextName);
 
 			int i = CodeInfo::FindVariableByName(contextHash);
@@ -1800,7 +1800,7 @@ void FunctionStart(const char* pos)
 		memcpy(hiddenHame, "this", 5);
 		length = 4;
 	}else{
-		length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
+		length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
 	}
 	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
@@ -1876,7 +1876,7 @@ void FunctionEnd(const char* pos)
 	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.externalCount != 0)
 	{
 		char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
-		int length = sprintf(hiddenHame, "$%s_%p_ext", lastFunc.name, &lastFunc);
+		int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
 
 		TypeInfo *saveCurrType = currType;
 		bool saveVarDefined = varDefined;
@@ -2217,7 +2217,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
 	{
 		char	*contextName = AllocateString(fInfo->nameLength + 24);
-		int length = sprintf(contextName, "$%s_%p_ext", fInfo->name, fInfo);
+		int length = sprintf(contextName, "$%s_%d_ext", fInfo->name, CodeInfo::FindFunctionByPtr(fInfo));
 		unsigned int contextHash = GetStringHash(contextName);
 
 		int i = CodeInfo::FindVariableByName(contextHash);

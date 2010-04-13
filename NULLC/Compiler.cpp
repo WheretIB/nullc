@@ -868,7 +868,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			OutputCFunctionName(fC, info);
 			info->type = FunctionInfo::LOCAL;
 			info->visible = false;
-			fprintf(fC, "_%p_ext_%d = 0;\r\n", info, info->allParamSize);
+			fprintf(fC, "_%d_ext_%d = 0;\r\n", CodeInfo::FindFunctionByPtr(info), info->allParamSize);
 		}
 		local = info->firstLocal;
 		for(; local; local = local->next)
@@ -930,7 +930,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		{
 			info->parentClass->OutputCType(fC, "* __context");
 		}else if(info->type == FunctionInfo::LOCAL){
-			fprintf(fC, "void* __%s_%p_ext", info->name, info);
+			fprintf(fC, "void* __%s_%d_ext", info->name, CodeInfo::FindFunctionByPtr(info));
 		}else{
 			fprintf(fC, "void* unused");
 		}
