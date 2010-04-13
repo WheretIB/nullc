@@ -679,7 +679,7 @@ bool ExecutorX86::TranslateToNative()
 	if(instList.size() * 4 > binCodeReserved)
 	{
 		NULLC::dealloc(binCode);
-		binCodeReserved = (instList.size() / 1024) * 4096 + 4096;
+		binCodeReserved = (instList.size()) * 6 + 4096;	// Maximum instruction size is 6 bytes.
 		binCode = (unsigned char*)NULLC::alloc(binCodeReserved);
 		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
 	}
