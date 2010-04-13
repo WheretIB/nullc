@@ -632,10 +632,10 @@ bool ExecutorX86::TranslateToNative()
 		case o_lea:
 			if(cmd.argB.type == x86Argument::argPtrLabel)
 			{
-				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, (unsigned int)(intptr_t)bytecode/*cmd.argB.ptrNum*/);
+				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, (unsigned int)(intptr_t)bytecode);
 			}else{
 				if(cmd.argB.ptrMult > 1)
-					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrMult, cmd.argB.ptrNum);
+					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrMult, cmd.argB.ptrReg[1], cmd.argB.ptrNum);
 				else
 					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
 			}
@@ -845,11 +845,16 @@ bool ExecutorX86::TranslateToNative()
 			break;
 		case o_or:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86OR(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
-			else if(cmd.argB.type == x86Argument::argPtr)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86OR(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86OR(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+			}else if(cmd.argB.type == x86Argument::argPtr){
 				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
-			else
+			}else{
 				code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
+			}
 			break;
 		case o_xor:
 			if(cmd.argA.type == x86Argument::argPtr)

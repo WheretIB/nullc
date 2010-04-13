@@ -113,8 +113,8 @@ int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Re
 int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift);
 // lea dst, [src+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int shift);
-// lea dst, [src*multiplier+shift]
-int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int multiplier, int shift);
+// lea dst, [src*multiplier+base+shift]
+int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int multiplier, x86Reg base, int shift);
 
 // neg reg
 int x86NEG(unsigned char *stream, x86Reg reg);
@@ -187,6 +187,8 @@ int x86AND(unsigned char *stream, x86Size, x86Reg reg, int shift, int num);
 int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2);
 // or dword [reg+shift], op2
 int x86OR(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
+// or dword [reg+shift], num
+int x86OR(unsigned char *stream, x86Size, x86Reg reg, int shift, int op2);
 // or op1, dword [reg+shift]
 int x86OR(unsigned char *stream, x86Reg op1, x86Size, x86Reg reg, int shift);
 
