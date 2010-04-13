@@ -293,6 +293,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+			void TranslateToCEx(FILE *fOut, bool takeAddress);
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;

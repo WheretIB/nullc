@@ -948,13 +948,19 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 }
 void NodeGetAddress::TranslateToC(FILE *fOut)
 {
+	TranslateToCEx(fOut, true);
+}
+void NodeGetAddress::TranslateToCEx(FILE *fOut, bool takeAddress)
+{
+	if(takeAddress)
+		fprintf(fOut, "&");
 	if(varInfo)
 	{
 		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-		fprintf(fOut, varAddress - addressOriginal ? "&%s%.*s%+d" : "&%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, (varAddress - addressOriginal) / (typeOrig->size ? typeOrig->size : 1));
+		fprintf(fOut, varAddress - addressOriginal ? "%s%.*s%+d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, (varAddress - addressOriginal) / (typeOrig->size ? typeOrig->size : 1));
 	}else{
-		fprintf(fOut, "&$$$");
+		fprintf(fOut, "$$$");
 	}
 }
 
@@ -1717,11 +1723,12 @@ void NodePreOrPostOp::TranslateToC(FILE *fOut)
 			OutputIdent(fOut);
 		if(prefixOp)
 			fprintf(fOut, incOp ? "++" : "--");
-		if(optimised)
-			fprintf(fOut, "*(");
-		first->TranslateToC(fOut);
-		if(optimised)
-			fprintf(fOut, ")");
+
+		if(first->nodeType == typeNodeGetAddress)
+			((NodeGetAddress*)first)->TranslateToCEx(fOut, false);
+		else
+			first->TranslateToC(fOut);
+
 		if(!prefixOp)
 			fprintf(fOut, incOp ? "++" : "--");
 		if(optimised)
@@ -1898,6 +1905,7 @@ void NodeBinaryOp::LogToStream(FILE *fGraph)
 }
 void NodeBinaryOp::TranslateToC(FILE *fOut)
 {
+	fprintf(fOut, "(");
 	if(cmdID == cmdLogXor)
 		fprintf(fOut, "!!");
 	first->TranslateToC(fOut);
@@ -1905,6 +1913,7 @@ void NodeBinaryOp::TranslateToC(FILE *fOut)
 	if(cmdID == cmdLogXor)
 		fprintf(fOut, "!!");
 	second->TranslateToC(fOut);
+	fprintf(fOut, ")");
 }
 
 //////////////////////////////////////////////////////////////////////////
