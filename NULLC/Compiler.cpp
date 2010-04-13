@@ -507,6 +507,9 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 			lastFunc->retType = lastFunc->funcType->funcType->retType;
 
+			if(fInfo->parentType != ~0u)
+				lastFunc->parentClass = CodeInfo::typeInfo[typeRemap[fInfo->parentType]];
+
 			assert(lastFunc->funcType->funcType->paramCount == lastFunc->paramCount);
 
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
@@ -590,6 +593,9 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 
 bool Compiler::Compile(const char* str, bool noClear)
 {
+	CodeInfo::nodeList.clear();
+	NodeZeroOP::DeleteNodes();
+
 	if(!noClear)
 	{
 		lexer.Clear();
@@ -720,19 +726,17 @@ bool Compiler::Compile(const char* str, bool noClear)
 	}
 	CodeInfo::cmdList[0].argument = CodeInfo::cmdList.size();
 	if(CodeInfo::nodeList.back())
+	{
 		CodeInfo::nodeList.back()->Compile();
-
 #ifdef NULLC_LOG_FILES
-	if(CodeInfo::nodeList.back())
 		CodeInfo::nodeList.back()->LogToStream(fGraph);
+#endif
+	}
+#ifdef NULLC_LOG_FILES
 	fclose(fGraph);
 #endif
 
-	if(CodeInfo::nodeList.back())
-		CodeInfo::nodeList.pop_back();
-	NodeZeroOP::DeleteNodes();
-
-	if(CodeInfo::nodeList.size() != 0)
+	if(CodeInfo::nodeList.size() != 1)
 	{
 		CodeInfo::lastError = CompilerError("Compilation failed, AST contains more than one node", NULL);
 		return false;
@@ -785,6 +789,118 @@ void Compiler::SaveListing(const char *fileName)
 			fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
 	}
 	fclose(compiledAsm);
+#else
+	(void)fileName;
+#endif
+}
+
+void Compiler::TranslateToC(const char* fileName)
+{
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	FILE *fC = fopen(fileName, "wb");
+
+	fprintf(fC, "#include \"nullcinc.h\"\r\n");
+	for(unsigned int i = buildInTypes.size(); i < CodeInfo::classCount; i++)
+	{
+		TypeInfo *type = CodeInfo::typeInfo[i];
+		fprintf(fC, "typedef struct\r\n{\r\n");
+		TypeInfo::MemberVariable *curr = type->firstVariable;
+		for(; curr; curr = curr->next)
+		{
+			fprintf(fC, "\t");
+			curr->type->OutputCType(fC, curr->name);
+			fprintf(fC, ";\r\n");
+		}
+		fprintf(fC, "} %s;\r\n", type->name);
+	}
+	unsigned int functionsInModules = 0;
+	for(unsigned int i = 0; i < activeModules.size(); i++)
+		functionsInModules += activeModules[i].funcCount;
+	for(unsigned int i = activeModules[0].funcCount; i < functionsInModules; i++)
+	{
+		FunctionInfo *info = CodeInfo::funcInfo[i];
+
+		if(info->retType->arrLevel == 0 || info->retType->arrSize == TypeInfo::UNSIZED_ARRAY)
+		{
+			fprintf(fC, "extern ");
+			info->retType->OutputCType(fC, "");
+		}else{
+			fprintf(fC, "typedef ");
+			char buf[64];
+			sprintf(buf, "f_r_type%u", info->retType->nameHash);
+			info->retType->OutputCType(fC, buf);
+			fprintf(fC, ";\r\n");
+			fprintf(fC, "extern %s", buf);
+		}
+		char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		sprintf(fName, "%s", info->name);
+		if(const char *opName = info->GetOperatorName())
+		{
+			strcpy(fName, opName);
+		}else{
+			for(unsigned int k = 0; k < info->nameLength; k++)
+			{
+				if(fName[k] == ':')
+					fName[k] = '_';
+			}
+			for(unsigned int k = 0; k < CodeInfo::classCount; k++)
+			{
+				if(CodeInfo::typeInfo[k]->nameHash == info->nameHash)
+				{
+					strcat(fName, "__");
+					break;
+				}
+			}
+		}
+		fprintf(fC, " %s(", fName);
+
+		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		VariableInfo *param = info->firstParam;
+		for(; param; param = param->next)
+		{
+			sprintf(name, "%.*s", param->name.end - param->name.begin, param->name.begin);
+			param->varType->OutputCType(fC, name);
+			if(param->next || info->type != FunctionInfo::NORMAL)
+				fprintf(fC, ", ");
+		}
+		if(info->type == FunctionInfo::THISCALL)
+		{
+			info->parentClass->OutputCType(fC, "* __context");
+		}else if(info->type == FunctionInfo::LOCAL){
+			fprintf(fC, "void* __");
+			fprintf(fC, "%s_%p_ext", info->name, info);
+		}
+		fprintf(fC, ");\r\n");
+	}
+	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
+	{
+		VariableInfo *varInfo = CodeInfo::varInfo[i];
+		char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
+		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
+		sprintf(vName, "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift);
+		if(varInfo->pos >> 24)
+			fprintf(fC, "extern ");
+		varInfo->varType->OutputCType(fC, vName);
+		fprintf(fC, ";\r\n");
+	}
+
+	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
+		((NodeFuncDef*)CodeInfo::funcDefList[i])->Enable();
+
+	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
+	{
+		CodeInfo::funcDefList[i]->TranslateToC(fC);
+		((NodeFuncDef*)CodeInfo::funcDefList[i])->Disable();
+	}
+
+	if(CodeInfo::nodeList.back())
+	{
+		fprintf(fC, "int main()\r\n{\r\n");
+		CodeInfo::nodeList.back()->TranslateToC(fC);
+		fprintf(fC, "}\r\n");
+	}
+	fclose(fC);
 #else
 	(void)fileName;
 #endif
@@ -1125,6 +1241,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
+		funcInfo.parentType = (refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u);
 
 		CreateExternalInfo(funcInfo, *refFunc);
 

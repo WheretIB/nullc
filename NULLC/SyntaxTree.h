@@ -52,12 +52,18 @@ public:
 	virtual void Compile();
 	// Graph formatted printout to file
 	virtual void LogToStream(FILE *fGraph);
+	// Translation of NULLC code into C
+	virtual void TranslateToC(FILE *fOut);
 	// Binding of code position to bytecode that node generates
 	virtual void SetCodeInfo(const char* newSourcePos);
 	// Add last node to the list as a new head
 	virtual void AddExtraNode();
 	// Compile extra nodes
 	virtual void CompileExtra();
+	// Log extra nodes
+	virtual void LogToStreamExtra(FILE *fGraph);
+	// Translation extra nodes
+	virtual void TranslateToCExtra(FILE *fOut);
 
 	void*		operator new(size_t size)
 	{
@@ -158,6 +164,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 
 	int			GetInteger()
 	{
@@ -207,6 +214,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 };
 
@@ -218,6 +226,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	CmdID	cmdID;
 };
@@ -230,6 +239,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	bool			localReturn;
 	FunctionInfo	*parentFunction;
@@ -243,6 +253,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	FunctionInfo	*parentFunction;
 	unsigned int	stackFrameShift;
@@ -254,11 +265,13 @@ public:
 	NodeFuncDef(FunctionInfo *info, unsigned int varShift);
 	virtual ~NodeFuncDef();
 
+	virtual void Enable();
 	virtual void Disable();
 	virtual FunctionInfo*	GetFuncInfo(){ return funcInfo; }
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	FunctionInfo	*funcInfo;
 	unsigned int shift;
@@ -279,6 +292,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
@@ -287,7 +301,7 @@ protected:
 
 	TypeInfo		*typeOrig;
 	VariableInfo	*varInfo;
-	int				varAddress;
+	int				varAddress, addressOriginal;
 	bool			absAddress;
 };
 
@@ -299,6 +313,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	int			closurePos, closureElem;
 };
@@ -322,6 +337,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	unsigned int	elemCount;	// If node sets all array, here is the element count
 	int		addrShift;
@@ -336,6 +352,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	CmdID	cmdID;
 	int		addrShift;
@@ -352,6 +369,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 private:
 	int		addrShift;
 	bool	absAddress, knownAddress, neutralized;
@@ -368,6 +386,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 public:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
@@ -382,17 +401,19 @@ public:
 class NodeShiftAddress: public NodeOneOP
 {
 public:
-			NodeShiftAddress(unsigned int shift, TypeInfo* resType);
+			NodeShiftAddress(TypeInfo::MemberVariable *classMember);
 	virtual ~NodeShiftAddress();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
 	friend class NodeVariableModify;
 	friend class NodePreOrPostOp;
 
+	TypeInfo::MemberVariable	*member;
 	unsigned int	memberShift;
 };
 
@@ -406,6 +427,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	bool	incOp;
 	bool	optimised;
@@ -437,6 +459,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	CmdID cmdID;
 };
@@ -449,6 +472,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 };
 
@@ -460,6 +484,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	NodeZeroOP*	fourth;
 };
@@ -472,6 +497,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 };
 
@@ -494,6 +520,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 
 	static	void SatisfyJumps(unsigned int pos);
 	static FastVector<unsigned int>	fixQueue;
@@ -509,6 +536,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 
 	static	void SatisfyJumps(unsigned int pos);
 	static FastVector<unsigned int>	fixQueue;
@@ -548,6 +576,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 	NodeZeroOP	*tail;
 };
@@ -560,6 +589,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 public:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;

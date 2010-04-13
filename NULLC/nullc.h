@@ -67,7 +67,7 @@ int			nullcInitDynamicModule();
 /************************************************************************/
 /*							Extended functions							*/
 
-/*	Compiles the code (!) and returns 1 on success	*/
+/*	Compiles the code and returns 1 on success	*/
 nullres			nullcCompile(const char* code);
 
 /*	compiled bytecode to be used for linking and executing can be retrieved with this function
@@ -75,9 +75,13 @@ nullres			nullcCompile(const char* code);
 unsigned int	nullcGetBytecode(char **bytecode);
 unsigned int	nullcGetBytecodeNoCache(char **bytecode);
 
-/*	Function work only if NULLC_LOG_FILES is defined
-	this function returns string with last bytecode disassembly	*/
+/*	Function works only if NULLC_LOG_FILES is defined.
+	This function saves disassembly of last compiled code into file	*/
 void			nullcSaveListing(const char *fileName);
+
+/*	Function works only if NULLC_ENABLE_C_TRANSLATION is defined.
+	This function saved analog of C++ code of last compiled code into file	*/
+void			nullcTranslateToC(const char *fileName);
 
 /*	Clean all accumulated bytecode	*/
 void			nullcClean();

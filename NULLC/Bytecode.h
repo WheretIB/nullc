@@ -73,7 +73,11 @@ struct ExternFuncInfo
 	unsigned int	retType;	// one of the ReturnType enumeration values
 	unsigned int	funcType;	// index to the type array
 
-	unsigned int	startInByteCode;
+	union
+	{
+		unsigned int	startInByteCode;
+		unsigned int	parentType;
+	};
 
 	unsigned int	offsetToFirstLocal;
 	unsigned int	paramCount;

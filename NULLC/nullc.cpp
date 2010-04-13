@@ -179,6 +179,15 @@ void	nullcSaveListing(const char *fileName)
 #endif
 }
 
+void	nullcTranslateToC(const char *fileName)
+{
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	compiler->TranslateToC(fileName);
+#else
+	(void)fileName;
+#endif
+}
+
 void nullcClean()
 {
 	linker->CleanCode();

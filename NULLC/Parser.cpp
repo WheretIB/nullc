@@ -1346,8 +1346,10 @@ bool ParseCode(Lexeme** str)
 	if(!ParseExpression(str))
 		return false;
 
-	while(ParseExpression(str))
+	if(ParseCode(str))
 		AddTwoExpressionNode();
+	else
+		AddOneExpressionNode();
 
 	return true;
 }
