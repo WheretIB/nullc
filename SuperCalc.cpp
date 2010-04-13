@@ -38,6 +38,7 @@
 #include "NULLC/includes/hashmap.h"
 #include "NULLC/includes/random.h"
 #include "NULLC/includes/time.h"
+#include "NULLC/includes/gc.h"
 
 #include "NULLC/includes/window.h"
 
@@ -196,6 +197,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		strcat(initError, "ERROR: Failed to init std.random module\r\n");
 	if(!nullcInitTimeModule())
 		strcat(initError, "ERROR: Failed to init std.time module\r\n");
+	if(!nullcInitGCModule())
+		strcat(initError, "ERROR: Failed to init std.gc module\r\n");
 
 	nullcLoadModuleBySource("ide.debug", "void _debugBreak();");
 	nullcAddModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);

@@ -96,6 +96,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 
 	NodeZeroOP*	GetFirstNode()
 	{
@@ -330,6 +331,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 };
 
@@ -514,6 +516,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 protected:
 };
 
