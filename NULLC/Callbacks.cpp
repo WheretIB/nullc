@@ -2422,6 +2422,11 @@ void TypeFinish()
 	for(unsigned int i = 0; i < methodCount; i++)
 		AddTwoExpressionNode();
 
+	// Shift new types genereted inside up, so that declaration will be in the correct order in C translation
+	for(unsigned int i = newType->originalIndex + 1; i < CodeInfo::typeInfo.size(); i++)
+		CodeInfo::typeInfo[i]->originalIndex--;
+	newType->originalIndex = CodeInfo::typeInfo.size() - 1;
+
 	newType = NULL;
 
 	EndBlock(false, false);

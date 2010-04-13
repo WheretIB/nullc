@@ -37,7 +37,7 @@ void OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo)
 	}else{
 		for(unsigned int k = 0; k < funcInfo->nameLength; k++)
 		{
-			if(fName[k] == ':')
+			if(fName[k] == ':' || fName[k] == '$')
 				fName[k] = '_';
 		}
 		for(unsigned int k = 0; k < CodeInfo::classCount; k++)
@@ -774,7 +774,9 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 		{
 			funcInfo->parentClass->OutputCType(fOut, "* __context");
 		}else if(funcInfo->type == FunctionInfo::LOCAL){
-			fprintf(fOut, "void* __%s_%d_ext_%d", funcInfo->name, CodeInfo::FindFunctionByPtr(funcInfo), funcInfo->allParamSize);
+			fprintf(fOut, "void* __");
+			OutputCFunctionName(fOut, funcInfo);
+			fprintf(fOut, "_ext_%d", funcInfo->allParamSize);
 		}else{
 			fprintf(fOut, "void* unused");
 		}
@@ -787,7 +789,12 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 			OutputIdent(fOut);
 			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-			sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
+			unsigned int length = sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
+			for(unsigned int k = 0; k < length; k++)
+			{
+				if(name[k] == ':' || name[k] == '$')
+					name[k] = '_';
+			}
 			local->varType->OutputCType(fOut, name);
 			fprintf(fOut, ";\r\n");
 		}
@@ -1083,7 +1090,9 @@ void NodeGetUpvalue::TranslateToC(FILE *fOut)
 	fprintf(fOut, "(");
 	typeInfo->OutputCType(fOut, "");
 	fprintf(fOut, ")");
-	fprintf(fOut, "((__nullcUpvalue*)((char*)__%s_%d_ext_%d + %d))->ptr", parentFunc->name, CodeInfo::FindFunctionByPtr(parentFunc), closurePos, closureElem);
+	fprintf(fOut, "((__nullcUpvalue*)((char*)__");
+	OutputCFunctionName(fOut, parentFunc);
+	fprintf(fOut, "_ext_%d + %d))->ptr", closurePos, closureElem);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1662,7 +1671,17 @@ void NodeDereference::TranslateToC(FILE *fOut)
 
 		VariableInfo *closure = ((NodeGetAddress*)((NodeOneOP*)first)->GetFirstNode())->varInfo;
 
-		fprintf(fOut, "(__%.*s_%d = (", closure->name.end-closure->name.begin-1, closure->name.begin+1, closure->pos);
+		char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
+		unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
+		unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, closure->name.end - closure->name.begin-nameShift, closure->name.begin+nameShift, closure->pos);
+		for(unsigned int k = 0; k < length; k++)
+		{
+			if(closureName[k] == ':' || closureName[k] == '$')
+				closureName[k] = '_';
+		}
+
+		fprintf(fOut, "(%s = (", closureName);
 		closure->varType->OutputCType(fOut, "");
 		fprintf(fOut, ")__newS(%d, (void*)0)),\r\n", closure->varType->subType->size);
 
@@ -1671,17 +1690,17 @@ void NodeDereference::TranslateToC(FILE *fOut)
 		{
 			OutputIdent(fOut);
 
-			char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-			const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
-			unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
-			sprintf(closureName, "%s%.*s_%d", namePrefix, closure->name.end - closure->name.begin-nameShift, closure->name.begin+nameShift, closure->pos);
-
 			fprintf(fOut, "(%s->ptr[%d] = ", closureName, pos);
 			VariableInfo *varInfo = curr->variable;
 			char variableName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-			namePrefix = *varInfo->name.begin == '$' ? "__" : "";
-			nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-			sprintf(variableName, "%s%.*s_%d", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+			if(varInfo->nameHash == GetStringHash("this"))
+			{
+				strcpy(variableName, "__context");
+			}else{
+				namePrefix = *varInfo->name.begin == '$' ? "__" : "";
+				nameShift = *varInfo->name.begin == '$' ? 1 : 0;
+				sprintf(variableName, "%s%.*s_%d", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+			}
 
 			if(curr->targetLocal)
 			{
@@ -1986,7 +2005,23 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 	{
 		fprintf(fOut, "(void*)%u", funcInfo->funcPtr ? ~0ul : 0);
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
-		first->TranslateToC(fOut);
+		if(first->nodeType == typeNodeDereference)
+		{
+			VariableInfo *closure = ((NodeGetAddress*)((NodeOneOP*)first)->GetFirstNode())->varInfo;
+
+			char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+			const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
+			unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
+			unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, closure->name.end - closure->name.begin-nameShift, closure->name.begin+nameShift, closure->pos);
+			for(unsigned int k = 0; k < length; k++)
+			{
+				if(closureName[k] == ':' || closureName[k] == '$')
+					closureName[k] = '_';
+			}
+			fprintf(fOut, "%s", closureName);
+		}else{
+			first->TranslateToC(fOut);
+		}
 	}
 	fprintf(fOut, "))");
 }
@@ -2569,7 +2604,7 @@ void NodeBreakOp::TranslateToC(FILE *fOut)
 	if(breakDepth == 1)
 		fprintf(fOut, "break;\r\n");
 	else
-		fprintf(fOut, "goto break%d_%d;\r\n", currLoopID[currLoopDepth-1], currLoopDepth - breakDepth + 1);
+		fprintf(fOut, "goto break%d_%d;\r\n", currLoopID[currLoopDepth-breakDepth], currLoopDepth - breakDepth + 1);
 }
 
 void NodeBreakOp::SatisfyJumps(unsigned int pos)
@@ -2612,7 +2647,7 @@ void NodeContinueOp::LogToStream(FILE *fGraph)
 void NodeContinueOp::TranslateToC(FILE *fOut)
 {
 	OutputIdent(fOut);
-	fprintf(fOut, "goto continue%d_%d;\r\n", currLoopID[currLoopDepth-1], currLoopDepth - continueDepth + 1);
+	fprintf(fOut, "goto continue%d_%d;\r\n", currLoopID[currLoopDepth-continueDepth], currLoopDepth - continueDepth + 1);
 }
 
 void NodeContinueOp::SatisfyJumps(unsigned int pos)

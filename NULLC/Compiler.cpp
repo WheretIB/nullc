@@ -865,7 +865,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
 			}
 		}
-		if(info->type == FunctionInfo::LOCAL)
+		if(info->type == FunctionInfo::LOCAL && info->closeUpvals)
 		{
 			fprintf(fC, "__nullcUpvalue *__upvalue_%d___", CodeInfo::FindFunctionByPtr(info));
 			info->type = FunctionInfo::NORMAL;
@@ -874,6 +874,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			info->type = FunctionInfo::LOCAL;
 			info->visible = false;
 			fprintf(fC, "_%d_ext_%d = 0;\r\n", CodeInfo::FindFunctionByPtr(info), info->allParamSize);
+		}else if(info->type == FunctionInfo::THISCALL && info->closeUpvals){
+			fprintf(fC, "__nullcUpvalue *__upvalue_%d___context = 0;\r\n", CodeInfo::FindFunctionByPtr(info));
 		}
 		local = info->firstLocal;
 		for(; local; local = local->next)
@@ -910,7 +912,9 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		{
 			info->parentClass->OutputCType(fC, "* __context");
 		}else if(info->type == FunctionInfo::LOCAL){
-			fprintf(fC, "void* __%s_%d_ext", info->name, CodeInfo::FindFunctionByPtr(info));
+			fprintf(fC, "void* __");
+			OutputCFunctionName(fC, info);
+			fprintf(fC, "_ext");
 		}else{
 			fprintf(fC, "void* unused");
 		}
