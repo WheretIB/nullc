@@ -7,6 +7,7 @@ enum	segCode{ segES, segCS, segSS, segDS, segFS, segGS };
 // x87Reg are mapped to FP register codes directly
 //char	fpCode[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 // Mapping from x86Cond to x86 conditions
+//					   o  no b  c nae ae nb nc e  z ne nz be na  a nbe s ns  p   pe  np  po  l  nge  ge  nl  le  ng  g   nle
 char	condCode[] = { 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15 };
 
 // spareField can be found in nasmdoc as /0-7 or /r codes in instruction bytecode

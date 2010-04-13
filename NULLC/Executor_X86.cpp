@@ -554,10 +554,103 @@ bool ExecutorX86::TranslateToNative()
 	EMIT_OP(o_ret);
 	instList.resize((int)(GetLastInstruction() - &instList[0]));
 
+#ifdef NULLC_OPTIMIZE_X86
+	// Second optimization pass, just feed generated instructions again
+	// But at first, mark invalidation instructions
+	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
+		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
+	// Set iterator at beginning
+	SetLastInstruction(instList.data, instList.data);
+	// Now regenerate instructions
+	for(unsigned int i = 0; i < instList.size(); i++)
+	{
+		// Skip trash
+		if(instList[i].name == o_other || instList[i].name == o_none)
+		{
+			//EMIT_OP(o_none);
+			if(instList[i].instID && (exCode[instList[i].instID-1].cmd & 0x80))
+			{
+				GetLastInstruction()->instID = instList[i].instID;
+				EMIT_OP(o_none);
+				OptimizationLookBehind(false);
+			}
+			continue;
+		}
+		// If invalidation flag is set
+		if(instList[i].instID && (exCode[instList[i].instID-1].cmd & 0x80))
+			OptimizationLookBehind(false);
+		GetLastInstruction()->instID = instList[i].instID;
+
+		x86Instruction &inst = instList[i];
+		if(inst.name == o_label)
+		{
+			EMIT_LABEL(inst.labelID, inst.argA.num);
+			OptimizationLookBehind(true);
+			continue;
+		}
+		switch(inst.argA.type)
+		{
+		case x86Argument::argNone:
+			EMIT_OP(inst.name);
+			break;
+		case x86Argument::argNumber:
+			EMIT_OP_NUM(inst.name, inst.argA.num);
+			break;
+		case x86Argument::argFPReg:
+			EMIT_OP_FPUREG(inst.name, inst.argA.fpArg);
+			break;
+		case x86Argument::argLabel:
+			EMIT_OP_LABEL(inst.name, inst.argA.labelID, inst.argB.num, inst.argB.ptrNum);
+			break;
+		case x86Argument::argReg:
+			switch(inst.argB.type)
+			{
+			case x86Argument::argNone:
+				EMIT_OP_REG(inst.name, inst.argA.reg);
+				break;
+			case x86Argument::argNumber:
+				EMIT_OP_REG_NUM(inst.name, inst.argA.reg, inst.argB.num);
+				break;
+			case x86Argument::argReg:
+				EMIT_OP_REG_REG(inst.name, inst.argA.reg, inst.argB.reg);
+				break;
+			case x86Argument::argPtr:
+				EMIT_OP_REG_RPTR(inst.name, inst.argA.reg, inst.argB.ptrSize, inst.argB.ptrIndex, inst.argB.ptrMult, inst.argB.ptrBase, inst.argB.ptrNum);
+				break;
+			case x86Argument::argPtrLabel:
+				EMIT_OP_REG_LABEL(inst.name, inst.argA.reg, inst.argB.labelID, inst.argB.ptrNum);
+				break;
+			}
+			break;
+		case x86Argument::argPtr:
+			switch(inst.argB.type)
+			{
+			case x86Argument::argNone:
+				EMIT_OP_RPTR(inst.name, inst.argA.ptrSize, inst.argA.ptrBase, inst.argA.ptrNum); // $$
+				break;
+			case x86Argument::argNumber:
+				EMIT_OP_RPTR_NUM(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.num);
+				break;
+			case x86Argument::argReg:
+				EMIT_OP_RPTR_REG(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.reg);
+				break;
+			}
+			break;
+		}
+		OptimizationLookBehind(true);
+	}
+	unsigned int currSize = (int)(GetLastInstruction() - &instList[0]);
+	for(unsigned int i = currSize; i < instList.size(); i++)
+	{
+		instList[i].name = o_other;
+		instList[i].instID = 0;
+	}
+#endif
+
 #ifdef NULLC_LOG_FILES
 	static unsigned int instCount = 0;
 	for(unsigned int i = 0; i < instList.size(); i++)
-		if(instList[i].name != o_none)
+		if(instList[i].name != o_none && instList[i].name != o_other)
 			instCount++;
 	printf("So far, %d optimizations (%d instructions)\r\n", GetOptimizationCount(), instCount);
 
@@ -570,7 +663,10 @@ bool ExecutorX86::TranslateToNative()
 		if(instList[i].name == o_other)
 			continue;
 		if(instList[i].instID && (exCode[instList[i].instID-1].cmd & 0x80))
+		{
+			fprintf(fAsm, "; ------------------- Invalidation ----------------\r\n");
 			fprintf(fAsm, "0x%x\r\n", 0xc0000000 | (instList[i].instID - 1));
+		}
 		instList[i].Decode(instBuf);
 		fprintf(fAsm, "%s\r\n", instBuf);
 	}
@@ -677,14 +773,8 @@ bool ExecutorX86::TranslateToNative()
 		case o_jbe:
 			code += x86Jcc(code, cmd.argA.labelID, condBE, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
-		case o_jc:
-			code += x86Jcc(code, cmd.argA.labelID, condC, cmd.argA.labelID & JUMP_NEAR ? true : false);
-			break;
 		case o_je:
 			code += x86Jcc(code, cmd.argA.labelID, condE, cmd.argA.labelID & JUMP_NEAR ? true : false);
-			break;
-		case o_jz:
-			code += x86Jcc(code, cmd.argA.labelID, condZ, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_jg:
 			code += x86Jcc(code, cmd.argA.labelID, condG, cmd.argA.labelID & JUMP_NEAR ? true : false);
@@ -698,11 +788,14 @@ bool ExecutorX86::TranslateToNative()
 		case o_jnp:
 			code += x86Jcc(code, cmd.argA.labelID, condNP, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
-		case o_jnz:
-			code += x86Jcc(code, cmd.argA.labelID, condNZ, cmd.argA.labelID & JUMP_NEAR ? true : false);
-			break;
 		case o_jp:
 			code += x86Jcc(code, cmd.argA.labelID, condP, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			break;
+		case o_jge:
+			code += x86Jcc(code, cmd.argA.labelID, condGE, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			break;
+		case o_jle:
+			code += x86Jcc(code, cmd.argA.labelID, condLE, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_call:
 			if(cmd.argA.type == x86Argument::argLabel)

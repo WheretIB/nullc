@@ -36,15 +36,14 @@ enum x86Command
 	o_jae,
 	o_jb,
 	o_jbe,
-	o_jc,
 	o_je,
-	o_jz,
 	o_jg,
 	o_jl,
 	o_jne,
 	o_jnp,
-	o_jnz,
 	o_jp,
+	o_jge,
+	o_jle,
 	o_call,
 	o_ret,
 
@@ -110,11 +109,13 @@ enum x86Command
 	o_nop,
 	o_other,
 };
-
+#define o_jc o_jb
+#define o_jz o_je
+#define o_jnz o_jne
 
 static char* x86CmdText[] = 
 {	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd",
-	"jmp", "ja", "jae", "jb", "jbe", "jc", "je", "jz", "jg", "jl", "jne", "jnp", "jnz", "jp", "call", "ret",
+	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
 	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
