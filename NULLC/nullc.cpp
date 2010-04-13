@@ -179,12 +179,13 @@ void	nullcSaveListing(const char *fileName)
 #endif
 }
 
-void	nullcTranslateToC(const char *fileName)
+void	nullcTranslateToC(const char *fileName, const char *mainName)
 {
 #ifdef NULLC_ENABLE_C_TRANSLATION
-	compiler->TranslateToC(fileName);
+	compiler->TranslateToC(fileName, mainName);
 #else
 	(void)fileName;
+	(void)mainName;
 #endif
 }
 

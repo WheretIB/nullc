@@ -332,8 +332,10 @@ void NodeNumber::TranslateToC(FILE *fOut)
 		fprintf(fOut, "(void*)(%d)", num.integer);
 	else if(typeInfo == typeChar || typeInfo == typeShort || typeInfo == typeInt)
 		fprintf(fOut, "%d", num.integer);
-	else if(typeInfo == typeFloat || typeInfo == typeDouble)
+	else if(typeInfo == typeDouble)
 		fprintf(fOut, "%f", num.real);
+	else if(typeInfo == typeFloat)
+		fprintf(fOut, "%ff", num.real);
 	else if(typeInfo == typeLong)
 		fprintf(fOut, "%I64dLL", num.integer64);
 	else
@@ -538,7 +540,15 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, "return;\r\n");
 	}else{
 		fprintf(fOut, "return ");
+		if(typeInfo != first->typeInfo)
+		{
+			fprintf(fOut, "(");
+			typeInfo->OutputCType(fOut, "");
+			fprintf(fOut, ")(");
+		}
 		first->TranslateToC(fOut);
+		if(typeInfo != first->typeInfo)
+			fprintf(fOut, ")");
 		fprintf(fOut, ";\r\n");
 	}
 }
@@ -663,6 +673,8 @@ void NodeFuncDef::LogToStream(FILE *fGraph)
 }
 void NodeFuncDef::TranslateToC(FILE *fOut)
 {
+	unsigned int oldIndent = identDepth;
+	identDepth = 0;
 	if(!disabled)
 	{
 		if(funcInfo->retType->arrLevel == 0 || funcInfo->retType->arrSize == TypeInfo::UNSIZED_ARRAY)
@@ -696,13 +708,16 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 				}
 			}
 		}
+		unsigned int length = (unsigned int)strlen(fName);
+		if(fName[length-1] == '$')
+			fName[length-1] = '_';
 		fprintf(fOut, " %s(", fName);
 
 		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
 		VariableInfo *param = funcInfo->firstParam;
 		for(; param; param = param->next)
 		{
-			sprintf(name, "%.*s", param->name.end - param->name.begin, param->name.begin);
+			sprintf(name, "%.*s%d", param->name.end - param->name.begin, param->name.begin, param->pos);
 			param->varType->OutputCType(fOut, name);
 			if(param->next || funcInfo->type != FunctionInfo::NORMAL)
 				fprintf(fOut, ", ");
@@ -723,7 +738,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 			OutputIdent(fOut);
 			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-			sprintf(name, "%s%.*s", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift);
+			sprintf(name, "%s%.*s%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
 			local->varType->OutputCType(fOut, name);
 			fprintf(fOut, ";\r\n");
 		}
@@ -733,6 +748,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 	}else{
 		TranslateToCExtra(fOut);
 	}
+	identDepth = oldIndent;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -867,16 +883,29 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 				}
 			}
 		}
+		unsigned int length = (unsigned int)strlen(fName);
+		if(fName[length-1] == '$')
+			fName[length-1] = '_';
 		fprintf(fOut, "%s", fName);
 	}
 	fprintf(fOut, "(");
 	NodeZeroOP	*curr = paramTail;
+	TypeInfo	**paramType = funcType->paramType;
 	while(curr)
 	{
+		if(*paramType != curr->typeInfo)
+		{
+			fprintf(fOut, "(");
+			(*paramType)->OutputCType(fOut, "");
+			fprintf(fOut, ")(");
+		}
 		curr->TranslateToC(fOut);
+		if(*paramType != curr->typeInfo)
+			fprintf(fOut, ")");
 		if(curr->prev || first)
 			fprintf(fOut, ", ");
 		curr = curr->prev;
+		paramType++;
 	}
 	if(first)
 		first->TranslateToC(fOut);
@@ -959,8 +988,10 @@ void NodeGetAddress::TranslateToCEx(FILE *fOut, bool takeAddress)
 		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
 		fprintf(fOut, varAddress - addressOriginal ? "%s%.*s%+d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, (varAddress - addressOriginal) / (typeOrig->size ? typeOrig->size : 1));
+		if(varInfo->blockDepth > 1)
+			fprintf(fOut, "%d", varInfo->pos);
 	}else{
-		fprintf(fOut, "$$$");
+		fprintf(fOut, "__context");
 	}
 }
 
@@ -1166,7 +1197,14 @@ void NodeVariableSet::TranslateToC(FILE *fOut)
 {
 	if(arrSetAll)
 	{
-		fprintf(fOut, "%%array_fill_unimplemented%%");
+		if(typeInfo == typeChar)
+			fprintf(fOut, "memset(*(");
+		else
+			fprintf(fOut, "__nullcSetArray(*(");
+		first->TranslateToC(fOut);
+		fprintf(fOut, "), ");
+		second->TranslateToC(fOut);
+		fprintf(fOut, ", %d)", elemCount);
 	}else{
 		if(first->typeInfo->subType->arrLevel && first->typeInfo->subType->arrSize != TypeInfo::UNSIZED_ARRAY && second->typeInfo->arrLevel)
 		{
@@ -1179,6 +1217,12 @@ void NodeVariableSet::TranslateToC(FILE *fOut)
 			fprintf(fOut, "*(");
 			first->TranslateToC(fOut);
 			fprintf(fOut, ") = ");
+			if(first->typeInfo->subType != second->typeInfo)
+			{
+				fprintf(fOut, "(");
+				first->typeInfo->subType->OutputCType(fOut, "");
+				fprintf(fOut, ")");
+			}
 			second->TranslateToC(fOut);
 		}
 	}
@@ -1321,29 +1365,35 @@ void NodeVariableModify::LogToStream(FILE *fGraph)
 void NodeVariableModify::TranslateToC(FILE *fOut)
 {
 	TranslateToCExtra(fOut);
-	const char *operation = "???";
-	switch(cmdID)
+	if(cmdID == cmdPow)
 	{
-	case cmdAdd:
-		operation = "+=";
-		break;
-	case cmdSub:
-		operation = "-=";
-		break;
-	case cmdMul:
-		operation = "*=";
-		break;
-	case cmdDiv:
-		operation = "/=";
-		break;
-	case cmdPow:
-		operation = "**=";
-		break;
+		fprintf(fOut, "__nullcPowSet(");
+		first->TranslateToC(fOut);
+		fprintf(fOut, ", ");
+		second->TranslateToC(fOut);
+		fprintf(fOut, ")");
+	}else{
+		const char *operation = "???";
+		switch(cmdID)
+		{
+		case cmdAdd:
+			operation = "+=";
+			break;
+		case cmdSub:
+			operation = "-=";
+			break;
+		case cmdMul:
+			operation = "*=";
+			break;
+		case cmdDiv:
+			operation = "/=";
+			break;
+		}
+		fprintf(fOut, "*(");
+		first->TranslateToC(fOut);
+		fprintf(fOut, ") %s ", operation);
+		second->TranslateToC(fOut);
 	}
-	fprintf(fOut, "*(");
-	first->TranslateToC(fOut);
-	fprintf(fOut, ") %s ", operation);
-	second->TranslateToC(fOut);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1420,10 +1470,34 @@ void NodeArrayIndex::LogToStream(FILE *fGraph)
 }
 void NodeArrayIndex::TranslateToC(FILE *fOut)
 {
-	first->TranslateToC(fOut);
-	fprintf(fOut, "[");
-	second->TranslateToC(fOut);
-	fprintf(fOut, "]");
+	if(first->typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+	{
+		fprintf(fOut, "(");
+		typeInfo->OutputCType(fOut, "");
+		fprintf(fOut, ")(");
+		first->TranslateToC(fOut);
+		fprintf(fOut, ").ptr + ");
+		if(second->typeInfo != typeInt)
+			fprintf(fOut, "(unsigned)(");
+		second->TranslateToC(fOut);
+		if(second->typeInfo != typeInt)
+			fprintf(fOut, ")");
+		//fprintf(fOut, "");
+		// (int * )(*(&arr0)).ptr + *(&i16)
+		//((int*)(*(&arr0)).ptr)[i]
+	}else{
+		//*(int*)((*(&arr0)).ptr + i16);
+		first->TranslateToC(fOut);
+		if(first->typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+			fprintf(fOut, "->ptr");
+		fprintf(fOut, "[");
+		if(second->typeInfo != typeInt)
+			fprintf(fOut, "(unsigned)(");
+		second->TranslateToC(fOut);
+		if(second->typeInfo != typeInt)
+			fprintf(fOut, ")");
+		fprintf(fOut, "]");
+	}
 }
 //////////////////////////////////////////////////////////////////////////
 // Node to get value by address (dereference pointer)
@@ -1598,8 +1672,9 @@ void NodeShiftAddress::LogToStream(FILE *fGraph)
 }
 void NodeShiftAddress::TranslateToC(FILE *fOut)
 {
+	fprintf(fOut, "&(", member->name);
 	first->TranslateToC(fOut);
-	fprintf(fOut, ".%s", member->name);
+	fprintf(fOut, ")->%s", member->name);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1698,6 +1773,16 @@ void NodePreOrPostOp::LogToStream(FILE *fGraph)
 }
 void NodePreOrPostOp::TranslateToC(FILE *fOut)
 {
+	if(head)
+		fprintf(fOut, "(");
+	NodeZeroOP *curr = head;
+	while(curr)
+	{
+		assert(curr->nodeType == typeNodePopOp);
+		((NodePopOp*)curr)->GetFirstNode()->TranslateToC(fOut);
+		fprintf(fOut, ", ");
+		curr = curr->next;
+	}
 	if(typeInfo == typeDouble || typeInfo == typeFloat)
 	{
 		if(optimised)
@@ -1724,16 +1809,17 @@ void NodePreOrPostOp::TranslateToC(FILE *fOut)
 		if(prefixOp)
 			fprintf(fOut, incOp ? "++" : "--");
 
-		if(first->nodeType == typeNodeGetAddress)
-			((NodeGetAddress*)first)->TranslateToCEx(fOut, false);
-		else
-			first->TranslateToC(fOut);
+		fprintf(fOut, "(*(");
+		first->TranslateToC(fOut);
+		fprintf(fOut, "))");
 
 		if(!prefixOp)
 			fprintf(fOut, incOp ? "++" : "--");
 		if(optimised)
 			fprintf(fOut, ";\r\n");
 	}
+	if(head)
+		fprintf(fOut, ")");
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1905,14 +1991,34 @@ void NodeBinaryOp::LogToStream(FILE *fGraph)
 }
 void NodeBinaryOp::TranslateToC(FILE *fOut)
 {
+	TypeInfo *tmpType = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
+	if(cmdID == cmdPow)
+		fprintf(fOut, "__nullcPow");
+	if(cmdID == cmdMod && typeInfo == typeDouble)
+		fprintf(fOut, "__nullcMod");
+
 	fprintf(fOut, "(");
+	
 	if(cmdID == cmdLogXor)
 		fprintf(fOut, "!!");
+	if(tmpType != first->typeInfo)
+	{
+		fprintf(fOut, "(");
+		tmpType->OutputCType(fOut, "");
+		fprintf(fOut, ")");
+	}
 	first->TranslateToC(fOut);
-	fprintf(fOut, " %s ", cmdID == cmdLogXor ? "!=" : binCommandToText[cmdID-cmdAdd]);
+	fprintf(fOut, " %s ", cmdID == cmdLogXor ? "!=" : ((cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble)) ? "," : binCommandToText[cmdID-cmdAdd]));
 	if(cmdID == cmdLogXor)
 		fprintf(fOut, "!!");
+	if(tmpType != second->typeInfo)
+	{
+		fprintf(fOut, "(");
+		tmpType->OutputCType(fOut, "");
+		fprintf(fOut, ")");
+	}
 	second->TranslateToC(fOut);
+
 	fprintf(fOut, ")");
 }
 
@@ -2511,6 +2617,54 @@ void NodeSwitchExpr::LogToStream(FILE *fGraph)
 	}
 	GoUp();
 }
+void NodeSwitchExpr::TranslateToC(FILE *fOut)
+{
+	static int switchNum = 0;
+	int myNum = switchNum++;
+	OutputIdent(fOut);
+	fprintf(fOut, "do\r\n");
+	OutputIdent(fOut);
+	fprintf(fOut, "{\r\n");
+	identDepth++;
+	char buf[64];
+	sprintf(buf, "switchVar");
+	OutputIdent(fOut);
+	first->typeInfo->OutputCType(fOut, buf);
+	fprintf(fOut, " = ");
+	first->TranslateToC(fOut);
+	fprintf(fOut, ";\r\n");
+	unsigned int i = 0;
+	for(NodeZeroOP *curr = conditionHead; curr; curr = curr->next, i++)
+	{
+		OutputIdent(fOut);
+		fprintf(fOut, "if(switchVar == ");
+		curr->TranslateToC(fOut);
+		fprintf(fOut, ")\r\n");
+		OutputIdent(fOut);
+		fprintf(fOut, "\tgoto case%d_%d;\r\n", myNum, i);
+	}
+	OutputIdent(fOut);
+	fprintf(fOut, "goto defaultCase_%d;\r\n", myNum);
+	i = 0;
+	for(NodeZeroOP *block = blockHead; block; block = block->next, i++)
+	{
+		OutputIdent(fOut);
+		fprintf(fOut, "case%d_%d:\r\n", myNum, i);
+		block->TranslateToC(fOut);
+	}
+	OutputIdent(fOut);
+	fprintf(fOut, "defaultCase_%d:\r\n", myNum);
+	if(defaultCase)
+	{
+		defaultCase->TranslateToC(fOut);
+	}else{
+		OutputIdent(fOut);
+		fprintf(fOut, "0;\r\n");
+	}
+	identDepth--;
+	OutputIdent(fOut);
+	fprintf(fOut, "}while(0);\r\n");
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node that contains list of expressions
@@ -2601,6 +2755,14 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		fprintf(fOut, "\"");
 		return;
 	}else if(typeInfo != typeVoid){
+		NodeZeroOP *end = first;
+		if(first->nodeType == typeNodePopOp)
+		{
+			fprintf(fOut, "(");
+			((NodePopOp*)first)->GetFirstNode()->TranslateToC(fOut);
+			fprintf(fOut, ", ");
+			end = first->next;
+		}
 		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 			fprintf(fOut, "__makeNullcArray(");
 		else
@@ -2610,15 +2772,18 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		do 
 		{
 			curr->TranslateToC(fOut);
-			if(curr != first)
+			if(curr != end)
 				fprintf(fOut, ", ");
 			curr = curr->prev;
-		}while(curr);
+		}while(curr != end->prev);
 
 		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 			fprintf(fOut, ")");
 		else
 			fprintf(fOut, " }");
+
+		if(first->nodeType == typeNodePopOp)
+			fprintf(fOut, ")");
 	}else{
 		NodeZeroOP	*curr = first;
 		do 

@@ -58,7 +58,7 @@ public:
 	const char*		GetError();
 	
 	void	SaveListing(const char* fileName);
-	void	TranslateToC(const char* fileName);
+	void	TranslateToC(const char* fileName, const char *mainName);
 
 	unsigned int	GetBytecode(char** bytecode);
 private:

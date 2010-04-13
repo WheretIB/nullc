@@ -81,7 +81,7 @@ void			nullcSaveListing(const char *fileName);
 
 /*	Function works only if NULLC_ENABLE_C_TRANSLATION is defined.
 	This function saved analog of C++ code of last compiled code into file	*/
-void			nullcTranslateToC(const char *fileName);
+void			nullcTranslateToC(const char *fileName, const char *mainName);
 
 /*	Clean all accumulated bytecode	*/
 void			nullcClean();

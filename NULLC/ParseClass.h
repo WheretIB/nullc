@@ -473,6 +473,8 @@ public:
 				return "__operatorShiftLeft";
 			if(strcmp(name, ">>") == 0)
 				return "__operatorShiftRight";
+			if(strcmp(name, "=") == 0)
+				return "__operatorSet";
 			if(strcmp(name, "+=") == 0)
 				return "__operatorAddSet";
 			if(strcmp(name, "-=") == 0)
@@ -483,6 +485,8 @@ public:
 				return "__operatorDivSet";
 			if(strcmp(name, "**=") == 0)
 				return "__operatorPowSet";
+			if(strcmp(name, "[]") == 0)
+				return "__operatorIndex";
 		}
 		return NULL;
 	}

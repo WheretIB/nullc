@@ -794,7 +794,7 @@ void Compiler::SaveListing(const char *fileName)
 #endif
 }
 
-void Compiler::TranslateToC(const char* fileName)
+void Compiler::TranslateToC(const char* fileName, const char *mainName)
 {
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	FILE *fC = fopen(fileName, "wb");
@@ -852,6 +852,9 @@ void Compiler::TranslateToC(const char* fileName)
 				}
 			}
 		}
+		unsigned int length = (unsigned int)strlen(fName);
+		if(fName[length-1] == '$')
+			fName[length-1] = '_';
 		fprintf(fC, " %s(", fName);
 
 		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
@@ -878,7 +881,7 @@ void Compiler::TranslateToC(const char* fileName)
 		char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-		sprintf(vName, "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift);
+		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s%d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
 		if(varInfo->pos >> 24)
 			fprintf(fC, "extern ");
 		varInfo->varType->OutputCType(fC, vName);
@@ -896,7 +899,7 @@ void Compiler::TranslateToC(const char* fileName)
 
 	if(CodeInfo::nodeList.back())
 	{
-		fprintf(fC, "int main()\r\n{\r\n");
+		fprintf(fC, "int %s()\r\n{\r\n", mainName);
 		CodeInfo::nodeList.back()->TranslateToC(fC);
 		fprintf(fC, "}\r\n");
 	}
