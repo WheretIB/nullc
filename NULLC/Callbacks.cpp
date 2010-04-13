@@ -403,9 +403,17 @@ void AddPopNode(const char* pos)
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
 
+void AddPositiveNode(const char* pos)
+{
+	AddFunctionCallNode(CodeInfo::lastKnownStartPos, "+", 1, true);
+}
+
 // Function that creates unary operation node that changes sign of value
 void AddNegateNode(const char* pos)
 {
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "-", 1, true))
+		return;
+
 	// If the last node is a number, we can just change sign of constant
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 	{
@@ -431,6 +439,9 @@ void AddNegateNode(const char* pos)
 // Function that creates unary operation node for logical NOT
 void AddLogNotNode(const char* pos)
 {
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "!", 1, true))
+		return;
+
 	if(CodeInfo::nodeList.back()->typeInfo == typeDouble || CodeInfo::nodeList.back()->typeInfo == typeFloat)
 		ThrowError(pos, "ERROR: logical NOT is not available on floating-point numbers");
 	// If the last node is a number, we can just make operation in compile-time
@@ -456,6 +467,9 @@ void AddLogNotNode(const char* pos)
 // Function that creates unary operation node for binary NOT
 void AddBitNotNode(const char* pos)
 {
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "~", 1, true))
+		return;
+
 	if(CodeInfo::nodeList.back()->typeInfo == typeDouble || CodeInfo::nodeList.back()->typeInfo == typeFloat)
 		ThrowError(pos, "ERROR: binary NOT is not available on floating-point numbers");
 	// If the last node is a number, we can just make operation in compile-time
@@ -1953,8 +1967,13 @@ void FunctionEnd(const char* pos)
 
 void FunctionToOperator(const char* pos)
 {
+	static unsigned int hashAdd = GetStringHash("+");
+	static unsigned int hashSub = GetStringHash("-");
+	static unsigned int hashBitNot = GetStringHash("~");
+	static unsigned int hashLogNot = GetStringHash("!");
+
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
-	if(lastFunc.paramCount != 2)
+	if(lastFunc.paramCount != 2 && !(lastFunc.paramCount == 1 && (lastFunc.nameHash == hashAdd || lastFunc.nameHash == hashSub || lastFunc.nameHash == hashBitNot || lastFunc.nameHash == hashLogNot)))
 		ThrowError(pos, "ERROR: binary operator definition or overload must accept exactly two arguments");
 	if(lastFunc.type != FunctionInfo::NORMAL)
 		ThrowError(pos, "ERROR: binary operator definition or overload must be placed in global scope");
