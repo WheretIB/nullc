@@ -619,32 +619,21 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 	x86Op->argB.reg = reg2;
 	x86Op++;
 }
-void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int addr)
-{
-#ifdef NULLC_OPTIMIZE_X86
-	if(op == o_mov)
-	{
-		KILL_REG(reg1);
-		NULLC::InvalidateDependand(reg1);
-
-		NULLC::reg[reg1] = x86Argument(size, addr);
-		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
-		NULLC::regRead[reg1] = false;
-	}else{
-		NULLC::reg[reg1].type = x86Argument::argNone;
-	}
-#endif
-	x86Op->name = op;
-	x86Op->argA.type = x86Argument::argReg;
-	x86Op->argA.reg = reg1;
-	x86Op->argB.type = x86Argument::argPtr;
-	x86Op->argB.ptrSize = size;
-	x86Op->argB.ptrNum = addr;
-	x86Op++;
-}
 void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	x86Argument newArg = x86Argument(size, index, mult, base, shift);
+	/*if(op == o_mov && base != rESP)
+	{
+		for(unsigned int i = rEAX; i <= rEDX; i++)
+		{
+			if(NULLC::reg[i].type == x86Argument::argPtr && NULLC::reg[i] == newArg)
+			{
+				EMIT_OP_REG_REG(op, reg1, (x86Reg)i);
+				return;
+			}
+		}
+	}*/
 	if(op != o_mov && op != o_lea && op != o_movsx && op != o_or && op != o_imul && op != o_cmp)
 		__asm int 3;
 
@@ -677,7 +666,7 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, un
 	}
 	if(op == o_mov || op == o_movsx)
 	{
-		NULLC::reg[reg1] = x86Argument(size, index, mult, base, shift);
+		NULLC::reg[reg1] = newArg;
 		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
 		NULLC::regRead[reg1] = false;
 	}else if(op == o_lea || op == o_imul){
@@ -703,6 +692,10 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, un
 void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift)
 {
 	EMIT_OP_REG_RPTR(op, reg1, size, rNONE, 1, reg2, shift);
+}
+void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int addr)
+{
+	EMIT_OP_REG_RPTR(op, reg1, size, rNONE, 1, rNONE, addr);
 }
 
 void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, unsigned int labelID, unsigned int shift)
@@ -744,36 +737,6 @@ void EMIT_OP_REG_REG_MULT_REG_NUM(x86Command op, x86Reg dst, x86Size size, x86Re
 	x86Op->argB.ptrMult = mult;
 	x86Op->argB.ptrBase = base;
 	x86Op->argB.ptrNum = shift;
-	x86Op++;
-}
-void EMIT_OP_ADDR_NUM(x86Command op, x86Size size, unsigned int addr, unsigned int number)
-{
-	x86Op->name = op;
-	x86Op->argA.type = x86Argument::argPtr;
-	x86Op->argA.ptrSize = size;
-	x86Op->argA.ptrNum = addr;
-	x86Op->argB.type = x86Argument::argNumber;
-	x86Op->argB.num = number;
-	x86Op++;
-}
-void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg2)
-{
-#ifdef NULLC_OPTIMIZE_X86
-	if(NULLC::reg[reg2].type == x86Argument::argNumber)
-	{
-		EMIT_OP_ADDR_NUM(op, size, addr, NULLC::reg[reg2].num);
-		return;
-	}else if(NULLC::reg[reg2].type == x86Argument::argReg){
-		reg2 = NULLC::reg[reg2].reg;
-	}
-	NULLC::regRead[reg2] = true;
-#endif
-	x86Op->name = op;
-	x86Op->argA.type = x86Argument::argPtr;
-	x86Op->argA.ptrSize = size;
-	x86Op->argA.ptrNum = addr;
-	x86Op->argB.type = x86Argument::argReg;
-	x86Op->argB.reg = reg2;
 	x86Op++;
 }
 
@@ -822,6 +785,10 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 {
 	EMIT_OP_RPTR_REG(op, size, rNONE, 1, reg1, shift, reg2);
 }
+void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg2)
+{
+	EMIT_OP_RPTR_REG(op, size, rNONE, 1, rNONE, addr, reg2);
+}
 
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned int shift, unsigned int num)
 {
@@ -859,6 +826,10 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg index, int multiplier,
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num)
 {
 	EMIT_OP_RPTR_NUM(op, size, rNONE, 1, reg1, shift, num);
+}
+void EMIT_OP_ADDR_NUM(x86Command op, x86Size size, unsigned int addr, unsigned int number)
+{
+	EMIT_OP_RPTR_NUM(op, size, rNONE, 1, rNONE, addr, number);
 }
 
 bool EMIT_POP_DOUBLE(x86Reg base, unsigned int address)
@@ -2037,15 +2008,16 @@ void GenCodeCmdLogXor(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("LXOR int");
-	EMIT_OP_REG_REG(o_xor, rEAX, rEAX);
-	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 0, 0);
-	EMIT_OP_REG(o_setne, rEAX);
+	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG(o_pop, rEBX);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
-	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, 4, 0);
+	EMIT_OP_REG_NUM(o_cmp, rEAX, 0);
 	EMIT_OP_REG(o_setne, rECX);
+	EMIT_OP_REG_REG(o_xor, rEAX, rEAX);
+	EMIT_OP_REG_NUM(o_cmp, rEBX, 0);
+	EMIT_OP_REG(o_setne, rEAX);
 	EMIT_OP_REG_REG(o_xor, rEAX, rECX);
-	EMIT_OP_REG(o_pop, rECX);
-	EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 
