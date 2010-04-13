@@ -448,6 +448,7 @@ public:
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
+	virtual void TranslateToC(FILE *fOut);
 
 	FunctionInfo	*funcInfo;
 };

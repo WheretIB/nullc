@@ -816,16 +816,20 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		TypeInfo *type = translationTypes[i];
 		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || type->funcType)
 			continue;
-		fprintf(fC, "typedef struct\r\n{\r\n");
 		if(type->arrLevel)
 		{
-			fprintf(fC, "\t");
+			fprintf(fC, "struct ");
+			type->OutputCType(fC, "");
+			fprintf(fC, "\r\n{\r\n\t");
 			type->subType->OutputCType(fC, "ptr");
-			fprintf(fC, "[%d];\r\n", type->arrSize);
-			fprintf(fC, "} ");
-			type->OutputCType(fC, ";");
-			fprintf(fC, "\r\n");
+			fprintf(fC, "[%d];\r\n\t", type->arrSize);
+			type->OutputCType(fC, "");
+			fprintf(fC, "& set(unsigned index, ");
+			type->subType->OutputCType(fC, "const &");
+			fprintf(fC, " val){ ptr[index] = val; return *this; }\r\n");
+			fprintf(fC, "};\r\n");
 		}else{
+			fprintf(fC, "typedef struct\r\n{\r\n");
 			TypeInfo::MemberVariable *curr = type->firstVariable;
 			for(; curr; curr = curr->next)
 			{
@@ -900,7 +904,10 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		unsigned int length = (unsigned int)strlen(fName);
 		if(fName[length-1] == '$')
 			fName[length-1] = '_';
-		fprintf(fC, " %s(", fName);
+		fprintf(fC, " %s", fName);
+		if(info->type == FunctionInfo::LOCAL)
+			fprintf(fC, "_%d", CodeInfo::FindFunctionByPtr(info));
+		fprintf(fC, "(");
 
 		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
 		VariableInfo *param = info->firstParam;
