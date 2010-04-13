@@ -558,11 +558,29 @@ void NodeReturnOp::LogToStream(FILE *fGraph)
 }
 void NodeReturnOp::TranslateToC(FILE *fOut)
 {
+	static unsigned int retVarID = 0;
+
 	TranslateToCExtra(fOut);
 	if(parentFunction && parentFunction->closeUpvals)
 	{
+		OutputIdent(fOut);
+		typeInfo->OutputCType(fOut, "");
+		fprintf(fOut, "__nullcRetVar%d = ", retVarID);
+		if(typeInfo != first->typeInfo)
+		{
+			fprintf(fOut, "(");
+			typeInfo->OutputCType(fOut, "");
+			fprintf(fOut, ")(");
+		}
+		first->TranslateToC(fOut);
+		if(typeInfo != first->typeInfo)
+			fprintf(fOut, ")");
+		fprintf(fOut, ";\r\n");
+
 		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		VariableInfo *local = parentFunction->firstLocal;
+		VariableInfo *local = parentFunction->firstParam ? parentFunction->firstParam : parentFunction->firstLocal;
+		if(parentFunction->firstParam)
+			parentFunction->lastParam->next = parentFunction->firstLocal;
 		for(; local; local = local->next)
 		{
 			if(local->usedAsExternal)
@@ -575,6 +593,11 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 				fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d_%s, &%s);\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name, name);
 			}
 		}
+		if(parentFunction->firstParam)
+			parentFunction->lastParam->next = NULL;
+		OutputIdent(fOut);
+		fprintf(fOut, "return __nullcRetVar%d;\r\n", retVarID++);
+		return;
 	}
 	OutputIdent(fOut);
 	if(typeInfo == typeVoid || first->typeInfo == typeVoid)
@@ -635,21 +658,24 @@ void NodeBlock::LogToStream(FILE *fGraph)
 void NodeBlock::TranslateToC(FILE *fOut)
 {
 	first->TranslateToC(fOut);
-	OutputIdent(fOut);
 	char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
-	VariableInfo *local = parentFunction->firstLocal;
+	VariableInfo *local = parentFunction->firstParam ? parentFunction->firstParam : parentFunction->firstLocal;
+	if(parentFunction->firstParam)
+		parentFunction->lastParam->next = parentFunction->firstLocal;
 	for(; local; local = local->next)
 	{
-		if(local->usedAsExternal)
+		if(local->usedAsExternal && local->blockDepth - parentFunction->vTopSize - 1 == stackFrameShift)
 		{
 			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
 			sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
-		
+
 			OutputIdent(fOut);
 			fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d_%s, &%s);\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name, name);
 		}
 	}
+	if(parentFunction->firstParam)
+		parentFunction->lastParam->next = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1661,8 +1687,8 @@ void NodeDereference::TranslateToC(FILE *fOut)
 			{
 				fprintf(fOut, "(int*)&%s", variableName);
 			}else{
-				VariableInfo *varInfo = closureFunc->firstExternal->variable;
-				fprintf(fOut, "((int**)__%.*s_%d)[%d]", varInfo->name.end-varInfo->name.begin-1, varInfo->name.begin+1, varInfo->pos, curr->targetPos);
+				assert(closureFunc->parentFunc);
+				fprintf(fOut, "((int**)__%s_%d_ext_%d)[%d]", closureFunc->parentFunc->name, CodeInfo::FindFunctionByPtr(closureFunc->parentFunc), closureFunc->parentFunc->allParamSize, curr->targetPos >> 2);
 			}
 			fprintf(fOut, "),\r\n");
 			OutputIdent(fOut);
@@ -1952,6 +1978,7 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 	nodeDereferenceEndInComma = true;
 	TranslateToCExtra(fOut);
 	nodeDereferenceEndInComma = false;
+	OutputIdent(fOut);
 	fprintf(fOut, "__nullcMakeFunction((void*)");
 	OutputCFunctionName(fOut, funcInfo);
 	fprintf(fOut, ", ");

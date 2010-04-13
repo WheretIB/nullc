@@ -1700,6 +1700,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 
 	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy, funcNameHash));
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
+	lastFunc->parentFunc = currDefinedFunc.back();
 
 	AddFunctionToSortedList(lastFunc);
 
@@ -1787,10 +1788,10 @@ void FunctionStart(const char* pos)
 
 	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
 	{
-		currType = curr->varType;
-		currAlign = 4;
-		AddVariable(pos, curr->name);
-		varDefined = false;
+		varTop += GetAlignmentOffset(pos, 4);
+		CodeInfo::varInfo.push_back(curr);
+		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
+		varTop += curr->varType->size;
 	}
 
 	char	*hiddenHame = AllocateString(lastFunc.nameLength + 24);
