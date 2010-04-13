@@ -2147,6 +2147,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		if(funcName)
 			AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
 		AddGetVariableNode(pos);
+		ConvertFunctionToPointer(pos);
 		funcAddr = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 		fType = funcAddr->typeInfo->funcType;
