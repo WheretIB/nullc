@@ -2377,6 +2377,7 @@ void TypeBegin(const char* pos, const char* end)
 	}
 	newType = new TypeInfo(CodeInfo::classCount, typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
+	newType->originalIndex = CodeInfo::typeInfo.size();
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	methodCount = 0;
 

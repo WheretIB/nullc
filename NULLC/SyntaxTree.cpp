@@ -18,10 +18,10 @@ static char* unaryCommandToText[] = { "-", "-", "-", "~", "~", "!", "!" };
 
 //////////////////////////////////////////////////////////////////////////
 
-unsigned int identDepth = 1;
+unsigned int indentDepth = 1;
 void OutputIdent(FILE *fOut)
 {
-	for(unsigned int i = 0; i < identDepth; i++)
+	for(unsigned int i = 0; i < indentDepth; i++)
 		fprintf(fOut, "\t");
 }
 
@@ -673,21 +673,11 @@ void NodeFuncDef::LogToStream(FILE *fGraph)
 }
 void NodeFuncDef::TranslateToC(FILE *fOut)
 {
-	unsigned int oldIndent = identDepth;
-	identDepth = 0;
+	unsigned int oldIndent = indentDepth;
+	indentDepth = 0;
 	if(!disabled)
 	{
-		if(funcInfo->retType->arrLevel == 0 || funcInfo->retType->arrSize == TypeInfo::UNSIZED_ARRAY)
-		{
-			funcInfo->retType->OutputCType(fOut, "");
-		}else{
-			fprintf(fOut, "typedef ");
-			char buf[64];
-			sprintf(buf, "f_r_type%u", funcInfo->retType->nameHash);
-			funcInfo->retType->OutputCType(fOut, buf);
-			fprintf(fOut, ";\r\n");
-			fprintf(fOut, "%s", buf);
-		}
+		funcInfo->retType->OutputCType(fOut, "");
 		char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 		sprintf(fName, "%s", funcInfo->name);
 		if(const char *opName = funcInfo->GetOperatorName())
@@ -731,7 +721,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 		}
 
 		fprintf(fOut, ")\r\n{\r\n");
-		identDepth++;
+		indentDepth++;
 		VariableInfo *local = funcInfo->firstLocal;
 		for(; local; local = local->next)
 		{
@@ -743,12 +733,12 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 			fprintf(fOut, ";\r\n");
 		}
 		first->TranslateToC(fOut);
-		identDepth--;
+		indentDepth--;
 		fprintf(fOut, "}\r\n");
 	}else{
 		TranslateToCExtra(fOut);
 	}
-	identDepth = oldIndent;
+	indentDepth = oldIndent;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1202,15 +1192,15 @@ void NodeVariableSet::TranslateToC(FILE *fOut)
 		else
 			fprintf(fOut, "__nullcSetArray(*(");
 		first->TranslateToC(fOut);
-		fprintf(fOut, "), ");
+		fprintf(fOut, ".ptr), ");
 		second->TranslateToC(fOut);
 		fprintf(fOut, ", %d)", elemCount);
 	}else{
-		if(first->typeInfo->subType->arrLevel && first->typeInfo->subType->arrSize != TypeInfo::UNSIZED_ARRAY && second->typeInfo->arrLevel)
+		if(second->nodeType == typeNodeExpressionList && second->typeInfo->subType == typeChar && second->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY)
 		{
-			fprintf(fOut, "memcpy(*(");
+			fprintf(fOut, "memcpy((");
 			first->TranslateToC(fOut);
-			fprintf(fOut, "), ");
+			fprintf(fOut, ")->ptr, ");
 			second->TranslateToC(fOut);
 			fprintf(fOut, ", %d)", first->typeInfo->subType->size);
 		}else{
@@ -1473,6 +1463,7 @@ void NodeArrayIndex::TranslateToC(FILE *fOut)
 	if(first->typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		fprintf(fOut, "(");
+		fprintf(fOut, "(");
 		typeInfo->OutputCType(fOut, "");
 		fprintf(fOut, ")(");
 		first->TranslateToC(fOut);
@@ -1482,14 +1473,12 @@ void NodeArrayIndex::TranslateToC(FILE *fOut)
 		second->TranslateToC(fOut);
 		if(second->typeInfo != typeInt)
 			fprintf(fOut, ")");
-		//fprintf(fOut, "");
-		// (int * )(*(&arr0)).ptr + *(&i16)
-		//((int*)(*(&arr0)).ptr)[i]
+		fprintf(fOut, ")");
 	}else{
-		//*(int*)((*(&arr0)).ptr + i16);
+		fprintf(fOut, "&(");
 		first->TranslateToC(fOut);
-		if(first->typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
-			fprintf(fOut, "->ptr");
+		fprintf(fOut, ")");
+		fprintf(fOut, "->ptr");
 		fprintf(fOut, "[");
 		if(second->typeInfo != typeInt)
 			fprintf(fOut, "(unsigned)(");
@@ -1790,7 +1779,7 @@ void NodePreOrPostOp::TranslateToC(FILE *fOut)
 			OutputIdent(fOut);
 			fprintf(fOut, "*(");
 			first->TranslateToC(fOut);
-			fprintf(fOut, incOp ? ") += 1.0;\r\n" : ") -= 1.0;\r\n");
+			fprintf(fOut, incOp ? ") += 1.0" : ") -= 1.0");
 		}else{
 			if(prefixOp)
 			{
@@ -1815,11 +1804,11 @@ void NodePreOrPostOp::TranslateToC(FILE *fOut)
 
 		if(!prefixOp)
 			fprintf(fOut, incOp ? "++" : "--");
-		if(optimised)
-			fprintf(fOut, ";\r\n");
 	}
 	if(head)
 		fprintf(fOut, ")");
+	if(optimised)
+		fprintf(fOut, ";\r\n");
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2127,16 +2116,16 @@ void NodeIfElseExpr::TranslateToC(FILE *fOut)
 		fprintf(fOut, ")\r\n");
 		OutputIdent(fOut);
 		fprintf(fOut, "{\r\n");
-		identDepth++;
+		indentDepth++;
 		second->TranslateToC(fOut);
-		identDepth--;
+		indentDepth--;
 		if(third)
 		{
 			OutputIdent(fOut);
 			fprintf(fOut, "}else{\r\n");
-			identDepth++;
+			indentDepth++;
 			third->TranslateToC(fOut);
-			identDepth--;
+			indentDepth--;
 		}
 		OutputIdent(fOut);
 		fprintf(fOut, "}\r\n");
@@ -2228,10 +2217,10 @@ void NodeForExpr::TranslateToC(FILE *fOut)
 	fprintf(fOut, ")\r\n");
 	OutputIdent(fOut);
 	fprintf(fOut, "{\r\n");
-	identDepth++;
+	indentDepth++;
 	fourth->TranslateToC(fOut);
 	third->TranslateToC(fOut);
-	identDepth--;
+	indentDepth--;
 	OutputIdent(fOut);
 	fprintf(fOut, "}\r\n");
 }
@@ -2308,9 +2297,9 @@ void NodeWhileExpr::TranslateToC(FILE *fOut)
 	fprintf(fOut, ")\r\n");
 	OutputIdent(fOut);
 	fprintf(fOut, "{\r\n");
-	identDepth++;
+	indentDepth++;
 	second->TranslateToC(fOut);
-	identDepth--;
+	indentDepth--;
 	OutputIdent(fOut);
 	fprintf(fOut, "}\r\n");
 }
@@ -2625,7 +2614,7 @@ void NodeSwitchExpr::TranslateToC(FILE *fOut)
 	fprintf(fOut, "do\r\n");
 	OutputIdent(fOut);
 	fprintf(fOut, "{\r\n");
-	identDepth++;
+	indentDepth++;
 	char buf[64];
 	sprintf(buf, "switchVar");
 	OutputIdent(fOut);
@@ -2661,7 +2650,7 @@ void NodeSwitchExpr::TranslateToC(FILE *fOut)
 		OutputIdent(fOut);
 		fprintf(fOut, "0;\r\n");
 	}
-	identDepth--;
+	indentDepth--;
 	OutputIdent(fOut);
 	fprintf(fOut, "}while(0);\r\n");
 }

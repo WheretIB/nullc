@@ -72,6 +72,9 @@ private:
 	ChunkedStackPool<4092>			dupStringsModule;
 
 	FastVector<TypeInfo*>			buildInTypes;
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	FastVector<TypeInfo*>			translationTypes;
+#endif
 
 	FastVector<ExternModuleInfo>	activeModules;
 	FastVector<char>				moduleSource;
