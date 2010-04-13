@@ -10,6 +10,8 @@ __declspec(naked) void intPow()
 	//ebx is the number
 	__asm
 	{
+		mov eax, [esp+4] ;
+		mov ebx, [esp+8] ;
 		mov edx, 1 ; //edx is the result
 		whileStart: ; 
 		cmp eax, 0 ; //while(power)
