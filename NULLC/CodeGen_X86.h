@@ -19,7 +19,7 @@ void EMIT_COMMENT(const char* text);
 
 void EMIT_LABEL(unsigned int labelID, bool invalidate);
 void EMIT_OP(x86Command op);
-void EMIT_OP_LABEL(x86Command op, unsigned int labelID, bool invalidate);
+void EMIT_OP_LABEL(x86Command op, unsigned int labelID, bool invalidate, bool longJump);
 void EMIT_OP_REG(x86Command op, x86Reg reg1);
 void EMIT_OP_FPUREG(x86Command op, x87Reg reg1);
 void EMIT_OP_NUM(x86Command op, unsigned int num);
