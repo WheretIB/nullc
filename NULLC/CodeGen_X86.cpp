@@ -712,12 +712,12 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 		EMIT_OP_REG_REG(o_mov, reg1, reg2);
 		return;
 	}else if(op == o_cmp){
-		if(NULLC::reg[reg2].type == x86Argument::argPtr)
+		if(NULLC::reg[reg2].type == x86Argument::argPtr && NULLC::reg[reg2].ptrSize == sDWORD)
 		{
 			EMIT_OP_REG_RPTR(o_cmp, reg1, sDWORD, NULLC::reg[reg2].ptrIndex, NULLC::reg[reg2].ptrMult, NULLC::reg[reg2].ptrBase, NULLC::reg[reg2].ptrNum);
 			return;
 		}
-		if(NULLC::reg[reg1].type == x86Argument::argPtr)
+		if(NULLC::reg[reg1].type == x86Argument::argPtr && NULLC::reg[reg1].ptrSize == sDWORD)
 		{
 			EMIT_OP_RPTR_REG(o_cmp, sDWORD, NULLC::reg[reg1].ptrIndex, NULLC::reg[reg1].ptrMult, NULLC::reg[reg1].ptrBase, NULLC::reg[reg1].ptrNum, reg2);
 			return;
@@ -751,6 +751,14 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	if(NULLC::reg[base].type == x86Argument::argReg)
+		base = NULLC::reg[base].reg;
+	if(index == rNONE && NULLC::reg[base].type == x86Argument::argPtr && NULLC::reg[base].ptrSize == sNONE)
+	{
+		EMIT_OP_REG_RPTR(op, reg1, size, NULLC::reg[base].ptrIndex, NULLC::reg[base].ptrMult, NULLC::reg[base].ptrBase, NULLC::reg[base].ptrNum + shift);
+		return;
+	}
+
 	x86Argument newArg = x86Argument(size, index, mult, base, shift);
 	unsigned int cIndex = NULLC::MemFind(newArg);
 	if(cIndex != ~0u)
@@ -894,6 +902,11 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg index, int multiplier,
 #ifdef NULLC_OPTIMIZE_X86
 	if(NULLC::reg[base].type == x86Argument::argReg)
 		base = NULLC::reg[base].reg;
+	if(index == rNONE && NULLC::reg[base].type == x86Argument::argPtr && NULLC::reg[base].ptrSize == sNONE)
+	{
+		EMIT_OP_RPTR_REG(op, size, NULLC::reg[base].ptrIndex, NULLC::reg[base].ptrMult, NULLC::reg[base].ptrBase, NULLC::reg[base].ptrNum + shift, reg2);
+		return;
+	}
 
 	if(NULLC::reg[reg2].type == x86Argument::argNumber)
 	{
