@@ -556,7 +556,9 @@ bool ExecutorX86::TranslateToNative()
 
 #ifdef NULLC_LOG_FILES
 	static unsigned int instCount = 0;
-	instCount += instList.size();
+	for(unsigned int i = 0; i < instList.size(); i++)
+		if(instList[i].name != o_none)
+			instCount++;
 	printf("So far, %d optimizations (%d instructions)\r\n", GetOptimizationCount(), instCount);
 
 	FILE *fAsm = fopen("asmX86.txt", "wb");
@@ -869,7 +871,9 @@ bool ExecutorX86::TranslateToNative()
 				else
 					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 			}else{
-				if(cmd.argB.type == x86Argument::argNumber)
+				if(cmd.argB.type == x86Argument::argPtr)
+					code += x86CMP(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				else if(cmd.argB.type == x86Argument::argNumber)
 					code += x86CMP(code, cmd.argA.reg, cmd.argB.num);
 				else
 					code += x86CMP(code, cmd.argA.reg, cmd.argB.reg);

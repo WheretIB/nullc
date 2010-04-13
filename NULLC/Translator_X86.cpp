@@ -971,6 +971,14 @@ int x86CMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1+asize;
 }
+// cmp op1, dword [index*mult+base+shift]
+int x86CMP(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	assert(size == sDWORD);
+	stream[0] = 0x3b;
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op1]);
+	return 1+asize;
+}
 // cmp dword [index*mult+base+shift], num
 int x86CMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int op2)
 {
