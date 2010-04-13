@@ -361,6 +361,7 @@ public:
 		funcType = NULL;
 		allParamSize = 0;
 		parentClass = NULL;
+		parentFunc = NULL;
 
 		firstParam = lastParam = NULL;
 		paramCount = 0;
@@ -422,6 +423,7 @@ public:
 										// how many variables we need to remove from variable stack
 	TypeInfo	*retType;				// Function return type
 	TypeInfo	*parentClass;
+	FunctionInfo	*parentFunc;
 
 	bool		visible;				// true until function goes out of scope
 	bool		implemented;			// false if only function prototype has been found.
