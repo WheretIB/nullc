@@ -385,8 +385,8 @@ void ExecutorX86::Run(const char* funcName)
 	unsigned int resT = 0;
 	genStackPtr = genStackTop = getESP();
 
-	unsigned long extraStack = 4096;
-	SetThreadStackGuarantee(&extraStack);
+	//unsigned long extraStack = 4096;
+	//SetThreadStackGuarantee(&extraStack);
 
 	abnormalTermination = false;
 
@@ -514,6 +514,7 @@ bool ExecutorX86::TranslateToNative()
 
 	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
 		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
+	OptimizationLookBehind(false);
 	pos = 0;
 	while(pos < exCode.size())
 	{
@@ -545,7 +546,9 @@ bool ExecutorX86::TranslateToNative()
 	instList.resize((int)(GetLastInstruction() - &instList[0]));
 
 #ifdef NULLC_LOG_FILES
-	printf("So far, %d optimizations\r\n", GetOptimizationCount());
+	static unsigned int instCount = 0;
+	instCount += instList.size();
+	printf("So far, %d optimizations (%d instructions)\r\n", GetOptimizationCount(), instCount);
 
 	FILE *fAsm = fopen("asmX86.txt", "wb");
 	char instBuf[128];
@@ -634,10 +637,10 @@ bool ExecutorX86::TranslateToNative()
 			{
 				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, (unsigned int)(intptr_t)bytecode);
 			}else{
-				if(cmd.argB.ptrMult > 1)
-					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrMult, cmd.argB.ptrReg[1], cmd.argB.ptrNum);
+				if(cmd.argB.ptrMult >= 1)
+					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[1], cmd.argB.ptrMult, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
 				else
-					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
+					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[1], 1, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
 			}
 			break;
 		case o_xchg:

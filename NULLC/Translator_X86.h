@@ -111,8 +111,6 @@ int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Re
 
 // lea dst, [label+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift);
-// lea dst, [src+shift]
-int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int shift);
 // lea dst, [src*multiplier+base+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int multiplier, x86Reg base, int shift);
 

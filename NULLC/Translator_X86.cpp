@@ -25,7 +25,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	assert(index != rESP);
 	unsigned char* start = stream;
 
-	bool dispImm8 = (char)(displacement) == displacement;
+	bool dispImm8 = (char)(displacement) == displacement && base != rNONE;
 
 	unsigned char mod = 0;
 	if(displacement)
@@ -50,8 +50,15 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	if(index != rNONE)
 		RM = regCode[rESP];	// this changes mode to [index*multiplier + base + displacement]
 
-	*stream++ = mod | spare | RM;
+	unsigned char sibBase = regCode[base];
 
+	if(index != rNONE && base == rNONE)
+	{
+		mod = 0;
+		sibBase = regCode[rEBP];
+	}
+
+	*stream++ = mod | spare | RM;
 	unsigned char sibScale = 0;
 	if(multiplier == 2)
 		sibScale = 1 << 6;
@@ -62,10 +69,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	assert(multiplier == 0 || multiplier == 1 || multiplier == 2 || multiplier == 4 || multiplier == 8);
 
 	unsigned char sibIndex = (index != rNONE ? regCode[index] << 3 : regCode[rESP] << 3);
-	unsigned char sibBase = regCode[base];
-
-	if(index != rNONE && base == rNONE)
-		sibBase = regCode[rEBP];
+	
 	if(index != rNONE || base == rESP)
 		*stream++ = sibScale | sibIndex | sibBase;
 	
@@ -553,13 +557,6 @@ int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift)
 	pendingJumps.push_back(UnsatisfiedJump(labelID, true, stream));
 	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rNONE, 0xcdcdcdcd, regCode[dst]);
 	assert(asize == 5);
-	return 1 + asize;
-}
-// lea dst, [src+shift]
-int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int shift)
-{
-	stream[0] = 0x8d;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, src, shift, regCode[dst]);
 	return 1 + asize;
 }
 // lea dst, [src*multiplier+base+shift]
