@@ -42,14 +42,14 @@ namespace NULLC
 		{
 			if(NULLC::stack[i].type == x86Argument::argReg && NULLC::stack[i].reg == dreg)
 				NULLC::stack[i].type = x86Argument::argNone;
-			if(NULLC::stack[i].type == x86Argument::argPtr && (NULLC::stack[i].ptrReg[0] == dreg || NULLC::stack[i].ptrReg[1] == dreg))
+			if(NULLC::stack[i].type == x86Argument::argPtr && (NULLC::stack[i].ptrBase == dreg || NULLC::stack[i].ptrIndex == dreg))
 				NULLC::stack[i].type = x86Argument::argNone;
 		}
 		for(unsigned int i = 0; i < 9; i++)
 		{
 			if(reg[i].type == x86Argument::argReg && reg[i].reg == dreg)
 				reg[i].type = x86Argument::argNone;
-			if(reg[i].type == x86Argument::argPtr && (reg[i].ptrReg[0] == dreg || reg[i].ptrReg[1] == dreg))
+			if(reg[i].type == x86Argument::argPtr && (reg[i].ptrBase == dreg || reg[i].ptrIndex == dreg))
 				reg[i].type = x86Argument::argNone;
 		}
 	}
@@ -71,11 +71,14 @@ unsigned int GetOptimizationCount()
 #ifdef NULLC_OPTIMIZE_X86
 void KILL_REG_IMPL(x86Reg reg)
 {
-	if(!NULLC::regRead[reg])
+	if(!NULLC::regRead[reg] && NULLC::reg[reg].type != x86Argument::argNone)
 	{
 		x86Instruction *curr = NULLC::regUpdate[reg] + x86Base;
-		curr->name = o_none;
-		optiCount++;
+		if(curr->name != o_none)
+		{
+			curr->name = o_none;
+			optiCount++;
+		}
 	}
 }
 #define KILL_REG(reg)	KILL_REG_IMPL(reg)
@@ -86,6 +89,7 @@ void KILL_REG_IMPL(x86Reg reg)
 #ifdef NULLC_LOG_FILES
 void EMIT_COMMENT(const char* text)
 {
+	(void)text;
 	/*x86Op->name = o_other;
 	x86Op->comment = text;
 	x86Op++;*/
@@ -136,31 +140,13 @@ void EMIT_OP_LABEL(x86Command op, unsigned int labelID, bool invalidate = true, 
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_call)
 	{
-		if(NULLC::reg[rEAX].type != x86Argument::argNone)
-			KILL_REG(rEAX);
-		if(NULLC::reg[rEBX].type != x86Argument::argNone)
-			KILL_REG(rEBX);
-		if(NULLC::reg[rECX].type != x86Argument::argNone)
-			KILL_REG(rECX);
-		if(NULLC::reg[rEDX].type != x86Argument::argNone)
-			KILL_REG(rEDX);
-		if(NULLC::reg[rESI].type != x86Argument::argNone)
-			KILL_REG(rESI);
+		KILL_REG(rEAX); KILL_REG(rEBX); KILL_REG(rECX); KILL_REG(rEDX); KILL_REG(rESI);
 	}
 	if(op >= o_jmp && op <= o_ret && invalidate)
 	{
 		if(longJump)
 		{
-			if(NULLC::reg[rEAX].type != x86Argument::argNone)
-				KILL_REG(rEAX);
-			if(NULLC::reg[rEBX].type != x86Argument::argNone)
-				KILL_REG(rEBX);
-			if(NULLC::reg[rECX].type != x86Argument::argNone)
-				KILL_REG(rECX);
-			if(NULLC::reg[rEDX].type != x86Argument::argNone)
-				KILL_REG(rEDX);
-			if(NULLC::reg[rESI].type != x86Argument::argNone)
-				KILL_REG(rESI);
+			KILL_REG(rEAX); KILL_REG(rEBX); KILL_REG(rECX); KILL_REG(rEDX); KILL_REG(rESI);
 		}
 		NULLC::InvalidateState();
 	}
@@ -178,13 +164,13 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_call)
 	{
-		if(reg1 != rEAX && NULLC::reg[rEAX].type != x86Argument::argNone)
+		if(reg1 != rEAX)
 			KILL_REG(rEAX);
-		if(reg1 != rEBX && NULLC::reg[rEBX].type != x86Argument::argNone)
+		if(reg1 != rEBX)
 			KILL_REG(rEBX);
-		if(reg1 != rECX && NULLC::reg[rECX].type != x86Argument::argNone)
+		if(reg1 != rECX)
 			KILL_REG(rECX);
-		if(reg1 != rEDX && NULLC::reg[rEDX].type != x86Argument::argNone)
+		if(reg1 != rEDX)
 			KILL_REG(rEDX);
 		NULLC::InvalidateState();
 	}
@@ -213,30 +199,32 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 				optiCount++;
 				return;
 			}
-			if(NULLC::reg[reg1].type != x86Argument::argNone)
-				KILL_REG(reg1);
-			NULLC::reg[reg1] = NULLC::stack[index];
 
-			if(NULLC::stack[index].type == x86Argument::argReg || NULLC::stack[index].type == x86Argument::argNumber || NULLC::stack[index].type == x86Argument::argPtr)
+			x86Argument &target = NULLC::stack[index];
+			if(target.type == x86Argument::argPtr)
 			{
-				if(!(NULLC::stack[index].type == x86Argument::argReg && NULLC::stack[index].reg == reg1))
-				{
-					NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
-					NULLC::regRead[reg1] = false;
-
-					x86Op->name = o_mov;
-					x86Op->argA.type = x86Argument::argReg;
-					x86Op->argA.reg = reg1;
-					x86Op->argB = NULLC::stack[index];
-					x86Op++;
-				}else{
-					optiCount++;
-				}
 				EMIT_OP_REG_NUM(o_add, rESP, 4);
+				EMIT_OP_REG_RPTR(o_mov, reg1, target.ptrSize, target.ptrIndex, target.ptrMult, target.ptrBase, target.ptrNum);
 				NULLC::InvalidateDependand(reg1);
-				
 				return;
 			}
+			if(target.type == x86Argument::argReg)
+			{
+				if(reg1 != target.reg)
+					EMIT_OP_REG_REG(o_mov, reg1, target.reg);
+				else
+					optiCount++;
+				EMIT_OP_REG_NUM(o_add, rESP, 4);
+				return;
+			}
+			if(target.type == x86Argument::argNumber)
+			{
+				EMIT_OP_REG_NUM(o_mov, reg1, target.num);
+				EMIT_OP_REG_NUM(o_add, rESP, 4);
+				return;
+			}
+			KILL_REG(reg1);
+			NULLC::reg[reg1] = NULLC::stack[index];
 			NULLC::stackTop--;
 			NULLC::stack[index].type = x86Argument::argNone;
 		}
@@ -250,7 +238,7 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 		NULLC::reg[rEDX].type = x86Argument::argNone;
 		if(op == o_idiv && NULLC::reg[reg1].type == x86Argument::argPtr)
 		{
-			EMIT_OP_RPTR(o_idiv, NULLC::reg[reg1].ptrSize, NULLC::reg[reg1].ptrReg[0], NULLC::reg[reg1].ptrNum);
+			EMIT_OP_RPTR(o_idiv, NULLC::reg[reg1].ptrSize, NULLC::reg[reg1].ptrBase, NULLC::reg[reg1].ptrNum);
 			return;
 		}
 	}else{
@@ -336,8 +324,8 @@ void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr)
 void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	//if(NULLC::reg[reg2].type == x86Argument::argReg)
-	//	reg2 = NULLC::reg[reg2].reg;
+	if(NULLC::reg[reg2].type == x86Argument::argReg)
+		reg2 = NULLC::reg[reg2].reg;
 	if(op == o_push)
 	{
 		unsigned int index  = (++NULLC::stackTop) % NULLC::STACK_STATE_SIZE;
@@ -352,7 +340,7 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 			x86Op->name = o_mov;
 			x86Op->argA.type = x86Argument::argPtr;
 			x86Op->argA.ptrSize = size;
-			x86Op->argA.ptrReg[0] = reg2;
+			x86Op->argA.ptrBase = reg2;
 			x86Op->argA.ptrNum = shift;
 			x86Op->argB = NULLC::stack[index];
 			x86Op++;
@@ -367,7 +355,7 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 		x86Argument &target = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
 		target.type = x86Argument::argNone;
 	}else if((op == o_fld || op == o_fild || op == o_fadd || op == o_fsub || op == o_fmul || op == o_fdiv || op == o_fcomp) && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
-		if(x86LookBehind && op == o_fld && x86Op[-1].name == o_fstp && x86Op[-1].argA.ptrSize == size && x86Op[-1].argA.ptrReg[0] == reg2 && x86Op[-1].argA.ptrNum == (int)shift)
+		if(x86LookBehind && op == o_fld && x86Op[-1].name == o_fstp && x86Op[-1].argA.ptrSize == size && x86Op[-1].argA.ptrBase == reg2 && x86Op[-1].argA.ptrNum == (int)shift)
 		{
 			x86Op[-1].name = o_fst;
 			optiCount++;
@@ -378,12 +366,12 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 
 		if(NULLC::stack[index].type == x86Argument::argPtr)
 		{
-			if(NULLC::stack[index].ptrReg[0] == rNONE)
+			if(NULLC::stack[index].ptrBase == rNONE)
 			{
 				EMIT_OP_ADDR(op, size, NULLC::stack[index].ptrNum);
 				return;
 			}
-			reg2 = NULLC::stack[index].ptrReg[0];
+			reg2 = NULLC::stack[index].ptrBase;
 			shift = NULLC::stack[index].ptrNum;
 		}else{
 			NULLC::stackRead[index] = true;
@@ -413,7 +401,7 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
-	x86Op->argA.ptrReg[0] = reg2;
+	x86Op->argA.ptrBase = reg2;
 	x86Op->argA.ptrNum = shift;
 	x86Op++;
 }
@@ -460,9 +448,9 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 						assert(start->argA.type != x86Argument::argReg || start->argA.reg != rESP);
 						assert(start->argB.type != x86Argument::argReg || start->argB.reg != rESP);
 						
-						if(start->argA.type == x86Argument::argPtr && start->argA.ptrReg[0] == rESP && start->argA.ptrNum >= pos)
+						if(start->argA.type == x86Argument::argPtr && start->argA.ptrBase == rESP && start->argA.ptrNum >= pos)
 							start->argA.ptrNum -= 4;
-						if(start->argB.type == x86Argument::argPtr && start->argB.ptrReg[0] == rESP && start->argB.ptrNum >= pos)
+						if(start->argB.type == x86Argument::argPtr && start->argB.ptrBase == rESP && start->argB.ptrNum >= pos)
 							start->argB.ptrNum -= 4;
 					}
 				}
@@ -505,9 +493,9 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 					safe = false;
 				if(curr->name >= o_jmp && curr->name <= o_ret)
 					safe = false;
-				if(curr->argA.type == x86Argument::argPtr && curr->argA.ptrReg[0] == rESP)
+				if(curr->argA.type == x86Argument::argPtr && curr->argA.ptrBase == rESP)
 					safe = false;
-				if(curr->argB.type == x86Argument::argPtr && curr->argB.ptrReg[0] == rESP)
+				if(curr->argB.type == x86Argument::argPtr && curr->argB.ptrBase == rESP)
 					safe = false;
 				if(curr->argA.type == x86Argument::argReg && curr->argA.reg == rESP)
 					safe = false;
@@ -528,8 +516,7 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 		}
 		NULLC::regUpdate[rESP] = (unsigned int)(x86Op - x86Base);
 	}else if(op == o_mov){
-		if(NULLC::reg[reg1].type != x86Argument::argNone)
-			KILL_REG(reg1);
+		KILL_REG(reg1);
 		NULLC::InvalidateDependand(reg1);
 		NULLC::reg[reg1] = x86Argument(num);
 		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
@@ -555,8 +542,12 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_mov)
 	{
-		if(NULLC::reg[reg1].type != x86Argument::argNone)
-			KILL_REG(reg1);
+		if(reg1 == reg2)
+		{
+			optiCount++;
+			return;
+		}
+		KILL_REG(reg1);
 		NULLC::InvalidateDependand(reg1);
 
 		NULLC::reg[reg1] = x86Argument(reg2);
@@ -588,8 +579,7 @@ void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int add
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_mov)
 	{
-		if(NULLC::reg[reg1].type != x86Argument::argNone)
-			KILL_REG(reg1);
+		KILL_REG(reg1);
 		NULLC::InvalidateDependand(reg1);
 
 		NULLC::reg[reg1] = x86Argument(size, addr);
@@ -607,44 +597,48 @@ void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int add
 	x86Op->argB.ptrNum = addr;
 	x86Op++;
 }
-void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift)
+void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	if(op != o_mov && op != o_lea && op != o_movsx && op != o_or)
 		__asm int 3;
 
+	if(op == o_mov && size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
+	{
+		x86Argument &target = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
+		if(target.type == x86Argument::argPtr)
+		{
+			EMIT_OP_REG_RPTR(op, reg1, target.ptrSize, target.ptrIndex, target.ptrMult, target.ptrBase, target.ptrNum);
+			return;
+		}
+		if(target.type == x86Argument::argReg)
+		{
+			EMIT_OP_REG_REG(op, reg1, target.reg);
+			return;
+		}
+		if(target.type == x86Argument::argNumber)
+		{
+			EMIT_OP_REG_NUM(op, reg1, target.num);
+			return;
+		}
+	}
 	if(op == o_mov || op == o_movsx || op == o_lea)
 	{
-		if(NULLC::reg[reg1].type != x86Argument::argNone)
-			KILL_REG(reg1);
+		KILL_REG(reg1);
 		NULLC::InvalidateDependand(reg1);
 	}
 	if(op == o_mov || op == o_movsx)
 	{
-		NULLC::reg[reg1] = x86Argument(size, reg2, shift);
+		NULLC::reg[reg1] = x86Argument(size, index, mult, base, shift);
 		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
 		NULLC::regRead[reg1] = false;
-	}else{
-		NULLC::InvalidateDependand(reg1);
+	}else if(op == o_lea){
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	}
-	NULLC::regRead[reg2] = true;
+	NULLC::regRead[base] = true;
 
-	if(op == o_mov && size == sDWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
-	{
-		x86Argument &target = NULLC::stack[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE];
-		if(target.type != x86Argument::argNone)
-		{
-			x86Op->name = o_mov;
-			x86Op->argA.type = x86Argument::argReg;
-			x86Op->argA.reg = reg1;
-			x86Op->argB = target;
-			NULLC::reg[reg1] = target;
-			x86Op++;
-			return;
-		}
-	}
-	if(size == sDWORD && reg2 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
+	
+	if(size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
 		NULLC::stackRead[(16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE] = true;
 
 #endif
@@ -653,10 +647,17 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, uns
 	x86Op->argA.reg = reg1;
 	x86Op->argB.type = x86Argument::argPtr;
 	x86Op->argB.ptrSize = size;
-	x86Op->argB.ptrReg[0] = reg2;
+	x86Op->argB.ptrIndex = index;
+	x86Op->argB.ptrMult = mult;
+	x86Op->argB.ptrBase = base;
 	x86Op->argB.ptrNum = shift;
 	x86Op++;
 }
+void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift)
+{
+	EMIT_OP_REG_RPTR(op, reg1, size, rNONE, 1, reg2, shift);
+}
+
 void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, unsigned int labelID, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
@@ -682,9 +683,8 @@ void EMIT_OP_REG_REG_MULT_REG_NUM(x86Command op, x86Reg dst, x86Size size, x86Re
 	NULLC::regRead[index] = true;
 	NULLC::regRead[base] = true;
 
-	if(NULLC::reg[dst].type != x86Argument::argNone)
-		KILL_REG(dst);
-	NULLC::reg[dst].type = x86Argument::argPtrLabel;
+	KILL_REG(dst);
+	NULLC::reg[dst] = x86Argument(size, index, mult, base, shift);
 	NULLC::regRead[dst] = false;
 	NULLC::regUpdate[dst] = (unsigned int)(x86Op - x86Base);
 #endif
@@ -693,9 +693,9 @@ void EMIT_OP_REG_REG_MULT_REG_NUM(x86Command op, x86Reg dst, x86Size size, x86Re
 	x86Op->argA.reg = dst;
 	x86Op->argB.type = x86Argument::argPtr;
 	x86Op->argB.ptrSize = size;
-	x86Op->argB.ptrReg[1] = index;
+	x86Op->argB.ptrIndex = index;
 	x86Op->argB.ptrMult = mult;
-	x86Op->argB.ptrReg[0] = base;
+	x86Op->argB.ptrBase = base;
 	x86Op->argB.ptrNum = shift;
 	x86Op++;
 }
@@ -733,6 +733,9 @@ void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg
 void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, x86Reg reg2)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	if(NULLC::reg[reg1].type == x86Argument::argReg)
+		reg1 = NULLC::reg[reg1].reg;
+
 	if(NULLC::reg[reg2].type == x86Argument::argNumber)
 	{
 		EMIT_OP_RPTR_NUM(op, size, reg1, shift, NULLC::reg[reg2].num);
@@ -759,7 +762,7 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
-	x86Op->argA.ptrReg[0] = reg1;
+	x86Op->argA.ptrBase = reg1;
 	x86Op->argA.ptrNum = shift;
 	x86Op->argB.type = x86Argument::argReg;
 	x86Op->argB.reg = reg2;
@@ -769,6 +772,9 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	if(NULLC::reg[reg1].type == x86Argument::argReg)
+		reg1 = NULLC::reg[reg1].reg;
+
 	if(size == sDWORD && reg1 == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
 	{
 		unsigned int index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
@@ -787,7 +793,7 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shi
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
 	x86Op->argA.ptrSize = size;
-	x86Op->argA.ptrReg[0] = reg1;
+	x86Op->argA.ptrBase = reg1;
 	x86Op->argA.ptrNum = shift;
 	x86Op->argB.type = x86Argument::argNumber;
 	x86Op->argB.num = num;
@@ -962,6 +968,7 @@ void GenCodeCmdPushCharStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sBYTE, rEDX, cmd.argument);
 	EMIT_OP_REG(o_push, rEAX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushShortStk(VMCmd cmd)
@@ -971,7 +978,7 @@ void GenCodeCmdPushShortStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_movsx, rEAX, sWORD, rEDX, cmd.argument);
 	EMIT_OP_REG(o_push, rEAX);
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushIntStk(VMCmd cmd)
@@ -980,7 +987,7 @@ void GenCodeCmdPushIntStk(VMCmd cmd)
 
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushFloatStk(VMCmd cmd)
@@ -991,7 +998,7 @@ void GenCodeCmdPushFloatStk(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	EMIT_OP_RPTR(o_fld, sDWORD, rEDX, cmd.argument);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushDorLStk(VMCmd cmd)
@@ -1001,7 +1008,7 @@ void GenCodeCmdPushDorLStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument+4);
 	EMIT_OP_RPTR(o_push, sDWORD, rEDX, cmd.argument);
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdPushCmplxStk(VMCmd cmd)
@@ -1031,7 +1038,7 @@ void GenCodeCmdPushCmplxStk(VMCmd cmd)
 
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 
@@ -1154,8 +1161,7 @@ void GenCodeCmdMovCharStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sBYTE, rEDX, cmd.argument, rEBX);
-	KILL_REG(rEBX);
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovShortStk(VMCmd cmd)
@@ -1165,8 +1171,7 @@ void GenCodeCmdMovShortStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sWORD, rEDX, cmd.argument, rEBX);
-	KILL_REG(rEBX);
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovIntStk(VMCmd cmd)
@@ -1176,8 +1181,7 @@ void GenCodeCmdMovIntStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
 	EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument, rEBX);
-	KILL_REG(rEBX);
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovFloatStk(VMCmd cmd)
@@ -1187,7 +1191,7 @@ void GenCodeCmdMovFloatStk(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEDX);
 	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 	EMIT_OP_RPTR(o_fstp, sDWORD, rEDX, cmd.argument);
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovDorLStk(VMCmd cmd)
@@ -1205,7 +1209,7 @@ void GenCodeCmdMovDorLStk(VMCmd cmd)
 		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument + 4);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	}
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovCmplxStk(VMCmd cmd)
@@ -1235,7 +1239,7 @@ void GenCodeCmdMovCmplxStk(VMCmd cmd)
 
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 	}
-	KILL_REG(rEDX);
+	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
 
 void GenCodeCmdPop(VMCmd cmd)
@@ -2525,7 +2529,9 @@ void GenCodeCmdIncI(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("INC int");
-	EMIT_OP_RPTR_NUM(o_add, sDWORD, rESP, 0, 1);
+	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG_NUM(o_add, rEAX, 1);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 void GenCodeCmdIncD(VMCmd cmd)
@@ -2553,7 +2559,9 @@ void GenCodeCmdDecI(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("DEC int");
-	EMIT_OP_RPTR_NUM(o_sub, sDWORD, rESP, 0, 1);
+	EMIT_OP_REG(o_pop, rEAX);
+	EMIT_OP_REG_NUM(o_sub, rEAX, 1);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 void GenCodeCmdDecD(VMCmd cmd)

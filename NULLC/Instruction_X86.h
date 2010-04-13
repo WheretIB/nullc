@@ -28,7 +28,6 @@ enum x86Command
 	o_push,
 	o_pop,
 	o_lea,
-	o_xchg,
 	o_cdq,
 	o_rep_movsd,
 
@@ -114,7 +113,7 @@ enum x86Command
 
 
 static char* x86CmdText[] = 
-{	"", "mov", "movsx", "push", "pop", "lea", "xchg", "cdq", "rep movsd",
+{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd",
 	"jmp", "ja", "jae", "jb", "jbe", "jc", "je", "jz", "jg", "jl", "jne", "jnp", "jnz", "jp", "call", "ret",
 	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
@@ -164,21 +163,21 @@ struct x86Argument
 	{
 		Empty();
 		type = argPtr;
-		ptrSize = Size; ptrReg[0] = RegA; ptrMult = 1; ptrNum = Num;
+		ptrSize = Size; ptrBase = RegA; ptrMult = 1; ptrNum = Num;
 	}
 	// size [register + register + num]
 	x86Argument(x86Size Size, x86Reg RegA, x86Reg RegB, unsigned int Num)
 	{
 		Empty();
 		type = argPtr;
-		ptrSize = Size; ptrReg[0] = RegA; ptrMult = 1; ptrReg[1] = RegB; ptrNum = Num;
+		ptrSize = Size; ptrBase = RegB; ptrMult = 1; ptrIndex = RegA; ptrNum = Num;
 	}
 	// size [register * multiplier + register + num]
 	x86Argument(x86Size Size, x86Reg RegA, unsigned int Mult, x86Reg RegB, unsigned int Num)
 	{
 		Empty();
 		type = argPtr;
-		ptrSize = Size; ptrReg[0] = RegA; ptrMult = Mult; ptrReg[1] = RegB; ptrNum = Num;
+		ptrSize = Size; ptrBase = RegB; ptrMult = Mult; ptrIndex = RegA; ptrNum = Num;
 	}
 
 	void Empty()
@@ -190,7 +189,7 @@ struct x86Argument
 	{
 		if(type != r.type || reg != r.reg)
 			return false;
-		if(ptrSize != r.ptrSize || ptrReg[0] != r.ptrReg[0] || ptrReg[1] != r.ptrReg[1] || ptrMult != r.ptrMult || ptrNum != r.ptrNum)
+		if(ptrSize != r.ptrSize || ptrBase != r.ptrBase || ptrIndex != r.ptrIndex || ptrMult != r.ptrMult || ptrNum != r.ptrNum)
 			return false;
 		return true;
 	}
@@ -206,7 +205,7 @@ struct x86Argument
 		x86Size	ptrSize;			// Used only when type == argPtr
 	};
 
-	x86Reg	ptrReg[2];
+	x86Reg	ptrBase, ptrIndex;
 	int		ptrMult;
 	int		ptrNum;
 
@@ -225,13 +224,18 @@ struct x86Argument
 			curr += sprintf(curr, "['0x%p'+%d]", (int*)(intptr_t)labelID, ptrNum);
 		else if(type == argPtr){
 			curr += sprintf(curr, "%s [", x86SizeText[ptrSize]);
-			if(ptrReg[0] != rNONE)
-				curr += sprintf(curr, "%s", x86RegText[ptrReg[0]]);
+			if(ptrIndex != rNONE)
+				curr += sprintf(curr, "%s", x86RegText[ptrIndex]);
 			if(ptrMult > 1)
 				curr += sprintf(curr, "*%d", ptrMult);
-			if(ptrReg[1] != rNONE)
-				curr += sprintf(curr, " + %s", x86RegText[ptrReg[1]]);
-			if(ptrReg[0] == rNONE && ptrReg[1] == rNONE)
+			if(ptrBase != rNONE)
+			{
+				if(ptrIndex != rNONE)
+					curr += sprintf(curr, " + %s", x86RegText[ptrBase]);
+				else
+					curr += sprintf(curr, "%s", x86RegText[ptrBase]);
+			}
+			if(ptrIndex == rNONE && ptrBase == rNONE)
 				curr += sprintf(curr, "%d", ptrNum);
 			else if(ptrNum != 0)
 				curr += sprintf(curr, "%+d", ptrNum);
