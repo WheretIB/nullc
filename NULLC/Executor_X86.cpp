@@ -614,30 +614,30 @@ bool ExecutorX86::TranslateToNative()
 				if(cmd.argB.type == x86Argument::argNumber)
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.num);
 				else if(cmd.argB.type == x86Argument::argPtr)
-					code += x86MOV(code, cmd.argA.reg, cmd.argB.ptrReg[0], sDWORD, cmd.argB.ptrNum);
+					code += x86MOV(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 				else
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.reg);
 			}else{
 				if(cmd.argB.type == x86Argument::argNumber)
-					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 				else
-					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 			}
 			break;
 		case o_movsx:
-			code += x86MOVSX(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrReg[0], cmd.argB.ptrReg[1], cmd.argB.ptrNum);
+			code += x86MOVSX(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			break;
 		case o_push:
 			if(cmd.argA.type == x86Argument::argNumber)
 				code += x86PUSH(code, cmd.argA.num);
 			else if(cmd.argA.type == x86Argument::argPtr)
-				code += x86PUSH(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
+				code += x86PUSH(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			else
 				code += x86PUSH(code, cmd.argA.reg);
 			break;
 		case o_pop:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86POP(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
+				code += x86POP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			else
 				code += x86POP(code, cmd.argA.reg);
 			break;
@@ -646,19 +646,8 @@ bool ExecutorX86::TranslateToNative()
 			{
 				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, (unsigned int)(intptr_t)bytecode);
 			}else{
-				if(cmd.argB.ptrMult >= 1)
-					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[1], cmd.argB.ptrMult, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
-				else
-					code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrReg[1], 1, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
+				code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			}
-			break;
-		case o_xchg:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86XCHG(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
-			else if(cmd.argB.type == x86Argument::argPtr)
-				code += x86XCHG(code, sDWORD, cmd.argB.ptrReg[0], cmd.argB.ptrNum, cmd.argA.reg);
-			else
-				code += x86XCHG(code, cmd.argA.reg, cmd.argB.reg);
 			break;
 		case o_cdq:
 			code += x86CDQ(code);
@@ -721,34 +710,23 @@ bool ExecutorX86::TranslateToNative()
 
 		case o_fld:
 			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argA.ptrReg[1] != x86Argument::argNone)
-					code += x86FLD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
-				else
-					code += x86FLD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
-			}else{
+				code += x86FLD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			else
 				code += x86FLD(code, (x87Reg)cmd.argA.fpArg);
-			}
 			break;
 		case o_fild:
-			code += x86FILD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FILD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fistp:
-			code += x86FISTP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FISTP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fst:
-			if(cmd.argA.ptrReg[1] != x86Argument::argNone)
-				code += x86FST(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
-			else
-				code += x86FST(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FST(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fstp:
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
-				if(cmd.argA.ptrReg[1] != x86Argument::argNone)
-					code += x86FSTP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrReg[1], cmd.argA.ptrNum);
-				else
-					code += x86FSTP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+				code += x86FSTP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			}else{
 				code += x86FSTP(code, (x87Reg)cmd.argA.fpArg);
 			}
@@ -765,7 +743,7 @@ bool ExecutorX86::TranslateToNative()
 
 		case o_neg:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86NEG(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+				code += x86NEG(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			else
 				code += x86NEG(code, cmd.argA.reg);
 			break;
@@ -773,9 +751,9 @@ bool ExecutorX86::TranslateToNative()
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
-					code += x86ADD(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
-					code += x86ADD(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
 				if(cmd.argB.type == x86Argument::argReg)
 					code += x86ADD(code, cmd.argA.reg, cmd.argB.reg);
@@ -787,9 +765,9 @@ bool ExecutorX86::TranslateToNative()
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
-					code += x86ADC(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
-					code += x86ADC(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
 				code += x86ADC(code, cmd.argA.reg, cmd.argB.num);
 			}
@@ -798,9 +776,9 @@ bool ExecutorX86::TranslateToNative()
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
-					code += x86SUB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86SUB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
-					code += x86SUB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+					code += x86SUB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
 				if(cmd.argB.type == x86Argument::argReg)
 					code += x86SUB(code, cmd.argA.reg, cmd.argB.reg);
@@ -812,9 +790,9 @@ bool ExecutorX86::TranslateToNative()
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
-					code += x86SBB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86SBB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
-					code += x86SBB(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+					code += x86SBB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
 				code += x86SBB(code, cmd.argA.reg, cmd.argB.num);
 			}
@@ -827,13 +805,13 @@ bool ExecutorX86::TranslateToNative()
 			break;
 		case o_idiv:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86IDIV(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+				code += x86IDIV(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			else
 				code += x86IDIV(code, cmd.argA.reg);
 			break;
 		case o_shl:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86SHL(code, sDWORD, cmd.argA.ptrReg[0], cmd.argB.num);
+				code += x86SHL(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			else
 				code += x86SHL(code, cmd.argA.reg, cmd.argB.num);
 			break;
@@ -845,7 +823,7 @@ bool ExecutorX86::TranslateToNative()
 			break;
 		case o_not:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86NOT(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+				code += x86NOT(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			else
 				code += x86NOT(code, cmd.argA.reg);
 			break;
@@ -853,9 +831,9 @@ bool ExecutorX86::TranslateToNative()
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
-					code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else if(cmd.argB.type == x86Argument::argNumber)
-					code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
 				code += x86AND(code, cmd.argA.reg, cmd.argB.reg);
 			}
@@ -864,18 +842,18 @@ bool ExecutorX86::TranslateToNative()
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
-					code += x86OR(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
-					code += x86OR(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else if(cmd.argB.type == x86Argument::argPtr){
-				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrReg[0], cmd.argB.ptrNum);
+				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			}else{
 				code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
 			}
 			break;
 		case o_xor:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86XOR(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+				code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 			else
 				code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
 			break;
@@ -883,9 +861,9 @@ bool ExecutorX86::TranslateToNative()
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argNumber)
-					code += x86CMP(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 				else
-					code += x86CMP(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 			}else{
 				if(cmd.argB.type == x86Argument::argNumber)
 					code += x86CMP(code, cmd.argA.reg, cmd.argB.num);
@@ -926,22 +904,22 @@ bool ExecutorX86::TranslateToNative()
 			break;
 
 		case o_fadd:
-			code += x86FADD(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FADD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_faddp:
 			code += x86FADDP(code);
 			break;
 		case o_fmul:
-			code += x86FMUL(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FMUL(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fmulp:
 			code += x86FMULP(code);
 			break;
 		case o_fsub:
-			code += x86FSUB(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FSUB(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fsubr:
-			code += x86FSUBR(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FSUBR(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fsubp:
 			code += x86FSUBP(code);
@@ -950,10 +928,10 @@ bool ExecutorX86::TranslateToNative()
 			code += x86FSUBRP(code);
 			break;
 		case o_fdiv:
-			code += x86FDIV(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FDIV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fdivr:
-			code += x86FDIVR(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FDIVR(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fdivrp:
 			code += x86FDIVRP(code);
@@ -965,7 +943,7 @@ bool ExecutorX86::TranslateToNative()
 			code += x86FPREM(code);
 			break;
 		case o_fcomp:
-			code += x86FCOMP(code, cmd.argA.ptrSize, cmd.argA.ptrReg[0], cmd.argA.ptrNum);
+			code += x86FCOMP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			break;
 		case o_fldz:
 			code += x86FLDZ(code);

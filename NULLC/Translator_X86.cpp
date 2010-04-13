@@ -141,48 +141,30 @@ int x86FLD(unsigned char *stream, x87Reg reg)
 	stream[1] = (unsigned char)(0xc0 + reg);
 	return 2;
 }
-// fld *word [reg+shift]
-int x86FLD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fld *word [index*mult+base+shift]
+int x86FLD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
-	return 1+asize;
-}
-// fld *word [regA+regB+shift]
-int x86FLD(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift)
-{
-	assert(regB != rNONE);
-	assert(size != sBYTE && size != sWORD);
-	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
-	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 0);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 0);
 	return 1+asize;
 }
 
-// fild *word [reg+shift]
-int x86FILD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fild *word [index*mult+base+shift]
+int x86FILD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xdb : 0xdf;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, size == sDWORD ? 0 : 5);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, size == sDWORD ? 0 : 5);
 	return 1+asize;
 }
 
-// fst *word [reg+shift]
-int x86FST(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fst *word [index*mult+base+shift]
+int x86FST(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 2);
-	return 1+asize;
-}
-// fst *word [regA+regB+shift]
-int x86FST(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift)
-{
-	assert(regB != rNONE);
-	assert(size != sBYTE && size != sWORD);
-	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
-	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 2);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 2);
 	return 1+asize;
 }
 
@@ -193,49 +175,40 @@ int x86FSTP(unsigned char *stream, x87Reg dst)
 	stream[1] = (unsigned char)(0xd8 + dst);
 	return 2;
 }
-// fstp *word [reg+shift]
-int x86FSTP(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fstp *word [index*mult+base+shift]
+int x86FSTP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
-	return 1+asize;
-}
-// fstp *word [regA+regB+shift]
-int x86FSTP(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift)
-{
-	assert(regB != rNONE);
-	assert(size != sBYTE && size != sWORD);
-	stream[0] = size == sDWORD ? 0xd9 : 0xdd;
-	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 3);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 3);
 	return 1+asize;
 }
 
-// fistp *word [reg+shift]
-int x86FISTP(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fistp *word [index*mult+base+shift]
+int x86FISTP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE);
 	if(size == sWORD)
 	{
 		stream[0] = 0xdf;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 3);
 		return 1+asize;
 	}else if(size == sDWORD){
 		stream[0] = 0xdb;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 3);
 		return 1+asize;
 	}
 	stream[0] = 0xdf;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 7);
 	return 1+asize;
 }
 
-// fadd *word [reg+shift]
-int x86FADD(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fadd *word [index*mult+base+shift]
+int x86FADD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 0);
 	return 1+asize;
 }
 // faddp
@@ -245,20 +218,20 @@ int x86FADDP(unsigned char *stream)
 	stream[1] = 0xc1;
 	return 2;
 }
-// fsub *word [reg+shift]
-int x86FSUB(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fsub *word [index*mult+base+shift]
+int x86FSUB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 4);
 	return 1+asize;
 }
-// fsubr *word [reg+shift]
-int x86FSUBR(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fsubr *word [index*mult+base+shift]
+int x86FSUBR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 5);
 	return 1+asize;
 }
 // fsubp
@@ -275,12 +248,12 @@ int x86FSUBRP(unsigned char *stream)
 	stream[1] = 0xe1;
 	return 2;
 }
-// fmul *word [reg+shift]
-int x86FMUL(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fmul *word [index*mult+base+shift]
+int x86FMUL(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd8: 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 1);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 1);
 	return 1+asize;
 }
 // fmulp
@@ -290,20 +263,20 @@ int x86FMULP(unsigned char *stream)
 	stream[1] = 0xc9;
 	return 2;
 }
-// fdiv *word [reg+shift]
-int x86FDIV(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fdiv *word [index*mult+base+shift]
+int x86FDIV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 6);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 6);
 	return 1+asize;
 }
-// fdivr *word [reg+shift]
-int x86FDIVR(unsigned char *stream, x86Size size, x86Reg reg, unsigned int shift)
+// fdivr *word [index*mult+base+shift]
+int x86FDIVR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 7);
 	return 1+asize;
 }
 // fdivrp
@@ -355,12 +328,12 @@ int x86FRNDINT(unsigned char *stream)
 	return 2;
 }
 
-// fcomp *word [reg+shift]
-int x86FCOMP(unsigned char *stream, x86Size size, x86Reg reg, int shift)
+// fcomp *word [index*mult+base+shift]
+int x86FCOMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sBYTE && size != sWORD);
 	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 3);
 	return 1+asize;
 }
 
@@ -387,17 +360,17 @@ int x86FLDCW(unsigned char *stream, int shift)
 	return 1+asize;
 }
 
-// push dword [regA+regB+shift]
-int x86PUSH(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift)
+// push dword [index*mult+base+shift]
+int x86PUSH(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size == sDWORD);
-	if(regB == rNONE && regA != rNONE)	// swap so if there is only one register, it will be base
+	if(base == rNONE && index != rNONE && multiplier == 1)	// swap so if there is only one register, it will be base
 	{
-		regB = regA;
-		regA = rNONE;
+		base = index;
+		index = rNONE;
 	}
 	stream[0] = 0xff;
-	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 6);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 6);
 	return 1+asize;
 }
 int x86PUSH(unsigned char *stream, x86Reg reg)
@@ -418,17 +391,17 @@ int x86PUSH(unsigned char *stream, int num)
 	return 5;
 }
 
-// pop dword [regA+regB+shift]
-int x86POP(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift)
+// pop dword [index*mult+base+shift]
+int x86POP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size == sDWORD);
-	if(regB == rNONE && regA != rNONE)	// swap so if there is only one register, it will be base
+	if(base == rNONE && index != rNONE && multiplier == 1)	// swap so if there is only one register, it will be base
 	{
-		regB = regA;
-		regA = rNONE;
+		base = index;
+		index = rNONE;
 	}
 	stream[0] = 0x8f;
-	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, 0);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 0);
 	return 1+asize;
 }
 // pop reg
@@ -450,99 +423,99 @@ int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src)
 	stream[1] = encodeRegister(dst, regCode[src]);
 	return 2;
 }
-// mov dst, dword [src+shift]
-int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src, x86Size size, int shift)
+// mov dst, dword [index*mult+base+shift]
+int x86MOV(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size == sDWORD);
-	if(dst == rEAX && (char)(shift) != shift && src == rNONE)
+	if(dst == rEAX && (char)(shift) != shift && index == rNONE && base == rNONE)
 	{
 		stream[0] = 0xa1;
 		*(int*)(stream+1) = shift;
 		return 5;
 	}
 	stream[0] = 0x8b;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, src, shift, regCode[dst]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[dst]);
 	return 1 + asize;
 }
 
-// mov *word [regA+shift], num
-int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, int shift, int num)
+// mov *word [index*mult+base+shift], num
+int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {
 	if(size == sBYTE)
 	{
 		assert((char)(num) == num);
 		stream[0] = 0xc6;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, regA, shift, 0);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 0);
 		stream[1+asize] = (char)(num);
 		return 2+asize;
 	}else if(size == sWORD){
 		assert((short int)(num) == num);
 		stream[0] = 0x66;	// switch to word
 		stream[1] = 0xc7;
-		unsigned int asize = encodeAddress(stream+2, rNONE, 1, regA, shift, 0);
+		unsigned int asize = encodeAddress(stream+2, index, multiplier, base, shift, 0);
 		*(short int*)(stream+2+asize) = (short int)(num);
 		return 4+asize;
 	}
 	stream[0] = 0xc7;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, regA, shift, 0);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 0);
 	*(int*)(stream+1+asize) = (int)(num);
 	return 5+asize;
 }
 
-// mov *word [regA+regB+shift], src
-int x86MOV(unsigned char *stream, x86Size size, x86Reg regA, x86Reg regB, int shift, x86Reg src)
+// mov *word [index*mult+base+shift], src
+int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg src)
 {
-	if(regB == rNONE && regA != rNONE)	// swap so if there is only one register, it will be base
+	if(base == rNONE && index != rNONE && multiplier == 1)	// swap so if there is only one register, it will be base
 	{
-		regB = regA;
-		regA = rNONE;
+		base = index;
+		index = rNONE;
 	}
 	if(size == sBYTE)
 	{
-		if(src == rEAX && regA == rNONE && regB == rNONE)
+		if(src == rEAX && index == rNONE && base == rNONE)
 		{
 			stream[0] = 0xa2;
 			*(int*)(stream+1) = shift;
 			return 5;
 		}
 		stream[0] = 0x88;
-		unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, regCode[src]);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[src]);
 		return 1+asize;
 	}else if(size == sWORD){
 		stream[0] = 0x66;	// switch to word
-		if(src == rEAX && regA == rNONE && regB == rNONE)
+		if(src == rEAX && index == rNONE && base == rNONE)
 		{
 			stream[1] = 0xa3;
 			*(int*)(stream+2) = shift;
 			return 6;
 		}
 		stream[1] = 0x89;
-		unsigned int asize = encodeAddress(stream+2, regA, 1, regB, shift, regCode[src]);
+		unsigned int asize = encodeAddress(stream+2, index, multiplier, base, shift, regCode[src]);
 		return 2+asize;
 	}
-	if(src == rEAX && regA == rNONE && regB == rNONE)
+	if(src == rEAX && index == rNONE && base == rNONE)
 	{
 		stream[0] = 0xa3;
 		*(int*)(stream+1) = shift;
 		return 5;
 	}
 	stream[0] = 0x89;
-	unsigned int asize = encodeAddress(stream+1, regA, 1, regB, shift, regCode[src]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[src]);
 	return 1+asize;
 }
 
-// movsx dst, *word [regA+regB+shift]
-int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg regA, x86Reg regB, int shift)
+// movsx dst, *word [index*mult+base+shift]
+int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size != sDWORD && size != sQWORD);
-	if(regB == rNONE && regA != rNONE)	// swap so if there is only one register, it will be base
+	if(base == rNONE && index != rNONE && multiplier == 1)	// swap so if there is only one register, it will be base
 	{
-		regB = regA;
-		regA = rNONE;
+		base = index;
+		index = rNONE;
 	}
 	stream[0] = 0x0f;
 	stream[1] = size == sBYTE ? 0xbe : 0xbf;
-	unsigned int asize = encodeAddress(stream+2, regA, 1, regB, shift, regCode[dst]);
+	unsigned int asize = encodeAddress(stream+2, index, multiplier, base, shift, regCode[dst]);
 	return 2+asize;
 }
 
@@ -559,11 +532,11 @@ int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift)
 	assert(asize == 5);
 	return 1 + asize;
 }
-// lea dst, [src*multiplier+base+shift]
-int x86LEA(unsigned char *stream, x86Reg dst, x86Reg src, int multiplier, x86Reg base, int shift)
+// lea dst, [index*multiplier+base+shift]
+int x86LEA(unsigned char *stream, x86Reg dst, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	stream[0] = 0x8d;
-	unsigned int asize = encodeAddress(stream+1, src, multiplier, base, shift, regCode[dst]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[dst]);
 	return 1 + asize;
 }
 
@@ -574,12 +547,12 @@ int x86NEG(unsigned char *stream, x86Reg reg)
 	stream[1] = encodeRegister(reg, 3);
 	return 2;
 }
-// neg dword [reg+shift]
-int x86NEG(unsigned char *stream, x86Size size, x86Reg reg, int shift)
+// neg dword [index*mult+base+shift]
+int x86NEG(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size == sDWORD);
 	stream[0] = 0xf7;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 3);
 	return 1 + asize;
 }
 
@@ -606,29 +579,29 @@ int x86ADD(unsigned char *stream, x86Reg dst, x86Reg src)
 	stream[1] = encodeRegister(dst, regCode[src]);
 	return 2;
 }
-// add dword [reg+shift], num
-int x86ADD(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
+// add dword [index*mult+base+shift], num
+int x86ADD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {
 	assert(size == sDWORD);
 	if((char)(num) == num)
 	{
 		stream[0] = 0x83;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 0);
 		stream[1+asize] = (char)(num);
 		return asize + 2;
 	}
 	// else
 	stream[0] = 0x81;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 0);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 0);
 	*(int*)(stream+1+asize) = num;
 	return asize + 5;
 }
-// add dword [reg+shift], op2
-int x86ADD(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+// add dword [index*mult+base+shift], op2
+int x86ADD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x01;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
 
@@ -647,28 +620,28 @@ int x86ADC(unsigned char *stream, x86Reg dst, int num)
 	*(int*)(stream+2) = num;
 	return 6;
 }
-// adc dword [reg+shift], num
-int x86ADC(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
+// adc dword [index*mult+base+shift], num
+int x86ADC(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {
 	assert(size == sDWORD);
 	if((char)num == num)
 	{
 		stream[0] = 0x83;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 2);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 2);
 		stream[1+asize] = (char)num;
 		return 2 + asize;
 	}
 	stream[0] = 0x81;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 2);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 2);
 	*(int*)(stream+1+asize) = num;
 	return 5 + asize;
 }
-// adc dword [reg+shift], op2
-int x86ADC(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+// adc dword [index*mult+base+shift], op2
+int x86ADC(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x11;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
 
@@ -700,29 +673,29 @@ int x86SUB(unsigned char *stream, x86Reg dst, x86Reg src)
 	stream[1] = encodeRegister(src, regCode[dst]);
 	return 2;
 }
-// sub dword [reg+shift], num
-int x86SUB(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
+// sub dword [index*mult+base+shift], num
+int x86SUB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {
 	assert(size == sDWORD);
 	if((char)(num) == num)
 	{
 		stream[0] = 0x83;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 5);
 		stream[1+asize] = (char)(num);
 		return asize + 2;
 	}
 	// else
 	stream[0] = 0x81;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 5);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 5);
 	*(int*)(stream+1+asize) = num;
 	return asize + 5;
 }
-// sub dword [reg+shift], op2
-int x86SUB(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+// sub dword [index*mult+base+shift], op2
+int x86SUB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x29;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
 
@@ -741,29 +714,29 @@ int x86SBB(unsigned char *stream, x86Reg dst, int num)
 	*(int*)(stream+2) = num;
 	return 6;
 }
-// sbb dword [reg+shift], num
-int x86SBB(unsigned char *stream, x86Size size, x86Reg reg, int shift, int num)
+// sbb dword [index*mult+base+shift], num
+int x86SBB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {
 	assert(size == sDWORD);
 	if((char)(num) == num)
 	{
 		stream[0] = 0x83;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 3);
 		stream[1+asize] = (char)(num);
 		return asize + 2;
 	}
 	// else
 	stream[0] = 0x81;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 3);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 3);
 	*(int*)(stream+1+asize) = num;
 	return asize + 5;
 }
-// sbb dword [reg+shift], op2
-int x86SBB(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+// sbb dword [index*mult+base+shift], op2
+int x86SBB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x19;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
 
@@ -797,12 +770,12 @@ int x86IDIV(unsigned char *stream, x86Reg src)
 	stream[1] = encodeRegister(src, 7);
 	return 2;
 }
-// idiv dword [reg+shift]
-int x86IDIV(unsigned char *stream, x86Size size, x86Reg reg, int shift)
+// idiv dword [index*mult+base+shift]
+int x86IDIV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size == sDWORD);
 	stream[0] = 0xf7;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 7);
 	return 1+asize;
 }
 
@@ -819,18 +792,18 @@ int x86SHL(unsigned char *stream, x86Reg reg, int shift)
 		stream[2] = (char)(shift);
 	return (shift == 1 ? 2 : 3);
 }
-// shl dword [reg], shift
-int x86SHL(unsigned char *stream, x86Size size, x86Reg reg, int shift)
+// shl dword [index*mult+base+shift], shift
+int x86SHL(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int val)
 {
 	assert(size == sDWORD);
-	if(shift == 1)
+	if(val == 1)
 		stream[0] = 0xd1;
 	else
 		stream[0] = 0xc1;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, 0, 4);
-	if(shift != 1)
-		stream[1+asize] = (char)(shift);
-	return (shift == 1 ? 1 : 2) + asize;
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 4);
+	if(val != 1)
+		stream[1+asize] = (char)(val);
+	return (val == 1 ? 1 : 2) + asize;
 }
 
 // sal eax, cl
@@ -855,12 +828,12 @@ int x86NOT(unsigned char *stream, x86Reg reg)
 	stream[1] = encodeRegister(reg, 2);
 	return 2;
 }
-// not dword [reg+shift]
-int x86NOT(unsigned char *stream, x86Size size, x86Reg reg, int shift)
+// not dword [index*mult+base+shift]
+int x86NOT(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size == sDWORD);
 	stream[0] = 0xf7;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 2);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 2);
 	return 1 + asize;
 }
 
@@ -871,27 +844,27 @@ int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2)
 	stream[1] = encodeRegister(op1, regCode[op2]);
 	return 2;
 }
-// and dword [reg+shift], op2
-int x86AND(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+// and dword [index*mult+base+shift], op2
+int x86AND(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x21;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
-// and dword [reg+shift], num
-int x86AND(unsigned char *stream, x86Size, x86Reg reg, int shift, int num)
+// and dword [index*mult+base+shift], num
+int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {
 	if((char)(num) == num)
 	{
 		stream[0] = 0x83;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 4);
 		stream[1+asize] = (char)(num);
 		return asize + 2;
 	}
 	// else
 	stream[0] = 0x81;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 4);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 4);
 	*(int*)(stream+1+asize) = num;
 	return asize + 5;
 }
@@ -903,36 +876,36 @@ int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2)
 	stream[1] = encodeRegister(op1, regCode[op2]);
 	return 2;
 }
-// or dword [reg+shift], op2
-int x86OR(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+// or dword [index*mult+base+shift], op2
+int x86OR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x09;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
-// or dword [reg+shift], num
-int x86OR(unsigned char *stream, x86Size size, x86Reg reg, int shift, int op2)
+// or dword [index*mult+base+shift], num
+int x86OR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int op2)
 {
 	assert(size == sDWORD);
 	if((char)(op2) == op2)
 	{
 		stream[0] = 0x83;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 1);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 1);
 		stream[1+asize] = (char)op2;
 		return 2+asize;
 	}
 	stream[0] = 0x81;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 1);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 1);
 	*(int*)(stream+1+asize) = op2;
 	return 5+asize;
 }
-// or op1, dword [reg+shift]
-int x86OR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg reg, int shift)
+// or op1, dword [index*mult+base+shift]
+int x86OR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x0B;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op1]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op1]);
 	return 1 + asize;
 }
 
@@ -943,12 +916,12 @@ int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2)
 	stream[1] = encodeRegister(op1, regCode[op2]);
 	return 2;
 }
-// xor dword [reg+shift], op2
-int x86XOR(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+// xor dword [index*mult+base+shift], op2
+int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x31;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
 
@@ -975,26 +948,26 @@ int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2)
 	return 2;
 }
 // cmp dword [reg], op2
-int x86CMP(unsigned char *stream, x86Size size, x86Reg reg, int shift, x86Reg op2)
+int x86CMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
 	assert(size == sDWORD);
 	stream[0] = 0x39;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, regCode[op2]);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1+asize;
 }
-// cmp dword [reg+shift], num
-int x86CMP(unsigned char *stream, x86Size size, x86Reg reg, int shift, int op2)
+// cmp dword [index*mult+base+shift], num
+int x86CMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int op2)
 {
 	assert(size == sDWORD);
 	if((char)(op2) == op2)
 	{
 		stream[0] = 0x83;
-		unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
+		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 7);
 		stream[1+asize] = (char)op2;
 		return 2+asize;
 	}
 	stream[0] = 0x81;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, reg, shift, 7);
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 7);
 	*(int*)(stream+1+asize) = op2;
 	return 5+asize;
 }
