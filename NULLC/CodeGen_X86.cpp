@@ -34,6 +34,13 @@ namespace NULLC
 			if(NULLC::stack[i].type == x86Argument::argPtr && (NULLC::stack[i].ptrReg[0] == dreg || NULLC::stack[i].ptrReg[1] == dreg))
 				NULLC::stack[i].type = x86Argument::argNone;
 		}
+		for(unsigned int i = 0; i < 9; i++)
+		{
+			if(reg[i].type == x86Argument::argReg && reg[i].reg == dreg)
+				reg[i].type = x86Argument::argNone;
+			if(reg[i].type == x86Argument::argPtr && (reg[i].ptrReg[0] == dreg || reg[i].ptrReg[1] == dreg))
+				reg[i].type = x86Argument::argNone;
+		}
 	}
 }
 #endif
@@ -76,10 +83,13 @@ void EMIT_COMMENT(const char* text)
 #define EMIT_COMMENT(x)
 #endif
 
-void EMIT_LABEL(unsigned int labelID)
+void EMIT_LABEL(unsigned int labelID, bool invalidate = true)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	NULLC::InvalidateState();
+	if(invalidate)
+		NULLC::InvalidateState();
+#else
+	(void)invalidate;
 #endif
 	x86Op->name = o_label;
 	x86Op->labelID = labelID;
@@ -93,22 +103,24 @@ void EMIT_OP(x86Command op)
 	if(op == o_ret)
 	{
 		NULLC::regRead[rEAX] = NULLC::regRead[rEBX] = NULLC::regRead[rECX] = NULLC::regRead[rEDX] = true;
-	}
-	if(op == o_rep_movsd)
-	{
+	}else if(op == o_rep_movsd){
 		NULLC::regRead[rECX] = NULLC::regRead[rESI] = NULLC::regRead[rEDI] = true;
 		assert(NULLC::reg[rECX].type == x86Argument::argNumber);
 		unsigned int stackEntryCount = NULLC::reg[rECX].num;
 		stackEntryCount = stackEntryCount > NULLC::STACK_STATE_SIZE ? NULLC::STACK_STATE_SIZE : stackEntryCount;
 		for(unsigned int i = 0; i < stackEntryCount; i++)
 			NULLC::stackRead[(16 + NULLC::stackTop - i) % NULLC::STACK_STATE_SIZE] = true;
-			
+	}else if(op == o_cdq){
+		NULLC::InvalidateDependand(rEDX);
+		NULLC::reg[rEDX] = x86Argument(0);
+		NULLC::regRead[rEDX] = false;
+		NULLC::regUpdate[rEDX] = (unsigned int)(x86Op - x86Base);
 	}
 #endif
 	x86Op->name = op;
 	x86Op++;
 }
-void EMIT_OP_LABEL(x86Command op, unsigned int labelID)
+void EMIT_OP_LABEL(x86Command op, unsigned int labelID, bool invalidate = true)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_call)
@@ -122,8 +134,10 @@ void EMIT_OP_LABEL(x86Command op, unsigned int labelID)
 		if(NULLC::reg[rEDX].type != x86Argument::argNone)
 			KILL_REG(rEDX);
 	}
-	if(op >= o_jmp && op <= o_ret)
+	if(op >= o_jmp && op <= o_ret && invalidate)
 		NULLC::InvalidateState();
+#else
+	(void)invalidate;
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argLabel;
@@ -159,6 +173,8 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 	}else{
 		if(op == o_pop)
 		{
+			if(NULLC::reg[reg1].type != x86Argument::argNone)
+				KILL_REG(reg1);
 			NULLC::reg[reg1] = NULLC::stack[(16 + NULLC::stackTop) % NULLC::STACK_STATE_SIZE];
 
 			unsigned int index = (NULLC::stackTop) % NULLC::STACK_STATE_SIZE;
@@ -191,6 +207,8 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 	{
 		NULLC::InvalidateDependand(rEAX);
 		NULLC::reg[rEAX].type = x86Argument::argNone;
+		NULLC::InvalidateDependand(rEDX);
+		NULLC::reg[rEDX].type = x86Argument::argNone;
 		if(op == o_idiv && NULLC::reg[reg1].type == x86Argument::argPtr)
 		{
 			EMIT_OP_RPTR(o_idiv, NULLC::reg[reg1].ptrSize, NULLC::reg[reg1].ptrReg[0], NULLC::reg[reg1].ptrNum);
@@ -1216,10 +1234,10 @@ void GenCodeCmdIndex(VMCmd cmd)
 		EMIT_OP_REG_RPTR(o_mov, rECX, sDWORD, rESP, 8);
 		EMIT_OP_RPTR_REG(o_cmp, sDWORD, rESP, 0, rECX);
 	}
-	EMIT_OP_LABEL(o_jb, aluLabels);
+	EMIT_OP_LABEL(o_jb, aluLabels, false);
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_NUM(o_int, 3);
-	EMIT_LABEL(aluLabels);
+	EMIT_LABEL(aluLabels, false);
 	aluLabels++;
 
 	EMIT_OP_REG(o_pop, rEAX);	// Take index
