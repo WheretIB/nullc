@@ -4,6 +4,7 @@
 #include "ParseClass.h"
 
 void	ResetTreeGlobals();
+void	OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo);
 
 //////////////////////////////////////////////////////////////////////////
 enum NodeType
