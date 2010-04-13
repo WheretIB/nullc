@@ -563,15 +563,19 @@ bool ExecutorX86::TranslateToNative()
 
 	FILE *fAsm = fopen("asmX86.txt", "wb");
 	char instBuf[128];
+	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
+		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
 		if(instList[i].name == o_other)
 			continue;
-		if(instList[i].instID)
+		if(instList[i].instID && (exCode[instList[i].instID-1].cmd & 0x80))
 			fprintf(fAsm, "0x%x\r\n", 0xc0000000 | (instList[i].instID - 1));
 		instList[i].Decode(instBuf);
 		fprintf(fAsm, "%s\r\n", instBuf);
 	}
+	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
+		exCode[exLinker->jumpTargets[i]].cmd &= ~0x80;
 	fclose(fAsm);
 #endif
 
@@ -859,9 +863,14 @@ bool ExecutorX86::TranslateToNative()
 			break;
 		case o_xor:
 			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-			else
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}else{
 				code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
+			}
 			break;
 		case o_cmp:
 			if(cmd.argA.type == x86Argument::argPtr)
