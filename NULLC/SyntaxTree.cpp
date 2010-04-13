@@ -281,6 +281,10 @@ void NodeOneOP::LogToStream(FILE *fGraph)
 	first->LogToStream(fGraph);
 	GoUp();
 }
+void NodeOneOP::TranslateToC(FILE *fOut)
+{
+	first->TranslateToC(fOut);
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node that have two child nodes
@@ -1162,6 +1166,24 @@ void NodeConvertPtr::LogToStream(FILE *fGraph)
 	first->LogToStream(fGraph);
 	GoUp();
 }
+void NodeConvertPtr::TranslateToC(FILE *fOut)
+{
+	TranslateToCExtra(fOut);
+	
+	if(typeInfo == typeObject || typeInfo == typeTypeid)
+	{
+		fprintf(fOut, "__nullcMakeAutoRef((void*)");
+		first->TranslateToC(fOut);
+		fprintf(fOut, ", %d)", first->typeInfo->subType->typeIndex);
+	}else{
+		fprintf(fOut, "(");
+		typeInfo->OutputCType(fOut, "");
+		fprintf(fOut, ")");
+		fprintf(fOut, "__nullcGetAutoRef(");
+		first->TranslateToC(fOut);
+		fprintf(fOut, ", %d)", typeInfo->subType->typeIndex);
+	}
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node that sets value to the variable
@@ -2034,7 +2056,7 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 	fprintf(fOut, ", ");
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
-		fprintf(fOut, "(void*)%u", funcInfo->funcPtr ? ~0ul : 0);
+		fprintf(fOut, "(void*)%uu", funcInfo->funcPtr ? ~0ul : 0);
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
 		if(first->nodeType == typeNodeDereference)
 		{
@@ -2419,20 +2441,17 @@ void NodeForExpr::TranslateToC(FILE *fOut)
 {
 	currLoopDepth++;
 	first->TranslateToC(fOut);
-	OutputIdent(fOut);
-	fprintf(fOut, "while(");
+	OutputIdent(fOut); fprintf(fOut, "while(");
 	second->TranslateToC(fOut);
 	fprintf(fOut, ")\r\n");
-	OutputIdent(fOut);
-	fprintf(fOut, "{\r\n");
+	OutputIdent(fOut); fprintf(fOut, "{\r\n");
 	indentDepth++;
 	fourth->TranslateToC(fOut);
-	fprintf(fOut, "continue%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
+	OutputIdent(fOut); fprintf(fOut, "continue%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
 	third->TranslateToC(fOut);
 	indentDepth--;
-	OutputIdent(fOut);
-	fprintf(fOut, "}\r\n");
-	fprintf(fOut, "break%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
+	OutputIdent(fOut); fprintf(fOut, "}\r\n");
+	OutputIdent(fOut); fprintf(fOut, "break%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
 	currLoopDepth--;
 	assert(currLoopDepth < TRANSLATE_MAX_LOOP_DEPTH);
 	currLoopID[currLoopDepth]++;
@@ -2505,19 +2524,16 @@ void NodeWhileExpr::LogToStream(FILE *fGraph)
 void NodeWhileExpr::TranslateToC(FILE *fOut)
 {
 	currLoopDepth++;
-	OutputIdent(fOut);
-	fprintf(fOut, "while(");
+	OutputIdent(fOut); fprintf(fOut, "while(");
 	first->TranslateToC(fOut);
 	fprintf(fOut, ")\r\n");
-	OutputIdent(fOut);
-	fprintf(fOut, "{\r\n");
+	OutputIdent(fOut); fprintf(fOut, "{\r\n");
 	indentDepth++;
 	second->TranslateToC(fOut);
-	fprintf(fOut, "continue%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
+	OutputIdent(fOut); fprintf(fOut, "continue%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
 	indentDepth--;
-	OutputIdent(fOut);
-	fprintf(fOut, "}\r\n");
-	fprintf(fOut, "break%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
+	OutputIdent(fOut); fprintf(fOut, "}\r\n");
+	OutputIdent(fOut); fprintf(fOut, "break%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
 	currLoopDepth--;
 	assert(currLoopDepth < TRANSLATE_MAX_LOOP_DEPTH);
 	currLoopID[currLoopDepth]++;
@@ -2582,6 +2598,24 @@ void NodeDoWhileExpr::LogToStream(FILE *fGraph)
 	GoDownB();
 	second->LogToStream(fGraph);
 	GoUp();
+}
+void NodeDoWhileExpr::TranslateToC(FILE *fOut)
+{
+	currLoopDepth++;
+	OutputIdent(fOut); fprintf(fOut, "do\r\n");
+	OutputIdent(fOut); fprintf(fOut, "{\r\n");
+	indentDepth++;
+	first->TranslateToC(fOut);
+	OutputIdent(fOut); fprintf(fOut, "continue%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
+	indentDepth--;
+	OutputIdent(fOut); fprintf(fOut, "} while(");
+	second->TranslateToC(fOut);
+	fprintf(fOut, ");\r\n");
+	OutputIdent(fOut);
+	fprintf(fOut, "break%d_%d:1;\r\n", currLoopID[currLoopDepth-1], currLoopDepth);
+	currLoopDepth--;
+	assert(currLoopDepth < TRANSLATE_MAX_LOOP_DEPTH);
+	currLoopID[currLoopDepth]++;
 }
 
 //////////////////////////////////////////////////////////////////////////

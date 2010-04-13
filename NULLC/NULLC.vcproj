@@ -664,6 +664,18 @@
 					>
 				</File>
 				<File
+					RelativePath=".\includes\gc.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\gc.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\std\gc.nc"
+					>
+				</File>
+				<File
 					RelativePath=".\includes\hashmap.cpp"
 					>
 				</File>

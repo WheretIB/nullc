@@ -49,6 +49,7 @@ public:
 		freeBlocks = &lastBlock;
 		activePages = NULL;
 		lastNum = countInBlock;
+		sortedPages.reset();
 	}
 
 	void* Alloc()
@@ -66,6 +67,15 @@ public:
 				newPage->next = activePages;
 				activePages = newPage;
 				lastNum = 0;
+				sortedPages.push_back(newPage);
+				int index = sortedPages.size() - 1;
+				while(index > 0 && sortedPages[index] < sortedPages[index - 1])
+				{
+					MyLargeBlock *tmp = sortedPages[index];
+					sortedPages[index] = sortedPages[index - 1];
+					sortedPages[index - 1] = tmp;
+					index--;
+				}
 			}
 			result = &activePages->page[lastNum++];
 		}
@@ -96,17 +106,30 @@ public:
 	}
 	void* GetBasePointer(void* ptr)
 	{
-		MyLargeBlock *curr = activePages;
-		while(curr)
+		if(!sortedPages.size() || ptr < sortedPages[0] || ptr > (char*)sortedPages.back() + sizeof(MyLargeBlock))
+			return NULL;
+		// Binary search
+		unsigned int lowerBound = 0;
+		unsigned int upperBound = sortedPages.size() - 1;
+		unsigned int pointer = 0;
+		while(upperBound - lowerBound > 1)
 		{
-			if((char*)ptr >= (char*)curr->page && (char*)ptr <= (char*)curr->page + sizeof(MyLargeBlock))
-			{
-				unsigned int fromBase = (unsigned int)(intptr_t)((char*)ptr - (char*)curr->page);
-				return (char*)curr->page + (fromBase & ~(elemSize - 1)) + 4;
-			}
-			curr = curr->next;
+			pointer = (lowerBound + upperBound) >> 1;
+			if(ptr < sortedPages[pointer])
+				upperBound = pointer;
+			if(ptr > sortedPages[pointer])
+				lowerBound = pointer;
 		}
-		return NULL;
+		if(ptr < sortedPages[pointer])
+			pointer--;
+		if(ptr > (char*)sortedPages[pointer]  + sizeof(MyLargeBlock))
+			pointer++;
+		MyLargeBlock *best = sortedPages[pointer];
+
+		if(ptr < best || ptr > (char*)best + sizeof(MyLargeBlock))
+			return NULL;
+		unsigned int fromBase = (unsigned int)(intptr_t)((char*)ptr - (char*)best->page);
+		return (char*)best->page + (fromBase & ~(elemSize - 1)) + 4;
 	}
 	void Mark(unsigned int number)
 	{
@@ -146,6 +169,8 @@ public:
 	MySmallBlock	*freeBlocks;
 	MyLargeBlock	*activePages;
 	unsigned int	lastNum;
+
+	FastVector<MyLargeBlock*>	sortedPages;
 };
 
 namespace NULLC

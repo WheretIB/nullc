@@ -2,8 +2,6 @@
 #include "../nullc.h"
 #include "../nullc_debug.h"
 
-#include "StdLib.h"
-
 namespace NULLCDynamic
 {
 	Linker *linker = NULL;
