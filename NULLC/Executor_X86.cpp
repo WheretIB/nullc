@@ -126,6 +126,9 @@ namespace NULLC
 
 	typedef void (*codegenCallback)(VMCmd);
 	codegenCallback cgFuncs[cmdEnumCount];
+
+	typedef BOOL (WINAPI *PSTSG)(PULONG);
+	PSTSG pSetThreadStackGuarantee = NULL;
 }
 
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
@@ -323,6 +326,9 @@ bool ExecutorX86::Initialize()
 
 	cgFuncs[cmdConvertPtr] = GenCodeCmdConvertPtr;
 
+	HMODULE hDLL = LoadLibrary("kernel32");
+	pSetThreadStackGuarantee = (PSTSG)GetProcAddress(hDLL, "SetThreadStackGuarantee");
+
 	return true;
 }
 
@@ -385,8 +391,11 @@ void ExecutorX86::Run(const char* funcName)
 	unsigned int resT = 0;
 	genStackPtr = genStackTop = getESP();
 
-	//unsigned long extraStack = 4096;
-	//SetThreadStackGuarantee(&extraStack);
+	if(pSetThreadStackGuarantee)
+	{
+		unsigned long extraStack = 4096;
+		pSetThreadStackGuarantee(&extraStack);
+	}
 
 	abnormalTermination = false;
 
@@ -841,10 +850,15 @@ bool ExecutorX86::TranslateToNative()
 				code += x86NOT(code, cmd.argA.reg);
 			break;
 		case o_and:
-			if(cmd.argB.type == x86Argument::argReg)
-				code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
-			else if(cmd.argB.type == x86Argument::argNumber)
-				code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86AND(code, sDWORD, cmd.argA.ptrReg[0], cmd.argA.ptrNum, cmd.argB.num);
+			}else{
+				code += x86AND(code, cmd.argA.reg, cmd.argB.reg);
+			}
 			break;
 		case o_or:
 			if(cmd.argA.type == x86Argument::argPtr)
