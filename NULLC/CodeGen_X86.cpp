@@ -336,6 +336,8 @@ void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr)
 void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	//if(NULLC::reg[reg2].type == x86Argument::argReg)
+	//	reg2 = NULLC::reg[reg2].reg;
 	if(op == o_push)
 	{
 		unsigned int index  = (++NULLC::stackTop) % NULLC::STACK_STATE_SIZE;
@@ -533,6 +535,7 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 		NULLC::regUpdate[reg1] = (unsigned int)(x86Op - x86Base);
 		NULLC::regRead[reg1] = false;
 	}else{
+		NULLC::InvalidateDependand(reg1);
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	}
 
@@ -666,6 +669,34 @@ void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, unsigned int labelID, unsigne
 	x86Op->argB.ptrNum = shift;
 	x86Op++;
 }
+void EMIT_OP_REG_REG_MULT_REG_NUM(x86Command op, x86Reg dst, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift)
+{
+#ifdef NULLC_OPTIMIZE_X86
+	if(NULLC::reg[base].type == x86Argument::argNumber)
+	{
+		shift += NULLC::reg[base].num;
+		base = rNONE;
+	}
+	NULLC::regRead[index] = true;
+	NULLC::regRead[base] = true;
+
+	if(NULLC::reg[dst].type != x86Argument::argNone)
+		KILL_REG(dst);
+	NULLC::reg[dst].type = x86Argument::argPtrLabel;
+	NULLC::regRead[dst] = false;
+	NULLC::regUpdate[dst] = (unsigned int)(x86Op - x86Base);
+#endif
+	x86Op->name = op;
+	x86Op->argA.type = x86Argument::argReg;
+	x86Op->argA.reg = dst;
+	x86Op->argB.type = x86Argument::argPtr;
+	x86Op->argB.ptrSize = size;
+	x86Op->argB.ptrReg[1] = index;
+	x86Op->argB.ptrMult = mult;
+	x86Op->argB.ptrReg[0] = base;
+	x86Op->argB.ptrNum = shift;
+	x86Op++;
+}
 void EMIT_OP_ADDR_NUM(x86Command op, x86Size size, unsigned int addr, unsigned int number)
 {
 	x86Op->name = op;
@@ -785,6 +816,7 @@ void OptimizationLookBehind(bool allow)
 	{
 		NULLC::lastInvalidate = (unsigned int)(x86Op - x86Base);
 		NULLC::InvalidateState();
+		NULLC::regUpdate[rESP] = 0;
 	}
 #endif
 }
@@ -1162,6 +1194,7 @@ void GenCodeCmdMovDorLStk(VMCmd cmd)
 		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument + 4);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
 	}
+	KILL_REG(rEDX);
 }
 
 void GenCodeCmdMovCmplxStk(VMCmd cmd)
@@ -1295,31 +1328,29 @@ void GenCodeCmdIndex(VMCmd cmd)
 	EMIT_LABEL(aluLabels, false);
 	aluLabels++;
 
+	EMIT_OP_REG(o_pop, rEBX);	// Take address
+
 	// Multiply it
 	if(cmd.helper == 1)
 	{
-		// nop
+		EMIT_OP_REG_REG_MULT_REG_NUM(o_lea, rEBX, sNONE, rEAX, 1, rEBX, 0);
 	}else if(cmd.helper == 2){
-		EMIT_OP_REG_NUM(o_shl, rEAX, 1);
+		EMIT_OP_REG_REG_MULT_REG_NUM(o_lea, rEBX, sNONE, rEAX, 2, rEBX, 0);
 	}else if(cmd.helper == 4){
-		EMIT_OP_REG_NUM(o_shl, rEAX, 2);
+		EMIT_OP_REG_REG_MULT_REG_NUM(o_lea, rEBX, sNONE, rEAX, 4, rEBX, 0);
 	}else if(cmd.helper == 8){
-		EMIT_OP_REG_NUM(o_shl, rEAX, 3);
+		EMIT_OP_REG_REG_MULT_REG_NUM(o_lea, rEBX, sNONE, rEAX, 8, rEBX, 0);
 	}else if(cmd.helper == 16){
 		EMIT_OP_REG_NUM(o_shl, rEAX, 4);
+		EMIT_OP_REG_REG(o_add, rEBX, rEAX);
 	}else{
 		EMIT_OP_REG_NUM(o_imul, rEAX, cmd.helper);
+		EMIT_OP_REG_REG(o_add, rEBX, rEAX);
 	}
 	if(cmd.cmd == cmdIndex)
-	{
-		EMIT_OP_REG(o_pop, rEDX);	// Take address
-		EMIT_OP_REG_REG(o_add, rEDX, rEAX);
-		EMIT_OP_REG(o_push, rEDX);
-	}else{
-		EMIT_OP_REG(o_pop, rEDX);
-		EMIT_OP_REG_REG(o_add, rEAX, rEDX);	// Add it to address
-		EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEAX);
-	}
+		EMIT_OP_REG(o_push, rEBX);
+	else
+		EMIT_OP_RPTR_REG(o_mov, sDWORD, rESP, 0, rEBX);
 }
 
 void GenCodeCmdCopyDorL(VMCmd cmd)
