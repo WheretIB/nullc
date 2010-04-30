@@ -92,7 +92,7 @@ double double(double a);\
 \
 char[] int:str();\
 \
-int __newS(int size);\
+void ref __newS(int size);\
 int[] __newA(int size, int count);\
 auto ref duplicate(auto ref obj);\
 ";
@@ -155,7 +155,7 @@ Compiler::Compiler()
 
 	typeObject->AddMemberVariable("type", typeInt);
 	typeObject->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
-	typeObject->size = 8;
+	typeObject->size = 4 + NULLC_PTR_SIZE;
 
 	buildInTypes.resize(CodeInfo::typeInfo.size());
 	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
@@ -370,7 +370,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				newInfo->AddMemberVariable("context", typeInt);
 				newInfo->AddMemberVariable("ptr", typeInt);
 #endif
-				newInfo->size = 8;
+				newInfo->size = 4 + NULLC_PTR_SIZE;
 				break;
 			case ExternTypeInfo::CAT_ARRAY:
 				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
@@ -379,7 +379,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 				if(tInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 				{
-					newInfo->size = 4;
+					newInfo->size = NULLC_PTR_SIZE;
 					newInfo->AddMemberVariable("size", typeInt);
 				}else{
 					newInfo->size = tempInfo->size * tInfo->arrSize;
@@ -392,9 +392,9 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				break;
 			case ExternTypeInfo::CAT_POINTER:
 				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
-				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, tempInfo->refLevel + 1, 0, 1, tempInfo, TypeInfo::TYPE_INT));
+				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, tempInfo->refLevel + 1, 0, 1, tempInfo, TypeInfo::NULLC_PTR_TYPE));
 				newInfo = CodeInfo::typeInfo.back();
-				newInfo->size = 4;
+				newInfo->size = NULLC_PTR_SIZE;
 
 				// Save it for future use
 				CodeInfo::typeInfo[typeRemap[tInfo->subType]]->refType = newInfo;
@@ -958,6 +958,10 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 {
 	fInfo.bytesToPop = 4;
+#ifdef _M_X64
+	fInfo.bytesToPop += 4;
+#endif
+
 	for(VariableInfo *curr = refFunc.firstParam; curr; curr = curr->next)
 	{
 		unsigned int paramSize = curr->varType->size > 4 ? curr->varType->size : (curr->varType->size ? 4 : 0);
@@ -1278,6 +1282,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		offsetToGlobal += funcInfo.codeSize;
 
 		funcInfo.nameHash = refFunc->nameHash;
+
+		funcInfo.isNormal = refFunc->type == FunctionInfo::NORMAL ? 1 : 0;
 
 		funcInfo.retType = ExternFuncInfo::RETURN_UNKNOWN;
 		if(refFunc->retType->type == TypeInfo::TYPE_VOID)

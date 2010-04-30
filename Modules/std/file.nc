@@ -1,7 +1,7 @@
 class File
 {
 	int flag;
-	int id;
+	void ref id;
 }
 
 File File();

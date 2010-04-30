@@ -25,8 +25,8 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 		return type->refType;
 
 	// Create new type
-	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, type->refLevel + 1, 0, 1, type, TypeInfo::TYPE_INT);
-	newInfo->size = 4;
+	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, type->refLevel + 1, 0, 1, type, TypeInfo::NULLC_PTR_TYPE);
+	newInfo->size = NULLC_PTR_SIZE;
 
 	// Save it for future use
 	type->refType = newInfo;
@@ -95,7 +95,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 
 	if(unFixed)
 	{
-		newInfo->size = 4;
+		newInfo->size = NULLC_PTR_SIZE;
 		newInfo->AddMemberVariable("size", typeInt);
 	}else{
 		newInfo->size = type->size * arrSize;

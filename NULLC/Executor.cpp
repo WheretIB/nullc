@@ -233,38 +233,72 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdPushCharStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			genStackPtr++;
+			*genStackPtr = *(char*)(cmd.argument + *(char**)(genStackPtr-1));
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *((char*)NULL + cmd.argument + *genStackPtr);
+#endif
 			break;
 		case cmdPushShortStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			genStackPtr++;
+			*genStackPtr = *(short*)(cmd.argument + *(char**)(genStackPtr-1));
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *(short*)((char*)NULL + cmd.argument + *genStackPtr);
+#endif
 			break;
 		case cmdPushIntStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			genStackPtr++;
+			*genStackPtr = *(int*)(cmd.argument + *(char**)(genStackPtr-1));
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *(int*)((char*)NULL + cmd.argument + *genStackPtr);
+#endif
 			break;
 		case cmdPushFloatStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			*(double*)(genStackPtr) = (double)*(float*)(cmd.argument + *(char**)(genStackPtr));
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr--;
 			*(double*)(genStackPtr) = (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr+1));
+#endif
 			break;
 		case cmdPushDorLStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			*(long long*)(genStackPtr) = *(long long*)(cmd.argument + *(char**)(genStackPtr));
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr--;
 			*(double*)(genStackPtr) = *(double*)((char*)NULL + cmd.argument + *(genStackPtr+1));
+#endif
 			break;
 		case cmdPushCmplxStk:
 		{
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			char *start = cmd.argument + *(char**)genStackPtr;
+			genStackPtr += 2;
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
-			unsigned int shift = cmd.argument + *genStackPtr;
+			char *start = (char*)NULL + cmd.argument + *genStackPtr;
 			genStackPtr++;
+#endif
 			unsigned int currShift = cmd.helper;
 			while(currShift >= 4)
 			{
 				currShift -= 4;
 				genStackPtr--;
-				*genStackPtr = *(unsigned int*)((char*)NULL + shift + currShift);
+				*genStackPtr = *(unsigned int*)(start + currShift);
 			}
 		}
 			break;
@@ -303,40 +337,76 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdMovCharStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			genStackPtr += 2;
+			*(cmd.argument + *(char**)(genStackPtr-2)) = (unsigned char)(*genStackPtr);
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned char)(*genStackPtr);
+#endif
 			break;
 		case cmdMovShortStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			genStackPtr += 2;
+			*(unsigned short*)(cmd.argument + *(char**)(genStackPtr-2)) = (unsigned short)(*genStackPtr);
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*(unsigned short*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned short)(*genStackPtr);
+#endif
 			break;
 		case cmdMovIntStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			genStackPtr += 2;
+			*(int*)(cmd.argument + *(char**)(genStackPtr-2)) = (int)(*genStackPtr);
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*(int*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (int)(*genStackPtr);
+#endif
 			break;
 		case cmdMovFloatStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			genStackPtr += 2;
+			*(float*)(cmd.argument + *(char**)(genStackPtr-2)) = (float)*(double*)(genStackPtr);
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)*(double*)(genStackPtr);
+#endif
 			break;
 		case cmdMovDorLStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			genStackPtr += 2;
+			*(long long*)(cmd.argument + *(char**)(genStackPtr-2)) = *(long long*)(genStackPtr);
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
 			*(long long*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = *(long long*)(genStackPtr);
+#endif
 			break;
 		case cmdMovCmplxStk:
 		{
+#ifdef _M_X64
+			RUNTIME_ERROR(*(char**)genStackPtr == 0, "ERROR: null pointer access");
+			char *start = cmd.argument + *(char**)genStackPtr;
+			genStackPtr += 2;
+#else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
-			unsigned int shift = cmd.argument + *genStackPtr;
+			char *start = (char*)NULL + cmd.argument + *genStackPtr;
 			genStackPtr++;
+#endif
 			unsigned int currShift = cmd.helper;
 			while(currShift >= 4)
 			{
 				currShift -= 4;
-				*(unsigned int*)((char*)NULL + shift + currShift) = *(genStackPtr+(currShift>>2));
+				*(unsigned int*)(start + currShift) = *(genStackPtr+(currShift>>2));
 			}
 			assert(currShift == 0);
 		}
@@ -375,13 +445,23 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdIndex:
 			RUNTIME_ERROR(*genStackPtr >= (unsigned int)cmd.argument, "ERROR: array index out of bounds");
-			*(int*)(genStackPtr+1) += cmd.helper * (*genStackPtr);
+#ifdef _M_X64
+			*(char**)(genStackPtr+1) += cmd.helper * (*genStackPtr);
+#else
+			*(char**)(genStackPtr+1) += cmd.helper * (*genStackPtr);
+#endif
 			genStackPtr++;
 			break;
 		case cmdIndexStk:
+#ifdef _M_X64
+			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr+3), "ERROR: array index out of bounds");
+			*(char**)(genStackPtr+2) = *(char**)(genStackPtr+1) + cmd.helper * (*genStackPtr);
+			genStackPtr += 2;
+#else
 			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr+2), "ERROR: array index out of bounds");
 			*(int*)(genStackPtr+2) = *(genStackPtr+1) + cmd.helper * (*genStackPtr);
 			genStackPtr += 2;
+#endif
 			break;
 
 		case cmdCopyDorL:
@@ -395,8 +475,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdGetAddr:
+#ifdef _M_X64
+			genStackPtr -= 2;
+			*(void**)genStackPtr = cmd.argument + paramBase * cmd.helper + &genParams[0];
+#else
 			genStackPtr--;
 			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)&genParams[0];
+#endif
 			break;
 		case cmdFuncAddr:
 			break;
@@ -850,8 +935,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdCreateClosure:
+#ifdef _M_X64
+			ClosureCreate(&genParams[paramBase], cmd.helper, cmd.argument, *(ExternFuncInfo::Upvalue**)genStackPtr);
+			genStackPtr += 2;
+#else
 			ClosureCreate(&genParams[paramBase], cmd.helper, cmd.argument, (ExternFuncInfo::Upvalue*)(intptr_t)*genStackPtr);
 			genStackPtr++;
+#endif
 			break;
 		case cmdCloseUpvals:
 			CloseUpvalues(&genParams[paramBase], cmd.argument);
@@ -1015,7 +1105,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 }
 
 #elif defined(_M_X64)
-static const unsigned char gateTest[128] =
+static const unsigned char gatePrologue[32] =
 {
 	0x4C, 0x89, 0x44, 0x24, 0x18,	// mov qword [rsp+18h], r8	// spill r8
 	0x48, 0x89, 0x54, 0x24, 0x10,	// mov qword [rsp+10h], rdx	// spill RDX
@@ -1025,7 +1115,9 @@ static const unsigned char gateTest[128] =
 	0x48, 0x8b, 0372,// mov RDI, RDX
 	0x49, 0x8b, 0330,// mov RBX, R8
 };
-#include <Windows.h>
+#ifdef _WIN64
+	#include <Windows.h>
+#endif
 
 // X64 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
@@ -1036,31 +1128,49 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	unsigned int *stackStart = genStackPtr;
 	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
 
-	unsigned char *code = new unsigned char[128];
-	memset(code, 0, 128);
-	memcpy(code, gateTest, 25);
+	// Create function call code, clear it out, copy call prologue to the beginning
+	unsigned char *code = new unsigned char[1024];
+	memset(code, 0, 1024);
+	memcpy(code, gatePrologue, 25);
 
 	unsigned char *currCode = code + 25;
 
-	unsigned int currentShift = (dwordsToPop - 1) * 4;
+	// complex type return is handled by passing pointer to a place, where the return value will be placed. This uses first register.
+	unsigned int rvs = exFunctions[funcID].retType == ExternFuncInfo::RETURN_UNKNOWN ? 1 : 0;
+
+	unsigned int currentShift = (dwordsToPop - (exFunctions[funcID].isNormal ? 2 : 0)) * 4;
 	unsigned int needpop = 0;
-	for(int i = exFunctions[funcID].paramCount - 1; i >= 0; i--)
+	int i = exFunctions[funcID].paramCount - (exFunctions[funcID].isNormal ? 1 : 0);
+	for(; i >= 0; i--)
 	{
-		ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-		ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
-		switch(lType.type)
+		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
+		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
+		unsigned int typeSize = 8;
+		// If this is not the last argument, update data above
+		if((unsigned int)i != exFunctions[funcID].paramCount)
+		{
+			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+			ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
+			typeCat = lType.type;
+			typeSize = lType.size;
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
+				typeCat = ExternTypeInfo::TYPE_INT;
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
+				typeCat = ExternTypeInfo::TYPE_LONG;
+		}
+		switch(typeCat)
 		{
 		case ExternTypeInfo::TYPE_FLOAT:
 		case ExternTypeInfo::TYPE_DOUBLE:
-			if(i > 3)
+			if(rvs + i > 3)
 			{
 				// mov rsi, [rax+shift]
-				if(lType.type == ExternTypeInfo::TYPE_DOUBLE)
+				if(typeCat == ExternTypeInfo::TYPE_DOUBLE)
 					*currCode++ = 0x48;	// 64bit mode
 				*currCode++ = 0x8b;
 				*currCode++ = 0264;	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
 				*currCode++ = 0040;	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-				*(unsigned int*)currCode = currentShift - (lType.type == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
+				*(unsigned int*)currCode = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
 				currCode += 4;
 
 				// push rsi
@@ -1068,56 +1178,98 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 				needpop += 8;
 			}else{
 				// movsd xmm, [rax+shift]
-				*currCode++ = ExternTypeInfo::TYPE_DOUBLE ? 0xf2 : 0xf3;
+				*currCode++ = typeCat == ExternTypeInfo::TYPE_DOUBLE ? 0xf2 : 0xf3;
 				*currCode++ = 0x0f;
 				*currCode++ = 0x10;	
 				*currCode++ = (unsigned char)(0200 | (i << 3));	// modR/M mod = 10 (32-bit shift), spare = XMMn, r/m = 0 (RAX is base)
-				*(unsigned int*)currCode = currentShift - (lType.type == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
+				*(unsigned int*)currCode = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
 				currCode += 4;
 			}
-			currentShift -= (lType.type == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
+			currentShift -= (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
 			break;
 		case ExternTypeInfo::TYPE_CHAR:
 		case ExternTypeInfo::TYPE_SHORT:
 		case ExternTypeInfo::TYPE_INT:
 		case ExternTypeInfo::TYPE_LONG:
-			if(i > 3)
+			if(rvs + i > 3)
 			{
 				// mov rsi, [rax+shift]
-				if(lType.type == ExternTypeInfo::TYPE_LONG)
+				if(typeCat == ExternTypeInfo::TYPE_LONG)
 					*currCode++ = 0x48;	// 64bit mode
 				*currCode++ = 0x8b;
 				*currCode++ = 0264;	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
 				*currCode++ = 0040;	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-				*(unsigned int*)currCode = currentShift - (lType.type == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+				*(unsigned int*)currCode = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				currCode += 4;
 
 				// push rsi
 				*currCode++ = 0x56;
 				needpop += 8;
 			}else{
-				if(i == 2 || i == 3)
-					*currCode++ = lType.type == ExternTypeInfo::TYPE_LONG ? 0x4c : 0x44;
-				else if(lType.type == ExternTypeInfo::TYPE_LONG)
+				if(rvs + i == 2 || rvs + i == 3)
+					*currCode++ = typeCat == ExternTypeInfo::TYPE_LONG ? 0x4c : 0x44;
+				else if(typeCat == ExternTypeInfo::TYPE_LONG)
 					*currCode++ = 0x48;	// 64bit mode
 				*currCode++ = 0x8b;
-				if(i == 0)
+				if(rvs + i == 0)
 					*currCode++ = 0214;
-				else if(i == 1)
+				else if(rvs + i == 1)
 					*currCode++ = 0224;
-				else if(i == 2)
+				else if(rvs + i == 2)
 					*currCode++ = 0204;
-				else if(i == 3)
+				else if(rvs + i == 3)
 					*currCode++ = 0214;
 				*currCode++ = 0040;
-				*(unsigned int*)currCode = currentShift - (lType.type == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+				*(unsigned int*)currCode = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				currCode += 4;
 			}
-			currentShift -= (lType.type == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+			currentShift -= (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+			break;
+		case ExternTypeInfo::TYPE_COMPLEX:
+			if(typeSize != 0 && typeSize <= 8)
+				assert(!"parameter type unsupported (small aggregate)");
+			// lea rsi, [rax+shift]
+			*currCode++ = 0x48;	// 64bit mode
+			*currCode++ = 0x8d;
+			*currCode++ = 0264;	// modR/M mod = 11 (register), spare = 6 (RSI destination), r/m = 4 (SIB active)
+			*currCode++ = 0040;	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
+			*(unsigned int*)currCode = currentShift - typeSize;
+			currCode += 4;
+
+			if(rvs + i > 3)
+			{
+				// push rsi
+				*currCode++ = 0x48;	// 64bit mode
+				*currCode++ = 0x56;
+				needpop += 8;
+			}else{
+				// mov reg, rsi
+				if(rvs + i == 2 || rvs + i == 3)
+					*currCode++ = 0x4c; // 64bit mode
+				else
+					*currCode++ = 0x48;	// 64bit mode
+				*currCode++ = 0x8b;
+				if(rvs + i == 0)
+					*currCode++ = 0316;
+				else if(rvs + i == 1)
+					*currCode++ = 0326;
+				else if(rvs + i == 2)
+					*currCode++ = 0306;
+				else if(rvs + i == 3)
+					*currCode++ = 0316;
+			}
+			currentShift -= typeSize;
 			break;
 		default:
 			assert(!"parameter type unsupported");
 		}
+	}
+	// for complex return value, pass a pointer in rcx
+	if(rvs)
+	{
+		*currCode++ = 0x48;
+		*currCode++ = 0x8b;
+		*currCode++ = 0317;
 	}
 	// sub rsp, 32
 	*currCode++ = 0x48;
@@ -1139,11 +1291,33 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	currCode += 4;
 
 	// handle return value
-	switch(exFunctions[funcID].retType)
+	ExternFuncInfo::ReturnType retType = (ExternFuncInfo::ReturnType)exFunctions[funcID].retType;
+	unsigned int retTypeID = exLinker->exTypeExtra[exTypes[exFunctions[funcID].funcType].memberOffset];
+	unsigned int retTypeSize = exTypes[retTypeID].size;
+	if(retType == ExternFuncInfo::RETURN_UNKNOWN)
+	{
+		if(retTypeSize == 0)
+			retType = ExternFuncInfo::RETURN_VOID;
+		else if(retTypeSize <= 4)
+			retType = ExternFuncInfo::RETURN_INT;
+		else if(retTypeSize == 8)
+			retType = ExternFuncInfo::RETURN_LONG;
+	}
+	switch(retType)
 	{
 	case ExternFuncInfo::RETURN_DOUBLE:
+		
+		// float type is #2
+		if(retTypeID == 2)
+		{
+			// cvtss2sd xmm0, xmm0 
+			*currCode++ = 0xf3;
+			*currCode++ = 0x0f;
+			*currCode++ = 0x5a;
+			*currCode++ = 0xc0;
+		}
 		newStackPtr -= 2;
-		// movsd qword [rdi], xmm
+		// movsd qword [rdi], xmm0
 		*currCode++ = 0xf2;
 		*currCode++ = 0x0f;
 		*currCode++ = 0x11;
@@ -1151,31 +1325,40 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		break;
 	case ExternFuncInfo::RETURN_LONG:
 		newStackPtr -= 1;
-	case ExternFuncInfo::RETURN_INT:
-		newStackPtr -= 1;
 		// mov qword [rdi], rax
 		*currCode++ = 0x48;
+	case ExternFuncInfo::RETURN_INT:
+		newStackPtr -= 1;
+		// mov dword [rdi], eax
 		*currCode++ = 0x89;
 		*currCode++ = 0007;	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 0 (RDI is base)
 		break;
 	case ExternFuncInfo::RETURN_VOID:
 		break;
-	default:
-		assert(!"return type unsupported");
+	case ExternFuncInfo::RETURN_UNKNOWN:
+		if(retTypeSize <= 8)
+				assert(!"return type unsupported (small aggregate)");
+		newStackPtr -= retTypeSize / 4;
+		break;
 	}
 
 	// pop edi; ret;
 	*currCode++ = 0x5f;
 	*currCode++ = 0xc3;
 
+#ifdef _WIN64
 	DWORD old;
-	VirtualProtect(code, 128, PAGE_EXECUTE_READWRITE, &old);
+	VirtualProtect(code, 1024, PAGE_EXECUTE_READWRITE, &old);
+#endif
 
 	void (*gate)(unsigned int*, unsigned int*, void*) = (void (*)(unsigned int*, unsigned int*, void*))(void*)code;
 
 	gate(stackStart, newStackPtr, fPtr);
 
-	VirtualProtect(code, 128, old, NULL);
+#ifdef _WIN64
+	VirtualProtect(code, 1024, old, NULL);
+#endif
+
 	delete[] code;
 
 	genStackPtr = newStackPtr;
