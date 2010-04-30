@@ -165,6 +165,8 @@ Compiler::Compiler()
 	CodeInfo::classCount = (int)CodeInfo::typeInfo.size();
 	typeTop = TypeInfo::GetPoolTop();
 
+	realGlobalCount = 0;
+
 	// Add base module with build-in functions
 	bool res = Compile(nullcBaseCode);
 	assert(res && "Failed to compile base NULLC module");
@@ -457,8 +459,10 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 	{
 		// Import variables
 		ExternVarInfo *vInfo = FindFirstVar(bCode);
-		for(unsigned int i = 0; i < bCode->variableCount; i++, vInfo++)
+		for(unsigned int i = 0; i < bCode->variableExportCount; i++, vInfo++)
 		{
+			if(symbols[vInfo->offsetToName] == '$')
+				continue;
 			SelectTypeByIndex(typeRemap[vInfo->type]);
 			AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName));
 			CodeInfo::varInfo.back()->parentModule = number;
@@ -723,6 +727,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 #endif
 
 	CreateRedirectionTables();
+
+	realGlobalCount = CodeInfo::varInfo.size();
 
 	RestoreScopedGlobals();
 
@@ -1067,7 +1073,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	}
 
 	unsigned int offsetToVar = size;
-	unsigned int globalVarCount = 0;
+	unsigned int globalVarCount = 0, exportVarCount = 0;
 	size += CodeInfo::varInfo.size() * sizeof(ExternVarInfo);
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
@@ -1075,6 +1081,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		if(curr->pos >> 24)
 			continue;
 		globalVarCount++;
+		if(i < realGlobalCount)
+			exportVarCount++;
 		symbolStorageSize += (unsigned int)(curr->name.end - curr->name.begin) + 1;
 	}
 
@@ -1154,6 +1162,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->globalVarSize = GetGlobalSize();
 	code->variableCount = globalVarCount;
+	code->variableExportCount = exportVarCount;
 	code->offsetToFirstVar = offsetToVar;
 
 	code->functionCount = (unsigned int)CodeInfo::funcInfo.size();

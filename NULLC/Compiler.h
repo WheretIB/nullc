@@ -83,4 +83,5 @@ private:
 	FastVector<unsigned int>		typeRemap;
 
 	unsigned int typeTop;
+	unsigned int realGlobalCount;
 };
