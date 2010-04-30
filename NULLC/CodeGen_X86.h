@@ -45,7 +45,7 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg index, int multiplier,
 void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num);
 
 void SetParamBase(unsigned int base);
-void SetFunctionList(ExternFuncInfo* list);
+void SetFunctionList(ExternFuncInfo* list, unsigned int* funcAddresses);
 void SetContinuePtr(int* continueVar);
 
 void SetLastInstruction(x86Instruction *pos, x86Instruction *base);

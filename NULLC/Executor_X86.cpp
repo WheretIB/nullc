@@ -507,11 +507,13 @@ bool ExecutorX86::TranslateToNative()
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 		exFunctions[i].startInByteCode = 0xffffffff;
 
+	functionAddress.resize(exFunctions.size());
+
 	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
 	SetParamBase((unsigned int)(long long)paramBase);
-	SetFunctionList(&exFunctions[0]);
+	SetFunctionList(&exFunctions[0], &functionAddress[0]);
 	SetContinuePtr(&callContinue);
 	SetLastInstruction(&instList[0], &instList[0]);
 	SetClosureCreateFunc((void(*)())ClosureCreate);
@@ -802,6 +804,8 @@ bool ExecutorX86::TranslateToNative()
 		case o_call:
 			if(cmd.argA.type == x86Argument::argLabel)
 				code += x86CALL(code, cmd.argA.labelID);
+			else if(cmd.argA.type == x86Argument::argPtr)
+				code += x86CALL(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			else
 				code += x86CALL(code, cmd.argA.reg);
 			break;
@@ -1100,8 +1104,15 @@ bool ExecutorX86::TranslateToNative()
 	x86SatisfyJumps(instAddress);
 
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
+	{
 		if(exFunctions[i].address != -1)
+		{
 			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].address] - bytecode);
+			functionAddress[i] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].address];
+		}else{
+			functionAddress[i] = (unsigned int)(uintptr_t)exFunctions[i].funcPtr;
+		}
+	}
 	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - bytecode);
 
 	return true;

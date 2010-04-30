@@ -226,14 +226,22 @@ int x86CDQ(unsigned char *stream);
 // setcc *l
 int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg);
 
+// call reg
 int x86CALL(unsigned char *stream, x86Reg address);
+// call [index*mult+base+shift]
+int x86CALL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, unsigned int shift);
+// call label
 int x86CALL(unsigned char *stream, unsigned int labelID);
+// ret
 int x86RET(unsigned char *stream);
 
+// rep movsd
 int x86REP_MOVSD(unsigned char *stream);
 
+// int num
 int x86INT(unsigned char *stream, int interrupt);
 
+// nop
 int x86NOP(unsigned char *stream);
 
 int x86Jcc(unsigned char *stream, unsigned int labelID, x86Cond cond, bool isNear);

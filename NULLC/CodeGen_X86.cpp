@@ -130,6 +130,7 @@ namespace NULLC
 
 x86Instruction	*x86Op = NULL, *x86Base = NULL;
 ExternFuncInfo	*x86Functions = NULL;
+unsigned int	*x86FuncAddr = NULL;
 int				*x86Continue = NULL;
 
 bool			x86LookBehind = true;
@@ -577,7 +578,7 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg index, unsigned int mult, 
 	NULLC::regRead[index] = true;
 	NULLC::regRead[base] = true;
 
-	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst)
+	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst && op != o_call)
 		__asm int 3;
 #endif
 	x86Op->name = op;
@@ -1173,9 +1174,10 @@ void SetParamBase(unsigned int base)
 	aluLabels = LABEL_ALU;
 }
 
-void SetFunctionList(ExternFuncInfo *list)
+void SetFunctionList(ExternFuncInfo *list, unsigned int* funcAddresses)
 {
 	x86Functions = list;
+	x86FuncAddr = funcAddresses;
 }
 
 void SetContinuePtr(int* continueVar)
@@ -1740,13 +1742,7 @@ void GenCodeCmdFuncAddr(VMCmd cmd)
 {
 	EMIT_COMMENT("FUNCADDR");
 
-	if(x86Functions[cmd.argument].funcPtr == NULL)
-	{
-		EMIT_OP_REG_LABEL(o_lea, rEAX, LABEL_GLOBAL + x86Functions[cmd.argument].address, 0);
-		EMIT_OP_REG(o_push, rEAX);
-	}else{
-		EMIT_OP_NUM(o_push, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
-	}
+	EMIT_OP_NUM(o_push, cmd.argument);
 }
 
 void GenCodeCmdSetRange(VMCmd cmd)
@@ -1953,7 +1949,7 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 	// external function call
 	{
 		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, cmd.argument);
-		EMIT_OP_REG(o_call, rEAX);
+		EMIT_OP_RPTR(o_call, sNONE, rEAX, 4, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 	 
 		static int continueLabel = 0;
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
@@ -1995,7 +1991,7 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 		EMIT_OP_NUM(o_int, 3);
 		EMIT_LABEL(aluLabels + 1);
 
-		EMIT_OP_REG(o_call, rEAX);
+		EMIT_OP_RPTR(o_call, sNONE, rEAX, 4, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 
 		GenCodeCmdCallProlog(cmd);
