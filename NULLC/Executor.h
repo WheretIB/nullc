@@ -34,6 +34,7 @@ public:
 	void	ClearBreakpoints();
 	bool	AddBreakpoint(unsigned int instruction);
 private:
+	unsigned int	CreateFunctionGateway(FastVector<unsigned char>	&code, unsigned int funcID);
 	void	InitExecution();
 
 	bool	codeRunning;
@@ -52,6 +53,8 @@ private:
 	FastVector<ExternTypeInfo>	&exTypes;
 	FastVector<ExternFuncInfo>	&exFunctions;
 	char			*symbols;
+
+	FastVector<unsigned char>	gateCode;
 
 	FastVector<char, true>	genParams;
 	FastVector<VMCmd*>	fcallStack;

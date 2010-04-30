@@ -214,6 +214,13 @@ enum InstructionCode
 
 	cmdEnumCount,
 };
+#ifdef _M_X64
+	#define cmdPushPtr cmdPushDorL
+	#define cmdPushPtrStk cmdPushDorLStk
+#else
+	#define cmdPushPtr cmdPushInt
+	#define cmdPushPtrStk cmdPushIntStk
+#endif
 
 static char *vmInstructionText[] =
 {

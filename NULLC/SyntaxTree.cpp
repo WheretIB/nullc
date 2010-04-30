@@ -893,10 +893,8 @@ void NodeFuncCall::Compile()
 	{
 		first->Compile();
 	}else if(funcInfo){
-		cmdList.push_back(VMCmd(cmdPushImmt, 0));
-#ifdef _M_X64
-		cmdList.push_back(VMCmd(cmdPushImmt, 0));
-#endif
+		NodeNumber nullPtr = NodeNumber(0, CodeInfo::GetReferenceType(typeVoid));
+		nullPtr.Compile();
 	}
 	if(funcType->paramCount > 0)
 	{
@@ -1119,13 +1117,8 @@ void NodeGetUpvalue::Compile()
 
 	CompileExtra();
 
-#ifdef _M_X64
-	cmdList.push_back(VMCmd(cmdPushDorL, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
-	cmdList.push_back(VMCmd(cmdPushDorLStk, 0, (unsigned short)typeInfo->size, closureElem));
-#else
-	cmdList.push_back(VMCmd(cmdPushInt, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
-	cmdList.push_back(VMCmd(cmdPushIntStk, 0, (unsigned short)typeInfo->size, closureElem));
-#endif
+	cmdList.push_back(VMCmd(cmdPushPtr, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
+	cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, closureElem));
 }
 
 void NodeGetUpvalue::LogToStream(FILE *fGraph)
@@ -2050,10 +2043,8 @@ void NodeFunctionAddress::Compile()
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
-		cmdList.push_back(VMCmd(cmdPushImmt, funcInfo->funcPtr ? ~0ul : 0));
-#ifdef _M_X64
-		cmdList.push_back(VMCmd(cmdPushImmt, 0));
-#endif
+		NodeNumber nullPtr = NodeNumber(funcInfo->funcPtr ? ~0ll : 0ll, CodeInfo::GetReferenceType(typeVoid));
+		nullPtr.Compile();
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
 		first->Compile();
 	}
