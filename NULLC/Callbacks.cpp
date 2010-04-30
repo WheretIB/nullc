@@ -62,7 +62,7 @@ FastVector<unsigned int>	bestFuncRating;
 
 FastVector<NodeZeroOP*>	paramNodes;
 
-void AddInplaceVariable(const char* pos);
+void AddInplaceVariable(const char* pos, TypeInfo* targetType = NULL);
 void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
 void ConvertFunctionToPointer(const char* pos);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
@@ -1334,7 +1334,7 @@ void AddModifyVariableNode(const char* pos, CmdID cmd)
 	}
 }
 
-void AddInplaceVariable(const char* pos)
+void AddInplaceVariable(const char* pos, TypeInfo* targetType)
 {
 	char	*arrName = AllocateString(16);
 	int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
@@ -1344,7 +1344,7 @@ void AddInplaceVariable(const char* pos)
 	bool saveVarDefined = varDefined;
 
 	// Set type to auto
-	currType = NULL;
+	currType = targetType;
 	// Add hidden variable
 	void *varInfo = AddVariable(pos, InplaceStr(arrName, length));
 	// Set it to value on top of the stack
@@ -1362,7 +1362,7 @@ void AddInplaceVariable(const char* pos)
 void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 {
 	TypeInfo *nodeType = CodeInfo::nodeList.back()->typeInfo;
-	if(dstType->arrSize != TypeInfo::UNSIZED_ARRAY || dstType == nodeType)
+	if(!dstType->subType || (dstType->arrSize != TypeInfo::UNSIZED_ARRAY && dstType->subType->arrSize != TypeInfo::UNSIZED_ARRAY) || dstType == nodeType)
 		return;
 	if(dstType->subType == nodeType->subType)
 	{
@@ -1390,6 +1390,11 @@ void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 			listExpr->AddNode();
 		// Add expression list to node list
 		CodeInfo::nodeList.push_back(listExpr);
+	}else if(nodeType->refLevel == 1 && nodeType->subType->arrSize != TypeInfo::UNSIZED_ARRAY && dstType->subType->subType == nodeType->subType->subType){
+		// type[N] ref to type[] ref conversion
+		AddGetVariableNode(pos);
+		AddInplaceVariable(pos, CodeInfo::GetArrayType(nodeType->subType->subType, TypeInfo::UNSIZED_ARRAY));
+		AddExtraNode();
 	}
 }
 
@@ -1938,7 +1943,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
 
 	unsigned int fRating = 0;
-	for(unsigned int i = 0; i < currFunc->paramCount; i++)//TypeInfo *expectedType = currFunc->paramType; curr; curr = curr->next, n++)
+	for(unsigned int i = 0; i < currFunc->paramCount; i++)
 	{
 		NodeZeroOP* activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size() - currFunc->paramCount + i];
 		TypeInfo *paramType = activeNode->typeInfo;
@@ -1948,6 +1953,8 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		{
 			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 				fRating += 2;
+			else if(expectedType->refLevel == 1 && expectedType->refLevel == paramType->refLevel && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
+				fRating += 5;
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef)
 				fRating += 5;
 			else if(expectedType->refLevel == paramType->refLevel+1 && expectedType->subType == paramType)
