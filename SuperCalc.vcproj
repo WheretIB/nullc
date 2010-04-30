@@ -151,7 +151,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="bin/SuperCalcDBG.exe"
+				OutputFile="bin/SuperCalcDBG_x64.exe"
 				LinkIncremental="2"
 				IgnoreAllDefaultLibraries="false"
 				GenerateDebugInformation="true"
@@ -309,7 +309,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="bin/SuperCalc.exe"
+				OutputFile="bin/SuperCalc_x64.exe"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"

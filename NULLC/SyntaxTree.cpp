@@ -355,9 +355,14 @@ void NodeThreeOP::LogToStream(FILE *fGraph)
 void NodeNumber::Compile()
 {
 	assert(typeInfo->size <= 8);
-	if(typeInfo->stackType != STYPE_INT)
-		cmdList.push_back(VMCmd(cmdPushImmt, num.quad.high));
-	cmdList.push_back(VMCmd(cmdPushImmt, num.quad.low));
+	if(typeInfo->refLevel)
+	{
+		cmdList.push_back(VMCmd(cmdPushPtrImmt, num.quad.low));
+	}else{
+		if(typeInfo->stackType != STYPE_INT)
+			cmdList.push_back(VMCmd(cmdPushImmt, num.quad.high));
+		cmdList.push_back(VMCmd(cmdPushImmt, num.quad.low));
+	}
 }
 void NodeNumber::LogToStream(FILE *fGraph)
 {

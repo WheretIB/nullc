@@ -212,15 +212,12 @@ enum InstructionCode
 	cmdPushTypeID,
 	cmdConvertPtr,
 
+	cmdPushPtr,
+	cmdPushPtrStk,
+	cmdPushPtrImmt,
+
 	cmdEnumCount,
 };
-#ifdef _M_X64
-	#define cmdPushPtr cmdPushDorL
-	#define cmdPushPtrStk cmdPushDorLStk
-#else
-	#define cmdPushPtr cmdPushInt
-	#define cmdPushPtrStk cmdPushIntStk
-#endif
 
 static const char *vmInstructionText[] =
 {
@@ -249,7 +246,8 @@ static const char *vmInstructionText[] =
 	"IncI", "IncD", "IncL",
 	"DecI", "DecD", "DecL",
 	"CreateClosure", "CloseUpvals",
-	"PushTypeID", "ConvertPtr"
+	"PushTypeID", "ConvertPtr",
+	"PushPtr", "PushPtrStk", "PushPtrImmt"
 };
 
 struct VMCmd
