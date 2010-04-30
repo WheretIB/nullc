@@ -365,7 +365,7 @@ void ExecutorX86::InitExecution()
 #pragma warning(disable: 4731)
 void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
-	if(!codeRunning)
+	if(!codeRunning || functionID == ~0u)
 		InitExecution();
 	bool wasCodeRunning = codeRunning;
 	codeRunning = true;

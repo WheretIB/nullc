@@ -96,6 +96,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			exModules.back().nameHash = GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
 			exModules.back().variableOffset = globalVarSize - ((ByteCode*)bytecode)->globalVarSize;
+			exModules.back().sourceOffset = exSource.size() - ((ByteCode*)bytecode)->sourceSize;
+			exModules.back().sourceSize = ((ByteCode*)bytecode)->sourceSize;
 #ifdef VERBOSE_DEBUG_OUTPUT
 			printf("Module %s variables are found at %d (size is %d).\r\n", path, exModules.back().variableOffset, ((ByteCode*)bytecode)->globalVarSize);
 #endif

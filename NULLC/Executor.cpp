@@ -34,7 +34,7 @@ long long vmLongPow(long long num, long long pow)
 	return res;
 }
 
-Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions), exTypes(linker->exTypes)
+Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions), exTypes(linker->exTypes), breakCode(128)
 {
 	DBG(executeLog = fopen("log.txt", "wb"));
 
@@ -51,6 +51,8 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 	symbols = NULL;
 
 	codeRunning = false;
+
+	breakFunction = NULL;
 }
 
 Executor::~Executor()
@@ -99,7 +101,7 @@ void Executor::InitExecution()
 
 void Executor::Run(unsigned int functionID, const char *arguments)
 {
-	if(!codeRunning)
+	if(!codeRunning || functionID == ~0u)
 		InitExecution();
 	codeRunning = true;
 
@@ -186,7 +188,16 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		switch(cmd.cmd)
 		{
 		case cmdNop:
-			assert(!"cmdNop looks like error");
+			if(cmd.flag == 0)
+			{
+				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
+				fcallStack.push_back(cmdStream);
+				breakFunction((unsigned int)(cmdStream - cmdStreamBase));
+				fcallStack.pop_back();
+				cmdStream = &breakCode[cmd.argument];
+				break;
+			}
+			cmdStream = cmdStreamBase + cmd.argument;
 			break;
 		case cmdPushChar:
 			genStackPtr--;
@@ -1277,8 +1288,43 @@ void* Executor::GetStackEnd()
 {
 	return genStackTop;
 }
+
+void Executor::SetBreakFunction(void (*callback)(unsigned int))
+{
+	breakFunction = callback;
+}
+
+void Executor::ClearBreakpoints()
+{
+	// Check all instructions for break instructions
+	for(unsigned int i = 0; i < exLinker->exCode.size(); i++)
+	{
+		// nop instruction is used for breaks
+		// break structure: cmdOriginal, cmdNop
+		if(exLinker->exCode[i].cmd == cmdNop)
+			exLinker->exCode[i] = breakCode[exLinker->exCode[i].argument];	// replace it with original instruction
+	}
+	breakCode.clear();
+}
+
+bool Executor::AddBreakpoint(unsigned int instruction)
+{
+	if(instruction > exLinker->exCode.size())
+	{
+		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		return false;
+	}
+	unsigned int pos = breakCode.size();
+	breakCode.push_back(exLinker->exCode[instruction]);
+	breakCode.push_back(VMCmd(cmdNop, 1, 0, instruction + 1));
+	exLinker->exCode[instruction].cmd = cmdNop;
+	exLinker->exCode[instruction].flag = 0;
+	exLinker->exCode[instruction].argument = pos;
+	return true;
+}
+
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-// распечатать инструкцию в читабельном виде в поток
+// Print instruction info into stream in a readable format
 void PrintInstructionText(FILE* logASM, VMCmd cmd, unsigned int rel, unsigned int top)
 {
 	char	buf[128];

@@ -29,6 +29,10 @@ public:
 
 	void*			GetStackStart();
 	void*			GetStackEnd();
+
+	void	SetBreakFunction(void (*callback)(unsigned int));
+	void	ClearBreakpoints();
+	bool	AddBreakpoint(unsigned int instruction);
 private:
 	void	InitExecution();
 
@@ -62,6 +66,9 @@ private:
 	unsigned int	*genStackTop;
 
 	bool			callContinue;
+
+	void (*breakFunction)(unsigned int);
+	FastVector<VMCmd>	breakCode;
 
 	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
 
