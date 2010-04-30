@@ -5423,15 +5423,57 @@ return factorial(10);";
 
 #ifdef FAILURE_TEST
 
-const char	*testDivZero = 
+const char	*testDivZeroInt = 
 "// Division by zero handling\r\n\
 int a=5, b =0;\r\n\
 return a/b;";
-	printf("\r\n Division by zero handling\r\n");
+	printf("\r\nDivision by zero handling 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testDivZero, testTarget[t], "ERROR: integer division by zero"))
+		if(!RunCode(testDivZeroInt, testTarget[t], "ERROR: integer division by zero"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testDivZeroLong = 
+"// Division by zero handling\r\n\
+long a=5, b =0;\r\n\
+return a/b;";
+	printf("\r\nDivision by zero handling 2\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testDivZeroLong, testTarget[t], "ERROR: long division by zero"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testModZeroInt = 
+"// Division by zero handling\r\n\
+int a=5, b =0;\r\n\
+return a%b;";
+	printf("\r\nModulus division by zero handling\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testModZeroInt, testTarget[t], "ERROR: integer modulus division by zero"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testModZeroLong = 
+"// Division by zero handling\r\n\
+long a=5, b =0;\r\n\
+return a%b;";
+	printf("\r\nModulus division by zero handling\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testModZeroLong, testTarget[t], "ERROR: long modulus division by zero"))
 			passed[t]++;
 		else
 			printf("Should have failed");
