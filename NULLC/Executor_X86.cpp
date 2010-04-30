@@ -12,7 +12,8 @@ namespace NULLC
 {
 	struct DataStackHeader
 	{
-		unsigned int	unused1, unused2;
+		unsigned int	unused1;
+		unsigned int	lastEDI;
 		unsigned int	instructionPtr;
 		int				nextElement;
 	};
@@ -329,75 +330,70 @@ bool ExecutorX86::Initialize()
 	HMODULE hDLL = LoadLibrary("kernel32");
 	pSetThreadStackGuarantee = (PSTSG)GetProcAddress(hDLL, "SetThreadStackGuarantee");
 
+	codeRunning = false;
+
 	return true;
 }
 
 // Returns value as close as real ESP, at the program execution start
 void* getESP(){ __asm{ lea eax, [ebp-32] } }
 
-#pragma warning(disable: 4731)
-void ExecutorX86::Run(const char* funcName)
+void ExecutorX86::InitExecution()
 {
-	using namespace NULLC;
-
 	if(!exCode.size())
 	{
 		strcpy(execError, "ERROR: no code to run");
 		return;
 	}
-
-	SetUnmanagableRange(parameterHead, reservedStack);
+	SetUnmanagableRange(NULLC::parameterHead, NULLC::reservedStack);
 
 	execError[0] = 0;
 	callContinue = 1;
 
-	stackReallocs = 0;
-
+	NULLC::stackReallocs = 0;
 	NULLC::dataHead->nextElement = NULL;
 
-	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
+	genStackPtr = genStackTop = getESP();
 
-	int functionID = -1;
-	if(funcName)
+	if(NULLC::pSetThreadStackGuarantee)
 	{
-		unsigned int funcPos = (unsigned int)-1;
-		unsigned int fnameHash = GetStringHash(funcName);
-		for(int i = (int)exFunctions.size()-1; i >= 0; i--)
-		{
-			if(exFunctions[i].nameHash == fnameHash)
-			{
-				funcPos = exFunctions[i].startInByteCode;
-				functionID = i;
-				break;
-			}
+		unsigned long extraStack = 4096;
+		NULLC::pSetThreadStackGuarantee(&extraStack);
+	}
+}
+
+#pragma warning(disable: 4731)
+void ExecutorX86::Run(unsigned int functionID, const char *arguments)
+{
+	if(!codeRunning)
+		InitExecution();
+	bool wasCodeRunning = codeRunning;
+	codeRunning = true;
+
+	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
+	unsigned int varSize = exLinker->globalVarSize ? ((exLinker->globalVarSize & 0xfffffff0) + 16) : 0;
+
+	if(functionID != ~0u)
+	{
+		if(exFunctions[functionID].startInByteCode == -1)
+			binCodeStart = (unsigned int)(uintptr_t)exFunctions[functionID].funcPtr;
+		else{
+			varSize += NULLC::dataHead->lastEDI;
+			memcpy(paramBase + varSize, arguments, exFunctions[functionID].bytesToPop);
+			binCodeStart += exFunctions[functionID].startInByteCode;
 		}
-		if(funcPos == -1)
-		{
-			strcpy(execError, "Cannot find starting function");
-			return;
-		}
-		binCodeStart += funcPos;
 	}else{
 		binCodeStart += globalStartInBytecode;
 		while(NULLC::commitedStack < exLinker->globalVarSize)
-			ExtendMemory();
-		memset(parameterHead, 0, exLinker->globalVarSize);
+			NULLC::ExtendMemory();
+		memset(NULLC::parameterHead, 0, exLinker->globalVarSize);
 	}
-
-	unsigned int varSize = exLinker->globalVarSize ? ((exLinker->globalVarSize & 0xfffffff0) + 16) : 0;
 
 	unsigned int res1 = 0;
 	unsigned int res2 = 0;
 	unsigned int resT = 0;
-	genStackPtr = genStackTop = getESP();
 
-	if(pSetThreadStackGuarantee)
-	{
-		unsigned long extraStack = 4096;
-		pSetThreadStackGuarantee(&extraStack);
-	}
-
-	abnormalTermination = false;
+	NULLC::abnormalTermination = false;
 
 	__try 
 	{
@@ -431,62 +427,66 @@ void ExecutorX86::Run(const char* funcName)
 
 			popa ;
 		}
-	}__except(CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
-		if(expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
+	}__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
+		if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			strcpy(execError, "ERROR: integer division by zero");
-		else if(expCodePublic == EXCEPTION_INT_OVERFLOW)
+		else if(NULLC::expCodePublic == EXCEPTION_INT_OVERFLOW)
 			strcpy(execError, "ERROR: integer overflow");
-		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0)
+		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0)
 			strcpy(execError, "ERROR: array index out of bounds");
-		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xFFFFFFFF)
+		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xFFFFFFFF)
 			strcpy(execError, "ERROR: function didn't return a value");
-		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate == 0xDEADBEEF)
+		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xDEADBEEF)
 			strcpy(execError, "ERROR: invalid function pointer");
-		else if(expCodePublic == EXCEPTION_BREAKPOINT && expECXstate != expESPstate)
-			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[expEAXstate].offsetToName], &exLinker->exSymbols[exLinker->exTypes[expECXstate].offsetToName]);
-		else if(expCodePublic == EXCEPTION_STACK_OVERFLOW)
+		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate != NULLC::expESPstate)
+			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[NULLC::expEAXstate].offsetToName], &exLinker->exSymbols[exLinker->exTypes[NULLC::expECXstate].offsetToName]);
+		else if(NULLC::expCodePublic == EXCEPTION_STACK_OVERFLOW)
 			strcpy(execError, "ERROR: stack overflow");
-		else if(expCodePublic == EXCEPTION_ACCESS_VIOLATION)
+		else if(NULLC::expCodePublic == EXCEPTION_ACCESS_VIOLATION)
 		{
-			if(expAllocCode == 1)
+			if(NULLC::expAllocCode == 1)
 				strcpy(execError, "ERROR: failed to commit old stack memory");
-			else if(expAllocCode == 2)
+			else if(NULLC::expAllocCode == 2)
 				strcpy(execError, "ERROR: failed to reserve new stack memory");
-			else if(expAllocCode == 3)
+			else if(NULLC::expAllocCode == 3)
 				strcpy(execError, "ERROR: failed to commit new stack memory");
-			else if(expAllocCode == 4)
+			else if(NULLC::expAllocCode == 4)
 				strcpy(execError, "ERROR: no more memory (512Mb maximum exceeded)");
 			else
-				SafeSprintf(execError, 512, "ERROR: access violation at address 0x%d", expECXstate);
+				SafeSprintf(execError, 512, "ERROR: access violation at address 0x%d", NULLC::expECXstate);
 		}
 	}
 
-	runResult = res1;
-	runResult2 = res2;
+	NULLC::runResult = res1;
+	NULLC::runResult2 = res2;
 	if(functionID == -1)
 	{
-		runResultType = (asmOperType)resT;
+		NULLC::runResultType = (asmOperType)resT;
 	}else{
 		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
 		{
-			runResultType = OTYPE_COMPLEX;
+			NULLC::runResultType = OTYPE_COMPLEX;
 		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT){
-			runResultType = OTYPE_INT;
+			NULLC::runResultType = OTYPE_INT;
 		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE){
-			runResultType = OTYPE_DOUBLE;
+			NULLC::runResultType = OTYPE_DOUBLE;
 		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG){
-			runResultType = OTYPE_LONG;
+			NULLC::runResultType = OTYPE_LONG;
 		}
 	}
 
-	if(execError[0] != '\0')
+	if(!wasCodeRunning)
 	{
-		char *currPos = execError + strlen(execError);
-		currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "\r\nCall stack:\r\n");
+		if(execError[0] != '\0')
+		{
+			char *currPos = execError + strlen(execError);
+			currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "\r\nCall stack:\r\n");
 
-		BeginCallStack();
-		while(unsigned int address = GetNextAddress())
-			currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
+			BeginCallStack();
+			while(unsigned int address = GetNextAddress())
+				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
+		}
+		codeRunning = false;
 	}
 }
 #pragma warning(default: 4731)
@@ -1133,6 +1133,27 @@ const char* ExecutorX86::GetResult()
 		break;
 	}
 	return execResult;
+}
+int ExecutorX86::GetResultInt()
+{
+	assert(NULLC::runResultType == OTYPE_INT);
+	return NULLC::runResult;
+}
+double ExecutorX86::GetResultDouble()
+{
+	assert(NULLC::runResultType == OTYPE_DOUBLE);
+	long long combined = 0;
+	*((int*)(&combined)) = NULLC::runResult2;
+	*((int*)(&combined)+1) = NULLC::runResult;
+	return *(double*)(&combined);
+}
+long long ExecutorX86::GetResultLong()
+{
+	assert(NULLC::runResultType == OTYPE_LONG);
+	long long combined = 0;
+	*((int*)(&combined)) = NULLC::runResult2;
+	*((int*)(&combined)+1) = NULLC::runResult;
+	return combined;
 }
 
 const char*	ExecutorX86::GetExecError()

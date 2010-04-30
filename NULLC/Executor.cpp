@@ -100,12 +100,7 @@ void Executor::InitExecution()
 void Executor::Run(unsigned int functionID, const char *arguments)
 {
 	if(!codeRunning)
-	{
 		InitExecution();
-	}else if(functionID == ~0u){
-		strcpy(execError, "ERROR: cannot run global code twice");
-		return;
-	}
 	codeRunning = true;
 
 	asmOperType retType = (asmOperType)-1;
@@ -887,33 +882,19 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		codeRunning = false;
 		return;
 	}
-	if(genStackSize == 0)
-	{
-		strcpy(execResult, "No result value");
-		return;
-	}
-	if(!codeRunning && genStackSize > 2)
-	{
-		strcpy(execResult, "There is more than one value on the stack");
-		return;
-	}
+	
+	lastResultType = retType;
+	lastResultH = genStackPtr[1];
+	lastResultL = genStackPtr[0];
+
 	switch(retType)
 	{
 	case OTYPE_DOUBLE:
-		SafeSprintf(execResult, 64, "%f", *(double*)(genStackPtr));
-		break;
 	case OTYPE_LONG:
-#ifdef _MSC_VER
-		SafeSprintf(execResult, 64, "%I64dL", *(long long*)(genStackPtr));
-#else
-		SafeSprintf(execResult, 64, "%lldL", *(long long*)(genStackPtr));
-#endif
+		genStackPtr += 2;
 		break;
 	case OTYPE_INT:
-		SafeSprintf(execResult, 64, "%d", *(int*)(genStackPtr));
-		break;
-	default:
-		SafeSprintf(execResult, 64, "no return value");
+		genStackPtr++;
 		break;
 	}
 }
@@ -1219,7 +1200,56 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 const char* Executor::GetResult()
 {
+	if(!codeRunning && genStackSize > 1)
+	{
+		strcpy(execResult, "There is more than one value on the stack");
+		return execResult;
+	}
+	long long combined = 0;
+	*((int*)(&combined)) = lastResultL;
+	*((int*)(&combined)+1) = lastResultH;
+
+	switch(lastResultType)
+	{
+	case OTYPE_DOUBLE:
+		SafeSprintf(execResult, 64, "%f", *(double*)(&combined));
+		break;
+	case OTYPE_LONG:
+#ifdef _MSC_VER
+		SafeSprintf(execResult, 64, "%I64dL", combined);
+#else
+		SafeSprintf(execResult, 64, "%lldL", combined);
+#endif
+		break;
+	case OTYPE_INT:
+		SafeSprintf(execResult, 64, "%d", lastResultL);
+		break;
+	default:
+		SafeSprintf(execResult, 64, "no return value");
+		break;
+	}
 	return execResult;
+}
+int Executor::GetResultInt()
+{
+	assert(lastResultType == OTYPE_INT);
+	return lastResultL;
+}
+double Executor::GetResultDouble()
+{
+	assert(lastResultType == OTYPE_DOUBLE);
+	long long combined = 0;
+	*((int*)(&combined)) = lastResultH;
+	*((int*)(&combined)+1) = lastResultL;
+	return *(double*)(&combined);
+}
+long long Executor::GetResultLong()
+{
+	assert(lastResultType == OTYPE_LONG);
+	long long combined = 0;
+	*((int*)(&combined)) = lastResultH;
+	*((int*)(&combined)+1) = lastResultL;
+	return combined;
 }
 
 const char*	Executor::GetExecError()
