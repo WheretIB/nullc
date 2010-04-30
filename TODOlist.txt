@@ -15,8 +15,6 @@ Breakpoints.
 Compiled modules must recompile after changes.
 
 tuples
-internal function call externally with parameters
-internal function call by pointer externally
 Replace AddPreOrPostOpNode with two distinct functions (?)
 Allow ++ and -- as post expression.
 string
@@ -134,3 +132,5 @@ DONE: vector
 DONE: list
 DONE: Fix module linkage with different set of base external functions. - no more base external funcitons
 DONE: ability to save bytecode
+DONE: internal function call externally with parameters
+DONE: internal function call by pointer externally

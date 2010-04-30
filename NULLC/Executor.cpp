@@ -388,8 +388,6 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)&genParams[0];
 			break;
 		case cmdFuncAddr:
-			genStackPtr--;
-			*genStackPtr = cmd.argument;
 			break;
 
 		case cmdSetRange:

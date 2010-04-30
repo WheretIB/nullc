@@ -368,8 +368,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			cmd.argument += oldCodeSize;
 			jumpTargets.push_back(cmd.argument);
 			break;
-		case cmdCall:
 		case cmdFuncAddr:
+			cmd.cmd = cmdPushImmt;
+			cmd.argument = funcRemap[cmd.argument];
+			break;
+		case cmdCall:
 		case cmdCreateClosure:
 			cmd.argument = funcRemap[cmd.argument];
 			break;
