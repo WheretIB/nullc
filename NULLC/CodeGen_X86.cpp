@@ -1740,9 +1740,8 @@ void GenCodeCmdGetAddr(VMCmd cmd)
 
 void GenCodeCmdFuncAddr(VMCmd cmd)
 {
-	EMIT_COMMENT("FUNCADDR");
-
-	EMIT_OP_NUM(o_push, cmd.argument);
+	(void)cmd;
+	assert(!"Unknown command cmdLogOr");
 }
 
 void GenCodeCmdSetRange(VMCmd cmd)
