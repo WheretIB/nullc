@@ -377,6 +377,38 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	return 1;
 }
 
+nullres nullcSetGlobal(const char* name, void* data)
+{
+	char* mem = (char*)nullcGetVariableData();
+	if(!linker || !name || !data || !mem)
+		return 0;
+	unsigned int hash = GetStringHash(name);
+	for(unsigned int i = 0; i < linker->exVariables.size(); i++)
+	{
+		if(linker->exVariables[i].nameHash == hash)
+		{
+			memcpy(mem + linker->exVariables[i].offset, data, linker->exTypes[linker->exVariables[i].type].size);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void* nullcGetGlobal(const char* name)
+{
+	char* mem = (char*)nullcGetVariableData();
+	if(!linker || !name || !mem)
+		return NULL;
+	unsigned int hash = GetStringHash(name);
+	for(unsigned int i = 0; i < linker->exVariables.size(); i++)
+	{
+		if(linker->exVariables[i].nameHash == hash)
+			return mem + linker->exVariables[i].offset;
+	}
+	return NULL;
+}
+
+
 const char* nullcGetResult()
 {
 	if(currExec == NULLC_VM)
