@@ -293,7 +293,7 @@ nullres	nullcRunFunction(const char* funcName, ...)
 				break;
 			}
 		}
-		if(functionID == -1)
+		if(functionID == ~0u)
 		{
 			SafeSprintf(errorBuf, 512, "ERROR: function %s not found", funcName);
 			nullcLastError = errorBuf;

@@ -75,26 +75,26 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 
 const char *CompilerError::codeStart = NULL;
 const char *nullcBaseCode = "\
-void assert(int val);\
-void assert(int val, char[] message);\
-\
-int operator ==(char[] a, b);\
-int operator !=(char[] a, b);\
-char[] operator +(char[] a, b);\
-char[] operator +=(char[] ref a, char[] b);\
-\
-char char(char a);\
-short short(short a);\
-int int(int a);\
-long long(long a);\
-float float(float a);\
-double double(double a);\
-\
-char[] int:str();\
-\
-void ref __newS(int size);\
-int[] __newA(int size, int count);\
-auto ref duplicate(auto ref obj);\
+void assert(int val);\r\n\
+void assert(int val, char[] message);\r\n\
+\r\n\
+int operator ==(char[] a, b);\r\n\
+int operator !=(char[] a, b);\r\n\
+char[] operator +(char[] a, b);\r\n\
+char[] operator +=(char[] ref a, char[] b);\r\n\
+\r\n\
+char char(char a);\r\n\
+short short(short a);\r\n\
+int int(int a);\r\n\
+long long(long a);\r\n\
+float float(float a);\r\n\
+double double(double a);\r\n\
+\r\n\
+char[] int:str();\r\n\
+\r\n\
+void ref __newS(int size);\r\n\
+int[] __newA(int size, int count);\r\n\
+auto ref duplicate(auto ref obj);\r\n\
 ";
 
 Compiler::Compiler()

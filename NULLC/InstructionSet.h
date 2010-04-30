@@ -222,7 +222,7 @@ enum InstructionCode
 	#define cmdPushPtrStk cmdPushIntStk
 #endif
 
-static char *vmInstructionText[] =
+static const char *vmInstructionText[] =
 {
 	"Nop",
 	"PushChar", "PushShort", "PushInt", "PushFloat", "PushDorL", "PushCmplx",

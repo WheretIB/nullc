@@ -3,13 +3,13 @@
 #include "stdafx.h"
 
 enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI, };
-static char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi" };
+static const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi" };
 
 enum x87Reg{ rST0, rST1, rST2, rST3, rST4, rST5, rST6, rST7, };
-static char* x87RegText[] = { "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7" };
+static const char* x87RegText[] = { "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7" };
 
 enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD, };
-static char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
+static const char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
 
 enum x86Cond{ condO, condNO, condB, condC, condNAE, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
 				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
@@ -113,7 +113,7 @@ enum x86Command
 #define o_jz o_je
 #define o_jnz o_jne
 
-static char* x86CmdText[] = 
+static const char* x86CmdText[] = 
 {	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd",
 	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
 	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",

@@ -2,6 +2,11 @@
 #ifndef NULLC_ARRAY_H
 #define NULLC_ARRAY_H
 
+#ifndef _MSC_VER
+#undef __forceinline
+#define __forceinline inline // TODO: NULLC_FORCEINLINE?
+#endif
+
 template<typename T, bool zeroNewMemory = false, bool skipConstructor = false>
 class FastVector
 {
@@ -52,7 +57,7 @@ public:
 		count = 0;
 	}
 
-	__forceinline T*		push_back()
+	T*		push_back()
 	{
 		count++;
 		if(count == max)
