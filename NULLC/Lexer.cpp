@@ -233,13 +233,13 @@ void Lexer::Lexify(const char* code)
 				while(isDigit(*pos))
 					pos++;
 				lLength = (int)(pos - code);
-			}else if(chartype_table[*code] & ct_start_symbol){
+			}else if(chartype_table[(unsigned char)*code] & ct_start_symbol){
 				const char *pos = code;
-				while(chartype_table[*pos] & ct_symbol)
+				while(chartype_table[(unsigned char)*pos] & ct_symbol)
 					pos++;
 				lLength = (int)(pos - code);
 
-				if(!(chartype_table[*pos] & ct_symbol))
+				if(!(chartype_table[(unsigned char)*pos] & ct_symbol))
 				{
 					switch(lLength)
 					{

@@ -36,7 +36,7 @@ LineStyle	lStyle[LINE_STYLE_COUNT];
 
 struct AreaChar
 {
-	char	ch;
+	unsigned char	ch;
 	char	style;
 };
 
@@ -142,7 +142,7 @@ int AdvanceCursor(AreaLine *line, int cursorX, bool left)
 		return cursorX;
 
 	// Find, what character is at the cursor position
-	char symb = line->data[cursorX + (left ? -1 : 0)].ch;
+	unsigned char symb = line->data[cursorX + (left ? -1 : 0)].ch;
 
 	int minX = left ? 1 : 0;
 	int maxX = left ? line->length : line->length - 2;
@@ -284,7 +284,7 @@ struct TextareaData
 
 	void OnCopyOrCut(bool cut);
 	void OnPaste();
-	void OnCharacter(char ch);
+	void OnCharacter(unsigned char ch);
 	void OnKeyEvent(int key);
 	void OnPaint();
 	void OnSize(unsigned int width, unsigned int height);
@@ -766,7 +766,7 @@ void RichTextarea::SetAreaText(HWND wnd, const char *text)
 	// we simulate how this text is written symbol by symbol
 	while(*text)
 	{
-		if(*text >= 0x20 || *text == '\t')
+		if((unsigned char)*text >= 0x20 || *text == '\t')
 			data->InputChar(*text);
 		else if(*text == '\r')
 			data->InputEnter();
@@ -966,7 +966,7 @@ void TextareaData::OnPaint()
 						charRect.right = charRect.left + shift * RichTextarea::charWidth;
 						FillRect(hdc, &charRect, selected && selectionOn ? RichTextarea::areaBrushSelected : RichTextarea::areaBrushWhite);
 					}else{	// Draw character
-						ExtTextOut(hdc, charRect.left, charRect.top, ETO_CLIPPED, &charRect, &curr->data[i].ch, 1, NULL);
+						ExtTextOut(hdc, charRect.left, charRect.top, ETO_CLIPPED, &charRect, (char*)&curr->data[i].ch, 1, NULL);
 					}
 				}
 				posInChars += shift;
@@ -1467,7 +1467,7 @@ void TextareaData::OnPaste()
 	if(clipData)
 	{
 		// Find line count
-		char *str = (char*)clipData;
+		unsigned char *str = (unsigned char*)clipData;
 		unsigned int linesAdded = 0;
 		do
 		{
@@ -1476,7 +1476,7 @@ void TextareaData::OnPaste()
 		}while(*str++);
 		history->TakeSnapshot(currLine, HistoryManager::LINES_ADDED, linesAdded);
 
-		str = (char*)clipData;
+		str = (unsigned char*)clipData;
 		// Simulate as if the text was written
 		while(*str)
 		{
@@ -1492,7 +1492,7 @@ void TextareaData::OnPaste()
 	InvalidateRect(areaWnd, NULL, false);
 }
 
-void TextareaData::OnCharacter(char ch)
+void TextareaData::OnCharacter(unsigned char ch)
 {
 	unsigned int startX, startY, endX, endY;
 	if(ch >= 0x20 || ch == '\t')	// If it isn't special symbol or it is a Tab
