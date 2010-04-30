@@ -1,4 +1,6 @@
 #pragma once
+#ifndef NULLC_ARRAY_H
+#define NULLC_ARRAY_H
 
 template<typename T, bool zeroNewMemory = false, bool skipConstructor = false>
 class FastVector
@@ -143,3 +145,4 @@ private:
 	FastVector(FastVector &r);
 };
 
+#endif

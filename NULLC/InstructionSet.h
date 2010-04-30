@@ -1,4 +1,7 @@
 #pragma once
+#ifndef NULLC_INSTRUCTIONSET_H
+#define NULLC_INSTRUCTIONSET_H
+
 #include "stdafx.h"
 
 typedef unsigned char CmdID;
@@ -480,3 +483,5 @@ public:
 	const char *sourceStart;
 	FastVector<SourceLine>	sourceInfo;	// Список строк к коду
 };
+
+#endif

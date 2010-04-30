@@ -1,4 +1,7 @@
 #pragma once
+#ifndef NULLC_LINKER_H
+#define NULLC_LINKER_H
+
 #include "stdafx.h"
 #include "ParseClass.h"
 
@@ -41,3 +44,4 @@ public:
 	FastVector<unsigned int>	moduleRemap;
 };
 
+#endif

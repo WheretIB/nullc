@@ -94,8 +94,10 @@ namespace NULLC
 		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW ||
 			expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
 		{
+#ifndef __DMC__
 			if(expCode == EXCEPTION_STACK_OVERFLOW)
 				_resetstkoflw();
+#endif
 			if(expCode == EXCEPTION_ACCESS_VIOLATION)
 				expECXstate = (unsigned int)expInfo->ExceptionRecord->ExceptionInformation[1];
 
@@ -1174,7 +1176,7 @@ const char* ExecutorX86::GetResult()
 #ifdef _MSC_VER
 		SafeSprintf(execResult, 64, "%I64dL", combined);
 #else
-		SafeSprintf(execResult, 64, "%lld", combined);
+		SafeSprintf(execResult, 64, "%lldL", combined);
 #endif
 		break;
 	case OTYPE_INT:

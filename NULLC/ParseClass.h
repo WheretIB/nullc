@@ -1,4 +1,7 @@
 #pragma once
+#ifndef NULLC_PARSECLASS_H
+#define NULLC_PARSECLASS_H
+
 #include "stdafx.h"
 
 #include "InstructionSet.h"
@@ -548,3 +551,5 @@ public:
 	unsigned int activeVarCnt;	//Active variable count
 	unsigned int varStackSize;	//Variable stack size in bytes
 };
+
+#endif

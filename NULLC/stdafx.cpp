@@ -6,7 +6,7 @@ void*	NULLC::defaultAlloc(int size)
 }
 void	NULLC::defaultDealloc(void* ptr)
 {
-	return ::delete (char*)ptr;
+	::delete[] (char*)ptr;
 }
 
 void*	(*NULLC::alloc)(int) = NULLC::defaultAlloc;

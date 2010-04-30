@@ -17,6 +17,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#ifdef __DMC__
+	#include <stdint.h>
+#endif
 
 #include <string.h>
 #include <setjmp.h>
@@ -46,7 +49,9 @@ namespace NULLC
 	template<typename T>
 	static T*		construct(int count)
 	{
-		return new(alloc(count * sizeof(T))) T[count];
+		void *tmp = (void*)alloc(4 + count * sizeof(T));
+		new(tmp) T[count];
+		return (T*)tmp;
 	}
 
 	template<typename T>

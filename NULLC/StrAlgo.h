@@ -1,4 +1,7 @@
 #pragma once
+#ifndef NULLC_STRALGO_H
+#define NULLC_STRALGO_H
+
 #include "stdafx.h"
 
 unsigned int GetStringHash(const char *str);
@@ -23,3 +26,5 @@ public:
 
 	const char *begin, *end;
 };
+
+#endif
