@@ -22,6 +22,7 @@ hash_map
 auto[]
 sort
 stand-alone compiler and executor
+default function argument values are not saved in bytecode
 
 DONE: ref variables - pointers
 DONE: multidimensional arrays
@@ -135,3 +136,5 @@ DONE: ability to save bytecode
 DONE: internal function call externally with parameters
 DONE: internal function call by pointer externally
 DONE: nullcGet/SetGlobal functions
+DONE: varargs (functions accepting variable number of arguments)
+DONE: auto ref function call redirection to function of current type 

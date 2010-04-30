@@ -95,6 +95,8 @@ char[] int:str();\r\n\
 void ref __newS(int size);\r\n\
 int[] __newA(int size, int count);\r\n\
 auto ref duplicate(auto ref obj);\r\n\
+\r\n\
+void ref() __redirect(auto ref r, int[] ref f);\r\n\
 ";
 
 Compiler::Compiler()
@@ -191,6 +193,8 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::AllocArray, "__newA", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
 
 }
 
@@ -486,7 +490,12 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			unsigned int strLength = (unsigned int)strlen(symbols + fInfo->offsetToName) + 1;
 			const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + fInfo->offsetToName);
 
-			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy, fInfo->nameHash));
+			unsigned int hashOriginal = fInfo->nameHash;
+			const char *extendEnd = strstr(nameCopy, "::");
+			if(extendEnd)
+				hashOriginal = GetStringHash(extendEnd + 2);
+
+			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy, fInfo->nameHash, hashOriginal));
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
 			AddFunctionToSortedList(lastFunc);
@@ -712,6 +721,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 #ifdef NULLC_LOG_FILES
 	FILE *fGraph = fopen("graph.txt", "wb");
 #endif
+
+	CreateRedirectionTables();
 
 	RestoreScopedGlobals();
 

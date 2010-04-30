@@ -35,4 +35,6 @@ namespace NULLC
 
 	void		ClearMemory();
 	void		ResetMemory();
+
+	NULLCFuncPtr	FunctionRedirect(NULLCRef r, NullCArray* arr);
 }

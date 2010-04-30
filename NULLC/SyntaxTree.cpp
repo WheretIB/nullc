@@ -446,10 +446,11 @@ void NodePopOp::TranslateToC(FILE *fOut)
 //////////////////////////////////////////////////////////////////////////
 // Node that applies selected operation on value on top of the stack
 
-NodeUnaryOp::NodeUnaryOp(CmdID cmd)
+NodeUnaryOp::NodeUnaryOp(CmdID cmd, unsigned int argument)
 {
 	// Unary operation
-	cmdID = cmd;
+	vmCmd.cmd = cmd;
+	vmCmd.argument = argument;
 
 	first = TakeLastNode();
 	// Resulting type is the same as source type with exception for logical NOT
@@ -457,7 +458,7 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd)
 	typeInfo = logicalOp ? typeInt : first->typeInfo;
 
 	if((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject))
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmdID - cmdNeg], first->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeUnaryOp;
 }
@@ -478,11 +479,11 @@ void NodeUnaryOp::Compile()
 
 	// Execute command
 	if(aOT == OTYPE_INT || first->typeInfo == typeObject)
-		cmdList.push_back(VMCmd((InstructionCode)cmdID));
+		cmdList.push_back(VMCmd((InstructionCode)(vmCmd.cmd + 0), vmCmd.argument));
 	else if(aOT == OTYPE_LONG)
-		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 1)));
+		cmdList.push_back(VMCmd((InstructionCode)(vmCmd.cmd + 1), vmCmd.argument));
 	else
-		cmdList.push_back(VMCmd((InstructionCode)(cmdID + 2)));
+		cmdList.push_back(VMCmd((InstructionCode)(vmCmd.cmd + 2), vmCmd.argument));
 }
 void NodeUnaryOp::LogToStream(FILE *fGraph)
 {
@@ -495,7 +496,7 @@ void NodeUnaryOp::LogToStream(FILE *fGraph)
 }
 void NodeUnaryOp::TranslateToC(FILE *fOut)
 {
-	switch(cmdID)
+	switch(vmCmd.cmd)
 	{
 	case cmdNeg:
 		fprintf(fOut, "-");
@@ -1015,6 +1016,7 @@ NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, 
 	varInfo = vInfo;
 	addressOriginal = varAddress = vAddress;
 	absAddress = absAddr;
+	trackAddress = false;
 
 	typeOrig = retInfo;
 	typeInfo = CodeInfo::GetReferenceType(typeOrig);
@@ -1029,6 +1031,10 @@ NodeGetAddress::~NodeGetAddress()
 bool NodeGetAddress::IsAbsoluteAddress()
 {
 	return absAddress;
+}
+void NodeGetAddress::SetAddressTracking()
+{
+	trackAddress = true;
 }
 
 void NodeGetAddress::IndexArray(int shift)
@@ -1054,7 +1060,7 @@ void NodeGetAddress::Compile()
 
 	CompileExtra();
 
-	cmdList.push_back(VMCmd(cmdGetAddr, absAddress ? 0 : 1, varAddress));
+	cmdList.push_back(VMCmd(cmdGetAddr, absAddress ? 0 : 1, trackAddress ? varInfo->pos : varAddress));
 }
 
 void NodeGetAddress::LogToStream(FILE *fGraph)
@@ -1065,7 +1071,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 		fprintf(fGraph, "%s '%.*s'", varInfo->varType->GetFullTypeName(), varInfo->name.end-varInfo->name.begin, varInfo->name.begin);
 	else
 		fprintf(fGraph, "$$$");
-	fprintf(fGraph, " (%d %s)\r\n", (int)varAddress, (absAddress ? " absolute" : " relative"));
+	fprintf(fGraph, " (%d %s)\r\n", varInfo ? varInfo->pos : varAddress, (absAddress ? " absolute" : " relative"));
 	LogToStreamExtra(fGraph);
 }
 void NodeGetAddress::TranslateToC(FILE *fOut)
@@ -1692,6 +1698,8 @@ void NodeDereference::Compile()
 	{
 		originalNode->Compile();
 	}else{
+		if(knownAddress || first != originalNode)
+			originalNode->CompileExtra();
 		if(closureFunc)
 		{
 			first->Compile();
