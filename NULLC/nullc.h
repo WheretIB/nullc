@@ -45,6 +45,9 @@ nullres		nullcRunFunction(const char* funcName, ...);
 
 /*	Retrieve result	*/
 const char*	nullcGetResult();
+int			nullcGetResultInt();
+double		nullcGetResultDouble();
+long long	nullcGetResultLong();
 
 /*	Returns last error description	*/
 const char*	nullcGetLastError();

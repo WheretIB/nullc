@@ -38,7 +38,6 @@ Executor*	executor;
 	ExecutorX86*	executorX86;
 #endif
 
-const char* nulcExecuteResult = NULL;
 const char*	nullcLastError = NULL;
 
 unsigned int currExec = 0;
@@ -310,21 +309,17 @@ nullres	nullcRunFunction(const char* funcName, ...)
 	{
 		executor->Run(functionID, argBuf);
 		const char* error = executor->GetExecError();
-		if(error[0] == 0)
+		if(error[0] != '\0')
 		{
-			nulcExecuteResult = executor->GetResult();
-		}else{
 			good = false;
 			nullcLastError = error;
 		}
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		executorX86->Run(funcName);
+		executorX86->Run(functionID, argBuf);
 		const char* error = executorX86->GetExecError();
-		if(error[0] == 0)
+		if(error[0] != '\0')
 		{
-			nulcExecuteResult = executorX86->GetResult();
-		}else{
 			good = false;
 			nullcLastError = error;
 		}
@@ -373,10 +368,8 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	executor->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
 	va_end(args);
 	const char* error = executor->GetExecError();
-	if(error[0] == 0)
+	if(error[0] != '\0')
 	{
-		nulcExecuteResult = executor->GetResult();
-	}else{
 		nullcLastError = error;
 		return 0;
 	}
@@ -385,7 +378,43 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 
 const char* nullcGetResult()
 {
-	return nulcExecuteResult;
+	if(currExec == NULLC_VM)
+		return executor->GetResult();
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		return executorX86->GetResult();
+#endif
+	return "unknown executor";
+}
+int nullcGetResultInt()
+{
+	if(currExec == NULLC_VM)
+		return executor->GetResultInt();
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		return executorX86->GetResultInt();
+#endif
+	return 0;
+}
+double nullcGetResultDouble()
+{
+	if(currExec == NULLC_VM)
+		return executor->GetResultDouble();
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		return executorX86->GetResultDouble();
+#endif
+	return 0.0;
+}
+long long nullcGetResultLong()
+{
+	if(currExec == NULLC_VM)
+		return executor->GetResultLong();
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		return executorX86->GetResultLong();
+#endif
+	return 0;
 }
 
 const char*	nullcGetLastError()

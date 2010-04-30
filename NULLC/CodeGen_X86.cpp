@@ -1914,6 +1914,7 @@ void GenCodeCmdCall(VMCmd cmd)
 	}else{
 		unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
 
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 		EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
 		EMIT_OP_REG(o_call, rECX);

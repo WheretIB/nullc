@@ -16,6 +16,10 @@ public:
 	void	Stop(const char* error);
 
 	const char*	GetResult();
+	int			GetResultInt();
+	double		GetResultDouble();
+	long long	GetResultLong();
+
 	const char*	GetExecError();
 
 	char*	GetVariableData();
@@ -29,6 +33,9 @@ private:
 	void	InitExecution();
 
 	bool	codeRunning;
+
+	asmOperType		lastResultType;
+	unsigned int	lastResultH, lastResultL;
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	FILE*		executeLog;

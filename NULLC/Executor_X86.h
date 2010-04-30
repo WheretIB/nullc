@@ -17,10 +17,14 @@ public:
 
 	bool	TranslateToNative();
 
-	void	Run(const char* funcName = NULL);
+	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);
 
 	const char*	GetResult();
+	int			GetResultInt();
+	double		GetResultDouble();
+	long long	GetResultLong();
+
 	const char*	GetExecError();
 
 	char*	GetVariableData();
@@ -31,6 +35,10 @@ public:
 	void*			GetStackStart();
 	void*			GetStackEnd();
 private:
+	void	InitExecution();
+
+	bool	codeRunning;
+
 	char	execError[512];
 	char	execResult[64];
 
