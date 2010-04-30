@@ -34,7 +34,256 @@ long long vmLongPow(long long num, long long pow)
 	return res;
 }
 
-Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions), exTypes(linker->exTypes), breakCode(128)
+#if defined(_M_X64)
+#ifdef _WIN64
+	#include <Windows.h>
+#endif
+
+static const unsigned char gatePrologue[32] =
+{
+	0x4C, 0x89, 0x44, 0x24, 0x18,	// mov qword [rsp+18h], r8	// spill r8
+	0x48, 0x89, 0x54, 0x24, 0x10,	// mov qword [rsp+10h], rdx	// spill RDX
+	0x48, 0x89, 0x4C, 0x24, 0x08,	// mov qword [rsp+8h], rcx	// spill RCX
+	0x57,	// push RDI
+	0x50,	// push RAX
+	0x53,	// push RBX
+	0x56,	// push RSI
+	0x56,	// push RSI again for stack alignment
+	0x48, 0x8b, 0301,// mov RAX, RCX
+	0x48, 0x8b, 0372,// mov RDI, RDX
+	0x49, 0x8b, 0330,// mov RBX, R8
+};
+
+unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, unsigned int funcID)
+{
+	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
+	unsigned int tmp;
+
+	// Create function call code, clear it out, copy call prologue to the beginning
+	code.push_back(gatePrologue, 29);
+
+	// complex type return is handled by passing pointer to a place, where the return value will be placed. This uses first register.
+	unsigned int rvs = exFunctions[funcID].retType == ExternFuncInfo::RETURN_UNKNOWN ? 1 : 0;
+
+	// normal function doesn't accept context, so start of the stack skips those 2 dwords
+	unsigned int currentShift = (dwordsToPop - (exFunctions[funcID].isNormal ? 2 : 0)) * 4;
+	unsigned int needpop = 0;
+	int i = exFunctions[funcID].paramCount - (exFunctions[funcID].isNormal ? 1 : 0);
+	for(; i >= 0; i--)
+	{
+		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
+		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
+		unsigned int typeSize = 8;
+		// If this is not the last argument, update data above
+		if((unsigned int)i != exFunctions[funcID].paramCount)
+		{
+			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+			ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
+			typeCat = lType.type;
+			typeSize = lType.size;
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
+				typeCat = ExternTypeInfo::TYPE_INT;
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
+				typeCat = ExternTypeInfo::TYPE_LONG;
+		}
+		switch(typeCat)
+		{
+		case ExternTypeInfo::TYPE_FLOAT:
+		case ExternTypeInfo::TYPE_DOUBLE:
+			if(rvs + i > 3)
+			{
+				// mov rsi, [rax+shift]
+				if(typeCat == ExternTypeInfo::TYPE_DOUBLE)
+					code.push_back(0x48);	// 64bit mode
+				code.push_back(0x8b);
+				code.push_back(0264);	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
+				code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
+				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
+				code.push_back((unsigned char*)&tmp, 4);
+
+				// push rsi
+				code.push_back(0x56);
+				needpop += 8;
+			}else{
+				// movsd/movss xmm, [rax+shift]
+				code.push_back(typeCat == ExternTypeInfo::TYPE_DOUBLE ? 0xf2 : 0xf3);
+				code.push_back(0x0f);
+				code.push_back(0x10);	
+				code.push_back((unsigned char)(0200 | (i << 3)));	// modR/M mod = 10 (32-bit shift), spare = XMMn, r/m = 0 (RAX is base)
+				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
+				code.push_back((unsigned char*)&tmp, 4);
+			}
+			currentShift -= (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_SHORT:
+		case ExternTypeInfo::TYPE_INT:
+		case ExternTypeInfo::TYPE_LONG:
+			if(rvs + i > 3)
+			{
+				// mov rsi, [rax+shift]
+				if(typeCat == ExternTypeInfo::TYPE_LONG)
+					code.push_back(0x48);	// 64bit mode
+				code.push_back(0x8b);
+				code.push_back(0264);	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
+				code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
+				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+				code.push_back((unsigned char*)&tmp, 4);
+
+				// push rsi
+				code.push_back(0x56);
+				needpop += 8;
+			}else{
+				if(rvs + i == 2 || rvs + i == 3)
+					code.push_back(typeCat == ExternTypeInfo::TYPE_LONG ? 0x4c : 0x44);
+				else if(typeCat == ExternTypeInfo::TYPE_LONG)
+					code.push_back(0x48);	// 64bit mode
+				code.push_back(0x8b);
+				if(rvs + i == 0)
+					code.push_back(0214);
+				else if(rvs + i == 1)
+					code.push_back(0224);
+				else if(rvs + i == 2)
+					code.push_back(0204);
+				else if(rvs + i == 3)
+					code.push_back(0214);
+				code.push_back(0040);
+				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+				code.push_back((unsigned char*)&tmp, 4);
+			}
+			currentShift -= (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+			break;
+		case ExternTypeInfo::TYPE_COMPLEX:
+			if(typeSize != 0 && typeSize <= 8)
+				assert(!"parameter type unsupported (small aggregate)");
+			// lea rsi, [rax+shift]
+			code.push_back(0x48);	// 64bit mode
+			code.push_back(0x8d);
+			code.push_back(0264);	// modR/M mod = 11 (register), spare = 6 (RSI destination), r/m = 4 (SIB active)
+			code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
+			tmp = currentShift - typeSize;
+			code.push_back((unsigned char*)&tmp, 4);
+
+			if(rvs + i > 3)
+			{
+				// push rsi
+				code.push_back(0x48);	// 64bit mode
+				code.push_back(0x56);
+				needpop += 8;
+			}else{
+				// mov reg, rsi
+				if(rvs + i == 2 || rvs + i == 3)
+					code.push_back(0x4c); // 64bit mode
+				else
+					code.push_back(0x48);	// 64bit mode
+				code.push_back(0x8b);
+				if(rvs + i == 0)
+					code.push_back(0316);
+				else if(rvs + i == 1)
+					code.push_back(0326);
+				else if(rvs + i == 2)
+					code.push_back(0306);
+				else if(rvs + i == 3)
+					code.push_back(0316);
+			}
+			currentShift -= typeSize;
+			break;
+		default:
+			assert(!"parameter type unsupported");
+		}
+	}
+	// for complex return value, pass a pointer in rcx
+	if(rvs)
+	{
+		code.push_back(0x48);	// 64bit mode
+		code.push_back(0x8b);
+		code.push_back(0317);	// modR/M mod = 11 (register), spare = 1 (RCX is a destination), r/m = 4 (RDI is source)
+	}
+	// sub rsp, 32
+	code.push_back(0x48);
+	code.push_back(0x81);
+	code.push_back(0354);	// modR/M mod = 11 (register), spare = 5 (sub), r/m = 4 (RSP is changed)
+	tmp = 32;
+	code.push_back((unsigned char*)&tmp, 4);
+
+	// call rbx
+	code.push_back(0x48);
+	code.push_back(0xff);
+	code.push_back(0323);	// modR/M mod = 11 (register), spare = 2, r/m = 3 (RBX is source)
+
+	// add rsp, 32 + needpop
+	code.push_back(0x48);
+	code.push_back(0x81);
+	code.push_back(0304);	// modR/M mod = 11 (register), spare = 0 (add), r/m = 4 (RSP is changed)
+	tmp = 32 + needpop;
+	code.push_back((unsigned char*)&tmp, 4);
+
+	// handle return value
+	ExternFuncInfo::ReturnType retType = (ExternFuncInfo::ReturnType)exFunctions[funcID].retType;
+	unsigned int retTypeID = exLinker->exTypeExtra[exTypes[exFunctions[funcID].funcType].memberOffset];
+	unsigned int retTypeSize = exTypes[retTypeID].size;
+	if(retType == ExternFuncInfo::RETURN_UNKNOWN)
+	{
+		if(retTypeSize == 0)
+			retType = ExternFuncInfo::RETURN_VOID;
+		else if(retTypeSize <= 4)
+			retType = ExternFuncInfo::RETURN_INT;
+		else if(retTypeSize == 8)
+			retType = ExternFuncInfo::RETURN_LONG;
+	}
+	unsigned int returnShift = 0;
+	switch(retType)
+	{
+	case ExternFuncInfo::RETURN_DOUBLE:
+		
+		// float type is #2
+		if(retTypeID == 2)
+		{
+			// cvtss2sd xmm0, xmm0
+			code.push_back(0xf3);
+			code.push_back(0x0f);
+			code.push_back(0x5a);
+			code.push_back(0xc0);
+		}
+		returnShift = 2;
+		// movsd qword [rdi], xmm0
+		code.push_back(0xf2);
+		code.push_back(0x0f);
+		code.push_back(0x11);
+		code.push_back(0007);	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 7 (RDI is base)
+		break;
+	case ExternFuncInfo::RETURN_LONG:
+		returnShift = 1;
+		// mov qword [rdi], rax
+		code.push_back(0x48);	// 64bit mode
+	case ExternFuncInfo::RETURN_INT:
+		returnShift += 1;
+		// mov dword [rdi], eax
+		code.push_back(0x89);
+		code.push_back(0007);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 0 (RDI is base)
+		break;
+	case ExternFuncInfo::RETURN_VOID:
+		break;
+	case ExternFuncInfo::RETURN_UNKNOWN:
+		if(retTypeSize <= 8)
+				assert(!"return type unsupported (small aggregate)");
+		returnShift = retTypeSize / 4;
+		break;
+	}
+
+	code.push_back(0x5e);	// pop RSI
+	code.push_back(0x5e);	// pop RSI (pushed twice for alignment)
+	code.push_back(0x5b);	// pop RBX
+	code.push_back(0x58);	// pop RAX
+	code.push_back(0x5f);	// pop RDI
+	code.push_back(0xc3);	// ret
+
+	return returnShift;
+}
+
+#endif
+
+Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions), exTypes(linker->exTypes), breakCode(128), gateCode(4096)
 {
 	DBG(executeLog = fopen("log.txt", "wb"));
 
@@ -97,6 +346,23 @@ void Executor::InitExecution()
 	genStackPtr = genStackTop - 1;
 
 	paramBase = 0;
+
+#if defined(_M_X64)
+	// Generate gateway code for all functions
+	gateCode.clear();
+	for(unsigned int i = 0; i < exFunctions.size(); i++)
+	{
+		if(exFunctions[i].address != -1)
+			continue;
+		exFunctions[i].startInByteCode = gateCode.size();
+		exFunctions[i].returnShift = (unsigned short)CreateFunctionGateway(gateCode, i);
+	}
+#ifdef _WIN64
+	DWORD old;
+	VirtualProtect(gateCode.data, gateCode.size(), PAGE_EXECUTE_READWRITE, &old);
+#endif
+
+#endif
 }
 
 void Executor::Run(unsigned int functionID, const char *arguments)
@@ -1105,19 +1371,6 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 }
 
 #elif defined(_M_X64)
-static const unsigned char gatePrologue[32] =
-{
-	0x4C, 0x89, 0x44, 0x24, 0x18,	// mov qword [rsp+18h], r8	// spill r8
-	0x48, 0x89, 0x54, 0x24, 0x10,	// mov qword [rsp+10h], rdx	// spill RDX
-	0x48, 0x89, 0x4C, 0x24, 0x08,	// mov qword [rsp+8h], rcx	// spill RCX
-	0x57,	// push RDI
-	0x48, 0x8b, 0301,// mov RAX, RCX
-	0x48, 0x8b, 0372,// mov RDI, RDX
-	0x49, 0x8b, 0330,// mov RBX, R8
-};
-#ifdef _WIN64
-	#include <Windows.h>
-#endif
 
 // X64 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
@@ -1128,240 +1381,24 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	unsigned int *stackStart = genStackPtr;
 	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
 
-	// Create function call code, clear it out, copy call prologue to the beginning
-	unsigned char *code = new unsigned char[1024];
-	memset(code, 0, 1024);
-	memcpy(code, gatePrologue, 25);
+	assert(exFunctions[funcID].returnShift < 128);	// maximum supported return type size is 512 bytes
 
-	unsigned char *currCode = code + 25;
+	// buffer for return value
+	unsigned int ret[128];
 
-	// complex type return is handled by passing pointer to a place, where the return value will be placed. This uses first register.
-	unsigned int rvs = exFunctions[funcID].retType == ExternFuncInfo::RETURN_UNKNOWN ? 1 : 0;
+	// call external function through gateway
+	void (*gate)(unsigned int*, unsigned int*, void*) = (void (*)(unsigned int*, unsigned int*, void*))(void*)(gateCode.data + exFunctions[funcID].startInByteCode);
+	gate(stackStart, ret, fPtr);
 
-	unsigned int currentShift = (dwordsToPop - (exFunctions[funcID].isNormal ? 2 : 0)) * 4;
-	unsigned int needpop = 0;
-	int i = exFunctions[funcID].paramCount - (exFunctions[funcID].isNormal ? 1 : 0);
-	for(; i >= 0; i--)
-	{
-		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
-		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
-		unsigned int typeSize = 8;
-		// If this is not the last argument, update data above
-		if((unsigned int)i != exFunctions[funcID].paramCount)
-		{
-			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-			ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
-			typeCat = lType.type;
-			typeSize = lType.size;
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
-				typeCat = ExternTypeInfo::TYPE_INT;
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
-				typeCat = ExternTypeInfo::TYPE_LONG;
-		}
-		switch(typeCat)
-		{
-		case ExternTypeInfo::TYPE_FLOAT:
-		case ExternTypeInfo::TYPE_DOUBLE:
-			if(rvs + i > 3)
-			{
-				// mov rsi, [rax+shift]
-				if(typeCat == ExternTypeInfo::TYPE_DOUBLE)
-					*currCode++ = 0x48;	// 64bit mode
-				*currCode++ = 0x8b;
-				*currCode++ = 0264;	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
-				*currCode++ = 0040;	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-				*(unsigned int*)currCode = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
-				currCode += 4;
+	// adjust new stack top
+	newStackPtr -= exFunctions[funcID].returnShift;
 
-				// push rsi
-				*currCode++ = 0x56;
-				needpop += 8;
-			}else{
-				// movsd xmm, [rax+shift]
-				*currCode++ = typeCat == ExternTypeInfo::TYPE_DOUBLE ? 0xf2 : 0xf3;
-				*currCode++ = 0x0f;
-				*currCode++ = 0x10;	
-				*currCode++ = (unsigned char)(0200 | (i << 3));	// modR/M mod = 10 (32-bit shift), spare = XMMn, r/m = 0 (RAX is base)
-				*(unsigned int*)currCode = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
-				currCode += 4;
-			}
-			currentShift -= (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
-			break;
-		case ExternTypeInfo::TYPE_CHAR:
-		case ExternTypeInfo::TYPE_SHORT:
-		case ExternTypeInfo::TYPE_INT:
-		case ExternTypeInfo::TYPE_LONG:
-			if(rvs + i > 3)
-			{
-				// mov rsi, [rax+shift]
-				if(typeCat == ExternTypeInfo::TYPE_LONG)
-					*currCode++ = 0x48;	// 64bit mode
-				*currCode++ = 0x8b;
-				*currCode++ = 0264;	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
-				*currCode++ = 0040;	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-				*(unsigned int*)currCode = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
-				currCode += 4;
+	// copy return value on top of the stack
+	memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
 
-				// push rsi
-				*currCode++ = 0x56;
-				needpop += 8;
-			}else{
-				if(rvs + i == 2 || rvs + i == 3)
-					*currCode++ = typeCat == ExternTypeInfo::TYPE_LONG ? 0x4c : 0x44;
-				else if(typeCat == ExternTypeInfo::TYPE_LONG)
-					*currCode++ = 0x48;	// 64bit mode
-				*currCode++ = 0x8b;
-				if(rvs + i == 0)
-					*currCode++ = 0214;
-				else if(rvs + i == 1)
-					*currCode++ = 0224;
-				else if(rvs + i == 2)
-					*currCode++ = 0204;
-				else if(rvs + i == 3)
-					*currCode++ = 0214;
-				*currCode++ = 0040;
-				*(unsigned int*)currCode = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
-				currCode += 4;
-			}
-			currentShift -= (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
-			break;
-		case ExternTypeInfo::TYPE_COMPLEX:
-			if(typeSize != 0 && typeSize <= 8)
-				assert(!"parameter type unsupported (small aggregate)");
-			// lea rsi, [rax+shift]
-			*currCode++ = 0x48;	// 64bit mode
-			*currCode++ = 0x8d;
-			*currCode++ = 0264;	// modR/M mod = 11 (register), spare = 6 (RSI destination), r/m = 4 (SIB active)
-			*currCode++ = 0040;	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-			*(unsigned int*)currCode = currentShift - typeSize;
-			currCode += 4;
-
-			if(rvs + i > 3)
-			{
-				// push rsi
-				*currCode++ = 0x48;	// 64bit mode
-				*currCode++ = 0x56;
-				needpop += 8;
-			}else{
-				// mov reg, rsi
-				if(rvs + i == 2 || rvs + i == 3)
-					*currCode++ = 0x4c; // 64bit mode
-				else
-					*currCode++ = 0x48;	// 64bit mode
-				*currCode++ = 0x8b;
-				if(rvs + i == 0)
-					*currCode++ = 0316;
-				else if(rvs + i == 1)
-					*currCode++ = 0326;
-				else if(rvs + i == 2)
-					*currCode++ = 0306;
-				else if(rvs + i == 3)
-					*currCode++ = 0316;
-			}
-			currentShift -= typeSize;
-			break;
-		default:
-			assert(!"parameter type unsupported");
-		}
-	}
-	// for complex return value, pass a pointer in rcx
-	if(rvs)
-	{
-		*currCode++ = 0x48;
-		*currCode++ = 0x8b;
-		*currCode++ = 0317;
-	}
-	// sub rsp, 32
-	*currCode++ = 0x48;
-	*currCode++ = 0x81;
-	*currCode++ = 0354;	// modR/M mod = 11 (register), spare = 5 (sub), r/m = 4 (RSP is changed)
-	*(unsigned int*)currCode = 32;
-	currCode += 4;
-
-	// call rbx
-	*currCode++ = 0x48;
-	*currCode++ = 0xff;
-	*currCode++ = 0323;	// modR/M mod = 11 (register), spare = 2, r/m = 3 (RBX is source)
-
-	// add rsp, 32 + needpop
-	*currCode++ = 0x48;
-	*currCode++ = 0x81;
-	*currCode++ = 0304;	// modR/M mod = 11 (register), spare = 0 (add), r/m = 4 (RSP is changed)
-	*(unsigned int*)currCode = 32 + needpop;
-	currCode += 4;
-
-	// handle return value
-	ExternFuncInfo::ReturnType retType = (ExternFuncInfo::ReturnType)exFunctions[funcID].retType;
-	unsigned int retTypeID = exLinker->exTypeExtra[exTypes[exFunctions[funcID].funcType].memberOffset];
-	unsigned int retTypeSize = exTypes[retTypeID].size;
-	if(retType == ExternFuncInfo::RETURN_UNKNOWN)
-	{
-		if(retTypeSize == 0)
-			retType = ExternFuncInfo::RETURN_VOID;
-		else if(retTypeSize <= 4)
-			retType = ExternFuncInfo::RETURN_INT;
-		else if(retTypeSize == 8)
-			retType = ExternFuncInfo::RETURN_LONG;
-	}
-	switch(retType)
-	{
-	case ExternFuncInfo::RETURN_DOUBLE:
-		
-		// float type is #2
-		if(retTypeID == 2)
-		{
-			// cvtss2sd xmm0, xmm0 
-			*currCode++ = 0xf3;
-			*currCode++ = 0x0f;
-			*currCode++ = 0x5a;
-			*currCode++ = 0xc0;
-		}
-		newStackPtr -= 2;
-		// movsd qword [rdi], xmm0
-		*currCode++ = 0xf2;
-		*currCode++ = 0x0f;
-		*currCode++ = 0x11;
-		*currCode++ = 0007;	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 7 (RDI is base)
-		break;
-	case ExternFuncInfo::RETURN_LONG:
-		newStackPtr -= 1;
-		// mov qword [rdi], rax
-		*currCode++ = 0x48;
-	case ExternFuncInfo::RETURN_INT:
-		newStackPtr -= 1;
-		// mov dword [rdi], eax
-		*currCode++ = 0x89;
-		*currCode++ = 0007;	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 0 (RDI is base)
-		break;
-	case ExternFuncInfo::RETURN_VOID:
-		break;
-	case ExternFuncInfo::RETURN_UNKNOWN:
-		if(retTypeSize <= 8)
-				assert(!"return type unsupported (small aggregate)");
-		newStackPtr -= retTypeSize / 4;
-		break;
-	}
-
-	// pop edi; ret;
-	*currCode++ = 0x5f;
-	*currCode++ = 0xc3;
-
-#ifdef _WIN64
-	DWORD old;
-	VirtualProtect(code, 1024, PAGE_EXECUTE_READWRITE, &old);
-#endif
-
-	void (*gate)(unsigned int*, unsigned int*, void*) = (void (*)(unsigned int*, unsigned int*, void*))(void*)code;
-
-	gate(stackStart, newStackPtr, fPtr);
-
-#ifdef _WIN64
-	VirtualProtect(code, 1024, old, NULL);
-#endif
-
-	delete[] code;
-
+	// set new stack top
 	genStackPtr = newStackPtr;
+
 	return callContinue;
 }
 

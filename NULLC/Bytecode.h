@@ -73,7 +73,11 @@ struct ExternFuncInfo
 		RETURN_LONG,
 	};
 	unsigned short	retType;	// one of the ReturnType enumeration values
-	unsigned short	isNormal;
+	union
+	{
+		unsigned short	isNormal;
+		unsigned short	returnShift;
+	};
 	unsigned int	funcType;	// index to the type array
 
 	union

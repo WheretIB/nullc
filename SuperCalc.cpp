@@ -425,7 +425,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	hNewFilename = CreateWindow("EDIT", "", WS_VISIBLE | WS_CHILD, 80, 5, 100, 20, createPanel, NULL, hInstance, NULL);
 	hNewFile = CreateWindow("BUTTON", "Create", WS_VISIBLE | WS_CHILD, 5, 30, 100, 25, createPanel, NULL, hInstance, NULL);
 
-	SetWindowLong(createPanel, GWL_WNDPROC, (LONG)(intptr_t)WndProc);
+	SetWindowLong(createPanel, GWLP_WNDPROC, (LONG)(intptr_t)WndProc);
 
 	SendMessage(panel1, WM_SETFONT, (WPARAM)fontDefault, 0);
 	SendMessage(hNewFilename, WM_SETFONT, (WPARAM)fontDefault, 0);

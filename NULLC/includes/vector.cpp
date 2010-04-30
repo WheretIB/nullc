@@ -4,6 +4,7 @@
 
 namespace NULLCVector
 {
+#pragma pack(push, 4)
 	struct vector
 	{
 		unsigned int	elemType;
@@ -17,6 +18,7 @@ namespace NULLCVector
 		vector*			arr;
 		unsigned int	pos;
 	};
+#pragma pack(pop)
 
 	void ConstructVector(vector* vec, unsigned int type, int reserved)
 	{

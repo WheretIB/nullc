@@ -6,6 +6,7 @@
 
 namespace NULLCWindow
 {
+#pragma pack(push, 4)
 	struct Window
 	{
 		NullCArray title;
@@ -15,6 +16,7 @@ namespace NULLCWindow
 		
 		HWND handle;
 	};
+#pragma pack(pop)
 
 	void WindowCreate(Window* wnd, NullCArray title, int x, int y, int width, int height)
 	{
