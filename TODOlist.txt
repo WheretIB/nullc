@@ -23,7 +23,6 @@ string
 hash_map
 auto[]
 sort
-ability to save bytecode
 stand-alone compiler and executor
 
 DONE: ref variables - pointers
@@ -134,3 +133,4 @@ DONE: Add null pointer.
 DONE: vector
 DONE: list
 DONE: Fix module linkage with different set of base external functions. - no more base external funcitons
+DONE: ability to save bytecode
