@@ -43,14 +43,14 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 	genStackTop = NULL;
 
 	callContinue = true;
-	retType = (asmOperType)-1;
 
 	paramBase = 0;
 	currentFrame = 0;
 	cmdBase = NULL;
-	runningFunction = ~0u;
 
 	symbols = NULL;
+
+	codeRunning = false;
 }
 
 Executor::~Executor()
@@ -61,8 +61,9 @@ Executor::~Executor()
 }
 
 #define genStackSize (genStackTop-genStackPtr)
+#define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
 
-void Executor::Run(const char* funcName)
+void Executor::InitExecution()
 {
 	if(!exLinker->exCode.size())
 	{
@@ -79,46 +80,11 @@ void Executor::Run(const char* funcName)
 
 	SetUnmanagableRange(genParams.data, genParams.max);
 
-	// If global code is executed, reset all global variables
-	if(!funcName)
-		memset(&genParams[0], 0, exLinker->globalVarSize);
-
 	execError[0] = 0;
 	callContinue = true;
 
-	retType = (asmOperType)-1;
-
-	unsigned int funcPos = ~0ul;
-	int functionID = -1;
-	if(funcName)
-	{
-		unsigned int fnameHash = GetStringHash(funcName);
-		for(int i = (int)exFunctions.size()-1; i >= 0; i--)
-		{
-			if(exFunctions[i].nameHash == fnameHash)
-			{
-				functionID = i;
-				funcPos = exFunctions[i].address;
-				if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
-				{
-					retType = OTYPE_COMPLEX;
-				}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT){
-					retType = OTYPE_INT;
-				}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE){
-					retType = OTYPE_DOUBLE;
-				}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG){
-					retType = OTYPE_LONG;
-				}
-				break;
-			}
-		}
-		if(funcPos == ~0ul)
-		{
-			SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: starting function %s not found", funcName);
-			return;
-		}
-	}
-	runningFunction = functionID;
+	// Add return after the last instruction to end execution of code with no return at the end
+	exLinker->exCode[exLinker->exCode.size()] = VMCmd(cmdReturn, bitRetError, 0, 1);
 
 	// General stack
 	if(!genStackBase)
@@ -128,37 +94,88 @@ void Executor::Run(const char* funcName)
 	}
 	genStackPtr = genStackTop - 1;
 
+	paramBase = 0;
+}
+
+void Executor::Run(unsigned int functionID, const char *arguments)
+{
+	if(!codeRunning)
+	{
+		InitExecution();
+	}else if(functionID == ~0u){
+		strcpy(execError, "ERROR: cannot run global code twice");
+		return;
+	}
+	codeRunning = true;
+
+	asmOperType retType = (asmOperType)-1;
+
+	VMCmd *cmdStreamBase = cmdBase = &exLinker->exCode[0];
+	VMCmd *cmdStream = &exLinker->exCode[exLinker->offsetToGlobalCode];
+#define cmdStreamPos (cmdStream-cmdStreamBase)
+
+	// By default error is flagged, normal return will clear it
+	bool	errorState = true;
+	// We will know that return is global if call stack size is equal to current
+	unsigned int	finalReturn = fcallStack.size();
+
+	if(functionID != ~0u)
+	{
+		unsigned int funcPos = ~0ul;
+		funcPos = exFunctions[functionID].address;
+		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
+		{
+			retType = OTYPE_COMPLEX;
+		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT){
+			retType = OTYPE_INT;
+		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE){
+			retType = OTYPE_DOUBLE;
+		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG){
+			retType = OTYPE_LONG;
+		}
+		if(funcPos == ~0u)
+		{
+			// Every function accepts at least one int (this pointer/closure/nothing)
+			genStackPtr--;
+			*genStackPtr = 0;
+			// Copy all other arguments, remembering that bytesToPop contains size or unused argument that was pushed above
+			memcpy(genStackPtr - (exFunctions[functionID].bytesToPop >> 2) + 1, arguments, exFunctions[functionID].bytesToPop - 4);
+			genStackPtr -= (exFunctions[functionID].bytesToPop >> 2) - 1;
+			// Call function
+			if(RunExternalFunction(functionID, 0))
+				errorState = false;
+			// This will disable NULLC code execution while leaving error check and result retrieval
+			cmdStream = NULL;
+		}else{
+			cmdStream = &exLinker->exCode[funcPos];
+
+			// Copy from argument buffer to next stack frame
+			char* oldBase = &genParams[0];
+			unsigned int oldSize = genParams.max;
+
+			unsigned int paramSize = exFunctions[functionID].bytesToPop;
+			unsigned int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
+			genParams.reserve(genParams.size() + alignOffset + paramSize);
+			memcpy((char*)&genParams[genParams.size() + alignOffset], arguments, paramSize);
+
+			// Ensure that stack is resized, if needed
+			if(genParams.size() + alignOffset + paramSize >= oldSize)
+				ExtendParameterStack(oldBase, oldSize, cmdStream);
+		}
+	}else{
+		// If global code is executed, reset all global variables
+		memset(&genParams[0], 0, exLinker->globalVarSize);
+	}
+
 #ifdef NULLC_VM_PROFILE_INSTRUCTIONS
 	unsigned int insCallCount[255];
 	memset(insCallCount, 0, 255*4);
 	unsigned int insExecuted = 0;
 #endif
-	VMCmd *cmdStreamBase = cmdBase = &exLinker->exCode[0];
-	VMCmd *cmdStream = &exLinker->exCode[exLinker->offsetToGlobalCode];
-#define cmdStreamPos (cmdStream-cmdStreamBase)
-
-	// Add return after the last instruction to end execution of code with no return at the end
-	exLinker->exCode[exLinker->exCode.size()] = VMCmd(cmdReturn, bitRetError, 0, 1);
-
-	if(funcName)
-		cmdStream = &exLinker->exCode[funcPos];
-
-	paramBase = 0;
-
-	if(!funcName)
-	{
-		genStackPtr--;
-		*genStackPtr = 0;
-	}
-
-#define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
-
-	bool	errorState = true;
 
 	while(cmdStream)
 	{
 		const VMCmd &cmd = *cmdStream;
-		//const unsigned int argument = cmd.argument;
 		DBG(PrintInstructionText(executeLog, cmd, paramBase, genParams.size()));
 		cmdStream++;
 
@@ -509,6 +526,7 @@ void Executor::Run(const char* funcName)
 			{
 				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
+				codeRunning = false;
 				errorState = !cmd.argument;
 				if(errorState)
 					strcpy(execError, "ERROR: function didn't return a value");
@@ -525,12 +543,14 @@ void Executor::Run(const char* funcName)
 				genStackPtr = (unsigned int*)((char*)(genStackPtr) - cmd.argument);
 				memmove(genStackPtr, retValue, cmd.argument);
 			}
-			if(fcallStack.size() == 0)
+			if(fcallStack.size() == finalReturn)
 			{
 				if(retType == -1)
 					retType = (asmOperType)(int)cmd.flag;
 				cmdStream = NULL;
 				errorState = false;
+				if(finalReturn == 0)
+					codeRunning = false;
 				break;
 			}
 			cmdStream = fcallStack.back();
@@ -852,20 +872,58 @@ void Executor::Run(const char* funcName)
 		fflush(executeLog);
 #endif
 	}
-	// Print call stack on error
+	// If there was an execution error
 	if(errorState)
 	{
-		char *currPos = execError + strlen(execError);
-		currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
+		// Print call stack on error, when we get to the first function
+		if(!finalReturn)
+		{
+			char *currPos = execError + strlen(execError);
+			currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
-		BeginCallStack();
-		while(unsigned int address = GetNextAddress())
-			currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError));
+			BeginCallStack();
+			while(unsigned int address = GetNextAddress())
+				currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError));
+		}
+		// Ascertain that execution stops when there is a chain of nullcRunFunction
+		callContinue = false;
+		codeRunning = false;
+		return;
+	}
+	if(genStackSize == 0)
+	{
+		strcpy(execResult, "No result value");
+		return;
+	}
+	if(!codeRunning && genStackSize > 2)
+	{
+		strcpy(execResult, "There is more than one value on the stack");
+		return;
+	}
+	switch(retType)
+	{
+	case OTYPE_DOUBLE:
+		SafeSprintf(execResult, 64, "%f", *(double*)(genStackPtr));
+		break;
+	case OTYPE_LONG:
+#ifdef _MSC_VER
+		SafeSprintf(execResult, 64, "%I64dL", *(long long*)(genStackPtr));
+#else
+		SafeSprintf(execResult, 64, "%lldL", *(long long*)(genStackPtr));
+#endif
+		break;
+	case OTYPE_INT:
+		SafeSprintf(execResult, 64, "%d", *(int*)(genStackPtr));
+		break;
+	default:
+		SafeSprintf(execResult, 64, "no return value");
+		break;
 	}
 }
 
 void Executor::Stop(const char* error)
 {
+	codeRunning = false;
 	callContinue = false;
 	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
 }
@@ -1164,35 +1222,6 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 const char* Executor::GetResult()
 {
-	if(genStackSize == 0)
-	{
-		strcpy(execResult, "No result value");
-		return execResult;
-	}
-	if(genStackSize-1 > 2)
-	{
-		strcpy(execResult, "There are more than one value on the stack");
-		return execResult;
-	}
-	switch(retType)
-	{
-	case OTYPE_DOUBLE:
-		SafeSprintf(execResult, 64, "%f", *(double*)(genStackPtr));
-		break;
-	case OTYPE_LONG:
-#ifdef _MSC_VER
-		SafeSprintf(execResult, 64, "%I64dL", *(long long*)(genStackPtr));
-#else
-		SafeSprintf(execResult, 64, "%lld", *(long long*)(genStackPtr));
-#endif
-		break;
-	case OTYPE_INT:
-		SafeSprintf(execResult, 64, "%d", *(int*)(genStackPtr));
-		break;
-	default:
-		SafeSprintf(execResult, 64, "no return value");
-		break;
-	}
 	return execResult;
 }
 
