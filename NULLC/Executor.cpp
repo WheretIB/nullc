@@ -915,7 +915,7 @@ void Executor::Stop(const char* error)
 	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
 }
 
-#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__CELLOS_LV2__)) || defined(__DMC__)
+#if !defined(__CELLOS_LV2__) && !defined(_M_X64)//defined(_MSC_VER) || (defined(__GNUC__) && !defined(__CELLOS_LV2__)) || defined(__DMC__)
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
@@ -931,13 +931,8 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		asm("movl %0, %%eax"::"r"(stackStart):"%eax");
 		asm("pushl (%eax)");
 #else
-	#ifndef _M_X64
-		__asm{ mov eax, dword ptr[stackStart] }
-		__asm{ push dword ptr[eax] }
-	#else
-		strcpy(execError, "ERROR: no external call on x64");
-		return false;
-	#endif
+	__asm{ mov eax, dword ptr[stackStart] }
+	__asm{ push dword ptr[eax] }
 #endif
 		stackStart--;
 	}
@@ -965,13 +960,8 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	asm("movl %0, %%eax"::"r"(dwordsToPop):"%eax");
 	asm("leal (%esp, %eax, 0x4), %esp");
 #else
-	#ifndef _M_X64
-		__asm mov eax, dwordsToPop
-		__asm lea esp, [eax * 4 + esp]
-	#else
-		strcpy(execError, "ERROR: no external call on x64");
-		return false;
-	#endif
+	__asm mov eax, dwordsToPop
+	__asm lea esp, [eax * 4 + esp]
 #endif
 	return callContinue;
 }
@@ -1023,6 +1013,147 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 	return callContinue;
 }
+
+#elif defined(_M_X64)
+static const unsigned char gateTest[128] =
+{
+	0x4C, 0x89, 0x44, 0x24, 0x18,	// mov qword [rsp+18h], r8	// spill r8
+	0x48, 0x89, 0x54, 0x24, 0x10,	// mov qword [rsp+10h], rdx	// spill RDX
+	0x48, 0x89, 0x4C, 0x24, 0x08,	// mov qword [rsp+8h], rcx	// spill RCX
+	0x57,	// push RDI
+	0x48, 0x8b, 0301,// mov RAX, RCX
+	0x48, 0x8b, 0372,// mov RDI, RDX
+	0x49, 0x8b, 0330,// mov RBX, R8
+};
+#include <Windows.h>
+
+// X64 implementation
+bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
+{
+	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
+	void* fPtr = exFunctions[funcID].funcPtr;
+
+	unsigned int *stackStart = genStackPtr;
+	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
+
+	unsigned char *code = new unsigned char[128];
+	memset(code, 0, 128);
+	memcpy(code, gateTest, 25);
+
+	unsigned char *currCode = code + 25;
+
+	unsigned int regUsed = 0;
+	unsigned int currentShift = 0;
+	unsigned int needpop = 0;
+	for(unsigned int i = 0; i < exFunctions[funcID].paramCount; i++)
+	{
+		ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+		ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
+		switch(lType.type)
+		{
+		case ExternTypeInfo::TYPE_DOUBLE:
+			*currCode++ = 0xf2;
+			*currCode++ = 0x0f;
+			*currCode++ = 0x10;	// movsd xmm, mem64
+			*currCode++ = (unsigned char)(0200 | (regUsed << 3));	// modR/M mod = 10 (32-bit shift), spare = XMMn, r/m = 0 (RAX is base)
+			*(unsigned int*)currCode = currentShift;
+			currCode += 4;
+			currentShift += 8;
+			regUsed++;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_SHORT:
+		case ExternTypeInfo::TYPE_INT:
+			if(regUsed > 3)
+			{
+				*currCode++ = 0x8b; // mod rsi, [rax+shift]
+				*currCode++ = 0264;	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 0 (RDI is base)
+				*currCode++ = 0040;
+				*(unsigned int*)currCode = currentShift;
+				currCode += 4;
+
+				*currCode++ = 0x56;	// push rsi
+				needpop += 8;
+			}else{
+				if(regUsed == 2 || regUsed == 3)
+					*currCode++ = 0x44;
+				*currCode++ = 0x8b;
+				if(regUsed == 0)
+					*currCode++ = 0214;
+				else if(regUsed == 1)
+					*currCode++ = 0224;
+				else if(regUsed == 2)
+					*currCode++ = 0204;
+				else if(regUsed == 3)
+					*currCode++ = 0214;
+				*currCode++ = 0040;
+				*(unsigned int*)currCode = currentShift;
+				currCode += 4;
+			}
+			currentShift += 4;
+			regUsed++;
+			break;
+		default:
+			assert(!"parameter type unsupported");
+		}
+	}
+	// sub rsp, 32
+	*currCode++ = 0x48;
+	*currCode++ = 0x81;
+	*currCode++ = 0354;	// modR/M mod = 11 (register), spare = 5 (sub), r/m = 0 (RAX is base)
+	*(unsigned int*)currCode = 32;
+	currCode += 4;
+
+	// call rbx
+	*currCode++ = 0x48;
+	*currCode++ = 0xff;
+	*currCode++ = 0323;	// modR/M mod = 11 (register), spare = 2, r/m = 0 (RAX is base)
+
+	// add rsp, 32 + needpop
+	*currCode++ = 0x48;
+	*currCode++ = 0x81;
+	*currCode++ = 0304;	// modR/M mod = 11 (register), spare = 0 (add), r/m = 0 (RAX is base)
+	*(unsigned int*)currCode = 32 + needpop;
+	currCode += 4;
+
+	// handle return value
+	switch(exFunctions[funcID].retType)
+	{
+	case ExternFuncInfo::RETURN_DOUBLE:
+		newStackPtr -= 2;
+		*currCode++ = 0xf2;
+		*currCode++ = 0x0f;
+		*currCode++ = 0x11;	// movsd mem64, xmm
+		*currCode++ = 0007;	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 0 (RAX is base)
+		break;
+	case ExternFuncInfo::RETURN_INT:
+		newStackPtr -= 1;
+		*currCode++ = 0x48;
+		*currCode++ = 0x89; // mov [rdi], rax
+		*currCode++ = 0007;	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 0 (RDI is base)
+		break;
+	default:
+		assert(!"return type unsupported");
+	}
+
+	// pop edi; ret;
+	*currCode++ = 0x5f;
+	*currCode++ = 0xc3;
+
+	DWORD old;
+	VirtualProtect(code, 128, PAGE_EXECUTE_READWRITE, &old);
+
+	void (*gate)(unsigned int*, unsigned int*, void*) = (void (*)(unsigned int*, unsigned int*, void*))(void*)code;
+
+	gate(stackStart, newStackPtr, fPtr);
+
+	VirtualProtect(code, 128, old, NULL);
+	delete[] code;
+
+	genStackPtr = newStackPtr;
+	return callContinue;
+}
+
 #else
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
