@@ -8,12 +8,14 @@
 #include "NULLC/includes/file.h"
 #include "NULLC/includes/math.h"
 #include "NULLC/includes/vector.h"
+#include "NULLC/includes/random.h"
 
 #include "NULLC/includes/canvas.h"
 #include "NULLC/includes/window.h"
 #include "NULLC/includes/io.h"
 
 #include <stdio.h>
+#include <Windows.h>
 
 #ifndef _DEBUG
 	#define FAILURE_TEST
@@ -114,6 +116,26 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 	varData = (char*)nullcGetVariableData();
 	varInfo = nullcDebugVariableInfo(&variableCount);
 	symbols = nullcDebugSymbols();
+
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	if(executor == NULLC_X86)
+	{
+		nullcTranslateToC("1test.cpp", "main");
+
+		STARTUPINFO stInfo;
+		PROCESS_INFORMATION prInfo;
+		memset(&stInfo, 0, sizeof(stInfo));
+		stInfo.cb = sizeof(stInfo);
+
+		memset(&prInfo, 0, sizeof(prInfo));
+		DWORD res = CreateProcess("..\\..\\mingw\\bin\\gcc.exe", "gcc.exe -c runtime.cpp ..\\..\\projects\\SuperCalcOpen\\1test.cpp", NULL, NULL, false, 0, NULL, "..\\..\\mingw\\bin\\"/*".\\"*/, &stInfo, &prInfo);
+		res = GetLastError();
+		WaitForSingleObject(prInfo.hProcess, 10000);
+		CloseHandle(prInfo.hProcess);
+		CloseHandle(prInfo.hThread);
+	}
+#endif
+
 	return true;
 }
 
@@ -351,6 +373,24 @@ int testCount[] = { 0, 0, 0 };
 
 unsigned int	testTarget[] = { NULLC_VM, NULLC_X86 };
 
+nullres CompileFile(const char* fileName)
+{
+	char content[64 * 1024];
+
+	FILE *euler = fopen(fileName, "rb");
+	fseek(euler, 0, SEEK_END);
+	unsigned int textSize = ftell(euler);
+	assert(textSize < 64 * 1024);
+	fseek(euler, 0, SEEK_SET);
+	fread(content, 1, textSize, euler);
+	content[textSize] = 0;
+	fclose(euler);
+
+	return nullcCompile(content);
+}
+
+void	RunEulerTests();
+
 void	RunTests()
 {
 	timeCompile = 0.0;
@@ -387,6 +427,7 @@ void	RunTests()
 	nullcInitFileModule();
 	nullcInitMathModule();
 	nullcInitVectorModule();
+	nullcInitRandomModule();
 
 	nullcInitIOModule();
 	nullcInitCanvasModule();
@@ -395,7 +436,7 @@ void	RunTests()
 //////////////////////////////////////////////////////////////////////////
 	printf("\r\nTwo bytecode merge test 1\r\n");
 
-	const char *partA1 = "int a = 5;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\nvoid run(){ test(&a, 4); }\r\n";
+	const char *partA1 = "int a = 5;\r\nint c = 8;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\nint run(){ test(&a, 4); return c; }\r\n";
 	const char *partB1 = "int aa = 15;\r\nint testA(int ref a, int b)\r\n{\r\n\treturn *a += b + 1;\r\n}\r\ntestA(&aa, 5);\r\nvoid runA(){ testA(&aa, 5); }\r\nreturn aa;\r\n";
 
 	char *bytecodeA, *bytecodeB;
@@ -445,10 +486,23 @@ void	RunTests()
 		{
 			printf("Execution failed: %s\r\n", nullcGetLastError());
 		}else{
+			int* val = (int*)nullcGetGlobal("c");
+			if(*val != 8)
+			{
+				printf("nullcGetGlobal failed");
+				continue;
+			}
+			int n = 45;
+			nullcSetGlobal("c", &n);
 			if(!nullcRunFunction("run"))
 			{
 				printf("Execution failed: %s\r\n", nullcGetLastError());
 			}else{
+				if(nullcGetResultInt() != n)
+				{
+					printf("nullcSetGlobal failed");
+					continue;
+				}
 				if(!nullcRunFunction("runA"))
 				{
 					printf("Execution failed: %s\r\n", nullcGetLastError());
@@ -472,6 +526,12 @@ void	RunTests()
 		}
 	}
 //////////////////////////////////////////////////////////////////////////
+	nullres bRes = CompileFile("Modules/std/math.nc");
+	assert(bRes);
+	nullcTranslateToC("std_math.cpp", "initStdMath");
+
+	//RunEulerTests();
+
 	// Number operation test
 	printf("\r\nInteger operation test\r\n");
 	for(int t = 0; t < 2; t++)
@@ -490,6 +550,7 @@ void	RunTests()
 				passed[t]++;
 		}
 	}
+
 	printf("\r\nDouble operation test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -506,6 +567,7 @@ void	RunTests()
 				passed[t]++;
 		}
 	}
+
 	printf("\r\nLong operation test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -524,6 +586,7 @@ void	RunTests()
 				passed[t]++;
 		}
 	}
+
 	printf("\r\nDecrement and increment tests for all types\r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -585,6 +648,7 @@ void	RunTests()
 				passed[t]++;
 		}
 	}
+
 	printf("\r\nComplex type test (complex)\r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -601,8 +665,7 @@ void	RunTests()
 				passed[t]++;
 		}
 	}
-
-
+	
 	const char	*testMislead = 
 "// Compiler mislead test\r\n\
 import std.math;\r\n\
@@ -1546,7 +1609,7 @@ return test(n, m); // 56.0";
 				passed[t]++;
 		}
 	}
-
+nullcTranslateToC("1test.cpp", "main");
 const char	*testSpeed = 
 "// Speed tests\r\n\
 import std.math;\r\n\
@@ -1738,7 +1801,7 @@ return sum(u);";
 				passed[t]++;
 		}
 	}
-
+nullcTranslateToC("1test.cpp", "main");
 
 const char	*testFile = 
 "// File and something else test\r\n\
@@ -2099,7 +2162,7 @@ const char	*testLocalFunc2 =
 "// Local function context test 2\r\n\
 int g1 = 3; // global variable (24)\r\n\
 int r; // (28)\r\n\
-{\r\n\
+void glob(){\r\n\
   // test should get pointer to this variable\r\n\
   int g2 = 5; // block variable (32)\r\n\
   int test(int x, int rek)\r\n\
@@ -2119,7 +2182,7 @@ int r; // (28)\r\n\
   }\r\n\
   r = test(13, 0);\r\n\
 }\r\n\
-\r\n\
+glob();\r\n\
 return r; // 990579";
 	printf("\r\nLocal function context test 2\r\n");
 	for(int t = 0; t < 2; t++)
@@ -2246,7 +2309,7 @@ return 1;";
 
 
 const char	*testHexConst = 
-"//Hexademical constants\r\n\
+"//Hexadecimal constants\r\n\
 auto a = 0xdeadbeef;\r\n\
 auto b = 0xcafe;\r\n\
 auto c = 0x7fffffffffffffff;\r\n\
@@ -2604,7 +2667,7 @@ auto b = int lambda(int b){ return b + n; };\r\n\
 int res1 = test(3, int lambda(int b){ return b+n; });\r\n\
 \r\n\
 int resA, resB, resC, resD, resE, resF;\r\n\
-{\r\n\
+void rurr(){\r\n\
   int d = 7;\r\n\
   int ref(int) a0, a1;\r\n\
   a0 = int lambda(int b){ return b + 2; };\r\n\
@@ -2622,6 +2685,7 @@ int resA, resB, resC, resD, resE, resF;\r\n\
   resE = test(5, int lambda(int b){ return b + 2; });\r\n\
   resF = test(5, int lambda(int b){ return b + d; });\r\n\
 }\r\n\
+rurr();\r\n\
 int c=0;\r\n\
 \r\n\
 return 1;";
@@ -2654,7 +2718,7 @@ return 1;";
 
 
 const char	*testClosure3 = 
-"int main()\r\n\
+"int func()\r\n\
 {\r\n\
   int test(int n, int ref(int) ptr){ return ptr(n); }\r\n\
 \r\n\
@@ -2663,7 +2727,7 @@ const char	*testClosure3 =
   return res1;\r\n\
 }\r\n\
 \r\n\
-return main();";
+return func();";
 	printf("\r\nClosure test 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -4341,7 +4405,7 @@ return 0;";
 
 const char	*testCompileTimeConversion =
 "return double(2) < 2.2;";
-	printf("\r\nCompile-time converision check\r\n");
+	printf("\r\nCompile-time conversion check\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4514,8 +4578,241 @@ return count;";
 	RunTests2();
 }
 
+//////////////////////////////////////////////////////////////////////////
+
+// function calls internal function, that perform a division
+long long Recaller(int test, int testB)
+{
+	nullcRunFunction("inside", test, testB);
+	return nullcGetResultInt();
+}
+
+// function calls an external function "Recaller"
+int Recaller2(int testA, int testB)
+{
+	nullcRunFunction("Recaller", testA, testB);
+	return (int)nullcGetResultLong();
+}
+
+// function calls internal function, that calls external function "Recaller"
+int Recaller3(int testA, int testB)
+{
+	nullcRunFunction("inside2", testA, testB);
+	return nullcGetResultInt();
+}
+
+// function calls function by NULLC pointer
+int RecallerPtr(NULLCFuncPtr func)
+{
+	nullcCallFunction(func, 14);
+	return nullcGetResultInt();
+}
+
+// sort array with comparator function inside NULLC
+void BubbleSortArray(NullCArray arr, NULLCFuncPtr comparator)
+{
+	int *elem = (int*)arr.ptr;
+
+	for(unsigned int k = 0; k < arr.len; k++)
+	{
+		for(unsigned int l = arr.len-1; l > k; l--)
+		{
+			nullcCallFunction(comparator, elem[l], elem[l-1]);
+			if(nullcGetResultInt())
+			{
+				int tmp = elem[l];
+				elem[l] = elem[l-1];
+				elem[l-1] = tmp;
+			}
+		}
+	}
+}
+//////////////////////////////////////////////////////////////////////////
+
 void	RunTests2()
 {
+	nullcLoadModuleBySource("func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp);");
+	nullcAddModuleFunction("func.test", (void(*)())Recaller, "Recaller", 0);
+	nullcAddModuleFunction("func.test", (void(*)())Recaller2, "Recaller2", 0);
+	nullcAddModuleFunction("func.test", (void(*)())Recaller3, "Recaller3", 0);
+	nullcAddModuleFunction("func.test", (void(*)())RecallerPtr, "RecallerPtr", 0);
+	nullcAddModuleFunction("func.test", (void(*)())BubbleSortArray, "bubble", 0);
+
+const char	*testFunc1 =
+"import func.test;\r\n\
+int inside(int a, b){ return a / b; }\r\n\
+int inside2(int a, b){ return Recaller(a, b); }\r\n\
+int test(int i)\r\n\
+{\r\n\
+	return Recaller2(24, 2) * i;\r\n\
+}\r\n\
+return test(2);";
+	printf("\r\nNULLC function call externally test 1\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunc1, testTarget[t], "24"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunc2 =
+"import func.test;\r\n\
+int inside(int a, b){ return a / b; }\r\n\
+int inside2(int a, b){ return Recaller(a, b); }\r\n\
+int test(int i)\r\n\
+{\r\n\
+	return Recaller3(24, 2) * i;\r\n\
+}\r\n\
+return test(2);";
+	printf("\r\nNULLC function call externally test 2\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunc2, testTarget[t], "24"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunc3 =
+"import func.test;\r\n\
+return RecallerPtr(auto(int i){ return -i; });";
+	printf("\r\nNULLC function call externally test 3\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunc3, testTarget[t], "-14"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunc4 =
+"import func.test;\r\n\
+auto generator(int start)\r\n\
+{\r\n\
+	return auto(int u){ return ++start; };\r\n\
+}\r\n\
+return RecallerPtr(generator(7));";
+	printf("\r\nNULLC function call externally test 4\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunc4, testTarget[t], "8"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunc5 =
+"import func.test;\r\n\
+import std.random;\r\n\
+srand(10);\r\n\
+int[512] arr;\r\n\
+for(int i = 0; i < 512; i++)\r\n\
+	arr[i] = rand();\r\n\
+bubble(arr, auto(int a, b){ return a > b; });\r\n\
+return arr[8];";
+	printf("\r\nNULLC function call externally test 5\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunc5, testTarget[t], "32327"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testLongRetrieval = "return 25l;";
+	printf("\r\nnullcGetResultLong test\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		nullcSetExecutor(testTarget[t]);
+		nullres r = nullcBuild(testLongRetrieval);
+		if(!r)
+		{
+			printf("Build failed:%s\r\n", nullcGetLastError());
+			continue;
+		}
+		if(!nullcRun())
+		{
+			printf("Execution failed:%s\r\n", nullcGetLastError());
+			continue;
+		}
+		if(nullcGetResultLong() == 25ll)
+		{
+			passed[t]++;
+		}else{
+			printf("Incorrect result: %s", nullcGetResult());
+		}
+	}
+
+const char	*testDoubleRetrieval = "return 25.0;";
+	printf("\r\nnullcGetResultDouble test\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		nullcSetExecutor(testTarget[t]);
+		nullres r = nullcBuild(testDoubleRetrieval);
+		if(!r)
+		{
+			printf("Build failed:%s\r\n", nullcGetLastError());
+			continue;
+		}
+		if(!nullcRun())
+		{
+			printf("Execution failed:%s\r\n", nullcGetLastError());
+			continue;
+		}
+		if(nullcGetResultDouble() == 25.0)
+		{
+			passed[t]++;
+		}else{
+			printf("Incorrect result: %s", nullcGetResult());
+		}
+	}
+
+const char	*testUnaryOverloads =
+"int operator ~(int v){ return v * 4; }\r\n\
+int operator !(int v){ return v * 3; }\r\n\
+int operator +(int v){ return v * 2; }\r\n\
+int operator -(int v){ return v * -1; }\r\n\
+int[4] arr = { 13, 17, 21, 25 };\r\n\
+arr[0] = ~arr[0];\r\n\
+arr[1] = !arr[1];\r\n\
+arr[2] = +arr[2];\r\n\
+arr[3] = -arr[3];\r\n\
+return arr[0]*arr[1]*arr[2]*arr[3];";
+	printf("\r\nUnary operator overloading\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testUnaryOverloads, testTarget[t], "-2784600"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
 
 const char	*testForEach2 =
 "import std.vector;\r\n\
@@ -4730,6 +5027,22 @@ return 0;";
 		}
 	}
 
+const char	*testInlineDefinition =
+"return (auto(){ return 5; })();";
+	printf("\r\nInline function definition and call\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testInlineDefinition, testTarget[t], "5"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
@@ -5165,6 +5478,8 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("parsing", "int b; b = ", "ERROR: expression not found after '='");
 	TEST_FOR_FAIL("parsing", "noalign int a, b", "ERROR: ';' not found after variable definition");
 
+	//RunEulerTests();
+
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount[0]);
 	printf("X86 passed %d of %d tests\r\n", passed[1], testCount[1]);
@@ -5409,4 +5724,75 @@ return 0;";
 
 	// Terminate NULLC
 	nullcTerminate();
+}
+
+double	TestEulerFile(unsigned int num, const char* result)
+{
+	char buf[64];
+	char content[128 * 1024];
+
+	sprintf(buf, "euler\\euler%d.nc", num);
+
+	FILE *euler = fopen(buf, "rb");
+	fseek(euler, 0, SEEK_END);
+	unsigned int textSize = ftell(euler);
+	assert(textSize < 128 * 1024);
+	fseek(euler, 0, SEEK_SET);
+	fread(content, 1, textSize, euler);
+	content[textSize] = 0;
+	fclose(euler);
+
+	nullcSetExecutor(NULLC_X86);
+
+	nullres good = nullcBuild(content);
+
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	nullcTranslateToC("euler.cpp", "main");
+
+	STARTUPINFO stInfo;
+	PROCESS_INFORMATION prInfo;
+	memset(&stInfo, 0, sizeof(stInfo));
+	stInfo.cb = sizeof(stInfo);
+
+	memset(&prInfo, 0, sizeof(prInfo));
+	DWORD res = CreateProcess("..\\..\\mingw\\bin\\gcc.exe", "gcc.exe ..\\..\\projects\\SuperCalcOpen\\runtime.cpp ..\\..\\projects\\SuperCalcOpen\\euler.cpp", NULL, NULL, false, 0, NULL, "..\\..\\mingw\\bin\\", &stInfo, &prInfo);
+	res = GetLastError();
+	WaitForSingleObject(prInfo.hProcess, 20000);
+	DWORD retCode;
+	GetExitCodeProcess(prInfo.hProcess, &retCode);
+	if(retCode)
+		printf("Process failed with code: %d\r\n", retCode);
+	CloseHandle(prInfo.hProcess);
+	CloseHandle(prInfo.hThread);
+#endif
+
+	double time = myGetPreciseTime();
+	if(!good)
+	{
+		time = 0.0;
+		printf("Build failed: %s\r\n", nullcGetLastError());
+	}else{
+		printf("Project Euler %3d\t;", num);
+		testCount[1]++;
+		
+		nullres goodRun = nullcRun();
+		const char* val = nullcGetResult();
+		if(goodRun && strcmp(val, result) == 0)//RunCode(content, testTarget[1], result))
+		{
+			passed[1]++;
+			time = myGetPreciseTime() - time;
+			printf("Solved in; %f;ms;\r\n", time);
+		}else{
+			time = 0.0;
+			printf("Unsolved (%s != %s)\r\n", result, val);
+		}
+	}
+	return time;
+}
+
+void	RunEulerTests()
+{
+	double time = 0.0;
+
+	printf("Euler problem time: %f\r\n", time);
 }

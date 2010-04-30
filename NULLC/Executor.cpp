@@ -1237,16 +1237,16 @@ double Executor::GetResultDouble()
 {
 	assert(lastResultType == OTYPE_DOUBLE);
 	long long combined = 0;
-	*((int*)(&combined)) = lastResultH;
-	*((int*)(&combined)+1) = lastResultL;
+	*((int*)(&combined)) = lastResultL;
+	*((int*)(&combined)+1) = lastResultH;
 	return *(double*)(&combined);
 }
 long long Executor::GetResultLong()
 {
 	assert(lastResultType == OTYPE_LONG);
 	long long combined = 0;
-	*((int*)(&combined)) = lastResultH;
-	*((int*)(&combined)+1) = lastResultL;
+	*((int*)(&combined)) = lastResultL;
+	*((int*)(&combined)+1) = lastResultH;
 	return combined;
 }
 

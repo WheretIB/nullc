@@ -104,6 +104,8 @@ void IDEDebugBreak()
 	WaitForSingleObject(breakResponse, INFINITE);
 }
 
+
+
 int APIENTRY WinMain(HINSTANCE	hInstance,
 					HINSTANCE	hPrevInstance,
 					LPTSTR		lpCmdLine,
@@ -781,6 +783,8 @@ void FillVariableInfoTree()
 			{
 				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + arg];
 				it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
+				if(arg != function.paramCount - 1)
+					it += safeprintf(it, 256 - int(it - name), ", ");
 			}
 			it += safeprintf(it, 256 - int(it - name), ")");
 
