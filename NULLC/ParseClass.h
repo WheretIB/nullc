@@ -19,7 +19,7 @@ public:
 		retType = NULL;
 		paramType = NULL;
 		paramCount = 0;
-		paramSize = 4;
+		paramSize = NULLC_PTR_SIZE;
 	}
 
 	TypeInfo		*retType;
@@ -405,7 +405,11 @@ public:
 		lastExternal->next = NULL;
 		lastExternal->variable = var;
 		lastExternal->closurePos = externalSize;
+#ifdef _M_X64
+		externalSize += 8 + (var->varType->size < 12 ? 12 : var->varType->size);	// Pointer and a place for the union{variable, {pointer, size}}
+#else
 		externalSize += 4 + (var->varType->size < 8 ? 8 : var->varType->size);	// Pointer and a place for the union{variable, {pointer, size}}
+#endif
 		externalCount++;
 	}
 	int			address;				// Address of the beginning of function inside bytecode

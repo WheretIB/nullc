@@ -245,7 +245,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	unsigned int oldListCount = exCloseLists.size();
 	exCloseLists.resize(oldListCount + bCode->closureListCount);
-	memset(&exCloseLists[oldListCount], 0, bCode->closureListCount * sizeof(unsigned int));
+	memset(&exCloseLists[oldListCount], 0, bCode->closureListCount * sizeof(ExternFuncInfo::Upvalue*));
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
@@ -277,11 +277,13 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		{
 			exFunctions.push_back(*fInfo);
 
+#if !defined(_M_X64)
 			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retType == ExternFuncInfo::RETURN_UNKNOWN)
 			{
 				strcpy(linkError, "ERROR: user functions with return type size larger than 8 bytes are not supported");
 				return false;
 			}
+#endif
 #if defined(__CELLOS_LV2__)
 			if(!exFunctions.back().ps3Callable)
 			{

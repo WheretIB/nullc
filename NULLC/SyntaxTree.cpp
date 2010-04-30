@@ -62,6 +62,8 @@ unsigned int prefixSize = 2;
 bool preNeedChange = false;
 void GoDown()
 {
+	if(prefixSize >= 256 || prefixSize < 2)
+		return;
 	level++;
 	prefixSize -= 2;
 	linePrefix[prefixSize] = 0;
@@ -75,6 +77,8 @@ void GoDownB()
 }
 void GoUp()
 {
+	if(prefixSize >= 256 || prefixSize < 5)
+		return;
 	level--;
 	prefixSize -= 5;
 	linePrefix[prefixSize] = 0;
@@ -886,9 +890,14 @@ void NodeFuncCall::Compile()
 
 	// Find parameter values
 	if(first)
+	{
 		first->Compile();
-	else if(funcInfo)
+	}else if(funcInfo){
 		cmdList.push_back(VMCmd(cmdPushImmt, 0));
+#ifdef _M_X64
+		cmdList.push_back(VMCmd(cmdPushImmt, 0));
+#endif
+	}
 	if(funcType->paramCount > 0)
 	{
 		NodeZeroOP	*curr = paramHead;
@@ -1110,8 +1119,13 @@ void NodeGetUpvalue::Compile()
 
 	CompileExtra();
 
+#ifdef _M_X64
+	cmdList.push_back(VMCmd(cmdPushDorL, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
+	cmdList.push_back(VMCmd(cmdPushDorLStk, 0, (unsigned short)typeInfo->size, closureElem));
+#else
 	cmdList.push_back(VMCmd(cmdPushInt, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
 	cmdList.push_back(VMCmd(cmdPushIntStk, 0, (unsigned short)typeInfo->size, closureElem));
+#endif
 }
 
 void NodeGetUpvalue::LogToStream(FILE *fGraph)
@@ -2037,6 +2051,9 @@ void NodeFunctionAddress::Compile()
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
 		cmdList.push_back(VMCmd(cmdPushImmt, funcInfo->funcPtr ? ~0ul : 0));
+#ifdef _M_X64
+		cmdList.push_back(VMCmd(cmdPushImmt, 0));
+#endif
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
 		first->Compile();
 	}

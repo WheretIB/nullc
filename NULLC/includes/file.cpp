@@ -10,11 +10,13 @@ namespace NULLCFile
 {
 	const int FILE_OPENED = 1;
 
+#pragma pack(push, 4)
 	struct File
 	{
 		int		flag;
 		FILE	*handle;
 	};
+#pragma pack(pop)
 
 	File FileCreateEmpty()
 	{

@@ -38,13 +38,17 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 			upvalue->ptr = (unsigned int*)(intptr_t)prevClosure[externals[i].target >> 2];
 		}
 		// Next upvalue will be current list head
-		upvalue->next = externalList[externals[i].closeListID];
+		upvalue->next = externalList[externals[i].closeListID & ~0x80000000];
 		// Save variable size
 		upvalue->size = externals[i].size;
 		// Change list head to a new upvalue
-		externalList[externals[i].closeListID] = upvalue;
+		externalList[externals[i].closeListID & ~0x80000000] = upvalue;
 		// Move to the next upvalue (upvalue size is max(sizeof(ExternFuncInfo::Upvalue), externals[i].size)
+#ifdef _M_X64
+		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 4 ? 5 : 2 + (externals[i].size >> 2)));
+#else
 		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
+#endif
 	}
 }
 

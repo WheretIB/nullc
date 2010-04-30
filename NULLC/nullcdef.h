@@ -8,6 +8,8 @@
 	typedef int intptr_t;
 #endif
 
+#pragma pack(push, 4)
+
 // Wrapper over NULLC array, for use in external functions
 struct NullCArray
 {
@@ -28,6 +30,8 @@ struct NULLCFuncPtr
 	void			*context;
 	unsigned int	id;
 };
+
+#pragma pack(pop)
 
 #define NULLC_MAX_VARIABLE_NAME_LENGTH 2048
 
@@ -58,5 +62,13 @@ typedef unsigned char nullres;
 
 #define NULLC_VM	0
 #define NULLC_X86	1
+
+#ifdef _M_X64
+	#define NULLC_PTR_TYPE TYPE_LONG
+	#define NULLC_PTR_SIZE 8
+#else
+	#define NULLC_PTR_TYPE TYPE_INT
+	#define NULLC_PTR_SIZE 4
+#endif
 
 #endif

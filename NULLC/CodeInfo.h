@@ -122,7 +122,7 @@ namespace CodeInfo
 			bestFit->AddMemberVariable("context", typeInt);
 			bestFit->AddMemberVariable("ptr", typeInt);
 	#endif
-			bestFit->size = 8;
+			bestFit->size = 4 + NULLC_PTR_SIZE;
 		}
 		return bestFit;
 	}
