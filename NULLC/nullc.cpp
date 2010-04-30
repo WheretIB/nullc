@@ -356,16 +356,17 @@ void nullcThrowError(const char* error, ...)
 
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 {
-	// At the moment, only VM is supported
-	if(currExec == NULLC_X86)
-	{
-		executorX86->Stop("ERROR: unimplemented");
-		return 0;
-	}
 	// Copy arguments in argument buffer
 	va_list args;
 	va_start(args, ptr);
-	executor->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
+	if(currExec == NULLC_VM)
+	{
+		executor->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
+	}else if(currExec == NULLC_X86){
+#ifdef NULLC_BUILD_X86_JIT
+		executorX86->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
+#endif
+	}
 	va_end(args);
 	const char* error = executor->GetExecError();
 	if(error[0] != '\0')

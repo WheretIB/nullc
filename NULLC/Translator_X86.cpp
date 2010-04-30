@@ -1077,11 +1077,19 @@ int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg)
 	return 3;
 }
 
+// call reg
 int x86CALL(unsigned char *stream, x86Reg address)
 {
 	stream[0] = 0xff;
 	stream[1] = encodeRegister(address, 2);
 	return 2;
+}
+// call [index*mult+base+shift]
+int x86CALL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, unsigned int shift)
+{
+	stream[0] = 0xff;
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 2);
+	return 1+asize;
 }
 int x86CALL(unsigned char *stream, unsigned int labelID)
 {

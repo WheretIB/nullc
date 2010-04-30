@@ -50,6 +50,7 @@ private:
 
 	FastVector<x86Instruction, true, true>	instList;
 	FastVector<unsigned char*>	instAddress;
+	FastVector<unsigned int>	functionAddress;
 
 	unsigned int		globalStartInBytecode;
 
@@ -60,7 +61,7 @@ private:
 	unsigned int	binCodeStart;
 	unsigned int	binCodeSize, binCodeReserved;
 
-	int			callContinue;
+	int				callContinue;
 
 	unsigned int	*callstackTop;
 

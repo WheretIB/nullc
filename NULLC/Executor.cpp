@@ -884,13 +884,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	}
 	
 	lastResultType = retType;
-	lastResultH = genStackPtr[1];
 	lastResultL = genStackPtr[0];
 
 	switch(retType)
 	{
 	case OTYPE_DOUBLE:
 	case OTYPE_LONG:
+		lastResultH = genStackPtr[1];
 		genStackPtr += 2;
 		break;
 	case OTYPE_INT:
