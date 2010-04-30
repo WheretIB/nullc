@@ -97,6 +97,33 @@ int[] __newA(int size, int count);\r\n\
 auto ref duplicate(auto ref obj);\r\n\
 \r\n\
 void ref() __redirect(auto ref r, int[] ref f);\r\n\
+// char inline array definition support\r\n\
+auto operator=(char[] ref dst, int[] src)\r\n\
+{\r\n\
+	if(dst.size < src.size)\r\n\
+		*dst = new char[src.size];\r\n\
+	for(int i = 0; i < src.size; i++)\r\n\
+		dst[i] = src[i];\r\n\
+	return dst;\r\n\
+}\r\n\
+// short inline array definition support\r\n\
+auto operator=(short[] ref dst, int[] src)\r\n\
+{\r\n\
+	if(dst.size < src.size)\r\n\
+		*dst = new short[src.size];\r\n\
+	for(int i = 0; i < src.size; i++)\r\n\
+		dst[i] = src[i];\r\n\
+	return dst;\r\n\
+}\r\n\
+// float inline array definition support\r\n\
+auto operator=(float[] ref dst, double[] src)\r\n\
+{\r\n\
+	if(dst.size < src.size)\r\n\
+		*dst = new float[src.size];\r\n\
+	for(int i = 0; i < src.size; i++)\r\n\
+		dst[i] = src[i];\r\n\
+	return dst;\r\n\
+}\r\n\
 ";
 
 Compiler::Compiler()

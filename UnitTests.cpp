@@ -5326,7 +5326,7 @@ return u2[0] + arr2[1] + u[2] + arr[3];";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testArrayIndexOverloadPointers, testTarget[t], "710"))
+		if(RunCode(testArrayIndexOverloadPointers, testTarget[t], "20"))
 		{
 			lastFailed = false;
 
@@ -5420,6 +5420,95 @@ return factorial(10);";
 		}
 	}
 
+const char	*testShortArrayDefinition =
+"short[4] a = { 1, 2, 3, 4 };\r\n\
+short[4] b;\r\n\
+b = { 1, 2, 3, 4 };\r\n\
+short[] c = { 1, 2, 3, 4 };\r\n\
+int sumA = 0, sumB = 0, sumC = 0;\r\n\
+for(iA in a, iB in b, iC in c)\r\n\
+{\r\n\
+	sumA += iA;\r\n\
+	sumB += iB;\r\n\
+	sumC += iC;\r\n\
+}\r\n\
+return 0;";
+	printf("\r\nArray of type short definition\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testShortArrayDefinition, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("sumA", 0, 10);
+			CHECK_INT("sumB", 0, 10);
+			CHECK_INT("sumC", 0, 10);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFloatArrayDefinition =
+"float[4] a = { 3.0, 2, 4, 3 };\r\n\
+float[4] b;\r\n\
+b = { 3.0, 2, 4, 3 };\r\n\
+float[] c = { 3.0, 2, 4, 3 };\r\n\
+int sumA = 0, sumB = 0, sumC = 0;\r\n\
+for(iA in a, iB in b, iC in c)\r\n\
+{\r\n\
+	sumA += iA;\r\n\
+	sumB += iB;\r\n\
+	sumC += iC;\r\n\
+}\r\n\
+return 0;";
+	printf("\r\nArray of type float definition\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFloatArrayDefinition, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("sumA", 0, 12);
+			CHECK_INT("sumB", 0, 12);
+			CHECK_INT("sumC", 0, 12);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testCharArrayDefinition =
+"char[6] a = { 'h', 'e', 'l', 'l', 'o', '\\0' };\r\n\
+char[6] b;\r\n\
+b = { 'h', 'e', 'l', 'l', 'o', '\\0' };\r\n\
+char[] c = { 'w', 'o', 'r', 'l', 'd', '\\0' };\r\n\
+int sumA = 0, sumB = 0, sumC = 0;\r\n\
+for(iA in a, iB in b, iC in c)\r\n\
+{\r\n\
+	sumA += iA;\r\n\
+	sumB += iB;\r\n\
+	sumC += iC;\r\n\
+}\r\n\
+return 0;";
+	printf("\r\nArray of type char definition\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testCharArrayDefinition, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("sumA", 0, 532);
+			CHECK_INT("sumB", 0, 532);
+			CHECK_INT("sumC", 0, 552);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
 
 #ifdef FAILURE_TEST
 

@@ -994,6 +994,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				break;
 			}
 			unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+			if(id == richEdits.size())
+				return 0;
 			HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
 			const char *source = RichTextarea::GetAreaText(wnd);
 			RichTextarea::ResetLineStyle(wnd);
