@@ -1042,56 +1042,78 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 	unsigned char *currCode = code + 25;
 
-	unsigned int regUsed = 0;
-	unsigned int currentShift = 0;
+	unsigned int currentShift = (dwordsToPop - 1) * 4;
 	unsigned int needpop = 0;
-	for(unsigned int i = 0; i < exFunctions[funcID].paramCount; i++)
+	for(int i = exFunctions[funcID].paramCount - 1; i >= 0; i--)
 	{
 		ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
 		ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
 		switch(lType.type)
 		{
+		case ExternTypeInfo::TYPE_FLOAT:
 		case ExternTypeInfo::TYPE_DOUBLE:
-			*currCode++ = 0xf2;
-			*currCode++ = 0x0f;
-			*currCode++ = 0x10;	// movsd xmm, mem64
-			*currCode++ = (unsigned char)(0200 | (regUsed << 3));	// modR/M mod = 10 (32-bit shift), spare = XMMn, r/m = 0 (RAX is base)
-			*(unsigned int*)currCode = currentShift;
-			currCode += 4;
-			currentShift += 8;
-			regUsed++;
+			if(i > 3)
+			{
+				// mov rsi, [rax+shift]
+				if(lType.type == ExternTypeInfo::TYPE_DOUBLE)
+					*currCode++ = 0x48;	// 64bit mode
+				*currCode++ = 0x8b;
+				*currCode++ = 0264;	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
+				*currCode++ = 0040;	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
+				*(unsigned int*)currCode = currentShift - (lType.type == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
+				currCode += 4;
+
+				// push rsi
+				*currCode++ = 0x56;
+				needpop += 8;
+			}else{
+				// movsd xmm, [rax+shift]
+				*currCode++ = ExternTypeInfo::TYPE_DOUBLE ? 0xf2 : 0xf3;
+				*currCode++ = 0x0f;
+				*currCode++ = 0x10;	
+				*currCode++ = (unsigned char)(0200 | (i << 3));	// modR/M mod = 10 (32-bit shift), spare = XMMn, r/m = 0 (RAX is base)
+				*(unsigned int*)currCode = currentShift - (lType.type == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
+				currCode += 4;
+			}
+			currentShift -= (lType.type == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
 			break;
 		case ExternTypeInfo::TYPE_CHAR:
 		case ExternTypeInfo::TYPE_SHORT:
 		case ExternTypeInfo::TYPE_INT:
-			if(regUsed > 3)
+		case ExternTypeInfo::TYPE_LONG:
+			if(i > 3)
 			{
-				*currCode++ = 0x8b; // mod rsi, [rax+shift]
-				*currCode++ = 0264;	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 0 (RDI is base)
-				*currCode++ = 0040;
-				*(unsigned int*)currCode = currentShift;
+				// mov rsi, [rax+shift]
+				if(lType.type == ExternTypeInfo::TYPE_LONG)
+					*currCode++ = 0x48;	// 64bit mode
+				*currCode++ = 0x8b;
+				*currCode++ = 0264;	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
+				*currCode++ = 0040;	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
+				*(unsigned int*)currCode = currentShift - (lType.type == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				currCode += 4;
 
-				*currCode++ = 0x56;	// push rsi
+				// push rsi
+				*currCode++ = 0x56;
 				needpop += 8;
 			}else{
-				if(regUsed == 2 || regUsed == 3)
-					*currCode++ = 0x44;
+				if(i == 2 || i == 3)
+					*currCode++ = lType.type == ExternTypeInfo::TYPE_LONG ? 0x4c : 0x44;
+				else if(lType.type == ExternTypeInfo::TYPE_LONG)
+					*currCode++ = 0x48;	// 64bit mode
 				*currCode++ = 0x8b;
-				if(regUsed == 0)
+				if(i == 0)
 					*currCode++ = 0214;
-				else if(regUsed == 1)
+				else if(i == 1)
 					*currCode++ = 0224;
-				else if(regUsed == 2)
+				else if(i == 2)
 					*currCode++ = 0204;
-				else if(regUsed == 3)
+				else if(i == 3)
 					*currCode++ = 0214;
 				*currCode++ = 0040;
-				*(unsigned int*)currCode = currentShift;
+				*(unsigned int*)currCode = currentShift - (lType.type == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				currCode += 4;
 			}
-			currentShift += 4;
-			regUsed++;
+			currentShift -= (lType.type == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 			break;
 		default:
 			assert(!"parameter type unsupported");
@@ -1100,19 +1122,19 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	// sub rsp, 32
 	*currCode++ = 0x48;
 	*currCode++ = 0x81;
-	*currCode++ = 0354;	// modR/M mod = 11 (register), spare = 5 (sub), r/m = 0 (RAX is base)
+	*currCode++ = 0354;	// modR/M mod = 11 (register), spare = 5 (sub), r/m = 4 (RSP is changed)
 	*(unsigned int*)currCode = 32;
 	currCode += 4;
 
 	// call rbx
 	*currCode++ = 0x48;
 	*currCode++ = 0xff;
-	*currCode++ = 0323;	// modR/M mod = 11 (register), spare = 2, r/m = 0 (RAX is base)
+	*currCode++ = 0323;	// modR/M mod = 11 (register), spare = 2, r/m = 3 (RBX is source)
 
 	// add rsp, 32 + needpop
 	*currCode++ = 0x48;
 	*currCode++ = 0x81;
-	*currCode++ = 0304;	// modR/M mod = 11 (register), spare = 0 (add), r/m = 0 (RAX is base)
+	*currCode++ = 0304;	// modR/M mod = 11 (register), spare = 0 (add), r/m = 4 (RSP is changed)
 	*(unsigned int*)currCode = 32 + needpop;
 	currCode += 4;
 
@@ -1121,16 +1143,22 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	{
 	case ExternFuncInfo::RETURN_DOUBLE:
 		newStackPtr -= 2;
+		// movsd qword [rdi], xmm
 		*currCode++ = 0xf2;
 		*currCode++ = 0x0f;
-		*currCode++ = 0x11;	// movsd mem64, xmm
-		*currCode++ = 0007;	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 0 (RAX is base)
+		*currCode++ = 0x11;
+		*currCode++ = 0007;	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 7 (RDI is base)
 		break;
+	case ExternFuncInfo::RETURN_LONG:
+		newStackPtr -= 1;
 	case ExternFuncInfo::RETURN_INT:
 		newStackPtr -= 1;
+		// mov qword [rdi], rax
 		*currCode++ = 0x48;
-		*currCode++ = 0x89; // mov [rdi], rax
+		*currCode++ = 0x89;
 		*currCode++ = 0007;	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 0 (RDI is base)
+		break;
+	case ExternFuncInfo::RETURN_VOID:
 		break;
 	default:
 		assert(!"return type unsupported");
