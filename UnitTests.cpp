@@ -370,8 +370,8 @@ double TestDouble(double a)
 
 void	RunTests2();
 
-int passed[] = { 0, 0, 0 };
-int testCount[] = { 0, 0, 0 };
+int passed[] = { 0, 0, 0, 0 };
+int testCount[] = { 0, 0, 0, 0 };
 
 unsigned int	testTarget[] = { NULLC_VM, NULLC_X86 };
 
@@ -404,6 +404,23 @@ void	RunTests()
 
 	passed[0] = passed[1] = passed[2] = 0;
 	testCount[0] = testCount[1] = testCount[2] = 0;
+
+	// Extra tests
+
+	// Safe sprintf test
+	{
+		testCount[3]++;
+
+		char buf[8];
+		char *pos = buf + SafeSprintf(buf, 8, "this ");
+		pos += SafeSprintf(pos, 8 - int(pos - buf), "string is too long");
+		if(memcmp(buf, "this st", 8) != 0)
+			printf("Safe sprintf test failed: string is incorrect");
+		else if(pos != buf + 8)
+			printf("Safe sprintf test failed: iterator is incorrect");
+		else
+			passed[3]++;
+	}
 
 	// Init NULLC
 	nullcInit("Modules\\");
@@ -5568,8 +5585,9 @@ return *res + *h.c + *v + *e[0];";
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount[0]);
 	printf("X86 passed %d of %d tests\r\n", passed[1], testCount[1]);
-	printf("Failure passed %d of %d tests\r\n", passed[2], testCount[2]);
-	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2], testCount[0]+testCount[1]+testCount[2]);
+	printf("Failure tests: passed %d of %d tests\r\n", passed[2], testCount[2]);
+	printf("Extra tests: passed %d of %d tests\r\n", passed[3], testCount[3]);
+	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2], testCount[0]+testCount[1]+testCount[2]+testCount[3]);
 
 	printf("Compilation time: %f\r\n", timeCompile);
 	printf("Get listing time: %f\r\n", timeGetListing);
