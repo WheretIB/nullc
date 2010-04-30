@@ -453,10 +453,10 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	RichTextarea::SetTextStyle(10, 255,   0,   0, false, false,  true);
 	RichTextarea::SetTextStyle(11, 255,   0, 255, false, false, false);
 
-	RichTextarea::SetLineStyle(1, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CALL)));
-	RichTextarea::SetLineStyle(2, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_LASTCALL)));
-	RichTextarea::SetLineStyle(3, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CURR)));
-	RichTextarea::SetLineStyle(4, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_BREAK)));
+	RichTextarea::SetLineStyle(1, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CALL)), "This code has called into another function");
+	RichTextarea::SetLineStyle(2, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_LASTCALL)), "Code execution stopped at this point");
+	RichTextarea::SetLineStyle(3, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CURR)), "Code execution is currently at this point");
+	RichTextarea::SetLineStyle(4, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_BREAK)), "Breakpoint");
 
 	unsigned int width = (800 - 25) / 4;
 

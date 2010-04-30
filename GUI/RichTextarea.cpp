@@ -2,6 +2,8 @@
 
 #include "../ObjectPool.h"
 
+#include "commctrl.h"
+#pragma comment(lib, "comctl32.lib")
 #include <windowsx.h>
 
 #ifdef _WIN64
@@ -28,6 +30,7 @@ TextStyle	tStyle[FONT_STYLE_COUNT];
 struct LineStyle
 {
 	HBITMAP	leftImg;
+	char	tooltip[128];
 };
 LineStyle	lStyle[LINE_STYLE_COUNT];
 
@@ -173,9 +176,10 @@ namespace RichTextarea
 {
 	bool	sharedCreated = false;
 
+	HINSTANCE	instHandle = NULL;
+
 	// Global shared data
 	HWND	areaStatus = 0;
-	//HWND	activeWnd = 0;
 	HFONT	areaFont[4];
 
 	PAINTSTRUCT areaPS;
@@ -233,6 +237,9 @@ struct TextareaData
 	bool selectionOn;
 
 	HistoryManager	*history;
+
+	HWND		toolTip;
+	TOOLINFO	toolInfo;
 
 	// Windows scrollbar can scroll beyond valid positions
 	void	ClampShift();
@@ -518,6 +525,7 @@ namespace RichTextarea
 		TextareaData	*data = GetData(wnd);
 		memset(data, 0, sizeof(TextareaData));
 
+		// Create data that is shared between all instances
 		CreateShared(wnd);
 
 		// Init linear text buffer
@@ -537,6 +545,21 @@ namespace RichTextarea
 
 		static int timerID = 1;
 		SetTimer(wnd, timerID++, 62, AreaCursorUpdate);
+		
+		// Create tooltip
+		data->toolTip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
+			CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, wnd, NULL, RichTextarea::instHandle, NULL);
+
+		memset(&data->toolInfo, 0, sizeof(TOOLINFO));
+		data->toolInfo.cbSize = sizeof(TOOLINFO);
+		data->toolInfo.uFlags = TTF_SUBCLASS;
+		data->toolInfo.hwnd = wnd;
+		data->toolInfo.hinst = RichTextarea::instHandle;
+		data->toolInfo.lpszText = "none";
+		GetClientRect(wnd, &data->toolInfo.rect);
+		data->toolInfo.rect.right = data->toolInfo.rect.left + RichTextarea::padLeft;
+
+		SendMessage(data->toolTip, TTM_ADDTOOL, 0, (LPARAM)&data->toolInfo);
 	}
 
 	void OnDestroy(HWND wnd)
@@ -577,11 +600,13 @@ bool RichTextarea::SetTextStyle(unsigned int id, unsigned char red, unsigned cha
 	return true;
 }
 
-bool RichTextarea::SetLineStyle(unsigned int id, HBITMAP img)
+bool RichTextarea::SetLineStyle(unsigned int id, HBITMAP img, const char *tooltipText)
 {
 	if(id >= LINE_STYLE_COUNT)
 		return false;
 	lStyle[id].leftImg = img;
+	strncpy(lStyle[id].tooltip, tooltipText, 127);
+	lStyle[id].tooltip[127] = 0;
 	return true;
 }
 
@@ -759,7 +784,6 @@ void RichTextarea::SetAreaText(HWND wnd, const char *text)
 
 void RichTextarea::SetStatusBar(HWND status, unsigned int barWidth)
 {
-	const int SB_SETPARTS = (WM_USER+4);
 	const int parts = 5;
 	int	miniPart = 64;
 	int widths[parts] = { barWidth - 4 * miniPart, barWidth - 3 * miniPart, barWidth - 2 * miniPart, barWidth - miniPart, -1 };
@@ -2049,6 +2073,7 @@ void RichTextarea::RegisterTextarea(const char *className, HINSTANCE hInstance)
 	wcex.lpszClassName	= className;
 	wcex.hIconSm		= NULL;
 
+	RichTextarea::instHandle = hInstance;
 	RegisterClassEx(&wcex);
 }
 
@@ -2107,6 +2132,14 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 		data->OnLeftMouseDown(LOWORD(lParam), HIWORD(lParam));
 		break;
 	case WM_MOUSEMOVE:
+		// If mouse is in the tooltip area
+		if(LOWORD(lParam) < RichTextarea::padLeft)
+		{
+			unsigned int blankX, blankY;
+			AreaLine *cLine = data->ClientToCursor(LOWORD(lParam), HIWORD(lParam), blankX, blankY, true);
+			data->toolInfo.lpszText = lStyle[cLine->lineStyle].tooltip;
+			SendMessage(data->toolTip, TTM_SETTOOLINFO, 0, (LPARAM)&data->toolInfo);
+		}
 		// If mouse if moving with the left mouse down
 		if(!(wParam & MK_LBUTTON) || (lastX == LOWORD(lParam) && lastY == HIWORD(lParam)))
 			break;
