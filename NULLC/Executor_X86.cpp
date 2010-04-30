@@ -376,8 +376,49 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	if(functionID != ~0u)
 	{
 		if(exFunctions[functionID].startInByteCode == -1)
-			binCodeStart = (unsigned int)(uintptr_t)exFunctions[functionID].funcPtr;
-		else{
+		{
+			unsigned int dwordsToPop = (exFunctions[functionID].bytesToPop >> 2);
+			void* fPtr = exFunctions[functionID].funcPtr;
+			unsigned int retType = exFunctions[functionID].retType;
+
+			unsigned int *stackStart = ((unsigned int*)arguments) + dwordsToPop - 1;
+			for(unsigned int i = 0; i < dwordsToPop; i++)
+			{
+				__asm{ mov eax, dword ptr[stackStart] }
+				__asm{ push dword ptr[eax] }
+				stackStart--;
+			}
+			switch(retType)
+			{
+			case ExternFuncInfo::RETURN_VOID:
+				NULLC::runResultType = OTYPE_COMPLEX;
+				((void (*)())fPtr)();
+				break;
+			case ExternFuncInfo::RETURN_INT:
+				NULLC::runResultType = OTYPE_INT;
+				NULLC::runResult = ((int (*)())fPtr)();
+				break;
+			case ExternFuncInfo::RETURN_DOUBLE:
+			{
+				double tmp = ((double (*)())fPtr)();
+				NULLC::runResultType = OTYPE_DOUBLE;
+				NULLC::runResult2 = ((int*)&tmp)[0];
+				NULLC::runResult = ((int*)&tmp)[1];
+			}
+				break;
+			case ExternFuncInfo::RETURN_LONG:
+			{
+				long long tmp = ((long long (*)())fPtr)();
+				NULLC::runResultType = OTYPE_LONG;
+				NULLC::runResult2 = ((int*)&tmp)[0];
+				NULLC::runResult = ((int*)&tmp)[1];
+			}
+				break;
+			}
+			__asm{ mov eax, dwordsToPop }
+			__asm{ lea esp, [eax * 4 + esp] }
+			return;
+		}else{
 			varSize += NULLC::dataHead->lastEDI;
 			memcpy(paramBase + varSize, arguments, exFunctions[functionID].bytesToPop);
 			binCodeStart += exFunctions[functionID].startInByteCode;
