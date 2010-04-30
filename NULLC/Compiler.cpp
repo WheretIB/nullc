@@ -61,7 +61,7 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 		len = (unsigned int)(end - begin) < 128 ? (unsigned int)(end - begin) : 127;
 		memcpy(line, begin, len);
 		for(unsigned int k = 0; k < len; k++)
-			if(line[k] < 0x20)
+			if((unsigned char)line[k] < 0x20)
 				line[k] = ' ';
 		line[len] = 0;
 		shift = (unsigned int)(apprPos-begin);
