@@ -5315,6 +5315,111 @@ return mp;";
 		}
 	}
 
+const char	*testArrayIndexOverloadPointers =
+"auto arr = { 100, 200, 300, 400 };\r\n\
+int[4] ref u = &arr;\r\n\
+int[] arr2 = arr;\r\n\
+int[] ref u2 = &arr2;\r\n\
+int operator[](int[] ref arr, int index){ return 5; }\r\n\
+return u2[0] + arr2[1] + u[2] + arr[3];";
+	printf("\r\nArray index overload call for pointer to array type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testArrayIndexOverloadPointers, testTarget[t], "710"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testArrayIndexOverloadPointers2 =
+"import std.vector;\r\n\
+vector v = vector(int);\r\n\
+vector ref vv = &v;\r\n\
+vv.push_back(5);\r\n\
+v.push_back(7);\r\n\
+return int(vv[0]) + int(vv[1]);";
+	printf("\r\nArray index overload call for pointer to class type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testArrayIndexOverloadPointers2, testTarget[t], "12"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testImplicitAutoRefDereference =
+"int i = 5;\r\n\
+auto ref u = &i;\r\n\
+int k = u;\r\n\
+return k;";
+	printf("\r\nauto ref type implicit dereference in an unambiguous situation\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testImplicitAutoRefDereference, testTarget[t], "5"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testRangeIterator =
+"class range_iterator\r\n\
+{\r\n\
+	int pos;\r\n\
+	int max;\r\n\
+}\r\n\
+auto range_iterator:start()\r\n\
+{\r\n\
+	return *this;\r\n\
+}\r\n\
+int range_iterator:next()\r\n\
+{\r\n\
+	pos++;\r\n\
+	return pos - 1;\r\n\
+}\r\n\
+int range_iterator:hasnext()\r\n\
+{\r\n\
+	return pos != max;\r\n\
+}\r\n\
+auto range(int min, max)\r\n\
+{\r\n\
+	range_iterator r;\r\n\
+	r.pos = min;\r\n\
+	r.max = max + 1;\r\n\
+	return r;\r\n\
+}\r\n\
+int factorial(int v)\r\n\
+{\r\n\
+	int fact = 1;\r\n\
+	for(i in range(1, v))\r\n\
+		fact *= i;\r\n\
+	return fact;\r\n\
+}\r\n\
+return factorial(10);";
+	printf("\r\nExtra node wrapping in for each with function call in array part\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testRangeIterator, testTarget[t], "3628800"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 
 #ifdef FAILURE_TEST
 
@@ -5410,6 +5515,26 @@ return *ll;";
 	{
 		testCount[t]++;
 		if(!RunCode(testAutoReferenceMismatch, testTarget[t], "1"))
+			passed[t]++;
+		else
+			printf("Should have failed");
+	}
+
+const char	*testTypeDoesntImplementMethod =
+"class Foo{ int i; }\r\n\
+void Foo:test(){ assert(i); }\r\n\
+Foo test; test.i = 5;\r\n\
+auto ref[2] objs;\r\n\
+objs[0] = &test;\r\n\
+objs[1] = &test.i;\r\n\
+for(i in objs)\r\n\
+	i.test();\r\n\
+return 0;";
+	printf("\r\nType doesn't implement method on auto ref function call\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(!RunCode(testTypeDoesntImplementMethod, testTarget[t], "1"))
 			passed[t]++;
 		else
 			printf("Should have failed");
@@ -5625,6 +5750,9 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Invalid array index type A", "int[100] arr; void func(){} arr[func()] = 5;", "ERROR: cannot index array with type 'void'");
 	TEST_FOR_FAIL("Invalid array index type B", "import std.math; float2 a; int[100] arr; arr[a] = 7;", "ERROR: cannot index array with type 'float2'");
 
+	TEST_FOR_FAIL("None of the types implement method", "int i = 0; auto ref u = &i; return u.value();", "ERROR: function 'value' is undefined in any of existing classes");
+	TEST_FOR_FAIL("None of the types implement correct method", "int i = 0; int int:value(){ return *this; } auto ref u = &i; return u.value(15);", "ERROR: none of the member ::value functions can handle the supplied parameter list without conversions");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
@@ -5758,7 +5886,7 @@ return *res + *h.c + *v + *e[0];";
 	printf("X86 passed %d of %d tests\r\n", passed[1], testCount[1]);
 	printf("Failure tests: passed %d of %d tests\r\n", passed[2], testCount[2]);
 	printf("Extra tests: passed %d of %d tests\r\n", passed[3], testCount[3]);
-	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2], testCount[0]+testCount[1]+testCount[2]+testCount[3]);
+	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2]+passed[3], testCount[0]+testCount[1]+testCount[2]+testCount[3]);
 
 	printf("Compilation time: %f\r\n", timeCompile);
 	printf("Get listing time: %f\r\n", timeGetListing);

@@ -47,6 +47,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	ByteCode *bCode = (ByteCode*)code;
 
+	ExternTypeInfo *tInfo = FindFirstType(bCode), *tStart = tInfo;
+	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
+
 	unsigned int moduleFuncCount = 0;
 
 	ExternModuleInfo *mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
@@ -154,8 +157,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
 
 	// Add all types from bytecode to the list
-	ExternTypeInfo *tInfo = FindFirstType(bCode);
-	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
+	tInfo = tStart;
 	for(unsigned int i = 0; i < bCode->typeCount; i++)
 	{
 		const unsigned int index_none = ~0u;
@@ -300,6 +302,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			exFunctions.back().offsetToName += oldSymbolSize;
 			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
 			exFunctions.back().closeListStart += oldListCount;
+			exFunctions.back().funcType = typeRemap[exFunctions.back().funcType];
 
 			// Update internal function address
 			if(exFunctions.back().address != -1)

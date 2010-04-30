@@ -249,3 +249,13 @@ const char*		nullcGetTypeName(unsigned int typeID)
 {
 	return &NULLCTypeInfo::linker->exSymbols[NULLCTypeInfo::linker->exTypes[typeID].offsetToName];
 }
+
+unsigned int	nullcGetFunctionType(unsigned int funcID)
+{
+	return NULLCTypeInfo::linker->exFunctions[funcID].funcType;
+}
+
+const char*		nullcGetFunctionName(unsigned int funcID)
+{
+	return &NULLCTypeInfo::linker->exSymbols[NULLCTypeInfo::linker->exFunctions[funcID].offsetToName];
+}
