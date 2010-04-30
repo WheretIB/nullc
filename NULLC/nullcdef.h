@@ -5,7 +5,6 @@
 	#define NCDECL _cdecl
 #else
 	#define NCDECL
-	typedef int intptr_t;
 #endif
 
 #pragma pack(push, 4)

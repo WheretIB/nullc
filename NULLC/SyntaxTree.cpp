@@ -13,8 +13,8 @@ NodeZeroOP*	TakeLastNode()
 	return last;
 }
 
-static char* binCommandToText[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "&&", "||", "^^"};
-static char* unaryCommandToText[] = { "-", "-", "-", "~", "~", "!", "!" };
+static const char* binCommandToText[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "&&", "||", "^^"};
+static const char* unaryCommandToText[] = { "-", "-", "-", "~", "~", "!", "!" };
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -1251,16 +1251,12 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
-		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
 	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
-		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 #endif
 
@@ -1401,16 +1397,12 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
-		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
 	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
-		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 #endif
 
@@ -1658,16 +1650,12 @@ NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetTo
 	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
-		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
 	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
-		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 #endif
 
@@ -1819,9 +1807,7 @@ NodeShiftAddress::NodeShiftAddress(TypeInfo::MemberVariable *classMember)
 	if(first->nodeType == typeNodeShiftAddress)
 	{
 		memberShift += static_cast<NodeShiftAddress*>(first)->memberShift;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
-		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
 #endif
 
@@ -1899,16 +1885,12 @@ NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift = static_cast<NodeShiftAddress*>(first)->memberShift;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeShiftAddress*>(first)->first;
-		static_cast<NodeShiftAddress*>(oldFirst)->first = NULL;
 	}
 	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift = static_cast<NodeArrayIndex*>(first)->shiftValue;
-		NodeZeroOP	*oldFirst = first;
 		first = static_cast<NodeArrayIndex*>(first)->first;
-		static_cast<NodeArrayIndex*>(oldFirst)->first = NULL;
 	}
 #endif
 
