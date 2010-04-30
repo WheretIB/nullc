@@ -580,6 +580,14 @@ int x86ADD(unsigned char *stream, x86Reg dst, x86Reg src)
 	stream[1] = encodeRegister(dst, regCode[src]);
 	return 2;
 }
+// add dst, dword [index*mult+base+shift]
+int x86ADD(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	assert(size == sDWORD);
+	stream[0] = 0x03;
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[dst]);
+	return 1 + asize;
+}
 // add dword [index*mult+base+shift], num
 int x86ADD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {
@@ -620,6 +628,13 @@ int x86ADC(unsigned char *stream, x86Reg dst, int num)
 	stream[1] = encodeRegister(dst, 2);
 	*(int*)(stream+2) = num;
 	return 6;
+}
+// adc dst, src
+int x86ADC(unsigned char *stream, x86Reg dst, x86Reg src)
+{
+	stream[0] = 0x11;
+	stream[1] = encodeRegister(dst, regCode[src]);
+	return 2;
 }
 // adc dword [index*mult+base+shift], num
 int x86ADC(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)

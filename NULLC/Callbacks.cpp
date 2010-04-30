@@ -405,13 +405,13 @@ void AddPopNode(const char* pos)
 
 void AddPositiveNode(const char* pos)
 {
-	AddFunctionCallNode(CodeInfo::lastKnownStartPos, "+", 1, true);
+	AddFunctionCallNode(pos, "+", 1, true);
 }
 
 // Function that creates unary operation node that changes sign of value
 void AddNegateNode(const char* pos)
 {
-	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "-", 1, true))
+	if(AddFunctionCallNode(pos, "-", 1, true))
 		return;
 
 	// If the last node is a number, we can just change sign of constant
@@ -439,7 +439,7 @@ void AddNegateNode(const char* pos)
 // Function that creates unary operation node for logical NOT
 void AddLogNotNode(const char* pos)
 {
-	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "!", 1, true))
+	if(AddFunctionCallNode(pos, "!", 1, true))
 		return;
 
 	if(CodeInfo::nodeList.back()->typeInfo == typeDouble || CodeInfo::nodeList.back()->typeInfo == typeFloat)
@@ -467,7 +467,7 @@ void AddLogNotNode(const char* pos)
 // Function that creates unary operation node for binary NOT
 void AddBitNotNode(const char* pos)
 {
-	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "~", 1, true))
+	if(AddFunctionCallNode(pos, "~", 1, true))
 		return;
 
 	if(CodeInfo::nodeList.back()->typeInfo == typeDouble || CodeInfo::nodeList.back()->typeInfo == typeFloat)
