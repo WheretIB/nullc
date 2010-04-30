@@ -25,6 +25,12 @@ struct TextStyle
 };
 TextStyle	tStyle[FONT_STYLE_COUNT];
 
+struct LineStyle
+{
+	HBITMAP	leftImg;
+};
+LineStyle	lStyle[LINE_STYLE_COUNT];
+
 struct AreaChar
 {
 	char	ch;
@@ -39,12 +45,15 @@ struct AreaLine
 		maxLength = DEFAULT_STRING_LENGTH;
 		data = startBuf;
 		prev = next = NULL;
+		lineStyle = 0;
 	}
 
 	AreaChar		startBuf[DEFAULT_STRING_LENGTH];
 	AreaChar		*data;
 	unsigned int	length;
 	unsigned int	maxLength;
+
+	unsigned int	lineStyle;
 
 	AreaLine		*prev, *next;
 
@@ -172,7 +181,7 @@ namespace RichTextarea
 	PAINTSTRUCT areaPS;
 
 	// Padding to the left of the first symbol
-	unsigned int padLeft = 5;
+	unsigned int padLeft = 10;
 	// Single character width and height (using monospaced font)
 	int charWidth = 8, charHeight = 8;
 
@@ -568,6 +577,14 @@ bool RichTextarea::SetTextStyle(unsigned int id, unsigned char red, unsigned cha
 	return true;
 }
 
+bool RichTextarea::SetLineStyle(unsigned int id, HBITMAP img)
+{
+	if(id >= LINE_STYLE_COUNT)
+		return false;
+	lStyle[id].leftImg = img;
+	return true;
+}
+
 // Function is used to reserve space in linear text buffer
 void TextareaData::ExtendLinearTextBuffer()
 {
@@ -637,6 +654,36 @@ void RichTextarea::EndStyleUpdate(HWND wnd)
 			curr = curr->next;	// At the next line.
 		}
 	}
+}
+
+void RichTextarea::SetStyleToLine(HWND wnd, unsigned int line, unsigned int style)
+{
+	TextareaData *data = GetData(wnd);
+
+	AreaLine *updLine = data->firstLine;
+	while(line-- && updLine)
+		updLine = updLine->next;
+	if(updLine)
+		updLine->lineStyle = style;
+}
+
+void RichTextarea::ResetLineStyle(HWND wnd)
+{
+	TextareaData *data = GetData(wnd);
+
+	AreaLine *updLine = data->firstLine;
+	while(updLine)
+	{
+		updLine->lineStyle = 0;
+		updLine = updLine->next;
+	}
+}
+
+unsigned int RichTextarea::GetCurrentLine(HWND wnd)
+{
+	TextareaData *data = GetData(wnd);
+
+	return data->cursorCharY;
 }
 
 void RichTextarea::ClearAreaText(HWND wnd)
@@ -851,6 +898,8 @@ void TextareaData::OnPaint()
 	unsigned int startX, startY, endX, endY;
 	SortSelPoints(startX, endX, startY, endY);
 
+	HDC memDC = CreateCompatibleDC(hdc);
+
 	curr = startLine;
 	unsigned int currLine = shiftCharY;
 	// While they are lines and they didn't go out of view
@@ -912,6 +961,12 @@ void TextareaData::OnPaint()
 			charRect.left = 0;
 			charRect.right = RichTextarea::padLeft;
 			FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
+
+			if(curr->lineStyle)
+			{
+				SelectObject(memDC, lStyle[curr->lineStyle].leftImg);
+				BitBlt(hdc, RichTextarea::padLeft - 16, charRect.top, 16, 16, memDC, 0, 0, SRCCOPY);
+			}
 		}
 		// Shift to the beginning of the next line
 		charRect.left = RichTextarea::padLeft - shiftCharX * RichTextarea::charWidth;
@@ -920,6 +975,7 @@ void TextareaData::OnPaint()
 		charRect.bottom += RichTextarea::charHeight;
 		curr = curr->next;
 		currLine++;
+		
 	}
 	// Fill the empty space after text with white color
 	if(charRect.top < areaHeight)
@@ -929,6 +985,8 @@ void TextareaData::OnPaint()
 		charRect.bottom = areaHeight;
 		FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
 	}
+
+	DeleteDC(memDC);
 
 	EndPaint(areaWnd, &RichTextarea::areaPS);
 }

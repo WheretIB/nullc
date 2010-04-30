@@ -191,6 +191,7 @@ void	nullcTranslateToC(const char *fileName, const char *mainName)
 void nullcClean()
 {
 	linker->CleanCode();
+	executor->ClearBreakpoints();
 }
 
 nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
@@ -576,6 +577,20 @@ char* nullcDebugSymbols()
 	return linker ? linker->exSymbols.data : NULL;
 }
 
+NULLCCodeInfo* nullcDebugCodeInfo(unsigned int *count)
+{
+	if(count && linker)
+		*count = linker->exCodeInfo.size() >> 1;
+	return linker ? (NULLCCodeInfo*)linker->exCodeInfo.data : NULL;
+}
+
+ExternModuleInfo* nullcDebugModuleInfo(unsigned int *count)
+{
+	if(count && linker)
+		*count = linker->exModules.size();
+	return linker ? linker->exModules.data : NULL;
+}
+
 void nullcDebugBeginCallStack()
 {
 	if(currExec == NULLC_VM)
@@ -603,5 +618,50 @@ unsigned int nullcDebugGetStackFrame()
 	return address;
 }
 
+nullres nullcDebugSetBreakFunction(void (*callback)(unsigned int))
+{
+	if(!executor)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	executor->SetBreakFunction(callback);
+	return true;
+}
 
+nullres nullcDebugClearBreakpoints()
+{
+	if(!executor)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	if(currExec != NULLC_VM)
+	{
+		nullcLastError = "ERROR: breakpoints are supported only under VM";
+		return false;
+	}
+	executor->ClearBreakpoints();
+	return true;
+}
+
+nullres nullcDebugAddBreakpoint(unsigned int instruction)
+{
+	if(!executor)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	if(currExec != NULLC_VM)
+	{
+		nullcLastError = "ERROR: breakpoints are supported only under VM";
+		return false;
+	}
+	if(!executor->AddBreakpoint(instruction))
+	{
+		nullcLastError = executor->GetExecError();
+		return false;
+	}
+	return true;
+}
 

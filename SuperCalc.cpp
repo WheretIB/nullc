@@ -58,7 +58,7 @@ LRESULT CALLBACK	About(HWND, unsigned int, WPARAM, LPARAM);
 // Window handles
 HWND hWnd;			// Main window
 HWND hButtonCalc;	// Run/Abort button
-HWND hContinue;		// Button that continues an interupted execution
+HWND hContinue;		// Button that continues an interrupted execution
 HWND hJITEnabled;	// JiT enable check box
 HWND hTabs;	
 HWND hNewTab, hNewFilename, hNewFile;
@@ -67,14 +67,20 @@ HWND hCode;			// disabled text area for error messages and other information
 HWND hVars;			// disabled text area that shows values of all variables in global scope
 HWND hStatus;		// Main window status bar
 
-
 unsigned int areaWidth = 400, areaHeight = 300;
 
 HFONT	fontMonospace, fontDefault;
 
 Colorer*	colorer;
 
+struct Breakpoint
+{
+	HWND	tab;
+	unsigned int	line;
+};
+
 std::vector<HWND>	richEdits;
+std::vector<Breakpoint>	breakpoints;
 
 const unsigned int INIT_BUFFER_SIZE = 4096;
 char	initError[INIT_BUFFER_SIZE];
@@ -103,8 +109,12 @@ void IDEDebugBreak()
 	SendMessage(hWnd, WM_USER + 2, 0, 0);
 	WaitForSingleObject(breakResponse, INFINITE);
 }
-
-
+void IDEDebugBreakEx(unsigned int instruction)
+{
+	(void)instruction;
+	SendMessage(hWnd, WM_USER + 2, 0, 0);
+	WaitForSingleObject(breakResponse, INFINITE);
+}
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
 					HINSTANCE	hPrevInstance,
@@ -115,7 +125,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	(void)hPrevInstance;
 
 	MSG msg;
-	HACCEL hAccelTable;
 
 	needTextUpdate = true;
 	lastUpdate = GetTickCount();
@@ -213,17 +222,19 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	MyRegisterClass(hInstance);
 
 	lastUpdate = 0;
-
 	// Perform application initialization:
 	if(!InitInstance(hInstance, nCmdShow)) 
 		return 0;
 
-	hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDC_SUPERCALC);
+	if(!nullcDebugSetBreakFunction(IDEDebugBreakEx))
+		strcat(initError, nullcGetLastError());
+
+	HACCEL hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDR_SHORTCUTS);
 
 	// Main message loop:
 	while(GetMessage(&msg, NULL, 0, 0))
 	{
-		if(!TranslateAccelerator(msg.hwnd, hAccelTable, &msg)) 
+		if(!TranslateAccelerator(hWnd, hAccelTable, &msg)) 
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -239,9 +250,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 WORD MyRegisterClass(HINSTANCE hInstance)
 {
 	WNDCLASSEX wcex;
-
+	memset(&wcex, 0, sizeof(WNDCLASSEX));
 	wcex.cbSize = sizeof(WNDCLASSEX); 
-
 	wcex.style			= 0;
 	wcex.lpfnWndProc	= (WNDPROC)WndProc;
 	wcex.cbClsExtra		= 0;
@@ -443,6 +453,11 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	RichTextarea::SetTextStyle(10, 255,   0,   0, false, false,  true);
 	RichTextarea::SetTextStyle(11, 255,   0, 255, false, false, false);
 
+	RichTextarea::SetLineStyle(1, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CALL)));
+	RichTextarea::SetLineStyle(2, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_LASTCALL)));
+	RichTextarea::SetLineStyle(3, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CURR)));
+	RichTextarea::SetLineStyle(4, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_BREAK)));
+
 	unsigned int width = (800 - 25) / 4;
 
 	hCode = CreateWindow("EDIT", initError, WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
@@ -470,6 +485,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	PostMessage(hWnd, WM_SIZE, 0, (394 << 16) + (900 - 16));
 
 	SetTimer(hWnd, 1, 500, 0);
+
 	return TRUE;
 }
 
@@ -708,7 +724,7 @@ void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
 	}
 }
 
-void FillVariableInfoTree()
+void FillVariableInfoTree(bool lastIsCurrent = false)
 {
 	TreeView_DeleteAllItems(hVars);
 
@@ -755,6 +771,16 @@ void FillVariableInfoTree()
 			offset = vars[i].offset + type.size;
 	}
 
+	unsigned int codeLine = ~0u;
+
+	unsigned int infoSize = 0;
+	NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
+	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+	const char *source = RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window);
+
+	unsigned int moduleSize = 0;
+	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
+
 	nullcDebugBeginCallStack();
 	while(int address = nullcDebugGetStackFrame())
 	{
@@ -765,6 +791,28 @@ void FillVariableInfoTree()
 			if(address >= codeFuntions[i].address && address < (codeFuntions[i].address + codeFuntions[i].codeSize))
 			{
 				funcID = i;
+			}
+		}
+
+		if(address != -1)
+		{
+			unsigned int line = 0;
+			unsigned int i = address - 1;
+			while((line < infoSize - 1) && (i >= codeInfo[line + 1].byteCodePos))
+				line++;
+			
+			if(codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset)
+			{
+				codeLine = 0;
+				const char *curr = source, *end = source + codeInfo[line].sourceOffset - modules[moduleSize-1].sourceOffset - modules[moduleSize-1].sourceSize;
+				while(const char *next = strchr(curr, '\n'))
+				{
+					if(next > end)
+						break;
+					curr = next + 1;
+					codeLine++;
+				}
+				RichTextarea::SetStyleToLine(TabbedFiles::GetTabInfo(hTabs, id).window, codeLine, 1);
 			}
 		}
 
@@ -823,6 +871,12 @@ void FillVariableInfoTree()
 			offset += offsetToNextFrame;
 		}
 	}
+
+	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+	if(codeLine != ~0u)
+		RichTextarea::SetStyleToLine(wnd, codeLine, lastIsCurrent ? 3 : 2);
+	RichTextarea::UpdateArea(wnd);
+	RichTextarea::ResetUpdate(wnd);
 }
 
 struct RunResult
@@ -846,6 +900,16 @@ DWORD WINAPI CalcThread(void* param)
 	rres.result = goodRun;
 	SendMessage(rres.wnd, WM_USER + 1, 0, 0);
 	ExitThread(goodRun);
+}
+
+void RefreshBreakpoints()
+{
+	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+	for(unsigned int pos = 0; pos < breakpoints.size(); pos++)
+		RichTextarea::SetStyleToLine(breakpoints[pos].tab, breakpoints[pos].line, 4);
+	RichTextarea::UpdateArea(wnd);
+	RichTextarea::ResetUpdate(wnd);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
@@ -904,7 +968,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		break;
 	case WM_USER + 2:
 		ShowWindow(hContinue, SW_SHOW);
-		FillVariableInfoTree();
+		RefreshBreakpoints();
+		FillVariableInfoTree(true);
 
 		break;
 	case WM_COMMAND:
@@ -913,6 +978,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		if((HWND)lParam == hContinue)
 		{
+			HWND wnd = TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window;
+			RichTextarea::ResetLineStyle(wnd);
+			RefreshBreakpoints();
+			RichTextarea::UpdateArea(wnd);
+			RichTextarea::ResetUpdate(wnd);
 			ShowWindow(hContinue, SW_HIDE);
 			SetEvent(breakResponse);
 		}else if((HWND)lParam == hButtonCalc){
@@ -924,7 +994,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				break;
 			}
 			unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-			const char *source = RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window);
+			HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+			const char *source = RichTextarea::GetAreaText(wnd);
+			RichTextarea::ResetLineStyle(wnd);
 
 			for(unsigned int i = 0; i < richEdits.size(); i++)
 			{
@@ -950,6 +1022,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			{
 				SetWindowText(hCode, nullcGetLastError());
 			}else{
+				unsigned int infoSize = 0;
+				NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
+
+				unsigned int moduleSize = 0;
+				ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
+				// Set all breakpoints
+				for(unsigned int pos = 0; pos < breakpoints.size(); pos++)
+				{
+					if(breakpoints[pos].tab == wnd)
+					{
+						unsigned int line = breakpoints[pos].line;
+						// Find source code position for this line
+						const char *pos = source;
+						while(line-- && NULL != (pos = strchr(pos, '\n')))
+						{
+							pos++;
+						}
+						if(pos)
+						{
+							// Get relative position
+							unsigned int relPos = (unsigned int)(pos - source);
+							// Move position to start of main module
+							relPos += modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize;
+							// Find instruction...
+							unsigned int infoID = 0;
+							while(codeInfo[infoID].sourceOffset < relPos)
+								infoID++;
+							nullcDebugAddBreakpoint(codeInfo[infoID].byteCodePos);
+						}
+					}
+				}
 				SetWindowText(hButtonCalc, "Abort");
 				calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
 			}
@@ -1063,6 +1166,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
 					InvalidateRect(hTabs, NULL, true);
 				}
+			}
+			break;
+		case ID_TOGGLE_BREAK:
+			{
+				unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+				HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+				unsigned int line = RichTextarea::GetCurrentLine(wnd);
+
+				// Find breakpoint
+				unsigned int pos = 0;
+				for(; pos < breakpoints.size(); pos++)
+				{
+					if(breakpoints[pos].line == line && breakpoints[pos].tab == wnd)
+						break;
+				}
+				// If breakpoint is not found, add one
+				if(breakpoints.empty() || pos == breakpoints.size())
+				{
+					breakpoints.push_back(Breakpoint());
+					breakpoints.back().line = line;
+					breakpoints.back().tab = wnd;
+					RichTextarea::SetStyleToLine(wnd, line, 4);
+				}else{
+					if(breakpoints.size() == 1)
+					{
+						breakpoints.clear();
+					}else{
+						breakpoints[pos] = breakpoints.back();
+						breakpoints.pop_back();
+					}
+					RichTextarea::SetStyleToLine(wnd, line, 0);
+				}
+				RichTextarea::UpdateArea(wnd);
+				RichTextarea::ResetUpdate(wnd);
 			}
 			break;
 		default:
