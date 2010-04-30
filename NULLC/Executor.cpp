@@ -135,12 +135,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		}
 		if(funcPos == ~0u)
 		{
-			// Every function accepts at least one int (this pointer/closure/nothing)
-			genStackPtr--;
-			*genStackPtr = 0;
-			// Copy all other arguments, remembering that bytesToPop contains size or unused argument that was pushed above
-			memcpy(genStackPtr - (exFunctions[functionID].bytesToPop >> 2) + 1, arguments, exFunctions[functionID].bytesToPop - 4);
-			genStackPtr -= (exFunctions[functionID].bytesToPop >> 2) - 1;
+			// Copy all arguments
+			memcpy(genStackPtr - (exFunctions[functionID].bytesToPop >> 2), arguments, exFunctions[functionID].bytesToPop);
+			genStackPtr -= (exFunctions[functionID].bytesToPop >> 2);
 			// Call function
 			if(RunExternalFunction(functionID, 0))
 				errorState = false;
