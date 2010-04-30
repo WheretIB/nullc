@@ -13,7 +13,7 @@
 namespace RichTextarea
 {
 	bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline);
-	bool SetLineStyle(unsigned int id, HBITMAP img);
+	bool SetLineStyle(unsigned int id, HBITMAP img, const char *tooltipText);
 
 	void BeginStyleUpdate(HWND wnd);
 	void SetStyleToSelection(HWND wnd, unsigned int start, unsigned int end, int style);
