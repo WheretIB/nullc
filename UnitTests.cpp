@@ -5044,7 +5044,90 @@ const char	*testInlineDefinition =
 		}
 	}
 
-	
+const char	*testVarargs1 =
+"int sum(auto ref[] args)\r\n\
+{\r\n\
+	int res = 0;\r\n\
+	for(i in args)\r\n\
+		res += int(i);\r\n\
+	return res;\r\n\
+}\r\n\
+int a = 3;\r\n\
+int b = 4;\r\n\
+return sum(4, a, b);";
+	printf("\r\nFunction with variable argument count (numbers)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testVarargs1, testTarget[t], "11"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testVarargs2 =
+"int algo(int num, auto ref[] funcs)\r\n\
+{\r\n\
+	int res = num;\r\n\
+	for(int i = 0; i < funcs.size; i++)\r\n\
+	{\r\n\
+		int ref(int) ref f = funcs[i];\r\n\
+		res = (*f)(res);\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+return algo(15, auto(int a){ return a + 5; }, auto(int a){ return a / 4; });";
+	printf("\r\nFunction with variable argument count (functions)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testVarargs2, testTarget[t], "5"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testVarargs3 =
+"import std.typeinfo;	// for typeid comparison\r\n\
+typedef char[] string;\r\n\
+char[] print(auto ref[] args)\r\n\
+{\r\n\
+	char[] res = \"\";\r\n\
+	for(i in args)\r\n\
+	{\r\n\
+		if(typeid(i) == int)\r\n\
+			res += int(i).str();\r\n\
+		if(typeid(i) == string)\r\n\
+			res += string(i);\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+auto e = print(12, \" \", 14, \" \", 5);\r\n\
+char[8] str;\r\n\
+for(int i = 0; i < e.size; i++)\r\n\
+	str[i] = e[i];\r\n\
+return e.size;";
+	printf("\r\nFunction with variable argument count (print)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testVarargs3, testTarget[t], "8"))
+		{
+			lastFailed = false;
+
+			CHECK_STR("str", 0, "12 14 5");
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZero = 
