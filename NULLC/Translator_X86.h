@@ -117,6 +117,8 @@ int x86NEG(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 int x86ADD(unsigned char *stream, x86Reg dst, int num);
 // add dst, src
 int x86ADD(unsigned char *stream, x86Reg dst, x86Reg src);
+// add dst, dword [index*mult+base+shift]
+int x86ADD(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 // add dword [index*mult+base+shift], num
 int x86ADD(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 // add dword [index*mult+base+shift], op2
@@ -124,6 +126,8 @@ int x86ADD(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 
 // adc dst, num
 int x86ADC(unsigned char *stream, x86Reg dst, int num);
+// adc dst, src
+int x86ADC(unsigned char *stream, x86Reg dst, x86Reg src);
 // adc dword [index*mult+base+shift], num
 int x86ADC(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 // adc dword [index*mult+base+shift], op2

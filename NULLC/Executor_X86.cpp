@@ -855,7 +855,9 @@ bool ExecutorX86::TranslateToNative()
 				else
 					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
-				if(cmd.argB.type == x86Argument::argReg)
+				if(cmd.argB.type == x86Argument::argPtr)
+					code += x86ADD(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				else if(cmd.argB.type == x86Argument::argReg)
 					code += x86ADD(code, cmd.argA.reg, cmd.argB.reg);
 				else
 					code += x86ADD(code, cmd.argA.reg, cmd.argB.num);
@@ -869,7 +871,10 @@ bool ExecutorX86::TranslateToNative()
 				else
 					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
-				code += x86ADC(code, cmd.argA.reg, cmd.argB.num);
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86ADC(code, cmd.argA.reg, cmd.argB.reg);
+				else
+					code += x86ADC(code, cmd.argA.reg, cmd.argB.num);
 			}
 			break;
 		case o_sub:
