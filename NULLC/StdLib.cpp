@@ -7,6 +7,7 @@
 #include "Pool.h"
 
 #include "Executor_Common.h"
+#include "includes/typeinfo.h"
 
 template<int elemSize>
 union SmallBlock
@@ -535,4 +536,23 @@ NullCArray NULLC::IntToStr(int* r)
 		*str++ = *curr;
 	}while(curr != buf);
 	return arr;
+}
+
+NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NullCArray* arr)
+{
+	unsigned int *funcs = (unsigned int*)arr->ptr;
+	NULLCFuncPtr ret = { 0 };
+	if(r.typeID > arr->len)
+	{
+		nullcThrowError("ERROR: type index is out of bounds of redirection table", nullcGetTypeName(r.typeID));
+		return ret;
+	}
+	if(!funcs[r.typeID])
+	{
+		nullcThrowError("ERROR: type '%s' doesn't implement method", nullcGetTypeName(r.typeID));
+		return ret;
+	}
+	ret.context = r.ptr;
+	ret.id = funcs[r.typeID];
+	return ret;
 }

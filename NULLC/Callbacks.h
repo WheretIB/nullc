@@ -133,6 +133,8 @@ void AddAliasType(InplaceStr aliasName);
 
 void AddUnfixedArraySize();
 
+void CreateRedirectionTables();
+
 void RestoreScopedGlobals();
 
 unsigned int GetGlobalSize();

@@ -347,11 +347,12 @@ public:
 class FunctionInfo
 {
 public:
-	explicit FunctionInfo(const char *funcName, unsigned int hash)
+	explicit FunctionInfo(const char *funcName, unsigned int hash, unsigned int originalHash)
 	{
 		name = funcName;
 		nameLength = (int)strlen(name);
 		nameHash = hash;
+		nameHashOrig = originalHash;
 
 		address = 0;
 		codeSize = 0;
@@ -419,7 +420,8 @@ public:
 
 	const char		*name;				// Function name
 	unsigned int	nameLength;
-	unsigned int	nameHash;
+	unsigned int	nameHash;			// Full function name
+	unsigned int	nameHashOrig;		// Hash of a function name without class name
 
 	VariableInfo	*firstParam, *lastParam;	// Parameter list
 	VariableInfo	*extraParam;	// closure/this pointer

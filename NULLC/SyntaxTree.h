@@ -223,14 +223,14 @@ protected:
 class NodeUnaryOp: public NodeOneOP
 {
 public:
-	NodeUnaryOp(CmdID cmd);
+	NodeUnaryOp(CmdID cmd, unsigned int argument = 0);
 	virtual ~NodeUnaryOp();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 protected:
-	CmdID	cmdID;
+	VMCmd vmCmd;
 };
 
 class NodeReturnOp: public NodeOneOP
@@ -288,6 +288,7 @@ public:
 	virtual ~NodeGetAddress();
 
 			bool IsAbsoluteAddress();
+			void SetAddressTracking();
 
 			void IndexArray(int shift);
 			void ShiftToMember(TypeInfo::MemberVariable *member);
@@ -306,7 +307,7 @@ protected:
 	TypeInfo		*typeOrig;
 	VariableInfo	*varInfo;
 	int				varAddress, addressOriginal;
-	bool			absAddress;
+	bool			absAddress, trackAddress;
 };
 
 class NodeGetUpvalue: public NodeZeroOP

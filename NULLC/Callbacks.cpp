@@ -27,6 +27,8 @@ FastVector<VarTopInfo>		varInfoTop;
 
 VariableInfo	*lostGlobalList = NULL;
 
+VariableInfo	*vtblList = NULL;
+
 // Stack of function counts.
 // Used to find how many functions are to be removed when their visibility ends.
 FastVector<unsigned int>	funcInfoTop;
@@ -1289,46 +1291,6 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
-void PrepareMemberCall(const char* pos)
-{
-	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
-
-	// Implicit conversion of type ref ref to type ref
-	if(currentType->refLevel == 2)
-	{
-		CodeInfo::nodeList.push_back(new NodeDereference());
-		return;
-	}
-	// Implicit conversion from type[N] ref to type[]
-	if(currentType->refLevel == 1 && currentType->subType->arrLevel && currentType->subType->arrSize != TypeInfo::UNSIZED_ARRAY)
-	{
-		CodeInfo::nodeList.push_back(new NodeDereference());
-		currentType = CodeInfo::nodeList.back()->typeInfo;
-	}
-	// Implicit conversion from type to type ref
-	if(currentType->refLevel == 0)
-	{
-		// And from type[] to type[] ref
-		if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
-			ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(currentType->subType, TypeInfo::UNSIZED_ARRAY));
-
-		AddInplaceVariable(pos);
-		AddExtraNode();
-	}
-
-}
-
-void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
-{
-	// Check if type has any member functions
-	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo;
-	CheckForImmutable(currentType, pos);
-	// Construct name in a form of Class::Function
-	char *memberFuncName = GetClassFunctionName(currentType->subType, funcName);
-	// Call it
-	AddFunctionCallNode(pos, memberFuncName, callArgCount);
-}
-
 void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)
 {
 	NodeZeroOP *pointer = CodeInfo::nodeList.back();
@@ -1701,7 +1663,7 @@ void AddTypeAllocation(const char* pos)
 
 void FunctionAdd(const char* pos, const char* funcName)
 {
-	unsigned int funcNameHash = GetStringHash(funcName);
+	unsigned int funcNameHash = GetStringHash(funcName), origHash = funcNameHash;
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
 	{
 		if(CodeInfo::varInfo[i]->nameHash == funcNameHash)
@@ -1714,7 +1676,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 		funcNameHash = GetStringHash(funcNameCopy);
 	}
 
-	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy, funcNameHash));
+	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy, funcNameHash, origHash));
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 	lastFunc->parentFunc = currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL;
 
@@ -2013,6 +1975,129 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 	return fRating;
 }
 
+void PrepareMemberCall(const char* pos)
+{
+	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
+
+	// Implicit conversion of type ref ref to type ref
+	if(currentType->refLevel == 2)
+	{
+		CodeInfo::nodeList.push_back(new NodeDereference());
+		return;
+	}
+	// Implicit conversion from type[N] ref to type[]
+	if(currentType->refLevel == 1 && currentType->subType->arrLevel && currentType->subType->arrSize != TypeInfo::UNSIZED_ARRAY)
+	{
+		CodeInfo::nodeList.push_back(new NodeDereference());
+		currentType = CodeInfo::nodeList.back()->typeInfo;
+	}
+	// Implicit conversion from type to type ref
+	if(currentType->refLevel == 0)
+	{
+		// And from type[] to type[] ref
+		if(currentType->arrLevel != 0 && currentType->arrSize != TypeInfo::UNSIZED_ARRAY)
+			ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(currentType->subType, TypeInfo::UNSIZED_ARRAY));
+
+		AddInplaceVariable(pos);
+		AddExtraNode();
+	}
+
+}
+
+void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
+{
+	// Check if type has any member functions
+	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo;
+	// For auto ref types, we redirect call to a target type
+	if(currentType == CodeInfo::GetReferenceType(typeObject))
+	{
+		// We need to know what function overload is called, and this is a long process:
+		// Get function name hash
+		unsigned int fHash = GetStringHash(funcName);
+
+		// Clear function list
+		bestFuncList.clear();
+		// Find all functions with called name that are member functions
+		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		{
+			FunctionInfo *func = CodeInfo::funcInfo[i];
+			if(func->nameHashOrig == fHash && func->parentClass && func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType)
+				bestFuncList.push_back(func);
+		}
+		unsigned int count = bestFuncList.size();
+		if(count == 0)
+			ThrowError(pos, "ERROR: function '%s' is undefined in any of existing classes", funcName);
+
+		// Find best function fit
+		bestFuncRating.resize(count);
+
+		unsigned int minRating = ~0u;
+		unsigned int minRatingIndex = ~0u;
+		for(unsigned int k = 0; k < count; k++)
+		{
+			unsigned int argumentCount = callArgCount;
+			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, argumentCount);
+			if(bestFuncRating[k] < minRating)
+			{
+				minRating = bestFuncRating[k];
+				minRatingIndex = k;
+			}
+		}
+		if(minRating != 0)
+			ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
+		// Get function type
+		TypeInfo *fType = bestFuncList[minRatingIndex]->funcType;
+
+		unsigned int lenStr = 5 + (int)strlen(funcName) + 1 + 32;
+		char *vtblName = AllocateString(lenStr);
+		SafeSprintf(vtblName, lenStr, "$vtbl%010u%s", fType->GetFullNameHash(), funcName);
+		unsigned int hash = GetStringHash(vtblName);
+		VariableInfo *target = vtblList;
+		if(target && target->nameHash != hash)
+			target = target->next;
+
+		// If vtbl cannot be found, create it
+		if(!target)
+		{
+			// Create array of function pointer (function pointer is an integer index)
+			VariableInfo *vInfo = new VariableInfo(0, InplaceStr(vtblName), hash, 500000, CodeInfo::GetArrayType(typeInt, TypeInfo::UNSIZED_ARRAY), true);
+			vInfo->next = vtblList;
+			vInfo->prev = (VariableInfo*)fType;	// $$ not type safe at all
+			target = vtblList = vInfo;
+		}
+		// Take node with auto ref computation
+		NodeZeroOP *autoRef = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1];
+		// Push it on the top
+		CodeInfo::nodeList.push_back(autoRef);
+		// We have auto ref ref, so dereference it
+		AddGetVariableNode(pos);
+		// Push address to array
+		CodeInfo::nodeList.push_back(new NodeGetAddress(target, target->pos, target->isGlobal, target->varType));
+		((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
+		//AddGetVariableNode(pos);
+		// Find redirection function
+		HashMap<FunctionInfo>::Node *curr = funcMap.first(GetStringHash("__redirect"));
+		if(!curr)
+			ThrowError(pos, "ERROR: cannot find redirection function");
+		// Call redirection function
+		AddFunctionCallNode(pos, "__redirect", 2);
+		// Rename return function type
+		CodeInfo::nodeList.back()->typeInfo = fType;
+		// Call target function
+		AddFunctionCallNode(pos, NULL, callArgCount);
+		autoRef = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.push_back(autoRef);
+		return;
+	}
+	CheckForImmutable(currentType, pos);
+	// Construct name in a form of Class::Function
+	char *memberFuncName = GetClassFunctionName(currentType->subType, funcName);
+	// Call it
+	AddFunctionCallNode(pos, memberFuncName, callArgCount);
+}
+
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
 {
 	unsigned int funcNameHash = ~0u;
@@ -2218,7 +2303,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 	}
 	// If it's variable argument function
-	if(callArgCount >= fType->paramCount && fType->paramType[fType->paramCount - 1] == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY))
+	if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount - 1] == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY))
 	{
 		// Pack last argument and all others into an auto ref array
 		paramNodes.clear();
@@ -2542,6 +2627,77 @@ void AddUnfixedArraySize()
 	CodeInfo::nodeList.push_back(new NodeNumber(1, typeVoid));
 }
 
+void CreateRedirectionTables()
+{
+	VariableInfo *curr = vtblList;
+	unsigned int num = 0;
+	while(curr)
+	{
+		unsigned int hash = GetStringHash(curr->name.begin + 15);
+
+		currType = curr->varType;
+		CodeInfo::nodeList.push_back(new NodeNumber(4, typeInt));
+		CodeInfo::nodeList.push_back(new NodeNumber(/*(int)CodeInfo::classCount*/256, typeInt));
+		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__newA", 2);
+		CodeInfo::nodeList.back()->typeInfo = currType;
+		CodeInfo::varInfo.push_back(curr);
+		curr->pos = varTop;
+		varTop += curr->varType->size;
+
+		AddDefineVariableNode(CodeInfo::lastKnownStartPos, curr, true);
+		AddPopNode(CodeInfo::lastKnownStartPos);
+
+		TypeInfo *funcType = (TypeInfo*)curr->prev;
+
+		bestFuncList.clear();
+		// Find all functions with called name that are member functions and have target type
+		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		{
+			FunctionInfo *func = CodeInfo::funcInfo[i];
+			if(func->nameHashOrig == hash && func->parentClass && func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType == funcType)
+				bestFuncList.push_back(func);
+		}
+
+		for(unsigned int i = 0; i < CodeInfo::classCount; i++)
+		{
+			for(unsigned int k = 0; k < bestFuncList.size(); k++)
+			{
+				if(bestFuncList[k]->parentClass == CodeInfo::typeInfo[i])
+				{
+					// Get array variable
+					CodeInfo::nodeList.push_back(new NodeGetAddress(curr, curr->pos, curr->isGlobal, curr->varType));
+					CodeInfo::nodeList.push_back(new NodeDereference());
+
+					// Push index (typeID number is index)
+					CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+					CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, bestFuncList[k]->parentClass->typeIndex));
+
+					// Index array
+					CodeInfo::nodeList.push_back(new NodeArrayIndex(curr->varType));
+
+					// Push functionID
+					CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+					CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdFuncAddr, bestFuncList[k]->indexInArr));
+
+					// Set array element value
+					CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, 0, true));
+
+					// Remove value from stack
+					AddPopNode(CodeInfo::lastKnownStartPos);
+					// Fold node
+					AddTwoExpressionNode(NULL);
+					break;
+				}
+			}
+		}
+		// Add node in front of global code
+		static_cast<NodeExpressionList*>(CodeInfo::nodeList[0])->AddNode(true);
+
+		curr = curr->next;
+		num++;
+	}
+}
+
 void RestoreScopedGlobals()
 {
 	while(lostGlobalList)
@@ -2581,6 +2737,8 @@ void CallbackInitialize()
 		AddFunctionToSortedList(CodeInfo::funcInfo[i]);
 
 	ResetTreeGlobals();
+
+	vtblList = NULL;
 }
 
 unsigned int GetGlobalSize()
