@@ -1,4 +1,6 @@
 #pragma once
+#ifndef NULLC_BYTECODE_H
+#define NULLC_BYTECODE_H
 
 struct ExternTypeInfo
 {
@@ -182,3 +184,5 @@ ExternTypeInfo*	FindFirstType(ByteCode *code);
 ExternVarInfo*	FindFirstVar(ByteCode *code);
 ExternFuncInfo*	FindFirstFunc(ByteCode *code);
 char*			FindCode(ByteCode *code);
+
+#endif

@@ -1,4 +1,6 @@
 #pragma once
+#ifndef NULLC_POOL_H
+#define NULLC_POOL_H
 
 template<int chunkSize>
 class ChunkedStackPool
@@ -81,3 +83,5 @@ private:
 	StackChunk	one;
 	unsigned int size;
 };
+
+#endif

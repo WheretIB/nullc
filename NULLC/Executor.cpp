@@ -915,7 +915,7 @@ void Executor::Stop(const char* error)
 	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
 }
 
-#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__CELLOS_LV2__))
+#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__CELLOS_LV2__)) || defined(__DMC__)
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {

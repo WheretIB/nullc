@@ -45,7 +45,7 @@ struct NULLCFuncPtr
 #define ENABLE_GC
 //#define NULLC_ENABLE_C_TRANSLATION
 
-#if defined(_MSC_VER) && !defined(_M_X64)
+#if (defined(_MSC_VER) || defined(__DMC__)) && !defined(_M_X64)
 	#define NULLC_BUILD_X86_JIT
 	#define NULLC_OPTIMIZE_X86
 #endif

@@ -57,7 +57,7 @@ __declspec(naked) void doublePow()
 
 		Zero:
 		fxch st(1) ; //поменяем st0 и st1
-		fstp st ; //уберём st0
+		fstp st(0) ; //уберём st0
 		
 		fldcw word ptr [esp] ; //востановим флаг контроля
 		pop eax ;

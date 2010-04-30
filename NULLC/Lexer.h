@@ -7,7 +7,7 @@ enum chartype
 	ct_start_symbol = 128	// Any symbol > 127, a-z, A-Z, _, :
 };
 
-const unsigned char chartype_table[256] =
+static const unsigned char chartype_table[256] =
 {
 	0,   0,   0,   0,   0,   0,   0,   0,      0,   0,   0,   0,   0,   0,   0,   0,   // 0-15
 	0,   0,   0,   0,   0,   0,   0,   0,      0,   0,   0,   0,   0,   0,   0,   0,   // 16-31
