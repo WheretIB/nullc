@@ -79,6 +79,18 @@ void	nullcSetExecutor(unsigned int id)
 	currExec = id;
 }
 
+#ifdef NULLC_BUILD_X86_JIT
+nullres	nullcSetJiTStack(void* start, void* end, unsigned int flagMemoryAllocated)
+{
+	if(!executorX86->SetStackPlacement(start, end, flagMemoryAllocated))
+	{
+		nullcLastError = executorX86->GetExecError();
+		return 0;
+	}
+	return 1;
+}
+#endif
+
 nullres	nullcAddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
 {
 	nullres good = compiler->AddModuleFunction(module, ptr, name, index);
@@ -207,7 +219,7 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 		bool res = executorX86->TranslateToNative();
 		if(!res)
 		{
-			nullcLastError = executor->GetResult();
+			nullcLastError = executorX86->GetExecError();
 		}
 #else
 		nullcLastError = "X86 JIT isn't available";

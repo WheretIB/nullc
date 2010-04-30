@@ -1,8 +1,5 @@
 Stack arrays with variable size (?)
-
 Add warning for unusual conversions (?)
-
-Add ability to set parameter stack base for x86 executor.
 
 Check for hash collisions.
 Fix alignment of dynamically allocated variables.
@@ -139,3 +136,4 @@ DONE: nullcGet/SetGlobal functions
 DONE: varargs (functions accepting variable number of arguments)
 DONE: auto ref function call redirection to function of current type 
 DONE: Add ability to define inline arrays of types float, short and char.
+DONE: Add ability to set parameter stack base for x86 executor.
