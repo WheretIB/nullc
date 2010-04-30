@@ -293,7 +293,7 @@ namespace ColorerGrammar
 						(	strP("operator")[ColorRWord] >>
 							(strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("and") | strP("or") | strP("xor") |
 							strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**=") |
-							chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') | (chP('[') >> chP(']')) |
+							chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('!') | chP('~') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') | (chP('[') >> chP(']')) |
 							chP('='))[ColorText] >>
 							chP('(')[ColorBold]
 						)

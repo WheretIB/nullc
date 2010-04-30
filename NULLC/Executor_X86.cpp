@@ -691,6 +691,7 @@ bool ExecutorX86::TranslateToNative()
 	unsigned char *code = bytecode;
 
 	instAddress.resize(exCode.size());
+	memset(instAddress.data, 0, exCode.size() * sizeof(unsigned int));
 
 	x86ClearLabels();
 	x86ReserveLabels(GetLastALULabel());
