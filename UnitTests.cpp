@@ -453,7 +453,7 @@ void	RunTests()
 	nullcInitWindowModule();
 
 //////////////////////////////////////////////////////////////////////////
-	printf("\r\nTwo bytecode merge test 1\r\n");
+	printf("Two bytecode merge test 1\r\n");
 
 	const char *partA1 = "int a = 5;\r\nint c = 8;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\nint run(){ test(&a, 4); return c; }\r\n";
 	const char *partB1 = "int aa = 15;\r\nint testA(int ref a, int b)\r\n{\r\n\treturn *a += b + 1;\r\n}\r\ntestA(&aa, 5);\r\nvoid runA(){ testA(&aa, 5); }\r\nreturn aa;\r\n";
@@ -550,7 +550,7 @@ void	RunTests()
 	//RunEulerTests();
 
 	// Number operation test
-	printf("\r\nInteger operation test\r\n");
+	printf("Integer operation test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -568,7 +568,7 @@ void	RunTests()
 		}
 	}
 
-	printf("\r\nDouble operation test\r\n");
+	printf("Double operation test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -585,7 +585,7 @@ void	RunTests()
 		}
 	}
 
-	printf("\r\nLong operation test\r\n");
+	printf("Long operation test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -604,7 +604,7 @@ void	RunTests()
 		}
 	}
 
-	printf("\r\nDecrement and increment tests for all types\r\n");
+	printf("Decrement and increment tests for all types\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -640,7 +640,7 @@ void	RunTests()
 	}
 
 	// Complex type tests
-	printf("\r\nComplex type test (simple)\r\n");
+	printf("Complex type test (simple)\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -666,7 +666,7 @@ void	RunTests()
 		}
 	}
 
-	printf("\r\nComplex type test (complex)\r\n");
+	printf("Complex type test (complex)\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -692,7 +692,7 @@ a.y = a/*[gg]*/.x + 3;\r\n\
 // Result:\r\n\
 // a.x = 2; a.y = 5\r\n\
 return a.x;";
-	printf("\r\nCompiler mislead test\r\n");
+	printf("Compiler mislead test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -714,7 +714,7 @@ import std.math;\r\n\
 float4x4 mat;\r\n\
 mat.row1.y = 5;\r\n\
 return 1;";
-	printf("\r\nComplex type test\r\n");
+	printf("Complex type test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -735,7 +735,7 @@ double[10] d=0.0;\r\n\
 for(int i = 0; i < a; i++)\r\n\
 d[i] = i*2 + i-2;\r\n\
 return d[5];";
-	printf("\r\nArray test\r\n");
+	printf("Array test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -756,7 +756,7 @@ return d[5];";
 const char	*testFuncCall1 = 
 "int test(int x, int y, int z){return x*y+z;}\r\n\
 return 1+test(2, 3, 4);	// 11";
-	printf("\r\nFunction call test 1\r\n");
+	printf("Function call test 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -775,7 +775,7 @@ int b = 1;\r\n\
 if(7>5)\r\n\
 b = 3;\r\n\
 return b+test(2, 3, 4);";
-	printf("\r\nFunction call test 2\r\n");
+	printf("Function call test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -791,7 +791,7 @@ return b+test(2, 3, 4);";
 const char	*testFuncCall3 = 
 "int fib(int n){ if(n<3) return 5; return 10; }\r\n\
 return fib(1);";
-	printf("\r\nFunction call test 3\r\n");
+	printf("Function call test 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -807,7 +807,7 @@ return fib(1);";
 const char	*testRecursion = 
 "int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }\r\n\
 return fib(4);";
-	printf("\r\nRecursion test\r\n");
+	printf("Recursion test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -828,7 +828,7 @@ res[2] = 3;\r\n\
 res[res[2]] = 4;\r\n\
 res[res[res[2]]] = 12;\r\n\
 return 5;";
-	printf("\r\nArray indirection and optimization test\r\n");
+	printf("Array indirection and optimization test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -860,7 +860,7 @@ d[i] = test(i*2, i-2);\r\n\
 double n=1;\r\n\
 while(1){ n*=2; if(n>1000) break; }\r\n\
 return 2+test(2, 3)+a**b;";
-	printf("\r\nOld all-in-one test\r\n");
+	printf("Old all-in-one test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -891,7 +891,7 @@ long c;\r\n\
 for(int i = 0; i < 1000; i++)\r\n\
   c = a**b;\r\n\
 return 0;";
-	printf("\r\nlongPow speed test\r\n");
+	printf("longPow speed test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -920,7 +920,7 @@ dc = la;\r\n\
 lb = ia;\r\n\
 lc = da;\r\n\
 return 1;";
-	printf("\r\nType conversions\r\n");
+	printf("Type conversions\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -948,7 +948,7 @@ const char	*testArrayFill =
 "// Array fill test\r\n\
 int[10] a=5;\r\n\
 return 1;";
-	printf("\r\nArray fill test\r\n");
+	printf("Array fill test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1007,7 +1007,7 @@ res[25] = exp(1.0); // E\r\n\
 res[26] = log(2.7182818284590452353602874713527); // 1.0\r\n\
 \r\n\
 return (\"hello\" == \"hello\") + (\"world\" != \"World\") + (\"world\" != \"worl\");";
-	printf("\r\nBuild-In function checks\r\n");
+	printf("Build-In function checks\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1033,7 +1033,7 @@ return (\"hello\" == \"hello\") + (\"world\" != \"World\") + (\"world\" != \"wor
 const char	*testDoublePow = 
 "double a = 0.9;\r\n\
 return a**2.0;";
-	printf("\r\nDouble power\r\n");
+	printf("Double power\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1066,7 +1066,7 @@ double abs(double x)\r\n\
   return x;\r\n\
 }\r\n\
 return clamp(abs(-1.5), 0.0, 1.0);";
-	printf("\r\nFunction call test 4\r\n");
+	printf("Function call test 4\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1090,7 +1090,7 @@ res = 1+test(x, 3, 4);\r\n\
 }\r\n\
 }\r\n\
 return res;";
-	printf("\r\nFunction Call test 5\r\n");
+	printf("Function Call test 5\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1116,7 +1116,7 @@ const char	*testFuncCall6 =
   return x;\r\n\
 }\r\n\
 return abs(-0.5);";
-	printf("\r\nFunction call test 6\r\n");
+	printf("Function call test 6\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1139,7 +1139,7 @@ for(int i = 0; i < 5; i++)\r\n\
   test[i] = ++test[i];\r\n\
 }\r\n\
 return 1;";
-	printf("\r\nInc dec test\r\n");
+	printf("Inc dec test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1172,7 +1172,7 @@ c = *b;\r\n\
 *b *= 4;\r\n\
 testB(b);\r\n\
 return testA(&a);";
-	printf("\r\nPointers\r\n");
+	printf("Pointers\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1207,7 +1207,7 @@ a.w = 1.0;\r\n\
 float4 ref b = &a;\r\n\
 normalize(&a);\r\n\
 return length(b);";
-	printf("\r\nPointers on complex\r\n");
+	printf("Pointers on complex\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1231,7 +1231,7 @@ float4 a;\r\n\
 float4 ref b = &a;\r\n\
 b.x = 5.0f;\r\n\
 return b.x;";
-	printf("\r\nPointers on complex 2\r\n");
+	printf("Pointers on complex 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1252,7 +1252,7 @@ float4 a;\r\n\
 float4 ref b = &a;\r\n\
 a.x = 5.0f;\r\n\
 return testA(b);";
-	printf("\r\nPointers 2\r\n");
+	printf("Pointers 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1276,7 +1276,7 @@ res[3] = (a*1) +(a*0);\r\n\
 res[4] = a*2+0;\r\n\
 res[5] = a*3*1;\r\n\
 return 1;";
-	printf("\r\nSimple optimizations\r\n");
+	printf("Simple optimizations\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1315,7 +1315,7 @@ float ref c = &arrF[1].y;\r\n\
 	*c = 12;\r\n\
 }\r\n\
 return 1;";
-	printf("\r\nPointers test 3\r\n");
+	printf("Pointers test 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1348,7 +1348,7 @@ int fib(int n, int ref calls)\r\n\
 }\r\n\
 int calls = 0;\r\n\
 return fib(/*40*/15, &calls);";
-	printf("\r\nCall number test\r\n");
+	printf("Call number test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1370,7 +1370,7 @@ double x = 5.0, nx;\r\n\
 for(int i = 0; i < /*50000000*/1000; i++)\r\n\
 nx = neg(x);\r\n\
 return nx;";
-	printf("\r\nNegate test\r\n");
+	printf("Negate test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1391,7 +1391,7 @@ const char	*testFuncOverload =
 int fa(int i, double c){ return i*c; }\r\n\
 int fa(float i){ return i*3.0f; }\r\n\
 return fa(5.0f) * fa(2, 3.0);";
-	printf("\r\nFunction overload test\r\n");
+	printf("Function overload test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1417,7 +1417,7 @@ int a = 3, b = 0;\r\n\
   }\r\n\
 }\r\n\
 return u;";
-	printf("\r\nSwitch test\r\n");
+	printf("Switch test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1456,7 +1456,7 @@ one.e = 2;\r\n\
 two.a.a = 14;\r\n\
 two.c.x = 2;\r\n\
 return 1;";
-	printf("\r\nClass test\r\n");
+	printf("Class test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1481,7 +1481,7 @@ int index = 2;\r\n\
 int[10] arr = 4;\r\n\
 arr[slow(/*40000000*/1000)] += 16; // 330 ms total. target - 140ms\r\n\
 return 3;";
-	printf("\r\nVariable modify test\r\n");
+	printf("Variable modify test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1535,7 +1535,7 @@ two.c.x = 2;\r\n\
 two.d = 5;\r\n\
 twonext = two;\r\n\
 return 1;";
-	printf("\r\nClass test 2\r\n");
+	printf("Class test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1590,7 +1590,7 @@ float arrSum = sum(arr);\r\n\
 float[10] iArr = inc(arr);\r\n\
 float iArrSum = sum(iArr);\r\n\
 return test(n, m); // 56.0";
-	printf("\r\nComplex types test #3\r\n");
+	printf("Complex types test #3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1650,7 +1650,7 @@ for(int i = 0; i < 100; i++)\r\n\
   f4 = test(f4);\r\n\
 }\r\n\
 return int(mat.row1.y);";
-	printf("\r\nSpeed tests\r\n");
+	printf("Speed tests\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1680,7 +1680,7 @@ auto ar = tenArr(3.0);\r\n\
 \r\n\
 auto u = &b;\r\n\
 return *u;";
-	printf("\r\nAuto type tests\r\n");
+	printf("Auto type tests\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1714,7 +1714,7 @@ const char	*testCharArr =
 auto str1 = \"\", str2 = \"a\", str3 = \"ab\";\r\n\
 auto str4 = \"abc\", str5 = \"abcd\", string = \"Hello World!\";\r\n\
 return 1;";
-	printf("\r\nChar array test\r\n");
+	printf("Char array test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1747,7 +1747,7 @@ noalign double c, d;\r\n\
 double f;\r\n\
 kl.uhu = \"tyty\";\r\n\
 return 0;";
-	printf("\r\nChar array test 2\r\n");
+	printf("Char array test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1792,7 +1792,7 @@ print(name);\r\n\
 print(\"does work\");\r\n\
 \r\n\
 return sum(u);";
-	printf("\r\nImplicit pointers to arrays\r\n");
+	printf("Implicit pointers to arrays\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1834,7 +1834,7 @@ n.Write(text);\r\n\
 n.Write(k);\r\n\
 n.Close();\r\n\
 return test(uh, 3);";
-	printf("\r\nFile and something else test\r\n");
+	printf("File and something else test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1898,7 +1898,7 @@ test.Read(&numR2);\r\n\
 test.Read(&lnumR2);\r\n\
 test.Close();\r\n\
 return 1;";
-	printf("\r\nFile test 2\r\n");
+	printf("File test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1941,7 +1941,7 @@ for(int i = 0; i < 10; i++)\r\n\
 }\r\n\
 \r\n\
 return 'n';";
-	printf("\r\nEscape sequences\r\n");
+	printf("Escape sequences\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1961,7 +1961,7 @@ char[] mm = \"hello\";\r\n\
 char[] mn = \"world\";\r\n\
 auto mo = \"!!!\";\r\n\
 return 1;";
-	printf("\r\nPrint test\r\n");
+	printf("Print test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -1999,7 +1999,7 @@ b[b[8]]++;\r\n\
 b[b[2]] = b[b[8]]++;\r\n\
 b[4]--;\r\n\
 return b[1];";
-	printf("\r\nVariable get and set\r\n");
+	printf("Variable get and set\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2033,7 +2033,7 @@ float res2 = test2(kl2);\r\n\
 auto kl4 = \"kjskadjaskd\";\r\n\
 int kl5 = test3(kl4);\r\n\
 return 1;";
-	printf("\r\nArrays test\r\n");
+	printf("Arrays test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2074,7 +2074,7 @@ auto l = { sh(1), sh(2), sh(3) };\r\n\
 \r\n\
 int ns = sum(n), ts = sum({10, 12, 14, 16});\r\n\
 return 1;";
-	printf("\r\nArray test 2\r\n");
+	printf("Array test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2123,7 +2123,7 @@ for({int i = 0;}; i < 4; {i++;})\r\n\
 }\r\n\
 \r\n\
 return 4;";
-	printf("\r\nFunction visibility test\r\n");
+	printf("Function visibility test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2160,7 +2160,7 @@ int r; // (28)\r\n\
 }\r\n\
 \r\n\
 return r; // 19398";
-	printf("\r\nLocal function context test\r\n");
+	printf("Local function context test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2201,7 +2201,7 @@ void glob(){\r\n\
 }\r\n\
 glob();\r\n\
 return r; // 990579";
-	printf("\r\nLocal function context test 2\r\n");
+	printf("Local function context test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2225,7 +2225,7 @@ char[] nm = hm;\r\n\
 char[] um = nm;\r\n\
 arr[test(\"hello\\r\\n\")] += 3;\r\n\
 return 1;";
-	printf("\r\nStrings test\r\n");
+	printf("Strings test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2262,7 +2262,7 @@ auto f = { 1.0f, 2.0f };\r\n\
 int[] k;\r\n\
 k = { 1, 2, 3, 4 };\r\n\
 return 1;";
-	printf("\r\nMultidimensional array constructor test\r\n");
+	printf("Multidimensional array constructor test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2331,7 +2331,7 @@ auto a = 0xdeadbeef;\r\n\
 auto b = 0xcafe;\r\n\
 auto c = 0x7fffffffffffffff;\r\n\
 return a;";
-	printf("\r\nHexademical constants\r\n");
+	printf("Hexademical constants\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2421,7 +2421,7 @@ d1 = d2;\r\n\
 df1 = d3;\r\n\
 }\r\n\
 return 1;";
-	printf("\r\nNew get and set functions test\r\n");
+	printf("New get and set functions test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2500,7 +2500,7 @@ int t3 = sizeof({4,5,5}); // 12\r\n\
 int t4 = sizeof(t3); // 4\r\n\
 int t5 = sizeof(t2*0.5); // 8\r\n\
 return 1;";
-	printf("\r\nsizeof tests\r\n");
+	printf("sizeof tests\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2534,7 +2534,7 @@ typeof(funcref) fr = funcref; // int ref(float, double, int ref(float, double))\
 int rr = sizeof(typeof(fr));\r\n\
 \r\n\
 return 1;";
-	printf("\r\ntypeof tests\r\n");
+	printf("typeof tests\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2572,7 +2572,7 @@ float w;\r\n\
 }\r\n\
 \r\n\
 return 1;";
-	printf("\r\nClass method test\r\n");
+	printf("Class method test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2640,7 +2640,7 @@ int result;\r\n\
 \r\n\
 char ee;\r\n\
 return 1;";
-	printf("\r\nClosure test\r\n");
+	printf("Closure test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2706,7 +2706,7 @@ rurr();\r\n\
 int c=0;\r\n\
 \r\n\
 return 1;";
-	printf("\r\nClosure test 2\r\n");
+	printf("Closure test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2745,7 +2745,7 @@ const char	*testClosure3 =
 }\r\n\
 \r\n\
 return func();";
-	printf("\r\nClosure test 3\r\n");
+	printf("Closure test 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2767,7 +2767,7 @@ a = 1 + ff(int f1(){ return 1 + ff(int f2(){ return 1; }); });\r\n\
 int ff(int ref() f){ return f(); }\r\n\
 int b = 1 + ff(int f1(){ return 1 + ff(int f2(){ return 1 + ff(int f3(){ return 1; }); }); });\r\n\
 return a+b;";
-	printf("\r\nClosure test 4\r\n");
+	printf("Closure test 4\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2794,7 +2794,7 @@ r4 = a1();\r\n\
 r5 = a2();\r\n\
 }\r\n\
 return 1;";
-	printf("\r\nClosure test 5\r\n");
+	printf("Closure test 5\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2820,7 +2820,7 @@ int[10] res;\r\n\
 res[0] = a + b * c;\r\n\
 res[1] = a + b ** (c-10) * a;\r\n\
 return 1;";
-	printf("\r\nOperation priority test\r\n");
+	printf("Operation priority test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2842,7 +2842,7 @@ const char	*testAutoReturn =
 "auto f1(){ }\r\n\
 auto f2(){ return 3; }\r\n\
 return f2();";
-	printf("\r\nAuto return type tests\r\n");
+	printf("Auto return type tests\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2878,7 +2878,7 @@ for(i = 0; i < 4;i ++)\r\n\
 }\r\n\
 int b = k;\r\n\
 return a + b;";
-	printf("\r\nMulti-depth break and continue\r\n");
+	printf("Multi-depth break and continue\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2912,7 +2912,7 @@ int f4 = 0 - f1;\r\n\
 double f5 = 2 * 3.0, f6 = f1 - 0.0;\r\n\
 \r\n\
 return 1;";
-	printf("\r\nGroup of tests\r\n");
+	printf("Group of tests\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -2989,7 +2989,7 @@ n44 = auto(){};\r\n\
 int k4 = n33(4);\r\n\
 n44();\r\n\
 return 1;";
-	printf("\r\nGroup of tests 2\r\n");
+	printf("Group of tests 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3028,7 +3028,7 @@ long opt2 = 18l >> 2l % 5l ^ 9l | 12l & 13l;\r\n\
 long opt3 = 1l && 1l || 1l ^^ 1l;\r\n\
 double opt4 = 8.0 % 3.0;\r\n\
 return 1;";
-	printf("\r\nGroup of tests 3\r\n");
+	printf("Group of tests 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3086,7 +3086,7 @@ auto i = pass({ 4, 7 });\r\n\
 int ksize = k.size; int isize = i.size;\r\n\
 int k1 = k[0], k2 = k[1], k3 = k[2], k4 = k[3];\r\n\
 return m[1][3] + 2;";
-	printf("\r\nGroup of tests 4\r\n");
+	printf("Group of tests 4\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3134,7 +3134,7 @@ char ref k2(){ align(16) char a; return &a; }\r\n\
 char ref r2(){ align(16) char a; return k(); }\r\n\
 char ref i2 = r2();\r\n\
 return 1;";
-	printf("\r\nGroup of tests 5\r\n");
+	printf("Group of tests 5\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3193,7 +3193,7 @@ cls.classLocal = 300;\r\n\
 farr[0] = cls.test;\r\n\
 \r\n\
 return (farr[0])(12);";
-	printf("\r\nIndirect function pointers\r\n");
+	printf("Indirect function pointers\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3221,7 +3221,7 @@ float2[2] f(){ return { float2(12,13), float2(14,15) }; }\r\n\
 int x = (f())[0].x;\r\n\
 int y = float2(45, 98).y;\r\n\
 return int(f()[1].y);";
-	printf("\r\nArray and class member access after function call\r\n");
+	printf("Array and class member access after function call\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3249,7 +3249,7 @@ int i2 = a();	// 4\r\n\
 int i3 = b();	// 3\r\n\
 int i4 = a();	// 5\r\n\
 return b();		// 4";
-	printf("\r\nClosure with upvalues test 1\r\n");
+	printf("Closure with upvalues test 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3280,7 +3280,7 @@ auto add13 = binder(13, adder);\r\n\
 int i1 = add3(5);	// 8\r\n\
 int i2 = add13(7);	// 20\r\n\
 return add3(add13(4));";
-	printf("\r\nClosure with upvalues test 2\r\n");
+	printf("Closure with upvalues test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3336,7 +3336,7 @@ int aa, bb;\r\n\
 int a = f1(&aa);\r\n\
 int b = f2(&bb);\r\n\
 return 1;";
-	printf("\r\nClosure with upvalues test 3\r\n");
+	printf("Closure with upvalues test 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3389,7 +3389,7 @@ int i2 = arr[1]();\r\n\
 int i3 = arr[2]();\r\n\
 int i4 = arr[3]();\r\n\
 return 1;";
-	printf("\r\nClosure with upvalues test 4\r\n");
+	printf("Closure with upvalues test 4\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3420,7 +3420,7 @@ const char	*testUpvalues5 =
 	return g;\r\n\
 }\r\n\
 return func();";
-	printf("\r\nClosure with upvalues test 5\r\n");
+	printf("Closure with upvalues test 5\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3457,7 +3457,7 @@ int i4 = f.func2()().arr[0];\r\n\
 int i5 = f.func2()().func2()().arr[1];\r\n\
 int i6 = f.func()().func2()().arr[2];\r\n\
 return 1;";
-	printf("\r\nMember function call post expressions\r\n");
+	printf("Member function call post expressions\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3491,7 +3491,7 @@ g()[0] = 12;\r\n\
 g()[1] = 18;\r\n\
 (v2 > 5 ? &v2 : &v4) = 5;\r\n\
 return 1;";
-	printf("\r\nL-value extended cases\r\n");
+	printf("L-value extended cases\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3521,7 +3521,7 @@ Test a;\r\n\
 a.i = 5;\r\n\
 auto k = a.bar()();\r\n\
 return 1;";
-	printf("\r\nClass function return\r\n");
+	printf("Class function return\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3557,7 +3557,7 @@ const char	*testClassExternalMethodInt =
 int n = 19;\r\n\
 auto nv = n.toString();\r\n\
 return nv[0] + nv[1];";
-	printf("\r\nClass externally defined method (int)\r\n");
+	printf("Class externally defined method (int)\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3585,7 +3585,7 @@ string string:reverse()\r\n\
 string a = \"hello\";\r\n\
 string b = a.reverse();\r\n\
 return b[0] - 'o';";
-	printf("\r\nClass externally defined method (char[])\r\n");
+	printf("Class externally defined method (char[])\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3609,7 +3609,7 @@ Foo a;\r\n\
 a.bar = 14;\r\n\
 \r\n\
 return a.GetBar();";
-	printf("\r\nClass externally defined method (custom)\r\n");
+	printf("Class externally defined method (custom)\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3629,7 +3629,7 @@ void operator= (float4 ref a, float b){ a.x = a.y = a.y = a.z = b; }\r\n\
 float4 a, b = 16;\r\n\
 a = 12;\r\n\
 return int(a.x + b.z);";
-	printf("\r\nOverloaded operator =\r\n");
+	printf("Overloaded operator =\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3651,7 +3651,7 @@ void operator=(funcholder ref a, int ref(int) func){ a.ptr = func; }\r\n\
 int test(int a){ return -a; }\r\n\
 funcholder c = test;\r\n\
 return (c.ptr)(12);";
-	printf("\r\nOverloaded operator = with arrays and functions\r\n");
+	printf("Overloaded operator = with arrays and functions\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3675,7 +3675,7 @@ float4 a, b = 16;\r\n\
 a = 12;\r\n\
 a += 3;\r\n\
 return int(a.x + b.z);";
-	printf("\r\nOverloaded operator =\r\n");
+	printf("Overloaded operator =\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3700,7 +3700,7 @@ string a = \"hello\";\r\n\
 auto b = &a;\r\n\
 b.set('m');\r\n\
 return b[0];";
-	printf("\r\nMember function call of a reference to a class\r\n");
+	printf("Member function call of a reference to a class\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3716,7 +3716,7 @@ return b[0];";
 const char	*testInplaceArrayDouble =
 "double[] arr = { 12.0, 14, 18.0f };\r\n\
 return int(arr[0]+arr[1]+arr[2]);";
-	printf("\r\nInplace double array with integer elements\r\n");
+	printf("Inplace double array with integer elements\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3734,7 +3734,7 @@ const char	*testFunctionPrototypes =
 int func2(){ return func1(); }\r\n\
 int func1(){ return 12; }\r\n\
 return func2();";
-	printf("\r\nFunction prototypes\r\n");
+	printf("Function prototypes\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3758,7 +3758,7 @@ Test a;\r\n\
 a.i = 5;\r\n\
 auto k = a.bar();\r\n\
 return k;";
-	printf("\r\nInternal member function call\r\n");
+	printf("Internal member function call\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3778,7 +3778,7 @@ int[2] arr;\r\n\
 arr[func(&a, 0)] += 4;\r\n\
 arr[func(&b, 1)]++;\r\n\
 return 0;";
-	printf("\r\nSingle array index calculation\r\n");
+	printf("Single array index calculation\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3807,7 +3807,7 @@ c = &b;\r\n\
 int ref l = d;\r\n\
 int p1 = l == &a;\r\n\
 return *l;";
-	printf("\r\nAuto reference type\r\n");
+	printf("Auto reference type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3834,7 +3834,7 @@ int k = 4;\r\n\
 func(&k);\r\n\
 \r\n\
 return k;";
-	printf("\r\nAuto reference type\r\n");
+	printf("Auto reference type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3852,7 +3852,7 @@ const char	*testParametersExtraordinaire =
 auto u = func;\r\n\
 int i = u(1, 7, 18);\r\n\
 return func(1,7,18);";
-	printf("\r\nFunction parameters with different stack type\r\n");
+	printf("Function parameters with different stack type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3885,7 +3885,7 @@ auto t5 = Long(14841324198l);\r\n\
 auto t6 = Float(3.0);\r\n\
 auto t7 = Double(2.0);\r\n\
 return 1;";
-	printf("\r\nFunction parameters with different stack type\r\n");
+	printf("Function parameters with different stack type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3918,7 +3918,7 @@ int b2 = func(7);\r\n\
 int c = func(12, 8);\r\n\
 \r\n\
 return a;";
-	printf("\r\nDefault function parameter values\r\n");
+	printf("Default function parameter values\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3952,7 +3952,7 @@ auto v = genEater(generator());\r\n\
 auto w = genEater(generator(8));\r\n\
 \r\n\
 return 0;";
-	printf("\r\nDefault function parameter values 2\r\n");
+	printf("Default function parameter values 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3979,7 +3979,7 @@ c.a = 3;\r\n\
 int func(TestS a){ return a.a; }\r\n\
 int func(TestC a){ return a.a; }\r\n\
 return func(b) + func(c);";
-	printf("\r\nClass with size smaller that 4 bytes\r\n");
+	printf("Class with size smaller that 4 bytes\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -3997,7 +3997,7 @@ const char	*testExtraSmallClass =
 Test b;\r\n\
 int func(Test a, int b){ return b; }\r\n\
 return func(b, 4);";
-	printf("\r\nClass with size of 0 bytes\r\n");
+	printf("Class with size of 0 bytes\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4013,7 +4013,7 @@ return func(b, 4);";
 const char	*testDefaultFuncVars3 =
 "int test(auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + b; }\r\n\
 return test() + test(auto(int l){ return l * 2; });";
-	printf("\r\nDefault function parameter values 3\r\n");
+	printf("Default function parameter values 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4055,7 +4055,7 @@ int a3 = {1, 2, 3}.size;\r\n\
 int a4 = \"as\".size;\r\n\
 \r\n\
 return 0;";
-	printf("\r\nPost expressions on arrays and strings\r\n");
+	printf("Post expressions on arrays and strings\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4082,7 +4082,7 @@ const char	*testLogicalAnd =
 "int i = 0, m = 4;\r\n\
 i && (m = 3);\r\n\
 return m;";
-	printf("\r\nLogical && special case\r\n");
+	printf("Logical && special case\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4099,7 +4099,7 @@ const char	*testLogicalOr =
 "int i = 1, m = 4;\r\n\
 i || (m = 3);\r\n\
 return m;";
-	printf("\r\nLogical || special case\r\n");
+	printf("Logical || special case\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4133,7 +4133,7 @@ float2 aa;\r\n\
 aa += float2(1, 1);\r\n\
 float2 bb = float2(3, 4) += float2(1, 4);\r\n\
 return 0;";
-	printf("\r\nImplicit type to type ref conversions\r\n");
+	printf("Implicit type to type ref conversions\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4168,7 +4168,7 @@ Test a;\r\n\
 a.x = 14;\r\n\
 a.y = 15;\r\n\
 return a.sum(5);";
-	printf("\r\nMember function hides members\r\n");
+	printf("Member function hides members\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4191,7 +4191,7 @@ Test a;\r\n\
 a.x = 14;\r\n\
 a.y = 15;\r\n\
 return a.sum(5, 12);";
-	printf("\r\nMember function with arguments call from member function\r\n");
+	printf("Member function with arguments call from member function\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4219,7 +4219,7 @@ a.xy = { 5, 1 };\r\n\
 double b;\r\n\
 b = a.doubleX = 5.0;\r\n\
 return a.sum;";
-	printf("\r\nAccessors\r\n");
+	printf("Accessors\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4242,7 +4242,7 @@ const char	*testVariableHiding =
 	a();\r\n\
 }\r\n\
 return 0;";
-	printf("\r\nVariable hiding by function\r\n");
+	printf("Variable hiding by function\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4261,7 +4261,7 @@ import std.typeinfo;\r\n\
 float4 u = float4(1, 2, 3, 4);\r\n\
 if(sizeof(u) == 16) u.x = 5; else u.x = 6;\r\n\
 return typeid(u.xyz).size;";
-	printf("\r\nProperty access after function call\r\n");
+	printf("Property access after function call\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4279,7 +4279,7 @@ const char	*testGlobalVariablePositioning =
 float4 b;\r\n\
 b.x = 12;\r\n\
 return int(a.x);";
-	printf("\r\nGlobal variable positioning\r\n");
+	printf("Global variable positioning\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4298,7 +4298,7 @@ import std.math;\r\n\
 float4 b;\r\n\
 b.x = 12;\r\n\
 return int(a.x);";
-	printf("\r\nGlobal variable positioning 2\r\n");
+	printf("Global variable positioning 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4313,7 +4313,7 @@ return int(a.x);";
 
 const char	*testBytecodeButNoGlobal =
 "int func(){ return 0; }";
-	printf("\r\nBytecode with no global code\r\n");
+	printf("Bytecode with no global code\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4331,7 +4331,7 @@ const char	*testAutoRefToValue =
 auto ref a = &b;\r\n\
 int float(auto ref b){ return 5; }\r\n\
 return int(a) + float(a);";
-	printf("\r\nAuto ref to value conversion\r\n");
+	printf("Auto ref to value conversion\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4353,7 +4353,7 @@ array a;\r\n\
 a.push_back(1); a.push_back(5);\r\n\
 int[] test(){ return { 1, 2 }; }\r\n\
 return int(a[0]) + int(a[1]) + test()[0];";
-	printf("\r\nImplicit conversion on return from function\r\n");
+	printf("Implicit conversion on return from function\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4374,7 +4374,7 @@ auto arr2 = {\r\n\
 	{ 34, 48, 56 }\r\n\
 };\r\n\
 return arr2[1][1] + arr2[0][0] + arr2[2][2] + arr[1][1];";
-	printf("\r\nInplace arrays with array elements of different size\r\n");
+	printf("Inplace arrays with array elements of different size\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4406,7 +4406,7 @@ for(int k2 = 0; 1; k2++)\r\n\
 	for(int z = 1; z < 4; z++){}\r\n\
 }\r\n\
 return 0;";
-	printf("\r\nMore break and continue tests\r\n");
+	printf("More break and continue tests\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4424,7 +4424,7 @@ return 0;";
 
 const char	*testCompileTimeConversion =
 "return double(2) < 2.2;";
-	printf("\r\nCompile-time conversion check\r\n");
+	printf("Compile-time conversion check\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4479,7 +4479,7 @@ int sum = 0;\r\n\
 for(i in arr)\r\n\
 	sum += i;\r\n\
 return sum;";
-	printf("\r\nFor each on user type\r\n");
+	printf("For each on user type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4495,7 +4495,7 @@ return sum;";
 const char	*testLongOrInt =
 "long a = 0;int b = 0;\r\n\
 return a || b;";
-	printf("\r\nLong or int\r\n");
+	printf("Long or int\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4517,7 +4517,7 @@ assert(count == 0xfffffffff);\r\n\
 count++;\r\n\
 assert(count == 0x1000000000);\r\n\
 return count;";
-	printf("\r\nLong increment and decrement extra tests\r\n");
+	printf("Long increment and decrement extra tests\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4581,7 +4581,7 @@ for(int n = 0; n < 10; n++)\r\n\
 	func(a, n);\r\n\
 }\r\n\
 return count;";
-	printf("\r\nEuler 90 (with decreased N) set range check\r\n");
+	printf("Euler 90 (with decreased N) set range check\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4666,7 +4666,7 @@ int test(int i)\r\n\
 	return Recaller2(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-	printf("\r\nNULLC function call externally test 1\r\n");
+	printf("NULLC function call externally test 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4688,7 +4688,7 @@ int test(int i)\r\n\
 	return Recaller3(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-	printf("\r\nNULLC function call externally test 2\r\n");
+	printf("NULLC function call externally test 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4704,7 +4704,7 @@ return test(2);";
 const char	*testFunc3 =
 "import func.test;\r\n\
 return RecallerPtr(auto(int i){ return -i; });";
-	printf("\r\nNULLC function call externally test 3\r\n");
+	printf("NULLC function call externally test 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4724,7 +4724,7 @@ auto generator(int start)\r\n\
 	return auto(int u){ return ++start; };\r\n\
 }\r\n\
 return RecallerPtr(generator(7));";
-	printf("\r\nNULLC function call externally test 4\r\n");
+	printf("NULLC function call externally test 4\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4746,7 +4746,7 @@ for(int i = 0; i < 512; i++)\r\n\
 	arr[i] = rand();\r\n\
 bubble(arr, auto(int a, b){ return a > b; });\r\n\
 return arr[8];";
-	printf("\r\nNULLC function call externally test 5\r\n");
+	printf("NULLC function call externally test 5\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4760,7 +4760,7 @@ return arr[8];";
 	}
 
 const char	*testLongRetrieval = "return 25l;";
-	printf("\r\nnullcGetResultLong test\r\n");
+	printf("nullcGetResultLong test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4785,7 +4785,7 @@ const char	*testLongRetrieval = "return 25l;";
 	}
 
 const char	*testDoubleRetrieval = "return 25.0;";
-	printf("\r\nnullcGetResultDouble test\r\n");
+	printf("nullcGetResultDouble test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4820,7 +4820,7 @@ arr[1] = !arr[1];\r\n\
 arr[2] = +arr[2];\r\n\
 arr[3] = -arr[3];\r\n\
 return arr[0]*arr[1]*arr[2]*arr[3];";
-	printf("\r\nUnary operator overloading\r\n");
+	printf("Unary operator overloading\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4852,7 +4852,7 @@ for(int i in a)\r\n\
 	sum2 += i;\r\n\
 }\r\n\
 return sum + sum2;";
-	printf("\r\nFor each with specified element type\r\n");
+	printf("For each with specified element type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4891,7 +4891,7 @@ int sum5 = 0;\r\n\
 for(i in { 1, 2, 3 })\r\n\
 	sum5 += i;\r\n\
 return 0;";
-	printf("\r\nFor each for standard arrays\r\n");
+	printf("For each for standard arrays\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4920,7 +4920,7 @@ int[] arr2 = { 8, -4, 2 };\r\n\
 for(i in arr1, j in arr2)\r\n\
 	i += j;\r\n\
 return sum;";
-	printf("\r\nFor each with multiple arrays\r\n");
+	printf("For each with multiple arrays\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4979,7 +4979,7 @@ for(int i in masked)\r\n\
     sum += i;\r\n\
  \r\n\
 return sum;";
-	printf("\r\nEuler 122 (small depth) vector test\r\n");
+	printf("Euler 122 (small depth) vector test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -4998,7 +4998,7 @@ const char	*testFunctionCompare =
 	return _f == _self;\r\n\
 };\r\n\
 return _f();";
-	printf("\r\nFunction comparison\r\n");
+	printf("Function comparison\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5015,7 +5015,7 @@ const char	*testAutoRefCompare =
 "int sum = 0;\r\n\
 auto ref a = nullptr, b = &sum;\r\n\
 return a == b;";
-	printf("\r\nauto ref comparison\r\n");
+	printf("auto ref comparison\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5033,7 +5033,7 @@ const char	*testAutoRefNot =
 if(!a)\r\n\
 	return 1;\r\n\
 return 0;";
-	printf("\r\nunary not on auto ref\r\n");
+	printf("unary not on auto ref\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5048,7 +5048,7 @@ return 0;";
 
 const char	*testInlineDefinition =
 "return (auto(){ return 5; })();";
-	printf("\r\nInline function definition and call\r\n");
+	printf("Inline function definition and call\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5072,7 +5072,7 @@ const char	*testVarargs1 =
 int a = 3;\r\n\
 int b = 4;\r\n\
 return sum(4, a, b);";
-	printf("\r\nFunction with variable argument count (numbers)\r\n");
+	printf("Function with variable argument count (numbers)\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5097,7 +5097,7 @@ const char	*testVarargs2 =
 	return res;\r\n\
 }\r\n\
 return algo(15, auto(int a){ return a + 5; }, auto(int a){ return a / 4; });";
-	printf("\r\nFunction with variable argument count (functions)\r\n");
+	printf("Function with variable argument count (functions)\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5130,7 +5130,7 @@ char[8] str;\r\n\
 for(int i = 0; i < e.size; i++)\r\n\
 	str[i] = e[i];\r\n\
 return e.size;";
-	printf("\r\nFunction with variable argument count (print)\r\n");
+	printf("Function with variable argument count (print)\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5151,7 +5151,7 @@ const char	*testImportHidding =
 char[] arr = \"hello\";\r\n\
 char[] r = arr + arr2;\r\n\
 return r.size;";
-	printf("\r\nHidden variable exclusion from import\r\n");
+	printf("Hidden variable exclusion from import\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5200,7 +5200,7 @@ for(i in objs)\r\n\
 }\r\n\
 \r\n\
 return sum;";
-	printf("\r\nauto ref type function call 1\r\n");
+	printf("auto ref type function call 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5302,7 +5302,7 @@ for(i in shapes)\r\n\
 	i.manhettan(&mp);\r\n\
 \r\n\
 return mp;";
-	printf("\r\nauto ref type function call 2\r\n");
+	printf("auto ref type function call 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5322,7 +5322,7 @@ int[] arr2 = arr;\r\n\
 int[] ref u2 = &arr2;\r\n\
 int operator[](int[] ref arr, int index){ return 5; }\r\n\
 return u2[0] + arr2[1] + u[2] + arr[3];";
-	printf("\r\nArray index overload call for pointer to array type\r\n");
+	printf("Array index overload call for pointer to array type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5342,7 +5342,7 @@ vector ref vv = &v;\r\n\
 vv.push_back(5);\r\n\
 v.push_back(7);\r\n\
 return int(vv[0]) + int(vv[1]);";
-	printf("\r\nArray index overload call for pointer to class type\r\n");
+	printf("Array index overload call for pointer to class type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5360,7 +5360,7 @@ const char	*testImplicitAutoRefDereference =
 auto ref u = &i;\r\n\
 int k = u;\r\n\
 return k;";
-	printf("\r\nauto ref type implicit dereference in an unambiguous situation\r\n");
+	printf("auto ref type implicit dereference in an unambiguous situation\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5407,7 +5407,7 @@ int factorial(int v)\r\n\
 	return fact;\r\n\
 }\r\n\
 return factorial(10);";
-	printf("\r\nExtra node wrapping in for each with function call in array part\r\n");
+	printf("Extra node wrapping in for each with function call in array part\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5433,7 +5433,7 @@ for(iA in a, iB in b, iC in c)\r\n\
 	sumC += iC;\r\n\
 }\r\n\
 return 0;";
-	printf("\r\nArray of type short definition\r\n");
+	printf("Array of type short definition\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5463,7 +5463,7 @@ for(iA in a, iB in b, iC in c)\r\n\
 	sumC += iC;\r\n\
 }\r\n\
 return 0;";
-	printf("\r\nArray of type float definition\r\n");
+	printf("Array of type float definition\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5493,7 +5493,7 @@ for(iA in a, iB in b, iC in c)\r\n\
 	sumC += iC;\r\n\
 }\r\n\
 return 0;";
-	printf("\r\nArray of type char definition\r\n");
+	printf("Array of type char definition\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5516,7 +5516,7 @@ const char	*testDivZeroInt =
 "// Division by zero handling\r\n\
 int a=5, b =0;\r\n\
 return a/b;";
-	printf("\r\nDivision by zero handling 1\r\n");
+	printf("Division by zero handling 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5530,7 +5530,7 @@ const char	*testDivZeroLong =
 "// Division by zero handling\r\n\
 long a=5, b =0;\r\n\
 return a/b;";
-	printf("\r\nDivision by zero handling 2\r\n");
+	printf("Division by zero handling 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5544,7 +5544,7 @@ const char	*testModZeroInt =
 "// Division by zero handling\r\n\
 int a=5, b =0;\r\n\
 return a%b;";
-	printf("\r\nModulus division by zero handling\r\n");
+	printf("Modulus division by zero handling\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5558,7 +5558,7 @@ const char	*testModZeroLong =
 "// Division by zero handling\r\n\
 long a=5, b =0;\r\n\
 return a%b;";
-	printf("\r\nModulus division by zero handling\r\n");
+	printf("Modulus division by zero handling\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5572,7 +5572,7 @@ const char	*testFuncNoReturn =
 "// Function with no return handling\r\n\
 int test(){ 1; } // temporary\r\n\
 return test();";
-	printf("\r\nFunction with no return handling\r\n");
+	printf("Function with no return handling\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5588,7 +5588,7 @@ int[4] n;\r\n\
 int i = 4;\r\n\
 n[i] = 3;\r\n\
 return 1;";
-	printf("\r\nArray out of bounds error check 1\r\n");
+	printf("Array out of bounds error check 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5605,7 +5605,7 @@ int[] nn = n;\r\n\
 int i = 4;\r\n\
 nn[i] = 3;\r\n\
 return 1;";
-	printf("\r\nArray out of bounds error check 2\r\n");
+	printf("Array out of bounds error check 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5626,7 +5626,7 @@ x[1] = x1;\r\n\
 x[2] = x2;\r\n\
 int[][] xr = x;\r\n\
 return xr[1][3];";
-	printf("\r\nArray out of bounds error check 3\r\n");
+	printf("Array out of bounds error check 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5641,7 +5641,7 @@ const char	*testAutoReferenceMismatch =
 auto ref d = &a;\r\n\
 double ref ll = d;\r\n\
 return *ll;";
-	printf("\r\nAuto reference type\r\n");
+	printf("Auto reference type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5661,7 +5661,7 @@ objs[1] = &test.i;\r\n\
 for(i in objs)\r\n\
 	i.test();\r\n\
 return 0;";
-	printf("\r\nType doesn't implement method on auto ref function call\r\n");
+	printf("Type doesn't implement method on auto ref function call\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -5672,6 +5672,68 @@ return 0;";
 	}
 
 #endif
+
+	char *stackMem = new char[32*1024];
+	nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
+
+const char	*testDepthOverflow = 
+"int fib(int n)\r\n\
+{\r\n\
+	if(!n)\r\n\
+		return 0;\r\n\
+	return fib(n-1);\r\n\
+}\r\n\
+return fib(3500);";
+	printf("Call depth test\r\n");
+	testCount[1]++;
+	if(!RunCode(testDepthOverflow, testTarget[1], "0"))
+		passed[1]++;
+	else
+		printf("Should have failed");
+
+const char	*testGlobalOverflow = 
+"double clamp(double a, double min, double max)\r\n\
+{\r\n\
+  if(a < min)\r\n\
+    return min;\r\n\
+  if(a > max)\r\n\
+    return max;\r\n\
+  return a;\r\n\
+}\r\n\
+double abs(double x)\r\n\
+{\r\n\
+  if(x < 0.0)\r\n\
+    return -x;\r\n\
+  return x;\r\n\
+}\r\n\
+double[2700] res;\r\n\
+return clamp(abs(-1.5), 0.0, 1.0);";
+	printf("Function call test 4\r\n");
+	testCount[1]++;
+	if(!RunCode(testGlobalOverflow, testTarget[1], "0"))
+		passed[1]++;
+	else
+		printf("Should have failed");
+	nullcSetJiTStack((void*)0x20000000, (void*)(0x20000000 + 1024*1024), false);
+	delete[] stackMem;
+
+const char	*testDepthOverflowUnmanaged = 
+"int fib(int n)\r\n\
+{\r\n\
+	int[1024] arr;\r\n\
+	if(!n)\r\n\
+		return 0;\r\n\
+	return fib(n-1);\r\n\
+}\r\n\
+return fib(3500);";
+	printf("Call depth test\r\n");
+	testCount[1]++;
+	if(!RunCode(testDepthOverflowUnmanaged, testTarget[1], "0"))
+		passed[1]++;
+	else
+		printf("Should have failed");
+
+	nullcSetJiTStack((void*)0x20000000, NULL, false);
 
 	// Parameter stack resize test is saved for last
 const char	*testStackResize =
@@ -5702,7 +5764,7 @@ int ref res = func();\r\n\
 int ref v = c;\r\n\
 a = 10;\r\n\
 return *res + *h.c + *v + *e[0];";
-	printf("\r\nParemter stack resize\r\n");
+	printf("Parameter stack resize\r\n");
 	testCount[0]++;
 	if(RunCode(testStackResize, testTarget[0], "40"))
 	{

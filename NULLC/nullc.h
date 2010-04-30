@@ -21,7 +21,15 @@ void		nullcTerminate();
 /************************************************************************/
 /*				NULLC execution settings and environment				*/
 
+/*	Change current executor to either NULLC_VM or NULLC_X86	*/
 void		nullcSetExecutor(unsigned int id);
+#ifdef NULLC_BUILD_X86_JIT
+/*	Set memory range where JiT parameter stack will be placed.
+	If flagMemoryAllocated is not set, executor will allocate memory itself using VirtualAlloc with base == start.
+	When flagMemoryAllocated is not set, end can be set to NULL, meaning that x86 parameter stack can grow indefinitely.
+	Default mode: start = 0x20000000, end = NULL, flagMemoryAllocated = false	*/
+nullres		nullcSetJiTStack(void* start, void* end, unsigned int flagMemoryAllocated);
+#endif
 
 /*	Used to bind unresolved module functions to external C functions. Function index is the number of a function overload	*/
 nullres		nullcAddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index);

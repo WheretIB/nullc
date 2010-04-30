@@ -10,6 +10,15 @@
 
 namespace NULLC
 {
+	// Parameter stack range
+	void	*stackBaseAddress;
+	void	*stackEndAddress;	// if NULL, range is not upper bound (until allocation fails)
+	// Flag that shows that Executor manages memory allocation and deallocation
+	bool	stackManaged;
+	// If memory is not maneged, Executor will place a page guard at the end and restore old protection later
+	DWORD	stackProtect;
+
+	// Four global variables
 	struct DataStackHeader
 	{
 		unsigned int	unused1;
@@ -21,24 +30,31 @@ namespace NULLC
 	DataStackHeader	*dataHead;
 	char* parameterHead;
 
+	// Hidden pointer to the beginning if NULLC parameter stack, skipping DataStackHeader
 	unsigned int paramDataBase;
-	unsigned int reservedStack;
-	unsigned int commitedStack;
-	unsigned int stackGrowSize;
-	unsigned int stackGrowCommit;
+	unsigned int reservedStack;	// Reserved stack size
+	unsigned int commitedStack;	// Committed stack size
+	unsigned int stackGrowSize;	// The amount by which stack grows
+	unsigned int stackGrowCommit;	// The amount that is committed
 
+	// Binary code range in hidden pointers
 	unsigned int binCodeStart, binCodeEnd;
 
+	// Code run result - two DWORDs for parts of result and a type flag
 	int runResult = 0;
 	int runResult2 = 0;
 	asmOperType runResultType = OTYPE_DOUBLE;
 
+	// Call stack is made up by a linked list, starting from last frame, this array will hold call stack in correct order
 	const unsigned int STACK_TRACE_DEPTH = 1024;
 	unsigned int stackTrace[STACK_TRACE_DEPTH];
+	// Signal that call stack contains stack of execution that ended in SEH handler with an uncontinuable exception
 	bool abnormalTermination;
 
+	// Parameter stack reallocation count
 	unsigned int stackReallocs;
 
+	// Part of state that SEH handler saves for future use
 	unsigned int expCodePublic;
 	unsigned int expAllocCode;
 	unsigned int expEAXstate;
@@ -47,6 +63,17 @@ namespace NULLC
 
 	int ExtendMemory()
 	{
+		// External stack cannot be extended, end execution with error
+		if(!stackManaged)
+		{
+			expAllocCode = 5;
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+		if(stackEndAddress && (char*)stackBaseAddress + commitedStack + stackGrowSize > (char*)stackEndAddress)
+		{
+			expAllocCode = 2;
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
 		// Check that we haven't exceeded available memory
 		if(reservedStack > 512*1024*1024)
 		{
@@ -84,41 +111,50 @@ namespace NULLC
 
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
+		//	Disabled check that exception happened in NULLC code (disabled for the reason that some NULLC external functions throw exception that weren't handled)
 		//if(expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd)
 		//	return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 
+		// Save part of state for later use
 		expEAXstate = expInfo->ContextRecord->Eax;
 		expECXstate = expInfo->ContextRecord->Ecx;
 		expESPstate = expInfo->ContextRecord->Esp;
 		expCodePublic = expCode;
+
+		// Create call stack
+		dataHead->instructionPtr = expInfo->ContextRecord->Eip;
+		int *paramData = &dataHead->nextElement;
+		int count = 0;
+		while(count < STACK_TRACE_DEPTH && paramData)
+		{
+			stackTrace[count++] = paramData[-1];
+			paramData = (int*)(long long)(*paramData);
+		}
+		stackTrace[count] = 0;
+		dataHead->nextElement = NULL;
+
 		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW ||
 			expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
 		{
 #ifndef __DMC__
+			// Restore stack guard
 			if(expCode == EXCEPTION_STACK_OVERFLOW)
 				_resetstkoflw();
 #endif
+			// Save address of access violation
 			if(expCode == EXCEPTION_ACCESS_VIOLATION)
 				expECXstate = (unsigned int)expInfo->ExceptionRecord->ExceptionInformation[1];
 
-			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
-			int *paramData = &dataHead->nextElement;
-			int count = 0;
-			while(count < STACK_TRACE_DEPTH && paramData)
-			{
-				stackTrace[count++] = paramData[-1];
-				paramData = (int*)(long long)(*paramData);
-			}
-			stackTrace[count] = 0;
-			dataHead->nextElement = NULL;
+			// Mark that execution terminated abnormally
 			abnormalTermination = true;
 
 			return EXCEPTION_EXECUTE_HANDLER;
 		}
 		if(expCode == EXCEPTION_ACCESS_VIOLATION)
 		{
+			// If access violation is in some considerable boundaries out of parameter stack, extend it
 			if(expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
-				expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase+64*1024)
+				expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase + 64 * 1024)
 			{
 				return ExtendMemory();
 			}
@@ -145,10 +181,20 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	paramBase = NULL;
 	globalStartInBytecode = 0;
 	callContinue = 1;
+
+	// Parameter stack must be aligned
+	assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
 }
 ExecutorX86::~ExecutorX86()
 {
-	VirtualFree(reinterpret_cast<void*>(0x20000000), 0, MEM_RELEASE);
+	if(NULLC::stackManaged)
+	{
+		// If stack is managed by Executor, free memory
+		VirtualFree(NULLC::stackBaseAddress, 0, MEM_RELEASE);
+	}else{
+		// Otherwise, remove page guard, restoring old protection value
+		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, NULLC::stackProtect, &NULLC::stackProtect);
+	}
 
 	NULLC::dealloc(binCode);
 
@@ -158,33 +204,6 @@ ExecutorX86::~ExecutorX86()
 bool ExecutorX86::Initialize()
 {
 	using namespace NULLC;
-
-	stackGrowSize = 128*4096;
-	stackGrowCommit = 64*4096;
-
-	char *paramData = NULL;
-	// Request memory at address
-	if(NULL == (paramData = (char*)VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
-	{
-		strcpy(execError, "ERROR: failed to reserve memory");
-		return false;
-	}
-	if(!VirtualAlloc(reinterpret_cast<void*>(0x20000000), stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
-	{
-		strcpy(execError, "ERROR: failed to commit memory");
-		return false;
-	}
-
-	reservedStack = stackGrowSize;
-	commitedStack = stackGrowCommit;
-	
-	assert(sizeof(DataStackHeader) % 16 == 0);
-
-	parameterHead = paramBase = paramData + sizeof(DataStackHeader);
-	paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
-	dataHead = (DataStackHeader*)paramData;
-
-	SetUnmanagableRange(parameterHead, reservedStack);
 
 	cgFuncs[cmdNop] = GenCodeCmdNop;
 
@@ -334,6 +353,65 @@ bool ExecutorX86::Initialize()
 
 	codeRunning = false;
 
+	// Default mode - stack is managed by Executor and starts from 0x20000000
+	return SetStackPlacement((void*)0x20000000, NULL, false);
+}
+
+bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMemoryAllocated)
+{
+	// If old memory was allocated here using VirtualAlloc
+	if(NULLC::stackManaged)
+	{
+		// If stack is managed by Executor, free memory
+		VirtualFree(NULLC::stackBaseAddress, 0, MEM_RELEASE);
+	}else{
+		// Otherwise, remove page guard, restoring old protection value
+		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, NULLC::stackProtect, &NULLC::stackProtect);
+	}
+	NULLC::stackBaseAddress = start;
+	NULLC::stackEndAddress = end;
+	NULLC::stackManaged = !flagMemoryAllocated;
+	if(NULLC::stackManaged)
+	{
+		NULLC::stackGrowSize = 128 * 4096;
+		NULLC::stackGrowCommit = 64 * 4096;
+
+		char *paramData = NULL;
+		// Request memory at address
+		if(NULL == (paramData = (char*)VirtualAlloc(NULLC::stackBaseAddress, NULLC::stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
+		{
+			strcpy(execError, "ERROR: failed to reserve memory");
+			return false;
+		}
+		if(!VirtualAlloc(NULLC::stackBaseAddress, NULLC::stackGrowCommit, MEM_COMMIT, PAGE_READWRITE))
+		{
+			strcpy(execError, "ERROR: failed to commit memory");
+			return false;
+		}
+
+		NULLC::reservedStack = NULLC::stackGrowSize;
+		NULLC::commitedStack = NULLC::stackGrowCommit;
+
+		NULLC::parameterHead = paramBase = paramData + sizeof(NULLC::DataStackHeader);
+		NULLC::paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(paramData));
+		NULLC::dataHead = (NULLC::DataStackHeader*)paramData;
+
+		SetUnmanagableRange(NULLC::parameterHead, NULLC::reservedStack);
+	}else{
+		// If memory was allocated, setup parameters in a way that stack will not get out of range
+		if(NULLC::stackEndAddress < (char*)NULLC::stackBaseAddress + 8192)
+		{
+			strcpy(execError, "ERROR: Stack memory range is too small or base pointer exceeds end pointer");
+			return false;
+		}
+		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, PAGE_NOACCESS, &NULLC::stackProtect);
+
+		NULLC::parameterHead = paramBase = (char*)NULLC::stackBaseAddress + sizeof(NULLC::DataStackHeader);
+		NULLC::paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(NULLC::stackBaseAddress));
+		NULLC::dataHead = (NULLC::DataStackHeader*)NULLC::stackBaseAddress;
+
+		NULLC::commitedStack = (unsigned int)((char*)NULLC::stackEndAddress - (char*)NULLC::stackBaseAddress - 12 * 1024);
+	}
 	return true;
 }
 
@@ -362,6 +440,7 @@ void ExecutorX86::InitExecution()
 		unsigned long extraStack = 4096;
 		NULLC::pSetThreadStackGuarantee(&extraStack);
 	}
+	memset(NULLC::stackBaseAddress, 0, sizeof(NULLC::DataStackHeader));
 }
 
 #pragma warning(disable: 4731)
@@ -428,7 +507,13 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	}else{
 		binCodeStart += globalStartInBytecode;
 		while(NULLC::commitedStack < exLinker->globalVarSize)
-			NULLC::ExtendMemory();
+		{
+			if(NULLC::ExtendMemory() != (DWORD)EXCEPTION_CONTINUE_EXECUTION)
+			{
+				strcpy(execError, "ERROR: allocated stack overflow");
+				return;
+			}
+		}
 		memset(NULLC::parameterHead, 0, exLinker->globalVarSize);
 	}
 
@@ -495,6 +580,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				strcpy(execError, "ERROR: failed to commit new stack memory");
 			else if(NULLC::expAllocCode == 4)
 				strcpy(execError, "ERROR: no more memory (512Mb maximum exceeded)");
+			else if(NULLC::expAllocCode == 5)
+				strcpy(execError, "ERROR: allocated stack overflow");
 			else
 				SafeSprintf(execError, 512, "ERROR: access violation at address 0x%d", NULLC::expECXstate);
 		}

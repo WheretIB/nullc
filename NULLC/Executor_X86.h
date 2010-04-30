@@ -34,6 +34,8 @@ public:
 
 	void*			GetStackStart();
 	void*			GetStackEnd();
+
+	bool	SetStackPlacement(void* start, void* end, unsigned int flagMemoryAllocated);
 private:
 	void	InitExecution();
 
