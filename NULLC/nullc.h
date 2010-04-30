@@ -41,7 +41,7 @@ nullres		nullcBuild(const char* code);
 /*	Run global code	*/
 nullres		nullcRun();
 /*	Run function code	*/
-nullres		nullcRunFunction(const char* funcName);
+nullres		nullcRunFunction(const char* funcName, ...);
 
 /*	Retrieve result	*/
 const char*	nullcGetResult();
@@ -57,6 +57,9 @@ void*		nullcAllocate(unsigned int size);
 
 /*	Abort NULLC program execution with specified error code	*/
 void		nullcThrowError(const char* error, ...);
+
+/*	Call function using NULLCFuncPtr	*/
+nullres		nullcCallFunction(NULLCFuncPtr ptr, ...);
 
 /************************************************************************/
 /*							Special modules								*/

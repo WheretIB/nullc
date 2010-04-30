@@ -12,7 +12,7 @@ public:
 	Executor(Linker* linker);
 	~Executor();
 
-	void	Run(const char* funcName = NULL);
+	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);
 
 	const char*	GetResult();
@@ -26,6 +26,10 @@ public:
 	void*			GetStackStart();
 	void*			GetStackEnd();
 private:
+	void	InitExecution();
+
+	bool	codeRunning;
+
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	FILE*		executeLog;
 #endif
@@ -41,7 +45,6 @@ private:
 	FastVector<char, true>	genParams;
 	FastVector<VMCmd*>	fcallStack;
 
-	unsigned int	runningFunction;
 	VMCmd			*cmdBase;
 	unsigned int	currentFrame;
 
@@ -50,8 +53,6 @@ private:
 	unsigned int	*genStackBase;
 	unsigned int	*genStackPtr;
 	unsigned int	*genStackTop;
-
-	asmOperType		retType;
 
 	bool			callContinue;
 

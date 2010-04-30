@@ -235,12 +235,67 @@ nullres	nullcRun()
 	return nullcRunFunction(NULL);
 }
 
-nullres	nullcRunFunction(const char* funcName)
+nullres	nullcRunFunction(const char* funcName, ...)
 {
+	static char argBuf[64 * 1024];	// This is the maximum supported function argument size
+	static char	errorBuf[512];
+
 	nullres good = true;
+
+	unsigned int functionID = ~0u;
+	// If function is called, find it's index
+	if(funcName)
+	{
+		unsigned int fnameHash = GetStringHash(funcName);
+		for(int i = (int)linker->exFunctions.size()-1; i >= 0; i--)
+		{
+			if(linker->exFunctions[i].nameHash == fnameHash)
+			{
+				functionID = i;
+				break;
+			}
+		}
+		if(functionID == -1)
+		{
+			SafeSprintf(errorBuf, 512, "ERROR: function %s not found", funcName);
+			nullcLastError = errorBuf;
+			return 0;
+		}
+		// Copy arguments in argument buffer
+		va_list args;
+		va_start(args, funcName);
+		ExternFuncInfo	&func = linker->exFunctions[functionID];
+		char *argPos = argBuf;
+		for(unsigned int i = 0; i < func.paramCount; i++)
+		{
+			ExternLocalInfo &lInfo = linker->exLocals[func.offsetToFirstLocal + i];
+			switch(linker->exTypes[lInfo.type].type)
+			{
+			case ExternTypeInfo::TYPE_CHAR:
+			case ExternTypeInfo::TYPE_SHORT:
+			case ExternTypeInfo::TYPE_INT:
+				*(int*)argPos = va_arg(args, int);
+				argPos += 4;
+				break;
+			case ExternTypeInfo::TYPE_FLOAT:
+				*(float*)argPos = (float)va_arg(args, double);
+				argPos += 4;
+				break;
+			case ExternTypeInfo::TYPE_DOUBLE:
+				*(double*)argPos = va_arg(args, double);
+				argPos += 8;
+				break;
+			case ExternTypeInfo::TYPE_COMPLEX:
+				for(unsigned int u = 0; u < linker->exTypes[lInfo.type].size >> 2; u++, argPos += 4)
+					*(int*)argPos = va_arg(args, int);
+				break;
+			}
+		}
+	}
+
 	if(currExec == NULLC_VM)
 	{
-		executor->Run(funcName);
+		executor->Run(functionID, argBuf);
 		const char* error = executor->GetExecError();
 		if(error[0] == 0)
 		{
@@ -289,6 +344,12 @@ void nullcThrowError(const char* error, ...)
 		executorX86->Stop(buf);
 #endif
 	}
+}
+
+nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
+{
+	(void)ptr;
+	return 0;
 }
 
 const char* nullcGetResult()
