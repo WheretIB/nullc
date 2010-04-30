@@ -152,7 +152,8 @@ struct ByteCode
 #endif
 	
 	unsigned int	globalVarSize;	// size of all global variables, in bytes
-	unsigned int	variableCount;	//
+	unsigned int	variableCount;	// variable info count
+	unsigned int	variableExportCount;	// eaxported variable count
 	ExternVarInfo	*firstVar;
 #ifndef _M_X64
 	unsigned int	ptrPad2;
