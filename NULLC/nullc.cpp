@@ -235,10 +235,48 @@ nullres	nullcRun()
 	return nullcRunFunction(NULL);
 }
 
-nullres	nullcRunFunction(const char* funcName, ...)
+const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, va_list args)
 {
 	static char argBuf[64 * 1024];	// This is the maximum supported function argument size
+
+	// Copy arguments in argument buffer
+	ExternFuncInfo	&func = linker->exFunctions[functionID];
+	char *argPos = argBuf;
+	for(unsigned int i = 0; i < func.paramCount; i++)
+	{
+		ExternLocalInfo &lInfo = linker->exLocals[func.offsetToFirstLocal + i];
+		switch(linker->exTypes[lInfo.type].type)
+		{
+		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_SHORT:
+		case ExternTypeInfo::TYPE_INT:
+			*(int*)argPos = va_arg(args, int);
+			argPos += 4;
+			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+			*(float*)argPos = (float)va_arg(args, double);
+			argPos += 4;
+			break;
+		case ExternTypeInfo::TYPE_DOUBLE:
+			*(double*)argPos = va_arg(args, double);
+			argPos += 8;
+			break;
+		case ExternTypeInfo::TYPE_COMPLEX:
+			for(unsigned int u = 0; u < linker->exTypes[lInfo.type].size >> 2; u++, argPos += 4)
+				*(int*)argPos = va_arg(args, int);
+			break;
+		}
+	}
+	*(int*)argPos = extra;
+	argPos += 4;
+
+	return argBuf;
+}
+
+nullres	nullcRunFunction(const char* funcName, ...)
+{
 	static char	errorBuf[512];
+	const char* argBuf = NULL;
 
 	nullres good = true;
 
@@ -264,33 +302,8 @@ nullres	nullcRunFunction(const char* funcName, ...)
 		// Copy arguments in argument buffer
 		va_list args;
 		va_start(args, funcName);
-		ExternFuncInfo	&func = linker->exFunctions[functionID];
-		char *argPos = argBuf;
-		for(unsigned int i = 0; i < func.paramCount; i++)
-		{
-			ExternLocalInfo &lInfo = linker->exLocals[func.offsetToFirstLocal + i];
-			switch(linker->exTypes[lInfo.type].type)
-			{
-			case ExternTypeInfo::TYPE_CHAR:
-			case ExternTypeInfo::TYPE_SHORT:
-			case ExternTypeInfo::TYPE_INT:
-				*(int*)argPos = va_arg(args, int);
-				argPos += 4;
-				break;
-			case ExternTypeInfo::TYPE_FLOAT:
-				*(float*)argPos = (float)va_arg(args, double);
-				argPos += 4;
-				break;
-			case ExternTypeInfo::TYPE_DOUBLE:
-				*(double*)argPos = va_arg(args, double);
-				argPos += 8;
-				break;
-			case ExternTypeInfo::TYPE_COMPLEX:
-				for(unsigned int u = 0; u < linker->exTypes[lInfo.type].size >> 2; u++, argPos += 4)
-					*(int*)argPos = va_arg(args, int);
-				break;
-			}
-		}
+		argBuf = nullcGetArgumentVector(functionID, 0, args);
+		va_end(args);
 	}
 
 	if(currExec == NULLC_VM)
@@ -348,8 +361,26 @@ void nullcThrowError(const char* error, ...)
 
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 {
-	(void)ptr;
-	return 0;
+	// At the moment, only VM is supported
+	if(currExec == NULLC_X86)
+	{
+		executorX86->Stop("ERROR: unimplemented");
+		return 0;
+	}
+	// Copy arguments in argument buffer
+	va_list args;
+	va_start(args, ptr);
+	executor->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
+	va_end(args);
+	const char* error = executor->GetExecError();
+	if(error[0] == 0)
+	{
+		nulcExecuteResult = executor->GetResult();
+	}else{
+		nullcLastError = error;
+		return 0;
+	}
+	return 1;
 }
 
 const char* nullcGetResult()
