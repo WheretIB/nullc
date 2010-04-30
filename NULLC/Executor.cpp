@@ -1222,6 +1222,12 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			genStackPtr++;
 			break;
+		case cmdPushPtrImmt:
+			genStackPtr--;
+			*genStackPtr = cmd.argument;
+			genStackPtr--;
+			*genStackPtr = cmd.argument;
+			break;
 		}
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION

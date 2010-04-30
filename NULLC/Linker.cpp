@@ -390,6 +390,24 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		case cmdConvertPtr:
 			cmd.argument = typeRemap[cmd.argument];
 			break;
+#ifdef _M_X64
+		case cmdPushPtr:
+			cmd.cmd = cmdPushDorL;
+			break;
+		case cmdPushPtrStk:
+			cmd.cmd = cmdPushDorLStk;
+			break;
+#else
+		case cmdPushPtr:
+			cmd.cmd = cmdPushInt;
+			break;
+		case cmdPushPtrStk:
+			cmd.cmd = cmdPushIntStk;
+			break;
+		case cmdPushPtrImmt:
+			cmd.cmd = cmdPushImmt;
+			break;
+#endif
 		}
 	}
 

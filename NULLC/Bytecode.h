@@ -2,6 +2,8 @@
 #ifndef NULLC_BYTECODE_H
 #define NULLC_BYTECODE_H
 
+#pragma pack(push, 4)
+
 struct ExternTypeInfo
 {
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
@@ -61,8 +63,12 @@ struct ExternFuncInfo
 
 	int				address;
 	int				codeSize;
-	void			*funcPtr;
 	int				isVisible;
+
+	void			*funcPtr;
+#ifndef _M_X64
+	unsigned int	ptrPad;
+#endif
 
 	enum ReturnType
 	{
@@ -112,6 +118,10 @@ struct ExternFuncInfo
 struct ExternModuleInfo
 {
 	const char		*name;
+#ifndef _M_X64
+	unsigned int	ptrPad;
+#endif
+
 	unsigned int	nameHash;
 	unsigned int	nameOffset;
 
@@ -130,24 +140,39 @@ struct ByteCode
 
 	unsigned int	typeCount;
 	ExternTypeInfo	*firstType;
+#ifndef _M_X64
+	unsigned int	ptrPad0;
+#endif
 
 	unsigned int		dependsCount;
 	unsigned int		offsetToFirstModule;
 	ExternModuleInfo	*firstModule;
+#ifndef _M_X64
+	unsigned int	ptrPad1;
+#endif
 	
 	unsigned int	globalVarSize;	// size of all global variables, in bytes
 	unsigned int	variableCount;	//
-	unsigned int	offsetToFirstVar;
 	ExternVarInfo	*firstVar;
+#ifndef _M_X64
+	unsigned int	ptrPad2;
+#endif
+	unsigned int	offsetToFirstVar;
 
 	unsigned int	functionCount;	//
 	unsigned int	moduleFunctionCount;
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
 	ExternFuncInfo	*firstFunc;
+#ifndef _M_X64
+	unsigned int	ptrPad3;
+#endif
 
 	unsigned int	localCount;
 	unsigned int	offsetToLocals;
 	ExternLocalInfo	*firstLocal;
+#ifndef _M_X64
+	unsigned int	ptrPad4;
+#endif
 
 	unsigned int	closureListCount;
 
@@ -158,10 +183,16 @@ struct ByteCode
 	unsigned int	offsetToCode;
 	unsigned int	globalCodeStart;
 	char			*code;	// needs fix up after load
+#ifndef _M_X64
+	unsigned int	ptrPad5;
+#endif
 
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
 	char			*debugSymbols;
+#ifndef _M_X64
+	unsigned int	ptrPad6;
+#endif
 
 	unsigned int	sourceSize;
 	unsigned int	offsetToSource;
@@ -184,6 +215,8 @@ struct ByteCode
 
 //	char			debugSymbols[symbolLength];
 };
+
+#pragma pack(pop)
 
 ExternTypeInfo*	FindFirstType(ByteCode *code);
 ExternVarInfo*	FindFirstVar(ByteCode *code);
