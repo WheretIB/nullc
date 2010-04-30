@@ -134,3 +134,4 @@ DONE: Fix module linkage with different set of base external functions. - no mor
 DONE: ability to save bytecode
 DONE: internal function call externally with parameters
 DONE: internal function call by pointer externally
+DONE: nullcGet/SetGlobal functions

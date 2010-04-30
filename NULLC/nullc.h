@@ -64,6 +64,12 @@ void		nullcThrowError(const char* error, ...);
 /*	Call function using NULLCFuncPtr	*/
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...);
 
+/*	Set global variable value	*/
+nullres		nullcSetGlobal(const char* name, void* data);
+
+/*	Get global variable value	*/
+void*		nullcGetGlobal(const char* name);
+
 /************************************************************************/
 /*							Special modules								*/
 
