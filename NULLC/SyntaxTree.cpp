@@ -1212,7 +1212,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 		static_cast<NodeNumber*>(second)->ConvertTo(typeInfo);
 
 	// If this is the first array definition and value is array sub-type, we set it to all array elements
-	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && typeInfo->arrSize != -1 && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
+	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
 
 	if(second->typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
@@ -1598,25 +1598,30 @@ void NodeArrayIndex::TranslateToC(FILE *fOut)
 		typeInfo->OutputCType(fOut, "");
 		fprintf(fOut, ")(");
 		first->TranslateToC(fOut);
-		fprintf(fOut, ").ptr + ");
+		fprintf(fOut, ").ptr + __nullcIndex(");
 		if(second->typeInfo != typeInt)
 			fprintf(fOut, "(unsigned)(");
 		second->TranslateToC(fOut);
 		if(second->typeInfo != typeInt)
 			fprintf(fOut, ")");
+
+		fprintf(fOut, ", (");
+		first->TranslateToC(fOut);
+		fprintf(fOut, ").size)");
+
 		fprintf(fOut, ")");
 	}else{
 		fprintf(fOut, "&(");
 		first->TranslateToC(fOut);
 		fprintf(fOut, ")");
 		fprintf(fOut, "->ptr");
-		fprintf(fOut, "[");
+		fprintf(fOut, "[__nullcIndex(");
 		if(second->typeInfo != typeInt)
 			fprintf(fOut, "(unsigned)(");
 		second->TranslateToC(fOut);
 		if(second->typeInfo != typeInt)
 			fprintf(fOut, ")");
-		fprintf(fOut, "]");
+		fprintf(fOut, ", %uu)]", first->typeInfo->subType->arrSize);
 	}
 }
 //////////////////////////////////////////////////////////////////////////
