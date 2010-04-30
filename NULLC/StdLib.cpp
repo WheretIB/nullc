@@ -541,15 +541,26 @@ NullCArray NULLC::IntToStr(int* r)
 NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NullCArray* arr)
 {
 	unsigned int *funcs = (unsigned int*)arr->ptr;
-	NULLCFuncPtr ret = { 0 };
+	NULLCFuncPtr ret = { 0, 0 };
 	if(r.typeID > arr->len)
 	{
-		nullcThrowError("ERROR: type index is out of bounds of redirection table", nullcGetTypeName(r.typeID));
+		nullcThrowError("ERROR: type index is out of bounds of redirection table");
 		return ret;
 	}
+	// If there is no implementation for a method
 	if(!funcs[r.typeID])
 	{
-		nullcThrowError("ERROR: type '%s' doesn't implement method", nullcGetTypeName(r.typeID));
+		// Find implemented function ID as a type reference
+		unsigned int found = 0;
+		for(; found < arr->len; found++)
+		{
+			if(funcs[found])
+				break;
+		}
+		if(found == arr->len)
+			nullcThrowError("ERROR: type '%s' doesn't implement method", nullcGetTypeName(r.typeID));
+		else
+			nullcThrowError("ERROR: type '%s' doesn't implement method '%s%s' of type '%s'", nullcGetTypeName(r.typeID), nullcGetTypeName(r.typeID), strchr(nullcGetFunctionName(funcs[found]), ':'), nullcGetTypeName(nullcGetFunctionType(funcs[found])));
 		return ret;
 	}
 	ret.context = r.ptr;

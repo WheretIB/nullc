@@ -1031,16 +1031,6 @@ void AddArrayIndexNode(const char* pos)
 	// Get result type
 	currentType = CodeInfo::GetDereferenceType(currentType);
 
-	// If we are indexing pointer to array
-	if(currentType->refLevel == 1 && currentType->subType->arrLevel != 0)
-	{
-		// Then, before indexing it, we need to get address from this variable
-		NodeZeroOP* temp = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		CodeInfo::nodeList.push_back(new NodeDereference());
-		CodeInfo::nodeList.push_back(temp);
-		currentType = currentType->subType;
-	}
 	// If it is array without explicit size (pointer to array)
 	if(currentType->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
@@ -2733,8 +2723,6 @@ void CallbackInitialize()
 	lostGlobalList = NULL;
 
 	funcMap.clear();
-	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
-		AddFunctionToSortedList(CodeInfo::funcInfo[i]);
 
 	ResetTreeGlobals();
 
