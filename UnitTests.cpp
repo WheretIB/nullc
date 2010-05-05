@@ -10,12 +10,14 @@
 #include "NULLC/includes/vector.h"
 #include "NULLC/includes/random.h"
 #include "NULLC/includes/dynamic.h"
+#include "NULLC/includes/gc.h"
 
 #include "NULLC/includes/canvas.h"
 #include "NULLC/includes/window.h"
 #include "NULLC/includes/io.h"
 
 #include <stdio.h>
+#include <time.h>
 #include <Windows.h>
 
 #ifndef _DEBUG
@@ -449,6 +451,7 @@ void	RunTests()
 	nullcInitVectorModule();
 	nullcInitRandomModule();
 	nullcInitDynamicModule();
+	nullcInitGCModule();
 
 	nullcInitIOModule();
 	nullcInitCanvasModule();
@@ -4665,6 +4668,9 @@ int RewriteB(int x)
 	return x * 3 - 2;
 }
 
+void TestDrawRect(int, int, int, int, int)
+{
+}
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -6422,90 +6428,70 @@ return *res + *h.c + *v + *e[0];";
 	printf("Run time: %f\r\n", timeRun);
 
 #ifdef SPEED_TEST
-/*const char	*testCompileSpeed =
-"//import nullclib;\r\n\
-int progress_slider_position = 0;\r\n\
+
+const char	*testGarbageCollection =
+"import std.random;\r\n\
+import std.io;\r\n\
+import std.gc;\r\n\
 \r\n\
-int clip(int value, int left, int right){	return value < left ? left : value > right ? right : value;}\r\n\
-\r\n\
-void draw_progress_text(int progress_x, int progress_y, int clip_left, int clip_right)\r\n\
+class A\r\n\
 {\r\n\
-	// 60x8\r\n\
-	auto pattern =\r\n\
+    int a, b, c, d;\r\n\
+    A ref ra, rb, rrt;\r\n\
+}\r\n\
+int count;\r\n\
+long oldms;\r\n\
+typedef A ref Aref;\r\n\
+A ref[] arr;\r\n\
+\r\n\
+A ref Create(int level)\r\n\
+{\r\n\
+    if(level == 0)\r\n\
 	{\r\n\
-		{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},\r\n\
-		{0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},\r\n\
-		{0,1,0,0,1,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,1,1,0,0,1,1,0,0},\r\n\
-		{0,1,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,0,1,0,1,1,0,0,1,1,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0},\r\n\
-		{0,1,0,0,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0},\r\n\
-		{0,1,0,0,1,0,1,0,0,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0,0,0},\r\n\
-		{0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,0,1,0,1,1,0,0,0,0,1,1,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,1,1,0},\r\n\
-		{0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0}\r\n\
-	};\r\n\
-\r\n\
-	auto pattern_x_offset = 80;\r\n\
-	auto pattern_cell_width = 8;\r\n\
-	auto pattern_cell_height = 8;\r\n\
-	auto pattern_color = 0xff202020;\r\n\
-\r\n\
-	for (auto y = 0; y < 8; ++y)\r\n\
-	{\r\n\
-		for (auto x = 0; x < 60; ++x)\r\n\
-		{\r\n\
-			if (!pattern[y][x]) continue;\r\n\
-\r\n\
-			int left = progress_x + pattern_x_offset + pattern_cell_width * x;\r\n\
-			int right = left + pattern_cell_width;\r\n\
-\r\n\
-			int clipped_left = clip(left, clip_left, clip_right);\r\n\
-			int clipped_right = clip(right, clip_left, clip_right);\r\n\
-\r\n\
-			draw_rect(clipped_left, progress_y + pattern_cell_height * y, clipped_right - clipped_left, pattern_cell_height, pattern_color);\r\n\
-		}\r\n\
-	}\r\n\
+        return nullptr;\r\n\
+    }else{\r\n\
+        A ref a = new A;\r\n\
+        arr[count] = a;\r\n\
+        a.ra = Create(level - 1);\r\n\
+        a.rb = Create(level - 1);\r\n\
+        if (count > 0) {\r\n\
+            a.rrt = arr[rand(count - 1)];\r\n\
+        }\r\n\
+        ++count;\r\n\
+        return a;\r\n\
+    }\r\n\
 }\r\n\
 \r\n\
-void draw_progress_bar_part(int progress_x, int progress_y, int x, int y, int width, int height)\r\n\
-{\r\n\
-	draw_rect(x, y, width, height, 0xffffffff);\r\n\
-	draw_progress_text(progress_x, progress_y, x, x + width);\r\n\
-}\r\n\
-\r\n\
-int draw_progress_bar()\r\n\
-{\r\n\
-	auto progress_width = 640;\r\n\
-	auto progress_height = 64;\r\n\
-	auto progress_margin = 8;\r\n\
-	auto progress_slider_width = 128;\r\n\
-	auto progress_slider_speed = 8;\r\n\
-\r\n\
-	// progress bar background\r\n\
-	auto progress_x = 640 - progress_width/2;\r\n\
-	auto progress_y = 360 - progress_height/2;\r\n\
-\r\n\
-	draw_rect(progress_x - progress_margin, progress_y - progress_margin, progress_width + progress_margin * 2, progress_height + progress_margin * 2, 0xff808080);\r\n\
-\r\n\
-	// progress slider\r\n\
-	auto progress_slider_left = progress_slider_position % progress_width;\r\n\
-	auto progress_slider_right = (progress_slider_position + progress_slider_width) % progress_width;\r\n\
-\r\n\
-	if (progress_slider_left < progress_slider_right)\r\n\
-	{\r\n\
-		draw_progress_bar_part(progress_x, progress_y, progress_x + progress_slider_left, progress_y, progress_slider_right - progress_slider_left, progress_height);\r\n\
-	}\r\n\
-	else\r\n\
-	{\r\n\
-		draw_progress_bar_part(progress_x, progress_y, progress_x, progress_y, progress_slider_right, progress_height);\r\n\
-		draw_progress_bar_part(progress_x, progress_y, progress_x + progress_slider_left, progress_y, progress_width - progress_slider_left, progress_height);\r\n\
-	}\r\n\
-\r\n\
-	progress_slider_position += progress_slider_speed;\r\n\
-\r\n\
-	return 0;\r\n\
-}\r\n\
-for(int i = 0; i < 10000; i++)\r\n\
-	draw_progress_bar();\r\n\
-return 0;";*/
+io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+int WS = 0;\r\n\
+int ws = WS;\r\n\
+int d = 23;\r\n\
+arr = new Aref[1 << d];\r\n\
+A ref a = Create(d);\r\n\
+int minToCollect = (WS - ws) / 2;\r\n\
+io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
+io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+ws = WS;\r\n\
+a = nullptr;\r\n\
+arr = new Aref[1];\r\n\
+GC.CollectMemory();\r\n\
+io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
+io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+return GC.UsedMemory();";
+	printf("Garbage collection\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		unsigned int tStart = clock();
+		if(RunCode(testGarbageCollection, testTarget[t], "8"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+		printf("%s finished in %d\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", clock() - tStart);
+	}
 
 	const char	*testCompileSpeed =
 "import img.canvas;\r\n\
@@ -6648,6 +6634,135 @@ return 0;";
 	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 30000.0);
 	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
 	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 30000.0);
+
+	nullcLoadModuleBySource("test.rect", "int draw_rect(int a, b, c, d, e);");
+	nullcBindModuleFunction("test.rect", (void(*)())TestDrawRect, "draw_rect", 0);
+const char	*testCompileSpeed2 =
+"import test.rect;\r\n\
+int progress_slider_position = 0;\r\n\
+\r\n\
+int clip(int value, int left, int right){	return value < left ? left : value > right ? right : value;}\r\n\
+\r\n\
+void draw_progress_text(int progress_x, int progress_y, int clip_left, int clip_right)\r\n\
+{\r\n\
+	// 60x8\r\n\
+	auto pattern =\r\n\
+	{\r\n\
+		{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},\r\n\
+		{0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},\r\n\
+		{0,1,0,0,1,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,1,1,0,0,1,1,0,0},\r\n\
+		{0,1,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,0,1,0,1,1,0,0,1,1,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0},\r\n\
+		{0,1,0,0,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0},\r\n\
+		{0,1,0,0,1,0,1,0,0,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0,0,0},\r\n\
+		{0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,0,1,0,1,1,0,0,0,0,1,1,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,1,1,0},\r\n\
+		{0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0}\r\n\
+	};\r\n\
+\r\n\
+	auto pattern_x_offset = 80;\r\n\
+	auto pattern_cell_width = 8;\r\n\
+	auto pattern_cell_height = 8;\r\n\
+	auto pattern_color = 0xff202020;\r\n\
+\r\n\
+	for (auto y = 0; y < 8; ++y)\r\n\
+	{\r\n\
+		for (auto x = 0; x < 60; ++x)\r\n\
+		{\r\n\
+			if (!pattern[y][x]) continue;\r\n\
+\r\n\
+			int left = progress_x + pattern_x_offset + pattern_cell_width * x;\r\n\
+			int right = left + pattern_cell_width;\r\n\
+\r\n\
+			int clipped_left = clip(left, clip_left, clip_right);\r\n\
+			int clipped_right = clip(right, clip_left, clip_right);\r\n\
+\r\n\
+			draw_rect(clipped_left, progress_y + pattern_cell_height * y, clipped_right - clipped_left, pattern_cell_height, pattern_color);\r\n\
+		}\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+void draw_progress_bar_part(int progress_x, int progress_y, int x, int y, int width, int height)\r\n\
+{\r\n\
+	draw_rect(x, y, width, height, 0xffffffff);\r\n\
+	draw_progress_text(progress_x, progress_y, x, x + width);\r\n\
+}\r\n\
+\r\n\
+int draw_progress_bar()\r\n\
+{\r\n\
+	auto progress_width = 640;\r\n\
+	auto progress_height = 64;\r\n\
+	auto progress_margin = 8;\r\n\
+	auto progress_slider_width = 128;\r\n\
+	auto progress_slider_speed = 8;\r\n\
+\r\n\
+	// progress bar background\r\n\
+	auto progress_x = 640 - progress_width/2;\r\n\
+	auto progress_y = 360 - progress_height/2;\r\n\
+\r\n\
+	draw_rect(progress_x - progress_margin, progress_y - progress_margin, progress_width + progress_margin * 2, progress_height + progress_margin * 2, 0xff808080);\r\n\
+\r\n\
+	// progress slider\r\n\
+	auto progress_slider_left = progress_slider_position % progress_width;\r\n\
+	auto progress_slider_right = (progress_slider_position + progress_slider_width) % progress_width;\r\n\
+\r\n\
+	if (progress_slider_left < progress_slider_right)\r\n\
+	{\r\n\
+		draw_progress_bar_part(progress_x, progress_y, progress_x + progress_slider_left, progress_y, progress_slider_right - progress_slider_left, progress_height);\r\n\
+	}\r\n\
+	else\r\n\
+	{\r\n\
+		draw_progress_bar_part(progress_x, progress_y, progress_x, progress_y, progress_slider_right, progress_height);\r\n\
+		draw_progress_bar_part(progress_x, progress_y, progress_x + progress_slider_left, progress_y, progress_width - progress_slider_left, progress_height);\r\n\
+	}\r\n\
+\r\n\
+	progress_slider_position += progress_slider_speed;\r\n\
+\r\n\
+	return 0;\r\n\
+}\r\n\
+for(int i = 0; i < 10000; i++)\r\n\
+	draw_progress_bar();\r\n\
+return 0;";
+
+	time = myGetPreciseTime();
+	compileTime = 0.0;
+	linkTime = 0.0;
+	for(int i = 0; i < 30000; i++)
+	{
+		nullres good = nullcCompile(testCompileSpeed2);
+		compileTime += myGetPreciseTime() - time;
+
+		if(good)
+		{
+			char *bytecode = NULL;
+			nullcGetBytecode(&bytecode);
+			nullcClean();
+			if(!nullcLinkCode(bytecode, 0))
+				printf("Link failed: %s", nullcGetLastError());
+			delete[] bytecode;
+		}else{
+			printf("Compilation failed: %s", nullcGetLastError());
+			break;
+		}
+		linkTime += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
+	}
+	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 30000.0);
+	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
+	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 30000.0);
+
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		unsigned int tStart = clock();
+		if(RunCode(testCompileSpeed2, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+		printf("%s finished in %d\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", clock() - tStart);
+	}
+
 #endif
 
 	// Terminate NULLC

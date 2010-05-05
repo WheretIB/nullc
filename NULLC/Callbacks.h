@@ -81,7 +81,11 @@ void AddSetVariableNode(const char* pos);
 void AddGetVariableNode(const char* pos);
 void AddMemberAccessNode(const char* pos, InplaceStr varName);
 
-void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp);
+const static bool	OP_INCREMENT = 1;
+const static bool	OP_DECREMENT = 0;
+const static bool	OP_PREFIX = 1;
+const static bool	OP_POSTFIX = 0;
+void AddUnaryModifyOpNode(const char* pos, bool isInc, bool prefixOp);
 
 void AddModifyVariableNode(const char* pos, CmdID cmd);
 

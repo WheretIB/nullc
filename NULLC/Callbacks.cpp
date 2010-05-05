@@ -1282,7 +1282,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
-void AddPreOrPostOpNode(const char* pos, bool isInc, bool prefixOp)
+void AddUnaryModifyOpNode(const char* pos, bool isInc, bool prefixOp)
 {
 	NodeZeroOP *pointer = CodeInfo::nodeList.back();
 	CheckForImmutable(pointer->typeInfo, pos);
@@ -1556,7 +1556,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 		NodeOneOP *wrap2 = new NodeOneOP();
 		wrap2->SetFirstNode(getIterator);
 		CodeInfo::nodeList.push_back(wrap2);
-		AddPreOrPostOpNode(pos, true, false);
+		AddUnaryModifyOpNode(pos, OP_INCREMENT, OP_POSTFIX);
 		AddArrayIndexNode(pos);
 		currType = (TypeInfo*)type ? CodeInfo::GetReferenceType((TypeInfo*)type) : NULL;
 		VariableInfo *it = (VariableInfo*)AddVariable(pos, varName);

@@ -1020,14 +1020,14 @@ bool ParseTerminal(Lexeme** str)
 		(*str)++;
 		if(!ParseVariable(str))
 			ThrowError((*str)->pos, "ERROR: variable not found after '--'");
-		CALLBACK(AddPreOrPostOpNode((*str)->pos, false, true));
+		AddUnaryModifyOpNode((*str)->pos, OP_DECREMENT, OP_PREFIX);
 		return true;
 		break;
 	case lex_inc:
 		(*str)++;
 		if(!ParseVariable(str))
 			ThrowError((*str)->pos, "ERROR: variable not found after '++'");
-		CALLBACK(AddPreOrPostOpNode((*str)->pos, true, true));
+		AddUnaryModifyOpNode((*str)->pos, OP_INCREMENT, OP_PREFIX);
 		return true;
 		break;
 	case lex_add:
@@ -1139,9 +1139,9 @@ bool ParseTerminal(Lexeme** str)
 	{
 		if(ParseLexem(str, lex_dec))
 		{
-			CALLBACK(AddPreOrPostOpNode((*str)->pos, false, false));
+			AddUnaryModifyOpNode((*str)->pos, OP_DECREMENT, OP_POSTFIX);
 		}else if(ParseLexem(str, lex_inc)){
-			CALLBACK(AddPreOrPostOpNode((*str)->pos, true, false));
+			AddUnaryModifyOpNode((*str)->pos, OP_INCREMENT, OP_POSTFIX);
 		}else{
 			if(!lastIsFunctionCall && (*str)->type != lex_set && (*str)->type != lex_addset && (*str)->type != lex_subset && (*str)->type != lex_mulset && (*str)->type != lex_divset && (*str)->type != lex_powset)
 				CALLBACK(AddGetVariableNode((*str)->pos));
