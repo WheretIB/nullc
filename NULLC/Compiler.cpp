@@ -189,7 +189,6 @@ Compiler::Compiler()
 	buildInTypes.resize(CodeInfo::typeInfo.size());
 	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
 
-	CodeInfo::classCount = (int)CodeInfo::typeInfo.size();
 	typeTop = TypeInfo::GetPoolTop();
 
 	realGlobalCount = 0;
@@ -248,8 +247,6 @@ Compiler::~Compiler()
 void Compiler::ClearState()
 {
 	CodeInfo::varInfo.clear();
-
-	CodeInfo::classCount = buildInTypes.size();
 
 	CodeInfo::typeInfo.resize(buildInTypes.size());
 	memcpy(&CodeInfo::typeInfo[0], &buildInTypes[0], buildInTypes.size() * sizeof(TypeInfo*));
@@ -441,6 +438,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 
 				CodeInfo::typeInfo.push_back(newInfo);
+				CodeInfo::classMap.insert(newInfo->GetFullNameHash(), newInfo);
 
 				// This two pointers are used later to fill type member information
 				newInfo->firstVariable = (TypeInfo::MemberVariable*)(symbols + tInfo->offsetToName + strLength);
@@ -571,20 +569,6 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		}
 
 		fInfo++;
-	}
-
-	// Put new classes in the beginning
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-	{
-		if(CodeInfo::typeInfo[i]->type == TypeInfo::TYPE_COMPLEX && CodeInfo::typeInfo[i]->name != NULL && i > CodeInfo::classCount)
-		{
-			CodeInfo::typeInfo[i]->typeIndex = CodeInfo::classCount;
-			CodeInfo::typeInfo[CodeInfo::classCount]->typeIndex = i;
-			TypeInfo *temp = CodeInfo::typeInfo[i];
-			CodeInfo::typeInfo[i] = CodeInfo::typeInfo[CodeInfo::classCount];
-			CodeInfo::typeInfo[CodeInfo::classCount] = temp;
-			CodeInfo::classCount++;
-		}
 	}
 
 	return true;

@@ -2127,14 +2127,13 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	}else if(funcName){
 		funcNameHash = GetStringHash(funcName);
 	}
+	// Handle type(auto ref) -> type, if no user function is defined.
 	if(!silent && callArgCount == 1 && CodeInfo::nodeList[CodeInfo::nodeList.size() - 1]->typeInfo == typeObject)
 	{
 		TypeInfo *autoRefToType = NULL;
-		for(unsigned int i = 0; i < CodeInfo::classCount && !autoRefToType; i++)
-		{
-			if(CodeInfo::typeInfo[i]->nameHash == funcNameHash)
-				autoRefToType = CodeInfo::typeInfo[i];
-		}
+		TypeInfo **type = CodeInfo::classMap.find(funcNameHash);
+		if(type)
+			autoRefToType = *type;
 		for(unsigned int i = 0; i < CodeInfo::aliasInfo.size() && !autoRefToType; i++)
 		{
 			if(CodeInfo::aliasInfo[i].nameHash == funcNameHash)
@@ -2537,22 +2536,14 @@ void TypeBegin(const char* pos, const char* end)
 		if(CodeInfo::typeInfo[i]->nameHash == hash)
 			ThrowError(pos, "ERROR: '%s' is being redefined", typeNameCopy);
 	}
-	newType = new TypeInfo(CodeInfo::classCount, typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+	newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
 	newType->originalIndex = CodeInfo::typeInfo.size();
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	methodCount = 0;
 
-	if(CodeInfo::classCount == CodeInfo::typeInfo.size())
-	{
-		CodeInfo::typeInfo.push_back(newType);
-	}else{
-		CodeInfo::typeInfo[CodeInfo::classCount]->typeIndex = CodeInfo::typeInfo.size();
-		CodeInfo::typeInfo.push_back(CodeInfo::typeInfo[CodeInfo::classCount]);
-		CodeInfo::typeInfo[CodeInfo::classCount] = newType;
-	}
-	
-	CodeInfo::classCount++;
+	CodeInfo::typeInfo.push_back(newType);
+	CodeInfo::classMap.insert(newType->GetFullNameHash(), newType);
 
 	BeginBlock();
 }
@@ -2581,7 +2572,8 @@ void TypeFinish()
 	for(unsigned int i = 0; i < methodCount; i++)
 		AddTwoExpressionNode();
 
-	// Shift new types genereted inside up, so that declaration will be in the correct order in C translation
+	// Shift new types generated inside up, so that declaration will be in the correct order in C translation
+	// $$$ should this be done always? Module import can't create class type if new types were created during class definition.
 	for(unsigned int i = newType->originalIndex + 1; i < CodeInfo::typeInfo.size(); i++)
 		CodeInfo::typeInfo[i]->originalIndex--;
 	newType->originalIndex = CodeInfo::typeInfo.size() - 1;
@@ -2656,7 +2648,8 @@ void CreateRedirectionTables()
 				bestFuncList.push_back(func);
 		}
 
-		for(unsigned int i = 0; i < CodeInfo::classCount; i++)
+		// $$$ improve
+		for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 		{
 			for(unsigned int k = 0; k < bestFuncList.size(); k++)
 			{
@@ -2737,6 +2730,11 @@ void CallbackInitialize()
 	vtblList = NULL;
 
 	typeObjectArray = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
+
+	CodeInfo::classMap.clear();
+	// Add build-in type info to hash map
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+		CodeInfo::classMap.insert(CodeInfo::typeInfo[i]->GetFullNameHash(), CodeInfo::typeInfo[i]);
 }
 
 unsigned int GetGlobalSize()
