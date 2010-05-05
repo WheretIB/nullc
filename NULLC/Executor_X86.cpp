@@ -24,7 +24,7 @@ namespace NULLC
 		unsigned int	unused1;
 		unsigned int	lastEDI;
 		unsigned int	instructionPtr;
-		int				nextElement;
+		unsigned int	nextElement;
 	};
 
 	DataStackHeader	*dataHead;
@@ -48,8 +48,8 @@ namespace NULLC
 	// Call stack is made up by a linked list, starting from last frame, this array will hold call stack in correct order
 	const unsigned int STACK_TRACE_DEPTH = 1024;
 	unsigned int stackTrace[STACK_TRACE_DEPTH];
-	// Signal that call stack contains stack of execution that ended in SEH handler with an uncontinuable exception
-	bool abnormalTermination;
+	// Signal that call stack contains stack of execution that ended in SEH handler with a fatal exception
+	volatile bool abnormalTermination;
 
 	// Parameter stack reallocation count
 	unsigned int stackReallocs;
@@ -121,17 +121,21 @@ namespace NULLC
 		expESPstate = expInfo->ContextRecord->Esp;
 		expCodePublic = expCode;
 
-		// Create call stack
-		dataHead->instructionPtr = expInfo->ContextRecord->Eip;
-		int *paramData = &dataHead->nextElement;
-		int count = 0;
-		while(count < STACK_TRACE_DEPTH && paramData)
+		// Call stack should be unwind only once on top level error, since every function in external function call chain will signal an exception if there was an exception before.
+		if(!NULLC::abnormalTermination)
 		{
-			stackTrace[count++] = paramData[-1];
-			paramData = (int*)(long long)(*paramData);
+			// Create call stack
+			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
+			unsigned int *paramData = &dataHead->nextElement;
+			int count = 0;
+			while(count < STACK_TRACE_DEPTH && paramData)
+			{
+				stackTrace[count++] = paramData[-1];
+				paramData = (unsigned int*)(long long)(*paramData);
+			}
+			stackTrace[count] = 0;
+			dataHead->nextElement = NULL;
 		}
-		stackTrace[count] = 0;
-		dataHead->nextElement = NULL;
 
 		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW ||
 			expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
@@ -146,7 +150,7 @@ namespace NULLC
 				expECXstate = (unsigned int)expInfo->ExceptionRecord->ExceptionInformation[1];
 
 			// Mark that execution terminated abnormally
-			abnormalTermination = true;
+			NULLC::abnormalTermination = true;
 
 			return EXCEPTION_EXECUTE_HANDLER;
 		}
@@ -446,8 +450,18 @@ void ExecutorX86::InitExecution()
 #pragma warning(disable: 4731)
 void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
+	int	callStackExtra[2];
 	if(!codeRunning || functionID == ~0u)
+	{
 		InitExecution();
+	}else if(functionID != ~0u && exFunctions[functionID].startInByteCode != ~0u){
+		// Instruction pointer is expected one DWORD above pointer to next element
+		callStackExtra[0] = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
+		// Set next element
+		callStackExtra[1] = NULLC::dataHead->nextElement;
+		// Now this structure is current element
+		NULLC::dataHead->nextElement = (int)(intptr_t)&callStackExtra[1];
+	}
 	bool wasCodeRunning = codeRunning;
 	codeRunning = true;
 
@@ -456,7 +470,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	if(functionID != ~0u)
 	{
-		if(exFunctions[functionID].startInByteCode == -1)
+		if(exFunctions[functionID].startInByteCode == ~0u)
 		{
 			unsigned int dwordsToPop = (exFunctions[functionID].bytesToPop >> 2);
 			void* fPtr = exFunctions[functionID].funcPtr;
@@ -617,6 +631,13 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
 		}
 		codeRunning = false;
+	}
+
+	// Call stack management
+	if(codeRunning && functionID != ~0u && exFunctions[functionID].startInByteCode != ~0u)
+	{
+		// Restore previous state
+		NULLC::dataHead->nextElement = callStackExtra[1];
 	}
 }
 #pragma warning(default: 4731)
@@ -1314,11 +1335,11 @@ void ExecutorX86::BeginCallStack()
 	{
 		genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
 		NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
-		int *paramData = &NULLC::dataHead->nextElement;
+		unsigned int *paramData = &NULLC::dataHead->nextElement;
 		while(count < NULLC::STACK_TRACE_DEPTH && paramData)
 		{
 			NULLC::stackTrace[count++] = paramData[-1];
-			paramData = (int*)(long long)(*paramData);
+			paramData = (unsigned int*)(long long)(*paramData);
 		}
 		NULLC::stackTrace[count] = 0;
 		NULLC::dataHead->nextElement = NULL;
@@ -1341,7 +1362,7 @@ unsigned int ExecutorX86::GetNextAddress()
 			break;
 	}
 	callstackTop--;
-	return address;
+	return address - 1;
 }
 
 void* ExecutorX86::GetStackStart()
@@ -1351,6 +1372,21 @@ void* ExecutorX86::GetStackStart()
 void* ExecutorX86::GetStackEnd()
 {
 	return genStackTop;
+}
+
+void ExecutorX86::SetBreakFunction(void (*callback)(unsigned int))
+{
+	breakFunction = callback;
+}
+
+void ExecutorX86::ClearBreakpoints()
+{
+}
+
+bool ExecutorX86::AddBreakpoint(unsigned int instruction)
+{
+	(void)instruction;
+	return false;
 }
 
 #endif
