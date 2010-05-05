@@ -18,11 +18,6 @@ namespace NULLCDynamic
 			nullcThrowError("Source variable is not a function");
 			return;
 		}
-		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
-		{
-			nullcThrowError("Function rewrite is supported only on VM");
-			return;
-		}
 		if(dest.typeID != src.typeID)
 		{
 			nullcThrowError("Cannot convert from '%s' to '%s'", &linker->exSymbols[linker->exTypes[src.typeID].offsetToName], &linker->exSymbols[linker->exTypes[dest.typeID].offsetToName]);
@@ -30,7 +25,22 @@ namespace NULLCDynamic
 		}
 		ExternFuncInfo &destFunc = linker->exFunctions[((NULLCFuncPtr*)dest.ptr)->id];
 		ExternFuncInfo &srcFunc = linker->exFunctions[((NULLCFuncPtr*)src.ptr)->id];
+		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
+		{
+			linker->functionAddress[((NULLCFuncPtr*)dest.ptr)->id] = linker->functionAddress[((NULLCFuncPtr*)src.ptr)->id];
+			if(srcFunc.funcPtr && !destFunc.funcPtr)
+			{
+				nullcThrowError("Internal function cannot be overridden with external function on x86");
+				return;
+			}
+			if(destFunc.funcPtr && !srcFunc.funcPtr)
+			{
+				nullcThrowError("External function cannot be overridden with internal function on x86");
+				return;
+			}
+		}
 		destFunc.address = srcFunc.address;
+		destFunc.funcPtr = srcFunc.funcPtr;
 		destFunc.codeSize = srcFunc.codeSize;
 	}
 

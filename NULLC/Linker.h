@@ -39,6 +39,8 @@ public:
 
 	FastVector<unsigned int>	jumpTargets;
 
+	FastVector<unsigned int>	functionAddress;
+
 	FastVector<unsigned int>	typeRemap;
 	FastVector<unsigned int>	funcRemap;
 	FastVector<unsigned int>	moduleRemap;

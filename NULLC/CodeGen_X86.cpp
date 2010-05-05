@@ -574,9 +574,15 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg index, unsigned int mult, 
 			NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
 		}
 	}
-		
+	
 	NULLC::regRead[index] = true;
 	NULLC::regRead[base] = true;
+
+	if(op == o_call)
+	{
+		KILL_REG(rEAX); KILL_REG(rEBX); KILL_REG(rECX); KILL_REG(rEDX); KILL_REG(rESI);
+		NULLC::InvalidateState();
+	}
 
 	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst && op != o_call)
 		__asm int 3;
@@ -1902,7 +1908,7 @@ void GenCodeCmdCall(VMCmd cmd)
 
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
-		EMIT_OP_LABEL(o_call, LABEL_GLOBAL | JUMP_NEAR | x86Functions[cmd.argument].address);
+		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 4 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 		
 		GenCodeCmdCallProlog(cmd);
@@ -1911,8 +1917,7 @@ void GenCodeCmdCall(VMCmd cmd)
 
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
-		EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)x86Functions[cmd.argument].funcPtr);
-		EMIT_OP_REG(o_call, rECX);
+		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 4 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 
 		static int continueLabel = 0;
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
