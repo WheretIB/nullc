@@ -9,7 +9,9 @@
 #include "Parser.h"
 #include "Callbacks.h"
 
-#include "StdLib.h"
+#ifndef NULLC_NO_EXECUTOR
+	#include "StdLib.h"
+#endif
 
 #include "BinaryCache.h"
 
@@ -203,6 +205,7 @@ Compiler::Compiler()
 	GetBytecode(&bytecode);
 	BinaryCache::PutBytecode("$base$.nc", bytecode);
 
+#ifndef NULLC_NO_EXECUTOR
 	AddModuleFunction("$base$", (void (*)())NULLC::Assert, "assert", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Assert2, "assert", 1);
 
@@ -225,7 +228,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
-
+#endif
 }
 
 Compiler::~Compiler()

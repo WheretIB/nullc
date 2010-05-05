@@ -1,4 +1,3 @@
-f. Stack arrays with variable size (?)
 f. Add warning for unusual conversions (?)
 
 u. Check for hash collisions.
@@ -9,12 +8,11 @@ f. Breakpoints.
 b. Compiled modules must recompile after changes.
 
 f. tuples
-f. Allow ++ and -- as post expression.
 f. string
 f. hash_map
 f. auto[]
 f. sort
-f. stand-alone compiler and executor
+f. stand-alone executor
 b. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
 
 DONE: ref variables - pointers
@@ -138,3 +136,4 @@ DONE: external function call by pointer in NULLC leaves enough information for c
 DONE: when external/internal function is overridden with internal/external function, pointers to those functions can be called when JiT is enabled.
 DONE: default function argument values are saved in bytecode and imported
 DONE: Fix alignment of statically allocated variables when global allocator returns memory not aligned by 16 byte boundary.
+DONE: stand-alone compiler

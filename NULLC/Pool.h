@@ -8,31 +8,30 @@ class ChunkedStackPool
 public:
 	ChunkedStackPool()
 	{
-		curr = first = &one;
-		first->next = NULL;
-		size = 0;
+		curr = first = NULL;
+		size = chunkSize;
 	}
 	~ChunkedStackPool()
 	{
-		first = first->next;
 		while(first)
 		{
 			StackChunk *next = first->next;
 			NULLC::dealloc(first);
 			first = next;
 		}
-		curr = first = &one;
-		first->next = NULL;
-		size = 0;
+		curr = first = NULL;
+		size = chunkSize;
 	}
 
 	void	Clear()
 	{
 		curr = first;
-		size = 0;
+		size = first ? 0 : chunkSize;
 	}
 	void	ClearTo(unsigned int bytes)
 	{
+		if(!first)
+			return;
 		curr = first;
 		while(bytes > chunkSize)
 		{
@@ -50,15 +49,21 @@ public:
 			size += bytes;
 			return curr->data + size - bytes;
 		}
-		if(curr->next)
+		if(curr && curr->next)
 		{
 			curr = curr->next;
 			size = bytes;
 			return curr->data;
 		}
-		curr->next = new(NULLC::alloc(sizeof(StackChunk))) StackChunk;
-		curr = curr->next;
-		curr->next = NULL;
+		if(curr)
+		{
+			curr->next = new(NULLC::alloc(sizeof(StackChunk))) StackChunk;
+			curr = curr->next;
+			curr->next = NULL;
+		}else{
+			curr = first = new(NULLC::alloc(sizeof(StackChunk))) StackChunk;
+			curr->next = NULL;
+		}
 		size = bytes;
 		return curr->data;
 	}
@@ -80,7 +85,6 @@ private:
 		char		data[chunkSize];
 	};
 	StackChunk	*first, *curr;
-	StackChunk	one;
 	unsigned int size;
 };
 
