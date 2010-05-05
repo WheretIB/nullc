@@ -23,6 +23,7 @@
 #ifndef _DEBUG
 	#define FAILURE_TEST
 	#define SPEED_TEST
+	#define SPEED_TEST_EXTRA
 #endif
 
 double timeCompile;
@@ -39,9 +40,9 @@ const char		*symbols = NULL;
 
 bool lastFailed;
 
-#define CHECK_DOUBLE(var, index, expected) if(fabs(((double*)FindVar(var))[index] - (expected)) > 1e-6){ printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, expected, ((double*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_FLOAT(var, index, expected) if(((float*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, expected, ((float*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_LONG(var, index, expected) if(((long long*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %I64d (got %I64d)\r\n", #var, index, expected, ((long long*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_DOUBLE(var, index, expected) if(fabs(((double*)FindVar(var))[index] - (expected)) > 1e-6){ printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, (double)expected, ((double*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_FLOAT(var, index, expected) if(((float*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, (double)expected, (double)((float*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_LONG(var, index, expected) if(((long long*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %I64d (got %I64d)\r\n", #var, index, (long long)expected, ((long long*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_INT(var, index, expected) if(((int*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((int*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_SHORT(var, index, expected) if(((short*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((short*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_CHAR(var, index, expected) if(((char*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((char*)FindVar(var))[index]); lastFailed = true; }
@@ -6919,7 +6920,52 @@ return 0;";
 		}
 		printf("%s finished in %d\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", clock() - tStart);
 	}
+#endif
 
+#ifdef SPEED_TEST_EXTRA
+	{
+		char *blob = new char[1024 * 1024];
+		FILE *euler = fopen("blob.nc", "rb");
+		if(euler)
+		{
+			fseek(euler, 0, SEEK_END);
+			unsigned int textSize = ftell(euler);
+			assert(textSize < 128 * 1024);
+			fseek(euler, 0, SEEK_SET);
+			fread(blob, 1, textSize, euler);
+			blob[textSize] = 0;
+			fclose(euler);
+
+			double time = myGetPreciseTime();
+			double compileTime = 0.0;
+			double linkTime = 0.0;
+			for(int i = 0; i < 30; i++)
+			{
+				nullres good = nullcCompile(blob);
+				compileTime += myGetPreciseTime() - time;
+
+				if(good)
+				{
+					char *bytecode = NULL;
+					nullcGetBytecode(&bytecode);
+					nullcClean();
+					if(!nullcLinkCode(bytecode, 0))
+						printf("Link failed: %s", nullcGetLastError());
+					delete[] bytecode;
+				}else{
+					printf("Compilation failed: %s", nullcGetLastError());
+					break;
+				}
+				linkTime += myGetPreciseTime() - time;
+				time = myGetPreciseTime();
+			}
+			printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 300.0);
+			printf("Average compile time: %f Average link time: %f\r\n", compileTime / 300.0, (linkTime - compileTime) / 300.0);
+			printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 300.0);
+		}
+
+		delete[] blob;
+	}
 #endif
 
 	// Terminate NULLC

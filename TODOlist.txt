@@ -14,6 +14,10 @@ f. auto[]
 f. sort
 f. stand-alone executor
 b. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
+f. optimize variable searches
+f. typedefs should be scoped
+b. stack frames should be cleared in jit
+b. double->int and double->long conversion should be done using chop rounding mode
 
 DONE: ref variables - pointers
 DONE: multidimensional arrays
