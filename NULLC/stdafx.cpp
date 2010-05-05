@@ -12,6 +12,20 @@ void	NULLC::defaultDealloc(void* ptr)
 void*	(*NULLC::alloc)(int) = NULLC::defaultAlloc;
 void	(*NULLC::dealloc)(void*) = NULLC::defaultDealloc;
 
+void*	NULLC::alignedAlloc(int size)
+{
+	void *unaligned = alloc((size + 16 - 1) + sizeof(void*));
+	if(!unaligned)
+		return NULL;
+	void *ptr = (void*)(((intptr_t)unaligned + sizeof(void*) + 16 - 1) & ~(16 - 1));
+	*((void**)ptr - 1) = unaligned;
+	return ptr;
+}
+void	NULLC::alignedDealloc(void* ptr)
+{
+	dealloc(*((void **)ptr - 1));
+}
+
 const void*	NULLC::defaultFileLoad(const char* name, unsigned int* size, int* nullcShouldFreePtr)
 {
 	assert(name);

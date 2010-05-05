@@ -56,7 +56,7 @@ private:
 
 	FastVector<unsigned char>	gateCode;
 
-	FastVector<char, true>	genParams;
+	FastVector<char, true, true>	genParams;
 	FastVector<VMCmd*>	fcallStack;
 
 	VMCmd			*cmdBase;

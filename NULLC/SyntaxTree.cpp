@@ -178,7 +178,7 @@ TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 //////////////////////////////////////////////////////////////////////////
 // Node that doesn't have any child nodes
 
-ChunkedStackPool<4092>	NodeZeroOP::nodePool;
+ChunkedStackPool<65532>	NodeZeroOP::nodePool;
 
 NodeZeroOP::NodeZeroOP()
 {

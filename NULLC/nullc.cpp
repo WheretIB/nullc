@@ -54,6 +54,16 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	NULLC::dealloc = deallocFunc ? deallocFunc : NULLC::defaultDealloc;
 	NULLC::fileLoad = NULLC::defaultFileLoad;
 
+	CodeInfo::funcInfo.reserve(256);
+	CodeInfo::varInfo.reserve(256);
+	CodeInfo::typeInfo.reserve(256);
+	CodeInfo::typeArrays.reserve(64);
+	CodeInfo::typeFunctions.reserve(128);
+	CodeInfo::cmdList.reserve(2048);
+	CodeInfo::nodeList.reserve(1024);
+	CodeInfo::funcDefList.reserve(64);
+	CodeInfo::classMap.init();
+
 	compiler = NULLC::construct<Compiler>();
 	linker = NULLC::construct<Linker>();
 	executor = new(NULLC::alloc(sizeof(Executor))) Executor(linker);

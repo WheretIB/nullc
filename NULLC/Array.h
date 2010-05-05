@@ -24,7 +24,7 @@ public:
 		if(!skipConstructor)
 			data = NULLC::construct<T>(reserved);
 		else
-			data = (T*)NULLC::alloc(sizeof(T) * reserved);
+			data = (T*)NULLC::alignedAlloc(sizeof(T) * reserved);
 		assert(data);
 		if(zeroNewMemory)
 			memset(data, 0, reserved * sizeof(T));
@@ -38,7 +38,7 @@ public:
 			if(!skipConstructor)
 				NULLC::destruct(data, max);
 			else
-				NULLC::dealloc(data);
+				NULLC::alignedDealloc(data);
 		}
 	}
 	void	reset()
@@ -48,7 +48,7 @@ public:
 			if(!skipConstructor)
 				NULLC::destruct(data, max);
 			else
-				NULLC::dealloc(data);
+				NULLC::alignedDealloc(data);
 		}
 		data = &one;
 		if(zeroNewMemory)
@@ -126,7 +126,7 @@ public:
 		if(!skipConstructor)
 			newData = NULLC::construct<T>(newSize);
 		else
-			newData = (T*)NULLC::alloc(sizeof(T) * newSize);
+			newData = (T*)NULLC::alignedAlloc(sizeof(T) * newSize);
 		assert(newData);
 		if(zeroNewMemory)
 			memset(newData, 0, newSize * sizeof(T));
@@ -136,7 +136,7 @@ public:
 			if(!skipConstructor)
 				NULLC::destruct(data, max);
 			else
-				NULLC::dealloc(data);
+				NULLC::alignedDealloc(data);
 		}
 		data = newData;
 		max = newSize;
