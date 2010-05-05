@@ -36,15 +36,6 @@ unsigned int ParseTypename(Lexeme** str)
 		return false;
 
 	unsigned int hash = GetStringHash((*str)->pos, (*str)->pos + (*str)->length);
-
-	for(unsigned int s = 0, e = CodeInfo::aliasInfo.size(); s != e; s++)
-	{
-		if(CodeInfo::aliasInfo[s].nameHash == hash)
-		{
-			(*str)++;
-			return CodeInfo::aliasInfo[s].targetType->typeIndex + 1;
-		}
-	}
 	TypeInfo **type = CodeInfo::classMap.find(hash);
 	if(type)
 	{
