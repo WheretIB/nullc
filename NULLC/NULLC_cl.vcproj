@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8,00"
-	Name="nullcl"
-	ProjectGUID="{42BD8BD8-0320-4B39-902B-25F8CAC6446E}"
-	RootNamespace="nullcl"
+	Name="NULLC_cl"
+	ProjectGUID="{536F47BB-3BF0-45E9-A174-332A43B511D9}"
+	RootNamespace="NULLC"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -22,8 +22,8 @@
 			Name="Debug|Win32"
 			OutputDirectory="..\temp\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="..\temp\$(ProjectName)_$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
+			ConfigurationType="4"
+			CharacterSet="2"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -43,14 +43,17 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;NULLC_NO_EXECUTOR"
 				MinimalRebuild="true"
+				ExceptionHandling="0"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
-				WarningLevel="3"
+				WarningLevel="4"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="4"
+				CompileAs="2"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -62,18 +65,12 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				OutputFile="..\bin\$(ProjectName).exe"
-				LinkIncremental="2"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="1"
+				Name="VCLibrarianTool"
+				OutputFile="..\bin\NULLC_cl_dbg.lib"
+				IgnoreAllDefaultLibraries="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -83,12 +80,6 @@
 			/>
 			<Tool
 				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -98,8 +89,8 @@
 			Name="Debug|x64"
 			OutputDirectory="..\temp\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="..\temp\$(ProjectName)_$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
+			ConfigurationType="4"
+			CharacterSet="2"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -120,14 +111,17 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;NULLC_NO_EXECUTOR"
 				MinimalRebuild="true"
+				ExceptionHandling="0"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
-				WarningLevel="3"
+				WarningLevel="4"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
+				CompileAs="2"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -139,18 +133,12 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				OutputFile="..\bin\$(ProjectName).exe"
-				LinkIncremental="2"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				TargetMachine="17"
+				Name="VCLibrarianTool"
+				OutputFile="..\bin\NULLC_cl_dbg.lib"
+				IgnoreAllDefaultLibraries="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -162,12 +150,6 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
@@ -175,8 +157,8 @@
 			Name="Release|Win32"
 			OutputDirectory="..\temp\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="..\temp\$(ProjectName)_$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
+			ConfigurationType="4"
+			CharacterSet="2"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -196,10 +178,15 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;NULLC_NO_EXECUTOR"
+				ExceptionHandling="0"
 				RuntimeLibrary="2"
+				DisableLanguageExtensions="false"
+				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
-				WarningLevel="3"
+				AssemblerOutput="0"
+				AssemblerListingLocation=""
+				WarningLevel="4"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
@@ -213,24 +200,12 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				AdditionalOptions="/release"
-				OutputFile="..\bin\$(ProjectName).exe"
-				LinkIncremental="1"
-				GenerateDebugInformation="true"
-				GenerateMapFile="true"
-				MapFileName="nullc_cl.map"
-				MapExports="true"
-				SubSystem="1"
-				OptimizeReferences="2"
-				EnableCOMDATFolding="2"
-				TargetMachine="1"
+				Name="VCLibrarianTool"
+				OutputFile="..\bin\NULLC_cl.lib"
+				IgnoreAllDefaultLibraries="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -242,12 +217,6 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
@@ -255,8 +224,8 @@
 			Name="Release|x64"
 			OutputDirectory="..\temp\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="..\temp\$(ProjectName)_$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="1"
+			ConfigurationType="4"
+			CharacterSet="2"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -277,10 +246,14 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;NULLC_NO_EXECUTOR"
+				ExceptionHandling="0"
 				RuntimeLibrary="2"
+				DisableLanguageExtensions="false"
+				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
-				WarningLevel="3"
+				AssemblerOutput="0"
+				WarningLevel="4"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
@@ -294,20 +267,12 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				OutputFile="..\bin\$(ProjectName).exe"
-				LinkIncremental="1"
-				GenerateDebugInformation="true"
-				SubSystem="1"
-				OptimizeReferences="2"
-				EnableCOMDATFolding="2"
-				TargetMachine="17"
+				Name="VCLibrarianTool"
+				OutputFile="..\bin\NULLC_cl.lib"
+				IgnoreAllDefaultLibraries="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -317,12 +282,6 @@
 			/>
 			<Tool
 				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -335,24 +294,132 @@
 		<Filter
 			Name="Source Files"
 			Filter="cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx"
-			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\main.cpp"
+				RelativePath=".\BinaryCache.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Bytecode.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\CodeInfo.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\nullc.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\stdafx.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\StrAlgo.cpp"
 				>
 			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
-			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath=".\Array.h"
+				>
+			</File>
+			<File
+				RelativePath=".\BinaryCache.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Bytecode.h"
+				>
+			</File>
+			<File
+				RelativePath=".\CodeInfo.h"
+				>
+			</File>
+			<File
+				RelativePath=".\HashMap.h"
+				>
+			</File>
+			<File
+				RelativePath=".\InstructionSet.h"
+				>
+			</File>
+			<File
+				RelativePath=".\nullc.h"
+				>
+			</File>
+			<File
+				RelativePath=".\nullc_debug.h"
+				>
+			</File>
+			<File
+				RelativePath=".\nullcdef.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ParseClass.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Pool.h"
+				>
+			</File>
+			<File
+				RelativePath=".\stdafx.h"
+				>
+			</File>
+			<File
+				RelativePath=".\StrAlgo.h"
+				>
+			</File>
 		</Filter>
 		<Filter
-			Name="Resource Files"
-			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
-			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
+			Name="Compiler"
 			>
+			<File
+				RelativePath=".\Callbacks.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Callbacks.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Compiler.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Compiler.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Lexer.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Lexer.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Parser.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Parser.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SyntaxTree.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SyntaxTree.h"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

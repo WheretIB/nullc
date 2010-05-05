@@ -33,8 +33,10 @@ FastVector<NodeZeroOP*>		CodeInfo::funcDefList;
 const char*					CodeInfo::lastKnownStartPos = NULL;
 
 Compiler*	compiler;
-Linker*		linker;
-Executor*	executor;
+#ifndef NULLC_NO_EXECUTOR
+	Linker*		linker;
+	Executor*	executor;
+#endif
 #ifdef NULLC_BUILD_X86_JIT
 	ExecutorX86*	executorX86;
 #endif
@@ -65,8 +67,10 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	CodeInfo::classMap.init();
 
 	compiler = NULLC::construct<Compiler>();
+#ifndef NULLC_NO_EXECUTOR
 	linker = NULLC::construct<Linker>();
 	executor = new(NULLC::alloc(sizeof(Executor))) Executor(linker);
+#endif
 #ifdef NULLC_BUILD_X86_JIT
 	executorX86 = new(NULLC::alloc(sizeof(ExecutorX86))) ExecutorX86(linker);
 	executorX86->Initialize();
@@ -213,19 +217,29 @@ void	nullcTranslateToC(const char *fileName, const char *mainName)
 
 void nullcClean()
 {
+#ifndef NULLC_NO_EXECUTOR
 	linker->CleanCode();
 	executor->ClearBreakpoints();
+#endif
 }
 
 nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 {
+#ifndef NULLC_NO_EXECUTOR
 	if(!linker->LinkCode(bytecode, acceptRedefinitions))
 	{
 		nullcLastError = linker->GetLinkError();
 		return false;
 	}
 	nullcLastError = linker->GetLinkError();
-	if(currExec == NULLC_X86){
+#else
+	(void)bytecode;
+	(void)acceptRedefinitions;
+	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
+	return false;
+#endif
+	if(currExec == NULLC_X86)
+	{
 #ifdef NULLC_BUILD_X86_JIT
 		bool res = executorX86->TranslateToNative();
 		if(!res)
@@ -255,9 +269,15 @@ nullres nullcBuild(const char* code)
 
 nullres	nullcRun()
 {
+#ifndef NULLC_NO_EXECUTOR
 	return nullcRunFunction(NULL);
+#else
+	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
+	return false;
+#endif
 }
 
+#ifndef NULLC_NO_EXECUTOR
 const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, va_list args)
 {
 	static char argBuf[64 * 1024];	// This is the maximum supported function argument size
@@ -295,13 +315,15 @@ const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, 
 
 	return argBuf;
 }
+#endif
 
 nullres	nullcRunFunction(const char* funcName, ...)
 {
+	nullres good = true;
+
+#ifndef NULLC_NO_EXECUTOR
 	static char	errorBuf[512];
 	const char* argBuf = NULL;
-
-	nullres good = true;
 
 	unsigned int functionID = ~0u;
 	// If function is called, find it's index
@@ -328,9 +350,14 @@ nullres	nullcRunFunction(const char* funcName, ...)
 		argBuf = nullcGetArgumentVector(functionID, 0, args);
 		va_end(args);
 	}
-
+#else
+	(void)funcName;
+	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
+	return false;
+#endif
 	if(currExec == NULLC_VM)
 	{
+#ifndef NULLC_NO_EXECUTOR
 		executor->Run(functionID, argBuf);
 		const char* error = executor->GetExecError();
 		if(error[0] != '\0')
@@ -338,6 +365,7 @@ nullres	nullcRunFunction(const char* funcName, ...)
 			good = false;
 			nullcLastError = error;
 		}
+#endif
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(functionID, argBuf);
@@ -370,7 +398,9 @@ void nullcThrowError(const char* error, ...)
 
 	if(currExec == NULLC_VM)
 	{
+#ifndef NULLC_NO_EXECUTOR
 		executor->Stop(buf);
+#endif
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Stop(buf);
@@ -380,20 +410,24 @@ void nullcThrowError(const char* error, ...)
 
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 {
+	const char* error = NULL;
 	// Copy arguments in argument buffer
 	va_list args;
 	va_start(args, ptr);
 	if(currExec == NULLC_VM)
 	{
+#ifndef NULLC_NO_EXECUTOR
 		executor->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
+		error = executor->GetExecError();
+#endif
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
+		error = executorX86->GetExecError();
 #endif
 	}
 	va_end(args);
-	const char* error = executor->GetExecError();
-	if(error[0] != '\0')
+	if(error && error[0] != '\0')
 	{
 		nullcLastError = error;
 		return 0;
@@ -403,6 +437,7 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 
 nullres nullcSetGlobal(const char* name, void* data)
 {
+#ifndef NULLC_NO_EXECUTOR
 	char* mem = (char*)nullcGetVariableData();
 	if(!linker || !name || !data || !mem)
 		return 0;
@@ -415,11 +450,16 @@ nullres nullcSetGlobal(const char* name, void* data)
 			return 1;
 		}
 	}
+#else
+	(void)name;
+	(void)data;
+#endif
 	return 0;
 }
 
 void* nullcGetGlobal(const char* name)
 {
+#ifndef NULLC_NO_EXECUTOR
 	char* mem = (char*)nullcGetVariableData();
 	if(!linker || !name || !mem)
 		return NULL;
@@ -429,14 +469,19 @@ void* nullcGetGlobal(const char* name)
 		if(linker->exVariables[i].nameHash == hash)
 			return mem + linker->exVariables[i].offset;
 	}
+#else
+	(void)name;
+#endif
 	return NULL;
 }
 
 
 const char* nullcGetResult()
 {
+#ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		return executor->GetResult();
+#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResult();
@@ -445,8 +490,10 @@ const char* nullcGetResult()
 }
 int nullcGetResultInt()
 {
+#ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		return executor->GetResultInt();
+#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultInt();
@@ -455,8 +502,10 @@ int nullcGetResultInt()
 }
 double nullcGetResultDouble()
 {
+#ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		return executor->GetResultDouble();
+#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultDouble();
@@ -465,8 +514,10 @@ double nullcGetResultDouble()
 }
 long long nullcGetResultLong()
 {
+#ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		return executor->GetResultLong();
+#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultLong();
@@ -479,6 +530,7 @@ const char*	nullcGetLastError()
 	return nullcLastError;
 }
 
+#ifndef NULLC_NO_EXECUTOR
 void* nullcAllocate(unsigned int size)
 {
 	return NULLC::AllocObject(size);
@@ -493,6 +545,7 @@ int nullcInitDynamicModule()
 {
 	return nullcInitDynamicModule(linker);
 }
+#endif
 
 void nullcTerminate()
 {
@@ -500,16 +553,19 @@ void nullcTerminate()
 
 	NULLC::destruct(compiler);
 	compiler = NULL;
+#ifndef NULLC_NO_EXECUTOR
 	NULLC::destruct(linker);
 	linker = NULL;
 	NULLC::destruct(executor);
 	executor = NULL;
+#endif
 #ifdef NULLC_BUILD_X86_JIT
 	NULLC::destruct(executorX86);
 	executorX86 = NULL;
 #endif
+#ifndef NULLC_NO_EXECUTOR
 	NULLC::ResetMemory();
-
+#endif
 	CodeInfo::funcInfo.reset();
 	CodeInfo::varInfo.reset();
 	CodeInfo::typeInfo.reset();
@@ -528,7 +584,9 @@ void* nullcGetVariableData()
 {
 	if(currExec == NULLC_VM)
 	{
+#ifndef NULLC_NO_EXECUTOR
 		return executor->GetVariableData();
+#endif
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		return executorX86->GetVariableData();
@@ -542,9 +600,11 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 #ifdef NULLC_BUILD_X86_JIT
 	if(exec)
 		*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
-#else
+#elif !defined(NULLC_NO_EXECUTOR)
 	if(exec)
 		*exec = executor;
+#else
+	*exec = NULL;
 #endif
 	return currExec;
 }
@@ -559,6 +619,7 @@ const void* nullcGetModule(const char* path)
 	return bytecode;
 }
 
+#ifndef NULLC_NO_EXECUTOR
 ExternTypeInfo* nullcDebugTypeInfo(unsigned int *count)
 {
 	if(count && linker)
@@ -612,12 +673,15 @@ ExternModuleInfo* nullcDebugModuleInfo(unsigned int *count)
 		*count = linker->exModules.size();
 	return linker ? linker->exModules.data : NULL;
 }
+#endif
 
 void nullcDebugBeginCallStack()
 {
 	if(currExec == NULLC_VM)
 	{
+#ifndef NULLC_NO_EXECUTOR
 		executor->BeginCallStack();
+#endif
 	}else{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->BeginCallStack();
@@ -631,7 +695,9 @@ unsigned int nullcDebugGetStackFrame()
 	// Get next address from call stack
 	if(currExec == NULLC_VM)
 	{
+#ifndef NULLC_NO_EXECUTOR
 		address = executor->GetNextAddress();
+#endif
 	}else{
 #ifdef NULLC_BUILD_X86_JIT
 		address = executorX86->GetNextAddress();
@@ -640,6 +706,7 @@ unsigned int nullcDebugGetStackFrame()
 	return address;
 }
 
+#ifndef NULLC_NO_EXECUTOR
 nullres nullcDebugSetBreakFunction(void (*callback)(unsigned int))
 {
 	if(!executor)
@@ -686,4 +753,5 @@ nullres nullcDebugAddBreakpoint(unsigned int instruction)
 	}
 	return true;
 }
+#endif
 
