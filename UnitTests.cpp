@@ -4646,16 +4646,24 @@ void BubbleSortArray(NullCArray arr, NULLCFuncPtr comparator)
 		}
 	}
 }
+
+// function calls internal function
+void RecallerCS(int x)
+{
+	nullcRunFunction("inside", x);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void	RunTests2()
 {
-	nullcLoadModuleBySource("func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp);");
+	nullcLoadModuleBySource("func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp); void recall(int x);");
 	nullcAddModuleFunction("func.test", (void(*)())Recaller, "Recaller", 0);
 	nullcAddModuleFunction("func.test", (void(*)())Recaller2, "Recaller2", 0);
 	nullcAddModuleFunction("func.test", (void(*)())Recaller3, "Recaller3", 0);
 	nullcAddModuleFunction("func.test", (void(*)())RecallerPtr, "RecallerPtr", 0);
 	nullcAddModuleFunction("func.test", (void(*)())BubbleSortArray, "bubble", 0);
+	nullcAddModuleFunction("func.test", (void(*)())RecallerCS, "recall", 0);
 
 const char	*testFunc1 =
 "import func.test;\r\n\
@@ -5671,6 +5679,43 @@ return 0;";
 			printf("Should have failed");
 	}
 
+const char	*testCallStackWhenVariousTransitions =
+"import func.test;\r\n\
+void inside(int x)\r\n\
+{\r\n\
+	assert(x);\r\n\
+	recall(x-1);\r\n\
+}\r\n\
+recall(2);\r\n\
+return 0;";
+	printf("Call stack when there are various transitions between NULLC and C\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		nullcSetExecutor(testTarget[t]);
+		nullres good = nullcBuild(testCallStackWhenVariousTransitions);
+		assert(good);
+		good = nullcRun();
+		if(!good)
+		{
+			const char *error = "Assertion failed\r\n\
+Call stack:\r\n\
+global scope (at recall(2);)\r\n\
+inside (at recall(x-1);)\r\n\
+ param 0: int x (at base+0 size 4)\r\n\
+inside (at recall(x-1);)\r\n\
+ param 0: int x (at base+0 size 4)\r\n\
+inside (at assert(x);)\r\n\
+ param 0: int x (at base+0 size 4)\r\n";
+			if(strcmp(error, nullcGetLastError()) != 0)
+				printf("%s failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", testTarget[t] == NULLC_VM ? "VM " : "X86", nullcGetLastError(), error);
+			else
+				passed[t]++;
+		}else{
+			printf("Test should have failed.\r\n");
+		}
+	}
+
 #endif
 
 	char *stackMem = new char[32*1024];
@@ -5685,11 +5730,27 @@ const char	*testDepthOverflow =
 }\r\n\
 return fib(3500);";
 	printf("Call depth test\r\n");
-	testCount[1]++;
-	if(!RunCode(testDepthOverflow, testTarget[1], "0"))
-		passed[1]++;
-	else
-		printf("Should have failed");
+	{
+		testCount[1]++;
+		nullcSetExecutor(NULLC_X86);
+		nullres good = nullcBuild(testDepthOverflow);
+		assert(good);
+		good = nullcRun();
+		if(!good)
+		{
+			const char *error = "ERROR: allocated stack overflow";
+			char buf[512];\
+			strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+			if(char *lineEnd = strchr(buf, '\r'))
+				*lineEnd = 0;
+			if(strcmp(error, buf) != 0)
+				printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+			else
+				passed[1]++;
+		}else{
+			printf("Test should have failed.\r\n");
+		}
+	}
 
 const char	*testGlobalOverflow = 
 "double clamp(double a, double min, double max)\r\n\
@@ -5708,12 +5769,28 @@ double abs(double x)\r\n\
 }\r\n\
 double[2700] res;\r\n\
 return clamp(abs(-1.5), 0.0, 1.0);";
-	printf("Function call test 4\r\n");
-	testCount[1]++;
-	if(!RunCode(testGlobalOverflow, testTarget[1], "0"))
-		passed[1]++;
-	else
-		printf("Should have failed");
+	printf("Global overflow test\r\n");
+	{
+		testCount[1]++;
+		nullcSetExecutor(NULLC_X86);
+		nullres good = nullcBuild(testGlobalOverflow);
+		assert(good);
+		good = nullcRun();
+		if(!good)
+		{
+			const char *error = "ERROR: allocated stack overflow";
+			char buf[512];\
+			strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+			if(char *lineEnd = strchr(buf, '\r'))
+				*lineEnd = 0;
+			if(strcmp(error, buf) != 0)
+				printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+			else
+				passed[1]++;
+		}else{
+			printf("Test should have failed.\r\n");
+		}
+	}
 	nullcSetJiTStack((void*)0x20000000, (void*)(0x20000000 + 1024*1024), false);
 	delete[] stackMem;
 
@@ -5726,12 +5803,28 @@ const char	*testDepthOverflowUnmanaged =
 	return fib(n-1);\r\n\
 }\r\n\
 return fib(3500);";
-	printf("Call depth test\r\n");
-	testCount[1]++;
-	if(!RunCode(testDepthOverflowUnmanaged, testTarget[1], "0"))
-		passed[1]++;
-	else
-		printf("Should have failed");
+	printf("Depth overflow in unmanaged memory\r\n");
+	{
+		testCount[1]++;
+		nullcSetExecutor(NULLC_X86);
+		nullres good = nullcBuild(testDepthOverflowUnmanaged);
+		assert(good);
+		good = nullcRun();
+		if(!good)
+		{
+			const char *error = "ERROR: failed to reserve new stack memory";
+			char buf[512];\
+			strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+			if(char *lineEnd = strchr(buf, '\r'))
+				*lineEnd = 0;
+			if(strcmp(error, buf) != 0)
+				printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+			else
+				passed[1]++;
+		}else{
+			printf("Test should have failed.\r\n");
+		}
+	}
 
 	nullcSetJiTStack((void*)0x20000000, NULL, false);
 

@@ -66,7 +66,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="bin\$(ProjectName).lib"
+				OutputFile="..\bin\NULLC_dbg.lib"
 				IgnoreAllDefaultLibraries="true"
 			/>
 			<Tool
@@ -185,6 +185,7 @@
 				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
 				AssemblerOutput="0"
+				AssemblerListingLocation=""
 				WarningLevel="4"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
@@ -200,7 +201,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="bin\$(ProjectName).lib"
+				OutputFile="..\bin\NULLC.lib"
 				IgnoreAllDefaultLibraries="true"
 			/>
 			<Tool

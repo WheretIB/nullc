@@ -35,6 +35,10 @@ public:
 	void*			GetStackStart();
 	void*			GetStackEnd();
 
+	void	SetBreakFunction(void (*callback)(unsigned int));
+	void	ClearBreakpoints();
+	bool	AddBreakpoint(unsigned int instruction);
+
 	bool	SetStackPlacement(void* start, void* end, unsigned int flagMemoryAllocated);
 private:
 	void	InitExecution();
@@ -66,6 +70,15 @@ private:
 	int				callContinue;
 
 	unsigned int	*callstackTop;
+
+	void (*breakFunction)(unsigned int);
+	struct Breakpoint
+	{
+		unsigned int	instIndex;
+		unsigned char	oldOpcodeA;
+		unsigned char	oldOpcodeB;
+	};
+	FastVector<unsigned int>	breakInstructions;
 
 	void operator=(ExecutorX86& r){ (void)r; assert(false); }
 };
