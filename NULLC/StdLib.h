@@ -32,6 +32,7 @@ namespace NULLC
 	void*		GetBasePointer(void* ptr);
 
 	void		CollectMemory();
+	unsigned int	UsedMemory();
 
 	void		ClearMemory();
 	void		ResetMemory();

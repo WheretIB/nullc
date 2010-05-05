@@ -10,7 +10,6 @@ f. Breakpoints.
 b. Compiled modules must recompile after changes.
 
 f. tuples
-u. Replace AddPreOrPostOpNode with two distinct functions (?)
 f. Allow ++ and -- as post expression.
 f. string
 f. hash_map

@@ -12,6 +12,7 @@ bool	nullcInitGCModule()
 {
 	if(!nullcBindModuleFunction("std.gc", (void(*)())NULLC::CollectMemory, "NamespaceGC::CollectMemory", 0))
 		return false;
-
+	if(!nullcBindModuleFunction("std.gc", (void(*)())NULLC::UsedMemory, "NamespaceGC::UsedMemory", 0))
+		return false;
 	return true;
 }

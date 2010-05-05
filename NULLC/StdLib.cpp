@@ -285,6 +285,11 @@ void* NULLC::AllocObject(int size)
 	return (char*)data + 4;
 }
 
+unsigned int NULLC::UsedMemory()
+{
+	return usedMemory;
+}
+
 NullCArray NULLC::AllocArray(int size, int count)
 {
 	NullCArray ret;
