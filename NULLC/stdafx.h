@@ -41,6 +41,9 @@ namespace NULLC
 	extern void*	(*alloc)(int);
 	extern void		(*dealloc)(void*);
 
+	void*	alignedAlloc(int size);
+	void	alignedDealloc(void* ptr);
+
 	template<typename T>
 	static T*		construct()
 	{

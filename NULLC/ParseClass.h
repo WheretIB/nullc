@@ -267,7 +267,7 @@ public:
 	{
 		typeInfoPool.ClearTo(top);
 	}
-	static	ChunkedStackPool<4092>	typeInfoPool;
+	static	ChunkedStackPool<65532>	typeInfoPool;
 };
 
 extern TypeInfo*	typeVoid;
@@ -335,7 +335,7 @@ public:
 	{
 		variablePool.ClearTo(top);
 	}
-	static	ChunkedStackPool<4092>	variablePool;
+	static	ChunkedStackPool<65532>	variablePool;
 };
 
 class FunctionInfo
@@ -530,7 +530,7 @@ public:
 	{
 		functionPool.ClearTo(top);
 	}
-	static	ChunkedStackPool<4092>	functionPool;
+	static	ChunkedStackPool<65532>	functionPool;
 };
 
 //VarTopInfo holds information about variable stack state

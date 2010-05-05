@@ -76,7 +76,7 @@ public:
 		assert(!"Cannot delete NodeZeroOp");
 	}
 
-	static	ChunkedStackPool<4092>	nodePool;
+	static	ChunkedStackPool<65532>	nodePool;
 	static void	DeleteNodes(){ nodePool.Clear(); }
 	static void	ResetNodes(){ nodePool.~ChunkedStackPool(); }
 protected:

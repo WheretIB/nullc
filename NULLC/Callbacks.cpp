@@ -54,9 +54,9 @@ TypeInfo*		typeObjectArray = NULL;
 TypeInfo*		newType = NULL;
 unsigned int	methodCount = 0;
 
-ChunkedStackPool<4092> TypeInfo::typeInfoPool;
-ChunkedStackPool<4092> VariableInfo::variablePool;
-ChunkedStackPool<4092> FunctionInfo::functionPool;
+ChunkedStackPool<65532> TypeInfo::typeInfoPool;
+ChunkedStackPool<65532> VariableInfo::variablePool;
+ChunkedStackPool<65532> FunctionInfo::functionPool;
 
 FastVector<FunctionInfo*>	bestFuncList;
 FastVector<unsigned int>	bestFuncRating;
@@ -2712,6 +2712,7 @@ void CallbackInitialize()
 
 	lostGlobalList = NULL;
 
+	funcMap.init();
 	funcMap.clear();
 
 	ResetTreeGlobals();
@@ -2753,6 +2754,7 @@ void CallbackReset()
 	bestFuncList.reset();
 	bestFuncRating.reset();
 	paramNodes.reset();
+	funcMap.reset();
 
 	TypeInfo::typeInfoPool.~ChunkedStackPool();
 	TypeInfo::SetPoolTop(0);

@@ -7,6 +7,8 @@ Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
 
+	typeMap.init();
+
 	NULLC::SetLinker(this);
 }
 

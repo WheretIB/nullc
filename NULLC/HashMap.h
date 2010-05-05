@@ -19,12 +19,27 @@ public:
 
 	HashMap()
 	{
-		entries = NULLC::construct<Node*>(bucketCount);
-		memset(entries, 0, sizeof(Node*) * bucketCount);
+		entries = NULL;
+	}
+	void init()
+	{
+		if(!entries)
+		{
+			entries = NULLC::construct<Node*>(bucketCount);
+			memset(entries, 0, sizeof(Node*) * bucketCount);
+		}
 	}
 	~HashMap()
 	{
-		NULLC::destruct(entries, bucketCount);
+		if(entries)
+			NULLC::destruct(entries, bucketCount);
+		entries = NULL;
+	}
+	void reset()
+	{
+		if(entries)
+			NULLC::destruct(entries, bucketCount);
+		entries = NULL;
 	}
 
 	void clear()

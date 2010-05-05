@@ -191,6 +191,8 @@ Compiler::Compiler()
 
 	typeTop = TypeInfo::GetPoolTop();
 
+	typeMap.init();
+
 	realGlobalCount = 0;
 
 	// Add base module with build-in functions
@@ -241,6 +243,8 @@ Compiler::~Compiler()
 	NodeSwitchExpr::fixQueue.reset();
 
 	NodeZeroOP::ResetNodes();
+
+	typeMap.reset();
 }
 
 void Compiler::ClearState()

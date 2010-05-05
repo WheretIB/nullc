@@ -3,7 +3,6 @@ f. Add warning for unusual conversions (?)
 
 u. Check for hash collisions.
 b. Fix alignment of dynamically allocated variables.
-b. Fix alignment of statically allocated variables when global allocator returns memory not aligned by 16 byte boundary.
 
 f. Breakpoints.
 
@@ -138,3 +137,4 @@ DONE: call stack is correct in jit when there are various transitions from C->NU
 DONE: external function call by pointer in NULLC leaves enough information for call stack trace.
 DONE: when external/internal function is overridden with internal/external function, pointers to those functions can be called when JiT is enabled.
 DONE: default function argument values are saved in bytecode and imported
+DONE: Fix alignment of statically allocated variables when global allocator returns memory not aligned by 16 byte boundary.
