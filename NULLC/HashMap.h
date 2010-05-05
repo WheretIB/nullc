@@ -89,7 +89,6 @@ public:
 		}
 		return NULL;
 	}
-
 private:
 	Node	**entries;
 };

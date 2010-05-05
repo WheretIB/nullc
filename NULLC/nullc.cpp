@@ -24,6 +24,8 @@ FastVector<VariableInfo*>	CodeInfo::varInfo;
 FastVector<TypeInfo*>		CodeInfo::typeInfo;
 FastVector<AliasInfo>		CodeInfo::aliasInfo;
 HashMap<TypeInfo*>			CodeInfo::classMap;
+FastVector<TypeInfo*>		CodeInfo::typeArrays;
+FastVector<TypeInfo*>		CodeInfo::typeFunctions;
 
 SourceInfo					CodeInfo::cmdInfoList;
 FastVector<VMCmd>			CodeInfo::cmdList;

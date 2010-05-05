@@ -86,12 +86,11 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 
 	// Search type list for the type that we need
 	unsigned int targetArrLevel = type->arrLevel + 1;
-	// $$$ improve
-	for(unsigned int i = 0; i < typeInfo.size(); i++)
+	for(unsigned int i = 0; i < typeArrays.size(); i++)
 	{
-		if(type == typeInfo[i]->subType && targetArrLevel == typeInfo[i]->arrLevel && typeInfo[i]->arrSize == (unsigned int)arrSize)
+		if(type == typeArrays[i]->subType && targetArrLevel == typeArrays[i]->arrLevel && typeArrays[i]->arrSize == (unsigned int)arrSize)
 		{
-			return typeInfo[i];
+			return typeArrays[i];
 		}
 	}
 	// If not found, create new type
@@ -109,8 +108,9 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 			newInfo->paddingBytes = 4 - (newInfo->size % 4);
 			newInfo->size += 4 - (newInfo->size % 4);
 		}
+		
 	}
-
+	typeArrays.push_back(newInfo);
 	typeInfo.push_back(newInfo);
 	return newInfo;
 }
