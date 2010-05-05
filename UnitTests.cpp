@@ -461,6 +461,16 @@ void	RunTests()
 			passed[3]++;
 	}
 
+/*
+	unsigned int tStart = clock();
+	for(unsigned int i = 0; i < 10000; i++)
+	{
+		nullcInit("Modules\\");
+		nullcTerminate();
+	}
+	printf("Finished in %d\r\n", clock() - tStart);
+*/
+
 	// Init NULLC
 	nullcInit("Modules\\");
 	//nullcInitCustomAlloc(testAlloc, testDealloc, "Modules\\");
@@ -4576,69 +4586,7 @@ return count;";
 		}
 	}
 
-const char	*testEuler90 =
-"import std.math;\r\n\
-int[210][7] arr;\r\n\
-int count = 0;\r\n\
-void gen()\r\n\
-{\r\n\
-	int[7] a;\r\n\
-	for(a[0] = 0; a[0] < 9; a[0]++)\r\n\
-		for(a[1] = a[0]+1; a[1] < 9; a[1]++)\r\n\
-			for(a[2] = a[1]+1; a[2] < 9; a[2]++)\r\n\
-				for(a[3] = a[2]+1; a[3] < 9; a[3]++)\r\n\
-					for(a[4] = a[3]+1; a[4] < 9; a[4]++)\r\n\
-						for(a[5] = a[4]+1; a[5] < 10; a[5]++)\r\n\
-							arr[count++] = a;\r\n\
-}\r\n\
-gen();\r\n\
-count = 0;\r\n\
-void func(int[] numbers, int nn)\r\n\
-{\r\n\
-	for(int n = nn + 1; n < 210; n++)\r\n\
-	{\r\n\
-		int[] a = arr[n];\r\n\
-		int[200] cubes = 0;\r\n\
-		a[6] = 0;\r\n\
-		if(a[0] == 6 || a[1] == 6 || a[2] == 6 || a[3] == 6 || a[4] == 6 || a[5] == 6)\r\n\
-			a[6] = 9;\r\n\
-		if(a[5] == 9)\r\n\
-			a[6] = 6;\r\n\
-		for(int i = 0; i < (numbers[6] == 0 ? 6 : 7); i++)\r\n\
-		{\r\n\
-			for(int j = 0; j < (a[6] == 0 ? 6 : 7); j++)\r\n\
-			{\r\n\
-				cubes[numbers[i] * 10 + a[j]] = 1;\r\n\
-				cubes[numbers[i] + a[j] * 10] = 1;\r\n\
-			}\r\n\
-		}\r\n\
-		if(cubes[1] && cubes[4] && cubes[9] && cubes[16] && cubes[25] && cubes[36] && cubes[49] && cubes[64] && cubes[81])\r\n\
-			count++;\r\n\
-	}\r\n\
-}\r\n\
-for(int n = 0; n < 10; n++)\r\n\
-{\r\n\
-	int[] a = arr[n];\r\n\
-	a[6] = 0;\r\n\
-	if(a[0] == 6 || a[1] == 6 || a[2] == 6 || a[3] == 6 || a[4] == 6 || a[5] == 6)\r\n\
-		a[6] = 9;\r\n\
-	if(a[5] == 9)\r\n\
-		a[6] = 6;\r\n\
-	func(a, n);\r\n\
-}\r\n\
-return count;";
-	printf("Euler 90 (with decreased N) set range check\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testEuler90, testTarget[t], "283"))
-		{
-			lastFailed = false;
 
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
 
 	RunTests2();
 }
@@ -4717,6 +4665,70 @@ void TestDrawRect(int, int, int, int, int)
 
 void	RunTests2()
 {
+	const char	*testEuler90 =
+"import std.math;\r\n\
+int[210][7] arr;\r\n\
+int count = 0;\r\n\
+void gen()\r\n\
+{\r\n\
+	int[7] a;\r\n\
+	for(a[0] = 0; a[0] < 9; a[0]++)\r\n\
+		for(a[1] = a[0]+1; a[1] < 9; a[1]++)\r\n\
+			for(a[2] = a[1]+1; a[2] < 9; a[2]++)\r\n\
+				for(a[3] = a[2]+1; a[3] < 9; a[3]++)\r\n\
+					for(a[4] = a[3]+1; a[4] < 9; a[4]++)\r\n\
+						for(a[5] = a[4]+1; a[5] < 10; a[5]++)\r\n\
+							arr[count++] = a;\r\n\
+}\r\n\
+gen();\r\n\
+count = 0;\r\n\
+void func(int[] numbers, int nn)\r\n\
+{\r\n\
+	for(int n = nn + 1; n < 210; n++)\r\n\
+	{\r\n\
+		int[] a = arr[n];\r\n\
+		int[200] cubes = 0;\r\n\
+		a[6] = 0;\r\n\
+		if(a[0] == 6 || a[1] == 6 || a[2] == 6 || a[3] == 6 || a[4] == 6 || a[5] == 6)\r\n\
+			a[6] = 9;\r\n\
+		if(a[5] == 9)\r\n\
+			a[6] = 6;\r\n\
+		for(int i = 0; i < (numbers[6] == 0 ? 6 : 7); i++)\r\n\
+		{\r\n\
+			for(int j = 0; j < (a[6] == 0 ? 6 : 7); j++)\r\n\
+			{\r\n\
+				cubes[numbers[i] * 10 + a[j]] = 1;\r\n\
+				cubes[numbers[i] + a[j] * 10] = 1;\r\n\
+			}\r\n\
+		}\r\n\
+		if(cubes[1] && cubes[4] && cubes[9] && cubes[16] && cubes[25] && cubes[36] && cubes[49] && cubes[64] && cubes[81])\r\n\
+			count++;\r\n\
+	}\r\n\
+}\r\n\
+for(int n = 0; n < 10; n++)\r\n\
+{\r\n\
+	int[] a = arr[n];\r\n\
+	a[6] = 0;\r\n\
+	if(a[0] == 6 || a[1] == 6 || a[2] == 6 || a[3] == 6 || a[4] == 6 || a[5] == 6)\r\n\
+		a[6] = 9;\r\n\
+	if(a[5] == 9)\r\n\
+		a[6] = 6;\r\n\
+	func(a, n);\r\n\
+}\r\n\
+return count;";
+	printf("Euler 90 (with decreased N) set range check\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testEuler90, testTarget[t], "283"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 	nullcLoadModuleBySource("func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp); void recall(int x);");
 	nullcBindModuleFunction("func.test", (void(*)())Recaller, "Recaller", 0);
 	nullcBindModuleFunction("func.test", (void(*)())Recaller2, "Recaller2", 0);
@@ -5801,6 +5813,109 @@ return func(5) - func(10, 2) + func(-1, 2, 3);";
 		}
 	}
 
+const char	*testLocalOperators =
+"int funcA(int a, b)\r\n\
+{\r\n\
+	int operator+(int x, y){ return x * y; }\r\n\
+	return a + b;\r\n\
+}\r\n\
+int funcB(int a, b)\r\n\
+{\r\n\
+	int operator+(int x, y){ return x - y; }\r\n\
+	return a + b;\r\n\
+}\r\n\
+int funcC(int a, b)\r\n\
+{\r\n\
+	return a + b;\r\n\
+}\r\n\
+int u = funcA(4, 8);\r\n\
+int v = funcB(4, 8);\r\n\
+int w = funcC(4, 8);\r\n\
+return u + v + w;";
+	printf("Local operator definition\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testLocalOperators, testTarget[t], "40"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("u", 0, 32);
+			CHECK_INT("v", 0, -4);
+			CHECK_INT("w", 0, 12);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testClassOperators =
+"int operator+(int a, b){ return a - b; }\r\n\
+class Foo\r\n\
+{\r\n\
+	int operator+(int a, b){ return a * b; }\r\n\
+	\r\n\
+	int x, y;\r\n\
+	int func()\r\n\
+	{\r\n\
+		return x + y;\r\n\
+	}\r\n\
+}\r\n\
+int funcA(int a, b)\r\n\
+{\r\n\
+	return a + b;\r\n\
+}\r\n\
+\r\n\
+Foo test;\r\n\
+test.x = 5;\r\n\
+test.y = 7;\r\n\
+\r\n\
+int u = test.func();\r\n\
+int v = funcA(test.x, test.y);\r\n\
+\r\n\
+return u + v;";
+	printf("Class operator definition\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testClassOperators, testTarget[t], "37"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("u", 0, 35);
+			CHECK_INT("v", 0, -2);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunctionVisibility =
+"int func()\r\n\
+{\r\n\
+	int test(int x)\r\n\
+	{\r\n\
+		return -x;\r\n\
+	}\r\n\
+	return test(5);\r\n\
+}\r\n\
+\r\n\
+int test = func();\r\n\
+\r\n\
+return test;";
+	printf("Function visibility test\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionVisibility, testTarget[t], "-5"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -6232,7 +6347,6 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("Auto parameter 2 ", "int func(auto a, int i){ return 0; } return 0;", "ERROR: function parameter cannot be an auto type");
 	TEST_FOR_FAIL("Function redefine", "int a(int b){} int a(int c){} return 1;", "ERROR: function 'a' is being defined with the same set of parameters");
 	TEST_FOR_FAIL("Wrong overload", "int operator*(int a){} return 1;", "ERROR: binary operator definition or overload must accept exactly two arguments");
-	TEST_FOR_FAIL("Overload in the wrong place", "int f(){ int operator+(int a, b){}} return 1;", "ERROR: binary operator definition or overload must be placed in global scope");
 	TEST_FOR_FAIL("No member function", "int a; return a.ok();", "ERROR: function 'int::ok' is undefined");
 	TEST_FOR_FAIL("Unclear decision - member function", "class test{ void a(int b){} void a(float b){} } test t; return t.a;", "ERROR: there are more than one 'a' function, and the decision isn't clear");
 	TEST_FOR_FAIL("No function", "return k();", "ERROR: function 'k' is undefined");
@@ -6676,6 +6790,8 @@ return 0;";
 	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
 	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 30000.0);
 
+
+
 	nullcLoadModuleBySource("test.rect", "int draw_rect(int a, b, c, d, e);");
 	nullcBindModuleFunction("test.rect", (void(*)())TestDrawRect, "draw_rect", 0);
 const char	*testCompileSpeed2 =
@@ -6877,8 +6993,6 @@ double	TestEulerFile(unsigned int num, const char* result)
 void	RunEulerTests()
 {
 	double time = 0.0;
-
-	
 
 	printf("Euler problem time: %f\r\n", time);
 }
