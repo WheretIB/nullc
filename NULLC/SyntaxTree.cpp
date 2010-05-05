@@ -2038,7 +2038,7 @@ void NodeFunctionAddress::Compile()
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
-		NodeNumber nullPtr = NodeNumber(funcInfo->funcPtr ? ~0ll : 0ll, CodeInfo::GetReferenceType(typeVoid));
+		NodeNumber nullPtr = NodeNumber(0ll, CodeInfo::GetReferenceType(typeVoid));
 		nullPtr.Compile();
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
 		first->Compile();

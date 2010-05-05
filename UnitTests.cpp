@@ -5720,7 +5720,6 @@ return a_(5) * b_(5);";
 		}
 	}
 
-
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -5921,6 +5920,7 @@ inside (at assert(x);)\r\n\
 
 #endif
 
+#ifdef NULLC_BUILD_X86_JIT
 	char *stackMem = new char[32*1024];
 	nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
 
@@ -6030,6 +6030,7 @@ return fib(3500);";
 	}
 
 	nullcSetJiTStack((void*)0x20000000, NULL, false);
+#endif
 
 	// Parameter stack resize test is saved for last
 const char	*testStackResize =

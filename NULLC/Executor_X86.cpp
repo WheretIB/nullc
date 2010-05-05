@@ -128,7 +128,7 @@ namespace NULLC
 			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
 			unsigned int *paramData = &dataHead->nextElement;
 			int count = 0;
-			while(count < STACK_TRACE_DEPTH && paramData)
+			while(count < (STACK_TRACE_DEPTH - 1) && paramData)
 			{
 				stackTrace[count++] = paramData[-1];
 				paramData = (unsigned int*)(long long)(*paramData);
@@ -658,7 +658,7 @@ bool ExecutorX86::TranslateToNative()
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 		exFunctions[i].startInByteCode = 0xffffffff;
 
-	exLinker->functionAddress.resize(exFunctions.size());
+	exLinker->functionAddress.resize(exFunctions.size() * 2);
 
 	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
@@ -1259,9 +1259,11 @@ bool ExecutorX86::TranslateToNative()
 		if(exFunctions[i].address != -1)
 		{
 			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].address] - bytecode);
-			exLinker->functionAddress[i] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].address];
+			exLinker->functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].address];
+			exLinker->functionAddress[i * 2 + 1] = 0;
 		}else{
-			exLinker->functionAddress[i] = (unsigned int)(uintptr_t)exFunctions[i].funcPtr;
+			exLinker->functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtr;
+			exLinker->functionAddress[i * 2 + 1] = 1;
 		}
 	}
 	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - bytecode);
@@ -1336,7 +1338,7 @@ void ExecutorX86::BeginCallStack()
 		genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
 		NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
 		unsigned int *paramData = &NULLC::dataHead->nextElement;
-		while(count < NULLC::STACK_TRACE_DEPTH && paramData)
+		while(count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
 		{
 			NULLC::stackTrace[count++] = paramData[-1];
 			paramData = (unsigned int*)(long long)(*paramData);

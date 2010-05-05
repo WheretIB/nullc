@@ -81,6 +81,9 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	if(!unFixed && arrSize < 1)
 		ThrowError(lastKnownStartPos, "ERROR: array size can't be negative or zero");
 
+	if(unFixed && type->unsizedType)
+		return type->unsizedType;
+
 	// Search type list for the type that we need
 	unsigned int targetArrLevel = type->arrLevel + 1;
 	for(unsigned int i = classCount; i < typeInfo.size(); i++)
@@ -97,6 +100,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	{
 		newInfo->size = NULLC_PTR_SIZE;
 		newInfo->AddMemberVariable("size", typeInt);
+		type->unsizedType = newInfo;
 	}else{
 		newInfo->size = type->size * arrSize;
 		if(newInfo->size % 4 != 0)

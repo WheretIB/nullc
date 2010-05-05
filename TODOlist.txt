@@ -1,24 +1,24 @@
-Stack arrays with variable size (?)
-Add warning for unusual conversions (?)
+f. Stack arrays with variable size (?)
+f. Add warning for unusual conversions (?)
 
-Check for hash collisions.
-Fix alignment of dynamically allocated variables.
-Fix alignment of statically allocated variables when global allocator returns memory not aligned by 16 byte boundary.
+u. Check for hash collisions.
+b. Fix alignment of dynamically allocated variables.
+b. Fix alignment of statically allocated variables when global allocator returns memory not aligned by 16 byte boundary.
 
-Breakpoints.
+f. Breakpoints.
 
-Compiled modules must recompile after changes.
+b. Compiled modules must recompile after changes.
 
-tuples
-Replace AddPreOrPostOpNode with two distinct functions (?)
-Allow ++ and -- as post expression.
-string
-hash_map
-auto[]
-sort
-stand-alone compiler and executor
-default function argument values are not saved in bytecode
-when external/internal function is overridden with internal/external function, pointers to those functions cannot be called (jit).
+f. tuples
+u. Replace AddPreOrPostOpNode with two distinct functions (?)
+f. Allow ++ and -- as post expression.
+f. string
+f. hash_map
+f. auto[]
+f. sort
+f. stand-alone compiler and executor
+b. default function argument values are not saved in bytecode
+b. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
 
 DONE: ref variables - pointers
 DONE: multidimensional arrays
@@ -138,3 +138,4 @@ DONE: Add ability to define inline arrays of types float, short and char.
 DONE: Add ability to set parameter stack base for x86 executor.
 DONE: call stack is correct in jit when there are various transitions from C->NULLC->C->NULLC->...
 DONE: external function call by pointer in NULLC leaves enough information for call stack trace.
+DONE: when external/internal function is overridden with internal/external function, pointers to those functions can be called when JiT is enabled.

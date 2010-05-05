@@ -39,7 +39,7 @@ FastVector<unsigned int>	cycleDepth;
 // Stack of functions that are being defined at the moment
 FastVector<FunctionInfo*>	currDefinedFunc;
 
-HashMap<FunctionInfo>		funcMap;
+HashMap<FunctionInfo*>		funcMap;
 
 void	AddFunctionToSortedList(void *info)
 {
@@ -48,6 +48,7 @@ void	AddFunctionToSortedList(void *info)
 
 // Information about current type
 TypeInfo*		currType = NULL;
+TypeInfo*		typeObjectArray = NULL;
 
 // For new type creation
 TypeInfo*		newType = NULL;
@@ -1238,7 +1239,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		hash = StringHashContinue(hash, varName.begin, varName.end);
 
 		// Search for it
-		HashMap<FunctionInfo>::Node *func = funcMap.first(hash);
+		HashMap<FunctionInfo*>::Node *func = funcMap.first(hash);
 		if(!func)
 		{
 			// Try calling a "get" function
@@ -1786,7 +1787,7 @@ void FunctionEnd(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	HashMap<FunctionInfo>::Node *curr = funcMap.first(lastFunc.nameHash);
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(lastFunc.nameHash);
 	while(curr)
 	{
 		FunctionInfo *info = curr->value;
@@ -2073,7 +2074,7 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
 		//AddGetVariableNode(pos);
 		// Find redirection function
-		HashMap<FunctionInfo>::Node *curr = funcMap.first(GetStringHash("__redirect"));
+		HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash("__redirect"));
 		if(!curr)
 			ThrowError(pos, "ERROR: cannot find redirection function");
 		// Call redirection function
@@ -2152,7 +2153,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	//Find all functions with given name
 	bestFuncList.clear();
 
-	HashMap<FunctionInfo>::Node *curr = funcMap.first(funcNameHash);
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(funcNameHash);
 	while(curr)
 	{
 		FunctionInfo *func = curr->value;
@@ -2196,7 +2197,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 					param = param->next;
 				}
 			}
-			if(argumentCount >= bestFuncList[k]->funcType->funcType->paramCount && bestFuncList[k]->lastParam && bestFuncList[k]->lastParam->varType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY))
+			if(argumentCount >= bestFuncList[k]->funcType->funcType->paramCount && bestFuncList[k]->lastParam && bestFuncList[k]->lastParam->varType == typeObjectArray)
 			{
 				// If function accepts variable argument list
 				TypeInfo *&lastType = bestFuncList[k]->funcType->funcType->paramType[bestFuncList[k]->funcType->funcType->paramCount - 1];
@@ -2734,6 +2735,8 @@ void CallbackInitialize()
 	ResetTreeGlobals();
 
 	vtblList = NULL;
+
+	typeObjectArray = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
 }
 
 unsigned int GetGlobalSize()

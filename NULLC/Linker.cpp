@@ -158,23 +158,23 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
 	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
 
+	// Create type map for fast searches
+	typeMap.clear();
+	for(unsigned int i = 0; i < oldTypeCount; i++)
+		typeMap.insert(exTypes[i].nameHash, i);
+
 	// Add all types from bytecode to the list
 	tInfo = tStart;
 	for(unsigned int i = 0; i < bCode->typeCount; i++)
 	{
-		const unsigned int index_none = ~0u;
+		unsigned int *lastType = typeMap.find(tInfo->nameHash);
 
-		unsigned int index = index_none;
-		for(unsigned int n = 0; n < oldTypeCount && index == index_none; n++)
-			if(exTypes[n].nameHash == tInfo->nameHash)
-				index = n;
-
-		if(index != index_none && exTypes[index].size != tInfo->size)
+		if(lastType && exTypes[*lastType].size != tInfo->size)
 		{
-			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[index].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[index].size, tInfo->size);
+			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[*lastType].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[*lastType].size, tInfo->size);
 			return false;
 		}
-		if(index == index_none)
+		if(!lastType)
 		{
 			typeRemap.push_back(exTypes.size());
 			exTypes.push_back(*tInfo);
@@ -188,7 +188,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount + (tInfo->subCat == ExternTypeInfo::CAT_FUNCTION ? 1 : 0));
 			}
 		}else{
-			typeRemap.push_back(index);
+			typeRemap.push_back(*lastType);
 		}
 
 		tInfo++;
