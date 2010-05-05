@@ -9,6 +9,7 @@
 #include "NULLC/includes/math.h"
 #include "NULLC/includes/vector.h"
 #include "NULLC/includes/random.h"
+#include "NULLC/includes/dynamic.h"
 
 #include "NULLC/includes/canvas.h"
 #include "NULLC/includes/window.h"
@@ -447,6 +448,7 @@ void	RunTests()
 	nullcInitMathModule();
 	nullcInitVectorModule();
 	nullcInitRandomModule();
+	nullcInitDynamicModule();
 
 	nullcInitIOModule();
 	nullcInitCanvasModule();
@@ -4653,6 +4655,17 @@ void RecallerCS(int x)
 	nullcRunFunction("inside", x);
 }
 
+int RewriteA(int x)
+{
+	return -x;
+}
+
+int RewriteB(int x)
+{
+	return x * 3 - 2;
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 
 void	RunTests2()
@@ -4664,6 +4677,10 @@ void	RunTests2()
 	nullcAddModuleFunction("func.test", (void(*)())RecallerPtr, "RecallerPtr", 0);
 	nullcAddModuleFunction("func.test", (void(*)())BubbleSortArray, "bubble", 0);
 	nullcAddModuleFunction("func.test", (void(*)())RecallerCS, "recall", 0);
+
+	nullcLoadModuleBySource("func.rewrite", "int funcA(int x); int funcNew(int x);");
+	nullcAddModuleFunction("func.rewrite", (void(*)())RewriteA, "funcA", 0);
+	nullcAddModuleFunction("func.rewrite", (void(*)())RewriteB, "funcNew", 0);
 
 const char	*testFunc1 =
 "import func.test;\r\n\
@@ -5582,6 +5599,127 @@ return 0;";
 				passed[t]++;
 		}
 	}
+
+const char	*testFunctionOverrideInternal =
+"import std.dynamic;\r\n\
+\r\n\
+int funcA(int x){ return -x; }\r\n\
+int funcB(int x){ return x * 2; }\r\n\
+\r\n\
+int a = funcA(5);\r\n\
+int b = funcB(5);\r\n\
+\r\n\
+override(funcA, funcB);\r\n\
+override(funcB, auto(int y){ return y * 3 - 2; });\r\n\
+\r\n\
+return funcA(5) * funcB(5);";
+	printf("Function override between internal functions\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionOverrideInternal, testTarget[t], "130"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("a", 0, -5);
+			CHECK_INT("b", 0, 10);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunctionOverrideInternalExternal =
+"import std.dynamic;\r\n\
+import func.rewrite;\r\n\
+\r\n\
+int funcB(int x){ return x * 2; }\r\n\
+\r\n\
+int a = funcA(5);\r\n\
+int b = funcB(5);\r\n\
+\r\n\
+override(funcA, funcB);\r\n\
+override(funcB, funcNew);\r\n\
+\r\n\
+return funcA(5) * funcB(5);";
+	printf("Function override between internal and external functions\r\n");
+	for(int t = 0; t < 1; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionOverrideInternalExternal, testTarget[t], "130"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("a", 0, -5);
+			CHECK_INT("b", 0, 10);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunctionOverrideInternalPtr =
+"import std.dynamic;\r\n\
+\r\n\
+int funcA(int x){ return -x; }\r\n\
+int funcB(int x){ return x * 2; }\r\n\
+auto a_ = funcA;\r\n\
+auto b_ = funcB;\r\n\
+\r\n\
+int a = a_(5);\r\n\
+int b = b_(5);\r\n\
+\r\n\
+override(funcA, funcB);\r\n\
+override(funcB, auto(int y){ return y * 3 - 2; });\r\n\
+\r\n\
+return a_(5) * b_(5);";
+	printf("Function override between internal functions (with function pointers)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionOverrideInternalPtr, testTarget[t], "130"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("a", 0, -5);
+			CHECK_INT("b", 0, 10);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunctionOverrideInternalExternalPtr =
+"import std.dynamic;\r\n\
+import func.rewrite;\r\n\
+\r\n\
+int funcB(int x){ return x * 2; }\r\n\
+auto a_ = funcA;\r\n\
+auto b_ = funcB;\r\n\
+\r\n\
+int a = a_(5);\r\n\
+int b = b_(5);\r\n\
+\r\n\
+override(funcA, funcB);\r\n\
+override(funcB, funcNew);\r\n\
+\r\n\
+return a_(5) * b_(5);";
+	printf("Function override between internal and external functions (with function pointers)\r\n");
+	for(int t = 0; t < 1; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionOverrideInternalExternalPtr, testTarget[t], "130"))
+		{
+			lastFailed = false;
+
+			CHECK_INT("a", 0, -5);
+			CHECK_INT("b", 0, 10);
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 
 #ifdef FAILURE_TEST
 

@@ -31,6 +31,8 @@ void Linker::CleanCode()
 
 	jumpTargets.clear();
 
+	functionAddress.clear();
+
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
 
