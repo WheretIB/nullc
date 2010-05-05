@@ -74,7 +74,7 @@ namespace NULLCCanvas
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("img.canvas", (void(*)())NULLCCanvas::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("img.canvas", (void(*)())NULLCCanvas::funcPtr, name, index)) return false;
 bool	nullcInitCanvasModule()
 {
 	REGISTER_FUNC(CanvasClearRGB, "Canvas::Clear", 0);

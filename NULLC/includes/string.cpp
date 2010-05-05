@@ -29,7 +29,7 @@ namespace NULLCString
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.string", (void(*)())NULLCString::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.string", (void(*)())NULLCString::funcPtr, name, index)) return false;
 bool	nullcInitStringModule()
 {
 	REGISTER_FUNC(strstr, "strstr", 0);

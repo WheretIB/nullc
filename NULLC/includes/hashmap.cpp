@@ -6,7 +6,7 @@ namespace NULLCHashmap
 
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.hashmap", (void(*)())NULLCHashmap::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.hashmap", (void(*)())NULLCHashmap::funcPtr, name, index)) return false;
 bool	nullcInitHashmapModule()
 {
 

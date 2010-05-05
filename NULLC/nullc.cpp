@@ -91,7 +91,7 @@ nullres	nullcSetJiTStack(void* start, void* end, unsigned int flagMemoryAllocate
 }
 #endif
 
-nullres	nullcAddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
+nullres	nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
 {
 	nullres good = compiler->AddModuleFunction(module, ptr, name, index);
 	if(good == 0)

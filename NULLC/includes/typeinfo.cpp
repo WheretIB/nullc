@@ -203,7 +203,7 @@ namespace NULLCTypeInfo
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
 bool	nullcInitTypeinfoModule(Linker* linker)
 {
 	NULLCTypeInfo::linker = linker;

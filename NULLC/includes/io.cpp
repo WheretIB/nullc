@@ -143,7 +143,7 @@ namespace NULLCIO
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.io", (void(*)())NULLCIO::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.io", (void(*)())NULLCIO::funcPtr, name, index)) return false;
 bool	nullcInitIOModule()
 {
 	REGISTER_FUNC(WriteToConsole, "Print", 0);

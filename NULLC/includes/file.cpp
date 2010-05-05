@@ -160,7 +160,7 @@ namespace NULLCFile
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.file", (void(*)())NULLCFile::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.file", (void(*)())NULLCFile::funcPtr, name, index)) return false;
 
 bool nullcInitFileModule()
 {
