@@ -834,8 +834,13 @@ void* AddVariable(const char* pos, InplaceStr varName)
 			ThrowError(pos, "ERROR: name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 	}
 	// Check for functions with the same name
-	if(funcMap.find(hash))
-		ThrowError(pos, "ERROR: name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(hash);
+	while(curr)
+	{
+		if(curr->value->visible)
+			ThrowError(pos, "ERROR: name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
+		curr = funcMap.next(curr);
+	}
 
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 	{
@@ -1933,8 +1938,6 @@ void FunctionToOperator(const char* pos)
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(lastFunc.paramCount != 2 && !(lastFunc.paramCount == 1 && (lastFunc.nameHash == hashAdd || lastFunc.nameHash == hashSub || lastFunc.nameHash == hashBitNot || lastFunc.nameHash == hashLogNot)))
 		ThrowError(pos, "ERROR: binary operator definition or overload must accept exactly two arguments");
-	if(lastFunc.type != FunctionInfo::NORMAL)
-		ThrowError(pos, "ERROR: binary operator definition or overload must be placed in global scope");
 	lastFunc.visible = true;
 }
 
