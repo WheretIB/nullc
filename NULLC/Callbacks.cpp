@@ -2722,8 +2722,6 @@ void CallbackInitialize()
 
 	vtblList = NULL;
 
-	typeObjectArray = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
-
 	CodeInfo::classMap.clear();
 	CodeInfo::typeArrays.clear();
 	CodeInfo::typeFunctions.clear();
@@ -2736,6 +2734,8 @@ void CallbackInitialize()
 		if(CodeInfo::typeInfo[i]->funcType)
 			CodeInfo::typeFunctions.push_back(CodeInfo::typeInfo[i]);
 	}
+
+	typeObjectArray = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
 }
 
 unsigned int GetGlobalSize()

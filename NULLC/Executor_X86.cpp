@@ -466,7 +466,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	codeRunning = true;
 
 	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
-	unsigned int varSize = exLinker->globalVarSize ? ((exLinker->globalVarSize & 0xfffffff0) + 16) : 0;
+	unsigned int varSize = (exLinker->globalVarSize + 0xf) & ~0xf;
 
 	if(functionID != ~0u)
 	{
