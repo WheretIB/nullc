@@ -352,8 +352,6 @@ void Executor::InitExecution()
 	gateCode.clear();
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 	{
-		if(exFunctions[i].address != -1)
-			continue;
 		exFunctions[i].startInByteCode = gateCode.size();
 		exFunctions[i].returnShift = (unsigned short)CreateFunctionGateway(gateCode, i);
 	}
@@ -1279,7 +1277,7 @@ void Executor::Stop(const char* error)
 	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
 }
 
-#if !defined(__CELLOS_LV2__) && !defined(_M_X64)//defined(_MSC_VER) || (defined(__GNUC__) && !defined(__CELLOS_LV2__)) || defined(__DMC__)
+#if !defined(__CELLOS_LV2__) && !defined(_M_X64)
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {

@@ -258,6 +258,8 @@ void Compiler::ClearState()
 		CodeInfo::typeInfo[i]->typeIndex = i;
 		if(CodeInfo::typeInfo[i]->refType && CodeInfo::typeInfo[i]->refType->typeIndex >= buildInTypes.size())
 			CodeInfo::typeInfo[i]->refType = NULL;
+		if(CodeInfo::typeInfo[i]->unsizedType && CodeInfo::typeInfo[i]->unsizedType->typeIndex >= buildInTypes.size())
+			CodeInfo::typeInfo[i]->unsizedType = NULL;
 	}
 
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
@@ -370,9 +372,9 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 	unsigned int lastTypeNum = CodeInfo::typeInfo.size();
 	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
 	{
-		TypeInfo *info = typeMap.find(tInfo->nameHash);
+		TypeInfo **info = typeMap.find(tInfo->nameHash);
 		if(info)
-			typeRemap.push_back(info->typeIndex);
+			typeRemap.push_back((*info)->typeIndex);
 		else
 			typeRemap.push_back(lastTypeNum++);
 	}

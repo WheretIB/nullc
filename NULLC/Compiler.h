@@ -79,7 +79,7 @@ private:
 	FastVector<ExternModuleInfo>	activeModules;
 	FastVector<char>				moduleSource;
 
-	HashMap<TypeInfo>				typeMap;
+	HashMap<TypeInfo*>				typeMap;
 	FastVector<unsigned int>		typeRemap;
 
 	unsigned int typeTop;

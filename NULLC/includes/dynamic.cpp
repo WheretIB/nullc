@@ -27,7 +27,8 @@ namespace NULLCDynamic
 		ExternFuncInfo &srcFunc = linker->exFunctions[((NULLCFuncPtr*)src.ptr)->id];
 		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 		{
-			linker->functionAddress[((NULLCFuncPtr*)dest.ptr)->id] = linker->functionAddress[((NULLCFuncPtr*)src.ptr)->id];
+			linker->functionAddress[((NULLCFuncPtr*)dest.ptr)->id * 2 + 0] = linker->functionAddress[((NULLCFuncPtr*)src.ptr)->id * 2 + 0];	// function address
+			linker->functionAddress[((NULLCFuncPtr*)dest.ptr)->id * 2 + 1] = linker->functionAddress[((NULLCFuncPtr*)src.ptr)->id * 2 + 1];	// function class
 			if(srcFunc.funcPtr && !destFunc.funcPtr)
 			{
 				nullcThrowError("Internal function cannot be overridden with external function on x86");

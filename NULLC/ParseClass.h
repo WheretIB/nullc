@@ -62,7 +62,7 @@ public:
 
 		funcType = NULL;
 
-		refType = NULL;
+		unsizedType = refType = NULL;
 
 		fullName = NULL;
 		fullNameLength = ~0u;
@@ -99,7 +99,7 @@ public:
 
 	unsigned int	typeIndex, originalIndex;
 
-	TypeInfo		*refType;
+	TypeInfo		*refType, *unsizedType;
 
 	const char*		GetFullTypeName()
 	{

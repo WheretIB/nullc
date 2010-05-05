@@ -1908,7 +1908,7 @@ void GenCodeCmdCall(VMCmd cmd)
 
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
-		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 4 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
+		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 8 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 		
 		GenCodeCmdCallProlog(cmd);
@@ -1917,7 +1917,7 @@ void GenCodeCmdCall(VMCmd cmd)
 
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
-		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 4 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
+		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 8 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 
 		static int continueLabel = 0;
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
@@ -1946,16 +1946,18 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 {
 	EMIT_COMMENT("CALLPTR");
 
+	EMIT_OP_REG_RPTR(o_mov, rECX, sDWORD, rESP, cmd.argument);
+	EMIT_OP_REG_RPTR(o_mov, rEAX, sNONE, rECX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr + 4);
+
 	assert(cmd.argument >= 4);
-	EMIT_OP_RPTR_NUM(o_cmp, sDWORD, rESP, cmd.argument-4, ~0u);
-	EMIT_OP_LABEL(o_jne, aluLabels);
+	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
+	EMIT_OP_LABEL(o_jz, aluLabels);
 
 	// external function call
 	{
-		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, cmd.argument);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
-		EMIT_OP_RPTR(o_call, sNONE, rEAX, 4, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
+		EMIT_OP_RPTR(o_call, sNONE, rECX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 	 
 		static int continueLabel = 0;
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
@@ -1987,17 +1989,17 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 
 		GenCodeCmdCallEpilog(cmd.argument);
 
-		EMIT_OP_REG(o_pop, rEAX);
+		EMIT_OP_REG_NUM(o_add, rESP, 4);
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
 
-		EMIT_OP_REG_REG(o_test, rEAX, rEAX);
+		EMIT_OP_REG_REG(o_test, rECX, rECX);
 		EMIT_OP_LABEL(o_jnz, aluLabels + 1);
 		EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 		EMIT_OP_NUM(o_int, 3);
 		EMIT_LABEL(aluLabels + 1);
 
-		EMIT_OP_RPTR(o_call, sNONE, rEAX, 4, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
+		EMIT_OP_RPTR(o_call, sNONE, rECX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 
 		GenCodeCmdCallProlog(cmd);

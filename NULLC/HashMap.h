@@ -13,7 +13,7 @@ public:
 	struct Node
 	{
 		unsigned int	hash;
-		Value			*value;
+		Value			value;
 		Node			*next;
 	};
 
@@ -33,7 +33,7 @@ public:
 		memset(entries, 0, sizeof(Node*) * bucketCount);
 	}
 
-	void insert(unsigned int hash, Value* value)
+	void insert(unsigned int hash, Value value)
 	{
 		unsigned int bucket = hash & bucketMask;
 		Node *n = (Node*)nodePool.Allocate(sizeof(Node));
@@ -42,7 +42,7 @@ public:
 		n->next = entries[bucket];
 		entries[bucket] = n;
 	}
-	void remove(unsigned int hash, Value* value)
+	void remove(unsigned int hash, Value value)
 	{
 		unsigned int bucket = hash & bucketMask;
 		Node *curr = entries[bucket], *prev = NULL;
@@ -63,7 +63,7 @@ public:
 	Value* find(unsigned int hash)
 	{
 		Node *n = first(hash);
-		return n ? n->value : NULL;
+		return n ? &n->value : NULL;
 	}
 	Node* first(unsigned int hash)
 	{
