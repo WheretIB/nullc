@@ -5737,6 +5737,23 @@ return func(5) - func(10, 2);";
 		}
 	}
 
+	nullcLoadModuleBySource("test.defargs2", "int func(int a, b = 6){ return a * b; } int func(int d, c, a, b = 4){ return d * c + a + b; }");
+const char	*testDefaultFunctionArgumentExport2 =
+"import test.defargs2;\r\n\
+return func(5) - func(10, 2) + func(-1, 2, 3);";
+	printf("Default function argument export and import 2\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testDefaultFunctionArgumentExport2, testTarget[t], "15"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -6259,6 +6276,8 @@ return *res + *h.c + *v + *e[0];";
 
 	TEST_FOR_FAIL("None of the types implement method", "int i = 0; auto ref u = &i; return u.value();", "ERROR: function 'value' is undefined in any of existing classes");
 	TEST_FOR_FAIL("None of the types implement correct method", "int i = 0; int int:value(){ return *this; } auto ref u = &i; return u.value(15);", "ERROR: none of the member ::value functions can handle the supplied parameter list without conversions");
+
+	TEST_FOR_FAIL("Operator overload with no arguments", "int operator+(){ return 5; }", "ERROR: binary operator definition or overload must accept exactly two arguments");
 
 	//TEST_FOR_FAIL("parsing", "");
 
