@@ -542,6 +542,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				TypeInfo *currType = CodeInfo::typeInfo[typeRemap[lInfo.type]];
 				lastFunc->AddParameter(new VariableInfo(lastFunc, InplaceStr(symbols + lInfo.offsetToName), GetStringHash(symbols + lInfo.offsetToName), 0, currType, false));
 				lastFunc->allParamSize += currType->size < 4 ? (currType->size ? 4 : 0) : currType->size;
+				lastFunc->lastParam->defaultValueFuncID = lInfo.defaultFuncId;
 			}
 			lastFunc->implemented = true;
 			lastFunc->type = strchr(lastFunc->name, ':') ? FunctionInfo::THISCALL : FunctionInfo::NORMAL;
@@ -573,6 +574,27 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		fInfo++;
 	}
 
+	fInfo = FindFirstFunc(bCode);
+	for(unsigned int i = 0; i < end; i++)
+	{
+		FunctionInfo *func = CodeInfo::funcInfo[oldFuncCount + i];
+		// Handle only global visible functions
+		if(!func->visible || func->type != FunctionInfo::NORMAL)
+			continue;
+		// Go through all function parameters
+		VariableInfo *param = func->firstParam;
+		while(param)
+		{
+			if(param->defaultValueFuncID != 0xffff)
+			{
+				FunctionInfo *targetFunc = CodeInfo::funcInfo[param->defaultValueFuncID];
+				AddFunctionCallNode(NULL, targetFunc->name, 0, false);
+				param->defaultValue = CodeInfo::nodeList.back();
+				CodeInfo::nodeList.pop_back();
+			}
+			param = param->next;
+		}
+	}
 	return true;
 }
 
@@ -740,6 +762,42 @@ bool Compiler::Compile(const char* str, bool noClear)
 #ifdef NULLC_LOG_FILES
 	FILE *fGraph = fopen("graph.txt", "wb");
 #endif
+
+	if(!setjmp(CodeInfo::errorHandler))
+	{
+		// wrap all default function arguments in functions
+		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		{
+			FunctionInfo *func = CodeInfo::funcInfo[i];
+			// Handle only global visible functions
+			if(!func->visible || func->type != FunctionInfo::NORMAL)
+				continue;
+			// Go through all function parameters
+			VariableInfo *param = func->firstParam;
+			while(param)
+			{
+				if(param->defaultValue && param->defaultValueFuncID == ~0u)
+				{
+					// Wrap in function
+					char	*functionName = (char*)AllocateString(func->nameLength + int(param->name.end - param->name.begin) + 3 + 12);
+					SafeSprintf(functionName, func->nameLength + int(param->name.end - param->name.begin) + 3 + 12, "#%s|%.*s|%d", func->name, param->name.end - param->name.begin, param->name.begin, CodeInfo::FindFunctionByPtr(func));
+
+					SelectTypeByPointer(NULL);
+					FunctionAdd(CodeInfo::lastKnownStartPos, functionName);
+					FunctionStart(CodeInfo::lastKnownStartPos);
+					CodeInfo::nodeList.push_back(param->defaultValue);
+					AddReturnNode(CodeInfo::lastKnownStartPos);
+					FunctionEnd(CodeInfo::lastKnownStartPos);
+
+					param->defaultValueFuncID = CodeInfo::FindFunctionByPtr(CodeInfo::funcInfo.back());
+					AddTwoExpressionNode(NULL);
+				}
+				param = param->next;
+			}
+		}
+	}else{
+		return false;
+	}
 
 	CreateRedirectionTables();
 
@@ -1344,7 +1402,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			refFunc->lastParam->next = refFunc->firstLocal;
 		for(VariableInfo *curr = refFunc->firstParam ? refFunc->firstParam : refFunc->firstLocal; curr; curr = curr->next, localOffset++)
 		{
-			code->firstLocal[localOffset].paramType = paramType;
+			code->firstLocal[localOffset].paramType = (unsigned short)paramType;
+			code->firstLocal[localOffset].defaultFuncId = curr->defaultValue ? (unsigned short)curr->defaultValueFuncID : 0xffff;
 			code->firstLocal[localOffset].type = curr->varType->typeIndex;
 			code->firstLocal[localOffset].size = curr->varType->size;
 			code->firstLocal[localOffset].offset = curr->pos;

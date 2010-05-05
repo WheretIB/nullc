@@ -17,7 +17,6 @@ f. hash_map
 f. auto[]
 f. sort
 f. stand-alone compiler and executor
-b. default function argument values are not saved in bytecode
 b. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
 
 DONE: ref variables - pointers
@@ -139,3 +138,4 @@ DONE: Add ability to set parameter stack base for x86 executor.
 DONE: call stack is correct in jit when there are various transitions from C->NULLC->C->NULLC->...
 DONE: external function call by pointer in NULLC leaves enough information for call stack trace.
 DONE: when external/internal function is overridden with internal/external function, pointers to those functions can be called when JiT is enabled.
+DONE: default function argument values are saved in bytecode and imported

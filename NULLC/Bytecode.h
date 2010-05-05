@@ -44,7 +44,8 @@ struct ExternVarInfo
 struct ExternLocalInfo
 {
 	enum LocalType{ PARAMETER, LOCAL, EXTERNAL };
-	LocalType		paramType;
+	unsigned short	paramType;
+	unsigned short	defaultFuncId;
 
 	unsigned int	type, size;
 	union

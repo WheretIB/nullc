@@ -295,6 +295,7 @@ public:
 		autoDeref = false;
 
 		defaultValue = NULL;
+		defaultValueFuncID = ~0u;
 		next = prev = NULL;
 	}
 
@@ -311,6 +312,7 @@ public:
 
 	TypeInfo		*varType;	// Pointer to the variable type info
 	NodeZeroOP		*defaultValue;	// Default value code for function parameters
+	unsigned int	defaultValueFuncID;
 
 	VariableInfo	*next, *prev;		// For self-organizing lists
 
