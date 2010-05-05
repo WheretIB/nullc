@@ -38,7 +38,9 @@ namespace CodeInfo
 	// Information about types
 	extern FastVector<TypeInfo*>	typeInfo;
 	extern FastVector<AliasInfo>	aliasInfo;
-	extern unsigned int				classCount;
+
+	// A hash map with all class types
+	extern HashMap<TypeInfo*>		classMap;
 
 	// Поток комманд
 	// Command stream
@@ -77,7 +79,8 @@ namespace CodeInfo
 		// Find out the function type
 		TypeInfo	*bestFit = NULL;
 		// Search through active types
-		for(unsigned int i = classCount; i < typeInfo.size(); i++)
+		// $$$ improve
+		for(unsigned int i = 0; i < typeInfo.size(); i++)
 		{
 			TypeInfo *type = typeInfo[i];
 			if(type->funcType)

@@ -45,13 +45,11 @@ unsigned int ParseTypename(Lexeme** str)
 			return CodeInfo::aliasInfo[s].targetType->typeIndex + 1;
 		}
 	}
-	for(unsigned int s = 0, e = CodeInfo::classCount; s != e; s++)
+	TypeInfo **type = CodeInfo::classMap.find(hash);
+	if(type)
 	{
-		if(CodeInfo::typeInfo[s]->nameHash == hash)
-		{
-			(*str)++;
-			return s+1;
-		}
+		(*str)++;
+		return (*type)->typeIndex + 1;
 	}
 	return 0;
 }
