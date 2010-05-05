@@ -430,18 +430,18 @@ void	RunTests()
 
 #ifdef SPEED_TEST
 	nullcLoadModuleBySource("test.speed", "void draw_rect(int x, int y, int width, int height, int color);");
-	nullcAddModuleFunction("test.speed", (void (*)())speedTestStub, "draw_rect", 0);
+	nullcBindModuleFunction("test.speed", (void (*)())speedTestStub, "draw_rect", 0);
 #endif
 
 	nullcLoadModuleBySource("test.a", "import std.math; float4 a; a.x = 2;");
 	nullcLoadModuleBySource("test1", "char char_(char a); short short_(short a); int int_(int a); long long_(long a); float float_(float a); double double_(double a);");
 
-	nullcAddModuleFunction("test1", (void (*)())TestInt, "char_", 0);
-	nullcAddModuleFunction("test1", (void (*)())TestInt, "short_", 0);
-	nullcAddModuleFunction("test1", (void (*)())TestInt, "int_", 0);
-	nullcAddModuleFunction("test1", (void (*)())TestLong, "long_", 0);
-	nullcAddModuleFunction("test1", (void (*)())TestFloat, "float_", 0);
-	nullcAddModuleFunction("test1", (void (*)())TestDouble, "double_", 0);
+	nullcBindModuleFunction("test1", (void (*)())TestInt, "char_", 0);
+	nullcBindModuleFunction("test1", (void (*)())TestInt, "short_", 0);
+	nullcBindModuleFunction("test1", (void (*)())TestInt, "int_", 0);
+	nullcBindModuleFunction("test1", (void (*)())TestLong, "long_", 0);
+	nullcBindModuleFunction("test1", (void (*)())TestFloat, "float_", 0);
+	nullcBindModuleFunction("test1", (void (*)())TestDouble, "double_", 0);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
@@ -4671,16 +4671,16 @@ int RewriteB(int x)
 void	RunTests2()
 {
 	nullcLoadModuleBySource("func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp); void recall(int x);");
-	nullcAddModuleFunction("func.test", (void(*)())Recaller, "Recaller", 0);
-	nullcAddModuleFunction("func.test", (void(*)())Recaller2, "Recaller2", 0);
-	nullcAddModuleFunction("func.test", (void(*)())Recaller3, "Recaller3", 0);
-	nullcAddModuleFunction("func.test", (void(*)())RecallerPtr, "RecallerPtr", 0);
-	nullcAddModuleFunction("func.test", (void(*)())BubbleSortArray, "bubble", 0);
-	nullcAddModuleFunction("func.test", (void(*)())RecallerCS, "recall", 0);
+	nullcBindModuleFunction("func.test", (void(*)())Recaller, "Recaller", 0);
+	nullcBindModuleFunction("func.test", (void(*)())Recaller2, "Recaller2", 0);
+	nullcBindModuleFunction("func.test", (void(*)())Recaller3, "Recaller3", 0);
+	nullcBindModuleFunction("func.test", (void(*)())RecallerPtr, "RecallerPtr", 0);
+	nullcBindModuleFunction("func.test", (void(*)())BubbleSortArray, "bubble", 0);
+	nullcBindModuleFunction("func.test", (void(*)())RecallerCS, "recall", 0);
 
 	nullcLoadModuleBySource("func.rewrite", "int funcA(int x); int funcNew(int x);");
-	nullcAddModuleFunction("func.rewrite", (void(*)())RewriteA, "funcA", 0);
-	nullcAddModuleFunction("func.rewrite", (void(*)())RewriteB, "funcNew", 0);
+	nullcBindModuleFunction("func.rewrite", (void(*)())RewriteA, "funcA", 0);
+	nullcBindModuleFunction("func.rewrite", (void(*)())RewriteB, "funcNew", 0);
 
 const char	*testFunc1 =
 "import func.test;\r\n\

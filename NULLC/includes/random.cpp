@@ -14,7 +14,7 @@ namespace NULLCRandom
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.random", (void(*)())NULLCRandom::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.random", (void(*)())NULLCRandom::funcPtr, name, index)) return false;
 bool	nullcInitRandomModule()
 {
 	REGISTER_FUNC(srand, "srand", 0);

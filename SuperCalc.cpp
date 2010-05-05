@@ -149,6 +149,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	nullcInit("Modules\\");
 
+	char modulePath[MAX_PATH];
+	GetModuleFileName(NULL, modulePath, MAX_PATH);
+
 	memset(initError, 0, INIT_BUFFER_SIZE);
 
 	// in possible, load precompiled modules from nullclib.ncm
@@ -212,7 +215,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		strcat(initError, "ERROR: Failed to init std.gc module\r\n");
 
 	nullcLoadModuleBySource("ide.debug", "void _debugBreak();");
-	nullcAddModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);
+	nullcBindModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);
 
 	colorer = NULL;
 
@@ -1002,6 +1005,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			for(unsigned int i = 0; i < richEdits.size(); i++)
 			{
+				if(!TabbedFiles::GetTabInfo(hTabs, i).dirty)
+					continue;
 				if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
 				{
 					TabbedFiles::GetTabInfo(hTabs, i).dirty = false;

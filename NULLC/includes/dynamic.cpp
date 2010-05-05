@@ -93,7 +93,7 @@ namespace NULLCDynamic
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.dynamic", (void(*)())NULLCDynamic::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.dynamic", (void(*)())NULLCDynamic::funcPtr, name, index)) return false;
 bool	nullcInitDynamicModule(Linker* linker)
 {
 	NULLCDynamic::linker = linker;

@@ -128,12 +128,12 @@ namespace NULLCWindow
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("win.window", (void(*)())NULLCWindow::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("win.window", (void(*)())NULLCWindow::funcPtr, name, index)) return false;
 bool	nullcInitWindowModule()
 {
 	NULLCWindow::RegisterClass("NCWND", NULL);
 
-	if(!nullcAddModuleFunction("win.window_ex", (void(*)())NULLCWindow::WindowCreate, "Window", 0)) return false;
+	if(!nullcBindModuleFunction("win.window_ex", (void(*)())NULLCWindow::WindowCreate, "Window", 0)) return false;
 
 	REGISTER_FUNC(WindowSetTitle, "Window::SetTitle", 0);
 	REGISTER_FUNC(WindowSetPosition, "Window::SetPosition", 0);

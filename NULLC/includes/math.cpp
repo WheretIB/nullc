@@ -180,7 +180,7 @@ namespace NULLCMath
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcAddModuleFunction("std.math", (void(*)())NULLCMath::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.math", (void(*)())NULLCMath::funcPtr, name, index)) return false;
 bool	nullcInitMathModule()
 {
 	REGISTER_FUNC(Cos, "cos", 0);
