@@ -1192,14 +1192,14 @@ void NodeConvertPtr::TranslateToC(FILE *fOut)
 	{
 		fprintf(fOut, "__nullcMakeAutoRef((void*)");
 		first->TranslateToC(fOut);
-		fprintf(fOut, ", %d)", first->typeInfo->subType->typeIndex);
+		fprintf(fOut, ", __nullcTR[%d])", first->typeInfo->subType->typeIndex);
 	}else{
 		fprintf(fOut, "(");
 		typeInfo->OutputCType(fOut, "");
 		fprintf(fOut, ")");
 		fprintf(fOut, "__nullcGetAutoRef(");
 		first->TranslateToC(fOut);
-		fprintf(fOut, ", %d)", typeInfo->subType->typeIndex);
+		fprintf(fOut, ", __nullcTR[%d])", typeInfo->subType->typeIndex);
 	}
 }
 

@@ -1688,7 +1688,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 	}
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
 		lastFunc->type = FunctionInfo::LOCAL;
-	if(funcName[0] != '$' && funcName[0] != '#' && !(chartype_table[(unsigned char)funcName[0]] & ct_start_symbol))
+	if(funcName[0] != '$' && !(chartype_table[(unsigned char)funcName[0]] & ct_start_symbol))
 		lastFunc->visible = false;
 	currDefinedFunc.push_back(lastFunc);
 }

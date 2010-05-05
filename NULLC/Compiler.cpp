@@ -784,7 +784,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 				{
 					// Wrap in function
 					char	*functionName = (char*)AllocateString(func->nameLength + int(param->name.end - param->name.begin) + 3 + 12);
-					SafeSprintf(functionName, func->nameLength + int(param->name.end - param->name.begin) + 3 + 12, "#%s|%.*s|%d", func->name, param->name.end - param->name.begin, param->name.begin, CodeInfo::FindFunctionByPtr(func));
+					SafeSprintf(functionName, func->nameLength + int(param->name.end - param->name.begin) + 3 + 12, "$%s_%.*s_%d", func->name, param->name.end - param->name.begin, param->name.begin, CodeInfo::FindFunctionByPtr(func));
 
 					SelectTypeByPointer(NULL);
 					FunctionAdd(CodeInfo::lastKnownStartPos, functionName);
@@ -904,6 +904,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		translationTypes[CodeInfo::typeInfo[i]->originalIndex] = CodeInfo::typeInfo[i];
 
 	fprintf(fC, "#include \"runtime.h\"\r\n");
+	fprintf(fC, "// Typeid redirect table\r\n");
+	fprintf(fC, "static unsigned __nullcTR[%d];\r\n", CodeInfo::typeInfo.size());
 	fprintf(fC, "// Array classes\r\n");
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 	{
@@ -916,7 +918,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			type->OutputCType(fC, "");
 			fprintf(fC, "\r\n{\r\n\t");
 			type->subType->OutputCType(fC, "ptr");
-			fprintf(fC, "[%d];\r\n\t", type->arrSize);
+			fprintf(fC, "[%d];\r\n\t", type->arrSize + ((4 - (type->arrSize * type->subType->size % 4)) & 3));
 			type->OutputCType(fC, "");
 			fprintf(fC, "& set(unsigned index, ");
 			if(type->subType->arrLevel && type->subType->arrSize != TypeInfo::UNSIZED_ARRAY && type->subType->subType == typeChar)
@@ -1039,6 +1041,23 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	if(CodeInfo::nodeList.back())
 	{
 		fprintf(fC, "int %s()\r\n{\r\n", mainName);
+		for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+		{
+			TypeInfo *type = CodeInfo::typeInfo[i];
+			fprintf(fC, "\t__nullcTR[%d] = __nullcRegisterType(", i);
+			fprintf(fC, "%uu, ", type->GetFullNameHash());
+			fprintf(fC, "\"%s\", ", type->GetFullTypeName());
+			fprintf(fC, "%d, ", type->size);
+			fprintf(fC, "__nullcTR[%d], ", type->subType ? type->subType->typeIndex : 0);
+			if(type->arrLevel)
+				fprintf(fC, "%d, NULLC_ARRAY);\r\n", type->arrSize);
+			else if(type->refLevel)
+				fprintf(fC, "%d, NULLC_POINTER);\r\n", 1);
+			else if(type->funcType)
+				fprintf(fC, "%d, NULLC_FUNCTION);\r\n", type->funcType->paramCount);
+			else
+				fprintf(fC, "%d, NULLC_CLASS);\r\n", type->memberCount);
+		}
 		CodeInfo::nodeList.back()->TranslateToC(fC);
 		fprintf(fC, "}\r\n");
 	}

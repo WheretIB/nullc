@@ -133,11 +133,47 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 		stInfo.cb = sizeof(stInfo);
 
 		memset(&prInfo, 0, sizeof(prInfo));
-		DWORD res = CreateProcess("..\\..\\mingw\\bin\\gcc.exe", "gcc.exe -c runtime.cpp ..\\..\\projects\\SuperCalcOpen\\1test.cpp", NULL, NULL, false, 0, NULL, "..\\..\\mingw\\bin\\"/*".\\"*/, &stInfo, &prInfo);
+		char cmdLine[1024];
+		strcpy(cmdLine, "gcc.exe -o ..\\..\\projects\\SuperCalcOpen\\runnable.exe");
+		strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\1test.cpp");
+		strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\runtime.cpp");
+		if(strstr(code, "std.math"))
+		{
+			strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\std_math.cpp");
+			strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\std_math_bind.cpp");
+		}
+		if(strstr(code, "std.typeinfo"))
+		{
+			strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\std_typeinfo.cpp");
+			strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\std_typeinfo_bind.cpp");
+		}
+		DWORD res = CreateProcess("..\\..\\mingw\\bin\\gcc.exe", cmdLine, NULL, NULL, false, 0, NULL, "..\\..\\mingw\\bin\\"/*".\\"*/, &stInfo, &prInfo);
 		res = GetLastError();
 		WaitForSingleObject(prInfo.hProcess, 10000);
+		DWORD retCode;
+		GetExitCodeProcess(prInfo.hProcess, &retCode);
 		CloseHandle(prInfo.hProcess);
 		CloseHandle(prInfo.hThread);
+		if(!retCode)
+		{
+			memset(&stInfo, 0, sizeof(stInfo));
+			stInfo.cb = sizeof(stInfo);
+
+			memset(&prInfo, 0, sizeof(prInfo));
+			DWORD res = CreateProcess("runnable.exe", "runnable.exe", NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
+			res = GetLastError();
+			WaitForSingleObject(prInfo.hProcess, 10000);
+			GetExitCodeProcess(prInfo.hProcess, &retCode);
+			printf("C++: expected %s, got %d\r\n", expected, retCode);
+			if(atoi(expected) != (int)retCode)
+			{
+				printf("C++: failed\r\n", expected, retCode);
+			}
+			CloseHandle(prInfo.hProcess);
+			CloseHandle(prInfo.hThread);
+		}else{
+			printf("C++ compilation eror\r\n", expected, retCode);
+		}
 	}
 #endif
 
@@ -548,10 +584,15 @@ void	RunTests()
 		}
 	}
 //////////////////////////////////////////////////////////////////////////
-	//nullres bRes = CompileFile("Modules/std/math.nc");
-	//assert(bRes);
-	//nullcTranslateToC("std_math.cpp", "initStdMath");
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	nullres bRes = CompileFile("Modules/std/math.nc");
+	assert(bRes);
+	nullcTranslateToC("std_math.cpp", "initStdMath");
 
+	bRes = CompileFile("Modules/std/typeinfo.nc");
+	assert(bRes);
+	nullcTranslateToC("std_typeinfo.cpp", "initStdTypeInfo");
+#endif
 	//RunEulerTests();
 
 	// Number operation test
@@ -687,7 +728,7 @@ void	RunTests()
 				passed[t]++;
 		}
 	}
-	
+
 	const char	*testMislead = 
 "// Compiler mislead test\r\n\
 import std.math;\r\n\
@@ -855,7 +896,7 @@ return 5;";
 
 const char	*testAllInOne = 
 "// Old all-in-one test\r\n\
-double test(float x, float y){ /*teste*/return x**2*y; }\r\n\
+double test(float x, float y){ return x**2*y; }\r\n\
 int a=5;\r\n\
 float b=1;\r\n\
 float[3] c=14**2-134;\r\n\
@@ -1352,7 +1393,7 @@ int fib(int n, int ref calls)\r\n\
 	return fib(n-2, calls) + fib(n-1, calls);\r\n\
 }\r\n\
 int calls = 0;\r\n\
-return fib(/*40*/15, &calls);";
+return fib(15, &calls);";
 	printf("Call number test\r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -1372,7 +1413,7 @@ return fib(/*40*/15, &calls);";
 const char	*testNegate = 
 "double neg(double a){ return -a; }\r\n\
 double x = 5.0, nx;\r\n\
-for(int i = 0; i < /*50000000*/1000; i++)\r\n\
+for(int i = 0; i < 1000; i++)\r\n\
 nx = neg(x);\r\n\
 return nx;";
 	printf("Negate test\r\n");
@@ -1510,7 +1551,7 @@ return 3;";
 		}
 	}
 
-	
+
 const char	*testClass2 = 
 "// Class test 2\r\n\
 import std.math;\r\n\
