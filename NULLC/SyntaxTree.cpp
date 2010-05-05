@@ -40,15 +40,9 @@ void OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo)
 			if(fName[k] == ':' || fName[k] == '$' || fName[k] == '[' || fName[k] == ']')
 				fName[k] = '_';
 		}
-		// $$ improve
-		for(unsigned int k = 0; k < CodeInfo::typeInfo.size(); k++)
-		{
-			if(CodeInfo::typeInfo[k]->nameHash == funcInfo->nameHash)
-			{
-				strcat(fName, "__");
-				break;
-			}
-		}
+		TypeInfo **type = CodeInfo::classMap.find(funcInfo->nameHash);
+		if(type)
+			strcat(fName, "__");
 	}
 	unsigned int length = (unsigned int)strlen(fName);
 	if(fName[length-1] == '$')

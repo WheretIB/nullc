@@ -2573,7 +2573,6 @@ void TypeFinish()
 		AddTwoExpressionNode();
 
 	// Shift new types generated inside up, so that declaration will be in the correct order in C translation
-	// $$$ should this be done always? Module import can't create class type if new types were created during class definition.
 	for(unsigned int i = newType->originalIndex + 1; i < CodeInfo::typeInfo.size(); i++)
 		CodeInfo::typeInfo[i]->originalIndex--;
 	newType->originalIndex = CodeInfo::typeInfo.size() - 1;
@@ -2648,7 +2647,6 @@ void CreateRedirectionTables()
 				bestFuncList.push_back(func);
 		}
 
-		// $$$ improve
 		for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 		{
 			for(unsigned int k = 0; k < bestFuncList.size(); k++)
@@ -2732,9 +2730,19 @@ void CallbackInitialize()
 	typeObjectArray = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
 
 	CodeInfo::classMap.clear();
-	// Add build-in type info to hash map
+	CodeInfo::typeArrays.clear();
+	CodeInfo::typeFunctions.clear();
+	// Add build-in type info to hash map and special lists
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
 		CodeInfo::classMap.insert(CodeInfo::typeInfo[i]->GetFullNameHash(), CodeInfo::typeInfo[i]);
+		if(CodeInfo::typeInfo[i]->arrLevel)// && CodeInfo::typeInfo[i]->arrSize != TypeInfo::UNSIZED_ARRAY)
+			CodeInfo::typeArrays.push_back(CodeInfo::typeInfo[i]);
+		if(CodeInfo::typeInfo[i]->funcType)
+			CodeInfo::typeFunctions.push_back(CodeInfo::typeInfo[i]);
+	}
+
+
 }
 
 unsigned int GetGlobalSize()

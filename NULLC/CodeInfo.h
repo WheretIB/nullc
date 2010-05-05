@@ -41,6 +41,8 @@ namespace CodeInfo
 
 	// A hash map with all class types
 	extern HashMap<TypeInfo*>		classMap;
+	extern FastVector<TypeInfo*>	typeArrays;
+	extern FastVector<TypeInfo*>	typeFunctions;
 
 	// Поток комманд
 	// Command stream
@@ -78,33 +80,29 @@ namespace CodeInfo
 	{
 		// Find out the function type
 		TypeInfo	*bestFit = NULL;
-		// Search through active types
-		// $$$ improve
-		for(unsigned int i = 0; i < typeInfo.size(); i++)
+		// Search through function types
+		for(unsigned int i = 0; i < typeFunctions.size(); i++)
 		{
-			TypeInfo *type = typeInfo[i];
-			if(type->funcType)
+			TypeInfo *type = typeFunctions[i];
+			if(type->funcType->retType != retType)
+				continue;
+			if(type->funcType->paramCount != paramCount)
+				continue;
+			bool good = true;
+			unsigned int n = 0;
+			TypeInfo	**paramType = type->funcType->paramType;
+			for(T *curr = paramTypes; curr; curr = curr->next, n++)
 			{
-				if(type->funcType->retType != retType)
-					continue;
-				if(type->funcType->paramCount != paramCount)
-					continue;
-				bool good = true;
-				unsigned int n = 0;
-				TypeInfo	**paramType = type->funcType->paramType;
-				for(T *curr = paramTypes; curr; curr = curr->next, n++)
+				if(curr->varType != paramType[n])
 				{
-					if(curr->varType != paramType[n])
-					{
-						good = false;
-						break;
-					}
-				}
-				if(good)
-				{
-					bestFit = type;
+					good = false;
 					break;
 				}
+			}
+			if(good)
+			{
+				bestFit = type;
+				break;
 			}
 		}
 		// If none found, create new
@@ -127,6 +125,7 @@ namespace CodeInfo
 	#endif
 			bestFit->size = 4 + NULLC_PTR_SIZE;
 		}
+		typeFunctions.push_back(bestFit);
 		return bestFit;
 	}
 

@@ -252,6 +252,7 @@ void Compiler::ClearState()
 	memcpy(&CodeInfo::typeInfo[0], &buildInTypes[0], buildInTypes.size() * sizeof(TypeInfo*));
 	for(unsigned int i = 0; i < buildInTypes.size(); i++)
 	{
+		assert(CodeInfo::typeInfo[i]->typeIndex == i);
 		CodeInfo::typeInfo[i]->typeIndex = i;
 		if(CodeInfo::typeInfo[i]->refType && CodeInfo::typeInfo[i]->refType->typeIndex >= buildInTypes.size())
 			CodeInfo::typeInfo[i]->refType = NULL;
@@ -390,6 +391,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			case ExternTypeInfo::CAT_FUNCTION:
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX));
 				newInfo = CodeInfo::typeInfo.back();
+				CodeInfo::typeFunctions.push_back(newInfo);
 				newInfo->CreateFunctionType(CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset]]], tInfo->memberCount);
 
 				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
@@ -421,8 +423,10 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 						newInfo->size += 4 - (newInfo->size % 4);
 					}
 				}
+				CodeInfo::typeArrays.push_back(newInfo);
 				break;
 			case ExternTypeInfo::CAT_POINTER:
+				assert(typeRemap[tInfo->subType] < CodeInfo::typeInfo.size());
 				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, tempInfo->refLevel + 1, 0, 1, tempInfo, TypeInfo::NULLC_PTR_TYPE));
 				newInfo = CodeInfo::typeInfo.back();
