@@ -1948,6 +1948,8 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 	// external function call
 	{
 		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, cmd.argument);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 		EMIT_OP_RPTR(o_call, sNONE, rEAX, 4, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 	 
 		static int continueLabel = 0;

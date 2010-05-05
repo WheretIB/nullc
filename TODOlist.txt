@@ -18,8 +18,7 @@ auto[]
 sort
 stand-alone compiler and executor
 default function argument values are not saved in bytecode
-when external/internal function is overriden with internal/external function, pointers to those functions cannot be called (jit).
-external function call by pointer in NULLC doesn't leave any information for call stack trace.
+when external/internal function is overridden with internal/external function, pointers to those functions cannot be called (jit).
 
 DONE: ref variables - pointers
 DONE: multidimensional arrays
@@ -128,7 +127,7 @@ DONE: extended use of FindFirstFunctionIndex
 DONE: Add null pointer.
 DONE: vector
 DONE: list
-DONE: Fix module linkage with different set of base external functions. - no more base external funcitons
+DONE: Fix module linkage with different set of base external functions. - no more base external functions
 DONE: ability to save bytecode
 DONE: internal function call externally with parameters
 DONE: internal function call by pointer externally
@@ -138,3 +137,4 @@ DONE: auto ref function call redirection to function of current type
 DONE: Add ability to define inline arrays of types float, short and char.
 DONE: Add ability to set parameter stack base for x86 executor.
 DONE: call stack is correct in jit when there are various transitions from C->NULLC->C->NULLC->...
+DONE: external function call by pointer in NULLC leaves enough information for call stack trace.
