@@ -4687,6 +4687,30 @@ return test(2);";
 		}
 	}
 
+const char	*testFunc1Ptr =
+"import func.test;\r\n\
+auto RecallerPtr_ = Recaller;\r\n\
+auto Recaller2Ptr_ = Recaller2;\r\n\
+int inside(int a, b){ return a / b; }\r\n\
+int inside2(int a, b){ return RecallerPtr_(a, b); }\r\n\
+int test(int i)\r\n\
+{\r\n\
+	return Recaller2Ptr_(24, 2) * i;\r\n\
+}\r\n\
+return test(2);";
+	printf("NULLC function call externally test 1 (with pointers to functions)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunc1Ptr, testTarget[t], "24"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 const char	*testFunc2 =
 "import func.test;\r\n\
 int inside(int a, b){ return a / b; }\r\n\
@@ -4709,6 +4733,30 @@ return test(2);";
 		}
 	}
 
+const char	*testFunc2Ptr =
+"import func.test;\r\n\
+auto RecallerPtr_ = Recaller;\r\n\
+auto Recaller3Ptr_ = Recaller3;\r\n\
+int inside(int a, b){ return a / b; }\r\n\
+int inside2(int a, b){ return RecallerPtr_(a, b); }\r\n\
+int test(int i)\r\n\
+{\r\n\
+	return Recaller3Ptr_(24, 2) * i;\r\n\
+}\r\n\
+return test(2);";
+	printf("NULLC function call externally test 2 (with pointers to functions)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunc2Ptr, testTarget[t], "24"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 const char	*testFunc3 =
 "import func.test;\r\n\
 return RecallerPtr(auto(int i){ return -i; });";
@@ -4717,6 +4765,23 @@ return RecallerPtr(auto(int i){ return -i; });";
 	{
 		testCount[t]++;
 		if(RunCode(testFunc3, testTarget[t], "-14"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testFunc3Ptr =
+"import func.test;\r\n\
+auto RecallerPtr_ = RecallerPtr;\r\n\
+return RecallerPtr_(auto(int i){ return -i; });";
+	printf("NULLC function call externally test 3 (with pointers to functions)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunc3Ptr, testTarget[t], "-14"))
 		{
 			lastFailed = false;
 
