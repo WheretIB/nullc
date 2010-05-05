@@ -37,7 +37,6 @@ namespace CodeInfo
 	// Информация о типах
 	// Information about types
 	extern FastVector<TypeInfo*>	typeInfo;
-	extern FastVector<AliasInfo>	aliasInfo;
 
 	// A hash map with all class types
 	extern HashMap<TypeInfo*>		classMap;

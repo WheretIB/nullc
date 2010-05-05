@@ -235,7 +235,6 @@ Compiler::~Compiler()
 	CodeInfo::varInfo.clear();
 	CodeInfo::funcInfo.clear();
 	CodeInfo::typeInfo.clear();
-	CodeInfo::aliasInfo.clear();
 
 	NodeBreakOp::fixQueue.reset();
 	NodeContinueOp::fixQueue.reset();
@@ -264,7 +263,6 @@ void Compiler::ClearState()
 		CodeInfo::typeInfo[i]->fullName = NULL;
 
 	TypeInfo::SetPoolTop(typeTop);
-	CodeInfo::aliasInfo.clear();
 
 	CodeInfo::funcInfo.resize(0);
 	FunctionInfo::SetPoolTop(0);

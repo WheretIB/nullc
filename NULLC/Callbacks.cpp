@@ -2134,11 +2134,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		TypeInfo **type = CodeInfo::classMap.find(funcNameHash);
 		if(type)
 			autoRefToType = *type;
-		for(unsigned int i = 0; i < CodeInfo::aliasInfo.size() && !autoRefToType; i++)
-		{
-			if(CodeInfo::aliasInfo[i].nameHash == funcNameHash)
-				autoRefToType = CodeInfo::aliasInfo[i].targetType;
-		}
 		if(autoRefToType)
 		{
 			if(AddFunctionCallNode(pos, funcName, 1, true))
@@ -2604,11 +2599,7 @@ void TypeStop()
 
 void AddAliasType(InplaceStr aliasName)
 {
-	AliasInfo info;
-	info.targetType = currType;
-	info.name = aliasName;
-	info.nameHash = GetStringHash(aliasName.begin, aliasName.end);;
-	CodeInfo::aliasInfo.push_back(info);
+	CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
 }
 
 void AddUnfixedArraySize()
@@ -2736,13 +2727,11 @@ void CallbackInitialize()
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		CodeInfo::classMap.insert(CodeInfo::typeInfo[i]->GetFullNameHash(), CodeInfo::typeInfo[i]);
-		if(CodeInfo::typeInfo[i]->arrLevel)// && CodeInfo::typeInfo[i]->arrSize != TypeInfo::UNSIZED_ARRAY)
+		if(CodeInfo::typeInfo[i]->arrLevel)
 			CodeInfo::typeArrays.push_back(CodeInfo::typeInfo[i]);
 		if(CodeInfo::typeInfo[i]->funcType)
 			CodeInfo::typeFunctions.push_back(CodeInfo::typeInfo[i]);
 	}
-
-
 }
 
 unsigned int GetGlobalSize()

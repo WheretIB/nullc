@@ -22,7 +22,6 @@ CompilerError				CodeInfo::lastError;
 FastVector<FunctionInfo*>	CodeInfo::funcInfo;
 FastVector<VariableInfo*>	CodeInfo::varInfo;
 FastVector<TypeInfo*>		CodeInfo::typeInfo;
-FastVector<AliasInfo>		CodeInfo::aliasInfo;
 HashMap<TypeInfo*>			CodeInfo::classMap;
 FastVector<TypeInfo*>		CodeInfo::typeArrays;
 FastVector<TypeInfo*>		CodeInfo::typeFunctions;
@@ -504,7 +503,6 @@ void nullcTerminate()
 	CodeInfo::funcInfo.reset();
 	CodeInfo::varInfo.reset();
 	CodeInfo::typeInfo.reset();
-	CodeInfo::aliasInfo.reset();
 
 	CodeInfo::cmdList.reset();
 	CodeInfo::nodeList.reset();

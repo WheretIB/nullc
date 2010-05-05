@@ -5720,6 +5720,23 @@ return a_(5) * b_(5);";
 		}
 	}
 
+	nullcLoadModuleBySource("test.defargs", "int func(int a, b = 6){ return a * b; }");
+const char	*testDefaultFunctionArgumentExport =
+"import test.defargs;\r\n\
+return func(5) - func(10, 2);";
+	printf("Default function argument export and import\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testDefaultFunctionArgumentExport, testTarget[t], "10"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
