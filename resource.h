@@ -18,8 +18,9 @@
 #define ID_FILE_SAVE                    32771
 #define ID_FILE_LOAD                    32773
 #define ID_FILE_SAVEALL                 32774
-#define ID_PLACE_BREAK                  32775
 #define ID_TOGGLE_BREAK                 32775
+#define ID_RUN_DEBUG                    32777
+#define ID_RUN                          32778
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -28,7 +29,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        139
-#define _APS_NEXT_COMMAND_VALUE         32777
+#define _APS_NEXT_COMMAND_VALUE         32780
 #define _APS_NEXT_CONTROL_VALUE         1000
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
