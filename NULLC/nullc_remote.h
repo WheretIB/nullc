@@ -90,6 +90,9 @@ void PipeSendData(HANDLE pipe, PipeData &data, char* start, unsigned int count, 
 	LeaveCriticalSection(&pipeSection);
 }
 
+unsigned int csCount = 512;
+unsigned int *stackFrames = NULL;
+
 void PipeDebugBreak(unsigned int instruction)
 {
 	PipeData data;
@@ -109,6 +112,28 @@ void PipeDebugBreak(unsigned int instruction)
 	data.question = false;
 	PipeSendData(pipe, data, stackData, stackSize, stackSize);
 	
+	if(!stackFrames)
+		stackFrames = new unsigned int[csCount];
+	unsigned int count = 0;
+	nullcDebugBeginCallStack();
+	while(int address = nullcDebugGetStackFrame())
+	{
+		stackFrames[count++] = address;
+		if(count == csCount)
+		{
+			csCount *= 2;
+			unsigned int *newCS = new unsigned int[csCount];
+			memcpy(newCS, stackFrames, count * sizeof(unsigned int));
+			delete[] stackFrames;
+			stackFrames = newCS;
+		}
+	}
+	stackFrames[count++] = 0;
+
+	data.cmd = DEBUG_BREAK_CALLSTACK;
+	data.question = false;
+	PipeSendData(pipe, data, (char*)stackFrames, count, count * sizeof(unsigned int));
+
 	while(good)
 	{
 		EnterCriticalSection(&pipeSection);

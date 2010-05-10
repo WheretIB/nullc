@@ -174,6 +174,9 @@ namespace RemoteData
 
 	char				*stackData = NULL;
 	unsigned int		stackSize = 0;
+
+	unsigned int		callStackFrames = 0;
+	unsigned int		*callStack = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -921,16 +924,19 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 
 	unsigned int codeLine = ~0u;
 
-	unsigned int infoSize = 0;
-	NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
-	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-	const char *source = RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window);
+	unsigned int infoSize = stateRemote ? RemoteData::infoSize : 0;
+	NULLCCodeInfo *codeInfo = stateRemote ? RemoteData::codeInfo : nullcDebugCodeInfo(&infoSize);
 
-	unsigned int moduleSize = 0;
-	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
+	unsigned int moduleSize = stateRemote ? RemoteData::moduleCount : 0;
+	ExternModuleInfo *modules = stateRemote ? RemoteData::modules : nullcDebugModuleInfo(&moduleSize);
 
-	nullcDebugBeginCallStack();
-	while(int address = nullcDebugGetStackFrame())
+	unsigned int id = TabbedFiles::GetCurrentTab(stateRemote ? hAttachTabs : hTabs);
+	const char *source = RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window);
+
+	unsigned int csPos = 0;
+	if(stateRemote)
+		nullcDebugBeginCallStack();
+	while(int address = stateRemote ? RemoteData::callStack[csPos++] : nullcDebugGetStackFrame())
 	{
 		// Find corresponding function
 		int funcID = -1;
@@ -960,7 +966,7 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 					curr = next + 1;
 					codeLine++;
 				}
-				RichTextarea::SetStyleToLine(TabbedFiles::GetTabInfo(hTabs, id).window, codeLine, 1);
+				RichTextarea::SetStyleToLine(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window, codeLine, 1);
 			}
 		}
 
@@ -1020,7 +1026,7 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 		}
 	}
 
-	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+	HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window;
 	if(codeLine != ~0u)
 		RichTextarea::SetStyleToLine(wnd, codeLine, lastIsCurrent ? 3 : 2);
 	RichTextarea::UpdateArea(wnd);
@@ -1254,9 +1260,17 @@ DWORD WINAPI PipeThread(void* param)
 		data.cmd = DEBUG_BREAK_STACK;
 		RemoteData::stackData = PipeReceiveResponce(data);
 		RemoteData::stackSize = data.data.elemCount;
+
+		data.cmd = DEBUG_BREAK_CALLSTACK;
+		RemoteData::callStack = (unsigned int*)PipeReceiveResponce(data);
+		RemoteData::callStackFrames = data.data.elemCount;
+
 		FillVariableInfoTree(true);
+
 		delete[] RemoteData::stackData;
 		RemoteData::stackData = NULL;
+		delete[] RemoteData::callStack;
+		RemoteData::callStack = NULL;
 
 		WaitForSingleObject(breakResponse, INFINITE);
 
