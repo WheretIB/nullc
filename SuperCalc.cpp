@@ -755,11 +755,11 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 
 	for(unsigned int i = 0; i < variableCount; i++)
 	{
-		ExternTypeInfo	&type = codeTypes[vars[i].type];
+		ExternTypeInfo &type = codeTypes[vars[i].type];
 
 		char *it = name;
 		memset(name, 0, 256);
-		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", data+vars[i].offset, codeSymbols + type.offsetToName, codeSymbols + vars[i].offsetToName);
+		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", data + vars[i].offset, codeSymbols + type.offsetToName, codeSymbols + vars[i].offsetToName);
 
 		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + vars[i].offset));
@@ -865,9 +865,9 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 					it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + offset + lInfo.offset)].offsetToName);
 
 				localInfo.item.pszText = name;
-				TreeView_InsertItem(hVars, &localInfo);
+				lastItem = TreeView_InsertItem(hVars, &localInfo);
 
-				FillVariableInfo(codeTypes[lInfo.type], data + vars[i].offset, lastItem);
+				FillVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset, lastItem);
 
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
@@ -914,6 +914,88 @@ void RefreshBreakpoints()
 		RichTextarea::SetStyleToLine(breakpoints[pos].tab, breakpoints[pos].line, 4);
 	RichTextarea::UpdateArea(wnd);
 	RichTextarea::ResetUpdate(wnd);
+}
+
+void SuperCalcRun(bool debug)
+{
+	if(!runRes.finished)
+	{
+		TerminateThread(calcThread, 0);
+		ShowWindow(hContinue, SW_HIDE);
+		SetWindowText(hButtonCalc, "Run");
+		runRes.finished = true;
+		return;
+	}
+	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+	if(id == richEdits.size())
+		return;
+	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+	const char *source = RichTextarea::GetAreaText(wnd);
+	RichTextarea::ResetLineStyle(wnd);
+
+	for(unsigned int i = 0; i < richEdits.size(); i++)
+	{
+		if(!TabbedFiles::GetTabInfo(hTabs, i).dirty)
+			continue;
+		if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
+		{
+			TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
+			RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
+			InvalidateRect(hTabs, NULL, true);
+		}
+	}
+#ifndef _DEBUG
+	FreeConsole();
+#endif
+	SetWindowText(hCode, "");
+	SetWindowText(hResult, "");
+
+	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_VM);
+
+	nullres good = nullcBuild(source);
+	nullcSaveListing("asm.txt");
+
+	if(!good)
+	{
+		SetWindowText(hCode, nullcGetLastError());
+	}else{
+		if(debug)
+		{
+			unsigned int infoSize = 0;
+			NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
+
+			unsigned int moduleSize = 0;
+			ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
+			// Set all breakpoints
+			for(unsigned int pos = 0; pos < breakpoints.size(); pos++)
+			{
+				if(breakpoints[pos].tab == wnd)
+				{
+					unsigned int line = breakpoints[pos].line;
+					// Find source code position for this line
+					const char *pos = source;
+					while(line-- && NULL != (pos = strchr(pos, '\n')))
+					{
+						pos++;
+					}
+					if(pos)
+					{
+						// Get relative position
+						unsigned int relPos = (unsigned int)(pos - source);
+						// Move position to start of main module
+						relPos += modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize;
+						// Find instruction...
+						unsigned int infoID = 0;
+						while(codeInfo[infoID].sourceOffset < relPos)
+							infoID++;
+						nullcDebugAddBreakpoint(codeInfo[infoID].byteCodePos);
+					}
+				}
+			}
+		}
+		SetWindowText(hButtonCalc, "Abort");
+		calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
+	}
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
@@ -990,80 +1072,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			ShowWindow(hContinue, SW_HIDE);
 			SetEvent(breakResponse);
 		}else if((HWND)lParam == hButtonCalc){
-			if(!runRes.finished){
-				TerminateThread(calcThread, 0);
-				ShowWindow(hContinue, SW_HIDE);
-				SetWindowText(hButtonCalc, "Run");
-				runRes.finished = true;
-				break;
-			}
-			unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-			if(id == richEdits.size())
-				return 0;
-			HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
-			const char *source = RichTextarea::GetAreaText(wnd);
-			RichTextarea::ResetLineStyle(wnd);
-
-			for(unsigned int i = 0; i < richEdits.size(); i++)
-			{
-				if(!TabbedFiles::GetTabInfo(hTabs, i).dirty)
-					continue;
-				if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
-				{
-					TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
-					RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
-					InvalidateRect(hTabs, NULL, true);
-				}
-			}
-#ifndef _DEBUG
-			FreeConsole();
-#endif
-			SetWindowText(hCode, "");
-			SetWindowText(hResult, "");
-
-			nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_VM);
-
-			nullres good = nullcBuild(source);
-			nullcSaveListing("asm.txt");
-		
-			if(!good)
-			{
-				SetWindowText(hCode, nullcGetLastError());
-			}else{
-				unsigned int infoSize = 0;
-				NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
-
-				unsigned int moduleSize = 0;
-				ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
-				// Set all breakpoints
-				for(unsigned int pos = 0; pos < breakpoints.size(); pos++)
-				{
-					if(breakpoints[pos].tab == wnd)
-					{
-						unsigned int line = breakpoints[pos].line;
-						// Find source code position for this line
-						const char *pos = source;
-						while(line-- && NULL != (pos = strchr(pos, '\n')))
-						{
-							pos++;
-						}
-						if(pos)
-						{
-							// Get relative position
-							unsigned int relPos = (unsigned int)(pos - source);
-							// Move position to start of main module
-							relPos += modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize;
-							// Find instruction...
-							unsigned int infoID = 0;
-							while(codeInfo[infoID].sourceOffset < relPos)
-								infoID++;
-							nullcDebugAddBreakpoint(codeInfo[infoID].byteCodePos);
-						}
-					}
-				}
-				SetWindowText(hButtonCalc, "Abort");
-				calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
-			}
+			SuperCalcRun(true);
 		}else if((HWND)lParam == hNewFile){
 			GetWindowText(hNewFilename, fileName, 512);
 			SetWindowText(hNewFilename, "");
@@ -1209,6 +1218,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				RichTextarea::UpdateArea(wnd);
 				RichTextarea::ResetUpdate(wnd);
 			}
+			break;
+		case ID_RUN_DEBUG:
+			SuperCalcRun(true);
+			break;
+		case ID_RUN:
+			SuperCalcRun(false);
 			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
