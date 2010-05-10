@@ -985,10 +985,19 @@ void SuperCalcRun(bool debug)
 						// Move position to start of main module
 						relPos += modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize;
 						// Find instruction...
-						unsigned int infoID = 0;
-						while(codeInfo[infoID].sourceOffset < relPos)
-							infoID++;
-						nullcDebugAddBreakpoint(codeInfo[infoID].byteCodePos);
+						unsigned int bestID = ~0u, lastDistance = ~0u;
+						for(unsigned int infoID = 0; infoID < infoSize; infoID++)
+						{
+							if(codeInfo[infoID].sourceOffset >= relPos && (unsigned int)(codeInfo[infoID].sourceOffset - relPos) < lastDistance)
+							{
+								bestID = infoID;
+								lastDistance = (unsigned int)(codeInfo[infoID].sourceOffset - relPos);
+							}
+						}
+						if(bestID != ~0u)
+							nullcDebugAddBreakpoint(codeInfo[bestID].byteCodePos);
+						else
+							printf("Failed to add breakpoint at line %d\r\n", line);
 					}
 				}
 			}

@@ -661,6 +661,11 @@ char* nullcDebugSymbols()
 	return linker ? linker->exSymbols.data : NULL;
 }
 
+char* nullcDebugSource()
+{
+	return linker ? linker->exSource.data : NULL;
+}
+
 NULLCCodeInfo* nullcDebugCodeInfo(unsigned int *count)
 {
 	if(count && linker)
