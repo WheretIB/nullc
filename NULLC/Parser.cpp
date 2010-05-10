@@ -125,7 +125,7 @@ struct TypeHandler
 	TypeHandler	*next;
 };
 
-bool ParseSelectType(Lexeme** str)
+bool ParseSelectType(Lexeme** str, bool arrayType = true)
 {
 	if((*str)->type == lex_typeof)
 	{
@@ -195,7 +195,10 @@ bool ParseSelectType(Lexeme** str)
 			}
 			break;
 		case lex_obracket:
-			ParseArrayDefinition(str);
+			if(arrayType)
+				ParseArrayDefinition(str);
+			else
+				run = false;
 			break;
 		default:
 			run = false;
@@ -1077,10 +1080,8 @@ bool ParseTerminal(Lexeme** str)
 	{
 		(*str)++;
 		const char *pos = (*str)->pos;
-		int index;
-		if((index = ParseTypename(str)) == 0)
+		if(!ParseSelectType(str, false))
 			ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
-		CALLBACK(SelectTypeByIndex(index - 1));
 
 		CALLBACK(GetTypeSize((*str)->pos, false));
 

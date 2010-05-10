@@ -614,6 +614,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\Modules\std\range.nc"
+					>
+				</File>
+				<File
 					RelativePath=".\includes\string.cpp"
 					>
 				</File>

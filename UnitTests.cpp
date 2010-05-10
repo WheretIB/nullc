@@ -5917,6 +5917,50 @@ return test;";
 		}
 	}
 
+const char	*testFunctionTypeNew =
+"import std.range;\r\n\
+\r\n\
+auto a = { 1, 2, 3, 4, 5 };\r\n\
+auto b = new int ref()[a.size];\r\n\
+for(i in a, n in range(0, 4))\r\n\
+	b[n] = auto(){ return a[n]; };\r\n\
+\r\n\
+return b[0]() + b[1]() + b[4]();";
+	printf("new call with function type\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionTypeNew, testTarget[t], "15"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testTypeOfNew =
+"import std.range;\r\n\
+int test(){}\r\n\
+auto a = { 1, 2, 3, 4, 5 };\r\n\
+auto b = new typeof(test)[a.size];\r\n\
+for(i in a, n in range(0, 4))\r\n\
+	b[n] = auto(){ return a[n]; };\r\n\
+\r\n\
+return b[0]() + b[1]() + b[4]();";
+	printf("new call with typeof\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testTypeOfNew, testTarget[t], "15"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -6440,6 +6484,8 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("None of the types implement correct method", "int i = 0; int int:value(){ return *this; } auto ref u = &i; return u.value(15);", "ERROR: none of the member ::value functions can handle the supplied parameter list without conversions");
 
 	TEST_FOR_FAIL("Operator overload with no arguments", "int operator+(){ return 5; }", "ERROR: binary operator definition or overload must accept exactly two arguments");
+
+	TEST_FOR_FAIL("new auto;", "auto a = new auto;", "ERROR: sizeof(auto) is illegal");
 
 	//TEST_FOR_FAIL("parsing", "");
 
