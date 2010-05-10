@@ -25,6 +25,7 @@ ExternVarInfo*		nullcDebugVariableInfo(unsigned int *count);
 ExternFuncInfo*		nullcDebugFunctionInfo(unsigned int *count);
 ExternLocalInfo*	nullcDebugLocalInfo(unsigned int *count);
 char*				nullcDebugSymbols();
+char*				nullcDebugSource();
 
 struct NULLCCodeInfo
 {
