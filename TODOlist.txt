@@ -14,7 +14,6 @@ f. auto[]
 f. sort
 f. stand-alone executor
 b. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
-f. optimize variable searches
 f. typedefs should be scoped
 b. stack frames should be cleared in jit
 b. double->int and double->long conversion should be done using chop rounding mode
@@ -141,3 +140,4 @@ DONE: when external/internal function is overridden with internal/external funct
 DONE: default function argument values are saved in bytecode and imported
 DONE: Fix alignment of statically allocated variables when global allocator returns memory not aligned by 16 byte boundary.
 DONE: stand-alone compiler
+DONE: optimize variable searches

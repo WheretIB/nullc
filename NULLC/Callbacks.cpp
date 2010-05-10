@@ -922,8 +922,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// Find in variable list
-	int i = CodeInfo::FindVariableByName(hash);
-	if(i == -1)
+	VariableInfo **info = varMap.find(hash);
+	if(!info)
 	{
 		int fID = -1;
 		if(newType)
@@ -964,9 +964,10 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		// Create node that retrieves function address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(CodeInfo::funcInfo[fID]));
 	}else{
-		if(!CodeInfo::varInfo[i]->varType)
+		VariableInfo *vInfo = *info;
+		if(!vInfo->varType)
 			ThrowError(pos, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
-		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL && CodeInfo::varInfo[i]->isGlobal)
+		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL && vInfo->isGlobal)
 		{
 			TypeInfo::MemberVariable *curr = newType->firstVariable;
 			for(; curr; curr = curr->next)
@@ -987,19 +988,19 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 
 		// If we try to access external variable from local function
 		if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) &&
-			i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+			vInfo->blockDepth > currDefinedFunc[0]->vTopSize && vInfo->blockDepth <= currDefinedFunc.back()->vTopSize)
 		{
 			// If that variable is not in current scope, we have to get it through current closure
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			// Add variable to the list of function external variables
-			FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, CodeInfo::varInfo[i]);
+			FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, vInfo);
 
 			assert(currFunc->allParamSize % 4 == 0);
-			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(CodeInfo::varInfo[i]->varType)));
+			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(vInfo->varType)));
 		}else{
 			// Create node that places variable address on stack
-			CodeInfo::nodeList.push_back(new NodeGetAddress(CodeInfo::varInfo[i], CodeInfo::varInfo[i]->pos, CodeInfo::varInfo[i]->isGlobal, CodeInfo::varInfo[i]->varType));
-			if(CodeInfo::varInfo[i]->autoDeref)
+			CodeInfo::nodeList.push_back(new NodeGetAddress(vInfo, vInfo->pos, vInfo->isGlobal, vInfo->varType));
+			if(vInfo->autoDeref)
 				AddGetVariableNode(pos);
 		}
 	}

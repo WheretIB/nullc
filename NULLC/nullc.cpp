@@ -236,7 +236,6 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 	(void)bytecode;
 	(void)acceptRedefinitions;
 	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
-	return false;
 #endif
 	if(currExec == NULLC_X86)
 	{
@@ -251,7 +250,11 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 		return false;
 #endif
 	}
+#ifndef NULLC_NO_EXECUTOR
 	return true;
+#else
+	return false;
+#endif
 }
 
 nullres nullcBuild(const char* code)
@@ -352,8 +355,6 @@ nullres	nullcRunFunction(const char* funcName, ...)
 	}
 #else
 	(void)funcName;
-	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
-	return false;
 #endif
 	if(currExec == NULLC_VM)
 	{
