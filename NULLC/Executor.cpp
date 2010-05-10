@@ -327,7 +327,7 @@ void Executor::InitExecution()
 
 	genParams.reserve(4096);
 	genParams.clear();
-	genParams.resize(exLinker->globalVarSize);
+	genParams.resize((exLinker->globalVarSize + 0xf) & ~0xf);
 
 	SetUnmanagableRange(genParams.data, genParams.max);
 
@@ -826,12 +826,12 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				unsigned int oldSize = genParams.max;
 
 				unsigned int paramSize = exFunctions[cmd.argument].bytesToPop;
-				unsigned int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
-				genParams.reserve(genParams.size() + alignOffset + paramSize);
-				memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, paramSize);
+				assert(genParams.size() % 16 == 0);
+				genParams.reserve(genParams.size() + paramSize);
+				memcpy((char*)&genParams[genParams.size()], genStackPtr, paramSize);
 				genStackPtr += paramSize >> 2;
 
-				if(genParams.size() + alignOffset + paramSize >= oldSize)
+				if(genParams.size() + paramSize >= oldSize)
 					ExtendParameterStack(oldBase, oldSize, cmdStream);
 			}
 		}
@@ -854,9 +854,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				char* oldBase = &genParams[0];
 				unsigned int oldSize = genParams.max;
 
-				int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
-				genParams.reserve(genParams.size() + alignOffset + paramSize);
-				memcpy((char*)&genParams[genParams.size() + alignOffset], genStackPtr, paramSize);
+				assert(genParams.size() % 16 == 0);
+				genParams.reserve(genParams.size() + paramSize);
+				memcpy((char*)&genParams[genParams.size()], genStackPtr, paramSize);
 				genStackPtr += paramSize >> 2;
 				RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
 
@@ -865,7 +865,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				fcallStack.push_back(cmdStream);
 				cmdStream = cmdStreamBase + exFunctions[fID].address;
 
-				if(genParams.size() + alignOffset + paramSize >= oldSize)
+				if(genParams.size() + paramSize >= oldSize)
 					ExtendParameterStack(oldBase, oldSize, cmdStream);
 			}
 		}
@@ -911,8 +911,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr--;
 			*genStackPtr = paramBase;
 			paramBase = genParams.size();
-			// Align on a 16-byte boundary
-			paramBase += (paramBase % 16 != 0) ? (16 - (paramBase % 16)) : 0;
+			assert(paramBase % 16 == 0);
 			if(paramBase + cmd.argument >= genParams.max)
 			{
 				char* oldBase = &genParams[0];
