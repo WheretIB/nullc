@@ -17,6 +17,7 @@ namespace TabbedFiles
 
 	void AddTab(HWND wnd, const char* filename, HWND childWindow);
 	void SetNewTabWindow(HWND wnd, HWND newTab);
+	void RemoveTab(HWND wnd, unsigned int tab);
 
 	unsigned int GetCurrentTab(HWND wnd);
 	void	SetCurrentTab(HWND wnd, unsigned int id);

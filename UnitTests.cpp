@@ -106,7 +106,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 		if(goodRun)
 		{
 			const char* val = nullcGetResult();
-			varData = (char*)nullcGetVariableData();
+			varData = (char*)nullcGetVariableData(NULL);
 
 			if(expected && strcmp(val, expected) != 0)
 			{
@@ -119,9 +119,9 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 		}
 	}
 
-	varData = (char*)nullcGetVariableData();
+	varData = (char*)nullcGetVariableData(NULL);
 	varInfo = nullcDebugVariableInfo(&variableCount);
-	symbols = nullcDebugSymbols();
+	symbols = nullcDebugSymbols(NULL);
 
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	if(executor == NULLC_X86)
@@ -578,9 +578,9 @@ void	RunTests()
 				{
 					printf("Execution failed: %s\r\n", nullcGetLastError());
 				}else{
-					varData = (char*)nullcGetVariableData();
+					varData = (char*)nullcGetVariableData(NULL);
 					varInfo = nullcDebugVariableInfo(&variableCount);
-					symbols = nullcDebugSymbols();
+					symbols = nullcDebugSymbols(NULL);
 
 					if(varInfo)
 					{

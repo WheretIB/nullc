@@ -1325,8 +1325,10 @@ const char*	ExecutorX86::GetExecError()
 	return execError;
 }
 
-char* ExecutorX86::GetVariableData()
+char* ExecutorX86::GetVariableData(unsigned int *count)
 {
+	if(count)
+		*count = NULLC::dataHead->lastEDI;
 	return paramBase;
 }
 

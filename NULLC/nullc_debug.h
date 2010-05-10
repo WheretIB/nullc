@@ -12,7 +12,7 @@ extern "C"
 /************************************************************************/
 /*							Debug functions								*/
 
-void*				nullcGetVariableData();
+void*				nullcGetVariableData(unsigned int *count);
 
 unsigned int		nullcGetCurrentExecutor(void **exec);
 const void*			nullcGetModule(const char* path);
@@ -24,7 +24,7 @@ unsigned int*		nullcDebugTypeExtraInfo(unsigned int *count);
 ExternVarInfo*		nullcDebugVariableInfo(unsigned int *count);
 ExternFuncInfo*		nullcDebugFunctionInfo(unsigned int *count);
 ExternLocalInfo*	nullcDebugLocalInfo(unsigned int *count);
-char*				nullcDebugSymbols();
+char*				nullcDebugSymbols(unsigned int *count);
 char*				nullcDebugSource();
 
 struct NULLCCodeInfo
@@ -44,8 +44,7 @@ nullres				nullcDebugSetBreakFunction(void (*callback)(unsigned int));
 nullres				nullcDebugClearBreakpoints();
 // Line number can be translated into instruction number by using nullcDebugCodeInfo and nullcDebugModuleInfo
 nullres				nullcDebugAddBreakpoint(unsigned int instruction);
-
-//void				nullcDebugRemoveBreakpoint(unsigned int line);
+nullres				nullcDebugRemoveBreakpoint(unsigned int instruction);
 
 #ifdef __cplusplus
 }

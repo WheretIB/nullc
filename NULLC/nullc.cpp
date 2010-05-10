@@ -439,7 +439,7 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 nullres nullcSetGlobal(const char* name, void* data)
 {
 #ifndef NULLC_NO_EXECUTOR
-	char* mem = (char*)nullcGetVariableData();
+	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !data || !mem)
 		return 0;
 	unsigned int hash = GetStringHash(name);
@@ -461,7 +461,7 @@ nullres nullcSetGlobal(const char* name, void* data)
 void* nullcGetGlobal(const char* name)
 {
 #ifndef NULLC_NO_EXECUTOR
-	char* mem = (char*)nullcGetVariableData();
+	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !mem)
 		return NULL;
 	unsigned int hash = GetStringHash(name);
@@ -581,18 +581,19 @@ void nullcTerminate()
 //////////////////////////////////////////////////////////////////////////
 /*						nullc_debug.h functions							*/
 
-void* nullcGetVariableData()
+void* nullcGetVariableData(unsigned int *count)
 {
 	if(currExec == NULLC_VM)
 	{
 #ifndef NULLC_NO_EXECUTOR
-		return executor->GetVariableData();
+		return executor->GetVariableData(count);
 #endif
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		return executorX86->GetVariableData();
+		return executorX86->GetVariableData(count);
 #endif
 	}
+	(void)count;
 	return NULL;
 }
 
@@ -656,8 +657,10 @@ ExternLocalInfo* nullcDebugLocalInfo(unsigned int *count)
 	return linker ? linker->exLocals.data : NULL;
 }
 
-char* nullcDebugSymbols()
+char* nullcDebugSymbols(unsigned int *count)
 {
+	if(count && linker)
+		*count = linker->exSymbols.size();
 	return linker ? linker->exSymbols.data : NULL;
 }
 
@@ -759,5 +762,26 @@ nullres nullcDebugAddBreakpoint(unsigned int instruction)
 	}
 	return true;
 }
+
+nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
+{
+	if(!executor)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	if(currExec != NULLC_VM)
+	{
+		nullcLastError = "ERROR: breakpoints are supported only under VM";
+		return false;
+	}
+	if(!executor->RemoveBreakpoint(instruction))
+	{
+		nullcLastError = executor->GetExecError();
+		return false;
+	}
+	return true;
+}
+
 #endif
 

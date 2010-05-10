@@ -67,6 +67,10 @@ HWND hCode;			// disabled text area for error messages and other information
 HWND hVars;			// disabled text area that shows values of all variables in global scope
 HWND hStatus;		// Main window status bar
 
+HWND hAttachPanel, hAttachList, hAttachDo, hAttachBack, hAttachTabs;
+bool stateAttach = false, stateRemote = false;
+CRITICAL_SECTION	pipeSection;
+
 unsigned int areaWidth = 400, areaHeight = 300;
 
 HFONT	fontMonospace, fontDefault;
@@ -80,6 +84,7 @@ struct Breakpoint
 };
 
 std::vector<HWND>	richEdits;
+std::vector<HWND>	attachedEdits;
 std::vector<Breakpoint>	breakpoints;
 
 const unsigned int INIT_BUFFER_SIZE = 4096;
@@ -88,6 +93,90 @@ char	initError[INIT_BUFFER_SIZE];
 // for text update
 bool needTextUpdate;
 DWORD lastUpdate;
+
+//////////////////////////////////////////////////////////////////////////
+// Remote debugging
+enum DebugCommand
+{
+	DEBUG_REPORT_INFO,
+	DEBUG_MODULE_INFO,
+	DEBUG_MODULE_NAMES,
+	DEBUG_SOURCE_INFO,
+	DEBUG_TYPE_INFO,
+	DEBUG_VARIABLE_INFO,
+	DEBUG_FUNCTION_INFO,
+	DEBUG_LOCAL_INFO,
+	DEBUG_TYPE_EXTRA_INFO,
+	DEBUG_SYMBOL_INFO,
+	DEBUG_CODE_INFO,
+	DEBUG_BREAK_SET,
+	DEBUG_BREAK_HIT,
+	DEBUG_BREAK_CONTINUE,
+	DEBUG_BREAK_STACK,
+	DEBUG_BREAK_CALLSTACK,
+	DEBUG_DETACH,
+};
+
+struct PipeData
+{
+	DebugCommand	cmd;
+	bool			question;
+
+	union
+	{
+		struct Report
+		{
+			unsigned int	pID;
+			char			module[256];
+		} report;
+		struct Data
+		{
+			unsigned int	wholeSize;
+			unsigned int	dataSize;
+			unsigned int	elemCount;
+			char			data[512];
+		} data;
+		struct Debug
+		{
+			unsigned int	breakInst;
+			bool			breakSet;
+		} debug;
+	};
+};
+HANDLE	debugPipe = INVALID_HANDLE_VALUE;
+HANDLE	pipeThread = INVALID_HANDLE_VALUE;
+
+namespace RemoteData
+{
+	ExternModuleInfo	*modules = NULL;
+	unsigned int		moduleCount = 0;
+	char				*moduleNames = NULL;
+
+	unsigned int		infoSize = 0;
+	NULLCCodeInfo		*codeInfo = NULL;
+
+	char				*sourceCode = NULL;
+
+	unsigned int		varCount = 0;
+	ExternVarInfo		*vars = NULL;
+
+	unsigned int		typeCount = 0;
+	ExternTypeInfo		*types = NULL;
+
+	unsigned int		funcCount = 0;
+	ExternFuncInfo		*functions = NULL;
+
+	unsigned int		localCount = 0;
+	ExternLocalInfo		*locals = NULL;
+
+	unsigned int		*typeExtra = NULL;
+	char				*symbols = NULL;
+
+	char				*stackData = NULL;
+	unsigned int		stackSize = 0;
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
 void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
@@ -233,6 +322,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	if(!nullcDebugSetBreakFunction(IDEDebugBreakEx))
 		strcat(initError, nullcGetLastError());
 
+	if(!InitializeCriticalSectionAndSpinCount(&pipeSection, 0x80000400))
+		strcat(initError, "Failed to create critical section for remote debugging");
+
 	HACCEL hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDR_SHORTCUTS);
 
 	// Main message loop:
@@ -245,6 +337,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		}
 	}
 	delete colorer;
+	DeleteCriticalSection(&pipeSection);
 
 	nullcTerminate();
 
@@ -377,7 +470,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	INITCOMMONCONTROLSEX commControlTypes;
 	commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
-	commControlTypes.dwICC = ICC_TREEVIEW_CLASSES;
+	commControlTypes.dwICC = ICC_TREEVIEW_CLASSES | ICC_LISTVIEW_CLASSES;
 	int commControlsAvailable = InitCommonControlsEx(&commControlTypes);
 	if(!commControlsAvailable)
 		return 0;
@@ -391,6 +484,10 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	hTabs = CreateWindow("NULLCTABS", "tabs", WS_VISIBLE | WS_CHILD, 5, 4, 800, 20, hWnd, 0, hInstance, 0);
 	if(!hTabs)
+		return 0;
+
+	hAttachTabs = CreateWindow("NULLCTABS", "tabs", WS_CHILD, 5, 4, 800, 20, hWnd, 0, hInstance, 0);
+	if(!hAttachTabs)
 		return 0;
 
 	// Load tab information
@@ -488,6 +585,50 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	PostMessage(hWnd, WM_SIZE, 0, (394 << 16) + (900 - 16));
 
+	hAttachPanel = CreateWindow("STATIC", "", WS_CHILD | SS_ETCHEDFRAME, 5, 5, 190, 60, hWnd, NULL, hInstance, NULL);
+	hAttachList = CreateWindow(WC_LISTVIEW, "", WS_CHILD | WS_VISIBLE | LVS_REPORT, 10, 10, 500, 400, hAttachPanel, NULL, hInstance, NULL);
+
+	hAttachDo = CreateWindow("BUTTON", "Attach to process", WS_CHILD, 5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
+	SendMessage(hAttachDo, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	hAttachBack = CreateWindow("BUTTON", "Cancel", WS_CHILD, 110, 185, 100, 30, hWnd, NULL, hInstance, NULL);
+	SendMessage(hAttachBack, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	ListView_SetExtendedListViewStyle(hAttachList, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+
+	LVCOLUMN lvColumn;
+	lvColumn.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+	lvColumn.iSubItem = 0;
+	lvColumn.pszText = "Pipe";
+	lvColumn.cx = 200;
+	lvColumn.fmt = LVCFMT_LEFT;
+	ListView_InsertColumn(hAttachList, 0, &lvColumn);
+
+	lvColumn.iSubItem = 1;
+	lvColumn.pszText = "Application";
+	lvColumn.cx = 400;
+	lvColumn.fmt = LVCFMT_LEFT;
+	ListView_InsertColumn(hAttachList, 1, &lvColumn);
+
+	lvColumn.iSubItem = 2;
+	lvColumn.pszText = "PID";
+	lvColumn.cx = 50;
+	lvColumn.fmt = LVCFMT_LEFT;
+	ListView_InsertColumn(hAttachList, 2, &lvColumn);
+
+	for(unsigned int i = 0; i < 16; i++)
+	{
+		LVITEM lvItem;
+		lvItem.mask = LVIF_TEXT | LVIF_STATE;
+		lvItem.state = 0;
+		lvItem.stateMask = 0;
+
+		lvItem.iItem = i;
+		lvItem.iSubItem = 0;
+		lvItem.pszText = "";
+		ListView_InsertItem(hAttachList, &lvItem);
+	}
+
 	SetTimer(hWnd, 1, 500, 0);
 
 	return TRUE;
@@ -504,6 +645,7 @@ int	safeprintf(char* dst, size_t size, const char* src, ...)
 	return result;
 }
 
+ExternVarInfo	*codeVars = NULL;
 ExternTypeInfo	*codeTypes = NULL;
 ExternFuncInfo	*codeFuntions = NULL;
 ExternLocalInfo	*codeLocals = NULL;
@@ -557,6 +699,8 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 	unsigned int arrSize = (type.arrSize == ~0u) ? *(unsigned int*)(ptr + 4) : type.arrSize;
 	if(type.arrSize == ~0u)
 	{
+		if(stateRemote)
+			return;
 		arrSize = *(unsigned int*)(ptr + 4);
 		ptr = *(char**)ptr;
 	}
@@ -739,40 +883,40 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 	helpInsert.item.cchTextMax = 0;
 	HTREEITEM	lastItem;
 
-	char	*data = (char*)nullcGetVariableData();
+	char	*data = stateRemote ? RemoteData::stackData : (char*)nullcGetVariableData(NULL);
 
-	unsigned int	variableCount = 0;
-	unsigned int	functionCount = 0;
-	ExternVarInfo	*vars = nullcDebugVariableInfo(&variableCount);
-	codeTypes		= nullcDebugTypeInfo(NULL);
-	codeFuntions	= nullcDebugFunctionInfo(&functionCount);
-	codeLocals		= nullcDebugLocalInfo(NULL);
-	codeTypeExtra	= nullcDebugTypeExtraInfo(NULL);
-	codeSymbols		= nullcDebugSymbols();
+	unsigned int	variableCount = stateRemote ? RemoteData::varCount : 0;
+	unsigned int	functionCount = stateRemote ? RemoteData::funcCount : 0;
+	codeVars		= stateRemote ? RemoteData::vars : nullcDebugVariableInfo(&variableCount);
+	codeTypes		= stateRemote ? RemoteData::types : nullcDebugTypeInfo(NULL);
+	codeFuntions	= stateRemote ? RemoteData::functions : nullcDebugFunctionInfo(&functionCount);
+	codeLocals		= stateRemote ? RemoteData::locals : nullcDebugLocalInfo(NULL);
+	codeTypeExtra	= stateRemote ? RemoteData::typeExtra : nullcDebugTypeExtraInfo(NULL);
+	codeSymbols		= stateRemote ? RemoteData::symbols : nullcDebugSymbols(NULL);
 
 	char name[256];
 	unsigned int offset = 0;
 
 	for(unsigned int i = 0; i < variableCount; i++)
 	{
-		ExternTypeInfo &type = codeTypes[vars[i].type];
+		ExternTypeInfo &type = codeTypes[codeVars[i].type];
 
 		char *it = name;
 		memset(name, 0, 256);
-		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", data + vars[i].offset, codeSymbols + type.offsetToName, codeSymbols + vars[i].offsetToName);
+		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", data + codeVars[i].offset, codeSymbols + type.offsetToName, codeSymbols + codeVars[i].offsetToName);
 
 		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + vars[i].offset));
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + codeVars[i].offset));
 		else if(&type == &codeTypes[8])	// for typeid
-			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + vars[i].offset)].offsetToName);
+			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + codeVars[i].offset)].offsetToName);
 
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-		FillVariableInfo(type, data + vars[i].offset, lastItem);
+		FillVariableInfo(type, data + codeVars[i].offset, lastItem);
 
-		if(vars[i].offset + type.size > offset)
-			offset = vars[i].offset + type.size;
+		if(codeVars[i].offset + type.size > offset)
+			offset = codeVars[i].offset + type.size;
 	}
 
 	unsigned int codeLine = ~0u;
@@ -916,6 +1060,71 @@ void RefreshBreakpoints()
 	RichTextarea::ResetUpdate(wnd);
 }
 
+unsigned int ConvertPositionToInstruction(unsigned int relPos, unsigned int infoSize, NULLCCodeInfo* codeInfo)
+{
+	// Find instruction...
+	unsigned int bestID = ~0u, lastDistance = ~0u;
+	for(unsigned int infoID = 0; infoID < infoSize; infoID++)
+	{
+		if(codeInfo[infoID].sourceOffset >= relPos && (unsigned int)(codeInfo[infoID].sourceOffset - relPos) < lastDistance)
+		{
+			bestID = infoID;
+			lastDistance = (unsigned int)(codeInfo[infoID].sourceOffset - relPos);
+		}
+	}
+	if(bestID != ~0u)
+		return codeInfo[bestID].byteCodePos;
+	return ~0u;
+}
+
+unsigned int ConvertLineToInstruction(const char *source, unsigned int line, const char* fullSource, unsigned int infoSize, NULLCCodeInfo *codeInfo, unsigned int moduleSize, ExternModuleInfo *modules)
+{
+	// Find source code position for this line
+	const char *pos = source;
+	while(line-- && NULL != (pos = strchr(pos, '\n')))
+		pos++;
+	if(pos)
+	{
+		// Get relative position
+		unsigned int relPos = (unsigned int)(pos - source);
+		// Find module, where this source code is contained
+		unsigned int shiftToLastModule = modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize;
+		for(unsigned int module = 0; module < moduleSize; module++)
+		{
+			if(strcmp(source, fullSource + modules[module].sourceOffset) == 0)
+			{
+				relPos += modules[module].sourceOffset;
+				shiftToLastModule = 0;
+				break;
+			}
+		}
+		// Move position to start of main module
+		relPos += shiftToLastModule;
+		return ConvertPositionToInstruction(relPos, infoSize, codeInfo);
+	}
+	return ~0u;
+}
+
+void SuperCalcSetBreakpoints()
+{
+	nullcDebugClearBreakpoints();
+	unsigned int infoSize = 0;
+	NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
+
+	const char *fullSource = nullcDebugSource();
+
+	unsigned int moduleSize = 0;
+	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
+	// Set all breakpoints
+	for(unsigned int id = 0; id < breakpoints.size(); id++)
+	{
+		unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(breakpoints[id].tab), breakpoints[id].line, fullSource, infoSize, codeInfo, moduleSize, modules);
+		if(inst != ~0u)
+			nullcDebugAddBreakpoint(inst);
+		else
+			printf("Failed to add breakpoint at line %d\r\n", breakpoints[id].line);
+	}
+}
 void SuperCalcRun(bool debug)
 {
 	if(!runRes.finished)
@@ -961,50 +1170,170 @@ void SuperCalcRun(bool debug)
 	}else{
 		if(debug)
 		{
-			unsigned int infoSize = 0;
-			NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
-
-			unsigned int moduleSize = 0;
-			ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
-			// Set all breakpoints
-			for(unsigned int pos = 0; pos < breakpoints.size(); pos++)
-			{
-				if(breakpoints[pos].tab == wnd)
-				{
-					unsigned int line = breakpoints[pos].line;
-					// Find source code position for this line
-					const char *pos = source;
-					while(line-- && NULL != (pos = strchr(pos, '\n')))
-					{
-						pos++;
-					}
-					if(pos)
-					{
-						// Get relative position
-						unsigned int relPos = (unsigned int)(pos - source);
-						// Move position to start of main module
-						relPos += modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize;
-						// Find instruction...
-						unsigned int bestID = ~0u, lastDistance = ~0u;
-						for(unsigned int infoID = 0; infoID < infoSize; infoID++)
-						{
-							if(codeInfo[infoID].sourceOffset >= relPos && (unsigned int)(codeInfo[infoID].sourceOffset - relPos) < lastDistance)
-							{
-								bestID = infoID;
-								lastDistance = (unsigned int)(codeInfo[infoID].sourceOffset - relPos);
-							}
-						}
-						if(bestID != ~0u)
-							nullcDebugAddBreakpoint(codeInfo[bestID].byteCodePos);
-						else
-							printf("Failed to add breakpoint at line %d\r\n", line);
-					}
-				}
-			}
+			// Cache all source code in linear form
+			for(unsigned int i = 0; i < richEdits.size(); i++)
+				RichTextarea::GetAreaText(richEdits[i]);
+			SuperCalcSetBreakpoints();
 		}
 		SetWindowText(hButtonCalc, "Abort");
 		calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
 	}
+}
+
+bool PipeSendRequest(PipeData &data)
+{
+	DWORD send = 0;
+	EnterCriticalSection(&pipeSection);
+	DWORD good = WriteFile(debugPipe, &data, sizeof(data), &send, NULL);
+	LeaveCriticalSection(&pipeSection);
+	if(!good || send != sizeof(data))
+	{
+		MessageBox(hWnd, "Failed to send data through pipe", "ERROR", MB_OK);
+		return false;
+	}
+	return true;
+}
+
+char* PipeReceiveResponce(PipeData &data)
+{
+	EnterCriticalSection(&pipeSection);
+	unsigned int recvSize = 0;
+	DebugCommand cmd = data.cmd;
+	char *rawData = NULL;
+	do
+	{
+		DWORD send = 0;
+		DWORD good = ReadFile(debugPipe, &data, sizeof(data), &send, NULL);
+		if(!good || send != sizeof(data) || data.cmd != cmd || data.question)
+		{
+			delete[] rawData;
+			MessageBox(hWnd, "Failed to receive data through pipe", "ERROR", MB_OK);
+			LeaveCriticalSection(&pipeSection);
+			return NULL;
+		}
+		if(!recvSize)
+			rawData = new char[data.data.wholeSize];
+		memcpy(rawData + recvSize, data.data.data, data.data.dataSize);
+		recvSize += data.data.dataSize;
+	}while(recvSize < data.data.wholeSize);
+	LeaveCriticalSection(&pipeSection);
+	return rawData;
+}
+
+DWORD WINAPI PipeThread(void* param)
+{
+	PipeData data;
+
+	while(!param)
+	{
+		DWORD send = 0;
+		EnterCriticalSection(&pipeSection);
+		PeekNamedPipe(debugPipe, NULL, 0, NULL, &send, NULL);
+		if(!send)
+		{
+			LeaveCriticalSection(&pipeSection);
+			Sleep(64);
+			continue;
+		}
+		DWORD good = ReadFile(debugPipe, &data, sizeof(data), &send, NULL);
+		LeaveCriticalSection(&pipeSection);
+		if(!good || send != sizeof(data))
+		{
+			MessageBox(hWnd, "Failed to receive data through pipe (PipeThread)", "Error", MB_OK);
+			break;
+		}
+		if(data.cmd != DEBUG_BREAK_HIT)
+		{
+			PipeSendRequest(data);
+			Sleep(64);
+			continue;
+		}
+		ShowWindow(hContinue, SW_SHOW);
+		RefreshBreakpoints();
+
+		data.cmd = DEBUG_BREAK_STACK;
+		RemoteData::stackData = PipeReceiveResponce(data);
+		RemoteData::stackSize = data.data.elemCount;
+		FillVariableInfoTree(true);
+		delete[] RemoteData::stackData;
+		RemoteData::stackData = NULL;
+
+		WaitForSingleObject(breakResponse, INFINITE);
+
+		data.cmd = DEBUG_BREAK_CONTINUE;
+		data.question = false;
+		if(!PipeSendRequest(data))
+			break;
+	}
+	
+	ExitThread(0);
+}
+
+unsigned int PipeReuqestData(DebugCommand cmd, void **ptr)
+{
+	PipeData data;
+	data.cmd = cmd;
+	data.question = true;
+	if(!PipeSendRequest(data))
+	{
+		MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+		return 0;
+	}
+	*ptr = (ExternModuleInfo*)PipeReceiveResponce(data);
+	if(!*ptr)
+	{
+		MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+		return 0;
+	}
+	return data.data.elemCount;
+}
+
+void PipeInit()
+{
+	using namespace RemoteData;
+
+	// Start by retrieving source and module information
+	moduleCount = PipeReuqestData(DEBUG_MODULE_INFO, (void**)&modules);
+	PipeReuqestData(DEBUG_MODULE_NAMES, (void**)&moduleNames);
+	char *moduleNamesTmp = moduleNames;
+	PipeReuqestData(DEBUG_SOURCE_INFO, (void**)&sourceCode);
+	infoSize = PipeReuqestData(DEBUG_CODE_INFO, (void**)&codeInfo);
+
+	typeCount = PipeReuqestData(DEBUG_TYPE_INFO, (void**)&types);
+	funcCount = PipeReuqestData(DEBUG_FUNCTION_INFO, (void**)&functions);
+	varCount = PipeReuqestData(DEBUG_VARIABLE_INFO, (void**)&vars);
+	localCount = PipeReuqestData(DEBUG_LOCAL_INFO, (void**)&locals);
+	PipeReuqestData(DEBUG_TYPE_EXTRA_INFO, (void**)&typeExtra);
+	PipeReuqestData(DEBUG_SYMBOL_INFO, (void**)&symbols);
+
+	char message[1024], *pos = message;
+	message[0] = 0;
+
+	for(unsigned int i = 0; i < attachedEdits.size(); i++)
+		DestroyWindow(attachedEdits[i]);
+	attachedEdits.clear();
+	for(unsigned int i = 0; i < moduleCount; i++)
+	{
+		modules[i].name = moduleNamesTmp;
+		moduleNamesTmp += strlen(moduleNamesTmp) + 1;
+		pos += safeprintf(pos, 1024 - (pos - message), "Received information about module '%s'\r\n", modules[i].name);
+
+		attachedEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, hWnd, NULL, hInst, NULL));
+		TabbedFiles::AddTab(hAttachTabs, modules[i].name, attachedEdits.back());
+		RichTextarea::SetAreaText(attachedEdits.back(), sourceCode + modules[i].sourceOffset);
+		UpdateWindow(attachedEdits.back());
+	}
+	attachedEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, hWnd, NULL, hInst, NULL));
+	TabbedFiles::AddTab(hAttachTabs, "__last.nc", attachedEdits.back());
+	RichTextarea::SetAreaText(attachedEdits.back(), sourceCode + modules[moduleCount-1].sourceOffset + modules[moduleCount-1].sourceSize);
+	UpdateWindow(attachedEdits.back());
+
+	SetWindowText(hCode, message);
+
+	TabbedFiles::SetCurrentTab(hAttachTabs, moduleCount);
+	ShowWindow(attachedEdits.back(), SW_SHOW);
+
+	pipeThread = CreateThread(NULL, 1024*1024, PipeThread, NULL, NULL, 0);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
@@ -1029,6 +1358,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		breakResponse = CreateEvent(NULL, false, false, "NULLC Debug Break Continue Event");
 		break;
 	case WM_DESTROY:
+		if(hWnd == ::hWnd)
 		{
 			FILE *tabInfo = fopen("nullc_tab.cfg", "wb");
 			for(unsigned int i = 0; i < richEdits.size(); i++)
@@ -1036,10 +1366,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				fprintf(tabInfo, "%s\r\n", TabbedFiles::GetTabInfo(hTabs, i).name);
 				DestroyWindow(richEdits[i]);
 			}
+			for(unsigned int i = 0; i < attachedEdits.size(); i++)
+				DestroyWindow(attachedEdits[i]);
 			fclose(tabInfo);
+			RichTextarea::UnregisterTextarea();
+			PostQuitMessage(0);
 		}
-		RichTextarea::UnregisterTextarea();
-		PostQuitMessage(0);
 		break;
 	case WM_USER + 1:
 		SetWindowText(hButtonCalc, "Run");
@@ -1121,6 +1453,108 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
 				TabbedFiles::GetTabInfo(hTabs, (int)richEdits.size() - 1).dirty = true;
 			}
+		}else if((HWND)lParam == hAttachBack){
+			ShowWindow(hTabs, SW_SHOW);
+			ShowWindow(hButtonCalc, SW_SHOW);
+			ShowWindow(hResult, SW_SHOW);
+			ShowWindow(hJITEnabled, SW_SHOW);
+			ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_SHOW);
+
+			ShowWindow(hAttachPanel, SW_HIDE);
+			ShowWindow(hAttachDo, SW_HIDE);
+			ShowWindow(hAttachBack, SW_HIDE);
+			ShowWindow(hAttachTabs, SW_HIDE);
+
+			ShowWindow(hContinue, SW_HIDE);
+
+			if(stateRemote)
+			{
+				// Kill debug tracking
+				TerminateThread(pipeThread, 0);
+				// Send debug detach and continue commands
+				PipeData data;
+				data.cmd = DEBUG_DETACH;
+				data.question = false;
+				if(!PipeSendRequest(data))
+					MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+				// Remove text area windows and breakpoints
+				for(unsigned int i = 0; i < attachedEdits.size(); i++)
+				{
+					for(unsigned int id = 0; id < breakpoints.size(); id++)
+					{
+						if(breakpoints[id].tab == attachedEdits[i])
+						{
+							if(breakpoints.size() == 1)
+							{
+								breakpoints.clear();
+							}else{
+								breakpoints[id] = breakpoints.back();
+								breakpoints.pop_back();
+							}
+						}
+					}
+					TabbedFiles::RemoveTab(hAttachTabs, 0);
+					DestroyWindow(attachedEdits[i]);
+				}
+				// Destroy data
+				delete[] RemoteData::modules;
+				RemoteData::modules = NULL;
+				delete[] RemoteData::moduleNames;
+				RemoteData::moduleNames = NULL;
+				delete[] RemoteData::codeInfo;
+				RemoteData::codeInfo = NULL;
+				delete[] RemoteData::sourceCode;
+				RemoteData::sourceCode = NULL;
+				delete[] RemoteData::vars;
+				RemoteData::vars = NULL;
+				delete[] RemoteData::types;
+				RemoteData::types = NULL;
+				delete[] RemoteData::functions;
+				RemoteData::functions = NULL;
+				delete[] RemoteData::locals;
+				RemoteData::locals = NULL;
+				delete[] RemoteData::typeExtra;
+				RemoteData::typeExtra = NULL;
+				delete[] RemoteData::symbols;
+				RemoteData::symbols = NULL;
+				delete[] RemoteData::stackData;
+				RemoteData::stackData = NULL;
+			}
+			if(debugPipe != INVALID_HANDLE_VALUE)
+			{
+				CloseHandle(debugPipe);
+				debugPipe = INVALID_HANDLE_VALUE;
+			}
+		}else if((HWND)lParam == hAttachDo){
+			unsigned int ID = ListView_GetSelectionMark(hAttachList);
+
+			char pipeName[64];
+			sprintf(pipeName, "\\\\.\\pipe\\NULLC%d", ID);
+			if(WaitNamedPipe(pipeName, 1000))
+			{
+				debugPipe = CreateFile(pipeName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+				if(debugPipe == INVALID_HANDLE_VALUE)
+				{
+					MessageBox(hWnd, "Failed to open pipe", "ERROR", MB_OK);
+					break;
+				}
+				DWORD mode = PIPE_READMODE_MESSAGE;
+				DWORD good = SetNamedPipeHandleState(debugPipe, &mode, NULL, NULL);
+				if(!good) 
+				{
+					MessageBox(hWnd, "Failed to set pipe state", "ERROR", MB_OK);
+					break;
+				}
+				ShowWindow(hAttachPanel, SW_HIDE);
+				ShowWindow(hAttachDo, SW_HIDE);
+				ShowWindow(hAttachTabs, SW_SHOW);
+
+				stateAttach = false;
+				stateRemote = true;
+				PipeInit();
+			}else{
+				MessageBox(hWnd, "Cannot attach debugger to selected process", "ERROR", MB_OK);
+			}
 		}
 		// Parse the menu selections:
 		switch (wmId)
@@ -1196,8 +1630,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			break;
 		case ID_TOGGLE_BREAK:
 			{
-				unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-				HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+				unsigned int id = TabbedFiles::GetCurrentTab(stateRemote ? hAttachTabs : hTabs);
+				HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window;
 				unsigned int line = RichTextarea::GetCurrentLine(wnd);
 
 				// Find breakpoint
@@ -1207,6 +1641,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					if(breakpoints[pos].line == line && breakpoints[pos].tab == wnd)
 						break;
 				}
+				bool breakSet = false;
 				// If breakpoint is not found, add one
 				if(breakpoints.empty() || pos == breakpoints.size())
 				{
@@ -1214,6 +1649,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					breakpoints.back().line = line;
 					breakpoints.back().tab = wnd;
 					RichTextarea::SetStyleToLine(wnd, line, 4);
+					breakSet = true;
 				}else{
 					if(breakpoints.size() == 1)
 					{
@@ -1226,6 +1662,38 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				}
 				RichTextarea::UpdateArea(wnd);
 				RichTextarea::ResetUpdate(wnd);
+
+				if(!runRes.finished)
+				{
+					unsigned int infoSize = 0;
+					NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
+					const char *fullSource = nullcDebugSource();
+					unsigned int moduleSize = 0;
+					ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
+					unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, codeInfo, moduleSize, modules);
+					if(inst != ~0u)
+					{
+						if(breakSet)
+							nullcDebugAddBreakpoint(inst);
+						else
+							nullcDebugRemoveBreakpoint(inst);
+					}
+				}
+
+				if(stateRemote)
+				{
+					unsigned int inst = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::codeInfo, RemoteData::moduleCount, RemoteData::modules);
+					if(inst != ~0u)
+					{
+						PipeData data;
+						data.cmd = DEBUG_BREAK_SET;
+						data.question = true;
+						data.debug.breakInst = inst;
+						data.debug.breakSet = breakSet;
+						if(!PipeSendRequest(data))
+							MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+					}
+				}
 			}
 			break;
 		case ID_RUN_DEBUG:
@@ -1233,6 +1701,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			break;
 		case ID_RUN:
 			SuperCalcRun(false);
+			break;
+		case ID_DEBUG_ATTACHTOPROCESS:
+		{
+			ShowWindow(hTabs, SW_HIDE);
+			ShowWindow(hButtonCalc, SW_HIDE);
+			ShowWindow(hResult, SW_HIDE);
+			ShowWindow(hJITEnabled, SW_HIDE);
+			ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_HIDE);
+
+			ShowWindow(hAttachPanel, SW_SHOW);
+			ShowWindow(hAttachDo, SW_SHOW);
+			ShowWindow(hAttachBack, SW_SHOW);
+
+			Button_Enable(hAttachDo, false);
+
+			stateAttach = true;
+		}
 			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -1247,9 +1732,93 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		break;
 	case WM_TIMER:
 	{
-		unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+		if(stateAttach)
+		{
+			char message[1024], *pos = message;
+			message[0] = 0;
+			int selected = ListView_GetSelectionMark(hAttachList);
 
-		EnableMenuItem(GetMenu(hWnd), ID_FILE_SAVE, TabbedFiles::GetTabInfo(hTabs, id).dirty ? MF_ENABLED : MF_DISABLED);
+			LVITEM lvItem;
+			lvItem.mask = LVIF_TEXT | LVIF_STATE;
+			lvItem.state = 0;
+			lvItem.stateMask = 0;
+
+			Button_Enable(hAttachDo, false);
+			for(unsigned int i = 0; i < 16; i++)
+			{
+				char pipeName[64];
+				sprintf(pipeName, "\\\\.\\pipe\\NULLC%d", i);
+				if(WaitNamedPipe(pipeName, 10))
+				{
+					HANDLE pipe = CreateFile(pipeName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+					if(pipe == INVALID_HANDLE_VALUE)
+					{
+						pos += safeprintf(pos, 1024 - (pos - message), "Failed to open pipe '%s'\r\n", pipeName);
+						continue;
+					}
+					DWORD mode = PIPE_READMODE_MESSAGE;
+					DWORD good = SetNamedPipeHandleState(pipe, &mode, NULL, NULL);
+					if(!good) 
+					{
+						pos += safeprintf(pos, 1024 - (pos - message), "Failed to SetNamedPipeHandleState on '%s'\r\n", pipeName);
+						continue;
+					}
+					PipeData data;
+					data.cmd = DEBUG_REPORT_INFO;
+					data.question = true;
+
+					DWORD send = 0;
+					good = WriteFile(pipe, &data, sizeof(data), &send, NULL);
+					if(!good || send != sizeof(data))
+					{
+						pos += safeprintf(pos, 1024 - (pos - message), "Failed to WriteFile on '%s'\r\n", pipeName);
+						continue;
+					}
+
+					lvItem.iItem = i;
+					lvItem.iSubItem = 0;
+					lvItem.pszText = pipeName;
+					ListView_SetItem(hAttachList, &lvItem);
+
+					good = ReadFile(pipe, &data, sizeof(data), &send, NULL);
+					if(!good || send != sizeof(data))
+					{
+						pos += safeprintf(pos, 1024 - (pos - message), "Failed to ReadFile on '%s'\r\n", pipeName);
+						continue;
+					}
+					if(data.cmd == DEBUG_REPORT_INFO && !data.question)
+					{
+						lvItem.iItem = i;
+						lvItem.iSubItem = 1;
+						lvItem.pszText = data.report.module;
+						ListView_SetItem(hAttachList, &lvItem);
+
+						char tmp[64];
+						lvItem.iItem = i;
+						lvItem.iSubItem = 2;
+						sprintf(tmp, "%d", data.report.pID);
+						lvItem.pszText = tmp;
+						ListView_SetItem(hAttachList, &lvItem);
+					}
+
+					if(selected == (int)i)
+						Button_Enable(hAttachDo, true);
+
+					CloseHandle(pipe);
+				}else{
+					lvItem.iItem = i;
+					lvItem.iSubItem = 0;
+					lvItem.pszText = "";
+					ListView_SetItem(hAttachList, &lvItem);
+					lvItem.iSubItem = 1;
+					ListView_SetItem(hAttachList, &lvItem);
+					lvItem.iSubItem = 2;
+					ListView_SetItem(hAttachList, &lvItem);
+				}
+			}
+			ListView_SetSelectionMark(hAttachList, selected);
+			SetWindowText(hCode, message);
+		}
 
 		for(unsigned int i = 0; i < richEdits.size(); i++)
 		{
@@ -1260,7 +1829,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			}
 		}
 
-		HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+		unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+		EnableMenuItem(GetMenu(hWnd), ID_FILE_SAVE, TabbedFiles::GetTabInfo(hTabs, id).dirty ? MF_ENABLED : MF_DISABLED);
+
+		HWND wnd = stateRemote ? TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)).window : TabbedFiles::GetTabInfo(hTabs, id).window;
 		if(!RichTextarea::NeedUpdate(wnd) || (GetTickCount()-lastUpdate < 100))
 			break;
 		SetWindowText(hCode, "");
@@ -1299,12 +1871,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		unsigned int tabHeight = 20;
 		SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
+		SetWindowPos(hAttachTabs,	HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
 
 		areaWidth = width - mainPadding * 2;
 		areaHeight = topHeight - tabHeight;
 		for(unsigned int i = 0; i < richEdits.size(); i++)
 			SetWindowPos(richEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+		for(unsigned int i = 0; i < attachedEdits.size(); i++)
+			SetWindowPos(attachedEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
 		SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+		SetWindowPos(hAttachPanel,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
+
+		SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
 
 		unsigned int buttonWidth = 120;
 		unsigned int resultWidth = width - 3 * buttonWidth - 3 * mainPadding - subPadding * 3;
@@ -1317,6 +1895,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
 		SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
 		SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+		SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+		SetWindowPos(hAttachBack,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 		unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
 

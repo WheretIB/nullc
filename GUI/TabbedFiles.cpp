@@ -289,6 +289,14 @@ void TabbedFiles::SetNewTabWindow(HWND wnd, HWND newTab)
 	data->tabInfo[data->tabCount].window = newTab;
 }
 
+void TabbedFiles::RemoveTab(HWND wnd, unsigned int tab)
+{
+	TabbedFilesData	*data = GetData(wnd);
+
+	data->selectedTab = tab;
+	OnCommand(wnd, data->closeButton);
+}
+
 unsigned int TabbedFiles::GetCurrentTab(HWND wnd)
 {
 	TabbedFilesData	*data = GetData(wnd);
