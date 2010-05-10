@@ -22,7 +22,7 @@ public:
 
 	const char*	GetExecError();
 
-	char*	GetVariableData();
+	char*	GetVariableData(unsigned int *count);
 
 	void			BeginCallStack();
 	unsigned int	GetNextAddress();
@@ -33,6 +33,7 @@ public:
 	void	SetBreakFunction(void (*callback)(unsigned int));
 	void	ClearBreakpoints();
 	bool	AddBreakpoint(unsigned int instruction);
+	bool	RemoveBreakpoint(unsigned int instruction);
 private:
 	unsigned int	CreateFunctionGateway(FastVector<unsigned char>	&code, unsigned int funcID);
 	void	InitExecution();

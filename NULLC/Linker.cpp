@@ -60,7 +60,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	for(unsigned int i = 0; i < bCode->dependsCount; i++)
 	{
 		const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
-		
+
 		//Search for it in loaded modules
 		int loadedId = -1;
 		for(unsigned int n = 0; n < exModules.size(); n++)
@@ -100,6 +100,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			}
 			exModules.push_back(*mInfo);
 			exModules.back().name = path;
+			exModules.back().nameOffset = NULL;
 			exModules.back().nameHash = GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
 			exModules.back().variableOffset = globalVarSize - ((ByteCode*)bytecode)->globalVarSize;
@@ -123,6 +124,11 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	moduleRemap.resize(bCode->dependsCount);
 
+	unsigned int oldFunctionCount = exFunctions.size();
+	unsigned int oldSymbolSize = exSymbols.size();
+	unsigned int oldTypeCount = exTypes.size();
+	unsigned int oldMemberSize = exTypeExtra.size();
+
 	mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
 	// Fixup function table
 	for(unsigned int i = 0; i < bCode->dependsCount; i++)
@@ -141,6 +147,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		ExternModuleInfo *rInfo = &exModules[loadedId];
 		for(unsigned int n = mInfo->funcStart; n < mInfo->funcStart + mInfo->funcCount; n++)
 			funcRemap[n] = rInfo->funcStart + n - mInfo->funcStart;
+		if(!rInfo->nameOffset)
+			rInfo->nameOffset = mInfo->nameOffset + oldSymbolSize;
+
 		moduleRemap[i] = loadedId;
 #ifdef VERBOSE_DEBUG_OUTPUT
 		printf("Module %d (%s) is found at index %d.\r\n", i, path, loadedId);
@@ -149,11 +158,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	}
 
 	typeRemap.clear();
-
-	unsigned int oldFunctionCount = exFunctions.size();
-	unsigned int oldSymbolSize = exSymbols.size();
-	unsigned int oldTypeCount = exTypes.size();
-	unsigned int oldMemberSize = exTypeExtra.size();
 
 	// Add new symbols
 	exSymbols.resize(oldSymbolSize + bCode->symbolLength);

@@ -27,7 +27,7 @@ public:
 
 	const char*	GetExecError();
 
-	char*	GetVariableData();
+	char*	GetVariableData(unsigned int *count);
 
 	void			BeginCallStack();
 	unsigned int	GetNextAddress();

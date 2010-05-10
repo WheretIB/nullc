@@ -48,6 +48,13 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "E&xit",                       IDM_EXIT
     END
+    POPUP "Debug"
+    BEGIN
+        MENUITEM "Run",                         ID_RUN_DEBUG
+        MENUITEM "Run w/out breakpoints",       ID_RUN
+        MENUITEM SEPARATOR
+        MENUITEM "Attach to process",           ID_DEBUG_ATTACHTOPROCESS
+    END
 END
 
 

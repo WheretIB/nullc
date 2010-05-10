@@ -455,10 +455,11 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			if(cmd.flag == 0)
 			{
 				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
+				VMCmd *target = &breakCode[cmd.argument];
 				fcallStack.push_back(cmdStream);
 				breakFunction((unsigned int)(cmdStream - cmdStreamBase));
 				fcallStack.pop_back();
-				cmdStream = &breakCode[cmd.argument];
+				cmdStream = target;
 				break;
 			}
 			cmdStream = cmdStreamBase + cmd.argument;
@@ -1650,8 +1651,10 @@ const char*	Executor::GetExecError()
 	return execError;
 }
 
-char* Executor::GetVariableData()
+char* Executor::GetVariableData(unsigned int *count)
 {
+	if(count)
+		*count = genParams.size();
 	return &genParams[0];
 }
 
@@ -1704,6 +1707,22 @@ bool Executor::AddBreakpoint(unsigned int instruction)
 	exLinker->exCode[instruction].cmd = cmdNop;
 	exLinker->exCode[instruction].flag = 0;
 	exLinker->exCode[instruction].argument = pos;
+	return true;
+}
+
+bool Executor::RemoveBreakpoint(unsigned int instruction)
+{
+	if(instruction > exLinker->exCode.size())
+	{
+		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		return false;
+	}
+	if(exLinker->exCode[instruction].cmd != cmdNop)
+	{
+		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
+		return false;
+	}
+	exLinker->exCode[instruction] = breakCode[exLinker->exCode[instruction].argument];
 	return true;
 }
 

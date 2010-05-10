@@ -753,7 +753,13 @@ const char* RichTextarea::GetAreaText(HWND wnd)
 	// Terminate buffer at the end
 	*currChar = 0;
 	return data->areaText;
-};
+}
+
+const char* RichTextarea::GetCachedAreaText(HWND wnd)
+{
+	TextareaData *data = GetData(wnd);
+	return data->areaText;
+}
 
 // Function that sets the text in text area
 void RichTextarea::SetAreaText(HWND wnd, const char *text)
