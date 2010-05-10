@@ -40,6 +40,7 @@ FastVector<unsigned int>	cycleDepth;
 FastVector<FunctionInfo*>	currDefinedFunc;
 
 HashMap<FunctionInfo*>		funcMap;
+HashMap<VariableInfo*>		varMap;
 
 void	AddFunctionToSortedList(void *info)
 {
@@ -214,9 +215,12 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			CodeInfo::varInfo[i]->next = lostGlobalList;
 			lostGlobalList = CodeInfo::varInfo[i];
 		}
-		
 	}
 
+	// Remove variable information from hash map
+	for(int i = (int)CodeInfo::varInfo.size() - 1; i >= (int)varInfoTop.back().activeVarCnt; i--)
+		varMap.remove(CodeInfo::varInfo[i]->nameHash, CodeInfo::varInfo[i]);
+	// Remove variable information from array
 	CodeInfo::varInfo.shrink(varInfoTop.back().activeVarCnt);
 	varInfoTop.pop_back();
 
@@ -828,11 +832,9 @@ void* AddVariable(const char* pos, InplaceStr varName)
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
 	// Check for variables with the same name in current scope
-	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
-	{
-		if(CodeInfo::varInfo[i]->nameHash == hash)
+	if(VariableInfo ** info = varMap.find(hash))
+		if((*info)->blockDepth >= varInfoTop.size())
 			ThrowError(pos, "ERROR: name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
-	}
 	// Check for functions with the same name
 	HashMap<FunctionInfo*>::Node *curr = funcMap.first(hash);
 	while(curr)
@@ -854,6 +856,7 @@ void* AddVariable(const char* pos, InplaceStr varName)
 		varTop += currType->size;
 	if(varTop > (1 << 24))
 		ThrowError(pos, "ERROR: global variable size limit exceeded");
+	varMap.insert(hash, CodeInfo::varInfo.back());
 	return CodeInfo::varInfo.back();
 }
 
@@ -1770,6 +1773,7 @@ void FunctionStart(const char* pos)
 		varTop += GetAlignmentOffset(pos, 4);
 		CodeInfo::varInfo.push_back(curr);
 		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
+		varMap.insert(curr->nameHash, curr);
 		varTop += curr->varType->size;
 	}
 
@@ -2718,6 +2722,9 @@ void CallbackInitialize()
 	funcMap.init();
 	funcMap.clear();
 
+	varMap.init();
+	varMap.clear();
+
 	ResetTreeGlobals();
 
 	vtblList = NULL;
@@ -2758,6 +2765,7 @@ void CallbackReset()
 	bestFuncRating.reset();
 	paramNodes.reset();
 	funcMap.reset();
+	varMap.reset();
 
 	TypeInfo::typeInfoPool.~ChunkedStackPool();
 	TypeInfo::SetPoolTop(0);

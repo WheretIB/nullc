@@ -6939,7 +6939,7 @@ return 0;";
 			double time = myGetPreciseTime();
 			double compileTime = 0.0;
 			double linkTime = 0.0;
-			for(int i = 0; i < 30; i++)
+			for(int i = 0; i < 300; i++)
 			{
 				nullres good = nullcCompile(blob);
 				compileTime += myGetPreciseTime() - time;
