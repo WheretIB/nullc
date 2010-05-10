@@ -264,6 +264,7 @@ void Compiler::ClearState()
 			CodeInfo::typeInfo[i]->refType = NULL;
 		if(CodeInfo::typeInfo[i]->unsizedType && CodeInfo::typeInfo[i]->unsizedType->typeIndex >= buildInTypes.size())
 			CodeInfo::typeInfo[i]->unsizedType = NULL;
+		CodeInfo::typeInfo[i]->arrayType = NULL;
 	}
 
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
@@ -428,6 +429,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 						newInfo->size += 4 - (newInfo->size % 4);
 					}
 				}
+				newInfo->nextArrayType = tempInfo->arrayType;
+				tempInfo->arrayType = newInfo;
 				CodeInfo::typeArrays.push_back(newInfo);
 				break;
 			case ExternTypeInfo::CAT_POINTER:

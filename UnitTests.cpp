@@ -6789,7 +6789,7 @@ return 0;";
 
 	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 30000.0);
 	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
-	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 30000.0);
+	printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 30000.0, strlen(testCompileSpeed) * (1000.0 / (linkTime / 30000.0)) / 1024.0 / 1024.0);
 
 
 
@@ -6905,7 +6905,7 @@ return 0;";
 	}
 	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 30000.0);
 	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
-	printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 30000.0);
+	printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 30000.0, strlen(testCompileSpeed2) * (1000.0 / (linkTime / 30000.0)) / 1024.0 / 1024.0);
 
 	for(int t = 0; t < 2; t++)
 	{
@@ -6936,6 +6936,8 @@ return 0;";
 			blob[textSize] = 0;
 			fclose(euler);
 
+			nullcSetExecutor(NULLC_VM);
+
 			double time = myGetPreciseTime();
 			double compileTime = 0.0;
 			double linkTime = 0.0;
@@ -6961,7 +6963,7 @@ return 0;";
 			}
 			printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 300.0);
 			printf("Average compile time: %f Average link time: %f\r\n", compileTime / 300.0, (linkTime - compileTime) / 300.0);
-			printf("Time: %f Average time: %f\r\n", linkTime, linkTime / 300.0);
+			printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 300.0, strlen(blob) * (1000.0 / (linkTime / 300.0)) / 1024.0 / 1024.0);
 		}
 
 		delete[] blob;

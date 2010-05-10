@@ -140,7 +140,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="..\bin\$(ProjectName).exe"
+				OutputFile="..\bin\$(ProjectName)_x64.exe"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="1"
@@ -295,7 +295,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="..\bin\$(ProjectName).exe"
+				OutputFile="..\bin\$(ProjectName)_x64.exe"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="1"

@@ -155,10 +155,11 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	memset(initError, 0, INIT_BUFFER_SIZE);
 
 	// in possible, load precompiled modules from nullclib.ncm
-	FILE *modulePack = fopen("nullclib.ncm", "rb");
+	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : "nullclib_x64.ncm", "rb");
 	if(!modulePack)
 	{
-		strcat(initError, "WARNING: Failed to open precompiled module file nullclib.ncm\r\n");
+		strcat(initError, "WARNING: Failed to open precompiled module file");
+		strcat(initError, sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : "nullclib_x64.ncm\r\n");
 	}else{
 		fseek(modulePack, 0, SEEK_END);
 		unsigned int fileSize = ftell(modulePack);

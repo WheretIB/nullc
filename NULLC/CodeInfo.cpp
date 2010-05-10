@@ -85,14 +85,12 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 		return type->unsizedType;
 
 	// Search type list for the type that we need
-	unsigned int targetArrLevel = type->arrLevel + 1;
-	for(unsigned int i = 0; i < typeArrays.size(); i++)
-	{
-		if(type == typeArrays[i]->subType && targetArrLevel == typeArrays[i]->arrLevel && typeArrays[i]->arrSize == (unsigned int)arrSize)
-		{
-			return typeArrays[i];
-		}
-	}
+	TypeInfo *target = type->arrayType;
+	while(target && target->arrSize != (unsigned int)arrSize)
+		target = target->nextArrayType;
+	if(target)
+		return target;
+
 	// If not found, create new type
 	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, 0, type->arrLevel + 1, arrSize, type, TypeInfo::TYPE_COMPLEX);
 
@@ -108,8 +106,10 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 			newInfo->paddingBytes = 4 - (newInfo->size % 4);
 			newInfo->size += 4 - (newInfo->size % 4);
 		}
-		
 	}
+	newInfo->nextArrayType = type->arrayType;
+	type->arrayType = newInfo;
+
 	typeArrays.push_back(newInfo);
 	typeInfo.push_back(newInfo);
 	return newInfo;
