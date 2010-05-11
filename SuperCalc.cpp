@@ -934,7 +934,7 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 	const char *source = RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window);
 
 	unsigned int csPos = 0;
-	if(stateRemote)
+	if(!stateRemote)
 		nullcDebugBeginCallStack();
 	while(int address = stateRemote ? RemoteData::callStack[csPos++] : nullcDebugGetStackFrame())
 	{
