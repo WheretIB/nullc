@@ -27,10 +27,17 @@ const char* nullcRemoteGetLastErrorDesc()
 		reinterpret_cast<LPSTR>(&msgBuf), 0, NULL);
 	return msgBuf;
 }
+void	nullcSleep()
+{
+	Sleep(20);
+}
 #else
 const char* nullcRemoteGetLastErrorDesc()
 {
 	return "Error";
+}
+void	nullcSleep()
+{
 }
 #endif
 
@@ -212,10 +219,11 @@ void PipeDebugBreak(unsigned int instruction)
 {
 	if(breakContinue == -1)
 	{
-		breakContinue = 0;
 		// Register for event
 		breakProcessed = Dispatcher::DispatchRegister(DEBUG_BREAK_CONTINUE, &breakContinue);
 	}
+	// Reset event
+	breakContinue = 0;
 	PipeData data;
 	data.cmd = DEBUG_BREAK_HIT;
 	data.question = false;
@@ -252,7 +260,7 @@ void PipeDebugBreak(unsigned int instruction)
 	data.question = false;
 	PipeSendData(client, data, (char*)stackFrames, count, count * sizeof(unsigned int));
 
-	while(!breakContinue) Sleep(5); breakContinue = 0;
+	while(!breakContinue) nullcSleep(); breakContinue = 0;
 	if(breakProcessed)
 		*breakProcessed = 1;
 }
@@ -278,7 +286,7 @@ void GeneralCommandThread(void* param)
 
 	while(!param)
 	{
-		while(!ready) Sleep(20); ready = 0;
+		while(!ready) nullcSleep(); ready = 0;
 		PipeData data = Dispatcher::GetData();
 		switch(data.cmd)
 		{
@@ -405,7 +413,8 @@ void GeneralCommandThread(void* param)
 		{
 			printf("DEBUG_DETACH\n");
 			nullcDebugClearBreakpoints();
-			breakContinue = 1;
+			if(breakContinue == 0)
+				breakContinue = 1;
 		}
 			break;
 			case DEBUG_BREAK_DATA:
@@ -422,7 +431,6 @@ void GeneralCommandThread(void* param)
 		}
 		*processed = 1;
 	}
-	ExitThread(0);
 }
 
 void DispatcherThread(void* param)
@@ -468,7 +476,7 @@ void DispatcherThread(void* param)
 			{
 				closesocket(sck);
 				nullcFinished = 0;
-				ExitThread(0);
+				return;
 			}
 			PipeData data;
 			TIMEVAL tv = { 1, 0 };
@@ -490,7 +498,8 @@ void DispatcherThread(void* param)
 			if(result == 0 || result == -1)
 			{
 				nullcDebugClearBreakpoints();
-				breakContinue = 1;
+				if(breakContinue == 0)
+					breakContinue = 1;
 				printf("Client disconnected\n");
 				break;
 			}
@@ -511,7 +520,6 @@ void DispatcherThread(void* param)
 				printf("There is no receiver for the event %d\n", data.cmd);
 		}
 	}
-	ExitThread(1);
 }
 
 volatile int* nullcEnableRemoteDebugging(const char *serverAddress, short serverPort)

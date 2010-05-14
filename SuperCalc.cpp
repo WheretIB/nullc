@@ -855,18 +855,13 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 	if(type.arrSize == ~0u)
 	{
 		arrSize = *(unsigned int*)(ptr + 4);
-		if(stateRemote)
-		{
-			TVITEM item;
-			item.mask = TVIF_PARAM;
-			item.lParam = tiExtra.size();
-			item.hItem = parent;
-			tiExtra.push_back(TreeItemExtra((void*)ptr, &type, parent));
-			TreeView_SetItem(hVars, &item);
-			return;
-		}else{
-			ptr = *(char**)ptr;
-		}
+		TVITEM item;
+		item.mask = TVIF_PARAM;
+		item.lParam = tiExtra.size();
+		item.hItem = parent;
+		tiExtra.push_back(TreeItemExtra((void*)ptr, &type, parent));
+		TreeView_SetItem(hVars, &item);
+		return;
 	}
 	for(unsigned int i = 0; i < arrSize; i++, ptr += subType.size)
 	{
@@ -1432,7 +1427,8 @@ DWORD WINAPI PipeThread(void* param)
 		RemoteData::callStack = (unsigned int*)PipeReceiveResponce(data);
 		RemoteData::callStackFrames = data.data.elemCount;
 
-		FillVariableInfoTree(true);
+		if(RemoteData::stackData && RemoteData::callStack)
+			FillVariableInfoTree(true);
 
 		delete[] RemoteData::callStack;
 		RemoteData::callStack = NULL;
@@ -1688,10 +1684,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				LPNMTREEVIEW info = (LPNMTREEVIEW)lParam;
 
 				TreeItemExtra *extra = info->itemNew.lParam ? &tiExtra[info->itemNew.lParam] : NULL;
-				if(extra && extra->type->subCat == ExternTypeInfo::CAT_POINTER)
+				if(extra)
 				{
 					codeTypes = stateRemote ? RemoteData::types : nullcDebugTypeInfo(NULL);
-					char *ptr = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? *(char**)extra->address : ((NullCArray*)extra->address)->ptr;
+					char *ptr = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? *(char**)extra->address : (char*)extra->address;
 					const ExternTypeInfo &type = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? codeTypes[extra->type->subType] : *extra->type;
 
 					if(stateRemote)
@@ -1701,7 +1697,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						data.question = true;
 						data.data.wholeSize = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? type.size : ((NullCArray*)extra->address)->len * codeTypes[type.subType].size;
 						data.data.elemCount = 0;
-						data.data.dataSize = (unsigned int)(intptr_t)ptr;
+						data.data.dataSize = (unsigned int)(intptr_t)(extra->type->subCat == ExternTypeInfo::CAT_POINTER ? ptr : ((NullCArray*)extra->address)->ptr);
 						if(!PipeSendRequest(data))
 						{
 							MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
@@ -1718,6 +1714,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					}
 					if(IsBadReadPtr(ptr, extra->type->size))
 						break;
+					// Delete item children
+					while(HTREEITEM child = TreeView_GetChild(hVars, extra->item))
+						TreeView_DeleteItem(hVars, child);
+					if(extra->type->subCat == ExternTypeInfo::CAT_ARRAY)
+					{
+						ExternTypeInfo decoy = type;
+						decoy.arrSize = ((NullCArray*)extra->address)->len;
+						FillArrayVariableInfo(decoy, stateRemote ? ptr : ((NullCArray*)extra->address)->ptr, extra->item);
+						if(stateRemote)
+							externalBlocks.push_back(ptr);
+						break;
+					}
 					char name[256];
 
 					char *it = name;
@@ -1736,10 +1744,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 					helpInsert.item.pszText = name;
 					helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-					helpInsert.item.lParam = tiExtra.size();
+					helpInsert.item.lParam = type.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
 
 					HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-					tiExtra.push_back(TreeItemExtra(ptr, &type, lastItem));
+					if(type.subCat == ExternTypeInfo::CAT_POINTER)
+						tiExtra.push_back(TreeItemExtra(ptr, &type, lastItem));
 
 					FillVariableInfo(type, ptr, lastItem);
 
@@ -1834,6 +1843,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 								}else{
 									breakpoints[id] = breakpoints.back();
 									breakpoints.pop_back();
+									id--;
 								}
 							}
 						}
@@ -1879,7 +1889,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				}
 				HMENU debugMenu = GetSubMenu(GetMenu(hWnd), 1);
 				EnableMenuItem(debugMenu, ID_RUN, MF_BYCOMMAND | MF_ENABLED);
-				EnableMenuItem(debugMenu, ID_RUN_DEBUG, MF_BYCOMMAND | MF_ENABLED);
 				EnableMenuItem(debugMenu, ID_DEBUG_ATTACHTOPROCESS, MF_BYCOMMAND | MF_ENABLED);
 				stateAttach = false;
 			}else if((HWND)lParam == hAttachDo){
@@ -2013,6 +2022,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						unsigned int moduleSize = 0;
 						ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
 						unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, codeInfo, moduleSize, modules);
+						if(breakSet)
+							breakpoints.back().valid = inst != ~0u;
 						if(inst != ~0u)
 						{
 							if(breakSet)
@@ -2030,6 +2041,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					if(stateRemote)
 					{
 						unsigned int inst = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::codeInfo, RemoteData::moduleCount, RemoteData::modules);
+						if(breakSet)
+							breakpoints.back().valid = inst != ~0u;
 						if(inst != ~0u)
 						{
 							PipeData data;
@@ -2039,6 +2052,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 							data.debug.breakSet = breakSet;
 							if(!PipeSendRequest(data))
 								MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+						}else{
+							if(breakSet)
+								RichTextarea::SetStyleToLine(wnd, line, OVERLAY_BREAKPOINT_INVALID);
 						}
 					}
 				}
@@ -2071,7 +2087,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 				HMENU debugMenu = GetSubMenu(GetMenu(hWnd), 1);
 				EnableMenuItem(debugMenu, ID_RUN, MF_BYCOMMAND | MF_GRAYED);
-				EnableMenuItem(debugMenu, ID_RUN_DEBUG, MF_BYCOMMAND | MF_GRAYED);
 				EnableMenuItem(debugMenu, ID_DEBUG_ATTACHTOPROCESS, MF_BYCOMMAND | MF_GRAYED);
 
 				stateAttach = true;
