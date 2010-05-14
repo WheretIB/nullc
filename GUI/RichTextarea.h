@@ -13,6 +13,22 @@
 
 namespace RichTextarea
 {
+	class LineIterator
+	{
+	public:
+		bool	GoForward();
+
+		void			SetStyle(unsigned int style);
+		unsigned int	GetStyle();
+		void			SetExtra(unsigned int extra);
+		unsigned int	GetExtra();
+
+		void			*line;
+		unsigned int	number;
+	};
+	LineIterator	GetFirstLine(HWND wnd);
+	LineIterator	GetLine(HWND wnd, unsigned int line);
+
 	bool SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline);
 	bool SetLineStyle(unsigned int id, HBITMAP img, const char *tooltipText);
 
@@ -22,6 +38,8 @@ namespace RichTextarea
 
 	void SetStyleToLine(HWND wnd, unsigned int line, unsigned int style);
 	void ResetLineStyle(HWND wnd);
+
+	void SetLineExtra(HWND wnd, unsigned int line, unsigned int extra);
 
 	void ClearAreaText(HWND wnd);
 	const char* GetAreaText(HWND wnd);

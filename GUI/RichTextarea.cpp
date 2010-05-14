@@ -48,7 +48,7 @@ struct AreaLine
 		maxLength = DEFAULT_STRING_LENGTH;
 		data = startBuf;
 		prev = next = NULL;
-		lineStyle = 0;
+		lineExtra = lineStyle = 0;
 	}
 
 	AreaChar		startBuf[DEFAULT_STRING_LENGTH];
@@ -57,6 +57,7 @@ struct AreaLine
 	unsigned int	maxLength;
 
 	unsigned int	lineStyle;
+	unsigned int	lineExtra;
 
 	AreaLine		*prev, *next;
 
@@ -371,6 +372,8 @@ public:
 			ExtendLine(curr, src->length);
 			memcpy(curr->data, src->data, src->length * sizeof(AreaChar));
 			curr->length = src->length;
+			curr->lineStyle = src->lineStyle;
+			curr->lineExtra = src->lineExtra;
 			
 			// Set the first line, if not set
 			if(!lastShot->first)
@@ -422,6 +425,8 @@ public:
 				ExtendLine(data->currLine, curr->length);
 				memcpy(data->currLine->data, curr->data, curr->length * sizeof(AreaChar));
 				data->currLine->length = curr->length;
+				data->currLine->lineStyle = curr->lineStyle;
+				data->currLine->lineExtra = curr->lineExtra;
 				curr = curr->next;
 			}
 		}
@@ -587,6 +592,62 @@ namespace RichTextarea
 	}
 }
 
+bool RichTextarea::LineIterator::GoForward()
+{
+	AreaLine *curr = (AreaLine*)line;
+	line = (void*)curr->next;
+	number++;
+	return line ? true : false;
+}
+
+void RichTextarea::LineIterator::SetStyle(unsigned int style)
+{
+	assert(line);
+	((AreaLine*)line)->lineStyle = style;
+}
+
+unsigned int RichTextarea::LineIterator::GetStyle()
+{
+	assert(line);
+	return ((AreaLine*)line)->lineStyle;
+}
+
+void RichTextarea::LineIterator::SetExtra(unsigned int extra)
+{
+	assert(line);
+	((AreaLine*)line)->lineExtra = extra;
+}
+
+unsigned int RichTextarea::LineIterator::GetExtra()
+{
+	assert(line);
+	return ((AreaLine*)line)->lineExtra;
+}
+
+RichTextarea::LineIterator RichTextarea::GetFirstLine(HWND wnd)
+{
+	TextareaData *data = GetData(wnd);
+
+	RichTextarea::LineIterator ret;
+	ret.line = (void*)data->firstLine;
+	ret.number = 0;
+	return ret;
+}
+RichTextarea::LineIterator RichTextarea::GetLine(HWND wnd, unsigned int line)
+{
+	TextareaData *data = GetData(wnd);
+
+	RichTextarea::LineIterator ret;
+	ret.number = line;
+
+	AreaLine *updLine = data->firstLine;
+	while(line-- && updLine)
+		updLine = updLine->next;
+	ret.line = (void*)updLine;
+	
+	return ret;
+
+}
 // Set style parameters. bold\italics\underline flags don't work together
 bool RichTextarea::SetTextStyle(unsigned int id, unsigned char red, unsigned char green, unsigned char blue, bool bold, bool italics, bool underline)
 {
@@ -696,6 +757,17 @@ void RichTextarea::SetStyleToLine(HWND wnd, unsigned int line, unsigned int styl
 		updLine = updLine->next;
 	if(updLine)
 		updLine->lineStyle = style;
+}
+
+void RichTextarea::SetLineExtra(HWND wnd, unsigned int line, unsigned int extra)
+{
+	TextareaData *data = GetData(wnd);
+
+	AreaLine *updLine = data->firstLine;
+	while(line-- && updLine)
+		updLine = updLine->next;
+	if(updLine)
+		updLine->lineExtra = extra;
 }
 
 void RichTextarea::ResetLineStyle(HWND wnd)
