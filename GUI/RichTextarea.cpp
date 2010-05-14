@@ -291,6 +291,8 @@ struct TextareaData
 	void OnLeftMouseDoubleclick(unsigned int x, unsigned int y);
 	void OnLeftMouseDown(unsigned int x, unsigned int y);
 	void OnMouseMove(unsigned int x, unsigned int y);
+
+	void OnRightMouseDown(unsigned int x, unsigned int y);
 };
 
 // Class that tracks text change for Ctrl+Z\Ctrl+Y
@@ -517,6 +519,10 @@ namespace RichTextarea
 
 		sharedCreated = true;
 	}
+
+	static const unsigned int CONTEXT_CUT = 2000;
+	static const unsigned int CONTEXT_COPY = 2001;
+	static const unsigned int CONTEXT_PASTE = 2002;
 
 	void OnCreate(HWND wnd)
 	{
@@ -2071,6 +2077,30 @@ AreaLine* TextareaData::ExtendSelectionFromPoint(unsigned int xPos, unsigned int
 	return curr;
 }
 
+void TextareaData::OnRightMouseDown(unsigned int x, unsigned int y)
+{
+	POINT coords;
+	coords.x = x;
+	coords.y = y;
+	ClientToScreen(areaWnd, &coords);
+
+	if(!selectionOn)
+	{
+		RichTextarea::AreaCursorUpdate(areaWnd, 0, NULL, 0);
+		// Reset I-bar tick count
+		ibarState = 0;
+		currLine = ClientToCursor(x, y, dragStartX, dragStartY, true);
+		cursorCharX = dragStartX;
+		cursorCharY = dragStartY;
+	}
+
+	HMENU contextMenu = CreatePopupMenu();
+	InsertMenu(contextMenu, 0, MF_BYPOSITION | MF_STRING, RichTextarea::CONTEXT_CUT, "Cut");
+	InsertMenu(contextMenu, 1, MF_BYPOSITION | MF_STRING, RichTextarea::CONTEXT_COPY, "Copy");
+	InsertMenu(contextMenu, 2, MF_BYPOSITION | MF_STRING, RichTextarea::CONTEXT_PASTE, "Paste");
+	TrackPopupMenu(contextMenu, TPM_TOPALIGN | TPM_LEFTALIGN, coords.x, coords.y, 0, areaWnd, NULL);
+}
+
 // This function register RichTextarea window class, so it can be created with CreateWindow call in client application
 // Because there is global state for this control, only one instance can be created.
 void RichTextarea::RegisterTextarea(const char *className, HINSTANCE hInstance)
@@ -2171,6 +2201,9 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 		case WM_LBUTTONUP:
 			ReleaseCapture();
 			break;
+		case WM_RBUTTONDOWN:
+			data->OnRightMouseDown(LOWORD(lParam), HIWORD(lParam));
+			break;
 		case WM_MOUSEWHEEL:
 			// Mouse wheel scroll text vertically
 			data->shiftCharY -= (GET_WHEEL_DELTA_WPARAM(wParam) / 120) * 3;
@@ -2225,6 +2258,19 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 			data->UpdateScrollBar();
 			InvalidateRect(hWnd, NULL, false);
 			break;
+		case WM_COMMAND:
+			switch(LOWORD(wParam))
+			{
+			case RichTextarea::CONTEXT_CUT:
+				data->OnCopyOrCut(true);
+				break;
+			case RichTextarea::CONTEXT_COPY:
+				data->OnCopyOrCut(false);
+				break;
+			case RichTextarea::CONTEXT_PASTE:
+				data->OnPaste();
+				break;
+			}
 		}
 	}__except(EXCEPTION_EXECUTE_HANDLER){
 		assert(!"Exception in window procedure handler");
