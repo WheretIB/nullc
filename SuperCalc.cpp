@@ -580,6 +580,13 @@ void CloseTabWithFile(TabbedFiles::TabInfo &info)
 	}
 }
 
+void TextareaToggleBreakpoint(HWND area, RichTextarea::LineIterator it)
+{
+	(void)it;
+	(void)area;
+	SendMessage(hWnd, WM_COMMAND, ID_TOGGLE_BREAK, 0);
+}
+
 bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // Store instance handle in our global variable
@@ -705,6 +712,8 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	RichTextarea::SetLineStyle(OVERLAY_CURRENT, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CURR)), "Code execution is currently at this point");
 	RichTextarea::SetLineStyle(OVERLAY_BREAKPOINT, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_BREAK)), "Breakpoint");
 	RichTextarea::SetLineStyle(OVERLAY_BREAKPOINT_INVALID, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_UNREACHABLE)), "Breakpoint is never reached");
+
+	RichTextarea::SetTooltipClickCallback(TextareaToggleBreakpoint);
 
 	unsigned int width = (800 - 25) / 4;
 
