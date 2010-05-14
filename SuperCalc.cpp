@@ -511,6 +511,24 @@ WORD MyRegisterClass(HINSTANCE hInstance)
 	return RegisterClassEx(&wcex);
 }
 
+void RemoveBreakpointsFromTab(HWND tab)
+{
+	for(unsigned int id = 0; id < breakpoints.size(); id++)
+	{
+		if(breakpoints[id].tab == tab)
+		{
+			if(breakpoints.size() == 1)
+			{
+				breakpoints.clear();
+			}else{
+				breakpoints[id] = breakpoints.back();
+				breakpoints.pop_back();
+				id--;
+			}
+		}
+	}
+}
+
 void AddTabWithFile(const char* filename, HINSTANCE hInstance)
 {
 	char buf[1024];
@@ -564,6 +582,7 @@ void CloseTabWithFile(TabbedFiles::TabInfo &info)
 	{
 		SaveFileFromTab(info.name, RichTextarea::GetAreaText(info.window));
 	}
+	RemoveBreakpointsFromTab(info.window);
 	DestroyWindow(info.window);
 	for(unsigned int i = 0; i < richEdits.size(); i++)
 	{
@@ -1833,20 +1852,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					// Remove text area windows and breakpoints
 					for(unsigned int i = 0; i < attachedEdits.size(); i++)
 					{
-						for(unsigned int id = 0; id < breakpoints.size(); id++)
-						{
-							if(breakpoints[id].tab == attachedEdits[i])
-							{
-								if(breakpoints.size() == 1)
-								{
-									breakpoints.clear();
-								}else{
-									breakpoints[id] = breakpoints.back();
-									breakpoints.pop_back();
-									id--;
-								}
-							}
-						}
+						RemoveBreakpointsFromTab(attachedEdits[i]);
 						TabbedFiles::RemoveTab(hAttachTabs, 0);
 						DestroyWindow(attachedEdits[i]);
 					}
