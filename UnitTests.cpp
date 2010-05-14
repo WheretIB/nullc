@@ -4662,6 +4662,12 @@ void TestDrawRect(int, int, int, int, int)
 {
 }
 
+int TestDefaultArgs(int a, int b)
+{
+	return a * b;
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 
 void	RunTests2()
@@ -5814,6 +5820,43 @@ return func(5) - func(10, 2) + func(-1, 2, 3);";
 		}
 	}
 
+	nullcLoadModuleBySource("test.defargs3", "class Test{ int func(int a, b = 6){ return a * b; } }");
+const char	*testDefaultFunctionArgumentExport3 =
+"import test.defargs3;\r\n\
+Test test;\r\n\
+return test.func(5) - test.func(10, 2);";
+	printf("Default function argument export and import (class function)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testDefaultFunctionArgumentExport3, testTarget[t], "10"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	nullcLoadModuleBySource("test.defargs4", "class Test{ int func(int a, b = 6); }");
+	nullcBindModuleFunction("test.defargs4", (void(*)())TestDefaultArgs, "Test::func", 0);
+const char	*testDefaultFunctionArgumentExport4 =
+"import test.defargs4;\r\n\
+Test test;\r\n\
+return test.func(5) - test.func(10, 2);";
+	printf("Default function argument export and import (class function external)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testDefaultFunctionArgumentExport4, testTarget[t], "10"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 const char	*testLocalOperators =
 "int funcA(int a, b)\r\n\
 {\r\n\
@@ -6159,7 +6202,7 @@ inside (at assert(x);)\r\n\
 		}
 	}
 
-#endif
+
 
 #ifdef NULLC_BUILD_X86_JIT
 	char *stackMem = new char[32*1024];
@@ -6271,6 +6314,8 @@ return fib(3500);";
 	}
 
 	nullcSetJiTStack((void*)0x20000000, NULL, false);
+#endif
+
 #endif
 
 	// Parameter stack resize test is saved for last
