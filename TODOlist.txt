@@ -8,7 +8,6 @@ Core:
 	7. b. stack frames should be cleared in jit
 	8. b. double->int and double->long conversion should be done using chop rounding mode
 	9. b. Fix alignment of dynamically allocated variables.
-	10. b. Inifine loop of arrays with implicit size crashes GC
 
 Library:
 	1. f. string
@@ -26,7 +25,6 @@ SuperCalc:
 	7. b. Compiled modules must recompile after changes.
 	10. b. Repeated F9 key press while execution is breaked can cause NULLC crash
 	12. Editing code should be disabled\warning shown\edit & continue
-	13. b. Inifine loop of arrays with implicit size crashes SuperCalc
 	14. b. Breapoint positions should be updated when code changes
 
 DONE: ref variables - pointers
@@ -159,3 +157,6 @@ FIXED: If last modified tab is closed, "new tab" window has modified flag
 DONE: Menu items should be diabled after attach
 DONE: Mark breakpoints on unexecutable positions as invalid
 DONE: Scroll to breakpoint
+FIXED: Inifine loop of arrays with implicit size crashes GC
+FIXED: Inifine loop of arrays with implicit size crashes SuperCalc
+FIXED: Every time pointer value is viewed in variable info tree, new subitems are created
