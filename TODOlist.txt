@@ -22,7 +22,6 @@ SuperCalc:
 	4. f. Tooltips with variable values
 	6. f. Open tab with breakpoint
 	7. b. Compiled modules must recompile after changes.
-	10. b. Repeated F9 key press while execution is breaked can cause NULLC crash
 	12. Editing code should be disabled\warning shown\edit & continue
 
 DONE: ref variables - pointers
@@ -160,3 +159,4 @@ FIXED: Inifine loop of arrays with implicit size crashes SuperCalc
 FIXED: Every time pointer value is viewed in variable info tree, new subitems are created
 DONE: Context menu
 DONE: Breapoint positions should be updated when code changes
+FIXED: Repeated F9 key presses while execution is breaked can cause NULLC to crash

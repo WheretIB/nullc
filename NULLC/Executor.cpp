@@ -455,11 +455,11 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			if(cmd.flag == 0)
 			{
 				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
-				VMCmd *target = &breakCode[cmd.argument];
+				unsigned int target = cmd.argument;
 				fcallStack.push_back(cmdStream);
 				breakFunction((unsigned int)(cmdStream - cmdStreamBase));
 				fcallStack.pop_back();
-				cmdStream = target;
+				cmdStream = &breakCode[target];
 				break;
 			}
 			cmdStream = cmdStreamBase + cmd.argument;
