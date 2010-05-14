@@ -15,6 +15,8 @@
 #define IDB_CURR                        133
 #define IDR_SHORTCUTS                   134
 #define IDB_BREAK                       138
+#define IDB_BREAK1                      139
+#define IDB_UNREACHABLE                 139
 #define ID_FILE_SAVE                    32771
 #define ID_FILE_LOAD                    32773
 #define ID_FILE_SAVEALL                 32774

@@ -95,6 +95,7 @@ IDB_LASTCALL            BITMAP                  "GUI\\lLastcall.bmp"
 IDB_CALL                BITMAP                  "GUI\\lCall.bmp"
 IDB_CURR                BITMAP                  "GUI\\lCurr.bmp"
 IDB_BREAK               BITMAP                  "GUI\\lBreak.bmp"
+IDB_UNREACHABLE         BITMAP                  "gui\\lUnreachable.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
