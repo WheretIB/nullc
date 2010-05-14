@@ -6004,6 +6004,151 @@ return b[0]() + b[1]() + b[4]();";
 		}
 	}
 
+const char	*testGCArrayFail2 =
+"import std.gc;\r\n\
+class Foo{ Foo[] arr; }\r\n\
+Foo[] x = new Foo[2];\r\n\
+Foo y;\r\n\
+y.arr = x;\r\n\
+x[0] = y;\r\n\
+GC.CollectMemory();\r\n\
+return 0;";
+	printf("GC recursion using arrays with implicit size, placed on the heap\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testGCArrayFail2, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testGCArrayFail1 =
+"import std.gc;\r\n\
+class Foo{ Foo[] arr; }\r\n\
+Foo[2] fuck;\r\n\
+Foo[] x = fuck;\r\n\
+Foo y;\r\n\
+y.arr = x;\r\n\
+x[0] = y;\r\n\
+GC.CollectMemory();\r\n\
+return 0;";
+	printf("GC recursion using arrays with implicit size, placed on the stack\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testGCArrayFail1, testTarget[t], "0"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	const char	*testGarbageCollectionCorrectness =
+"import std.gc;\r\n\
+class A\r\n\
+{\r\n\
+	int a, b, c;\r\n\
+	A ref d, e, f;\r\n\
+}\r\n\
+A ref[] arr1 = new A ref[2];\r\n\
+A ref tmp;\r\n\
+arr1[0] = tmp = new A;\r\n\
+tmp.d = new A;\r\n\
+tmp.e = new A;\r\n\
+tmp.f = new A;\r\n\
+tmp = nullptr;\r\n\
+arr1[1] = new A;\r\n\
+arr1[1].d = new A;\r\n\
+arr1[1].e = new A;\r\n\
+arr1[1].f = new A;\r\n\
+GC.CollectMemory();\r\n\
+return GC.UsedMemory();";
+	printf("Garbage collection correctness\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testGarbageCollectionCorrectness, testTarget[t], "272"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	const char	*testGarbageCollectionCorrectness2 =
+"import std.gc;\r\n\
+class A\r\n\
+{\r\n\
+	int a, b, c;\r\n\
+	A ref d, e, f;\r\n\
+}\r\n\
+A ref[] arr1 = new A ref[2];\r\n\
+A ref tmp;\r\n\
+arr1[0] = tmp = new A;\r\n\
+tmp.d = new A;\r\n\
+tmp.e = new A;\r\n\
+tmp.f = new A;\r\n\
+tmp = nullptr;\r\n\
+arr1[1] = new A;\r\n\
+arr1[1].d = new A;\r\n\
+arr1[1].e = new A;\r\n\
+arr1[1].f = new A;\r\n\
+arr1[0] = nullptr;\r\n\
+arr1[1] = nullptr;\r\n\
+GC.CollectMemory();\r\n\
+return GC.UsedMemory();";
+	printf("Garbage collection correctness 2\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testGarbageCollectionCorrectness2, testTarget[t], "16"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	const char	*testGarbageCollectionCorrectness3 =
+"import std.gc;\r\n\
+class A\r\n\
+{\r\n\
+	int a, b, c;\r\n\
+	A ref d, e, f;\r\n\
+}\r\n\
+A ref[] arr1 = new A ref[2];\r\n\
+A ref tmp;\r\n\
+arr1[0] = tmp = new A;\r\n\
+tmp.d = new A;\r\n\
+tmp.e = new A;\r\n\
+tmp.f = new A;\r\n\
+arr1[1] = new A;\r\n\
+arr1[1].d = new A;\r\n\
+arr1[1].e = new A;\r\n\
+arr1[1].f = new A;\r\n\
+GC.CollectMemory();\r\n\
+return GC.UsedMemory();";
+	printf("Garbage collection correctness 3\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testGarbageCollectionCorrectness3, testTarget[t], "272"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -6731,6 +6876,74 @@ return GC.UsedMemory();";
 		testCount[t]++;
 		unsigned int tStart = clock();
 		if(RunCode(testGarbageCollection, testTarget[t], "8"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+		printf("%s finished in %d\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", clock() - tStart);
+	}
+
+const char	*testGarbageCollection2 =
+"import std.random;\r\n\
+import std.io;\r\n\
+import std.gc;\r\n\
+\r\n\
+class A\r\n\
+{\r\n\
+    int a, b, c, d;\r\n\
+    A ref ra, rb, rrt;\r\n\
+	A ref[] rc;\r\n\
+}\r\n\
+int count;\r\n\
+long oldms;\r\n\
+typedef A ref Aref;\r\n\
+A ref[] arr;\r\n\
+\r\n\
+A ref Create(int level)\r\n\
+{\r\n\
+    if(level == 0)\r\n\
+	{\r\n\
+        return nullptr;\r\n\
+    }else{\r\n\
+        A ref a = new A;\r\n\
+        arr[count] = a;\r\n\
+        a.ra = Create(level - 1);\r\n\
+        a.rb = Create(level - 1);\r\n\
+        if (count > 0) {\r\n\
+            a.rrt = arr[rand(count - 1)];\r\n\
+			a.rc = new A ref[2];\r\n\
+			a.rc[0] = arr[rand(count - 1)];\r\n\
+			a.rc[1] = arr[rand(count - 1)];\r\n\
+        }\r\n\
+        ++count;\r\n\
+        return a;\r\n\
+    }\r\n\
+}\r\n\
+\r\n\
+io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+int WS = 0;\r\n\
+int ws = WS;\r\n\
+int d = 21;\r\n\
+arr = new Aref[1 << d];\r\n\
+A ref a = Create(d);\r\n\
+int minToCollect = (WS - ws) / 2;\r\n\
+io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
+io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+ws = WS;\r\n\
+a = nullptr;\r\n\
+arr = new Aref[1];\r\n\
+GC.CollectMemory();\r\n\
+io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
+io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+return GC.UsedMemory();";
+	printf("Garbage collection 2 \r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		unsigned int tStart = clock();
+		if(RunCode(testGarbageCollection2, testTarget[t], "8"))
 		{
 			lastFailed = false;
 

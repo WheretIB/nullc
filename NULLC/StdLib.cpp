@@ -415,7 +415,8 @@ void NULLC::CollectMemory()
 
 //	printf("%d used memory\r\n", usedMemory);
 
-	collectableMinimum <<= 1;
+	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
+		collectableMinimum <<= 1;
 }
 #endif
 

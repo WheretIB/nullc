@@ -205,14 +205,19 @@ namespace GC
 		{
 			// Get real array size
 			size = *(int*)(ptr + 4);
-			// Mark target data
-			MarkPointer(ptr, subType, false);
 			// Switch pointer to array data
 			char **rPtr = (char**)ptr;
 			ptr = *rPtr;
-			// If initialized, return
-			if(!ptr)
+			// If uninitialized or points to stack memory, return
+			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
 				return;
+			// Get base pointer
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			// If there is no base pointer or memory already marked, exit
+			if(!basePtr || *((unsigned int*)(basePtr) - 1))
+				return;
+			// Mark memory as used
+			*((unsigned int*)(basePtr) - 1) = 1;
 		}
 		// Otherwise, check every array element is it's either array, pointer of class
 		switch(subType.subCat)
