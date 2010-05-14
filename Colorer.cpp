@@ -225,6 +225,7 @@ namespace ColorerGrammar
 				(varname[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
 				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText][BlockBegin] >>
 				*(
+					typeDef |
 					funcdef |
 					(
 						typeExpr >>
