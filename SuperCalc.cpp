@@ -1,7 +1,8 @@
 #include "stdafx.h"
 #include "SuperCalc.h"
 
-//#define WIN32_LEAN_AND_MEAN
+#pragma warning(disable: 4127)
+
 #define _WIN32_WINNT 0x0501
 #define _WIN32_WINDOWS 0x0501
 #include <windows.h>
@@ -14,6 +15,8 @@
 #include <MMSystem.h>
 #pragma comment(lib, "Winmm.lib")
 #pragma warning(default: 4201)
+
+#pragma comment(lib, "Ws2_32.lib")
 
 #include <iostream>
 
@@ -144,7 +147,6 @@ struct PipeData
 		} debug;
 	};
 };
-HANDLE	debugPipe = INVALID_HANDLE_VALUE;
 HANDLE	pipeThread = INVALID_HANDLE_VALUE;
 
 namespace RemoteData
@@ -178,6 +180,124 @@ namespace RemoteData
 
 	unsigned int		callStackFrames = 0;
 	unsigned int		*callStack = NULL;
+
+	sockaddr_in		saServer;
+	hostent			*localHost;
+	char			*localIP;
+	SOCKET			sck;
+
+	int SocketSend(SOCKET sck, char* source, size_t size, int timeOut)
+	{
+		TIMEVAL tv = { timeOut, 0 };
+		fd_set	fdSet;
+		FD_ZERO(&fdSet);
+		FD_SET(sck, &fdSet);
+
+		int active = select(0, NULL, &fdSet, NULL, &tv);
+		if(active == SOCKET_ERROR)
+		{
+			printf("select failed\n");
+			return -1;
+		}
+		if(!FD_ISSET(sck, &fdSet))
+		{
+			printf("!FD_ISSET\n");
+			return 0;
+		}
+		
+		int allSize = (int)size;
+		while(size)
+		{
+			int bytesSent;
+			if((bytesSent = send(sck, source + (allSize - size), (int)size, 0)) == SOCKET_ERROR || bytesSent == 0)
+			{
+				printf("send failed\n");
+				return -1;
+			}
+			size -= bytesSent;
+			if(size)
+				printf("Partial send\n");
+		}
+		return allSize;
+	}
+	int SocketReceive(SOCKET sck, char* destination, size_t size, int timeOut)
+	{
+		TIMEVAL tv = { timeOut, 0 };
+		fd_set	fdSet;
+		FD_ZERO(&fdSet);
+		FD_SET(sck, &fdSet);
+
+		int active = select(0, &fdSet, NULL, NULL, &tv);
+		if(active == SOCKET_ERROR)
+			return -1;
+		if(!FD_ISSET(sck, &fdSet))
+			return 0;
+
+		int allSize = (int)size;
+		while(size)
+		{
+			int bytesRecv;
+			if((bytesRecv = recv(sck, destination + (allSize - size), (int)size, 0)) == SOCKET_ERROR || bytesRecv == 0)
+			{
+				printf("recv failed\n");
+				return -1;
+			}
+			size -= bytesRecv;
+			if(size)
+				printf("Partial recv\n");
+		}
+		return allSize;
+	}
+}
+
+char* GetLastErrorDesc()
+{
+	char* msgBuf = NULL;
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		reinterpret_cast<LPSTR>(&msgBuf), 0, NULL);
+	return msgBuf;
+}
+
+bool PipeSendRequest(PipeData &data)
+{
+	int result = RemoteData::SocketSend(RemoteData::sck, (char*)&data, sizeof(data), 5);
+	if(!result || result == -1)
+	{
+		if(!result)
+			MessageBox(hWnd, "Failed to send data through socket (select failed)", "ERROR", MB_OK);
+		else
+			MessageBox(hWnd, GetLastErrorDesc(), "Error", MB_OK);
+		return false;
+	}
+	return true;
+}
+
+char* PipeReceiveResponce(PipeData &data)
+{
+	unsigned int recvSize = 0;
+	DebugCommand cmd = data.cmd;
+	char *rawData = NULL;
+	do
+	{
+		int result = RemoteData::SocketReceive(RemoteData::sck, (char*)&data, sizeof(data), 5);
+		if(!result || result == -1 || result != sizeof(data) || data.cmd != cmd || data.question)
+		{
+			delete[] rawData;
+			if(!result)
+				MessageBox(hWnd, "Failed to receive data through socket (select failed)", "ERROR", MB_OK);
+			else if(result == -1)
+				MessageBox(hWnd, GetLastErrorDesc(), "Error", MB_OK);
+			else
+				printf("%d != %d || %d != %d || %d\n", result, sizeof(data), data.cmd, cmd, data.question);
+			return NULL;
+		}
+		if(!recvSize)
+			rawData = new char[data.data.wholeSize];
+		memcpy(rawData + recvSize, data.data.data, data.data.dataSize);
+		recvSize += data.data.dataSize;
+	}while(recvSize < data.data.wholeSize);
+	return rawData;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -326,6 +446,19 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	if(!nullcDebugSetBreakFunction(IDEDebugBreakEx))
 		strcat(initError, nullcGetLastError());
 
+	WORD wVersionRequested = MAKEWORD(2, 2);
+	WSADATA wsaData;
+	WSAStartup(wVersionRequested, &wsaData);
+
+	// Get the local host information
+	RemoteData::localHost = gethostbyname("localhost");//*/"192.168.0.163");
+	RemoteData::localIP = inet_ntoa(*(struct in_addr *)*RemoteData::localHost->h_addr_list);
+
+	// Set up the sockaddr structure
+	RemoteData::saServer.sin_family = AF_INET;
+	RemoteData::saServer.sin_addr.s_addr = inet_addr(RemoteData::localIP);
+	RemoteData::saServer.sin_port = htons(7590);
+
 	if(!InitializeCriticalSectionAndSpinCount(&pipeSection, 0x80000400))
 		strcat(initError, "Failed to create critical section for remote debugging");
 
@@ -366,15 +499,6 @@ WORD MyRegisterClass(HINSTANCE hInstance)
 	wcex.hIconSm		= LoadIcon(wcex.hInstance, (LPCTSTR)IDI_SMALL);
 
 	return RegisterClassEx(&wcex);
-}
-
-char* GetLastErrorDesc()
-{
-	char* msgBuf = NULL;
-	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		reinterpret_cast<LPSTR>(&msgBuf), 0, NULL);
-	return msgBuf;
 }
 
 void AddTabWithFile(const char* filename, HINSTANCE hInstance)
@@ -712,16 +836,24 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 	char name[256];
 	HTREEITEM lastItem;
 
+	ExternTypeInfo	&subType = codeTypes[type.subType];
 	unsigned int arrSize = (type.arrSize == ~0u) ? *(unsigned int*)(ptr + 4) : type.arrSize;
 	if(type.arrSize == ~0u)
 	{
-		if(stateRemote)
-			return;
 		arrSize = *(unsigned int*)(ptr + 4);
-		ptr = *(char**)ptr;
+		if(stateRemote)
+		{
+			TVITEM item;
+			item.mask = TVIF_PARAM;
+			item.lParam = tiExtra.size();
+			item.hItem = parent;
+			tiExtra.push_back(TreeItemExtra((void*)ptr, &type, parent));
+			TreeView_SetItem(hVars, &item);
+			return;
+		}else{
+			ptr = *(char**)ptr;
+		}
 	}
-
-	ExternTypeInfo	&subType = codeTypes[type.subType];
 	for(unsigned int i = 0; i < arrSize; i++, ptr += subType.size)
 	{
 		if(i > 100)
@@ -739,10 +871,11 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
 		helpInsert.item.cChildren = subType.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (subType.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-		helpInsert.item.lParam = tiExtra.size();
+		helpInsert.item.lParam = subType.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
 
 		HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-		tiExtra.push_back(TreeItemExtra((void*)ptr, &subType, lastItem));
+		if(subType.subCat == ExternTypeInfo::CAT_POINTER)
+			tiExtra.push_back(TreeItemExtra((void*)ptr, &subType, lastItem));
 
 		FillVariableInfo(subType, ptr, lastItem);
 	}
@@ -782,10 +915,11 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
 		helpInsert.item.cChildren = memberType.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (memberType.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-		helpInsert.item.lParam = tiExtra.size();
+		helpInsert.item.lParam = memberType.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
 
 		HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-		tiExtra.push_back(TreeItemExtra((void*)ptr, &memberType, lastItem));
+		if(memberType.subCat == ExternTypeInfo::CAT_POINTER)
+			tiExtra.push_back(TreeItemExtra((void*)ptr, &memberType, lastItem));
 
 		FillVariableInfo(memberType, ptr, lastItem);
 
@@ -952,10 +1086,11 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
 		helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-		helpInsert.item.lParam = tiExtra.size();
+		helpInsert.item.lParam = type.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
 
 		HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-		tiExtra.push_back(TreeItemExtra(data + codeVars[i].offset, &type, lastItem));
+		if(type.subCat == ExternTypeInfo::CAT_POINTER)
+			tiExtra.push_back(TreeItemExtra(data + codeVars[i].offset, &type, lastItem));
 
 		FillVariableInfo(type, data + codeVars[i].offset, lastItem);
 
@@ -1057,10 +1192,11 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 				localInfo.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 				localInfo.item.pszText = name;
 				localInfo.item.cChildren = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-				localInfo.item.lParam = tiExtra.size();
+				localInfo.item.lParam = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
 
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
-				tiExtra.push_back(TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem));
+				if(codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER)
+					tiExtra.push_back(TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem));
 
 				FillVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset, thisItem);
 
@@ -1232,72 +1368,15 @@ void SuperCalcRun(bool debug)
 	}
 }
 
-bool PipeSendRequest(PipeData &data)
-{
-	DWORD send = 0;
-	EnterCriticalSection(&pipeSection);
-	DWORD good = WriteFile(debugPipe, &data, sizeof(data), &send, NULL);
-	LeaveCriticalSection(&pipeSection);
-	if(!good || send != sizeof(data))
-	{
-		MessageBox(hWnd, "Failed to send data through pipe", "ERROR", MB_OK);
-		return false;
-	}
-	return true;
-}
-
-char* PipeReceiveResponce(PipeData &data)
-{
-	EnterCriticalSection(&pipeSection);
-	unsigned int recvSize = 0;
-	DebugCommand cmd = data.cmd;
-	char *rawData = NULL;
-	do
-	{
-		DWORD send = 0;
-		DWORD good = ReadFile(debugPipe, &data, sizeof(data), &send, NULL);
-		if(!good || send != sizeof(data) || data.cmd != cmd || data.question)
-		{
-			delete[] rawData;
-			MessageBox(hWnd, "Failed to receive data through pipe", "ERROR", MB_OK);
-			LeaveCriticalSection(&pipeSection);
-			return NULL;
-		}
-		if(!recvSize)
-			rawData = new char[data.data.wholeSize];
-		memcpy(rawData + recvSize, data.data.data, data.data.dataSize);
-		recvSize += data.data.dataSize;
-	}while(recvSize < data.data.wholeSize);
-	LeaveCriticalSection(&pipeSection);
-	return rawData;
-}
-
 DWORD WINAPI PipeThread(void* param)
 {
 	PipeData data;
 
 	while(!param)
 	{
-		DWORD send = 0;
-		EnterCriticalSection(&pipeSection);
-		PeekNamedPipe(debugPipe, NULL, 0, NULL, &send, NULL);
-		if(!send)
+		int result = RemoteData::SocketReceive(RemoteData::sck, (char*)&data, sizeof(data), 5);
+		if(!result || result == -1 || result != sizeof(data) || data.cmd != DEBUG_BREAK_HIT)
 		{
-			LeaveCriticalSection(&pipeSection);
-			Sleep(64);
-			continue;
-		}
-		DWORD good = ReadFile(debugPipe, &data, sizeof(data), &send, NULL);
-		LeaveCriticalSection(&pipeSection);
-		if(!good || send != sizeof(data))
-		{
-			MessageBox(hWnd, "Failed to receive data through pipe (PipeThread)", "Error", MB_OK);
-			break;
-		}
-		if(data.cmd != DEBUG_BREAK_HIT)
-		{
-			PipeSendRequest(data);
-			Sleep(64);
 			continue;
 		}
 		ShowWindow(hContinue, SW_SHOW);
@@ -1341,7 +1420,7 @@ unsigned int PipeReuqestData(DebugCommand cmd, void **ptr)
 	*ptr = (ExternModuleInfo*)PipeReceiveResponce(data);
 	if(!*ptr)
 	{
-		MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+		MessageBox(hWnd, "Failed to receive response through pipe", "Error", MB_OK);
 		return 0;
 	}
 	return data.data.elemCount;
@@ -1409,6 +1488,86 @@ void ContinueAfterBreak()
 	SetEvent(breakResponse);
 }
 
+namespace Broadcast
+{
+	int		broadcastWorkers[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	struct	BroadcastResult
+	{
+		char	address[512];
+		char	message[1024];
+		char	pid[16];
+	} itemResult[8];
+	bool	itemAvailable[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	HANDLE	broadcastThreads[8];
+}
+
+DWORD WINAPI	BroadcastThread(void *param)
+{
+	using namespace Broadcast;
+
+	int ID = (*(int*)param) - 1;
+
+	sockaddr_in saServer;
+	saServer.sin_family = AF_INET;
+	saServer.sin_addr.s_addr = inet_addr(RemoteData::localIP);
+	saServer.sin_port = htons((u_short)(7590 + ID));
+	safeprintf(itemResult[ID].address, 512, "localhost:%d", 5970 + ID);
+
+	SOCKET sck = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if(connect(sck, (SOCKADDR*)&saServer, sizeof(saServer)))
+	{
+		closesocket(sck);
+
+		safeprintf(itemResult[ID].message, 1024, "%s", GetLastErrorDesc());
+		safeprintf(itemResult[ID].pid, 16, "-");
+		EnterCriticalSection(&pipeSection);
+		broadcastWorkers[ID] = 0;
+		itemAvailable[ID] = false;
+		LeaveCriticalSection(&pipeSection);
+	}else{
+		PipeData data;
+		data.cmd = DEBUG_REPORT_INFO;
+		data.question = true;
+
+		int result = RemoteData::SocketSend(sck, (char*)&data, sizeof(data), 2);
+		if(result == -1)
+		{
+			safeprintf(itemResult[ID].message, 1024, "Failed to request information to socket '%s'\r\n", GetLastErrorDesc());
+			safeprintf(itemResult[ID].pid, 16, "-");
+			EnterCriticalSection(&pipeSection);
+			broadcastWorkers[ID] = 0;
+			itemAvailable[ID] = false;
+			LeaveCriticalSection(&pipeSection);
+			closesocket(sck);
+			return 0;
+		}
+
+		result = RemoteData::SocketReceive(sck, (char*)&data, sizeof(data), 2);
+		if(result == -1)
+		{
+			safeprintf(itemResult[ID].message, 1024, "Failed to receive information '%s'\r\n", GetLastErrorDesc());
+			safeprintf(itemResult[ID].pid, 16, "-");
+			EnterCriticalSection(&pipeSection);
+			broadcastWorkers[ID] = 0;
+			itemAvailable[ID] = false;
+			LeaveCriticalSection(&pipeSection);
+			closesocket(sck);
+			return 0;
+		}
+		if(data.cmd == DEBUG_REPORT_INFO && !data.question)
+		{
+			safeprintf(itemResult[ID].message, 1024, "%s", data.report.module);
+			safeprintf(itemResult[ID].pid, 16, "%d", data.report.pID);
+			EnterCriticalSection(&pipeSection);
+			broadcastWorkers[ID] = 0;
+			itemAvailable[ID] = true;
+			LeaveCriticalSection(&pipeSection);
+		}
+		closesocket(sck);
+	}
+
+	return 0;
+}
 LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	int wmId, wmEvent;
@@ -1488,15 +1647,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(extra && extra->type->subCat == ExternTypeInfo::CAT_POINTER)
 			{
 				codeTypes = stateRemote ? RemoteData::types : nullcDebugTypeInfo(NULL);
-				char *ptr = *(char**)extra->address;
-				ExternTypeInfo &type = codeTypes[extra->type->subType];
+				char *ptr = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? *(char**)extra->address : ((NullCArray*)extra->address)->ptr;
+				const ExternTypeInfo &type = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? codeTypes[extra->type->subType] : *extra->type;
 
 				if(stateRemote)
 				{
 					PipeData data;
 					data.cmd = DEBUG_BREAK_DATA;
 					data.question = true;
-					data.data.wholeSize = type.size;
+					data.data.wholeSize = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? type.size : ((NullCArray*)extra->address)->len * codeTypes[type.subType].size;
 					data.data.elemCount = 0;
 					data.data.dataSize = (unsigned int)(intptr_t)ptr;
 					if(!PipeSendRequest(data))
@@ -1617,6 +1776,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				data.question = false;
 				if(!PipeSendRequest(data))
 					MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+				closesocket(RemoteData::sck);
 				// Remove text area windows and breakpoints
 				for(unsigned int i = 0; i < attachedEdits.size(); i++)
 				{
@@ -1673,31 +1833,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 				stateRemote = false;
 			}
-			if(debugPipe != INVALID_HANDLE_VALUE)
-			{
-				CloseHandle(debugPipe);
-				debugPipe = INVALID_HANDLE_VALUE;
-			}
+			stateAttach = false;
 		}else if((HWND)lParam == hAttachDo){
 			unsigned int ID = ListView_GetSelectionMark(hAttachList);
-
-			char pipeName[64];
-			sprintf(pipeName, "\\\\.\\pipe\\NULLC%d", ID);
-			if(WaitNamedPipe(pipeName, 1000))
+			RemoteData::saServer.sin_port = htons((u_short)(7590 + ID));
+			RemoteData::sck = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if(connect(RemoteData::sck, (SOCKADDR*)&RemoteData::saServer, sizeof(RemoteData::saServer)))
 			{
-				debugPipe = CreateFile(pipeName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-				if(debugPipe == INVALID_HANDLE_VALUE)
-				{
-					MessageBox(hWnd, "Failed to open pipe", "ERROR", MB_OK);
-					break;
-				}
-				DWORD mode = PIPE_READMODE_MESSAGE;
-				DWORD good = SetNamedPipeHandleState(debugPipe, &mode, NULL, NULL);
-				if(!good) 
-				{
-					MessageBox(hWnd, "Failed to set pipe state", "ERROR", MB_OK);
-					break;
-				}
+				closesocket(RemoteData::sck);
+				MessageBox(hWnd, "Cannot attach debugger to selected process", "ERROR", MB_OK);
+			}else{
 				ShowWindow(hAttachPanel, SW_HIDE);
 				ShowWindow(hAttachDo, SW_HIDE);
 				ShowWindow(hAttachTabs, SW_SHOW);
@@ -1705,8 +1850,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				stateAttach = false;
 				stateRemote = true;
 				PipeInit();
-			}else{
-				MessageBox(hWnd, "Cannot attach debugger to selected process", "ERROR", MB_OK);
 			}
 		}
 		// Parse the menu selections:
@@ -1893,90 +2036,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	{
 		if(stateAttach)
 		{
-			char message[1024], *pos = message;
-			message[0] = 0;
 			int selected = ListView_GetSelectionMark(hAttachList);
 
 			LVITEM lvItem;
 			lvItem.mask = LVIF_TEXT | LVIF_STATE;
 			lvItem.state = 0;
 			lvItem.stateMask = 0;
-
-			Button_Enable(hAttachDo, false);
-			for(unsigned int i = 0; i < 16; i++)
+			for(unsigned int i = 0; i < 8; i++)
 			{
-				char pipeName[64];
-				sprintf(pipeName, "\\\\.\\pipe\\NULLC%d", i);
-				if(WaitNamedPipe(pipeName, 10))
+				EnterCriticalSection(&pipeSection);
+				if(!Broadcast::broadcastWorkers[i])
 				{
-					HANDLE pipe = CreateFile(pipeName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-					if(pipe == INVALID_HANDLE_VALUE)
-					{
-						pos += safeprintf(pos, 1024 - (pos - message), "Failed to open pipe '%s'\r\n", pipeName);
-						continue;
-					}
-					DWORD mode = PIPE_READMODE_MESSAGE;
-					DWORD good = SetNamedPipeHandleState(pipe, &mode, NULL, NULL);
-					if(!good) 
-					{
-						pos += safeprintf(pos, 1024 - (pos - message), "Failed to SetNamedPipeHandleState on '%s'\r\n", pipeName);
-						continue;
-					}
-					PipeData data;
-					data.cmd = DEBUG_REPORT_INFO;
-					data.question = true;
-
-					DWORD send = 0;
-					good = WriteFile(pipe, &data, sizeof(data), &send, NULL);
-					if(!good || send != sizeof(data))
-					{
-						pos += safeprintf(pos, 1024 - (pos - message), "Failed to WriteFile on '%s'\r\n", pipeName);
-						continue;
-					}
-
 					lvItem.iItem = i;
 					lvItem.iSubItem = 0;
-					lvItem.pszText = pipeName;
-					ListView_SetItem(hAttachList, &lvItem);
-
-					good = ReadFile(pipe, &data, sizeof(data), &send, NULL);
-					if(!good || send != sizeof(data))
-					{
-						pos += safeprintf(pos, 1024 - (pos - message), "Failed to ReadFile on '%s'\r\n", pipeName);
-						continue;
-					}
-					if(data.cmd == DEBUG_REPORT_INFO && !data.question)
-					{
-						lvItem.iItem = i;
-						lvItem.iSubItem = 1;
-						lvItem.pszText = data.report.module;
-						ListView_SetItem(hAttachList, &lvItem);
-
-						char tmp[64];
-						lvItem.iItem = i;
-						lvItem.iSubItem = 2;
-						sprintf(tmp, "%d", data.report.pID);
-						lvItem.pszText = tmp;
-						ListView_SetItem(hAttachList, &lvItem);
-					}
-
-					if(selected == (int)i)
-						Button_Enable(hAttachDo, true);
-
-					CloseHandle(pipe);
-				}else{
-					lvItem.iItem = i;
-					lvItem.iSubItem = 0;
-					lvItem.pszText = "";
+					lvItem.pszText = Broadcast::itemResult[i].address;
 					ListView_SetItem(hAttachList, &lvItem);
 					lvItem.iSubItem = 1;
+					lvItem.pszText = Broadcast::itemResult[i].message;
 					ListView_SetItem(hAttachList, &lvItem);
 					lvItem.iSubItem = 2;
+					lvItem.pszText = Broadcast::itemResult[i].pid;
 					ListView_SetItem(hAttachList, &lvItem);
+					Broadcast::broadcastWorkers[i] = i + 1;
+					Broadcast::broadcastThreads[i] = CreateThread(NULL, 64*1024, BroadcastThread, &Broadcast::broadcastWorkers[i], NULL, 0);
 				}
+				LeaveCriticalSection(&pipeSection);
 			}
+			if(selected != -1)
+				Button_Enable(hAttachDo, Broadcast::itemAvailable[selected]);
 			ListView_SetSelectionMark(hAttachList, selected);
-			SetWindowText(hCode, message);
 		}
 
 		for(unsigned int i = 0; i < richEdits.size(); i++)

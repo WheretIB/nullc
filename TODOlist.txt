@@ -1,22 +1,36 @@
-f. Add warning for unusual conversions (?)
+Core:
+	1. u. Check for hash collisions.
+	2. f. tuples
+	3. f. auto[]
+	4. f. stand-alone executor
+	5. b. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
+	6. f. typedefs should be scoped
+	7. b. stack frames should be cleared in jit
+	8. b. double->int and double->long conversion should be done using chop rounding mode
+	9. b. Fix alignment of dynamically allocated variables.
+	10. b. Inifine loop of arrays with implicit size crashes GC
 
-u. Check for hash collisions.
-b. Fix alignment of dynamically allocated variables.
+Library:
+	1. f. string
+	2. f. hash_map
+	3. f. sort
 
-f. Breakpoints.
+Debug:
+	1. f. Breakpoints on x86
 
-b. Compiled modules must recompile after changes.
-
-f. tuples
-f. string
-f. hash_map
-f. auto[]
-f. sort
-f. stand-alone executor
-b. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
-f. typedefs should be scoped
-b. stack frames should be cleared in jit
-b. double->int and double->long conversion should be done using chop rounding mode
+SuperCalc:
+	1. Context menu
+	2. Do not place breakpoints on unexecutable positions
+	3. Allow breakpoint setup using mouse
+	4. Tooltips with variable values
+	5. Scroll to breakpoint
+	6. Open tab with breakpoint
+	7. b. Compiled modules must recompile after changes.
+	9. Menu items shoud be diabled after attach
+	10. Repeated F9 key press while execution is breaked can cause NULLC crash
+	12. Editing code should be disabled\warning shown\edit & continue
+	13. b. Inifine loop of arrays with implicit size crashes SuperCalc
+	14. If nullctab config is not found, main.nc will be rewritten even if it exists
 
 DONE: ref variables - pointers
 DONE: multidimensional arrays
@@ -141,3 +155,5 @@ DONE: default function argument values are saved in bytecode and imported
 DONE: Fix alignment of statically allocated variables when global allocator returns memory not aligned by 16 byte boundary.
 DONE: stand-alone compiler
 DONE: optimize variable searches
+FIXED: Attach button is "hard" to press
+FIXED: When IDE is closed, remote aplication hangs
