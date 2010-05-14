@@ -433,6 +433,10 @@
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
 			<File
+				RelativePath=".\GUI\break1.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\GUI\lBreak.bmp"
 				>
 			</File>
@@ -446,6 +450,10 @@
 			</File>
 			<File
 				RelativePath=".\GUI\lLastcall.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\GUI\lUnreachable.bmp"
 				>
 			</File>
 			<File

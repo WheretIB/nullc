@@ -711,6 +711,14 @@ unsigned int RichTextarea::GetCurrentLine(HWND wnd)
 	return data->cursorCharY;
 }
 
+void RichTextarea::ScrollToLine(HWND wnd, unsigned int line)
+{
+	TextareaData *data = GetData(wnd);
+	data->cursorCharY = line;
+	data->ClampCursorBounds();
+	data->ScrollToCursor();
+}
+
 void RichTextarea::ClearAreaText(HWND wnd)
 {
 	TextareaData *data = GetData(wnd);
@@ -1941,6 +1949,9 @@ void TextareaData::OnSize(unsigned int width, unsigned int height)
 
 	if(RichTextarea::areaStatus)
 		RichTextarea::SetStatusBar(RichTextarea::areaStatus, areaWidth);
+
+	GetClientRect(areaWnd, &toolInfo.rect);
+	toolInfo.rect.right = toolInfo.rect.left + RichTextarea::padLeft;
 
 	UpdateScrollBar();
 

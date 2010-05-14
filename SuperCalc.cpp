@@ -83,6 +83,7 @@ struct Breakpoint
 {
 	HWND	tab;
 	unsigned int	line;
+	bool	valid;
 };
 
 std::vector<HWND>	richEdits;
@@ -300,6 +301,16 @@ char* PipeReceiveResponce(PipeData &data)
 }
 
 //////////////////////////////////////////////////////////////////////////
+
+enum OverlayType
+{
+	OVERLAY_NONE,
+	OVERLAY_CALLED,
+	OVERLAY_STOP,
+	OVERLAY_CURRENT,
+	OVERLAY_BREAKPOINT,
+	OVERLAY_BREAKPOINT_INVALID,
+};
 
 void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
 void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
@@ -684,10 +695,11 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	RichTextarea::SetTextStyle(10, 255,   0,   0, false, false,  true);
 	RichTextarea::SetTextStyle(11, 255,   0, 255, false, false, false);
 
-	RichTextarea::SetLineStyle(1, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CALL)), "This code has called into another function");
-	RichTextarea::SetLineStyle(2, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_LASTCALL)), "Code execution stopped at this point");
-	RichTextarea::SetLineStyle(3, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CURR)), "Code execution is currently at this point");
-	RichTextarea::SetLineStyle(4, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_BREAK)), "Breakpoint");
+	RichTextarea::SetLineStyle(OVERLAY_CALLED, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CALL)), "This code has called into another function");
+	RichTextarea::SetLineStyle(OVERLAY_STOP, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_LASTCALL)), "Code execution stopped at this point");
+	RichTextarea::SetLineStyle(OVERLAY_CURRENT, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CURR)), "Code execution is currently at this point");
+	RichTextarea::SetLineStyle(OVERLAY_BREAKPOINT, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_BREAK)), "Breakpoint");
+	RichTextarea::SetLineStyle(OVERLAY_BREAKPOINT_INVALID, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_UNREACHABLE)), "Breakpoint is never reached");
 
 	unsigned int width = (800 - 25) / 4;
 
@@ -1144,7 +1156,7 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 					curr = next + 1;
 					codeLine++;
 				}
-				RichTextarea::SetStyleToLine(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window, codeLine, 1);
+				RichTextarea::SetStyleToLine(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window, codeLine, OVERLAY_CALLED);
 			}
 		}
 
@@ -1211,7 +1223,10 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 
 	HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window;
 	if(codeLine != ~0u)
-		RichTextarea::SetStyleToLine(wnd, codeLine, lastIsCurrent ? 3 : 2);
+	{
+		RichTextarea::SetStyleToLine(wnd, codeLine, lastIsCurrent ? OVERLAY_CURRENT : OVERLAY_STOP);
+		RichTextarea::ScrollToLine(wnd, codeLine);
+	}
 	RichTextarea::UpdateArea(wnd);
 	RichTextarea::ResetUpdate(wnd);
 }
@@ -1244,12 +1259,12 @@ void RefreshBreakpoints()
 	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
 	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
 	for(unsigned int pos = 0; pos < breakpoints.size(); pos++)
-		RichTextarea::SetStyleToLine(breakpoints[pos].tab, breakpoints[pos].line, 4);
+		RichTextarea::SetStyleToLine(breakpoints[pos].tab, breakpoints[pos].line, breakpoints[pos].valid ? OVERLAY_BREAKPOINT : OVERLAY_BREAKPOINT_INVALID);
 	RichTextarea::UpdateArea(wnd);
 	RichTextarea::ResetUpdate(wnd);
 }
 
-unsigned int ConvertPositionToInstruction(unsigned int relPos, unsigned int infoSize, NULLCCodeInfo* codeInfo)
+unsigned int ConvertPositionToInstruction(unsigned int relPos, unsigned int infoSize, NULLCCodeInfo* codeInfo, unsigned int &sourceOffset)
 {
 	// Find instruction...
 	unsigned int bestID = ~0u, lastDistance = ~0u;
@@ -1262,13 +1277,17 @@ unsigned int ConvertPositionToInstruction(unsigned int relPos, unsigned int info
 		}
 	}
 	if(bestID != ~0u)
+	{
+		sourceOffset = codeInfo[bestID].sourceOffset;
 		return codeInfo[bestID].byteCodePos;
+	}
 	return ~0u;
 }
 
 unsigned int ConvertLineToInstruction(const char *source, unsigned int line, const char* fullSource, unsigned int infoSize, NULLCCodeInfo *codeInfo, unsigned int moduleSize, ExternModuleInfo *modules)
 {
 	// Find source code position for this line
+	unsigned int origLine = line;
 	const char *pos = source;
 	while(line-- && NULL != (pos = strchr(pos, '\n')))
 		pos++;
@@ -1290,7 +1309,23 @@ unsigned int ConvertLineToInstruction(const char *source, unsigned int line, con
 		// Move position to start of main module
 		if(shiftToLastModule && strcmp(source, fullSource + modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize) == 0)
 			relPos += shiftToLastModule;
-		return ConvertPositionToInstruction(relPos, infoSize, codeInfo);
+		unsigned int offset = ~0u;
+		unsigned int instID = ConvertPositionToInstruction(relPos, infoSize, codeInfo, offset);
+		if(offset != ~0u)
+		{
+			const char *pos = fullSource + offset;
+			const char *start = pos;
+			while(*start && start > fullSource)
+				start--;
+			start++;
+			unsigned int realLine = 0;
+			while(++realLine && NULL != (start = strchr(start, '\n')) && start < pos)
+				start++;
+			realLine--;
+			if(realLine != origLine)
+				return ~0u;
+		}
+		return instID;
 	}
 	return ~0u;
 }
@@ -1310,9 +1345,13 @@ void SuperCalcSetBreakpoints()
 	{
 		unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(breakpoints[id].tab), breakpoints[id].line, fullSource, infoSize, codeInfo, moduleSize, modules);
 		if(inst != ~0u)
+		{
+			breakpoints[id].valid = true;
 			nullcDebugAddBreakpoint(inst);
-		else
+		}else{
+			breakpoints[id].valid = false;
 			printf("Failed to add breakpoint at line %d\r\n", breakpoints[id].line);
+		}
 	}
 }
 void SuperCalcRun(bool debug)
@@ -1620,6 +1659,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				result[1023] = '\0';
 				SetWindowText(hResult, result);
 
+				RefreshBreakpoints();
 				FillVariableInfoTree();
 			}else{
 				_snprintf(result, 1024, "%s", nullcGetLastError());
@@ -1837,6 +1877,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 					stateRemote = false;
 				}
+				HMENU debugMenu = GetSubMenu(GetMenu(hWnd), 1);
+				EnableMenuItem(debugMenu, ID_RUN, MF_BYCOMMAND | MF_ENABLED);
+				EnableMenuItem(debugMenu, ID_RUN_DEBUG, MF_BYCOMMAND | MF_ENABLED);
+				EnableMenuItem(debugMenu, ID_DEBUG_ATTACHTOPROCESS, MF_BYCOMMAND | MF_ENABLED);
 				stateAttach = false;
 			}else if((HWND)lParam == hAttachDo){
 				unsigned int ID = ListView_GetSelectionMark(hAttachList);
@@ -1948,7 +1992,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						breakpoints.push_back(Breakpoint());
 						breakpoints.back().line = line;
 						breakpoints.back().tab = wnd;
-						RichTextarea::SetStyleToLine(wnd, line, 4);
+						RichTextarea::SetStyleToLine(wnd, line, OVERLAY_BREAKPOINT);
 						breakSet = true;
 					}else{
 						if(breakpoints.size() == 1)
@@ -1958,10 +2002,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 							breakpoints[pos] = breakpoints.back();
 							breakpoints.pop_back();
 						}
-						RichTextarea::SetStyleToLine(wnd, line, 0);
+						RichTextarea::SetStyleToLine(wnd, line, OVERLAY_NONE);
 					}
-					RichTextarea::UpdateArea(wnd);
-					RichTextarea::ResetUpdate(wnd);
 
 					if(!runRes.finished)
 					{
@@ -1977,8 +2019,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 								nullcDebugAddBreakpoint(inst);
 							else
 								nullcDebugRemoveBreakpoint(inst);
+						}else{
+							if(breakSet)
+								RichTextarea::SetStyleToLine(wnd, line, OVERLAY_BREAKPOINT_INVALID);
 						}
 					}
+					RichTextarea::UpdateArea(wnd);
+					RichTextarea::ResetUpdate(wnd);
 
 					if(stateRemote)
 					{
@@ -1997,15 +2044,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				}
 				break;
 			case ID_RUN_DEBUG:
-				if(!stateRemote && !stateAttach)
+				if(!stateRemote && !stateAttach && runRes.finished)
 					SuperCalcRun(true);
-				if(stateRemote)
+				if(stateRemote || !runRes.finished)
 					ContinueAfterBreak();
 				break;
 			case ID_RUN:
-				if(!stateRemote && !stateAttach)
+				if(!stateRemote && !stateAttach && runRes.finished)
 					SuperCalcRun(false);
-				if(stateRemote)
+				if(stateRemote || !runRes.finished)
 					ContinueAfterBreak();
 				break;
 			case ID_DEBUG_ATTACHTOPROCESS:
@@ -2021,6 +2068,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hAttachBack, SW_SHOW);
 
 				Button_Enable(hAttachDo, false);
+
+				HMENU debugMenu = GetSubMenu(GetMenu(hWnd), 1);
+				EnableMenuItem(debugMenu, ID_RUN, MF_BYCOMMAND | MF_GRAYED);
+				EnableMenuItem(debugMenu, ID_RUN_DEBUG, MF_BYCOMMAND | MF_GRAYED);
+				EnableMenuItem(debugMenu, ID_DEBUG_ATTACHTOPROCESS, MF_BYCOMMAND | MF_GRAYED);
 
 				stateAttach = true;
 			}
