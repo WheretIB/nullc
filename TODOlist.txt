@@ -18,7 +18,6 @@ Debug:
 	1. f. Breakpoints on x86
 
 SuperCalc:
-	3. f. Allow breakpoint setup using mouse
 	4. f. Tooltips with variable values
 	6. f. Open tab with breakpoint
 	7. b. Compiled modules must recompile after changes.
@@ -160,3 +159,4 @@ FIXED: Every time pointer value is viewed in variable info tree, new subitems ar
 DONE: Context menu
 DONE: Breapoint positions should be updated when code changes
 FIXED: Repeated F9 key presses while execution is breaked can cause NULLC to crash
+DONE: Allow breakpoint setup using mouse

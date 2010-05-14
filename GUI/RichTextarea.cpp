@@ -196,6 +196,8 @@ namespace RichTextarea
 
 	// Is symbol overwrite on
 	bool insertionMode = false;
+
+	void (*tooltipCallback)(HWND, RichTextarea::LineIterator) = NULL;
 }
 
 class HistoryManager;
@@ -795,6 +797,11 @@ void RichTextarea::ScrollToLine(HWND wnd, unsigned int line)
 	data->cursorCharY = line;
 	data->ClampCursorBounds();
 	data->ScrollToCursor();
+}
+
+void RichTextarea::SetTooltipClickCallback(void (*ptr)(HWND, RichTextarea::LineIterator))
+{
+	tooltipCallback = ptr;
 }
 
 void RichTextarea::ClearAreaText(HWND wnd)
@@ -2272,6 +2279,13 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 			break;
 		case WM_LBUTTONUP:
 			ReleaseCapture();
+			if(LOWORD(lParam) < RichTextarea::padLeft && !data->selectionOn && RichTextarea::tooltipCallback)
+			{
+				RichTextarea::LineIterator it;
+				it.line = data->currLine;
+				it.number = data->dragStartY;
+				RichTextarea::tooltipCallback(data->areaWnd, it);
+			}
 			break;
 		case WM_RBUTTONDOWN:
 			data->OnRightMouseDown(LOWORD(lParam), HIWORD(lParam));

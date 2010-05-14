@@ -58,6 +58,8 @@ namespace RichTextarea
 	unsigned int	GetCurrentLine(HWND wnd);
 	void			ScrollToLine(HWND wnd, unsigned int line);
 
+	void SetTooltipClickCallback(void (*)(HWND, LineIterator));
+
 	LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam);
 	VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
 }
