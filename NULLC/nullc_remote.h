@@ -6,10 +6,11 @@
 #define _WIN32_WINNT 0x0501
 #include <Windows.h>
 #include <stdio.h>
+#include <assert.h>
 #include "nullc_debug.h"
 
 HANDLE nullcFinished = INVALID_HANDLE_VALUE;
-HANDLE pipeThread = INVALID_HANDLE_VALUE;
+HANDLE pipeThread = INVALID_HANDLE_VALUE, generalThread = INVALID_HANDLE_VALUE;
 HANDLE pipe = INVALID_HANDLE_VALUE;
 CRITICAL_SECTION	pipeSection;
 
@@ -71,6 +72,44 @@ struct PipeData
 	};
 };
 
+namespace Dispatcher
+{
+	struct DispatchRecord
+	{
+		// Command
+		DebugCommand	cmd;
+		// Dispatcher will raise this event when 
+		HANDLE	ready;
+	};
+
+	// This event should be raised after data processing is finished
+	HANDLE	processed = INVALID_HANDLE_VALUE;
+
+	// This is the last data block
+	PipeData data;
+
+	// All records
+	const unsigned int MAX_DISPATCH_CLIENTS = 128;
+	DispatchRecord	records[MAX_DISPATCH_CLIENTS];
+	unsigned int	recordCount;
+
+	HANDLE DispatchRegister(DebugCommand event, HANDLE signal)
+	{
+		assert(recordCount < MAX_DISPATCH_CLIENTS);
+		DispatchRecord &rec = records[recordCount++];
+		rec.cmd = event;
+		rec.ready = signal;
+		return processed;
+	}
+
+	PipeData GetData()
+	{
+		return data;
+	}
+
+	DWORD WINAPI DispatcherThread(void* param);
+}
+
 void PipeSendData(HANDLE pipe, PipeData &data, char* start, unsigned int count, unsigned int whole)
 {
 	unsigned int left = whole;
@@ -94,8 +133,17 @@ void PipeSendData(HANDLE pipe, PipeData &data, char* start, unsigned int count, 
 unsigned int csCount = 512;
 unsigned int *stackFrames = NULL;
 
+HANDLE breakContinue = INVALID_HANDLE_VALUE;
+HANDLE breakProcessed = INVALID_HANDLE_VALUE;
+
 void PipeDebugBreak(unsigned int instruction)
 {
+	if(breakContinue == INVALID_HANDLE_VALUE)
+	{
+		breakContinue = CreateEvent(NULL, false, false, "NULLC can continue execution after break");
+		// Register for event
+		breakProcessed = Dispatcher::DispatchRegister(DEBUG_BREAK_CONTINUE, breakContinue);
+	}
 	PipeData data;
 	data.cmd = DEBUG_BREAK_HIT;
 	data.question = false;
@@ -136,34 +184,153 @@ void PipeDebugBreak(unsigned int instruction)
 	data.question = false;
 	PipeSendData(pipe, data, (char*)stackFrames, count, count * sizeof(unsigned int));
 
-	while(good)
+	WaitForSingleObject(breakContinue, INFINITE);
+	SetEvent(breakProcessed);
+}
+
+DWORD WINAPI GeneralCommandThread(void* param)
+{
+	HANDLE ready = CreateEvent(NULL, false, false, "NULLC Dispatcher has data ready for general processing");
+	// Register for events
+	HANDLE processed = Dispatcher::DispatchRegister(DEBUG_REPORT_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_MODULE_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_MODULE_NAMES, ready);
+	Dispatcher::DispatchRegister(DEBUG_SOURCE_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_CODE_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_TYPE_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_VARIABLE_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_FUNCTION_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_LOCAL_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_TYPE_EXTRA_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_SYMBOL_INFO, ready);
+	Dispatcher::DispatchRegister(DEBUG_BREAK_SET, ready);
+	Dispatcher::DispatchRegister(DEBUG_BREAK_DATA, ready);
+	Dispatcher::DispatchRegister(DEBUG_DETACH, ready);
+
+	DWORD size;
+	while(!param)
 	{
-		EnterCriticalSection(&pipeSection);
-		good = PeekNamedPipe(pipe, NULL, 0, NULL, &size, NULL);
-		if(!good)
+		WaitForSingleObject(ready, INFINITE);
+		PipeData data = Dispatcher::GetData();
+		switch(data.cmd)
 		{
-			LeaveCriticalSection(&pipeSection);
+		case DEBUG_REPORT_INFO:
+			printf("DEBUG_REPORT_INFO\r\n");
+			data.question = false;
+			GetModuleFileName(NULL, data.report.module, 256);
+			data.report.pID = GetCurrentProcessId();
+			WriteFile(pipe, &data, sizeof(data), &size, NULL);
+			break;
+		case DEBUG_MODULE_INFO:
+		{
+			printf("DEBUG_MODULE_INFO\r\n");
+			unsigned int count;
+			ExternModuleInfo *modules = nullcDebugModuleInfo(&count);
+			PipeSendData(pipe, data, (char*)modules, count, count * sizeof(ExternModuleInfo));
 			break;
 		}
-		if(!size)
+		case DEBUG_MODULE_NAMES:
 		{
-			LeaveCriticalSection(&pipeSection);
-			Sleep(128);
-			continue;
+			printf("DEBUG_MODULE_NAMES\r\n");
+			unsigned int count;
+			ExternModuleInfo *modules = nullcDebugModuleInfo(&count);
+			char *symbols = nullcDebugSymbols(NULL);
+			unsigned int size = 0;
+			for(unsigned int i = 0; i < count; i++)
+				size += (int)strlen(symbols + modules[i].nameOffset) + 1;
+			char *names = new char[size], *pos = names;
+			for(unsigned int i = 0; i < count; i++)
+			{
+				memcpy(pos, symbols + modules[i].nameOffset, strlen(symbols + modules[i].nameOffset) + 1);
+				pos += strlen(symbols + modules[i].nameOffset) + 1;
+			}
+			PipeSendData(pipe, data, names, size, size);
 		}
-		good = ReadFile(pipe, &data, sizeof(data), &size, NULL);
-		LeaveCriticalSection(&pipeSection);
-		if(!good || !size)
-			return;
-		if(data.cmd == DEBUG_BREAK_CONTINUE)
-			return;
-		if(data.cmd == DEBUG_DETACH)
+			break;
+			case DEBUG_SOURCE_INFO:
+		{
+			printf("DEBUG_SOURCE_INFO\r\n");
+			unsigned int count;
+			ExternModuleInfo *modules = nullcDebugModuleInfo(&count);
+			char *source = nullcDebugSource();
+			char *end = source + modules[count-1].sourceOffset + modules[count-1].sourceSize;
+			end += strlen(end) + 1;
+			PipeSendData(pipe, data, source, int(end-source), int(end-source));
+		}
+			break;
+			case DEBUG_CODE_INFO:
+		{
+			printf("DEBUG_CODE_INFO\r\n");
+			unsigned int count;
+			NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&count);
+			PipeSendData(pipe, data, (char*)codeInfo, count, count * sizeof(NULLCCodeInfo));
+		}
+			break;
+			case DEBUG_TYPE_INFO:
+		{
+			printf("DEBUG_TYPE_INFO\r\n");
+			unsigned int count;
+			ExternTypeInfo *typeInfo = nullcDebugTypeInfo(&count);
+			PipeSendData(pipe, data, (char*)typeInfo, count, count * sizeof(ExternTypeInfo));
+		}
+			break;
+			case DEBUG_VARIABLE_INFO:
+		{
+			printf("DEBUG_VARIABLE_INFO\r\n");
+			unsigned int count;
+			ExternVarInfo *varInfo = nullcDebugVariableInfo(&count);
+			PipeSendData(pipe, data, (char*)varInfo, count, count * sizeof(ExternVarInfo));
+		}
+			break;
+			case DEBUG_FUNCTION_INFO:
+		{
+			printf("DEBUG_FUNCTION_INFO\r\n");
+			unsigned int count;
+			ExternFuncInfo *funcInfo = nullcDebugFunctionInfo(&count);
+			PipeSendData(pipe, data, (char*)funcInfo, count, count * sizeof(ExternFuncInfo));
+		}
+			break;
+			case DEBUG_LOCAL_INFO:
+		{
+			printf("DEBUG_LOCAL_INFO\r\n");
+			unsigned int count;
+			ExternLocalInfo *localInfo = nullcDebugLocalInfo(&count);
+			PipeSendData(pipe, data, (char*)localInfo, count, count * sizeof(ExternLocalInfo));
+		}
+			break;
+			case DEBUG_TYPE_EXTRA_INFO:
+		{
+			printf("DEBUG_TYPE_EXTRA_INFO\r\n");
+			unsigned int count;
+			unsigned int *extraInfo = nullcDebugTypeExtraInfo(&count);
+			PipeSendData(pipe, data, (char*)extraInfo, count, count * sizeof(unsigned int));
+		}
+			break;
+			case DEBUG_SYMBOL_INFO:
+		{
+			printf("DEBUG_SYMBOL_INFO\r\n");
+			unsigned int count;
+			char *symbolInfo = nullcDebugSymbols(&count);
+			PipeSendData(pipe, data, (char*)symbolInfo, count, count * sizeof(char));
+		}
+			break;
+			case DEBUG_BREAK_SET:
+		{
+			printf("DEBUG_BREAK_SET %d %d\r\n", data.debug.breakInst, data.debug.breakSet);
+			if(data.debug.breakSet)
+				nullcDebugAddBreakpoint(data.debug.breakInst);
+			else
+				nullcDebugRemoveBreakpoint(data.debug.breakInst);
+		}
+			break;
+			case DEBUG_DETACH:
 		{
 			printf("DEBUG_DETACH\r\n");
 			nullcDebugClearBreakpoints();
-			return;
+			SetEvent(breakContinue);
 		}
-		if(data.cmd == DEBUG_BREAK_DATA)
+			break;
+			case DEBUG_BREAK_DATA:
 		{
 			char *ptr = (char*)(intptr_t)data.data.dataSize;
 			printf("DEBUG_BREAK_DATA %p (%d)\r\n", ptr, data.data.wholeSize);
@@ -171,16 +338,15 @@ void PipeDebugBreak(unsigned int instruction)
 				PipeSendData(pipe, data, "IsBadReadPtr!", 0, 14);
 			else
 				PipeSendData(pipe, data, ptr, data.data.wholeSize, data.data.wholeSize);
-			Sleep(128);
-			continue;
 		}
-		EnterCriticalSection(&pipeSection);
-		good = WriteFile(pipe, &data, sizeof(data), &size, NULL);
-		LeaveCriticalSection(&pipeSection);
+			break;
+		}
+		SetEvent(processed);
 	}
+	ExitThread(0);
 }
 
-DWORD WINAPI PipeThread(void* param)
+DWORD WINAPI DispatcherThread(void* param)
 {
 	nullcDebugSetBreakFunction(PipeDebugBreak);
 
@@ -196,7 +362,7 @@ DWORD WINAPI PipeThread(void* param)
 	while(ID < 16)
 	{
 		sprintf(pipeName, "\\\\.\\pipe\\NULLC%d", ID);
-		pipe = CreateNamedPipe(pipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1, 1024, 1024, 512/*NMPWAIT_USE_DEFAULT_WAIT*/, NULL);
+		pipe = CreateNamedPipe(pipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1, 1024, 1024, 512, NULL);
 		if(pipe != INVALID_HANDLE_VALUE)
 			break;
 		ID++;
@@ -215,7 +381,6 @@ DWORD WINAPI PipeThread(void* param)
 			printf("%s", nullcRemoteGetLastErrorDesc());
 			ExitThread(1);
 		}
-		char buf[1024];
 		while(true)
 		{
 			if(WaitForSingleObject(nullcFinished, 0) != WAIT_TIMEOUT)
@@ -239,151 +404,25 @@ DWORD WINAPI PipeThread(void* param)
 			if(!size)
 			{
 				LeaveCriticalSection(&pipeSection);
-				Sleep(64);
 				continue;
 			}
 			good = ReadFile(pipe, &data, sizeof(data), &size, NULL);
 			LeaveCriticalSection(&pipeSection);
 			if(!good || !size)
 				break;
-			switch(data.cmd)
+			Dispatcher::data = data;
+			bool foundTarget = false;
+			for(unsigned int i = 0; i < Dispatcher::recordCount; i++)
 			{
-			case DEBUG_REPORT_INFO:
-				printf("DEBUG_REPORT_INFO\r\n", buf);
-				data.question = false;
-				GetModuleFileName(NULL, data.report.module, 256);
-				data.report.pID = GetCurrentProcessId();
-				good = WriteFile(pipe, &data, sizeof(data), &size, NULL);
-				break;
-			case DEBUG_MODULE_INFO:
-			{
-				printf("DEBUG_MODULE_INFO\r\n");
-				unsigned int count;
-				ExternModuleInfo *modules = nullcDebugModuleInfo(&count);
-				PipeSendData(pipe, data, (char*)modules, count, count * sizeof(ExternModuleInfo));
-				break;
-			}
-			case DEBUG_MODULE_NAMES:
-			{
-				printf("DEBUG_MODULE_NAMES\r\n");
-				unsigned int count;
-				ExternModuleInfo *modules = nullcDebugModuleInfo(&count);
-				char *symbols = nullcDebugSymbols(NULL);
-				unsigned int size = 0;
-				for(unsigned int i = 0; i < count; i++)
-					size += (int)strlen(symbols + modules[i].nameOffset) + 1;
-				char *names = new char[size], *pos = names;
-				for(unsigned int i = 0; i < count; i++)
+				if(Dispatcher::records[i].cmd == data.cmd)
 				{
-					memcpy(pos, symbols + modules[i].nameOffset, strlen(symbols + modules[i].nameOffset) + 1);
-					pos += strlen(symbols + modules[i].nameOffset) + 1;
+					foundTarget = true;
+					SetEvent(Dispatcher::records[i].ready);
+					WaitForSingleObject(Dispatcher::processed, INFINITE);
 				}
-				PipeSendData(pipe, data, names, size, size);
 			}
-				break;
-				case DEBUG_SOURCE_INFO:
-			{
-				printf("DEBUG_SOURCE_INFO\r\n");
-				unsigned int count;
-				ExternModuleInfo *modules = nullcDebugModuleInfo(&count);
-				char *source = nullcDebugSource();
-				char *end = source + modules[count-1].sourceOffset + modules[count-1].sourceSize;
-				end += strlen(end) + 1;
-				PipeSendData(pipe, data, source, int(end-source), int(end-source));
-			}
-				break;
-				case DEBUG_CODE_INFO:
-			{
-				printf("DEBUG_CODE_INFO\r\n");
-				unsigned int count;
-				NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&count);
-				PipeSendData(pipe, data, (char*)codeInfo, count, count * sizeof(NULLCCodeInfo));
-			}
-				break;
-				case DEBUG_TYPE_INFO:
-			{
-				printf("DEBUG_TYPE_INFO\r\n");
-				unsigned int count;
-				ExternTypeInfo *typeInfo = nullcDebugTypeInfo(&count);
-				PipeSendData(pipe, data, (char*)typeInfo, count, count * sizeof(ExternTypeInfo));
-			}
-				break;
-				case DEBUG_VARIABLE_INFO:
-			{
-				printf("DEBUG_VARIABLE_INFO\r\n");
-				unsigned int count;
-				ExternVarInfo *varInfo = nullcDebugVariableInfo(&count);
-				PipeSendData(pipe, data, (char*)varInfo, count, count * sizeof(ExternVarInfo));
-			}
-				break;
-				case DEBUG_FUNCTION_INFO:
-			{
-				printf("DEBUG_FUNCTION_INFO\r\n");
-				unsigned int count;
-				ExternFuncInfo *funcInfo = nullcDebugFunctionInfo(&count);
-				PipeSendData(pipe, data, (char*)funcInfo, count, count * sizeof(ExternFuncInfo));
-			}
-				break;
-				case DEBUG_LOCAL_INFO:
-			{
-				printf("DEBUG_LOCAL_INFO\r\n");
-				unsigned int count;
-				ExternLocalInfo *localInfo = nullcDebugLocalInfo(&count);
-				PipeSendData(pipe, data, (char*)localInfo, count, count * sizeof(ExternLocalInfo));
-			}
-				break;
-				case DEBUG_TYPE_EXTRA_INFO:
-			{
-				printf("DEBUG_TYPE_EXTRA_INFO\r\n");
-				unsigned int count;
-				unsigned int *extraInfo = nullcDebugTypeExtraInfo(&count);
-				PipeSendData(pipe, data, (char*)extraInfo, count, count * sizeof(unsigned int));
-			}
-				break;
-				case DEBUG_SYMBOL_INFO:
-			{
-				printf("DEBUG_SYMBOL_INFO\r\n");
-				unsigned int count;
-				char *symbolInfo = nullcDebugSymbols(&count);
-				PipeSendData(pipe, data, (char*)symbolInfo, count, count * sizeof(char));
-			}
-				break;
-				case DEBUG_BREAK_SET:
-			{
-				printf("DEBUG_BREAK_SET %d %d\r\n", data.debug.breakInst, data.debug.breakSet);
-				if(data.debug.breakSet)
-					nullcDebugAddBreakpoint(data.debug.breakInst);
-				else
-					nullcDebugRemoveBreakpoint(data.debug.breakInst);
-			}
-				break;
-				case DEBUG_DETACH:
-			{
-				printf("DEBUG_DETACH\r\n");
-				nullcDebugClearBreakpoints();
-			}
-				break;
-				case DEBUG_BREAK_DATA:
-			{
-				char *ptr = (char*)(intptr_t)data.data.dataSize;
-				printf("DEBUG_BREAK_DATA %p (%d)\r\n", ptr, data.data.wholeSize);
-				if(IsBadReadPtr(ptr, data.data.wholeSize) || !data.data.wholeSize)
-					PipeSendData(pipe, data, "IsBadReadPtr!", 0, 14);
-				else
-					PipeSendData(pipe, data, ptr, data.data.wholeSize, data.data.wholeSize);
-			}
-				break;
-				case DEBUG_BREAK_CONTINUE:
-			{
-				printf("DEBUG_BREAK_CONTINUE\r\n");
-				EnterCriticalSection(&pipeSection);
-				good = WriteFile(pipe, &data, sizeof(data), &size, NULL);
-				LeaveCriticalSection(&pipeSection);
-				Sleep(128);
-			}
-				break;
-			}
-			Sleep(64);
+			if(!foundTarget)
+				printf("There is no receiver for the event %d\r\n", data.cmd);
 		}
 		FlushFileBuffers(pipe);
 		DisconnectNamedPipe(pipe);
@@ -393,7 +432,9 @@ DWORD WINAPI PipeThread(void* param)
 
 HANDLE nullcEnableRemoteDebugging()
 {
-	pipeThread = CreateThread(NULL, 1024 * 1024, PipeThread, NULL, NULL, 0);
+	Dispatcher::processed = CreateEvent(NULL, false, false, "NULLC dispatcher can proceed reading data");
+	pipeThread = CreateThread(NULL, 1024 * 1024, DispatcherThread, NULL, NULL, 0);
+	generalThread = CreateThread(NULL, 1024 * 1024, GeneralCommandThread, NULL, NULL, 0);
 	return nullcFinished = CreateEvent(NULL, false, false, "NULLC Finished execution Event");
 }
 
