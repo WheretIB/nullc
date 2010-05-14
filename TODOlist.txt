@@ -19,18 +19,17 @@ Debug:
 	1. f. Breakpoints on x86
 
 SuperCalc:
-	1. Context menu
-	2. Do not place breakpoints on unexecutable positions
-	3. Allow breakpoint setup using mouse
-	4. Tooltips with variable values
-	5. Scroll to breakpoint
-	6. Open tab with breakpoint
+	1. f. Context menu
+	2. b. Do not place breakpoints on unexecutable positions
+	3. f. Allow breakpoint setup using mouse
+	4. f. Tooltips with variable values
+	5. f. Scroll to breakpoint
+	6. f. Open tab with breakpoint
 	7. b. Compiled modules must recompile after changes.
-	9. Menu items shoud be diabled after attach
-	10. Repeated F9 key press while execution is breaked can cause NULLC crash
+	9. b. Menu items shoud be diabled after attach
+	10. b. Repeated F9 key press while execution is breaked can cause NULLC crash
 	12. Editing code should be disabled\warning shown\edit & continue
 	13. b. Inifine loop of arrays with implicit size crashes SuperCalc
-	14. If nullctab config is not found, main.nc will be rewritten even if it exists
 
 DONE: ref variables - pointers
 DONE: multidimensional arrays
@@ -157,3 +156,5 @@ DONE: stand-alone compiler
 DONE: optimize variable searches
 FIXED: Attach button is "hard" to press
 FIXED: When IDE is closed, remote aplication hangs
+FIXED: If nullctab config is not found, main.nc will be rewritten even if it exists
+FIXED: If last modified tab is closed, "new tab" window has modified flag
