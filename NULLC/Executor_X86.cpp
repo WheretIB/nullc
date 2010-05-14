@@ -537,7 +537,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	NULLC::abnormalTermination = false;
 
-	__try 
+	__try
 	{
 		__asm
 		{

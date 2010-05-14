@@ -2096,124 +2096,127 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 
 	TextareaData *data = GetData(hWnd);
 
-	switch(message)
+	__try
 	{
-	case WM_CREATE:
-		OnCreate(hWnd);
-		break;
-	case WM_DESTROY:
-		OnDestroy(hWnd);
-		break;
-	case WM_ERASEBKGND:
-		break;
-	case WM_PAINT:
-		data->OnPaint();
-		break;
-	case WM_KILLFOCUS:
-		ibarState = 0;
-		RichTextarea::AreaCursorUpdate(hWnd, 0, NULL, 0);
-		break;
-	case WM_SIZE:
-		data->OnSize(LOWORD(lParam), HIWORD(lParam));
-		break;
-	case WM_MOUSEACTIVATE:
-		SetFocus(hWnd);
-		EnableWindow(hWnd, true);
-		break;
-	case WM_CHAR:
-		data->OnCharacter((char)(wParam & 0xFF));
-		break;
-	case WM_KEYDOWN:
-		if(wParam == VK_CONTROL || wParam == VK_SHIFT)
-			break;
-		data->OnKeyEvent((int)wParam);
-		break;
-	case WM_LBUTTONDBLCLK:
-		data->OnLeftMouseDoubleclick(LOWORD(lParam), HIWORD(lParam));
-		break;
-	case WM_LBUTTONDOWN:
-		lastX = LOWORD(lParam);
-		lastY = HIWORD(lParam);
-
-		data->OnLeftMouseDown(LOWORD(lParam), HIWORD(lParam));
-		break;
-	case WM_MOUSEMOVE:
-		// If mouse is in the tooltip area
-		if(LOWORD(lParam) < RichTextarea::padLeft)
+		switch(message)
 		{
-			unsigned int blankX, blankY;
-			AreaLine *cLine = data->ClientToCursor(LOWORD(lParam), HIWORD(lParam), blankX, blankY, true);
-			data->toolInfo.lpszText = lStyle[cLine->lineStyle].tooltip;
-			SendMessage(data->toolTip, TTM_SETTOOLINFO, 0, (LPARAM)&data->toolInfo);
-		}
-		// If mouse if moving with the left mouse down
-		if(!(wParam & MK_LBUTTON) || (lastX == LOWORD(lParam) && lastY == HIWORD(lParam)))
+		case WM_CREATE:
+			OnCreate(hWnd);
 			break;
+		case WM_DESTROY:
+			OnDestroy(hWnd);
+			break;
+		case WM_ERASEBKGND:
+			break;
+		case WM_PAINT:
+			data->OnPaint();
+			break;
+		case WM_KILLFOCUS:
+			ibarState = 0;
+			RichTextarea::AreaCursorUpdate(hWnd, 0, NULL, 0);
+			break;
+		case WM_SIZE:
+			data->OnSize(LOWORD(lParam), HIWORD(lParam));
+			break;
+		case WM_MOUSEACTIVATE:
+			SetFocus(hWnd);
+			EnableWindow(hWnd, true);
+			break;
+		case WM_CHAR:
+			data->OnCharacter((char)(wParam & 0xFF));
+			break;
+		case WM_KEYDOWN:
+			if(wParam == VK_CONTROL || wParam == VK_SHIFT)
+				break;
+			data->OnKeyEvent((int)wParam);
+			break;
+		case WM_LBUTTONDBLCLK:
+			data->OnLeftMouseDoubleclick(LOWORD(lParam), HIWORD(lParam));
+			break;
+		case WM_LBUTTONDOWN:
+			lastX = LOWORD(lParam);
+			lastY = HIWORD(lParam);
 
-		lastX = LOWORD(lParam);
-		lastY = HIWORD(lParam);
+			data->OnLeftMouseDown(LOWORD(lParam), HIWORD(lParam));
+			break;
+		case WM_MOUSEMOVE:
+			// If mouse is in the tooltip area
+			if(LOWORD(lParam) < RichTextarea::padLeft)
+			{
+				unsigned int blankX, blankY;
+				AreaLine *cLine = data->ClientToCursor(LOWORD(lParam), HIWORD(lParam), blankX, blankY, true);
+				data->toolInfo.lpszText = lStyle[cLine->lineStyle].tooltip;
+				SendMessage(data->toolTip, TTM_SETTOOLINFO, 0, (LPARAM)&data->toolInfo);
+			}
+			// If mouse if moving with the left mouse down
+			if(!(wParam & MK_LBUTTON) || (lastX == LOWORD(lParam) && lastY == HIWORD(lParam)))
+				break;
 
-		data->OnMouseMove(LOWORD(lParam), HIWORD(lParam));
-		break;
-	case WM_LBUTTONUP:
-		ReleaseCapture();
-		break;
-	case WM_MOUSEWHEEL:
-		// Mouse wheel scroll text vertically
-		data->shiftCharY -= (GET_WHEEL_DELTA_WPARAM(wParam) / 120) * 3;
-		data->ClampShift();
-		InvalidateRect(hWnd, NULL, false);
+			lastX = LOWORD(lParam);
+			lastY = HIWORD(lParam);
 
-		data->UpdateScrollBar();
-		break;
-	case WM_VSCROLL:
-		// Vertical scroll events
-		switch(LOWORD(wParam))
-		{
-		case SB_LINEDOWN:
-			data->shiftCharY++;
+			data->OnMouseMove(LOWORD(lParam), HIWORD(lParam));
 			break;
-		case SB_LINEUP:
-			data->shiftCharY--;
+		case WM_LBUTTONUP:
+			ReleaseCapture();
 			break;
-		case SB_PAGEDOWN:
-			data->shiftCharY += charHeight ? data->areaHeight / charHeight : 1;
+		case WM_MOUSEWHEEL:
+			// Mouse wheel scroll text vertically
+			data->shiftCharY -= (GET_WHEEL_DELTA_WPARAM(wParam) / 120) * 3;
+			data->ClampShift();
+			InvalidateRect(hWnd, NULL, false);
+
+			data->UpdateScrollBar();
 			break;
-		case SB_PAGEUP:
-			data->shiftCharY -= charHeight ? data->areaHeight / charHeight : 1;
+		case WM_VSCROLL:
+			// Vertical scroll events
+			switch(LOWORD(wParam))
+			{
+			case SB_LINEDOWN:
+				data->shiftCharY++;
+				break;
+			case SB_LINEUP:
+				data->shiftCharY--;
+				break;
+			case SB_PAGEDOWN:
+				data->shiftCharY += charHeight ? data->areaHeight / charHeight : 1;
+				break;
+			case SB_PAGEUP:
+				data->shiftCharY -= charHeight ? data->areaHeight / charHeight : 1;
+				break;
+			case SB_THUMBPOSITION:
+			case SB_THUMBTRACK:
+				data->shiftCharY = HIWORD(wParam);
+				break;
+			}
+			data->ClampShift();
+			data->UpdateScrollBar();
+			InvalidateRect(hWnd, NULL, false);
 			break;
-		case SB_THUMBPOSITION:
-		case SB_THUMBTRACK:
-			data->shiftCharY = HIWORD(wParam);
+		case WM_HSCROLL:
+			// Horizontal scroll events
+			switch(LOWORD(wParam))
+			{
+			case SB_LINEDOWN:
+			case SB_PAGEDOWN:
+				data->shiftCharX++;
+				break;
+			case SB_LINEUP:
+			case SB_PAGEUP:
+				data->shiftCharX--;
+				break;
+			case SB_THUMBPOSITION:
+			case SB_THUMBTRACK:
+				data->shiftCharX = HIWORD(wParam);
+				break;
+			}
+			data->ClampShift();
+			data->UpdateScrollBar();
+			InvalidateRect(hWnd, NULL, false);
 			break;
 		}
-		data->ClampShift();
-		data->UpdateScrollBar();
-		InvalidateRect(hWnd, NULL, false);
-		break;
-	case WM_HSCROLL:
-		// Horizontal scroll events
-		switch(LOWORD(wParam))
-		{
-		case SB_LINEDOWN:
-		case SB_PAGEDOWN:
-			data->shiftCharX++;
-			break;
-		case SB_LINEUP:
-		case SB_PAGEUP:
-			data->shiftCharX--;
-			break;
-		case SB_THUMBPOSITION:
-		case SB_THUMBTRACK:
-			data->shiftCharX = HIWORD(wParam);
-			break;
-		}
-		data->ClampShift();
-		data->UpdateScrollBar();
-		InvalidateRect(hWnd, NULL, false);
-		break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
+	}__except(EXCEPTION_EXECUTE_HANDLER){
+		assert(!"Exception in window procedure handler");
 	}
-	return 0;
+	return DefWindowProc(hWnd, message, wParam, lParam);
 }

@@ -353,34 +353,37 @@ void TabbedFiles::RegisterTabbedFiles(const char *className, HINSTANCE hInstance
 
 LRESULT CALLBACK TabbedFiles::TabbedFilesProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
-	switch(message)
+	__try
 	{
-	case WM_CREATE:
-		OnCreate(hWnd);
-		break;
-	case WM_DESTROY:
-		OnDestroy(hWnd);
-		break;
-	case WM_PAINT:
-		OnPaint(hWnd);
-		break;
-	case WM_SIZE:
-		OnSize(hWnd, LOWORD(lParam), HIWORD(lParam));
-		break;
-	case WM_LBUTTONDOWN:
-		OnMouseLeft(hWnd, true, LOWORD(lParam), HIWORD(lParam));
-		break;
-	case WM_LBUTTONUP:
-		OnMouseLeft(hWnd, false, LOWORD(lParam), HIWORD(lParam));
-		break;
-	case WM_MOUSEMOVE:
-		OnMouseMove(hWnd, LOWORD(lParam), HIWORD(lParam));
-		break;
-	case WM_COMMAND:
-		OnCommand(hWnd, (HWND)lParam);
-		break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
+		switch(message)
+		{
+		case WM_CREATE:
+			OnCreate(hWnd);
+			break;
+		case WM_DESTROY:
+			OnDestroy(hWnd);
+			break;
+		case WM_PAINT:
+			OnPaint(hWnd);
+			break;
+		case WM_SIZE:
+			OnSize(hWnd, LOWORD(lParam), HIWORD(lParam));
+			break;
+		case WM_LBUTTONDOWN:
+			OnMouseLeft(hWnd, true, LOWORD(lParam), HIWORD(lParam));
+			break;
+		case WM_LBUTTONUP:
+			OnMouseLeft(hWnd, false, LOWORD(lParam), HIWORD(lParam));
+			break;
+		case WM_MOUSEMOVE:
+			OnMouseMove(hWnd, LOWORD(lParam), HIWORD(lParam));
+			break;
+		case WM_COMMAND:
+			OnCommand(hWnd, (HWND)lParam);
+			break;
+		}
+	}__except(EXCEPTION_EXECUTE_HANDLER){
+		assert(!"Exception in window procedure handler");
 	}
-	return 0;
+	return DefWindowProc(hWnd, message, wParam, lParam);
 }
