@@ -167,7 +167,7 @@ void PipeDebugBreak(unsigned int instruction)
 		{
 			char *ptr = (char*)(intptr_t)data.data.dataSize;
 			printf("DEBUG_BREAK_DATA %p (%d)\r\n", ptr, data.data.wholeSize);
-			if(IsBadReadPtr(ptr, data.data.wholeSize))
+			if(IsBadReadPtr(ptr, data.data.wholeSize) || !data.data.wholeSize)
 				PipeSendData(pipe, data, "IsBadReadPtr!", 0, 14);
 			else
 				PipeSendData(pipe, data, ptr, data.data.wholeSize, data.data.wholeSize);
@@ -367,8 +367,8 @@ DWORD WINAPI PipeThread(void* param)
 			{
 				char *ptr = (char*)(intptr_t)data.data.dataSize;
 				printf("DEBUG_BREAK_DATA %p (%d)\r\n", ptr, data.data.wholeSize);
-				if(IsBadReadPtr(ptr, data.data.wholeSize))
-				PipeSendData(pipe, data, "IsBadReadPtr!", 0, 14);
+				if(IsBadReadPtr(ptr, data.data.wholeSize) || !data.data.wholeSize)
+					PipeSendData(pipe, data, "IsBadReadPtr!", 0, 14);
 				else
 					PipeSendData(pipe, data, ptr, data.data.wholeSize, data.data.wholeSize);
 			}
