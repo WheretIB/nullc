@@ -589,7 +589,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 	{
 		FunctionInfo *func = CodeInfo::funcInfo[oldFuncCount + i];
 		// Handle only global visible functions
-		if(!func->visible || func->type != FunctionInfo::NORMAL)
+		if(!func->visible || func->type == FunctionInfo::LOCAL)
 			continue;
 		// Go through all function parameters
 		VariableInfo *param = func->firstParam;
@@ -597,7 +597,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		{
 			if(param->defaultValueFuncID != 0xffff)
 			{
-				FunctionInfo *targetFunc = CodeInfo::funcInfo[param->defaultValueFuncID];
+				FunctionInfo *targetFunc = CodeInfo::funcInfo[oldFuncCount + param->defaultValueFuncID - bCode->moduleFunctionCount];
 				AddFunctionCallNode(NULL, targetFunc->name, 0, false);
 				param->defaultValue = CodeInfo::nodeList.back();
 				CodeInfo::nodeList.pop_back();
@@ -780,7 +780,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		{
 			FunctionInfo *func = CodeInfo::funcInfo[i];
 			// Handle only global visible functions
-			if(!func->visible || func->type != FunctionInfo::NORMAL)
+			if(!func->visible || func->type == FunctionInfo::LOCAL)
 				continue;
 			// Go through all function parameters
 			VariableInfo *param = func->firstParam;
@@ -790,7 +790,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 				{
 					// Wrap in function
 					char	*functionName = (char*)AllocateString(func->nameLength + int(param->name.end - param->name.begin) + 3 + 12);
-					SafeSprintf(functionName, func->nameLength + int(param->name.end - param->name.begin) + 3 + 12, "$%s_%.*s_%d", func->name, param->name.end - param->name.begin, param->name.begin, CodeInfo::FindFunctionByPtr(func));
+					const char	*parentName = func->type == FunctionInfo::THISCALL ? strchr(func->name, ':') + 2 : func->name;
+					SafeSprintf(functionName, func->nameLength + int(param->name.end - param->name.begin) + 3 + 12, "$%s_%.*s_%d", parentName, param->name.end - param->name.begin, param->name.begin, CodeInfo::FindFunctionByPtr(func));
 
 					SelectTypeByPointer(NULL);
 					FunctionAdd(CodeInfo::lastKnownStartPos, functionName);
