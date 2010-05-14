@@ -373,6 +373,15 @@ DWORD WINAPI PipeThread(void* param)
 					PipeSendData(pipe, data, ptr, data.data.wholeSize, data.data.wholeSize);
 			}
 				break;
+				case DEBUG_BREAK_CONTINUE:
+			{
+				printf("DEBUG_BREAK_CONTINUE\r\n");
+				EnterCriticalSection(&pipeSection);
+				good = WriteFile(pipe, &data, sizeof(data), &size, NULL);
+				LeaveCriticalSection(&pipeSection);
+				Sleep(128);
+			}
+				break;
 			}
 			Sleep(64);
 		}
