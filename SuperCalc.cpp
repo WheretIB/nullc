@@ -4,7 +4,6 @@
 #pragma warning(disable: 4127)
 
 #define _WIN32_WINNT 0x0501
-#define _WIN32_WINDOWS 0x0501
 #include <windows.h>
 
 #include "commctrl.h"
@@ -1581,594 +1580,597 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 	char	result[1024];
 
-	switch(message) 
+	__try
 	{
-	case WM_CREATE:
-		runRes.finished = true;
-		runRes.wnd = hWnd;
-
-		breakResponse = CreateEvent(NULL, false, false, "NULLC Debug Break Continue Event");
-		break;
-	case WM_DESTROY:
-		if(hWnd == ::hWnd)
+		switch(message) 
 		{
-			FILE *tabInfo = fopen("nullc_tab.cfg", "wb");
-			for(unsigned int i = 0; i < richEdits.size(); i++)
+		case WM_CREATE:
+			runRes.finished = true;
+			runRes.wnd = hWnd;
+
+			breakResponse = CreateEvent(NULL, false, false, "NULLC Debug Break Continue Event");
+			break;
+		case WM_DESTROY:
+			if(hWnd == ::hWnd)
 			{
-				fprintf(tabInfo, "%s\r\n", TabbedFiles::GetTabInfo(hTabs, i).name);
-				DestroyWindow(richEdits[i]);
-			}
-			for(unsigned int i = 0; i < attachedEdits.size(); i++)
-				DestroyWindow(attachedEdits[i]);
-			fclose(tabInfo);
-			RichTextarea::UnregisterTextarea();
-			PostQuitMessage(0);
-		}
-		break;
-	case WM_USER + 1:
-		SetWindowText(hButtonCalc, "Run");
-
-		if(runRes.result)
-		{
-			const char *val = nullcGetResult();
-
-			_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
-			result[1023] = '\0';
-			SetWindowText(hResult, result);
-
-			FillVariableInfoTree();
-		}else{
-			_snprintf(result, 1024, "%s", nullcGetLastError());
-			result[1023] = '\0';
-			SetWindowText(hCode, result);
-
-			FillVariableInfoTree();
-		}
-		break;
-	case WM_USER + 2:
-		ShowWindow(hContinue, SW_SHOW);
-		RefreshBreakpoints();
-		FillVariableInfoTree(true);
-
-		break;
-	case WM_NOTIFY:
-		if(((LPNMHDR)lParam)->code == TVN_GETDISPINFO && ((LPNMHDR)lParam)->hwndFrom == hVars)
-		{
-			LPNMTVDISPINFO info = (LPNMTVDISPINFO)lParam;
-			if(info->item.mask & TVIF_CHILDREN)
-			{
-				if(codeTypes && info->item.lParam && tiExtra[info->item.lParam].type->subCat == ExternTypeInfo::CAT_POINTER)
-					info->item.cChildren = 1;
-			}
-		}else if(((LPNMHDR)lParam)->code == TVN_ITEMEXPANDING && ((LPNMHDR)lParam)->hwndFrom == hVars){
-			LPNMTREEVIEW info = (LPNMTREEVIEW)lParam;
-
-			TreeItemExtra *extra = info->itemNew.lParam ? &tiExtra[info->itemNew.lParam] : NULL;
-			if(extra && extra->type->subCat == ExternTypeInfo::CAT_POINTER)
-			{
-				codeTypes = stateRemote ? RemoteData::types : nullcDebugTypeInfo(NULL);
-				char *ptr = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? *(char**)extra->address : ((NullCArray*)extra->address)->ptr;
-				const ExternTypeInfo &type = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? codeTypes[extra->type->subType] : *extra->type;
-
-				if(stateRemote)
+				FILE *tabInfo = fopen("nullc_tab.cfg", "wb");
+				for(unsigned int i = 0; i < richEdits.size(); i++)
 				{
-					PipeData data;
-					data.cmd = DEBUG_BREAK_DATA;
-					data.question = true;
-					data.data.wholeSize = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? type.size : ((NullCArray*)extra->address)->len * codeTypes[type.subType].size;
-					data.data.elemCount = 0;
-					data.data.dataSize = (unsigned int)(intptr_t)ptr;
-					if(!PipeSendRequest(data))
+					fprintf(tabInfo, "%s\r\n", TabbedFiles::GetTabInfo(hTabs, i).name);
+					DestroyWindow(richEdits[i]);
+				}
+				for(unsigned int i = 0; i < attachedEdits.size(); i++)
+					DestroyWindow(attachedEdits[i]);
+				fclose(tabInfo);
+				RichTextarea::UnregisterTextarea();
+				PostQuitMessage(0);
+			}
+			break;
+		case WM_USER + 1:
+			SetWindowText(hButtonCalc, "Run");
+
+			if(runRes.result)
+			{
+				const char *val = nullcGetResult();
+
+				_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+				result[1023] = '\0';
+				SetWindowText(hResult, result);
+
+				FillVariableInfoTree();
+			}else{
+				_snprintf(result, 1024, "%s", nullcGetLastError());
+				result[1023] = '\0';
+				SetWindowText(hCode, result);
+
+				FillVariableInfoTree();
+			}
+			break;
+		case WM_USER + 2:
+			ShowWindow(hContinue, SW_SHOW);
+			RefreshBreakpoints();
+			FillVariableInfoTree(true);
+
+			break;
+		case WM_NOTIFY:
+			if(((LPNMHDR)lParam)->code == TVN_GETDISPINFO && ((LPNMHDR)lParam)->hwndFrom == hVars)
+			{
+				LPNMTVDISPINFO info = (LPNMTVDISPINFO)lParam;
+				if(info->item.mask & TVIF_CHILDREN)
+				{
+					if(codeTypes && info->item.lParam && tiExtra[info->item.lParam].type->subCat == ExternTypeInfo::CAT_POINTER)
+						info->item.cChildren = 1;
+				}
+			}else if(((LPNMHDR)lParam)->code == TVN_ITEMEXPANDING && ((LPNMHDR)lParam)->hwndFrom == hVars){
+				LPNMTREEVIEW info = (LPNMTREEVIEW)lParam;
+
+				TreeItemExtra *extra = info->itemNew.lParam ? &tiExtra[info->itemNew.lParam] : NULL;
+				if(extra && extra->type->subCat == ExternTypeInfo::CAT_POINTER)
+				{
+					codeTypes = stateRemote ? RemoteData::types : nullcDebugTypeInfo(NULL);
+					char *ptr = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? *(char**)extra->address : ((NullCArray*)extra->address)->ptr;
+					const ExternTypeInfo &type = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? codeTypes[extra->type->subType] : *extra->type;
+
+					if(stateRemote)
 					{
-						MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+						PipeData data;
+						data.cmd = DEBUG_BREAK_DATA;
+						data.question = true;
+						data.data.wholeSize = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? type.size : ((NullCArray*)extra->address)->len * codeTypes[type.subType].size;
+						data.data.elemCount = 0;
+						data.data.dataSize = (unsigned int)(intptr_t)ptr;
+						if(!PipeSendRequest(data))
+						{
+							MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+							return 0;
+						}
+						ptr = PipeReceiveResponce(data);
+						if(!ptr)
+						{
+							MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+							break;
+						}
+						if(!data.data.elemCount)
+							break;
+					}
+					if(IsBadReadPtr(ptr, extra->type->size))
+						break;
+					char name[256];
+
+					char *it = name;
+					memset(name, 0, 256);
+					it += safeprintf(it, 256 - int(it - name), "0x%x: %s ###", ptr, codeSymbols + type.offsetToName);
+
+					if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
+						it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, ptr));
+					else if(&type == &codeTypes[8])	// for typeid
+						it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)ptr].offsetToName);
+
+					TVINSERTSTRUCT helpInsert;
+					helpInsert.hParent = extra->item;
+					helpInsert.hInsertAfter = TVI_LAST;
+					helpInsert.item.cchTextMax = 0;
+					helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
+					helpInsert.item.pszText = name;
+					helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
+					helpInsert.item.lParam = tiExtra.size();
+
+					HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
+					tiExtra.push_back(TreeItemExtra(ptr, &type, lastItem));
+
+					FillVariableInfo(type, ptr, lastItem);
+
+					if(stateRemote)
+						externalBlocks.push_back(ptr);
+				}
+			}
+			break;
+		case WM_COMMAND:
+			wmId	= LOWORD(wParam);
+			wmEvent = HIWORD(wParam);
+
+			if((HWND)lParam == hContinue)
+			{
+				ContinueAfterBreak();
+			}else if((HWND)lParam == hButtonCalc){
+				SuperCalcRun(true);
+			}else if((HWND)lParam == hNewFile){
+				GetWindowText(hNewFilename, fileName, 512);
+				SetWindowText(hNewFilename, "");
+				if(!strstr(fileName, ".nc"))
+					strcat(fileName, ".nc");
+				// Check if file is already opened
+				for(unsigned int i = 0; i < richEdits.size(); i++)
+				{
+					if(strcmp(TabbedFiles::GetTabInfo(hTabs, i).name, fileName) == 0)
+					{
+						TabbedFiles::SetCurrentTab(hTabs, i);
 						return 0;
 					}
-					ptr = PipeReceiveResponce(data);
-					if(!ptr)
+				}
+				FILE *fNew = fopen(fileName, "rb");
+
+				char *filePart = NULL;
+				GetFullPathName(fileName, 512, result, &filePart);
+				if(fNew)
+				{
+					int action = MessageBox(hWnd, "File already exists, overwrite?", "Warning", MB_YESNOCANCEL);
+					if(action == IDYES)
 					{
-						MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
-						break;
+						richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, ::hWnd, NULL, hInst, NULL));
+						TabbedFiles::AddTab(hTabs, result, richEdits.back());
+						TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
+						TabbedFiles::GetTabInfo(hTabs, (int)richEdits.size() - 1).dirty = true;
+					}else if(action == IDNO){
+						fclose(fNew);
+						AddTabWithFile(fileName, hInst);
+						TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
 					}
-					if(!data.data.elemCount)
-						break;
-				}
-				if(IsBadReadPtr(ptr, extra->type->size))
-					break;
-				char name[256];
-
-				char *it = name;
-				memset(name, 0, 256);
-				it += safeprintf(it, 256 - int(it - name), "0x%x: %s ###", ptr, codeSymbols + type.offsetToName);
-
-				if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
-					it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, ptr));
-				else if(&type == &codeTypes[8])	// for typeid
-					it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)ptr].offsetToName);
-
-				TVINSERTSTRUCT helpInsert;
-				helpInsert.hParent = extra->item;
-				helpInsert.hInsertAfter = TVI_LAST;
-				helpInsert.item.cchTextMax = 0;
-				helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
-				helpInsert.item.pszText = name;
-				helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-				helpInsert.item.lParam = tiExtra.size();
-
-				HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-				tiExtra.push_back(TreeItemExtra(ptr, &type, lastItem));
-
-				FillVariableInfo(type, ptr, lastItem);
-
-				if(stateRemote)
-					externalBlocks.push_back(ptr);
-			}
-		}
-		break;
-	case WM_COMMAND:
-		wmId	= LOWORD(wParam);
-		wmEvent = HIWORD(wParam);
-
-		if((HWND)lParam == hContinue)
-		{
-			ContinueAfterBreak();
-		}else if((HWND)lParam == hButtonCalc){
-			SuperCalcRun(true);
-		}else if((HWND)lParam == hNewFile){
-			GetWindowText(hNewFilename, fileName, 512);
-			SetWindowText(hNewFilename, "");
-			if(!strstr(fileName, ".nc"))
-				strcat(fileName, ".nc");
-			// Check if file is already opened
-			for(unsigned int i = 0; i < richEdits.size(); i++)
-			{
-				if(strcmp(TabbedFiles::GetTabInfo(hTabs, i).name, fileName) == 0)
-				{
-					TabbedFiles::SetCurrentTab(hTabs, i);
-					return 0;
-				}
-			}
-			FILE *fNew = fopen(fileName, "rb");
-
-			char *filePart = NULL;
-			GetFullPathName(fileName, 512, result, &filePart);
-			if(fNew)
-			{
-				int action = MessageBox(hWnd, "File already exists, overwrite?", "Warning", MB_YESNOCANCEL);
-				if(action == IDYES)
-				{
+					fclose(fNew);
+				}else{
 					richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, ::hWnd, NULL, hInst, NULL));
 					TabbedFiles::AddTab(hTabs, result, richEdits.back());
 					TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
 					TabbedFiles::GetTabInfo(hTabs, (int)richEdits.size() - 1).dirty = true;
-				}else if(action == IDNO){
-					fclose(fNew);
-					AddTabWithFile(fileName, hInst);
-					TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
 				}
-				fclose(fNew);
-			}else{
-				richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, ::hWnd, NULL, hInst, NULL));
-				TabbedFiles::AddTab(hTabs, result, richEdits.back());
-				TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
-				TabbedFiles::GetTabInfo(hTabs, (int)richEdits.size() - 1).dirty = true;
-			}
-		}else if((HWND)lParam == hAttachBack){
-			ShowWindow(hTabs, SW_SHOW);
-			ShowWindow(hButtonCalc, SW_SHOW);
-			ShowWindow(hResult, SW_SHOW);
-			ShowWindow(hJITEnabled, SW_SHOW);
-			ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_SHOW);
+			}else if((HWND)lParam == hAttachBack){
+				ShowWindow(hTabs, SW_SHOW);
+				ShowWindow(hButtonCalc, SW_SHOW);
+				ShowWindow(hResult, SW_SHOW);
+				ShowWindow(hJITEnabled, SW_SHOW);
+				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_SHOW);
 
-			ShowWindow(hAttachPanel, SW_HIDE);
-			ShowWindow(hAttachDo, SW_HIDE);
-			ShowWindow(hAttachBack, SW_HIDE);
-			ShowWindow(hAttachTabs, SW_HIDE);
-
-			ShowWindow(hContinue, SW_HIDE);
-
-			if(stateRemote)
-			{
-				// Kill debug tracking
-				TerminateThread(pipeThread, 0);
-				// Send debug detach and continue commands
-				PipeData data;
-				data.cmd = DEBUG_DETACH;
-				data.question = false;
-				if(!PipeSendRequest(data))
-					MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
-				closesocket(RemoteData::sck);
-				// Remove text area windows and breakpoints
-				for(unsigned int i = 0; i < attachedEdits.size(); i++)
-				{
-					for(unsigned int id = 0; id < breakpoints.size(); id++)
-					{
-						if(breakpoints[id].tab == attachedEdits[i])
-						{
-							if(breakpoints.size() == 1)
-							{
-								breakpoints.clear();
-							}else{
-								breakpoints[id] = breakpoints.back();
-								breakpoints.pop_back();
-							}
-						}
-					}
-					TabbedFiles::RemoveTab(hAttachTabs, 0);
-					DestroyWindow(attachedEdits[i]);
-				}
-				// Destroy data
-				delete[] RemoteData::modules;
-				RemoteData::modules = NULL;
-				delete[] RemoteData::moduleNames;
-				RemoteData::moduleNames = NULL;
-				delete[] RemoteData::codeInfo;
-				RemoteData::codeInfo = NULL;
-				delete[] RemoteData::sourceCode;
-				RemoteData::sourceCode = NULL;
-				delete[] RemoteData::vars;
-				RemoteData::vars = NULL;
-				delete[] RemoteData::types;
-				RemoteData::types = NULL;
-				delete[] RemoteData::functions;
-				RemoteData::functions = NULL;
-				delete[] RemoteData::locals;
-				RemoteData::locals = NULL;
-				delete[] RemoteData::typeExtra;
-				RemoteData::typeExtra = NULL;
-				delete[] RemoteData::symbols;
-				RemoteData::symbols = NULL;
-				delete[] RemoteData::stackData;
-				RemoteData::stackData = NULL;
-
-				for(unsigned int i = 0; i < externalBlocks.size(); i++)
-					delete[] externalBlocks[i];
-				externalBlocks.clear();
-
-				codeVars = NULL;
-				codeTypes = NULL;
-				codeFuntions = NULL;
-				codeLocals = NULL;
-				codeTypeExtra = NULL;
-				codeSymbols = NULL;
-
-				stateRemote = false;
-			}
-			stateAttach = false;
-		}else if((HWND)lParam == hAttachDo){
-			unsigned int ID = ListView_GetSelectionMark(hAttachList);
-			RemoteData::saServer.sin_port = htons((u_short)(7590 + ID));
-			RemoteData::sck = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-			if(connect(RemoteData::sck, (SOCKADDR*)&RemoteData::saServer, sizeof(RemoteData::saServer)))
-			{
-				closesocket(RemoteData::sck);
-				MessageBox(hWnd, "Cannot attach debugger to selected process", "ERROR", MB_OK);
-			}else{
 				ShowWindow(hAttachPanel, SW_HIDE);
 				ShowWindow(hAttachDo, SW_HIDE);
-				ShowWindow(hAttachTabs, SW_SHOW);
+				ShowWindow(hAttachBack, SW_HIDE);
+				ShowWindow(hAttachTabs, SW_HIDE);
 
-				stateAttach = false;
-				stateRemote = true;
-				PipeInit();
-			}
-		}
-		// Parse the menu selections:
-		switch (wmId)
-		{
-		case IDM_EXIT:
-			DestroyWindow(hWnd);
-			break;
-		case ID_FILE_LOAD:
-			GetCurrentDirectory(512, result + 512);
-			if(GetOpenFileName(&openData))
-			{
-				const char *file = fileName;
-				const char *path = fileName;
-				const char *separator = "\\";
-				// Skip path
-				file += strlen(file) + 1;
-				// Single file isn't divided by path\file, so step back
-				if(!*file)
-				{
-					path = "";
-					separator = "";
-					file = fileName;
-				}
-				// For all files
-				while(*file)
-				{
-					strcpy(result, path);
-					strcat(result, separator);
-					strcat(result, file);
-
-					bool opened = false;
-					// Check if file is already opened
-					for(unsigned int i = 0; i < richEdits.size(); i++)
-					{
-						if(_stricmp(TabbedFiles::GetTabInfo(hTabs, i).name, result) == 0)
-						{
-							TabbedFiles::SetCurrentTab(hTabs, i);
-							opened = true;
-							break;
-						}
-					}
-					if(!opened)
-					{
-						AddTabWithFile(result, hInst);
-						TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
-					}
-					file += strlen(file) + 1;
-				}
-			}
-			SetCurrentDirectory(result + 512);
-			break;
-		case ID_FILE_SAVE:
-			{
-				unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-				if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, id).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window)))
-				{
-					TabbedFiles::GetTabInfo(hTabs, id).dirty = false;
-					RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, id).window);
-					InvalidateRect(hTabs, NULL, true);
-				}
-			}
-			break;
-		case ID_FILE_SAVEALL:
-			for(unsigned int i = 0; i < richEdits.size(); i++)
-			{
-				if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
-				{
-					TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
-					RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
-					InvalidateRect(hTabs, NULL, true);
-				}
-			}
-			break;
-		case ID_TOGGLE_BREAK:
-			{
-				unsigned int id = TabbedFiles::GetCurrentTab(stateRemote ? hAttachTabs : hTabs);
-				HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window;
-				unsigned int line = RichTextarea::GetCurrentLine(wnd);
-
-				// Find breakpoint
-				unsigned int pos = 0;
-				for(; pos < breakpoints.size(); pos++)
-				{
-					if(breakpoints[pos].line == line && breakpoints[pos].tab == wnd)
-						break;
-				}
-				bool breakSet = false;
-				// If breakpoint is not found, add one
-				if(breakpoints.empty() || pos == breakpoints.size())
-				{
-					breakpoints.push_back(Breakpoint());
-					breakpoints.back().line = line;
-					breakpoints.back().tab = wnd;
-					RichTextarea::SetStyleToLine(wnd, line, 4);
-					breakSet = true;
-				}else{
-					if(breakpoints.size() == 1)
-					{
-						breakpoints.clear();
-					}else{
-						breakpoints[pos] = breakpoints.back();
-						breakpoints.pop_back();
-					}
-					RichTextarea::SetStyleToLine(wnd, line, 0);
-				}
-				RichTextarea::UpdateArea(wnd);
-				RichTextarea::ResetUpdate(wnd);
-
-				if(!runRes.finished)
-				{
-					unsigned int infoSize = 0;
-					NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
-					const char *fullSource = nullcDebugSource();
-					unsigned int moduleSize = 0;
-					ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
-					unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, codeInfo, moduleSize, modules);
-					if(inst != ~0u)
-					{
-						if(breakSet)
-							nullcDebugAddBreakpoint(inst);
-						else
-							nullcDebugRemoveBreakpoint(inst);
-					}
-				}
+				ShowWindow(hContinue, SW_HIDE);
 
 				if(stateRemote)
 				{
-					unsigned int inst = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::codeInfo, RemoteData::moduleCount, RemoteData::modules);
-					if(inst != ~0u)
+					// Kill debug tracking
+					TerminateThread(pipeThread, 0);
+					// Send debug detach and continue commands
+					PipeData data;
+					data.cmd = DEBUG_DETACH;
+					data.question = false;
+					if(!PipeSendRequest(data))
+						MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+					closesocket(RemoteData::sck);
+					// Remove text area windows and breakpoints
+					for(unsigned int i = 0; i < attachedEdits.size(); i++)
 					{
-						PipeData data;
-						data.cmd = DEBUG_BREAK_SET;
-						data.question = true;
-						data.debug.breakInst = inst;
-						data.debug.breakSet = breakSet;
-						if(!PipeSendRequest(data))
-							MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+						for(unsigned int id = 0; id < breakpoints.size(); id++)
+						{
+							if(breakpoints[id].tab == attachedEdits[i])
+							{
+								if(breakpoints.size() == 1)
+								{
+									breakpoints.clear();
+								}else{
+									breakpoints[id] = breakpoints.back();
+									breakpoints.pop_back();
+								}
+							}
+						}
+						TabbedFiles::RemoveTab(hAttachTabs, 0);
+						DestroyWindow(attachedEdits[i]);
+					}
+					// Destroy data
+					delete[] RemoteData::modules;
+					RemoteData::modules = NULL;
+					delete[] RemoteData::moduleNames;
+					RemoteData::moduleNames = NULL;
+					delete[] RemoteData::codeInfo;
+					RemoteData::codeInfo = NULL;
+					delete[] RemoteData::sourceCode;
+					RemoteData::sourceCode = NULL;
+					delete[] RemoteData::vars;
+					RemoteData::vars = NULL;
+					delete[] RemoteData::types;
+					RemoteData::types = NULL;
+					delete[] RemoteData::functions;
+					RemoteData::functions = NULL;
+					delete[] RemoteData::locals;
+					RemoteData::locals = NULL;
+					delete[] RemoteData::typeExtra;
+					RemoteData::typeExtra = NULL;
+					delete[] RemoteData::symbols;
+					RemoteData::symbols = NULL;
+					delete[] RemoteData::stackData;
+					RemoteData::stackData = NULL;
+
+					for(unsigned int i = 0; i < externalBlocks.size(); i++)
+						delete[] externalBlocks[i];
+					externalBlocks.clear();
+
+					codeVars = NULL;
+					codeTypes = NULL;
+					codeFuntions = NULL;
+					codeLocals = NULL;
+					codeTypeExtra = NULL;
+					codeSymbols = NULL;
+
+					stateRemote = false;
+				}
+				stateAttach = false;
+			}else if((HWND)lParam == hAttachDo){
+				unsigned int ID = ListView_GetSelectionMark(hAttachList);
+				RemoteData::saServer.sin_port = htons((u_short)(7590 + ID));
+				RemoteData::sck = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+				if(connect(RemoteData::sck, (SOCKADDR*)&RemoteData::saServer, sizeof(RemoteData::saServer)))
+				{
+					closesocket(RemoteData::sck);
+					MessageBox(hWnd, "Cannot attach debugger to selected process", "ERROR", MB_OK);
+				}else{
+					ShowWindow(hAttachPanel, SW_HIDE);
+					ShowWindow(hAttachDo, SW_HIDE);
+					ShowWindow(hAttachTabs, SW_SHOW);
+
+					stateAttach = false;
+					stateRemote = true;
+					PipeInit();
+				}
+			}
+			// Parse the menu selections:
+			switch (wmId)
+			{
+			case IDM_EXIT:
+				DestroyWindow(hWnd);
+				break;
+			case ID_FILE_LOAD:
+				GetCurrentDirectory(512, result + 512);
+				if(GetOpenFileName(&openData))
+				{
+					const char *file = fileName;
+					const char *path = fileName;
+					const char *separator = "\\";
+					// Skip path
+					file += strlen(file) + 1;
+					// Single file isn't divided by path\file, so step back
+					if(!*file)
+					{
+						path = "";
+						separator = "";
+						file = fileName;
+					}
+					// For all files
+					while(*file)
+					{
+						strcpy(result, path);
+						strcat(result, separator);
+						strcat(result, file);
+
+						bool opened = false;
+						// Check if file is already opened
+						for(unsigned int i = 0; i < richEdits.size(); i++)
+						{
+							if(_stricmp(TabbedFiles::GetTabInfo(hTabs, i).name, result) == 0)
+							{
+								TabbedFiles::SetCurrentTab(hTabs, i);
+								opened = true;
+								break;
+							}
+						}
+						if(!opened)
+						{
+							AddTabWithFile(result, hInst);
+							TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
+						}
+						file += strlen(file) + 1;
 					}
 				}
-			}
-			break;
-		case ID_RUN_DEBUG:
-			if(!stateRemote && !stateAttach)
-				SuperCalcRun(true);
-			if(stateRemote)
-				ContinueAfterBreak();
-			break;
-		case ID_RUN:
-			if(!stateRemote && !stateAttach)
-				SuperCalcRun(false);
-			if(stateRemote)
-				ContinueAfterBreak();
-			break;
-		case ID_DEBUG_ATTACHTOPROCESS:
-		{
-			ShowWindow(hTabs, SW_HIDE);
-			ShowWindow(hButtonCalc, SW_HIDE);
-			ShowWindow(hResult, SW_HIDE);
-			ShowWindow(hJITEnabled, SW_HIDE);
-			ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_HIDE);
-
-			ShowWindow(hAttachPanel, SW_SHOW);
-			ShowWindow(hAttachDo, SW_SHOW);
-			ShowWindow(hAttachBack, SW_SHOW);
-
-			Button_Enable(hAttachDo, false);
-
-			stateAttach = true;
-		}
-			break;
-		default:
-			return DefWindowProc(hWnd, message, wParam, lParam);
-		}
-		break;
-	
-	case WM_PAINT:
-		{
-			hdc = BeginPaint(hWnd, &ps);
-			EndPaint(hWnd, &ps);
-		}
-		break;
-	case WM_TIMER:
-	{
-		if(stateAttach)
-		{
-			int selected = ListView_GetSelectionMark(hAttachList);
-
-			LVITEM lvItem;
-			lvItem.mask = LVIF_TEXT | LVIF_STATE;
-			lvItem.state = 0;
-			lvItem.stateMask = 0;
-			for(unsigned int i = 0; i < 8; i++)
-			{
-				EnterCriticalSection(&pipeSection);
-				if(!Broadcast::broadcastWorkers[i])
+				SetCurrentDirectory(result + 512);
+				break;
+			case ID_FILE_SAVE:
 				{
-					lvItem.iItem = i;
-					lvItem.iSubItem = 0;
-					lvItem.pszText = Broadcast::itemResult[i].address;
-					ListView_SetItem(hAttachList, &lvItem);
-					lvItem.iSubItem = 1;
-					lvItem.pszText = Broadcast::itemResult[i].message;
-					ListView_SetItem(hAttachList, &lvItem);
-					lvItem.iSubItem = 2;
-					lvItem.pszText = Broadcast::itemResult[i].pid;
-					ListView_SetItem(hAttachList, &lvItem);
-					Broadcast::broadcastWorkers[i] = i + 1;
-					Broadcast::broadcastThreads[i] = CreateThread(NULL, 64*1024, BroadcastThread, &Broadcast::broadcastWorkers[i], NULL, 0);
+					unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+					if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, id).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window)))
+					{
+						TabbedFiles::GetTabInfo(hTabs, id).dirty = false;
+						RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, id).window);
+						InvalidateRect(hTabs, NULL, true);
+					}
 				}
-				LeaveCriticalSection(&pipeSection);
-			}
-			if(selected != -1)
-				Button_Enable(hAttachDo, Broadcast::itemAvailable[selected]);
-			ListView_SetSelectionMark(hAttachList, selected);
-		}
+				break;
+			case ID_FILE_SAVEALL:
+				for(unsigned int i = 0; i < richEdits.size(); i++)
+				{
+					if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
+					{
+						TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
+						RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
+						InvalidateRect(hTabs, NULL, true);
+					}
+				}
+				break;
+			case ID_TOGGLE_BREAK:
+				{
+					unsigned int id = TabbedFiles::GetCurrentTab(stateRemote ? hAttachTabs : hTabs);
+					HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window;
+					unsigned int line = RichTextarea::GetCurrentLine(wnd);
 
-		for(unsigned int i = 0; i < richEdits.size(); i++)
-		{
-			if(!TabbedFiles::GetTabInfo(hTabs, i).dirty && RichTextarea::NeedUpdate(TabbedFiles::GetTabInfo(hTabs, i).window))
+					// Find breakpoint
+					unsigned int pos = 0;
+					for(; pos < breakpoints.size(); pos++)
+					{
+						if(breakpoints[pos].line == line && breakpoints[pos].tab == wnd)
+							break;
+					}
+					bool breakSet = false;
+					// If breakpoint is not found, add one
+					if(breakpoints.empty() || pos == breakpoints.size())
+					{
+						breakpoints.push_back(Breakpoint());
+						breakpoints.back().line = line;
+						breakpoints.back().tab = wnd;
+						RichTextarea::SetStyleToLine(wnd, line, 4);
+						breakSet = true;
+					}else{
+						if(breakpoints.size() == 1)
+						{
+							breakpoints.clear();
+						}else{
+							breakpoints[pos] = breakpoints.back();
+							breakpoints.pop_back();
+						}
+						RichTextarea::SetStyleToLine(wnd, line, 0);
+					}
+					RichTextarea::UpdateArea(wnd);
+					RichTextarea::ResetUpdate(wnd);
+
+					if(!runRes.finished)
+					{
+						unsigned int infoSize = 0;
+						NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
+						const char *fullSource = nullcDebugSource();
+						unsigned int moduleSize = 0;
+						ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
+						unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, codeInfo, moduleSize, modules);
+						if(inst != ~0u)
+						{
+							if(breakSet)
+								nullcDebugAddBreakpoint(inst);
+							else
+								nullcDebugRemoveBreakpoint(inst);
+						}
+					}
+
+					if(stateRemote)
+					{
+						unsigned int inst = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::codeInfo, RemoteData::moduleCount, RemoteData::modules);
+						if(inst != ~0u)
+						{
+							PipeData data;
+							data.cmd = DEBUG_BREAK_SET;
+							data.question = true;
+							data.debug.breakInst = inst;
+							data.debug.breakSet = breakSet;
+							if(!PipeSendRequest(data))
+								MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+						}
+					}
+				}
+				break;
+			case ID_RUN_DEBUG:
+				if(!stateRemote && !stateAttach)
+					SuperCalcRun(true);
+				if(stateRemote)
+					ContinueAfterBreak();
+				break;
+			case ID_RUN:
+				if(!stateRemote && !stateAttach)
+					SuperCalcRun(false);
+				if(stateRemote)
+					ContinueAfterBreak();
+				break;
+			case ID_DEBUG_ATTACHTOPROCESS:
 			{
-				TabbedFiles::GetTabInfo(hTabs, i).dirty = true;
-				InvalidateRect(hTabs, NULL, false);
+				ShowWindow(hTabs, SW_HIDE);
+				ShowWindow(hButtonCalc, SW_HIDE);
+				ShowWindow(hResult, SW_HIDE);
+				ShowWindow(hJITEnabled, SW_HIDE);
+				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_HIDE);
+
+				ShowWindow(hAttachPanel, SW_SHOW);
+				ShowWindow(hAttachDo, SW_SHOW);
+				ShowWindow(hAttachBack, SW_SHOW);
+
+				Button_Enable(hAttachDo, false);
+
+				stateAttach = true;
 			}
-		}
-
-		unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-		EnableMenuItem(GetMenu(hWnd), ID_FILE_SAVE, TabbedFiles::GetTabInfo(hTabs, id).dirty ? MF_ENABLED : MF_DISABLED);
-
-		HWND wnd = stateRemote ? TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)).window : TabbedFiles::GetTabInfo(hTabs, id).window;
-		if(!RichTextarea::NeedUpdate(wnd) || (GetTickCount()-lastUpdate < 100))
+				break;
+			default:
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
 			break;
-		SetWindowText(hCode, "");
-
-		RichTextarea::BeginStyleUpdate(wnd);
-		if(!colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection))
+		
+		case WM_PAINT:
+			{
+				hdc = BeginPaint(hWnd, &ps);
+				EndPaint(hWnd, &ps);
+			}
+			break;
+		case WM_TIMER:
 		{
-			SetWindowText(hCode, colorer->GetError().c_str());
+			if(stateAttach)
+			{
+				int selected = ListView_GetSelectionMark(hAttachList);
+
+				LVITEM lvItem;
+				lvItem.mask = LVIF_TEXT | LVIF_STATE;
+				lvItem.state = 0;
+				lvItem.stateMask = 0;
+				for(unsigned int i = 0; i < 8; i++)
+				{
+					EnterCriticalSection(&pipeSection);
+					if(!Broadcast::broadcastWorkers[i])
+					{
+						lvItem.iItem = i;
+						lvItem.iSubItem = 0;
+						lvItem.pszText = Broadcast::itemResult[i].address;
+						ListView_SetItem(hAttachList, &lvItem);
+						lvItem.iSubItem = 1;
+						lvItem.pszText = Broadcast::itemResult[i].message;
+						ListView_SetItem(hAttachList, &lvItem);
+						lvItem.iSubItem = 2;
+						lvItem.pszText = Broadcast::itemResult[i].pid;
+						ListView_SetItem(hAttachList, &lvItem);
+						Broadcast::broadcastWorkers[i] = i + 1;
+						Broadcast::broadcastThreads[i] = CreateThread(NULL, 64*1024, BroadcastThread, &Broadcast::broadcastWorkers[i], NULL, 0);
+					}
+					LeaveCriticalSection(&pipeSection);
+				}
+				if(selected != -1)
+					Button_Enable(hAttachDo, Broadcast::itemAvailable[selected]);
+				ListView_SetSelectionMark(hAttachList, selected);
+			}
+
+			for(unsigned int i = 0; i < richEdits.size(); i++)
+			{
+				if(!TabbedFiles::GetTabInfo(hTabs, i).dirty && RichTextarea::NeedUpdate(TabbedFiles::GetTabInfo(hTabs, i).window))
+				{
+					TabbedFiles::GetTabInfo(hTabs, i).dirty = true;
+					InvalidateRect(hTabs, NULL, false);
+				}
+			}
+
+			unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
+			EnableMenuItem(GetMenu(hWnd), ID_FILE_SAVE, TabbedFiles::GetTabInfo(hTabs, id).dirty ? MF_ENABLED : MF_DISABLED);
+
+			HWND wnd = stateRemote ? TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)).window : TabbedFiles::GetTabInfo(hTabs, id).window;
+			if(!RichTextarea::NeedUpdate(wnd) || (GetTickCount()-lastUpdate < 100))
+				break;
+			SetWindowText(hCode, "");
+
+			RichTextarea::BeginStyleUpdate(wnd);
+			if(!colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection))
+			{
+				SetWindowText(hCode, colorer->GetError().c_str());
+			}
+			RichTextarea::EndStyleUpdate(wnd);
+			RichTextarea::UpdateArea(wnd);
+			RichTextarea::ResetUpdate(wnd);
+			needTextUpdate = false;
+			lastUpdate = GetTickCount();
 		}
-		RichTextarea::EndStyleUpdate(wnd);
-		RichTextarea::UpdateArea(wnd);
-		RichTextarea::ResetUpdate(wnd);
-		needTextUpdate = false;
-		lastUpdate = GetTickCount();
+			break;
+		case WM_GETMINMAXINFO:
+		{
+			MINMAXINFO	*info = (MINMAXINFO*)lParam;
+			info->ptMinTrackSize.x = 400;
+			info->ptMinTrackSize.y = 300;
+		}
+			break;
+		case WM_SIZE:
+		{
+			unsigned int width = LOWORD(lParam), height = HIWORD(lParam);
+			unsigned int mainPadding = 5, subPadding = 2;
+
+			unsigned int middleHeight = 30;
+			unsigned int heightTopandBottom = height - mainPadding * 2 - middleHeight - subPadding * 2;
+
+			unsigned int topHeight = int(heightTopandBottom / 100.0 * 60.0);	// 60 %
+			unsigned int bottomHeight = int(heightTopandBottom / 100.0 * 40.0);	// 40 %
+
+			unsigned int middleOffsetY = mainPadding + topHeight + subPadding;
+
+			unsigned int tabHeight = 20;
+			SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
+			SetWindowPos(hAttachTabs,	HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
+
+			areaWidth = width - mainPadding * 2;
+			areaHeight = topHeight - tabHeight;
+			for(unsigned int i = 0; i < richEdits.size(); i++)
+				SetWindowPos(richEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			for(unsigned int i = 0; i < attachedEdits.size(); i++)
+				SetWindowPos(attachedEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			SetWindowPos(hAttachPanel,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
+
+			SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
+
+			unsigned int buttonWidth = 120;
+			unsigned int resultWidth = width - 3 * buttonWidth - 3 * mainPadding - subPadding * 3;
+
+			unsigned int calcOffsetX = mainPadding;
+			unsigned int resultOffsetX = calcOffsetX * 2 + buttonWidth * 2 + subPadding;
+			unsigned int x86OffsetX = resultOffsetX + resultWidth + subPadding;
+
+			SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+			SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
+			SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
+			SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+			SetWindowPos(hAttachBack,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
+
+			unsigned int bottomWidth = width - 2 * mainPadding - 2 * subPadding;
+			unsigned int leftOffsetX = mainPadding;
+			unsigned int leftWidth = int(bottomWidth / 100.0 * 75.0);	// 75 %
+			unsigned int rightOffsetX = leftOffsetX + leftWidth + subPadding;
+			unsigned int rightWidth = int(bottomWidth / 100.0 * 25.0);	// 25 %
+
+			SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY, leftWidth, bottomHeight-16, NULL);
+			SetWindowPos(hVars,			HWND_TOP, rightOffsetX, bottomOffsetY, rightWidth, bottomHeight-16, NULL);
+
+			SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
+
+			InvalidateRect(hNewTab, NULL, true);
+			InvalidateRect(hButtonCalc, NULL, true);
+			InvalidateRect(hResult, NULL, true);
+			InvalidateRect(hJITEnabled, NULL, true);
+			InvalidateRect(hStatus, NULL, true);
+			InvalidateRect(hVars, NULL, true);
+		}
+			break;
+		}
+	}__except(EXCEPTION_EXECUTE_HANDLER){
+		assert(!"Exception in window procedure handler");
 	}
-		break;
-	case WM_GETMINMAXINFO:
-	{
-		MINMAXINFO	*info = (MINMAXINFO*)lParam;
-		info->ptMinTrackSize.x = 400;
-		info->ptMinTrackSize.y = 300;
-	}
-		break;
-	case WM_SIZE:
-	{
-		unsigned int width = LOWORD(lParam), height = HIWORD(lParam);
-		unsigned int mainPadding = 5, subPadding = 2;
-
-		unsigned int middleHeight = 30;
-		unsigned int heightTopandBottom = height - mainPadding * 2 - middleHeight - subPadding * 2;
-
-		unsigned int topHeight = int(heightTopandBottom / 100.0 * 60.0);	// 60 %
-		unsigned int bottomHeight = int(heightTopandBottom / 100.0 * 40.0);	// 40 %
-
-		unsigned int middleOffsetY = mainPadding + topHeight + subPadding;
-
-		unsigned int tabHeight = 20;
-		SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
-		SetWindowPos(hAttachTabs,	HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
-
-		areaWidth = width - mainPadding * 2;
-		areaHeight = topHeight - tabHeight;
-		for(unsigned int i = 0; i < richEdits.size(); i++)
-			SetWindowPos(richEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
-		for(unsigned int i = 0; i < attachedEdits.size(); i++)
-			SetWindowPos(attachedEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
-		SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
-		SetWindowPos(hAttachPanel,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
-
-		SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
-
-		unsigned int buttonWidth = 120;
-		unsigned int resultWidth = width - 3 * buttonWidth - 3 * mainPadding - subPadding * 3;
-
-		unsigned int calcOffsetX = mainPadding;
-		unsigned int resultOffsetX = calcOffsetX * 2 + buttonWidth * 2 + subPadding;
-		unsigned int x86OffsetX = resultOffsetX + resultWidth + subPadding;
-
-		SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-		SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
-		SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
-		SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-
-		SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-		SetWindowPos(hAttachBack,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-
-		unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
-
-		unsigned int bottomWidth = width - 2 * mainPadding - 2 * subPadding;
-		unsigned int leftOffsetX = mainPadding;
-		unsigned int leftWidth = int(bottomWidth / 100.0 * 75.0);	// 75 %
-		unsigned int rightOffsetX = leftOffsetX + leftWidth + subPadding;
-		unsigned int rightWidth = int(bottomWidth / 100.0 * 25.0);	// 25 %
-
-		SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY, leftWidth, bottomHeight-16, NULL);
-		SetWindowPos(hVars,			HWND_TOP, rightOffsetX, bottomOffsetY, rightWidth, bottomHeight-16, NULL);
-
-		SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
-
-		InvalidateRect(hNewTab, NULL, true);
-		InvalidateRect(hButtonCalc, NULL, true);
-		InvalidateRect(hResult, NULL, true);
-		InvalidateRect(hJITEnabled, NULL, true);
-		InvalidateRect(hStatus, NULL, true);
-		InvalidateRect(hVars, NULL, true);
-	}
-		break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
-	}
-	return 0;
+	return DefWindowProc(hWnd, message, wParam, lParam);
 }
