@@ -621,11 +621,14 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	FILE *tabInfo = fopen("nullc_tab.cfg", "rb");
 	if(!tabInfo)
 	{
-		richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, hWnd, NULL, hInstance, NULL));
-		TabbedFiles::AddTab(hTabs, "main.nc", richEdits.back());
-		ShowWindow(richEdits.back(), SW_HIDE);
-
-		RichTextarea::SetAreaText(richEdits.back(), "");
+		AddTabWithFile("main.nc", hInstance);
+		if(richEdits.empty())
+		{
+			richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, hWnd, NULL, hInstance, NULL));
+			TabbedFiles::AddTab(hTabs, "main.nc", richEdits.back());
+			ShowWindow(richEdits.back(), SW_HIDE);
+			RichTextarea::SetAreaText(richEdits.back(), "");
+		}
 	}else{
 		fseek(tabInfo, 0, SEEK_END);
 		unsigned int textSize = ftell(tabInfo);

@@ -250,6 +250,7 @@ namespace TabbedFiles
 				data->selectedTab = 0;
 				data->tabInfo[0].name = data->tabInfo[0].last = "+";
 				data->tabInfo[0].window = data->newTab;
+				data->tabInfo[0].dirty = false;
 			}else{
 				for(unsigned int i = data->selectedTab; i < data->tabCount + 1; i++)
 					data->tabInfo[i] = data->tabInfo[i+1];
