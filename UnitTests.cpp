@@ -79,7 +79,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected)
 
 	if(!good)
 	{
-		printf("%s Compilation failed: %s", buf, nullcGetLastError());
+		printf("%s Compilation failed: %s\r\n", buf, nullcGetLastError());
 		return false;
 	}else{
 		char *bytecode;
@@ -6141,6 +6141,91 @@ return GC.UsedMemory();";
 	{
 		testCount[t]++;
 		if(RunCode(testGarbageCollectionCorrectness3, testTarget[t], "272"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	const char	*testTypedefScopeFunction =
+"int func1(){ typedef int[2] data; data x; x[0] = 5; x[1] = 4; return x[0] * x[1]; }\r\n\
+int func2(){ typedef float[2] data; data x; x[0] = 3.6; x[1] = 0.5; return x[0] / x[1]; }\r\n\
+typedef int data;\r\n\
+data res = func1() + func2();\r\n\
+return res;";
+	printf("typedef scoping in functions\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testTypedefScopeFunction, testTarget[t], "27"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+	const char	*testTypedefScopeType =
+"class TypeA\r\n\
+{\r\n\
+	typedef int[2] data;\r\n\
+	data x;\r\n\
+	int func(){ return x[0] * x[1]; }\r\n\
+}\r\n\
+TypeA a;\r\n\
+a.x[0] = 5; a.x[1] = 4;\r\n\
+class TypeB\r\n\
+{\r\n\
+	//typedef float[2] data;\r\n\
+	/*data*/float[2] x;\r\n\
+	int func(){ return x[0] / x[1]; }\r\n\
+}\r\n\
+TypeB b;\r\n\
+b.x[0] = 3.6; b.x[1] = 0.5;\r\n\
+typedef int data;\r\n\
+data res = a.func() + b.func();\r\n\
+return res;";
+	printf("typedef scoping in types\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testTypedefScopeType, testTarget[t], "27"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testTypedefScopeTypeReturn =
+"class TypeA\r\n\
+{\r\n\
+	typedef int[2] data;\r\n\
+	data x;\r\n\
+}\r\n\
+int TypeA:func(){ data y = x; return y[0] * y[1]; }\r\n\
+TypeA a;\r\n\
+a.x[0] = 5; a.x[1] = 4;\r\n\
+class TypeB\r\n\
+{\r\n\
+	typedef float[2] data;\r\n\
+	data x;\r\n\
+}\r\n\
+int TypeB:func(){ data y = x; return y[0] / y[1]; }\r\n\
+TypeB b;\r\n\
+b.x[0] = 3.6; b.x[1] = 0.5;\r\n\
+typedef int data;\r\n\
+data res = a.func() + b.func();\r\n\
+return res;";
+	printf("typedef recovery\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testTypedefScopeTypeReturn, testTarget[t], "27"))
 		{
 			lastFailed = false;
 

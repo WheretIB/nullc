@@ -1926,6 +1926,12 @@ void FunctionEnd(const char* pos)
 		currType = saveCurrType;
 		funcNode->AddExtraNode();
 	}
+	AliasInfo *info = lastFunc.childAlias;
+	while(info)
+	{
+		CodeInfo::classMap.remove(info->nameHash, info->type);
+		info = info->next;
+	}
 
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
 		methodCount++;
@@ -2580,6 +2586,13 @@ void TypeFinish()
 		CodeInfo::typeInfo[i]->originalIndex--;
 	newType->originalIndex = CodeInfo::typeInfo.size() - 1;
 
+	AliasInfo *info = newType->childAlias;
+	while(info)
+	{
+		CodeInfo::classMap.remove(info->nameHash, info->type);
+		info = info->next;
+	}
+
 	newType = NULL;
 
 	EndBlock(false, false);
@@ -2596,17 +2609,39 @@ void TypeContinue(const char* pos)
 		AddVariable(pos, InplaceStr(curr->name));
 		varDefined = false;
 	}
+	AliasInfo *info = newType->childAlias;
+	while(info)
+	{
+		CodeInfo::classMap.insert(info->nameHash, info->type);
+		info = info->next;
+	}
 }
 
 void TypeStop()
 {
 	varTop = varInfoTop.back().varStackSize;
+	AliasInfo *info = newType->childAlias;
+	while(info)
+	{
+		CodeInfo::classMap.remove(info->nameHash, info->type);
+		info = info->next;
+	}
 	newType = NULL;
 	EndBlock(false, false);
 }
 
 void AddAliasType(InplaceStr aliasName)
 {
+	if(newType && !currDefinedFunc.size())
+	{
+		AliasInfo *info = TypeInfo::CreateAlias(GetStringHash(aliasName.begin, aliasName.end), currType);
+		info->next = newType->childAlias;
+		newType->childAlias = info;
+	}else if(currDefinedFunc.size()){
+		AliasInfo *info = TypeInfo::CreateAlias(GetStringHash(aliasName.begin, aliasName.end), currType);
+		info->next = currDefinedFunc.back()->childAlias;
+		currDefinedFunc.back()->childAlias = info;
+	}
 	CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
 }
 

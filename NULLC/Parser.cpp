@@ -224,6 +224,8 @@ bool ParseClassDefinition(Lexeme** str)
 
 		while((*str)->type != lex_cfigure)
 		{
+			if(ParseTypedefExpr(str))
+				continue;
 			if(!ParseSelectType(str))
 				break;
 			bool isVarDef = ((*str)->type == lex_string) && ((*str + 1)->type == lex_comma || (*str + 1)->type == lex_semicolon || (*str + 1)->type == lex_set);
@@ -1243,6 +1245,27 @@ bool ParseBlock(Lexeme** str)
 	return true;
 }
 
+bool ParseTypedefExpr(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_typedef))
+		return false;
+	if(!ParseSelectType(str))
+		ThrowError((*str)->pos, "ERROR: typename expected after typedef");
+
+	if(ParseSelectType(str))
+		ThrowError((*str - 1)->pos, "ERROR: there is already a type or an alias with the same name");
+	if((*str)->type != lex_string)
+		ThrowError((*str)->pos, "ERROR: alias name expected after typename in typedef expression");
+
+	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+		ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
+	CALLBACK(AddAliasType(InplaceStr((*str)->pos, (*str)->length)));
+	(*str)++;
+	if(!ParseLexem(str, lex_semicolon))
+		ThrowError((*str)->pos, "ERROR: ';' not found after typedef");
+	return true;
+}
+
 bool ParseExpression(Lexeme** str)
 {
 	while(ParseLexem(str, lex_semicolon));
@@ -1288,21 +1311,7 @@ bool ParseExpression(Lexeme** str)
 		ParseSwitchExpr(str);
 		break;
 	case lex_typedef:
-		(*str)++;
-		if(!ParseSelectType(str))
-			ThrowError((*str)->pos, "ERROR: typename expected after typedef");
-
-		if(ParseSelectType(str))
-			ThrowError((*str - 1)->pos, "ERROR: there is already a type or an alias with the same name");
-		if((*str)->type != lex_string)
-			ThrowError((*str)->pos, "ERROR: alias name expected after typename in typedef expression");
-
-		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-			ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
-		CALLBACK(AddAliasType(InplaceStr((*str)->pos, (*str)->length)));
-		(*str)++;
-		if(!ParseLexem(str, lex_semicolon))
-			ThrowError((*str)->pos, "ERROR: ';' not found after typedef");
+		ParseTypedefExpr(str);
 		CALLBACK(AddVoidNode());
 		break;
 	default:

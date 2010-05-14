@@ -31,6 +31,13 @@ public:
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
 static asmDataType podTypeToDataType[] = { DTYPE_COMPLEX_TYPE, (asmDataType)0, DTYPE_INT, DTYPE_FLOAT, DTYPE_LONG, DTYPE_DOUBLE, DTYPE_SHORT, DTYPE_CHAR };
 
+struct AliasInfo
+{
+	unsigned int	nameHash;
+	TypeInfo		*type;
+	AliasInfo		*next;
+};
+
 //Information about type
 class TypeInfo
 {
@@ -72,6 +79,7 @@ public:
 		firstVariable = lastVariable = NULL;
 
 		originalIndex = typeIndex = index;
+		childAlias = NULL;
 	}
 
 	const char		*name;	// base type name
@@ -101,6 +109,8 @@ public:
 	unsigned int	typeIndex, originalIndex;
 
 	TypeInfo		*refType, *unsizedType, *arrayType, *nextArrayType;
+
+	AliasInfo		*childAlias;
 
 	const char*		GetFullTypeName()
 	{
@@ -247,6 +257,14 @@ public:
 		funcType->retType = retType;
 		return funcType;
 	}
+	static AliasInfo*	CreateAlias(unsigned int hash, TypeInfo* type)
+	{
+		AliasInfo *info = new (typeInfoPool.Allocate(sizeof(AliasInfo))) AliasInfo;
+		info->nameHash = hash;
+		info->type = type;
+		info->next = NULL;
+		return info;
+	}
 
 	FunctionType		*funcType;
 // Specialized allocation
@@ -373,6 +391,8 @@ public:
 
 		maxBlockDepth = 0;
 		closeListStart = 0;
+
+		childAlias = NULL;
 	}
 
 	void	AddParameter(VariableInfo *variable)
@@ -458,6 +478,8 @@ public:
 	unsigned int	localCount;
 
 	TypeInfo	*funcType;				// Function type
+
+	AliasInfo	*childAlias;
 
 	const char*	GetOperatorName()
 	{

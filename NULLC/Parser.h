@@ -30,6 +30,8 @@ bool ParseWhileExpr(Lexeme** str);
 bool ParseDoWhileExpr(Lexeme** str);
 bool ParseSwitchExpr(Lexeme** str);
 
+bool ParseTypedefExpr(Lexeme** str);
+
 bool ParseReturnExpr(Lexeme** str);
 bool ParseBreakExpr(Lexeme** str);
 bool ParseContinueExpr(Lexeme** str);
