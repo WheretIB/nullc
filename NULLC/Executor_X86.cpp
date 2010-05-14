@@ -1337,13 +1337,16 @@ void ExecutorX86::BeginCallStack()
 	int count = 0;
 	if(!NULLC::abnormalTermination)
 	{
-		genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
-		NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
-		unsigned int *paramData = &NULLC::dataHead->nextElement;
-		while(count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
+		if(NULLC::dataHead->instructionPtr)
 		{
-			NULLC::stackTrace[count++] = paramData[-1];
-			paramData = (unsigned int*)(long long)(*paramData);
+			genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
+			NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
+			unsigned int *paramData = &NULLC::dataHead->nextElement;
+			while(count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
+			{
+				NULLC::stackTrace[count++] = paramData[-1];
+				paramData = (unsigned int*)(long long)(*paramData);
+			}
 		}
 		NULLC::stackTrace[count] = 0;
 		NULLC::dataHead->nextElement = NULL;
