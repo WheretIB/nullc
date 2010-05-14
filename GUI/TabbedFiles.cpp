@@ -115,7 +115,8 @@ namespace TabbedFiles
 		for(unsigned int i = 0; i < data->tabCount + 1; i++)
 		{
 			RECT textRect = { 0, 0, 0, 0 };
-			DrawText(hdc, data->tabInfo[i].last, (int)strlen(data->tabInfo[i].last), &textRect, DT_CALCRECT);
+			if(data->tabInfo[i].last)
+				DrawText(hdc, data->tabInfo[i].last, (int)strlen(data->tabInfo[i].last), &textRect, DT_CALCRECT);
 
 			// Graphics
 			if(i == data->selectedTab)
@@ -160,7 +161,8 @@ namespace TabbedFiles
 			// Text
 			RECT textRectMod = { textRect.left + leftPos + 16, 3, textRect.right + leftPos, TAB_HEIGHT };
 			SetBkMode(hdc, TRANSPARENT);
-			ExtTextOut(hdc, textRectMod.left, textRectMod.top, 0, &textRectMod, data->tabInfo[i].last, (int)strlen(data->tabInfo[i].last), NULL);
+			if(data->tabInfo[i].last)
+				ExtTextOut(hdc, textRectMod.left, textRectMod.top, 0, &textRectMod, data->tabInfo[i].last, (int)strlen(data->tabInfo[i].last), NULL);
 
 			if(data->tabInfo[i].dirty)
 			{

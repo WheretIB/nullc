@@ -40,6 +40,7 @@ enum DebugCommand
 	DEBUG_BREAK_CONTINUE,
 	DEBUG_BREAK_STACK,
 	DEBUG_BREAK_CALLSTACK,
+	DEBUG_BREAK_DATA,
 	DEBUG_DETACH,
 };
 
@@ -111,6 +112,7 @@ void PipeDebugBreak(unsigned int instruction)
 	data.cmd = DEBUG_BREAK_STACK;
 	data.question = false;
 	PipeSendData(pipe, data, stackData, stackSize, stackSize);
+	printf("DEBUG_BREAK_STACK %p (%d) %p\r\n", stackData, stackSize, stackData + stackSize);
 	
 	if(!stackFrames)
 		stackFrames = new unsigned int[csCount];
@@ -137,6 +139,18 @@ void PipeDebugBreak(unsigned int instruction)
 	while(good)
 	{
 		EnterCriticalSection(&pipeSection);
+		good = PeekNamedPipe(pipe, NULL, 0, NULL, &size, NULL);
+		if(!good)
+		{
+			LeaveCriticalSection(&pipeSection);
+			break;
+		}
+		if(!size)
+		{
+			LeaveCriticalSection(&pipeSection);
+			Sleep(128);
+			continue;
+		}
 		good = ReadFile(pipe, &data, sizeof(data), &size, NULL);
 		LeaveCriticalSection(&pipeSection);
 		if(!good || !size)
@@ -145,8 +159,20 @@ void PipeDebugBreak(unsigned int instruction)
 			return;
 		if(data.cmd == DEBUG_DETACH)
 		{
+			printf("DEBUG_DETACH\r\n");
 			nullcDebugClearBreakpoints();
 			return;
+		}
+		if(data.cmd == DEBUG_BREAK_DATA)
+		{
+			char *ptr = (char*)(intptr_t)data.data.dataSize;
+			printf("DEBUG_BREAK_DATA %p (%d)\r\n", ptr, data.data.wholeSize);
+			if(IsBadReadPtr(ptr, data.data.wholeSize))
+				PipeSendData(pipe, data, "IsBadReadPtr!", 0, 14);
+			else
+				PipeSendData(pipe, data, ptr, data.data.wholeSize, data.data.wholeSize);
+			Sleep(128);
+			continue;
 		}
 		EnterCriticalSection(&pipeSection);
 		good = WriteFile(pipe, &data, sizeof(data), &size, NULL);
@@ -332,8 +358,20 @@ DWORD WINAPI PipeThread(void* param)
 			}
 				break;
 				case DEBUG_DETACH:
+			{
 				printf("DEBUG_DETACH\r\n");
 				nullcDebugClearBreakpoints();
+			}
+				break;
+				case DEBUG_BREAK_DATA:
+			{
+				char *ptr = (char*)(intptr_t)data.data.dataSize;
+				printf("DEBUG_BREAK_DATA %p (%d)\r\n", ptr, data.data.wholeSize);
+				if(IsBadReadPtr(ptr, data.data.wholeSize))
+				PipeSendData(pipe, data, "IsBadReadPtr!", 0, 14);
+				else
+					PipeSendData(pipe, data, ptr, data.data.wholeSize, data.data.wholeSize);
+			}
 				break;
 			}
 			Sleep(64);

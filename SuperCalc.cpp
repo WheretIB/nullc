@@ -114,6 +114,7 @@ enum DebugCommand
 	DEBUG_BREAK_CONTINUE,
 	DEBUG_BREAK_STACK,
 	DEBUG_BREAK_CALLSTACK,
+	DEBUG_BREAK_DATA,
 	DEBUG_DETACH,
 };
 
@@ -597,7 +598,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	hAttachBack = CreateWindow("BUTTON", "Cancel", WS_CHILD, 110, 185, 100, 30, hWnd, NULL, hInstance, NULL);
 	SendMessage(hAttachBack, WM_SETFONT, (WPARAM)fontDefault, 0);
 
-	ListView_SetExtendedListViewStyle(hAttachList, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_SHOWSELALWAYS);
+	ListView_SetExtendedListViewStyle(hAttachList, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);// | LVS_SHOWSELALWAYS);
 
 	LVCOLUMN lvColumn;
 	lvColumn.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
@@ -665,6 +666,7 @@ struct TreeItemExtra
 	HTREEITEM		item;
 };
 std::vector<TreeItemExtra>	tiExtra;
+std::vector<char*> externalBlocks;
 
 const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 {
@@ -1302,6 +1304,7 @@ DWORD WINAPI PipeThread(void* param)
 		RefreshBreakpoints();
 
 		data.cmd = DEBUG_BREAK_STACK;
+		delete[] RemoteData::stackData;
 		RemoteData::stackData = PipeReceiveResponce(data);
 		RemoteData::stackSize = data.data.elemCount;
 
@@ -1311,8 +1314,6 @@ DWORD WINAPI PipeThread(void* param)
 
 		FillVariableInfoTree(true);
 
-		delete[] RemoteData::stackData;
-		RemoteData::stackData = NULL;
 		delete[] RemoteData::callStack;
 		RemoteData::callStack = NULL;
 
@@ -1363,6 +1364,9 @@ void PipeInit()
 	localCount = PipeReuqestData(DEBUG_LOCAL_INFO, (void**)&locals);
 	PipeReuqestData(DEBUG_TYPE_EXTRA_INFO, (void**)&typeExtra);
 	PipeReuqestData(DEBUG_SYMBOL_INFO, (void**)&symbols);
+
+	if(!modules || !moduleNames || !sourceCode || !codeInfo || !types || !functions || !vars || !locals || !typeExtra || !symbols)
+		return;
 
 	char message[1024], *pos = message;
 	message[0] = 0;
@@ -1463,22 +1467,44 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			LPNMTVDISPINFO info = (LPNMTVDISPINFO)lParam;
 			if(info->item.mask & TVIF_CHILDREN)
 			{
-				if(info->item.lParam && tiExtra[info->item.lParam].type->subCat == ExternTypeInfo::CAT_POINTER)
+				if(codeTypes && info->item.lParam && tiExtra[info->item.lParam].type->subCat == ExternTypeInfo::CAT_POINTER)
 					info->item.cChildren = 1;
 			}
 		}else if(((LPNMHDR)lParam)->code == TVN_ITEMEXPANDING && ((LPNMHDR)lParam)->hwndFrom == hVars){
 			LPNMTREEVIEW info = (LPNMTREEVIEW)lParam;
 
 			TreeItemExtra *extra = info->itemNew.lParam ? &tiExtra[info->itemNew.lParam] : NULL;
-			if(!stateRemote && extra && extra->type->subCat == ExternTypeInfo::CAT_POINTER)
+			if(extra && extra->type->subCat == ExternTypeInfo::CAT_POINTER)
 			{
 				codeTypes = stateRemote ? RemoteData::types : nullcDebugTypeInfo(NULL);
 				char *ptr = *(char**)extra->address;
+				ExternTypeInfo &type = codeTypes[extra->type->subType];
 
+				if(stateRemote)
+				{
+					PipeData data;
+					data.cmd = DEBUG_BREAK_DATA;
+					data.question = true;
+					data.data.wholeSize = type.size;
+					data.data.elemCount = 0;
+					data.data.dataSize = (unsigned int)(intptr_t)ptr;
+					if(!PipeSendRequest(data))
+					{
+						MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+						return 0;
+					}
+					ptr = PipeReceiveResponce(data);
+					if(!ptr)
+					{
+						MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
+						break;
+					}
+					if(!data.data.elemCount)
+						break;
+				}
 				if(IsBadReadPtr(ptr, extra->type->size))
 					break;
 				char name[256];
-				ExternTypeInfo &type = codeTypes[extra->type->subType];
 
 				char *it = name;
 				memset(name, 0, 256);
@@ -1502,6 +1528,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				tiExtra.push_back(TreeItemExtra(ptr, &type, lastItem));
 
 				FillVariableInfo(type, ptr, lastItem);
+
+				if(stateRemote)
+					externalBlocks.push_back(ptr);
 			}
 		}
 		break;
@@ -1625,6 +1654,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				RemoteData::symbols = NULL;
 				delete[] RemoteData::stackData;
 				RemoteData::stackData = NULL;
+
+				for(unsigned int i = 0; i < externalBlocks.size(); i++)
+					delete[] externalBlocks[i];
+				externalBlocks.clear();
+
+				codeVars = NULL;
+				codeTypes = NULL;
+				codeFuntions = NULL;
+				codeLocals = NULL;
+				codeTypeExtra = NULL;
+				codeSymbols = NULL;
+
+				stateRemote = false;
 			}
 			if(debugPipe != INVALID_HANDLE_VALUE)
 			{
