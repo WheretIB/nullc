@@ -88,7 +88,6 @@ struct Breakpoint
 
 std::vector<HWND>	richEdits;
 std::vector<HWND>	attachedEdits;
-std::vector<Breakpoint>	breakpoints;
 
 const unsigned int INIT_BUFFER_SIZE = 4096;
 char	initError[INIT_BUFFER_SIZE];
@@ -311,6 +310,12 @@ enum OverlayType
 	OVERLAY_BREAKPOINT,
 	OVERLAY_BREAKPOINT_INVALID,
 };
+enum ExtraType
+{
+	EXTRA_NONE,
+	EXTRA_BREAKPOINT,
+	EXTRA_BREAKPOINT_INVALID,
+};
 
 void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
 void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent);
@@ -511,24 +516,6 @@ WORD MyRegisterClass(HINSTANCE hInstance)
 	return RegisterClassEx(&wcex);
 }
 
-void RemoveBreakpointsFromTab(HWND tab)
-{
-	for(unsigned int id = 0; id < breakpoints.size(); id++)
-	{
-		if(breakpoints[id].tab == tab)
-		{
-			if(breakpoints.size() == 1)
-			{
-				breakpoints.clear();
-			}else{
-				breakpoints[id] = breakpoints.back();
-				breakpoints.pop_back();
-				id--;
-			}
-		}
-	}
-}
-
 void AddTabWithFile(const char* filename, HINSTANCE hInstance)
 {
 	char buf[1024];
@@ -582,7 +569,6 @@ void CloseTabWithFile(TabbedFiles::TabInfo &info)
 	{
 		SaveFileFromTab(info.name, RichTextarea::GetAreaText(info.window));
 	}
-	RemoveBreakpointsFromTab(info.window);
 	DestroyWindow(info.window);
 	for(unsigned int i = 0; i < richEdits.size(); i++)
 	{
@@ -1270,10 +1256,20 @@ DWORD WINAPI CalcThread(void* param)
 
 void RefreshBreakpoints()
 {
-	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
-	for(unsigned int pos = 0; pos < breakpoints.size(); pos++)
-		RichTextarea::SetStyleToLine(breakpoints[pos].tab, breakpoints[pos].line, breakpoints[pos].valid ? OVERLAY_BREAKPOINT : OVERLAY_BREAKPOINT_INVALID);
+	unsigned int id = TabbedFiles::GetCurrentTab(stateRemote ? hAttachTabs : hTabs);
+	HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window;
+	for(unsigned int i = 0; i < (stateRemote ? attachedEdits.size() : richEdits.size()); i++)
+	{
+		RichTextarea::LineIterator it = RichTextarea::GetFirstLine(stateRemote ? attachedEdits[i] : richEdits[i]);
+		while(it.line)
+		{
+			if(it.GetExtra() == 1)
+				it.SetStyle(OVERLAY_BREAKPOINT);
+			if(it.GetExtra() == 2)
+				it.SetStyle(OVERLAY_BREAKPOINT_INVALID);
+			it.GoForward();
+		}
+	}
 	RichTextarea::UpdateArea(wnd);
 	RichTextarea::ResetUpdate(wnd);
 }
@@ -1355,16 +1351,24 @@ void SuperCalcSetBreakpoints()
 	unsigned int moduleSize = 0;
 	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
 	// Set all breakpoints
-	for(unsigned int id = 0; id < breakpoints.size(); id++)
+	for(unsigned int i = 0; i < richEdits.size(); i++)
 	{
-		unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(breakpoints[id].tab), breakpoints[id].line, fullSource, infoSize, codeInfo, moduleSize, modules);
-		if(inst != ~0u)
+		RichTextarea::LineIterator it = RichTextarea::GetFirstLine(richEdits[i]);
+		while(it.line)
 		{
-			breakpoints[id].valid = true;
-			nullcDebugAddBreakpoint(inst);
-		}else{
-			breakpoints[id].valid = false;
-			printf("Failed to add breakpoint at line %d\r\n", breakpoints[id].line);
+			if(it.GetExtra())
+			{
+				unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(richEdits[i]), it.number, fullSource, infoSize, codeInfo, moduleSize, modules);
+				if(inst != ~0u)
+				{
+					it.SetExtra(EXTRA_BREAKPOINT);
+					nullcDebugAddBreakpoint(inst);
+				}else{
+					it.SetExtra(EXTRA_BREAKPOINT_INVALID);
+					printf("Failed to add breakpoint at line %d\r\n", it.number);
+				}
+			}
+			it.GoForward();
 		}
 	}
 }
@@ -1849,10 +1853,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					if(!PipeSendRequest(data))
 						MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
 					closesocket(RemoteData::sck);
-					// Remove text area windows and breakpoints
+					// Remove text area windows
 					for(unsigned int i = 0; i < attachedEdits.size(); i++)
 					{
-						RemoveBreakpointsFromTab(attachedEdits[i]);
 						TabbedFiles::RemoveTab(hAttachTabs, 0);
 						DestroyWindow(attachedEdits[i]);
 					}
@@ -1993,31 +1996,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window;
 					unsigned int line = RichTextarea::GetCurrentLine(wnd);
 
-					// Find breakpoint
-					unsigned int pos = 0;
-					for(; pos < breakpoints.size(); pos++)
-					{
-						if(breakpoints[pos].line == line && breakpoints[pos].tab == wnd)
-							break;
-					}
-					bool breakSet = false;
+					RichTextarea::LineIterator it = RichTextarea::GetLine(wnd, line);
+					bool breakSet = it.GetExtra() == 0;
 					// If breakpoint is not found, add one
-					if(breakpoints.empty() || pos == breakpoints.size())
+					if(breakSet)
 					{
-						breakpoints.push_back(Breakpoint());
-						breakpoints.back().line = line;
-						breakpoints.back().tab = wnd;
 						RichTextarea::SetStyleToLine(wnd, line, OVERLAY_BREAKPOINT);
-						breakSet = true;
+						RichTextarea::SetLineExtra(wnd, line, EXTRA_BREAKPOINT);
 					}else{
-						if(breakpoints.size() == 1)
-						{
-							breakpoints.clear();
-						}else{
-							breakpoints[pos] = breakpoints.back();
-							breakpoints.pop_back();
-						}
 						RichTextarea::SetStyleToLine(wnd, line, OVERLAY_NONE);
+						RichTextarea::SetLineExtra(wnd, line, EXTRA_NONE);
 					}
 
 					if(!runRes.finished)
@@ -2028,8 +2016,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						unsigned int moduleSize = 0;
 						ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
 						unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, codeInfo, moduleSize, modules);
-						if(breakSet)
-							breakpoints.back().valid = inst != ~0u;
 						if(inst != ~0u)
 						{
 							if(breakSet)
@@ -2038,7 +2024,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 								nullcDebugRemoveBreakpoint(inst);
 						}else{
 							if(breakSet)
+							{
 								RichTextarea::SetStyleToLine(wnd, line, OVERLAY_BREAKPOINT_INVALID);
+								RichTextarea::SetLineExtra(wnd, line, EXTRA_BREAKPOINT_INVALID);
+							}
 						}
 					}
 					RichTextarea::UpdateArea(wnd);
@@ -2047,8 +2036,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					if(stateRemote)
 					{
 						unsigned int inst = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::codeInfo, RemoteData::moduleCount, RemoteData::modules);
-						if(breakSet)
-							breakpoints.back().valid = inst != ~0u;
 						if(inst != ~0u)
 						{
 							PipeData data;
@@ -2060,7 +2047,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 								MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
 						}else{
 							if(breakSet)
+							{
 								RichTextarea::SetStyleToLine(wnd, line, OVERLAY_BREAKPOINT_INVALID);
+								RichTextarea::SetLineExtra(wnd, line, EXTRA_BREAKPOINT_INVALID);
+							}
 						}
 					}
 				}
