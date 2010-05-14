@@ -100,7 +100,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			}
 			exModules.push_back(*mInfo);
 			exModules.back().name = path;
-			exModules.back().nameOffset = NULL;
+			exModules.back().nameOffset = 0;
 			exModules.back().nameHash = GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
 			exModules.back().variableOffset = globalVarSize - ((ByteCode*)bytecode)->globalVarSize;
