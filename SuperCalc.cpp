@@ -1398,6 +1398,17 @@ void PipeInit()
 	pipeThread = CreateThread(NULL, 1024*1024, PipeThread, NULL, NULL, 0);
 }
 
+void ContinueAfterBreak()
+{
+	HWND wnd = TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window;
+	RichTextarea::ResetLineStyle(wnd);
+	RefreshBreakpoints();
+	RichTextarea::UpdateArea(wnd);
+	RichTextarea::ResetUpdate(wnd);
+	ShowWindow(hContinue, SW_HIDE);
+	SetEvent(breakResponse);
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam)
 {
 	int wmId, wmEvent;
@@ -1540,13 +1551,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 		if((HWND)lParam == hContinue)
 		{
-			HWND wnd = TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window;
-			RichTextarea::ResetLineStyle(wnd);
-			RefreshBreakpoints();
-			RichTextarea::UpdateArea(wnd);
-			RichTextarea::ResetUpdate(wnd);
-			ShowWindow(hContinue, SW_HIDE);
-			SetEvent(breakResponse);
+			ContinueAfterBreak();
 		}else if((HWND)lParam == hButtonCalc){
 			SuperCalcRun(true);
 		}else if((HWND)lParam == hNewFile){
@@ -1845,10 +1850,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			}
 			break;
 		case ID_RUN_DEBUG:
-			SuperCalcRun(true);
+			if(!stateRemote && !stateAttach)
+				SuperCalcRun(true);
+			if(stateRemote)
+				ContinueAfterBreak();
 			break;
 		case ID_RUN:
-			SuperCalcRun(false);
+			if(!stateRemote && !stateAttach)
+				SuperCalcRun(false);
+			if(stateRemote)
+				ContinueAfterBreak();
 			break;
 		case ID_DEBUG_ATTACHTOPROCESS:
 		{
