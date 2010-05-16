@@ -5268,7 +5268,6 @@ return algo(15, auto(int a){ return a + 5; }, auto(int a){ return a / 4; });";
 
 const char	*testVarargs3 =
 "import std.typeinfo;	// for typeid comparison\r\n\
-typedef char[] string;\r\n\
 char[] print(auto ref[] args)\r\n\
 {\r\n\
 	char[] res = \"\";\r\n\
@@ -5276,8 +5275,8 @@ char[] print(auto ref[] args)\r\n\
 	{\r\n\
 		if(typeid(i) == int)\r\n\
 			res += int(i).str();\r\n\
-		if(typeid(i) == string)\r\n\
-			res += string(i);\r\n\
+		if(typeid(i) == char[])\r\n\
+			res += char[](i);\r\n\
 	}\r\n\
 	return res;\r\n\
 }\r\n\
@@ -5295,6 +5294,29 @@ return e.size;";
 			lastFailed = false;
 
 			CHECK_STR("str", 0, "12 14 5");
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
+const char	*testVarargs4 =
+"import std.typeinfo;	// for typeid comparison\r\n\
+int sum(int a, auto ref[] args)\r\n\
+{\r\n\
+	int res = a;\r\n\
+	for(i in args)\r\n\
+		res += int[](i)[0] + int[](i)[1];\r\n\
+	return res;\r\n\
+}\r\n\
+return sum(1, {10, 100}, {20, 2});";
+	printf("Function with variable argument count (bug test)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testVarargs4, testTarget[t], "133"))
+		{
+			lastFailed = false;
 
 			if(!lastFailed)
 				passed[t]++;
