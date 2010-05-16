@@ -700,18 +700,18 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	RichTextarea::SetStatusBar(hStatus, 900);
 
-	RichTextarea::SetTextStyle(0,    0,   0,   0, false, false, false);
-	RichTextarea::SetTextStyle(1,    0,   0, 255, false, false, false);
-	RichTextarea::SetTextStyle(2,  128, 128, 128, false, false, false);
-	RichTextarea::SetTextStyle(3,   50,  50,  50, false, false, false);
-	RichTextarea::SetTextStyle(4,  136,   0,   0, false,  true, false);
-	RichTextarea::SetTextStyle(5,    0,   0,   0, false, false, false);
-	RichTextarea::SetTextStyle(6,    0,   0,   0,  true, false, false);
-	RichTextarea::SetTextStyle(7,  136,   0,   0, false, false, false);
-	RichTextarea::SetTextStyle(8,    0, 150,   0, false, false, false);
-	RichTextarea::SetTextStyle(9,    0, 150,   0, false,  true, false);
-	RichTextarea::SetTextStyle(10, 255,   0,   0, false, false,  true);
-	RichTextarea::SetTextStyle(11, 255,   0, 255, false, false, false);
+	RichTextarea::SetTextStyle(   COLOR_CODE,    0,   0,   0, false, false, false);
+	RichTextarea::SetTextStyle(  COLOR_RWORD,    0,   0, 255, false, false, false);
+	RichTextarea::SetTextStyle(    COLOR_VAR,  128, 128, 128, false, false, false);
+	RichTextarea::SetTextStyle( COLOR_VARDEF,   50,  50,  50, false, false, false);
+	RichTextarea::SetTextStyle(   COLOR_FUNC,  136,   0,   0, false,  true, false);
+	RichTextarea::SetTextStyle(   COLOR_TEXT,    0,   0,   0, false, false, false);
+	RichTextarea::SetTextStyle(   COLOR_BOLD,    0,   0,   0,  true, false, false);
+	RichTextarea::SetTextStyle(   COLOR_CHAR,  136,   0,   0, false, false, false);
+	RichTextarea::SetTextStyle(   COLOR_REAL,    0, 150,   0, false, false, false);
+	RichTextarea::SetTextStyle(    COLOR_INT,    0, 150,   0, false,  true, false);
+	RichTextarea::SetTextStyle(    COLOR_ERR, 255,   0,   0, false, false,  true);
+	RichTextarea::SetTextStyle(COLOR_COMMENT, 255,   0, 255, false, false, false);
 
 	RichTextarea::SetLineStyle(OVERLAY_CALLED, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_CALL)), "This code has called into another function");
 	RichTextarea::SetLineStyle(OVERLAY_STOP, LoadBitmap(hInst, MAKEINTRESOURCE(IDB_LASTCALL)), "Code execution stopped at this point");
