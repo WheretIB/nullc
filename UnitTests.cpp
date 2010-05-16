@@ -5321,6 +5321,44 @@ return sum(1, {10, 100}, {20, 2});";
 		}
 	}
 
+	const char	*testVarargs5 =
+"char[] print(auto ref[] args)\r\n\
+{\r\n\
+	char[] res = \"\";\r\n\
+	for(i in args)\r\n\
+	{\r\n\
+	switch(typeid(i))\r\n\
+		{\r\n\
+		case int:\r\n\
+			res += int(i).str();\r\n\
+			break;\r\n\
+		case char[]:\r\n\
+			res += char[](i);\r\n\
+			break;\r\n\
+		}\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+auto e = print(12, \" \", 14, \" \", 5);\r\n\
+char[8] str;\r\n\
+for(int i = 0; i < e.size; i++)\r\n\
+	str[i] = e[i];\r\n\
+return e.size;";
+	printf("Function with variable argument count (print)\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testVarargs5, testTarget[t], "8"))
+		{
+			lastFailed = false;
+
+			CHECK_STR("str", 0, "12 14 5");
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 	nullcLoadModuleBySource("test.importhide", "char[] arr2 = \" world\";{ int r = 5; }");
 const char	*testImportHidding =
 "import test.importhide;\r\n\
@@ -6722,7 +6760,8 @@ return *res + *h.c + *v + *e[0];";
 	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'float4'");
 	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} while(f()){} return 1;", "ERROR: condition type cannot be 'float4'");
 	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} do{}while(f()); return 1;", "ERROR: condition type cannot be 'float4'");
-	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;", "ERROR: cannot switch by void type");
+	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;", "ERROR: condition type cannot be 'void'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} switch(f()){ case 1: break; } return 1;", "ERROR: condition type cannot be 'float4'");
 	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;", "ERROR: case value type cannot be void");
 
 	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;", "ERROR: different type is being defined");

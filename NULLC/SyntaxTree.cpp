@@ -2746,6 +2746,10 @@ NodeSwitchExpr::NodeSwitchExpr()
 {
 	// Take node with value
 	first = TakeLastNode();
+
+	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeTypeid) || first->typeInfo->type == TypeInfo::TYPE_VOID)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", first->typeInfo->GetFullTypeName());
+
 	conditionHead = conditionTail = NULL;
 	blockHead = blockTail = NULL;
 	defaultCase = NULL;
@@ -2798,6 +2802,11 @@ void NodeSwitchExpr::Compile()
 
 	// Compute value
 	first->Compile();
+	if(first->typeInfo == typeTypeid)
+	{
+		aST = STYPE_INT;
+		aOT = OTYPE_INT;
+	}
 
 	NodeZeroOP *curr, *currBlock;
 

@@ -2507,10 +2507,8 @@ void AddDoWhileNode(const char* pos)
 
 void BeginSwitch(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 1);
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo == typeVoid)
-		ThrowError(pos, "ERROR: cannot switch by void type");
-
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()++;
 
