@@ -29,6 +29,10 @@ span.comment
 {
 	color: #f0f;
 }
+span.string
+{
+	color: #880000;
+}
 div.topic
 {
 	margin-left: 20px;
@@ -654,7 +658,62 @@ function toggleView(a, b, c)
 	<div class="subtopic">
 		<h4><a name="varargs">4.3.1 Variable argument list</a></h4>
 
-		<div style="background-color: #f00; width: 100%; height: 50px;">
+		It is possible to create a function that accepts an unspecified number of arguments (like using an ellipsis in C++).<br />
+		To do so, set the type of the last argument of your function to <span class="rword">auto ref</span>[].<br />
+		All excessive arguments will be packed into the <span class="rword">auto ref</span> array, so an <a href="#auterefcast" title="auto ref type explicit cast">explicit cast</a> is needed to convert it to the type you want.<br />
+		<div class="example">
+			<p class="example_head" id="varargs_ex_1a" onmousedown="toggleView(&quot;varargs_ex_1a&quot;, &quot;varargs_ex_1b&quot, &quot;example of sum of integers using function with variable arguments.&quot;);">Show example of sum of integers using function with variable arguments.</p>
+			<p class="code example_body" id="varargs_ex_1b">
+<span class="comment">// A function that returns sum of all its arguments. Function expects integers.</span><br />
+<span class="rword">int</span> <span class="func">sum</span>(<span class="rword">auto ref</span>[] args)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">int</span> result = <span class="real">0</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// iterate through all arguments and sum them</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">for</span>(i <span class="rword">in</span> <span class="var">args</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">result</span> += <span class="rword">int</span>(<span class="var">i</span>);<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="var">result</span>;<br />
+}<br />
+<span class="rword">return</span> <span class="func">sum</span>(<span class="real">1</span>, <span class="real">12</span>, <span class="real">201</span>);	<span class="comment">// 214</span><br />
+			</p>
+		</div>
+		Argument type can be found using <span class="func">typeid</span>() function.<br />
+		<div class="example">
+			<p class="example_head" id="varargs_ex_2a" onmousedown="toggleView(&quot;varargs_ex_2a&quot;, &quot;varargs_ex_2b&quot, &quot;example of println function.&quot;);">Show example of println function.</p>
+			<p class="code example_body" id="varargs_ex_2b">
+<span class="comment">// Import module that enables output to console.</span><br />
+<span class="rword">import</span> <span class="var">std</span>.<span class="var">io</span>;<br />
+<span class="comment">// Function returns number of printed arguments</span><br />
+<span class="rword">int</span> <span class="func">println</span>(<span class="rword">auto ref</span>[] args)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Assume we are able to print all arguments</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">int</span> printedArgs = <span class="var">args</span>.<span class="var">size</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// iterate through all arguments</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">for</span>(i <span class="rword">in</span> <span class="var">args</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// switch by argument type</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">switch</span>(<span class="func">typeid</span>(<span class="var">i</span>))<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">case int</span>:<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">io</span>.<span class="var">out</span> << <span class="func">int</span>(<span class="var">i</span>);<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">break</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">case double</span>:<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">io</span>.<span class="var">out</span> << <span class="func">double</span>(<span class="var">i</span>);<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">break</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">case char</span>[]:<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">io</span>.<span class="var">out</span> << <span class="rword">char</span>[](<span class="var">i</span>);<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">break</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// unknown type, unable to print it, so we decrement printed argument count</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">default</span>:<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">printedArgs</span>--;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Add newline</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">io</span>.<span class="var">out</span> << <span class="var">io</span>.<span class="var">endl</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Return printed argument count</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="var">printedArgs</span>;<br />
+}<br />
+<span class="rword">return</span> <span class="func">println</span>(<span class="real">2</span>, " ", <span class="real">4</span>, "<span class="string"> hello </span>", <span class="real">5.0</span>, <span class="real">3.0f</span>);	<span class="comment">// output "2 4 hello 5.0"; 5 is returned</span><br />
+			</p>
 		</div>
 	</div>
 	<hr />
