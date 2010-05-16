@@ -60,11 +60,6 @@ namespace NULLCTypeInfo
 		return ret;
 	}
 
-	int Typeid(NULLCRef r)
-	{
-		return r.typeID;
-	}
-
 	int IsFunction(int id)
 	{
 		return linker->exTypes[id].subCat == ExternTypeInfo::CAT_FUNCTION;
@@ -129,15 +124,6 @@ namespace NULLCTypeInfo
 		ret.ptr = exTypes[*type].offsetToName + symbols;
 		ret.len = (unsigned int)strlen(ret.ptr) + 1;
 		return ret;
-	}
-
-	int TypesEqual(int a, int b)
-	{
-		return a == b;
-	}
-	int TypesNEqual(int a, int b)
-	{
-		return a != b;
 	}
 
 	int TypeSubType(int &typeID)
@@ -208,8 +194,6 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 {
 	NULLCTypeInfo::linker = linker;
 
-	REGISTER_FUNC(Typeid, "typeid", 0);
-
 	REGISTER_FUNC(IsFunction, "isFunction", 0);
 	REGISTER_FUNC(IsFunctionRef, "isFunction", 1);
 	REGISTER_FUNC(IsClass, "isClass", 0);
@@ -227,9 +211,6 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 
 	REGISTER_FUNC(TypeSize, "typeid::size$", 0);
 	REGISTER_FUNC(TypeName, "typeid::name$", 0);
-
-	REGISTER_FUNC(TypesEqual, "==", 0);
-	REGISTER_FUNC(TypesNEqual, "!=", 0);
 
 	REGISTER_FUNC(TypeSubType, "typeid::subType", 0);
 	REGISTER_FUNC(TypeArraySize, "typeid::arraySize", 0);

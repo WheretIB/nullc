@@ -573,3 +573,17 @@ NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NullCArray* arr)
 	ret.id = funcs[r.typeID];
 	return ret;
 }
+
+int NULLC::Typeid(NULLCRef r)
+{
+	return r.typeID;
+}
+
+int NULLC::TypesEqual(int a, int b)
+{
+	return a == b;
+}
+int NULLC::TypesNEqual(int a, int b)
+{
+	return a != b;
+}

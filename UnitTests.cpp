@@ -5267,8 +5267,7 @@ return algo(15, auto(int a){ return a + 5; }, auto(int a){ return a / 4; });";
 	}
 
 const char	*testVarargs3 =
-"import std.typeinfo;	// for typeid comparison\r\n\
-char[] print(auto ref[] args)\r\n\
+"char[] print(auto ref[] args)\r\n\
 {\r\n\
 	char[] res = \"\";\r\n\
 	for(i in args)\r\n\
@@ -5301,8 +5300,7 @@ return e.size;";
 	}
 
 const char	*testVarargs4 =
-"import std.typeinfo;	// for typeid comparison\r\n\
-int sum(int a, auto ref[] args)\r\n\
+"int sum(int a, auto ref[] args)\r\n\
 {\r\n\
 	int res = a;\r\n\
 	for(i in args)\r\n\
