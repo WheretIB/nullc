@@ -6234,6 +6234,25 @@ return res;";
 		}
 	}
 
+const char	*testFunctionCallConstantConvertion =
+"int funcA(int a, float b)\r\n\
+{\r\n\
+	return a + b * 2;\r\n\
+}\r\n\
+return funcA(5, 6.6);";
+	printf("Constant number type conversions in function call\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testFunctionCallConstantConvertion, testTarget[t], "18"))
+		{
+			lastFailed = false;
+
+			if(!lastFailed)
+				passed[t]++;
+		}
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
