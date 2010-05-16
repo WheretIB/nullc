@@ -101,6 +101,9 @@ namespace TabbedFiles
 	{
 		TabbedFilesData	*data = GetData(wnd);
 
+		if(!data->closeHandler)
+			ShowWindow(data->closeButton, SW_HIDE);
+
 		PAINTSTRUCT paintData;
 		HDC hdc = BeginPaint(wnd, &paintData);
 
@@ -112,7 +115,7 @@ namespace TabbedFiles
 		MoveToEx(hdc, 0, TAB_HEIGHT, NULL);
 		LineTo(hdc, data->width, TAB_HEIGHT);
 
-		for(unsigned int i = 0; i < data->tabCount + 1; i++)
+		for(unsigned int i = 0; i < data->tabCount + (data->newTab ? 1 : 0); i++)
 		{
 			RECT textRect = { 0, 0, 0, 0 };
 			if(data->tabInfo[i].last)
