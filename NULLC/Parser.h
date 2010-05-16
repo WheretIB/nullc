@@ -13,6 +13,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType);
 
 bool ParseClassDefinition(Lexeme** str);
 
+unsigned int ParseFunctionArguments(Lexeme** str);
 bool ParseFunctionCall(Lexeme** str);
 
 bool ParseFunctionVariables(Lexeme** str);

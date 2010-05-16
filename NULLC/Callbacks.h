@@ -53,6 +53,7 @@ void AddContinueNode(const char* pos);
 void SelectTypeByPointer(void* type);
 void SelectTypeByIndex(unsigned int index);
 void* GetSelectedType();
+const char* GetSelectedTypeName();
 
 void* AddVariable(const char* pos, InplaceStr varName);
 

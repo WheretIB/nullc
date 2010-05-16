@@ -316,6 +316,24 @@ bool ParseClassDefinition(Lexeme** str)
 	return false;
 }
 
+unsigned int ParseFunctionArguments(Lexeme** str)
+{
+	unsigned int callArgCount = 0;
+	if(ParseVaribleSet(str))
+	{
+		callArgCount++;
+		while(ParseLexem(str, lex_comma))
+		{
+			if(!ParseVaribleSet(str))
+				ThrowError((*str)->pos, "ERROR: expression not found after ',' in function parameter list");
+			callArgCount++;
+		}
+	}
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
+	return callArgCount;
+}
+
 bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 {
 	if((*str)->type != lex_string || (*str)[1].type != lex_oparen)
@@ -331,19 +349,7 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	if(memberFunctionCall)
 		CALLBACK(PrepareMemberCall((*str)->pos));
 
-	unsigned int callArgCount = 0;
-	if(ParseVaribleSet(str))
-	{
-		callArgCount++;
-		while(ParseLexem(str, lex_comma))
-		{
-			if(!ParseVaribleSet(str))
-				ThrowError((*str)->pos, "ERROR: expression not found after ',' in function parameter list");
-			callArgCount++;
-		}
-	}
-	if(!ParseLexem(str, lex_cparen))
-		ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
+	unsigned int callArgCount = ParseFunctionArguments(str);
 
 	if(memberFunctionCall)
 		CALLBACK(AddMemberFunctionCall((*str)->pos, functionName, callArgCount));
@@ -957,19 +963,7 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 		NodeZeroOP *fAddress = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 
-		unsigned int callArgCount = 0;
-		if(ParseVaribleSet(str))
-		{
-			callArgCount++;
-			while(ParseLexem(str, lex_comma))
-			{
-				if(!ParseVaribleSet(str))
-					ThrowError((*str)->pos, "ERROR: expression not found after ',' in function parameter list");
-				callArgCount++;
-			}
-		}
-		if(!ParseLexem(str, lex_cparen))
-			ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
+		unsigned int callArgCount = ParseFunctionArguments(str);
 
 		CodeInfo::nodeList.push_back(fAddress);
 		CALLBACK(AddFunctionCallNode((*str)->pos, NULL, callArgCount));
@@ -1131,6 +1125,13 @@ bool ParseTerminal(Lexeme** str)
 		{
 			if(ParseFunctionDefinition(str))
 				return true;
+			if(ParseLexem(str, lex_oparen))
+			{
+				unsigned int callArgCount = ParseFunctionArguments(str);
+				AddFunctionCallNode((*str)->pos, GetSelectedTypeName(), callArgCount);
+				ParsePostExpressions(str);
+				return true;
+			}
 			GetTypeId();
 			return true;
 		}

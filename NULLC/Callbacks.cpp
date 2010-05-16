@@ -825,6 +825,11 @@ void* GetSelectedType()
 	return (void*)currType;
 }
 
+const char* GetSelectedTypeName()
+{
+	return currType->GetFullTypeName();
+}
+
 void* AddVariable(const char* pos, InplaceStr varName)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -2148,6 +2153,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		TypeInfo **type = CodeInfo::classMap.find(funcNameHash);
 		if(type)
 			autoRefToType = *type;
+		for(unsigned int i = 0; i < CodeInfo::typeInfo.size() && !autoRefToType; i++)
+		{
+			if(CodeInfo::typeInfo[i]->GetFullNameHash() == funcNameHash)
+				autoRefToType = CodeInfo::typeInfo[i];
+		}
 		if(autoRefToType)
 		{
 			if(AddFunctionCallNode(pos, funcName, 1, true))
@@ -2210,9 +2220,12 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				// If function accepts variable argument list
 				TypeInfo *&lastType = bestFuncList[k]->funcType->funcType->paramType[bestFuncList[k]->funcType->funcType->paramCount - 1];
 				assert(lastType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
+				unsigned int redundant = argumentCount - bestFuncList[k]->funcType->funcType->paramCount;
+				CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
 				// Change things in a way that this function will be selected (lie about real argument count and match last argument type)
 				lastType = CodeInfo::nodeList.back()->typeInfo;
 				bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, bestFuncList[k]->funcType->funcType->paramCount);
+				CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
 				if(bestFuncRating[k] != ~0u)
 					bestFuncRating[k] += 10;	// Cost of variable arguments function
 				lastType = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
