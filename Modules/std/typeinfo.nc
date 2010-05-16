@@ -1,7 +1,5 @@
 // std.typeinfo
 
-typeid typeid(auto ref type);
-
 int isFunction(typeid type);
 int isClass(typeid type);
 int isSimple(typeid type);
@@ -32,10 +30,6 @@ int		typeid:arraySize();
 typeid	typeid:returnType();
 int		typeid:argumentCount();
 typeid	typeid:argumentType(int argument);
-
-// type info comparison
-int operator==(typeid a, b);
-int operator!=(typeid a, b);
 
 // iteration over members
 class member_iterator

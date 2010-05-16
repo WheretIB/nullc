@@ -126,6 +126,11 @@ auto operator=(float[] ref dst, double[] src)\r\n\
 		dst[i] = src[i];\r\n\
 	return dst;\r\n\
 }\r\n\
+// typeid retrieval from auto ref\r\n\
+typeid typeid(auto ref type);\r\n\
+// typeid comparison\r\n\
+int operator==(typeid a, b);\r\n\
+int operator!=(typeid a, b);\r\n\
 ";
 
 Compiler::Compiler()
@@ -228,6 +233,10 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::Typeid, "typeid", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::TypesEqual, "==", 1);
+	AddModuleFunction("$base$", (void (*)())NULLC::TypesNEqual, "!=", 1);
 #endif
 }
 

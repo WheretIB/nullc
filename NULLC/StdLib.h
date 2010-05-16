@@ -38,4 +38,8 @@ namespace NULLC
 	void		ResetMemory();
 
 	NULLCFuncPtr	FunctionRedirect(NULLCRef r, NullCArray* arr);
+
+	int Typeid(NULLCRef r);
+	int TypesEqual(int a, int b);
+	int TypesNEqual(int a, int b);
 }
