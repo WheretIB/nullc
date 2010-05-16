@@ -65,6 +65,8 @@ HWND hJITEnabled;	// JiT enable check box
 HWND hTabs;	
 HWND hNewTab, hNewFilename, hNewFile;
 HWND hResult;		// label with execution result
+
+HWND hDebugTabs;
 HWND hCode;			// disabled text area for error messages and other information
 HWND hVars;			// disabled text area that shows values of all variables in global scope
 HWND hStatus;		// Main window status bar
@@ -640,6 +642,10 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	if(!hAttachTabs)
 		return 0;
 
+	hDebugTabs = CreateWindow("NULLCTABS", "tabs", WS_VISIBLE | WS_CHILD, 5, 225, 800, 20, hWnd, 0, hInstance, 0);
+	if(!hDebugTabs)
+		return 0;
+
 	// Load tab information
 	FILE *tabInfo = fopen("nullc_tab.cfg", "rb");
 	if(!tabInfo)
@@ -717,20 +723,19 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	unsigned int width = (800 - 25) / 4;
 
-	hCode = CreateWindow("EDIT", initError, WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
+	hCode = CreateWindow("EDIT", initError, WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
 		5, 225, width*2, 165, hWnd, NULL, hInstance, NULL);
 	if(!hCode)
 		return 0;
-	ShowWindow(hCode, nCmdShow);
-	UpdateWindow(hCode);
 	SendMessage(hCode, WM_SETFONT, (WPARAM)fontMonospace, 0);
 
 	hVars = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS,
 		3*width+15, 225, width, 165, hWnd, NULL, hInstance, NULL);
 	if(!hVars)
 		return 0;
-	ShowWindow(hVars, nCmdShow);
-	UpdateWindow(hVars);
+
+	TabbedFiles::AddTab(hDebugTabs, "Output", hCode);
+	TabbedFiles::AddTab(hDebugTabs, "Variable info", hVars);
 
 	hResult = CreateWindow("STATIC", "The result will be here", WS_CHILD, 110, 185, 300, 30, hWnd, NULL, hInstance, NULL);
 	if(!hResult)
@@ -1069,6 +1074,7 @@ void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
 void FillVariableInfoTree(bool lastIsCurrent = false)
 {
 	TreeView_DeleteAllItems(hVars);
+
 	tiExtra.clear();
 	tiExtra.push_back(TreeItemExtra(NULL, NULL, 0));
 
@@ -1423,6 +1429,7 @@ void SuperCalcRun(bool debug)
 	if(!good)
 	{
 		SetWindowText(hCode, nullcGetLastError());
+		TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 	}else{
 		if(debug)
 		{
@@ -1461,6 +1468,7 @@ DWORD WINAPI PipeThread(void* param)
 
 		if(RemoteData::stackData && RemoteData::callStack)
 			FillVariableInfoTree(true);
+		TabbedFiles::SetCurrentTab(hDebugTabs, 1);
 
 		delete[] RemoteData::callStack;
 		RemoteData::callStack = NULL;
@@ -1539,6 +1547,7 @@ void PipeInit()
 	UpdateWindow(attachedEdits.back());
 
 	SetWindowText(hCode, message);
+	TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 
 	TabbedFiles::SetCurrentTab(hAttachTabs, moduleCount);
 	ShowWindow(attachedEdits.back(), SW_SHOW);
@@ -1689,10 +1698,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 				RefreshBreakpoints();
 				FillVariableInfoTree();
+				TabbedFiles::SetCurrentTab(hDebugTabs, 1);
 			}else{
 				_snprintf(result, 1024, "%s", nullcGetLastError());
 				result[1023] = '\0';
 				SetWindowText(hCode, result);
+				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 
 				FillVariableInfoTree();
 			}
@@ -1701,6 +1712,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			ShowWindow(hContinue, SW_SHOW);
 			RefreshBreakpoints();
 			FillVariableInfoTree(true);
+			TabbedFiles::SetCurrentTab(hDebugTabs, 1);
 
 			break;
 		case WM_NOTIFY:
@@ -2164,6 +2176,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(!colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection))
 			{
 				SetWindowText(hCode, colorer->GetError().c_str());
+				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 			}
 			RichTextarea::EndStyleUpdate(wnd);
 			RichTextarea::UpdateArea(wnd);
@@ -2224,14 +2237,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
 
-			unsigned int bottomWidth = width - 2 * mainPadding - 2 * subPadding;
 			unsigned int leftOffsetX = mainPadding;
-			unsigned int leftWidth = int(bottomWidth / 100.0 * 75.0);	// 75 %
-			unsigned int rightOffsetX = leftOffsetX + leftWidth + subPadding;
-			unsigned int rightWidth = int(bottomWidth / 100.0 * 25.0);	// 25 %
-
-			SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY, leftWidth, bottomHeight-16, NULL);
-			SetWindowPos(hVars,			HWND_TOP, rightOffsetX, bottomOffsetY, rightWidth, bottomHeight-16, NULL);
+			SetWindowPos(hDebugTabs,	HWND_TOP, leftOffsetX, bottomOffsetY, width - mainPadding * 2, 20, NULL);
+			SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
+			SetWindowPos(hVars,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
 
 			SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
 
