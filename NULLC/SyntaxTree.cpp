@@ -863,8 +863,8 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	if(funcType->paramCount > 0)
 	{
 		paramHead = paramTail = TakeLastNode();
-		if(paramHead->nodeType == typeNodeNumber && funcType->paramType[0] != paramHead->typeInfo)
-			((NodeNumber*)paramHead)->ConvertTo(funcType->paramType[0]);
+		if(paramHead->nodeType == typeNodeNumber && funcType->paramType[funcType->paramCount-1] != paramHead->typeInfo)
+			((NodeNumber*)paramHead)->ConvertTo(funcType->paramType[funcType->paramCount-1]);
 	}else{
 		paramHead = paramTail = NULL;
 	}
@@ -873,7 +873,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	for(unsigned int i = 1; i < funcType->paramCount; i++)
 	{
 		paramTail->next = TakeLastNode();
-		TypeInfo	*paramType = funcType->paramType[i];
+		TypeInfo	*paramType = funcType->paramType[funcType->paramCount-i-1];
 		if(paramTail->next->nodeType == typeNodeNumber && paramType != paramTail->next->typeInfo)
 			((NodeNumber*)paramTail->next)->ConvertTo(paramType);
 		paramTail->next->prev = paramTail;
