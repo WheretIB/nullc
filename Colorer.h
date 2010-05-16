@@ -1,6 +1,22 @@
 #include "stdafx.h"
 #pragma once
 
+enum COLOR_STYLE
+{
+	COLOR_CODE,
+	COLOR_RWORD,
+	COLOR_VAR,
+	COLOR_VARDEF,
+	COLOR_FUNC,
+	COLOR_TEXT,
+	COLOR_BOLD,
+	COLOR_CHAR,
+	COLOR_REAL,
+	COLOR_INT,
+	COLOR_ERR,
+	COLOR_COMMENT,
+};
+
 class ColorCodeCallback;
 
 namespace ColorerGrammar

@@ -14,21 +14,7 @@ using namespace supspi;
 #include "nullc/nullc_debug.h"
 #include "nullc/StrAlgo.h"
 
-enum COLOR_STYLE
-{
-	COLOR_CODE,
-	COLOR_RWORD,
-	COLOR_VAR,
-	COLOR_VARDEF,
-	COLOR_FUNC,
-	COLOR_TEXT,
-	COLOR_BOLD,
-	COLOR_CHAR,
-	COLOR_REAL,
-	COLOR_INT,
-	COLOR_ERR,
-	COLOR_COMMENT,
-};
+#include <set>
 
 class ColorCodeCallback
 {
@@ -68,6 +54,13 @@ namespace ColorerGrammar
 
 	std::vector<std::string>	typeInfo;
 	std::vector<unsigned int>	callArgCount;
+
+	std::set<InplaceStr>	variables;
+
+	void MarkVar(char const* s, char const* e)
+	{
+		//printf("%.*s\r\n", int(e-s), s);
+	}
 
 	// Callbacks
 	ColorCodeCallback ColorRWord, ColorVar, ColorVarDef, ColorFunc, ColorText, ColorChar, ColorReal, ColorInt, ColorBold, ColorErr, ColorComment;
@@ -316,7 +309,7 @@ namespace ColorerGrammar
 				);
 
 			postExpr	=	(chP('[')[ColorText] >> term5 >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	((varname[ColorFunc] >> fcallpart) | varname[ColorVar])) | fcallpart;
-			appval		=	(varname - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
+			appval		=	(varname - (strP("case") | strP("default")))[ColorVar][MarkVar] >> ~chP('(') >> *postExpr;
 			addvarp		=
 				(
 				varname[ColorVarDef] >> epsP[AssignVar<unsigned int>(varSize,1)] >> 
