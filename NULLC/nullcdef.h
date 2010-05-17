@@ -57,6 +57,10 @@ struct NULLCFuncPtr
 	#error "Cannot enable translation to C and x86 optimizer simultaneously"
 #endif
 
+#if defined(__linux)
+	#define NULLC_COMPLEX_RETURN
+#endif
+
 typedef unsigned char nullres;
 
 #define NULLC_VM	0
