@@ -1359,6 +1359,24 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	case ExternFuncInfo::RETURN_LONG:
 		newStackPtr -= 2;
 		*(long long*)newStackPtr = ((long long (*)())fPtr)();
+		break;
+#ifdef NULLC_COMPLEX_RETURN
+	case ExternFuncInfo::RETURN_UNKNOWN:
+	{
+		unsigned int ret[128];
+		unsigned int *ptr = &ret[0];
+		asm("movl %0, %%eax"::"r"(ptr):"%eax");
+		asm("pushl %eax");
+
+		((void (*)())fPtr)();
+		
+		// adjust new stack top
+		newStackPtr -= exFunctions[funcID].returnShift;
+		// copy return value on top of the stack
+		memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
+	}
+		break;
+#endif
 	}
 	genStackPtr = newStackPtr;
 #ifdef __GNUC__

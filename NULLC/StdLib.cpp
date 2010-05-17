@@ -574,9 +574,11 @@ NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NullCArray* arr)
 	return ret;
 }
 
-int NULLC::Typeid(NULLCRef r)
+NULLC::TypeIDHelper NULLC::Typeid(NULLCRef r)
 {
-	return r.typeID;
+	TypeIDHelper help;
+	help.id = r.typeID;
+	return help;
 }
 
 int NULLC::TypesEqual(int a, int b)
