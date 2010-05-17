@@ -334,7 +334,8 @@ double myGetPreciseTime()
 }
 
 HANDLE breakResponse = NULL;
-unsigned int	breakCommand = NULLC_BREAK_PROCEED;
+unsigned int	breakCommand = NULLC_BREAK_PROCEED, lastBreakCommand = NULLC_BREAK_PROCEED;
+unsigned int	lastCodeLine = ~0u;
 
 void IDEDebugBreak()
 {
@@ -344,6 +345,7 @@ void IDEDebugBreak()
 unsigned IDEDebugBreakEx(unsigned int instruction)
 {
 	(void)instruction;
+	lastBreakCommand = breakCommand;
 	breakCommand = NULLC_BREAK_PROCEED;
 	SendMessage(hWnd, WM_USER + 2, 0, 0);
 	WaitForSingleObject(breakResponse, INFINITE);
@@ -1108,7 +1110,7 @@ void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent, b
 	}
 }
 
-void FillVariableInfoTree(bool lastIsCurrent = false)
+unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 {
 	TreeView_DeleteAllItems(hVars);
 
@@ -1279,6 +1281,7 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 	}
 	RichTextarea::UpdateArea(wnd);
 	RichTextarea::ResetUpdate(wnd);
+	return codeLine;
 }
 
 void UpdateWatchedVariables()
@@ -1779,13 +1782,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			}
 			break;
 		case WM_USER + 2:
+		{
 			ShowWindow(hContinue, SW_SHOW);
 			RefreshBreakpoints();
-			FillVariableInfoTree(true);
+			unsigned int oldCodeLine = lastCodeLine;
+			lastCodeLine = FillVariableInfoTree(true);
 			if(TabbedFiles::GetCurrentTab(hDebugTabs) == 0)
 				TabbedFiles::SetCurrentTab(hDebugTabs, 1);
 			UpdateWatchedVariables();
-
+			if(oldCodeLine == lastCodeLine && lastBreakCommand != NULLC_BREAK_PROCEED)
+			{
+				breakCommand = lastBreakCommand;
+				ContinueAfterBreak();
+			}
+		}
 			break;
 		case WM_NOTIFY:
 			if(((LPNMHDR)lParam)->code == NM_RCLICK && ((LPNMHDR)lParam)->hwndFrom == hVars)

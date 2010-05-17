@@ -461,6 +461,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				unsigned int response = breakFunction((unsigned int)(cmdStream - cmdStreamBase));
 				fcallStack.pop_back();
 
+				RUNTIME_ERROR(response == 4, "ERROR: execution was stopped after breakpoint");
+
 				// Step command - set breakpoint on the next instruction, if there is no breakpoint already
 				if(response)
 				{
