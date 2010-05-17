@@ -69,6 +69,7 @@ HWND hResult;		// label with execution result
 HWND hDebugTabs;
 HWND hCode;			// disabled text area for error messages and other information
 HWND hVars;			// disabled text area that shows values of all variables in global scope
+HWND hWatch;
 HWND hStatus;		// Main window status bar
 
 HWND hAttachPanel, hAttachList, hAttachDo, hAttachBack, hAttachTabs;
@@ -734,8 +735,14 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	if(!hVars)
 		return 0;
 
+	hWatch = CreateWindow(WC_TREEVIEW, "", WS_CHILD | WS_BORDER | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS,
+		3*width+15, 225, width, 165, hWnd, NULL, hInstance, NULL);
+	if(!hWatch)
+		return 0;
+
 	TabbedFiles::AddTab(hDebugTabs, "Output", hCode);
 	TabbedFiles::AddTab(hDebugTabs, "Variable info", hVars);
+	TabbedFiles::AddTab(hDebugTabs, "Watch", hWatch);
 
 	hResult = CreateWindow("STATIC", "The result will be here", WS_CHILD, 110, 185, 300, 30, hWnd, NULL, hInstance, NULL);
 	if(!hResult)
@@ -816,13 +823,16 @@ char			*codeSymbols = NULL;
 
 struct TreeItemExtra
 {
-	TreeItemExtra(void* a, const ExternTypeInfo* t, HTREEITEM i):address(a), type(t), item(i){}
+	TreeItemExtra(void* a, const ExternTypeInfo* t, HTREEITEM i, bool e, const char *n = NULL):address(a), type(t), item(i), expandable(e), name(n){}
 
 	void			*address;
 	const ExternTypeInfo	*type;
 	HTREEITEM		item;
+	bool			expandable;
+	const char		*name;
 };
 std::vector<TreeItemExtra>	tiExtra;
+std::vector<TreeItemExtra>	tiWatch;
 std::vector<char*> externalBlocks;
 
 const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
@@ -878,7 +888,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		item.mask = TVIF_PARAM;
 		item.lParam = tiExtra.size();
 		item.hItem = parent;
-		tiExtra.push_back(TreeItemExtra((void*)ptr, &type, parent));
+		tiExtra.push_back(TreeItemExtra((void*)ptr, &type, parent, true));
 		TreeView_SetItem(hVars, &item);
 		return;
 	}
@@ -903,7 +913,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 
 		HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
 		if(subType.subCat == ExternTypeInfo::CAT_POINTER)
-			tiExtra.push_back(TreeItemExtra((void*)ptr, &subType, lastItem));
+			tiExtra.push_back(TreeItemExtra((void*)ptr, &subType, lastItem, true));
 
 		FillVariableInfo(subType, ptr, lastItem);
 	}
@@ -947,7 +957,7 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 		HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
 		if(memberType.subCat == ExternTypeInfo::CAT_POINTER)
-			tiExtra.push_back(TreeItemExtra((void*)ptr, &memberType, lastItem));
+			tiExtra.push_back(TreeItemExtra((void*)ptr, &memberType, lastItem, true));
 
 		FillVariableInfo(memberType, ptr, lastItem);
 
@@ -983,7 +993,7 @@ void FillAutoInfo(char* ptr, HTREEITEM parent)
 	helpInsert.item.lParam = tiExtra.size();
 
 	HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-	tiExtra.push_back(TreeItemExtra((void*)(ptr + 4), parentType, lastItem));
+	tiExtra.push_back(TreeItemExtra((void*)(ptr + 4), parentType, lastItem, true));
 }
 
 void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
@@ -1076,7 +1086,7 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 	TreeView_DeleteAllItems(hVars);
 
 	tiExtra.clear();
-	tiExtra.push_back(TreeItemExtra(NULL, NULL, 0));
+	tiExtra.push_back(TreeItemExtra(NULL, NULL, 0, false));
 
 	TVINSERTSTRUCT	helpInsert;
 	helpInsert.hParent = NULL;
@@ -1115,11 +1125,10 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
 		helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-		helpInsert.item.lParam = type.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
+		helpInsert.item.lParam = tiExtra.size();
 
 		HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-		if(type.subCat == ExternTypeInfo::CAT_POINTER)
-			tiExtra.push_back(TreeItemExtra(data + codeVars[i].offset, &type, lastItem));
+		tiExtra.push_back(TreeItemExtra(data + codeVars[i].offset, &type, lastItem, type.subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + codeVars[i].offsetToName));
 
 		FillVariableInfo(type, data + codeVars[i].offset, lastItem);
 
@@ -1221,11 +1230,10 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 				localInfo.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 				localInfo.item.pszText = name;
 				localInfo.item.cChildren = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-				localInfo.item.lParam = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
+				localInfo.item.lParam = tiExtra.size();
 
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
-				if(codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER)
-					tiExtra.push_back(TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem));
+				tiExtra.push_back(TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem, codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + lInfo.offsetToName));
 
 				FillVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset, thisItem);
 
@@ -1244,6 +1252,41 @@ void FillVariableInfoTree(bool lastIsCurrent = false)
 	}
 	RichTextarea::UpdateArea(wnd);
 	RichTextarea::ResetUpdate(wnd);
+}
+
+void UpdateWatchedVariables()
+{
+	char name[256];
+	HTREEITEM elem = TreeView_GetRoot(hWatch);
+	while(elem)
+	{
+		TVITEMEX item;
+		memset(&item, 0, sizeof(item));
+		item.mask = TVIF_HANDLE | TVIF_PARAM;
+		item.hItem = elem;
+		TreeView_GetItem(hVars, &item);
+
+		item.mask = TVIF_TEXT;
+		item.hItem = elem;
+		item.cchTextMax = 0;
+		
+		TreeItemExtra extra = tiWatch[item.lParam];
+		const ExternTypeInfo &type = *extra.type;
+
+		char *it = name;
+		memset(name, 0, 256);
+		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", extra.address, codeSymbols + type.offsetToName, extra.name);
+
+		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, (char*)extra.address));
+		else if(&type == &codeTypes[8])	// for typeid
+			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(extra.address)].offsetToName);
+
+		item.pszText = name;
+		TreeView_SetItem(hWatch, &item);
+		FillVariableInfo(type, (char*)extra.address, elem);
+		elem = TreeView_GetNextSibling(hWatch, elem);
+	}
 }
 
 struct RunResult
@@ -1712,12 +1755,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			ShowWindow(hContinue, SW_SHOW);
 			RefreshBreakpoints();
 			FillVariableInfoTree(true);
-			TabbedFiles::SetCurrentTab(hDebugTabs, 1);
+			if(TabbedFiles::GetCurrentTab(hDebugTabs) == 0)
+				TabbedFiles::SetCurrentTab(hDebugTabs, 1);
+			UpdateWatchedVariables();
 
 			break;
 		case WM_NOTIFY:
-			if(((LPNMHDR)lParam)->code == TVN_GETDISPINFO && ((LPNMHDR)lParam)->hwndFrom == hVars)
+			if(((LPNMHDR)lParam)->code == NM_RCLICK && ((LPNMHDR)lParam)->hwndFrom == hVars)
 			{
+				HTREEITEM selected = TreeView_GetDropHilight(hVars);
+				if(selected)
+				{
+					TVITEMEX info;
+					memset(&info, 0, sizeof(info));
+					info.mask = TVIF_HANDLE | TVIF_PARAM;
+					info.hItem = selected;
+					TreeView_GetItem(hVars, &info);
+					if(info.lParam)
+					{
+						POINT coords;
+						GetCursorPos(&coords);
+		
+						HMENU contextMenu = CreatePopupMenu();
+						InsertMenu(contextMenu, 0, MF_BYPOSITION | MF_STRING, 2001, "Watch variable");
+						TrackPopupMenu(contextMenu, TPM_TOPALIGN | TPM_LEFTALIGN, coords.x, coords.y, 0, hWnd, NULL);
+
+						TreeView_Select(hVars, selected, TVGN_CARET);
+					}
+				}
+			}else if(((LPNMHDR)lParam)->code == TVN_GETDISPINFO && ((LPNMHDR)lParam)->hwndFrom == hVars){
 				LPNMTVDISPINFO info = (LPNMTVDISPINFO)lParam;
 				if(info->item.mask & TVIF_CHILDREN)
 				{
@@ -1728,7 +1794,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				LPNMTREEVIEW info = (LPNMTREEVIEW)lParam;
 
 				TreeItemExtra *extra = info->itemNew.lParam ? &tiExtra[info->itemNew.lParam] : NULL;
-				if(extra)
+				if(extra && extra->expandable)
 				{
 					codeTypes = stateRemote ? RemoteData::types : nullcDebugTypeInfo(NULL);
 					char *ptr = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? *(char**)extra->address : (char*)extra->address;
@@ -1792,7 +1858,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 					HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
 					if(type.subCat == ExternTypeInfo::CAT_POINTER)
-						tiExtra.push_back(TreeItemExtra(ptr, &type, lastItem));
+						tiExtra.push_back(TreeItemExtra(ptr, &type, lastItem, true));
 
 					FillVariableInfo(type, ptr, lastItem);
 
@@ -1805,8 +1871,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			wmId	= LOWORD(wParam);
 			wmEvent = HIWORD(wParam);
 
-			if((HWND)lParam == hContinue)
+			if(wmId == 2001)
 			{
+				HTREEITEM selected = TreeView_GetSelection(hVars);
+				char buf[256];
+				TVITEMEX info;
+				memset(&info, 0, sizeof(info));
+				info.mask = TVIF_HANDLE | TVIF_TEXT | TVIF_PARAM;
+				info.hItem = selected;
+				info.cchTextMax = 256;
+				info.pszText = buf;
+				TreeView_GetItem(hVars, &info);
+
+				assert(info.lParam);
+				TreeItemExtra *extra = &tiExtra[info.lParam];
+
+				TVINSERTSTRUCT item;
+				item.hParent = NULL;
+				item.hInsertAfter = TVI_ROOT;
+				item.item.mask = TVIF_TEXT;
+				item.item.cchTextMax = 0;
+				item.item.pszText = buf;
+				item.item.hItem = selected;
+				item.item.lParam = tiWatch.size();
+				tiWatch.push_back(*extra);
+
+				HTREEITEM parent = TreeView_InsertItem(hWatch, &item);
+				FillVariableInfo(*extra->type, (char*)extra->address, parent);
+			}else if((HWND)lParam == hContinue){
 				ContinueAfterBreak();
 			}else if((HWND)lParam == hButtonCalc){
 				SuperCalcRun(true);
@@ -2241,6 +2333,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			SetWindowPos(hDebugTabs,	HWND_TOP, leftOffsetX, bottomOffsetY, width - mainPadding * 2, 20, NULL);
 			SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
 			SetWindowPos(hVars,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
+			SetWindowPos(hWatch,		HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
 
 			SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
 
@@ -2250,6 +2343,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			InvalidateRect(hJITEnabled, NULL, true);
 			InvalidateRect(hStatus, NULL, true);
 			InvalidateRect(hVars, NULL, true);
+			InvalidateRect(hWatch, NULL, true);
+			InvalidateRect(hDebugTabs, NULL, true);
 		}
 			break;
 		}
