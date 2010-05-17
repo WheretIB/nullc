@@ -77,9 +77,8 @@ namespace NULLCIO
 			if(pos)
 				*pos = '\0'; 
 		}
-		unsigned int len = strlen(buffer) + 1;
+		unsigned int len = (unsigned int)strlen(buffer) + 1;
 		char *target = data.ptr;
-		int c = 0;
 		for(unsigned int i = 0; i < (data.len < len ? data.len : len); i++)
 			target[i] = buffer[i];
 		buffer[data.len-1] = 0;
@@ -100,6 +99,7 @@ namespace NULLCIO
 		COORD coords;
 		coords.X = (short)x;
 		coords.Y = (short)y;
+		HANDLE conStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
 		SetConsoleCursorPosition(conStdOut, coords);
 #endif
 	}
