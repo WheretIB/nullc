@@ -11,8 +11,8 @@ using namespace supspi;
 
 #include "Colorer.h"
 
-#include "nullc/nullc_debug.h"
-#include "nullc/StrAlgo.h"
+#include "NULLC/nullc_debug.h"
+#include "NULLC/StrAlgo.h"
 
 #include <set>
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "../../nullc/nullc.h"
+#include "../../NULLC/nullc.h"
 
 namespace NULLCCanvas
 {

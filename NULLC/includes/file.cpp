@@ -1,5 +1,5 @@
 #include "file.h"
-#include "../../nullc/nullc.h"
+#include "../../NULLC/nullc.h"
 
 #include <stdio.h>
 #include <string.h>

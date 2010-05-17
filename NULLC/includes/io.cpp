@@ -1,5 +1,5 @@
 #include "io.h"
-#include "../../nullc/nullc.h"
+#include "../../NULLC/nullc.h"
 #include <windows.h>
 
 #include <stdio.h>

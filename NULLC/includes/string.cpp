@@ -1,5 +1,5 @@
 #include "string.h"
-#include "../../nullc/nullc.h"
+#include "../../NULLC/nullc.h"
 #include <string.h>
 
 namespace NULLCString
