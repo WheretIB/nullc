@@ -40,8 +40,8 @@ unsigned int		nullcDebugGetStackFrame();
 
 #define	NULLC_BREAK_PROCEED		0
 #define NULLC_BREAK_STEP		1
-/*#define NULLC_BREAK_STEP_INTO	2*/
-/*#define NULLC_BREAK_STEP_OUT	3*/
+#define NULLC_BREAK_STEP_INTO	2
+#define NULLC_BREAK_STEP_OUT	3
 /*#define NULLC_BREAK_STOP		4*/
 
 // A function that is called when breakpoint is hit. Function accepts instruction number and returns how the break should be handled (constant above)

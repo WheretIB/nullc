@@ -462,7 +462,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				fcallStack.pop_back();
 
 				// Step command - set breakpoint on the next instruction, if there is no breakpoint already
-				if(response == 1)
+				if(response)
 				{
 					// Next instruction for step command
 					VMCmd *nextCommand = cmdStream;
@@ -475,6 +475,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					// Step command - handle conditional "jump on true" step
 					if(breakCode[target].cmd == cmdJmpNZ && *genStackPtr != 0)
 						nextCommand = cmdStreamBase + breakCode[target].argument;
+					if(response == 2 && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != CALL_BY_POINTER)
+						nextCommand = cmdStreamBase + exFunctions[breakCode[target].argument].address;
+					if(response == 2 && breakCode[target].cmd == cmdCallPtr && genStackPtr[cmd.argument >> 2] && exFunctions[genStackPtr[cmd.argument >> 2]].address != CALL_BY_POINTER)
+						nextCommand = cmdStreamBase + exFunctions[genStackPtr[cmd.argument >> 2]].address;
+
+					if(response == 3 && fcallStack.size() != finalReturn)
+						nextCommand = fcallStack.back();
 
 					if(nextCommand->cmd != cmdNop)
 					{
