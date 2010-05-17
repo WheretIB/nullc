@@ -312,7 +312,7 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	for(unsigned int i = 0, e = (unsigned int)strlen(path); i != e; i++)
 	{
 		if(path[i] == '.')
-			path[i] = '\\';
+			path[i] = '/';
 	}
 	SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
 	const char *bytecode = BinaryCache::GetBytecode(path);
@@ -710,7 +710,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 				CodeInfo::lastError = CompilerError("ERROR: string expected after '.'", start->pos);
 				return false;
 			}
-			cPath += SafeSprintf(cPath, 256 - int(cPath - path), "\\%.*s", start->length, start->pos);
+			cPath += SafeSprintf(cPath, 256 - int(cPath - path), "/%.*s", start->length, start->pos);
 			start++;
 		}
 		if(start->type != lex_semicolon)
