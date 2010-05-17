@@ -2068,7 +2068,7 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 	fprintf(fOut, ", ");
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
-		fprintf(fOut, "(void*)%uu", funcInfo->funcPtr ? ~0ul : 0);
+		fprintf(fOut, "(void*)%uu", funcInfo->funcPtr ? ~0u : 0u);
 	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
 		if(first->nodeType == typeNodeDereference)
 		{
