@@ -1283,11 +1283,7 @@ const char* ExecutorX86::GetResult()
 		SafeSprintf(execResult, 64, "%f", *(double*)(&combined));
 		break;
 	case OTYPE_LONG:
-#ifdef _MSC_VER
-		SafeSprintf(execResult, 64, "%I64dL", combined);
-#else
 		SafeSprintf(execResult, 64, "%lldL", combined);
-#endif
 		break;
 	case OTYPE_INT:
 		SafeSprintf(execResult, 64, "%d", NULLC::runResult);

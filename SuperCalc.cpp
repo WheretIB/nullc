@@ -372,7 +372,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	freopen("CONIN$", "r", stdin);
 #endif
 
-	bool runUnitTests = false;
+	bool runUnitTests = true;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -859,7 +859,7 @@ const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 		safeprintf(val, 256, type.subType == 0 ? "%d" : "0x%x", *(int*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_LONG:
-		safeprintf(val, 256, "%I64d", *(long long*)ptr);
+		safeprintf(val, 256, "%lld", *(long long*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_FLOAT:
 		safeprintf(val, 256, "%f", *(float*)ptr);
