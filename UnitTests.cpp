@@ -508,8 +508,8 @@ void	RunTests()
 	nullcInitDynamicModule();
 	nullcInitGCModule();
 
-#ifndef __linux
 	nullcInitIOModule();
+#ifndef __linux
 	nullcInitCanvasModule();
 	nullcInitWindowModule();
 #endif
