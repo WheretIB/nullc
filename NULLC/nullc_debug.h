@@ -38,8 +38,14 @@ ExternModuleInfo*	nullcDebugModuleInfo(unsigned int *count);
 void				nullcDebugBeginCallStack();
 unsigned int		nullcDebugGetStackFrame();
 
-// A function that is called when breakpoint is hit. Function accepts instruction number
-nullres				nullcDebugSetBreakFunction(void (*callback)(unsigned int));
+#define	NULLC_BREAK_PROCEED		0
+#define NULLC_BREAK_STEP		1
+/*#define NULLC_BREAK_STEP_INTO	2*/
+/*#define NULLC_BREAK_STEP_OUT	3*/
+/*#define NULLC_BREAK_STOP		4*/
+
+// A function that is called when breakpoint is hit. Function accepts instruction number and returns how the break should be handled (constant above)
+nullres				nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int));
 // You can remove all breakpoints explicitly. nullcClean clears all breakpoints automatically
 nullres				nullcDebugClearBreakpoints();
 // Line number can be translated into instruction number by using nullcDebugCodeInfo and nullcDebugModuleInfo

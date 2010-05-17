@@ -452,13 +452,47 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		switch(cmd.cmd)
 		{
 		case cmdNop:
-			if(cmd.flag == 0)
+			if(cmd.flag == EXEC_BREAK_SIGNAL || cmd.flag == EXEC_BREAK_ONE_HIT_WONDER)
 			{
 				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
 				unsigned int target = cmd.argument;
 				fcallStack.push_back(cmdStream);
-				breakFunction((unsigned int)(cmdStream - cmdStreamBase));
+				RUNTIME_ERROR(cmdStream < cmdStreamBase || cmdStream > &exLinker->exCode[exLinker->exCode.size() + 1], "ERROR: break position is out of range");
+				unsigned int response = breakFunction((unsigned int)(cmdStream - cmdStreamBase));
 				fcallStack.pop_back();
+
+				// Step command - set breakpoint on the next instruction, if there is no breakpoint already
+				if(response == 1)
+				{
+					// Next instruction for step command
+					VMCmd *nextCommand = cmdStream;
+					// Step command - handle unconditional jump step
+					if(breakCode[target].cmd == cmdJmp)
+						nextCommand = cmdStreamBase + breakCode[target].argument;
+					// Step command - handle conditional "jump on false" step
+					if(breakCode[target].cmd == cmdJmpZ && *genStackPtr == 0)
+						nextCommand = cmdStreamBase + breakCode[target].argument;
+					// Step command - handle conditional "jump on true" step
+					if(breakCode[target].cmd == cmdJmpNZ && *genStackPtr != 0)
+						nextCommand = cmdStreamBase + breakCode[target].argument;
+
+					if(nextCommand->cmd != cmdNop)
+					{
+						unsigned int pos = breakCode.size();
+						breakCode.push_back(*nextCommand);
+						nextCommand->cmd = cmdNop;
+						nextCommand->flag = EXEC_BREAK_ONE_HIT_WONDER;
+						nextCommand->argument = pos;
+					}
+				}
+				// This flag means that breakpoint works only once
+				if(cmd.flag == EXEC_BREAK_ONE_HIT_WONDER)
+				{
+					cmdStream[-1] = breakCode[target];
+					cmdStream--;
+					break;
+				}
+				// Jump to external code
 				cmdStream = &breakCode[target];
 				break;
 			}
@@ -1676,7 +1710,7 @@ void* Executor::GetStackEnd()
 	return genStackTop;
 }
 
-void Executor::SetBreakFunction(void (*callback)(unsigned int))
+void Executor::SetBreakFunction(unsigned (*callback)(unsigned int))
 {
 	breakFunction = callback;
 }
@@ -1703,9 +1737,9 @@ bool Executor::AddBreakpoint(unsigned int instruction)
 	}
 	unsigned int pos = breakCode.size();
 	breakCode.push_back(exLinker->exCode[instruction]);
-	breakCode.push_back(VMCmd(cmdNop, 1, 0, instruction + 1));
+	breakCode.push_back(VMCmd(cmdNop, EXEC_BREAK_RETURN, 0, instruction + 1));
 	exLinker->exCode[instruction].cmd = cmdNop;
-	exLinker->exCode[instruction].flag = 0;
+	exLinker->exCode[instruction].flag = EXEC_BREAK_SIGNAL;
 	exLinker->exCode[instruction].argument = pos;
 	return true;
 }
