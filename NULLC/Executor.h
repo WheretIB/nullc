@@ -30,7 +30,7 @@ public:
 	void*			GetStackStart();
 	void*			GetStackEnd();
 
-	void	SetBreakFunction(void (*callback)(unsigned int));
+	void	SetBreakFunction(unsigned (*callback)(unsigned int));
 	void	ClearBreakpoints();
 	bool	AddBreakpoint(unsigned int instruction);
 	bool	RemoveBreakpoint(unsigned int instruction);
@@ -71,7 +71,7 @@ private:
 
 	bool			callContinue;
 
-	void (*breakFunction)(unsigned int);
+	unsigned (*breakFunction)(unsigned int);
 	FastVector<VMCmd>	breakCode;
 
 	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
@@ -84,6 +84,10 @@ private:
 	bool ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *current);
 
 	void operator=(Executor& r){ (void)r; assert(false); }
+
+	static const unsigned int	EXEC_BREAK_SIGNAL = 0;
+	static const unsigned int	EXEC_BREAK_RETURN = 1;
+	static const unsigned int	EXEC_BREAK_ONE_HIT_WONDER = 2;
 };
 
 void PrintInstructionText(FILE* stream, VMCmd cmd, unsigned int rel, unsigned int top);

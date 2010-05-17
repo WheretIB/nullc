@@ -59,6 +59,7 @@ namespace ColorerGrammar
 
 	void MarkVar(char const* s, char const* e)
 	{
+		(void)s; (void)e;
 		//printf("%.*s\r\n", int(e-s), s);
 	}
 

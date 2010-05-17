@@ -104,9 +104,10 @@ IDB_UNREACHABLE         BITMAP                  "gui\\lUnreachable.bmp"
 
 IDR_SHORTCUTS ACCELERATORS 
 BEGIN
-    VK_F9,          ID_TOGGLE_BREAK,        VIRTKEY, NOINVERT
-    VK_F5,          ID_RUN_DEBUG,           VIRTKEY, NOINVERT
     VK_F5,          ID_RUN,                 VIRTKEY, CONTROL, NOINVERT
+    VK_F5,          ID_RUN_DEBUG,           VIRTKEY, NOINVERT
+    VK_F9,          ID_TOGGLE_BREAK,        VIRTKEY, NOINVERT
+    VK_F10,         ID_DEBUG_STEP,          VIRTKEY, NOINVERT
 END
 
 

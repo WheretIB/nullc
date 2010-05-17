@@ -334,17 +334,20 @@ double myGetPreciseTime()
 }
 
 HANDLE breakResponse = NULL;
+unsigned int	breakCommand = NULLC_BREAK_PROCEED;
 
 void IDEDebugBreak()
 {
 	SendMessage(hWnd, WM_USER + 2, 0, 0);
 	WaitForSingleObject(breakResponse, INFINITE);
 }
-void IDEDebugBreakEx(unsigned int instruction)
+unsigned IDEDebugBreakEx(unsigned int instruction)
 {
 	(void)instruction;
+	breakCommand = NULLC_BREAK_PROCEED;
 	SendMessage(hWnd, WM_USER + 2, 0, 0);
 	WaitForSingleObject(breakResponse, INFINITE);
+	return breakCommand;
 }
 
 int APIENTRY WinMain(HINSTANCE	hInstance,
@@ -2203,6 +2206,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					SuperCalcRun(false);
 				if(stateRemote || !runRes.finished)
 					ContinueAfterBreak();
+				break;
+			case ID_DEBUG_STEP:
+				if(stateRemote || !runRes.finished)
+				{
+					breakCommand = NULLC_BREAK_STEP;
+					ContinueAfterBreak();
+				}
 				break;
 			case ID_DEBUG_ATTACHTOPROCESS:
 			{

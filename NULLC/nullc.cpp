@@ -716,7 +716,7 @@ unsigned int nullcDebugGetStackFrame()
 }
 
 #ifndef NULLC_NO_EXECUTOR
-nullres nullcDebugSetBreakFunction(void (*callback)(unsigned int))
+nullres nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int))
 {
 	if(!executor)
 	{
