@@ -58,11 +58,7 @@ namespace NULLCIO
 	{
 		InitConsole();
 		char buf[128];
-#ifdef _MSC_VER
-		sprintf(buf, "%I64dL", num);
-#else
 		sprintf(buf, "%lld", num);
-#endif
 		DWORD written;
 		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
 	}

@@ -375,7 +375,7 @@ void NodeNumber::TranslateToC(FILE *fOut)
 	else if(typeInfo == typeFloat)
 		fprintf(fOut, "%ff", num.real);
 	else if(typeInfo == typeLong)
-		fprintf(fOut, "%I64dLL", num.integer64);
+		fprintf(fOut, "%lldLL", num.integer64);
 	else
 		fprintf(fOut, "%%unknown_number%%");
 }

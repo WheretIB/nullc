@@ -42,7 +42,7 @@ bool lastFailed;
 
 #define CHECK_DOUBLE(var, index, expected) if(fabs(((double*)FindVar(var))[index] - (expected)) > 1e-6){ printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, (double)expected, ((double*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_FLOAT(var, index, expected) if(((float*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, (double)expected, (double)((float*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_LONG(var, index, expected) if(((long long*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %I64d (got %I64d)\r\n", #var, index, (long long)expected, ((long long*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_LONG(var, index, expected) if(((long long*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %lld (got %lld)\r\n", #var, index, (long long)expected, ((long long*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_INT(var, index, expected) if(((int*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((int*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_SHORT(var, index, expected) if(((short*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((short*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_CHAR(var, index, expected) if(((char*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((char*)FindVar(var))[index]); lastFailed = true; }
