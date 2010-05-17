@@ -1,5 +1,5 @@
 #include "math.h"
-#include "../../nullc/nullc.h"
+#include "../../NULLC/nullc.h"
 
 #include <math.h>
 

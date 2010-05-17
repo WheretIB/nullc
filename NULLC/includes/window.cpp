@@ -1,5 +1,5 @@
 #include "window.h"
-#include "../../nullc/nullc.h"
+#include "../../NULLC/nullc.h"
 
 #include <Windows.h>
 #include "canvas.h"
