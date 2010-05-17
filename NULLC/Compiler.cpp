@@ -1435,7 +1435,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		else if(refFunc->retType->type == TypeInfo::TYPE_LONG || refFunc->retType->size == 8)
 			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 #endif
-		funcInfo.returnShift = refFunc->retType->size / 4;
+		funcInfo.returnShift = (unsigned short)(refFunc->retType->size / 4);
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 		funcInfo.parentType = (refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u);

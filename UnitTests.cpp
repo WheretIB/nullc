@@ -4895,18 +4895,17 @@ return RecallerPtr(generator(7));";
 
 const char	*testFunc5 =
 "import func.test;\r\n\
-import std.random;\r\n\
-srand(10);\r\n\
+int seed = 5987;\r\n\
 int[512] arr;\r\n\
 for(int i = 0; i < 512; i++)\r\n\
-	arr[i] = rand();\r\n\
+	arr[i] = (((seed = seed * 214013 + 2531011) >> 16) & 0x7fff);\r\n\
 bubble(arr, auto(int a, b){ return a > b; });\r\n\
 return arr[8];";
 	printf("NULLC function call externally test 5\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFunc5, testTarget[t], "32327"))
+		if(RunCode(testFunc5, testTarget[t], "32053"))
 		{
 			lastFailed = false;
 
