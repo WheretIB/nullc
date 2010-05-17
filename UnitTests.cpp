@@ -18,7 +18,15 @@
 
 #include <stdio.h>
 #include <time.h>
+
+#ifndef __linux
 #include <Windows.h>
+#else
+double myGetPreciseTime()
+{
+	return (clock() / double(CLOCKS_PER_SEC)) * 1000.0;
+}
+#endif
 
 #ifndef _DEBUG
 	#define FAILURE_TEST
@@ -60,7 +68,7 @@ void*	FindVar(const char* name)
 
 bool	RunCode(const char *code, unsigned int executor, const char* expected)
 {
-#ifdef _M_X64
+#ifndef NULLC_BUILD_X86_JIT
 	if(executor != NULLC_VM)
 		return false;
 #endif
@@ -473,7 +481,7 @@ void	RunTests()
 */
 
 	// Init NULLC
-	nullcInit("Modules\\");
+	nullcInit("Modules/");
 	//nullcInitCustomAlloc(testAlloc, testDealloc, "Modules\\");
 	//nullcSetFileReadHandler(TestFileLoad);
 
@@ -500,9 +508,11 @@ void	RunTests()
 	nullcInitDynamicModule();
 	nullcInitGCModule();
 
+#ifndef __linux
 	nullcInitIOModule();
 	nullcInitCanvasModule();
 	nullcInitWindowModule();
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 	printf("Two bytecode merge test 1\r\n");
@@ -6486,7 +6496,11 @@ return 0;";
 		testCount[t]++;
 		nullcSetExecutor(testTarget[t]);
 		nullres good = nullcBuild(testCallStackWhenVariousTransitions);
-		assert(good);
+		if(!good)
+		{
+			printf("Compilation failed: %s", nullcGetLastError());
+			break;
+		}
 		good = nullcRun();
 		if(!good)
 		{
@@ -7036,7 +7050,7 @@ return GC.UsedMemory();";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		unsigned int tStart = clock();
+		double tStart = myGetPreciseTime();
 		if(RunCode(testGarbageCollection, testTarget[t], "8"))
 		{
 			lastFailed = false;
@@ -7044,7 +7058,7 @@ return GC.UsedMemory();";
 			if(!lastFailed)
 				passed[t]++;
 		}
-		printf("%s finished in %d\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", clock() - tStart);
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
 
 const char	*testGarbageCollection2 =
@@ -7104,7 +7118,7 @@ return GC.UsedMemory();";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		unsigned int tStart = clock();
+		double tStart = myGetPreciseTime();
 		if(RunCode(testGarbageCollection2, testTarget[t], "8"))
 		{
 			lastFailed = false;
@@ -7112,9 +7126,14 @@ return GC.UsedMemory();";
 			if(!lastFailed)
 				passed[t]++;
 		}
-		printf("%s finished in %d\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", clock() - tStart);
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
 
+	double time = 0.0;
+	double compileTime = 0.0;
+	double linkTime = 0.0;
+
+#ifndef __linux
 	const char	*testCompileSpeed =
 "import img.canvas;\r\n\
 import win.window;\r\n\
@@ -7229,9 +7248,9 @@ return 0;";
 
 	nullcSetExecutor(NULLC_VM);
 
-	double time = myGetPreciseTime();
-	double compileTime = 0.0;
-	double linkTime = 0.0;
+	time = myGetPreciseTime();
+	compileTime = 0.0;
+	linkTime = 0.0;
 	for(int i = 0; i < 30000; i++)
 	{
 		nullres good = nullcCompile(testCompileSpeed);
@@ -7257,7 +7276,7 @@ return 0;";
 	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
 	printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 30000.0, strlen(testCompileSpeed) * (1000.0 / (linkTime / 30000.0)) / 1024.0 / 1024.0);
 
-
+#endif
 
 	nullcLoadModuleBySource("test.rect", "int draw_rect(int a, b, c, d, e);");
 	nullcBindModuleFunction("test.rect", (void(*)())TestDrawRect, "draw_rect", 0);
@@ -7376,7 +7395,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		unsigned int tStart = clock();
+		double tStart = myGetPreciseTime();
 		if(RunCode(testCompileSpeed2, testTarget[t], "0"))
 		{
 			lastFailed = false;
@@ -7384,7 +7403,7 @@ return 0;";
 			if(!lastFailed)
 				passed[t]++;
 		}
-		printf("%s finished in %d\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", clock() - tStart);
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
 #endif
 
