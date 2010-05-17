@@ -2214,6 +2214,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					ContinueAfterBreak();
 				}
 				break;
+			case ID_DEBUG_STEP_INTO:
+				if(stateRemote || !runRes.finished)
+				{
+					breakCommand = NULLC_BREAK_STEP_INTO;
+					ContinueAfterBreak();
+				}
+				break;
+			case ID_DEBUG_STEP_OUT:
+				if(stateRemote || !runRes.finished)
+				{
+					breakCommand = NULLC_BREAK_STEP_OUT;
+					ContinueAfterBreak();
+				}
+				break;
 			case ID_DEBUG_ATTACHTOPROCESS:
 			{
 				ShowWindow(hTabs, SW_HIDE);
