@@ -1,8 +1,11 @@
 #include "io.h"
 #include "../../NULLC/nullc.h"
-#include <windows.h>
+#ifndef __linux
+	#include <windows.h>
+#endif
 
 #include <stdio.h>
+#include <string.h>
 
 #if defined(_MSC_VER)
 	#pragma warning(disable: 4996)
@@ -10,75 +13,57 @@
 
 namespace NULLCIO
 {
-	HANDLE	conStdIn;
-	HANDLE	conStdOut;
-
 	void InitConsole()
 	{
+#if defined(_MSC_VER)
 		AllocConsole();
 
-		conStdIn = GetStdHandle(STD_INPUT_HANDLE);
-		conStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		DWORD fdwMode = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT; 
-		SetConsoleMode(conStdIn, fdwMode);
+		freopen("CONOUT$", "w", stdout);
+		freopen("CONIN$", "r", stdin);
+#endif
 	}
 
 	void DeInitConsole()
 	{
+#if defined(_MSC_VER)
 		FreeConsole();
+#endif
 	}
 
 	void WriteToConsole(NullCArray data)
 	{
 		InitConsole();
-		DWORD written;
-		WriteFile(conStdOut, data.ptr, (DWORD)strlen(data.ptr), &written, NULL); 
+		printf("%s", data.ptr);
 	}
 
 	void WriteIntConsole(int num)
 	{
 		InitConsole();
-		char buf[128];
-		sprintf(buf, "%d", num);
-		DWORD written;
-		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
+		printf("%d", num);
 	}
 
 	void WriteDoubleConsole(double num)
 	{
 		InitConsole();
-		char buf[128];
-		sprintf(buf, "%.12f", num);
-		DWORD written;
-		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
+		printf("%.12f", num);
 	}
 
 	void WriteLongConsole(long long num)
 	{
 		InitConsole();
-		char buf[128];
-		sprintf(buf, "%lld", num);
-		DWORD written;
-		WriteFile(conStdOut, buf, (int)strlen(buf), &written, NULL); 
+		printf("%lld", num);
 	}
 
 	void WriteCharConsole(char ch)
 	{
-		DWORD written;
-		WriteFile(conStdOut, &ch, 1, &written, NULL); 
+		InitConsole();
+		printf("%c", ch);
 	}
 
 	void ReadIntFromConsole(int* val)
 	{
 		InitConsole();
-		char temp[128];
-		DWORD read;
-		ReadFile(conStdIn, temp, 128, &read, NULL);
-		*val = atoi(temp);
-
-		DWORD written;
-		WriteFile(conStdOut, "\r\n", 2, &written, NULL); 
+		scanf("%d", val);
 	}
 
 	int ReadTextFromConsole(NullCArray data)
@@ -86,32 +71,27 @@ namespace NULLCIO
 		char buffer[2048];
 
 		InitConsole();
-		DWORD read;
-		ReadFile(conStdIn, buffer, 2048, &read, NULL);
-		buffer[read-1] = 0;
+		if(fgets(buffer, 2048, stdin))
+		{
+			char *pos = strchr(buffer, '\n');
+			if(pos)
+				*pos = '\0'; 
+		}
+		unsigned int len = strlen(buffer) + 1;
 		char *target = data.ptr;
 		int c = 0;
-		for(unsigned int i = 0; i < read; i++)
-		{
-			buffer[c++] = buffer[i];
-			if(buffer[i] == '\b')
-				c -= 2;
-			if(c < 0)
-				c = 0;
-		}
-		if((unsigned int)c < data.len)
-			buffer[c-1] = 0;
-		else
-			buffer[data.len-1] = 0;
-		memcpy(target, buffer, data.len);
-
-		DWORD written;
-		WriteFile(conStdOut, "\r\n", 2, &written, NULL);
-		return ((unsigned int)c < data.len ? c : data.len);
+		for(unsigned int i = 0; i < (data.len < len ? data.len : len); i++)
+			target[i] = buffer[i];
+		buffer[data.len-1] = 0;
+		
+		return ((unsigned int)len < data.len ? len : data.len);
 	}
 
 	void SetConsoleCursorPos(int x, int y)
 	{
+#if !defined(_MSC_VER)
+		nullcThrowError("SetConsoleCursorPos: supported only under Windows");
+#else	
 		if(x < 0 || y < 0)
 		{
 			nullcThrowError("SetConsoleCursorPos: Negative values are not allowed");
@@ -121,21 +101,30 @@ namespace NULLCIO
 		coords.X = (short)x;
 		coords.Y = (short)y;
 		SetConsoleCursorPosition(conStdOut, coords);
+#endif
 	}
 
 	void GetKeyboardState(NullCArray arr)
 	{
+#if !defined(_MSC_VER)
+		nullcThrowError("GetKeyboardState: supported only under Windows");
+#else
 		if(arr.len < 256)
 			nullcThrowError("GetKeyboardState requires array with 256 or more elements");
 		::GetKeyboardState((unsigned char*)arr.ptr);
+#endif
 	}
 
 	void GetMouseState(int* x, int* y)
 	{
+#if !defined(_MSC_VER)
+		nullcThrowError("GetMouseState: supported only under Windows");
+#else
 		POINT pos;
 		GetCursorPos(&pos);
 		*x = pos.x;
 		*y = pos.y;
+#endif
 	}
 }
 
