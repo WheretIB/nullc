@@ -749,7 +749,7 @@ void AddReturnNode(const char* pos)
 		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
 			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
 		if(expectedType == typeVoid && realRetType != typeVoid)
-			ThrowError(pos, "ERROR: function returning a value");
+			ThrowError(pos, "ERROR: 'void' function returning a value");
 		if(expectedType != typeVoid && realRetType == typeVoid)
 			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
 	}else{
