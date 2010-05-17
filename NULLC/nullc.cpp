@@ -129,7 +129,7 @@ nullres nullcLoadModuleBySource(const char* module, const char* code)
 	char	*pos = path;
 	while(*pos)
 		if(*pos++ == '.')
-			pos[-1] = '\\';
+			pos[-1] = '/';
 	strcat(path, ".nc");
 
 	if(BinaryCache::GetBytecode(path))
@@ -157,7 +157,7 @@ nullres nullcLoadModuleByBinary(const char* module, const char* binary)
 	char	*pos = path;
 	while(*pos)
 		if(*pos++ == '.')
-			pos[-1] = '\\';
+			pos[-1] = '/';
 	strcat(path, ".nc");
 
 	if(BinaryCache::GetBytecode(path))
