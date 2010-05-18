@@ -204,7 +204,7 @@ namespace GC
 		if(type.arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
 			// Get real array size
-			size = *(int*)(ptr + 4);
+			size = *(int*)(ptr + NULLC_PTR_SIZE);
 			// Switch pointer to array data
 			char **rPtr = (char**)ptr;
 			ptr = *rPtr;

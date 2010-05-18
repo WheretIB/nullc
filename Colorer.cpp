@@ -495,7 +495,7 @@ namespace ColorerGrammar
 	void ImportSeparator(char const* s, char const* e)
 	{
 		(void)s; (void)e;	// C4100
-		importPath.append(1, '\\');
+		importPath.append(1, '/');
 	}
 	void ImportName(char const* s, char const* e)
 	{
