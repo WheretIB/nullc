@@ -7,10 +7,68 @@
 	#include <process.h>
 	#include <WinSock2.h>
 	#pragma comment(lib, "Ws2_32.lib")
+	#define NULLC_PROC_RETURN void
 #else
-	// linux header here
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	#include <arpa/inet.h>
+	#include <unistd.h>
+	#include <netinet/in.h>
+	#include <netdb.h>
+
+	#include <stdint.h>
+	#include <setjmp.h>
+	#include <signal.h>
+
+	#include <pthread.h>
+
+	#define SOCKET int
+	#define SOCKADDR sockaddr
+	#define closesocket close
+
+	extern const char *__progname;
+	static bool g_bPtrTestInstalled;
+	static jmp_buf g_PtrTestJmpBuf;
+
+	static void PtrTestHandler(int nSig)
+	{
+		if(g_bPtrTestInstalled)
+			longjmp(g_PtrTestJmpBuf, 1);
+	}
+
+	static bool IsBadReadPtr(void* lp, unsigned int cb)
+	{
+		unsigned int i;
+		unsigned char b1;
+		bool bRet = true;
+		void (* pfnPrevHandler)(int);
+		g_bPtrTestInstalled = true;
+		if(setjmp(g_PtrTestJmpBuf))
+		{
+			bRet = false;
+		}else{
+			pfnPrevHandler = signal(SIGSEGV, PtrTestHandler);
+
+			for(i = 0; i < cb; i ++)
+				b1 = ((unsigned char*)lp)[i];
+		}
+		g_bPtrTestInstalled = false;
+		signal(SIGSEGV, pfnPrevHandler);
+
+		return bRet;
+	}
+
+	static void Sleep(int length)
+	{
+		(void)length;
+	}
+
+	#define NULLC_PROC_RETURN void*
 #endif
 
+#define NULLC_SOCKET_ERROR (-1)
+
+#include <memory.h>
 #include <stdio.h>
 #include <assert.h>
 #include "nullc_debug.h"
@@ -63,6 +121,24 @@ enum DebugCommand
 	DEBUG_DETACH,
 };
 
+struct PipeDataReport
+{
+	unsigned int	pID;
+	char			module[256];
+};
+struct PipeDataData
+{
+	unsigned int	wholeSize;
+	unsigned int	dataSize;
+	unsigned int	elemCount;
+	char			data[512];
+};
+struct PipeDataDebug
+{
+	unsigned int	breakInst;
+	bool			breakSet;
+};
+
 struct PipeData
 {
 	DebugCommand	cmd;
@@ -70,23 +146,9 @@ struct PipeData
 
 	union
 	{
-		struct Report
-		{
-			unsigned int	pID;
-			char			module[256];
-		} report;
-		struct Data
-		{
-			unsigned int	wholeSize;
-			unsigned int	dataSize;
-			unsigned int	elemCount;
-			char			data[512];
-		} data;
-		struct Debug
-		{
-			unsigned int	breakInst;
-			bool			breakSet;
-		} debug;
+		PipeDataReport report;
+		PipeDataData data;
+		PipeDataDebug debug;
 	};
 };
 
@@ -133,20 +195,11 @@ namespace Dispatcher
 
 int SocketSend(SOCKET sck, char* source, size_t size, int timeOut)
 {
-	FD_SET  fd = { 1, sck };
-	TIMEVAL tv = { timeOut, 0 };
-
-	if(select(0, NULL, &fd, NULL, &tv) == 0)
-	{
-		printf("select failed\n");
-		return -1;
-	}
-
 	int allSize = (int)size;
 	while(size)
 	{
 		int bytesSent;
-		if((bytesSent = send(sck, source + (allSize - size), (int)size, 0)) == SOCKET_ERROR || bytesSent == 0)
+		if((bytesSent = send(sck, source + (allSize - size), (int)size, 0)) == NULLC_SOCKET_ERROR || bytesSent == 0)
 		{
 			printf("send failed\n");
 			return -1;
@@ -159,14 +212,14 @@ int SocketSend(SOCKET sck, char* source, size_t size, int timeOut)
 }
 int SocketReceive(SOCKET sck, char* destination, size_t size, int timeOut)
 {
-	FD_SET  fd = { 1, sck };
-	TIMEVAL tv = { timeOut, 0 };
+	fd_set  fd = { 1, sck };
+	timeval tv = { timeOut, 0 };
 
 	int allSize = (int)size;
 	while(size)
 	{
 		int bytesRecv;
-		if((bytesRecv = recv(sck, destination + (allSize - size), (int)size, 0)) == SOCKET_ERROR)
+		if((bytesRecv = recv(sck, destination + (allSize - size), (int)size, 0)) == NULLC_SOCKET_ERROR)
 		{
 			printf("recv failed\n");
 			return -1;
@@ -181,18 +234,18 @@ int SocketReceive(SOCKET sck, char* destination, size_t size, int timeOut)
 }
 int SocketIsReadable(SOCKET sck, int timeOut)
 {
-	FD_SET  fd = { 1, sck };
-	TIMEVAL tv = { timeOut, 0 };
+	fd_set  fd = { 1, sck };
+	timeval tv = { timeOut, 0 };
 
 	const int iRet = select(0, &fd, NULL, NULL, &tv);
 
-	if(iRet == SOCKET_ERROR)
+	if(iRet == NULLC_SOCKET_ERROR)
 		return -1;
 
 	return iRet == 1;
 }
 
-void PipeSendData(SOCKET sck, PipeData &data, char* start, unsigned int count, unsigned int whole)
+void PipeSendData(SOCKET sck, PipeData &data, const char* start, unsigned int count, unsigned int whole)
 {
 	unsigned int left = whole;
 	while(left)
@@ -215,7 +268,7 @@ unsigned int *stackFrames = NULL;
 volatile int breakContinue = -1;
 volatile int *breakProcessed = NULL;
 
-void PipeDebugBreak(unsigned int instruction)
+unsigned int PipeDebugBreak(unsigned int instruction)
 {
 	if(breakContinue == -1)
 	{
@@ -263,9 +316,10 @@ void PipeDebugBreak(unsigned int instruction)
 	while(!breakContinue) nullcSleep(); breakContinue = 0;
 	if(breakProcessed)
 		*breakProcessed = 1;
+	return NULLC_BREAK_PROCEED;
 }
 
-void GeneralCommandThread(void* param)
+NULLC_PROC_RETURN GeneralCommandThread(void* param)
 {
 	volatile int ready = 0;
 	// Register for events
@@ -293,8 +347,13 @@ void GeneralCommandThread(void* param)
 		case DEBUG_REPORT_INFO:
 			printf("DEBUG_REPORT_INFO\n");
 			data.question = false;
+#ifdef __linux
+			strcpy(data.report.module, /*__progname*/"test");
+			data.report.pID = 10;
+#else
 			GetModuleFileName(NULL, data.report.module, 256);
 			data.report.pID = GetCurrentProcessId();
+#endif
 			SocketSend(client, (char*)&data, sizeof(data), 5);
 			break;
 		case DEBUG_MODULE_INFO:
@@ -324,6 +383,7 @@ void GeneralCommandThread(void* param)
 			data.question = false;
 			PipeSendData(client, data, names, size, size);
 		}
+
 			break;
 			case DEBUG_SOURCE_INFO:
 		{
@@ -431,16 +491,17 @@ void GeneralCommandThread(void* param)
 		}
 		*processed = 1;
 	}
+	return NULL;
 }
 
-void DispatcherThread(void* param)
+NULLC_PROC_RETURN DispatcherThread(void* param)
 {
 	nullcDebugSetBreakFunction(PipeDebugBreak);
 
 	// Create a listening socket
 	SOCKET sck = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	printf("%s", Dispatcher::localIP);
+	printf("%s\n", Dispatcher::localIP);
 
 	sockaddr_in saServer;
 	// Set up the sockaddr structure
@@ -476,19 +537,19 @@ void DispatcherThread(void* param)
 			{
 				closesocket(sck);
 				nullcFinished = 0;
-				return;
+				return NULL;
 			}
 			PipeData data;
-			TIMEVAL tv = { 1, 0 };
+			timeval tv = { 1, 0 };
 
 			fd_set	fdSet;
 			FD_ZERO(&fdSet);
 			FD_SET(client, &fdSet);
 
 			int active = select(0, &fdSet, NULL, NULL, &tv);
-			if(active == SOCKET_ERROR)
+			if(active == NULLC_SOCKET_ERROR)
 			{
-				printf("%s\n", nullcRemoteGetLastErrorDesc());
+				printf("select NULLC_SOCKET_ERROR: %s\n", nullcRemoteGetLastErrorDesc());
 				break;
 			}
 			if(!FD_ISSET(client, &fdSet))
@@ -520,14 +581,16 @@ void DispatcherThread(void* param)
 				printf("There is no receiver for the event %d\n", data.cmd);
 		}
 	}
+	return NULL;
 }
 
 volatile int* nullcEnableRemoteDebugging(const char *serverAddress, short serverPort)
 {
+#ifndef __linux
 	WORD wVersionRequested = MAKEWORD(2, 2);
 	WSADATA wsaData;
 	WSAStartup(wVersionRequested, &wsaData);
-
+#endif
 	hostent* localHost;
 
 	// Get the local host information
@@ -536,8 +599,14 @@ volatile int* nullcEnableRemoteDebugging(const char *serverAddress, short server
 	Dispatcher::serverPort = serverPort;
 
 	Dispatcher::processed = 0;
+#ifdef _WIN32
 	_beginthread(DispatcherThread, 1024 * 1024, NULL);
 	_beginthread(GeneralCommandThread, 1024 * 1024, NULL);
+#else
+	pthread_t dispThread, generalThread;
+	pthread_create(&dispThread, NULL, DispatcherThread, NULL);
+	pthread_create(&generalThread, NULL, GeneralCommandThread, NULL);
+#endif
 	nullcFinished = 0;
 	return &nullcFinished;
 }
