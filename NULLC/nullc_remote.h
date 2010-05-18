@@ -58,11 +58,6 @@
 		return bRet;
 	}
 
-	static void Sleep(int length)
-	{
-		(void)length;
-	}
-
 	#define NULLC_PROC_RETURN void*
 #endif
 
@@ -161,12 +156,28 @@ namespace Dispatcher
 	{
 		// Command
 		DebugCommand	cmd;
-		// Dispatcher will raise this event when 
+		// Dispatcher will raise this event when data is ready
+#if defined(_WIN32) || defined(_WIN64)
 		volatile int	*ready;
+#else
+		pthread_cond_t	*ready_c;
+		pthread_mutex_t	*ready_m;
+#endif
 	};
 
 	// This event should be raised after data processing is finished
+#if defined(_WIN32) || defined(_WIN64)
 	volatile int processed = 0;
+#else
+	pthread_cond_t processed_c = PTHREAD_COND_INITIALIZER;
+	pthread_mutex_t processed_m = PTHREAD_MUTEX_INITIALIZER;
+
+	struct DispatcherEvent
+	{
+		pthread_cond_t *processed_c;
+		pthread_mutex_t *processed_m;
+	};
+#endif
 
 	// This is the last data block
 	PipeData data;
@@ -176,13 +187,27 @@ namespace Dispatcher
 	DispatchRecord	records[MAX_DISPATCH_CLIENTS];
 	unsigned int	recordCount;
 
+#if defined(_WIN32) || defined(_WIN64)
 	volatile int* DispatchRegister(DebugCommand event, volatile int* signal)
+#else
+	DispatcherEvent DispatchRegister(DebugCommand event, pthread_mutex_t* signal_m, pthread_cond_t* signal_c)
+#endif
 	{
 		assert(recordCount < MAX_DISPATCH_CLIENTS);
 		DispatchRecord &rec = records[recordCount++];
 		rec.cmd = event;
+#if defined(_WIN32) || defined(_WIN64)
 		rec.ready = signal;
 		return &processed;
+#else
+		rec.ready_c = signal_c;
+		rec.ready_m = signal_m;
+		DispatcherEvent e;
+		e.processed_c = &processed_c;
+		e.processed_m = &processed_m;
+		return e;
+#endif
+		
 	}
 
 	PipeData GetData()
@@ -265,18 +290,28 @@ void PipeSendData(SOCKET sck, PipeData &data, const char* start, unsigned int co
 unsigned int csCount = 512;
 unsigned int *stackFrames = NULL;
 
+int breakInitialized = 0;
+#if defined(_WIN32) || defined(_WIN64)
 volatile int breakContinue = -1;
 volatile int *breakProcessed = NULL;
+#else
+pthread_cond_t breakContinue_c = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t breakContinue_m = PTHREAD_MUTEX_INITIALIZER;
+Dispatcher::DispatcherEvent breakProcessed = { NULL, NULL };
+#endif
 
 unsigned int PipeDebugBreak(unsigned int instruction)
 {
-	if(breakContinue == -1)
+	if(!breakInitialized)
 	{
+		breakInitialized = 1;
 		// Register for event
-		breakProcessed = Dispatcher::DispatchRegister(DEBUG_BREAK_CONTINUE, &breakContinue);
+		breakProcessed = Dispatcher::DispatchRegister(DEBUG_BREAK_CONTINUE, &breakContinue_m, &breakContinue_c);
 	}
+#if defined(_WIN32) || defined(_WIN64)
 	// Reset event
 	breakContinue = 0;
+#endif
 	PipeData data;
 	data.cmd = DEBUG_BREAK_HIT;
 	data.question = false;
@@ -313,34 +348,63 @@ unsigned int PipeDebugBreak(unsigned int instruction)
 	data.question = false;
 	PipeSendData(client, data, (char*)stackFrames, count, count * sizeof(unsigned int));
 
-	while(!breakContinue) nullcSleep(); breakContinue = 0;
+#if defined(_WIN32) || defined(_WIN64)
+	while(!breakContinue)
+		nullcSleep();
+	breakContinue = 0;
 	if(breakProcessed)
 		*breakProcessed = 1;
+#else
+	pthread_mutex_lock(&breakContinue_m);
+	pthread_cond_wait(&breakContinue_c, &breakContinue_m);
+	pthread_mutex_unlock(&breakContinue_m);
+
+	pthread_mutex_lock(breakProcessed.processed_m);
+    pthread_cond_signal(breakProcessed.processed_c);
+    pthread_mutex_unlock(breakProcessed.processed_m);
+#endif
 	return NULLC_BREAK_PROCEED;
 }
 
 NULLC_PROC_RETURN GeneralCommandThread(void* param)
 {
+#if defined(_WIN32) || defined(_WIN64)
 	volatile int ready = 0;
 	// Register for events
 	volatile int *processed = Dispatcher::DispatchRegister(DEBUG_REPORT_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_MODULE_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_MODULE_NAMES, &ready);
-	Dispatcher::DispatchRegister(DEBUG_SOURCE_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_CODE_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_TYPE_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_VARIABLE_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_FUNCTION_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_LOCAL_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_TYPE_EXTRA_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_SYMBOL_INFO, &ready);
-	Dispatcher::DispatchRegister(DEBUG_BREAK_SET, &ready);
-	Dispatcher::DispatchRegister(DEBUG_BREAK_DATA, &ready);
-	Dispatcher::DispatchRegister(DEBUG_DETACH, &ready);
+	#define READY_FLAG &ready
+#else
+	pthread_cond_t ready_c = PTHREAD_COND_INITIALIZER;
+	pthread_mutex_t ready_m = PTHREAD_MUTEX_INITIALIZER;
+	Dispatcher::DispatcherEvent processed = Dispatcher::DispatchRegister(DEBUG_REPORT_INFO, &ready_m, &ready_c);
+	#define READY_FLAG &ready_m, &ready_c
+#endif
+	Dispatcher::DispatchRegister(DEBUG_MODULE_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_MODULE_NAMES, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_SOURCE_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_CODE_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_TYPE_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_VARIABLE_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_FUNCTION_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_LOCAL_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_TYPE_EXTRA_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_SYMBOL_INFO, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_BREAK_SET, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_BREAK_DATA, READY_FLAG);
+	Dispatcher::DispatchRegister(DEBUG_DETACH, READY_FLAG);
+#undef READY_FLAG
 
 	while(!param)
 	{
-		while(!ready) nullcSleep(); ready = 0;
+#if defined(_WIN32) || defined(_WIN64)
+		while(!ready)
+			nullcSleep();
+		ready = 0;
+#else
+		pthread_mutex_lock(&ready_m);
+		pthread_cond_wait(&ready_c, &ready_m);
+		pthread_mutex_unlock(&ready_m);
+#endif
 		PipeData data = Dispatcher::GetData();
 		switch(data.cmd)
 		{
@@ -348,8 +412,8 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 			printf("DEBUG_REPORT_INFO\n");
 			data.question = false;
 #ifdef __linux
-			strcpy(data.report.module, /*__progname*/"test");
-			data.report.pID = 10;
+			strcpy(data.report.module, __progname);
+			data.report.pID = 0;
 #else
 			GetModuleFileName(NULL, data.report.module, 256);
 			data.report.pID = GetCurrentProcessId();
@@ -473,8 +537,14 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 		{
 			printf("DEBUG_DETACH\n");
 			nullcDebugClearBreakpoints();
+#if defined(_WIN32) || defined(_WIN64)
 			if(breakContinue == 0)
 				breakContinue = 1;
+#else
+			pthread_mutex_lock(&breakContinue_m);
+			pthread_cond_signal(&breakContinue_c);
+			pthread_mutex_unlock(&breakContinue_m);
+#endif
 		}
 			break;
 			case DEBUG_BREAK_DATA:
@@ -489,7 +559,14 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 		}
 			break;
 		}
+#if defined(_WIN32) || defined(_WIN64)
 		*processed = 1;
+#else
+		pthread_mutex_lock(processed.processed_m);
+		pthread_cond_signal(processed.processed_c);
+		pthread_mutex_unlock(processed.processed_m);
+#endif
+		
 	}
 #ifdef __linux
 	return NULL;
@@ -565,8 +642,14 @@ NULLC_PROC_RETURN DispatcherThread(void* param)
 			if(result == 0 || result == -1)
 			{
 				nullcDebugClearBreakpoints();
+#if defined(_WIN32) || defined(_WIN64)
 				if(breakContinue == 0)
 					breakContinue = 1;
+#else
+				pthread_mutex_lock(&breakContinue_m);
+				pthread_cond_signal(&breakContinue_c);
+				pthread_mutex_unlock(&breakContinue_m);
+#endif
 				printf("Client disconnected\n");
 				break;
 			}
@@ -577,10 +660,21 @@ NULLC_PROC_RETURN DispatcherThread(void* param)
 				if(Dispatcher::records[i].cmd == data.cmd)
 				{
 					foundTarget = true;
+#if defined(_WIN32) || defined(_WIN64)
 					Dispatcher::processed = 0;
 					*Dispatcher::records[i].ready = 1;
-					while(!Dispatcher::processed) Sleep(5);
+					while(!Dispatcher::processed)
+						nullcSleep();
 					Dispatcher::processed = 0;
+#else
+					pthread_mutex_lock(Dispatcher::records[i].ready_m);
+					pthread_cond_signal(Dispatcher::records[i].ready_c);
+					pthread_mutex_unlock(Dispatcher::records[i].ready_m);
+
+					pthread_mutex_lock(&Dispatcher::processed_m);
+					pthread_cond_wait(&Dispatcher::processed_c, &Dispatcher::processed_m);
+					pthread_mutex_unlock(&Dispatcher::processed_m);
+#endif
 				}
 			}
 			if(!foundTarget)
@@ -606,8 +700,8 @@ volatile int* nullcEnableRemoteDebugging(const char *serverAddress, short server
 	Dispatcher::localIP = inet_ntoa(*(struct in_addr *)*localHost->h_addr_list);
 	Dispatcher::serverPort = serverPort;
 
-	Dispatcher::processed = 0;
 #ifdef _WIN32
+	Dispatcher::processed = 0;
 	_beginthread(DispatcherThread, 1024 * 1024, NULL);
 	_beginthread(GeneralCommandThread, 1024 * 1024, NULL);
 #else
