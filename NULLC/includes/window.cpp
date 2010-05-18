@@ -1,5 +1,8 @@
 #include "window.h"
 #include "../../NULLC/nullc.h"
+#ifdef __linux
+	#error "Only for Windows"
+#else
 
 #include <Windows.h>
 #include "canvas.h"
@@ -147,3 +150,5 @@ bool	nullcInitWindowModule()
 
 	return true;
 }
+#endif
+
