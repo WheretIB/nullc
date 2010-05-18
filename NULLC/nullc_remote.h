@@ -367,7 +367,8 @@ unsigned int PipeDebugBreak(unsigned int instruction)
     pthread_cond_signal(breakProcessed.processed_c);
     pthread_mutex_unlock(breakProcessed.processed_m);
 #endif
-	return NULLC_BREAK_PROCEED;
+	data = Dispatcher::GetData();
+	return data.debug.breakInst;
 }
 
 NULLC_PROC_RETURN GeneralCommandThread(void* param)
@@ -541,6 +542,7 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 		{
 			printf("DEBUG_DETACH\n");
 			nullcDebugClearBreakpoints();
+			Dispatcher::data.debug.breakInst = 0;
 #if defined(_WIN32) || defined(_WIN64)
 			if(breakContinue == 0)
 				breakContinue = 1;
@@ -646,6 +648,7 @@ NULLC_PROC_RETURN DispatcherThread(void* param)
 			if(result == 0 || result == -1)
 			{
 				nullcDebugClearBreakpoints();
+				Dispatcher::data.debug.breakInst = 0;
 #if defined(_WIN32) || defined(_WIN64)
 				if(breakContinue == 0)
 					breakContinue = 1;
