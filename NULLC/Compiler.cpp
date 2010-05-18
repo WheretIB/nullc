@@ -1429,13 +1429,13 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			funcInfo.retType = ExternFuncInfo::RETURN_INT;
 		else if(refFunc->retType->type == TypeInfo::TYPE_LONG)
 			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
+		funcInfo.returnShift = (unsigned short)(refFunc->retType->size / 4);
 #else
 		else if(refFunc->retType->type == TypeInfo::TYPE_INT || refFunc->retType->size <= 4)
 			funcInfo.retType = ExternFuncInfo::RETURN_INT;
 		else if(refFunc->retType->type == TypeInfo::TYPE_LONG || refFunc->retType->size == 8)
 			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 #endif
-		funcInfo.returnShift = (unsigned short)(refFunc->retType->size / 4);
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 		funcInfo.parentType = (refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u);

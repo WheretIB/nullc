@@ -266,7 +266,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		break;
 	case ExternFuncInfo::RETURN_UNKNOWN:
 		if(retTypeSize <= 8)
-				assert(!"return type unsupported (small aggregate)");
+			assert(!"return type unsupported (small aggregate)");
 		returnShift = retTypeSize / 4;
 		break;
 	}
