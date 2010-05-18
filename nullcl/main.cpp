@@ -3,46 +3,45 @@
 #pragma warning(disable : 4996)
 
 #include <stdio.h>
-#include <conio.h>
 #include <string.h>
 
-int main(unsigned int argc, char** argv)
+int main(int argc, char** argv)
 {
 	nullcInit("Modules\\");
 
 	if(argc == 1)
 	{
-		printf("usage: nullcl [-o output.ncm] file.nc [-m module.name] [file2.nc [-m module.name] ...]");
+		printf("usage: nullcl [-o output.ncm] file.nc [-m module.name] [file2.nc [-m module.name] ...]\n");
 		return 0;
 	}
-	unsigned int argIndex = 1;
+	int argIndex = 1;
 	FILE *mergeFile = NULL;
 	if(strcmp("-o", argv[argIndex]) == 0)
 	{
 		argIndex++;
 		if(argIndex == argc)
 		{
-			printf("Output file name not found after -o");
+			printf("Output file name not found after -o\n");
 			nullcTerminate();
 			return 0;
 		}
 		mergeFile = fopen(argv[argIndex], "wb");
 		if(!mergeFile)
 		{
-			printf("Cannot create output file %s", argv[argIndex]);
+			printf("Cannot create output file %s\n", argv[argIndex]);
 			nullcTerminate();
 			return 0;
 		}
 		argIndex++;
 	}
-	unsigned int currIndex = argIndex;
+	int currIndex = argIndex;
 	while(argIndex < argc)
 	{
 		const char *fileName = argv[argIndex++];
 		FILE *ncFile = fopen(fileName, "rb");
 		if(!ncFile)
 		{
-			printf("Cannot open file %s", fileName);
+			printf("Cannot open file %s\n", fileName);
 			break;
 		}
 
@@ -56,7 +55,7 @@ int main(unsigned int argc, char** argv)
 
 		if(!nullcCompile(fileContent))
 		{
-			printf("Compilation of %s failed with error:\r\n%s\r\n", fileName, nullcGetLastError());
+			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			return false;
 		}
 		unsigned int *bytecode = NULL;
@@ -69,7 +68,7 @@ int main(unsigned int argc, char** argv)
 			argIndex++;
 			if(argIndex == argc)
 			{
-				printf("Module name not found after -m");
+				printf("Module name not found after -m\n");
 				break;
 			}
 			strcpy(moduleName, argv[argIndex++]);
@@ -80,7 +79,7 @@ int main(unsigned int argc, char** argv)
 			char	*pos = moduleName;
 			while(*pos)
 			{
-				if(*pos++ == '\\')
+				if(*pos++ == '\\' || *pos++ == '/')
 					pos[-1] = '.';
 			}
 		}
@@ -94,7 +93,7 @@ int main(unsigned int argc, char** argv)
 			FILE *nmcFile = fopen(newName, "wb");
 			if(!nmcFile)
 			{
-				printf("Cannot create output file %s", newName);
+				printf("Cannot create output file %s\n", newName);
 				break;
 			}
 			fwrite(moduleName, 1, strlen(moduleName) + 1, nmcFile);
@@ -106,7 +105,7 @@ int main(unsigned int argc, char** argv)
 		}
 	}
 	if(currIndex == argIndex)
-		printf("None of the input files were found %s");
+		printf("None of the input files were found\n");
 
 	if(mergeFile)
 		fclose(mergeFile);

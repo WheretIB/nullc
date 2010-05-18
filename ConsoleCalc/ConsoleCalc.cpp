@@ -1,11 +1,12 @@
 #include "../NULLC/nullc.h"
 
-#define BUILD_FOR_WINDOWS
+#ifndef __linux
+	#define BUILD_FOR_WINDOWS
+#endif
 
 #pragma warning(disable : 4996)
 
 #include <stdio.h>
-#include <conio.h>
 #include <string.h>
 #include <time.h>
 
@@ -16,9 +17,10 @@
 
 #include "../NULLC/includes/canvas.h"
 
+#include "../NULLC/includes/io.h"
+
 #ifdef BUILD_FOR_WINDOWS
 	#include "../NULLC/includes/window.h"
-	#include "../NULLC/includes/io.h"
 #endif
 
 int main(int argc, char** argv)
@@ -30,15 +32,15 @@ int main(int argc, char** argv)
 	nullcInitStringModule();
 
 	nullcInitCanvasModule();
+	nullcInitIOModule();
 
 #ifdef BUILD_FOR_WINDOWS
-	nullcInitIOModule();
 	nullcInitWindowModule();
 #endif
 
 	if(argc == 1)
 	{
-		printf("usage: ConsoleCalc [-x86] file");
+		printf("usage: ConsoleCalc [-x86] file\n");
 		return 0;
 	}
 	bool useX86 = false;
@@ -55,7 +57,7 @@ int main(int argc, char** argv)
 	}
 	if(!fileName)
 	{
-		printf("File must be specified");
+		printf("File must be specified\n");
 		return 0;
 	}
 
@@ -64,7 +66,7 @@ int main(int argc, char** argv)
 	FILE *ncFile = fopen(fileName, "rb");
 	if(!ncFile)
 	{
-		printf("File not found");
+		printf("File not found\n");
 		return 0;
 	}
 	fseek(ncFile, 0, SEEK_END);
@@ -80,27 +82,27 @@ int main(int argc, char** argv)
 		for(unsigned int i = 0; i < 5000; i++)
 			nullcCompile(fileContent);
 		int end = clock();
-		printf("5000 compilations: %dms Single: %.2fms\r\n", end - start, (end - start) / 5000.0);
+		printf("5000 compilations: %dms Single: %.2fms\n", end - start, (end - start) / 5000.0);
 
 		start = clock();
 		for(unsigned int i = 0; i < 5000; i++)
 			nullcBuild(fileContent);
 		end = clock();
-		printf("5000 comp. + link: %dms Single: %.2fms\r\n", end - start, (end - start) / 5000.0);
+		printf("5000 comp. + link: %dms Single: %.2fms\n", end - start, (end - start) / 5000.0);
 	}
 
 	nullres good = nullcBuild(fileContent);
 	if(!good)
 	{
-		printf("Build failed: %s\r\n", nullcGetLastError());
+		printf("Build failed: %s\n", nullcGetLastError());
 	}else if(!profile){
 		nullres goodRun = nullcRun();
 		if(goodRun)
 		{
 			const char* val = nullcGetResult();
-			printf("\r\n%s\r\n", val);
+			printf("\n%s\n", val);
 		}else{
-			printf("Execution failed: %s\r\n", nullcGetLastError());
+			printf("Execution failed: %s\n", nullcGetLastError());
 		}
 	}
 
