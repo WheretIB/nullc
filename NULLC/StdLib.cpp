@@ -182,7 +182,7 @@ namespace NULLC
 
 	unsigned int baseMinimum = 1024 * 1024;
 	unsigned int collectableMinimum = 1024 * 1024;
-	unsigned int globalMemoryLimit = 512 * 1024 * 1024;
+	unsigned int globalMemoryLimit = 1024 * 1024 * 1024;
 
 	ObjectBlockPool<8, poolBlockSize / 8>		pool8;
 	ObjectBlockPool<16, poolBlockSize / 16>		pool16;

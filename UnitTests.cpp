@@ -6140,7 +6140,7 @@ return GC.UsedMemory();";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testGarbageCollectionCorrectness, testTarget[t], "272"))
+		if(RunCode(testGarbageCollectionCorrectness, testTarget[t], sizeof(void*) == 8 ? "544" : "272"))
 		{
 			lastFailed = false;
 
@@ -6175,7 +6175,7 @@ return GC.UsedMemory();";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testGarbageCollectionCorrectness2, testTarget[t], "16"))
+		if(RunCode(testGarbageCollectionCorrectness2, testTarget[t], sizeof(void*) == 8 ? "32" : "16"))
 		{
 			lastFailed = false;
 
@@ -6207,7 +6207,7 @@ return GC.UsedMemory();";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testGarbageCollectionCorrectness3, testTarget[t], "272"))
+		if(RunCode(testGarbageCollectionCorrectness3, testTarget[t], sizeof(void*) == 8 ? "544" : "272"))
 		{
 			lastFailed = false;
 
@@ -7051,7 +7051,7 @@ return GC.UsedMemory();";
 	{
 		testCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(RunCode(testGarbageCollection, testTarget[t], "8"))
+		if(RunCode(testGarbageCollection, testTarget[t], sizeof(void*) == 8 ? "16" : "8"))
 		{
 			lastFailed = false;
 
@@ -7119,7 +7119,7 @@ return GC.UsedMemory();";
 	{
 		testCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(RunCode(testGarbageCollection2, testTarget[t], "8"))
+		if(RunCode(testGarbageCollection2, testTarget[t], sizeof(void*) == 8 ? "16" : "8"))
 		{
 			lastFailed = false;
 
