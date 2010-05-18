@@ -491,7 +491,9 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 		}
 		*processed = 1;
 	}
+#ifdef __linux
 	return NULL;
+#endif
 }
 
 NULLC_PROC_RETURN DispatcherThread(void* param)
@@ -537,7 +539,11 @@ NULLC_PROC_RETURN DispatcherThread(void* param)
 			{
 				closesocket(sck);
 				nullcFinished = 0;
+#ifdef __linux
 				return NULL;
+#else
+				return;
+#endif
 			}
 			PipeData data;
 			timeval tv = { 1, 0 };
@@ -581,7 +587,9 @@ NULLC_PROC_RETURN DispatcherThread(void* param)
 				printf("There is no receiver for the event %d\n", data.cmd);
 		}
 	}
+#ifdef __linux
 	return NULL;
+#endif
 }
 
 volatile int* nullcEnableRemoteDebugging(const char *serverAddress, short serverPort)
