@@ -306,7 +306,11 @@ unsigned int PipeDebugBreak(unsigned int instruction)
 	{
 		breakInitialized = 1;
 		// Register for event
+#if defined(_WIN32) || defined(_WIN64)
+		breakProcessed = Dispatcher::DispatchRegister(DEBUG_BREAK_CONTINUE, &breakContinue);
+#else
 		breakProcessed = Dispatcher::DispatchRegister(DEBUG_BREAK_CONTINUE, &breakContinue_m, &breakContinue_c);
+#endif
 	}
 #if defined(_WIN32) || defined(_WIN64)
 	// Reset event
