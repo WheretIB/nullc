@@ -72,7 +72,7 @@ HWND hVars;			// disabled text area that shows values of all variables in global
 HWND hWatch;
 HWND hStatus;		// Main window status bar
 
-HWND hAttachPanel, hAttachList, hAttachDo, hAttachBack, hAttachTabs;
+HWND hAttachPanel, hAttachList, hAttachDo, hAttachAdd, hAttachAddName, hAttachBack, hAttachTabs;
 bool stateAttach = false, stateRemote = false;
 CRITICAL_SECTION	pipeSection;
 
@@ -183,7 +183,6 @@ namespace RemoteData
 	unsigned int		callStackFrames = 0;
 	unsigned int		*callStack = NULL;
 
-	sockaddr_in		saServer;
 	hostent			*localHost;
 	char			*localIP;
 	SOCKET			sck;
@@ -231,9 +230,15 @@ namespace RemoteData
 
 		int active = select(0, &fdSet, NULL, NULL, &tv);
 		if(active == SOCKET_ERROR)
+		{
+			printf("SocketReceive: select failed\n");
 			return -1;
+		}
 		if(!FD_ISSET(sck, &fdSet))
+		{
+			printf("SocketReceive: select timeout\n");
 			return 0;
+		}
 
 		int allSize = (int)size;
 		while(size)
@@ -372,7 +377,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	freopen("CONIN$", "r", stdin);
 #endif
 
-	bool runUnitTests = true;
+	bool runUnitTests = false;
 	if(runUnitTests)
 	{
 		AllocConsole();
@@ -474,13 +479,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	WSAStartup(wVersionRequested, &wsaData);
 
 	// Get the local host information
-	RemoteData::localHost = gethostbyname("localhost");//*/"192.168.0.163");
+	RemoteData::localHost = gethostbyname("localhost");
 	RemoteData::localIP = inet_ntoa(*(struct in_addr *)*RemoteData::localHost->h_addr_list);
-
-	// Set up the sockaddr structure
-	RemoteData::saServer.sin_family = AF_INET;
-	RemoteData::saServer.sin_addr.s_addr = inet_addr(RemoteData::localIP);
-	RemoteData::saServer.sin_port = htons(7590);
 
 	if(!InitializeCriticalSectionAndSpinCount(&pipeSection, 0x80000400))
 		strcat(initError, "Failed to create critical section for remote debugging");
@@ -763,6 +763,12 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	hAttachDo = CreateWindow("BUTTON", "Attach to process", WS_CHILD, 5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
 	SendMessage(hAttachDo, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	hAttachAdd = CreateWindow("BUTTON", "Add address", WS_CHILD, 5, 185, 100, 30, hWnd, NULL, hInstance, NULL);
+	SendMessage(hAttachAdd, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	hAttachAddName = CreateWindow("EDIT", "127.0.0.1", WS_CHILD | WS_BORDER | ES_AUTOHSCROLL, 5, 225, width*2, 165, hWnd, NULL, hInstance, NULL);
+	SendMessage(hAttachAddName, WM_SETFONT, (WPARAM)fontMonospace, 0);
 
 	hAttachBack = CreateWindow("BUTTON", "Cancel", WS_CHILD, 110, 185, 100, 30, hWnd, NULL, hInstance, NULL);
 	SendMessage(hAttachBack, WM_SETFONT, (WPARAM)fontDefault, 0);
@@ -1528,6 +1534,13 @@ DWORD WINAPI PipeThread(void* param)
 			continue;
 		}
 		ShowWindow(hContinue, SW_SHOW);
+
+		for(unsigned int i = 0; i < attachedEdits.size(); i++)
+		{
+			RichTextarea::ResetLineStyle(attachedEdits[i]);
+			RichTextarea::UpdateArea(attachedEdits[i]);
+			RichTextarea::ResetUpdate(attachedEdits[i]);
+		}
 		RefreshBreakpoints();
 
 		data.cmd = DEBUG_BREAK_STACK;
@@ -1546,10 +1559,12 @@ DWORD WINAPI PipeThread(void* param)
 		delete[] RemoteData::callStack;
 		RemoteData::callStack = NULL;
 
+		breakCommand = NULLC_BREAK_PROCEED;
 		WaitForSingleObject(breakResponse, INFINITE);
 
 		data.cmd = DEBUG_BREAK_CONTINUE;
 		data.question = false;
+		data.debug.breakInst = breakCommand;
 		if(!PipeSendRequest(data))
 			break;
 	}
@@ -1641,15 +1656,18 @@ void ContinueAfterBreak()
 
 namespace Broadcast
 {
-	int		broadcastWorkers[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	int		broadcastWorkers[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	struct	BroadcastResult
 	{
 		char	address[512];
 		char	message[1024];
 		char	pid[16];
-	} itemResult[8];
-	bool	itemAvailable[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	HANDLE	broadcastThreads[8];
+	} itemResult[16];
+	bool	itemAvailable[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	HANDLE	broadcastThreads[16];
+
+	char	nextAddress[8][128];
+	unsigned int	nextCount = 0;
 }
 
 DWORD WINAPI	BroadcastThread(void *param)
@@ -1658,11 +1676,34 @@ DWORD WINAPI	BroadcastThread(void *param)
 
 	int ID = (*(int*)param) - 1;
 
-	sockaddr_in saServer;
-	saServer.sin_family = AF_INET;
-	saServer.sin_addr.s_addr = inet_addr(RemoteData::localIP);
-	saServer.sin_port = htons((u_short)(7590 + ID));
-	safeprintf(itemResult[ID].address, 512, "localhost:%d", 5970 + ID);
+	sockaddr_in	saServer;
+
+	if(ID >= 8)
+	{
+		unsigned short port = 7590;
+		char *portStr = NULL;
+		if(NULL != (portStr = strchr(Broadcast::nextAddress[ID - 8], ':')))
+		{
+			*portStr = 0;
+			port = (unsigned short)atoi(portStr + 1);
+		}
+
+		hostent *localHost = gethostbyname(Broadcast::nextAddress[ID - 8]);
+		char	*localIP = inet_ntoa(*(struct in_addr *)*localHost->h_addr_list);
+
+		saServer.sin_family = AF_INET;
+		saServer.sin_addr.s_addr = inet_addr(localIP);
+		saServer.sin_port = htons((u_short)(port));
+		safeprintf(itemResult[ID].address, 512, "%s:%d", Broadcast::nextAddress[ID-8], port);
+
+		if(portStr)
+			*portStr = ':';
+	}else{
+		saServer.sin_family = AF_INET;
+		saServer.sin_addr.s_addr = inet_addr(RemoteData::localIP);
+		saServer.sin_port = htons((u_short)(7590 + ID));
+		safeprintf(itemResult[ID].address, 512, "localhost:%d", 7590 + ID);
+	}
 
 	SOCKET sck = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if(connect(sck, (SOCKADDR*)&saServer, sizeof(saServer)))
@@ -1681,7 +1722,7 @@ DWORD WINAPI	BroadcastThread(void *param)
 		data.question = true;
 
 		int result = RemoteData::SocketSend(sck, (char*)&data, sizeof(data), 2);
-		if(result == -1)
+		if(!result || result == -1)
 		{
 			safeprintf(itemResult[ID].message, 1024, "Failed to request information to socket '%s'\r\n", GetLastErrorDesc());
 			safeprintf(itemResult[ID].pid, 16, "-");
@@ -1693,8 +1734,8 @@ DWORD WINAPI	BroadcastThread(void *param)
 			return 0;
 		}
 
-		result = RemoteData::SocketReceive(sck, (char*)&data, sizeof(data), 2);
-		if(result == -1)
+		result = RemoteData::SocketReceive(sck, (char*)&data, sizeof(data), 5);
+		if(!result || result == -1)
 		{
 			safeprintf(itemResult[ID].message, 1024, "Failed to receive information '%s'\r\n", GetLastErrorDesc());
 			safeprintf(itemResult[ID].pid, 16, "-");
@@ -1989,6 +2030,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hAttachDo, SW_HIDE);
 				ShowWindow(hAttachBack, SW_HIDE);
 				ShowWindow(hAttachTabs, SW_HIDE);
+				ShowWindow(hAttachAdd, SW_HIDE);
+				ShowWindow(hAttachAddName, SW_HIDE);
 
 				ShowWindow(hContinue, SW_HIDE);
 
@@ -2052,9 +2095,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				stateAttach = false;
 			}else if((HWND)lParam == hAttachDo){
 				unsigned int ID = ListView_GetSelectionMark(hAttachList);
-				RemoteData::saServer.sin_port = htons((u_short)(7590 + ID));
+
+				sockaddr_in	saServer;
+				if(ID >= 8)
+				{
+					unsigned short port = 7590;
+					char *portStr = NULL;
+					if(NULL != (portStr = strchr(Broadcast::nextAddress[ID - 8], ':')))
+					{
+						*portStr = 0;
+						port = (unsigned short)atoi(portStr + 1);
+					}
+
+					hostent *localHost = gethostbyname(Broadcast::nextAddress[ID - 8]);
+					char	*localIP = inet_ntoa(*(struct in_addr *)*localHost->h_addr_list);
+
+					saServer.sin_family = AF_INET;
+					saServer.sin_addr.s_addr = inet_addr(localIP);
+					saServer.sin_port = htons((u_short)(port));
+					if(portStr)
+						*portStr = ':';
+				}else{
+					saServer.sin_family = AF_INET;
+					saServer.sin_addr.s_addr = inet_addr(RemoteData::localIP);
+					saServer.sin_port = htons((u_short)(7590 + ID));
+				}
 				RemoteData::sck = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-				if(connect(RemoteData::sck, (SOCKADDR*)&RemoteData::saServer, sizeof(RemoteData::saServer)))
+				if(connect(RemoteData::sck, (SOCKADDR*)&saServer, sizeof(saServer)))
 				{
 					closesocket(RemoteData::sck);
 					MessageBox(hWnd, "Cannot attach debugger to selected process", "ERROR", MB_OK);
@@ -2062,11 +2129,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					ShowWindow(hAttachPanel, SW_HIDE);
 					ShowWindow(hAttachDo, SW_HIDE);
 					ShowWindow(hAttachTabs, SW_SHOW);
+					ShowWindow(hAttachAdd, SW_HIDE);
+					ShowWindow(hAttachAddName, SW_HIDE);
 
 					stateAttach = false;
 					stateRemote = true;
 					PipeInit();
 				}
+			}else if((HWND)lParam == hAttachAdd){
+				if(Broadcast::nextCount == 8)
+				{
+					if(MessageBox(hWnd, "A maximum limit of custom addresses reached. Replace last address?", "Warning", MB_OKCANCEL) == IDOK)
+						Broadcast::nextCount = 7;
+					else
+						break;
+				}
+				GetWindowText(hAttachAddName, Broadcast::nextAddress[Broadcast::nextCount], 128);
+				Broadcast::nextAddress[Broadcast::nextCount][127] = 0;
+				Broadcast::nextCount++;
 			}
 			// Parse the menu selections:
 			switch (wmId)
@@ -2249,6 +2329,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hAttachPanel, SW_SHOW);
 				ShowWindow(hAttachDo, SW_SHOW);
 				ShowWindow(hAttachBack, SW_SHOW);
+				ShowWindow(hAttachAdd, SW_SHOW);
+				ShowWindow(hAttachAddName, SW_SHOW);
 
 				Button_Enable(hAttachDo, false);
 
@@ -2280,7 +2362,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				lvItem.mask = LVIF_TEXT | LVIF_STATE;
 				lvItem.state = 0;
 				lvItem.stateMask = 0;
-				for(unsigned int i = 0; i < 8; i++)
+				for(unsigned int i = 0; i < (8 + Broadcast::nextCount); i++)
 				{
 					EnterCriticalSection(&pipeSection);
 					if(!Broadcast::broadcastWorkers[i])
@@ -2383,6 +2465,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 			SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+			SetWindowPos(hAttachAdd,	HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
+			SetWindowPos(hAttachAddName,HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
 			SetWindowPos(hAttachBack,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 			unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
