@@ -295,7 +295,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			}
 #endif
 #if defined(__CELLOS_LV2__)
-			if(!exFunctions.back().ps3Callable)
+			if(exFunctions.back().funcPtr != NULL && !exFunctions.back().ps3Callable)
 			{
 				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' is not callable on PS3", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
 				return false;
