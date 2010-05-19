@@ -1405,9 +1405,17 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2) + extraPopDW;
 
+	struct BigReturnForce
+	{
+		unsigned	unused[128];
+	};
+	MAKE_FUNC_PTR_TYPE(BigReturnForce, BigReturnFunctionPtr)
+
 	// call function
 	#define R(i) *(const unsigned long long*)(const void*)(genStackPtr + exFunctions[funcID].rOffsets[i])
 	#define F(i) *(const double*)(const void*)(genStackPtr + exFunctions[funcID].fOffsets[i])
+
+	unsigned int *newStackPtr = genStackPtr + dwordsToPop;
 
 	switch(exFunctions[funcID].retType)
 	{
@@ -1416,21 +1424,30 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		((VoidFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 		break;
 	case ExternFuncInfo::RETURN_INT:
-		genStackPtr--;
+		newStackPtr -= 1;
 		// cast function pointer so we can call it and call it
-		*(genStackPtr+dwordsToPop) = ((IntFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+		*newStackPtr = ((IntFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 		break;
 	case ExternFuncInfo::RETURN_DOUBLE:
-		genStackPtr -= 2;
+		newStackPtr -= 2;
 		// cast function pointer so we can call it and call it
-		*(double*)(genStackPtr+dwordsToPop) = ((DoubleFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+		*(double*)newStackPtr = ((DoubleFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
 		break;
 	case ExternFuncInfo::RETURN_LONG:
-		genStackPtr -= 2;
+		newStackPtr -= 2;
 		// cast function pointer so we can call it and call it
-		*(long long*)(genStackPtr+dwordsToPop) = ((LongFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+		*(long long*)newStackPtr = ((LongFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+		break;
+	case ExternFuncInfo::RETURN_UNKNOWN:
+	{
+		unsigned int ret[128];
+		*(BigReturnForce*)ret = ((BigReturnFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
+		newStackPtr -= exFunctions[funcID].returnShift;
+		memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
 	}
-	genStackPtr += dwordsToPop;
+		break;
+	}
+	genStackPtr = newStackPtr;
 
 	#undef F
 	#undef R
