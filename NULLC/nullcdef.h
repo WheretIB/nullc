@@ -57,7 +57,7 @@ struct NULLCFuncPtr
 	#error "Cannot enable translation to C and x86 optimizer simultaneously"
 #endif
 
-#if defined(__linux)
+#if defined(__linux) || defined(__CELLOS_LV2__)
 	#define NULLC_COMPLEX_RETURN
 #endif
 
