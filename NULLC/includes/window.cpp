@@ -1,6 +1,6 @@
 #include "window.h"
 #include "../../NULLC/nullc.h"
-#ifdef __linux
+#if !defined(_MSC_VER)
 	#error "Only for Windows"
 #else
 

@@ -1,6 +1,6 @@
 #include "../NULLC/nullc.h"
 
-#ifndef __linux
+#if defined(_MSC_VER)
 	#define BUILD_FOR_WINDOWS
 #endif
 

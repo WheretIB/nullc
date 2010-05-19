@@ -1,6 +1,6 @@
 #include "io.h"
 #include "../../NULLC/nullc.h"
-#ifndef __linux
+#if defined(_MSC_VER)
 	#include <windows.h>
 #endif
 

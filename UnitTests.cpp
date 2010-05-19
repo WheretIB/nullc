@@ -19,13 +19,13 @@
 #include <stdio.h>
 #include <time.h>
 
-#ifndef __linux
-#include <Windows.h>
+#if defined(_MSC_VER)
+	#include <Windows.h>
 #else
-double myGetPreciseTime()
-{
-	return (clock() / double(CLOCKS_PER_SEC)) * 1000.0;
-}
+	double myGetPreciseTime()
+	{
+		return (clock() / double(CLOCKS_PER_SEC)) * 1000.0;
+	}
 #endif
 
 #ifndef _DEBUG
@@ -509,8 +509,9 @@ void	RunTests()
 	nullcInitGCModule();
 
 	nullcInitIOModule();
-#ifndef __linux
 	nullcInitCanvasModule();
+
+#if defined(_MSC_VER)
 	nullcInitWindowModule();
 #endif
 
@@ -7133,7 +7134,7 @@ return GC.UsedMemory();";
 	double compileTime = 0.0;
 	double linkTime = 0.0;
 
-#ifndef __linux
+#if defined(_MSC_VER)
 	const char	*testCompileSpeed =
 "import img.canvas;\r\n\
 import win.window;\r\n\
