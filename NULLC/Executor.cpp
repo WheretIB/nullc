@@ -1392,7 +1392,8 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 #elif defined(__CELLOS_LV2__)
 // PS3 implementation
 #define MAKE_FUNC_PTR_TYPE(retType, typeName) typedef retType (*typeName)(			\
-	unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned,	\
+	unsigned long long, unsigned long long, unsigned long long, unsigned long long,	\
+	unsigned long long, unsigned long long, unsigned long long, unsigned long long,	\
 	double, double, double, double, double, double, double, double					\
 	);
 MAKE_FUNC_PTR_TYPE(void, VoidFunctionPtr)
@@ -1402,10 +1403,10 @@ MAKE_FUNC_PTR_TYPE(long long, LongFunctionPtr)
 
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
-	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
+	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2) + extraPopDW;
 
 	// call function
-	#define R(i) *(const unsigned int*)(const void*)(genStackPtr + exFunctions[funcID].rOffsets[i])
+	#define R(i) *(const unsigned long long*)(const void*)(genStackPtr + exFunctions[funcID].rOffsets[i])
 	#define F(i) *(const double*)(const void*)(genStackPtr + exFunctions[funcID].fOffsets[i])
 
 	switch(exFunctions[funcID].retType)

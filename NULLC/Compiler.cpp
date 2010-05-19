@@ -1108,20 +1108,29 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 
 	for(VariableInfo *curr = refFunc.firstParam; curr; curr = curr->next)
 	{
-		const TypeInfo& type = *curr->varType;
+		TypeInfo& type = *curr->varType;
 
+		TypeInfo::TypeCategory oldCategory = type.type;
+		if(type.type == TypeInfo::TYPE_COMPLEX)
+		{
+			if(type.size <= 4)
+				type.type = TypeInfo::TYPE_INT;
+			else if(type.size <= 8)
+				type.type = TypeInfo::TYPE_LONG;
+		}
 		switch(type.type)
 		{
 		case TypeInfo::TYPE_CHAR:
 		case TypeInfo::TYPE_SHORT:
 		case TypeInfo::TYPE_INT:
+		case TypeInfo::TYPE_LONG:
 			if(rCount >= rMaxCount)	// too many r parameters
 			{
 				fInfo.ps3Callable = 0;
 				break;
 			}
 			fInfo.rOffsets[rCount++] = offset;
-			offset++;
+			offset += type.type == TypeInfo::TYPE_LONG ? 2 : 1;
 			break;
 
 		case TypeInfo::TYPE_FLOAT:
@@ -1140,6 +1149,7 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 			fInfo.ps3Callable = 0; // unsupported type
 			break;
 		}
+		type.type = oldCategory;
 	}
 
 	// clear remaining offsets

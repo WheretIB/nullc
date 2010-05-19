@@ -6501,7 +6501,7 @@ return 0;";
 		nullres good = nullcBuild(testCallStackWhenVariousTransitions);
 		if(!good)
 		{
-			printf("Compilation failed: %s", nullcGetLastError());
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			break;
 		}
 		good = nullcRun();
@@ -7265,10 +7265,10 @@ return 0;";
 			nullcGetBytecode(&bytecode);
 			nullcClean();
 			if(!nullcLinkCode(bytecode, 0))
-				printf("Link failed: %s", nullcGetLastError());
+				printf("Link failed: %s\r\n", nullcGetLastError());
 			delete[] bytecode;
 		}else{
-			printf("Compilation failed: %s", nullcGetLastError());
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			break;
 		}
 		linkTime += myGetPreciseTime() - time;
@@ -7382,10 +7382,10 @@ return 0;";
 			nullcGetBytecode(&bytecode);
 			nullcClean();
 			if(!nullcLinkCode(bytecode, 0))
-				printf("Link failed: %s", nullcGetLastError());
+				printf("Link failed: %s\r\n", nullcGetLastError());
 			delete[] bytecode;
 		}else{
-			printf("Compilation failed: %s", nullcGetLastError());
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			break;
 		}
 		linkTime += myGetPreciseTime() - time;
@@ -7440,10 +7440,10 @@ return 0;";
 					nullcGetBytecode(&bytecode);
 					nullcClean();
 					if(!nullcLinkCode(bytecode, 0))
-						printf("Link failed: %s", nullcGetLastError());
+						printf("Link failed: %s\r\n", nullcGetLastError());
 					delete[] bytecode;
 				}else{
-					printf("Compilation failed: %s", nullcGetLastError());
+					printf("Compilation failed: %s\r\n", nullcGetLastError());
 					break;
 				}
 				linkTime += myGetPreciseTime() - time;
@@ -7513,7 +7513,7 @@ double	TestEulerFile(unsigned int num, const char* result)
 		
 		nullres goodRun = nullcRun();
 		const char* val = nullcGetResult();
-		if(goodRun && strcmp(val, result) == 0)//RunCode(content, testTarget[1], result))
+		if(goodRun && strcmp(val, result) == 0)
 		{
 			passed[1]++;
 			time = myGetPreciseTime() - time;
