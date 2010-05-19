@@ -1,4 +1,6 @@
-#include "stdafx.h"
+#if defined(_MSC_VER)
+	#include "stdafx.h"
+#endif
 #include "UnitTests.h"
 #include "NULLC/nullc.h"
 #include "NULLC/nullc_debug.h"
