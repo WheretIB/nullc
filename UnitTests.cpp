@@ -36,6 +36,12 @@
 	#define SPEED_TEST_EXTRA
 #endif
 
+#if defined(__CELLOS_LV2__)
+#	define MODULE_PATH "/app_home/Modules/"
+#else
+#	define MODULE_PATH "Modules/"
+#endif
+
 double timeCompile;
 double timeGetListing;
 double timeGetBytecode;
@@ -483,7 +489,7 @@ void	RunTests()
 */
 
 	// Init NULLC
-	nullcInit("Modules/");
+	nullcInit(MODULE_PATH);
 	//nullcInitCustomAlloc(testAlloc, testDealloc, "Modules\\");
 	//nullcSetFileReadHandler(TestFileLoad);
 
