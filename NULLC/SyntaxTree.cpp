@@ -600,7 +600,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 			{
 				const char *namePrefix = *curr->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *curr->name.begin == '$' ? 1 : 0;
-				sprintf(name, "%s%.*s_%d", namePrefix, curr->name.end - curr->name.begin-nameShift, curr->name.begin+nameShift, curr->pos);
+				sprintf(name, "%s%.*s_%d", namePrefix, int(curr->name.end - curr->name.begin) -nameShift, curr->name.begin+nameShift, curr->pos);
 			
 				OutputIdent(fOut);
 				if(curr->nameHash == hashThis)
@@ -690,7 +690,7 @@ void NodeBlock::TranslateToC(FILE *fOut)
 		{
 			const char *namePrefix = *curr->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *curr->name.begin == '$' ? 1 : 0;
-			sprintf(name, "%s%.*s_%d", namePrefix, curr->name.end - curr->name.begin-nameShift, curr->name.begin+nameShift, curr->pos);
+			sprintf(name, "%s%.*s_%d", namePrefix, int(curr->name.end - curr->name.begin) - nameShift, curr->name.begin+nameShift, curr->pos);
 		
 			OutputIdent(fOut);
 			if(curr->nameHash == hashThis)
@@ -797,7 +797,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 		VariableInfo *param = funcInfo->firstParam;
 		for(; param; param = param->next)
 		{
-			sprintf(name, "%.*s_%d", param->name.end - param->name.begin, param->name.begin, param->pos);
+			sprintf(name, "%.*s_%d", int(param->name.end - param->name.begin), param->name.begin, param->pos);
 			param->varType->OutputCType(fOut, name);
 			fprintf(fOut, ", ");
 		}
@@ -820,7 +820,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 			OutputIdent(fOut);
 			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-			unsigned int length = sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
+			unsigned int length = sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin) - nameShift, local->name.begin+nameShift, local->pos);
 			for(unsigned int k = 0; k < length; k++)
 			{
 				if(name[k] == ':' || name[k] == '$')
@@ -1067,7 +1067,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s GetAddress ", typeInfo->GetFullTypeName());
 	if(varInfo)
-		fprintf(fGraph, "%s '%.*s'", varInfo->varType->GetFullTypeName(), varInfo->name.end-varInfo->name.begin, varInfo->name.begin);
+		fprintf(fGraph, "%s '%.*s'", varInfo->varType->GetFullTypeName(), int(varInfo->name.end-varInfo->name.begin), varInfo->name.begin);
 	else
 		fprintf(fGraph, "$$$");
 	fprintf(fGraph, " (%d %s)\r\n", varInfo ? varInfo->pos : varAddress, (absAddress ? " absolute" : " relative"));
@@ -1097,7 +1097,7 @@ void NodeGetAddress::TranslateToCEx(FILE *fOut, bool takeAddress)
 	{
 		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-		fprintf(fOut, varAddress - addressOriginal ? "%s%.*s%+d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, (varAddress - addressOriginal) / (typeOrig->size ? typeOrig->size : 1));
+		fprintf(fOut, varAddress - addressOriginal ? "%s%.*s%+d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin) - nameShift, varInfo->name.begin + nameShift, (varAddress - addressOriginal) / (typeOrig->size ? typeOrig->size : 1));
 		if(varInfo->blockDepth > 1)
 			fprintf(fOut, "_%d", varInfo->pos);
 	}else{
@@ -1744,7 +1744,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 		char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 		const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
-		unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, closure->name.end - closure->name.begin-nameShift, closure->name.begin+nameShift, closure->pos);
+		unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
 		for(unsigned int k = 0; k < length; k++)
 		{
 			if(closureName[k] == ':' || closureName[k] == '$')
@@ -1769,7 +1769,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 			}else{
 				namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 				nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-				sprintf(variableName, "%s%.*s_%d", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+				sprintf(variableName, "%s%.*s_%d", namePrefix, int(varInfo->name.end-varInfo->name.begin) - nameShift, varInfo->name.begin + nameShift, varInfo->pos);
 			}
 
 			if(curr->targetLocal)
@@ -2081,7 +2081,7 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 				char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 				const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
-				unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, closure->name.end - closure->name.begin-nameShift, closure->name.begin+nameShift, closure->pos);
+				unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
 				for(unsigned int k = 0; k < length; k++)
 				{
 					if(closureName[k] == ':' || closureName[k] == '$')
@@ -2154,7 +2154,7 @@ void NodeBinaryOp::Compile()
 
 		// If it's operator || and first argument is true, jump to push 1 as result
 		// If it's operator ^^ and first argument is false, jump to push 0 as result
-		cmdList.push_back(VMCmd(cmdID == cmdLogOr ? cmdJmpNZ : cmdJmpZ, ~0ul));	// Jump address will be fixed later on
+		cmdList.push_back(VMCmd(cmdID == cmdLogOr ? cmdJmpNZ : cmdJmpZ, ~0u));	// Jump address will be fixed later on
 		unsigned int specialJmp1 = cmdList.size() - 1;
 
 		second->Compile();
@@ -2163,7 +2163,7 @@ void NodeBinaryOp::Compile()
 
 		// If it's operator || and first argument is true, jump to push 1 as result
 		// If it's operator ^^ and first argument is false, jump to push 0 as result
-		cmdList.push_back(VMCmd(cmdID == cmdLogOr ? cmdJmpNZ : cmdJmpZ, ~0ul));	// Jump address will be fixed later on
+		cmdList.push_back(VMCmd(cmdID == cmdLogOr ? cmdJmpNZ : cmdJmpZ, ~0u));	// Jump address will be fixed later on
 		unsigned int specialJmp2 = cmdList.size() - 1;
 
 		// If it's operator ||, result is zero, and if it's operator &&, result is 1
@@ -2292,7 +2292,7 @@ void NodeIfElseExpr::Compile()
 	else if(first->typeInfo->stackType != STYPE_INT)
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdBitOr));
 	// If false, jump to 'else' block, or out of statement, if there is no 'else'
-	cmdList.push_back(VMCmd(cmdJmpZ, ~0ul));	// Jump address will be fixed later on
+	cmdList.push_back(VMCmd(cmdJmpZ, ~0u));	// Jump address will be fixed later on
 	unsigned int jmpOnFalse = cmdList.size()-1;
 
 	// Compile block for condition == true
@@ -2305,7 +2305,7 @@ void NodeIfElseExpr::Compile()
 	if(third)
 	{
 		// Put jump to exit statement at the end of main block
-		cmdList.push_back(VMCmd(cmdJmp, ~0ul));	// Jump address will be fixed later on
+		cmdList.push_back(VMCmd(cmdJmp, ~0u));	// Jump address will be fixed later on
 		unsigned int jmpToEnd = cmdList.size()-1;
 
 		cmdList[jmpOnFalse].argument = cmdList.size();	// Fixup jump address

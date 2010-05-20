@@ -57,7 +57,7 @@ struct NULLCFuncPtr
 	#error "Cannot enable translation to C and x86 optimizer simultaneously"
 #endif
 
-#if defined(__linux) || defined(__CELLOS_LV2__)
+#if (defined(__linux) && !defined(__x86_64__)) || defined(__CELLOS_LV2__)
 	#define NULLC_COMPLEX_RETURN
 #endif
 
@@ -65,6 +65,10 @@ typedef unsigned char nullres;
 
 #define NULLC_VM	0
 #define NULLC_X86	1
+
+#ifdef __x86_64__
+	#define _M_X64
+#endif
 
 #ifdef _M_X64
 	#define NULLC_PTR_TYPE TYPE_LONG
