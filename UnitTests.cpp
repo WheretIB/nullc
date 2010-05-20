@@ -434,12 +434,12 @@ int TestExt3(char a, short b, int c, long long d, char e, short f, int g, long l
 	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5 && f == -6 && g == -7 && h == -8 && i == -9 && j == -10 && k == -11 && l == -12;
 }
 
-int TestExt4(char a, short b, int c, long d, float e, double f, char g, short h, int i, long j, float k, double l)
+int TestExt4(char a, short b, int c, long long d, float e, double f, char g, short h, int i, long long j, float k, double l)
 {
 	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5.0f && f == -6.0 && g == -7 && h == -8 && i == -9 && j == -10 && k == -11.0f && l == -12.0;
 }
 
-int TestExt4d(float a, double b, int c, long d, float e, double f, float g, double h, int i, long j, float k, double l)
+int TestExt4d(float a, double b, int c, long long d, float e, double f, float g, double h, int i, long long j, float k, double l)
 {
 	return a == -1.0f && b == -2.0 && c == -3 && d == -4 && e == -5.0f && f == -6.0 && g == -7.0f && h == -8.0 && i == -9 && j == -10 && k == -11.0f && l == -12.0;
 }
@@ -449,12 +449,12 @@ int TestExt5(char a, short b, int c, char d, short e, int f)
 	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5 && f == -6;
 }
 
-int TestExt6(char a, short b, int c, long d, long e, int f)
+int TestExt6(char a, short b, int c, long long d, long long e, int f)
 {
 	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5 && f == -6;
 }
 
-int TestExt7(char a, short b, double c, double d, long e, int f)
+int TestExt7(char a, short b, double c, double d, long long e, int f)
 {
 	return a == -1 && b == -2 && c == -3.0 && d == -4.0 && e == -5 && f == -6;
 }
@@ -464,7 +464,7 @@ int TestExt8(float a, float b, double c, double d, float e, float f)
 	return a == -1.0f && b == -2.0f && c == -3.0 && d == -4.0 && e == -5.0f && f == -6.0f;
 }
 
-int TestExt9(char a, short b, int c, long d, float e, double f)
+int TestExt9(char a, short b, int c, long long d, float e, double f)
 {
 	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5.0f && f == -6.0;
 }
@@ -474,7 +474,7 @@ void* TestGetPtr(int i)
 	return (void*)(intptr_t)(0x80000000 | i);
 }
 
-int TestExt10(void* a, int b, long c, void* d)
+int TestExt10(void* a, int b, long long c, void* d)
 {
 	return ((intptr_t)a) == (0x80000000 | 1) && b == -2 && c == -3 && ((intptr_t)d) == (0x80000000 | 4);
 }
