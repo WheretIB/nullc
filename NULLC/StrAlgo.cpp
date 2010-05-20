@@ -54,5 +54,5 @@ int	SafeSprintf(char* dst, size_t size, const char* src, ...)
 
 	int result = vsnprintf(dst, size, src, args);
 	dst[size-1] = '\0';
-	return result == -1 ? (int)size : result;
+	return (result == -1 || (size_t)result >= size) ? (int)size : result;
 }

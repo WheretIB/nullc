@@ -476,7 +476,7 @@ void* TestGetPtr(int i)
 
 int TestExt10(void* a, int b, long long c, void* d)
 {
-	return ((intptr_t)a) == (0x80000000 | 1) && b == -2 && c == -3 && ((intptr_t)d) == (0x80000000 | 4);
+	return ((intptr_t)a) == (intptr_t)(0x80000000u | 1) && b == -2 && c == -3 && ((intptr_t)d) == (intptr_t)(0x80000000u | 4);
 }
 
 struct TestExt11Foo{};
@@ -3215,6 +3215,7 @@ return 1;";
 		{
 			lastFailed = false;
 			CHECK_LONG("a1", 0, 1);
+
 			CHECK_LONG("a2", 0, 255);
 			CHECK_LONG("a3", 0, 524287);
 			CHECK_LONG("a4", 0, 562949953421311ll);
