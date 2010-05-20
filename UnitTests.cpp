@@ -424,6 +424,88 @@ double TestDouble(double a)
 	return a;
 }
 
+int TestExt2(char a, short b, int c, long long d, char e, short f, int g, long long h, char i, short j, int k, long long l)
+{
+	return a == 1 && b == 2 && c == 3 && d == 4 && e == 5 && f == 6 && g == 7 && h == 8 && i == 9 && j == 10 && k == 11 && l == 12;
+}
+
+int TestExt3(char a, short b, int c, long long d, char e, short f, int g, long long h, char i, short j, int k, long long l)
+{
+	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5 && f == -6 && g == -7 && h == -8 && i == -9 && j == -10 && k == -11 && l == -12;
+}
+
+int TestExt4(char a, short b, int c, long d, float e, double f, char g, short h, int i, long j, float k, double l)
+{
+	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5.0f && f == -6.0 && g == -7 && h == -8 && i == -9 && j == -10 && k == -11.0f && l == -12.0;
+}
+
+int TestExt4d(float a, double b, int c, long d, float e, double f, float g, double h, int i, long j, float k, double l)
+{
+	return a == -1.0f && b == -2.0 && c == -3 && d == -4 && e == -5.0f && f == -6.0 && g == -7.0f && h == -8.0 && i == -9 && j == -10 && k == -11.0f && l == -12.0;
+}
+
+int TestExt5(char a, short b, int c, char d, short e, int f)
+{
+	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5 && f == -6;
+}
+
+int TestExt6(char a, short b, int c, long d, long e, int f)
+{
+	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5 && f == -6;
+}
+
+int TestExt7(char a, short b, double c, double d, long e, int f)
+{
+	return a == -1 && b == -2 && c == -3.0 && d == -4.0 && e == -5 && f == -6;
+}
+
+int TestExt8(float a, float b, double c, double d, float e, float f)
+{
+	return a == -1.0f && b == -2.0f && c == -3.0 && d == -4.0 && e == -5.0f && f == -6.0f;
+}
+
+int TestExt9(char a, short b, int c, long d, float e, double f)
+{
+	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5.0f && f == -6.0;
+}
+
+void* TestGetPtr(int i)
+{
+	return (void*)(intptr_t)(0x80000000 | i);
+}
+
+int TestExt10(void* a, int b, long c, void* d)
+{
+	return ((intptr_t)a) == (0x80000000 | 1) && b == -2 && c == -3 && ((intptr_t)d) == (0x80000000 | 4);
+}
+
+struct TestExt11Foo{};
+int TestExt11(char a, TestExt11Foo b, int c, TestExt11Foo d, float e, double f)
+{
+	(void)b;
+	(void)d;
+	return a == -1 && c == -3 && e == -5.0f && f == -6.0;
+}
+
+struct TestExt12Foo{ int x; };
+int TestExt12(NullCArray a, NullCArray b, TestExt12Foo u)
+{
+	return a.len == 2 && ((int*)a.ptr)[0] == 1 && ((int*)a.ptr)[1] == 2 && b.len == 2 && ((int*)b.ptr)[0] == 3 && ((int*)b.ptr)[1] == 4 && u.x == 4;
+}
+
+NullCArray TestExt13(NullCArray a, NullCArray b, TestExt12Foo u)
+{
+	bool res = a.len == 2 && ((int*)a.ptr)[0] == 1 && ((int*)a.ptr)[1] == 2 && b.len == 2 && ((int*)b.ptr)[0] == 3 && ((int*)b.ptr)[1] == 4 && u.x == 4;
+	((int*)a.ptr)[1] = res;
+	return a;
+}
+
+NullCArray TestExt14(NullCArray a)
+{
+	((int*)a.ptr)[1] = 1;
+	return a;
+}
+
 void	RunTests2();
 
 int passed[] = { 0, 0, 0, 0 };
@@ -447,7 +529,150 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
+#define TEST_FOR_RESULT(desc, source, result)	\
+{	\
+	printf(desc"\n");	\
+	for(int t = 0; t < 2; t++)	\
+	{	\
+		testCount[t]++;	\
+		if(RunCode(source, testTarget[t], result))	\
+		{	\
+			lastFailed = false;	\
+			if(!lastFailed)		\
+				passed[t]++;	\
+		}	\
+	}	\
+}
+
 void	RunEulerTests();
+void	RunExternalCallTests()
+{
+	// External function call tests
+
+	nullcLoadModuleBySource("test.ext1", "char char_(char a); short short_(short a); int int_(int a); long long_(long a); float float_(float a); double double_(double a);");
+	nullcBindModuleFunction("test.ext1", (void (*)())TestInt, "char_", 0);
+	nullcBindModuleFunction("test.ext1", (void (*)())TestInt, "short_", 0);
+	nullcBindModuleFunction("test.ext1", (void (*)())TestInt, "int_", 0);
+	nullcBindModuleFunction("test.ext1", (void (*)())TestLong, "long_", 0);
+	nullcBindModuleFunction("test.ext1", (void (*)())TestFloat, "float_", 0);
+	nullcBindModuleFunction("test.ext1", (void (*)())TestDouble, "double_", 0);
+
+	TEST_FOR_RESULT("External function call. char type.", "import test.ext1;\r\n	auto Char = char_;\r\n		return Char(24);", "24");
+	TEST_FOR_RESULT("External function call. short type.", "import test.ext1;\r\n	auto Short = short_;\r\n	return Short(57);", "57");
+	TEST_FOR_RESULT("External function call. int type.", "import test.ext1;\r\n		auto Int = int_;\r\n		return Int(2458);", "2458");
+	TEST_FOR_RESULT("External function call. long type.", "import test.ext1;\r\n	auto Long = long_;\r\n		return Long(14841324198l);", "14841324198L");
+	TEST_FOR_RESULT("External function call. float type.", "import test.ext1;\r\n	auto Float = float_;\r\n	return int(Float(3.0));", "3");
+	TEST_FOR_RESULT("External function call. double type.", "import test.ext1;\r\n	auto Double = double_;\r\n	return int(Double(2.0));", "2");
+
+	// Tests check parameter passing through stack, so PS3 is disabled, since such external functions are unsupported
+#if !defined(__CELLOS_LV2__)
+
+	nullcLoadModuleBySource("test.ext2", "int Call(char a, short b, int c, long d, char e, short f, int g, long h, char i, short j, int k, long l);");
+	nullcBindModuleFunction("test.ext2", (void (*)())TestExt2, "Call", 0);
+	const char	*testExternalCall2 =
+"import test.ext2;\r\n\
+return Call(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);";
+	TEST_FOR_RESULT("External function call. Integer types, arguments through stack.", testExternalCall2, "1");
+
+	nullcLoadModuleBySource("test.ext3", "int Call(char a, short b, int c, long d, char e, short f, int g, long h, char i, short j, int k, long l);");
+	nullcBindModuleFunction("test.ext3", (void (*)())TestExt3, "Call", 0);
+	const char	*testExternalCall3 =
+"import test.ext3;\r\n\
+return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12);";
+	TEST_FOR_RESULT("External function call. Integer types, arguments through stack. Sign-extend.", testExternalCall3, "1");
+
+	nullcLoadModuleBySource("test.ext4", "int Call(char a, short b, int c, long d, float e, double f, char g, short h, int i, long j, float k, double l);");
+	nullcBindModuleFunction("test.ext4", (void (*)())TestExt4, "Call", 0);
+	const char	*testExternalCall4 =
+"import test.ext4;\r\n\
+return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12);";
+	TEST_FOR_RESULT("External function call. Basic types, arguments through stack. sx", testExternalCall4, "1");
+
+	nullcLoadModuleBySource("test.ext4d", "int Call(float a, double b, int c, long d, float e, double f, float g, double h, int i, long j, float k, double l);");
+	nullcBindModuleFunction("test.ext4d", (void (*)())TestExt4d, "Call", 0);
+	const char	*testExternalCall4d =
+"import test.ext4d;\r\n\
+return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12);";
+	TEST_FOR_RESULT("External function call. Basic types (more FP), arguments through stack. sx", testExternalCall4d, "1");
+#endif
+
+	nullcLoadModuleBySource("test.ext5", "int Call(char a, short b, int c, char d, short e, int f);");
+	nullcBindModuleFunction("test.ext5", (void (*)())TestExt5, "Call", 0);
+	const char	*testExternalCall5 =
+"import test.ext5;\r\n\
+return Call(-1, -2, -3, -4, -5, -6);";
+	TEST_FOR_RESULT("External function call. Integer types (-long), arguments in registers. sx", testExternalCall5, "1");
+
+	nullcLoadModuleBySource("test.ext6", "int Call(char a, short b, int c, long d, long e, int f);");
+	nullcBindModuleFunction("test.ext6", (void (*)())TestExt6, "Call", 0);
+	const char	*testExternalCall6 =
+"import test.ext6;\r\n\
+return Call(-1, -2, -3, -4, -5, -6);";
+	TEST_FOR_RESULT("External function call. Integer types, arguments in registers. sx", testExternalCall6, "1");
+
+	nullcLoadModuleBySource("test.ext7", "int Call(char a, short b, double c, double d, long e, int f);");
+	nullcBindModuleFunction("test.ext7", (void (*)())TestExt7, "Call", 0);
+	const char	*testExternalCall7 =
+"import test.ext7;\r\n\
+return Call(-1, -2, -3, -4, -5, -6);";
+	TEST_FOR_RESULT("External function call. Integer types and double, arguments in registers. sx", testExternalCall7, "1");
+
+	nullcLoadModuleBySource("test.ext8", "int Call(float a, float b, double c, double d, float e, float f);");
+	nullcBindModuleFunction("test.ext8", (void (*)())TestExt8, "Call", 0);
+	const char	*testExternalCall8 =
+"import test.ext8;\r\n\
+return Call(-1, -2, -3, -4, -5, -6);";
+	TEST_FOR_RESULT("External function call. float and double, arguments in registers. sx", testExternalCall8, "1");
+
+	nullcLoadModuleBySource("test.ext9", "int Call(char a, short b, int c, long d, float e, double f);");
+	nullcBindModuleFunction("test.ext9", (void (*)())TestExt9, "Call", 0);
+	const char	*testExternalCall9 =
+"import test.ext9;\r\n\
+return Call(-1, -2, -3, -4, -5, -6);";
+	TEST_FOR_RESULT("External function call. Basic types, arguments in registers. sx", testExternalCall9, "1");
+
+	nullcLoadModuleBySource("test.extA", "void ref GetPtr(int i); int Call(void ref a, int b, long c, void ref d);");
+	nullcBindModuleFunction("test.extA", (void (*)())TestGetPtr, "GetPtr", 0);
+	nullcBindModuleFunction("test.extA", (void (*)())TestExt10, "Call", 0);
+	const char	*testExternalCallA =
+"import test.extA;\r\n\
+return Call(GetPtr(1), -2, -3, GetPtr(4));";
+	TEST_FOR_RESULT("External function call. Pointer w/o sign extend, arguments in registers. sx", testExternalCallA, "1");
+
+	nullcLoadModuleBySource("test.extB", "class Foo{} int Call(char a, Foo b, int c, Foo d, float e, double f);");
+	nullcBindModuleFunction("test.extB", (void (*)())TestExt11, "Call", 0);
+	const char	*testExternalCallB =
+"import test.extB;\r\n\
+Foo a, b;\r\n\
+return Call(-1, a, -3, b, -5, -6);";
+	TEST_FOR_RESULT("External function call. Class types sizeof() == 0, arguments in registers. sx", testExternalCallB, "1");
+
+	nullcLoadModuleBySource("test.extE", "int[] Call(int[] a);");
+	nullcBindModuleFunction("test.extE", (void (*)())TestExt14, "Call", 0);
+	const char	*testExternalCallE =
+"import test.extE;\r\n\
+int[2] arr = { 1, 0 };\r\n\
+return Call(arr)[1];";
+	TEST_FOR_RESULT("External function call. Complex return, arguments in registers.", testExternalCallE, "1");
+
+	nullcLoadModuleBySource("test.extC", "int Call(int[] a, int[] b, typeid u);");
+	nullcBindModuleFunction("test.extC", (void (*)())TestExt12, "Call", 0);
+	const char	*testExternalCallC =
+"import test.extC;\r\n\
+int[] arr = new int[2];\r\n\
+arr[0] = 1; arr[1] = 2;\r\n\
+return Call(arr, {3, 4}, int);";
+	TEST_FOR_RESULT("External function call. Complex build-ins, arguments in registers.", testExternalCallC, "1");
+
+	nullcLoadModuleBySource("test.extD", "int[] Call(int[] a, int[] b, typeid u);");
+	nullcBindModuleFunction("test.extD", (void (*)())TestExt13, "Call", 0);
+	const char	*testExternalCallD =
+"import test.extD;\r\n\
+int[] arr = new int[2];\r\n\
+arr[0] = 1; arr[1] = 2;\r\n\
+return Call(arr, {3, 4}, int)[1];";
+	TEST_FOR_RESULT("External function call. Complex build-in return, arguments in registers.", testExternalCallD, "1");
+}
 
 void	RunTests()
 {
@@ -499,14 +724,6 @@ void	RunTests()
 #endif
 
 	nullcLoadModuleBySource("test.a", "import std.math; float4 a; a.x = 2;");
-	nullcLoadModuleBySource("test1", "char char_(char a); short short_(short a); int int_(int a); long long_(long a); float float_(float a); double double_(double a);");
-
-	nullcBindModuleFunction("test1", (void (*)())TestInt, "char_", 0);
-	nullcBindModuleFunction("test1", (void (*)())TestInt, "short_", 0);
-	nullcBindModuleFunction("test1", (void (*)())TestInt, "int_", 0);
-	nullcBindModuleFunction("test1", (void (*)())TestLong, "long_", 0);
-	nullcBindModuleFunction("test1", (void (*)())TestFloat, "float_", 0);
-	nullcBindModuleFunction("test1", (void (*)())TestDouble, "double_", 0);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
@@ -522,6 +739,8 @@ void	RunTests()
 #if defined(_MSC_VER)
 	nullcInitWindowModule();
 #endif
+
+	RunExternalCallTests();
 
 //////////////////////////////////////////////////////////////////////////
 	printf("Two bytecode merge test 1\r\n");
@@ -3496,17 +3715,7 @@ const char	*testUpvalues5 =
 	return g;\r\n\
 }\r\n\
 return func();";
-	printf("Closure with upvalues test 5\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testUpvalues5, testTarget[t], "11"))
-		{
-			lastFailed = false;
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Closure with upvalues test 5", testUpvalues5, "11");
 
 const char	*testMemberFuncCallPostExpr =
 "import std.math;\r\n\
@@ -3633,18 +3842,7 @@ const char	*testClassExternalMethodInt =
 int n = 19;\r\n\
 auto nv = n.toString();\r\n\
 return nv[0] + nv[1];";
-	printf("Class externally defined method (int)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testClassExternalMethodInt, testTarget[t], "106"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Class externally defined method (int)", testClassExternalMethodInt, "106");
 	
 const char	*testClassMethodString =
 "typedef char[] string;\r\n\
@@ -3661,18 +3859,7 @@ string string:reverse()\r\n\
 string a = \"hello\";\r\n\
 string b = a.reverse();\r\n\
 return b[0] - 'o';";
-	printf("Class externally defined method (char[])\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testClassMethodString, testTarget[t], "0"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Class externally defined method (char[])", testClassMethodString, "0");
 
 const char	*testClassExternalMethod =
 "class Foo\r\n\
@@ -3685,18 +3872,7 @@ Foo a;\r\n\
 a.bar = 14;\r\n\
 \r\n\
 return a.GetBar();";
-	printf("Class externally defined method (custom)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testClassExternalMethod, testTarget[t], "14"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Class externally defined method (custom)", testClassExternalMethod, "14");
 
 const char	*testOverloadedOperator1 =
 "import std.math;\r\n\
@@ -3705,18 +3881,7 @@ void operator= (float4 ref a, float b){ a.x = a.y = a.y = a.z = b; }\r\n\
 float4 a, b = 16;\r\n\
 a = 12;\r\n\
 return int(a.x + b.z);";
-	printf("Overloaded operator =\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testOverloadedOperator1, testTarget[t], "28"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Overloaded operator =", testOverloadedOperator1, "28");
 
 const char	*testOverloadedOperator2 =
 "class string{ int len; }\r\n\
@@ -3751,18 +3916,7 @@ float4 a, b = 16;\r\n\
 a = 12;\r\n\
 a += 3;\r\n\
 return int(a.x + b.z);";
-	printf("Overloaded operator =\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testOverloadedOperator3, testTarget[t], "31"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Overloaded operator =", testOverloadedOperator3, "31");
 
 const char	*testMemberFuncCallRef =
 "typedef char[] string;\r\n\
@@ -3776,52 +3930,19 @@ string a = \"hello\";\r\n\
 auto b = &a;\r\n\
 b.set('m');\r\n\
 return b[0];";
-	printf("Member function call of a reference to a class\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testMemberFuncCallRef, testTarget[t], "109"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Member function call of a reference to a class", testMemberFuncCallRef, "109");
 
 const char	*testInplaceArrayDouble =
 "double[] arr = { 12.0, 14, 18.0f };\r\n\
 return int(arr[0]+arr[1]+arr[2]);";
-	printf("Inplace double array with integer elements\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testInplaceArrayDouble, testTarget[t], "44"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Inplace double array with integer elements", testInplaceArrayDouble, "44");
 
 const char	*testFunctionPrototypes =
 "int func1();\r\n\
 int func2(){ return func1(); }\r\n\
 int func1(){ return 12; }\r\n\
 return func2();";
-	printf("Function prototypes\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunctionPrototypes, testTarget[t], "12"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Function prototypes", testFunctionPrototypes, "12");
 
 const char	*testInternalMemberFunctionCall =
 "class Test\r\n\
@@ -3834,18 +3955,7 @@ Test a;\r\n\
 a.i = 5;\r\n\
 auto k = a.bar();\r\n\
 return k;";
-	printf("Internal member function call\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testInternalMemberFunctionCall, testTarget[t], "5"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Internal member function call", testInternalMemberFunctionCall, "5");
 
 const char	*testSingleArrayIndexCalculation =
 "int a = 0, b = 0;\r\n\
@@ -3910,18 +4020,7 @@ int k = 4;\r\n\
 func(&k);\r\n\
 \r\n\
 return k;";
-	printf("Auto reference type\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testAutoReference2, testTarget[t], "9"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Auto reference type", testAutoReference2, "9");
 
 const char	*testParametersExtraordinaire =
 "char func(char a, b, c){ return a+b+c; }\r\n\
@@ -3937,45 +4036,6 @@ return func(1,7,18);";
 			lastFailed = false;
 
 			CHECK_INT("i", 0, 26);
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
-const char	*testExternalFunctionPtr =
-"import std.math;\r\n\
-import test1;\r\n\
-auto Sqrt = sqrt;\r\n\
-auto Char = char_;\r\n\
-auto Short = short_;\r\n\
-auto Int = int_;\r\n\
-auto Long = long_;\r\n\
-auto Float = float_;\r\n\
-auto Double = double_;\r\n\
-auto t1 = Sqrt(9.0);\r\n\
-auto t2 = Char(24);\r\n\
-auto t3 = Short(57);\r\n\
-auto t4 = Int(2458);\r\n\
-auto t5 = Long(14841324198l);\r\n\
-auto t6 = Float(3.0);\r\n\
-auto t7 = Double(2.0);\r\n\
-return 1;";
-	printf("Function parameters with different stack type\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testExternalFunctionPtr, testTarget[t], "1"))
-		{
-			lastFailed = false;
-
-			CHECK_DOUBLE("t1", 0, 3.0);
-			CHECK_CHAR("t2", 0, 24);
-			CHECK_SHORT("t3", 0, 57);
-			CHECK_INT("t4", 0, 2458);
-			CHECK_LONG("t5", 0, 14841324198ll);
-			CHECK_FLOAT("t6", 0, 3.0);
-			CHECK_DOUBLE("t7", 0, 2.0);
 
 			if(!lastFailed)
 				passed[t]++;
@@ -4055,52 +4115,19 @@ c.a = 3;\r\n\
 int func(TestS a){ return a.a; }\r\n\
 int func(TestC a){ return a.a; }\r\n\
 return func(b) + func(c);";
-	printf("Class with size smaller that 4 bytes\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testSmallClass, testTarget[t], "9"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Class with size smaller that 4 bytes", testSmallClass, "9");
 
 const char	*testExtraSmallClass =
 "class Test{ }\r\n\
 Test b;\r\n\
 int func(Test a, int b){ return b; }\r\n\
 return func(b, 4);";
-	printf("Class with size of 0 bytes\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testExtraSmallClass, testTarget[t], "4"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Class with size of 0 bytes", testExtraSmallClass, "4");
 
 const char	*testDefaultFuncVars3 =
 "int test(auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + b; }\r\n\
 return test() + test(auto(int l){ return l * 2; });";
-	printf("Default function parameter values 3\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testDefaultFuncVars3, testTarget[t], "19"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Default function parameter values 3", testDefaultFuncVars3, "19");
 
 const char	*testPostExpressions =
 "typedef char[] string;\r\n\
@@ -4158,35 +4185,13 @@ const char	*testLogicalAnd =
 "int i = 0, m = 4;\r\n\
 i && (m = 3);\r\n\
 return m;";
-	printf("Logical && special case\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testLogicalAnd, testTarget[t], "4"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Logical && special case", testLogicalAnd, "4");
 
 const char	*testLogicalOr =
 "int i = 1, m = 4;\r\n\
 i || (m = 3);\r\n\
 return m;";
-	printf("Logical || special case\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testLogicalOr, testTarget[t], "4"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Logical || special case", testLogicalOr, "4");
 
 const char	*testImplicitToRef =
 "class float2\r\n\
@@ -4244,18 +4249,7 @@ Test a;\r\n\
 a.x = 14;\r\n\
 a.y = 15;\r\n\
 return a.sum(5);";
-	printf("Member function hides members\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testClassMemberHide, testTarget[t], "20"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Member function hides members", testClassMemberHide, "20");
 
 const char	*testFunctionWithArgumentsMember =
 "class Test{\r\n\
@@ -4267,18 +4261,7 @@ Test a;\r\n\
 a.x = 14;\r\n\
 a.y = 15;\r\n\
 return a.sum(5, 12);";
-	printf("Member function with arguments call from member function\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunctionWithArgumentsMember, testTarget[t], "17"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Member function with arguments call from member function", testFunctionWithArgumentsMember, "17");
 
 const char	*testAccessors =
 "class Test{\r\n\
@@ -4318,18 +4301,7 @@ const char	*testVariableHiding =
 	a();\r\n\
 }\r\n\
 return 0;";
-	printf("Variable hiding by function\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testVariableHiding, testTarget[t], "0"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Variable hiding by function", testVariableHiding, "0");
 
 const char	*testPropertyAfterFunctionCall =
 "import std.math;\r\n\
@@ -4337,36 +4309,14 @@ import std.typeinfo;\r\n\
 float4 u = float4(1, 2, 3, 4);\r\n\
 if(sizeof(u) == 16) u.x = 5; else u.x = 6;\r\n\
 return typeid(u.xyz).size;";
-	printf("Property access after function call\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testPropertyAfterFunctionCall, testTarget[t], "12"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Property access after function call", testPropertyAfterFunctionCall, "12");
 
 const char	*testGlobalVariablePositioning =
 "import test.a;\r\n\
 float4 b;\r\n\
 b.x = 12;\r\n\
 return int(a.x);";
-	printf("Global variable positioning\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testGlobalVariablePositioning, testTarget[t], "2"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Global variable positioning", testGlobalVariablePositioning, "2");
 
 const char	*testGlobalVariablePositioning2 =
 "import test.a;\r\n\
@@ -4374,51 +4324,16 @@ import std.math;\r\n\
 float4 b;\r\n\
 b.x = 12;\r\n\
 return int(a.x);";
-	printf("Global variable positioning 2\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testGlobalVariablePositioning2, testTarget[t], "2"))
-		{
-			lastFailed = false;
+	TEST_FOR_RESULT("Global variable positioning 2", testGlobalVariablePositioning2, "2");
 
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
-const char	*testBytecodeButNoGlobal =
-"int func(){ return 0; }";
-	printf("Bytecode with no global code\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testBytecodeButNoGlobal, testTarget[t], "no return value"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Bytecode with no global code", "int func(){ return 0; }", "no return value");
 
 const char	*testAutoRefToValue =
 "int b = 9;\r\n\
 auto ref a = &b;\r\n\
 int float(auto ref b){ return 5; }\r\n\
 return int(a) + float(a);";
-	printf("Auto ref to value conversion\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testAutoRefToValue, testTarget[t], "14"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Auto ref to value conversion", testAutoRefToValue, "14");
 
 const char	*testImplicitConversionOnReturn =
 "class array{ int[10] arr; int size; }\r\n\
@@ -4429,18 +4344,7 @@ array a;\r\n\
 a.push_back(1); a.push_back(5);\r\n\
 int[] test(){ return { 1, 2 }; }\r\n\
 return int(a[0]) + int(a[1]) + test()[0];";
-	printf("Implicit conversion on return from function\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testImplicitConversionOnReturn, testTarget[t], "7"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Implicit conversion on return from function", testImplicitConversionOnReturn, "7");
 
 const char	*testInplaceArraysWithArrayElements =
 "auto arr = { \"one\", \"two\", \"three\" };\r\n\
@@ -4450,18 +4354,7 @@ auto arr2 = {\r\n\
 	{ 34, 48, 56 }\r\n\
 };\r\n\
 return arr2[1][1] + arr2[0][0] + arr2[2][2] + arr[1][1];";
-	printf("Inplace arrays with array elements of different size\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testInplaceArraysWithArrayElements, testTarget[t], "266"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Inplace arrays with array elements of different size", testInplaceArraysWithArrayElements, "266");
 
 const char	*testBreakContinueTests =
 "int hadThis = 1;\r\n\
@@ -4498,20 +4391,7 @@ return 0;";
 		}
 	}
 
-const char	*testCompileTimeConversion =
-"return double(2) < 2.2;";
-	printf("Compile-time conversion check\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testCompileTimeConversion, testTarget[t], "1"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Compile-time conversion check", "return double(2) < 2.2;", "1");
 
 const char	*testForEachUserType =
 "class array\r\n\
@@ -4555,34 +4435,12 @@ int sum = 0;\r\n\
 for(i in arr)\r\n\
 	sum += i;\r\n\
 return sum;";
-	printf("For each on user type\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testForEachUserType, testTarget[t], "1496"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("For each on user type", testForEachUserType, "1496");
 
 const char	*testLongOrInt =
 "long a = 0;int b = 0;\r\n\
 return a || b;";
-	printf("Long or int\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testLongOrInt, testTarget[t], "0"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Long or int", testLongOrInt, "0");
 
 const char	*testLongIncDec =
 "long count = 0xfffffffff;\r\n\
@@ -4593,20 +4451,7 @@ assert(count == 0xfffffffff);\r\n\
 count++;\r\n\
 assert(count == 0x1000000000);\r\n\
 return count;";
-	printf("Long increment and decrement extra tests\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testLongIncDec, testTarget[t], "68719476736L"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
-
+	TEST_FOR_RESULT("Long increment and decrement extra tests", testLongIncDec, "68719476736L");
 
 	RunTests2();
 }
@@ -4742,18 +4587,7 @@ for(int n = 0; n < 10; n++)\r\n\
 	func(a, n);\r\n\
 }\r\n\
 return count;";
-	printf("Euler 90 (with decreased N) set range check\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testEuler90, testTarget[t], "283"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Euler 90 (with decreased N) set range check", testEuler90, "283");
 
 	nullcLoadModuleBySource("func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp); void recall(int x);");
 	nullcBindModuleFunction("func.test", (void(*)())Recaller, "Recaller", 0);
@@ -4776,18 +4610,7 @@ int test(int i)\r\n\
 	return Recaller2(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-	printf("NULLC function call externally test 1\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunc1, testTarget[t], "24"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("NULLC function call externally test 1", testFunc1, "24");
 
 const char	*testFunc1Ptr =
 "import func.test;\r\n\
@@ -4800,18 +4623,7 @@ int test(int i)\r\n\
 	return Recaller2Ptr_(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-	printf("NULLC function call externally test 1 (with pointers to functions)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunc1Ptr, testTarget[t], "24"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("NULLC function call externally test 1 (with pointers to functions)", testFunc1Ptr, "24");
 
 const char	*testFunc2 =
 "import func.test;\r\n\
@@ -4822,18 +4634,7 @@ int test(int i)\r\n\
 	return Recaller3(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-	printf("NULLC function call externally test 2\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunc2, testTarget[t], "24"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("NULLC function call externally test 2", testFunc2, "24");
 
 const char	*testFunc2Ptr =
 "import func.test;\r\n\
@@ -4846,51 +4647,18 @@ int test(int i)\r\n\
 	return Recaller3Ptr_(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-	printf("NULLC function call externally test 2 (with pointers to functions)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunc2Ptr, testTarget[t], "24"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("NULLC function call externally test 2 (with pointers to functions)", testFunc2Ptr, "24");
 
 const char	*testFunc3 =
 "import func.test;\r\n\
 return RecallerPtr(auto(int i){ return -i; });";
-	printf("NULLC function call externally test 3\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunc3, testTarget[t], "-14"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("NULLC function call externally test 3", testFunc3, "-14");
 
 const char	*testFunc3Ptr =
 "import func.test;\r\n\
 auto RecallerPtr_ = RecallerPtr;\r\n\
 return RecallerPtr_(auto(int i){ return -i; });";
-	printf("NULLC function call externally test 3 (with pointers to functions)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunc3Ptr, testTarget[t], "-14"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("NULLC function call externally test 3 (with pointers to functions)", testFunc3Ptr, "-14");
 
 const char	*testFunc4 =
 "import func.test;\r\n\
@@ -4899,18 +4667,7 @@ auto generator(int start)\r\n\
 	return auto(int u){ return ++start; };\r\n\
 }\r\n\
 return RecallerPtr(generator(7));";
-	printf("NULLC function call externally test 4\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunc4, testTarget[t], "8"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("NULLC function call externally test 4", testFunc4, "8");
 
 const char	*testFunc5 =
 "import func.test;\r\n\
@@ -4920,18 +4677,7 @@ for(int i = 0; i < 512; i++)\r\n\
 	arr[i] = (((seed = seed * 214013 + 2531011) >> 16) & 0x7fff);\r\n\
 bubble(arr, auto(int a, b){ return a > b; });\r\n\
 return arr[8];";
-	printf("NULLC function call externally test 5\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunc5, testTarget[t], "32053"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("NULLC function call externally test 5", testFunc5, "32053");
 
 const char	*testLongRetrieval = "return 25l;";
 	printf("nullcGetResultLong test\r\n");
@@ -4994,18 +4740,7 @@ arr[1] = !arr[1];\r\n\
 arr[2] = +arr[2];\r\n\
 arr[3] = -arr[3];\r\n\
 return arr[0]*arr[1]*arr[2]*arr[3];";
-	printf("Unary operator overloading\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testUnaryOverloads, testTarget[t], "-2784600"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Unary operator overloading", testUnaryOverloads, "-2784600");
 
 const char	*testForEach2 =
 "import std.vector;\r\n\
@@ -5026,18 +4761,7 @@ for(int i in a)\r\n\
 	sum2 += i;\r\n\
 }\r\n\
 return sum + sum2;";
-	printf("For each with specified element type\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testForEach2, testTarget[t], "78"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("For each with specified element type", testForEach2, "78");
 
 const char	*testForEach3 =
 "int[] arr1 = { 2, 6, 7 };\r\n\
@@ -5153,18 +4877,7 @@ for(int i in masked)\r\n\
     sum += i;\r\n\
  \r\n\
 return sum;";
-	printf("Euler 122 (small depth) vector test\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testEuler122, testTarget[t], "79"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Euler 122 (small depth) vector test", testEuler122, "79");
 
 const char	*testFunctionCompare =
 "int ref() _f = int _self()\r\n\
@@ -5172,68 +4885,22 @@ const char	*testFunctionCompare =
 	return _f == _self;\r\n\
 };\r\n\
 return _f();";
-	printf("Function comparison\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunctionCompare, testTarget[t], "1"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Function comparison", testFunctionCompare, "1");
 
 const char	*testAutoRefCompare =
 "int sum = 0;\r\n\
 auto ref a = nullptr, b = &sum;\r\n\
 return a == b;";
-	printf("auto ref comparison\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testAutoRefCompare, testTarget[t], "0"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("auto ref comparison", testAutoRefCompare, "0");
 
 const char	*testAutoRefNot =
 "auto ref a = nullptr;\r\n\
 if(!a)\r\n\
 	return 1;\r\n\
 return 0;";
-	printf("unary not on auto ref\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testAutoRefNot, testTarget[t], "1"))
-		{
-			lastFailed = false;
+	TEST_FOR_RESULT("unary not on auto ref", testAutoRefNot, "1");
 
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
-const char	*testInlineDefinition =
-"return (auto(){ return 5; })();";
-	printf("Inline function definition and call\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testInlineDefinition, testTarget[t], "5"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Inline function definition and call", "return (auto(){ return 5; })();", "5");
 
 const char	*testVarargs1 =
 "int sum(auto ref[] args)\r\n\
@@ -5246,18 +4913,7 @@ const char	*testVarargs1 =
 int a = 3;\r\n\
 int b = 4;\r\n\
 return sum(4, a, b);";
-	printf("Function with variable argument count (numbers)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testVarargs1, testTarget[t], "11"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Function with variable argument count (numbers)", testVarargs1, "11");
 
 const char	*testVarargs2 =
 "int algo(int num, auto ref[] funcs)\r\n\
@@ -5271,18 +4927,7 @@ const char	*testVarargs2 =
 	return res;\r\n\
 }\r\n\
 return algo(15, auto(int a){ return a + 5; }, auto(int a){ return a / 4; });";
-	printf("Function with variable argument count (functions)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testVarargs2, testTarget[t], "5"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Function with variable argument count (functions)", testVarargs2, "5");
 
 const char	*testVarargs3 =
 "char[] print(auto ref[] args)\r\n\
@@ -5326,18 +4971,7 @@ const char	*testVarargs4 =
 	return res;\r\n\
 }\r\n\
 return sum(1, {10, 100}, {20, 2});";
-	printf("Function with variable argument count (bug test)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testVarargs4, testTarget[t], "133"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Function with variable argument count (bug test)", testVarargs4, "133");
 
 	const char	*testVarargs5 =
 "char[] print(auto ref[] args)\r\n\
@@ -5383,18 +5017,7 @@ const char	*testImportHidding =
 char[] arr = \"hello\";\r\n\
 char[] r = arr + arr2;\r\n\
 return r.size;";
-	printf("Hidden variable exclusion from import\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testImportHidding, testTarget[t], "12"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Hidden variable exclusion from import", testImportHidding, "12");
 
 const char	*testAutoRefCall1 =
 "int sum = 0;\r\n\
@@ -5432,18 +5055,7 @@ for(i in objs)\r\n\
 }\r\n\
 \r\n\
 return sum;";
-	printf("auto ref type function call 1\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testAutoRefCall1, testTarget[t], "32"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("auto ref type function call 1", testAutoRefCall1, "32");
 
 const char	*testAutoRefCall2 =
 "import std.list;\r\n\
@@ -5534,18 +5146,7 @@ for(i in shapes)\r\n\
 	i.manhettan(&mp);\r\n\
 \r\n\
 return mp;";
-	printf("auto ref type function call 2\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testAutoRefCall2, testTarget[t], "2760"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("auto ref type function call 2", testAutoRefCall2, "2760");
 
 const char	*testArrayIndexOverloadPointers =
 "auto arr = { 100, 200, 300, 400 };\r\n\
@@ -5554,18 +5155,7 @@ int[] arr2 = arr;\r\n\
 int[] ref u2 = &arr2;\r\n\
 int operator[](int[] ref arr, int index){ return 5; }\r\n\
 return u2[0] + arr2[1] + u[2] + arr[3];";
-	printf("Array index overload call for pointer to array type\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testArrayIndexOverloadPointers, testTarget[t], "20"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Array index overload call for pointer to array type", testArrayIndexOverloadPointers, "20");
 
 const char	*testArrayIndexOverloadPointers2 =
 "import std.vector;\r\n\
@@ -5574,36 +5164,14 @@ vector ref vv = &v;\r\n\
 vv.push_back(5);\r\n\
 v.push_back(7);\r\n\
 return int(vv[0]) + int(vv[1]);";
-	printf("Array index overload call for pointer to class type\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testArrayIndexOverloadPointers2, testTarget[t], "12"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Array index overload call for pointer to class type", testArrayIndexOverloadPointers2, "12");
 
 const char	*testImplicitAutoRefDereference =
 "int i = 5;\r\n\
 auto ref u = &i;\r\n\
 int k = u;\r\n\
 return k;";
-	printf("auto ref type implicit dereference in an unambiguous situation\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testImplicitAutoRefDereference, testTarget[t], "5"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("auto ref type implicit dereference in an unambiguous situation", testImplicitAutoRefDereference, "5");
 
 const char	*testRangeIterator =
 "class range_iterator\r\n\
@@ -5639,18 +5207,7 @@ int factorial(int v)\r\n\
 	return fact;\r\n\
 }\r\n\
 return factorial(10);";
-	printf("Extra node wrapping in for each with function call in array part\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testRangeIterator, testTarget[t], "3628800"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Extra node wrapping in for each with function call in array part", testRangeIterator, "3628800");
 
 const char	*testShortArrayDefinition =
 "short[4] a = { 1, 2, 3, 4 };\r\n\
@@ -5866,53 +5423,20 @@ return a_(5) * b_(5);";
 const char	*testDefaultFunctionArgumentExport =
 "import test.defargs;\r\n\
 return func(5) - func(10, 2);";
-	printf("Default function argument export and import\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testDefaultFunctionArgumentExport, testTarget[t], "10"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Default function argument export and import", testDefaultFunctionArgumentExport, "10");
 
 	nullcLoadModuleBySource("test.defargs2", "int func(int a, b = 6){ return a * b; } int func(int d, c, a, b = 4){ return d * c + a + b; }");
 const char	*testDefaultFunctionArgumentExport2 =
 "import test.defargs2;\r\n\
 return func(5) - func(10, 2) + func(-1, 2, 3);";
-	printf("Default function argument export and import 2\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testDefaultFunctionArgumentExport2, testTarget[t], "15"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Default function argument export and import 2", testDefaultFunctionArgumentExport2, "15");
 
 	nullcLoadModuleBySource("test.defargs3", "class Test{ int func(int a, b = 6){ return a * b; } }");
 const char	*testDefaultFunctionArgumentExport3 =
 "import test.defargs3;\r\n\
 Test test;\r\n\
 return test.func(5) - test.func(10, 2);";
-	printf("Default function argument export and import (class function)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testDefaultFunctionArgumentExport3, testTarget[t], "10"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Default function argument export and import (class function)", testDefaultFunctionArgumentExport3, "10");
 
 	nullcLoadModuleBySource("test.defargs4", "class Test{ int func(int a, b = 6); }");
 	nullcBindModuleFunction("test.defargs4", (void(*)())TestDefaultArgs, "Test::func", 0);
@@ -5920,18 +5444,7 @@ const char	*testDefaultFunctionArgumentExport4 =
 "import test.defargs4;\r\n\
 Test test;\r\n\
 return test.func(5) - test.func(10, 2);";
-	printf("Default function argument export and import (class function external)\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testDefaultFunctionArgumentExport4, testTarget[t], "10"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Default function argument export and import (class function external)", testDefaultFunctionArgumentExport4, "10");
 
 const char	*testLocalOperators =
 "int funcA(int a, b)\r\n\
@@ -6023,18 +5536,7 @@ const char	*testFunctionVisibility =
 int test = func();\r\n\
 \r\n\
 return test;";
-	printf("Function visibility test\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunctionVisibility, testTarget[t], "-5"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Function visibility test", testFunctionVisibility, "-5");
 
 const char	*testFunctionTypeNew =
 "import std.range;\r\n\
@@ -6045,18 +5547,7 @@ for(i in a, n in range(0, 4))\r\n\
 	b[n] = auto(){ return a[n]; };\r\n\
 \r\n\
 return b[0]() + b[1]() + b[4]();";
-	printf("new call with function type\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunctionTypeNew, testTarget[t], "15"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("new call with function type", testFunctionTypeNew, "15");
 
 const char	*testTypeOfNew =
 "import std.range;\r\n\
@@ -6067,18 +5558,7 @@ for(i in a, n in range(0, 4))\r\n\
 	b[n] = auto(){ return a[n]; };\r\n\
 \r\n\
 return b[0]() + b[1]() + b[4]();";
-	printf("new call with typeof\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testTypeOfNew, testTarget[t], "15"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("new call with typeof", testTypeOfNew, "15");
 
 const char	*testGCArrayFail2 =
 "import std.gc;\r\n\
@@ -6089,18 +5569,7 @@ y.arr = x;\r\n\
 x[0] = y;\r\n\
 GC.CollectMemory();\r\n\
 return 0;";
-	printf("GC recursion using arrays with implicit size, placed on the heap\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testGCArrayFail2, testTarget[t], "0"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("GC recursion using arrays with implicit size, placed on the heap", testGCArrayFail2, "0");
 
 const char	*testGCArrayFail1 =
 "import std.gc;\r\n\
@@ -6112,18 +5581,7 @@ y.arr = x;\r\n\
 x[0] = y;\r\n\
 GC.CollectMemory();\r\n\
 return 0;";
-	printf("GC recursion using arrays with implicit size, placed on the stack\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testGCArrayFail1, testTarget[t], "0"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("GC recursion using arrays with implicit size, placed on the stack", testGCArrayFail1, "0");
 
 	const char	*testGarbageCollectionCorrectness =
 "import std.gc;\r\n\
@@ -6145,18 +5603,7 @@ arr1[1].e = new A;\r\n\
 arr1[1].f = new A;\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory();";
-	printf("Garbage collection correctness\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testGarbageCollectionCorrectness, testTarget[t], sizeof(void*) == 8 ? "544" : "272"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Garbage collection correctness.", testGarbageCollectionCorrectness, sizeof(void*) == 8 ? "544" : "272");
 
 	const char	*testGarbageCollectionCorrectness2 =
 "import std.gc;\r\n\
@@ -6180,18 +5627,7 @@ arr1[0] = nullptr;\r\n\
 arr1[1] = nullptr;\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory();";
-	printf("Garbage collection correctness 2\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testGarbageCollectionCorrectness2, testTarget[t], sizeof(void*) == 8 ? "32" : "16"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Garbage collection correctness 2.", testGarbageCollectionCorrectness2, sizeof(void*) == 8 ? "32" : "16");
 
 	const char	*testGarbageCollectionCorrectness3 =
 "import std.gc;\r\n\
@@ -6212,18 +5648,7 @@ arr1[1].e = new A;\r\n\
 arr1[1].f = new A;\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory();";
-	printf("Garbage collection correctness 3\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testGarbageCollectionCorrectness3, testTarget[t], sizeof(void*) == 8 ? "544" : "272"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Garbage collection correctness 3.", testGarbageCollectionCorrectness3, sizeof(void*) == 8 ? "544" : "272");
 
 	const char	*testTypedefScopeFunction =
 "int func1(){ typedef int[2] data; data x; x[0] = 5; x[1] = 4; return x[0] * x[1]; }\r\n\
@@ -6231,18 +5656,7 @@ int func2(){ typedef float[2] data; data x; x[0] = 3.6; x[1] = 0.5; return x[0] 
 typedef int data;\r\n\
 data res = func1() + func2();\r\n\
 return res;";
-	printf("typedef scoping in functions\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testTypedefScopeFunction, testTarget[t], "27"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("typedef scoping in functions.", testTypedefScopeFunction, "27");
 
 	const char	*testTypedefScopeType =
 "class TypeA\r\n\
@@ -6264,18 +5678,7 @@ b.x[0] = 3.6; b.x[1] = 0.5;\r\n\
 typedef int data;\r\n\
 data res = a.func() + b.func();\r\n\
 return res;";
-	printf("typedef scoping in types\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testTypedefScopeType, testTarget[t], "27"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("typedef scoping in types.", testTypedefScopeType, "27");
 
 const char	*testTypedefScopeTypeReturn =
 "class TypeA\r\n\
@@ -6297,18 +5700,7 @@ b.x[0] = 3.6; b.x[1] = 0.5;\r\n\
 typedef int data;\r\n\
 data res = a.func() + b.func();\r\n\
 return res;";
-	printf("typedef recovery\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testTypedefScopeTypeReturn, testTarget[t], "27"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("typedef recovery.", testTypedefScopeTypeReturn, "27");
 
 const char	*testFunctionCallConstantConvertion =
 "int funcA(int a, float b)\r\n\
@@ -6316,18 +5708,7 @@ const char	*testFunctionCallConstantConvertion =
 	return a + b * 2;\r\n\
 }\r\n\
 return funcA(5, 6.6);";
-	printf("Constant number type conversions in function call\r\n");
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFunctionCallConstantConvertion, testTarget[t], "18"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Constant number type conversions in function call.", testFunctionCallConstantConvertion, "18");
 
 #ifdef FAILURE_TEST
 
