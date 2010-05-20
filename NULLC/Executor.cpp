@@ -37,21 +37,39 @@ long long vmLongPow(long long num, long long pow)
 #if defined(_M_X64)
 #ifdef _WIN64
 	#include <Windows.h>
+	#define NULLC_X64_IREGARGS 4
+	#define NULLC_X64_FREGARGS 4
+#else
+	#include <sys/mman.h>
+	#include <limits.h>
+	#ifndef PAGESIZE
+		#define PAGESIZE 4096
+	#endif
+	#define NULLC_X64_IREGARGS 6
+	#define NULLC_X64_FREGARGS 8
 #endif
 
 static const unsigned char gatePrologue[32] =
 {
+#ifdef _WIN64
 	0x4C, 0x89, 0x44, 0x24, 0x18,	// mov qword [rsp+18h], r8	// spill r8
 	0x48, 0x89, 0x54, 0x24, 0x10,	// mov qword [rsp+10h], rdx	// spill RDX
 	0x48, 0x89, 0x4C, 0x24, 0x08,	// mov qword [rsp+8h], rcx	// spill RCX
+#endif
 	0x57,	// push RDI
 	0x50,	// push RAX
 	0x53,	// push RBX
 	0x56,	// push RSI
 	0x56,	// push RSI again for stack alignment
+#ifdef _WIN64
 	0x48, 0x8b, 0301,// mov RAX, RCX
-	0x48, 0x8b, 0372,// mov RDI, RDX
-	0x49, 0x8b, 0330,// mov RBX, R8
+	0x48, 0x8b, 0332,// mov RBX, RDX
+	0x4d, 0x8b, 0330,// mov R11, R8
+#else
+	0x48, 0x8b, 0307,// mov RAX, RDI
+	0x48, 0x8b, 0336,// mov RBX, RSI
+	0x4c, 0x8b, 0332,// mov R11, RDX
+#endif
 };
 
 unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, unsigned int funcID)
@@ -60,7 +78,11 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	unsigned int tmp;
 
 	// Create function call code, clear it out, copy call prologue to the beginning
+#ifdef _WIN64
 	code.push_back(gatePrologue, 29);
+#else
+	code.push_back(gatePrologue, 14);
+#endif
 
 	// complex type return is handled by passing pointer to a place, where the return value will be placed. This uses first register.
 	unsigned int rvs = exFunctions[funcID].retType == ExternFuncInfo::RETURN_UNKNOWN ? 1 : 0;
@@ -81,6 +103,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
 			typeCat = lType.type;
 			typeSize = lType.size;
+			// Aggregate types are passed in registers
 			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
 				typeCat = ExternTypeInfo::TYPE_INT;
 			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
@@ -90,7 +113,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		{
 		case ExternTypeInfo::TYPE_FLOAT:
 		case ExternTypeInfo::TYPE_DOUBLE:
-			if(rvs + i > 3)
+			if(rvs + i > NULLC_X64_FREGARGS - 1)
 			{
 				// mov rsi, [rax+shift]
 				if(typeCat == ExternTypeInfo::TYPE_DOUBLE)
@@ -119,7 +142,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		case ExternTypeInfo::TYPE_SHORT:
 		case ExternTypeInfo::TYPE_INT:
 		case ExternTypeInfo::TYPE_LONG:
-			if(rvs + i > 3)
+			if(rvs + i > NULLC_X64_IREGARGS - 1)
 			{
 				// mov rsi, [rax+shift]
 				if(typeCat == ExternTypeInfo::TYPE_LONG)
@@ -134,19 +157,17 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				code.push_back(0x56);
 				needpop += 8;
 			}else{
-				if(rvs + i == 2 || rvs + i == 3)
+				if(rvs + i == (NULLC_X64_IREGARGS - 2) || rvs + i == (NULLC_X64_IREGARGS - 1))
 					code.push_back(typeCat == ExternTypeInfo::TYPE_LONG ? 0x4c : 0x44);
 				else if(typeCat == ExternTypeInfo::TYPE_LONG)
 					code.push_back(0x48);	// 64bit mode
 				code.push_back(0x8b);
-				if(rvs + i == 0)
-					code.push_back(0214);
-				else if(rvs + i == 1)
-					code.push_back(0224);
-				else if(rvs + i == 2)
-					code.push_back(0204);
-				else if(rvs + i == 3)
-					code.push_back(0214);
+#ifdef _WIN64
+				unsigned regCodes[] = { 0214, 0224, 0204, 0214 }; // rcx, rdx, r8, r9
+#else
+				unsigned regCodes[] = { 0274, 0264, 0224, 0214, 0204, 0214 }; // rdi, rsi, rdx, rcx, r8, r9
+#endif
+				code.push_back((unsigned char)regCodes[rvs + i]);
 				code.push_back(0040);
 				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				code.push_back((unsigned char*)&tmp, 4);
@@ -156,35 +177,34 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		case ExternTypeInfo::TYPE_COMPLEX:
 			if(typeSize != 0 && typeSize <= 8)
 				assert(!"parameter type unsupported (small aggregate)");
-			// lea rsi, [rax+shift]
-			code.push_back(0x48);	// 64bit mode
+			// lea r12, [rax+shift]
+			code.push_back(0x4c);	// 64bit mode
 			code.push_back(0x8d);
-			code.push_back(0264);	// modR/M mod = 11 (register), spare = 6 (RSI destination), r/m = 4 (SIB active)
+			code.push_back(0244);	// modR/M mod = 10 (32-bit shift), spare = 4 (R12 destination), r/m = 4 (SIB active)
 			code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
+			
 			tmp = currentShift - typeSize;
 			code.push_back((unsigned char*)&tmp, 4);
 
-			if(rvs + i > 3)
+			if(rvs + i > NULLC_X64_IREGARGS - 1)
 			{
-				// push rsi
-				code.push_back(0x48);	// 64bit mode
-				code.push_back(0x56);
+				// push r12
+				code.push_back(0x4c);	// 64bit mode
+				code.push_back(0x54);
 				needpop += 8;
 			}else{
-				// mov reg, rsi
-				if(rvs + i == 2 || rvs + i == 3)
-					code.push_back(0x4c); // 64bit mode
+				// mov reg, r12
+				if(rvs + i == (NULLC_X64_IREGARGS - 2) || rvs + i == (NULLC_X64_IREGARGS - 1))
+					code.push_back(0x4d);	// 64bit mode
 				else
-					code.push_back(0x48);	// 64bit mode
+					code.push_back(0x49);	// 64bit mode
 				code.push_back(0x8b);
-				if(rvs + i == 0)
-					code.push_back(0316);
-				else if(rvs + i == 1)
-					code.push_back(0326);
-				else if(rvs + i == 2)
-					code.push_back(0306);
-				else if(rvs + i == 3)
-					code.push_back(0316);
+#ifdef _WIN64
+				unsigned regCodes[] = { 0314, 0324, 0304, 0314 }; // rcx, rdx, r8, r9
+#else
+				unsigned regCodes[] = { 0374, 0364, 0324, 0314, 0304, 0314 }; // rdi, rsi, rdx, rcx, r8, r9
+#endif
+				code.push_back((unsigned char)regCodes[rvs + i]);
 			}
 			currentShift -= typeSize;
 			break;
@@ -197,25 +217,31 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	{
 		code.push_back(0x48);	// 64bit mode
 		code.push_back(0x8b);
-		code.push_back(0317);	// modR/M mod = 11 (register), spare = 1 (RCX is a destination), r/m = 4 (RDI is source)
+		code.push_back(0313);	// modR/M mod = 11 (register), spare = 1 (RCX is a destination), r/m = 3 (RBX is source)
 	}
+#ifdef _WIN64
 	// sub rsp, 32
 	code.push_back(0x48);
 	code.push_back(0x81);
 	code.push_back(0354);	// modR/M mod = 11 (register), spare = 5 (sub), r/m = 4 (RSP is changed)
 	tmp = 32;
 	code.push_back((unsigned char*)&tmp, 4);
+#endif
 
-	// call rbx
-	code.push_back(0x48);
+	// call r11
+	code.push_back(0x49);
 	code.push_back(0xff);
-	code.push_back(0323);	// modR/M mod = 11 (register), spare = 2, r/m = 3 (RBX is source)
+	code.push_back(0323);	// modR/M mod = 11 (register), spare = 2, r/m = 3 (R11 is source)
 
 	// add rsp, 32 + needpop
 	code.push_back(0x48);
 	code.push_back(0x81);
 	code.push_back(0304);	// modR/M mod = 11 (register), spare = 0 (add), r/m = 4 (RSP is changed)
+#ifdef _WIN64
 	tmp = 32 + needpop;
+#else
+	tmp = needpop;
+#endif
 	code.push_back((unsigned char*)&tmp, 4);
 
 	// handle return value
@@ -246,21 +272,21 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			code.push_back(0xc0);
 		}
 		returnShift = 2;
-		// movsd qword [rdi], xmm0
+		// movsd qword [rbx], xmm0
 		code.push_back(0xf2);
 		code.push_back(0x0f);
 		code.push_back(0x11);
-		code.push_back(0007);	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 7 (RDI is base)
+		code.push_back(0003);	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 3 (RBX is base)
 		break;
 	case ExternFuncInfo::RETURN_LONG:
 		returnShift = 1;
-		// mov qword [rdi], rax
+		// mov qword [rbx], rax
 		code.push_back(0x48);	// 64bit mode
 	case ExternFuncInfo::RETURN_INT:
 		returnShift += 1;
-		// mov dword [rdi], eax
+		// mov dword [rbx], eax
 		code.push_back(0x89);
-		code.push_back(0007);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 0 (RDI is base)
+		code.push_back(0003);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
 		break;
 	case ExternFuncInfo::RETURN_VOID:
 		break;
@@ -358,6 +384,10 @@ void Executor::InitExecution()
 #ifdef _WIN64
 	DWORD old;
 	VirtualProtect(gateCode.data, gateCode.size(), PAGE_EXECUTE_READWRITE, &old);
+#else
+	char *p = (char*)((intptr_t)((char*)gateCode.data + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+	if(mprotect(p, ((gateCode.size() + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
+		asm("int $0x3");
 #endif
 
 #endif
@@ -382,7 +412,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 	if(functionID != ~0u)
 	{
-		unsigned int funcPos = ~0ul;
+		unsigned int funcPos = ~0u;
 		funcPos = exFunctions[functionID].address;
 		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
 		{
@@ -677,6 +707,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*(int*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (int)(*genStackPtr);
 #endif
 			break;
+
 		case cmdMovFloatStk:
 #ifdef _M_X64
 			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
@@ -965,6 +996,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			genParams.resize(paramBase + cmd.argument);
 			memset(&genParams[paramBase + cmd.helper], 0, cmd.argument - cmd.helper);
+
 			break;
 
 		case cmdAdd:
@@ -1471,6 +1503,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	// buffer for return value
 	unsigned int ret[128];
 
+	//asm("int $0x3");
 	// call external function through gateway
 	void (*gate)(unsigned int*, unsigned int*, void*) = (void (*)(unsigned int*, unsigned int*, void*))(void*)(gateCode.data + exFunctions[funcID].startInByteCode);
 	gate(stackStart, ret, fPtr);
@@ -1511,6 +1544,7 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
 		{
 //			printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+
 			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
 		}else{
 			ExternTypeInfo &subType = exTypes[type.subType];

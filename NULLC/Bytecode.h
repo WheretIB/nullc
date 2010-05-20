@@ -2,6 +2,8 @@
 #ifndef NULLC_BYTECODE_H
 #define NULLC_BYTECODE_H
 
+#include "nullcdef.h"
+
 #pragma pack(push, 4)
 
 struct ExternTypeInfo
