@@ -77,6 +77,16 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
 	unsigned int tmp;
 
+	/*printf("Creating gateway for function %s(", exLinker->exSymbols.data + exFunctions[funcID].offsetToName);
+	// Check every function local
+	for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
+	{
+		// Get information about local
+		ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+		printf("%s, ", exLinker->exSymbols.data + exTypes[lInfo.type].offsetToName);
+	}
+	printf(") arg count %d\n", exFunctions[funcID].paramCount + (exFunctions[funcID].isNormal ? 0 : 1));*/
+
 	// Create function call code, clear it out, copy call prologue to the beginning
 #ifdef _WIN64
 	code.push_back(gatePrologue, 29);
@@ -87,6 +97,60 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	// complex type return is handled by passing pointer to a place, where the return value will be placed. This uses first register.
 	unsigned int rvs = exFunctions[funcID].retType == ExternFuncInfo::RETURN_UNKNOWN ? 1 : 0;
 
+#ifndef _WIN
+	// in AMD64, int and FP registers are independant, so we have to count, how much arguments to save in registers
+	unsigned int usedIRegs = rvs, usedFRegs = 0;
+	// This to variables will help later to know we've reached the boundary of arguments that are placed in registers
+	unsigned int argsToIReg = 0, argsToFReg = 0;
+	for(unsigned int k = 0; k < exFunctions[funcID].paramCount + (exFunctions[funcID].isNormal ? 0 : 1); k++)
+	{
+		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
+		unsigned int typeSize = 8;
+		if((unsigned int)k != exFunctions[funcID].paramCount)
+		{
+			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + k];
+			ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
+			typeCat = lType.type;
+			typeSize = lType.size;
+			// Aggregate types are passed in registers
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
+				typeCat = ExternTypeInfo::TYPE_INT;
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
+				typeCat = ExternTypeInfo::TYPE_LONG;
+		}
+		switch(typeCat)
+		{
+		case ExternTypeInfo::TYPE_FLOAT:
+		case ExternTypeInfo::TYPE_DOUBLE:
+			if(usedIRegs < NULLC_X64_FREGARGS)
+			{
+				usedFRegs++;
+				argsToFReg = k;
+			}
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_SHORT:
+		case ExternTypeInfo::TYPE_INT:
+		case ExternTypeInfo::TYPE_LONG:
+			if(usedIRegs < NULLC_X64_IREGARGS)
+			{
+				usedIRegs++;
+				argsToIReg = k;
+			}
+			break;
+		case ExternTypeInfo::TYPE_COMPLEX:
+			if(typeSize != 0 && typeSize <= 8)
+				assert(!"parameter type unsupported (small aggregate)");
+			
+			break;
+		default:
+			assert(!"parameter type unsupported");
+		}
+	}
+	//printf("Used Iregs: %d Fregs: %d\n", usedIRegs, usedFRegs);
+	//printf("Arguments to Ireg limit: %d Freg limit: %d\n", argsToIReg, argsToFReg);
+#endif
+	
 	// normal function doesn't accept context, so start of the stack skips those 2 dwords
 	unsigned int currentShift = (dwordsToPop - (exFunctions[funcID].isNormal ? 2 : 0)) * 4;
 	unsigned int needpop = 0;
@@ -113,7 +177,11 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		{
 		case ExternTypeInfo::TYPE_FLOAT:
 		case ExternTypeInfo::TYPE_DOUBLE:
+#ifdef _WIN64
 			if(rvs + i > NULLC_X64_FREGARGS - 1)
+#else
+			if((unsigned)i > argsToFReg)
+#endif
 			{
 				// mov rsi, [rax+shift]
 				if(typeCat == ExternTypeInfo::TYPE_DOUBLE)
@@ -131,8 +199,14 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				// movsd/movss xmm, [rax+shift]
 				code.push_back(typeCat == ExternTypeInfo::TYPE_DOUBLE ? 0xf2 : 0xf3);
 				code.push_back(0x0f);
-				code.push_back(0x10);	
+				code.push_back(0x10);
+#ifdef _WIN64
 				code.push_back((unsigned char)(0200 | (i << 3)));	// modR/M mod = 10 (32-bit shift), spare = XMMn, r/m = 0 (RAX is base)
+#else
+				assert(usedFRegs - 1 < NULLC_X64_FREGARGS);
+				code.push_back((unsigned char)(0200 | ((usedFRegs - 1) << 3)));
+				usedFRegs--;
+#endif
 				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
 				code.push_back((unsigned char*)&tmp, 4);
 			}
@@ -142,7 +216,11 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		case ExternTypeInfo::TYPE_SHORT:
 		case ExternTypeInfo::TYPE_INT:
 		case ExternTypeInfo::TYPE_LONG:
+#ifdef _WIN64
 			if(rvs + i > NULLC_X64_IREGARGS - 1)
+#else
+			if((unsigned)i > argsToIReg)
+#endif
 			{
 				// mov rsi, [rax+shift]
 				if(typeCat == ExternTypeInfo::TYPE_LONG)
@@ -157,7 +235,13 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				code.push_back(0x56);
 				needpop += 8;
 			}else{
-				if(rvs + i == (NULLC_X64_IREGARGS - 2) || rvs + i == (NULLC_X64_IREGARGS - 1))
+				unsigned int regID = rvs + i;
+#ifndef _WIN64
+				assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
+				regID = (usedIRegs - 1);
+				usedIRegs--;
+#endif
+				if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
 					code.push_back(typeCat == ExternTypeInfo::TYPE_LONG ? 0x4c : 0x44);
 				else if(typeCat == ExternTypeInfo::TYPE_LONG)
 					code.push_back(0x48);	// 64bit mode
@@ -167,7 +251,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #else
 				unsigned regCodes[] = { 0274, 0264, 0224, 0214, 0204, 0214 }; // rdi, rsi, rdx, rcx, r8, r9
 #endif
-				code.push_back((unsigned char)regCodes[rvs + i]);
+				code.push_back((unsigned char)regCodes[regID]);
 				code.push_back(0040);
 				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				code.push_back((unsigned char*)&tmp, 4);
