@@ -494,6 +494,11 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				memberName += strLength;
 				type->AddMemberVariable(nameCopy, CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n]]]);
 			}
+			if(type->size % 4 != 0)
+			{
+				type->paddingBytes = 4 - (type->size % 4);
+				type->size += 4 - (type->size % 4);
+			}
 		}
 	}
 
