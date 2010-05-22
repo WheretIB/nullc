@@ -80,6 +80,9 @@ bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
 	for(unsigned m = 0; m < lType->memberCount; m++)
 	{
 		ExternTypeInfo &memberType = exLinker->exTypes[exLinker->exTypeExtra[lType->memberOffset + m]];
+		unsigned int alignment = memberType.defaultAlign > 4 ? 4 : memberType.defaultAlign;
+		if(alignment && pos % alignment != 0)
+			pos += alignment - (pos % alignment);
 		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
 		switch(memberType.type)
 		{
@@ -1573,6 +1576,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 void Executor::Stop(const char* error)
 {
 	codeRunning = false;
+
 	callContinue = false;
 	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
 }
