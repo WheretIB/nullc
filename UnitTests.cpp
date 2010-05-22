@@ -54,15 +54,20 @@ unsigned int	variableCount = 0;
 ExternVarInfo	*varInfo = NULL;
 const char		*symbols = NULL;
 
+bool messageVerbose = false;
+const char *lastMessage = NULL;
+
 bool lastFailed;
 
-#define CHECK_DOUBLE(var, index, expected) if(fabs(((double*)FindVar(var))[index] - (expected)) > 1e-6){ printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, (double)expected, ((double*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_FLOAT(var, index, expected) if(((float*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, (double)expected, (double)((float*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_LONG(var, index, expected) if(((long long*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %lld (got %lld)\r\n", #var, index, (long long)expected, ((long long*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_INT(var, index, expected) if(((int*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((int*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_SHORT(var, index, expected) if(((short*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((short*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_CHAR(var, index, expected) if(((char*)FindVar(var))[index] != (expected)){ printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((char*)FindVar(var))[index]); lastFailed = true; }
-#define CHECK_STR(var, index, expected) if(strcmp(((char*)FindVar(var)+index), (expected)) != 0){ printf(" Failed %s[%d] == %s (got %s)\r\n", #var, index, expected, ((char*)FindVar(var))+index); lastFailed = true; }
+#define TEST_NAME() if(lastMessage) printf("%s\r\n", lastMessage);
+
+#define CHECK_DOUBLE(var, index, expected) if(fabs(((double*)FindVar(var))[index] - (expected)) > 1e-6){ TEST_NAME(); printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, (double)expected, ((double*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_FLOAT(var, index, expected) if(((float*)FindVar(var))[index] != (expected)){ TEST_NAME(); printf(" Failed %s[%d] == %f (got %f)\r\n", #var, index, (double)expected, (double)((float*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_LONG(var, index, expected) if(((long long*)FindVar(var))[index] != (expected)){ TEST_NAME(); printf(" Failed %s[%d] == %lld (got %lld)\r\n", #var, index, (long long)expected, ((long long*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_INT(var, index, expected) if(((int*)FindVar(var))[index] != (expected)){ TEST_NAME(); printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((int*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_SHORT(var, index, expected) if(((short*)FindVar(var))[index] != (expected)){ TEST_NAME(); printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((short*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_CHAR(var, index, expected) if(((char*)FindVar(var))[index] != (expected)){ TEST_NAME(); printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((char*)FindVar(var))[index]); lastFailed = true; }
+#define CHECK_STR(var, index, expected) if(strcmp(((char*)FindVar(var)+index), (expected)) != 0){ TEST_NAME(); printf(" Failed %s[%d] == %s (got %s)\r\n", #var, index, expected, ((char*)FindVar(var))+index); lastFailed = true; }
 
 void*	FindVar(const char* name)
 {
@@ -76,6 +81,7 @@ void*	FindVar(const char* name)
 
 bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = NULL)
 {
+	lastMessage = message;
 #ifndef NULLC_BUILD_X86_JIT
 	if(executor != NULLC_VM)
 		return false;
@@ -205,6 +211,9 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 		}
 	}
 #endif
+
+	if(messageVerbose && executor == NULLC_VM)
+		printf("%s\n", message);
 
 	return true;
 }
@@ -952,8 +961,10 @@ return z.x == 1;";
 	// big return tests
 }
 
-void	RunTests()
+void	RunTests(bool verbose)
 {
+	messageVerbose = verbose;
+
 	timeCompile = 0.0;
 	timeGetListing = 0.0;
 	timeGetBytecode = 0.0;
@@ -1143,7 +1154,7 @@ void	RunTests()
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testDoubleOp, testTarget[t], "17.000000", "Double operation test\r\n"))
+		if(RunCode(testDoubleOp, testTarget[t], "17.000000", "Double operation test"))
 		{
 			lastFailed = false;
 			CHECK_DOUBLE("a", 0, 14.0);
@@ -1159,7 +1170,7 @@ void	RunTests()
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testLongOp, testTarget[t], "1", "Long operation test\r\n"))
+		if(RunCode(testLongOp, testTarget[t], "1", "Long operation test"))
 		{
 			lastFailed = false;
 			CHECK_LONG("a", 0, 4494967296ll);
@@ -1177,7 +1188,7 @@ void	RunTests()
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(tesIncDec, testTarget[t], "1", "Decrement and increment tests for all types\r\n"))
+		if(RunCode(tesIncDec, testTarget[t], "1", "Decrement and increment tests for all types"))
 		{
 			lastFailed = false;
 
@@ -1212,7 +1223,7 @@ void	RunTests()
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCmplxType1, testTarget[t], "1", "Complex type test (simple)\r\n"))
+		if(RunCode(testCmplxType1, testTarget[t], "1", "Complex type test (simple)"))
 		{
 			lastFailed = false;
 			CHECK_FLOAT("f1", 0, 1);
@@ -1237,7 +1248,7 @@ void	RunTests()
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCmplxType2, testTarget[t], "1", "Complex type test (complex)\r\n"))
+		if(RunCode(testCmplxType2, testTarget[t], "1", "Complex type test (complex)"))
 		{
 			lastFailed = false;
 
@@ -1262,7 +1273,7 @@ return a.x;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMislead, testTarget[t], "2.000000", "Compiler mislead test\r\n"))
+		if(RunCode(testMislead, testTarget[t], "2.000000", "Compiler mislead test"))
 		{
 			lastFailed = false;
 
@@ -1283,7 +1294,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCmplx3, testTarget[t], "1", "Complex type test\r\n"))
+		if(RunCode(testCmplx3, testTarget[t], "1", "Complex type test"))
 		{
 			lastFailed = false;
 
@@ -1303,7 +1314,7 @@ return d[5];";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCycle, testTarget[t], "0.000000", "Array test\r\n"))
+		if(RunCode(testCycle, testTarget[t], "0.000000", "Array test"))
 		{
 			lastFailed = false;
 
@@ -1323,7 +1334,7 @@ return 1+test(2, 3, 4);	// 11";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFuncCall1, testTarget[t], "11", "Function call test 1\r\n"))
+		if(RunCode(testFuncCall1, testTarget[t], "11", "Function call test 1"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -1341,7 +1352,7 @@ return b+test(2, 3, 4);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFuncCall2, testTarget[t], "13", "Function call test 2\r\n"))
+		if(RunCode(testFuncCall2, testTarget[t], "13", "Function call test 2"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -1356,7 +1367,7 @@ return fib(1);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFuncCall3, testTarget[t], "5", "Function call test 3\r\n"))
+		if(RunCode(testFuncCall3, testTarget[t], "5", "Function call test 3"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -1371,7 +1382,7 @@ return fib(4);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testRecursion, testTarget[t], "3", "Recursion test\r\n"))
+		if(RunCode(testRecursion, testTarget[t], "3", "Recursion test"))
 		{
 			lastFailed = false;
 			if(!lastFailed)
@@ -1391,7 +1402,7 @@ return 5;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testIndirection, testTarget[t], "5", "Array indirection and optimization test\r\n"))
+		if(RunCode(testIndirection, testTarget[t], "5", "Array indirection and optimization test"))
 		{
 			lastFailed = false;
 
@@ -1422,7 +1433,7 @@ return 2+test(2, 3)+a**b;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testAllInOne, testTarget[t], "19.000000", "Old all-in-one test\r\n"))
+		if(RunCode(testAllInOne, testTarget[t], "19.000000", "Old all-in-one test"))
 		{
 			lastFailed = false;
 
@@ -1452,7 +1463,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testLongSpeed, testTarget[t], "0", "longPow speed test\r\n"))
+		if(RunCode(testLongSpeed, testTarget[t], "0", "longPow speed test"))
 		{
 			lastFailed = false;
 
@@ -1480,7 +1491,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testTypeConv, testTarget[t], "1", "Type conversions\r\n"))
+		if(RunCode(testTypeConv, testTarget[t], "1", "Type conversions"))
 		{
 			lastFailed = false;
 
@@ -1507,7 +1518,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testArrayFill, testTarget[t], "1", "Array fill test\r\n"))
+		if(RunCode(testArrayFill, testTarget[t], "1", "Array fill test"))
 		{
 			lastFailed = false;
 
@@ -1565,7 +1576,7 @@ return (\"hello\" == \"hello\") + (\"world\" != \"World\") + (\"world\" != \"wor
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testBuildinFunc, testTarget[t], "3", "Build-In function checks\r\n"))
+		if(RunCode(testBuildinFunc, testTarget[t], "3", "Build-In function checks"))
 		{
 			lastFailed = false;
 
@@ -1590,7 +1601,7 @@ return a**2.0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testDoublePow, testTarget[t], "0.810000", "Double power\r\n"))
+		if(RunCode(testDoublePow, testTarget[t], "0.810000", "Double power"))
 		{
 			lastFailed = false;
 
@@ -1622,7 +1633,7 @@ return clamp(abs(-1.5), 0.0, 1.0);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFuncCall4, testTarget[t], "1.000000", "Function call test 4\r\n"))
+		if(RunCode(testFuncCall4, testTarget[t], "1.000000", "Function call test 4"))
 		{
 			lastFailed = false;
 
@@ -1645,7 +1656,7 @@ return res;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFuncCall5, testTarget[t], "11", "Function Call test 5\r\n"))
+		if(RunCode(testFuncCall5, testTarget[t], "11", "Function Call test 5"))
 		{
 			lastFailed = false;
 
@@ -1670,7 +1681,7 @@ return abs(-0.5);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFuncCall6, testTarget[t], "0.500000", "Function call test 6\r\n"))
+		if(RunCode(testFuncCall6, testTarget[t], "0.500000", "Function call test 6"))
 		{
 			lastFailed = false;
 
@@ -1692,7 +1703,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testIncDec, testTarget[t], "1", "Inc dec test\r\n"))
+		if(RunCode(testIncDec, testTarget[t], "1", "Inc dec test"))
 		{
 			lastFailed = false;
 
@@ -1724,7 +1735,7 @@ return testA(&a);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testPointers, testTarget[t], "325", "Pointers\r\n"))
+		if(RunCode(testPointers, testTarget[t], "325", "Pointers"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 65);
@@ -1758,7 +1769,7 @@ return length(b);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testPointersCmplx, testTarget[t], "1.000000", "Pointers on complex\r\n"))
+		if(RunCode(testPointersCmplx, testTarget[t], "1.000000", "Pointers on complex"))
 		{
 			lastFailed = false;
 
@@ -1781,7 +1792,7 @@ return b.x;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testPointersCmplx2, testTarget[t], "5.000000", "Pointers on complex 2\r\n"))
+		if(RunCode(testPointersCmplx2, testTarget[t], "5.000000", "Pointers on complex 2"))
 		{
 			lastFailed = false;
 			CHECK_FLOAT("a", 0, 5.0);
@@ -1801,7 +1812,7 @@ return testA(b);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testPointers2, testTarget[t], "5.000000", "Pointers 2\r\n"))
+		if(RunCode(testPointers2, testTarget[t], "5.000000", "Pointers 2"))
 		{
 			lastFailed = false;
 			CHECK_FLOAT("a", 0, 5.0);
@@ -1824,7 +1835,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testOptiA, testTarget[t], "1", "Simple optimizations\r\n"))
+		if(RunCode(testOptiA, testTarget[t], "1", "Simple optimizations"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 12);
@@ -1862,7 +1873,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testPointers3, testTarget[t], "1", "Pointers test 3\r\n"))
+		if(RunCode(testPointers3, testTarget[t], "1", "Pointers test 3"))
 		{
 			lastFailed = false;
 			CHECK_INT("arr", 1, 5);
@@ -1894,7 +1905,7 @@ return fib(15, &calls);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCalls, testTarget[t], "610", "Call number test\r\n"))
+		if(RunCode(testCalls, testTarget[t], "610", "Call number test"))
 		{
 			lastFailed = false;
 			CHECK_INT("calltest", 0, 1219);
@@ -1915,7 +1926,7 @@ return nx;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testNegate, testTarget[t], "-5.000000", "Negate test\r\n"))
+		if(RunCode(testNegate, testTarget[t], "-5.000000", "Negate test"))
 		{
 			lastFailed = false;
 			CHECK_DOUBLE("x", 0, 5.0);
@@ -1935,7 +1946,7 @@ return fa(5.0f) * fa(2, 3.0);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFuncOverload, testTarget[t], "90", "Function overload test\r\n"))
+		if(RunCode(testFuncOverload, testTarget[t], "90", "Function overload test"))
 			passed[t]++;
 	}
 
@@ -1960,7 +1971,7 @@ return u;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testSwitch, testTarget[t], "12", "Switch test\r\n"))
+		if(RunCode(testSwitch, testTarget[t], "12", "Switch test"))
 		{
 			lastFailed = false;
 
@@ -1998,7 +2009,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testClass1, testTarget[t], "1", "Class test\r\n"))
+		if(RunCode(testClass1, testTarget[t], "1", "Class test"))
 		{
 			lastFailed = false;
 
@@ -2022,7 +2033,7 @@ return 3;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testVarMod, testTarget[t], "3", "Variable modify test\r\n"))
+		if(RunCode(testVarMod, testTarget[t], "3", "Variable modify test"))
 		{
 			lastFailed = false;
 
@@ -2075,7 +2086,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testClass2, testTarget[t], "1", "Class test 2\r\n"))
+		if(RunCode(testClass2, testTarget[t], "1", "Class test 2"))
 		{
 			lastFailed = false;
 
@@ -2129,7 +2140,7 @@ return test(n, m); // 56.0";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCmplx4, testTarget[t], "56.000000", "Complex types test #3\r\n"))
+		if(RunCode(testCmplx4, testTarget[t], "56.000000", "Complex types test #3"))
 		{
 			lastFailed = false;
 
@@ -2188,7 +2199,7 @@ return int(mat.row1.y);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testSpeed, testTarget[t], "0", "Speed tests\r\n"))
+		if(RunCode(testSpeed, testTarget[t], "0", "Speed tests"))
 		{
 			lastFailed = false;
 
@@ -2217,7 +2228,7 @@ return *u;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testAuto, testTarget[t], "15", "Auto type tests\r\n"))
+		if(RunCode(testAuto, testTarget[t], "15", "Auto type tests"))
 		{
 			lastFailed = false;
 
@@ -2250,7 +2261,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCharArr, testTarget[t], "1", "Char array test\r\n"))
+		if(RunCode(testCharArr, testTarget[t], "1", "Char array test"))
 		{
 			lastFailed = false;
 
@@ -2282,7 +2293,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCharArr2, testTarget[t], "0", "Char array test 2\r\n"))
+		if(RunCode(testCharArr2, testTarget[t], "0", "Char array test 2"))
 		{
 			lastFailed = false;
 
@@ -2326,7 +2337,7 @@ return sum(u);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testArrPtr, testTarget[t], "112", "Implicit pointers to arrays\r\n"))
+		if(RunCode(testArrPtr, testTarget[t], "112", "Implicit pointers to arrays"))
 		{
 			lastFailed = false;
 
@@ -2366,7 +2377,7 @@ return test(uh, 3);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFile, testTarget[t], "309", "File and something else test\r\n"))
+		if(RunCode(testFile, testTarget[t], "309", "File and something else test"))
 		{
 			lastFailed = false;
 			CHECK_STR("uh", 0, "ehhhe");
@@ -2429,7 +2440,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFile2, testTarget[t], "1", "File test 2\r\n"))
+		if(RunCode(testFile2, testTarget[t], "1", "File test 2"))
 		{
 			lastFailed = false;
 			CHECK_STR("name", 0, "extern.bin");
@@ -2471,7 +2482,7 @@ return 'n';";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testEscape, testTarget[t], "110", "Escape sequences\r\n"))
+		if(RunCode(testEscape, testTarget[t], "110", "Escape sequences"))
 		{
 			lastFailed = false;
 			CHECK_STR("name", 0, "09\n");
@@ -2490,7 +2501,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testPrint, testTarget[t], "1", "Print test\r\n"))
+		if(RunCode(testPrint, testTarget[t], "1", "Print test"))
 		{
 			lastFailed = false;
 			CHECK_STR("ts", 0, "Hello World!\r\noh\toh\r\n");
@@ -2527,7 +2538,7 @@ return b[1];";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testVarGetSet1, testTarget[t], "4", "Variable get and set\r\n"))
+		if(RunCode(testVarGetSet1, testTarget[t], "4", "Variable get and set"))
 		{
 			lastFailed = false;
 			int val[] = { 4, 4, 4, 5, 7, 9, 5, 7, 5, 5, };
@@ -2560,7 +2571,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testArrays, testTarget[t], "1", "Arrays test\r\n"))
+		if(RunCode(testArrays, testTarget[t], "1", "Arrays test"))
 		{
 			lastFailed = false;
 			CHECK_INT("kl", 0, 10);
@@ -2600,7 +2611,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testArrays2, testTarget[t], "1", "Array test 2\r\n"))
+		if(RunCode(testArrays2, testTarget[t], "1", "Array test 2"))
 		{
 			lastFailed = false;
 			CHECK_INT("n", 0, 10);
@@ -2646,7 +2657,7 @@ return 4;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testVisibility, testTarget[t], "4", "Function visibility test\r\n"))
+		if(RunCode(testVisibility, testTarget[t], "4", "Function visibility test"))
 		{
 			lastFailed = false;
 			CHECK_INT("u", 0, 5);
@@ -2682,7 +2693,7 @@ return r; // 19398";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testLocalFunc1, testTarget[t], "19398", "Local function context test\r\n"))
+		if(RunCode(testLocalFunc1, testTarget[t], "19398", "Local function context test"))
 		{
 			lastFailed = false;
 			CHECK_INT("g1", 0, 3);
@@ -2722,7 +2733,7 @@ return r; // 990579";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testLocalFunc2, testTarget[t], "990579", "Local function context test 2\r\n"))
+		if(RunCode(testLocalFunc2, testTarget[t], "990579", "Local function context test 2"))
 		{
 			lastFailed = false;
 			CHECK_INT("g1", 0, 3);
@@ -2745,7 +2756,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testStrings, testTarget[t], "1", "Strings test\r\n"))
+		if(RunCode(testStrings, testTarget[t], "1", "Strings test"))
 		{
 			lastFailed = false;
 			CHECK_STR("hm", 0, "World\r\n");
@@ -2781,7 +2792,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMultiCtor, testTarget[t], "1", "Multidimensional array constructor test\r\n"))
+		if(RunCode(testMultiCtor, testTarget[t], "1", "Multidimensional array constructor test"))
 		{
 			lastFailed = false;
 
@@ -2849,7 +2860,7 @@ return a;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testHexConst, testTarget[t], "3735928559L", "Hexadecimal constants\r\n"))
+		if(RunCode(testHexConst, testTarget[t], "3735928559L", "Hexadecimal constants"))
 		{
 			lastFailed = false;
 
@@ -2938,7 +2949,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testGetSet, testTarget[t], "1", "New get and set functions test\r\n"))
+		if(RunCode(testGetSet, testTarget[t], "1", "New get and set functions test"))
 		{
 			lastFailed = false;
 
@@ -3016,7 +3027,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testSizeof, testTarget[t], "1", "sizeof tests\r\n"))
+		if(RunCode(testSizeof, testTarget[t], "1", "sizeof tests"))
 		{
 			lastFailed = false;
 
@@ -3049,7 +3060,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testTypeof, testTarget[t], "1", "typeof tests\r\n"))
+		if(RunCode(testTypeof, testTarget[t], "1", "typeof tests"))
 		{
 			lastFailed = false;
 
@@ -3143,7 +3154,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testClosure, testTarget[t], "1", "Closure test\r\n"))
+		if(RunCode(testClosure, testTarget[t], "1", "Closure test"))
 		{
 			lastFailed = false;
 
@@ -3207,7 +3218,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testClosure2, testTarget[t], "1", "Closure test 2\r\n"))
+		if(RunCode(testClosure2, testTarget[t], "1", "Closure test 2"))
 		{
 			lastFailed = false;
 
@@ -3272,7 +3283,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testClosure5, testTarget[t], "1", "Closure test 5\r\n"))
+		if(RunCode(testClosure5, testTarget[t], "1", "Closure test 5"))
 		{
 			lastFailed = false;
 
@@ -3297,7 +3308,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testPriority, testTarget[t], "1", "Operation priority test\r\n"))
+		if(RunCode(testPriority, testTarget[t], "1", "Operation priority test"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 13);
@@ -3344,7 +3355,7 @@ return a + b;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testDepthBreakContinue, testTarget[t], "24", "Multi-depth break and continue\r\n"))
+		if(RunCode(testDepthBreakContinue, testTarget[t], "24", "Multi-depth break and continue"))
 		{
 			lastFailed = false;
 			CHECK_INT("a", 0, 10);
@@ -3377,7 +3388,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMissingTests, testTarget[t], "1", "Group of tests\r\n"))
+		if(RunCode(testMissingTests, testTarget[t], "1", "Group of tests"))
 		{
 			lastFailed = false;
 			CHECK_LONG("a1", 0, 1);
@@ -3454,7 +3465,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMissingTests2, testTarget[t], "1", "Group of tests 2\r\n"))
+		if(RunCode(testMissingTests2, testTarget[t], "1", "Group of tests 2"))
 		{
 			lastFailed = false;
 			CHECK_INT("d", 0, 3);
@@ -3492,7 +3503,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMissingTests3, testTarget[t], "1", "Group of tests 3\r\n"))
+		if(RunCode(testMissingTests3, testTarget[t], "1", "Group of tests 3"))
 		{
 			lastFailed = false;
 			
@@ -3549,7 +3560,7 @@ return m[1][3] + 2;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMissingTests4, testTarget[t], "6", "Group of tests 4\r\n"))
+		if(RunCode(testMissingTests4, testTarget[t], "6", "Group of tests 4"))
 		{
 			lastFailed = false;
 
@@ -3596,7 +3607,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMissingTests5, testTarget[t], "1", "Group of tests 5\r\n"))
+		if(RunCode(testMissingTests5, testTarget[t], "1", "Group of tests 5"))
 		{
 			lastFailed = false;
 			
@@ -3654,7 +3665,7 @@ return (farr[0])(12);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testIndirectPointers, testTarget[t], "312", "Indirect function pointers\r\n"))
+		if(RunCode(testIndirectPointers, testTarget[t], "312", "Indirect function pointers"))
 		{
 			lastFailed = false;
 			
@@ -3681,7 +3692,7 @@ return int(f()[1].y);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testArrayMemberAfterCall, testTarget[t], "15", "Array and class member access after function call\r\n"))
+		if(RunCode(testArrayMemberAfterCall, testTarget[t], "15", "Array and class member access after function call"))
 		{
 			lastFailed = false;
 
@@ -3708,7 +3719,7 @@ return b();		// 4";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testUpvalues1, testTarget[t], "4", "Closure with upvalues test 1\r\n"))
+		if(RunCode(testUpvalues1, testTarget[t], "4", "Closure with upvalues test 1"))
 		{
 			lastFailed = false;
 
@@ -3738,7 +3749,7 @@ return add3(add13(4));";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testUpvalues2, testTarget[t], "20", "Closure with upvalues test 2\r\n"))
+		if(RunCode(testUpvalues2, testTarget[t], "20", "Closure with upvalues test 2"))
 		{
 			lastFailed = false;
 
@@ -3793,7 +3804,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testUpvalues3, testTarget[t], "1", "Closure with upvalues test 3\r\n"))
+		if(RunCode(testUpvalues3, testTarget[t], "1", "Closure with upvalues test 3"))
 		{
 			lastFailed = false;
 
@@ -3845,7 +3856,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testUpvalues4, testTarget[t], "1", "Closure with upvalues test 4\r\n"))
+		if(RunCode(testUpvalues4, testTarget[t], "1", "Closure with upvalues test 4"))
 		{
 			lastFailed = false;
 
@@ -3902,7 +3913,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMemberFuncCallPostExpr, testTarget[t], "1", "Member function call post expressions\r\n"))
+		if(RunCode(testMemberFuncCallPostExpr, testTarget[t], "1", "Member function call post expressions"))
 		{
 			lastFailed = false;
 
@@ -3935,7 +3946,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testLeftValueExtends, testTarget[t], "1", "L-value extended cases\r\n"))
+		if(RunCode(testLeftValueExtends, testTarget[t], "1", "L-value extended cases"))
 		{
 			lastFailed = false;
 
@@ -3964,7 +3975,7 @@ return 1;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testClassFuncReturn, testTarget[t], "1", "Class function return\r\n"))
+		if(RunCode(testClassFuncReturn, testTarget[t], "1", "Class function return"))
 		{
 			lastFailed = false;
 
@@ -4049,7 +4060,7 @@ return (c.ptr)(12);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testOverloadedOperator2, testTarget[t], "-12", "Overloaded operator = with arrays and functions\r\n"))
+		if(RunCode(testOverloadedOperator2, testTarget[t], "-12", "Overloaded operator = with arrays and functions"))
 		{
 			lastFailed = false;
 
@@ -4120,7 +4131,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testSingleArrayIndexCalculation, testTarget[t], "0", "Single array index calculation\r\n"))
+		if(RunCode(testSingleArrayIndexCalculation, testTarget[t], "0", "Single array index calculation"))
 		{
 			lastFailed = false;
 
@@ -4148,7 +4159,7 @@ return *l;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testAutoReference1, testTarget[t], "17", "Auto reference type\r\n"))
+		if(RunCode(testAutoReference1, testTarget[t], "17", "Auto reference type"))
 		{
 			lastFailed = false;
 
@@ -4181,7 +4192,7 @@ return func(1,7,18);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testParametersExtraordinaire, testTarget[t], "26", "Function parameters with different stack type\r\n"))
+		if(RunCode(testParametersExtraordinaire, testTarget[t], "26", "Function parameters with different stack type"))
 		{
 			lastFailed = false;
 
@@ -4207,7 +4218,7 @@ return a;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testDefaultFuncVars1, testTarget[t], "9", "Default function parameter values\r\n"))
+		if(RunCode(testDefaultFuncVars1, testTarget[t], "9", "Default function parameter values"))
 		{
 			lastFailed = false;
 
@@ -4240,7 +4251,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testDefaultFuncVars2, testTarget[t], "0", "Default function parameter values 2\r\n"))
+		if(RunCode(testDefaultFuncVars2, testTarget[t], "0", "Default function parameter values 2"))
 		{
 			lastFailed = false;
 
@@ -4309,7 +4320,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testPostExpressions, testTarget[t], "0", "Post expressions on arrays and strings\r\n"))
+		if(RunCode(testPostExpressions, testTarget[t], "0", "Post expressions on arrays and strings"))
 		{
 			lastFailed = false;
 
@@ -4364,7 +4375,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testImplicitToRef, testTarget[t], "0", "Implicit type to type ref conversions\r\n"))
+		if(RunCode(testImplicitToRef, testTarget[t], "0", "Implicit type to type ref conversions"))
 		{
 			lastFailed = false;
 
@@ -4427,7 +4438,7 @@ return a.sum;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testAccessors, testTarget[t], "6", "Accessors\r\n"))
+		if(RunCode(testAccessors, testTarget[t], "6", "Accessors"))
 		{
 			lastFailed = false;
 
@@ -4523,7 +4534,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testBreakContinueTests, testTarget[t], "0", "More break and continue tests\r\n"))
+		if(RunCode(testBreakContinueTests, testTarget[t], "0", "More break and continue tests"))
 		{
 			lastFailed = false;
 
@@ -4936,7 +4947,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testForEach3, testTarget[t], "0", "For each for standard arrays\r\n"))
+		if(RunCode(testForEach3, testTarget[t], "0", "For each for standard arrays"))
 		{
 			lastFailed = false;
 
@@ -4964,7 +4975,7 @@ return sum;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testForEach4, testTarget[t], "21", "For each with multiple arrays\r\n"))
+		if(RunCode(testForEach4, testTarget[t], "21", "For each with multiple arrays"))
 		{
 			lastFailed = false;
 
@@ -5092,7 +5103,7 @@ return e.size;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testVarargs3, testTarget[t], "8", "Function with variable argument count (print)\r\n"))
+		if(RunCode(testVarargs3, testTarget[t], "8", "Function with variable argument count (print)"))
 		{
 			lastFailed = false;
 
@@ -5140,7 +5151,7 @@ return e.size;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testVarargs5, testTarget[t], "8", "Function with variable argument count (print)\r\n"))
+		if(RunCode(testVarargs5, testTarget[t], "8", "Function with variable argument count (print)"))
 		{
 			lastFailed = false;
 
@@ -5365,7 +5376,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testShortArrayDefinition, testTarget[t], "0", "Array of type short definition\r\n"))
+		if(RunCode(testShortArrayDefinition, testTarget[t], "0", "Array of type short definition"))
 		{
 			lastFailed = false;
 
@@ -5394,7 +5405,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFloatArrayDefinition, testTarget[t], "0", "Array of type float definition\r\n"))
+		if(RunCode(testFloatArrayDefinition, testTarget[t], "0", "Array of type float definition"))
 		{
 			lastFailed = false;
 
@@ -5423,7 +5434,7 @@ return 0;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testCharArrayDefinition, testTarget[t], "0", "Array of type char definition\r\n"))
+		if(RunCode(testCharArrayDefinition, testTarget[t], "0", "Array of type char definition"))
 		{
 			lastFailed = false;
 
@@ -5452,7 +5463,7 @@ return funcA(5) * funcB(5);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFunctionOverrideInternal, testTarget[t], "130", "Function override between internal functions\r\n"))
+		if(RunCode(testFunctionOverrideInternal, testTarget[t], "130", "Function override between internal functions"))
 		{
 			lastFailed = false;
 
@@ -5480,7 +5491,7 @@ return funcA(5) * funcB(5);";
 	for(int t = 0; t < 1; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFunctionOverrideInternalExternal, testTarget[t], "130", "Function override between internal and external functions\r\n"))
+		if(RunCode(testFunctionOverrideInternalExternal, testTarget[t], "130", "Function override between internal and external functions"))
 		{
 			lastFailed = false;
 
@@ -5510,7 +5521,7 @@ return a_(5) * b_(5);";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFunctionOverrideInternalPtr, testTarget[t], "130", "Function override between internal functions (with function pointers)\r\n"))
+		if(RunCode(testFunctionOverrideInternalPtr, testTarget[t], "130", "Function override between internal functions (with function pointers)"))
 		{
 			lastFailed = false;
 
@@ -5540,7 +5551,7 @@ return a_(5) * b_(5);";
 	for(int t = 0; t < 1; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testFunctionOverrideInternalExternalPtr, testTarget[t], "130", "Function override between internal and external functions (with function pointers)\r\n"))
+		if(RunCode(testFunctionOverrideInternalExternalPtr, testTarget[t], "130", "Function override between internal and external functions (with function pointers)"))
 		{
 			lastFailed = false;
 
@@ -5601,7 +5612,7 @@ return u + v + w;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testLocalOperators, testTarget[t], "40", "Local operator definition\r\n"))
+		if(RunCode(testLocalOperators, testTarget[t], "40", "Local operator definition"))
 		{
 			lastFailed = false;
 
@@ -5642,7 +5653,7 @@ return u + v;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testClassOperators, testTarget[t], "37", "Class operator definition\r\n"))
+		if(RunCode(testClassOperators, testTarget[t], "37", "Class operator definition"))
 		{
 			lastFailed = false;
 
@@ -6189,7 +6200,7 @@ int ref v = c;\r\n\
 a = 10;\r\n\
 return *res + *h.c + *v + *e[0];";
 	testCount[0]++;
-	if(RunCode(testStackResize, testTarget[0], "40", "Parameter stack resize\r\n"))
+	if(RunCode(testStackResize, testTarget[0], "40", "Parameter stack resize"))
 	{
 		lastFailed = false;
 

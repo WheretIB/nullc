@@ -385,7 +385,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		freopen("CONOUT$", "w", stdout);
 		freopen("CONIN$", "r", stdin);
 
-		RunTests();
+		RunTests(false);
 	}
 
 	nullcInit("Modules\\");

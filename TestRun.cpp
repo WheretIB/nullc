@@ -1,7 +1,7 @@
 #include "NULLC/nullc.h"
 #include "UnitTests.h"
 
-int main()
+int main(int argc, char** argv)
 {
-	RunTests();
+	RunTests(argc == 2);
 }
