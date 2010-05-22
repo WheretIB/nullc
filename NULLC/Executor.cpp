@@ -193,7 +193,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 			// Request registers ($$ what about FP?)
 			usedIRegs += ((typeSize + 7) / 8);
-			// Mark this argument as being sent throught stack
+			// Mark this argument as being sent through stack
 			argsToIReg = k;
 			break;
 		default:
@@ -288,7 +288,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				code.push_back(0x8b);
 				code.push_back(0264);	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
 				code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : (typeSize == 0 ? 0 : 4));
+				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				code.push_back((unsigned char*)&tmp, 4);
 
 				// push rsi
@@ -313,10 +313,10 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #endif
 				code.push_back((unsigned char)regCodes[regID]);
 				code.push_back(0040);
-				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : (typeSize == 0 ? 0 : 4));
+				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				code.push_back((unsigned char*)&tmp, 4);
 			}
-			currentShift -= (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : (typeSize == 0 ? 0 : 4));
+			currentShift -= (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 			break;
 		case ExternTypeInfo::TYPE_COMPLEX:
 #ifdef _WIN64
@@ -404,7 +404,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				}
 			}
 #endif
-			currentShift -= typeSize;
+			currentShift -= typeSize == 0 ? 4 : typeSize;
 			break;
 		default:
 			assert(!"parameter type unsupported");
