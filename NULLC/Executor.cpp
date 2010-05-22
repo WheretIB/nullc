@@ -72,6 +72,38 @@ static const unsigned char gatePrologue[32] =
 #endif
 };
 
+bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
+{
+	bool aligned = 1;
+	unsigned int pos = 0;
+	//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
+	for(unsigned m = 0; m < lType->memberCount; m++)
+	{
+		ExternTypeInfo &memberType = exLinker->exTypes[exLinker->exTypeExtra[lType->memberOffset + m]];
+		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
+		switch(memberType.type)
+		{
+		case ExternTypeInfo::TYPE_CHAR:
+			break;
+		case ExternTypeInfo::TYPE_SHORT:
+			if(pos % 2 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_INT:
+			if(pos % 4 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_LONG:
+			if(pos % 8 != 0)
+				aligned = 0;
+			break;
+		}
+		pos += memberType.size;
+	}
+	//printf("%s\n", aligned ? "aligned" : "unaligned");
+	return aligned;
+}
+
 unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, unsigned int funcID)
 {
 	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
@@ -79,7 +111,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 	/*printf("Creating gateway for function %s(", exLinker->exSymbols.data + exFunctions[funcID].offsetToName);
 	// Check every function local
-	for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
+	for(unsigned int i = 0; i < exFunctions[funcID].paramCount; i++)
 	{
 		// Get information about local
 		ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
@@ -97,7 +129,14 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	// complex type return is handled by passing pointer to a place, where the return value will be placed. This uses first register.
 	unsigned int rvs = exFunctions[funcID].retType == ExternFuncInfo::RETURN_UNKNOWN ? 1 : 0;
 
-#ifndef _WIN
+#ifndef _WIN64
+	ExternTypeInfo &funcType = exTypes[exFunctions[funcID].funcType];
+	ExternTypeInfo &returnType = exTypes[exLinker->exTypeExtra[funcType.memberOffset]];
+	if(rvs && returnType.size <= 16 && &returnType != &exTypes[7])
+		rvs = 0;
+	if(returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exLinker))
+		rvs = 1;
+
 	// in AMD64, int and FP registers are independant, so we have to count, how much arguments to save in registers
 	unsigned int usedIRegs = rvs, usedFRegs = 0;
 	// This to variables will help later to know we've reached the boundary of arguments that are placed in registers
@@ -106,17 +145,16 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	{
 		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
 		unsigned int typeSize = 8;
+		ExternTypeInfo *lType = NULL;
 		if((unsigned int)k != exFunctions[funcID].paramCount)
 		{
 			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + k];
-			ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
-			typeCat = lType.type;
-			typeSize = lType.size;
-			// Aggregate types are passed in registers
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
+			lType = &exLinker->exTypes[lInfo.type];
+			typeCat = lType->type;
+			typeSize = lType->size;
+			// Aggregate types are passed in registers ($$ what about FP?)
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize <= 4)
 				typeCat = ExternTypeInfo::TYPE_INT;
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
-				typeCat = ExternTypeInfo::TYPE_LONG;
 		}
 		switch(typeCat)
 		{
@@ -139,9 +177,21 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			}
 			break;
 		case ExternTypeInfo::TYPE_COMPLEX:
-			if(typeSize != 0 && typeSize <= 8)
-				assert(!"parameter type unsupported (small aggregate)");
-			
+			// Parameters larger than 16 bytes are sent through stack
+			// Unaligned types such as auto ref type are sent through stack
+			if(typeSize > 16 || lType == &exTypes[7])
+				break;
+			// Check class structure to see if it has some unaligned fields
+			if(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker))
+				break;
+			// If the class if being divided in the middle, between registers and stack, sent through stack
+			if(usedIRegs + ((typeSize + 7) / 8) >= NULLC_X64_IREGARGS)
+				break;
+
+			// Request registers ($$ what about FP?)
+			usedIRegs += ((typeSize + 7) / 8);
+			// Mark this argument as being sent throught stack
+			argsToIReg = k;
 			break;
 		default:
 			assert(!"parameter type unsupported");
@@ -160,18 +210,25 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
 		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
 		unsigned int typeSize = 8;
+		ExternTypeInfo *lType = NULL;
 		// If this is not the last argument, update data above
 		if((unsigned int)i != exFunctions[funcID].paramCount)
 		{
 			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-			ExternTypeInfo &lType = exLinker->exTypes[lInfo.type];
-			typeCat = lType.type;
-			typeSize = lType.size;
+			lType = &exLinker->exTypes[lInfo.type];
+			typeCat = lType->type;
+			typeSize = lType->size;
 			// Aggregate types are passed in registers
+#ifdef _WIN64
 			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
+#else
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize <= 4)
+#endif
 				typeCat = ExternTypeInfo::TYPE_INT;
+#ifdef _WIN64
 			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
 				typeCat = ExternTypeInfo::TYPE_LONG;
+#endif
 		}
 		switch(typeCat)
 		{
@@ -228,7 +285,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				code.push_back(0x8b);
 				code.push_back(0264);	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
 				code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : (typeSize == 0 ? 0 : 4));
 				code.push_back((unsigned char*)&tmp, 4);
 
 				// push rsi
@@ -253,14 +310,16 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #endif
 				code.push_back((unsigned char)regCodes[regID]);
 				code.push_back(0040);
-				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : (typeSize == 0 ? 0 : 4));
 				code.push_back((unsigned char*)&tmp, 4);
 			}
-			currentShift -= (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
+			currentShift -= (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : (typeSize == 0 ? 0 : 4));
 			break;
 		case ExternTypeInfo::TYPE_COMPLEX:
+#ifdef _WIN64
 			if(typeSize != 0 && typeSize <= 8)
 				assert(!"parameter type unsupported (small aggregate)");
+			// under windows, a pointer to a structure is passed
 			// lea r12, [rax+shift]
 			code.push_back(0x4c);	// 64bit mode
 			code.push_back(0x8d);
@@ -283,25 +342,81 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				else
 					code.push_back(0x49);	// 64bit mode
 				code.push_back(0x8b);
-#ifdef _WIN64
+
 				unsigned regCodes[] = { 0314, 0324, 0304, 0314 }; // rcx, rdx, r8, r9
-#else
-				unsigned regCodes[] = { 0374, 0364, 0324, 0314, 0304, 0314 }; // rdi, rsi, rdx, rcx, r8, r9
-#endif
 				code.push_back((unsigned char)regCodes[rvs + i]);
 			}
+#else
+			// under linux, structure is passed through registers or stack
+			if(typeSize <= 16 && exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i].type != 7 &&
+				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)))
+			{
+				unsigned regCodes[] = { 0274, 0264, 0224, 0214, 0204, 0214 }; // rdi, rsi, rdx, rcx, r8, r9
+
+				unsigned int regID = 0;
+				if(typeSize > 8)
+				{
+					// pass high dword/qword
+					assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
+					regID = (usedIRegs - 1);
+					usedIRegs--;
+					if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
+						code.push_back(typeSize == 16 ? 0x4c : 0x44);	// 64bit mode
+					else if(typeSize == 16)
+						code.push_back(0x48);	// 64bit mode
+					code.push_back(0x8b);
+					code.push_back((unsigned char)regCodes[regID]);
+					code.push_back(0040);
+					tmp = currentShift - (typeSize == 16 ? 8 : 4);
+					code.push_back((unsigned char*)&tmp, 4);
+				}
+				// pass low qword
+				assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
+				regID = (usedIRegs - 1);
+				usedIRegs--;
+				if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
+					code.push_back(0x4c);	// 64bit mode
+				else
+					code.push_back(0x48);	// 64bit mode
+				code.push_back(0x8b);
+				code.push_back((unsigned char)regCodes[regID]);
+				code.push_back(0040);
+				tmp = currentShift - typeSize;
+				code.push_back((unsigned char*)&tmp, 4);
+			}else{
+				for(unsigned p = 0; p < (typeSize + 7) / 8; p++)
+				{
+					// mov rsi, [rax+shift]
+					if(p || typeSize % 8 == 0)
+						code.push_back(0x48);	// 64bit mode
+					code.push_back(0x8b);
+					code.push_back(0264);	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
+					code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
+					tmp = currentShift - p * 8 - (typeSize % 8 == 0 ? 8 : 4);
+					code.push_back((unsigned char*)&tmp, 4);
+
+					// push rsi
+					code.push_back(0x56);
+					needpop += 8;
+				}
+			}
+#endif
 			currentShift -= typeSize;
 			break;
 		default:
 			assert(!"parameter type unsupported");
 		}
 	}
-	// for complex return value, pass a pointer in rcx
+	// for complex return value, pass a pointer in first register
 	if(rvs)
 	{
 		code.push_back(0x48);	// 64bit mode
 		code.push_back(0x8b);
+#ifdef _WIN64
 		code.push_back(0313);	// modR/M mod = 11 (register), spare = 1 (RCX is a destination), r/m = 3 (RBX is source)
+#else
+		code.push_back(0373);	// modR/M mod = 11 (register), spare = 7 (RDI is a destination), r/m = 3 (RBX is source)
+#endif
 	}
 #ifdef _WIN64
 	// sub rsp, 32
@@ -317,16 +432,19 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	code.push_back(0xff);
 	code.push_back(0323);	// modR/M mod = 11 (register), spare = 2, r/m = 3 (R11 is source)
 
-	// add rsp, 32 + needpop
-	code.push_back(0x48);
-	code.push_back(0x81);
-	code.push_back(0304);	// modR/M mod = 11 (register), spare = 0 (add), r/m = 4 (RSP is changed)
 #ifdef _WIN64
 	tmp = 32 + needpop;
 #else
 	tmp = needpop;
 #endif
-	code.push_back((unsigned char*)&tmp, 4);
+	if(tmp)
+	{
+		// add rsp, 32 + needpop
+		code.push_back(0x48);
+		code.push_back(0x81);
+		code.push_back(0304);	// modR/M mod = 11 (register), spare = 0 (add), r/m = 4 (RSP is changed)
+		code.push_back((unsigned char*)&tmp, 4);
+	}
 
 	// handle return value
 	ExternFuncInfo::ReturnType retType = (ExternFuncInfo::ReturnType)exFunctions[funcID].retType;
@@ -338,9 +456,14 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			retType = ExternFuncInfo::RETURN_VOID;
 		else if(retTypeSize <= 4)
 			retType = ExternFuncInfo::RETURN_INT;
+#ifdef _WIN64
 		else if(retTypeSize == 8)
 			retType = ExternFuncInfo::RETURN_LONG;
+#endif
 	}
+	if(rvs)
+		retType = ExternFuncInfo::RETURN_UNKNOWN;
+
 	unsigned int returnShift = 0;
 	switch(retType)
 	{
@@ -375,8 +498,26 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	case ExternFuncInfo::RETURN_VOID:
 		break;
 	case ExternFuncInfo::RETURN_UNKNOWN:
+#ifndef _WIN64
+		if(!rvs)
+		{
+			// mov qword [rbx], rax
+			code.push_back(0x48);	// 64bit mode
+			code.push_back(0x89);
+			code.push_back(0003);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
+			if(retTypeSize > 8)
+			{
+				// mov qword [rbx+8], rdx
+				code.push_back(0x48);	// 64bit mode
+				code.push_back(0x89);
+				code.push_back(0123);	// modR/M mod = 01 (8bit shift), spare = 2 (RDX is source), r/m = 3 (RBX is base)
+				code.push_back(8);
+			}
+		}
+#else
 		if(retTypeSize <= 8)
 			assert(!"return type unsupported (small aggregate)");
+#endif
 		returnShift = retTypeSize / 4;
 		break;
 	}
@@ -1587,7 +1728,6 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	// buffer for return value
 	unsigned int ret[128];
 
-	//asm("int $0x3");
 	// call external function through gateway
 	void (*gate)(unsigned int*, unsigned int*, void*) = (void (*)(unsigned int*, unsigned int*, void*))(void*)(gateCode.data + exFunctions[funcID].startInByteCode);
 	gate(stackStart, ret, fPtr);
