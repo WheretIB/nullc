@@ -169,6 +169,7 @@ Compiler::Compiler()
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "short", 0, 0, 1, NULL, TypeInfo::TYPE_SHORT);
+	info->alignBytes = 2;
 	info->size = 2;
 	typeShort = info;
 	CodeInfo::typeInfo.push_back(info);
@@ -492,7 +493,11 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				unsigned int strLength = (unsigned int)strlen(memberName) + 1;
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
 				memberName += strLength;
-				type->AddMemberVariable(nameCopy, CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n]]]);
+				TypeInfo *memberType = CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n]]];
+				unsigned int alignment = memberType->alignBytes > 4 ? 4 : memberType->alignBytes;
+				if(alignment && type->size % alignment != 0)
+					type->size += alignment - (type->size % alignment);
+				type->AddMemberVariable(nameCopy, memberType);
 			}
 			if(type->size % 4 != 0)
 			{

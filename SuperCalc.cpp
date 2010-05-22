@@ -959,6 +959,7 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	HTREEITEM child = update ? TreeView_GetChild(hWatch, parent) : NULL;
 
 	char name[256];
+	unsigned localOffset = 0;
 
 	const char *memberName = codeSymbols + type.offsetToName + (unsigned int)strlen(codeSymbols + type.offsetToName) + 1;
 	for(unsigned int i = 0; i < type.memberCount; i++)
@@ -967,6 +968,12 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		memset(name, 0, 256);
 
 		ExternTypeInfo	&memberType = codeTypes[codeTypeExtra[type.memberOffset + i]];
+		unsigned int alignment = memberType.defaultAlign > 4 ? 4 : memberType.defaultAlign;
+		if(alignment && localOffset % alignment != 0)
+		{
+			ptr += alignment - (localOffset % alignment);
+			localOffset += alignment - (localOffset % alignment);	
+		}
 
 		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, memberName);
 
@@ -995,7 +1002,8 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		FillVariableInfo(memberType, ptr, lastItem);
 
 		memberName += (unsigned int)strlen(memberName) + 1;
-		ptr += memberType.size;	// $$ alignment?
+		ptr += memberType.size;
+		localOffset += memberType.size;
 		if(update)
 			child = TreeView_GetNextSibling(hWatch, child);
 	}
