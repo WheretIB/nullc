@@ -413,7 +413,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
 				{
 					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]];
-					newInfo->funcType->paramSize += newInfo->funcType->paramType[n-1]->size > 4 ? newInfo->funcType->paramType[n-1]->size : (newInfo->funcType->paramType[n-1]->size ? 4 : 0);
+					newInfo->funcType->paramSize += newInfo->funcType->paramType[n-1]->size > 4 ? newInfo->funcType->paramType[n-1]->size : 4;
 				}
 
 #ifdef _DEBUG
@@ -570,7 +570,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				ExternLocalInfo &lInfo = fLocals[fInfo->offsetToFirstLocal + n];
 				TypeInfo *currType = CodeInfo::typeInfo[typeRemap[lInfo.type]];
 				lastFunc->AddParameter(new VariableInfo(lastFunc, InplaceStr(symbols + lInfo.offsetToName), GetStringHash(symbols + lInfo.offsetToName), 0, currType, false));
-				lastFunc->allParamSize += currType->size < 4 ? (currType->size ? 4 : 0) : currType->size;
+				lastFunc->allParamSize += currType->size < 4 ? 4 : currType->size;
 				lastFunc->lastParam->defaultValueFuncID = lInfo.defaultFuncId;
 			}
 			lastFunc->implemented = true;
@@ -1103,7 +1103,7 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 
 	for(VariableInfo *curr = refFunc.firstParam; curr; curr = curr->next)
 	{
-		unsigned int paramSize = curr->varType->size > 4 ? curr->varType->size : (curr->varType->size ? 4 : 0);
+		unsigned int paramSize = curr->varType->size > 4 ? curr->varType->size : 4;
 		fInfo.bytesToPop += paramSize;
 	}
 

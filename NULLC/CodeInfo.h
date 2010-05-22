@@ -115,7 +115,7 @@ namespace CodeInfo
 			for(T *curr = paramTypes; curr; curr = curr->next, i++)
 			{
 				bestFit->funcType->paramType[i] = curr->varType;
-				bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : (curr->varType->size ? 4 : 0);
+				bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : 4;
 			}
 
 	#ifdef _DEBUG

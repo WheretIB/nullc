@@ -907,8 +907,11 @@ void NodeFuncCall::Compile()
 		TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
 		do
 		{
-			if(*paramType == typeFloat && curr->nodeType == typeNodeNumber)
+			if(curr->typeInfo->size == 0)
 			{
+				curr->Compile();
+				cmdList.push_back(VMCmd(cmdPushImmt, 0));
+			}else if(*paramType == typeFloat && curr->nodeType == typeNodeNumber){
 				float num = (float)((NodeNumber*)curr)->GetDouble();
 				cmdList.push_back(VMCmd(cmdPushImmt, *(int*)&num));
 			}else{

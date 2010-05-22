@@ -1719,7 +1719,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 
 	lastFunc.AddParameter(new VariableInfo(&lastFunc, paramName, hash, lastFunc.allParamSize, currType, false));
 	if(currType)
-		lastFunc.allParamSize += currType->size < 4 ? (currType->size ? 4 : 0) : currType->size;
+		lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
 }
 
 void FunctionParameterDefault(const char* pos)
@@ -1734,7 +1734,7 @@ void FunctionParameterDefault(const char* pos)
 	if(!lastFunc.lastParam->varType)
 	{
 		left = lastFunc.lastParam->varType = right;
-		lastFunc.allParamSize += right->size < 4 ? (right->size ? 4 : 0) : right->size;
+		lastFunc.allParamSize += right->size < 4 ? 4 : right->size;
 	}
 	if(left == typeVoid)
 		ThrowError(pos, "ERROR: function parameter cannot be a void type", right->GetFullTypeName(), left->GetFullTypeName());
