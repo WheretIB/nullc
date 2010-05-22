@@ -2572,6 +2572,10 @@ void TypeAddMember(const char* pos, const char* varName)
 {
 	if(!currType)
 		ThrowError(pos, "ERROR: auto cannot be used for class members");
+	// Align members to their default alignment, but not larger that 4 bytes
+	unsigned int alignment = currType->alignBytes > 4 ? 4 : currType->alignBytes;
+	if(alignment && newType->size % alignment != 0)
+		newType->size += alignment - (newType->size % alignment);
 	newType->AddMemberVariable(varName, currType);
 	if(newType->size > 64 * 1024)
 		ThrowError(pos, "ERROR: class size cannot exceed 65535 bytes");

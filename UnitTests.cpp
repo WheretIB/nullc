@@ -579,30 +579,22 @@ NULLCRef TestExtC3(NULLCRef x)
 	return x;
 }
 
-#pragma pack(push, 1)
 struct TestExtG2Foo{ char a; int b; };
-#pragma pack(pop)
 int TestExtG2(TestExtG2Foo x)
 {
 	return x.a == -1 && x.b == -2;
 }
-#pragma pack(push, 1)
 struct TestExtG3Foo{ int a; char b; };
-#pragma pack(pop)
 int TestExtG3(TestExtG3Foo x)
 {
 	return x.a == -1 && x.b == -2;
 }
-#pragma pack(push, 1)
 struct TestExtG4Foo{ int a; char b; short c; };
-#pragma pack(pop)
 int TestExtG4(TestExtG4Foo x)
 {
 	return x.a == -1 && x.b == -2 && x.c == -3;
 }
-#pragma pack(push, 1)
 struct TestExtG5Foo{ int a; short b; char c; };
-#pragma pack(pop)
 int TestExtG5(TestExtG5Foo x)
 {
 	return x.a == -1 && x.b == -2 && x.c == -3;
@@ -615,33 +607,25 @@ int TestExtG6(TestExtG6Foo x)
 	return x.a == -1 && *x.b == -2;
 }
 
-#pragma pack(push, 1)
 struct TestExtG2bFoo{ char a; int b; };
-#pragma pack(pop)
 TestExtG2bFoo TestExtG2b(TestExtG2bFoo x)
 {
 	x.a = x.a == -1 && x.b == -2;
 	return x;
 }
-#pragma pack(push, 1)
 struct TestExtG3bFoo{ int a; char b; };
-#pragma pack(pop)
 TestExtG3bFoo TestExtG3b(TestExtG3bFoo x)
 {
 	x.a = x.a == -1 && x.b == -2;
 	return x;
 }
-#pragma pack(push, 1)
 struct TestExtG4bFoo{ int a; char b; short c; };
-#pragma pack(pop)
 TestExtG4bFoo TestExtG4b(TestExtG4bFoo x)
 {
 	x.a = x.a == -1 && x.b == -2 && x.c == -3;
 	return x;
 }
-#pragma pack(push, 1)
 struct TestExtG5bFoo{ int a; short b; char c; };
-#pragma pack(pop)
 TestExtG5bFoo TestExtG5b(TestExtG5bFoo x)
 {
 	x.a = x.a == -1 && x.b == -2 && x.c == -3;
@@ -908,7 +892,6 @@ Zomg z; z.x = -1; z.y = &u;\r\n\
 return Call(z);";
 	TEST_FOR_RESULT("External function call. { int; int ref; } in argument.", testExternalCallG6, "1");
 
-#if defined(_M_X64) || defined(NULLC_COMPLEX_RETURN)
 	nullcLoadModuleBySource("test.extG2b", "class Zomg{ char x; int y; } Zomg Call(Zomg a);");
 	nullcBindModuleFunction("test.extG2b", (void (*)())TestExtG2b, "Call", 0);
 	const char	*testExternalCallG2b =
@@ -954,7 +937,6 @@ Zomg z; z.x = -1; z.y = &u;\r\n\
 z = Call(z);\r\n\
 return z.x == 1;";
 	TEST_FOR_RESULT("External function call. { int; int ref; } returned.", testExternalCallG6b, "1");
-#endif
 
 	// big argument tests
 	// big arguments with int and float/double
