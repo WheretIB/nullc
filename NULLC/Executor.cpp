@@ -604,7 +604,7 @@ void Executor::InitExecution()
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 	{
 		exFunctions[i].startInByteCode = gateCode.size();
-		exFunctions[i].returnShift = (unsigned short)CreateFunctionGateway(gateCode, i);
+		exFunctions[i].returnShift = (unsigned char)CreateFunctionGateway(gateCode, i);
 	}
 #ifdef _WIN64
 	DWORD old;
