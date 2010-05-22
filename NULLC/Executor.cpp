@@ -173,7 +173,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		case ExternTypeInfo::TYPE_SHORT:
 		case ExternTypeInfo::TYPE_INT:
 		case ExternTypeInfo::TYPE_LONG:
-			if(usedIRegs < NULLC_X64_IREGARGS)
+			if(typeSize && usedIRegs < NULLC_X64_IREGARGS)
 			{
 				usedIRegs++;
 				argsToIReg = k;
@@ -279,20 +279,23 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #ifdef _WIN64
 			if(rvs + i > NULLC_X64_IREGARGS - 1)
 #else
-			if((unsigned)i > argsToIReg)
+			if((unsigned)i > argsToIReg || !typeSize)
 #endif
 			{
-				// mov rsi, [rax+shift]
+				// mov r12, [rax+shift]
 				if(typeCat == ExternTypeInfo::TYPE_LONG)
-					code.push_back(0x48);	// 64bit mode
+					code.push_back(0x4c);	// 64bit mode
+				else
+					code.push_back(0x44);
 				code.push_back(0x8b);
-				code.push_back(0264);	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
+				code.push_back(0244);	// modR/M mod = 10 (32-bit shift), spare = 4 (R12 is destination), r/m = 4 (SIB active)
 				code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
 				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
 				code.push_back((unsigned char*)&tmp, 4);
 
-				// push rsi
-				code.push_back(0x56);
+				// push r12
+				code.push_back(0x49);
+				code.push_back(0x54);
 				needpop += 8;
 			}else{
 				unsigned int regID = rvs + i;
