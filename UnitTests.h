@@ -1,4 +1,4 @@
 #pragma once
 
-void	RunTests();
+void	RunTests(bool verbose);
 
