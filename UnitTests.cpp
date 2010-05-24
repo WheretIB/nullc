@@ -86,6 +86,9 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 	if(executor != NULLC_VM)
 		return false;
 #endif
+	if(messageVerbose && executor == NULLC_VM)
+		printf("%s\n", message);
+
 	nullcSetExecutor(executor);
 
 	char buf[256];
@@ -101,7 +104,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 
 	if(!good)
 	{
-		if(message)
+		if(message && !messageVerbose)
 			printf("%s\n", message);
 		printf("%s Compilation failed: %s\r\n", buf, nullcGetLastError());
 		return false;
@@ -120,7 +123,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 
 		if(!linkgood)
 		{
-			if(message)
+			if(message && !messageVerbose)
 				printf("%s\n", message);
 			printf("%s Link failed: %s\r\n", buf, nullcGetLastError());
 			return false;
@@ -136,13 +139,13 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 
 			if(expected && strcmp(val, expected) != 0)
 			{
-				if(message)
+				if(message && !messageVerbose)
 					printf("%s\n", message);
 				printf("%s Failed (%s != %s)\r\n", buf, val, expected);
 				return false;
 			}
 		}else{
-			if(message)
+			if(message && !messageVerbose)
 				printf("%s\n", message);
 			printf("%s Execution failed: %s\r\n", buf, nullcGetLastError());
 			return false;
@@ -198,22 +201,19 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 			printf("C++: expected %s, got %d\r\n", expected, retCode);
 			if(atoi(expected) != (int)retCode)
 			{
-				if(message)
+				if(message && !messageVerbose)
 					printf("%s\n", message);
 				printf("C++: failed\r\n", expected, retCode);
 			}
 			CloseHandle(prInfo.hProcess);
 			CloseHandle(prInfo.hThread);
 		}else{
-			if(message)
+			if(message && !messageVerbose)
 				printf("%s\n", message);
 			printf("C++ compilation eror\r\n", expected, retCode);
 		}
 	}
 #endif
-
-	if(messageVerbose && executor == NULLC_VM)
-		printf("%s\n", message);
 
 	return true;
 }
