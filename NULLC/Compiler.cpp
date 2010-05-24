@@ -1120,13 +1120,10 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 	{
 		TypeInfo& type = *curr->varType;
 
-		TypeInfo::TypeCategory oldCategory = type.type;
-		if(type.type == TypeInfo::TYPE_COMPLEX)
+		if(fCount >= fMaxCount || rCount >= rMaxCount) // too many f/r parameters
 		{
-			if(type.size <= 4)
-				type.type = TypeInfo::TYPE_INT;
-			else if(type.size <= 8)
-				type.type = TypeInfo::TYPE_LONG;
+			fInfo.ps3Callable = 0;
+			break;
 		}
 		switch(type.type)
 		{
@@ -1134,32 +1131,25 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 		case TypeInfo::TYPE_SHORT:
 		case TypeInfo::TYPE_INT:
 		case TypeInfo::TYPE_LONG:
-			if(rCount >= rMaxCount)	// too many r parameters
-			{
-				fInfo.ps3Callable = 0;
-				break;
-			}
-			fInfo.rOffsets[rCount++] = offset;
+			if(type.refLevel)
+				fInfo.rOffsets[rCount++] = offset | 2u << 30u;
+			else
+				fInfo.rOffsets[rCount++] = offset | (type.type == TypeInfo::TYPE_LONG ? 1u : 0u) << 30u;
 			offset += type.type == TypeInfo::TYPE_LONG ? 2 : 1;
 			break;
 
 		case TypeInfo::TYPE_FLOAT:
 		case TypeInfo::TYPE_DOUBLE:
-			if(fCount >= fMaxCount || rCount >= rMaxCount) // too many f/r parameters
-			{
-				fInfo.ps3Callable = 0;
-				break;
-			}
 			fInfo.rOffsets[rCount++] = offset;
-			fInfo.fOffsets[fCount++] = offset;
+			fInfo.fOffsets[fCount++] = offset | (type.type == TypeInfo::TYPE_FLOAT ? 1u : 0u) << 31u;
 			offset += type.type == TypeInfo::TYPE_DOUBLE ? 2 : 1;
 			break;
 
 		default:
-			fInfo.ps3Callable = 0; // unsupported type
+			fInfo.rOffsets[rCount++] = offset | 3u << 30u;
+			offset += type.size / 4;
 			break;
 		}
-		type.type = oldCategory;
 	}
 
 	// clear remaining offsets
@@ -1449,7 +1439,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			funcInfo.retType = ExternFuncInfo::RETURN_INT;
 		else if(refFunc->retType->type == TypeInfo::TYPE_LONG)
 			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
-		funcInfo.returnShift = (unsigned short)(refFunc->retType->size / 4);
+		funcInfo.returnShift = (unsigned char)(refFunc->retType->size / 4);
 #else
 		else if(refFunc->retType->type == TypeInfo::TYPE_INT || refFunc->retType->size <= 4)
 			funcInfo.retType = ExternFuncInfo::RETURN_INT;

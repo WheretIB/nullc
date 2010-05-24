@@ -1678,12 +1678,36 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	};
 	MAKE_FUNC_PTR_TYPE(BigReturnForce, BigReturnFunctionPtr)
 
-	// call function
-	#define R(i) *(const unsigned long long*)(const void*)(genStackPtr + exFunctions[funcID].rOffsets[i])
-	#define F(i) *(const double*)(const void*)(genStackPtr + exFunctions[funcID].fOffsets[i])
+	// Ireg argument variants
+	unsigned long long argsI[8][4];
+	for(unsigned i = 0; i < 8; i++)
+	{
+		const void *ptr = genStackPtr + (exFunctions[funcID].rOffsets[i] & 0x3fffffff);
+		// int
+		argsI[i][0] = (unsigned long long)*(const int*)ptr;
+		// long long
+		argsI[i][1] = *(const unsigned long long*)ptr;
+		// pointer
+		argsI[i][2] = (unsigned long long)*(const unsigned*)ptr;
+		// struct
+		argsI[i][3] = (unsigned long long)(uintptr_t)ptr;
+	}
+	// Freg argument variants
+	double argsF[8][2];
+	for(unsigned i = 0; i < 8; i++)
+	{
+		const void *ptr = genStackPtr + (exFunctions[funcID].fOffsets[i] & 0x7fffffff);
+		// double
+		argsF[i][0] = *(const double*)ptr;
+		// float
+		argsF[i][1] = (double)*(const float*)ptr;
+	}
+
+	#define R(i) argsI[i][exFunctions[funcID].rOffsets[i] >> 30]
+	#define F(i) argsF[i][exFunctions[funcID].fOffsets[i] >> 31]
 
 	unsigned int *newStackPtr = genStackPtr + dwordsToPop;
-
+	// call function
 	switch(exFunctions[funcID].retType)
 	{
 	case ExternFuncInfo::RETURN_VOID:
