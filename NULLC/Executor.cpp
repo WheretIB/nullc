@@ -738,6 +738,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					// Step command - handle conditional "jump on true" step
 					if(breakCode[target].cmd == cmdJmpNZ && *genStackPtr != 0)
 						nextCommand = cmdStreamBase + breakCode[target].argument;
+					// Step command - handle "return" step
+					if(breakCode[target].cmd == cmdReturn && fcallStack.size() != finalReturn)
+						nextCommand = fcallStack.back();
 					if(response == 2 && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != -1)
 						nextCommand = cmdStreamBase + exFunctions[breakCode[target].argument].address;
 					if(response == 2 && breakCode[target].cmd == cmdCallPtr && genStackPtr[cmd.argument >> 2] && exFunctions[genStackPtr[cmd.argument >> 2]].address != -1)
