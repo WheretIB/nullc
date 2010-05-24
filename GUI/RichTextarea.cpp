@@ -185,14 +185,17 @@ namespace RichTextarea
 
 	PAINTSTRUCT areaPS;
 
+	// Size of the zone in which line images are shown and breakpoints are set
+	unsigned int toolSize = 10;
+
 	// Padding to the left of the first symbol
-	unsigned int padLeft = 10;
+	unsigned int padLeft = 20;
 	// Single character width and height (using monospaced font)
 	int charWidth = 8, charHeight = 8;
 
 	// A few pens and brushes for rendering
 	HPEN	areaPenWhite1px, areaPenBlack1px;
-	HBRUSH	areaBrushWhite, areaBrushBlack, areaBrushSelected;
+	HBRUSH	areaBrushWhite, areaBrushBlack, areaBrushSelected, areaBrushTool;
 
 	// Is symbol overwrite on
 	bool insertionMode = false;
@@ -521,6 +524,7 @@ namespace RichTextarea
 		areaBrushWhite = CreateSolidBrush(RGB(255, 255, 255));
 		areaBrushBlack = CreateSolidBrush(RGB(0, 0, 0));
 		areaBrushSelected = CreateSolidBrush(RGB(51, 153, 255));
+		areaBrushTool = CreateSolidBrush(RGB(232, 232, 232));
 
 		EndPaint(wnd, &areaPS);
 
@@ -570,7 +574,7 @@ namespace RichTextarea
 		data->toolInfo.hinst = RichTextarea::instHandle;
 		data->toolInfo.lpszText = "none";
 		GetClientRect(wnd, &data->toolInfo.rect);
-		data->toolInfo.rect.right = data->toolInfo.rect.left + RichTextarea::padLeft;
+		data->toolInfo.rect.right = data->toolInfo.rect.left + RichTextarea::toolSize;
 
 		SendMessage(data->toolTip, TTM_ADDTOOL, 0, (LPARAM)&data->toolInfo);
 	}
@@ -1082,13 +1086,17 @@ void TextareaData::OnPaint()
 			charRect.right = areaWidth;
 			FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
 			charRect.left = 0;
+			charRect.right = RichTextarea::toolSize;
+			FillRect(hdc, &charRect, RichTextarea::areaBrushTool);
+
+			charRect.left = RichTextarea::toolSize;
 			charRect.right = RichTextarea::padLeft;
 			FillRect(hdc, &charRect, RichTextarea::areaBrushWhite);
 
 			if(curr->lineStyle)
 			{
 				SelectObject(memDC, lStyle[curr->lineStyle].leftImg);
-				BitBlt(hdc, RichTextarea::padLeft - 16, charRect.top, 16, 16, memDC, 0, 0, SRCCOPY);
+				BitBlt(hdc, RichTextarea::toolSize - 16, charRect.top, 16, 16, memDC, 0, 0, SRCCOPY);
 			}
 		}
 		// Shift to the beginning of the next line
@@ -2036,7 +2044,7 @@ void TextareaData::OnSize(unsigned int width, unsigned int height)
 		RichTextarea::SetStatusBar(RichTextarea::areaStatus, areaWidth);
 
 	GetClientRect(areaWnd, &toolInfo.rect);
-	toolInfo.rect.right = toolInfo.rect.left + RichTextarea::padLeft;
+	toolInfo.rect.right = toolInfo.rect.left + RichTextarea::toolSize;
 
 	UpdateScrollBar();
 
@@ -2261,7 +2269,7 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 			break;
 		case WM_MOUSEMOVE:
 			// If mouse is in the tooltip area
-			if(LOWORD(lParam) < RichTextarea::padLeft)
+			if(LOWORD(lParam) < RichTextarea::toolSize)
 			{
 				unsigned int blankX, blankY;
 				AreaLine *cLine = data->ClientToCursor(LOWORD(lParam), HIWORD(lParam), blankX, blankY, true);
@@ -2279,7 +2287,7 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 			break;
 		case WM_LBUTTONUP:
 			ReleaseCapture();
-			if(LOWORD(lParam) < RichTextarea::padLeft && !data->selectionOn && RichTextarea::tooltipCallback)
+			if(LOWORD(lParam) < RichTextarea::toolSize && !data->selectionOn && RichTextarea::tooltipCallback)
 			{
 				RichTextarea::LineIterator it;
 				it.line = data->currLine;
