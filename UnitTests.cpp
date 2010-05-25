@@ -42,6 +42,12 @@
 #	define MODULE_PATH "Modules/"
 #endif
 
+#ifdef NULLC_BUILD_X86_JIT
+	#define TEST_COUNT 2
+#else
+	#define TEST_COUNT 1
+#endif
+
 double timeCompile;
 double timeGetListing;
 double timeGetBytecode;
@@ -1014,7 +1020,8 @@ void	RunTests(bool verbose)
 	RunExternalCallTests();
 
 //////////////////////////////////////////////////////////////////////////
-	printf("Two bytecode merge test 1\r\n");
+	if(messageVerbose)
+		printf("Two bytecode merge test 1\r\n");
 
 	const char *partA1 = "int a = 5;\r\nint c = 8;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\nint run(){ test(&a, 4); return c; }\r\n";
 	const char *partB1 = "int aa = 15;\r\nint testA(int ref a, int b)\r\n{\r\n\treturn *a += b + 1;\r\n}\r\ntestA(&aa, 5);\r\nvoid runA(){ testA(&aa, 5); }\r\nreturn aa;\r\n";
@@ -1023,7 +1030,7 @@ void	RunTests(bool verbose)
 	bytecodeA = NULL;
 	bytecodeB = NULL;
 
-	for(int t = 0; t < 2; t++)
+	for(int t = 0; t < TEST_COUNT; t++)
 	{
 		testCount[t]++;
 		nullcSetExecutor(testTarget[t]);
@@ -1032,6 +1039,8 @@ void	RunTests(bool verbose)
 		nullcSaveListing("asm.txt");
 		if(!good)
 		{
+			if(!messageVerbose)
+				printf("Two bytecode merge test 1\r\n");
 			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			continue;
 		}else{
@@ -1042,6 +1051,8 @@ void	RunTests(bool verbose)
 		nullcSaveListing("asm.txt");
 		if(!good)
 		{
+			if(!messageVerbose)
+				printf("Two bytecode merge test 1\r\n");
 			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			continue;
 		}else{
@@ -1051,11 +1062,15 @@ void	RunTests(bool verbose)
 		nullcClean();
 		if(!nullcLinkCode(bytecodeA, 0))
 		{
+			if(!messageVerbose)
+				printf("Two bytecode merge test 1\r\n");
 			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			continue;
 		}
 		if(!nullcLinkCode(bytecodeB, 0))
 		{
+			if(!messageVerbose)
+				printf("Two bytecode merge test 1\r\n");
 			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			break;
 		}
@@ -1064,11 +1079,15 @@ void	RunTests(bool verbose)
 
 		if(!nullcRunFunction(NULL))
 		{
+			if(!messageVerbose)
+				printf("Two bytecode merge test 1\r\n");
 			printf("Execution failed: %s\r\n", nullcGetLastError());
 		}else{
 			int* val = (int*)nullcGetGlobal("c");
 			if(*val != 8)
 			{
+				if(!messageVerbose)
+					printf("Two bytecode merge test 1\r\n");
 				printf("nullcGetGlobal failed");
 				continue;
 			}
@@ -1076,15 +1095,21 @@ void	RunTests(bool verbose)
 			nullcSetGlobal("c", &n);
 			if(!nullcRunFunction("run"))
 			{
+				if(!messageVerbose)
+					printf("Two bytecode merge test 1\r\n");
 				printf("Execution failed: %s\r\n", nullcGetLastError());
 			}else{
 				if(nullcGetResultInt() != n)
 				{
+					if(!messageVerbose)
+						printf("Two bytecode merge test 1\r\n");
 					printf("nullcSetGlobal failed");
 					continue;
 				}
 				if(!nullcRunFunction("runA"))
 				{
+					if(!messageVerbose)
+						printf("Two bytecode merge test 1\r\n");
 					printf("Execution failed: %s\r\n", nullcGetLastError());
 				}else{
 					varData = (char*)nullcGetVariableData(NULL);
@@ -4818,19 +4843,24 @@ return arr[8];";
 	TEST_FOR_RESULT("NULLC function call externally test 5", testFunc5, "32053");
 
 const char	*testLongRetrieval = "return 25l;";
-	printf("nullcGetResultLong test\r\n");
-	for(int t = 0; t < 2; t++)
+	if(messageVerbose)
+		printf("nullcGetResultLong test\r\n");
+	for(int t = 0; t < TEST_COUNT; t++)
 	{
 		testCount[t]++;
 		nullcSetExecutor(testTarget[t]);
 		nullres r = nullcBuild(testLongRetrieval);
 		if(!r)
 		{
+			if(!messageVerbose)
+				printf("nullcGetResultDouble test\r\n");
 			printf("Build failed:%s\r\n", nullcGetLastError());
 			continue;
 		}
 		if(!nullcRun())
 		{
+			if(!messageVerbose)
+				printf("nullcGetResultDouble test\r\n");
 			printf("Execution failed:%s\r\n", nullcGetLastError());
 			continue;
 		}
@@ -4838,24 +4868,31 @@ const char	*testLongRetrieval = "return 25l;";
 		{
 			passed[t]++;
 		}else{
+			if(!messageVerbose)
+				printf("nullcGetResultDouble test\r\n");
 			printf("Incorrect result: %s", nullcGetResult());
 		}
 	}
 
 const char	*testDoubleRetrieval = "return 25.0;";
-	printf("nullcGetResultDouble test\r\n");
-	for(int t = 0; t < 2; t++)
+	if(messageVerbose)
+		printf("nullcGetResultDouble test\r\n");
+	for(int t = 0; t < TEST_COUNT; t++)
 	{
 		testCount[t]++;
 		nullcSetExecutor(testTarget[t]);
 		nullres r = nullcBuild(testDoubleRetrieval);
 		if(!r)
 		{
+			if(!messageVerbose)
+				printf("nullcGetResultDouble test\r\n");
 			printf("Build failed:%s\r\n", nullcGetLastError());
 			continue;
 		}
 		if(!nullcRun())
 		{
+			if(!messageVerbose)
+				printf("nullcGetResultDouble test\r\n");
 			printf("Execution failed:%s\r\n", nullcGetLastError());
 			continue;
 		}
@@ -4863,6 +4900,8 @@ const char	*testDoubleRetrieval = "return 25.0;";
 		{
 			passed[t]++;
 		}else{
+			if(!messageVerbose)
+				printf("nullcGetResultDouble test\r\n");
 			printf("Incorrect result: %s", nullcGetResult());
 		}
 	}
