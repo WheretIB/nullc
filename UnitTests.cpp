@@ -2847,7 +2847,7 @@ return a;";
 		{
 			lastFailed = false;
 
-			CHECK_INT("a", 0, -559038737);
+			CHECK_LONG("a", 0, 3735928559ll);
 			CHECK_INT("b", 0, 51966);
 			CHECK_LONG("c", 0, 9223372036854775807ll);
 
