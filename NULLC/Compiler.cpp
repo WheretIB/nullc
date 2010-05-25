@@ -1120,6 +1120,14 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 	{
 		TypeInfo& type = *curr->varType;
 
+		TypeInfo::TypeCategory oldCategory = type.type;
+		if(type.type == TypeInfo::TYPE_COMPLEX)
+		{
+			if(type.size <= 4)
+				type.type = TypeInfo::TYPE_INT;
+			else if(type.size <= 8)
+				type.type = TypeInfo::TYPE_LONG;
+		}
 		if(fCount >= fMaxCount || rCount >= rMaxCount) // too many f/r parameters
 		{
 			fInfo.ps3Callable = 0;
@@ -1150,6 +1158,7 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 			offset += type.size / 4;
 			break;
 		}
+		type.type = oldCategory;
 	}
 
 	// clear remaining offsets

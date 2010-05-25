@@ -49,7 +49,7 @@ long long vmLongPow(long long num, long long pow)
 	#define NULLC_X64_FREGARGS 8
 #endif
 
-static const unsigned char gatePrologue[32] =
+static const unsigned char gatePrologue[] =
 {
 #ifdef _WIN64
 	0x4C, 0x89, 0x44, 0x24, 0x18,	// mov qword [rsp+18h], r8	// spill r8
@@ -123,11 +123,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	printf(") arg count %d\n", exFunctions[funcID].paramCount + (exFunctions[funcID].isNormal ? 0 : 1));*/
 
 	// Create function call code, clear it out, copy call prologue to the beginning
-#ifdef _WIN64
-	code.push_back(gatePrologue, 29);
-#else
-	code.push_back(gatePrologue, 14);
-#endif
+	code.push_back(gatePrologue, sizeof(gatePrologue) / sizeof(gatePrologue[0]));
 
 	// complex type return is handled by passing pointer to a place, where the return value will be placed. This uses first register.
 	unsigned int rvs = exFunctions[funcID].retType == ExternFuncInfo::RETURN_UNKNOWN ? 1 : 0;
