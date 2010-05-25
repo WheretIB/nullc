@@ -1168,6 +1168,16 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 		}
 		type.type = oldCategory;
 	}
+	if(refFunc.type != FunctionInfo::NORMAL)
+	{
+		if(fCount >= fMaxCount || rCount >= rMaxCount) // too many f/r parameters
+		{
+			fInfo.ps3Callable = 0;
+		}else{
+			fInfo.rOffsets[rCount++] = offset | 2u << 30u;
+			offset += 1;
+		}
+	}
 
 	// clear remaining offsets
 	for(unsigned int i = rCount; i < rMaxCount; ++i)
