@@ -1154,8 +1154,16 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 			break;
 
 		default:
-			fInfo.rOffsets[rCount++] = offset | 3u << 30u;
-			offset += type.size / 4;
+			if(rCount + type.size / 8 >= rMaxCount)
+			{
+				fInfo.ps3Callable = 0;
+				break;
+			}
+			for(unsigned i = 0; i < type.size / 8; i++)
+			{
+				fInfo.rOffsets[rCount++] = offset | 1u << 30u;
+				offset += 2;
+			}
 			break;
 		}
 		type.type = oldCategory;
