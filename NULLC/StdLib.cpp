@@ -598,3 +598,8 @@ int NULLC::FuncNCompare(NULLCFuncPtr a, NULLCFuncPtr b)
 {
 	return a.context != b.context || a.id != b.id;
 }
+
+int NULLC::TypeCount()
+{
+	return nullcGetTypeCount();
+}

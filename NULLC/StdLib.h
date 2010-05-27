@@ -49,4 +49,6 @@ namespace NULLC
 
 	int FuncCompare(NULLCFuncPtr a, NULLCFuncPtr b);
 	int FuncNCompare(NULLCFuncPtr a, NULLCFuncPtr b);
+
+	int TypeCount();
 }

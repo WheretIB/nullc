@@ -2714,7 +2714,7 @@ void CreateRedirectionTables()
 
 		currType = curr->varType;
 		CodeInfo::nodeList.push_back(new NodeNumber(4, typeInt));
-		CodeInfo::nodeList.push_back(new NodeNumber(/*(int)CodeInfo::classCount*/256, typeInt));
+		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__typeCount", 0);
 		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__newA", 2);
 		CodeInfo::nodeList.back()->typeInfo = currType;
 		CodeInfo::varInfo.push_back(curr);
