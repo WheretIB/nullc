@@ -5062,6 +5062,14 @@ const char	*testFunctionCompare =
 return _f();";
 	TEST_FOR_RESULT("Function comparison", testFunctionCompare, "1");
 
+	const char	*testFunctionCompare2 =
+"int ref() _f = int _self()\r\n\
+{\r\n\
+	return _f != _self;\r\n\
+};\r\n\
+return _f();";
+	TEST_FOR_RESULT("Function comparison 2", testFunctionCompare2, "0");
+
 const char	*testAutoRefCompare =
 "int sum = 0;\r\n\
 auto ref a = nullptr, b = &sum;\r\n\
@@ -5183,6 +5191,18 @@ return e.size;";
 				passed[t]++;
 		}
 	}
+
+const char	*testVarargs6 =
+"int sum(int a, auto ref[] args)\r\n\
+{\r\n\
+	int res = a;\r\n\
+	for(i in args)\r\n\
+		res += int[](i)[0] + int[](i)[1];\r\n\
+	return res;\r\n\
+}\r\n\
+auto x = sum;\r\n\
+return x(1, {10, 100}, {20, 2});";
+	TEST_FOR_RESULT("Function with variable argument count (bug test)", testVarargs6, "133");
 
 	nullcLoadModuleBySource("test.importhide", "char[] arr2 = \" world\";{ int r = 5; }");
 const char	*testImportHidding =

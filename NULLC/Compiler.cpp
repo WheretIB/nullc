@@ -131,6 +131,9 @@ typeid typeid(auto ref type);\r\n\
 // typeid comparison\r\n\
 int operator==(typeid a, b);\r\n\
 int operator!=(typeid a, b);\r\n\
+\r\n\
+int __pcomp(auto ref a, auto ref b);\r\n\
+int __pncomp(auto ref a, auto ref b);\r\n\
 ";
 
 Compiler::Compiler()
@@ -238,6 +241,9 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::Typeid, "typeid", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::TypesEqual, "==", 1);
 	AddModuleFunction("$base$", (void (*)())NULLC::TypesNEqual, "!=", 1);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::FuncCompare, "__pcomp", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::FuncNCompare, "__pncomp", 0);
 #endif
 }
 

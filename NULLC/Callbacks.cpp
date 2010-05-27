@@ -638,12 +638,18 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		NodeZeroOP *left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
 		NodeZeroOP *right = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
 
-		if((right->typeInfo->funcType && right->typeInfo->funcType == left->typeInfo->funcType) ||
-			(right->typeInfo == typeObject && right->typeInfo == left->typeInfo))
+		if(right->typeInfo == typeObject && right->typeInfo == left->typeInfo)
 		{
 			CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = typeLong;
 			CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = typeLong;
 			CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
+			return;
+		}
+		if(right->typeInfo->funcType && right->typeInfo->funcType == left->typeInfo->funcType)
+		{
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = typeObject;
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = typeObject;
+			AddFunctionCallNode(pos, id == cmdEqual ? "__pcomp" : "__pncomp", 2);
 			return;
 		}
 	}
@@ -2299,10 +2305,43 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		fType = funcAddr->typeInfo->funcType;
 		if(!fType)
 			ThrowError(pos, "ERROR: variable is not a pointer to function");
-		if(callArgCount != fType->paramCount)
-			ThrowError(pos, "ERROR: function expects %d argument(s), while %d are supplied", fType->paramCount, callArgCount);
-		if(GetFunctionRating(fType, callArgCount) == ~0u)
-			ThrowError(pos, "ERROR: there is no conversion from specified arguments and the ones that function accepts");
+		unsigned int bestRating = ~0u;
+		if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray)
+		{
+			// If function accepts variable argument list
+			TypeInfo *&lastType = fType->paramType[fType->paramCount - 1];
+			assert(lastType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
+			unsigned int redundant = callArgCount - fType->paramCount;
+			CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
+			// Change things in a way that this function will be selected (lie about real argument count and match last argument type)
+			lastType = CodeInfo::nodeList.back()->typeInfo;
+			bestRating = GetFunctionRating(fType, fType->paramCount);
+			CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
+			if(bestRating != ~0u)
+				bestRating += 10;	// Cost of variable arguments function
+			lastType = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
+		}else{
+			bestRating = GetFunctionRating(fType, callArgCount);
+		}
+		if(bestRating == ~0u)
+		{
+			char	errTemp[512];
+			char	*errPos = errTemp;
+			if(callArgCount != fType->paramCount)
+				errPos += SafeSprintf(errPos, 512, "ERROR: function expects %d argument(s), while %d are supplied\r\n", fType->paramCount, callArgCount);
+			else
+				errPos += SafeSprintf(errPos, 512, "ERROR: there is no conversion from specified arguments and the ones that function accepts\r\n");
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "\tExpected: (");
+			for(unsigned int n = 0; n < fType->paramCount; n++)
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", fType->paramType[n]->GetFullTypeName(), n != fType->paramCount - 1 ? ", " : "");
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
+			
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "\tProvided: (");
+			for(unsigned int n = 0; n < callArgCount; n++)
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")");
+			ThrowError(pos, errTemp);
+		}
 	}
 
 	if(callArgCount < fType->paramCount)
