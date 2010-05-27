@@ -240,3 +240,8 @@ const char*		nullcGetFunctionName(unsigned int funcID)
 {
 	return &NULLCTypeInfo::linker->exSymbols[NULLCTypeInfo::linker->exFunctions[funcID].offsetToName];
 }
+
+unsigned int	nullcGetTypeCount()
+{
+	return NULLCTypeInfo::linker->exTypes.size();
+}
