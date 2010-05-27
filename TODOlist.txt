@@ -9,7 +9,6 @@ Core:
 	9. b. Fix alignment of dynamically allocated variables.
 	10 b. redirection table size is fixed.
 	11 b. eval is not safe when reallocation of code is performed
-	12 b. variable argument list doesn't work if function is called by pointer
 	13 f. Let user set the global memory maximum.
 
 Library:
@@ -165,3 +164,4 @@ DONE: Breapoint positions should be updated when code changes
 FIXED: Repeated F9 key presses while execution is breaked can cause NULLC to crash
 DONE: Allow breakpoint setup using mouse
 DONE: typedefs should be scoped
+FIXED: variable argument list doesn't work if function is called by pointer
