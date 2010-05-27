@@ -1009,7 +1009,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdLtoI:
 			genStackPtr++;
-			*genStackPtr = *(genStackPtr-1);
+			*genStackPtr = (int)*(long long*)(genStackPtr - 1);
 			break;
 
 		case cmdIndex:
