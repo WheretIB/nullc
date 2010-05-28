@@ -5095,11 +5095,29 @@ return _f();";
 return _f();";
 	TEST_FOR_RESULT("Function comparison 2", testFunctionCompare2, "0");
 
-const char	*testAutoRefCompare =
+const char	*testAutoRefCompare1 =
 "int sum = 0;\r\n\
 auto ref a = nullptr, b = &sum;\r\n\
 return a == b;";
-	TEST_FOR_RESULT("auto ref comparison", testAutoRefCompare, "0");
+	TEST_FOR_RESULT("auto ref comparison 1", testAutoRefCompare1, "0");
+
+const char	*testAutoRefCompare2 =
+"int sum = 0;\r\n\
+auto ref a = &sum, b = &sum;\r\n\
+return a == b;";
+	TEST_FOR_RESULT("auto ref comparison 2", testAutoRefCompare2, "1");
+
+const char	*testAutoRefCompare3 =
+"int sum = 0;\r\n\
+auto ref a = nullptr, b = &sum;\r\n\
+return a != b;";
+	TEST_FOR_RESULT("auto ref comparison 3", testAutoRefCompare3, "1");
+
+const char	*testAutoRefCompare4 =
+"int sum = 0;\r\n\
+auto ref a = &sum, b = &sum;\r\n\
+return a != b;";
+	TEST_FOR_RESULT("auto ref comparison 4", testAutoRefCompare4, "0");
 
 const char	*testAutoRefNot =
 "auto ref a = nullptr;\r\n\
