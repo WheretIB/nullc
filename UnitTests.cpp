@@ -85,7 +85,7 @@ void*	FindVar(const char* name)
 	return (void*)varData;
 }
 
-bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = NULL)
+bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = NULL, bool execShouldFail = false)
 {
 	lastMessage = message;
 #ifndef NULLC_BUILD_X86_JIT
@@ -140,6 +140,13 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 		timeRun += myGetPreciseTime() - time;
 		if(goodRun)
 		{
+			if(execShouldFail)
+			{
+				if(message && !messageVerbose)
+					printf("%s\n", message);
+				printf("%s Execution should have failed with %s\r\n", buf, expected);
+				return false;
+			}
 			const char* val = nullcGetResult();
 			varData = (char*)nullcGetVariableData(NULL);
 
@@ -151,6 +158,22 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 				return false;
 			}
 		}else{
+			if(execShouldFail)
+			{
+				char buf[512];
+				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+				if(char *lineEnd = strchr(buf, '\r'))
+					*lineEnd = 0;
+				if(strcmp(expected, buf) != 0)
+				{
+					if(message && !messageVerbose)
+						printf("%s\n", message);
+					printf("Failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
+					return false;
+				}
+				return true;
+			}
+			
 			if(message && !messageVerbose)
 				printf("%s\n", message);
 			printf("%s Execution failed: %s\r\n", buf, nullcGetLastError());
@@ -5913,72 +5936,57 @@ return a;";
 
 const char	*testDivZeroInt = 
 "// Division by zero handling\r\n\
-int a=5, b =0;\r\n\
+int a = 5, b = 0;\r\n\
 return a/b;";
-	printf("Division by zero handling 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testDivZeroInt, testTarget[t], "ERROR: integer division by zero"))
+		if(RunCode(testDivZeroInt, testTarget[t], "ERROR: integer division by zero", "Division by zero handling 1", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testDivZeroLong = 
 "// Division by zero handling\r\n\
-long a=5, b =0;\r\n\
-return a/b;";
-	printf("Division by zero handling 2\r\n");
+long a = 5, b = 0;\r\n\
+return a / b;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testDivZeroLong, testTarget[t], "ERROR: long division by zero"))
+		if(RunCode(testDivZeroLong, testTarget[t], "ERROR: integer division by zero", "Division by zero handling 2", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testModZeroInt = 
 "// Division by zero handling\r\n\
-int a=5, b =0;\r\n\
-return a%b;";
-	printf("Modulus division by zero handling\r\n");
+int a = 5, b = 0;\r\n\
+return a % b;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testModZeroInt, testTarget[t], "ERROR: integer modulus division by zero"))
+		if(RunCode(testModZeroInt, testTarget[t], "ERROR: integer division by zero", "Modulus division by zero handling 1", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testModZeroLong = 
 "// Division by zero handling\r\n\
-long a=5, b =0;\r\n\
-return a%b;";
-	printf("Modulus division by zero handling\r\n");
+long a = 5, b = 0;\r\n\
+return a % b;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testModZeroLong, testTarget[t], "ERROR: long modulus division by zero"))
+		if(RunCode(testModZeroLong, testTarget[t], "ERROR: integer division by zero", "Modulus division by zero handling 2", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testFuncNoReturn = 
 "// Function with no return handling\r\n\
 int test(){ 1; } // temporary\r\n\
 return test();";
-	printf("Function with no return handling\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testFuncNoReturn, testTarget[t], "1"))
+		if(RunCode(testFuncNoReturn, testTarget[t], "ERROR: function didn't return a value", "Function with no return handling", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testBounds1 = 
@@ -5987,14 +5995,11 @@ int[4] n;\r\n\
 int i = 4;\r\n\
 n[i] = 3;\r\n\
 return 1;";
-	printf("Array out of bounds error check 1\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testBounds1, testTarget[t], "1"))
+		if(RunCode(testBounds1, testTarget[t], "ERROR: array index out of bounds", "Array out of bounds error check 1", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testBounds2 = 
@@ -6004,14 +6009,11 @@ int[] nn = n;\r\n\
 int i = 4;\r\n\
 nn[i] = 3;\r\n\
 return 1;";
-	printf("Array out of bounds error check 2\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testBounds2, testTarget[t], "1"))
+		if(RunCode(testBounds2, testTarget[t], "ERROR: array index out of bounds", "Array out of bounds error check 2", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testBounds3 = 
@@ -6025,14 +6027,21 @@ x[1] = x1;\r\n\
 x[2] = x2;\r\n\
 int[][] xr = x;\r\n\
 return xr[1][3];";
-	printf("Array out of bounds error check 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testBounds3, testTarget[t], "1"))
+		if(RunCode(testBounds3, testTarget[t], "ERROR: array index out of bounds", "Array out of bounds error check 3", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
+	}
+
+const char	*testInvalidFuncPtr = 
+"int ref(int) a;\r\n\
+return a(5);";
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testInvalidFuncPtr, testTarget[t], "ERROR: invalid function pointer", "Invalid function pointer check", true))
+			passed[t]++;
 	}
 
 const char	*testAutoReferenceMismatch =
@@ -6040,14 +6049,11 @@ const char	*testAutoReferenceMismatch =
 auto ref d = &a;\r\n\
 double ref ll = d;\r\n\
 return *ll;";
-	printf("Auto reference type\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testAutoReferenceMismatch, testTarget[t], "1"))
+		if(RunCode(testAutoReferenceMismatch, testTarget[t], "ERROR: cannot convert from int ref to double ref", "Auto reference type", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testTypeDoesntImplementMethod =
@@ -6060,14 +6066,11 @@ objs[1] = &test.i;\r\n\
 for(i in objs)\r\n\
 	i.test();\r\n\
 return 0;";
-	printf("Type doesn't implement method on auto ref function call\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(!RunCode(testTypeDoesntImplementMethod, testTarget[t], "1"))
+		if(RunCode(testTypeDoesntImplementMethod, testTarget[t], "ERROR: type 'int' doesn't implement method 'int::test' of type 'void ref()'", "Type doesn't implement method on auto ref function call", true))
 			passed[t]++;
-		else
-			printf("Should have failed");
 	}
 
 const char	*testCallStackWhenVariousTransitions =
@@ -6079,7 +6082,8 @@ void inside(int x)\r\n\
 }\r\n\
 recall(2);\r\n\
 return 0;";
-	printf("Call stack when there are various transitions between NULLC and C\r\n");
+	if(messageVerbose)
+		printf("Call stack when there are various transitions between NULLC and C\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
@@ -6087,6 +6091,8 @@ return 0;";
 		nullres good = nullcBuild(testCallStackWhenVariousTransitions);
 		if(!good)
 		{
+			if(!messageVerbose)
+				printf("Call stack when there are various transitions between NULLC and C\r\n");
 			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			break;
 		}
@@ -6103,15 +6109,19 @@ inside (at recall(x-1);)\r\n\
 inside (at assert(x);)\r\n\
  param 0: int x (at base+0 size 4)\r\n";
 			if(strcmp(error, nullcGetLastError()) != 0)
+			{
+				if(!messageVerbose)
+					printf("Call stack when there are various transitions between NULLC and C\r\n");
 				printf("%s failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", testTarget[t] == NULLC_VM ? "VM " : "X86", nullcGetLastError(), error);
-			else
+			}else{
 				passed[t]++;
+			}
 		}else{
+			if(!messageVerbose)
+				printf("Call stack when there are various transitions between NULLC and C\r\n");
 			printf("Test should have failed.\r\n");
 		}
 	}
-
-
 
 #ifdef NULLC_BUILD_X86_JIT
 	char *stackMem = new char[32*1024];
@@ -6125,7 +6135,8 @@ const char	*testDepthOverflow =
 	return fib(n-1);\r\n\
 }\r\n\
 return fib(3500);";
-	printf("Call depth test\r\n");
+	if(messageVerbose)
+		printf("Call depth test\r\n");
 	{
 		testCount[1]++;
 		nullcSetExecutor(NULLC_X86);
@@ -6140,10 +6151,16 @@ return fib(3500);";
 			if(char *lineEnd = strchr(buf, '\r'))
 				*lineEnd = 0;
 			if(strcmp(error, buf) != 0)
+			{
+				if(!messageVerbose)
+					printf("Call depth test\r\n");
 				printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
-			else
+			}else{
 				passed[1]++;
+			}
 		}else{
+			if(!messageVerbose)
+				printf("Call depth test\r\n");
 			printf("Test should have failed.\r\n");
 		}
 	}
@@ -6165,7 +6182,8 @@ double abs(double x)\r\n\
 }\r\n\
 double[2700] res;\r\n\
 return clamp(abs(-1.5), 0.0, 1.0);";
-	printf("Global overflow test\r\n");
+	if(messageVerbose)
+		printf("Global overflow test\r\n");
 	{
 		testCount[1]++;
 		nullcSetExecutor(NULLC_X86);
@@ -6180,10 +6198,16 @@ return clamp(abs(-1.5), 0.0, 1.0);";
 			if(char *lineEnd = strchr(buf, '\r'))
 				*lineEnd = 0;
 			if(strcmp(error, buf) != 0)
+			{
+				if(!messageVerbose)
+					printf("Global overflow test\r\n");
 				printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
-			else
+			}else{
 				passed[1]++;
+			}
 		}else{
+			if(!messageVerbose)
+				printf("Global overflow test\r\n");
 			printf("Test should have failed.\r\n");
 		}
 	}
@@ -6199,7 +6223,8 @@ const char	*testDepthOverflowUnmanaged =
 	return fib(n-1);\r\n\
 }\r\n\
 return fib(3500);";
-	printf("Depth overflow in unmanaged memory\r\n");
+	if(messageVerbose)
+		printf("Depth overflow in unmanaged memory\r\n");
 	{
 		testCount[1]++;
 		nullcSetExecutor(NULLC_X86);
@@ -6214,10 +6239,16 @@ return fib(3500);";
 			if(char *lineEnd = strchr(buf, '\r'))
 				*lineEnd = 0;
 			if(strcmp(error, buf) != 0)
+			{
+				if(messageVerbose)
+					printf("Depth overflow in unmanaged memory\r\n");
 				printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
-			else
+			}else{
 				passed[1]++;
+			}
 		}else{
+			if(messageVerbose)
+				printf("Depth overflow in unmanaged memory\r\n");
 			printf("Test should have failed.\r\n");
 		}
 	}
