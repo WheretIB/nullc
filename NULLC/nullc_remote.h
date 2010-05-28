@@ -2,6 +2,7 @@
 #define NULLC_REMOTE_INCLUDED
 
 #pragma warning(disable: 4996) // disable warning C4996: 'name': This function or variable may be unsafe.
+#pragma warning(disable: 4127)
 
 #if defined(_WIN32) || defined(_WIN64) 
 	#include <process.h>
@@ -218,7 +219,7 @@ namespace Dispatcher
 	void DispatcherThread(void* param);
 }
 
-int SocketSend(SOCKET sck, char* source, size_t size, int timeOut)
+int SocketSend(SOCKET sck, char* source, size_t size)
 {
 	int allSize = (int)size;
 	while(size)
@@ -235,11 +236,8 @@ int SocketSend(SOCKET sck, char* source, size_t size, int timeOut)
 	}
 	return allSize;
 }
-int SocketReceive(SOCKET sck, char* destination, size_t size, int timeOut)
+int SocketReceive(SOCKET sck, char* destination, size_t size)
 {
-	fd_set  fd = { 1, sck };
-	timeval tv = { timeOut, 0 };
-
 	int allSize = (int)size;
 	while(size)
 	{
@@ -281,7 +279,7 @@ void PipeSendData(SOCKET sck, PipeData &data, const char* start, unsigned int co
 		data.data.elemCount = count;
 		memcpy(data.data.data, start + (whole - left), data.data.dataSize);
 		left -= data.data.dataSize;
-		int result = SocketSend(sck, (char*)&data, sizeof(data), 5);
+		int result = SocketSend(sck, (char*)&data, sizeof(data));
 		if(!result || result == -1)
 			break;
 	}
@@ -321,7 +319,7 @@ unsigned int PipeDebugBreak(unsigned int instruction)
 	data.question = false;
 	data.debug.breakInst = instruction;
 
-	SocketSend(client, (char*)&data, sizeof(data), 1000);
+	SocketSend(client, (char*)&data, sizeof(data));
 
 	unsigned int stackSize = 0;
 	char *stackData = (char*)nullcGetVariableData(&stackSize);
@@ -423,7 +421,7 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 			GetModuleFileName(NULL, data.report.module, 256);
 			data.report.pID = GetCurrentProcessId();
 #endif
-			SocketSend(client, (char*)&data, sizeof(data), 5);
+			SocketSend(client, (char*)&data, sizeof(data));
 			break;
 		case DEBUG_MODULE_INFO:
 		{
@@ -581,6 +579,7 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 
 NULLC_PROC_RETURN DispatcherThread(void* param)
 {
+	(void)param;
 	nullcDebugSetBreakFunction(PipeDebugBreak);
 
 	// Create a listening socket
@@ -604,19 +603,19 @@ NULLC_PROC_RETURN DispatcherThread(void* param)
 			if(Dispatcher::serverPort == -1)
 			{
 				shift++;
-				saServer.sin_port = htons(7590 + shift);
+				saServer.sin_port = htons((u_short)(7590 + shift));
 				continue;
 			}
 		}
 		break;
 	}
-	while(1)
+	for(;;)
 	{
 		// Wait for connection
 		if(listen(sck, 1))
 			printf("%s\n", nullcRemoteGetLastErrorDesc());
 		client = accept(sck, NULL, NULL);
-		while(true)
+		for(;;)
 		{
 			if(nullcFinished)
 			{
@@ -644,7 +643,7 @@ NULLC_PROC_RETURN DispatcherThread(void* param)
 			if(!FD_ISSET(client, &fdSet))
 				continue;
 
-			int result = SocketReceive(client, (char*)&data, (int)sizeof(data), 5);
+			int result = SocketReceive(client, (char*)&data, (int)sizeof(data));
 			if(result == 0 || result == -1)
 			{
 				nullcDebugClearBreakpoints();
@@ -719,5 +718,8 @@ volatile int* nullcEnableRemoteDebugging(const char *serverAddress, short server
 	nullcFinished = 0;
 	return &nullcFinished;
 }
+
+#pragma warning(default: 4996)
+#pragma warning(default: 4127)
 
 #endif
