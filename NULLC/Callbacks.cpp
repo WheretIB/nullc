@@ -647,8 +647,8 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		}
 		if(right->typeInfo->funcType && right->typeInfo->funcType == left->typeInfo->funcType)
 		{
-			CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = typeObject;
-			CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = typeObject;
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = CodeInfo::funcInfo[0]->funcType;
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = CodeInfo::funcInfo[0]->funcType;
 			AddFunctionCallNode(pos, id == cmdEqual ? "__pcomp" : "__pncomp", 2);
 			return;
 		}
