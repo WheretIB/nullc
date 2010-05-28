@@ -39,19 +39,19 @@ list list(typeid type)
 
 void list:push_back(auto ref elem)
 {
-	if(!anyType && typeid(elem) != elemType)
+	if(!anyType && typeid(elem) != (isPointer(elemType) ? elemType.subType() : elemType))
 		assert(0, "list::push_back argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
 	if(!first)
 	{
 		first = last = new list_node;
 		first.prev = first.next = nullptr;
-		first.elem = duplicate(elem);
+		first.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}else{
 		last.next = new list_node;
 		last.next.prev = last;
 		last.next.next = nullptr;
 		last = last.next;
-		last.elem = duplicate(elem);
+		last.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}
 }
 void list:push_front(auto ref elem)
@@ -62,13 +62,13 @@ void list:push_front(auto ref elem)
 	{
 		first = last = new list_node;
 		first.prev = first.next = nullptr;
-		first.elem = duplicate(elem);
+		first.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}else{
 		first.prev = new list_node;
 		first.prev.next = first;
 		first.prev.prev = nullptr;
 		first = first.prev;
-		first.elem = duplicate(elem);
+		first.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}
 }
 void list:insert(list_node ref it, auto ref elem)
@@ -77,7 +77,7 @@ void list:insert(list_node ref it, auto ref elem)
 		assert(0, "list::insert argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
 	auto next = it.next;
 	it.next = new list_node;
-	it.next.elem = duplicate(elem);
+	it.next.elem = isPointer(elemType) ? elem : duplicate(elem);
 	it.next.prev = it;
 	it.next.next = next;
 	if(next)

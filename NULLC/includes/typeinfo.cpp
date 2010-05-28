@@ -245,3 +245,33 @@ unsigned int	nullcGetTypeCount()
 {
 	return NULLCTypeInfo::linker->exTypes.size();
 }
+
+int			nullcIsFunction(unsigned int id)
+{
+	return NULLCTypeInfo::IsFunction(id);
+}
+
+int				nullcIsClass(unsigned int id)
+{
+	return NULLCTypeInfo::IsClass(id);
+}
+
+int				nullcIsSimple(unsigned int id)
+{
+	return NULLCTypeInfo::IsSimple(id);
+}
+
+int				nullcIsArray(unsigned int id)
+{
+	return NULLCTypeInfo::IsArray(id);
+}
+
+int				nullcIsPointer(unsigned int id)
+{
+	return NULLCTypeInfo::IsPointer(id);
+}
+
+unsigned int	nullcGetSubType(int id)
+{
+	return NULLCTypeInfo::TypeSubType(id);
+}
