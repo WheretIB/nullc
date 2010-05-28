@@ -132,8 +132,8 @@ typeid typeid(auto ref type);\r\n\
 int operator==(typeid a, b);\r\n\
 int operator!=(typeid a, b);\r\n\
 \r\n\
-int __pcomp(auto ref a, auto ref b);\r\n\
-int __pncomp(auto ref a, auto ref b);\r\n\
+int __pcomp(void ref(int) a, void ref(int) b);\r\n\
+int __pncomp(void ref(int) a, void ref(int) b);\r\n\
 \r\n\
 int __typeCount();\r\n\
 ";
