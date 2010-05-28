@@ -6084,7 +6084,7 @@ recall(2);\r\n\
 return 0;";
 	if(messageVerbose)
 		printf("Call stack when there are various transitions between NULLC and C\r\n");
-	for(int t = 0; t < 2; t++)
+	for(int t = 0; t < TEST_COUNT; t++)
 	{
 		testCount[t]++;
 		nullcSetExecutor(testTarget[t]);
@@ -6597,7 +6597,12 @@ return *res + *h.c + *v + *e[0];";
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", passed[0], testCount[0]);
+#ifdef NULLC_BUILD_X86_JIT
 	printf("X86 passed %d of %d tests\r\n", passed[1], testCount[1]);
+#else
+	passed[1] = 0;
+	testCount[1] = 0;
+#endif
 	printf("Failure tests: passed %d of %d tests\r\n", passed[2], testCount[2]);
 	printf("Extra tests: passed %d of %d tests\r\n", passed[3], testCount[3]);
 	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2]+passed[3], testCount[0]+testCount[1]+testCount[2]+testCount[3]);
