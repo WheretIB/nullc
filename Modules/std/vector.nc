@@ -4,6 +4,7 @@ import std.typeinfo;
 class vector
 {
 	typeid	elemType;
+	int		flags;
 	int		elemSize;
 	char[]	data;
 	int		currSize;

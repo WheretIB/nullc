@@ -8,6 +8,7 @@ namespace NULLCVector
 	struct vector
 	{
 		unsigned int	elemType;
+		unsigned int	flags;
 		unsigned int	elemSize;
 		NullCArray		data;
 		unsigned int	size;
@@ -23,6 +24,7 @@ namespace NULLCVector
 	void ConstructVector(vector* vec, unsigned int type, int reserved)
 	{
 		vec->elemType = type;
+		vec->flags = nullcIsPointer(type);
 		vec->size = 0;
 		vec->elemSize = nullcGetTypeSize(type);
 		if(reserved)
@@ -38,7 +40,7 @@ namespace NULLCVector
 	void VectorPushBack(NULLCRef val, vector* vec)
 	{
 		// Check that we received type that is equal to array element type
-		if(val.typeID != vec->elemType)
+		if(val.typeID != (vec->flags ? nullcGetSubType(vec->elemType) : vec->elemType))
 		{
 			nullcThrowError("vector::push_back received value (%s) that is different from vector type (%s)", nullcGetTypeName(val.typeID), nullcGetTypeName(vec->elemType));
 			return;
@@ -53,7 +55,7 @@ namespace NULLCVector
 			vec->data.len = newSize;
 			vec->data.ptr = newData;
 		}
-		memcpy(vec->data.ptr + vec->elemSize * vec->size, val.ptr, vec->elemSize);
+		memcpy(vec->data.ptr + vec->elemSize * vec->size, vec->flags ? (char*)&val.ptr : val.ptr, vec->elemSize);
 		vec->size++;
 	}
 
@@ -75,8 +77,8 @@ namespace NULLCVector
 			nullcThrowError("vector::front called on an empty vector");
 			return ret;
 		}
-		ret.typeID = vec->elemType;
-		ret.ptr = vec->data.ptr;
+		ret.typeID = (vec->flags ? nullcGetSubType(vec->elemType) : vec->elemType);
+		ret.ptr = vec->flags ? *(char**)vec->data.ptr : vec->data.ptr;
 		return ret;
 	}
 
@@ -88,8 +90,8 @@ namespace NULLCVector
 			nullcThrowError("vector::back called on an empty vector");
 			return ret;
 		}
-		ret.typeID = vec->elemType;
-		ret.ptr = vec->data.ptr + vec->elemSize * (vec->size - 1);
+		ret.typeID = (vec->flags ? nullcGetSubType(vec->elemType) : vec->elemType);
+		ret.ptr = vec->flags ? ((char**)vec->data.ptr)[vec->size - 1] : (vec->data.ptr + vec->elemSize * (vec->size - 1));
 		return ret;
 	}
 
@@ -101,8 +103,8 @@ namespace NULLCVector
 			nullcThrowError("operator[] array index out of bounds");
 			return ret;
 		}
-		ret.typeID = vec->elemType;
-		ret.ptr = vec->data.ptr + vec->elemSize * index;
+		ret.typeID = (vec->flags ? nullcGetSubType(vec->elemType) : vec->elemType);
+		ret.ptr = vec->flags ? ((char**)vec->data.ptr)[index] : (vec->data.ptr + vec->elemSize * index);
 		return ret;
 	}
 
@@ -150,9 +152,9 @@ namespace NULLCVector
 	NULLCRef VectorNext(vector_iterator* iter)
 	{
 		NULLCRef ret;
-		ret.typeID = iter->arr->elemType;
-		ret.ptr = iter->arr->data.ptr + iter->arr->elemSize * iter->pos++;
-
+		ret.typeID = (iter->arr->flags ? nullcGetSubType(iter->arr->elemType) : iter->arr->elemType);
+		ret.ptr =  iter->arr->flags ? ((char**)iter->arr->data.ptr)[iter->pos] : iter->arr->data.ptr + iter->arr->elemSize * iter->pos;
+		iter->pos++;
 		return ret;
 	}
 	int VectorHasNext(vector_iterator* iter)
