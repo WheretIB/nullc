@@ -34,6 +34,8 @@ public:
 	void	ClearBreakpoints();
 	bool	AddBreakpoint(unsigned int instruction);
 	bool	RemoveBreakpoint(unsigned int instruction);
+
+	void	UpdateInstructionPointer();
 private:
 	unsigned int	CreateFunctionGateway(FastVector<unsigned char>	&code, unsigned int funcID);
 	void	InitExecution();

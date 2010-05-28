@@ -5894,6 +5894,21 @@ const char	*testFunctionCallConstantConvertion =
 return funcA(5, 6.6);";
 	TEST_FOR_RESULT("Constant number type conversions in function call.", testFunctionCallConstantConvertion, "18");
 
+const char	*testEval =
+"import std.dynamic;\r\n\
+\r\n\
+int a = 5;\r\n\
+\r\n\
+for(int i = 0; i < 2000; i++)\r\n\
+	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
+\r\n\
+return a;";
+	double evalStart = myGetPreciseTime();
+	testCount[0]++;
+	if(RunCode(testEval, testTarget[0], "5997", "Dynamic code. eval()"))
+		passed[0]++;
+	printf("Eval test finished in %f\r\n", myGetPreciseTime() - evalStart);
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -6243,12 +6258,7 @@ a = 10;\r\n\
 return *res + *h.c + *v + *e[0];";
 	testCount[0]++;
 	if(RunCode(testStackResize, testTarget[0], "40", "Parameter stack resize"))
-	{
-		lastFailed = false;
-
-		if(!lastFailed)
-			passed[0]++;
-	}
+		passed[0]++;
 
 #define TEST_FOR_FAIL(name, str, error)\
 {\

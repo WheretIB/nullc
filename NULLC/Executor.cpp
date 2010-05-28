@@ -628,7 +628,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 	asmOperType retType = (asmOperType)-1;
 
-	VMCmd *cmdStreamBase = cmdBase = &exLinker->exCode[0];
+	cmdBase = &exLinker->exCode[0];
 	VMCmd *cmdStream = &exLinker->exCode[exLinker->offsetToGlobalCode];
 #define cmdStreamPos (cmdStream-cmdStreamBase)
 
@@ -714,8 +714,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
 				unsigned int target = cmd.argument;
 				fcallStack.push_back(cmdStream);
-				RUNTIME_ERROR(cmdStream < cmdStreamBase || cmdStream > &exLinker->exCode[exLinker->exCode.size() + 1], "ERROR: break position is out of range");
-				unsigned int response = breakFunction((unsigned int)(cmdStream - cmdStreamBase));
+				RUNTIME_ERROR(cmdStream < cmdBase || cmdStream > &exLinker->exCode[exLinker->exCode.size() + 1], "ERROR: break position is out of range");
+				unsigned int response = breakFunction((unsigned int)(cmdStream - cmdBase));
 				fcallStack.pop_back();
 
 				RUNTIME_ERROR(response == 4, "ERROR: execution was stopped after breakpoint");
@@ -727,20 +727,20 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					VMCmd *nextCommand = cmdStream;
 					// Step command - handle unconditional jump step
 					if(breakCode[target].cmd == cmdJmp)
-						nextCommand = cmdStreamBase + breakCode[target].argument;
+						nextCommand = cmdBase + breakCode[target].argument;
 					// Step command - handle conditional "jump on false" step
 					if(breakCode[target].cmd == cmdJmpZ && *genStackPtr == 0)
-						nextCommand = cmdStreamBase + breakCode[target].argument;
+						nextCommand = cmdBase + breakCode[target].argument;
 					// Step command - handle conditional "jump on true" step
 					if(breakCode[target].cmd == cmdJmpNZ && *genStackPtr != 0)
-						nextCommand = cmdStreamBase + breakCode[target].argument;
+						nextCommand = cmdBase + breakCode[target].argument;
 					// Step command - handle "return" step
 					if(breakCode[target].cmd == cmdReturn && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
 					if(response == 2 && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != -1)
-						nextCommand = cmdStreamBase + exFunctions[breakCode[target].argument].address;
+						nextCommand = cmdBase + exFunctions[breakCode[target].argument].address;
 					if(response == 2 && breakCode[target].cmd == cmdCallPtr && genStackPtr[cmd.argument >> 2] && exFunctions[genStackPtr[cmd.argument >> 2]].address != -1)
-						nextCommand = cmdStreamBase + exFunctions[genStackPtr[cmd.argument >> 2]].address;
+						nextCommand = cmdBase + exFunctions[genStackPtr[cmd.argument >> 2]].address;
 
 					if(response == 3 && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
@@ -765,7 +765,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				cmdStream = &breakCode[target];
 				break;
 			}
-			cmdStream = cmdStreamBase + cmd.argument;
+			cmdStream = cmdBase + cmd.argument;
 			break;
 		case cmdPushChar:
 			genStackPtr--;
@@ -1096,18 +1096,18 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdJmp:
-			cmdStream = cmdStreamBase + cmd.argument;
+			cmdStream = cmdBase + cmd.argument;
 			break;
 
 		case cmdJmpZ:
 			if(*genStackPtr == 0)
-				cmdStream = cmdStreamBase + cmd.argument;
+				cmdStream = cmdBase + cmd.argument;
 			genStackPtr++;
 			break;
 
 		case cmdJmpNZ:
 			if(*genStackPtr != 0)
-				cmdStream = cmdStreamBase + cmd.argument;
+				cmdStream = cmdBase + cmd.argument;
 			genStackPtr++;
 			break;
 
@@ -1120,12 +1120,15 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			{
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(cmd.argument, 0))
+				{
 					cmdStream = NULL;
-				else
+				}else{
+					cmdStream = fcallStack.back();
 					fcallStack.pop_back();
+				}
 			}else{
 				fcallStack.push_back(cmdStream);
-				cmdStream = cmdStreamBase + fAddress;
+				cmdStream = cmdBase + fAddress;
 
 				char* oldBase = &genParams[0];
 				unsigned int oldSize = genParams.max;
@@ -1152,9 +1155,12 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			{
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(fID, 1))
+				{
 					cmdStream = NULL;
-				else
+				}else{
+					cmdStream = fcallStack.back();
 					fcallStack.pop_back();
+				}
 			}else{
 				char* oldBase = &genParams[0];
 				unsigned int oldSize = genParams.max;
@@ -1168,7 +1174,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				genStackPtr++;
 
 				fcallStack.push_back(cmdStream);
-				cmdStream = cmdStreamBase + exFunctions[fID].address;
+				cmdStream = cmdBase + exFunctions[fID].address;
 
 				if(genParams.size() + paramSize >= oldSize)
 					ExtendParameterStack(oldBase, oldSize, cmdStream);
@@ -2087,6 +2093,19 @@ bool Executor::RemoveBreakpoint(unsigned int instruction)
 	}
 	exLinker->exCode[instruction] = breakCode[exLinker->exCode[instruction].argument];
 	return true;
+}
+
+void Executor::UpdateInstructionPointer()
+{
+	if(!cmdBase || !fcallStack.size() || cmdBase == &exLinker->exCode[0])
+		return;
+	for(unsigned int i = 0; i < fcallStack.size(); i++)
+	{
+		int currentPos = int(fcallStack[i] - cmdBase);
+		assert(currentPos >= 0);
+		fcallStack[i] = &exLinker->exCode[0] + currentPos;
+	}
+	cmdBase = &exLinker->exCode[0];
 }
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
