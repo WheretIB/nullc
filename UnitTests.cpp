@@ -4,6 +4,8 @@
 #include "UnitTests.h"
 #include "NULLC/nullc.h"
 #include "NULLC/nullc_debug.h"
+// Check that remote debug module compiles correctly
+#include "NULLC/nullc_remote.h"
 
 #include "NULLC/ParseClass.h"
 
