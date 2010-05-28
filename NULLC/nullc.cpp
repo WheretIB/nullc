@@ -237,6 +237,10 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 	(void)acceptRedefinitions;
 	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_VM)
+		executor->UpdateInstructionPointer();
+#endif
 	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
