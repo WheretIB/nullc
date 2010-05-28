@@ -1949,6 +1949,12 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 	EMIT_OP_REG_RPTR(o_mov, rECX, sDWORD, rESP, cmd.argument);
 	EMIT_OP_REG_RPTR(o_mov, rEAX, sNONE, rECX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr + 4);
 
+	EMIT_OP_REG_REG(o_test, rECX, rECX);
+	EMIT_OP_LABEL(o_jnz, aluLabels + 1);
+	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
+	EMIT_OP_NUM(o_int, 3);
+	EMIT_LABEL(aluLabels + 1);
+
 	assert(cmd.argument >= 4);
 	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
 	EMIT_OP_LABEL(o_jz, aluLabels);
@@ -1992,12 +1998,6 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 		EMIT_OP_REG_NUM(o_add, rESP, 4);
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
-
-		EMIT_OP_REG_REG(o_test, rECX, rECX);
-		EMIT_OP_LABEL(o_jnz, aluLabels + 1);
-		EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
-		EMIT_OP_NUM(o_int, 3);
-		EMIT_LABEL(aluLabels + 1);
 
 		EMIT_OP_RPTR(o_call, sNONE, rECX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
