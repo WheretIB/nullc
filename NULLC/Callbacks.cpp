@@ -1723,7 +1723,12 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 
-	lastFunc.AddParameter(new VariableInfo(&lastFunc, paramName, hash, lastFunc.allParamSize, currType, false));
+#if defined(__CELLOS_LV2__)
+	unsigned bigEndianShift = currType == typeChar ? 3 : (currType == typeShort ? 2 : 0);
+#else
+	unsigned bigEndianShift = 0;
+#endif
+	lastFunc.AddParameter(new VariableInfo(&lastFunc, paramName, hash, lastFunc.allParamSize + bigEndianShift, currType, false));
 	if(currType)
 		lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
 }
