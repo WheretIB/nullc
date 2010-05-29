@@ -1360,17 +1360,7 @@ return d[5];";
 const char	*testFuncCall1 = 
 "int test(int x, int y, int z){return x*y+z;}\r\n\
 return 1+test(2, 3, 4);	// 11";
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFuncCall1, testTarget[t], "11", "Function call test 1"))
-		{
-			lastFailed = false;
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
+	TEST_FOR_RESULT("Function call test 1", testFuncCall1, "11");
 
 const char	*testFuncCall2 = 
 "int test(int x, int y, int z){return x*y+z;}\r\n\
@@ -1378,47 +1368,17 @@ int b = 1;\r\n\
 if(7>5)\r\n\
 b = 3;\r\n\
 return b+test(2, 3, 4);";
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFuncCall2, testTarget[t], "13", "Function call test 2"))
-		{
-			lastFailed = false;
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
+	TEST_FOR_RESULT("Function call test 2", testFuncCall2, "13");
 
 const char	*testFuncCall3 = 
 "int fib(int n){ if(n<3) return 5; return 10; }\r\n\
 return fib(1);";
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFuncCall3, testTarget[t], "5", "Function call test 3"))
-		{
-			lastFailed = false;
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
+	TEST_FOR_RESULT("Function call test 3", testFuncCall3, "5");
 
 const char	*testRecursion = 
 "int fib(int n){ if(n<3) return 1; return fib(n-2)+fib(n-1); }\r\n\
 return fib(4);";
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testRecursion, testTarget[t], "3", "Recursion test"))
-		{
-			lastFailed = false;
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
+	TEST_FOR_RESULT("Recursion test", testRecursion, "3");
 
 const char	*testIndirection = 
 "// Array indirection and optimization test\r\n\
@@ -1659,18 +1619,7 @@ double abs(double x)\r\n\
   return x;\r\n\
 }\r\n\
 return clamp(abs(-1.5), 0.0, 1.0);";
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFuncCall4, testTarget[t], "1.000000", "Function call test 4"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
-
+	TEST_FOR_RESULT("Function call test 4", testFuncCall4, "1.000000");
 
 const char	*testFuncCall5 = 
 "int test(int x, int y, int z){return x*y+z;}\r\n\
@@ -1707,17 +1656,7 @@ const char	*testFuncCall6 =
   return x;\r\n\
 }\r\n\
 return abs(-0.5);";
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFuncCall6, testTarget[t], "0.500000", "Function call test 6"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Function call test 6", testFuncCall6, "0.500000");
 
 const char	*testIncDec = 
 "int[5] test=0;\r\n\
@@ -1972,12 +1911,7 @@ const char	*testFuncOverload =
 int fa(int i, double c){ return i*c; }\r\n\
 int fa(float i){ return i*3.0f; }\r\n\
 return fa(5.0f) * fa(2, 3.0);";
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testFuncOverload, testTarget[t], "90", "Function overload test"))
-			passed[t]++;
-	}
+	TEST_FOR_RESULT("Function overload test", testFuncOverload, "90");
 
 const char	*testSwitch = 
 "// Switch test!\r\n\
@@ -2226,17 +2160,7 @@ for(int i = 0; i < 100; i++)\r\n\
   f4 = test(f4);\r\n\
 }\r\n\
 return int(mat.row1.y);";
-	for(int t = 0; t < 2; t++)
-	{
-		testCount[t]++;
-		if(RunCode(testSpeed, testTarget[t], "0", "Speed tests"))
-		{
-			lastFailed = false;
-
-			if(!lastFailed)
-				passed[t]++;
-		}
-	}
+	TEST_FOR_RESULT("Speed tests", testSpeed, "0");
 
 const char	*testAuto = 
 "//Auto type tests\r\n\
@@ -6477,6 +6401,27 @@ return rurr();";
 	testCount[0]++;
 	if(RunCode(testStackRelocationFrameSizeX86_2, testTarget[0], "11", "Stack frame size calculation in VM stack relocation under x86 2"))
 		passed[0]++;
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+#if 0	// $$$ find a way to fix this
+const char	*testVMRelocateArrayFail =
+"class Foo{ Foo[] arr; }\r\n\
+Foo[2] fuck;\r\n\
+Foo[] x = fuck;\r\n\
+Foo y;\r\n\
+y.arr = x;\r\n\
+x[0] = y;\r\n\
+void corrupt()\r\n\
+{\r\n\
+	int[1024*1024] e = 0;\r\n\
+}\r\n\
+corrupt();\r\n\
+return 0;";
+	testCount[0]++;
+	if(RunCode(testVMRelocateArrayFail, testTarget[0], "11", "VM stack relocation test with possible infinite recursion"))
+		passed[0]++;
+#endif
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
