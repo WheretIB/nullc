@@ -47,6 +47,7 @@ public:
 	FastVector<unsigned int>	moduleRemap;
 
 	HashMap<unsigned int>		typeMap;
+	HashMap<unsigned int>		funcMap;
 };
 
 #endif

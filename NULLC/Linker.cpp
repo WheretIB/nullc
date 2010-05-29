@@ -8,6 +8,7 @@ Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(
 	offsetToGlobalCode = 0;
 
 	typeMap.init();
+	funcMap.init();
 
 	NULLC::SetLinker(this);
 }
@@ -41,6 +42,8 @@ void Linker::CleanCode()
 	typeRemap.clear();
 	funcRemap.clear();
 	moduleRemap.clear();
+
+	funcMap.clear();
 
 	NULLC::ClearMemory();
 }
@@ -124,7 +127,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	moduleRemap.resize(bCode->dependsCount);
 
-	unsigned int oldFunctionCount = exFunctions.size();
 	unsigned int oldSymbolSize = exSymbols.size();
 	unsigned int oldTypeCount = exTypes.size();
 	unsigned int oldMemberSize = exTypeExtra.size();
@@ -265,9 +267,20 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		const unsigned int index_none = ~0u;
 
 		unsigned int index = index_none;
-		for(unsigned int n = 0; n < oldFunctionCount && index == index_none; n++)
-			if(fInfo->isVisible && exFunctions[n].nameHash == fInfo->nameHash && exFunctions[n].funcType == typeRemap[fInfo->funcType])
-				index = n;
+		if(fInfo->isVisible)
+		{
+			unsigned int remappedType = typeRemap[fInfo->funcType];
+			HashMap<unsigned int>::Node *curr = typeMap.first(fInfo->nameHash);
+			while(curr)
+			{
+				if(exFunctions[curr->value].funcType == remappedType)
+				{
+					index = curr->value;
+					break;
+				}
+				curr = funcMap.next(curr);
+			}
+		}
 
 		// If the function exists and is build-in or external, skip
 		if(index != index_none && exFunctions[index].address == -1)
@@ -286,6 +299,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		if(index == index_none)
 		{
 			exFunctions.push_back(*fInfo);
+			funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
 
 #if !defined(_M_X64) && !defined(NULLC_COMPLEX_RETURN)
 			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retType == ExternFuncInfo::RETURN_UNKNOWN)
