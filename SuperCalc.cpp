@@ -1,6 +1,12 @@
 #include "stdafx.h"
 #include "SuperCalc.h"
 
+#ifdef _WIN64
+	#define WND_PTR_TYPE LONG_PTR
+#else
+	#define WND_PTR_TYPE LONG
+#endif
+
 #pragma warning(disable: 4127)
 
 #define _WIN32_WINNT 0x0501
@@ -691,7 +697,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	hNewFilename = CreateWindow("EDIT", "", WS_VISIBLE | WS_CHILD, 80, 5, 100, 20, createPanel, NULL, hInstance, NULL);
 	hNewFile = CreateWindow("BUTTON", "Create", WS_VISIBLE | WS_CHILD, 5, 30, 100, 25, createPanel, NULL, hInstance, NULL);
 
-	SetWindowLong(createPanel, GWLP_WNDPROC, (LONG)(intptr_t)WndProc);
+	SetWindowLongPtr(createPanel, GWLP_WNDPROC, (WND_PTR_TYPE)(intptr_t)WndProc);
 
 	SendMessage(panel1, WM_SETFONT, (WPARAM)fontDefault, 0);
 	SendMessage(hNewFilename, WM_SETFONT, (WPARAM)fontDefault, 0);
@@ -1251,7 +1257,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			helpInsert.item.pszText = name;
 			HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-			unsigned int offsetToNextFrame = 4;
+			unsigned int offsetToNextFrame = function.bytesToPop;
 			// Check every function local
 			for(unsigned int i = 0; i < function.localCount; i++)
 			{
@@ -1917,6 +1923,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					{
 						ExternTypeInfo decoy = type;
 						decoy.arrSize = ((NullCArray*)extra->address)->len;
+						if(IsBadReadPtr(stateRemote ? ptr : ((NullCArray*)extra->address)->ptr, codeTypes[type.subType].size * decoy.arrSize))
+							break;
 						FillArrayVariableInfo(decoy, stateRemote ? ptr : ((NullCArray*)extra->address)->ptr, extra->item);
 						if(stateRemote)
 							externalBlocks.push_back(ptr);
