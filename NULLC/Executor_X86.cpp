@@ -631,6 +631,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
 		}
 		codeRunning = false;
+		NULLC::dataHead->instructionPtr = NULL;
 	}
 
 	// Call stack management
@@ -1345,7 +1346,7 @@ void ExecutorX86::BeginCallStack()
 			}
 		}
 		NULLC::stackTrace[count] = 0;
-		NULLC::dataHead->nextElement = NULL;
+		NULLC::dataHead->instructionPtr = (unsigned int)(intptr_t)genStackPtr;
 	}else{
 		while(count < NULLC::STACK_TRACE_DEPTH && NULLC::stackTrace[count++]);
 		count--;
