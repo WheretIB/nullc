@@ -385,9 +385,11 @@ LRESULT CALLBACK TabbedFiles::TabbedFilesProc(HWND hWnd, unsigned int message, W
 		case WM_COMMAND:
 			OnCommand(hWnd, (HWND)lParam);
 			break;
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 	}__except(EXCEPTION_EXECUTE_HANDLER){
 		assert(!"Exception in window procedure handler");
 	}
-	return DefWindowProc(hWnd, message, wParam, lParam);
+	return 0;
 }

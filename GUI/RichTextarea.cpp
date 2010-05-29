@@ -2365,9 +2365,11 @@ LRESULT CALLBACK RichTextarea::TextareaProc(HWND hWnd, unsigned int message, WPA
 				data->OnPaste();
 				break;
 			}
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 	}__except(EXCEPTION_EXECUTE_HANDLER){
 		assert(!"Exception in window procedure handler");
 	}
-	return DefWindowProc(hWnd, message, wParam, lParam);
+	return 0;
 }
