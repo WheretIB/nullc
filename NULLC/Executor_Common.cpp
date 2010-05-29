@@ -165,7 +165,7 @@ namespace GC
 		// We have pointer to stack that has a pointer inside, so 'ptr' is really a pointer to pointer
 		char **rPtr = (char**)ptr;
 		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
-		if(*rPtr > (char*)0x00010000 || *rPtr < unmanageableBase || *rPtr > unmanageableTop)
+		if(*rPtr > (char*)0x00010000 && (*rPtr < unmanageableBase || *rPtr > unmanageableTop))
 		{
 			// Get type that pointer points to
 			GC_DEBUG_PRINT("\tGlobal pointer %s %p (at %p)\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, *rPtr, ptr);
