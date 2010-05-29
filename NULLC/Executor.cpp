@@ -1828,7 +1828,7 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 	if(type.arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		// Get real array size
-		size = *(int*)(ptr + 4);
+		size = *(int*)(ptr + NULLC_PTR_SIZE);
 		// Mark target data
 		FixupPointer(ptr, subType);
 		// Switch pointer to array data
@@ -1956,7 +1956,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + exFunctions[funcID].localCount - 1];
 				offset += lInfo.offset + lInfo.size;
 			}else{
-				offset += 4;	// There's one hidden parameter
+				offset += NULLC_PTR_SIZE;	// There's one hidden parameter
 			}
 		}
 	}

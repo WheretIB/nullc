@@ -5939,6 +5939,46 @@ const char	*testFunctionCallConstantConvertion =
 return funcA(5, 6.6);";
 	TEST_FOR_RESULT("Constant number type conversions in function call.", testFunctionCallConstantConvertion, "18");
 
+const char	*testStackFrameSizeX64 =
+"void test()\r\n\
+{\r\n\
+	auto d = new int;\r\n\
+	*d = 4;\r\n\
+	auto e = new int[1024*1024];\r\n\
+	auto f = new int;\r\n\
+	*f = 5;\r\n\
+	assert(*d == 4);\r\n\
+	assert(*f == 5);\r\n\
+	assert(d != f);\r\n\
+}\r\n\
+void help(int a, b, c)\r\n\
+{\r\n\
+	test();\r\n\
+}\r\n\
+help(2, 3, 4);\r\n\
+return 0;";
+	TEST_FOR_RESULT("Stack frame size calculation in GC under x64.", testStackFrameSizeX64, "0");
+
+const char	*testStackFrameSizeX86 =
+"void test()\r\n\
+{\r\n\
+	auto d = new int;\r\n\
+	*d = 4;\r\n\
+	auto e = new int[1024*1024];\r\n\
+	auto f = new int;\r\n\
+	*f = 5;\r\n\
+	assert(*d == 4);\r\n\
+	assert(*f == 5);\r\n\
+	assert(d != f);\r\n\
+}\r\n\
+void help(int a, b, c, d)\r\n\
+{\r\n\
+	test();\r\n\
+}\r\n\
+help(2, 3, 4, 5);\r\n\
+return 0;";
+	TEST_FOR_RESULT("Stack frame size calculation in GC under x86.", testStackFrameSizeX86, "0");
+
 const char	*testEval =
 "import std.dynamic;\r\n\
 \r\n\

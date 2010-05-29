@@ -1891,7 +1891,7 @@ void FunctionEnd(const char* pos)
 		// Allocate array in dynamic memory
 		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
 		AddFunctionCallNode(pos, "__newS", 1);
-		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetArrayType(CodeInfo::GetReferenceType(typeInt), lastFunc.externalSize / 4));
+		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetArrayType(CodeInfo::GetReferenceType(typeInt), lastFunc.externalSize / NULLC_PTR_SIZE));
 
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, varInfo);

@@ -747,13 +747,13 @@ void NodeFuncDef::Compile()
 
 	funcInfo->address = cmdList.size();
 
-	assert(funcInfo->allParamSize + 4 < 65536);
+	assert(funcInfo->allParamSize + NULLC_PTR_SIZE < 65536);
 
 	// Stack frame should remain aligned, so its size should multiple of 16
 	unsigned int size = (shift + 0xf) & ~0xf;
 
 	// Save previous stack frame, and expand current by shift bytes
-	cmdList.push_back(VMCmd(cmdPushVTop, (unsigned short)(funcInfo->allParamSize + 4), size));
+	cmdList.push_back(VMCmd(cmdPushVTop, (unsigned short)(funcInfo->allParamSize + NULLC_PTR_SIZE), size));
 	// Generate function code
 	first->Compile();
 
