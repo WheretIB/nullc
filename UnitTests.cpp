@@ -6404,10 +6404,12 @@ return rurr();";
 
 	nullcTerminate();
 	nullcInit(MODULE_PATH);
-#if 0	// $$$ find a way to fix this
+
 const char	*testVMRelocateArrayFail =
-"class Foo{ Foo[] arr; }\r\n\
+"class Foo{ Foo[] arr; int x; }\r\n\
 Foo[2] fuck;\r\n\
+fuck[0].x = 2;\r\n\
+fuck[1].x = 5;\r\n\
 Foo[] x = fuck;\r\n\
 Foo y;\r\n\
 y.arr = x;\r\n\
@@ -6417,11 +6419,32 @@ void corrupt()\r\n\
 	int[1024*1024] e = 0;\r\n\
 }\r\n\
 corrupt();\r\n\
-return 0;";
+fuck[0].x = 12;\r\n\
+fuck[1].x = 25;\r\n\
+return x[0].x + x[1].x;";
 	testCount[0]++;
-	if(RunCode(testVMRelocateArrayFail, testTarget[0], "11", "VM stack relocation test with possible infinite recursion"))
+	if(RunCode(testVMRelocateArrayFail, testTarget[0], "37", "VM stack relocation test with possible infinite recursion"))
 		passed[0]++;
-#endif
+
+const char	*testVMRelocateArrayFail2 =
+"class Foo{ Foo[] arr; int x; }\r\n\
+Foo[] x = new Foo[2];\r\n\
+x[0].x = 2;\r\n\
+x[1].x = 5;\r\n\
+Foo y;\r\n\
+y.arr = x;\r\n\
+x[0] = y;\r\n\
+void corrupt()\r\n\
+{\r\n\
+	int[1024*1024] e = 0;\r\n\
+}\r\n\
+corrupt();\r\n\
+x[0].x = 12;\r\n\
+x[1].x = 25;\r\n\
+return x[0].x + x[1].x;";
+	testCount[0]++;
+	if(RunCode(testVMRelocateArrayFail2, testTarget[0], "37", "VM stack relocation test with possible infinite recursion 2"))
+		passed[0]++;
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();

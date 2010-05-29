@@ -1829,14 +1829,27 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 	{
 		// Get real array size
 		size = *(int*)(ptr + NULLC_PTR_SIZE);
-		// Mark target data
-		FixupPointer(ptr, subType);
 		// Switch pointer to array data
 		char **rPtr = (char**)ptr;
-		ptr = *rPtr;
-		// If initialized, return
-		if(!ptr)
+
+		// If it points to stack, fix it and return
+		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+		{
+//			printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
 			return;
+		}
+		ptr = *rPtr;
+		// If uninitialized, return
+		if(!ptr || ptr <= (char*)0x00010000)
+			return;
+		// Get base pointer
+		unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+		// If there is no base pointer or memory already marked, exit
+		if(!basePtr || !*((unsigned int*)(basePtr) - 1))
+			return;
+		// Mark memory as used
+		*((unsigned int*)(basePtr) - 1) = 0;
 	}
 	switch(subType.subCat)
 	{
