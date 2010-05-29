@@ -1022,11 +1022,6 @@ void	RunTests(bool verbose)
 	//nullcInitCustomAlloc(testAlloc, testDealloc, "Modules\\");
 	//nullcSetFileReadHandler(TestFileLoad);
 
-#ifdef SPEED_TEST
-	nullcLoadModuleBySource("test.speed", "void draw_rect(int x, int y, int width, int height, int color);");
-	nullcBindModuleFunction("test.speed", (void (*)())speedTestStub, "draw_rect", 0);
-#endif
-
 	nullcLoadModuleBySource("test.a", "import std.math; float4 a; a.x = 2;");
 
 	nullcInitTypeinfoModule();
@@ -6352,6 +6347,149 @@ return *res + *h.c + *v + *e[0];";
 	testCount[0]++;
 	if(RunCode(testStackResize, testTarget[0], "40", "Parameter stack resize"))
 		passed[0]++;
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+const char	*testStackRelocationFrameSizeX64 =
+"int a = 1;\r\n\
+void test()\r\n\
+{\r\n\
+	int[1024*1024] e = 0;\r\n\
+	a = 6;\r\n\
+}\r\n\
+void help()\r\n\
+{\r\n\
+	auto e = &a;\r\n\
+	test();\r\n\
+	assert(*e == a);\r\n\
+	assert(*e == 6);\r\n\
+}\r\n\
+void help2(int a_, b, c)\r\n\
+{\r\n\
+	help();\r\n\
+}\r\n\
+help2(2, 3, 4);\r\n\
+return 0;";
+	testCount[0]++;
+	if(RunCode(testStackRelocationFrameSizeX64, testTarget[0], "0", "Stack frame size calculation in VM stack relocation under x64"))
+		passed[0]++;
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+const char	*testStackRelocationFrameSizeX86 =
+"int a = 1;\r\n\
+void test()\r\n\
+{\r\n\
+	int[1024*1024] e = 0;\r\n\
+	a = 6;\r\n\
+}\r\n\
+void help()\r\n\
+{\r\n\
+	auto e = &a;\r\n\
+	test();\r\n\
+	assert(*e == a);\r\n\
+	assert(*e == 6);\r\n\
+}\r\n\
+void help2(int a_, b, c, d)\r\n\
+{\r\n\
+	help();\r\n\
+}\r\n\
+help2(2, 3, 4, 5);\r\n\
+return 0;";
+	testCount[0]++;
+	if(RunCode(testStackRelocationFrameSizeX86, testTarget[0], "0", "Stack frame size calculation in VM stack relocation under x86"))
+		passed[0]++;
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+const char	*testStackRelocationFrameSizeX64_2 =
+"int a = 1;\r\n\
+void corrupt()\r\n\
+{\r\n\
+	int[1024*1024] e = 0;\r\n\
+	a = 6;\r\n\
+}\r\n\
+void test()\r\n\
+{\r\n\
+	auto e = &a;\r\n\
+	corrupt();\r\n\
+	assert(*e == a);\r\n\
+	assert(*e == 6);\r\n\
+}\r\n\
+auto rurr()\r\n\
+{\r\n\
+	// function local state (x64):\r\n\
+	// $context at base + 0 (sizeof 8)\r\n\
+	// d at base + 8 (sizeof 4)\r\n\
+	// pad at base + 12 (sizeof 4)\r\n\
+	// b1 at base + 24 (sizeof 12)\r\n\
+	// $lamda_27_ext at base + 16 (sizeof 8)\r\n\
+	// stack frame end is at 36, but incorrect calculation will return 24\r\n\
+	// stack frame alignment will translate this to 48 and 32, creating an error\r\n\
+	int d = 5;\r\n\
+	int pad = 8;\r\n\
+	auto b1 = int lambda(int b){ return b + d; };\r\n\
+	test();\r\n\
+	d = 7;\r\n\
+	return b1(4);\r\n\
+}\r\n\
+return rurr();";
+	testCount[0]++;
+	if(RunCode(testStackRelocationFrameSizeX64_2, testTarget[0], "11", "Stack frame size calculation in VM stack relocation under x64 2"))
+		passed[0]++;
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+const char	*testStackRelocationFrameSizeX86_2 =
+"int a = 1;\r\n\
+void corrupt()\r\n\
+{\r\n\
+	int[1024*1024] e = 0;\r\n\
+	a = 6;\r\n\
+}\r\n\
+void test()\r\n\
+{\r\n\
+	auto e = &a;\r\n\
+	corrupt();\r\n\
+	assert(*e == a);\r\n\
+	assert(*e == 6);\r\n\
+}\r\n\
+auto rurr()\r\n\
+{\r\n\
+	// function local state (x86):\r\n\
+	// $context at base + 0 (sizeof 4)\r\n\
+	// d at base + 4 (sizeof 4)\r\n\
+	// b1 at base + 12 (sizeof 8)\r\n\
+	// $lamda_27_ext at base + 8 (sizeof 4)\r\n\
+	// stack frame end is at 20, but incorrect calculation will return 12\r\n\
+	// stack frame alignment will translate this to 32 and 16, creating an error\r\n\
+	int d = 5;\r\n\
+	auto b1 = int lambda(int b){ return b + d; };\r\n\
+	test();\r\n\
+	d = 7;\r\n\
+	return b1(4);\r\n\
+}\r\n\
+return rurr();";
+	testCount[0]++;
+	if(RunCode(testStackRelocationFrameSizeX86_2, testTarget[0], "11", "Stack frame size calculation in VM stack relocation under x86 2"))
+		passed[0]++;
+
+	nullcInitTypeinfoModule();
+	nullcInitFileModule();
+	nullcInitMathModule();
+	nullcInitVectorModule();
+	nullcInitRandomModule();
+	nullcInitDynamicModule();
+	nullcInitGCModule();
+	nullcInitIOModule();
+	nullcInitCanvasModule();
+#if defined(_MSC_VER)
+	nullcInitWindowModule();
+#endif
 
 #define TEST_FOR_FAIL(name, str, error)\
 {\

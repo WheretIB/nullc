@@ -1946,18 +1946,20 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
 //			printf("In function %s (with offset of %d)\r\n", symbols + exFunctions[funcID].offsetToName, alignOffset);
 			offset += alignOffset;
+
+			unsigned int offsetToNextFrame = exFunctions[funcID].bytesToPop;
+			// Check every function local
 			for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
 			{
+				// Get information about local
 				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+//				printf("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
 				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
+				if(lInfo.offset + lInfo.size > offsetToNextFrame)
+					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
-			if(exFunctions[funcID].localCount)
-			{
-				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + exFunctions[funcID].localCount - 1];
-				offset += lInfo.offset + lInfo.size;
-			}else{
-				offset += NULLC_PTR_SIZE;	// There's one hidden parameter
-			}
+			offset += offsetToNextFrame;
+//			printf("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
 		}
 	}
 	fcallStack.pop_back();
