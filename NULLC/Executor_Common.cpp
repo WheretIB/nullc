@@ -377,7 +377,7 @@ void MarkUsedBlocks()
 			offset += alignOffset;
 			GC_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + functions[funcID].offsetToName, alignOffset);
 
-			unsigned int offsetToNextFrame = 4;
+			unsigned int offsetToNextFrame = functions[funcID].bytesToPop;
 			// Check every function local
 			for(unsigned int i = 0; i < functions[funcID].localCount; i++)
 			{
@@ -393,10 +393,6 @@ void MarkUsedBlocks()
 			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
 		}
 	}
-
-	// For debug check that type #4 is indeed, int
-	const unsigned int intHash = GetStringHash("int");
-	assert(intHash == types[4].nameHash);
 
 	// Check pointers inside all unclosed upvalue lists
 	for(unsigned int i = 0; i < NULLC::commonLinker->exCloseLists.size(); i++)
@@ -427,7 +423,6 @@ void MarkUsedBlocks()
 				curr->next = curr->next->next;
 			}
 		}
-		
 	}
 
 	// Check for pointers in stack
@@ -444,6 +439,9 @@ void MarkUsedBlocks()
 		tempStackTop = (char*)exec->GetStackEnd();
 #endif
 	}
+	// For debug check that type #4 is indeed, int
+	const unsigned int intHash = GetStringHash("int");
+	assert(intHash == types[4].nameHash);
 	while(tempStackBase < tempStackTop)
 	{
 		GC::MarkPointer(tempStackBase, types[4], false);

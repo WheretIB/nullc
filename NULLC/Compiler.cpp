@@ -1106,11 +1106,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 
 bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 {
-	fInfo.bytesToPop = 4;
-#ifdef _M_X64
-	fInfo.bytesToPop += 4;
-#endif
-
+	fInfo.bytesToPop = NULLC_PTR_SIZE;
 	for(VariableInfo *curr = refFunc.firstParam; curr; curr = curr->next)
 	{
 		unsigned int paramSize = curr->varType->size > 4 ? curr->varType->size : 4;
