@@ -1884,14 +1884,55 @@ void FunctionEnd(const char* pos)
 		TypeInfo *saveCurrType = currType;
 		bool saveVarDefined = varDefined;
 
+		// Save data about currently defined type
+		TypeInfo *currentDefinedType = newType;
+		unsigned int currentDefinedTypeMethodCount = methodCount;
+		// Create closure type
+		newType = NULL;
+		SetCurrentAlignment(4);
+		char tempName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		SafeSprintf(tempName, NULLC_MAX_VARIABLE_NAME_LENGTH, "__%s_%d_ext", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
+		TypeBegin(tempName, tempName + strlen(tempName));
+		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
+		{
+			unsigned int bufSize = int(curr->variable->name.end - curr->variable->name.begin) + 5;
+			// Pointer to target variable
+			char	*memberName = AllocateString(bufSize);
+			SafeSprintf(memberName, bufSize, "%.*s_ext", int(curr->variable->name.end - curr->variable->name.begin), curr->variable->name.begin);
+			newType->AddMemberVariable(memberName, CodeInfo::GetReferenceType(curr->variable->varType));
+
+			// Place for a copy of target variable
+			memberName = AllocateString(bufSize);
+			SafeSprintf(memberName, bufSize, "%.*s_dat", int(curr->variable->name.end - curr->variable->name.begin), curr->variable->name.begin);
+			unsigned int reqBytes = (curr->variable->varType->size < (NULLC_PTR_SIZE + 4) ? (NULLC_PTR_SIZE + 4) : curr->variable->varType->size);
+			newType->AddMemberVariable(memberName, CodeInfo::GetArrayType(typeInt, reqBytes / 4));
+		}
+		TypeInfo *closureType = newType;
+
+		// Add padding
+		if(newType->size % 4 != 0)
+		{
+			newType->paddingBytes = 4 - (newType->size % 4);
+			newType->size += 4 - (newType->size % 4);
+		}
+		// Shift new types generated inside up, so that declaration will be in the correct order in C translation
+		for(unsigned int i = newType->originalIndex + 1; i < CodeInfo::typeInfo.size(); i++)
+			CodeInfo::typeInfo[i]->originalIndex--;
+		newType->originalIndex = CodeInfo::typeInfo.size() - 1;
+		// Restore data about previously defined type
+		newType = currentDefinedType;
+		methodCount = currentDefinedTypeMethodCount;
+		EndBlock(false, false);
+
 		// Create a pointer to array
-		currType = NULL;
+		currType = CodeInfo::GetReferenceType(closureType);
 		void *varInfo = AddVariable(pos, InplaceStr(hiddenHame, length));
 
 		// Allocate array in dynamic memory
 		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
 		AddFunctionCallNode(pos, "__newS", 1);
-		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetArrayType(CodeInfo::GetReferenceType(typeInt), lastFunc.externalSize / NULLC_PTR_SIZE));
+		assert(closureType->size >= lastFunc.externalSize);
+		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(closureType);
 
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, varInfo);
