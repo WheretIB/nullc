@@ -1897,6 +1897,24 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 	}
 }
 
+void Executor::FixupFunction(char* ptr)
+{
+	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)ptr;
+	// If there's no context, there's nothing to check
+	if(!fPtr->context)
+		return;
+	const ExternFuncInfo &func = exFunctions[fPtr->id];
+	// External functions shouldn't be checked
+	if(func.address == -1)
+		return;
+	// If context is "this" pointer
+	if(func.parentType != ~0u)
+	{
+		const ExternTypeInfo &classType = exTypes[func.parentType];
+		FixupPointer((char*)&fPtr->context, classType);
+	}
+}
+
 void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
 {
 	switch(type.subCat)
@@ -1909,6 +1927,9 @@ void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
 		break;
 	case ExternTypeInfo::CAT_CLASS:
 		FixupClass(ptr, type);
+		break;
+	case ExternTypeInfo::CAT_FUNCTION:
+		FixupFunction(ptr);
 		break;
 	}
 }
@@ -2078,7 +2099,7 @@ void Executor::ClearBreakpoints()
 	breakCode.clear();
 }
 
-bool Executor::AddBreakpoint(unsigned int instruction)
+bool Executor::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
 	if(instruction > exLinker->exCode.size())
 	{
@@ -2086,11 +2107,24 @@ bool Executor::AddBreakpoint(unsigned int instruction)
 		return false;
 	}
 	unsigned int pos = breakCode.size();
-	breakCode.push_back(exLinker->exCode[instruction]);
-	breakCode.push_back(VMCmd(cmdNop, EXEC_BREAK_RETURN, 0, instruction + 1));
-	exLinker->exCode[instruction].cmd = cmdNop;
-	exLinker->exCode[instruction].flag = EXEC_BREAK_SIGNAL;
-	exLinker->exCode[instruction].argument = pos;
+	if(exLinker->exCode[instruction].cmd == cmdNop)
+	{
+		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: cannot set breakpoint on breakpoint");
+		return false;
+	}
+	if(oneHit)
+	{
+		breakCode.push_back(exLinker->exCode[instruction]);
+		exLinker->exCode[instruction].cmd = cmdNop;
+		exLinker->exCode[instruction].flag = EXEC_BREAK_ONE_HIT_WONDER;
+		exLinker->exCode[instruction].argument = pos;
+	}else{
+		breakCode.push_back(exLinker->exCode[instruction]);
+		breakCode.push_back(VMCmd(cmdNop, EXEC_BREAK_RETURN, 0, instruction + 1));
+		exLinker->exCode[instruction].cmd = cmdNop;
+		exLinker->exCode[instruction].flag = EXEC_BREAK_SIGNAL;
+		exLinker->exCode[instruction].argument = pos;
+	}
 	return true;
 }
 

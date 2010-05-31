@@ -680,6 +680,13 @@ NULLCCodeInfo* nullcDebugCodeInfo(unsigned int *count)
 	return linker ? (NULLCCodeInfo*)linker->exCodeInfo.data : NULL;
 }
 
+VMCmd* nullcDebugCode(unsigned int *count)
+{
+	if(count && linker)
+		*count = linker->exCode.size();
+	return linker ? (VMCmd*)linker->exCode.data : NULL;
+}
+
 ExternModuleInfo* nullcDebugModuleInfo(unsigned int *count)
 {
 	if(count && linker)
@@ -747,7 +754,7 @@ nullres nullcDebugClearBreakpoints()
 	return true;
 }
 
-nullres nullcDebugAddBreakpoint(unsigned int instruction)
+nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 {
 	if(!executor)
 	{
@@ -759,12 +766,22 @@ nullres nullcDebugAddBreakpoint(unsigned int instruction)
 		nullcLastError = "ERROR: breakpoints are supported only under VM";
 		return false;
 	}
-	if(!executor->AddBreakpoint(instruction))
+	if(!executor->AddBreakpoint(instruction, oneHit))
 	{
 		nullcLastError = executor->GetExecError();
 		return false;
 	}
 	return true;
+}
+
+nullres nullcDebugAddBreakpoint(unsigned int instruction)
+{
+	return nullcDebugAddBreakpointImpl(instruction, false);
+}
+
+nullres nullcDebugAddOneHitBreakpoint(unsigned int instruction)
+{
+	return nullcDebugAddBreakpointImpl(instruction, true);
 }
 
 nullres nullcDebugRemoveBreakpoint(unsigned int instruction)

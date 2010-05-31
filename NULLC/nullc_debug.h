@@ -3,6 +3,7 @@
 
 #include "nullcdef.h"
 #include "Bytecode.h"
+#include "InstructionSet.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -33,6 +34,7 @@ struct NULLCCodeInfo
 	unsigned int sourceOffset;
 };
 NULLCCodeInfo*		nullcDebugCodeInfo(unsigned int *count);
+VMCmd*				nullcDebugCode(unsigned int *count);
 ExternModuleInfo*	nullcDebugModuleInfo(unsigned int *count);
 
 void				nullcDebugBeginCallStack();
@@ -50,6 +52,7 @@ nullres				nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int));
 nullres				nullcDebugClearBreakpoints();
 // Line number can be translated into instruction number by using nullcDebugCodeInfo and nullcDebugModuleInfo
 nullres				nullcDebugAddBreakpoint(unsigned int instruction);
+nullres				nullcDebugAddOneHitBreakpoint(unsigned int instruction);
 nullres				nullcDebugRemoveBreakpoint(unsigned int instruction);
 
 #ifdef __cplusplus

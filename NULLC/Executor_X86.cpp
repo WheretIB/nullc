@@ -1387,9 +1387,10 @@ void ExecutorX86::ClearBreakpoints()
 {
 }
 
-bool ExecutorX86::AddBreakpoint(unsigned int instruction)
+bool ExecutorX86::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
 	(void)instruction;
+	(void)oneHit;
 	return false;
 }
 
