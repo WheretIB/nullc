@@ -11,6 +11,8 @@ Core:
 	15 b. Fix pointer constructors
 	16 b. float mod operation should be tested
 	17 f. Constant expressions.
+	18 f. CheckClass should check only pointer members
+		+ Classes should have a global mark that they do not contain pointer elements, so that an array of classes will not be iterated through.
 
 Library:
 	1. f. string

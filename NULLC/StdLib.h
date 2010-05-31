@@ -33,6 +33,8 @@ namespace NULLC
 
 	void		CollectMemory();
 	unsigned int	UsedMemory();
+	double		MarkTime();
+	double		CollectTime();
 
 	void		ClearMemory();
 	void		ResetMemory();
