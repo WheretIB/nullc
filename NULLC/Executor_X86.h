@@ -37,7 +37,7 @@ public:
 
 	void	SetBreakFunction(void (*callback)(unsigned int));
 	void	ClearBreakpoints();
-	bool	AddBreakpoint(unsigned int instruction);
+	bool	AddBreakpoint(unsigned int instruction, bool oneHit);
 
 	bool	SetStackPlacement(void* start, void* end, unsigned int flagMemoryAllocated);
 private:
