@@ -349,6 +349,7 @@ double myGetPreciseTime()
 HANDLE breakResponse = NULL;
 unsigned int	breakCommand = NULLC_BREAK_PROCEED, lastBreakCommand = NULLC_BREAK_PROCEED;
 unsigned int	lastCodeLine = ~0u;
+unsigned int	lastInstruction = ~0u;
 
 void IDEDebugBreak()
 {
@@ -357,7 +358,7 @@ void IDEDebugBreak()
 }
 unsigned IDEDebugBreakEx(unsigned int instruction)
 {
-	(void)instruction;
+	lastInstruction = instruction;
 	lastBreakCommand = breakCommand;
 	breakCommand = NULLC_BREAK_PROCEED;
 	SendMessage(hWnd, WM_USER + 2, 0, 0);
@@ -840,9 +841,12 @@ ExternFuncInfo	*codeFuntions = NULL;
 ExternLocalInfo	*codeLocals = NULL;
 unsigned int	*codeTypeExtra = NULL;
 char			*codeSymbols = NULL;
+unsigned int	codeInstCount = 0;
+VMCmd			*codeInst = NULL;
 
 struct TreeItemExtra
 {
+	TreeItemExtra():address(NULL), type(NULL), item(NULL), expandable(false), name(NULL){}
 	TreeItemExtra(void* a, const ExternTypeInfo* t, HTREEITEM i, bool e, const char *n = NULL):address(a), type(t), item(i), expandable(e), name(n){}
 
 	void			*address;
@@ -932,6 +936,8 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		helpInsert.item.pszText = name;
 		helpInsert.item.cChildren = subType.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (subType.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
 		helpInsert.item.lParam = subType.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
+		if(subType.subCat == ExternTypeInfo::CAT_POINTER)
+			tiExtra.push_back(TreeItemExtra());
 
 		HTREEITEM lastItem;
 		if(update)
@@ -942,7 +948,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		}else{
 			lastItem = TreeView_InsertItem(hVars, &helpInsert);
 			if(subType.subCat == ExternTypeInfo::CAT_POINTER)
-				tiExtra.push_back(TreeItemExtra((void*)ptr, &subType, lastItem, true));
+				tiExtra.back() = TreeItemExtra((void*)ptr, &subType, lastItem, true);
 		}
 
 		FillVariableInfo(subType, ptr, lastItem);
@@ -995,7 +1001,9 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		helpInsert.item.pszText = name;
 		helpInsert.item.cChildren = memberType.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (memberType.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
 		helpInsert.item.lParam = memberType.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
-
+		if(memberType.subCat == ExternTypeInfo::CAT_POINTER)
+			tiExtra.push_back(TreeItemExtra());
+	
 		HTREEITEM lastItem;
 		if(update)
 		{
@@ -1005,7 +1013,7 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		}else{
 			lastItem = TreeView_InsertItem(hVars, &helpInsert);
 			if(memberType.subCat == ExternTypeInfo::CAT_POINTER)
-				tiExtra.push_back(TreeItemExtra((void*)ptr, &memberType, lastItem, true));
+				tiExtra.back() = TreeItemExtra((void*)ptr, &memberType, lastItem, true);
 		}
 
 		FillVariableInfo(memberType, ptr, lastItem);
@@ -1043,9 +1051,20 @@ void FillAutoInfo(char* ptr, HTREEITEM parent)
 	helpInsert.item.pszText = name;
 	helpInsert.item.cChildren = I_CHILDRENCALLBACK;
 	helpInsert.item.lParam = tiExtra.size();
-
+	tiExtra.push_back(TreeItemExtra());
 	HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-	tiExtra.push_back(TreeItemExtra((void*)(ptr + 4), parentType, lastItem, true));
+	tiExtra.back() = TreeItemExtra((void*)(ptr + 4), parentType, lastItem, true);
+}
+
+void InsertUnavailableInfo(HTREEITEM parent)
+{
+	TVINSERTSTRUCT helpInsert;
+	helpInsert.hParent = parent;
+	helpInsert.hInsertAfter = TVI_LAST;
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.cchTextMax = 0;
+	helpInsert.item.pszText = "Cannot be evaluated";
+	TreeView_InsertItem(hVars, &helpInsert);
 }
 
 void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent)
@@ -1075,7 +1094,7 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	helpInsert.item.pszText = name;
 	TreeView_InsertItem(hVars, &helpInsert);
 
-	safeprintf(name, 256, "void ref context = 0x%x", *(int*)(ptr));
+	safeprintf(name, 256, "%s context = 0x%x", func.parentType == ~0u ? "void ref" : codeSymbols + codeTypes[func.parentType].offsetToName, *(int*)(ptr));
 	helpInsert.item.pszText = name;
 	HTREEITEM contextList = TreeView_InsertItem(hVars, &helpInsert);
 
@@ -1086,6 +1105,21 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	nextInsert.item.cchTextMax = 0;
 
 	ExternFuncInfo::Upvalue *upvalue = *(ExternFuncInfo::Upvalue**)(ptr);
+	if(!upvalue || !upvalue->ptr)
+	{
+		InsertUnavailableInfo(contextList);
+		return;
+	}
+	if(func.parentType != ~0u)
+	{
+		if(func.externCount)
+		{
+			FillVariableInfo(codeTypes[codeTypes[func.parentType].subType], (char*)upvalue, contextList, false);
+		}else{
+			FillVariableInfo(codeTypes[func.parentType], (char*)upvalue, contextList, false);
+			return;
+		}
+	}
 
 	ExternLocalInfo *externals = &codeLocals[func.offsetToFirstLocal + func.localCount];
 	for(unsigned int i = 0; i < func.externCount; i++)
@@ -1107,17 +1141,6 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
 	}
-}
-
-void InsertUnavailableInfo(HTREEITEM parent)
-{
-	TVINSERTSTRUCT helpInsert;
-	helpInsert.hParent = parent;
-	helpInsert.hInsertAfter = TVI_LAST;
-	helpInsert.item.mask = TVIF_TEXT;
-	helpInsert.item.cchTextMax = 0;
-	helpInsert.item.pszText = "Cannot be evaluated";
-	TreeView_InsertItem(hVars, &helpInsert);
 }
 
 void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent, bool update)
@@ -1191,8 +1214,9 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
 		helpInsert.item.lParam = tiExtra.size();
 
+		tiExtra.push_back(TreeItemExtra());
 		HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-		tiExtra.push_back(TreeItemExtra(data + codeVars[i].offset, &type, lastItem, type.subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + codeVars[i].offsetToName));
+		tiExtra.back() = TreeItemExtra(data + codeVars[i].offset, &type, lastItem, type.subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + codeVars[i].offsetToName);
 
 		FillVariableInfo(type, data + codeVars[i].offset, lastItem);
 
@@ -1209,6 +1233,9 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 
 	unsigned int moduleSize = stateRemote ? RemoteData::moduleCount : 0;
 	ExternModuleInfo *modules = stateRemote ? RemoteData::modules : nullcDebugModuleInfo(&moduleSize);
+
+	codeInstCount = stateRemote ? 0 : 0;
+	codeInst = stateRemote ? NULL : nullcDebugCode(&codeInstCount);
 
 	unsigned int id = ~0u;
 	const char *source = RichTextarea::GetAreaText(mainCodeWnd);
@@ -1235,7 +1262,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			unsigned int i = address - 1;
 			while((line < infoSize - 1) && (i >= codeInfo[line + 1].byteCodePos))
 				line++;
-			printf("Call stack instruction is %d, next one is %d\n", codeInfo[line].byteCodePos, codeInfo[line+1].byteCodePos);
+			printf("Call stack instruction is %d, next one is %d\n", codeInfo[line].byteCodePos, line == infoSize - 1 ? codeInstCount : codeInfo[line + 1].byteCodePos);
 			
 			if(codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize)
 			{
@@ -1353,9 +1380,10 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				localInfo.item.pszText = name;
 				localInfo.item.cChildren = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
 				localInfo.item.lParam = tiExtra.size();
-
+				
+				tiExtra.push_back(TreeItemExtra());
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
-				tiExtra.push_back(TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem, codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + lInfo.offsetToName));
+				tiExtra.back() = TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem, codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + lInfo.offsetToName);
 
 				if(offset + lInfo.offset + lInfo.size > dataCount)
 					InsertUnavailableInfo(thisItem);
@@ -1962,7 +1990,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				LPNMTVDISPINFO info = (LPNMTVDISPINFO)lParam;
 				if(info->item.mask & TVIF_CHILDREN)
 				{
-					if(codeTypes && info->item.lParam && tiExtra[info->item.lParam].type->subCat == ExternTypeInfo::CAT_POINTER)
+					if(codeTypes && info->item.lParam && tiExtra[info->item.lParam].type && tiExtra[info->item.lParam].type->subCat == ExternTypeInfo::CAT_POINTER)
 						info->item.cChildren = 1;
 				}
 			}else if(((LPNMHDR)lParam)->code == TVN_ITEMEXPANDING && ((LPNMHDR)lParam)->hwndFrom == hVars){
@@ -2032,10 +2060,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					helpInsert.item.pszText = name;
 					helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
 					helpInsert.item.lParam = type.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
+					if(type.subCat == ExternTypeInfo::CAT_POINTER)
+						tiExtra.push_back(TreeItemExtra());
 
 					HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
 					if(type.subCat == ExternTypeInfo::CAT_POINTER)
-						tiExtra.push_back(TreeItemExtra(ptr, &type, lastItem, true));
+						tiExtra.back() = TreeItemExtra(ptr, &type, lastItem, true);
 
 					FillVariableInfo(type, ptr, lastItem);
 
