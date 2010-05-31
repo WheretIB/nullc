@@ -7004,9 +7004,13 @@ double markTimeBegin = GC.MarkTime();\r\n\
 double collectTimeBegin = GC.CollectTime();\r\n\
 io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 int WS = 0;\r\n\
-int ws = WS;\r\n\
-int d = 23;\r\n\
-arr = new Aref[1 << d];\r\n\
+int ws = WS;\r\n"
+#if defined(__CELLOS_LV2__)
+"int d = 20;\r\n"
+#else
+"int d = 23;\r\n"
+#endif
+"arr = new Aref[1 << d];\r\n\
 A ref a = Create(d);\r\n\
 int minToCollect = (WS - ws) / 2;\r\n\
 io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
@@ -7074,9 +7078,13 @@ double markTimeBegin = GC.MarkTime();\r\n\
 double collectTimeBegin = GC.CollectTime();\r\n\
 io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 int WS = 0;\r\n\
-int ws = WS;\r\n\
-int d = 21;\r\n\
-arr = new Aref[1 << d];\r\n\
+int ws = WS;\r\n"
+#if defined(__CELLOS_LV2__)
+"int d = 20;\r\n"
+#else
+"int d = 23;\r\n"
+#endif
+"arr = new Aref[1 << d];\r\n\
 A ref a = Create(d);\r\n\
 int minToCollect = (WS - ws) / 2;\r\n\
 io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
