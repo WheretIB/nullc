@@ -2,6 +2,7 @@
 
 #include "nullc.h"
 #include <string.h>
+#include <time.h>
 
 #include "stdafx.h"
 #include "Pool.h"
@@ -195,6 +196,9 @@ namespace NULLC
 	FastVector<void*>				globalObjects;
 
 	Linker	*linker = NULL;
+
+	double	markTime = 0.0;
+	double	collectTime = 0.0;
 }
 
 void NULLC::SetLinker(Linker *linker)
@@ -368,10 +372,15 @@ void NULLC::CollectMemory()
 {
 //	printf("%d used memory (%d collectable cap, %d max cap)\r\n", usedMemory, collectableMinimum, globalMemoryLimit);
 
+	double time = (double(clock()) / CLOCKS_PER_SEC);
+
 	// All memory blocks are marked with 0
 	MarkMemory(0);
 	// Used memory blocks are marked with 1
 	MarkUsedBlocks();
+
+	markTime += (double(clock()) / CLOCKS_PER_SEC) - time;
+	time = (double(clock()) / CLOCKS_PER_SEC);
 
 	// Globally allocated objects marked with 0 are deleted
 	unsigned int unusedBlocks = 0;
@@ -415,10 +424,22 @@ void NULLC::CollectMemory()
 
 //	printf("%d used memory\r\n", usedMemory);
 
+	collectTime += (double(clock()) / CLOCKS_PER_SEC) - time;
+
 	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
 		collectableMinimum <<= 1;
 }
 #endif
+
+double NULLC::MarkTime()
+{
+	return markTime;
+}
+
+double NULLC::CollectTime()
+{
+	return collectTime;
+}
 
 void NULLC::ClearMemory()
 {

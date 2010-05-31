@@ -4799,14 +4799,14 @@ const char	*testLongRetrieval = "return 25l;";
 		if(!r)
 		{
 			if(!messageVerbose)
-				printf("nullcGetResultDouble test\r\n");
+				printf("nullcGetResultLong test\r\n");
 			printf("Build failed:%s\r\n", nullcGetLastError());
 			continue;
 		}
 		if(!nullcRun())
 		{
 			if(!messageVerbose)
-				printf("nullcGetResultDouble test\r\n");
+				printf("nullcGetResultLong test\r\n");
 			printf("Execution failed:%s\r\n", nullcGetLastError());
 			continue;
 		}
@@ -4815,7 +4815,7 @@ const char	*testLongRetrieval = "return 25l;";
 			passed[t]++;
 		}else{
 			if(!messageVerbose)
-				printf("nullcGetResultDouble test\r\n");
+				printf("nullcGetResultLong test\r\n");
 			printf("Incorrect result: %s", nullcGetResult());
 		}
 	}
@@ -7000,7 +7000,8 @@ A ref Create(int level)\r\n\
         return a;\r\n\
     }\r\n\
 }\r\n\
-\r\n\
+double markTimeBegin = GC.MarkTime();\r\n\
+double collectTimeBegin = GC.CollectTime();\r\n\
 io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 int WS = 0;\r\n\
 int ws = WS;\r\n\
@@ -7016,6 +7017,7 @@ arr = new Aref[1];\r\n\
 GC.CollectMemory();\r\n\
 io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
 return GC.UsedMemory();";
 	printf("Garbage collection\r\n");
 	for(int t = 0; t < 2; t++)
@@ -7068,7 +7070,8 @@ A ref Create(int level)\r\n\
         return a;\r\n\
     }\r\n\
 }\r\n\
-\r\n\
+double markTimeBegin = GC.MarkTime();\r\n\
+double collectTimeBegin = GC.CollectTime();\r\n\
 io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 int WS = 0;\r\n\
 int ws = WS;\r\n\
@@ -7084,6 +7087,7 @@ arr = new Aref[1];\r\n\
 GC.CollectMemory();\r\n\
 io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
 return GC.UsedMemory();";
 	printf("Garbage collection 2 \r\n");
 	for(int t = 0; t < 2; t++)
