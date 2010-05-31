@@ -9,6 +9,7 @@ Core:
 	9. b. Fix alignment of dynamically allocated variables.
 	13 f. Let user set the global memory maximum.
 	15 b. Fix pointer constructors
+	16 b. float mod operation should be tested
 
 Library:
 	1. f. string
@@ -21,7 +22,6 @@ Debug:
 
 SuperCalc:
 	4. f. Tooltips with variable values
-	6. f. Open tab with breakpoint
 	7. b. Compiled modules must recompile after changes.
 	12. Editing code should be disabled\warning shown\edit & continue
 
@@ -166,3 +166,4 @@ DONE: typedefs should be scoped
 FIXED: variable argument list doesn't work if function is called by pointer
 FIXED: redirection table size is fixed.
 FIXED: eval is not safe when reallocation of code is performed
+DONE: Open tab with breakpoint

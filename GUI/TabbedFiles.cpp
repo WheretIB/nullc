@@ -313,6 +313,8 @@ unsigned int TabbedFiles::GetCurrentTab(HWND wnd)
 void TabbedFiles::SetCurrentTab(HWND wnd, unsigned int id)
 {
 	TabbedFilesData	*data = GetData(wnd);
+	if(data->selectedTab == id)
+		return;
 
 	data->selectedTab = id;
 	for(unsigned int i = 0; i < data->tabCount + 1; i++)
