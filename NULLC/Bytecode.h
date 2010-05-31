@@ -86,11 +86,8 @@ struct ExternFuncInfo
 	unsigned char	returnShift;
 	unsigned int	funcType;	// index to the type array
 
-	union
-	{
-		unsigned int	startInByteCode;
-		unsigned int	parentType;
-	};
+	unsigned int	startInByteCode;
+	unsigned int	parentType;
 
 	unsigned int	offsetToFirstLocal;
 	unsigned int	paramCount;

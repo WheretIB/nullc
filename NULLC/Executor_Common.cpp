@@ -278,6 +278,39 @@ namespace GC
 		}
 	}
 
+	// Function that checks function context for pointers
+	void CheckFunction(char* ptr)
+	{
+		NULLCFuncPtr *fPtr = (NULLCFuncPtr*)ptr;
+		// If there's no context, there's nothing to check
+		if(!fPtr->context)
+			return;
+		const ExternFuncInfo &func = NULLC::commonLinker->exFunctions[fPtr->id];
+		// External functions shouldn't be checked
+		if(func.address == -1)
+			return;
+		// If context is "this" pointer
+		if(func.parentType != ~0u)
+		{
+			if(!func.externCount)
+			{
+				const ExternTypeInfo &classType = NULLC::commonLinker->exTypes[func.parentType];
+				MarkPointer((char*)&fPtr->context, classType, false);
+			}else{
+				MarkPointer((char*)&fPtr->context, NULLC::commonLinker->exTypes[0], false);
+				// Context is a closure
+				ExternFuncInfo::Upvalue *upvalue = (ExternFuncInfo::Upvalue*)fPtr->context;
+				ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
+				for(unsigned int i = 0; i < func.externCount; i++)
+				{
+					ExternTypeInfo &externType = NULLC::commonLinker->exTypes[externals[i].type];
+					CheckVariable((char*)upvalue->ptr, externType);
+					upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
+				}
+			}
+		}
+	}
+
 	// Function that decides, how variable of type 'type' should be checked for pointers
 	void CheckVariable(char* ptr, const ExternTypeInfo& type)
 	{
@@ -291,6 +324,9 @@ namespace GC
 			break;
 		case ExternTypeInfo::CAT_CLASS:
 			CheckClass(ptr, type);
+			break;
+		case ExternTypeInfo::CAT_FUNCTION:
+			CheckFunction(ptr);
 			break;
 		}
 	}
