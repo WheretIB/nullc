@@ -284,6 +284,7 @@ void TabbedFiles::AddTab(HWND wnd, const char* filename, HWND childWindow)
 
 	data->tabInfo[data->tabCount].name = data->tabInfo[data->tabCount].last = "+";
 	data->tabInfo[data->tabCount].window = data->newTab;
+	InvalidateRect(wnd, NULL, true);
 }
 
 void TabbedFiles::SetNewTabWindow(HWND wnd, HWND newTab)
