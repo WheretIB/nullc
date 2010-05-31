@@ -510,12 +510,6 @@ T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 		return a - b;
 	if(cmd == cmdMul)
 		return a * b;
-	if(cmd == cmdDiv)
-	{
-		if(b == 0)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: division by zero during constant folding");
-		return a / b;
-	}
 	if(cmd == cmdPow)
 		return (T)pow((double)a, (double)b);
 	if(cmd == cmdLess)
@@ -541,6 +535,12 @@ T optDoSpecial(CmdID cmd, T a, T b)
 }
 template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 {
+	if(cmd == cmdDiv)
+	{
+		if(b == 0)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: division by zero during constant folding");
+		return a / b;
+	}
 	if(cmd == cmdShl)
 		return a << b;
 	if(cmd == cmdShr)
@@ -568,6 +568,12 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 }
 template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 {
+	if(cmd == cmdDiv)
+	{
+		if(b == 0)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: division by zero during constant folding");
+		return a / b;
+	}
 	if(cmd == cmdShl)
 		return a << b;
 	if(cmd == cmdShr)
@@ -595,6 +601,8 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 }
 template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 {
+	if(cmd == cmdDiv)
+		return a / b;
 	if(cmd == cmdMod)
 		return fmod(a,b);
 	if(cmd == cmdShl)
@@ -978,8 +986,9 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		VariableInfo *vInfo = *info;
 		if(!vInfo->varType)
 			ThrowError(pos, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
-		if(newType && currDefinedFunc.back()->type == FunctionInfo::THISCALL && vInfo->isGlobal)
+		if(newType && vInfo->isGlobal)
 		{
+			assert(currDefinedFunc.back()->type != FunctionInfo::NORMAL);
 			TypeInfo::MemberVariable *curr = newType->firstVariable;
 			for(; curr; curr = curr->next)
 				if(curr->nameHash == hash)
@@ -990,7 +999,15 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				FunctionInfo *currFunc = currDefinedFunc.back();
 
 				TypeInfo *temp = CodeInfo::GetReferenceType(newType);
-				CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+				if(currDefinedFunc.back()->type == FunctionInfo::LOCAL)
+				{
+					// For local function, add "this" to context and get it from upvalue
+					assert(currDefinedFunc[0]->type == FunctionInfo::THISCALL);
+					FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, currDefinedFunc[0]->extraParam);
+					CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(vInfo->varType)));
+				}else{
+					CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+				}
 				CodeInfo::nodeList.push_back(new NodeDereference());
 				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
 				return;
@@ -1707,7 +1724,10 @@ void FunctionAdd(const char* pos, const char* funcName)
 		lastFunc->parentClass = newType;
 	}
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
+	{
 		lastFunc->type = FunctionInfo::LOCAL;
+		lastFunc->parentClass = NULL;
+	}
 	if(funcName[0] != '$' && !(chartype_table[(unsigned char)funcName[0]] & ct_start_symbol))
 		lastFunc->visible = false;
 	currDefinedFunc.push_back(lastFunc);
@@ -1926,6 +1946,7 @@ void FunctionEnd(const char* pos)
 
 		// Create a pointer to array
 		currType = CodeInfo::GetReferenceType(closureType);
+		lastFunc.extraParam->varType = currType;
 		void *varInfo = AddVariable(pos, InplaceStr(hiddenHame, length));
 
 		// Allocate array in dynamic memory
