@@ -82,6 +82,8 @@ HWND hAttachPanel, hAttachList, hAttachDo, hAttachAdd, hAttachAddName, hAttachBa
 bool stateAttach = false, stateRemote = false;
 CRITICAL_SECTION	pipeSection;
 
+HWND mainCodeWnd = NULL;
+
 unsigned int areaWidth = 400, areaHeight = 300;
 
 HFONT	fontMonospace, fontDefault;
@@ -568,7 +570,8 @@ bool SaveFileFromTab(const char *file, const char *data)
 	FILE *fSave = fopen(file, "wb");
 	if(!fSave)
 	{
-		MessageBox(hWnd, "File cannot be saved", "Warning", MB_OK);
+		if(file[0] != '?')
+			MessageBox(hWnd, "File cannot be saved", "Warning", MB_OK);
 		return false;
 	}else{
 		fwrite(data, 1, strlen(data), fSave);
@@ -1106,6 +1109,17 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	}
 }
 
+void InsertUnavailableInfo(HTREEITEM parent)
+{
+	TVINSERTSTRUCT helpInsert;
+	helpInsert.hParent = parent;
+	helpInsert.hInsertAfter = TVI_LAST;
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.cchTextMax = 0;
+	helpInsert.item.pszText = "Cannot be evaluated";
+	TreeView_InsertItem(hVars, &helpInsert);
+}
+
 void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent, bool update)
 {
 	if(&type == &codeTypes[8])	// typeid
@@ -1143,7 +1157,8 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	helpInsert.item.mask = TVIF_TEXT;
 	helpInsert.item.cchTextMax = 0;
 
-	char	*data = stateRemote ? RemoteData::stackData : (char*)nullcGetVariableData(NULL);
+	unsigned int	dataCount = ~0u;
+	char	*data = stateRemote ? RemoteData::stackData : (char*)nullcGetVariableData(&dataCount);
 
 	unsigned int	variableCount	= stateRemote ? RemoteData::varCount : 0;
 	unsigned int	functionCount	= stateRemote ? RemoteData::funcCount : 0;
@@ -1186,6 +1201,8 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	}
 
 	unsigned int codeLine = ~0u;
+	HWND lastWindow = mainCodeWnd;
+	unsigned int retLine = ~0u;
 
 	unsigned int infoSize = stateRemote ? RemoteData::infoSize : 0;
 	NULLCCodeInfo *codeInfo = stateRemote ? RemoteData::codeInfo : nullcDebugCodeInfo(&infoSize);
@@ -1193,8 +1210,9 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	unsigned int moduleSize = stateRemote ? RemoteData::moduleCount : 0;
 	ExternModuleInfo *modules = stateRemote ? RemoteData::modules : nullcDebugModuleInfo(&moduleSize);
 
-	unsigned int id = TabbedFiles::GetCurrentTab(stateRemote ? hAttachTabs : hTabs);
-	const char *source = RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window);
+	unsigned int id = ~0u;
+	const char *source = RichTextarea::GetAreaText(mainCodeWnd);
+	const char *fullSource = nullcDebugSource();
 
 	unsigned int csPos = 0;
 	if(!stateRemote)
@@ -1217,8 +1235,9 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			unsigned int i = address - 1;
 			while((line < infoSize - 1) && (i >= codeInfo[line + 1].byteCodePos))
 				line++;
+			printf("Call stack instruction is %d, next one is %d\n", codeInfo[line].byteCodePos, codeInfo[line+1].byteCodePos);
 			
-			if(codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset)
+			if(codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize)
 			{
 				codeLine = 0;
 				const char *curr = source, *end = source + codeInfo[line].sourceOffset - modules[moduleSize-1].sourceOffset - modules[moduleSize-1].sourceSize;
@@ -1229,7 +1248,61 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 					curr = next + 1;
 					codeLine++;
 				}
-				RichTextarea::SetStyleToLine(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window, codeLine, OVERLAY_CALLED);
+				RichTextarea::SetStyleToLine(mainCodeWnd, codeLine, OVERLAY_CALLED);
+				lastWindow = mainCodeWnd;
+				retLine = line;
+				for(unsigned int t = 0; t < (stateRemote ? attachedEdits : richEdits).size(); t++)
+				{
+					if(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, t).window == mainCodeWnd)
+					{
+						id = t;
+						break;
+					}
+				}
+			}else{
+				// Find module, where execution stopped
+				unsigned int module = 0;
+				for(module = 0; module < moduleSize; module++)
+				{
+					if(codeInfo[line].sourceOffset >= modules[module].sourceOffset && codeInfo[line].sourceOffset < modules[module].sourceOffset + modules[module].sourceSize)
+						break;
+				}
+				// Create module name (with prefix so that file couldn't be saved)
+				char moduleName[256];
+				safeprintf(moduleName, 256, "?%s", codeSymbols + modules[module].nameOffset);
+				// Find tab
+				unsigned int targetTab = ~0u;
+				for(unsigned int t = 0; t < (stateRemote ? attachedEdits : richEdits).size() && targetTab == ~0u; t++)
+				{
+					if(strcmp(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, t).name, moduleName) == 0)
+						targetTab = t;
+				}
+				// If tab not found, open it
+				if(targetTab == ~0u)
+				{
+					richEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, hWnd, NULL, NULL, NULL));
+					TabbedFiles::AddTab(stateRemote ? hAttachTabs : hTabs, moduleName, (stateRemote ? attachedEdits : richEdits).back());
+					ShowWindow((stateRemote ? attachedEdits : richEdits).back(), SW_HIDE);
+					RichTextarea::SetAreaText((stateRemote ? attachedEdits : richEdits).back(), fullSource + modules[module].sourceOffset);
+					targetTab = (unsigned int)(stateRemote ? attachedEdits : richEdits).size()-1;
+				}
+				id = targetTab;
+				codeLine = 0;
+				const char *curr = fullSource + modules[module].sourceOffset, *end = fullSource + codeInfo[line].sourceOffset;//curr + modules[module].sourceSize;
+				while(const char *next = strchr(curr, '\n'))
+				{
+					if(next > end)
+						break;
+					curr = next + 1;
+					codeLine++;
+				}
+				HWND updateWnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, targetTab).window;
+				RichTextarea::SetStyleToLine(updateWnd, codeLine, OVERLAY_CALLED);
+				RichTextarea::ScrollToLine(updateWnd, codeLine);
+				RichTextarea::UpdateArea(updateWnd);
+				printf("Breakpoint is in the %s module (%d) %d, line %d\n", codeSymbols + modules[module].nameOffset, module, targetTab, codeLine);
+				lastWindow = updateWnd;
+				retLine = line;
 			}
 		}
 
@@ -1284,7 +1357,10 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
 				tiExtra.push_back(TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem, codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + lInfo.offsetToName));
 
-				FillVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset, thisItem);
+				if(offset + lInfo.offset + lInfo.size > dataCount)
+					InsertUnavailableInfo(thisItem);
+				else
+					FillVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset, thisItem);
 
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
@@ -1293,15 +1369,15 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		}
 	}
 
-	HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, id).window;
+	if(id != ~0u)
+		TabbedFiles::SetCurrentTab(stateRemote ? hAttachTabs : hTabs, id);
 	if(codeLine != ~0u)
 	{
-		RichTextarea::SetStyleToLine(wnd, codeLine, lastIsCurrent ? OVERLAY_CURRENT : OVERLAY_STOP);
-		RichTextarea::ScrollToLine(wnd, codeLine);
+		RichTextarea::SetStyleToLine(lastWindow, codeLine, lastIsCurrent ? OVERLAY_CURRENT : OVERLAY_STOP);
+		RichTextarea::ScrollToLine(lastWindow, codeLine);
 	}
-	RichTextarea::UpdateArea(wnd);
-	RichTextarea::ResetUpdate(wnd);
-	return codeLine;
+	RichTextarea::UpdateArea(lastWindow);
+	return retLine;
 }
 
 void UpdateWatchedVariables()
@@ -1494,6 +1570,7 @@ void SuperCalcRun(bool debug)
 	if(id == richEdits.size())
 		return;
 	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+	mainCodeWnd = wnd;
 	const char *source = RichTextarea::GetAreaText(wnd);
 	RichTextarea::ResetLineStyle(wnd);
 
@@ -1800,6 +1877,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		case WM_DESTROY:
 			if(hWnd == ::hWnd)
 			{
+				if(!runRes.finished)
+				{
+					TerminateThread(calcThread, 0);
+					runRes.finished = true;
+				}
+
 				FILE *tabInfo = fopen("nullc_tab.cfg", "wb");
 				for(unsigned int i = 0; i < richEdits.size(); i++)
 				{
@@ -2415,10 +2498,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
 			EnableMenuItem(GetMenu(hWnd), ID_FILE_SAVE, TabbedFiles::GetTabInfo(hTabs, id).dirty ? MF_ENABLED : MF_DISABLED);
 
-			HWND wnd = stateRemote ? TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)).window : TabbedFiles::GetTabInfo(hTabs, id).window;
+			TabbedFiles::TabInfo &info = stateRemote ? TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)) : TabbedFiles::GetTabInfo(hTabs, id);
+			HWND wnd = info.window;
 			if(!RichTextarea::NeedUpdate(wnd) || (GetTickCount()-lastUpdate < 100))
 				break;
-			SetWindowText(hCode, "");
+			if(info.name[0] != '?')
+				SetWindowText(hCode, "");
 
 			RichTextarea::BeginStyleUpdate(wnd);
 			if(!colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection))
