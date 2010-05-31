@@ -43,7 +43,9 @@ private:
 	bool	codeRunning;
 
 	asmOperType		lastResultType;
-	unsigned int	lastResultH, lastResultL;
+	int				lastResultInt;
+	long long		lastResultLong;
+	double			lastResultDouble;
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
 	FILE*		executeLog;
