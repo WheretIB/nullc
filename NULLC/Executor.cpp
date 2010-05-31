@@ -1566,13 +1566,14 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	}
 	
 	lastResultType = retType;
-	lastResultL = genStackPtr[0];
+	lastResultInt = *(int*)genStackPtr;
+	lastResultLong = *(long long*)genStackPtr;
+	lastResultDouble = *(double*)genStackPtr;
 
 	switch(retType)
 	{
 	case OTYPE_DOUBLE:
 	case OTYPE_LONG:
-		lastResultH = genStackPtr[1];
 		genStackPtr += 2;
 		break;
 	case OTYPE_INT:
@@ -2008,20 +2009,17 @@ const char* Executor::GetResult()
 		strcpy(execResult, "There is more than one value on the stack");
 		return execResult;
 	}
-	long long combined = 0;
-	*((int*)(&combined)) = lastResultL;
-	*((int*)(&combined)+1) = lastResultH;
 
 	switch(lastResultType)
 	{
 	case OTYPE_DOUBLE:
-		SafeSprintf(execResult, 64, "%f", *(double*)(&combined));
+		SafeSprintf(execResult, 64, "%f", lastResultDouble);
 		break;
 	case OTYPE_LONG:
-		SafeSprintf(execResult, 64, "%lldL", combined);
+		SafeSprintf(execResult, 64, "%lldL", lastResultLong);
 		break;
 	case OTYPE_INT:
-		SafeSprintf(execResult, 64, "%d", lastResultL);
+		SafeSprintf(execResult, 64, "%d", lastResultInt);
 		break;
 	default:
 		SafeSprintf(execResult, 64, "no return value");
@@ -2032,23 +2030,17 @@ const char* Executor::GetResult()
 int Executor::GetResultInt()
 {
 	assert(lastResultType == OTYPE_INT);
-	return lastResultL;
+	return lastResultInt;
 }
 double Executor::GetResultDouble()
 {
 	assert(lastResultType == OTYPE_DOUBLE);
-	long long combined = 0;
-	*((int*)(&combined)) = lastResultL;
-	*((int*)(&combined)+1) = lastResultH;
-	return *(double*)(&combined);
+	return lastResultDouble;
 }
 long long Executor::GetResultLong()
 {
 	assert(lastResultType == OTYPE_LONG);
-	long long combined = 0;
-	*((int*)(&combined)) = lastResultL;
-	*((int*)(&combined)+1) = lastResultH;
-	return combined;
+	return lastResultLong;
 }
 
 const char*	Executor::GetExecError()
