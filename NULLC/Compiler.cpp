@@ -589,7 +589,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 			lastFunc->retType = lastFunc->funcType->funcType->retType;
 
-			if(fInfo->parentType != ~0u)
+			if(fInfo->parentType != ~0u && !fInfo->externCount)
 				lastFunc->parentClass = CodeInfo::typeInfo[typeRemap[fInfo->parentType]];
 
 			assert(lastFunc->funcType->funcType->paramCount == lastFunc->paramCount);
@@ -1527,6 +1527,11 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			*symbolPos++ = 0;
 		}
 		funcInfo.externCount = refFunc->externalCount;
+		if(funcInfo.externCount)
+		{
+			assert(refFunc->type == FunctionInfo::LOCAL);
+			funcInfo.parentType = refFunc->extraParam->varType->typeIndex;
+		}
 		localOffset += refFunc->externalCount;
 
 		funcInfo.offsetToName = int(symbolPos - code->debugSymbols);
