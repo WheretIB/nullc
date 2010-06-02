@@ -233,6 +233,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	VMCmd vmCmd;
 };
