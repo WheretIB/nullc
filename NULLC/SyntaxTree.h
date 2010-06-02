@@ -614,6 +614,8 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+
+	static unsigned int baseShift;
 public:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;

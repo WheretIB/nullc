@@ -7082,7 +7082,7 @@ int ws = WS;\r\n"
 #if defined(__CELLOS_LV2__)
 "int d = 20;\r\n"
 #else
-"int d = 23;\r\n"
+"int d = 21;\r\n"
 #endif
 "arr = new Aref[1 << d];\r\n\
 A ref a = Create(d);\r\n\

@@ -917,6 +917,7 @@ NodeNumber* NodeFuncDef::Evaluate(char *memory, unsigned int memSize)
 		return NULL;
 	// Clear stack frame
 	memset(memory + funcInfo->allParamSize, 0, size - funcInfo->allParamSize);
+	NodeFuncCall::baseShift = size;
 	// Evaluate function code
 	return first->Evaluate(memory, memSize);
 }
@@ -1088,17 +1089,20 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 		fprintf(fOut, ").context");
 	fprintf(fOut, ")");
 }
+unsigned int NodeFuncCall::baseShift = 0;
 NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 {
 	// Extra nodes disable evaluation, as also does indirect function call
 	if(head || first || !funcInfo || !funcInfo->pure)
 		return NULL;
 	// Check that we have enough place for parameters
-	if(funcInfo->allParamSize > size)
+	if(funcInfo->allParamSize > size || funcType->paramCount > 16)
 		return NULL;
-	unsigned int offset = funcInfo->allParamSize;
+	unsigned int nextFrameOffset = baseShift;
+	NodeNumber *paramValue[16];
 	if(funcType->paramCount > 0)
 	{
+		unsigned int argument = 0;
 		NodeZeroOP	*curr = paramHead;
 		TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
 		do
@@ -1106,31 +1110,39 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 			if(curr->typeInfo->size == 0)
 			{
 				return NULL;	// cannot evaluate call with empty classes
-			}else if(curr->nodeType == typeNodeNumber){
+			}else{
 				// Evaluate parameter value
-				NodeNumber *paramValue = curr->Evaluate(memory, size);
-				if(!paramValue)
+				paramValue[argument] = curr->Evaluate(nextFrameOffset ? memory : NULL, nextFrameOffset ? size : 0);
+				if(!paramValue[argument])
 					return NULL;
 				// Convert it to type that function expects
-				paramValue->ConvertTo(*paramType);
-				if(*paramType == typeFloat)
-					*(float*)(memory + offset - 4) = (float)paramValue->GetDouble();
-				else if(*paramType == typeInt || *paramType == typeChar || *paramType == typeShort)
-					*(int*)(memory + offset - 4) = paramValue->GetInteger();
-				else if(*paramType == typeLong)
-					*(long long*)(memory + offset - 8) = paramValue->GetLong();
-				else if(*paramType == typeDouble)
-					*(double*)(memory + offset - 8) = paramValue->GetDouble();
-				else
-					return NULL;
-				offset -= (*paramType)->size;
-			}else{
-				return NULL;				
+				paramValue[argument]->ConvertTo(*paramType);
 			}
 			curr = curr->next;
 			paramType--;
+			argument++;
 		}while(curr);
 	}
+	// Shift stack frame
+	memory += nextFrameOffset;
+	size -= nextFrameOffset;
+	// Copy arguments into stack frame
+	unsigned int offset = funcInfo->allParamSize;
+	for(unsigned int i = 0; i < funcType->paramCount; i++)
+	{
+		if(paramValue[i]->typeInfo == typeFloat)
+			*(float*)(memory + offset - 4) = (float)paramValue[i]->GetDouble();
+		else if(paramValue[i]->typeInfo == typeInt || paramValue[i]->typeInfo == typeChar || paramValue[i]->typeInfo == typeShort)
+			*(int*)(memory + offset - 4) = paramValue[i]->GetInteger();
+		else if(paramValue[i]->typeInfo == typeLong)
+			*(long long*)(memory + offset - 8) = paramValue[i]->GetLong();
+		else if(paramValue[i]->typeInfo == typeDouble)
+			*(double*)(memory + offset - 8) = paramValue[i]->GetDouble();
+		else
+			return NULL;
+		offset -= paramValue[i]->typeInfo->size;
+	}
+	// Call function
 	return ((NodeFuncDef*)funcInfo->functionNode)->Evaluate(memory, size);
 }
 
@@ -1494,9 +1506,6 @@ NodeNumber* NodeVariableSet::Evaluate(char *memory, unsigned int size)
 {
 	if(head)
 		return NULL;
-
-	asmStackType asmST = typeInfo->stackType;
-	asmDataType asmDT = typeInfo->dataType;
 
 	NodeNumber *right = second->Evaluate(memory, size);
 	if(!right)
@@ -2461,7 +2470,26 @@ NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
 
 	if(cmdID == cmdLogOr || cmdID == cmdLogAnd)
 	{
-		return NULL;
+		NodeNumber *valueLeft = first->Evaluate(memory, size);
+		if(!valueLeft)
+			return NULL;
+		// Convert long to int
+		if(valueLeft->typeInfo == typeLong)
+			valueLeft = new NodeNumber(valueLeft->GetLong() ? 1 : 0, typeInt);
+		
+		if(valueLeft->GetInteger() && cmdLogOr)
+			return new NodeNumber(1, typeInt);
+		if(!valueLeft->GetInteger() && cmdLogAnd)
+			return new NodeNumber(0, typeInt);
+
+		NodeNumber *valueRight = second->Evaluate(memory, size);
+		if(!valueRight)
+			return NULL;
+		// Convert long to int
+		if(valueRight->typeInfo == typeLong)
+			valueRight = new NodeNumber(valueRight->GetLong() ? 1 : 0, typeInt);
+
+		return new NodeNumber(valueRight->GetInteger() ? 1 : 0, typeInt);
 	}else{
 		TypeInfo *midType = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
 
