@@ -3384,6 +3384,8 @@ NodeNumber* NodeExpressionList::Evaluate(char *memory, unsigned int size)
 {
 	if(head)
 		return NULL;
+	if(typeInfo != typeVoid)
+		return NULL;
 
 	NodeZeroOP	*curr = first;
 	do 

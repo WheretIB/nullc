@@ -305,7 +305,11 @@ namespace GC
 				{
 					ExternTypeInfo &externType = NULLC::commonLinker->exTypes[externals[i].type];
 					CheckVariable((char*)upvalue->ptr, externType);
+#ifdef _M_X64
+					upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 4 ? 5 : 2 + (externals[i].size >> 2)));
+#else
 					upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
+#endif
 				}
 			}
 		}

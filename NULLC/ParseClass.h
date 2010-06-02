@@ -63,6 +63,7 @@ public:
 		arrSize = arraySize;
 		memberCount = 0;
 		subType = childType;
+		hasPointers = (!!referenceLevel) || (arraySize == UNSIZED_ARRAY);
 
 		alignBytes = 0;
 		paddingBytes = 0;
@@ -97,6 +98,7 @@ public:
 
 	unsigned int	refLevel;	// reference to a type depth
 	unsigned int	arrLevel;	// array to a type depth
+	bool			hasPointers;
 
 	unsigned int	arrSize;	// element count for an array
 	unsigned int	memberCount;
@@ -237,6 +239,8 @@ public:
 		lastVariable->offset = size;
 		size += type->size;
 		memberCount++;
+		if(type->hasPointers)
+			hasPointers = true;
 	}
 	struct MemberVariable
 	{
