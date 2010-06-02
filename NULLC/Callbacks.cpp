@@ -872,7 +872,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 					// For local function, add "this" to context and get it from upvalue
 					assert(currDefinedFunc[0]->type == FunctionInfo::THISCALL);
 					FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, currDefinedFunc[0]->extraParam);
-					CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(vInfo->varType)));
+					CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, temp));
 				}else{
 					CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 				}
@@ -1357,7 +1357,10 @@ void AddTwoExpressionNode(void *retType)
 	// Take the expression list from the top
 	NodeZeroOP* temp = CodeInfo::nodeList.back();
 	CodeInfo::nodeList.pop_back();
-	static_cast<NodeExpressionList*>(temp)->AddNode();
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeZeroOp)
+		CodeInfo::nodeList.pop_back();
+	else
+		static_cast<NodeExpressionList*>(temp)->AddNode();
 	CodeInfo::nodeList.push_back(temp);
 }
 
@@ -1753,7 +1756,7 @@ void FunctionEnd(const char* pos)
 		if(lastFunc.firstLocal->next)
 			lastFunc.firstLocal->next->prev = lastFunc.firstLocal;
 		lastFunc.localCount++;
-		if(lastFunc.firstLocal->varType->type == TypeInfo::TYPE_COMPLEX || lastFunc.firstLocal->varType->refLevel)
+		if(lastFunc.firstLocal->varType->hasPointers)
 			lastFunc.pure = false;	// Pure functions locals must be simple types
 	}
 	if(lastFunc.firstLocal)
