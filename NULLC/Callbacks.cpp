@@ -866,7 +866,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				// Class members are accessed through 'this' pointer
 				FunctionInfo *currFunc = currDefinedFunc.back();
 
-				TypeInfo *temp = CodeInfo::GetReferenceType(newType);
+				TypeInfo *temp = CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(newType));
 				if(currDefinedFunc.back()->type == FunctionInfo::LOCAL)
 				{
 					// For local function, add "this" to context and get it from upvalue
