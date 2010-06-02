@@ -510,8 +510,6 @@ T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 		return a - b;
 	if(cmd == cmdMul)
 		return a * b;
-	if(cmd == cmdPow)
-		return (T)pow((double)a, (double)b);
 	if(cmd == cmdLess)
 		return a < b;
 	if(cmd == cmdGreater)
@@ -541,6 +539,8 @@ template<> int optDoSpecial<>(CmdID cmd, int a, int b)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: division by zero during constant folding");
 		return a / b;
 	}
+	if(cmd == cmdPow)
+		return (int)pow((double)a, (double)b);
 	if(cmd == cmdShl)
 		return a << b;
 	if(cmd == cmdShr)
@@ -574,6 +574,30 @@ template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: division by zero during constant folding");
 		return a / b;
 	}
+	if(cmd == cmdPow)
+	{
+		if(b < 0)
+			return (a == 1 ? 1 : 0);
+		if(b == 0)
+			return 1;
+		if(b == 1)
+			return a;
+		if(b > 64)
+			return a;
+		long long res = 1;
+		int power = (int)b;
+		while(power)
+		{
+			if(power & 0x01)
+			{
+				res *= a;
+				power--;
+			}
+			a *= a;
+			power >>= 1;
+		}
+		return res;
+	}
 	if(cmd == cmdShl)
 		return a << b;
 	if(cmd == cmdShr)
@@ -605,6 +629,8 @@ template<> double optDoSpecial<>(CmdID cmd, double a, double b)
 		return a / b;
 	if(cmd == cmdMod)
 		return fmod(a,b);
+	if(cmd == cmdPow)
+		return pow(a, b);
 	if(cmd == cmdShl)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: << is illegal for floating-point numbers");
 	if(cmd == cmdShr)
@@ -885,7 +911,7 @@ void AddVariableReserveNode(const char* pos)
 	if(!currType)
 		ThrowError(pos, "ERROR: auto variable must be initialized in place of definition");
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
-	varDefined = 0;
+	varDefined = false;
 }
 
 void ConvertTypeToReference(const char* pos)
@@ -1144,6 +1170,8 @@ void AddDefineVariableNode(const char* pos, void* varInfo, bool noOverload)
 	}
 
 	CodeInfo::nodeList.push_back(new NodeGetAddress(variableInfo, variableInfo->pos, variableInfo->isGlobal, variableInfo->varType));
+
+	varDefined = false;
 
 	// Call overloaded operator with error suppression
 	if(!noOverload)
@@ -2858,7 +2886,7 @@ void CallbackInitialize()
 
 	CodeInfo::funcDefList.clear();
 
-	varDefined = 0;
+	varDefined = false;
 	varTop = 0;
 	newType = NULL;
 
