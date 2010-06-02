@@ -521,6 +521,36 @@ void NodeUnaryOp::TranslateToC(FILE *fOut)
 	}
 	first->TranslateToC(fOut);
 }
+NodeNumber* NodeUnaryOp::Evaluate(char *memory, unsigned int size)
+{
+	NodeNumber *value = first->Evaluate(memory, size);
+	if(!value)
+		return NULL;
+	switch(vmCmd.cmd)
+	{
+	case cmdNeg:
+		if(value->typeInfo == typeInt)
+			return new NodeNumber(-value->GetInteger(), typeInt);
+		if(value->typeInfo == typeLong)
+			return new NodeNumber(-value->GetLong(), typeLong);
+		if(value->typeInfo == typeDouble)
+			return new NodeNumber(-value->GetDouble(), typeDouble);
+		break;
+	case cmdBitNot:
+		if(value->typeInfo == typeInt)
+			return new NodeNumber(~value->GetInteger(), typeInt);
+		if(value->typeInfo == typeLong)
+			return new NodeNumber(~value->GetLong(), typeLong);
+		break;
+	case cmdLogNot:
+		if(value->typeInfo == typeInt)
+			return new NodeNumber(!value->GetInteger(), typeInt);
+		if(value->typeInfo == typeLong)
+			return new NodeNumber((int)!value->GetLong(), typeInt);
+		break;
+	}
+	return NULL;
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node that returns from function or program
@@ -2385,17 +2415,19 @@ NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
 	{
 		return NULL;
 	}else{
+		TypeInfo *midType = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
+
 		// Compute first value
 		NodeNumber *valueLeft = first->Evaluate(memory, size);
 		if(!valueLeft)
 			return NULL;
 
 		// Convert it to the resulting type
-		if(typeInfo == typeDouble)
+		if(midType == typeDouble)
 			valueLeft->ConvertTo(typeDouble);
-		else if(typeInfo == typeLong)
+		else if(midType == typeLong)
 			valueLeft->ConvertTo(typeLong);
-		else if(typeInfo == typeInt)
+		else if(midType == typeInt)
 			valueLeft->ConvertTo(typeInt);
 
 		// Compute second value
@@ -2403,24 +2435,30 @@ NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
 		if(!valueRight)
 			return NULL;
 		// Convert it to the result type
-		if(typeInfo == typeDouble)
+		if(midType == typeDouble)
 			valueRight->ConvertTo(typeDouble);
-		else if(typeInfo == typeLong)
+		else if(midType == typeLong)
 			valueRight->ConvertTo(typeLong);
-		else if(typeInfo == typeInt)
+		else if(midType == typeInt)
 			valueRight->ConvertTo(typeInt);
 
 		// Apply binary operation
-		if(typeInfo == typeInt)
+		NodeNumber *value = NULL;
+		if(midType == typeInt)
 		{
 			int result = optDoOperation(cmdID, valueLeft->GetInteger(), valueRight->GetInteger());
-			return new NodeNumber(result, typeInt);
-		}else if(typeInfo == typeLong){
+			value = new NodeNumber(result, typeInt);
+		}else if(midType == typeLong){
 			long long result = optDoOperation(cmdID, valueLeft->GetLong(), valueRight->GetLong());
-			return new NodeNumber(result, typeLong);
-		}else if(typeInfo == typeDouble){
+			value = new NodeNumber(result, typeLong);
+		}else if(midType == typeDouble){
 			double result = optDoOperation(cmdID, valueLeft->GetDouble(), valueRight->GetDouble());
-			return new NodeNumber(result, typeDouble);
+			value = new NodeNumber(result, typeDouble);
+		}
+		if(value)
+		{
+			value->ConvertTo(typeInfo);
+			return value;
 		}
 		return NULL;
 	}

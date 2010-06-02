@@ -2414,8 +2414,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			//printf("Successful pure function call (%s) %d %d\n", fInfo->name, ++success, fail);
 			CodeInfo::nodeList.back() = value;
 		}else{
-			printf("Function (%s) failed to evaluate %d %d\n", fInfo->name, success, ++fail);
-			////fInfo->pure = false;	// If unable to evaluate function value, don't even try in future
+			//printf("Function (%s) failed to evaluate %d %d\n", fInfo->name, success, ++fail);
+			//fInfo->pure = false;	// If unable to evaluate function value, don't even try in future
 		}
 	}
 #endif
