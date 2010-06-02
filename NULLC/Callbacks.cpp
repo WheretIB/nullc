@@ -1776,6 +1776,9 @@ void FunctionEnd(const char* pos)
 	}
 	currDefinedFunc.pop_back();
 
+	if(lastFunc.retType->type == TypeInfo::TYPE_COMPLEX || lastFunc.retType->refLevel)
+		lastFunc.pure = false;	// Pure functions return value must be simple type
+
 	// If function is local, create function parameters block
 	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.externalCount != 0)
 	{
@@ -2409,6 +2412,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	{
 		//static int success = 0, fail = 0;
 		char memory[1024];
+		NodeFuncCall::baseShift = 0;
 		if(NodeNumber *value = CodeInfo::nodeList.back()->Evaluate(memory, 1024))
 		{
 			//printf("Successful pure function call (%s) %d %d\n", fInfo->name, ++success, fail);
