@@ -221,6 +221,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 };
 
@@ -352,6 +353,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	unsigned int	elemCount;	// If node sets all array, here is the element count
 	int		addrShift;

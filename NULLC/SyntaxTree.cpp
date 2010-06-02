@@ -396,7 +396,7 @@ NodeNumber* NodeNumber::Evaluate(char *memory, unsigned int size)
 
 bool NodeNumber::ConvertTo(TypeInfo *target)
 {
-	if(target == typeInt)
+	if(target == typeInt || target == typeShort || target == typeChar)
 	{
 		num.integer = GetInteger();
 	}else if(target == typeDouble || target == typeFloat){
@@ -450,6 +450,15 @@ void NodePopOp::TranslateToC(FILE *fOut)
 	OutputIdent(fOut);
 	first->TranslateToC(fOut);
 	fprintf(fOut, ";\r\n");
+}
+NodeNumber* NodePopOp::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+	NodeNumber *value = first->Evaluate(memory, size);
+	if(!value)
+		return NULL;
+	return new NodeNumber(0, typeVoid);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1478,6 +1487,45 @@ void NodeVariableSet::TranslateToC(FILE *fOut)
 				fprintf(fOut, ")");
 			}
 			second->TranslateToC(fOut);
+		}
+	}
+}
+NodeNumber* NodeVariableSet::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+
+	asmStackType asmST = typeInfo->stackType;
+	asmDataType asmDT = typeInfo->dataType;
+
+	NodeNumber *right = second->Evaluate(memory, size);
+	if(!right)
+		return NULL;
+	right->ConvertTo(typeInfo);
+
+	if(!knownAddress)
+		return NULL;
+	if(arrSetAll)
+	{
+		return NULL;
+	}else{
+		if(knownAddress)
+		{
+			if(typeInfo == typeChar)
+				*(char*)(memory + addrShift) = (char)right->GetInteger();
+			if(typeInfo == typeShort)
+				*(short*)(memory + addrShift) = (short)right->GetInteger();
+			if(typeInfo == typeInt)
+				*(int*)(memory + addrShift) = right->GetInteger();
+			if(typeInfo == typeLong)
+				*(long long*)(memory + addrShift) = right->GetLong();
+			if(typeInfo == typeFloat)
+				*(float*)(memory + addrShift) = (float)right->GetDouble();
+			if(typeInfo == typeDouble)
+				*(double*)(memory + addrShift) = right->GetDouble();
+			return right;
+		}else{
+			return NULL;
 		}
 	}
 }
