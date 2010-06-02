@@ -399,6 +399,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\ConstantFold.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Lexer.cpp"
 				>
 			</File>

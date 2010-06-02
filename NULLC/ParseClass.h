@@ -374,6 +374,8 @@ public:
 		retType = NULL;
 		visible = true;
 		implemented = false;
+		pure = false;
+		functionNode = NULL;
 		type = NORMAL;
 		funcType = NULL;
 		allParamSize = 0;
@@ -452,6 +454,8 @@ public:
 
 	bool		visible;				// true until function goes out of scope
 	bool		implemented;			// false if only function prototype has been found.
+	bool		pure;					// function is pure and can possibly be evaluated at compile time
+	void		*functionNode;
 
 	enum FunctionCategory{ NORMAL, LOCAL, THISCALL };
 	FunctionCategory	type;

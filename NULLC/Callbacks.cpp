@@ -5,6 +5,7 @@
 
 #include "Parser.h"
 #include "HashMap.h"
+#include "ConstantFold.h"
 
 // Temp variables
 
@@ -75,13 +76,6 @@ void AddExtraNode()
 	CodeInfo::nodeList.pop_back();
 	last->AddExtraNode();
 	CodeInfo::nodeList.push_back(last);
-}
-
-template<typename T> void	Swap(T& a, T& b)
-{
-	T temp = a;
-	a = b;
-	b = temp;
 }
 
 void SetCurrentAlignment(unsigned int alignment)
@@ -498,159 +492,6 @@ void AddBitNotNode(const char* pos)
 	}
 }
 
-// Functions to apply binary operations in compile-time
-template<typename T>
-T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
-{
-	if(swap)
-		Swap(a, b);
-	if(cmd == cmdAdd)
-		return a + b;
-	if(cmd == cmdSub)
-		return a - b;
-	if(cmd == cmdMul)
-		return a * b;
-	if(cmd == cmdLess)
-		return a < b;
-	if(cmd == cmdGreater)
-		return a > b;
-	if(cmd == cmdGEqual)
-		return a >= b;
-	if(cmd == cmdLEqual)
-		return a <= b;
-	if(cmd == cmdEqual)
-		return a == b;
-	if(cmd == cmdNEqual)
-		return a != b;
-	return optDoSpecial(cmd, a, b);
-}
-template<typename T>
-T optDoSpecial(CmdID cmd, T a, T b)
-{
-	(void)cmd; (void)b; (void)a;	// C4100
-	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: optDoSpecial call with unknown type");
-	return 0;
-}
-template<> int optDoSpecial<>(CmdID cmd, int a, int b)
-{
-	if(cmd == cmdDiv)
-	{
-		if(b == 0)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: division by zero during constant folding");
-		return a / b;
-	}
-	if(cmd == cmdPow)
-		return (int)pow((double)a, (double)b);
-	if(cmd == cmdShl)
-		return a << b;
-	if(cmd == cmdShr)
-		return a >> b;
-	if(cmd == cmdMod)
-	{
-		if(b == 0)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: modulus division by zero during constant folding");
-		return a % b;
-	}
-	if(cmd == cmdBitAnd)
-		return a & b;
-	if(cmd == cmdBitXor)
-		return a ^ b;
-	if(cmd == cmdBitOr)
-		return a | b;
-	if(cmd == cmdLogAnd)
-		return a && b;
-	if(cmd == cmdLogXor)
-		return !!a ^ !!b;
-	if(cmd == cmdLogOr)
-		return a || b;
-	assert(!"optDoSpecial<int> with unknown command");
-	return 0;
-}
-template<> long long optDoSpecial<>(CmdID cmd, long long a, long long b)
-{
-	if(cmd == cmdDiv)
-	{
-		if(b == 0)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: division by zero during constant folding");
-		return a / b;
-	}
-	if(cmd == cmdPow)
-	{
-		if(b < 0)
-			return (a == 1 ? 1 : 0);
-		if(b == 0)
-			return 1;
-		if(b == 1)
-			return a;
-		if(b > 64)
-			return a;
-		long long res = 1;
-		int power = (int)b;
-		while(power)
-		{
-			if(power & 0x01)
-			{
-				res *= a;
-				power--;
-			}
-			a *= a;
-			power >>= 1;
-		}
-		return res;
-	}
-	if(cmd == cmdShl)
-		return a << b;
-	if(cmd == cmdShr)
-		return a >> b;
-	if(cmd == cmdMod)
-	{
-		if(b == 0)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: modulus division by zero during constant folding");
-		return a % b;
-	}
-	if(cmd == cmdBitAnd)
-		return a & b;
-	if(cmd == cmdBitXor)
-		return a ^ b;
-	if(cmd == cmdBitOr)
-		return a | b;
-	if(cmd == cmdLogAnd)
-		return a && b;
-	if(cmd == cmdLogXor)
-		return !!a ^ !!b;
-	if(cmd == cmdLogOr)
-		return a || b;
-	assert(!"optDoSpecial<long long> with unknown command");
-	return 0;
-}
-template<> double optDoSpecial<>(CmdID cmd, double a, double b)
-{
-	if(cmd == cmdDiv)
-		return a / b;
-	if(cmd == cmdMod)
-		return fmod(a,b);
-	if(cmd == cmdPow)
-		return pow(a, b);
-	if(cmd == cmdShl)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: << is illegal for floating-point numbers");
-	if(cmd == cmdShr)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: >> is illegal for floating-point numbers");
-	if(cmd == cmdBitAnd)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: & is illegal for floating-point numbers");
-	if(cmd == cmdBitOr)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: | is illegal for floating-point numbers");
-	if(cmd == cmdBitXor)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: ^ is illegal for floating-point numbers");
-	if(cmd == cmdLogAnd)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: && is illegal for floating-point numbers");
-	if(cmd == cmdLogXor)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: ^^ is illegal for floating-point numbers");
-	if(cmd == cmdLogOr)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: || is illegal for floating-point numbers");
-	assert(!"optDoSpecial<double> with unknown command");
-	return 0.0;
-}
-
 void RemoveLastNode(bool swap)
 {
 	if(swap)
@@ -1007,6 +848,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		}
 
 		// Create node that retrieves function address
+		CodeInfo::funcInfo[fID]->pure = false;
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(CodeInfo::funcInfo[fID]));
 	}else{
 		VariableInfo *vInfo = *info;
@@ -1056,6 +898,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			CodeInfo::nodeList.push_back(new NodeGetAddress(vInfo, vInfo->pos, vInfo->isGlobal, vInfo->varType));
 			if(vInfo->autoDeref)
 				AddGetVariableNode(pos);
+			if(currDefinedFunc.size() && vInfo->blockDepth <= currDefinedFunc.back()->vTopSize)
+				currDefinedFunc.back()->pure = false;	// Access of external variables invalidates function purity
 		}
 	}
 }
@@ -1827,6 +1671,10 @@ void FunctionStart(const char* pos)
 	lastFunc.funcType = lastFunc.retType ? CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount) : NULL;
 	if(!lastFunc.visible && lastFunc.firstParam && (lastFunc.firstParam->varType->type == TypeInfo::TYPE_COMPLEX || lastFunc.firstParam->varType->subType))
 		lastFunc.visible = true;
+	if(lastFunc.type == FunctionInfo::NORMAL)
+		lastFunc.pure = true;	// normal function is pure by default
+	if(lastFunc.parentFunc)
+		lastFunc.parentFunc->pure = false;	// local function invalidates parent function purity
 
 	BeginBlock();
 	cycleDepth.push_back(0);
@@ -1840,6 +1688,8 @@ void FunctionStart(const char* pos)
 		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 		varMap.insert(curr->nameHash, curr);
 		varTop += curr->varType->size;
+		if(curr->varType->type == TypeInfo::TYPE_COMPLEX || curr->varType->refLevel)
+			lastFunc.pure = false;	// Pure functions can only accept simple types
 	}
 
 	char	*hiddenHame = AllocateString(lastFunc.nameLength + 24);
@@ -1903,6 +1753,8 @@ void FunctionEnd(const char* pos)
 		if(lastFunc.firstLocal->next)
 			lastFunc.firstLocal->next->prev = lastFunc.firstLocal;
 		lastFunc.localCount++;
+		if(lastFunc.firstLocal->varType->type == TypeInfo::TYPE_COMPLEX || lastFunc.firstLocal->varType->refLevel)
+			lastFunc.pure = false;	// Pure functions locals must be simple types
 	}
 	if(lastFunc.firstLocal)
 		lastFunc.firstLocal->prev = NULL;
@@ -1912,6 +1764,7 @@ void FunctionEnd(const char* pos)
 	EndBlock(true, false);
 
 	NodeZeroOP *funcNode = new NodeFuncDef(&lastFunc, varFormerTop);
+	lastFunc.functionNode = (void*)funcNode;
 	CodeInfo::nodeList.push_back(funcNode);
 	funcNode->SetCodeInfo(pos);
 	CodeInfo::funcDefList.push_back(funcNode);
@@ -2548,6 +2401,24 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	if(funcAddr)
 		CodeInfo::nodeList.push_back(funcAddr);
 	CodeInfo::nodeList.push_back(new NodeFuncCall(fInfo, fType));
+	if(currDefinedFunc.size() && ((fInfo && !fInfo->pure) || (currDefinedFunc.back() == fInfo)))
+		currDefinedFunc.back()->pure = false;	// non-pure function call or recursion invalidates function purity
+#ifdef NULLC_PURE_FUNCTIONS
+	// Pure function evaluation
+	if(fInfo && fInfo->pure)
+	{
+		//static int success = 0, fail = 0;
+		char memory[1024];
+		if(NodeNumber *value = CodeInfo::nodeList.back()->Evaluate(memory, 1024))
+		{
+			//printf("Successful pure function call (%s) %d %d\n", fInfo->name, ++success, fail);
+			CodeInfo::nodeList.back() = value;
+		}else{
+			printf("Function (%s) failed to evaluate %d %d\n", fInfo->name, success, ++fail);
+			////fInfo->pure = false;	// If unable to evaluate function value, don't even try in future
+		}
+	}
+#endif
 
 	return true;
 }

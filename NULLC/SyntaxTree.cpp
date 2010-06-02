@@ -2,6 +2,8 @@
 #include "SyntaxTree.h"
 
 #include "CodeInfo.h"
+#include "ConstantFold.h"
+
 using CodeInfo::nodeList;
 using CodeInfo::cmdList;
 using CodeInfo::cmdInfoList;
@@ -211,6 +213,12 @@ void NodeZeroOP::TranslateToC(FILE *fOut)
 	OutputIdent(fOut);
 	fprintf(fOut, "/* node translation unknown */\r\n");
 }
+NodeNumber* NodeZeroOP::Evaluate(char* memory, unsigned int size)
+{
+	(void)memory;
+	(void)size;
+	return NULL;	// by default, node evaluation is unknown
+}
 
 void NodeZeroOP::SetCodeInfo(const char* newSourcePos)
 {
@@ -378,6 +386,12 @@ void NodeNumber::TranslateToC(FILE *fOut)
 		fprintf(fOut, "%lldLL", num.integer64);
 	else
 		fprintf(fOut, "%%unknown_number%%");
+}
+NodeNumber* NodeNumber::Evaluate(char *memory, unsigned int size)
+{
+	(void)memory;
+	(void)size;
+	return this;
 }
 
 bool NodeNumber::ConvertTo(TypeInfo *target)
@@ -635,6 +649,21 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, ";\r\n");
 	}
 }
+NodeNumber* NodeReturnOp::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+	if(parentFunction && parentFunction->closeUpvals)
+		return NULL;
+	// Compute value that we're going to return
+	NodeNumber *value = first->Evaluate(memory, size);
+	if(!value)
+		return NULL;
+	// Convert it to the return type of the function
+	if(typeInfo)
+		value->ConvertTo(typeInfo);
+	return value;
+}
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -839,6 +868,19 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 	}
 	indentDepth = oldIndent;
 }
+NodeNumber* NodeFuncDef::Evaluate(char *memory, unsigned int memSize)
+{
+	if(head)
+		return NULL;
+	// Stack frame should remain aligned, so its size should multiple of 16
+	unsigned int size = (shift + 0xf) & ~0xf;
+	if(memSize < size)
+		return NULL;
+	// Clear stack frame
+	memset(memory + funcInfo->allParamSize, 0, size - funcInfo->allParamSize);
+	// Evaluate function code
+	return first->Evaluate(memory, memSize);
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node that calls function
@@ -1006,6 +1048,51 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 	if(!funcInfo)
 		fprintf(fOut, ").context");
 	fprintf(fOut, ")");
+}
+NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
+{
+	// Extra nodes disable evaluation, as also does indirect function call
+	if(head || first || !funcInfo || !funcInfo->pure)
+		return NULL;
+	// Check that we have enough place for parameters
+	if(funcInfo->allParamSize > size)
+		return NULL;
+	unsigned int offset = funcInfo->allParamSize;
+	if(funcType->paramCount > 0)
+	{
+		NodeZeroOP	*curr = paramHead;
+		TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
+		do
+		{
+			if(curr->typeInfo->size == 0)
+			{
+				return NULL;	// cannot evaluate call with empty classes
+			}else if(curr->nodeType == typeNodeNumber){
+				// Evaluate parameter value
+				NodeNumber *paramValue = curr->Evaluate(memory, size);
+				if(!paramValue)
+					return NULL;
+				// Convert it to type that function expects
+				paramValue->ConvertTo(*paramType);
+				if(*paramType == typeFloat)
+					*(float*)(memory + offset - 4) = (float)paramValue->GetDouble();
+				else if(*paramType == typeInt || *paramType == typeChar || *paramType == typeShort)
+					*(int*)(memory + offset - 4) = paramValue->GetInteger();
+				else if(*paramType == typeLong)
+					*(long long*)(memory + offset - 8) = paramValue->GetLong();
+				else if(*paramType == typeDouble)
+					*(double*)(memory + offset - 8) = paramValue->GetDouble();
+				else
+					return NULL;
+				offset -= (*paramType)->size;
+			}else{
+				return NULL;				
+			}
+			curr = curr->next;
+			paramType--;
+		}while(curr);
+	}
+	return ((NodeFuncDef*)funcInfo->functionNode)->Evaluate(memory, size);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1805,6 +1892,43 @@ void NodeDereference::TranslateToC(FILE *fOut)
 			fprintf(fOut, ")");
 	}
 }
+NodeNumber* NodeDereference::Evaluate(char *memory, unsigned int size)
+{
+	if(head || !memory)
+		return NULL;
+	if(typeInfo->size == 0)
+		return NULL;
+
+	if(neutralized)
+	{
+		return originalNode->Evaluate(memory, size);
+	}else{
+		// $$ original node extra nodes
+		if(closureFunc)
+		{
+			return NULL;
+		}else{
+			if(!knownAddress)
+				return NULL;
+
+			if(absAddress)
+				return NULL;
+			if(typeInfo == typeChar)
+				return new NodeNumber(*(char*)(memory + addrShift), typeInt);
+			if(typeInfo == typeShort)
+				return new NodeNumber(*(short*)(memory + addrShift), typeInt);
+			if(typeInfo == typeInt)
+				return new NodeNumber(*(int*)(memory + addrShift), typeInt);
+			if(typeInfo == typeLong)
+				return new NodeNumber(*(long long*)(memory + addrShift), typeLong);
+			if(typeInfo == typeFloat)
+				return new NodeNumber(*(float*)(memory + addrShift), typeDouble);
+			if(typeInfo == typeDouble)
+				return new NodeNumber(*(double*)(memory + addrShift), typeDouble);
+			return NULL;
+		}
+	}
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node that shifts address to the class member
@@ -2252,6 +2376,55 @@ void NodeBinaryOp::TranslateToC(FILE *fOut)
 
 	fprintf(fOut, ")");
 }
+NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+
+	if(cmdID == cmdLogOr || cmdID == cmdLogAnd)
+	{
+		return NULL;
+	}else{
+		// Compute first value
+		NodeNumber *valueLeft = first->Evaluate(memory, size);
+		if(!valueLeft)
+			return NULL;
+
+		// Convert it to the resulting type
+		if(typeInfo == typeDouble)
+			valueLeft->ConvertTo(typeDouble);
+		else if(typeInfo == typeLong)
+			valueLeft->ConvertTo(typeLong);
+		else if(typeInfo == typeInt)
+			valueLeft->ConvertTo(typeInt);
+
+		// Compute second value
+		NodeNumber *valueRight = second->Evaluate(memory, size);
+		if(!valueRight)
+			return NULL;
+		// Convert it to the result type
+		if(typeInfo == typeDouble)
+			valueRight->ConvertTo(typeDouble);
+		else if(typeInfo == typeLong)
+			valueRight->ConvertTo(typeLong);
+		else if(typeInfo == typeInt)
+			valueRight->ConvertTo(typeInt);
+
+		// Apply binary operation
+		if(typeInfo == typeInt)
+		{
+			int result = optDoOperation(cmdID, valueLeft->GetInteger(), valueRight->GetInteger());
+			return new NodeNumber(result, typeInt);
+		}else if(typeInfo == typeLong){
+			long long result = optDoOperation(cmdID, valueLeft->GetLong(), valueRight->GetLong());
+			return new NodeNumber(result, typeLong);
+		}else if(typeInfo == typeDouble){
+			double result = optDoOperation(cmdID, valueLeft->GetDouble(), valueRight->GetDouble());
+			return new NodeNumber(result, typeDouble);
+		}
+		return NULL;
+	}
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node for compilation of if(){}else{} statement and conditional operator ?:
@@ -2372,6 +2545,36 @@ void NodeIfElseExpr::TranslateToC(FILE *fOut)
 		OutputIdent(fOut);
 		fprintf(fOut, "}\r\n");
 	}
+}
+NodeNumber* NodeIfElseExpr::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+
+	// Compute condition
+	NodeNumber *cond = first->Evaluate(memory, size);
+	if(!cond)
+		return NULL;
+
+	cond->ConvertTo(typeInt);
+
+	if(cond->GetInteger())
+	{
+		NodeNumber *value = second->Evaluate(memory, size);
+		if(!value)
+			return NULL;
+		if(typeInfo != typeVoid && value->typeInfo != typeVoid)
+			value->ConvertTo(ChooseBinaryOpResultType(second->typeInfo, third->typeInfo));
+		return value;
+	}else if(third){
+		NodeNumber *value = third->Evaluate(memory, size);
+		if(!value)
+			return NULL;
+		if(typeInfo != typeVoid && value->typeInfo != typeVoid)
+			value->ConvertTo(ChooseBinaryOpResultType(second->typeInfo, third->typeInfo));
+		return value;
+	}
+	return new NodeNumber(0, typeVoid);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -3062,6 +3265,23 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			curr = curr->next;
 		}while(curr);
 	}
+}
+NodeNumber* NodeExpressionList::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+
+	NodeZeroOP	*curr = first;
+	do 
+	{
+		NodeNumber *value = curr->Evaluate(memory, size);
+		if(!value)
+			return NULL;
+		if(value && value->typeInfo != typeVoid)
+			return value;
+		curr = curr->next;
+	}while(curr);
+	return NULL;
 }
 
 void ResetTreeGlobals()
