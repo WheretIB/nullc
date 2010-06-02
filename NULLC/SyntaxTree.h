@@ -41,6 +41,7 @@ enum NodeType
 	typeNodeConvertPtr,
 };
 //////////////////////////////////////////////////////////////////////////
+class NodeNumber;
 
 class NodeZeroOP
 {
@@ -55,6 +56,8 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	// Translation of NULLC code into C
 	virtual void TranslateToC(FILE *fOut);
+	// Evaluate node value
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 	// Binding of code position to bytecode that node generates
 	virtual void SetCodeInfo(const char* newSourcePos);
 	// Add last node to the list as a new head
@@ -167,6 +170,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 
 	int			GetInteger()
 	{
@@ -242,6 +246,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	bool			localReturn;
 	FunctionInfo	*parentFunction;
@@ -274,6 +279,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	FunctionInfo	*funcInfo;
 	unsigned int shift;
@@ -377,6 +383,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 private:
 	int		addrShift;
 	bool	absAddress, knownAddress, neutralized;
@@ -468,6 +475,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	CmdID cmdID;
 };
@@ -481,6 +489,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 };
 
@@ -587,6 +596,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	NodeZeroOP	*tail;
 };
@@ -600,6 +610,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 public:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;
