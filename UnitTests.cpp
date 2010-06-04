@@ -6075,6 +6075,13 @@ test = arr.back();\r\n\
 return *test.a * 10 + *test.b;";
 	TEST_FOR_RESULT("Garbage collection correctness 11 (auto[] type).", testGarbageCollectionCorrectness11, "65");
 
+const char	*testGarbageCollectionCorrectness12 =
+"import std.gc;\r\n\
+auto ref y = &y;\r\n\
+GC.CollectMemory();\r\n\
+return 1;";
+	TEST_FOR_RESULT("Garbage collection correctness 12 (auto ref recursion).", testGarbageCollectionCorrectness12, "1");
+
 	TEST_FOR_RESULT("Double division by zero during constant folding.", "double a = 1.0 / 0.0; return 10;", "10");
 
 const char	*testEval =
@@ -6685,6 +6692,9 @@ return x[0].x + x[1].x;";
 	if(RunCode(testVMRelocateArrayFail, testTarget[0], "37", "VM stack relocation test with possible infinite recursion"))
 		passed[0]++;
 
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
 const char	*testVMRelocateArrayFail2 =
 "class Foo{ Foo[] arr; int x; }\r\n\
 Foo[] x = new Foo[2];\r\n\
@@ -6704,6 +6714,49 @@ return x[0].x + x[1].x;";
 	testCount[0]++;
 	if(RunCode(testVMRelocateArrayFail2, testTarget[0], "37", "VM stack relocation test with possible infinite recursion 2"))
 		passed[0]++;
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+	nullcInitTypeinfoModule();
+	nullcInitVectorModule();
+
+const char	*testAutoArrayRelocation =
+"import std.vector;\r\n\
+\r\n\
+class A\r\n\
+{\r\n\
+	int ref a, b;\r\n\
+}\r\n\
+int av = 7, bv = 30;\r\n\
+vector arr = vector(A);\r\n\
+auto test = new A;\r\n\
+test.a = &av;\r\n\
+test.b = &bv;\r\n\
+arr.push_back(test);\r\n\
+test = nullptr;\r\n\
+void corrupt()\r\n\
+{\r\n\
+	int[32*1024] e = 0;\r\n\
+}\r\n\
+corrupt();\r\n\
+test = arr.back();\r\n\
+av = 4;\r\n\
+bv = 60;\r\n\
+return *test.a + *test.b;";
+	TEST_FOR_RESULT("VM stack relocation (auto[] type).", testAutoArrayRelocation, "64");
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+const char	*testAutoRefRecursionRelocate =
+"auto ref y = &y;\r\n\
+void corrupt()\r\n\
+{\r\n\
+	int[32*1024] e = 0;\r\n\
+}\r\n\
+corrupt();\r\n\
+return 1;";
+	TEST_FOR_RESULT("VM stack relocation (auto ref recursion).", testAutoRefRecursionRelocate, "1");
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
@@ -6893,6 +6946,7 @@ return x[0].x + x[1].x;";
 	TEST_FOR_FAIL("Operator overload with no arguments", "int operator+(){ return 5; }", "ERROR: binary operator definition or overload must accept exactly two arguments");
 
 	TEST_FOR_FAIL("new auto;", "auto a = new auto;", "ERROR: sizeof(auto) is illegal");
+	TEST_FOR_FAIL("new void;", "auto a = new void;", "ERROR: cannot allocate space for void type");
 
 	//TEST_FOR_FAIL("parsing", "");
 

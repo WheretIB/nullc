@@ -263,10 +263,19 @@ namespace GC
 		{
 			// Get real variable type
 			realType = &NULLC::commonLinker->exTypes[*(int*)ptr];
-			// Mark target data
-			MarkPointer(ptr + 4, *realType, false);
 			// Switch pointer to target
 			char **rPtr = (char**)(ptr + 4);
+			ptr = *rPtr;
+			// If uninitialized or points to stack memory, return
+			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
+				return;
+			// Get base pointer
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			// If there is no base pointer or memory already marked, exit
+			if(!basePtr || *((unsigned int*)(basePtr) - 1))
+				return;
+			// Mark memory as used
+			*((unsigned int*)(basePtr) - 1) = 1;
 			// Fixup target
 			CheckVariable(*rPtr, *realType);
 			// Exit
