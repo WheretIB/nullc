@@ -2090,6 +2090,17 @@ void GenCodeCmdPushVTop(VMCmd cmd)
 	assert(cmd.argument % 16 == 0);
 	if(cmd.argument)
 		EMIT_OP_REG_NUM(o_add, rEDI, cmd.argument);
+	// Clear stack frame
+	if(cmd.argument - cmd.helper)
+	{
+		EMIT_OP_NUM(o_push, cmd.argument - cmd.helper);
+		EMIT_OP_NUM(o_push, 0);
+		EMIT_OP_REG_RPTR(o_lea, rEAX, sNONE, rNONE, 1, rEBP, cmd.helper + paramBase);
+		EMIT_OP_REG(o_push, rEAX);
+		EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)memset);
+		EMIT_OP_REG(o_call, rECX);
+		EMIT_OP_REG_NUM(o_add, rESP, 12);
+	}
 }
 
 void GenCodeCmdAdd(VMCmd cmd)
