@@ -123,6 +123,7 @@ namespace CodeInfo
 			bestFit->AddMemberVariable("ptr", typeInt);
 	#endif
 			bestFit->size = 4 + NULLC_PTR_SIZE;
+			bestFit->hasPointers = true;
 		}
 		typeFunctions.push_back(bestFit);
 		return bestFit;
