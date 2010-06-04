@@ -10,7 +10,7 @@ namespace NULLCVector
 		unsigned int	elemType;
 		unsigned int	flags;
 		unsigned int	elemSize;
-		NullCArray		data;
+		NULLCAutoArray	data;
 		unsigned int	size;
 	};
 
@@ -29,9 +29,11 @@ namespace NULLCVector
 		vec->elemSize = nullcGetTypeSize(type);
 		if(reserved)
 		{
+			vec->data.typeID = (vec->flags ? nullcGetSubType(type) : type);
 			vec->data.ptr = (char*)nullcAllocate(vec->elemSize * reserved);
 			vec->data.len = reserved;
 		}else{
+			vec->data.typeID = (vec->flags ? nullcGetSubType(type) : type);
 			vec->data.ptr = NULL;
 			vec->data.len = 0;
 		}

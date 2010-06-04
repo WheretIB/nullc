@@ -588,7 +588,7 @@ void Executor::InitExecution()
 	callContinue = true;
 
 	// Add return after the last instruction to end execution of code with no return at the end
-	exLinker->exCode[exLinker->exCode.size()] = VMCmd(cmdReturn, bitRetError, 0, 1);
+	exLinker->exCode.push_back(VMCmd(cmdReturn, bitRetError, 0, 1));
 
 	// General stack
 	if(!genStackBase)
@@ -665,13 +665,16 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			cmdStream = &exLinker->exCode[funcPos];
 
 			// Copy from argument buffer to next stack frame
-			char* oldBase = &genParams[0];
+			char* oldBase = genParams.data;
 			unsigned int oldSize = genParams.max;
 
 			unsigned int paramSize = exFunctions[functionID].bytesToPop;
+			// Keep stack frames aligned to 16 byte boundary
 			unsigned int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
+			// Reserve new stack frame
 			genParams.reserve(genParams.size() + alignOffset + paramSize);
-			memcpy((char*)&genParams[genParams.size() + alignOffset], arguments, paramSize);
+			// Copy arguments to new stack frame
+			memcpy((char*)(genParams.data + genParams.size() + alignOffset), arguments, paramSize);
 
 			// Ensure that stack is resized, if needed
 			if(genParams.size() + alignOffset + paramSize >= oldSize)
@@ -679,7 +682,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		}
 	}else{
 		// If global code is executed, reset all global variables
-		memset(&genParams[0], 0, exLinker->globalVarSize);
+		assert(genParams.size() >= exLinker->globalVarSize);
+		memset(genParams.data, 0, exLinker->globalVarSize);
 	}
 
 #ifdef NULLC_VM_PROFILE_INSTRUCTIONS
@@ -1049,7 +1053,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*(void**)genStackPtr = cmd.argument + paramBase * cmd.helper + &genParams[0];
 #else
 			genStackPtr--;
-			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)&genParams[0];
+			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)genParams.data;
 #endif
 			break;
 		case cmdFuncAddr:
@@ -1130,15 +1134,20 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				fcallStack.push_back(cmdStream);
 				cmdStream = cmdBase + fAddress;
 
-				char* oldBase = &genParams[0];
+				char* oldBase = genParams.data;
 				unsigned int oldSize = genParams.max;
 
 				unsigned int paramSize = exFunctions[cmd.argument].bytesToPop;
+				// Parameter stack is always aligned to 16 bytes
 				assert(genParams.size() % 16 == 0);
+				// Reserve place for new stack frame (cmdPushVTop will resize)
 				genParams.reserve(genParams.size() + paramSize);
-				memcpy((char*)&genParams[genParams.size()], genStackPtr, paramSize);
+				// Copy function arguments to new stack frame
+				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
+				// Pop arguments from stack
 				genStackPtr += paramSize >> 2;
 
+				// If parameter stack was reallocated
 				if(genParams.size() + paramSize >= oldSize)
 					ExtendParameterStack(oldBase, oldSize, cmdStream);
 			}
@@ -1162,20 +1171,25 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					fcallStack.pop_back();
 				}
 			}else{
-				char* oldBase = &genParams[0];
+				char* oldBase = genParams.data;
 				unsigned int oldSize = genParams.max;
 
+				// Parameter stack is always aligned to 16 bytes
 				assert(genParams.size() % 16 == 0);
+				// Reserve place for new stack frame (cmdPushVTop will resize)
 				genParams.reserve(genParams.size() + paramSize);
-				memcpy((char*)&genParams[genParams.size()], genStackPtr, paramSize);
+				// Copy function arguments to new stack frame
+				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
+				// Pop arguments from stack
 				genStackPtr += paramSize >> 2;
-				RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
+				RUNTIME_ERROR(genStackPtr <= genStackBase + 8, "ERROR: stack overflow");
 
 				genStackPtr++;
 
 				fcallStack.push_back(cmdStream);
 				cmdStream = cmdBase + exFunctions[fID].address;
 
+				// If parameter stack was reallocated
 				if(genParams.size() + paramSize >= oldSize)
 					ExtendParameterStack(oldBase, oldSize, cmdStream);
 			}
@@ -1231,7 +1245,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				ExtendParameterStack(oldBase, oldSize, cmdStream);
 			}
 			genParams.resize(paramBase + cmd.argument);
-			memset(&genParams[paramBase + cmd.helper], 0, cmd.argument - cmd.helper);
+			assert(cmd.helper <= cmd.argument);
+			memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
 
 			break;
 
@@ -1952,10 +1967,10 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 	ExPriv::newBase = genParams.data;
 	ExPriv::oldSize = oldSize;
 
-	symbols = &exLinker->exSymbols[0];
+	symbols = exLinker->exSymbols.data;
 
-	ExternVarInfo *vars = &exLinker->exVariables[0];
-	ExternTypeInfo *types = &exLinker->exTypes[0];
+	ExternVarInfo *vars = exLinker->exVariables.data;
+	ExternTypeInfo *types = exLinker->exTypes.data;
 	// Fix global variables
 	for(unsigned int i = 0; i < exLinker->exVariables.size(); i++)
 		FixupVariable(genParams.data + vars[i].offset, types[vars[i].type]);
@@ -2056,7 +2071,7 @@ char* Executor::GetVariableData(unsigned int *count)
 {
 	if(count)
 		*count = genParams.size();
-	return &genParams[0];
+	return genParams.data;
 }
 
 void Executor::BeginCallStack()

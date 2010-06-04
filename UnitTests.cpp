@@ -6049,6 +6049,32 @@ b.y = 0;\r\n\
 return f[0]();";
 	TEST_FOR_RESULT("Garbage collection correctness 10 (local member function context).", testGarbageCollectionCorrectness10, "13");
 
+const char	*testGarbageCollectionCorrectness11 =
+"import std.vector;\r\n\
+import std.gc;\r\n\
+\r\n\
+class A\r\n\
+{\r\n\
+	int ref a, b;\r\n\
+}\r\n\
+vector arr = vector(A);\r\n\
+auto test = new A;\r\n\
+test.a = new int;\r\n\
+*test.a = 6;\r\n\
+test.b = new int;\r\n\
+*test.b = 5;\r\n\
+arr.push_back(test);\r\n\
+test = nullptr;\r\n\
+GC.CollectMemory();\r\n\
+auto test2 = new A;\r\n\
+test2.a = new int;\r\n\
+*test2.a = 9;\r\n\
+test2.b = new int;\r\n\
+*test2.b = 4;\r\n\
+test = arr.back();\r\n\
+return *test.a * 10 + *test.b;";
+	TEST_FOR_RESULT("Garbage collection correctness 11 (auto[] type).", testGarbageCollectionCorrectness11, "65");
+
 	TEST_FOR_RESULT("Double division by zero during constant folding.", "double a = 1.0 / 0.0; return 10;", "10");
 
 const char	*testEval =

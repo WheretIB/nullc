@@ -771,7 +771,15 @@ void ConvertTypeToArray(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	if(!currType)
+	{
+		if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo == typeVoid)
+		{
+			CodeInfo::nodeList.pop_back();
+			currType = typeAutoArray;
+			return;
+		}
 		ThrowError(pos, "ERROR: cannot specify array size for auto variable");
+	}
 	currType = CodeInfo::GetArrayType(currType);
 }
 

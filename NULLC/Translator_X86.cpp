@@ -1169,14 +1169,14 @@ void x86SatisfyJumps(FastVector<unsigned char*>& instPos)
 		{
 			if(*uJmp.jmpPos == 0xe8)	// This one is for call label
 			{
-				*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-5);
+				*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-5);
 			}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
-				*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(instPos[uJmp.labelID&0x00ffffff]);
+				*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(instPos[uJmp.labelID & 0x00ffffff]);
 			}else{
 				if(*uJmp.jmpPos == 0x0f)
-					*(int*)(uJmp.jmpPos+2) = (int)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-6);
+					*(int*)(uJmp.jmpPos+2) = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-6);
 				else
-					*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID&0x00ffffff] - uJmp.jmpPos-5);
+					*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-5);
 			}
 		}else{
 			if(*uJmp.jmpPos == 0xe8)	// This one is for call label

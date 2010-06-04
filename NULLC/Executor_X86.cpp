@@ -661,13 +661,13 @@ bool ExecutorX86::TranslateToNative()
 
 	exLinker->functionAddress.resize(exFunctions.size() * 2);
 
-	memset(&instList[0], 0, sizeof(x86Instruction) * instList.size());
+	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
 	SetParamBase((unsigned int)(long long)paramBase);
 	SetFunctionList(&exFunctions[0], &exLinker->functionAddress[0]);
 	SetContinuePtr(&callContinue);
-	SetLastInstruction(&instList[0], &instList[0]);
+	SetLastInstruction(instList.data, instList.data);
 	SetClosureCreateFunc((void(*)())ClosureCreate);
 	SetUpvaluesCloseFunc((void(*)())CloseUpvalues);
 
@@ -675,15 +675,20 @@ bool ExecutorX86::TranslateToNative()
 
 	EMIT_OP(o_use32);
 
+	// Mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
+	exCode.push_back(VMCmd(cmdNop));
 	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
 		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
+	// Remove cmdNop, because we don't want to generate code for it
+	exCode.pop_back();
+
 	OptimizationLookBehind(false);
 	pos = 0;
 	while(pos < exCode.size())
 	{
 		VMCmd &cmd = exCode[pos];
 
-		unsigned int currSize = (int)(GetLastInstruction() - &instList[0]);
+		unsigned int currSize = (int)(GetLastInstruction() - instList.data);
 		instList.count = currSize;
 		if(currSize + 64 >= instList.max)
 			instList.grow(currSize + 64);
@@ -702,6 +707,7 @@ bool ExecutorX86::TranslateToNative()
 
 		OptimizationLookBehind(true);
 	}
+	// Add extra global return if there is none
 	GetLastInstruction()->instID = pos + 1;
 	EMIT_OP_REG(o_pop, rEBP);
 	EMIT_OP_REG_NUM(o_mov, rEBX, ~0u);
@@ -711,8 +717,11 @@ bool ExecutorX86::TranslateToNative()
 #ifdef NULLC_OPTIMIZE_X86
 	// Second optimization pass, just feed generated instructions again
 	// But at first, mark invalidation instructions
+	// Once again, mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
+	exCode.push_back(VMCmd(cmdNop));
 	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
 		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
+
 	// Set iterator at beginning
 	SetLastInstruction(instList.data, instList.data);
 	OptimizationLookBehind(false);
@@ -844,8 +853,8 @@ bool ExecutorX86::TranslateToNative()
 	unsigned char *bytecode = binCode + 16;
 	unsigned char *code = bytecode;
 
-	instAddress.resize(exCode.size());
-	memset(instAddress.data, 0, exCode.size() * sizeof(unsigned int));
+	instAddress.resize(exCode.size() + 1); // Extra instruction for global return
+	memset(instAddress.data, 0, (exCode.size() + 1) * sizeof(unsigned int));
 
 	x86ClearLabels();
 	x86ReserveLabels(GetLastALULabel());
@@ -1251,7 +1260,7 @@ bool ExecutorX86::TranslateToNative()
 		curr++;
 	}
 	assert(binCodeSize < binCodeReserved);
-	binCodeSize = (unsigned int)(code-bytecode);
+	binCodeSize = (unsigned int)(code - bytecode);
 
 	x86SatisfyJumps(instAddress);
 

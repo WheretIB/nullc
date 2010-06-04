@@ -6,7 +6,7 @@ class vector
 	typeid	elemType;
 	int		flags;
 	int		elemSize;
-	char[]	data;
+	auto[]	data;
 	int		currSize;
 }
 

@@ -30,6 +30,14 @@ struct NULLCFuncPtr
 	unsigned int	id;
 };
 
+// Wrapper over NULLC auto[] class for use in external functions
+struct NULLCAutoArray
+{
+	unsigned int	typeID;
+	char			*ptr;
+	unsigned int	len;
+};
+
 #pragma pack(pop)
 
 #define NULLC_MAX_VARIABLE_NAME_LENGTH 2048
@@ -47,7 +55,7 @@ struct NULLCFuncPtr
 #endif
 #define ENABLE_GC
 //#define NULLC_ENABLE_C_TRANSLATION
-//#define NULLC_PURE_FUNCTIONS
+#define NULLC_PURE_FUNCTIONS
 
 #if (defined(_MSC_VER) || defined(__DMC__)) && !defined(_M_X64) && !defined(NULLC_NO_EXECUTOR)
 	#define NULLC_BUILD_X86_JIT

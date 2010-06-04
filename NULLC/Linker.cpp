@@ -194,10 +194,13 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			{
 				exTypes.back().memberOffset = exTypeExtra.size();
 				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount + (tInfo->subCat == ExternTypeInfo::CAT_FUNCTION ? 1 : 0));
+				// If class has some members with pointers
 				if(tInfo->subCat == ExternTypeInfo::CAT_CLASS && tInfo->pointerCount)
 				{
+					// Then, after member types there's a list of members with pointers in a form of struct{ member type, member offset }, which we have to save
 					unsigned int count = exTypeExtra.size();
 					exTypeExtra.push_back(memberList + tInfo->memberOffset + tInfo->memberCount, tInfo->pointerCount * 2);
+					// Mark member offsets by setting a bit, so that offsets won't be remapped using typeRemap array (during type ID fixup)
 					for(unsigned int k = count + 1; k < exTypeExtra.size(); k += 2)
 						exTypeExtra[k] |= 0x80000000;
 				}
@@ -209,7 +212,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		tInfo++;
 	}
 
-	// Remap new member types
+	// Remap new member types (while skipping member offsets)
 	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
 		exTypeExtra[i] = (exTypeExtra[i] & 0x80000000) ? (exTypeExtra[i] & ~0x80000000) : typeRemap[exTypeExtra[i]];
 
@@ -238,23 +241,23 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 	// Add new locals
 	unsigned int oldLocalsSize = exLocals.size();
 	exLocals.resize(oldLocalsSize + bCode->localCount);
-	memcpy(&exLocals[oldLocalsSize], (char*)(bCode) + bCode->offsetToLocals, bCode->localCount * sizeof(ExternLocalInfo));
+	memcpy(exLocals.data + oldLocalsSize, (char*)(bCode) + bCode->offsetToLocals, bCode->localCount * sizeof(ExternLocalInfo));
 
 	// Add new code information
 	unsigned int oldCodeInfoSize = exCodeInfo.size();
 	exCodeInfo.resize(oldCodeInfoSize + bCode->infoSize * 2);
-	memcpy(&exCodeInfo[oldCodeInfoSize], (char*)(bCode) + bCode->offsetToInfo, bCode->infoSize * sizeof(unsigned int) * 2);
+	memcpy(exCodeInfo.data + oldCodeInfoSize, (char*)(bCode) + bCode->offsetToInfo, bCode->infoSize * sizeof(unsigned int) * 2);
 
 	// Add new source code
 	unsigned int oldSourceSize = exSource.size();
 	exSource.resize(oldSourceSize + bCode->sourceSize);
-	memcpy(&exSource[oldSourceSize], (char*)(bCode) + bCode->offsetToSource, bCode->sourceSize);
+	memcpy(exSource.data + oldSourceSize, (char*)(bCode) + bCode->offsetToSource, bCode->sourceSize);
 
 	// Add new code
 	unsigned int oldCodeSize = exCode.size();
 	exCode.reserve(oldCodeSize + bCode->codeSize + 1);
 	exCode.resize(oldCodeSize + bCode->codeSize);
-	memcpy(&exCode[oldCodeSize], FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
+	memcpy(exCode.data + oldCodeSize, FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
 
 	for(unsigned int i = oldCodeInfoSize / 2; i < exCodeInfo.size() / 2; i++)
 	{
@@ -264,7 +267,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	unsigned int oldListCount = exCloseLists.size();
 	exCloseLists.resize(oldListCount + bCode->closureListCount);
-	memset(&exCloseLists[oldListCount], 0, bCode->closureListCount * sizeof(ExternFuncInfo::Upvalue*));
+	memset(exCloseLists.data + oldListCount, 0, bCode->closureListCount * sizeof(ExternFuncInfo::Upvalue*));
 
 	// Add new functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);

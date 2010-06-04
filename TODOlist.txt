@@ -1,7 +1,6 @@
 Core:
 	1. u. Check for hash collisions.
 	2. f. tuples
-	3. f. auto[]
 	4. f. stand-alone executor
 	5. b. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
 	7. b. stack frames should be cleared in jit
@@ -171,3 +170,4 @@ DONE: Function check is needed in VM stack relocation
 DONE: Constant expressions. (via pure function compile-time evaluation)
 DONE: CheckClass should check only pointer members
 DONE: Classes should have a global mark that they do not contain pointer elements, so that an array of classes will not be iterated through.
+DONE: auto[]
