@@ -1050,7 +1050,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		case cmdGetAddr:
 #ifdef _M_X64
 			genStackPtr -= 2;
-			*(void**)genStackPtr = cmd.argument + paramBase * cmd.helper + &genParams[0];
+			*(void**)genStackPtr = cmd.argument + paramBase * cmd.helper + genParams.data;
 #else
 			genStackPtr--;
 			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)genParams.data;
