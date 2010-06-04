@@ -8,6 +8,9 @@ void AddFunctionToSortedList(void *info);
 
 void SetCurrentAlignment(unsigned int alignment);
 
+void ResetConstantFoldError();
+void ThrowConstantFoldError(const char *pos);
+
 // Function is called when block {} is opened, to save the number of defined variables and functions
 void BeginBlock();
 // Function is called when block {} is closed, to restore previous number of defined variables and functions to hide those that lost visibility
