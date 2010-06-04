@@ -63,7 +63,7 @@ public:
 		arrSize = arraySize;
 		memberCount = 0;
 		subType = childType;
-		hasPointers = (!!referenceLevel) || (arraySize == UNSIZED_ARRAY);
+		hasPointers = (!!referenceLevel) || (arraySize == UNSIZED_ARRAY) || (subType && subType->hasPointers);
 
 		alignBytes = 0;
 		paddingBytes = 0;

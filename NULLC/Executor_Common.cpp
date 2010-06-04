@@ -219,6 +219,8 @@ namespace GC
 			// Mark memory as used
 			*((unsigned int*)(basePtr) - 1) = 1;
 		}
+		if(!subType.pointerCount)
+			return;
 		// Otherwise, check every array element is it's either array, pointer of class
 		switch(subType.subCat)
 		{
@@ -318,6 +320,8 @@ namespace GC
 	// Function that decides, how variable of type 'type' should be checked for pointers
 	void CheckVariable(char* ptr, const ExternTypeInfo& type)
 	{
+		if(!type.pointerCount)
+			return;
 		switch(type.subCat)
 		{
 		case ExternTypeInfo::CAT_ARRAY:

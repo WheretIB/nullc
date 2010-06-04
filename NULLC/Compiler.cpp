@@ -431,6 +431,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				newInfo->AddMemberVariable("ptr", typeInt);
 #endif
 				newInfo->size = 4 + NULLC_PTR_SIZE;
+				newInfo->hasPointers = true;
 				break;
 			case ExternTypeInfo::CAT_ARRAY:
 				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
@@ -1356,8 +1357,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.type = (ExternTypeInfo::TypeCategory)refType.type;
 		typeInfo.nameHash = refType.GetFullNameHash();
 
-		typeInfo.defaultAlign = refType.alignBytes;
+		typeInfo.defaultAlign = (unsigned short)refType.alignBytes;
 
+		typeInfo.pointerCount = refType.hasPointers;
 		if(refType.funcType != 0)						// Function type
 		{
 			typeInfo.subCat = ExternTypeInfo::CAT_FUNCTION;
