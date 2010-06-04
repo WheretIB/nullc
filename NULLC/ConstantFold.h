@@ -1,12 +1,6 @@
 #pragma once
 #include "InstructionSet.h"
 
-#ifdef _MSC_VER
-	#define SPECIALIZATION_STATIC static
-#else
-	#define SPECIALIZATION_STATIC
-#endif
-
 template<typename T>
 static void	Swap(T& a, T& b)
 {
@@ -17,7 +11,7 @@ static void	Swap(T& a, T& b)
 
 // Functions to apply binary operations in compile-time
 template<typename T>
-static T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
+inline T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 {
 	if(swap)
 		Swap(a, b);
@@ -42,14 +36,14 @@ static T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
 	return optDoSpecial(cmd, a, b);
 }
 template<typename T>
-static T optDoSpecial(CmdID cmd, T a, T b)
+inline T optDoSpecial(CmdID cmd, T a, T b)
 {
 	(void)cmd; (void)b; (void)a;	// C4100
 	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: optDoSpecial call with unknown type");
 	return 0;
 }
 template<>
-SPECIALIZATION_STATIC int optDoSpecial<>(CmdID cmd, int a, int b)
+inline int optDoSpecial<>(CmdID cmd, int a, int b)
 {
 	if(cmd == cmdDiv)
 	{
@@ -85,7 +79,7 @@ SPECIALIZATION_STATIC int optDoSpecial<>(CmdID cmd, int a, int b)
 	return 0;
 }
 template<>
-SPECIALIZATION_STATIC long long optDoSpecial<>(CmdID cmd, long long a, long long b)
+inline long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 {
 	if(cmd == cmdDiv)
 	{
@@ -143,7 +137,7 @@ SPECIALIZATION_STATIC long long optDoSpecial<>(CmdID cmd, long long a, long long
 	return 0;
 }
 template<>
-SPECIALIZATION_STATIC double optDoSpecial<>(CmdID cmd, double a, double b)
+inline double optDoSpecial<>(CmdID cmd, double a, double b)
 {
 	if(cmd == cmdDiv)
 		return a / b;
