@@ -1703,7 +1703,7 @@ void FunctionStart(const char* pos)
 		CodeInfo::varInfo.push_back(curr);
 		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 		varMap.insert(curr->nameHash, curr);
-		varTop += curr->varType->size;
+		varTop += curr->varType->size ? curr->varType->size : 4;	// 0-byte size arguments use up 4 bytes
 		if(curr->varType->type == TypeInfo::TYPE_COMPLEX || curr->varType->refLevel)
 			lastFunc.pure = false;	// Pure functions can only accept simple types
 	}

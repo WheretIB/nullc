@@ -827,6 +827,7 @@ void NodeFuncDef::Compile()
 
 	// Stack frame should remain aligned, so its size should multiple of 16
 	unsigned int size = (shift + 0xf) & ~0xf;
+	assert(size >= funcInfo->allParamSize + NULLC_PTR_SIZE);
 
 	// Save previous stack frame, and expand current by shift bytes
 	cmdList.push_back(VMCmd(cmdPushVTop, (unsigned short)(funcInfo->allParamSize + NULLC_PTR_SIZE), size));
