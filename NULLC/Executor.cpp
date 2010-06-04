@@ -1810,6 +1810,7 @@ namespace ExPriv
 	char *newBase;
 	unsigned int oldSize;
 	unsigned int objectName = GetStringHash("auto ref");
+	unsigned int autoArrayName = GetStringHash("auto[]");
 }
 
 void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
@@ -1839,7 +1840,7 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 
 void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 {
-	ExternTypeInfo &subType = exTypes[type.subType];
+	ExternTypeInfo *subType = type.nameHash == ExPriv::autoArrayName ? NULL : &exTypes[type.subType];
 	unsigned int size = type.arrSize;
 	if(type.arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
@@ -1851,7 +1852,6 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		// If it points to stack, fix it and return
 		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
 		{
-//			printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
 			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
 			return;
 		}
@@ -1866,23 +1866,33 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 			return;
 		// Mark memory as used
 		*((unsigned int*)(basePtr) - 1) = 0;
+	}else if(type.nameHash == ExPriv::autoArrayName){
+		NULLCAutoArray *data = (NULLCAutoArray*)ptr;
+		// Get real variable type
+		subType = &exTypes[data->typeID];
+		// Mark target data
+		FixupPointer(data->ptr, *subType);
+		// Switch pointer to target
+		ptr = data->ptr;
+		// Get array size
+		size = data->len;
 	}
-	switch(subType.subCat)
+	switch(subType->subCat)
 	{
 	case ExternTypeInfo::CAT_ARRAY:
-		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
-			FixupArray(ptr, subType);
+		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+			FixupArray(ptr, *subType);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
-		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
-			FixupPointer(ptr, subType);
+		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+			FixupPointer(ptr, *subType);
 		break;
 	case ExternTypeInfo::CAT_CLASS:
-		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
-			FixupClass(ptr, subType);
+		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+			FixupClass(ptr, *subType);
 		break;
 	case ExternTypeInfo::CAT_FUNCTION:
-		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
+		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 			FixupFunction(ptr);
 		break;
 	}
@@ -1895,12 +1905,31 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 	{
 		// Get real variable type
 		realType = &exTypes[*(int*)ptr];
-		// Mark target data
-		FixupPointer(ptr + 4, *realType);
 		// Switch pointer to target
 		char **rPtr = (char**)(ptr + 4);
+		// If it points to stack, fix it and return
+		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+		{
+			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+			return;
+		}
+		ptr = *rPtr;
+		// If uninitialized, return
+		if(!ptr || ptr <= (char*)0x00010000)
+			return;
+		// Get base pointer
+		unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+		// If there is no base pointer or memory already marked, exit
+		if(!basePtr || !*((unsigned int*)(basePtr) - 1))
+			return;
+		// Mark memory as used
+		*((unsigned int*)(basePtr) - 1) = 0;
 		// Fixup target
 		FixupVariable(*rPtr, *realType);
+		// Exit
+		return;
+	}else if(type.nameHash == ExPriv::autoArrayName){
+		FixupArray(ptr, type);
 		// Exit
 		return;
 	}

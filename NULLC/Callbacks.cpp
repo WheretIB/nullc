@@ -1570,6 +1570,8 @@ void AddForEachNode(const char* pos)
 
 void AddTypeAllocation(const char* pos)
 {
+	if(currType == typeVoid)
+		ThrowError(pos, "ERROR: cannot allocate space for void type");
 	if(currType->arrLevel == 0)
 	{
 		AddFunctionCallNode(pos, "__newS", 1);
