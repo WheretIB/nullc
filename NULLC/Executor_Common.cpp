@@ -199,7 +199,7 @@ namespace GC
 	void CheckArray(char* ptr, const ExternTypeInfo& type)
 	{
 		// Get array element type
-		ExternTypeInfo &subType = NULLC::commonLinker->exTypes[type.subType];
+		ExternTypeInfo *subType = type.nameHash == autoArrayName ? NULL : &NULLC::commonLinker->exTypes[type.subType];
 		// Real array size (changed for unsized arrays)
 		unsigned int size = type.arrSize;
 		// If array type is an unsized array, check pointer that points to actual array contents
@@ -220,26 +220,36 @@ namespace GC
 				return;
 			// Mark memory as used
 			*((unsigned int*)(basePtr) - 1) = 1;
+		}else if(type.nameHash == autoArrayName){
+			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
+			// Get real variable type
+			subType = &NULLC::commonLinker->exTypes[data->typeID];
+			// Mark target data
+			MarkPointer(data->ptr, *subType, false);
+			// Switch pointer to target
+			ptr = data->ptr;
+			// Get array size
+			size = data->len;
 		}
-		if(!subType.pointerCount)
+		if(!subType->pointerCount)
 			return;
 		// Otherwise, check every array element is it's either array, pointer of class
-		switch(subType.subCat)
+		switch(subType->subCat)
 		{
 		case ExternTypeInfo::CAT_ARRAY:
-			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
-				CheckArray(ptr, subType);
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+				CheckArray(ptr, *subType);
 			break;
 		case ExternTypeInfo::CAT_POINTER:
-			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
-				MarkPointer(ptr, subType, true);
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+				MarkPointer(ptr, *subType, true);
 			break;
 		case ExternTypeInfo::CAT_CLASS:
-			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
-				CheckClass(ptr, subType);
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+				CheckClass(ptr, *subType);
 			break;
 		case ExternTypeInfo::CAT_FUNCTION:
-			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 				CheckFunction(ptr);
 			break;
 		}
@@ -262,37 +272,7 @@ namespace GC
 			// Exit
 			return;
 		}else if(type.nameHash == autoArrayName){
-			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
-			// Get real variable type
-			realType = &NULLC::commonLinker->exTypes[data->typeID];
-			// Mark target data
-			MarkPointer(data->ptr, *realType, false);
-			// Switch pointer to target
-			ptr = data->ptr;
-			// Get array size
-			unsigned int size = data->len;
-			if(!realType->pointerCount)
-				return;
-			// Otherwise, check every array element is it's either array, pointer of class
-			switch(realType->subCat)
-			{
-			case ExternTypeInfo::CAT_ARRAY:
-				for(unsigned int i = 0; i < size; i++, ptr += realType->size)
-					CheckArray(ptr, *realType);
-				break;
-			case ExternTypeInfo::CAT_POINTER:
-				for(unsigned int i = 0; i < size; i++, ptr += realType->size)
-					MarkPointer(ptr, *realType, true);
-				break;
-			case ExternTypeInfo::CAT_CLASS:
-				for(unsigned int i = 0; i < size; i++, ptr += realType->size)
-					CheckClass(ptr, *realType);
-				break;
-			case ExternTypeInfo::CAT_FUNCTION:
-				for(unsigned int i = 0; i < size; i++, ptr += realType->size)
-					CheckFunction(ptr);
-				break;
-			}
+			CheckArray(ptr, type);
 			// Exit
 			return;
 		}

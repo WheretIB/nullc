@@ -637,6 +637,7 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 	ColorerGrammar::typeInfo.push_back("long");
 	ColorerGrammar::typeInfo.push_back("float");
 	ColorerGrammar::typeInfo.push_back("double");
+	ColorerGrammar::typeInfo.push_back("typeid");
 
 	ColorerGrammar::callArgCount.clear();
 	ColorerGrammar::varSize = 1;
