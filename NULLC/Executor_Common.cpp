@@ -228,7 +228,7 @@ namespace GC
 			if(!data->ptr)
 				return;
 			// Mark target data
-			MarkPointer(data->ptr, *subType, false);
+			MarkPointer((char*)&data->ptr, *subType, false);
 			// Switch pointer to target
 			ptr = data->ptr;
 			// Get array size
@@ -516,12 +516,14 @@ void MarkUsedBlocks()
 			// Get pointer base
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 			// If there is no base, this pointer points to memory that is not GCs memory
-			if(!basePtr)
-				return;
-			unsigned int *marker = (unsigned int*)(basePtr)-1;
-			// If block is unmarked, mark it as used
-			if(*marker == 0)
-				*marker = 1;
+			if(basePtr)
+			{
+				//printf("Good %p\n", ptr);
+				unsigned int *marker = (unsigned int*)(basePtr)-1;
+				// If block is unmarked, mark it as used
+				if(*marker == 0)
+					*marker = 1;
+			}
 		}
 		tempStackBase += 4;
 	}
