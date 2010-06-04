@@ -27,13 +27,12 @@ namespace NULLCVector
 		vec->flags = nullcIsPointer(type);
 		vec->size = 0;
 		vec->elemSize = nullcGetTypeSize(type);
+		vec->data.typeID = type;
 		if(reserved)
 		{
-			vec->data.typeID = (vec->flags ? nullcGetSubType(type) : type);
 			vec->data.ptr = (char*)nullcAllocate(vec->elemSize * reserved);
 			vec->data.len = reserved;
 		}else{
-			vec->data.typeID = (vec->flags ? nullcGetSubType(type) : type);
 			vec->data.ptr = NULL;
 			vec->data.len = 0;
 		}
