@@ -157,6 +157,7 @@ namespace GC
 
 	void CheckArray(char* ptr, const ExternTypeInfo& type);
 	void CheckClass(char* ptr, const ExternTypeInfo& type);
+	void CheckFunction(char* ptr);
 	void CheckVariable(char* ptr, const ExternTypeInfo& type);
 
 	// Function that marks memory blocks belonging to GC
@@ -235,6 +236,10 @@ namespace GC
 		case ExternTypeInfo::CAT_CLASS:
 			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
 				CheckClass(ptr, subType);
+			break;
+		case ExternTypeInfo::CAT_FUNCTION:
+			for(unsigned int i = 0; i < size; i++, ptr += subType.size)
+				CheckFunction(ptr);
 			break;
 		}
 	}

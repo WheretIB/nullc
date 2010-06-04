@@ -6029,6 +6029,26 @@ b.y = 0;\r\n\
 return f();";
 	TEST_FOR_RESULT("Garbage collection correctness 9 (local member function context).", testGarbageCollectionCorrectness9, "13");
 
+const char	*testGarbageCollectionCorrectness10 =
+"import std.gc;\r\n\
+class A\r\n\
+{\r\n\
+	int x, y;\r\n\
+	auto sum(){ return auto(){ return x + y; }; }\r\n\
+}\r\n\
+auto a = new A;\r\n\
+a.x = 4;\r\n\
+a.y = 9;\r\n\
+int ref()[1] f;\r\n\
+f[0] = a.sum();\r\n\
+a = nullptr;\r\n\
+GC.CollectMemory();\r\n\
+auto b = new A;\r\n\
+b.x = 0;\r\n\
+b.y = 0;\r\n\
+return f[0]();";
+	TEST_FOR_RESULT("Garbage collection correctness 10 (local member function context).", testGarbageCollectionCorrectness10, "13");
+
 	TEST_FOR_RESULT("Double division by zero during constant folding.", "double a = 1.0 / 0.0; return 10;", "10");
 
 const char	*testEval =
@@ -6585,6 +6605,35 @@ auto foo()\r\n\
 }\r\n\
 return foo();";
 	TEST_FOR_RESULT("VM stack relocation function check 2.", testStackRelocationFunction2, "8");
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+	const char	*testStackRelocationFunction3 =
+"void corrupt()\r\n\
+{\r\n\
+	int[32*1024] e = 0;\r\n\
+}\r\n\
+auto foo()\r\n\
+{\r\n\
+	int i = 3;\r\n\
+	auto help()\r\n\
+	{\r\n\
+		int ref func()\r\n\
+		{\r\n\
+			return &i;\r\n\
+		}\r\n\
+		return func;\r\n\
+	}\r\n\
+	int ref ref()[1] f;\r\n\
+	f[0] = help();\r\n\
+	corrupt();\r\n\
+	i = 8;\r\n\
+	int ref data = f[0]();\r\n\
+	return *data;\r\n\
+}\r\n\
+return foo();";
+	TEST_FOR_RESULT("VM stack relocation function check 3.", testStackRelocationFunction3, "8");
 
 	nullcTerminate();
 	nullcInit(MODULE_PATH);

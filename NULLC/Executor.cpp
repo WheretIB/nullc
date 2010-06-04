@@ -1866,6 +1866,10 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
 			FixupClass(ptr, subType);
 		break;
+	case ExternTypeInfo::CAT_FUNCTION:
+		for(unsigned int i = 0; i < size; i++, ptr += subType.size)
+			FixupFunction(ptr);
+		break;
 	}
 }
 
