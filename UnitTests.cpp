@@ -6082,6 +6082,14 @@ GC.CollectMemory();\r\n\
 return 1;";
 	TEST_FOR_RESULT("Garbage collection correctness 12 (auto ref recursion).", testGarbageCollectionCorrectness12, "1");
 
+const char	*testGarbageCollectionCorrectness13 =
+"import std.vector;\r\n\
+import std.gc;\r\n\
+vector arr = vector(int);\r\n\
+GC.CollectMemory();\r\n\
+return 1;";
+	TEST_FOR_RESULT("Garbage collection correctness 13 (uninitialized auto[] type).", testGarbageCollectionCorrectness13, "1");
+
 	TEST_FOR_RESULT("Double division by zero during constant folding.", "double a = 1.0 / 0.0; return 10;", "10");
 
 const char	*testEval =
@@ -6744,6 +6752,22 @@ av = 4;\r\n\
 bv = 60;\r\n\
 return *test.a + *test.b;";
 	TEST_FOR_RESULT("VM stack relocation (auto[] type).", testAutoArrayRelocation, "64");
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+	nullcInitTypeinfoModule();
+	nullcInitVectorModule();
+
+const char	*testAutoArrayRelocation2 =
+"import std.vector;\r\n\
+vector arr = vector(int);\r\n\
+void corrupt()\r\n\
+{\r\n\
+	int[32*1024] e = 0;\r\n\
+}\r\n\
+corrupt();\r\n\
+return 1;";
+	TEST_FOR_RESULT("VM stack relocation (uninitialized auto[] type).", testAutoArrayRelocation2, "1");
 
 	nullcTerminate();
 	nullcInit(MODULE_PATH);

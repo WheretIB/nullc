@@ -1870,6 +1870,9 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		NULLCAutoArray *data = (NULLCAutoArray*)ptr;
 		// Get real variable type
 		subType = &exTypes[data->typeID];
+		// skip uninitialized array
+		if(!data->ptr)
+			return;
 		// Mark target data
 		FixupPointer(data->ptr, *subType);
 		// Switch pointer to target
