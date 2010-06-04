@@ -718,7 +718,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
 				unsigned int target = cmd.argument;
 				fcallStack.push_back(cmdStream);
-				RUNTIME_ERROR(cmdStream < cmdBase || cmdStream > &exLinker->exCode[exLinker->exCode.size() + 1], "ERROR: break position is out of range");
+				RUNTIME_ERROR(cmdStream < cmdBase || cmdStream > exLinker->exCode.data + exLinker->exCode.size() + 1, "ERROR: break position is out of range");
 				unsigned int response = breakFunction((unsigned int)(cmdStream - cmdBase));
 				fcallStack.pop_back();
 
