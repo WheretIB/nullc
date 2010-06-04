@@ -518,7 +518,6 @@ void MarkUsedBlocks()
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(basePtr)
 			{
-				//printf("Good %p\n", ptr);
 				unsigned int *marker = (unsigned int*)(basePtr)-1;
 				// If block is unmarked, mark it as used
 				if(*marker == 0)

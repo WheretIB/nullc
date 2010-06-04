@@ -419,9 +419,6 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 	return true;
 }
 
-// Returns value as close as real ESP, at the program execution start
-void* getESP(){ __asm{ lea eax, [ebp+256] } }	// $$ find a better way to find it
-
 void ExecutorX86::InitExecution()
 {
 	if(!exCode.size())
@@ -437,8 +434,6 @@ void ExecutorX86::InitExecution()
 	NULLC::stackReallocs = 0;
 	NULLC::dataHead->nextElement = NULL;
 
-	genStackPtr = genStackTop = getESP();
-
 	if(NULLC::pSetThreadStackGuarantee)
 	{
 		unsigned long extraStack = 4096;
@@ -451,8 +446,10 @@ void ExecutorX86::InitExecution()
 void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
 	int	callStackExtra[2];
+	bool firstRun = false;
 	if(!codeRunning || functionID == ~0u)
 	{
+		firstRun = true;
 		InitExecution();
 	}else if(functionID != ~0u && exFunctions[functionID].startInByteCode != ~0u){
 		// Instruction pointer is expected one DWORD above pointer to next element
@@ -539,6 +536,12 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	__try
 	{
+		if(firstRun)
+		{
+			unsigned int espHold = 0;
+			__asm{ mov espHold, esp }
+			genStackPtr = genStackTop = (void*)(intptr_t)(espHold - 16);	// 16 bytes is the ammount of data pushed by pusha
+		}
 		__asm
 		{
 			pusha ; // Save all registers
