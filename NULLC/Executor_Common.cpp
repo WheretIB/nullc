@@ -224,6 +224,9 @@ namespace GC
 			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
 			// Get real variable type
 			subType = &NULLC::commonLinker->exTypes[data->typeID];
+			// skip uninitialized array
+			if(!data->ptr)
+				return;
 			// Mark target data
 			MarkPointer(data->ptr, *subType, false);
 			// Switch pointer to target
@@ -501,12 +504,25 @@ void MarkUsedBlocks()
 		tempStackTop = (char*)exec->GetStackEnd();
 #endif
 	}
-	// For debug check that type #4 is indeed, int
-	const unsigned int intHash = GetStringHash("int");
-	assert(intHash == types[4].nameHash);
+	// Check that temporary stack range is correct
+	assert(tempStackTop >= tempStackBase);
+	// Check temporary stack for pointers
 	while(tempStackBase < tempStackTop)
 	{
-		GC::MarkPointer(tempStackBase, types[4], false);
+		char *ptr = *(char**)(tempStackBase);
+		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
+		if(ptr > (char*)0x00010000 && (ptr < GC::unmanageableBase || ptr > GC::unmanageableTop))
+		{
+			// Get pointer base
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			// If there is no base, this pointer points to memory that is not GCs memory
+			if(!basePtr)
+				return;
+			unsigned int *marker = (unsigned int*)(basePtr)-1;
+			// If block is unmarked, mark it as used
+			if(*marker == 0)
+				*marker = 1;
+		}
 		tempStackBase += 4;
 	}
 }
