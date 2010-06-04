@@ -194,6 +194,13 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			{
 				exTypes.back().memberOffset = exTypeExtra.size();
 				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount + (tInfo->subCat == ExternTypeInfo::CAT_FUNCTION ? 1 : 0));
+				if(tInfo->subCat == ExternTypeInfo::CAT_CLASS && tInfo->pointerCount)
+				{
+					unsigned int count = exTypeExtra.size();
+					exTypeExtra.push_back(memberList + tInfo->memberOffset + tInfo->memberCount, tInfo->pointerCount * 2);
+					for(unsigned int k = count + 1; k < exTypeExtra.size(); k += 2)
+						exTypeExtra[k] |= 0x80000000;
+				}
 			}
 		}else{
 			typeRemap.push_back(*lastType);
@@ -204,7 +211,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	// Remap new member types
 	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
-		exTypeExtra[i] = typeRemap[exTypeExtra[i]];
+		exTypeExtra[i] = (exTypeExtra[i] & 0x80000000) ? (exTypeExtra[i] & ~0x80000000) : typeRemap[exTypeExtra[i]];
 
 #ifdef VERBOSE_DEBUG_OUTPUT
 	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);

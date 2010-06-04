@@ -257,26 +257,15 @@ namespace GC
 			return;
 		}
 		// Get class member type list
-		unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[0];
-		// For alignment tracking
-		unsigned int localOffset = 0;
-		// Check every member
-		for(unsigned int n = 0; n < realType->memberCount; n++)
+		unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
+		// Check pointer members
+		for(unsigned int n = 0; n < realType->pointerCount; n++)
 		{
 			// Get member type
-			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[realType->memberOffset + n]];
-			// Align pointer
-			unsigned int alignment = subType.defaultAlign > 4 ? 4 : subType.defaultAlign;
-			if(alignment && localOffset % alignment != 0)
-			{
-				ptr += alignment - (localOffset % alignment);
-				localOffset += alignment - (localOffset % alignment);	
-			}
+			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[n * 2]];
+			unsigned int pos = memberList[n * 2 + 1];
 			// Check member
-			CheckVariable(ptr, subType);
-			// Move pointer to the next member
-			ptr += subType.size;
-			localOffset += subType.size;
+			CheckVariable(ptr + pos, subType);
 		}
 	}
 

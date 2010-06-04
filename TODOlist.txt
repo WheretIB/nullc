@@ -10,8 +10,6 @@ Core:
 	13 f. Let user set the global memory maximum.
 	15 b. Fix pointer constructors
 	16 b. float mod operation should be tested
-	18 f. CheckClass should check only pointer members
-		+ Classes should have a global mark that they do not contain pointer elements, so that an array of classes will not be iterated through.
 
 Library:
 	1. f. string
@@ -171,3 +169,5 @@ FIXED: eval is not safe when reallocation of code is performed
 DONE: Open tab with breakpoint
 DONE: Function check is needed in VM stack relocation
 DONE: Constant expressions. (via pure function compile-time evaluation)
+DONE: CheckClass should check only pointer members
+DONE: Classes should have a global mark that they do not contain pointer elements, so that an array of classes will not be iterated through.
