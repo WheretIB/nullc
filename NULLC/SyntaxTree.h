@@ -263,6 +263,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	FunctionInfo	*parentFunction;
 	unsigned int	stackFrameShift;
@@ -445,6 +446,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	bool	incOp;
 	bool	optimised;
@@ -505,6 +507,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	NodeZeroOP*	fourth;
 };
