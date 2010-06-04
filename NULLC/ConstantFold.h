@@ -1,6 +1,12 @@
 #pragma once
 #include "InstructionSet.h"
 
+#ifdef _MSC_VER
+	#define SPECIALIZATION_STATIC static
+#else
+	#define SPECIALIZATION_STATIC
+#endif
+
 template<typename T>
 static void	Swap(T& a, T& b)
 {
@@ -43,7 +49,7 @@ static T optDoSpecial(CmdID cmd, T a, T b)
 	return 0;
 }
 template<>
-static int optDoSpecial<>(CmdID cmd, int a, int b)
+SPECIALIZATION_STATIC int optDoSpecial<>(CmdID cmd, int a, int b)
 {
 	if(cmd == cmdDiv)
 	{
@@ -79,7 +85,7 @@ static int optDoSpecial<>(CmdID cmd, int a, int b)
 	return 0;
 }
 template<>
-static long long optDoSpecial<>(CmdID cmd, long long a, long long b)
+SPECIALIZATION_STATIC long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 {
 	if(cmd == cmdDiv)
 	{
@@ -137,7 +143,7 @@ static long long optDoSpecial<>(CmdID cmd, long long a, long long b)
 	return 0;
 }
 template<>
-static double optDoSpecial<>(CmdID cmd, double a, double b)
+SPECIALIZATION_STATIC double optDoSpecial<>(CmdID cmd, double a, double b)
 {
 	if(cmd == cmdDiv)
 		return a / b;
