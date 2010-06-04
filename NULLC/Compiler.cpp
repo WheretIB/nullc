@@ -31,6 +31,7 @@ TypeInfo*	typeLong = NULL;
 TypeInfo*	typeDouble = NULL;
 TypeInfo*	typeObject = NULL;
 TypeInfo*	typeTypeid = NULL;
+TypeInfo*	typeAutoArray = NULL;
 
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
@@ -195,9 +196,18 @@ Compiler::Compiler()
 	info->AddMemberVariable("id", typeInt);
 	info->size = 4;
 
-	typeObject->AddMemberVariable("type", typeInt);
+	typeObject->AddMemberVariable("type", typeTypeid);
 	typeObject->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
 	typeObject->size = 4 + NULLC_PTR_SIZE;
+
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "auto[]", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+	typeAutoArray = info;
+	CodeInfo::typeInfo.push_back(info);
+
+	typeAutoArray->AddMemberVariable("type", typeTypeid);
+	typeAutoArray->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
+	typeAutoArray->AddMemberVariable("size", typeInt);
+	typeAutoArray->size = 8 + NULLC_PTR_SIZE;
 
 	buildInTypes.resize(CodeInfo::typeInfo.size());
 	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));

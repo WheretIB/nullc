@@ -97,6 +97,7 @@ public:
 	}
 	__forceinline T&		operator[](unsigned int index)
 	{
+		assert(index < count);
 		return data[index];
 	}
 	__forceinline void		resize(unsigned int newSize)

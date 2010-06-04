@@ -154,6 +154,7 @@ namespace GC
 	char	*unmanageableBase = NULL;
 	char	*unmanageableTop = NULL;
 	unsigned int	objectName = GetStringHash("auto ref");
+	unsigned int	autoArrayName = GetStringHash("auto[]");
 
 	void CheckArray(char* ptr, const ExternTypeInfo& type);
 	void CheckClass(char* ptr, const ExternTypeInfo& type);
@@ -260,6 +261,40 @@ namespace GC
 			CheckVariable(*rPtr, *realType);
 			// Exit
 			return;
+		}else if(type.nameHash == autoArrayName){
+			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
+			// Get real variable type
+			realType = &NULLC::commonLinker->exTypes[data->typeID];
+			// Mark target data
+			MarkPointer(data->ptr, *realType, false);
+			// Switch pointer to target
+			ptr = data->ptr;
+			// Get array size
+			unsigned int size = data->len;
+			if(!realType->pointerCount)
+				return;
+			// Otherwise, check every array element is it's either array, pointer of class
+			switch(realType->subCat)
+			{
+			case ExternTypeInfo::CAT_ARRAY:
+				for(unsigned int i = 0; i < size; i++, ptr += realType->size)
+					CheckArray(ptr, *realType);
+				break;
+			case ExternTypeInfo::CAT_POINTER:
+				for(unsigned int i = 0; i < size; i++, ptr += realType->size)
+					MarkPointer(ptr, *realType, true);
+				break;
+			case ExternTypeInfo::CAT_CLASS:
+				for(unsigned int i = 0; i < size; i++, ptr += realType->size)
+					CheckClass(ptr, *realType);
+				break;
+			case ExternTypeInfo::CAT_FUNCTION:
+				for(unsigned int i = 0; i < size; i++, ptr += realType->size)
+					CheckFunction(ptr);
+				break;
+			}
+			// Exit
+			return;
 		}
 		// Get class member type list
 		unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
@@ -347,10 +382,10 @@ void MarkUsedBlocks()
 	GC_DEBUG_PRINT("Unmanageable range: %p-%p\r\n", GC::unmanageableBase, GC::unmanageableTop);
 
 	// Get information about programs' functions, variables, types and symbols (for debug output)
-	ExternFuncInfo	*functions = &NULLC::commonLinker->exFunctions[0];
-	ExternVarInfo	*vars = &NULLC::commonLinker->exVariables[0];
-	ExternTypeInfo	*types = &NULLC::commonLinker->exTypes[0];
-	char			*symbols = &NULLC::commonLinker->exSymbols[0];
+	ExternFuncInfo	*functions = NULLC::commonLinker->exFunctions.data;
+	ExternVarInfo	*vars = NULLC::commonLinker->exVariables.data;
+	ExternTypeInfo	*types = NULLC::commonLinker->exTypes.data;
+	char			*symbols = NULLC::commonLinker->exSymbols.data;
 	(void)symbols;
 
 	// Mark global variables
