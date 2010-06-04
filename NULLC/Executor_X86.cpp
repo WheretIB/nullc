@@ -420,7 +420,7 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 }
 
 // Returns value as close as real ESP, at the program execution start
-void* getESP(){ __asm{ lea eax, [ebp-32] } }
+void* getESP(){ __asm{ lea eax, [ebp+256] } }	// $$ find a better way to find it
 
 void ExecutorX86::InitExecution()
 {
