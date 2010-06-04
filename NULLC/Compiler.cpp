@@ -1212,9 +1212,12 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		if(type->type == TypeInfo::TYPE_COMPLEX && type->subType == NULL && type->funcType == NULL)
 		{
 			for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
+			{
 				symbolStorageSize += (unsigned int)strlen(curr->name) + 1;
+				if(curr->type->hasPointers)
+					allMemberCount += 2;
+			}
 		}
-
 		allMemberCount += type->funcType ? type->funcType->paramCount + 1 : type->memberCount;
 	}
 	size += allMemberCount * sizeof(unsigned int);
@@ -1385,6 +1388,16 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 				memberList[memberOffset++] = curr->type->typeIndex;
 				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
 				symbolPos += strlen(curr->name) + 1;
+			}
+			typeInfo.pointerCount = 0;
+			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
+			{
+				if(curr->type->hasPointers)
+				{
+					typeInfo.pointerCount++;
+					memberList[memberOffset++] = curr->type->typeIndex;
+					memberList[memberOffset++] = curr->offset;
+				}
 			}
 		}else{
 			typeInfo.subCat = ExternTypeInfo::CAT_NONE;
