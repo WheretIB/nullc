@@ -103,6 +103,7 @@ bool ParseArrayDefinition(Lexeme** str)
 	if(!ParseLexem(str, lex_obracket))
 		return false;
 
+	ResetConstantFoldError();
 	if((*str)->type == lex_cbracket)
 	{
 		(*str)++;
@@ -113,6 +114,7 @@ bool ParseArrayDefinition(Lexeme** str)
 		if(!ParseLexem(str, lex_cbracket))
 			ThrowError((*str)->pos, "ERROR: matching ']' not found");
 	}
+	ThrowConstantFoldError((*str)->pos);
 	if((*str)->type == lex_obracket)
 		ParseArrayDefinition(str);
 	CALLBACK(ConvertTypeToArray((*str)->pos));

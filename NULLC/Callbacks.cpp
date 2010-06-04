@@ -21,6 +21,9 @@ bool varDefined;
 // Number of implicit variable
 unsigned int inplaceVariableNum;
 
+FunctionInfo	*uncalledFunc = NULL;
+const char		*uncalledPos = NULL;
+
 // Stack of variable counts.
 // Used to find how many variables are to be removed when their visibility ends.
 // Also used to know how much space for local variables is required in stack frame.
@@ -1917,6 +1920,21 @@ void FunctionToOperator(const char* pos)
 	lastFunc.visible = true;
 }
 
+void ResetConstantFoldError()
+{
+	uncalledFunc = NULL;
+}
+void ThrowConstantFoldError(const char *pos)
+{
+	if(CodeInfo::nodeList.back()->nodeType != typeNodeNumber)
+	{
+		if(uncalledFunc)
+			ThrowError(uncalledPos, "ERROR: array size must be a constant expression. During constant folding, '%s' function couldn't be evaluated", uncalledFunc->name);
+		else
+			ThrowError(pos, "ERROR: array size must be a constant expression");
+	}
+}
+
 unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount)
 {
 	if(currFunc->paramCount != callArgCount)
@@ -2051,7 +2069,6 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		// Push address to array
 		CodeInfo::nodeList.push_back(new NodeGetAddress(target, target->pos, target->isGlobal, target->varType));
 		((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
-		//AddGetVariableNode(pos);
 		// Find redirection function
 		HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash("__redirect"));
 		if(!curr)
@@ -2421,9 +2438,19 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			//printf("Successful pure function call (%s) %d %d\n", fInfo->name, ++success, fail);
 			CodeInfo::nodeList.back() = value;
 		}else{
+			if(!uncalledFunc)
+			{
+				uncalledFunc = fInfo;
+				uncalledPos = pos;
+			}
 			//printf("Function (%s) failed to evaluate %d %d\n", fInfo->name, success, ++fail);
 			//fInfo->pure = false;	// If unable to evaluate function value, don't even try in future
 		}
+	}
+	if(fInfo && !fInfo->pure && !uncalledFunc)
+	{
+		uncalledFunc = fInfo;
+		uncalledPos = pos;
 	}
 #endif
 
