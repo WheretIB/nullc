@@ -1282,9 +1282,21 @@ void AddInplaceVariable(const char* pos, TypeInfo* targetType)
 
 void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 {
+	// Get r-value type
 	TypeInfo *nodeType = CodeInfo::nodeList.back()->typeInfo;
-	if(!dstType->subType || (dstType->arrSize != TypeInfo::UNSIZED_ARRAY && dstType->subType->arrSize != TypeInfo::UNSIZED_ARRAY) || dstType == nodeType)
+	// If l-value type or r-value type doesn't have subType, make no conversions
+	if(!dstType->subType || !nodeType->subType)
 		return;
+	// If l-value type is not an unsized array type and l-value subType is not an unsized array type, make no conversions
+	if(dstType->arrSize != TypeInfo::UNSIZED_ARRAY && dstType->subType->arrSize != TypeInfo::UNSIZED_ARRAY)
+		return;
+	// If l-value type is equal to r-value type, make no conversions
+	if(dstType == nodeType)
+		return;
+	// If r-value type is not an array and r-value subType is not an array, make no conversions
+	if(!nodeType->arrLevel && !nodeType->subType->arrLevel)
+		return;
+
 	if(dstType->subType == nodeType->subType)
 	{
 		bool hasImplicitNode = false;
@@ -1337,10 +1349,21 @@ void ConvertFunctionToPointer(const char* pos)
 void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 {
 	TypeInfo *srcType = CodeInfo::nodeList.back()->typeInfo;
-	if(typeVoid->refType && srcType == typeVoid->refType && dstType->refLevel != 0)
+	if(typeVoid->refType && srcType == typeVoid->refType)
 	{
-		CodeInfo::nodeList.back()->typeInfo = dstType;
-		return;
+		// nullptr to type ref conversion
+		if(dstType->refLevel)
+		{
+			CodeInfo::nodeList.back()->typeInfo = dstType;
+			return;
+		}
+		// nullptr to type[] conversion
+		if(dstType->arrLevel && dstType->arrSize == TypeInfo::UNSIZED_ARRAY)
+		{
+			CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+			AddTwoExpressionNode(dstType);
+			return;
+		}
 	}
 	if(!((dstType == typeObject) ^ (srcType == typeObject)))
 		return;
