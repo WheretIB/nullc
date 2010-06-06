@@ -6116,6 +6116,8 @@ return 1;";
 		TEST_FOR_RESULT("Long function name.", code, "1");
 	}
 
+	TEST_FOR_RESULT("nullptr to type[] conversion", "int[] arr = new int[20]; arr = nullptr; return arr.size;", "0");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -6812,6 +6814,19 @@ return a;";
 
 	nullcTerminate();
 	nullcInit(MODULE_PATH);
+	nullcInitGCModule();
+	nullcSetGlobalMemoryLimit(1024 * 1024);
+
+const char	*testGCGlobalLimit =
+"import std.gc;\r\n\
+int[] arr1 = new int[200000];\r\n\
+arr1 = nullptr;\r\n\
+int[] arr2 = new int[200000];\r\n\
+return arr2.size;";
+	TEST_FOR_RESULT("GC collection before global limit exceeded error", testGCGlobalLimit, "200000");
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
@@ -7009,6 +7024,9 @@ return a;";
 
 	TEST_FOR_FAIL("Array underflow 2", "int[7][3] uu; uu[2][1] = 100; int[][3] kk = uu; return kk[2][-1000000];", "ERROR: array index cannot be negative");
 	TEST_FOR_FAIL("Array overflow 2", "int[7][3] uu; uu[2][1] = 100; int[][3] kk = uu; return kk[2][1000000];", "ERROR: array index out of bounds");
+
+	TEST_FOR_FAIL("Invalid conversion", "int a; int[] arr = new int[10]; arr = &a; return 0;", "ERROR: cannot convert 'int ref' to 'int[]'");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
