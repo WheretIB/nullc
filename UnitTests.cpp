@@ -6092,20 +6092,15 @@ return 1;";
 
 	TEST_FOR_RESULT("Double division by zero during constant folding.", "double a = 1.0 / 0.0; return 10;", "10");
 
-const char	*testEval =
-"import std.dynamic;\r\n\
-\r\n\
-int a = 5;\r\n\
-\r\n\
-for(int i = 0; i < 2000; i++)\r\n\
-	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
-\r\n\
-return a;";
-	double evalStart = myGetPreciseTime();
-	testCount[0]++;
-	if(RunCode(testEval, testTarget[0], "5997", "Dynamic code. eval()"))
-		passed[0]++;
-	printf("Eval test finished in %f\r\n", myGetPreciseTime() - evalStart);
+	{
+		char code[8192];
+		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		for(unsigned int i = 0; i < NULLC_MAX_VARIABLE_NAME_LENGTH; i++)
+			name[i] = 'a';
+		name[NULLC_MAX_VARIABLE_NAME_LENGTH - 1] = 0;
+		SafeSprintf(code, 8192, "int %s = 12; return %s;", name, name);
+		TEST_FOR_RESULT("Long variable name.", code, "12");
+	}
 
 #ifdef FAILURE_TEST
 
@@ -6782,6 +6777,28 @@ corrupt();\r\n\
 return 1;";
 	TEST_FOR_RESULT("VM stack relocation (auto ref recursion).", testAutoRefRecursionRelocate, "1");
 
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+	nullcInitDynamicModule();
+
+	const char	*testEval =
+"import std.dynamic;\r\n\
+\r\n\
+int a = 5;\r\n\
+\r\n\
+for(int i = 0; i < 200; i++)\r\n\
+	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
+\r\n\
+return a;";
+	double evalStart = myGetPreciseTime();
+	testCount[0]++;
+	if(RunCode(testEval, testTarget[0], "597", "Dynamic code. eval()"))
+		passed[0]++;
+	printf("Eval test finished in %f\r\n", myGetPreciseTime() - evalStart);
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
 	nullcInitMathModule();
@@ -7097,6 +7114,18 @@ return 1;";
 	TEST_FOR_FAIL("parsing", "void func(){} auto duck(){ return func; } duck()(1,2; ", "ERROR: ')' not found after function parameter list");
 	TEST_FOR_FAIL("parsing", "int b; b = ", "ERROR: expression not found after '='");
 	TEST_FOR_FAIL("parsing", "noalign int a, b", "ERROR: ';' not found after variable definition");
+
+	{
+		char code[8192];
+		char name[NULLC_MAX_VARIABLE_NAME_LENGTH + 1];
+		for(unsigned int i = 0; i < NULLC_MAX_VARIABLE_NAME_LENGTH + 1; i++)
+			name[i] = 'a';
+		name[NULLC_MAX_VARIABLE_NAME_LENGTH] = 0;
+		SafeSprintf(code, 8192, "int %s = 12; return %s;", name, name);
+		char error[128];
+		SafeSprintf(error, 128, "ERROR: variable name length is limited to %d symbols", NULLC_MAX_VARIABLE_NAME_LENGTH);
+		TEST_FOR_FAIL("Variable name is too long.", code, error);
+	}
 
 	//RunEulerTests();
 
