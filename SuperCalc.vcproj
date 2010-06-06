@@ -215,7 +215,7 @@
 				RuntimeLibrary="2"
 				ForceConformanceInForLoopScope="false"
 				UsePrecompiledHeader="0"
-				WarningLevel="3"
+				WarningLevel="4"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
@@ -298,7 +298,7 @@
 				RuntimeLibrary="2"
 				ForceConformanceInForLoopScope="false"
 				UsePrecompiledHeader="0"
-				WarningLevel="3"
+				WarningLevel="4"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
