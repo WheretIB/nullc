@@ -2643,6 +2643,8 @@ void TypeAddMember(const char* pos, const char* varName)
 {
 	if(!currType)
 		ThrowError(pos, "ERROR: auto cannot be used for class members");
+	if(currType == newType)
+		ThrowError(pos, "ERROR: Type '%s' is currently being defined. You can use '%s ref' or '%s[]' at this point", currType->GetFullTypeName(), currType->GetFullTypeName(), currType->GetFullTypeName());
 	// Align members to their default alignment, but not larger that 4 bytes
 	unsigned int alignment = currType->alignBytes > 4 ? 4 : currType->alignBytes;
 	if(alignment && newType->size % alignment != 0)
