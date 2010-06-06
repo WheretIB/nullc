@@ -1750,13 +1750,13 @@ void NodeVariableModify::TranslateToC(FILE *fOut)
 NodeNumber* NodeVariableModify::Evaluate(char *memory, unsigned int size)
 {
 	NodeZeroOP	*curr = head;
-	do 
+	while(curr)
 	{
 		NodeNumber *value = curr->Evaluate(memory, size);
 		if(!value)
 			return NULL;
 		curr = curr->next;
-	}while(curr);
+	}
 
 	unsigned int address = addrShift;
 	if(!knownAddress)
