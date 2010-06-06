@@ -1279,6 +1279,16 @@ void NodeGetAddress::TranslateToCEx(FILE *fOut, bool takeAddress)
 		fprintf(fOut, "__context");
 	}
 }
+NodeNumber* NodeGetAddress::Evaluate(char *memory, unsigned int size)
+{
+	(void)memory;
+	(void)size;
+	if(head)
+		return NULL;
+	if(absAddress)
+		return NULL;
+	return new NodeNumber(int(trackAddress ? varInfo->pos : varAddress), typeInt);
+}
 
 //////////////////////////////////////////////////////////////////////////
 NodeGetUpvalue::NodeGetUpvalue(FunctionInfo* functionInfo, int closureOffset, int closureElement, TypeInfo *retInfo)
@@ -1546,30 +1556,31 @@ NodeNumber* NodeVariableSet::Evaluate(char *memory, unsigned int size)
 		return NULL;
 	right->ConvertTo(typeInfo);
 
+	unsigned int address = addrShift;
 	if(!knownAddress)
-		return NULL;
+	{
+		NodeNumber *pointer = first->Evaluate(memory, size);
+		if(!pointer)
+			return NULL;
+		address = pointer->GetInteger();
+	}
 	if(arrSetAll)
 	{
 		return NULL;
 	}else{
-		if(knownAddress)
-		{
-			if(typeInfo == typeChar)
-				*(char*)(memory + addrShift) = (char)right->GetInteger();
-			if(typeInfo == typeShort)
-				*(short*)(memory + addrShift) = (short)right->GetInteger();
-			if(typeInfo == typeInt)
-				*(int*)(memory + addrShift) = right->GetInteger();
-			if(typeInfo == typeLong)
-				*(long long*)(memory + addrShift) = right->GetLong();
-			if(typeInfo == typeFloat)
-				*(float*)(memory + addrShift) = (float)right->GetDouble();
-			if(typeInfo == typeDouble)
-				*(double*)(memory + addrShift) = right->GetDouble();
-			return right;
-		}else{
-			return NULL;
-		}
+		if(typeInfo == typeChar)
+			*(char*)(memory + address) = (char)right->GetInteger();
+		if(typeInfo == typeShort)
+			*(short*)(memory + address) = (short)right->GetInteger();
+		if(typeInfo == typeInt)
+			*(int*)(memory + address) = right->GetInteger();
+		if(typeInfo == typeLong)
+			*(long long*)(memory + address) = right->GetLong();
+		if(typeInfo == typeFloat)
+			*(float*)(memory + address) = (float)right->GetDouble();
+		if(typeInfo == typeDouble)
+			*(double*)(memory + address) = right->GetDouble();
+		return right;
 	}
 }
 
@@ -1840,7 +1851,13 @@ NodeArrayIndex::NodeArrayIndex(TypeInfo* parentType)
 
 	if(second->nodeType == typeNodeNumber && typeParent->arrSize != TypeInfo::UNSIZED_ARRAY)
 	{
-		shiftValue = typeParent->subType->size * static_cast<NodeNumber*>(second)->GetInteger();
+		shiftValue = static_cast<NodeNumber*>(second)->GetInteger();
+		// Check bounds
+		if(shiftValue < 0)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: array index cannot be negative");
+		if((unsigned int)shiftValue >= typeParent->arrSize)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: array index out of bounds");
+		shiftValue *= typeParent->subType->size;
 		knownShift = true;
 	}
 	if(!knownShift && typeParent->subType->size > 65535)
@@ -1925,6 +1942,29 @@ void NodeArrayIndex::TranslateToC(FILE *fOut)
 		fprintf(fOut, ", %uu)]", first->typeInfo->subType->arrSize);
 	}
 }
+NodeNumber* NodeArrayIndex::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+
+	// Get address of the first array element
+	NodeNumber *pointer = first->Evaluate(memory, size);
+	if(!pointer)
+		return NULL;
+
+	if(knownShift)
+	{
+		return new NodeNumber(pointer->GetInteger() + shiftValue, typeInt);
+	}else{
+		NodeNumber *index = second->Evaluate(memory, size);
+		index->ConvertTo(typeInt);
+		// Check bounds
+		if(index->GetInteger() < 0 || (unsigned int)index->GetInteger() >= typeParent->arrSize)
+			return NULL;
+		return new NodeNumber(int(pointer->GetInteger() + typeParent->subType->size * index->GetInteger()), typeInt);
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Node to get value by address (dereference pointer)
 
