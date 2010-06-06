@@ -2675,12 +2675,9 @@ void GenCodeCmdModD(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("MOD double");
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 16);
-	EMIT_OP(o_fprem);
-	EMIT_OP_FPUREG(o_fstp, rST1);
-	EMIT_OP_REG_NUM(o_sub, rESP, 8);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)doubleMod);
+	EMIT_OP_REG(o_call, rECX);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 

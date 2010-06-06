@@ -65,6 +65,11 @@ __declspec(naked) void doublePow()
 	}
 }
 
+double doubleMod(double a, double b)
+{
+	return fmod(b, a);
+}
+
 long long longMul(long long a, long long b)
 {
 	return b * a;

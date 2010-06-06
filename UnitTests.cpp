@@ -6092,6 +6092,8 @@ return 1;";
 
 	TEST_FOR_RESULT("Double division by zero during constant folding.", "double a = 1.0 / 0.0; return 10;", "10");
 
+	TEST_FOR_RESULT("Double modulus division.", "double a = 800000000000000000000.0; return (a % 5.5) < 5.5;", "1");
+
 	{
 		char code[8192];
 		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
