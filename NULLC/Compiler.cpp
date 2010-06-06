@@ -41,7 +41,7 @@ CompilerError::CompilerError(const char* errStr, const char* apprPos)
 void CompilerError::Init(const char* errStr, const char* apprPos)
 {
 	empty = 0;
-	unsigned int len = (unsigned int)strlen(errStr) < 256 ? (unsigned int)strlen(errStr) : 255;
+	unsigned int len = (unsigned int)strlen(errStr) < ERROR_LENGTH ? (unsigned int)strlen(errStr) : ERROR_LENGTH - 1;
 	memcpy(error, errStr, len);
 	error[len] = 0;
 	if(apprPos)

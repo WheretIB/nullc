@@ -6102,6 +6102,16 @@ return 1;";
 		TEST_FOR_RESULT("Long variable name.", code, "12");
 	}
 
+	{
+		char code[8192];
+		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		for(unsigned int i = 0; i < NULLC_MAX_VARIABLE_NAME_LENGTH; i++)
+			name[i] = 'a';
+		name[NULLC_MAX_VARIABLE_NAME_LENGTH - 1] = 0;
+		SafeSprintf(code, 8192, "void foo(int bar){ int %s(){ return bar; } int %s(int u){ return bar + u; } } return 1;", name, name);
+		TEST_FOR_RESULT("Long function name.", code, "1");
+	}
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 

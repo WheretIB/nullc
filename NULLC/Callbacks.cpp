@@ -1810,8 +1810,8 @@ void FunctionEnd(const char* pos)
 		// Create closure type
 		newType = NULL;
 		SetCurrentAlignment(4);
-		char tempName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		SafeSprintf(tempName, NULLC_MAX_VARIABLE_NAME_LENGTH, "__%s_%d_ext", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
+		char tempName[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
+		SafeSprintf(tempName, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "__%s_%d_ext", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
 		TypeBegin(tempName, tempName + strlen(tempName));
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
