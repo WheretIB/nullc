@@ -306,6 +306,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 			void TranslateToCEx(FILE *fOut, bool takeAddress);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
@@ -406,6 +407,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 public:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
