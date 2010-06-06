@@ -1039,7 +1039,9 @@ void	RunTests(bool verbose)
 	nullcInitWindowModule();
 #endif
 
+#ifndef NULLC_ENABLE_C_TRANSLATION
 	RunExternalCallTests();
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 	if(messageVerbose)

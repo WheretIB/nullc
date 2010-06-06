@@ -31,8 +31,8 @@ void OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo)
 {
 	const char *namePrefix = *funcInfo->name == '$' ? "__" : "";
 	unsigned int nameShift = *funcInfo->name == '$' ? 1 : 0;
-	char fName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-	sprintf(fName, (funcInfo->type == FunctionInfo::LOCAL || !funcInfo->visible) ? "%s%s_%d" : "%s%s", namePrefix, funcInfo->name + nameShift, CodeInfo::FindFunctionByPtr(funcInfo));
+	char fName[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
+	SafeSprintf(fName, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, (funcInfo->type == FunctionInfo::LOCAL || !funcInfo->visible) ? "%s%s_%d" : "%s%s", namePrefix, funcInfo->name + nameShift, CodeInfo::FindFunctionByPtr(funcInfo));
 	if(const char *opName = funcInfo->GetOperatorName())
 	{
 		strcpy(fName, opName);
@@ -2106,7 +2106,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 		{
 			OutputIdent(fOut);
 
-			fprintf(fOut, "(%s->ptr[%d] = ", closureName, pos);
+			fprintf(fOut, "(((int**)%s)[%d] = ", closureName, pos);
 			VariableInfo *varInfo = curr->variable;
 			char variableName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 			if(varInfo->nameHash == GetStringHash("this"))
@@ -2127,11 +2127,11 @@ void NodeDereference::TranslateToC(FILE *fOut)
 			}
 			fprintf(fOut, "),\r\n");
 			OutputIdent(fOut);
-			fprintf(fOut, "(%s->ptr[%d] = (int*)__upvalue_%d_%s),\r\n", closureName, pos+1, CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName);
+			fprintf(fOut, "(((int**)%s)[%d] = (int*)__upvalue_%d_%s),\r\n", closureName, pos+1, CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName);
 			OutputIdent(fOut);
-			fprintf(fOut, "(%s->ptr[%d] = (int*)%d),\r\n", closureName, pos+2, curr->variable->varType->size);
+			fprintf(fOut, "(((int*)%s)[%d] = %d),\r\n", closureName, pos+2, curr->variable->varType->size);
 			OutputIdent(fOut);
-			fprintf(fOut, "(__upvalue_%d_%s = (__nullcUpvalue*)&%s->ptr[%d])", CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName, closureName, pos);
+			fprintf(fOut, "(__upvalue_%d_%s = (__nullcUpvalue*)((int*)%s + %d))", CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName, closureName, pos);
 			if(curr->next)
 				fprintf(fOut, ",\r\n");
 			pos += ((varInfo->varType->size >> 2) < 3 ? 3 : 1 + (varInfo->varType->size >> 2));
