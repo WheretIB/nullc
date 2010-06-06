@@ -13,8 +13,10 @@ extern "C"
 
 void		nullcInit(const char* importPath);
 void		nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath);
+
 void		nullcSetImportPath(const char* importPath);
 void		nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name, unsigned int* size, int* nullcShouldFreePtr));
+void		nullcSetGlobalMemoryLimit(unsigned int limit);
 
 void		nullcTerminate();
 

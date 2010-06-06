@@ -70,6 +70,7 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 #ifndef NULLC_NO_EXECUTOR
 	linker = NULLC::construct<Linker>();
 	executor = new(NULLC::alloc(sizeof(Executor))) Executor(linker);
+	NULLC::SetGlobalLimit(NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT);
 #endif
 #ifdef NULLC_BUILD_X86_JIT
 	executorX86 = new(NULLC::alloc(sizeof(ExecutorX86))) ExecutorX86(linker);
@@ -103,6 +104,13 @@ nullres	nullcSetJiTStack(void* start, void* end, unsigned int flagMemoryAllocate
 		return 0;
 	}
 	return 1;
+}
+#endif
+
+#ifndef NULLC_NO_EXECUTOR
+void nullcSetGlobalMemoryLimit(unsigned int limit)
+{
+	NULLC::SetGlobalLimit(limit);
 }
 #endif
 

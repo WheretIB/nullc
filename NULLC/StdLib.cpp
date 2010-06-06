@@ -181,7 +181,6 @@ namespace NULLC
 
 	unsigned int usedMemory = 0;
 
-	unsigned int baseMinimum = 1024 * 1024;
 	unsigned int collectableMinimum = 1024 * 1024;
 	unsigned int globalMemoryLimit = 1024 * 1024 * 1024;
 
@@ -219,8 +218,12 @@ void* NULLC::AllocObject(int size)
 #ifdef ENABLE_GC
 	if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 	{
-		nullcThrowError("Reached global memory maximum");
-		return NULL;
+		CollectMemory();
+		if((unsigned int)(usedMemory + size) > globalMemoryLimit)
+		{
+			nullcThrowError("Reached global memory maximum");
+			return NULL;
+		}
 	}else if((unsigned int)(usedMemory + size) > collectableMinimum){
 		CollectMemory();
 	}
@@ -462,6 +465,12 @@ void NULLC::ResetMemory()
 {
 	ClearMemory();
 	globalObjects.reset();
+}
+
+void NULLC::SetGlobalLimit(unsigned int limit)
+{
+	globalMemoryLimit = limit;
+	collectableMinimum = limit < 1024 * 1024 ? limit : 1024 * 1024;
 }
 
 void NULLC::Assert(int val)

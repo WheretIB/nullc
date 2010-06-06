@@ -39,6 +39,8 @@ namespace NULLC
 	void		ClearMemory();
 	void		ResetMemory();
 
+	void		SetGlobalLimit(unsigned int limit);
+
 	NULLCFuncPtr	FunctionRedirect(NULLCRef r, NullCArray* arr);
 
 	struct TypeIDHelper
