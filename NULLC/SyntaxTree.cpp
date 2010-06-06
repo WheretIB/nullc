@@ -1749,28 +1749,42 @@ void NodeVariableModify::TranslateToC(FILE *fOut)
 }
 NodeNumber* NodeVariableModify::Evaluate(char *memory, unsigned int size)
 {
-	if(head)
-		return NULL;
+	NodeZeroOP	*curr = head;
+	do 
+	{
+		NodeNumber *value = curr->Evaluate(memory, size);
+		if(!value)
+			return NULL;
+		curr = curr->next;
+	}while(curr);
 
+	unsigned int address = addrShift;
 	if(!knownAddress)
+	{
+		NodeNumber *pointer = first->Evaluate(memory, size);
+		if(!pointer)
+			return NULL;
+		address = pointer->GetInteger();
+	}else if(absAddress){
 		return NULL;
+	}
 
 	TypeInfo *midType = ChooseBinaryOpResultType(typeInfo, second->typeInfo);
 
 	// First operand
 	NodeNumber *valueLeft = NULL;
 	if(typeInfo == typeChar)
-		valueLeft = new NodeNumber(*(char*)(memory + addrShift), typeInt);
+		valueLeft = new NodeNumber(*(char*)(memory + address), typeInt);
 	else if(typeInfo == typeShort)
-		valueLeft = new NodeNumber(*(short*)(memory + addrShift), typeInt);
+		valueLeft = new NodeNumber(*(short*)(memory + address), typeInt);
 	else if(typeInfo == typeInt)
-		valueLeft = new NodeNumber(*(int*)(memory + addrShift), typeInt);
+		valueLeft = new NodeNumber(*(int*)(memory + address), typeInt);
 	else if(typeInfo == typeLong)
-		valueLeft = new NodeNumber(*(long long*)(memory + addrShift), typeLong);
+		valueLeft = new NodeNumber(*(long long*)(memory + address), typeLong);
 	else if(typeInfo == typeFloat)
-		valueLeft = new NodeNumber(*(float*)(memory + addrShift), typeDouble);
+		valueLeft = new NodeNumber(*(float*)(memory + address), typeDouble);
 	else if(typeInfo == typeDouble)
-		valueLeft = new NodeNumber(*(double*)(memory + addrShift), typeDouble);
+		valueLeft = new NodeNumber(*(double*)(memory + address), typeDouble);
 	else
 		return NULL;
 
@@ -1813,17 +1827,17 @@ NodeNumber* NodeVariableModify::Evaluate(char *memory, unsigned int size)
 		valueLeft->ConvertTo(typeInfo);
 		// Save value to memory
 		if(typeInfo == typeChar)
-			*(char*)(memory + addrShift) = (char)valueLeft->GetInteger();
+			*(char*)(memory + address) = (char)valueLeft->GetInteger();
 		if(typeInfo == typeShort)
-			*(short*)(memory + addrShift) = (short)valueLeft->GetInteger();
+			*(short*)(memory + address) = (short)valueLeft->GetInteger();
 		if(typeInfo == typeInt)
-			*(int*)(memory + addrShift) = valueLeft->GetInteger();
+			*(int*)(memory + address) = valueLeft->GetInteger();
 		if(typeInfo == typeLong)
-			*(long long*)(memory + addrShift) = valueLeft->GetLong();
+			*(long long*)(memory + address) = valueLeft->GetLong();
 		if(typeInfo == typeFloat)
-			*(float*)(memory + addrShift) = (float)valueLeft->GetDouble();
+			*(float*)(memory + address) = (float)valueLeft->GetDouble();
 		if(typeInfo == typeDouble)
-			*(double*)(memory + addrShift) = valueLeft->GetDouble();
+			*(double*)(memory + address) = valueLeft->GetDouble();
 		return valueLeft;
 	}
 	return NULL;
@@ -2152,23 +2166,29 @@ NodeNumber* NodeDereference::Evaluate(char *memory, unsigned int size)
 		{
 			return NULL;
 		}else{
+			unsigned int address = addrShift;
 			if(!knownAddress)
+			{
+				NodeNumber *pointer = first->Evaluate(memory, size);
+				if(!pointer)
+					return NULL;
+				address = pointer->GetInteger();
+			}else if(absAddress){
 				return NULL;
+			}
 
-			if(absAddress)
-				return NULL;
 			if(typeInfo == typeChar)
-				return new NodeNumber(*(char*)(memory + addrShift), typeInt);
+				return new NodeNumber(*(char*)(memory + address), typeInt);
 			if(typeInfo == typeShort)
-				return new NodeNumber(*(short*)(memory + addrShift), typeInt);
+				return new NodeNumber(*(short*)(memory + address), typeInt);
 			if(typeInfo == typeInt)
-				return new NodeNumber(*(int*)(memory + addrShift), typeInt);
+				return new NodeNumber(*(int*)(memory + address), typeInt);
 			if(typeInfo == typeLong)
-				return new NodeNumber(*(long long*)(memory + addrShift), typeLong);
+				return new NodeNumber(*(long long*)(memory + address), typeLong);
 			if(typeInfo == typeFloat)
-				return new NodeNumber(*(float*)(memory + addrShift), typeDouble);
+				return new NodeNumber(*(float*)(memory + address), typeDouble);
 			if(typeInfo == typeDouble)
-				return new NodeNumber(*(double*)(memory + addrShift), typeDouble);
+				return new NodeNumber(*(double*)(memory + address), typeDouble);
 			return NULL;
 		}
 	}
