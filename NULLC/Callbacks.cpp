@@ -2434,11 +2434,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	if(funcAddr)
 		CodeInfo::nodeList.push_back(funcAddr);
 	CodeInfo::nodeList.push_back(new NodeFuncCall(fInfo, fType));
-	if(currDefinedFunc.size() && ((fInfo && !fInfo->pure) || (currDefinedFunc.back() == fInfo)))
+	if(currDefinedFunc.size() && fInfo && !fInfo->pure)
 		currDefinedFunc.back()->pure = false;	// non-pure function call or recursion invalidates function purity
 #ifdef NULLC_PURE_FUNCTIONS
 	// Pure function evaluation
-	if(fInfo && fInfo->pure)
+	if(fInfo && fInfo->pure && !(currDefinedFunc.size() && currDefinedFunc.back() == fInfo))
 	{
 		//static int success = 0, fail = 0;
 		char memory[1024];
@@ -2454,7 +2454,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				uncalledPos = pos;
 			}
 			//printf("Function (%s) failed to evaluate %d %d\n", fInfo->name, success, ++fail);
-			//fInfo->pure = false;	// If unable to evaluate function value, don't even try in future
 		}
 	}
 	if(fInfo && !fInfo->pure && !uncalledFunc)
