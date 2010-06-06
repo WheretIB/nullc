@@ -1098,7 +1098,11 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 		fprintf(fOut, ").context");
 	fprintf(fOut, ")");
 }
+
 unsigned int NodeFuncCall::baseShift = 0;
+ChunkedStackPool<4092> NodeFuncCall::memoPool;
+FastVector<NodeFuncCall::CallMemo> NodeFuncCall::memoList(128);
+
 NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 {
 	// Extra nodes disable evaluation, as also does indirect function call
@@ -1135,6 +1139,8 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 	// Shift stack frame
 	memory += nextFrameOffset;
 	size -= nextFrameOffset;
+	if(funcInfo->allParamSize + NULLC_PTR_SIZE > size)
+		return NULL;
 	// Copy arguments into stack frame
 	unsigned int offset = funcInfo->allParamSize;
 	for(unsigned int i = 0; i < funcType->paramCount; i++)
@@ -1151,8 +1157,24 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 			return NULL;
 		offset -= paramValue[i]->typeInfo->size;
 	}
+	// Find old result
+	for(unsigned int i = 0; i < memoList.size(); i++)
+	{
+		if(memoList[i].func == funcInfo && memcmp(memory, memoList[i].arguments, funcInfo->allParamSize) == 0)
+			return memoList[i].value;
+	}
 	// Call function
-	return ((NodeFuncDef*)funcInfo->functionNode)->Evaluate(memory, size);
+	NodeNumber *result = ((NodeFuncDef*)funcInfo->functionNode)->Evaluate(memory, size);
+	// Memoization
+	if(result)
+	{
+		memoList.push_back(CallMemo());
+		memoList.back().arguments = (char*)memoPool.Allocate(funcInfo->allParamSize);
+		memcpy(memoList.back().arguments, memory, funcInfo->allParamSize);
+		memoList.back().func = funcInfo;
+		memoList.back().value = result;
+	}
+	return result;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -3508,4 +3530,6 @@ void ResetTreeGlobals()
 	nodeDereferenceEndInComma = false;
 	NodeBreakOp::fixQueue.clear();
 	NodeContinueOp::fixQueue.clear();
+	NodeFuncCall::memoList.clear();
+	NodeFuncCall::memoPool.Clear();
 }
