@@ -6,6 +6,7 @@
 
 class CompilerError
 {
+	static const unsigned int ERROR_LENGTH = 4096;
 public:
 	CompilerError(){ shift = 0; lineNum = 0; empty = 1; }
 	CompilerError(const char* errStr, const char* apprPos);
@@ -16,28 +17,26 @@ public:
 
 	const char* GetErrorString() const
 	{
-		static char errBuf[512];
+		static char errBuf[ERROR_LENGTH];
 		if(!lineNum)
 			return error;
 		char *curr = errBuf;
 		if(lineNum != 0)
-			curr += sprintf(curr, "line %d - ", lineNum);
-		curr += sprintf(curr, "%s", error);
+			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "line %d - ", lineNum);
+		curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "%s", error);
 		if(line[0] != 0)
 		{
-			curr += sprintf(curr, "\r\n  at \"%s\"", line);
-			curr += sprintf(curr, "\r\n      ");
+			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "\r\n  at \"%s\"", line);
+			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "\r\n      ");
 			for(unsigned int i = 0; i < shift; i++)
 				*(curr++) = ' ';
-			curr += sprintf(curr, "^\r\n");
+			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "^\r\n");
 		}
 		return errBuf;
 	}
 	static const char *codeStart;
 private:
 	friend class Compiler;
-
-	static const unsigned int ERROR_LENGTH = 256;
 
 	char error[ERROR_LENGTH];
 	char line[128];

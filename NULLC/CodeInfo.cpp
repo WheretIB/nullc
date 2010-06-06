@@ -4,13 +4,13 @@
 
 void ThrowError(const char* pos, const char* err, ...)
 {
-	char errorText[512];
+	char errorText[4096];
 
 	va_list args;
 	va_start(args, err);
 
-	vsnprintf(errorText, 512, err, args);
-	errorText[512-1] = '\0';
+	vsnprintf(errorText, 4096, err, args);
+	errorText[4096-1] = '\0';
 
 	CodeInfo::lastError = CompilerError(errorText, pos);
 	longjmp(CodeInfo::errorHandler, 1);
