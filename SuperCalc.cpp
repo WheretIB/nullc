@@ -361,6 +361,63 @@ unsigned IDEDebugBreakEx(unsigned int instruction)
 	lastInstruction = instruction;
 	lastBreakCommand = breakCommand;
 	breakCommand = NULLC_BREAK_PROCEED;
+
+	unsigned int codeLine = ~0u;
+
+	unsigned int infoSize = stateRemote ? RemoteData::infoSize : 0;
+	NULLCCodeInfo *codeInfo = stateRemote ? RemoteData::codeInfo : nullcDebugCodeInfo(&infoSize);
+
+	unsigned int moduleSize = stateRemote ? RemoteData::moduleCount : 0;
+	ExternModuleInfo *modules = stateRemote ? RemoteData::modules : nullcDebugModuleInfo(&moduleSize);
+
+	nullcDebugBeginCallStack();
+	int address = -1;
+	while(int nextAddress = nullcDebugGetStackFrame())
+		address = nextAddress;
+	if(address != -1)
+	{
+		unsigned int line = 0;
+		unsigned int i = address - 1;
+		while((line < infoSize - 1) && (i >= codeInfo[line + 1].byteCodePos))
+			line++;
+		if(codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize)
+		{
+			const char *source = RichTextarea::GetAreaText(mainCodeWnd);
+			codeLine = 0;
+			const char *curr = source, *end = source + codeInfo[line].sourceOffset - modules[moduleSize-1].sourceOffset - modules[moduleSize-1].sourceSize;
+			while(const char *next = strchr(curr, '\n'))
+			{
+				if(next > end)
+					break;
+				curr = next + 1;
+				codeLine++;
+			}
+		}else{
+			const char *fullSource = nullcDebugSource();
+			// Find module, where execution stopped
+			unsigned int module = 0;
+			for(module = 0; module < moduleSize; module++)
+			{
+				if(codeInfo[line].sourceOffset >= modules[module].sourceOffset && codeInfo[line].sourceOffset < modules[module].sourceOffset + modules[module].sourceSize)
+					break;
+			}
+			codeLine = 0;
+			const char *curr = fullSource + modules[module].sourceOffset, *end = fullSource + codeInfo[line].sourceOffset;
+			while(const char *next = strchr(curr, '\n'))
+			{
+				if(next > end)
+					break;
+				curr = next + 1;
+				codeLine++;
+			}
+		}
+	}
+	if(codeLine == lastCodeLine && lastBreakCommand != NULLC_BREAK_PROCEED)
+	{
+		breakCommand = lastBreakCommand;
+		return lastBreakCommand;
+	}
+
 	SendMessage(hWnd, WM_USER + 2, 0, 0);
 	WaitForSingleObject(breakResponse, INFINITE);
 	return breakCommand;
@@ -1262,8 +1319,6 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			unsigned int i = address - 1;
 			while((line < infoSize - 1) && (i >= codeInfo[line + 1].byteCodePos))
 				line++;
-			printf("Call stack instruction is %d, next one is %d\n", codeInfo[line].byteCodePos, line == infoSize - 1 ? codeInstCount : codeInfo[line + 1].byteCodePos);
-			
 			if(codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize)
 			{
 				codeLine = 0;
@@ -1277,7 +1332,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				}
 				RichTextarea::SetStyleToLine(mainCodeWnd, codeLine, OVERLAY_CALLED);
 				lastWindow = mainCodeWnd;
-				retLine = line;
+				retLine = codeLine;
 				for(unsigned int t = 0; t < (stateRemote ? attachedEdits : richEdits).size(); t++)
 				{
 					if(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, t).window == mainCodeWnd)
@@ -1315,7 +1370,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				}
 				id = targetTab;
 				codeLine = 0;
-				const char *curr = fullSource + modules[module].sourceOffset, *end = fullSource + codeInfo[line].sourceOffset;//curr + modules[module].sourceSize;
+				const char *curr = fullSource + modules[module].sourceOffset, *end = fullSource + codeInfo[line].sourceOffset;
 				while(const char *next = strchr(curr, '\n'))
 				{
 					if(next > end)
@@ -1329,7 +1384,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				RichTextarea::UpdateArea(updateWnd);
 				printf("Breakpoint is in the %s module (%d) %d, line %d\n", codeSymbols + modules[module].nameOffset, module, targetTab, codeLine);
 				lastWindow = updateWnd;
-				retLine = line;
+				retLine = codeLine;
 			}
 		}
 
@@ -1951,16 +2006,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		{
 			ShowWindow(hContinue, SW_SHOW);
 			RefreshBreakpoints();
-			unsigned int oldCodeLine = lastCodeLine;
 			lastCodeLine = FillVariableInfoTree(true);
 			if(TabbedFiles::GetCurrentTab(hDebugTabs) == 0)
 				TabbedFiles::SetCurrentTab(hDebugTabs, 1);
 			UpdateWatchedVariables();
-			if(oldCodeLine == lastCodeLine && lastBreakCommand != NULLC_BREAK_PROCEED)
-			{
-				breakCommand = lastBreakCommand;
-				ContinueAfterBreak();
-			}
 		}
 			break;
 		case WM_NOTIFY:
