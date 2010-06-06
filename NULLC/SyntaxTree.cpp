@@ -1124,6 +1124,9 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 			{
 				return NULL;	// cannot evaluate call with empty classes
 			}else{
+				// If this is first function call (from AddFunctionCallNode), and parameter is not a knpwn number, exit immediately.
+				if(!nextFrameOffset && curr->nodeType != typeNodeNumber)
+					return NULL;
 				// Evaluate parameter value
 				paramValue[argument] = curr->Evaluate(nextFrameOffset ? memory : NULL, nextFrameOffset ? size : 0);
 				if(!paramValue[argument])
@@ -1733,6 +1736,87 @@ void NodeVariableModify::TranslateToC(FILE *fOut)
 		second->TranslateToC(fOut);
 	}
 }
+NodeNumber* NodeVariableModify::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+
+	if(!knownAddress)
+		return NULL;
+
+	TypeInfo *midType = ChooseBinaryOpResultType(typeInfo, second->typeInfo);
+
+	// First operand
+	NodeNumber *valueLeft = NULL;
+	if(typeInfo == typeChar)
+		valueLeft = new NodeNumber(*(char*)(memory + addrShift), typeInt);
+	else if(typeInfo == typeShort)
+		valueLeft = new NodeNumber(*(short*)(memory + addrShift), typeInt);
+	else if(typeInfo == typeInt)
+		valueLeft = new NodeNumber(*(int*)(memory + addrShift), typeInt);
+	else if(typeInfo == typeLong)
+		valueLeft = new NodeNumber(*(long long*)(memory + addrShift), typeLong);
+	else if(typeInfo == typeFloat)
+		valueLeft = new NodeNumber(*(float*)(memory + addrShift), typeDouble);
+	else if(typeInfo == typeDouble)
+		valueLeft = new NodeNumber(*(double*)(memory + addrShift), typeDouble);
+	else
+		return NULL;
+
+	// Convert it to the resulting type
+	if(midType == typeDouble || midType == typeFloat)
+		valueLeft->ConvertTo(typeDouble);
+	else if(midType == typeLong)
+		valueLeft->ConvertTo(typeLong);
+	else if(midType == typeInt || midType == typeShort || midType == typeChar)
+		valueLeft->ConvertTo(typeInt);
+
+	// Compute second value
+	NodeNumber *valueRight = second->Evaluate(memory, size);
+	if(!valueRight)
+		return NULL;
+	// Convert it to the result type
+	if(midType == typeDouble || midType == typeFloat)
+		valueRight->ConvertTo(typeDouble);
+	else if(midType == typeLong)
+		valueRight->ConvertTo(typeLong);
+	else if(midType == typeInt || midType == typeShort || midType == typeChar)
+		valueRight->ConvertTo(typeInt);
+
+	// Apply binary operation
+	if(midType == typeInt || midType == typeShort || midType == typeChar)
+	{
+		int result = optDoOperation(cmdID, valueLeft->GetInteger(), valueRight->GetInteger());
+		*valueLeft = NodeNumber(result, typeInt);
+	}else if(midType == typeLong){
+		long long result = optDoOperation(cmdID, valueLeft->GetLong(), valueRight->GetLong());
+		*valueLeft = NodeNumber(result, typeLong);
+	}else if(midType == typeDouble || midType == typeFloat){
+		double result = optDoOperation(cmdID, valueLeft->GetDouble(), valueRight->GetDouble());
+		*valueLeft = NodeNumber(result, typeDouble);
+	}else{
+		return NULL;
+	}
+	if(valueLeft)
+	{
+		valueLeft->ConvertTo(typeInfo);
+		// Save value to memory
+		if(typeInfo == typeChar)
+			*(char*)(memory + addrShift) = (char)valueLeft->GetInteger();
+		if(typeInfo == typeShort)
+			*(short*)(memory + addrShift) = (short)valueLeft->GetInteger();
+		if(typeInfo == typeInt)
+			*(int*)(memory + addrShift) = valueLeft->GetInteger();
+		if(typeInfo == typeLong)
+			*(long long*)(memory + addrShift) = valueLeft->GetLong();
+		if(typeInfo == typeFloat)
+			*(float*)(memory + addrShift) = (float)valueLeft->GetDouble();
+		if(typeInfo == typeDouble)
+			*(double*)(memory + addrShift) = valueLeft->GetDouble();
+		return valueLeft;
+	}
+	return NULL;
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Node that calculates address of the array element
@@ -2012,7 +2096,9 @@ void NodeDereference::TranslateToC(FILE *fOut)
 }
 NodeNumber* NodeDereference::Evaluate(char *memory, unsigned int size)
 {
-	if(head || !memory)
+	if(!memory)
+		return NULL;
+	if(head)
 		return NULL;
 	if(typeInfo->size == 0)
 		return NULL;
@@ -2589,11 +2675,11 @@ NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
 			return NULL;
 
 		// Convert it to the resulting type
-		if(midType == typeDouble)
+		if(midType == typeDouble || midType == typeFloat)
 			valueLeft->ConvertTo(typeDouble);
 		else if(midType == typeLong)
 			valueLeft->ConvertTo(typeLong);
-		else if(midType == typeInt)
+		else if(midType == typeInt || midType == typeShort || midType == typeChar)
 			valueLeft->ConvertTo(typeInt);
 
 		// Compute second value
@@ -2601,23 +2687,23 @@ NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
 		if(!valueRight)
 			return NULL;
 		// Convert it to the result type
-		if(midType == typeDouble)
+		if(midType == typeDouble || midType == typeFloat)
 			valueRight->ConvertTo(typeDouble);
 		else if(midType == typeLong)
 			valueRight->ConvertTo(typeLong);
-		else if(midType == typeInt)
+		else if(midType == typeInt || midType == typeShort || midType == typeChar)
 			valueRight->ConvertTo(typeInt);
 
 		// Apply binary operation
 		NodeNumber *value = NULL;
-		if(midType == typeInt)
+		if(midType == typeInt || midType == typeShort || midType == typeChar)
 		{
 			int result = optDoOperation(cmdID, valueLeft->GetInteger(), valueRight->GetInteger());
 			value = new NodeNumber(result, typeInt);
 		}else if(midType == typeLong){
 			long long result = optDoOperation(cmdID, valueLeft->GetLong(), valueRight->GetLong());
 			value = new NodeNumber(result, typeLong);
-		}else if(midType == typeDouble){
+		}else if(midType == typeDouble || midType == typeFloat){
 			double result = optDoOperation(cmdID, valueLeft->GetDouble(), valueRight->GetDouble());
 			value = new NodeNumber(result, typeDouble);
 		}
