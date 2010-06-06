@@ -127,6 +127,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 
 	moduleRemap.resize(bCode->dependsCount);
 
+	unsigned int oldFunctionCount = exFunctions.size();
 	unsigned int oldSymbolSize = exSymbols.size();
 	unsigned int oldTypeCount = exTypes.size();
 	unsigned int oldMemberSize = exTypeExtra.size();
@@ -280,10 +281,10 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		if(fInfo->isVisible)
 		{
 			unsigned int remappedType = typeRemap[fInfo->funcType];
-			HashMap<unsigned int>::Node *curr = typeMap.first(fInfo->nameHash);
+			HashMap<unsigned int>::Node *curr = funcMap.first(fInfo->nameHash);
 			while(curr)
 			{
-				if(exFunctions[curr->value].funcType == remappedType)
+				if(curr->value < oldFunctionCount && exFunctions[curr->value].funcType == remappedType)
 				{
 					index = curr->value;
 					break;
