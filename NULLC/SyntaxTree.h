@@ -619,6 +619,14 @@ public:
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 
 	static unsigned int baseShift;
+	static ChunkedStackPool<4092>	memoPool;
+	struct CallMemo
+	{
+		FunctionInfo	*func;
+		NodeNumber		*value;
+		char			*arguments;
+	};
+	static FastVector<CallMemo>		memoList;
 public:
 	FunctionInfo	*funcInfo;
 	FunctionType	*funcType;
