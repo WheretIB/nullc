@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 	<head>
 		<title>NULLC Language reference</title>
@@ -60,6 +61,17 @@ p.example_body
 }
 div.example
 {
+}
+div.function
+{
+	border: 1px dashed #000;
+	margin-bottom: 0.5em;
+	padding-left: 10px;
+}
+div.function > p
+{
+	margin-top: 0px;
+	margin-left: 40px;
 }
 </style>
 <script language="javascript" type="text/javascript">
@@ -1242,13 +1254,247 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="std_typeinfo">std.typeinfo</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	Global functions.
+
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="func">isFunction</span>(<span class="rword">typeid</span> type);<br />
+<span class="rword">int</span> <span class="func">isFunction</span>(<span class="rword">auto ref</span> type);<br />
+		</p>
+		These functions return 1 if <span class="rword">typeid</span> or <span class="rword">auto ref</span> target type is a function type.<br />
+		Otherwise, the return value is 0.<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="func">isClass</span>(<span class="rword">typeid</span> type);<br />
+<span class="rword">int</span> <span class="func">isClass</span>(<span class="rword">auto ref</span> type);<br />
+		</p>
+		These functions return 1 if <span class="rword">typeid</span> or <span class="rword">auto ref</span> target type is a class.<br />
+		Otherwise, the return value is 0.<br />
+		For <span class="rword">typeid</span>, <span class="rword">auto ref</span>, <span class="rword">auto</span>[] types the return value is also 1.<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="func">isSimple</span>(<span class="rword">typeid</span> type);<br />
+<span class="rword">int</span> <span class="func">isSimple</span>(<span class="rword">auto ref</span> type);<br />
+		</p>
+		These functions return 1 if <span class="rword">typeid</span> or <span class="rword">auto ref</span> target type is a simple type.<br />
+		Otherwise, the return value is 0.<br />
+		Simple types are: <span class="rword">void</span>, <span class="rword">char</span>, <span class="rword">short</span>, <span class="rword">int</span>, <span class="rword">long</span>, <span class="rword">float</span> and <span class="rword">double</span>.<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="func">isArray</span>(<span class="rword">typeid</span> type);<br />
+<span class="rword">int</span> <span class="func">isArray</span>(<span class="rword">auto ref</span> type);<br />
+		</p>
+		These functions return 1 if <span class="rword">typeid</span> or <span class="rword">auto ref</span> target type is an array type.<br />
+		Otherwise, the return value is 0.<br />
+		For <span class="rword">auto</span>[] the return value is 0.<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="func">isPointer</span>(<span class="rword">typeid</span> type);<br />
+<span class="rword">int</span> <span class="func">isPointer</span>(<span class="rword">auto ref</span> type);<br />
+		</p>
+		These functions return 1 if <span class="rword">typeid</span> or <span class="rword">auto ref</span> target type is a pointer type.<br />
+		Otherwise, the return value is 0.<br />
+		For <span class="rword">auto ref</span> the return value is 0.<br />
+	</div>
+
+	<span class="rword">typeid</span> member functions.
+
+	<div class="function">
+		<p class="code"><span class="rword">int</span> <span class="rword">typeid</span>.<span class="func">size</span>();</p>
+		Function returns type size.
+	</div>
+
+	<div class="function">
+		<p class="code"><span class="rword">char</span>[] <span class="rword">typeid</span>.<span class="func">name</span>();</p>
+		Function returns type name.<br />
+	</div>
+
+	Functions to use on class types.
+	<div class="function">
+		<p class="code"><span class="rword">int</span> <span class="rword">typeid</span>:<span class="func">memberCount</span>();</p>
+		Function returns class member count. If type is not a class, runtime error occurs.<br />
+	</div>
+
+	<div class="function">
+		<p class="code"><span class="rword">typeid</span> <span class="rword">typeid</span>:<span class="func">memberType</span>(<span class="rword">int</span> member);</p>
+		Function returns selected class member type. If type is not a class, runtime error occurs.<br />
+	</div>
+
+	<div class="function">
+		<p class="code"><span class="rword">char</span>[] <span class="rword">typeid</span>:<span class="func">memberName</span>(<span class="rword">int</span> member);</p>
+		Function returns selected class member name. If type is not a class, runtime error occurs.<br />
+	</div>
+
+	Functions to use on array and pointer types.
+	<div class="function">
+		<p class="code"><span class="rword">typeid</span> <span class="rword">typeid</span>:<span class="func">subType</span>();</p>
+		Function returns typeid of array element type or pointer target type. If type is not an array or pointer, runtime error occurs.<br />
+	</div>
+
+	Functions to use on array types.
+	<div class="function">
+		<p class="code"><span class="rword">int</span> <span class="rword">typeid</span>:<span class="func">arraySize</span>();</p>
+		Function returns array size. If type is not an array, runtime error occurs.<br />
+		If type is an array with implicit size, the return value is -1.<br />
+	</div>
+
+	Functions to use on function types.
+	<div class="function">
+		<p class="code"><span class="rword">typeid</span> <span class="rword">typeid</span>:<span class="func">returnType</span>();</p>
+		Function returns typeid of function type return type. If type is not a function type, runtime error occurs.<br />
+	</div>
+
+	<div class="function">
+		<p class="code"><span class="rword">int</span> <span class="rword">typeid</span>:<span class="func">argumentCount</span>();</p>
+		Function returns function type argument count. If type is not a function type, runtime error occurs.<br />
+	</div>
+
+	<div class="function">
+		<p class="code"><span class="rword">typeid</span> <span class="rword">typeid</span>:<span class="func">argumentType</span>(<span class="rword">int</span> <span class="rword">argument</span>);</p>
+		Function returns function type argument type for selected argument. If type is not a function type, runtime error occurs.<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">class</span> <span class="rword">member_info</span><br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">typeid</span> type;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">char</span>[] name;<br />
+}<br />
+		</p>
+	This class contains information that is returned for every class member during iteration over class members.
+	</div>
+	<div class="function">
+		<p class="code"><span class="rword">member_iterator</span> <span class="rword">typeid</span>:<span class="func">members</span>();</p>
+		Function returns iterator over class members to be used in for each expression.<br />
+		If type is not a class, runtime error occurs<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">member_iterator ref</span> <span class="rword">member_iterator</span>:<span class="func">start</span>();<br />
+<span class="rword">int</span> <span class="rword">member_iterator</span>:<span class="func">hasnext</span>();<br />
+<span class="rword">member_info</span> <span class="rword">member_iterator</span>:<span class="func">next</span>();<br />
+		</p>
+		These functions implement iteration process.<br />
+		Iterator return value is the <span class="rword">member_info</span> class.<br />
+	</div>
+
+	<div class="function">
+		<p class="code"><span class="rword">argument_iterator</span> <span class="rword">typeid</span>:<span class="func">arguments</span>();</p>
+		Function returns iterator over function type arguments to be used in for each expression.<br />
+		If type is not a function type, runtime error occurs<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">argument_iterator ref</span> <span class="rword">argument_iterator</span>:<span class="func">start</span>();<br />
+<span class="rword">int</span> <span class="rword">argument_iterator</span>:<span class="func">hasnext</span>();<br />
+<span class="rword">typeid</span> <span class="rword">argument_iterator</span>:<span class="func">next</span>();<br />
+		</p>
+		These functions implement iteration process.<br />
+		Iterator return value is the <span class="rword">typeid</span> class.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
 	<h3><a name="std_dynamic">std.dynamic</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="func">override</span>(<span class="rword">auto ref</span> a, b);<br />
+		</p>
+		Function accepts two functions as its arguments and replaces code of the first function with the code of the second function.<br />
+		If passed objects are not functions, a runtime error occurs.<br />
+		If function types are different, a runtime error occurs.<br />
+		<div class="example">
+			<p class="example_head" id="override_ex1a" onmousedown="toggleView(&quot;override_ex1a&quot;, &quot;override_ex1b&quot, &quot;example of override function usage.&quot;);">Show example of override function usage.</p>
+			<p class="code example_body" id="override_ex1b">
+<span class="rword">import</span> <span class="var">std</span>.<span class="var">dynamic</span>;<br />
+<span class="rword">int</span> x, y;<br />
+<br />
+<span class="comment">// define two functions</span><br />
+<span class="rword">int</span> <span class="func">foo</span>(<span class="rword">int</span> x){ <span class="rword">return</span> <span class="var">x</span>; }<br />
+<span class="rword">int</span> <span class="func">bar</span>(<span class="rword">int</span> x){ <span class="rword">return</span> <span class="var">x</span> * <span class="real">2</span>; }<br />
+<br />
+<span class="var">x</span> = <span class="func">foo</span>(<span class="real">5</span>); <span class="comment">// x == 5</span><br />
+<span class="var">y</span> = <span class="func">bar</span>(<span class="real">5</span>); <span class="comment">// y == 10</span><br />
+<br />
+<span class="comment">// Override foo function code with bar</span><br />
+<span class="func">override</span>(<span class="var">foo</span>, <span class="var">bar</span>);<br />
+<br />
+<span class="var">x</span> = <span class="func">foo</span>(<span class="real">5</span>); <span class="comment">// x = 10</span><br />
+<span class="var">y</span> = <span class="func">bar</span>(<span class="real">5</span>); <span class="comment">// y = 10</span><br />
+			</p>
+		</div>
+		<div class="example">
+			<p class="example_head" id="override_ex2a" onmousedown="toggleView(&quot;override_ex2a&quot;, &quot;override_ex2b&quot, &quot;example of override function usage with inline function definition.&quot;);">Show example of override function usage with inline function definition.</p>
+			<p class="code example_body" id="override_ex2b">
+<span class="rword">import</span> <span class="var">std</span>.<span class="var">dynamic</span>;<br />
+<span class="rword">int</span> x, y;<br />
+<br />
+<span class="comment">// define function</span><br />
+<span class="rword">int</span> <span class="func">foo</span>(<span class="rword">int</span> x){ <span class="rword">return</span> <span class="var">x</span>; }<br />
+<span class="var">x</span> = <span class="func">foo</span>(<span class="real">5</span>); <span class="comment">// x == 5</span><br />
+<br />
+<span class="comment">// Override foo function code with new function</span><br />
+<span class="func">override</span>(<span class="var">foo</span>, <span class="rword">auto</span>(<span class="rword">int</span> x){ <span class="rword">return</span> <span class="var">x</span> * <span class="real">2</span>; });<br />
+<br />
+<span class="var">y</span> = <span class="func">foo</span>(<span class="real">5</span>); <span class="comment">// y = 10</span><br />
+			</p>
+		</div>
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="func">override</span>(<span class="rword">auto ref</span> function, <span class="rword">char</span>[] code);<br />
+		</p>
+		Function accepts a function and a new source code for the body of that function as a string.<br />
+		Function compiles the code that replaces code of the destination function. Because code contains only function body, to access function arguments, use name "argN", where N is the argument number, counting from 0.<br />
+		If first argument is not a function, a runtime error occurs.<br />
+		If code compilation fails, a runtime error occurs.<br />
+		<div class="example">
+			<p class="example_head" id="override_ex3a" onmousedown="toggleView(&quot;override_ex3a&quot;, &quot;override_ex3b&quot, &quot;example of override function usage with inline function definition.&quot;);">Show example of override function usage with inline function definition.</p>
+			<p class="code example_body" id="override_ex3b">
+<span class="rword">import</span> <span class="var">std</span>.<span class="var">dynamic</span>;<br />
+<span class="rword">int</span> x, y;<br />
+<br />
+<span class="comment">// define function</span><br />
+<span class="rword">int</span> <span class="func">foo</span>(<span class="rword">int</span> x){ <span class="rword">return</span> <span class="var">x</span>; }<br />
+<span class="var">x</span> = <span class="func">foo</span>(<span class="real">5</span>); <span class="comment">// x == 5</span><br />
+<br />
+<span class="comment">// Override foo function code with new code</span><br />
+<span class="func">override</span>(<span class="var">foo</span>, "<span class="string">return arg0 * 2;</span>");<br />
+<br />
+<span class="var">y</span> = <span class="func">foo</span>(<span class="real">5</span>); <span class="comment">// y = 10</span><br />
+			</p>
+		</div>
+		This function is supported only under VM, if used with JiT executor, a runtime error occurs.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="func">eval</span>(<span class="rword">char</span>[] code);<br />
+		</p>
+		Function compiles the code and executes it.<br />
+		If code compilation fails, a runtime error occurs.<br />
+		<div class="example">
+			<p class="example_head" id="eval_ex1a" onmousedown="toggleView(&quot;eval_ex1a&quot;, &quot;eval_ex1b&quot, &quot;example of eval function usage.&quot;);">Show example of eval function usage.</p>
+			<p class="code example_body" id="eval_ex1b">
+<span class="rword">import</span> <span class="var">std</span>.<span class="var">dynamic</span>;<br />
+<span class="rword">int</span> x = <span class="real">5</span>;<br />
+<span class="func">eval</span>("<span class="string">x *= 5;</span>"); <span class="comment">// dynamically compile and run code</span><br />
+<span class="rword">return</span> <span class="var">x</span>; <span class="comment">// 25</span><br />
+			</p>
+		</div>
+		This function is supported only under VM, if used with JiT executor, a runtime error occurs.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
