@@ -17,6 +17,7 @@
 #include "NULLC/includes/random.h"
 #include "NULLC/includes/dynamic.h"
 #include "NULLC/includes/gc.h"
+#include "NULLC/includes/time.h"
 
 #include "NULLC/includes/canvas.h"
 #include "NULLC/includes/window.h"
@@ -694,6 +695,10 @@ int CheckAlignment(NULLCRef ptr, int alignment)
 {
 	intptr_t asInt = (intptr_t)ptr.ptr;
 	return asInt % alignment == 0;
+}
+
+void TestDrawRect(int, int, int, int, int)
+{
 }
 
 void	RunTests2();
@@ -4659,10 +4664,6 @@ int RewriteB(int x)
 	return x * 3 - 2;
 }
 
-void TestDrawRect(int, int, int, int, int)
-{
-}
-
 int TestDefaultArgs(int a, int b)
 {
 	return a * b;
@@ -6452,6 +6453,17 @@ const char	*testFunctionResultDereference =
 return -*test(5);";
 	TEST_FOR_RESULT("Dereference of function result.", testFunctionResultDereference, "-5");
 
+
+const char	*testConstructorAfterNew =
+"void int:int(int x){ *this = x; }\r\n\
+int ref a = new int(5);\r\n\
+int foo(int ref x){ return *x; }\r\n\
+return *a + foo(new int(30));";
+	TEST_FOR_RESULT("Type constructor after new.", testConstructorAfterNew, "35");
+
+	TEST_FOR_RESULT("Type constructor after new 2.", "void int:int(int x){ *this = x; } return *new int(4);", "4");
+	TEST_FOR_RESULT("Type constructor after new 3.", "void int:int(){ } return *new int();", "0");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -7456,6 +7468,8 @@ return arr2.size;";
 	TEST_FOR_FAIL("Operation unsupported on reference 3", "int x; int ref y = &x; return *y--;", "ERROR: decrement is not supported on 'int ref'");
 	TEST_FOR_FAIL("Operation unsupported on reference 4", "int x; int ref y = &x; return *--y;", "ERROR: decrement is not supported on 'int ref'");
 
+	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x){ *this = x; return this; } return *new int(4);", "ERROR: constructor cannot be used after 'new' expression if return type is not void");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
@@ -7541,6 +7555,7 @@ return arr2.size;";
 	TEST_FOR_FAIL("parsing", "sizeof(", "ERROR: expression or type not found after sizeof(");
 	TEST_FOR_FAIL("parsing", "sizeof(int", "ERROR: ')' not found after expression in sizeof");
 	TEST_FOR_FAIL("parsing", "new", "ERROR: type name expected after 'new'");
+	TEST_FOR_FAIL("parsing", "return *new integer(4);", "ERROR: type name expected after 'new'");
 	TEST_FOR_FAIL("parsing", "new int[", "ERROR: expression not found after '['");
 	TEST_FOR_FAIL("parsing", "new int[12", "ERROR: ']' not found after expression");
 	TEST_FOR_FAIL("parsing", "auto a = {", "ERROR: value not found after '{'");
@@ -8037,6 +8052,309 @@ return 0;";
 		}
 		printf("%s finished in %f (single run is %f)\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart, (myGetPreciseTime() - tStart) / 10000.0);
 	}
+
+	nullcInitTimeModule();
+
+const char	*testCompileSpeed3 =
+"import img.canvas;\r\n\
+import win.window;\r\n\
+import std.time;\r\n\
+import std.io;\r\n\
+import std.math;\r\n\
+\r\n\
+double time = clock();\r\n\
+\r\n\
+// parameters, you can modify them.\r\n\
+int size = 300;\r\n\
+double ambient = 0.1;\r\n\
+double diffusion = 0.7;\r\n\
+double specular = 0.6;\r\n\
+double power = 12;\r\n\
+\r\n\
+int width = size;\r\n\
+int height = size;\r\n\
+\r\n\
+Window main = Window(\"Raytrace example\", 400, 300, width + 4, height + 20);\r\n\
+\r\n\
+class Material\r\n\
+{\r\n\
+    int[513] lmap;\r\n\
+    void Material(int col, double amb, double dif)\r\n\
+	{\r\n\
+        int i, r = col >> 16, g = (col >> 8) & 255, b = col & 255;\r\n\
+		double a;\r\n\
+        for(i = 0; i < 512; i++)\r\n\
+		{\r\n\
+            a = ((i < 256) ? amb : ((((i-256) * (dif - amb)) * 0.00390625) + amb)) * 2;\r\n\
+            if (a<1) lmap[i] = (int(r*a)<<16)|(int(g*a)<<8)|(int(b*a)<<0);\r\n\
+            else lmap[i] = (int(255-(255-r)*(2-a))<<16)|(int(255-(255-g)*(2-a))<<8)|(int((255-(255-b)*(2-a)))<<0);\r\n\
+        }\r\n\
+    }\r\n\
+}\r\n\
+\r\n\
+class Sphere\r\n\
+{\r\n\
+    double x, y, z, r2;\r\n\
+	Material ref mat;\r\n\
+    double cx, cy, cz, cr, omg, pha;\r\n\
+    void Sphere(double cx, cy, cz, cr, omg, pha, r, Material ref mat)\r\n\
+	{\r\n\
+        this.cx = cx;\r\n\
+        this.cy = cy;\r\n\
+        this.cz = cz;\r\n\
+        this.cr = cr;\r\n\
+        this.omg = omg;\r\n\
+        this.pha = pha;\r\n\
+        this.r2 = r * r;\r\n\
+        this.mat = mat;\r\n\
+    }\r\n\
+    void update()\r\n\
+	{\r\n\
+        double ang = time * omg + pha;\r\n\
+        x = cos(ang)*cr+cx;\r\n\
+        y = cy;\r\n\
+        z = sin(ang)*cr+cz;\r\n\
+    }\r\n\
+}\r\n\
+\r\n\
+class SphereNode\r\n\
+{\r\n\
+	Sphere ref sphere;\r\n\
+	SphereNode ref next;\r\n\
+	\r\n\
+	SphereNode ref SphereNode(Sphere ref sphere)\r\n\
+	{\r\n\
+		this.sphere = sphere;\r\n\
+		return this;\r\n\
+	}\r\n\
+	\r\n\
+	SphereNode ref add(Sphere ref sphere)\r\n\
+	{\r\n\
+		next = new SphereNode;\r\n\
+		next.SphereNode(sphere);\r\n\
+		return next;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+double focusZ = size;\r\n\
+double floorY = 100;\r\n\
+Canvas screen = Canvas(width, height);\r\n\
+double[] initialDir = new double[size*size*3];\r\n\
+SphereNode ref firstSphere, lastSphere;\r\n\
+float3 ldir = float3(0, 0, 0);\r\n\
+float3 light = float3(100,100,100);\r\n\
+int[513] smap;\r\n\
+int[1024] fcol;\r\n\
+auto refs = {0, 1, 2, 3, 3};\r\n\
+auto reff = {0xffffff, 0x7f7f7f, 0x3f3f3f, 0x1f1f1f, 0x1f1f1f};\r\n\
+double mx, my, camX, camY, camZ, tcamX, tcamY, tcamZ;\r\n\
+int[] pixels = screen.GetData();\r\n\
+\r\n\
+void setup()\r\n\
+{\r\n\
+    int i, j, idx;\r\n\
+	double l;\r\n\
+	int s;\r\n\
+	double hs = (size - 1) * 0.5;\r\n\
+    for({j=0;idx=0;}; j<size; j++)\r\n\
+	{\r\n\
+		for (i=0; i<size; i++)\r\n\
+		{\r\n\
+	        l = 1/sqrt((i - hs)*(i - hs) + (j - hs)*(j - hs) + focusZ*focusZ);\r\n\
+	        initialDir[idx] = (i-hs) * l; idx++;\r\n\
+	        initialDir[idx] = (j-hs) * l; idx++;\r\n\
+	        initialDir[idx] = focusZ   * l; idx++;\r\n\
+	    }\r\n\
+	}\r\n\
+    for (i=0; i<512; i++) {\r\n\
+        s = (i<256) ? 64 : int((((i-256) * 0.00390625) ** power) * (power + 2) * specular * 0.15915494309189534 * 192 + 64);\r\n\
+        if (s > 255) s = 255;\r\n\
+        smap[i] = 0x10101 * s;\r\n\
+        s = (i<256) ? (255-i) : (i-256);\r\n\
+        fcol[i] = 0x10101 * (s - (s>>3) + 31);\r\n\
+        fcol[i+512] = 0x10101 * ((s>>2) - (s>>5) + 31);\r\n\
+    }\r\n\
+	firstSphere = new SphereNode;\r\n\
+	firstSphere.SphereNode(new Sphere(100, 40, 600, 200, 0.3, 1.0, 60, new Material(0x8080ff,ambient,diffusion)))\r\n\
+	.add(new Sphere(  0, 50, 300, 100, 0.8, 0.8, 50, new Material(0x80ff80,ambient,diffusion)))\r\n\
+	.add(new Sphere( 50, 60, 200, 200, 0.6, 2.0, 40, new Material(0xff8080,ambient,diffusion)))\r\n\
+	.add(new Sphere(-50, 70, 500, 300, 0.4, 1.4, 30, new Material(0xc0c080,ambient,diffusion)))\r\n\
+	.add(new Sphere(-90, 30, 600, 400, 0.2, 1.5, 70, new Material(0xc080c0,ambient,diffusion)))\r\n\
+	.add(new Sphere( 70, 80, 400, 100, 0.7, 1.2, 20, new Material(0x80c0c0,ambient,diffusion)));\r\n\
+	\r\n\
+    camX = camY = camZ = tcamX = tcamY = tcamZ = 0;\r\n\
+}\r\n\
+\r\n\
+void draw()\r\n\
+{\r\n\
+    int i, j, k, l, idx;\r\n\
+	double t, tmin, n;\r\n\
+	Sphere ref s;\r\n\
+    int    ln, pixel;\r\n\
+	Sphere ref hit;\r\n\
+	int a, kmax;\r\n\
+   double     ox, oy, oz, dx, dy, dz, nx, ny, nz, dsx, dsy, dsz, B, C, D;\r\n\
+    light.x = cos(time*0.6)*100;\r\n\
+    light.y = sin(time*1.1)*25+100;\r\n\
+    light.z = sin(time*0.9)*100-100;\r\n\
+    ldir.x = -light.x;\r\n\
+    ldir.y = -light.y;\r\n\
+    ldir.z = -light.z;\r\n\
+    ldir.normalize();\r\n\
+    \r\n\
+    tcamX = mx * 400;\r\n\
+    tcamY = my * 150 - 50;\r\n\
+    tcamZ = my * 400 - 200;\r\n\
+    camX += (tcamX - camX) * 0.02;\r\n\
+    camY += (tcamY - camY) * 0.02;\r\n\
+    camZ += (tcamZ - camZ) * 0.02;\r\n\
+    \r\n\
+    auto sphereNode = firstSphere;\r\n\
+    while ( sphereNode ) {\r\n\
+    		sphereNode.sphere.update();\r\n\
+    		sphereNode = sphereNode.next;\r\n\
+    	}\r\n\
+    \r\n\
+    int pos = 0;\r\n\
+    for ({j=0;idx=0;}; j<size; ++j) {\r\n\
+        for (i=0; i<size; ++i) {\r\n\
+            ox = camX;\r\n\
+            oy = camY;\r\n\
+            oz = camZ;\r\n\
+            dx = initialDir[idx]; idx++;\r\n\
+            dy = initialDir[idx]; idx++;\r\n\
+            dz = initialDir[idx]; idx++;\r\n\
+            \r\n\
+            pixel = 0;\r\n\
+            for (l=1; l<5; l++) {\r\n\
+                tmin = 99999;\r\n\
+                hit = nullptr;\r\n\
+                sphereNode = firstSphere;\r\n\
+                while( sphereNode ) {\r\n\
+                    s = sphereNode.sphere;\r\n\
+                    dsx = ox - s.x;\r\n\
+                    dsy = oy - s.y;\r\n\
+                    dsz = oz - s.z;\r\n\
+                    B = dsx * dx + dsy * dy + dsz * dz;\r\n\
+                    C = dsx * dsx + dsy * dsy + dsz * dsz - s.r2;\r\n\
+                    D = B * B - C;\r\n\
+                    if (D > 0) {\r\n\
+                        t = - B - sqrt(D);\r\n\
+                        if ((t > 0) && (t < tmin)) {\r\n\
+                            tmin = t;\r\n\
+                            hit = s;\r\n\
+                        }\r\n\
+                    }\r\n\
+                    sphereNode = sphereNode.next;\r\n\
+                }\r\n\
+\r\n\
+                if (hit) {\r\n\
+                    ox += dx * tmin;\r\n\
+                    oy += dy * tmin;\r\n\
+                    oz += dz * tmin;\r\n\
+                    nx = ox - hit.x;\r\n\
+                    ny = oy - hit.y;\r\n\
+                    nz = oz - hit.z;\r\n\
+                    n = 1 / sqrt(nx*nx + ny*ny + nz*nz);\r\n\
+                    nx *= n;\r\n\
+                    ny *= n;\r\n\
+                    nz *= n;\r\n\
+                    n = -(nx*dx + ny*dy + nz*dz) * 2;\r\n\
+                    dx += nx * n;\r\n\
+                    dy += ny * n;\r\n\
+                    dz += nz * n;\r\n\
+                    ln = int((ldir.x * nx + ldir.y * ny + ldir.z * nz) * 255) + 256;\r\n\
+                    a = hit.mat.lmap[ln];\r\n\
+                    a = a >> refs[l];\r\n\
+                    a = a & reff[l];\r\n\
+                    pixel += a;\r\n\
+                } else {\r\n\
+                    if (dy < 0) {\r\n\
+                        ln = int((ldir.x * dx + ldir.y * dy + ldir.z * dz) * 255) + 256;\r\n\
+                        a = smap[ln];\r\n\
+                        ln = l - 1;\r\n\
+                        a = a >> refs[ln];\r\n\
+                        a = a & reff[ln];\r\n\
+                        pixel += a;\r\n\
+                        break;\r\n\
+                    } else {\r\n\
+                        tmin = (floorY-oy)/dy;\r\n\
+                        ox += dx * tmin;\r\n\
+                        oy += dy * tmin;\r\n\
+                        oz += dz * tmin;\r\n\
+                        dy = -dy;\r\n\
+                        ln = dy * 256 + ((((int(ox+oz)>>7)+(int(ox-oz)>>7))&1)<<9) + 256;\r\n\
+                        a = fcol[ln];\r\n\
+                        a = a >> refs[l];\r\n\
+                        a = a & reff[l];\r\n\
+                        pixel += a;\r\n\
+                    }\r\n\
+                }\r\n\
+            }\r\n\
+            \r\n\
+            pixels[pos] = pixel;\r\n\
+            ++pos;\r\n\
+        }\r\n\
+    }\r\n\
+}\r\n\
+\r\n\
+setup();\r\n\
+\r\n\
+double lastTime = clock();\r\n\
+\r\n\
+char[256] keys;\r\n\
+do\r\n\
+{\r\n\
+	// Draw\r\n\
+	int mouseX, mouseY;\r\n\
+	GetMouseState(mouseX, mouseY);\r\n\
+	mx = (mouseX - 232.5) * 0.00390625;\r\n\
+    my = (232.5 - mouseY) * 0.00390625;\r\n\
+	time = clock() * 0.001;\r\n\
+	draw();\r\n\
+\r\n\
+	main.DrawCanvas(&screen, -1, -1);\r\n\
+	\r\n\
+	double time = clock() - lastTime;\r\n\
+	lastTime = clock();\r\n\
+	int fps = 1000.0 / time;\r\n\
+	main.SetTitle(\"FPS is \" + fps.str());\r\n\
+\r\n\
+	main.Update();\r\n\
+	GetKeyboardState(keys);\r\n\
+}while(!(keys[0x1B] & 0x80000000));	// While Escape is not pressed\r\n\
+main.Close();\r\n\
+\r\n\
+return 0;";
+
+	nullcSetExecutor(NULLC_VM);
+	time = myGetPreciseTime();
+	compileTime = 0.0;
+	linkTime = 0.0;
+	for(int i = 0; i < 3000; i++)
+	{
+		nullres good = nullcCompile(testCompileSpeed3);
+		compileTime += myGetPreciseTime() - time;
+
+		if(good)
+		{
+			char *bytecode = NULL;
+			nullcGetBytecode(&bytecode);
+			nullcClean();
+			if(!nullcLinkCode(bytecode, 0))
+				printf("Link failed: %s\r\n", nullcGetLastError());
+			delete[] bytecode;
+		}else{
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
+			break;
+		}
+		linkTime += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
+	}
+	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 3000.0);
+	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 3000.0, (linkTime - compileTime) / 3000.0);
+	printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 3000.0, strlen(testCompileSpeed3) * (1000.0 / (linkTime / 3000.0)) / 1024.0 / 1024.0);
+
 #endif
 
 #ifdef SPEED_TEST_EXTRA

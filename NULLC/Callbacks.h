@@ -103,6 +103,8 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type);
 void MergeArrayIterators();
 
 void AddTypeAllocation(const char* pos);
+void PrepareConstructorCall(const char* pos);
+void FinishConstructorCall(const char* pos);
 
 void BeginCoroutine();
 void FunctionAdd(const char* pos, const char* funcName);

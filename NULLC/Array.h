@@ -80,6 +80,7 @@ public:
 	};
 	__forceinline T&		back()
 	{
+		assert(count > 0);
 		return data[count-1];
 	}
 	__forceinline unsigned int		size()
