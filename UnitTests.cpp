@@ -6426,6 +6426,13 @@ auto i = forward_iterator(a);\r\n\
 return int(i()) + int(i());";
 	TEST_FOR_RESULT("Coroutine example A.", testCoroutineExampleA, "9");
 
+const char	*testAutoRefConversion =
+"int foo(int ref x){ return *x; }\r\n\
+int x = 5;\r\n\
+auto ref y = &x;\r\n\
+return foo(int ref(y));";
+	TEST_FOR_RESULT("Auto ref explicit conversion to pointer type.", testAutoRefConversion, "5");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -7450,7 +7457,7 @@ return arr2.size;";
 	TEST_FOR_FAIL("parsing", "auto(int a, b){ return a+b; return 1;", "ERROR: '}' not found after function body");
 	TEST_FOR_FAIL("parsing", "int a[4];", "ERROR: array size must be specified after typename");
 	TEST_FOR_FAIL("parsing", "int a=;", "ERROR: expression not found after '='");
-	TEST_FOR_FAIL("parsing", "int = 3;", "ERROR: variable name not found after type name");
+	TEST_FOR_FAIL("parsing", "int = 3;", "ERROR: unexpected symbol '=' after type name. Variable name is expected at this point");
 	TEST_FOR_FAIL("parsing", "int a, ;", "ERROR: next variable definition excepted after ','");
 	TEST_FOR_FAIL("parsing", "align int a=2;", "ERROR: '(' expected after align");
 	TEST_FOR_FAIL("parsing", "align() int a = 2;", "ERROR: alignment value not found after align(");
@@ -7541,7 +7548,7 @@ return arr2.size;";
 
 	TEST_FOR_FAIL("parsing", "int[$] a; return 0;", "ERROR: unexpected expression after '['");
 	TEST_FOR_FAIL("parsing", "int ref(auto, int) a; return 0;", "ERROR: parameter type of a function type cannot be auto");
-	TEST_FOR_FAIL("parsing", "int ref(float, int a; return 0;", "ERROR: ')' not found after function type parameter list");
+	TEST_FOR_FAIL("parsing", "int ref(float, int a; return 0;", "ERROR: unexpected symbol '(' after type name. Variable name is expected at this point");
 	TEST_FOR_FAIL("parsing", "int func(int){ }", "ERROR: variable name not found after type in function variable list");
 	TEST_FOR_FAIL("parsing", "int func(int a = ){ }", "ERROR: default parameter value not found after '='");
 	TEST_FOR_FAIL("parsing", "int func(float b, int a = ){ }", "ERROR: default parameter value not found after '='");

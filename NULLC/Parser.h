@@ -42,6 +42,7 @@ bool ParseGroup(Lexeme** str);
 bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall);
 bool ParsePostExpression(Lexeme** str, bool *isFunctionCall);
 
+void ParsePostExpressions(Lexeme** str);
 bool ParseTerminal(Lexeme** str);
 bool ParsePower(Lexeme** str);
 bool ParseMultiplicative(Lexeme** str);

@@ -163,6 +163,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType = true)
 			(*str)++;
 			if(ParseLexem(str, lex_oparen))
 			{
+				Lexeme *old = (*str) - 1;
 				// Prepare function type
 				TypeInfo *retType = (TypeInfo*)CALLBACK(GetSelectedType());
 				if(!retType)
@@ -189,9 +190,13 @@ bool ParseSelectType(Lexeme** str, bool arrayType = true)
 							ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
 					}
 				}
-				CALLBACK(SelectTypeByPointer(CodeInfo::GetFunctionType(retType, first, count)));
-				if(!ParseLexem(str, lex_cparen))
-					ThrowError((*str)->pos, "ERROR: ')' not found after function type parameter list");
+				if(ParseLexem(str, lex_cparen))
+					CALLBACK(SelectTypeByPointer(CodeInfo::GetFunctionType(retType, first, count)));
+				else{
+					ConvertTypeToReference((*str)->pos);
+					run = false;
+					*str = old;
+				}
 			}else{
 				CALLBACK(ConvertTypeToReference((*str)->pos));
 			}
@@ -541,7 +546,7 @@ bool ParseVariableDefineSub(Lexeme** str)
 {
 	void* currType = GetSelectedType();
 	if(!ParseAddVariable(str))
-		ThrowError((*str)->pos, "ERROR: variable name not found after type name");
+		ThrowError((*str)->pos, "ERROR: unexpected symbol '%.*s' after type name. Variable name is expected at this point", (*str)->length, (*str)->pos);
 
 	while(ParseLexem(str, lex_comma))
 	{
