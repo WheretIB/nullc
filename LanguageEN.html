@@ -1007,12 +1007,23 @@ function toggleView(a, b, c)
 		</p>
 	</div>
 	Every type has a default constructor from <span class="rword">auto ref</span> type, which can be overridden with a custom one.<br />
+	Default reference type constructor makes a successful conversion if <span class="rword">auto ref</span> target type is equal to reference target type.<br />
+	Default constructor of other types makes a successful conversion if type is equal to <span class="rword">auto ref</span> target type.<br />
 	<div class="example">
 		<p class="example_head" id="autoref_ex_2a" onmousedown="toggleView(&quot;autoref_ex_2a&quot;, &quot;autoref_ex_2b&quot, &quot;example of type constructor from auto ref type.&quot;);">Show example of type constructor from auto ref type.</p>
 		<p class="code example_body" id="autoref_ex_2b">
 <span class="rword">int</span> x = <span class="real">4</span>;<br />
 <span class="rword">auto ref</span> z = &<span class="var">x</span>;<br />
 <span class="rword">return</span> <span class="func">int</span>(<span class="var">z</span>); <span class="comment">// returns 4</span><br />
+		</p>
+	</div>
+	<div class="example">
+		<p class="example_head" id="autoref_ex_2ab" onmousedown="toggleView(&quot;autoref_ex_2ab&quot;, &quot;autoref_ex_2bb&quot, &quot;example of reference type constructor from auto ref type.&quot;);">Show example of reference type constructor from auto ref type.</p>
+		<p class="code example_body" id="autoref_ex_2bb">
+<span class="rword">int</span> <span class="func">negate</span>(<span class="rword">int ref</span> x){ <span class="rword">return</span> -(*<span class="var">x</span>); }<br />
+<span class="rword">int</span> x = <span class="real">4</span>;<br />
+<span class="rword">auto ref</span> y = &<span class="var">x</span>;<br />
+<span class="rword">return</span> <span class="func">negate</span>(<span class="func">int ref</span>(<span class="var">y</span>)); <span class="comment">// returns -4</span><br />
 		</p>
 	</div>
 	<div class="example">
