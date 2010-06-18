@@ -6151,6 +6151,97 @@ return 1;";
 
 	TEST_FOR_RESULT("nullptr to type[] conversion", "int[] arr = new int[20]; arr = nullptr; return arr.size;", "0");
 
+	// Coroutine tests
+const char	*testCoroutine0 =
+"coroutine int produce()\r\n\
+{\r\n\
+	int i;\r\n\
+	for(i = 0; i < 2; i++)\r\n\
+		yield i;\r\n\
+	return 0;\r\n\
+}\r\n\
+int[5] arr;\r\n\
+arr[0] = produce();\r\n\
+arr[1] = produce();\r\n\
+arr[2] = produce();\r\n\
+arr[3] = produce();\r\n\
+arr[4] = produce();\r\n\
+return arr[0] * 10000 + arr[1] * 1000 + arr[2] * 100 + arr[3] * 10 + arr[4];";
+	TEST_FOR_RESULT("Coroutine simple 1.", testCoroutine0, "1001");
+
+const char	*testCoroutine1 =
+"coroutine int produce()\r\n\
+{\r\n\
+	for(int i = 0; i < 2; i++)\r\n\
+		yield i;\r\n\
+	return 0;\r\n\
+}\r\n\
+int[5] arr;\r\n\
+arr[0] = produce();\r\n\
+arr[1] = produce();\r\n\
+arr[2] = produce();\r\n\
+arr[3] = produce();\r\n\
+arr[4] = produce();\r\n\
+return arr[0] * 10000 + arr[1] * 1000 + arr[2] * 100 + arr[3] * 10 + arr[4];";
+	TEST_FOR_RESULT("Coroutine simple 2.", testCoroutine1, "1001");
+
+const char	*testCoroutine4 =
+"coroutine int foo()\r\n\
+{\r\n\
+	int i;\r\n\
+	i = 0;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	return i;\r\n\
+}\r\n\
+int[6] arr;\r\n\
+for(i in arr)\r\n\
+	i = foo();\r\n\
+return arr[0] * 100000 + arr[1] * 10000 + arr[2] * 1000 + arr[3] * 100 + arr[4] * 10 + arr[5];";
+	TEST_FOR_RESULT("Coroutine simple 5.", testCoroutine4, "12301");
+
+const char	*testCoroutine5 =
+"coroutine int foo()\r\n\
+{\r\n\
+	int i = 0;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	return i;\r\n\
+}\r\n\
+int[6] arr;\r\n\
+for(i in arr)\r\n\
+	i = foo();\r\n\
+return arr[0] * 100000 + arr[1] * 10000 + arr[2] * 1000 + arr[3] * 100 + arr[4] * 10 + arr[5];";
+	TEST_FOR_RESULT("Coroutine simple 6.", testCoroutine5, "12301");
+
+const char	*testCoroutine6 =
+"coroutine int foo()\r\n\
+{\r\n\
+	int i;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	return i;\r\n\
+}\r\n\
+int[6] arr;\r\n\
+for(i in arr)\r\n\
+	i = foo();\r\n\
+return arr[0] * 100000 + arr[1] * 10000 + arr[2] * 1000 + arr[3] * 100 + arr[4] * 10 + arr[5];";
+	TEST_FOR_RESULT("Coroutine simple 7.", testCoroutine6, "12301");
+
+const char	*testCoroutine7 =
+"coroutine int gen3base(int x)\r\n\
+{\r\n\
+	int i;\r\n\
+	for(i = x; i < x + 3; i++)\r\n\
+		yield i;\r\n\
+	return -1;\r\n\
+}\r\n\
+return gen3base(2) + gen3base(2) + gen3base(2) + gen3base(2);";
+	TEST_FOR_RESULT("Coroutine simple 8 (with arguments).", testCoroutine7, "8");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
