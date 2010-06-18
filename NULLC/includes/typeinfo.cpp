@@ -241,6 +241,12 @@ const char*		nullcGetFunctionName(unsigned int funcID)
 	return &NULLCTypeInfo::linker->exSymbols[NULLCTypeInfo::linker->exFunctions[funcID].offsetToName];
 }
 
+unsigned int	nullcGetArraySize(unsigned int typeID)
+{
+	int ID = typeID;
+	return NULLCTypeInfo::TypeArraySize(ID);
+}
+
 unsigned int	nullcGetTypeCount()
 {
 	return NULLCTypeInfo::linker->exTypes.size();

@@ -55,4 +55,8 @@ namespace NULLC
 	int FuncNCompare(NULLCFuncPtr a, NULLCFuncPtr b);
 
 	int TypeCount();
+
+	NULLCAutoArray* AutoArrayAssign(NULLCAutoArray* left, NULLCRef right);
+	NULLCRef AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right);
+	NULLCRef AutoArrayIndex(NULLCAutoArray* left, unsigned int index);
 }
