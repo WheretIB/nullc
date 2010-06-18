@@ -96,6 +96,7 @@ function toggleView(a, b, c)
 		<li><a href="#break">break expression</a></li>
 		<li><a href="#continue">continue expression</a></li>
 		<li><a href="#return">return expression</a></li>
+		<li><a href="#yield">yield expression</a></li>
 		<li><a href="#typedef">typedef expression</a></li>
 	</ol>
 	<li>Statements</li>
@@ -295,17 +296,31 @@ function toggleView(a, b, c)
 	<h3><a name="return">2.7 return expression</a></h3>
 
 	<span class="rword">return</span> expression allows to return a value or exit from a function, or to end execution of a program if placed in global scope.<br />
-	<br />
-	<span class="rword">return</span>; exits function, returning void type (nothing).<br />
-	<span class="rword">return</span> expr; exits function or ends program execution, returning result of "expr".<br />
-	<br />
+	<p class="code">
+		<span class="rword">return</span>; <span class="comment">// exits function, returning void type (nothing).</span><br />
+		<span class="rword">return</span> expr; <span class="comment">// exits function or ends program execution, returning result of "expr".</span><br />
+	</p>
 	<span class="rword">return</span> that is placed globally accepts only basic build-un types and cannot return void.<br />
-	When returning value from function, it is converted to functions return type if conversion is possible.<br />
+	<br />
+	When value is returned from function, it is converted to functions' return type if conversion is possible.<br />
 	If function return type is <a href="#typeauto">auto</a>, function return type is set to the type of "expr".<br />
 </div>
 <hr />
 <div class="topic">
-	<h3><a name="typedef">2.8 typedef expression</a></h3>
+	<h3><a name="yield">2.8 yield expression</a></h3>
+
+	<span class="rword">yield</span> expression allows to return a value (optionally) and execution to the calling function. The difference from <span class="rword">return</span> expression
+	is that the next time the function is called; it will continue execution from the point immediately after last <span class="rword">yield</span>.<br />
+	<p class="code">
+		<span class="rword">yield</span>; <span class="comment">// returning void type (nothing).</span><br />
+		<span class="rword">yield</span> expr; <span class="comment">// returning result of "expr".</span><br />
+	</p>
+	Return value conversion and <a href="#typeauto">auto</a> return type resolution is performed exactly as if <span class="rword">return</span> expression was used.<br />
+	<span class="rword">yield</span> can only be used inside <a href="#coroutine">coroutines</a>.
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="typedef">2.9 typedef expression</a></h3>
 
 	<span class="rword">typedef</span> expression allows to create one-word aliases to other types.<br />
 	<br />
