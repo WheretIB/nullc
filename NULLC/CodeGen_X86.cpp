@@ -395,7 +395,7 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 	}
 	if(op == o_neg || op == o_not)
 		NULLC::reg[reg1].type = x86Argument::argNone;
-	NULLC::regRead[reg1] = (op == o_push || op == o_imul || op == o_idiv || op == o_neg || op == o_not);
+	NULLC::regRead[reg1] = (op == o_push || op == o_imul || op == o_idiv || op == o_neg || op == o_not || op == o_nop);
 
 	if(op != o_push && op != o_pop && op != o_call && op != o_imul && op < o_setl && op > o_setnz)
 		__asm int 3;
@@ -1154,6 +1154,12 @@ bool EMIT_POP_DOUBLE(x86Reg base, unsigned int address)
 		return true;
 	}
 	return false;
+}
+void EMIT_REG_READ(x86Reg reg)
+{
+#ifdef NULLC_OPTIMIZE_X86
+	EMIT_OP_REG(o_nop, reg);
+#endif
 }
 
 void OptimizationLookBehind(bool allow)
@@ -2040,12 +2046,15 @@ __declspec(naked) void yieldSaveEIP()
 {
 	__asm
 	{
-		mov eax, [esp];
-		add eax, 2;	// jump over pop and ret
+		push eax;
+		mov eax, [esp+4];
+		add eax, 1;	// jump over ret
 		mov [esi+4], eax;
+		pop eax;
 		ret;
 	}
 }
+void (*yieldPtr)() = yieldSaveEIP;
 
 void GenCodeCmdReturn(VMCmd cmd)
 {
@@ -2069,9 +2078,12 @@ void GenCodeCmdReturn(VMCmd cmd)
 		if(cmd.flag == OTYPE_INT)
 		{
 			EMIT_OP_REG(o_pop, rEAX);
+			EMIT_REG_READ(rEAX);
 		}else{
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
+			EMIT_REG_READ(rEAX);
+			EMIT_REG_READ(rEDX);
 		}
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 		EMIT_OP_REG(o_pop, rEBP);
@@ -2081,18 +2093,28 @@ void GenCodeCmdReturn(VMCmd cmd)
 		if(cmd.argument == 4)
 		{
 			EMIT_OP_REG(o_pop, rEAX);
+			EMIT_REG_READ(rEAX);
 		}else if(cmd.argument == 8){
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
+			EMIT_REG_READ(rEAX);
+			EMIT_REG_READ(rEDX);
 		}else if(cmd.argument == 12){
 			EMIT_OP_REG(o_pop, rECX);
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
+			EMIT_REG_READ(rEAX);
+			EMIT_REG_READ(rEDX);
+			EMIT_REG_READ(rECX);
 		}else if(cmd.argument == 16){
 			EMIT_OP_REG(o_pop, rEBX);
 			EMIT_OP_REG(o_pop, rECX);
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
+			EMIT_REG_READ(rEAX);
+			EMIT_REG_READ(rEDX);
+			EMIT_REG_READ(rECX);
+			EMIT_REG_READ(rEBX);
 		}else{
 			EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 			EMIT_OP_REG_REG(o_mov, rESI, rESP);
@@ -2114,7 +2136,6 @@ void GenCodeCmdReturn(VMCmd cmd)
 	}
 	if(yieldCmd.cmd == cmdYield)
 	{
-		EMIT_OP_REG(o_push, rEAX);
 		// Take pointer to closure in hidden argument
 		EMIT_OP_REG_RPTR(o_mov, rESI, sDWORD, rEDI, yieldCmd.argument + paramBase);
 
@@ -2122,13 +2143,12 @@ void GenCodeCmdReturn(VMCmd cmd)
 		if(yieldCmd.helper)
 		{
 			// When function is called again, it will continue from instruction after value return.
-			EMIT_OP_REG_NUM(o_mov, rEAX, (int)(intptr_t)yieldSaveEIP);
-			EMIT_OP_REG(o_call, rEAX);
+			EMIT_REG_READ(rESI);
+			EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&yieldPtr);
 		}else{	// otherwise, it's return
 			// When function is called again, start from beginning by reseting  jump offset at 4 byte shift (ExternFuncInfo::Upvalue::next)
 			EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESI, 4, 0);
 		}
-		EMIT_OP_REG(o_pop, rEAX);
 	}
 	EMIT_OP(o_ret);
 	yieldCmd.cmd = cmdNop;

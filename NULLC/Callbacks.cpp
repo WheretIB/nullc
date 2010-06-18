@@ -880,7 +880,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				FunctionInfo *currFunc = currDefinedFunc.back();
 
 				TypeInfo *temp = CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(newType));
-				if(currDefinedFunc.back()->type == FunctionInfo::LOCAL)// || currDefinedFunc.back()->type == FunctionInfo::COROUTINE)
+				if(currDefinedFunc.back()->type == FunctionInfo::LOCAL)
 				{
 					// For local function, add "this" to context and get it from upvalue
 					assert(currDefinedFunc[0]->type == FunctionInfo::THISCALL);
@@ -901,7 +901,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			(
 				(currDefinedFunc.back()->type == FunctionInfo::LOCAL && externalAccess)
 				||
-				(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || vInfo->pos > currDefinedFunc.back()->allParamSize))
+				(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || (vInfo->blockDepth > currDefinedFunc.back()->vTopSize && vInfo->pos > currDefinedFunc.back()->allParamSize)))
 			)
 		)
 		{
