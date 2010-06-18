@@ -1603,8 +1603,11 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	
 	lastResultType = retType;
 	lastResultInt = *(int*)genStackPtr;
-	lastResultLong = *(long long*)genStackPtr;
-	lastResultDouble = *(double*)genStackPtr;
+	if(genStackSize > 1)
+	{
+		lastResultLong = *(long long*)genStackPtr;
+		lastResultDouble = *(double*)genStackPtr;
+	}
 
 	switch(retType)
 	{

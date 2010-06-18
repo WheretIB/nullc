@@ -2,7 +2,8 @@
 /*#define SUPER_CALC_ON
 #include "MemoryMan/platform.h"
 #include "MemoryMan/MemoryMan.h"
-#pragma comment(lib, "lib/debuglib/MemoryMan.lib")*/
+#pragma comment(lib, "lib/debuglib/MemoryMan.lib")
+#undef pure*/
 
 #include <stdlib.h>
 
