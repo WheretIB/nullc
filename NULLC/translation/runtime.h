@@ -20,11 +20,11 @@ struct NULLCArray
 };
 
 // Wrapper over NULLC auto ref class for use in external functions
-typedef struct
+struct NULLCRef
 {
 	unsigned int	typeID;
 	char			*ptr;
-} NULLCRef;
+};
 
 // Wrapper over NULLC function pointer for use in external functions
 typedef struct
@@ -32,6 +32,14 @@ typedef struct
 	void	*context;
 	void	*ptr;
 } NULLCFuncPtr;
+
+// Wrapper over NULLC auto[] class for use in external functions
+typedef struct
+{
+	unsigned int	typeID;
+	char			*ptr;
+	unsigned int	len;
+} NULLCAutoArray;
 
 typedef struct
 {
@@ -83,9 +91,12 @@ NULLCFuncPtr	__nullcMakeFunction(void* ptr, void* context);
 NULLCRef		__nullcMakeAutoRef(void* ptr, unsigned int typeID);
 void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID);
 
-bool operator ==(const NULLCFuncPtr& a, const NULLCFuncPtr& b);
 bool operator ==(const NULLCRef& a, const NULLCRef& b);
+bool operator !=(const NULLCRef& a, const NULLCRef& b);
 bool operator !(const NULLCRef& a);
+
+int  __operatorEqual(unsigned int a, unsigned int b, void* unused);
+int  __operatorNEqual(unsigned int a, unsigned int b, void* unused);
 
 #undef assert
 void  assert(int val, void* unused);
@@ -114,3 +125,8 @@ inline unsigned int	__nullcIndex(unsigned int index, unsigned int size)
 void nullcThrowError(const char* error, ...);
 unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category);
 NULLCTypeInfo* __nullcGetTypeInfo(unsigned id);
+
+unsigned int typeid__(NULLCRef type, void* unused);
+
+int __pcomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused);
+int __pncomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused);

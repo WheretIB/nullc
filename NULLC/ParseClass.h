@@ -205,8 +205,20 @@ public:
 				fprintf(fOut, "long long %s", variable);
 			else if(strcmp(name, "typeid") == 0)
 				fprintf(fOut, "unsigned int %s", variable);
-			else
-				fprintf(fOut, "%s %s", name, variable);
+			else if(strcmp(name, "auto[]") == 0)
+				fprintf(fOut, "NULLCAutoArray %s", variable);
+			else{
+				const char* realName = name;
+				while(*realName)
+				{
+					if(*realName == ':' || *realName == '$')
+						fwrite("_", 1, 1, fOut);
+					else
+						fwrite(realName, 1, 1, fOut);
+					realName++;
+				}
+				fprintf(fOut, " %s", variable);
+			}
 		}
 	}
 

@@ -1,6 +1,6 @@
 #include "runtime.h"
 // Typeid redirect table
-static unsigned __nullcTR[77];
+static unsigned __nullcTR[89];
 // Array classes
 typedef struct
 {
@@ -17,76 +17,84 @@ typedef struct
 	unsigned int funcID;
 	int pos;
 } argument_iterator ;
-int isFunction(unsigned int type, void* unused);
-int isClass(unsigned int type, void* unused);
-int isSimple(unsigned int type, void* unused);
-int isArray(unsigned int type, void* unused);
-int isPointer(unsigned int type, void* unused);
-int isFunction(NULLCRef type, void* unused);
-int isClass(NULLCRef type, void* unused);
-int isSimple(NULLCRef type, void* unused);
-int isArray(NULLCRef type, void* unused);
-int isPointer(NULLCRef type, void* unused);
-int typeid__size_(unsigned int * __context);
-NULLCArray<char > typeid__name_(unsigned int * __context);
-int typeid__memberCount(unsigned int * __context);
-unsigned int typeid__memberType(int member, unsigned int * __context);
-NULLCArray<char > typeid__memberName(int member, unsigned int * __context);
-unsigned int typeid__subType(unsigned int * __context);
-int typeid__arraySize(unsigned int * __context);
-unsigned int typeid__returnType(unsigned int * __context);
-int typeid__argumentCount(unsigned int * __context);
-unsigned int typeid__argumentType(int argument, unsigned int * __context);
-member_iterator typeid__members(unsigned int * __context);
-member_iterator * member_iterator__start(member_iterator * __context);
-int member_iterator__hasnext(member_iterator * __context);
-member_info member_iterator__next(member_iterator * __context);
-argument_iterator typeid__arguments(unsigned int * __context);
-argument_iterator * argument_iterator__start(argument_iterator * __context);
-int argument_iterator__hasnext(argument_iterator * __context);
-unsigned int argument_iterator__next(argument_iterator * __context);
-member_iterator  typeid__members(unsigned int * __context)
+typedef struct
 {
-	member_iterator ret_4;
-	*(&(&ret_4)->classID) = *(*(&__context));
-	*(&(&ret_4)->pos) = 0;
-	return *(&ret_4);
-}
-member_iterator *  member_iterator__start(member_iterator * __context)
+	unsigned int elemType;
+	int flags;
+	int elemSize;
+	NULLCAutoArray data;
+	int currSize;
+} vector ;
+typedef struct
 {
-	return *(&__context);
-}
-int  member_iterator__hasnext(member_iterator * __context)
+	vector * arr;
+	int pos;
+} vector_iterator ;
+extern int isFunction(unsigned int type, void* unused);
+extern int isClass(unsigned int type, void* unused);
+extern int isSimple(unsigned int type, void* unused);
+extern int isArray(unsigned int type, void* unused);
+extern int isPointer(unsigned int type, void* unused);
+extern int isFunction(NULLCRef type, void* unused);
+extern int isClass(NULLCRef type, void* unused);
+extern int isSimple(NULLCRef type, void* unused);
+extern int isArray(NULLCRef type, void* unused);
+extern int isPointer(NULLCRef type, void* unused);
+extern int typeid__size_(unsigned int * __context);
+extern NULLCArray<char > typeid__name_(unsigned int * __context);
+extern int typeid__memberCount(unsigned int * __context);
+extern unsigned int typeid__memberType(int member, unsigned int * __context);
+extern NULLCArray<char > typeid__memberName(int member, unsigned int * __context);
+extern unsigned int typeid__subType(unsigned int * __context);
+extern int typeid__arraySize(unsigned int * __context);
+extern unsigned int typeid__returnType(unsigned int * __context);
+extern int typeid__argumentCount(unsigned int * __context);
+extern unsigned int typeid__argumentType(int argument, unsigned int * __context);
+extern member_iterator typeid__members(unsigned int * __context);
+extern member_iterator * member_iterator__start(member_iterator * __context);
+extern int member_iterator__hasnext(member_iterator * __context);
+extern member_info member_iterator__next(member_iterator * __context);
+extern argument_iterator typeid__arguments(unsigned int * __context);
+extern argument_iterator * argument_iterator__start(argument_iterator * __context);
+extern int argument_iterator__hasnext(argument_iterator * __context);
+extern unsigned int argument_iterator__next(argument_iterator * __context);
+void cConstructVector(vector * v, unsigned int type, int reserved, void* unused);
+vector vector__(unsigned int type, int reserved, void* unused);
+vector vector__(unsigned int type, void* unused);
+vector_iterator vector__start(vector * __context);
+NULLCRef vector_iterator__next(vector_iterator * __context);
+int vector_iterator__hasnext(vector_iterator * __context);
+void vector__push_back(NULLCRef val, vector * __context);
+void vector__pop_back(vector * __context);
+NULLCRef vector__front(vector * __context);
+NULLCRef vector__back(vector * __context);
+NULLCRef __operatorIndex(vector * v, int index, void* unused);
+void vector__reserve(int size, vector * __context);
+void vector__resize(int size, vector * __context);
+void vector__clear(vector * __context);
+void vector__destroy(vector * __context);
+int vector__size(vector * __context);
+int vector__capacity(vector * __context);
+vector  vector__(unsigned int type_0, int reserved_4, void* unused)
 {
-	return (*(&(*(&__context))->pos)) < (typeid__memberCount(&(*(&__context))->classID));
+	vector ret_12;
+	cConstructVector(&ret_12, *(&type_0), *(&reserved_4), (void*)0);
+	return *(&ret_12);
 }
-member_info  member_iterator__next(member_iterator * __context)
+vector  vector__(unsigned int type_0, void* unused)
 {
-	member_info ret_4;
-	*(&(&ret_4)->type) = typeid__memberType(*(&(*(&__context))->pos), &(*(&__context))->classID);
-	*(&(&ret_4)->name) = typeid__memberName((*(&(*(&__context))->pos))++, &(*(&__context))->classID);
-	return *(&ret_4);
+	vector ret_8;
+	cConstructVector(&ret_8, *(&type_0), 0, (void*)0);
+	return *(&ret_8);
 }
-argument_iterator  typeid__arguments(unsigned int * __context)
+vector_iterator  vector__start(vector * __context)
 {
-	argument_iterator ret_4;
-	*(&(&ret_4)->funcID) = *(*(&__context));
-	*(&(&ret_4)->pos) = 0;
-	return *(&ret_4);
+	vector_iterator iter_4;
+	*(&(&iter_4)->arr) = *(&__context);
+	*(&(&iter_4)->pos) = 0;
+	return *(&iter_4);
 }
-argument_iterator *  argument_iterator__start(argument_iterator * __context)
-{
-	return *(&__context);
-}
-int  argument_iterator__hasnext(argument_iterator * __context)
-{
-	return (*(&(*(&__context))->pos)) < (typeid__argumentCount(&(*(&__context))->funcID));
-}
-unsigned int  argument_iterator__next(argument_iterator * __context)
-{
-	return typeid__argumentType((*(&(*(&__context))->pos))++, &(*(&__context))->funcID);
-}
-int initStdTypeInfo()
+int initStdVector()
 {
 	__nullcTR[0] = __nullcRegisterType(2090838615u, "void", 0, __nullcTR[0], 0, NULLC_CLASS);
 	__nullcTR[1] = __nullcRegisterType(4181547808u, "double", 8, __nullcTR[0], 0, NULLC_CLASS);
@@ -165,4 +173,17 @@ int initStdTypeInfo()
 	__nullcTR[74] = __nullcRegisterType(2485895435u, "argument_iterator ref ref", 4, __nullcTR[72], 1, NULLC_POINTER);
 	__nullcTR[75] = __nullcRegisterType(1310733596u, "argument_iterator ref ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
 	__nullcTR[76] = __nullcRegisterType(1459539208u, "argument_iterator ref ref ref", 4, __nullcTR[74], 1, NULLC_POINTER);
+	__nullcTR[77] = __nullcRegisterType(578531224u, "vector", 28, __nullcTR[0], 5, NULLC_CLASS);
+	__nullcTR[78] = __nullcRegisterType(1368209941u, "vector ref", 4, __nullcTR[77], 1, NULLC_POINTER);
+	__nullcTR[79] = __nullcRegisterType(3571091911u, "void ref(vector ref,typeid,int)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[80] = __nullcRegisterType(3232773900u, "vector ref(typeid,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[81] = __nullcRegisterType(1013802037u, "vector ref(typeid)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[82] = __nullcRegisterType(2999426977u, "vector_iterator", 8, __nullcTR[0], 2, NULLC_CLASS);
+	__nullcTR[83] = __nullcRegisterType(116655774u, "vector_iterator ref", 4, __nullcTR[82], 1, NULLC_POINTER);
+	__nullcTR[84] = __nullcRegisterType(1797896978u, "vector ref ref", 4, __nullcTR[78], 1, NULLC_POINTER);
+	__nullcTR[85] = __nullcRegisterType(2484087663u, "vector_iterator ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[86] = __nullcRegisterType(1559940649u, "auto ref ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[87] = __nullcRegisterType(1812738619u, "void ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[88] = __nullcRegisterType(1021024208u, "auto ref ref(vector ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	/* node translation unknown */
 }

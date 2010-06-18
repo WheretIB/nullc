@@ -982,10 +982,14 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			for(; curr; curr = curr->next)
 			{
 				fprintf(fC, "\t");
-				curr->type->OutputCType(fC, curr->name);
+				if(strchr(type->name, ':') && curr == type->firstVariable)
+					fprintf(fC, "void *%s", curr->name);
+				else
+					curr->type->OutputCType(fC, curr->name);
 				fprintf(fC, ";\r\n");
 			}
-			fprintf(fC, "} %s;\r\n", type->name);
+			fprintf(fC, "} ");
+			type->OutputCType(fC, ";\r\n");
 		}
 	}
 

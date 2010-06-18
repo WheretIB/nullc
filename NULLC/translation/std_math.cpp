@@ -6,25 +6,25 @@ typedef struct
 {
 	double pi;
 	double e;
-} MathConstants;
+} MathConstants ;
 typedef struct
 {
 	float x;
 	float y;
-} float2;
+} float2 ;
 typedef struct
 {
 	float x;
 	float y;
 	float z;
-} float3;
+} float3 ;
 typedef struct
 {
 	float x;
 	float y;
 	float z;
 	float w;
-} float4;
+} float4 ;
 struct double_4_ 
 {
 	double ptr[4];
@@ -36,7 +36,7 @@ typedef struct
 	float4 row2;
 	float4 row3;
 	float4 row4;
-} float4x4;
+} float4x4 ;
 double cos(double deg, void* unused);
 double sin(double deg, void* unused);
 double tan(double deg, void* unused);
