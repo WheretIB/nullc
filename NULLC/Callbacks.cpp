@@ -1221,6 +1221,14 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 }
 
+void UndoDereferceNode(const char* pos)
+{
+	CodeInfo::lastKnownStartPos = pos;
+
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
+		((NodeDereference*)CodeInfo::nodeList.back())->Neutralize();
+}
+
 void AddUnaryModifyOpNode(const char* pos, bool isInc, bool prefixOp)
 {
 	NodeZeroOP *pointer = CodeInfo::nodeList.back();
