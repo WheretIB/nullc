@@ -409,8 +409,8 @@ namespace ColorerGrammar
 			group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
 			term1		=
 				funcdef |
-				strP("nullptr")[ColorRWord] |
-				(strP("sizeof")[ColorRWord] >> chP('(')[ColorText] >> (typeExpr | term5) >> chP(')')[ColorText]) |
+				strWP("nullptr")[ColorRWord] |
+				(strWP("sizeof")[ColorRWord] >> chP('(')[ColorText] >> (typeExpr | term5) >> chP(')')[ColorText]) |
 				(chP('&')[ColorText] >> appval) |
 				((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
 				(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
@@ -419,7 +419,7 @@ namespace ColorerGrammar
 				longestD[(intP >> (chP('l') | chP('b') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
 				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorChar]) >> chP('\'')[ColorText]] |
 				(chP('{')[ColorText] >> term5 >> *(chP(',')[ColorText] >> term5) >> chP('}')[ColorText] >> *postExpr) |
-				(strP("new")[ColorRWord] >> typenameP(typeName)[ColorRWord] >> !(chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText])) |
+				(strWP("new")[ColorRWord] >> typenameP(typeName)[ColorRWord] >> !((chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText]) | fcallpart)) |
 				(group >> *postExpr) |
 				(funccall[FuncCall] >> *postExpr) |
 				(typeExpr) |

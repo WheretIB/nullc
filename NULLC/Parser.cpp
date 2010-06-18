@@ -1107,6 +1107,24 @@ bool ParseTerminal(Lexeme** str)
 	case lex_new:
 	{
 		(*str)++;
+
+		if((*str)->type == lex_string && (*str + 1)->type == lex_oparen)
+		{
+			unsigned int index;
+			if((index = ParseTypename(str)) == 0)
+				ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
+			SelectTypeByIndex(index - 1);
+			const char *name = GetSelectedTypeName();
+			GetTypeSize((*str)->pos, false);
+			AddTypeAllocation((*str)->pos);
+			PrepareConstructorCall((*str)->pos);
+			ParseLexem(str, lex_oparen);
+			unsigned int callArgCount = ParseFunctionArguments(str);
+			AddMemberFunctionCall((*str)->pos, name, callArgCount);
+			FinishConstructorCall((*str)->pos);
+			return true;
+		}
+
 		const char *pos = (*str)->pos;
 		if(!ParseSelectType(str, false))
 			ThrowError((*str)->pos, "ERROR: type name expected after 'new'");

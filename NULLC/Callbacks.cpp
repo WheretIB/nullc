@@ -1632,6 +1632,35 @@ void AddTypeAllocation(const char* pos)
 	}
 }
 
+void PrepareConstructorCall(const char* pos)
+{
+	AddInplaceVariable(pos);
+	// This node will return pointer
+	NodeZeroOP *getPointer = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+
+	// Place pointer on stack twice
+	NodeOneOP *wrap = new NodeOneOP();
+	wrap->SetFirstNode(getPointer);
+	CodeInfo::nodeList.push_back(wrap);
+	AddGetVariableNode(pos);
+	AddExtraNode();
+
+	wrap = new NodeOneOP();
+	wrap->SetFirstNode(getPointer);
+	CodeInfo::nodeList.push_back(wrap);
+
+	PrepareMemberCall(pos);
+}
+
+void FinishConstructorCall(const char* pos)
+{
+	if(CodeInfo::nodeList.back()->typeInfo != typeVoid)
+		ThrowError(pos, "ERROR: constructor cannot be used after 'new' expression if return type is not void");
+	
+	AddTwoExpressionNode(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo);
+}
+
 bool defineCoroutine = false;
 void BeginCoroutine()
 {
