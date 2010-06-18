@@ -88,7 +88,7 @@ void*	FindVar(const char* name)
 	}
 	return (void*)varData;
 }
-
+bool doTranslation = true;
 bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = NULL, bool execShouldFail = false)
 {
 	lastMessage = message;
@@ -190,7 +190,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 	symbols = nullcDebugSymbols(NULL);
 
 #ifdef NULLC_ENABLE_C_TRANSLATION
-	if(executor == NULLC_X86)
+	if(executor == NULLC_X86 && doTranslation)
 	{
 		nullcTranslateToC("1test.cpp", "main");
 
@@ -219,6 +219,19 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 			strcat(cmdLine, " NULLC\\translation\\std_file.cpp");
 			strcat(cmdLine, " NULLC\\translation\\std_file_bind.cpp");
 		}
+		if(strstr(code, "std.vector"))
+		{
+			strcat(cmdLine, " NULLC\\translation\\std_vector.cpp");
+			strcat(cmdLine, " NULLC\\translation\\std_vector_bind.cpp");
+			if(!strstr(code, "std.typeinfo"))
+			{
+				strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
+				strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");
+			}
+		}
+		if(strstr(code, "test.a"))
+			strcat(cmdLine, " test_a.cpp");
+		
 		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
 		res = GetLastError();
 		WaitForSingleObject(prInfo.hProcess, 10000);
@@ -236,12 +249,11 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 			res = GetLastError();
 			WaitForSingleObject(prInfo.hProcess, 10000);
 			GetExitCodeProcess(prInfo.hProcess, &retCode);
-			printf("C++: expected %s, got %d\r\n", expected, retCode);
 			if(atoi(expected) != (int)retCode)
 			{
 				if(message && !messageVerbose)
 					printf("%s\n", message);
-				printf("C++: failed\r\n", expected, retCode);
+				printf("C++: failed, expected %s, got %d\r\n", expected, retCode);
 			}
 			CloseHandle(prInfo.hProcess);
 			CloseHandle(prInfo.hThread);
@@ -1170,6 +1182,14 @@ void	RunTests(bool verbose)
 	bRes = CompileFile("Modules/std/file.nc");
 	assert(bRes);
 	nullcTranslateToC("NULLC\\translation\\std_file.cpp", "initStdFile");
+
+	bRes = CompileFile("Modules/std/vector.nc");
+	assert(bRes);
+	nullcTranslateToC("NULLC\\translation\\std_vector.cpp", "initStdVector");
+
+	bRes = nullcCompile("import std.math; float4 a; a.x = 2;");
+	assert(bRes);
+	nullcTranslateToC("test_a.cpp", "init_test_a");
 #endif
 	//RunEulerTests();
 
@@ -4721,6 +4741,7 @@ return count;";
 	nullcBindModuleFunction("func.rewrite", (void(*)())RewriteA, "funcA", 0);
 	nullcBindModuleFunction("func.rewrite", (void(*)())RewriteB, "funcNew", 0);
 
+#ifndef NULLC_ENABLE_C_TRANSLATION
 const char	*testFunc1 =
 "import func.test;\r\n\
 int inside(int a, b){ return a / b; }\r\n\
@@ -4798,7 +4819,7 @@ for(int i = 0; i < 512; i++)\r\n\
 bubble(arr, auto(int a, b){ return a > b; });\r\n\
 return arr[8];";
 	TEST_FOR_RESULT("NULLC function call externally test 5", testFunc5, "32053");
-
+#endif
 const char	*testLongRetrieval = "return 25l;";
 	if(messageVerbose)
 		printf("nullcGetResultLong test\r\n");

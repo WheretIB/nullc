@@ -235,17 +235,26 @@ void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID)
 	return (void*)ref.ptr;
 }
 
-bool operator ==(const NULLCFuncPtr& a, const NULLCFuncPtr& b)
-{
-	return a.context == b.context && a.ptr == b.ptr;
-}
 bool operator ==(const NULLCRef& a, const NULLCRef& b)
 {
 	return a.ptr == b.ptr && a.typeID == b.typeID;
 }
+bool operator !=(const NULLCRef& a, const NULLCRef& b)
+{
+	return a.ptr != b.ptr || a.typeID != b.typeID;
+}
 bool operator !(const NULLCRef& a)
 {
-	return !!a.ptr;
+	return !a.ptr;
+}
+
+int  __operatorEqual(unsigned int a, unsigned int b, void* unused)
+{
+	return a == b;
+}
+int  __operatorNEqual(unsigned int a, unsigned int b, void* unused)
+{
+	return a != b;
 }
 
 void  assert(int val, void* unused)
@@ -379,4 +388,18 @@ unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, uns
 NULLCTypeInfo* __nullcGetTypeInfo(unsigned id)
 {
 	return &__nullcTypeList[id];
+}
+
+unsigned int typeid__(NULLCRef type, void* unused)
+{
+	return type.typeID;
+}
+
+int __pcomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused)
+{
+	return a.context == b.context && a.ptr == b.ptr;
+}
+int __pncomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused)
+{
+	return a.context != b.context || a.ptr != b.ptr;
 }
