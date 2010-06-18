@@ -1141,6 +1141,14 @@ int x86Jcc(unsigned char *stream, unsigned int labelID, x86Cond cond, bool isNea
 	return (isNear ? 6 : 2);
 }
 
+// jmp [index*mult+base+shift]
+int x86JMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, unsigned int shift)
+{
+	stream[0] = 0xff;
+	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 4);
+	return 1+asize;
+}
+
 int x86JMP(unsigned char *stream, unsigned int labelID, bool isNear)
 {
 	labelID &= 0x7FFFFFFF;

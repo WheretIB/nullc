@@ -245,6 +245,7 @@ int x86INT(unsigned char *stream, int interrupt);
 int x86NOP(unsigned char *stream);
 
 int x86Jcc(unsigned char *stream, unsigned int labelID, x86Cond cond, bool isNear);
+int x86JMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, unsigned int shift);
 int x86JMP(unsigned char *stream, unsigned int labelID, bool isNear);
 
 void x86AddLabel(unsigned char *stream, unsigned int labelID);

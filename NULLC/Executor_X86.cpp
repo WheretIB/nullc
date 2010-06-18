@@ -271,7 +271,7 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdCallPtr] = GenCodeCmdCallPtr;
 
 	cgFuncs[cmdReturn] = GenCodeCmdReturn;
-	cgFuncs[cmdYield] = GenCodeCmdNop;
+	cgFuncs[cmdYield] = GenCodeCmdYield;
 
 	cgFuncs[cmdPushVTop] = GenCodeCmdPushVTop;
 
@@ -928,7 +928,10 @@ bool ExecutorX86::TranslateToNative()
 			break;
 
 		case o_jmp:
-			code += x86JMP(code, cmd.argA.labelID, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86JMP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			else
+				code += x86JMP(code, cmd.argA.labelID, cmd.argA.labelID & JUMP_NEAR ? true : false);
 			break;
 		case o_ja:
 			code += x86Jcc(code, cmd.argA.labelID, condA, cmd.argA.labelID & JUMP_NEAR ? true : false);
