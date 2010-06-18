@@ -6216,6 +6216,7 @@ for(i in arr)\r\n\
 return arr[0] * 100000 + arr[1] * 10000 + arr[2] * 1000 + arr[3] * 100 + arr[4] * 10 + arr[5];";
 	TEST_FOR_RESULT("Coroutine simple 6.", testCoroutine5, "12301");
 
+#if 0	// It is not clear if coroutine context should be cleared every time at the beginning of a function
 const char	*testCoroutine6 =
 "coroutine int foo()\r\n\
 {\r\n\
@@ -6230,6 +6231,7 @@ for(i in arr)\r\n\
 	i = foo();\r\n\
 return arr[0] * 100000 + arr[1] * 10000 + arr[2] * 1000 + arr[3] * 100 + arr[4] * 10 + arr[5];";
 	TEST_FOR_RESULT("Coroutine simple 7.", testCoroutine6, "12301");
+#endif
 
 const char	*testCoroutine7 =
 "coroutine int gen3base(int x)\r\n\
@@ -6365,7 +6367,7 @@ for(i in arr2)\r\n\
 	t2 = t2 * 10 + i;\r\n\
 }\r\n\
 return (t1 == 345534) + (t2 == 553455);";
-	TEST_FOR_RESULT("Coroutine 11 (coroutine with local function inside).", testCoroutine11, "2");
+	TEST_FOR_RESULT("Coroutine 12 (coroutine with local function inside).", testCoroutine11, "2");
 
 
 const char	*testCoroutine12 =
@@ -6401,7 +6403,7 @@ for(i in arr2)\r\n\
 	t2 = t2 * 10 + i;\r\n\
 }\r\n\
 return (t1 == 567756) + (t2 == 442344);";
-	TEST_FOR_RESULT("Coroutine 12 (coroutine with local function inside, argument closure).", testCoroutine12, "2");
+	TEST_FOR_RESULT("Coroutine 13 (coroutine with local function inside, argument closure).", testCoroutine12, "2");
 
 #ifdef FAILURE_TEST
 

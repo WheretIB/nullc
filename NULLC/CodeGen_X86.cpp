@@ -584,7 +584,7 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg index, unsigned int mult, 
 		NULLC::InvalidateState();
 	}
 
-	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst && op != o_call)
+	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst && op != o_call && op != o_jmp)
 		__asm int 3;
 #endif
 	x86Op->name = op;
@@ -2010,6 +2010,43 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 	aluLabels += 4;
 }
 
+VMCmd	yieldCmd = VMCmd(cmdNop);
+
+void GenCodeCmdYield(VMCmd cmd)
+{
+	// If flag is set, jump to saved offset
+	if(cmd.flag)
+	{
+		// Take pointer to closure in hidden argument
+		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rEBP, cmd.argument + paramBase);
+		// Read jump offset at 4 byte shift (ExternFuncInfo::Upvalue::next)
+		EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rEAX, 4);
+		// Test for 0
+		EMIT_OP_REG_REG(o_test, rEBX, rEBX);
+		// If zero, don't change anything
+		EMIT_OP_LABEL(o_jz, aluLabels);
+
+		// Jump to saved position
+		EMIT_OP_RPTR(o_jmp, sDWORD, rEAX, 4);
+
+		EMIT_LABEL(aluLabels);
+		aluLabels++;
+	}else{
+		yieldCmd = cmd;
+	}
+}
+
+__declspec(naked) void yieldSaveEIP()
+{
+	__asm
+	{
+		mov eax, [esp];
+		add eax, 2;	// jump over pop and ret
+		mov [esi+4], eax;
+		ret;
+	}
+}
+
 void GenCodeCmdReturn(VMCmd cmd)
 {
 	EMIT_COMMENT("RET");
@@ -2075,7 +2112,26 @@ void GenCodeCmdReturn(VMCmd cmd)
 		if(cmd.helper == 0)
 			EMIT_OP_REG_NUM(o_mov, rEBX, 16);
 	}
+	if(yieldCmd.cmd == cmdYield)
+	{
+		EMIT_OP_REG(o_push, rEAX);
+		// Take pointer to closure in hidden argument
+		EMIT_OP_REG_RPTR(o_mov, rESI, sDWORD, rEDI, yieldCmd.argument + paramBase);
+
+		// If helper is set, it's yield
+		if(yieldCmd.helper)
+		{
+			// When function is called again, it will continue from instruction after value return.
+			EMIT_OP_REG_NUM(o_mov, rEAX, (int)(intptr_t)yieldSaveEIP);
+			EMIT_OP_REG(o_call, rEAX);
+		}else{	// otherwise, it's return
+			// When function is called again, start from beginning by reseting  jump offset at 4 byte shift (ExternFuncInfo::Upvalue::next)
+			EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESI, 4, 0);
+		}
+		EMIT_OP_REG(o_pop, rEAX);
+	}
 	EMIT_OP(o_ret);
+	yieldCmd.cmd = cmdNop;
 }
 
 

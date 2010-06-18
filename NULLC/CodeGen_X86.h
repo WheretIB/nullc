@@ -201,3 +201,5 @@ void SetUpvaluesCloseFunc(void (*f)());
 void GenCodeCmdCloseUpvalues(VMCmd cmd);
 
 void GenCodeCmdConvertPtr(VMCmd cmd);
+
+void GenCodeCmdYield(VMCmd cmd);
