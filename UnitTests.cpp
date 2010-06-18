@@ -201,20 +201,25 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 
 		memset(&prInfo, 0, sizeof(prInfo));
 		char cmdLine[1024];
-		strcpy(cmdLine, "gcc.exe -o ..\\..\\projects\\SuperCalcOpen\\runnable.exe");
-		strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\1test.cpp");
-		strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\runtime.cpp");
+		strcpy(cmdLine, "gcc.exe -o runnable.exe");
+		strcat(cmdLine, " 1test.cpp");
+		strcat(cmdLine, " NULLC\\translation\\runtime.cpp");
 		if(strstr(code, "std.math"))
 		{
-			strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\std_math.cpp");
-			strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\std_math_bind.cpp");
+			strcat(cmdLine, " NULLC\\translation\\std_math.cpp");
+			strcat(cmdLine, " NULLC\\translation\\std_math_bind.cpp");
 		}
 		if(strstr(code, "std.typeinfo"))
 		{
-			strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\std_typeinfo.cpp");
-			strcat(cmdLine, " ..\\..\\projects\\SuperCalcOpen\\std_typeinfo_bind.cpp");
+			strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
+			strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");
 		}
-		DWORD res = CreateProcess("..\\..\\mingw\\bin\\gcc.exe", cmdLine, NULL, NULL, false, 0, NULL, "..\\..\\mingw\\bin\\"/*".\\"*/, &stInfo, &prInfo);
+		if(strstr(code, "std.file"))
+		{
+			strcat(cmdLine, " NULLC\\translation\\std_file.cpp");
+			strcat(cmdLine, " NULLC\\translation\\std_file_bind.cpp");
+		}
+		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
 		res = GetLastError();
 		WaitForSingleObject(prInfo.hProcess, 10000);
 		DWORD retCode;
@@ -243,7 +248,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 		}else{
 			if(message && !messageVerbose)
 				printf("%s\n", message);
-			printf("C++ compilation eror\r\n", expected, retCode);
+			printf("C++ compilation error\r\n", expected, retCode);
 		}
 	}
 #endif
@@ -1156,11 +1161,15 @@ void	RunTests(bool verbose)
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	nullres bRes = CompileFile("Modules/std/math.nc");
 	assert(bRes);
-	nullcTranslateToC("std_math.cpp", "initStdMath");
+	nullcTranslateToC("NULLC\\translation\\std_math.cpp", "initStdMath");
 
 	bRes = CompileFile("Modules/std/typeinfo.nc");
 	assert(bRes);
-	nullcTranslateToC("std_typeinfo.cpp", "initStdTypeInfo");
+	nullcTranslateToC("NULLC\\translation\\std_typeinfo.cpp", "initStdTypeInfo");
+
+	bRes = CompileFile("Modules/std/file.nc");
+	assert(bRes);
+	nullcTranslateToC("NULLC\\translation\\std_file.cpp", "initStdFile");
 #endif
 	//RunEulerTests();
 

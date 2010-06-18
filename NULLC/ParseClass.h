@@ -190,7 +190,9 @@ public:
 			}
 			fprintf(fOut, " %s", variable);
 		}else if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY){
-			fprintf(fOut, "NULLCArray %s", variable);
+			fprintf(fOut, "NULLCArray<", variable);
+			subType->OutputCType(fOut, "");
+			fprintf(fOut, "> %s", variable);
 		}else if(refLevel){
 			subType->OutputCType(fOut, "");
 			fprintf(fOut, "* %s", variable);

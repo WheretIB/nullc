@@ -1,11 +1,23 @@
 #include <memory.h>
 
 // Wrapper over NULLC array, for use in external functions
-typedef struct
+template<typename T>
+struct NULLCArray
 {
 	char			*ptr;
 	unsigned int	size;
-} NULLCArray;
+	NULLCArray()
+	{
+		ptr = NULL;
+		size = 0;
+	}
+	template<typename Y>
+	NULLCArray(const NULLCArray<Y> r)
+	{
+		ptr = r.ptr;
+		size = r.size;
+	}
+};
 
 // Wrapper over NULLC auto ref class for use in external functions
 typedef struct
@@ -36,7 +48,14 @@ typedef struct
 #define NULLC_POINTER 3
 #define NULLC_FUNCTION 4
 
-NULLCArray __makeNullcArray(void* ptr, unsigned int size);
+template<typename T>
+inline NULLCArray<T> __makeNullcArray(void* ptr, unsigned int size)
+{
+	NULLCArray<T> ret;
+	ret.ptr = (char*)ptr;
+	ret.size = size;
+	return ret;
+}
 int			__nullcPow(int a, int b);
 double		__nullcPow(double a, double b);
 long long	__nullcPow(long long a, long long b);
@@ -70,20 +89,20 @@ bool operator !(const NULLCRef& a);
 
 #undef assert
 void  assert(int val, void* unused);
-void  assert(int val, NULLCArray message, void* unused);
-int  __operatorEqual(NULLCArray a, NULLCArray b, void* unused);
-int  __operatorNEqual(NULLCArray a, NULLCArray b, void* unused);
-NULLCArray  __operatorAdd(NULLCArray a, NULLCArray b, void* unused);
-NULLCArray  __operatorAddSet(NULLCArray * a, NULLCArray b, void* unused);
+void  assert(int val, NULLCArray<char> message, void* unused);
+int  __operatorEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
+int  __operatorNEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
+NULLCArray<char>  __operatorAdd(NULLCArray<char> a, NULLCArray<char> b, void* unused);
+NULLCArray<char>  __operatorAddSet(NULLCArray<char> * a, NULLCArray<char> b, void* unused);
 char  char__(char a, void* unused);
 short  short__(short a, void* unused);
 int  int__(int a, void* unused);
 long  long__(long a, void* unused);
 float  float__(float a, void* unused);
 double  double__(double a, void* unused);
-NULLCArray  int__str(int* __context);
+NULLCArray<char>  int__str(int* __context);
 int  __newS(int size, void* unused);
-NULLCArray  __newA(int size, int count, void* unused);
+NULLCArray<void>  __newA(int size, int count, void* unused);
 NULLCRef  duplicate(NULLCRef obj, void* unused);
 
 inline unsigned int	__nullcIndex(unsigned int index, unsigned int size)

@@ -3612,8 +3612,11 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			end = first->next;
 		}
 		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
-			fprintf(fOut, "__makeNullcArray(");
-		else if(first->nodeType != typeNodePopOp){
+		{
+			fprintf(fOut, "__makeNullcArray<");
+			typeInfo->subType->OutputCType(fOut, "");
+			fprintf(fOut, ">(");
+		}else if(first->nodeType != typeNodePopOp){
 			typeInfo->OutputCType(fOut, "()");
 			end = first->next;
 		}

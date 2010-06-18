@@ -8,7 +8,7 @@ typedef struct
 typedef struct
 {
 	unsigned int type;
-	NULLCArray name;
+	NULLCArray<char> name;
 } member_info;
 typedef struct
 {
@@ -73,9 +73,9 @@ int typeid__size_(unsigned int * __context)
 {
 	return __nullcGetTypeInfo(*__context)->size;
 }
-NULLCArray typeid__name_(unsigned int * __context)
+NULLCArray<char> typeid__name_(unsigned int * __context)
 {
-	NULLCArray ret = { NULL, 0 };
+	NULLCArray<char> ret();
 	return ret;
 }
 int typeid__memberCount(unsigned int * __context)
@@ -88,9 +88,9 @@ unsigned int typeid__memberType(int member, unsigned int * __context)
 	// $$$
 	return 0;
 }
-NULLCArray typeid__memberName(int member, unsigned int * __context)
+NULLCArray<char> typeid__memberName(int member, unsigned int * __context)
 {
-	NULLCArray ret = { NULL, 0 };
+	NULLCArray<char> ret();
 	return ret;
 }
 unsigned int typeid__subType(unsigned int * __context)
