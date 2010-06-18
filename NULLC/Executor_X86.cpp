@@ -586,7 +586,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			strcpy(execError, "ERROR: invalid function pointer");
 		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate != NULLC::expESPstate)
 			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
-			NULLC::expEAXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expECXstate].offsetToName],
+			NULLC::expEAXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expEAXstate].offsetToName],
 			NULLC::expECXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expECXstate].offsetToName]);
 		else if(NULLC::expCodePublic == EXCEPTION_STACK_OVERFLOW)
 			strcpy(execError, "ERROR: stack overflow");
