@@ -2460,7 +2460,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		CodeInfo::nodeList.push_back(funcAddr);
 	CodeInfo::nodeList.push_back(new NodeFuncCall(fInfo, fType));
 	if(currDefinedFunc.size() && fInfo && !fInfo->pure)
-		currDefinedFunc.back()->pure = false;	// non-pure function call or recursion invalidates function purity
+		currDefinedFunc.back()->pure = false;	// non-pure function call invalidates function purity
 #ifdef NULLC_PURE_FUNCTIONS
 	// Pure function evaluation
 	if(fInfo && fInfo->pure && !(currDefinedFunc.size() && currDefinedFunc.back() == fInfo))
