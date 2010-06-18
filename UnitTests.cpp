@@ -6405,6 +6405,27 @@ for(i in arr2)\r\n\
 return (t1 == 567756) + (t2 == 442344);";
 	TEST_FOR_RESULT("Coroutine 13 (coroutine with local function inside, argument closure).", testCoroutine12, "2");
 
+
+const char	*testCoroutineExampleA =
+"import std.vector;\r\n\
+auto forward_iterator(vector ref x)\r\n\
+{\r\n\
+	coroutine auto ref iterate()\r\n\
+	{\r\n\
+		for(int i = 0; i < x.size(); i++)\r\n\
+			yield x[i];\r\n\
+		return nullptr;\r\n\
+	}\r\n\
+	return iterate;\r\n\
+}\r\n\
+vector a = vector(int);\r\n\
+a.push_back(4);\r\n\
+a.push_back(5);\r\n\
+\r\n\
+auto i = forward_iterator(a);\r\n\
+return int(i()) + int(i());";
+	TEST_FOR_RESULT("Coroutine example A.", testCoroutineExampleA, "9");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
