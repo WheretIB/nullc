@@ -6242,6 +6242,95 @@ const char	*testCoroutine7 =
 return gen3base(2) + gen3base(2) + gen3base(2) + gen3base(2);";
 	TEST_FOR_RESULT("Coroutine simple 8 (with arguments).", testCoroutine7, "8");
 
+const char	*testCoroutine8 =
+"coroutine int gen3base(int x)\r\n\
+{\r\n\
+	for(int i = x; i < x + 3; i++)\r\n\
+		yield i;\r\n\
+	return -1;\r\n\
+}\r\n\
+return gen3base(2) + gen3base(2) + gen3base(2) + gen3base(2);";
+	TEST_FOR_RESULT("Coroutine simple 9 (with arguments).", testCoroutine8, "8");
+
+const char	*testCoroutine9 =
+"auto get3GenFrom(int x)\r\n\
+{\r\n\
+	coroutine int gen3from()\r\n\
+	{\r\n\
+		for(int i = x; i < x + 3; i++)\r\n\
+			yield i;\r\n\
+		return 0;\r\n\
+	}\r\n\
+	return gen3from;\r\n\
+}\r\n\
+auto gen3from5 = get3GenFrom(5);\r\n\
+auto gen3from2 = get3GenFrom(2);\r\n\
+\r\n\
+int t1 = 0, t2 = 0, t3 = 0, t4 = 0;\r\n\
+int[6] arr1;\r\n\
+for(i in arr1)\r\n\
+{\r\n\
+	i = gen3from5();\r\n\
+	t1 = t1 * 10 + i;\r\n\
+}\r\n\
+\r\n\
+int[6] arr2;\r\n\
+for(i in arr2)\r\n\
+{\r\n\
+	i = gen3from2();\r\n\
+	t2 = t2 * 10 + i;\r\n\
+}\r\n\
+\r\n\
+int[6] arr3, arr4;\r\n\
+for(i in arr3, j in arr4)\r\n\
+{\r\n\
+	i = gen3from5();\r\n\
+	j = gen3from2();\r\n\
+	t3 = t3 * 10 + i;\r\n\
+	t4 = t4 * 10 + j;\r\n\
+}\r\n\
+return (t1 == 567056) + (t2 == 234023) + (t3 == 705670) + (t4 == 402340);";
+	TEST_FOR_RESULT("Coroutine 10 (coroutine in local function).", testCoroutine9, "4");
+
+const char	*testCoroutine10 =
+"auto get3GenFrom(int x)\r\n\
+{\r\n\
+	coroutine int gen3from()\r\n\
+	{\r\n\
+		int ref() m;\r\n\
+		for(int i = x; i < x + 3; i++)\r\n\
+		{\r\n\
+			int help()\r\n\
+			{\r\n\
+				return i;\r\n\
+			}\r\n\
+			yield help();\r\n\
+			m = help;\r\n\
+		}\r\n\
+		return m();\r\n\
+	}\r\n\
+	return gen3from;\r\n\
+}\r\n\
+auto gen3from5 = get3GenFrom(5);\r\n\
+auto gen3from2 = get3GenFrom(2);\r\n\
+\r\n\
+int t1 = 0, t2 = 0;\r\n\
+int[6] arr1;\r\n\
+for(i in arr1)\r\n\
+{\r\n\
+	i = gen3from5();\r\n\
+	t1 = t1 * 10 + i;\r\n\
+}\r\n\
+\r\n\
+int[6] arr2;\r\n\
+for(i in arr2)\r\n\
+{\r\n\
+	i = gen3from2();\r\n\
+	t2 = t2 * 10 + i;\r\n\
+}\r\n\
+return (t1 == 567756) + (t2 == 234423);";
+	TEST_FOR_RESULT("Coroutine 11 (coroutine in local function with local function inside).", testCoroutine10, "2");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 

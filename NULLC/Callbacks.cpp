@@ -893,12 +893,15 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			}
 		}
 
-		// If we try to access external variable from local function
-		if((currDefinedFunc.size() > 1 && currDefinedFunc.back()->type == FunctionInfo::LOCAL &&
-			vInfo->blockDepth > currDefinedFunc[0]->vTopSize && vInfo->blockDepth <= currDefinedFunc.back()->vTopSize)
-			||
-			(currDefinedFunc.size() && currDefinedFunc.back()->type == FunctionInfo::COROUTINE && vInfo->blockDepth > currDefinedFunc[0]->vTopSize && vInfo->pos > currDefinedFunc.back()->allParamSize)
+		bool externalAccess = currDefinedFunc.size() && vInfo->blockDepth > currDefinedFunc[0]->vTopSize && vInfo->blockDepth <= currDefinedFunc.back()->vTopSize;
+		// If we try to access external variable from local function, or if we try to access external variable or local variable from coroutine
+		if(currDefinedFunc.size() &&
+			(
+				(currDefinedFunc.back()->type == FunctionInfo::LOCAL && externalAccess)
+				||
+				(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || vInfo->pos > currDefinedFunc.back()->allParamSize))
 			)
+		)
 		{
 			// If that variable is not in current scope, we have to get it through current closure
 			FunctionInfo *currFunc = currDefinedFunc.back();
@@ -1660,8 +1663,6 @@ void FunctionAdd(const char* pos, const char* funcName)
 	{
 		lastFunc->type = FunctionInfo::LOCAL;
 		lastFunc->parentClass = NULL;
-		if(defineCoroutine)
-			ThrowError(pos, "ERROR: coroutine cannot be a local function", funcName);
 	}
 	if(defineCoroutine)
 	{

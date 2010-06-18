@@ -1564,11 +1564,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					cmdStream = cmdBase + offset;
 			}else{
 				ExternFuncInfo::Upvalue *closurePtr = *((ExternFuncInfo::Upvalue**)(&genParams[cmd.argument + paramBase]));
-				// If helper is set, yield
+				// If helper is set, it's yield
 				if(cmd.helper)
 				{
+					// When function is called again, it will continue from instruction after value return.
 					*closurePtr->ptr = int(cmdStream - cmdBase) + 1;
-				}else{	// otherwise, return
+				}else{	// otherwise, it's return
+					// When function is called again, start from beginning
 					*closurePtr->ptr = 0;
 				}
 			}
