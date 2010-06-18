@@ -16,6 +16,13 @@ void CommonSetLinker(Linker* linker)
 	NULLC::commonLinker = linker;
 }
 
+namespace GC
+{
+	// Range of memory that is not checked. Used to exclude pointers to stack from marking and GC
+	char	*unmanageableBase = NULL;
+	char	*unmanageableTop = NULL;
+}
+
 void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, ExternFuncInfo::Upvalue* upvalue)
 {
 	// Function with a list of external variables to capture
@@ -65,7 +72,7 @@ void CloseUpvalues(char* paramBase, unsigned int argument)
 	// Current upvalue and previous
 	ExternFuncInfo::Upvalue *curr = externalList[argument];
 	// While we have an upvalue that points to address larger than base (so that in recursive function call only last functions upvalues will be closed)
-	while(curr && (char*)curr->ptr >= paramBase)
+	while(curr && ((char*)curr->ptr >= paramBase || (char*)curr->ptr < GC::unmanageableBase))
 	{
 		// Save pointer to next upvalue
 		ExternFuncInfo::Upvalue *next = curr->next;
@@ -156,9 +163,6 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 
 namespace GC
 {
-	// Range of memory that is not checked. Used to exclude pointers to stack from marking and GC
-	char	*unmanageableBase = NULL;
-	char	*unmanageableTop = NULL;
 	unsigned int	objectName = GetStringHash("auto ref");
 	unsigned int	autoArrayName = GetStringHash("auto[]");
 
