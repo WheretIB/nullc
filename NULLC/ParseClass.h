@@ -475,7 +475,7 @@ public:
 	bool		pure;					// function is pure and can possibly be evaluated at compile time
 	void		*functionNode;
 
-	enum FunctionCategory{ NORMAL, LOCAL, THISCALL };
+	enum FunctionCategory{ NORMAL, LOCAL, THISCALL, COROUTINE };
 	FunctionCategory	type;
 
 	struct ExternalInfo

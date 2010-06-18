@@ -49,7 +49,7 @@ void AddBitNotNode(const char* pos);
 
 void AddBinaryCommandNode(const char* pos, CmdID id);
 
-void AddReturnNode(const char* pos);
+void AddReturnNode(const char* pos, bool yield = false);
 void AddBreakNode(const char* pos);
 void AddContinueNode(const char* pos);
 
@@ -103,6 +103,7 @@ void MergeArrayIterators();
 
 void AddTypeAllocation(const char* pos);
 
+void BeginCoroutine();
 void FunctionAdd(const char* pos, const char* funcName);
 void FunctionParameter(const char* pos, InplaceStr paramName);
 void FunctionParameterDefault(const char* pos);

@@ -1554,6 +1554,25 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*genStackPtr = cmd.argument;
 			break;
 #endif
+		case cmdYield:
+			// If flag is set, jump to saved offset
+			if(cmd.flag)
+			{
+				ExternFuncInfo::Upvalue *closurePtr = *((ExternFuncInfo::Upvalue**)(&genParams[cmd.argument + paramBase]));
+				unsigned int offset = *closurePtr->ptr;
+				if(offset != 0)
+					cmdStream = cmdBase + offset;
+			}else{
+				ExternFuncInfo::Upvalue *closurePtr = *((ExternFuncInfo::Upvalue**)(&genParams[cmd.argument + paramBase]));
+				// If helper is set, yield
+				if(cmd.helper)
+				{
+					*closurePtr->ptr = int(cmdStream - cmdBase) + 1;
+				}else{	// otherwise, return
+					*closurePtr->ptr = 0;
+				}
+			}
+			break;
 		}
 
 #ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION

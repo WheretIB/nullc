@@ -17,7 +17,7 @@ unsigned int ParseFunctionArguments(Lexeme** str);
 bool ParseFunctionCall(Lexeme** str);
 
 bool ParseFunctionVariables(Lexeme** str);
-bool ParseFunctionDefinition(Lexeme** str);
+bool ParseFunctionDefinition(Lexeme** str, bool coroutine = false);
 
 bool ParseAlignment(Lexeme** str);
 
@@ -33,7 +33,7 @@ bool ParseSwitchExpr(Lexeme** str);
 
 bool ParseTypedefExpr(Lexeme** str);
 
-bool ParseReturnExpr(Lexeme** str);
+bool ParseReturnExpr(Lexeme** str, bool yield = false);
 bool ParseBreakExpr(Lexeme** str);
 bool ParseContinueExpr(Lexeme** str);
 

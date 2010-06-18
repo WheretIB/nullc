@@ -115,6 +115,7 @@ enum InstructionCode
 	// return from function
 	// возврат из функции и выполнение POPT n раз, где n идёт за командой
 	cmdReturn,
+	cmdYield,
 
 	// commands for work with variable stack
 	// команды для работы со стеком переменных
@@ -233,7 +234,7 @@ static const char *vmInstructionText[] =
 	"CopyDorL", "CopyI",
 	"GetAddr", "FuncAddr", "SetRange",
 	"Jmp", "JmpZ", "JmpNZ",
-	"Call", "CallPtr", "Return",
+	"Call", "CallPtr", "Return", "Yield",
 	"PushVTop",
 	"Add", "Sub", "Mul", "Div", "Pow", "Mod", "Less", "Greater", "LEqual", "GEqual", "Equal", "NEqual",
 	"Shl", "Shr", "BitAnd", "BitOr", "BitXor", "LogAnd", "LogOr", "LogXor",

@@ -242,7 +242,7 @@ protected:
 class NodeReturnOp: public NodeOneOP
 {
 public:
-	NodeReturnOp(bool localRet, TypeInfo* tinfo, FunctionInfo* parentFunc = NULL);
+	NodeReturnOp(bool localRet, TypeInfo* tinfo, FunctionInfo* parentFunc, bool yield);
 	virtual ~NodeReturnOp();
 
 	virtual void Compile();
@@ -251,6 +251,7 @@ public:
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 protected:
 	bool			localReturn;
+	bool			yieldResult;
 	FunctionInfo	*parentFunction;
 };
 
