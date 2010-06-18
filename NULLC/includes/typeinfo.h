@@ -10,6 +10,8 @@ const char*		nullcGetTypeName(unsigned int typeID);
 unsigned int	nullcGetFunctionType(unsigned int funcID);
 const char*		nullcGetFunctionName(unsigned int funcID);
 
+unsigned int	nullcGetArraySize(unsigned int typeID);
+
 unsigned int	nullcGetTypeCount();
 
 int				nullcIsFunction(unsigned int id);

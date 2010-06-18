@@ -6123,6 +6123,11 @@ return 1;";
 
 	TEST_FOR_RESULT("Double modulus division.", "double a = 800000000000000000000.0; return (a % 5.5) < 5.5;", "1");
 
+	TEST_FOR_RESULT("Array to auto[] type conversion and access 1.", "auto str = \"Hello\"; auto[] arr = str; return char(arr[3]) - 'l';", "0");
+	TEST_FOR_RESULT("Array to auto[] type conversion and access 2.", "char[6] str = \"Hello\"; auto[] arr = str; return char(arr[3]) - 'l';", "0");
+	TEST_FOR_RESULT("auto[] type to array conversion 1", "auto str = \"Hello\"; auto[] arr = str; char[] str2 = arr; return str == str2;", "1");
+	TEST_FOR_RESULT("auto[] type to array conversion 2", "auto str = \"Hello\"; auto[] arr = str; char[6] str2 = arr; return str == str2;", "1");
+
 	{
 		char code[8192];
 		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
@@ -6283,6 +6288,43 @@ return 0;";
 	{
 		testCount[t]++;
 		if(RunCode(testTypeDoesntImplementMethod, testTarget[t], "ERROR: type 'int' doesn't implement method 'int::test' of type 'void ref()'", "Type doesn't implement method on auto ref function call", true))
+			passed[t]++;
+	}
+	
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode("int x = 12; auto[] arr = x; return 0;", testTarget[t], "ERROR: cannot convert from 'int' to 'auto[]'", "Array to auto[] type conversion fail.", true))
+			passed[t]++;
+	}
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode("auto str = \"Hello\"; auto[] arr = str; return char(arr[-1]) - 'l';", testTarget[t], "ERROR: array index out of bounds", "auto[] type underflow.", true))
+			passed[t]++;
+	}
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode("auto str = \"Hello\"; auto[] arr = str; return char(arr[7]) - 'l';", testTarget[t], "ERROR: array index out of bounds", "auto[] type overflow.", true))
+			passed[t]++;
+	}
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode("auto str = \"Hello\"; auto[] arr = str; int str2 = arr; return 0;", testTarget[t], "ERROR: cannot convert from 'auto[]' to 'int'", "auto[] type conversion mismatch 1", true))
+			passed[t]++;
+	}
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode("auto str = \"Hello\"; auto[] arr = str; char[7] str2 = arr; return 0;", testTarget[t], "ERROR: cannot convert from 'auto[]' (actual type 'char[6]') to 'char[7]'", "auto[] type conversion mismatch 2", true))
+			passed[t]++;
+	}
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode("auto str = \"Hello\"; auto[] arr = str; int[] str2 = arr; return 0;", testTarget[t], "ERROR: cannot convert from 'auto[]' (actual type 'char[6]') to 'int[]'", "auto[] type conversion mismatch 3", true))
 			passed[t]++;
 	}
 

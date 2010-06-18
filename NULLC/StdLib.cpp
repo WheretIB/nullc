@@ -633,3 +633,67 @@ int NULLC::TypeCount()
 {
 	return nullcGetTypeCount();
 }
+
+NULLCAutoArray* NULLC::AutoArrayAssign(NULLCAutoArray* left, NULLCRef right)
+{
+	if(!nullcIsArray(right.typeID))
+	{
+		nullcThrowError("ERROR: cannot convert from '%s' to 'auto[]'", nullcGetTypeName(right.typeID));
+		return NULL;
+	}
+	left->len = nullcGetArraySize(right.typeID);
+	if(left->len == ~0u)
+	{
+		NullCArray *arr = (NullCArray*)right.ptr;
+		left->len = arr->len;
+		left->ptr = arr->ptr;
+	}else{
+		left->ptr = right.ptr;
+	}
+	left->typeID = nullcGetSubType(right.typeID);
+	return left;
+}
+
+NULLCRef NULLC::AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right)
+{
+	NULLCRef ret = { 0, 0 };
+	if(!nullcIsArray(left.typeID))
+	{
+		nullcThrowError("ERROR: cannot convert from 'auto[]' to '%s'", nullcGetTypeName(left.typeID));
+		return ret;
+	}
+	if(nullcGetSubType(left.typeID) != right->typeID)
+	{
+		nullcThrowError("ERROR: cannot convert from 'auto[]' (actual type '%s[%d]') to '%s'", nullcGetTypeName(right->typeID), right->len, nullcGetTypeName(left.typeID));
+		return ret;
+	}
+	unsigned int leftLength = nullcGetArraySize(left.typeID);
+	if(leftLength == ~0u)
+	{
+		NullCArray *arr = (NullCArray*)left.ptr;
+		arr->len = right->len;
+		arr->ptr = right->ptr;
+	}else{
+		if(leftLength != right->len)
+		{
+			nullcThrowError("ERROR: cannot convert from 'auto[]' (actual type '%s[%d]') to '%s'", nullcGetTypeName(right->typeID), right->len, nullcGetTypeName(left.typeID));
+			return ret;
+		}
+		memcpy(left.ptr, right->ptr, leftLength * nullcGetTypeSize(right->typeID));
+	}
+	return left;
+}
+
+NULLCRef NULLC::AutoArrayIndex(NULLCAutoArray* left, unsigned int index)
+{
+	NULLCRef ret = { 0, 0 };
+	if(index >= left->len)
+	{
+		nullcThrowError("ERROR: array index out of bounds");
+		return ret;
+	}
+	ret.typeID = left->typeID;
+	ret.ptr = (char*)left->ptr + index * nullcGetTypeSize(ret.typeID);
+	return ret;
+}
+
