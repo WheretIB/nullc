@@ -6546,7 +6546,7 @@ return *ll;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testAutoReferenceMismatch, testTarget[t], "ERROR: cannot convert from int ref to double ref", "Auto reference type", true))
+		if(RunCode(testAutoReferenceMismatch, testTarget[t], "ERROR: cannot convert from int ref to double ref", "Auto reference type mismatch", true))
 			passed[t]++;
 	}
 
