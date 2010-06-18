@@ -8,6 +8,12 @@ p.code
 	font-family: Consolas, Courier New, monospace;
 	font-size: 10pt;
 }
+span.code
+{
+	background: #eee;
+	font-family: Consolas, Courier New, monospace;
+	font-size: 10pt;
+}
 span.rword
 {
 	color: #00f;
@@ -848,7 +854,7 @@ function toggleView(a, b, c)
 	<span class="rword">auto ref</span> type is a pointer with implicit type.<br />
 	Pointer of any type can be assigned to <span class="rword">auto ref</span>.<br />
 	To retrieve target type, you can use <span class="func">typeid</span>() function.<br />
-	When type conversions are made, type checking is perfomed at run time.<br />
+	When type conversions are made, type checking is performed at run time.<br />
 	<div class="example">
 		<p class="example_head" id="autoref_ex_1a" onmousedown="toggleView(&quot;autoref_ex_1a&quot;, &quot;autoref_ex_1b&quot, &quot;example of various assignments to auto ref type.&quot;);">Show example of various assignments to auto ref type.</p>
 		<p class="code example_body" id="autoref_ex_1b">
@@ -918,7 +924,7 @@ function toggleView(a, b, c)
 <span class="rword">return</span> <span class="func">sum</span>(<span class="var">x</span>, <span class="real">12</span>); <span class="comment">// returns 17</span><br />
 		</p>
 	</div>
-	When new variable is defined, its value can be taken from <span class="rword">auto ref</span> type if <span class="rword">auto ref</span> target type matches new varaible type.<br />
+	When new variable is defined, its value can be taken from <span class="rword">auto ref</span> type if <span class="rword">auto ref</span> target type matches new variable type.<br />
 	<div class="example">
 		<p class="example_head" id="autoref_ex_6a" onmousedown="toggleView(&quot;autoref_ex_6a&quot;, &quot;autoref_ex_6b&quot, &quot;example of conversion between type and auto ref.&quot;);">Show example of conversion between type and auto ref.</p>
 		<p class="code example_body" id="autoref_ex_6b">
@@ -930,7 +936,49 @@ function toggleView(a, b, c)
 	</div>
 	<div class="subtopic">
 		<h4><a name="autorefcall">5.1.1 function call through auto ref</a></h4>
-		<div style="background-color: #f00; width: 100%; height: 50px;">
+		
+		It is possible to make a member function call of an object <span class="rword">auto ref</span> points to.<br />
+		When member function call is made, all member functions with selected name are taken from all classes and the one that fits best is selected.<br />
+		In runtime, function with the same arguments as the selected will be required from <span class="rword">auto ref</span> target type to make a call.<br />
+		<div class="example">
+			<p class="example_head" id="autorefcall_ex_1a" onmousedown="toggleView(&quot;autorefcall_ex_1a&quot;, &quot;autorefcall_ex_1b&quot, &quot;example of member function call through auto ref.&quot;);">Show example of member function call through auto ref.</p>
+			<p class="code example_body" id="autorefcall_ex_1b">
+<span class="rword">import</span> std.io;<br />
+<span class="rword">class</span> <span class="rword">A</span><br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">void</span> <span class="func">run</span>(<span class="rword">int</span> <span class="var">x</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">io</span>.<span class="var">out</span> << "<span class="string">A int </span>" << <span class="var">x</span> << <span class="var">io</span>.<span class="var">endl</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+}<br />
+<span class="rword">class</span> <span class="rword">B</span><br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">void</span> <span class="func">run</span>(<span class="rword">int</span> <span class="var">x</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">io</span>.<span class="var">out</span> << "<span class="string">B int </span>" << <span class="var">x</span> << <span class="var">io</span>.<span class="var">endl</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+}<br />
+<span class="rword">A</span> a;<br />
+<span class="rword">B</span> b;<br />
+<span class="rword">auto ref</span>[<span class="real">2</span>] arr;<br />
+<span class="var">arr</span>[<span class="real">0</span>] = &<span class="var">a</span>;<br />
+<span class="var">arr</span>[<span class="real">1</span>] = &<span class="var">b</span>;<br />
+<span class="comment">/* Outputs:<br />
+A int 5<br />
+B int 5<br />
+*/<br /></span>
+<span class="rword">for</span>(<span class="var">i</span> <span class="rword">in</span> <span class="var">arr</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">i</span>.<span class="func">run</span>(<span class="real">5</span>);<br />
+<span class="rword">return</span> <span class="real">0</span>;<br />
+			</p>
+		</div>
+		Because target type is known only at runtime, there are some limitations:<br />
+		a) Default argument values are unavailable.<br />
+		b) Function overload is selected at compilation time and implicit type conversions are not made at runtime.<br />
+		If we change <span class="code"><span class="rword">B</span>::<span class="func">run</span></span> function in the example above to
+		<span class="code"><span class="rword">void</span> <span class="func">run</span>(<span class="rword">double</span> <span class="var">x</span>){ <span class="var">io</span>.<span class="var">out</span> << "<span class="string">B double </span>" << <span class="var">x</span> << <span class="var">io</span>.<span class="var">endl</span>; }</span>
+		, then we will get a following error at runtime:<br />
+		<span class="code">ERROR: type '<span class="rword">B</span>' doesn't implement method '<span class="rword">B</span>::<span class="func">run</span>' of type '<span class="rword">void ref</span>(<span class="rword">int</span>)'</span><br />
 		</div>
 	</div>
 </div>
