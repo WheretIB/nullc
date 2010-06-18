@@ -833,7 +833,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr--;
-			*(double*)(genStackPtr) = *(double*)((char*)NULL + cmd.argument + *(genStackPtr+1));
+			*(long long*)(genStackPtr) = *(long long*)((char*)NULL + cmd.argument + *(genStackPtr+1));
 #endif
 			break;
 		case cmdPushCmplxStk:
