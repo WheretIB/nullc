@@ -1142,8 +1142,16 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="typeid">5.3 typeid</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;">
-	</div>
+	<span class="rword">typeid</span> type is a type identifier that can be used to get run-time type information (RTTI).<br />
+	Value with type of typeid is generated if type name or <a href="#typeof">typeof</a> is used in expression.<br />
+	typeid constructor from <span class="rword">auto ref</span> type returns the type that <span class="rword">auto ref</span> points to. <a href="#convimplicit">Implicit conversions</a> to <span class="rword">auto ref</span> type still stand.<br />
+	<p class="code">
+<span class="rword">typeid</span> x = <span class="func">typeof</span>(<span class="real">4</span>); <span class="comment">// typeid of expression is returned at compilation time</span><br />
+<span class="rword">typeid</span> y = <span class="func">typeid</span>(<span class="real">4</span>); <span class="comment">// typeid of expression is returned at run time</span><br />
+<span class="rword">typeid</span> z = <span class="rword">int</span>; <span class="comment">// type name used as expression</span><br />
+<span class="rword">return</span> <span class="var">x</span> == <span class="var">z</span> && <span class="var">y</span> == <span class="var">z</span>; <span class="comment">// 1</span><br />
+	</p>
+	Only comparison of typeid is available by default. To get extended run-time type information, import <a href="#std_typeinfo">std.typeinfo</a> module.<br />
 </div>
 <hr />
 
@@ -1168,10 +1176,12 @@ B int 5<br />
 
 	Arrays can be defined by writing all array elements, separated by commas in a { } block.<br />
 	Multidimensional array can be also defined by using this.<br />
-	<div style="background-color: #f00; width: 100%; height: 50px;">
-		For arrays of complex type, all array elements must have the same type.<br />
-		It is impossible at the moment, to define array of char, short and float types.<br />
-	</div>
+	<br />
+	It is possible to create multidimensional array, where arrays have different sizes:<br />
+	<p class="code">
+<span class="rword">auto</span> arr1 = { { <span class="real">2</span>, <span class="real">3</span> }, { <span class="real">4</span> }, { <span class="real">7</span>, <span class="real">8</span>, <span class="real">9</span>, <span class="real">10</span> } };<br />
+<span class="rword">auto</span> arr2 = { &quot;<span class="string">Mark</span>&quot;, &quot;<span class="string">Frank</span>&quot;, &quot;<span class="string">Katherine</span>&quot; };
+	</p>
 </div>
 <hr />
 <div class="topic">
@@ -1340,9 +1350,11 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="convimplicit">8.3 Implicit conversions</a></h3>
 
-	Apart from implicit conversions from one basic type to the other, there are following conversions between complex types:<br />
+	Apart from implicit conversions from one basic type to the other, there are following implicit conversions between complex types:<br />
 	<ul>
 		<li>type[size] -> type[]</li>
+		<li>type[size] ref -> type[] ref</li>
+		<li>type -> auto ref</li>
 		<li>type ref -> auto ref</li>
 		<li>auto ref -> type ref</li>
 	</ul>
