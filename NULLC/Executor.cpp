@@ -684,7 +684,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 	while(cmdStream)
 	{
-		const VMCmd &cmd = *cmdStream;
+		const VMCmd cmd = *cmdStream;
 		cmdStream++;
 
 		#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
@@ -771,7 +771,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdPushDorL:
 			genStackPtr -= 2;
-			*(double*)(genStackPtr) = *((double*)(&genParams[cmd.argument + (paramBase * cmd.flag)]));
+			*(long long*)(genStackPtr) = *((long long*)(&genParams[cmd.argument + (paramBase * cmd.flag)]));
 			break;
 		case cmdPushCmplx:
 		{
