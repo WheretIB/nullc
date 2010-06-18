@@ -883,6 +883,16 @@ bool ParseGroup(Lexeme** str)
 		ThrowError((*str)->pos, "ERROR: expression not found after '('");
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: closing ')' not found after '('");
+
+	if(ParseLexem(str, lex_dec))
+	{
+		UndoDereferceNode((*str)->pos);
+		AddUnaryModifyOpNode((*str)->pos, OP_DECREMENT, OP_POSTFIX);
+	}else if(ParseLexem(str, lex_inc)){
+		UndoDereferceNode((*str)->pos);
+		AddUnaryModifyOpNode((*str)->pos, OP_INCREMENT, OP_POSTFIX);
+	}
+
 	return true;
 }
 
@@ -921,7 +931,7 @@ bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 {
 	if(ParseLexem(str, lex_mul))
 	{
-		if(!ParseVariable(str))
+		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: variable name not found after '*'");
 		CALLBACK(AddGetVariableNode((*str)->pos));
 		return true;
@@ -1030,14 +1040,24 @@ bool ParseTerminal(Lexeme** str)
 	case lex_dec:
 		(*str)++;
 		if(!ParseVariable(str))
-			ThrowError((*str)->pos, "ERROR: variable not found after '--'");
+		{
+			if(!ParseGroup(str))
+				ThrowError((*str)->pos, "ERROR: variable not found after '--'");
+			else
+				UndoDereferceNode((*str)->pos);
+		}
 		AddUnaryModifyOpNode((*str)->pos, OP_DECREMENT, OP_PREFIX);
 		return true;
 		break;
 	case lex_inc:
 		(*str)++;
 		if(!ParseVariable(str))
-			ThrowError((*str)->pos, "ERROR: variable not found after '++'");
+		{
+			if(!ParseGroup(str))
+				ThrowError((*str)->pos, "ERROR: variable not found after '++'");
+			else
+				UndoDereferceNode((*str)->pos);
+		}
 		AddUnaryModifyOpNode((*str)->pos, OP_INCREMENT, OP_PREFIX);
 		return true;
 		break;

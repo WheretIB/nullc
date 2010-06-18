@@ -1734,7 +1734,7 @@ int ref b = &a;\r\n\
 int c = 2;\r\n\
 c = *b;\r\n\
 *b = 14;\r\n\
-*b++;\r\n\
+(*b)++;\r\n\
 *b *= 4;\r\n\
 testB(b);\r\n\
 return testA(&a);";
@@ -1900,7 +1900,7 @@ const char	*testCalls =
 "int calltest = 0;\r\n\
 int fib(int n, int ref calls)\r\n\
 {\r\n\
-	*calls++;\r\n\
+	(*calls)++;\r\n\
 	calltest++;\r\n\
 	if(n < 3)\r\n\
 		return 1;\r\n\
@@ -6433,6 +6433,25 @@ auto ref y = &x;\r\n\
 return foo(int ref(y));";
 	TEST_FOR_RESULT("Auto ref explicit conversion to pointer type.", testAutoRefConversion, "5");
 
+const char	*testPreAndPostOnGroupA =
+"int x = 1, y = 9, z = 101, w = 1001;\r\n\
+int ref xr = &x, yr = &y, zr = &z, wr = &w;\r\n\
+(*xr)++; ++(*yr); (*zr)--; --(*wr);\r\n\
+return x + y + z + w;";
+	TEST_FOR_RESULT("Prefix and postfix expressions on expression in parentheses 1.", testPreAndPostOnGroupA, "1112");
+
+const char	*testPreAndPostOnGroupB =
+"int x = 1, y = 9, z = 101, w = 1001;\r\n\
+int ref[] r = { &x, &y, &z, &w };\r\n\
+(*r[0])++; ++(*r[1]); (*r[2])--; --(*r[3]);\r\n\
+return x + y + z + w;";
+	TEST_FOR_RESULT("Prefix and postfix expressions on expression in parentheses 2.", testPreAndPostOnGroupB, "1112");
+
+const char	*testFunctionResultDereference =
+"int ref test(auto ref x){ return int ref(x); }\r\n\
+return -*test(5);";
+	TEST_FOR_RESULT("Dereference of function result.", testFunctionResultDereference, "-5");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -7431,6 +7450,11 @@ return arr2.size;";
 	TEST_FOR_FAIL("Reference to local 6", "import std.math; class Foo{ int[3] arr; float4[3] arr2;} auto foo6(){ Foo[3] bar; int i = 2; return &bar[i].arr2[2].w; } return 0;", "ERROR: returning pointer to local variable 'bar'");
 
 	TEST_FOR_FAIL("Can't yield if not a coroutine", "int test(){ yield 4; } return test();", "ERROR: yield can only be used inside a coroutine");
+
+	TEST_FOR_FAIL("Operation unsupported on reference 1", "int x; int ref y = &x; return *y++;", "ERROR: increment is not supported on 'int ref'");
+	TEST_FOR_FAIL("Operation unsupported on reference 2", "int x; int ref y = &x; return *++y;", "ERROR: increment is not supported on 'int ref'");
+	TEST_FOR_FAIL("Operation unsupported on reference 3", "int x; int ref y = &x; return *y--;", "ERROR: decrement is not supported on 'int ref'");
+	TEST_FOR_FAIL("Operation unsupported on reference 4", "int x; int ref y = &x; return *--y;", "ERROR: decrement is not supported on 'int ref'");
 
 	//TEST_FOR_FAIL("parsing", "");
 

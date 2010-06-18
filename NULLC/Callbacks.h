@@ -85,6 +85,7 @@ void AddSetVariableNode(const char* pos);
 void AddGetVariableNode(const char* pos);
 void AddMemberAccessNode(const char* pos, InplaceStr varName);
 
+void UndoDereferceNode(const char* pos);
 const static bool	OP_INCREMENT = 1;
 const static bool	OP_DECREMENT = 0;
 const static bool	OP_PREFIX = 1;
