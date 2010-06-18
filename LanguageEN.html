@@ -128,7 +128,6 @@ function toggleView(a, b, c)
 	<ol>
 		<li><a href="#autoref">auto ref</a></li>
 		<ol>
-			<li><a href="#auterefcast">explicit conversion</a></li>
 			<li><a href="#autorefcall">function call through auto ref</a></li>
 		</ol>
 		<li><a href="#autoarray">auto[]</a></li>
@@ -143,6 +142,7 @@ function toggleView(a, b, c)
 		<li><a href="#binnum">Binary numbers</a></li>
 		<li><a href="#octnum">Octal numbers</a></li>
 		<li><a href="#hexnum">Hexadecimal numbers</a></li>
+		<li><a href="#nullptr">Null pointer</a></li>
 	</ol>
 	<li>Standard library</li>
 	<ol>
@@ -845,19 +845,91 @@ function toggleView(a, b, c)
 <div class="topic">
 	<h3><a name="autoref">5.1 auto ref</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;">
-		<br />
-		auto ref a = &b;<br />
-		int float(auto ref b){ return 5; }<br />
-		return int(a) + float(a);";<br />
+	<span class="rword">auto ref</span> type is a pointer with implicit type.<br />
+	Pointer of any type can be assigned to <span class="rword">auto ref</span>.<br />
+	To retrieve target type, you can use <span class="func">typeid</span>() function.<br />
+	When type conversions are made, type checking is perfomed at run time.<br />
+	<div class="example">
+		<p class="example_head" id="autoref_ex_1a" onmousedown="toggleView(&quot;autoref_ex_1a&quot;, &quot;autoref_ex_1b&quot, &quot;example of various assignments to auto ref type.&quot;);">Show example of various assignments to auto ref type.</p>
+		<p class="code example_body" id="autoref_ex_1b">
+<span class="rword">int</span> x = <span class="real">4</span>;<br />
+<span class="rword">float</span> y = <span class="real">8</span>;<br />
+<span class="rword">auto ref</span> z;<br />
+<span class="var">z</span> = &<span class="var">x</span>; <span class="comment">// z points to int x, typeid(z) == int</span><br />
+<span class="var">z</span> = &<span class="var">y</span>; <span class="comment">// now z points to float y, typeid(z) == float</span><br />
+		</p>
+	</div>
+	Every type has a default constructor from <span class="rword">auto ref</span> type, which can be overridden with a custom one.<br />
+	<div class="example">
+		<p class="example_head" id="autoref_ex_2a" onmousedown="toggleView(&quot;autoref_ex_2a&quot;, &quot;autoref_ex_2b&quot, &quot;example of type constructor from auto ref type.&quot;);">Show example of type constructor from auto ref type.</p>
+		<p class="code example_body" id="autoref_ex_2b">
+<span class="rword">int</span> x = <span class="real">4</span>;<br />
+<span class="rword">auto ref</span> z = &<span class="var">x</span>;<br />
+<span class="rword">return</span> <span class="func">int</span>(<span class="var">z</span>); <span class="comment">// returns 4</span><br />
+		</p>
+	</div>
+	<div class="example">
+		<p class="example_head" id="autoref_ex_3a" onmousedown="toggleView(&quot;autoref_ex_3a&quot;, &quot;autoref_ex_3b&quot, &quot;example of custom type constructor from auto ref type.&quot;);">Show example of custom type constructor from auto ref type.</p>
+		<p class="code example_body" id="autoref_ex_3b">
+<span class="comment">// Define custom constructor from auto ref for float type</span><br />
+<span class="rword">float</span> <span class="func">float</span>(<span class="rword">auto ref</span> x)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// If typeid is int, use default int constructor </span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">if</span>(<span class="func">typeid</span>(<span class="var">x</span>) == <span class="rword">int</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="func">int</span>(<span class="var">x</span>);<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Otherwise, fallback to default behavior</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">float ref</span> f = <span class="var">x</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> *<span class="var">f</span>;<br />
+}<br />
+<br />
+<span class="rword">int</span> x = <span class="real">4</span>;<br />
+<span class="rword">auto ref</span> ptr = &<span class="var">x</span>;<br />
+<br />
+<span class="comment">// Use our custom constructor</span><br />
+<span class="rword">float</span> e = <span class="func">float</span>(<span class="var">ptr</span>);<br />
+<span class="rword">float</span> y = <span class="real">8</span>;<br />
+<span class="var">ptr</span> = &<span class="var">y</span>;<br />
+<span class="comment">// Test default behavior in our custom constructor</span><br />
+<span class="rword">float</span> f = <span class="func">float</span>(<span class="var">ptr</span>);<br />
+<span class="rword">return</span> <span class="var">e</span> + <span class="var">f</span>; <span class="comment">// returns 12.0</span><br />
+		</p>
+	</div>
+	Value to which <span class="rword">auto ref</span> points to can be changed by either converting it to pointer of known type and working with it,
+	or by using dereference operator *.<br />
+	It latter case, right-hand value type must be equal to <span class="rword">auto ref</span> target type and modification-assignment operators cannot be used.<br />
+	<div class="example">
+		<p class="example_head" id="autoref_ex_4a" onmousedown="toggleView(&quot;autoref_ex_4a&quot;, &quot;autoref_ex_4b&quot, &quot;example of value assignment to auto ref type.&quot;);">Show example of value assignment to auto ref type.</p>
+		<p class="code example_body" id="autoref_ex_4b">
+<span class="rword">int</span> x = <span class="real">4</span>;<br />
+<span class="rword">auto ref</span> z = &<span class="var">x</span>;<br />
+*<span class="var">z</span> = <span class="real">8</span>;<br />
+<span class="rword">return</span> <span class="func">int</span>(<span class="var">z</span>); <span class="comment">// returns 8</span><br />
+		</p>
+	</div>
+	When <span class="rword">auto ref</span> is used as a function argument, not only pointers, but also value types can be passed through that argument.
+	<div class="example">
+		<p class="example_head" id="autoref_ex_5a" onmousedown="toggleView(&quot;autoref_ex_5a&quot;, &quot;autoref_ex_5b&quot, &quot;example of extra implicit conversions when auto ref is a function argument type.&quot;);">Show example of extra implicit conversions when auto ref is a function argument type.</p>
+		<p class="code example_body" id="autoref_ex_5b">
+<span class="rword">int</span> <span class="func">sum</span>(<span class="rword">auto ref</span> <span class="var">a</span>, <span class="var">b</span>)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="func">int</span>(<span class="var">a</span>) + <span class="func">int</span>(<span class="var">b</span>);<br />
+}<br />
+<span class="rword">int</span> x = <span class="real">5</span>;<br />
+<span class="rword">return</span> <span class="func">sum</span>(<span class="var">x</span>, <span class="real">12</span>); <span class="comment">// returns 17</span><br />
+		</p>
+	</div>
+	When new variable is defined, its value can be taken from <span class="rword">auto ref</span> type if <span class="rword">auto ref</span> target type matches new varaible type.<br />
+	<div class="example">
+		<p class="example_head" id="autoref_ex_6a" onmousedown="toggleView(&quot;autoref_ex_6a&quot;, &quot;autoref_ex_6b&quot, &quot;example of extra implicit conversions when auto ref is a function argument type.&quot;);">Show example of extra implicit conversions when auto ref is a function argument type.</p>
+		<p class="code example_body" id="autoref_ex_6b">
+<span class="rword">int</span> x = <span class="real">5</span>;<br />
+<span class="rword">auto ref</span> ptr = &<span class="var">x</span>;<br />
+<span class="rword">int</span> z = <span class="var">ptr</span>;<br />
+<span class="rword">return</span> <span class="var">x</span> * <span class="var">z</span>;<br />
+		</p>
 	</div>
 	<div class="subtopic">
-		<h4><a name="auterefcast">5.1.1 explicit conversion</a></h4>
-		<div style="background-color: #f00; width: 100%; height: 50px;">
-		</div>
-	</div>
-	<div class="subtopic">
-		<h4><a name="autorefcall">5.1.2 function call through auto ref</a></h4>
+		<h4><a name="autorefcall">5.1.1 function call through auto ref</a></h4>
 		<div style="background-color: #f00; width: 100%; height: 50px;">
 		</div>
 	</div>
@@ -938,6 +1010,13 @@ function toggleView(a, b, c)
 	<h3><a name="hexnum">6.7 Hexadecimal numbers</a></h3>
 	Numbers can be written in base 16, and must start with '0x':<br />
 	0x80 == 128
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="nullptr">6.8 Null pointer</a></h3>
+
+	<span class="rword">nullptr</span> acts as a constant of null pointer.<br />
+	<span class="rword">nullptr</span> can be asigned to any pointer of array with implicit size.<br />
 </div>
 <hr />
 
