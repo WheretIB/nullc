@@ -2043,7 +2043,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 			else if(expectedType->refLevel == 1 && expectedType->refLevel == paramType->refLevel && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
 				fRating += 5;	// array[N] ref -> array[] -> array[] ref
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef)
-				fRating;		// Inline function definition doesn't cost anything
+				continue;		// Inline function definition doesn't cost anything
 			else if(expectedType->refLevel == paramType->refLevel + 1 && expectedType->subType == paramType)
 				fRating += 5;	// type -> type ref
 			else if(expectedType == typeObject && paramType->refLevel)
