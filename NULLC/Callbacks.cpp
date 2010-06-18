@@ -2230,8 +2230,13 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			if(AddFunctionCallNode(pos, funcName, 1, true))
 				return true;
-			CodeInfo::nodeList.push_back(new NodeConvertPtr(CodeInfo::GetReferenceType(autoRefToType)));
-			CodeInfo::nodeList.push_back(new NodeDereference());
+			if(autoRefToType->refLevel)
+			{
+				CodeInfo::nodeList.push_back(new NodeConvertPtr(autoRefToType));
+			}else{
+				CodeInfo::nodeList.push_back(new NodeConvertPtr(CodeInfo::GetReferenceType(autoRefToType)));
+				CodeInfo::nodeList.push_back(new NodeDereference());
+			}
 			return true;
 		}
 	}
