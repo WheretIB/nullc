@@ -7056,6 +7056,13 @@ return arr2.size;";
 
 	TEST_FOR_FAIL("Usage of an undefined class", "class Foo{ Foo a; int i; }; Foo a; return 1;", "ERROR: Type 'Foo' is currently being defined. You can use 'Foo ref' or 'Foo[]' at this point");
 
+	TEST_FOR_FAIL("Reference to local 1", "auto foo1(){ int x; return &x; } return 0;", "ERROR: returning pointer to local variable 'x'");
+	TEST_FOR_FAIL("Reference to local 2", "auto foo2(int x){ return &x; } return 0;", "ERROR: returning pointer to local variable 'x'");
+	TEST_FOR_FAIL("Reference to local 3", "auto foo3(){ int[3] bar; int i = 2; return &bar[i]; } return 0;", "ERROR: returning pointer to local variable 'bar'");
+	TEST_FOR_FAIL("Reference to local 4", "import std.math; auto foo4(){ float4[3] bar; int i = 2; return &bar[i].x; } return 0;", "ERROR: returning pointer to local variable 'bar'");
+	TEST_FOR_FAIL("Reference to local 5", "import std.math; class Foo{ int[3] arr; float4[3] arr2;} auto foo5(){ Foo[3] bar; int i = 2; return &bar[i].arr[2]; } return 0;", "ERROR: returning pointer to local variable 'bar'");
+	TEST_FOR_FAIL("Reference to local 6", "import std.math; class Foo{ int[3] arr; float4[3] arr2;} auto foo6(){ Foo[3] bar; int i = 2; return &bar[i].arr2[2].w; } return 0;", "ERROR: returning pointer to local variable 'bar'");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
