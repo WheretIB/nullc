@@ -690,6 +690,11 @@ TestExtG6bFoo TestExtG6b(TestExtG6bFoo x)
 	return x;
 }
 
+int CheckAlignment(NULLCRef ptr, int alignment)
+{
+	intptr_t asInt = (intptr_t)ptr.ptr;
+	return asInt % alignment == 0;
+}
 
 void	RunTests2();
 
@@ -1040,6 +1045,8 @@ void	RunTests(bool verbose)
 	//nullcSetFileReadHandler(TestFileLoad);
 
 	nullcLoadModuleBySource("test.a", "import std.math; float4 a; a.x = 2;");
+	nullcLoadModuleBySource("test.alignment", "int CheckAlignment(auto ref ptr, int alignment);");
+	nullcBindModuleFunction("test.alignment", (void(*)())CheckAlignment, "CheckAlignment", 0);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
@@ -3576,23 +3583,24 @@ return m[1][3] + 2;";
 	}
 
 const char	*testMissingTests5 =
-"long a = 3, a2 = 1;\r\n\
+"import test.alignment;\r\n\
+long a = 3, a2 = 1;\r\n\
 long b1 = a ** 27;\r\n\
 long b2 = a2 ** 16884;\r\n\
 long b3 = a ** -0;\r\n\
 long b4 = a ** -1;\r\n\
 char f;\r\n\
-char ref k(){ align(16) char a; return &a; }\r\n\
-char ref r(){ align(16) char a; return k(); }\r\n\
-align(16) char ref i = r();\r\n\
-char ref k2(){ align(16) char a; return &a; }\r\n\
-char ref r2(){ align(16) char a; return k(); }\r\n\
-char ref i2 = r2();\r\n\
-return 1;";
+int k(){ align(16) char a; return CheckAlignment(&a, 16); }\r\n\
+int r(){ align(16) char a; return k(); }\r\n\
+int good = r();\r\n\
+int k2(){ align(16) char a; return CheckAlignment(&a, 16); }\r\n\
+int r2(){ align(16) char a; return k2(); }\r\n\
+good += r2();\r\n\
+return good;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMissingTests5, testTarget[t], "1", "Group of tests 5"))
+		if(RunCode(testMissingTests5, testTarget[t], "2", "Group of tests 5"))
 		{
 			lastFailed = false;
 			
@@ -3600,17 +3608,6 @@ return 1;";
 			CHECK_LONG("b2", 0, 1);
 			CHECK_LONG("b3", 0, 1);
 			CHECK_LONG("b4", 0, 0);
-
-			if(((int*)FindVar("i"))[0] % 16 != 0)
-			{
-				printf(" %s Failed. i unaligned\r\n", t == 0 ? "VM" : "X86");
-				lastFailed = true;
-			}
-			if(((int*)FindVar("i2"))[0] % 16 != 0)
-			{
-				printf(" %s Failed. i2 unaligned\r\n", t == 0 ? "VM" : "X86");
-				lastFailed = true;
-			}
 
 			if(!lastFailed)
 				passed[t]++;
