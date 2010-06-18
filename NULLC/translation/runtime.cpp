@@ -112,13 +112,6 @@ private:
 	FastVector(FastVector &r);
 };
 
-
-NULLCArray __makeNullcArray(void* ptr, unsigned int size)
-{
-	NULLCArray ret = { (char*)ptr, size };
-	return ret;
-}
-
 int			__nullcPow(int a, int b)
 {
 	return (int)pow((double)a, (double)b);
@@ -260,12 +253,12 @@ void  assert(int val, void* unused)
 	__assert(val);
 }
 
-void  assert(int val, NULLCArray message, void* unused)
+void  assert(int val, NULLCArray<char> message, void* unused)
 {
 	__assert(val);
 }
 
-int  __operatorEqual(NULLCArray a, NULLCArray b, void* unused)
+int  __operatorEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused)
 {
 	if(a.size != b.size)
 		return 0;
@@ -274,14 +267,14 @@ int  __operatorEqual(NULLCArray a, NULLCArray b, void* unused)
 	return 0;
 }
 
-int  __operatorNEqual(NULLCArray a, NULLCArray b, void* unused)
+int  __operatorNEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused)
 {
 	return !__operatorEqual(a, b, 0);
 }
 
-NULLCArray  __operatorAdd(NULLCArray a, NULLCArray b, void* unused)
+NULLCArray<char>  __operatorAdd(NULLCArray<char> a, NULLCArray<char> b, void* unused)
 {
-	NULLCArray ret;
+	NULLCArray<char> ret;
 
 	ret.size = a.size + b.size - 1;
 	ret.ptr = (char*)(intptr_t)__newS(ret.size, 0);
@@ -294,7 +287,7 @@ NULLCArray  __operatorAdd(NULLCArray a, NULLCArray b, void* unused)
 	return ret;
 }
 
-NULLCArray  __operatorAddSet(NULLCArray * a, NULLCArray b, void* unused)
+NULLCArray<char>  __operatorAddSet(NULLCArray<char> * a, NULLCArray<char> b, void* unused)
 {
 	return *a = __operatorAdd(*a, b, 0);
 }
@@ -329,9 +322,9 @@ double  double__(double a, void* unused)
 	return a;
 }
 
-NULLCArray  int__str(int* __context)
+NULLCArray<char>  int__str(int* __context)
 {
-	NULLCArray ret;
+	NULLCArray<char> ret;
 	return ret;
 }
 
@@ -342,9 +335,9 @@ int  __newS(int size, void* unused)
 	return (int)(intptr_t)ptr;
 }
 
-NULLCArray  __newA(int size, int count, void* unused)
+NULLCArray<void>  __newA(int size, int count, void* unused)
 {
-	NULLCArray ret;
+	NULLCArray<void> ret;
 	ret.size = count;
 	ret.ptr = (char*)malloc(size * count);
 	memset(ret.ptr, 0, size * count);
