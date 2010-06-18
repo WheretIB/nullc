@@ -6127,6 +6127,7 @@ return 1;";
 	TEST_FOR_RESULT("Array to auto[] type conversion and access 2.", "char[6] str = \"Hello\"; auto[] arr = str; return char(arr[3]) - 'l';", "0");
 	TEST_FOR_RESULT("auto[] type to array conversion 1", "auto str = \"Hello\"; auto[] arr = str; char[] str2 = arr; return str == str2;", "1");
 	TEST_FOR_RESULT("auto[] type to array conversion 2", "auto str = \"Hello\"; auto[] arr = str; char[6] str2 = arr; return str == str2;", "1");
+	TEST_FOR_RESULT("auto[] type to auto[] assignment", "auto str = \"Hello\"; auto[] arr = str; auto[] arr2 = arr; char[] str2 = arr; char[] str3 = arr2; return str2 == str3;", "1");
 
 	{
 		char code[8192];

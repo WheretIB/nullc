@@ -140,6 +140,7 @@ int __typeCount();\r\n\
 \r\n\
 auto[] ref operator=(auto[] ref l, auto ref r);\r\n\
 auto ref operator=(auto ref l, auto[] ref r);\r\n\
+auto[] ref operator=(auto[] ref l, auto[] ref r);\r\n\
 auto ref operator[](auto[] ref l, int index);\r\n\
 ";
 
@@ -265,6 +266,7 @@ Compiler::Compiler()
 
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssign, "=", 3);
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignRev, "=", 4);
+	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignSelf, "=", 5);
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayIndex, "[]", 0);
 
 #endif
