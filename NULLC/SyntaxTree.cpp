@@ -1147,7 +1147,7 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 			{
 				return NULL;	// cannot evaluate call with empty classes
 			}else{
-				// If this is first function call (from AddFunctionCallNode), and parameter is not a knpwn number, exit immediately.
+				// If this is first function call (from AddFunctionCallNode), and parameter is not a known number, exit immediately.
 				if(!nextFrameOffset && curr->nodeType != typeNodeNumber)
 					return NULL;
 				// Evaluate parameter value
@@ -1191,6 +1191,8 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 	}
 	// Call function
 	NodeNumber *result = ((NodeFuncDef*)funcInfo->functionNode)->Evaluate(memory, size);
+	if(result && result->typeInfo != funcInfo->retType)
+		result = NULL;
 	// Memoization
 	if(result)
 	{

@@ -7470,6 +7470,18 @@ return arr2.size;";
 
 	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x){ *this = x; return this; } return *new int(4);", "ERROR: constructor cannot be used after 'new' expression if return type is not void");
 
+#ifdef NULLC_PURE_FUNCTIONS
+const char	*testCompileTimeNoReturn =
+"int foo(int m)\r\n\
+{\r\n\
+	if(m == 0)\r\n\
+		return 1;\r\n\
+}\r\n\
+int[foo(3)] arr;";
+	TEST_FOR_FAIL("Compile time function evaluation doesn't return.", testCompileTimeNoReturn, "ERROR: array size must be a constant expression. During constant folding, 'foo' function couldn't be evaluated");
+
+#endif
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
