@@ -128,6 +128,7 @@ function toggleView(a, b, c)
 			<li><a href="#funcinline">Function Literals</a></li>
 			<li><a href="#funcoverload">Function overloading</a></li>
 			<li><a href="#funcoperators">Operator overloading</a></li>
+			<li><a href="#coroutine">Coroutines</a></li>
 		</ol>
 		<li><a href="#arrunsized">Arrays with implicit size</a></li>
 	</ol>
@@ -832,6 +833,131 @@ function toggleView(a, b, c)
 		For operators = += -= *= /= **= and [], first argument should be a reference to a type, but this is not necessary.<br />
 		Following unary operators can be overloaded:<br />
 		+ - ~ !<br />
+	</div>
+	<hr />
+	<div class="subtopic">
+		<h4><a name="coroutine">4.3.8 Coroutines</a></h4>
+
+		Coroutine is a function that can return execution to its caller and when it is called again, resume execution from the point it has left.<br />
+		When function is resumed, its local variable state is restored, but function arguments are equal to the ones that caller passed to it.<br />
+		<br />
+		Coroutine acts like a simple function, until <a href="#yield">yield</a> expression is used.<br />
+		<br />
+		Because <a href="#yield">yield</a> expression can accept a return value, function can virtually return multiple values during its execution.<br />
+		Coroutines can be used to implement cooperative tasks, iterators, infinite lists and pipes.<br />
+		<br />
+		To implement a coroutine, <span class="rword">coroutine</span> must be written before function return type.<br />
+		<div class="example">
+			<p class="example_head" id="coroutine_ex_1a" onmousedown="toggleView(&quot;coroutine_ex_1a&quot;, &quot;coroutine_ex_1b&quot, &quot;example of an ID generator.&quot;);">Show example of an ID generator.</p>
+			<p class="code example_body" id="coroutine_ex_1b">	
+<span class="comment">// coroutine, that returns different integer IDs every time it is called</span><br />
+<span class="rword">coroutine int</span> <span class="func">generate_id</span>()<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">int</span> ID = <span class="real">0x23efdd67</span>; <span class="comment">// starting ID</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 'infinite' loop will return IDs</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">while</span>(<span class="real">1</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">yield</span> <span class="var">ID</span>; <span class="comment">// return ID</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">ID</span>++; <span class="comment">// move to the next ID</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+}<br />
+<span class="rword">int</span> a = <span class="func">generate_id</span>(); <span class="comment">// 0x23efdd67</span><br />
+<span class="rword">int</span> b = <span class="func">generate_id</span>(); <span class="comment">// 0x23efdd68</span><br />
+			</p>
+		</div>
+		
+		<div class="example">
+			<p class="example_head" id="coroutine_ex_2a" onmousedown="toggleView(&quot;coroutine_ex_2a&quot;, &quot;coroutine_ex_2b&quot, &quot;example of a random number generator.&quot;);">Show example of a random number generator.</p>
+			<p class="code example_body" id="coroutine_ex_2b">	
+<span class="comment">// coroutine, that returns pseudo-random numbers in a range (0..32767)</span><br />
+<span class="rword">coroutine int</span> <span class="func">rand</span>()<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// starting seed</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">int</span> current = <span class="real">1</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 'infinite' loop will return pseudo-random numbers</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">while</span>(<span class="real">1</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">current</span> = <span class="var">current</span> * <span class="real">1103515245</span> + <span class="real">12345</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">yield</span> (<span class="var">current</span> >> <span class="real">16</span>) & <span class="real">32767</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+}<br />
+<span class="comment">// Generate an array of eight pseudo-random numbers </span><br />
+<span class="rword">int</span>[<span class="real">8</span>] array;<br />
+<span class="rword">for</span>(i <span class="rword">in</span> <span class="var">array</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">i</span> = <span class="func">rand</span>();<br />
+			</p>
+		</div>
+		It is possible to return coroutines as closures, to create generators with extra context.<br />
+		<div class="example">
+			<p class="example_head" id="coroutine_ex_3a" onmousedown="toggleView(&quot;coroutine_ex_3a&quot;, &quot;coroutine_ex_3b&quot, &quot;example of a forward iterator over vector contents.&quot;);">Show example of a forward iterator over vector contents.</p>
+			<p class="code example_body" id="coroutine_ex_3b">	
+<span class="rword">import std.vector;</span><br />
+<span class="comment">// Function will return forward iterator over vectors' values</span><br />
+<span class="rword">auto</span> <span class="func">forward_iterator</span>(<span class="rword">vector ref</span> x)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Every time the coroutine is called, it will return vector element and advance to the next</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">coroutine auto ref</span> <span class="func">iterate</span>()<br />
+&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Loop over all elements</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">for</span>(<span class="rword">int</span> i = <span class="real">0</span>; <span class="var">i</span> < <span class="var">x</span>.<span class="func">size</span>(); <span class="var">i</span>++)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">yield</span> <span class="var">x</span>[<span class="var">i</span>]; <span class="comment">// and return them one after the other</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// return statement can still be used in a coroutine.</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="rword">nullptr</span>; <span class="comment">// return null pointer to mark the end</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// return iterator function</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="var">iterate</span>;<br />
+}<br />
+<span class="comment">// create vector and add some numbers to it</span><br />
+<span class="rword">vector</span> a = <span class="func">vector</span>(<span class="rword">int</span>);<br />
+<span class="var">a</span>.<span class="func">push_back</span>(<span class="real">4</span>);<br />
+<span class="var">a</span>.<span class="func">push_back</span>(<span class="real">5</span>);<br />
+<span class="var">a</span>.<span class="func">push_back</span>(<span class="real">40</span>);<br />
+<br />
+<span class="comment">// Create iterator</span><br />
+<span class="rword">auto</span> it = <span class="func">forward_iterator</span>(<span class="var">a</span>);<br />
+<br />
+<span class="comment">// Find sum of all vector elements</span><br />
+<span class="rword">int</span> sum = <span class="real">0</span>;<br />
+<span class="rword">auto ref</span> x; <span class="comment">// variable to hold the pointer to current element</span><br />
+<span class="rword">while</span>(<span class="var">x</span> = <span class="func">it</span>()) <span class="comment">// iterate through all elements</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">sum</span> += <span class="func">int</span>(<span class="var">x</span>); <span class="comment">// and add them together</span><br />
+<br />
+<span class="rword">return</span> <span class="var">sum</span>; <span class="comment">// 49</span><br />
+			</p>
+		</div>
+		Using closures, lets rewrite pseudo-random number generator example to support multiple random generators with different seed in parallel.<br />
+		<div class="example">
+			<p class="example_head" id="coroutine_ex_4a" onmousedown="toggleView(&quot;coroutine_ex_4a&quot;, &quot;coroutine_ex_4b&quot, &quot;example of parallel random number generators.&quot;);">Show example of parallel random number generators.</p>
+			<p class="code example_body" id="coroutine_ex_4b">
+<span class="comment">// Function will return pseudo-random number generator with selected starting seed</span><br />
+<span class="rword">auto</span> <span class="func">get_rng</span>(<span class="rword">int</span> seed)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// coroutine, that returns pseudo-random numbers in a range (0..32767)</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">coroutine int</span> <span class="func">rand</span>()<br />
+&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// starting seed</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">int</span> current = <span class="var">seed</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 'infinite' loop will return pseudo-random numbers</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">while</span>(<span class="real">1</span>)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">current</span> = <span class="var">current</span> * <span class="real">1103515245</span> + <span class="real">12345</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">yield</span> (<span class="var">current</span> >> <span class="real">16</span>) & <span class="real">32767</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="var">rand</span>;<br />
+}<br />
+<span class="comment">// Create two pseudo-random number generators</span><br />
+<span class="rword">auto</span> rngA = <span class="func">get_rng</span>(<span class="real">1</span>);<br />
+<span class="rword">auto</span> rngB = <span class="func">get_rng</span>(<span class="real">0xdeaf</span>);<br />
+<br />
+<span class="comment">// Generate an array of eight pseudo-random numbers </span><br />
+<span class="rword">int</span>[<span class="real">8</span>] array;<br />
+<span class="rword">for</span></span>(<span class="rword">int</span> i = <span class="real">0</span>; <span class="var">i</span> < <span class="var">array</span>.<span class="var">size</span> / <span class="real">2</span>; <span class="var">i</span>++) <span class="comment">// one half - using first RNG</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">array</span>[<span class="var">i</span>] = <span class="func">rngA</span>();<br />
+<span class="rword">for</span></span>(<span class="rword">int</span> i = <span class="var">array</span>.<span class="var">size</span> / <span class="real">2</span>; <span class="var">i</span> < <span class="var">array</span>.<span class="var">size</span>; <span class="var">i</span>++) <span class="comment">// second half - using second RNG</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">array</span>[<span class="var">i</span>] = <span class="func">rngB</span>();<br />
+			</p>
+		</div>
 	</div>
 </div>
 <hr />
