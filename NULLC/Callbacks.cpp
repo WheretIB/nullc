@@ -1983,21 +1983,23 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		if(expectedType != paramType)
 		{
 			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
-				fRating += 2;
+				fRating += 2;	// array -> class (unsized array)
 			else if(expectedType->refLevel == 1 && expectedType->refLevel == paramType->refLevel && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
-				fRating += 5;
+				fRating += 5;	// array[N] ref -> array[] -> array[] ref
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef)
-				fRating += 5;
-			else if(expectedType->refLevel == paramType->refLevel+1 && expectedType->subType == paramType)
-				fRating += 5;
+				fRating;		// Inline function definition doesn't cost anything
+			else if(expectedType->refLevel == paramType->refLevel + 1 && expectedType->subType == paramType)
+				fRating += 5;	// type -> type ref
+			else if(expectedType == typeObject && paramType->refLevel)
+				fRating += 5;	// type ref -> auto ref
 			else if(expectedType == typeObject)
-				fRating += 5;
+				fRating += 10;	// type -> type ref -> auto ref
 			else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX)
-				return ~0u;	// If one of types is complex, and they aren't equal, function cannot match
+				return ~0u;		// If one of types is complex, and they aren't equal, function cannot match
 			else if(paramType->subType != expectedType->subType)
-				return ~0u;	// Pointer or array with a different type inside. Doesn't matter if simple or complex.
-			else	// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
-				fRating += 1;
+				return ~0u;		// Pointer or array with a different type inside. Doesn't matter if simple or complex.
+			else				// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
+				fRating += 1;	// type -> type
 		}
 	}
 	return fRating;

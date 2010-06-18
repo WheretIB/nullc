@@ -58,5 +58,6 @@ namespace NULLC
 
 	NULLCAutoArray* AutoArrayAssign(NULLCAutoArray* left, NULLCRef right);
 	NULLCRef AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right);
+	NULLCAutoArray* AutoArrayAssignSelf(NULLCAutoArray* left, NULLCAutoArray* right);
 	NULLCRef AutoArrayIndex(NULLCAutoArray* left, unsigned int index);
 }
