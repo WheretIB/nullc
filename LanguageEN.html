@@ -1351,13 +1351,13 @@ B int 5<br />
 	<h3><a name="convimplicit">8.3 Implicit conversions</a></h3>
 
 	Apart from implicit conversions from one basic type to the other, there are following implicit conversions between complex types:<br />
-	<ul>
-		<li>type[size] -> type[]</li>
-		<li>type[size] ref -> type[] ref</li>
-		<li>type -> auto ref</li>
-		<li>type ref -> auto ref</li>
-		<li>auto ref -> type ref</li>
-	</ul>
+	<p class="code">
+		<span class="rword">type</span>[<span class="real">N</span>] -> <span class="rword">type</span>[]<br />
+		<span class="rword">type</span>[<span class="real">N</span>] ref -> <span class="rword">type</span>[] ref<br />
+		<span class="rword">type</span> -> <span class="rword">auto ref</span> <span class="comment">// only in function argument list</span><br />
+		<span class="rword">type ref</span> -> <span class="rword">auto ref</span><br />
+		<span class="rword">auto ref</span> -> <span class="rword">type ref</span> <span class="comment">// <b>except</b> for function argument list</span><br />
+	</p>
 </div>
 <hr />
 	</body>
