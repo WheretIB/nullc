@@ -564,9 +564,10 @@ NodeNumber* NodeUnaryOp::Evaluate(char *memory, unsigned int size)
 //////////////////////////////////////////////////////////////////////////
 // Node that returns from function or program
 
-NodeReturnOp::NodeReturnOp(bool localRet, TypeInfo* tinfo, FunctionInfo* parentFunc)
+NodeReturnOp::NodeReturnOp(bool localRet, TypeInfo* tinfo, FunctionInfo* parentFunc, bool yield)
 {
 	localReturn = localRet;
+	yieldResult = yield;
 	parentFunction = parentFunc;
 
 	// Result type is set from outside
@@ -620,6 +621,9 @@ void NodeReturnOp::Compile()
 		retSize = 4;
 	if(parentFunction && parentFunction->closeUpvals)
 		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned short)CodeInfo::FindFunctionByPtr(parentFunction), 0));
+	// If return is from coroutine, we either need to reset jumpOffset to the beginning of a function, or set it to instruction after return
+	if(parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
+		cmdList.push_back(VMCmd(cmdYield, 0, yieldResult, parentFunction->allParamSize));	// 1 means save state and yield
 	cmdList.push_back(VMCmd(cmdReturn, (unsigned char)operType, (unsigned short)localReturn, retSize));
 }
 void NodeReturnOp::LogToStream(FILE *fGraph)
@@ -847,6 +851,9 @@ void NodeFuncDef::Compile()
 
 	// Save previous stack frame, and expand current by shift bytes
 	cmdList.push_back(VMCmd(cmdPushVTop, (unsigned short)(funcInfo->allParamSize + NULLC_PTR_SIZE), size));
+	// At the beginning of a coroutine, we need to jump to saved instruction offset
+	if(funcInfo->type == FunctionInfo::COROUTINE)
+		cmdList.push_back(VMCmd(cmdYield, 1, 0, funcInfo->allParamSize));	// pass an offset to closure
 	// Generate function code
 	first->Compile();
 
@@ -961,7 +968,7 @@ NodeFuncCall::NodeFuncCall(FunctionInfo *info, FunctionType *type)
 	// Result type is fetched from function type
 	typeInfo = funcType->retType;
 
-	if(funcInfo && funcInfo->type == FunctionInfo::LOCAL)
+	if(funcInfo && (funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::COROUTINE))
 		first = TakeLastNode();
 
 	if(!funcInfo)
@@ -2480,7 +2487,7 @@ NodeFunctionAddress::NodeFunctionAddress(FunctionInfo* functionInfo)
 	funcInfo = functionInfo;
 	typeInfo = funcInfo->funcType;
 
-	if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL)
+	if(funcInfo->type != FunctionInfo::NORMAL)
 		first = TakeLastNode();
 
 	nodeType = typeNodeFunctionAddress;
@@ -2505,7 +2512,7 @@ void NodeFunctionAddress::Compile()
 	{
 		NodeNumber nullPtr = NodeNumber(0ll, CodeInfo::GetReferenceType(typeVoid));
 		nullPtr.Compile();
-	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
+	}else{
 		first->Compile();
 	}
 }
@@ -2535,7 +2542,7 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
 		fprintf(fOut, "(void*)%uu", funcInfo->funcPtr ? ~0u : 0u);
-	}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::THISCALL){
+	}else{
 		if(first->nodeType == typeNodeDereference)
 		{
 			VariableInfo *closure = ((NodeGetAddress*)((NodeOneOP*)first)->GetFirstNode())->varInfo;

@@ -402,13 +402,18 @@ bool ParseFunctionVariables(Lexeme** str)
 	return true;
 }
 
-bool ParseFunctionDefinition(Lexeme** str)
+bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 {
 	Lexeme *start = *str - 1;
 	Lexeme *name = *str;
-	
+
 	if((*str)->type != lex_string && (*str)->type != lex_operator && !((*str)->type == lex_oparen && (*str - 1)->type == lex_auto))
-		return false;
+	{
+		if(coroutine)
+			ThrowError((*str)->pos, "ERROR: function name not found after return type");
+		else
+			return false;
+	}
 	bool typeMethod = false;
 	bool funcProperty = false;
 	if((*str)->type == lex_operator)
@@ -819,18 +824,18 @@ bool ParseSwitchExpr(Lexeme** str)
 	return true;
 }
 
-bool ParseReturnExpr(Lexeme** str)
+bool ParseReturnExpr(Lexeme** str, bool yield)
 {
 	const char* start = (*str)->pos;
-	if(!ParseLexem(str, lex_return))
+	if(!(yield ? ParseLexem(str, lex_yield) : ParseLexem(str, lex_return)))
 		return false;
 
 	if(!ParseVaribleSet(str))
-		CALLBACK(AddVoidNode());
+		AddVoidNode();
 
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError((*str)->pos, "ERROR: return statement must be followed by ';'");
-	CALLBACK(AddReturnNode(start));
+	AddReturnNode(start, yield);
 	return true;
 }
 
@@ -1292,6 +1297,9 @@ bool ParseExpression(Lexeme** str)
 	case lex_return:
 		ParseReturnExpr(str);
 		break;
+	case lex_yield:
+		ParseReturnExpr(str, true);
+		break;
 	case lex_break:
 		ParseBreakExpr(str);
 		break;
@@ -1316,6 +1324,14 @@ bool ParseExpression(Lexeme** str)
 	case lex_typedef:
 		ParseTypedefExpr(str);
 		CALLBACK(AddVoidNode());
+		break;
+	case lex_coroutine:
+		(*str)++;
+		BeginCoroutine();
+		if(!ParseSelectType(str))
+			ThrowError((*str)->pos, "ERROR: function return type not found after 'coroutine'");
+		if(!ParseFunctionDefinition(str, true))
+			ThrowError((*str)->pos, "ERROR: '(' expected after function name");
 		break;
 	default:
 		if(ParseSelectType(str))

@@ -603,7 +603,7 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
 }
 
-void AddReturnNode(const char* pos)
+void AddReturnNode(const char* pos, bool yield)
 {
 	bool localReturn = currDefinedFunc.size() != 0;
 
@@ -646,7 +646,7 @@ void AddReturnNode(const char* pos)
 		expectedType = realRetType;
 	}
 	// Add node and link source to instruction
-	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType, currDefinedFunc.size() ? currDefinedFunc.back() : NULL));
+	CodeInfo::nodeList.push_back(new NodeReturnOp(localReturn, expectedType, currDefinedFunc.size() ? currDefinedFunc.back() : NULL, yield));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
 
@@ -839,7 +839,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		if(!preferLastFunction && CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 
-		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL)
+		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL || CodeInfo::funcInfo[fID]->type == FunctionInfo::COROUTINE)
 		{
 			char	*contextName = AllocateString(CodeInfo::funcInfo[fID]->nameLength + 24);
 			int length = sprintf(contextName, "$%s_%d_ext", CodeInfo::funcInfo[fID]->name, CodeInfo::FindFunctionByPtr(CodeInfo::funcInfo[fID]));
@@ -878,7 +878,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				FunctionInfo *currFunc = currDefinedFunc.back();
 
 				TypeInfo *temp = CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(newType));
-				if(currDefinedFunc.back()->type == FunctionInfo::LOCAL)
+				if(currDefinedFunc.back()->type == FunctionInfo::LOCAL)// || currDefinedFunc.back()->type == FunctionInfo::COROUTINE)
 				{
 					// For local function, add "this" to context and get it from upvalue
 					assert(currDefinedFunc[0]->type == FunctionInfo::THISCALL);
@@ -894,8 +894,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		}
 
 		// If we try to access external variable from local function
-		if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) &&
+		if((currDefinedFunc.size() > 1 && currDefinedFunc.back()->type == FunctionInfo::LOCAL &&
 			vInfo->blockDepth > currDefinedFunc[0]->vTopSize && vInfo->blockDepth <= currDefinedFunc.back()->vTopSize)
+			||
+			(currDefinedFunc.size() && currDefinedFunc.back()->type == FunctionInfo::COROUTINE && vInfo->blockDepth > currDefinedFunc[0]->vTopSize)
+			)
 		{
 			// If that variable is not in current scope, we have to get it through current closure
 			FunctionInfo *currFunc = currDefinedFunc.back();
@@ -1605,6 +1608,12 @@ void AddTypeAllocation(const char* pos)
 	}
 }
 
+bool defineCoroutine = false;
+void BeginCoroutine()
+{
+	defineCoroutine = true;
+}
+
 void FunctionAdd(const char* pos, const char* funcName)
 {
 	unsigned int funcNameHash = GetStringHash(funcName), origHash = funcNameHash;
@@ -1633,11 +1642,21 @@ void FunctionAdd(const char* pos, const char* funcName)
 	{
 		lastFunc->type = FunctionInfo::THISCALL;
 		lastFunc->parentClass = newType;
+		if(defineCoroutine)
+			ThrowError(pos, "ERROR: coroutine cannot be a member function", funcName);
 	}
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
 	{
 		lastFunc->type = FunctionInfo::LOCAL;
 		lastFunc->parentClass = NULL;
+		if(defineCoroutine)
+			ThrowError(pos, "ERROR: coroutine cannot be a local function", funcName);
+	}
+	if(defineCoroutine)
+	{
+		lastFunc->type = FunctionInfo::COROUTINE;
+		lastFunc->parentClass = NULL;
+		defineCoroutine = false;
 	}
 	if(funcName[0] != '$' && !(chartype_table[(unsigned char)funcName[0]] & ct_start_symbol))
 		lastFunc->visible = false;
@@ -1743,6 +1762,13 @@ void FunctionStart(const char* pos)
 	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
 	lastFunc.extraParam = (VariableInfo*)AddVariable(pos, InplaceStr(hiddenHame, length));
+
+	if(lastFunc.type == FunctionInfo::COROUTINE)
+	{
+		currType = typeInt;
+		VariableInfo *jumpOffset = (VariableInfo*)AddVariable(pos, InplaceStr("$jmpOffset", 10));
+		AddFunctionExternal(&lastFunc, jumpOffset);
+	}
 	varDefined = false;
 }
 
@@ -1819,7 +1845,7 @@ void FunctionEnd(const char* pos)
 		lastFunc.pure = false;	// Pure functions return value must be simple type
 
 	// If function is local, create function parameters block
-	if(lastFunc.type == FunctionInfo::LOCAL && lastFunc.externalCount != 0)
+	if((lastFunc.type == FunctionInfo::LOCAL || lastFunc.type == FunctionInfo::COROUTINE) && lastFunc.externalCount != 0)
 	{
 		char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
 		int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
@@ -1881,14 +1907,24 @@ void FunctionEnd(const char* pos)
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, varInfo);
 
-		CodeInfo::nodeList.push_back(new NodeDereference(&lastFunc, currDefinedFunc.back()->allParamSize));
+		CodeInfo::nodeList.push_back(new NodeDereference(&lastFunc, lastFunc.type == FunctionInfo::COROUTINE ? 0 : currDefinedFunc.back()->allParamSize));
 
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
 			// Find in variable list
 			int i = CodeInfo::FindVariableByName(curr->variable->nameHash);
 			if(i == -1)
-				ThrowError(pos, "Can't capture variable %.*s", curr->variable->name.end-curr->variable->name.begin, curr->variable->name.begin);
+			{
+				// If not found, and this function is not a coroutine, than it's an internal compiler error
+				if(lastFunc.type != FunctionInfo::COROUTINE)
+					ThrowError(pos, "Can't capture variable %.*s", curr->variable->name.end-curr->variable->name.begin, curr->variable->name.begin);
+				// Mark position as invalid so that when closure is created, this variable will be closed immediately
+				curr->targetLocal = true;
+				curr->targetPos = ~0u;
+				curr->targetFunc = 0;
+				curr->targetDepth = 0;
+				continue;
+			}
 
 			// Find the function that scopes target variable
 			FunctionInfo *parentFunc = currDefinedFunc.back();
@@ -1902,7 +1938,7 @@ void FunctionEnd(const char* pos)
 			}
 
 			// If variable is not in current scope, get it through closure
-			if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL) &&
+			if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL || currDefinedFunc.back()->type == FunctionInfo::COROUTINE) &&
 				i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
 			{
 				// Add variable name to the list of function external variables
@@ -2440,7 +2476,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		HandlePointerToObject(pos, fType->paramType[i]);
 	}
 
-	if(fInfo && (fInfo->type == FunctionInfo::LOCAL))
+	if(fInfo && (fInfo->type == FunctionInfo::LOCAL || fInfo->type == FunctionInfo::COROUTINE))
 	{
 		char	*contextName = AllocateString(fInfo->nameLength + 24);
 		int length = sprintf(contextName, "$%s_%d_ext", fInfo->name, CodeInfo::FindFunctionByPtr(fInfo));

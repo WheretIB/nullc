@@ -640,7 +640,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 	{
 		FunctionInfo *func = CodeInfo::funcInfo[oldFuncCount + i];
 		// Handle only global visible functions
-		if(!func->visible || func->type == FunctionInfo::LOCAL)
+		if(!func->visible || func->type == FunctionInfo::LOCAL || func->type == FunctionInfo::COROUTINE)
 			continue;
 		// Go through all function parameters
 		VariableInfo *param = func->firstParam;
@@ -831,7 +831,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		{
 			FunctionInfo *func = CodeInfo::funcInfo[i];
 			// Handle only global visible functions
-			if(!func->visible || func->type == FunctionInfo::LOCAL)
+			if(!func->visible || func->type == FunctionInfo::LOCAL || func->type == FunctionInfo::COROUTINE)
 				continue;
 			// Go through all function parameters
 			VariableInfo *param = func->firstParam;
@@ -1569,7 +1569,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.externCount = refFunc->externalCount;
 		if(funcInfo.externCount)
 		{
-			assert(refFunc->type == FunctionInfo::LOCAL);
+			assert(refFunc->type == FunctionInfo::LOCAL || refFunc->type == FunctionInfo::COROUTINE);
 			funcInfo.parentType = refFunc->extraParam->varType->typeIndex;
 		}
 		localOffset += refFunc->externalCount;
