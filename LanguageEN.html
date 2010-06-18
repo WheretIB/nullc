@@ -131,6 +131,7 @@ function toggleView(a, b, c)
 			<li><a href="#auterefcast">explicit conversion</a></li>
 			<li><a href="#autorefcall">function call through auto ref</a></li>
 		</ol>
+		<li><a href="#autoarray">auto[]</a></li>
 		<li><a href="#typeid">typeid</a></li>
 	</ol>
 	<li>Miscellaneous</li>
@@ -727,7 +728,41 @@ function toggleView(a, b, c)
 	<div class="subtopic">
 		<h4><a name="funcclosure">4.3.3 Closures</a></h4>
 
-		<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+		It is possible to take pointers to local functions, assign them to function pointer variables and return them from functions.<br />
+		Since locals are removed from stack when function ends, all removed locals used by local function are copied to function object and remain valid.<br />
+
+		<div class="example">
+			<p class="example_head" id="closure_ex_1a" onmousedown="toggleView(&quot;closure_ex_1a&quot;, &quot;closure_ex_1b&quot, &quot;example of closure creation and usage.&quot;);">Show example of closure creation and usage.</p>
+			<p class="code example_body" id="closure_ex_1b">
+<span class="comment">// Import library for text output</span><br />
+<span class="rword">import</span> <span class="var">std</span>.<span class="var">io</span>;<br />
+<br />
+<span class="comment">// Function creates closure that sequentially returns numbers in a specified range with wrap to minimum after reaching maximum</span><br />
+<span class="rword">auto</span> <span class="func">sequence_range</span>(<span class="rword">int</span> <span class="var">min</span>, <span class="var">max</span>)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Initial position is 0</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">int</span> pos = <span class="real">0</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// This is the function that will be returned</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">int</span> <span class="func">generator</span>()<br />
+&nbsp;&nbsp;&nbsp;&nbsp;{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> (<span class="var">pos</span>++) % (<span class="var">max</span> - <span class="var">min</span> + <span class="real">1</span>) + <span class="var">min</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;}<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Return local function</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// All locals used in function (min, max, pos) are saved to function object and remain valid (and unique) for future function calls</span><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="var">generator</span>;<br />
+}<br />
+<span class="comment">// Create two range generators</span><br />
+<span class="rword">auto</span> from2to10 = <span class="func">sequence_range</span>(<span class="real">2</span>, <span class="real">10</span>);<br />
+<span class="rword">auto</span> from5to6 = <span class="func">sequence_range</span>(<span class="real">5</span>, <span class="real">6</span>);<br />
+<br />
+<span class="comment">// Retrieve some numbers</span><br />
+<span class="var">io</span>.<span class="var">out</span> << <span class="func">from2to10</span>() << " " << <span class="func">from5to6</span>() << <span class="var">io</span>.<span class="var">endl</span>; <span class="comment">// 2 5</span><br />
+<span class="var">io</span>.<span class="var">out</span> << <span class="func">from2to10</span>() << " " << <span class="func">from5to6</span>() << <span class="var">io</span>.<span class="var">endl</span>; <span class="comment">// 3 6</span><br />
+<span class="var">io</span>.<span class="var">out</span> << <span class="func">from2to10</span>() << " " << <span class="func">from5to6</span>() << <span class="var">io</span>.<span class="var">endl</span>; <span class="comment">// 4 5</span><br />
+<br />
+<span class="rword">return</span> 0;<br />
+			</p>
+		</div>
 	</div>
 	<hr />
 	<div class="subtopic">
@@ -799,8 +834,8 @@ function toggleView(a, b, c)
 		<span class="rword">int</span>[][<span class="real">3</span>] arr1a = arr1;<br />
 		arr1a = arr2;
 	</p>
-	type[] size is 8 bytes (it consists of pointer to an array and a size field).<br />
-	To get array size, use its "size" field:
+	type[] consists of a pointer to an array and a size field.<br />
+	To get array size, use its "size" field:<br />
 	<p class="code">
 		<span class="rword">int</span> count = arr1a.size;
 	</p>
@@ -829,7 +864,14 @@ function toggleView(a, b, c)
 </div>
 <hr />
 <div class="topic">
-	<h3><a name="typeid">5.2 typeid</a></h3>
+	<h3><a name="autoarray">5.2 auto[]</a></h3>
+
+	<div style="background-color: #f00; width: 100%; height: 50px;">
+	</div>
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="typeid">5.3 typeid</a></h3>
 
 	<div style="background-color: #f00; width: 100%; height: 50px;">
 	</div>
