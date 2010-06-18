@@ -6331,6 +6331,78 @@ for(i in arr2)\r\n\
 return (t1 == 567756) + (t2 == 234423);";
 	TEST_FOR_RESULT("Coroutine 11 (coroutine in local function with local function inside).", testCoroutine10, "2");
 
+const char	*testCoroutine11 =
+"coroutine int gen3from(int xx)\r\n\
+{\r\n\
+	int x = 3;\r\n\
+	int ref() m;\r\n\
+	for(int i = 0; i < 3; i++)\r\n\
+	{\r\n\
+		int help()\r\n\
+		{\r\n\
+			return x + i;\r\n\
+		}\r\n\
+		yield help();\r\n\
+		m = help;\r\n\
+	}\r\n\
+	return m();\r\n\
+}\r\n\
+auto gen3from5 = gen3from;\r\n\
+auto gen3from2 = gen3from;\r\n\
+\r\n\
+int t1 = 0, t2 = 0;\r\n\
+int[6] arr1;\r\n\
+for(i in arr1)\r\n\
+{\r\n\
+	i = gen3from5(5);\r\n\
+	t1 = t1 * 10 + i;\r\n\
+}\r\n\
+\r\n\
+int[6] arr2;\r\n\
+for(i in arr2)\r\n\
+{\r\n\
+	i = gen3from2(2);\r\n\
+	t2 = t2 * 10 + i;\r\n\
+}\r\n\
+return (t1 == 345534) + (t2 == 553455);";
+	TEST_FOR_RESULT("Coroutine 11 (coroutine with local function inside).", testCoroutine11, "2");
+
+
+const char	*testCoroutine12 =
+"coroutine int gen3from(int x)\r\n\
+{\r\n\
+	int ref() m;\r\n\
+	for(int i = 0; i < 3; i++)\r\n\
+	{\r\n\
+		int help()\r\n\
+		{\r\n\
+			return x + i;\r\n\
+		}\r\n\
+		yield help();\r\n\
+		m = help;\r\n\
+	}\r\n\
+	return m();\r\n\
+}\r\n\
+auto gen3from5 = gen3from;\r\n\
+auto gen3from2 = gen3from;\r\n\
+\r\n\
+int t1 = 0, t2 = 0;\r\n\
+int[6] arr1;\r\n\
+for(i in arr1)\r\n\
+{\r\n\
+	i = gen3from5(5);\r\n\
+	t1 = t1 * 10 + i;\r\n\
+}\r\n\
+\r\n\
+int[6] arr2;\r\n\
+for(i in arr2)\r\n\
+{\r\n\
+	i = gen3from2(2);\r\n\
+	t2 = t2 * 10 + i;\r\n\
+}\r\n\
+return (t1 == 567756) + (t2 == 442344);";
+	TEST_FOR_RESULT("Coroutine 12 (coroutine with local function inside, argument closure).", testCoroutine12, "2");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -7285,6 +7357,8 @@ return arr2.size;";
 	TEST_FOR_FAIL("Reference to local 4", "import std.math; auto foo4(){ float4[3] bar; int i = 2; return &bar[i].x; } return 0;", "ERROR: returning pointer to local variable 'bar'");
 	TEST_FOR_FAIL("Reference to local 5", "import std.math; class Foo{ int[3] arr; float4[3] arr2;} auto foo5(){ Foo[3] bar; int i = 2; return &bar[i].arr[2]; } return 0;", "ERROR: returning pointer to local variable 'bar'");
 	TEST_FOR_FAIL("Reference to local 6", "import std.math; class Foo{ int[3] arr; float4[3] arr2;} auto foo6(){ Foo[3] bar; int i = 2; return &bar[i].arr2[2].w; } return 0;", "ERROR: returning pointer to local variable 'bar'");
+
+	TEST_FOR_FAIL("Can't yield if not a coroutine", "int test(){ yield 4; } return test();", "ERROR: yield can only be used inside a coroutine");
 
 	//TEST_FOR_FAIL("parsing", "");
 

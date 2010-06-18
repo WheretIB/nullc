@@ -636,6 +636,8 @@ void AddReturnNode(const char* pos, bool yield)
 			ThrowError(pos, "ERROR: 'void' function returning a value");
 		if(expectedType != typeVoid && realRetType == typeVoid)
 			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
+		if(yield && currDefinedFunc.back()->type != FunctionInfo::COROUTINE)
+			ThrowError(pos, "ERROR: yield can only be used inside a coroutine");
 	}else{
 		// Check for errors
 		if(realRetType == typeVoid)
@@ -1949,9 +1951,15 @@ void FunctionEnd(const char* pos)
 				}
 			}
 
-			// If variable is not in current scope, get it through closure
-			if(currDefinedFunc.size() > 1 && (currDefinedFunc.back()->type == FunctionInfo::LOCAL || currDefinedFunc.back()->type == FunctionInfo::COROUTINE) &&
-				i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt)
+			// If variable is not in current scope (or a local in case of a coroutine), get it through closure
+			bool externalAccess = currDefinedFunc.size() && i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt;
+			if(currDefinedFunc.size() &&
+				(
+					(currDefinedFunc.back()->type == FunctionInfo::LOCAL && externalAccess)
+					||
+					(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || (unsigned)i >= varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt + currDefinedFunc.back()->paramCount))
+				)
+			)
 			{
 				// Add variable name to the list of function external variables
 				FunctionInfo::ExternalInfo *external = AddFunctionExternal(currDefinedFunc.back(), CodeInfo::varInfo[i]);
