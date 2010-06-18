@@ -897,7 +897,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		if((currDefinedFunc.size() > 1 && currDefinedFunc.back()->type == FunctionInfo::LOCAL &&
 			vInfo->blockDepth > currDefinedFunc[0]->vTopSize && vInfo->blockDepth <= currDefinedFunc.back()->vTopSize)
 			||
-			(currDefinedFunc.size() && currDefinedFunc.back()->type == FunctionInfo::COROUTINE && vInfo->blockDepth > currDefinedFunc[0]->vTopSize)
+			(currDefinedFunc.size() && currDefinedFunc.back()->type == FunctionInfo::COROUTINE && vInfo->blockDepth > currDefinedFunc[0]->vTopSize && vInfo->pos > currDefinedFunc.back()->allParamSize)
 			)
 		{
 			// If that variable is not in current scope, we have to get it through current closure
@@ -1027,7 +1027,18 @@ void AddDefineVariableNode(const char* pos, void* varInfo, bool noOverload)
 		varTop += realCurrType->size;
 	}
 
-	CodeInfo::nodeList.push_back(new NodeGetAddress(variableInfo, variableInfo->pos, variableInfo->isGlobal, variableInfo->varType));
+	if(currDefinedFunc.size() && currDefinedFunc.back()->type == FunctionInfo::COROUTINE && variableInfo->blockDepth > currDefinedFunc[0]->vTopSize && variableInfo->pos > currDefinedFunc.back()->allParamSize)
+	{
+		// If that variable is not in current scope, we have to get it through current closure
+		FunctionInfo *currFunc = currDefinedFunc.back();
+		// Add variable to the list of function external variables
+		FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, variableInfo);
+
+		assert(currFunc->allParamSize % 4 == 0);
+		CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(variableInfo->varType)));
+	}else{
+		CodeInfo::nodeList.push_back(new NodeGetAddress(variableInfo, variableInfo->pos, variableInfo->isGlobal, variableInfo->varType));
+	}
 
 	varDefined = false;
 
