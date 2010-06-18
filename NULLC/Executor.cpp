@@ -3,12 +3,6 @@
 
 #include "StdLib.h"
 
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-	#define DBG(x) x
-#else
-	#define DBG(x)
-#endif
-
 long long vmLongPow(long long num, long long pow)
 {
 	if(pow < 0)
@@ -538,8 +532,6 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions), exTypes(linker->exTypes), breakCode(128), gateCode(4096)
 {
-	DBG(executeLog = fopen("log.txt", "wb"));
-
 	genStackBase = NULL;
 	genStackPtr = NULL;
 	genStackTop = NULL;
@@ -559,8 +551,6 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 
 Executor::~Executor()
 {
-	DBG(fclose(executeLog));
-
 	NULLC::dealloc(genStackBase);
 }
 
@@ -695,16 +685,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	while(cmdStream)
 	{
 		const VMCmd &cmd = *cmdStream;
-		DBG(PrintInstructionText(executeLog, cmd, paramBase, genParams.size()));
 		cmdStream++;
 
-#ifdef NULLC_VM_DEBUG
-		if(genStackSize < 0)
-		{
-			assert(!"stack underflow");
-			break;
-		}
-#endif
 		#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
 			insCallCount[cmd.cmd]++;
 			insExecuted++;
@@ -1576,11 +1558,6 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			break;
 		}
-
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-		fprintf(executeLog, ";\r\n");
-		fflush(executeLog);
-#endif
 	}
 	// If there was an execution error
 	if(errorState)
@@ -2223,17 +2200,3 @@ void Executor::UpdateInstructionPointer()
 	}
 	cmdBase = &exLinker->exCode[0];
 }
-
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-// Print instruction info into stream in a readable format
-void PrintInstructionText(FILE* logASM, VMCmd cmd, unsigned int rel, unsigned int top)
-{
-	char	buf[128];
-	memset(buf, ' ', 128);
-	char	*curr = buf;
-	curr += cmd.Decode(buf);
-	*curr = ' ';
-	sprintf(&buf[50], " rel = %d; top = %d", rel, top);
-	fwrite(buf, 1, strlen(buf), logASM);
-}
-#endif

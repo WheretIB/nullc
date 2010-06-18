@@ -47,9 +47,6 @@ private:
 	long long		lastResultLong;
 	double			lastResultDouble;
 
-#ifdef NULLC_VM_LOG_INSTRUCTION_EXECUTION
-	FILE*		executeLog;
-#endif
 	char		execError[ERROR_BUFFER_SIZE];
 	char		execResult[64];
 
