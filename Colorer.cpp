@@ -252,7 +252,7 @@ namespace ColorerGrammar
 				) >>
 				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd];
 
-			funccall	=	varname[ColorFunc] >> fcallpart;
+			funccall	=	(typeExpr | varname)[ColorFunc] >> fcallpart;
 
 			fcallpart	=
 				strP("(")[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >>
@@ -423,7 +423,7 @@ namespace ColorerGrammar
 				(group >> *postExpr) |
 				(funccall[FuncCall] >> *postExpr) |
 				(typeExpr) |
-				(!chP('*')[ColorText] >> appval[GetVar] >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall >> *postExpr) | epsP));
+				(((+chP('*')[ColorText] >> term1) | appval) >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall >> *postExpr) | epsP));
 			term2	=	term1 >> *(strP("**")[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
 			term3	=	term2 >> *((chP('*') | chP('/') | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));
 			term4	=	term3 >> *((chP('+') | chP('-'))[ColorText] >> (term3 | epsP[LogError("ERROR: expression not found after operator")]));
