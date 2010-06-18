@@ -8035,7 +8035,7 @@ return 0;";
 			if(!lastFailed)
 				passed[t]++;
 		}
-		printf("%s finished in %f\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
+		printf("%s finished in %f (single run is %f)\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart, (myGetPreciseTime() - tStart) / 10000.0);
 	}
 #endif
 

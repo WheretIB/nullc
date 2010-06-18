@@ -215,7 +215,6 @@ void* NULLC::AllocObject(int size)
 	void *data = NULL;
 	size += 4;
 
-#ifdef ENABLE_GC
 	if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 	{
 		CollectMemory();
@@ -227,7 +226,6 @@ void* NULLC::AllocObject(int size)
 	}else if((unsigned int)(usedMemory + size) > collectableMinimum){
 		CollectMemory();
 	}
-#endif
 	unsigned int realSize = size;
 	if(size <= 64)
 	{
@@ -370,7 +368,6 @@ void* NULLC::GetBasePointer(void* ptr)
 	return NULL;
 }
 
-#ifdef ENABLE_GC
 void NULLC::CollectMemory()
 {
 //	printf("%d used memory (%d collectable cap, %d max cap)\r\n", usedMemory, collectableMinimum, globalMemoryLimit);
@@ -432,7 +429,6 @@ void NULLC::CollectMemory()
 	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
 		collectableMinimum <<= 1;
 }
-#endif
 
 double NULLC::MarkTime()
 {
