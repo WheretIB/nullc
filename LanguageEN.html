@@ -1127,8 +1127,16 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="autoarray">5.2 auto[]</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;">
-	</div>
+	<span class="rword">auto</span>[] type is an array with implicit type.<br />
+	<br />
+	Folowing <b>explicit</b> conversions are supported (all checks are done in run-time):<br />
+	<p class="code">
+		<span class="rword">type</span>[] = <span class="rword">auto</span>[]; <span class="comment">// auto[] element type must be equal to type</span><br />
+		<span class="rword">type</span>[<span class="real">N</span>] = <span class="rword">auto</span>[]; <span class="comment">// auto[] element type and array size must be equal</span><br />
+		<span class="rword">auto</span>[] = <span class="rword">type</span>[];<br />
+		<span class="rword">auto</span>[] = <span class="rword">type</span>[<span class="real">N</span>];<br />
+	</p>
+	<span class="rword">auto</span>[] array indexing operator[] returns <span class="rword">auto ref</span> type with a pointer to selected element.<br />
 </div>
 <hr />
 <div class="topic">
