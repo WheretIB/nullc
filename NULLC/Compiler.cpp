@@ -556,7 +556,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			SelectTypeByIndex(typeRemap[vInfo->type]);
 			AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName));
 			CodeInfo::varInfo.back()->parentModule = number;
-			CodeInfo::varInfo.back()->pos += (number << 24);
+			CodeInfo::varInfo.back()->pos = (number << 24) + (vInfo->offset & 0x00ffffff);
 		}
 	}else{
 		return false;

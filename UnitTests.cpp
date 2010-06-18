@@ -7138,6 +7138,48 @@ return a;";
 
 	nullcTerminate();
 	nullcInit(MODULE_PATH);
+	nullcInitDynamicModule();
+
+const char	*testCoroutineAndEval =
+"import std.dynamic;\r\n\
+coroutine int foo()\r\n\
+{\r\n\
+	int i = 0;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	return i;\r\n\
+}\r\n\
+foo();\r\n\
+int x = foo();\r\n\
+int a = 5;\r\n\
+\r\n\
+for(int i = 0; i < 200; i++)\r\n\
+	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
+int y = foo();\r\n\
+return x * 10 + y;";
+	testCount[0]++;
+	if(RunCode(testCoroutineAndEval, testTarget[0], "12", "Coroutine and dynamic code. eval()"))
+		passed[0]++;
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+	nullcInitDynamicModule();
+
+const char	*testVariableImportCorrectness =
+"import std.dynamic;\r\n\
+int x = 2;\r\n\
+eval(\"x = 4;\");\r\n\
+{ int n, m; }\r\n\
+int y = 3;\r\n\
+eval(\"y = 8;\");\r\n\
+return x * 10 + y;";
+	testCount[0]++;
+	if(RunCode(testVariableImportCorrectness, testTarget[0], "48", "Variable import correctness"))
+		passed[0]++;
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
 	nullcInitGCModule();
 	nullcSetGlobalMemoryLimit(1024 * 1024);
 
