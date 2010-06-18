@@ -313,6 +313,7 @@ protected:
 	friend class NodeVariableModify;
 	friend class NodePreOrPostOp;
 	friend class NodeFunctionAddress;
+	friend class NodeReturnOp;
 
 	TypeInfo		*typeOrig;
 	VariableInfo	*varInfo;

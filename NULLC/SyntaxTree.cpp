@@ -576,6 +576,12 @@ NodeReturnOp::NodeReturnOp(bool localRet, TypeInfo* tinfo, FunctionInfo* parentF
 	if(first->nodeType == typeNodeNumber && first->typeInfo != typeInfo)
 		((NodeNumber*)first)->ConvertTo(typeInfo);
 
+	if(first->nodeType == typeNodeGetAddress && ((NodeGetAddress*)first)->varInfo && ((NodeGetAddress*)first)->varInfo->parentFunction == parentFunc)
+	{
+		VariableInfo &info = *((NodeGetAddress*)first)->varInfo;
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: returning pointer to local variable '%.*s'", int(info.name.end - info.name.begin), info.name.begin);
+	}
+
 	nodeType = typeNodeReturnOp;
 }
 NodeReturnOp::~NodeReturnOp()
