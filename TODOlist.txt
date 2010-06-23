@@ -5,14 +5,12 @@ Core:
 	5. f. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
 	8. b. double->int and double->long conversion should be done using chop rounding mode
 	9. b. Fix alignment of dynamically allocated variables.
-	13. f. member constructors for basic types
 
 Library:
 	1. f. string
 	2. f. hash_map
 	3. f. sort
 	4. f. containers for pointers
-	5. f. const_string
 
 Debug:
 	1. f. Breakpoints on x86
@@ -176,3 +174,5 @@ DONE: Fix pointer constructors
 DONE: Array size must be read-only
 DONE: auto ref and auto[] fields should be read-only
 DONE: Enable conversion of default argument values
+DONE: member constructors for basic types
+DONE: const_string

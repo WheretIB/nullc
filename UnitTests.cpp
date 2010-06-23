@@ -6545,14 +6545,14 @@ return -*test(5);";
 
 
 const char	*testConstructorAfterNew =
-"void int:int(int x){ *this = x; }\r\n\
-int ref a = new int(5);\r\n\
+"void int:int(int x, y){ *this = x; }\r\n\
+int ref a = new int(5, 0);\r\n\
 int foo(int ref x){ return *x; }\r\n\
-return *a + foo(new int(30));";
+return *a + foo(new int(30, 0));";
 	TEST_FOR_RESULT("Type constructor after new.", testConstructorAfterNew, "35");
 
-	TEST_FOR_RESULT("Type constructor after new 2.", "void int:int(int x){ *this = x; } return *new int(4);", "4");
-	TEST_FOR_RESULT("Type constructor after new 3.", "void int:int(){ } return *new int();", "0");
+	TEST_FOR_RESULT("Type constructor after new 2.", "class Test{ int x; } void Test:Test(int x){ this.x = x; } return (new Test(4)).x;", "4");
+	TEST_FOR_RESULT("Type constructor after new 3.", "class Test{ int x; } void Test:Test(){ } return (new Test()).x;", "0");
 
 	TEST_FOR_RESULT("Function default argument conversion 1", "int foo(char[] a = \"xx\"){return a[0]+a[1];} return foo() + foo(\"cc\");", "438"); // 2*0x78 + 2*0x63
 	TEST_FOR_RESULT("Function default argument conversion 2", "int x = 5; int foo(auto ref a = &x){return int(a);} return foo() + foo(4);", "9");
@@ -7707,7 +7707,7 @@ return arr2.size;";
 	TEST_FOR_FAIL("Operation unsupported on reference 3", "int x; int ref y = &x; return *y--;", "ERROR: decrement is not supported on 'int ref'");
 	TEST_FOR_FAIL("Operation unsupported on reference 4", "int x; int ref y = &x; return *--y;", "ERROR: decrement is not supported on 'int ref'");
 
-	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x){ *this = x; return this; } return *new int(4);", "ERROR: constructor cannot be used after 'new' expression if return type is not void");
+	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x, y){ *this = x; return this; } return *new int(4, 8);", "ERROR: constructor cannot be used after 'new' expression if return type is not void");
 
 #ifdef NULLC_PURE_FUNCTIONS
 const char	*testCompileTimeNoReturn =
