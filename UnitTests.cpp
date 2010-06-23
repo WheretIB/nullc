@@ -6689,6 +6689,29 @@ int a = int(fib(-10));\r\n\
 return a*100**0 + b*100**1 + c*100**2 + d*100**3;";
 	TEST_FOR_RESULT("Pattern matcing", testPatternMatching, "1028900");
 
+const char	*testMemberFunctionPointerCall1 =
+"class Test\r\n\
+{\r\n\
+	int ref(int) func;\r\n\
+}\r\n\
+Test a;\r\n\
+a.func = auto(int x){ return -x; };\r\n\
+\r\n\
+return a.func(5);";
+	TEST_FOR_RESULT("Member function pointer call 1", testMemberFunctionPointerCall1, "-5");
+
+const char	*testMemberFunctionPointerCall2 =
+"class Test\r\n\
+{\r\n\
+	int ref(int) func;\r\n\
+}\r\n\
+auto a = new Test;\r\n\
+a.func = auto(int x){ return -x; };\r\n\
+\r\n\
+return a.func(5);";
+	TEST_FOR_RESULT("Member function pointer call 2", testMemberFunctionPointerCall2, "-5");
+
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 

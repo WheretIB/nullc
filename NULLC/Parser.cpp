@@ -353,15 +353,31 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	functionName[(*str)->length] = 0;
 	(*str) += 2;
 
+	// PrepareMemberCall may signal that this is not actually a member function call
+	bool wasMemberCall = memberFunctionCall;
+	// Prepare member function call
 	if(memberFunctionCall)
-		CALLBACK(PrepareMemberCall((*str)->pos));
+		memberFunctionCall = PrepareMemberCall((*str)->pos, functionName);
 
+	// If it was a member function call, but isn't now, then we should take function pointer from the top of node list
+	NodeZeroOP *fAddress = NULL;
+	if(!memberFunctionCall && wasMemberCall)
+	{
+		fAddress = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+	}
+	// Parse function arguments
 	unsigned int callArgCount = ParseFunctionArguments(str);
 
 	if(memberFunctionCall)
-		CALLBACK(AddMemberFunctionCall((*str)->pos, functionName, callArgCount));
-	else
-		CALLBACK(AddFunctionCallNode((*str)->pos, functionName, callArgCount));
+	{
+		AddMemberFunctionCall((*str)->pos, functionName, callArgCount);
+	}else{
+		// If it was a member function call, but isn't now, push node that calculates function pointer
+		if(wasMemberCall)
+			CodeInfo::nodeList.push_back(fAddress);
+		AddFunctionCallNode((*str)->pos, wasMemberCall ? NULL : functionName, callArgCount);
+	}
 
 	return true;
 }
