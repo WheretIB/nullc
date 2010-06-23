@@ -431,6 +431,13 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 			else
 				(*str)++;
 		}
+		if((*str)->type == lex_oparen)
+		{
+			if((*str)[1].type != lex_cparen)
+				ThrowError((*str)->pos, "ERROR: ')' not found after '(' in operator definition");
+			else
+				(*str)++;
+		}
 	}else if((*str)->type == lex_string && ((*str + 1)->type == lex_colon || (*str + 1)->type == lex_point)){
 		TypeInfo *retType = (TypeInfo*)CALLBACK(GetSelectedType());
 		if(!ParseSelectType(str))
@@ -462,6 +469,10 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 	}else if((*str)->type == lex_cbracket){
 		functionName = (char*)stringPool.Allocate(16);
 		sprintf(functionName, "[]");
+		(*str)++;
+	}else if((*str)->type == lex_cparen){
+		functionName = (char*)stringPool.Allocate(16);
+		sprintf(functionName, "()");
 		(*str)++;
 	}else{
 		static int unnamedFuncCount = 0;

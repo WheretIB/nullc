@@ -283,17 +283,23 @@ namespace ColorerGrammar
 				!strWP("coroutine")[ColorRWord] >>
 				(
 					(strP("auto")[ColorRWord] >> chP('(')[ColorBold]) |
-					(typeExpr >> (
-						(typenameP(typeName)[ColorRWord] >> (chP(':') | chP('.'))[ColorBold] >> (varname[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >> chP('(')[ColorBold]) |
-						(varname[ColorFunc] >> chP('(')[ColorBold]) |
-						(	strP("operator")[ColorRWord] >>
-							(strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("and") | strP("or") | strP("xor") |
-							strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**=") |
-							chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('!') | chP('~') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') | (chP('[') >> chP(']')) |
-							chP('='))[ColorText] >>
-							chP('(')[ColorBold]
-						)
-					)[SetTempStr])
+					(typeExpr >>
+						(
+							(
+								strP("operator")[ColorRWord] >> epsP[LogError("ERROR: operator found")] >>
+								(
+									strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("&&") | strP("||") | strP("^^") | strP("()") |
+									strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**=") |
+									chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('!') | chP('~') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') |
+									(chP('[') >> chP(']')) | (chP('(') >> chP(')')) |
+									chP('=')
+								)[ColorText] >>
+								chP('(')[ColorBold]
+							) |
+							(typenameP(typeName)[ColorRWord] >> (chP(':') | chP('.'))[ColorBold] >> (varname[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >> chP('(')[ColorBold]) |
+							(varname[ColorFunc] >> chP('(')[ColorBold])
+						)[SetTempStr]
+					)
 				)[PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
 				(
 					(*(symb | digitP))[ColorErr] >>
