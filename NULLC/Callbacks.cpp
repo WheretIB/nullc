@@ -2722,11 +2722,9 @@ void TypeBegin(const char* pos, const char* end)
 	sprintf(typeNameCopy, "%.*s", (int)(end - pos), pos);
 
 	unsigned int hash = GetStringHash(typeNameCopy);
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-	{
-		if(CodeInfo::typeInfo[i]->nameHash == hash)
-			ThrowError(pos, "ERROR: '%s' is being redefined", typeNameCopy);
-	}
+	TypeInfo **type = CodeInfo::classMap.find(hash);
+	if(type)
+		ThrowError(pos, "ERROR: '%s' is being redefined", typeNameCopy);
 	newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
 	newType->originalIndex = CodeInfo::typeInfo.size();
