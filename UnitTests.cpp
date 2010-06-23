@@ -7562,6 +7562,9 @@ int[foo(3)] arr;";
 
 #endif
 
+	TEST_FOR_FAIL("Inline function with wrong type", "int foo(int ref(int) x){ return x(4); } foo(auto(){});", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("Function argument already defined", "int foo(int x, x){ return x + x; } return foo(5, 4);", "ERROR: parameter with name 'x' is already defined");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
