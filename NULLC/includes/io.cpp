@@ -86,6 +86,12 @@ namespace NULLCIO
 		return ((unsigned int)len < data.len ? len : data.len);
 	}
 
+	void WriteToConsoleExact(NullCArray data)
+	{
+		InitConsole();
+		fwrite(data.ptr, 1, data.len, stdout);
+	}
+
 	void SetConsoleCursorPos(int x, int y)
 	{
 #if !defined(_MSC_VER)
@@ -138,6 +144,7 @@ bool	nullcInitIOModule()
 	REGISTER_FUNC(WriteCharConsole, "Print", 4);
 	REGISTER_FUNC(ReadTextFromConsole, "Input", 0);
 	REGISTER_FUNC(ReadIntFromConsole, "Input", 1);
+	REGISTER_FUNC(WriteToConsoleExact, "Write", 0);
 	REGISTER_FUNC(SetConsoleCursorPos, "SetConsoleCursorPos", 0);
 
 	REGISTER_FUNC(GetKeyboardState, "GetKeyboardState", 0);
