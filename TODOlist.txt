@@ -5,7 +5,6 @@ Core:
 	5. f. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
 	8. b. double->int and double->long conversion should be done using chop rounding mode
 	9. b. Fix alignment of dynamically allocated variables.
-	15 b. Fix pointer constructors
 
 Library:
 	1. f. string
@@ -171,3 +170,4 @@ DONE: auto[]
 DONE: stack frames should be cleared in jit
 DONE: Let user set the global memory maximum.
 DONE: fmod is used in x86 JiT for double modulus division.
+DONE: Fix pointer constructors
