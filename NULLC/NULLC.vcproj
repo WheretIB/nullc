@@ -134,7 +134,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="..\bin\NULLC_dbg.lib"
+				OutputFile="..\bin\NULLC_dbg_x64.lib"
 				IgnoreAllDefaultLibraries="true"
 			/>
 			<Tool
@@ -268,7 +268,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="..\bin\NULLC.lib"
+				OutputFile="..\bin\NULLC_x64.lib"
 				IgnoreAllDefaultLibraries="true"
 			/>
 			<Tool
