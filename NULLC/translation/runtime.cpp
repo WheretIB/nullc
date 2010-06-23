@@ -112,6 +112,51 @@ private:
 	FastVector(FastVector &r);
 };
 
+FastVector<NULLCTypeInfo>	__nullcTypeList;
+unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category)
+{
+	for(unsigned int i = 0; i < __nullcTypeList.size(); i++)
+	{
+		if(__nullcTypeList[i].hash == hash)
+			return i;
+	}
+	__nullcTypeList.push_back(NULLCTypeInfo());
+	__nullcTypeList.back().hash = hash;
+	__nullcTypeList.back().name = name;
+	__nullcTypeList.back().size = size;
+	__nullcTypeList.back().subTypeID = subTypeID;
+	__nullcTypeList.back().memberCount = memberCount;
+	__nullcTypeList.back().category = category;
+	return __nullcTypeList.size() - 1;
+}
+
+NULLCTypeInfo* __nullcGetTypeInfo(unsigned id)
+{
+	return &__nullcTypeList[id];
+}
+bool nullcIsArray(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->category == NULLC_ARRAY;
+}
+
+const char* nullcGetTypeName(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->name;
+}
+
+unsigned int nullcGetArraySize(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->memberCount;
+}
+unsigned int nullcGetSubType(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->subTypeID;
+}
+unsigned int nullcGetTypeSize(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->size;
+}
+
 int			__nullcPow(int a, int b)
 {
 	return (int)pow((double)a, (double)b);
@@ -214,10 +259,10 @@ void __nullcCloseUpvalue(__nullcUpvalue *&head, void *ptr)
 		curr = next;
 	}
 }
-NULLCFuncPtr	__nullcMakeFunction(void* ptr, void* context)
+NULLCFuncPtr	__nullcMakeFunction(unsigned int id, void* context)
 {
 	NULLCFuncPtr ret;
-	ret.ptr = ptr;
+	ret.id = id;
 	ret.context = context;
 	return ret;
 }
@@ -331,10 +376,28 @@ double  double__(double a, void* unused)
 	return a;
 }
 
-NULLCArray<char>  int__str(int* __context)
+NULLCArray<char>  int__str_char___ref__(int* r)
 {
-	NULLCArray<char> ret;
-	return ret;
+	int number = *r;
+	bool sign = 0;
+	char buf[16];
+	char *curr = buf;
+	if(number < 0)
+		sign = 1;
+
+	*curr++ = (char)(abs(number % 10) + '0');
+	while(number /= 10)
+		*curr++ = (char)(abs(number % 10) + '0');
+	if(sign)
+		*curr++ = '-';
+	NULLCArray<char> arr = __newA(1, (int)(curr - buf) + 1, 0);
+	char *str = arr.ptr;
+	do 
+	{
+		--curr;
+		*str++ = *curr;
+	}while(curr != buf);
+	return arr;
 }
 
 int  __newS(int size, void* unused)
@@ -356,6 +419,10 @@ NULLCArray<void>  __newA(int size, int count, void* unused)
 NULLCRef  duplicate(NULLCRef obj, void* unused)
 {
 	NULLCRef ret;
+	ret.typeID = obj.typeID;
+	unsigned int objSize = nullcGetTypeSize(ret.typeID);
+	ret.ptr = (char*)__newS(objSize, 0);
+	memcpy(ret.ptr, obj.ptr, objSize);
 	return ret;
 }
 
@@ -367,29 +434,6 @@ void nullcThrowError(const char* error, ...)
 	va_end(args);
 }
 
-FastVector<NULLCTypeInfo>	__nullcTypeList;
-unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category)
-{
-	for(unsigned int i = 0; i < __nullcTypeList.size(); i++)
-	{
-		if(__nullcTypeList[i].hash == hash)
-			return i;
-	}
-	__nullcTypeList.push_back(NULLCTypeInfo());
-	__nullcTypeList.back().hash = hash;
-	__nullcTypeList.back().name = name;
-	__nullcTypeList.back().size = size;
-	__nullcTypeList.back().subTypeID = subTypeID;
-	__nullcTypeList.back().memberCount = memberCount;
-	__nullcTypeList.back().category = category;
-	return __nullcTypeList.size() - 1;
-}
-
-NULLCTypeInfo* __nullcGetTypeInfo(unsigned id)
-{
-	return &__nullcTypeList[id];
-}
-
 unsigned int typeid__(NULLCRef type, void* unused)
 {
 	return type.typeID;
@@ -397,39 +441,16 @@ unsigned int typeid__(NULLCRef type, void* unused)
 
 int __pcomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused)
 {
-	return a.context == b.context && a.ptr == b.ptr;
+	return a.context == b.context && a.id == b.id;
 }
 int __pncomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused)
 {
-	return a.context != b.context || a.ptr != b.ptr;
+	return a.context != b.context || a.id != b.id;
 }
 
 int __typeCount(void* unused)
 {
 	return __nullcTypeList.size();
-}
-
-bool nullcIsArray(unsigned int typeID)
-{
-	return __nullcGetTypeInfo(typeID)->category == NULLC_ARRAY;
-}
-
-const char* nullcGetTypeName(unsigned int typeID)
-{
-	return __nullcGetTypeInfo(typeID)->name;
-}
-
-unsigned int nullcGetArraySize(unsigned int typeID)
-{
-	return __nullcGetTypeInfo(typeID)->memberCount;
-}
-unsigned int nullcGetSubType(unsigned int typeID)
-{
-	return __nullcGetTypeInfo(typeID)->subTypeID;
-}
-unsigned int nullcGetTypeSize(unsigned int typeID)
-{
-	return __nullcGetTypeInfo(typeID)->size;
 }
 
 NULLCAutoArray* __operatorSet(NULLCAutoArray* left, NULLCRef right, void* unused)
@@ -500,11 +521,11 @@ NULLCRef __operatorIndex(NULLCAutoArray* left, unsigned int index, void* unused)
 	return ret;
 }
 
-NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* arr)
+NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* arr, void* unused)
 {
 	unsigned int *funcs = (unsigned int*)arr->ptr;
 	NULLCFuncPtr ret = { 0, 0 };
-	/*if(r.typeID > arr->size)
+	if(r.typeID > arr->size)
 	{
 		nullcThrowError("ERROR: type index is out of bounds of redirection table");
 		return ret;
@@ -526,6 +547,33 @@ NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* arr)
 		return ret;
 	}
 	ret.context = r.ptr;
-	ret.id = funcs[r.typeID];*/
+	ret.id = funcs[r.typeID];
 	return ret;
+}
+
+NULLCArray<char>* __operatorSet(NULLCArray<char>* dst, NULLCArray<int> src, void* unused)
+{
+	if(dst->size < src.size)
+		*dst = __newA(1, src.size, 0);
+	for(int i = 0; i < src.size; i++)
+		((char*)dst->ptr)[i] = ((int*)src.ptr)[i];
+	return dst;
+}
+// short inline array definition support
+NULLCArray<short>* __operatorSet(NULLCArray<short>* dst, NULLCArray<int> src, void* unused)
+{
+	if(dst->size < src.size)
+		*dst = __newA(2, src.size, 0);
+	for(int i = 0; i < src.size; i++)
+		((short*)dst->ptr)[i] = ((int*)src.ptr)[i];
+	return dst;
+}
+// float inline array definition support
+NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src, void* unused)
+{
+	if(dst->size < src.size)
+		*dst = __newA(4, src.size, 0);
+	for(int i = 0; i < src.size; i++)
+		((float*)dst->ptr)[i] = ((double*)src.ptr)[i];
+	return dst;
 }

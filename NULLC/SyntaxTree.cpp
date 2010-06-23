@@ -27,28 +27,37 @@ void OutputIdent(FILE *fOut)
 		fprintf(fOut, "\t");
 }
 
-void OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo)
+void GetCFunctionName(char* fName, unsigned int size, FunctionInfo *funcInfo)
 {
 	const char *namePrefix = *funcInfo->name == '$' ? "__" : "";
 	unsigned int nameShift = *funcInfo->name == '$' ? 1 : 0;
-	char fName[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
-	SafeSprintf(fName, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, (funcInfo->type == FunctionInfo::LOCAL || !funcInfo->visible) ? "%s%s_%d" : "%s%s", namePrefix, funcInfo->name + nameShift, CodeInfo::FindFunctionByPtr(funcInfo));
-	if(const char *opName = funcInfo->GetOperatorName())
+	unsigned int finalLength = 0;
+	const char *printedName = funcInfo->GetOperatorName();
+	if(funcInfo->type == FunctionInfo::LOCAL || !funcInfo->visible)
+		finalLength = SafeSprintf(fName, size, "%s%s_%d", namePrefix, printedName ? printedName : (funcInfo->name + nameShift), CodeInfo::FindFunctionByPtr(funcInfo));
+	else if(funcInfo->type == FunctionInfo::THISCALL)
+		finalLength = SafeSprintf(fName, size, "%s%s_%s", namePrefix, printedName ? printedName : (funcInfo->name + nameShift), funcInfo->funcType->GetFullTypeName());
+	else
+		finalLength = SafeSprintf(fName, size, "%s%s", namePrefix, printedName ? printedName : (funcInfo->name + nameShift));
+	
+	for(unsigned int k = 0; k < finalLength; k++)
 	{
-		strcpy(fName, opName);
-	}else{
-		for(unsigned int k = 0; k < funcInfo->nameLength; k++)
-		{
-			if(fName[k] == ':' || fName[k] == '$' || fName[k] == '[' || fName[k] == ']')
-				fName[k] = '_';
-		}
-		TypeInfo **type = CodeInfo::classMap.find(funcInfo->nameHash);
-		if(type)
-			strcat(fName, "__");
+		if(fName[k] == ':' || fName[k] == '$' || fName[k] == '[' || fName[k] == ']' || fName[k] == ' ' || fName[k] == '(' || fName[k] == ')' || fName[k] == ',')
+			fName[k] = '_';
 	}
+	TypeInfo **type = CodeInfo::classMap.find(funcInfo->nameHash);
+	if(type)
+		strcat(fName, "__");
+	
 	unsigned int length = (unsigned int)strlen(fName);
 	if(fName[length-1] == '$')
 		fName[length-1] = '_';
+}
+
+void OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo)
+{
+	char fName[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
+	GetCFunctionName(fName, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, funcInfo);
 	fprintf(fOut, "%s", fName);
 }
 
@@ -375,8 +384,11 @@ void NodeNumber::LogToStream(FILE *fGraph)
 void NodeNumber::TranslateToC(FILE *fOut)
 {
 	if(typeInfo->refLevel)
-		fprintf(fOut, "(void*)(%d)", num.integer);
-	else if(typeInfo == typeChar || typeInfo == typeShort || typeInfo == typeInt)
+	{
+		fprintf(fOut, "(");
+		typeInfo->OutputCType(fOut, "");
+		fprintf(fOut, ")(%d)", num.integer);
+	}else if(typeInfo == typeChar || typeInfo == typeShort || typeInfo == typeInt)
 		fprintf(fOut, "%d", num.integer);
 	else if(typeInfo == typeDouble)
 		fprintf(fOut, "%f", num.real);
@@ -525,6 +537,12 @@ void NodeUnaryOp::TranslateToC(FILE *fOut)
 	case cmdLogNot:
 		fprintf(fOut, "!");
 		break;
+	case cmdPushTypeID:
+		fprintf(fOut, "__nullcTR[%d]", vmCmd.argument);
+		return;
+	case cmdFuncAddr:
+		fprintf(fOut, "%d", vmCmd.argument);
+		return;
 	default:
 		fprintf(fOut, "%%unknown_unary_command%%");
 	}
@@ -893,11 +911,11 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 		OutputCFunctionName(fOut, funcInfo);
 		fprintf(fOut, "(");
 
-		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		char name[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
 		VariableInfo *param = funcInfo->firstParam;
 		for(; param; param = param->next)
 		{
-			sprintf(name, "%.*s_%d", int(param->name.end - param->name.begin), param->name.begin, param->pos);
+			SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "%.*s_%d", int(param->name.end - param->name.begin), param->name.begin, param->pos);
 			param->varType->OutputCType(fOut, name);
 			fprintf(fOut, ", ");
 		}
@@ -920,7 +938,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 			OutputIdent(fOut);
 			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-			unsigned int length = sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin) - nameShift, local->name.begin+nameShift, local->pos);
+			unsigned int length = SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin) - nameShift, local->name.begin+nameShift, local->pos);
 			for(unsigned int k = 0; k < length; k++)
 			{
 				if(name[k] == ':' || name[k] == '$')
@@ -1089,9 +1107,9 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 		}
 		fprintf(fOut, "void*))");
 
-		fprintf(fOut, "(");
+		fprintf(fOut, "__nullcFR[(");
 		first->TranslateToC(fOut);
-		fprintf(fOut, ").ptr)");
+		fprintf(fOut, ").id])");
 	}
 	fprintf(fOut, "(");
 	NodeZeroOP	*curr = paramTail;
@@ -2538,9 +2556,7 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 	TranslateToCExtra(fOut);
 	nodeDereferenceEndInComma = false;
 	OutputIdent(fOut);
-	fprintf(fOut, "__nullcMakeFunction((void*)");
-	OutputCFunctionName(fOut, funcInfo);
-	fprintf(fOut, ", ");
+	fprintf(fOut, "__nullcMakeFunction(%d, ", CodeInfo::FindFunctionByPtr(funcInfo));
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
 		fprintf(fOut, "(void*)%uu", funcInfo->funcPtr ? ~0u : 0u);
@@ -3636,7 +3652,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			fprintf(fOut, ", ");
 			end = first->next;
 		}
-		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+		if(tail->prev != end->prev && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
 			fprintf(fOut, "__makeNullcArray<");
 			typeInfo->subType->OutputCType(fOut, "");
@@ -3660,7 +3676,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			curr = curr->prev;
 		}while(curr != end->prev);
 
-		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+		if(tail->prev != end->prev && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 			fprintf(fOut, ")");
 
 		if(first->nodeType == typeNodePopOp)

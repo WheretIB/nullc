@@ -4,6 +4,7 @@
 #include "ParseClass.h"
 
 void	ResetTreeGlobals();
+void	GetCFunctionName(char* fName, unsigned int size, FunctionInfo *funcInfo);
 void	OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo);
 
 //////////////////////////////////////////////////////////////////////////
