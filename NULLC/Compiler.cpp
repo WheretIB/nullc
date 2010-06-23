@@ -142,6 +142,26 @@ auto[] ref operator=(auto[] ref l, auto ref r);\r\n\
 auto ref operator=(auto ref l, auto[] ref r);\r\n\
 auto[] ref operator=(auto[] ref l, auto[] ref r);\r\n\
 auto ref operator[](auto[] ref l, int index);\r\n\
+// const string implementation\r\n\
+class const_string\r\n\
+{\r\n\
+	char[] arr;\r\n\
+	int size{ get{ return arr.size; } };\r\n\
+}\r\n\
+auto operator=(const_string ref l, char[] arr)\r\n\
+{\r\n\
+	l.arr = arr;\r\n\
+	return l;\r\n\
+}\r\n\
+const_string const_string(char[] arr)\r\n\
+{\r\n\
+	const_string ret = arr;\r\n\
+	return ret;\r\n\
+}\r\n\
+char operator[](const_string ref l, int index)\r\n\
+{\r\n\
+	return l.arr[index];\r\n\
+}\r\n\
 ";
 
 Compiler::Compiler()

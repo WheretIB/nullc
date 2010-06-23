@@ -158,8 +158,8 @@ class xml_attribute
 
 	int empty();
 
-	char[] name();
-	char[] value();
+	const_string name();
+	const_string value();
 }
 xml_attribute ref operator=(xml_attribute ref att, char[] rhs);
 xml_attribute ref operator=(xml_attribute ref att, int rhs);
@@ -194,8 +194,8 @@ class xml_node
 	int empty();
 
 	xml_node_type type();
-	char[] name();
-	char[] value();
+	const_string name();
+	const_string value();
 
 	xml_node child(char[] name);
 	xml_attribute attribute(char[] name);
@@ -209,12 +209,10 @@ class xml_node
 	xml_node parent();
 	xml_node root();
 
-	char[] child_value();
-	char[] child_value(char[] name);
-
+	const_string child_value();
+	const_string child_value(char[] name);
 	
 	int set_name(char[] rhs);
-	
 	int set_value(char[] rhs);
 
 	xml_attribute append_attribute(char[] name);
@@ -279,7 +277,7 @@ class xml_parse_result
 	encoding_t encoding;
 
 	/// Get error description
-	char[] description();
+	const_string description();
 }
 
 class xml_document
