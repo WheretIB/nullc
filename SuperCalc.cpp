@@ -52,6 +52,8 @@
 
 #include "NULLC/includes/canvas.h"
 
+#include "NULLC/includes/pugi.h"
+
 #define MAX_LOADSTRING 100
 
 HINSTANCE hInst;
@@ -521,6 +523,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		strcat(initError, "ERROR: Failed to init std.time module\r\n");
 	if(!nullcInitGCModule())
 		strcat(initError, "ERROR: Failed to init std.gc module\r\n");
+
+	if(!nullcInitPugiXMLModule())
+		strcat(initError, "ERROR: Failed to init ext.pugixml module\r\n");
 
 	nullcLoadModuleBySource("ide.debug", "void _debugBreak();");
 	nullcBindModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);

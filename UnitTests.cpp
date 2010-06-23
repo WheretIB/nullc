@@ -6543,6 +6543,23 @@ return *a + foo(new int(30));";
 	TEST_FOR_RESULT("Type constructor after new 2.", "void int:int(int x){ *this = x; } return *new int(4);", "4");
 	TEST_FOR_RESULT("Type constructor after new 3.", "void int:int(){ } return *new int();", "0");
 
+#if 0
+	TEST_FOR_RESULT("Function default argument conversion 1", "int foo(char[] a = \"xx\"){return a[0]+a[1];} return foo() + foo(\"cc\");", "438"); // 2*0x78 + 2*0x63
+	TEST_FOR_RESULT("Function default argument conversion 2", "int x = 5; int foo(auto ref a = &x){return int(a);} return foo() + foo(4);", "9");
+
+	nullcLoadModuleBySource("test.defargs5", "int foo(int x, char[] a = \"xx\", int y = 0){return x + a[0] + a[1];}");
+const char	*testDefaultFunctionArgumentExport5 =
+"import test.defargs5;\r\n\
+return foo(0) + foo(0, \"cc\");";
+	TEST_FOR_RESULT("Default function argument export and import 5", testDefaultFunctionArgumentExport5, "438");
+
+	nullcLoadModuleBySource("test.defargs6", "int x = 5; int foo(auto ref a = &x){return int(a);}");
+const char	*testDefaultFunctionArgumentExport6 =
+"import test.defargs6;\r\n\
+return foo() + foo(4);";
+	TEST_FOR_RESULT("Default function argument export and import 6", testDefaultFunctionArgumentExport6, "9");
+#endif
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
