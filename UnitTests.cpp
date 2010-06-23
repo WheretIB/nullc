@@ -6641,14 +6641,12 @@ class Function\r\n\
 \r\n\
 auto ref operator()(Function ref f, auto ref[] args)\r\n\
 {\r\n\
-	for(FunctionKV i in (*f).patterns)\r\n\
+	for(FunctionKV i in f.patterns)\r\n\
 	{\r\n\
-		if((i.pattern)(args))\r\n\
-		{\r\n\
-			return (i.function)(args);\r\n\
-		}\r\n\
+		if(i.pattern(args))\r\n\
+			return i.function(args);\r\n\
 	}\r\n\
-	return (f.elseFunction)(args);\r\n\
+	return f.elseFunction(args);\r\n\
 }\r\n\
 \r\n\
 Function fib;\r\n\
@@ -6665,7 +6663,7 @@ fib\r\n\
 ).bind_function(\r\n\
 	auto(auto ref[] args)\r\n\
 	{\r\n\
-		return args[0].type == int && int(args[0]) == 2;\r\n\
+		return args[0].type == int && int(args[0]) == 1;\r\n\
 	},\r\n\
 	auto ref f(auto ref[] args)\r\n\
 	{\r\n\
@@ -6687,7 +6685,7 @@ int c = int(fib(2));\r\n\
 int b = int(fib(10));\r\n\
 int a = int(fib(-10));\r\n\
 return a*100**0 + b*100**1 + c*100**2 + d*100**3;";
-	TEST_FOR_RESULT("Pattern matcing", testPatternMatching, "1028900");
+	TEST_FOR_RESULT("Pattern matcing", testPatternMatching, "1015500");
 
 const char	*testMemberFunctionPointerCall1 =
 "class Test\r\n\
@@ -6711,6 +6709,20 @@ a.func = auto(int x){ return -x; };\r\n\
 return a.func(5);";
 	TEST_FOR_RESULT("Member function pointer call 2", testMemberFunctionPointerCall2, "-5");
 
+const char	*testForEach5 =
+"import std.vector;\r\n\
+class Test\r\n\
+{\r\n\
+	vector a;\r\n\
+}\r\n\
+auto a = new Test;\r\n\
+a.a = vector(int);\r\n\
+a.a.push_back(10);\r\n\
+a.a.push_back(105);\r\n\
+int sum = 0;\r\n\
+for(int i in a.a) sum += i;\r\n\
+return sum;";
+	TEST_FOR_RESULT("For each on a member of a type that we had a reference to", testForEach5, "115");
 
 #ifdef FAILURE_TEST
 

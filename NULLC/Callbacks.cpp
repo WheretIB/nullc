@@ -1488,7 +1488,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	// If value dereference was already called, but we need to get a pointer to array
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
 	{
-		CodeInfo::nodeList.back() = ((NodeOneOP*)CodeInfo::nodeList.back())->GetFirstNode();
+		((NodeDereference*)CodeInfo::nodeList.back())->Neutralize();
 	}else{
 		// Or if it wasn't called, for example, inplace array definition/function call/etc, we make a temporary variable
 		AddInplaceVariable(pos);
