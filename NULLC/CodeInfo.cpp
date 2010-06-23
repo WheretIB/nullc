@@ -135,9 +135,5 @@ int CodeInfo::FindFunctionByName(unsigned int hash, int startPos)
 
 unsigned int CodeInfo::FindFunctionByPtr(FunctionInfo* funcPtr)
 {
-	for(unsigned int i = 0; i < funcInfo.size(); i++)
-		if(funcInfo[i] == funcPtr)
-			return i;
-
-	return ~0u;
+	return funcPtr ? funcPtr->indexInArr : ~0u;
 }

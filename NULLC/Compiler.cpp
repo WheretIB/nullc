@@ -254,6 +254,7 @@ Compiler::Compiler()
 	typeTop = TypeInfo::GetPoolTop();
 
 	typeMap.init();
+	funcMap.init();
 
 	realGlobalCount = 0;
 
@@ -323,6 +324,7 @@ Compiler::~Compiler()
 	NodeZeroOP::ResetNodes();
 
 	typeMap.reset();
+	funcMap.reset();
 }
 
 void Compiler::ClearState()
@@ -607,12 +609,18 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		const unsigned int INDEX_NONE = ~0u;
 
 		unsigned int index = INDEX_NONE;
-		for(unsigned int n = 0; n < oldFuncCount && index == INDEX_NONE; n++)
-		{
-			if(CodeInfo::funcInfo[n]->nameHash == fInfo->nameHash && CodeInfo::funcInfo[n]->funcType == CodeInfo::typeInfo[typeRemap[fInfo->funcType]])
-				index = n;
-		}
 
+		TypeInfo* remappedType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
+		HashMap<unsigned int>::Node *curr = funcMap.first(fInfo->nameHash);
+		while(curr)
+		{
+			if(curr->value < oldFuncCount && CodeInfo::funcInfo[curr->value]->funcType == remappedType)
+			{
+				index = curr->value;
+				break;
+			}
+			curr = funcMap.next(curr);
+		}
 		if(index == INDEX_NONE)
 		{
 			unsigned int strLength = (unsigned int)strlen(symbols + fInfo->offsetToName) + 1;
@@ -624,10 +632,13 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				hashOriginal = GetStringHash(extendEnd + 2);
 
 			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy, fInfo->nameHash, hashOriginal));
+			funcMap.insert(CodeInfo::funcInfo.back()->nameHash, CodeInfo::funcInfo.size()-1);
+
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
 			AddFunctionToSortedList(lastFunc);
 
+			lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;
 			lastFunc->address = fInfo->funcPtr ? -1 : 0;
 			lastFunc->funcPtr = fInfo->funcPtr;
 
@@ -746,6 +757,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		lexer.Clear();
 		moduleSource.clear();
 		dupStringsModule.Clear();
+		funcMap.clear();
 	}
 	unsigned int lexStreamStart = lexer.GetStreamSize();
 	lexer.Lexify(str);

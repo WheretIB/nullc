@@ -81,6 +81,8 @@ private:
 	HashMap<TypeInfo*>				typeMap;
 	FastVector<unsigned int>		typeRemap;
 
+	HashMap<unsigned int>			funcMap;
+
 	unsigned int typeTop;
 	unsigned int realGlobalCount;
 };
