@@ -12,12 +12,18 @@
 
 // NULLC modules
 #include "../NULLC/includes/file.h"
+#include "../NULLC/includes/io.h"
 #include "../NULLC/includes/math.h"
 #include "../NULLC/includes/string.h"
+#include "../NULLC/includes/vector.h"
+#include "../NULLC/includes/list.h"
+#include "../NULLC/includes/map.h"
+#include "../NULLC/includes/hashmap.h"
+#include "../NULLC/includes/random.h"
+#include "../NULLC/includes/time.h"
+#include "../NULLC/includes/gc.h"
 
 #include "../NULLC/includes/canvas.h"
-
-#include "../NULLC/includes/io.h"
 
 #ifdef BUILD_FOR_WINDOWS
 	#include "../NULLC/includes/window.h"
@@ -27,6 +33,67 @@ int main(int argc, char** argv)
 {
 	nullcInit("Modules\\");
 
+	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : "nullclib_x64.ncm", "rb");
+	if(!modulePack)
+	{
+		printf("WARNING: Failed to open precompiled module file");
+		printf(sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : "nullclib_x64.ncm\r\n");
+	}else{
+		fseek(modulePack, 0, SEEK_END);
+		unsigned int fileSize = ftell(modulePack);
+		fseek(modulePack, 0, SEEK_SET);
+		char *fileContent = new char[fileSize];
+		fread(fileContent, 1, fileSize, modulePack);
+		fclose(modulePack);
+
+		char *filePos = fileContent;
+		while((unsigned int)(filePos - fileContent) < fileSize)
+		{
+			char *moduleName = filePos;
+			filePos += strlen(moduleName) + 1;
+			char *binaryCode = filePos;
+			filePos += *(unsigned int*)binaryCode;
+			nullcLoadModuleByBinary(moduleName, binaryCode);
+		}
+
+		delete[] fileContent;
+	}
+
+	if(!nullcInitTypeinfoModule())
+		printf("ERROR: Failed to init std.typeinfo module\r\n");
+	if(!nullcInitDynamicModule())
+		printf("ERROR: Failed to init std.dynamic module\r\n");
+
+	if(!nullcInitFileModule())
+		printf("ERROR: Failed to init std.file module\r\n");
+	if(!nullcInitIOModule())
+		printf("ERROR: Failed to init std.io module\r\n");
+	if(!nullcInitMathModule())
+		printf("ERROR: Failed to init std.math module\r\n");
+	if(!nullcInitStringModule())
+		printf("ERROR: Failed to init std.string module\r\n");
+
+	if(!nullcInitCanvasModule())
+		printf("ERROR: Failed to init img.canvas module\r\n");
+#ifdef BUILD_FOR_WINDOWS
+	if(!nullcInitWindowModule())
+		printf("ERROR: Failed to init win.window module\r\n");
+#endif
+	if(!nullcInitVectorModule())
+		printf("ERROR: Failed to init std.vector module\r\n");
+	if(!nullcInitListModule())
+		printf("ERROR: Failed to init std.list module\r\n");
+	if(!nullcInitMapModule())
+		printf("ERROR: Failed to init std.map module\r\n");
+	if(!nullcInitHashmapModule())
+		printf("ERROR: Failed to init std.hashmap module\r\n");
+	if(!nullcInitRandomModule())
+		printf("ERROR: Failed to init std.random module\r\n");
+	if(!nullcInitTimeModule())
+		printf("ERROR: Failed to init std.time module\r\n");
+	if(!nullcInitGCModule())
+		printf("ERROR: Failed to init std.gc module\r\n");
+	/*
 	nullcInitFileModule();
 	nullcInitMathModule();
 	nullcInitStringModule();
@@ -37,7 +104,7 @@ int main(int argc, char** argv)
 #ifdef BUILD_FOR_WINDOWS
 	nullcInitWindowModule();
 #endif
-
+*/
 	if(argc == 1)
 	{
 		printf("usage: ConsoleCalc [-x86] file\n");
