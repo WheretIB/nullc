@@ -10,10 +10,10 @@ for i in NULLC/includes/*.cpp; do
 	u=`expr length $i`;
 	u=`expr $u - 19`;
 	echo ${i:15:$u};
-	g++ -c -g -W -std=c++0x -o temp/std_${i:15:$u}.o $i
+	g++ -c -g -W -o temp/std_${i:15:$u}.o $i
 done
 
-g++ -c -g -W -std=c++0x -o temp/ext_pugixml.o external/pugixml/pugixml.cpp
+g++ -c -g -W -o temp/ext_pugixml.o external/pugixml/pugixml.cpp
 
 echo Building NULLC lib
 ar rcs bin/libnullc.a temp/BinaryCache.o temp/Bytecode.o temp/Callbacks.o temp/CodeInfo.o temp/Compiler.o temp/Executor.o temp/Executor_Common.o temp/Lexer.o temp/Linker.o temp/nullc.o temp/Parser.o temp/stdafx.o temp/StdLib.o temp/StrAlgo.o temp/SyntaxTree.o temp/std_file.o temp/std_math.o temp/std_typeinfo.o temp/std_vector.o temp/std_list.o temp/std_list.o temp/std_dynamic.o temp/std_random.o temp/std_gc.o temp/std_io.o temp/std_canvas.o temp/std_map.o temp/std_hashmap.o temp/std_string.o temp/std_time.o temp/std_pugi.o temp/ext_pugixml.o
