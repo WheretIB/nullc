@@ -1157,6 +1157,7 @@ bool EMIT_POP_DOUBLE(x86Reg base, unsigned int address)
 }
 void EMIT_REG_READ(x86Reg reg)
 {
+	(void)reg;
 #ifdef NULLC_OPTIMIZE_X86
 	EMIT_OP_REG(o_nop, reg);
 #endif
