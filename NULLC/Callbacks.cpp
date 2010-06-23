@@ -1724,6 +1724,12 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 
+	for(VariableInfo *info = lastFunc.firstParam; info; info = info->next)
+	{
+		if(info->nameHash == hash)
+			ThrowError(pos, "ERROR: parameter with name '%.*s' is already defined", int(info->name.end - info->name.begin), info->name.begin);
+	}
+
 #if defined(__CELLOS_LV2__)
 	unsigned bigEndianShift = currType == typeChar ? 3 : (currType == typeShort ? 2 : 0);
 #else
@@ -2079,7 +2085,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 				fRating += 2;	// array -> class (unsized array)
 			else if(expectedType->refLevel == 1 && expectedType->refLevel == paramType->refLevel && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
 				fRating += 5;	// array[N] ref -> array[] -> array[] ref
-			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef)
+			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef && ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType == expectedType)
 				continue;		// Inline function definition doesn't cost anything
 			else if(expectedType->refLevel == paramType->refLevel + 1 && expectedType->subType == paramType)
 				fRating += 5;	// type -> type ref
@@ -2362,7 +2368,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			char	*errPos = errTemp;
 			errPos += SafeSprintf(errPos, 512, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
 			for(unsigned int n = 0; n < callArgCount; n++)
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+			{
+				NodeZeroOP *activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n];
+				TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+			}
 			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n the only available are:\r\n");
 			for(unsigned int n = 0; n < count; n++)
 			{
@@ -2385,7 +2395,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				char	*errPos = errTemp;
 				errPos += SafeSprintf(errPos, 512, "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
 				for(unsigned int n = 0; n < callArgCount; n++)
-					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+				{
+					NodeZeroOP *activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n];
+					TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
+					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+				}
 				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n  candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
