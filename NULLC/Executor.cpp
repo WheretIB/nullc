@@ -2040,10 +2040,24 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-//				printf("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
+//				printf("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
+			}
+			if(exFunctions[funcID].parentType != ~0u)
+			{
+//				printf("Local %s $context (with offset of %d+%d)\r\n", symbols + types[exFunctions[funcID].parentType].offsetToName, offset, exFunctions[funcID].bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = genParams.data + offset + exFunctions[funcID].bytesToPop - NULLC_PTR_SIZE;
+				// Fixup pointer itself
+				char **rPtr = (char**)ptr;
+				if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+				{
+//					printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+					*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+				}
+				// Fixup what it was pointing to
+				FixupVariable(*rPtr, types[exFunctions[funcID].parentType]);
 			}
 			offset += offsetToNextFrame;
 //			printf("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
