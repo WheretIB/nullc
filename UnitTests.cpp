@@ -55,6 +55,8 @@
 	#define TEST_COUNT 1
 #endif
 
+double speedTestTimeThreshold = 5000;	// how long, in ms, to run a speed test
+
 double timeCompile;
 double timeGetListing;
 double timeGetBytecode;
@@ -783,7 +785,8 @@ nullres CompileFile(const char* fileName)
 	}	\
 }
 
-void	SpeedTestFile(const char* file, unsigned runs);
+void	SpeedTestText(const char* name, const char* text);
+void	SpeedTestFile(const char* file);
 
 void	RunEulerTests();
 void	RunExternalCallTests()
@@ -1115,18 +1118,11 @@ void	RunTests(bool verbose)
 	nullcInitWindowModule();
 #endif
 
-	/*nullcInitPugiXMLModule();
-	SpeedTestFile("test_document.nc", 5000);
-	return;*/
-
-	/*SpeedTestFile("shapes.nc", 30000);
-	return;*/
-
-	/*nullcInitTimeModule();
-	SpeedTestFile("raytrace.nc", 10000);
-	return;*/
-
-	/*SpeedTestFile("blob.nc", 300);
+	/*
+	//SpeedTestFile("test_document.nc");
+	//SpeedTestFile("shapes.nc");
+	//SpeedTestFile("raytrace.nc");
+	//SpeedTestFile("blob.nc");
 	return;*/
 
 #ifndef NULLC_ENABLE_C_TRANSLATION
@@ -8094,10 +8090,6 @@ return GC.UsedMemory();";
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
 
-	double time = 0.0;
-	double compileTime = 0.0;
-	double linkTime = 0.0;
-
 #if defined(_MSC_VER)
 	const char	*testCompileSpeed =
 "import img.canvas;\r\n\
@@ -8211,40 +8203,10 @@ main.Close();\r\n\
 \r\n\
 return 0;";
 
-	nullcSetExecutor(NULLC_VM);
-
-	time = myGetPreciseTime();
-	compileTime = 0.0;
-	linkTime = 0.0;
-	for(int i = 0; i < 30000; i++)
-	{
-		nullres good = nullcCompile(testCompileSpeed);
-		compileTime += myGetPreciseTime() - time;
-
-		if(good)
-		{
-			char *bytecode = NULL;
-			nullcGetBytecode(&bytecode);
-			nullcClean();
-			if(!nullcLinkCode(bytecode, 0))
-				printf("Link failed: %s\r\n", nullcGetLastError());
-			delete[] bytecode;
-		}else{
-			printf("Compilation failed: %s\r\n", nullcGetLastError());
-			break;
-		}
-		linkTime += myGetPreciseTime() - time;
-		time = myGetPreciseTime();
-	}
-
-	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 30000.0);
-	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
-	printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 30000.0, strlen(testCompileSpeed) * (1000.0 / (linkTime / 30000.0)) / 1024.0 / 1024.0);
+	SpeedTestText("ripples.nc inlined", testCompileSpeed);
 
 #endif
 
-	nullcLoadModuleBySource("test.rect", "int draw_rect(int a, b, c, d, e);");
-	nullcBindModuleFunction("test.rect", (void(*)())TestDrawRect, "draw_rect", 0);
 const char	*testCompileSpeed2 =
 "import test.rect;\r\n\
 int progress_slider_position = 0;\r\n\
@@ -8330,32 +8292,7 @@ for(int i = 0; i < 10000; i++)\r\n\
 	draw_progress_bar();\r\n\
 return 0;";
 
-	time = myGetPreciseTime();
-	compileTime = 0.0;
-	linkTime = 0.0;
-	for(int i = 0; i < 30000; i++)
-	{
-		nullres good = nullcCompile(testCompileSpeed2);
-		compileTime += myGetPreciseTime() - time;
-
-		if(good)
-		{
-			char *bytecode = NULL;
-			nullcGetBytecode(&bytecode);
-			nullcClean();
-			if(!nullcLinkCode(bytecode, 0))
-				printf("Link failed: %s\r\n", nullcGetLastError());
-			delete[] bytecode;
-		}else{
-			printf("Compilation failed: %s\r\n", nullcGetLastError());
-			break;
-		}
-		linkTime += myGetPreciseTime() - time;
-		time = myGetPreciseTime();
-	}
-	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 30000.0);
-	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 30000.0, (linkTime - compileTime) / 30000.0);
-	printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 30000.0, strlen(testCompileSpeed2) * (1000.0 / (linkTime / 30000.0)) / 1024.0 / 1024.0);
+	SpeedTestText("progressbar.nc inlined", testCompileSpeed2);
 
 	for(int t = 0; t < 2; t++)
 	{
@@ -8371,8 +8308,7 @@ return 0;";
 		printf("%s finished in %f (single run is %f)\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart, (myGetPreciseTime() - tStart) / 10000.0);
 	}
 
-	nullcInitTimeModule();
-
+#if defined(_MSC_VER)
 const char	*testCompileSpeed3 =
 "import img.canvas;\r\n\
 import win.window;\r\n\
@@ -8645,13 +8581,59 @@ main.Close();\r\n\
 \r\n\
 return 0;";
 
+	SpeedTestText("raytrace.nc inlined", testCompileSpeed3);
+#endif
+
+#endif
+
+#ifdef SPEED_TEST_EXTRA
+	SpeedTestFile("blob.nc");
+
+	SpeedTestFile("test_document.nc");
+
+	SpeedTestFile("shapes.nc");
+#endif
+
+	// Terminate NULLC
+	nullcTerminate();
+}
+
+void	SpeedTestText(const char* name, const char* text)
+{
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+	nullcInitTypeinfoModule();
+	nullcInitFileModule();
+	nullcInitMathModule();
+	nullcInitVectorModule();
+	nullcInitRandomModule();
+	nullcInitDynamicModule();
+	nullcInitGCModule();
+	nullcInitIOModule();
+	nullcInitCanvasModule();
+	nullcInitTimeModule();
+	nullcInitPugiXMLModule();
+
+	// exclusive for progressbar test
+	nullcLoadModuleBySource("test.rect", "int draw_rect(int a, b, c, d, e);");
+	nullcBindModuleFunction("test.rect", (void(*)())TestDrawRect, "draw_rect", 0);
+
+#if defined(_MSC_VER)
+	nullcInitWindowModule();
+#endif
+
 	nullcSetExecutor(NULLC_VM);
-	time = myGetPreciseTime();
-	compileTime = 0.0;
-	linkTime = 0.0;
-	for(int i = 0; i < 3000; i++)
+
+	unsigned int runs = 0;
+	double time = myGetPreciseTime();
+	double compileTime = 0.0;
+	double linkTime = 0.0;
+	double coldStart = 0.0;
+	while(linkTime < speedTestTimeThreshold)
 	{
-		nullres good = nullcCompile(testCompileSpeed3);
+		runs++;
+		nullres good = nullcCompile(text);
 		compileTime += myGetPreciseTime() - time;
 
 		if(good)
@@ -8668,27 +8650,17 @@ return 0;";
 		}
 		linkTime += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
+		if(runs == 1)
+			coldStart = linkTime;
 	}
-	printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 3000.0);
-	printf("Average compile time: %f Average link time: %f\r\n", compileTime / 3000.0, (linkTime - compileTime) / 3000.0);
-	printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 3000.0, strlen(testCompileSpeed3) * (1000.0 / (linkTime / 3000.0)) / 1024.0 / 1024.0);
-
-#endif
-
-#ifdef SPEED_TEST_EXTRA
-	SpeedTestFile("blob.nc", 300);
-
-	nullcInitPugiXMLModule();
-	SpeedTestFile("test_document.nc", 300);
-
-	SpeedTestFile("shapes.nc", 10000);
-#endif
-
-	// Terminate NULLC
-	nullcTerminate();
+	printf("Speed test (%s) managed to run %d times in %f ms\n", name, runs, linkTime);
+	printf("Cold start: %f ms\n", coldStart);
+	printf("Compile time: %f Link time: %f\n", compileTime, linkTime - compileTime, compileTime / double(runs));
+	printf("Average compile time: %f Average link time: %f\n", compileTime / double(runs), (linkTime - compileTime) / double(runs));
+	printf("Average time: %f Speed: %.3f Mb/sec\n\n", linkTime / double(runs), strlen(text) * (1000.0 / (linkTime / double(runs))) / 1024.0 / 1024.0);
 }
 
-void	SpeedTestFile(const char* file, unsigned runs)
+void	SpeedTestFile(const char* file)
 {
 	char *blob = new char[1024 * 1024];
 	FILE *euler = fopen(file, "rb");
@@ -8696,40 +8668,13 @@ void	SpeedTestFile(const char* file, unsigned runs)
 	{
 		fseek(euler, 0, SEEK_END);
 		unsigned int textSize = ftell(euler);
-		assert(textSize < 128 * 1024);
+		assert(textSize < 1024 * 1024);
 		fseek(euler, 0, SEEK_SET);
 		fread(blob, 1, textSize, euler);
 		blob[textSize] = 0;
 		fclose(euler);
 
-		nullcSetExecutor(NULLC_VM);
-
-		double time = myGetPreciseTime();
-		double compileTime = 0.0;
-		double linkTime = 0.0;
-		for(unsigned i = 0; i < runs; i++)
-		{
-			nullres good = nullcCompile(blob);
-			compileTime += myGetPreciseTime() - time;
-
-			if(good)
-			{
-				char *bytecode = NULL;
-				nullcGetBytecode(&bytecode);
-				nullcClean();
-				if(!nullcLinkCode(bytecode, 0))
-					printf("Link failed: %s\r\n", nullcGetLastError());
-				delete[] bytecode;
-			}else{
-				printf("Compilation failed: %s\r\n", nullcGetLastError());
-				break;
-			}
-			linkTime += myGetPreciseTime() - time;
-			time = myGetPreciseTime();
-		}
-		printf("Speed test (%s) %d compile time: %f Link time: %f\r\n", file, runs, compileTime, linkTime - compileTime, compileTime / double(runs));
-		printf("Average compile time: %f Average link time: %f\r\n", compileTime / double(runs), (linkTime - compileTime) / double(runs));
-		printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / double(runs), strlen(blob) * (1000.0 / (linkTime / double(runs))) / 1024.0 / 1024.0);
+		SpeedTestText(file, blob);
 	}
 
 	delete[] blob;
