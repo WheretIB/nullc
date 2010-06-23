@@ -6199,6 +6199,17 @@ GC.CollectMemory();\r\n\
 return 1;";
 	TEST_FOR_RESULT("Garbage collection correctness 13 (uninitialized auto[] type).", testGarbageCollectionCorrectness13, "1");
 
+const char	*testGarbageCollectionCorrectness14 =
+"import std.gc;\r\n\
+class Test{ int x; }\r\n\
+int ref Test:getX(){ GC.CollectMemory(); return &x; }\r\n\
+auto y = (new Test).getX();\r\n\
+*y = 8;\r\n\
+auto m = new Test;\r\n\
+m.x = 2;\r\n\
+return *y;";
+	TEST_FOR_RESULT("Garbage collection correctness 14 (extra function argument check).", testGarbageCollectionCorrectness14, "8");
+
 	TEST_FOR_RESULT("Double division by zero during constant folding.", "double a = 1.0 / 0.0; return 10;", "10");
 
 	TEST_FOR_RESULT("Double modulus division.", "double a = 800000000000000000000.0; return (a % 5.5) < 5.5;", "1");
@@ -7389,6 +7400,19 @@ void corrupt()\r\n\
 corrupt();\r\n\
 return 1;";
 	TEST_FOR_RESULT("VM stack relocation (auto ref recursion).", testAutoRefRecursionRelocate, "1");
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+const char	*testExtraArgumentRelocate =
+"class Test{ int x; }\r\n\
+int ref Test:getX(){ int[32*1024] make_stack_reallocation; return &x; }\r\n\
+Test a;\r\n\
+a.x = 5;\r\n\
+auto y = a.getX();\r\n\
+a.x = 8;\r\n\
+return *y;";
+	TEST_FOR_RESULT("VM stack relocation (extra function argument).", testExtraArgumentRelocate, "8");
 
 	nullcTerminate();
 	nullcInit(MODULE_PATH);

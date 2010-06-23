@@ -464,6 +464,12 @@ void MarkUsedBlocks()
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
+			if(functions[funcID].parentType != ~0u)
+			{
+				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[functions[funcID].parentType].offsetToName, offset, functions[funcID].bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = GC::unmanageableBase + offset + functions[funcID].bytesToPop - NULLC_PTR_SIZE;
+				GC::MarkPointer(ptr, types[functions[funcID].parentType], false);
+			}
 			offset += offsetToNextFrame;
 			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
 		}
