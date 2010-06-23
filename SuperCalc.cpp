@@ -767,9 +767,14 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	UpdateWindow(hTabs);
 
 	if(!richEdits.empty())
+	{
 		ShowWindow(richEdits[0], SW_SHOW);
-	else
+		SetFocus(richEdits[0]);
+		RichTextarea::ScrollToLine(richEdits[0], 0);
+	}else{
 		ShowWindow(hNewTab, SW_SHOW);
+		SetFocus(hNewTab);
+	}
 
 	RichTextarea::SetStatusBar(hStatus, 900);
 
@@ -2668,6 +2673,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			InvalidateRect(hWatch, NULL, true);
 			InvalidateRect(hDebugTabs, NULL, true);
 		}
+			break;
+		case WM_ERASEBKGND:
 			break;
 		}
 	}__except(EXCEPTION_EXECUTE_HANDLER){
