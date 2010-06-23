@@ -40,6 +40,11 @@ StdOut operator <<(StdOut out, char[] str)
 	Print(str);
 	return out;
 }
+StdOut operator <<(StdOut out, const_string str)
+{
+	Print(str.arr);
+	return out;
+}
 StdOut operator <<(StdOut out, StdEndline str)
 {
 	Print("\r\n");
