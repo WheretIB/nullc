@@ -321,9 +321,14 @@ namespace ColorerGrammar
 			vardefsub	=	addvarp >> *(chP(',')[ColorText] >> vardefsub);
 			vardef		=
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
-				typeExpr >>
-				constExpr >>
-				(vardefsub | epsP[LogError("ERROR: variable definition after typename is incorrect")]);
+				typeExpr >> 
+				(
+					(fcallpart >> *postExpr) |
+					(
+						constExpr >>
+						(vardefsub | epsP[LogError("ERROR: variable definition after typename is incorrect")])
+					)
+				);
 
 			ifExpr			=
 				strWP("if")[ColorRWord] >>
