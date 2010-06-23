@@ -92,6 +92,12 @@ int int(int a);\r\n\
 long long(long a);\r\n\
 float float(float a);\r\n\
 double double(double a);\r\n\
+void char:char(char a = 0){ *this = a; }\r\n\
+void short:short(short a = 0){ *this = a; }\r\n\
+void int:int(int a = 0){ *this = a; }\r\n\
+void long:long(long a = 0){ *this = a; }\r\n\
+void float:float(float a = 0){ *this = a; }\r\n\
+void double:double(double a = 0){ *this = a; }\r\n\
 \r\n\
 char[] int:str();\r\n\
 \r\n\
