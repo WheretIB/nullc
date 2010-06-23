@@ -130,3 +130,12 @@ unsigned int typeid__(NULLCRef type, void* unused);
 
 int __pcomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused);
 int __pncomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused);
+
+int __typeCount(void* unused);
+
+NULLCAutoArray* __operatorSet(NULLCAutoArray* l, NULLCRef r, void* unused);
+NULLCRef __operatorSet(NULLCRef l, NULLCAutoArray* r, void* unused);
+NULLCAutoArray* __operatorSet(NULLCAutoArray* l, NULLCAutoArray* r, void* unused);
+NULLCRef __operatorIndex(NULLCAutoArray* l, int index, void* unused);
+
+NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* f);

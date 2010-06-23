@@ -1,6 +1,6 @@
 #include "runtime.h"
 // Typeid redirect table
-static unsigned __nullcTR[71];
+static unsigned __nullcTR[76];
 // Array classes
 typedef struct
 {
@@ -83,22 +83,27 @@ int initStdFile()
 	__nullcTR[51] = __nullcRegisterType(1268871368u, "int ref(typeid,typeid)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[52] = __nullcRegisterType(2688408224u, "int ref(void ref(int),void ref(int))", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[53] = __nullcRegisterType(1908472638u, "int ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[54] = __nullcRegisterType(2089107205u, "File", 8, __nullcTR[0], 2, NULLC_CLASS);
-	__nullcTR[55] = __nullcRegisterType(1963509203u, "File ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[56] = __nullcRegisterType(1505295979u, "File ref(char[],char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[57] = __nullcRegisterType(3565315197u, "void ref(char[],char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[58] = __nullcRegisterType(2570056003u, "void ref(char)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[59] = __nullcRegisterType(3834141397u, "void ref(short)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[60] = __nullcRegisterType(2580994645u, "void ref(long)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[61] = __nullcRegisterType(3330106459u, "void ref(float)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[62] = __nullcRegisterType(60945760u, "void ref(double)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[63] = __nullcRegisterType(2786737248u, "void ref(char ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[64] = __nullcRegisterType(1406213874u, "void ref(short ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[65] = __nullcRegisterType(3241370989u, "void ref(int ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[66] = __nullcRegisterType(2414624818u, "long ref", 4, __nullcTR[3], 1, NULLC_POINTER);
-	__nullcTR[67] = __nullcRegisterType(55795314u, "void ref(long ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[68] = __nullcRegisterType(3566959480u, "void ref(float ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[69] = __nullcRegisterType(1140524797u, "void ref(double ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[70] = __nullcRegisterType(2767335131u, "void ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[54] = __nullcRegisterType(1137649267u, "auto[] ref", 4, __nullcTR[10], 1, NULLC_POINTER);
+	__nullcTR[55] = __nullcRegisterType(451037873u, "auto[] ref ref(auto[] ref,auto ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[56] = __nullcRegisterType(3824954777u, "auto ref ref(auto ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[57] = __nullcRegisterType(3832966281u, "auto[] ref ref(auto[] ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[58] = __nullcRegisterType(477490926u, "auto ref ref(auto[] ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[59] = __nullcRegisterType(2089107205u, "File", 8, __nullcTR[0], 2, NULLC_CLASS);
+	__nullcTR[60] = __nullcRegisterType(1963509203u, "File ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[61] = __nullcRegisterType(1505295979u, "File ref(char[],char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[62] = __nullcRegisterType(3565315197u, "void ref(char[],char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[63] = __nullcRegisterType(2570056003u, "void ref(char)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[64] = __nullcRegisterType(3834141397u, "void ref(short)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[65] = __nullcRegisterType(2580994645u, "void ref(long)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[66] = __nullcRegisterType(3330106459u, "void ref(float)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[67] = __nullcRegisterType(60945760u, "void ref(double)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[68] = __nullcRegisterType(2786737248u, "void ref(char ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[69] = __nullcRegisterType(1406213874u, "void ref(short ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[70] = __nullcRegisterType(3241370989u, "void ref(int ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[71] = __nullcRegisterType(2414624818u, "long ref", 4, __nullcTR[3], 1, NULLC_POINTER);
+	__nullcTR[72] = __nullcRegisterType(55795314u, "void ref(long ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[73] = __nullcRegisterType(3566959480u, "void ref(float ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[74] = __nullcRegisterType(1140524797u, "void ref(double ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[75] = __nullcRegisterType(2767335131u, "void ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
 	/* node translation unknown */
 }

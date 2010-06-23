@@ -2112,10 +2112,10 @@ void NodeDereference::TranslateToC(FILE *fOut)
 
 		VariableInfo *closure = ((NodeGetAddress*)((NodeOneOP*)first)->GetFirstNode())->varInfo;
 
-		char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+		char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH+32];
 		const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
-		unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
+		unsigned int length = SafeSprintf(closureName, NULLC_MAX_VARIABLE_NAME_LENGTH+32, "%s%.*s_%d", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
 		for(unsigned int k = 0; k < length; k++)
 		{
 			if(closureName[k] == ':' || closureName[k] == '$')
@@ -2133,14 +2133,14 @@ void NodeDereference::TranslateToC(FILE *fOut)
 
 			fprintf(fOut, "(((int**)%s)[%d] = ", closureName, pos);
 			VariableInfo *varInfo = curr->variable;
-			char variableName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+			char variableName[NULLC_MAX_VARIABLE_NAME_LENGTH+32];
 			if(varInfo->nameHash == GetStringHash("this"))
 			{
 				strcpy(variableName, "__context");
 			}else{
 				namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 				nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-				sprintf(variableName, "%s%.*s_%d", namePrefix, int(varInfo->name.end-varInfo->name.begin) - nameShift, varInfo->name.begin + nameShift, varInfo->pos);
+				SafeSprintf(variableName, NULLC_MAX_VARIABLE_NAME_LENGTH+32, "%s%.*s_%d", namePrefix, int(varInfo->name.end-varInfo->name.begin) - nameShift, varInfo->name.begin + nameShift, varInfo->pos);
 			}
 
 			if(curr->targetLocal)

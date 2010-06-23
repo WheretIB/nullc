@@ -403,3 +403,129 @@ int __pncomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused)
 {
 	return a.context != b.context || a.ptr != b.ptr;
 }
+
+int __typeCount(void* unused)
+{
+	return __nullcTypeList.size();
+}
+
+bool nullcIsArray(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->category == NULLC_ARRAY;
+}
+
+const char* nullcGetTypeName(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->name;
+}
+
+unsigned int nullcGetArraySize(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->memberCount;
+}
+unsigned int nullcGetSubType(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->subTypeID;
+}
+unsigned int nullcGetTypeSize(unsigned int typeID)
+{
+	return __nullcGetTypeInfo(typeID)->size;
+}
+
+NULLCAutoArray* __operatorSet(NULLCAutoArray* left, NULLCRef right, void* unused)
+{
+	if(!nullcIsArray(right.typeID))
+	{
+		nullcThrowError("ERROR: cannot convert from '%s' to 'auto[]'", nullcGetTypeName(right.typeID));
+		return NULL;
+	}
+	left->len = nullcGetArraySize(right.typeID);
+	if(left->len == ~0u)
+	{
+		NULLCArray<char> *arr = (NULLCArray<char>*)right.ptr;
+		left->len = arr->size;
+		left->ptr = arr->ptr;
+	}else{
+		left->ptr = right.ptr;
+	}
+	left->typeID = nullcGetSubType(right.typeID);
+	return left;
+}
+NULLCRef __operatorSet(NULLCRef left, NULLCAutoArray *right, void* unused)
+{
+	NULLCRef ret = { 0, 0 };
+	if(!nullcIsArray(left.typeID))
+	{
+		nullcThrowError("ERROR: cannot convert from 'auto[]' to '%s'", nullcGetTypeName(left.typeID));
+		return ret;
+	}
+	if(nullcGetSubType(left.typeID) != right->typeID)
+	{
+		nullcThrowError("ERROR: cannot convert from 'auto[]' (actual type '%s[%d]') to '%s'", nullcGetTypeName(right->typeID), right->len, nullcGetTypeName(left.typeID));
+		return ret;
+	}
+	unsigned int leftLength = nullcGetArraySize(left.typeID);
+	if(leftLength == ~0u)
+	{
+		NULLCArray<char> *arr = (NULLCArray<char>*)left.ptr;
+		arr->size = right->len;
+		arr->ptr = right->ptr;
+	}else{
+		if(leftLength != right->len)
+		{
+			nullcThrowError("ERROR: cannot convert from 'auto[]' (actual type '%s[%d]') to '%s'", nullcGetTypeName(right->typeID), right->len, nullcGetTypeName(left.typeID));
+			return ret;
+		}
+		memcpy(left.ptr, right->ptr, leftLength * nullcGetTypeSize(right->typeID));
+	}
+	return left;
+}
+NULLCAutoArray* __operatorSet(NULLCAutoArray* left, NULLCAutoArray* right, void* unused)
+{
+	left->len = right->len;
+	left->ptr = right->ptr;
+	left->typeID = right->typeID;
+	return left;
+}
+NULLCRef __operatorIndex(NULLCAutoArray* left, unsigned int index, void* unused)
+{
+	NULLCRef ret = { 0, 0 };
+	if(index >= left->len)
+	{
+		nullcThrowError("ERROR: array index out of bounds");
+		return ret;
+	}
+	ret.typeID = left->typeID;
+	ret.ptr = (char*)left->ptr + index * nullcGetTypeSize(ret.typeID);
+	return ret;
+}
+
+NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* arr)
+{
+	unsigned int *funcs = (unsigned int*)arr->ptr;
+	NULLCFuncPtr ret = { 0, 0 };
+	/*if(r.typeID > arr->size)
+	{
+		nullcThrowError("ERROR: type index is out of bounds of redirection table");
+		return ret;
+	}
+	// If there is no implementation for a method
+	if(!funcs[r.typeID])
+	{
+		// Find implemented function ID as a type reference
+		unsigned int found = 0;
+		for(; found < arr->size; found++)
+		{
+			if(funcs[found])
+				break;
+		}
+		//if(found == arr->size)
+			nullcThrowError("ERROR: type '%s' doesn't implement method", nullcGetTypeName(r.typeID));
+		//else
+		//	nullcThrowError("ERROR: type '%s' doesn't implement method '%s%s' of type '%s'", nullcGetTypeName(r.typeID), nullcGetTypeName(r.typeID), strchr(nullcGetFunctionName(funcs[found]), ':'), nullcGetTypeName(nullcGetFunctionType(funcs[found])));
+		return ret;
+	}
+	ret.context = r.ptr;
+	ret.id = funcs[r.typeID];*/
+	return ret;
+}
