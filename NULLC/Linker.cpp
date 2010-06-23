@@ -328,7 +328,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 #endif
 			if(exFunctions.back().address == 0)
 			{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' doesn't have implementation", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
 				return false;
 			}
 			// Move based pointer to the new section of symbol information
