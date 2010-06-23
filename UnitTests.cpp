@@ -23,6 +23,8 @@
 #include "NULLC/includes/window.h"
 #include "NULLC/includes/io.h"
 
+#include "NULLC/includes/pugi.h"
+
 #include <stdio.h>
 #include <time.h>
 
@@ -781,6 +783,8 @@ nullres CompileFile(const char* fileName)
 	}	\
 }
 
+void	SpeedTestFile(const char* file, unsigned runs);
+
 void	RunEulerTests();
 void	RunExternalCallTests()
 {
@@ -1110,6 +1114,20 @@ void	RunTests(bool verbose)
 #if defined(_MSC_VER)
 	nullcInitWindowModule();
 #endif
+
+	/*nullcInitPugiXMLModule();
+	SpeedTestFile("test_document.nc", 5000);
+	return;*/
+
+	/*SpeedTestFile("shapes.nc", 30000);
+	return;*/
+
+	/*nullcInitTimeModule();
+	SpeedTestFile("raytrace.nc", 10000);
+	return;*/
+
+	/*SpeedTestFile("blob.nc", 300);
+	return;*/
 
 #ifndef NULLC_ENABLE_C_TRANSLATION
 	RunExternalCallTests();
@@ -7766,6 +7784,10 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("Read-only member", "auto[] x; x.size = 10; return 1;", "ERROR: cannot change immutable value of type int");
 	TEST_FOR_FAIL("Read-only member", "auto[] x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from void to void");
 
+	nullcLoadModuleBySource("test.redefinitionPartA", "int foo(int x){ return -x; }");
+	nullcLoadModuleBySource("test.redefinitionPartB", "int foo(int x){ return ~x; }");
+	TEST_FOR_FAIL("Module function redefinition", "import test.redefinitionPartA; import test.redefinitionPartB; return foo();", "ERROR: function foo (type int ref(int)) is already defined. While importing test/redefinitionPartB.nc");
+
 	//TEST_FOR_FAIL("parsing", "");
 
 	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
@@ -8654,55 +8676,63 @@ return 0;";
 #endif
 
 #ifdef SPEED_TEST_EXTRA
-	{
-		char *blob = new char[1024 * 1024];
-		FILE *euler = fopen("blob.nc", "rb");
-		if(euler)
-		{
-			fseek(euler, 0, SEEK_END);
-			unsigned int textSize = ftell(euler);
-			assert(textSize < 128 * 1024);
-			fseek(euler, 0, SEEK_SET);
-			fread(blob, 1, textSize, euler);
-			blob[textSize] = 0;
-			fclose(euler);
+	SpeedTestFile("blob.nc", 300);
 
-			nullcSetExecutor(NULLC_VM);
+	nullcInitPugiXMLModule();
+	SpeedTestFile("test_document.nc", 300);
 
-			double time = myGetPreciseTime();
-			double compileTime = 0.0;
-			double linkTime = 0.0;
-			for(int i = 0; i < 300; i++)
-			{
-				nullres good = nullcCompile(blob);
-				compileTime += myGetPreciseTime() - time;
-
-				if(good)
-				{
-					char *bytecode = NULL;
-					nullcGetBytecode(&bytecode);
-					nullcClean();
-					if(!nullcLinkCode(bytecode, 0))
-						printf("Link failed: %s\r\n", nullcGetLastError());
-					delete[] bytecode;
-				}else{
-					printf("Compilation failed: %s\r\n", nullcGetLastError());
-					break;
-				}
-				linkTime += myGetPreciseTime() - time;
-				time = myGetPreciseTime();
-			}
-			printf("Speed test compile time: %f Link time: %f\r\n", compileTime, linkTime - compileTime, compileTime / 300.0);
-			printf("Average compile time: %f Average link time: %f\r\n", compileTime / 300.0, (linkTime - compileTime) / 300.0);
-			printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / 300.0, strlen(blob) * (1000.0 / (linkTime / 300.0)) / 1024.0 / 1024.0);
-		}
-
-		delete[] blob;
-	}
+	SpeedTestFile("shapes.nc", 10000);
 #endif
 
 	// Terminate NULLC
 	nullcTerminate();
+}
+
+void	SpeedTestFile(const char* file, unsigned runs)
+{
+	char *blob = new char[1024 * 1024];
+	FILE *euler = fopen(file, "rb");
+	if(euler)
+	{
+		fseek(euler, 0, SEEK_END);
+		unsigned int textSize = ftell(euler);
+		assert(textSize < 128 * 1024);
+		fseek(euler, 0, SEEK_SET);
+		fread(blob, 1, textSize, euler);
+		blob[textSize] = 0;
+		fclose(euler);
+
+		nullcSetExecutor(NULLC_VM);
+
+		double time = myGetPreciseTime();
+		double compileTime = 0.0;
+		double linkTime = 0.0;
+		for(unsigned i = 0; i < runs; i++)
+		{
+			nullres good = nullcCompile(blob);
+			compileTime += myGetPreciseTime() - time;
+
+			if(good)
+			{
+				char *bytecode = NULL;
+				nullcGetBytecode(&bytecode);
+				nullcClean();
+				if(!nullcLinkCode(bytecode, 0))
+					printf("Link failed: %s\r\n", nullcGetLastError());
+				delete[] bytecode;
+			}else{
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
+				break;
+			}
+			linkTime += myGetPreciseTime() - time;
+			time = myGetPreciseTime();
+		}
+		printf("Speed test (%s) %d compile time: %f Link time: %f\r\n", file, runs, compileTime, linkTime - compileTime, compileTime / double(runs));
+		printf("Average compile time: %f Average link time: %f\r\n", compileTime / double(runs), (linkTime - compileTime) / double(runs));
+		printf("Time: %f Average time: %f Speed: %.3f Mb/sec\r\n", linkTime, linkTime / double(runs), strlen(blob) * (1000.0 / (linkTime / double(runs))) / 1024.0 / 1024.0);
+	}
+
+	delete[] blob;
 }
 
 double	TestEulerFile(unsigned int num, const char* result)
