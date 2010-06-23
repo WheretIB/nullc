@@ -6543,7 +6543,6 @@ return *a + foo(new int(30));";
 	TEST_FOR_RESULT("Type constructor after new 2.", "void int:int(int x){ *this = x; } return *new int(4);", "4");
 	TEST_FOR_RESULT("Type constructor after new 3.", "void int:int(){ } return *new int();", "0");
 
-#if 0
 	TEST_FOR_RESULT("Function default argument conversion 1", "int foo(char[] a = \"xx\"){return a[0]+a[1];} return foo() + foo(\"cc\");", "438"); // 2*0x78 + 2*0x63
 	TEST_FOR_RESULT("Function default argument conversion 2", "int x = 5; int foo(auto ref a = &x){return int(a);} return foo() + foo(4);", "9");
 
@@ -6558,7 +6557,7 @@ const char	*testDefaultFunctionArgumentExport6 =
 "import test.defargs6;\r\n\
 return foo() + foo(4);";
 	TEST_FOR_RESULT("Default function argument export and import 6", testDefaultFunctionArgumentExport6, "9");
-#endif
+
 
 #ifdef FAILURE_TEST
 
@@ -7581,6 +7580,13 @@ int[foo(3)] arr;";
 
 	TEST_FOR_FAIL("Inline function with wrong type", "int foo(int ref(int) x){ return x(4); } foo(auto(){});", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("Function argument already defined", "int foo(int x, x){ return x + x; } return foo(5, 4);", "ERROR: parameter with name 'x' is already defined");
+
+	TEST_FOR_FAIL("Read-only member", "int[] arr; arr.size = 10; return arr.size;", "ERROR: cannot change immutable value of type int");
+	TEST_FOR_FAIL("Read-only member", "auto ref x; x.type = int; return 1;", "ERROR: cannot change immutable value of type typeid");
+	TEST_FOR_FAIL("Read-only member", "auto ref x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from void to void");
+	TEST_FOR_FAIL("Read-only member", "auto[] x; x.type = int; return 1;", "ERROR: cannot change immutable value of type typeid");
+	TEST_FOR_FAIL("Read-only member", "auto[] x; x.size = 10; return 1;", "ERROR: cannot change immutable value of type int");
+	TEST_FOR_FAIL("Read-only member", "auto[] x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from void to void");
 
 	//TEST_FOR_FAIL("parsing", "");
 

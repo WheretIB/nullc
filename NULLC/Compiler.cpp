@@ -162,6 +162,15 @@ char operator[](const_string ref l, int index)\r\n\
 {\r\n\
 	return l.arr[index];\r\n\
 }\r\n\
+int operator==(const_string a, b){ return a.arr == b.arr; }\r\n\
+int operator==(const_string a, char[] b){ return a.arr == b; }\r\n\
+int operator==(char[] a, const_string b){ return a == b.arr; }\r\n\
+int operator!=(const_string a, b){ return a.arr != b.arr; }\r\n\
+int operator!=(const_string a, char[] b){ return a.arr != b; }\r\n\
+int operator!=(char[] a, const_string b){ return a != b.arr; }\r\n\
+const_string operator+(const_string a, b){ return const_string(a.arr + b.arr); }\r\n\
+const_string operator+(const_string a, char[] b){ return const_string(a.arr + b); }\r\n\
+const_string operator+(char[] a, const_string b){ return const_string(a + b.arr); }\r\n\
 ";
 
 Compiler::Compiler()
@@ -218,7 +227,6 @@ Compiler::Compiler()
 	typeTypeid = info;
 	CodeInfo::typeInfo.push_back(info);
 
-	info->AddMemberVariable("id", typeInt);
 	info->size = 4;
 
 	typeObject->AddMemberVariable("type", typeTypeid);
@@ -864,7 +872,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 					const char	*parentName = func->type == FunctionInfo::THISCALL ? strchr(func->name, ':') + 2 : func->name;
 					SafeSprintf(functionName, func->nameLength + int(param->name.end - param->name.begin) + 3 + 12, "$%s_%.*s_%d", parentName, param->name.end - param->name.begin, param->name.begin, CodeInfo::FindFunctionByPtr(func));
 
-					SelectTypeByPointer(NULL);
+					SelectTypeByPointer(param->defaultValue->typeInfo);
 					FunctionAdd(CodeInfo::lastKnownStartPos, functionName);
 					FunctionStart(CodeInfo::lastKnownStartPos);
 					CodeInfo::nodeList.push_back(param->defaultValue);
