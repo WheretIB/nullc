@@ -1744,9 +1744,10 @@ void FunctionParameterDefault(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
+	TypeInfo *left = lastFunc.lastParam->varType;
+
 	ConvertFunctionToPointer(pos);
 
-	TypeInfo *left = lastFunc.lastParam->varType;
 	TypeInfo *right = CodeInfo::nodeList.back()->typeInfo;
 
 	if(!lastFunc.lastParam->varType)

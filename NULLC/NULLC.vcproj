@@ -706,6 +706,38 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="ext"
+				>
+				<File
+					RelativePath=".\includes\pugi.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\pugi.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\ext\pugi.nc"
+					>
+				</File>
+				<Filter
+					Name="pugi"
+					>
+					<File
+						RelativePath="..\external\pugixml\pugiconfig.hpp"
+						>
+					</File>
+					<File
+						RelativePath="..\external\pugixml\pugixml.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\external\pugixml\pugixml.hpp"
+						>
+					</File>
+				</Filter>
+			</Filter>
 		</Filter>
 	</Files>
 	<Globals>
