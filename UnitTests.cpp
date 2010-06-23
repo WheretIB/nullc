@@ -6566,6 +6566,118 @@ int operator()(int ref x, int y, z){ return y * *x + z; }\r\n\
 return x() + x(10) + x(24, 4);";
 	TEST_FOR_RESULT("Overloaded function call operator", testOverloadedOperatorFunctionCall, "148");
 
+const char	*testVarargs7 =
+"int sum(auto ref[] args)\r\n\
+{\r\n\
+	int r = 0;\r\n\
+	for(i in args)\r\n\
+		r += int(i);\r\n\
+	return r;\r\n\
+}\r\n\
+int wrap(auto ref[] args){ return sum(args); }\r\n\
+auto foo = sum;\r\n\
+\r\n\
+int a = sum(1);\r\n\
+int b = wrap(1);\r\n\
+foo = sum; int c = foo(1);\r\n\
+foo = wrap; int d = foo(1);\r\n\
+int e = sum(1, 2, 3);\r\n\
+int f = wrap(1, 2, 3);\r\n\
+foo = sum; int g = foo(1, 2, 3);\r\n\
+foo = wrap; int h = foo(1, 2, 3);\r\n\
+return a + b*10 + c*100 + d*1000 + e*10000 + f*100000 + g*1000000 + h*10000000;";
+	TEST_FOR_RESULT("Variable argument count passthrough", testVarargs7, "66661111");
+
+const char	*testPatternMatching =
+"import std.vector;\r\n\
+\r\n\
+typedef int ref(auto ref[]) pattern_matcher;\r\n\
+typedef auto ref ref(auto ref[]) pattern_callback;\r\n\
+\r\n\
+class FunctionKV\r\n\
+{\r\n\
+	pattern_matcher pattern;\r\n\
+	pattern_callback function;\r\n\
+}\r\n\
+FunctionKV FunctionKV(pattern_matcher pattern, pattern_callback function)\r\n\
+{\r\n\
+	FunctionKV ret;\r\n\
+	ret.pattern = pattern;\r\n\
+	ret.function = function;\r\n\
+	return ret;\r\n\
+}\r\n\
+class Function\r\n\
+{\r\n\
+	vector patterns;\r\n\
+	pattern_callback elseFunction;\r\n\
+	int binds;\r\n\
+	Function ref bind_function(pattern_matcher pattern, pattern_callback function)\r\n\
+	{\r\n\
+		if(!binds)\r\n\
+		{\r\n\
+			patterns = vector(FunctionKV);\r\n\
+			binds = 1;\r\n\
+		}\r\n\
+		patterns.push_back(FunctionKV(pattern, function));\r\n\
+		return this;\r\n\
+	}\r\n\
+	Function ref bind_else(pattern_callback function)\r\n\
+	{\r\n\
+		elseFunction = function;\r\n\
+		return this;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+auto ref operator()(Function ref f, auto ref[] args)\r\n\
+{\r\n\
+	for(FunctionKV i in (*f).patterns)\r\n\
+	{\r\n\
+		if((i.pattern)(args))\r\n\
+		{\r\n\
+			return (i.function)(args);\r\n\
+		}\r\n\
+	}\r\n\
+	return (f.elseFunction)(args);\r\n\
+}\r\n\
+\r\n\
+Function fib;\r\n\
+fib\r\n\
+.bind_function(\r\n\
+	auto(auto ref[] args)\r\n\
+	{\r\n\
+		return args[0].type == int && int(args[0]) == 1;\r\n\
+	},\r\n\
+	auto ref f(auto ref[] args)\r\n\
+	{\r\n\
+		return duplicate(1);\r\n\
+	}\r\n\
+).bind_function(\r\n\
+	auto(auto ref[] args)\r\n\
+	{\r\n\
+		return args[0].type == int && int(args[0]) == 2;\r\n\
+	},\r\n\
+	auto ref f(auto ref[] args)\r\n\
+	{\r\n\
+		return duplicate(2);\r\n\
+	}\r\n\
+).bind_function(\r\n\
+	auto(auto ref[] args)\r\n\
+	{\r\n\
+		return args[0].type == int && int(args[0]) > 0;\r\n\
+	},\r\n\
+	auto ref f(auto ref[] args)\r\n\
+	{\r\n\
+		return duplicate(int(fib(int(args[0]) - 1)) + int(fib(int(args[0]) - 2)));\r\n\
+	}\r\n\
+).bind_else(auto ref f(auto ref[] args){ return duplicate(0); });\r\n\
+\r\n\
+int d = int(fib(1));\r\n\
+int c = int(fib(2));\r\n\
+int b = int(fib(10));\r\n\
+int a = int(fib(-10));\r\n\
+return a*100**0 + b*100**1 + c*100**2 + d*100**3;";
+	TEST_FOR_RESULT("Pattern matcing", testPatternMatching, "1028900");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -7486,7 +7598,7 @@ return arr2.size;";
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;", "ERROR: modulus division by zero during constant folding");
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;", "ERROR: modulus division by zero during constant folding");
 
-	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);", "ERROR: variable is not a pointer to function and there is no overloaded operator()");
+	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);", "ERROR: function '()' is undefined");
 
 	TEST_FOR_FAIL("Function pointer call with wrong argument count", "int f(int a){ return -a; } auto foo = f; auto b = foo(); return foo(1, 2);", "ERROR: function expects 1 argument(s), while 0 are supplied");
 	TEST_FOR_FAIL("Function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } auto foo = f; float4 v; return foo(v);", "ERROR: there is no conversion from specified arguments and the ones that function accepts");
