@@ -2110,7 +2110,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 	return fRating;
 }
 
-void PrepareMemberCall(const char* pos)
+bool PrepareMemberCall(const char* pos, const char* funcName)
 {
 	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
 
@@ -2118,7 +2118,7 @@ void PrepareMemberCall(const char* pos)
 	if(currentType->refLevel == 2)
 	{
 		CodeInfo::nodeList.push_back(new NodeDereference());
-		return;
+		currentType = currentType->subType;
 	}
 	// Implicit conversion from type[N] ref to type[]
 	if(currentType->refLevel == 1 && currentType->subType->arrLevel && currentType->subType->arrSize != TypeInfo::UNSIZED_ARRAY)
@@ -2135,8 +2135,28 @@ void PrepareMemberCall(const char* pos)
 
 		AddInplaceVariable(pos);
 		AddExtraNode();
+		currentType = CodeInfo::nodeList.back()->typeInfo;
 	}
-
+	// Check class members, in case we have to get function pointer from class member before function call
+	if(funcName)
+	{
+		// Consider that function name is actually a member name
+		unsigned int hash = GetStringHash(funcName);
+		TypeInfo::MemberVariable *curr = currentType->subType->firstVariable;
+		for(; curr; curr = curr->next)
+			if(curr->nameHash == hash)
+				break;
+		// If a member is found
+		if(curr)
+		{
+			// Get it
+			AddMemberAccessNode(pos, InplaceStr(funcName));
+			// Return false to signal that this is not a member function call
+			return false;
+		}
+	}
+	// Return true to signal that this is a member function call
+	return true;
 }
 
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
@@ -2241,6 +2261,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	NodeZeroOP	*funcAddr = NULL;
 
+	// If we are inside member function, transform function name to a member function name (they have priority over global functions)
 	if(newType)
 	{
 		unsigned int hash = newType->nameHash;
@@ -2249,12 +2270,15 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		if(funcMap.find(hash))
 		{
+			// If function is found, change function name hash to member function name hash
 			funcNameHash = hash;
 
+			// Take "this" pointer
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
 			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
 			CodeInfo::nodeList.push_back(new NodeDereference());
+			// "this" pointer will be passed as extra parameter
 			funcAddr = CodeInfo::nodeList.back();
 			CodeInfo::nodeList.pop_back();
 		}else if(funcName){
@@ -2267,18 +2291,24 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	if(!silent && callArgCount == 1 && CodeInfo::nodeList[CodeInfo::nodeList.size() - 1]->typeInfo == typeObject)
 	{
 		TypeInfo *autoRefToType = NULL;
+		// Find class by name
 		TypeInfo **type = CodeInfo::classMap.find(funcNameHash);
+		// If found, select it
 		if(type)
 			autoRefToType = *type;
+		// If class wasn't found, try all other types
 		for(unsigned int i = 0; i < CodeInfo::typeInfo.size() && !autoRefToType; i++)
 		{
 			if(CodeInfo::typeInfo[i]->GetFullNameHash() == funcNameHash)
 				autoRefToType = CodeInfo::typeInfo[i];
 		}
+		// If a type was found
 		if(autoRefToType)
 		{
+			// Call user function
 			if(AddFunctionCallNode(pos, funcName, 1, true))
 				return true;
+			// If unsuccessful, perform build-in conversion
 			if(autoRefToType->refLevel)
 			{
 				CodeInfo::nodeList.push_back(new NodeConvertPtr(autoRefToType));
@@ -2303,15 +2333,22 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	}
 	unsigned int count = bestFuncList.size();
 	unsigned int vID = ~0u;
+	// If function wasn't found
 	if(count == 0)
 	{
+		// If error is silenced, return false
 		if(silent)
 			return false;
-		vID = CodeInfo::FindVariableByName(funcNameHash);
-		if(vID == ~0u && funcName)
-			ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
+		// If there was a function name, try to find a variable which may be a function pointer
+		if(funcName)
+		{
+			vID = CodeInfo::FindVariableByName(funcNameHash);
+			// If variable is not found, throw an error
+			if(vID == ~0u)
+				ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
+		}
 	}
-
+	// If there is a name and it's not a variable that holds 
 	if(vID == ~0u && funcName)
 	{
 		// Find the best suited function
@@ -2421,22 +2458,30 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			}
 		}
 	}else{
+		// If we have variable name, get it
 		if(funcName)
 			AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
+		// Retrieve value
 		AddGetVariableNode(pos);
+		// Get function pointer in case we have an in-lined function call
 		ConvertFunctionToPointer(pos);
+		// Save this node that calculates function pointer for later use
 		funcAddr = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 		fType = funcAddr->typeInfo->funcType;
+		// If we don't have a function type
 		if(!fType)
 		{
+			// Push node that was supposed to calculate function pointer
 			CodeInfo::nodeList.push_back(funcAddr);
+			// Raise it up to be placed before arguments
 			for(unsigned int i = 0; i < callArgCount; i++)
 			{
 				NodeZeroOP *tmp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - i];
 				CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - i] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - i];
 				CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - i] = tmp;
 			}
+			// Call operator()
 			return AddFunctionCallNode(pos, "()", callArgCount + 1);
 		}
 		unsigned int bestRating = ~0u;
