@@ -128,6 +128,15 @@ auto xml_writer_file(File file)
 	};
 }
 
+// Function returns writer to a string
+auto xml_writer_string(char[] ref str)
+{
+	return auto(char[] data)
+	{
+		*str += data;
+	};
+}
+
 class xml_attribute
 {
 	void ref attribute;
@@ -296,4 +305,31 @@ class xml_document
 	
 	xml_node	root();
 }
-xml_document xml_document(){ xml_document r; return r; }
+auto xml_document()
+{
+	xml_document r; return r;
+}
+
+auto xml_node()
+{
+	xml_node l;
+	return l;
+}
+auto xml_attribute()
+{
+	xml_attribute a;
+	return a;
+}
+// xml_node constror from xml_document
+auto xml_node(xml_document ref r)
+{
+	xml_node l;
+	l = r.root();
+	return l;
+}
+// operator for the same thing
+auto operator=(xml_node ref l, xml_document ref r)
+{
+	*l = r.root();
+	return l;
+}
