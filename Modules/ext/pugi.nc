@@ -55,8 +55,6 @@ class PugiNamespace
 	node_comment,		///< E.g. '<!--...-->'
 	node_pi,			///< E.g. '<?...?>'
 	node_declaration;	///< E.g. '<?xml ...?>'
-	
-	char[]	default_indent;
 }
 PugiNamespace pugi;
 
@@ -111,8 +109,6 @@ pugi.node_cdata			= 4;
 pugi.node_comment		= 5;
 pugi.node_pi			= 6;
 pugi.node_declaration	= 7;
-
-pugi.default_indent = "\t";
 
 typedef int xml_parse_status;
 typedef int encoding_t;
@@ -247,7 +243,7 @@ class xml_node
 	xml_node first_element_by_path(char[] path, char delimiter = '/');
 
 	int traverse(int ref(xml_node) begin, for_each, end);
-	void print(xml_writer writer, char[] indent = pugi.default_indent, int flags = pugi.format_default, encoding_t encoding = pugi.encoding_auto, int depth = 0);
+	void print(xml_writer writer, char[] indent = "\t", int flags = pugi.format_default, encoding_t encoding = pugi.encoding_auto, int depth = 0);
 
 	int offset_debug();
 	
@@ -297,9 +293,9 @@ class xml_document
 
 	xml_parse_result ref load_buffer_inplace(char[] contents, int size, int options = pugi.parse_default, encoding_t encoding = pugi.encoding_auto);
 
-	void save(xml_writer writer, char[] indent = pugi.default_indent, int flags = pugi.format_default, encoding_t encoding = pugi.encoding_auto);
+	void save(xml_writer writer, char[] indent = "\t", int flags = pugi.format_default, encoding_t encoding = pugi.encoding_auto);
 
-	int save_file(char[] name, char[] indent = pugi.default_indent, int flags = pugi.format_default, encoding_t encoding = pugi.encoding_auto);
+	int save_file(char[] name, char[] indent = "\t", int flags = pugi.format_default, encoding_t encoding = pugi.encoding_auto);
 	
 	xml_node	root();
 }

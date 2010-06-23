@@ -1212,6 +1212,8 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		else
 #endif
 			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
+		if(currentType->arrLevel || currentType == typeObject || currentType == typeAutoArray)
+			AddGetVariableNode(pos);
 	}else{
 		// In case of a function, get it's address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(memberFunc));
@@ -1747,6 +1749,8 @@ void FunctionParameterDefault(const char* pos)
 	TypeInfo *left = lastFunc.lastParam->varType;
 
 	ConvertFunctionToPointer(pos);
+	if(left)
+		HandlePointerToObject(pos, left);
 
 	TypeInfo *right = CodeInfo::nodeList.back()->typeInfo;
 
@@ -1759,7 +1763,8 @@ void FunctionParameterDefault(const char* pos)
 		ThrowError(pos, "ERROR: function parameter cannot be a void type", right->GetFullTypeName(), left->GetFullTypeName());
 	
 	// If types don't match and it it is not build-in basic types or if pointers point to different types
-	if(right == typeVoid || (left != right && (left->type == TypeInfo::TYPE_COMPLEX || right->type == TypeInfo::TYPE_COMPLEX || left->subType != right->subType)))
+	if(right == typeVoid || (left != right && (left->type == TypeInfo::TYPE_COMPLEX || right->type == TypeInfo::TYPE_COMPLEX || left->subType != right->subType)) &&
+		!(left->arrLevel == right->arrLevel && left->arrSize == TypeInfo::UNSIZED_ARRAY && right->arrSize != TypeInfo::UNSIZED_ARRAY))
 		ThrowError(pos, "ERROR: cannot convert from '%s' to '%s'", right->GetFullTypeName(), left->GetFullTypeName());
 
 	lastFunc.lastParam->defaultValue = CodeInfo::nodeList.back();
