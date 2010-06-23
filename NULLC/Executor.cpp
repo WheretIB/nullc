@@ -725,8 +725,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 						nextCommand = fcallStack.back();
 					if(response == 2 && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != -1)
 						nextCommand = cmdBase + exFunctions[breakCode[target].argument].address;
-					if(response == 2 && breakCode[target].cmd == cmdCallPtr && genStackPtr[cmd.argument >> 2] && exFunctions[genStackPtr[cmd.argument >> 2]].address != -1)
-						nextCommand = cmdBase + exFunctions[genStackPtr[cmd.argument >> 2]].address;
+					if(response == 2 && breakCode[target].cmd == cmdCallPtr && genStackPtr[breakCode[target].argument >> 2] && exFunctions[genStackPtr[breakCode[target].argument >> 2]].address != -1)
+						nextCommand = cmdBase + exFunctions[genStackPtr[breakCode[target].argument >> 2]].address;
 
 					if(response == 3 && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
