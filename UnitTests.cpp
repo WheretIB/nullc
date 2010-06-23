@@ -205,33 +205,76 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 		strcpy(cmdLine, "gcc.exe -o runnable.exe");
 		strcat(cmdLine, " 1test.cpp");
 		strcat(cmdLine, " NULLC\\translation\\runtime.cpp");
-		if(strstr(code, "std.math"))
+		if(strstr(code, "std.math;"))
 		{
 			strcat(cmdLine, " NULLC\\translation\\std_math.cpp");
 			strcat(cmdLine, " NULLC\\translation\\std_math_bind.cpp");
 		}
-		if(strstr(code, "std.typeinfo"))
+		if(strstr(code, "std.typeinfo;"))
 		{
 			strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
 			strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");
 		}
-		if(strstr(code, "std.file"))
+		if(strstr(code, "std.file;"))
 		{
 			strcat(cmdLine, " NULLC\\translation\\std_file.cpp");
 			strcat(cmdLine, " NULLC\\translation\\std_file_bind.cpp");
 		}
-		if(strstr(code, "std.vector"))
+		if(strstr(code, "std.vector;"))
 		{
 			strcat(cmdLine, " NULLC\\translation\\std_vector.cpp");
 			strcat(cmdLine, " NULLC\\translation\\std_vector_bind.cpp");
-			if(!strstr(code, "std.typeinfo"))
+			if(!strstr(code, "std.typeinfo;"))
 			{
 				strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
 				strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");
 			}
 		}
-		if(strstr(code, "test.a"))
+		if(strstr(code, "std.list;"))
+		{
+			strcat(cmdLine, " NULLC\\translation\\std_list.cpp");
+			if(!strstr(code, "std.typeinfo;"))
+			{
+				strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
+				strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");
+			}
+		}
+		if(strstr(code, "std.range;"))
+		{
+			strcat(cmdLine, " NULLC\\translation\\std_range.cpp");
+		}
+		if(strstr(code, "test.a;"))
+		{
 			strcat(cmdLine, " test_a.cpp");
+			if(!strstr(code, "std.math;"))
+			{
+				strcat(cmdLine, " NULLC\\translation\\std_math.cpp");
+				strcat(cmdLine, " NULLC\\translation\\std_math_bind.cpp");
+			}
+		}
+		if(strstr(code, "test.importhide;"))
+			strcat(cmdLine, " test_importhide.cpp");
+		if(strstr(code, "test.defargs;"))
+			strcat(cmdLine, " test_defargs.cpp");
+		if(strstr(code, "test.defargs2;"))
+			strcat(cmdLine, " test_defargs2.cpp");
+		if(strstr(code, "test.defargs3;"))
+			strcat(cmdLine, " test_defargs3.cpp");
+		if(strstr(code, "test.defargs4;"))
+		{
+			strcat(cmdLine, " test_defargs4.cpp");
+			strcat(cmdLine, " test_defargs4_bind.cpp");
+		}
+		if(strstr(code, "test.alignment;"))
+		{
+			strcat(cmdLine, " test_alignment.cpp");
+			strcat(cmdLine, " test_alignment_bind.cpp");
+		}
+		if(strstr(code, "std.gc;"))
+		{
+			strcat(cmdLine, " NULLC\\translation\\std_gc.cpp");
+			strcat(cmdLine, " NULLC\\translation\\std_gc_bind.cpp");
+		}
 		
 		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
 		res = GetLastError();
@@ -1202,6 +1245,42 @@ void	RunTests(bool verbose)
 	bRes = nullcCompile("import std.math; float4 a; a.x = 2;");
 	assert(bRes);
 	nullcTranslateToC("test_a.cpp", "init_test_a");
+
+	bRes = nullcCompile("char[] arr2 = \" world\";{ int r = 5; }");
+	assert(bRes);
+	nullcTranslateToC("test_importhide.cpp", "init_test_importhide");
+
+	bRes = nullcCompile("int func(int a, b = 6){ return a * b; }");
+	assert(bRes);
+	nullcTranslateToC("test_defargs.cpp", "init_test_defargs");
+
+	bRes = nullcCompile("int func(int a, b = 6){ return a * b; } int func(int d, c, a, b = 4){ return d * c + a + b; }");
+	assert(bRes);
+	nullcTranslateToC("test_defargs2.cpp", "init_test_defargs2");
+
+	bRes = nullcCompile("class Test{ int func(int a, b = 6){ return a * b; } }");
+	assert(bRes);
+	nullcTranslateToC("test_defargs3.cpp", "init_test_defargs3");
+
+	bRes = nullcCompile("class Test{ int func(int a, b = 6); }");
+	assert(bRes);
+	nullcTranslateToC("test_defargs4.cpp", "init_test_defargs4");
+
+	bRes = nullcCompile("int CheckAlignment(auto ref ptr, int alignment);");
+	assert(bRes);
+	nullcTranslateToC("test_alignment.cpp", "init_test_alignment");
+
+	bRes = CompileFile("Modules/std/list.nc");
+	assert(bRes);
+	nullcTranslateToC("NULLC\\translation\\std_list.cpp", "initStdList");
+
+	bRes = CompileFile("Modules/std/range.nc");
+	assert(bRes);
+	nullcTranslateToC("NULLC\\translation\\std_range.cpp", "initStdRange");
+
+	bRes = CompileFile("Modules/std/gc.nc");
+	assert(bRes);
+	nullcTranslateToC("NULLC\\translation\\std_gc.cpp", "initStdGC");
 #endif
 	//RunEulerTests();
 
@@ -3587,7 +3666,7 @@ return m[1][3] + 2;";
 		}
 	}
 
-const char	*testMissingTests5 =
+const char	*testMissingTests5a =
 "import test.alignment;\r\n\
 long a = 3, a2 = 1;\r\n\
 long b1 = a ** 27;\r\n\
@@ -3605,7 +3684,7 @@ return good;";
 	for(int t = 0; t < 2; t++)
 	{
 		testCount[t]++;
-		if(RunCode(testMissingTests5, testTarget[t], "2", "Group of tests 5"))
+		if(RunCode(testMissingTests5a, testTarget[t], "2", "Group of tests 5"))
 		{
 			lastFailed = false;
 			

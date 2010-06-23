@@ -30,7 +30,7 @@ struct NULLCRef
 typedef struct
 {
 	void	*context;
-	void	*ptr;
+	unsigned int id;
 } NULLCFuncPtr;
 
 // Wrapper over NULLC auto[] class for use in external functions
@@ -64,6 +64,18 @@ inline NULLCArray<T> __makeNullcArray(void* ptr, unsigned int size)
 	ret.size = size;
 	return ret;
 }
+template<typename T>
+inline NULLCArray<T> __makeNullcArray(unsigned int zero, void* unused)
+{
+#ifdef _MSC_VER
+	if(zero != 0 || unused != 0)
+		__asm int 3;
+#endif
+	NULLCArray<T> ret;
+	ret.ptr = 0;
+	ret.size = 0;
+	return ret;
+}
 int			__nullcPow(int a, int b);
 double		__nullcPow(double a, double b);
 long long	__nullcPow(long long a, long long b);
@@ -87,7 +99,7 @@ struct __nullcUpvalue
 	unsigned int size;
 };
 void __nullcCloseUpvalue(__nullcUpvalue *&head, void *ptr);
-NULLCFuncPtr	__nullcMakeFunction(void* ptr, void* context);
+NULLCFuncPtr	__nullcMakeFunction(unsigned int id, void* context);
 NULLCRef		__nullcMakeAutoRef(void* ptr, unsigned int typeID);
 void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID);
 
@@ -111,7 +123,7 @@ int  int__(int a, void* unused);
 long  long__(long a, void* unused);
 float  float__(float a, void* unused);
 double  double__(double a, void* unused);
-NULLCArray<char>  int__str(int* __context);
+NULLCArray<char>  int__str_char___ref__(int* __context);
 int  __newS(int size, void* unused);
 NULLCArray<void>  __newA(int size, int count, void* unused);
 NULLCRef  duplicate(NULLCRef obj, void* unused);
@@ -136,6 +148,13 @@ int __typeCount(void* unused);
 NULLCAutoArray* __operatorSet(NULLCAutoArray* l, NULLCRef r, void* unused);
 NULLCRef __operatorSet(NULLCRef l, NULLCAutoArray* r, void* unused);
 NULLCAutoArray* __operatorSet(NULLCAutoArray* l, NULLCAutoArray* r, void* unused);
-NULLCRef __operatorIndex(NULLCAutoArray* l, int index, void* unused);
+NULLCRef __operatorIndex(NULLCAutoArray* l, unsigned int index, void* unused);
 
-NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* f);
+NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* f, void* unused);
+
+// char inline array definition support
+NULLCArray<char>* __operatorSet(NULLCArray<char>* dst, NULLCArray<int> src, void* unused);
+// short inline array definition support
+NULLCArray<short>* __operatorSet(NULLCArray<short>* dst, NULLCArray<int> src, void* unused);
+// float inline array definition support
+NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src, void* unused);

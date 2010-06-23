@@ -1,20 +1,20 @@
 #include "runtime.h"
 // Array classes
-typedef struct
+struct member_iterator
 {
 	unsigned int classID;
 	int pos;
-} member_iterator;
-typedef struct
+};
+struct member_info
 {
 	unsigned int type;
 	NULLCArray<char> name;
-} member_info;
-typedef struct
+};
+struct argument_iterator
 {
 	unsigned int funcID;
 	int pos;
-} argument_iterator;
+};
 int isFunction(unsigned int type, void* unused)
 {
 	// $$$
@@ -65,51 +65,51 @@ int isPointer(NULLCRef type, void* unused)
 	// $$$
 	return 0;
 }
-int typeid__size_(unsigned int * __context)
+int typeid__size__int_ref__(unsigned int * __context)
 {
 	return __nullcGetTypeInfo(*__context)->size;
 }
-NULLCArray<char> typeid__name_(unsigned int * __context)
+NULLCArray<char> typeid__name__char___ref__(unsigned int * __context)
 {
 	NULLCArray<char> ret;
 	return ret;
 }
-int typeid__memberCount(unsigned int * __context)
+int typeid__memberCount_int_ref__(unsigned int * __context)
 {
 	// $$$
 	return 0;
 }
-unsigned int typeid__memberType(int member, unsigned int * __context)
+unsigned int typeid__memberType_typeid_ref_int_(int member, unsigned int * __context)
 {
 	// $$$
 	return 0;
 }
-NULLCArray<char> typeid__memberName(int member, unsigned int * __context)
+NULLCArray<char> typeid__memberName_char___ref_int_(int member, unsigned int * __context)
 {
 	NULLCArray<char> ret;
 	return ret;
 }
-unsigned int typeid__subType(unsigned int * __context)
+unsigned int typeid__subType_typeid_ref__(unsigned int * __context)
 {
 	// $$$
 	return 0;
 }
-int typeid__arraySize(unsigned int * __context)
+int typeid__arraySize_int_ref__(unsigned int * __context)
 {
 	// $$$
 	return 0;
 }
-unsigned int typeid__returnType(unsigned int * __context)
+unsigned int typeid__returnType_typeid_ref__(unsigned int * __context)
 {
 	// $$$
 	return 0;
 }
-int typeid__argumentCount(unsigned int * __context)
+int typeid__argumentCount_int_ref__(unsigned int * __context)
 {
 	// $$$
 	return 0;
 }
-unsigned int typeid__argumentType(int argument, unsigned int * __context)
+unsigned int typeid__argumentType_typeid_ref_int_(int argument, unsigned int * __context)
 {
 	// $$$
 	return 0;

@@ -457,6 +457,9 @@ public:
 	unsigned int	nameLength;
 	unsigned int	nameHash;			// Full function name
 	unsigned int	nameHashOrig;		// Hash of a function name without class name
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	unsigned int	nameInCHash;
+#endif
 
 	VariableInfo	*firstParam, *lastParam;	// Parameter list
 	VariableInfo	*extraParam;	// closure/this pointer
@@ -505,53 +508,59 @@ public:
 
 	const char*	GetOperatorName()
 	{
-		if(nameLength <= 3)
+		unsigned int offset = 0;
+		if(parentClass)
 		{
-			if(strcmp(name, "+") == 0)
+			offset = parentClass->GetFullNameLength();
+			offset += 2;
+		}
+		if(nameLength - offset <= 3)
+		{
+			if(strcmp(name + offset, "+") == 0)
 				return "__operatorAdd";
-			if(strcmp(name, "-") == 0)
+			if(strcmp(name + offset, "-") == 0)
 				return "__operatorSub";
-			if(strcmp(name, "*") == 0)
+			if(strcmp(name + offset, "*") == 0)
 				return "__operatorMul";
-			if(strcmp(name, "/") == 0)
+			if(strcmp(name + offset, "/") == 0)
 				return "__operatorDiv";
-			if(strcmp(name, "%") == 0)
+			if(strcmp(name + offset, "%") == 0)
 				return "__operatorMod";
-			if(strcmp(name, "**") == 0)
+			if(strcmp(name + offset, "**") == 0)
 				return "__operatorPow";
-			if(strcmp(name, "<") == 0)
+			if(strcmp(name + offset, "<") == 0)
 				return "__operatorLess";
-			if(strcmp(name, ">") == 0)
+			if(strcmp(name + offset, ">") == 0)
 				return "__operatorGreater";
-			if(strcmp(name, "<=") == 0)
+			if(strcmp(name + offset, "<=") == 0)
 				return "__operatorLEqual";
-			if(strcmp(name, ">=") == 0)
+			if(strcmp(name + offset, ">=") == 0)
 				return "__operatorGEqual";
-			if(strcmp(name, "==") == 0)
+			if(strcmp(name + offset, "==") == 0)
 				return "__operatorEqual";
-			if(strcmp(name, "!=") == 0)
+			if(strcmp(name + offset, "!=") == 0)
 				return "__operatorNEqual";
-			if(strcmp(name, "<<") == 0)
+			if(strcmp(name + offset, "<<") == 0)
 				return "__operatorShiftLeft";
-			if(strcmp(name, ">>") == 0)
+			if(strcmp(name + offset, ">>") == 0)
 				return "__operatorShiftRight";
-			if(strcmp(name, "=") == 0)
+			if(strcmp(name + offset, "=") == 0)
 				return "__operatorSet";
-			if(strcmp(name, "+=") == 0)
+			if(strcmp(name + offset, "+=") == 0)
 				return "__operatorAddSet";
-			if(strcmp(name, "-=") == 0)
+			if(strcmp(name + offset, "-=") == 0)
 				return "__operatorSubSet";
-			if(strcmp(name, "*=") == 0)
+			if(strcmp(name + offset, "*=") == 0)
 				return "__operatorMulSet";
-			if(strcmp(name, "/=") == 0)
+			if(strcmp(name + offset, "/=") == 0)
 				return "__operatorDivSet";
-			if(strcmp(name, "**=") == 0)
+			if(strcmp(name + offset, "**=") == 0)
 				return "__operatorPowSet";
-			if(strcmp(name, "[]") == 0)
+			if(strcmp(name + offset, "[]") == 0)
 				return "__operatorIndex";
-			if(strcmp(name, "!") == 0)
+			if(strcmp(name + offset, "!") == 0)
 				return "__operatorLogNot";
-			if(strcmp(name, "~") == 0)
+			if(strcmp(name + offset, "~") == 0)
 				return "__operatorBitNot";
 		}
 		return NULL;

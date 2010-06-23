@@ -2,24 +2,24 @@
 #include "runtime.h"
 #include <math.h>
 
-typedef struct
+struct float2
 {
 	float x;
 	float y;
-} float2;
-typedef struct
+};
+struct float3
 {
 	float x;
 	float y;
 	float z;
-} float3;
-typedef struct
+};
+struct float4
 {
 	float x;
 	float y;
 	float z;
 	float w;
-} float4;
+};
 
 double cos(double deg, void* unused)
 {
@@ -133,38 +133,38 @@ float * __operatorIndex(float4 * a, int index, void* unused)
 	return (float*)&a->x + index;
 }
 
-float float2__length(float2 * v)
+float float2__length_float_ref__(float2 * v)
 {
 	return sqrt(v->x * v->x + v->y * v->y);
 }
-float float2__normalize(float2 * v)
+float float2__normalize_float_ref__(float2 * v)
 {
-	float len = float2__length(v), invLen = 1.0f / len;
+	float len = float2__length_float_ref__(v), invLen = 1.0f / len;
 	v->x *= invLen;
 	v->y *= invLen;
 	return len;
 }
 
-float float3__length(float3 * v)
+float float3__length_float_ref__(float3 * v)
 {
 	return sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 }
-float float3__normalize(float3 * v)
+float float3__normalize_float_ref__(float3 * v)
 {
-	float len = float3__length(v), invLen = 1.0f / len;
+	float len = float3__length_float_ref__(v), invLen = 1.0f / len;
 	v->x *= invLen;
 	v->y *= invLen;
 	v->z *= invLen;
 	return len;
 }
 
-float float4__length(float3 * v)
+float float4__length_float_ref__(float4 * v)
 {
 	return sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 }
-float float4__normalize(float3 * v)
+float float4__normalize_float_ref__(float4 * v)
 {
-	float len = float4__length(v), invLen = 1.0f / len;
+	float len = float4__length_float_ref__(v), invLen = 1.0f / len;
 	v->x *= invLen;
 	v->y *= invLen;
 	v->z *= invLen;

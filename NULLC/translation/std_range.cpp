@@ -1,35 +1,46 @@
 #include "runtime.h"
 // Typeid redirect table
-static unsigned __nullcTR[76];
+static unsigned __nullcTR[65];
 // Function pointer redirect table
-static void* __nullcFR[50];
+static void* __nullcFR[35];
 // Array classes
-struct File 
+struct range_iterator 
 {
-	int flag;
-	void * id;
+	int pos;
+	int max;
+	int step;
 };
-File File__(void* unused);
-File File__(NULLCArray<char > name, NULLCArray<char > access, void* unused);
-void File__Open_void_ref_char___char___(NULLCArray<char > name, NULLCArray<char > access, File * __context);
-void File__Close_void_ref__(File * __context);
-int File__Opened_int_ref__(File * __context);
-void File__Write_void_ref_char_(char data, File * __context);
-void File__Write_void_ref_short_(short data, File * __context);
-void File__Write_void_ref_int_(int data, File * __context);
-void File__Write_void_ref_long_(long long data, File * __context);
-void File__Write_void_ref_float_(float data, File * __context);
-void File__Write_void_ref_double_(double data, File * __context);
-void File__Read_void_ref_char_ref_(char * data, File * __context);
-void File__Read_void_ref_short_ref_(short * data, File * __context);
-void File__Read_void_ref_int_ref_(int * data, File * __context);
-void File__Read_void_ref_long_ref_(long long * data, File * __context);
-void File__Read_void_ref_float_ref_(float * data, File * __context);
-void File__Read_void_ref_double_ref_(double * data, File * __context);
-void File__Read_void_ref_char___(NULLCArray<char > arr, File * __context);
-void File__Write_void_ref_char___(NULLCArray<char > arr, File * __context);
-void File__Print_void_ref_char___(NULLCArray<char > arr, File * __context);
-int initStdFile()
+range_iterator range_iterator__start_range_iterator_ref__(range_iterator * __context);
+int range_iterator__next_int_ref__(range_iterator * __context);
+int range_iterator__hasnext_int_ref__(range_iterator * __context);
+range_iterator range(int min, int max, int step, void* unused);
+int __range_step_33(void* unused);
+range_iterator  range_iterator__start_range_iterator_ref__(range_iterator * __context)
+{
+	return *(*(&__context));
+}
+int  range_iterator__next_int_ref__(range_iterator * __context)
+{
+	*(&(*(&__context))->pos) += *(&(*(&__context))->step);
+	return (*(&(*(&__context))->pos)) - (*(&(*(&__context))->step));
+}
+int  range_iterator__hasnext_int_ref__(range_iterator * __context)
+{
+	return (*(&(*(&__context))->pos)) <= (*(&(*(&__context))->max));
+}
+range_iterator  range(int min_0, int max_4, int step_8, void* unused)
+{
+	range_iterator r_16;
+	*(&(&r_16)->pos) = *(&min_0);
+	*(&(&r_16)->max) = (*(&max_4)) + (1);
+	*(&(&r_16)->step) = *(&step_8);
+	return *(&r_16);
+}
+int  __range_step_33(void* unused)
+{
+	return 1;
+}
+int initStdRange()
 {
 	__nullcTR[0] = __nullcRegisterType(2090838615u, "void", 0, __nullcTR[0], 0, NULLC_CLASS);
 	__nullcTR[1] = __nullcRegisterType(4181547808u, "double", 8, __nullcTR[0], 0, NULLC_CLASS);
@@ -90,23 +101,12 @@ int initStdFile()
 	__nullcTR[56] = __nullcRegisterType(3824954777u, "auto ref ref(auto ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[57] = __nullcRegisterType(3832966281u, "auto[] ref ref(auto[] ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[58] = __nullcRegisterType(477490926u, "auto ref ref(auto[] ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[59] = __nullcRegisterType(2089107205u, "File", 8, __nullcTR[0], 2, NULLC_CLASS);
-	__nullcTR[60] = __nullcRegisterType(1963509203u, "File ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[61] = __nullcRegisterType(1505295979u, "File ref(char[],char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[62] = __nullcRegisterType(3565315197u, "void ref(char[],char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[63] = __nullcRegisterType(2570056003u, "void ref(char)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[64] = __nullcRegisterType(3834141397u, "void ref(short)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[65] = __nullcRegisterType(2580994645u, "void ref(long)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[66] = __nullcRegisterType(3330106459u, "void ref(float)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[67] = __nullcRegisterType(60945760u, "void ref(double)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[68] = __nullcRegisterType(2786737248u, "void ref(char ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[69] = __nullcRegisterType(1406213874u, "void ref(short ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[70] = __nullcRegisterType(3241370989u, "void ref(int ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[71] = __nullcRegisterType(2414624818u, "long ref", 4, __nullcTR[3], 1, NULLC_POINTER);
-	__nullcTR[72] = __nullcRegisterType(55795314u, "void ref(long ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[73] = __nullcRegisterType(3566959480u, "void ref(float ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[74] = __nullcRegisterType(1140524797u, "void ref(double ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[75] = __nullcRegisterType(2767335131u, "void ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[59] = __nullcRegisterType(3246223675u, "range_iterator", 12, __nullcTR[0], 3, NULLC_CLASS);
+	__nullcTR[60] = __nullcRegisterType(957158712u, "range_iterator ref", 4, __nullcTR[59], 1, NULLC_POINTER);
+	__nullcTR[61] = __nullcRegisterType(2006478773u, "range_iterator ref ref", 4, __nullcTR[60], 1, NULLC_POINTER);
+	__nullcTR[62] = __nullcRegisterType(2963753097u, "range_iterator ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[63] = __nullcRegisterType(1763098802u, "range_iterator ref ref ref", 4, __nullcTR[61], 1, NULLC_POINTER);
+	__nullcTR[64] = __nullcRegisterType(2954242914u, "range_iterator ref(int,int,int)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
 	__nullcFR[0] = (void*)0;
 	__nullcFR[1] = (void*)0;
 	__nullcFR[2] = (void*)0;
@@ -137,25 +137,9 @@ int initStdFile()
 	__nullcFR[27] = (void*)0;
 	__nullcFR[28] = (void*)0;
 	__nullcFR[29] = (void*)__operatorIndex;
-	__nullcFR[30] = (void*)0;
-	__nullcFR[31] = (void*)0;
-	__nullcFR[32] = (void*)File__Open_void_ref_char___char___;
-	__nullcFR[33] = (void*)File__Close_void_ref__;
-	__nullcFR[34] = (void*)File__Opened_int_ref__;
-	__nullcFR[35] = (void*)File__Write_void_ref_char_;
-	__nullcFR[36] = (void*)File__Write_void_ref_short_;
-	__nullcFR[37] = (void*)File__Write_void_ref_int_;
-	__nullcFR[38] = (void*)File__Write_void_ref_long_;
-	__nullcFR[39] = (void*)File__Write_void_ref_float_;
-	__nullcFR[40] = (void*)File__Write_void_ref_double_;
-	__nullcFR[41] = (void*)File__Read_void_ref_char_ref_;
-	__nullcFR[42] = (void*)File__Read_void_ref_short_ref_;
-	__nullcFR[43] = (void*)File__Read_void_ref_int_ref_;
-	__nullcFR[44] = (void*)File__Read_void_ref_long_ref_;
-	__nullcFR[45] = (void*)File__Read_void_ref_float_ref_;
-	__nullcFR[46] = (void*)File__Read_void_ref_double_ref_;
-	__nullcFR[47] = (void*)File__Read_void_ref_char___;
-	__nullcFR[48] = (void*)File__Write_void_ref_char___;
-	__nullcFR[49] = (void*)File__Print_void_ref_char___;
-	/* node translation unknown */
+	__nullcFR[30] = (void*)range_iterator__start_range_iterator_ref__;
+	__nullcFR[31] = (void*)range_iterator__next_int_ref__;
+	__nullcFR[32] = (void*)range_iterator__hasnext_int_ref__;
+	__nullcFR[33] = (void*)range;
+	__nullcFR[34] = (void*)__range_step_33;
 }

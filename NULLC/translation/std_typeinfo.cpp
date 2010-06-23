@@ -1,22 +1,24 @@
 #include "runtime.h"
 // Typeid redirect table
 static unsigned __nullcTR[82];
+// Function pointer redirect table
+static void* __nullcFR[58];
 // Array classes
-typedef struct
+struct member_iterator 
 {
 	unsigned int classID;
 	int pos;
-} member_iterator ;
-typedef struct
+};
+struct member_info 
 {
 	unsigned int type;
 	NULLCArray<char > name;
-} member_info ;
-typedef struct
+};
+struct argument_iterator 
 {
 	unsigned int funcID;
 	int pos;
-} argument_iterator ;
+};
 int isFunction(unsigned int type, void* unused);
 int isClass(unsigned int type, void* unused);
 int isSimple(unsigned int type, void* unused);
@@ -27,64 +29,64 @@ int isClass(NULLCRef type, void* unused);
 int isSimple(NULLCRef type, void* unused);
 int isArray(NULLCRef type, void* unused);
 int isPointer(NULLCRef type, void* unused);
-int typeid__size_(unsigned int * __context);
-NULLCArray<char > typeid__name_(unsigned int * __context);
-int typeid__memberCount(unsigned int * __context);
-unsigned int typeid__memberType(int member, unsigned int * __context);
-NULLCArray<char > typeid__memberName(int member, unsigned int * __context);
-unsigned int typeid__subType(unsigned int * __context);
-int typeid__arraySize(unsigned int * __context);
-unsigned int typeid__returnType(unsigned int * __context);
-int typeid__argumentCount(unsigned int * __context);
-unsigned int typeid__argumentType(int argument, unsigned int * __context);
-member_iterator typeid__members(unsigned int * __context);
-member_iterator * member_iterator__start(member_iterator * __context);
-int member_iterator__hasnext(member_iterator * __context);
-member_info member_iterator__next(member_iterator * __context);
-argument_iterator typeid__arguments(unsigned int * __context);
-argument_iterator * argument_iterator__start(argument_iterator * __context);
-int argument_iterator__hasnext(argument_iterator * __context);
-unsigned int argument_iterator__next(argument_iterator * __context);
-member_iterator  typeid__members(unsigned int * __context)
+int typeid__size__int_ref__(unsigned int * __context);
+NULLCArray<char > typeid__name__char___ref__(unsigned int * __context);
+int typeid__memberCount_int_ref__(unsigned int * __context);
+unsigned int typeid__memberType_typeid_ref_int_(int member, unsigned int * __context);
+NULLCArray<char > typeid__memberName_char___ref_int_(int member, unsigned int * __context);
+unsigned int typeid__subType_typeid_ref__(unsigned int * __context);
+int typeid__arraySize_int_ref__(unsigned int * __context);
+unsigned int typeid__returnType_typeid_ref__(unsigned int * __context);
+int typeid__argumentCount_int_ref__(unsigned int * __context);
+unsigned int typeid__argumentType_typeid_ref_int_(int argument, unsigned int * __context);
+member_iterator typeid__members_member_iterator_ref__(unsigned int * __context);
+member_iterator * member_iterator__start_member_iterator_ref_ref__(member_iterator * __context);
+int member_iterator__hasnext_int_ref__(member_iterator * __context);
+member_info member_iterator__next_member_info_ref__(member_iterator * __context);
+argument_iterator typeid__arguments_argument_iterator_ref__(unsigned int * __context);
+argument_iterator * argument_iterator__start_argument_iterator_ref_ref__(argument_iterator * __context);
+int argument_iterator__hasnext_int_ref__(argument_iterator * __context);
+unsigned int argument_iterator__next_typeid_ref__(argument_iterator * __context);
+member_iterator  typeid__members_member_iterator_ref__(unsigned int * __context)
 {
 	member_iterator ret_4;
 	*(&(&ret_4)->classID) = *(*(&__context));
 	*(&(&ret_4)->pos) = 0;
 	return *(&ret_4);
 }
-member_iterator *  member_iterator__start(member_iterator * __context)
+member_iterator *  member_iterator__start_member_iterator_ref_ref__(member_iterator * __context)
 {
 	return *(&__context);
 }
-int  member_iterator__hasnext(member_iterator * __context)
+int  member_iterator__hasnext_int_ref__(member_iterator * __context)
 {
-	return (*(&(*(&__context))->pos)) < (typeid__memberCount(&(*(&__context))->classID));
+	return (*(&(*(&__context))->pos)) < (typeid__memberCount_int_ref__(&(*(&__context))->classID));
 }
-member_info  member_iterator__next(member_iterator * __context)
+member_info  member_iterator__next_member_info_ref__(member_iterator * __context)
 {
 	member_info ret_4;
-	*(&(&ret_4)->type) = typeid__memberType(*(&(*(&__context))->pos), &(*(&__context))->classID);
-	*(&(&ret_4)->name) = typeid__memberName((*(&(*(&__context))->pos))++, &(*(&__context))->classID);
+	*(&(&ret_4)->type) = typeid__memberType_typeid_ref_int_(*(&(*(&__context))->pos), &(*(&__context))->classID);
+	*(&(&ret_4)->name) = typeid__memberName_char___ref_int_((*(&(*(&__context))->pos))++, &(*(&__context))->classID);
 	return *(&ret_4);
 }
-argument_iterator  typeid__arguments(unsigned int * __context)
+argument_iterator  typeid__arguments_argument_iterator_ref__(unsigned int * __context)
 {
 	argument_iterator ret_4;
 	*(&(&ret_4)->funcID) = *(*(&__context));
 	*(&(&ret_4)->pos) = 0;
 	return *(&ret_4);
 }
-argument_iterator *  argument_iterator__start(argument_iterator * __context)
+argument_iterator *  argument_iterator__start_argument_iterator_ref_ref__(argument_iterator * __context)
 {
 	return *(&__context);
 }
-int  argument_iterator__hasnext(argument_iterator * __context)
+int  argument_iterator__hasnext_int_ref__(argument_iterator * __context)
 {
-	return (*(&(*(&__context))->pos)) < (typeid__argumentCount(&(*(&__context))->funcID));
+	return (*(&(*(&__context))->pos)) < (typeid__argumentCount_int_ref__(&(*(&__context))->funcID));
 }
-unsigned int  argument_iterator__next(argument_iterator * __context)
+unsigned int  argument_iterator__next_typeid_ref__(argument_iterator * __context)
 {
-	return typeid__argumentType((*(&(*(&__context))->pos))++, &(*(&__context))->funcID);
+	return typeid__argumentType_typeid_ref_int_((*(&(*(&__context))->pos))++, &(*(&__context))->funcID);
 }
 int initStdTypeInfo()
 {
@@ -170,4 +172,62 @@ int initStdTypeInfo()
 	__nullcTR[79] = __nullcRegisterType(2485895435u, "argument_iterator ref ref", 4, __nullcTR[77], 1, NULLC_POINTER);
 	__nullcTR[80] = __nullcRegisterType(1310733596u, "argument_iterator ref ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
 	__nullcTR[81] = __nullcRegisterType(1459539208u, "argument_iterator ref ref ref", 4, __nullcTR[79], 1, NULLC_POINTER);
+	__nullcFR[0] = (void*)0;
+	__nullcFR[1] = (void*)0;
+	__nullcFR[2] = (void*)0;
+	__nullcFR[3] = (void*)0;
+	__nullcFR[4] = (void*)__operatorAdd;
+	__nullcFR[5] = (void*)__operatorAddSet;
+	__nullcFR[6] = (void*)char__;
+	__nullcFR[7] = (void*)short__;
+	__nullcFR[8] = (void*)int__;
+	__nullcFR[9] = (void*)long__;
+	__nullcFR[10] = (void*)float__;
+	__nullcFR[11] = (void*)double__;
+	__nullcFR[12] = (void*)int__str_char___ref__;
+	__nullcFR[13] = (void*)__newS;
+	__nullcFR[14] = (void*)__newA;
+	__nullcFR[15] = (void*)duplicate;
+	__nullcFR[16] = (void*)__redirect;
+	__nullcFR[17] = (void*)0;
+	__nullcFR[18] = (void*)0;
+	__nullcFR[19] = (void*)0;
+	__nullcFR[20] = (void*)typeid__;
+	__nullcFR[21] = (void*)0;
+	__nullcFR[22] = (void*)0;
+	__nullcFR[23] = (void*)__pcomp;
+	__nullcFR[24] = (void*)__pncomp;
+	__nullcFR[25] = (void*)__typeCount;
+	__nullcFR[26] = (void*)0;
+	__nullcFR[27] = (void*)0;
+	__nullcFR[28] = (void*)0;
+	__nullcFR[29] = (void*)__operatorIndex;
+	__nullcFR[30] = (void*)0;
+	__nullcFR[31] = (void*)0;
+	__nullcFR[32] = (void*)0;
+	__nullcFR[33] = (void*)0;
+	__nullcFR[34] = (void*)0;
+	__nullcFR[35] = (void*)0;
+	__nullcFR[36] = (void*)0;
+	__nullcFR[37] = (void*)0;
+	__nullcFR[38] = (void*)0;
+	__nullcFR[39] = (void*)0;
+	__nullcFR[40] = (void*)typeid__size__int_ref__;
+	__nullcFR[41] = (void*)typeid__name__char___ref__;
+	__nullcFR[42] = (void*)typeid__memberCount_int_ref__;
+	__nullcFR[43] = (void*)typeid__memberType_typeid_ref_int_;
+	__nullcFR[44] = (void*)typeid__memberName_char___ref_int_;
+	__nullcFR[45] = (void*)typeid__subType_typeid_ref__;
+	__nullcFR[46] = (void*)typeid__arraySize_int_ref__;
+	__nullcFR[47] = (void*)typeid__returnType_typeid_ref__;
+	__nullcFR[48] = (void*)typeid__argumentCount_int_ref__;
+	__nullcFR[49] = (void*)typeid__argumentType_typeid_ref_int_;
+	__nullcFR[50] = (void*)typeid__members_member_iterator_ref__;
+	__nullcFR[51] = (void*)member_iterator__start_member_iterator_ref_ref__;
+	__nullcFR[52] = (void*)member_iterator__hasnext_int_ref__;
+	__nullcFR[53] = (void*)member_iterator__next_member_info_ref__;
+	__nullcFR[54] = (void*)typeid__arguments_argument_iterator_ref__;
+	__nullcFR[55] = (void*)argument_iterator__start_argument_iterator_ref_ref__;
+	__nullcFR[56] = (void*)argument_iterator__hasnext_int_ref__;
+	__nullcFR[57] = (void*)argument_iterator__next_typeid_ref__;
 }

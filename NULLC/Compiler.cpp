@@ -964,6 +964,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	fprintf(fC, "#include \"runtime.h\"\r\n");
 	fprintf(fC, "// Typeid redirect table\r\n");
 	fprintf(fC, "static unsigned __nullcTR[%d];\r\n", CodeInfo::typeInfo.size());
+	fprintf(fC, "// Function pointer redirect table\r\n");
+	fprintf(fC, "static void* __nullcFR[%d];\r\n", CodeInfo::funcInfo.size());
 	fprintf(fC, "// Array classes\r\n");
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 	{
@@ -988,7 +990,9 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			}
 			fprintf(fC, "};\r\n");
 		}else{
-			fprintf(fC, "typedef struct\r\n{\r\n");
+			fprintf(fC, "struct ");
+			type->OutputCType(fC, "\r\n");
+			fprintf(fC, "{\r\n");
 			TypeInfo::MemberVariable *curr = type->firstVariable;
 			for(; curr; curr = curr->next)
 			{
@@ -999,8 +1003,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 					curr->type->OutputCType(fC, curr->name);
 				fprintf(fC, ";\r\n");
 			}
-			fprintf(fC, "} ");
-			type->OutputCType(fC, ";\r\n");
+			fprintf(fC, "};\r\n");
 		}
 	}
 
@@ -1087,6 +1090,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
 		if(varInfo->pos >> 24)
 			fprintf(fC, "extern ");
+		else if(*varInfo->name.begin == '$')
+			fprintf(fC, "static ");
 		varInfo->varType->OutputCType(fC, vName);
 		fprintf(fC, ";\r\n");
 	}
@@ -1119,6 +1124,30 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				fprintf(fC, "%d, NULLC_FUNCTION);\r\n", type->funcType->paramCount);
 			else
 				fprintf(fC, "%d, NULLC_CLASS);\r\n", type->memberCount);
+		}
+		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		{
+			char fName[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
+			GetCFunctionName(fName, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, CodeInfo::funcInfo[i]);
+			CodeInfo::funcInfo[i]->nameInCHash = GetStringHash(fName);
+		}
+		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		{
+			FunctionInfo *info = CodeInfo::funcInfo[i];
+			bool duplicate = false;
+			for(unsigned int l = 0; l < CodeInfo::funcInfo.size() && !duplicate; l++)
+			{
+				if(i == l)
+					continue;
+				if(info->nameInCHash == CodeInfo::funcInfo[l]->nameInCHash)
+					duplicate = true;
+			}
+			fprintf(fC, "\t__nullcFR[%d] = (void*)", i);
+			if(duplicate)
+				fprintf(fC, "0");
+			else
+				OutputCFunctionName(fC, info);
+			fprintf(fC, ";\r\n");
 		}
 		CodeInfo::nodeList.back()->TranslateToC(fC);
 		fprintf(fC, "}\r\n");

@@ -1,35 +1,37 @@
 #include "runtime.h"
 // Typeid redirect table
 static unsigned __nullcTR[94];
+// Function pointer redirect table
+static void* __nullcFR[75];
 // Array classes
-typedef struct
+struct member_iterator 
 {
 	unsigned int classID;
 	int pos;
-} member_iterator ;
-typedef struct
+};
+struct member_info 
 {
 	unsigned int type;
 	NULLCArray<char > name;
-} member_info ;
-typedef struct
+};
+struct argument_iterator 
 {
 	unsigned int funcID;
 	int pos;
-} argument_iterator ;
-typedef struct
+};
+struct vector 
 {
 	unsigned int elemType;
 	int flags;
 	int elemSize;
 	NULLCAutoArray data;
 	int currSize;
-} vector ;
-typedef struct
+};
+struct vector_iterator 
 {
 	vector * arr;
 	int pos;
-} vector_iterator ;
+};
 extern int isFunction(unsigned int type, void* unused);
 extern int isClass(unsigned int type, void* unused);
 extern int isSimple(unsigned int type, void* unused);
@@ -40,41 +42,41 @@ extern int isClass(NULLCRef type, void* unused);
 extern int isSimple(NULLCRef type, void* unused);
 extern int isArray(NULLCRef type, void* unused);
 extern int isPointer(NULLCRef type, void* unused);
-extern int typeid__size_(unsigned int * __context);
-extern NULLCArray<char > typeid__name_(unsigned int * __context);
-extern int typeid__memberCount(unsigned int * __context);
-extern unsigned int typeid__memberType(int member, unsigned int * __context);
-extern NULLCArray<char > typeid__memberName(int member, unsigned int * __context);
-extern unsigned int typeid__subType(unsigned int * __context);
-extern int typeid__arraySize(unsigned int * __context);
-extern unsigned int typeid__returnType(unsigned int * __context);
-extern int typeid__argumentCount(unsigned int * __context);
-extern unsigned int typeid__argumentType(int argument, unsigned int * __context);
-extern member_iterator typeid__members(unsigned int * __context);
-extern member_iterator * member_iterator__start(member_iterator * __context);
-extern int member_iterator__hasnext(member_iterator * __context);
-extern member_info member_iterator__next(member_iterator * __context);
-extern argument_iterator typeid__arguments(unsigned int * __context);
-extern argument_iterator * argument_iterator__start(argument_iterator * __context);
-extern int argument_iterator__hasnext(argument_iterator * __context);
-extern unsigned int argument_iterator__next(argument_iterator * __context);
+extern int typeid__size__int_ref__(unsigned int * __context);
+extern NULLCArray<char > typeid__name__char___ref__(unsigned int * __context);
+extern int typeid__memberCount_int_ref__(unsigned int * __context);
+extern unsigned int typeid__memberType_typeid_ref_int_(int member, unsigned int * __context);
+extern NULLCArray<char > typeid__memberName_char___ref_int_(int member, unsigned int * __context);
+extern unsigned int typeid__subType_typeid_ref__(unsigned int * __context);
+extern int typeid__arraySize_int_ref__(unsigned int * __context);
+extern unsigned int typeid__returnType_typeid_ref__(unsigned int * __context);
+extern int typeid__argumentCount_int_ref__(unsigned int * __context);
+extern unsigned int typeid__argumentType_typeid_ref_int_(int argument, unsigned int * __context);
+extern member_iterator typeid__members_member_iterator_ref__(unsigned int * __context);
+extern member_iterator * member_iterator__start_member_iterator_ref_ref__(member_iterator * __context);
+extern int member_iterator__hasnext_int_ref__(member_iterator * __context);
+extern member_info member_iterator__next_member_info_ref__(member_iterator * __context);
+extern argument_iterator typeid__arguments_argument_iterator_ref__(unsigned int * __context);
+extern argument_iterator * argument_iterator__start_argument_iterator_ref_ref__(argument_iterator * __context);
+extern int argument_iterator__hasnext_int_ref__(argument_iterator * __context);
+extern unsigned int argument_iterator__next_typeid_ref__(argument_iterator * __context);
 void cConstructVector(vector * v, unsigned int type, int reserved, void* unused);
 vector vector__(unsigned int type, int reserved, void* unused);
 vector vector__(unsigned int type, void* unused);
-vector_iterator vector__start(vector * __context);
-NULLCRef vector_iterator__next(vector_iterator * __context);
-int vector_iterator__hasnext(vector_iterator * __context);
-void vector__push_back(NULLCRef val, vector * __context);
-void vector__pop_back(vector * __context);
-NULLCRef vector__front(vector * __context);
-NULLCRef vector__back(vector * __context);
+vector_iterator vector__start_vector_iterator_ref__(vector * __context);
+NULLCRef vector_iterator__next_auto_ref_ref__(vector_iterator * __context);
+int vector_iterator__hasnext_int_ref__(vector_iterator * __context);
+void vector__push_back_void_ref_auto_ref_(NULLCRef val, vector * __context);
+void vector__pop_back_void_ref__(vector * __context);
+NULLCRef vector__front_auto_ref_ref__(vector * __context);
+NULLCRef vector__back_auto_ref_ref__(vector * __context);
 NULLCRef __operatorIndex(vector * v, int index, void* unused);
-void vector__reserve(int size, vector * __context);
-void vector__resize(int size, vector * __context);
-void vector__clear(vector * __context);
-void vector__destroy(vector * __context);
-int vector__size(vector * __context);
-int vector__capacity(vector * __context);
+void vector__reserve_void_ref_int_(int size, vector * __context);
+void vector__resize_void_ref_int_(int size, vector * __context);
+void vector__clear_void_ref__(vector * __context);
+void vector__destroy_void_ref__(vector * __context);
+int vector__size_int_ref__(vector * __context);
+int vector__capacity_int_ref__(vector * __context);
 vector  vector__(unsigned int type_0, int reserved_4, void* unused)
 {
 	vector ret_12;
@@ -87,7 +89,7 @@ vector  vector__(unsigned int type_0, void* unused)
 	cConstructVector(&ret_8, *(&type_0), 0, (void*)0);
 	return *(&ret_8);
 }
-vector_iterator  vector__start(vector * __context)
+vector_iterator  vector__start_vector_iterator_ref__(vector * __context)
 {
 	vector_iterator iter_4;
 	*(&(&iter_4)->arr) = *(&__context);
@@ -190,5 +192,80 @@ int initStdVector()
 	__nullcTR[91] = __nullcRegisterType(1559940649u, "auto ref ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
 	__nullcTR[92] = __nullcRegisterType(1812738619u, "void ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
 	__nullcTR[93] = __nullcRegisterType(1021024208u, "auto ref ref(vector ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcFR[0] = (void*)0;
+	__nullcFR[1] = (void*)0;
+	__nullcFR[2] = (void*)0;
+	__nullcFR[3] = (void*)0;
+	__nullcFR[4] = (void*)__operatorAdd;
+	__nullcFR[5] = (void*)__operatorAddSet;
+	__nullcFR[6] = (void*)char__;
+	__nullcFR[7] = (void*)short__;
+	__nullcFR[8] = (void*)int__;
+	__nullcFR[9] = (void*)long__;
+	__nullcFR[10] = (void*)float__;
+	__nullcFR[11] = (void*)double__;
+	__nullcFR[12] = (void*)int__str_char___ref__;
+	__nullcFR[13] = (void*)__newS;
+	__nullcFR[14] = (void*)__newA;
+	__nullcFR[15] = (void*)duplicate;
+	__nullcFR[16] = (void*)__redirect;
+	__nullcFR[17] = (void*)0;
+	__nullcFR[18] = (void*)0;
+	__nullcFR[19] = (void*)0;
+	__nullcFR[20] = (void*)typeid__;
+	__nullcFR[21] = (void*)0;
+	__nullcFR[22] = (void*)0;
+	__nullcFR[23] = (void*)__pcomp;
+	__nullcFR[24] = (void*)__pncomp;
+	__nullcFR[25] = (void*)__typeCount;
+	__nullcFR[26] = (void*)0;
+	__nullcFR[27] = (void*)0;
+	__nullcFR[28] = (void*)0;
+	__nullcFR[29] = (void*)0;
+	__nullcFR[30] = (void*)0;
+	__nullcFR[31] = (void*)0;
+	__nullcFR[32] = (void*)0;
+	__nullcFR[33] = (void*)0;
+	__nullcFR[34] = (void*)0;
+	__nullcFR[35] = (void*)0;
+	__nullcFR[36] = (void*)0;
+	__nullcFR[37] = (void*)0;
+	__nullcFR[38] = (void*)0;
+	__nullcFR[39] = (void*)0;
+	__nullcFR[40] = (void*)typeid__size__int_ref__;
+	__nullcFR[41] = (void*)typeid__name__char___ref__;
+	__nullcFR[42] = (void*)typeid__memberCount_int_ref__;
+	__nullcFR[43] = (void*)typeid__memberType_typeid_ref_int_;
+	__nullcFR[44] = (void*)typeid__memberName_char___ref_int_;
+	__nullcFR[45] = (void*)typeid__subType_typeid_ref__;
+	__nullcFR[46] = (void*)typeid__arraySize_int_ref__;
+	__nullcFR[47] = (void*)typeid__returnType_typeid_ref__;
+	__nullcFR[48] = (void*)typeid__argumentCount_int_ref__;
+	__nullcFR[49] = (void*)typeid__argumentType_typeid_ref_int_;
+	__nullcFR[50] = (void*)typeid__members_member_iterator_ref__;
+	__nullcFR[51] = (void*)member_iterator__start_member_iterator_ref_ref__;
+	__nullcFR[52] = (void*)member_iterator__hasnext_int_ref__;
+	__nullcFR[53] = (void*)member_iterator__next_member_info_ref__;
+	__nullcFR[54] = (void*)typeid__arguments_argument_iterator_ref__;
+	__nullcFR[55] = (void*)argument_iterator__start_argument_iterator_ref_ref__;
+	__nullcFR[56] = (void*)argument_iterator__hasnext_int_ref__;
+	__nullcFR[57] = (void*)argument_iterator__next_typeid_ref__;
+	__nullcFR[58] = (void*)cConstructVector;
+	__nullcFR[59] = (void*)0;
+	__nullcFR[60] = (void*)0;
+	__nullcFR[61] = (void*)vector__start_vector_iterator_ref__;
+	__nullcFR[62] = (void*)vector_iterator__next_auto_ref_ref__;
+	__nullcFR[63] = (void*)vector_iterator__hasnext_int_ref__;
+	__nullcFR[64] = (void*)vector__push_back_void_ref_auto_ref_;
+	__nullcFR[65] = (void*)vector__pop_back_void_ref__;
+	__nullcFR[66] = (void*)vector__front_auto_ref_ref__;
+	__nullcFR[67] = (void*)vector__back_auto_ref_ref__;
+	__nullcFR[68] = (void*)0;
+	__nullcFR[69] = (void*)vector__reserve_void_ref_int_;
+	__nullcFR[70] = (void*)vector__resize_void_ref_int_;
+	__nullcFR[71] = (void*)vector__clear_void_ref__;
+	__nullcFR[72] = (void*)vector__destroy_void_ref__;
+	__nullcFR[73] = (void*)vector__size_int_ref__;
+	__nullcFR[74] = (void*)vector__capacity_int_ref__;
 	/* node translation unknown */
 }
