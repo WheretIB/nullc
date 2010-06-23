@@ -2337,7 +2337,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 					param = param->next;
 				}
 			}
-			if(argumentCount >= bestFuncList[k]->funcType->funcType->paramCount && bestFuncList[k]->lastParam && bestFuncList[k]->lastParam->varType == typeObjectArray)
+			if(argumentCount >= bestFuncList[k]->funcType->funcType->paramCount && bestFuncList[k]->lastParam && bestFuncList[k]->lastParam->varType == typeObjectArray &&
+				!(argumentCount == bestFuncList[k]->funcType->funcType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
 			{
 				// If function accepts variable argument list
 				TypeInfo *&lastType = bestFuncList[k]->funcType->funcType->paramType[bestFuncList[k]->funcType->funcType->paramCount - 1];
@@ -2430,12 +2431,17 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		if(!fType)
 		{
 			CodeInfo::nodeList.push_back(funcAddr);
-			if(AddFunctionCallNode(pos, "()", callArgCount + 1, true))
-				return true;
-			ThrowError(pos, "ERROR: variable is not a pointer to function and there is no overloaded operator()");
+			for(unsigned int i = 0; i < callArgCount; i++)
+			{
+				NodeZeroOP *tmp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - i];
+				CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - i] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - i];
+				CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - i] = tmp;
+			}
+			return AddFunctionCallNode(pos, "()", callArgCount + 1);
 		}
 		unsigned int bestRating = ~0u;
-		if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray)
+		if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray &&
+			!(callArgCount == fType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
 		{
 			// If function accepts variable argument list
 			TypeInfo *&lastType = fType->paramType[fType->paramCount - 1];
@@ -2490,7 +2496,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 	}
 	// If it's variable argument function
-	if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount - 1] == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY))
+	if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount - 1] == typeObjectArray &&
+		!(callArgCount == fType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
 	{
 		// Pack last argument and all others into an auto ref array
 		paramNodes.clear();
