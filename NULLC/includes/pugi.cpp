@@ -383,21 +383,21 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(beginCB, n);
+			nullcCallFunction(beginCB, *(size_t*)&n.node);
 			return !!nullcGetResultInt();
 		}
 		virtual bool for_each(pugi::xml_node& node)
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(for_eachCB, n);
+			nullcCallFunction(for_eachCB, *(size_t*)&n.node);
 			return !!nullcGetResultInt();
 		}
 		virtual bool end(pugi::xml_node& node)
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(endCB, n);
+			nullcCallFunction(endCB, *(size_t*)&n.node);
 			return !!nullcGetResultInt();
 		}
 	private:
@@ -451,7 +451,7 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(callback, n);
+			nullcCallFunction(callback, *(size_t*)&n.node);
 		}
 		void operator++()
 		{
@@ -475,7 +475,7 @@ namespace NULLCPugiXML
 		{
 			xml_attribute att;
 			att.attribute = attribute;
-			nullcCallFunction(callback, att);
+			nullcCallFunction(callback, *(size_t*)&att.attribute);
 			return !!nullcGetResultInt();
 		}
 		
@@ -494,7 +494,7 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(callback, n);
+			nullcCallFunction(callback, *(size_t*)&n.node);
 			return !!nullcGetResultInt();
 		}
 	private:
