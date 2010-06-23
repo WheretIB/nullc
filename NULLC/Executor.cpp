@@ -382,17 +382,20 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			}else{
 				for(unsigned p = 0; p < (typeSize + 7) / 8; p++)
 				{
-					// mov rsi, [rax+shift]
+					// mov r12, [rax+shift]
 					if(p || typeSize % 8 == 0)
-						code.push_back(0x48);	// 64bit mode
+						code.push_back(0x4c);	// 64bit mode
+					else
+						code.push_back(0x44);
 					code.push_back(0x8b);
-					code.push_back(0264);	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
+					code.push_back(0244);	// modR/M mod = 10 (32-bit shift), spare = 4 (R12 is destination), r/m = 4 (SIB active)
 					code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
 					tmp = currentShift - p * 8 - (typeSize % 8 == 0 ? 8 : 4);
 					code.push_back((unsigned char*)&tmp, 4);
 
 					// push rsi
-					code.push_back(0x56);
+					code.push_back(0x41);	// 64bit mode
+					code.push_back(0x54);
 					needpop += 8;
 				}
 			}

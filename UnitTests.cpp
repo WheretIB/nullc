@@ -738,6 +738,30 @@ TestExtG6bFoo TestExtG6b(TestExtG6bFoo x)
 	return x;
 }
 
+int TestExtK(int* a, int* b)
+{
+	return *a == 1 && *b == 2;
+}
+
+int TestExtK2(NULLCRef x, int* b)
+{
+	return x.typeID == 4 && *(int*)x.ptr == 3 && *b == 2;
+}
+
+NULLCRef TestExtK3(NULLCRef x, int* b)
+{
+	*b = (x.typeID == 4 && *(int*)x.ptr == 3 && *b == 2) ? 20 : 0;
+	x.typeID = 4;
+	*(int*)x.ptr = 30;
+	return x;
+}
+
+int TestExtK4(NULLCRef x, NULLCRef y, NULLCRef z, NULLCRef w, NULLCRef a, NULLCRef b, NULLCRef c)
+{
+	return *(int*)x.ptr == 1 && *(int*)y.ptr == 2 && *(int*)z.ptr == 3 &&
+*(int*)w.ptr == 4 && *(int*)a.ptr == 5 && *(int*)b.ptr == 6 && *(int*)c.ptr == 7;
+}
+
 int CheckAlignment(NULLCRef ptr, int alignment)
 {
 	intptr_t asInt = (intptr_t)ptr.ptr;
@@ -1047,6 +1071,22 @@ Zomg z; z.x = -1; z.y = &u;\r\n\
 z = Call(z);\r\n\
 return z.x == 1;";
 	TEST_FOR_RESULT("External function call. { int; int ref; } returned.", testExternalCallG6b, "1");
+
+	nullcLoadModuleBySource("test.extK", "int Call(int ref a, b);");
+	nullcBindModuleFunction("test.extK", (void (*)())TestExtK, "Call", 0);
+	TEST_FOR_RESULT("External function call. References.", "import test.extK;\r\n int a = 1, b = 2;\r\n	return Call(&a, &b);", "1");
+
+	nullcLoadModuleBySource("test.extK2", "int Call(auto ref a, int ref b);");
+	nullcBindModuleFunction("test.extK2", (void (*)())TestExtK2, "Call", 0);
+	TEST_FOR_RESULT("External function call. auto ref and int ref.", "import test.extK2;\r\n int a = 3, b = 2;\r\n	return Call(a, &b);", "1");
+
+	nullcLoadModuleBySource("test.extK3", "auto ref Call(auto ref a, int ref b);");
+	nullcBindModuleFunction("test.extK3", (void (*)())TestExtK3, "Call", 0);
+	TEST_FOR_RESULT("External function call. auto ref and int ref, auto ref return.", "import test.extK3;\r\n int a = 3, b = 2;\r\nauto ref u = Call(a, &b); return int(u) == 30 && b == 20;", "1");
+
+	nullcLoadModuleBySource("test.extK4", "int Call(auto ref x, y, z, w, a, b, c);");
+	nullcBindModuleFunction("test.extK4", (void (*)())TestExtK4, "Call", 0);
+	TEST_FOR_RESULT("External function call. a lot of auto ref parameters.", "import test.extK4;\r\n return Call(1, 2, 3, 4, 5, 6, 7);", "1");
 
 	// big argument tests
 	// big arguments with int and float/double
