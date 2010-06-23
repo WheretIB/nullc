@@ -6558,6 +6558,13 @@ const char	*testDefaultFunctionArgumentExport6 =
 return foo() + foo(4);";
 	TEST_FOR_RESULT("Default function argument export and import 6", testDefaultFunctionArgumentExport6, "9");
 
+const char	*testOverloadedOperatorFunctionCall =
+"int x = 4;\r\n\
+int operator()(int ref x){ return 2 * *x; }\r\n\
+int operator()(int ref x, int y){ return y * *x; }\r\n\
+int operator()(int ref x, int y, z){ return y * *x + z; }\r\n\
+return x() + x(10) + x(24, 4);";
+	TEST_FOR_RESULT("Overloaded function call operator", testOverloadedOperatorFunctionCall, "148");
 
 #ifdef FAILURE_TEST
 
@@ -7479,7 +7486,7 @@ return arr2.size;";
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;", "ERROR: modulus division by zero during constant folding");
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;", "ERROR: modulus division by zero during constant folding");
 
-	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);", "ERROR: variable is not a pointer to function");
+	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);", "ERROR: variable is not a pointer to function and there is no overloaded operator()");
 
 	TEST_FOR_FAIL("Function pointer call with wrong argument count", "int f(int a){ return -a; } auto foo = f; auto b = foo(); return foo(1, 2);", "ERROR: function expects 1 argument(s), while 0 are supplied");
 	TEST_FOR_FAIL("Function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } auto foo = f; float4 v; return foo(v);", "ERROR: there is no conversion from specified arguments and the ones that function accepts");

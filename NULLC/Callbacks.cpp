@@ -2428,7 +2428,12 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		CodeInfo::nodeList.pop_back();
 		fType = funcAddr->typeInfo->funcType;
 		if(!fType)
-			ThrowError(pos, "ERROR: variable is not a pointer to function");
+		{
+			CodeInfo::nodeList.push_back(funcAddr);
+			if(AddFunctionCallNode(pos, "()", callArgCount + 1, true))
+				return true;
+			ThrowError(pos, "ERROR: variable is not a pointer to function and there is no overloaded operator()");
+		}
 		unsigned int bestRating = ~0u;
 		if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray)
 		{
