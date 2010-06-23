@@ -510,13 +510,15 @@ NullCArray NULLC::StrConcatenate(NullCArray a, NullCArray b)
 {
 	NullCArray ret;
 
-	ret.len = a.len + b.len - 1;
+	// If first part is zero-terminated, override zero in the new string
+	int shift = a.len && (a.ptr[a.len-1] == 0);
+	ret.len = a.len + b.len - shift;
 	ret.ptr = (char*)AllocObject(ret.len);
 	if(!ret.ptr)
 		return ret;
 
 	memcpy(ret.ptr, a.ptr, a.len);
-	memcpy(ret.ptr + a.len - 1, b.ptr, b.len);
+	memcpy(ret.ptr + a.len - shift, b.ptr, b.len);
 
 	return ret;
 }
