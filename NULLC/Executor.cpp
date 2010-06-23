@@ -328,7 +328,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			if(rvs + i > NULLC_X64_IREGARGS - 1)
 			{
 				// push r12
-				code.push_back(0x4c);	// 64bit mode
+				code.push_back(0x41);	// 64bit mode
 				code.push_back(0x54);
 				needpop += 8;
 			}else{

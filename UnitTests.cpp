@@ -759,7 +759,7 @@ NULLCRef TestExtK3(NULLCRef x, int* b)
 int TestExtK4(NULLCRef x, NULLCRef y, NULLCRef z, NULLCRef w, NULLCRef a, NULLCRef b, NULLCRef c)
 {
 	return *(int*)x.ptr == 1 && *(int*)y.ptr == 2 && *(int*)z.ptr == 3 &&
-*(int*)w.ptr == 4 && *(int*)a.ptr == 5 && *(int*)b.ptr == 6 && *(int*)c.ptr == 7;
+			*(int*)w.ptr == 4 && *(int*)a.ptr == 5 && *(int*)b.ptr == 6 && *(int*)c.ptr == 7;
 }
 
 int CheckAlignment(NULLCRef ptr, int alignment)
@@ -1084,9 +1084,11 @@ return z.x == 1;";
 	nullcBindModuleFunction("test.extK3", (void (*)())TestExtK3, "Call", 0);
 	TEST_FOR_RESULT("External function call. auto ref and int ref, auto ref return.", "import test.extK3;\r\n int a = 3, b = 2;\r\nauto ref u = Call(a, &b); return int(u) == 30 && b == 20;", "1");
 
+#if !defined(__CELLOS_LV2__)
 	nullcLoadModuleBySource("test.extK4", "int Call(auto ref x, y, z, w, a, b, c);");
 	nullcBindModuleFunction("test.extK4", (void (*)())TestExtK4, "Call", 0);
 	TEST_FOR_RESULT("External function call. a lot of auto ref parameters.", "import test.extK4;\r\n return Call(1, 2, 3, 4, 5, 6, 7);", "1");
+#endif
 
 	// big argument tests
 	// big arguments with int and float/double
