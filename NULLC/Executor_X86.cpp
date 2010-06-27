@@ -698,10 +698,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			asm("movl %%esp, %0":"=r"(espHold));
 			genStackPtr = genStackTop = (void*)(intptr_t)(espHold - 16);	// 16 bytes is the ammount of data pushed by pusha
 		}
-	
-		asm("pusha") ; // Save all registers
-		asm("movl %0, %%edi"::"r"(varSize):"%edi") ;
-		asm("movl %0, %%eax"::"r"(binCodeStart):"%eax") ;
+		asm("pusha"); // Save all registers
+		asm("movl %0, %%edi"::"r"(varSize):"%edi");
+		asm("movl %0, %%eax"::"r"(binCodeStart):"%eax");
 	
 		// Align stack to a 8-byte boundary
 		asm("leal 8(%esp), %ebx");
@@ -713,19 +712,19 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		asm("push %ecx"); // Save alignment size
 		asm("push %ebp"); // Save stack base pointer (must be restored before popa)
 
-		asm("mov $0, %ebp") ;
+		asm("mov $0, %ebp");
 
-		asm("call *%eax") ; // Return type is placed in ebx
+		asm("call *%eax"); // Return type is placed in ebx
 
 		asm("pop %ebp"); // Restore stack base
 		asm("pop %ecx");
 		asm("add %ecx, %esp");
 
-		asm("movl %%eax, %0":"=r"(res1));//dword ptr [res1], eax");
-		asm("movl %%edx, %0":"=r"(res2));//dword ptr [res2], edx");
-		asm("movl %%ebx, %0":"=r"(resT));//dword ptr [resT], ebx");
+		asm("movl %%eax, %0;\
+		movl %%edx, %1;\
+		movl %%ebx, %2;":"=m"(res1),"=m"(res2),"=m"(resT));
 
-		asm("popa") ;
+		asm("popa");
 	}else{
 		if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			strcpy(execError, "ERROR: integer division by zero");
