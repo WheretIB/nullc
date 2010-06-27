@@ -55,7 +55,7 @@ struct NULLCAutoArray
 //#define NULLC_ENABLE_C_TRANSLATION
 #define NULLC_PURE_FUNCTIONS
 
-#if (defined(_MSC_VER) || defined(__DMC__)) && !defined(_M_X64) && !defined(NULLC_NO_EXECUTOR)
+#if (defined(_MSC_VER) || defined(__DMC__) || defined(__linux)) && !defined(_M_X64) && !defined(NULLC_NO_EXECUTOR) && !defined(__x86_64__)
 	#define NULLC_BUILD_X86_JIT
 	#define NULLC_OPTIMIZE_X86
 #endif

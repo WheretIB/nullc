@@ -3,6 +3,59 @@
 #ifdef NULLC_BUILD_X86_JIT
 // Implementations of some functions, called from user binary code
 
+#ifdef __linux
+int intPow(int power, int number)
+{
+	// http://en.wikipedia.org/wiki/Exponentiation_by_squaring
+	int result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power /= 2;
+	}
+	return result;
+}
+
+void doublePow() 
+{
+	// x**y
+	// st0 == x
+	// st1 == y
+	asm("push %eax ; \
+	movw $0x1f7f, 2(%esp); \
+\
+	fstcw (%esp); \
+	fldcw 2(%esp);\
+\
+	fldz ;\
+	fcomip %st(1),%st(0) ; \
+	je Zero ; \
+\
+	fyl2x ;\
+	fld %st(0) ;\
+	frndint ; \
+	fsubr %st(1), %st(0) ; \
+	f2xm1 ; \
+	fld1 ; \
+	faddp %st(0), %st(1); \
+	fscale ; \
+\
+	Zero:\
+	fxch %st(1) ;\
+	fstp %st(0) ;\
+	\
+	fldcw (%esp) ; \
+	pop %eax ;");
+}
+
+
+#else
+
 __declspec(naked) void intPow()
 {
 	// http://en.wikipedia.org/wiki/Exponentiation_by_squaring
@@ -64,6 +117,7 @@ __declspec(naked) void doublePow()
 		ret
 	}
 }
+#endif
 
 double doubleMod(double a, double b)
 {
@@ -94,6 +148,28 @@ long long longShr(long long a, long long b)
 {
 	return b >> a;
 }
+
+#ifdef __linux
+
+long long longPow(long long power, long long number)
+{
+	if(power < 0)
+		return 0;
+	long long result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
+}
+
+#else
 
 __declspec(naked) void longPow()
 {
@@ -173,5 +249,7 @@ __declspec(naked) void longPow()
 		ret ;
 	}
 }
+
+#endif
 
 #endif

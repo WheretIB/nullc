@@ -223,6 +223,7 @@ namespace GC
 			// If uninitialized or points to stack memory, return
 			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
 				return;
+			GC_DEBUG_PRINT("\tGlobal pointer %p\r\n", ptr);
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 			// If there is no base pointer or memory already marked, exit
