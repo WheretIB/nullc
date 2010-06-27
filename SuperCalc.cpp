@@ -997,7 +997,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		if(subType.subCat == ExternTypeInfo::CAT_NONE || subType.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
 		else if(&subType == &codeTypes[8])	// for typeid
-			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
+			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
@@ -1062,7 +1062,7 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		if(memberType.subCat == ExternTypeInfo::CAT_NONE || memberType.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr));
 		else if(&memberType == &codeTypes[8])	// for typeid
-			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
+			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
@@ -1199,7 +1199,7 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		if(externType.subCat == ExternTypeInfo::CAT_NONE || externType.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(externType, (char*)upvalue->ptr));
 		else if(&externType == &codeTypes[8])	// for typeid
-			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(upvalue->ptr)].offsetToName);
+			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(upvalue->ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(upvalue->ptr)].offsetToName : "invalid: out of range");
 
 		nextInsert.item.pszText = name;
 		HTREEITEM lastItem = TreeView_InsertItem(hVars, &nextInsert);
@@ -1457,6 +1457,31 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
+			}
+			if(function.parentType != ~0u)
+			{
+				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
+
+				char *it = name;
+				it += safeprintf(it, 256, "0x%x: %s %s", ptr, function.externCount ? "$context" : "$this", codeSymbols + codeTypes[function.parentType].offsetToName);
+
+				TVINSERTSTRUCT localInfo;
+				localInfo.hParent = lastItem;
+				localInfo.hInsertAfter = TVI_LAST;
+				localInfo.item.cchTextMax = 0;
+				localInfo.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
+				localInfo.item.pszText = name;
+				localInfo.item.cChildren = codeTypes[function.parentType].subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (codeTypes[function.parentType].subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
+				localInfo.item.lParam = tiExtra.size();
+				
+				tiExtra.push_back(TreeItemExtra());
+				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
+				tiExtra.back() = TreeItemExtra((void*)ptr, &codeTypes[function.parentType], thisItem, codeTypes[function.parentType].subCat == ExternTypeInfo::CAT_POINTER, function.externCount ? "$context" : "$this");
+
+				if(offset + function.bytesToPop > dataCount)
+					InsertUnavailableInfo(thisItem);
+				else
+					FillVariableInfo(codeTypes[function.parentType], *(char**)ptr, thisItem);
 			}
 			offset += offsetToNextFrame;
 		}
