@@ -123,8 +123,9 @@ namespace NULLC
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
 		//	Disabled check that exception happened in NULLC code (disabled for the reason that some NULLC external functions throw exception that weren't handled)
-		//if(expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd)
-		//	return (DWORD)EXCEPTION_CONTINUE_SEARCH;
+		bool externalCode = expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd;
+		if(externalCode && (expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_ACCESS_VIOLATION))
+			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 
 		// Save part of state for later use
 		expEAXstate = expInfo->ContextRecord->Eax;
