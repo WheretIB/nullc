@@ -692,39 +692,14 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	memcpy(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
 	if(!(errorCode = sigsetjmp(NULLC::errorHandler, 1)))
 	{
-		if(firstRun)
-		{
-			unsigned int espHold = 0;
-			asm("movl %%esp, %0":"=r"(espHold));
-			genStackPtr = genStackTop = (void*)(intptr_t)(espHold - 16);	// 16 bytes is the ammount of data pushed by pusha
-		}
-		asm("pusha"); // Save all registers
-		asm("movl %0, %%edi"::"r"(varSize):"%edi");
-		asm("movl %0, %%eax"::"r"(binCodeStart):"%eax");
-	
-		// Align stack to a 8-byte boundary
-		asm("leal 8(%esp), %ebx");
-		asm("and $0xf, %ebx");
-		asm("mov $0x10, %ecx");
-		asm("sub %ebx, %ecx");
-		asm("sub %ecx, %esp");
-
-		asm("push %ecx"); // Save alignment size
-		asm("push %ebp"); // Save stack base pointer (must be restored before popa)
-
-		asm("mov $0, %ebp");
-
-		asm("call *%eax"); // Return type is placed in ebx
-
-		asm("pop %ebp"); // Restore stack base
-		asm("pop %ecx");
-		asm("add %ecx, %esp");
-
-		asm("movl %%eax, %0;\
-		movl %%edx, %1;\
-		movl %%ebx, %2;":"=m"(res1),"=m"(res2),"=m"(resT));
-
-		asm("popa");
+		void *dummy = NULL;
+		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
+		nullcFunc gate = (nullcFunc)(intptr_t)&binCode[16];
+		int returnStruct[3] = { 1, 2, 3 };
+		gate(varSize, returnStruct, binCodeStart, firstRun ? &genStackTop : &dummy);
+		res1 = returnStruct[0];
+		res2 = returnStruct[1];
+		resT = returnStruct[2];
 	}else{
 		if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			strcpy(execError, "ERROR: integer division by zero");
@@ -773,42 +748,14 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 #else
 	__try
 	{
-		if(firstRun)
-		{
-			unsigned int espHold = 0;
-			__asm{ mov espHold, esp }
-			genStackPtr = genStackTop = (void*)(intptr_t)(espHold - 16);	// 16 bytes is the ammount of data pushed by pusha
-		}
-		__asm
-		{
-			pusha ; // Save all registers
-			mov eax, binCodeStart ;
-			
-			// Align stack to a 8-byte boundary
-			lea ebx, [esp+8];
-			and ebx, 0fh;
-			mov ecx, 16;
-			sub ecx, ebx;
-			sub esp, ecx;
-
-			push ecx; // Save alignment size
-			push ebp; // Save stack base pointer (must be restored before popa)
-
-			mov edi, varSize ;
-			mov ebp, 0h ;
-
-			call eax ; // Return type is placed in ebx
-
-			pop ebp; // Restore stack base
-			pop ecx;
-			add esp, ecx;
-
-			mov dword ptr [res1], eax;
-			mov dword ptr [res2], edx;
-			mov dword ptr [resT], ebx;
-
-			popa ;
-		}
+		void *dummy = NULL;
+		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
+		nullcFunc gate = (nullcFunc)(intptr_t)&binCode[16];
+		int returnStruct[3] = { 1, 2, 3 };
+		gate(varSize, returnStruct, binCodeStart, firstRun ? &genStackTop : &dummy);
+		res1 = returnStruct[0];
+		res2 = returnStruct[1];
+		resT = returnStruct[2];
 	}__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			strcpy(execError, "ERROR: integer division by zero");
@@ -1094,6 +1041,39 @@ bool ExecutorX86::TranslateToNative()
 
 	// Translate to x86
 	unsigned char *bytecode = binCode + 16;
+	// code header
+	static const unsigned char codeHead[] = {
+		0x8B, 0xC4,						// mov         eax,esp
+
+		0x8B, 0x50, 0x10,				// mov         edx,dword ptr [eax+10h] 
+		0x89, 0x02,						// mov         dword ptr [edx],eax 
+
+		0x60,							// pushad
+		0x8B, 0x78, 0x04,				// mov         edi,dword ptr [eax+4]
+		0xBD, 0x00, 0x00, 0x00, 0x00,	// mov         ebp,0
+		0x8B, 0x40, 0x0C,				// mov         eax,dword ptr [eax+0Ch]
+
+		0x8D, 0x5C, 0x24, 0x04,			// lea         ebx,[esp+4]
+		0x83, 0xE3, 0x0F,				// and         ebx,0Fh
+		0xB9, 0x10, 0x00, 0x00, 0x00,	// mov         ecx,10h
+		0x2B, 0xCB,						// sub         ecx,ebx
+		0x2B, 0xE1,						// sub         esp,ecx
+		0x51,							// push        ecx 
+
+		0xFF, 0xD0,						// call eax
+
+		0x59,							// pop         ecx
+		0x03, 0xE1,						// add         esp,ecx
+
+		0x8B, 0x4C, 0x24, 0x28,			// mov         ecx,dword ptr [esp+28h]
+		0x89, 0x01,						// mov         dword ptr [ecx],eax
+		0x89, 0x51, 0x04,				// mov         dword ptr [ecx+4],edx
+		0x89, 0x59, 0x08,				// mov         dword ptr [ecx+8],ebx
+		0x61,							// popad
+		0xC3,							// ret
+	};
+	memcpy(bytecode, codeHead, sizeof(codeHead) / sizeof(codeHead[0]));
+	bytecode += sizeof(codeHead) / sizeof(codeHead[0]);
 	unsigned char *code = bytecode;
 
 	instAddress.resize(exCode.size() + 1); // Extra instruction for global return
@@ -1514,7 +1494,7 @@ bool ExecutorX86::TranslateToNative()
 	{
 		if(exFunctions[i].address != -1)
 		{
-			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].address] - bytecode);
+			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].address] - (binCode + 16));
 			exLinker->functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].address];
 			exLinker->functionAddress[i * 2 + 1] = 0;
 		}else{
@@ -1522,17 +1502,15 @@ bool ExecutorX86::TranslateToNative()
 			exLinker->functionAddress[i * 2 + 1] = 1;
 		}
 	}
-	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - bytecode);
+	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - (binCode + 16));
 
 	return true;
 }
 
 const char* ExecutorX86::GetResult()
 {
-	long long combined = 0;
-	*((int*)(&combined)) = NULLC::runResult2;
-	*((int*)(&combined)+1) = NULLC::runResult;
-
+	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
+	
 	switch(NULLC::runResultType)
 	{
 	case OTYPE_DOUBLE:
@@ -1558,17 +1536,13 @@ int ExecutorX86::GetResultInt()
 double ExecutorX86::GetResultDouble()
 {
 	assert(NULLC::runResultType == OTYPE_DOUBLE);
-	long long combined = 0;
-	*((int*)(&combined)) = NULLC::runResult2;
-	*((int*)(&combined)+1) = NULLC::runResult;
+	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
 	return *(double*)(&combined);
 }
 long long ExecutorX86::GetResultLong()
 {
 	assert(NULLC::runResultType == OTYPE_LONG);
-	long long combined = 0;
-	*((int*)(&combined)) = NULLC::runResult2;
-	*((int*)(&combined)+1) = NULLC::runResult;
+	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
 	return combined;
 }
 
