@@ -101,7 +101,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 	if(executor != NULLC_VM)
 		return false;
 #endif
-	if(messageVerbose && executor == NULLC_VM)
+	if(message && messageVerbose && executor == NULLC_VM)
 		printf("%s\n", message);
 
 	nullcSetExecutor(executor);
@@ -7195,6 +7195,17 @@ inside (at assert(x);)\r\n\
 				printf("Call stack when there are various transitions between NULLC and C\r\n");
 			printf("Test should have failed.\r\n");
 		}
+	}
+
+const char	*testInvalidPointer = 
+"class Test{ int a, b; }\r\n\
+Test ref x;\r\n\
+return x.b;";
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode(testInvalidPointer, testTarget[t], "ERROR: null pointer access", "Invalid pointer check", true))
+			passed[t]++;
 	}
 
 #ifdef NULLC_BUILD_X86_JIT

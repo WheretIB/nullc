@@ -122,7 +122,7 @@ namespace NULLC
 
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
-		//	Disabled check that exception happened in NULLC code (disabled for the reason that some NULLC external functions throw exception that weren't handled)
+		// Check that exception happened in NULLC code (division by zero and int overflow still catched)
 		bool externalCode = expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd;
 		if(externalCode && (expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_ACCESS_VIOLATION))
 			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
@@ -188,20 +188,32 @@ namespace NULLC
 	{
 		char data[sizeof(sigjmp_buf)];
 	};
-	void HandleError(int signum)
+	void HandleError(int signum, struct sigcontext ctx)
 	{
-		//printf("in a signal handler\n");
+		bool externalCode = ctx.eip < binCodeStart || ctx.eip > binCodeEnd;
 		if(signum == SIGFPE)
 		{
-			//printf("FPE handled\n");
 			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
 			siglongjmp(errorHandler, expCodePublic);
 		}
 		if(signum == SIGTRAP)
 		{
-			//printf("TRAP handled\n");
 			expCodePublic = EXCEPTION_ARRAY_OUT_OF_BOUNDS;
 			siglongjmp(errorHandler, expCodePublic);
+		}
+		if(signum == SIGSEGV)
+		{
+			if((void*)ctx.cr2 >= NULLC::stackBaseAddress && (void*)ctx.cr2 <= NULLC::stackEndAddress)
+			{
+				expCodePublic = stackManaged ? EXCEPTION_FAILED_TO_RESERVE : EXCEPTION_ALLOCATED_STACK_OVERFLOW;
+
+				siglongjmp(errorHandler, expCodePublic);
+			}
+			if(!externalCode && ctx.cr2 < 0x00010000)
+			{
+				expCodePublic = EXCEPTION_INVALID_POINTER;
+				siglongjmp(errorHandler, expCodePublic);
+			}
 		}
 		signal(signum, SIG_DFL);
 		raise(signum);
@@ -426,8 +438,11 @@ bool ExecutorX86::Initialize()
 bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMemoryAllocated)
 {
 #ifdef __linux
-	if(NULLC::stackManaged)
+	if(NULLC::stackManaged && NULLC::stackBaseAddress)
 	{
+		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+		if(mprotect(p - 8192, PAGESIZE, PROT_READ | PROT_WRITE))
+			asm("int $0x3");
 		// If stack is managed by Executor, free memory
 		free(NULLC::stackBaseAddress);
 	}else if(NULLC::stackEndAddress){
@@ -458,13 +473,18 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 		char *paramData = NULL;
 		// Request memory at address
 #ifdef __linux
-		if(NULL == (paramData = (char*)malloc(NULLC::stackGrowCommit)))
+		if(NULLC::stackEndAddress)
+			NULLC::stackGrowCommit = NULLC::stackGrowSize = int((char*)end - (char*)start);
+		if(NULL == (paramData = (char*)malloc(NULLC::stackGrowSize)))
 		{
 			strcpy(execError, "ERROR: failed to allocate memory");
 			return false;
 		}
 		NULLC::stackBaseAddress = paramData;
-		NULLC::stackEndAddress = (char*)paramData + NULLC::stackGrowCommit;
+		NULLC::stackEndAddress = (char*)paramData + NULLC::stackGrowSize;
+		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+		if(mprotect(p - 8192, PAGESIZE, 0))
+			asm("int $0x3");
 #else
 		if(NULL == (paramData = (char*)VirtualAlloc(NULLC::stackBaseAddress, NULLC::stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
 		{
@@ -522,6 +542,7 @@ void ExecutorX86::InitExecution()
 	callContinue = 1;
 
 	NULLC::stackReallocs = 0;
+	NULLC::dataHead->instructionPtr = NULL;
 	NULLC::dataHead->nextElement = NULL;
 
 #ifndef __linux
@@ -632,6 +653,12 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				return;
 			}
 		}
+#else
+		if(NULLC::commitedStack < exLinker->globalVarSize)
+		{
+			strcpy(execError, "ERROR: allocated stack overflow");
+			return;
+		}
 #endif
 		memset(NULLC::parameterHead, 0, exLinker->globalVarSize);
 	}
@@ -643,8 +670,20 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	NULLC::abnormalTermination = false;
 
 #ifdef __linux
-	void (*sigFPE)(int) = signal(SIGFPE, NULLC::HandleError);
-	void (*sigTRAP)(int) = signal(SIGTRAP, NULLC::HandleError);
+	struct sigaction sa;
+	struct sigaction sigFPE;
+	struct sigaction sigTRAP;
+	struct sigaction sigSEGV;
+	if(firstRun)
+	{
+		sa.sa_handler = (void (*)(int))NULLC::HandleError;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = SA_RESTART;
+
+		sigaction(SIGFPE, &sa, &sigFPE);
+		sigaction(SIGTRAP, &sa, &sigTRAP);
+		sigaction(SIGSEGV, &sa, &sigSEGV);
+	}
 	int errorCode = 0;
 
 	NULLC::JmpBufData data;
@@ -672,7 +711,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		asm("push %ecx"); // Save alignment size
 		asm("push %ebp"); // Save stack base pointer (must be restored before popa)
 
-		//asm("movl %0, %%edi"::"r"(varSize):"%edi") ;
 		asm("mov $0, %ebp") ;
 
 		asm("call *%eax") ; // Return type is placed in ebx
@@ -699,6 +737,12 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
 			&exLinker->exSymbols[exLinker->exTypes[NULLC::dataHead->unused1].offsetToName],
 			&exLinker->exSymbols[exLinker->exTypes[errorCode >> 8].offsetToName]);
+		else if(errorCode == EXCEPTION_ALLOCATED_STACK_OVERFLOW)
+			strcpy(execError, "ERROR: allocated stack overflow");
+		else if(errorCode == EXCEPTION_INVALID_POINTER)
+			strcpy(execError, "ERROR: null pointer access");
+		else if(errorCode == EXCEPTION_FAILED_TO_RESERVE)
+			strcpy(execError, "ERROR: failed to reserve new stack memory");
 
 		if(!NULLC::abnormalTermination && NULLC::dataHead->instructionPtr)
 		{
@@ -716,8 +760,13 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		NULLC::dataHead->instructionPtr = NULL;
 		NULLC::abnormalTermination = true;
 	}
-	signal(SIGFPE, sigFPE);
-	signal(SIGTRAP, sigTRAP);
+	// Disable signal handlers only from top-level Run
+	if(!wasCodeRunning)
+	{
+		sigaction(SIGFPE, &sigFPE, NULL);
+		sigaction(SIGTRAP, &sigTRAP, NULL);
+		sigaction(SIGSEGV, &sigSEGV, NULL);
+	}
 
 	memcpy(NULLC::errorHandler, data.data, sizeof(sigjmp_buf));
 #else
