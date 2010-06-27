@@ -16,7 +16,7 @@ done
 g++ -c -g -W -o temp/ext_pugixml.o external/pugixml/pugixml.cpp
 
 echo Building NULLC lib
-ar rcs bin/libnullc.a temp/BinaryCache.o temp/Bytecode.o temp/Callbacks.o temp/CodeInfo.o temp/Compiler.o temp/Executor.o temp/Executor_Common.o temp/Lexer.o temp/Linker.o temp/nullc.o temp/Parser.o temp/stdafx.o temp/StdLib.o temp/StrAlgo.o temp/SyntaxTree.o temp/std_file.o temp/std_math.o temp/std_typeinfo.o temp/std_vector.o temp/std_list.o temp/std_list.o temp/std_dynamic.o temp/std_random.o temp/std_gc.o temp/std_io.o temp/std_canvas.o temp/std_map.o temp/std_hashmap.o temp/std_string.o temp/std_time.o temp/std_pugi.o temp/ext_pugixml.o
+ar rcs bin/libnullc.a temp/BinaryCache.o temp/Bytecode.o temp/Callbacks.o temp/CodeInfo.o temp/Compiler.o temp/Executor.o temp/Executor_Common.o temp/Lexer.o temp/Linker.o temp/nullc.o temp/Parser.o temp/stdafx.o temp/StdLib.o temp/StrAlgo.o temp/SyntaxTree.o temp/std_file.o temp/std_math.o temp/std_typeinfo.o temp/std_vector.o temp/std_list.o temp/std_list.o temp/std_dynamic.o temp/std_random.o temp/std_gc.o temp/std_io.o temp/std_canvas.o temp/std_map.o temp/std_hashmap.o temp/std_string.o temp/std_time.o temp/std_pugi.o temp/ext_pugixml.o temp/CodeGen_X86.o temp/Executor_X86.o temp/Translator_X86.o
 
 echo Compiling NULLC compiler-only lib
 for i in NULLC/BinaryCache.cpp NULLC/Bytecode.cpp NULLC/CodeInfo.cpp NULLC/nullc.cpp NULLC/stdafx.cpp NULLC/StrAlgo.cpp NULLC/Callbacks.cpp NULLC/Compiler.cpp NULLC/Lexer.cpp NULLC/Parser.cpp NULLC/SyntaxTree.cpp; do

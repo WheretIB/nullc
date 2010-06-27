@@ -762,6 +762,11 @@ int TestExtK4(NULLCRef x, NULLCRef y, NULLCRef z, NULLCRef w, NULLCRef a, NULLCR
 			*(int*)w.ptr == 4 && *(int*)a.ptr == 5 && *(int*)b.ptr == 6 && *(int*)c.ptr == 7;
 }
 
+void TestExtL(int* x)
+{
+	*x = 1;
+}
+
 int CheckAlignment(NULLCRef ptr, int alignment)
 {
 	intptr_t asInt = (intptr_t)ptr.ptr;
@@ -1089,6 +1094,10 @@ return z.x == 1;";
 	nullcBindModuleFunction("test.extK4", (void (*)())TestExtK4, "Call", 0);
 	TEST_FOR_RESULT("External function call. a lot of auto ref parameters.", "import test.extK4;\r\n return Call(1, 2, 3, 4, 5, 6, 7);", "1");
 #endif
+
+	nullcLoadModuleBySource("test.extL", "void Call(int ref a);");
+	nullcBindModuleFunction("test.extL", (void (*)())TestExtL, "Call", 0);
+	TEST_FOR_RESULT("External function call. void return type.", "import test.extL;\r\n int a = 2;\r\nCall(&a); return a;", "1");
 
 	// big argument tests
 	// big arguments with int and float/double

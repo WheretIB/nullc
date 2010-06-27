@@ -5,8 +5,18 @@
 #include "CodeGen_X86.h"
 #include "Translator_X86.h"
 
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#ifndef __linux
+	#define WIN32_LEAN_AND_MEAN
+	#include <Windows.h>
+#else
+	typedef unsigned int DWORD;
+	#include <sys/mman.h>
+	#ifndef PAGESIZE
+		// $ sysconf()
+		#define PAGESIZE 4096
+	#endif
+	#include <signal.h>
+#endif
 
 namespace NULLC
 {
@@ -15,7 +25,7 @@ namespace NULLC
 	void	*stackEndAddress;	// if NULL, range is not upper bound (until allocation fails)
 	// Flag that shows that Executor manages memory allocation and deallocation
 	bool	stackManaged;
-	// If memory is not maneged, Executor will place a page guard at the end and restore old protection later
+	// If memory is not managed, Executor will place a page guard at the end and restore old protection later
 	DWORD	stackProtect;
 
 	// Four global variables
@@ -61,6 +71,7 @@ namespace NULLC
 	unsigned int expECXstate;
 	unsigned int expESPstate;
 
+#ifndef __linux
 	int ExtendMemory()
 	{
 		// External stack cannot be extended, end execution with error
@@ -167,11 +178,37 @@ namespace NULLC
 		return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 	}
 
-	typedef void (*codegenCallback)(VMCmd);
-	codegenCallback cgFuncs[cmdEnumCount];
-
 	typedef BOOL (WINAPI *PSTSG)(PULONG);
 	PSTSG pSetThreadStackGuarantee = NULL;
+#else
+	sigjmp_buf errorHandler;
+	
+	struct JmpBufData
+	{
+		char data[sizeof(sigjmp_buf)];
+	};
+	void HandleError(int signum)
+	{
+		//printf("in a signal handler\n");
+		if(signum == SIGFPE)
+		{
+			//printf("FPE handled\n");
+			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
+			siglongjmp(errorHandler, expCodePublic);
+		}
+		if(signum == SIGTRAP)
+		{
+			//printf("TRAP handled\n");
+			expCodePublic = EXCEPTION_ARRAY_OUT_OF_BOUNDS;
+			siglongjmp(errorHandler, expCodePublic);
+		}
+		signal(signum, SIG_DFL);
+		raise(signum);
+	}
+#endif
+
+	typedef void (*codegenCallback)(VMCmd);
+	codegenCallback cgFuncs[cmdEnumCount];
 }
 
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
@@ -188,9 +225,29 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 
 	// Parameter stack must be aligned
 	assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
+
+	NULLC::stackBaseAddress = NULL;
+	NULLC::stackEndAddress = NULL;
+	NULLC::stackManaged = false;
+
+#ifdef __linux
+	SetLongJmpTarget(NULLC::errorHandler);
+#endif
 }
 ExecutorX86::~ExecutorX86()
 {
+#ifdef __linux
+	if(NULLC::stackManaged)
+	{
+		// If stack is managed by Executor, free memory
+		free(NULLC::stackBaseAddress);
+	}else if(NULLC::stackEndAddress){
+		// Otherwise, remove page guard, restoring old protection value
+		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+		if(mprotect(p - 8192, PAGESIZE, PROT_READ | PROT_WRITE))
+			asm("int $0x3");
+	}
+#else
 	if(NULLC::stackManaged)
 	{
 		// If stack is managed by Executor, free memory
@@ -199,6 +256,7 @@ ExecutorX86::~ExecutorX86()
 		// Otherwise, remove page guard, restoring old protection value
 		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, NULLC::stackProtect, &NULLC::stackProtect);
 	}
+#endif
 
 	NULLC::dealloc(binCode);
 
@@ -353,8 +411,10 @@ bool ExecutorX86::Initialize()
 
 	cgFuncs[cmdConvertPtr] = GenCodeCmdConvertPtr;
 
+#ifndef __linux
 	HMODULE hDLL = LoadLibrary("kernel32");
 	pSetThreadStackGuarantee = (PSTSG)GetProcAddress(hDLL, "SetThreadStackGuarantee");
+#endif
 
 	codeRunning = false;
 
@@ -364,6 +424,18 @@ bool ExecutorX86::Initialize()
 
 bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMemoryAllocated)
 {
+#ifdef __linux
+	if(NULLC::stackManaged)
+	{
+		// If stack is managed by Executor, free memory
+		free(NULLC::stackBaseAddress);
+	}else if(NULLC::stackEndAddress){
+		// Otherwise, remove page guard, restoring old protection value
+		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+		if(mprotect(p - 8192, PAGESIZE, PROT_READ | PROT_WRITE))
+			asm("int $0x3");
+	}
+#else
 	// If old memory was allocated here using VirtualAlloc
 	if(NULLC::stackManaged)
 	{
@@ -373,6 +445,7 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 		// Otherwise, remove page guard, restoring old protection value
 		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, NULLC::stackProtect, &NULLC::stackProtect);
 	}
+#endif
 	NULLC::stackBaseAddress = start;
 	NULLC::stackEndAddress = end;
 	NULLC::stackManaged = !flagMemoryAllocated;
@@ -383,6 +456,15 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 
 		char *paramData = NULL;
 		// Request memory at address
+#ifdef __linux
+		if(NULL == (paramData = (char*)malloc(NULLC::stackGrowCommit)))
+		{
+			strcpy(execError, "ERROR: failed to allocate memory");
+			return false;
+		}
+		NULLC::stackBaseAddress = paramData;
+		NULLC::stackEndAddress = (char*)paramData + NULLC::stackGrowCommit;
+#else
 		if(NULL == (paramData = (char*)VirtualAlloc(NULLC::stackBaseAddress, NULLC::stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
 		{
 			strcpy(execError, "ERROR: failed to reserve memory");
@@ -393,7 +475,7 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 			strcpy(execError, "ERROR: failed to commit memory");
 			return false;
 		}
-
+#endif
 		NULLC::reservedStack = NULLC::stackGrowSize;
 		NULLC::commitedStack = NULLC::stackGrowCommit;
 
@@ -409,7 +491,13 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 			strcpy(execError, "ERROR: Stack memory range is too small or base pointer exceeds end pointer");
 			return false;
 		}
+#ifdef __linux
+		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+		if(mprotect(p - 8192, PAGESIZE, 0))
+			asm("int $0x3");
+#else
 		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, PAGE_NOACCESS, &NULLC::stackProtect);
+#endif
 
 		NULLC::parameterHead = paramBase = (char*)NULLC::stackBaseAddress + sizeof(NULLC::DataStackHeader);
 		NULLC::paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(NULLC::stackBaseAddress));
@@ -435,11 +523,17 @@ void ExecutorX86::InitExecution()
 	NULLC::stackReallocs = 0;
 	NULLC::dataHead->nextElement = NULL;
 
+#ifndef __linux
 	if(NULLC::pSetThreadStackGuarantee)
 	{
 		unsigned long extraStack = 4096;
 		NULLC::pSetThreadStackGuarantee(&extraStack);
 	}
+#else
+	char *p = (char*)((intptr_t)((char*)binCodeStart + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+	if(mprotect(p, ((binCodeSize + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
+		asm("int $0x3");
+#endif
 	memset(NULLC::stackBaseAddress, 0, sizeof(NULLC::DataStackHeader));
 }
 
@@ -477,8 +571,13 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			unsigned int *stackStart = ((unsigned int*)arguments) + dwordsToPop - 1;
 			for(unsigned int i = 0; i < dwordsToPop; i++)
 			{
+#ifdef __GNUC__
+				asm("movl %0, %%eax"::"r"(stackStart):"%eax");
+				asm("pushl (%eax)");
+#else
 				__asm{ mov eax, dword ptr[stackStart] }
 				__asm{ push dword ptr[eax] }
+#endif
 				stackStart--;
 			}
 			switch(retType)
@@ -508,8 +607,13 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			}
 				break;
 			}
+#ifdef __GNUC__
+			asm("movl %0, %%eax"::"r"(dwordsToPop):"%eax");
+			asm("leal (%esp, %eax, 0x4), %esp");
+#else
 			__asm{ mov eax, dwordsToPop }
 			__asm{ lea esp, [eax * 4 + esp] }
+#endif
 			return;
 		}else{
 			varSize += NULLC::dataHead->lastEDI;
@@ -518,6 +622,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		}
 	}else{
 		binCodeStart += globalStartInBytecode;
+#ifndef __linux
 		while(NULLC::commitedStack < exLinker->globalVarSize)
 		{
 			if(NULLC::ExtendMemory() != (DWORD)EXCEPTION_CONTINUE_EXECUTION)
@@ -526,6 +631,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				return;
 			}
 		}
+#endif
 		memset(NULLC::parameterHead, 0, exLinker->globalVarSize);
 	}
 
@@ -535,6 +641,85 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	NULLC::abnormalTermination = false;
 
+#ifdef __linux
+	void (*sigFPE)(int) = signal(SIGFPE, NULLC::HandleError);
+	void (*sigTRAP)(int) = signal(SIGTRAP, NULLC::HandleError);
+	int errorCode = 0;
+
+	NULLC::JmpBufData data;
+	memcpy(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
+	if(!(errorCode = sigsetjmp(NULLC::errorHandler, 1)))
+	{
+		if(firstRun)
+		{
+			unsigned int espHold = 0;
+			asm("movl %%esp, %0":"=r"(espHold));
+			genStackPtr = genStackTop = (void*)(intptr_t)(espHold - 16);	// 16 bytes is the ammount of data pushed by pusha
+		}
+	
+		asm("pusha") ; // Save all registers
+		asm("movl %0, %%edi"::"r"(varSize):"%edi") ;
+		asm("movl %0, %%eax"::"r"(binCodeStart):"%eax") ;
+	
+		// Align stack to a 8-byte boundary
+		asm("leal 8(%esp), %ebx");
+		asm("and $0xf, %ebx");
+		asm("mov $0x10, %ecx");
+		asm("sub %ebx, %ecx");
+		asm("sub %ecx, %esp");
+
+		asm("push %ecx"); // Save alignment size
+		asm("push %ebp"); // Save stack base pointer (must be restored before popa)
+
+		//asm("movl %0, %%edi"::"r"(varSize):"%edi") ;
+		asm("mov $0, %ebp") ;
+
+		asm("call *%eax") ; // Return type is placed in ebx
+
+		asm("pop %ebp"); // Restore stack base
+		asm("pop %ecx");
+		asm("add %ecx, %esp");
+
+		asm("movl %%eax, %0":"=r"(res1));//dword ptr [res1], eax");
+		asm("movl %%edx, %0":"=r"(res2));//dword ptr [res2], edx");
+		asm("movl %%ebx, %0":"=r"(resT));//dword ptr [resT], ebx");
+
+		asm("popa") ;
+	}else{
+		if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
+			strcpy(execError, "ERROR: integer division by zero");
+		else if(errorCode == EXCEPTION_FUNCTION_NO_RETURN)
+			strcpy(execError, "ERROR: function didn't return a value");
+		else if(errorCode == EXCEPTION_ARRAY_OUT_OF_BOUNDS)
+			strcpy(execError, "ERROR: array index out of bounds");
+		else if(errorCode == EXCEPTION_INVALID_FUNCTION)
+			strcpy(execError, "ERROR: invalid function pointer");
+		else if((errorCode & 0xff) == EXCEPTION_CONVERSION_ERROR)
+			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
+			&exLinker->exSymbols[exLinker->exTypes[NULLC::dataHead->unused1].offsetToName],
+			&exLinker->exSymbols[exLinker->exTypes[errorCode >> 8].offsetToName]);
+
+		if(!NULLC::abnormalTermination && NULLC::dataHead->instructionPtr)
+		{
+			// Create call stack
+			unsigned int *paramData = &NULLC::dataHead->nextElement;
+			int count = 0;
+			while((unsigned)count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
+			{
+				NULLC::stackTrace[count++] = paramData[-1];
+				paramData = (unsigned int*)(long long)(*paramData);
+			}
+			NULLC::stackTrace[count] = 0;
+			NULLC::dataHead->nextElement = NULL;
+		}
+		NULLC::dataHead->instructionPtr = NULL;
+		NULLC::abnormalTermination = true;
+	}
+	signal(SIGFPE, sigFPE);
+	signal(SIGTRAP, sigTRAP);
+
+	memcpy(NULLC::errorHandler, data.data, sizeof(sigjmp_buf));
+#else
 	__try
 	{
 		if(firstRun)
@@ -606,10 +791,11 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				SafeSprintf(execError, 512, "ERROR: access violation at address 0x%d", NULLC::expECXstate);
 		}
 	}
+#endif
 
 	NULLC::runResult = res1;
 	NULLC::runResult2 = res2;
-	if(functionID == -1)
+	if(functionID == ~0u)
 	{
 		NULLC::runResultType = (asmOperType)resT;
 	}else{
@@ -874,7 +1060,7 @@ bool ExecutorX86::TranslateToNative()
 		{
 			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
 
-			if(cmd.instID - 1 == (int)exLinker->offsetToGlobalCode)
+			if(int(cmd.instID - 1) == (int)exLinker->offsetToGlobalCode)
 				code += x86PUSH(code, rEBP);
 		}
 		switch(cmd.name)
@@ -1357,7 +1543,7 @@ void ExecutorX86::BeginCallStack()
 			genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
 			NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
 			unsigned int *paramData = &NULLC::dataHead->nextElement;
-			while(count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
+			while((unsigned)count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
 			{
 				NULLC::stackTrace[count++] = paramData[-1];
 				paramData = (unsigned int*)(long long)(*paramData);
@@ -1366,7 +1552,7 @@ void ExecutorX86::BeginCallStack()
 		NULLC::stackTrace[count] = 0;
 		NULLC::dataHead->instructionPtr = (unsigned int)(intptr_t)genStackPtr;
 	}else{
-		while(count < NULLC::STACK_TRACE_DEPTH && NULLC::stackTrace[count++]);
+		while((unsigned)count < NULLC::STACK_TRACE_DEPTH && NULLC::stackTrace[count++]);
 		count--;
 	}
 

@@ -48,6 +48,16 @@ void SetParamBase(unsigned int base);
 void SetFunctionList(ExternFuncInfo* list, unsigned int* funcAddresses);
 void SetContinuePtr(int* continueVar);
 
+#ifdef __linux
+const int EXCEPTION_INT_DIVIDE_BY_ZERO = 1;
+const int EXCEPTION_STOP_EXECUTION = 2;
+const int EXCEPTION_FUNCTION_NO_RETURN = 3;
+const int EXCEPTION_ARRAY_OUT_OF_BOUNDS = 4;
+const int EXCEPTION_INVALID_FUNCTION = 5;
+const int EXCEPTION_CONVERSION_ERROR = 6;
+void SetLongJmpTarget(sigjmp_buf target);
+#endif
+
 void SetLastInstruction(x86Instruction *pos, x86Instruction *base);
 x86Instruction* GetLastInstruction();
 

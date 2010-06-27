@@ -397,8 +397,11 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	NULLC::regRead[reg1] = (op == o_push || op == o_imul || op == o_idiv || op == o_neg || op == o_not || op == o_nop);
 
+#ifdef _DEBUG
 	if(op != o_push && op != o_pop && op != o_call && op != o_imul && op < o_setl && op > o_setnz)
 		__asm int 3;
+#endif
+
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argReg;
@@ -427,8 +430,11 @@ void EMIT_OP_NUM(x86Command op, unsigned int num)
 	if(op == o_int)
 		NULLC::regRead[rECX] = true;
 
+#ifdef _DEBUG
 	if(op != o_push && op != o_int)
 		__asm int 3;
+#endif
+
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argNumber;
@@ -584,8 +590,11 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg index, unsigned int mult, 
 		NULLC::InvalidateState();
 	}
 
+#ifdef _DEBUG
 	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_fstp && op != o_fld && op != o_fadd && op != o_fsub && op != o_fmul && op != o_fdiv && op != o_fcomp && op != o_fild && op != o_fistp && op != o_fst && op != o_call && op != o_jmp)
 		__asm int 3;
+#endif
+
 #endif
 	x86Op->name = op;
 	x86Op->argA.type = x86Argument::argPtr;
@@ -757,8 +766,10 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	}
 
+#ifdef _DEBUG
 	if(op != o_add && op != o_sub && op != o_mov && op != o_test && op != o_imul && op != o_shl && op != o_cmp)
 		__asm int 3;
+#endif
 
 #endif
 	x86Op->name = op;
@@ -894,8 +905,10 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, un
 			}
 		}
 	}
+#ifdef _DEBUG
 	if(op != o_mov && op != o_lea && op != o_movsx && op != o_or && op != o_imul && op != o_cmp)
 		__asm int 3;
+#endif
 
 	if(op == o_mov && size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
 	{
@@ -1197,6 +1210,23 @@ void SetContinuePtr(int* continueVar)
 {
 	x86Continue = continueVar;
 }
+
+#ifdef __linux
+int nullcJmpTarget;
+void LongJumpWrap(sigjmp_buf errorHandler, int code)
+{
+	int x = 0;
+	asm("mov 4(%%ebp), %0":"=r"(x));
+	*(int*)((char*)paramBase - 8) = x;
+	siglongjmp(errorHandler, code);
+}
+void (*siglongjmpPtr)() = (void(*)())LongJumpWrap;
+
+void SetLongJmpTarget(sigjmp_buf target)
+{
+	nullcJmpTarget = (int)(intptr_t)target;
+}
+#endif
 
 void SetLastInstruction(x86Instruction *pos, x86Instruction *base)
 {
@@ -1689,8 +1719,12 @@ void GenCodeCmdIndex(VMCmd cmd)
 		EMIT_OP_REG_REG(o_cmp, rEAX, rECX);
 	}
 	EMIT_OP_LABEL(o_jb, aluLabels, false);
+#ifdef __linux
+	EMIT_OP_NUM(o_int, 3);
+#else
 	EMIT_OP_REG_REG(o_xor, rECX, rECX);
 	EMIT_OP_NUM(o_int, 3);
+#endif
 	EMIT_LABEL(aluLabels, false);
 	aluLabels++;
 
@@ -1907,6 +1941,7 @@ void GenCodeCmdCallProlog(VMCmd cmd)
 
 void GenCodeCmdCall(VMCmd cmd)
 {
+	static unsigned int ret[128];
 	EMIT_COMMENT("CALL");
 
 	if(x86Functions[cmd.argument].address != -1)
@@ -1922,6 +1957,8 @@ void GenCodeCmdCall(VMCmd cmd)
 	}else{
 		unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
 
+		if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN && x86Functions[cmd.argument].returnShift)
+			EMIT_OP_NUM(o_push, (int)(intptr_t)ret);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 8 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
@@ -1930,8 +1967,15 @@ void GenCodeCmdCall(VMCmd cmd)
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
 		EMIT_OP_REG_REG(o_test, rECX, rECX);
 		EMIT_OP_LABEL(o_jnz, aluLabels);
+#ifdef __linux
+		// call siglongjmp(target_env, EXCEPTION_STOP_EXECUTION);
+		EMIT_OP_NUM(o_push, EXCEPTION_STOP_EXECUTION);
+		EMIT_OP_NUM(o_push, nullcJmpTarget);
+		EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&siglongjmpPtr);
+#else
 		EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
 		EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
+#endif
 		EMIT_LABEL(aluLabels);
 		aluLabels++;
 
@@ -1945,6 +1989,19 @@ void GenCodeCmdCall(VMCmd cmd)
 		}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_LONG){
 			EMIT_OP_REG(o_push, rEDX);
 			EMIT_OP_REG(o_push, rEAX);
+		}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN && x86Functions[cmd.argument].returnShift){
+			// adjust new stack top
+			EMIT_OP_REG_NUM(o_sub, rESP, x86Functions[cmd.argument].returnShift * 4);
+			// copy return value on top of the stack
+			EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
+
+			//EMIT_OP_REG_RPTR(o_lea, rESI, sNONE, rEAX, paramBase);
+			EMIT_OP_REG_NUM(o_mov, rESI, (int)(intptr_t)ret);	
+			EMIT_OP_REG_REG(o_mov, rEDI, rESP);
+			EMIT_OP_REG_NUM(o_mov, rECX, x86Functions[cmd.argument].returnShift);
+			EMIT_OP(o_rep_movsd);
+
+			EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
 		}
 	}
 }
@@ -1958,8 +2015,15 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 
 	EMIT_OP_REG_REG(o_test, rECX, rECX);
 	EMIT_OP_LABEL(o_jnz, aluLabels + 1);
+#ifdef __linux
+	// call siglongjmp(target_env, EXCEPTION_INVALID_FUNCTION);
+	EMIT_OP_NUM(o_push, EXCEPTION_INVALID_FUNCTION);
+	EMIT_OP_NUM(o_push, nullcJmpTarget);
+	EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&siglongjmpPtr);
+#else
 	EMIT_OP_REG_NUM(o_mov, rECX, 0xDEADBEEF);
 	EMIT_OP_NUM(o_int, 3);
+#endif
 	EMIT_LABEL(aluLabels + 1);
 
 	assert(cmd.argument >= 4);
@@ -1976,8 +2040,15 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
 		EMIT_OP_REG_REG(o_test, rECX, rECX);
 		EMIT_OP_LABEL(o_jnz, aluLabels + 3);
+#ifdef __linux
+		// call siglongjmp(target_env, EXCEPTION_STOP_EXECUTION);
+		EMIT_OP_NUM(o_push, EXCEPTION_STOP_EXECUTION);
+		EMIT_OP_NUM(o_push, nullcJmpTarget);
+		EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&siglongjmpPtr);
+#else
 		EMIT_OP_REG_REG(o_mov, rECX, rESP); // esp is very likely to contain neither 0 or ~0, so we can distinguish
 		EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
+#endif
 		EMIT_LABEL(aluLabels + 3);
 	 
 		EMIT_OP_REG_NUM(o_add, rESP, cmd.argument + 4);
@@ -2043,6 +2114,16 @@ void GenCodeCmdYield(VMCmd cmd)
 	}
 }
 
+#ifdef __linux
+void yieldSaveEIP()
+{
+	asm("push %eax");
+	asm("mov 8(%esp), %eax");
+	asm("add $1, %eax");	// jump over ret
+	asm("mov %eax, 4(%esi)");
+	asm("pop %eax");
+}
+#else
 __declspec(naked) void yieldSaveEIP()
 {
 	__asm
@@ -2055,6 +2136,8 @@ __declspec(naked) void yieldSaveEIP()
 		ret;
 	}
 }
+#endif
+
 void (*yieldPtr)() = yieldSaveEIP;
 
 void GenCodeCmdReturn(VMCmd cmd)
@@ -2063,8 +2146,15 @@ void GenCodeCmdReturn(VMCmd cmd)
 
 	if(cmd.flag & bitRetError)
 	{
+#ifdef __linux
+		// call siglongjmp(target_env, EXCEPTION_FUNCTION_NO_RETURN);
+		EMIT_OP_NUM(o_push, EXCEPTION_FUNCTION_NO_RETURN);
+		EMIT_OP_NUM(o_push, nullcJmpTarget);
+		EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&siglongjmpPtr);
+#else
 		EMIT_OP_REG_NUM(o_mov, rECX, 0xffffffff);
 		EMIT_OP_NUM(o_int, 3);
+#endif
 		return;
 	}
 	if(cmd.argument == 0)
@@ -2239,7 +2329,11 @@ void GenCodeCmdPow(VMCmd cmd)
 	NULLC::InvalidateDependand(rEDX);
 #endif
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
+#ifdef __linux
+	EMIT_OP_REG(o_push, rEAX);
+#else
 	EMIT_OP_REG(o_push, rEDX);
+#endif
 }
 
 void GenCodeCmdMod(VMCmd cmd)
@@ -3059,8 +3153,16 @@ void GenCodeCmdConvertPtr(VMCmd cmd)
 	EMIT_OP_REG(o_pop, rEAX);
 	EMIT_OP_REG_NUM(o_cmp, rEAX, cmd.argument);
 	EMIT_OP_LABEL(o_je, aluLabels);
+#ifdef __linux
+	EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-16, rEAX);
+	// call siglongjmp(target_env, EXCEPTION_CONVERSION_ERROR);
+	EMIT_OP_NUM(o_push, EXCEPTION_CONVERSION_ERROR | (cmd.argument << 8));
+	EMIT_OP_NUM(o_push, nullcJmpTarget);
+	EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&siglongjmpPtr);
+#else
 	EMIT_OP_REG_NUM(o_mov, rECX, cmd.argument);
 	EMIT_OP_NUM(o_int, 3);
+#endif
 	EMIT_LABEL(aluLabels);
 	aluLabels++;
 }
