@@ -31,7 +31,7 @@ list list()
 list list(typeid type)
 {
 	list ret;
-	ret.anyType = 0;
+	ret.anyType = type == auto ref;
 	ret.elemType = type;
 	ret.first = ret.last = nullptr;
 	return ret;
@@ -116,6 +116,10 @@ auto list:begin()
 auto list:end()
 {
 	return last;
+}
+int list:empty()
+{
+	return first == nullptr;
 }
 
 // iteration
