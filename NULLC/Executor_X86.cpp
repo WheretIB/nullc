@@ -124,7 +124,9 @@ namespace NULLC
 	{
 		// Check that exception happened in NULLC code (division by zero and int overflow still catched)
 		bool externalCode = expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd;
-		if(externalCode && (expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_ACCESS_VIOLATION))
+		bool managedMemoryEnd = expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase &&
+			expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi+paramDataBase + 64 * 1024;
+		if(externalCode && (expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && !managedMemoryEnd)))
 			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 
 		// Save part of state for later use
@@ -838,7 +840,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			else if(NULLC::expAllocCode == 5)
 				strcpy(execError, "ERROR: allocated stack overflow");
 			else
-				SafeSprintf(execError, 512, "ERROR: access violation at address 0x%d", NULLC::expECXstate);
+				strcpy(execError, "ERROR: null pointer access");
 		}
 	}
 #endif
