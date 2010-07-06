@@ -1370,6 +1370,10 @@ void	RunTests(bool verbose)
 	bRes = CompileFile("Modules/std/dynamic.nc");
 	assert(bRes);
 	nullcTranslateToC("NULLC\\translation\\std_dynamic.cpp", "__init_std_dynamic_nc");
+
+	bRes = CompileFile("Modules/std/io.nc");
+	assert(bRes);
+	nullcTranslateToC("NULLC\\translation\\std_io.cpp", "__init_std_io_nc");
 #endif
 	//RunEulerTests();
 
@@ -6992,6 +6996,12 @@ return sum;";
 	TEST_FOR_RESULT("For each on a member of a type that we had a reference to", testForEach5, "115");
 
 	TEST_FOR_RESULT("Unescaped string literal", "auto x = @\"\\r\\n\\thello\\0\"; return x.size + (x[1] == 'r');", "15");
+
+	nullcLoadModuleBySource("test.coroutine1", "coroutine int foo(){ int i = 10; while(i) yield i++; }");
+const char	*testCoroutineImport1 =
+"import test.coroutine1;\r\n\
+return foo() + foo();";
+	TEST_FOR_RESULT("Coroutine export and import 1", testCoroutineImport1, "21");
 
 #ifdef FAILURE_TEST
 

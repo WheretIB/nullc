@@ -1660,9 +1660,11 @@ void PrepareConstructorCall(const char* pos)
 
 void FinishConstructorCall(const char* pos)
 {
+	// Constructor return type must be void
 	if(CodeInfo::nodeList.back()->typeInfo != typeVoid)
 		ThrowError(pos, "ERROR: constructor cannot be used after 'new' expression if return type is not void");
 	
+	// Wrap allocation, and variable pointer copy node and constructor call node into one
 	TypeInfo *resultType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	AddTwoExpressionNode(resultType);
 	AddTwoExpressionNode(resultType);
@@ -2620,17 +2622,26 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		HandlePointerToObject(pos, fType->paramType[i]);
 	}
 
+	// If the function is called by name it accepts closure as extra parameter
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL || fInfo->type == FunctionInfo::COROUTINE))
 	{
+		// Construct closure name
 		char	*contextName = AllocateString(fInfo->nameLength + 24);
 		int length = sprintf(contextName, "$%s_%d_ext", fInfo->name, CodeInfo::FindFunctionByPtr(fInfo));
 		unsigned int contextHash = GetStringHash(contextName);
 
+		// Find closure.
+		// A name of a closure in the scope where function is defined is equal to the name of the function extra parameter
+		// This enables the following:
+		// When a function is called externally, a closure from the scope where function was defined is passed as extra argument
+		// When a function is called recursively, a current closure from extra parameter is passed as extra argument, preserving same context
 		int i = CodeInfo::FindVariableByName(contextHash);
 		if(i == -1)
 		{
+			// When a local function is called from the outside, if it didn't use any external variables, there is no closure
 			CodeInfo::nodeList.push_back(new NodeNumber(0, CodeInfo::GetReferenceType(typeInt)));
 		}else{
+			// If closure is found, get it
 			AddGetAddressNode(pos, InplaceStr(contextName, length));
 			AddGetVariableNode(pos);
 		}
@@ -2793,6 +2804,7 @@ void EndSwitch()
 	EndBlock();
 }
 
+// Begin type definition
 void TypeBegin(const char* pos, const char* end)
 {
 	if(newType)
@@ -2819,6 +2831,7 @@ void TypeBegin(const char* pos, const char* end)
 	BeginBlock();
 }
 
+// Add class member
 void TypeAddMember(const char* pos, const char* varName)
 {
 	if(!currType)
@@ -2836,15 +2849,19 @@ void TypeAddMember(const char* pos, const char* varName)
 	AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
 }
 
+// End of type definition
 void TypeFinish()
 {
+	// Class members changed variable top, here we restore it to original position
 	varTop -= newType->size;
+	// In NULLC, all classes have sizes multiple of 4, so add padding if neccessary
 	if(newType->size % 4 != 0)
 	{
 		newType->paddingBytes = 4 - (newType->size % 4);
 		newType->size += 4 - (newType->size % 4);
 	}
 
+	// Wrap all member function definitions into one expression list
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
 	for(unsigned int i = 0; i < methodCount; i++)
 		AddTwoExpressionNode();
@@ -2854,6 +2871,7 @@ void TypeFinish()
 		CodeInfo::typeInfo[i]->originalIndex--;
 	newType->originalIndex = CodeInfo::typeInfo.size() - 1;
 
+	// Remove all aliases defined inside class definition
 	AliasInfo *info = newType->childAlias;
 	while(info)
 	{
@@ -2863,12 +2881,15 @@ void TypeFinish()
 
 	newType = NULL;
 
+	// Remove class members from global scope
 	EndBlock(false, false);
 }
 
+// Before we add member function outside of the class definition, we should imitate that we're inside class definition
 void TypeContinue(const char* pos)
 {
 	newType = currType;
+	// Add all member variables to global scope
 	BeginBlock();
 	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
 	{
@@ -2877,6 +2898,7 @@ void TypeContinue(const char* pos)
 		AddVariable(pos, InplaceStr(curr->name));
 		varDefined = false;
 	}
+	// Restore all type aliases defined inside a class
 	AliasInfo *info = newType->childAlias;
 	while(info)
 	{
@@ -2885,9 +2907,12 @@ void TypeContinue(const char* pos)
 	}
 }
 
+// End of outside class member definition
 void TypeStop()
 {
+	// Class members changed variable top, here we restore it to original position
 	varTop = varInfoTop.back().varStackSize;
+	// Remove all aliases defined inside class definition
 	AliasInfo *info = newType->childAlias;
 	while(info)
 	{
@@ -2895,21 +2920,25 @@ void TypeStop()
 		info = info->next;
 	}
 	newType = NULL;
+	// Remove class members from global scope
 	EndBlock(false, false);
 }
 
 void AddAliasType(InplaceStr aliasName)
 {
-	if(newType && !currDefinedFunc.size())
+	if(newType && !currDefinedFunc.size())	// If we're inside a class definition, but _not_ inside a function
 	{
+		// Create alias and add it to type alias list, so that after type definition is finished, local aliases will be deleted
 		AliasInfo *info = TypeInfo::CreateAlias(GetStringHash(aliasName.begin, aliasName.end), currType);
 		info->next = newType->childAlias;
 		newType->childAlias = info;
-	}else if(currDefinedFunc.size()){
+	}else if(currDefinedFunc.size()){	// If we're inside a function
+		// Create alias and add it to function alias list, so that after function is finished, local aliases will be deleted
 		AliasInfo *info = TypeInfo::CreateAlias(GetStringHash(aliasName.begin, aliasName.end), currType);
 		info->next = currDefinedFunc.back()->childAlias;
 		currDefinedFunc.back()->childAlias = info;
 	}
+	// Insert hash->type pair to class map, so that target type can be found by alias name
 	CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
 }
 
