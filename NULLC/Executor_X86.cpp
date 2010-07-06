@@ -904,11 +904,11 @@ bool ExecutorX86::TranslateToNative()
 	EMIT_OP(o_ret);
 	instList.resize((int)(GetLastInstruction() - &instList[0]));
 
+	// Once again, mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
+	exCode.push_back(VMCmd(cmdNop));
 #ifdef NULLC_OPTIMIZE_X86
 	// Second optimization pass, just feed generated instructions again
 	// But at first, mark invalidation instructions
-	// Once again, mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
-	exCode.push_back(VMCmd(cmdNop));
 	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
 		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
 

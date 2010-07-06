@@ -26,7 +26,11 @@ struct NULLCArray
 // Wrapper over NULLC auto ref class for use in external functions
 struct NULLCRef
 {
-	unsigned int	typeID;
+	union
+	{
+		unsigned int	typeID;
+		unsigned int	type;
+	};
 	char			*ptr;
 };
 

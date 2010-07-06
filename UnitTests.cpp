@@ -93,7 +93,7 @@ void*	FindVar(const char* name)
 	}
 	return (void*)varData;
 }
-bool doTranslation = true;
+bool doTranslation = false;
 bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = NULL, bool execShouldFail = false)
 {
 	lastMessage = message;
@@ -269,6 +269,10 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 			strcat(cmdLine, " test_defargs4.cpp");
 			strcat(cmdLine, " test_defargs4_bind.cpp");
 		}
+		if(strstr(code, "test.defargs5;"))
+			strcat(cmdLine, " test_defargs5.cpp");
+		if(strstr(code, "test.defargs6;"))
+			strcat(cmdLine, " test_defargs6.cpp");
 		if(strstr(code, "test.alignment;"))
 		{
 			strcat(cmdLine, " test_alignment.cpp");
@@ -1335,6 +1339,14 @@ void	RunTests(bool verbose)
 	bRes = nullcCompile("class Test{ int func(int a, b = 6); }");
 	assert(bRes);
 	nullcTranslateToC("test_defargs4.cpp", "__init_test_defargs4_nc");
+
+	bRes = nullcCompile("int foo(int x, char[] a = \"xx\", int y = 0){return x + a[0] + a[1];}");
+	assert(bRes);
+	nullcTranslateToC("test_defargs5.cpp", "__init_test_defargs5_nc");
+
+	bRes = nullcCompile("int x = 5; int foo(auto ref a = &x){return int(a);}");
+	assert(bRes);
+	nullcTranslateToC("test_defargs6.cpp", "__init_test_defargs6_nc");
 
 	bRes = nullcCompile("int CheckAlignment(auto ref ptr, int alignment);");
 	assert(bRes);
@@ -6616,7 +6628,7 @@ const char	*testFunctionResultDereference =
 return -*test(5);";
 	TEST_FOR_RESULT("Dereference of function result.", testFunctionResultDereference, "-5");
 
-
+doTranslation = true;
 const char	*testConstructorAfterNew =
 "void int:int(int x, y){ *this = x; }\r\n\
 int ref a = new int(5, 0);\r\n\
@@ -6758,7 +6770,7 @@ int c = int(fib(2));\r\n\
 int b = int(fib(10));\r\n\
 int a = int(fib(-10));\r\n\
 return a*100**0 + b*100**1 + c*100**2 + d*100**3;";
-	TEST_FOR_RESULT("Pattern matcing", testPatternMatching, "1015500");
+	TEST_FOR_RESULT("Pattern matching", testPatternMatching, "1015500");
 
 const char	*testFunctional =
 "import std.list;\r\n\

@@ -1650,7 +1650,6 @@ void PrepareConstructorCall(const char* pos)
 	wrap->SetFirstNode(getPointer);
 	CodeInfo::nodeList.push_back(wrap);
 	AddGetVariableNode(pos);
-	AddExtraNode();
 
 	wrap = new NodeOneOP();
 	wrap->SetFirstNode(getPointer);
@@ -1664,7 +1663,9 @@ void FinishConstructorCall(const char* pos)
 	if(CodeInfo::nodeList.back()->typeInfo != typeVoid)
 		ThrowError(pos, "ERROR: constructor cannot be used after 'new' expression if return type is not void");
 	
-	AddTwoExpressionNode(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo);
+	TypeInfo *resultType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
+	AddTwoExpressionNode(resultType);
+	AddTwoExpressionNode(resultType);
 }
 
 bool defineCoroutine = false;
