@@ -38,26 +38,36 @@ struct char_32_
 {
 	char ptr[32];
 	char_32_ & set(unsigned index, char const & val){ ptr[index] = val; return *this; }
+	char_32_ (){}
+	char_32_ (const char* data){ memcpy(ptr, data, 32); }
 };
 struct char_35_ 
 {
 	char ptr[36];
 	char_35_ & set(unsigned index, char const & val){ ptr[index] = val; return *this; }
+	char_35_ (){}
+	char_35_ (const char* data){ memcpy(ptr, data, 35); }
 };
 struct char_2_ 
 {
 	char ptr[4];
 	char_2_ & set(unsigned index, char const & val){ ptr[index] = val; return *this; }
+	char_2_ (){}
+	char_2_ (const char* data){ memcpy(ptr, data, 2); }
 };
 struct char_33_ 
 {
 	char ptr[36];
 	char_33_ & set(unsigned index, char const & val){ ptr[index] = val; return *this; }
+	char_33_ (){}
+	char_33_ (const char* data){ memcpy(ptr, data, 33); }
 };
 struct char_29_ 
 {
 	char ptr[32];
 	char_29_ & set(unsigned index, char const & val){ ptr[index] = val; return *this; }
+	char_29_ (){}
+	char_29_ (const char* data){ memcpy(ptr, data, 29); }
 };
 struct list_iterator 
 {

@@ -93,7 +93,7 @@ void*	FindVar(const char* name)
 	}
 	return (void*)varData;
 }
-bool doTranslation = false;
+bool doTranslation = true;
 bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = NULL, bool execShouldFail = false)
 {
 	lastMessage = message;
@@ -6628,7 +6628,6 @@ const char	*testFunctionResultDereference =
 return -*test(5);";
 	TEST_FOR_RESULT("Dereference of function result.", testFunctionResultDereference, "-5");
 
-doTranslation = true;
 const char	*testConstructorAfterNew =
 "void int:int(int x, y){ *this = x; }\r\n\
 int ref a = new int(5, 0);\r\n\
