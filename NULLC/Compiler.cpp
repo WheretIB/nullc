@@ -100,6 +100,7 @@ void float:float(float a = 0){ *this = a; }\r\n\
 void double:double(double a = 0){ *this = a; }\r\n\
 \r\n\
 char[] int:str();\r\n\
+char[] double:str(int precision = 6);\r\n\
 \r\n\
 void ref __newS(int size);\r\n\
 int[] __newA(int size, int count);\r\n\
@@ -283,6 +284,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::Double, "double", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::IntToStr, "int::str", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::DoubleToStr, "double::str", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::AllocArray, "__newA", 0);

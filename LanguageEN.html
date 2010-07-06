@@ -1227,19 +1227,25 @@ B int 5<br />
 	<h3><a name="binnum">6.5 Binary numbers</a></h3>
 
 	Numbers can be written in binary, and must be followed by letter 'b':<br />
-	101b == 5
+	101b == 5<br />
+	If <span class="rword">int</span> type is insufficient to represent the binary constant as a positive number, then the type is <span class="rword">long</span>, otherwise it's <span class="rword">int</span>.<br />
+	If <span class="rword">long</span> type is insufficient to represent the binary constant as a positive number, then if <span class="rword">int</span> type can represent the binary constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
 </div>
 <hr />
 <div class="topic">
 	<h3><a name="octnum">6.6 Octal numbers</a></h3>
 	Numbers can be written in base 8, and must start with number 0:<br />
-	077 == 63
+	077 == 63<br />
+	If <span class="rword">int</span> type is insufficient to represent the octal constant as a positive number, then the type is <span class="rword">long</span>, otherwise it's <span class="rword">int</span>.<br />
+	If <span class="rword">long</span> type is insufficient to represent the octal constant as a positive number, then if <span class="rword">int</span> type can represent the octal constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
 </div>
 <hr />
 <div class="topic">
 	<h3><a name="hexnum">6.7 Hexadecimal numbers</a></h3>
 	Numbers can be written in base 16, and must start with '0x':<br />
-	0x80 == 128
+	0x80 == 128<br />
+	If <span class="rword">int</span> type is insufficient to represent the hexadecimal constant as a positive number, then the type is <span class="rword">long</span>, otherwise it's <span class="rword">int</span>.<br />
+	If <span class="rword">long</span> type is insufficient to represent the hexadecimal constant as a positive number, then if <span class="rword">int</span> type can represent the hexadecimal constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
 </div>
 <hr />
 <div class="topic">

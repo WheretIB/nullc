@@ -297,36 +297,48 @@ void AddNumberNodeDouble(const char* pos)
 void AddHexInteger(const char* pos, const char* end)
 {
 	pos += 2;
+	// skip leading zeros
+	while(*pos == '0')
+		pos++;
 	if(int(end - pos) > 16)
 		ThrowError(pos, "ERROR: overflow in hexadecimal constant");
+	long long num = parseLong(pos, end, 16);
 	// If number overflows integer number, create long number
-	if(int(end - pos) < 8)
-		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 16), typeInt));
+	if(int(num) == num)
+		CodeInfo::nodeList.push_back(new NodeNumber(int(num), typeInt));
 	else
-		CodeInfo::nodeList.push_back(new NodeNumber(parseLong(pos, end, 16), typeLong));
+		CodeInfo::nodeList.push_back(new NodeNumber(num, typeLong));
 }
 
 void AddOctInteger(const char* pos, const char* end)
 {
 	pos++;
-	if(int(end - pos) > 21)
+	// skip leading zeros
+	while(*pos == '0')
+		pos++;
+	if(int(end - pos) > 22 || (int(end - pos) > 21 && *pos != '1'))
 		ThrowError(pos, "ERROR: overflow in octal constant");
+	long long num = parseLong(pos, end, 8);
 	// If number overflows integer number, create long number
-	if(int(end - pos) <= 10)
-		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 8), typeInt));
+	if(int(num) == num)
+		CodeInfo::nodeList.push_back(new NodeNumber(int(num), typeInt));
 	else
-		CodeInfo::nodeList.push_back(new NodeNumber(parseLong(pos, end, 8), typeLong));
+		CodeInfo::nodeList.push_back(new NodeNumber(num, typeLong));
 }
 
 void AddBinInteger(const char* pos, const char* end)
 {
+	// skip leading zeros
+	while(*pos == '0')
+		pos++;
 	if(int(end - pos) > 64)
 		ThrowError(pos, "ERROR: overflow in binary constant");
+	long long num = parseLong(pos, end, 2);
 	// If number overflows integer number, create long number
-	if(int(end - pos) < 32)
-		CodeInfo::nodeList.push_back(new NodeNumber((int)parseLong(pos, end, 2), typeInt));
+	if(int(num) == num)
+		CodeInfo::nodeList.push_back(new NodeNumber(int(num), typeInt));
 	else
-		CodeInfo::nodeList.push_back(new NodeNumber(parseLong(pos, end, 2), typeLong));
+		CodeInfo::nodeList.push_back(new NodeNumber(num, typeLong));
 }
 
 void AddVoidNode()

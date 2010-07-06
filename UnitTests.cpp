@@ -7003,6 +7003,24 @@ const char	*testCoroutineImport1 =
 return foo() + foo();";
 	TEST_FOR_RESULT("Coroutine export and import 1", testCoroutineImport1, "21");
 
+	TEST_FOR_RESULT("Leading zero skip (hex)", "return 0x0000000000000000000000000f;", "15");
+	TEST_FOR_RESULT("int type constant (hex)", "return 0x1eadbeef;", "514703087");
+	TEST_FOR_RESULT("negative int type constant (hex)", "return 0xffffffffffffffff;", "-1");
+	TEST_FOR_RESULT("negative long type constant (hex)", "return 0xdeadbeefdeadbeef;", "-2401053088876216593L");
+	
+	TEST_FOR_RESULT("long type constant 1 (oct)", "return 020000000000;", "2147483648L");
+	TEST_FOR_RESULT("int type constant (oct)", "return 017777777777;", "2147483647");
+	TEST_FOR_RESULT("Leading zero skip (oct)", "return 0000000000000000000000000000000176666;", "64950");
+	TEST_FOR_RESULT("long type constant 2 (oct)", "return 0777777777777777777777;", "9223372036854775807L");
+	TEST_FOR_RESULT("negative int type constant (oct)", "return 01777777777777777777777;", "-1");
+	TEST_FOR_RESULT("negative long type constant (oct)", "return 01777700000000000000000;", "-2251799813685248L");
+	
+	TEST_FOR_RESULT("int type constant (bin)", "return 01111111111111111111111111111111b;", "2147483647");
+	TEST_FOR_RESULT("long type constant (bin)", "return 11111111111111111111111111111111b;", "4294967295L");
+	TEST_FOR_RESULT("Leading zero skip (bin)", "return 000000000000000000000000111111111111111111111111111111111111111111111111111111111111111b;", "9223372036854775807L");
+	TEST_FOR_RESULT("negative int type constant (bin)", "return 01111111111111111111111111111111111111111111111111111111111111111b;", "-1");
+	TEST_FOR_RESULT("negative long type constant (bin)", "return 01111111111111111111111111111000000000000000000000000000000000000b;", "-68719476736L");
+	
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -8059,6 +8077,10 @@ int[foo(3)] arr;";
 	nullcLoadModuleBySource("test.redefinitionPartA", "int foo(int x){ return -x; }");
 	nullcLoadModuleBySource("test.redefinitionPartB", "int foo(int x){ return ~x; }");
 	TEST_FOR_FAIL("Module function redefinition", "import test.redefinitionPartA; import test.redefinitionPartB; return foo();", "ERROR: function foo (type int ref(int)) is already defined. While importing test/redefinitionPartB.nc");
+
+	TEST_FOR_FAIL("number constant overflow (hex)", "return 0x1deadbeefdeadbeef;", "ERROR: overflow in hexadecimal constant");
+	TEST_FOR_FAIL("number constant overflow (oct)", "return 02777777777777777777777;", "ERROR: overflow in octal constant");
+	TEST_FOR_FAIL("number constant overflow (bin)", "return 011111111111111111111111111111111111111111111111111111111111111111b;", "ERROR: overflow in binary constant");
 
 	//TEST_FOR_FAIL("parsing", "");
 

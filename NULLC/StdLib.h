@@ -21,6 +21,7 @@ namespace NULLC
 	double		Double(double a);
 
 	NullCArray	IntToStr(int* r);
+	NullCArray	DoubleToStr(int precision, double* r);
 	
 	void*		AllocObject(int size);
 	NullCArray	AllocArray(int size, int count);
