@@ -3743,6 +3743,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 	{
 		fprintf(fOut, "\"");
 		NodeZeroOP	*curr = tail->prev;
+		bool prevEscaped = false;
 		do 
 		{
 			assert(curr->nodeType == typeNodeNumber);
@@ -3751,9 +3752,15 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			{
 				unsigned char ch = (unsigned char)((dword->GetInteger() >> (i * 8)) & 0xff);
 				if(ch >= ' ' && ch <= 128 && ch != '\"' && ch != '\\' && ch != '\'')
+				{
+					if(prevEscaped)
+						fprintf(fOut, "\"\"");
+					prevEscaped = false;
 					fprintf(fOut, "%c", ch);
-				else
+				}else{
+					prevEscaped = true;
 					fprintf(fOut, "\\x%x", ch);
+				}
 			}
 			curr = curr->prev;
 		}while(curr);

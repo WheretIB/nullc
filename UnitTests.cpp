@@ -84,6 +84,9 @@ bool lastFailed;
 #define CHECK_CHAR(var, index, expected) if(((char*)FindVar(var))[index] != (expected)){ TEST_NAME(); printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((char*)FindVar(var))[index]); lastFailed = true; }
 #define CHECK_STR(var, index, expected) if(strcmp(((char*)FindVar(var)+index), (expected)) != 0){ TEST_NAME(); printf(" Failed %s[%d] == %s (got %s)\r\n", #var, index, expected, ((char*)FindVar(var))+index); lastFailed = true; }
 
+int passed[] = { 0, 0, 0, 0, 0 };
+int testCount[] = { 0, 0, 0, 0, 0 };
+
 void*	FindVar(const char* name)
 {
 	for(unsigned int i = 0; i < variableCount; i++)
@@ -197,6 +200,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	if(executor == NULLC_X86 && doTranslation)
 	{
+		testCount[4]++;
 		nullcTranslateToC("1test.cpp", "main");
 
 		STARTUPINFO stInfo;
@@ -311,6 +315,8 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 				if(message && !messageVerbose)
 					printf("%s\n", message);
 				printf("C++: failed, expected %s, got %d\r\n", expected, retCode);
+			}else{
+				passed[4]++;
 			}
 			CloseHandle(prInfo.hProcess);
 			CloseHandle(prInfo.hThread);
@@ -787,9 +793,6 @@ void TestDrawRect(int, int, int, int, int)
 }
 
 void	RunTests2();
-
-int passed[] = { 0, 0, 0, 0 };
-int testCount[] = { 0, 0, 0, 0 };
 
 unsigned int	testTarget[] = { NULLC_VM, NULLC_X86 };
 
@@ -8200,6 +8203,9 @@ int[foo(3)] arr;";
 #endif
 	printf("Failure tests: passed %d of %d tests\r\n", passed[2], testCount[2]);
 	printf("Extra tests: passed %d of %d tests\r\n", passed[3], testCount[3]);
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	printf("Translation tests: passed %d of %d tests\r\n", passed[4], testCount[4]);
+#endif
 	printf("Passed %d of %d tests\r\n", passed[0]+passed[1]+passed[2]+passed[3], testCount[0]+testCount[1]+testCount[2]+testCount[3]);
 
 	printf("Compilation time: %f\r\n", timeCompile);
