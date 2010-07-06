@@ -33,7 +33,7 @@ void GetCFunctionName(char* fName, unsigned int size, FunctionInfo *funcInfo)
 	unsigned int nameShift = *funcInfo->name == '$' ? 1 : 0;
 	unsigned int finalLength = 0;
 	const char *printedName = funcInfo->GetOperatorName();
-	if(funcInfo->type == FunctionInfo::LOCAL || !funcInfo->visible)
+	if((funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::COROUTINE) || !funcInfo->visible)
 		finalLength = SafeSprintf(fName, size, "%s%s_%d", namePrefix, printedName ? printedName : (funcInfo->name + nameShift), CodeInfo::FindFunctionByPtr(funcInfo));
 	else if(funcInfo->type == FunctionInfo::THISCALL)
 		finalLength = SafeSprintf(fName, size, "%s%s_%s", namePrefix, printedName ? printedName : (funcInfo->name + nameShift), funcInfo->funcType->GetFullTypeName());
@@ -922,7 +922,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 		if(funcInfo->type == FunctionInfo::THISCALL)
 		{
 			funcInfo->parentClass->OutputCType(fOut, "* __context");
-		}else if(funcInfo->type == FunctionInfo::LOCAL){
+		}else if(funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::COROUTINE){
 			fprintf(fOut, "void* __");
 			OutputCFunctionName(fOut, funcInfo);
 			fprintf(fOut, "_ext_%d", funcInfo->allParamSize);
@@ -1088,6 +1088,8 @@ void NodeFuncCall::LogToStream(FILE *fGraph)
 }
 void NodeFuncCall::TranslateToC(FILE *fOut)
 {
+	static unsigned newSFuncHash = GetStringHash("__newS");
+	static unsigned newAFuncHash = GetStringHash("__newA");
 	TranslateToCExtra(fOut);
 	if(funcInfo)
 		OutputCFunctionName(fOut, funcInfo);
@@ -1132,9 +1134,19 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 	if(!funcInfo)
 		fprintf(fOut, "(");
 	if(first)
+	{
+		if(funcInfo && funcInfo->extraParam)
+		{
+			fprintf(fOut, "(");
+			funcInfo->extraParam->varType->OutputCType(fOut, "");
+			fprintf(fOut, ")(");
+		}
 		first->TranslateToC(fOut);
-	else if(funcInfo)
-		fprintf(fOut, "(void*)0");
+		if(funcInfo && funcInfo->extraParam)
+			fprintf(fOut, ")");
+	}else if(funcInfo){
+		fprintf(fOut, (funcInfo->nameHash == newSFuncHash || funcInfo->nameHash == newAFuncHash) ? "__nullcTR[%d]" : "(void*)0", funcInfo->nameHash == newSFuncHash ? typeInfo->subType->typeIndex : typeInfo->typeIndex);
+	}
 	if(!funcInfo)
 		fprintf(fOut, ").context");
 	fprintf(fOut, ")");
@@ -2133,7 +2145,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 		char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH+32];
 		const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
-		unsigned int length = SafeSprintf(closureName, NULLC_MAX_VARIABLE_NAME_LENGTH+32, "%s%.*s_%d", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
+		unsigned int length = SafeSprintf(closureName, NULLC_MAX_VARIABLE_NAME_LENGTH+32, closure->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
 		for(unsigned int k = 0; k < length; k++)
 		{
 			if(closureName[k] == ':' || closureName[k] == '$')
@@ -2142,7 +2154,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 
 		fprintf(fOut, "(%s = (", closureName);
 		closure->varType->OutputCType(fOut, "");
-		fprintf(fOut, ")__newS(%d, (void*)0)),\r\n", closure->varType->subType->size);
+		fprintf(fOut, ")__newS(%d, __nullcTR[%d])),\r\n", closure->varType->subType->size, closure->varType->subType->typeIndex);
 
 		unsigned int pos = 0;
 		for(FunctionInfo::ExternalInfo *curr = closureFunc->firstExternal; curr; curr = curr->next)
@@ -2161,20 +2173,25 @@ void NodeDereference::TranslateToC(FILE *fOut)
 				SafeSprintf(variableName, NULLC_MAX_VARIABLE_NAME_LENGTH+32, "%s%.*s_%d", namePrefix, int(varInfo->name.end-varInfo->name.begin) - nameShift, varInfo->name.begin + nameShift, varInfo->pos);
 			}
 
-			if(curr->targetLocal)
+			if(curr->targetPos == ~0u)
 			{
-				fprintf(fOut, "(int*)&%s", variableName);
+				fprintf(fOut, "(int*)&((int**)%s)[%d])", closureName, pos + 1);
 			}else{
-				assert(closureFunc->parentFunc);
-				fprintf(fOut, "((int**)__%s_%d_ext_%d)[%d]", closureFunc->parentFunc->name, CodeInfo::FindFunctionByPtr(closureFunc->parentFunc), closureFunc->parentFunc->allParamSize, curr->targetPos >> 2);
+				if(curr->targetLocal)
+				{
+					fprintf(fOut, "(int*)&%s", variableName);
+				}else{
+					assert(closureFunc->parentFunc);
+					fprintf(fOut, "((int**)__%s_%d_ext_%d)[%d]", closureFunc->parentFunc->name, CodeInfo::FindFunctionByPtr(closureFunc->parentFunc), closureFunc->parentFunc->allParamSize, curr->targetPos >> 2);
+				}
+				fprintf(fOut, "),\r\n");
+				OutputIdent(fOut);
+				fprintf(fOut, "(((int**)%s)[%d] = (int*)__upvalue_%d_%s),\r\n", closureName, pos+1, CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName);
+				OutputIdent(fOut);
+				fprintf(fOut, "(((int*)%s)[%d] = %d),\r\n", closureName, pos+2, curr->variable->varType->size);
+				OutputIdent(fOut);
+				fprintf(fOut, "(__upvalue_%d_%s = (__nullcUpvalue*)((int*)%s + %d))", CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName, closureName, pos);
 			}
-			fprintf(fOut, "),\r\n");
-			OutputIdent(fOut);
-			fprintf(fOut, "(((int**)%s)[%d] = (int*)__upvalue_%d_%s),\r\n", closureName, pos+1, CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName);
-			OutputIdent(fOut);
-			fprintf(fOut, "(((int*)%s)[%d] = %d),\r\n", closureName, pos+2, curr->variable->varType->size);
-			OutputIdent(fOut);
-			fprintf(fOut, "(__upvalue_%d_%s = (__nullcUpvalue*)((int*)%s + %d))", CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName, closureName, pos);
 			if(curr->next)
 				fprintf(fOut, ",\r\n");
 			pos += ((varInfo->varType->size >> 2) < 3 ? 3 : 1 + (varInfo->varType->size >> 2));
@@ -2572,7 +2589,7 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 				char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 				const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
-				unsigned int length = sprintf(closureName, "%s%.*s_%d", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
+				unsigned int length = sprintf(closureName, closure->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
 				for(unsigned int k = 0; k < length; k++)
 				{
 					if(closureName[k] == ':' || closureName[k] == '$')

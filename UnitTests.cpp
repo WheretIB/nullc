@@ -208,7 +208,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 		char cmdLine[1024];
 		strcpy(cmdLine, "gcc.exe -o runnable.exe");
 		strcat(cmdLine, " 1test.cpp");
-		strcat(cmdLine, " NULLC\\translation\\runtime.cpp");
+		strcat(cmdLine, " NULLC\\translation\\runtime.cpp -lstdc++");
 		if(strstr(code, "std.math;"))
 		{
 			strcat(cmdLine, " NULLC\\translation\\std_math.cpp");
@@ -278,6 +278,11 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 		{
 			strcat(cmdLine, " NULLC\\translation\\std_gc.cpp");
 			strcat(cmdLine, " NULLC\\translation\\std_gc_bind.cpp");
+		}
+		if(strstr(code, "std.dynamic;"))
+		{
+			strcat(cmdLine, " NULLC\\translation\\std_dynamic.cpp");
+			strcat(cmdLine, " NULLC\\translation\\std_dynamic_bind.cpp");
 		}
 		
 		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
@@ -1346,6 +1351,10 @@ void	RunTests(bool verbose)
 	bRes = CompileFile("Modules/std/gc.nc");
 	assert(bRes);
 	nullcTranslateToC("NULLC\\translation\\std_gc.cpp", "__init_std_gc_nc");
+
+	bRes = CompileFile("Modules/std/dynamic.nc");
+	assert(bRes);
+	nullcTranslateToC("NULLC\\translation\\std_dynamic.cpp", "__init_std_dynamic_nc");
 #endif
 	//RunEulerTests();
 
@@ -2808,7 +2817,6 @@ return 4;";
 				passed[t]++;
 		}
 	}
-
 
 const char	*testLocalFunc1 = 
 "// Local function context test\r\n\
@@ -5904,7 +5912,7 @@ x[0] = y;\r\n\
 GC.CollectMemory();\r\n\
 return 0;";
 	TEST_FOR_RESULT("GC recursion using arrays with implicit size, placed on the stack", testGCArrayFail1, "0");
-
+//doTranslation = true;
 	const char	*testGarbageCollectionCorrectness =
 "import std.gc;\r\n\
 class A\r\n\

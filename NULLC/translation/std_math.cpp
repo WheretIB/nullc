@@ -580,11 +580,11 @@ float2  float2__float2_float2_ref_float_float_(float x_0, float y_4, float2 * __
 }
 float2  float2__xx__float2_ref__(float2 * __context)
 {
-	return float2__float2_float2_ref_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float2__float2_float2_ref_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), (float2 * )(*(&__context)));
 }
 float2  float2__xy__float2_ref__(float2 * __context)
 {
-	return float2__float2_float2_ref_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float2__float2_float2_ref_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), (float2 * )(*(&__context)));
 }
 void  float2__xy__void_ref_float2_(float2 r_0, float2 * __context)
 {
@@ -593,7 +593,7 @@ void  float2__xy__void_ref_float2_(float2 r_0, float2 * __context)
 }
 float2  float2__yx__float2_ref__(float2 * __context)
 {
-	return float2__float2_float2_ref_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float2__float2_float2_ref_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), (float2 * )(*(&__context)));
 }
 void  float2__yx__void_ref_float2_(float2 r_0, float2 * __context)
 {
@@ -602,7 +602,7 @@ void  float2__yx__void_ref_float2_(float2 r_0, float2 * __context)
 }
 float2  float2__yy__float2_ref__(float2 * __context)
 {
-	return float2__float2_float2_ref_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float2__float2_float2_ref_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), (float2 * )(*(&__context)));
 }
 float2  float2__(float x_0, float y_4, void* unused)
 {
@@ -739,27 +739,27 @@ float2  float3__zz__float2_ref__(float3 * __context)
 }
 float3  float3__xxx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 float3  float3__xxy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 float3  float3__xxz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 float3  float3__xyx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 float3  float3__xyy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 float3  float3__xyz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 void  float3__xyz__void_ref_float3_(float3 r_0, float3 * __context)
 {
@@ -769,11 +769,11 @@ void  float3__xyz__void_ref_float3_(float3 r_0, float3 * __context)
 }
 float3  float3__xzx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 float3  float3__xzy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 void  float3__xzy__void_ref_float3_(float3 r_0, float3 * __context)
 {
@@ -783,19 +783,19 @@ void  float3__xzy__void_ref_float3_(float3 r_0, float3 * __context)
 }
 float3  float3__xzz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 float3  float3__yxx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 float3  float3__yxy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 float3  float3__yxz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 void  float3__yxz__void_ref_float3_(float3 r_0, float3 * __context)
 {
@@ -805,19 +805,19 @@ void  float3__yxz__void_ref_float3_(float3 r_0, float3 * __context)
 }
 float3  float3__yyx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 float3  float3__yyy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 float3  float3__yyz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 float3  float3__yzx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 void  float3__yzx__void_ref_float3_(float3 r_0, float3 * __context)
 {
@@ -827,19 +827,19 @@ void  float3__yzx__void_ref_float3_(float3 r_0, float3 * __context)
 }
 float3  float3__yzy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 float3  float3__yzz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 float3  float3__zxx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 float3  float3__zxy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 void  float3__zxy__void_ref_float3_(float3 r_0, float3 * __context)
 {
@@ -849,11 +849,11 @@ void  float3__zxy__void_ref_float3_(float3 r_0, float3 * __context)
 }
 float3  float3__zxz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 float3  float3__zyx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 void  float3__zyx__void_ref_float3_(float3 r_0, float3 * __context)
 {
@@ -863,23 +863,23 @@ void  float3__zyx__void_ref_float3_(float3 r_0, float3 * __context)
 }
 float3  float3__zyy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 float3  float3__zyz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 float3  float3__zzx__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), (float3 * )(*(&__context)));
 }
 float3  float3__zzy__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), (float3 * )(*(&__context)));
 }
 float3  float3__zzz__float3_ref__(float3 * __context)
 {
-	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float3__float3_float3_ref_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), (float3 * )(*(&__context)));
 }
 float3  float3__(float x_0, float y_4, float z_8, void* unused)
 {
@@ -1480,115 +1480,115 @@ float3  float4__www__float3_ref__(float4 * __context)
 }
 float4  float4__xxxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xxxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xxxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xxxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xxyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xxyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xxyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xxyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xxzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xxzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xxzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xxzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xxwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xxwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xxwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xxww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xyxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xyxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xyxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xyxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xyyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xyyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xyyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xyyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xyzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xyzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xyzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xyzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 void  float4__xyzw__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1599,15 +1599,15 @@ void  float4__xyzw__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__xywx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xywy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xywz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 void  float4__xywz__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1618,39 +1618,39 @@ void  float4__xywz__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__xyww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xzxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xzxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xzxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xzxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xzyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xzyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xzyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xzyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 void  float4__xzyw__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1661,27 +1661,27 @@ void  float4__xzyw__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__xzzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xzzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xzzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xzzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xzwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xzwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 void  float4__xzwy__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1692,39 +1692,39 @@ void  float4__xzwy__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__xzwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xzww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xwxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xwxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xwxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xwxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xwyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xwyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xwyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 void  float4__xwyz__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1735,15 +1735,15 @@ void  float4__xwyz__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__xwyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xwzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xwzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 void  float4__xwzy__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1754,75 +1754,75 @@ void  float4__xwzy__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__xwzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xwzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__xwwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__xwwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__xwwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__xwww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yxxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yxxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yxxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yxxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yxyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yxyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yxyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yxyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yxzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yxzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yxzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yxzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 void  float4__yxzw__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1833,15 +1833,15 @@ void  float4__yxzw__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__yxwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yxwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yxwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 void  float4__yxwz__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1852,87 +1852,87 @@ void  float4__yxwz__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__yxww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yyxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yyxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yyxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yyxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yyyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yyyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yyyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yyyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yyzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yyzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yyzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yyzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yywx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yywy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yywz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yyww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yzxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yzxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yzxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yzxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 void  float4__yzxw__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1943,39 +1943,39 @@ void  float4__yzxw__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__yzyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yzyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yzyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yzyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yzzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__yzzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yzzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yzzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__yzwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 void  float4__yzwx__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -1986,27 +1986,27 @@ void  float4__yzwx__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__yzwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__yzwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__yzww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__ywxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__ywxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__ywxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 void  float4__ywxz__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2017,27 +2017,27 @@ void  float4__ywxz__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__ywxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__ywyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__ywyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__ywyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__ywyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__ywzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 void  float4__ywzx__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2048,63 +2048,63 @@ void  float4__ywzx__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__ywzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__ywzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__ywzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__ywwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__ywwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__ywwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__ywww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zxxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zxxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zxxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zxxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zxyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zxyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zxyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zxyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 void  float4__zxyw__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2115,27 +2115,27 @@ void  float4__zxyw__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__zxzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zxzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zxzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zxzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zxwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zxwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 void  float4__zxwy__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2146,27 +2146,27 @@ void  float4__zxwy__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__zxwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zxww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zyxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zyxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zyxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zyxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 void  float4__zyxw__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2177,39 +2177,39 @@ void  float4__zyxw__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__zyyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zyyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zyyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zyyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zyzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zyzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zyzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zyzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zywx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 void  float4__zywx__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2220,87 +2220,87 @@ void  float4__zywx__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__zywy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zywz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zyww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zzxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zzxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zzxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zzxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zzyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zzyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zzyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zzyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zzzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zzzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zzzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zzzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zzwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zzwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zzwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zzww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zwxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zwxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 void  float4__zwxy__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2311,15 +2311,15 @@ void  float4__zwxy__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__zwxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zwxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zwyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 void  float4__zwyx__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2330,75 +2330,75 @@ void  float4__zwyx__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__zwyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zwyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zwyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zwzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zwzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zwzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zwzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__zwwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__zwwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__zwwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__zwww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wxxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wxxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wxxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wxxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wxyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wxyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wxyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 void  float4__wxyz__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2409,15 +2409,15 @@ void  float4__wxyz__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__wxyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wxzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wxzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 void  float4__wxzy__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2428,39 +2428,39 @@ void  float4__wxzy__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__wxzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wxzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wxwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wxwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wxwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wxww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wyxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wyxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wyxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 void  float4__wyxz__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2471,27 +2471,27 @@ void  float4__wyxz__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__wyxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wyyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wyyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wyyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wyyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wyzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 void  float4__wyzx__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2502,39 +2502,39 @@ void  float4__wyzx__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__wyzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wyzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wyzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wywx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wywy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wywz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wyww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wzxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wzxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 void  float4__wzxy__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2545,15 +2545,15 @@ void  float4__wzxy__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__wzxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wzxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wzyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 void  float4__wzyx__void_ref_float4_(float4 r_0, float4 * __context)
 {
@@ -2564,111 +2564,111 @@ void  float4__wzyx__void_ref_float4_(float4 r_0, float4 * __context)
 }
 float4  float4__wzyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wzyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wzyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wzzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wzzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wzzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wzzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wzwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wzwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wzwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wzww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wwxx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wwxy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wwxz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wwxw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wwyx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wwyy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wwyz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wwyw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wwzx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wwzy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wwzz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wwzw__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__wwwx__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->x), (float4 * )(*(&__context)));
 }
 float4  float4__wwwy__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->y), (float4 * )(*(&__context)));
 }
 float4  float4__wwwz__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->z), (float4 * )(*(&__context)));
 }
 float4  float4__wwww__float4_ref__(float4 * __context)
 {
-	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&__context));
+	return float4__float4_float4_ref_float_float_float_float_(*(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), *(&(*(&__context))->w), (float4 * )(*(&__context)));
 }
 float4  float4__(float x_0, float y_4, float z_8, float w_12, void* unused)
 {
@@ -2782,13 +2782,15 @@ int __init_std_math_nc()
 	if(moduleInitialized++)
 		return 0;
 	__nullcFM = __nullcGetFunctionTable();
-	__nullcTR[0] = __nullcRegisterType(2090838615u, "void", 0, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[1] = __nullcRegisterType(4181547808u, "double", 8, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[2] = __nullcRegisterType(259121563u, "float", 4, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[3] = __nullcRegisterType(2090479413u, "long", 8, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[4] = __nullcRegisterType(193495088u, "int", 4, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[5] = __nullcRegisterType(274395349u, "short", 2, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[6] = __nullcRegisterType(2090147939u, "char", 1, __nullcTR[0], 0, NULLC_CLASS);
+	int __local = 0;
+	__nullcRegisterBase((void*)&__local);
+	__nullcTR[0] = __nullcRegisterType(2090838615u, "void", 0, __nullcTR[0], 0, 0);
+	__nullcTR[1] = __nullcRegisterType(4181547808u, "double", 8, __nullcTR[0], 0, 0);
+	__nullcTR[2] = __nullcRegisterType(259121563u, "float", 4, __nullcTR[0], 0, 0);
+	__nullcTR[3] = __nullcRegisterType(2090479413u, "long", 8, __nullcTR[0], 0, 0);
+	__nullcTR[4] = __nullcRegisterType(193495088u, "int", 4, __nullcTR[0], 0, 0);
+	__nullcTR[5] = __nullcRegisterType(274395349u, "short", 2, __nullcTR[0], 0, 0);
+	__nullcTR[6] = __nullcRegisterType(2090147939u, "char", 1, __nullcTR[0], 0, 0);
 	__nullcTR[7] = __nullcRegisterType(1166360283u, "auto ref", 8, __nullcTR[0], 2, NULLC_CLASS);
 	__nullcTR[8] = __nullcRegisterType(524429492u, "typeid", 4, __nullcTR[0], 0, NULLC_CLASS);
 	__nullcTR[9] = __nullcRegisterType(3198057556u, "void ref", 4, __nullcTR[0], 1, NULLC_POINTER);
@@ -2923,45 +2925,55 @@ int __init_std_math_nc()
 	__nullcTR[138] = __nullcRegisterType(2081580927u, "float ref(float2 ref,float2 ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[139] = __nullcRegisterType(289501729u, "float ref(float3 ref,float3 ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[140] = __nullcRegisterType(2792389827u, "float ref(float4 ref,float4 ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcRegisterMembers(__nullcTR[7], 2, __nullcTR[8], 0, __nullcTR[9], 4);
+	__nullcRegisterMembers(__nullcTR[8], 0);
+	__nullcRegisterMembers(__nullcTR[10], 3, __nullcTR[8], 0, __nullcTR[9], 4, __nullcTR[4], 8);
+	__nullcRegisterMembers(__nullcTR[71], 1, __nullcTR[13], 0);
+	__nullcRegisterMembers(__nullcTR[84], 2, __nullcTR[1], 0, __nullcTR[1], 8);
+	__nullcRegisterMembers(__nullcTR[87], 2, __nullcTR[2], 0, __nullcTR[2], 4);
+	__nullcRegisterMembers(__nullcTR[99], 3, __nullcTR[2], 0, __nullcTR[2], 4, __nullcTR[2], 8);
+	__nullcRegisterMembers(__nullcTR[111], 4, __nullcTR[2], 0, __nullcTR[2], 4, __nullcTR[2], 8, __nullcTR[2], 12);
+	__nullcRegisterMembers(__nullcTR[133], 4, __nullcTR[111], 0, __nullcTR[111], 16, __nullcTR[111], 32, __nullcTR[111], 48);
+	__nullcRegisterGlobal((void*)&math, __nullcTR[84]);
 	__nullcFR[0] = 0;
 	__nullcFR[1] = 0;
 	__nullcFR[2] = 0;
 	__nullcFR[3] = 0;
 	__nullcFR[4] = 0;
 	__nullcFR[5] = 0;
-	__nullcFR[6] = __nullcRegisterFunction("char__", (void*)char__);
-	__nullcFR[7] = __nullcRegisterFunction("short__", (void*)short__);
-	__nullcFR[8] = __nullcRegisterFunction("int__", (void*)int__);
-	__nullcFR[9] = __nullcRegisterFunction("long__", (void*)long__);
-	__nullcFR[10] = __nullcRegisterFunction("float__", (void*)float__);
-	__nullcFR[11] = __nullcRegisterFunction("double__", (void*)double__);
-	__nullcFR[12] = __nullcRegisterFunction("char__char_void_ref_char_", (void*)char__char_void_ref_char_);
-	__nullcFR[13] = __nullcRegisterFunction("short__short_void_ref_short_", (void*)short__short_void_ref_short_);
-	__nullcFR[14] = __nullcRegisterFunction("int__int_void_ref_int_", (void*)int__int_void_ref_int_);
-	__nullcFR[15] = __nullcRegisterFunction("long__long_void_ref_long_", (void*)long__long_void_ref_long_);
-	__nullcFR[16] = __nullcRegisterFunction("float__float_void_ref_float_", (void*)float__float_void_ref_float_);
-	__nullcFR[17] = __nullcRegisterFunction("double__double_void_ref_double_", (void*)double__double_void_ref_double_);
-	__nullcFR[18] = __nullcRegisterFunction("int__str_char___ref__", (void*)int__str_char___ref__);
-	__nullcFR[19] = __nullcRegisterFunction("__newS", (void*)__newS);
-	__nullcFR[20] = __nullcRegisterFunction("__newA", (void*)__newA);
-	__nullcFR[21] = __nullcRegisterFunction("duplicate", (void*)duplicate);
-	__nullcFR[22] = __nullcRegisterFunction("__redirect", (void*)__redirect);
+	__nullcFR[6] = __nullcRegisterFunction("char__", (void*)char__, 4294967295u);
+	__nullcFR[7] = __nullcRegisterFunction("short__", (void*)short__, 4294967295u);
+	__nullcFR[8] = __nullcRegisterFunction("int__", (void*)int__, 4294967295u);
+	__nullcFR[9] = __nullcRegisterFunction("long__", (void*)long__, 4294967295u);
+	__nullcFR[10] = __nullcRegisterFunction("float__", (void*)float__, 4294967295u);
+	__nullcFR[11] = __nullcRegisterFunction("double__", (void*)double__, 4294967295u);
+	__nullcFR[12] = __nullcRegisterFunction("char__char_void_ref_char_", (void*)char__char_void_ref_char_, 4294967295u);
+	__nullcFR[13] = __nullcRegisterFunction("short__short_void_ref_short_", (void*)short__short_void_ref_short_, 4294967295u);
+	__nullcFR[14] = __nullcRegisterFunction("int__int_void_ref_int_", (void*)int__int_void_ref_int_, 4294967295u);
+	__nullcFR[15] = __nullcRegisterFunction("long__long_void_ref_long_", (void*)long__long_void_ref_long_, 4294967295u);
+	__nullcFR[16] = __nullcRegisterFunction("float__float_void_ref_float_", (void*)float__float_void_ref_float_, 4294967295u);
+	__nullcFR[17] = __nullcRegisterFunction("double__double_void_ref_double_", (void*)double__double_void_ref_double_, 4294967295u);
+	__nullcFR[18] = __nullcRegisterFunction("int__str_char___ref__", (void*)int__str_char___ref__, 4294967295u);
+	__nullcFR[19] = __nullcRegisterFunction("__newS", (void*)__newS, 4294967295u);
+	__nullcFR[20] = __nullcRegisterFunction("__newA", (void*)__newA, 4294967295u);
+	__nullcFR[21] = __nullcRegisterFunction("duplicate", (void*)duplicate, 4294967295u);
+	__nullcFR[22] = __nullcRegisterFunction("__redirect", (void*)__redirect, 4294967295u);
 	__nullcFR[23] = 0;
 	__nullcFR[24] = 0;
 	__nullcFR[25] = 0;
-	__nullcFR[26] = __nullcRegisterFunction("typeid__", (void*)typeid__);
+	__nullcFR[26] = __nullcRegisterFunction("typeid__", (void*)typeid__, 4294967295u);
 	__nullcFR[27] = 0;
 	__nullcFR[28] = 0;
-	__nullcFR[29] = __nullcRegisterFunction("__pcomp", (void*)__pcomp);
-	__nullcFR[30] = __nullcRegisterFunction("__pncomp", (void*)__pncomp);
-	__nullcFR[31] = __nullcRegisterFunction("__typeCount", (void*)__typeCount);
+	__nullcFR[29] = __nullcRegisterFunction("__pcomp", (void*)__pcomp, 4294967295u);
+	__nullcFR[30] = __nullcRegisterFunction("__pncomp", (void*)__pncomp, 4294967295u);
+	__nullcFR[31] = __nullcRegisterFunction("__typeCount", (void*)__typeCount, 4294967295u);
 	__nullcFR[32] = 0;
 	__nullcFR[33] = 0;
 	__nullcFR[34] = 0;
 	__nullcFR[35] = 0;
-	__nullcFR[36] = __nullcRegisterFunction("const_string__size__int_ref__", (void*)const_string__size__int_ref__);
+	__nullcFR[36] = __nullcRegisterFunction("const_string__size__int_ref__", (void*)const_string__size__int_ref__, 4294967295u);
 	__nullcFR[37] = 0;
-	__nullcFR[38] = __nullcRegisterFunction("const_string__", (void*)const_string__);
+	__nullcFR[38] = __nullcRegisterFunction("const_string__", (void*)const_string__, 4294967295u);
 	__nullcFR[39] = 0;
 	__nullcFR[40] = 0;
 	__nullcFR[41] = 0;
@@ -2972,39 +2984,39 @@ int __init_std_math_nc()
 	__nullcFR[46] = 0;
 	__nullcFR[47] = 0;
 	__nullcFR[48] = 0;
-	__nullcFR[49] = __nullcRegisterFunction("__char_a_12", (void*)__char_a_12);
-	__nullcFR[50] = __nullcRegisterFunction("__short_a_13", (void*)__short_a_13);
-	__nullcFR[51] = __nullcRegisterFunction("__int_a_14", (void*)__int_a_14);
-	__nullcFR[52] = __nullcRegisterFunction("__long_a_15", (void*)__long_a_15);
-	__nullcFR[53] = __nullcRegisterFunction("__float_a_16", (void*)__float_a_16);
-	__nullcFR[54] = __nullcRegisterFunction("__double_a_17", (void*)__double_a_17);
-	__nullcFR[55] = __nullcRegisterFunction("cos", (void*)cos);
-	__nullcFR[56] = __nullcRegisterFunction("sin", (void*)sin);
-	__nullcFR[57] = __nullcRegisterFunction("tan", (void*)tan);
-	__nullcFR[58] = __nullcRegisterFunction("ctg", (void*)ctg);
-	__nullcFR[59] = __nullcRegisterFunction("cosh", (void*)cosh);
-	__nullcFR[60] = __nullcRegisterFunction("sinh", (void*)sinh);
-	__nullcFR[61] = __nullcRegisterFunction("tanh", (void*)tanh);
-	__nullcFR[62] = __nullcRegisterFunction("coth", (void*)coth);
-	__nullcFR[63] = __nullcRegisterFunction("acos", (void*)acos);
-	__nullcFR[64] = __nullcRegisterFunction("asin", (void*)asin);
-	__nullcFR[65] = __nullcRegisterFunction("atan", (void*)atan);
-	__nullcFR[66] = __nullcRegisterFunction("ceil", (void*)ceil);
-	__nullcFR[67] = __nullcRegisterFunction("floor", (void*)floor);
-	__nullcFR[68] = __nullcRegisterFunction("exp", (void*)exp);
-	__nullcFR[69] = __nullcRegisterFunction("log", (void*)log);
-	__nullcFR[70] = __nullcRegisterFunction("sqrt", (void*)sqrt);
-	__nullcFR[71] = __nullcRegisterFunction("clamp", (void*)clamp);
-	__nullcFR[72] = __nullcRegisterFunction("saturate", (void*)saturate);
-	__nullcFR[73] = __nullcRegisterFunction("abs", (void*)abs);
-	__nullcFR[74] = __nullcRegisterFunction("float2__float2_float2_ref_float_float_", (void*)float2__float2_float2_ref_float_float_);
-	__nullcFR[75] = __nullcRegisterFunction("float2__xx__float2_ref__", (void*)float2__xx__float2_ref__);
-	__nullcFR[76] = __nullcRegisterFunction("float2__xy__float2_ref__", (void*)float2__xy__float2_ref__);
-	__nullcFR[77] = __nullcRegisterFunction("float2__xy__void_ref_float2_", (void*)float2__xy__void_ref_float2_);
-	__nullcFR[78] = __nullcRegisterFunction("float2__yx__float2_ref__", (void*)float2__yx__float2_ref__);
-	__nullcFR[79] = __nullcRegisterFunction("float2__yx__void_ref_float2_", (void*)float2__yx__void_ref_float2_);
-	__nullcFR[80] = __nullcRegisterFunction("float2__yy__float2_ref__", (void*)float2__yy__float2_ref__);
-	__nullcFR[81] = __nullcRegisterFunction("float2__", (void*)float2__);
+	__nullcFR[49] = __nullcRegisterFunction("__char_a_12", (void*)__char_a_12, 4294967295u);
+	__nullcFR[50] = __nullcRegisterFunction("__short_a_13", (void*)__short_a_13, 4294967295u);
+	__nullcFR[51] = __nullcRegisterFunction("__int_a_14", (void*)__int_a_14, 4294967295u);
+	__nullcFR[52] = __nullcRegisterFunction("__long_a_15", (void*)__long_a_15, 4294967295u);
+	__nullcFR[53] = __nullcRegisterFunction("__float_a_16", (void*)__float_a_16, 4294967295u);
+	__nullcFR[54] = __nullcRegisterFunction("__double_a_17", (void*)__double_a_17, 4294967295u);
+	__nullcFR[55] = __nullcRegisterFunction("cos", (void*)cos, 4294967295u);
+	__nullcFR[56] = __nullcRegisterFunction("sin", (void*)sin, 4294967295u);
+	__nullcFR[57] = __nullcRegisterFunction("tan", (void*)tan, 4294967295u);
+	__nullcFR[58] = __nullcRegisterFunction("ctg", (void*)ctg, 4294967295u);
+	__nullcFR[59] = __nullcRegisterFunction("cosh", (void*)cosh, 4294967295u);
+	__nullcFR[60] = __nullcRegisterFunction("sinh", (void*)sinh, 4294967295u);
+	__nullcFR[61] = __nullcRegisterFunction("tanh", (void*)tanh, 4294967295u);
+	__nullcFR[62] = __nullcRegisterFunction("coth", (void*)coth, 4294967295u);
+	__nullcFR[63] = __nullcRegisterFunction("acos", (void*)acos, 4294967295u);
+	__nullcFR[64] = __nullcRegisterFunction("asin", (void*)asin, 4294967295u);
+	__nullcFR[65] = __nullcRegisterFunction("atan", (void*)atan, 4294967295u);
+	__nullcFR[66] = __nullcRegisterFunction("ceil", (void*)ceil, 4294967295u);
+	__nullcFR[67] = __nullcRegisterFunction("floor", (void*)floor, 4294967295u);
+	__nullcFR[68] = __nullcRegisterFunction("exp", (void*)exp, 4294967295u);
+	__nullcFR[69] = __nullcRegisterFunction("log", (void*)log, 4294967295u);
+	__nullcFR[70] = __nullcRegisterFunction("sqrt", (void*)sqrt, 4294967295u);
+	__nullcFR[71] = __nullcRegisterFunction("clamp", (void*)clamp, 4294967295u);
+	__nullcFR[72] = __nullcRegisterFunction("saturate", (void*)saturate, 4294967295u);
+	__nullcFR[73] = __nullcRegisterFunction("abs", (void*)abs, 4294967295u);
+	__nullcFR[74] = __nullcRegisterFunction("float2__float2_float2_ref_float_float_", (void*)float2__float2_float2_ref_float_float_, 89u);
+	__nullcFR[75] = __nullcRegisterFunction("float2__xx__float2_ref__", (void*)float2__xx__float2_ref__, 89u);
+	__nullcFR[76] = __nullcRegisterFunction("float2__xy__float2_ref__", (void*)float2__xy__float2_ref__, 89u);
+	__nullcFR[77] = __nullcRegisterFunction("float2__xy__void_ref_float2_", (void*)float2__xy__void_ref_float2_, 89u);
+	__nullcFR[78] = __nullcRegisterFunction("float2__yx__float2_ref__", (void*)float2__yx__float2_ref__, 89u);
+	__nullcFR[79] = __nullcRegisterFunction("float2__yx__void_ref_float2_", (void*)float2__yx__void_ref_float2_, 89u);
+	__nullcFR[80] = __nullcRegisterFunction("float2__yy__float2_ref__", (void*)float2__yy__float2_ref__, 89u);
+	__nullcFR[81] = __nullcRegisterFunction("float2__", (void*)float2__, 31u);
 	__nullcFR[82] = 0;
 	__nullcFR[83] = 0;
 	__nullcFR[84] = 0;
@@ -3016,55 +3028,55 @@ int __init_std_math_nc()
 	__nullcFR[90] = 0;
 	__nullcFR[91] = 0;
 	__nullcFR[92] = 0;
-	__nullcFR[93] = __nullcRegisterFunction("float3__float3_float3_ref_float_float_float_", (void*)float3__float3_float3_ref_float_float_float_);
-	__nullcFR[94] = __nullcRegisterFunction("float3__xx__float2_ref__", (void*)float3__xx__float2_ref__);
-	__nullcFR[95] = __nullcRegisterFunction("float3__xy__float2_ref__", (void*)float3__xy__float2_ref__);
-	__nullcFR[96] = __nullcRegisterFunction("float3__xy__void_ref_float2_", (void*)float3__xy__void_ref_float2_);
-	__nullcFR[97] = __nullcRegisterFunction("float3__xz__float2_ref__", (void*)float3__xz__float2_ref__);
-	__nullcFR[98] = __nullcRegisterFunction("float3__xz__void_ref_float2_", (void*)float3__xz__void_ref_float2_);
-	__nullcFR[99] = __nullcRegisterFunction("float3__yx__float2_ref__", (void*)float3__yx__float2_ref__);
-	__nullcFR[100] = __nullcRegisterFunction("float3__yx__void_ref_float2_", (void*)float3__yx__void_ref_float2_);
-	__nullcFR[101] = __nullcRegisterFunction("float3__yy__float2_ref__", (void*)float3__yy__float2_ref__);
-	__nullcFR[102] = __nullcRegisterFunction("float3__yz__float2_ref__", (void*)float3__yz__float2_ref__);
-	__nullcFR[103] = __nullcRegisterFunction("float3__yz__void_ref_float2_", (void*)float3__yz__void_ref_float2_);
-	__nullcFR[104] = __nullcRegisterFunction("float3__zx__float2_ref__", (void*)float3__zx__float2_ref__);
-	__nullcFR[105] = __nullcRegisterFunction("float3__zx__void_ref_float2_", (void*)float3__zx__void_ref_float2_);
-	__nullcFR[106] = __nullcRegisterFunction("float3__zy__float2_ref__", (void*)float3__zy__float2_ref__);
-	__nullcFR[107] = __nullcRegisterFunction("float3__zy__void_ref_float2_", (void*)float3__zy__void_ref_float2_);
-	__nullcFR[108] = __nullcRegisterFunction("float3__zz__float2_ref__", (void*)float3__zz__float2_ref__);
-	__nullcFR[109] = __nullcRegisterFunction("float3__xxx__float3_ref__", (void*)float3__xxx__float3_ref__);
-	__nullcFR[110] = __nullcRegisterFunction("float3__xxy__float3_ref__", (void*)float3__xxy__float3_ref__);
-	__nullcFR[111] = __nullcRegisterFunction("float3__xxz__float3_ref__", (void*)float3__xxz__float3_ref__);
-	__nullcFR[112] = __nullcRegisterFunction("float3__xyx__float3_ref__", (void*)float3__xyx__float3_ref__);
-	__nullcFR[113] = __nullcRegisterFunction("float3__xyy__float3_ref__", (void*)float3__xyy__float3_ref__);
-	__nullcFR[114] = __nullcRegisterFunction("float3__xyz__float3_ref__", (void*)float3__xyz__float3_ref__);
-	__nullcFR[115] = __nullcRegisterFunction("float3__xyz__void_ref_float3_", (void*)float3__xyz__void_ref_float3_);
-	__nullcFR[116] = __nullcRegisterFunction("float3__xzx__float3_ref__", (void*)float3__xzx__float3_ref__);
-	__nullcFR[117] = __nullcRegisterFunction("float3__xzy__float3_ref__", (void*)float3__xzy__float3_ref__);
-	__nullcFR[118] = __nullcRegisterFunction("float3__xzy__void_ref_float3_", (void*)float3__xzy__void_ref_float3_);
-	__nullcFR[119] = __nullcRegisterFunction("float3__xzz__float3_ref__", (void*)float3__xzz__float3_ref__);
-	__nullcFR[120] = __nullcRegisterFunction("float3__yxx__float3_ref__", (void*)float3__yxx__float3_ref__);
-	__nullcFR[121] = __nullcRegisterFunction("float3__yxy__float3_ref__", (void*)float3__yxy__float3_ref__);
-	__nullcFR[122] = __nullcRegisterFunction("float3__yxz__float3_ref__", (void*)float3__yxz__float3_ref__);
-	__nullcFR[123] = __nullcRegisterFunction("float3__yxz__void_ref_float3_", (void*)float3__yxz__void_ref_float3_);
-	__nullcFR[124] = __nullcRegisterFunction("float3__yyx__float3_ref__", (void*)float3__yyx__float3_ref__);
-	__nullcFR[125] = __nullcRegisterFunction("float3__yyy__float3_ref__", (void*)float3__yyy__float3_ref__);
-	__nullcFR[126] = __nullcRegisterFunction("float3__yyz__float3_ref__", (void*)float3__yyz__float3_ref__);
-	__nullcFR[127] = __nullcRegisterFunction("float3__yzx__float3_ref__", (void*)float3__yzx__float3_ref__);
-	__nullcFR[128] = __nullcRegisterFunction("float3__yzx__void_ref_float3_", (void*)float3__yzx__void_ref_float3_);
-	__nullcFR[129] = __nullcRegisterFunction("float3__yzy__float3_ref__", (void*)float3__yzy__float3_ref__);
-	__nullcFR[130] = __nullcRegisterFunction("float3__yzz__float3_ref__", (void*)float3__yzz__float3_ref__);
-	__nullcFR[131] = __nullcRegisterFunction("float3__zxx__float3_ref__", (void*)float3__zxx__float3_ref__);
-	__nullcFR[132] = __nullcRegisterFunction("float3__zxy__float3_ref__", (void*)float3__zxy__float3_ref__);
-	__nullcFR[133] = __nullcRegisterFunction("float3__zxy__void_ref_float3_", (void*)float3__zxy__void_ref_float3_);
-	__nullcFR[134] = __nullcRegisterFunction("float3__zxz__float3_ref__", (void*)float3__zxz__float3_ref__);
-	__nullcFR[135] = __nullcRegisterFunction("float3__zyx__float3_ref__", (void*)float3__zyx__float3_ref__);
-	__nullcFR[136] = __nullcRegisterFunction("float3__zyx__void_ref_float3_", (void*)float3__zyx__void_ref_float3_);
-	__nullcFR[137] = __nullcRegisterFunction("float3__zyy__float3_ref__", (void*)float3__zyy__float3_ref__);
-	__nullcFR[138] = __nullcRegisterFunction("float3__zyz__float3_ref__", (void*)float3__zyz__float3_ref__);
-	__nullcFR[139] = __nullcRegisterFunction("float3__zzx__float3_ref__", (void*)float3__zzx__float3_ref__);
-	__nullcFR[140] = __nullcRegisterFunction("float3__zzy__float3_ref__", (void*)float3__zzy__float3_ref__);
-	__nullcFR[141] = __nullcRegisterFunction("float3__zzz__float3_ref__", (void*)float3__zzz__float3_ref__);
+	__nullcFR[93] = __nullcRegisterFunction("float3__float3_float3_ref_float_float_float_", (void*)float3__float3_float3_ref_float_float_float_, 101u);
+	__nullcFR[94] = __nullcRegisterFunction("float3__xx__float2_ref__", (void*)float3__xx__float2_ref__, 101u);
+	__nullcFR[95] = __nullcRegisterFunction("float3__xy__float2_ref__", (void*)float3__xy__float2_ref__, 101u);
+	__nullcFR[96] = __nullcRegisterFunction("float3__xy__void_ref_float2_", (void*)float3__xy__void_ref_float2_, 101u);
+	__nullcFR[97] = __nullcRegisterFunction("float3__xz__float2_ref__", (void*)float3__xz__float2_ref__, 101u);
+	__nullcFR[98] = __nullcRegisterFunction("float3__xz__void_ref_float2_", (void*)float3__xz__void_ref_float2_, 101u);
+	__nullcFR[99] = __nullcRegisterFunction("float3__yx__float2_ref__", (void*)float3__yx__float2_ref__, 101u);
+	__nullcFR[100] = __nullcRegisterFunction("float3__yx__void_ref_float2_", (void*)float3__yx__void_ref_float2_, 101u);
+	__nullcFR[101] = __nullcRegisterFunction("float3__yy__float2_ref__", (void*)float3__yy__float2_ref__, 101u);
+	__nullcFR[102] = __nullcRegisterFunction("float3__yz__float2_ref__", (void*)float3__yz__float2_ref__, 101u);
+	__nullcFR[103] = __nullcRegisterFunction("float3__yz__void_ref_float2_", (void*)float3__yz__void_ref_float2_, 101u);
+	__nullcFR[104] = __nullcRegisterFunction("float3__zx__float2_ref__", (void*)float3__zx__float2_ref__, 101u);
+	__nullcFR[105] = __nullcRegisterFunction("float3__zx__void_ref_float2_", (void*)float3__zx__void_ref_float2_, 101u);
+	__nullcFR[106] = __nullcRegisterFunction("float3__zy__float2_ref__", (void*)float3__zy__float2_ref__, 101u);
+	__nullcFR[107] = __nullcRegisterFunction("float3__zy__void_ref_float2_", (void*)float3__zy__void_ref_float2_, 101u);
+	__nullcFR[108] = __nullcRegisterFunction("float3__zz__float2_ref__", (void*)float3__zz__float2_ref__, 101u);
+	__nullcFR[109] = __nullcRegisterFunction("float3__xxx__float3_ref__", (void*)float3__xxx__float3_ref__, 101u);
+	__nullcFR[110] = __nullcRegisterFunction("float3__xxy__float3_ref__", (void*)float3__xxy__float3_ref__, 101u);
+	__nullcFR[111] = __nullcRegisterFunction("float3__xxz__float3_ref__", (void*)float3__xxz__float3_ref__, 101u);
+	__nullcFR[112] = __nullcRegisterFunction("float3__xyx__float3_ref__", (void*)float3__xyx__float3_ref__, 101u);
+	__nullcFR[113] = __nullcRegisterFunction("float3__xyy__float3_ref__", (void*)float3__xyy__float3_ref__, 101u);
+	__nullcFR[114] = __nullcRegisterFunction("float3__xyz__float3_ref__", (void*)float3__xyz__float3_ref__, 101u);
+	__nullcFR[115] = __nullcRegisterFunction("float3__xyz__void_ref_float3_", (void*)float3__xyz__void_ref_float3_, 101u);
+	__nullcFR[116] = __nullcRegisterFunction("float3__xzx__float3_ref__", (void*)float3__xzx__float3_ref__, 101u);
+	__nullcFR[117] = __nullcRegisterFunction("float3__xzy__float3_ref__", (void*)float3__xzy__float3_ref__, 101u);
+	__nullcFR[118] = __nullcRegisterFunction("float3__xzy__void_ref_float3_", (void*)float3__xzy__void_ref_float3_, 101u);
+	__nullcFR[119] = __nullcRegisterFunction("float3__xzz__float3_ref__", (void*)float3__xzz__float3_ref__, 101u);
+	__nullcFR[120] = __nullcRegisterFunction("float3__yxx__float3_ref__", (void*)float3__yxx__float3_ref__, 101u);
+	__nullcFR[121] = __nullcRegisterFunction("float3__yxy__float3_ref__", (void*)float3__yxy__float3_ref__, 101u);
+	__nullcFR[122] = __nullcRegisterFunction("float3__yxz__float3_ref__", (void*)float3__yxz__float3_ref__, 101u);
+	__nullcFR[123] = __nullcRegisterFunction("float3__yxz__void_ref_float3_", (void*)float3__yxz__void_ref_float3_, 101u);
+	__nullcFR[124] = __nullcRegisterFunction("float3__yyx__float3_ref__", (void*)float3__yyx__float3_ref__, 101u);
+	__nullcFR[125] = __nullcRegisterFunction("float3__yyy__float3_ref__", (void*)float3__yyy__float3_ref__, 101u);
+	__nullcFR[126] = __nullcRegisterFunction("float3__yyz__float3_ref__", (void*)float3__yyz__float3_ref__, 101u);
+	__nullcFR[127] = __nullcRegisterFunction("float3__yzx__float3_ref__", (void*)float3__yzx__float3_ref__, 101u);
+	__nullcFR[128] = __nullcRegisterFunction("float3__yzx__void_ref_float3_", (void*)float3__yzx__void_ref_float3_, 101u);
+	__nullcFR[129] = __nullcRegisterFunction("float3__yzy__float3_ref__", (void*)float3__yzy__float3_ref__, 101u);
+	__nullcFR[130] = __nullcRegisterFunction("float3__yzz__float3_ref__", (void*)float3__yzz__float3_ref__, 101u);
+	__nullcFR[131] = __nullcRegisterFunction("float3__zxx__float3_ref__", (void*)float3__zxx__float3_ref__, 101u);
+	__nullcFR[132] = __nullcRegisterFunction("float3__zxy__float3_ref__", (void*)float3__zxy__float3_ref__, 101u);
+	__nullcFR[133] = __nullcRegisterFunction("float3__zxy__void_ref_float3_", (void*)float3__zxy__void_ref_float3_, 101u);
+	__nullcFR[134] = __nullcRegisterFunction("float3__zxz__float3_ref__", (void*)float3__zxz__float3_ref__, 101u);
+	__nullcFR[135] = __nullcRegisterFunction("float3__zyx__float3_ref__", (void*)float3__zyx__float3_ref__, 101u);
+	__nullcFR[136] = __nullcRegisterFunction("float3__zyx__void_ref_float3_", (void*)float3__zyx__void_ref_float3_, 101u);
+	__nullcFR[137] = __nullcRegisterFunction("float3__zyy__float3_ref__", (void*)float3__zyy__float3_ref__, 101u);
+	__nullcFR[138] = __nullcRegisterFunction("float3__zyz__float3_ref__", (void*)float3__zyz__float3_ref__, 101u);
+	__nullcFR[139] = __nullcRegisterFunction("float3__zzx__float3_ref__", (void*)float3__zzx__float3_ref__, 101u);
+	__nullcFR[140] = __nullcRegisterFunction("float3__zzy__float3_ref__", (void*)float3__zzy__float3_ref__, 101u);
+	__nullcFR[141] = __nullcRegisterFunction("float3__zzz__float3_ref__", (void*)float3__zzz__float3_ref__, 101u);
 	__nullcFR[142] = 0;
 	__nullcFR[143] = 0;
 	__nullcFR[144] = 0;
@@ -3077,403 +3089,403 @@ int __init_std_math_nc()
 	__nullcFR[151] = 0;
 	__nullcFR[152] = 0;
 	__nullcFR[153] = 0;
-	__nullcFR[154] = __nullcRegisterFunction("float4__float4_float4_ref_float_float_float_float_", (void*)float4__float4_float4_ref_float_float_float_float_);
-	__nullcFR[155] = __nullcRegisterFunction("float4__xx__float2_ref__", (void*)float4__xx__float2_ref__);
-	__nullcFR[156] = __nullcRegisterFunction("float4__xy__float2_ref__", (void*)float4__xy__float2_ref__);
-	__nullcFR[157] = __nullcRegisterFunction("float4__xy__void_ref_float2_", (void*)float4__xy__void_ref_float2_);
-	__nullcFR[158] = __nullcRegisterFunction("float4__xz__float2_ref__", (void*)float4__xz__float2_ref__);
-	__nullcFR[159] = __nullcRegisterFunction("float4__xz__void_ref_float2_", (void*)float4__xz__void_ref_float2_);
-	__nullcFR[160] = __nullcRegisterFunction("float4__xw__float2_ref__", (void*)float4__xw__float2_ref__);
-	__nullcFR[161] = __nullcRegisterFunction("float4__xw__void_ref_float2_", (void*)float4__xw__void_ref_float2_);
-	__nullcFR[162] = __nullcRegisterFunction("float4__yx__float2_ref__", (void*)float4__yx__float2_ref__);
-	__nullcFR[163] = __nullcRegisterFunction("float4__yx__void_ref_float2_", (void*)float4__yx__void_ref_float2_);
-	__nullcFR[164] = __nullcRegisterFunction("float4__yy__float2_ref__", (void*)float4__yy__float2_ref__);
-	__nullcFR[165] = __nullcRegisterFunction("float4__yz__float2_ref__", (void*)float4__yz__float2_ref__);
-	__nullcFR[166] = __nullcRegisterFunction("float4__yz__void_ref_float2_", (void*)float4__yz__void_ref_float2_);
-	__nullcFR[167] = __nullcRegisterFunction("float4__yw__float2_ref__", (void*)float4__yw__float2_ref__);
-	__nullcFR[168] = __nullcRegisterFunction("float4__yw__void_ref_float2_", (void*)float4__yw__void_ref_float2_);
-	__nullcFR[169] = __nullcRegisterFunction("float4__zx__float2_ref__", (void*)float4__zx__float2_ref__);
-	__nullcFR[170] = __nullcRegisterFunction("float4__zx__void_ref_float2_", (void*)float4__zx__void_ref_float2_);
-	__nullcFR[171] = __nullcRegisterFunction("float4__zy__float2_ref__", (void*)float4__zy__float2_ref__);
-	__nullcFR[172] = __nullcRegisterFunction("float4__zy__void_ref_float2_", (void*)float4__zy__void_ref_float2_);
-	__nullcFR[173] = __nullcRegisterFunction("float4__zz__float2_ref__", (void*)float4__zz__float2_ref__);
-	__nullcFR[174] = __nullcRegisterFunction("float4__zw__float2_ref__", (void*)float4__zw__float2_ref__);
-	__nullcFR[175] = __nullcRegisterFunction("float4__zw__void_ref_float2_", (void*)float4__zw__void_ref_float2_);
-	__nullcFR[176] = __nullcRegisterFunction("float4__wx__float2_ref__", (void*)float4__wx__float2_ref__);
-	__nullcFR[177] = __nullcRegisterFunction("float4__wx__void_ref_float2_", (void*)float4__wx__void_ref_float2_);
-	__nullcFR[178] = __nullcRegisterFunction("float4__wy__float2_ref__", (void*)float4__wy__float2_ref__);
-	__nullcFR[179] = __nullcRegisterFunction("float4__wy__void_ref_float2_", (void*)float4__wy__void_ref_float2_);
-	__nullcFR[180] = __nullcRegisterFunction("float4__wz__float2_ref__", (void*)float4__wz__float2_ref__);
-	__nullcFR[181] = __nullcRegisterFunction("float4__wz__void_ref_float2_", (void*)float4__wz__void_ref_float2_);
-	__nullcFR[182] = __nullcRegisterFunction("float4__ww__float2_ref__", (void*)float4__ww__float2_ref__);
-	__nullcFR[183] = __nullcRegisterFunction("float4__xxx__float3_ref__", (void*)float4__xxx__float3_ref__);
-	__nullcFR[184] = __nullcRegisterFunction("float4__xxy__float3_ref__", (void*)float4__xxy__float3_ref__);
-	__nullcFR[185] = __nullcRegisterFunction("float4__xxz__float3_ref__", (void*)float4__xxz__float3_ref__);
-	__nullcFR[186] = __nullcRegisterFunction("float4__xxw__float3_ref__", (void*)float4__xxw__float3_ref__);
-	__nullcFR[187] = __nullcRegisterFunction("float4__xyx__float3_ref__", (void*)float4__xyx__float3_ref__);
-	__nullcFR[188] = __nullcRegisterFunction("float4__xyy__float3_ref__", (void*)float4__xyy__float3_ref__);
-	__nullcFR[189] = __nullcRegisterFunction("float4__xyz__float3_ref__", (void*)float4__xyz__float3_ref__);
-	__nullcFR[190] = __nullcRegisterFunction("float4__xyz__void_ref_float3_", (void*)float4__xyz__void_ref_float3_);
-	__nullcFR[191] = __nullcRegisterFunction("float4__xyw__float3_ref__", (void*)float4__xyw__float3_ref__);
-	__nullcFR[192] = __nullcRegisterFunction("float4__xyw__void_ref_float3_", (void*)float4__xyw__void_ref_float3_);
-	__nullcFR[193] = __nullcRegisterFunction("float4__xzx__float3_ref__", (void*)float4__xzx__float3_ref__);
-	__nullcFR[194] = __nullcRegisterFunction("float4__xzy__float3_ref__", (void*)float4__xzy__float3_ref__);
-	__nullcFR[195] = __nullcRegisterFunction("float4__xzy__void_ref_float3_", (void*)float4__xzy__void_ref_float3_);
-	__nullcFR[196] = __nullcRegisterFunction("float4__xzz__float3_ref__", (void*)float4__xzz__float3_ref__);
-	__nullcFR[197] = __nullcRegisterFunction("float4__xzw__float3_ref__", (void*)float4__xzw__float3_ref__);
-	__nullcFR[198] = __nullcRegisterFunction("float4__xzw__void_ref_float3_", (void*)float4__xzw__void_ref_float3_);
-	__nullcFR[199] = __nullcRegisterFunction("float4__xwx__float3_ref__", (void*)float4__xwx__float3_ref__);
-	__nullcFR[200] = __nullcRegisterFunction("float4__xwy__float3_ref__", (void*)float4__xwy__float3_ref__);
-	__nullcFR[201] = __nullcRegisterFunction("float4__xwy__void_ref_float3_", (void*)float4__xwy__void_ref_float3_);
-	__nullcFR[202] = __nullcRegisterFunction("float4__xwz__float3_ref__", (void*)float4__xwz__float3_ref__);
-	__nullcFR[203] = __nullcRegisterFunction("float4__xwz__void_ref_float3_", (void*)float4__xwz__void_ref_float3_);
-	__nullcFR[204] = __nullcRegisterFunction("float4__xww__float3_ref__", (void*)float4__xww__float3_ref__);
-	__nullcFR[205] = __nullcRegisterFunction("float4__yxx__float3_ref__", (void*)float4__yxx__float3_ref__);
-	__nullcFR[206] = __nullcRegisterFunction("float4__yxy__float3_ref__", (void*)float4__yxy__float3_ref__);
-	__nullcFR[207] = __nullcRegisterFunction("float4__yxz__float3_ref__", (void*)float4__yxz__float3_ref__);
-	__nullcFR[208] = __nullcRegisterFunction("float4__yxz__void_ref_float3_", (void*)float4__yxz__void_ref_float3_);
-	__nullcFR[209] = __nullcRegisterFunction("float4__yxw__float3_ref__", (void*)float4__yxw__float3_ref__);
-	__nullcFR[210] = __nullcRegisterFunction("float4__yxw__void_ref_float3_", (void*)float4__yxw__void_ref_float3_);
-	__nullcFR[211] = __nullcRegisterFunction("float4__yyx__float3_ref__", (void*)float4__yyx__float3_ref__);
-	__nullcFR[212] = __nullcRegisterFunction("float4__yyy__float3_ref__", (void*)float4__yyy__float3_ref__);
-	__nullcFR[213] = __nullcRegisterFunction("float4__yyz__float3_ref__", (void*)float4__yyz__float3_ref__);
-	__nullcFR[214] = __nullcRegisterFunction("float4__yyw__float3_ref__", (void*)float4__yyw__float3_ref__);
-	__nullcFR[215] = __nullcRegisterFunction("float4__yzx__float3_ref__", (void*)float4__yzx__float3_ref__);
-	__nullcFR[216] = __nullcRegisterFunction("float4__yzx__void_ref_float3_", (void*)float4__yzx__void_ref_float3_);
-	__nullcFR[217] = __nullcRegisterFunction("float4__yzy__float3_ref__", (void*)float4__yzy__float3_ref__);
-	__nullcFR[218] = __nullcRegisterFunction("float4__yzz__float3_ref__", (void*)float4__yzz__float3_ref__);
-	__nullcFR[219] = __nullcRegisterFunction("float4__yzw__float3_ref__", (void*)float4__yzw__float3_ref__);
-	__nullcFR[220] = __nullcRegisterFunction("float4__yzw__void_ref_float3_", (void*)float4__yzw__void_ref_float3_);
-	__nullcFR[221] = __nullcRegisterFunction("float4__ywx__float3_ref__", (void*)float4__ywx__float3_ref__);
-	__nullcFR[222] = __nullcRegisterFunction("float4__ywx__void_ref_float3_", (void*)float4__ywx__void_ref_float3_);
-	__nullcFR[223] = __nullcRegisterFunction("float4__ywy__float3_ref__", (void*)float4__ywy__float3_ref__);
-	__nullcFR[224] = __nullcRegisterFunction("float4__ywz__float3_ref__", (void*)float4__ywz__float3_ref__);
-	__nullcFR[225] = __nullcRegisterFunction("float4__ywz__void_ref_float3_", (void*)float4__ywz__void_ref_float3_);
-	__nullcFR[226] = __nullcRegisterFunction("float4__yww__float3_ref__", (void*)float4__yww__float3_ref__);
-	__nullcFR[227] = __nullcRegisterFunction("float4__zxx__float3_ref__", (void*)float4__zxx__float3_ref__);
-	__nullcFR[228] = __nullcRegisterFunction("float4__zxy__float3_ref__", (void*)float4__zxy__float3_ref__);
-	__nullcFR[229] = __nullcRegisterFunction("float4__zxy__void_ref_float3_", (void*)float4__zxy__void_ref_float3_);
-	__nullcFR[230] = __nullcRegisterFunction("float4__zxz__float3_ref__", (void*)float4__zxz__float3_ref__);
-	__nullcFR[231] = __nullcRegisterFunction("float4__zxw__float3_ref__", (void*)float4__zxw__float3_ref__);
-	__nullcFR[232] = __nullcRegisterFunction("float4__zxw__void_ref_float3_", (void*)float4__zxw__void_ref_float3_);
-	__nullcFR[233] = __nullcRegisterFunction("float4__zyx__float3_ref__", (void*)float4__zyx__float3_ref__);
-	__nullcFR[234] = __nullcRegisterFunction("float4__zyx__void_ref_float3_", (void*)float4__zyx__void_ref_float3_);
-	__nullcFR[235] = __nullcRegisterFunction("float4__zyy__float3_ref__", (void*)float4__zyy__float3_ref__);
-	__nullcFR[236] = __nullcRegisterFunction("float4__zyz__float3_ref__", (void*)float4__zyz__float3_ref__);
-	__nullcFR[237] = __nullcRegisterFunction("float4__zyw__float3_ref__", (void*)float4__zyw__float3_ref__);
-	__nullcFR[238] = __nullcRegisterFunction("float4__zyw__void_ref_float3_", (void*)float4__zyw__void_ref_float3_);
-	__nullcFR[239] = __nullcRegisterFunction("float4__zzx__float3_ref__", (void*)float4__zzx__float3_ref__);
-	__nullcFR[240] = __nullcRegisterFunction("float4__zzy__float3_ref__", (void*)float4__zzy__float3_ref__);
-	__nullcFR[241] = __nullcRegisterFunction("float4__zzz__float3_ref__", (void*)float4__zzz__float3_ref__);
-	__nullcFR[242] = __nullcRegisterFunction("float4__zzw__float3_ref__", (void*)float4__zzw__float3_ref__);
-	__nullcFR[243] = __nullcRegisterFunction("float4__zwx__float3_ref__", (void*)float4__zwx__float3_ref__);
-	__nullcFR[244] = __nullcRegisterFunction("float4__zwx__void_ref_float3_", (void*)float4__zwx__void_ref_float3_);
-	__nullcFR[245] = __nullcRegisterFunction("float4__zwy__float3_ref__", (void*)float4__zwy__float3_ref__);
-	__nullcFR[246] = __nullcRegisterFunction("float4__zwy__void_ref_float3_", (void*)float4__zwy__void_ref_float3_);
-	__nullcFR[247] = __nullcRegisterFunction("float4__zwz__float3_ref__", (void*)float4__zwz__float3_ref__);
-	__nullcFR[248] = __nullcRegisterFunction("float4__zww__float3_ref__", (void*)float4__zww__float3_ref__);
-	__nullcFR[249] = __nullcRegisterFunction("float4__wxx__float3_ref__", (void*)float4__wxx__float3_ref__);
-	__nullcFR[250] = __nullcRegisterFunction("float4__wxy__float3_ref__", (void*)float4__wxy__float3_ref__);
-	__nullcFR[251] = __nullcRegisterFunction("float4__wxy__void_ref_float3_", (void*)float4__wxy__void_ref_float3_);
-	__nullcFR[252] = __nullcRegisterFunction("float4__wxz__float3_ref__", (void*)float4__wxz__float3_ref__);
-	__nullcFR[253] = __nullcRegisterFunction("float4__wxz__void_ref_float3_", (void*)float4__wxz__void_ref_float3_);
-	__nullcFR[254] = __nullcRegisterFunction("float4__wxw__float3_ref__", (void*)float4__wxw__float3_ref__);
-	__nullcFR[255] = __nullcRegisterFunction("float4__wyx__float3_ref__", (void*)float4__wyx__float3_ref__);
-	__nullcFR[256] = __nullcRegisterFunction("float4__wyx__void_ref_float3_", (void*)float4__wyx__void_ref_float3_);
-	__nullcFR[257] = __nullcRegisterFunction("float4__wyy__float3_ref__", (void*)float4__wyy__float3_ref__);
-	__nullcFR[258] = __nullcRegisterFunction("float4__wyz__float3_ref__", (void*)float4__wyz__float3_ref__);
-	__nullcFR[259] = __nullcRegisterFunction("float4__wyz__void_ref_float3_", (void*)float4__wyz__void_ref_float3_);
-	__nullcFR[260] = __nullcRegisterFunction("float4__wyw__float3_ref__", (void*)float4__wyw__float3_ref__);
-	__nullcFR[261] = __nullcRegisterFunction("float4__wzx__float3_ref__", (void*)float4__wzx__float3_ref__);
-	__nullcFR[262] = __nullcRegisterFunction("float4__wzx__void_ref_float3_", (void*)float4__wzx__void_ref_float3_);
-	__nullcFR[263] = __nullcRegisterFunction("float4__wzy__float3_ref__", (void*)float4__wzy__float3_ref__);
-	__nullcFR[264] = __nullcRegisterFunction("float4__wzy__void_ref_float3_", (void*)float4__wzy__void_ref_float3_);
-	__nullcFR[265] = __nullcRegisterFunction("float4__wzz__float3_ref__", (void*)float4__wzz__float3_ref__);
-	__nullcFR[266] = __nullcRegisterFunction("float4__wzw__float3_ref__", (void*)float4__wzw__float3_ref__);
-	__nullcFR[267] = __nullcRegisterFunction("float4__wwx__float3_ref__", (void*)float4__wwx__float3_ref__);
-	__nullcFR[268] = __nullcRegisterFunction("float4__wwy__float3_ref__", (void*)float4__wwy__float3_ref__);
-	__nullcFR[269] = __nullcRegisterFunction("float4__wwz__float3_ref__", (void*)float4__wwz__float3_ref__);
-	__nullcFR[270] = __nullcRegisterFunction("float4__www__float3_ref__", (void*)float4__www__float3_ref__);
-	__nullcFR[271] = __nullcRegisterFunction("float4__xxxx__float4_ref__", (void*)float4__xxxx__float4_ref__);
-	__nullcFR[272] = __nullcRegisterFunction("float4__xxxy__float4_ref__", (void*)float4__xxxy__float4_ref__);
-	__nullcFR[273] = __nullcRegisterFunction("float4__xxxz__float4_ref__", (void*)float4__xxxz__float4_ref__);
-	__nullcFR[274] = __nullcRegisterFunction("float4__xxxw__float4_ref__", (void*)float4__xxxw__float4_ref__);
-	__nullcFR[275] = __nullcRegisterFunction("float4__xxyx__float4_ref__", (void*)float4__xxyx__float4_ref__);
-	__nullcFR[276] = __nullcRegisterFunction("float4__xxyy__float4_ref__", (void*)float4__xxyy__float4_ref__);
-	__nullcFR[277] = __nullcRegisterFunction("float4__xxyz__float4_ref__", (void*)float4__xxyz__float4_ref__);
-	__nullcFR[278] = __nullcRegisterFunction("float4__xxyw__float4_ref__", (void*)float4__xxyw__float4_ref__);
-	__nullcFR[279] = __nullcRegisterFunction("float4__xxzx__float4_ref__", (void*)float4__xxzx__float4_ref__);
-	__nullcFR[280] = __nullcRegisterFunction("float4__xxzy__float4_ref__", (void*)float4__xxzy__float4_ref__);
-	__nullcFR[281] = __nullcRegisterFunction("float4__xxzz__float4_ref__", (void*)float4__xxzz__float4_ref__);
-	__nullcFR[282] = __nullcRegisterFunction("float4__xxzw__float4_ref__", (void*)float4__xxzw__float4_ref__);
-	__nullcFR[283] = __nullcRegisterFunction("float4__xxwx__float4_ref__", (void*)float4__xxwx__float4_ref__);
-	__nullcFR[284] = __nullcRegisterFunction("float4__xxwy__float4_ref__", (void*)float4__xxwy__float4_ref__);
-	__nullcFR[285] = __nullcRegisterFunction("float4__xxwz__float4_ref__", (void*)float4__xxwz__float4_ref__);
-	__nullcFR[286] = __nullcRegisterFunction("float4__xxww__float4_ref__", (void*)float4__xxww__float4_ref__);
-	__nullcFR[287] = __nullcRegisterFunction("float4__xyxx__float4_ref__", (void*)float4__xyxx__float4_ref__);
-	__nullcFR[288] = __nullcRegisterFunction("float4__xyxy__float4_ref__", (void*)float4__xyxy__float4_ref__);
-	__nullcFR[289] = __nullcRegisterFunction("float4__xyxz__float4_ref__", (void*)float4__xyxz__float4_ref__);
-	__nullcFR[290] = __nullcRegisterFunction("float4__xyxw__float4_ref__", (void*)float4__xyxw__float4_ref__);
-	__nullcFR[291] = __nullcRegisterFunction("float4__xyyx__float4_ref__", (void*)float4__xyyx__float4_ref__);
-	__nullcFR[292] = __nullcRegisterFunction("float4__xyyy__float4_ref__", (void*)float4__xyyy__float4_ref__);
-	__nullcFR[293] = __nullcRegisterFunction("float4__xyyz__float4_ref__", (void*)float4__xyyz__float4_ref__);
-	__nullcFR[294] = __nullcRegisterFunction("float4__xyyw__float4_ref__", (void*)float4__xyyw__float4_ref__);
-	__nullcFR[295] = __nullcRegisterFunction("float4__xyzx__float4_ref__", (void*)float4__xyzx__float4_ref__);
-	__nullcFR[296] = __nullcRegisterFunction("float4__xyzy__float4_ref__", (void*)float4__xyzy__float4_ref__);
-	__nullcFR[297] = __nullcRegisterFunction("float4__xyzz__float4_ref__", (void*)float4__xyzz__float4_ref__);
-	__nullcFR[298] = __nullcRegisterFunction("float4__xyzw__float4_ref__", (void*)float4__xyzw__float4_ref__);
-	__nullcFR[299] = __nullcRegisterFunction("float4__xyzw__void_ref_float4_", (void*)float4__xyzw__void_ref_float4_);
-	__nullcFR[300] = __nullcRegisterFunction("float4__xywx__float4_ref__", (void*)float4__xywx__float4_ref__);
-	__nullcFR[301] = __nullcRegisterFunction("float4__xywy__float4_ref__", (void*)float4__xywy__float4_ref__);
-	__nullcFR[302] = __nullcRegisterFunction("float4__xywz__float4_ref__", (void*)float4__xywz__float4_ref__);
-	__nullcFR[303] = __nullcRegisterFunction("float4__xywz__void_ref_float4_", (void*)float4__xywz__void_ref_float4_);
-	__nullcFR[304] = __nullcRegisterFunction("float4__xyww__float4_ref__", (void*)float4__xyww__float4_ref__);
-	__nullcFR[305] = __nullcRegisterFunction("float4__xzxx__float4_ref__", (void*)float4__xzxx__float4_ref__);
-	__nullcFR[306] = __nullcRegisterFunction("float4__xzxy__float4_ref__", (void*)float4__xzxy__float4_ref__);
-	__nullcFR[307] = __nullcRegisterFunction("float4__xzxz__float4_ref__", (void*)float4__xzxz__float4_ref__);
-	__nullcFR[308] = __nullcRegisterFunction("float4__xzxw__float4_ref__", (void*)float4__xzxw__float4_ref__);
-	__nullcFR[309] = __nullcRegisterFunction("float4__xzyx__float4_ref__", (void*)float4__xzyx__float4_ref__);
-	__nullcFR[310] = __nullcRegisterFunction("float4__xzyy__float4_ref__", (void*)float4__xzyy__float4_ref__);
-	__nullcFR[311] = __nullcRegisterFunction("float4__xzyz__float4_ref__", (void*)float4__xzyz__float4_ref__);
-	__nullcFR[312] = __nullcRegisterFunction("float4__xzyw__float4_ref__", (void*)float4__xzyw__float4_ref__);
-	__nullcFR[313] = __nullcRegisterFunction("float4__xzyw__void_ref_float4_", (void*)float4__xzyw__void_ref_float4_);
-	__nullcFR[314] = __nullcRegisterFunction("float4__xzzx__float4_ref__", (void*)float4__xzzx__float4_ref__);
-	__nullcFR[315] = __nullcRegisterFunction("float4__xzzy__float4_ref__", (void*)float4__xzzy__float4_ref__);
-	__nullcFR[316] = __nullcRegisterFunction("float4__xzzz__float4_ref__", (void*)float4__xzzz__float4_ref__);
-	__nullcFR[317] = __nullcRegisterFunction("float4__xzzw__float4_ref__", (void*)float4__xzzw__float4_ref__);
-	__nullcFR[318] = __nullcRegisterFunction("float4__xzwx__float4_ref__", (void*)float4__xzwx__float4_ref__);
-	__nullcFR[319] = __nullcRegisterFunction("float4__xzwy__float4_ref__", (void*)float4__xzwy__float4_ref__);
-	__nullcFR[320] = __nullcRegisterFunction("float4__xzwy__void_ref_float4_", (void*)float4__xzwy__void_ref_float4_);
-	__nullcFR[321] = __nullcRegisterFunction("float4__xzwz__float4_ref__", (void*)float4__xzwz__float4_ref__);
-	__nullcFR[322] = __nullcRegisterFunction("float4__xzww__float4_ref__", (void*)float4__xzww__float4_ref__);
-	__nullcFR[323] = __nullcRegisterFunction("float4__xwxx__float4_ref__", (void*)float4__xwxx__float4_ref__);
-	__nullcFR[324] = __nullcRegisterFunction("float4__xwxy__float4_ref__", (void*)float4__xwxy__float4_ref__);
-	__nullcFR[325] = __nullcRegisterFunction("float4__xwxz__float4_ref__", (void*)float4__xwxz__float4_ref__);
-	__nullcFR[326] = __nullcRegisterFunction("float4__xwxw__float4_ref__", (void*)float4__xwxw__float4_ref__);
-	__nullcFR[327] = __nullcRegisterFunction("float4__xwyx__float4_ref__", (void*)float4__xwyx__float4_ref__);
-	__nullcFR[328] = __nullcRegisterFunction("float4__xwyy__float4_ref__", (void*)float4__xwyy__float4_ref__);
-	__nullcFR[329] = __nullcRegisterFunction("float4__xwyz__float4_ref__", (void*)float4__xwyz__float4_ref__);
-	__nullcFR[330] = __nullcRegisterFunction("float4__xwyz__void_ref_float4_", (void*)float4__xwyz__void_ref_float4_);
-	__nullcFR[331] = __nullcRegisterFunction("float4__xwyw__float4_ref__", (void*)float4__xwyw__float4_ref__);
-	__nullcFR[332] = __nullcRegisterFunction("float4__xwzx__float4_ref__", (void*)float4__xwzx__float4_ref__);
-	__nullcFR[333] = __nullcRegisterFunction("float4__xwzy__float4_ref__", (void*)float4__xwzy__float4_ref__);
-	__nullcFR[334] = __nullcRegisterFunction("float4__xwzy__void_ref_float4_", (void*)float4__xwzy__void_ref_float4_);
-	__nullcFR[335] = __nullcRegisterFunction("float4__xwzz__float4_ref__", (void*)float4__xwzz__float4_ref__);
-	__nullcFR[336] = __nullcRegisterFunction("float4__xwzw__float4_ref__", (void*)float4__xwzw__float4_ref__);
-	__nullcFR[337] = __nullcRegisterFunction("float4__xwwx__float4_ref__", (void*)float4__xwwx__float4_ref__);
-	__nullcFR[338] = __nullcRegisterFunction("float4__xwwy__float4_ref__", (void*)float4__xwwy__float4_ref__);
-	__nullcFR[339] = __nullcRegisterFunction("float4__xwwz__float4_ref__", (void*)float4__xwwz__float4_ref__);
-	__nullcFR[340] = __nullcRegisterFunction("float4__xwww__float4_ref__", (void*)float4__xwww__float4_ref__);
-	__nullcFR[341] = __nullcRegisterFunction("float4__yxxx__float4_ref__", (void*)float4__yxxx__float4_ref__);
-	__nullcFR[342] = __nullcRegisterFunction("float4__yxxy__float4_ref__", (void*)float4__yxxy__float4_ref__);
-	__nullcFR[343] = __nullcRegisterFunction("float4__yxxz__float4_ref__", (void*)float4__yxxz__float4_ref__);
-	__nullcFR[344] = __nullcRegisterFunction("float4__yxxw__float4_ref__", (void*)float4__yxxw__float4_ref__);
-	__nullcFR[345] = __nullcRegisterFunction("float4__yxyx__float4_ref__", (void*)float4__yxyx__float4_ref__);
-	__nullcFR[346] = __nullcRegisterFunction("float4__yxyy__float4_ref__", (void*)float4__yxyy__float4_ref__);
-	__nullcFR[347] = __nullcRegisterFunction("float4__yxyz__float4_ref__", (void*)float4__yxyz__float4_ref__);
-	__nullcFR[348] = __nullcRegisterFunction("float4__yxyw__float4_ref__", (void*)float4__yxyw__float4_ref__);
-	__nullcFR[349] = __nullcRegisterFunction("float4__yxzx__float4_ref__", (void*)float4__yxzx__float4_ref__);
-	__nullcFR[350] = __nullcRegisterFunction("float4__yxzy__float4_ref__", (void*)float4__yxzy__float4_ref__);
-	__nullcFR[351] = __nullcRegisterFunction("float4__yxzz__float4_ref__", (void*)float4__yxzz__float4_ref__);
-	__nullcFR[352] = __nullcRegisterFunction("float4__yxzw__float4_ref__", (void*)float4__yxzw__float4_ref__);
-	__nullcFR[353] = __nullcRegisterFunction("float4__yxzw__void_ref_float4_", (void*)float4__yxzw__void_ref_float4_);
-	__nullcFR[354] = __nullcRegisterFunction("float4__yxwx__float4_ref__", (void*)float4__yxwx__float4_ref__);
-	__nullcFR[355] = __nullcRegisterFunction("float4__yxwy__float4_ref__", (void*)float4__yxwy__float4_ref__);
-	__nullcFR[356] = __nullcRegisterFunction("float4__yxwz__float4_ref__", (void*)float4__yxwz__float4_ref__);
-	__nullcFR[357] = __nullcRegisterFunction("float4__yxwz__void_ref_float4_", (void*)float4__yxwz__void_ref_float4_);
-	__nullcFR[358] = __nullcRegisterFunction("float4__yxww__float4_ref__", (void*)float4__yxww__float4_ref__);
-	__nullcFR[359] = __nullcRegisterFunction("float4__yyxx__float4_ref__", (void*)float4__yyxx__float4_ref__);
-	__nullcFR[360] = __nullcRegisterFunction("float4__yyxy__float4_ref__", (void*)float4__yyxy__float4_ref__);
-	__nullcFR[361] = __nullcRegisterFunction("float4__yyxz__float4_ref__", (void*)float4__yyxz__float4_ref__);
-	__nullcFR[362] = __nullcRegisterFunction("float4__yyxw__float4_ref__", (void*)float4__yyxw__float4_ref__);
-	__nullcFR[363] = __nullcRegisterFunction("float4__yyyx__float4_ref__", (void*)float4__yyyx__float4_ref__);
-	__nullcFR[364] = __nullcRegisterFunction("float4__yyyy__float4_ref__", (void*)float4__yyyy__float4_ref__);
-	__nullcFR[365] = __nullcRegisterFunction("float4__yyyz__float4_ref__", (void*)float4__yyyz__float4_ref__);
-	__nullcFR[366] = __nullcRegisterFunction("float4__yyyw__float4_ref__", (void*)float4__yyyw__float4_ref__);
-	__nullcFR[367] = __nullcRegisterFunction("float4__yyzx__float4_ref__", (void*)float4__yyzx__float4_ref__);
-	__nullcFR[368] = __nullcRegisterFunction("float4__yyzy__float4_ref__", (void*)float4__yyzy__float4_ref__);
-	__nullcFR[369] = __nullcRegisterFunction("float4__yyzz__float4_ref__", (void*)float4__yyzz__float4_ref__);
-	__nullcFR[370] = __nullcRegisterFunction("float4__yyzw__float4_ref__", (void*)float4__yyzw__float4_ref__);
-	__nullcFR[371] = __nullcRegisterFunction("float4__yywx__float4_ref__", (void*)float4__yywx__float4_ref__);
-	__nullcFR[372] = __nullcRegisterFunction("float4__yywy__float4_ref__", (void*)float4__yywy__float4_ref__);
-	__nullcFR[373] = __nullcRegisterFunction("float4__yywz__float4_ref__", (void*)float4__yywz__float4_ref__);
-	__nullcFR[374] = __nullcRegisterFunction("float4__yyww__float4_ref__", (void*)float4__yyww__float4_ref__);
-	__nullcFR[375] = __nullcRegisterFunction("float4__yzxx__float4_ref__", (void*)float4__yzxx__float4_ref__);
-	__nullcFR[376] = __nullcRegisterFunction("float4__yzxy__float4_ref__", (void*)float4__yzxy__float4_ref__);
-	__nullcFR[377] = __nullcRegisterFunction("float4__yzxz__float4_ref__", (void*)float4__yzxz__float4_ref__);
-	__nullcFR[378] = __nullcRegisterFunction("float4__yzxw__float4_ref__", (void*)float4__yzxw__float4_ref__);
-	__nullcFR[379] = __nullcRegisterFunction("float4__yzxw__void_ref_float4_", (void*)float4__yzxw__void_ref_float4_);
-	__nullcFR[380] = __nullcRegisterFunction("float4__yzyx__float4_ref__", (void*)float4__yzyx__float4_ref__);
-	__nullcFR[381] = __nullcRegisterFunction("float4__yzyy__float4_ref__", (void*)float4__yzyy__float4_ref__);
-	__nullcFR[382] = __nullcRegisterFunction("float4__yzyz__float4_ref__", (void*)float4__yzyz__float4_ref__);
-	__nullcFR[383] = __nullcRegisterFunction("float4__yzyw__float4_ref__", (void*)float4__yzyw__float4_ref__);
-	__nullcFR[384] = __nullcRegisterFunction("float4__yzzx__float4_ref__", (void*)float4__yzzx__float4_ref__);
-	__nullcFR[385] = __nullcRegisterFunction("float4__yzzy__float4_ref__", (void*)float4__yzzy__float4_ref__);
-	__nullcFR[386] = __nullcRegisterFunction("float4__yzzz__float4_ref__", (void*)float4__yzzz__float4_ref__);
-	__nullcFR[387] = __nullcRegisterFunction("float4__yzzw__float4_ref__", (void*)float4__yzzw__float4_ref__);
-	__nullcFR[388] = __nullcRegisterFunction("float4__yzwx__float4_ref__", (void*)float4__yzwx__float4_ref__);
-	__nullcFR[389] = __nullcRegisterFunction("float4__yzwx__void_ref_float4_", (void*)float4__yzwx__void_ref_float4_);
-	__nullcFR[390] = __nullcRegisterFunction("float4__yzwy__float4_ref__", (void*)float4__yzwy__float4_ref__);
-	__nullcFR[391] = __nullcRegisterFunction("float4__yzwz__float4_ref__", (void*)float4__yzwz__float4_ref__);
-	__nullcFR[392] = __nullcRegisterFunction("float4__yzww__float4_ref__", (void*)float4__yzww__float4_ref__);
-	__nullcFR[393] = __nullcRegisterFunction("float4__ywxx__float4_ref__", (void*)float4__ywxx__float4_ref__);
-	__nullcFR[394] = __nullcRegisterFunction("float4__ywxy__float4_ref__", (void*)float4__ywxy__float4_ref__);
-	__nullcFR[395] = __nullcRegisterFunction("float4__ywxz__float4_ref__", (void*)float4__ywxz__float4_ref__);
-	__nullcFR[396] = __nullcRegisterFunction("float4__ywxz__void_ref_float4_", (void*)float4__ywxz__void_ref_float4_);
-	__nullcFR[397] = __nullcRegisterFunction("float4__ywxw__float4_ref__", (void*)float4__ywxw__float4_ref__);
-	__nullcFR[398] = __nullcRegisterFunction("float4__ywyx__float4_ref__", (void*)float4__ywyx__float4_ref__);
-	__nullcFR[399] = __nullcRegisterFunction("float4__ywyy__float4_ref__", (void*)float4__ywyy__float4_ref__);
-	__nullcFR[400] = __nullcRegisterFunction("float4__ywyz__float4_ref__", (void*)float4__ywyz__float4_ref__);
-	__nullcFR[401] = __nullcRegisterFunction("float4__ywyw__float4_ref__", (void*)float4__ywyw__float4_ref__);
-	__nullcFR[402] = __nullcRegisterFunction("float4__ywzx__float4_ref__", (void*)float4__ywzx__float4_ref__);
-	__nullcFR[403] = __nullcRegisterFunction("float4__ywzx__void_ref_float4_", (void*)float4__ywzx__void_ref_float4_);
-	__nullcFR[404] = __nullcRegisterFunction("float4__ywzy__float4_ref__", (void*)float4__ywzy__float4_ref__);
-	__nullcFR[405] = __nullcRegisterFunction("float4__ywzz__float4_ref__", (void*)float4__ywzz__float4_ref__);
-	__nullcFR[406] = __nullcRegisterFunction("float4__ywzw__float4_ref__", (void*)float4__ywzw__float4_ref__);
-	__nullcFR[407] = __nullcRegisterFunction("float4__ywwx__float4_ref__", (void*)float4__ywwx__float4_ref__);
-	__nullcFR[408] = __nullcRegisterFunction("float4__ywwy__float4_ref__", (void*)float4__ywwy__float4_ref__);
-	__nullcFR[409] = __nullcRegisterFunction("float4__ywwz__float4_ref__", (void*)float4__ywwz__float4_ref__);
-	__nullcFR[410] = __nullcRegisterFunction("float4__ywww__float4_ref__", (void*)float4__ywww__float4_ref__);
-	__nullcFR[411] = __nullcRegisterFunction("float4__zxxx__float4_ref__", (void*)float4__zxxx__float4_ref__);
-	__nullcFR[412] = __nullcRegisterFunction("float4__zxxy__float4_ref__", (void*)float4__zxxy__float4_ref__);
-	__nullcFR[413] = __nullcRegisterFunction("float4__zxxz__float4_ref__", (void*)float4__zxxz__float4_ref__);
-	__nullcFR[414] = __nullcRegisterFunction("float4__zxxw__float4_ref__", (void*)float4__zxxw__float4_ref__);
-	__nullcFR[415] = __nullcRegisterFunction("float4__zxyx__float4_ref__", (void*)float4__zxyx__float4_ref__);
-	__nullcFR[416] = __nullcRegisterFunction("float4__zxyy__float4_ref__", (void*)float4__zxyy__float4_ref__);
-	__nullcFR[417] = __nullcRegisterFunction("float4__zxyz__float4_ref__", (void*)float4__zxyz__float4_ref__);
-	__nullcFR[418] = __nullcRegisterFunction("float4__zxyw__float4_ref__", (void*)float4__zxyw__float4_ref__);
-	__nullcFR[419] = __nullcRegisterFunction("float4__zxyw__void_ref_float4_", (void*)float4__zxyw__void_ref_float4_);
-	__nullcFR[420] = __nullcRegisterFunction("float4__zxzx__float4_ref__", (void*)float4__zxzx__float4_ref__);
-	__nullcFR[421] = __nullcRegisterFunction("float4__zxzy__float4_ref__", (void*)float4__zxzy__float4_ref__);
-	__nullcFR[422] = __nullcRegisterFunction("float4__zxzz__float4_ref__", (void*)float4__zxzz__float4_ref__);
-	__nullcFR[423] = __nullcRegisterFunction("float4__zxzw__float4_ref__", (void*)float4__zxzw__float4_ref__);
-	__nullcFR[424] = __nullcRegisterFunction("float4__zxwx__float4_ref__", (void*)float4__zxwx__float4_ref__);
-	__nullcFR[425] = __nullcRegisterFunction("float4__zxwy__float4_ref__", (void*)float4__zxwy__float4_ref__);
-	__nullcFR[426] = __nullcRegisterFunction("float4__zxwy__void_ref_float4_", (void*)float4__zxwy__void_ref_float4_);
-	__nullcFR[427] = __nullcRegisterFunction("float4__zxwz__float4_ref__", (void*)float4__zxwz__float4_ref__);
-	__nullcFR[428] = __nullcRegisterFunction("float4__zxww__float4_ref__", (void*)float4__zxww__float4_ref__);
-	__nullcFR[429] = __nullcRegisterFunction("float4__zyxx__float4_ref__", (void*)float4__zyxx__float4_ref__);
-	__nullcFR[430] = __nullcRegisterFunction("float4__zyxy__float4_ref__", (void*)float4__zyxy__float4_ref__);
-	__nullcFR[431] = __nullcRegisterFunction("float4__zyxz__float4_ref__", (void*)float4__zyxz__float4_ref__);
-	__nullcFR[432] = __nullcRegisterFunction("float4__zyxw__float4_ref__", (void*)float4__zyxw__float4_ref__);
-	__nullcFR[433] = __nullcRegisterFunction("float4__zyxw__void_ref_float4_", (void*)float4__zyxw__void_ref_float4_);
-	__nullcFR[434] = __nullcRegisterFunction("float4__zyyx__float4_ref__", (void*)float4__zyyx__float4_ref__);
-	__nullcFR[435] = __nullcRegisterFunction("float4__zyyy__float4_ref__", (void*)float4__zyyy__float4_ref__);
-	__nullcFR[436] = __nullcRegisterFunction("float4__zyyz__float4_ref__", (void*)float4__zyyz__float4_ref__);
-	__nullcFR[437] = __nullcRegisterFunction("float4__zyyw__float4_ref__", (void*)float4__zyyw__float4_ref__);
-	__nullcFR[438] = __nullcRegisterFunction("float4__zyzx__float4_ref__", (void*)float4__zyzx__float4_ref__);
-	__nullcFR[439] = __nullcRegisterFunction("float4__zyzy__float4_ref__", (void*)float4__zyzy__float4_ref__);
-	__nullcFR[440] = __nullcRegisterFunction("float4__zyzz__float4_ref__", (void*)float4__zyzz__float4_ref__);
-	__nullcFR[441] = __nullcRegisterFunction("float4__zyzw__float4_ref__", (void*)float4__zyzw__float4_ref__);
-	__nullcFR[442] = __nullcRegisterFunction("float4__zywx__float4_ref__", (void*)float4__zywx__float4_ref__);
-	__nullcFR[443] = __nullcRegisterFunction("float4__zywx__void_ref_float4_", (void*)float4__zywx__void_ref_float4_);
-	__nullcFR[444] = __nullcRegisterFunction("float4__zywy__float4_ref__", (void*)float4__zywy__float4_ref__);
-	__nullcFR[445] = __nullcRegisterFunction("float4__zywz__float4_ref__", (void*)float4__zywz__float4_ref__);
-	__nullcFR[446] = __nullcRegisterFunction("float4__zyww__float4_ref__", (void*)float4__zyww__float4_ref__);
-	__nullcFR[447] = __nullcRegisterFunction("float4__zzxx__float4_ref__", (void*)float4__zzxx__float4_ref__);
-	__nullcFR[448] = __nullcRegisterFunction("float4__zzxy__float4_ref__", (void*)float4__zzxy__float4_ref__);
-	__nullcFR[449] = __nullcRegisterFunction("float4__zzxz__float4_ref__", (void*)float4__zzxz__float4_ref__);
-	__nullcFR[450] = __nullcRegisterFunction("float4__zzxw__float4_ref__", (void*)float4__zzxw__float4_ref__);
-	__nullcFR[451] = __nullcRegisterFunction("float4__zzyx__float4_ref__", (void*)float4__zzyx__float4_ref__);
-	__nullcFR[452] = __nullcRegisterFunction("float4__zzyy__float4_ref__", (void*)float4__zzyy__float4_ref__);
-	__nullcFR[453] = __nullcRegisterFunction("float4__zzyz__float4_ref__", (void*)float4__zzyz__float4_ref__);
-	__nullcFR[454] = __nullcRegisterFunction("float4__zzyw__float4_ref__", (void*)float4__zzyw__float4_ref__);
-	__nullcFR[455] = __nullcRegisterFunction("float4__zzzx__float4_ref__", (void*)float4__zzzx__float4_ref__);
-	__nullcFR[456] = __nullcRegisterFunction("float4__zzzy__float4_ref__", (void*)float4__zzzy__float4_ref__);
-	__nullcFR[457] = __nullcRegisterFunction("float4__zzzz__float4_ref__", (void*)float4__zzzz__float4_ref__);
-	__nullcFR[458] = __nullcRegisterFunction("float4__zzzw__float4_ref__", (void*)float4__zzzw__float4_ref__);
-	__nullcFR[459] = __nullcRegisterFunction("float4__zzwx__float4_ref__", (void*)float4__zzwx__float4_ref__);
-	__nullcFR[460] = __nullcRegisterFunction("float4__zzwy__float4_ref__", (void*)float4__zzwy__float4_ref__);
-	__nullcFR[461] = __nullcRegisterFunction("float4__zzwz__float4_ref__", (void*)float4__zzwz__float4_ref__);
-	__nullcFR[462] = __nullcRegisterFunction("float4__zzww__float4_ref__", (void*)float4__zzww__float4_ref__);
-	__nullcFR[463] = __nullcRegisterFunction("float4__zwxx__float4_ref__", (void*)float4__zwxx__float4_ref__);
-	__nullcFR[464] = __nullcRegisterFunction("float4__zwxy__float4_ref__", (void*)float4__zwxy__float4_ref__);
-	__nullcFR[465] = __nullcRegisterFunction("float4__zwxy__void_ref_float4_", (void*)float4__zwxy__void_ref_float4_);
-	__nullcFR[466] = __nullcRegisterFunction("float4__zwxz__float4_ref__", (void*)float4__zwxz__float4_ref__);
-	__nullcFR[467] = __nullcRegisterFunction("float4__zwxw__float4_ref__", (void*)float4__zwxw__float4_ref__);
-	__nullcFR[468] = __nullcRegisterFunction("float4__zwyx__float4_ref__", (void*)float4__zwyx__float4_ref__);
-	__nullcFR[469] = __nullcRegisterFunction("float4__zwyx__void_ref_float4_", (void*)float4__zwyx__void_ref_float4_);
-	__nullcFR[470] = __nullcRegisterFunction("float4__zwyy__float4_ref__", (void*)float4__zwyy__float4_ref__);
-	__nullcFR[471] = __nullcRegisterFunction("float4__zwyz__float4_ref__", (void*)float4__zwyz__float4_ref__);
-	__nullcFR[472] = __nullcRegisterFunction("float4__zwyw__float4_ref__", (void*)float4__zwyw__float4_ref__);
-	__nullcFR[473] = __nullcRegisterFunction("float4__zwzx__float4_ref__", (void*)float4__zwzx__float4_ref__);
-	__nullcFR[474] = __nullcRegisterFunction("float4__zwzy__float4_ref__", (void*)float4__zwzy__float4_ref__);
-	__nullcFR[475] = __nullcRegisterFunction("float4__zwzz__float4_ref__", (void*)float4__zwzz__float4_ref__);
-	__nullcFR[476] = __nullcRegisterFunction("float4__zwzw__float4_ref__", (void*)float4__zwzw__float4_ref__);
-	__nullcFR[477] = __nullcRegisterFunction("float4__zwwx__float4_ref__", (void*)float4__zwwx__float4_ref__);
-	__nullcFR[478] = __nullcRegisterFunction("float4__zwwy__float4_ref__", (void*)float4__zwwy__float4_ref__);
-	__nullcFR[479] = __nullcRegisterFunction("float4__zwwz__float4_ref__", (void*)float4__zwwz__float4_ref__);
-	__nullcFR[480] = __nullcRegisterFunction("float4__zwww__float4_ref__", (void*)float4__zwww__float4_ref__);
-	__nullcFR[481] = __nullcRegisterFunction("float4__wxxx__float4_ref__", (void*)float4__wxxx__float4_ref__);
-	__nullcFR[482] = __nullcRegisterFunction("float4__wxxy__float4_ref__", (void*)float4__wxxy__float4_ref__);
-	__nullcFR[483] = __nullcRegisterFunction("float4__wxxz__float4_ref__", (void*)float4__wxxz__float4_ref__);
-	__nullcFR[484] = __nullcRegisterFunction("float4__wxxw__float4_ref__", (void*)float4__wxxw__float4_ref__);
-	__nullcFR[485] = __nullcRegisterFunction("float4__wxyx__float4_ref__", (void*)float4__wxyx__float4_ref__);
-	__nullcFR[486] = __nullcRegisterFunction("float4__wxyy__float4_ref__", (void*)float4__wxyy__float4_ref__);
-	__nullcFR[487] = __nullcRegisterFunction("float4__wxyz__float4_ref__", (void*)float4__wxyz__float4_ref__);
-	__nullcFR[488] = __nullcRegisterFunction("float4__wxyz__void_ref_float4_", (void*)float4__wxyz__void_ref_float4_);
-	__nullcFR[489] = __nullcRegisterFunction("float4__wxyw__float4_ref__", (void*)float4__wxyw__float4_ref__);
-	__nullcFR[490] = __nullcRegisterFunction("float4__wxzx__float4_ref__", (void*)float4__wxzx__float4_ref__);
-	__nullcFR[491] = __nullcRegisterFunction("float4__wxzy__float4_ref__", (void*)float4__wxzy__float4_ref__);
-	__nullcFR[492] = __nullcRegisterFunction("float4__wxzy__void_ref_float4_", (void*)float4__wxzy__void_ref_float4_);
-	__nullcFR[493] = __nullcRegisterFunction("float4__wxzz__float4_ref__", (void*)float4__wxzz__float4_ref__);
-	__nullcFR[494] = __nullcRegisterFunction("float4__wxzw__float4_ref__", (void*)float4__wxzw__float4_ref__);
-	__nullcFR[495] = __nullcRegisterFunction("float4__wxwx__float4_ref__", (void*)float4__wxwx__float4_ref__);
-	__nullcFR[496] = __nullcRegisterFunction("float4__wxwy__float4_ref__", (void*)float4__wxwy__float4_ref__);
-	__nullcFR[497] = __nullcRegisterFunction("float4__wxwz__float4_ref__", (void*)float4__wxwz__float4_ref__);
-	__nullcFR[498] = __nullcRegisterFunction("float4__wxww__float4_ref__", (void*)float4__wxww__float4_ref__);
-	__nullcFR[499] = __nullcRegisterFunction("float4__wyxx__float4_ref__", (void*)float4__wyxx__float4_ref__);
-	__nullcFR[500] = __nullcRegisterFunction("float4__wyxy__float4_ref__", (void*)float4__wyxy__float4_ref__);
-	__nullcFR[501] = __nullcRegisterFunction("float4__wyxz__float4_ref__", (void*)float4__wyxz__float4_ref__);
-	__nullcFR[502] = __nullcRegisterFunction("float4__wyxz__void_ref_float4_", (void*)float4__wyxz__void_ref_float4_);
-	__nullcFR[503] = __nullcRegisterFunction("float4__wyxw__float4_ref__", (void*)float4__wyxw__float4_ref__);
-	__nullcFR[504] = __nullcRegisterFunction("float4__wyyx__float4_ref__", (void*)float4__wyyx__float4_ref__);
-	__nullcFR[505] = __nullcRegisterFunction("float4__wyyy__float4_ref__", (void*)float4__wyyy__float4_ref__);
-	__nullcFR[506] = __nullcRegisterFunction("float4__wyyz__float4_ref__", (void*)float4__wyyz__float4_ref__);
-	__nullcFR[507] = __nullcRegisterFunction("float4__wyyw__float4_ref__", (void*)float4__wyyw__float4_ref__);
-	__nullcFR[508] = __nullcRegisterFunction("float4__wyzx__float4_ref__", (void*)float4__wyzx__float4_ref__);
-	__nullcFR[509] = __nullcRegisterFunction("float4__wyzx__void_ref_float4_", (void*)float4__wyzx__void_ref_float4_);
-	__nullcFR[510] = __nullcRegisterFunction("float4__wyzy__float4_ref__", (void*)float4__wyzy__float4_ref__);
-	__nullcFR[511] = __nullcRegisterFunction("float4__wyzz__float4_ref__", (void*)float4__wyzz__float4_ref__);
-	__nullcFR[512] = __nullcRegisterFunction("float4__wyzw__float4_ref__", (void*)float4__wyzw__float4_ref__);
-	__nullcFR[513] = __nullcRegisterFunction("float4__wywx__float4_ref__", (void*)float4__wywx__float4_ref__);
-	__nullcFR[514] = __nullcRegisterFunction("float4__wywy__float4_ref__", (void*)float4__wywy__float4_ref__);
-	__nullcFR[515] = __nullcRegisterFunction("float4__wywz__float4_ref__", (void*)float4__wywz__float4_ref__);
-	__nullcFR[516] = __nullcRegisterFunction("float4__wyww__float4_ref__", (void*)float4__wyww__float4_ref__);
-	__nullcFR[517] = __nullcRegisterFunction("float4__wzxx__float4_ref__", (void*)float4__wzxx__float4_ref__);
-	__nullcFR[518] = __nullcRegisterFunction("float4__wzxy__float4_ref__", (void*)float4__wzxy__float4_ref__);
-	__nullcFR[519] = __nullcRegisterFunction("float4__wzxy__void_ref_float4_", (void*)float4__wzxy__void_ref_float4_);
-	__nullcFR[520] = __nullcRegisterFunction("float4__wzxz__float4_ref__", (void*)float4__wzxz__float4_ref__);
-	__nullcFR[521] = __nullcRegisterFunction("float4__wzxw__float4_ref__", (void*)float4__wzxw__float4_ref__);
-	__nullcFR[522] = __nullcRegisterFunction("float4__wzyx__float4_ref__", (void*)float4__wzyx__float4_ref__);
-	__nullcFR[523] = __nullcRegisterFunction("float4__wzyx__void_ref_float4_", (void*)float4__wzyx__void_ref_float4_);
-	__nullcFR[524] = __nullcRegisterFunction("float4__wzyy__float4_ref__", (void*)float4__wzyy__float4_ref__);
-	__nullcFR[525] = __nullcRegisterFunction("float4__wzyz__float4_ref__", (void*)float4__wzyz__float4_ref__);
-	__nullcFR[526] = __nullcRegisterFunction("float4__wzyw__float4_ref__", (void*)float4__wzyw__float4_ref__);
-	__nullcFR[527] = __nullcRegisterFunction("float4__wzzx__float4_ref__", (void*)float4__wzzx__float4_ref__);
-	__nullcFR[528] = __nullcRegisterFunction("float4__wzzy__float4_ref__", (void*)float4__wzzy__float4_ref__);
-	__nullcFR[529] = __nullcRegisterFunction("float4__wzzz__float4_ref__", (void*)float4__wzzz__float4_ref__);
-	__nullcFR[530] = __nullcRegisterFunction("float4__wzzw__float4_ref__", (void*)float4__wzzw__float4_ref__);
-	__nullcFR[531] = __nullcRegisterFunction("float4__wzwx__float4_ref__", (void*)float4__wzwx__float4_ref__);
-	__nullcFR[532] = __nullcRegisterFunction("float4__wzwy__float4_ref__", (void*)float4__wzwy__float4_ref__);
-	__nullcFR[533] = __nullcRegisterFunction("float4__wzwz__float4_ref__", (void*)float4__wzwz__float4_ref__);
-	__nullcFR[534] = __nullcRegisterFunction("float4__wzww__float4_ref__", (void*)float4__wzww__float4_ref__);
-	__nullcFR[535] = __nullcRegisterFunction("float4__wwxx__float4_ref__", (void*)float4__wwxx__float4_ref__);
-	__nullcFR[536] = __nullcRegisterFunction("float4__wwxy__float4_ref__", (void*)float4__wwxy__float4_ref__);
-	__nullcFR[537] = __nullcRegisterFunction("float4__wwxz__float4_ref__", (void*)float4__wwxz__float4_ref__);
-	__nullcFR[538] = __nullcRegisterFunction("float4__wwxw__float4_ref__", (void*)float4__wwxw__float4_ref__);
-	__nullcFR[539] = __nullcRegisterFunction("float4__wwyx__float4_ref__", (void*)float4__wwyx__float4_ref__);
-	__nullcFR[540] = __nullcRegisterFunction("float4__wwyy__float4_ref__", (void*)float4__wwyy__float4_ref__);
-	__nullcFR[541] = __nullcRegisterFunction("float4__wwyz__float4_ref__", (void*)float4__wwyz__float4_ref__);
-	__nullcFR[542] = __nullcRegisterFunction("float4__wwyw__float4_ref__", (void*)float4__wwyw__float4_ref__);
-	__nullcFR[543] = __nullcRegisterFunction("float4__wwzx__float4_ref__", (void*)float4__wwzx__float4_ref__);
-	__nullcFR[544] = __nullcRegisterFunction("float4__wwzy__float4_ref__", (void*)float4__wwzy__float4_ref__);
-	__nullcFR[545] = __nullcRegisterFunction("float4__wwzz__float4_ref__", (void*)float4__wwzz__float4_ref__);
-	__nullcFR[546] = __nullcRegisterFunction("float4__wwzw__float4_ref__", (void*)float4__wwzw__float4_ref__);
-	__nullcFR[547] = __nullcRegisterFunction("float4__wwwx__float4_ref__", (void*)float4__wwwx__float4_ref__);
-	__nullcFR[548] = __nullcRegisterFunction("float4__wwwy__float4_ref__", (void*)float4__wwwy__float4_ref__);
-	__nullcFR[549] = __nullcRegisterFunction("float4__wwwz__float4_ref__", (void*)float4__wwwz__float4_ref__);
-	__nullcFR[550] = __nullcRegisterFunction("float4__wwww__float4_ref__", (void*)float4__wwww__float4_ref__);
+	__nullcFR[154] = __nullcRegisterFunction("float4__float4_float4_ref_float_float_float_float_", (void*)float4__float4_float4_ref_float_float_float_float_, 113u);
+	__nullcFR[155] = __nullcRegisterFunction("float4__xx__float2_ref__", (void*)float4__xx__float2_ref__, 113u);
+	__nullcFR[156] = __nullcRegisterFunction("float4__xy__float2_ref__", (void*)float4__xy__float2_ref__, 113u);
+	__nullcFR[157] = __nullcRegisterFunction("float4__xy__void_ref_float2_", (void*)float4__xy__void_ref_float2_, 113u);
+	__nullcFR[158] = __nullcRegisterFunction("float4__xz__float2_ref__", (void*)float4__xz__float2_ref__, 113u);
+	__nullcFR[159] = __nullcRegisterFunction("float4__xz__void_ref_float2_", (void*)float4__xz__void_ref_float2_, 113u);
+	__nullcFR[160] = __nullcRegisterFunction("float4__xw__float2_ref__", (void*)float4__xw__float2_ref__, 113u);
+	__nullcFR[161] = __nullcRegisterFunction("float4__xw__void_ref_float2_", (void*)float4__xw__void_ref_float2_, 113u);
+	__nullcFR[162] = __nullcRegisterFunction("float4__yx__float2_ref__", (void*)float4__yx__float2_ref__, 113u);
+	__nullcFR[163] = __nullcRegisterFunction("float4__yx__void_ref_float2_", (void*)float4__yx__void_ref_float2_, 113u);
+	__nullcFR[164] = __nullcRegisterFunction("float4__yy__float2_ref__", (void*)float4__yy__float2_ref__, 113u);
+	__nullcFR[165] = __nullcRegisterFunction("float4__yz__float2_ref__", (void*)float4__yz__float2_ref__, 113u);
+	__nullcFR[166] = __nullcRegisterFunction("float4__yz__void_ref_float2_", (void*)float4__yz__void_ref_float2_, 113u);
+	__nullcFR[167] = __nullcRegisterFunction("float4__yw__float2_ref__", (void*)float4__yw__float2_ref__, 113u);
+	__nullcFR[168] = __nullcRegisterFunction("float4__yw__void_ref_float2_", (void*)float4__yw__void_ref_float2_, 113u);
+	__nullcFR[169] = __nullcRegisterFunction("float4__zx__float2_ref__", (void*)float4__zx__float2_ref__, 113u);
+	__nullcFR[170] = __nullcRegisterFunction("float4__zx__void_ref_float2_", (void*)float4__zx__void_ref_float2_, 113u);
+	__nullcFR[171] = __nullcRegisterFunction("float4__zy__float2_ref__", (void*)float4__zy__float2_ref__, 113u);
+	__nullcFR[172] = __nullcRegisterFunction("float4__zy__void_ref_float2_", (void*)float4__zy__void_ref_float2_, 113u);
+	__nullcFR[173] = __nullcRegisterFunction("float4__zz__float2_ref__", (void*)float4__zz__float2_ref__, 113u);
+	__nullcFR[174] = __nullcRegisterFunction("float4__zw__float2_ref__", (void*)float4__zw__float2_ref__, 113u);
+	__nullcFR[175] = __nullcRegisterFunction("float4__zw__void_ref_float2_", (void*)float4__zw__void_ref_float2_, 113u);
+	__nullcFR[176] = __nullcRegisterFunction("float4__wx__float2_ref__", (void*)float4__wx__float2_ref__, 113u);
+	__nullcFR[177] = __nullcRegisterFunction("float4__wx__void_ref_float2_", (void*)float4__wx__void_ref_float2_, 113u);
+	__nullcFR[178] = __nullcRegisterFunction("float4__wy__float2_ref__", (void*)float4__wy__float2_ref__, 113u);
+	__nullcFR[179] = __nullcRegisterFunction("float4__wy__void_ref_float2_", (void*)float4__wy__void_ref_float2_, 113u);
+	__nullcFR[180] = __nullcRegisterFunction("float4__wz__float2_ref__", (void*)float4__wz__float2_ref__, 113u);
+	__nullcFR[181] = __nullcRegisterFunction("float4__wz__void_ref_float2_", (void*)float4__wz__void_ref_float2_, 113u);
+	__nullcFR[182] = __nullcRegisterFunction("float4__ww__float2_ref__", (void*)float4__ww__float2_ref__, 113u);
+	__nullcFR[183] = __nullcRegisterFunction("float4__xxx__float3_ref__", (void*)float4__xxx__float3_ref__, 113u);
+	__nullcFR[184] = __nullcRegisterFunction("float4__xxy__float3_ref__", (void*)float4__xxy__float3_ref__, 113u);
+	__nullcFR[185] = __nullcRegisterFunction("float4__xxz__float3_ref__", (void*)float4__xxz__float3_ref__, 113u);
+	__nullcFR[186] = __nullcRegisterFunction("float4__xxw__float3_ref__", (void*)float4__xxw__float3_ref__, 113u);
+	__nullcFR[187] = __nullcRegisterFunction("float4__xyx__float3_ref__", (void*)float4__xyx__float3_ref__, 113u);
+	__nullcFR[188] = __nullcRegisterFunction("float4__xyy__float3_ref__", (void*)float4__xyy__float3_ref__, 113u);
+	__nullcFR[189] = __nullcRegisterFunction("float4__xyz__float3_ref__", (void*)float4__xyz__float3_ref__, 113u);
+	__nullcFR[190] = __nullcRegisterFunction("float4__xyz__void_ref_float3_", (void*)float4__xyz__void_ref_float3_, 113u);
+	__nullcFR[191] = __nullcRegisterFunction("float4__xyw__float3_ref__", (void*)float4__xyw__float3_ref__, 113u);
+	__nullcFR[192] = __nullcRegisterFunction("float4__xyw__void_ref_float3_", (void*)float4__xyw__void_ref_float3_, 113u);
+	__nullcFR[193] = __nullcRegisterFunction("float4__xzx__float3_ref__", (void*)float4__xzx__float3_ref__, 113u);
+	__nullcFR[194] = __nullcRegisterFunction("float4__xzy__float3_ref__", (void*)float4__xzy__float3_ref__, 113u);
+	__nullcFR[195] = __nullcRegisterFunction("float4__xzy__void_ref_float3_", (void*)float4__xzy__void_ref_float3_, 113u);
+	__nullcFR[196] = __nullcRegisterFunction("float4__xzz__float3_ref__", (void*)float4__xzz__float3_ref__, 113u);
+	__nullcFR[197] = __nullcRegisterFunction("float4__xzw__float3_ref__", (void*)float4__xzw__float3_ref__, 113u);
+	__nullcFR[198] = __nullcRegisterFunction("float4__xzw__void_ref_float3_", (void*)float4__xzw__void_ref_float3_, 113u);
+	__nullcFR[199] = __nullcRegisterFunction("float4__xwx__float3_ref__", (void*)float4__xwx__float3_ref__, 113u);
+	__nullcFR[200] = __nullcRegisterFunction("float4__xwy__float3_ref__", (void*)float4__xwy__float3_ref__, 113u);
+	__nullcFR[201] = __nullcRegisterFunction("float4__xwy__void_ref_float3_", (void*)float4__xwy__void_ref_float3_, 113u);
+	__nullcFR[202] = __nullcRegisterFunction("float4__xwz__float3_ref__", (void*)float4__xwz__float3_ref__, 113u);
+	__nullcFR[203] = __nullcRegisterFunction("float4__xwz__void_ref_float3_", (void*)float4__xwz__void_ref_float3_, 113u);
+	__nullcFR[204] = __nullcRegisterFunction("float4__xww__float3_ref__", (void*)float4__xww__float3_ref__, 113u);
+	__nullcFR[205] = __nullcRegisterFunction("float4__yxx__float3_ref__", (void*)float4__yxx__float3_ref__, 113u);
+	__nullcFR[206] = __nullcRegisterFunction("float4__yxy__float3_ref__", (void*)float4__yxy__float3_ref__, 113u);
+	__nullcFR[207] = __nullcRegisterFunction("float4__yxz__float3_ref__", (void*)float4__yxz__float3_ref__, 113u);
+	__nullcFR[208] = __nullcRegisterFunction("float4__yxz__void_ref_float3_", (void*)float4__yxz__void_ref_float3_, 113u);
+	__nullcFR[209] = __nullcRegisterFunction("float4__yxw__float3_ref__", (void*)float4__yxw__float3_ref__, 113u);
+	__nullcFR[210] = __nullcRegisterFunction("float4__yxw__void_ref_float3_", (void*)float4__yxw__void_ref_float3_, 113u);
+	__nullcFR[211] = __nullcRegisterFunction("float4__yyx__float3_ref__", (void*)float4__yyx__float3_ref__, 113u);
+	__nullcFR[212] = __nullcRegisterFunction("float4__yyy__float3_ref__", (void*)float4__yyy__float3_ref__, 113u);
+	__nullcFR[213] = __nullcRegisterFunction("float4__yyz__float3_ref__", (void*)float4__yyz__float3_ref__, 113u);
+	__nullcFR[214] = __nullcRegisterFunction("float4__yyw__float3_ref__", (void*)float4__yyw__float3_ref__, 113u);
+	__nullcFR[215] = __nullcRegisterFunction("float4__yzx__float3_ref__", (void*)float4__yzx__float3_ref__, 113u);
+	__nullcFR[216] = __nullcRegisterFunction("float4__yzx__void_ref_float3_", (void*)float4__yzx__void_ref_float3_, 113u);
+	__nullcFR[217] = __nullcRegisterFunction("float4__yzy__float3_ref__", (void*)float4__yzy__float3_ref__, 113u);
+	__nullcFR[218] = __nullcRegisterFunction("float4__yzz__float3_ref__", (void*)float4__yzz__float3_ref__, 113u);
+	__nullcFR[219] = __nullcRegisterFunction("float4__yzw__float3_ref__", (void*)float4__yzw__float3_ref__, 113u);
+	__nullcFR[220] = __nullcRegisterFunction("float4__yzw__void_ref_float3_", (void*)float4__yzw__void_ref_float3_, 113u);
+	__nullcFR[221] = __nullcRegisterFunction("float4__ywx__float3_ref__", (void*)float4__ywx__float3_ref__, 113u);
+	__nullcFR[222] = __nullcRegisterFunction("float4__ywx__void_ref_float3_", (void*)float4__ywx__void_ref_float3_, 113u);
+	__nullcFR[223] = __nullcRegisterFunction("float4__ywy__float3_ref__", (void*)float4__ywy__float3_ref__, 113u);
+	__nullcFR[224] = __nullcRegisterFunction("float4__ywz__float3_ref__", (void*)float4__ywz__float3_ref__, 113u);
+	__nullcFR[225] = __nullcRegisterFunction("float4__ywz__void_ref_float3_", (void*)float4__ywz__void_ref_float3_, 113u);
+	__nullcFR[226] = __nullcRegisterFunction("float4__yww__float3_ref__", (void*)float4__yww__float3_ref__, 113u);
+	__nullcFR[227] = __nullcRegisterFunction("float4__zxx__float3_ref__", (void*)float4__zxx__float3_ref__, 113u);
+	__nullcFR[228] = __nullcRegisterFunction("float4__zxy__float3_ref__", (void*)float4__zxy__float3_ref__, 113u);
+	__nullcFR[229] = __nullcRegisterFunction("float4__zxy__void_ref_float3_", (void*)float4__zxy__void_ref_float3_, 113u);
+	__nullcFR[230] = __nullcRegisterFunction("float4__zxz__float3_ref__", (void*)float4__zxz__float3_ref__, 113u);
+	__nullcFR[231] = __nullcRegisterFunction("float4__zxw__float3_ref__", (void*)float4__zxw__float3_ref__, 113u);
+	__nullcFR[232] = __nullcRegisterFunction("float4__zxw__void_ref_float3_", (void*)float4__zxw__void_ref_float3_, 113u);
+	__nullcFR[233] = __nullcRegisterFunction("float4__zyx__float3_ref__", (void*)float4__zyx__float3_ref__, 113u);
+	__nullcFR[234] = __nullcRegisterFunction("float4__zyx__void_ref_float3_", (void*)float4__zyx__void_ref_float3_, 113u);
+	__nullcFR[235] = __nullcRegisterFunction("float4__zyy__float3_ref__", (void*)float4__zyy__float3_ref__, 113u);
+	__nullcFR[236] = __nullcRegisterFunction("float4__zyz__float3_ref__", (void*)float4__zyz__float3_ref__, 113u);
+	__nullcFR[237] = __nullcRegisterFunction("float4__zyw__float3_ref__", (void*)float4__zyw__float3_ref__, 113u);
+	__nullcFR[238] = __nullcRegisterFunction("float4__zyw__void_ref_float3_", (void*)float4__zyw__void_ref_float3_, 113u);
+	__nullcFR[239] = __nullcRegisterFunction("float4__zzx__float3_ref__", (void*)float4__zzx__float3_ref__, 113u);
+	__nullcFR[240] = __nullcRegisterFunction("float4__zzy__float3_ref__", (void*)float4__zzy__float3_ref__, 113u);
+	__nullcFR[241] = __nullcRegisterFunction("float4__zzz__float3_ref__", (void*)float4__zzz__float3_ref__, 113u);
+	__nullcFR[242] = __nullcRegisterFunction("float4__zzw__float3_ref__", (void*)float4__zzw__float3_ref__, 113u);
+	__nullcFR[243] = __nullcRegisterFunction("float4__zwx__float3_ref__", (void*)float4__zwx__float3_ref__, 113u);
+	__nullcFR[244] = __nullcRegisterFunction("float4__zwx__void_ref_float3_", (void*)float4__zwx__void_ref_float3_, 113u);
+	__nullcFR[245] = __nullcRegisterFunction("float4__zwy__float3_ref__", (void*)float4__zwy__float3_ref__, 113u);
+	__nullcFR[246] = __nullcRegisterFunction("float4__zwy__void_ref_float3_", (void*)float4__zwy__void_ref_float3_, 113u);
+	__nullcFR[247] = __nullcRegisterFunction("float4__zwz__float3_ref__", (void*)float4__zwz__float3_ref__, 113u);
+	__nullcFR[248] = __nullcRegisterFunction("float4__zww__float3_ref__", (void*)float4__zww__float3_ref__, 113u);
+	__nullcFR[249] = __nullcRegisterFunction("float4__wxx__float3_ref__", (void*)float4__wxx__float3_ref__, 113u);
+	__nullcFR[250] = __nullcRegisterFunction("float4__wxy__float3_ref__", (void*)float4__wxy__float3_ref__, 113u);
+	__nullcFR[251] = __nullcRegisterFunction("float4__wxy__void_ref_float3_", (void*)float4__wxy__void_ref_float3_, 113u);
+	__nullcFR[252] = __nullcRegisterFunction("float4__wxz__float3_ref__", (void*)float4__wxz__float3_ref__, 113u);
+	__nullcFR[253] = __nullcRegisterFunction("float4__wxz__void_ref_float3_", (void*)float4__wxz__void_ref_float3_, 113u);
+	__nullcFR[254] = __nullcRegisterFunction("float4__wxw__float3_ref__", (void*)float4__wxw__float3_ref__, 113u);
+	__nullcFR[255] = __nullcRegisterFunction("float4__wyx__float3_ref__", (void*)float4__wyx__float3_ref__, 113u);
+	__nullcFR[256] = __nullcRegisterFunction("float4__wyx__void_ref_float3_", (void*)float4__wyx__void_ref_float3_, 113u);
+	__nullcFR[257] = __nullcRegisterFunction("float4__wyy__float3_ref__", (void*)float4__wyy__float3_ref__, 113u);
+	__nullcFR[258] = __nullcRegisterFunction("float4__wyz__float3_ref__", (void*)float4__wyz__float3_ref__, 113u);
+	__nullcFR[259] = __nullcRegisterFunction("float4__wyz__void_ref_float3_", (void*)float4__wyz__void_ref_float3_, 113u);
+	__nullcFR[260] = __nullcRegisterFunction("float4__wyw__float3_ref__", (void*)float4__wyw__float3_ref__, 113u);
+	__nullcFR[261] = __nullcRegisterFunction("float4__wzx__float3_ref__", (void*)float4__wzx__float3_ref__, 113u);
+	__nullcFR[262] = __nullcRegisterFunction("float4__wzx__void_ref_float3_", (void*)float4__wzx__void_ref_float3_, 113u);
+	__nullcFR[263] = __nullcRegisterFunction("float4__wzy__float3_ref__", (void*)float4__wzy__float3_ref__, 113u);
+	__nullcFR[264] = __nullcRegisterFunction("float4__wzy__void_ref_float3_", (void*)float4__wzy__void_ref_float3_, 113u);
+	__nullcFR[265] = __nullcRegisterFunction("float4__wzz__float3_ref__", (void*)float4__wzz__float3_ref__, 113u);
+	__nullcFR[266] = __nullcRegisterFunction("float4__wzw__float3_ref__", (void*)float4__wzw__float3_ref__, 113u);
+	__nullcFR[267] = __nullcRegisterFunction("float4__wwx__float3_ref__", (void*)float4__wwx__float3_ref__, 113u);
+	__nullcFR[268] = __nullcRegisterFunction("float4__wwy__float3_ref__", (void*)float4__wwy__float3_ref__, 113u);
+	__nullcFR[269] = __nullcRegisterFunction("float4__wwz__float3_ref__", (void*)float4__wwz__float3_ref__, 113u);
+	__nullcFR[270] = __nullcRegisterFunction("float4__www__float3_ref__", (void*)float4__www__float3_ref__, 113u);
+	__nullcFR[271] = __nullcRegisterFunction("float4__xxxx__float4_ref__", (void*)float4__xxxx__float4_ref__, 113u);
+	__nullcFR[272] = __nullcRegisterFunction("float4__xxxy__float4_ref__", (void*)float4__xxxy__float4_ref__, 113u);
+	__nullcFR[273] = __nullcRegisterFunction("float4__xxxz__float4_ref__", (void*)float4__xxxz__float4_ref__, 113u);
+	__nullcFR[274] = __nullcRegisterFunction("float4__xxxw__float4_ref__", (void*)float4__xxxw__float4_ref__, 113u);
+	__nullcFR[275] = __nullcRegisterFunction("float4__xxyx__float4_ref__", (void*)float4__xxyx__float4_ref__, 113u);
+	__nullcFR[276] = __nullcRegisterFunction("float4__xxyy__float4_ref__", (void*)float4__xxyy__float4_ref__, 113u);
+	__nullcFR[277] = __nullcRegisterFunction("float4__xxyz__float4_ref__", (void*)float4__xxyz__float4_ref__, 113u);
+	__nullcFR[278] = __nullcRegisterFunction("float4__xxyw__float4_ref__", (void*)float4__xxyw__float4_ref__, 113u);
+	__nullcFR[279] = __nullcRegisterFunction("float4__xxzx__float4_ref__", (void*)float4__xxzx__float4_ref__, 113u);
+	__nullcFR[280] = __nullcRegisterFunction("float4__xxzy__float4_ref__", (void*)float4__xxzy__float4_ref__, 113u);
+	__nullcFR[281] = __nullcRegisterFunction("float4__xxzz__float4_ref__", (void*)float4__xxzz__float4_ref__, 113u);
+	__nullcFR[282] = __nullcRegisterFunction("float4__xxzw__float4_ref__", (void*)float4__xxzw__float4_ref__, 113u);
+	__nullcFR[283] = __nullcRegisterFunction("float4__xxwx__float4_ref__", (void*)float4__xxwx__float4_ref__, 113u);
+	__nullcFR[284] = __nullcRegisterFunction("float4__xxwy__float4_ref__", (void*)float4__xxwy__float4_ref__, 113u);
+	__nullcFR[285] = __nullcRegisterFunction("float4__xxwz__float4_ref__", (void*)float4__xxwz__float4_ref__, 113u);
+	__nullcFR[286] = __nullcRegisterFunction("float4__xxww__float4_ref__", (void*)float4__xxww__float4_ref__, 113u);
+	__nullcFR[287] = __nullcRegisterFunction("float4__xyxx__float4_ref__", (void*)float4__xyxx__float4_ref__, 113u);
+	__nullcFR[288] = __nullcRegisterFunction("float4__xyxy__float4_ref__", (void*)float4__xyxy__float4_ref__, 113u);
+	__nullcFR[289] = __nullcRegisterFunction("float4__xyxz__float4_ref__", (void*)float4__xyxz__float4_ref__, 113u);
+	__nullcFR[290] = __nullcRegisterFunction("float4__xyxw__float4_ref__", (void*)float4__xyxw__float4_ref__, 113u);
+	__nullcFR[291] = __nullcRegisterFunction("float4__xyyx__float4_ref__", (void*)float4__xyyx__float4_ref__, 113u);
+	__nullcFR[292] = __nullcRegisterFunction("float4__xyyy__float4_ref__", (void*)float4__xyyy__float4_ref__, 113u);
+	__nullcFR[293] = __nullcRegisterFunction("float4__xyyz__float4_ref__", (void*)float4__xyyz__float4_ref__, 113u);
+	__nullcFR[294] = __nullcRegisterFunction("float4__xyyw__float4_ref__", (void*)float4__xyyw__float4_ref__, 113u);
+	__nullcFR[295] = __nullcRegisterFunction("float4__xyzx__float4_ref__", (void*)float4__xyzx__float4_ref__, 113u);
+	__nullcFR[296] = __nullcRegisterFunction("float4__xyzy__float4_ref__", (void*)float4__xyzy__float4_ref__, 113u);
+	__nullcFR[297] = __nullcRegisterFunction("float4__xyzz__float4_ref__", (void*)float4__xyzz__float4_ref__, 113u);
+	__nullcFR[298] = __nullcRegisterFunction("float4__xyzw__float4_ref__", (void*)float4__xyzw__float4_ref__, 113u);
+	__nullcFR[299] = __nullcRegisterFunction("float4__xyzw__void_ref_float4_", (void*)float4__xyzw__void_ref_float4_, 113u);
+	__nullcFR[300] = __nullcRegisterFunction("float4__xywx__float4_ref__", (void*)float4__xywx__float4_ref__, 113u);
+	__nullcFR[301] = __nullcRegisterFunction("float4__xywy__float4_ref__", (void*)float4__xywy__float4_ref__, 113u);
+	__nullcFR[302] = __nullcRegisterFunction("float4__xywz__float4_ref__", (void*)float4__xywz__float4_ref__, 113u);
+	__nullcFR[303] = __nullcRegisterFunction("float4__xywz__void_ref_float4_", (void*)float4__xywz__void_ref_float4_, 113u);
+	__nullcFR[304] = __nullcRegisterFunction("float4__xyww__float4_ref__", (void*)float4__xyww__float4_ref__, 113u);
+	__nullcFR[305] = __nullcRegisterFunction("float4__xzxx__float4_ref__", (void*)float4__xzxx__float4_ref__, 113u);
+	__nullcFR[306] = __nullcRegisterFunction("float4__xzxy__float4_ref__", (void*)float4__xzxy__float4_ref__, 113u);
+	__nullcFR[307] = __nullcRegisterFunction("float4__xzxz__float4_ref__", (void*)float4__xzxz__float4_ref__, 113u);
+	__nullcFR[308] = __nullcRegisterFunction("float4__xzxw__float4_ref__", (void*)float4__xzxw__float4_ref__, 113u);
+	__nullcFR[309] = __nullcRegisterFunction("float4__xzyx__float4_ref__", (void*)float4__xzyx__float4_ref__, 113u);
+	__nullcFR[310] = __nullcRegisterFunction("float4__xzyy__float4_ref__", (void*)float4__xzyy__float4_ref__, 113u);
+	__nullcFR[311] = __nullcRegisterFunction("float4__xzyz__float4_ref__", (void*)float4__xzyz__float4_ref__, 113u);
+	__nullcFR[312] = __nullcRegisterFunction("float4__xzyw__float4_ref__", (void*)float4__xzyw__float4_ref__, 113u);
+	__nullcFR[313] = __nullcRegisterFunction("float4__xzyw__void_ref_float4_", (void*)float4__xzyw__void_ref_float4_, 113u);
+	__nullcFR[314] = __nullcRegisterFunction("float4__xzzx__float4_ref__", (void*)float4__xzzx__float4_ref__, 113u);
+	__nullcFR[315] = __nullcRegisterFunction("float4__xzzy__float4_ref__", (void*)float4__xzzy__float4_ref__, 113u);
+	__nullcFR[316] = __nullcRegisterFunction("float4__xzzz__float4_ref__", (void*)float4__xzzz__float4_ref__, 113u);
+	__nullcFR[317] = __nullcRegisterFunction("float4__xzzw__float4_ref__", (void*)float4__xzzw__float4_ref__, 113u);
+	__nullcFR[318] = __nullcRegisterFunction("float4__xzwx__float4_ref__", (void*)float4__xzwx__float4_ref__, 113u);
+	__nullcFR[319] = __nullcRegisterFunction("float4__xzwy__float4_ref__", (void*)float4__xzwy__float4_ref__, 113u);
+	__nullcFR[320] = __nullcRegisterFunction("float4__xzwy__void_ref_float4_", (void*)float4__xzwy__void_ref_float4_, 113u);
+	__nullcFR[321] = __nullcRegisterFunction("float4__xzwz__float4_ref__", (void*)float4__xzwz__float4_ref__, 113u);
+	__nullcFR[322] = __nullcRegisterFunction("float4__xzww__float4_ref__", (void*)float4__xzww__float4_ref__, 113u);
+	__nullcFR[323] = __nullcRegisterFunction("float4__xwxx__float4_ref__", (void*)float4__xwxx__float4_ref__, 113u);
+	__nullcFR[324] = __nullcRegisterFunction("float4__xwxy__float4_ref__", (void*)float4__xwxy__float4_ref__, 113u);
+	__nullcFR[325] = __nullcRegisterFunction("float4__xwxz__float4_ref__", (void*)float4__xwxz__float4_ref__, 113u);
+	__nullcFR[326] = __nullcRegisterFunction("float4__xwxw__float4_ref__", (void*)float4__xwxw__float4_ref__, 113u);
+	__nullcFR[327] = __nullcRegisterFunction("float4__xwyx__float4_ref__", (void*)float4__xwyx__float4_ref__, 113u);
+	__nullcFR[328] = __nullcRegisterFunction("float4__xwyy__float4_ref__", (void*)float4__xwyy__float4_ref__, 113u);
+	__nullcFR[329] = __nullcRegisterFunction("float4__xwyz__float4_ref__", (void*)float4__xwyz__float4_ref__, 113u);
+	__nullcFR[330] = __nullcRegisterFunction("float4__xwyz__void_ref_float4_", (void*)float4__xwyz__void_ref_float4_, 113u);
+	__nullcFR[331] = __nullcRegisterFunction("float4__xwyw__float4_ref__", (void*)float4__xwyw__float4_ref__, 113u);
+	__nullcFR[332] = __nullcRegisterFunction("float4__xwzx__float4_ref__", (void*)float4__xwzx__float4_ref__, 113u);
+	__nullcFR[333] = __nullcRegisterFunction("float4__xwzy__float4_ref__", (void*)float4__xwzy__float4_ref__, 113u);
+	__nullcFR[334] = __nullcRegisterFunction("float4__xwzy__void_ref_float4_", (void*)float4__xwzy__void_ref_float4_, 113u);
+	__nullcFR[335] = __nullcRegisterFunction("float4__xwzz__float4_ref__", (void*)float4__xwzz__float4_ref__, 113u);
+	__nullcFR[336] = __nullcRegisterFunction("float4__xwzw__float4_ref__", (void*)float4__xwzw__float4_ref__, 113u);
+	__nullcFR[337] = __nullcRegisterFunction("float4__xwwx__float4_ref__", (void*)float4__xwwx__float4_ref__, 113u);
+	__nullcFR[338] = __nullcRegisterFunction("float4__xwwy__float4_ref__", (void*)float4__xwwy__float4_ref__, 113u);
+	__nullcFR[339] = __nullcRegisterFunction("float4__xwwz__float4_ref__", (void*)float4__xwwz__float4_ref__, 113u);
+	__nullcFR[340] = __nullcRegisterFunction("float4__xwww__float4_ref__", (void*)float4__xwww__float4_ref__, 113u);
+	__nullcFR[341] = __nullcRegisterFunction("float4__yxxx__float4_ref__", (void*)float4__yxxx__float4_ref__, 113u);
+	__nullcFR[342] = __nullcRegisterFunction("float4__yxxy__float4_ref__", (void*)float4__yxxy__float4_ref__, 113u);
+	__nullcFR[343] = __nullcRegisterFunction("float4__yxxz__float4_ref__", (void*)float4__yxxz__float4_ref__, 113u);
+	__nullcFR[344] = __nullcRegisterFunction("float4__yxxw__float4_ref__", (void*)float4__yxxw__float4_ref__, 113u);
+	__nullcFR[345] = __nullcRegisterFunction("float4__yxyx__float4_ref__", (void*)float4__yxyx__float4_ref__, 113u);
+	__nullcFR[346] = __nullcRegisterFunction("float4__yxyy__float4_ref__", (void*)float4__yxyy__float4_ref__, 113u);
+	__nullcFR[347] = __nullcRegisterFunction("float4__yxyz__float4_ref__", (void*)float4__yxyz__float4_ref__, 113u);
+	__nullcFR[348] = __nullcRegisterFunction("float4__yxyw__float4_ref__", (void*)float4__yxyw__float4_ref__, 113u);
+	__nullcFR[349] = __nullcRegisterFunction("float4__yxzx__float4_ref__", (void*)float4__yxzx__float4_ref__, 113u);
+	__nullcFR[350] = __nullcRegisterFunction("float4__yxzy__float4_ref__", (void*)float4__yxzy__float4_ref__, 113u);
+	__nullcFR[351] = __nullcRegisterFunction("float4__yxzz__float4_ref__", (void*)float4__yxzz__float4_ref__, 113u);
+	__nullcFR[352] = __nullcRegisterFunction("float4__yxzw__float4_ref__", (void*)float4__yxzw__float4_ref__, 113u);
+	__nullcFR[353] = __nullcRegisterFunction("float4__yxzw__void_ref_float4_", (void*)float4__yxzw__void_ref_float4_, 113u);
+	__nullcFR[354] = __nullcRegisterFunction("float4__yxwx__float4_ref__", (void*)float4__yxwx__float4_ref__, 113u);
+	__nullcFR[355] = __nullcRegisterFunction("float4__yxwy__float4_ref__", (void*)float4__yxwy__float4_ref__, 113u);
+	__nullcFR[356] = __nullcRegisterFunction("float4__yxwz__float4_ref__", (void*)float4__yxwz__float4_ref__, 113u);
+	__nullcFR[357] = __nullcRegisterFunction("float4__yxwz__void_ref_float4_", (void*)float4__yxwz__void_ref_float4_, 113u);
+	__nullcFR[358] = __nullcRegisterFunction("float4__yxww__float4_ref__", (void*)float4__yxww__float4_ref__, 113u);
+	__nullcFR[359] = __nullcRegisterFunction("float4__yyxx__float4_ref__", (void*)float4__yyxx__float4_ref__, 113u);
+	__nullcFR[360] = __nullcRegisterFunction("float4__yyxy__float4_ref__", (void*)float4__yyxy__float4_ref__, 113u);
+	__nullcFR[361] = __nullcRegisterFunction("float4__yyxz__float4_ref__", (void*)float4__yyxz__float4_ref__, 113u);
+	__nullcFR[362] = __nullcRegisterFunction("float4__yyxw__float4_ref__", (void*)float4__yyxw__float4_ref__, 113u);
+	__nullcFR[363] = __nullcRegisterFunction("float4__yyyx__float4_ref__", (void*)float4__yyyx__float4_ref__, 113u);
+	__nullcFR[364] = __nullcRegisterFunction("float4__yyyy__float4_ref__", (void*)float4__yyyy__float4_ref__, 113u);
+	__nullcFR[365] = __nullcRegisterFunction("float4__yyyz__float4_ref__", (void*)float4__yyyz__float4_ref__, 113u);
+	__nullcFR[366] = __nullcRegisterFunction("float4__yyyw__float4_ref__", (void*)float4__yyyw__float4_ref__, 113u);
+	__nullcFR[367] = __nullcRegisterFunction("float4__yyzx__float4_ref__", (void*)float4__yyzx__float4_ref__, 113u);
+	__nullcFR[368] = __nullcRegisterFunction("float4__yyzy__float4_ref__", (void*)float4__yyzy__float4_ref__, 113u);
+	__nullcFR[369] = __nullcRegisterFunction("float4__yyzz__float4_ref__", (void*)float4__yyzz__float4_ref__, 113u);
+	__nullcFR[370] = __nullcRegisterFunction("float4__yyzw__float4_ref__", (void*)float4__yyzw__float4_ref__, 113u);
+	__nullcFR[371] = __nullcRegisterFunction("float4__yywx__float4_ref__", (void*)float4__yywx__float4_ref__, 113u);
+	__nullcFR[372] = __nullcRegisterFunction("float4__yywy__float4_ref__", (void*)float4__yywy__float4_ref__, 113u);
+	__nullcFR[373] = __nullcRegisterFunction("float4__yywz__float4_ref__", (void*)float4__yywz__float4_ref__, 113u);
+	__nullcFR[374] = __nullcRegisterFunction("float4__yyww__float4_ref__", (void*)float4__yyww__float4_ref__, 113u);
+	__nullcFR[375] = __nullcRegisterFunction("float4__yzxx__float4_ref__", (void*)float4__yzxx__float4_ref__, 113u);
+	__nullcFR[376] = __nullcRegisterFunction("float4__yzxy__float4_ref__", (void*)float4__yzxy__float4_ref__, 113u);
+	__nullcFR[377] = __nullcRegisterFunction("float4__yzxz__float4_ref__", (void*)float4__yzxz__float4_ref__, 113u);
+	__nullcFR[378] = __nullcRegisterFunction("float4__yzxw__float4_ref__", (void*)float4__yzxw__float4_ref__, 113u);
+	__nullcFR[379] = __nullcRegisterFunction("float4__yzxw__void_ref_float4_", (void*)float4__yzxw__void_ref_float4_, 113u);
+	__nullcFR[380] = __nullcRegisterFunction("float4__yzyx__float4_ref__", (void*)float4__yzyx__float4_ref__, 113u);
+	__nullcFR[381] = __nullcRegisterFunction("float4__yzyy__float4_ref__", (void*)float4__yzyy__float4_ref__, 113u);
+	__nullcFR[382] = __nullcRegisterFunction("float4__yzyz__float4_ref__", (void*)float4__yzyz__float4_ref__, 113u);
+	__nullcFR[383] = __nullcRegisterFunction("float4__yzyw__float4_ref__", (void*)float4__yzyw__float4_ref__, 113u);
+	__nullcFR[384] = __nullcRegisterFunction("float4__yzzx__float4_ref__", (void*)float4__yzzx__float4_ref__, 113u);
+	__nullcFR[385] = __nullcRegisterFunction("float4__yzzy__float4_ref__", (void*)float4__yzzy__float4_ref__, 113u);
+	__nullcFR[386] = __nullcRegisterFunction("float4__yzzz__float4_ref__", (void*)float4__yzzz__float4_ref__, 113u);
+	__nullcFR[387] = __nullcRegisterFunction("float4__yzzw__float4_ref__", (void*)float4__yzzw__float4_ref__, 113u);
+	__nullcFR[388] = __nullcRegisterFunction("float4__yzwx__float4_ref__", (void*)float4__yzwx__float4_ref__, 113u);
+	__nullcFR[389] = __nullcRegisterFunction("float4__yzwx__void_ref_float4_", (void*)float4__yzwx__void_ref_float4_, 113u);
+	__nullcFR[390] = __nullcRegisterFunction("float4__yzwy__float4_ref__", (void*)float4__yzwy__float4_ref__, 113u);
+	__nullcFR[391] = __nullcRegisterFunction("float4__yzwz__float4_ref__", (void*)float4__yzwz__float4_ref__, 113u);
+	__nullcFR[392] = __nullcRegisterFunction("float4__yzww__float4_ref__", (void*)float4__yzww__float4_ref__, 113u);
+	__nullcFR[393] = __nullcRegisterFunction("float4__ywxx__float4_ref__", (void*)float4__ywxx__float4_ref__, 113u);
+	__nullcFR[394] = __nullcRegisterFunction("float4__ywxy__float4_ref__", (void*)float4__ywxy__float4_ref__, 113u);
+	__nullcFR[395] = __nullcRegisterFunction("float4__ywxz__float4_ref__", (void*)float4__ywxz__float4_ref__, 113u);
+	__nullcFR[396] = __nullcRegisterFunction("float4__ywxz__void_ref_float4_", (void*)float4__ywxz__void_ref_float4_, 113u);
+	__nullcFR[397] = __nullcRegisterFunction("float4__ywxw__float4_ref__", (void*)float4__ywxw__float4_ref__, 113u);
+	__nullcFR[398] = __nullcRegisterFunction("float4__ywyx__float4_ref__", (void*)float4__ywyx__float4_ref__, 113u);
+	__nullcFR[399] = __nullcRegisterFunction("float4__ywyy__float4_ref__", (void*)float4__ywyy__float4_ref__, 113u);
+	__nullcFR[400] = __nullcRegisterFunction("float4__ywyz__float4_ref__", (void*)float4__ywyz__float4_ref__, 113u);
+	__nullcFR[401] = __nullcRegisterFunction("float4__ywyw__float4_ref__", (void*)float4__ywyw__float4_ref__, 113u);
+	__nullcFR[402] = __nullcRegisterFunction("float4__ywzx__float4_ref__", (void*)float4__ywzx__float4_ref__, 113u);
+	__nullcFR[403] = __nullcRegisterFunction("float4__ywzx__void_ref_float4_", (void*)float4__ywzx__void_ref_float4_, 113u);
+	__nullcFR[404] = __nullcRegisterFunction("float4__ywzy__float4_ref__", (void*)float4__ywzy__float4_ref__, 113u);
+	__nullcFR[405] = __nullcRegisterFunction("float4__ywzz__float4_ref__", (void*)float4__ywzz__float4_ref__, 113u);
+	__nullcFR[406] = __nullcRegisterFunction("float4__ywzw__float4_ref__", (void*)float4__ywzw__float4_ref__, 113u);
+	__nullcFR[407] = __nullcRegisterFunction("float4__ywwx__float4_ref__", (void*)float4__ywwx__float4_ref__, 113u);
+	__nullcFR[408] = __nullcRegisterFunction("float4__ywwy__float4_ref__", (void*)float4__ywwy__float4_ref__, 113u);
+	__nullcFR[409] = __nullcRegisterFunction("float4__ywwz__float4_ref__", (void*)float4__ywwz__float4_ref__, 113u);
+	__nullcFR[410] = __nullcRegisterFunction("float4__ywww__float4_ref__", (void*)float4__ywww__float4_ref__, 113u);
+	__nullcFR[411] = __nullcRegisterFunction("float4__zxxx__float4_ref__", (void*)float4__zxxx__float4_ref__, 113u);
+	__nullcFR[412] = __nullcRegisterFunction("float4__zxxy__float4_ref__", (void*)float4__zxxy__float4_ref__, 113u);
+	__nullcFR[413] = __nullcRegisterFunction("float4__zxxz__float4_ref__", (void*)float4__zxxz__float4_ref__, 113u);
+	__nullcFR[414] = __nullcRegisterFunction("float4__zxxw__float4_ref__", (void*)float4__zxxw__float4_ref__, 113u);
+	__nullcFR[415] = __nullcRegisterFunction("float4__zxyx__float4_ref__", (void*)float4__zxyx__float4_ref__, 113u);
+	__nullcFR[416] = __nullcRegisterFunction("float4__zxyy__float4_ref__", (void*)float4__zxyy__float4_ref__, 113u);
+	__nullcFR[417] = __nullcRegisterFunction("float4__zxyz__float4_ref__", (void*)float4__zxyz__float4_ref__, 113u);
+	__nullcFR[418] = __nullcRegisterFunction("float4__zxyw__float4_ref__", (void*)float4__zxyw__float4_ref__, 113u);
+	__nullcFR[419] = __nullcRegisterFunction("float4__zxyw__void_ref_float4_", (void*)float4__zxyw__void_ref_float4_, 113u);
+	__nullcFR[420] = __nullcRegisterFunction("float4__zxzx__float4_ref__", (void*)float4__zxzx__float4_ref__, 113u);
+	__nullcFR[421] = __nullcRegisterFunction("float4__zxzy__float4_ref__", (void*)float4__zxzy__float4_ref__, 113u);
+	__nullcFR[422] = __nullcRegisterFunction("float4__zxzz__float4_ref__", (void*)float4__zxzz__float4_ref__, 113u);
+	__nullcFR[423] = __nullcRegisterFunction("float4__zxzw__float4_ref__", (void*)float4__zxzw__float4_ref__, 113u);
+	__nullcFR[424] = __nullcRegisterFunction("float4__zxwx__float4_ref__", (void*)float4__zxwx__float4_ref__, 113u);
+	__nullcFR[425] = __nullcRegisterFunction("float4__zxwy__float4_ref__", (void*)float4__zxwy__float4_ref__, 113u);
+	__nullcFR[426] = __nullcRegisterFunction("float4__zxwy__void_ref_float4_", (void*)float4__zxwy__void_ref_float4_, 113u);
+	__nullcFR[427] = __nullcRegisterFunction("float4__zxwz__float4_ref__", (void*)float4__zxwz__float4_ref__, 113u);
+	__nullcFR[428] = __nullcRegisterFunction("float4__zxww__float4_ref__", (void*)float4__zxww__float4_ref__, 113u);
+	__nullcFR[429] = __nullcRegisterFunction("float4__zyxx__float4_ref__", (void*)float4__zyxx__float4_ref__, 113u);
+	__nullcFR[430] = __nullcRegisterFunction("float4__zyxy__float4_ref__", (void*)float4__zyxy__float4_ref__, 113u);
+	__nullcFR[431] = __nullcRegisterFunction("float4__zyxz__float4_ref__", (void*)float4__zyxz__float4_ref__, 113u);
+	__nullcFR[432] = __nullcRegisterFunction("float4__zyxw__float4_ref__", (void*)float4__zyxw__float4_ref__, 113u);
+	__nullcFR[433] = __nullcRegisterFunction("float4__zyxw__void_ref_float4_", (void*)float4__zyxw__void_ref_float4_, 113u);
+	__nullcFR[434] = __nullcRegisterFunction("float4__zyyx__float4_ref__", (void*)float4__zyyx__float4_ref__, 113u);
+	__nullcFR[435] = __nullcRegisterFunction("float4__zyyy__float4_ref__", (void*)float4__zyyy__float4_ref__, 113u);
+	__nullcFR[436] = __nullcRegisterFunction("float4__zyyz__float4_ref__", (void*)float4__zyyz__float4_ref__, 113u);
+	__nullcFR[437] = __nullcRegisterFunction("float4__zyyw__float4_ref__", (void*)float4__zyyw__float4_ref__, 113u);
+	__nullcFR[438] = __nullcRegisterFunction("float4__zyzx__float4_ref__", (void*)float4__zyzx__float4_ref__, 113u);
+	__nullcFR[439] = __nullcRegisterFunction("float4__zyzy__float4_ref__", (void*)float4__zyzy__float4_ref__, 113u);
+	__nullcFR[440] = __nullcRegisterFunction("float4__zyzz__float4_ref__", (void*)float4__zyzz__float4_ref__, 113u);
+	__nullcFR[441] = __nullcRegisterFunction("float4__zyzw__float4_ref__", (void*)float4__zyzw__float4_ref__, 113u);
+	__nullcFR[442] = __nullcRegisterFunction("float4__zywx__float4_ref__", (void*)float4__zywx__float4_ref__, 113u);
+	__nullcFR[443] = __nullcRegisterFunction("float4__zywx__void_ref_float4_", (void*)float4__zywx__void_ref_float4_, 113u);
+	__nullcFR[444] = __nullcRegisterFunction("float4__zywy__float4_ref__", (void*)float4__zywy__float4_ref__, 113u);
+	__nullcFR[445] = __nullcRegisterFunction("float4__zywz__float4_ref__", (void*)float4__zywz__float4_ref__, 113u);
+	__nullcFR[446] = __nullcRegisterFunction("float4__zyww__float4_ref__", (void*)float4__zyww__float4_ref__, 113u);
+	__nullcFR[447] = __nullcRegisterFunction("float4__zzxx__float4_ref__", (void*)float4__zzxx__float4_ref__, 113u);
+	__nullcFR[448] = __nullcRegisterFunction("float4__zzxy__float4_ref__", (void*)float4__zzxy__float4_ref__, 113u);
+	__nullcFR[449] = __nullcRegisterFunction("float4__zzxz__float4_ref__", (void*)float4__zzxz__float4_ref__, 113u);
+	__nullcFR[450] = __nullcRegisterFunction("float4__zzxw__float4_ref__", (void*)float4__zzxw__float4_ref__, 113u);
+	__nullcFR[451] = __nullcRegisterFunction("float4__zzyx__float4_ref__", (void*)float4__zzyx__float4_ref__, 113u);
+	__nullcFR[452] = __nullcRegisterFunction("float4__zzyy__float4_ref__", (void*)float4__zzyy__float4_ref__, 113u);
+	__nullcFR[453] = __nullcRegisterFunction("float4__zzyz__float4_ref__", (void*)float4__zzyz__float4_ref__, 113u);
+	__nullcFR[454] = __nullcRegisterFunction("float4__zzyw__float4_ref__", (void*)float4__zzyw__float4_ref__, 113u);
+	__nullcFR[455] = __nullcRegisterFunction("float4__zzzx__float4_ref__", (void*)float4__zzzx__float4_ref__, 113u);
+	__nullcFR[456] = __nullcRegisterFunction("float4__zzzy__float4_ref__", (void*)float4__zzzy__float4_ref__, 113u);
+	__nullcFR[457] = __nullcRegisterFunction("float4__zzzz__float4_ref__", (void*)float4__zzzz__float4_ref__, 113u);
+	__nullcFR[458] = __nullcRegisterFunction("float4__zzzw__float4_ref__", (void*)float4__zzzw__float4_ref__, 113u);
+	__nullcFR[459] = __nullcRegisterFunction("float4__zzwx__float4_ref__", (void*)float4__zzwx__float4_ref__, 113u);
+	__nullcFR[460] = __nullcRegisterFunction("float4__zzwy__float4_ref__", (void*)float4__zzwy__float4_ref__, 113u);
+	__nullcFR[461] = __nullcRegisterFunction("float4__zzwz__float4_ref__", (void*)float4__zzwz__float4_ref__, 113u);
+	__nullcFR[462] = __nullcRegisterFunction("float4__zzww__float4_ref__", (void*)float4__zzww__float4_ref__, 113u);
+	__nullcFR[463] = __nullcRegisterFunction("float4__zwxx__float4_ref__", (void*)float4__zwxx__float4_ref__, 113u);
+	__nullcFR[464] = __nullcRegisterFunction("float4__zwxy__float4_ref__", (void*)float4__zwxy__float4_ref__, 113u);
+	__nullcFR[465] = __nullcRegisterFunction("float4__zwxy__void_ref_float4_", (void*)float4__zwxy__void_ref_float4_, 113u);
+	__nullcFR[466] = __nullcRegisterFunction("float4__zwxz__float4_ref__", (void*)float4__zwxz__float4_ref__, 113u);
+	__nullcFR[467] = __nullcRegisterFunction("float4__zwxw__float4_ref__", (void*)float4__zwxw__float4_ref__, 113u);
+	__nullcFR[468] = __nullcRegisterFunction("float4__zwyx__float4_ref__", (void*)float4__zwyx__float4_ref__, 113u);
+	__nullcFR[469] = __nullcRegisterFunction("float4__zwyx__void_ref_float4_", (void*)float4__zwyx__void_ref_float4_, 113u);
+	__nullcFR[470] = __nullcRegisterFunction("float4__zwyy__float4_ref__", (void*)float4__zwyy__float4_ref__, 113u);
+	__nullcFR[471] = __nullcRegisterFunction("float4__zwyz__float4_ref__", (void*)float4__zwyz__float4_ref__, 113u);
+	__nullcFR[472] = __nullcRegisterFunction("float4__zwyw__float4_ref__", (void*)float4__zwyw__float4_ref__, 113u);
+	__nullcFR[473] = __nullcRegisterFunction("float4__zwzx__float4_ref__", (void*)float4__zwzx__float4_ref__, 113u);
+	__nullcFR[474] = __nullcRegisterFunction("float4__zwzy__float4_ref__", (void*)float4__zwzy__float4_ref__, 113u);
+	__nullcFR[475] = __nullcRegisterFunction("float4__zwzz__float4_ref__", (void*)float4__zwzz__float4_ref__, 113u);
+	__nullcFR[476] = __nullcRegisterFunction("float4__zwzw__float4_ref__", (void*)float4__zwzw__float4_ref__, 113u);
+	__nullcFR[477] = __nullcRegisterFunction("float4__zwwx__float4_ref__", (void*)float4__zwwx__float4_ref__, 113u);
+	__nullcFR[478] = __nullcRegisterFunction("float4__zwwy__float4_ref__", (void*)float4__zwwy__float4_ref__, 113u);
+	__nullcFR[479] = __nullcRegisterFunction("float4__zwwz__float4_ref__", (void*)float4__zwwz__float4_ref__, 113u);
+	__nullcFR[480] = __nullcRegisterFunction("float4__zwww__float4_ref__", (void*)float4__zwww__float4_ref__, 113u);
+	__nullcFR[481] = __nullcRegisterFunction("float4__wxxx__float4_ref__", (void*)float4__wxxx__float4_ref__, 113u);
+	__nullcFR[482] = __nullcRegisterFunction("float4__wxxy__float4_ref__", (void*)float4__wxxy__float4_ref__, 113u);
+	__nullcFR[483] = __nullcRegisterFunction("float4__wxxz__float4_ref__", (void*)float4__wxxz__float4_ref__, 113u);
+	__nullcFR[484] = __nullcRegisterFunction("float4__wxxw__float4_ref__", (void*)float4__wxxw__float4_ref__, 113u);
+	__nullcFR[485] = __nullcRegisterFunction("float4__wxyx__float4_ref__", (void*)float4__wxyx__float4_ref__, 113u);
+	__nullcFR[486] = __nullcRegisterFunction("float4__wxyy__float4_ref__", (void*)float4__wxyy__float4_ref__, 113u);
+	__nullcFR[487] = __nullcRegisterFunction("float4__wxyz__float4_ref__", (void*)float4__wxyz__float4_ref__, 113u);
+	__nullcFR[488] = __nullcRegisterFunction("float4__wxyz__void_ref_float4_", (void*)float4__wxyz__void_ref_float4_, 113u);
+	__nullcFR[489] = __nullcRegisterFunction("float4__wxyw__float4_ref__", (void*)float4__wxyw__float4_ref__, 113u);
+	__nullcFR[490] = __nullcRegisterFunction("float4__wxzx__float4_ref__", (void*)float4__wxzx__float4_ref__, 113u);
+	__nullcFR[491] = __nullcRegisterFunction("float4__wxzy__float4_ref__", (void*)float4__wxzy__float4_ref__, 113u);
+	__nullcFR[492] = __nullcRegisterFunction("float4__wxzy__void_ref_float4_", (void*)float4__wxzy__void_ref_float4_, 113u);
+	__nullcFR[493] = __nullcRegisterFunction("float4__wxzz__float4_ref__", (void*)float4__wxzz__float4_ref__, 113u);
+	__nullcFR[494] = __nullcRegisterFunction("float4__wxzw__float4_ref__", (void*)float4__wxzw__float4_ref__, 113u);
+	__nullcFR[495] = __nullcRegisterFunction("float4__wxwx__float4_ref__", (void*)float4__wxwx__float4_ref__, 113u);
+	__nullcFR[496] = __nullcRegisterFunction("float4__wxwy__float4_ref__", (void*)float4__wxwy__float4_ref__, 113u);
+	__nullcFR[497] = __nullcRegisterFunction("float4__wxwz__float4_ref__", (void*)float4__wxwz__float4_ref__, 113u);
+	__nullcFR[498] = __nullcRegisterFunction("float4__wxww__float4_ref__", (void*)float4__wxww__float4_ref__, 113u);
+	__nullcFR[499] = __nullcRegisterFunction("float4__wyxx__float4_ref__", (void*)float4__wyxx__float4_ref__, 113u);
+	__nullcFR[500] = __nullcRegisterFunction("float4__wyxy__float4_ref__", (void*)float4__wyxy__float4_ref__, 113u);
+	__nullcFR[501] = __nullcRegisterFunction("float4__wyxz__float4_ref__", (void*)float4__wyxz__float4_ref__, 113u);
+	__nullcFR[502] = __nullcRegisterFunction("float4__wyxz__void_ref_float4_", (void*)float4__wyxz__void_ref_float4_, 113u);
+	__nullcFR[503] = __nullcRegisterFunction("float4__wyxw__float4_ref__", (void*)float4__wyxw__float4_ref__, 113u);
+	__nullcFR[504] = __nullcRegisterFunction("float4__wyyx__float4_ref__", (void*)float4__wyyx__float4_ref__, 113u);
+	__nullcFR[505] = __nullcRegisterFunction("float4__wyyy__float4_ref__", (void*)float4__wyyy__float4_ref__, 113u);
+	__nullcFR[506] = __nullcRegisterFunction("float4__wyyz__float4_ref__", (void*)float4__wyyz__float4_ref__, 113u);
+	__nullcFR[507] = __nullcRegisterFunction("float4__wyyw__float4_ref__", (void*)float4__wyyw__float4_ref__, 113u);
+	__nullcFR[508] = __nullcRegisterFunction("float4__wyzx__float4_ref__", (void*)float4__wyzx__float4_ref__, 113u);
+	__nullcFR[509] = __nullcRegisterFunction("float4__wyzx__void_ref_float4_", (void*)float4__wyzx__void_ref_float4_, 113u);
+	__nullcFR[510] = __nullcRegisterFunction("float4__wyzy__float4_ref__", (void*)float4__wyzy__float4_ref__, 113u);
+	__nullcFR[511] = __nullcRegisterFunction("float4__wyzz__float4_ref__", (void*)float4__wyzz__float4_ref__, 113u);
+	__nullcFR[512] = __nullcRegisterFunction("float4__wyzw__float4_ref__", (void*)float4__wyzw__float4_ref__, 113u);
+	__nullcFR[513] = __nullcRegisterFunction("float4__wywx__float4_ref__", (void*)float4__wywx__float4_ref__, 113u);
+	__nullcFR[514] = __nullcRegisterFunction("float4__wywy__float4_ref__", (void*)float4__wywy__float4_ref__, 113u);
+	__nullcFR[515] = __nullcRegisterFunction("float4__wywz__float4_ref__", (void*)float4__wywz__float4_ref__, 113u);
+	__nullcFR[516] = __nullcRegisterFunction("float4__wyww__float4_ref__", (void*)float4__wyww__float4_ref__, 113u);
+	__nullcFR[517] = __nullcRegisterFunction("float4__wzxx__float4_ref__", (void*)float4__wzxx__float4_ref__, 113u);
+	__nullcFR[518] = __nullcRegisterFunction("float4__wzxy__float4_ref__", (void*)float4__wzxy__float4_ref__, 113u);
+	__nullcFR[519] = __nullcRegisterFunction("float4__wzxy__void_ref_float4_", (void*)float4__wzxy__void_ref_float4_, 113u);
+	__nullcFR[520] = __nullcRegisterFunction("float4__wzxz__float4_ref__", (void*)float4__wzxz__float4_ref__, 113u);
+	__nullcFR[521] = __nullcRegisterFunction("float4__wzxw__float4_ref__", (void*)float4__wzxw__float4_ref__, 113u);
+	__nullcFR[522] = __nullcRegisterFunction("float4__wzyx__float4_ref__", (void*)float4__wzyx__float4_ref__, 113u);
+	__nullcFR[523] = __nullcRegisterFunction("float4__wzyx__void_ref_float4_", (void*)float4__wzyx__void_ref_float4_, 113u);
+	__nullcFR[524] = __nullcRegisterFunction("float4__wzyy__float4_ref__", (void*)float4__wzyy__float4_ref__, 113u);
+	__nullcFR[525] = __nullcRegisterFunction("float4__wzyz__float4_ref__", (void*)float4__wzyz__float4_ref__, 113u);
+	__nullcFR[526] = __nullcRegisterFunction("float4__wzyw__float4_ref__", (void*)float4__wzyw__float4_ref__, 113u);
+	__nullcFR[527] = __nullcRegisterFunction("float4__wzzx__float4_ref__", (void*)float4__wzzx__float4_ref__, 113u);
+	__nullcFR[528] = __nullcRegisterFunction("float4__wzzy__float4_ref__", (void*)float4__wzzy__float4_ref__, 113u);
+	__nullcFR[529] = __nullcRegisterFunction("float4__wzzz__float4_ref__", (void*)float4__wzzz__float4_ref__, 113u);
+	__nullcFR[530] = __nullcRegisterFunction("float4__wzzw__float4_ref__", (void*)float4__wzzw__float4_ref__, 113u);
+	__nullcFR[531] = __nullcRegisterFunction("float4__wzwx__float4_ref__", (void*)float4__wzwx__float4_ref__, 113u);
+	__nullcFR[532] = __nullcRegisterFunction("float4__wzwy__float4_ref__", (void*)float4__wzwy__float4_ref__, 113u);
+	__nullcFR[533] = __nullcRegisterFunction("float4__wzwz__float4_ref__", (void*)float4__wzwz__float4_ref__, 113u);
+	__nullcFR[534] = __nullcRegisterFunction("float4__wzww__float4_ref__", (void*)float4__wzww__float4_ref__, 113u);
+	__nullcFR[535] = __nullcRegisterFunction("float4__wwxx__float4_ref__", (void*)float4__wwxx__float4_ref__, 113u);
+	__nullcFR[536] = __nullcRegisterFunction("float4__wwxy__float4_ref__", (void*)float4__wwxy__float4_ref__, 113u);
+	__nullcFR[537] = __nullcRegisterFunction("float4__wwxz__float4_ref__", (void*)float4__wwxz__float4_ref__, 113u);
+	__nullcFR[538] = __nullcRegisterFunction("float4__wwxw__float4_ref__", (void*)float4__wwxw__float4_ref__, 113u);
+	__nullcFR[539] = __nullcRegisterFunction("float4__wwyx__float4_ref__", (void*)float4__wwyx__float4_ref__, 113u);
+	__nullcFR[540] = __nullcRegisterFunction("float4__wwyy__float4_ref__", (void*)float4__wwyy__float4_ref__, 113u);
+	__nullcFR[541] = __nullcRegisterFunction("float4__wwyz__float4_ref__", (void*)float4__wwyz__float4_ref__, 113u);
+	__nullcFR[542] = __nullcRegisterFunction("float4__wwyw__float4_ref__", (void*)float4__wwyw__float4_ref__, 113u);
+	__nullcFR[543] = __nullcRegisterFunction("float4__wwzx__float4_ref__", (void*)float4__wwzx__float4_ref__, 113u);
+	__nullcFR[544] = __nullcRegisterFunction("float4__wwzy__float4_ref__", (void*)float4__wwzy__float4_ref__, 113u);
+	__nullcFR[545] = __nullcRegisterFunction("float4__wwzz__float4_ref__", (void*)float4__wwzz__float4_ref__, 113u);
+	__nullcFR[546] = __nullcRegisterFunction("float4__wwzw__float4_ref__", (void*)float4__wwzw__float4_ref__, 113u);
+	__nullcFR[547] = __nullcRegisterFunction("float4__wwwx__float4_ref__", (void*)float4__wwwx__float4_ref__, 113u);
+	__nullcFR[548] = __nullcRegisterFunction("float4__wwwy__float4_ref__", (void*)float4__wwwy__float4_ref__, 113u);
+	__nullcFR[549] = __nullcRegisterFunction("float4__wwwz__float4_ref__", (void*)float4__wwwz__float4_ref__, 113u);
+	__nullcFR[550] = __nullcRegisterFunction("float4__wwww__float4_ref__", (void*)float4__wwww__float4_ref__, 113u);
 	__nullcFR[551] = 0;
 	__nullcFR[552] = 0;
 	__nullcFR[553] = 0;
@@ -3494,16 +3506,16 @@ int __init_std_math_nc()
 	__nullcFR[568] = 0;
 	__nullcFR[569] = 0;
 	__nullcFR[570] = 0;
-	__nullcFR[571] = __nullcRegisterFunction("reflect", (void*)reflect);
+	__nullcFR[571] = __nullcRegisterFunction("reflect", (void*)reflect, 31u);
 	__nullcFR[572] = 0;
 	__nullcFR[573] = 0;
 	__nullcFR[574] = 0;
-	__nullcFR[575] = __nullcRegisterFunction("float2__length_float_ref__", (void*)float2__length_float_ref__);
-	__nullcFR[576] = __nullcRegisterFunction("float2__normalize_float_ref__", (void*)float2__normalize_float_ref__);
-	__nullcFR[577] = __nullcRegisterFunction("float3__length_float_ref__", (void*)float3__length_float_ref__);
-	__nullcFR[578] = __nullcRegisterFunction("float3__normalize_float_ref__", (void*)float3__normalize_float_ref__);
-	__nullcFR[579] = __nullcRegisterFunction("float4__length_float_ref__", (void*)float4__length_float_ref__);
-	__nullcFR[580] = __nullcRegisterFunction("float4__normalize_float_ref__", (void*)float4__normalize_float_ref__);
+	__nullcFR[575] = __nullcRegisterFunction("float2__length_float_ref__", (void*)float2__length_float_ref__, 4294967295u);
+	__nullcFR[576] = __nullcRegisterFunction("float2__normalize_float_ref__", (void*)float2__normalize_float_ref__, 4294967295u);
+	__nullcFR[577] = __nullcRegisterFunction("float3__length_float_ref__", (void*)float3__length_float_ref__, 4294967295u);
+	__nullcFR[578] = __nullcRegisterFunction("float3__normalize_float_ref__", (void*)float3__normalize_float_ref__, 4294967295u);
+	__nullcFR[579] = __nullcRegisterFunction("float4__length_float_ref__", (void*)float4__length_float_ref__, 4294967295u);
+	__nullcFR[580] = __nullcRegisterFunction("float4__normalize_float_ref__", (void*)float4__normalize_float_ref__, 4294967295u);
 	__nullcFR[581] = 0;
 	__nullcFR[582] = 0;
 	__nullcFR[583] = 0;

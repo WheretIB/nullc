@@ -1076,13 +1076,14 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
 			}
 		}
-		if(info->type == FunctionInfo::LOCAL && info->closeUpvals)
+		if((info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE) && info->closeUpvals)
 		{
 			fprintf(fC, "__nullcUpvalue *__upvalue_%d___", CodeInfo::FindFunctionByPtr(info));
+			FunctionInfo::FunctionCategory cat = info->type;
 			info->type = FunctionInfo::NORMAL;
 			info->visible = true;
 			OutputCFunctionName(fC, info);
-			info->type = FunctionInfo::LOCAL;
+			info->type = cat;
 			info->visible = false;
 			fprintf(fC, "_%d_ext_%d = 0;\r\n", CodeInfo::FindFunctionByPtr(info), info->allParamSize);
 		}else if(info->type == FunctionInfo::THISCALL && info->closeUpvals){
@@ -1122,7 +1123,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		if(info->type == FunctionInfo::THISCALL)
 		{
 			info->parentClass->OutputCType(fC, "* __context");
-		}else if(info->type == FunctionInfo::LOCAL){
+		}else if((info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE)){
 			fprintf(fC, "void* __");
 			OutputCFunctionName(fC, info);
 			fprintf(fC, "_ext");
@@ -1173,6 +1174,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		fprintf(fC, "int %s()\r\n{\r\n", mainName);
 		fprintf(fC, "\tstatic int moduleInitialized = 0;\r\n\tif(moduleInitialized++)\r\n\t\treturn 0;\r\n");
 		fprintf(fC, "\t__nullcFM = __nullcGetFunctionTable();\r\n");
+		fprintf(fC, "\tint __local = 0;\r\n\t__nullcRegisterBase((void*)&__local);\r\n");
 		for(unsigned int i = 1; i < activeModules.size(); i++)
 		{
 			fprintf(fC, "\t__init_");
@@ -1200,8 +1202,40 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				fprintf(fC, "%d, NULLC_POINTER);\r\n", 1);
 			else if(type->funcType)
 				fprintf(fC, "%d, NULLC_FUNCTION);\r\n", type->funcType->paramCount);
-			else
+			else if(i >= 7) // 7 = { void, char, short, int, long, float, double }.length
 				fprintf(fC, "%d, NULLC_CLASS);\r\n", type->memberCount);
+			else
+				fprintf(fC, "%d, 0);\r\n", type->memberCount);
+		}
+		for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+		{
+			TypeInfo *type = CodeInfo::typeInfo[i];
+			if(type->arrLevel)
+				continue;
+			else if(type->refLevel)
+				continue;
+			else if(type->funcType)
+				continue;
+			else if(i >= 7){ // 7 = { void, char, short, int, long, float, double }.length
+				fprintf(fC, "\t__nullcRegisterMembers(__nullcTR[%d], %d", i, type->memberCount);
+				for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
+				{
+					fprintf(fC, ", __nullcTR[%d]", curr->type->typeIndex);
+					fprintf(fC, ", %d", curr->offset);
+				}
+				fprintf(fC, ");\r\n");
+			}
+		}
+		for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
+		{
+			VariableInfo *varInfo = CodeInfo::varInfo[i];
+			if(varInfo->pos >> 24)
+				continue;
+			char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+			const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
+			unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
+			sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+			fprintf(fC, "\t__nullcRegisterGlobal((void*)&%s, __nullcTR[%d]);\r\n", vName, varInfo->varType->typeIndex);
 		}
 		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 		{
@@ -1228,7 +1262,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				OutputCFunctionName(fC, info);
 				fprintf(fC, "\", (void*)");
 				OutputCFunctionName(fC, info);
-				fprintf(fC, ");\r\n");
+				fprintf(fC, ", %uu);\r\n", info->extraParam ? info->extraParam->varType->typeIndex : -1);
 			}
 		}
 		CodeInfo::nodeList.back()->TranslateToC(fC);
