@@ -1,9 +1,10 @@
 #include "runtime.h"
 #include <memory>
 #include <math.h>
+#include <time.h>
 #include <stdarg.h>
 #undef assert
-#define __assert(_Expression) if(!_Expression){ printf("assertion failed"); abort(); };
+#define __assert(_Expression) if(!(_Expression)){ printf("assertion failed"); abort(); };
 
 template<typename T>
 class FastVector
@@ -26,6 +27,14 @@ public:
 	~FastVector()
 	{
 		free(data);
+	}
+	void	reset()
+	{
+		free(data);
+		data = (T*)malloc(sizeof(T) * 128);
+		memset(data, 0, sizeof(T));
+		max = 128;
+		count = 0;
 	}
 
 	T*		push_back()
@@ -99,7 +108,6 @@ public:
 		max = newSize;
 	}
 	T	*data;
-	T	one;
 	unsigned int	max, count;
 private:
 	// Disable assignment and copy constructor
@@ -108,6 +116,8 @@ private:
 };
 
 FastVector<NULLCTypeInfo>	__nullcTypeList;
+FastVector<unsigned int>	__nullcTypePart;
+
 unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category)
 {
 	for(unsigned int i = 0; i < __nullcTypeList.size(); i++)
@@ -122,7 +132,22 @@ unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, uns
 	__nullcTypeList.back().subTypeID = subTypeID;
 	__nullcTypeList.back().memberCount = memberCount;
 	__nullcTypeList.back().category = category;
+	__nullcTypeList.back().members = 0;
 	return __nullcTypeList.size() - 1;
+}
+void __nullcRegisterMembers(unsigned id, unsigned count, ...)
+{
+	if(__nullcTypeList[id].members || !count)
+		return;
+	va_list args;
+	va_start(args, count);
+	__nullcTypeList[id].members = __nullcTypePart.size();
+	for(unsigned i = 0; i < count * 2; i++)
+	{
+		__nullcTypePart.push_back(va_arg(args, int));
+		__nullcTypePart.push_back(va_arg(args, int));
+	}
+	va_end(args);
 }
 
 NULLCTypeInfo* __nullcGetTypeInfo(unsigned id)
@@ -464,22 +489,6 @@ NULLCArray<char>  int__str_char___ref__(int* r)
 	return arr;
 }
 
-int  __newS(int size, void* unused)
-{
-	void *ptr = malloc(size);
-	memset(ptr, 0, size);
-	return (int)(intptr_t)ptr;
-}
-
-NULLCArray<void>  __newA(int size, int count, void* unused)
-{
-	NULLCArray<void> ret;
-	ret.size = count;
-	ret.ptr = (char*)malloc(size * count);
-	memset(ret.ptr, 0, size * count);
-	return ret;
-}
-
 NULLCRef  duplicate(NULLCRef obj, void* unused)
 {
 	NULLCRef ret;
@@ -643,7 +652,17 @@ NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src,
 }
 
 FastVector<__nullcFunction> funcTable;
-FastVector<unsigned> funcTableHash;
+struct NULLCFuncInfo
+{
+	unsigned	hash;
+	unsigned	extraType;
+	NULLCFuncInfo(unsigned nHash, unsigned nType)
+	{
+		hash = nHash;
+		extraType = nType;
+	}
+};
+FastVector<NULLCFuncInfo> funcTableExt;
 
 __nullcFunctionArray* __nullcGetFunctionTable()
 {
@@ -659,13 +678,726 @@ unsigned int GetStringHash(const char *str)
 	return hash;
 }
 
-unsigned __nullcRegisterFunction(const char* name, void* fPtr)
+unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType)
 {
 	unsigned hash = GetStringHash(name);
 	for(unsigned int i = 0; i < funcTable.size(); i++)
-		if(funcTableHash[i] == hash)
+		if(funcTableExt[i].hash == hash)
 			return i;
 	funcTable.push_back(fPtr);
-	funcTableHash.push_back(hash);
+	funcTableExt.push_back(NULLCFuncInfo(hash, extraType));
 	return funcTable.size() - 1;
+}
+
+// Memory allocation and GC
+
+#define GC_DEBUG_PRINT(...)
+//#define GC_DEBUG_PRINT printf
+
+namespace GC
+{
+	// Range of memory that is not checked. Used to exclude pointers to stack from marking and GC
+	char	*unmanageableBase = NULL;
+	char	*unmanageableTop = NULL;
+}
+#define NULLC_PTR_SIZE sizeof(void*)
+namespace GC
+{
+	unsigned int	objectName = GetStringHash("auto ref");
+	unsigned int	autoArrayName = GetStringHash("auto[]");
+
+	void CheckArray(char* ptr, const NULLCTypeInfo& type);
+	void CheckClass(char* ptr, const NULLCTypeInfo& type);
+	void CheckFunction(char* ptr);
+	void CheckVariable(char* ptr, const NULLCTypeInfo& type);
+
+	// Function that marks memory blocks belonging to GC
+	void MarkPointer(char* ptr, const NULLCTypeInfo& type, bool takeSubtype)
+	{
+		// We have pointer to stack that has a pointer inside, so 'ptr' is really a pointer to pointer
+		char **rPtr = (char**)ptr;
+		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
+		if(*rPtr > (char*)0x00010000 && (*rPtr < unmanageableBase || *rPtr > unmanageableTop))
+		{
+			// Get type that pointer points to
+			GC_DEBUG_PRINT("\tGlobal pointer %s %p (at %p)\r\n", type.name, *rPtr, ptr);
+
+			// Get pointer to the start of memory block. Some pointers may point to the middle of memory blocks
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(*rPtr);
+			// If there is no base, this pointer points to memory that is not GCs memory
+			if(!basePtr)
+				return;
+			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
+			// Marker is 4 bytes before the block
+			unsigned int *marker = (unsigned int*)(basePtr)-1;
+			GC_DEBUG_PRINT("\tMarker is %d\r\n", *marker & 0xff);
+
+			// If block is unmarked
+			if((*marker & 0xff) == 0)
+			{
+				// Mark block as used
+				*marker |= 1;
+				GC_DEBUG_PRINT("Type near memory %d, type %d (%d)\n", *marker >> 8, type.subTypeID, takeSubtype);
+				// And if type is not simple, check memory to which pointer points to
+				if(type.category != NULLC_NONE)
+					CheckVariable(*rPtr, takeSubtype ? __nullcTypeList[/*type.subTypeID*/*marker >> 8] : type);
+			}else if(takeSubtype && __nullcTypeList[type.subTypeID].category == NULLC_POINTER){
+				MarkPointer(*rPtr, __nullcTypeList[type.subTypeID], true); 
+			}
+		}
+	}
+
+	// Function that checks arrays for pointers
+	void CheckArray(char* ptr, const NULLCTypeInfo& type)
+	{
+		// Get array element type
+		NULLCTypeInfo *subType = type.hash == autoArrayName ? NULL : &__nullcTypeList[type.subTypeID];
+		// Real array size (changed for unsized arrays)
+		unsigned int size = type.memberCount;
+		// If array type is an unsized array, check pointer that points to actual array contents
+		if(size == -1)
+		{
+			// Get real array size
+			size = *(int*)(ptr + NULLC_PTR_SIZE);
+			// Switch pointer to array data
+			char **rPtr = (char**)ptr;
+			ptr = *rPtr;
+			// If uninitialized or points to stack memory, return
+			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
+				return;
+			GC_DEBUG_PRINT("\tGlobal pointer %p\r\n", ptr);
+			// Get base pointer
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			// If there is no base pointer or memory already marked, exit
+			if(!basePtr || (*((unsigned int*)(basePtr) - 1) & 0xff))
+				return;
+			// Mark memory as used
+			*((unsigned int*)(basePtr) - 1) |= 1;
+		}else if(type.hash == autoArrayName){
+			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
+			// Get real variable type
+			subType = &__nullcTypeList[data->typeID];
+			// skip uninitialized array
+			if(!data->ptr)
+				return;
+			// Mark target data
+			MarkPointer((char*)&data->ptr, *subType, false);
+			// Switch pointer to target
+			ptr = data->ptr;
+			// Get array size
+			size = data->len;
+		}
+		// Otherwise, check every array element is it's either array, pointer of class
+		switch(subType->category)
+		{
+		case NULLC_ARRAY:
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+				CheckArray(ptr, *subType);
+			break;
+		case NULLC_POINTER:
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+				MarkPointer(ptr, *subType, true);
+			break;
+		case NULLC_CLASS:
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+				CheckClass(ptr, *subType);
+			break;
+		case NULLC_FUNCTION:
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+				CheckFunction(ptr);
+			break;
+		}
+	}
+
+	// Function that checks classes for pointers
+	void CheckClass(char* ptr, const NULLCTypeInfo& type)
+	{
+		const NULLCTypeInfo *realType = &type;
+		if(type.hash == objectName)
+		{
+			// Get real variable type
+			realType = &__nullcTypeList[*(int*)ptr];
+			// Switch pointer to target
+			char **rPtr = (char**)(ptr + 4);
+			ptr = *rPtr;
+			// If uninitialized or points to stack memory, return
+			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
+				return;
+			// Get base pointer
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			// If there is no base pointer or memory already marked, exit
+			if(!basePtr || (*((unsigned int*)(basePtr) - 1) & 0xff))
+				return;
+			// Mark memory as used
+			*((unsigned int*)(basePtr) - 1) |= 1;
+			// Fixup target
+			CheckVariable(*rPtr, *realType);
+			// Exit
+			return;
+		}else if(type.hash == autoArrayName){
+			CheckArray(ptr, type);
+			// Exit
+			return;
+		}
+		// Get class member type list
+		unsigned int *memberList = &__nullcTypePart[realType->members];
+		// Check pointer members
+		for(unsigned int n = 0; n < realType->memberCount; n++)
+		{
+			// Get member type
+			NULLCTypeInfo &subType = __nullcTypeList[memberList[n * 2]];
+			unsigned int pos = memberList[n * 2 + 1];
+			// Check member
+			CheckVariable(ptr + pos, subType);
+		}
+	}
+
+	// Function that checks function context for pointers
+	void CheckFunction(char* ptr)
+	{
+		NULLCFuncPtr *fPtr = (NULLCFuncPtr*)ptr;
+		// If there's no context, there's nothing to check
+		if(!fPtr->context)
+			return;
+		const NULLCFuncInfo &func = funcTableExt[fPtr->id];
+		// If context is "this" pointer
+		if(func.extraType != ~0u)
+			MarkPointer((char*)&fPtr->context, __nullcTypeList[func.extraType], true);
+	}
+
+	// Function that decides, how variable of type 'type' should be checked for pointers
+	void CheckVariable(char* ptr, const NULLCTypeInfo& type)
+	{
+		switch(type.category)
+		{
+		case NULLC_ARRAY:
+			CheckArray(ptr, type);
+			break;
+		case NULLC_POINTER:
+			MarkPointer(ptr, type, true);
+			break;
+		case NULLC_CLASS:
+			CheckClass(ptr, type);
+			break;
+		case NULLC_FUNCTION:
+			CheckFunction(ptr);
+			break;
+		}
+	}
+}
+
+struct GlobalRoot
+{
+	void	*ptr;
+	unsigned typeID;
+};
+FastVector<GlobalRoot> rootSet;
+
+// Main function for marking all pointers in a program
+void MarkUsedBlocks()
+{
+	GC_DEBUG_PRINT("Unmanageable range: %p-%p\r\n", GC::unmanageableBase, GC::unmanageableTop);
+
+	// Mark global variables
+	for(unsigned int i = 0; i < rootSet.size(); i++)
+	{
+		GC_DEBUG_PRINT("Global %s (at %p)\r\n", __nullcTypeList[rootSet[i].typeID].name, rootSet[i].ptr);
+		GC::CheckVariable((char*)rootSet[i].ptr, __nullcTypeList[rootSet[i].typeID]);
+	}
+	// Check that temporary stack range is correct
+	assert(GC::unmanageableTop >= GC::unmanageableBase, "ERROR: GC - incorrect stack range", 0);
+	char* tempStackBase = GC::unmanageableBase;
+	// Check temporary stack for pointers
+	while(tempStackBase < GC::unmanageableTop)
+	{
+		char *ptr = *(char**)(tempStackBase);
+		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
+		if(ptr > (char*)0x00010000 && (ptr < GC::unmanageableBase || ptr > GC::unmanageableTop))
+		{
+			// Get pointer base
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			// If there is no base, this pointer points to memory that is not GCs memory
+			if(basePtr)
+			{
+				unsigned int *marker = (unsigned int*)(basePtr)-1;
+				// If block is unmarked, mark it as used
+				if((*marker & 0xff) == 0)
+				{
+					*marker |= 1;
+					GC_DEBUG_PRINT("Found %s type %d on stack at %p\n", __nullcTypeList[*marker >> 8].name, *marker >> 8, ptr);
+					GC::CheckVariable(ptr, __nullcTypeList[*marker >> 8]);
+				}
+			}
+		}
+		tempStackBase += 4;
+	}
+}
+
+void __nullcRegisterGlobal(void* ptr, unsigned typeID)
+{
+	GlobalRoot entry;
+	entry.ptr = ptr;
+	entry.typeID = typeID;
+	rootSet.push_back(entry);
+}
+void __nullcRegisterBase(void* ptr)
+{
+	GC::unmanageableTop = GC::unmanageableTop ? ((char*)ptr > GC::unmanageableTop ? (char*)ptr : GC::unmanageableTop) : (char*)ptr;
+}
+
+namespace NULLC
+{
+	void*	defaultAlloc(int size);
+	void	defaultDealloc(void* ptr);
+
+	extern void*	(*alloc)(int);
+	extern void		(*dealloc)(void*);
+}
+
+
+void*	NULLC::defaultAlloc(int size)
+{
+	return malloc(size);
+}
+void	NULLC::defaultDealloc(void* ptr)
+{
+	free(ptr);
+}
+
+void*	(*NULLC::alloc)(int) = NULLC::defaultAlloc;
+void	(*NULLC::dealloc)(void*) = NULLC::defaultDealloc;
+
+template<int elemSize>
+union SmallBlock
+{
+	char			data[elemSize];
+	unsigned int	marker;
+	SmallBlock		*next;
+};
+
+template<int elemSize, int countInBlock>
+struct LargeBlock
+{
+	typedef SmallBlock<elemSize> Block;
+	Block		page[countInBlock];
+	LargeBlock	*next;
+};
+
+template<int elemSize, int countInBlock>
+class ObjectBlockPool
+{
+	typedef SmallBlock<elemSize> MySmallBlock;
+	typedef LargeBlock<elemSize, countInBlock> MyLargeBlock;
+public:
+	ObjectBlockPool()
+	{
+		freeBlocks = &lastBlock;
+		activePages = NULL;
+		lastNum = countInBlock;
+	}
+	~ObjectBlockPool()
+	{
+		if(!activePages)
+			return;
+		do
+		{
+			MyLargeBlock* following = activePages->next;
+			NULLC::dealloc(activePages);
+			activePages = following;
+		}while(activePages != NULL);
+		freeBlocks = &lastBlock;
+		activePages = NULL;
+		lastNum = countInBlock;
+		sortedPages.reset();
+	}
+
+	void* Alloc()
+	{
+		MySmallBlock*	result;
+		if(freeBlocks && freeBlocks != &lastBlock)
+		{
+			result = freeBlocks;
+			freeBlocks = freeBlocks->next;
+		}else{
+			if(lastNum == countInBlock)
+			{
+				MyLargeBlock* newPage = (MyLargeBlock*)NULLC::alloc(sizeof(MyLargeBlock));
+				//memset(newPage, 0, sizeof(MyLargeBlock));
+				newPage->next = activePages;
+				activePages = newPage;
+				lastNum = 0;
+				sortedPages.push_back(newPage);
+				int index = sortedPages.size() - 1;
+				while(index > 0 && sortedPages[index] < sortedPages[index - 1])
+				{
+					MyLargeBlock *tmp = sortedPages[index];
+					sortedPages[index] = sortedPages[index - 1];
+					sortedPages[index - 1] = tmp;
+					index--;
+				}
+			}
+			result = &activePages->page[lastNum++];
+		}
+		return result;
+	}
+
+	void Free(void* ptr)
+	{
+		if(!ptr)
+			return;
+		MySmallBlock* freedBlock = static_cast<MySmallBlock*>(static_cast<void*>(ptr));
+		freedBlock->next = freeBlocks;
+		freeBlocks = freedBlock;
+	}
+	bool IsBasePointer(void* ptr)
+	{
+		MyLargeBlock *curr = activePages;
+		while(curr)
+		{
+			if((char*)ptr >= (char*)curr->page && (char*)ptr <= (char*)curr->page + sizeof(MyLargeBlock))
+			{
+				if(((unsigned int)(intptr_t)((char*)ptr - (char*)curr->page) & (elemSize - 1)) == 4)
+					return true;
+			}
+			curr = curr->next;
+		}
+		return false;
+	}
+	void* GetBasePointer(void* ptr)
+	{
+		if(!sortedPages.size() || ptr < sortedPages[0] || ptr > (char*)sortedPages.back() + sizeof(MyLargeBlock))
+			return NULL;
+		// Binary search
+		unsigned int lowerBound = 0;
+		unsigned int upperBound = sortedPages.size() - 1;
+		unsigned int pointer = 0;
+		while(upperBound - lowerBound > 1)
+		{
+			pointer = (lowerBound + upperBound) >> 1;
+			if(ptr < sortedPages[pointer])
+				upperBound = pointer;
+			if(ptr > sortedPages[pointer])
+				lowerBound = pointer;
+		}
+		if(ptr < sortedPages[pointer])
+			pointer--;
+		if(ptr > (char*)sortedPages[pointer]  + sizeof(MyLargeBlock))
+			pointer++;
+		MyLargeBlock *best = sortedPages[pointer];
+
+		if(ptr < best || ptr > (char*)best + sizeof(MyLargeBlock))
+			return NULL;
+		unsigned int fromBase = (unsigned int)(intptr_t)((char*)ptr - (char*)best->page);
+		return (char*)best->page + (fromBase & ~(elemSize - 1)) + 4;
+	}
+	void Mark(unsigned int number)
+	{
+		__assert(number < 128);
+		MyLargeBlock *curr = activePages;
+		while(curr)
+		{
+			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
+			{
+				if((curr->page[i].marker & 0xff) < 128)
+					curr->page[i].marker = (curr->page[i].marker & ~0xff) | number;
+			}
+			curr = curr->next;
+		}
+	}
+	unsigned int FreeMarked(unsigned int number)
+	{
+		unsigned int freed = 0;
+		MyLargeBlock *curr = activePages;
+		while(curr)
+		{
+			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
+			{
+				if((curr->page[i].marker & 0xff) == number)
+				{
+					Free(&curr->page[i]);
+					freed++;
+				}
+			}
+			curr = curr->next;
+		}
+		return freed;
+	}
+
+	MySmallBlock	lastBlock;
+
+	MySmallBlock	*freeBlocks;
+	MyLargeBlock	*activePages;
+	unsigned int	lastNum;
+
+	FastVector<MyLargeBlock*>	sortedPages;
+};
+
+namespace NULLC
+{
+	const unsigned int poolBlockSize = 64 * 1024;
+
+	unsigned int usedMemory = 0;
+
+	unsigned int collectableMinimum = 1024 * 1024;
+	unsigned int globalMemoryLimit = 1024 * 1024 * 1024;
+
+	ObjectBlockPool<8, poolBlockSize / 8>		pool8;
+	ObjectBlockPool<16, poolBlockSize / 16>		pool16;
+	ObjectBlockPool<32, poolBlockSize / 32>		pool32;
+	ObjectBlockPool<64, poolBlockSize / 64>		pool64;
+	ObjectBlockPool<128, poolBlockSize / 128>	pool128;
+	ObjectBlockPool<256, poolBlockSize / 256>	pool256;
+	ObjectBlockPool<512, poolBlockSize / 512>	pool512;
+
+	FastVector<void*>				globalObjects;
+
+	double	markTime = 0.0;
+	double	collectTime = 0.0;
+}
+
+void* NULLC::AllocObject(int size, unsigned typeID)
+{
+	if(size < 0)
+	{
+		nullcThrowError("Requested memory size is less than zero.");
+		return NULL;
+	}
+	void *data = NULL;
+	size += 4;
+
+	if((unsigned int)(usedMemory + size) > globalMemoryLimit)
+	{
+		CollectMemory();
+		if((unsigned int)(usedMemory + size) > globalMemoryLimit)
+		{
+			nullcThrowError("Reached global memory maximum");
+			return NULL;
+		}
+	}else if((unsigned int)(usedMemory + size) > collectableMinimum){
+		CollectMemory();
+	}
+	unsigned int realSize = size;
+	if(size <= 64)
+	{
+		if(size <= 16)
+		{
+			if(size <= 8)
+			{
+				data = pool8.Alloc();
+				realSize = 8;
+			}else{
+				data = pool16.Alloc();
+				realSize = 16;
+			}
+		}else{
+			if(size <= 32)
+			{
+				data = pool32.Alloc();
+				realSize = 32;
+			}else{
+				data = pool64.Alloc();
+				realSize = 64;
+			}
+		}
+	}else{
+		if(size <= 256)
+		{
+			if(size <= 128)
+			{
+				data = pool128.Alloc();
+				realSize = 128;
+			}else{
+				data = pool256.Alloc();
+				realSize = 256;
+			}
+		}else{
+			if(size <= 512)
+			{
+				data = pool512.Alloc();
+				realSize = 512;
+			}else{
+				globalObjects.push_back(NULLC::alloc(size+4));
+				if(globalObjects.back() == NULL)
+				{
+					nullcThrowError("Allocation failed.");
+					return NULL;
+				}
+				realSize = *(int*)globalObjects.back() = size;
+				data = (char*)globalObjects.back() + 4;
+			}
+		}
+	}
+	usedMemory += realSize;
+
+	if(data == NULL)
+	{
+		nullcThrowError("Allocation failed.");
+		return NULL;
+	}
+
+	memset(data, 0, size);
+	*(int*)data = typeID << 8;
+	return (char*)data + 4;
+}
+
+unsigned int NULLC::UsedMemory()
+{
+	return usedMemory;
+}
+
+NULLCArray<void> NULLC::AllocArray(int size, int count, unsigned typeID)
+{
+	NULLCArray<void> ret;
+	ret.ptr = (char*)AllocObject(count * size, typeID);
+	ret.size = count;
+	return ret;
+}
+
+void NULLC::MarkMemory(unsigned int number)
+{
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+		((unsigned int*)globalObjects[i])[1] = number;
+	pool8.Mark(number);
+	pool16.Mark(number);
+	pool32.Mark(number);
+	pool64.Mark(number);
+	pool128.Mark(number);
+	pool256.Mark(number);
+	pool512.Mark(number);
+}
+
+bool NULLC::IsBasePointer(void* ptr)
+{
+	// Search in range of every pool
+	if(pool8.IsBasePointer(ptr))
+		return true;
+	if(pool16.IsBasePointer(ptr))
+		return true;
+	if(pool32.IsBasePointer(ptr))
+		return true;
+	if(pool64.IsBasePointer(ptr))
+		return true;
+	if(pool128.IsBasePointer(ptr))
+		return true;
+	if(pool256.IsBasePointer(ptr))
+		return true;
+	if(pool512.IsBasePointer(ptr))
+		return true;
+	// Search in global pool
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	{
+		if((char*)ptr - 8 == globalObjects[i])
+			return true;
+	}
+	return false;
+}
+
+void* NULLC::GetBasePointer(void* ptr)
+{
+	// Search in range of every pool
+	if(void *base = pool8.GetBasePointer(ptr))
+		return base;
+	if(void *base = pool16.GetBasePointer(ptr))
+		return base;
+	if(void *base = pool32.GetBasePointer(ptr))
+		return base;
+	if(void *base = pool64.GetBasePointer(ptr))
+		return base;
+	if(void *base = pool128.GetBasePointer(ptr))
+		return base;
+	if(void *base = pool256.GetBasePointer(ptr))
+		return base;
+	if(void *base = pool512.GetBasePointer(ptr))
+		return base;
+	// Search in global pool
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	{
+		if(ptr >= globalObjects[i] && ptr <= (char*)globalObjects[i] + *(unsigned int*)globalObjects[i])
+			return (char*)globalObjects[i] + 8;
+	}
+	return NULL;
+}
+
+void NULLC::CollectMemory()
+{
+	GC_DEBUG_PRINT("%d used memory (%d collectable cap, %d max cap)\r\n", usedMemory, collectableMinimum, globalMemoryLimit);
+
+	double time = (double(clock()) / CLOCKS_PER_SEC);
+
+	GC::unmanageableBase = (char*)&time;
+
+	// All memory blocks are marked with 0
+	MarkMemory(0);
+	// Used memory blocks are marked with 1
+	MarkUsedBlocks();
+
+	markTime += (double(clock()) / CLOCKS_PER_SEC) - time;
+	time = (double(clock()) / CLOCKS_PER_SEC);
+
+	// Globally allocated objects marked with 0 are deleted
+	unsigned int unusedBlocks = 0;
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	{
+		if(((unsigned int*)globalObjects[i])[1] == 0)
+		{
+			usedMemory -= *(unsigned int*)globalObjects[i];
+			NULLC::dealloc(globalObjects[i]);
+			globalObjects[i] = globalObjects.back();
+			globalObjects.pop_back();
+			unusedBlocks++;
+		}
+	}
+//	printf("%d unused globally allocated blocks destroyed (%d remains)\r\n", unusedBlocks, globalObjects.size());
+
+//	printf("%d used memory\r\n", usedMemory);
+
+	// Objects allocated from pools are freed
+	unusedBlocks = pool8.FreeMarked(0);
+	usedMemory -= unusedBlocks * 8;
+//	printf("%d unused pool blocks freed (8 bytes)\r\n", unusedBlocks);
+	unusedBlocks = pool16.FreeMarked(0);
+	usedMemory -= unusedBlocks * 16;
+//	printf("%d unused pool blocks freed (16 bytes)\r\n", unusedBlocks);
+	unusedBlocks = pool32.FreeMarked(0);
+	usedMemory -= unusedBlocks * 32;
+//	printf("%d unused pool blocks freed (32 bytes)\r\n", unusedBlocks);
+	unusedBlocks = pool64.FreeMarked(0);
+	usedMemory -= unusedBlocks * 64;
+//	printf("%d unused pool blocks freed (64 bytes)\r\n", unusedBlocks);
+	unusedBlocks = pool128.FreeMarked(0);
+	usedMemory -= unusedBlocks * 128;
+//	printf("%d unused pool blocks freed (128 bytes)\r\n", unusedBlocks);
+	unusedBlocks = pool256.FreeMarked(0);
+	usedMemory -= unusedBlocks * 256;
+//	printf("%d unused pool blocks freed (256 bytes)\r\n", unusedBlocks);
+	unusedBlocks = pool512.FreeMarked(0);
+	usedMemory -= unusedBlocks * 512;
+//	printf("%d unused pool blocks freed (512 bytes)\r\n", unusedBlocks);
+
+	GC_DEBUG_PRINT("%d used memory\r\n", usedMemory);
+
+	collectTime += (double(clock()) / CLOCKS_PER_SEC) - time;
+
+	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
+		collectableMinimum <<= 1;
+}
+
+double NULLC::MarkTime()
+{
+	return markTime;
+}
+
+double NULLC::CollectTime()
+{
+	return collectTime;
+}
+
+int  __newS(int size, unsigned typeID)
+{
+	return (int)NULLC::AllocObject(size, typeID);
+}
+
+NULLCArray<void>  __newA(int size, int count, unsigned typeID)
+{
+	return NULLC::AllocArray(size, count, typeID);
 }

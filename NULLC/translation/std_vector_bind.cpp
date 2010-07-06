@@ -66,7 +66,7 @@ void cConstructVector(vector * vec, unsigned int type, int reserved, void* unuse
 	vec->data.typeID = type;
 	if(reserved)
 	{
-		vec->data.ptr = (char*)__newS(vec->elemSize * reserved, NULL);
+		vec->data.ptr = (char*)__newS(vec->elemSize * reserved, 0);
 		vec->data.len = reserved;
 	}else{
 		vec->data.ptr = NULL;
@@ -98,7 +98,7 @@ void vector__push_back_void_ref_auto_ref_(NULLCRef val, vector * vec)
 	{
 		// Allocate new
 		unsigned int newSize = 32 > vec->data.len ? 32 : (vec->data.len << 1) + vec->data.len;
-		char *newData = (char*)__newS(vec->elemSize * newSize, NULL);
+		char *newData = (char*)__newS(vec->elemSize * newSize, 0);
 		memcpy(newData, vec->data.ptr, vec->elemSize * vec->data.len);
 		vec->data.len = newSize;
 		vec->data.ptr = newData;
@@ -157,7 +157,7 @@ void vector__reserve_void_ref_int_(int size, vector * vec)
 	if(size > vec->data.len)
 	{
 		// Allocate new
-		char *newData = (char*)__newS(vec->elemSize * size, NULL);
+		char *newData = (char*)__newS(vec->elemSize * size, 0);
 		memcpy(newData, vec->data.ptr, vec->elemSize * vec->data.len);
 		vec->data.len = size;
 		vec->data.ptr = newData;

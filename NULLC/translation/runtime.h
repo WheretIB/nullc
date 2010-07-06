@@ -53,8 +53,11 @@ typedef struct
 	unsigned int	subTypeID;
 	int				memberCount;
 	unsigned int	category;
+	unsigned int	members;
+
 } NULLCTypeInfo;
 
+#define NULLC_NONE 0
 #define NULLC_CLASS 1
 #define NULLC_ARRAY 2
 #define NULLC_POINTER 3
@@ -135,8 +138,9 @@ void long__long_void_ref_long_(long long a, long long *target);
 void float__float_void_ref_float_(float a, float *target);
 void double__double_void_ref_double_(double a, double *target);
 NULLCArray<char>  int__str_char___ref__(int* __context);
-int  __newS(int size, void* unused);
-NULLCArray<void>  __newA(int size, int count, void* unused);
+
+int  __newS(int size, unsigned typeID);
+NULLCArray<void>  __newA(int size, int count, unsigned typeID);
 NULLCRef  duplicate(NULLCRef obj, void* unused);
 
 // const string implementation
@@ -163,6 +167,7 @@ inline unsigned int	__nullcIndex(unsigned int index, unsigned int size)
 
 void nullcThrowError(const char* error, ...);
 unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category);
+void __nullcRegisterMembers(unsigned id, unsigned count, ...);
 NULLCTypeInfo* __nullcGetTypeInfo(unsigned id);
 
 unsigned int typeid__(NULLCRef type, void* unused);
@@ -189,4 +194,24 @@ NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src,
 typedef void* __nullcFunction;
 typedef __nullcFunction* __nullcFunctionArray;
 __nullcFunctionArray* __nullcGetFunctionTable();
-unsigned __nullcRegisterFunction(const char* name, void* fPtr);
+unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType);
+
+void __nullcRegisterGlobal(void* ptr, unsigned typeID);
+void __nullcRegisterBase(void* ptr);
+
+namespace NULLC
+{
+	void*		AllocObject(int size, unsigned typeID);
+	NULLCArray<void>	AllocArray(int size, int count, unsigned typeID);
+	NULLCRef	CopyObject(NULLCRef ptr);
+
+	void		MarkMemory(unsigned int number);
+
+	bool		IsBasePointer(void* ptr);
+	void*		GetBasePointer(void* ptr);
+
+	void		CollectMemory();
+	unsigned int	UsedMemory();
+	double		MarkTime();
+	double		CollectTime();
+}
