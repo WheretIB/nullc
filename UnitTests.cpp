@@ -1293,59 +1293,59 @@ void	RunTests(bool verbose)
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	nullres bRes = CompileFile("Modules/std/math.nc");
 	assert(bRes);
-	nullcTranslateToC("NULLC\\translation\\std_math.cpp", "initStdMath");
+	nullcTranslateToC("NULLC\\translation\\std_math.cpp", "__init_std_math_nc");
 
 	bRes = CompileFile("Modules/std/typeinfo.nc");
 	assert(bRes);
-	nullcTranslateToC("NULLC\\translation\\std_typeinfo.cpp", "initStdTypeInfo");
+	nullcTranslateToC("NULLC\\translation\\std_typeinfo.cpp", "__init_std_typeinfo_nc");
 
 	bRes = CompileFile("Modules/std/file.nc");
 	assert(bRes);
-	nullcTranslateToC("NULLC\\translation\\std_file.cpp", "initStdFile");
+	nullcTranslateToC("NULLC\\translation\\std_file.cpp", "__init_std_file_nc");
 
 	bRes = CompileFile("Modules/std/vector.nc");
 	assert(bRes);
-	nullcTranslateToC("NULLC\\translation\\std_vector.cpp", "initStdVector");
+	nullcTranslateToC("NULLC\\translation\\std_vector.cpp", "__init_std_vector_nc");
 
 	bRes = nullcCompile("import std.math; float4 a; a.x = 2;");
 	assert(bRes);
-	nullcTranslateToC("test_a.cpp", "init_test_a");
+	nullcTranslateToC("test_a.cpp", "__init_test_a_nc");
 
 	bRes = nullcCompile("char[] arr2 = \" world\";{ int r = 5; }");
 	assert(bRes);
-	nullcTranslateToC("test_importhide.cpp", "init_test_importhide");
+	nullcTranslateToC("test_importhide.cpp", "__init_test_importhide_nc");
 
 	bRes = nullcCompile("int func(int a, b = 6){ return a * b; }");
 	assert(bRes);
-	nullcTranslateToC("test_defargs.cpp", "init_test_defargs");
+	nullcTranslateToC("test_defargs.cpp", "__init_test_defargs_nc");
 
 	bRes = nullcCompile("int func(int a, b = 6){ return a * b; } int func(int d, c, a, b = 4){ return d * c + a + b; }");
 	assert(bRes);
-	nullcTranslateToC("test_defargs2.cpp", "init_test_defargs2");
+	nullcTranslateToC("test_defargs2.cpp", "__init_test_defargs2_nc");
 
 	bRes = nullcCompile("class Test{ int func(int a, b = 6){ return a * b; } }");
 	assert(bRes);
-	nullcTranslateToC("test_defargs3.cpp", "init_test_defargs3");
+	nullcTranslateToC("test_defargs3.cpp", "__init_test_defargs3_nc");
 
 	bRes = nullcCompile("class Test{ int func(int a, b = 6); }");
 	assert(bRes);
-	nullcTranslateToC("test_defargs4.cpp", "init_test_defargs4");
+	nullcTranslateToC("test_defargs4.cpp", "__init_test_defargs4_nc");
 
 	bRes = nullcCompile("int CheckAlignment(auto ref ptr, int alignment);");
 	assert(bRes);
-	nullcTranslateToC("test_alignment.cpp", "init_test_alignment");
+	nullcTranslateToC("test_alignment.cpp", "__init_test_alignment_nc");
 
 	bRes = CompileFile("Modules/std/list.nc");
 	assert(bRes);
-	nullcTranslateToC("NULLC\\translation\\std_list.cpp", "initStdList");
+	nullcTranslateToC("NULLC\\translation\\std_list.cpp", "__init_std_list_nc");
 
 	bRes = CompileFile("Modules/std/range.nc");
 	assert(bRes);
-	nullcTranslateToC("NULLC\\translation\\std_range.cpp", "initStdRange");
+	nullcTranslateToC("NULLC\\translation\\std_range.cpp", "__init_std_range_nc");
 
 	bRes = CompileFile("Modules/std/gc.nc");
 	assert(bRes);
-	nullcTranslateToC("NULLC\\translation\\std_gc.cpp", "initStdGC");
+	nullcTranslateToC("NULLC\\translation\\std_gc.cpp", "__init_std_gc_nc");
 #endif
 	//RunEulerTests();
 
