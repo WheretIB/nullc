@@ -587,7 +587,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		ExternVarInfo *vInfo = FindFirstVar(bCode);
 		for(unsigned int i = 0; i < bCode->variableExportCount; i++, vInfo++)
 		{
-			if(symbols[vInfo->offsetToName] == '$')
+			// Exclude temporary variables from import
+			if(memcmp(&symbols[vInfo->offsetToName], "$temp", 5) == 0)
 				continue;
 			SelectTypeByIndex(typeRemap[vInfo->type]);
 			AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName));
