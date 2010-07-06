@@ -3761,7 +3761,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		return;
 	}else if(typeInfo != typeVoid){
 		NodeZeroOP *end = first;
-		if(first->nodeType == typeNodePopOp)
+		if(first->nodeType == typeNodePopOp || !typeInfo->arrLevel)
 		{
 			fprintf(fOut, "(");
 			((NodePopOp*)first)->GetFirstNode()->TranslateToC(fOut);
@@ -3773,7 +3773,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			fprintf(fOut, "__makeNullcArray<");
 			typeInfo->subType->OutputCType(fOut, "");
 			fprintf(fOut, ">(");
-		}else if(first->nodeType != typeNodePopOp){
+		}else if(typeInfo->arrLevel && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY){
 			typeInfo->OutputCType(fOut, "()");
 			end = first->next;
 		}
@@ -3795,7 +3795,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		if(tail->prev != end->prev && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 			fprintf(fOut, ")");
 
-		if(first->nodeType == typeNodePopOp)
+		if(first->nodeType == typeNodePopOp || !typeInfo->arrLevel)
 			fprintf(fOut, ")");
 	}else{
 		NodeZeroOP	*curr = first;
