@@ -1038,6 +1038,14 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				type->subType->OutputCType(fC, "const &");
 				fprintf(fC, " val){ ptr[index] = val; return *this; }\r\n");
 			}
+			if(type->arrLevel && type->arrSize != TypeInfo::UNSIZED_ARRAY && type->subType == typeChar)
+			{
+				fprintf(fC, "\t");
+				type->OutputCType(fC, "");
+				fprintf(fC, "(){}\r\n\t");
+				type->OutputCType(fC, "");
+				fprintf(fC, "(const char* data){ memcpy(ptr, data, %d); }\r\n", type->arrSize);
+			}
 			fprintf(fC, "};\r\n");
 		}else{
 			fprintf(fC, "struct ");
