@@ -387,6 +387,7 @@ void NodeNumber::LogToStream(FILE *fGraph)
 }
 void NodeNumber::TranslateToC(FILE *fOut)
 {
+	(void)fOut;
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	if(typeInfo->refLevel)
 	{
@@ -677,6 +678,8 @@ void NodeReturnOp::LogToStream(FILE *fGraph)
 }
 void NodeReturnOp::TranslateToC(FILE *fOut)
 {
+	(void)fOut;
+#ifdef NULLC_ENABLE_C_TRANSLATION
 	static unsigned int retVarID = 0;
 
 	TranslateToCExtra(fOut);
@@ -772,6 +775,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, "yield%d: (void)0;\r\n", parentFunction->yieldCount + 1);
 		parentFunction->yieldCount++;
 	}
+#endif
 }
 NodeNumber* NodeReturnOp::Evaluate(char *memory, unsigned int size)
 {
@@ -950,6 +954,8 @@ void NodeFuncDef::LogToStream(FILE *fGraph)
 }
 void NodeFuncDef::TranslateToC(FILE *fOut)
 {
+	(void)fOut;
+#ifdef NULLC_ENABLE_C_TRANSLATION
 	unsigned int oldIndent = indentDepth;
 	indentDepth = 0;
 	if(!disabled)
@@ -1019,6 +1025,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 		indentDepth--;
 	}
 	indentDepth = oldIndent;
+#endif
 }
 NodeNumber* NodeFuncDef::Evaluate(char *memory, unsigned int memSize)
 {

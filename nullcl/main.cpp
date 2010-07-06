@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 int main(int argc, char** argv)
 {
@@ -12,6 +13,10 @@ int main(int argc, char** argv)
 	if(argc == 1)
 	{
 		printf("usage: nullcl [-o output.ncm] file.nc [-m module.name] [file2.nc [-m module.name] ...]\n");
+#ifdef NULLC_ENABLE_C_TRANSLATION
+		printf("usage: nullcl -c output.cpp file.nc\n");
+		printf("usage: nullcl -x output.exe file.nc\n");
+#endif
 		return 0;
 	}
 	int argIndex = 1;
@@ -33,6 +38,113 @@ int main(int argc, char** argv)
 			return 0;
 		}
 		argIndex++;
+	}else if(strcmp("-c", argv[argIndex]) == 0 || strcmp("-x", argv[argIndex]) == 0){
+#ifdef NULLC_ENABLE_C_TRANSLATION
+		bool link = strcmp("-x", argv[argIndex]) == 0;
+		argIndex++;
+		if(argIndex == argc)
+		{
+			printf("Output file name not found after -o\n");
+			nullcTerminate();
+			return 0;
+		}
+		const char *outputName = argv[argIndex++];
+		const char *fileName = argv[argIndex++];
+		FILE *ncFile = fopen(fileName, "rb");
+		if(!ncFile)
+		{
+			printf("Cannot open file %s\n", fileName);
+			nullcTerminate();
+			return 0;
+		}
+
+		fseek(ncFile, 0, SEEK_END);
+		unsigned int textSize = ftell(ncFile);
+		fseek(ncFile, 0, SEEK_SET);
+		char *fileContent = new char[textSize+1];
+		fread(fileContent, 1, textSize, ncFile);
+		fileContent[textSize] = 0;
+		fclose(ncFile);
+
+		if(!nullcCompile(fileContent))
+		{
+			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
+			delete[] fileContent;
+			return false;
+		}
+		nullcTranslateToC(link ? "__temp.cpp" : outputName, "main");
+
+		if(link)
+		{
+			// $$$ move this to a dependency file?
+			char cmdLine[1024];
+			strcpy(cmdLine, "gcc.exe -o ");
+			strcat(cmdLine, outputName);
+			strcat(cmdLine, " __temp.cpp");
+			strcat(cmdLine, " translation\\runtime.cpp -lstdc++");
+			if(strstr(fileContent, "std.math;"))
+			{
+				strcat(cmdLine, " translation\\std_math.cpp");
+				strcat(cmdLine, " translation\\std_math_bind.cpp");
+			}
+			if(strstr(fileContent, "std.typeinfo;"))
+			{
+				strcat(cmdLine, " translation\\std_typeinfo.cpp");
+				strcat(cmdLine, " translation\\std_typeinfo_bind.cpp");
+			}
+			if(strstr(fileContent, "std.file;"))
+			{
+				strcat(cmdLine, " translation\\std_file.cpp");
+				strcat(cmdLine, " translation\\std_file_bind.cpp");
+			}
+			if(strstr(fileContent, "std.vector;"))
+			{
+				strcat(cmdLine, " translation\\std_vector.cpp");
+				strcat(cmdLine, " translation\\std_vector_bind.cpp");
+				if(!strstr(fileContent, "std.typeinfo;"))
+				{
+					strcat(cmdLine, " translation\\std_typeinfo.cpp");
+					strcat(cmdLine, " translation\\std_typeinfo_bind.cpp");
+				}
+			}
+			if(strstr(fileContent, "std.list;"))
+			{
+				strcat(cmdLine, " translation\\std_list.cpp");
+				if(!strstr(fileContent, "std.typeinfo;"))
+				{
+					strcat(cmdLine, " translation\\std_typeinfo.cpp");
+					strcat(cmdLine, " translation\\std_typeinfo_bind.cpp");
+				}
+			}
+			if(strstr(fileContent, "std.range;"))
+			{
+				strcat(cmdLine, " translation\\std_range.cpp");
+			}
+			if(strstr(fileContent, "std.gc;"))
+			{
+				strcat(cmdLine, " translation\\std_gc.cpp");
+				strcat(cmdLine, " translation\\std_gc_bind.cpp");
+			}
+			if(strstr(fileContent, "std.io;"))
+			{
+				strcat(cmdLine, " translation\\std_io.cpp");
+				strcat(cmdLine, " translation\\std_io_bind.cpp");
+			}
+			if(strstr(fileContent, "std.dynamic;"))
+			{
+				strcat(cmdLine, " translation\\std_dynamic.cpp");
+				strcat(cmdLine, " translation\\std_dynamic_bind.cpp");
+			}
+			printf("Command line: %s\n", cmdLine);
+			system(cmdLine);
+		}
+		delete[] fileContent;
+		nullcTerminate();
+		fclose(ncFile);
+#else
+		printf("To use this flag, compile with NULLC_ENABLE_C_TRANSLATION defined\n");
+#endif
+		return 0;
 	}
 	int currIndex = argIndex;
 	while(argIndex < argc)
@@ -56,8 +168,10 @@ int main(int argc, char** argv)
 		if(!nullcCompile(fileContent))
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
+			delete[] fileContent;
 			return false;
 		}
+		delete[] fileContent;
 		unsigned int *bytecode = NULL;
 		nullcGetBytecode((char**)&bytecode);
 
