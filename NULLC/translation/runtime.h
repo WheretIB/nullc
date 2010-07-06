@@ -219,3 +219,8 @@ namespace NULLC
 	double		MarkTime();
 	double		CollectTime();
 }
+
+inline double __nullcZero()
+{
+	return 0.0;
+}

@@ -4,6 +4,10 @@
 #include "CodeInfo.h"
 #include "ConstantFold.h"
 
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	#include <float.h>
+#endif
+
 using CodeInfo::nodeList;
 using CodeInfo::cmdList;
 using CodeInfo::cmdInfoList;
@@ -383,6 +387,7 @@ void NodeNumber::LogToStream(FILE *fGraph)
 }
 void NodeNumber::TranslateToC(FILE *fOut)
 {
+#ifdef NULLC_ENABLE_C_TRANSLATION
 	if(typeInfo->refLevel)
 	{
 		fprintf(fOut, "(");
@@ -390,14 +395,28 @@ void NodeNumber::TranslateToC(FILE *fOut)
 		fprintf(fOut, ")(%d)", num.integer);
 	}else if(typeInfo == typeChar || typeInfo == typeShort || typeInfo == typeInt)
 		fprintf(fOut, "%d", num.integer);
-	else if(typeInfo == typeDouble)
-		fprintf(fOut, "%f", num.real);
-	else if(typeInfo == typeFloat)
-		fprintf(fOut, "%ff", num.real);
-	else if(typeInfo == typeLong)
+	else if(typeInfo == typeDouble || typeInfo == typeFloat)
+	{
+		switch(_fpclass(num.real))
+		{
+		case _FPCLASS_PINF:
+			fprintf(fOut, "(1.0 / __nullcZero())");
+			break;
+		case _FPCLASS_NINF:
+			fprintf(fOut, "(-1.0 / __nullcZero())");
+			break;
+		case _FPCLASS_SNAN:
+		case _FPCLASS_QNAN:
+			fprintf(fOut, "(0.0 / __nullcZero())");
+			break;
+		default:
+			fprintf(fOut, typeInfo == typeFloat ? "%ff" : "%f", num.real);
+		}
+	}else if(typeInfo == typeLong)
 		fprintf(fOut, "%lldLL", num.integer64);
 	else
 		fprintf(fOut, "%%unknown_number%%");
+#endif
 }
 NodeNumber* NodeNumber::Evaluate(char *memory, unsigned int size)
 {
