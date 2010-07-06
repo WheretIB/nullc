@@ -120,13 +120,35 @@ NULLCArray<char>  __operatorAddSet(NULLCArray<char> * a, NULLCArray<char> b, voi
 char  char__(char a, void* unused);
 short  short__(short a, void* unused);
 int  int__(int a, void* unused);
-long  long__(long a, void* unused);
+long long  long__(long long a, void* unused);
 float  float__(float a, void* unused);
 double  double__(double a, void* unused);
+void char__char_void_ref_char_(char a, char *target);
+void short__short_void_ref_short_(short a, short *target);
+void int__int_void_ref_int_(int a, int *target);
+void long__long_void_ref_long_(long long a, long long *target);
+void float__float_void_ref_float_(float a, float *target);
+void double__double_void_ref_double_(double a, double *target);
 NULLCArray<char>  int__str_char___ref__(int* __context);
 int  __newS(int size, void* unused);
 NULLCArray<void>  __newA(int size, int count, void* unused);
 NULLCRef  duplicate(NULLCRef obj, void* unused);
+
+// const string implementation
+struct const_string
+{
+	NULLCArray<char> arr;
+};
+
+int const_string__size__int_ref__(const_string* str);
+const_string const_string__(NULLCArray<char> arr, void* unused);
+
+char __char_a_12();
+short __short_a_13();
+int __int_a_14();
+long long __long_a_15();
+float __float_a_16();
+double __double_a_17();
 
 inline unsigned int	__nullcIndex(unsigned int index, unsigned int size)
 {

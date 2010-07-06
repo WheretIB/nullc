@@ -1007,6 +1007,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 		translationTypes[CodeInfo::typeInfo[i]->originalIndex] = CodeInfo::typeInfo[i];
 
+	ByteCode* runtimeModule = (ByteCode*)BinaryCache::GetBytecode("$base$.nc");
+
 	fprintf(fC, "#include \"runtime.h\"\r\n");
 	fprintf(fC, "// Typeid redirect table\r\n");
 	fprintf(fC, "static unsigned __nullcTR[%d];\r\n", CodeInfo::typeInfo.size());
@@ -1016,7 +1018,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 	{
 		TypeInfo *type = translationTypes[i];
-		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || type->funcType)
+		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || type->funcType || i < runtimeModule->typeCount)
 			continue;
 		if(type->arrLevel)
 		{
@@ -1151,9 +1153,36 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		((NodeFuncDef*)CodeInfo::funcDefList[i])->Disable();
 	}
 
+	for(unsigned int i = 1; i < activeModules.size(); i++)
+	{
+		fprintf(fC, "extern int __init_");
+		unsigned int len = (unsigned int)strlen(activeModules[i].name);
+		for(unsigned int k = 0; k < len; k++)
+		{
+			if(activeModules[i].name[k] == '/' || activeModules[i].name[k] == '.')
+				fprintf(fC, "_");
+			else
+				fprintf(fC, "%c", activeModules[i].name[k]);
+		}
+		fprintf(fC, "();\r\n");
+	}
 	if(CodeInfo::nodeList.back())
 	{
 		fprintf(fC, "int %s()\r\n{\r\n", mainName);
+		fprintf(fC, "\tstatic int moduleInitialized = 0;\r\n\tif(moduleInitialized++)\r\n\t\treturn 0;\r\n");
+		for(unsigned int i = 1; i < activeModules.size(); i++)
+		{
+			fprintf(fC, "\t__init_");
+			unsigned int len = (unsigned int)strlen(activeModules[i].name);
+			for(unsigned int k = 0; k < len; k++)
+			{
+				if(activeModules[i].name[k] == '/' || activeModules[i].name[k] == '.')
+					fprintf(fC, "_");
+				else
+					fprintf(fC, "%c", activeModules[i].name[k]);
+			}
+			fprintf(fC, "();\r\n");
+		}
 		for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 		{
 			TypeInfo *type = CodeInfo::typeInfo[i];

@@ -361,7 +361,7 @@ int  int__(int a, void* unused)
 	return a;
 }
 
-long  long__(long a, void* unused)
+long long  long__(long long a, void* unused)
 {
 	return a;
 }
@@ -374,6 +374,66 @@ float  float__(float a, void* unused)
 double  double__(double a, void* unused)
 {
 	return a;
+}
+void char__char_void_ref_char_(char a, char *target)
+{
+	*target = a;
+}
+void short__short_void_ref_short_(short a, short *target)
+{
+	*target = a;
+}
+void int__int_void_ref_int_(int a, int *target)
+{
+	*target = a;
+}
+void long__long_void_ref_long_(long long a, long long *target)
+{
+	*target = a;
+}
+void float__float_void_ref_float_(float a, float *target)
+{
+	*target = a;
+}
+void double__double_void_ref_double_(double a, double *target)
+{
+	*target = a;
+}
+
+int const_string__size__int_ref__(const_string* str)
+{
+	return str->arr.size;
+}
+const_string const_string__(NULLCArray<char> arr, void* unused)
+{
+	const_string str;
+	str.arr = arr;
+	return str;
+}
+
+char __char_a_12()
+{
+	return 0;
+}
+short __short_a_13()
+{
+	return 0;
+}
+int __int_a_14()
+{
+	return 0;
+}
+long long __long_a_15()
+{
+	return 0;
+}
+float __float_a_16()
+{
+	return 0;
+}
+double __double_a_17()
+{
+	return 0;
 }
 
 NULLCArray<char>  int__str_char___ref__(int* r)
