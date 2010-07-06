@@ -31,7 +31,7 @@ void AddOctInteger(const char* pos, const char* end);
 void AddBinInteger(const char* pos, const char* end);
 
 // Function that places string on stack, using list of NodeNumber in NodeExpressionList
-void AddStringNode(const char* s, const char* e);
+void AddStringNode(const char* s, const char* e, bool unescaped);
 
 // Function that creates node that removes value on top of the stack
 void AddPopNode(const char* pos);

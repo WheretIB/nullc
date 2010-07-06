@@ -340,7 +340,7 @@ void AddNullPointer()
 }
 
 // Function that places string on stack, using list of NodeNumber in NodeExpressionList
-void AddStringNode(const char* s, const char* e)
+void AddStringNode(const char* s, const char* e, bool unescaped)
 {
 	CodeInfo::lastKnownStartPos = s;
 
@@ -349,7 +349,7 @@ void AddStringNode(const char* s, const char* e)
 	// Find the length of the string with collapsed escape-sequences
 	for(; curr < end; curr++, len++)
 	{
-		if(*curr == '\\')
+		if(*curr == '\\' && !unescaped)
 			curr++;
 	}
 	curr = s + 1;
@@ -372,7 +372,7 @@ void AddStringNode(const char* s, const char* e)
 		for(int i = 0; i < 4 && curr < end; i++, curr++)
 		{
 			clean[i] = *curr;
-			if(*curr == '\\')
+			if(*curr == '\\' && !unescaped)
 			{
 				curr++;
 				clean[i] = UnescapeSybmol(*curr);
