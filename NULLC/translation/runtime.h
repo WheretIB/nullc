@@ -1,4 +1,8 @@
 #include <memory.h>
+#include <string.h>
+#ifndef NULL
+	#define NULL 0
+#endif
 
 // Wrapper over NULLC array, for use in external functions
 template<typename T>
@@ -112,6 +116,7 @@ int  __operatorNEqual(unsigned int a, unsigned int b, void* unused);
 
 #undef assert
 void  assert(int val, void* unused);
+void  assert(int val, const char* message, void* unused);
 void  assert(int val, NULLCArray<char> message, void* unused);
 int  __operatorEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
 int  __operatorNEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
@@ -180,3 +185,8 @@ NULLCArray<char>* __operatorSet(NULLCArray<char>* dst, NULLCArray<int> src, void
 NULLCArray<short>* __operatorSet(NULLCArray<short>* dst, NULLCArray<int> src, void* unused);
 // float inline array definition support
 NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src, void* unused);
+
+typedef void* __nullcFunction;
+typedef __nullcFunction* __nullcFunctionArray;
+__nullcFunctionArray* __nullcGetFunctionTable();
+unsigned __nullcRegisterFunction(const char* name, void* fPtr);
