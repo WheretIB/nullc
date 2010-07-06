@@ -572,6 +572,15 @@ NullCArray NULLC::IntToStr(int* r)
 	return arr;
 }
 
+NullCArray NULLC::DoubleToStr(int precision, double* r)
+{
+	char buf[256];
+	SafeSprintf(buf, 256, "%.*f", precision, *r);
+	NullCArray arr = AllocArray(1, strlen(buf) + 1);
+	memcpy(arr.ptr, buf, arr.len);
+	return arr;
+}
+
 NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NullCArray* arr)
 {
 	unsigned int *funcs = (unsigned int*)arr->ptr;
