@@ -266,10 +266,20 @@ void	__nullcSetArray(long long arr[], long long val, unsigned int count)
 		arr[i] = val;
 }
 
+namespace GC
+{
+	// Range of memory that is not checked. Used to exclude pointers to stack from marking and GC
+	char	*unmanageableBase = NULL;
+	char	*unmanageableTop = NULL;
+}
+
 void __nullcCloseUpvalue(__nullcUpvalue *&head, void *ptr)
 {
 	__nullcUpvalue *curr = head;
-	while(curr && (char*)curr->ptr <= ptr)
+	
+	GC::unmanageableBase = (char*)&curr;
+	// close upvalue if it's target is equal to local variable, or it's address is out of stack
+	while(curr && ((char*)curr->ptr == ptr || (char*)curr->ptr < GC::unmanageableBase || (char*)curr->ptr > GC::unmanageableTop))
 	{
 		__nullcUpvalue *next = curr->next;
 		unsigned int size = curr->size;
@@ -694,12 +704,6 @@ unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraTyp
 #define GC_DEBUG_PRINT(...)
 //#define GC_DEBUG_PRINT printf
 
-namespace GC
-{
-	// Range of memory that is not checked. Used to exclude pointers to stack from marking and GC
-	char	*unmanageableBase = NULL;
-	char	*unmanageableTop = NULL;
-}
 #define NULLC_PTR_SIZE sizeof(void*)
 namespace GC
 {

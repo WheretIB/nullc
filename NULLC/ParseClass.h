@@ -413,6 +413,9 @@ public:
 		closeListStart = 0;
 
 		childAlias = NULL;
+#ifdef NULLC_ENABLE_C_TRANSLATION
+		yieldCount = 0;
+#endif
 	}
 
 	void	AddParameter(VariableInfo *variable)
@@ -498,7 +501,9 @@ public:
 	unsigned int	externalSize;
 	bool			closeUpvals;
 	unsigned int	closeListStart;
-
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	unsigned int	yieldCount;
+#endif
 	VariableInfo	*firstLocal, *lastLocal;	// Local variable list. Filled in when function comes to an end.
 	unsigned int	localCount;
 
