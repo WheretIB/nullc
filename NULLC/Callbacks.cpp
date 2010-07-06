@@ -638,6 +638,10 @@ void AddReturnNode(const char* pos, bool yield)
 			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
 		if(yield && currDefinedFunc.back()->type != FunctionInfo::COROUTINE)
 			ThrowError(pos, "ERROR: yield can only be used inside a coroutine");
+#ifdef NULLC_ENABLE_C_TRANSLATION
+		if(yield)
+			currDefinedFunc.back()->yieldCount++;
+#endif
 	}else{
 		// Check for errors
 		if(realRetType == typeVoid)

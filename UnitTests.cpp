@@ -5912,7 +5912,7 @@ x[0] = y;\r\n\
 GC.CollectMemory();\r\n\
 return 0;";
 	TEST_FOR_RESULT("GC recursion using arrays with implicit size, placed on the stack", testGCArrayFail1, "0");
-//doTranslation = true;
+
 	const char	*testGarbageCollectionCorrectness =
 "import std.gc;\r\n\
 class A\r\n\
