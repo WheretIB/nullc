@@ -652,6 +652,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			}
 			lastFunc->implemented = true;
 			lastFunc->type = strchr(lastFunc->name, ':') ? FunctionInfo::THISCALL : FunctionInfo::NORMAL;
+			if(fInfo->externCount)
+				lastFunc->type = FunctionInfo::LOCAL;
 			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
 
 			lastFunc->retType = lastFunc->funcType->funcType->retType;
@@ -1007,6 +1009,28 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 		translationTypes[CodeInfo::typeInfo[i]->originalIndex] = CodeInfo::typeInfo[i];
 
+	for(unsigned int k = 0; k < translationTypes.size(); k++)
+	{
+		TypeInfo *type = translationTypes[k];
+		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || type->funcType || type->arrLevel)
+			continue;
+		TypeInfo::MemberVariable *curr = type->firstVariable;
+		for(; curr; curr = curr->next)
+		{
+			if(curr->type->originalIndex > type->originalIndex)
+			{
+				printf("%s (%d) depends on %s (%d), but the latter is defined later\n", type->GetFullTypeName(), type->originalIndex, curr->type->GetFullTypeName(), curr->type->originalIndex);
+				unsigned index = curr->type->originalIndex;
+				for(unsigned int i = type->originalIndex + 1; i <= curr->type->originalIndex; i++)
+					translationTypes[i]->originalIndex--;
+				type->originalIndex = index;
+				printf("%s (%d) depends on %s (%d)\n", type->GetFullTypeName(), type->originalIndex, curr->type->GetFullTypeName(), curr->type->originalIndex);
+			}
+		}
+	}
+	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
+		translationTypes[CodeInfo::typeInfo[i]->originalIndex] = CodeInfo::typeInfo[i];
+
 	ByteCode* runtimeModule = (ByteCode*)BinaryCache::GetBytecode("$base$.nc");
 
 	fprintf(fC, "#include \"runtime.h\"\r\n");
@@ -1113,6 +1137,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	for(unsigned int i = activeModules[0].funcCount; i < CodeInfo::funcInfo.size(); i++)
 	{
 		FunctionInfo *info = CodeInfo::funcInfo[i];
+		if(i < functionsInModules && (info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE))
+			continue;
 		if(i < functionsInModules)
 			fprintf(fC, "extern ");
 		info->retType->OutputCType(fC, "");
@@ -1128,7 +1154,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			param->varType->OutputCType(fC, name);
 			fprintf(fC, ", ");
 		}
-		if(info->type == FunctionInfo::THISCALL)
+		if(info->type == FunctionInfo::THISCALL && info->parentClass)
 		{
 			info->parentClass->OutputCType(fC, "* __context");
 		}else if((info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE)){
@@ -1254,6 +1280,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 		{
 			FunctionInfo *info = CodeInfo::funcInfo[i];
+			if(i < functionsInModules && (info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE))
+				continue;
 			bool duplicate = false;
 			for(unsigned int l = 0; l < CodeInfo::funcInfo.size() && !duplicate; l++)
 			{
