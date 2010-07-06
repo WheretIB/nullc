@@ -3,12 +3,7 @@
 #include <math.h>
 #include <stdarg.h>
 #undef assert
-#ifdef _MSC_VER
-	#include <assert.h>
-	#define __assert(_Expression) (void)( (!!(_Expression)) || (_wassert(_CRT_WIDE(#_Expression), _CRT_WIDE(__FILE__), __LINE__), 0) )
-#else
-#define __assert (void)0;
-#endif
+#define __assert(_Expression) if(!_Expression){ printf("assertion failed"); abort(); };
 
 template<typename T>
 class FastVector
@@ -307,8 +302,17 @@ void  assert(int val, void* unused)
 	__assert(val);
 }
 
+void  assert(int val, const char* message, void* unused)
+{
+	if(!val)
+		printf("%s\n", message);
+	__assert(val);
+}
+
 void  assert(int val, NULLCArray<char> message, void* unused)
 {
+	if(!val)
+		printf("%s\n", message.ptr);
 	__assert(val);
 }
 
@@ -636,4 +640,32 @@ NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src,
 	for(int i = 0; i < src.size; i++)
 		((float*)dst->ptr)[i] = ((double*)src.ptr)[i];
 	return dst;
+}
+
+FastVector<__nullcFunction> funcTable;
+FastVector<unsigned> funcTableHash;
+
+__nullcFunctionArray* __nullcGetFunctionTable()
+{
+	return &funcTable.data;
+}
+
+unsigned int GetStringHash(const char *str)
+{
+	unsigned int hash = 5381;
+	int c;
+	while((c = *str++) != 0)
+		hash = ((hash << 5) + hash) + c;
+	return hash;
+}
+
+unsigned __nullcRegisterFunction(const char* name, void* fPtr)
+{
+	unsigned hash = GetStringHash(name);
+	for(unsigned int i = 0; i < funcTable.size(); i++)
+		if(funcTableHash[i] == hash)
+			return i;
+	funcTable.push_back(fPtr);
+	funcTableHash.push_back(hash);
+	return funcTable.size() - 1;
 }

@@ -1012,8 +1012,10 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	fprintf(fC, "#include \"runtime.h\"\r\n");
 	fprintf(fC, "// Typeid redirect table\r\n");
 	fprintf(fC, "static unsigned __nullcTR[%d];\r\n", CodeInfo::typeInfo.size());
+	fprintf(fC, "// Function pointer table\r\n");
+	fprintf(fC, "static __nullcFunctionArray* __nullcFM;\r\n");
 	fprintf(fC, "// Function pointer redirect table\r\n");
-	fprintf(fC, "static void* __nullcFR[%d];\r\n", CodeInfo::funcInfo.size());
+	fprintf(fC, "static unsigned __nullcFR[%d];\r\n", CodeInfo::funcInfo.size());
 	fprintf(fC, "// Array classes\r\n");
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 	{
@@ -1170,6 +1172,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	{
 		fprintf(fC, "int %s()\r\n{\r\n", mainName);
 		fprintf(fC, "\tstatic int moduleInitialized = 0;\r\n\tif(moduleInitialized++)\r\n\t\treturn 0;\r\n");
+		fprintf(fC, "\t__nullcFM = __nullcGetFunctionTable();\r\n");
 		for(unsigned int i = 1; i < activeModules.size(); i++)
 		{
 			fprintf(fC, "\t__init_");
@@ -1217,12 +1220,16 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				if(info->nameInCHash == CodeInfo::funcInfo[l]->nameInCHash)
 					duplicate = true;
 			}
-			fprintf(fC, "\t__nullcFR[%d] = (void*)", i);
 			if(duplicate)
-				fprintf(fC, "0");
-			else
+			{
+				fprintf(fC, "\t__nullcFR[%d] = 0;\r\n", i);
+			}else{
+				fprintf(fC, "\t__nullcFR[%d] = __nullcRegisterFunction(\"", i);
 				OutputCFunctionName(fC, info);
-			fprintf(fC, ";\r\n");
+				fprintf(fC, "\", (void*)");
+				OutputCFunctionName(fC, info);
+				fprintf(fC, ");\r\n");
+			}
 		}
 		CodeInfo::nodeList.back()->TranslateToC(fC);
 		fprintf(fC, "}\r\n");

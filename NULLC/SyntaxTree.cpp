@@ -541,7 +541,7 @@ void NodeUnaryOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, "__nullcTR[%d]", vmCmd.argument);
 		return;
 	case cmdFuncAddr:
-		fprintf(fOut, "%d", vmCmd.argument);
+		fprintf(fOut, "__nullcFR[%d]", vmCmd.argument);
 		return;
 	default:
 		fprintf(fOut, "%%unknown_unary_command%%");
@@ -1107,7 +1107,7 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 		}
 		fprintf(fOut, "void*))");
 
-		fprintf(fOut, "__nullcFR[(");
+		fprintf(fOut, "(*__nullcFM)[(");
 		first->TranslateToC(fOut);
 		fprintf(fOut, ").id])");
 	}
@@ -2556,7 +2556,7 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 	TranslateToCExtra(fOut);
 	nodeDereferenceEndInComma = false;
 	OutputIdent(fOut);
-	fprintf(fOut, "__nullcMakeFunction(%d, ", CodeInfo::FindFunctionByPtr(funcInfo));
+	fprintf(fOut, "__nullcMakeFunction(__nullcFR[%d], ", CodeInfo::FindFunctionByPtr(funcInfo));
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
 		fprintf(fOut, "(void*)%uu", funcInfo->funcPtr ? ~0u : 0u);
