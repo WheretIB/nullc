@@ -6969,6 +6969,8 @@ for(int i in a.a) sum += i;\r\n\
 return sum;";
 	TEST_FOR_RESULT("For each on a member of a type that we had a reference to", testForEach5, "115");
 
+	TEST_FOR_RESULT("Unescaped string literal", "auto x = @\"\\r\\n\\thello\\0\"; return x.size + (x[1] == 'r');", "15");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -8152,6 +8154,8 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("parsing", "void func(){} auto duck(){ return func; } duck()(1,2; ", "ERROR: ')' not found after function parameter list");
 	TEST_FOR_FAIL("parsing", "int b; b = ", "ERROR: expression not found after '='");
 	TEST_FOR_FAIL("parsing", "noalign int a, b", "ERROR: ';' not found after variable definition");
+
+	TEST_FOR_FAIL("parsing", "auto x = @4; return x;", "ERROR: string expected after '@'");
 
 	{
 		char code[8192];

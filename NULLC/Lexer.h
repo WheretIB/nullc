@@ -49,7 +49,8 @@ enum LexemeType
 	lex_break, lex_continue, lex_return, // break continue return
 	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // ref auto class noalign align
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_in, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
-	lex_coroutine, lex_yield	// coroutine yield
+	lex_coroutine, lex_yield,	// coroutine yield
+	lex_at,	// @
 };
 
 struct Lexeme

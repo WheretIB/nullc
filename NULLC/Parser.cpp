@@ -925,10 +925,13 @@ bool ParseGroup(Lexeme** str)
 
 bool ParseString(Lexeme** str)
 {
+	bool	unescaped = false;
+	if(ParseLexem(str, lex_at))
+		unescaped = true;
 	if((*str)->type != lex_quotedstring)
 		return false;
 
-	CALLBACK(AddStringNode((*str)->pos, (*str)->pos+(*str)->length));
+	AddStringNode((*str)->pos, (*str)->pos+(*str)->length, unescaped);
 	(*str)++;
 	return true;
 }
@@ -1172,6 +1175,9 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 	}
 		break;
+	case lex_at:
+		if((*str)[1].type != lex_quotedstring)
+			ThrowError((*str)->pos, "ERROR: string expected after '@'");
 	case lex_quotedstring:
 		ParseString(str);
 		ParsePostExpressions(str);

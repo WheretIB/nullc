@@ -151,6 +151,9 @@ void Lexer::Lexify(const char* code)
 				lLength = 2;
 			}
 			break;
+		case '@':
+			lType = lex_at;
+			break;
 		case '~':
 			lType = lex_bitnot;
 			break;
