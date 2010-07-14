@@ -642,7 +642,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		}else{
 			varSize += NULLC::dataHead->lastEDI;
 			memcpy(paramBase + varSize, arguments, exFunctions[functionID].bytesToPop);
-			binCodeStart += exFunctions[functionID].startInByteCode;
+			binCodeStart = exLinker->functionAddress[functionID * 2];
 		}
 	}else{
 		binCodeStart += globalStartInBytecode;

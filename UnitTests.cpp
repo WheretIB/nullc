@@ -1301,6 +1301,109 @@ void	RunTests(bool verbose)
 			}
 		}
 	}
+
+//////////////////////////////////////////////////////////////////////////
+	{
+		if(messageVerbose)
+			printf("Function update test\r\n");
+
+		const char *partA = "int foo(){ return 15; }";
+		const char *partB = "import __last; import std.dynamic; int new_foo(){ return 25; } void foo_update(){ override(foo, new_foo); };\r\n";
+
+		for(int t = 0; t < TEST_COUNT; t++)
+		{
+			testCount[t]++;
+			nullcSetExecutor(testTarget[t]);
+
+			char *bytecodeA = NULL, *bytecodeB = NULL;
+
+			nullres good = nullcCompile(partA);
+			if(!good)
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
+				continue;
+			}else{
+				nullcGetBytecode(&bytecodeA);
+			}
+
+			nullcClean();
+			if(!nullcLinkCode(bytecodeA, 0))
+			{
+				if(!messageVerbose)
+					printf("Two bytecode merge test 1\r\n");
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			delete[] bytecodeA;
+
+			if(!nullcRunFunction(NULL))
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				printf("Execution failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(!nullcRunFunction("foo"))
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				printf("Execution failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(nullcGetResultInt() != 15)
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				printf("original foo failed to return 15\r\n");
+				continue;
+			}
+
+			if(!nullcCompile(partB))
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				printf("%s", nullcGetLastError());
+				continue;
+			}
+			nullcGetBytecodeNoCache(&bytecodeB);
+			if(!nullcLinkCode(bytecodeB, 0))
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				delete[] bytecodeB;
+				printf("%s", nullcGetLastError());
+				continue;
+			}
+			delete[] bytecodeB;
+
+			if(!nullcRunFunction("foo_update"))
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				printf("foo_update Execution failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+
+			if(!nullcRunFunction("foo"))
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				printf("foo Execution failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(nullcGetResultInt() != 25)
+			{
+				if(!messageVerbose)
+					printf("Function update test\r\n");
+				printf("new foo failed to return 25\r\n");
+				continue;
+			}
+			passed[t]++;
+		}
+	}
+
 //////////////////////////////////////////////////////////////////////////
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	nullres bRes = CompileFile("Modules/std/math.nc");
