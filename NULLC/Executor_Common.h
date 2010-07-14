@@ -12,4 +12,5 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize);
 // Garbage collector
 
 void SetUnmanagableRange(char* base, unsigned int size);
+int IsPointerUnmanaged(NULLCRef ptr);
 void MarkUsedBlocks();

@@ -576,7 +576,7 @@ NullCArray NULLC::DoubleToStr(int precision, double* r)
 {
 	char buf[256];
 	SafeSprintf(buf, 256, "%.*f", precision, *r);
-	NullCArray arr = AllocArray(1, strlen(buf) + 1);
+	NullCArray arr = AllocArray(1, (int)strlen(buf) + 1);
 	memcpy(arr.ptr, buf, arr.len);
 	return arr;
 }

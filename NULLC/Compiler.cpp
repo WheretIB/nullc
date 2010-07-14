@@ -178,6 +178,8 @@ int operator!=(char[] a, const_string b){ return a != b.arr; }\r\n\
 const_string operator+(const_string a, b){ return const_string(a.arr + b.arr); }\r\n\
 const_string operator+(const_string a, char[] b){ return const_string(a.arr + b); }\r\n\
 const_string operator+(char[] a, const_string b){ return const_string(a + b.arr); }\r\n\
+\r\n\
+int isStackPointer(auto ref x);\r\n\
 ";
 
 Compiler::Compiler()
@@ -306,6 +308,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignSelf, "=", 5);
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayIndex, "[]", 0);
 
+	AddModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);
 #endif
 }
 

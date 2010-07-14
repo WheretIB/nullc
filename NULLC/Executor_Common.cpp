@@ -378,6 +378,10 @@ void SetUnmanagableRange(char* base, unsigned int size)
 	GC::unmanageableBase = base;
 	GC::unmanageableTop = base + size;
 }
+int IsPointerUnmanaged(NULLCRef ptr)
+{
+	return ptr.ptr >= GC::unmanageableBase && ptr.ptr <= GC::unmanageableTop;
+}
 
 // Main function for marking all pointers in a program
 void MarkUsedBlocks()
