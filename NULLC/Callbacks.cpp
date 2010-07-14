@@ -427,6 +427,7 @@ void AddPositiveNode(const char* pos)
 // Function that creates unary operation node that changes sign of value
 void AddNegateNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	if(AddFunctionCallNode(pos, "-", 1, true))
 		return;
 
@@ -455,6 +456,7 @@ void AddNegateNode(const char* pos)
 // Function that creates unary operation node for logical NOT
 void AddLogNotNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	if(AddFunctionCallNode(pos, "!", 1, true))
 		return;
 
@@ -483,6 +485,7 @@ void AddLogNotNode(const char* pos)
 // Function that creates unary operation node for binary NOT
 void AddBitNotNode(const char* pos)
 {
+	CodeInfo::lastKnownStartPos = pos;
 	if(AddFunctionCallNode(pos, "~", 1, true))
 		return;
 
@@ -737,6 +740,9 @@ void* AddVariable(const char* pos, InplaceStr varName)
 	CodeInfo::lastKnownStartPos = pos;
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
+
+	if(TypeInfo **info = CodeInfo::classMap.find(hash))
+		ThrowError(pos, "ERROR: name '%.*s' is already taken for a class", varName.end-varName.begin, varName.begin);
 
 	// Check for variables with the same name in current scope
 	if(VariableInfo ** info = varMap.find(hash))
