@@ -18,6 +18,10 @@ vector vector(typeid type, int reserved = 0)
 	cConstructVector(ret, type, reserved);
 	return ret;
 }
+void vector:vector(typeid type, int reserved = 0)
+{
+	cConstructVector(this, type, reserved);
+}
 
 class vector_iterator
 {

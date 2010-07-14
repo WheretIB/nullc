@@ -1535,7 +1535,95 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="std_vector">std.vector</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">vector</span> <span class="func">vector</span>(<span class="rword">typeid</span> type, <span class="rword">int</span> reserved = <span class="real">0</span>);<br />
+<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">vector</span>(<span class="rword">typeid</span> type, <span class="rword">int</span> reserved = <span class="real">0</span>);<br />
+		</p>
+		One global and one member function are vector constructors; the second one is provided so that constructor can be called if vector is created dynamically with new expression, however it may be used on its own.<br />
+		Functions construct a vector containing elements of the specified type (any except auto ref) and reserves space for the specified amount of elements.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">push_back</span>(<span class="rword">auto ref</span> val);
+		</p>
+		Function appends an element to the end of the vector.<br />
+		An error is raised if element type doesn't match vector element type.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">pop_back</span>();
+		</p>
+		Function removes last element from vector.<br />
+		An error is raised if vector is empty.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">auto ref</span> <span class="rword">vector</span>:<span class="func">front</span>();
+		</p>
+		Function returns the first element of the vector.<br />
+		An error is raised if vector is empty.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">auto ref</span> <span class="rword">vector</span>:<span class="func">back</span>();
+		</p>
+		Function returns the last element of the vector.<br />
+		An error is raised if vector is empty.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">auto ref</span> <span class="rword">operator</span>[](<span class="rword">vector ref</span> v, <span class="rword">int</span> index);
+		</p>
+		Function returns element at selected index (counting from 0).<br />
+		An error is raised if vector doesn't contain an element at selected index.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">reserve</span>(<span class="rword">int</span> size);
+		</p>
+		Function reserves space for a specified amount of elements in an internal buffer.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">resize</span>(<span class="rword">int</span> size);
+		</p>
+		Function changes the size of the vector to a specified amount of elements.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">clear</span>();
+		</p>
+		Function sets the size of the vector to zero, but doesn't free memory used by internal buffer.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">destroy</span>();
+		</p>
+		Function sets the size of the vector to zero and frees memory used up by the internal buffer.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="rword">vector</span>:<span class="func">size</span>();
+		</p>
+		Function returns element count inside the vector.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="rword">vector</span>:<span class="func">capacity</span>();
+		</p>
+		Function returns how many elements can be placed inside a vector before internal buffer will be reallocated.<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">vector_iterator</span> <span class="rword">vector</span>:<span class="func">start</span>();<br />
+<span class="rword">auto ref</span> <span class="rword">vector_iterator</span>:<span class="func">next</span>();<br />
+<span class="rword">int</span> <span class="rword">vector_iterator</span>:<span class="func">hasnext</span>();<br />
+	</p>
+		These helper functions enable iteration over vector elements in for each expression.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
