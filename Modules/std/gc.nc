@@ -2,7 +2,7 @@
 
 class NamespaceGC
 {
-	void CollectMemory();
+	void	CollectMemory();
 
 	int		UsedMemory();
 
