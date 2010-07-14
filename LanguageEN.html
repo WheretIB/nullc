@@ -1535,14 +1535,13 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="std_vector">std.vector</a></h3>
 
-
 	<div class="function">
 		<p class="code">
 <span class="rword">vector</span> <span class="func">vector</span>(<span class="rword">typeid</span> type, <span class="rword">int</span> reserved = <span class="real">0</span>);<br />
 <span class="rword">void</span> <span class="rword">vector</span>:<span class="func">vector</span>(<span class="rword">typeid</span> type, <span class="rword">int</span> reserved = <span class="real">0</span>);<br />
 		</p>
 		One global and one member function are vector constructors; the second one is provided so that constructor can be called if vector is created dynamically with new expression, however it may be used on its own.<br />
-		Functions construct a vector containing elements of the specified type (any except auto ref) and reserves space for the specified amount of elements.<br />
+		Functions construct a vector containing elements of the specified type (any except <span class="rword">auto ref</span>) and reserves space for the specified amount of elements.<br />
 	</div>
 	<div class="function">
 		<p class="code">
@@ -1621,7 +1620,7 @@ B int 5<br />
 <span class="rword">vector_iterator</span> <span class="rword">vector</span>:<span class="func">start</span>();<br />
 <span class="rword">auto ref</span> <span class="rword">vector_iterator</span>:<span class="func">next</span>();<br />
 <span class="rword">int</span> <span class="rword">vector_iterator</span>:<span class="func">hasnext</span>();<br />
-	</p>
+		</p>
 		These helper functions enable iteration over vector elements in for each expression.<br />
 	</div>
 </div>
@@ -1629,13 +1628,124 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="std_list">std.list</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	<div class="function">
+		<p class="code">
+<span class="rword">list</span> <span class="func">list</span>(<span class="rword">typeid</span> type = <span class="rword">auto ref</span>);<br />
+<span class="rword">void</span> <span class="rword">list</span>:<span class="func">list</span>(<span class="rword">typeid</span> type = <span class="rword">auto ref</span>);<br />
+		</p>
+		One global and one member function are list constructors; the second one is provided so that constructor can be called if list is created dynamically with new expression, however it may be used on its own.<br />
+		Functions construct a list containing elements of the specified type (or an <span class="rword">auto ref</span> type if unspecified).<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">list</span>:<span class="func">push_back</span>(<span class="rword">auto ref</span> elem);<br />
+		</p>
+		Function appends an element to the end of the list.<br />
+		An error is raised if element type doesn't match list element type.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">list</span>:<span class="func">push_front</span>(<span class="rword">auto ref</span> elem);<br />
+		</p>
+		Function prepends an element before the beginning of the list.<br />
+		An error is raised if element type doesn't match list element type.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">list</span>:<span class="func">insert</span>(<span class="rword">list_node ref</span> it, <span class="rword">auto ref</span> elem);<br />
+		</p>
+		Function insert an element <b>after</b> the specified list node.<br />
+		An error is raised if element type doesn't match list element type.<br />
+		An error is raised if the specified list node is not contained within the list.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">list</span>:<span class="func">erase</span>(<span class="rword">list_node ref</span> it);<br />
+		</p>
+		Function erases the specified list node.<br />
+		An error is raised if the specified list node is not contained within the list.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">list</span>:<span class="func">clear</span>();<br />
+		</p>
+		Function removes all elements from the list.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">auto ref</span> <span class="rword">list</span>:<span class="func">back</span>();<br />
+		</p>
+		Function returns the <b>value</b> of the last list element.<br />
+		An error is raised if list is empty.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">auto ref</span> <span class="rword">list</span>:<span class="func">front</span>();<br />
+		</p>
+		Function returns the <b>value</b> of the first list element.<br />
+		An error is raised if list is empty.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">list_node ref</span> <span class="rword">list</span>:<span class="func">begin</span>();<br />
+		</p>
+		Function returns first list node (see description below).<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">list_node ref</span> <span class="rword">list</span>:<span class="func">end</span>();<br />
+		</p>
+		Function returns last list node (see description below).<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="rword">list</span>:<span class="func">empty</span>();<br />
+		</p>
+		Function returns <span class="real">1</span> is list doesn't contain any elements, otherwise the return value is <span class="real">0</span>.<br />
+	</div>
+
+	<div class="function">
+		<p class="code">
+<span class="rword">list_iterator</span> <span class="func">list_iterator</span>(<span class="rword">list_node ref</span> start);<br />
+<span class="rword">list_iterator</span> <span class="rword">list</span>:<span class="func">start</span>();<br />
+<span class="rword">auto ref</span> <span class="rword">list_iterator</span>:<span class="func">next</span>();<br />
+<span class="rword">int</span> <span class="rword">list_iterator</span>:<span class="func">hasnext</span>();<br />
+		</p>
+		These helper functions enable iteration over list elements in for each expression.<br />
+	</div>
+
+	Some functions return list node. This is a class that has references to previous and next node, element value and parent list.<br />
+	<p class="code">
+<span class="rword">class</span> <span class="rword">list_node</span><br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">list_node ref</span> prev, next;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">auto ref</span> elem;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">auto ref</span> parent;<br />
+}<br />
+	</p>
+	You can use <span class="var">prev</span> and <span class="var">next</span> members to iterate through list nodes.<br />
+	Manual change of <span class="var">prev</span>, <span class="var">next</span> and <span class="var">parent</span> members results in an undefined behavior and is strongly discouraged.<br />
+	<div class="function">
+		<p class="code">
+<span class="rword">auto ref</span> <span class="rword">list_node</span>.<span class="func">value</span>();<br />
+<span class="rword">auto ref</span> <span class="rword">list_node</span>.<span class="func">value</span>(<span class="rword">auto ref</span> val)<br />
+		</p>
+		Even though you can use <span class="var">elem</span> member to access list node element, this accessor is provided for better element value update semantics and should be used instead.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
 	<h3><a name="std_range">std.range</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	<div class="function">
+		<p class="code">
+<span class="rword">range_iterator</span> <span class="func">range</span>(<span class="rword">int</span> min, max, step = <span class="real">1</span>);<br />
+		</p>
+		Function return range iterator to be used in a for each expression.<br />
+		It will generate number starting from <span class="var">min</span>, incrementing it by a selected step (1 by default) while it's less than max.<br />
+		For example, range(1, 5) iterator will generate numbers {1, 2, 3, 4, 5}.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -1653,13 +1763,35 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="std_random">std.random</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="func">srand</span>(<span class="rword">int</span> seed);<br />
+		</p>
+		Sets a random starting point.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="func">rand</span>();<br />
+		</p>
+		Generates a pseudorandom number (in a range from 0 to 32767).<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="func">rand</span>(<span class="rword">int</span> max);<br />
+		</p>
+		Generates a pseudorandom number with a specified maximum (it must be less than 32767).<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
 	<h3><a name="std_time">std.time</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="func">clock</span>();<br />
+		</p>
+		Function returns the elapsed wall-clock time since the start of the process (in milliseconds).<br />
+	</div>
 </div>
 <hr />
 
