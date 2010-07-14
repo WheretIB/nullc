@@ -65,6 +65,8 @@ const char*	nullcGetLastError();
 /************************************************************************/
 /*							Interaction functions						*/
 
+#ifndef NULLC_NO_EXECUTOR
+
 /*	Allocates memory block that is managed by GC	*/
 void*		nullcAllocate(unsigned int size);
 
@@ -74,11 +76,19 @@ void		nullcThrowError(const char* error, ...);
 /*	Call function using NULLCFuncPtr	*/
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...);
 
+/*	Get global variable value	*/
+void*		nullcGetGlobal(const char* name);
+
 /*	Set global variable value	*/
 nullres		nullcSetGlobal(const char* name, void* data);
 
-/*	Get global variable value	*/
-void*		nullcGetGlobal(const char* name);
+/*	Get function pointer	*/
+nullres		nullcGetFunction(const char* name, NULLCFuncPtr* func);
+
+/* Set function using function pointer	*/
+nullres		nullcSetFunction(const char* name, NULLCFuncPtr func);
+
+#endif
 
 /************************************************************************/
 /*							Special modules								*/

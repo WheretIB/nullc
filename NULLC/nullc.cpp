@@ -399,6 +399,8 @@ nullres	nullcRunFunction(const char* funcName, ...)
 	return good;
 }
 
+#ifndef NULLC_NO_EXECUTOR
+
 void nullcThrowError(const char* error, ...)
 {
 	va_list args;
@@ -411,9 +413,7 @@ void nullcThrowError(const char* error, ...)
 
 	if(currExec == NULLC_VM)
 	{
-#ifndef NULLC_NO_EXECUTOR
 		executor->Stop(buf);
-#endif
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Stop(buf);
@@ -429,10 +429,8 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	va_start(args, ptr);
 	if(currExec == NULLC_VM)
 	{
-#ifndef NULLC_NO_EXECUTOR
 		executor->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
 		error = executor->GetExecError();
-#endif
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
@@ -443,14 +441,13 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	if(error && error[0] != '\0')
 	{
 		nullcLastError = error;
-		return 0;
+		return false;
 	}
-	return 1;
+	return true;
 }
 
 nullres nullcSetGlobal(const char* name, void* data)
 {
-#ifndef NULLC_NO_EXECUTOR
 	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !data || !mem)
 		return 0;
@@ -463,16 +460,11 @@ nullres nullcSetGlobal(const char* name, void* data)
 			return 1;
 		}
 	}
-#else
-	(void)name;
-	(void)data;
-#endif
 	return 0;
 }
 
 void* nullcGetGlobal(const char* name)
 {
-#ifndef NULLC_NO_EXECUTOR
 	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !mem)
 		return NULL;
@@ -482,12 +474,95 @@ void* nullcGetGlobal(const char* name)
 		if(linker->exVariables[i].nameHash == hash)
 			return mem + linker->exVariables[i].offset;
 	}
-#else
-	(void)name;
-#endif
 	return NULL;
 }
 
+unsigned int nullcFindFunctionIndex(const char* name)
+{
+	if(!linker)
+	{
+		nullcLastError = "ERROR: NULLC cannot find linked code";
+		return ~0u;
+	}
+	if(!name)
+	{
+		nullcLastError = "ERROR: function name is 'null'";
+		return ~0u;
+	}
+	unsigned int hash = GetStringHash(name);
+	unsigned int index = ~0u;
+	for(unsigned int i = 0; i < linker->exFunctions.size(); i++)
+	{
+		if(linker->exFunctions[i].nameHash == hash)
+		{
+			if(index != ~0u)
+			{
+				nullcLastError = "ERROR: there is more than one function with the same name";
+				return ~0u;
+			}
+			index = i;
+		}
+	}
+	if(index == ~0u)
+	{
+		nullcLastError = "ERROR: function with such name cannot be found";
+		return ~0u;
+	}
+	if(!linker->exFunctions[index].isNormal)
+	{
+		nullcLastError = "ERROR: function uses context, which is unavailable";
+		return ~0u;
+	}
+	return index;
+}
+
+nullres nullcGetFunction(const char* name, NULLCFuncPtr* func)
+{
+	if(!func)
+	{
+		nullcLastError = "ERROR: passed pointer to NULLC function is 'null'";
+		return false;
+	}
+	unsigned int index = nullcFindFunctionIndex(name);
+	if(index == ~0u)
+		return false;
+	func->id = index;
+	func->context = NULL;
+	return true;
+}
+
+nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
+{
+	unsigned int index = nullcFindFunctionIndex(name);
+	if(index == ~0u)
+		return false;
+	if(!linker->exFunctions[func.id].isNormal)
+	{
+		nullcLastError = "ERROR: source function uses context, which is unavailable";
+		return false;
+	}
+	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
+	{
+		linker->functionAddress[index * 2 + 0] = linker->functionAddress[func.id * 2 + 0];	// function address
+		linker->functionAddress[index * 2 + 1] = linker->functionAddress[func.id * 2 + 1];	// function class
+		if(linker->exFunctions[index].funcPtr && !linker->exFunctions[func.id].funcPtr)
+		{
+			nullcLastError = "Internal function cannot be overridden with external function on x86";
+			return false;
+		}
+		if(linker->exFunctions[func.id].funcPtr && !linker->exFunctions[index].funcPtr)
+		{
+			nullcLastError = "External function cannot be overridden with internal function on x86";
+			return false;
+		}
+	}
+	linker->exFunctions[index].address = linker->exFunctions[func.id].address;
+	linker->exFunctions[index].funcPtr = linker->exFunctions[func.id].funcPtr;
+	linker->exFunctions[index].codeSize = linker->exFunctions[func.id].codeSize;
+	return true;
+}
+
+#endif
 
 const char* nullcGetResult()
 {
