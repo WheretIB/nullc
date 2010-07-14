@@ -12,7 +12,7 @@ namespace NULLCTime
 {
 	int clock()
 	{
-		return ::clock();
+		return ::clock() * 1000 / CLOCKS_PER_SEC;
 	}
 
 	double clockPrecise()
@@ -24,7 +24,7 @@ namespace NULLCTime
 		double temp = double(count.QuadPart) / double(freq.QuadPart);
 		return temp*1000.0;
 #else
-		return ::clock();
+		return ::clock() * 1000 / CLOCKS_PER_SEC;
 #endif
 	}
 }
