@@ -1,5 +1,5 @@
 /**
- * pugixml parser - version 0.7
+ * pugixml parser - version 0.9
  * --------------------------------------------------------
  * Copyright (C) 2006-2010, by Arseny Kapoulkine (arseny.kapoulkine@gmail.com)
  * Report bugs and download new versions at http://code.google.com/p/pugixml/
@@ -134,7 +134,7 @@ namespace pugi
 				if (lhs[i] != rhs[i])
 					return false;
 		
-			return true;
+			return lhs[count] == 0;
 		}
 		
 		// Character set pattern match.
@@ -1024,7 +1024,7 @@ namespace
 		return *reinterpret_cast<unsigned char*>(&ui) == 1;
 	}
 
-	encoding_t get_wchar_encoding()
+	xml_encoding get_wchar_encoding()
 	{
 		STATIC_ASSERT(sizeof(wchar_t) == 2 || sizeof(wchar_t) == 4);
 
@@ -1034,7 +1034,7 @@ namespace
 			return is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
 	}
 
-	encoding_t get_buffer_encoding(encoding_t encoding, const void* contents, size_t size)
+	xml_encoding get_buffer_encoding(xml_encoding encoding, const void* contents, size_t size)
 	{
 		// replace wchar encoding with utf implementation
 		if (encoding == encoding_wchar) return get_wchar_encoding();
@@ -1095,7 +1095,7 @@ namespace
 	}
 
 #ifdef PUGIXML_WCHAR_MODE
-	inline bool need_endian_swap_utf(encoding_t le, encoding_t re)
+	inline bool need_endian_swap_utf(xml_encoding le, xml_encoding re)
 	{
 		return (le == encoding_utf16_be && re == encoding_utf16_le) || (le == encoding_utf16_le && re == encoding_utf16_be) ||
 		       (le == encoding_utf32_be && re == encoding_utf32_le) || (le == encoding_utf32_le && re == encoding_utf32_be);
@@ -1187,10 +1187,10 @@ namespace
 		return true;
 	}
 
-	bool convert_buffer(char_t*& out_buffer, size_t& out_length, encoding_t encoding, const void* contents, size_t size, bool is_mutable)
+	bool convert_buffer(char_t*& out_buffer, size_t& out_length, xml_encoding encoding, const void* contents, size_t size, bool is_mutable)
 	{
 		// get native encoding
-		encoding_t wchar_encoding = get_wchar_encoding();
+		xml_encoding wchar_encoding = get_wchar_encoding();
 
 		// fast path: no conversion required
 		if (encoding == wchar_encoding) return get_mutable_buffer(out_buffer, out_length, contents, size, is_mutable);
@@ -1204,7 +1204,7 @@ namespace
 		// source encoding is utf16
 		if (encoding == encoding_utf16_be || encoding == encoding_utf16_le)
 		{
-			encoding_t native_encoding = is_little_endian() ? encoding_utf16_le : encoding_utf16_be;
+			xml_encoding native_encoding = is_little_endian() ? encoding_utf16_le : encoding_utf16_be;
 
 			return (native_encoding == encoding) ?
 				convert_buffer_utf16(out_buffer, out_length, contents, size, opt_false()) :
@@ -1214,7 +1214,7 @@ namespace
 		// source encoding is utf32
 		if (encoding == encoding_utf32_be || encoding == encoding_utf32_le)
 		{
-			encoding_t native_encoding = is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
+			xml_encoding native_encoding = is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
 
 			return (native_encoding == encoding) ?
 				convert_buffer_utf32(out_buffer, out_length, contents, size, opt_false()) :
@@ -1271,7 +1271,7 @@ namespace
 		return true;
 	}
 
-	bool convert_buffer(char_t*& out_buffer, size_t& out_length, encoding_t encoding, const void* contents, size_t size, bool is_mutable)
+	bool convert_buffer(char_t*& out_buffer, size_t& out_length, xml_encoding encoding, const void* contents, size_t size, bool is_mutable)
 	{
 		// fast path: no conversion required
 		if (encoding == encoding_utf8) return get_mutable_buffer(out_buffer, out_length, contents, size, is_mutable);
@@ -1279,7 +1279,7 @@ namespace
 		// source encoding is utf16
 		if (encoding == encoding_utf16_be || encoding == encoding_utf16_le)
 		{
-			encoding_t native_encoding = is_little_endian() ? encoding_utf16_le : encoding_utf16_be;
+			xml_encoding native_encoding = is_little_endian() ? encoding_utf16_le : encoding_utf16_be;
 
 			return (native_encoding == encoding) ?
 				convert_buffer_utf16(out_buffer, out_length, contents, size, opt_false()) :
@@ -1289,7 +1289,7 @@ namespace
 		// source encoding is utf32
 		if (encoding == encoding_utf32_be || encoding == encoding_utf32_le)
 		{
-			encoding_t native_encoding = is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
+			xml_encoding native_encoding = is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
 
 			return (native_encoding == encoding) ?
 				convert_buffer_utf32(out_buffer, out_length, contents, size, opt_false()) :
@@ -1771,7 +1771,7 @@ namespace
 
 	strconv_attribute_t get_strconv_attribute(unsigned int optmask)
 	{
-		STATIC_ASSERT(parse_escapes == 0x10 && parse_eol == 0x20 && parse_wconv_attribute == 0x40);
+		STATIC_ASSERT(parse_escapes == 0x10 && parse_eol == 0x20 && parse_wconv_attribute == 0x40 && parse_wnorm_attribute == 0x80);
 		
 		switch ((optmask >> 4) & 15) // get bitmask for flags (wconv wnorm eol escapes)
 		{
@@ -2378,7 +2378,7 @@ namespace
 	};
 
 	// Output facilities
-	encoding_t get_write_native_encoding()
+	xml_encoding get_write_native_encoding()
 	{
 	#ifdef PUGIXML_WCHAR_MODE
 		return get_wchar_encoding();
@@ -2387,7 +2387,7 @@ namespace
 	#endif
 	}
 
-	encoding_t get_write_encoding(encoding_t encoding)
+	xml_encoding get_write_encoding(xml_encoding encoding)
 	{
 		// replace wchar encoding with utf implementation
 		if (encoding == encoding_wchar) return get_wchar_encoding();
@@ -2414,7 +2414,7 @@ namespace
 		return (sizeof(wchar_t) == 2 && (unsigned)(static_cast<uint16_t>(data[length - 1]) - 0xD800) < 0x400) ? length - 1 : length;
 	}
 
-	size_t convert_buffer(char* result, const char_t* data, size_t length, encoding_t encoding)
+	size_t convert_buffer(char* result, const char_t* data, size_t length, xml_encoding encoding)
 	{
 		// only endian-swapping is required
 		if (need_endian_swap_utf(encoding, get_wchar_encoding()))
@@ -2445,7 +2445,7 @@ namespace
 			uint16_t* end = utf_decoder<utf16_writer>::decode_utf32_block(reinterpret_cast<const uint32_t*>(data), length, dest);
 
 			// swap if necessary
-			encoding_t native_encoding = is_little_endian() ? encoding_utf16_le : encoding_utf16_be;
+			xml_encoding native_encoding = is_little_endian() ? encoding_utf16_le : encoding_utf16_be;
 
 			if (native_encoding != encoding) convert_utf_endian_swap(dest, dest, static_cast<size_t>(end - dest));
 
@@ -2461,7 +2461,7 @@ namespace
 			uint32_t* end = utf_decoder<utf32_writer>::decode_utf16_block(reinterpret_cast<const uint16_t*>(data), length, dest);
 
 			// swap if necessary
-			encoding_t native_encoding = is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
+			xml_encoding native_encoding = is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
 
 			if (native_encoding != encoding) convert_utf_endian_swap(dest, dest, static_cast<size_t>(end - dest));
 
@@ -2490,7 +2490,7 @@ namespace
 		return length;
 	}
 
-	size_t convert_buffer(char* result, const char_t* data, size_t length, encoding_t encoding)
+	size_t convert_buffer(char* result, const char_t* data, size_t length, xml_encoding encoding)
 	{
 		if (encoding == encoding_utf16_be || encoding == encoding_utf16_le)
 		{
@@ -2500,7 +2500,7 @@ namespace
 			uint16_t* end = utf_decoder<utf16_writer>::decode_utf8_block(reinterpret_cast<const uint8_t*>(data), length, dest);
 
 			// swap if necessary
-			encoding_t native_encoding = is_little_endian() ? encoding_utf16_le : encoding_utf16_be;
+			xml_encoding native_encoding = is_little_endian() ? encoding_utf16_le : encoding_utf16_be;
 
 			if (native_encoding != encoding) convert_utf_endian_swap(dest, dest, static_cast<size_t>(end - dest));
 
@@ -2515,7 +2515,7 @@ namespace
 			uint32_t* end = utf_decoder<utf32_writer>::decode_utf8_block(reinterpret_cast<const uint8_t*>(data), length, dest);
 
 			// swap if necessary
-			encoding_t native_encoding = is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
+			xml_encoding native_encoding = is_little_endian() ? encoding_utf32_le : encoding_utf32_be;
 
 			if (native_encoding != encoding) convert_utf_endian_swap(dest, dest, static_cast<size_t>(end - dest));
 
@@ -2535,7 +2535,7 @@ namespace
 		xml_buffered_writer& operator=(const xml_buffered_writer&);
 
 	public:
-		xml_buffered_writer(xml_writer& writer, encoding_t user_encoding): writer(writer), bufsize(0), encoding(get_write_encoding(user_encoding))
+		xml_buffered_writer(xml_writer& writer, xml_encoding user_encoding): writer(writer), bufsize(0), encoding(get_write_encoding(user_encoding))
 		{
 		}
 
@@ -2687,10 +2687,10 @@ namespace
 
 		xml_writer& writer;
 		size_t bufsize;
-		encoding_t encoding;
+		xml_encoding encoding;
 	};
 
-	void write_bom(xml_writer& writer, encoding_t encoding)
+	void write_bom(xml_writer& writer, xml_encoding encoding)
 	{
 		switch (encoding)
 		{
@@ -2967,7 +2967,7 @@ namespace
 	}
 
 #ifndef PUGIXML_NO_STL
-	template <typename T> xml_parse_result load_stream_impl(xml_document& doc, std::basic_istream<T, std::char_traits<T> >& stream, unsigned int options, encoding_t encoding)
+	template <typename T> xml_parse_result load_stream_impl(xml_document& doc, std::basic_istream<T, std::char_traits<T> >& stream, unsigned int options, xml_encoding encoding)
 	{
 		if (!stream.good()) return make_parse_result(status_io_error);
 
@@ -3330,22 +3330,22 @@ namespace pugi
 
 	xml_node::iterator xml_node::begin() const
 	{
-		return _root ? iterator(_root->first_child) : iterator();
+		return iterator(_root ? _root->first_child : 0, _root);
 	}
 
 	xml_node::iterator xml_node::end() const
 	{
-		return _root && _root->first_child ? iterator(0, _root->first_child->prev_sibling_c) : iterator();
+		return iterator(0, _root);
 	}
 	
 	xml_node::attribute_iterator xml_node::attributes_begin() const
 	{
-		return _root ? attribute_iterator(_root->first_attribute) : attribute_iterator();
+		return attribute_iterator(_root ? _root->first_attribute : 0, _root);
 	}
 
 	xml_node::attribute_iterator xml_node::attributes_end() const
 	{
-		return _root && _root->first_attribute ? attribute_iterator(0, _root->first_attribute->prev_attribute_c) : attribute_iterator();
+		return attribute_iterator(0, _root);
 	}
 
 	bool xml_node::operator==(const xml_node& r) const
@@ -3774,21 +3774,21 @@ namespace pugi
 		return result;
 	}
 
-	void xml_node::remove_attribute(const char_t* name)
+	bool xml_node::remove_attribute(const char_t* name)
 	{
-		remove_attribute(attribute(name));
+		return remove_attribute(attribute(name));
 	}
 
-	void xml_node::remove_attribute(const xml_attribute& a)
+	bool xml_node::remove_attribute(const xml_attribute& a)
 	{
-		if (!_root || !a._attr) return;
+		if (!_root || !a._attr) return false;
 
 		// check that attribute belongs to *this
 		xml_attribute_struct* attr = a._attr;
 
 		while (attr->prev_attribute_c->next_attribute) attr = attr->prev_attribute_c;
 
-		if (attr != _root->first_attribute) return;
+		if (attr != _root->first_attribute) return false;
 
 		if (a._attr->next_attribute) a._attr->next_attribute->prev_attribute_c = a._attr->prev_attribute_c;
 		else if (_root->first_attribute) _root->first_attribute->prev_attribute_c = a._attr->prev_attribute_c;
@@ -3797,16 +3797,18 @@ namespace pugi
 		else _root->first_attribute = a._attr->next_attribute;
 
 		destroy_attribute(a._attr, get_allocator(_root));
+
+		return true;
 	}
 
-	void xml_node::remove_child(const char_t* name)
+	bool xml_node::remove_child(const char_t* name)
 	{
-		remove_child(child(name));
+		return remove_child(child(name));
 	}
 
-	void xml_node::remove_child(const xml_node& n)
+	bool xml_node::remove_child(const xml_node& n)
 	{
-		if (!_root || !n._root || n._root->parent != _root) return;
+		if (!_root || !n._root || n._root->parent != _root) return false;
 
 		if (n._root->next_sibling) n._root->next_sibling->prev_sibling_c = n._root->prev_sibling_c;
 		else if (_root->first_child) _root->first_child->prev_sibling_c = n._root->prev_sibling_c;
@@ -3815,6 +3817,8 @@ namespace pugi
 		else _root->first_child = n._root->next_sibling;
         
         destroy_node(n._root, get_allocator(_root));
+
+		return true;
 	}
 
 	xml_node xml_node::find_child_by_attribute(const char_t* name, const char_t* attr_name, const char_t* attr_value) const
@@ -3945,7 +3949,8 @@ namespace pugi
 	{
 		walker._depth = -1;
 		
-		if (!walker.begin(*this)) return false;
+		xml_node arg_begin = *this;
+		if (!walker.begin(arg_begin)) return false;
 
 		xml_node cur = first_child();
 				
@@ -3955,7 +3960,8 @@ namespace pugi
 
 			do 
 			{
-				if (!walker.for_each(cur))
+				xml_node arg_for_each = cur;
+				if (!walker.for_each(arg_for_each))
 					return false;
 						
 				if (cur.first_child())
@@ -3981,9 +3987,10 @@ namespace pugi
 			while (cur && cur != *this);
 		}
 
-		if (!walker.end(*this)) return false;
-		
-		return true;
+		assert(walker._depth == -1);
+
+		xml_node arg_end = *this;
+		return walker.end(arg_end);
 	}
 
 	unsigned int xml_node::document_order() const
@@ -3991,7 +3998,7 @@ namespace pugi
 		return 0;
 	}
 
-	void xml_node::print(xml_writer& writer, const char_t* indent, unsigned int flags, encoding_t encoding, unsigned int depth) const
+	void xml_node::print(xml_writer& writer, const char_t* indent, unsigned int flags, xml_encoding encoding, unsigned int depth) const
 	{
 		if (!_root) return;
 
@@ -4001,7 +4008,7 @@ namespace pugi
 	}
 
 #ifndef PUGIXML_NO_STL
-	void xml_node::print(std::basic_ostream<char, std::char_traits<char> >& stream, const char_t* indent, unsigned int flags, encoding_t encoding, unsigned int depth) const
+	void xml_node::print(std::basic_ostream<char, std::char_traits<char> >& stream, const char_t* indent, unsigned int flags, xml_encoding encoding, unsigned int depth) const
 	{
 		if (!_root) return;
 
@@ -4066,42 +4073,40 @@ namespace pugi
 	{
 	}
 
-	xml_node_iterator::xml_node_iterator(const xml_node& node): _wrap(node)
+	xml_node_iterator::xml_node_iterator(const xml_node& node): _wrap(node), _parent(node.parent())
 	{
 	}
 
-	xml_node_iterator::xml_node_iterator(xml_node_struct* ref): _wrap(ref)
-	{
-	}
-		
-	xml_node_iterator::xml_node_iterator(xml_node_struct* ref, xml_node_struct* prev): _prev(prev), _wrap(ref)
+	xml_node_iterator::xml_node_iterator(xml_node_struct* ref, xml_node_struct* parent): _wrap(ref), _parent(parent)
 	{
 	}
 
 	bool xml_node_iterator::operator==(const xml_node_iterator& rhs) const
 	{
-		return (_wrap == rhs._wrap);
+		return _wrap._root == rhs._wrap._root && _parent._root == rhs._parent._root;
 	}
 	
 	bool xml_node_iterator::operator!=(const xml_node_iterator& rhs) const
 	{
-		return (_wrap != rhs._wrap);
+		return _wrap._root != rhs._wrap._root || _parent._root != rhs._parent._root;
 	}
 
 	xml_node& xml_node_iterator::operator*()
 	{
+		assert(_wrap._root);
 		return _wrap;
 	}
 
 	xml_node* xml_node_iterator::operator->()
 	{
+		assert(_wrap._root);
 		return &_wrap;
 	}
 
 	const xml_node_iterator& xml_node_iterator::operator++()
 	{
-		_prev = _wrap;
-		_wrap = xml_node(_wrap._root->next_sibling);
+		assert(_wrap._root);
+		_wrap._root = _wrap._root->next_sibling;
 		return *this;
 	}
 
@@ -4115,7 +4120,7 @@ namespace pugi
 	const xml_node_iterator& xml_node_iterator::operator--()
 	{
 		if (_wrap._root) _wrap = _wrap.previous_sibling();
-		else _wrap = _prev;
+		else _wrap = _parent.last_child();
 		return *this;
 	}
 
@@ -4130,42 +4135,40 @@ namespace pugi
 	{
 	}
 
-	xml_attribute_iterator::xml_attribute_iterator(const xml_attribute& attr): _wrap(attr)
+	xml_attribute_iterator::xml_attribute_iterator(const xml_attribute& attr, const xml_node& parent): _wrap(attr), _parent(parent)
 	{
 	}
 
-	xml_attribute_iterator::xml_attribute_iterator(xml_attribute_struct* ref): _wrap(ref)
-	{
-	}
-		
-	xml_attribute_iterator::xml_attribute_iterator(xml_attribute_struct* ref, xml_attribute_struct* prev): _prev(prev), _wrap(ref)
+	xml_attribute_iterator::xml_attribute_iterator(xml_attribute_struct* ref, xml_node_struct* parent): _wrap(ref), _parent(parent)
 	{
 	}
 
 	bool xml_attribute_iterator::operator==(const xml_attribute_iterator& rhs) const
 	{
-		return (_wrap == rhs._wrap);
+		return _wrap._attr == rhs._wrap._attr && _parent._root == rhs._parent._root;
 	}
 	
 	bool xml_attribute_iterator::operator!=(const xml_attribute_iterator& rhs) const
 	{
-		return (_wrap != rhs._wrap);
+		return _wrap._attr != rhs._wrap._attr || _parent._root != rhs._parent._root;
 	}
 
 	xml_attribute& xml_attribute_iterator::operator*()
 	{
+		assert(_wrap._attr);
 		return _wrap;
 	}
 
 	xml_attribute* xml_attribute_iterator::operator->()
 	{
+		assert(_wrap._attr);
 		return &_wrap;
 	}
 
 	const xml_attribute_iterator& xml_attribute_iterator::operator++()
 	{
-		_prev = _wrap;
-		_wrap = xml_attribute(_wrap._attr->next_attribute);
+		assert(_wrap._attr);
+		_wrap._attr = _wrap._attr->next_attribute;
 		return *this;
 	}
 
@@ -4179,7 +4182,7 @@ namespace pugi
 	const xml_attribute_iterator& xml_attribute_iterator::operator--()
 	{
 		if (_wrap._attr) _wrap = _wrap.previous_attribute();
-		else _wrap = _prev;
+		else _wrap = _parent.last_attribute();
 		return *this;
 	}
 
@@ -4199,7 +4202,7 @@ namespace pugi
 		case status_file_not_found: return "File was not found";
 		case status_io_error: return "Error reading from file/stream";
 		case status_out_of_memory: return "Could not allocate memory";
-		case status_internal_error: return "Internal error occured";
+		case status_internal_error: return "Internal error occurred";
 
 		case status_unrecognized_tag: return "Could not determine tag type";
 
@@ -4289,7 +4292,7 @@ namespace pugi
 	}
 
 #ifndef PUGIXML_NO_STL
-	xml_parse_result xml_document::load(std::basic_istream<char, std::char_traits<char> >& stream, unsigned int options, encoding_t encoding)
+	xml_parse_result xml_document::load(std::basic_istream<char, std::char_traits<char> >& stream, unsigned int options, xml_encoding encoding)
 	{
 		create();
 
@@ -4310,9 +4313,9 @@ namespace pugi
 		
 		// Force native encoding (skip autodetection)
 	#ifdef PUGIXML_WCHAR_MODE
-		encoding_t encoding = encoding_wchar;
+		xml_encoding encoding = encoding_wchar;
 	#else
-		encoding_t encoding = encoding_utf8;
+		xml_encoding encoding = encoding_utf8;
 	#endif
 
 		return load_buffer(contents, impl::strlen(contents) * sizeof(char_t), options, encoding);
@@ -4328,11 +4331,11 @@ namespace pugi
 		return load_buffer_inplace_own(xmlstr, strlen(xmlstr), options, encoding_utf8);
 	}
 
-	xml_parse_result xml_document::load_file(const char* name, unsigned int options, encoding_t encoding)
+	xml_parse_result xml_document::load_file(const char* path, unsigned int options, xml_encoding encoding)
 	{
 		create();
 
-		FILE* file = fopen(name, "rb");
+		FILE* file = fopen(path, "rb");
 		if (!file) return make_parse_result(status_file_not_found);
 
 		fseek(file, 0, SEEK_END);
@@ -4365,12 +4368,12 @@ namespace pugi
 		return load_buffer_inplace_own(s, length, options, encoding);
 	}
 
-	xml_parse_result xml_document::load_buffer_impl(void* contents, size_t size, unsigned int options, encoding_t encoding, bool is_mutable, bool own)
+	xml_parse_result xml_document::load_buffer_impl(void* contents, size_t size, unsigned int options, xml_encoding encoding, bool is_mutable, bool own)
 	{
 		create();
 
 		// get actual encoding
-		encoding_t buffer_encoding = get_buffer_encoding(encoding, contents, size);
+		xml_encoding buffer_encoding = get_buffer_encoding(encoding, contents, size);
 
 		// get private buffer
 		char_t* buffer = 0;
@@ -4393,22 +4396,22 @@ namespace pugi
 		return res;
 	}
 
-	xml_parse_result xml_document::load_buffer(const void* contents, size_t size, unsigned int options, encoding_t encoding)
+	xml_parse_result xml_document::load_buffer(const void* contents, size_t size, unsigned int options, xml_encoding encoding)
 	{
 		return load_buffer_impl(const_cast<void*>(contents), size, options, encoding, false, false);
 	}
 
-	xml_parse_result xml_document::load_buffer_inplace(void* contents, size_t size, unsigned int options, encoding_t encoding)
+	xml_parse_result xml_document::load_buffer_inplace(void* contents, size_t size, unsigned int options, xml_encoding encoding)
 	{
 		return load_buffer_impl(contents, size, options, encoding, true, false);
 	}
 		
-	xml_parse_result xml_document::load_buffer_inplace_own(void* contents, size_t size, unsigned int options, encoding_t encoding)
+	xml_parse_result xml_document::load_buffer_inplace_own(void* contents, size_t size, unsigned int options, xml_encoding encoding)
 	{
 		return load_buffer_impl(contents, size, options, encoding, true, true);
 	}
 
-	void xml_document::save(xml_writer& writer, const char_t* indent, unsigned int flags, encoding_t encoding) const
+	void xml_document::save(xml_writer& writer, const char_t* indent, unsigned int flags, xml_encoding encoding) const
 	{
 		if (flags & format_write_bom) write_bom(writer, get_write_encoding(encoding));
 
@@ -4424,7 +4427,7 @@ namespace pugi
 	}
 
 #ifndef PUGIXML_NO_STL
-	void xml_document::save(std::basic_ostream<char, std::char_traits<char> >& stream, const char_t* indent, unsigned int flags, encoding_t encoding) const
+	void xml_document::save(std::basic_ostream<char, std::char_traits<char> >& stream, const char_t* indent, unsigned int flags, xml_encoding encoding) const
 	{
 		xml_writer_stream writer(stream);
 
@@ -4439,9 +4442,9 @@ namespace pugi
 	}
 #endif
 
-	bool xml_document::save_file(const char* name, const char_t* indent, unsigned int flags, encoding_t encoding) const
+	bool xml_document::save_file(const char* path, const char_t* indent, unsigned int flags, xml_encoding encoding) const
 	{
-		FILE* file = fopen(name, "wb");
+		FILE* file = fopen(path, "wb");
 		if (!file) return false;
 
 		xml_writer_file writer(file);
@@ -4459,6 +4462,8 @@ namespace pugi
 #ifndef PUGIXML_NO_STL
 	std::string PUGIXML_FUNCTION as_utf8(const wchar_t* str)
 	{
+		assert(str);
+
 		STATIC_ASSERT(sizeof(wchar_t) == 2 || sizeof(wchar_t) == 4);
 
 		size_t length = wcslen(str);
@@ -4495,6 +4500,8 @@ namespace pugi
 
 	std::wstring PUGIXML_FUNCTION as_wide(const char* str)
 	{
+		assert(str);
+
 		const uint8_t* data = reinterpret_cast<const uint8_t*>(str);
 		size_t size = strlen(str);
 
