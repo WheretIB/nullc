@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>NULLC library reference</title>
+<style type="text/css">
+p.code
+{
+	background: #eee;
+	font-family: Consolas, Courier New, monospace;
+	font-size: 10pt;
+}
+span.code
+{
+	background: #eee;
+	font-family: Consolas, Courier New, monospace;
+	font-size: 10pt;
+}
+span.rword
+{
+	color: #00f;
+}
+span.func
+{
+	color: #880000;
+	font-style: italic;
+}
+span.var
+{
+	color: #555;
+}
+span.real 
+{
+	color: #008800;
+}
+span.comment
+{
+	color: #f0f;
+}
+span.string
+{
+	color: #880000;
+}
+div.topic
+{
+	margin-left: 20px;
+}
+div.subtopic
+{
+	margin-left: 20px;
+}
+p.example_head
+{
+	font-weight: bold;
+	cursor: pointer;
+	background-color: #dfd;
+}
+p.example_body
+{
+	display: none;
+	margin-left: 10px;
+}
+div.example
+{
+}
+div.function
+{
+	border: 1px dashed #000;
+	margin-bottom: 0.5em;
+	padding-left: 10px;
+}
+div.function > p
+{
+	margin-top: 0px;
+	margin-left: 40px;
+}
+</style>
+<script language="javascript" type="text/javascript">
+var hashMap = new Array();
+function toggleView(a, b, c)
+{
+	if(hashMap[a] == undefined)
+		hashMap[a] = 1;
+	else
+		hashMap[a] = 1 - hashMap[a];
+	document.getElementById(b).style.display = hashMap[a] ? "block" : "none";
+	document.getElementById(a).innerHTML = (hashMap[a] ? "Hide " : "Show ") + c;
+}
+</script>
+	</head>
+	<body>
+<h2 align="center">NULLC library reference</h2>
+<ol>
+	<li>Interface</li>
+	<ol>
+		<li><a href="#lib_compile">Library compilation options</a></li>
+		<li><a href="#init_term">Initialization and termination</a></li>
+		<li><a href="#exec_env">Execution settings and environment</a></li>
+		<li><a href="#basic">Basic functions</a></li>
+		<li><a href="#interact_func">Interaction functions</a></li>
+		<li><a href="#special">Special modules</a></li>
+		<li><a href="#extended">Extended functions</a></li>
+		<li><a href="#debug">Debug functions</a></li>
+	</ol>
+	<li>Interoperability with C code</li>
+	<ol>
+		<li><a href="#interop_bind">Binding functions to NULLC</a></li>
+		<li><a href="#interop_types">Special types</a></li>
+		<li><a href="#interop_extra">Extra notes</a></li>
+	</ol>
+</ol>
+<hr />
+<h2 align="center">1. Interface</h2>
+<div class="topic">
+	<h3><a name="lib_compile">1.1 Library compilation options</a></h3>
+	Various library configuration options are available in "nullcdef.h" file.<br />
+	
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_MAX_VARIABLE_NAME_LENGTH</span> <span class="real">2048</span><br />
+		</p>
+		This define control the maximum variable, function or class name that NULLC will attempt to handle.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT</span> <span class="real">1024 * 1024 * 1024</span><br />
+		</p>
+		This define control the default maximum global memory limit (1Gb by default).<br />
+		You can change this constant or use the <a href="#nullcSetGlobalMemoryLimit">nullcSetGlobalMemoryLimit</a> function.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_STACK_TRACE_WITH_LOCALS</span><br />
+		</p>
+		This define control whether NULLC will write information about locals in call stack on execution error.<br />
+		This define is enabled by default.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_ENABLE_C_TRANSLATION</span><br />
+		</p>
+		This define enables an ability to translate NULLC code into C++ code.<br />
+		Keep in mind that enabling this define will degrade performance of NULLC VM and JiT executors (additionally, NULLC_OPTIMIZE_X86 will be disabled).<br />
+		This define is disabled by default.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_PURE_FUNCTIONS</span><br />
+		</p>
+		This define enables compile-time function evaluation.<br />
+		This define is enabled by default.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_BUILD_X86_JIT</span><br />
+		</p>
+		This define enables x86 JiT executor.<br />
+		This define is enabled by default on platforms and compilers that support it.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_OPTIMIZE_X86</span><br />
+		</p>
+		This define enables x86 JiT executor code optimization.<br />
+		Code compilation speed is reduced greatly when JiT is in use and this flag is enabled.<br />
+		This define is enabled by default on platforms and compilers that support it, unless the <span class="comment">NULLC_ENABLE_C_TRANSLATION</span> is enabled.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_NO_EXECUTOR</span><br />
+		</p>
+		This define will build a compiler-only version of NULLC library.<br />
+		This define is disabled by default.<br />
+	</div>
+
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="init_term">1.2 Initialization and termination</a></h3>
+	
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>		<span class="func">nullcInit</span>(<span class="rword">const char</span>* importPath);<br />
+		</p>
+		Function initializes NULLC library with default allocation and deallocation functions.<br />
+		-<b>importPath</b> parameter sets that path in which the modules will be searched.<br />
+		Function is equivalent to <span class="func">nullcInitCustomAlloc</span>(<span class="comment">NULL</span>, <span class="comment">NULL</span>, importPath);<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>		<span class="func">nullcSetImportPath</span>(<span class="rword">const char</span>* importPath);<br />
+		</p>
+		This function will update the module import path.<br />
+		-<b>importPath</b> parameter sets that path in which the modules will be searched.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>		<span class="func">nullcInitCustomAlloc</span>(<span class="rword">void</span>* (<span class="comment">NCDECL</span> *allocFunc)(<span class="rword">int</span>), <span class="rword">void</span> (<span class="comment">NCDECL</span> *deallocFunc)(<span class="rword">void</span>*), <span class="rword">const char</span>* importPath);<br />
+		</p>
+		Function initializes NULLC library with specified allocation and deallocation functions.<br />
+		-<b>allocFunc</b> parameter sets the allocation function. It must be _cdecl function accepting one argument (allocation size) and returning pointer to allocated memory block.<br />
+		-<b>deallocFunc</b> parameter sets the deallocation function. It must be _cdecl function accepting one argument (pointer to a memory block to be freed). Return type must be void.<br />
+		-<b>importPath</b> parameter sets that path in which the modules will be searched.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>		<span class="func">nullcSetFileReadHandler</span>(<span class="rword">const void</span>* (<span class="comment">NCDECL</span> *fileLoadFunc)(<span class="rword">const char</span>* name, <span class="rword">unsigned int</span>* size, <span class="rword">int</span>* nullcShouldFreePtr));<br />
+		</p>
+		Function allows to set a handler for module file read operation. By default, fopen/ftell/fread/fclose function are used.<br />
+		-<b>fileLoadFunc</b> parameter sets the handler function. It must be _cdecl function accepting three arguments and returning pointer to a memory, where file contents are placed.<br />
+		&nbsp;&nbsp;&nbsp;&nbsp;<b>name</b> argument contains the path to a module.<br />
+		&nbsp;&nbsp;&nbsp;&nbsp;<b>size</b> argument is a pointer to a variable that should receive file size.<br />
+		&nbsp;&nbsp;&nbsp;&nbsp;<b>nullcShouldFreePtr</b> argument is a pointer to a variable that will tell whether NULLC should free memory to which return pointer points to.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>		<span class="func">nullcSetGlobalMemoryLimit</span>(<span class="rword">unsigned int</span> limit);<br />
+		</p>
+		Function sets the global memory limit and override the one set by <span class="comment">NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT</span> define.<br />
+		- <b>limit</b> parameter is the new global memory limit.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>		<span class="func">nullcTerminate</span>();<br />
+		</p>
+		This function performs NULLC library deinitialization.<br />
+	</div>
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="exec_env">1.3 Execution settings and environment</a></h3>
+	
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>		<span class="func">nullcSetExecutor</span>(<span class="rword">unsigned int</span> id);
+		</p>
+		Change current executor.<br />
+		- <b>id</b> is executor ID. Can be either <span class="comment">NULLC_VM</span> or <span class="comment">NULLC_X86</span> (JiT).<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcSetJiTStack</span>(<span class="rword">void</span>* start, <span class="rword">void</span>* end, <span class="rword">unsigned int</span> flagMemoryAllocated);
+		</p>
+		Set memory range where JiT parameter stack will be placed.<br />
+		<br /> 
+		Windows specific:<br />
+		&nbsp;&nbsp;&nbsp;&nbsp;If <b>flagMemoryAllocated</b> is not set, executor will allocate memory itself using VirtualAlloc with base == <b>start</b>.<br />
+		Linux specific:<br />
+		&nbsp;&nbsp;&nbsp;&nbsp;If <b>flagMemoryAllocated</b> is not set, <b>start</b> parameter is ignored.<br />
+		<br />
+		When <b>flagMemoryAllocated</b> is not set, <b>end</b> can be set to <span class="comment">NULL</span>, meaning that x86 parameter stack can grow indefinitely.<br />
+		Default mode: <b>start</b> = <span class="real">0x20000000</span>, <b>end</b> = <span class="comment">NULL</span>, <b>flagMemoryAllocated</b> = false<br />
+		Function is available if <span class="comment">NULLC_BUILD_X86_JIT</span> is enabled.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcBindModuleFunction</span>(<span class="rword">const char</span>* module, <span class="rword">void</span> (<span class="comment">NCDECL</span> *ptr)(), <span class="rword">const char</span>* name, <span class="rword">int</span> index);
+		</p>
+		Function is used to bind unresolved module functions to external C functions.<br />
+		Read more abount C function binding in <a href="#interop_bind">interoperability</a> section.<br />
+		- <b>module</b> parameter is the module name (as in NULLC import expression), where the function will be searched.<br />
+		- <b>ptr</b> parameter is the pointer to C function (use a cast operation to bind functions with different types).<br />
+		- <b>name</b> parameter is the function name.<br />
+		- <b>index</b> parameter is the number of a function overload in order of definition in the source code.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcLoadModuleBySource</span>(<span class="rword">const char</span>* module, <span class="rword">const char</span>* code);
+		</p>
+		Builds module and saves its binary into binary cache.<br />
+		- <b>module</b> parameter is the module name as in NULLC import expression.<br />
+		- <b>code</b> parameter is the module source code.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcLoadModuleByBinary</span>(<span class="rword">const char</span>* module, <span class="rword">const char</span>* binary);
+		</p>
+		Loads module into binary cache.<br />
+		- <b>module</b> parameter is the module name as in NULLC import expression.<br />
+		- <b>binary</b> parameter is the module binary code.<br />
+	</div>
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="basic">1.4 Basic functions</a></h3>
+	
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcBuild</span>(<span class="rword">const char</span>* code);<br />
+		</p>
+		Compiles and links code.<br />
+		- <b>code</b> parameter is the module name as in NULLC import expression.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcRun</span>();<br />
+		</p>
+		Run global code.<br />
+		This function should be called at least once, before nullcRunFunction can be safely called, since it calculates global variable values.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcRunFunction</span>(<span class="rword">const char</span>* funcName, ...);<br />
+		</p>
+		Run function code.<br />
+		- <b>funcName</b> parameter is the name of the function to run. If it's <span class="comment">NULL</span>, the result is the same as calling nullcRun.<br />
+		- <b>...</b> arguments that will be passed into a function.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">const char</span>*	<span class="func">nullcGetResult</span>();<br />
+<span class="rword">int</span>			<span class="func">nullcGetResultInt</span>();<br />
+<span class="rword">double</span>		<span class="func">nullcGetResultDouble</span>();<br />
+<span class="rword">long long</span>	<span class="func">nullcGetResultLong</span>();<br />
+		</p>
+		Functions that retrieve last execution result of global code or function.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">const char</span>*	<span class="func">nullcGetLastError</span>();<br />
+		</p>
+		Function returns last error description.<br />
+	</div>
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="interact_func">1.5 Interaction functions</a></h3>
+	
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>*		<span class="func">nullcAllocate</span>(<span class="rword">unsigned int</span> size);
+		</p>
+		Function allocates memory block that is managed by GC.<br />
+		- <b>size</b> parameter is an allocation size.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>		<span class="func">nullcThrowError</span>(<span class="rword">const char</span>* error, ...);
+		</p>
+		Function aborts NULLC program execution with a specified error (formatting as in printf function is supported).<br />
+		- <b>error</b> parameter is a format string.<br />
+		- <b>...</b> extra arguments.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcCallFunction</span>(<span class="rword">NULLCFuncPtr</span> ptr, ...);
+		</p>
+		Call function using NULLC function pointer with optional arguments.<br />
+		- <b>ptr</b> parameter is a pointer to NULLC function.<br />
+		- <b>...</b> arguments that will be passed into a function.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcSetGlobal</span>(<span class="rword">const char</span>* name, <span class="rword">void</span>* data);
+		</p>
+		Set global variable value.<br />
+		- <b>name</b> parameter is a global variable name.<br />
+		- <b>data</b> parameter is a pointer to new variable data.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>*		<span class="func">nullcGetGlobal</span>(<span class="rword">const char</span>* name);
+		</p>
+		Get global variable value (can be modified).<br />
+		- <b>name</b> parameter is a global variable name.<br />
+	</div>
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="special">1.7 Special modules</a></h3>
+	
+	Some modules heavily rely on internal NULLC structure, and because of that, they are initialized through NULLC interface.<br />
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span>			<span class="func">nullcInitTypeinfoModule</span>();
+		</p>
+		Function initializes std.typeinfo module.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span>			<span class="func">nullcInitDynamicModule</span>();
+		</p>
+		Function initializes std.dynamic module.<br />
+	</div>
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="extended">1.8 Extended functions</a></h3>
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="debug">1.9 Debug functions</a></h3>
+</div>
+<hr />
+	</body>
+</html>
