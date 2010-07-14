@@ -1123,6 +1123,34 @@ void FillAutoInfo(char* ptr, HTREEITEM parent)
 	tiExtra.back() = TreeItemExtra((void*)(ptr + 4), parentType, lastItem, true);
 }
 
+void FillAutoArrayInfo(char* ptr, HTREEITEM parent)
+{
+	TVINSERTSTRUCT helpInsert;
+	helpInsert.hParent = parent;
+	helpInsert.hInsertAfter = TVI_LAST;
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.cchTextMax = 0;
+	char name[256];
+
+	NULLCAutoArray *arr = (NULLCAutoArray*)ptr;
+
+	safeprintf(name, 256, "typeid type = %d (%s)", arr->typeID, codeSymbols + codeTypes[arr->typeID].offsetToName);
+	helpInsert.item.pszText = name;
+	TreeView_InsertItem(hVars, &helpInsert);
+
+	safeprintf(name, 256, "%s[] data = 0x%x", codeSymbols + codeTypes[arr->typeID].offsetToName, arr->ptr);
+
+	ExternTypeInfo parentType;
+	memset(&parentType, 0, sizeof(ExternTypeInfo));
+	parentType.arrSize = arr->len;
+	parentType.subType = arr->typeID;
+
+	helpInsert.item.mask = TVIF_TEXT;
+	helpInsert.item.pszText = name;
+	HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
+	FillArrayVariableInfo(parentType, arr->ptr, lastItem);
+}
+
 void InsertUnavailableInfo(HTREEITEM parent)
 {
 	TVINSERTSTRUCT helpInsert;
@@ -1217,6 +1245,11 @@ void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent, b
 	if(&type == &codeTypes[7])
 	{
 		FillAutoInfo(ptr, parent);	// auto ref
+		return;
+	}
+	if(&type == &codeTypes[10])
+	{
+		FillAutoArrayInfo(ptr, parent);	// auto[]
 		return;
 	}
 
