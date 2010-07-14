@@ -1505,8 +1505,31 @@ B int 5<br />
 <hr />
 <div class="topic">
 	<h3><a name="std_gc">std.gc</a></h3>
-
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span> <span class="rword">NamespaceGC</span>:<span class="func">CollectMemory</span>();<br />
+		</p>
+		Function performs on-demand garbage collection.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">int</span> <span class="rword">NamespaceGC</span>:<span class="func">UsedMemory</span>();<br />
+		</p>
+		Function returns the size of memory currently in use, including memory in use by garbage that is not collected.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">double</span> <span class="rword">NamespaceGC</span>:<span class="func">MarkTime</span>();<br />
+		</p>
+		Function returns overall time (in seconds) that GC spent to traverse through all objects and mark the used ones.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">double</span> <span class="rword">NamespaceGC</span>:<span class="func">CollectTime</span>();<br />
+		</p>
+		Function returns overall time (in seconds) that GC spent to free memory used up by garbage.<br />
+	</div>
+	Module contains a global NamespaceStd class instance through which you can call its functions, e.g. GC.CollectMemory().<br />
 </div>
 <hr />
 <div class="topic">

@@ -12,17 +12,10 @@ class vector
 
 void cConstructVector(vector ref v, typeid type, int reserved);
 
-vector vector(typeid type, int reserved)
+vector vector(typeid type, int reserved = 0)
 {
 	vector ret;
 	cConstructVector(ret, type, reserved);
-	return ret;
-}
-
-vector vector(typeid type)
-{
-	vector ret;
-	cConstructVector(ret, type, 0);
 	return ret;
 }
 
