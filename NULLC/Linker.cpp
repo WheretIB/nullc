@@ -337,6 +337,9 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			exFunctions.back().closeListStart += oldListCount;
 			exFunctions.back().funcType = typeRemap[exFunctions.back().funcType];
 
+			if(exFunctions.back().parentType != ~0u)
+				exFunctions.back().parentType = typeRemap[exFunctions.back().parentType];
+
 			// Update internal function address
 			if(exFunctions.back().address != -1)
 			{
