@@ -467,7 +467,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : "nullclib_x64.ncm", "rb");
 	if(!modulePack)
 	{
-		strcat(initError, "WARNING: Failed to open precompiled module file");
+		strcat(initError, "WARNING: Failed to open precompiled module file ");
 		strcat(initError, sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : "nullclib_x64.ncm\r\n");
 	}else{
 		fseek(modulePack, 0, SEEK_END);
