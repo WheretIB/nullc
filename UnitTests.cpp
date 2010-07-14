@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <time.h>
 
+#pragma warning(disable: 4127)
+
 #if defined(_MSC_VER)
 	#include <Windows.h>
 #else
@@ -1309,7 +1311,8 @@ void	RunTests(bool verbose)
 
 		const char *partA = "int foo(){ return 15; }";
 		const char *partB = "import __last; import std.dynamic; int new_foo(){ return 25; } void foo_update(){ override(foo, new_foo); };\r\n";
-
+		
+		int vmPassed = passed[0], x86Passed = passed[1];
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
 			testCount[t]++;
@@ -1320,8 +1323,6 @@ void	RunTests(bool verbose)
 			nullres good = nullcCompile(partA);
 			if(!good)
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				printf("Compilation failed: %s\r\n", nullcGetLastError());
 				continue;
 			}else{
@@ -1331,8 +1332,6 @@ void	RunTests(bool verbose)
 			nullcClean();
 			if(!nullcLinkCode(bytecodeA, 0))
 			{
-				if(!messageVerbose)
-					printf("Two bytecode merge test 1\r\n");
 				printf("Compilation failed: %s\r\n", nullcGetLastError());
 				continue;
 			}
@@ -1340,38 +1339,28 @@ void	RunTests(bool verbose)
 
 			if(!nullcRunFunction(NULL))
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				printf("Execution failed: %s\r\n", nullcGetLastError());
 				continue;
 			}
 			if(!nullcRunFunction("foo"))
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				printf("Execution failed: %s\r\n", nullcGetLastError());
 				continue;
 			}
 			if(nullcGetResultInt() != 15)
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				printf("original foo failed to return 15\r\n");
 				continue;
 			}
 
 			if(!nullcCompile(partB))
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				printf("%s", nullcGetLastError());
 				continue;
 			}
 			nullcGetBytecodeNoCache(&bytecodeB);
 			if(!nullcLinkCode(bytecodeB, 0))
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				delete[] bytecodeB;
 				printf("%s", nullcGetLastError());
 				continue;
@@ -1380,28 +1369,136 @@ void	RunTests(bool verbose)
 
 			if(!nullcRunFunction("foo_update"))
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				printf("foo_update Execution failed: %s\r\n", nullcGetLastError());
 				continue;
 			}
 
 			if(!nullcRunFunction("foo"))
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				printf("foo Execution failed: %s\r\n", nullcGetLastError());
 				continue;
 			}
 			if(nullcGetResultInt() != 25)
 			{
-				if(!messageVerbose)
-					printf("Function update test\r\n");
 				printf("new foo failed to return 25\r\n");
 				continue;
 			}
 			passed[t]++;
 		}
+		if(vmPassed + 1 != passed[0])
+			printf("VM failed test: Function update test\r\n");
+		if(TEST_COUNT == 2 && x86Passed + 1 != passed[1])
+			printf("X86 failed test: Function update test\r\n");
+	}
+
+	{
+		if(messageVerbose)
+			printf("Function update test 2\r\n");
+
+		const char *partA = "int foo(){ return 15; }";
+		const char *partB = "int new_foo(){ return 25; }\r\n";
+
+		int vmPassed = passed[0], x86Passed = passed[1];
+		for(int t = 0; t < TEST_COUNT; t++)
+		{
+			testCount[t]++;
+			nullcSetExecutor(testTarget[t]);
+
+			char *bytecodeA = NULL, *bytecodeB = NULL;
+
+			nullres good = nullcCompile(partA);
+			if(!good)
+			{
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
+				continue;
+			}else{
+				nullcGetBytecode(&bytecodeA);
+			}
+
+			nullcClean();
+			if(!nullcLinkCode(bytecodeA, 0))
+			{
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			delete[] bytecodeA;
+
+			if(!nullcRunFunction(NULL))
+			{
+				printf("Execution failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(!nullcRunFunction("foo"))
+			{
+				printf("Execution failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(nullcGetResultInt() != 15)
+			{
+				printf("original foo failed to return 15\r\n");
+				continue;
+			}
+
+			if(!nullcCompile(partB))
+			{
+				printf("%s", nullcGetLastError());
+				continue;
+			}
+			nullcGetBytecode(&bytecodeB);
+			if(!nullcLinkCode(bytecodeB, 0))
+			{
+				delete[] bytecodeB;
+				printf("%s", nullcGetLastError());
+				continue;
+			}
+			delete[] bytecodeB;
+
+			NULLCFuncPtr fooOld;
+			NULLCFuncPtr fooNew;
+			if(!nullcGetFunction("foo", &fooOld))
+			{
+				printf("nullcGetFunction(foo) failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(!nullcGetFunction("new_foo", &fooNew))
+			{
+				printf("nullcGetFunction(new_foo) failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(!nullcSetFunction("foo", fooNew))
+			{
+				printf("nullcSetFunction(foo) failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+
+			if(!nullcRunFunction("foo"))
+			{
+				printf("foo Execution failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(nullcGetResultInt() != 25)
+			{
+				printf("new foo failed to return 25\r\n");
+				continue;
+			}
+			passed[t]++;
+			testCount[t]++;
+			if(!nullcCallFunction(fooOld))
+			{
+				printf("foo Execution failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(nullcGetResultInt() != 25)
+			{
+				printf("new foo failed to return 25\r\n");
+				continue;
+			}
+			passed[t]++;
+		}
+		if(vmPassed + 2 != passed[0])
+			printf("VM failed test: Function update test 2\r\n");
+		if(TEST_COUNT == 2 && x86Passed + 2 != passed[1])
+			printf("X86 failed test: Function update test 2\r\n");
 	}
 
 //////////////////////////////////////////////////////////////////////////
