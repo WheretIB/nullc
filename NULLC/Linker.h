@@ -17,7 +17,7 @@ public:
 	~Linker();
 
 	void	CleanCode();
-	bool	LinkCode(const char *bytecode, int redefinitions);
+	bool	LinkCode(const char *bytecode);
 
 	const char*	GetLinkError();
 
