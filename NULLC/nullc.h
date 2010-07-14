@@ -119,11 +119,9 @@ void			nullcTranslateToC(const char *fileName, const char *mainName);
 void			nullcClean();
 
 /*	Link new chunk of code.
-	If 'acceptRedefinitions' is 0, then error will be generated is function name collisions are found
-	otherwise, old function code will be replaced with the new one.
-	Type or redefinition always generates an error.
-	If global variables with the same name are found, a warning is generated. */
-nullres			nullcLinkCode(const char *bytecode, int acceptRedefinitions);
+	Type or function redefinition generates an error.
+	Global variables with the same name are ok. */
+nullres			nullcLinkCode(const char *bytecode);
 
 #ifdef __cplusplus
 }

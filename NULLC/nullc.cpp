@@ -231,10 +231,10 @@ void nullcClean()
 #endif
 }
 
-nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
+nullres nullcLinkCode(const char *bytecode)
 {
 #ifndef NULLC_NO_EXECUTOR
-	if(!linker->LinkCode(bytecode, acceptRedefinitions))
+	if(!linker->LinkCode(bytecode))
 	{
 		nullcLastError = linker->GetLinkError();
 		return false;
@@ -242,7 +242,6 @@ nullres nullcLinkCode(const char *bytecode, int acceptRedefinitions)
 	nullcLastError = linker->GetLinkError();
 #else
 	(void)bytecode;
-	(void)acceptRedefinitions;
 	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
 #endif
 #ifndef NULLC_NO_EXECUTOR
@@ -276,7 +275,7 @@ nullres nullcBuild(const char* code)
 	char *bytecode = NULL;
 	nullcGetBytecode(&bytecode);
 	nullcClean();
-	if(!nullcLinkCode(bytecode, 1))
+	if(!nullcLinkCode(bytecode))
 		return false;
 	delete[] bytecode;
 	return true;

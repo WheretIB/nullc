@@ -137,7 +137,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 		nullcClean();
 		timeClean += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
-		int linkgood = nullcLinkCode(bytecode, 1);
+		int linkgood = nullcLinkCode(bytecode);
 		timeLinkCode += myGetPreciseTime() - time;
 		delete[] bytecode;
 
@@ -1235,14 +1235,14 @@ void	RunTests(bool verbose)
 		}
 
 		nullcClean();
-		if(!nullcLinkCode(bytecodeA, 0))
+		if(!nullcLinkCode(bytecodeA))
 		{
 			if(!messageVerbose)
 				printf("Two bytecode merge test 1\r\n");
 			printf("Compilation failed: %s\r\n", nullcGetLastError());
 			continue;
 		}
-		if(!nullcLinkCode(bytecodeB, 0))
+		if(!nullcLinkCode(bytecodeB))
 		{
 			if(!messageVerbose)
 				printf("Two bytecode merge test 1\r\n");
@@ -1330,7 +1330,7 @@ void	RunTests(bool verbose)
 			}
 
 			nullcClean();
-			if(!nullcLinkCode(bytecodeA, 0))
+			if(!nullcLinkCode(bytecodeA))
 			{
 				printf("Compilation failed: %s\r\n", nullcGetLastError());
 				continue;
@@ -1359,7 +1359,7 @@ void	RunTests(bool verbose)
 				continue;
 			}
 			nullcGetBytecodeNoCache(&bytecodeB);
-			if(!nullcLinkCode(bytecodeB, 0))
+			if(!nullcLinkCode(bytecodeB))
 			{
 				delete[] bytecodeB;
 				printf("%s", nullcGetLastError());
@@ -1416,7 +1416,7 @@ void	RunTests(bool verbose)
 			}
 
 			nullcClean();
-			if(!nullcLinkCode(bytecodeA, 0))
+			if(!nullcLinkCode(bytecodeA))
 			{
 				printf("Compilation failed: %s\r\n", nullcGetLastError());
 				continue;
@@ -1445,7 +1445,7 @@ void	RunTests(bool verbose)
 				continue;
 			}
 			nullcGetBytecode(&bytecodeB);
-			if(!nullcLinkCode(bytecodeB, 0))
+			if(!nullcLinkCode(bytecodeB))
 			{
 				delete[] bytecodeB;
 				printf("%s", nullcGetLastError());
@@ -9163,7 +9163,7 @@ void	SpeedTestText(const char* name, const char* text)
 			char *bytecode = NULL;
 			nullcGetBytecode(&bytecode);
 			nullcClean();
-			if(!nullcLinkCode(bytecode, 0))
+			if(!nullcLinkCode(bytecode))
 				printf("Link failed: %s\r\n", nullcGetLastError());
 			delete[] bytecode;
 		}else{

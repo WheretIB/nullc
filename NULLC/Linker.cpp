@@ -48,7 +48,7 @@ void Linker::CleanCode()
 	NULLC::ClearMemory();
 }
 
-bool Linker::LinkCode(const char *code, int redefinitions)
+bool Linker::LinkCode(const char *code)
 {
 	linkError[0] = 0;
 
@@ -91,7 +91,7 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 #ifdef VERBOSE_DEBUG_OUTPUT
 					printf("Linking %s.\r\n", path);
 #endif
-					if(!LinkCode(bytecode, false))
+					if(!LinkCode(bytecode))
 					{
 						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
 						return false;
@@ -299,13 +299,8 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 		// If the function exists and is internal, check if redefinition is allowed
 		if(index != index_none)
 		{
-			if(redefinitions)
-			{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Warning: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
-			}else{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
-				return false;
-			}
+			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
+			return false;
 		}
 		if(index == index_none)
 		{
@@ -351,8 +346,6 @@ bool Linker::LinkCode(const char *code, int redefinitions)
 			printf("Adding function %-16s (at address %4d [external %p])\r\n", &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
 			printf("Closure list start: %d\r\n", exFunctions.back().closeListStart);
 #endif
-		}else{
-			assert(!"No function rewrite at the moment");
 		}
 	}
 

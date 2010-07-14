@@ -78,7 +78,7 @@ namespace NULLCDynamic
 		}
 		char *bytecode = NULL;
 		nullcGetBytecodeNoCache(&bytecode);
-		if(!nullcLinkCode(bytecode, 0))
+		if(!nullcLinkCode(bytecode))
 		{
 			delete[] bytecode;
 			nullcThrowError("%s", nullcGetLastError());
