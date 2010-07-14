@@ -427,7 +427,7 @@ namespace NULLCPugiXML
 	private:
 		NULLCFuncPtr writerCB;
 	};
-	void xml_node__print(NULLCFuncPtr writer, NullCArray indent, int flags, pugi::encoding_t encoding, int depth, xml_node* ptr)
+	void xml_node__print(NULLCFuncPtr writer, NullCArray indent, int flags, pugi::xml_encoding encoding, int depth, xml_node* ptr)
 	{
 		xml_writer_nullc writer_nullc = xml_writer_nullc(writer);
 		ptr->node.print(writer_nullc, indent.ptr, flags, encoding, depth);
@@ -459,10 +459,6 @@ namespace NULLCPugiXML
 	private:
 		NULLCFuncPtr callback;
 	};
-	void xml_node__all_elements_by_name(NullCArray name, NULLCFuncPtr callback, xml_node* ptr)
-	{
-		ptr->node.all_elements_by_name(name.ptr, inserter_nullc(callback));
-	}
 	class predicate_nullc_attribute
 	{
 	public:
@@ -573,7 +569,7 @@ namespace NULLCPugiXML
 		pugi::xml_parse_result res;
 		res.status = (pugi::xml_parse_status)desc->status;
 		res.offset = desc->offset;
-		res.encoding = (pugi::encoding_t)desc->encoding;
+		res.encoding = (pugi::xml_encoding)desc->encoding;
 		ret.ptr = (char*)res.description();
 		ret.len = (unsigned)strlen(ret.ptr) + 1;
 		return ret;
@@ -592,7 +588,7 @@ namespace NULLCPugiXML
 		return res;
 	}
 
-	xml_parse_result* xml_document__load_file(NullCArray name, unsigned int options, pugi::encoding_t encoding, xml_document* document)
+	xml_parse_result* xml_document__load_file(NullCArray name, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -605,7 +601,7 @@ namespace NULLCPugiXML
 		return res;
 	}
 
-	xml_parse_result* xml_document__load_buffer(NullCArray contents, int size, unsigned int options, pugi::encoding_t encoding, xml_document* document)
+	xml_parse_result* xml_document__load_buffer(NullCArray contents, int size, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -618,7 +614,7 @@ namespace NULLCPugiXML
 		return res;
 	}
 
-	xml_parse_result* xml_document__load_buffer_inplace(NullCArray contents, int size, unsigned int options, pugi::encoding_t encoding, xml_document* document)
+	xml_parse_result* xml_document__load_buffer_inplace(NullCArray contents, int size, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -631,7 +627,7 @@ namespace NULLCPugiXML
 		return res;
 	}
 
-	void xml_document__save(NULLCFuncPtr writer, NullCArray indent, int flags, pugi::encoding_t encoding, xml_document* document)
+	void xml_document__save(NULLCFuncPtr writer, NullCArray indent, int flags, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -643,7 +639,7 @@ namespace NULLCPugiXML
 		doc->save(writer_nullc, indent.ptr, flags, encoding);
 	}
 
-	int xml_document__save_file(NullCArray name, NullCArray indent, int flags, pugi::encoding_t encoding, xml_document* document)
+	int xml_document__save_file(NullCArray name, NullCArray indent, int flags, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -752,7 +748,6 @@ bool	nullcInitPugiXMLModule()
 	REGISTER_FUNC(xml_node__traverse, "xml_node::traverse", 0);
 	REGISTER_FUNC(xml_node__print, "xml_node::print", 0);
 
-	REGISTER_FUNC(xml_node__all_elements_by_name, "xml_node::all_elements_by_name", 0);
 	REGISTER_FUNC(xml_node__find_attribute, "xml_node::find_attribute", 0);
 	REGISTER_FUNC(xml_node__find_child, "xml_node::find_child", 0);
 	REGISTER_FUNC(xml_node__find_node, "xml_node::find_node", 0);

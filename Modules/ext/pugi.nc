@@ -246,8 +246,7 @@ class xml_node
 	void print(xml_writer writer, char[] indent = "\t", int flags = pugi.format_default, encoding_t encoding = pugi.encoding_auto, int depth = 0);
 
 	int offset_debug();
-	
-	void all_elements_by_name(char[] name, void ref(xml_node) callback);
+
 	xml_attribute find_attribute(void ref(xml_attribute) pred);
 	xml_node find_child(void ref(xml_node) pred);
 	xml_node find_node(void ref(xml_node) pred);
