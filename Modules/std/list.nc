@@ -5,11 +5,9 @@ class list_node
 {
 	list_node ref prev, next;
 	auto ref elem;
+	auto ref parent;
 }
-auto ref list_node.value()
-{
-	return elem;
-}
+
 class list
 {
 	typeid	elemType;
@@ -19,21 +17,29 @@ class list
 	list_node ref last;
 }
 
-list list()
+auto ref list_node.value()
 {
-	list ret;
-	ret.anyType = 1;
-	ret.elemType = auto ref;
-	ret.first = ret.last = nullptr;
-	return ret;
+	return elem;
+}
+auto ref list_node.value(auto ref val)
+{
+	auto listParent = list ref(parent);
+	if(!listParent.anyType && typeid(val) != (isPointer(listParent.elemType) ? listParent.elemType.subType() : listParent.elemType))
+		assert(0, "list_node.value argument type (" + typeid(val).name + ") differs from list element type (" + listParent.elemType.name + ")");
+	return elem = duplicate(val);
 }
 
-list list(typeid type)
+void list:list(typeid type = auto ref)
+{
+	anyType = type == auto ref;
+	elemType = type;
+	first = last = nullptr;
+}
+
+list list(typeid type = auto ref)
 {
 	list ret;
-	ret.anyType = type == auto ref;
-	ret.elemType = type;
-	ret.first = ret.last = nullptr;
+	ret.list(type);
 	return ret;
 }
 
@@ -53,6 +59,7 @@ void list:push_back(auto ref elem)
 		last = last.next;
 		last.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}
+	last.parent = this;
 }
 void list:push_front(auto ref elem)
 {
@@ -70,21 +77,27 @@ void list:push_front(auto ref elem)
 		first = first.prev;
 		first.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}
+	last.parent = this;
 }
 void list:insert(list_node ref it, auto ref elem)
 {
 	if(!anyType && typeid(elem) != elemType)
 		assert(0, "list::insert argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
+	if(list ref(it.parent) != this)
+		assert(0, "list::insert iterator is from a different list");
 	auto next = it.next;
 	it.next = new list_node;
 	it.next.elem = isPointer(elemType) ? elem : duplicate(elem);
 	it.next.prev = it;
 	it.next.next = next;
+	it.next.parent = this;
 	if(next)
 		next.prev = it.next;
 }
 void list:erase(list_node ref it)
 {
+	if(list ref(it.parent) != this)
+		assert(0, "list::insert iterator is from a different list");
 	auto prev = it.prev, next = it.next;
 	if(prev)
 		prev.next = next;
