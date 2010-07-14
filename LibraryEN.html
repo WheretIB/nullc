@@ -363,6 +363,22 @@ function toggleView(a, b, c)
 		Get global variable value (can be modified).<br />
 		- <b>name</b> parameter is a global variable name.<br />
 	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcGetFunction</span>(<span class="rword">const char</span>* name, <span class="rword">NULLCFuncPtr</span>* func);
+		</p>
+		Get function pointer to use it in nullcCallFunction or to redirect it to some other function using nullcSetFunction.<br />
+		- <b>name</b> parameter is the function name.<br />
+		- <b>func</b> parameter is the pointer to NULLCFuncPtr struct that will receive pointer to function.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcSetFunction</span>(<span class="rword">const char</span>* name, <span class="rword">NULLCFuncPtr</span> func);
+		</p>
+		Set function using function pointer to redirect function to another one.<br />
+		- <b>name</b> parameter is a global variable name.<br />
+		- <b>func</b> parameter is the NULLCFuncPtr struct that contains pointer to source function.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -385,6 +401,59 @@ function toggleView(a, b, c)
 <hr />
 <div class="topic">
 	<h3><a name="extended">1.8 Extended functions</a></h3>
+	
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>			<span class="func">nullcCompile</span>(<span class="rword">const char</span>* code);
+		</p>
+		Function compiles the source code.<br />
+		- <b>code</b> parameter is a pointer to a string with source code.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">unsigned int</span>	<span class="func">nullcGetBytecode</span>(<span class="rword">char</span>** bytecode);
+		</p>
+		Function is used to get bytecode for compiled source code.<br />
+		Bytecode can be later linked with nullcLinkCode and executed.<br />
+		- <b>bytecode</b> parameter is a pointer to pointer that will receive the bytecode. Memory must be freed by user.<br />
+		Function returns the size of the bytecode.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">unsigned int</span>	<span class="func">nullcGetBytecodeNoCache</span>(<span class="rword">char</span>** bytecode);
+		</p>
+		This function is similar to nullcGetBytecode, with one exception:<br />
+		After bytecode is retrieved by nullcGetBytecode, it is put into bytecode cache as "__last" module that can be imported later to implement advanced features like dynamic code evaluation (see std.dynamic).<br />
+		If you wish that "__last" module bytecode is not changed, you should use this function.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>			<span class="func">nullcClean</span>();
+		</p>
+		Clean all accumulated bytecode from linker.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>			<span class="func">nullcLinkCode</span>(<span class="rword">const char</span>* bytecode);
+		</p>
+		Link new chunk of bytecode.<br />
+		Type or function redefinition generates an error.<br />
+		Global variables with the same name are handled silently.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>			<span class="func">nullcSaveListing</span>(<span class="rword">const char</span>* fileName);
+		</p>
+		This function saves disassembly of last compiled code into file.<br />
+		Function works only if <span class="comment">NULLC_LOG_FILES</span> is defined.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">void</span>			<span class="func">nullcTranslateToC</span>(<span class="rword">const char</span>* fileName, <span class="rword">const char</span>* mainName);
+		</p>
+		This function saved analog of C++ code of last compiled code into file.<br />
+		Function works only if <span class="comment">NULLC_ENABLE_C_TRANSLATION</span> is defined.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
