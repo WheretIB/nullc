@@ -135,6 +135,28 @@ int main(int argc, char** argv)
 				strcat(cmdLine, " translation\\std_dynamic.cpp");
 				strcat(cmdLine, " translation\\std_dynamic_bind.cpp");
 			}
+			if(strstr(fileContent, "std.time;"))
+			{
+				strcat(cmdLine, " translation\\std_time.cpp");
+				strcat(cmdLine, " translation\\std_time_bind.cpp");
+			}
+			if(strstr(fileContent, "img.canvas;"))
+			{
+				strcat(cmdLine, " translation\\img_canvas.cpp");
+				strcat(cmdLine, " translation\\img_canvas_bind.cpp");
+			}
+			if(strstr(fileContent, "win.window;"))
+			{
+				strcat(cmdLine, " translation\\win_window.cpp");
+				strcat(cmdLine, " translation\\win_window_bind.cpp");
+				strcat(cmdLine, " translation\\win_window_ex.cpp");
+				strcat(cmdLine, " translation\\win_window_ex_bind.cpp -mwindows -mconsole");
+				if(!strstr(fileContent, "img.canvas;"))
+				{
+					strcat(cmdLine, " translation\\img_canvas.cpp");
+					strcat(cmdLine, " translation\\img_canvas_bind.cpp");
+				}
+			}
 			printf("Command line: %s\n", cmdLine);
 			system(cmdLine);
 		}

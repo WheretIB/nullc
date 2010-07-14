@@ -1,20 +1,40 @@
 #include "runtime.h"
 // Typeid redirect table
-static unsigned __nullcTR[88];
+static unsigned __nullcTR[96];
 // Function pointer table
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
-static unsigned __nullcFR[62];
+static unsigned __nullcFR[66];
 // Array classes
-struct NamespaceGC 
+struct Canvas 
 {
+	int width;
+	int height;
+	int color;
+	NULLCArray<int > data;
 };
-void NamespaceGC__CollectMemory_void_ref__(NamespaceGC * __context);
-int NamespaceGC__UsedMemory_int_ref__(NamespaceGC * __context);
-double NamespaceGC__MarkTime_double_ref__(NamespaceGC * __context);
-double NamespaceGC__CollectTime_double_ref__(NamespaceGC * __context);
-NamespaceGC GC;
-int __init_std_gc_nc()
+Canvas Canvas__(int width, int height, void* unused);
+void Canvas__Clear_void_ref_char_char_char_(char red, char green, char blue, Canvas * __context);
+void Canvas__Clear_void_ref_char_char_char_char_(char red, char green, char blue, char alpha, Canvas * __context);
+void Canvas__SetColor_void_ref_char_char_char_(char red, char green, char blue, Canvas * __context);
+void Canvas__DrawLine_void_ref_int_int_int_int_(int x1, int y1, int x2, int y2, Canvas * __context);
+void Canvas__DrawRect_void_ref_int_int_int_int_(int x1, int y1, int x2, int y2, Canvas * __context);
+void Canvas__DrawPoint_void_ref_int_int_(int x, int y, Canvas * __context);
+NULLCArray<int > Canvas__GetData_int___ref__(Canvas * __context);
+Canvas  Canvas__(int width_0, int height_4, void* unused)
+{
+	Canvas ret_12;
+	*(&(&ret_12)->color) = 0;
+	*(&(&ret_12)->data) = __newA(4, (*(&width_0)) * (*(&height_4)), __nullcTR[45]);
+	*(&(&ret_12)->width) = *(&width_0);
+	*(&(&ret_12)->height) = *(&height_4);
+	return *(&ret_12);
+}
+NULLCArray<int >  Canvas__GetData_int___ref__(Canvas * __context)
+{
+	return *(&(*(&__context))->data);
+}
+int __init_img_canvas_nc()
 {
 	static int moduleInitialized = 0;
 	if(moduleInitialized++)
@@ -108,14 +128,21 @@ int __init_std_gc_nc()
 	__nullcTR[83] = __nullcRegisterType(1003630799u, "const_string ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[84] = __nullcRegisterType(2490023983u, "const_string ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[85] = __nullcRegisterType(3335638996u, "int ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[86] = __nullcRegisterType(2237494268u, "NamespaceGC", 0, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[87] = __nullcRegisterType(415910446u, "double ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[86] = __nullcRegisterType(2873246817u, "Canvas", 20, __nullcTR[0], 4, NULLC_CLASS);
+	__nullcTR[87] = __nullcRegisterType(454483569u, "Canvas ref(int,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[88] = __nullcRegisterType(1370688350u, "Canvas ref", 4, __nullcTR[86], 1, NULLC_POINTER);
+	__nullcTR[89] = __nullcRegisterType(4207716503u, "void ref(char,char,char)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[90] = __nullcRegisterType(3949610401u, "void ref(char,char,char,char)", 8, __nullcTR[0], 4, NULLC_FUNCTION);
+	__nullcTR[91] = __nullcRegisterType(1214959445u, "void ref(int,int,int,int)", 8, __nullcTR[0], 4, NULLC_FUNCTION);
+	__nullcTR[92] = __nullcRegisterType(3255288871u, "void ref(int,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[93] = __nullcRegisterType(1754891606u, "int[] ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[94] = __nullcRegisterType(3237546203u, "Canvas ref ref", 4, __nullcTR[88], 1, NULLC_POINTER);
+	__nullcTR[95] = __nullcRegisterType(902528216u, "Canvas ref ref ref", 4, __nullcTR[94], 1, NULLC_POINTER);
 	__nullcRegisterMembers(__nullcTR[7], 2, __nullcTR[8], 0, __nullcTR[9], 4);
 	__nullcRegisterMembers(__nullcTR[8], 0);
 	__nullcRegisterMembers(__nullcTR[10], 3, __nullcTR[8], 0, __nullcTR[9], 4, __nullcTR[4], 8);
 	__nullcRegisterMembers(__nullcTR[72], 1, __nullcTR[13], 0);
-	__nullcRegisterMembers(__nullcTR[86], 0);
-	__nullcRegisterGlobal((void*)&GC, __nullcTR[86]);
+	__nullcRegisterMembers(__nullcTR[86], 4, __nullcTR[4], 0, __nullcTR[4], 4, __nullcTR[4], 8, __nullcTR[45], 12);
 	__nullcFR[0] = 0;
 	__nullcFR[1] = 0;
 	__nullcFR[2] = 0;
@@ -174,10 +201,12 @@ int __init_std_gc_nc()
 	__nullcFR[55] = __nullcRegisterFunction("__float_a_16", (void*)__float_a_16, 4294967295u);
 	__nullcFR[56] = __nullcRegisterFunction("__double_a_17", (void*)__double_a_17, 4294967295u);
 	__nullcFR[57] = __nullcRegisterFunction("__str_precision_19", (void*)__str_precision_19, 4294967295u);
-	__nullcFR[58] = __nullcRegisterFunction("NamespaceGC__CollectMemory_void_ref__", (void*)NamespaceGC__CollectMemory_void_ref__, 4294967295u);
-	__nullcFR[59] = __nullcRegisterFunction("NamespaceGC__UsedMemory_int_ref__", (void*)NamespaceGC__UsedMemory_int_ref__, 4294967295u);
-	__nullcFR[60] = __nullcRegisterFunction("NamespaceGC__MarkTime_double_ref__", (void*)NamespaceGC__MarkTime_double_ref__, 4294967295u);
-	__nullcFR[61] = __nullcRegisterFunction("NamespaceGC__CollectTime_double_ref__", (void*)NamespaceGC__CollectTime_double_ref__, 4294967295u);
-	/* node translation unknown */
-	/* node translation unknown */
+	__nullcFR[58] = __nullcRegisterFunction("Canvas__", (void*)Canvas__, 31u);
+	__nullcFR[59] = __nullcRegisterFunction("Canvas__Clear_void_ref_char_char_char_", (void*)Canvas__Clear_void_ref_char_char_char_, 4294967295u);
+	__nullcFR[60] = __nullcRegisterFunction("Canvas__Clear_void_ref_char_char_char_char_", (void*)Canvas__Clear_void_ref_char_char_char_char_, 4294967295u);
+	__nullcFR[61] = __nullcRegisterFunction("Canvas__SetColor_void_ref_char_char_char_", (void*)Canvas__SetColor_void_ref_char_char_char_, 4294967295u);
+	__nullcFR[62] = __nullcRegisterFunction("Canvas__DrawLine_void_ref_int_int_int_int_", (void*)Canvas__DrawLine_void_ref_int_int_int_int_, 4294967295u);
+	__nullcFR[63] = __nullcRegisterFunction("Canvas__DrawRect_void_ref_int_int_int_int_", (void*)Canvas__DrawRect_void_ref_int_int_int_int_, 4294967295u);
+	__nullcFR[64] = __nullcRegisterFunction("Canvas__DrawPoint_void_ref_int_int_", (void*)Canvas__DrawPoint_void_ref_int_int_, 4294967295u);
+	__nullcFR[65] = __nullcRegisterFunction("Canvas__GetData_int___ref__", (void*)Canvas__GetData_int___ref__, 88u);
 }

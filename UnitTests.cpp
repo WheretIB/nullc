@@ -243,7 +243,7 @@ bool	RunCode(const char *code, unsigned int executor, const char* expected, cons
 		if(strstr(code, "std.list;"))
 		{
 			strcat(cmdLine, " NULLC\\translation\\std_list.cpp");
-			if(!strstr(code, "std.typeinfo;"))
+			if(!strstr(code, "std.typeinfo;") && !strstr(code, "std.vector;"))
 			{
 				strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
 				strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");

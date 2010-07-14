@@ -1,20 +1,126 @@
 #include "runtime.h"
 // Typeid redirect table
-static unsigned __nullcTR[88];
+static unsigned __nullcTR[115];
 // Function pointer table
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
-static unsigned __nullcFR[62];
+static unsigned __nullcFR[79];
 // Array classes
-struct NamespaceGC 
+struct StdOut 
 {
 };
-void NamespaceGC__CollectMemory_void_ref__(NamespaceGC * __context);
-int NamespaceGC__UsedMemory_int_ref__(NamespaceGC * __context);
-double NamespaceGC__MarkTime_double_ref__(NamespaceGC * __context);
-double NamespaceGC__CollectTime_double_ref__(NamespaceGC * __context);
-NamespaceGC GC;
-int __init_std_gc_nc()
+struct StdEndline 
+{
+};
+struct StdNonTerminatedTag 
+{
+};
+struct int_2_ 
+{
+	int ptr[2];
+	int_2_ & set(unsigned index, int const & val){ ptr[index] = val; return *this; }
+};
+struct __StdIO___func1_70_cls 
+{
+	void *x_ext;
+	int_2_ x_dat;
+};
+struct StdIO 
+{
+	StdOut out;
+	StdEndline endl;
+	StdNonTerminatedTag non_terminated_tag;
+};
+struct char_3_ 
+{
+	char ptr[4];
+	char_3_ & set(unsigned index, char const & val){ ptr[index] = val; return *this; }
+	char_3_ (){}
+	char_3_ (const char* data){ memcpy(ptr, data, 3); }
+};
+__nullcUpvalue *__upvalue_69_x_0 = 0;
+__nullcUpvalue *__upvalue_69___context = 0;
+void Print(NULLCArray<char > text, void* unused);
+void Print(int num, void* unused);
+void Print(double num, void* unused);
+void Print(long long num, void* unused);
+void Print(char ch, void* unused);
+int Input(NULLCArray<char > buf, void* unused);
+void Input(int * num, void* unused);
+void Write(NULLCArray<char > buf, void* unused);
+void SetConsoleCursorPos(int x, int y, void* unused);
+void GetKeyboardState(NULLCArray<char > state, void* unused);
+void GetMouseState(int * x, int * y, void* unused);
+NULLCFuncPtr StdIO__non_terminated_char___ref_StdNonTerminatedTag__ref_char___(NULLCArray<char > x, StdIO * __context);
+NULLCArray<char > StdIO___func1_70(StdNonTerminatedTag y, void* __StdIO___func1_70_ext);
+StdOut __operatorShiftLeft(StdOut out, NULLCFuncPtr wrapper, void* unused);
+StdOut __operatorShiftLeft(StdOut out, NULLCArray<char > str, void* unused);
+StdOut __operatorShiftLeft(StdOut out, const_string str, void* unused);
+StdOut __operatorShiftLeft(StdOut out, StdEndline str, void* unused);
+StdOut __operatorShiftLeft(StdOut out, char ch, void* unused);
+StdOut __operatorShiftLeft(StdOut out, int num, void* unused);
+StdOut __operatorShiftLeft(StdOut out, double num, void* unused);
+StdOut __operatorShiftLeft(StdOut out, long long num, void* unused);
+StdIO io;
+NULLCArray<char >  StdIO___func1_70(StdNonTerminatedTag y_0, void* __StdIO___func1_70_ext_4)
+{
+	return *((NULLCArray<char > * )((__nullcUpvalue*)((char*)__StdIO___func1_70_ext_4 + 0))->ptr);
+}
+NULLCFuncPtr  StdIO__non_terminated_char___ref_StdNonTerminatedTag__ref_char___(NULLCArray<char > x_0, StdIO * __context)
+{
+	__StdIO___func1_70_cls * __StdIO___func1_70_ext_12;
+	NULLCFuncPtr __nullcRetVar0 = (	(__StdIO___func1_70_ext_12 = (__StdIO___func1_70_cls * )__newS(12, __nullcTR[97])),
+	(((int**)__StdIO___func1_70_ext_12)[0] = (int*)&x_0),
+	(((int**)__StdIO___func1_70_ext_12)[1] = (int*)__upvalue_69_x_0),
+	(((int*)__StdIO___func1_70_ext_12)[2] = 8),
+	(__upvalue_69_x_0 = (__nullcUpvalue*)((int*)__StdIO___func1_70_ext_12 + 0)),
+	__nullcMakeFunction(__nullcFR[70], __StdIO___func1_70_ext_12));
+	__nullcCloseUpvalue(__upvalue_69_x_0, &x_0);
+	return __nullcRetVar0;
+	__nullcCloseUpvalue(__upvalue_69_x_0, &x_0);
+}
+StdOut  __operatorShiftLeft(StdOut out_0, NULLCFuncPtr wrapper_4, void* unused)
+{
+	Write(((NULLCArray<char > (*)(StdNonTerminatedTag , void*))(*__nullcFM)[(*(&wrapper_4)).id])(*(&(&io)->non_terminated_tag), (*(&wrapper_4)).context), (void*)0);
+	return *(&out_0);
+}
+StdOut  __operatorShiftLeft(StdOut out_0, NULLCArray<char > str_4, void* unused)
+{
+	Print(*(&str_4), (void*)0);
+	return *(&out_0);
+}
+StdOut  __operatorShiftLeft(StdOut out_0, const_string str_4, void* unused)
+{
+	Print(*(&(&str_4)->arr), (void*)0);
+	return *(&out_0);
+}
+StdOut  __operatorShiftLeft(StdOut out_0, StdEndline str_4, void* unused)
+{
+	char_3_ __temp1_12;
+	Print((memcpy((&__temp1_12)->ptr, "\xd\xa\x0\x0", 4), __makeNullcArray<char >(&__temp1_12, 3)), (void*)0);
+	return *(&out_0);
+}
+StdOut  __operatorShiftLeft(StdOut out_0, char ch_4, void* unused)
+{
+	Print(*(&ch_4), (void*)0);
+	return *(&out_0);
+}
+StdOut  __operatorShiftLeft(StdOut out_0, int num_4, void* unused)
+{
+	Print(*(&num_4), (void*)0);
+	return *(&out_0);
+}
+StdOut  __operatorShiftLeft(StdOut out_0, double num_4, void* unused)
+{
+	Print(*(&num_4), (void*)0);
+	return *(&out_0);
+}
+StdOut  __operatorShiftLeft(StdOut out_0, long long num_4, void* unused)
+{
+	Print(*(&num_4), (void*)0);
+	return *(&out_0);
+}
+int __init_std_io_nc()
 {
 	static int moduleInitialized = 0;
 	if(moduleInitialized++)
@@ -108,14 +214,45 @@ int __init_std_gc_nc()
 	__nullcTR[83] = __nullcRegisterType(1003630799u, "const_string ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[84] = __nullcRegisterType(2490023983u, "const_string ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[85] = __nullcRegisterType(3335638996u, "int ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[86] = __nullcRegisterType(2237494268u, "NamespaceGC", 0, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[87] = __nullcRegisterType(415910446u, "double ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[86] = __nullcRegisterType(2767335131u, "void ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[87] = __nullcRegisterType(709988916u, "int ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[88] = __nullcRegisterType(3241370989u, "void ref(int ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[89] = __nullcRegisterType(3255288871u, "void ref(int,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[90] = __nullcRegisterType(1591343073u, "void ref(int ref,int ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[91] = __nullcRegisterType(3521544424u, "StdOut", 0, __nullcTR[0], 0, NULLC_CLASS);
+	__nullcTR[92] = __nullcRegisterType(1586345743u, "StdEndline", 0, __nullcTR[0], 0, NULLC_CLASS);
+	__nullcTR[93] = __nullcRegisterType(3327808132u, "StdNonTerminatedTag", 0, __nullcTR[0], 0, NULLC_CLASS);
+	__nullcTR[94] = __nullcRegisterType(236863752u, "StdIO", 0, __nullcTR[0], 3, NULLC_CLASS);
+	__nullcTR[95] = __nullcRegisterType(2247820165u, "StdIO ref", 4, __nullcTR[94], 1, NULLC_POINTER);
+	__nullcTR[96] = __nullcRegisterType(2550674952u, "char[] ref(StdNonTerminatedTag)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[97] = __nullcRegisterType(136327970u, "__StdIO::$func1_70_cls", 12, __nullcTR[0], 2, NULLC_CLASS);
+	__nullcTR[98] = __nullcRegisterType(81026074u, "int[2]", 8, __nullcTR[4], 2, NULLC_ARRAY);
+	__nullcTR[99] = __nullcRegisterType(3044831903u, "__StdIO::$func1_70_cls ref", 4, __nullcTR[97], 1, NULLC_POINTER);
+	__nullcTR[100] = __nullcRegisterType(766912668u, "__StdIO::$func1_70_cls ref ref", 4, __nullcTR[99], 1, NULLC_POINTER);
+	__nullcTR[101] = __nullcRegisterType(2537081868u, "char[] ref(StdNonTerminatedTag) ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[102] = __nullcRegisterType(211946088u, "StdOut ref(StdOut,char[] ref(StdNonTerminatedTag))", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[103] = __nullcRegisterType(949711617u, "StdNonTerminatedTag ref", 4, __nullcTR[93], 1, NULLC_POINTER);
+	__nullcTR[104] = __nullcRegisterType(769095813u, "char[] ref(StdNonTerminatedTag) ref", 4, __nullcTR[96], 1, NULLC_POINTER);
+	__nullcTR[105] = __nullcRegisterType(1906324325u, "StdOut ref", 4, __nullcTR[91], 1, NULLC_POINTER);
+	__nullcTR[106] = __nullcRegisterType(1457376283u, "StdOut ref(StdOut,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[107] = __nullcRegisterType(2142474658u, "StdOut ref(StdOut,const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[108] = __nullcRegisterType(1732329455u, "StdOut ref(StdOut,StdEndline)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[109] = __nullcRegisterType(3258512270u, "char[3]", 4, __nullcTR[6], 3, NULLC_ARRAY);
+	__nullcTR[110] = __nullcRegisterType(1435994379u, "char[3] ref", 4, __nullcTR[109], 1, NULLC_POINTER);
+	__nullcTR[111] = __nullcRegisterType(3306372739u, "StdOut ref(StdOut,char)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[112] = __nullcRegisterType(2182824208u, "StdOut ref(StdOut,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[113] = __nullcRegisterType(3045954208u, "StdOut ref(StdOut,double)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[114] = __nullcRegisterType(3317311381u, "StdOut ref(StdOut,long)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcRegisterMembers(__nullcTR[7], 2, __nullcTR[8], 0, __nullcTR[9], 4);
 	__nullcRegisterMembers(__nullcTR[8], 0);
 	__nullcRegisterMembers(__nullcTR[10], 3, __nullcTR[8], 0, __nullcTR[9], 4, __nullcTR[4], 8);
 	__nullcRegisterMembers(__nullcTR[72], 1, __nullcTR[13], 0);
-	__nullcRegisterMembers(__nullcTR[86], 0);
-	__nullcRegisterGlobal((void*)&GC, __nullcTR[86]);
+	__nullcRegisterMembers(__nullcTR[91], 0);
+	__nullcRegisterMembers(__nullcTR[92], 0);
+	__nullcRegisterMembers(__nullcTR[93], 0);
+	__nullcRegisterMembers(__nullcTR[94], 3, __nullcTR[91], 0, __nullcTR[92], 0, __nullcTR[93], 0);
+	__nullcRegisterMembers(__nullcTR[97], 2, __nullcTR[17], 0, __nullcTR[98], 4);
+	__nullcRegisterGlobal((void*)&io, __nullcTR[94]);
 	__nullcFR[0] = 0;
 	__nullcFR[1] = 0;
 	__nullcFR[2] = 0;
@@ -174,10 +311,26 @@ int __init_std_gc_nc()
 	__nullcFR[55] = __nullcRegisterFunction("__float_a_16", (void*)__float_a_16, 4294967295u);
 	__nullcFR[56] = __nullcRegisterFunction("__double_a_17", (void*)__double_a_17, 4294967295u);
 	__nullcFR[57] = __nullcRegisterFunction("__str_precision_19", (void*)__str_precision_19, 4294967295u);
-	__nullcFR[58] = __nullcRegisterFunction("NamespaceGC__CollectMemory_void_ref__", (void*)NamespaceGC__CollectMemory_void_ref__, 4294967295u);
-	__nullcFR[59] = __nullcRegisterFunction("NamespaceGC__UsedMemory_int_ref__", (void*)NamespaceGC__UsedMemory_int_ref__, 4294967295u);
-	__nullcFR[60] = __nullcRegisterFunction("NamespaceGC__MarkTime_double_ref__", (void*)NamespaceGC__MarkTime_double_ref__, 4294967295u);
-	__nullcFR[61] = __nullcRegisterFunction("NamespaceGC__CollectTime_double_ref__", (void*)NamespaceGC__CollectTime_double_ref__, 4294967295u);
-	/* node translation unknown */
+	__nullcFR[58] = 0;
+	__nullcFR[59] = 0;
+	__nullcFR[60] = 0;
+	__nullcFR[61] = 0;
+	__nullcFR[62] = 0;
+	__nullcFR[63] = 0;
+	__nullcFR[64] = 0;
+	__nullcFR[65] = __nullcRegisterFunction("Write", (void*)Write, 4294967295u);
+	__nullcFR[66] = __nullcRegisterFunction("SetConsoleCursorPos", (void*)SetConsoleCursorPos, 4294967295u);
+	__nullcFR[67] = __nullcRegisterFunction("GetKeyboardState", (void*)GetKeyboardState, 4294967295u);
+	__nullcFR[68] = __nullcRegisterFunction("GetMouseState", (void*)GetMouseState, 4294967295u);
+	__nullcFR[69] = __nullcRegisterFunction("StdIO__non_terminated_char___ref_StdNonTerminatedTag__ref_char___", (void*)StdIO__non_terminated_char___ref_StdNonTerminatedTag__ref_char___, 95u);
+	__nullcFR[70] = __nullcRegisterFunction("StdIO___func1_70", (void*)StdIO___func1_70, 99u);
+	__nullcFR[71] = 0;
+	__nullcFR[72] = 0;
+	__nullcFR[73] = 0;
+	__nullcFR[74] = 0;
+	__nullcFR[75] = 0;
+	__nullcFR[76] = 0;
+	__nullcFR[77] = 0;
+	__nullcFR[78] = 0;
 	/* node translation unknown */
 }

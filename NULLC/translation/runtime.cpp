@@ -6,6 +6,16 @@
 #undef assert
 #define __assert(_Expression) if(!(_Expression)){ printf("assertion failed"); abort(); };
 
+int	SafeSprintf(char* dst, size_t size, const char* src, ...)
+{
+	va_list args;
+	va_start(args, src);
+
+	int result = vsnprintf(dst, size, src, args);
+	dst[size-1] = '\0';
+	return (result == -1 || (size_t)result >= size) ? (int)size : result;
+}
+
 template<typename T>
 class FastVector
 {
@@ -496,6 +506,14 @@ NULLCArray<char>  int__str_char___ref__(int* r)
 		--curr;
 		*str++ = *curr;
 	}while(curr != buf);
+	return arr;
+}
+NULLCArray<char>  double__str_char___ref_int_(int precision, int* r)
+{
+	char buf[256];
+	SafeSprintf(buf, 256, "%.*f", precision, *r);
+	NULLCArray<char> arr = __newA(1, (int)strlen(buf) + 1, 0);
+	memcpy(arr.ptr, buf, arr.size);
 	return arr;
 }
 
@@ -1404,4 +1422,10 @@ int  __newS(int size, unsigned typeID)
 NULLCArray<void>  __newA(int size, int count, unsigned typeID)
 {
 	return NULLC::AllocArray(size, count, typeID);
+}
+
+int isStackPointer(NULLCRef ptr, void* unused)
+{
+	GC::unmanageableBase = (char*)&ptr;
+	return ptr.ptr >= GC::unmanageableBase && ptr.ptr <= GC::unmanageableTop;
 }

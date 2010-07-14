@@ -142,6 +142,9 @@ void long__long_void_ref_long_(long long a, long long *target);
 void float__float_void_ref_float_(float a, float *target);
 void double__double_void_ref_double_(double a, double *target);
 NULLCArray<char>  int__str_char___ref__(int* __context);
+NULLCArray<char>  double__str_char___ref_int_(int precision, int* __context);
+
+inline int __str_precision_19(){ return 6; }
 
 int  __newS(int size, unsigned typeID);
 NULLCArray<void>  __newA(int size, int count, unsigned typeID);
@@ -224,3 +227,5 @@ inline double __nullcZero()
 {
 	return 0.0;
 }
+
+int isStackPointer(NULLCRef ptr, void* unused);
