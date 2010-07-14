@@ -1,20 +1,22 @@
 #include "runtime.h"
 // Typeid redirect table
-static unsigned __nullcTR[88];
+static unsigned __nullcTR[89];
 // Function pointer table
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
-static unsigned __nullcFR[62];
+static unsigned __nullcFR[59];
 // Array classes
-struct NamespaceGC 
+struct Window 
 {
+	NULLCArray<char > title;
+	int x;
+	int y;
+	int width;
+	int height;
+	void * handle;
 };
-void NamespaceGC__CollectMemory_void_ref__(NamespaceGC * __context);
-int NamespaceGC__UsedMemory_int_ref__(NamespaceGC * __context);
-double NamespaceGC__MarkTime_double_ref__(NamespaceGC * __context);
-double NamespaceGC__CollectTime_double_ref__(NamespaceGC * __context);
-NamespaceGC GC;
-int __init_std_gc_nc()
+void Window__(Window * wnd, NULLCArray<char > title, int x, int y, int width, int height, void* unused);
+int __init_win_window_ex_nc()
 {
 	static int moduleInitialized = 0;
 	if(moduleInitialized++)
@@ -108,14 +110,14 @@ int __init_std_gc_nc()
 	__nullcTR[83] = __nullcRegisterType(1003630799u, "const_string ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[84] = __nullcRegisterType(2490023983u, "const_string ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[85] = __nullcRegisterType(3335638996u, "int ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[86] = __nullcRegisterType(2237494268u, "NamespaceGC", 0, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[87] = __nullcRegisterType(415910446u, "double ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[86] = __nullcRegisterType(3665422909u, "Window", 28, __nullcTR[0], 6, NULLC_CLASS);
+	__nullcTR[87] = __nullcRegisterType(4257365818u, "Window ref", 4, __nullcTR[86], 1, NULLC_POINTER);
+	__nullcTR[88] = __nullcRegisterType(1815876440u, "void ref(Window ref,char[],int,int,int,int)", 8, __nullcTR[0], 6, NULLC_FUNCTION);
 	__nullcRegisterMembers(__nullcTR[7], 2, __nullcTR[8], 0, __nullcTR[9], 4);
 	__nullcRegisterMembers(__nullcTR[8], 0);
 	__nullcRegisterMembers(__nullcTR[10], 3, __nullcTR[8], 0, __nullcTR[9], 4, __nullcTR[4], 8);
 	__nullcRegisterMembers(__nullcTR[72], 1, __nullcTR[13], 0);
-	__nullcRegisterMembers(__nullcTR[86], 0);
-	__nullcRegisterGlobal((void*)&GC, __nullcTR[86]);
+	__nullcRegisterMembers(__nullcTR[86], 6, __nullcTR[13], 0, __nullcTR[4], 8, __nullcTR[4], 12, __nullcTR[4], 16, __nullcTR[4], 20, __nullcTR[9], 24);
 	__nullcFR[0] = 0;
 	__nullcFR[1] = 0;
 	__nullcFR[2] = 0;
@@ -174,10 +176,6 @@ int __init_std_gc_nc()
 	__nullcFR[55] = __nullcRegisterFunction("__float_a_16", (void*)__float_a_16, 4294967295u);
 	__nullcFR[56] = __nullcRegisterFunction("__double_a_17", (void*)__double_a_17, 4294967295u);
 	__nullcFR[57] = __nullcRegisterFunction("__str_precision_19", (void*)__str_precision_19, 4294967295u);
-	__nullcFR[58] = __nullcRegisterFunction("NamespaceGC__CollectMemory_void_ref__", (void*)NamespaceGC__CollectMemory_void_ref__, 4294967295u);
-	__nullcFR[59] = __nullcRegisterFunction("NamespaceGC__UsedMemory_int_ref__", (void*)NamespaceGC__UsedMemory_int_ref__, 4294967295u);
-	__nullcFR[60] = __nullcRegisterFunction("NamespaceGC__MarkTime_double_ref__", (void*)NamespaceGC__MarkTime_double_ref__, 4294967295u);
-	__nullcFR[61] = __nullcRegisterFunction("NamespaceGC__CollectTime_double_ref__", (void*)NamespaceGC__CollectTime_double_ref__, 4294967295u);
-	/* node translation unknown */
+	__nullcFR[58] = __nullcRegisterFunction("Window__", (void*)Window__, 4294967295u);
 	/* node translation unknown */
 }

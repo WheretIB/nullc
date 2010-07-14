@@ -1,20 +1,63 @@
 #include "runtime.h"
 // Typeid redirect table
-static unsigned __nullcTR[88];
+static unsigned __nullcTR[104];
 // Function pointer table
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
-static unsigned __nullcFR[62];
+static unsigned __nullcFR[76];
 // Array classes
-struct NamespaceGC 
+struct Window 
 {
+	NULLCArray<char > title;
+	int x;
+	int y;
+	int width;
+	int height;
+	int handle;
 };
-void NamespaceGC__CollectMemory_void_ref__(NamespaceGC * __context);
-int NamespaceGC__UsedMemory_int_ref__(NamespaceGC * __context);
-double NamespaceGC__MarkTime_double_ref__(NamespaceGC * __context);
-double NamespaceGC__CollectTime_double_ref__(NamespaceGC * __context);
-NamespaceGC GC;
-int __init_std_gc_nc()
+struct Canvas 
+{
+	int width;
+	int height;
+	int color;
+	NULLCArray<int > data;
+};
+extern void Window__(Window * wnd, NULLCArray<char > title, int x, int y, int width, int height, void* unused);
+extern Canvas Canvas__(int width, int height, void* unused);
+extern void Canvas__Clear_void_ref_char_char_char_(char red, char green, char blue, Canvas * __context);
+extern void Canvas__Clear_void_ref_char_char_char_char_(char red, char green, char blue, char alpha, Canvas * __context);
+extern void Canvas__SetColor_void_ref_char_char_char_(char red, char green, char blue, Canvas * __context);
+extern void Canvas__DrawLine_void_ref_int_int_int_int_(int x1, int y1, int x2, int y2, Canvas * __context);
+extern void Canvas__DrawRect_void_ref_int_int_int_int_(int x1, int y1, int x2, int y2, Canvas * __context);
+extern void Canvas__DrawPoint_void_ref_int_int_(int x, int y, Canvas * __context);
+extern NULLCArray<int > Canvas__GetData_int___ref__(Canvas * __context);
+Window Window__(NULLCArray<char > title, int x, int y, int width, int height, void* unused);
+void Window__SetTitle_void_ref_char___(NULLCArray<char > title, Window * __context);
+void Window__SetPosition_void_ref_int_int_(int x, int y, Window * __context);
+void Window__SetSize_void_ref_int_int_(int width, int height, Window * __context);
+int Window__GetPosX_int_ref__(Window * __context);
+int Window__GetPosY_int_ref__(Window * __context);
+void Window__DrawCanvas_void_ref_Canvas_ref_int_int_(Canvas * c, int x, int y, Window * __context);
+void Window__Update_void_ref__(Window * __context);
+void Window__Close_void_ref__(Window * __context);
+Window  Window__(NULLCArray<char > title_0, int x_8, int y_12, int width_16, int height_20, void* unused)
+{
+	Window ret_28;
+	Window__(&ret_28, *(&title_0), *(&x_8), *(&y_12), *(&width_16), *(&height_20), (void*)0);
+	return *(&ret_28);
+}
+int  Window__GetPosX_int_ref__(Window * __context)
+{
+	return *(&(*(&__context))->x);
+}
+int  Window__GetPosY_int_ref__(Window * __context)
+{
+	return *(&(*(&__context))->y);
+}
+extern int __init_win_window_ex_nc();
+extern int __init_img_canvas_nc();
+extern void __init_win_window_special();
+int __init_win_window_nc()
 {
 	static int moduleInitialized = 0;
 	if(moduleInitialized++)
@@ -22,6 +65,9 @@ int __init_std_gc_nc()
 	__nullcFM = __nullcGetFunctionTable();
 	int __local = 0;
 	__nullcRegisterBase((void*)&__local);
+	__init_win_window_ex_nc();
+	__init_img_canvas_nc();
+	__init_win_window_special();
 	__nullcTR[0] = __nullcRegisterType(2090838615u, "void", 0, __nullcTR[0], 0, 0);
 	__nullcTR[1] = __nullcRegisterType(4181547808u, "double", 8, __nullcTR[0], 0, 0);
 	__nullcTR[2] = __nullcRegisterType(259121563u, "float", 4, __nullcTR[0], 0, 0);
@@ -108,14 +154,30 @@ int __init_std_gc_nc()
 	__nullcTR[83] = __nullcRegisterType(1003630799u, "const_string ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[84] = __nullcRegisterType(2490023983u, "const_string ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[85] = __nullcRegisterType(3335638996u, "int ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[86] = __nullcRegisterType(2237494268u, "NamespaceGC", 0, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[87] = __nullcRegisterType(415910446u, "double ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[86] = __nullcRegisterType(3665422909u, "Window", 28, __nullcTR[0], 6, NULLC_CLASS);
+	__nullcTR[87] = __nullcRegisterType(4257365818u, "Window ref", 4, __nullcTR[86], 1, NULLC_POINTER);
+	__nullcTR[88] = __nullcRegisterType(1815876440u, "void ref(Window ref,char[],int,int,int,int)", 8, __nullcTR[0], 6, NULLC_FUNCTION);
+	__nullcTR[89] = __nullcRegisterType(2873246817u, "Canvas", 20, __nullcTR[0], 4, NULLC_CLASS);
+	__nullcTR[90] = __nullcRegisterType(454483569u, "Canvas ref(int,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[91] = __nullcRegisterType(1370688350u, "Canvas ref", 4, __nullcTR[89], 1, NULLC_POINTER);
+	__nullcTR[92] = __nullcRegisterType(4207716503u, "void ref(char,char,char)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[93] = __nullcRegisterType(3949610401u, "void ref(char,char,char,char)", 8, __nullcTR[0], 4, NULLC_FUNCTION);
+	__nullcTR[94] = __nullcRegisterType(1214959445u, "void ref(int,int,int,int)", 8, __nullcTR[0], 4, NULLC_FUNCTION);
+	__nullcTR[95] = __nullcRegisterType(3255288871u, "void ref(int,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[96] = __nullcRegisterType(1754891606u, "int[] ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[97] = __nullcRegisterType(3237546203u, "Canvas ref ref", 4, __nullcTR[91], 1, NULLC_POINTER);
+	__nullcTR[98] = __nullcRegisterType(902528216u, "Canvas ref ref ref", 4, __nullcTR[97], 1, NULLC_POINTER);
+	__nullcTR[99] = __nullcRegisterType(1570426909u, "Window ref(char[],int,int,int,int)", 8, __nullcTR[0], 5, NULLC_FUNCTION);
+	__nullcTR[100] = __nullcRegisterType(2767335131u, "void ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[101] = __nullcRegisterType(2264320695u, "Window ref ref", 4, __nullcTR[87], 1, NULLC_POINTER);
+	__nullcTR[102] = __nullcRegisterType(1716440244u, "Window ref ref ref", 4, __nullcTR[101], 1, NULLC_POINTER);
+	__nullcTR[103] = __nullcRegisterType(3670848268u, "void ref(Canvas ref,int,int)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
 	__nullcRegisterMembers(__nullcTR[7], 2, __nullcTR[8], 0, __nullcTR[9], 4);
 	__nullcRegisterMembers(__nullcTR[8], 0);
 	__nullcRegisterMembers(__nullcTR[10], 3, __nullcTR[8], 0, __nullcTR[9], 4, __nullcTR[4], 8);
 	__nullcRegisterMembers(__nullcTR[72], 1, __nullcTR[13], 0);
-	__nullcRegisterMembers(__nullcTR[86], 0);
-	__nullcRegisterGlobal((void*)&GC, __nullcTR[86]);
+	__nullcRegisterMembers(__nullcTR[86], 6, __nullcTR[13], 0, __nullcTR[4], 8, __nullcTR[4], 12, __nullcTR[4], 16, __nullcTR[4], 20, __nullcTR[4], 24);
+	__nullcRegisterMembers(__nullcTR[89], 4, __nullcTR[4], 0, __nullcTR[4], 4, __nullcTR[4], 8, __nullcTR[45], 12);
 	__nullcFR[0] = 0;
 	__nullcFR[1] = 0;
 	__nullcFR[2] = 0;
@@ -174,10 +236,23 @@ int __init_std_gc_nc()
 	__nullcFR[55] = __nullcRegisterFunction("__float_a_16", (void*)__float_a_16, 4294967295u);
 	__nullcFR[56] = __nullcRegisterFunction("__double_a_17", (void*)__double_a_17, 4294967295u);
 	__nullcFR[57] = __nullcRegisterFunction("__str_precision_19", (void*)__str_precision_19, 4294967295u);
-	__nullcFR[58] = __nullcRegisterFunction("NamespaceGC__CollectMemory_void_ref__", (void*)NamespaceGC__CollectMemory_void_ref__, 4294967295u);
-	__nullcFR[59] = __nullcRegisterFunction("NamespaceGC__UsedMemory_int_ref__", (void*)NamespaceGC__UsedMemory_int_ref__, 4294967295u);
-	__nullcFR[60] = __nullcRegisterFunction("NamespaceGC__MarkTime_double_ref__", (void*)NamespaceGC__MarkTime_double_ref__, 4294967295u);
-	__nullcFR[61] = __nullcRegisterFunction("NamespaceGC__CollectTime_double_ref__", (void*)NamespaceGC__CollectTime_double_ref__, 4294967295u);
-	/* node translation unknown */
+	__nullcFR[58] = 0;
+	__nullcFR[59] = __nullcRegisterFunction("Canvas__", (void*)Canvas__, 4294967295u);
+	__nullcFR[60] = __nullcRegisterFunction("Canvas__Clear_void_ref_char_char_char_", (void*)Canvas__Clear_void_ref_char_char_char_, 4294967295u);
+	__nullcFR[61] = __nullcRegisterFunction("Canvas__Clear_void_ref_char_char_char_char_", (void*)Canvas__Clear_void_ref_char_char_char_char_, 4294967295u);
+	__nullcFR[62] = __nullcRegisterFunction("Canvas__SetColor_void_ref_char_char_char_", (void*)Canvas__SetColor_void_ref_char_char_char_, 4294967295u);
+	__nullcFR[63] = __nullcRegisterFunction("Canvas__DrawLine_void_ref_int_int_int_int_", (void*)Canvas__DrawLine_void_ref_int_int_int_int_, 4294967295u);
+	__nullcFR[64] = __nullcRegisterFunction("Canvas__DrawRect_void_ref_int_int_int_int_", (void*)Canvas__DrawRect_void_ref_int_int_int_int_, 4294967295u);
+	__nullcFR[65] = __nullcRegisterFunction("Canvas__DrawPoint_void_ref_int_int_", (void*)Canvas__DrawPoint_void_ref_int_int_, 4294967295u);
+	__nullcFR[66] = __nullcRegisterFunction("Canvas__GetData_int___ref__", (void*)Canvas__GetData_int___ref__, 4294967295u);
+	__nullcFR[67] = 0;
+	__nullcFR[68] = __nullcRegisterFunction("Window__SetTitle_void_ref_char___", (void*)Window__SetTitle_void_ref_char___, 4294967295u);
+	__nullcFR[69] = __nullcRegisterFunction("Window__SetPosition_void_ref_int_int_", (void*)Window__SetPosition_void_ref_int_int_, 4294967295u);
+	__nullcFR[70] = __nullcRegisterFunction("Window__SetSize_void_ref_int_int_", (void*)Window__SetSize_void_ref_int_int_, 4294967295u);
+	__nullcFR[71] = __nullcRegisterFunction("Window__GetPosX_int_ref__", (void*)Window__GetPosX_int_ref__, 87u);
+	__nullcFR[72] = __nullcRegisterFunction("Window__GetPosY_int_ref__", (void*)Window__GetPosY_int_ref__, 87u);
+	__nullcFR[73] = __nullcRegisterFunction("Window__DrawCanvas_void_ref_Canvas_ref_int_int_", (void*)Window__DrawCanvas_void_ref_Canvas_ref_int_int_, 4294967295u);
+	__nullcFR[74] = __nullcRegisterFunction("Window__Update_void_ref__", (void*)Window__Update_void_ref__, 4294967295u);
+	__nullcFR[75] = __nullcRegisterFunction("Window__Close_void_ref__", (void*)Window__Close_void_ref__, 4294967295u);
 	/* node translation unknown */
 }

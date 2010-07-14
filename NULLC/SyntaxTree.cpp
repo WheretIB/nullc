@@ -566,7 +566,9 @@ void NodeUnaryOp::TranslateToC(FILE *fOut)
 	default:
 		fprintf(fOut, "%%unknown_unary_command%%");
 	}
+	fprintf(fOut, "(");
 	first->TranslateToC(fOut);
+	fprintf(fOut, ")");
 }
 NodeNumber* NodeUnaryOp::Evaluate(char *memory, unsigned int size)
 {
@@ -2849,38 +2851,38 @@ void NodeBinaryOp::LogToStream(FILE *fGraph)
 void NodeBinaryOp::TranslateToC(FILE *fOut)
 {
 	TypeInfo *tmpType = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
-	if(cmdID == cmdPow)
-		fprintf(fOut, "__nullcPow");
-	if(cmdID == cmdMod && typeInfo == typeDouble)
-		fprintf(fOut, "__nullcMod");
-
-	fprintf(fOut, "(");
 	
-	if(cmdID == cmdLogXor)
-		fprintf(fOut, "!!");
+	if(cmdID == cmdPow)
+		fprintf(fOut, "__nullcPow(");
+	if(cmdID == cmdMod && typeInfo == typeDouble)
+		fprintf(fOut, "__nullcMod(");
+
 	if(tmpType != first->typeInfo)
 	{
 		fprintf(fOut, "(");
 		tmpType->OutputCType(fOut, "");
 		fprintf(fOut, ")");
 	}
-	first->TranslateToC(fOut);
-	if(!(cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble)))
-		fprintf(fOut, ")");
-	fprintf(fOut, " %s ", cmdID == cmdLogXor ? "!=" : ((cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble)) ? "," : binCommandToText[cmdID-cmdAdd]));
-	if(!(cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble)))
-		fprintf(fOut, "(");
+	fprintf(fOut, "(");
 	if(cmdID == cmdLogXor)
 		fprintf(fOut, "!!");
+	first->TranslateToC(fOut);
+	fprintf(fOut, ")");
+	fprintf(fOut, " %s ", cmdID == cmdLogXor ? "!=" : ((cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble)) ? "," : binCommandToText[cmdID-cmdAdd]));
 	if(tmpType != second->typeInfo)
 	{
 		fprintf(fOut, "(");
 		tmpType->OutputCType(fOut, "");
 		fprintf(fOut, ")");
 	}
+	fprintf(fOut, "(");
+	if(cmdID == cmdLogXor)
+		fprintf(fOut, "!!");
 	second->TranslateToC(fOut);
 
 	fprintf(fOut, ")");
+	if(cmdID == cmdPow || (cmdID == cmdMod && typeInfo == typeDouble))
+		fprintf(fOut, ")");
 }
 NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
 {

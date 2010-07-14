@@ -1,10 +1,10 @@
 #include "runtime.h"
 // Typeid redirect table
-static unsigned __nullcTR[90];
+static unsigned __nullcTR[92];
 // Function pointer table
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
-static unsigned __nullcFR[60];
+static unsigned __nullcFR[63];
 // Array classes
 struct range_iterator 
 {
@@ -16,7 +16,7 @@ range_iterator range_iterator__start_range_iterator_ref__(range_iterator * __con
 int range_iterator__next_int_ref__(range_iterator * __context);
 int range_iterator__hasnext_int_ref__(range_iterator * __context);
 range_iterator range(int min, int max, int step, void* unused);
-int __range_step_58(void* unused);
+int __range_step_61(void* unused);
 range_iterator  range_iterator__start_range_iterator_ref__(range_iterator * __context)
 {
 	return *(*(&__context));
@@ -38,7 +38,7 @@ range_iterator  range(int min_0, int max_4, int step_8, void* unused)
 	*(&(&r_16)->step) = *(&step_8);
 	return *(&r_16);
 }
-int  __range_step_58(void* unused)
+int  __range_step_61(void* unused)
 {
 	return 1;
 }
@@ -93,58 +93,60 @@ int __init_std_range_nc()
 	__nullcTR[40] = __nullcRegisterType(3234425245u, "double ref", 4, __nullcTR[1], 1, NULLC_POINTER);
 	__nullcTR[41] = __nullcRegisterType(1954705050u, "double ref ref", 4, __nullcTR[40], 1, NULLC_POINTER);
 	__nullcTR[42] = __nullcRegisterType(554739849u, "char[] ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[43] = __nullcRegisterType(2528639597u, "void ref ref(int)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[44] = __nullcRegisterType(262756424u, "int[]", 8, __nullcTR[4], -1, NULLC_ARRAY);
-	__nullcTR[45] = __nullcRegisterType(1780011448u, "int[] ref(int,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[46] = __nullcRegisterType(3724107199u, "auto ref ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[47] = __nullcRegisterType(3761170085u, "void ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[48] = __nullcRegisterType(4190091973u, "int[] ref", 4, __nullcTR[44], 1, NULLC_POINTER);
-	__nullcTR[49] = __nullcRegisterType(844911189u, "void ref() ref(auto ref,int[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[50] = __nullcRegisterType(2816069557u, "char[] ref ref", 4, __nullcTR[17], 1, NULLC_POINTER);
-	__nullcTR[51] = __nullcRegisterType(2985493640u, "char[] ref ref(char[] ref,int[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[52] = __nullcRegisterType(2463794733u, "short[]", 8, __nullcTR[5], -1, NULLC_ARRAY);
-	__nullcTR[53] = __nullcRegisterType(3958330154u, "short[] ref", 4, __nullcTR[52], 1, NULLC_POINTER);
-	__nullcTR[54] = __nullcRegisterType(745297575u, "short[] ref ref", 4, __nullcTR[53], 1, NULLC_POINTER);
-	__nullcTR[55] = __nullcRegisterType(1935747820u, "short[] ref ref(short[] ref,int[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[56] = __nullcRegisterType(3010510963u, "float[]", 8, __nullcTR[2], -1, NULLC_ARRAY);
-	__nullcTR[57] = __nullcRegisterType(2248491120u, "float[] ref", 4, __nullcTR[56], 1, NULLC_POINTER);
-	__nullcTR[58] = __nullcRegisterType(1040232248u, "double[]", 8, __nullcTR[1], -1, NULLC_ARRAY);
-	__nullcTR[59] = __nullcRegisterType(2393077485u, "float[] ref ref", 4, __nullcTR[57], 1, NULLC_POINTER);
-	__nullcTR[60] = __nullcRegisterType(2697529781u, "double[] ref", 4, __nullcTR[58], 1, NULLC_POINTER);
-	__nullcTR[61] = __nullcRegisterType(2467461000u, "float[] ref ref(float[] ref,double[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[62] = __nullcRegisterType(2066091864u, "typeid ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[63] = __nullcRegisterType(1268871368u, "int ref(typeid,typeid)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[64] = __nullcRegisterType(2688408224u, "int ref(void ref(int),void ref(int))", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[65] = __nullcRegisterType(1908472638u, "int ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[66] = __nullcRegisterType(1137649267u, "auto[] ref", 4, __nullcTR[10], 1, NULLC_POINTER);
-	__nullcTR[67] = __nullcRegisterType(451037873u, "auto[] ref ref(auto[] ref,auto ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[68] = __nullcRegisterType(3824954777u, "auto ref ref(auto ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[69] = __nullcRegisterType(3832966281u, "auto[] ref ref(auto[] ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[70] = __nullcRegisterType(477490926u, "auto ref ref(auto[] ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[71] = __nullcRegisterType(3720955042u, "const_string", 8, __nullcTR[0], 1, NULLC_CLASS);
-	__nullcTR[72] = __nullcRegisterType(1951548447u, "const_string ref", 4, __nullcTR[71], 1, NULLC_POINTER);
-	__nullcTR[73] = __nullcRegisterType(504936988u, "const_string ref ref", 4, __nullcTR[72], 1, NULLC_POINTER);
-	__nullcTR[74] = __nullcRegisterType(2448680601u, "const_string ref ref ref", 4, __nullcTR[73], 1, NULLC_POINTER);
-	__nullcTR[75] = __nullcRegisterType(3099572969u, "const_string ref ref(const_string ref,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[76] = __nullcRegisterType(2016055718u, "const_string ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[77] = __nullcRegisterType(195623906u, "char ref(const_string ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[78] = __nullcRegisterType(3956827940u, "int ref(const_string,const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[79] = __nullcRegisterType(3539544093u, "int ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[80] = __nullcRegisterType(730969981u, "int ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[81] = __nullcRegisterType(727035222u, "const_string ref(const_string,const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[82] = __nullcRegisterType(1003630799u, "const_string ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[83] = __nullcRegisterType(2490023983u, "const_string ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[84] = __nullcRegisterType(3246223675u, "range_iterator", 12, __nullcTR[0], 3, NULLC_CLASS);
-	__nullcTR[85] = __nullcRegisterType(957158712u, "range_iterator ref", 4, __nullcTR[84], 1, NULLC_POINTER);
-	__nullcTR[86] = __nullcRegisterType(2006478773u, "range_iterator ref ref", 4, __nullcTR[85], 1, NULLC_POINTER);
-	__nullcTR[87] = __nullcRegisterType(2963753097u, "range_iterator ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[88] = __nullcRegisterType(1763098802u, "range_iterator ref ref ref", 4, __nullcTR[86], 1, NULLC_POINTER);
-	__nullcTR[89] = __nullcRegisterType(2954242914u, "range_iterator ref(int,int,int)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[43] = __nullcRegisterType(2745156404u, "char[] ref(int)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[44] = __nullcRegisterType(2528639597u, "void ref ref(int)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[45] = __nullcRegisterType(262756424u, "int[]", 8, __nullcTR[4], -1, NULLC_ARRAY);
+	__nullcTR[46] = __nullcRegisterType(1780011448u, "int[] ref(int,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[47] = __nullcRegisterType(3724107199u, "auto ref ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[48] = __nullcRegisterType(3761170085u, "void ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[49] = __nullcRegisterType(4190091973u, "int[] ref", 4, __nullcTR[45], 1, NULLC_POINTER);
+	__nullcTR[50] = __nullcRegisterType(844911189u, "void ref() ref(auto ref,int[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[51] = __nullcRegisterType(2816069557u, "char[] ref ref", 4, __nullcTR[17], 1, NULLC_POINTER);
+	__nullcTR[52] = __nullcRegisterType(2985493640u, "char[] ref ref(char[] ref,int[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[53] = __nullcRegisterType(2463794733u, "short[]", 8, __nullcTR[5], -1, NULLC_ARRAY);
+	__nullcTR[54] = __nullcRegisterType(3958330154u, "short[] ref", 4, __nullcTR[53], 1, NULLC_POINTER);
+	__nullcTR[55] = __nullcRegisterType(745297575u, "short[] ref ref", 4, __nullcTR[54], 1, NULLC_POINTER);
+	__nullcTR[56] = __nullcRegisterType(1935747820u, "short[] ref ref(short[] ref,int[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[57] = __nullcRegisterType(3010510963u, "float[]", 8, __nullcTR[2], -1, NULLC_ARRAY);
+	__nullcTR[58] = __nullcRegisterType(2248491120u, "float[] ref", 4, __nullcTR[57], 1, NULLC_POINTER);
+	__nullcTR[59] = __nullcRegisterType(1040232248u, "double[]", 8, __nullcTR[1], -1, NULLC_ARRAY);
+	__nullcTR[60] = __nullcRegisterType(2393077485u, "float[] ref ref", 4, __nullcTR[58], 1, NULLC_POINTER);
+	__nullcTR[61] = __nullcRegisterType(2697529781u, "double[] ref", 4, __nullcTR[59], 1, NULLC_POINTER);
+	__nullcTR[62] = __nullcRegisterType(2467461000u, "float[] ref ref(float[] ref,double[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[63] = __nullcRegisterType(2066091864u, "typeid ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[64] = __nullcRegisterType(1268871368u, "int ref(typeid,typeid)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[65] = __nullcRegisterType(2688408224u, "int ref(void ref(int),void ref(int))", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[66] = __nullcRegisterType(1908472638u, "int ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[67] = __nullcRegisterType(1137649267u, "auto[] ref", 4, __nullcTR[10], 1, NULLC_POINTER);
+	__nullcTR[68] = __nullcRegisterType(451037873u, "auto[] ref ref(auto[] ref,auto ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[69] = __nullcRegisterType(3824954777u, "auto ref ref(auto ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[70] = __nullcRegisterType(3832966281u, "auto[] ref ref(auto[] ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[71] = __nullcRegisterType(477490926u, "auto ref ref(auto[] ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[72] = __nullcRegisterType(3720955042u, "const_string", 8, __nullcTR[0], 1, NULLC_CLASS);
+	__nullcTR[73] = __nullcRegisterType(1951548447u, "const_string ref", 4, __nullcTR[72], 1, NULLC_POINTER);
+	__nullcTR[74] = __nullcRegisterType(504936988u, "const_string ref ref", 4, __nullcTR[73], 1, NULLC_POINTER);
+	__nullcTR[75] = __nullcRegisterType(2448680601u, "const_string ref ref ref", 4, __nullcTR[74], 1, NULLC_POINTER);
+	__nullcTR[76] = __nullcRegisterType(3099572969u, "const_string ref ref(const_string ref,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[77] = __nullcRegisterType(2016055718u, "const_string ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[78] = __nullcRegisterType(195623906u, "char ref(const_string ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[79] = __nullcRegisterType(3956827940u, "int ref(const_string,const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[80] = __nullcRegisterType(3539544093u, "int ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[81] = __nullcRegisterType(730969981u, "int ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[82] = __nullcRegisterType(727035222u, "const_string ref(const_string,const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[83] = __nullcRegisterType(1003630799u, "const_string ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[84] = __nullcRegisterType(2490023983u, "const_string ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[85] = __nullcRegisterType(3335638996u, "int ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[86] = __nullcRegisterType(3246223675u, "range_iterator", 12, __nullcTR[0], 3, NULLC_CLASS);
+	__nullcTR[87] = __nullcRegisterType(957158712u, "range_iterator ref", 4, __nullcTR[86], 1, NULLC_POINTER);
+	__nullcTR[88] = __nullcRegisterType(2006478773u, "range_iterator ref ref", 4, __nullcTR[87], 1, NULLC_POINTER);
+	__nullcTR[89] = __nullcRegisterType(2963753097u, "range_iterator ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[90] = __nullcRegisterType(1763098802u, "range_iterator ref ref ref", 4, __nullcTR[88], 1, NULLC_POINTER);
+	__nullcTR[91] = __nullcRegisterType(2954242914u, "range_iterator ref(int,int,int)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
 	__nullcRegisterMembers(__nullcTR[7], 2, __nullcTR[8], 0, __nullcTR[9], 4);
 	__nullcRegisterMembers(__nullcTR[8], 0);
 	__nullcRegisterMembers(__nullcTR[10], 3, __nullcTR[8], 0, __nullcTR[9], 4, __nullcTR[4], 8);
-	__nullcRegisterMembers(__nullcTR[71], 1, __nullcTR[13], 0);
-	__nullcRegisterMembers(__nullcTR[84], 3, __nullcTR[4], 0, __nullcTR[4], 4, __nullcTR[4], 8);
+	__nullcRegisterMembers(__nullcTR[72], 1, __nullcTR[13], 0);
+	__nullcRegisterMembers(__nullcTR[86], 3, __nullcTR[4], 0, __nullcTR[4], 4, __nullcTR[4], 8);
 	__nullcFR[0] = 0;
 	__nullcFR[1] = 0;
 	__nullcFR[2] = 0;
@@ -164,27 +166,27 @@ int __init_std_range_nc()
 	__nullcFR[16] = __nullcRegisterFunction("float__float_void_ref_float_", (void*)float__float_void_ref_float_, 4294967295u);
 	__nullcFR[17] = __nullcRegisterFunction("double__double_void_ref_double_", (void*)double__double_void_ref_double_, 4294967295u);
 	__nullcFR[18] = __nullcRegisterFunction("int__str_char___ref__", (void*)int__str_char___ref__, 4294967295u);
-	__nullcFR[19] = __nullcRegisterFunction("__newS", (void*)__newS, 4294967295u);
-	__nullcFR[20] = __nullcRegisterFunction("__newA", (void*)__newA, 4294967295u);
-	__nullcFR[21] = __nullcRegisterFunction("duplicate", (void*)duplicate, 4294967295u);
-	__nullcFR[22] = __nullcRegisterFunction("__redirect", (void*)__redirect, 4294967295u);
-	__nullcFR[23] = 0;
+	__nullcFR[19] = __nullcRegisterFunction("double__str_char___ref_int_", (void*)double__str_char___ref_int_, 4294967295u);
+	__nullcFR[20] = __nullcRegisterFunction("__newS", (void*)__newS, 4294967295u);
+	__nullcFR[21] = __nullcRegisterFunction("__newA", (void*)__newA, 4294967295u);
+	__nullcFR[22] = __nullcRegisterFunction("duplicate", (void*)duplicate, 4294967295u);
+	__nullcFR[23] = __nullcRegisterFunction("__redirect", (void*)__redirect, 4294967295u);
 	__nullcFR[24] = 0;
 	__nullcFR[25] = 0;
-	__nullcFR[26] = __nullcRegisterFunction("typeid__", (void*)typeid__, 4294967295u);
-	__nullcFR[27] = 0;
+	__nullcFR[26] = 0;
+	__nullcFR[27] = __nullcRegisterFunction("typeid__", (void*)typeid__, 4294967295u);
 	__nullcFR[28] = 0;
-	__nullcFR[29] = __nullcRegisterFunction("__pcomp", (void*)__pcomp, 4294967295u);
-	__nullcFR[30] = __nullcRegisterFunction("__pncomp", (void*)__pncomp, 4294967295u);
-	__nullcFR[31] = __nullcRegisterFunction("__typeCount", (void*)__typeCount, 4294967295u);
-	__nullcFR[32] = 0;
+	__nullcFR[29] = 0;
+	__nullcFR[30] = __nullcRegisterFunction("__pcomp", (void*)__pcomp, 4294967295u);
+	__nullcFR[31] = __nullcRegisterFunction("__pncomp", (void*)__pncomp, 4294967295u);
+	__nullcFR[32] = __nullcRegisterFunction("__typeCount", (void*)__typeCount, 4294967295u);
 	__nullcFR[33] = 0;
 	__nullcFR[34] = 0;
 	__nullcFR[35] = 0;
-	__nullcFR[36] = __nullcRegisterFunction("const_string__size__int_ref__", (void*)const_string__size__int_ref__, 4294967295u);
-	__nullcFR[37] = 0;
-	__nullcFR[38] = __nullcRegisterFunction("const_string__", (void*)const_string__, 4294967295u);
-	__nullcFR[39] = 0;
+	__nullcFR[36] = 0;
+	__nullcFR[37] = __nullcRegisterFunction("const_string__size__int_ref__", (void*)const_string__size__int_ref__, 4294967295u);
+	__nullcFR[38] = 0;
+	__nullcFR[39] = __nullcRegisterFunction("const_string__", (void*)const_string__, 4294967295u);
 	__nullcFR[40] = 0;
 	__nullcFR[41] = 0;
 	__nullcFR[42] = 0;
@@ -194,15 +196,18 @@ int __init_std_range_nc()
 	__nullcFR[46] = 0;
 	__nullcFR[47] = 0;
 	__nullcFR[48] = 0;
-	__nullcFR[49] = __nullcRegisterFunction("__char_a_12", (void*)__char_a_12, 4294967295u);
-	__nullcFR[50] = __nullcRegisterFunction("__short_a_13", (void*)__short_a_13, 4294967295u);
-	__nullcFR[51] = __nullcRegisterFunction("__int_a_14", (void*)__int_a_14, 4294967295u);
-	__nullcFR[52] = __nullcRegisterFunction("__long_a_15", (void*)__long_a_15, 4294967295u);
-	__nullcFR[53] = __nullcRegisterFunction("__float_a_16", (void*)__float_a_16, 4294967295u);
-	__nullcFR[54] = __nullcRegisterFunction("__double_a_17", (void*)__double_a_17, 4294967295u);
-	__nullcFR[55] = __nullcRegisterFunction("range_iterator__start_range_iterator_ref__", (void*)range_iterator__start_range_iterator_ref__, 85u);
-	__nullcFR[56] = __nullcRegisterFunction("range_iterator__next_int_ref__", (void*)range_iterator__next_int_ref__, 85u);
-	__nullcFR[57] = __nullcRegisterFunction("range_iterator__hasnext_int_ref__", (void*)range_iterator__hasnext_int_ref__, 85u);
-	__nullcFR[58] = __nullcRegisterFunction("range", (void*)range, 31u);
-	__nullcFR[59] = __nullcRegisterFunction("__range_step_58", (void*)__range_step_58, 31u);
+	__nullcFR[49] = 0;
+	__nullcFR[50] = __nullcRegisterFunction("isStackPointer", (void*)isStackPointer, 4294967295u);
+	__nullcFR[51] = __nullcRegisterFunction("__char_a_12", (void*)__char_a_12, 4294967295u);
+	__nullcFR[52] = __nullcRegisterFunction("__short_a_13", (void*)__short_a_13, 4294967295u);
+	__nullcFR[53] = __nullcRegisterFunction("__int_a_14", (void*)__int_a_14, 4294967295u);
+	__nullcFR[54] = __nullcRegisterFunction("__long_a_15", (void*)__long_a_15, 4294967295u);
+	__nullcFR[55] = __nullcRegisterFunction("__float_a_16", (void*)__float_a_16, 4294967295u);
+	__nullcFR[56] = __nullcRegisterFunction("__double_a_17", (void*)__double_a_17, 4294967295u);
+	__nullcFR[57] = __nullcRegisterFunction("__str_precision_19", (void*)__str_precision_19, 4294967295u);
+	__nullcFR[58] = __nullcRegisterFunction("range_iterator__start_range_iterator_ref__", (void*)range_iterator__start_range_iterator_ref__, 87u);
+	__nullcFR[59] = __nullcRegisterFunction("range_iterator__next_int_ref__", (void*)range_iterator__next_int_ref__, 87u);
+	__nullcFR[60] = __nullcRegisterFunction("range_iterator__hasnext_int_ref__", (void*)range_iterator__hasnext_int_ref__, 87u);
+	__nullcFR[61] = __nullcRegisterFunction("range", (void*)range, 31u);
+	__nullcFR[62] = __nullcRegisterFunction("__range_step_61", (void*)__range_step_61, 31u);
 }
