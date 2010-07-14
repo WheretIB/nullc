@@ -6302,6 +6302,21 @@ m.x = 2;\r\n\
 return *y;";
 	TEST_FOR_RESULT("Garbage collection correctness 14 (extra function argument check).", testGarbageCollectionCorrectness14, "8");
 
+const char	*testGarbageCollectionCorrectness15 =
+"import std.vector;\r\n\
+import std.list;\r\n\
+import std.gc;\r\n\
+auto a = new list;\r\n\
+a.list(int);\r\n\
+a.push_back(6);\r\n\
+int ref y;\r\n\
+auto x = a.begin;\r\n\
+a = nullptr;\r\n\
+GC.CollectMemory();\r\n\
+y = new int(4);\r\n\
+return int(x().value);";
+	TEST_FOR_RESULT("Garbage collection correctness 15 (extra function argument type fixup).", testGarbageCollectionCorrectness15, "6");
+
 	TEST_FOR_RESULT("Double division by zero during constant folding.", "double a = 1.0 / 0.0; return 10;", "10");
 
 	TEST_FOR_RESULT("Double modulus division.", "double a = 800000000000000000000.0; return (a % 5.5) < 5.5;", "1");
@@ -7020,7 +7035,7 @@ return foo() + foo();";
 	TEST_FOR_RESULT("Leading zero skip (bin)", "return 000000000000000000000000111111111111111111111111111111111111111111111111111111111111111b;", "9223372036854775807L");
 	TEST_FOR_RESULT("negative int type constant (bin)", "return 01111111111111111111111111111111111111111111111111111111111111111b;", "-1");
 	TEST_FOR_RESULT("negative long type constant (bin)", "return 01111111111111111111111111111000000000000000000000000000000000000b;", "-68719476736L");
-	
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -8081,6 +8096,8 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("number constant overflow (hex)", "return 0x1deadbeefdeadbeef;", "ERROR: overflow in hexadecimal constant");
 	TEST_FOR_FAIL("number constant overflow (oct)", "return 02777777777777777777777;", "ERROR: overflow in octal constant");
 	TEST_FOR_FAIL("number constant overflow (bin)", "return 011111111111111111111111111111111111111111111111111111111111111111b;", "ERROR: overflow in binary constant");
+
+	TEST_FOR_FAIL("variable with class name", "class Test{} int Test = 5; return Test;", "ERROR: name 'Test' is already taken for a class");
 
 	//TEST_FOR_FAIL("parsing", "");
 
