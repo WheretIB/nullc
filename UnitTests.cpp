@@ -46,10 +46,12 @@
 #endif
 
 #if defined(__CELLOS_LV2__)
-#	define MODULE_PATH "/app_home/Modules/"
+#	define FILE_PATH "/app_home/"
 #else
-#	define MODULE_PATH "Modules/"
+#	define FILE_PATH ""
 #endif
+
+#define MODULE_PATH FILE_PATH "Modules/"
 
 #ifdef NULLC_BUILD_X86_JIT
 	#define TEST_COUNT 2
@@ -2736,7 +2738,7 @@ int test(char[] eh, int u){ int b = 0; for(int i=0;i<u;i++)b+=eh[i]; return b; }
 \r\n\
 auto uh = \"ehhhe\";\r\n\
 int k = 5464321;\r\n\
-File n = File(\"haha.txt\", \"wb\");\r\n\
+File n = File(\"" FILE_PATH "haha.txt\", \"wb\");\r\n\
 auto text = \"Hello file!!!\";\r\n\
 n.Write(text);\r\n\
 \r\n\
@@ -2750,7 +2752,7 @@ return test(uh, 3);";
 		{
 			lastFailed = false;
 			CHECK_STR("uh", 0, "ehhhe");
-			CHECK_STR("$temp1", 0, "haha.txt");
+			CHECK_STR("$temp1", 0, FILE_PATH "haha.txt");
 			CHECK_STR("$temp2", 0, "wb");
 			CHECK_STR("text", 0, "Hello file!!!");
 
@@ -2764,7 +2766,7 @@ return test(uh, 3);";
 const char	*testFile2 = 
 "//File test\r\n\
 import std.file;\r\n\
-auto name = \"extern.bin\";\r\n\
+auto name = \"" FILE_PATH "extern.bin\";\r\n\
 auto acc = \"wb\", acc2 = \"rb\";\r\n\
 \r\n\
 // Perform to write\r\n\
@@ -2812,7 +2814,7 @@ return 1;";
 		if(RunCode(testFile2, testTarget[t], "1", "File test 2"))
 		{
 			lastFailed = false;
-			CHECK_STR("name", 0, "extern.bin");
+			CHECK_STR("name", 0, FILE_PATH "extern.bin");
 			CHECK_STR("acc", 0, "wb");
 			CHECK_STR("acc2", 0, "rb");
 			CHECK_STR("text", 0, "Hello again");
