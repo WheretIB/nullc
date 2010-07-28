@@ -398,7 +398,7 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	if(!bytecode)
 	{
 		SafeSprintf(errBuf, 256, "Failed to build module %s", module);
-		CodeInfo::lastError = CompilerError(errBuf, NULL);
+		CodeInfo::lastError.Init(errBuf, NULL);
 		return false;
 	}
 
@@ -427,7 +427,7 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	if(index != -1)
 	{
 		SafeSprintf(errBuf, 256, "ERROR: function %s or one of it's overload is not found in module %s", name, module);
-		CodeInfo::lastError = CompilerError(errBuf, NULL);
+		CodeInfo::lastError.Init(errBuf, NULL);
 		return false;
 	}
 
@@ -542,7 +542,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				break;
 			default:
 				SafeSprintf(errBuf, 256, "ERROR: new type in module %s named %s unsupported", pos, (symbols + tInfo->offsetToName));
-				CodeInfo::lastError = CompilerError(errBuf, NULL);
+				CodeInfo::lastError.Init(errBuf, NULL);
 				return false;
 			}
 			newInfo->alignBytes = tInfo->defaultAlign;
@@ -681,7 +681,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 #endif
 		}else{
 			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined. While importing %s", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName(), pos);
-			CodeInfo::lastError = CompilerError(errBuf, NULL);
+			CodeInfo::lastError.Init(errBuf, NULL);
 			return false;
 		}
 
@@ -749,7 +749,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 
 		return bytecode;
 	}else{
-		CodeInfo::lastError = CompilerError("", NULL);
+		CodeInfo::lastError.Init("", NULL);
 		SafeSprintf(CodeInfo::lastError.error, 256, "ERROR: module %s not found", altFile);
 	}
 	return NULL;
@@ -790,7 +790,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		Lexeme *name = start;
 		if(start->type != lex_string)
 		{
-			CodeInfo::lastError = CompilerError("ERROR: string expected after import", start->pos);
+			CodeInfo::lastError.Init("ERROR: string expected after import", start->pos);
 			return false;
 		}
 		cPath += SafeSprintf(cPath, 256, "%s%.*s", importPath ? importPath : "", start->length, start->pos);
@@ -803,7 +803,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 			start++;
 			if(start->type != lex_string)
 			{
-				CodeInfo::lastError = CompilerError("ERROR: string expected after '.'", start->pos);
+				CodeInfo::lastError.Init("ERROR: string expected after '.'", start->pos);
 				return false;
 			}
 			cPath += SafeSprintf(cPath, 256 - int(cPath - path), "/%.*s", start->length, start->pos);
@@ -811,7 +811,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		}
 		if(start->type != lex_semicolon)
 		{
-			CodeInfo::lastError = CompilerError("ERROR: ';' not found after import expression", name->pos);
+			CodeInfo::lastError.Init("ERROR: ';' not found after import expression", name->pos);
 			return false;
 		}
 		start++;
@@ -822,7 +822,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 
 		if(moduleCount == 32)
 		{
-			CodeInfo::lastError = CompilerError("ERROR: temporary limit for 32 modules", name->pos);
+			CodeInfo::lastError.Init("ERROR: temporary limit for 32 modules", name->pos);
 			return false;
 		}
 
@@ -862,7 +862,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		res = ParseCode(&start);
 		if(start->type != lex_none)
 		{
-			CodeInfo::lastError = CompilerError("ERROR: unexpected symbol", start->pos);
+			CodeInfo::lastError.Init("ERROR: unexpected symbol", start->pos);
 			return false;
 		}
 	}else{
@@ -870,7 +870,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 	}
 	if(!res)
 	{
-		CodeInfo::lastError = CompilerError("ERROR: module contains no code", str + strlen(str));
+		CodeInfo::lastError.Init("ERROR: module contains no code", str + strlen(str));
 		return false;
 	}
 
@@ -944,7 +944,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 
 	if(CodeInfo::nodeList.size() != 1)
 	{
-		CodeInfo::lastError = CompilerError("Compilation failed, AST contains more than one node", NULL);
+		CodeInfo::lastError.Init("Compilation failed, AST contains more than one node", NULL);
 		return false;
 	}
 
