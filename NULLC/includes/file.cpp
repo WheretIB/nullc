@@ -25,7 +25,7 @@ namespace NULLCFile
 		ret.handle = NULL;
 		return ret;
 	}
-	File FileCreate(NullCArray name, NullCArray access)
+	File FileCreate(NULLCArray name, NULLCArray access)
 	{
 		File ret;
 		ret.flag = FILE_OPENED;
@@ -34,7 +34,7 @@ namespace NULLCFile
 			nullcThrowError("Cannot open file.");
 		return ret;
 	}
-	void FileOpen(NullCArray name, NullCArray access, File* file)
+	void FileOpen(NULLCArray name, NULLCArray access, File* file)
 	{
 		if(file->flag & FILE_OPENED)
 			fclose(file->handle);
@@ -127,7 +127,7 @@ namespace NULLCFile
 		FileReadType<double>(data, file);
 	}
 
-	void FileRead(NullCArray arr, File* file)
+	void FileRead(NULLCArray arr, File* file)
 	{
 		if(!file->handle)
 		{
@@ -137,7 +137,7 @@ namespace NULLCFile
 		if(arr.len != fread(arr.ptr, 1, arr.len, file->handle))
 			nullcThrowError("Failed to read from a file.");
 	}
-	void FileWrite(NullCArray arr, File* file)
+	void FileWrite(NULLCArray arr, File* file)
 	{
 		if(!file->handle)
 		{
@@ -147,7 +147,7 @@ namespace NULLCFile
 		if(arr.len != fwrite(arr.ptr, 1, arr.len, file->handle))
 			nullcThrowError("Failed to write to a file.");
 	}
-	void FilePrint(NullCArray arr, File* file)
+	void FilePrint(NULLCArray arr, File* file)
 	{
 		if(!file->handle)
 		{

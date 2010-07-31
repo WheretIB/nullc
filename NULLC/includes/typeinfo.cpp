@@ -31,20 +31,20 @@ namespace NULLCTypeInfo
 		unsigned int *memberList = &linker->exTypeExtra[0];
 		return memberList[exType.memberOffset + member];
 	}
-	NullCArray MemberName(int member, int* type)
+	NULLCArray MemberName(int member, int* type)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 
 		ExternTypeInfo &exType = linker->exTypes[*type];
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
 		{
 			nullcThrowError("typeid::memberName: type (%s) is not a class", &linker->exSymbols[exType.offsetToName]);
-			return NullCArray();
+			return NULLCArray();
 		}
 		if((unsigned int)member >= exType.memberCount)
 		{
 			nullcThrowError("typeid::memberName: member number illegal, type (%s) has only %d members", &linker->exSymbols[exType.offsetToName], exType.memberCount);
-			return NullCArray();
+			return NULLCArray();
 		}
 		char *symbols = &linker->exSymbols[0];
 		unsigned int strLength = (unsigned int)strlen(symbols + exType.offsetToName) + 1;
@@ -85,7 +85,7 @@ namespace NULLCTypeInfo
 		ret.ptr += pos;
 		return ret;
 	}
-	NULLCRef MemberByName(NULLCRef obj, NullCArray member)
+	NULLCRef MemberByName(NULLCRef obj, NULLCArray member)
 	{
 		ExternTypeInfo &exType = linker->exTypes[obj.typeID];
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
@@ -156,9 +156,9 @@ namespace NULLCTypeInfo
 		return linker->exTypes[*type].size;
 	}
 
-	NullCArray TypeName(int* type)
+	NULLCArray TypeName(int* type)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 		FastVector<ExternTypeInfo> &exTypes = linker->exTypes;
 		char *symbols = &linker->exSymbols[0];
 

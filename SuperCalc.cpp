@@ -2125,9 +2125,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						PipeData data;
 						data.cmd = DEBUG_BREAK_DATA;
 						data.question = true;
-						data.data.wholeSize = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? type.size : ((NullCArray*)extra->address)->len * codeTypes[type.subType].size;
+						data.data.wholeSize = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? type.size : ((NULLCArray*)extra->address)->len * codeTypes[type.subType].size;
 						data.data.elemCount = 0;
-						data.data.dataSize = (unsigned int)(intptr_t)(extra->type->subCat == ExternTypeInfo::CAT_POINTER ? ptr : ((NullCArray*)extra->address)->ptr);
+						data.data.dataSize = (unsigned int)(intptr_t)(extra->type->subCat == ExternTypeInfo::CAT_POINTER ? ptr : ((NULLCArray*)extra->address)->ptr);
 						if(!PipeSendRequest(data))
 						{
 							MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
@@ -2150,10 +2150,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					if(extra->type->subCat == ExternTypeInfo::CAT_ARRAY)
 					{
 						ExternTypeInfo decoy = type;
-						decoy.arrSize = ((NullCArray*)extra->address)->len;
-						if(IsBadReadPtr(stateRemote ? ptr : ((NullCArray*)extra->address)->ptr, codeTypes[type.subType].size * decoy.arrSize))
+						decoy.arrSize = ((NULLCArray*)extra->address)->len;
+						if(IsBadReadPtr(stateRemote ? ptr : ((NULLCArray*)extra->address)->ptr, codeTypes[type.subType].size * decoy.arrSize))
 							break;
-						FillArrayVariableInfo(decoy, stateRemote ? ptr : ((NullCArray*)extra->address)->ptr, extra->item);
+						FillArrayVariableInfo(decoy, stateRemote ? ptr : ((NULLCArray*)extra->address)->ptr, extra->item);
 						if(stateRemote)
 							externalBlocks.push_back(ptr);
 						break;

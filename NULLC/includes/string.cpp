@@ -4,21 +4,21 @@
 
 namespace NULLCString
 {
-	int strstr(NullCArray string, NullCArray substring)
+	int strstr(NULLCArray string, NULLCArray substring)
 	{
 		if(!string.ptr || !substring.ptr)
 			return -1;
 		const char *pos = ::strstr(string.ptr, substring.ptr);
 		return pos ? int(pos - string.ptr) : -1;
 	}
-	int strchr(NullCArray string, char ch)
+	int strchr(NULLCArray string, char ch)
 	{
 		if(!string.ptr)
 			return -1;
 		const char *pos = ::strchr(string.ptr, ch);
 		return pos ? int(pos - string.ptr) : -1;
 	}
-	int strcmp(NullCArray a, NullCArray b)
+	int strcmp(NULLCArray a, NULLCArray b)
 	{
 		if(!a.ptr || !b.ptr)
 		{
