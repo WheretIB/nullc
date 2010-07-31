@@ -39,8 +39,8 @@ class member_iterator
 }
 class member_info
 {
-	typeid type;
-	char[] name;
+	typeid		type;
+	char[]		name;
 }
 auto typeid:members()
 {
@@ -61,7 +61,8 @@ auto member_iterator:next()
 {
 	member_info ret;
 	ret.type = classID.memberType(pos);
-	ret.name = classID.memberName(pos++);
+	ret.name = classID.memberName(pos);
+	pos++;
 	return ret;
 }
 
@@ -90,3 +91,6 @@ auto argument_iterator:next()
 {
 	return funcID.argumentType(pos++);
 }
+
+auto ref	typeGetMember(auto ref obj, int member);
+auto ref	typeGetMember(auto ref obj, char[] name);

@@ -23,7 +23,7 @@ namespace NULLCTypeInfo
 			nullcThrowError("typeid::memberType: type (%s) is not a class", &linker->exSymbols[exType.offsetToName]);
 			return 0;
 		}
-		if((unsigned int)member > exType.memberCount)
+		if((unsigned int)member >= exType.memberCount)
 		{
 			nullcThrowError("typeid::memberType: member number illegal, type (%s) has only %d members", &linker->exSymbols[exType.offsetToName], exType.memberCount);
 			return 0;
@@ -41,7 +41,7 @@ namespace NULLCTypeInfo
 			nullcThrowError("typeid::memberName: type (%s) is not a class", &linker->exSymbols[exType.offsetToName]);
 			return NullCArray();
 		}
-		if((unsigned int)member > exType.memberCount)
+		if((unsigned int)member >= exType.memberCount)
 		{
 			nullcThrowError("typeid::memberName: member number illegal, type (%s) has only %d members", &linker->exSymbols[exType.offsetToName], exType.memberCount);
 			return NullCArray();
@@ -58,6 +58,47 @@ namespace NULLCTypeInfo
 		ret.ptr = (char*)memberName;
 		ret.len = (unsigned int)strlen(memberName) + 1;
 		return ret;
+	}
+	NULLCRef MemberByIndex(NULLCRef obj, int member)
+	{
+		NULLCRef ret;
+		ret.ptr = NULL;
+		ret.typeID = 0;
+
+		ExternTypeInfo &exType = linker->exTypes[obj.typeID];
+		if((exType.subCat != ExternTypeInfo::CAT_CLASS) || ((unsigned)member >= exType.memberCount))
+			return ret;
+
+		unsigned int *memberList = &linker->exTypeExtra[exType.memberOffset];
+		ret.typeID = memberList[member];
+		ret.ptr = obj.ptr;
+		unsigned int pos = 0;
+		for(unsigned m = 0; m <= (unsigned)member; m++)
+		{
+			ExternTypeInfo &memberType = linker->exTypes[memberList[m]];
+			unsigned int alignment = memberType.defaultAlign > 4 ? 4 : memberType.defaultAlign;
+			if(alignment && pos % alignment != 0)
+				pos += alignment - (pos % alignment);
+			if(m != (unsigned)member)
+				pos += memberType.size;
+		}
+		ret.ptr += pos;
+		return ret;
+	}
+	NULLCRef MemberByName(NULLCRef obj, NullCArray member)
+	{
+		ExternTypeInfo &exType = linker->exTypes[obj.typeID];
+		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
+			return NULLCRef();
+		const char *str = &linker->exSymbols[exType.offsetToName];
+		const char *memberName = str + strlen(str) + 1;
+		for(unsigned i = 0; i < exType.memberCount; i++)
+		{
+			if(strcmp(memberName, member.ptr) == 0)
+				return MemberByIndex(obj, i);
+			memberName += strlen(memberName) + 1;
+		}
+		return NULLCRef();
 	}
 
 	int IsFunction(int id)
@@ -179,7 +220,7 @@ namespace NULLCTypeInfo
 			nullcThrowError("typeid::argumentType received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
 			return -1;
 		}
-		if((unsigned int)argument > type.memberCount)
+		if((unsigned int)argument >= type.memberCount)
 		{
 			nullcThrowError("typeid::argumentType: argument number illegal, function (%s) has only %d argument(s)", &linker->exSymbols[type.offsetToName], type.memberCount);
 			return -1;
@@ -217,6 +258,9 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 	REGISTER_FUNC(TypeReturnType, "typeid::returnType", 0);
 	REGISTER_FUNC(TypeArgumentCount, "typeid::argumentCount", 0);
 	REGISTER_FUNC(TypeArgumentType, "typeid::argumentType", 0);
+
+	REGISTER_FUNC(MemberByIndex, "typeGetMember", 0);
+	REGISTER_FUNC(MemberByName, "typeGetMember", 1);
 
 	return true;
 }
