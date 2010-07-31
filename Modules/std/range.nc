@@ -17,7 +17,7 @@ int range_iterator:next()
 }
 int range_iterator:hasnext()
 {
-	return pos <= max;
+	return pos < max;
 }
 auto range(int min, max, step = 1)
 {
