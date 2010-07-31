@@ -3,7 +3,6 @@ Core:
 	2. f. tuples
 	4. f. stand-alone executor
 	5. f. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
-	8. b. double->int and double->long conversion should be done using chop rounding mode
 	9. b. Fix alignment of dynamically allocated variables.
 	11. f. function should know if it is used as pointer, so that closure will not be created or closed(?)
 
@@ -179,3 +178,4 @@ DONE: member constructors for basic types
 DONE: const_string
 DROPPED: create gateways under x86 (performance is not improved)
 DONE: Function to check if pointer points to stack
+DONE: double->int and double->long conversion should be done using chop rounding mode
