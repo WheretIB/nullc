@@ -85,8 +85,14 @@ nullres		nullcSetGlobal(const char* name, void* data);
 /*	Get function pointer	*/
 nullres		nullcGetFunction(const char* name, NULLCFuncPtr* func);
 
-/* Set function using function pointer	*/
+/*	Set function using function pointer	*/
 nullres		nullcSetFunction(const char* name, NULLCFuncPtr func);
+
+/*	Function returns 1 if passed pointer points to NULLC stack; otherwise, the return value is 0	*/
+nullres		nullcIsStackPointer(void* ptr);
+
+/*	Function returns 1 if passed pointer points to a memory managed by NULLC GC; otherwise, the return value is 0	*/
+nullres		nullcIsManagedPointer(void* ptr);
 
 #endif
 

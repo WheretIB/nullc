@@ -561,6 +561,18 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	return true;
 }
 
+nullres nullcIsStackPointer(void* ptr)
+{
+	NULLCRef r;
+	r.ptr = (char*)ptr;
+	return (nullres)IsPointerUnmanaged(r);
+}
+
+nullres nullcIsManagedPointer(void* ptr)
+{
+	return NULLC::IsBasePointer(ptr);
+}
+
 #endif
 
 const char* nullcGetResult()
