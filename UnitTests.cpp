@@ -626,25 +626,25 @@ int TestExt11(char a, TestExt11Foo b, int c, TestExt11Foo d, float e, double f)
 }
 
 struct TestExt12Foo{ int x; };
-int TestExt12(NullCArray a, NullCArray b, TestExt12Foo u)
+int TestExt12(NULLCArray a, NULLCArray b, TestExt12Foo u)
 {
 	return a.len == 2 && ((int*)a.ptr)[0] == 1 && ((int*)a.ptr)[1] == 2 && b.len == 2 && ((int*)b.ptr)[0] == 3 && ((int*)b.ptr)[1] == 4 && u.x == 4;
 }
 
-NullCArray TestExt13(NullCArray a, NullCArray b, TestExt12Foo u)
+NULLCArray TestExt13(NULLCArray a, NULLCArray b, TestExt12Foo u)
 {
 	bool res = a.len == 2 && ((int*)a.ptr)[0] == 1 && ((int*)a.ptr)[1] == 2 && b.len == 2 && ((int*)b.ptr)[0] == 3 && ((int*)b.ptr)[1] == 4 && u.x == 4;
 	((int*)a.ptr)[1] = res;
 	return a;
 }
 
-NullCArray TestExt14(NullCArray a)
+NULLCArray TestExt14(NULLCArray a)
 {
 	((int*)a.ptr)[1] = 1;
 	return a;
 }
 
-int TestExt14e(NullCArray a)
+int TestExt14e(NULLCArray a)
 {
 	return ((int*)a.ptr)[0] + ((int*)a.ptr)[1];
 }
@@ -5002,7 +5002,7 @@ int RecallerPtr(NULLCFuncPtr func)
 }
 
 // sort array with comparator function inside NULLC
-void BubbleSortArray(NullCArray arr, NULLCFuncPtr comparator)
+void BubbleSortArray(NULLCArray arr, NULLCFuncPtr comparator)
 {
 	int *elem = (int*)arr.ptr;
 

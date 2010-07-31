@@ -41,12 +41,12 @@ namespace NULLCPugiXML
 		return ptr->attribute.as_bool();
 	}
 
-	int		xml_attribute__set_name(NullCArray rhs, xml_attribute* ptr)
+	int		xml_attribute__set_name(NULLCArray rhs, xml_attribute* ptr)
 	{
 		return ptr->attribute.set_name(rhs.ptr);
 	}
 
-	int		xml_attribute__set_valueS(NullCArray rhs, xml_attribute* ptr)
+	int		xml_attribute__set_valueS(NULLCArray rhs, xml_attribute* ptr)
 	{
 		return ptr->attribute.set_value(rhs.ptr);
 	}
@@ -64,22 +64,22 @@ namespace NULLCPugiXML
 		return ptr->attribute.empty();
 	}
 
-	NullCArray	xml_attribute__name(xml_attribute* ptr)
+	NULLCArray	xml_attribute__name(xml_attribute* ptr)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 		ret.ptr = (pugi::char_t*)ptr->attribute.name();
 		ret.len = (unsigned)strlen(ret.ptr) + 1;
 		return ret;
 	}
-	NullCArray	xml_attribute__value(xml_attribute* ptr)
+	NULLCArray	xml_attribute__value(xml_attribute* ptr)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 		ret.ptr = (pugi::char_t*)ptr->attribute.value();
 		ret.len = (unsigned)strlen(ret.ptr) + 1;
 		return ret;
 	}
 
-	xml_attribute* xml_attribute__operatorSetS(xml_attribute* att, NullCArray rhs)
+	xml_attribute* xml_attribute__operatorSetS(xml_attribute* att, NULLCArray rhs)
 	{
 		att->attribute = rhs.ptr;
 		return att;
@@ -138,35 +138,35 @@ namespace NULLCPugiXML
 	{
 		return ptr->node.type();
 	}
-	NullCArray xml_node__name(xml_node* ptr)
+	NULLCArray xml_node__name(xml_node* ptr)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 		ret.ptr = (pugi::char_t*)ptr->node.name();
 		ret.len = (unsigned)strlen(ret.ptr) + 1;
 		return ret;
 	}
-	NullCArray xml_node__value(xml_node* ptr)
+	NULLCArray xml_node__value(xml_node* ptr)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 		ret.ptr = (pugi::char_t*)ptr->node.value();
 		ret.len = (unsigned)strlen(ret.ptr) + 1;
 		return ret;
 	}
 
-	xml_node xml_node__child(NullCArray name, xml_node* ptr)
+	xml_node xml_node__child(NULLCArray name, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.child(name.ptr);
 		return ret;
 	}
-	xml_attribute xml_node__attribute(NullCArray name, xml_node* ptr)
+	xml_attribute xml_node__attribute(NULLCArray name, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.attribute(name.ptr);
 		return ret;
 	}
 
-	xml_node xml_node__next_sibling0(NullCArray name, xml_node* ptr)
+	xml_node xml_node__next_sibling0(NULLCArray name, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.next_sibling(name.ptr);
@@ -179,7 +179,7 @@ namespace NULLCPugiXML
 		return ret;
 	}
 
-	xml_node xml_node__previous_sibling0(NullCArray name, xml_node* ptr)
+	xml_node xml_node__previous_sibling0(NULLCArray name, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.previous_sibling(name.ptr);
@@ -205,43 +205,43 @@ namespace NULLCPugiXML
 		return ret;
 	}
 
-	NullCArray xml_node__child_value0(xml_node* ptr)
+	NULLCArray xml_node__child_value0(xml_node* ptr)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 		ret.ptr = (pugi::char_t*)ptr->node.child_value();
 		ret.len = (unsigned)strlen(ret.ptr) + 1;
 		return ret;
 	}
-	NullCArray xml_node__child_value1(NullCArray name, xml_node* ptr)
+	NULLCArray xml_node__child_value1(NULLCArray name, xml_node* ptr)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 		ret.ptr = (pugi::char_t*)ptr->node.child_value(name.ptr);
 		ret.len = (unsigned)strlen(ret.ptr) + 1;
 		return ret;
 	}
 
-	int xml_node__set_name(NullCArray rhs, xml_node* ptr)
+	int xml_node__set_name(NULLCArray rhs, xml_node* ptr)
 	{
 		return ptr->node.set_name(rhs.ptr);
 	}
-	int xml_node__set_value(NullCArray rhs, xml_node* ptr)
+	int xml_node__set_value(NULLCArray rhs, xml_node* ptr)
 	{
 		return ptr->node.set_value(rhs.ptr);
 	}
 
-	xml_attribute xml_node__append_attribute(NullCArray name, xml_node* ptr)
+	xml_attribute xml_node__append_attribute(NULLCArray name, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.append_attribute(name.ptr);
 		return ret;
 	}
-	xml_attribute xml_node__insert_attribute_after(NullCArray name, xml_attribute * attr, xml_node* ptr)
+	xml_attribute xml_node__insert_attribute_after(NULLCArray name, xml_attribute * attr, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.insert_attribute_after(name.ptr, attr->attribute);
 		return ret;
 	}
-	xml_attribute xml_node__insert_attribute_before(NullCArray name, xml_attribute * attr, xml_node* ptr)
+	xml_attribute xml_node__insert_attribute_before(NULLCArray name, xml_attribute * attr, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.insert_attribute_before(name.ptr, attr->attribute);
@@ -307,7 +307,7 @@ namespace NULLCPugiXML
 	{
 		ptr->node.remove_attribute(a->attribute);
 	}
-	void xml_node__remove_attribute1(NullCArray name, xml_node* ptr)
+	void xml_node__remove_attribute1(NULLCArray name, xml_node* ptr)
 	{
 		ptr->node.remove_attribute(name.ptr);
 	}
@@ -316,7 +316,7 @@ namespace NULLCPugiXML
 	{
 		ptr->node.remove_child(n->node);
 	}
-	void xml_node__remove_child1(NullCArray name, xml_node* ptr)
+	void xml_node__remove_child1(NULLCArray name, xml_node* ptr)
 	{
 		ptr->node.remove_child(name.ptr);
 	}
@@ -347,20 +347,20 @@ namespace NULLCPugiXML
 		return ret;
 	}
 
-	xml_node xml_node__find_child_by_attribute0(NullCArray name, NullCArray attr_name, NullCArray attr_value, xml_node* ptr)
+	xml_node xml_node__find_child_by_attribute0(NULLCArray name, NULLCArray attr_name, NULLCArray attr_value, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.find_child_by_attribute(name.ptr, attr_name.ptr, attr_value.ptr);
 		return ret;
 	}
-	xml_node xml_node__find_child_by_attribute1(NullCArray attr_name, NullCArray attr_value, xml_node* ptr)
+	xml_node xml_node__find_child_by_attribute1(NULLCArray attr_name, NULLCArray attr_value, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.find_child_by_attribute(attr_name.ptr, attr_value.ptr);
 		return ret;
 	}
 
-	xml_node xml_node__first_element_by_path(NullCArray path, char delimiter, xml_node* ptr)
+	xml_node xml_node__first_element_by_path(NULLCArray path, char delimiter, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.first_element_by_path(path.ptr, delimiter);
@@ -419,7 +419,7 @@ namespace NULLCPugiXML
 
 		virtual void write(const void* data, size_t size)
 		{
-			NullCArray arr;
+			NULLCArray arr;
 			arr.ptr = (char*)data;
 			arr.len = (unsigned)size;
 			nullcCallFunction(writerCB, arr);
@@ -427,7 +427,7 @@ namespace NULLCPugiXML
 	private:
 		NULLCFuncPtr writerCB;
 	};
-	void xml_node__print(NULLCFuncPtr writer, NullCArray indent, int flags, pugi::xml_encoding encoding, int depth, xml_node* ptr)
+	void xml_node__print(NULLCFuncPtr writer, NULLCArray indent, int flags, pugi::xml_encoding encoding, int depth, xml_node* ptr)
 	{
 		xml_writer_nullc writer_nullc = xml_writer_nullc(writer);
 		ptr->node.print(writer_nullc, indent.ptr, flags, encoding, depth);
@@ -563,9 +563,9 @@ namespace NULLCPugiXML
 		pugi::xml_document	*document;
 	};
 	
-	NullCArray description(xml_parse_result* desc)
+	NULLCArray description(xml_parse_result* desc)
 	{
-		NullCArray ret;
+		NULLCArray ret;
 		pugi::xml_parse_result res;
 		res.status = (pugi::xml_parse_status)desc->status;
 		res.offset = desc->offset;
@@ -575,7 +575,7 @@ namespace NULLCPugiXML
 		return ret;
 	}
 
-	xml_parse_result* xml_document__load(NullCArray contents, unsigned int options, xml_document* document)
+	xml_parse_result* xml_document__load(NULLCArray contents, unsigned int options, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -588,7 +588,7 @@ namespace NULLCPugiXML
 		return res;
 	}
 
-	xml_parse_result* xml_document__load_file(NullCArray name, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
+	xml_parse_result* xml_document__load_file(NULLCArray name, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -601,7 +601,7 @@ namespace NULLCPugiXML
 		return res;
 	}
 
-	xml_parse_result* xml_document__load_buffer(NullCArray contents, int size, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
+	xml_parse_result* xml_document__load_buffer(NULLCArray contents, int size, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -614,7 +614,7 @@ namespace NULLCPugiXML
 		return res;
 	}
 
-	xml_parse_result* xml_document__load_buffer_inplace(NullCArray contents, int size, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
+	xml_parse_result* xml_document__load_buffer_inplace(NULLCArray contents, int size, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -627,7 +627,7 @@ namespace NULLCPugiXML
 		return res;
 	}
 
-	void xml_document__save(NULLCFuncPtr writer, NullCArray indent, int flags, pugi::xml_encoding encoding, xml_document* document)
+	void xml_document__save(NULLCFuncPtr writer, NULLCArray indent, int flags, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)
@@ -639,7 +639,7 @@ namespace NULLCPugiXML
 		doc->save(writer_nullc, indent.ptr, flags, encoding);
 	}
 
-	int xml_document__save_file(NullCArray name, NullCArray indent, int flags, pugi::xml_encoding encoding, xml_document* document)
+	int xml_document__save_file(NULLCArray name, NULLCArray indent, int flags, pugi::xml_encoding encoding, xml_document* document)
 	{
 		pugi::xml_document *doc = document->document;
 		if(!doc)

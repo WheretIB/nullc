@@ -45,7 +45,7 @@ namespace NULLCDynamic
 		destFunc.codeSize = srcFunc.codeSize;
 	}
 
-	void Override(NULLCRef dest, NullCArray code)
+	void Override(NULLCRef dest, NULLCArray code)
 	{
 		static unsigned int overrideID = 0;
 

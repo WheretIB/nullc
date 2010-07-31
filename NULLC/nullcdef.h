@@ -10,7 +10,7 @@
 #pragma pack(push, 4)
 
 // Wrapper over NULLC array, for use in external functions
-struct NullCArray
+struct NULLCArray
 {
 	char			*ptr;
 	unsigned int	len;

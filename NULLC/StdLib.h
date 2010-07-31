@@ -7,12 +7,12 @@ namespace NULLC
 	void	SetLinker(Linker *linker);
 
 	void	Assert(int val);
-	void	Assert2(int val, NullCArray message);
+	void	Assert2(int val, NULLCArray message);
 
-	int		StrEqual(NullCArray a, NullCArray b);
-	int		StrNEqual(NullCArray a, NullCArray b);
-	NullCArray	StrConcatenate(NullCArray a, NullCArray b);
-	NullCArray	StrConcatenateAndSet(NullCArray *a, NullCArray b);
+	int		StrEqual(NULLCArray a, NULLCArray b);
+	int		StrNEqual(NULLCArray a, NULLCArray b);
+	NULLCArray	StrConcatenate(NULLCArray a, NULLCArray b);
+	NULLCArray	StrConcatenateAndSet(NULLCArray *a, NULLCArray b);
 
 	// Basic type constructors
 	int			Int(int a);
@@ -20,11 +20,11 @@ namespace NULLC
 	float		Float(float a);
 	double		Double(double a);
 
-	NullCArray	IntToStr(int* r);
-	NullCArray	DoubleToStr(int precision, double* r);
+	NULLCArray	IntToStr(int* r);
+	NULLCArray	DoubleToStr(int precision, double* r);
 	
 	void*		AllocObject(int size);
-	NullCArray	AllocArray(int size, int count);
+	NULLCArray	AllocArray(int size, int count);
 	NULLCRef	CopyObject(NULLCRef ptr);
 
 	void		MarkMemory(unsigned int number);
@@ -42,7 +42,7 @@ namespace NULLC
 
 	void		SetGlobalLimit(unsigned int limit);
 
-	NULLCFuncPtr	FunctionRedirect(NULLCRef r, NullCArray* arr);
+	NULLCFuncPtr	FunctionRedirect(NULLCRef r, NULLCArray* arr);
 
 	struct TypeIDHelper
 	{

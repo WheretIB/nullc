@@ -30,7 +30,7 @@ namespace NULLCIO
 #endif
 	}
 
-	void WriteToConsole(NullCArray data)
+	void WriteToConsole(NULLCArray data)
 	{
 		InitConsole();
 		printf("%s", data.ptr);
@@ -66,7 +66,7 @@ namespace NULLCIO
 		scanf("%d", val);
 	}
 
-	int ReadTextFromConsole(NullCArray data)
+	int ReadTextFromConsole(NULLCArray data)
 	{
 		char buffer[2048];
 
@@ -86,7 +86,7 @@ namespace NULLCIO
 		return ((unsigned int)len < data.len ? len : data.len);
 	}
 
-	void WriteToConsoleExact(NullCArray data)
+	void WriteToConsoleExact(NULLCArray data)
 	{
 		InitConsole();
 		fwrite(data.ptr, 1, data.len, stdout);
@@ -110,7 +110,7 @@ namespace NULLCIO
 #endif
 	}
 
-	void GetKeyboardState(NullCArray arr)
+	void GetKeyboardState(NULLCArray arr)
 	{
 #if !defined(_MSC_VER)
 		nullcThrowError("GetKeyboardState: supported only under Windows");

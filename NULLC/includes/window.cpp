@@ -12,7 +12,7 @@ namespace NULLCWindow
 #pragma pack(push, 4)
 	struct Window
 	{
-		NullCArray title;
+		NULLCArray title;
 
 		int x, y;
 		int width, height;
@@ -21,7 +21,7 @@ namespace NULLCWindow
 	};
 #pragma pack(pop)
 
-	void WindowCreate(Window* wnd, NullCArray title, int x, int y, int width, int height)
+	void WindowCreate(Window* wnd, NULLCArray title, int x, int y, int width, int height)
 	{
 		wnd->handle = CreateWindow("NCWND", title.ptr, WS_OVERLAPPED | WS_VISIBLE, x, y, width, height, NULL, NULL, NULL, 0);
 		wnd->x = x;
@@ -30,7 +30,7 @@ namespace NULLCWindow
 		wnd->height = height;
 	}
 
-	void WindowSetTitle(NullCArray title, Window* wnd)
+	void WindowSetTitle(NULLCArray title, Window* wnd)
 	{
 		SetWindowText(wnd->handle, title.ptr);
 	}

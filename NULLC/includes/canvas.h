@@ -8,7 +8,7 @@ namespace NULLCCanvas
 		int width, height;
 		
 		int color;
-		NullCArray data;
+		NULLCArray data;
 	};
 }
 

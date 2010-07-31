@@ -295,9 +295,9 @@ unsigned int NULLC::UsedMemory()
 	return usedMemory;
 }
 
-NullCArray NULLC::AllocArray(int size, int count)
+NULLCArray NULLC::AllocArray(int size, int count)
 {
-	NullCArray ret;
+	NULLCArray ret;
 	ret.ptr = (char*)AllocObject(count * size);
 	ret.len = count;
 	return ret;
@@ -475,7 +475,7 @@ void NULLC::Assert(int val)
 		nullcThrowError("Assertion failed");
 }
 
-void NULLC::Assert2(int val, NullCArray message)
+void NULLC::Assert2(int val, NULLCArray message)
 {
 	if(!val)
 		nullcThrowError(message.ptr);
@@ -491,7 +491,7 @@ NULLCRef NULLC::CopyObject(NULLCRef ptr)
 	return ret;
 }
 
-int NULLC::StrEqual(NullCArray a, NullCArray b)
+int NULLC::StrEqual(NULLCArray a, NULLCArray b)
 {
 	if(a.len != b.len)
 		return 0;
@@ -501,14 +501,14 @@ int NULLC::StrEqual(NullCArray a, NullCArray b)
 	return 1;
 }
 
-int NULLC::StrNEqual(NullCArray a, NullCArray b)
+int NULLC::StrNEqual(NULLCArray a, NULLCArray b)
 {
 	return !StrEqual(a, b);
 }
 
-NullCArray NULLC::StrConcatenate(NullCArray a, NullCArray b)
+NULLCArray NULLC::StrConcatenate(NULLCArray a, NULLCArray b)
 {
-	NullCArray ret;
+	NULLCArray ret;
 
 	// If first part is zero-terminated, override zero in the new string
 	int shift = a.len && (a.ptr[a.len-1] == 0);
@@ -523,7 +523,7 @@ NullCArray NULLC::StrConcatenate(NullCArray a, NullCArray b)
 	return ret;
 }
 
-NullCArray NULLC::StrConcatenateAndSet(NullCArray *a, NullCArray b)
+NULLCArray NULLC::StrConcatenateAndSet(NULLCArray *a, NULLCArray b)
 {
 	return *a = StrConcatenate(*a, b);
 }
@@ -548,7 +548,7 @@ double NULLC::Double(double a)
 	return a;
 }
 
-NullCArray NULLC::IntToStr(int* r)
+NULLCArray NULLC::IntToStr(int* r)
 {
 	int number = *r;
 	bool sign = 0;
@@ -562,7 +562,7 @@ NullCArray NULLC::IntToStr(int* r)
 		*curr++ = (char)(abs(number % 10) + '0');
 	if(sign)
 		*curr++ = '-';
-	NullCArray arr = AllocArray(1, (int)(curr - buf) + 1);
+	NULLCArray arr = AllocArray(1, (int)(curr - buf) + 1);
 	char *str = arr.ptr;
 	do 
 	{
@@ -572,16 +572,16 @@ NullCArray NULLC::IntToStr(int* r)
 	return arr;
 }
 
-NullCArray NULLC::DoubleToStr(int precision, double* r)
+NULLCArray NULLC::DoubleToStr(int precision, double* r)
 {
 	char buf[256];
 	SafeSprintf(buf, 256, "%.*f", precision, *r);
-	NullCArray arr = AllocArray(1, (int)strlen(buf) + 1);
+	NULLCArray arr = AllocArray(1, (int)strlen(buf) + 1);
 	memcpy(arr.ptr, buf, arr.len);
 	return arr;
 }
 
-NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NullCArray* arr)
+NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NULLCArray* arr)
 {
 	unsigned int *funcs = (unsigned int*)arr->ptr;
 	NULLCFuncPtr ret = { 0, 0 };
@@ -651,7 +651,7 @@ NULLCAutoArray* NULLC::AutoArrayAssign(NULLCAutoArray* left, NULLCRef right)
 	left->len = nullcGetArraySize(right.typeID);
 	if(left->len == ~0u)
 	{
-		NullCArray *arr = (NullCArray*)right.ptr;
+		NULLCArray *arr = (NULLCArray*)right.ptr;
 		left->len = arr->len;
 		left->ptr = arr->ptr;
 	}else{
@@ -677,7 +677,7 @@ NULLCRef NULLC::AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right)
 	unsigned int leftLength = nullcGetArraySize(left.typeID);
 	if(leftLength == ~0u)
 	{
-		NullCArray *arr = (NullCArray*)left.ptr;
+		NULLCArray *arr = (NULLCArray*)left.ptr;
 		arr->len = right->len;
 		arr->ptr = right->ptr;
 	}else{
