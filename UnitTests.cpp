@@ -7904,6 +7904,24 @@ return x[0].x + x[1].x;";
 
 	nullcTerminate();
 	nullcInit(MODULE_PATH);
+
+	const char	*testStackRelocationClassAlignedMembers =
+"void corrupt()\r\n\
+{\r\n\
+	int[32*1024] e = 0;\r\n\
+}\r\n\
+int z = 5;\r\n\
+class Test{ char a; int c; int ref b; }\r\n\
+Test x;\r\n\
+x.a = 5;\r\n\
+x.b = &z;\r\n\
+corrupt();\r\n\
+z = 15;\r\n\
+return *x.b;";
+	TEST_FOR_RESULT("VM stack relocation with aligned class members.", testStackRelocationClassAlignedMembers, "15");
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
 	nullcInitTypeinfoModule();
 	nullcInitVectorModule();
 
