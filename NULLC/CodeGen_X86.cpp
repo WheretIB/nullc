@@ -1630,27 +1630,37 @@ void GenCodeCmdPop(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, cmd.argument);
 }
 
+int DoubleToInt(double a)
+{
+	return (int)a;
+}
+int (*doubleToIntPtr)(double) = DoubleToInt;
 
 void GenCodeCmdDtoI(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("DTOI");
 
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
+	EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&doubleToIntPtr);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	EMIT_OP_REG_NUM(o_sub, rESP, 4);
-	EMIT_OP_RPTR(o_fistp, sDWORD, rESP, 0);
+	EMIT_OP_REG(o_push, rEAX);
 }
+
+long long DoubleToLong(double a)
+{
+	return (long long)a;
+}
+long long (*doubleToLongPtr)(double) = DoubleToLong;
 
 void GenCodeCmdDtoL(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("DTOL");
 
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
+	EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&doubleToLongPtr);
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-	EMIT_OP_REG_NUM(o_sub, rESP, 8);
-	EMIT_OP_RPTR(o_fistp, sQWORD, rESP, 0);
+	EMIT_OP_REG(o_push, rEDX);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 void GenCodeCmdDtoF(VMCmd cmd)

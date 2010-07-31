@@ -7238,6 +7238,30 @@ return foo() + foo();";
 	TEST_FOR_RESULT("negative int type constant (bin)", "return 01111111111111111111111111111111111111111111111111111111111111111b;", "-1");
 	TEST_FOR_RESULT("negative long type constant (bin)", "return 01111111111111111111111111111000000000000000000000000000000000000b;", "-68719476736L");
 
+const char	*testDoubleToInt =
+"int a = (auto(){ return 0.1; })();\r\n\
+int b = (auto(){ return 0.5; })();\r\n\
+int c = (auto(){ return 0.9; })();\r\n\
+int d = (auto(){ return 1.0; })();\r\n\
+int e = (auto(){ return -0.1; })();\r\n\
+int f = (auto(){ return -0.5; })();\r\n\
+int g = (auto(){ return -0.9; })();\r\n\
+int h = (auto(){ return -1.0; })();\r\n\
+return (a == 0) && (b == 0) && (c == 0) && (d == 1) && (e == 0) && (f == 0) && (g == 0) && (h == -1);";
+	TEST_FOR_RESULT("Double to int rounding check", testDoubleToInt, "1");
+
+const char	*testDoubleToLong =
+"long a = (auto(){ return 0.1; })();\r\n\
+long b = (auto(){ return 0.5; })();\r\n\
+long c = (auto(){ return 0.9; })();\r\n\
+long d = (auto(){ return 1.0; })();\r\n\
+long e = (auto(){ return -0.1; })();\r\n\
+long f = (auto(){ return -0.5; })();\r\n\
+long g = (auto(){ return -0.9; })();\r\n\
+long h = (auto(){ return -1.0; })();\r\n\
+return (a == 0) && (b == 0) && (c == 0) && (d == 1) && (e == 0) && (f == 0) && (g == 0) && (h == -1);";
+	TEST_FOR_RESULT("Double to long rounding check", testDoubleToLong, "1");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
