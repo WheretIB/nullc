@@ -1884,6 +1884,8 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		// Get array size
 		size = data->len;
 	}
+	if(!subType->pointerCount)
+		return;
 	switch(subType->subCat)
 	{
 	case ExternTypeInfo::CAT_ARRAY:
@@ -1940,16 +1942,20 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 		// Exit
 		return;
 	}
-	unsigned int *memberList = &exLinker->exTypeExtra[0];
+	// Get class member type list
+	unsigned int *memberList = &exLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
 	//char *str = symbols + type.offsetToName;
 	//const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
-	for(unsigned int n = 0; n < realType->memberCount; n++)
+	// Check pointer members
+	for(unsigned int n = 0; n < realType->pointerCount; n++)
 	{
+		// Get member type
+		ExternTypeInfo &subType = exTypes[memberList[n * 2]];
+		unsigned int pos = memberList[n * 2 + 1];
+		// Check member
+		FixupVariable(ptr + pos, subType);
 		//unsigned int strLength = (unsigned int)strlen(memberName) + 1;
-		ExternTypeInfo &subType = exTypes[memberList[realType->memberOffset + n]];
-		FixupVariable(ptr, subType);
 		//memberName += strLength;
-		ptr += subType.size;
 	}
 }
 
@@ -1973,6 +1979,8 @@ void Executor::FixupFunction(char* ptr)
 
 void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
 {
+	if(!type.pointerCount)
+		return;
 	switch(type.subCat)
 	{
 	case ExternTypeInfo::CAT_ARRAY:
