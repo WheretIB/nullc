@@ -379,6 +379,20 @@ function toggleView(a, b, c)
 		- <b>name</b> parameter is a global variable name.<br />
 		- <b>func</b> parameter is the NULLCFuncPtr struct that contains pointer to source function.<br />
 	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcIsStackPointer</span>(<span class="rword">void</span>* ptr);
+		</p>
+		Function returns 1 if passed pointer points to NULLC stack; otherwise, the return value is 0.<br />
+		- <b>ptr</b> parameter is a pointer to check.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">nullres</span>		<span class="func">nullcIsManagedPointer</span>(<span class="rword">void</span>* ptr);
+		</p>
+		Function returns 1 if passed pointer points to a memory managed by NULLC GC; otherwise, the return value is 0.<br />
+		- <b>ptr</b> parameter is a pointer to check.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -458,6 +472,18 @@ function toggleView(a, b, c)
 <hr />
 <div class="topic">
 	<h3><a name="debug">1.9 Debug functions</a></h3>
+</div>
+<hr />
+<h2 align="center">2. Interoperability with C code</h2>
+<div class="topic">
+	<h3><a name="interop_bind">2.1 Binding functions to NULLC</a></h3>
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="interop_types">2.2 Special types</a></h3>
+</div>
+<hr /><div class="topic">
+	<h3><a name="interop_extra">2.3 Extra notes</a></h3>
 </div>
 <hr />
 	</body>
