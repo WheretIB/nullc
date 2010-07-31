@@ -2231,10 +2231,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				SetWindowText(hNewFilename, "");
 				if(!strstr(fileName, ".nc"))
 					strcat(fileName, ".nc");
+				char *filePart = NULL;
+				GetFullPathName(fileName, 512, result, &filePart);
+
 				// Check if file is already opened
 				for(unsigned int i = 0; i < richEdits.size(); i++)
 				{
-					if(strcmp(TabbedFiles::GetTabInfo(hTabs, i).name, fileName) == 0)
+					if(strcmp(TabbedFiles::GetTabInfo(hTabs, i).name, result) == 0)
 					{
 						TabbedFiles::SetCurrentTab(hTabs, i);
 						return 0;
@@ -2242,8 +2245,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				}
 				FILE *fNew = fopen(fileName, "rb");
 
-				char *filePart = NULL;
-				GetFullPathName(fileName, 512, result, &filePart);
+				ShowWindow(hNewTab, SW_HIDE);
+
 				if(fNew)
 				{
 					int action = MessageBox(hWnd, "File already exists, overwrite?", "Warning", MB_YESNOCANCEL);
