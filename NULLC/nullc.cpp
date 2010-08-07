@@ -324,6 +324,8 @@ const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, 
 			argPos += 8;
 			break;
 		case ExternTypeInfo::TYPE_COMPLEX:
+			static unsigned int autoRefHash = GetStringHash("auto ref");
+			static unsigned int autoArrayHash = GetStringHash("auto[]");
 #ifdef _WIN64
 			if(tInfo.size <= 4)
 				*(int*)argPos = va_arg(args, int);
@@ -337,7 +339,13 @@ const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, 
 			{
 				*(NULLCArray*)argPos = va_arg(args, NULLCArray);
 				argPos += 12;
-			}else if(tInfo.subCat == ExternTypeInfo::CAT_CLASS){// && tInfo.nameHash == autorefHash){
+			}else if(tInfo.nameHash == autoRefHash){
+				*(NULLCRef*)argPos = va_arg(args, NULLCRef);
+				argPos += 12;
+			}else if(tInfo.nameHash == autoArrayHash){
+				*(NULLCAutoArray*)argPos = va_arg(args, NULLCAutoArray);
+				argPos += sizeof(NULLCAutoArray);
+			}else if(tInfo.subCat == ExternTypeInfo::CAT_CLASS){
 				unsigned int *memberList = &linker->exTypeExtra[tInfo.memberOffset];
 				for(unsigned int k = 0; k < tInfo.memberCount; k++)
 				{

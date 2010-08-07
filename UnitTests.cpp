@@ -1351,6 +1351,7 @@ void	RunTests(bool verbose)
 		const char *partB = "import __last; import std.dynamic; int new_foo(){ return 25; } void foo_update(){ override(foo, new_foo); }\r\n";
 		
 		int vmPassed = passed[0], x86Passed = passed[1];
+		(void)x86Passed;
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
 			testCount[t]++;
@@ -1437,6 +1438,7 @@ void	RunTests(bool verbose)
 		const char *partB = "int new_foo(){ return 25; }\r\n";
 
 		int vmPassed = passed[0], x86Passed = passed[1];
+		(void)x86Passed;
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
 			testCount[t]++;
@@ -1546,6 +1548,7 @@ void	RunTests(bool verbose)
 		const char *code = "int Char(char x){ return -x*2; } int Short(short x){ return -x*3; } int Int(int x){ return -x*4; } int Long(long x){ return -x*5; } int Float(float x){ return -x*6; } int Double(double x){ return -x*7; } int Ptr(int ref x){ return -*x; }";
 
 		int vmPassed = passed[0], x86Passed = passed[1];
+		(void)x86Passed;
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
 			testCount[t]++;
@@ -1585,6 +1588,7 @@ void	RunTests(bool verbose)
 		const char *code = "int foo(int[] arr){ return arr[0] + arr.size; } int NULLCRef(auto ref x){ return -int(x); } int bar(){ return 127; } int NULLCFunc(int ref() x){ return x(); } int NULLCArray(auto[] arr){ return int(arr[0]); }";
 
 		int vmPassed = passed[0], x86Passed = passed[1];
+		(void)x86Passed;
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
 			testCount[t]++;
