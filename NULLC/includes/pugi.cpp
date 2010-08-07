@@ -4,6 +4,12 @@
 #include <new>
 #include "../../external/pugixml/pugixml.hpp"
 
+#if defined(__linux) && !defined(__x86_64__)
+	#define POD_WRAP(x) *(size_t*)&x
+#else
+	#define POD_WRAP(x) x
+#endif
+
 namespace NULLCPugiXML
 {
 	class xml_attribute
@@ -383,21 +389,21 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(beginCB, *(size_t*)&n.node);
+			nullcCallFunction(beginCB, POD_WRAP(n.node));
 			return !!nullcGetResultInt();
 		}
 		virtual bool for_each(pugi::xml_node& node)
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(for_eachCB, *(size_t*)&n.node);
+			nullcCallFunction(for_eachCB, POD_WRAP(n.node));
 			return !!nullcGetResultInt();
 		}
 		virtual bool end(pugi::xml_node& node)
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(endCB, *(size_t*)&n.node);
+			nullcCallFunction(endCB, POD_WRAP(n.node));
 			return !!nullcGetResultInt();
 		}
 	private:
@@ -451,7 +457,7 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(callback, *(size_t*)&n.node);
+			nullcCallFunction(callback, POD_WRAP(n.node));
 		}
 		void operator++()
 		{
@@ -471,7 +477,7 @@ namespace NULLCPugiXML
 		{
 			xml_attribute att;
 			att.attribute = attribute;
-			nullcCallFunction(callback, *(size_t*)&att.attribute);
+			nullcCallFunction(callback, POD_WRAP(att.attribute));
 			return !!nullcGetResultInt();
 		}
 		
@@ -490,7 +496,7 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(callback, *(size_t*)&n.node);
+			nullcCallFunction(callback, POD_WRAP(n.node));
 			return !!nullcGetResultInt();
 		}
 	private:

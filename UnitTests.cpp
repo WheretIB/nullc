@@ -1539,6 +1539,92 @@ void	RunTests(bool verbose)
 			printf("X86 failed test: Function update test 2\r\n");
 	}
 
+	{
+		if(messageVerbose)
+			printf("Value pass through nullcRunFunction\r\n");
+
+		const char *code = "int Char(char x){ return -x*2; } int Short(short x){ return -x*3; } int Int(int x){ return -x*4; } int Long(long x){ return -x*5; } int Float(float x){ return -x*6; } int Double(double x){ return -x*7; } int Ptr(int ref x){ return -*x; }";
+
+		int vmPassed = passed[0], x86Passed = passed[1];
+		for(int t = 0; t < TEST_COUNT; t++)
+		{
+			testCount[t]++;
+			nullcSetExecutor(testTarget[t]);
+
+			nullres good = nullcBuild(code);
+			if(!good)
+			{
+				printf("Build failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+#define TEST_CALL(name, arg, expected)\
+			if(!nullcRunFunction(name, arg)){ printf("nullcRunFunction("name") failed: %s\r\n", nullcGetLastError()); continue; }\
+			if(nullcGetResultInt() != expected){ printf("nullcGetResultInt failed to return " #expected " result\r\n"); continue; }
+
+			TEST_CALL("Char", 12, -12*2);
+			TEST_CALL("Short", 13, -13*3);
+			TEST_CALL("Int", 14, -14*4);
+			TEST_CALL("Long", 15LL, -15*5LL);
+			TEST_CALL("Float", 4.0f, -4.0f*6.0f);
+			TEST_CALL("Double", 5.0f, -5.0*7.0);
+
+			int ptrTest = 88;
+			TEST_CALL("Ptr", &ptrTest, -88);
+
+			passed[t]++;
+		}
+		if(vmPassed + 1 != passed[0])
+			printf("VM failed test: Value pass through nullcCallFunction\r\n");
+		if(TEST_COUNT == 2 && x86Passed + 1 != passed[1])
+			printf("X86 failed test: Value pass through nullcCallFunction\r\n");
+	}
+	{
+		if(messageVerbose)
+			printf("Structure pass through nullcRunFunction\r\n");
+
+		const char *code = "int foo(int[] arr){ return arr[0] + arr.size; } int NULLCRef(auto ref x){ return -int(x); } int bar(){ return 127; } int NULLCFunc(int ref() x){ return x(); } int NULLCArray(auto[] arr){ return int(arr[0]); }";
+
+		int vmPassed = passed[0], x86Passed = passed[1];
+		for(int t = 0; t < TEST_COUNT; t++)
+		{
+			testCount[t]++;
+			nullcSetExecutor(testTarget[t]);
+
+			nullres good = nullcBuild(code);
+			if(!good)
+			{
+				printf("Build failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+
+			int x = 50;
+			NULLCArray arr = { (char*)&x, 1 };
+			TEST_CALL("foo", arr, 51);
+
+			x = 14;
+			NULLCRef ref = { 4, (char*)&x };
+			TEST_CALL("NULLCRef", ref, -14);
+
+			NULLCFuncPtr fPtr;
+			if(!nullcGetFunction("bar", &fPtr))
+			{
+				printf("Unable to get 'bar' function: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			TEST_CALL("NULLCFunc", fPtr, 127);
+
+			x = 77;
+			NULLCAutoArray autoArr = { 4, (char*)&x, 1 };
+			TEST_CALL("NULLCArray", autoArr, 77);
+			
+			passed[t]++;
+		}
+		if(vmPassed + 1 != passed[0])
+			printf("VM failed test: Structure pass through nullcCallFunction\r\n");
+		if(TEST_COUNT == 2 && x86Passed + 1 != passed[1])
+			printf("X86 failed test: Structure pass through nullcCallFunction\r\n");
+	}
+
 //////////////////////////////////////////////////////////////////////////
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	nullres bRes = CompileFile("Modules/std/math.nc");
