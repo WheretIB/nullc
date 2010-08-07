@@ -7468,6 +7468,12 @@ for(i in range(1, 5))\r\n\
 return sum;";
 	TEST_FOR_RESULT("std.range test", testRange, "15");
 
+const char	*testInlineCoroutine =
+"auto f = coroutine auto(){ yield 1; yield 2; };\r\n\
+int a = f(), b = f();\r\n\
+return a * 10 + b;";
+	TEST_FOR_RESULT("Inline coroutine", testInlineCoroutine, "12");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
