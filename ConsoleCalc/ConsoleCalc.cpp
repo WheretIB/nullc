@@ -25,6 +25,8 @@
 
 #include "../NULLC/includes/canvas.h"
 
+#include "../NULLC/includes/pugi.h"
+
 #ifdef BUILD_FOR_WINDOWS
 	#include "../NULLC/includes/window.h"
 #endif
@@ -93,6 +95,9 @@ int main(int argc, char** argv)
 		printf("ERROR: Failed to init std.time module\r\n");
 	if(!nullcInitGCModule())
 		printf("ERROR: Failed to init std.gc module\r\n");
+
+	if(!nullcInitPugiXMLModule())
+		printf("ERROR: Failed to init ext.pugixml module\r\n");
 	/*
 	nullcInitFileModule();
 	nullcInitMathModule();
