@@ -602,6 +602,11 @@ int TestExt8(float a, float b, double c, double d, float e, float f)
 	return a == -1.0f && b == -2.0f && c == -3.0 && d == -4.0 && e == -5.0f && f == -6.0f;
 }
 
+int TestExt8_ex(float a, float b, double c, double d, float e, float f, double g, double h, float i, float j)
+{
+	return a == -1.0f && b == -2.0f && c == -3.0 && d == -4.0 && e == -5.0f && f == -6.0f && g == -7.0 && h == -8.0 && i == -9.0f && j == -10.0f;
+}
+
 int TestExt9(char a, short b, int c, long long d, float e, double f)
 {
 	return a == -1 && b == -2 && c == -3 && d == -4 && e == -5.0f && f == -6.0;
@@ -781,6 +786,18 @@ int TestExtK4(NULLCRef x, NULLCRef y, NULLCRef z, NULLCRef w, NULLCRef a, NULLCR
 			*(int*)w.ptr == 4 && *(int*)a.ptr == 5 && *(int*)b.ptr == 6 && *(int*)c.ptr == 7;
 }
 
+int TestExtK5(NULLCArray x, NULLCArray y, NULLCArray z, int w)
+{
+	return *(int*)x.ptr == 10 && *(int*)y.ptr == 20 && *(int*)z.ptr == 30 &&
+			w == 4 && x.len == 1 && y.len == 2 && z.len == 3;
+}
+
+int TestExtK6(NULLCArray x, int w, NULLCArray y, NULLCArray z)
+{
+	return *(int*)x.ptr == 10 && *(int*)y.ptr == 20 && *(int*)z.ptr == 30 &&
+			w == 4 && x.len == 1 && y.len == 2 && z.len == 3;
+}
+
 void TestExtL(int* x)
 {
 	*x = 1;
@@ -912,6 +929,13 @@ return Call(-1, -2, -3, -4, -5, -6);";
 "import test.ext8;\r\n\
 return Call(-1, -2, -3, -4, -5, -6);";
 	TEST_FOR_RESULT("External function call. float and double, arguments in registers. sx", testExternalCall8, "1");
+
+	nullcLoadModuleBySource("test.ext8ex", "int Call(float a, b, double c, d, float e, f, double g, h, float i, j);");
+	nullcBindModuleFunction("test.ext8ex", (void (*)())TestExt8_ex, "Call", 0);
+	const char	*testExternalCall8Ex =
+"import test.ext8ex;\r\n\
+return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10);";
+	TEST_FOR_RESULT("External function call. more float and double, registers. sx", testExternalCall8Ex, "1");
 
 	nullcLoadModuleBySource("test.ext9", "int Call(char a, short b, int c, long d, float e, double f);");
 	nullcBindModuleFunction("test.ext9", (void (*)())TestExt9, "Call", 0);
@@ -1109,6 +1133,18 @@ return z.x == 1;";
 	nullcLoadModuleBySource("test.extK4", "int Call(auto ref x, y, z, w, a, b, c);");
 	nullcBindModuleFunction("test.extK4", (void (*)())TestExtK4, "Call", 0);
 	TEST_FOR_RESULT("External function call. a lot of auto ref parameters.", "import test.extK4;\r\n return Call(1, 2, 3, 4, 5, 6, 7);", "1");
+
+	/*asm("int $0x3");
+	NULLCArray x, y, z;
+	TestExtK6(x, 4, y, z);*/
+
+	nullcLoadModuleBySource("test.extK5", "int Call(int[] x, y, z, int w);");
+	nullcBindModuleFunction("test.extK5", (void (*)())TestExtK5, "Call", 0);
+	TEST_FOR_RESULT("External function call. int[] fills registers and int on stack", "import test.extK5;\r\n return Call({10}, {20,2}, {30,1,2}, 4);", "1");
+
+	nullcLoadModuleBySource("test.extK6", "int Call(int[] x, int w, int[] y, z);");
+	nullcBindModuleFunction("test.extK6", (void (*)())TestExtK6, "Call", 0);
+	TEST_FOR_RESULT("External function call. Class divided between reg/stack (amd64)", "import test.extK6;\r\n return Call({10}, 4, {20,2}, {30,1,2});", "1");
 #endif
 
 	nullcLoadModuleBySource("test.extL", "void Call(int ref a);");
