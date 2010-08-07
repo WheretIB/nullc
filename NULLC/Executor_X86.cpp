@@ -561,7 +561,6 @@ void ExecutorX86::InitExecution()
 	memset(NULLC::stackBaseAddress, 0, sizeof(NULLC::DataStackHeader));
 }
 
-#pragma warning(disable: 4731)
 void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
 	int	callStackExtra[2];
@@ -831,7 +830,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		NULLC::dataHead->nextElement = callStackExtra[1];
 	}
 }
-#pragma warning(default: 4731)
 
 void ExecutorX86::Stop(const char* error)
 {
