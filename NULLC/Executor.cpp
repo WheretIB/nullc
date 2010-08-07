@@ -132,7 +132,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 	// in AMD64, int and FP registers are independant, so we have to count, how much arguments to save in registers
 	unsigned int usedIRegs = rvs, usedFRegs = 0;
-	// This to variables will help later to know we've reached the boundary of arguments that are placed in registers
+	// This two variables will help later to know we've reached the boundary of arguments that are placed in registers
 	unsigned int argsToIReg = 0, argsToFReg = 0;
 	for(unsigned int k = 0; k < exFunctions[funcID].paramCount + (exFunctions[funcID].isNormal ? 0 : 1); k++)
 	{
@@ -153,7 +153,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		{
 		case ExternTypeInfo::TYPE_FLOAT:
 		case ExternTypeInfo::TYPE_DOUBLE:
-			if(usedIRegs < NULLC_X64_FREGARGS)
+			if(usedFRegs < NULLC_X64_FREGARGS)
 			{
 				usedFRegs++;
 				argsToFReg = k;
@@ -178,9 +178,10 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			if(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker))
 				break;
 			// If the class if being divided in the middle, between registers and stack, sent through stack
-			if(usedIRegs + ((typeSize + 7) / 8) >= NULLC_X64_IREGARGS)
+			if(usedIRegs + ((typeSize + 7) / 8) > NULLC_X64_IREGARGS)
 				break;
 
+			//printf("Argument %d (complex) requests %d registers\n", k, ((typeSize + 7) / 8));
 			// Request registers ($$ what about FP?)
 			usedIRegs += ((typeSize + 7) / 8);
 			// Mark this argument as being sent through stack
@@ -345,7 +346,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #else
 			// under linux, structure is passed through registers or stack
 			if(typeSize <= 16 && exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i].type != 7 &&
-				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)))
+				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)) && (unsigned)i <= argsToIReg)
 			{
 				unsigned regCodes[] = { 0274, 0264, 0224, 0214, 0204, 0214 }; // rdi, rsi, rdx, rcx, r8, r9
 
@@ -972,6 +973,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdPop:
 			genStackPtr = (unsigned int*)((char*)(genStackPtr) + cmd.argument);
+
 			break;
 
 		case cmdDtoI:
