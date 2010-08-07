@@ -4,7 +4,7 @@
 #include <new>
 #include "../../external/pugixml/pugixml.hpp"
 
-#if defined(__linux) && !defined(__x86_64__)
+#if defined(__linux)
 	#define POD_WRAP(x) *(size_t*)&x
 #else
 	#define POD_WRAP(x) x
