@@ -724,6 +724,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					// Step command - handle conditional "jump on true" step
 					if(breakCode[target].cmd == cmdJmpNZ && *genStackPtr != 0)
 						nextCommand = cmdBase + breakCode[target].argument;
+					if(breakCode[target].cmd == cmdYield && breakCode[target].flag)
+					{
+						ExternFuncInfo::Upvalue *closurePtr = *((ExternFuncInfo::Upvalue**)(&genParams[breakCode[target].argument + paramBase]));
+						unsigned int offset = *closurePtr->ptr;
+						if(offset != 0)
+							nextCommand = cmdBase + offset;
+					}
 					// Step command - handle "return" step
 					if(breakCode[target].cmd == cmdReturn && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
@@ -2083,7 +2090,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 const char* Executor::GetResult()
 {
-	if(!codeRunning && genStackSize > 1)
+	if(!codeRunning && genStackSize > (lastResultType == ~0u ? 1 : 0))
 	{
 		strcpy(execResult, "There is more than one value on the stack");
 		return execResult;

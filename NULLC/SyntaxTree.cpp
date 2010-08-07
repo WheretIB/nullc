@@ -525,7 +525,12 @@ void NodeUnaryOp::Compile()
 	// Child node computes value
 	first->Compile();
 	if(first->typeInfo == typeObject)
-		cmdList.push_back(VMCmd(cmdPop, 4));
+	{
+		cmdList.push_back(VMCmd(cmdPop, 4)); // remove 'typeid', it's irrelevant
+#ifdef _M_X64
+		cmdList.push_back(VMCmd(cmdBitOr)); // cmdLogNot works on int, but we have long pointer
+#endif
+	}
 
 	// Execute command
 	if(aOT == OTYPE_INT || first->typeInfo == typeObject)
@@ -2999,9 +3004,14 @@ void NodeIfElseExpr::Compile()
 	first->Compile();
 
 	if(first->typeInfo == typeObject)
-		cmdList.push_back(VMCmd(cmdPop, 4));
-	else if(first->typeInfo->stackType != STYPE_INT)
+	{
+		cmdList.push_back(VMCmd(cmdPop, 4)); // remove 'typeid', it's irrelevant
+#ifdef _M_X64
+		cmdList.push_back(VMCmd(cmdBitOr)); // cmdJmpZ checks int, but we have long pointer
+#endif
+	}else if(first->typeInfo->stackType != STYPE_INT){
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdBitOr));
+	}
 	// If false, jump to 'else' block, or out of statement, if there is no 'else'
 	cmdList.push_back(VMCmd(cmdJmpZ, ~0u));	// Jump address will be fixed later on
 	unsigned int jmpOnFalse = cmdList.size()-1;
@@ -3153,9 +3163,14 @@ void NodeForExpr::Compile()
 	// Compute condition value
 	second->Compile();
 	if(second->typeInfo == typeObject)
-		cmdList.push_back(VMCmd(cmdPop, 4));
-	else if(second->typeInfo->stackType != STYPE_INT)
+	{
+		cmdList.push_back(VMCmd(cmdPop, 4)); // remove 'typeid', it's irrelevant
+#ifdef _M_X64
+		cmdList.push_back(VMCmd(cmdBitOr)); // cmdJmpZ checks int, but we have long pointer
+#endif
+	}else if(second->typeInfo->stackType != STYPE_INT){
 		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdBitOr));
+	}
 
 	// If condition == false, exit loop
 	unsigned int exitJmp = cmdList.size();
@@ -3273,10 +3288,16 @@ void NodeWhileExpr::Compile()
 	// Compute condition value
 	first->Compile();
 
+	// If branching by 'auto ref'
 	if(first->typeInfo == typeObject)
-		cmdList.push_back(VMCmd(cmdPop, 4));
-	else if(first->typeInfo->stackType != STYPE_INT)
+	{
+		cmdList.push_back(VMCmd(cmdPop, 4)); // remove 'typeid', it's irrelevant
+#ifdef _M_X64
+		cmdList.push_back(VMCmd(cmdBitOr)); // cmdJmpZ checks int, but we have long pointer
+#endif
+	}else if(first->typeInfo->stackType != STYPE_INT){
 		cmdList.push_back(VMCmd(first->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdBitOr));
+	}
 
 	// If condition == false, exit loop
 	unsigned int exitJmp = cmdList.size();
@@ -3360,9 +3381,14 @@ void NodeDoWhileExpr::Compile()
 	// Compute condition value
 	second->Compile();
 	if(second->typeInfo == typeObject)
-		cmdList.push_back(VMCmd(cmdPop, 4));
-	else if(second->typeInfo->stackType != STYPE_INT)
+	{
+		cmdList.push_back(VMCmd(cmdPop, 4)); // remove 'typeid', it's irrelevant
+#ifdef _M_X64
+		cmdList.push_back(VMCmd(cmdBitOr)); // cmdJmpZ checks int, but we have long pointer
+#endif
+	}else if(second->typeInfo->stackType != STYPE_INT){
 		cmdList.push_back(VMCmd(second->typeInfo->stackType == STYPE_DOUBLE ? cmdDtoI : cmdBitOr));
+	}
 
 	// Jump to beginning if condition == true
 	cmdList.push_back(VMCmd(cmdJmpNZ, posStart));

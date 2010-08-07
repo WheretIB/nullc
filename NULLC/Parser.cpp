@@ -769,7 +769,7 @@ bool ParseWhileExpr(Lexeme** str)
 	if(!ParseLexem(str, lex_while))
 		return false;
 	
-	CALLBACK(IncreaseCycleDepth());
+	IncreaseCycleDepth();
 	if(!ParseLexem(str, lex_oparen))
 		ThrowError((*str)->pos, "ERROR: '(' not found after 'while'");
 
@@ -780,8 +780,12 @@ bool ParseWhileExpr(Lexeme** str)
 		ThrowError((*str)->pos, "ERROR: closing ')' not found after expression in 'while' statement");
 
 	if(!ParseExpression(str))
-		ThrowError((*str)->pos, "ERROR: expression expected after 'while(...)'");
-	CALLBACK(AddWhileNode(condPos));
+	{
+		if(!ParseLexem(str, lex_semicolon))
+			ThrowError((*str)->pos, "ERROR: expression or ';' expected after 'while(...)'");
+		AddVoidNode();
+	}
+	AddWhileNode(condPos);
 	return true;
 }
 
@@ -952,7 +956,7 @@ bool ParseArray(Lexeme** str)
 	}
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError((*str)->pos, "ERROR: '}' not found after inline array");
-	CALLBACK(AddArrayConstructor((*str)->pos, arrElementCount));
+	AddArrayConstructor((*str)->pos, arrElementCount);
 
 	return true;
 }
@@ -1359,8 +1363,6 @@ bool ParseTypedefExpr(Lexeme** str)
 
 bool ParseExpression(Lexeme** str)
 {
-	while(ParseLexem(str, lex_semicolon));
-
 	switch((*str)->type)
 	{
 	case lex_align:

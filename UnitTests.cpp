@@ -1348,7 +1348,7 @@ void	RunTests(bool verbose)
 			printf("Function update test\r\n");
 
 		const char *partA = "int foo(){ return 15; }";
-		const char *partB = "import __last; import std.dynamic; int new_foo(){ return 25; } void foo_update(){ override(foo, new_foo); };\r\n";
+		const char *partB = "import __last; import std.dynamic; int new_foo(){ return 25; } void foo_update(){ override(foo, new_foo); }\r\n";
 		
 		int vmPassed = passed[0], x86Passed = passed[1];
 		for(int t = 0; t < TEST_COUNT; t++)
@@ -4847,7 +4847,7 @@ return a.sum;";
 const char	*testVariableHiding =
 "int a;\r\n\
 {\r\n\
-	auto a(){ };\r\n\
+	auto a(){ }\r\n\
 	a();\r\n\
 }\r\n\
 return 0;";
@@ -5482,7 +5482,14 @@ const char	*testAutoRefNot =
 if(!a)\r\n\
 	return 1;\r\n\
 return 0;";
-	TEST_FOR_RESULT("unary not on auto ref", testAutoRefNot, "1");
+	TEST_FOR_RESULT("unary not on auto ref 1", testAutoRefNot, "1");
+
+const char	*testAutoRefNot2 =
+"auto ref a = new int;\r\n\
+if(!a)\r\n\
+	return 1;\r\n\
+return 0;";
+	TEST_FOR_RESULT("unary not on auto ref 2", testAutoRefNot2, "0");
 
 	TEST_FOR_RESULT("Inline function definition and call", "return (auto(){ return 5; })();", "5");
 
@@ -7510,6 +7517,30 @@ int a = f(), b = f();\r\n\
 return a * 10 + b;";
 	TEST_FOR_RESULT("Inline coroutine", testInlineCoroutine, "12");
 
+const char	*testAutoRefCondition1 =
+"auto ref a;\r\n\
+while(a);\r\n\
+return 1;";
+	TEST_FOR_RESULT("auto ref as a condition 1", testAutoRefCondition1, "1");
+
+const char	*testAutoRefCondition2 =
+"auto ref a;\r\n\
+for(;a;){}\r\n\
+return 1;";
+	TEST_FOR_RESULT("auto ref as a condition 2", testAutoRefCondition2, "1");
+
+const char	*testAutoRefCondition3 =
+"auto ref a;\r\n\
+if(a){}\r\n\
+return 1;";
+	TEST_FOR_RESULT("auto ref as a condition 3", testAutoRefCondition3, "1");
+
+const char	*testAutoRefCondition4 =
+"auto ref a;\r\n\
+do{}while(a);\r\n\
+return 1;";
+	TEST_FOR_RESULT("auto ref as a condition 4", testAutoRefCondition4, "1");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -8640,7 +8671,7 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("parsing", "while", "ERROR: '(' not found after 'while'");
 	TEST_FOR_FAIL("parsing", "while(", "ERROR: expression expected after 'while('");
 	TEST_FOR_FAIL("parsing", "while(1", "ERROR: closing ')' not found after expression in 'while' statement");
-	TEST_FOR_FAIL("parsing", "while(1)", "ERROR: expression expected after 'while(...)'");
+	TEST_FOR_FAIL("parsing", "while(1)", "ERROR: expression or ';' expected after 'while(...)'");
 	TEST_FOR_FAIL("parsing", "do", "ERROR: expression expected after 'do'");
 	TEST_FOR_FAIL("parsing", "do 1;", "ERROR: 'while' expected after 'do' statement");
 	TEST_FOR_FAIL("parsing", "do 1; while", "ERROR: '(' not found after 'while'");
