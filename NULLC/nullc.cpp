@@ -302,13 +302,18 @@ const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, 
 	for(unsigned int i = 0; i < func.paramCount; i++)
 	{
 		ExternLocalInfo &lInfo = linker->exLocals[func.offsetToFirstLocal + i];
-		switch(linker->exTypes[lInfo.type].type)
+		ExternTypeInfo &tInfo = linker->exTypes[lInfo.type];
+		switch(tInfo.type)
 		{
 		case ExternTypeInfo::TYPE_CHAR:
 		case ExternTypeInfo::TYPE_SHORT:
 		case ExternTypeInfo::TYPE_INT:
 			*(int*)argPos = va_arg(args, int);
 			argPos += 4;
+			break;
+		case ExternTypeInfo::TYPE_LONG:
+			*(long long*)argPos = va_arg(args, long long);
+			argPos += 8;
 			break;
 		case ExternTypeInfo::TYPE_FLOAT:
 			*(float*)argPos = (float)va_arg(args, double);
@@ -319,8 +324,57 @@ const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, 
 			argPos += 8;
 			break;
 		case ExternTypeInfo::TYPE_COMPLEX:
-			for(unsigned int u = 0; u < linker->exTypes[lInfo.type].size >> 2; u++, argPos += 4)
+#ifdef _WIN64
+			if(tInfo.size <= 4)
 				*(int*)argPos = va_arg(args, int);
+			else if(tInfo.size <= 8)
+				*(long long*)argPos = va_arg(args, long long);
+			else
+				memcpy(argPos, va_arg(args, char*), tInfo.size);
+			argPos += tInfo.size;
+#elif defined(__x86_64__)
+			if((tInfo.subCat == ExternTypeInfo::CAT_ARRAY && tInfo.arrSize == TypeInfo::UNSIZED_ARRAY) || tInfo.subCat == ExternTypeInfo::CAT_FUNCTION)
+			{
+				*(NULLCArray*)argPos = va_arg(args, NULLCArray);
+				argPos += 12;
+			}else if(tInfo.subCat == ExternTypeInfo::CAT_CLASS){// && tInfo.nameHash == autorefHash){
+				unsigned int *memberList = &linker->exTypeExtra[tInfo.memberOffset];
+				for(unsigned int k = 0; k < tInfo.memberCount; k++)
+				{
+					const ExternTypeInfo &subType = linker->exTypes[memberList[k]];
+					switch(subType.type)
+					{
+					case ExternTypeInfo::TYPE_CHAR:
+					case ExternTypeInfo::TYPE_SHORT:
+					case ExternTypeInfo::TYPE_INT:
+						*(int*)argPos = va_arg(args, int);
+						argPos += 4;
+						break;
+					case ExternTypeInfo::TYPE_LONG:
+						*(long long*)argPos = va_arg(args, long long);
+						argPos += 8;
+						break;
+					case ExternTypeInfo::TYPE_FLOAT:
+						*(float*)argPos = (float)va_arg(args, double);
+						argPos += 4;
+						break;
+					case ExternTypeInfo::TYPE_DOUBLE:
+						*(double*)argPos = va_arg(args, double);
+						argPos += 8;
+						break;
+					default:
+						nullcLastError = "ERROR: unsupported complex function parameter";
+						return NULL;
+					}
+				}
+			}else{
+				nullcLastError = "ERROR: unsupported complex function parameter";
+				return NULL;
+			}
+#else
+			for(unsigned int u = 0; u < tInfo.size >> 2; u++, argPos += 4)
+				*(int*)argPos = va_arg(args, int);
+#endif
 			break;
 		}
 	}
@@ -363,6 +417,8 @@ nullres	nullcRunFunction(const char* funcName, ...)
 		va_start(args, funcName);
 		argBuf = nullcGetArgumentVector(functionID, 0, args);
 		va_end(args);
+		if(!argBuf)
+			return false;
 	}
 #else
 	(void)funcName;
@@ -426,17 +482,20 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	// Copy arguments in argument buffer
 	va_list args;
 	va_start(args, ptr);
+	const char *argBuf = nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args);
+	if(!argBuf)
+		return false;
+	va_end(args);
 	if(currExec == NULLC_VM)
 	{
-		executor->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
+		executor->Run(ptr.id, argBuf);
 		error = executor->GetExecError();
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		executorX86->Run(ptr.id, nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args));
+		executorX86->Run(ptr.id, argBuf);
 		error = executorX86->GetExecError();
 #endif
 	}
-	va_end(args);
 	if(error && error[0] != '\0')
 	{
 		nullcLastError = error;
