@@ -1201,12 +1201,19 @@ bool ParseTerminal(Lexeme** str)
 			return true;
 		}
 	case lex_typeof:
+	case lex_coroutine:
 	case lex_auto:
 	{
-		bool isFunctionCall = (*str)->type != lex_typeof && (*str)->type != lex_auto && (*str + 1)->type == lex_oparen;
+		bool isCoroutine = (*str)->type == lex_coroutine;
+		if(isCoroutine)
+		{
+			BeginCoroutine();
+			(*str)++;
+		}
+		bool isFunctionCall = !isCoroutine && (*str)->type != lex_typeof && (*str)->type != lex_auto && (*str + 1)->type == lex_oparen;
 		if(!isFunctionCall && ParseSelectType(str))
 		{
-			if(ParseFunctionDefinition(str))
+			if(ParseFunctionDefinition(str, isCoroutine))
 				return true;
 			if(ParseLexem(str, lex_oparen))
 			{
