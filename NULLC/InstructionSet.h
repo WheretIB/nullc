@@ -15,6 +15,7 @@ typedef unsigned char CmdID;
 // 3) стек вызовов. Сохраняет указатели на код. Используется для возврата из функций.
 
 const unsigned int CALL_BY_POINTER = (unsigned int)-1;
+const unsigned int EXTERNAL_FUNCTION = (unsigned int)-1;
 const unsigned char ADDRESS_ABOLUTE = 0;
 const unsigned char ADDRESS_RELATIVE = 1;
 
