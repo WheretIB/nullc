@@ -26,6 +26,7 @@ namespace NULLC
 	void*		AllocObject(int size);
 	NULLCArray	AllocArray(int size, int count);
 	NULLCRef	CopyObject(NULLCRef ptr);
+	NULLCRef	ReplaceObject(NULLCRef l, NULLCRef r);
 
 	void		MarkMemory(unsigned int number);
 
