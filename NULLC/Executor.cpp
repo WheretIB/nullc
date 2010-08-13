@@ -1114,7 +1114,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
 			unsigned int fAddress = exFunctions[cmd.argument].address;
 
-			if(fAddress == CALL_BY_POINTER)
+			if(fAddress == EXTERNAL_FUNCTION)
 			{
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(cmd.argument, 0))
@@ -1153,8 +1153,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			unsigned int paramSize = cmd.argument;
 			unsigned int fID = genStackPtr[paramSize >> 2];
 			RUNTIME_ERROR(fID == 0, "ERROR: invalid function pointer");
+			unsigned int fAddress = exFunctions[fID].address;
 
-			if(exFunctions[fID].address == -1)
+			if(fAddress == EXTERNAL_FUNCTION)
 			{
 				fcallStack.push_back(cmdStream);
 				if(!RunExternalFunction(fID, 1))
@@ -1165,6 +1166,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					fcallStack.pop_back();
 				}
 			}else{
+				fcallStack.push_back(cmdStream);
+				cmdStream = cmdBase + fAddress;
+
 				char* oldBase = genParams.data;
 				unsigned int oldSize = genParams.max;
 
@@ -1175,13 +1179,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				// Copy function arguments to new stack frame
 				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
 				// Pop arguments from stack
-				genStackPtr += paramSize >> 2;
+				genStackPtr += (paramSize >> 2) + 1;
 				RUNTIME_ERROR(genStackPtr <= genStackBase + 8, "ERROR: stack overflow");
-
-				genStackPtr++;
-
-				fcallStack.push_back(cmdStream);
-				cmdStream = cmdBase + exFunctions[fID].address;
 
 				// If parameter stack was reallocated
 				if(genParams.size() + paramSize >= oldSize)
