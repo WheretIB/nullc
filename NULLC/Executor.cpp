@@ -1233,7 +1233,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			assert(paramBase % 16 == 0);
 			if(paramBase + cmd.argument >= genParams.max)
 			{
-				char* oldBase = &genParams[0];
+				char* oldBase = genParams.data;
 				unsigned int oldSize = genParams.max;
 				genParams.reserve(paramBase + cmd.argument);
 				ExtendParameterStack(oldBase, oldSize, cmdStream);
@@ -2090,7 +2090,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 const char* Executor::GetResult()
 {
-	if(!codeRunning && genStackSize > (lastResultType == ~0u ? 1 : 0))
+	if(!codeRunning && genStackSize > (lastResultType == -1 ? 1 : 0))
 	{
 		strcpy(execResult, "There is more than one value on the stack");
 		return execResult;
