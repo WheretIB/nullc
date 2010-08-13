@@ -7635,7 +7635,7 @@ const char	*testGCFullArrayCapture =
 "import std.range;\r\n\
 int func()\r\n\
 {\r\n\
-	int[1024*1024] k = 5;\r\n\
+	int[32*1024] k = 5;\r\n\
 	auto getTest(int i)\r\n\
 	{\r\n\
 		k[0]++;\r\n\
@@ -7653,7 +7653,33 @@ int func()\r\n\
 	return fArr[2]() * fArr[3]();\r\n\
 }\r\n\
 return func();";
-	TEST_FOR_RESULT("testGCFullArrayCapture", testGCFullArrayCapture, "6");
+	TEST_FOR_RESULT("Stack reallocation when it is empty", testGCFullArrayCapture, "6");
+
+const char	*testFunctionCallThroughAutoRefInMemberFunction =
+"int int:foo(){ return -*this; }\r\n\
+class Foo\r\n\
+{\r\n\
+	auto()\r\n\
+	{\r\n\
+		auto ref x;\r\n\
+		x.foo();\r\n\
+	}\r\n\
+}\r\n\
+return 1;";
+	TEST_FOR_RESULT("Function call through 'auto ref' in member function", testFunctionCallThroughAutoRefInMemberFunction, "1");
+
+const char	*testIndirectCallInMemberFunction =
+"int foo(){ return -1; }\r\n\
+auto bar(){ return foo; }\r\n\
+class Foo\r\n\
+{\r\n\
+	auto()\r\n\
+	{\r\n\
+		bar()();\r\n\
+	}\r\n\
+}\r\n\
+return 1;";
+	TEST_FOR_RESULT("Indirect function call in member function", testIndirectCallInMemberFunction, "1");
 
 #ifdef FAILURE_TEST
 
