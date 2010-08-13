@@ -148,7 +148,7 @@ namespace ColorerGrammar
 		Rule m_a;
 	};
 	Rule	typenameP(Rule a){ return Rule(new TypeNameP(a)); }
-	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - alnumP)]); }
+	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - (alnumP | '_'))]); }
 
 	void	ParseSpace(char** str)
 	{
@@ -200,7 +200,7 @@ namespace ColorerGrammar
 				);
 			typeExpr	=
 				(
-					(strP("auto") | typenameP(typeName))[ColorRWord] |
+					(strWP("auto") | typenameP(typeName))[ColorRWord] |
 					(
 						strP("typeof")[ColorRWord] >>
 						(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
@@ -282,7 +282,7 @@ namespace ColorerGrammar
 			funcdef		=
 				!strWP("coroutine")[ColorRWord] >>
 				(
-					(strP("auto")[ColorRWord] >> chP('(')[ColorBold]) |
+					(strWP("auto")[ColorRWord] >> chP('(')[ColorBold]) |
 					(typeExpr >>
 						(
 							(
@@ -450,16 +450,14 @@ namespace ColorerGrammar
 					(term5 | epsP[LogError("ERROR: expression not found after ':' in conditional statement")])
 				);
 			term5	=	(
-				!chP('*')[ColorText] >>
-				appval[SetVar] >>
-				(
+				term4_9 >>
+				!(
 					(chP('=')[ColorText] >> term5) |
 					(
 						(strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**="))[ColorText] >>
 						(term5 | epsP[LogError("ERROR: expression not found after assignment")]))
 					)
-				) |
-				term4_9;
+				);
 
 			block	=	chP('{')[ColorBold][BlockBegin] >> (code | epsP) >> (chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: } not found after block")]);
 			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' | epsP[LogError("ERROR: ; not found after variable definition")])[ColorText]) |
