@@ -7631,6 +7631,30 @@ do{}while(a);\r\n\
 return 1;";
 	TEST_FOR_RESULT("auto ref as a condition 4", testAutoRefCondition4, "1");
 
+const char	*testGCFullArrayCapture =
+"import std.range;\r\n\
+int func()\r\n\
+{\r\n\
+	int[1024*1024] k = 5;\r\n\
+	auto getTest(int i)\r\n\
+	{\r\n\
+		k[0]++;\r\n\
+		int test()\r\n\
+		{\r\n\
+			int x = i;//arr[i];\r\n\
+			k[0]++;\r\n\
+			return x;\r\n\
+		}\r\n\
+		return test;\r\n\
+	}\r\n\
+	int ref()[10] fArr;\r\n\
+	for(f in fArr, i in range(0, 1024))\r\n\
+		f = getTest(i);\r\n\
+	return fArr[2]() * fArr[3]();\r\n\
+}\r\n\
+return func();";
+	TEST_FOR_RESULT("testGCFullArrayCapture", testGCFullArrayCapture, "6");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 

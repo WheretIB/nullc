@@ -1622,6 +1622,8 @@ void NodeVariableSet::Compile()
 		cmdList.push_back(VMCmd(cmdPushImmt, elemCount));
 		cmdList.push_back(VMCmd(cmdSetRange, absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)(asmDT), addrShift));
 	}else{
+		if(asmDT == DTYPE_COMPLEX_TYPE && typeInfo->size == 8)
+			asmDT = DTYPE_LONG;
 		if(knownAddress)
 		{
 			cmdList.push_back(VMCmd(cmdMovType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
@@ -1825,6 +1827,8 @@ void NodeVariableModify::Compile()
 	if(!knownAddress)
 		first->Compile();
 
+	if(asmDT == DTYPE_COMPLEX_TYPE && typeInfo->size == 8)
+		asmDT = DTYPE_LONG;
 	// Put first operand on top of the stack
 	if(knownAddress)
 	{
@@ -2188,6 +2192,8 @@ void NodeDereference::Compile()
 			if(!knownAddress)
 				first->Compile();
 
+			if(asmDT == DTYPE_COMPLEX_TYPE && typeInfo->size == 8)
+				asmDT = DTYPE_LONG;
 			if(knownAddress)
 				cmdList.push_back(VMCmd(cmdPushType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
 			else
