@@ -491,6 +491,17 @@ NULLCRef NULLC::CopyObject(NULLCRef ptr)
 	return ret;
 }
 
+NULLCRef NULLC::ReplaceObject(NULLCRef l, NULLCRef r)
+{
+	if(l.typeID != r.typeID)
+	{
+		nullcThrowError("ERROR: cannot convert from %s ref to %s ref", &linker->exSymbols[linker->exTypes[r.typeID].offsetToName], &linker->exSymbols[linker->exTypes[l.typeID].offsetToName]);
+		return l;
+	}
+	memcpy(l.ptr, r.ptr, linker->exTypes[r.typeID].size);
+	return l;
+}
+
 int NULLC::StrEqual(NULLCArray a, NULLCArray b)
 {
 	if(a.len != b.len)
