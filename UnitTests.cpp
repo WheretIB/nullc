@@ -7681,6 +7681,52 @@ class Foo\r\n\
 return 1;";
 	TEST_FOR_RESULT("Indirect function call in member function", testIndirectCallInMemberFunction, "1");
 
+const char	*testListComprehension =
+"import std.range;\r\n\
+\r\n\
+double[] xd = { for(i in range(1,30)) yield double(i); };\r\n\
+float[] xf = { for(i in range(1,30)) yield float(i); };\r\n\
+long[] xl = { for(i in range(1,30)) yield long(i); };\r\n\
+int[] xi = { for(i in range(1,30)) yield int(i); };\r\n\
+short[] xs = { for(i in range(1,30)) yield short(i); };\r\n\
+char[] xc = { for(i in range(1,30)) yield char(i); };\r\n\
+class Int\r\n\
+{\r\n\
+	int i;\r\n\
+}\r\n\
+Int Int(int x){ Int a; a.i = x; return a; }\r\n\
+Int[] xI = { for(i in range(1,30)) yield Int(i); };\r\n\
+class BigInt\r\n\
+{\r\n\
+	int i;\r\n\
+	float x, y;\r\n\
+}\r\n\
+BigInt BigInt(int x){ BigInt a; a.i = x; return a; }\r\n\
+BigInt[] xBI = { for(i in range(1,30)) yield BigInt(i); };\r\n\
+int good = 1;\r\n\
+void CHECK(double a, int b){ if(a != b) good = 0; }\r\n\
+void CHECK(float a, int b){ if(a != b) good = 0; }\r\n\
+void CHECK(long a, int b){ if(a != b) good = 0; }\r\n\
+void CHECK(int a, int b){ if(a != b) good = 0; }\r\n\
+void CHECK(short a, int b){ if(a != b) good = 0; }\r\n\
+void CHECK(char a, int b){ if(a != b) good = 0; }\r\n\
+for(int i = 0; i < 30; i++)\r\n\
+{\r\n\
+	CHECK(xd[i], i+1);\r\n\
+	CHECK(xf[i], i+1);\r\n\
+	CHECK(xl[i], i+1);\r\n\
+	CHECK(xi[i], i+1);\r\n\
+	CHECK(xs[i], i+1);\r\n\
+	CHECK(xc[i], i+1);\r\n\
+	CHECK(xI[i].i, i+1);\r\n\
+	CHECK(xBI[i].i, i+1);\r\n\
+}\r\n\
+return good;";
+	TEST_FOR_RESULT("List comprehension test", testListComprehension, "1");
+
+	TEST_FOR_RESULT("List comprehension test with empty class 1", "import std.range; class Empty{} auto fail = { for(i in range(1,5)){ Empty e; yield e; } }; return 1;", "1");
+	TEST_FOR_RESULT("List comprehension test with empty class 2", "import std.range; class Empty{} auto fail = { for(i in range(1,5)){ Empty e; int a; yield e; } }; return 1;", "1");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -8761,6 +8807,9 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("number constant overflow (bin)", "return 011111111111111111111111111111111111111111111111111111111111111111b;", "ERROR: overflow in binary constant");
 
 	TEST_FOR_FAIL("variable with class name", "class Test{} int Test = 5; return Test;", "ERROR: name 'Test' is already taken for a class");
+
+	TEST_FOR_FAIL("List comprehension of void type", "auto fail = { for(;0;){ yield; } };", "ERROR: cannot generate an array of 'void' element type");
+	TEST_FOR_FAIL("List comprehension of unknown type", "auto fail = { for(;0;){} };", "ERROR: not a single element is generated, and an array element type is unknown");
 
 	//TEST_FOR_FAIL("parsing", "");
 

@@ -151,11 +151,6 @@ namespace NULLCTypeInfo
 		return linker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_POINTER;
 	}
 
-	unsigned int TypeSize(int* type)
-	{
-		return linker->exTypes[*type].size;
-	}
-
 	NULLCArray TypeName(int* type)
 	{
 		NULLCArray ret;
@@ -250,7 +245,6 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 	REGISTER_FUNC(MemberType, "typeid::memberType", 0);
 	REGISTER_FUNC(MemberName, "typeid::memberName", 0);
 
-	REGISTER_FUNC(TypeSize, "typeid::size$", 0);
 	REGISTER_FUNC(TypeName, "typeid::name$", 0);
 
 	REGISTER_FUNC(TypeSubType, "typeid::subType", 0);

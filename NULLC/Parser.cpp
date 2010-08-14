@@ -945,18 +945,65 @@ bool ParseArray(Lexeme** str)
 	if(!ParseLexem(str, lex_ofigure))
 		return false;
 
-	unsigned int arrElementCount = 0;
-	if(!ParseTernaryExpr(str))
-		ThrowError((*str)->pos, "ERROR: value not found after '{'");
-	while(ParseLexem(str, lex_comma))
+	if((*str)->type == lex_for)
 	{
+		// coroutine auto(int ref $c){
+		BeginCoroutine();
+		SelectTypeByPointer(NULL);
+		
+		static int generatorFuncCount = 0;
+		char *functionName = (char*)stringPool.Allocate(16);
+		sprintf(functionName, "$genl%d", generatorFuncCount);
+		generatorFuncCount++;
+		FunctionAdd((*str)->pos, functionName);
+
+		SelectTypeByPointer(CodeInfo::GetReferenceType(typeInt));
+		FunctionParameter((*str)->pos, InplaceStr("$c"));
+
+		FunctionStart((*str)->pos);
+		if(!ParseCode(str))
+			AddVoidNode();
+
+		// *$c = 0; return data_with_sizeof_return_type; }
+		AddGetAddressNode((*str)->pos, InplaceStr("$c"));
+		AddGetVariableNode((*str)->pos);
+		AddNumberNodeInt("0");
+		AddSetVariableNode((*str)->pos);
+		AddPopNode((*str)->pos);
+		AddTwoExpressionNode();
+
+		AddGeneratorReturnData((*str)->pos);
+		void *retType = GetSelectedType();
+		AddReturnNode((*str)->pos);
+		AddTwoExpressionNode();
+
+		FunctionEnd((*str)->pos);
+
+		if(!AddFunctionCallNode((*str)->pos, "$gen_list", 1, true))
+		{
+			// cannot find generator, create new
+			NodeZeroOP *last = CodeInfo::nodeList.back();
+			CodeInfo::nodeList.pop_back();
+			AddListGenerator((*str)->pos, retType);
+			CodeInfo::nodeList.push_back(last);
+			AddFunctionCallNode((*str)->pos, "$gen_list", 1);
+			AddTwoExpressionNode(CodeInfo::GetArrayType((TypeInfo*)retType, TypeInfo::UNSIZED_ARRAY));
+		}
+		
+	}else{
+		unsigned int arrElementCount = 0;
 		if(!ParseTernaryExpr(str))
-			ThrowError((*str)->pos, "ERROR: value not found after ','");
-		arrElementCount++;
+			ThrowError((*str)->pos, "ERROR: value not found after '{'");
+		while(ParseLexem(str, lex_comma))
+		{
+			if(!ParseTernaryExpr(str))
+				ThrowError((*str)->pos, "ERROR: value not found after ','");
+			arrElementCount++;
+		}
+		AddArrayConstructor((*str)->pos, arrElementCount);
 	}
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError((*str)->pos, "ERROR: '}' not found after inline array");
-	AddArrayConstructor((*str)->pos, arrElementCount);
 
 	return true;
 }

@@ -50,6 +50,7 @@ namespace NULLC
 		int id;
 	};
 	TypeIDHelper Typeid(NULLCRef r);
+	int TypeSize(int* a);
 	int TypesEqual(int a, int b);
 	int TypesNEqual(int a, int b);
 
@@ -62,4 +63,7 @@ namespace NULLC
 	NULLCRef AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right);
 	NULLCAutoArray* AutoArrayAssignSelf(NULLCAutoArray* left, NULLCAutoArray* right);
 	NULLCRef AutoArrayIndex(NULLCAutoArray* left, unsigned int index);
+
+	NULLCAutoArray	AutoArray(int type, int count);
+	void			AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr);
 }

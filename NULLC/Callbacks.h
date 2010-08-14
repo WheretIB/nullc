@@ -30,6 +30,8 @@ void AddHexInteger(const char* pos, const char* end);
 void AddOctInteger(const char* pos, const char* end);
 void AddBinInteger(const char* pos, const char* end);
 
+void AddGeneratorReturnData(const char *pos);
+
 // Function that places string on stack, using list of NodeNumber in NodeExpressionList
 void AddStringNode(const char* s, const char* e, bool unescaped);
 
@@ -146,6 +148,8 @@ void AddAliasType(InplaceStr aliasName);
 void AddUnfixedArraySize();
 
 void CreateRedirectionTables();
+
+void AddListGenerator(const char* pos, void *rType);
 
 void RestoreScopedGlobals();
 

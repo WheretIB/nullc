@@ -629,6 +629,11 @@ NULLC::TypeIDHelper NULLC::Typeid(NULLCRef r)
 	return help;
 }
 
+int NULLC::TypeSize(int* a)
+{
+	return linker->exTypes[*a].size;
+}
+
 int NULLC::TypesEqual(int a, int b)
 {
 	return a == b;
@@ -723,3 +728,31 @@ NULLCRef NULLC::AutoArrayIndex(NULLCAutoArray* left, unsigned int index)
 	return ret;
 }
 
+NULLCAutoArray NULLC::AutoArray(int type, int count)
+{
+	NULLCAutoArray res;
+	res.typeID = type;
+	res.len = count;
+	res.ptr = (char*)AllocObject(count * linker->exTypes[type].size);
+	return res;
+}
+
+void NULLC::AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr)
+{
+	if(x.typeID != arr->typeID)
+	{
+		nullcThrowError("ERROR: cannot convert from '%s' to an 'auto[]' element type '%s'", nullcGetTypeName(x.typeID), nullcGetTypeName(arr->typeID));
+		return;
+	}
+	unsigned elemSize = linker->exTypes[arr->typeID].size;
+	if(pos >= arr->len)
+	{
+		unsigned newSize = 1 + arr->len + (arr->len >> 1);
+		if(pos >= newSize)
+			newSize = pos;
+		NULLCAutoArray n = AutoArray(arr->typeID, newSize);
+		memcpy(n.ptr, arr->ptr, arr->len * elemSize);
+		*arr = n;
+	}
+	memcpy(arr->ptr + elemSize * pos, x.ptr, elemSize);
+}

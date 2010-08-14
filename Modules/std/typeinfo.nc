@@ -12,7 +12,6 @@ int isSimple(auto ref type);
 int isArray(auto ref type);
 int isPointer(auto ref type);
 
-int typeid.size();
 char[] typeid.name();
 
 // For class types
