@@ -341,6 +341,41 @@ void AddBinInteger(const char* pos, const char* end)
 		CodeInfo::nodeList.push_back(new NodeNumber(num, typeLong));
 }
 
+void AddGeneratorReturnData(const char *pos)
+{
+	// Check that we are inside the function
+	assert(currDefinedFunc.size());
+	TypeInfo *retType = currDefinedFunc.back()->retType;
+	// Check that return type is known
+	if(!retType)
+		ThrowError(pos, "ERROR: not a single element is generated, and an array element type is unknown");
+	currType = retType;
+	// Special case for return types with size of 0
+	if(!retType->size)
+	{
+		if(retType == typeVoid)
+			ThrowError(pos, "ERROR: cannot generate an array of 'void' element type");
+		AddVoidNode();
+		CodeInfo::nodeList.back()->typeInfo = retType;
+		return;
+	}
+	// push as many 4-bytes on stack as necessary
+	unsigned int size = retType->size < 4 ? 4 : retType->size;
+	for(unsigned i = 0; i < size / 4; i++)
+	{
+		CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+		// 4-bytes after the first are wrapped together with previous one
+		if(i)
+			AddTwoExpressionNode(i == (size / 4) - 1 ? retType : typeInt);
+	}
+	// Is there's only one 4-byte, wrap it up
+	if(size == 4 && retType != typeFloat)
+	{
+		AddVoidNode();
+		AddTwoExpressionNode(retType);
+	}
+}
+
 void AddVoidNode()
 {
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
@@ -3034,6 +3069,112 @@ void CreateRedirectionTables()
 		curr = curr->next;
 		num++;
 	}
+}
+
+void AddListGenerator(const char* pos, void *rType)
+{
+//typedef int generic;
+	TypeInfo *retType = (TypeInfo*)rType;
+
+	currType = CodeInfo::GetArrayType(retType, TypeInfo::UNSIZED_ARRAY);
+
+//generic[] gen_list(generic ref(int ref) y)
+	char *functionName = AllocateString(16);
+	sprintf(functionName, "$gen_list");
+	FunctionAdd(pos, functionName);
+
+	struct TypeHandler
+	{
+		TypeInfo	*varType;
+		TypeHandler	*next;
+	};
+	TypeHandler h;
+	h.varType = CodeInfo::GetReferenceType(typeInt);
+	h.next = NULL;
+	SelectTypeByPointer(CodeInfo::GetFunctionType(retType, &h, 1));
+	FunctionParameter(pos, InplaceStr("y"));
+	FunctionStart(pos);
+
+//	auto[] res = auto_array(generic, 1);
+	currType = typeAutoArray;
+	void *varInfo = AddVariable(pos, InplaceStr("res"));
+	currType = retType;
+	GetTypeId();
+	CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
+	AddFunctionCallNode(pos, "auto_array", 2);
+	AddDefineVariableNode(pos, varInfo);
+	AddPopNode(pos);
+//	int append = 1, pos = 0;
+	currType = typeInt;
+	varInfo = AddVariable(pos, InplaceStr("append"));
+	CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
+	AddDefineVariableNode(pos, varInfo);
+	AddPopNode(pos);
+
+	currType = typeInt;
+	varInfo = AddVariable(pos, InplaceStr("pos"));
+	CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+	AddDefineVariableNode(pos, varInfo);
+	AddPopNode(pos);
+
+//	while(append)
+	AddGetAddressNode(pos, InplaceStr("append"));
+	AddGetVariableNode(pos);
+//	{
+//		generic x = y(append);
+	currType = retType;
+	varInfo = AddVariable(pos, InplaceStr("x"));
+	
+	AddGetAddressNode(pos, InplaceStr("append"));
+	AddGetVariableNode(pos);
+
+	AddGetAddressNode(pos, InplaceStr("y"));
+	AddGetVariableNode(pos);
+
+	AddFunctionCallNode(pos, NULL, 1);
+	AddDefineVariableNode(pos, varInfo);
+	AddPopNode(pos);
+//		if(append)
+	AddGetAddressNode(pos, InplaceStr("append"));
+	AddGetVariableNode(pos);
+//			res.set(x, pos++);
+	AddGetAddressNode(pos, InplaceStr("res"));
+	AddGetAddressNode(pos, InplaceStr("x"));
+	AddGetVariableNode(pos);
+	AddGetAddressNode(pos, InplaceStr("pos"));
+	AddUnaryModifyOpNode(pos, OP_INCREMENT, OP_POSTFIX);
+	AddMemberFunctionCall(pos, "set", 2);
+
+	AddIfNode(pos);
+	AddTwoExpressionNode();
+//	}
+	AddWhileNode(pos);
+//	generic[] r = res;
+	currType = CodeInfo::GetArrayType(retType, TypeInfo::UNSIZED_ARRAY);
+	varInfo = AddVariable(pos, InplaceStr("r"));
+	AddGetAddressNode(pos, InplaceStr("res"));
+	AddGetVariableNode(pos);
+	AddDefineVariableNode(pos, varInfo);
+	AddPopNode(pos);
+//	__force_size(&r.size, pos);
+	AddGetAddressNode(pos, InplaceStr("r"));
+	AddMemberAccessNode(pos, InplaceStr("size"));
+	AddGetAddressNode(pos, InplaceStr("pos"));
+	AddGetVariableNode(pos);
+	AddFunctionCallNode(pos, "__force_size", 2);
+	AddPopNode(pos);
+//	return r;
+	AddGetAddressNode(pos, InplaceStr("r"));
+	AddGetVariableNode(pos);
+	AddReturnNode(pos);
+//}
+	AddTwoExpressionNode();
+	AddTwoExpressionNode();
+	AddTwoExpressionNode();
+	AddTwoExpressionNode();
+	AddTwoExpressionNode();
+	AddTwoExpressionNode();
+	FunctionEnd(pos);
 }
 
 void RestoreScopedGlobals()

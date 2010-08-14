@@ -137,6 +137,7 @@ auto operator=(float[] ref dst, double[] src)\r\n\
 }\r\n\
 // typeid retrieval from auto ref\r\n\
 typeid typeid(auto ref type);\r\n\
+int typeid.size();\r\n\
 // typeid comparison\r\n\
 int operator==(typeid a, b);\r\n\
 int operator!=(typeid a, b);\r\n\
@@ -181,7 +182,19 @@ const_string operator+(const_string a, char[] b){ return const_string(a.arr + b)
 const_string operator+(char[] a, const_string b){ return const_string(a + b.arr); }\r\n\
 \r\n\
 int isStackPointer(auto ref x);\r\n\
-";
+// list comprehension helper functions\r\n\
+auto[] auto_array(typeid type, int count)\r\n\
+{\r\n\
+	auto[] res;\r\n\
+	(auto(typeid ref j){return j;})(&res.type) = type;\r\n\
+	(auto(int ref j){return j;})(&res.size) = count;\r\n\
+	(auto(void ref ref j){return j;})(&res.ptr) = __newS(type.size * (count));\r\n\
+	return res;\r\n\
+}\r\n\
+typedef auto[] auto_array;\r\n\
+// function will set auto[] element to the specified one, will data reallocation is neccessary\r\n\
+void auto_array:set(auto ref x, int pos);\r\n\
+void __force_size(int ref s, int size){ assert(size <= *s, \"ERROR: cannot extend array\"); *s = size; }";
 
 Compiler::Compiler()
 {
@@ -297,6 +310,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::Typeid, "typeid", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::TypeSize, "typeid::size$", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::TypesEqual, "==", 1);
 	AddModuleFunction("$base$", (void (*)())NULLC::TypesNEqual, "!=", 1);
 
@@ -311,6 +325,8 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayIndex, "[]", 0);
 
 	AddModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::AutoArraySet, "auto[]::set", 0);
 #endif
 }
 
