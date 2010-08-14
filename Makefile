@@ -61,8 +61,7 @@ STDLIB_SOURCES = \
   NULLC/includes/string.cpp \
   NULLC/includes/time.cpp \
   NULLC/includes/typeinfo.cpp \
-  NULLC/includes/vector.cpp \
-  NULLC/includes/window.cpp
+  NULLC/includes/vector.cpp
 
 PUGIXML_SOURCES = \
   external/pugixml/pugixml.cpp
@@ -119,7 +118,7 @@ temp_lib/.dummy:
 	touch temp_lib/.dummy
 
 
-bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS}
+bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS}
 	$(AR) rcs $@ $^
 
 clean:
