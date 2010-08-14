@@ -255,7 +255,7 @@ ExecutorX86::~ExecutorX86()
 	if(NULLC::stackManaged)
 	{
 		// If stack is managed by Executor, free memory
-		free(NULLC::stackBaseAddress);
+		NULLC::alignedDealloc(NULLC::stackBaseAddress);
 	}else if(NULLC::stackEndAddress){
 		// Otherwise, remove page guard, restoring old protection value
 		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
@@ -446,7 +446,7 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 		if(mprotect(p - 8192, PAGESIZE, PROT_READ | PROT_WRITE))
 			asm("int $0x3");
 		// If stack is managed by Executor, free memory
-		free(NULLC::stackBaseAddress);
+		NULLC::alignedDealloc(NULLC::stackBaseAddress);
 	}else if(NULLC::stackEndAddress){
 		// Otherwise, remove page guard, restoring old protection value
 		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
@@ -477,7 +477,7 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 #ifdef __linux
 		if(NULLC::stackEndAddress)
 			NULLC::stackGrowCommit = NULLC::stackGrowSize = int((char*)end - (char*)start);
-		if(NULL == (paramData = (char*)malloc(NULLC::stackGrowSize)))
+		if(NULL == (paramData = (char*)NULLC::alignedAlloc(NULLC::stackGrowSize)))
 		{
 			strcpy(execError, "ERROR: failed to allocate memory");
 			return false;
