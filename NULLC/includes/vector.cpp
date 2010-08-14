@@ -160,7 +160,7 @@ namespace NULLCVector
 	}
 	int VectorHasNext(vector_iterator* iter)
 	{
-		return iter->pos < iter->arr->size;
+		return iter->arr && iter->pos < iter->arr->size;
 	}
 
 }

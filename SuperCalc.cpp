@@ -1515,7 +1515,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 
 				if(offset + function.bytesToPop > dataCount)
 					InsertUnavailableInfo(thisItem);
-				else
+				else if(*(char**)ptr)
 					FillVariableInfo(codeTypes[function.parentType], *(char**)ptr, thisItem);
 			}
 			offset += offsetToNextFrame;
