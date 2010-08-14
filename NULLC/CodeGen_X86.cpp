@@ -2121,6 +2121,7 @@ void GenCodeCmdYield(VMCmd cmd)
 		EMIT_LABEL(aluLabels);
 		aluLabels++;
 	}else{
+		EMIT_OP(o_nop); // some instruction must be generated so that it is possible to jump to it
 		yieldCmd = cmd;
 	}
 }

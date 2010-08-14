@@ -756,3 +756,19 @@ void NULLC::AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr)
 	}
 	memcpy(arr->ptr + elemSize * pos, x.ptr, elemSize);
 }
+
+int NULLC::IsCoroutineReset(NULLCRef f)
+{
+	if(linker->exTypes[f.typeID].subCat != ExternTypeInfo::CAT_FUNCTION)
+	{
+		nullcThrowError("Argument is not a function");
+		return 0;
+	}
+	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
+	if(linker->exFunctions[fPtr->id].funcCat != ExternFuncInfo::COROUTINE)
+	{
+		nullcThrowError("Function is not a coroutine");
+		return 0;
+	}
+	return !**(int**)fPtr->context;
+}
