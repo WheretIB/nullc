@@ -1760,7 +1760,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 		if(defineCoroutine)
 			ThrowError(pos, "ERROR: coroutine cannot be a member function");
 	}
-	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
+	if(newType ? varInfoTop.size() > (newType->definitionDepth + 1) : varInfoTop.size() > 1)
 	{
 		lastFunc->type = FunctionInfo::LOCAL;
 		lastFunc->parentClass = NULL;
@@ -2875,6 +2875,7 @@ void TypeBegin(const char* pos, const char* end)
 	newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
 	newType->originalIndex = CodeInfo::typeInfo.size();
+	newType->definitionDepth = varInfoTop.size();
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	methodCount = 0;
 
@@ -2899,7 +2900,8 @@ void TypeAddMember(const char* pos, const char* varName)
 	if(newType->size > 64 * 1024)
 		ThrowError(pos, "ERROR: class size cannot exceed 65535 bytes");
 
-	AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
+	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
+	varInfo->isGlobal = true;
 }
 
 // End of type definition
@@ -2942,13 +2944,15 @@ void TypeFinish()
 void TypeContinue(const char* pos)
 {
 	newType = currType;
+	newType->definitionDepth = varInfoTop.size();
 	// Add all member variables to global scope
 	BeginBlock();
 	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
 	{
 		currType = curr->type;
 		currAlign = 4;
-		AddVariable(pos, InplaceStr(curr->name));
+		VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(curr->name));
+		varInfo->isGlobal = true;
 		varDefined = false;
 	}
 	// Restore all type aliases defined inside a class
