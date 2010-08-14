@@ -677,7 +677,7 @@ bool ParseForExpr(Lexeme** str)
 
 		// Parse expression
 		if(!ParseTernaryExpr(str))
-			ThrowError((*str)->pos, "ERROR:expression expected after 'in'");
+			ThrowError((*str)->pos, "ERROR: expression expected after 'in'");
 		AddArrayIterator(varName->pos, InplaceStr(varName->pos, varName->length), type);
 
 		while(ParseLexem(str, lex_comma))
@@ -698,7 +698,7 @@ bool ParseForExpr(Lexeme** str)
 
 			// Parse expression
 			if(!ParseTernaryExpr(str))
-				ThrowError((*str)->pos, "ERROR:expression expected after 'in'");
+				ThrowError((*str)->pos, "ERROR: expression expected after 'in'");
 			AddArrayIterator(varName->pos, InplaceStr(varName->pos, varName->length), type);
 			MergeArrayIterators();
 		}

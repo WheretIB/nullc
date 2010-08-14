@@ -8858,6 +8858,11 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("parsing", "for(;1<2", "ERROR: ';' not found after condition in 'for'");
 	TEST_FOR_FAIL("parsing", "for(;1<2;{}", "ERROR: ')' not found after 'for' statement");
 	TEST_FOR_FAIL("parsing", "for(;1<2;{}){", "ERROR: closing '}' not found");
+	TEST_FOR_FAIL("parsing", "for(i in ){}", "ERROR: expression expected after 'in'");
+	TEST_FOR_FAIL("parsing", "for(0 in ){}", "ERROR: variable name expected before 'in'");
+	TEST_FOR_FAIL("parsing", "import std.range; for(i in range(1, 10), int in i){}", "ERROR: variable name expected before 'in'");
+	TEST_FOR_FAIL("parsing", "import std.range; for(i in range(1, 10), b in ){}", "ERROR: expression expected after 'in'");
+	TEST_FOR_FAIL("parsing", "import std.range; for(i in range(1, 10), int b){}", "ERROR: 'in' expected after variable name");
 	TEST_FOR_FAIL("parsing", "while", "ERROR: '(' not found after 'while'");
 	TEST_FOR_FAIL("parsing", "while(", "ERROR: expression expected after 'while('");
 	TEST_FOR_FAIL("parsing", "while(1", "ERROR: closing ')' not found after expression in 'while' statement");
@@ -8940,6 +8945,16 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("parsing", "noalign int a, b", "ERROR: ';' not found after variable definition");
 
 	TEST_FOR_FAIL("parsing", "auto x = @4; return x;", "ERROR: string expected after '@'");
+
+	TEST_FOR_FAIL("parsing", "coroutine foo foo(){}", "ERROR: function return type not found after 'coroutine'");
+	TEST_FOR_FAIL("parsing", "coroutine int foo){}", "ERROR: '(' expected after function name");
+	TEST_FOR_FAIL("parsing", "int operator({}", "ERROR: ')' not found after '(' in operator definition");
+
+	TEST_FOR_FAIL("parsing", "import {}", "ERROR: string expected after import");
+	TEST_FOR_FAIL("parsing", "import std.", "ERROR: string expected after '.'");
+	TEST_FOR_FAIL("parsing", "import std.range", "ERROR: ';' not found after import expression");
+	TEST_FOR_FAIL("parsing", "%", "ERROR: unexpected symbol");
+	TEST_FOR_FAIL("parsing", "", "ERROR: module contains no code");
 
 	{
 		char code[8192];

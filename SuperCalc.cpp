@@ -445,7 +445,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	freopen("CONIN$", "r", stdin);
 #endif
 
-	bool runUnitTests = true;
+	bool runUnitTests = false;
 	if(runUnitTests)
 	{
 		AllocConsole();
