@@ -2172,11 +2172,7 @@ void GenCodeCmdReturn(VMCmd cmd)
 	{
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 		EMIT_OP_REG(o_pop, rEBP);
-		EMIT_OP(o_ret);
-		return;
-	}
-	if(cmd.flag != OTYPE_COMPLEX)
-	{
+	}else if(cmd.flag != OTYPE_COMPLEX){
 		if(cmd.flag == OTYPE_INT)
 		{
 			EMIT_OP_REG(o_pop, rEAX);
