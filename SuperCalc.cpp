@@ -1140,6 +1140,8 @@ void FillAutoArrayInfo(char* ptr, HTREEITEM parent)
 
 	safeprintf(name, 256, "%s[] data = 0x%x", codeSymbols + codeTypes[arr->typeID].offsetToName, arr->ptr);
 
+	if(!arr->ptr)
+		return;
 	ExternTypeInfo parentType;
 	memset(&parentType, 0, sizeof(ExternTypeInfo));
 	parentType.arrSize = arr->len;
@@ -1350,7 +1352,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		int funcID = -1;
 		for(unsigned int i = 0; i < functionCount; i++)
 		{
-			if(address >= codeFuntions[i].address && address < (codeFuntions[i].address + codeFuntions[i].codeSize))
+			if(address > codeFuntions[i].address && address <= (codeFuntions[i].address + codeFuntions[i].codeSize))
 			{
 				funcID = i;
 			}
