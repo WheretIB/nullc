@@ -1546,7 +1546,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
 	{
 		((NodeDereference*)CodeInfo::nodeList.back())->Neutralize();
-	}else{
+	}else if(CodeInfo::nodeList.back()->nodeType != typeNodeFunctionAddress){
 		// Or if it wasn't called, for example, inplace array definition/function call/etc, we make a temporary variable
 		AddInplaceVariable(pos);
 		// And flag that we have added an extra node
@@ -1596,6 +1596,50 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 		AddPopNode(pos);
 
 		it->autoDeref = true;
+
+		return;
+	}else if(CodeInfo::nodeList.back()->nodeType == typeNodeFunctionAddress || (CodeInfo::nodeList.back()->typeInfo->subType && CodeInfo::nodeList.back()->typeInfo->subType->funcType)){
+		TypeInfo *elemType = CodeInfo::nodeList.back()->nodeType == typeNodeFunctionAddress ? CodeInfo::nodeList.back()->typeInfo->funcType->retType : CodeInfo::nodeList.back()->typeInfo->subType->funcType->retType;
+		NodeZeroOP *getIterator = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+
+		// Initialization part "element_type varName;"
+		currType = elemType;
+		AddVariable(pos, varName);
+		AddVoidNode();
+		if(extraExpression)
+			AddTwoExpressionNode(NULL);
+
+		// Condition part "varName = func(), !isCoroutineReset(func)
+		AddGetAddressNode(pos, varName);
+		NodeOneOP *wrap1 = new NodeOneOP();
+		wrap1->SetFirstNode(getIterator);
+		CodeInfo::nodeList.push_back(wrap1);
+		AddFunctionCallNode(pos, NULL, 0);
+		AddSetVariableNode(pos);
+		AddPopNode(pos);
+
+		if(getIterator->nodeType == typeNodeFunctionAddress)
+		{
+			NodeZeroOP *context = ((NodeOneOP*)getIterator)->GetFirstNode();
+			NodeOneOP *wrap2 = new NodeOneOP();
+			wrap2->SetFirstNode(context);
+			CodeInfo::nodeList.push_back(wrap2);
+			AddMemberAccessNode(pos, InplaceStr("$jmpOffset_ext"));
+			CodeInfo::nodeList.push_back(new NodeDereference());
+			CodeInfo::nodeList.push_back(new NodeDereference());
+		}else{
+			NodeOneOP *wrap2 = new NodeOneOP();
+			wrap2->SetFirstNode(getIterator);
+			CodeInfo::nodeList.push_back(wrap2);
+			AddFunctionCallNode(pos, "isCoroutineReset", 1);
+			AddLogNotNode(pos);
+		}
+
+		AddTwoExpressionNode(typeInt);
+
+		// Iteration part is empty
+		AddVoidNode();
 
 		return;
 	}
