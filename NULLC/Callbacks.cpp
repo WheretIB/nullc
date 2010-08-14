@@ -1758,7 +1758,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 		lastFunc->type = FunctionInfo::THISCALL;
 		lastFunc->parentClass = newType;
 		if(defineCoroutine)
-			ThrowError(pos, "ERROR: coroutine cannot be a member function", funcName);
+			ThrowError(pos, "ERROR: coroutine cannot be a member function");
 	}
 	if(newType ? varInfoTop.size() > 2 : varInfoTop.size() > 1)
 	{
@@ -3071,6 +3071,12 @@ void CreateRedirectionTables()
 	}
 }
 
+struct TypeHandler
+{
+	TypeInfo	*varType;
+	TypeHandler	*next;
+};
+
 void AddListGenerator(const char* pos, void *rType)
 {
 //typedef int generic;
@@ -3083,11 +3089,6 @@ void AddListGenerator(const char* pos, void *rType)
 	sprintf(functionName, "$gen_list");
 	FunctionAdd(pos, functionName);
 
-	struct TypeHandler
-	{
-		TypeInfo	*varType;
-		TypeHandler	*next;
-	};
 	TypeHandler h;
 	h.varType = CodeInfo::GetReferenceType(typeInt);
 	h.next = NULL;

@@ -4,7 +4,7 @@
 #include <new>
 #include "../../external/pugixml/pugixml.hpp"
 
-#if defined(__linux)
+#if !defined(_MSC_VER)
 	#define POD_WRAP(x) *(size_t*)&x
 #else
 	#define POD_WRAP(x) x
