@@ -81,6 +81,8 @@ public:
 
 		originalIndex = typeIndex = index;
 		childAlias = NULL;
+
+		definitionDepth = 1;
 	}
 
 	const char		*name;	// base type name
@@ -105,6 +107,8 @@ public:
 
 	unsigned int	alignBytes;
 	unsigned int	paddingBytes;
+
+	unsigned int	definitionDepth;
 
 	TypeInfo		*subType;
 

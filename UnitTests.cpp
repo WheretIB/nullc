@@ -7728,6 +7728,95 @@ return good;";
 	TEST_FOR_RESULT("List comprehension test with empty class 2", "import std.range; class Empty{} auto fail = { for(i in range(1,5)){ Empty e; int a; yield e; } }; return 1;", "1");
 	TEST_FOR_RESULT("List comprehension test with empty class 3", "coroutine void fail(){while(0){}return;} fail(); return 1;", "1");
 
+const char	*testIllFormedForEach =
+"import std.vector;\r\n\
+\r\n\
+vector a = vector(vector, 3);\r\n\
+a.push_back(vector(int));\r\n\
+vector(a.back()).push_back(1);\r\n\
+vector(a.back()).push_back(2);\r\n\
+a.push_back(vector(int));\r\n\
+vector(a.back()).push_back(3);\r\n\
+vector(a.back()).push_back(4);\r\n\
+int z = 1;\r\n\
+for(vector i in a, int x in i)\r\n\
+	z = 0;\r\n\
+return z;";
+	TEST_FOR_RESULT("Ill-formed for_each test", testIllFormedForEach, "1");
+
+const char	*testLocalClass1 =
+"int foo(int x)\r\n\
+{\r\n\
+	class X{ int i; int bar(){ return -i; } }\r\n\
+	X a;\r\n\
+	a.i = x;\r\n\
+	return a.bar();\r\n\
+}\r\n\
+X ll;\r\n\
+return foo(5);";
+	TEST_FOR_RESULT("Class defined locally test 1", testLocalClass1, "-5");
+
+const char	*testLocalClass2 =
+"{\r\n\
+	class X{ int i; int bar(){ return -i; } }\r\n\
+	X a;\r\n\
+	a.i = 5;\r\n\
+	return a.bar();\r\n\
+}";
+	TEST_FOR_RESULT("Class defined locally test 2", testLocalClass2, "-5");
+
+const char	*testLocalClass3 =
+"int foo(int x)\r\n\
+{\r\n\
+	class X{ int i; int bar(){ return -i; } }\r\n\
+	int X:foo(){ return this.i * 2; }\r\n\
+	X a;\r\n\
+	a.i = x;\r\n\
+	return a.foo();\r\n\
+}\r\n\
+X ll;\r\n\
+return foo(5);";
+	TEST_FOR_RESULT("Class defined locally test 3", testLocalClass3, "10");
+
+const char	*testLocalClass4 =
+"class X{ int i; int bar(){ return -i; } }\r\n\
+int foo(int x)\r\n\
+{\r\n\
+	int X:foo(){ return i * 2; }\r\n\
+	X a;\r\n\
+	a.i = x;\r\n\
+	return a.foo();\r\n\
+}\r\n\
+X ll;\r\n\
+return foo(5);";
+	TEST_FOR_RESULT("Class defined locally test 4", testLocalClass4, "10");
+
+const char	*testLocalClass5 =
+"int foo(int x)\r\n\
+{\r\n\
+	class X{ int i; int bar(){ return -i; } }\r\n\
+	int X:foo(){ return i * 2; }\r\n\
+	X a;\r\n\
+	a.i = x;\r\n\
+	return a.bar();\r\n\
+}\r\n\
+X ll;\r\n\
+return foo(5);";
+	TEST_FOR_RESULT("Class defined locally test 5", testLocalClass5, "-5");
+
+const char	*testLocalClass6 =
+"int foo(int x)\r\n\
+{\r\n\
+	class X{ int i; int bar(){ return -i; } }\r\n\
+	int X:foo(){ return i * 2; }\r\n\
+	X a;\r\n\
+	a.i = x;\r\n\
+	return a.foo();\r\n\
+}\r\n\
+X ll;\r\n\
+return foo(5);";
+	TEST_FOR_RESULT("Class defined locally test 6", testLocalClass6, "10");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
