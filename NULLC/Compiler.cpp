@@ -194,7 +194,9 @@ auto[] auto_array(typeid type, int count)\r\n\
 typedef auto[] auto_array;\r\n\
 // function will set auto[] element to the specified one, will data reallocation is neccessary\r\n\
 void auto_array:set(auto ref x, int pos);\r\n\
-void __force_size(int ref s, int size){ assert(size <= *s, \"ERROR: cannot extend array\"); *s = size; }";
+void __force_size(int ref s, int size){ assert(size <= *s, \"ERROR: cannot extend array\"); *s = size; }\r\n\
+\r\n\
+int isCoroutineReset(auto ref f);";
 
 Compiler::Compiler()
 {
@@ -327,6 +329,8 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArraySet, "auto[]::set", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::IsCoroutineReset, "isCoroutineReset", 0);
 #endif
 }
 
@@ -665,6 +669,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;
 			lastFunc->address = fInfo->funcPtr ? -1 : 0;
 			lastFunc->funcPtr = fInfo->funcPtr;
+			lastFunc->type = (FunctionInfo::FunctionCategory)fInfo->funcCat;
 
 			for(unsigned int n = 0; n < fInfo->paramCount; n++)
 			{
@@ -675,9 +680,6 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				lastFunc->lastParam->defaultValueFuncID = lInfo.defaultFuncId;
 			}
 			lastFunc->implemented = true;
-			lastFunc->type = strchr(lastFunc->name, ':') ? FunctionInfo::THISCALL : FunctionInfo::NORMAL;
-			if(fInfo->externCount)
-				lastFunc->type = FunctionInfo::LOCAL;
 			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
 
 			lastFunc->retType = lastFunc->funcType->funcType->retType;
@@ -1704,6 +1706,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.nameHash = refFunc->nameHash;
 
 		funcInfo.isNormal = refFunc->type == FunctionInfo::NORMAL ? 1 : 0;
+		funcInfo.funcCat = (unsigned char)refFunc->type;
 
 		funcInfo.retType = ExternFuncInfo::RETURN_UNKNOWN;
 		if(refFunc->retType->type == TypeInfo::TYPE_VOID)

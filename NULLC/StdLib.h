@@ -66,4 +66,6 @@ namespace NULLC
 
 	NULLCAutoArray	AutoArray(int type, int count);
 	void			AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr);
+
+	int	IsCoroutineReset(NULLCRef f);
 }

@@ -7726,6 +7726,7 @@ return good;";
 
 	TEST_FOR_RESULT("List comprehension test with empty class 1", "import std.range; class Empty{} auto fail = { for(i in range(1,5)){ Empty e; yield e; } }; return 1;", "1");
 	TEST_FOR_RESULT("List comprehension test with empty class 2", "import std.range; class Empty{} auto fail = { for(i in range(1,5)){ Empty e; int a; yield e; } }; return 1;", "1");
+	TEST_FOR_RESULT("List comprehension test with empty class 3", "coroutine void fail(){while(0){}return;} fail(); return 1;", "1");
 
 #ifdef FAILURE_TEST
 

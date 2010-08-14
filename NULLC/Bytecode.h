@@ -82,7 +82,15 @@ struct ExternFuncInfo
 		RETURN_DOUBLE,
 		RETURN_LONG,
 	};
-	unsigned short	retType;	// one of the ReturnType enumeration values
+	unsigned char	retType;	// one of the ReturnType enumeration values
+	enum FunctionCategory
+	{
+		NORMAL,
+		LOCAL,
+		THISCALL,
+		COROUTINE
+	};
+	unsigned char	funcCat;
 	unsigned char	isNormal;
 	unsigned char	returnShift;
 	unsigned int	funcType;	// index to the type array
