@@ -68,29 +68,29 @@ PUGIXML_SOURCES = \
 
 
 STDLIB_TARGETS = \
-  temp_lib/canvas.o \
-  temp_lib/dynamic.o \
-  temp_lib/file.o \
-  temp_lib/gc.o \
-  temp_lib/hashmap.o \
-  temp_lib/io.o \
-  temp_lib/list.o \
-  temp_lib/map.o \
-  temp_lib/math.o \
-  temp_lib/pugi.o \
-  temp_lib/random.o \
-  temp_lib/string.o \
-  temp_lib/time.o \
-  temp_lib/typeinfo.o \
-  temp_lib/vector.o
+  temp/lib/canvas.o \
+  temp/lib/dynamic.o \
+  temp/lib/file.o \
+  temp/lib/gc.o \
+  temp/lib/hashmap.o \
+  temp/lib/io.o \
+  temp/lib/list.o \
+  temp/lib/map.o \
+  temp/lib/math.o \
+  temp/lib/pugi.o \
+  temp/lib/random.o \
+  temp/lib/string.o \
+  temp/lib/time.o \
+  temp/lib/typeinfo.o \
+  temp/lib/vector.o
 
 PUGIXML_TARGETS = \
   temp/pugixml.o
 
-all: temp/.dummy temp_compiler/.dummy temp_lib/.dummy \
+all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
      bin/nullcl TestRun bin/ConsoleCalc
 
-temp_lib/%.o: NULLC/includes/%.cpp
+temp/lib/%.o: NULLC/includes/%.cpp
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
 temp/%.o: NULLC/%.cpp
@@ -109,20 +109,24 @@ temp/.dummy:
 	mkdir -p temp
 	touch temp/.dummy
 
-temp_compiler/.dummy:
-	mkdir -p temp_compiler
-	touch temp_compiler/.dummy
+temp/compiler/.dummy:
+	mkdir -p temp/compiler
+	touch temp/compiler/.dummy
 
-temp_lib/.dummy:
-	mkdir -p temp_lib
-	touch temp_lib/.dummy
+temp/lib/.dummy:
+	mkdir -p temp/lib
+	touch temp/lib/.dummy
 
+temp/tests/.dummy:
+	mkdir -p temp/tests
+	touch temp/tests/.dummy
 
 bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS}
 	$(AR) rcs $@ $^
 
 clean:
-	rm -f temp/* temp_lib/* temp_compiler/*
+	rm -rf temp/
+	rm -f bin/*.a
 
 # Compiling NULLC compiler-only lib
 COMPILERLIB_SOURCES = \
@@ -139,19 +143,19 @@ COMPILERLIB_SOURCES = \
   NULLC/SyntaxTree.cpp
 
 COMPILERLIB_TARGETS = \
-  temp_compiler/BinaryCache.o \
-  temp_compiler/Bytecode.o \
-  temp_compiler/CodeInfo.o \
-  temp_compiler/nullc.o \
-  temp_compiler/stdafx.o \
-  temp_compiler/StrAlgo.o \
-  temp_compiler/Callbacks.o \
-  temp_compiler/Compiler.o \
-  temp_compiler/Lexer.o \
-  temp_compiler/Parser.o \
-  temp_compiler/SyntaxTree.o
+  temp/compiler/BinaryCache.o \
+  temp/compiler/Bytecode.o \
+  temp/compiler/CodeInfo.o \
+  temp/compiler/nullc.o \
+  temp/compiler/stdafx.o \
+  temp/compiler/StrAlgo.o \
+  temp/compiler/Callbacks.o \
+  temp/compiler/Compiler.o \
+  temp/compiler/Lexer.o \
+  temp/compiler/Parser.o \
+  temp/compiler/SyntaxTree.o
 
-temp_compiler/%.o: NULLC/%.cpp
+temp/compiler/%.o: NULLC/%.cpp
 	$(CXX) $(COMP_CFLAGS) -c $< -o $@
 
 bin/libnullc_cl.a: ${COMPILERLIB_TARGETS}
@@ -170,15 +174,65 @@ bin/nullcl: temp/main.o bin/libnullc.a bin/libnullc_cl.a
 	$(CXX) $(REG_CFLAGS) -o $@ $<  -Lbin -lnullc_cl -lnullc
 
 TEST_SOURCES = \
-  TestRun.cpp \
-  UnitTests.cpp
+	TestRun.cpp \
+	UnitTests.cpp \
+	tests/TestAccessors.cpp          tests/TestInference.cpp \
+	tests/TestArray.cpp              tests/TestInterface.cpp \
+	tests/TestArraySpecial.cpp       tests/TestListComprehension.cpp \
+	tests/TestAutoArray.cpp          tests/TestLocalClass.cpp \
+	tests/TestAutoRefCall.cpp        tests/TestLongNames.cpp \
+	tests/TestAutoRef.cpp            tests/TestLValue.cpp \
+	tests/TestBase.cpp               tests/TestMembers.cpp \
+	tests/TestCallTransitions.cpp    tests/TestMisc.cpp \
+	tests/TestClasses.cpp            tests/TestModules.cpp \
+	tests/TestClosures.cpp           tests/TestNew.cpp \
+	tests/TestCompileFail.cpp        tests/TestNumerical.cpp \
+	tests/TestConversions.cpp        tests/TestOverload.cpp \
+	tests/TestCoroutine.cpp          tests/TestOverride.cpp \
+	tests/TestCoroutineIterator.cpp  tests/TestParseFail.cpp \
+	tests/TestCycles.cpp             tests/TestPointers.cpp \
+	tests/TestDefault.cpp            tests/TestPostExpr.cpp \
+	tests/TestExternalCall.cpp       tests/TestRuntimeFail.cpp \
+	tests/TestExtra.cpp              tests/TestScope.cpp \
+	tests/TestForEach.cpp            tests/TestSpecial.cpp \
+	tests/TestFromReference.cpp      tests/TestSpecialOp.cpp \
+	tests/TestFunctions.cpp          tests/TestSpeed.cpp \
+	tests/TestGC.cpp                 tests/TestStackRealloc.cpp \
+	tests/TestImplicitArray.cpp      tests/TestVarargs.cpp \
+	tests/TestIndirectCall.cpp       tests/TestVariables.cpp
 
 TEST_OBJECTS = \
   TestRun.o \
-  UnitTests.o
-
+  UnitTests.o \
+	temp/tests/TestAccessors.o          temp/tests/TestInference.o \
+	temp/tests/TestArray.o              temp/tests/TestInterface.o \
+	temp/tests/TestArraySpecial.o       temp/tests/TestListComprehension.o \
+	temp/tests/TestAutoArray.o          temp/tests/TestLocalClass.o \
+	temp/tests/TestAutoRefCall.o        temp/tests/TestLongNames.o \
+	temp/tests/TestAutoRef.o            temp/tests/TestLValue.o \
+	temp/tests/TestBase.o               temp/tests/TestMembers.o \
+	temp/tests/TestCallTransitions.o    temp/tests/TestMisc.o \
+	temp/tests/TestClasses.o            temp/tests/TestModules.o \
+	temp/tests/TestClosures.o           temp/tests/TestNew.o \
+	temp/tests/TestCompileFail.o        temp/tests/TestNumerical.o \
+	temp/tests/TestConversions.o        temp/tests/TestOverload.o \
+	temp/tests/TestCoroutine.o          temp/tests/TestOverride.o \
+	temp/tests/TestCoroutineIterator.o  temp/tests/TestParseFail.o \
+	temp/tests/TestCycles.o             temp/tests/TestPointers.o \
+	temp/tests/TestDefault.o            temp/tests/TestPostExpr.o \
+	temp/tests/TestExternalCall.o       temp/tests/TestRuntimeFail.o \
+	temp/tests/TestExtra.o              temp/tests/TestScope.o \
+	temp/tests/TestForEach.o            temp/tests/TestSpecial.o \
+	temp/tests/TestFromReference.o      temp/tests/TestSpecialOp.o \
+	temp/tests/TestFunctions.o          temp/tests/TestSpeed.o \
+	temp/tests/TestGC.o                 temp/tests/TestStackRealloc.o \
+	temp/tests/TestImplicitArray.o      temp/tests/TestVarargs.o \
+	temp/tests/TestIndirectCall.o       temp/tests/TestVariables.o
 
 %.o: %.cpp
+	$(CXX) $(REG_CFLAGS) -o $@ -c $<
+
+temp/tests/%.o: tests/%.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
 
 TestRun: ${TEST_OBJECTS} bin/libnullc.a
