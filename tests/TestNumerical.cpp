@@ -1,0 +1,303 @@
+#include "TestBase.h"
+
+const char *testIntOp =
+"// Integer tests\r\n\
+int[33] res;\r\n\
+int a = 14, b = 3, c = 0;\r\n\
+res[0] = a+b; // 17\r\n\
+res[1] = a-b; // 11\r\n\
+res[2] = -a; // -14\r\n\
+res[3] = ~b; // -4\r\n\
+res[4] = a*b; // 42\r\n\
+res[5] = a/b; // 4\r\n\
+res[6] = a%b; // 2\r\n\
+res[7] = a**b; // 2744\r\n\
+res[8] = a > b; // 1\r\n\
+res[9] = a < b; // 0\r\n\
+res[10] = a >= b; // 1\r\n\
+res[11] = a <= b; // 0\r\n\
+res[12] = a == b; // 0\r\n\
+res[13] = a != b; // 1\r\n\
+res[14] = a << b; // 112\r\n\
+res[15] = a >> b; // 1\r\n\
+res[16] = a & b; // 2\r\n\
+res[17] = a | b; // 15\r\n\
+res[18] = a ^ b; // 13\r\n\
+int o = 0, i = 1;\r\n\
+res[19] = o && o;\r\n\
+res[20] = o && i;\r\n\
+res[21] = i && o;\r\n\
+res[22] = i && i;\r\n\
+res[23] = o || o;\r\n\
+res[24] = o || i;\r\n\
+res[25] = i || o;\r\n\
+res[26] = i || i;\r\n\
+res[27] = o ^^ o;\r\n\
+res[28] = o ^^ i;\r\n\
+res[29] = i ^^ o;\r\n\
+res[30] = i ^^ i;\r\n\
+res[31] = !i; // 0\r\n\
+res[32] = !o; // 1\r\n\
+return a >> b;";
+
+TEST("Integer operation test", testIntOp, "1")
+{
+	CHECK_INT("a", 0, 14);
+	CHECK_INT("b", 0, 3);
+	CHECK_INT("c", 0, 0);
+	int resExp[] = { 17, 11, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
+	for(int i = 0; i < 27; i++)
+		CHECK_INT("res", i, resExp[i]);
+}
+
+const char	*testDoubleOp = 
+"// Floating point tests\r\n\
+double[15] res;\r\n\
+double a = 14.0, b = 3.0;\r\n\
+res[0] = a+b;\r\n\
+res[1] = a-b;\r\n\
+res[2] = -a;\r\n\
+res[3] = a*b;\r\n\
+res[4] = a/b;\r\n\
+res[5] = a%b;\r\n\
+res[6] = a**b;\r\n\
+res[7] = a > b;\r\n\
+res[8] = a < b;\r\n\
+res[9] = a >= b;\r\n\
+res[10] = a <= b;\r\n\
+res[11] = a == b;\r\n\
+res[12] = a != b;\r\n\
+return a+b;";
+
+TEST("Double operation test", testDoubleOp, "17.000000")
+{
+	CHECK_DOUBLE("a", 0, 14.0);
+	CHECK_DOUBLE("b", 0, 3.0);
+	double resExp[] = { 17.0, 11.0, -14.0, 42.0, 14.0/3.0, 2.0, 2744.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0};
+	for(int i = 0; i < 14; i++)
+		CHECK_DOUBLE("res", i, resExp[i]);
+}
+
+const char	*testLongOp = 
+"// Long tests\r\n\
+long[34] res;\r\n\
+long a = 4494967296l, b = 594967296l, c = 3;\r\n\
+res[0] = a+b; // 5089934592\r\n\
+res[1] = a-b; // 3900000000\r\n\
+res[2] = -a; // -4494967296\r\n\
+res[3] = ~a; // -4494967297\r\n\
+res[4] = a*b; // 2674358537709551616\r\n\
+res[5] = a/b; // 7\r\n\
+res[6] = a%b; // 330196224\r\n\
+res[7] = 594967**c; // 210609828468829063\r\n\
+res[8] = a > b; // 1\r\n\
+res[9] = a < b; // 0\r\n\
+res[10] = a >= b; // 1\r\n\
+res[11] = a <= b; // 0\r\n\
+res[12] = a == b; // 0\r\n\
+res[13] = a != b; // 1\r\n\
+res[14] = a << c; // 35959738368 \r\n\
+res[15] = c << 45; // 105553116266496 \r\n\
+res[16] = a >> c; // 561870912\r\n\
+res[17] = a & b; // 56771072\r\n\
+res[18] = a | b; // 5033163520\r\n\
+res[19] = a ^ b; // 4976392448\r\n\
+long o = 0, i = 1;\r\n\
+res[20] = o && o;\r\n\
+res[21] = o && i;\r\n\
+res[22] = i && o;\r\n\
+res[23] = i && i;\r\n\
+res[24] = o || o;\r\n\
+res[25] = o || i;\r\n\
+res[26] = i || o;\r\n\
+res[27] = i || i;\r\n\
+res[28] = o ^^ o;\r\n\
+res[29] = o ^^ i;\r\n\
+res[30] = i ^^ o;\r\n\
+res[31] = i ^^ i;\r\n\
+res[32] = !i; // 0\r\n\
+res[33] = !o; // 1\r\n\
+\r\n\
+return 1;";
+
+TEST("Long operation test", testLongOp, "1")
+{
+	CHECK_LONG("a", 0, 4494967296ll);
+	CHECK_LONG("b", 0, 594967296ll);
+	CHECK_LONG("c", 0, 3ll);
+	long long resExp[] = { 5089934592ll, 3900000000ll, -4494967296ll, -4494967297ll, 2674358537709551616ll, 7, 330196224, 210609828468829063ll, 1, 0, 1, 0, 0, 1,
+		35959738368ll, 105553116266496ll, 561870912, 56771072, 5033163520ll, 4976392448ll, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
+	for(int i = 0; i < 24; i++)
+		CHECK_LONG("res", i, resExp[i]);
+}
+
+const char	*tesIncDec =
+"// Decrement and increment tests for all types\r\n\
+double a1=5, b1=5, c1, d1, e1, f1;\r\n\
+float a2=5, b2=5, c2, d2, e2, f2;\r\n\
+long a3=5, b3=5, c3, d3, e3, f3;\r\n\
+int a4=5, b4=5, c4, d4, e4, f4;\r\n\
+short a5=5, b5=5, c5, d5, e5, f5;\r\n\
+char a6=5, b6=5, c6, d6, e6, f6;\r\n\
+c1 = a1++; a1++; e1 = ++a1; ++a1;\r\n\
+d1 = b1--; b1--; f1 = --b1; --b1;\r\n\
+\r\n\
+c2 = a2++; a2++; e2 = ++a2; ++a2;\r\n\
+d2 = b2--; b2--; f2 = --b2; --b2;\r\n\
+\r\n\
+c3 = a3++; a3++; e3 = ++a3; ++a3;\r\n\
+d3 = b3--; b3--; f3 = --b3; --b3;\r\n\
+\r\n\
+c4 = a4++; a4++; e4 = ++a4; ++a4;\r\n\
+d4 = b4--; b4--; f4 = --b4; --b4;\r\n\
+\r\n\
+c5 = a5++; a5++; e5 = ++a5; ++a5;\r\n\
+d5 = b5--; b5--; f5 = --b5; --b5;\r\n\
+\r\n\
+c6 = a6++; a6++; e6 = ++a6; ++a6;\r\n\
+d6 = b6--; b6--; f6 = --b6; --b6;\r\n\
+return 1;";
+
+TEST("Decrement and increment tests for all types", tesIncDec, "1")
+{
+	const char *name[] = { "a", "b", "c", "d", "e", "f" };
+	int	value[] = { 9, 1, 5, 5, 8, 2 };
+
+	int num = 1;
+	for(int i = 0; i < 6; i++)
+		CHECK_DOUBLE(Tests::Format("%s%d", name[i], num), 0, value[i]);
+	num = 2;
+	for(int i = 0; i < 6; i++)
+		CHECK_FLOAT(Tests::Format("%s%d", name[i], num), 0, value[i]);
+	num = 3;
+	for(int i = 0; i < 6; i++)
+		CHECK_LONG(Tests::Format("%s%d", name[i], num), 0, value[i]);
+	num = 4;
+	for(int i = 0; i < 6; i++)
+		CHECK_INT(Tests::Format("%s%d", name[i], num), 0, value[i]);
+	num = 5;
+	for(int i = 0; i < 6; i++)
+		CHECK_SHORT(Tests::Format("%s%d", name[i], num), 0, value[i]);
+	num = 6;
+	for(int i = 0; i < 6; i++)
+		CHECK_CHAR(Tests::Format("%s%d", name[i], num), 0, value[i]);
+}
+
+const char	*testTypeConv = 
+"// Type conversions\r\n\
+int ia=3, ib, ic;\r\n\
+double da=5.0, db, dc;\r\n\
+long la=4l, lb, lc;\r\n\
+ib = da;\r\n\
+ic = la;\r\n\
+db = ia;\r\n\
+dc = la;\r\n\
+lb = ia;\r\n\
+lc = da;\r\n\
+return 1;";
+TEST("Type conversions", testTypeConv, "1")
+{
+	CHECK_INT("ia", 0, 3);
+	CHECK_INT("ib", 0, 5);
+	CHECK_INT("ic", 0, 4);
+	CHECK_DOUBLE("da", 0, 5.0);
+	CHECK_DOUBLE("db", 0, 3.0);
+	CHECK_DOUBLE("dc", 0, 4.0);
+	CHECK_LONG("la", 0, 4);
+	CHECK_LONG("lb", 0, 3);
+	CHECK_LONG("lc", 0, 5);
+}
+
+const char	*testDoublePow = 
+"double a = 0.9;\r\n\
+return a**2.0;";
+TEST("Double power", testDoublePow, "0.810000")
+{
+	CHECK_DOUBLE("a", 0, 0.9);
+}
+
+const char	*testHexConst = 
+"//Hexadecimal constants\r\n\
+auto a = 0xdeadbeef;\r\n\
+auto b = 0xcafe;\r\n\
+auto c = 0x7fffffffffffffff;\r\n\
+return a;";
+TEST("Hexadecimal constants", testHexConst, "3735928559L")
+{
+	CHECK_LONG("a", 0, 3735928559ll);
+	CHECK_INT("b", 0, 51966);
+	CHECK_LONG("c", 0, 9223372036854775807ll);
+}
+
+const char	*testPriority = 
+"int func(){}\r\n\
+int a = 13, b = 17, c = 14;\r\n\
+int[10] res;\r\n\
+res[0] = a + b * c;\r\n\
+res[1] = a + b ** (c-10) * a;\r\n\
+return 1;";
+TEST("Operation priority test", testPriority, "1")
+{
+	CHECK_INT("a", 0, 13);
+	CHECK_INT("b", 0, 17);
+	CHECK_INT("c", 0, 14);
+	int resExp[] = { 251, 1085786, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 1, 1, 0, 0, 1, 1, 0, 1 };
+	for(int i = 0; i < 2; i++)
+		CHECK_INT("res", i, resExp[i]);
+}
+
+const char	*testLongIncDec =
+"long count = 0xfffffffff;\r\n\
+count--;\r\n\
+assert(count == 0xffffffffe);\r\n\
+count++;\r\n\
+assert(count == 0xfffffffff);\r\n\
+count++;\r\n\
+assert(count == 0x1000000000);\r\n\
+return count;";
+TEST_RESULT("Long increment and decrement extra tests", testLongIncDec, "68719476736L");
+
+const char *testDiv0ConstanFold = "double a = 1.0 / 0.0; return 10;";
+TEST_RESULT("Double division by zero during constant folding.", testDiv0ConstanFold, "10");
+
+const char *testDoubleMod = "double a = 800000000000000000000.0; return (a % 5.5) < 5.5;";
+TEST_RESULT("Double modulus division.", testDoubleMod, "1");
+
+const char *testNumberParse1 = "return 0x0000000000000000000000000f;";
+TEST_RESULT("Leading zero skip (hex)", testNumberParse1, "15");
+const char *testNumberParse2 = "return 0x1eadbeef;";
+TEST_RESULT("int type constant (hex)", testNumberParse2, "514703087");
+const char *testNumberParse3 = "return 0xffffffffffffffff;";
+TEST_RESULT("negative int type constant (hex)", testNumberParse3, "-1");
+const char *testNumberParse4 = "return 0xdeadbeefdeadbeef;";
+TEST_RESULT("negative long type constant (hex)", testNumberParse4, "-2401053088876216593L");
+
+const char *testNumberParse5 = "return 020000000000;";
+TEST_RESULT("long type constant 1 (oct)", testNumberParse5, "2147483648L");
+const char *testNumberParse6 = "return 017777777777;";
+TEST_RESULT("int type constant (oct)", testNumberParse6, "2147483647");
+const char *testNumberParse7 = "return 0000000000000000000000000000000176666;";
+TEST_RESULT("Leading zero skip (oct)", testNumberParse7, "64950");
+const char *testNumberParse8 = "return 0777777777777777777777;";
+TEST_RESULT("long type constant 2 (oct)", testNumberParse8, "9223372036854775807L");
+const char *testNumberParse9 = "return 01777777777777777777777;";
+TEST_RESULT("negative int type constant (oct)", testNumberParse9, "-1");
+const char *testNumberParse10 = "return 01777700000000000000000;";
+TEST_RESULT("negative long type constant (oct)", testNumberParse10, "-2251799813685248L");
+
+const char *testNumberParse11 = "return 01111111111111111111111111111111b;";
+TEST_RESULT("int type constant (bin)", testNumberParse11, "2147483647");
+const char *testNumberParse12 = "return 11111111111111111111111111111111b;";
+TEST_RESULT("long type constant (bin)", testNumberParse12, "4294967295L");
+const char *testNumberParse13 = "return 000000000000000000000000111111111111111111111111111111111111111111111111111111111111111b;";
+TEST_RESULT("Leading zero skip (bin)", testNumberParse13, "9223372036854775807L");
+const char *testNumberParse14 = "return 01111111111111111111111111111111111111111111111111111111111111111b;";
+TEST_RESULT("negative int type constant (bin)", testNumberParse14, "-1");
+const char *testNumberParse15 = "return 01111111111111111111111111111000000000000000000000000000000000000b;";
+TEST_RESULT("negative long type constant (bin)", testNumberParse15, "-68719476736L");
+
+const char *testIntegerPow = "int a = 1; return a*100**a;";
+TEST_RESULT("Integer power test", testIntegerPow, "100");
+
+const char *testIntegerPowCF = "return 100**1;";
+TEST_RESULT("Integer power test. Constant folding", testIntegerPowCF, "100");
