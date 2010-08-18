@@ -1463,6 +1463,8 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + i];
+				if(function.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= function.bytesToPop)
+					break;
 
 				char *it = name;
 				it += safeprintf(it, 256, "0x%x: %s %s", data + offset + lInfo.offset, codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);

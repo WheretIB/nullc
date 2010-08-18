@@ -1239,7 +1239,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			genParams.resize(paramBase + cmd.argument);
 			assert(cmd.helper <= cmd.argument);
-			memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
+			if(cmd.argument - cmd.helper)
+				memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
 
 			break;
 
@@ -2059,6 +2060,8 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+				if(exFunctions[funcID].funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= exFunctions[funcID].bytesToPop)
+					break;
 //				printf("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
