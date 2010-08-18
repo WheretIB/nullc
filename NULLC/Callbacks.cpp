@@ -3156,15 +3156,13 @@ void AddListGenerator(const char* pos, void *rType)
 
 	currType = CodeInfo::GetArrayType(retType, TypeInfo::UNSIZED_ARRAY);
 
-//generic[] gen_list(generic ref(int ref) y)
+//generic[] gen_list(generic ref() y)
 	char *functionName = AllocateString(16);
 	sprintf(functionName, "$gen_list");
 	FunctionAdd(pos, functionName);
 
-	TypeHandler h;
-	h.varType = CodeInfo::GetReferenceType(typeInt);
-	h.next = NULL;
-	SelectTypeByPointer(CodeInfo::GetFunctionType(retType, &h, 1));
+	TypeHandler* h = NULL;
+	SelectTypeByPointer(CodeInfo::GetFunctionType(retType, h, 0));
 	FunctionParameter(pos, InplaceStr("y"));
 	FunctionStart(pos);
 
@@ -3177,40 +3175,22 @@ void AddListGenerator(const char* pos, void *rType)
 	AddFunctionCallNode(pos, "auto_array", 2);
 	AddDefineVariableNode(pos, varInfo);
 	AddPopNode(pos);
-//	int append = 1, pos = 0;
-	currType = typeInt;
-	varInfo = AddVariable(pos, InplaceStr("append"));
-	CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
-	AddDefineVariableNode(pos, varInfo);
-	AddPopNode(pos);
-
+//	int pos = 0;
 	currType = typeInt;
 	varInfo = AddVariable(pos, InplaceStr("pos"));
 	CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
 	AddDefineVariableNode(pos, varInfo);
 	AddPopNode(pos);
 
-//	while(append)
-	AddGetAddressNode(pos, InplaceStr("append"));
-	AddGetVariableNode(pos);
-//	{
-//		generic x = y(append);
-	currType = retType;
-	varInfo = AddVariable(pos, InplaceStr("x"));
-	
-	AddGetAddressNode(pos, InplaceStr("append"));
-	AddGetVariableNode(pos);
+//	for(x in y)
+	IncreaseCycleDepth();
+	BeginBlock();
 
 	AddGetAddressNode(pos, InplaceStr("y"));
 	AddGetVariableNode(pos);
+	AddArrayIterator("x", InplaceStr("x"), NULL);
 
-	AddFunctionCallNode(pos, NULL, 1);
-	AddDefineVariableNode(pos, varInfo);
-	AddPopNode(pos);
-//		if(append)
-	AddGetAddressNode(pos, InplaceStr("append"));
-	AddGetVariableNode(pos);
-//			res.set(x, pos++);
+//		res.set(x, pos++);
 	AddGetAddressNode(pos, InplaceStr("res"));
 	AddGetAddressNode(pos, InplaceStr("x"));
 	AddGetVariableNode(pos);
@@ -3218,10 +3198,9 @@ void AddListGenerator(const char* pos, void *rType)
 	AddUnaryModifyOpNode(pos, OP_INCREMENT, OP_POSTFIX);
 	AddMemberFunctionCall(pos, "set", 2);
 
-	AddIfNode(pos);
-	AddTwoExpressionNode();
-//	}
-	AddWhileNode(pos);
+	EndBlock();
+	AddForEachNode(pos);
+
 //	generic[] r = res;
 	currType = CodeInfo::GetArrayType(retType, TypeInfo::UNSIZED_ARRAY);
 	varInfo = AddVariable(pos, InplaceStr("r"));
@@ -3241,7 +3220,6 @@ void AddListGenerator(const char* pos, void *rType)
 	AddGetVariableNode(pos);
 	AddReturnNode(pos);
 //}
-	AddTwoExpressionNode();
 	AddTwoExpressionNode();
 	AddTwoExpressionNode();
 	AddTwoExpressionNode();
