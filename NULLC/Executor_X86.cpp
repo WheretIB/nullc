@@ -134,6 +134,7 @@ namespace NULLC
 		expECXstate = expInfo->ContextRecord->Ecx;
 		expESPstate = expInfo->ContextRecord->Esp;
 		expCodePublic = expCode;
+		expAllocCode = ~0u;
 
 		// Call stack should be unwind only once on top level error, since every function in external function call chain will signal an exception if there was an exception before.
 		if(!NULLC::abnormalTermination)
