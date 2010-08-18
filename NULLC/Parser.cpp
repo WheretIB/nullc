@@ -947,7 +947,7 @@ bool ParseArray(Lexeme** str)
 
 	if((*str)->type == lex_for)
 	{
-		// coroutine auto(int ref $c){
+		// coroutine auto(){
 		BeginCoroutine();
 		SelectTypeByPointer(NULL);
 		
@@ -956,21 +956,9 @@ bool ParseArray(Lexeme** str)
 		sprintf(functionName, "$genl%d", generatorFuncCount);
 		generatorFuncCount++;
 		FunctionAdd((*str)->pos, functionName);
-
-		SelectTypeByPointer(CodeInfo::GetReferenceType(typeInt));
-		FunctionParameter((*str)->pos, InplaceStr("$c"));
-
 		FunctionStart((*str)->pos);
 		if(!ParseCode(str))
 			AddVoidNode();
-
-		// *$c = 0; return data_with_sizeof_return_type; }
-		AddGetAddressNode((*str)->pos, InplaceStr("$c"));
-		AddGetVariableNode((*str)->pos);
-		AddNumberNodeInt("0");
-		AddSetVariableNode((*str)->pos);
-		AddPopNode((*str)->pos);
-		AddTwoExpressionNode();
 
 		AddGeneratorReturnData((*str)->pos);
 		void *retType = GetSelectedType();
