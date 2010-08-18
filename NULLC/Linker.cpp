@@ -299,8 +299,15 @@ bool Linker::LinkCode(const char *code)
 		// If the function exists and is internal, check if redefinition is allowed
 		if(index != index_none)
 		{
-			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
-			return false;
+			if(*(symbolInfo + fInfo->offsetToName) == '$')
+			{
+				exFunctions.push_back(exFunctions[index]);
+				funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
+				continue;
+			}else{
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
+				return false;
+			}
 		}
 		if(index == index_none)
 		{

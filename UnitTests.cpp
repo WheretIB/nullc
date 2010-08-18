@@ -7852,6 +7852,16 @@ coroutine auto test()\r\n\
 test(); return test();";
 	TEST_FOR_RESULT("Coroutine without stack frame for locals GC test", testCoroutineNoLocalStackGC, "3");
 
+	nullcLoadModuleBySource("test.list_comp1", "import std.range; auto a = { for(i in range(4, 10)) yield i; };");
+	nullcLoadModuleBySource("test.list_comp2", "import std.range; auto b = { for(i in range(2, 4)) yield i; };");
+	const char	*testListComprehensionCollision =
+"import test.list_comp1;\r\n\
+import test.list_comp2;\r\n\
+int sum = 0;\r\n\
+for(i in a, j in b) sum += i * j;\r\n\
+return sum;";
+	TEST_FOR_RESULT("List comprehension helper function collision resolve", testListComprehensionCollision, "47");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -7973,6 +7983,13 @@ return *ll;";
 	{
 		testCount[t]++;
 		if(RunCode(testAutoReferenceMismatch, testTarget[t], "ERROR: cannot convert from int ref to double ref", "Auto reference type mismatch", true))
+			passed[t]++;
+	}
+
+	for(int t = 0; t < 2; t++)
+	{
+		testCount[t]++;
+		if(RunCode("for(i in auto(){return 1;}){}", testTarget[t], "ERROR: function is not a coroutine", "Auto reference type mismatch", true))
 			passed[t]++;
 	}
 
@@ -8950,6 +8967,9 @@ int[foo(3)] arr;";
 
 	TEST_FOR_FAIL("List comprehension of void type", "auto fail = { for(;0;){ yield; } };", "ERROR: cannot generate an array of 'void' element type");
 	TEST_FOR_FAIL("List comprehension of unknown type", "auto fail = { for(;0;){} };", "ERROR: not a single element is generated, and an array element type is unknown");
+
+	TEST_FOR_FAIL("Non-coroutine as an iterator 1", "int foo(){ return 1; } for(int i in foo) return 1;", "ERROR: function is not a coroutine");
+	TEST_FOR_FAIL("Non-coroutine as an iterator 2", "auto omg(int z){ int foo(){ return z; } for(i in foo) return 1; } omg(1);", "ERROR: function is not a coroutine");
 
 	//TEST_FOR_FAIL("parsing", "");
 
