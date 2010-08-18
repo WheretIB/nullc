@@ -7862,6 +7862,26 @@ for(i in a, j in b) sum += i * j;\r\n\
 return sum;";
 	TEST_FOR_RESULT("List comprehension helper function collision resolve", testListComprehensionCollision, "47");
 
+const char	*testIndirectCallInMemberFunction2 =
+"int foo(int x){ return -x; }\r\n\
+auto bar(){ return foo; }\r\n\
+class Foo { int fail(){ return bar()(5); } }\r\n\
+Foo x;\r\n\
+return x.fail();";
+	TEST_FOR_RESULT("Indirect function call in member function 2", testIndirectCallInMemberFunction2, "-5");
+
+const char	*testFunctionTypeMemberSelfcall =
+"int foo(int x){ return -x; }\r\n\
+typedef int ref(int) omg;\r\n\
+int omg:call(int x){ return (*this)(x); }\r\n\
+auto ref x = duplicate(foo);\r\n\
+return x.call(5);";
+	TEST_FOR_RESULT("Function type member function that calls itself", testFunctionTypeMemberSelfcall, "-5");
+
+const char	*testListComprehensionReturn =
+"int i = 10; auto x = { for(;0;){} if(--i) return 1; yield 15; }; return x.size;";
+	TEST_FOR_RESULT("List comprehension with explicit return", testListComprehensionReturn, "0");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
