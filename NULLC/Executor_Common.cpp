@@ -463,6 +463,8 @@ void MarkUsedBlocks()
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + i];
+				if(functions[funcID].funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= functions[funcID].bytesToPop)
+					break;
 				GC_DEBUG_PRINT("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
 				// Check it
 				GC::CheckVariable(GC::unmanageableBase + offset + lInfo.offset, types[lInfo.type]);

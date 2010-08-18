@@ -885,7 +885,7 @@ NodeFuncDef::NodeFuncDef(FunctionInfo *info, unsigned int varShift)
 	// Function description
 	funcInfo = info;
 	// Size of all local variables
-	shift = varShift;
+	shift = info->type == FunctionInfo::COROUTINE ? (funcInfo->allParamSize + NULLC_PTR_SIZE) : varShift;
 
 	disabled = false;
 
@@ -924,9 +924,9 @@ void NodeFuncDef::Compile()
 	// Stack frame should remain aligned, so its size should multiple of 16
 	unsigned int size = (shift + 0xf) & ~0xf;
 	assert(size >= funcInfo->allParamSize + NULLC_PTR_SIZE);
-
+	
 	// Save previous stack frame, and expand current by shift bytes
-	cmdList.push_back(VMCmd(cmdPushVTop, (unsigned short)(funcInfo->allParamSize + NULLC_PTR_SIZE), size));
+	cmdList.push_back(VMCmd(cmdPushVTop, (unsigned short)(funcInfo->type == FunctionInfo::COROUTINE ? size : (funcInfo->allParamSize + NULLC_PTR_SIZE)), size));
 	// At the beginning of a coroutine, we need to jump to saved instruction offset
 	if(funcInfo->type == FunctionInfo::COROUTINE)
 		cmdList.push_back(VMCmd(cmdYield, 1, 0, funcInfo->allParamSize));	// pass an offset to closure

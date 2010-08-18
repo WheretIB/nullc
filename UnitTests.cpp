@@ -7840,6 +7840,18 @@ for(i in coroutine auto(){ for(int i = 1; i < 3000; i++) yield i; return 0; })\r
 return sum;";
 	TEST_FOR_RESULT("Coroutine as an iterator test 3", testCoroutineAsIterator3, "4498500");
 
+const char	*testCoroutineNoLocalStackGC =
+"import std.gc;\r\n\
+void fuckup(){ int[128] i = 0xfeeefeee; } fuckup();\r\n\
+coroutine auto test()\r\n\
+{\r\n\
+	auto ref x, y; int i = 3;\r\n\
+	GC.CollectMemory();\r\n\
+	yield 2; return 3;\r\n\
+}\r\n\
+test(); return test();";
+	TEST_FOR_RESULT("Coroutine without stack frame for locals GC test", testCoroutineNoLocalStackGC, "3");
+
 #ifdef FAILURE_TEST
 
 const char	*testDivZeroInt = 
@@ -8593,6 +8605,21 @@ auto y = a.getX();\r\n\
 a.x = 8;\r\n\
 return *y;";
 	TEST_FOR_RESULT("VM stack relocation (extra function argument).", testExtraArgumentRelocate, "8");
+
+	nullcTerminate();
+	nullcInit(MODULE_PATH);
+
+const char	*testCoroutineNoLocalStackRelocate =
+"void fuckup(){ int[128] i = 0xfeeefeee; } fuckup();\r\n\
+void corrupt(){ int[32*1024] e = 0; }\r\n\
+coroutine auto test()\r\n\
+{\r\n\
+	auto ref x, y, z, w, k, l, m; int i = 3;\r\n\
+	corrupt();\r\n\
+	yield 2; return 3;\r\n\
+}\r\n\
+test(); return test();";
+	TEST_FOR_RESULT("VM stack relocation (coroutine without stack for locals)", testCoroutineNoLocalStackRelocate, "3");
 
 	nullcTerminate();
 	nullcInit(MODULE_PATH);
