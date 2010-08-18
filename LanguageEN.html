@@ -104,6 +104,7 @@ function toggleView(a, b, c)
 		<li><a href="#new">new expression</a></li>
 		<ol>
 			<li><a href="#gc">Garbage collection</a></li>
+			<li><a href="#constructor">Constructor call</a></li>
 		</ol>
 		<li><a href="#break">break expression</a></li>
 		<li><a href="#continue">continue expression</a></li>
@@ -157,7 +158,13 @@ function toggleView(a, b, c)
 	<ol>
 		<li><a href="#characters">Characters</a></li>
 		<li><a href="#strings">Strings</a></li>
+		<ol>
+			<li><a href="#unescaped">Unescaped strings</a></li>
+		</ol>
 		<li><a href="#arrayinline">Inline arrays</a></li>
+		<ol>
+			<li><a href="#listcomprehension">List comprehension</a></li>
+		</ol>
 		<li><a href="#escapeseq">Escape sequences</a></li>
 		<li><a href="#binnum">Binary numbers</a></li>
 		<li><a href="#octnum">Octal numbers</a></li>
@@ -283,6 +290,14 @@ function toggleView(a, b, c)
 		<br />
 		Some form of explicit management is exposed throught <a href="#std_gc" title="std.gc module">std.gc</a> module.<br />
 	</div>
+	<div class="subtopic">
+		<h3><a name="constructor">2.4.2 Constructor call</a></h3>
+		If a single object is created, it is possible to call a type constructor in a <span class="rword">new</span> expression, by opening parenthesis and writing function arguments.<br />
+		<p class="code">
+		<span class="rword">int ref</span> x = <span class="rword">new</span></span> <span class="rword">int</span>(<span class="real">12</span>);<br />
+		</p>
+		To define a constructor for a type, add a member function with the name equal to the class name.		
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -381,7 +396,7 @@ function toggleView(a, b, c)
 	<div class="subtopic">
 		<h4><a name="foreach">3.2.2 for each</a></h4>
 
-		A shorter form of for exists to iterate through all elements of an array or a custom iterator.<br />
+		A shorter form of for exists to iterate through all elements of an array, a custom iterator or a coroutine.<br />
 		<p class="code">
 			<span class="rword">for</span>(<span class="rword">type</span> <span class="var">refName</span> <span class="rword">in</span> <span class="var">expression</span>, <span class="rword">type</span> <span class="var">refNameN</span> <span class="rword">in</span> <span class="var">expressionN</span>)<br />
 			&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">body</span><br />
@@ -394,6 +409,8 @@ function toggleView(a, b, c)
 			&nbsp;&nbsp;&nbsp;&nbsp;sum += x * y;<br />
 			<span class="rword">return</span> sum;<br />
 		</p>
+		It is possible to iterate through all the elements yielded by a <a href="#coroutine">coroutine</a>.<br />
+		But be careful, just like in a <a href="#listcomprehension">list comprehension</a>, a <a href="#return">return</a> expression will stop the iteration, ignoring the result.<br />
 	</div>
 	<div class="subtopic">
 		<h4><a name="foreachiternator">3.2.3 Custom iterator</a></h4>
@@ -422,7 +439,7 @@ function toggleView(a, b, c)
 		</p>
 		Keep in mind that next() function should return <b>current</b> iterator element and move on to the next.<br />
 		<div>
-			<p class="example_head" id="iterator_ex_1a" onmousedown="toggleView(&quot;iterator_ex_1a&quot;, &quot;iterator_ex_1b&quot, &quot;example of an iterator over elements of a single-linked list.&quot;);">Show example of an iterator over elements of a single-linked list.</p>
+			<p class="example_head" id="iterator_ex_1a" onmousedown="toggleView(&quot;iterator_ex_1a&quot;, &quot;iterator_ex_1b&quot;, &quot;example of an iterator over elements of a single-linked list.&quot;);">Show example of an iterator over elements of a single-linked list.</p>
 			<p class="code example_body" id="iterator_ex_1b">
 <span class="comment">// List node class contains element value and a pointer to the next element</span><br />
 <span class="rword">class</span> <span class="rword">list_node</span><br />
@@ -553,7 +570,7 @@ function toggleView(a, b, c)
 			<span class="rword">type</span> name{ <span class="rword">get</span>{ <span class="comment">/* getter body */</span> } <span class="rword">set</span>(value){ <span class="comment">/* setter body */</span> } };<br />
 		</p>
 		<div class="example">
-			<p class="example_head" id="accessor_ex_1a" onmousedown="toggleView(&quot;accessor_ex_1a&quot;, &quot;accessor_ex_1b&quot, &quot;example of a read-only accessor.&quot;);">Show example of a read-only accessor.</p>
+			<p class="example_head" id="accessor_ex_1a" onmousedown="toggleView(&quot;accessor_ex_1a&quot;, &quot;accessor_ex_1b&quot;, &quot;example of a read-only accessor.&quot;);">Show example of a read-only accessor.</p>
 			<p class="code example_body" id="accessor_ex_1b">
 <span class="comment">// Let's create a "sum" accessor to a class consisting of two numbers</span><br />
 <span class="rword">class</span> <span class="rword">NumberPair</span><br />
@@ -569,7 +586,7 @@ function toggleView(a, b, c)
 			</p>
 		</div>
 		<div class="example">
-			<p class="example_head" id="accessor_ex_2a" onmousedown="toggleView(&quot;accessor_ex_2a&quot;, &quot;accessor_ex_2b&quot, &quot;example of a read-write accessor.&quot;);">Show example of a read-write accessor.</p>
+			<p class="example_head" id="accessor_ex_2a" onmousedown="toggleView(&quot;accessor_ex_2a&quot;, &quot;accessor_ex_2b&quot;, &quot;example of a read-write accessor.&quot;);">Show example of a read-write accessor.</p>
 			<p class="code example_body" id="accessor_ex_2b">
 <span class="comment">// Suppose we have a two-component floating point vector and we want to add a possibility for swizzling</span><br />
 <span class="rword">class</span> <span class="rword">vec2</span><br />
@@ -697,7 +714,7 @@ function toggleView(a, b, c)
 		To do so, set the type of the last argument of your function to <span class="rword">auto ref</span>[].<br />
 		All excessive arguments will be packed into the <span class="rword">auto ref</span> array, so an <a href="#auterefcast" title="auto ref type explicit cast">explicit cast</a> is needed to convert it to the type you want.<br />
 		<div class="example">
-			<p class="example_head" id="varargs_ex_1a" onmousedown="toggleView(&quot;varargs_ex_1a&quot;, &quot;varargs_ex_1b&quot, &quot;example of sum of integers using function with variable arguments.&quot;);">Show example of sum of integers using function with variable arguments.</p>
+			<p class="example_head" id="varargs_ex_1a" onmousedown="toggleView(&quot;varargs_ex_1a&quot;, &quot;varargs_ex_1b&quot;, &quot;example of sum of integers using function with variable arguments.&quot;);">Show example of sum of integers using function with variable arguments.</p>
 			<p class="code example_body" id="varargs_ex_1b">
 <span class="comment">// A function that returns sum of all its arguments. Function expects integers.</span><br />
 <span class="rword">int</span> <span class="func">sum</span>(<span class="rword">auto ref</span>[] args)<br />
@@ -713,7 +730,7 @@ function toggleView(a, b, c)
 		</div>
 		Argument type can be found using <span class="func">typeid</span>() function.<br />
 		<div class="example">
-			<p class="example_head" id="varargs_ex_2a" onmousedown="toggleView(&quot;varargs_ex_2a&quot;, &quot;varargs_ex_2b&quot, &quot;example of println function.&quot;);">Show example of println function.</p>
+			<p class="example_head" id="varargs_ex_2a" onmousedown="toggleView(&quot;varargs_ex_2a&quot;, &quot;varargs_ex_2b&quot;, &quot;example of println function.&quot;);">Show example of println function.</p>
 			<p class="code example_body" id="varargs_ex_2b">
 <span class="comment">// Import module that enables output to console.</span><br />
 <span class="rword">import</span> <span class="var">std</span>.<span class="var">io</span>;<br />
@@ -766,7 +783,7 @@ function toggleView(a, b, c)
 		Since locals are removed from stack when function ends, all removed locals used by local function are copied to function object and remain valid.<br />
 
 		<div class="example">
-			<p class="example_head" id="closure_ex_1a" onmousedown="toggleView(&quot;closure_ex_1a&quot;, &quot;closure_ex_1b&quot, &quot;example of closure creation and usage.&quot;);">Show example of closure creation and usage.</p>
+			<p class="example_head" id="closure_ex_1a" onmousedown="toggleView(&quot;closure_ex_1a&quot;, &quot;closure_ex_1b&quot;, &quot;example of closure creation and usage.&quot;);">Show example of closure creation and usage.</p>
 			<p class="code example_body" id="closure_ex_1b">
 <span class="comment">// Import library for text output</span><br />
 <span class="rword">import</span> <span class="var">std</span>.<span class="var">io</span>;<br />
@@ -840,11 +857,81 @@ function toggleView(a, b, c)
 
 		Operator overloading allows user to define operators that work with any type.<br />
 		If operator overloads are placed inside a class or a <a href="#funclocal" title="Local functions">function</a>, they will be visible until the end of a class or the end of a function.<br />
+		<br />
 		Following binary operators can be overloaded:<br />
 		+ - * / % ** < <= << > >= >> == != & | ^ && || ^^ = += -= *= /= **= []<br />
 		For operators = += -= *= /= **= and [], first argument should be a reference to a type, but this is not necessary.<br />
+		<div class="example">
+			<p class="example_head" id="operator_ex_1a" onmousedown="toggleView(&quot;operator_ex_1a&quot;, &quot;operator_ex_1b&quot;, &quot;example of a binary operator overloading.&quot;);">Show example of a binary operator overloading.</p>
+			<p class="code example_body" id="operator_ex_1b">	
+<span class="comment">// a class for complex numbers</span><br />
+<span class="rword">class complex</span><br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">double</span> re, im;<br />
+}<br />
+<span class="comment">// static constructor for complex number</span><br />
+<span class="rword">complex</span> <span class="func">complex</span>(<span class="rword">double</span> re, im = <span class="real">0.0</span>)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">complex</span> res;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">res</span>.<span class="var">re</span> = <span class="var">re</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">res</span>.<span class="var">im</span> = <span class="var">im</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="var">res</span>;<br />
+}<br />
+<span class="comment">// basic operators</span><br />
+<span class="rword">complex operator</span> + (<span class="rword">complex ref</span> a, b)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="func">complex</span>(<span class="var">a</span>.<span class="var">re</span> + <span class="var">b</span>.<span class="var">re</span>, <span class="var">a</span>.<span class="var">im</span> + <span class="var">b</span>.<span class="var">im</span>);<br />
+}<br />
+<span class="rword">complex operator</span> - (<span class="rword">complex ref</span> a, b)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="func">complex</span>(<span class="var">a</span>.<span class="var">re</span> - <span class="var">b</span>.<span class="var">re</span>, <span class="var">a</span>.<span class="var">im</span> - <span class="var">b</span>.<span class="var">im</span>);<br />
+}<br />
+<span class="rword">complex operator</span> * (<span class="rword">complex ref</span> a, b)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="func">complex</span>(<span class="var">a</span>.<span class="var">re</span> * <span class="var">b</span>.<span class="var">re</span> - <span class="var">a</span>.<span class="var">im</span> * <span class="var">b</span>.<span class="var">im</span>, <span class="var">a</span>.<span class="var">im</span> * <span class="var">b</span>.<span class="var">re</span> + <span class="var">a</span>.<span class="var">re</span> * <span class="var">b</span>.<span class="var">im</span>);<br />
+}<br />
+<span class="rword">complex operator</span> / (<span class="rword">complex ref</span> a, b)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">double</span> magn = <span class="var">b</span>.<span class="var">re</span> * <span class="var">b</span>.<span class="var">re</span> + <span class="var">b</span>.<span class="var">im</span> * <span class="var">b</span>.<span class="var">im</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="func">complex</span>((<span class="var">a</span>.<span class="var">re</span> * <span class="var">b</span>.<span class="var">re</span> + <span class="var">a</span>.<span class="var">im</span> * <span class="var">b</span>.<span class="var">im</span>) / <span class="var">magn</span>, (<span class="var">a</span>.<span class="var">im</span> * <span class="var">b</span>.<span class="var">re</span> - <span class="var">a</span>.<span class="var">re</span> * <span class="var">b</span>.<span class="var">im</span>) / <span class="var">magn</span>);<br />
+}<br />
+<span class="comment">// operator test</span><br />
+<span class="rword">complex</span> a = <span class="func">complex</span>(<span class="real">4</span>, <span class="real">3</span>), b = <span class="func">complex</span>(<span class="real">7</span>, <span class="real">3</span>);<br />
+<span class="rword">auto</span> arr = { <span class="var">a</span> + <span class="var">b</span>, <span class="var">a</span> - <span class="var">b</span>, <span class="var">a * <span class="var">b</span>, <span class="var">a</span> / <span class="var">b</span> };<br />
+			</p>
+		</div>
+
 		Following unary operators can be overloaded:<br />
 		+ - ~ !<br />
+		<div class="example">
+			<p class="example_head" id="operator_ex_2a" onmousedown="toggleView(&quot;operator_ex_2a&quot;, &quot;operator_ex_2b&quot;, &quot;example of a unary operator overloading.&quot;);">Show example of a unary operator overloading.</p>
+			<p class="code example_body" id="operator_ex_2b">	
+<span class="comment">// a class for complex numbers</span><br />
+<span class="rword">class complex</span><br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">double</span> re, im;<br />
+}<br />
+<span class="comment">// static constructor for complex number</span><br />
+<span class="rword">complex</span> <span class="func">complex</span>(<span class="rword">double</span> re, im = <span class="real">0.0</span>)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">complex</span> res;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">res</span>.<span class="var">re</span> = <span class="var">re</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">res</span>.<span class="var">im</span> = <span class="var">im</span>;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="var">res</span>;<br />
+}<br />
+<span class="comment">// negate operator overload</span><br />
+<span class="rword">complex operator</span> - (<span class="rword">complex ref</span> a)<br />
+{<br />
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">return</span> <span class="func">complex</span>(-<span class="var">a</span>.<span class="var">re</span>, -<span class="var">a</span>.<span class="var">im</span>);<br />
+}<br />
+<span class="comment">// operator test</span><br />
+<span class="rword">complex</span> a = <span class="func">complex</span>(<span class="real">4</span>, <span class="real">5</span>);<br />
+<span class="rword">complex</span> b = -<span class="var">a</span>;<br />
+<span class="rword">return</span> <span class="var">b</span>.<span class="var">re</span> + <span class="var">b</span>.<span class="var">im</span>; <span class="comment">// -9.0</span><br />
+			</p>
+		</div>
+
+		Function call operator () can be overloaded with arbitrary number of parameters.<br />
 	</div>
 	<hr />
 	<div class="subtopic">
@@ -860,7 +947,7 @@ function toggleView(a, b, c)
 		<br />
 		To implement a coroutine, <span class="rword">coroutine</span> must be written before function return type.<br />
 		<div class="example">
-			<p class="example_head" id="coroutine_ex_1a" onmousedown="toggleView(&quot;coroutine_ex_1a&quot;, &quot;coroutine_ex_1b&quot, &quot;example of an ID generator.&quot;);">Show example of an ID generator.</p>
+			<p class="example_head" id="coroutine_ex_1a" onmousedown="toggleView(&quot;coroutine_ex_1a&quot;, &quot;coroutine_ex_1b&quot;, &quot;example of an ID generator.&quot;);">Show example of an ID generator.</p>
 			<p class="code example_body" id="coroutine_ex_1b">	
 <span class="comment">// coroutine, that returns different integer IDs every time it is called</span><br />
 <span class="rword">coroutine int</span> <span class="func">generate_id</span>()<br />
@@ -879,7 +966,7 @@ function toggleView(a, b, c)
 		</div>
 		
 		<div class="example">
-			<p class="example_head" id="coroutine_ex_2a" onmousedown="toggleView(&quot;coroutine_ex_2a&quot;, &quot;coroutine_ex_2b&quot, &quot;example of a random number generator.&quot;);">Show example of a random number generator.</p>
+			<p class="example_head" id="coroutine_ex_2a" onmousedown="toggleView(&quot;coroutine_ex_2a&quot;, &quot;coroutine_ex_2b&quot;, &quot;example of a random number generator.&quot;);">Show example of a random number generator.</p>
 			<p class="code example_body" id="coroutine_ex_2b">	
 <span class="comment">// coroutine, that returns pseudo-random numbers in a range (0..32767)</span><br />
 <span class="rword">coroutine int</span> <span class="func">rand</span>()<br />
@@ -901,7 +988,7 @@ function toggleView(a, b, c)
 		</div>
 		It is possible to return coroutines as closures, to create generators with extra context.<br />
 		<div class="example">
-			<p class="example_head" id="coroutine_ex_3a" onmousedown="toggleView(&quot;coroutine_ex_3a&quot;, &quot;coroutine_ex_3b&quot, &quot;example of a forward iterator over vector contents.&quot;);">Show example of a forward iterator over vector contents.</p>
+			<p class="example_head" id="coroutine_ex_3a" onmousedown="toggleView(&quot;coroutine_ex_3a&quot;, &quot;coroutine_ex_3b&quot;, &quot;example of a forward iterator over vector contents.&quot;);">Show example of a forward iterator over vector contents.</p>
 			<p class="code example_body" id="coroutine_ex_3b">	
 <span class="rword">import std.vector;</span><br />
 <span class="comment">// Function will return forward iterator over vectors' values</span><br />
@@ -939,7 +1026,7 @@ function toggleView(a, b, c)
 		</div>
 		Using closures, lets rewrite pseudo-random number generator example to support multiple random generators with different seed in parallel.<br />
 		<div class="example">
-			<p class="example_head" id="coroutine_ex_4a" onmousedown="toggleView(&quot;coroutine_ex_4a&quot;, &quot;coroutine_ex_4b&quot, &quot;example of parallel random number generators.&quot;);">Show example of parallel random number generators.</p>
+			<p class="example_head" id="coroutine_ex_4a" onmousedown="toggleView(&quot;coroutine_ex_4a&quot;, &quot;coroutine_ex_4b&quot;, &quot;example of parallel random number generators.&quot;);">Show example of parallel random number generators.</p>
 			<p class="code example_body" id="coroutine_ex_4b">
 <span class="comment">// Function will return pseudo-random number generator with selected starting seed</span><br />
 <span class="rword">auto</span> <span class="func">get_rng</span>(<span class="rword">int</span> seed)<br />
@@ -1009,7 +1096,7 @@ function toggleView(a, b, c)
 	To retrieve target type, you can use <span class="func">typeid</span>() function.<br />
 	When type conversions are made, type checking is performed at run time.<br />
 	<div class="example">
-		<p class="example_head" id="autoref_ex_1a" onmousedown="toggleView(&quot;autoref_ex_1a&quot;, &quot;autoref_ex_1b&quot, &quot;example of various assignments to auto ref type.&quot;);">Show example of various assignments to auto ref type.</p>
+		<p class="example_head" id="autoref_ex_1a" onmousedown="toggleView(&quot;autoref_ex_1a&quot;, &quot;autoref_ex_1b&quot;, &quot;example of various assignments to auto ref type.&quot;);">Show example of various assignments to auto ref type.</p>
 		<p class="code example_body" id="autoref_ex_1b">
 <span class="rword">int</span> x = <span class="real">4</span>;<br />
 <span class="rword">float</span> y = <span class="real">8</span>;<br />
@@ -1022,7 +1109,7 @@ function toggleView(a, b, c)
 	Default reference type constructor makes a successful conversion if <span class="rword">auto ref</span> target type is equal to reference target type.<br />
 	Default constructor of other types makes a successful conversion if type is equal to <span class="rword">auto ref</span> target type.<br />
 	<div class="example">
-		<p class="example_head" id="autoref_ex_2a" onmousedown="toggleView(&quot;autoref_ex_2a&quot;, &quot;autoref_ex_2b&quot, &quot;example of type constructor from auto ref type.&quot;);">Show example of type constructor from auto ref type.</p>
+		<p class="example_head" id="autoref_ex_2a" onmousedown="toggleView(&quot;autoref_ex_2a&quot;, &quot;autoref_ex_2b&quot;, &quot;example of type constructor from auto ref type.&quot;);">Show example of type constructor from auto ref type.</p>
 		<p class="code example_body" id="autoref_ex_2b">
 <span class="rword">int</span> x = <span class="real">4</span>;<br />
 <span class="rword">auto ref</span> z = &<span class="var">x</span>;<br />
@@ -1030,7 +1117,7 @@ function toggleView(a, b, c)
 		</p>
 	</div>
 	<div class="example">
-		<p class="example_head" id="autoref_ex_2ab" onmousedown="toggleView(&quot;autoref_ex_2ab&quot;, &quot;autoref_ex_2bb&quot, &quot;example of reference type constructor from auto ref type.&quot;);">Show example of reference type constructor from auto ref type.</p>
+		<p class="example_head" id="autoref_ex_2ab" onmousedown="toggleView(&quot;autoref_ex_2ab&quot;, &quot;autoref_ex_2bb&quot;, &quot;example of reference type constructor from auto ref type.&quot;);">Show example of reference type constructor from auto ref type.</p>
 		<p class="code example_body" id="autoref_ex_2bb">
 <span class="rword">int</span> <span class="func">negate</span>(<span class="rword">int ref</span> x){ <span class="rword">return</span> -(*<span class="var">x</span>); }<br />
 <span class="rword">int</span> x = <span class="real">4</span>;<br />
@@ -1039,7 +1126,7 @@ function toggleView(a, b, c)
 		</p>
 	</div>
 	<div class="example">
-		<p class="example_head" id="autoref_ex_3a" onmousedown="toggleView(&quot;autoref_ex_3a&quot;, &quot;autoref_ex_3b&quot, &quot;example of custom type constructor from auto ref type.&quot;);">Show example of custom type constructor from auto ref type.</p>
+		<p class="example_head" id="autoref_ex_3a" onmousedown="toggleView(&quot;autoref_ex_3a&quot;, &quot;autoref_ex_3b&quot;, &quot;example of custom type constructor from auto ref type.&quot;);">Show example of custom type constructor from auto ref type.</p>
 		<p class="code example_body" id="autoref_ex_3b">
 <span class="comment">// Define custom constructor from auto ref for float type</span><br />
 <span class="rword">float</span> <span class="func">float</span>(<span class="rword">auto ref</span> x)<br />
@@ -1068,7 +1155,7 @@ function toggleView(a, b, c)
 	or by using dereference operator *.<br />
 	It latter case, right-hand value type must be equal to <span class="rword">auto ref</span> target type and modification-assignment operators cannot be used.<br />
 	<div class="example">
-		<p class="example_head" id="autoref_ex_4a" onmousedown="toggleView(&quot;autoref_ex_4a&quot;, &quot;autoref_ex_4b&quot, &quot;example of value assignment to auto ref type.&quot;);">Show example of value assignment to auto ref type.</p>
+		<p class="example_head" id="autoref_ex_4a" onmousedown="toggleView(&quot;autoref_ex_4a&quot;, &quot;autoref_ex_4b&quot;, &quot;example of value assignment to auto ref type.&quot;);">Show example of value assignment to auto ref type.</p>
 		<p class="code example_body" id="autoref_ex_4b">
 <span class="rword">int</span> x = <span class="real">4</span>;<br />
 <span class="rword">auto ref</span> z = &<span class="var">x</span>;<br />
@@ -1078,7 +1165,7 @@ function toggleView(a, b, c)
 	</div>
 	When <span class="rword">auto ref</span> is used as a function argument, not only pointers, but also value types can be passed through that argument.
 	<div class="example">
-		<p class="example_head" id="autoref_ex_5a" onmousedown="toggleView(&quot;autoref_ex_5a&quot;, &quot;autoref_ex_5b&quot, &quot;example of extra implicit conversions when auto ref is a function argument type.&quot;);">Show example of extra implicit conversions when auto ref is a function argument type.</p>
+		<p class="example_head" id="autoref_ex_5a" onmousedown="toggleView(&quot;autoref_ex_5a&quot;, &quot;autoref_ex_5b&quot;, &quot;example of extra implicit conversions when auto ref is a function argument type.&quot;);">Show example of extra implicit conversions when auto ref is a function argument type.</p>
 		<p class="code example_body" id="autoref_ex_5b">
 <span class="rword">int</span> <span class="func">sum</span>(<span class="rword">auto ref</span> <span class="var">a</span>, <span class="var">b</span>)<br />
 {<br />
@@ -1090,7 +1177,7 @@ function toggleView(a, b, c)
 	</div>
 	When new variable is defined, its value can be taken from <span class="rword">auto ref</span> type if <span class="rword">auto ref</span> target type matches new variable type.<br />
 	<div class="example">
-		<p class="example_head" id="autoref_ex_6a" onmousedown="toggleView(&quot;autoref_ex_6a&quot;, &quot;autoref_ex_6b&quot, &quot;example of conversion between type and auto ref.&quot;);">Show example of conversion between type and auto ref.</p>
+		<p class="example_head" id="autoref_ex_6a" onmousedown="toggleView(&quot;autoref_ex_6a&quot;, &quot;autoref_ex_6b&quot;, &quot;example of conversion between type and auto ref.&quot;);">Show example of conversion between type and auto ref.</p>
 		<p class="code example_body" id="autoref_ex_6b">
 <span class="rword">int</span> x = <span class="real">5</span>;<br />
 <span class="rword">auto ref</span> ptr = &<span class="var">x</span>;<br />
@@ -1105,7 +1192,7 @@ function toggleView(a, b, c)
 		When member function call is made, all member functions with selected name are taken from all classes and the one that fits best is selected.<br />
 		In runtime, function with the same arguments as the selected will be required from <span class="rword">auto ref</span> target type to make a call.<br />
 		<div class="example">
-			<p class="example_head" id="autorefcall_ex_1a" onmousedown="toggleView(&quot;autorefcall_ex_1a&quot;, &quot;autorefcall_ex_1b&quot, &quot;example of member function call through auto ref.&quot;);">Show example of member function call through auto ref.</p>
+			<p class="example_head" id="autorefcall_ex_1a" onmousedown="toggleView(&quot;autorefcall_ex_1a&quot;, &quot;autorefcall_ex_1b&quot;, &quot;example of member function call through auto ref.&quot;);">Show example of member function call through auto ref.</p>
 			<p class="code example_body" id="autorefcall_ex_1b">
 <span class="rword">import</span> std.io;<br />
 <span class="rword">class</span> <span class="rword">A</span><br />
@@ -1192,6 +1279,14 @@ B int 5<br />
 	Strings are enclosed in doublequotes "".<br />
 	Type of string is array of (length + 1) character.<br />
 	Strings are 0-terminated.<br />
+	
+	<div class="subtopic">
+		<h4><a name="unescaped">6.2.1 Unescaped strings</a></h4>
+
+		If a character @ is written before string, the contents of that string will not be escaped.<br />
+		@"\w\\\w" is equal to "\\w\\\\\\w".<br />
+		It is not possible to use a double quote inside an unescaped string literal.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -1205,6 +1300,19 @@ B int 5<br />
 <span class="rword">auto</span> arr1 = { { <span class="real">2</span>, <span class="real">3</span> }, { <span class="real">4</span> }, { <span class="real">7</span>, <span class="real">8</span>, <span class="real">9</span>, <span class="real">10</span> } };<br />
 <span class="rword">auto</span> arr2 = { &quot;<span class="string">Mark</span>&quot;, &quot;<span class="string">Frank</span>&quot;, &quot;<span class="string">Katherine</span>&quot; };
 	</p>
+	
+	<div class="subtopic">
+		<h4><a name="listcomprehension">6.3.1 List comprehension</a></h4>
+
+		List comprehension is a way to generate list with an arbitrary number of elements using an expression with a custom rules.<br />
+		For example, one may generate an array of 32 squared numbers by writing:
+		<p class="code">
+<span class="rword">int</span>[] sq = { <span class="rword">for</span>(i in <span class="func">range</span>(<span class="real">1</span>, <span class="real">32</span>)) <span class="rword">yield</span> i*i; };
+		</p>
+		A list comprehension is an inline array that starts with a <a href="#for">for expression</a>.<br />
+		Every value that is <a href="#yield">yield</a> in a list comprehension is added to the array.<br />
+		Explicit <a href="#return">return expression</a> will stop array element generation and the value returned <b>is ignored</b>.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -1431,7 +1539,7 @@ B int 5<br />
 		If passed objects are not functions, a runtime error occurs.<br />
 		If function types are different, a runtime error occurs.<br />
 		<div class="example">
-			<p class="example_head" id="override_ex1a" onmousedown="toggleView(&quot;override_ex1a&quot;, &quot;override_ex1b&quot, &quot;example of override function usage.&quot;);">Show example of override function usage.</p>
+			<p class="example_head" id="override_ex1a" onmousedown="toggleView(&quot;override_ex1a&quot;, &quot;override_ex1b&quot;, &quot;example of override function usage.&quot;);">Show example of override function usage.</p>
 			<p class="code example_body" id="override_ex1b">
 <span class="rword">import</span> <span class="var">std</span>.<span class="var">dynamic</span>;<br />
 <span class="rword">int</span> x, y;<br />
@@ -1451,7 +1559,7 @@ B int 5<br />
 			</p>
 		</div>
 		<div class="example">
-			<p class="example_head" id="override_ex2a" onmousedown="toggleView(&quot;override_ex2a&quot;, &quot;override_ex2b&quot, &quot;example of override function usage with inline function definition.&quot;);">Show example of override function usage with inline function definition.</p>
+			<p class="example_head" id="override_ex2a" onmousedown="toggleView(&quot;override_ex2a&quot;, &quot;override_ex2b&quot;, &quot;example of override function usage with inline function definition.&quot;);">Show example of override function usage with inline function definition.</p>
 			<p class="code example_body" id="override_ex2b">
 <span class="rword">import</span> <span class="var">std</span>.<span class="var">dynamic</span>;<br />
 <span class="rword">int</span> x, y;<br />
@@ -1476,7 +1584,7 @@ B int 5<br />
 		If first argument is not a function, a runtime error occurs.<br />
 		If code compilation fails, a runtime error occurs.<br />
 		<div class="example">
-			<p class="example_head" id="override_ex3a" onmousedown="toggleView(&quot;override_ex3a&quot;, &quot;override_ex3b&quot, &quot;example of override function usage with inline function definition.&quot;);">Show example of override function usage with inline function definition.</p>
+			<p class="example_head" id="override_ex3a" onmousedown="toggleView(&quot;override_ex3a&quot;, &quot;override_ex3b&quot;, &quot;example of override function usage with inline function definition.&quot;);">Show example of override function usage with inline function definition.</p>
 			<p class="code example_body" id="override_ex3b">
 <span class="rword">import</span> <span class="var">std</span>.<span class="var">dynamic</span>;<br />
 <span class="rword">int</span> x, y;<br />
@@ -1500,7 +1608,7 @@ B int 5<br />
 		Function compiles the code and executes it.<br />
 		If code compilation fails, a runtime error occurs.<br />
 		<div class="example">
-			<p class="example_head" id="eval_ex1a" onmousedown="toggleView(&quot;eval_ex1a&quot;, &quot;eval_ex1b&quot, &quot;example of eval function usage.&quot;);">Show example of eval function usage.</p>
+			<p class="example_head" id="eval_ex1a" onmousedown="toggleView(&quot;eval_ex1a&quot;, &quot;eval_ex1b&quot;, &quot;example of eval function usage.&quot;);">Show example of eval function usage.</p>
 			<p class="code example_body" id="eval_ex1b">
 <span class="rword">import</span> <span class="var">std</span>.<span class="var">dynamic</span>;<br />
 <span class="rword">int</span> x = <span class="real">5</span>;<br />
