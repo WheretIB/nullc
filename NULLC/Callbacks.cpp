@@ -2712,7 +2712,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		CodeInfo::nodeList.pop_back();
 	}
 
-	if(funcAddr && newType)
+	if(funcName && funcAddr && newType)
 	{
 		CodeInfo::nodeList.push_back(funcAddr);
 		funcAddr = NULL;
