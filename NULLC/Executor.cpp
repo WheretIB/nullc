@@ -3,6 +3,22 @@
 
 #include "StdLib.h"
 
+int vmIntPow(int power, int number)
+{
+	int result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
+}
+
 long long vmLongPow(long long num, long long pow)
 {
 	if(pow < 0)
@@ -1268,7 +1284,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr++;
 			break;
 		case cmdPow:
-			*(int*)(genStackPtr+1) = (int)pow((double)*(int*)(genStackPtr+1), (double)*(int*)(genStackPtr));
+			*(int*)(genStackPtr+1) = vmIntPow(*(int*)(genStackPtr), *(int*)(genStackPtr+1));
 			genStackPtr++;
 			break;
 		case cmdMod:

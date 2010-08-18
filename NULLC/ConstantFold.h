@@ -52,7 +52,21 @@ inline int optDoSpecial<>(CmdID cmd, int a, int b)
 		return a / b;
 	}
 	if(cmd == cmdPow)
-		return (int)pow((double)a, (double)b);
+	{
+		int result = 1;
+		int power = (int)b;
+		while(power)
+		{
+			if(power & 1)
+			{
+				result *= a;
+				power--;
+			}
+			a *= a;
+			power >>= 1;
+		}
+		return result;
+	}
 	if(cmd == cmdShl)
 		return a << b;
 	if(cmd == cmdShr)
