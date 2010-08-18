@@ -288,7 +288,7 @@ function toggleView(a, b, c)
 		There is not implicit memory deallocation function, dynamic memory is managed by NULLC and is garbage collected.<br />
 		Garbage collection is aware that some pointers may point to a memory not managed by NULLC (you can pass pointers to your objects safely to NULLC) and will skip those.<br />
 		<br />
-		Some form of explicit management is exposed throught <a href="#std_gc" title="std.gc module">std.gc</a> module.<br />
+		Some form of explicit management is exposed through <a href="#std_gc" title="std.gc module">std.gc</a> module.<br />
 	</div>
 	<div class="subtopic">
 		<h3><a name="constructor">2.4.2 Constructor call</a></h3>
@@ -402,8 +402,8 @@ function toggleView(a, b, c)
 			&nbsp;&nbsp;&nbsp;&nbsp;<span class="var">body</span><br />
 		</p>
 		<span class="rword">type</span> name is optional and should be used when iterator return type is <a href="#autoref" title="auto ref type"><span class="rword">auto ref</span></a>, to convert it to selected type.<br />
-		If more that one iterator is specified, loop will terminate when one of the iterators reaches its end.<br />
-		For example, return value of the folowing code is 14 (1 * 4 + 2 * 5):
+		If more than one iterator is specified, loop will terminate when one of the iterators reaches its end.<br />
+		For example, return value of the following code is 14 (1 * 4 + 2 * 5):
 		<p class="code"><span class="rword">int</span> sum = 0;<br />
 			<span class="rword">for</span>(x <span class="rword">in</span> {1, 2, 3}, y <span class="rword">in</span> {4, 5})<br />
 			&nbsp;&nbsp;&nbsp;&nbsp;sum += x * y;<br />
@@ -1269,14 +1269,14 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="characters">6.1 Characters</a></h3>
 
-	Characters are eclosed in single quotes ''.<br />
-	No more that one character can be inside quotes (after processing <a href="#escapeseq" title="Escape sequences">escape sequences</a>).<br />
+	Characters are enclosed in single quotes ''.<br />
+	No more than one character can be inside quotes (after processing <a href="#escapeseq" title="Escape sequences">escape sequences</a>).<br />
 </div>
 <hr />
 <div class="topic">
 	<h3><a name="strings">6.2 Strings</a></h3>
 
-	Strings are enclosed in doublequotes "".<br />
+	Strings are enclosed in double quotes "".<br />
 	Type of string is array of (length + 1) character.<br />
 	Strings are 0-terminated.<br />
 	
@@ -1360,7 +1360,7 @@ B int 5<br />
 	<h3><a name="nullptr">6.8 Null pointer</a></h3>
 
 	<span class="rword">nullptr</span> acts as a constant of null pointer.<br />
-	<span class="rword">nullptr</span> can be asigned to any pointer of array with implicit size.<br />
+	<span class="rword">nullptr</span> can be assigned to any pointer of array with implicit size.<br />
 </div>
 <hr />
 
