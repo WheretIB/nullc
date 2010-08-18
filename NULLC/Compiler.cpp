@@ -196,7 +196,8 @@ typedef auto[] auto_array;\r\n\
 void auto_array:set(auto ref x, int pos);\r\n\
 void __force_size(int ref s, int size){ assert(size <= *s, \"ERROR: cannot extend array\"); *s = size; }\r\n\
 \r\n\
-int isCoroutineReset(auto ref f);";
+int isCoroutineReset(auto ref f);\r\n\
+void __assertCoroutine(auto ref f);";
 
 Compiler::Compiler()
 {
@@ -331,6 +332,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArraySet, "auto[]::set", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::IsCoroutineReset, "isCoroutineReset", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::AssertCoroutine, "__assertCoroutine", 0);
 #endif
 }
 
@@ -699,6 +701,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			}
 			printf(")\r\n");
 #endif
+		}else if(CodeInfo::funcInfo[index]->name[0] == '$'){
+			CodeInfo::funcInfo.push_back(CodeInfo::funcInfo[index]);
 		}else{
 			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined. While importing %s", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName(), pos);
 			CodeInfo::lastError.Init(errBuf, NULL);

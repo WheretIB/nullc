@@ -772,3 +772,12 @@ int NULLC::IsCoroutineReset(NULLCRef f)
 	}
 	return !**(int**)fPtr->context;
 }
+
+void NULLC::AssertCoroutine(NULLCRef f)
+{
+	if(linker->exTypes[f.typeID].subCat != ExternTypeInfo::CAT_FUNCTION)
+		nullcThrowError("Argument is not a function");
+	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
+	if(linker->exFunctions[fPtr->id].funcCat != ExternFuncInfo::COROUTINE)
+		nullcThrowError("ERROR: function is not a coroutine");
+}

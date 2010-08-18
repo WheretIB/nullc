@@ -68,4 +68,5 @@ namespace NULLC
 	void			AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr);
 
 	int	IsCoroutineReset(NULLCRef f);
+	void AssertCoroutine(NULLCRef f);
 }
