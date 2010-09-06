@@ -215,12 +215,25 @@ void	RunTests(bool verbose)
 	testsPassed[1] = 0;
 	testsCount[1] = 0;
 #endif
-	printf("Failure tests: passed %d of %d tests\r\n", testsPassed[2], testsCount[2]);
-	printf("Extra tests: passed %d of %d tests\r\n", testsPassed[3], testsCount[3]);
-#ifdef NULLC_ENABLE_C_TRANSLATION
-	printf("Translation tests: passed %d of %d tests\r\n", testsPassed[4], testsCount[4]);
+#ifdef NULLC_LLVM_SUPPORT
+	printf("LLVM passed %d of %d tests\r\n", testsPassed[2], testsCount[2]);
+#else
+	testsPassed[2] = 0;
+	testsCount[2] = 0;
 #endif
-	printf("Passed %d of %d tests\r\n", testsPassed[0]+testsPassed[1]+testsPassed[2]+testsPassed[3], testsCount[0]+testsCount[1]+testsCount[2]+testsCount[3]);
+	printf("Failure tests: passed %d of %d tests\r\n", testsPassed[TEST_FAILURE_INDEX], testsCount[TEST_FAILURE_INDEX]);
+	printf("Extra tests: passed %d of %d tests\r\n", testsPassed[TEST_EXTRA_INDEX], testsCount[TEST_EXTRA_INDEX]);
+#ifdef NULLC_ENABLE_C_TRANSLATION
+	printf("Translation tests: passed %d of %d tests\r\n", testsPassed[TEST_TRANSLATION_INDEX], testsCount[TEST_TRANSLATION_INDEX]);
+#endif
+	unsigned allTests = 0;
+	unsigned allPassed = 0;
+	for(unsigned i = 0; i < 6; i++)
+	{
+		allTests += testsCount[i];
+		allPassed += testsPassed[i];
+	}
+	printf("Passed %d of %d tests\r\n", allPassed, allTests);
 
 	printf("Compilation time: %f\r\n", Tests::timeCompile);
 	printf("Get listing time: %f\r\n", Tests::timeGetListing);

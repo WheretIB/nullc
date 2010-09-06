@@ -11,9 +11,9 @@
 TestQueue* TestQueue::head = NULL;
 TestQueue* TestQueue::tail = NULL;
 
-int testsPassed[] = { 0, 0, 0, 0, 0 };
-int testsCount[] = { 0, 0, 0, 0, 0 };
-unsigned int	testTarget[] = { NULLC_VM, NULLC_X86 };
+int testsPassed[] = { 0, 0, 0, 0, 0, 0 };
+int testsCount[] = { 0, 0, 0, 0, 0, 0 };
+unsigned int	testTarget[] = { NULLC_VM, NULLC_X86, NULLC_LLVM };
 
 namespace Tests
 {
@@ -33,6 +33,20 @@ namespace Tests
 	const char		*symbols = NULL;
 
 	bool doTranslation = true;
+
+	bool	testExecutor[3] = {
+		true,
+#ifdef NULLC_BUILD_X86_JIT
+		true,
+#else
+		false,
+#endif
+#ifdef NULLC_LLVM_SUPPORT
+		true
+#else
+		false
+#endif
+	};
 }
 
 void*	Tests::FindVar(const char* name)
@@ -58,7 +72,7 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 	nullcSetExecutor(executor);
 
 	char buf[256];
-	sprintf(buf, "%s", executor == NULLC_VM ? "VM " : "X86");
+	sprintf(buf, "%s", executor == NULLC_VM ? "VM " : executor == NULLC_X86 ? "X86" : "LLVM");
 
 	double time = myGetPreciseTime();
 	nullres good = nullcCompile(code);
@@ -148,7 +162,7 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	if(executor == NULLC_X86 && doTranslation)
 	{
-		testCount[4]++;
+		testsCount[TEST_TRANSLATION_INDEX]++;
 		nullcTranslateToC("1test.cpp", "main");
 
 		STARTUPINFO stInfo;
@@ -264,7 +278,7 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 					printf("%s\n", message);
 				printf("C++: failed, expected %s, got %d\r\n", expected, retCode);
 			}else{
-				passed[4]++;
+				testsPassed[TEST_TRANSLATION_INDEX]++;
 			}
 			CloseHandle(prInfo.hProcess);
 			CloseHandle(prInfo.hThread);
