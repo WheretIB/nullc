@@ -4,7 +4,7 @@
 
 void RunInterfaceTests()
 {
-	unsigned int	testTarget[] = { NULLC_VM, NULLC_X86 };
+	unsigned int	testTarget[] = { NULLC_VM, NULLC_X86, NULLC_LLVM };
 
 	if(Tests::messageVerbose)
 		printf("Two bytecode merge test 1\r\n");
