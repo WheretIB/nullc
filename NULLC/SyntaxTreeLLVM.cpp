@@ -29,6 +29,7 @@
 #include "llvm/Transforms/IPO.h"
 
 #include "llvm/Support/TypeBuilder.h"
+#include "llvm/Support/ManagedStatic.h"
 
 #include <cstdio>
 #include <string>
@@ -123,6 +124,23 @@ long long llvmLongMod(long long a, long long b)
 	return b % a;
 }
 
+std::vector<void*> memBlocks;
+
+void* llvmNewS(int size, void*)
+{
+	memBlocks.push_back(malloc(size));
+	return memBlocks.back();
+}
+
+NULLCArray llvmNewA(int size, int count, void*)
+{
+	NULLCArray ret;
+	ret.len = count;
+	memBlocks.push_back(malloc(size * count));
+	ret.ptr = (char*)memBlocks.back();
+	return ret;
+}
+
 void* funcCreator(const std::string& name)
 {
 	if(name == "llvmIntPow")
@@ -135,6 +153,10 @@ void* funcCreator(const std::string& name)
 		return llvmLongMod;
 	if(name == "__divdi3")
 		return llvmLongDiv;
+	if(name == "__newS")
+		return llvmNewS;
+	if(name == "__newA")
+		return llvmNewA;
 	return NULL;
 }
 
@@ -168,7 +190,6 @@ void		StartLLVMGeneration()
 	// Promote allocas to registers.
 	OurFPM->add(createPromoteMemoryToRegisterPass());
 
-	
 	// Do simple "peephole" optimizations and bit-twiddling optzns.
 	OurFPM->add(createInstructionCombiningPass());
 	// Reassociate expressions.
@@ -184,6 +205,8 @@ void		StartLLVMGeneration()
 
 	OurFPM->doInitialization();
 
+	//OurFPM->doFinalization();
+
 	// Generate types
 	typeVoid->llvmType = Type::getVoidTy(getGlobalContext());
 	typeChar->llvmType = Type::getInt8Ty(getGlobalContext());
@@ -196,46 +219,83 @@ void		StartLLVMGeneration()
 	typeTypeid->llvmType = typeInt->llvmType;//StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, (Type*)NULL);
 	typeAutoArray->llvmType = StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, Type::getInt8PtrTy(getGlobalContext()), (Type*)typeInt->llvmType, (Type*)NULL);
 	std::vector<const Type*> typeList;
+	// Construct abstract types for all classes
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
+		TypeInfo *type = CodeInfo::typeInfo[i];
+		if(type->llvmType || type->arrLevel || type->refLevel || type->funcType)
+			continue;
+		type->llvmType = llvm::OpaqueType::get(getGlobalContext());
+	}
+	PATypeHolder *holders = (PATypeHolder*)new char[sizeof(PATypeHolder) * CodeInfo::typeInfo.size()];//PATypeHolder[CodeInfo::typeInfo.size()];
+	memset(holders, 0, sizeof(PATypeHolder) * CodeInfo::typeInfo.size());
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		if(CodeInfo::typeInfo[i]->llvmType)
 			continue;
 		TypeInfo *type = CodeInfo::typeInfo[i];
-		//printf("%s\n", type->GetFullTypeName());
+		llvm::Type *subType = type->subType ? (type->subType->llvmType ? (Type*)type->subType->llvmType : holders[type->subType->typeIndex].get()) : NULL;
+		//printf("Adding %s\n", type->GetFullTypeName());
 		if(type->arrLevel && type->arrSize != TypeInfo::UNSIZED_ARRAY)
 		{
-			if(!type->subType->llvmType)
-				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: StartLLVMGeneration type->arrLevel 1 !type->subType->llvmType");
+			assert(subType);
 			unsigned size = type->subType->size * type->arrSize;
 			size = (size + 3) & ~3;
-			type->llvmType = ArrayType::get((Type*)type->subType->llvmType, type->subType->size ? size / type->subType->size : type->arrSize);
+			new(&holders[i]) PATypeHolder(ArrayType::get(subType, type->subType->size ? size / type->subType->size : type->arrSize));
 		}else if(type->arrLevel && type->arrSize == TypeInfo::UNSIZED_ARRAY){
-			if(!type->subType->llvmType)
-				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: StartLLVMGeneration type->arrLevel 2 !type->subType->llvmType");
-			type->llvmType = StructType::get(getGlobalContext(), PointerType::getUnqual((Type*)type->subType->llvmType), Type::getInt32Ty(getGlobalContext()), (Type*)NULL);
+			assert(subType);
+			new(&holders[i]) PATypeHolder(StructType::get(getGlobalContext(), PointerType::getUnqual(subType), Type::getInt32Ty(getGlobalContext()), (Type*)NULL));
 		}else if(type->refLevel){
-			if(!type->subType->llvmType)
-				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: StartLLVMGeneration type->refLevel !type->subType->llvmType");
-			type->llvmType = type->subType == typeVoid ? Type::getInt8PtrTy(getGlobalContext()) : PointerType::getUnqual((Type*)type->subType->llvmType);
+			assert(subType);
+			new(&holders[i]) PATypeHolder(type->subType == typeVoid ? Type::getInt8PtrTy(getGlobalContext()) : PointerType::getUnqual(subType));
 		}else if(type->funcType){
 			typeList.clear();
 			for(unsigned int k = 0; k < type->funcType->paramCount; k++)
-				typeList.push_back((Type*)type->funcType->paramType[k]->llvmType);
-			typeList.push_back(Type::getInt8PtrTy(getGlobalContext()));
-			Type *functionType = llvm::FunctionType::get((Type*)type->funcType->retType->llvmType, typeList, false);
-			//type->llvmType = StructType::get(getGlobalContext(), PointerType::getUnqual(functionType), Type::getInt32Ty(getGlobalContext()), (Type*)NULL);
-			type->llvmType = StructType::get(getGlobalContext(), Type::getInt8PtrTy(getGlobalContext()), PointerType::getUnqual(functionType), (Type*)NULL);
-		}else{
-			typeList.clear();
-			for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 			{
-				if(!curr->type->llvmType)
-					ThrowError(CodeInfo::lastKnownStartPos, "ERROR: StartLLVMGeneration !curr->type->llvmType");
-				typeList.push_back((Type*)curr->type->llvmType);
+				TypeInfo *argTypeInfo = type->funcType->paramType[k];
+				llvm::Type *argType = argTypeInfo->llvmType ? (Type*)argTypeInfo->llvmType : holders[argTypeInfo->typeIndex].get();
+				assert(argType);
+				typeList.push_back(argType);
 			}
-			type->llvmType = StructType::get(getGlobalContext(), typeList);
+			typeList.push_back(Type::getInt8PtrTy(getGlobalContext()));
+			llvm::Type *retType = type->funcType->retType->llvmType ? (Type*)type->funcType->retType->llvmType : holders[type->funcType->retType->typeIndex].get();
+			assert(retType);
+			Type *functionType = llvm::FunctionType::get(retType, typeList, false);
+			new(&holders[i]) PATypeHolder(StructType::get(getGlobalContext(), Type::getInt8PtrTy(getGlobalContext()), PointerType::getUnqual(functionType), (Type*)NULL));
 		}
 	}
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
+		TypeInfo *type = CodeInfo::typeInfo[i];
+		if(type->arrLevel || type->refLevel || type->funcType || type->type != TypeInfo::TYPE_COMPLEX || type == typeObject || type == typeTypeid || type == typeAutoArray)
+			continue;
+
+		//printf("Refining type %s\n", type->GetFullTypeName());
+
+		PATypeHolder StructTy = (llvm::Type*)type->llvmType;
+
+		typeList.clear();
+		for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
+		{
+			if(!curr->type->llvmType)
+				typeList.push_back((Type*)holders[curr->type->typeIndex].get());
+			else
+				typeList.push_back((Type*)curr->type->llvmType);
+		}
+		StructType *newType = StructType::get(getGlobalContext(), typeList);
+		cast<OpaqueType>(StructTy.get())->refineAbstractTypeTo(newType);
+		type->llvmType = cast<StructType>(StructTy.get());
+	}
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
+		TypeInfo *type = CodeInfo::typeInfo[i];
+		if(!type->llvmType)
+			type->llvmType = holders[i].get();
+		/*printf("Assigning name %s to ", type->GetFullTypeName());
+		((Type*)type->llvmType)->dump();
+		TheModule->addTypeName(type->GetFullTypeName(), (Type*)type->llvmType);*/
+	}
+	delete[] (char*)holders;
 
 	// Generate global variables
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
@@ -250,8 +310,21 @@ void		StartLLVMGeneration()
 	Function::Create(TypeBuilder<types::i<64>(types::i<64>, types::i<64>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmLongPow", TheModule);
 	Function::Create(TypeBuilder<types::ieee_double(types::ieee_double, types::ieee_double), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmDoublePow", TheModule);
 
+	Function::Create(TypeBuilder<types::i<32>*(types::i<32>, types::i<32>*), true>::get(getGlobalContext()), Function::ExternalLinkage, "__newS", TheModule);
+
+	std::vector<const llvm::Type*> newAParams;
+	newAParams.push_back(Type::getInt32Ty(getGlobalContext()));
+	newAParams.push_back(Type::getInt32Ty(getGlobalContext()));
+	newAParams.push_back(Type::getInt32PtrTy(getGlobalContext()));
+	llvm::FunctionType *FT = llvm::FunctionType::get(StructType::get(getGlobalContext(), Type::getInt8PtrTy(getGlobalContext()), Type::getInt32Ty(getGlobalContext()), (Type*)NULL), newAParams, false);
+	Function::Create(FT, Function::ExternalLinkage, "__newA", TheModule);
+	
 	breakStack.clear();
 	continueStack.clear();
+
+	for(std::vector<void*>::iterator c = memBlocks.begin(), e = memBlocks.end(); c != e; c++)
+		free(*c);
+	memBlocks.clear();
 }
 
 struct my_stream : public llvm::raw_ostream
@@ -266,8 +339,8 @@ struct my_stream : public llvm::raw_ostream
 	}
 };
 
-#define DUMP(x) x->dump()
-//#define DUMP(x) x
+//#define DUMP(x) x->dump()
+#define DUMP(x) x
 
 BasicBlock *globalExit = NULL;
 
@@ -328,6 +401,9 @@ const char*	GetLLVMIR()
 		start = clock();
 		int (*FP)() = (int (*)())(intptr_t)FPtr;
 		printf("Evaluated to %d (verification %d; compilation %d; execution %d)\n", FP(), verified, compiled, clock() - start);
+		for(std::vector<void*>::iterator c = memBlocks.begin(), e = memBlocks.end(); c != e; c++)
+			free(*c);
+		memBlocks.clear();
 	}
 
 	return NULL;
@@ -335,23 +411,32 @@ const char*	GetLLVMIR()
 llvm::Value *V;
 
 
-
 void	EndLLVMGeneration()
 {
+	//delete llvm::getPassRegistrar();
 	//for(unsigned int i = 0; i < globals.size(); i++)
 	//	delete globals[i];
 	//globals.clear();
-	delete OurFPM;
-	OurFPM = NULL;
+	/*for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+		if(((llvm::Type*)CodeInfo::typeInfo[i]->llvmType)->isAbstract())
+			((llvm::Type*)CodeInfo::typeInfo[i]->llvmType)->dropRef();*/
+
+	//TheExecutionEngine->~ExecutionEngine();
 	delete OurPM;
 	OurPM = NULL;
+	delete OurFPM;
+	OurFPM = NULL;
 	V = NULL;
 	F = NULL;
 	delete TheModule;
 	TheModule = NULL;
+
+	//llvm::getGlobalContext().~LLVMContext();
+	//Builder.~IRBuilder();
 	//for(unsigned int i = 0; i < globals.size(); i++)
 	//	delete globals[i];
 	//globals.clear();
+//	llvm_shutdown();
 }
 
 Value*	PromoteToStackType(Value *V, TypeInfo *type)
@@ -405,23 +490,12 @@ Value*	ConvertFirstForSecond(Value *V, TypeInfo *firstType, TypeInfo *secondType
 	asmDataType	fDT = firstType->dataType, sDT = secondType->dataType;
 	asmStackType first = stackTypeForDataType(fDT), second = stackTypeForDataType(sDT);
 	if(first == STYPE_INT && second == STYPE_DOUBLE)
-		return Builder.CreateSIToFP(V, /*(Type*)secondType->llvmType*/Type::getDoubleTy(getGlobalContext()), "tmp_itod");
+		return Builder.CreateSIToFP(V, Type::getDoubleTy(getGlobalContext()), "tmp_itod");
 	if(first == STYPE_LONG && second == STYPE_DOUBLE)
-		return Builder.CreateSIToFP(V, /*(Type*)secondType->llvmType*/Type::getDoubleTy(getGlobalContext()), "tmp_ltod");
+		return Builder.CreateSIToFP(V, Type::getDoubleTy(getGlobalContext()), "tmp_ltod");
 	if(first == STYPE_INT && second == STYPE_LONG)
-		return Builder.CreateIntCast(V, /*(Type*)secondType->llvmType*/Type::getInt64Ty(getGlobalContext()), true, "tmp_itol");
+		return Builder.CreateIntCast(V, Type::getInt64Ty(getGlobalContext()), true, "tmp_itol");
 
-	/*if(fDT == DTYPE_CHAR || fDT == DTYPE_SHORT || fDT == DTYPE_FLOAT)
-		assert(!"unsupported fDT");
-	if(sDT == DTYPE_CHAR || sDT == DTYPE_SHORT || sDT == DTYPE_FLOAT)
-		assert(!"unsupported sDT");*/
-	/*if(fDT != sDT)
-	{
-		if(fDT == DTYPE_FLOAT)
-			return Builder.CreateFPCast(V, Type::getDoubleTy(getGlobalContext()), "tmp_ftod");
-		if(fDT == DTYPE_CHAR || fDT == DTYPE_SHORT)
-			return Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "tmp_sx");
-	}*/
 	return V;
 }
 
@@ -488,10 +562,16 @@ void NodeReturnOp::CompileLLVM()
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp !typeInfo && first->typeInfo != typeInt");
 	Builder.CreateRet(V);
 
+	if(parentFunction && parentFunction->closeUpvals)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp upvalues unsupported");
+	// If return is from coroutine, we either need to reset jumpOffset to the beginning of a function, or set it to instruction after return
+	if(parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp yield unsupported");
+	
 	//BasicBlock *afterReturn = BasicBlock::Create(getGlobalContext(), "afterReturn", F);
 	//Builder.SetInsertPoint(afterReturn);
 
-	//Builder.CreateRetVoid();
+	//Builder.CreateRetVoid();*/
 }
 
 // CreateEntryBlockAlloca - Create an alloca instruction in the entry block of the function.  This is used for mutable variables etc.
@@ -691,6 +771,29 @@ void NodeFuncCall::CompileLLVM()
 		Builder.CreateCall(CalleeF, args.begin(), args.end());
 		V = NULL;
 	}
+	if(funcInfo && funcInfo->nameHash == GetStringHash("__newA"))
+	{
+		DUMP(V->getType());
+		DUMP(((Type*)typeInfo->llvmType));
+
+		Value *arrTemp = CreateEntryBlockAlloca(F, "newa_tmp", V->getType());
+		DUMP(arrTemp->getType());
+		Builder.CreateStore(V, arrTemp);
+
+		DUMP(arrTemp->getType());
+		DUMP(((Type*)typeInfo->llvmType));
+
+		V = Builder.CreatePointerCast(arrTemp, PointerType::getUnqual((Type*)typeInfo->llvmType), "newa_rescast");
+		DUMP(V->getType());
+		V = Builder.CreateLoad(V, "newa_load");
+		DUMP(V->getType());
+	}
+	if(funcInfo && funcInfo->nameHash == GetStringHash("__newS"))
+	{
+		DUMP(V->getType());
+		DUMP(((Type*)typeInfo->llvmType));
+		V = Builder.CreatePointerCast(V, (Type*)typeInfo->llvmType, "news_rescast");
+	}
 }
 
 void NodeUnaryOp::CompileLLVM()
@@ -753,7 +856,6 @@ void NodeGetAddress::CompileLLVM()
 
 	if(!varInfo)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeGetAddress varInfo = NULL");
-	///*GetElementPtrInst *inst = */V = GetElementPtrInst::Create(NamedValues[varInfo->nameHash], NULL, "tmp_ptr");
 	//Builder.CreateIntToPtr
 	V = (Value*)varInfo->llvmValue;//NamedValues[varInfo->nameHash];//Builder.CreateGEP(NamedValues[varInfo->nameHash], ConstantInt::get(Type::getInt32Ty(getGlobalContext()), APInt(32, 0)), "tmp_ptr");
 }
@@ -1156,16 +1258,21 @@ void NodePreOrPostOp::CompileLLVM()
 	first->CompileLLVM();
 	Value *address = V;
 
+	DUMP(address->getType());
+
 	if(prefixOp)
 	{
 		// ++x
 		V = Builder.CreateLoad(address, "incdecpre_tmp");
+		DUMP(V->getType());
+		//DUMP(V->getType());
 		Value *mod = Builder.CreateAdd(V, ConvertFirstToSecond(ConstantInt::get(getGlobalContext(), APInt(32, incOp ? 1 : -1, true)), typeInt, typeInfo), "incdecpost_res");
 		Builder.CreateStore(mod, address);
 		V = mod;
 	}else{
 		// x++
 		V = Builder.CreateLoad(address, "incdecpre_tmp");
+		DUMP(V->getType());
 		Value *mod = Builder.CreateAdd(V, ConvertFirstToSecond(ConstantInt::get(getGlobalContext(), APInt(32, incOp ? 1 : -1, true)), typeInt, typeInfo), "incdecpost_res");
 		Builder.CreateStore(mod, address);
 	}
@@ -1377,7 +1484,7 @@ void NodeFunctionAddress::CompileLLVM()
 
 	V = Builder.CreateLoad(aggr, "func_res");
 	DUMP(V->getType());
-	//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFunctionAddress");
+	//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFunctionAddress");*/
 }
 
 void NodeGetUpvalue::CompileLLVM()
