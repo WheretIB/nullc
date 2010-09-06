@@ -182,7 +182,7 @@ void		StartLLVMGeneration()
 	typeFloat->llvmType = Type::getFloatTy(getGlobalContext());
 	typeDouble->llvmType = Type::getDoubleTy(getGlobalContext());
 	typeObject->llvmType = StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, Type::getInt8PtrTy(getGlobalContext()), (Type*)NULL);
-	typeTypeid->llvmType = StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, (Type*)NULL);
+	typeTypeid->llvmType = typeInt->llvmType;//StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, (Type*)NULL);
 	typeAutoArray->llvmType = StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, Type::getInt8PtrTy(getGlobalContext()), (Type*)typeInt->llvmType, (Type*)NULL);
 	std::vector<const Type*> typeList;
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
@@ -408,10 +408,16 @@ void NodeNumber::CompileLLVM()
 		V = ConstantInt::get(getGlobalContext(), APInt(16, num.integer, true));
 		break;
 	case DTYPE_INT:
-		V = ConstantInt::get(getGlobalContext(), APInt(32, num.integer, true));
+		if(typeInfo->refLevel && num.integer == 0)
+			V = ConstantPointerNull::get((PointerType*)typeInfo->llvmType);
+		else
+			V = ConstantInt::get(getGlobalContext(), APInt(32, num.integer, true));
 		break;
 	case DTYPE_LONG:
-		V = ConstantInt::get(getGlobalContext(), APInt(64, num.integer64, true));
+		if(typeInfo->refLevel && num.integer64 == 0)
+			V = ConstantPointerNull::get((PointerType*)typeInfo->llvmType);
+		else
+			V = ConstantInt::get(getGlobalContext(), APInt(64, num.integer64, true));
 		break;
 	case DTYPE_FLOAT:
 		V = ConstantFP::get(getGlobalContext(), APFloat((float)num.real));
@@ -596,6 +602,21 @@ void NodeUnaryOp::CompileLLVM()
 
 	// Child node computes value to V
 	first->CompileLLVM();
+	if(first->typeInfo == typeObject)
+	{
+		DUMP(V->getType());
+		Value *aggr = CreateEntryBlockAlloca(F, "ref_tmp", (Type*)typeObject->llvmType);
+		Builder.CreateStore(V, aggr);
+		DUMP(aggr->getType());
+		V = Builder.CreateStructGEP(aggr, 1, "tmp_ptr");
+		DUMP(V->getType());
+		V = Builder.CreateLoad(V, "tmp_ptr");
+		DUMP(V->getType());
+		V = Builder.CreatePtrToInt(V, (Type*)typeInt->llvmType, "as_int");
+		DUMP(V->getType());
+		id = cmdLogNot;
+		//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
+	}
 	switch(id)
 	{
 	case cmdNeg:
@@ -1098,6 +1119,33 @@ void NodeSwitchExpr::CompileLLVM()
 	CompileLLVMExtra();
 
 	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeSwitchExpr");
+}
+
+void NodeConvertPtr::CompileLLVM()
+{
+	CompileLLVMExtra();
+
+	if(typeInfo == typeTypeid)
+	{
+		V = ConstantInt::get((Type*)typeInt->llvmType, APInt(32, first->typeInfo->subType->typeIndex));
+	}else if(typeInfo == typeObject){
+		first->CompileLLVM();
+		DUMP(V->getType());
+		Value *ptr = Builder.CreatePointerCast(V, Type::getInt8PtrTy(getGlobalContext()), "ptr_cast");
+		DUMP(ptr->getType());
+		// Allocate space for auto ref
+		Value *aggr = CreateEntryBlockAlloca(F, "tmp_autoref", (Type*)typeObject->llvmType);
+		DUMP(aggr->getType());
+		V = Builder.CreateStructGEP(aggr, 0, "tmp_arr");
+		DUMP(V->getType());
+		Builder.CreateStore(ConstantInt::get((Type*)typeInt->llvmType, APInt(32, first->typeInfo->subType->typeIndex)), V);
+		V = Builder.CreateStructGEP(aggr, 1, "tmp_arr");
+		DUMP(V->getType());
+		Builder.CreateStore(ptr, V);
+		V = Builder.CreateLoad(aggr, "autoref");
+	}else{
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeConvertPtr auto ref -> type ref unsupported");
+	}
 }
 
 #endif
