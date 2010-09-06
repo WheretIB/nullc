@@ -32,6 +32,11 @@ void Linker::CleanCode()
 	exSource.clear();
 	exCloseLists.clear();
 
+#ifdef NULLC_LLVM_SUPPORT
+	llvmModuleSizes.clear();
+	llvmModuleCodes.clear();
+#endif
+
 	jumpTargets.clear();
 
 	functionAddress.clear();
@@ -449,6 +454,13 @@ bool Linker::LinkCode(const char *code)
 #endif
 		}
 	}
+
+#ifdef NULLC_LLVM_SUPPORT
+	unsigned llvmOldSize = llvmModuleCodes.size();
+	llvmModuleSizes.push_back(bCode->llvmSize);
+	llvmModuleCodes.resize(llvmModuleCodes.size() + llvmModuleSizes.back());
+	memcpy(&llvmModuleCodes[llvmOldSize], ((char*)bCode) + bCode->llvmOffset, bCode->llvmSize);
+#endif
 
 #ifdef VERBOSE_DEBUG_OUTPUT
 	unsigned int size = 0;

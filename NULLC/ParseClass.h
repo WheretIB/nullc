@@ -83,6 +83,10 @@ public:
 		childAlias = NULL;
 
 		definitionDepth = 1;
+
+#ifdef NULLC_LLVM_SUPPORT
+		llvmType = NULL;
+#endif
 	}
 
 	const char		*name;	// base type name
@@ -117,6 +121,10 @@ public:
 	TypeInfo		*refType, *unsizedType, *arrayType, *nextArrayType;
 
 	AliasInfo		*childAlias;
+
+#ifdef NULLC_LLVM_SUPPORT
+	const void		*llvmType;
+#endif
 
 	const char*		GetFullTypeName()
 	{
@@ -338,6 +346,10 @@ public:
 		defaultValue = NULL;
 		defaultValueFuncID = ~0u;
 		next = prev = NULL;
+
+#ifdef NULLC_LLVM_SUPPORT
+		llvmValue = NULL;
+#endif
 	}
 
 	InplaceStr		name;		// Variable name
@@ -356,6 +368,10 @@ public:
 	unsigned int	defaultValueFuncID;
 
 	VariableInfo	*next, *prev;		// For self-organizing lists
+
+#ifdef NULLC_LLVM_SUPPORT
+	void	*llvmValue;
+#endif
 
 // Specialized allocation
 	void*		operator new(size_t size)
@@ -419,6 +435,10 @@ public:
 		childAlias = NULL;
 #ifdef NULLC_ENABLE_C_TRANSLATION
 		yieldCount = 0;
+#endif
+#ifdef NULLC_LLVM_SUPPORT
+		llvmFunction = NULL;
+		llvmImplemented = false;
 #endif
 	}
 
@@ -514,6 +534,11 @@ public:
 	TypeInfo	*funcType;				// Function type
 
 	AliasInfo	*childAlias;
+
+#ifdef NULLC_LLVM_SUPPORT
+	void		*llvmFunction;
+	bool		llvmImplemented;
+#endif
 
 	const char*	GetOperatorName()
 	{
