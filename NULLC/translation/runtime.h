@@ -67,6 +67,17 @@ typedef struct
 #define NULLC_POINTER 3
 #define NULLC_FUNCTION 4
 
+namespace FunctionCategory
+{
+	enum placeholder
+	{
+		NORMAL,
+		LOCAL,
+		THISCALL,
+		COROUTINE
+	};
+};
+
 template<typename T>
 inline NULLCArray<T> __makeNullcArray(void* ptr, unsigned int size)
 {
@@ -122,33 +133,37 @@ int  __operatorEqual(unsigned int a, unsigned int b, void* unused);
 int  __operatorNEqual(unsigned int a, unsigned int b, void* unused);
 
 #undef assert
-void  assert(int val, void* unused);
-void  assert(int val, const char* message, void* unused);
-void  assert(int val, NULLCArray<char> message, void* unused);
-int  __operatorEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
-int  __operatorNEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
-NULLCArray<char>  __operatorAdd(NULLCArray<char> a, NULLCArray<char> b, void* unused);
-NULLCArray<char>  __operatorAddSet(NULLCArray<char> * a, NULLCArray<char> b, void* unused);
-char  char__(char a, void* unused);
-short  short__(short a, void* unused);
-int  int__(int a, void* unused);
-long long  long__(long long a, void* unused);
-float  float__(float a, void* unused);
-double  double__(double a, void* unused);
-void char__char_void_ref_char_(char a, char *target);
-void short__short_void_ref_short_(short a, short *target);
-void int__int_void_ref_int_(int a, int *target);
-void long__long_void_ref_long_(long long a, long long *target);
-void float__float_void_ref_float_(float a, float *target);
-void double__double_void_ref_double_(double a, double *target);
-NULLCArray<char>  int__str_char___ref__(int* __context);
-NULLCArray<char>  double__str_char___ref_int_(int precision, int* __context);
+void	assert(int val, void* unused);
+void	assert(int val, const char* message, void* unused);
+void	assert(int val, NULLCArray<char> message, void* unused);
+int	__operatorEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
+int	__operatorNEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
+NULLCArray<char>	__operatorAdd(NULLCArray<char> a, NULLCArray<char> b, void* unused);
+NULLCArray<char>	__operatorAddSet(NULLCArray<char> * a, NULLCArray<char> b, void* unused);
+char		char__(char a, void* unused);
+short		short__(short a, void* unused);
+int			int__(int a, void* unused);
+long long	long__(long long a, void* unused);
+float	float__(float a, void* unused);
+double	double__(double a, void* unused);
+void	char__char_void_ref_char_(char a, char *target);
+void	short__short_void_ref_short_(short a, short *target);
+void	int__int_void_ref_int_(int a, int *target);
+void	long__long_void_ref_long_(long long a, long long *target);
+void	float__float_void_ref_float_(float a, float *target);
+void	double__double_void_ref_double_(double a, double *target);
+NULLCArray<char>	int__str_char___ref__(int* __context);
+NULLCArray<char>	double__str_char___ref_int_(int precision, int* __context);
 
 inline int __str_precision_19(){ return 6; }
 
-int  __newS(int size, unsigned typeID);
-NULLCArray<void>  __newA(int size, int count, unsigned typeID);
-NULLCRef  duplicate(NULLCRef obj, void* unused);
+int	__newS(int size, unsigned typeID);
+NULLCArray<void>	__newA(int size, int count, unsigned typeID);
+NULLCRef	duplicate(NULLCRef obj, void* unused);
+NULLCRef	replace(NULLCRef l, NULLCRef r, void* unused);
+
+int __rcomp(NULLCRef a, NULLCRef b);
+int __rncomp(NULLCRef a, NULLCRef b);
 
 // const string implementation
 struct const_string
@@ -201,7 +216,7 @@ NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src,
 typedef void* __nullcFunction;
 typedef __nullcFunction* __nullcFunctionArray;
 __nullcFunctionArray* __nullcGetFunctionTable();
-unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType);
+unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType);
 
 void __nullcRegisterGlobal(void* ptr, unsigned typeID);
 void __nullcRegisterBase(void* ptr);
@@ -229,3 +244,12 @@ inline double __nullcZero()
 }
 
 int isStackPointer(NULLCRef ptr, void* unused);
+
+int typeid__size__int_ref__(unsigned int * __context);
+
+NULLCAutoArray auto_array(unsigned int type, int count, void* unused);
+void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused);
+
+void __force_size(int* s, int size, void* unused);
+int isCoroutineReset(NULLCRef f, void* unused);
+void __assertCoroutine(NULLCRef f, void* unused);
