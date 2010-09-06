@@ -191,6 +191,11 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	(void)functionID;
 	(void)arguments;
 
+	if(functionID != ~0u)
+	{
+		sprintf(execError, "ERROR: function call unsupported");
+		return;
+	}
 	llvmReturnedType = LLVM_NONE;
 
 	execError[0] = 0;
