@@ -193,9 +193,9 @@ int main(int argc, char** argv)
 			delete[] fileContent;
 			return false;
 		}
-		delete[] fileContent;
 		unsigned int *bytecode = NULL;
 		nullcGetBytecode((char**)&bytecode);
+		delete[] fileContent;
 
 		// Create module name
 		char	moduleName[1024];
