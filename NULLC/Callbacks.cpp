@@ -3286,6 +3286,8 @@ void CallbackInitialize()
 	}
 
 	typeObjectArray = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
+
+	defineCoroutine = false;
 }
 
 unsigned int GetGlobalSize()
