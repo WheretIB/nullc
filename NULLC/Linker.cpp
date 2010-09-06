@@ -3,8 +3,12 @@
 #include "BinaryCache.h"
 
 #ifdef NULLC_AUTOBINDING
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
+	#if defined(__linux)
+		#include <dlfcn.h>
+	#else
+		#define WIN32_LEAN_AND_MEAN
+		#include <windows.h>
+	#endif
 #endif
 
 Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exSymbols(8192), exLocals(1024), jumpTargets(1024)
@@ -327,7 +331,13 @@ bool Linker::LinkCode(const char *code)
 			if(exFunctions.back().address == 0)
 			{
 #ifdef NULLC_AUTOBINDING
+	#if defined(__linux)
+				void* handle = dlopen(0, RTLD_LAZY | RTLD_LOCAL);
+				exFunctions.back().funcPtr = dlsym(handle, (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+				dlclose(handle);
+	#else
 				exFunctions.back().funcPtr = GetProcAddress(GetModuleHandle(NULL), (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+	#endif
 #endif
 				if(exFunctions.back().funcPtr)
 				{
