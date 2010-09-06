@@ -59,10 +59,6 @@ int isPointer(NULLCRef type, void* unused)
 {
 	return __nullcGetTypeInfo(type.typeID)->category == NULLC_POINTER;
 }
-int typeid__size__int_ref__(unsigned int * __context)
-{
-	return __nullcGetTypeInfo(*__context)->size;
-}
 NULLCArray<char> typeid__name__char___ref__(unsigned int * __context)
 {
 	NULLCArray<char> ret;

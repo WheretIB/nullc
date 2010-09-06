@@ -1363,7 +1363,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				OutputCFunctionName(fC, info);
 				fprintf(fC, "\", (void*)");
 				OutputCFunctionName(fC, info);
-				fprintf(fC, ", %uu);\r\n", info->extraParam ? info->extraParam->varType->typeIndex : -1);
+				fprintf(fC, ", %uu, %d);\r\n", info->extraParam ? info->extraParam->varType->typeIndex : -1, (int)info->type);
 			}
 		}
 		CodeInfo::nodeList.back()->TranslateToC(fC);

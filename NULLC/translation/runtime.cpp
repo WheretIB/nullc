@@ -527,6 +527,27 @@ NULLCRef  duplicate(NULLCRef obj, void* unused)
 	return ret;
 }
 
+NULLCRef replace(NULLCRef l, NULLCRef r, void* unused)
+{
+	if(l.typeID != r.typeID)
+	{
+		nullcThrowError("ERROR: cannot convert from %s ref to %s ref", __nullcGetTypeInfo(r.typeID)->name, __nullcGetTypeInfo(l.typeID)->name);
+		return l;
+	}
+	memcpy(l.ptr, r.ptr, __nullcGetTypeInfo(r.typeID)->size);
+	return l;
+}
+
+int __rcomp(NULLCRef a, NULLCRef b)
+{
+	return a.ptr == b.ptr;
+}
+
+int __rncomp(NULLCRef a, NULLCRef b)
+{
+	return a.ptr != b.ptr;
+}
+
 void nullcThrowError(const char* error, ...)
 {
 	va_list args;
@@ -684,10 +705,12 @@ struct NULLCFuncInfo
 {
 	unsigned	hash;
 	unsigned	extraType;
-	NULLCFuncInfo(unsigned nHash, unsigned nType)
+	unsigned	funcType;
+	NULLCFuncInfo(unsigned nHash, unsigned nType, unsigned nFuncType)
 	{
 		hash = nHash;
 		extraType = nType;
+		funcType = nFuncType;
 	}
 };
 FastVector<NULLCFuncInfo> funcTableExt;
@@ -706,14 +729,14 @@ unsigned int GetStringHash(const char *str)
 	return hash;
 }
 
-unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType)
+unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType)
 {
 	unsigned hash = GetStringHash(name);
 	for(unsigned int i = 0; i < funcTable.size(); i++)
 		if(funcTableExt[i].hash == hash)
 			return i;
 	funcTable.push_back(fPtr);
-	funcTableExt.push_back(NULLCFuncInfo(hash, extraType));
+	funcTableExt.push_back(NULLCFuncInfo(hash, extraType, funcType));
 	return funcTable.size() - 1;
 }
 
@@ -1428,4 +1451,67 @@ int isStackPointer(NULLCRef ptr, void* unused)
 {
 	GC::unmanageableBase = (char*)&ptr;
 	return ptr.ptr >= GC::unmanageableBase && ptr.ptr <= GC::unmanageableTop;
+}
+
+int typeid__size__int_ref__(unsigned int * __context)
+{
+	return __nullcGetTypeInfo(*__context)->size;
+}
+
+NULLCAutoArray auto_array(unsigned int type, int count, void* unused)
+{
+	NULLCAutoArray res;
+	res.typeID = type;
+	res.len = count;
+	res.ptr = (char*)__newS(typeid__size__int_ref__(&type) * (count), type);
+	return res;
+}
+void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused)
+{
+	NULLCAutoArray *arr = (NULLCAutoArray*)unused;
+	if(x.typeID != arr->typeID)
+	{
+		nullcThrowError("ERROR: cannot convert from '%s' to an 'auto[]' element type '%s'", nullcGetTypeName(x.typeID), nullcGetTypeName(arr->typeID));
+		return;
+	}
+	unsigned elemSize = __nullcGetTypeInfo(arr->typeID)->size;
+	if(pos >= arr->len)
+	{
+		unsigned newSize = 1 + arr->len + (arr->len >> 1);
+		if(pos >= newSize)
+			newSize = pos;
+		NULLCAutoArray n = auto_array(arr->typeID, newSize, NULL);
+		memcpy(n.ptr, arr->ptr, arr->len * elemSize);
+		*arr = n;
+	}
+	memcpy(arr->ptr + elemSize * pos, x.ptr, elemSize);
+}
+void __force_size(int* s, int size, void* unused)
+{
+	assert(size <= *s, "ERROR: cannot extend array", NULL);
+	*s = size;
+}
+
+int isCoroutineReset(NULLCRef f, void* unused)
+{
+	if(__nullcGetTypeInfo(f.typeID)->category != NULLC_FUNCTION)
+	{
+		nullcThrowError("Argument is not a function");
+		return 0;
+	}
+	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
+	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
+	{
+		nullcThrowError("Function is not a coroutine");
+		return 0;
+	}
+	return !**(int**)fPtr->context;
+}
+void __assertCoroutine(NULLCRef f, void* unused)
+{
+	if(__nullcGetTypeInfo(f.typeID)->category != NULLC_FUNCTION)
+		nullcThrowError("Argument is not a function");
+	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
+	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
+		nullcThrowError("ERROR: function is not a coroutine");
 }
