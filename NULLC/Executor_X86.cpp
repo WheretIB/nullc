@@ -854,7 +854,7 @@ bool ExecutorX86::TranslateToNative()
 	instList.clear();
 
 	SetParamBase((unsigned int)(long long)paramBase);
-	SetFunctionList(&exFunctions[0], &exLinker->functionAddress[0]);
+	SetFunctionList(exFunctions.data, exLinker->functionAddress.data);
 	SetContinuePtr(&callContinue);
 	SetLastInstruction(instList.data, instList.data);
 	SetClosureCreateFunc((void(*)())ClosureCreate);
