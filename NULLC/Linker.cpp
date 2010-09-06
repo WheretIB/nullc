@@ -485,10 +485,10 @@ bool Linker::LinkCode(const char *code)
 		unsigned int sourceOffset;
 	};
 
-	SourceInfo *info = (SourceInfo*)&exCodeInfo[0];
+	SourceInfo *info = (SourceInfo*)exCodeInfo.data;
 	unsigned int infoSize = exCodeInfo.size() / 2;
 
-	const char *lastSourcePos = &exSource[0];
+	const char *lastSourcePos = exSource.data;
 	for(unsigned int i = 0; infoSize && i < exCode.size(); i++)
 	{
 		while((line < infoSize - 1) && (i >= info[line + 1].byteCodePos))

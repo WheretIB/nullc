@@ -6,6 +6,7 @@ Core:
 	9. b. Fix alignment of dynamically allocated variables.
 	11. f. function should know if it is used as pointer, so that closure will not be created or closed(?)
 	13. f. coroutine should access context variables without one extra indirection.
+	14. f. automatic function binding
 
 Library:
 	1. f. string

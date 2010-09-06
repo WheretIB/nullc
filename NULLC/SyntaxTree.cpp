@@ -2799,7 +2799,7 @@ void NodeBinaryOp::Compile()
 			cmdList.push_back(VMCmd(cmdBitOr));
 
 		// If it's operator || and first argument is true, jump to push 1 as result
-		// If it's operator ^^ and first argument is false, jump to push 0 as result
+		// If it's operator && and first argument is false, jump to push 0 as result
 		cmdList.push_back(VMCmd(cmdID == cmdLogOr ? cmdJmpNZ : cmdJmpZ, ~0u));	// Jump address will be fixed later on
 		unsigned int specialJmp1 = cmdList.size() - 1;
 
@@ -2808,7 +2808,7 @@ void NodeBinaryOp::Compile()
 			cmdList.push_back(VMCmd(cmdBitOr));
 
 		// If it's operator || and first argument is true, jump to push 1 as result
-		// If it's operator ^^ and first argument is false, jump to push 0 as result
+		// If it's operator && and first argument is false, jump to push 0 as result
 		cmdList.push_back(VMCmd(cmdID == cmdLogOr ? cmdJmpNZ : cmdJmpZ, ~0u));	// Jump address will be fixed later on
 		unsigned int specialJmp2 = cmdList.size() - 1;
 
