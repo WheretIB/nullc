@@ -152,6 +152,8 @@ struct Test_testMultipleTransiotions : TestQueue
 			printf("Call stack when there are various transitions between NULLC and C\r\n");
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
+			if(!Tests::testExecutor[t])
+				continue;
 			testsCount[t]++;
 			nullcSetExecutor(testTarget[t]);
 			nullres good = nullcBuild(testCallStackWhenVariousTransitions);
