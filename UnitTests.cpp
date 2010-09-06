@@ -128,76 +128,76 @@ void	RunTests(bool verbose)
 	RunInterfaceTests();
 
 #ifdef NULLC_ENABLE_C_TRANSLATION
-	nullres bRes = CompileFile("Modules/std/math.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/math.nc"))
+		printf("ERROR: failed to compile std.math for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_math.cpp", "__init_std_math_nc");
 
-	bRes = CompileFile("Modules/std/typeinfo.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/typeinfo.nc"))
+		printf("ERROR: failed to compile std.typeinfo for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_typeinfo.cpp", "__init_std_typeinfo_nc");
 
-	bRes = CompileFile("Modules/std/file.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/file.nc"))
+		printf("ERROR: failed to compile std.file for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_file.cpp", "__init_std_file_nc");
 
-	bRes = CompileFile("Modules/std/vector.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/vector.nc"))
+		printf("ERROR: failed to compile std.vector for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_vector.cpp", "__init_std_vector_nc");
 
-	bRes = nullcCompile("import std.math; float4 a; a.x = 2;");
-	assert(bRes);
+	if(!nullcCompile("import std.math; float4 a; a.x = 2;"))
+		printf("ERROR: failed to compile test_a for translation\n");
 	nullcTranslateToC("test_a.cpp", "__init_test_a_nc");
 
-	bRes = nullcCompile("char[] arr2 = \" world\";{ int r = 5; }");
-	assert(bRes);
+	if(!nullcCompile("char[] arr2 = \" world\";{ int r = 5; }"))
+		printf("ERROR: failed to compile test_importhide for translation\n");
 	nullcTranslateToC("test_importhide.cpp", "__init_test_importhide_nc");
 
-	bRes = nullcCompile("int func(int a, b = 6){ return a * b; }");
-	assert(bRes);
+	if(!nullcCompile("int func(int a, b = 6){ return a * b; }"))
+		printf("ERROR: failed to compile test_defargs for translation\n");
 	nullcTranslateToC("test_defargs.cpp", "__init_test_defargs_nc");
 
-	bRes = nullcCompile("int func(int a, b = 6){ return a * b; } int func(int d, c, a, b = 4){ return d * c + a + b; }");
-	assert(bRes);
+	if(!nullcCompile("int func(int a, b = 6){ return a * b; } int func(int d, c, a, b = 4){ return d * c + a + b; }"))
+		printf("ERROR: failed to compile test_defargs2 for translation\n");
 	nullcTranslateToC("test_defargs2.cpp", "__init_test_defargs2_nc");
 
-	bRes = nullcCompile("class Test{ int func(int a, b = 6){ return a * b; } }");
-	assert(bRes);
+	if(!nullcCompile("class Test{ int func(int a, b = 6){ return a * b; } }"))
+		printf("ERROR: failed to compile test_defargs3 for translation\n");
 	nullcTranslateToC("test_defargs3.cpp", "__init_test_defargs3_nc");
 
-	bRes = nullcCompile("class Test{ int func(int a, b = 6); }");
-	assert(bRes);
+	if(!nullcCompile("class Test{ int func(int a, b = 6); }"))
+		printf("ERROR: failed to compile test_defargs4 for translation\n");
 	nullcTranslateToC("test_defargs4.cpp", "__init_test_defargs4_nc");
 
-	bRes = nullcCompile("int foo(int x, char[] a = \"xx\", int y = 0){return x + a[0] + a[1];}");
-	assert(bRes);
+	if(!nullcCompile("int foo(int x, char[] a = \"xx\", int y = 0){return x + a[0] + a[1];}"))
+		printf("ERROR: failed to compile test_defargs5 for translation\n");
 	nullcTranslateToC("test_defargs5.cpp", "__init_test_defargs5_nc");
 
-	bRes = nullcCompile("int x = 5; int foo(auto ref a = &x){return int(a);}");
-	assert(bRes);
+	if(!nullcCompile("int x = 5; int foo(auto ref a = &x){return int(a);}"))
+		printf("ERROR: failed to compile test_defargs6 for translation\n");
 	nullcTranslateToC("test_defargs6.cpp", "__init_test_defargs6_nc");
 
-	bRes = nullcCompile("int CheckAlignment(auto ref ptr, int alignment);");
-	assert(bRes);
+	if(!nullcCompile("int CheckAlignment(auto ref ptr, int alignment);"))
+		printf("ERROR: failed to compile test_alignment for translation\n");
 	nullcTranslateToC("test_alignment.cpp", "__init_test_alignment_nc");
 
-	bRes = CompileFile("Modules/std/list.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/list.nc"))
+		printf("ERROR: failed to compile std.list for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_list.cpp", "__init_std_list_nc");
 
-	bRes = CompileFile("Modules/std/range.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/range.nc"))
+		printf("ERROR: failed to compile std.range for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_range.cpp", "__init_std_range_nc");
 
-	bRes = CompileFile("Modules/std/gc.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/gc.nc"))
+		printf("ERROR: failed to compile std.gc for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_gc.cpp", "__init_std_gc_nc");
 
-	bRes = CompileFile("Modules/std/dynamic.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/dynamic.nc"))
+		printf("ERROR: failed to compile std.dynamic for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_dynamic.cpp", "__init_std_dynamic_nc");
 
-	bRes = CompileFile("Modules/std/io.nc");
-	assert(bRes);
+	if(!CompileFile("Modules/std/io.nc"))
+		printf("ERROR: failed to compile std.io for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_io.cpp", "__init_std_io_nc");
 #endif
 
