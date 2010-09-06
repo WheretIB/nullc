@@ -488,6 +488,9 @@ void NodeReturnOp::CompileLLVM()
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp !typeInfo && first->typeInfo != typeInt");
 	Builder.CreateRet(V);
 
+	//BasicBlock *afterReturn = BasicBlock::Create(getGlobalContext(), "afterReturn", F);
+	//Builder.SetInsertPoint(afterReturn);
+
 	//Builder.CreateRetVoid();
 }
 
@@ -504,9 +507,11 @@ void NodeExpressionList::CompileLLVM()
 	if(typeInfo->arrLevel)// && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		aggr = CreateEntryBlockAlloca(F, "arr_tmp", (Type*)typeInfo->llvmType);
-	}else if(typeInfo != typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeExpressionList typeInfo != typeVoid");
-	int index = typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY ? 1 : (typeInfo->subType == typeChar ? ((typeInfo->arrSize + 3) / 4) - 1 : typeInfo->arrSize - 1);
+	}//else if(typeInfo != typeVoid)
+	//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeExpressionList typeInfo != typeVoid");
+	int index = 0;
+	if(typeInfo->arrLevel)
+		index = typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY ? 1 : (typeInfo->subType == typeChar ? ((typeInfo->arrSize + 3) / 4) - 1 : typeInfo->arrSize - 1);
 	NodeZeroOP	*curr = first;
 	do 
 	{
@@ -535,7 +540,7 @@ void NodeExpressionList::CompileLLVM()
 			DUMP(aggr->getType());
 			Value *arrayIndexHelper[2];
 			arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
-			printf("Indexing %d\n", typeInfo->subType == typeChar ? index * 4 : index);
+			//printf("Indexing %d\n", typeInfo->subType == typeChar ? index * 4 : index);
 			arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, typeInfo->subType == typeChar ? index * 4 : index, true));
 			index--;
 			Value *target = Builder.CreateGEP(aggr, &arrayIndexHelper[0], &arrayIndexHelper[2], "arr_part");
@@ -551,6 +556,8 @@ void NodeExpressionList::CompileLLVM()
 	}while(curr);
 	if(typeInfo->arrLevel)// && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 		V = Builder.CreateLoad(aggr, "arr_aggr");
+	if(typeInfo != typeVoid && !V)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeExpressionList typeInfo && !V");
 }
 
 void NodeFuncDef::CompileLLVM()
@@ -620,7 +627,7 @@ void NodeFuncCall::CompileLLVM()
 	CompileLLVMExtra();
 
 	std::vector<llvm::Value*> args;
-	printf("Function call\n");
+	//printf("Function call\n");
 	if(funcType->paramCount)
 	{
 		NodeZeroOP	*curr = paramTail;
@@ -632,7 +639,7 @@ void NodeFuncCall::CompileLLVM()
 			curr->CompileLLVM();
 			if(!V)
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncCall V = NULL");
-			printf("%s\t", curr->typeInfo->GetFullTypeName());
+			//printf("%s\t", curr->typeInfo->GetFullTypeName());
 			DUMP(V->getType());
 			V = ConvertFirstToSecond(V, curr->typeInfo, *paramType);
 			if(*paramType == typeFloat)
@@ -940,17 +947,17 @@ void NodeBinaryOp::CompileLLVM()
 	Value *left = V;
 	second->CompileLLVM();
 	Value *right = V;
-	printf("before promote: ");
+	//printf("before promote: ");
 	DUMP(left->getType());
 	DUMP(right->getType());
 	left = PromoteToStackType(left, first->typeInfo);
 	right = PromoteToStackType(right, second->typeInfo);
-	printf("after promote: ");
+	//printf("after promote: ");
 	DUMP(left->getType());
 	DUMP(right->getType());
 	left = ConvertFirstForSecond(left, first->typeInfo, second->typeInfo);
 	right = ConvertFirstForSecond(right, second->typeInfo, first->typeInfo);
-	printf("after convertion: ");
+	//printf("after convertion: ");
 	DUMP(left->getType());
 	DUMP(right->getType());
 	MakeBinaryOp(left, right, cmdID, fST);
@@ -993,9 +1000,11 @@ void NodeIfElseExpr::CompileLLVM()
 	CompileLLVMExtra();
 
 	BasicBlock *trueBlock = BasicBlock::Create(getGlobalContext(), "trueBlock", F);
-	BasicBlock *falseBlock = third ? BasicBlock::Create(getGlobalContext(), "falseBlock", F) : NULL;
-	BasicBlock *exitBlock = BasicBlock::Create(getGlobalContext(), "exitBlock", F);
+	BasicBlock *falseBlock = third ? BasicBlock::Create(getGlobalContext(), "falseBlock") : NULL;
+	BasicBlock *exitBlock = BasicBlock::Create(getGlobalContext(), "exitBlock");
 	
+	Value *left = NULL, *right = NULL;
+
 	// Compute condition
 	first->CompileLLVM();
 	if(first->typeInfo != typeInt)
@@ -1007,19 +1016,36 @@ void NodeIfElseExpr::CompileLLVM()
 	Builder.SetInsertPoint(trueBlock);
 
 	second->CompileLLVM();
-	if(second->nodeType != typeNodeReturnOp) // $$$ what if it's not the last?
+	left = V;
+	trueBlock = Builder.GetInsertBlock();
+	if(trueBlock->empty() || !trueBlock->back().isTerminator())//if(F->back().empty() || !F->back().back().isTerminator())
 		Builder.CreateBr(exitBlock);
-
+	
 	if(third)
 	{
+		F->getBasicBlockList().push_back(falseBlock);
 		Builder.SetInsertPoint(falseBlock);
 		third->CompileLLVM();
-		if(third->nodeType != typeNodeReturnOp)	// $$$ what if it's not the last?
+		right = V;
+		falseBlock = Builder.GetInsertBlock();
+		if(falseBlock->empty() || !falseBlock->back().isTerminator())//F->back().empty() || !F->back().back().isTerminator())
 			Builder.CreateBr(exitBlock);
+		
 	}
+	F->getBasicBlockList().push_back(exitBlock);
 	Builder.SetInsertPoint(exitBlock);
-	//Builder.CreateRet(V);
+
 	V = NULL;
+	if(typeInfo != typeVoid)
+	{
+		PHINode *PN2 = Builder.CreatePHI((Type*)typeInfo->llvmType, "merge_tmp");
+		DUMP(left->getType());
+		DUMP(right->getType());
+		PN2->addIncoming(left, trueBlock);
+		PN2->addIncoming(right, falseBlock);
+
+		V = PN2;
+	}
 }
 
 void NodeForExpr::CompileLLVM()
