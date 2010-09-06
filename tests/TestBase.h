@@ -35,11 +35,11 @@
 
 #define MODULE_PATH FILE_PATH "Modules/"
 
-#ifdef NULLC_BUILD_X86_JIT
-	#define TEST_COUNT 2
-#else
-	#define TEST_COUNT 1
-#endif
+#define TEST_COUNT 3
+
+#define TEST_FAILURE_INDEX 4
+#define TEST_EXTRA_INDEX 3
+#define TEST_TRANSLATION_INDEX 5
 
 struct TestQueue
 {
@@ -93,6 +93,8 @@ namespace Tests
 
 	extern bool doTranslation;
 
+	extern bool	testExecutor[TEST_COUNT];
+
 	void*	FindVar(const char* name);
 	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = NULL, bool execShouldFail = false);
 	char*	Format(const char *str, ...);
@@ -104,6 +106,8 @@ struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
 		for(int t = 0; t < count; t++)	\
 		{	\
+			if(!Tests::testExecutor[t])	\
+				continue;	\
 			testsCount[t]++;	\
 			lastFailed = false;	\
 			if(!Tests::RunCode(code, t, result, name))	\
@@ -124,13 +128,15 @@ Test_##code test_##code;	\
 void Test_##code::RunTest()
 
 #define TEST_VM(name, code, result) TEST_IMPL(name, code, result, 1)
-#define TEST(name, code, result) TEST_IMPL(name, code, result, 2)
+#define TEST(name, code, result) TEST_IMPL(name, code, result, TEST_COUNT)
 
 #define TEST_RESULT(name, code, result)	\
 struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
-		for(int t = 0; t < 2; t++)	\
+		for(int t = 0; t < TEST_COUNT; t++)	\
 		{	\
+			if(!Tests::testExecutor[t])	\
+				continue;	\
 			testsCount[t]++;	\
 			if(Tests::RunCode(code, t, result, name))	\
 				testsPassed[t]++;	\
@@ -142,9 +148,9 @@ Test_##code test_##code;
 #define LOAD_MODULE(id, name, code)	\
 struct Test_##id : TestQueue {	\
 	virtual void Run(){	\
-		testsCount[3]++;	\
+		testsCount[TEST_EXTRA_INDEX]++;	\
 		if(nullcLoadModuleBySource(name, code))	\
-			testsPassed[3]++;	\
+			testsPassed[TEST_EXTRA_INDEX]++;	\
 		else	\
 			printf("Test "name" failed\n");	\
 	}	\
@@ -154,10 +160,10 @@ Test_##id test_##id;
 #define LOAD_MODULE_BIND(id, name, code)	\
 struct Test_##id : TestQueue {	\
 	virtual void Run(){	\
-		testsCount[3]++;	\
+		testsCount[TEST_EXTRA_INDEX]++;	\
 		if(nullcLoadModuleBySource(name, code))	\
 		{	\
-			testsPassed[3]++;	\
+			testsPassed[TEST_EXTRA_INDEX]++;	\
 			RunTest();	\
 		}else{	\
 			printf("Test "name" failed\n");	\
@@ -207,7 +213,7 @@ Test_##code test_##code;
 
 #define TEST_FOR_FAIL(name, str, error)\
 {\
-	testsCount[2]++;\
+	testsCount[TEST_FAILURE_INDEX]++;\
 	nullres good = nullcCompile(str);\
 	if(!good)\
 	{\
@@ -219,7 +225,7 @@ Test_##code test_##code;
 		{\
 			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);\
 		}else{\
-			testsPassed[2]++;\
+			testsPassed[TEST_FAILURE_INDEX]++;\
 		}\
 	}else{\
 		printf("Test \"%s\" failed to fail.\r\n", name);\

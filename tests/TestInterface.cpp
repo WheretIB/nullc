@@ -18,6 +18,8 @@ void RunInterfaceTests()
 
 	for(int t = 0; t < TEST_COUNT; t++)
 	{
+		if(!Tests::testExecutor[t])
+			continue;
 		testsCount[t]++;
 		nullcSetExecutor(testTarget[t]);
 
@@ -127,6 +129,8 @@ void RunInterfaceTests()
 		(void)x86Passed;
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
+			if(!Tests::testExecutor[t])
+				continue;
 			testsCount[t]++;
 			nullcSetExecutor(testTarget[t]);
 
@@ -199,7 +203,7 @@ void RunInterfaceTests()
 		}
 		if(vmPassed + 1 != testsPassed[0])
 			printf("VM failed test: Function update test\r\n");
-		if(TEST_COUNT == 2 && x86Passed + 1 != testsPassed[1])
+		if(TEST_COUNT >= 2 && x86Passed + 1 != testsPassed[1])
 			printf("X86 failed test: Function update test\r\n");
 	}
 
@@ -214,6 +218,8 @@ void RunInterfaceTests()
 		(void)x86Passed;
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
+			if(!Tests::testExecutor[t])
+				continue;
 			testsCount[t]++;
 			nullcSetExecutor(testTarget[t]);
 
@@ -310,7 +316,7 @@ void RunInterfaceTests()
 		}
 		if(vmPassed + 2 != testsPassed[0])
 			printf("VM failed test: Function update test 2\r\n");
-		if(TEST_COUNT == 2 && x86Passed + 2 != testsPassed[1])
+		if(TEST_COUNT >= 2 && x86Passed + 2 != testsPassed[1])
 			printf("X86 failed test: Function update test 2\r\n");
 	}
 
@@ -324,6 +330,8 @@ void RunInterfaceTests()
 		(void)x86Passed;
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
+			if(!Tests::testExecutor[t])
+				continue;
 			testsCount[t]++;
 			nullcSetExecutor(testTarget[t]);
 
@@ -351,7 +359,7 @@ void RunInterfaceTests()
 		}
 		if(vmPassed + 1 != testsPassed[0])
 			printf("VM failed test: Value pass through nullcCallFunction\r\n");
-		if(TEST_COUNT == 2 && x86Passed + 1 != testsPassed[1])
+		if(TEST_COUNT >= 2 && x86Passed + 1 != testsPassed[1])
 			printf("X86 failed test: Value pass through nullcCallFunction\r\n");
 	}
 	{
@@ -364,6 +372,8 @@ void RunInterfaceTests()
 		(void)x86Passed;
 		for(int t = 0; t < TEST_COUNT; t++)
 		{
+			if(!Tests::testExecutor[t])
+				continue;
 			testsCount[t]++;
 			nullcSetExecutor(testTarget[t]);
 
@@ -398,7 +408,7 @@ void RunInterfaceTests()
 		}
 		if(vmPassed + 1 != testsPassed[0])
 			printf("VM failed test: Structure pass through nullcCallFunction\r\n");
-		if(TEST_COUNT == 2 && x86Passed + 1 != testsPassed[1])
+		if(TEST_COUNT >= 2 && x86Passed + 1 != testsPassed[1])
 			printf("X86 failed test: Structure pass through nullcCallFunction\r\n");
 	}
 
@@ -407,6 +417,8 @@ void RunInterfaceTests()
 		printf("nullcGetResultLong test\r\n");
 	for(int t = 0; t < TEST_COUNT; t++)
 	{
+		if(!Tests::testExecutor[t])
+			continue;
 		testsCount[t]++;
 		nullcSetExecutor(testTarget[t]);
 		nullres r = nullcBuild(testLongRetrieval);
@@ -439,6 +451,8 @@ const char	*testDoubleRetrieval = "return 25.0;";
 		printf("nullcGetResultDouble test\r\n");
 	for(int t = 0; t < TEST_COUNT; t++)
 	{
+		if(!Tests::testExecutor[t])
+			continue;
 		testsCount[t]++;
 		nullcSetExecutor(testTarget[t]);
 		nullres r = nullcBuild(testDoubleRetrieval);

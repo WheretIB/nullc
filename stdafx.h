@@ -1,13 +1,14 @@
 #pragma once
-/*#define SUPER_CALC_ON
+#pragma warning(disable: 4275)
+#pragma warning(disable: 4005)
+/*
+#define SUPER_CALC_ON
 #include "MemoryMan/platform.h"
 #include "MemoryMan/MemoryMan.h"
 #pragma comment(lib, "lib/debuglib/MemoryMan.lib")
 #undef pure*/
 
 #include <stdlib.h>
-
-#pragma warning(disable: 4275)
 
 #define _HAS_EXCEPTIONS 0
 
