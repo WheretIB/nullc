@@ -248,10 +248,31 @@ struct my_stream : public llvm::raw_ostream
 	}
 };
 
+#define DUMP(x) x->dump()
+//#define DUMP(x) x
+
+BasicBlock *globalExit = NULL;
+
+void		StartGlobalCode()
+{
+	std::vector<const llvm::Type*> Empty;
+	llvm::FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), Empty, false);
+	F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "Global", TheModule);
+
+	llvm::BasicBlock *BB = llvm::BasicBlock::Create(llvm::getGlobalContext(), "global_entry", F);
+	Builder.SetInsertPoint(BB);
+
+	globalExit = BasicBlock::Create(getGlobalContext(), "globalReturn");
+}
+
 const char*	GetLLVMIR()
 {
 	if(F->back().empty() || !F->back().back().isTerminator())
 		Builder.CreateRet(ConstantInt::get(getGlobalContext(), APInt(32, 0, true)));
+
+	/*F->getBasicBlockList().push_back(globalExit);
+	Builder.SetInsertPoint(globalExit);
+	Builder.CreateRet(ConstantInt::get(getGlobalContext(), APInt(32, ~0ull, true)));*/
 
 	if(enableOptimization)
 	{
@@ -265,13 +286,14 @@ const char*	GetLLVMIR()
 	//LLVMContext &Context = getGlobalContext();
 	//CreateFibFunction(TheModule, Context);
 	//outs() << "verifying... ";
-	TheModule->dump();
+	DUMP(TheModule);
 	//my_stream a;
 	//TheModule->print(a, NULL);
 
 	unsigned start = clock();
 
 	verifyFunction(*F);
+	verifyModule(*TheModule);
 
 	unsigned verified = clock() - start;
 	start = clock();
@@ -288,6 +310,8 @@ const char*	GetLLVMIR()
 	return NULL;
 }
 llvm::Value *V;
+
+
 
 void	EndLLVMGeneration()
 {
@@ -342,16 +366,18 @@ Value*	ConvertFirstForSecond(Value *V, TypeInfo *firstType, TypeInfo *secondType
 	asmDataType	fDT = firstType->dataType, sDT = secondType->dataType;
 	asmStackType first = stackTypeForDataType(fDT), second = stackTypeForDataType(sDT);
 	if(first == STYPE_INT && second == STYPE_DOUBLE)
-	{
 		return Builder.CreateSIToFP(V, (Type*)secondType->llvmType, "tmp_itod");
-	}
 	if(first == STYPE_LONG && second == STYPE_DOUBLE)
-	{
 		return Builder.CreateSIToFP(V, (Type*)secondType->llvmType, "tmp_ltod");
-	}
 	if(first == STYPE_INT && second == STYPE_LONG)
-	{
 		return Builder.CreateIntCast(V, (Type*)secondType->llvmType, true, "tmp_itol");
+
+	if(fDT != sDT)
+	{
+		if(fDT == DTYPE_FLOAT)
+			return Builder.CreateFPCast(V, (Type*)typeDouble->llvmType, "tmp_ftod");
+		if(fDT == DTYPE_CHAR || fDT == DTYPE_SHORT)
+			return Builder.CreateIntCast(V, (Type*)typeInt->llvmType, true, "tmp_sx");
 	}
 	return V;
 }
@@ -414,34 +440,49 @@ void NodeReturnOp::CompileLLVM()
 	//Builder.CreateRetVoid();
 }
 
-void		StartGlobalCode()
+// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of the function.  This is used for mutable variables etc.
+AllocaInst* CreateEntryBlockAlloca(Function *TheFunction, const std::string &VarName, const llvm::Type* type)
 {
-	std::vector<const llvm::Type*> Empty;
-	llvm::FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), Empty, false);
-	F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "Global", TheModule);
-
-	llvm::BasicBlock *BB = llvm::BasicBlock::Create(llvm::getGlobalContext(), "global_entry", F);
-	Builder.SetInsertPoint(BB);
+	IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+	return TmpB.CreateAlloca(type, 0, VarName.c_str());
 }
 
 void NodeExpressionList::CompileLLVM()
 {
-	if(typeInfo != typeVoid)
+	Value *aggr = NULL;
+	if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+	{
+		aggr = CreateEntryBlockAlloca(F, "arr_tmp", (Type*)typeInfo->llvmType);
+	}else if(typeInfo != typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeExpressionList typeInfo != typeVoid");
+	int index = 1;
 	NodeZeroOP	*curr = first;
 	do 
 	{
 		curr->CompileLLVM();
 		curr = curr->next;
-	}while(curr);
-}
 
-/// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
-/// the function.  This is used for mutable variables etc.
-AllocaInst* CreateEntryBlockAlloca(Function *TheFunction, const std::string &VarName, const llvm::Type* type)
-{
-	IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
-	return TmpB.CreateAlloca(type, 0, VarName.c_str());
+		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+		{
+			DUMP(V->getType());
+			if(index == 0)
+			{
+				assert(typeInfo->subType->refType);
+				V = Builder.CreatePointerCast(V, (Type*)typeInfo->subType->refType->llvmType, "ptr_any");
+				DUMP(V->getType());
+			}
+			Value *arrayIndexHelper[2];
+			DUMP(aggr->getType());
+			arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
+			arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, index--, true));
+			Value *target = Builder.CreateGEP(aggr, &arrayIndexHelper[0], &arrayIndexHelper[2], "arr_part");
+			DUMP(target->getType());
+			Builder.CreateStore(V, target);
+			
+		}
+	}while(curr);
+	if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+		V = Builder.CreateLoad(aggr, "arr_aggr");
 }
 
 void NodeFuncDef::CompileLLVM()
@@ -459,10 +500,8 @@ void NodeFuncDef::CompileLLVM()
 	std::vector<const llvm::Type*> Arguments;
 	VariableInfo *curr = NULL;
 	for(curr = funcInfo->firstParam; curr; curr = curr->next)
-	{
-		Arguments.push_back((Type*)curr->varType->llvmType/*llvm::Type::getInt32Ty(llvm::getGlobalContext())*/);
-	}
-	llvm::FunctionType *FT = llvm::FunctionType::get(/*llvm::Type::getInt32Ty(llvm::getGlobalContext())*/(Type*)funcInfo->retType->llvmType, Arguments, false);
+		Arguments.push_back((Type*)curr->varType->llvmType);
+	llvm::FunctionType *FT = llvm::FunctionType::get((Type*)funcInfo->retType->llvmType, Arguments, false);
 	F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, funcInfo->name, TheModule);
 
 	llvm::BasicBlock *BB = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", F);
@@ -472,13 +511,13 @@ void NodeFuncDef::CompileLLVM()
 	for(AI = F->arg_begin(), curr = funcInfo->firstParam; AI != F->arg_end() && curr; AI++, curr = curr->next)
 	{
 		AI->setName(std::string(curr->name.begin, curr->name.end));
-		AllocaInst *Alloca = CreateEntryBlockAlloca(F, std::string(curr->name.begin, curr->name.end), (Type*)curr->varType->llvmType/*Type::getInt32Ty(getGlobalContext())*/);
+		AllocaInst *Alloca = CreateEntryBlockAlloca(F, std::string(curr->name.begin, curr->name.end), (Type*)curr->varType->llvmType);
 		Builder.CreateStore(AI, Alloca);
 		curr->llvmValue = Alloca;
 	}
 
 	for(curr = funcInfo->firstLocal; curr; curr = curr->next)
-		curr->llvmValue = CreateEntryBlockAlloca(F, std::string(curr->name.begin, curr->name.end), (Type*)curr->varType->llvmType/*Type::getInt32Ty(getGlobalContext())*/);
+		curr->llvmValue = CreateEntryBlockAlloca(F, std::string(curr->name.begin, curr->name.end), (Type*)curr->varType->llvmType);
 
 	first->CompileLLVM();
 	if(first->nodeType == typeNodeZeroOp)
@@ -488,19 +527,15 @@ void NodeFuncDef::CompileLLVM()
 		Builder.CreateRetVoid();
 	}
 
-	///if(funcInfo->retType == typeVoid)
-	//	Builder.CreateRetVoid();
-
 	if(F->back().empty() || !F->back().back().isTerminator())
 	{
-		//if(!F->back().back().isTerminator())
-		//	printf("!F->back().back().isTerminator()\n");
 		if(funcInfo->retType == typeVoid)
 			Builder.CreateRetVoid();
 		else
 			Builder.CreateRet(ConstantInt::get(getGlobalContext(), APInt(32, 0, true)));
 	}
 
+	//F->dump();
 	verifyFunction(*F);
 	if(enableOptimization && !F->getEntryBlock().empty())
 		OurFPM->run(*F);
@@ -527,7 +562,7 @@ void NodeFuncCall::CompileLLVM()
 			if(!V)
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncCall V = NULL");
 			printf("%s\t", curr->typeInfo->GetFullTypeName());
-			V->getType()->dump();
+			DUMP(V->getType());
 			args.push_back(V);
 			curr = curr->prev;
 			//paramType--;
@@ -786,8 +821,8 @@ void NodeBinaryOp::CompileLLVM()
 	Value *right = V;
 	left = ConvertFirstForSecond(left, first->typeInfo, second->typeInfo);
 	right = ConvertFirstForSecond(right, second->typeInfo, first->typeInfo);
-	left->getType()->dump();
-	right->getType()->dump();
+	DUMP(left->getType());
+	DUMP(right->getType());
 	MakeBinaryOp(left, right, cmdID, fST);
 }
 
@@ -801,16 +836,16 @@ void NodeVariableSet::CompileLLVM()
 	Value *target = V;
 	if(!target)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet target = NULL");
-	target->getType()->dump();
+	DUMP(target->getType());
 	second->CompileLLVM();
 	Value *value = V;
 	if(!value)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet value = NULL");
-	value->getType()->dump();
+	DUMP(value->getType());
 	value = ConvertFirstToSecond(value, second->typeInfo, first->typeInfo->subType);
 	if(!value)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet value = NULL after");
-	value->getType()->dump();
+	DUMP(value->getType());
 	Builder.CreateStore(value, target);
 	V = value;
 }
@@ -988,16 +1023,39 @@ void NodeArrayIndex::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	if(typeParent->arrSize == TypeInfo::UNSIZED_ARRAY)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeArrayIndex typeParent->arrSize == TypeInfo::UNSIZED_ARRAY");
 	first->CompileLLVM();
-	Value *address = V;address->getType()->dump();
+	Value *address = V;
+	DUMP(address->getType());
 	second->CompileLLVM();
-	Value *index = V;index->getType()->dump();
+	Value *index = V;
+	DUMP(index->getType());
 	Value *arrayIndexHelper[2];
-	arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
-	arrayIndexHelper[1] = index;
-	V = Builder.CreateGEP(address, &arrayIndexHelper[0], &arrayIndexHelper[2], "tmp_arr");
+	if(typeParent->arrSize == TypeInfo::UNSIZED_ARRAY)
+	{
+		Value *aggr = CreateEntryBlockAlloca(F, "arr_tmp", (Type*)typeParent->llvmType);
+		Builder.CreateStore(address, aggr);
+		DUMP(aggr->getType());
+		/*V = Builder.CreateStructGEP(aggr, 1, "tmp_arr");
+		Value *arrSize = Builder.CreateLoad(V, "arr_size");
+		// Check array size
+		BasicBlock *failBlock = BasicBlock::Create(getGlobalContext(), "failBlock", F);
+		BasicBlock *passBlock = BasicBlock::Create(getGlobalContext(), "passBlock", F);
+		Value *check = Builder.CreateICmpULT(index, arrSize, "check_res");
+		Builder.CreateCondBr(check, passBlock, failBlock);
+		Builder.SetInsertPoint(failBlock);
+		Builder.CreateBr(globalExit);
+		Builder.SetInsertPoint(passBlock);*/
+		// Access array
+		V = Builder.CreateStructGEP(aggr, 0, "tmp_arr");
+		Value *arrPtr = Builder.CreateLoad(V, "tmp_arrptr");
+		arrayIndexHelper[0] = index;
+		V = Builder.CreateGEP(arrPtr, &arrayIndexHelper[0], &arrayIndexHelper[1], "tmp_elem");
+	}else{
+		arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
+		arrayIndexHelper[1] = index;
+		V = Builder.CreateGEP(address, &arrayIndexHelper[0], &arrayIndexHelper[2], "tmp_arr");
+		DUMP(V->getType());
+	}
 }
 
 void NodeShiftAddress::CompileLLVM()
@@ -1013,7 +1071,8 @@ void NodeShiftAddress::CompileLLVM()
 		index = 1;
 	}
 	first->CompileLLVM();
-	Value *address = V;address->getType()->dump();
+	Value *address = V;
+	DUMP(address->getType());
 	Value *arrayIndexHelper[2];
 	arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
 	arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, index, true));
