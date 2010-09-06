@@ -382,20 +382,20 @@ void		StartLLVMGeneration()
 	arrSetParams[1] = Type::getDoubleTy(getGlobalContext());
 	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayD", TheModule);
 
-	Function::Create(TypeBuilder<types::i<32>*(types::i<32>, types::i<32>*), true>::get(getGlobalContext()), Function::ExternalLinkage, "__newS", TheModule);
+	/*Function::Create(TypeBuilder<types::i<32>*(types::i<32>, types::i<32>*), true>::get(getGlobalContext()), Function::ExternalLinkage, "__newS", TheModule);
 
 	std::vector<const llvm::Type*> newAParams;
 	newAParams.push_back(Type::getInt32Ty(getGlobalContext()));
 	newAParams.push_back(Type::getInt32Ty(getGlobalContext()));
 	newAParams.push_back(Type::getInt32PtrTy(getGlobalContext()));
 	llvm::FunctionType *FT = llvm::FunctionType::get(StructType::get(getGlobalContext(), Type::getInt8PtrTy(getGlobalContext()), Type::getInt32Ty(getGlobalContext()), (Type*)NULL), newAParams, false);
-	Function::Create(FT, Function::ExternalLinkage, "__newA", TheModule);
+	Function::Create(FT, Function::ExternalLinkage, "__newA", TheModule);*/
 	
 	std::vector<const llvm::Type*> Arguments;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
 		FunctionInfo *funcInfo = CodeInfo::funcInfo[i];
-		if(funcInfo->nameHash == GetStringHash("__newS"))
+		/*if(funcInfo->nameHash == GetStringHash("__newS"))
 		{
 			funcInfo->llvmFunction = TheModule->getFunction("__newS");
 			funcInfo->llvmImplemented = true;
@@ -406,7 +406,7 @@ void		StartLLVMGeneration()
 			funcInfo->llvmFunction = TheModule->getFunction("__newA");
 			funcInfo->llvmImplemented = true;
 			continue;
-		}
+		}*/
 		Arguments.clear();
 		VariableInfo *curr = NULL;
 		for(curr = funcInfo->firstParam; curr; curr = curr->next)
@@ -436,8 +436,8 @@ struct my_stream : public llvm::raw_ostream
 	}
 };
 
-#define DUMP(x) x->dump()
-//#define DUMP(x) x
+//#define DUMP(x) x->dump()
+#define DUMP(x) x
 
 BasicBlock *globalExit = NULL;
 
@@ -491,7 +491,7 @@ const char*	GetLLVMIR()
 	WriteBitcodeToStream(TheModule, bw);
 	printf("%d\n", out.size());*/
 
-	if(!F->getEntryBlock().empty())
+	/*if(!F->getEntryBlock().empty())
 	{
 		void *FPtr = TheExecutionEngine->getPointerToFunction(F);
 		unsigned compiled = clock() - start;
@@ -501,7 +501,7 @@ const char*	GetLLVMIR()
 		for(std::vector<void*>::iterator c = memBlocks.begin(), e = memBlocks.end(); c != e; c++)
 			free(*c);
 		memBlocks.clear();
-	}
+	}*/
 
 	return NULL;
 }
@@ -707,7 +707,18 @@ void NodeExpressionList::CompileLLVM()
 	do 
 	{
 		curr->CompileLLVM();
-
+		if(typeInfo != typeVoid && curr->typeInfo == typeInfo)
+		{
+			Value *retVal = V;
+			while(curr->next)
+			{
+				curr->next->CompileLLVM();
+				assert(curr->next->typeInfo == typeVoid);
+				curr = curr->next;
+			}
+			V = retVal;
+			return;
+		}
 		if(V && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
 			DUMP(V->getType());
@@ -873,8 +884,8 @@ void NodeFuncCall::CompileLLVM()
 		}else{
 			args.push_back(ConstantPointerNull::get(Type::getInt32PtrTy(getGlobalContext())));
 		}
-		if(!funcInfo->llvmImplemented)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: %s unimplemented", funcInfo->name);
+		//if(!funcInfo->llvmImplemented)
+		//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: %s unimplemented", funcInfo->name);
 		CalleeF = (Function*)funcInfo->llvmFunction;// TheModule->getFunction(funcInfo->name);
 		if(!CalleeF)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
@@ -910,6 +921,23 @@ void NodeFuncCall::CompileLLVM()
 		DUMP(((Type*)typeInfo->llvmType));
 		V = Builder.CreatePointerCast(V, (Type*)typeInfo->llvmType, "news_rescast");
 	}
+	if(funcInfo && funcInfo->nameHash == GetStringHash("__redirect"))
+	{
+		DUMP(V->getType());
+		DUMP(((Type*)typeInfo->llvmType));
+
+		Value *funcTemp = CreateEntryBlockAlloca(F, "redirect_tmp", V->getType());
+		DUMP(funcTemp->getType());
+		Builder.CreateStore(V, funcTemp);
+
+		DUMP(funcTemp->getType());
+		DUMP(((Type*)typeInfo->llvmType));
+
+		V = Builder.CreatePointerCast(funcTemp, PointerType::getUnqual((Type*)typeInfo->llvmType), "redirect_cast");
+		DUMP(V->getType());
+		V = Builder.CreateLoad(V, "redirect_res");
+		DUMP(V->getType());
+	}
 }
 
 void NodeUnaryOp::CompileLLVM()
@@ -928,6 +956,7 @@ void NodeUnaryOp::CompileLLVM()
 
 	// Child node computes value to V
 	first->CompileLLVM();
+	Value *zeroV = ConstantInt::get(getGlobalContext(), APInt(id == cmdLogNotL ? 64 : 32, 0, true));
 	if(first->typeInfo == typeObject)
 	{
 		DUMP(V->getType());
@@ -942,6 +971,9 @@ void NodeUnaryOp::CompileLLVM()
 		DUMP(V->getType());
 		id = cmdLogNot;
 		//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
+	}else if(first->typeInfo->refLevel){
+		DUMP(V->getType());
+		zeroV = ConstantPointerNull::get((PointerType*)V->getType());
 	}
 	switch(id)
 	{
@@ -958,11 +990,17 @@ void NodeUnaryOp::CompileLLVM()
 	case cmdLogNot:	// !	logical NOT
 	case cmdLogNotL:
 		// Compare that not equal to 0
-		V = Builder.CreateICmpNE(V, ConstantInt::get(getGlobalContext(), APInt(id == cmdLogNotL ? 64 : 32, 0, true)), "to_bool");
+		V = Builder.CreateICmpNE(V, zeroV, "to_bool");
 		// Not 
 		V = Builder.CreateNot(V, "lognot_tmp");
 		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "booltmp");
 		break;
+	case cmdPushTypeID:
+	case cmdFuncAddr:
+		V = ConstantInt::get((Type*)typeInt->llvmType, APInt(32, vmCmd.argument));
+		break;
+	default:
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unknown unary command %s", vmInstructionText[vmCmd.cmd]);
 	}
 }
 
@@ -986,6 +1024,13 @@ void NodeDereference::CompileLLVM()
 		return;
 	}
 	first->CompileLLVM();
+	if(typeInfo != first->typeInfo->subType)
+	{
+		DUMP(V->getType());
+		V = Builder.CreatePointerCast(V, PointerType::getUnqual((Type*)typeInfo->llvmType), "deref_cast");
+		DUMP(V->getType());
+		//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: shenanigans");
+	}
 	if(!V)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeDereference V = NULL");
 	V = Builder.CreateLoad(V, "temp_deref");
