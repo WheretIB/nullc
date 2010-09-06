@@ -28,8 +28,11 @@
 #include "../NULLC/includes/pugi.h"
 
 #ifdef BUILD_FOR_WINDOWS
+	#include <windows.h>
 	#include "../NULLC/includes/window.h"
 #endif
+
+typedef nullres (*externalInit)(nullres (*)(const char*, const char*), nullres (*)(const char*, void (NCDECL*)(), const char*, int));
 
 int main(int argc, char** argv)
 {
@@ -98,6 +101,34 @@ int main(int argc, char** argv)
 
 	if(!nullcInitPugiXMLModule())
 		printf("ERROR: Failed to init ext.pugixml module\r\n");
+
+#ifdef BUILD_FOR_WINDOWS
+	WIN32_FIND_DATA	findData;
+	memset(&findData, 0, sizeof(findData));
+
+	const char *path = "NC_*.dll";
+	HANDLE hFind = FindFirstFile(path, &findData);
+	if(hFind != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			if(!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			{
+				printf("Loading bindings from %s\n", findData.cFileName);
+				HMODULE module = LoadLibrary(findData.cFileName);
+				externalInit init = (externalInit)GetProcAddress(module, "InitModule");
+				if(!init)
+				{
+					printf("Failed to find initialization function InitModule\n");
+				}else{
+					if(!init(nullcLoadModuleBySource, nullcBindModuleFunction))
+						printf("Failed to load bindings from %s\n", findData.cFileName);
+				}
+			}
+		}while(FindNextFile(hFind, &findData));
+		FindClose(hFind);
+	}
+#endif
 	/*
 	nullcInitFileModule();
 	nullcInitMathModule();
