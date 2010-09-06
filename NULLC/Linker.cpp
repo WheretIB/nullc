@@ -2,6 +2,11 @@
 #include "StdLib.h"
 #include "BinaryCache.h"
 
+#ifdef NULLC_AUTOBINDING
+	#define WIN32_LEAN_AND_MEAN
+	#include <windows.h>
+#endif
+
 Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exSymbols(8192), exLocals(1024), jumpTargets(1024)
 {
 	globalVarSize = 0;
@@ -319,6 +324,19 @@ bool Linker::LinkCode(const char *code)
 			exFunctions.push_back(*fInfo);
 			funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
 
+			if(exFunctions.back().address == 0)
+			{
+#ifdef NULLC_AUTOBINDING
+				exFunctions.back().funcPtr = GetProcAddress(GetModuleHandle(NULL), (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+#endif
+				if(exFunctions.back().funcPtr)
+				{
+					exFunctions.back().address = ~0u;
+				}else{
+					SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
+					return false;
+				}
+			}
 #if !defined(_M_X64) && !defined(NULLC_COMPLEX_RETURN)
 			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retType == ExternFuncInfo::RETURN_UNKNOWN)
 			{
@@ -333,11 +351,6 @@ bool Linker::LinkCode(const char *code)
 				return false;
 			}
 #endif
-			if(exFunctions.back().address == 0)
-			{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
-				return false;
-			}
 			// Move based pointer to the new section of symbol information
 			exFunctions.back().offsetToName += oldSymbolSize;
 			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
