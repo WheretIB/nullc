@@ -7,6 +7,19 @@ void	ResetTreeGlobals();
 void	GetCFunctionName(char* fName, unsigned int size, FunctionInfo *funcInfo);
 void	OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo);
 
+//asmStackType	ConvertFirstForSecond(asmStackType first, asmStackType second);
+TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b);
+
+#ifdef NULLC_LLVM_SUPPORT
+void		StartLLVMGeneration(unsigned functionsInModules);
+const char*	GetLLVMIR(unsigned& length);
+void		EndLLVMGeneration();
+void		StartGlobalCode();
+#define COMPILE_LLVM virtual void CompileLLVM();
+#else
+#define COMPILE_LLVM
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 enum NodeType
 {
@@ -69,6 +82,11 @@ public:
 	virtual void LogToStreamExtra(FILE *fGraph);
 	// Translation extra nodes
 	virtual void TranslateToCExtra(FILE *fOut);
+	// Compilation to LLVM IR code
+	COMPILE_LLVM
+#ifdef NULLC_LLVM_SUPPORT
+	virtual void CompileLLVMExtra();
+#endif
 
 	void*		operator new(size_t size)
 	{
@@ -101,6 +119,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 
 	NodeZeroOP*	GetFirstNode()
 	{
@@ -172,6 +191,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 
 	int			GetInteger()
 	{
@@ -223,6 +243,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 };
 
@@ -236,6 +257,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	VMCmd vmCmd;
 };
@@ -250,6 +272,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	bool			localReturn;
 	bool			yieldResult;
@@ -266,6 +289,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	FunctionInfo	*parentFunction;
 	unsigned int	stackFrameShift;
@@ -285,6 +309,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	FunctionInfo	*funcInfo;
 	unsigned int shift;
@@ -309,6 +334,7 @@ public:
 	virtual void TranslateToC(FILE *fOut);
 			void TranslateToCEx(FILE *fOut, bool takeAddress);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
@@ -332,6 +358,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 protected:
 	FunctionInfo	*parentFunc;
 	int			closurePos, closureElem;
@@ -346,6 +373,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 protected:
 };
 
@@ -359,6 +387,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	unsigned int	elemCount;	// If node sets all array, here is the element count
 	int		addrShift;
@@ -375,6 +404,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	CmdID	cmdID;
 	int		addrShift;
@@ -393,6 +423,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 private:
 	int		addrShift;
 	bool	absAddress, knownAddress, neutralized;
@@ -411,6 +442,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 public:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
@@ -431,6 +463,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 protected:
 	friend class NodeDereference;
 	friend class NodeVariableSet;
@@ -453,6 +486,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	bool	incOp;
 	bool	optimised;
@@ -472,6 +506,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 
 	FunctionInfo	*funcInfo;
 };
@@ -487,6 +522,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	CmdID cmdID;
 };
@@ -501,6 +537,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 };
 
@@ -514,6 +551,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	NodeZeroOP*	fourth;
 };
@@ -527,6 +565,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 protected:
 };
 
@@ -539,6 +578,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 protected:
 };
 
@@ -551,6 +591,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 
 	static	void SatisfyJumps(unsigned int pos);
 	static FastVector<unsigned int>	fixQueue;
@@ -567,6 +608,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 
 	static	void SatisfyJumps(unsigned int pos);
 	static FastVector<unsigned int>	fixQueue;
@@ -586,6 +628,7 @@ public:
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
+	COMPILE_LLVM
 
 	static FastVector<unsigned int>	fixQueue;
 protected:
@@ -609,6 +652,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 protected:
 	NodeZeroOP	*tail;
 };
@@ -623,6 +667,7 @@ public:
 	virtual void LogToStream(FILE *fGraph);
 	virtual void TranslateToC(FILE *fOut);
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM
 
 	static unsigned int baseShift;
 	static ChunkedStackPool<4092>	memoPool;

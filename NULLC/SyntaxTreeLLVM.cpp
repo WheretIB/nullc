@@ -75,178 +75,12 @@ std::vector<GlobalVariable*>	globals;
 
 bool	enableOptimization = false;
 
-int llvmIntPow(int number, int power)
-{
-	int result = 1;
-	while(power)
-	{
-		if(power & 1)
-		{
-			result *= number;
-			power--;
-		}
-		number *= number;
-		power >>= 1;
-	}
-	return result;
-}
-
-long long llvmLongPow(long long num, long long power)
-{
-	if(power < 0)
-		return (num == 1 ? 1 : 0);
-	long long res = 1;
-	while(power)
-	{
-		if(power & 0x01)
-		{
-			res *= num;
-			power--;
-		}
-		num *= num;
-		power >>= 1;
-	}
-	return res;
-}
-
-double llvmDoublePow(double number, double power)
-{
-	return pow(number, power);
-}
-
-long long llvmLongDiv(long long a, long long b)
-{
-	return b / a;
-}
-
-long long llvmLongMod(long long a, long long b)
-{
-	return b % a;
-}
-
-std::vector<void*> memBlocks;
-
-void* llvmNewS(int size, void*)
-{
-	memBlocks.push_back(malloc(size));
-	memset(memBlocks.back(), 0, size);
-	return memBlocks.back();
-}
-
-NULLCArray llvmNewA(int size, int count, void*)
-{
-	NULLCArray ret;
-	ret.len = count;
-	memBlocks.push_back(malloc(size * count));
-	memset(memBlocks.back(), 0, size * count);
-	ret.ptr = (char*)memBlocks.back();
-	return ret;
-}
-
-void	llvmSetArrayC(char arr[], char val, unsigned int count)
-{
-	for(unsigned int i = 0; i < count; i++)
-		arr[i] = val;
-}
-void	llvmSetArrayS(short arr[], short val, unsigned int count)
-{
-	for(unsigned int i = 0; i < count; i++)
-		arr[i] = val;
-}
-void	llvmSetArrayI(int arr[], int val, unsigned int count)
-{
-	for(unsigned int i = 0; i < count; i++)
-		arr[i] = val;
-}
-void	llvmSetArrayF(float arr[], float val, unsigned int count)
-{
-	for(unsigned int i = 0; i < count; i++)
-		arr[i] = val;
-}
-void	llvmSetArrayD(double arr[], double val, unsigned int count)
-{
-	for(unsigned int i = 0; i < count; i++)
-		arr[i] = val;
-}
-void	llvmSetArrayL(long long arr[], long long val, unsigned int count)
-{
-	for(unsigned int i = 0; i < count; i++)
-		arr[i] = val;
-}
-
-enum LLVMReturnType
-{
-	LLVM_NONE,
-	LLVM_INT,
-	LLVM_LONG,
-	LLVM_DOUBLE,
-};
-LLVMReturnType llvmReturnedType = LLVM_NONE;
-int llvmReturnedInt = 0;
-long long llvmReturnedLong = 0ll;
-double llvmReturnedDouble = 0.0;
-
-void	llvmReturnInt(int x)
-{
-	llvmReturnedType = LLVM_INT;
-	llvmReturnedInt = x;
-}
-
-void	llvmReturnLong(long long x)
-{
-	llvmReturnedType = LLVM_LONG;
-	llvmReturnedLong = x;
-}
-
-void	llvmReturnDouble(double x)
-{
-	llvmReturnedType = LLVM_DOUBLE;
-	llvmReturnedDouble = x;
-}
-
-void* funcCreator(const std::string& name)
-{
-	if(name == "llvmIntPow")
-		return llvmIntPow;
-	if(name == "llvmLongPow")
-		return llvmLongPow;
-	if(name == "llvmDoublePow")
-		return llvmDoublePow;
-	if(name == "__moddi3")
-		return llvmLongMod;
-	if(name == "__divdi3")
-		return llvmLongDiv;
-	if(name == "__newS")
-		return llvmNewS;
-	if(name == "__newA")
-		return llvmNewA;
-	if(name == "__llvmSetArrayC")
-		return llvmSetArrayC;
-	if(name == "__llvmSetArrayS")
-		return llvmSetArrayS;
-	if(name == "__llvmSetArrayI")
-		return llvmSetArrayI;
-	if(name == "__llvmSetArrayL")
-		return llvmSetArrayL;
-	if(name == "__llvmSetArrayF")
-		return llvmSetArrayF;
-	if(name == "__llvmSetArrayD")
-		return llvmSetArrayD;
-	if(name == "llvmReturnInt")
-		return llvmReturnInt;
-	if(name == "llvmReturnLong")
-		return llvmReturnLong;
-	if(name == "llvmReturnDouble")
-		return llvmReturnDouble;
-
-	return NULL;
-}
 
 FastVector<BasicBlock*>	breakStack;
 FastVector<BasicBlock*> continueStack;
 
 llvm::Function *F = NULL;
-void		StartLLVMGeneration()
+void		StartLLVMGeneration(unsigned functionsInModules)
 {
 	InitializeNativeTarget();
 
@@ -260,7 +94,7 @@ void		StartLLVMGeneration()
 		printf("Could not create ExecutionEngine: %s\n", ErrStr.c_str());
 		exit(1);
 	}
-	TheExecutionEngine->InstallLazyFunctionCreator(funcCreator);
+	//TheExecutionEngine->InstallLazyFunctionCreator(funcCreator);
 
 	OurPM = new PassManager();
 
@@ -383,10 +217,14 @@ void		StartLLVMGeneration()
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		InplaceStr name = CodeInfo::varInfo[i]->name;
-		globals.push_back(new GlobalVariable(*TheModule, (Type*)CodeInfo::varInfo[i]->varType->llvmType, false, llvm::GlobalVariable::InternalLinkage, 0, std::string(name.begin, name.end)));
+		globals.push_back(new GlobalVariable(*TheModule, (Type*)CodeInfo::varInfo[i]->varType->llvmType, false,
+			CodeInfo::varInfo[i]->pos >> 24 ? llvm::GlobalVariable::ExternalWeakLinkage : llvm::GlobalVariable::ExternalLinkage,
+			0, std::string(name.begin, name.end)));
 		CodeInfo::varInfo[i]->llvmValue = globals.back();
 		globals.back()->setInitializer(Constant::getNullValue((Type*)CodeInfo::varInfo[i]->varType->llvmType));
+		//printf("global %s %.*s\n", CodeInfo::varInfo[i]->pos >> 24 ? "extern" : "", int(name.end - name.begin), name.begin);
 	}
+
 
 	Function::Create(TypeBuilder<types::i<32>(types::i<32>, types::i<32>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmIntPow", TheModule);
 	Function::Create(TypeBuilder<types::i<64>(types::i<64>, types::i<64>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmLongPow", TheModule);
@@ -422,46 +260,21 @@ void		StartLLVMGeneration()
 	Function::Create(TypeBuilder<void(types::i<64>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmReturnLong", TheModule);
 	Function::Create(TypeBuilder<void(types::ieee_double), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmReturnDouble", TheModule);	
 
-	/*Function::Create(TypeBuilder<types::i<32>*(types::i<32>, types::i<32>*), true>::get(getGlobalContext()), Function::ExternalLinkage, "__newS", TheModule);
-
-	std::vector<const llvm::Type*> newAParams;
-	newAParams.push_back(Type::getInt32Ty(getGlobalContext()));
-	newAParams.push_back(Type::getInt32Ty(getGlobalContext()));
-	newAParams.push_back(Type::getInt32PtrTy(getGlobalContext()));
-	llvm::FunctionType *FT = llvm::FunctionType::get(StructType::get(getGlobalContext(), Type::getInt8PtrTy(getGlobalContext()), Type::getInt32Ty(getGlobalContext()), (Type*)NULL), newAParams, false);
-	Function::Create(FT, Function::ExternalLinkage, "__newA", TheModule);*/
-	
 	std::vector<const llvm::Type*> Arguments;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
 		FunctionInfo *funcInfo = CodeInfo::funcInfo[i];
-		/*if(funcInfo->nameHash == GetStringHash("__newS"))
-		{
-			funcInfo->llvmFunction = TheModule->getFunction("__newS");
-			funcInfo->llvmImplemented = true;
-			continue;
-		}
-		if(funcInfo->nameHash == GetStringHash("__newA"))
-		{
-			funcInfo->llvmFunction = TheModule->getFunction("__newA");
-			funcInfo->llvmImplemented = true;
-			continue;
-		}*/
 		Arguments.clear();
 		VariableInfo *curr = NULL;
 		for(curr = funcInfo->firstParam; curr; curr = curr->next)
 			Arguments.push_back((Type*)curr->varType->llvmType);
 		Arguments.push_back(funcInfo->extraParam ? (Type*)funcInfo->extraParam->varType->llvmType : Type::getInt32PtrTy(getGlobalContext()));
 		llvm::FunctionType *FT = llvm::FunctionType::get((Type*)funcInfo->retType->llvmType, Arguments, false);
-		funcInfo->llvmFunction = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, funcInfo->name, TheModule);
+		funcInfo->llvmFunction = llvm::Function::Create(FT, i < functionsInModules ? llvm::Function::ExternalWeakLinkage : llvm::Function::ExternalLinkage, funcInfo->name, TheModule);
 	}
 
 	breakStack.clear();
 	continueStack.clear();
-
-	for(std::vector<void*>::iterator c = memBlocks.begin(), e = memBlocks.end(); c != e; c++)
-		free(*c);
-	memBlocks.clear();
 }
 
 struct my_stream : public llvm::raw_ostream
@@ -491,7 +304,8 @@ void		StartGlobalCode()
 	//globalExit = BasicBlock::Create(getGlobalContext(), "globalReturn");
 }
 
-const char*	GetLLVMIR()
+std::vector<unsigned char> out;
+const char*	GetLLVMIR(unsigned& length)
 {
 	if(F->back().empty() || !F->back().back().isTerminator())
 		Builder.CreateRetVoid();
@@ -509,25 +323,23 @@ const char*	GetLLVMIR()
 			OurFPM->run(*F);
 	}
 
-	//LLVMContext &Context = getGlobalContext();
-	//CreateFibFunction(TheModule, Context);
-	//outs() << "verifying... ";
 	DUMP(TheModule);
-	//my_stream a;
-	//TheModule->print(a, NULL);
 
-	unsigned start = clock();
+//	unsigned start = clock();
 
 	verifyFunction(*F);
 	verifyModule(*TheModule);
 
-	unsigned verified = clock() - start;
-	start = clock();
+//	unsigned verified = clock() - start;
+//	start = clock();
 
-/*	std::vector<unsigned char> out;
+	out.clear();
 	BitstreamWriter bw = BitstreamWriter(out);
 	WriteBitcodeToStream(TheModule, bw);
-	printf("%d\n", out.size());*/
+	out.push_back(0);
+	length = (unsigned)out.size();
+	
+	//printf("%d\n", out.size());
 
 	/*if(!F->getEntryBlock().empty())
 	{
@@ -541,7 +353,7 @@ const char*	GetLLVMIR()
 		memBlocks.clear();
 	}*/
 
-	return NULL;
+	return (char*)&out[0];
 }
 llvm::Value *V;
 
@@ -930,19 +742,24 @@ void NodeFuncCall::CompileLLVM()
 
 		//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncCall funcInfo = NULL");
 	}else{
+		CalleeF = (Function*)funcInfo->llvmFunction;// TheModule->getFunction(funcInfo->name);
+		if(!CalleeF)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
 		if(first)
 		{
 			first->CompileLLVM();
 			DUMP(V->getType());
+			Argument *last = (--CalleeF->arg_end());
+			DUMP(last->getType());
+			if(V->getType() != last->getType())
+			{
+				V = Builder.CreatePointerCast(V, last->getType());
+				DUMP(V->getType());
+			}
 			args.push_back(V);
 		}else{
 			args.push_back(ConstantPointerNull::get(Type::getInt32PtrTy(getGlobalContext())));
 		}
-		//if(!funcInfo->llvmImplemented)
-		//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: %s unimplemented", funcInfo->name);
-		CalleeF = (Function*)funcInfo->llvmFunction;// TheModule->getFunction(funcInfo->name);
-		if(!CalleeF)
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
 	}
 	if(funcType->retType != typeVoid)
 	{
@@ -1077,13 +894,16 @@ void NodeDereference::CompileLLVM()
 		originalNode->CompileLLVM();
 		return;
 	}
+	if(closureFunc)
+	{
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeDereference closureFunc");
+	}
 	first->CompileLLVM();
 	if(typeInfo != first->typeInfo->subType)
 	{
 		DUMP(V->getType());
 		V = Builder.CreatePointerCast(V, PointerType::getUnqual((Type*)typeInfo->llvmType), "deref_cast");
 		DUMP(V->getType());
-		//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: shenanigans");
 	}
 	if(!V)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeDereference V = NULL");
@@ -1125,73 +945,73 @@ void MakeBinaryOp(Value *left, Value *right, CmdID cmdID, asmStackType fST)
 		break;		// a % b
 	case cmdLess:
 		if(fST == STYPE_DOUBLE)
-			V = Builder.CreateFCmpOLT(left, right, "less_tmp");
+			V = Builder.CreateFCmpOLT(left, right);
 		else
-			V = Builder.CreateICmpSLT(left, right, "less_tmp");
-		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "to_int");
+			V = Builder.CreateICmpSLT(left, right);
+		V = Builder.CreateZExt(V, Type::getInt32Ty(getGlobalContext()), "to_int");
 		break;	// a < b
 	case cmdGreater:
 		if(fST == STYPE_DOUBLE)
-			V = Builder.CreateFCmpOGT(left, right, "less_tmp");
+			V = Builder.CreateFCmpOGT(left, right);
 		else
-			V = Builder.CreateICmpSGT(left, right, "less_tmp");
-		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "to_int");
+			V = Builder.CreateICmpSGT(left, right);
+		V = Builder.CreateZExt(V, Type::getInt32Ty(getGlobalContext()), "to_int");
 		break;	// a > b
 	case cmdLEqual:
 		if(fST == STYPE_DOUBLE)
-			V = Builder.CreateFCmpOLE(left, right, "less_tmp");
+			V = Builder.CreateFCmpOLE(left, right);
 		else
-			V = Builder.CreateICmpSLE(left, right, "less_tmp");
-		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "to_int");
+			V = Builder.CreateICmpSLE(left, right);
+		V = Builder.CreateZExt(V, Type::getInt32Ty(getGlobalContext()), "to_int");
 		break;	// a <= b
 	case cmdGEqual:
 		if(fST == STYPE_DOUBLE)
-			V = Builder.CreateFCmpOGE(left, right, "less_tmp");
+			V = Builder.CreateFCmpOGE(left, right);
 		else
-			V = Builder.CreateICmpSGE(left, right, "less_tmp");
-		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "to_int");
+			V = Builder.CreateICmpSGE(left, right);
+		V = Builder.CreateZExt(V, Type::getInt32Ty(getGlobalContext()), "to_int");
 		break;	// a >= b
 	case cmdEqual:
 		if(fST == STYPE_DOUBLE)
-			V = Builder.CreateFCmpOEQ(left, right, "less_tmp");
+			V = Builder.CreateFCmpOEQ(left, right);
 		else
-			V = Builder.CreateICmpEQ(left, right, "less_tmp");
-		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "to_int");
+			V = Builder.CreateICmpEQ(left, right);
+		V = Builder.CreateZExt(V, Type::getInt32Ty(getGlobalContext()), "to_int");
 		break;	// a == b
 	case cmdNEqual:
 		if(fST == STYPE_DOUBLE)
-			V = Builder.CreateFCmpONE(left, right, "less_tmp");
+			V = Builder.CreateFCmpONE(left, right);
 		else
-			V = Builder.CreateICmpNE(left, right, "less_tmp");
-		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "to_int");
+			V = Builder.CreateICmpNE(left, right);
+		V = Builder.CreateZExt(V, Type::getInt32Ty(getGlobalContext()), "to_int");
 		break;	// a != b
 	case cmdShl:
-		V = Builder.CreateShl(left, right, "less_tmp");
+		V = Builder.CreateShl(left, right);
 		break;		// a << b
 	case cmdShr:
-		V = Builder.CreateAShr(left, right, "less_tmp");
+		V = Builder.CreateAShr(left, right);
 		break;		// a >> b
 	case cmdBitAnd:
-		V = Builder.CreateBinOp(llvm::Instruction::And, left, right, "less_tmp");
-		break;	// a & b	binary AND/бинарное И
+		V = Builder.CreateBinOp(llvm::Instruction::And, left, right);
+		break;
 	case cmdBitOr:
-		V = Builder.CreateBinOp(llvm::Instruction::Or, left, right, "less_tmp");
-		break;	// a | b	binary OR/бинарное ИЛИ
+		V = Builder.CreateBinOp(llvm::Instruction::Or, left, right);
+		break;
 	case cmdBitXor:
-		V = Builder.CreateBinOp(llvm::Instruction::Xor, left, right, "less_tmp");
-		break;	// a ^ b	binary XOR/бинарное Исключающее ИЛИ
+		V = Builder.CreateBinOp(llvm::Instruction::Xor, left, right);
+		break;
 	case cmdLogAnd:
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: MakeBinaryOp cmdLogAnd");
-		break;	// a && b	logical AND/логическое И
+		break;
 	case cmdLogOr:
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: MakeBinaryOp cmdLogOr");
-		break;	// a || b	logical OR/логическое ИЛИ
+		break;
 	case cmdLogXor:
 		left = Builder.CreateICmpNE(left, ConstantInt::get(getGlobalContext(), APInt(fST == STYPE_LONG ? 64 : 32, 0, true)), "to_bool_left");
 		right = Builder.CreateICmpNE(right, ConstantInt::get(getGlobalContext(), APInt(fST == STYPE_LONG ? 64 : 32, 0, true)), "to_bool_rught");
 		V = Builder.CreateBinOp(llvm::Instruction::Xor, left, right, "less_tmp");
 		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "to_int");
-		break;	// a ^^ b	logical XOR/логическое Исключающее ИЛИ
+		break;
 	default:
 		assert(!"unimplemented");
 	}
@@ -1761,13 +1581,42 @@ void NodeGetUpvalue::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeGetUpvalue");
+	assert(parentFunc->extraParam);
+	assert(parentFunc->extraParam->llvmValue);
+
+	Value *closure = (Value*)parentFunc->extraParam->llvmValue;
+	DUMP(closure->getType());
+
+	// Load pointer to closure into a variable
+	V = Builder.CreateLoad(closure, "closure");
+	DUMP(V->getType());
+	// Cast it to char*
+	V = Builder.CreatePointerCast(V, Type::getInt8PtrTy(getGlobalContext()));
+	DUMP(V->getType());
+	// Shift to offset
+	Value *arrayIndexHelper[2];
+	//arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
+	arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(32, closureElem, true));
+	V = Builder.CreateGEP(V, &arrayIndexHelper[0], &arrayIndexHelper[1]);
+	DUMP(V->getType());
+	// cast to result type
+	V = Builder.CreatePointerCast(V, (Type*)typeInfo->llvmType);
+	DUMP(V->getType());
+
+	//cmdList.push_back(VMCmd(cmdPushPtr, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
+	//cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, closureElem));
+
+	//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeGetUpvalue");
 }
 
 void NodeBlock::CompileLLVM()
 {
 	CompileLLVMExtra();
 
+	/*first->CompileLLVM();
+	if(parentFunction->closeUpvals)
+		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned short)CodeInfo::FindFunctionByPtr(parentFunction), stackFrameShift));
+*/
 	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeBlock");
 }
 
