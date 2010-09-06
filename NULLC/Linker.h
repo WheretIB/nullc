@@ -42,6 +42,11 @@ public:
 
 	FastVector<unsigned int>	functionAddress;
 
+#ifdef NULLC_LLVM_SUPPORT
+	FastVector<unsigned int>	llvmModuleSizes;
+	FastVector<char>			llvmModuleCodes;
+#endif
+
 	FastVector<unsigned int>	typeRemap;
 	FastVector<unsigned int>	funcRemap;
 	FastVector<unsigned int>	moduleRemap;

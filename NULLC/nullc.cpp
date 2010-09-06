@@ -10,6 +10,9 @@
 #ifdef NULLC_BUILD_X86_JIT
 	#include "Executor_X86.h"
 #endif
+#ifdef NULLC_LLVM_SUPPORT
+	#include "Executor_LLVM.h"
+#endif
 
 #include "StdLib.h"
 #include "BinaryCache.h"
@@ -39,6 +42,9 @@ Compiler*	compiler;
 #endif
 #ifdef NULLC_BUILD_X86_JIT
 	ExecutorX86*	executorX86;
+#endif
+#ifdef NULLC_LLVM_SUPPORT
+	ExecutorLLVM*	executorLLVM;
 #endif
 
 const char*	nullcLastError = NULL;
@@ -74,7 +80,12 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 #endif
 #ifdef NULLC_BUILD_X86_JIT
 	executorX86 = new(NULLC::alloc(sizeof(ExecutorX86))) ExecutorX86(linker);
-	executorX86->Initialize();
+	bool initx86 = executorX86->Initialize();
+	assert(initx86);
+	(void)initx86;
+#endif
+#ifdef NULLC_LLVM_SUPPORT
+	executorLLVM = new(NULLC::alloc(sizeof(ExecutorLLVM))) ExecutorLLVM(linker);
 #endif
 	BinaryCache::Initialize();
 	BinaryCache::SetImportPath(importPath);
@@ -455,6 +466,16 @@ nullres	nullcRunFunction(const char* funcName, ...)
 		good = false;
 		nullcLastError = "X86 JIT isn't available";
 #endif
+#ifdef NULLC_LLVM_SUPPORT
+	}else if(currExec == NULLC_LLVM){
+		executorLLVM->Run(functionID, argBuf);
+		const char* error = executorLLVM->GetExecError();
+		if(error[0] != '\0')
+		{
+			good = false;
+			nullcLastError = error;
+		}
+#endif
 	}else{
 		good = false;
 		nullcLastError = "Unknown executor code";
@@ -652,6 +673,10 @@ const char* nullcGetResult()
 	if(currExec == NULLC_X86)
 		return executorX86->GetResult();
 #endif
+#ifdef NULLC_LLVM_SUPPORT
+	if(currExec == NULLC_LLVM)
+		return executorLLVM->GetResult();
+#endif
 	return "unknown executor";
 }
 int nullcGetResultInt()
@@ -663,6 +688,10 @@ int nullcGetResultInt()
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultInt();
+#endif
+#ifdef NULLC_LLVM_SUPPORT
+	if(currExec == NULLC_LLVM)
+		return executorLLVM->GetResultInt();
 #endif
 	return 0;
 }
@@ -676,6 +705,10 @@ double nullcGetResultDouble()
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultDouble();
 #endif
+#ifdef NULLC_LLVM_SUPPORT
+	if(currExec == NULLC_LLVM)
+		return executorLLVM->GetResultDouble();
+#endif
 	return 0.0;
 }
 long long nullcGetResultLong()
@@ -687,6 +720,10 @@ long long nullcGetResultLong()
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultLong();
+#endif
+#ifdef NULLC_LLVM_SUPPORT
+	if(currExec == NULLC_LLVM)
+		return executorLLVM->GetResultLong();
 #endif
 	return 0;
 }
@@ -756,6 +793,10 @@ void* nullcGetVariableData(unsigned int *count)
 	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		return executorX86->GetVariableData(count);
+#endif
+#ifdef NULLC_LLVM_SUPPORT
+	}else if(currExec == NULLC_LLVM){
+		return executorLLVM->GetVariableData(count);
 #endif
 	}
 	(void)count;
