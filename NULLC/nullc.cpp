@@ -10,7 +10,7 @@
 #ifdef NULLC_BUILD_X86_JIT
 	#include "Executor_X86.h"
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	#include "Executor_LLVM.h"
 #endif
 
@@ -43,7 +43,7 @@ Compiler*	compiler;
 #ifdef NULLC_BUILD_X86_JIT
 	ExecutorX86*	executorX86;
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	ExecutorLLVM*	executorLLVM;
 #endif
 
@@ -84,7 +84,7 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	assert(initx86);
 	(void)initx86;
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	executorLLVM = new(NULLC::alloc(sizeof(ExecutorLLVM))) ExecutorLLVM(linker);
 #endif
 	BinaryCache::Initialize();
@@ -466,7 +466,7 @@ nullres	nullcRunFunction(const char* funcName, ...)
 		good = false;
 		nullcLastError = "X86 JIT isn't available";
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	}else if(currExec == NULLC_LLVM){
 		executorLLVM->Run(functionID, argBuf);
 		const char* error = executorLLVM->GetExecError();
@@ -673,7 +673,7 @@ const char* nullcGetResult()
 	if(currExec == NULLC_X86)
 		return executorX86->GetResult();
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResult();
 #endif
@@ -689,7 +689,7 @@ int nullcGetResultInt()
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultInt();
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultInt();
 #endif
@@ -705,7 +705,7 @@ double nullcGetResultDouble()
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultDouble();
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultDouble();
 #endif
@@ -721,7 +721,7 @@ long long nullcGetResultLong()
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultLong();
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultLong();
 #endif
@@ -794,7 +794,7 @@ void* nullcGetVariableData(unsigned int *count)
 #ifdef NULLC_BUILD_X86_JIT
 		return executorX86->GetVariableData(count);
 #endif
-#ifdef NULLC_LLVM_SUPPORT
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	}else if(currExec == NULLC_LLVM){
 		return executorLLVM->GetVariableData(count);
 #endif
