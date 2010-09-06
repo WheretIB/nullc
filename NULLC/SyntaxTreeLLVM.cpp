@@ -143,35 +143,65 @@ NULLCArray llvmNewA(int size, int count, void*)
 	return ret;
 }
 
-void	__nullcSetArrayC(char arr[], char val, unsigned int count)
+void	llvmSetArrayC(char arr[], char val, unsigned int count)
 {
 	for(unsigned int i = 0; i < count; i++)
 		arr[i] = val;
 }
-void	__nullcSetArrayS(short arr[], short val, unsigned int count)
+void	llvmSetArrayS(short arr[], short val, unsigned int count)
 {
 	for(unsigned int i = 0; i < count; i++)
 		arr[i] = val;
 }
-void	__nullcSetArrayI(int arr[], int val, unsigned int count)
+void	llvmSetArrayI(int arr[], int val, unsigned int count)
 {
 	for(unsigned int i = 0; i < count; i++)
 		arr[i] = val;
 }
-void	__nullcSetArrayF(float arr[], float val, unsigned int count)
+void	llvmSetArrayF(float arr[], float val, unsigned int count)
 {
 	for(unsigned int i = 0; i < count; i++)
 		arr[i] = val;
 }
-void	__nullcSetArrayD(double arr[], double val, unsigned int count)
+void	llvmSetArrayD(double arr[], double val, unsigned int count)
 {
 	for(unsigned int i = 0; i < count; i++)
 		arr[i] = val;
 }
-void	__nullcSetArrayL(long long arr[], long long val, unsigned int count)
+void	llvmSetArrayL(long long arr[], long long val, unsigned int count)
 {
 	for(unsigned int i = 0; i < count; i++)
 		arr[i] = val;
+}
+
+enum LLVMReturnType
+{
+	LLVM_NONE,
+	LLVM_INT,
+	LLVM_LONG,
+	LLVM_DOUBLE,
+};
+LLVMReturnType llvmReturnedType = LLVM_NONE;
+int llvmReturnedInt = 0;
+long long llvmReturnedLong = 0ll;
+double llvmReturnedDouble = 0.0;
+
+void	llvmReturnInt(int x)
+{
+	llvmReturnedType = LLVM_INT;
+	llvmReturnedInt = x;
+}
+
+void	llvmReturnLong(long long x)
+{
+	llvmReturnedType = LLVM_LONG;
+	llvmReturnedLong = x;
+}
+
+void	llvmReturnDouble(double x)
+{
+	llvmReturnedType = LLVM_DOUBLE;
+	llvmReturnedDouble = x;
 }
 
 void* funcCreator(const std::string& name)
@@ -190,18 +220,24 @@ void* funcCreator(const std::string& name)
 		return llvmNewS;
 	if(name == "__newA")
 		return llvmNewA;
-	if(name == "__nullcSetArrayC")
-		return __nullcSetArrayC;
-	if(name == "__nullcSetArrayS")
-		return __nullcSetArrayS;
-	if(name == "__nullcSetArrayI")
-		return __nullcSetArrayI;
-	if(name == "__nullcSetArrayL")
-		return __nullcSetArrayL;
-	if(name == "__nullcSetArrayF")
-		return __nullcSetArrayF;
-	if(name == "__nullcSetArrayD")
-		return __nullcSetArrayD;
+	if(name == "__llvmSetArrayC")
+		return llvmSetArrayC;
+	if(name == "__llvmSetArrayS")
+		return llvmSetArrayS;
+	if(name == "__llvmSetArrayI")
+		return llvmSetArrayI;
+	if(name == "__llvmSetArrayL")
+		return llvmSetArrayL;
+	if(name == "__llvmSetArrayF")
+		return llvmSetArrayF;
+	if(name == "__llvmSetArrayD")
+		return llvmSetArrayD;
+	if(name == "llvmReturnInt")
+		return llvmReturnInt;
+	if(name == "llvmReturnLong")
+		return llvmReturnLong;
+	if(name == "llvmReturnDouble")
+		return llvmReturnDouble;
 
 	return NULL;
 }
@@ -364,23 +400,27 @@ void		StartLLVMGeneration()
 
 	arrSetParams[0] = Type::getInt16PtrTy(getGlobalContext());
 	arrSetParams[1] = Type::getInt16Ty(getGlobalContext());
-	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayS", TheModule);
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__llvmSetArrayS", TheModule);
 
 	arrSetParams[0] = Type::getInt32PtrTy(getGlobalContext());
 	arrSetParams[1] = Type::getInt32Ty(getGlobalContext());
-	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayI", TheModule);
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__llvmSetArrayI", TheModule);
 
 	arrSetParams[0] = Type::getInt64PtrTy(getGlobalContext());
 	arrSetParams[1] = Type::getInt64Ty(getGlobalContext());
-	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayL", TheModule);
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__llvmSetArrayL", TheModule);
 
 	arrSetParams[0] = Type::getFloatPtrTy(getGlobalContext());
 	arrSetParams[1] = Type::getFloatTy(getGlobalContext());
-	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayF", TheModule);
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__llvmSetArrayF", TheModule);
 
 	arrSetParams[0] = Type::getDoublePtrTy(getGlobalContext());
 	arrSetParams[1] = Type::getDoubleTy(getGlobalContext());
-	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayD", TheModule);
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__llvmSetArrayD", TheModule);
+
+	Function::Create(TypeBuilder<void(types::i<32>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmReturnInt", TheModule);
+	Function::Create(TypeBuilder<void(types::i<64>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmReturnLong", TheModule);
+	Function::Create(TypeBuilder<void(types::ieee_double), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmReturnDouble", TheModule);	
 
 	/*Function::Create(TypeBuilder<types::i<32>*(types::i<32>, types::i<32>*), true>::get(getGlobalContext()), Function::ExternalLinkage, "__newS", TheModule);
 
@@ -439,24 +479,22 @@ struct my_stream : public llvm::raw_ostream
 //#define DUMP(x) x->dump()
 #define DUMP(x) x
 
-BasicBlock *globalExit = NULL;
+//BasicBlock *globalExit = NULL;
 
 void		StartGlobalCode()
 {
-	std::vector<const llvm::Type*> Empty;
-	llvm::FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), Empty, false);
-	F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "Global", TheModule);
+	F = llvm::Function::Create(TypeBuilder<void(), true>::get(getGlobalContext()), llvm::Function::ExternalLinkage, "Global", TheModule);
 
 	llvm::BasicBlock *BB = llvm::BasicBlock::Create(llvm::getGlobalContext(), "global_entry", F);
 	Builder.SetInsertPoint(BB);
 
-	globalExit = BasicBlock::Create(getGlobalContext(), "globalReturn");
+	//globalExit = BasicBlock::Create(getGlobalContext(), "globalReturn");
 }
 
 const char*	GetLLVMIR()
 {
 	if(F->back().empty() || !F->back().back().isTerminator())
-		Builder.CreateRet(ConstantInt::get(getGlobalContext(), APInt(32, 0, true)));
+		Builder.CreateRetVoid();
 
 	/*F->getBasicBlockList().push_back(globalExit);
 	Builder.SetInsertPoint(globalExit);
@@ -669,9 +707,23 @@ void NodeReturnOp::CompileLLVM()
 		V = PromoteToStackType(V, first->typeInfo);
 		V = ConvertFirstToSecond(V, GetStackType(first->typeInfo), typeInfo);
 	}
-	if(!parentFunction && first->typeInfo != typeInt)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp !typeInfo && first->typeInfo != typeInt");
-	Builder.CreateRet(V);
+	if(!parentFunction)
+	{//&& first->typeInfo != typeInt)
+	//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp !typeInfo && first->typeInfo != typeInt");
+		V = PromoteToStackType(V, first->typeInfo);
+		TypeInfo *retType = GetStackType(first->typeInfo);
+		if(retType == typeInt)
+			Builder.CreateCall(TheModule->getFunction("llvmReturnInt"), V);
+		else if(retType == typeLong)
+			Builder.CreateCall(TheModule->getFunction("llvmReturnLong"), V);
+		else if(retType == typeDouble)
+			Builder.CreateCall(TheModule->getFunction("llvmReturnDouble"), V);
+		else
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unknown global return type");
+		Builder.CreateRetVoid();
+		V = NULL;
+		return;
+	}
 
 	if(parentFunction && parentFunction->closeUpvals)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp upvalues unsupported");
@@ -679,6 +731,8 @@ void NodeReturnOp::CompileLLVM()
 	if(parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp yield unsupported");
 	
+	Builder.CreateRet(V);
+
 	//BasicBlock *afterReturn = BasicBlock::Create(getGlobalContext(), "afterReturn", F);
 	//Builder.SetInsertPoint(afterReturn);
 
@@ -1261,7 +1315,7 @@ void NodeVariableSet::CompileLLVM()
 		case TypeInfo::TYPE_DOUBLE: suffix = 'D'; break;
 		default: ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet arrSetAll unknown type");
 		}
-		SafeSprintf(fName, 20, "__nullcSetArray%c", suffix);
+		SafeSprintf(fName, 20, "__llvmSetArray%c", suffix);
 		Function *setFunc = TheModule->getFunction(fName);
 		assert(setFunc);
 		DUMP(target->getType());
