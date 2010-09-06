@@ -129,6 +129,7 @@ std::vector<void*> memBlocks;
 void* llvmNewS(int size, void*)
 {
 	memBlocks.push_back(malloc(size));
+	memset(memBlocks.back(), 0, size);
 	return memBlocks.back();
 }
 
@@ -137,8 +138,40 @@ NULLCArray llvmNewA(int size, int count, void*)
 	NULLCArray ret;
 	ret.len = count;
 	memBlocks.push_back(malloc(size * count));
+	memset(memBlocks.back(), 0, size * count);
 	ret.ptr = (char*)memBlocks.back();
 	return ret;
+}
+
+void	__nullcSetArrayC(char arr[], char val, unsigned int count)
+{
+	for(unsigned int i = 0; i < count; i++)
+		arr[i] = val;
+}
+void	__nullcSetArrayS(short arr[], short val, unsigned int count)
+{
+	for(unsigned int i = 0; i < count; i++)
+		arr[i] = val;
+}
+void	__nullcSetArrayI(int arr[], int val, unsigned int count)
+{
+	for(unsigned int i = 0; i < count; i++)
+		arr[i] = val;
+}
+void	__nullcSetArrayF(float arr[], float val, unsigned int count)
+{
+	for(unsigned int i = 0; i < count; i++)
+		arr[i] = val;
+}
+void	__nullcSetArrayD(double arr[], double val, unsigned int count)
+{
+	for(unsigned int i = 0; i < count; i++)
+		arr[i] = val;
+}
+void	__nullcSetArrayL(long long arr[], long long val, unsigned int count)
+{
+	for(unsigned int i = 0; i < count; i++)
+		arr[i] = val;
 }
 
 void* funcCreator(const std::string& name)
@@ -157,6 +190,19 @@ void* funcCreator(const std::string& name)
 		return llvmNewS;
 	if(name == "__newA")
 		return llvmNewA;
+	if(name == "__nullcSetArrayC")
+		return __nullcSetArrayC;
+	if(name == "__nullcSetArrayS")
+		return __nullcSetArrayS;
+	if(name == "__nullcSetArrayI")
+		return __nullcSetArrayI;
+	if(name == "__nullcSetArrayL")
+		return __nullcSetArrayL;
+	if(name == "__nullcSetArrayF")
+		return __nullcSetArrayF;
+	if(name == "__nullcSetArrayD")
+		return __nullcSetArrayD;
+
 	return NULL;
 }
 
@@ -310,6 +356,32 @@ void		StartLLVMGeneration()
 	Function::Create(TypeBuilder<types::i<64>(types::i<64>, types::i<64>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmLongPow", TheModule);
 	Function::Create(TypeBuilder<types::ieee_double(types::ieee_double, types::ieee_double), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmDoublePow", TheModule);
 
+	std::vector<const llvm::Type*> arrSetParams;
+	arrSetParams.push_back(Type::getInt8PtrTy(getGlobalContext()));
+	arrSetParams.push_back(Type::getInt8Ty(getGlobalContext()));
+	arrSetParams.push_back(Type::getInt32Ty(getGlobalContext()));
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayC", TheModule);
+
+	arrSetParams[0] = Type::getInt16PtrTy(getGlobalContext());
+	arrSetParams[1] = Type::getInt16Ty(getGlobalContext());
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayS", TheModule);
+
+	arrSetParams[0] = Type::getInt32PtrTy(getGlobalContext());
+	arrSetParams[1] = Type::getInt32Ty(getGlobalContext());
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayI", TheModule);
+
+	arrSetParams[0] = Type::getInt64PtrTy(getGlobalContext());
+	arrSetParams[1] = Type::getInt64Ty(getGlobalContext());
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayL", TheModule);
+
+	arrSetParams[0] = Type::getFloatPtrTy(getGlobalContext());
+	arrSetParams[1] = Type::getFloatTy(getGlobalContext());
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayF", TheModule);
+
+	arrSetParams[0] = Type::getDoublePtrTy(getGlobalContext());
+	arrSetParams[1] = Type::getDoubleTy(getGlobalContext());
+	Function::Create(llvm::FunctionType::get(Type::getVoidTy(getGlobalContext()), arrSetParams, false), Function::ExternalLinkage, "__nullcSetArrayD", TheModule);
+
 	Function::Create(TypeBuilder<types::i<32>*(types::i<32>, types::i<32>*), true>::get(getGlobalContext()), Function::ExternalLinkage, "__newS", TheModule);
 
 	std::vector<const llvm::Type*> newAParams;
@@ -364,8 +436,8 @@ struct my_stream : public llvm::raw_ostream
 	}
 };
 
-//#define DUMP(x) x->dump()
-#define DUMP(x) x
+#define DUMP(x) x->dump()
+//#define DUMP(x) x
 
 BasicBlock *globalExit = NULL;
 
@@ -1113,8 +1185,6 @@ void NodeVariableSet::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	if(arrSetAll)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet arrSetAll");
 	first->CompileLLVM();
 	Value *target = V;
 	if(!target)
@@ -1125,11 +1195,37 @@ void NodeVariableSet::CompileLLVM()
 	if(!value)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet value = NULL");
 	DUMP(value->getType());
-	/*TypeInfo *rightType = second->typeInfo;
-	if(rightType == typeFloat)
-		rightType = typeDouble;
-	if(rightType == typeChar || rightType == typeShort)
-		rightType = typeInt;*/
+
+	if(arrSetAll)
+	{
+		char fName[20];
+		Value *arrayIndexHelper[2];
+		arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
+		arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, 0));
+		target = Builder.CreateGEP(target, &arrayIndexHelper[0], &arrayIndexHelper[2], "arr_begin");
+		value = PromoteToStackType(value, second->typeInfo);
+		value = ConvertFirstToSecond(value, GetStackType(second->typeInfo), first->typeInfo->subType->subType);
+		char suffix = '\0';
+		switch(first->typeInfo->subType->subType->type)
+		{
+		case TypeInfo::TYPE_CHAR: suffix = 'C'; break;
+		case TypeInfo::TYPE_SHORT: suffix = 'S'; break;
+		case TypeInfo::TYPE_INT: suffix = 'I'; break;
+		case TypeInfo::TYPE_LONG: suffix = 'L'; break;
+		case TypeInfo::TYPE_FLOAT: suffix = 'F'; break;
+		case TypeInfo::TYPE_DOUBLE: suffix = 'D'; break;
+		default: ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet arrSetAll unknown type");
+		}
+		SafeSprintf(fName, 20, "__nullcSetArray%c", suffix);
+		Function *setFunc = TheModule->getFunction(fName);
+		assert(setFunc);
+		DUMP(target->getType());
+		DUMP(value->getType());
+		Builder.CreateCall3(setFunc, target, value, ConstantInt::get((Type*)typeInt->llvmType, APInt(32u, elemCount, true)));
+		V = NULL;
+		return;
+	}
+
 	value = PromoteToStackType(value, second->typeInfo);
 	value = ConvertFirstToSecond(value, GetStackType(second->typeInfo), first->typeInfo->subType);
 	if(!value)
@@ -1147,6 +1243,35 @@ void NodePopOp::CompileLLVM()
 	V = NULL;
 }
 
+Value* GenerateCompareToZero(Value *V, TypeInfo *typeInfo)
+{
+	Value *zeroV = ConstantInt::get(getGlobalContext(), APInt(32, 0, true));
+	if(typeInfo == typeObject)
+	{
+		DUMP(V->getType());
+		Value *arrTemp = CreateEntryBlockAlloca(F, "autoref_tmp", V->getType());
+		DUMP(arrTemp->getType());
+		Builder.CreateStore(V, arrTemp);
+
+		V = Builder.CreateStructGEP(arrTemp, 1, "autoref_ptr");
+		DUMP(V->getType());
+		V = Builder.CreateLoad(V);
+		DUMP(V->getType());
+		V = Builder.CreatePtrToInt(V, Type::getInt32Ty(getGlobalContext()), "as_int");
+		DUMP(V->getType());
+	}else if(typeInfo->refLevel){
+		DUMP(V->getType());
+		zeroV = ConstantPointerNull::get((PointerType*)V->getType());
+	}else if(typeInfo != typeInt){
+		DUMP(V->getType());
+		V = PromoteToStackType(V, typeInfo);
+		DUMP(V->getType());
+		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "as_int");
+		DUMP(V->getType());
+	}
+	return Builder.CreateICmpNE(V, zeroV, "cond_value");
+}
+
 void NodeIfElseExpr::CompileLLVM()
 {
 	CompileLLVMExtra();
@@ -1159,9 +1284,7 @@ void NodeIfElseExpr::CompileLLVM()
 
 	// Compute condition
 	first->CompileLLVM();
-	if(first->typeInfo != typeInt)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeIfElseExpr first->typeInfo != typeInt");
-	Value *cond = Builder.CreateICmpNE(V, ConstantInt::get(getGlobalContext(), APInt(32, 0, true)), "cond_value");
+	Value *cond = GenerateCompareToZero(V, first->typeInfo);
 
 	Builder.CreateCondBr(cond, trueBlock, third ? falseBlock : exitBlock);
 
@@ -1215,9 +1338,7 @@ void NodeForExpr::CompileLLVM()
 	Builder.SetInsertPoint(condBlock);
 
 	second->CompileLLVM();
-	if(second->typeInfo != typeInt)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeForExpr second->typeInfo != typeInt");
-	Value *cond = Builder.CreateICmpNE(V, ConstantInt::get(getGlobalContext(), APInt(32, 0, true)), "cond_value");
+	Value *cond = GenerateCompareToZero(V, second->typeInfo);
 	Builder.CreateCondBr(cond, bodyBlock, exitBlock);
 
 	breakStack.push_back(exitBlock);
@@ -1253,9 +1374,7 @@ void NodeWhileExpr::CompileLLVM()
 	Builder.SetInsertPoint(condBlock);
 
 	first->CompileLLVM();
-	if(first->typeInfo != typeInt)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeWhileExpr first->typeInfo != typeInt");
-	Value *cond = Builder.CreateICmpNE(V, ConstantInt::get(getGlobalContext(), APInt(32, 0, true)), "cond_value");
+	Value *cond = GenerateCompareToZero(V, first->typeInfo);
 	Builder.CreateCondBr(cond, bodyBlock, exitBlock);
 
 	breakStack.push_back(exitBlock);
@@ -1295,9 +1414,7 @@ void NodeDoWhileExpr::CompileLLVM()
 	Builder.SetInsertPoint(condBlock);
 
 	second->CompileLLVM();
-	if(second->typeInfo != typeInt)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeDoWhileExpr second->typeInfo != typeInt");
-	Value *cond = Builder.CreateICmpNE(V, ConstantInt::get(getGlobalContext(), APInt(32, 0, true)), "cond_value");
+	Value *cond = GenerateCompareToZero(V, second->typeInfo);
 	Builder.CreateCondBr(cond, bodyBlock, exitBlock);
 
 	Builder.SetInsertPoint(exitBlock);
