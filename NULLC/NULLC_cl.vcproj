@@ -425,7 +425,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\SyntaxTreeEvaluate.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SyntaxTreeGraph.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\SyntaxTreeLLVM.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SyntaxTreeTranslate.cpp"
 				>
 			</File>
 		</Filter>
