@@ -206,7 +206,9 @@ void		StartLLVMGeneration()
 		{
 			if(!type->subType->llvmType)
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: StartLLVMGeneration type->arrLevel 1 !type->subType->llvmType");
-			type->llvmType = ArrayType::get((Type*)type->subType->llvmType, type->arrSize);
+			unsigned size = type->subType->size * type->arrSize;
+			size = (size + 3) & ~3;
+			type->llvmType = ArrayType::get((Type*)type->subType->llvmType, type->subType->size ? size / type->subType->size : type->arrSize);
 		}else if(type->arrLevel && type->arrSize == TypeInfo::UNSIZED_ARRAY){
 			if(!type->subType->llvmType)
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: StartLLVMGeneration type->arrLevel 2 !type->subType->llvmType");
@@ -352,6 +354,22 @@ void	EndLLVMGeneration()
 	//globals.clear();
 }
 
+Value*	PromoteToStackType(Value *V, TypeInfo *type)
+{
+	asmDataType	fDT = type->dataType;
+	switch(fDT)
+	{
+	case DTYPE_CHAR:
+	case DTYPE_SHORT:
+		V = Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "tmp_toint");
+		break;
+	case DTYPE_FLOAT:
+		V = Builder.CreateFPCast(V, Type::getDoubleTy(getGlobalContext()), "tmp_ftod");
+		break;
+	}
+	return V;
+}
+
 Value*	ConvertFirstToSecond(Value *V, TypeInfo *firstType, TypeInfo *secondType)
 {
 	asmDataType	fDT = firstType->dataType, sDT = secondType->dataType;
@@ -387,19 +405,23 @@ Value*	ConvertFirstForSecond(Value *V, TypeInfo *firstType, TypeInfo *secondType
 	asmDataType	fDT = firstType->dataType, sDT = secondType->dataType;
 	asmStackType first = stackTypeForDataType(fDT), second = stackTypeForDataType(sDT);
 	if(first == STYPE_INT && second == STYPE_DOUBLE)
-		return Builder.CreateSIToFP(V, (Type*)secondType->llvmType, "tmp_itod");
+		return Builder.CreateSIToFP(V, /*(Type*)secondType->llvmType*/Type::getDoubleTy(getGlobalContext()), "tmp_itod");
 	if(first == STYPE_LONG && second == STYPE_DOUBLE)
-		return Builder.CreateSIToFP(V, (Type*)secondType->llvmType, "tmp_ltod");
+		return Builder.CreateSIToFP(V, /*(Type*)secondType->llvmType*/Type::getDoubleTy(getGlobalContext()), "tmp_ltod");
 	if(first == STYPE_INT && second == STYPE_LONG)
-		return Builder.CreateIntCast(V, (Type*)secondType->llvmType, true, "tmp_itol");
+		return Builder.CreateIntCast(V, /*(Type*)secondType->llvmType*/Type::getInt64Ty(getGlobalContext()), true, "tmp_itol");
 
-	if(fDT != sDT)
+	/*if(fDT == DTYPE_CHAR || fDT == DTYPE_SHORT || fDT == DTYPE_FLOAT)
+		assert(!"unsupported fDT");
+	if(sDT == DTYPE_CHAR || sDT == DTYPE_SHORT || sDT == DTYPE_FLOAT)
+		assert(!"unsupported sDT");*/
+	/*if(fDT != sDT)
 	{
 		if(fDT == DTYPE_FLOAT)
-			return Builder.CreateFPCast(V, (Type*)typeDouble->llvmType, "tmp_ftod");
+			return Builder.CreateFPCast(V, Type::getDoubleTy(getGlobalContext()), "tmp_ftod");
 		if(fDT == DTYPE_CHAR || fDT == DTYPE_SHORT)
-			return Builder.CreateIntCast(V, (Type*)typeInt->llvmType, true, "tmp_sx");
-	}
+			return Builder.CreateIntCast(V, Type::getInt32Ty(getGlobalContext()), true, "tmp_sx");
+	}*/
 	return V;
 }
 
@@ -455,11 +477,13 @@ void NodeReturnOp::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	if(typeInfo && first->typeInfo != typeInfo)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp typeInfo && first->typeInfo != typeInfo");
+	//if(typeInfo && first->typeInfo != typeInfo)
+	//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp typeInfo && first->typeInfo != typeInfo");
 	first->CompileLLVM();
 	if(typeInfo != typeVoid && !V)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp typeInfo != typeVoid && !V");
+	if(typeInfo)
+		V = ConvertFirstToSecond(V, first->typeInfo, typeInfo);
 	if(!parentFunction && first->typeInfo != typeInt)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp !typeInfo && first->typeInfo != typeInt");
 	Builder.CreateRet(V);
@@ -477,25 +501,24 @@ AllocaInst* CreateEntryBlockAlloca(Function *TheFunction, const std::string &Var
 void NodeExpressionList::CompileLLVM()
 {
 	Value *aggr = NULL;
-	if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+	if(typeInfo->arrLevel)// && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		aggr = CreateEntryBlockAlloca(F, "arr_tmp", (Type*)typeInfo->llvmType);
 	}else if(typeInfo != typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeExpressionList typeInfo != typeVoid");
-	int index = 1;
+	int index = typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY ? 1 : (typeInfo->subType == typeChar ? ((typeInfo->arrSize + 3) / 4) - 1 : typeInfo->arrSize - 1);
 	NodeZeroOP	*curr = first;
 	do 
 	{
 		curr->CompileLLVM();
-		curr = curr->next;
 
-		if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+		if(V && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
 			DUMP(V->getType());
 			if(index == 0)
 			{
-				assert(typeInfo->subType->refType);
-				V = Builder.CreatePointerCast(V, (Type*)typeInfo->subType->refType->llvmType, "ptr_any");
+				//assert(typeInfo->subType->refType);
+				V = Builder.CreatePointerCast(V, PointerType::getUnqual((Type*)typeInfo->subType->llvmType), "ptr_any");
 				DUMP(V->getType());
 			}
 			Value *arrayIndexHelper[2];
@@ -505,10 +528,28 @@ void NodeExpressionList::CompileLLVM()
 			Value *target = Builder.CreateGEP(aggr, &arrayIndexHelper[0], &arrayIndexHelper[2], "arr_part");
 			DUMP(target->getType());
 			Builder.CreateStore(V, target);
-			
+		}else if(V && typeInfo->arrLevel && curr->nodeType != typeNodeZeroOp){
+			DUMP(V->getType());
+			V = PromoteToStackType(V, curr->typeInfo);
+			DUMP(V->getType());
+			DUMP(aggr->getType());
+			Value *arrayIndexHelper[2];
+			arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
+			printf("Indexing %d\n", typeInfo->subType == typeChar ? index * 4 : index);
+			arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, typeInfo->subType == typeChar ? index * 4 : index, true));
+			index--;
+			Value *target = Builder.CreateGEP(aggr, &arrayIndexHelper[0], &arrayIndexHelper[2], "arr_part");
+			DUMP(target->getType());
+			if(typeInfo->subType == typeChar)
+			{
+				target = Builder.CreatePointerCast(target, Type::getInt32PtrTy(getGlobalContext()), "ptr_any");
+				DUMP(target->getType());
+			}
+			Builder.CreateStore(V, target);
 		}
+		curr = curr->next;
 	}while(curr);
-	if(typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+	if(typeInfo->arrLevel)// && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 		V = Builder.CreateLoad(aggr, "arr_aggr");
 }
 
@@ -594,6 +635,8 @@ void NodeFuncCall::CompileLLVM()
 			printf("%s\t", curr->typeInfo->GetFullTypeName());
 			DUMP(V->getType());
 			V = ConvertFirstToSecond(V, curr->typeInfo, *paramType);
+			if(*paramType == typeFloat)
+				V = Builder.CreateFPCast(V, (Type*)typeFloat->llvmType, "dtof");
 			DUMP(V->getType());
 			args.push_back(V);
 			curr = curr->prev;
@@ -635,6 +678,7 @@ void NodeFuncCall::CompileLLVM()
 	}
 	if(funcType->retType != typeVoid)
 	{
+		DUMP(CalleeF->getType());
 		V = Builder.CreateCall(CalleeF, args.begin(), args.end());//, funcInfo->name);
 	}else{
 		Builder.CreateCall(CalleeF, args.begin(), args.end());
@@ -896,8 +940,17 @@ void NodeBinaryOp::CompileLLVM()
 	Value *left = V;
 	second->CompileLLVM();
 	Value *right = V;
+	printf("before promote: ");
+	DUMP(left->getType());
+	DUMP(right->getType());
+	left = PromoteToStackType(left, first->typeInfo);
+	right = PromoteToStackType(right, second->typeInfo);
+	printf("after promote: ");
+	DUMP(left->getType());
+	DUMP(right->getType());
 	left = ConvertFirstForSecond(left, first->typeInfo, second->typeInfo);
 	right = ConvertFirstForSecond(right, second->typeInfo, first->typeInfo);
+	printf("after convertion: ");
 	DUMP(left->getType());
 	DUMP(right->getType());
 	MakeBinaryOp(left, right, cmdID, fST);
@@ -1106,11 +1159,24 @@ void NodeVariableModify::CompileLLVM()
 	
 	TypeInfo *resType = ChooseBinaryOpResultType(first->typeInfo->subType, second->typeInfo);
 	
+	DUMP(left->getType());
+	DUMP(right->getType());
+	left = PromoteToStackType(left, first->typeInfo->subType);
+	right = PromoteToStackType(right, second->typeInfo);
+	DUMP(left->getType());
+	DUMP(right->getType());
 	left = ConvertFirstForSecond(left, first->typeInfo->subType, second->typeInfo);
 	right = ConvertFirstForSecond(right, second->typeInfo, first->typeInfo->subType);
+	DUMP(left->getType());
+	DUMP(right->getType());
 	MakeBinaryOp(left, right, cmdID, resType->stackType);
 
-	V = ConvertFirstToSecond(V, resType, first->typeInfo->subType);
+	if(resType == typeFloat)
+		resType = typeDouble;
+	if(resType == typeChar || resType == typeShort)
+		resType = typeInt;
+	V = ConvertFirstToSecond(V, resType, typeInfo);
+	DUMP(V->getType());
 	V = Builder.CreateStore(V, address);
 }
 
