@@ -138,6 +138,9 @@ void* funcCreator(const std::string& name)
 	return NULL;
 }
 
+FastVector<BasicBlock*>	breakStack;
+FastVector<BasicBlock*> continueStack;
+
 llvm::Function *F = NULL;
 void		StartLLVMGeneration()
 {
@@ -242,6 +245,9 @@ void		StartLLVMGeneration()
 	Function::Create(TypeBuilder<types::i<32>(types::i<32>, types::i<32>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmIntPow", TheModule);
 	Function::Create(TypeBuilder<types::i<64>(types::i<64>, types::i<64>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmLongPow", TheModule);
 	Function::Create(TypeBuilder<types::ieee_double(types::ieee_double, types::ieee_double), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmDoublePow", TheModule);
+
+	breakStack.clear();
+	continueStack.clear();
 }
 
 struct my_stream : public llvm::raw_ostream
@@ -961,9 +967,15 @@ void NodeForExpr::CompileLLVM()
 	Value *cond = Builder.CreateICmpNE(V, ConstantInt::get(getGlobalContext(), APInt(32, 0, true)), "cond_value");
 	Builder.CreateCondBr(cond, bodyBlock, exitBlock);
 
+	breakStack.push_back(exitBlock);
+	continueStack.push_back(incrementBlock);
+
 	Builder.SetInsertPoint(bodyBlock);
 	fourth->CompileLLVM();
 	Builder.CreateBr(incrementBlock);
+
+	continueStack.pop_back();
+	breakStack.pop_back();
 
 	Builder.SetInsertPoint(incrementBlock);
 	third->CompileLLVM();
@@ -990,9 +1002,15 @@ void NodeWhileExpr::CompileLLVM()
 	Value *cond = Builder.CreateICmpNE(V, ConstantInt::get(getGlobalContext(), APInt(32, 0, true)), "cond_value");
 	Builder.CreateCondBr(cond, bodyBlock, exitBlock);
 
+	breakStack.push_back(exitBlock);
+	continueStack.push_back(condBlock);
+
 	Builder.SetInsertPoint(bodyBlock);
 	second->CompileLLVM();
 	Builder.CreateBr(condBlock);
+
+	continueStack.pop_back();
+	breakStack.pop_back();
 
 	Builder.SetInsertPoint(exitBlock);
 	V = NULL;
@@ -1009,7 +1027,13 @@ void NodeDoWhileExpr::CompileLLVM()
 	Builder.CreateBr(bodyBlock);
 	Builder.SetInsertPoint(bodyBlock);
 
+	breakStack.push_back(exitBlock);
+	continueStack.push_back(condBlock);
+
 	first->CompileLLVM();
+
+	continueStack.pop_back();
+	breakStack.pop_back();
 
 	Builder.CreateBr(condBlock);
 	Builder.SetInsertPoint(condBlock);
@@ -1132,14 +1156,20 @@ void NodeBreakOp::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeBreakOp");
+	Builder.CreateBr(breakStack[breakStack.size() - breakDepth]);
+	BasicBlock *afterBreak = BasicBlock::Create(getGlobalContext(), "afterBreak", F);
+	Builder.SetInsertPoint(afterBreak);
+	V = NULL;
 }
 
 void NodeContinueOp::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeContinueOp");
+	Builder.CreateBr(continueStack[breakStack.size() - continueDepth]);
+	BasicBlock *afterContinue = BasicBlock::Create(getGlobalContext(), "afterContinue", F);
+	Builder.SetInsertPoint(afterContinue);
+	V = NULL;
 }
 
 void NodeSwitchExpr::CompileLLVM()
