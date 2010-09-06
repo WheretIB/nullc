@@ -219,8 +219,10 @@ void		StartLLVMGeneration()
 			typeList.clear();
 			for(unsigned int k = 0; k < type->funcType->paramCount; k++)
 				typeList.push_back((Type*)type->funcType->paramType[k]->llvmType);
+			typeList.push_back(Type::getInt8PtrTy(getGlobalContext()));
 			Type *functionType = llvm::FunctionType::get((Type*)type->funcType->retType->llvmType, typeList, false);
-			type->llvmType = StructType::get(getGlobalContext(), PointerType::getUnqual(functionType), Type::getInt32Ty(getGlobalContext()), (Type*)NULL);
+			//type->llvmType = StructType::get(getGlobalContext(), PointerType::getUnqual(functionType), Type::getInt32Ty(getGlobalContext()), (Type*)NULL);
+			type->llvmType = StructType::get(getGlobalContext(), Type::getInt8PtrTy(getGlobalContext()), PointerType::getUnqual(functionType), (Type*)NULL);
 		}else{
 			typeList.clear();
 			for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
@@ -576,8 +578,6 @@ void NodeFuncCall::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	if(!funcInfo)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncCall funcInfo = NULL");
 	std::vector<llvm::Value*> args;
 	printf("Function call\n");
 	if(funcType->paramCount)
@@ -600,20 +600,42 @@ void NodeFuncCall::CompileLLVM()
 			paramType++;
 		}while(curr);
 	}
-	if(first)
+	Function *CalleeF = NULL;
+	if(!funcInfo)
 	{
 		first->CompileLLVM();
-		DUMP(V->getType());
-		args.push_back(V);
+		Value *func = V;
+		DUMP(func->getType());
+		Value *funcPtr = CreateEntryBlockAlloca(F, "func_tmp", (Type*)first->typeInfo->llvmType);
+		DUMP(funcPtr->getType());
+		Builder.CreateStore(func, funcPtr);
+
+		Value *ptr = Builder.CreateStructGEP(funcPtr, 1, "ptr_part");
+		DUMP(ptr->getType());
+		Value *context = Builder.CreateStructGEP(funcPtr, 0, "ctx_part");
+		DUMP(context->getType());
+
+		args.push_back(Builder.CreateLoad(context, "ctx_deref"));
+
+		CalleeF = (Function*)Builder.CreateLoad(ptr, "func_deref");
+
+		//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncCall funcInfo = NULL");
 	}else{
-		args.push_back(ConstantPointerNull::get(Type::getInt32PtrTy(getGlobalContext())));
+		if(first)
+		{
+			first->CompileLLVM();
+			DUMP(V->getType());
+			args.push_back(V);
+		}else{
+			args.push_back(ConstantPointerNull::get(Type::getInt32PtrTy(getGlobalContext())));
+		}
+		CalleeF = TheModule->getFunction(funcInfo->name);
+		if(!CalleeF)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
 	}
-	Function *CalleeF = TheModule->getFunction(funcInfo->name);
-	if(!CalleeF)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
 	if(funcType->retType != typeVoid)
 	{
-		V = Builder.CreateCall(CalleeF, args.begin(), args.end(), funcInfo->name);
+		V = Builder.CreateCall(CalleeF, args.begin(), args.end());//, funcInfo->name);
 	}else{
 		Builder.CreateCall(CalleeF, args.begin(), args.end());
 		V = NULL;
@@ -1202,7 +1224,19 @@ void NodeConvertPtr::CompileLLVM()
 		Builder.CreateStore(ptr, V);
 		V = Builder.CreateLoad(aggr, "autoref");
 	}else{
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeConvertPtr auto ref -> type ref unsupported");
+		first->CompileLLVM();
+		DUMP(V->getType());
+		// Allocate space for auto ref
+		Value *aggr = CreateEntryBlockAlloca(F, "tmp_autoref", (Type*)typeObject->llvmType);
+		DUMP(aggr->getType());
+		Builder.CreateStore(V, aggr);
+		V = Builder.CreateStructGEP(aggr, 1, "tmp_ptr");
+		DUMP(V->getType());
+		V = Builder.CreateLoad(V, "ptr");
+		DUMP(V->getType());
+		DUMP(((Type*)typeInfo->llvmType));
+		V = Builder.CreatePointerCast(V, (Type*)typeInfo->llvmType, "ptr_cast");
+		DUMP(V->getType());
 	}
 }
 
@@ -1219,7 +1253,39 @@ void NodeFunctionAddress::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFunctionAddress");
+	Value *aggr = CreateEntryBlockAlloca(F, "func_tmp", (Type*)typeInfo->llvmType);
+	DUMP(aggr->getType());
+	Value *ptr = Builder.CreateStructGEP(aggr, 1, "ptr_part");
+	DUMP(ptr->getType());
+	Value *context = Builder.CreateStructGEP(aggr, 0, "ctx_part");
+	DUMP(context->getType());
+
+	const Type *functionType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(1u);//typeInfo->lastVariable->type;
+	DUMP(functionType);
+
+	Value *tmp = TheModule->getFunction(funcInfo->name);
+	DUMP(tmp->getType());
+	tmp = Builder.CreatePointerCast(tmp, functionType, "func_cast");
+	Builder.CreateStore(tmp, ptr);
+
+	const Type *contextType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(0u);//TypeInfo *contextType = typeInfo->firstVariable->type;
+	DUMP(contextType);
+
+	if(funcInfo->type == FunctionInfo::NORMAL)
+	{
+		Builder.CreateStore(ConstantPointerNull::get((PointerType*)contextType), context);
+	}else{
+		first->CompileLLVM();
+		DUMP(V->getType());
+		V = Builder.CreatePointerCast(V, Type::getInt8PtrTy(getGlobalContext()), "context_cast");
+		//V = Builder.CreatePtrToInt(V, Type::getInt32Ty(getGlobalContext()), "int_cast");
+		DUMP(V->getType());
+		Builder.CreateStore(V, context);
+	}
+
+	V = Builder.CreateLoad(aggr, "func_res");
+	DUMP(V->getType());
+	//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFunctionAddress");
 }
 
 void NodeGetUpvalue::CompileLLVM()
