@@ -643,6 +643,16 @@ int NULLC::TypesNEqual(int a, int b)
 	return a != b;
 }
 
+int NULLC::RefCompare(NULLCRef a, NULLCRef b)
+{
+	return a.ptr == b.ptr;
+}
+
+int NULLC::RefNCompare(NULLCRef a, NULLCRef b)
+{
+	return a.ptr != b.ptr;
+}
+
 int NULLC::FuncCompare(NULLCFuncPtr a, NULLCFuncPtr b)
 {
 	return a.context == b.context && a.id == b.id;

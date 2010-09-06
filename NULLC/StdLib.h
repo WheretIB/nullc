@@ -54,6 +54,9 @@ namespace NULLC
 	int TypesEqual(int a, int b);
 	int TypesNEqual(int a, int b);
 
+	int RefCompare(NULLCRef a, NULLCRef b);
+	int RefNCompare(NULLCRef a, NULLCRef b);
+
 	int FuncCompare(NULLCFuncPtr a, NULLCFuncPtr b);
 	int FuncNCompare(NULLCFuncPtr a, NULLCFuncPtr b);
 

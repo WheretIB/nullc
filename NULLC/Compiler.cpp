@@ -142,6 +142,9 @@ int typeid.size();\r\n\
 int operator==(typeid a, b);\r\n\
 int operator!=(typeid a, b);\r\n\
 \r\n\
+int __rcomp(auto ref a, b);\r\n\
+int __rncomp(auto ref a, b);\r\n\
+\r\n\
 int __pcomp(void ref(int) a, void ref(int) b);\r\n\
 int __pncomp(void ref(int) a, void ref(int) b);\r\n\
 \r\n\
@@ -316,6 +319,9 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::TypeSize, "typeid::size$", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::TypesEqual, "==", 1);
 	AddModuleFunction("$base$", (void (*)())NULLC::TypesNEqual, "!=", 1);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::RefCompare, "__rcomp", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::RefNCompare, "__rncomp", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::FuncCompare, "__pcomp", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::FuncNCompare, "__pncomp", 0);
@@ -687,7 +693,10 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			lastFunc->retType = lastFunc->funcType->funcType->retType;
 
 			if(fInfo->parentType != ~0u && !fInfo->externCount)
+			{
 				lastFunc->parentClass = CodeInfo::typeInfo[typeRemap[fInfo->parentType]];
+				lastFunc->extraParam = new VariableInfo(lastFunc, InplaceStr("this"), GetStringHash("this"), 0, CodeInfo::GetReferenceType(lastFunc->parentClass), false);
+			}
 
 			assert(lastFunc->funcType->funcType->paramCount == lastFunc->paramCount);
 
@@ -778,6 +787,11 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 	}
 	return NULL;
 }
+
+#ifdef NULLC_LLVM_SUPPORT
+const char *llvmBinary = NULL;
+unsigned	llvmSize = 0;
+#endif
 
 bool Compiler::Compile(const char* str, bool noClear)
 {
@@ -936,6 +950,9 @@ bool Compiler::Compile(const char* str, bool noClear)
 			}
 		}
 	}else{
+#ifdef NULLC_LOG_FILES
+		fclose(fGraph);
+#endif
 		return false;
 	}
 
@@ -945,12 +962,22 @@ bool Compiler::Compile(const char* str, bool noClear)
 
 	RestoreScopedGlobals();
 
+#ifdef NULLC_LLVM_SUPPORT
+	unsigned functionsInModules = 0;
+	for(unsigned i = 0; i < activeModules.size(); i++)
+		functionsInModules += activeModules[i].funcCount;
+	StartLLVMGeneration(functionsInModules);
+#endif
+
 	CodeInfo::cmdList.push_back(VMCmd(cmdJmp));
 	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
 	{
 		CodeInfo::funcDefList[i]->Compile();
 #ifdef NULLC_LOG_FILES
 		CodeInfo::funcDefList[i]->LogToStream(fGraph);
+#endif
+#ifdef NULLC_LLVM_SUPPORT
+		CodeInfo::funcDefList[i]->CompileLLVM();
 #endif
 		((NodeFuncDef*)CodeInfo::funcDefList[i])->Disable();
 	}
@@ -961,11 +988,19 @@ bool Compiler::Compile(const char* str, bool noClear)
 #ifdef NULLC_LOG_FILES
 		CodeInfo::nodeList.back()->LogToStream(fGraph);
 #endif
+#ifdef NULLC_LLVM_SUPPORT
+		StartGlobalCode();
+		CodeInfo::nodeList.back()->CompileLLVM();
+#endif
 	}
 #ifdef NULLC_LOG_FILES
 	fclose(fGraph);
 #endif
+#ifdef NULLC_LLVM_SUPPORT
+	llvmBinary = GetLLVMIR(llvmSize);
 
+	EndLLVMGeneration();
+#endif
 	if(CodeInfo::nodeList.size() != 1)
 	{
 		CodeInfo::lastError.Init("Compilation failed, AST contains more than one node", NULL);
@@ -985,13 +1020,13 @@ void Compiler::SaveListing(const char *fileName)
 #ifdef NULLC_LOG_FILES
 	FILE *compiledAsm = fopen(fileName, "wb");
 	char instBuf[128];
-	unsigned int line = 0, lastLine = ~0u;
+	int line = 0, lastLine = ~0u;
 	const char *lastSourcePos = CompilerError::codeStart;
 	for(unsigned int i = 0; i < CodeInfo::cmdList.size(); i++)
 	{
-		while((line < CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
+		while((line < (int)CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
 			line++;
-		if(line != lastLine)
+		if(CodeInfo::cmdInfoList.sourceInfo.size() && line != lastLine)
 		{
 			lastLine = line;
 			const char *codeStart = CodeInfo::cmdInfoList.sourceInfo[line].sourcePos;
@@ -1531,6 +1566,11 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int offsetToSource = size;
 	size += sourceLength;
 
+#ifdef NULLC_LLVM_SUPPORT
+	unsigned int offsetToLLVM = size;
+	size += llvmSize;
+#endif
+
 #ifdef VERBOSE_DEBUG_OUTPUT
 	printf("Statistics. Overall: %d bytes\r\n", size);
 	printf("Types: %db, ", offsetToModule - sizeof(ByteCode));
@@ -1816,6 +1856,12 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->code = FindCode(code);
 	code->globalCodeStart = offsetToGlobal;
 	memcpy(code->code, &CodeInfo::cmdList[0], CodeInfo::cmdList.size() * sizeof(VMCmd));
+
+#ifdef NULLC_LLVM_SUPPORT
+	code->llvmSize = llvmSize;
+	code->llvmOffset = offsetToLLVM;
+	memcpy(((char*)(code) + code->llvmOffset), llvmBinary, llvmSize);
+#endif
 
 	return size;
 }

@@ -70,10 +70,13 @@ struct NULLCAutoArray
 	#define NULLC_COMPLEX_RETURN
 #endif
 
+//#define NULLC_LLVM_SUPPORT
+
 typedef unsigned char nullres;
 
 #define NULLC_VM	0
 #define NULLC_X86	1
+#define NULLC_LLVM	2
 
 #ifdef __x86_64__
 	#define _M_X64
