@@ -204,6 +204,9 @@ struct ByteCode
 	unsigned int	sourceSize;
 	unsigned int	offsetToSource;
 
+	unsigned int	llvmSize;
+	unsigned int	llvmOffset;
+
 //	ExternTypeInfo	types[typeCount];
 
 //	ExternModuleInfo	modules[dependsCount];

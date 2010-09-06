@@ -568,9 +568,7 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 
 		if(right->typeInfo == typeObject && right->typeInfo == left->typeInfo)
 		{
-			CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = typeLong;
-			CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = typeLong;
-			CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
+			AddFunctionCallNode(pos, id == cmdEqual ? "__rcomp" : "__rncomp", 2);
 			return;
 		}
 		if(right->typeInfo->funcType && right->typeInfo->funcType == left->typeInfo->funcType)
@@ -936,15 +934,15 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				// Class members are accessed through 'this' pointer
 				FunctionInfo *currFunc = currDefinedFunc.back();
 
-				TypeInfo *temp = CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(newType));
+				TypeInfo *temp = CodeInfo::GetReferenceType(newType);
 				if(currDefinedFunc.back()->type == FunctionInfo::LOCAL)
 				{
 					// For local function, add "this" to context and get it from upvalue
 					assert(currDefinedFunc[0]->type == FunctionInfo::THISCALL);
 					FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, currDefinedFunc[0]->extraParam);
-					CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, temp));
+					CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(temp)));
 				}else{
-					CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+					CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, false, temp));
 				}
 				CodeInfo::nodeList.push_back(new NodeDereference());
 				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
@@ -1446,7 +1444,9 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 		// nullptr to type[] conversion
 		if(dstType->arrLevel && dstType->arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
-			CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+			NodeZeroOP *tmp = CodeInfo::nodeList.back();
+			CodeInfo::nodeList.back() = new NodeNumber(0, typeInt);
+			CodeInfo::nodeList.push_back(tmp);
 			AddTwoExpressionNode(dstType);
 			return;
 		}
@@ -2404,7 +2404,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			// Take "this" pointer
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
-			CodeInfo::nodeList.push_back(new NodeGetAddress(NULL, currFunc->allParamSize, false, temp));
+			CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, false, temp));
 			CodeInfo::nodeList.push_back(new NodeDereference());
 			// "this" pointer will be passed as extra parameter
 			funcAddr = CodeInfo::nodeList.back();
