@@ -691,11 +691,6 @@ align(4) class float4x4
 	float4 row1, row2, row3, row4;
 }
 
-float3 reflect(float3 normal, float3 dir)
-{
-	//return 1;
-}
-
 float ref operator[](float2 ref a, int index);
 float ref operator[](float3 ref a, int index);
 float ref operator[](float4 ref a, int index);
@@ -712,3 +707,8 @@ float float4:normalize();
 float dot(float2 ref a, float2 ref b);
 float dot(float3 ref a, float3 ref b);
 float dot(float4 ref a, float4 ref b);
+
+float3 reflect(float3 normal, float3 dir)
+{
+	return dir - 2.0 * dot(normal, dir) * normal;
+}
