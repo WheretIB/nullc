@@ -4,7 +4,7 @@
 #ifdef NULLC_LLVM_SUPPORT
 
 #pragma warning(push)
-#pragma warning(disable: 4530 4512 4800 4146 4244 4245 4146 4355 4100)
+#pragma warning(disable: 4530 4512 4800 4146 4244 4245 4146 4355 4100 4267)
 
 #include <time.h>
 
@@ -15,11 +15,16 @@
 #include "llvm/Support/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Bitcode/BitstreamReader.h"
+#include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Support/IRReader.h"
+
 #include "llvm/PassManager.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetSelect.h"
+
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/IPO.h"
 
@@ -53,6 +58,9 @@ using namespace llvm;
 #pragma comment(lib, "LLVMAsmPrinter.lib")
 #pragma comment(lib, "LLVMipa.lib")
 #pragma comment(lib, "LLVMipo.lib")
+
+#pragma comment(lib, "LLVMBitReader.lib")
+#pragma comment(lib, "LLVMBitWriter.lib")
 
 #pragma warning(pop)
 
@@ -298,6 +306,11 @@ const char*	GetLLVMIR()
 	unsigned verified = clock() - start;
 	start = clock();
 
+/*	std::vector<unsigned char> out;
+	BitstreamWriter bw = BitstreamWriter(out);
+	WriteBitcodeToStream(TheModule, bw);
+	printf("%d\n", out.size());*/
+
 	if(!F->getEntryBlock().empty())
 	{
 		void *FPtr = TheExecutionEngine->getPointerToFunction(F);
@@ -507,6 +520,7 @@ void NodeFuncDef::CompileLLVM()
 	VariableInfo *curr = NULL;
 	for(curr = funcInfo->firstParam; curr; curr = curr->next)
 		Arguments.push_back((Type*)curr->varType->llvmType);
+	Arguments.push_back((Type*)funcInfo->extraParam->varType->llvmType);
 	llvm::FunctionType *FT = llvm::FunctionType::get((Type*)funcInfo->retType->llvmType, Arguments, false);
 	F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, funcInfo->name, TheModule);
 
@@ -521,6 +535,10 @@ void NodeFuncDef::CompileLLVM()
 		Builder.CreateStore(AI, Alloca);
 		curr->llvmValue = Alloca;
 	}
+	AI->setName(std::string(funcInfo->extraParam->name.begin, funcInfo->extraParam->name.end));
+	AllocaInst *Alloca = CreateEntryBlockAlloca(F, std::string(funcInfo->extraParam->name.begin, funcInfo->extraParam->name.end), (Type*)funcInfo->extraParam->varType->llvmType);
+	Builder.CreateStore(AI, Alloca);
+	funcInfo->extraParam->llvmValue = Alloca;
 
 	for(curr = funcInfo->firstLocal; curr; curr = curr->next)
 		curr->llvmValue = CreateEntryBlockAlloca(F, std::string(curr->name.begin, curr->name.end), (Type*)curr->varType->llvmType);
@@ -542,7 +560,7 @@ void NodeFuncDef::CompileLLVM()
 	}
 
 	//F->dump();
-	verifyFunction(*F);
+	verifyFunction(*F, llvm::PrintMessageAction);
 	if(enableOptimization && !F->getEntryBlock().empty())
 		OurFPM->run(*F);
 	F = NULL;
@@ -559,7 +577,7 @@ void NodeFuncCall::CompileLLVM()
 	if(funcType->paramCount)
 	{
 		NodeZeroOP	*curr = paramTail;
-		//TypeInfo	**paramType = funcType->paramType + funcType->paramCount - 1;
+		TypeInfo	**paramType = funcType->paramType;// + funcType->paramCount - 1;
 		do
 		{
 			if(curr->typeInfo->size == 0)
@@ -569,10 +587,20 @@ void NodeFuncCall::CompileLLVM()
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncCall V = NULL");
 			printf("%s\t", curr->typeInfo->GetFullTypeName());
 			DUMP(V->getType());
+			V = ConvertFirstToSecond(V, curr->typeInfo, *paramType);
+			DUMP(V->getType());
 			args.push_back(V);
 			curr = curr->prev;
-			//paramType--;
+			paramType++;
 		}while(curr);
+	}
+	if(first)
+	{
+		first->CompileLLVM();
+		DUMP(V->getType());
+		args.push_back(V);
+	}else{
+		args.push_back(ConstantPointerNull::get(Type::getInt32PtrTy(getGlobalContext())));
 	}
 	Function *CalleeF = TheModule->getFunction(funcInfo->name);
 	if(!CalleeF)
@@ -1146,6 +1174,36 @@ void NodeConvertPtr::CompileLLVM()
 	}else{
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeConvertPtr auto ref -> type ref unsupported");
 	}
+}
+
+void NodeOneOP::CompileLLVM()
+{
+	CompileLLVMExtra();
+
+	V = NULL;
+	assert(first);
+	first->CompileLLVM();
+}
+
+void NodeFunctionAddress::CompileLLVM()
+{
+	CompileLLVMExtra();
+
+	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFunctionAddress");
+}
+
+void NodeGetUpvalue::CompileLLVM()
+{
+	CompileLLVMExtra();
+
+	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeGetUpvalue");
+}
+
+void NodeBlock::CompileLLVM()
+{
+	CompileLLVMExtra();
+
+	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeBlock");
 }
 
 #endif
