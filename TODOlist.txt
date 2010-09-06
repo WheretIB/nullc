@@ -8,6 +8,8 @@ Core:
 	13. f. coroutine should access context variables without one extra indirection.
 	14. f. automatic function binding
 
+	check ! on pointer (not auto ref) under x64
+	
 Library:
 	1. f. string
 	2. f. hash_map

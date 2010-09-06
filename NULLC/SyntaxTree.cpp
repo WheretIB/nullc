@@ -2769,6 +2769,15 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
 
+	if(typeVoid->refType && first->typeInfo == typeVoid->refType)
+	{
+		first->typeInfo = second->typeInfo;
+	}
+	if(typeVoid->refType && second->typeInfo == typeVoid->refType)
+	{
+		second->typeInfo = first->typeInfo;
+	}
+
 	// Find the type or resulting value
 	typeInfo = ChooseBinaryOpResultType(first->typeInfo, second->typeInfo);
 
