@@ -23,6 +23,9 @@ LIB_SOURCES = \
   NULLC/StdLib.cpp \
   NULLC/StrAlgo.cpp \
   NULLC/SyntaxTree.cpp \
+  NULLC/SyntaxTreeEvaluate.cpp \
+  NULLC/SyntaxTreeGraph.cpp \
+  NULLC/SyntaxTreeTranslate.cpp \
   NULLC/Translator_X86.cpp
 
 LIB_TARGETS = \
@@ -43,6 +46,9 @@ LIB_TARGETS = \
   temp/StdLib.o \
   temp/StrAlgo.o \
   temp/SyntaxTree.o \
+  temp/SyntaxTreeEvaluate.o \
+  temp/SyntaxTreeGraph.o \
+  temp/SyntaxTreeTranslate.o \
   temp/Translator_X86.o
 
 
@@ -140,7 +146,10 @@ COMPILERLIB_SOURCES = \
   NULLC/Compiler.cpp \
   NULLC/Lexer.cpp \
   NULLC/Parser.cpp \
-  NULLC/SyntaxTree.cpp
+  NULLC/SyntaxTree.cpp \
+  NULLC/SyntaxTreeEvaluate.cpp \
+  NULLC/SyntaxTreeGraph.cpp \
+  NULLC/SyntaxTreeTranslate.cpp
 
 COMPILERLIB_TARGETS = \
   temp/compiler/BinaryCache.o \
@@ -153,7 +162,10 @@ COMPILERLIB_TARGETS = \
   temp/compiler/Compiler.o \
   temp/compiler/Lexer.o \
   temp/compiler/Parser.o \
-  temp/compiler/SyntaxTree.o
+  temp/compiler/SyntaxTree.o \
+  temp/compiler/SyntaxTreeEvaluate.o \
+  temp/compiler/SyntaxTreeGraph.o \
+  temp/compiler/SyntaxTreeTranslate.o
 
 temp/compiler/%.o: NULLC/%.cpp
 	$(CXX) $(COMP_CFLAGS) -c $< -o $@
@@ -165,7 +177,7 @@ temp/ConsoleCalc.o: ConsoleCalc/ConsoleCalc.cpp
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
 bin/ConsoleCalc: temp/ConsoleCalc.o bin/libnullc.a
-	$(CXX) $(REG_CFLAGS) -o $@ $< -Lbin  -lnullc
+	$(CXX) $(REG_CFLAGS) -o $@ $< -Lbin -lnullc -ldl
 
 temp/main.o: nullcl/main.cpp bin/libnullc.a
 	$(CXX) -c $(REG_CFLAGS) -o $@ $<
@@ -236,7 +248,7 @@ temp/tests/%.o: tests/%.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
 
 TestRun: ${TEST_OBJECTS} bin/libnullc.a
-	$(CXX) $(REG_CFLAGS) -o $@ $(TEST_OBJECTS) -Lbin -lnullc
+	$(CXX) -rdynamic $(REG_CFLAGS) -o $@ $(TEST_OBJECTS) -Lbin -lnullc -ldl
 
 
 

@@ -55,11 +55,15 @@ struct NULLCAutoArray
 //#define NULLC_ENABLE_C_TRANSLATION
 #define NULLC_PURE_FUNCTIONS
 
-#if !defined(__linux)
+#if !defined(__CELLOS_LV2__)
 	#define NULLC_AUTOBINDING
 #endif
 
-#define NULLC_BIND extern "C" __declspec(dllexport)
+#if defined(__linux)
+	#define NULLC_BIND extern "C" __attribute__ ((visibility("default")))
+#else
+	#define NULLC_BIND extern "C" __declspec(dllexport)
+#endif
 
 #if (defined(_MSC_VER) || defined(__DMC__) || defined(__linux)) && !defined(_M_X64) && !defined(NULLC_NO_EXECUTOR) && !defined(__x86_64__)
 	#define NULLC_BUILD_X86_JIT
