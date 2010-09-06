@@ -319,6 +319,31 @@ void		StartLLVMGeneration()
 	llvm::FunctionType *FT = llvm::FunctionType::get(StructType::get(getGlobalContext(), Type::getInt8PtrTy(getGlobalContext()), Type::getInt32Ty(getGlobalContext()), (Type*)NULL), newAParams, false);
 	Function::Create(FT, Function::ExternalLinkage, "__newA", TheModule);
 	
+	std::vector<const llvm::Type*> Arguments;
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	{
+		FunctionInfo *funcInfo = CodeInfo::funcInfo[i];
+		if(funcInfo->nameHash == GetStringHash("__newS"))
+		{
+			funcInfo->llvmFunction = TheModule->getFunction("__newS");
+			funcInfo->llvmImplemented = true;
+			continue;
+		}
+		if(funcInfo->nameHash == GetStringHash("__newA"))
+		{
+			funcInfo->llvmFunction = TheModule->getFunction("__newA");
+			funcInfo->llvmImplemented = true;
+			continue;
+		}
+		Arguments.clear();
+		VariableInfo *curr = NULL;
+		for(curr = funcInfo->firstParam; curr; curr = curr->next)
+			Arguments.push_back((Type*)curr->varType->llvmType);
+		Arguments.push_back(funcInfo->extraParam ? (Type*)funcInfo->extraParam->varType->llvmType : Type::getInt32PtrTy(getGlobalContext()));
+		llvm::FunctionType *FT = llvm::FunctionType::get((Type*)funcInfo->retType->llvmType, Arguments, false);
+		funcInfo->llvmFunction = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, funcInfo->name, TheModule);
+	}
+
 	breakStack.clear();
 	continueStack.clear();
 
@@ -499,6 +524,15 @@ Value*	ConvertFirstForSecond(Value *V, TypeInfo *firstType, TypeInfo *secondType
 	return V;
 }
 
+TypeInfo*	GetStackType(TypeInfo* type)
+{
+	if(type == typeFloat)
+		return typeDouble;
+	if(type == typeChar || type == typeShort)
+		return typeInt;
+	return type;
+}
+
 void NodeZeroOP::CompileLLVM()
 {
 	V = NULL;
@@ -556,8 +590,13 @@ void NodeReturnOp::CompileLLVM()
 	first->CompileLLVM();
 	if(typeInfo != typeVoid && !V)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp typeInfo != typeVoid && !V");
-	if(typeInfo)
-		V = ConvertFirstToSecond(V, first->typeInfo, typeInfo);
+	if(typeInfo != typeVoid)
+	{
+		//value = PromoteToStackType(value, second->typeInfo);
+		//value = ConvertFirstToSecond(value, GetStackType(second->typeInfo), first->typeInfo->subType);
+		V = PromoteToStackType(V, first->typeInfo);
+		V = ConvertFirstToSecond(V, GetStackType(first->typeInfo), typeInfo);
+	}
 	if(!parentFunction && first->typeInfo != typeInt)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp !typeInfo && first->typeInfo != typeInt");
 	Builder.CreateRet(V);
@@ -648,22 +687,25 @@ void NodeFuncDef::CompileLLVM()
 		return;
 	}
 
-	Function *CalleeF = TheModule->getFunction(funcInfo->name);
-	if(CalleeF)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncDef CalleeF");
+	//Function *CalleeF = TheModule->getFunction(funcInfo->name);
+	//if(CalleeF)
+	//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncDef CalleeF");
 
-	std::vector<const llvm::Type*> Arguments;
+	/*std::vector<const llvm::Type*> Arguments;
 	VariableInfo *curr = NULL;
 	for(curr = funcInfo->firstParam; curr; curr = curr->next)
 		Arguments.push_back((Type*)curr->varType->llvmType);
 	Arguments.push_back((Type*)funcInfo->extraParam->varType->llvmType);
 	llvm::FunctionType *FT = llvm::FunctionType::get((Type*)funcInfo->retType->llvmType, Arguments, false);
-	F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, funcInfo->name, TheModule);
+	F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, funcInfo->name, TheModule);*/
+	F = (Function*)funcInfo->llvmFunction;
+	funcInfo->llvmImplemented = true;
 
 	llvm::BasicBlock *BB = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", F);
 	Builder.SetInsertPoint(BB);
 
 	Function::arg_iterator AI;
+	VariableInfo *curr = NULL;
 	for(AI = F->arg_begin(), curr = funcInfo->firstParam; AI != F->arg_end() && curr; AI++, curr = curr->next)
 	{
 		AI->setName(std::string(curr->name.begin, curr->name.end));
@@ -695,7 +737,7 @@ void NodeFuncDef::CompileLLVM()
 			Builder.CreateRet(ConstantInt::get(getGlobalContext(), APInt(32, 0, true)));
 	}
 
-	//F->dump();
+	DUMP(F);
 	verifyFunction(*F, llvm::PrintMessageAction);
 	if(enableOptimization && !F->getEntryBlock().empty())
 		OurFPM->run(*F);
@@ -759,7 +801,9 @@ void NodeFuncCall::CompileLLVM()
 		}else{
 			args.push_back(ConstantPointerNull::get(Type::getInt32PtrTy(getGlobalContext())));
 		}
-		CalleeF = TheModule->getFunction(funcInfo->name);
+		if(!funcInfo->llvmImplemented)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: %s unimplemented", funcInfo->name);
+		CalleeF = (Function*)funcInfo->llvmFunction;// TheModule->getFunction(funcInfo->name);
 		if(!CalleeF)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
 	}
@@ -1081,7 +1125,13 @@ void NodeVariableSet::CompileLLVM()
 	if(!value)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet value = NULL");
 	DUMP(value->getType());
-	value = ConvertFirstToSecond(value, second->typeInfo, first->typeInfo->subType);
+	/*TypeInfo *rightType = second->typeInfo;
+	if(rightType == typeFloat)
+		rightType = typeDouble;
+	if(rightType == typeChar || rightType == typeShort)
+		rightType = typeInt;*/
+	value = PromoteToStackType(value, second->typeInfo);
+	value = ConvertFirstToSecond(value, GetStackType(second->typeInfo), first->typeInfo->subType);
 	if(!value)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet value = NULL after");
 	DUMP(value->getType());
@@ -1157,9 +1207,9 @@ void NodeForExpr::CompileLLVM()
 	first->CompileLLVM();
 
 	BasicBlock *condBlock = BasicBlock::Create(getGlobalContext(), "condBlock", F);
-	BasicBlock *bodyBlock = BasicBlock::Create(getGlobalContext(), "bodyBlock", F);
-	BasicBlock *incrementBlock = BasicBlock::Create(getGlobalContext(), "incrementBlock", F);
-	BasicBlock *exitBlock = BasicBlock::Create(getGlobalContext(), "exitBlock", F);
+	BasicBlock *bodyBlock = BasicBlock::Create(getGlobalContext(), "bodyBlock");
+	BasicBlock *incrementBlock = BasicBlock::Create(getGlobalContext(), "incrementBlock");
+	BasicBlock *exitBlock = BasicBlock::Create(getGlobalContext(), "exitBlock");
 
 	Builder.CreateBr(condBlock);
 	Builder.SetInsertPoint(condBlock);
@@ -1173,6 +1223,7 @@ void NodeForExpr::CompileLLVM()
 	breakStack.push_back(exitBlock);
 	continueStack.push_back(incrementBlock);
 
+	F->getBasicBlockList().push_back(bodyBlock);
 	Builder.SetInsertPoint(bodyBlock);
 	fourth->CompileLLVM();
 	Builder.CreateBr(incrementBlock);
@@ -1180,10 +1231,12 @@ void NodeForExpr::CompileLLVM()
 	continueStack.pop_back();
 	breakStack.pop_back();
 
+	F->getBasicBlockList().push_back(incrementBlock);
 	Builder.SetInsertPoint(incrementBlock);
 	third->CompileLLVM();
 	Builder.CreateBr(condBlock);
 
+	F->getBasicBlockList().push_back(exitBlock);
 	Builder.SetInsertPoint(exitBlock);
 	V = NULL;
 }
@@ -1304,13 +1357,13 @@ void NodeVariableModify::CompileLLVM()
 	DUMP(right->getType());
 	MakeBinaryOp(left, right, cmdID, resType->stackType);
 
-	if(resType == typeFloat)
+	/*if(resType == typeFloat)
 		resType = typeDouble;
 	if(resType == typeChar || resType == typeShort)
-		resType = typeInt;
-	V = ConvertFirstToSecond(V, resType, typeInfo);
+		resType = typeInt;*/
+	V = ConvertFirstToSecond(V, GetStackType(resType), typeInfo);
 	DUMP(V->getType());
-	V = Builder.CreateStore(V, address);
+	Builder.CreateStore(V, address);
 }
 
 void NodeArrayIndex::CompileLLVM()
@@ -1346,6 +1399,7 @@ void NodeArrayIndex::CompileLLVM()
 		V = Builder.CreateGEP(arrPtr, &arrayIndexHelper[0], &arrayIndexHelper[1], "tmp_elem");
 	}else{
 		arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
+		index = ConvertFirstToSecond(index, GetStackType(second->typeInfo), typeInt);
 		arrayIndexHelper[1] = index;
 		V = Builder.CreateGEP(address, &arrayIndexHelper[0], &arrayIndexHelper[2], "tmp_arr");
 		DUMP(V->getType());
