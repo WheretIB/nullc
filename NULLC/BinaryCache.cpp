@@ -35,6 +35,7 @@ void BinaryCache::Terminate()
 		delete[] cache[i].binary;
 	}
 	cache.clear();
+	cache.reset();
 
 	delete[] lastBytecode;
 }

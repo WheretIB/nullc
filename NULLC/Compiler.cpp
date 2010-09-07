@@ -356,6 +356,9 @@ Compiler::~Compiler()
 	NodeContinueOp::fixQueue.reset();
 	NodeSwitchExpr::fixQueue.reset();
 
+	NodeFuncCall::memoList.reset();
+	NodeFuncCall::memoPool.~ChunkedStackPool();
+
 	NodeZeroOP::ResetNodes();
 
 	typeMap.reset();

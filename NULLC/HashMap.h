@@ -40,6 +40,7 @@ public:
 		if(entries)
 			NULLC::destruct(entries, bucketCount);
 		entries = NULL;
+		nodePool.~ChunkedStackPool();
 	}
 
 	void clear()

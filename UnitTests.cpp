@@ -33,22 +33,15 @@
 
 #pragma warning(disable: 4127)
 
-FILE *allocLog = NULL;
-void* testAlloc(size_t size)
+void* testAlloc(int size)
 {
-	if(!allocLog)
-		allocLog = fopen("testAlloc.txt", "wb");
-	static size_t overall = 0;
-	static int allocs = 0;
-	overall += size;
-	allocs++;
-	fprintf(allocLog, "%d Alloc of %u bytes (Total %u)\r\n", allocs, (unsigned int)size, (unsigned int)overall);
-	fflush(allocLog);
-	return malloc(size);
+	return (char*)malloc(size + 128) + 128;
 }
 void testDealloc(void* ptr)
 {
-	free(ptr);
+	if(!ptr)
+		return;
+	free((char*)ptr - 128);
 }
 
 nullres CompileFile(const char* fileName)
@@ -99,8 +92,8 @@ void	RunTests(bool verbose)
 */
 
 	// Init NULLC
-	nullcInit(MODULE_PATH);
-	//nullcInitCustomAlloc(testAlloc, testDealloc, "Modules\\");
+	//nullcInit(MODULE_PATH);
+	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
 	//nullcSetFileReadHandler(TestFileLoad);
 
 	nullcInitTypeinfoModule();
