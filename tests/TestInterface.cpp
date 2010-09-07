@@ -201,9 +201,9 @@ void RunInterfaceTests()
 			}
 			testsPassed[t]++;
 		}
-		if(vmPassed + 1 != testsPassed[0])
+		if(vmPassed + 1 != testsPassed[NULLC_VM])
 			printf("VM failed test: Function update test\r\n");
-		if(TEST_COUNT >= 2 && x86Passed + 1 != testsPassed[1])
+		if(Tests::testExecutor[NULLC_X86] && x86Passed + 1 != testsPassed[NULLC_X86])
 			printf("X86 failed test: Function update test\r\n");
 	}
 
@@ -314,9 +314,9 @@ void RunInterfaceTests()
 			}
 			testsPassed[t]++;
 		}
-		if(vmPassed + 2 != testsPassed[0])
+		if(vmPassed + 2 != testsPassed[NULLC_VM])
 			printf("VM failed test: Function update test 2\r\n");
-		if(TEST_COUNT >= 2 && x86Passed + 2 != testsPassed[1])
+		if(Tests::testExecutor[NULLC_X86] && x86Passed + 2 != testsPassed[NULLC_X86])
 			printf("X86 failed test: Function update test 2\r\n");
 	}
 
@@ -357,9 +357,9 @@ void RunInterfaceTests()
 
 			testsPassed[t]++;
 		}
-		if(vmPassed + 1 != testsPassed[0])
+		if(vmPassed + 1 != testsPassed[NULLC_VM])
 			printf("VM failed test: Value pass through nullcCallFunction\r\n");
-		if(TEST_COUNT >= 2 && x86Passed + 1 != testsPassed[1])
+		if(Tests::testExecutor[NULLC_X86] && x86Passed + 1 != testsPassed[NULLC_X86])
 			printf("X86 failed test: Value pass through nullcCallFunction\r\n");
 	}
 	{
@@ -406,9 +406,9 @@ void RunInterfaceTests()
 			
 			testsPassed[t]++;
 		}
-		if(vmPassed + 1 != testsPassed[0])
+		if(vmPassed + 1 != testsPassed[NULLC_VM])
 			printf("VM failed test: Structure pass through nullcCallFunction\r\n");
-		if(TEST_COUNT >= 2 && x86Passed + 1 != testsPassed[1])
+		if(Tests::testExecutor[NULLC_X86] && x86Passed + 1 != testsPassed[NULLC_X86])
 			printf("X86 failed test: Structure pass through nullcCallFunction\r\n");
 	}
 
