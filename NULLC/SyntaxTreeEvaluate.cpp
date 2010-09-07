@@ -99,7 +99,7 @@ NodeNumber* NodeFuncDef::Evaluate(char *memory, unsigned int memSize)
 
 unsigned int NodeFuncCall::baseShift = 0;
 ChunkedStackPool<4092> NodeFuncCall::memoPool;
-FastVector<NodeFuncCall::CallMemo> NodeFuncCall::memoList(128);
+FastVector<NodeFuncCall::CallMemo> NodeFuncCall::memoList;
 
 NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 {

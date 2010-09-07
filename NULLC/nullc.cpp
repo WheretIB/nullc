@@ -778,6 +778,10 @@ void nullcTerminate()
 	CodeInfo::funcDefList.reset();
 
 	CodeInfo::cmdInfoList.Reset();
+
+	CodeInfo::typeArrays.reset();
+	CodeInfo::typeFunctions.reset();
+	CodeInfo::classMap.reset();
 }
 
 //////////////////////////////////////////////////////////////////////////
