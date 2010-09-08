@@ -171,6 +171,17 @@ namespace GC
 	void CheckFunction(char* ptr);
 	void CheckVariable(char* ptr, const ExternTypeInfo& type);
 
+	struct RootInfo
+	{
+		RootInfo(){}
+		RootInfo(char* ptr, const ExternTypeInfo* type): ptr(ptr), type(type){}
+
+		char *ptr;
+		const ExternTypeInfo* type;
+	};
+	FastVector<RootInfo> rootsA, rootsB;
+	FastVector<RootInfo> *curr = NULL, *next = NULL;
+
 	// Function that marks memory blocks belonging to GC
 	void MarkPointer(char* ptr, const ExternTypeInfo& type, bool takeSubtype)
 	{
@@ -200,7 +211,7 @@ namespace GC
 				*marker = 1;
 				// And if type is not simple, check memory to which pointer points to
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
-					CheckVariable(*rPtr, takeSubtype ? NULLC::commonLinker->exTypes[type.subType] : type);
+					next->push_back(RootInfo(*rPtr, takeSubtype ? &NULLC::commonLinker->exTypes[type.subType] : &type));
 			}
 		}
 	}
@@ -395,6 +406,11 @@ void MarkUsedBlocks()
 	char			*symbols = NULLC::commonLinker->exSymbols.data;
 	(void)symbols;
 
+	GC::curr = &GC::rootsA;
+	GC::next = &GC::rootsB;
+	GC::curr->clear();
+	GC::next->clear();
+
 	// Mark global variables
 	for(unsigned int i = 0; i < NULLC::commonLinker->exVariables.size(); i++)
 	{
@@ -549,4 +565,22 @@ void MarkUsedBlocks()
 		}
 		tempStackBase += 4;
 	}
+
+	while(GC::next->size())
+	{
+		FastVector<GC::RootInfo>	*tmp = GC::curr;
+		GC::curr = GC::next;
+		GC::next = tmp;
+
+		for(GC::RootInfo *c = GC::curr->data, *e = GC::curr->data + GC::curr->size(); c != e; c++)
+			GC::CheckVariable(c->ptr, *c->type);
+
+		GC::curr->clear();
+	}
+}
+
+void ResetGC()
+{
+	GC::rootsA.reset();
+	GC::rootsB.reset();
 }

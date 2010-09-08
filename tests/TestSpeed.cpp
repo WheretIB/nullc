@@ -227,6 +227,43 @@ return GC.UsedMemory();";
 		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
 
+const char	*testGarbageCollection3 =
+"import std.random;\r\n\
+import std.io;\r\n\
+import std.gc;\r\n\
+import std.list;\r\n\
+\r\n\
+list arr = list(int);\r\n\
+int count = 1 << 20;\r\n\
+\r\n\
+void Create()\r\n\
+{\r\n\
+   for(int i = 0; i < count; i++)\r\n\
+      arr.push_back(i);\r\n\
+}\r\n\
+double markTimeBegin = GC.MarkTime();\r\n\
+double collectTimeBegin = GC.CollectTime();\r\n\
+io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+Create();\r\n\
+GC.CollectMemory();\r\n\
+io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
+io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+arr.clear();\r\n\
+GC.CollectMemory();\r\n\
+io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
+io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
+return GC.UsedMemory();";
+	printf("Garbage collection 3\r\n");
+	for(int t = 0; t < 2; t++)
+	{
+		testsCount[t]++;
+		double tStart = myGetPreciseTime();
+		if(Tests::RunCode(testGarbageCollection3, t, "0"))
+			testsPassed[t]++;
+		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
+	}
+
 #if defined(_MSC_VER)
 	const char	*testCompileSpeed =
 "import img.canvas;\r\n\
