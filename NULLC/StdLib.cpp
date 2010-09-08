@@ -461,6 +461,7 @@ void NULLC::ResetMemory()
 {
 	ClearMemory();
 	globalObjects.reset();
+	ResetGC();
 }
 
 void NULLC::SetGlobalLimit(unsigned int limit)
