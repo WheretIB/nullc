@@ -122,3 +122,44 @@ foo = sum; int g = foo(1, 2, 3);\r\n\
 foo = wrap; int h = foo(1, 2, 3);\r\n\
 return a + b*10 + c*100 + d*1000 + e*10000 + f*100000 + g*1000000 + h*10000000;";
 TEST_RESULT("Variable argument count passthrough", testVarargs7, "66661111");
+
+const char	*testVarargs8 =
+"int sum(auto ref[] args)\r\n\
+{\r\n\
+	int r = 0;\r\n\
+	for(i in args)\r\n\
+		r += int(i);\r\n\
+	return r;\r\n\
+}\r\n\
+int sum(int s, auto ref[] args)\r\n\
+{\r\n\
+	int r = s - 2;\r\n\
+	for(i in args)\r\n\
+		r += int(i);\r\n\
+	return r;\r\n\
+}\r\n\
+return sum(5, 10, 300);";
+TEST_RESULT("Variable argument function selection should match the function with most correct arguments", testVarargs8, "313");
+
+const char	*testVarargs9 =
+"int sum(int s, auto ref[] args)\r\n\
+{\r\n\
+	int r = s;\r\n\
+	for(i in args)\r\n\
+		r += int(i);\r\n\
+	return r;\r\n\
+}\r\n\
+return sum(5);";
+TEST_RESULT("Variable argument function with 0 arguments through var_args", testVarargs9, "5");
+
+const char	*testVarargs10 =
+"int sum(int s, auto ref[] args)\r\n\
+{\r\n\
+	int r = s;\r\n\
+	for(i in args)\r\n\
+		r += int(i);\r\n\
+	return r;\r\n\
+}\r\n\
+auto x = sum;\r\n\
+return x(7);";
+TEST_RESULT("Variable argument function pointer with 0 arguments through var_args", testVarargs10, "7");

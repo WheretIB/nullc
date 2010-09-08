@@ -2502,20 +2502,26 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 					param = param->next;
 				}
 			}
-			if(argumentCount >= bestFuncList[k]->funcType->funcType->paramCount && bestFuncList[k]->lastParam && bestFuncList[k]->lastParam->varType == typeObjectArray &&
+			if(argumentCount >= (bestFuncList[k]->funcType->funcType->paramCount-1) && bestFuncList[k]->lastParam && bestFuncList[k]->lastParam->varType == typeObjectArray &&
 				!(argumentCount == bestFuncList[k]->funcType->funcType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
 			{
 				// If function accepts variable argument list
 				TypeInfo *&lastType = bestFuncList[k]->funcType->funcType->paramType[bestFuncList[k]->funcType->funcType->paramCount - 1];
 				assert(lastType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
 				unsigned int redundant = argumentCount - bestFuncList[k]->funcType->funcType->paramCount;
-				CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
+				if(redundant == ~0u)
+					CodeInfo::nodeList.push_back(new NodeZeroOP(typeObjectArray));
+				else
+					CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
 				// Change things in a way that this function will be selected (lie about real argument count and match last argument type)
 				lastType = CodeInfo::nodeList.back()->typeInfo;
 				bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, bestFuncList[k]->funcType->funcType->paramCount);
-				CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
+				if(redundant == ~0u)
+					CodeInfo::nodeList.pop_back();
+				else
+					CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
 				if(bestFuncRating[k] != ~0u)
-					bestFuncRating[k] += 10;	// Cost of variable arguments function
+					bestFuncRating[k] += 10 + (redundant == ~0u ? 5 : redundant * 5);	// Cost of variable arguments function
 				lastType = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
 			}else{
 				bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, argumentCount);
@@ -2613,20 +2619,24 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			return AddFunctionCallNode(pos, "()", callArgCount + 1);
 		}
 		unsigned int bestRating = ~0u;
-		if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray &&
+		if(callArgCount >= (fType->paramCount-1) && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray &&
 			!(callArgCount == fType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
 		{
 			// If function accepts variable argument list
 			TypeInfo *&lastType = fType->paramType[fType->paramCount - 1];
 			assert(lastType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
 			unsigned int redundant = callArgCount - fType->paramCount;
-			CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
+			if(redundant == ~0u)
+				CodeInfo::nodeList.push_back(new NodeZeroOP(typeObjectArray));
+			else
+				CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
 			// Change things in a way that this function will be selected (lie about real argument count and match last argument type)
 			lastType = CodeInfo::nodeList.back()->typeInfo;
 			bestRating = GetFunctionRating(fType, fType->paramCount);
-			CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
-			if(bestRating != ~0u)
-				bestRating += 10;	// Cost of variable arguments function
+			if(redundant == ~0u)
+				CodeInfo::nodeList.pop_back();
+			else
+				CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
 			lastType = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
 		}else{
 			bestRating = GetFunctionRating(fType, callArgCount);
@@ -2652,7 +2662,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 	}
 
-	if(callArgCount < fType->paramCount)
+	if(fInfo && callArgCount < fType->paramCount)
 	{
 		// Move to the last parameter
 		VariableInfo *param = fInfo->firstParam;
@@ -2669,40 +2679,47 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 	}
 	// If it's variable argument function
-	if(callArgCount >= fType->paramCount && fType->paramCount && fType->paramType[fType->paramCount - 1] == typeObjectArray &&
+	if(callArgCount >= (fType->paramCount-1) && fType->paramCount && fType->paramType[fType->paramCount - 1] == typeObjectArray &&
 		!(callArgCount == fType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
 	{
-		// Pack last argument and all others into an auto ref array
-		paramNodes.clear();
-		unsigned int argsToPack = callArgCount - fType->paramCount + 1;
-		for(unsigned int i = 0; i < argsToPack; i++)
+		if(callArgCount >= fType->paramCount)
 		{
-			// Convert type to auto ref
-			if(CodeInfo::nodeList.back()->typeInfo != typeObject)
+			// Pack last argument and all others into an auto ref array
+			paramNodes.clear();
+			unsigned int argsToPack = callArgCount - fType->paramCount + 1;
+			for(unsigned int i = 0; i < argsToPack; i++)
 			{
-				if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
+				// Convert type to auto ref
+				if(CodeInfo::nodeList.back()->typeInfo != typeObject)
 				{
-					((NodeDereference*)CodeInfo::nodeList.back())->Neutralize();
-				}else{
-					// type[N] is converted to type[] first
-					if(CodeInfo::nodeList.back()->typeInfo->arrLevel)
-						ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(CodeInfo::nodeList.back()->typeInfo->subType, TypeInfo::UNSIZED_ARRAY));
-					AddInplaceVariable(pos);
-					AddExtraNode();
+					if(CodeInfo::nodeList.back()->nodeType == typeNodeDereference)
+					{
+						((NodeDereference*)CodeInfo::nodeList.back())->Neutralize();
+					}else{
+						// type[N] is converted to type[] first
+						if(CodeInfo::nodeList.back()->typeInfo->arrLevel)
+							ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(CodeInfo::nodeList.back()->typeInfo->subType, TypeInfo::UNSIZED_ARRAY));
+						AddInplaceVariable(pos);
+						AddExtraNode();
+					}
+					HandlePointerToObject(pos, typeObject);
 				}
-				HandlePointerToObject(pos, typeObject);
+				paramNodes.push_back(CodeInfo::nodeList.back());
+				CodeInfo::nodeList.pop_back();
 			}
-			paramNodes.push_back(CodeInfo::nodeList.back());
-			CodeInfo::nodeList.pop_back();
+			// Push arguments on stack
+			for(unsigned int i = 0; i < argsToPack; i++)
+				CodeInfo::nodeList.push_back(paramNodes[argsToPack - i - 1]);
+			// Convert to array of arguments
+			AddArrayConstructor(pos, argsToPack - 1);
+			// Change current argument type
+			callArgCount -= argsToPack;
+			callArgCount++;
+		}else{
+			AddNullPointer();
+			HandlePointerToObject(pos, CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
+			callArgCount++;
 		}
-		// Push arguments on stack
-		for(unsigned int i = 0; i < argsToPack; i++)
-			CodeInfo::nodeList.push_back(paramNodes[argsToPack - i - 1]);
-		// Convert to array of arguments
-		AddArrayConstructor(pos, argsToPack - 1);
-		// Change current argument type
-		callArgCount -= argsToPack;
-		callArgCount++;
 	}
 
 	paramNodes.clear();
