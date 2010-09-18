@@ -944,6 +944,14 @@ nullres nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int))
 		return false;
 	}
 	executor->SetBreakFunction(callback);
+#ifdef NULLC_BUILD_X86_JIT
+	if(!executorX86)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	executorX86->SetBreakFunction(callback);
+#endif
 	return true;
 }
 
@@ -954,12 +962,15 @@ nullres nullcDebugClearBreakpoints()
 		nullcLastError = "ERROR: NULLC is not initialized";
 		return false;
 	}
-	if(currExec != NULLC_VM)
+	executor->ClearBreakpoints();
+#ifdef NULLC_BUILD_X86_JIT
+	if(!executorX86)
 	{
-		nullcLastError = "ERROR: breakpoints are supported only under VM";
+		nullcLastError = "ERROR: NULLC is not initialized";
 		return false;
 	}
-	executor->ClearBreakpoints();
+	executorX86->ClearBreakpoints();
+#endif
 	return true;
 }
 
@@ -970,16 +981,23 @@ nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 		nullcLastError = "ERROR: NULLC is not initialized";
 		return false;
 	}
-	if(currExec != NULLC_VM)
-	{
-		nullcLastError = "ERROR: breakpoints are supported only under VM";
-		return false;
-	}
 	if(!executor->AddBreakpoint(instruction, oneHit))
 	{
 		nullcLastError = executor->GetExecError();
 		return false;
 	}
+#ifdef NULLC_BUILD_X86_JIT
+	if(!executorX86)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	if(!executorX86->AddBreakpoint(instruction, oneHit))
+	{
+		nullcLastError = executorX86->GetExecError();
+		return false;
+	}
+#endif
 	return true;
 }
 
@@ -1000,16 +1018,23 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 		nullcLastError = "ERROR: NULLC is not initialized";
 		return false;
 	}
-	if(currExec != NULLC_VM)
-	{
-		nullcLastError = "ERROR: breakpoints are supported only under VM";
-		return false;
-	}
 	if(!executor->RemoveBreakpoint(instruction))
 	{
 		nullcLastError = executor->GetExecError();
 		return false;
 	}
+#ifdef NULLC_BUILD_X86_JIT
+	if(!executorX86)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	if(!executorX86->RemoveBreakpoint(instruction))
+	{
+		nullcLastError = executorX86->GetExecError();
+		return false;
+	}
+#endif
 	return true;
 }
 

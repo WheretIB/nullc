@@ -36,9 +36,10 @@ public:
 	void*			GetStackStart();
 	void*			GetStackEnd();
 
-	void	SetBreakFunction(void (*callback)(unsigned int));
+	void	SetBreakFunction(unsigned (*callback)(unsigned int));
 	void	ClearBreakpoints();
 	bool	AddBreakpoint(unsigned int instruction, bool oneHit);
+	bool	RemoveBreakpoint(unsigned int instruction);
 
 	bool	SetStackPlacement(void* start, void* end, unsigned int flagMemoryAllocated);
 private:
@@ -56,7 +57,6 @@ private:
 	FastVector<VMCmd>			&exCode;
 
 	FastVector<x86Instruction, true, true>	instList;
-	FastVector<unsigned char*>	instAddress;
 
 	unsigned int		globalStartInBytecode;
 
@@ -73,18 +73,23 @@ private:
 
 	unsigned int	*callstackTop;
 
-	void (*breakFunction)(unsigned int);
-	struct Breakpoint
-	{
-		unsigned int	instIndex;
-		unsigned char	oldOpcodeA;
-		unsigned char	oldOpcodeB;
-	};
-	FastVector<unsigned int>	breakInstructions;
-
 	unsigned int	oldJumpTargetCount;
 	unsigned int	oldFunctionSize;
+
 public:
+	FastVector<unsigned char*>	instAddress;
+
+	unsigned (*breakFunction)(unsigned int);
+	struct Breakpoint
+	{
+		Breakpoint(): instIndex(0), oldOpcode(0){}
+		Breakpoint(unsigned int instIndex, unsigned char oldOpcode, bool oneHit): instIndex(instIndex), oldOpcode(oldOpcode), oneHit(oneHit){}
+		unsigned int	instIndex;
+		unsigned char	oldOpcode;
+		bool			oneHit;
+	};
+	FastVector<Breakpoint>		breakInstructions;
+
 	FastVector<unsigned int>	functionAddress;
 	struct FunctionListInfo
 	{
