@@ -67,8 +67,9 @@ namespace NULLC
 	NULLCAutoArray* AutoArrayAssignSelf(NULLCAutoArray* left, NULLCAutoArray* right);
 	NULLCRef AutoArrayIndex(NULLCAutoArray* left, unsigned int index);
 
-	NULLCAutoArray	AutoArray(int type, int count);
-	void			AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr);
+	void	AutoArray(NULLCAutoArray* arr, int type, int count);
+	void	AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr);
+	void	ShrinkAutoArray(NULLCAutoArray* arr, unsigned size);
 
 	int	IsCoroutineReset(NULLCRef f);
 	void AssertCoroutine(NULLCRef f);

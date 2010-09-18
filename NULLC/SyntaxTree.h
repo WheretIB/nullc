@@ -423,7 +423,7 @@ protected:
 class NodeDereference: public NodeOneOP
 {
 public:
-			NodeDereference(FunctionInfo* setClosure = NULL, unsigned int offsetToPrevClosure = 0);
+			NodeDereference(FunctionInfo* setClosure = NULL, unsigned int offsetToPrevClosure = 0, bool readonly = false);
 	virtual ~NodeDereference();
 
 	virtual void Neutralize();
@@ -435,7 +435,7 @@ public:
 	COMPILE_LLVM(virtual void CompileLLVM());
 private:
 	int		addrShift;
-	bool	absAddress, knownAddress, neutralized;
+	bool	absAddress, knownAddress, neutralized, readonly;
 	FunctionInfo	*closureFunc;
 	unsigned int	offsetToPreviousClosure;
 	NodeZeroOP		*originalNode;

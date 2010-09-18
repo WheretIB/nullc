@@ -739,13 +739,11 @@ NULLCRef NULLC::AutoArrayIndex(NULLCAutoArray* left, unsigned int index)
 	return ret;
 }
 
-NULLCAutoArray NULLC::AutoArray(int type, int count)
+void NULLC::AutoArray(NULLCAutoArray* arr, int type, int count)
 {
-	NULLCAutoArray res;
-	res.typeID = type;
-	res.len = count;
-	res.ptr = (char*)AllocObject(count * linker->exTypes[type].size);
-	return res;
+	arr->typeID = type;
+	arr->len = count;
+	arr->ptr = (char*)AllocObject(count * linker->exTypes[type].size);
 }
 
 void NULLC::AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr)
@@ -761,11 +759,24 @@ void NULLC::AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr)
 		unsigned newSize = 1 + arr->len + (arr->len >> 1);
 		if(pos >= newSize)
 			newSize = pos;
-		NULLCAutoArray n = AutoArray(arr->typeID, newSize);
+		NULLCAutoArray n;
+		AutoArray(&n, arr->typeID, newSize);
+		if(!n.ptr)
+			return;
 		memcpy(n.ptr, arr->ptr, arr->len * elemSize);
 		*arr = n;
 	}
 	memcpy(arr->ptr + elemSize * pos, x.ptr, elemSize);
+}
+
+void NULLC::ShrinkAutoArray(NULLCAutoArray* arr, unsigned size)
+{
+	if(size > (unsigned)arr->len)
+	{
+		nullcThrowError("ERROR: cannot extend array");
+		return;
+	}
+	arr->len = size;
 }
 
 int NULLC::IsCoroutineReset(NULLCRef f)

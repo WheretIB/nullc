@@ -1268,7 +1268,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 #endif
 			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
 		if(currentType->arrLevel || currentType == typeObject || currentType == typeAutoArray)
-			AddGetVariableNode(pos);
+			CodeInfo::nodeList.push_back(new NodeDereference(NULL, NULL, true));
 	}else{
 		// In case of a function, get it's address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(memberFunc));
@@ -3218,19 +3218,20 @@ void AddListGenerator(const char* pos, void *rType)
 	EndBlock();
 	AddForEachNode(pos);
 
+//	__force_size(&res, pos);
+	AddGetAddressNode(pos, InplaceStr("res"));
+	//AddMemberAccessNode(pos, InplaceStr("size"));
+	AddGetAddressNode(pos, InplaceStr("pos"));
+	AddGetVariableNode(pos);
+	AddFunctionCallNode(pos, "__force_size", 2);
+	AddPopNode(pos);
+
 //	generic[] r = res;
 	currType = CodeInfo::GetArrayType(retType, TypeInfo::UNSIZED_ARRAY);
 	varInfo = AddVariable(pos, InplaceStr("r"));
 	AddGetAddressNode(pos, InplaceStr("res"));
 	AddGetVariableNode(pos);
 	AddDefineVariableNode(pos, varInfo);
-	AddPopNode(pos);
-//	__force_size(&r.size, pos);
-	AddGetAddressNode(pos, InplaceStr("r"));
-	AddMemberAccessNode(pos, InplaceStr("size"));
-	AddGetAddressNode(pos, InplaceStr("pos"));
-	AddGetVariableNode(pos);
-	AddFunctionCallNode(pos, "__force_size", 2);
 	AddPopNode(pos);
 //	return r;
 	AddGetAddressNode(pos, InplaceStr("r"));
