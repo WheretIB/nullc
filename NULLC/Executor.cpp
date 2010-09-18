@@ -572,6 +572,7 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 Executor::~Executor()
 {
 	NULLC::dealloc(genStackBase);
+	genStackBase = NULL;
 }
 
 #define genStackSize (genStackTop-genStackPtr)

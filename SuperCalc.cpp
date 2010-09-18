@@ -425,6 +425,8 @@ unsigned IDEDebugBreakEx(unsigned int instruction)
 	return breakCommand;
 }
 
+#include <io.h>
+
 int APIENTRY WinMain(HINSTANCE	hInstance,
 					HINSTANCE	hPrevInstance,
 					LPTSTR		lpCmdLine,
@@ -442,7 +444,12 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	AllocConsole();
 
 	freopen("CONOUT$", "w", stdout);
+	freopen("CONOUT$", "w", stderr);
 	freopen("CONIN$", "r", stdin);
+
+	_dup2(_dup( _fileno( stdin )), 0);
+	_dup2(_dup( _fileno( stdout )), 1);
+	_dup2(_dup( _fileno( stderr )), 2);
 #endif
 
 	bool runUnitTests = false;
@@ -1364,10 +1371,10 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			unsigned int i = address - 1;
 			while((line < infoSize - 1) && (i >= codeInfo[line + 1].byteCodePos))
 				line++;
-			if(codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize)
+			if(!moduleSize || (codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize))
 			{
 				codeLine = 0;
-				const char *curr = source, *end = source + codeInfo[line].sourceOffset - modules[moduleSize-1].sourceOffset - modules[moduleSize-1].sourceSize;
+				const char *curr = source, *end = source + codeInfo[line].sourceOffset - (moduleSize ? modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize : 0);
 				while(const char *next = strchr(curr, '\n'))
 				{
 					if(next > end)
