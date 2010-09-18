@@ -71,6 +71,8 @@ namespace NULLC
 	unsigned int expECXstate;
 	unsigned int expESPstate;
 
+	ExecutorX86	*currExecutor = NULL;
+
 #ifndef __linux
 	int ExtendMemory()
 	{
@@ -136,6 +138,28 @@ namespace NULLC
 		expCodePublic = expCode;
 		expAllocCode = ~0u;
 
+		if(!externalCode && *(unsigned char*)(intptr_t)expInfo->ContextRecord->Eip == 0xcc)
+		{
+			unsigned index = ~0u;
+			for(unsigned i = 0; i < currExecutor->breakInstructions.size() && index == ~0u; i++)
+			{
+				if((intptr_t)currExecutor->instAddress[currExecutor->breakInstructions[i].instIndex] == expInfo->ContextRecord->Eip)
+					index = i;
+			}
+			//printf("Found at index %d\n", index);
+			if(index == ~0u)
+				return EXCEPTION_CONTINUE_SEARCH;
+			//printf("Returning execution (%d)\n", currExecutor->breakInstructions[index].instIndex);
+			//Sleep(8000);
+
+			unsigned array[2] = { expInfo->ContextRecord->Eip, 0 };
+			NULLC::dataHead->instructionPtr = (unsigned)(uintptr_t)&array[1];
+
+			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakInstructions[index].instIndex);
+			//printf("Returned command %d\n", command);
+			*currExecutor->instAddress[currExecutor->breakInstructions[index].instIndex] = currExecutor->breakInstructions[index].oldOpcode;
+			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
+		}
 		// Call stack should be unwind only once on top level error, since every function in external function call chain will signal an exception if there was an exception before.
 		if(!NULLC::abnormalTermination)
 		{
@@ -226,7 +250,6 @@ namespace NULLC
 	typedef void (*codegenCallback)(VMCmd);
 	codegenCallback cgFuncs[cmdEnumCount];
 
-	ExecutorX86	*currExecutor = NULL;
 	void UpdateFunctionPointer(unsigned dest, unsigned source)
 	{
 		currExecutor->functionAddress[dest * 2 + 0] = currExecutor->functionAddress[source * 2 + 0];	// function address
@@ -1080,6 +1103,7 @@ bool ExecutorX86::TranslateToNative()
 		instList[i].name = o_other;
 		instList[i].instID = 0;
 	}
+	exCode.pop_back();
 #endif
 
 #ifdef NULLC_LOG_FILES
@@ -1113,7 +1137,7 @@ bool ExecutorX86::TranslateToNative()
 	bool codeRelocated = false;
 	if((binCodeSize + instList.size() * 6) > binCodeReserved)
 	{
-		binCodeReserved = binCodeSize + (instList.size()) * 6 + 4096;	// Maximum instruction size is 6 bytes.
+		binCodeReserved = binCodeSize + (instList.size()) * 6 + 4096;	// Average instruction size is 6 bytes.
 		unsigned char *binCodeNew = (unsigned char*)NULLC::alloc(binCodeReserved);
 		if(binCodeSize)
 			memcpy(binCodeNew + 16, binCode + 16, binCodeSize);
@@ -1148,7 +1172,7 @@ bool ExecutorX86::TranslateToNative()
 
 	// Translate to x86
 	unsigned char *bytecode = binCode + 16 + binCodeSize;
-	unsigned char *code = bytecode + (!binCodeSize ? 0 : -7 /* we must destroy the pop ebp; mov ebx, code; ret; sequence*/);
+	unsigned char *code = bytecode + (!binCodeSize ? 0 : -7 /* we must destroy the pop ebp; mov ebx, code; ret; sequence */);
 
 	instAddress.resize(exCode.size() + 1); // Extra instruction for global return
 	memset(instAddress.data + lastInstructionCount, 0, (exCode.size() - lastInstructionCount + 1) * sizeof(unsigned int));
@@ -1692,20 +1716,58 @@ void* ExecutorX86::GetStackEnd()
 	return genStackTop;
 }
 
-void ExecutorX86::SetBreakFunction(void (*callback)(unsigned int))
+void ExecutorX86::SetBreakFunction(unsigned (*callback)(unsigned int))
 {
 	breakFunction = callback;
 }
 
 void ExecutorX86::ClearBreakpoints()
 {
+	for(unsigned i = 0; i < breakInstructions.size(); i++)
+	{
+		if(*instAddress[breakInstructions[i].instIndex] == 0xcc)
+			*instAddress[breakInstructions[i].instIndex] = breakInstructions[i].oldOpcode;
+	}
+	breakInstructions.clear();
 }
 
 bool ExecutorX86::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
-	(void)instruction;
-	(void)oneHit;
-	return false;
+	if(instruction > instAddress.size())
+	{
+		SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		return false;
+	}
+	while(instruction < instAddress.size() && !instAddress[instruction])
+		instruction++;
+	if(instruction >= instAddress.size())
+	{
+		SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		return false;
+	}
+	breakInstructions.push_back(Breakpoint(instruction, *instAddress[instruction], oneHit));
+	*instAddress[instruction] = 0xcc;
+	return true;
+}
+
+bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
+{
+	if(instruction > instAddress.size())
+	{
+		SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		return false;
+	}
+	unsigned index = ~0u;
+	for(unsigned i = 0; i < breakInstructions.size() && index == ~0u; i++)
+		if(breakInstructions[i].instIndex == instruction)
+			index = i;
+	if(index == ~0u || *instAddress[breakInstructions[index].instIndex] != 0xcc)
+	{
+		SafeSprintf(execError, 512, "ERROR: there is no breakpoint at instruction %d", instruction);
+		return false;
+	}
+	*instAddress[breakInstructions[index].instIndex] = breakInstructions[index].oldOpcode;
+	return true;
 }
 
 #endif
