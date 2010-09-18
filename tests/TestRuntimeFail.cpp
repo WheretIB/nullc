@@ -1,5 +1,7 @@
 #include "TestBase.h"
 
+#include <assert.h>
+
 #ifndef _DEBUG
 	#define FAILURE_TEST
 #endif
