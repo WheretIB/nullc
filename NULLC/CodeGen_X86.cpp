@@ -2110,11 +2110,13 @@ VMCmd	yieldCmd = VMCmd(cmdNop);
 #ifdef __linux
 void yieldRestoreEIP()
 {
-	asm("pop %eax");
-	asm("pop %eax");
-	asm("add %%ebx, %0"::"r"(x86BinaryBase):"%ebx");
-	asm("mov -4(%esi), %ebx");
-	asm("jmp -4(%esi)");
+	asm("pop %eax"); // remove pushed ebx
+	asm("pop %eax"); // remove pushed ebp
+	asm("mov %eax, %ebp");
+	asm("pop %eax"); // remove pushed eip
+	asm("add %0, %%ebx"::"m"(x86BinaryBase):"%ebx");
+	asm("mov %ebx, -4(%esp)");
+	asm("jmp *-4(%esp)");
 }
 #else
 __declspec(naked) void yieldRestoreEIP()
@@ -2162,6 +2164,7 @@ void yieldSaveEIP()
 {
 	asm("push %eax");
 	asm("mov 8(%esp), %eax");
+	asm("sub %0, %%eax"::"m"(x86BinaryBase):"%eax");
 	asm("add $1, %eax");	// jump over ret
 	asm("mov %eax, 4(%esi)");
 	asm("pop %eax");
