@@ -487,6 +487,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		
 		// float type is #2
 		if(retTypeID == 2)
+
 		{
 			// cvtss2sd xmm0, xmm0
 			code.push_back(0xf3);
@@ -1808,20 +1809,21 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	unsigned int *stackStart = genStackPtr;
 	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
 
-	assert(exFunctions[funcID].returnShift < 128);	// maximum supported return type size is 512 bytes
-
 	// buffer for return value
 	unsigned int ret[128];
+	unsigned int returnShift = exFunctions[funcID].returnShift;
+
+	assert(exFunctions[funcID].returnShift < 128);	// maximum supported return type size is 512 bytes
 
 	// call external function through gateway
 	void (*gate)(unsigned int*, unsigned int*, void*) = (void (*)(unsigned int*, unsigned int*, void*))(void*)(gateCode.data + exFunctions[funcID].startInByteCode);
 	gate(stackStart, ret, fPtr);
 
 	// adjust new stack top
-	newStackPtr -= exFunctions[funcID].returnShift;
+	newStackPtr -= returnShift;
 
 	// copy return value on top of the stack
-	memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
+	memcpy(newStackPtr, ret, returnShift * 4);
 
 	// set new stack top
 	genStackPtr = newStackPtr;
