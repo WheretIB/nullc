@@ -354,12 +354,12 @@ ExecutorX86::~ExecutorX86()
 		VirtualProtect((void*)binCode, binCodeSize, oldCodeBodyProtect, &unusedProtect);
 #else
 	char *p = (char*)((intptr_t)((char*)codeHead + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-	if(mprotect(p, (((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PRTO_WRITE)))
+	if(mprotect(p, ((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE))
 		asm("int $0x3");
 	if(binCode)
 	{
 		p = (char*)((intptr_t)((char*)binCode + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-		if(mprotect(p, ((binCodeReserve + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE))
+		if(mprotect(p, ((binCodeReserved + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE))
 			asm("int $0x3");
 	}
 #endif
@@ -537,7 +537,7 @@ bool ExecutorX86::Initialize()
 	VirtualProtect((void*)codeHead, sizeof(codeHead), PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeHeadProtect);
 #else
 	char *p = (char*)((intptr_t)((char*)codeHead + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-	if(mprotect(p, (((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_EXEC)))
+	if(mprotect(p, ((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_EXEC))
 		asm("int $0x3");
 #endif
 
@@ -1157,7 +1157,7 @@ bool ExecutorX86::TranslateToNative()
 	bool codeRelocated = false;
 	if((binCodeSize + instList.size() * 6) > binCodeReserved)
 	{
-		unsigned int oldBinCodeReserve = binCodeReserved;
+		unsigned int oldBinCodeReserved = binCodeReserved;
 		binCodeReserved = binCodeSize + (instList.size()) * 6 + 4096;	// Average instruction size is 6 bytes.
 		unsigned char *binCodeNew = (unsigned char*)NULLC::alloc(binCodeReserved);
 
@@ -1165,13 +1165,13 @@ bool ExecutorX86::TranslateToNative()
 #ifndef __linux
 		DWORD unusedProtect;
 		if(binCode)
-			VirtualProtect((void*)binCode, oldBinCodeReserve, oldCodeBodyProtect, (DWORD*)&unusedProtect);
+			VirtualProtect((void*)binCode, oldBinCodeReserved, oldCodeBodyProtect, (DWORD*)&unusedProtect);
 		VirtualProtect((void*)binCodeNew, binCodeReserved, PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeBodyProtect);
 #else
 		if(binCode)
 		{
 			char *p = (char*)((intptr_t)((char*)binCode + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-			if(mprotect(p, ((oldBinCodeReserve + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE)))
+			if(mprotect(p, ((oldBinCodeReserved + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE))
 				asm("int $0x3");
 		}
 		char *p = (char*)((intptr_t)((char*)binCodeNew + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;

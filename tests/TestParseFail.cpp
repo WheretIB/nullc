@@ -1,7 +1,7 @@
 #include "TestParseFail.h"
 
 #include "TestBase.h"
-#include "../nullc/StrAlgo.h"
+#include "../NULLC/StrAlgo.h"
 
 void RunParseFailTests()
 {
