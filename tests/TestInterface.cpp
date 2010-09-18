@@ -480,4 +480,27 @@ const char	*testDoubleRetrieval = "return 25.0;";
 			printf("Incorrect result: %s", nullcGetResult());
 		}
 	}
+
+	for(int t = 0; t < TEST_COUNT; t++)
+	{
+		if(!Tests::testExecutor[t])
+			continue;
+		testsCount[t]++;
+		nullcSetExecutor(testTarget[t]);
+		if(!nullcBuild("int main(){return 2;}"))
+		{
+			printf("Build failed:%s\n", nullcGetLastError());
+		}else{
+			if(!nullcRunFunction("main"))
+			{
+				printf("Run failed:%s\n", nullcGetLastError());
+			}else{
+				if(memcmp(nullcGetResult(), "2", 1))
+					printf("Return value != 2\n");
+				else
+					testsPassed[t]++;
+			}
+		}
+	}
+	
 }

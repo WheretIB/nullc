@@ -1625,6 +1625,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		genStackPtr++;
 		break;
 	}
+	// If the call was started from an internal function call, a value pushed on stack for correct global return is still on stack
+	if(!codeRunning && functionID != ~0u)
+		genStackPtr++;
 }
 
 void Executor::Stop(const char* error)
