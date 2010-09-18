@@ -975,7 +975,7 @@ void NodeArrayIndex::Compile()
 //////////////////////////////////////////////////////////////////////////
 // Node to get value by address (dereference pointer)
 
-NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetToPrevClosure)
+NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetToPrevClosure, bool isReadonly)
 {
 	originalNode = first = TakeLastNode();
 	assert(first->typeInfo);
@@ -988,9 +988,7 @@ NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetTo
 	closureFunc = setClosure;
 	offsetToPreviousClosure = offsetToPrevClosure;
 	neutralized = false;
-
-	if(closureFunc && first->nodeType == typeNodeVariableSet && ((NodeOneOP*)first)->GetFirstNode()->nodeType != typeNodeGetAddress)
-		neutralized = false;
+	readonly = isReadonly;
 
 #ifndef NULLC_ENABLE_C_TRANSLATION
 	if(first->nodeType == typeNodeGetAddress)
@@ -1020,6 +1018,8 @@ NodeDereference::~NodeDereference()
 
 void NodeDereference::Neutralize()
 {
+	if(readonly)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot take pointer to a read-only variable");
 	neutralized = true;
 	typeInfo = originalNode->typeInfo;
 }

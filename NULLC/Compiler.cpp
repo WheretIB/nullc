@@ -186,18 +186,17 @@ const_string operator+(char[] a, const_string b){ return const_string(a + b.arr)
 \r\n\
 int isStackPointer(auto ref x);\r\n\
 // list comprehension helper functions\r\n\
+void auto_array_impl(auto[] ref arr, typeid type, int count);\r\n\
 auto[] auto_array(typeid type, int count)\r\n\
 {\r\n\
 	auto[] res;\r\n\
-	(auto(typeid ref j){return j;})(&res.type) = type;\r\n\
-	(auto(int ref j){return j;})(&res.size) = count;\r\n\
-	(auto(void ref ref j){return j;})(&res.ptr) = __newS(type.size * (count));\r\n\
+	auto_array_impl(&res, type, count);\r\n\
 	return res;\r\n\
 }\r\n\
 typedef auto[] auto_array;\r\n\
 // function will set auto[] element to the specified one, will data reallocation is neccessary\r\n\
 void auto_array:set(auto ref x, int pos);\r\n\
-void __force_size(int ref s, int size){ assert(size <= *s, \"ERROR: cannot extend array\"); *s = size; }\r\n\
+void __force_size(auto[] ref s, int size);\r\n\
 \r\n\
 int isCoroutineReset(auto ref f);\r\n\
 void __assertCoroutine(auto ref f);";
@@ -335,7 +334,9 @@ Compiler::Compiler()
 
 	AddModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);
 
+	AddModuleFunction("$base$", (void (*)())NULLC::AutoArray, "auto_array_impl", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArraySet, "auto[]::set", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::ShrinkAutoArray, "__force_size", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::IsCoroutineReset, "isCoroutineReset", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::AssertCoroutine, "__assertCoroutine", 0);
