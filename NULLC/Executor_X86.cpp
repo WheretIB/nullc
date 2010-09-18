@@ -264,6 +264,37 @@ namespace NULLC
 	}
 }
 
+// code header
+static const unsigned char codeHead[] = {
+	0x8B, 0xC4,						// mov         eax,esp
+
+	0x8B, 0x50, 0x10,				// mov         edx,dword ptr [eax+10h] 
+	0x89, 0x02,						// mov         dword ptr [edx],eax 
+
+	0x60,							// pushad
+	0x8B, 0x78, 0x04,				// mov         edi,dword ptr [eax+4]
+	0xBD, 0x00, 0x00, 0x00, 0x00,	// mov         ebp,0
+	0x8B, 0x40, 0x0C,				// mov         eax,dword ptr [eax+0Ch]
+
+	0x8D, 0x5C, 0x24, 0x04,			// lea         ebx,[esp+4]
+	0x83, 0xE3, 0x0F,				// and         ebx,0Fh
+	0xB9, 0x10, 0x00, 0x00, 0x00,	// mov         ecx,10h
+	0x2B, 0xCB,						// sub         ecx,ebx
+	0x2B, 0xE1,						// sub         esp,ecx
+	0x51,							// push        ecx 
+	0xFF, 0xD0,						// call eax
+
+	0x59,							// pop         ecx
+	0x03, 0xE1,						// add         esp,ecx
+
+	0x8B, 0x4C, 0x24, 0x28,			// mov         ecx,dword ptr [esp+28h]
+	0x89, 0x01,						// mov         dword ptr [ecx],eax
+	0x89, 0x51, 0x04,				// mov         dword ptr [ecx+4],edx
+	0x89, 0x59, 0x08,				// mov         dword ptr [ecx+8],ebx
+	0x61,							// popad
+	0xC3,							// ret
+};
+
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
 			exCode(linker->exCode), exTypes(linker->exTypes)
 {
@@ -312,6 +343,24 @@ ExecutorX86::~ExecutorX86()
 	}else{
 		// Otherwise, remove page guard, restoring old protection value
 		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, NULLC::stackProtect, &NULLC::stackProtect);
+	}
+#endif
+
+	// Disable execution of code head and code body
+#ifndef __linux
+	DWORD unusedProtect;
+	VirtualProtect((void*)codeHead, sizeof(codeHead), oldCodeHeadProtect, &unusedProtect);
+	if(binCode)
+		VirtualProtect((void*)binCode, binCodeSize, oldCodeBodyProtect, &unusedProtect);
+#else
+	char *p = (char*)((intptr_t)((char*)codeHead + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+	if(mprotect(p, (((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PRTO_WRITE)))
+		asm("int $0x3");
+	if(binCode)
+	{
+		p = (char*)((intptr_t)((char*)binCode + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+		if(mprotect(p, ((binCodeReserve + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE))
+			asm("int $0x3");
 	}
 #endif
 
@@ -483,6 +532,15 @@ bool ExecutorX86::Initialize()
 
 	codeRunning = false;
 
+	// Enable execution of code head
+#ifndef __linux
+	VirtualProtect((void*)codeHead, sizeof(codeHead), PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeHeadProtect);
+#else
+	char *p = (char*)((intptr_t)((char*)codeHead + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+	if(mprotect(p, (((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_EXEC)))
+		asm("int $0x3");
+#endif
+
 	// Default mode - stack is managed by Executor and starts from 0x20000000
 	return SetStackPlacement((void*)0x20000000, NULL, false);
 }
@@ -581,37 +639,6 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 	return true;
 }
 
-// code header
-static const unsigned char codeHead[] = {
-	0x8B, 0xC4,						// mov         eax,esp
-
-	0x8B, 0x50, 0x10,				// mov         edx,dword ptr [eax+10h] 
-	0x89, 0x02,						// mov         dword ptr [edx],eax 
-
-	0x60,							// pushad
-	0x8B, 0x78, 0x04,				// mov         edi,dword ptr [eax+4]
-	0xBD, 0x00, 0x00, 0x00, 0x00,	// mov         ebp,0
-	0x8B, 0x40, 0x0C,				// mov         eax,dword ptr [eax+0Ch]
-
-	0x8D, 0x5C, 0x24, 0x04,			// lea         ebx,[esp+4]
-	0x83, 0xE3, 0x0F,				// and         ebx,0Fh
-	0xB9, 0x10, 0x00, 0x00, 0x00,	// mov         ecx,10h
-	0x2B, 0xCB,						// sub         ecx,ebx
-	0x2B, 0xE1,						// sub         esp,ecx
-	0x51,							// push        ecx 
-	0xFF, 0xD0,						// call eax
-
-	0x59,							// pop         ecx
-	0x03, 0xE1,						// add         esp,ecx
-
-	0x8B, 0x4C, 0x24, 0x28,			// mov         ecx,dword ptr [esp+28h]
-	0x89, 0x01,						// mov         dword ptr [ecx],eax
-	0x89, 0x51, 0x04,				// mov         dword ptr [ecx+4],edx
-	0x89, 0x59, 0x08,				// mov         dword ptr [ecx+8],ebx
-	0x61,							// popad
-	0xC3,							// ret
-};
-
 void ExecutorX86::InitExecution()
 {
 	if(!exCode.size())
@@ -634,13 +661,6 @@ void ExecutorX86::InitExecution()
 		unsigned long extraStack = 4096;
 		NULLC::pSetThreadStackGuarantee(&extraStack);
 	}
-#else
-	char *p = (char*)((intptr_t)((char*)binCodeStart + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-	if(mprotect(p, ((binCodeSize + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
-		asm("int $0x3");
-	p = (char*)((intptr_t)((char*)codeHead + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-	if(mprotect(p, (((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
-		asm("int $0x3");
 #endif
 	memset(NULLC::stackBaseAddress, 0, sizeof(NULLC::DataStackHeader));
 }
@@ -1137,8 +1157,28 @@ bool ExecutorX86::TranslateToNative()
 	bool codeRelocated = false;
 	if((binCodeSize + instList.size() * 6) > binCodeReserved)
 	{
+		unsigned int oldBinCodeReserve = binCodeReserved;
 		binCodeReserved = binCodeSize + (instList.size()) * 6 + 4096;	// Average instruction size is 6 bytes.
 		unsigned char *binCodeNew = (unsigned char*)NULLC::alloc(binCodeReserved);
+
+		// Disable execution of old code body and enable execution of new code body
+#ifndef __linux
+		DWORD unusedProtect;
+		if(binCode)
+			VirtualProtect((void*)binCode, oldBinCodeReserve, oldCodeBodyProtect, (DWORD*)&unusedProtect);
+		VirtualProtect((void*)binCodeNew, binCodeReserved, PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeBodyProtect);
+#else
+		if(binCode)
+		{
+			char *p = (char*)((intptr_t)((char*)binCode + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+			if(mprotect(p, ((oldBinCodeReserve + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE)))
+				asm("int $0x3");
+		}
+		char *p = (char*)((intptr_t)((char*)binCodeNew + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+		if(mprotect(p, ((binCodeReserved + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
+			asm("int $0x3");
+#endif
+
 		if(binCodeSize)
 			memcpy(binCodeNew + 16, binCode + 16, binCodeSize);
 		NULLC::dealloc(binCode);
