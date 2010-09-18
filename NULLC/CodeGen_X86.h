@@ -63,6 +63,7 @@ void SetLongJmpTarget(sigjmp_buf target);
 
 void SetLastInstruction(x86Instruction *pos, x86Instruction *base);
 x86Instruction* GetLastInstruction();
+void SetBinaryCodeBase(const unsigned char* base);
 
 unsigned int	GetLastALULabel();
 

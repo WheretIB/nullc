@@ -1207,6 +1207,7 @@ bool ExecutorX86::TranslateToNative()
 		binCode = binCodeNew;
 		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
 	}
+	SetBinaryCodeBase(binCode);
 	NULLC::binCodeStart = binCodeStart;
 	NULLC::binCodeEnd = binCodeStart + binCodeReserved;
 

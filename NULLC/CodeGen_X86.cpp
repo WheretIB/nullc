@@ -129,6 +129,7 @@ namespace NULLC
 #endif
 
 x86Instruction	*x86Op = NULL, *x86Base = NULL;
+const unsigned char	*x86BinaryBase = NULL;
 ExternFuncInfo	*x86Functions = NULL;
 unsigned int	*x86FuncAddr = NULL;
 int				*x86Continue = NULL;
@@ -1240,6 +1241,11 @@ x86Instruction* GetLastInstruction()
 	return x86Op;
 }
 
+void SetBinaryCodeBase(const unsigned char* base)
+{
+	x86BinaryBase = base;
+}
+
 unsigned int GetLastALULabel()
 {
 	return aluLabels;
@@ -2101,6 +2107,30 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 
 VMCmd	yieldCmd = VMCmd(cmdNop);
 
+#ifdef __linux
+void yieldRestoreEIP()
+{
+	asm("pop %eax");
+	asm("pop %eax");
+	asm("add %%ebx, %0"::"r"(x86BinaryBase):"%ebx");
+	asm("mov -4(%esi), %ebx");
+	asm("jmp -4(%esi)");
+}
+#else
+__declspec(naked) void yieldRestoreEIP()
+{
+	__asm
+	{
+		pop eax; // pop return address (we won't return from this function)
+		add ebx, x86BinaryBase;
+		mov [esp-4], ebx;
+		jmp dword ptr [esp-4];
+	}
+}
+#endif
+
+void (*yieldRestorePtr)() = yieldRestoreEIP;
+
 void GenCodeCmdYield(VMCmd cmd)
 {
 	// If flag is set, jump to saved offset
@@ -2116,7 +2146,8 @@ void GenCodeCmdYield(VMCmd cmd)
 		EMIT_OP_LABEL(o_jz, aluLabels);
 
 		// Jump to saved position
-		EMIT_OP_RPTR(o_jmp, sDWORD, rEAX, 4);
+		EMIT_REG_READ(rEBX);
+		EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&yieldRestorePtr);
 
 		EMIT_LABEL(aluLabels);
 		aluLabels++;
@@ -2140,11 +2171,12 @@ __declspec(naked) void yieldSaveEIP()
 {
 	__asm
 	{
-		push eax;
-		mov eax, [esp+4];
+		push eax; // save eax
+		mov eax, [esp+4]; // mov return address to eax
+		sub eax, x86BinaryBase;
 		add eax, 1;	// jump over ret
-		mov [esi+4], eax;
-		pop eax;
+		mov [esi+4], eax; // save code address to target variable
+		pop eax; // restore eax
 		ret;
 	}
 }
