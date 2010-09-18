@@ -6,6 +6,23 @@ namespace NULLCDynamic
 {
 	Linker *linker = NULL;
 
+	void RewriteX86(unsigned dest, unsigned src)
+	{
+		ExternFuncInfo &destFunc = linker->exFunctions[dest];
+		ExternFuncInfo &srcFunc = linker->exFunctions[src];
+		linker->UpdateFunctionPointer(dest, src);
+		if(srcFunc.funcPtr && !destFunc.funcPtr)
+		{
+			nullcThrowError("Internal function cannot be overridden with external function on x86");
+			return;
+		}
+		if(destFunc.funcPtr && !srcFunc.funcPtr)
+		{
+			nullcThrowError("External function cannot be overridden with internal function on x86");
+			return;
+		}
+	}
+
 	void OverrideFunction(NULLCRef dest, NULLCRef src)
 	{
 		if(linker->exTypes[dest.typeID].subCat != ExternTypeInfo::CAT_FUNCTION)
@@ -26,20 +43,7 @@ namespace NULLCDynamic
 		ExternFuncInfo &destFunc = linker->exFunctions[((NULLCFuncPtr*)dest.ptr)->id];
 		ExternFuncInfo &srcFunc = linker->exFunctions[((NULLCFuncPtr*)src.ptr)->id];
 		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
-		{
-			linker->functionAddress[((NULLCFuncPtr*)dest.ptr)->id * 2 + 0] = linker->functionAddress[((NULLCFuncPtr*)src.ptr)->id * 2 + 0];	// function address
-			linker->functionAddress[((NULLCFuncPtr*)dest.ptr)->id * 2 + 1] = linker->functionAddress[((NULLCFuncPtr*)src.ptr)->id * 2 + 1];	// function class
-			if(srcFunc.funcPtr && !destFunc.funcPtr)
-			{
-				nullcThrowError("Internal function cannot be overridden with external function on x86");
-				return;
-			}
-			if(destFunc.funcPtr && !srcFunc.funcPtr)
-			{
-				nullcThrowError("External function cannot be overridden with internal function on x86");
-				return;
-			}
-		}
+			RewriteX86(((NULLCFuncPtr*)dest.ptr)->id, ((NULLCFuncPtr*)src.ptr)->id);
 		destFunc.address = srcFunc.address;
 		destFunc.funcPtr = srcFunc.funcPtr;
 		destFunc.codeSize = srcFunc.codeSize;
@@ -52,11 +56,6 @@ namespace NULLCDynamic
 		if(linker->exTypes[dest.typeID].subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
 			nullcThrowError("Destination variable is not a function");
-			return;
-		}
-		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
-		{
-			nullcThrowError("Function rewrite is supported only on VM");
 			return;
 		}
 
@@ -88,6 +87,8 @@ namespace NULLCDynamic
 
 		ExternFuncInfo &destFunc = linker->exFunctions[((NULLCFuncPtr*)dest.ptr)->id];
 		ExternFuncInfo &srcFunc = linker->exFunctions.back();
+		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
+			RewriteX86(((NULLCFuncPtr*)dest.ptr)->id, linker->exFunctions.size() - 1);
 		destFunc.address = srcFunc.address;
 		destFunc.codeSize = srcFunc.codeSize;
 	}

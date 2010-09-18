@@ -21,6 +21,10 @@ public:
 
 	const char*	GetLinkError();
 
+#ifdef NULLC_BUILD_X86_JIT
+	void	SetFunctionPointerUpdater(void (*)(unsigned, unsigned));
+	void	UpdateFunctionPointer(unsigned dest, unsigned source);
+#endif
 public:
 	char		linkError[LINK_ERROR_BUFFER_SIZE];
 
@@ -40,7 +44,7 @@ public:
 
 	FastVector<unsigned int>	jumpTargets;
 
-	FastVector<unsigned int>	functionAddress;
+	void (*fptrUpdater)(unsigned, unsigned);
 
 #ifdef NULLC_LLVM_SUPPORT
 	FastVector<unsigned int>	llvmModuleSizes;

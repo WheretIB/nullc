@@ -15,6 +15,7 @@ public:
 
 	bool	Initialize();
 
+	void	ClearNative();
 	bool	TranslateToNative();
 
 	void	Run(unsigned int functionID, const char *arguments);
@@ -66,6 +67,8 @@ private:
 	unsigned int	binCodeStart;
 	unsigned int	binCodeSize, binCodeReserved;
 
+	unsigned int	lastInstructionCount;
+
 	int				callContinue;
 
 	unsigned int	*callstackTop;
@@ -79,5 +82,17 @@ private:
 	};
 	FastVector<unsigned int>	breakInstructions;
 
+public:
+	FastVector<unsigned int>	functionAddress;
+	struct FunctionListInfo
+	{
+		FunctionListInfo(): list(NULL), count(0){}
+		FunctionListInfo(unsigned *list, unsigned count): list(list), count(count){}
+		unsigned	*list;
+		unsigned	count;
+	};
+	FastVector<FunctionListInfo>	oldFunctionLists;
+
+private:
 	void operator=(ExecutorX86& r){ (void)r; assert(false); }
 };

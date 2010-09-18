@@ -239,6 +239,10 @@ void nullcClean()
 #ifndef NULLC_NO_EXECUTOR
 	linker->CleanCode();
 	executor->ClearBreakpoints();
+
+	#ifdef NULLC_BUILD_X86_JIT
+	executorX86->ClearNative();
+	#endif
 #endif
 }
 
@@ -630,8 +634,7 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	}
 	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 	{
-		linker->functionAddress[index * 2 + 0] = linker->functionAddress[func.id * 2 + 0];	// function address
-		linker->functionAddress[index * 2 + 1] = linker->functionAddress[func.id * 2 + 1];	// function class
+		linker->UpdateFunctionPointer(index, func.id);
 		if(linker->exFunctions[index].funcPtr && !linker->exFunctions[func.id].funcPtr)
 		{
 			nullcLastError = "Internal function cannot be overridden with external function on x86";

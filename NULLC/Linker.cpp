@@ -19,6 +19,8 @@ Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(
 	typeMap.init();
 	funcMap.init();
 
+	fptrUpdater = NULL;
+
 	NULLC::SetLinker(this);
 }
 
@@ -47,8 +49,6 @@ void Linker::CleanCode()
 #endif
 
 	jumpTargets.clear();
-
-	functionAddress.clear();
 
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -564,4 +564,14 @@ bool Linker::LinkCode(const char *code)
 const char*	Linker::GetLinkError()
 {
 	return linkError;
+}
+
+void Linker::SetFunctionPointerUpdater(void (*updater)(unsigned, unsigned))
+{
+	fptrUpdater = updater;
+}
+void Linker::UpdateFunctionPointer(unsigned dest, unsigned source)
+{
+	assert(fptrUpdater);
+	fptrUpdater(dest, source);
 }
