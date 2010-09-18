@@ -1,31 +1,10 @@
 #pragma once
 
-#if defined(_MSC_VER)
-	#include "../stdafx.h"
-#endif
-
 #include "../NULLC/nullc.h"
-#include "../NULLC/nullc_debug.h"
 
-#include "../NULLC/includes/file.h"
-#include "../NULLC/includes/math.h"
-#include "../NULLC/includes/vector.h"
-#include "../NULLC/includes/random.h"
-#include "../NULLC/includes/dynamic.h"
-#include "../NULLC/includes/gc.h"
-#include "../NULLC/includes/time.h"
-
-#include "../NULLC/includes/canvas.h"
-#include "../NULLC/includes/window.h"
-#include "../NULLC/includes/io.h"
-
-#include "../NULLC/includes/pugi.h"
-
-#if defined(_MSC_VER)
-	#include <Windows.h>
-#else
-	double myGetPreciseTime();
-#endif
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
 
 #if defined(__CELLOS_LV2__)
 #	define FILE_PATH "/app_home/"
@@ -45,7 +24,7 @@ struct TestQueue
 {
 	TestQueue()
 	{
-		this->next = NULL;
+		this->next = 0;
 		if(!head)
 		{
 			head = tail = this;
@@ -88,7 +67,7 @@ namespace Tests
 
 	extern const char		*varData;
 	extern unsigned int		variableCount;
-	extern ExternVarInfo	*varInfo;
+	extern void				*varInfo;
 	extern const char		*symbols;
 
 	extern bool doTranslation;
@@ -96,7 +75,7 @@ namespace Tests
 	extern bool	testExecutor[TEST_COUNT];
 
 	void*	FindVar(const char* name);
-	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = NULL, bool execShouldFail = false);
+	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
 	char*	Format(const char *str, ...);
 }
 

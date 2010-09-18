@@ -1,5 +1,24 @@
 #include "TestBase.h"
 
+#if defined(_MSC_VER)
+	#pragma warning(disable: 4530)
+	#include "../stdafx.h"
+#endif
+
+#include "../NULLC/includes/file.h"
+#include "../NULLC/includes/math.h"
+#include "../NULLC/includes/vector.h"
+#include "../NULLC/includes/random.h"
+#include "../NULLC/includes/dynamic.h"
+#include "../NULLC/includes/gc.h"
+#include "../NULLC/includes/time.h"
+
+#include "../NULLC/includes/canvas.h"
+#include "../NULLC/includes/window.h"
+#include "../NULLC/includes/io.h"
+
+#include "../NULLC/includes/pugi.h"
+
 const char	*testStackResize =
 "class RefHold\r\n\
 {\r\n\
