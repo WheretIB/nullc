@@ -76,6 +76,9 @@ private:
 	unsigned int	oldJumpTargetCount;
 	unsigned int	oldFunctionSize;
 
+	unsigned int	oldCodeHeadProtect;
+	unsigned int	oldCodeBodyProtect;
+
 public:
 	FastVector<unsigned char*>	instAddress;
 
