@@ -174,3 +174,9 @@ TEST_RESULT("std.range test", testRange, "15");
 
 const char *testRawString = "auto x = @\"\\r\\n\\thello\\0\"; return x.size + (x[1] == 'r');";
 TEST_RESULT("Unescaped string literal", testRawString, "15");
+
+const char *testCharEscapeEnd = "return '\\\\';";
+TEST_RESULT("Escaping at the end of the character", testCharEscapeEnd, "92");
+
+const char *testStringEscapeEnd = "return \"\\\\\"[0];";
+TEST_RESULT("Escaping at the end of the string", testStringEscapeEnd, "92");
