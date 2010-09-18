@@ -178,6 +178,7 @@ int main(int argc, char** argv)
 	char *fileContent = new char[textSize+1];
 	fread(fileContent, 1, textSize, ncFile);
 	fileContent[textSize] = 0;
+	fclose(ncFile);
 
 	if(profile)
 	{
