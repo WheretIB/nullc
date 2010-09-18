@@ -1,5 +1,7 @@
 #include "TestBase.h"
 
+#include "../nullc/StrAlgo.h"
+
 struct TestLongVariable : TestQueue
 {
 	virtual void Run()

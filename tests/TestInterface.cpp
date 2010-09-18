@@ -1,6 +1,7 @@
 #include "TestInterface.h"
 
 #include "TestBase.h"
+#include "../NULLC/nullc_debug.h"
 
 void RunInterfaceTests()
 {
