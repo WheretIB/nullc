@@ -6,6 +6,10 @@
 #include <math.h>
 #include <string.h>
 
+#if !defined(_MSC_VER)
+	double myGetPreciseTime();
+#endif
+
 #if defined(__CELLOS_LV2__)
 #	define FILE_PATH "/app_home/"
 #else
@@ -53,6 +57,8 @@ extern int testsPassed[];
 extern int testsCount[];
 extern unsigned int	testTarget[];
 
+struct ExternVarInfo;
+
 namespace Tests
 {
 	extern bool messageVerbose;
@@ -67,7 +73,7 @@ namespace Tests
 
 	extern const char		*varData;
 	extern unsigned int		variableCount;
-	extern void				*varInfo;
+	extern ExternVarInfo	*varInfo;
 	extern const char		*symbols;
 
 	extern bool doTranslation;
