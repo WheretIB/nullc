@@ -760,6 +760,9 @@ void nullcTerminate()
 	NULLC::destruct(compiler);
 	compiler = NULL;
 #ifndef NULLC_NO_EXECUTOR
+	nullcDeinitTypeinfoModule();
+	nullcDeinitDynamicModule();
+
 	NULLC::destruct(linker);
 	linker = NULL;
 	NULLC::destruct(executor);

@@ -7,6 +7,7 @@ namespace NULLCTypeInfo
 
 	int MemberCount(int* type)
 	{
+		assert(linker);
 		ExternTypeInfo &exType = linker->exTypes[*type];
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
 		{
@@ -17,6 +18,7 @@ namespace NULLCTypeInfo
 	}
 	int MemberType(int member, int* type)
 	{
+		assert(linker);
 		ExternTypeInfo &exType = linker->exTypes[*type];
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
 		{
@@ -33,6 +35,7 @@ namespace NULLCTypeInfo
 	}
 	NULLCArray MemberName(int member, int* type)
 	{
+		assert(linker);
 		NULLCArray ret;
 
 		ExternTypeInfo &exType = linker->exTypes[*type];
@@ -61,6 +64,7 @@ namespace NULLCTypeInfo
 	}
 	NULLCRef MemberByIndex(NULLCRef obj, int member)
 	{
+		assert(linker);
 		NULLCRef ret;
 		ret.ptr = NULL;
 		ret.typeID = 0;
@@ -87,6 +91,7 @@ namespace NULLCTypeInfo
 	}
 	NULLCRef MemberByName(NULLCRef obj, NULLCArray member)
 	{
+		assert(linker);
 		ExternTypeInfo &exType = linker->exTypes[obj.typeID];
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
 			return NULLCRef();
@@ -103,56 +108,67 @@ namespace NULLCTypeInfo
 
 	int IsFunction(int id)
 	{
+		assert(linker);
 		return linker->exTypes[id].subCat == ExternTypeInfo::CAT_FUNCTION;
 	}
 
 	int IsClass(int id)
 	{
+		assert(linker);
 		return linker->exTypes[id].subCat == ExternTypeInfo::CAT_CLASS;
 	}
 
 	int IsSimple(int id)
 	{
+		assert(linker);
 		return linker->exTypes[id].subCat == ExternTypeInfo::CAT_NONE;
 	}
 
 	int IsArray(int id)
 	{
+		assert(linker);
 		return linker->exTypes[id].subCat == ExternTypeInfo::CAT_ARRAY;
 	}
 
 	int IsPointer(int id)
 	{
+		assert(linker);
 		return linker->exTypes[id].subCat == ExternTypeInfo::CAT_POINTER;
 	}
 
 	int IsFunctionRef(NULLCRef r)
 	{
+		assert(linker);
 		return linker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_FUNCTION;
 	}
 
 	int IsClassRef(NULLCRef r)
 	{
+		assert(linker);
 		return linker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_CLASS;
 	}
 
 	int IsSimpleRef(NULLCRef r)
 	{
+		assert(linker);
 		return linker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_NONE;
 	}
 
 	int IsArrayRef(NULLCRef r)
 	{
+		assert(linker);
 		return linker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_ARRAY;
 	}
 
 	int IsPointerRef(NULLCRef r)
 	{
+		assert(linker);
 		return linker->exTypes[r.typeID].subCat == ExternTypeInfo::CAT_POINTER;
 	}
 
 	NULLCArray TypeName(int* type)
 	{
+		assert(linker);
 		NULLCArray ret;
 		FastVector<ExternTypeInfo> &exTypes = linker->exTypes;
 		char *symbols = &linker->exSymbols[0];
@@ -164,6 +180,7 @@ namespace NULLCTypeInfo
 
 	int TypeSubType(int &typeID)
 	{
+		assert(linker);
 		ExternTypeInfo &type = linker->exTypes[typeID];
 		if(type.subCat != ExternTypeInfo::CAT_ARRAY && type.subCat != ExternTypeInfo::CAT_POINTER)
 		{
@@ -175,6 +192,7 @@ namespace NULLCTypeInfo
 
 	int TypeArraySize(int &typeID)
 	{
+		assert(linker);
 		ExternTypeInfo &type = linker->exTypes[typeID];
 		if(type.subCat != ExternTypeInfo::CAT_ARRAY)
 		{
@@ -186,6 +204,7 @@ namespace NULLCTypeInfo
 
 	int TypeReturnType(int &typeID)
 	{
+		assert(linker);
 		ExternTypeInfo &type = linker->exTypes[typeID];
 		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
@@ -198,6 +217,7 @@ namespace NULLCTypeInfo
 
 	int TypeArgumentCount(int &typeID)
 	{
+		assert(linker);
 		ExternTypeInfo &type = linker->exTypes[typeID];
 		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
@@ -209,6 +229,7 @@ namespace NULLCTypeInfo
 
 	int TypeArgumentType(int argument, int &typeID)
 	{
+		assert(linker);
 		ExternTypeInfo &type = linker->exTypes[typeID];
 		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
@@ -257,6 +278,11 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 	REGISTER_FUNC(MemberByName, "typeGetMember", 1);
 
 	return true;
+}
+
+void	nullcDeinitTypeinfoModule()
+{
+	NULLCTypeInfo::linker = NULL;
 }
 
 unsigned int	nullcGetTypeSize(unsigned int typeID)

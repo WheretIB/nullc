@@ -25,6 +25,7 @@ namespace NULLCDynamic
 
 	void OverrideFunction(NULLCRef dest, NULLCRef src)
 	{
+		assert(linker);
 		if(linker->exTypes[dest.typeID].subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
 			nullcThrowError("Destination variable is not a function");
@@ -51,6 +52,7 @@ namespace NULLCDynamic
 
 	void Override(NULLCRef dest, NULLCArray code)
 	{
+		assert(linker);
 		static unsigned int overrideID = 0;
 
 		if(linker->exTypes[dest.typeID].subCat != ExternTypeInfo::CAT_FUNCTION)
@@ -103,4 +105,9 @@ bool	nullcInitDynamicModule(Linker* linker)
 	REGISTER_FUNC(Override, "override", 1);
 
 	return true;
+}
+
+void	nullcDeinitDynamicModule()
+{
+	NULLCDynamic::linker = NULL;
 }
