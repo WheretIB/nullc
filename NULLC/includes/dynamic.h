@@ -3,3 +3,4 @@
 #include "../Linker.h"
 
 bool	nullcInitDynamicModule(Linker* linker);
+void	nullcDeinitDynamicModule();

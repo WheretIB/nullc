@@ -3,6 +3,7 @@
 #include "../Linker.h"
 
 bool	nullcInitTypeinfoModule(Linker* linker);
+void	nullcDeinitTypeinfoModule();
 
 unsigned int	nullcGetTypeSize(unsigned int typeID);
 const char*		nullcGetTypeName(unsigned int typeID);
