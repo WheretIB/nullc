@@ -345,15 +345,19 @@ struct TestEval : TestQueue
 int a = 5;\r\n\
 \r\n\
 for(int i = 0; i < 200; i++)\r\n\
-	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
+	eval(\"a += 3 * \" + i.str() + \";\");\r\n\
 \r\n\
 return a;";
 		double evalStart = myGetPreciseTime();
-		testsCount[0]++;
-		if(Tests::RunCode(testEval, NULLC_VM, "597", "Dynamic code. eval()"))
-			testsPassed[0]++;
-		printf("Eval test finished in %f\r\n", myGetPreciseTime() - evalStart);
-
+		for(unsigned t = 0; t < 2; t++)
+		{
+			if(!Tests::testExecutor[t])
+				continue;
+			testsCount[t]++;
+			if(Tests::RunCode(testEval, t, "59705", "Dynamic code. eval()"))
+				testsPassed[t]++;
+			printf("Eval test finished in %f\r\n", myGetPreciseTime() - evalStart);
+		}
 		nullcTerminate();
 		nullcInit(MODULE_PATH);
 		nullcInitDynamicModule();
@@ -379,7 +383,7 @@ for(int i = 0; i < 200; i++)\r\n\
 	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
 int y = foo();\r\n\
 return x * 10 + y;";
-TEST_VM("Coroutine and dynamic code. eval()", testCoroutineAndEval, "12")
+TEST("Coroutine and dynamic code. eval()", testCoroutineAndEval, "12")
 {
 }
 
@@ -399,9 +403,14 @@ eval(\"x = 4;\");\r\n\
 int y = 3;\r\n\
 eval(\"y = 8;\");\r\n\
 return x * 10 + y;";
-		testsCount[0]++;
-		if(Tests::RunCode(testVariableImportCorrectness, NULLC_VM, "48", "Variable import correctness"))
-			testsPassed[0]++;
+		for(unsigned t = 0; t < 2; t++)
+		{
+			if(!Tests::testExecutor[t])
+				continue;
+			testsCount[t]++;
+			if(Tests::RunCode(testVariableImportCorrectness, t, "48", "Variable import correctness"))
+				testsPassed[t]++;
+		}
 	}
 };
 TestVariableImportCorrectness testVariableImportCorrectness;

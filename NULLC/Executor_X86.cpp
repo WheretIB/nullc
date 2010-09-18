@@ -225,6 +225,20 @@ namespace NULLC
 
 	typedef void (*codegenCallback)(VMCmd);
 	codegenCallback cgFuncs[cmdEnumCount];
+
+	ExecutorX86	*currExecutor = NULL;
+	void UpdateFunctionPointer(unsigned dest, unsigned source)
+	{
+		currExecutor->functionAddress[dest * 2 + 0] = currExecutor->functionAddress[source * 2 + 0];	// function address
+		currExecutor->functionAddress[dest * 2 + 1] = currExecutor->functionAddress[source * 2 + 1];	// function class
+		for(unsigned i = 0; i < currExecutor->oldFunctionLists.size(); i++)
+		{
+			if(currExecutor->oldFunctionLists[i].count < dest * 2)
+				continue;
+			currExecutor->oldFunctionLists[i].list[dest * 2 + 0] = currExecutor->functionAddress[source * 2 + 0];	// function address
+			currExecutor->oldFunctionLists[i].list[dest * 2 + 1] = currExecutor->functionAddress[source * 2 + 1];	// function class
+		}
+	}
 }
 
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
@@ -245,6 +259,10 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	NULLC::stackBaseAddress = NULL;
 	NULLC::stackEndAddress = NULL;
 	NULLC::stackManaged = false;
+
+	NULLC::currExecutor = this;
+
+	linker->SetFunctionPointerUpdater(NULLC::UpdateFunctionPointer);
 
 #ifdef __linux
 	SetLongJmpTarget(NULLC::errorHandler);
@@ -275,6 +293,14 @@ ExecutorX86::~ExecutorX86()
 #endif
 
 	NULLC::dealloc(binCode);
+	binCode = NULL;
+
+	NULLC::currExecutor = NULL;
+
+	for(unsigned i = 0; i < oldFunctionLists.size(); i++)
+		delete[] oldFunctionLists[i].list;
+	oldFunctionLists.clear();
+	functionAddress.clear();
 
 	x86ResetLabels();
 }
@@ -532,6 +558,37 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 	return true;
 }
 
+// code header
+static const unsigned char codeHead[] = {
+	0x8B, 0xC4,						// mov         eax,esp
+
+	0x8B, 0x50, 0x10,				// mov         edx,dword ptr [eax+10h] 
+	0x89, 0x02,						// mov         dword ptr [edx],eax 
+
+	0x60,							// pushad
+	0x8B, 0x78, 0x04,				// mov         edi,dword ptr [eax+4]
+	0xBD, 0x00, 0x00, 0x00, 0x00,	// mov         ebp,0
+	0x8B, 0x40, 0x0C,				// mov         eax,dword ptr [eax+0Ch]
+
+	0x8D, 0x5C, 0x24, 0x04,			// lea         ebx,[esp+4]
+	0x83, 0xE3, 0x0F,				// and         ebx,0Fh
+	0xB9, 0x10, 0x00, 0x00, 0x00,	// mov         ecx,10h
+	0x2B, 0xCB,						// sub         ecx,ebx
+	0x2B, 0xE1,						// sub         esp,ecx
+	0x51,							// push        ecx 
+	0xFF, 0xD0,						// call eax
+
+	0x59,							// pop         ecx
+	0x03, 0xE1,						// add         esp,ecx
+
+	0x8B, 0x4C, 0x24, 0x28,			// mov         ecx,dword ptr [esp+28h]
+	0x89, 0x01,						// mov         dword ptr [ecx],eax
+	0x89, 0x51, 0x04,				// mov         dword ptr [ecx+4],edx
+	0x89, 0x59, 0x08,				// mov         dword ptr [ecx+8],ebx
+	0x61,							// popad
+	0xC3,							// ret
+};
+
 void ExecutorX86::InitExecution()
 {
 	if(!exCode.size())
@@ -557,6 +614,9 @@ void ExecutorX86::InitExecution()
 #else
 	char *p = (char*)((intptr_t)((char*)binCodeStart + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
 	if(mprotect(p, ((binCodeSize + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
+		asm("int $0x3");
+	p = (char*)((intptr_t)((char*)codeHead + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+	if(mprotect(p, (((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
 		asm("int $0x3");
 #endif
 	memset(NULLC::stackBaseAddress, 0, sizeof(NULLC::DataStackHeader));
@@ -642,7 +702,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		}else{
 			varSize += NULLC::dataHead->lastEDI;
 			memcpy(paramBase + varSize, arguments, exFunctions[functionID].bytesToPop);
-			binCodeStart = exLinker->functionAddress[functionID * 2];
+			binCodeStart = functionAddress[functionID * 2];
 		}
 	}else{
 		binCodeStart += globalStartInBytecode;
@@ -694,7 +754,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	{
 		void *dummy = NULL;
 		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
-		nullcFunc gate = (nullcFunc)(intptr_t)&binCode[16];
+		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
 		int returnStruct[3] = { 1, 2, 3 };
 		gate(varSize, returnStruct, binCodeStart, firstRun ? &genStackTop : &dummy);
 		res1 = returnStruct[0];
@@ -750,7 +810,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	{
 		void *dummy = NULL;
 		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
-		nullcFunc gate = (nullcFunc)(intptr_t)&binCode[16];
+		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
 		int returnStruct[3] = { 1, 2, 3 };
 		gate(varSize, returnStruct, binCodeStart, firstRun ? &genStackTop : &dummy);
 		res1 = returnStruct[0];
@@ -838,23 +898,44 @@ void ExecutorX86::Stop(const char* error)
 	SafeSprintf(execError, 512, error);
 }
 
+void ExecutorX86::ClearNative()
+{
+	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+	instList.clear();
+
+	binCodeSize = 0;
+	lastInstructionCount = 0;
+	for(unsigned i = 0; i < oldFunctionLists.size(); i++)
+		delete[] oldFunctionLists[i].list;
+	oldFunctionLists.clear();
+
+	functionAddress.clear();
+}
+
 bool ExecutorX86::TranslateToNative()
 {
 	execError[0] = 0;
-
-	unsigned int pos = 0;
 
 	globalStartInBytecode = 0xffffffff;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 		exFunctions[i].startInByteCode = 0xffffffff;
 
-	exLinker->functionAddress.resize(exFunctions.size() * 2);
+	if(codeRunning && functionAddress.max <= exFunctions.size() * 2)
+	{
+		unsigned *newStorage = new unsigned[exFunctions.size() * 3];
+		oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
+		functionAddress.data = newStorage;
+		functionAddress.count = exFunctions.size() * 2;
+		functionAddress.max = exFunctions.size() * 3;
+	}else{
+		functionAddress.resize(exFunctions.size() * 2);
+	}
 
 	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
 	SetParamBase((unsigned int)(long long)paramBase);
-	SetFunctionList(exFunctions.data, exLinker->functionAddress.data);
+	SetFunctionList(exFunctions.data, functionAddress.data);
 	SetContinuePtr(&callContinue);
 	SetLastInstruction(instList.data, instList.data);
 	SetClosureCreateFunc((void(*)())ClosureCreate);
@@ -872,7 +953,7 @@ bool ExecutorX86::TranslateToNative()
 	exCode.pop_back();
 
 	OptimizationLookBehind(false);
-	pos = 0;
+	unsigned int pos = lastInstructionCount;
 	while(pos < exCode.size())
 	{
 		VMCmd &cmd = exCode[pos];
@@ -1028,55 +1109,48 @@ bool ExecutorX86::TranslateToNative()
 	fclose(fAsm);
 #endif
 
-	if(instList.size() * 4 > binCodeReserved)
+	bool codeRelocated = false;
+	if((binCodeSize + instList.size() * 6) > binCodeReserved)
 	{
+		binCodeReserved = binCodeSize + (instList.size()) * 6 + 4096;	// Maximum instruction size is 6 bytes.
+		unsigned char *binCodeNew = (unsigned char*)NULLC::alloc(binCodeReserved);
+		if(binCodeSize)
+			memcpy(binCodeNew + 16, binCode + 16, binCodeSize);
 		NULLC::dealloc(binCode);
-		binCodeReserved = (instList.size()) * 6 + 4096;	// Maximum instruction size is 6 bytes.
-		binCode = (unsigned char*)NULLC::alloc(binCodeReserved);
+		// If code is currently running, fix call stack (return addresses)
+		if(codeRunning)
+		{
+			codeRelocated = true;
+			// This must be an external function call
+			assert(NULLC::dataHead->instructionPtr);
+			
+			unsigned *retvalpos = (unsigned*)(uintptr_t)NULLC::dataHead->instructionPtr - 1;
+			if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
+				*retvalpos = (*retvalpos - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
+
+			unsigned *paramData = &NULLC::dataHead->nextElement;
+			while(paramData)
+			{
+				unsigned *retvalpos = paramData - 1;
+				if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
+					*retvalpos = (*retvalpos - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
+				paramData = (unsigned int*)(long long)(*paramData);
+			}
+		}
+		for(unsigned i = 0; i < instAddress.size(); i++)
+			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
+		binCode = binCodeNew;
 		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
 	}
 	NULLC::binCodeStart = binCodeStart;
 	NULLC::binCodeEnd = binCodeStart + binCodeReserved;
 
 	// Translate to x86
-	unsigned char *bytecode = binCode + 16;
-	// code header
-	static const unsigned char codeHead[] = {
-		0x8B, 0xC4,						// mov         eax,esp
-
-		0x8B, 0x50, 0x10,				// mov         edx,dword ptr [eax+10h] 
-		0x89, 0x02,						// mov         dword ptr [edx],eax 
-
-		0x60,							// pushad
-		0x8B, 0x78, 0x04,				// mov         edi,dword ptr [eax+4]
-		0xBD, 0x00, 0x00, 0x00, 0x00,	// mov         ebp,0
-		0x8B, 0x40, 0x0C,				// mov         eax,dword ptr [eax+0Ch]
-
-		0x8D, 0x5C, 0x24, 0x04,			// lea         ebx,[esp+4]
-		0x83, 0xE3, 0x0F,				// and         ebx,0Fh
-		0xB9, 0x10, 0x00, 0x00, 0x00,	// mov         ecx,10h
-		0x2B, 0xCB,						// sub         ecx,ebx
-		0x2B, 0xE1,						// sub         esp,ecx
-		0x51,							// push        ecx 
-
-		0xFF, 0xD0,						// call eax
-
-		0x59,							// pop         ecx
-		0x03, 0xE1,						// add         esp,ecx
-
-		0x8B, 0x4C, 0x24, 0x28,			// mov         ecx,dword ptr [esp+28h]
-		0x89, 0x01,						// mov         dword ptr [ecx],eax
-		0x89, 0x51, 0x04,				// mov         dword ptr [ecx+4],edx
-		0x89, 0x59, 0x08,				// mov         dword ptr [ecx+8],ebx
-		0x61,							// popad
-		0xC3,							// ret
-	};
-	memcpy(bytecode, codeHead, sizeof(codeHead) / sizeof(codeHead[0]));
-	bytecode += sizeof(codeHead) / sizeof(codeHead[0]);
-	unsigned char *code = bytecode;
+	unsigned char *bytecode = binCode + 16 + binCodeSize;
+	unsigned char *code = bytecode + (!binCodeSize ? 0 : -7 /* we must destroy the pop ebp; mov ebx, code; ret; sequence*/);
 
 	instAddress.resize(exCode.size() + 1); // Extra instruction for global return
-	memset(instAddress.data, 0, (exCode.size() + 1) * sizeof(unsigned int));
+	memset(instAddress.data + lastInstructionCount, 0, (exCode.size() - lastInstructionCount + 1) * sizeof(unsigned int));
 
 	x86ClearLabels();
 	x86ReserveLabels(GetLastALULabel());
@@ -1485,7 +1559,7 @@ bool ExecutorX86::TranslateToNative()
 		curr++;
 	}
 	assert(binCodeSize < binCodeReserved);
-	binCodeSize = (unsigned int)(code - bytecode);
+	binCodeSize = (unsigned int)(code - (binCode + 16));
 
 	x86SatisfyJumps(instAddress);
 
@@ -1494,14 +1568,21 @@ bool ExecutorX86::TranslateToNative()
 		if(exFunctions[i].address != -1)
 		{
 			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].address] - (binCode + 16));
-			exLinker->functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].address];
-			exLinker->functionAddress[i * 2 + 1] = 0;
+			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].address];
+			functionAddress[i * 2 + 1] = 0;
 		}else{
-			exLinker->functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtr;
-			exLinker->functionAddress[i * 2 + 1] = 1;
+			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtr;
+			functionAddress[i * 2 + 1] = 1;
 		}
 	}
+	if(codeRelocated && oldFunctionLists.size())
+	{
+		for(unsigned i = 0; i < oldFunctionLists.size(); i++)
+			memcpy(oldFunctionLists[i].list, functionAddress.data, oldFunctionLists[i].count * sizeof(unsigned));
+	}
 	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - (binCode + 16));
+
+	lastInstructionCount = exCode.size();
 
 	return true;
 }
