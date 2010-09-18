@@ -82,6 +82,8 @@ private:
 	};
 	FastVector<unsigned int>	breakInstructions;
 
+	unsigned int	oldJumpTargetCount;
+	unsigned int	oldFunctionSize;
 public:
 	FastVector<unsigned int>	functionAddress;
 	struct FunctionListInfo

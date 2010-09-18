@@ -910,6 +910,9 @@ void ExecutorX86::ClearNative()
 	oldFunctionLists.clear();
 
 	functionAddress.clear();
+
+	oldJumpTargetCount = 0;
+	oldFunctionSize = 0;
 }
 
 bool ExecutorX86::TranslateToNative()
@@ -917,8 +920,6 @@ bool ExecutorX86::TranslateToNative()
 	execError[0] = 0;
 
 	globalStartInBytecode = 0xffffffff;
-	for(unsigned int i = 0; i < exFunctions.size(); i++)
-		exFunctions[i].startInByteCode = 0xffffffff;
 
 	if(codeRunning && functionAddress.max <= exFunctions.size() * 2)
 	{
@@ -947,7 +948,7 @@ bool ExecutorX86::TranslateToNative()
 
 	// Mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
 	exCode.push_back(VMCmd(cmdNop));
-	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
+	for(unsigned int i = oldJumpTargetCount, e = exLinker->jumpTargets.size(); i != e; i++)
 		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
 	// Remove cmdNop, because we don't want to generate code for it
 	exCode.pop_back();
@@ -989,7 +990,7 @@ bool ExecutorX86::TranslateToNative()
 #ifdef NULLC_OPTIMIZE_X86
 	// Second optimization pass, just feed generated instructions again
 	// But at first, mark invalidation instructions
-	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
+	for(unsigned int i = oldJumpTargetCount, e = exLinker->jumpTargets.size(); i != e; i++)
 		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
 
 	// Set iterator at beginning
@@ -1563,7 +1564,7 @@ bool ExecutorX86::TranslateToNative()
 
 	x86SatisfyJumps(instAddress);
 
-	for(unsigned int i = 0; i < exFunctions.size(); i++)
+	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
 		if(exFunctions[i].address != -1)
 		{
@@ -1571,6 +1572,7 @@ bool ExecutorX86::TranslateToNative()
 			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].address];
 			functionAddress[i * 2 + 1] = 0;
 		}else{
+			exFunctions[i].startInByteCode = 0xffffffff;
 			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtr;
 			functionAddress[i * 2 + 1] = 1;
 		}
@@ -1583,6 +1585,9 @@ bool ExecutorX86::TranslateToNative()
 	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - (binCode + 16));
 
 	lastInstructionCount = exCode.size();
+
+	oldJumpTargetCount = exLinker->jumpTargets.size();
+	oldFunctionSize = exFunctions.size();
 
 	return true;
 }
