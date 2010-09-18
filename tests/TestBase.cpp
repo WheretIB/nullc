@@ -4,8 +4,6 @@
 #if defined(_MSC_VER)
 	#include "../stdafx.h"
 	#include <Windows.h>
-#else
-	double myGetPreciseTime();
 #endif
 
 #include "../NULLC/nullc_debug.h"
@@ -39,7 +37,7 @@ namespace Tests
 
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
-	void			*varInfo = NULL;
+	ExternVarInfo	*varInfo = NULL;
 	const char		*symbols = NULL;
 
 	bool doTranslation = true;
@@ -63,8 +61,8 @@ void*	Tests::FindVar(const char* name)
 {
 	for(unsigned int i = 0; i < variableCount; i++)
 	{
-		if(strcmp(name, symbols + ((ExternVarInfo*)varInfo)[i].offsetToName) == 0)
-			return (void*)(varData + ((ExternVarInfo*)varInfo)[i].offset);
+		if(strcmp(name, symbols + varInfo[i].offsetToName) == 0)
+			return (void*)(varData + varInfo[i].offset);
 	}
 	return (void*)varData;
 }

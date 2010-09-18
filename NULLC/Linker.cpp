@@ -336,7 +336,7 @@ bool Linker::LinkCode(const char *code)
 				exFunctions.back().funcPtr = dlsym(handle, (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
 				dlclose(handle);
 	#else
-				exFunctions.back().funcPtr = GetProcAddress(GetModuleHandle(NULL), (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+				exFunctions.back().funcPtr = (void*)GetProcAddress(GetModuleHandle(NULL), (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
 	#endif
 #endif
 				if(exFunctions.back().funcPtr)
@@ -572,6 +572,6 @@ void Linker::SetFunctionPointerUpdater(void (*updater)(unsigned, unsigned))
 }
 void Linker::UpdateFunctionPointer(unsigned dest, unsigned source)
 {
-	assert(fptrUpdater);
-	fptrUpdater(dest, source);
+	if(fptrUpdater)
+		fptrUpdater(dest, source);
 }
