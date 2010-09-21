@@ -462,7 +462,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	RunTests(false);
 #endif
 
-	nullcInit("Modules\\");
+	nullcInit("Modules/");
 
 	char modulePath[MAX_PATH];
 	GetModuleFileName(NULL, modulePath, MAX_PATH);
