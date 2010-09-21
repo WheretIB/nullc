@@ -503,6 +503,23 @@ NULLCRef NULLC::ReplaceObject(NULLCRef l, NULLCRef r)
 	return l;
 }
 
+void NULLC::SwapObjects(NULLCRef l, NULLCRef r)
+{
+	if(l.typeID != r.typeID)
+	{
+		nullcThrowError("ERROR: types don't match (%s ref, %s ref)", &linker->exSymbols[linker->exTypes[r.typeID].offsetToName], &linker->exSymbols[linker->exTypes[l.typeID].offsetToName]);
+		return;
+	}
+	unsigned size = linker->exTypes[l.typeID].size;
+
+	char tmpStack[512];
+	// $$ should use some extendable static storage for big objects
+	char *tmp = size < 512 ? tmpStack : (char*)NULLC::AllocObject(size);
+	memcpy(tmp, l.ptr, size);
+	memcpy(l.ptr, r.ptr, size);
+	memcpy(r.ptr, tmp, size);
+}
+
 int NULLC::StrEqual(NULLCArray a, NULLCArray b)
 {
 	if(a.len != b.len)
