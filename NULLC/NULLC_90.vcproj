@@ -751,7 +751,7 @@
 					>
 				</File>
 				<File
-					RelativePath="..\Modules\ext\pugi.nc"
+					RelativePath="..\Modules\ext\pugixml.nc"
 					>
 				</File>
 				<Filter

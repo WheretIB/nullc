@@ -670,7 +670,7 @@ namespace NULLCPugiXML
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("ext.pugi", (void(*)())NULLCPugiXML::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("ext.pugixml", (void(*)())NULLCPugiXML::funcPtr, name, index)) return false;
 bool	nullcInitPugiXMLModule()
 {
 	REGISTER_FUNC(description, "xml_parse_result::description", 0);
