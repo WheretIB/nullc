@@ -1036,6 +1036,14 @@
 			<File
 				RelativePath=".\tests\TestJIT.cpp"
 				>
+				<FileConfiguration
+					Name="Release_Notest|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\tests\TestListComprehension.cpp"
