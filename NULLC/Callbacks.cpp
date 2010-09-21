@@ -671,6 +671,14 @@ void AddReturnNode(const char* pos, bool yield)
 			currDefinedFunc.back()->retType = realRetType;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 		}else{
+			if(CodeInfo::nodeList.back()->typeInfo->arrLevel && currDefinedFunc.back()->retType->arrLevel &&
+				CodeInfo::nodeList.back()->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && currDefinedFunc.back()->retType->arrSize == TypeInfo::UNSIZED_ARRAY &&
+				CodeInfo::nodeList.back()->typeInfo->subType == currDefinedFunc.back()->retType->subType)
+			{
+				TypeInfo *origType = CodeInfo::nodeList.back()->typeInfo;
+				AddFunctionCallNode(pos, "duplicate", 1);
+				HandlePointerToObject(pos, origType);
+			}
 			ConvertArrayToUnsized(pos, currDefinedFunc.back()->retType);
 			HandlePointerToObject(pos, currDefinedFunc.back()->retType);
 			realRetType = CodeInfo::nodeList.back()->typeInfo;

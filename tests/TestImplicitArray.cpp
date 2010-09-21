@@ -126,3 +126,10 @@ auto arr2 = {\r\n\
 return arr2[1][1] + arr2[0][0] + arr2[2][2] + arr[1][1];";
 TEST_RESULT("Inplace arrays with array elements of different size", testInplaceArraysWithArrayElements, "266");
 
+const char	*testLocalArrayReturnWithConversion =
+"char[] getsrt(){ return \"Hello\"; }\r\n\
+void test(int a, b, c){}\r\n\
+char[] x = getsrt();\r\n\
+test(1, 2, 3);\r\n\
+return x[0] - 'G';";
+TEST_RESULT("Local array (on stack) return from function with implicit cast to unsized array", testLocalArrayReturnWithConversion, "1");
