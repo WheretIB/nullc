@@ -38,11 +38,17 @@ int main(int argc, char** argv)
 {
 	nullcInit("Modules/");
 
-	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : "nullclib_x64.ncm", "rb");
+#ifdef __linux
+	#define X64_LIB "nullclib.ncm"
+#else
+	#define X64_LIB "nullclib_x64.ncm"
+#endif
+
+	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : X64_LIB, "rb");
 	if(!modulePack)
 	{
-		printf("WARNING: Failed to open precompiled module file");
-		printf(sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : "nullclib_x64.ncm\r\n");
+		printf("WARNING: Failed to open precompiled module file ");
+		printf(sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : X64_LIB"\r\n");
 	}else{
 		fseek(modulePack, 0, SEEK_END);
 		unsigned int fileSize = ftell(modulePack);

@@ -94,7 +94,7 @@ PUGIXML_TARGETS = \
   temp/pugixml.o
 
 all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
-     bin/nullcl TestRun bin/ConsoleCalc
+     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
 
 temp/lib/%.o: NULLC/includes/%.cpp
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
@@ -211,7 +211,8 @@ TEST_SOURCES = \
 	tests/TestFunctions.cpp          tests/TestSpeed.cpp \
 	tests/TestGC.cpp                 tests/TestStackRealloc.cpp \
 	tests/TestImplicitArray.cpp      tests/TestVarargs.cpp \
-	tests/TestIndirectCall.cpp       tests/TestVariables.cpp
+	tests/TestIndirectCall.cpp       tests/TestVariables.cpp \
+	tests/TestLocalReturn.cpp        tests/TestJIT.cpp
 
 TEST_OBJECTS = \
   TestRun.o \
@@ -239,7 +240,8 @@ TEST_OBJECTS = \
 	temp/tests/TestFunctions.o          temp/tests/TestSpeed.o \
 	temp/tests/TestGC.o                 temp/tests/TestStackRealloc.o \
 	temp/tests/TestImplicitArray.o      temp/tests/TestVarargs.o \
-	temp/tests/TestIndirectCall.o       temp/tests/TestVariables.o
+	temp/tests/TestIndirectCall.o       temp/tests/TestVariables.o \
+	temp/tests/TestLocalReturn.o        temp/tests/TestJIT.o
 
 %.o: %.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
@@ -250,6 +252,8 @@ temp/tests/%.o: tests/%.cpp
 TestRun: ${TEST_OBJECTS} bin/libnullc.a
 	$(CXX) -rdynamic $(REG_CFLAGS) -o $@ $(TEST_OBJECTS) -Lbin -lnullc -ldl
 
+bin/nullclib:
+	bin/nullcl -o bin/nullclib.ncm Modules/img/canvas.nc -m img.canvas Modules/win/window_ex.nc -m win.window_ex Modules/win/window.nc -m win.window Modules/std/typeinfo.nc -m std.typeinfo Modules/std/file.nc -m std.file Modules/std/io.nc -m std.io Modules/std/string.nc -m std.string Modules/std/vector.nc -m std.vector Modules/std/list.nc -m std.list Modules/std/map.nc -m std.map Modules/std/hashmap.nc -m std.hashmap Modules/std/math.nc -m std.math Modules/std/time.nc -m std.time Modules/std/random.nc -m std.random Modules/std/range.nc -m std.range Modules/std/gc.nc -m std.gc Modules/std/dynamic.nc -m std.dynamic Modules/ext/pugi.nc -m ext.pugixml
 
 
 #~ g++ -c -g -W -D NULLC_NO_EXECUTOR

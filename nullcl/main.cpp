@@ -247,4 +247,6 @@ int main(int argc, char** argv)
 		fclose(mergeFile);
 
 	nullcTerminate();
+
+	return argIndex != argc;	
 }
