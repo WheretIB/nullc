@@ -1,7 +1,10 @@
 #include "CodeGen_X86.h"
-#include "StdLib_X86.h"
 
 #ifdef NULLC_BUILD_X86_JIT
+
+#include "StdLib_X86.h"
+#include "Executor_Common.h"
+#include "StdLib.h"
 
 #ifdef NULLC_OPTIMIZE_X86
 namespace NULLC
@@ -3152,11 +3155,7 @@ void GenCodeCmdDecL(VMCmd cmd)
 	EMIT_OP_RPTR_NUM(o_sbb, sDWORD, rESP, 4, 0);
 }
 
-void (*closureCreateFunc)() = NULL;
-void SetClosureCreateFunc(void (*f)())
-{
-	closureCreateFunc = f;
-}
+void (*closureCreateFunc)() = (void(*)())ClosureCreate;
 
 void GenCodeCmdCreateClosure(VMCmd cmd)
 {
@@ -3171,11 +3170,7 @@ void GenCodeCmdCreateClosure(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 16);
 }
 
-void (*upvaluesCloseFunc)() = NULL;
-void SetUpvaluesCloseFunc(void (*f)())
-{
-	upvaluesCloseFunc = f;
-}
+void (*upvaluesCloseFunc)() = (void(*)())CloseUpvalues;
 
 void GenCodeCmdCloseUpvalues(VMCmd cmd)
 {
@@ -3208,6 +3203,46 @@ void GenCodeCmdConvertPtr(VMCmd cmd)
 #endif
 	EMIT_LABEL(aluLabels);
 	aluLabels++;
+}
+
+ExternTypeInfo* (*getTypeListFunc)() = GetTypeList;
+
+char* checkedCopy(char* top, int typeID, char* ptr, unsigned length)
+{
+	ExternTypeInfo* typelist = getTypeListFunc();
+
+	NULLCRef r;
+	r.ptr = ptr;
+	r.typeID = typeID;
+	if(ptr >= top && IsPointerUnmanaged(r))
+	{
+		ExternTypeInfo &type = typelist[typeID];
+		if(type.arrSize == ~0u)
+		{
+			char *copy = (char*)NULLC::AllocObject(typelist[type.subType].size * length);
+			memcpy(copy, ptr, typelist[type.subType].size * length);
+			ptr = copy;
+		}else{
+			unsigned int objSize = type.size;
+			char *copy = (char*)NULLC::AllocObject(objSize);
+			memcpy(copy, ptr, objSize);
+			ptr = copy;
+		}
+	}
+	return ptr;
+}
+
+char* (*checkedCopyPtr)(char*, int, char*, unsigned) = checkedCopy;
+
+void GenCodeCmdCheckedRet(VMCmd cmd)
+{
+	// stack top: ptr, size
+	EMIT_OP_NUM(o_push, cmd.argument);
+	EMIT_OP_REG_RPTR(o_lea, rEBX, sNONE, rEBP, paramBase);
+	EMIT_OP_REG(o_push, rEBX);
+	EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&checkedCopyPtr);
+	EMIT_OP_REG_NUM(o_add, rESP, 12);
+	EMIT_OP_REG(o_push, rEAX);
 }
 
 #endif

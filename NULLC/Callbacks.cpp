@@ -671,20 +671,14 @@ void AddReturnNode(const char* pos, bool yield)
 			currDefinedFunc.back()->retType = realRetType;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 		}else{
-			if(CodeInfo::nodeList.back()->typeInfo->arrLevel && currDefinedFunc.back()->retType->arrLevel &&
-				CodeInfo::nodeList.back()->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && currDefinedFunc.back()->retType->arrSize == TypeInfo::UNSIZED_ARRAY &&
-				CodeInfo::nodeList.back()->typeInfo->subType == currDefinedFunc.back()->retType->subType)
-			{
-				TypeInfo *origType = CodeInfo::nodeList.back()->typeInfo;
-				AddFunctionCallNode(pos, "duplicate", 1);
-				HandlePointerToObject(pos, origType);
-			}
 			ConvertArrayToUnsized(pos, currDefinedFunc.back()->retType);
 			HandlePointerToObject(pos, currDefinedFunc.back()->retType);
 			realRetType = CodeInfo::nodeList.back()->typeInfo;
 		}
 		// Take expected return type
 		expectedType = currDefinedFunc.back()->retType;
+		if(expectedType->refLevel || (expectedType->arrLevel && expectedType->arrSize == TypeInfo::UNSIZED_ARRAY))
+			CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdCheckedRet, expectedType->arrLevel ? expectedType->typeIndex : expectedType->subType->typeIndex));
 		// Check for errors
 		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
 			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());

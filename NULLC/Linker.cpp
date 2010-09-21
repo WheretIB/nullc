@@ -455,6 +455,7 @@ bool Linker::LinkCode(const char *code)
 			cmd.argument = typeRemap[cmd.argument];
 			break;
 		case cmdConvertPtr:
+		case cmdCheckedRet:
 			cmd.argument = typeRemap[cmd.argument];
 			break;
 #ifdef _M_X64

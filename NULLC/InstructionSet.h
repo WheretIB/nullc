@@ -218,6 +218,8 @@ enum InstructionCode
 	cmdPushPtrStk,
 	cmdPushPtrImmt,
 
+	cmdCheckedRet,
+
 	cmdEnumCount,
 };
 
@@ -249,7 +251,8 @@ static const char *vmInstructionText[] =
 	"DecI", "DecD", "DecL",
 	"CreateClosure", "CloseUpvals",
 	"PushTypeID", "ConvertPtr",
-	"PushPtr", "PushPtrStk", "PushPtrImmt"
+	"PushPtr", "PushPtrStk", "PushPtrImmt",
+	"CheckedRet"
 };
 
 struct VMCmd
