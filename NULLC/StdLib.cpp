@@ -520,6 +520,16 @@ void NULLC::SwapObjects(NULLCRef l, NULLCRef r)
 	memcpy(r.ptr, tmp, size);
 }
 
+int NULLC::CompareObjects(NULLCRef l, NULLCRef r)
+{
+	if(l.typeID != r.typeID)
+	{
+		nullcThrowError("ERROR: types don't match (%s ref, %s ref)", &linker->exSymbols[linker->exTypes[r.typeID].offsetToName], &linker->exSymbols[linker->exTypes[l.typeID].offsetToName]);
+		return 0;
+	}
+	return 0 == memcmp(l.ptr, r.ptr, linker->exTypes[l.typeID].size);
+}
+
 int NULLC::StrEqual(NULLCArray a, NULLCArray b)
 {
 	if(a.len != b.len)

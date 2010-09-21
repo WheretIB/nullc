@@ -107,6 +107,7 @@ int[] __newA(int size, int count);\r\n\
 auto ref duplicate(auto ref obj);\r\n\
 auto ref replace(auto ref l, r);\r\n\
 void	swap(auto ref l, r);\r\n\
+int		equal(auto ref l, r);\r\n\
 \r\n\
 void ref() __redirect(auto ref r, int[] ref f);\r\n\
 // char inline array definition support\r\n\
@@ -313,6 +314,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::ReplaceObject, "replace", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::SwapObjects, "swap", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::CompareObjects, "equal", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
 
