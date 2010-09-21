@@ -1587,6 +1587,24 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				}
 			}
 			break;
+		case cmdCheckedRet:
+			if(*(void**)genStackPtr >= &genParams[paramBase] && *(void**)genStackPtr <= genParams.data + genParams.size())
+			{
+				ExternTypeInfo &type = exLinker->exTypes[cmd.argument];
+				if(type.arrSize == ~0u)
+				{
+					unsigned length = *(int*)(((char*)genStackPtr) + sizeof(void*));
+					char *copy = (char*)NULLC::AllocObject(exLinker->exTypes[type.subType].size * length);
+					memcpy(copy, *(char**)genStackPtr, exLinker->exTypes[type.subType].size * length);
+					*(char**)genStackPtr = copy;
+				}else{
+					unsigned int objSize = type.size;
+					char *copy = (char*)NULLC::AllocObject(objSize);
+					memcpy(copy, *(char**)genStackPtr, objSize);
+					*(char**)genStackPtr = copy;
+				}
+			}
+			break;
 		}
 	}
 	// If there was an execution error

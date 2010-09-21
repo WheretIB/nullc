@@ -91,6 +91,10 @@ void CloseUpvalues(char* paramBase, unsigned int argument)
 	}
 }
 
+ExternTypeInfo*	GetTypeList()
+{
+	return NULLC::commonLinker->exTypes.data;
+}
 
 unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 {

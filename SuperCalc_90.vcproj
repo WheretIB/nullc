@@ -630,6 +630,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\tests\TestLocalReturn.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestLongNames.cpp"
 				>
 			</File>

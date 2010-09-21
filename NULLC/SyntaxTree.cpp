@@ -276,7 +276,7 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd, unsigned int argument)
 	bool logicalOp = cmd == cmdLogNot;
 	typeInfo = logicalOp ? typeInt : first->typeInfo;
 
-	if((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject))
+	if(cmd != cmdCheckedRet && ((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject)))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeUnaryOp;
@@ -302,7 +302,7 @@ void NodeUnaryOp::Compile()
 	}
 
 	// Execute command
-	if(aOT == OTYPE_INT || first->typeInfo == typeObject)
+	if(aOT == OTYPE_INT || first->typeInfo == typeObject || vmCmd.cmd == cmdCheckedRet)
 		cmdList.push_back(VMCmd((InstructionCode)(vmCmd.cmd + 0), vmCmd.argument));
 	else if(aOT == OTYPE_LONG)
 		cmdList.push_back(VMCmd((InstructionCode)(vmCmd.cmd + 1), vmCmd.argument));

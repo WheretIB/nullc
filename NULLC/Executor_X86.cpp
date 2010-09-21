@@ -525,6 +525,8 @@ bool ExecutorX86::Initialize()
 
 	cgFuncs[cmdConvertPtr] = GenCodeCmdConvertPtr;
 
+	cgFuncs[cmdCheckedRet] = GenCodeCmdCheckedRet;
+
 #ifndef __linux
 	HMODULE hDLL = LoadLibrary("kernel32");
 	pSetThreadStackGuarantee = (PSTSG)GetProcAddress(hDLL, "SetThreadStackGuarantee");
@@ -982,8 +984,6 @@ bool ExecutorX86::TranslateToNative()
 	SetFunctionList(exFunctions.data, functionAddress.data);
 	SetContinuePtr(&callContinue);
 	SetLastInstruction(instList.data, instList.data);
-	SetClosureCreateFunc((void(*)())ClosureCreate);
-	SetUpvaluesCloseFunc((void(*)())CloseUpvalues);
 
 	CommonSetLinker(exLinker);
 

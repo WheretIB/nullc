@@ -208,12 +208,12 @@ void GenCodeCmdDecI(VMCmd cmd);
 void GenCodeCmdDecD(VMCmd cmd);
 void GenCodeCmdDecL(VMCmd cmd);
 
-void SetClosureCreateFunc(void (*f)());
 void GenCodeCmdCreateClosure(VMCmd cmd);
 
-void SetUpvaluesCloseFunc(void (*f)());
 void GenCodeCmdCloseUpvalues(VMCmd cmd);
 
 void GenCodeCmdConvertPtr(VMCmd cmd);
+
+void GenCodeCmdCheckedRet(VMCmd cmd);
 
 void GenCodeCmdYield(VMCmd cmd);
