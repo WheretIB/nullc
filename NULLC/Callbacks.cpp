@@ -1537,7 +1537,7 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	CodeInfo::nodeList.push_back(arrayList);
 }
 
-void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
+void AddArrayIterator(const char* pos, InplaceStr varName, void* type, bool extra)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -1631,6 +1631,8 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 		}
 		if(extraExpression)
 			AddTwoExpressionNode(NULL);
+		if(extra)
+			AddTwoExpressionNode(NULL);
 
 		// Condition part "varName = func()
 		AddGetAddressNode(pos, varName);
@@ -1675,6 +1677,13 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type)
 	AddMemberFunctionCall(pos, "start", 0);
 
 	AddInplaceVariable(pos);
+	// If start returned a function, then go to handling in the 'else if' above (iteration over a coroutine)
+	if(CodeInfo::nodeList.back()->typeInfo->subType && CodeInfo::nodeList.back()->typeInfo->subType->funcType)
+	{
+		AddGetVariableNode(pos);
+		AddArrayIterator(pos, varName, type, true);
+		return;
+	}
 	// This node will return iterator variable
 	NodeZeroOP *getIterator = CodeInfo::nodeList.back();
 
@@ -1827,8 +1836,6 @@ void FunctionAdd(const char* pos, const char* funcName)
 	{
 		lastFunc->type = FunctionInfo::THISCALL;
 		lastFunc->parentClass = newType;
-		if(defineCoroutine)
-			ThrowError(pos, "ERROR: coroutine cannot be a member function");
 	}
 	if(newType ? varInfoTop.size() > (newType->definitionDepth + 1) : varInfoTop.size() > 1)
 	{
@@ -1837,6 +1844,8 @@ void FunctionAdd(const char* pos, const char* funcName)
 	}
 	if(defineCoroutine)
 	{
+		if(newType && lastFunc->type == FunctionInfo::THISCALL)
+			ThrowError(pos, "ERROR: coroutine cannot be a member function");
 		lastFunc->type = FunctionInfo::COROUTINE;
 		lastFunc->parentClass = NULL;
 		defineCoroutine = false;

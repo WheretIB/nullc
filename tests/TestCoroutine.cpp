@@ -286,3 +286,23 @@ TEST_RESULT("Inline coroutine", testInlineCoroutine, "12");
 
 const char *testInlineFunctionCall = "return (auto(){ return 5; })();";
 TEST_RESULT("Inline function definition and call", testInlineFunctionCall, "5");
+
+const char *testCorountineIterator = 
+"class list_node\r\n\
+{\r\n\
+	list_node ref next;\r\n\
+	int value;\r\n\
+}\r\n\
+auto list_node:start()\r\n\
+{\r\n\
+	return coroutine auto(){ list_node ref c = this; while(c){ yield c.value; c = c.next; } return 0; };\r\n\
+}\r\n\
+list_node list;\r\n\
+list.value = 2;\r\n\
+list.next = new list_node;\r\n\
+list.next.value = 5;\r\n\
+int product = 1;\r\n\
+for(i in list)\r\n\
+product *= i;\r\n\
+return product;";
+TEST_RESULT("Object iterator is a coroutine", testCorountineIterator, "10");

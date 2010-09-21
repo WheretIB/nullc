@@ -101,7 +101,7 @@ void AddTwoExpressionNode(void *retType = NULL);
 
 void AddArrayConstructor(const char* pos, unsigned int arrElementCount);
 
-void AddArrayIterator(const char* pos, InplaceStr varName, void* type);
+void AddArrayIterator(const char* pos, InplaceStr varName, void* type, bool extra = false);
 void MergeArrayIterators();
 
 void AddTypeAllocation(const char* pos);
