@@ -1161,7 +1161,7 @@ void AddSetVariableNode(const char* pos)
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, 0, true));
 }
 
-void AddGetVariableNode(const char* pos)
+void AddGetVariableNode(const char* pos, bool forceError)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -1175,9 +1175,10 @@ void AddGetVariableNode(const char* pos)
 	{
 		CodeInfo::nodeList.back()->typeInfo = typeInt;
 	}else if(lastType->funcType == NULL && lastType->refLevel != 0){
-		CheckForImmutable(lastType, pos);
 		CodeInfo::nodeList.push_back(new NodeDereference());
 	}
+	if(forceError && !lastType->refLevel)
+		ThrowError(pos, "ERROR: cannot dereference type '%s' that is not a pointer", lastType->GetFullTypeName());
 }
 
 void AddMemberAccessNode(const char* pos, InplaceStr varName)

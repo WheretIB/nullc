@@ -84,7 +84,7 @@ void AddDefineVariableNode(const char* pos, void* varInfo, bool noOverload = fal
 
 void AddSetVariableNode(const char* pos);
 
-void AddGetVariableNode(const char* pos);
+void AddGetVariableNode(const char* pos, bool forceError = false);
 void AddMemberAccessNode(const char* pos, InplaceStr varName);
 
 void UndoDereferceNode(const char* pos);
