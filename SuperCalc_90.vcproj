@@ -1034,6 +1034,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\tests\TestJIT.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestListComprehension.cpp"
 				>
 				<FileConfiguration

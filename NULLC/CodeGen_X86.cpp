@@ -845,6 +845,7 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 			EMIT_OP_REG_RPTR(o_imul, reg1, sDWORD, NULLC::reg[reg2].ptrIndex, NULLC::reg[reg2].ptrMult, NULLC::reg[reg2].ptrBase, NULLC::reg[reg2].ptrNum);
 			return;
 		}
+		NULLC::InvalidateDependand(reg1);
 		NULLC::reg[reg1].type = x86Argument::argNone;
 	}else{
 		NULLC::reg[reg1].type = x86Argument::argNone;
