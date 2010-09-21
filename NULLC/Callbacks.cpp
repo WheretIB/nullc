@@ -2230,7 +2230,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 				fRating += 2;	// array -> class (unsized array)
 			else if(expectedType == typeAutoArray && paramType->arrSize)
-				fRating += 10;	// array -> auto[]
+				fRating += 8;	// array -> auto[]
 			else if(expectedType->refLevel == 1 && expectedType->refLevel == paramType->refLevel && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
 				fRating += 5;	// array[N] ref -> array[] -> array[] ref
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef && ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType == expectedType)

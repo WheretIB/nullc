@@ -543,6 +543,10 @@
 				Name="std"
 				>
 				<File
+					RelativePath="..\Modules\std\algorithm.nc"
+					>
+				</File>
+				<File
 					RelativePath=".\includes\dynamic.cpp"
 					>
 				</File>

@@ -26,6 +26,7 @@ namespace NULLC
 	void*		AllocObject(int size);
 	NULLCArray	AllocArray(int size, int count);
 	NULLCRef	CopyObject(NULLCRef ptr);
+	void		CopyArray(NULLCAutoArray* dst, NULLCAutoArray src);
 	NULLCRef	ReplaceObject(NULLCRef l, NULLCRef r);
 	void		SwapObjects(NULLCRef l, NULLCRef r);
 	int			CompareObjects(NULLCRef l, NULLCRef r);

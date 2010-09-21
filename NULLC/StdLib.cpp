@@ -492,6 +492,14 @@ NULLCRef NULLC::CopyObject(NULLCRef ptr)
 	return ret;
 }
 
+void NULLC::CopyArray(NULLCAutoArray* dst, NULLCAutoArray src)
+{
+	dst->typeID = src.typeID;
+	dst->len = src.len;
+	dst->ptr = (char*)NULLC::AllocObject(src.len * linker->exTypes[src.typeID].size);
+	memcpy(dst->ptr, src.ptr, src.len * linker->exTypes[src.typeID].size);
+}
+
 NULLCRef NULLC::ReplaceObject(NULLCRef l, NULLCRef r)
 {
 	if(l.typeID != r.typeID)
