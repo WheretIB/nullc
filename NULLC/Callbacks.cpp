@@ -2219,6 +2219,8 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		{
 			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 				fRating += 2;	// array -> class (unsized array)
+			else if(expectedType == typeAutoArray && paramType->arrSize)
+				fRating += 10;	// array -> auto[]
 			else if(expectedType->refLevel == 1 && expectedType->refLevel == paramType->refLevel && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
 				fRating += 5;	// array[N] ref -> array[] -> array[] ref
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef && ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType == expectedType)
@@ -2744,6 +2746,16 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		ConvertFunctionToPointer(pos);
 		ConvertArrayToUnsized(pos, fType->paramType[i]);
+		if(fType->paramType[i] == typeAutoArray && CodeInfo::nodeList.back()->typeInfo->arrLevel)
+		{
+			TypeInfo *actualType = CodeInfo::nodeList.back()->typeInfo;
+			if(actualType->arrSize != TypeInfo::UNSIZED_ARRAY)
+				ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(actualType->subType, TypeInfo::UNSIZED_ARRAY));
+			// type[] on stack: size; ptr (top)
+			CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+			CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, actualType->subType->typeIndex));
+			AddTwoExpressionNode(typeAutoArray);
+		}
 		// implicit conversion from type to type ref (or auto ref)
 		if((fType->paramType[i]->refLevel == CodeInfo::nodeList.back()->typeInfo->refLevel + 1 && fType->paramType[i]->subType == CodeInfo::nodeList.back()->typeInfo) ||
 			(CodeInfo::nodeList.back()->typeInfo->refLevel == 0 && fType->paramType[i] == typeObject))
