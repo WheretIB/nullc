@@ -10,3 +10,12 @@ const char *testAutoArray4 = "auto str = \"Hello\"; auto[] arr = str; char[6] st
 TEST_RESULT("auto[] type to array conversion 2", testAutoArray4, "1");
 const char *testAutoArray5 = "auto str = \"Hello\"; auto[] arr = str; auto[] arr2 = arr; char[] str2 = arr; char[] str3 = arr2; return str2 == str3;";
 TEST_RESULT("auto[] type to auto[] assignment", testAutoArray5, "1");
+
+const char *testAutoArrayImplicit =
+"int arrSize(auto[] arr){ return arr.size; }\r\n\
+char[] x = \"hello\";\r\n\
+int a = arrSize(x);\r\n\
+int b = arrSize({ 1, 2, 3, 4});\r\n\
+int c = arrSize(new int[43]);\r\n\
+return a * 100 + b * 10 + c;";
+TEST_RESULT("Implicit conversion to auto[] in function arguments", testAutoArrayImplicit, "683");
