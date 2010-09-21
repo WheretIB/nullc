@@ -50,6 +50,7 @@ Compiler*	compiler;
 const char*	nullcLastError = NULL;
 
 unsigned int currExec = 0;
+char	*argBuf = NULL;
 
 void	nullcInit(const char* importPath)
 {
@@ -89,6 +90,8 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 #endif
 	BinaryCache::Initialize();
 	BinaryCache::SetImportPath(importPath);
+
+	argBuf = (char*)NULLC::alloc(64 * 1024);
 }
 
 void	nullcSetImportPath(const char* importPath)
@@ -309,8 +312,6 @@ nullres	nullcRun()
 #ifndef NULLC_NO_EXECUTOR
 const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, va_list args)
 {
-	static char argBuf[64 * 1024];	// This is the maximum supported function argument size
-
 	// Copy arguments in argument buffer
 	ExternFuncInfo	&func = linker->exFunctions[functionID];
 	char *argPos = argBuf;
@@ -755,6 +756,9 @@ int nullcInitDynamicModule()
 
 void nullcTerminate()
 {
+	NULLC::dealloc(argBuf);
+	argBuf = NULL;
+
 	BinaryCache::Terminate();
 
 	NULLC::destruct(compiler);
