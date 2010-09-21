@@ -1123,7 +1123,6 @@ bool ExecutorX86::TranslateToNative()
 		instList[i].name = o_other;
 		instList[i].instID = 0;
 	}
-	exCode.pop_back();
 #endif
 
 #ifdef NULLC_LOG_FILES
@@ -1153,6 +1152,7 @@ bool ExecutorX86::TranslateToNative()
 		exCode[exLinker->jumpTargets[i]].cmd &= ~0x80;
 	fclose(fAsm);
 #endif
+	exCode.pop_back();
 
 	bool codeRelocated = false;
 	if((binCodeSize + instList.size() * 6) > binCodeReserved)
