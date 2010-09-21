@@ -36,7 +36,7 @@ typedef nullres (*externalInit)(nullres (*)(const char*, const char*), nullres (
 
 int main(int argc, char** argv)
 {
-	nullcInit("Modules\\");
+	nullcInit("Modules/");
 
 	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : "nullclib_x64.ncm", "rb");
 	if(!modulePack)

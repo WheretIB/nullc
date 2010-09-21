@@ -85,7 +85,7 @@ void	RunTests(bool verbose)
 	unsigned int tStart = clock();
 	for(unsigned int i = 0; i < 10000; i++)
 	{
-		nullcInit("Modules\\");
+		nullcInit("Modules/");
 		nullcTerminate();
 	}
 	printf("Finished in %d\r\n", clock() - tStart);

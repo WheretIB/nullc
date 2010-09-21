@@ -8,7 +8,7 @@
 
 int main(int argc, char** argv)
 {
-	nullcInit("Modules\\");
+	nullcInit("Modules/");
 
 	if(argc == 1)
 	{
