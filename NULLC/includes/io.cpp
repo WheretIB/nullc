@@ -36,22 +36,47 @@ namespace NULLCIO
 		printf("%s", data.ptr);
 	}
 
-	void WriteIntConsole(int num)
+	void WriteLongConsole(long long number, int base)
 	{
 		InitConsole();
-		printf("%d", num);
+		if(!(base > 1 && base <= 16))
+		{
+			nullcThrowError("incorrect base %d", base);
+			return;
+		}
+
+		static char symb[] = "0123456789abcdef";
+		bool sign = 0;
+		char buf[128];
+		char *curr = buf;
+		if(number < 0)
+			sign = 1;
+
+		*curr++ = *(abs(number % base) + symb);
+		while(number /= base)
+			*curr++ = *(abs(number % base) + symb);
+		if(sign)
+			*curr++ = '-';
+		*curr = 0;
+		int size = int(curr - buf), halfsize = size >> 1;
+		for(int i = 0; i < halfsize; i++)
+		{
+			char tmp = buf[i];
+			buf[i] = buf[size-i-1];
+			buf[size-i-1] = tmp;
+		}
+		printf("%s", buf);
+	}
+
+	void WriteIntConsole(int number, int base)
+	{
+		WriteLongConsole(number, base);
 	}
 
 	void WriteDoubleConsole(double num)
 	{
 		InitConsole();
 		printf("%.12f", num);
-	}
-
-	void WriteLongConsole(long long num)
-	{
-		InitConsole();
-		printf("%lld", num);
 	}
 
 	void WriteCharConsole(char ch)
