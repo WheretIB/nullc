@@ -253,7 +253,7 @@ TestRun: ${TEST_OBJECTS} bin/libnullc.a
 	$(CXX) -rdynamic $(REG_CFLAGS) -o $@ $(TEST_OBJECTS) -Lbin -lnullc -ldl
 
 bin/nullclib:
-	bin/nullcl -o bin/nullclib.ncm Modules/img/canvas.nc -m img.canvas Modules/win/window_ex.nc -m win.window_ex Modules/win/window.nc -m win.window Modules/std/typeinfo.nc -m std.typeinfo Modules/std/file.nc -m std.file Modules/std/io.nc -m std.io Modules/std/string.nc -m std.string Modules/std/vector.nc -m std.vector Modules/std/list.nc -m std.list Modules/std/map.nc -m std.map Modules/std/hashmap.nc -m std.hashmap Modules/std/math.nc -m std.math Modules/std/time.nc -m std.time Modules/std/random.nc -m std.random Modules/std/range.nc -m std.range Modules/std/gc.nc -m std.gc Modules/std/dynamic.nc -m std.dynamic Modules/ext/pugi.nc -m ext.pugixml
+	bin/nullcl -o bin/nullclib.ncm Modules/img/canvas.nc -m img.canvas Modules/win/window_ex.nc -m win.window_ex Modules/win/window.nc -m win.window Modules/std/typeinfo.nc -m std.typeinfo Modules/std/file.nc -m std.file Modules/std/io.nc -m std.io Modules/std/string.nc -m std.string Modules/std/vector.nc -m std.vector Modules/std/list.nc -m std.list Modules/std/map.nc -m std.map Modules/std/hashmap.nc -m std.hashmap Modules/std/math.nc -m std.math Modules/std/time.nc -m std.time Modules/std/random.nc -m std.random Modules/std/range.nc -m std.range Modules/std/gc.nc -m std.gc Modules/std/dynamic.nc -m std.dynamic Modules/ext/pugixml.nc -m ext.pugixml
 
 
 #~ g++ -c -g -W -D NULLC_NO_EXECUTOR
