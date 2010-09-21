@@ -180,3 +180,6 @@ TEST_RESULT("Escaping at the end of the character", testCharEscapeEnd, "92");
 
 const char *testStringEscapeEnd = "return \"\\\\\"[0];";
 TEST_RESULT("Escaping at the end of the string", testStringEscapeEnd, "92");
+
+const char *testCorrectCall = "int x = 8; int y = duplicate(x); return x + y;";
+TEST_RESULT("Correct duplicate call", testCorrectCall, "16");

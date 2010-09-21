@@ -325,17 +325,20 @@ bool ParseClassDefinition(Lexeme** str)
 
 unsigned int ParseFunctionArguments(Lexeme** str)
 {
-	unsigned int callArgCount = 0;
+	unsigned callArgCount = 0;
+	unsigned lastArgument = SetCurrentArgument(callArgCount);
 	if(ParseVaribleSet(str))
 	{
 		callArgCount++;
 		while(ParseLexem(str, lex_comma))
 		{
+			SetCurrentArgument(callArgCount);
 			if(!ParseVaribleSet(str))
 				ThrowError((*str)->pos, "ERROR: expression not found after ',' in function parameter list");
 			callArgCount++;
 		}
 	}
+	SetCurrentArgument(lastArgument);
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 	return callArgCount;
@@ -366,8 +369,10 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 		fAddress = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 	}
+	const char *last = SetCurrentFunction(functionName);
 	// Parse function arguments
 	unsigned int callArgCount = ParseFunctionArguments(str);
+	SetCurrentFunction(last);
 
 	if(memberFunctionCall)
 	{
@@ -1054,7 +1059,9 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 		NodeZeroOP *fAddress = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 
+		const char *last = SetCurrentFunction(NULL);
 		unsigned int callArgCount = ParseFunctionArguments(str);
+		SetCurrentFunction(last);
 
 		CodeInfo::nodeList.push_back(fAddress);
 		CALLBACK(AddFunctionCallNode((*str)->pos, NULL, callArgCount));
@@ -1188,7 +1195,9 @@ bool ParseTerminal(Lexeme** str)
 			AddTypeAllocation((*str)->pos);
 			PrepareConstructorCall((*str)->pos);
 			ParseLexem(str, lex_oparen);
+			const char *last = SetCurrentFunction(name);
 			unsigned int callArgCount = ParseFunctionArguments(str);
+			SetCurrentFunction(last);
 			AddMemberFunctionCall((*str)->pos, name, callArgCount);
 			FinishConstructorCall((*str)->pos);
 			return true;
@@ -1256,7 +1265,9 @@ bool ParseTerminal(Lexeme** str)
 				return true;
 			if(ParseLexem(str, lex_oparen))
 			{
+				const char *last = SetCurrentFunction(GetSelectedTypeName());
 				unsigned int callArgCount = ParseFunctionArguments(str);
+				SetCurrentFunction(last);
 				AddFunctionCallNode((*str)->pos, GetSelectedTypeName(), callArgCount);
 				ParsePostExpressions(str);
 				return true;
