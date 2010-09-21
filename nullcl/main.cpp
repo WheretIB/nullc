@@ -78,83 +78,83 @@ int main(int argc, char** argv)
 		{
 			// $$$ move this to a dependency file?
 			char cmdLine[1024];
-			strcpy(cmdLine, "gcc.exe -o ");
+			strcpy(cmdLine, "gcc -o ");
 			strcat(cmdLine, outputName);
 			strcat(cmdLine, " __temp.cpp");
-			strcat(cmdLine, " translation\\runtime.cpp -lstdc++");
+			strcat(cmdLine, " translation/runtime.cpp -lstdc++");
 			if(strstr(fileContent, "std.math;"))
 			{
-				strcat(cmdLine, " translation\\std_math.cpp");
-				strcat(cmdLine, " translation\\std_math_bind.cpp");
+				strcat(cmdLine, " translation/std_math.cpp");
+				strcat(cmdLine, " translation/std_math_bind.cpp");
 			}
 			if(strstr(fileContent, "std.typeinfo;"))
 			{
-				strcat(cmdLine, " translation\\std_typeinfo.cpp");
-				strcat(cmdLine, " translation\\std_typeinfo_bind.cpp");
+				strcat(cmdLine, " translation/std_typeinfo.cpp");
+				strcat(cmdLine, " translation/std_typeinfo_bind.cpp");
 			}
 			if(strstr(fileContent, "std.file;"))
 			{
-				strcat(cmdLine, " translation\\std_file.cpp");
-				strcat(cmdLine, " translation\\std_file_bind.cpp");
+				strcat(cmdLine, " translation/std_file.cpp");
+				strcat(cmdLine, " translation/std_file_bind.cpp");
 			}
 			if(strstr(fileContent, "std.vector;"))
 			{
-				strcat(cmdLine, " translation\\std_vector.cpp");
-				strcat(cmdLine, " translation\\std_vector_bind.cpp");
+				strcat(cmdLine, " translation/std_vector.cpp");
+				strcat(cmdLine, " translation/std_vector_bind.cpp");
 				if(!strstr(fileContent, "std.typeinfo;"))
 				{
-					strcat(cmdLine, " translation\\std_typeinfo.cpp");
-					strcat(cmdLine, " translation\\std_typeinfo_bind.cpp");
+					strcat(cmdLine, " translation/std_typeinfo.cpp");
+					strcat(cmdLine, " translation/std_typeinfo_bind.cpp");
 				}
 			}
 			if(strstr(fileContent, "std.list;"))
 			{
-				strcat(cmdLine, " translation\\std_list.cpp");
+				strcat(cmdLine, " translation/std_list.cpp");
 				if(!strstr(fileContent, "std.typeinfo;"))
 				{
-					strcat(cmdLine, " translation\\std_typeinfo.cpp");
-					strcat(cmdLine, " translation\\std_typeinfo_bind.cpp");
+					strcat(cmdLine, " translation/std_typeinfo.cpp");
+					strcat(cmdLine, " translation/std_typeinfo_bind.cpp");
 				}
 			}
 			if(strstr(fileContent, "std.range;"))
 			{
-				strcat(cmdLine, " translation\\std_range.cpp");
+				strcat(cmdLine, " translation/std_range.cpp");
 			}
 			if(strstr(fileContent, "std.gc;"))
 			{
-				strcat(cmdLine, " translation\\std_gc.cpp");
-				strcat(cmdLine, " translation\\std_gc_bind.cpp");
+				strcat(cmdLine, " translation/std_gc.cpp");
+				strcat(cmdLine, " translation/std_gc_bind.cpp");
 			}
 			if(strstr(fileContent, "std.io;"))
 			{
-				strcat(cmdLine, " translation\\std_io.cpp");
-				strcat(cmdLine, " translation\\std_io_bind.cpp");
+				strcat(cmdLine, " translation/std_io.cpp");
+				strcat(cmdLine, " translation/std_io_bind.cpp");
 			}
 			if(strstr(fileContent, "std.dynamic;"))
 			{
-				strcat(cmdLine, " translation\\std_dynamic.cpp");
-				strcat(cmdLine, " translation\\std_dynamic_bind.cpp");
+				strcat(cmdLine, " translation/std_dynamic.cpp");
+				strcat(cmdLine, " translation/std_dynamic_bind.cpp");
 			}
 			if(strstr(fileContent, "std.time;"))
 			{
-				strcat(cmdLine, " translation\\std_time.cpp");
-				strcat(cmdLine, " translation\\std_time_bind.cpp");
+				strcat(cmdLine, " translation/std_time.cpp");
+				strcat(cmdLine, " translation/std_time_bind.cpp");
 			}
 			if(strstr(fileContent, "img.canvas;"))
 			{
-				strcat(cmdLine, " translation\\img_canvas.cpp");
-				strcat(cmdLine, " translation\\img_canvas_bind.cpp");
+				strcat(cmdLine, " translation/img_canvas.cpp");
+				strcat(cmdLine, " translation/img_canvas_bind.cpp");
 			}
 			if(strstr(fileContent, "win.window;"))
 			{
-				strcat(cmdLine, " translation\\win_window.cpp");
-				strcat(cmdLine, " translation\\win_window_bind.cpp");
-				strcat(cmdLine, " translation\\win_window_ex.cpp");
-				strcat(cmdLine, " translation\\win_window_ex_bind.cpp -mwindows -mconsole");
+				strcat(cmdLine, " translation/win_window.cpp");
+				strcat(cmdLine, " translation/win_window_bind.cpp");
+				strcat(cmdLine, " translation/win_window_ex.cpp");
+				strcat(cmdLine, " translation/win_window_ex_bind.cpp -mwindows -mconsole");
 				if(!strstr(fileContent, "img.canvas;"))
 				{
-					strcat(cmdLine, " translation\\img_canvas.cpp");
-					strcat(cmdLine, " translation\\img_canvas_bind.cpp");
+					strcat(cmdLine, " translation/img_canvas.cpp");
+					strcat(cmdLine, " translation/img_canvas_bind.cpp");
 				}
 			}
 			printf("Command line: %s\n", cmdLine);
