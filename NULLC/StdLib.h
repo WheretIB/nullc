@@ -28,6 +28,7 @@ namespace NULLC
 	NULLCRef	CopyObject(NULLCRef ptr);
 	NULLCRef	ReplaceObject(NULLCRef l, NULLCRef r);
 	void		SwapObjects(NULLCRef l, NULLCRef r);
+	int			CompareObjects(NULLCRef l, NULLCRef r);
 
 	void		MarkMemory(unsigned int number);
 
