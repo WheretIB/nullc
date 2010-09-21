@@ -452,16 +452,15 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	_dup2(_dup( _fileno( stderr )), 2);
 #endif
 
-	bool runUnitTests = false;
-	if(runUnitTests)
-	{
-		AllocConsole();
+//#define NULLC_NO_UNITTESTS
+#ifndef NULLC_NO_UNITTESTS
+	AllocConsole();
 
-		freopen("CONOUT$", "w", stdout);
-		freopen("CONIN$", "r", stdin);
+	freopen("CONOUT$", "w", stdout);
+	freopen("CONIN$", "r", stdin);
 
-		RunTests(false);
-	}
+	RunTests(false);
+#endif
 
 	nullcInit("Modules\\");
 
