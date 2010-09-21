@@ -77,10 +77,19 @@ void NodeNumber::TranslateToC(FILE *fOut)
 		fprintf(fOut, "(");
 		typeInfo->OutputCType(fOut, "");
 		fprintf(fOut, ")(%d)", num.integer);
-	}else if(typeInfo == typeChar || typeInfo == typeShort || typeInfo == typeInt)
+	}else if(typeInfo == typeChar || typeInfo == typeShort || typeInfo == typeInt){
 		fprintf(fOut, "%d", num.integer);
-	else if(typeInfo == typeDouble || typeInfo == typeFloat)
-	{
+	}else if(typeInfo == typeDouble || typeInfo == typeFloat){
+#ifdef __linux
+		if(isnan(num.real))
+			fprintf(fOut, "(0.0 / __nullcZero())");
+		else if(isinf(num.real) && num.real < 0)
+			fprintf(fOut, "(-1.0 / __nullcZero())");
+		else if(isinf(num.real))
+			fprintf(fOut, "(1.0 / __nullcZero())");
+		else
+			fprintf(fOut, typeInfo == typeFloat ? "%ff" : "%f", num.real);
+#else
 		switch(_fpclass(num.real))
 		{
 		case _FPCLASS_PINF:
@@ -96,6 +105,7 @@ void NodeNumber::TranslateToC(FILE *fOut)
 		default:
 			fprintf(fOut, typeInfo == typeFloat ? "%ff" : "%f", num.real);
 		}
+#endif
 	}else if(typeInfo == typeLong)
 		fprintf(fOut, "%lldLL", num.integer64);
 	else

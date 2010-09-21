@@ -1179,7 +1179,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			{
 				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-				sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
+				sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin)-nameShift, local->name.begin+nameShift, local->pos);
 			
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
 			}
@@ -1204,7 +1204,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			{
 				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-				sprintf(name, "%s%.*s_%d", namePrefix, local->name.end - local->name.begin-nameShift, local->name.begin+nameShift, local->pos);
+				sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin)-nameShift, local->name.begin+nameShift, local->pos);
 			
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
 			}
@@ -1226,7 +1226,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		VariableInfo *param = info->firstParam;
 		for(; param; param = param->next)
 		{
-			sprintf(name, "%.*s", param->name.end - param->name.begin, param->name.begin);
+			sprintf(name, "%.*s", int(param->name.end - param->name.begin), param->name.begin);
 			param->varType->OutputCType(fC, name);
 			fprintf(fC, ", ");
 		}
@@ -1248,7 +1248,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin)-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
 		if(varInfo->pos >> 24)
 			fprintf(fC, "extern ");
 		else if(*varInfo->name.begin == '$')
@@ -1344,7 +1344,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 			const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-			sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, varInfo->name.end-varInfo->name.begin-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+			sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin)-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
 			fprintf(fC, "\t__nullcRegisterGlobal((void*)&%s, __nullcTR[%d]);\r\n", vName, varInfo->varType->typeIndex);
 		}
 		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
