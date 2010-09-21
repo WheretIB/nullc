@@ -86,3 +86,22 @@ const char	*testAutoReturn =
 auto f2(){ return 3; }\r\n\
 return f2();";
 TEST_RESULT("Auto return type tests", testAutoReturn, "3");
+
+const char	*testFunctionPointerSelect = 
+"int foo(int a){ return -a; }\r\n\
+int foo(double a){ return a*2; }\r\n\
+\r\n\
+int bar(int ref(double) f, double y){ return f(y); }\r\n\
+\r\n\
+return bar(foo, 5);";
+TEST_RESULT("Function pointer select", testFunctionPointerSelect, "10");
+
+const char	*testFunctionPointerSelect2 = 
+"int foo(int a){ return -a; }\r\n\
+int foo(double a){ return a*2; }\r\n\
+\r\n\
+int bar(int ref(char) f, double y){ return f(y); }\r\n\
+int bar(int ref(double) f, double y){ return f(y); }\r\n\
+\r\n\
+return bar(foo, 5);";
+TEST_RESULT("Function pointer select", testFunctionPointerSelect2, "10");

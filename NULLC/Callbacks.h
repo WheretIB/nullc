@@ -4,6 +4,9 @@
 
 void CallbackInitialize();
 
+const char*	SetCurrentFunction(const char* name);
+unsigned	SetCurrentArgument(unsigned argument);
+
 void AddFunctionToSortedList(void *info);
 
 void SetCurrentAlignment(unsigned int alignment);

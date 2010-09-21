@@ -51,6 +51,21 @@ void	AddFunctionToSortedList(void *info)
 	funcMap.insert(((FunctionInfo*)info)->nameHash, (FunctionInfo*)info);
 }
 
+const char*	currFunction;
+const char*	SetCurrentFunction(const char* func)
+{
+	const char* lastFunction = currFunction;
+	currFunction = func;
+	return lastFunction;
+}
+unsigned	currArgument = 0;
+unsigned	SetCurrentArgument(unsigned argument)
+{
+	unsigned lastArgument = currArgument;
+	currArgument = argument;
+	return lastArgument;
+}
+
 // Information about current type
 TypeInfo*		currType = NULL;
 TypeInfo*		typeObjectArray = NULL;
@@ -896,7 +911,32 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			ThrowError(pos, "ERROR: variable or function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
 
 		if(!preferLastFunction && CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
-			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
+		{
+			fID = -1;
+			TypeInfo *preferredType = NULL;
+			if(currFunction)
+			{
+				FunctionInfo **fMap = funcMap.find(GetStringHash(currFunction));
+				if(fMap && (*fMap)->paramCount > currArgument)
+						preferredType = (*fMap)->funcType->funcType->paramType[currArgument];
+			}
+			if(preferredType)
+			{
+				HashMap<FunctionInfo*>::Node *curr = funcMap.first(hash);
+				while(curr)
+				{
+					FunctionInfo *func = curr->value;
+					if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->funcType == preferredType)
+					{
+						fID = func->indexInArr;
+						break;
+					}
+					curr = funcMap.next(curr);
+				}
+			}
+			if(fID == -1)
+				ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
+		}
 
 		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL || CodeInfo::funcInfo[fID]->type == FunctionInfo::COROUTINE)
 		{
@@ -2229,8 +2269,8 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		{
 			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 				fRating += 2;	// array -> class (unsized array)
-			else if(expectedType == typeAutoArray && paramType->arrSize)
-				fRating += 8;	// array -> auto[]
+			else if(expectedType == typeAutoArray && paramType->arrLevel)
+				fRating += 10;	// array -> auto[]
 			else if(expectedType->refLevel == 1 && expectedType->refLevel == paramType->refLevel && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
 				fRating += 5;	// array[N] ref -> array[] -> array[] ref
 			else if(expectedType->funcType != NULL && nodeType == typeNodeFuncDef && ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType == expectedType)
@@ -3344,6 +3384,9 @@ void SetGlobalSize(unsigned int offset)
 
 void CallbackReset()
 {
+	currFunction = NULL;
+	currArgument = 0;
+
 	varInfoTop.reset();
 	funcInfoTop.reset();
 	cycleDepth.reset();
