@@ -35,11 +35,24 @@ struct NULLCRef
 };
 
 // Wrapper over NULLC function pointer for use in external functions
-typedef struct
+template<typename T = void>
+struct NULLCFuncPtr
 {
 	void	*context;
 	unsigned int id;
-} NULLCFuncPtr;
+
+	NULLCFuncPtr()
+	{
+		context = NULL;
+		id = 0;
+	}
+	template<typename Y>
+	NULLCFuncPtr(const NULLCFuncPtr<Y> r)
+	{
+		context = r.context;
+		id = r.id;
+	}
+};
 
 // Wrapper over NULLC auto[] class for use in external functions
 typedef struct
@@ -125,7 +138,7 @@ struct __nullcUpvalue
 	unsigned int size;
 };
 void __nullcCloseUpvalue(__nullcUpvalue *&head, void *ptr);
-NULLCFuncPtr	__nullcMakeFunction(unsigned int id, void* context);
+NULLCFuncPtr<>	__nullcMakeFunction(unsigned int id, void* context);
 NULLCRef		__nullcMakeAutoRef(void* ptr, unsigned int typeID);
 void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID);
 NULLCAutoArray	__makeAutoArray(unsigned type, NULLCArray<void> arr);
@@ -170,8 +183,8 @@ NULLCRef	replace(NULLCRef l, NULLCRef r, void* unused);
 void		swap(NULLCRef l, NULLCRef r, void* unused);
 int			equal(NULLCRef l, NULLCRef r, void* unused);
 
-int __rcomp(NULLCRef a, NULLCRef b);
-int __rncomp(NULLCRef a, NULLCRef b);
+int __rcomp(NULLCRef a, NULLCRef b, void* unused);
+int __rncomp(NULLCRef a, NULLCRef b, void* unused);
 
 // const string implementation
 struct const_string
@@ -202,8 +215,8 @@ NULLCTypeInfo* __nullcGetTypeInfo(unsigned id);
 
 unsigned int typeid__(NULLCRef type, void* unused);
 
-int __pcomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused);
-int __pncomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused);
+int __pcomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused);
+int __pncomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused);
 
 int __typeCount(void* unused);
 
@@ -212,7 +225,7 @@ NULLCRef __operatorSet(NULLCRef l, NULLCAutoArray* r, void* unused);
 NULLCAutoArray* __operatorSet(NULLCAutoArray* l, NULLCAutoArray* r, void* unused);
 NULLCRef __operatorIndex(NULLCAutoArray* l, unsigned int index, void* unused);
 
-NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* f, void* unused);
+NULLCFuncPtr<> __redirect(NULLCRef r, NULLCArray<int>* f, void* unused);
 
 // char inline array definition support
 NULLCArray<char>* __operatorSet(NULLCArray<char>* dst, NULLCArray<int> src, void* unused);
@@ -259,6 +272,6 @@ void auto_array_impl(NULLCAutoArray* arr, unsigned type, int count, void* unused
 NULLCAutoArray auto_array(unsigned type, int count, void* unused);
 void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused);
 
-void __force_size(int* s, int size, void* unused);
+void __force_size(NULLCAutoArray* arr, int size, void* unused);
 int isCoroutineReset(NULLCRef f, void* unused);
 void __assertCoroutine(NULLCRef f, void* unused);

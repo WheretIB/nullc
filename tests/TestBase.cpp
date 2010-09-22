@@ -218,9 +218,7 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			}
 		}
 		if(strstr(code, "std.range;"))
-		{
 			strcat(cmdLine, " NULLC\\translation\\std_range.cpp");
-		}
 		if(strstr(code, "test.a;"))
 		{
 			strcat(cmdLine, " test_a.cpp");
@@ -249,6 +247,18 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			strcat(cmdLine, " test_defargs6.cpp");
 		if(strstr(code, "test.coroutine1;"))
 			strcat(cmdLine, " test_coroutine1.cpp");
+		if(strstr(code, "test.list_comp1;"))
+		{
+			strcat(cmdLine, " NULLC\\translation\\std_range.cpp");
+			strcat(cmdLine, " test_list_comp1.cpp");
+		}
+		if(strstr(code, "test.list_comp2;"))
+		{
+			if(!strstr(code, "test.list_comp1;"))
+				strcat(cmdLine, " NULLC\\translation\\std_range.cpp");
+			strcat(cmdLine, " test_list_comp2.cpp");
+		}
+		
 		if(strstr(code, "test.alignment;"))
 		{
 			strcat(cmdLine, " test_alignment.cpp");

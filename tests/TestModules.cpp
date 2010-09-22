@@ -25,7 +25,7 @@ char[] r = arr + arr2;\r\n\
 return r.size;";
 TEST_RESULT("Hidden variable exclusion from import", testImportHidding, "12");
 
-#ifdef NULLC_AUTOBINDING
+#if defined(NULLC_AUTOBINDING) && !defined(NULLC_ENABLE_C_TRANSLATION)
 
 NULLC_BIND int myFoo(int x){ return x + 15; }
 

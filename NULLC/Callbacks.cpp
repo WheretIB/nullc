@@ -364,31 +364,10 @@ void AddGeneratorReturnData(const char *pos)
 	// Check that return type is known
 	if(!retType)
 		ThrowError(pos, "ERROR: not a single element is generated, and an array element type is unknown");
+	if(retType == typeVoid)
+		ThrowError(pos, "ERROR: cannot generate an array of 'void' element type");
 	currType = retType;
-	// Special case for return types with size of 0
-	if(!retType->size)
-	{
-		if(retType == typeVoid)
-			ThrowError(pos, "ERROR: cannot generate an array of 'void' element type");
-		AddVoidNode();
-		CodeInfo::nodeList.back()->typeInfo = retType;
-		return;
-	}
-	// push as many 4-bytes on stack as necessary
-	unsigned int size = retType->size < 4 ? 4 : retType->size;
-	for(unsigned i = 0; i < size / 4; i++)
-	{
-		CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
-		// 4-bytes after the first are wrapped together with previous one
-		if(i)
-			AddTwoExpressionNode(i == (size / 4) - 1 ? retType : typeInt);
-	}
-	// Is there's only one 4-byte, wrap it up
-	if(size == 4 && retType != typeFloat)
-	{
-		AddVoidNode();
-		AddTwoExpressionNode(retType);
-	}
+	CodeInfo::nodeList.push_back(new NodeZeroOP(retType));
 }
 
 void AddVoidNode()
@@ -3279,6 +3258,7 @@ void AddListGenerator(const char* pos, void *rType)
 	AddGetAddressNode(pos, InplaceStr("pos"));
 	AddUnaryModifyOpNode(pos, OP_INCREMENT, OP_POSTFIX);
 	AddMemberFunctionCall(pos, "set", 2);
+	AddPopNode(pos);
 
 	EndBlock();
 	AddForEachNode(pos);

@@ -187,29 +187,34 @@ public:
 		fullNameHash = GetStringHash(fullName);
 		return fullName;
 	}
+	void WriteCNameEscaped(FILE *fOut, const char *realName)
+	{
+		while(*realName)
+		{
+			if(*realName == ' ' || *realName == '[' || *realName == ']' || *realName == '(' || *realName == ')' || *realName == ',')
+				fwrite("_", 1, 1, fOut);
+			else
+				fwrite(realName, 1, 1, fOut);
+			realName++;
+		}
+	}
 	void OutputCType(FILE *fOut, const char *variable)
 	{
 		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY)
 		{
-			const char* realName = GetFullTypeName();
-			while(*realName)
-			{
-				if(*realName == ' ' || *realName == '[' || *realName == ']' || *realName == '(' || *realName == ')' || *realName == ',')
-					fwrite("_", 1, 1, fOut);
-				else
-					fwrite(realName, 1, 1, fOut);
-				realName++;
-			}
+			WriteCNameEscaped(fOut, GetFullTypeName());
 			fprintf(fOut, " %s", variable);
 		}else if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY){
-			fprintf(fOut, "NULLCArray<", variable);
+			fprintf(fOut, "NULLCArray<");
 			subType->OutputCType(fOut, "");
 			fprintf(fOut, "> %s", variable);
 		}else if(refLevel){
 			subType->OutputCType(fOut, "");
 			fprintf(fOut, "* %s", variable);
 		}else if(funcType){
-			fprintf(fOut, "NULLCFuncPtr %s", variable);
+			fprintf(fOut, "NULLCFuncPtr<__typeProxy_");
+			WriteCNameEscaped(fOut, GetFullTypeName());
+			fprintf(fOut, "> %s", variable);
 		}else{
 			if(strcmp(name, "auto ref") == 0)
 				fprintf(fOut, "NULLCRef %s", variable);

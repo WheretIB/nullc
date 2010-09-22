@@ -339,8 +339,16 @@ void NodeReturnOp::Compile()
 
 	CompileExtra();
 
-	// Compute value that we're going to return
-	first->Compile();
+	if(first->nodeType == typeNodeZeroOp && first->typeInfo != typeVoid)
+	{
+		// return zero'd object
+		unsigned times = (first->typeInfo == typeFloat) ? 2 : ((first->typeInfo->size + 3) / 4);
+		for(unsigned i = 0; i < times; i++)
+			cmdList.push_back(VMCmd(cmdPushImmt, 0));
+	}else{
+		// Compute value that we're going to return
+		first->Compile();
+	}
 	// Convert it to the return type of the function
 	if(typeInfo)
 		ConvertFirstToSecond(first->typeInfo->stackType, typeInfo->stackType);

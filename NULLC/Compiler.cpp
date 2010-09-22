@@ -1120,7 +1120,14 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 	{
 		TypeInfo *type = translationTypes[i];
-		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || type->funcType || i < runtimeModule->typeCount)
+		if(type->funcType)
+		{
+			fprintf(fC, "struct __typeProxy_");
+			type->WriteCNameEscaped(fC, type->GetFullTypeName());
+			fprintf(fC, "{};\r\n");
+			continue;
+		}
+		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || i < runtimeModule->typeCount)
 			continue;
 		if(type->arrLevel)
 		{
@@ -1180,7 +1187,6 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
 				sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin)-nameShift, local->name.begin+nameShift, local->pos);
-			
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
 			}
 		}
@@ -1217,6 +1223,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			continue;
 		if(i < functionsInModules)
 			fprintf(fC, "extern ");
+		else if(strcmp(info->name, "$gen_list") == 0 || memcmp(info->name, "$genl", 5) == 0)
+			fprintf(fC, "static ");
 		info->retType->OutputCType(fC, "");
 
 		OutputCFunctionName(fC, info);

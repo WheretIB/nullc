@@ -299,9 +299,9 @@ void __nullcCloseUpvalue(__nullcUpvalue *&head, void *ptr)
 		curr = next;
 	}
 }
-NULLCFuncPtr	__nullcMakeFunction(unsigned int id, void* context)
+NULLCFuncPtr<>	__nullcMakeFunction(unsigned int id, void* context)
 {
-	NULLCFuncPtr ret;
+	NULLCFuncPtr<> ret;
 	ret.id = id;
 	ret.context = context;
 	return ret;
@@ -581,12 +581,12 @@ int			equal(NULLCRef l, NULLCRef r, void* unused)
 	return 0 == memcmp(l.ptr, r.ptr, nullcGetTypeSize(l.typeID));
 }
 
-int __rcomp(NULLCRef a, NULLCRef b)
+int __rcomp(NULLCRef a, NULLCRef b, void* unused)
 {
 	return a.ptr == b.ptr;
 }
 
-int __rncomp(NULLCRef a, NULLCRef b)
+int __rncomp(NULLCRef a, NULLCRef b, void* unused)
 {
 	return a.ptr != b.ptr;
 }
@@ -604,11 +604,11 @@ unsigned int typeid__(NULLCRef type, void* unused)
 	return type.typeID;
 }
 
-int __pcomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused)
+int __pcomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused)
 {
 	return a.context == b.context && a.id == b.id;
 }
-int __pncomp(NULLCFuncPtr a, NULLCFuncPtr b, void* unused)
+int __pncomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused)
 {
 	return a.context != b.context || a.id != b.id;
 }
@@ -686,10 +686,10 @@ NULLCRef __operatorIndex(NULLCAutoArray* left, unsigned int index, void* unused)
 	return ret;
 }
 
-NULLCFuncPtr __redirect(NULLCRef r, NULLCArray<int>* arr, void* unused)
+NULLCFuncPtr<> __redirect(NULLCRef r, NULLCArray<int>* arr, void* unused)
 {
 	unsigned int *funcs = (unsigned int*)arr->ptr;
-	NULLCFuncPtr ret = { 0, 0 };
+	NULLCFuncPtr<> ret;
 	if(r.typeID > arr->size)
 	{
 		nullcThrowError("ERROR: type index is out of bounds of redirection table");
@@ -943,7 +943,7 @@ namespace GC
 	// Function that checks function context for pointers
 	void CheckFunction(char* ptr)
 	{
-		NULLCFuncPtr *fPtr = (NULLCFuncPtr*)ptr;
+		NULLCFuncPtr<> *fPtr = (NULLCFuncPtr<>*)ptr;
 		// If there's no context, there's nothing to check
 		if(!fPtr->context)
 			return;
@@ -1534,10 +1534,14 @@ void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused)
 	}
 	memcpy(arr->ptr + elemSize * pos, x.ptr, elemSize);
 }
-void __force_size(int* s, int size, void* unused)
+void __force_size(NULLCAutoArray* arr, int size, void* unused)
 {
-	assert(size <= *s, "ERROR: cannot extend array", NULL);
-	*s = size;
+	if(size > (unsigned)arr->len)
+	{
+		nullcThrowError("ERROR: cannot extend array");
+		return;
+	}
+	arr->len = size;
 }
 
 int isCoroutineReset(NULLCRef f, void* unused)
@@ -1547,7 +1551,7 @@ int isCoroutineReset(NULLCRef f, void* unused)
 		nullcThrowError("Argument is not a function");
 		return 0;
 	}
-	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
+	NULLCFuncPtr<> *fPtr = (NULLCFuncPtr<>*)f.ptr;
 	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
 	{
 		nullcThrowError("Function is not a coroutine");
@@ -1559,7 +1563,7 @@ void __assertCoroutine(NULLCRef f, void* unused)
 {
 	if(__nullcGetTypeInfo(f.typeID)->category != NULLC_FUNCTION)
 		nullcThrowError("Argument is not a function");
-	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
+	NULLCFuncPtr<> *fPtr = (NULLCFuncPtr<>*)f.ptr;
 	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
 		nullcThrowError("ERROR: function is not a coroutine");
 }
