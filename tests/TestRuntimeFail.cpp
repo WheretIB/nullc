@@ -2,7 +2,7 @@
 
 #include <assert.h>
 
-#ifndef _DEBUG
+#if !defined(_DEBUG) && !defined(NULLC_ENABLE_C_TRANSLATION)
 	#define FAILURE_TEST
 #endif
 

@@ -123,19 +123,19 @@ void	RunTests(bool verbose)
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	if(!CompileFile("Modules/std/math.nc"))
 		printf("ERROR: failed to compile std.math for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_math.cpp", "__init_std_math_nc");
+	nullcTranslateToC("NULLC/translation/std_math.cpp", "__init_std_math_nc");
 
 	if(!CompileFile("Modules/std/typeinfo.nc"))
 		printf("ERROR: failed to compile std.typeinfo for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_typeinfo.cpp", "__init_std_typeinfo_nc");
+	nullcTranslateToC("NULLC/translation/std_typeinfo.cpp", "__init_std_typeinfo_nc");
 
 	if(!CompileFile("Modules/std/file.nc"))
 		printf("ERROR: failed to compile std.file for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_file.cpp", "__init_std_file_nc");
+	nullcTranslateToC("NULLC/translation/std_file.cpp", "__init_std_file_nc");
 
 	if(!CompileFile("Modules/std/vector.nc"))
 		printf("ERROR: failed to compile std.vector for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_vector.cpp", "__init_std_vector_nc");
+	nullcTranslateToC("NULLC/translation/std_vector.cpp", "__init_std_vector_nc");
 
 	if(!nullcCompile("import std.math; float4 a; a.x = 2;"))
 		printf("ERROR: failed to compile test_a for translation\n");
@@ -175,23 +175,23 @@ void	RunTests(bool verbose)
 
 	if(!CompileFile("Modules/std/list.nc"))
 		printf("ERROR: failed to compile std.list for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_list.cpp", "__init_std_list_nc");
+	nullcTranslateToC("NULLC/translation/std_list.cpp", "__init_std_list_nc");
 
 	if(!CompileFile("Modules/std/range.nc"))
 		printf("ERROR: failed to compile std.range for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_range.cpp", "__init_std_range_nc");
+	nullcTranslateToC("NULLC/translation/std_range.cpp", "__init_std_range_nc");
 
 	if(!CompileFile("Modules/std/gc.nc"))
 		printf("ERROR: failed to compile std.gc for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_gc.cpp", "__init_std_gc_nc");
+	nullcTranslateToC("NULLC/translation/std_gc.cpp", "__init_std_gc_nc");
 
 	if(!CompileFile("Modules/std/dynamic.nc"))
 		printf("ERROR: failed to compile std.dynamic for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_dynamic.cpp", "__init_std_dynamic_nc");
+	nullcTranslateToC("NULLC/translation/std_dynamic.cpp", "__init_std_dynamic_nc");
 
 	if(!CompileFile("Modules/std/io.nc"))
 		printf("ERROR: failed to compile std.io for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_io.cpp", "__init_std_io_nc");
+	nullcTranslateToC("NULLC/translation/std_io.cpp", "__init_std_io_nc");
 
 	if(!nullcCompile("coroutine int foo(){ int i = 10; while(i) yield i++; }"))
 		printf("ERROR: failed to compile test_coroutine1 for translation\n");
@@ -207,26 +207,34 @@ void	RunTests(bool verbose)
 
 	if(!CompileFile("Modules/std/time.nc"))
 		printf("ERROR: failed to compile std.time for translation\n");
-	nullcTranslateToC("NULLC\\translation\\std_time.cpp", "__init_std_time_nc");
+	nullcTranslateToC("NULLC/translation/std_time.cpp", "__init_std_time_nc");
 
 	if(!CompileFile("Modules/img/canvas.nc"))
 		printf("ERROR: failed to compile img.canvas for translation\n");
-	nullcTranslateToC("NULLC\\translation\\img_canvas.cpp", "__init_img_canvas_nc");
+	nullcTranslateToC("NULLC/translation/img_canvas.cpp", "__init_img_canvas_nc");
 
 	if(!CompileFile("Modules/win/window_ex.nc"))
 		printf("ERROR: failed to compile win.window_ex for translation\n");
-	nullcTranslateToC("NULLC\\translation\\win_window_ex.cpp", "__init_win_window_ex_nc");
+	nullcTranslateToC("NULLC/translation/win_window_ex.cpp", "__init_win_window_ex_nc");
 
 	if(!CompileFile("Modules/win/window.nc"))
 		printf("ERROR: failed to compile win.window for translation\n");
-	nullcTranslateToC("NULLC\\translation\\win_window.cpp", "__init_win_window_nc");
+	nullcTranslateToC("NULLC/translation/win_window.cpp", "__init_win_window_nc");
 #endif
 
 	RunCompileFailTests();
 	RunParseFailTests();
 
+#if defined(NULLC_ENABLE_C_TRANSLATION) && defined(__linux)
+	system("cp NULLC/translation/runtime.h runtime.h");
+#endif
+
 	TestQueue queue;
 	queue.RunTests();
+
+#if defined(NULLC_ENABLE_C_TRANSLATION) && defined(__linux)
+	system("rm runtime.h");
+#endif
 
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", testsPassed[0], testsCount[0]);
