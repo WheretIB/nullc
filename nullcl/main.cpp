@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 		{
 			// $$$ move this to a dependency file?
 			char cmdLine[1024];
-			strcpy(cmdLine, "gcc -o ");
+			strcpy(cmdLine, "gcc -g -o ");
 			strcat(cmdLine, outputName);
 			strcat(cmdLine, " __temp.cpp");
 			strcat(cmdLine, " translation/runtime.cpp -lstdc++");
