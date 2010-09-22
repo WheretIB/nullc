@@ -1212,6 +1212,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
 				sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin)-nameShift, local->name.begin+nameShift, local->pos);
 			
+				if(info->name[0] == '$')
+					fprintf(fC, "static ");
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
 			}
 		}
