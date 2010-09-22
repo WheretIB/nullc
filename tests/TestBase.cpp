@@ -167,65 +167,69 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 	varInfo = nullcDebugVariableInfo(&variableCount);
 	symbols = nullcDebugSymbols(NULL);
 
-#if defined(NULLC_ENABLE_C_TRANSLATION) && defined(_MSC_VER)
-	if(executor == NULLC_X86 && doTranslation)
+#if defined(NULLC_ENABLE_C_TRANSLATION)
+	if(executor == NULLC_VM && doTranslation)
 	{
 		testsCount[TEST_TRANSLATION_INDEX]++;
 		nullcTranslateToC("1test.cpp", "main");
 
+		char cmdLine[1024];
+#if defined(_MSC_VER)
 		STARTUPINFO stInfo;
 		PROCESS_INFORMATION prInfo;
 		memset(&stInfo, 0, sizeof(stInfo));
 		stInfo.cb = sizeof(stInfo);
-
 		memset(&prInfo, 0, sizeof(prInfo));
-		char cmdLine[1024];
 		strcpy(cmdLine, "gcc.exe -o runnable.exe");
+#else
+		strcpy(cmdLine, "gcc -o runnable");
+#endif
+
 		strcat(cmdLine, " 1test.cpp");
-		strcat(cmdLine, " NULLC\\translation\\runtime.cpp -lstdc++");
+		strcat(cmdLine, " NULLC/translation/runtime.cpp -lstdc++");
 		if(strstr(code, "std.math;"))
 		{
-			strcat(cmdLine, " NULLC\\translation\\std_math.cpp");
-			strcat(cmdLine, " NULLC\\translation\\std_math_bind.cpp");
+			strcat(cmdLine, " NULLC/translation/std_math.cpp");
+			strcat(cmdLine, " NULLC/translation/std_math_bind.cpp");
 		}
 		if(strstr(code, "std.typeinfo;"))
 		{
-			strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
-			strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");
+			strcat(cmdLine, " NULLC/translation/std_typeinfo.cpp");
+			strcat(cmdLine, " NULLC/translation/std_typeinfo_bind.cpp");
 		}
 		if(strstr(code, "std.file;"))
 		{
-			strcat(cmdLine, " NULLC\\translation\\std_file.cpp");
-			strcat(cmdLine, " NULLC\\translation\\std_file_bind.cpp");
+			strcat(cmdLine, " NULLC/translation/std_file.cpp");
+			strcat(cmdLine, " NULLC/translation/std_file_bind.cpp");
 		}
 		if(strstr(code, "std.vector;"))
 		{
-			strcat(cmdLine, " NULLC\\translation\\std_vector.cpp");
-			strcat(cmdLine, " NULLC\\translation\\std_vector_bind.cpp");
+			strcat(cmdLine, " NULLC/translation/std_vector.cpp");
+			strcat(cmdLine, " NULLC/translation/std_vector_bind.cpp");
 			if(!strstr(code, "std.typeinfo;"))
 			{
-				strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
-				strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");
+				strcat(cmdLine, " NULLC/translation/std_typeinfo.cpp");
+				strcat(cmdLine, " NULLC/translation/std_typeinfo_bind.cpp");
 			}
 		}
 		if(strstr(code, "std.list;"))
 		{
-			strcat(cmdLine, " NULLC\\translation\\std_list.cpp");
+			strcat(cmdLine, " NULLC/translation/std_list.cpp");
 			if(!strstr(code, "std.typeinfo;") && !strstr(code, "std.vector;"))
 			{
-				strcat(cmdLine, " NULLC\\translation\\std_typeinfo.cpp");
-				strcat(cmdLine, " NULLC\\translation\\std_typeinfo_bind.cpp");
+				strcat(cmdLine, " NULLC/translation/std_typeinfo.cpp");
+				strcat(cmdLine, " NULLC/translation/std_typeinfo_bind.cpp");
 			}
 		}
 		if(strstr(code, "std.range;"))
-			strcat(cmdLine, " NULLC\\translation\\std_range.cpp");
+			strcat(cmdLine, " NULLC/translation/std_range.cpp");
 		if(strstr(code, "test.a;"))
 		{
 			strcat(cmdLine, " test_a.cpp");
 			if(!strstr(code, "std.math;"))
 			{
-				strcat(cmdLine, " NULLC\\translation\\std_math.cpp");
-				strcat(cmdLine, " NULLC\\translation\\std_math_bind.cpp");
+				strcat(cmdLine, " NULLC/translation/std_math.cpp");
+				strcat(cmdLine, " NULLC/translation/std_math_bind.cpp");
 			}
 		}
 		if(strstr(code, "test.importhide;"))
@@ -249,13 +253,13 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			strcat(cmdLine, " test_coroutine1.cpp");
 		if(strstr(code, "test.list_comp1;"))
 		{
-			strcat(cmdLine, " NULLC\\translation\\std_range.cpp");
+			strcat(cmdLine, " NULLC/translation/std_range.cpp");
 			strcat(cmdLine, " test_list_comp1.cpp");
 		}
 		if(strstr(code, "test.list_comp2;"))
 		{
 			if(!strstr(code, "test.list_comp1;"))
-				strcat(cmdLine, " NULLC\\translation\\std_range.cpp");
+				strcat(cmdLine, " NULLC/translation/std_range.cpp");
 			strcat(cmdLine, " test_list_comp2.cpp");
 		}
 		
@@ -266,15 +270,16 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 		}
 		if(strstr(code, "std.gc;"))
 		{
-			strcat(cmdLine, " NULLC\\translation\\std_gc.cpp");
-			strcat(cmdLine, " NULLC\\translation\\std_gc_bind.cpp");
+			strcat(cmdLine, " NULLC/translation/std_gc.cpp");
+			strcat(cmdLine, " NULLC/translation/std_gc_bind.cpp");
 		}
 		if(strstr(code, "std.dynamic;"))
 		{
-			strcat(cmdLine, " NULLC\\translation\\std_dynamic.cpp");
-			strcat(cmdLine, " NULLC\\translation\\std_dynamic_bind.cpp");
+			strcat(cmdLine, " NULLC/translation/std_dynamic.cpp");
+			strcat(cmdLine, " NULLC/translation/std_dynamic_bind.cpp");
 		}
-		
+
+#if defined(_MSC_VER)
 		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
 		res = GetLastError();
 		WaitForSingleObject(prInfo.hProcess, 10000);
@@ -305,8 +310,27 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 		}else{
 			if(message && !messageVerbose)
 				printf("%s\n", message);
-			printf("C++ compilation error\r\n", expected, retCode);
+			printf("C++ compilation error (%d)\r\n", retCode);
 		}
+#else
+		int retCode = system(cmdLine);
+		if(!retCode)
+		{
+			retCode = system("./runnable") >> 8;
+			if(atoi(expected) != (int)retCode)
+			{
+				if(message && !messageVerbose)
+					printf("%s\n", message);
+				printf("C++: failed, expected %s, got %d\r\n", expected, retCode);
+			}else{
+				testsPassed[TEST_TRANSLATION_INDEX]++;
+			}
+		}else{
+			if(message && !messageVerbose)
+				printf("%s\n", message);
+			printf("C++ compilation error (%d)\r\n", retCode);
+		}
+#endif
 	}
 #endif
 
