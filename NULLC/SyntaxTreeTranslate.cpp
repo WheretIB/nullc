@@ -219,7 +219,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 			OutputIdent(fOut);
 			fprintf(fOut, "*(int*)((char*)__");
 			OutputCFunctionName(fOut, parentFunction);
-			fprintf(fOut, "_ext_%d + 4)", parentFunction->allParamSize);
+			fprintf(fOut, "_ext_%d + %d)", parentFunction->allParamSize, NULLC_PTR_SIZE);
 			fprintf(fOut, " = %d;\r\n", yieldResult ? (parentFunction->yieldCount + 1) : 0);
 		}
 		OutputIdent(fOut);
@@ -237,7 +237,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 		OutputIdent(fOut);
 		fprintf(fOut, "*(int*)((char*)__");
 		OutputCFunctionName(fOut, parentFunction);
-		fprintf(fOut, "_ext_%d + 4)", parentFunction->allParamSize);
+		fprintf(fOut, "_ext_%d + %d)", parentFunction->allParamSize, NULLC_PTR_SIZE);
 		fprintf(fOut, " = %d;\r\n", yieldResult ? (parentFunction->yieldCount + 1) : 0);
 	}
 	OutputIdent(fOut);
@@ -253,6 +253,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, ");\r\n");
 		OutputIdent(fOut);
 		fprintf(fOut, "return 0;\r\n");
+		return;
 	}
 	if(typeInfo == typeVoid || first->typeInfo == typeVoid)
 	{
@@ -377,7 +378,7 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 
 				fprintf(fOut, "if(*(int*)((char*)__");
 				OutputCFunctionName(fOut, funcInfo);
-				fprintf(fOut, "_ext_%d + 4)", funcInfo->allParamSize);
+				fprintf(fOut, "_ext_%d + %d)", funcInfo->allParamSize, NULLC_PTR_SIZE);
 
 				fprintf(fOut, " == %d)\r\n", i + 1);
 				OutputIdent(fOut);
@@ -682,7 +683,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 
 			if(closure)
 			{
-				fprintf(fOut, "(((int**)%s)[%d] = ", closureName, pos);
+				fprintf(fOut, "(*(int**)((char*)%s + %d) = ", closureName, pos * 4);
 			}else{
 				fprintf(fOut, "(((int**)(*");
 				((NodeOneOP*)first)->GetFirstNode()->TranslateToC(fOut);
@@ -701,18 +702,18 @@ void NodeDereference::TranslateToC(FILE *fOut)
 
 			if(curr->targetPos == ~0u)
 			{
-				fprintf(fOut, "(int*)&((int**)%s)[%d])", closureName, pos + 1);
+				fprintf(fOut, "(int*)((char*)%s + %d))", closureName, pos * 4 + NULLC_PTR_SIZE);
 			}else{
 				if(curr->targetLocal)
 				{
 					fprintf(fOut, "(int*)&%s", variableName);
 				}else{
 					assert(closureFunc->parentFunc);
-					fprintf(fOut, "((int**)__%s_%d_ext_%d)[%d]", closureFunc->parentFunc->name, CodeInfo::FindFunctionByPtr(closureFunc->parentFunc), closureFunc->parentFunc->allParamSize, curr->targetPos >> 2);
+					fprintf(fOut, "*(int**)((char*)__%s_%d_ext_%d + %d)", closureFunc->parentFunc->name, CodeInfo::FindFunctionByPtr(closureFunc->parentFunc), closureFunc->parentFunc->allParamSize, (curr->targetPos >> 2) * 4);
 				}
 				fprintf(fOut, "),\r\n");
 				OutputIdent(fOut);
-				fprintf(fOut, "(((int**)");
+				fprintf(fOut, "(*(int**)((char*)");
 				if(closure)
 				{
 					fprintf(fOut, "%s", closureName);
@@ -721,9 +722,9 @@ void NodeDereference::TranslateToC(FILE *fOut)
 					((NodeOneOP*)first)->GetFirstNode()->TranslateToC(fOut);
 					fprintf(fOut, ")");
 				}
-				fprintf(fOut, ")[%d] = (int*)__upvalue_%d_%s),\r\n", pos+1, CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName);
+				fprintf(fOut, " + %d) = (int*)__upvalue_%d_%s),\r\n", pos * 4 + NULLC_PTR_SIZE, CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName);
 				OutputIdent(fOut);
-				fprintf(fOut, "(((int*)");
+				fprintf(fOut, "(*(int*)((char*)");
 				if(closure)
 				{
 					fprintf(fOut, "%s", closureName);
@@ -732,7 +733,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 					((NodeOneOP*)first)->GetFirstNode()->TranslateToC(fOut);
 					fprintf(fOut, ")");
 				}
-				fprintf(fOut, ")[%d] = %d),\r\n", pos+2, curr->variable->varType->size);
+				fprintf(fOut, " + %d) = %d),\r\n", pos * 4 + 2 * NULLC_PTR_SIZE, curr->variable->varType->size);
 				OutputIdent(fOut);
 				fprintf(fOut, "(__upvalue_%d_%s = (__nullcUpvalue*)((int*)", CodeInfo::FindFunctionByPtr(varInfo->parentFunction), variableName);
 				if(closure)
@@ -747,7 +748,11 @@ void NodeDereference::TranslateToC(FILE *fOut)
 			}
 			if(curr->next)
 				fprintf(fOut, ",\r\n");
+#ifdef _M_X64
+			pos += ((varInfo->varType->size >> 2) < 4 ? 5 : 2 + (varInfo->varType->size >> 2));
+#else
 			pos += ((varInfo->varType->size >> 2) < 3 ? 3 : 1 + (varInfo->varType->size >> 2));
+#endif
 		}
 		if(nodeDereferenceEndInComma)
 			fprintf(fOut, ",\r\n");
