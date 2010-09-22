@@ -3,6 +3,13 @@
 #include <math.h>
 #include <time.h>
 #include <stdarg.h>
+
+#ifdef __linux
+#include <malloc.h>
+#include <stdlib.h>
+#include <stdint.h>
+#endif
+
 #undef assert
 #define __assert(_Expression) if(!(_Expression)){ printf("assertion failed"); abort(); };
 
@@ -726,6 +733,7 @@ NULLCFuncPtr<> __redirect(NULLCRef r, NULLCArray<int>* arr, void* unused)
 	ret.id = funcs[r.typeID];
 	return ret;
 }
+
 
 NULLCArray<char>* __operatorSet(NULLCArray<char>* dst, NULLCArray<int> src, void* unused)
 {
@@ -1493,7 +1501,7 @@ double NULLC::CollectTime()
 
 int  __newS(int size, unsigned typeID)
 {
-	return (int)NULLC::AllocObject(size, typeID);
+	return (int)(intptr_t)NULLC::AllocObject(size, typeID);
 }
 
 NULLCArray<void>  __newA(int size, int count, unsigned typeID)

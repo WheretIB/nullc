@@ -162,7 +162,6 @@ int main(int argc, char** argv)
 		}
 		delete[] fileContent;
 		nullcTerminate();
-		fclose(ncFile);
 #else
 		printf("To use this flag, compile with NULLC_ENABLE_C_TRANSLATION defined\n");
 #endif
