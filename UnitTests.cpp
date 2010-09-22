@@ -139,39 +139,39 @@ void	RunTests(bool verbose)
 
 	if(!nullcCompile("import std.math; float4 a; a.x = 2;"))
 		printf("ERROR: failed to compile test_a for translation\n");
-	nullcTranslateToC("test_a.cpp", "__init_test_a_nc");
+	nullcTranslateToC("tests/translation/test_a.cpp", "__init_test_a_nc");
 
 	if(!nullcCompile("char[] arr2 = \" world\";{ int r = 5; }"))
 		printf("ERROR: failed to compile test_importhide for translation\n");
-	nullcTranslateToC("test_importhide.cpp", "__init_test_importhide_nc");
+	nullcTranslateToC("tests/translation/test_importhide.cpp", "__init_test_importhide_nc");
 
 	if(!nullcCompile("int func(int a, b = 6){ return a * b; }"))
 		printf("ERROR: failed to compile test_defargs for translation\n");
-	nullcTranslateToC("test_defargs.cpp", "__init_test_defargs_nc");
+	nullcTranslateToC("tests/translation/test_defargs.cpp", "__init_test_defargs_nc");
 
 	if(!nullcCompile("int func(int a, b = 6){ return a * b; } int func(int d, c, a, b = 4){ return d * c + a + b; }"))
 		printf("ERROR: failed to compile test_defargs2 for translation\n");
-	nullcTranslateToC("test_defargs2.cpp", "__init_test_defargs2_nc");
+	nullcTranslateToC("tests/translation/test_defargs2.cpp", "__init_test_defargs2_nc");
 
 	if(!nullcCompile("class Test{ int func(int a, b = 6){ return a * b; } }"))
 		printf("ERROR: failed to compile test_defargs3 for translation\n");
-	nullcTranslateToC("test_defargs3.cpp", "__init_test_defargs3_nc");
+	nullcTranslateToC("tests/translation/test_defargs3.cpp", "__init_test_defargs3_nc");
 
 	if(!nullcCompile("class Test{ int func(int a, b = 6); }"))
 		printf("ERROR: failed to compile test_defargs4 for translation\n");
-	nullcTranslateToC("test_defargs4.cpp", "__init_test_defargs4_nc");
+	nullcTranslateToC("tests/translation/test_defargs4.cpp", "__init_test_defargs4_nc");
 
 	if(!nullcCompile("int foo(int x, char[] a = \"xx\", int y = 0){return x + a[0] + a[1];}"))
 		printf("ERROR: failed to compile test_defargs5 for translation\n");
-	nullcTranslateToC("test_defargs5.cpp", "__init_test_defargs5_nc");
+	nullcTranslateToC("tests/translation/test_defargs5.cpp", "__init_test_defargs5_nc");
 
 	if(!nullcCompile("int x = 5; int foo(auto ref a = &x){return int(a);}"))
 		printf("ERROR: failed to compile test_defargs6 for translation\n");
-	nullcTranslateToC("test_defargs6.cpp", "__init_test_defargs6_nc");
+	nullcTranslateToC("tests/translation/test_defargs6.cpp", "__init_test_defargs6_nc");
 
 	if(!nullcCompile("int CheckAlignment(auto ref ptr, int alignment);"))
 		printf("ERROR: failed to compile test_alignment for translation\n");
-	nullcTranslateToC("test_alignment.cpp", "__init_test_alignment_nc");
+	nullcTranslateToC("tests/translation/test_alignment.cpp", "__init_test_alignment_nc");
 
 	if(!CompileFile("Modules/std/list.nc"))
 		printf("ERROR: failed to compile std.list for translation\n");
@@ -195,15 +195,15 @@ void	RunTests(bool verbose)
 
 	if(!nullcCompile("coroutine int foo(){ int i = 10; while(i) yield i++; }"))
 		printf("ERROR: failed to compile test_coroutine1 for translation\n");
-	nullcTranslateToC("test_coroutine1.cpp", "__init_test_coroutine1_nc");
+	nullcTranslateToC("tests/translation/test_coroutine1.cpp", "__init_test_coroutine1_nc");
 
 	if(!nullcCompile("import std.range; auto a = { for(i in range(4, 10)) yield i; };"))
 		printf("ERROR: failed to compile test_list_comp1 for translation\n");
-	nullcTranslateToC("test_list_comp1.cpp", "__init_test_list_comp1_nc");
+	nullcTranslateToC("tests/translation/test_list_comp1.cpp", "__init_test_list_comp1_nc");
 
 	if(!nullcCompile("import std.range; auto b = { for(i in range(2, 4)) yield i; };"))
 		printf("ERROR: failed to compile test_list_comp2 for translation\n");
-	nullcTranslateToC("test_list_comp2.cpp", "__init_test_list_comp2_nc");
+	nullcTranslateToC("tests/translation/test_list_comp2.cpp", "__init_test_list_comp2_nc");
 
 	if(!CompileFile("Modules/std/time.nc"))
 		printf("ERROR: failed to compile std.time for translation\n");
@@ -225,15 +225,27 @@ void	RunTests(bool verbose)
 	RunCompileFailTests();
 	RunParseFailTests();
 
-#if defined(NULLC_ENABLE_C_TRANSLATION) && defined(__linux)
-	system("cp NULLC/translation/runtime.h runtime.h");
+#if defined(NULLC_ENABLE_C_TRANSLATION)
+	#ifdef __linux
+		system("cp NULLC/translation/runtime.h runtime.h");
+		system("cp NULLC/translation/runtime.h tests/translation/runtime.h");
+	#else
+		_popen("copy \"NULLC\\translation\\runtime.h\" \"runtime.h\"", "r");
+		_popen("copy \"NULLC\\translation\\runtime.h\" \"tests\\translation\\runtime.h\"", "r");
+	#endif
 #endif
 
 	TestQueue queue;
 	queue.RunTests();
 
-#if defined(NULLC_ENABLE_C_TRANSLATION) && defined(__linux)
-	system("rm runtime.h");
+#if defined(NULLC_ENABLE_C_TRANSLATION)
+	#ifdef __linux
+		system("rm runtime.h");
+		system("rm tests/translation/runtime.h");
+	#else
+		_popen("del \"runtime.h\"", "r");
+		_popen("del \"tests\\translation\\runtime.h\"", "r");
+	#endif
 #endif
 
 	// Conclusion
