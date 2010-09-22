@@ -187,9 +187,20 @@ unsigned int nullcGetTypeSize(unsigned int typeID)
 	return __nullcGetTypeInfo(typeID)->size;
 }
 
-int			__nullcPow(int a, int b)
+int			__nullcPow(int number, int power)
 {
-	return (int)pow((double)a, (double)b);
+	int result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
 }
 
 double		__nullcPow(double a, double b)
