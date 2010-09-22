@@ -241,6 +241,19 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, " = %d;\r\n", yieldResult ? (parentFunction->yieldCount + 1) : 0);
 	}
 	OutputIdent(fOut);
+	if(!localReturn)
+	{
+		if(typeInfo == typeChar || typeInfo == typeShort|| typeInfo == typeInt)
+			fprintf(fOut, "__nullcOutputResultInt((int)");
+		else if(typeInfo == typeLong)
+			fprintf(fOut, "__nullcOutputResultLong((long long)");
+		else if(typeInfo == typeFloat || typeInfo == typeDouble)
+			fprintf(fOut, "__nullcOutputResultDouble((double)");
+		first->TranslateToC(fOut);
+		fprintf(fOut, ");\r\n");
+		OutputIdent(fOut);
+		fprintf(fOut, "return 0;\r\n");
+	}
 	if(typeInfo == typeVoid || first->typeInfo == typeVoid)
 	{
 		fprintf(fOut, "return;\r\n");

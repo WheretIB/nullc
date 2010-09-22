@@ -1586,3 +1586,21 @@ void __assertCoroutine(NULLCRef f, void* unused)
 	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
 		nullcThrowError("ERROR: function is not a coroutine");
 }
+
+int	__nullcOutputResultInt(int x)
+{
+	printf("%d", x);
+	return 0;
+}
+
+int	__nullcOutputResultLong(long long x)
+{
+	printf("%lld", x);
+	return 0;
+}
+
+int	__nullcOutputResultDouble(double x)
+{
+	printf("%f", x);
+	return 0;
+}
