@@ -83,7 +83,7 @@ NULLCRef vector_iterator__next_auto_ref_ref__(vector_iterator * iter)
 }
 int vector_iterator__hasnext_int_ref__(vector_iterator * iter)
 {
-	return iter->pos < iter->arr->currSize;
+	return iter->arr && iter->pos < iter->arr->currSize;
 }
 void vector__push_back_void_ref_auto_ref_(NULLCRef val, vector * vec)
 {

@@ -46,7 +46,7 @@ void testDealloc(void* ptr)
 
 nullres CompileFile(const char* fileName)
 {
-	char content[64 * 1024];
+	static char content[64 * 1024];
 
 	FILE *euler = fopen(fileName, "rb");
 	fseek(euler, 0, SEEK_END);
@@ -192,6 +192,26 @@ void	RunTests(bool verbose)
 	if(!CompileFile("Modules/std/io.nc"))
 		printf("ERROR: failed to compile std.io for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_io.cpp", "__init_std_io_nc");
+
+	if(!nullcCompile("coroutine int foo(){ int i = 10; while(i) yield i++; }"))
+		printf("ERROR: failed to compile test_coroutine1 for translation\n");
+	nullcTranslateToC("test_coroutine1.cpp", "__init_test_coroutine1_nc");
+
+	if(!CompileFile("Modules/std/time.nc"))
+		printf("ERROR: failed to compile std.time for translation\n");
+	nullcTranslateToC("NULLC\\translation\\std_time.cpp", "__init_std_time_nc");
+
+	if(!CompileFile("Modules/img/canvas.nc"))
+		printf("ERROR: failed to compile img.canvas for translation\n");
+	nullcTranslateToC("NULLC\\translation\\img_canvas.cpp", "__init_img_canvas_nc");
+
+	if(!CompileFile("Modules/win/window_ex.nc"))
+		printf("ERROR: failed to compile win.window_ex for translation\n");
+	nullcTranslateToC("NULLC\\translation\\win_window_ex.cpp", "__init_win_window_ex_nc");
+
+	if(!CompileFile("Modules/win/window.nc"))
+		printf("ERROR: failed to compile win.window for translation\n");
+	nullcTranslateToC("NULLC\\translation\\win_window.cpp", "__init_win_window_nc");
 #endif
 
 	RunCompileFailTests();

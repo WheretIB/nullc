@@ -319,6 +319,14 @@ void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID)
 	__assert(ref.typeID == typeID);
 	return (void*)ref.ptr;
 }
+NULLCAutoArray	__makeAutoArray(unsigned type, NULLCArray<void> arr)
+{
+	NULLCAutoArray ret;
+	ret.size = arr.size;
+	ret.ptr = arr.ptr;
+	ret.typeID = type;
+	return ret;
+}
 
 bool operator ==(const NULLCRef& a, const NULLCRef& b)
 {
@@ -527,6 +535,14 @@ NULLCRef  duplicate(NULLCRef obj, void* unused)
 	return ret;
 }
 
+void	__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused)
+{
+	dst->typeID = src.typeID;
+	dst->len = src.len;
+	dst->ptr = (char*)NULLC::AllocArray(nullcGetTypeSize(src.typeID), src.len, src.typeID).ptr;
+	memcpy(dst->ptr, src.ptr, src.len * nullcGetTypeSize(src.typeID));
+}
+
 NULLCRef replace(NULLCRef l, NULLCRef r, void* unused)
 {
 	if(l.typeID != r.typeID)
@@ -534,8 +550,35 @@ NULLCRef replace(NULLCRef l, NULLCRef r, void* unused)
 		nullcThrowError("ERROR: cannot convert from %s ref to %s ref", __nullcGetTypeInfo(r.typeID)->name, __nullcGetTypeInfo(l.typeID)->name);
 		return l;
 	}
-	memcpy(l.ptr, r.ptr, __nullcGetTypeInfo(r.typeID)->size);
+	memcpy(l.ptr, r.ptr, nullcGetTypeSize(r.typeID));
 	return l;
+}
+
+void		swap(NULLCRef l, NULLCRef r, void* unused)
+{
+	if(l.typeID != r.typeID)
+	{
+		nullcThrowError("ERROR: types don't match (%s ref, %s ref)", __nullcGetTypeInfo(r.typeID)->name, __nullcGetTypeInfo(l.typeID)->name);
+		return;
+	}
+	unsigned size = nullcGetTypeSize(l.typeID);
+
+	char tmpStack[512];
+	// $$ should use some extendable static storage for big objects
+	char *tmp = size < 512 ? tmpStack : (char*)NULLC::AllocObject(size, l.typeID);
+	memcpy(tmp, l.ptr, size);
+	memcpy(l.ptr, r.ptr, size);
+	memcpy(r.ptr, tmp, size);
+}
+
+int			equal(NULLCRef l, NULLCRef r, void* unused)
+{
+	if(l.typeID != r.typeID)
+	{
+		nullcThrowError("ERROR: types don't match (%s ref, %s ref)", __nullcGetTypeInfo(r.typeID)->name, __nullcGetTypeInfo(l.typeID)->name);
+		return 0;
+	}
+	return 0 == memcmp(l.ptr, r.ptr, nullcGetTypeSize(l.typeID));
 }
 
 int __rcomp(NULLCRef a, NULLCRef b)
@@ -1458,12 +1501,16 @@ int typeid__size__int_ref__(unsigned int * __context)
 	return __nullcGetTypeInfo(*__context)->size;
 }
 
-NULLCAutoArray auto_array(unsigned int type, int count, void* unused)
+void auto_array_impl(NULLCAutoArray* arr, unsigned int type, int count, void* unused)
+{
+	arr->typeID = type;
+	arr->len = count;
+	arr->ptr = (char*)__newS(typeid__size__int_ref__(&type) * (count), type);
+}
+NULLCAutoArray auto_array(unsigned type, int count, void* unused)
 {
 	NULLCAutoArray res;
-	res.typeID = type;
-	res.len = count;
-	res.ptr = (char*)__newS(typeid__size__int_ref__(&type) * (count), type);
+	auto_array_impl(&res, type, count, NULL);
 	return res;
 }
 void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused)
@@ -1480,7 +1527,8 @@ void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused)
 		unsigned newSize = 1 + arr->len + (arr->len >> 1);
 		if(pos >= newSize)
 			newSize = pos;
-		NULLCAutoArray n = auto_array(arr->typeID, newSize, NULL);
+		NULLCAutoArray n;
+		auto_array_impl(&n, arr->typeID, newSize, NULL);
 		memcpy(n.ptr, arr->ptr, arr->len * elemSize);
 		*arr = n;
 	}

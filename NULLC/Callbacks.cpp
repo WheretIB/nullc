@@ -1669,6 +1669,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, void* type, bool extr
 			wrap->SetFirstNode(getIterator);
 			CodeInfo::nodeList.push_back(wrap);
 			AddFunctionCallNode(pos, "__assertCoroutine", 1);
+			AddPopNode(pos);
 		}
 		if(extraExpression)
 			AddTwoExpressionNode(NULL);
