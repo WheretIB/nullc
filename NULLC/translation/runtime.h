@@ -275,3 +275,7 @@ void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused);
 void __force_size(NULLCAutoArray* arr, int size, void* unused);
 int isCoroutineReset(NULLCRef f, void* unused);
 void __assertCoroutine(NULLCRef f, void* unused);
+
+int	__nullcOutputResultInt(int x);
+int	__nullcOutputResultLong(long long x);
+int	__nullcOutputResultDouble(double x);

@@ -289,24 +289,21 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 		CloseHandle(prInfo.hThread);
 		if(!retCode)
 		{
-			memset(&stInfo, 0, sizeof(stInfo));
-			stInfo.cb = sizeof(stInfo);
+			FILE *resPipe = _popen("runnable.exe", "rb");
+			fgets(buf, 256, resPipe);
 
-			memset(&prInfo, 0, sizeof(prInfo));
-			DWORD res = CreateProcess("runnable.exe", "runnable.exe", NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
-			res = GetLastError();
-			WaitForSingleObject(prInfo.hProcess, 10000);
-			GetExitCodeProcess(prInfo.hProcess, &retCode);
-			if(atoi(expected) != (int)retCode)
+			char expectedCopy[256];
+			strcpy(expectedCopy, expected);
+			if(strchr(expectedCopy, 'L'))
+				*strchr(expectedCopy, 'L') = 0;
+			if(strcmp(buf, expectedCopy))
 			{
 				if(message && !messageVerbose)
 					printf("%s\n", message);
-				printf("C++: failed, expected %s, got %d\r\n", expected, retCode);
+				printf("C++: failed, expected %s, got %s\r\n", expected, buf);
 			}else{
 				testsPassed[TEST_TRANSLATION_INDEX]++;
 			}
-			CloseHandle(prInfo.hProcess);
-			CloseHandle(prInfo.hThread);
 		}else{
 			if(message && !messageVerbose)
 				printf("%s\n", message);
