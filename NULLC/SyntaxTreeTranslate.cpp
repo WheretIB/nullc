@@ -67,7 +67,14 @@ void NodeZeroOP::TranslateToCExtra(FILE *fOut)
 
 void NodeOneOP::TranslateToC(FILE *fOut)
 {
-	first->TranslateToC(fOut);
+	if(typeInfo->refLevel == 3 && first->typeInfo->refLevel && first->typeInfo->subType->funcType)
+	{
+		fprintf(fOut, "((int***)");
+		first->TranslateToC(fOut);
+		fprintf(fOut, ".context)");
+	}else{
+		first->TranslateToC(fOut);
+	}
 }
 
 void NodeNumber::TranslateToC(FILE *fOut)
@@ -138,6 +145,8 @@ void NodeUnaryOp::TranslateToC(FILE *fOut)
 	case cmdFuncAddr:
 		fprintf(fOut, "__nullcFR[%d]", vmCmd.argument);
 		return;
+	case cmdCheckedRet:
+		break;
 	default:
 		fprintf(fOut, "%%unknown_unary_command%%");
 	}
@@ -200,11 +209,11 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 			fprintf(fOut, "*(int*)((char*)__");
 			OutputCFunctionName(fOut, parentFunction);
 			fprintf(fOut, "_ext_%d + 4)", parentFunction->allParamSize);
-			fprintf(fOut, " = %d;\r\n", parentFunction->yieldCount + 1);
+			fprintf(fOut, " = %d;\r\n", yieldResult ? (parentFunction->yieldCount + 1) : 0);
 		}
 		OutputIdent(fOut);
 		fprintf(fOut, "return __nullcRetVar%d;\r\n", retVarID++);
-		if(parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
+		if(yieldResult && parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
 		{
 			OutputIdent(fOut);
 			fprintf(fOut, "yield%d: (void)0;\r\n", parentFunction->yieldCount + 1);
@@ -218,7 +227,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, "*(int*)((char*)__");
 		OutputCFunctionName(fOut, parentFunction);
 		fprintf(fOut, "_ext_%d + 4)", parentFunction->allParamSize);
-		fprintf(fOut, " = %d;\r\n", parentFunction->yieldCount + 1);
+		fprintf(fOut, " = %d;\r\n", yieldResult ? (parentFunction->yieldCount + 1) : 0);
 	}
 	OutputIdent(fOut);
 	if(typeInfo == typeVoid || first->typeInfo == typeVoid)
@@ -237,7 +246,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 			fprintf(fOut, ")");
 		fprintf(fOut, ";\r\n");
 	}
-	if(parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
+	if(yieldResult && parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
 	{
 		OutputIdent(fOut);
 		fprintf(fOut, "yield%d: (void)0;\r\n", parentFunction->yieldCount + 1);
@@ -718,7 +727,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 
 void NodeShiftAddress::TranslateToC(FILE *fOut)
 {
-	fprintf(fOut, "&(", member->name);
+	fprintf(fOut, "&(");
 	first->TranslateToC(fOut);
 	fprintf(fOut, ")->%s", member->name);
 }
@@ -911,7 +920,11 @@ void NodeWhileExpr::TranslateToC(FILE *fOut)
 {
 	translateLoopDepth++;
 	OutputIdent(fOut); fprintf(fOut, "while(");
+	if(first->typeInfo == typeObject)
+		fprintf(fOut, "(");
 	first->TranslateToC(fOut);
+	if(first->typeInfo == typeObject)
+		fprintf(fOut, ").ptr");
 	fprintf(fOut, ")\r\n");
 	OutputIdent(fOut); fprintf(fOut, "{\r\n");
 	indentDepth++;
@@ -1039,12 +1052,14 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		return;
 	}else if(typeInfo != typeVoid){
 		NodeZeroOP *end = first;
-		if(first->nodeType == typeNodePopOp || !typeInfo->arrLevel)
+		if(first->nodeType == typeNodePopOp)// || !typeInfo->arrLevel)
 		{
 			fprintf(fOut, "(");
 			((NodePopOp*)first)->GetFirstNode()->TranslateToC(fOut);
 			fprintf(fOut, ", ");
 			end = first->next;
+		}else if(!typeInfo->arrLevel && typeInfo != typeAutoArray){
+			fprintf(fOut, "(");
 		}
 		if(tail->prev != end->prev && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
@@ -1054,6 +1069,8 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		}else if(typeInfo->arrLevel && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY){
 			typeInfo->OutputCType(fOut, "()");
 			end = first->next;
+		}else if(typeInfo == typeAutoArray){
+			fprintf(fOut, "__makeAutoArray(");
 		}
 
 		NodeZeroOP	*curr = tail;
@@ -1073,7 +1090,7 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 		if(tail->prev != end->prev && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 			fprintf(fOut, ")");
 
-		if(first->nodeType == typeNodePopOp || !typeInfo->arrLevel)
+		if(first->nodeType == typeNodePopOp || !typeInfo->arrLevel)// || typeInfo == typeAutoArray)
 			fprintf(fOut, ")");
 	}else{
 		NodeZeroOP	*curr = first;

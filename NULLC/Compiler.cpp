@@ -1213,7 +1213,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	for(unsigned int i = activeModules[0].funcCount; i < CodeInfo::funcInfo.size(); i++)
 	{
 		FunctionInfo *info = CodeInfo::funcInfo[i];
-		if(i < functionsInModules && (info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE))
+		if(i < functionsInModules && (info->type == FunctionInfo::LOCAL))
 			continue;
 		if(i < functionsInModules)
 			fprintf(fC, "extern ");
@@ -1246,12 +1246,12 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	{
 		VariableInfo *varInfo = CodeInfo::varInfo[i];
 		char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
-		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
+		const char *namePrefix = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? "___" : "__") : "";
+		unsigned int nameShift = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? 2 : 1) : 0;
 		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin)-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
 		if(varInfo->pos >> 24)
 			fprintf(fC, "extern ");
-		else if(*varInfo->name.begin == '$')
+		else if(*varInfo->name.begin == '$' && 0 != strcmp(varInfo->name.end-3, "ext"))
 			fprintf(fC, "static ");
 		varInfo->varType->OutputCType(fC, vName);
 		fprintf(fC, ";\r\n");
@@ -1342,8 +1342,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			if(varInfo->pos >> 24)
 				continue;
 			char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-			const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
-			unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
+			const char *namePrefix = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? "___" : "__") : "";
+			unsigned int nameShift = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? 2 : 1) : 0;
 			sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin)-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
 			fprintf(fC, "\t__nullcRegisterGlobal((void*)&%s, __nullcTR[%d]);\r\n", vName, varInfo->varType->typeIndex);
 		}

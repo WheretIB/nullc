@@ -46,7 +46,11 @@ typedef struct
 {
 	unsigned int	typeID;
 	char			*ptr;
-	unsigned int	len;
+	union
+	{
+		unsigned	len;
+		unsigned	size;
+	};
 } NULLCAutoArray;
 
 typedef struct
@@ -124,6 +128,7 @@ void __nullcCloseUpvalue(__nullcUpvalue *&head, void *ptr);
 NULLCFuncPtr	__nullcMakeFunction(unsigned int id, void* context);
 NULLCRef		__nullcMakeAutoRef(void* ptr, unsigned int typeID);
 void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID);
+NULLCAutoArray	__makeAutoArray(unsigned type, NULLCArray<void> arr);
 
 bool operator ==(const NULLCRef& a, const NULLCRef& b);
 bool operator !=(const NULLCRef& a, const NULLCRef& b);
@@ -160,7 +165,10 @@ inline int __str_precision_19(){ return 6; }
 int	__newS(int size, unsigned typeID);
 NULLCArray<void>	__newA(int size, int count, unsigned typeID);
 NULLCRef	duplicate(NULLCRef obj, void* unused);
+void		__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused);
 NULLCRef	replace(NULLCRef l, NULLCRef r, void* unused);
+void		swap(NULLCRef l, NULLCRef r, void* unused);
+int			equal(NULLCRef l, NULLCRef r, void* unused);
 
 int __rcomp(NULLCRef a, NULLCRef b);
 int __rncomp(NULLCRef a, NULLCRef b);
@@ -247,7 +255,8 @@ int isStackPointer(NULLCRef ptr, void* unused);
 
 int typeid__size__int_ref__(unsigned int * __context);
 
-NULLCAutoArray auto_array(unsigned int type, int count, void* unused);
+void auto_array_impl(NULLCAutoArray* arr, unsigned type, int count, void* unused);
+NULLCAutoArray auto_array(unsigned type, int count, void* unused);
 void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused);
 
 void __force_size(int* s, int size, void* unused);

@@ -356,7 +356,7 @@ void NodeReturnOp::Compile()
 		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned short)CodeInfo::FindFunctionByPtr(parentFunction), 0));
 	// If return is from coroutine, we either need to reset jumpOffset to the beginning of a function, or set it to instruction after return
 	if(parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
-		cmdList.push_back(VMCmd(cmdYield, 0, yieldResult, parentFunction->allParamSize));	// 1 means save state and yield
+		cmdList.push_back(VMCmd(cmdYield, 0, yieldResult, parentFunction->allParamSize));	// yieldResult == true means save state and yield
 	cmdList.push_back(VMCmd(cmdReturn, (unsigned char)operType, (unsigned short)localReturn, retSize));
 }
 

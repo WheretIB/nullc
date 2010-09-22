@@ -10,19 +10,47 @@ void Print(NULLCArray<char > text, void* unused)
 	printf("%s", text.ptr);
 }
 
-void Print(int num, void* unused)
-{
-	printf("%d", num);
-}
+long long abs(long long x){ return x < 0 ? -x : x; }
 
 void Print(double num, void* unused)
 {
 	printf("%.12f", num);
 }
 
-void Print(long long num, void* unused)
+void Print(long long number, int base, void* unused)
 {
-	printf("%lld", num);
+	if(!(base > 1 && base <= 16))
+	{
+		nullcThrowError("incorrect base %d", base);
+		return;
+	}
+
+	static char symb[] = "0123456789abcdef";
+	bool sign = 0;
+	char buf[128];
+	char *curr = buf;
+	if(number < 0)
+		sign = 1;
+
+	*curr++ = *(abs(number % base) + symb);
+	while(number /= base)
+		*curr++ = *(abs(number % base) + symb);
+	if(sign)
+		*curr++ = '-';
+	*curr = 0;
+	int size = int(curr - buf), halfsize = size >> 1;
+	for(int i = 0; i < halfsize; i++)
+	{
+		char tmp = buf[i];
+		buf[i] = buf[size-i-1];
+		buf[size-i-1] = tmp;
+	}
+	printf("%s", buf);
+}
+
+void Print(int num, int base, void* unused)
+{
+	Print((long long)num, base, NULL);
 }
 
 void Print(char ch, void* unused)

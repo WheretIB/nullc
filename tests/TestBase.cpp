@@ -247,6 +247,8 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			strcat(cmdLine, " test_defargs5.cpp");
 		if(strstr(code, "test.defargs6;"))
 			strcat(cmdLine, " test_defargs6.cpp");
+		if(strstr(code, "test.coroutine1;"))
+			strcat(cmdLine, " test_coroutine1.cpp");
 		if(strstr(code, "test.alignment;"))
 		{
 			strcat(cmdLine, " test_alignment.cpp");
