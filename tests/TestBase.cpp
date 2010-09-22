@@ -287,9 +287,16 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 		GetExitCodeProcess(prInfo.hProcess, &retCode);
 		CloseHandle(prInfo.hProcess);
 		CloseHandle(prInfo.hThread);
+#else
+		int retCode = system(cmdLine);
+#endif
 		if(!retCode)
 		{
+#if defined(_MSC_VER)
 			FILE *resPipe = _popen("runnable.exe", "rb");
+#else
+			FILE *resPipe = popen("./runnable", "r");
+#endif
 			fgets(buf, 256, resPipe);
 
 			char expectedCopy[256];
@@ -309,25 +316,6 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 				printf("%s\n", message);
 			printf("C++ compilation error (%d)\r\n", retCode);
 		}
-#else
-		int retCode = system(cmdLine);
-		if(!retCode)
-		{
-			retCode = system("./runnable") >> 8;
-			if(atoi(expected) != (int)retCode)
-			{
-				if(message && !messageVerbose)
-					printf("%s\n", message);
-				printf("C++: failed, expected %s, got %d\r\n", expected, retCode);
-			}else{
-				testsPassed[TEST_TRANSLATION_INDEX]++;
-			}
-		}else{
-			if(message && !messageVerbose)
-				printf("%s\n", message);
-			printf("C++ compilation error (%d)\r\n", retCode);
-		}
-#endif
 	}
 #endif
 
