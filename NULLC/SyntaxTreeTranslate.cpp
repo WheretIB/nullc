@@ -171,7 +171,18 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 			typeInfo->OutputCType(fOut, "");
 			fprintf(fOut, ")(");
 		}
-		first->TranslateToC(fOut);
+		if(first->nodeType == typeNodeZeroOp && first->typeInfo != typeVoid)
+		{
+			if(typeInfo == typeLong)
+			{
+				fprintf(fOut, "(long long)0");
+			}else{
+				typeInfo->OutputCType(fOut, "");
+				fprintf(fOut, "()");
+			}
+		}else{
+			first->TranslateToC(fOut);
+		}
 		if(typeInfo != first->typeInfo)
 			fprintf(fOut, ")");
 		fprintf(fOut, ";\r\n");
@@ -241,7 +252,18 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 			typeInfo->OutputCType(fOut, "");
 			fprintf(fOut, ")(");
 		}
-		first->TranslateToC(fOut);
+		if(first->nodeType == typeNodeZeroOp && first->typeInfo != typeVoid)
+		{
+			if(typeInfo == typeLong)
+			{
+				fprintf(fOut, "(long long)0");
+			}else{
+				typeInfo->OutputCType(fOut, "");
+				fprintf(fOut, "()");
+			}
+		}else{
+			first->TranslateToC(fOut);
+		}
 		if(typeInfo != first->typeInfo)
 			fprintf(fOut, ")");
 		fprintf(fOut, ";\r\n");
@@ -292,6 +314,8 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 	indentDepth = 0;
 	if(!disabled)
 	{
+		if(strcmp(funcInfo->name, "$gen_list") == 0 || memcmp(funcInfo->name, "$genl", 5) == 0)
+			fprintf(fOut, "static ");
 		funcInfo->retType->OutputCType(fOut, " ");
 		OutputCFunctionName(fOut, funcInfo);
 		fprintf(fOut, "(");
@@ -790,6 +814,8 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 	TranslateToCExtra(fOut);
 	nodeDereferenceEndInComma = false;
 	OutputIdent(fOut);
+	fprintf(fOut, "(");
+	typeInfo->OutputCType(fOut, ")");
 	fprintf(fOut, "__nullcMakeFunction(__nullcFR[%d], ", CodeInfo::FindFunctionByPtr(funcInfo));
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
@@ -864,7 +890,11 @@ void NodeIfElseExpr::TranslateToC(FILE *fOut)
 {
 	if(typeInfo != typeVoid)
 	{
+		if(first->typeInfo == typeObject)
+			fprintf(fOut, "(");
 		first->TranslateToC(fOut);
+		if(first->typeInfo == typeObject)
+			fprintf(fOut, ").ptr");
 		fprintf(fOut, " ? ");
 		second->TranslateToC(fOut);
 		fprintf(fOut, " : ");
@@ -872,7 +902,11 @@ void NodeIfElseExpr::TranslateToC(FILE *fOut)
 	}else{
 		OutputIdent(fOut);
 		fprintf(fOut, "if(");
+		if(first->typeInfo == typeObject)
+			fprintf(fOut, "(");
 		first->TranslateToC(fOut);
+		if(first->typeInfo == typeObject)
+			fprintf(fOut, ").ptr");
 		fprintf(fOut, ")\r\n");
 		OutputIdent(fOut);
 		fprintf(fOut, "{\r\n");
@@ -901,7 +935,11 @@ void NodeForExpr::TranslateToC(FILE *fOut)
 	translateLoopDepth++;
 	first->TranslateToC(fOut);
 	OutputIdent(fOut); fprintf(fOut, "while(");
+	if(second->typeInfo == typeObject)
+		fprintf(fOut, "(");
 	second->TranslateToC(fOut);
+	if(second->typeInfo == typeObject)
+		fprintf(fOut, ").ptr");
 	fprintf(fOut, ")\r\n");
 	OutputIdent(fOut); fprintf(fOut, "{\r\n");
 	indentDepth++;
@@ -948,7 +986,11 @@ void NodeDoWhileExpr::TranslateToC(FILE *fOut)
 	OutputIdent(fOut); fprintf(fOut, "continue%d_%d:1;\r\n", currLoopID[translateLoopDepth-1], translateLoopDepth);
 	indentDepth--;
 	OutputIdent(fOut); fprintf(fOut, "} while(");
+	if(second->typeInfo == typeObject)
+		fprintf(fOut, "(");
 	second->TranslateToC(fOut);
+	if(second->typeInfo == typeObject)
+		fprintf(fOut, ").ptr");
 	fprintf(fOut, ");\r\n");
 	OutputIdent(fOut);
 	fprintf(fOut, "break%d_%d:1;\r\n", currLoopID[translateLoopDepth-1], translateLoopDepth);
@@ -1057,6 +1099,9 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			fprintf(fOut, "(");
 			((NodePopOp*)first)->GetFirstNode()->TranslateToC(fOut);
 			fprintf(fOut, ", ");
+			end = first->next;
+		}else if(first->nodeType == typeNodeFuncDef){
+			first->TranslateToC(fOut);
 			end = first->next;
 		}else if(!typeInfo->arrLevel && typeInfo != typeAutoArray){
 			fprintf(fOut, "(");

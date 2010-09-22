@@ -197,6 +197,14 @@ void	RunTests(bool verbose)
 		printf("ERROR: failed to compile test_coroutine1 for translation\n");
 	nullcTranslateToC("test_coroutine1.cpp", "__init_test_coroutine1_nc");
 
+	if(!nullcCompile("import std.range; auto a = { for(i in range(4, 10)) yield i; };"))
+		printf("ERROR: failed to compile test_list_comp1 for translation\n");
+	nullcTranslateToC("test_list_comp1.cpp", "__init_test_list_comp1_nc");
+
+	if(!nullcCompile("import std.range; auto b = { for(i in range(2, 4)) yield i; };"))
+		printf("ERROR: failed to compile test_list_comp2 for translation\n");
+	nullcTranslateToC("test_list_comp2.cpp", "__init_test_list_comp2_nc");
+
 	if(!CompileFile("Modules/std/time.nc"))
 		printf("ERROR: failed to compile std.time for translation\n");
 	nullcTranslateToC("NULLC\\translation\\std_time.cpp", "__init_std_time_nc");
