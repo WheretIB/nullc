@@ -225,7 +225,7 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			strcat(cmdLine, " NULLC/translation/std_range.cpp");
 		if(strstr(code, "test.a;"))
 		{
-			strcat(cmdLine, " test_a.cpp");
+			strcat(cmdLine, " tests/translation/test_a.cpp");
 			if(!strstr(code, "std.math;"))
 			{
 				strcat(cmdLine, " NULLC/translation/std_math.cpp");
@@ -233,40 +233,40 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			}
 		}
 		if(strstr(code, "test.importhide;"))
-			strcat(cmdLine, " test_importhide.cpp");
+			strcat(cmdLine, " tests/translation/test_importhide.cpp");
 		if(strstr(code, "test.defargs;"))
-			strcat(cmdLine, " test_defargs.cpp");
+			strcat(cmdLine, " tests/translation/test_defargs.cpp");
 		if(strstr(code, "test.defargs2;"))
-			strcat(cmdLine, " test_defargs2.cpp");
+			strcat(cmdLine, " tests/translation/test_defargs2.cpp");
 		if(strstr(code, "test.defargs3;"))
-			strcat(cmdLine, " test_defargs3.cpp");
+			strcat(cmdLine, " tests/translation/test_defargs3.cpp");
 		if(strstr(code, "test.defargs4;"))
 		{
-			strcat(cmdLine, " test_defargs4.cpp");
-			strcat(cmdLine, " test_defargs4_bind.cpp");
+			strcat(cmdLine, " tests/translation/test_defargs4.cpp");
+			strcat(cmdLine, " tests/translation/test_defargs4_bind.cpp");
 		}
 		if(strstr(code, "test.defargs5;"))
-			strcat(cmdLine, " test_defargs5.cpp");
+			strcat(cmdLine, " tests/translation/test_defargs5.cpp");
 		if(strstr(code, "test.defargs6;"))
-			strcat(cmdLine, " test_defargs6.cpp");
+			strcat(cmdLine, " tests/translation/test_defargs6.cpp");
 		if(strstr(code, "test.coroutine1;"))
-			strcat(cmdLine, " test_coroutine1.cpp");
+			strcat(cmdLine, " tests/translation/test_coroutine1.cpp");
 		if(strstr(code, "test.list_comp1;"))
 		{
 			strcat(cmdLine, " NULLC/translation/std_range.cpp");
-			strcat(cmdLine, " test_list_comp1.cpp");
+			strcat(cmdLine, " tests/translation/test_list_comp1.cpp");
 		}
 		if(strstr(code, "test.list_comp2;"))
 		{
 			if(!strstr(code, "test.list_comp1;"))
 				strcat(cmdLine, " NULLC/translation/std_range.cpp");
-			strcat(cmdLine, " test_list_comp2.cpp");
+			strcat(cmdLine, " tests/translation/test_list_comp2.cpp");
 		}
 		
 		if(strstr(code, "test.alignment;"))
 		{
-			strcat(cmdLine, " test_alignment.cpp");
-			strcat(cmdLine, " test_alignment_bind.cpp");
+			strcat(cmdLine, " tests/translation/test_alignment.cpp");
+			strcat(cmdLine, " tests/translation/test_alignment_bind.cpp");
 		}
 		if(strstr(code, "std.gc;"))
 		{
