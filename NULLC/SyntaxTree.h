@@ -262,6 +262,8 @@ public:
 	NodeUnaryOp(CmdID cmd, unsigned int argument = 0);
 	virtual ~NodeUnaryOp();
 
+			void SetParentFunc(FunctionInfo* parent);
+
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);
 	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
@@ -269,6 +271,7 @@ public:
 	COMPILE_LLVM(virtual void CompileLLVM());
 protected:
 	VMCmd vmCmd;
+	FunctionInfo *parentFunc;
 };
 
 class NodeReturnOp: public NodeOneOP

@@ -601,6 +601,8 @@ public:
 				return "__operatorLogNot";
 			if(strcmp(name + offset, "~") == 0)
 				return "__operatorBitNot";
+			if(strcmp(name + offset, "()") == 0)
+				return "__operatorFuncCall";
 		}
 		return NULL;
 	}

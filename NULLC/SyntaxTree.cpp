@@ -280,9 +280,16 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd, unsigned int argument)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeUnaryOp;
+
+	parentFunc = NULL;
 }
 NodeUnaryOp::~NodeUnaryOp()
 {
+}
+
+void NodeUnaryOp::SetParentFunc(FunctionInfo* parent)
+{
+	parentFunc = parent;
 }
 
 void NodeUnaryOp::Compile()
