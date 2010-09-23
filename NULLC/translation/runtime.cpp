@@ -925,7 +925,7 @@ namespace GC
 			// Get real variable type
 			realType = &__nullcTypeList[*(int*)ptr];
 			// Switch pointer to target
-			char **rPtr = (char**)(ptr + 4);
+			char **rPtr = (char**)(ptr + NULLC_PTR_SIZE);
 			ptr = *rPtr;
 			// If uninitialized or points to stack memory, return
 			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
