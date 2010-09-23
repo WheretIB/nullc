@@ -687,9 +687,9 @@ void NodeDereference::TranslateToC(FILE *fOut)
 			{
 				fprintf(fOut, "(*(int**)((char*)%s + %d) = ", closureName, pos * 4);
 			}else{
-				fprintf(fOut, "(((int**)(*");
+				fprintf(fOut, "(*(int**)((char*)(*");
 				((NodeOneOP*)first)->GetFirstNode()->TranslateToC(fOut);
-				fprintf(fOut, "))[%d] = ", pos);
+				fprintf(fOut, ") + %d) = ", pos * 4);
 			}
 			VariableInfo *varInfo = curr->variable;
 			char variableName[NULLC_MAX_VARIABLE_NAME_LENGTH+32];
