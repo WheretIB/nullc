@@ -1,5 +1,6 @@
 #include "runtime.h"
 // Array classes
+#pragma pack(push, 4)
 struct member_iterator
 {
 	unsigned int classID;
@@ -28,6 +29,7 @@ struct vector_iterator
 	vector * arr;
 	int pos;
 };
+#pragma pack(pop)
 extern int isFunction(unsigned int type, void* unused);
 extern int isClass(unsigned int type, void* unused);
 extern int isSimple(unsigned int type, void* unused);
