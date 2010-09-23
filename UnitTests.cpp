@@ -238,16 +238,6 @@ void	RunTests(bool verbose)
 	TestQueue queue;
 	queue.RunTests();
 
-#if defined(NULLC_ENABLE_C_TRANSLATION)
-	#ifdef __linux
-		system("rm runtime.h");
-		system("rm tests/translation/runtime.h");
-	#else
-		_popen("del \"runtime.h\"", "r");
-		_popen("del \"tests\\translation\\runtime.h\"", "r");
-	#endif
-#endif
-
 	// Conclusion
 	printf("VM passed %d of %d tests\r\n", testsPassed[0], testsCount[0]);
 #ifdef NULLC_BUILD_X86_JIT
@@ -284,6 +274,16 @@ void	RunTests(bool verbose)
 	printf("Run time: %f\r\n", Tests::timeRun);
 
 	RunSpeedTests();
+
+#if defined(NULLC_ENABLE_C_TRANSLATION)
+	#ifdef __linux
+		system("rm runtime.h");
+		system("rm tests/translation/runtime.h");
+	#else
+		_popen("del \"runtime.h\"", "r");
+		_popen("del \"tests\\translation\\runtime.h\"", "r");
+	#endif
+#endif
 
 	// Terminate NULLC
 	nullcTerminate();
