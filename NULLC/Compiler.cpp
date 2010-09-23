@@ -1116,7 +1116,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	fprintf(fC, "static __nullcFunctionArray* __nullcFM;\r\n");
 	fprintf(fC, "// Function pointer redirect table\r\n");
 	fprintf(fC, "static unsigned __nullcFR[%d];\r\n", CodeInfo::funcInfo.size());
-	fprintf(fC, "// Array classes\r\n");
+	fprintf(fC, "// Function pointers, arrays, classes\r\n");
+	fprintf(fC, "#pragma pack(push, 4)\r\n");	
 	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
 	{
 		TypeInfo *type = translationTypes[i];
@@ -1171,6 +1172,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			fprintf(fC, "};\r\n");
 		}
 	}
+	fprintf(fC, "#pragma pack(pop)\r\n");
 
 	unsigned int functionsInModules = 0;
 	for(unsigned int i = 0; i < activeModules.size(); i++)
@@ -1854,6 +1856,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.closeListStart = refFunc->closeListStart = clsListCount;
 		if(refFunc->closeUpvals)
 			clsListCount += refFunc->maxBlockDepth;
+
 
 		// Fill up next
 		fInfo++;
