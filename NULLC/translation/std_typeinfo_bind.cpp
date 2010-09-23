@@ -1,5 +1,6 @@
 #include "runtime.h"
 // Array classes
+#pragma pack(push, 4)
 struct member_iterator
 {
 	unsigned int classID;
@@ -15,6 +16,7 @@ struct argument_iterator
 	unsigned int funcID;
 	int pos;
 };
+#pragma pack(pop)
 int isFunction(unsigned int type, void* unused)
 {
 	return __nullcGetTypeInfo(type)->category == NULLC_FUNCTION;

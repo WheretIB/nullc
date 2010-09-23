@@ -2,11 +2,13 @@
 #include <stdio.h>
 #include <string.h>
 // Array classes
+#pragma pack(push, 4)
 struct File
 {
 	int flag;
 	void * id;
 };
+#pragma pack(pop)
 File File__(void* unused)
 {
 	File ret;

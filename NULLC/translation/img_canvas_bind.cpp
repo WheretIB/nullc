@@ -1,4 +1,5 @@
 #include "runtime.h"
+#pragma pack(push, 4)
 struct Canvas 
 {
 	int width;
@@ -6,6 +7,7 @@ struct Canvas
 	int color;
 	NULLCArray<int > data;
 };
+#pragma pack(pop)
 
 int abs(int x){ return x < 0 ? -x : x; }
 void swap(int &a, int &b){ int tmp = a; a = b; b = tmp; }
