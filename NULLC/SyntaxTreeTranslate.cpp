@@ -164,6 +164,8 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 	{
 		OutputIdent(fOut);
 		typeInfo->OutputCType(fOut, "");
+		fprintf(fOut, "__nullcRetVar%d;\r\n", retVarID);
+		OutputIdent(fOut);
 		fprintf(fOut, "__nullcRetVar%d = ", retVarID);
 		if(typeInfo != first->typeInfo)
 		{
