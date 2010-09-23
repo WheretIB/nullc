@@ -4,6 +4,7 @@
 	#define NULL 0
 #endif
 
+#pragma pack(push, 4)
 // Wrapper over NULLC array, for use in external functions
 template<typename T>
 struct NULLCArray
@@ -65,6 +66,7 @@ typedef struct
 		unsigned	size;
 	};
 } NULLCAutoArray;
+#pragma pack(pop)
 
 typedef struct
 {
@@ -177,8 +179,9 @@ inline int __str_precision_19(){ return 6; }
 
 int	__newS(int size, unsigned typeID);
 NULLCArray<void>	__newA(int size, int count, unsigned typeID);
-NULLCRef	duplicate(NULLCRef obj, void* unused);
-void		__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused);
+NULLCRef		duplicate(NULLCRef obj, void* unused);
+void			__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused);
+NULLCAutoArray	duplicate(NULLCAutoArray arr, void* unused);
 NULLCRef	replace(NULLCRef l, NULLCRef r, void* unused);
 void		swap(NULLCRef l, NULLCRef r, void* unused);
 int			equal(NULLCRef l, NULLCRef r, void* unused);
@@ -279,3 +282,52 @@ void __assertCoroutine(NULLCRef f, void* unused);
 int	__nullcOutputResultInt(int x);
 int	__nullcOutputResultLong(long long x);
 int	__nullcOutputResultDouble(double x);
+
+template<typename T> T __nullcCheckedRet(unsigned typeID, T data, void* top, ...)
+{
+	char arr[sizeof(T) ? -1 : 0];
+}
+
+#include <stdarg.h>
+
+template<typename T> T* __nullcCheckedRet(unsigned typeID, T* data, void* top, ...)
+{
+	void *maxp = top;
+	va_list argptr;
+	va_start(argptr, top);
+	while(void *next = va_arg(argptr, void*))
+	{
+		if(next > maxp)
+			maxp = next;
+	}
+	if(data <= maxp && (char*)data >= ((char*)maxp - (1024 * 1024))) // assume 1Mb for stack -_-
+	{
+		unsigned int objSize = (unsigned)typeid__size__int_ref__(&typeID);
+		char *copy = (char*)NULLC::AllocObject(objSize, typeID);
+		memcpy(copy, data, objSize);
+		return (T*)copy;
+	}
+	return data;
+}
+template<typename T> NULLCArray<T> __nullcCheckedRet(unsigned typeID, NULLCArray<T> data, void* top, ...)
+{
+	void *maxp = top;
+	va_list argptr;
+	va_start(argptr, top);
+	while(void *next = va_arg(argptr, void*))
+	{
+		if(next > maxp)
+			maxp = next;
+	}
+	if(data.ptr <= maxp && data.ptr >= ((char*)maxp - (1024 * 1024))) // assume 1Mb for stack -_-
+	{
+		unsigned int objSize = __nullcGetTypeInfo(__nullcGetTypeInfo(typeID)->subTypeID)->size;
+		NULLCArray<T> copy = NULLC::AllocArray(objSize, data.size, __nullcGetTypeInfo(typeID)->subTypeID);
+		memcpy(copy.ptr, data.ptr, objSize * data.size);
+		return copy;
+	}
+	return data;
+}
+
+
+

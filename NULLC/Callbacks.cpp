@@ -672,7 +672,10 @@ void AddReturnNode(const char* pos, bool yield)
 		// Take expected return type
 		expectedType = currDefinedFunc.back()->retType;
 		if(expectedType->refLevel || (expectedType->arrLevel && expectedType->arrSize == TypeInfo::UNSIZED_ARRAY))
+		{
 			CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdCheckedRet, expectedType->arrLevel ? expectedType->typeIndex : expectedType->subType->typeIndex));
+			((NodeUnaryOp*)CodeInfo::nodeList.back())->SetParentFunc(currDefinedFunc.back());
+		}
 		// Check for errors
 		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
 			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());

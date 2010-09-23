@@ -146,6 +146,7 @@ void NodeUnaryOp::TranslateToC(FILE *fOut)
 		fprintf(fOut, "__nullcFR[%d]", vmCmd.argument);
 		return;
 	case cmdCheckedRet:
+		fprintf(fOut, "__nullcCheckedRet(__nullcTR[%d], ", vmCmd.argument);
 		break;
 	default:
 		fprintf(fOut, "%%unknown_unary_command%%");
@@ -153,6 +154,44 @@ void NodeUnaryOp::TranslateToC(FILE *fOut)
 	fprintf(fOut, "(");
 	first->TranslateToC(fOut);
 	fprintf(fOut, ")");
+	if(vmCmd.cmd == cmdCheckedRet)
+	{
+		assert(parentFunc);
+
+		char name[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
+		VariableInfo *param = parentFunc->firstParam;
+		for(; param; param = param->next)
+		{
+			SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "%.*s_%d", int(param->name.end - param->name.begin), param->name.begin, param->pos);
+			fprintf(fOut, ", (void*)&%s", name);
+		}
+		if(parentFunc->type == FunctionInfo::THISCALL)
+		{
+			fprintf(fOut, ", (void*)&__context");
+		}else if(parentFunc->type == FunctionInfo::LOCAL || parentFunc->type == FunctionInfo::COROUTINE){
+			fprintf(fOut, ", (void*)&__");
+			OutputCFunctionName(fOut, parentFunc);
+			fprintf(fOut, "_ext_%d", parentFunc->allParamSize);
+		}else{
+			fprintf(fOut, ", (void*)&unused");
+		}
+
+		VariableInfo *local = parentFunc->firstLocal;
+		for(; local; local = local->next)
+		{
+			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
+			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
+			unsigned int length = SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin) - nameShift, local->name.begin+nameShift, local->pos);
+			for(unsigned int k = 0; k < length; k++)
+			{
+				if(name[k] == ':' || name[k] == '$')
+					name[k] = '_';
+			}
+			fprintf(fOut, ", (void*)&%s", name);
+		}
+
+		fprintf(fOut, ", 0)");
+	}
 }
 
 void NodeReturnOp::TranslateToC(FILE *fOut)

@@ -561,6 +561,13 @@ void	__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused)
 	memcpy(dst->ptr, src.ptr, src.len * nullcGetTypeSize(src.typeID));
 }
 
+NULLCAutoArray	duplicate(NULLCAutoArray arr, void* unused)
+{
+	NULLCAutoArray ret;
+	__duplicate_array(&ret, arr, NULL);
+	return ret;
+}
+
 NULLCRef replace(NULLCRef l, NULLCRef r, void* unused)
 {
 	if(l.typeID != r.typeID)
@@ -865,7 +872,7 @@ namespace GC
 		if(size == -1)
 		{
 			// Get real array size
-			size = *(int*)(ptr + NULLC_PTR_SIZE);
+			size = ((NULLCArray<void>*)ptr)->size;
 			// Switch pointer to array data
 			char **rPtr = (char**)ptr;
 			ptr = *rPtr;
@@ -925,8 +932,7 @@ namespace GC
 			// Get real variable type
 			realType = &__nullcTypeList[*(int*)ptr];
 			// Switch pointer to target
-			char **rPtr = (char**)(ptr + NULLC_PTR_SIZE);
-			ptr = *rPtr;
+			ptr = ((NULLCRef*)ptr)->ptr;
 			// If uninitialized or points to stack memory, return
 			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
 				return;
@@ -938,7 +944,7 @@ namespace GC
 			// Mark memory as used
 			*((unsigned int*)(basePtr) - 1) |= 1;
 			// Fixup target
-			CheckVariable(*rPtr, *realType);
+			CheckVariable(ptr, *realType);
 			// Exit
 			return;
 		}else if(type.hash == autoArrayName){
