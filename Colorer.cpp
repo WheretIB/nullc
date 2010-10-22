@@ -317,6 +317,7 @@ namespace ColorerGrammar
 					funcvars
 				) >>
 				(chP(')')[ColorBold][FuncEnd] | epsP[LogError("ERROR: ')' expected after function parameter list")]) >>
+				!(strP("where")[ColorRWord] >> term4_9) >>
 				(
 					chP(';')[ColorBold] |
 					(

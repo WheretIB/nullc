@@ -201,4 +201,7 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "@if(1){ int a; ", "ERROR: closing '}' not found");
 	TEST_FOR_FAIL("parsing", "@if(1){ int a; }else{ float #;", "ERROR: unknown lexeme in 'else' body");
 	TEST_FOR_FAIL("parsing", "@if((auto(){ return 1; })()){ int a; }", "ERROR: couldn't evaluate condition at compilation time");
+
+	TEST_FOR_FAIL("parsing", "int foo(int a, b) where;", "ERROR: expression expected after 'where'");
+	TEST_FOR_FAIL("parsing", "import std.math; int foo(int a, b) where cos(a*b) < 0.5 { return a + b; }", "ERROR: couldn't evaluate condition at compilation time");
 }

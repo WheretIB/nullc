@@ -829,3 +829,25 @@ if (match(x, &x0, &x1, &x2, &x3))\r\n\
 	return x0 * 1000 + x1 * 100 + x2 * 10 + x3;\r\n\
 return 0;";
 TEST_RESULT("Complex generic extra test (short inline function, chained typeof)", testGeneric52, "1234");
+
+const char *testGeneric53 =
+"auto foo(generic a, generic b) where typeof(a) == int && typeof(b) == double\r\n\
+{\r\n\
+return int(a + b);\r\n\
+}\r\n\
+return foo(1, 3.0);";
+TEST_RESULT("Function type constrains", testGeneric53, "4");
+
+const char *testGeneric54 =
+"auto foo(generic a, generic b) where typeof(a) == int && typeof(b) == double\r\n\
+{\r\n\
+	return int(a + b);\r\n\
+}\r\n\
+\r\n\
+int bar()\r\n\
+{\r\n\
+	return foo(1, 3.0);\r\n\
+}\r\n\
+\r\n\
+return bar();";
+TEST_RESULT("Function type constrains (delayed instance)", testGeneric54, "4");

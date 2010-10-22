@@ -17,6 +17,7 @@ unsigned int ParseFunctionArguments(Lexeme** str);
 bool ParseFunctionCall(Lexeme** str);
 
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset = 0);
+bool ParseFunctionConstraints(Lexeme** str, bool instanceTime);
 bool ParseFunctionDefinition(Lexeme** str, bool coroutine = false);
 
 bool ParseAlignment(Lexeme** str);
