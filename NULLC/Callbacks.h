@@ -85,7 +85,7 @@ void GetTypeId(const char* pos);
 void SetTypeOfLastNode();
 
 // Function that retrieves variable address
-void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunction = false);
+void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPreferredType = NULL);
 
 // Function for array indexing
 void AddArrayIndexNode(const char* pos);

@@ -39,12 +39,14 @@ public:
 		globalVarTop = 0;
 		blockDepth = 0;
 		parent = NULL;
+		instancedType = NULL;
 	}
 
 	unsigned		start;
 	unsigned		globalVarTop;
 	unsigned		blockDepth;
 	FunctionInfo	*parent;
+	TypeInfo		*instancedType;
 };
 
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };

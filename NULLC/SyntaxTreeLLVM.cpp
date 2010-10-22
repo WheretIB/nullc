@@ -1620,6 +1620,10 @@ void NodeBlock::CompileLLVM()
 	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeBlock");
 }
 
+void NodeFunctionProxy::CompileLLVM()
+{
+}
+
 #else
 void	NULLC_PreventLLVMWarning(){}
 #endif

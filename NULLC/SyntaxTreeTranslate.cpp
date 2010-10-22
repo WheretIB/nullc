@@ -12,8 +12,9 @@ void GetCFunctionName(char* fName, unsigned int size, FunctionInfo *funcInfo)
 	unsigned int nameShift = *funcInfo->name == '$' ? 1 : 0;
 	unsigned int finalLength = 0;
 	const char *printedName = funcInfo->GetOperatorName();
+	unsigned funcID = ((funcInfo->address & 0x80000000) && (funcInfo->address != -1)) ? (funcInfo->address & ~0x80000000) : funcInfo->indexInArr;
 	if((funcInfo->type == FunctionInfo::LOCAL || funcInfo->type == FunctionInfo::COROUTINE) || !funcInfo->visible)
-		finalLength = SafeSprintf(fName, size, "%s%s_%d", namePrefix, printedName ? printedName : (funcInfo->name + nameShift), CodeInfo::FindFunctionByPtr(funcInfo));
+		finalLength = SafeSprintf(fName, size, "%s%s_%d", namePrefix, printedName ? printedName : (funcInfo->name + nameShift), funcID);
 	else if(funcInfo->type == FunctionInfo::THISCALL)
 		finalLength = SafeSprintf(fName, size, "%s%s_%s", namePrefix, printedName ? printedName : (funcInfo->name + nameShift), funcInfo->funcType->GetFullTypeName());
 	else
@@ -1206,6 +1207,11 @@ void NodeExpressionList::TranslateToC(FILE *fOut)
 			curr = curr->next;
 		}while(curr);
 	}
+}
+
+void NodeFunctionProxy::TranslateToC(FILE *fOut)
+{
+	(void)fOut;
 }
 
 void ResetTranslationState()

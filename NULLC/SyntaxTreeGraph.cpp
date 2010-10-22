@@ -426,3 +426,8 @@ void NodeExpressionList::LogToStream(FILE *fGraph)
 	}while(curr);
 	GoUp();
 }
+
+void NodeFunctionProxy::LogToStream(FILE *fGraph)
+{
+	(void)fGraph;
+}

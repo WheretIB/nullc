@@ -62,6 +62,7 @@ enum NodeType
 	typeNodeGetUpvalue,
 	typeNodeBlockOp,
 	typeNodeConvertPtr,
+	typeNodeFunctionProxy,
 };
 //////////////////////////////////////////////////////////////////////////
 class NodeNumber;
@@ -695,4 +696,23 @@ public:
 	FunctionType	*funcType;
 
 	NodeZeroOP		*paramHead, *paramTail;
+};
+
+class NodeFunctionProxy: public NodeZeroOP
+{
+public:
+	NodeFunctionProxy(FunctionInfo *info, const char *pos, bool silent = false);
+	virtual ~NodeFunctionProxy();
+
+			bool HasType(TypeInfo *type);
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM(virtual void CompileLLVM());
+public:
+	FunctionInfo	*funcInfo;
+	const char		*codePos;
+	bool			noError;
 };
