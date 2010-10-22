@@ -291,3 +291,51 @@ Foo bar(){ Foo r; return r; }\r\n\
 int ref(int) z = bar().foo;\r\n\
 return z(5);";
 TEST_RESULT("Member function overload type inference after function that returned non-reference type", testFunctionTypeInference6, "-5");
+
+const char	*testFunctionTypeInference7 = 
+"class Foo{ int x; double y; typeof(x*y) m; }\r\n\
+Foo m;\r\n\
+return typeof(m.m) == double;";
+TEST_RESULT("typeof expression in a class", testFunctionTypeInference7, "1");
+
+const char	*testFunctionTypeInference8 = 
+"class Foo{ int x; int[!typeof(x).isReference] m; }\r\n\
+Foo m;\r\n\
+return m.m.size;";
+TEST_RESULT("extended typeof expressions in a class", testFunctionTypeInference8, "1");
+
+const char	*testFunctionTypeInference9 = 
+"class Foo{ int x; double y; int[!typeof(y).isReference] m; }\r\n\
+Foo m;\r\n\
+return typeof(m.m).target == int;";
+TEST_RESULT("extended typeof expressions in a class 2", testFunctionTypeInference9, "1");
+
+const char	*testFunctionTypeInference10 = 
+"typeof(int) a;\r\n\
+return typeof(a) == int;";
+TEST_RESULT("typeof type is type, not typeid", testFunctionTypeInference10, "1");
+
+const char	*testFunctionTypeInference11 = 
+"double[10] y;\r\n\
+int[typeof(y).arraySize] a;\r\n\
+return typeof(a).target == int;";
+TEST_RESULT("typeof shouldn't change array type", testFunctionTypeInference11, "1");
+
+const char	*testFunctionTypeInference12 = 
+"class Foo<T, N>\r\n\
+{\r\n\
+	N _;\r\n\
+	T[typeof(_).argument.size] x;\r\n\
+}\r\n\
+Foo<int, int ref(int, int)> a;\r\n\
+return a.x.size;";
+TEST_RESULT("extended typeof expressions in a class 3", testFunctionTypeInference12, "2");
+
+const char	*testFunctionTypeInference13 = 
+"class vector<T>\r\n\
+{\r\n\
+	typeof(T).target[typeof(T).arraySize] arr;\r\n\
+}\r\n\
+vector<float[3]> a;\r\n\
+return a.arr.size;";
+TEST_RESULT("extended typeof expressions in a class 4", testFunctionTypeInference13, "3");

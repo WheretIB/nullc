@@ -1137,12 +1137,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPref
 			ThrowError(pos, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
 		if(newType && vInfo->isGlobal)
 		{
-			assert(currDefinedFunc.back()->type != FunctionInfo::NORMAL);
 			TypeInfo::MemberVariable *curr = newType->firstVariable;
 			for(; curr; curr = curr->next)
 				if(curr->nameHash == hash)
 					break;
-			if(curr)
+			if(curr && currDefinedFunc.size())
 			{
 				// Class members are accessed through 'this' pointer
 				FunctionInfo *currFunc = currDefinedFunc.back();
@@ -1159,6 +1158,9 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPref
 				}
 				CodeInfo::nodeList.push_back(new NodeDereference());
 				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
+				return;
+			}else if(curr){ // If we are in a type definition but not in a function, then this must be an typeof expression
+				CodeInfo::nodeList.push_back(new NodeGetAddress(vInfo, vInfo->pos, vInfo->varType));
 				return;
 			}
 		}
