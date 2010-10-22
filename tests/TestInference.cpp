@@ -267,3 +267,9 @@ int test(int ref(float) f){ return f(10); }\r\n\
 \r\n\
 return test(foo * bar);";
 TEST_RESULT("Function overload type inference in function arguments", testFunctionTypeInference5, "-5");
+
+const char	*testOperatorInference =
+"int operator+(int a, b){ return a + b; }\r\n\
+int foo(int ref(int, int) f){ return f(3, 4); }\r\n\
+return foo(@+);";
+TEST_RESULT("Taking pointer to an overloaded operator", testOperatorInference, "7");
