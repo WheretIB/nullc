@@ -5,8 +5,6 @@
 
 #include "Compiler.h"
 
-void ThrowError(const char* pos, const char* err, ...);
-
 // Some basic predefined types
 extern TypeInfo*	typeVoid;
 extern TypeInfo*	typeChar;
