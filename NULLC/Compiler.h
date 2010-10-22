@@ -6,7 +6,8 @@
 
 class CompilerError
 {
-	static const unsigned int ERROR_LENGTH = 4096;
+	// One buffer is for the error itself, the other is for a decorated version (line number, cursor)
+	static char	*errLocal, *errGlobal;
 public:
 	CompilerError(){ shift = 0; lineNum = 0; empty = 1; }
 	CompilerError(const char* errStr, const char* apprPos);
@@ -17,29 +18,27 @@ public:
 
 	const char* GetErrorString() const
 	{
-		static char errBuf[ERROR_LENGTH];
 		if(!lineNum)
-			return error;
-		char *curr = errBuf;
+			return errLocal;
+		char *curr = errGlobal;
 		if(lineNum != 0)
-			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "line %d - ", lineNum);
-		curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "%s", error);
+			curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "line %d - ", lineNum);
+		curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "%s", errLocal);
 		if(line[0] != 0)
 		{
-			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "\r\n  at \"%s\"", line);
-			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "\r\n      ");
+			curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "\r\n  at \"%s\"", line);
+			curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "\r\n      ");
 			for(unsigned int i = 0; i < shift; i++)
 				*(curr++) = ' ';
-			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "^");
+			curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "^");
 		}
-		curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "\r\n");
-		return errBuf;
+		curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "\r\n");
+		return errGlobal;
 	}
 	static const char *codeStart, *codeEnd;
 private:
 	friend class Compiler;
 
-	char error[ERROR_LENGTH];
 	char line[128];
 	unsigned int shift;
 	unsigned int lineNum;

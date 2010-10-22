@@ -43,9 +43,9 @@ CompilerError::CompilerError(const char* errStr, const char* apprPos)
 void CompilerError::Init(const char* errStr, const char* apprPos)
 {
 	empty = 0;
-	unsigned int len = (unsigned int)strlen(errStr) < ERROR_LENGTH ? (unsigned int)strlen(errStr) : ERROR_LENGTH - 1;
-	memcpy(error, errStr, len);
-	error[len] = 0;
+	unsigned int len = (unsigned int)strlen(errStr) < NULLC_ERROR_BUFFER_SIZE ? (unsigned int)strlen(errStr) : NULLC_ERROR_BUFFER_SIZE - 1;
+	memcpy(errLocal, errStr, len);
+	errLocal[len] = 0;
 	if(apprPos >= codeStart && apprPos <= codeEnd)
 	{
 		const char *begin = apprPos;
@@ -80,6 +80,9 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 
 const char *CompilerError::codeStart = NULL;
 const char *CompilerError::codeEnd = NULL;
+
+char* CompilerError::errLocal = NULL;
+char* CompilerError::errGlobal = NULL;
 
 const char *nullcBaseCode = "\
 void assert(int val);\r\n\
@@ -211,6 +214,9 @@ void __assertCoroutine(auto ref f);";
 
 Compiler::Compiler()
 {
+	CompilerError::errLocal = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	CompilerError::errGlobal = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+
 	buildInTypes.clear();
 	buildInTypes.reserve(32);
 
@@ -381,6 +387,9 @@ Compiler::~Compiler()
 
 	typeMap.reset();
 	funcMap.reset();
+
+	NULLC::dealloc(CompilerError::errLocal);
+	NULLC::dealloc(CompilerError::errGlobal);
 }
 
 void Compiler::ClearState()
@@ -799,8 +808,8 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 		unsigned lexPos = lexer.GetStreamSize();
 		if(!Compile(fileContent, true))
 		{
-			unsigned int currLen = (unsigned int)strlen(CodeInfo::lastError.error);
-			SafeSprintf(CodeInfo::lastError.error+currLen, 256 - strlen(CodeInfo::lastError.error), " [in module %s]", file);
+			unsigned int currLen = (unsigned int)strlen(CodeInfo::lastError.errLocal);
+			SafeSprintf(CodeInfo::lastError.errLocal + currLen, NULLC_ERROR_BUFFER_SIZE - currLen, " [in module %s]", file);
 
 			if(needDelete)
 				NULLC::dealloc(fileContent);
@@ -831,7 +840,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 		return bytecode;
 	}else{
 		CodeInfo::lastError.Init("", NULL);
-		SafeSprintf(CodeInfo::lastError.error, 256, "ERROR: module %s not found", altFile);
+		SafeSprintf(CodeInfo::lastError.errLocal, NULLC_ERROR_BUFFER_SIZE, "ERROR: module %s not found", altFile);
 	}
 	return NULL;
 }

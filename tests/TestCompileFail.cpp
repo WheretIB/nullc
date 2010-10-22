@@ -285,4 +285,8 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	TEST_FOR_FAIL("typeid of auto", "typeof(auto);", "ERROR: cannot take typeid from auto type");
 
 	TEST_FOR_FAIL("conversion from void to basic type", "int foo(int a){ return -a; } void bar(){} return foo(bar());", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL_GENERIC("buffer overrun prevention", "int foo(generic a){ return -; /* %s %s %s %s %s %s %s %s %s %s %s %s %s %s */ } return foo(1);", "ERROR: while instantiating generic function foo(generic)", "ERROR: expression not found after '-'");
+
+	TEST_FOR_FAIL("Infinite instantiation recursion", "auto foo(generic a){ typeof(a) ref x; return foo(x); } return foo(1); }", "ERROR: while instantiating generic function foo(generic)");
 }
