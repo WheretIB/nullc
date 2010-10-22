@@ -110,7 +110,8 @@ BEGIN
     VK_F5,          ID_RUN,                 VIRTKEY, CONTROL, NOINVERT
     VK_F5,          ID_RUN_DEBUG,           VIRTKEY, NOINVERT
     VK_F9,          ID_TOGGLE_BREAK,        VIRTKEY, NOINVERT
-    VK_F4,          ID_SAVE_AS_HTML,        VIRTKEY, CONTROL, NOINVERT
+    VK_F3,          ID_SAVE_AS_HTML,        VIRTKEY, CONTROL, NOINVERT
+    VK_F4,          ID_CLOSE_TAB,           VIRTKEY, CONTROL, NOINVERT
 END
 
 
