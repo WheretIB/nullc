@@ -639,7 +639,6 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 	{
 		if(FunctionGeneric(false))
 			ThrowError((*str)->pos, "ERROR: generic function cannot be forward-declared");
-		CALLBACK(AddVoidNode());
 		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
 			CALLBACK(FunctionToOperator(start->pos));
 		CALLBACK(FunctionPrototype(start->pos));
@@ -666,7 +665,6 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 			else
 				(*str)++;
 		}
-		AddVoidNode();
 	}else{
 		CALLBACK(FunctionStart((*str-1)->pos));
 		if(!ParseLexem(str, lex_ofigure))
@@ -893,27 +891,28 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 	{
 		int result = ((NodeNumber*)CodeInfo::nodeList.back())->GetInteger();
 		CodeInfo::nodeList.pop_back();
-		if((*str)->type != lex_ofigure)
-			ThrowError((*str)->pos, "ERROR: '{' not found after 'if' in static if");
 		if(!result)
 		{
-			(*str)++;
-			unsigned braces = 1;
-			while(braces)
+			unsigned braces = 0;
+			for(;;)
 			{
 				if((*str)->type == lex_none)
 					ThrowError((*str)->pos, "ERROR: unknown lexeme in 'if' body");
 				if(ParseLexem(str, lex_ofigure))
+				{
 					braces++;
-				else if(ParseLexem(str, lex_cfigure))
-					braces--;
-				else
+				}else if(ParseLexem(str, lex_cfigure)){
+					if(!--braces)
+						break;
+				}else if(ParseLexem(str, lex_semicolon)){
+					if(!braces)
+						break;
+				}else{
 					(*str)++;
+				}
 			}
 			if(ParseLexem(str, lex_else))
 			{
-				if((*str)->type != lex_ofigure)
-					ThrowError((*str)->pos, "ERROR: '{' not found after 'else' in static if");
 				if(!ParseExpression(str))
 					ThrowError((*str)->pos, "ERROR: expression not found after 'else'");
 			}else{
@@ -924,19 +923,23 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 				ThrowError((*str)->pos, "ERROR: expression not found after 'if'");
 			if(ParseLexem(str, lex_else))
 			{
-				if(!ParseLexem(str, lex_ofigure))
-					ThrowError((*str)->pos, "ERROR: '{' not found after 'else' in static if");
-				unsigned braces = 1;
-				while(braces)
+				unsigned braces = 0;
+				for(;;)
 				{
 					if((*str)->type == lex_none)
 						ThrowError((*str)->pos, "ERROR: unknown lexeme in 'else' body");
 					if(ParseLexem(str, lex_ofigure))
+					{
 						braces++;
-					else if(ParseLexem(str, lex_cfigure))
-						braces--;
-					else
+					}else if(ParseLexem(str, lex_cfigure)){
+						if(!--braces)
+							break;
+					}else if(ParseLexem(str, lex_semicolon)){
+						if(!braces)
+							break;
+					}else{
 						(*str)++;
+					}
 				}
 			}
 		}

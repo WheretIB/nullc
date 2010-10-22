@@ -216,3 +216,30 @@ Test_##code test_##code;
 		printf("Test \"%s\" failed to fail.\r\n", name);\
 	}\
 }
+
+#define TEST_FOR_FAIL_GENERIC(name, str, error1, error2)\
+{\
+	testsCount[TEST_FAILURE_INDEX]++;\
+	nullres good = nullcCompile(str);\
+	if(!good)\
+	{\
+		char buf[512];\
+		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));\
+		if(memcmp(buf, error1, strlen(error1)) != 0)\
+		{\
+			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error1);\
+		}else{\
+			char *bufNext = strstr(buf + 1, "ERROR:");\
+			if(char *lineEnd = strchr(bufNext, '\r'))\
+				*lineEnd = 0;\
+			if(strcmp(error2, bufNext) != 0)\
+			{\
+				printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, bufNext, error2);\
+			}else{\
+				testsPassed[TEST_FAILURE_INDEX]++;\
+			}\
+		}\
+	}else{\
+	printf("Test \"%s\" failed to fail.\r\n", name);\
+	}\
+}

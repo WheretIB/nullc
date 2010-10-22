@@ -119,19 +119,10 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	return newInfo;
 }
 
-int	CodeInfo::FindVariableByName(unsigned int hash)
-{
-	for(int i = varInfo.size()-1; i >= 0; i--)
-		if(varInfo[i]->nameHash == hash)
-			return i;
-
-	return -1;
-}
-
 int CodeInfo::FindFunctionByName(unsigned int hash, int startPos)
 {
 	for(int i = startPos; i >= 0; i--)
-		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible)
+		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible && !((funcInfo[i]->address & 0x80000000) && !(funcInfo[i]->address == ~0u)))
 			return i;
 
 	return -1;

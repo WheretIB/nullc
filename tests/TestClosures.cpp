@@ -411,9 +411,110 @@ const char	*testExternalAutoDerefVariable =
 int[8] array = 4;\r\n\
 auto main()\r\n\
 {\r\n\
-	for(i in array) \r\n\
-		i = rand(auto(){ return i * 2; }); \r\n\
+	for(i in array)\r\n\
+		i = rand(auto(){ return i * 2; });\r\n\
 }\r\n\
 main();\r\n\
 return array[2];";
 TEST_RESULT("External variable that should be dereferenced automatically.", testExternalAutoDerefVariable, "8");
+
+const char	*testLocalFunctionPrototype =
+"int foo(){ int bar(); return bar(); int bar(){ return 5; } } return foo();";
+TEST_RESULT("Local function prototype", testLocalFunctionPrototype, "5");
+
+const char	*testLocalFunctionPrototype2 =
+"int foo(int x)\r\n\
+{\r\n\
+	int bar();\r\n\
+	auto y = bar();\r\n\
+	int bar()\r\n\
+	{\r\n\
+		return -x;\r\n\
+	}\r\n\
+	return y;\r\n\
+}\r\n\
+return foo(5);";
+TEST_RESULT("Local function prototype 2", testLocalFunctionPrototype2, "-5");
+
+const char	*testLocalFunctionPrototype3 =
+"int foo(int x)\r\n\
+{\r\n\
+	int bar();\r\n\
+	auto y = bar();\r\n\
+	int bar()\r\n\
+	{\r\n\
+		return -x;\r\n\
+	}\r\n\
+	return y + bar();\r\n\
+}\r\n\
+return foo(5);";
+TEST_RESULT("Local function prototype 3", testLocalFunctionPrototype3, "-10");
+
+const char	*testLocalFunctionPrototype4 =
+"int foo(int x)\r\n\
+{\r\n\
+	int bar();\r\n\
+	auto y = bar;\r\n\
+	int z = y();\r\n\
+	int bar()\r\n\
+	{\r\n\
+		return -x;\r\n\
+	}\r\n\
+	return z + y() + bar();\r\n\
+}\r\n\
+return foo(5);";
+TEST_RESULT("Local function prototype 4", testLocalFunctionPrototype4, "-15");
+
+const char	*testLocalFunctionPrototype5 =
+"int foo(int x)\r\n\
+{\r\n\
+	int bar();\r\n\
+	auto y = bar;\r\n\
+	int bar()\r\n\
+	{\r\n\
+		return -x;\r\n\
+	}\r\n\
+	auto z = bar;\r\n\
+	return y() + z();\r\n\
+}\r\n\
+return foo(5);";
+TEST_RESULT("Local function prototype 5", testLocalFunctionPrototype5, "-10");
+
+const char	*testLocalFunctionPrototype6 =
+"int foo(int x)\r\n\
+{\r\n\
+	int bar();\r\n\
+	int hell()\r\n\
+	{\r\n\
+		return bar();\r\n\
+	}\r\n\
+	auto m = hell();\r\n\
+	int bar()\r\n\
+	{\r\n\
+		return -x;\r\n\
+	}\r\n\
+	auto z = bar;\r\n\
+	return m + z();\r\n\
+}\r\n\
+return foo(5);";
+TEST_RESULT("Local function prototype 6", testLocalFunctionPrototype6, "-10");
+
+const char	*testLocalFunctionPrototype7 =
+"int foo(int x)\r\n\
+{\r\n\
+	int bar();\r\n\
+	int hell()\r\n\
+	{\r\n\
+		auto y = bar;\r\n\
+		return y();\r\n\
+	}\r\n\
+	auto m = hell();\r\n\
+	int bar()\r\n\
+	{\r\n\
+		return -x;\r\n\
+	}\r\n\
+	auto z = bar;\r\n\
+	return m + z();\r\n\
+}\r\n\
+return foo(5);";
+TEST_RESULT("Local function prototype 7", testLocalFunctionPrototype7, "-10");

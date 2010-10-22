@@ -42,6 +42,8 @@ FastVector<unsigned int>	cycleDepth;
 
 // Stack of functions that are being defined at the moment
 FastVector<FunctionInfo*>	currDefinedFunc;
+// A list of generic function instances that should be created in the right scope
+FastVector<FunctionInfo*>	delayedInstance;
 
 HashMap<FunctionInfo*>		funcMap;
 HashMap<VariableInfo*>		varMap;
@@ -104,10 +106,9 @@ void SetCurrentAlignment(unsigned int alignment)
 // Finds variable inside function external variable list, and if not found, adds it to a list
 FunctionInfo::ExternalInfo* AddFunctionExternal(FunctionInfo* func, VariableInfo* var)
 {
-	unsigned int hash = var->nameHash;
 	unsigned int i = 0;
 	for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next, i++)
-		if(curr->variable->nameHash == hash)
+		if(curr->variable == var)
 			return curr;
 
 	func->AddExternal(var);
@@ -239,9 +240,88 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 	if(hideFunctions)
 	{
 		for(unsigned int i = funcInfoTop.back(); i < CodeInfo::funcInfo.size(); i++)
-			CodeInfo::funcInfo[i]->visible = false;
+		{
+			// Check that local function prototypes have implementation before they go out of scope
+			// Skip generic functions and function prototypes for generic function instances
+			if(!CodeInfo::funcInfo[i]->implemented && !(CodeInfo::funcInfo[i]->address & 0x80000000) && !CodeInfo::funcInfo[i]->generic && !CodeInfo::funcInfo[i]->genericBase)
+				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: local function '%s' went out of scope unimplemented", CodeInfo::funcInfo[i]->name);
+			// generic function instance will go out of scope only when base function goes out of scope
+			CodeInfo::funcInfo[i]->visible = CodeInfo::funcInfo[i]->genericBase ? CodeInfo::funcInfo[i]->genericBase->parent->visible : false;
+		}
 	}
 	funcInfoTop.pop_back();
+
+	// Check delayed function instances
+	for(unsigned i = 0; i < delayedInstance.size(); i++)
+	{
+		// If the current scope is equal to generic function scope, instantiate it
+		if(delayedInstance[i] && delayedInstance[i]->vTopSize == varInfoTop.size())
+		{
+			// Take prototype info
+			FunctionInfo *fProto = delayedInstance[i];
+			// Mark function as instanced
+			delayedInstance[i] = NULL;
+
+			const char *pos = CodeInfo::lastKnownStartPos;
+			FunctionType *fType = fProto->funcType->funcType;
+
+			// Get ID of the function that will be created
+			unsigned funcID = CodeInfo::funcInfo.size();
+			FunctionInfo *fInfo = fProto->genericBase->parent;
+			if(fInfo->type == FunctionInfo::THISCALL)
+			{
+				currType = fInfo->parentClass;
+				TypeContinue(pos);
+			}
+
+			// Function return type
+			currType = fType->retType;
+			FunctionAdd(pos, fInfo->name);
+
+			// New function type is equal to generic function type no matter where we create an instance of it
+			CodeInfo::funcInfo.back()->type = fInfo->type;
+			CodeInfo::funcInfo.back()->parentClass = fInfo->parentClass;
+
+			// Start of function source
+			Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
+			CodeInfo::lastKnownStartPos = NULL;
+
+			// Get function parameters from function prototype
+			for(VariableInfo *curr = fProto->firstParam; curr; curr = curr->next)
+			{
+				currType = curr->varType;
+				FunctionParameter(pos, curr->name);
+			}
+			// Skip function parameter source
+			unsigned parenthesis = 1;
+			while(parenthesis)
+			{
+				if(start->type == lex_oparen)
+					parenthesis++;
+				else if(start->type == lex_cparen)
+					parenthesis--;
+				start++;
+			}
+			start++;
+
+			// Because we reparse a generic function, our function may be erroneously marked as generic
+			CodeInfo::funcInfo[funcID]->generic = NULL;
+			CodeInfo::funcInfo[funcID]->genericBase = fInfo->generic;
+
+			// Reparse function code
+			FunctionStart(pos);
+			const char *lastFunc = SetCurrentFunction(NULL);
+			if(!ParseCode(&start))
+				AddVoidNode();
+			SetCurrentFunction(lastFunc);
+			FunctionEnd(start->pos);
+			if(fInfo->type == FunctionInfo::THISCALL)
+				TypeStop();
+
+			// Remove function definition node, it was placed to funcDefList in FunctionEnd
+			CodeInfo::nodeList.pop_back();
+		}
+	}
 }
 
 // Input is a symbol after '\'
@@ -904,9 +984,14 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
-	// Find in variable list
-	VariableInfo **info = varMap.find(hash);
-	if(!info)
+
+	HashMap<VariableInfo*>::Node *curr = varMap.first(hash);
+	
+	// In generic function instance, skip all variables that are defined after the base generic function
+	while(curr && currDefinedFunc.size() && currDefinedFunc.back()->genericBase && !(curr->value->pos >> 24) && (curr->value->isGlobal ? currDefinedFunc.back()->genericBase->globalVarTop <= curr->value->pos : (currDefinedFunc.back()->genericBase->blockDepth < curr->value->blockDepth && currDefinedFunc.back() != curr->value->parentFunction)))
+		curr = varMap.next(curr);
+
+	if(!curr)
 	{
 		int fID = -1;
 		if(newType)
@@ -954,16 +1039,30 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 
 		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL || CodeInfo::funcInfo[fID]->type == FunctionInfo::COROUTINE)
 		{
-			char	*contextName = AllocateString(CodeInfo::funcInfo[fID]->nameLength + 24);
-			int length = sprintf(contextName, "$%s_%d_ext", CodeInfo::funcInfo[fID]->name, CodeInfo::FindFunctionByPtr(CodeInfo::funcInfo[fID]));
-			unsigned int contextHash = GetStringHash(contextName);
+			FunctionInfo *fInfo = CodeInfo::funcInfo[fID];
 
-			int i = CodeInfo::FindVariableByName(contextHash);
-			if(i == -1)
+			VariableInfo **info = NULL;
+			InplaceStr	context;
+			// If function is already implemented, we can take context variable information from function information
+			if(fInfo->funcContext)
+			{
+				info = &fInfo->funcContext;
+				context = fInfo->funcContext->name;
+			}else{
+				char	*contextName = AllocateString(fInfo->nameLength + 24);
+				int length = sprintf(contextName, "$%s_%d_ext", fInfo->name, fInfo->indexInArr);
+				unsigned int contextHash = GetStringHash(contextName);
+				info = varMap.find(contextHash);
+				context = InplaceStr(contextName, length);
+			}
+			if(!info)
 			{
 				CodeInfo::nodeList.push_back(new NodeNumber(0, CodeInfo::GetReferenceType(typeInt)));
 			}else{
-				AddGetAddressNode(pos, InplaceStr(contextName, length));
+				AddGetAddressNode(pos, context);
+				// This could be a forward-declared context, so make sure address will be correct if it changes
+				if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
+					((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
 				CodeInfo::nodeList.push_back(new NodeDereference());
 			}
 		}else if(CodeInfo::funcInfo[fID]->type == FunctionInfo::THISCALL){
@@ -975,7 +1074,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 		CodeInfo::funcInfo[fID]->pure = false;
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(CodeInfo::funcInfo[fID]));
 	}else{
-		VariableInfo *vInfo = *info;
+		VariableInfo *vInfo = curr->value;
 		if(!vInfo->varType)
 			ThrowError(pos, "ERROR: variable '%.*s' is being used while its type is unknown", varName.end-varName.begin, varName.begin);
 		if(newType && vInfo->isGlobal)
@@ -998,7 +1097,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 					FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, currDefinedFunc[0]->extraParam);
 					CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(temp)));
 				}else{
-					CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, false, temp));
+					CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, temp));
 				}
 				CodeInfo::nodeList.push_back(new NodeDereference());
 				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
@@ -1027,7 +1126,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				AddGetVariableNode(pos);
 		}else{
 			// Create node that places variable address on stack
-			CodeInfo::nodeList.push_back(new NodeGetAddress(vInfo, vInfo->pos, vInfo->isGlobal, vInfo->varType));
+			CodeInfo::nodeList.push_back(new NodeGetAddress(vInfo, vInfo->pos, vInfo->varType));
 			if(vInfo->autoDeref)
 				AddGetVariableNode(pos);
 			if(currDefinedFunc.size() && vInfo->blockDepth <= currDefinedFunc.back()->vTopSize)
@@ -1061,7 +1160,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 			if(func->generic)
 			{
 				// Having only a partial set of arguments, begin parsing arguments to the point that the current argument will be known
-				Lexeme *start = CodeInfo::lexStart + func->genericStart;
+				Lexeme *start = CodeInfo::lexStart + func->generic->start;
 
 				// Save current type
 				TypeInfo *lastType = currType;
@@ -1275,7 +1374,7 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 		assert(currFunc->allParamSize % 4 == 0);
 		CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(variableInfo->varType)));
 	}else{
-		CodeInfo::nodeList.push_back(new NodeGetAddress(variableInfo, variableInfo->pos, variableInfo->isGlobal, variableInfo->varType));
+		CodeInfo::nodeList.push_back(new NodeGetAddress(variableInfo, variableInfo->pos, variableInfo->varType));
 	}
 
 	varDefined = false;
@@ -2038,10 +2137,12 @@ bool FunctionGeneric(bool setGeneric, unsigned pos)
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(setGeneric)
 	{
-		lastFunc.generic = true;
-		lastFunc.genericStart = pos;
+		lastFunc.generic = currDefinedFunc.back()->CreateGenericContext(pos);
+		lastFunc.generic->globalVarTop = varTop;
+		lastFunc.generic->blockDepth = lastFunc.vTopSize;
+		lastFunc.generic->parent = &lastFunc;
 	}
-	return lastFunc.generic;
+	return !!lastFunc.generic;
 }
 
 void FunctionParameter(const char* pos, InplaceStr paramName)
@@ -2126,6 +2227,36 @@ void FunctionPrototype(const char* pos)
 	currDefinedFunc.pop_back();
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
 		methodCount++;
+	if(lastFunc.generic)
+	{
+		CodeInfo::nodeList.push_back(new NodeZeroOP());
+		AddOneExpressionNode(typeVoid);
+		lastFunc.afterNode = (NodeExpressionList*)CodeInfo::nodeList.back();
+	}else if(lastFunc.type == FunctionInfo::LOCAL || lastFunc.type == FunctionInfo::COROUTINE){
+		// For a local or a coroutine function prototype, we must create a forward declaration of a context variable
+		// When a function will be implemented, it will fill up the closure type with members, update this context variable and create closure initialization
+		char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
+		int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, lastFunc.indexInArr);
+		lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), 0, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
+		lastFunc.funcContext->blockDepth = varInfoTop.size();
+		// Allocate node where the context initialization will be placed
+		CodeInfo::nodeList.push_back(new NodeZeroOP());
+		AddOneExpressionNode(typeVoid);
+		lastFunc.afterNode = (NodeExpressionList*)CodeInfo::nodeList.back();
+		// Context variable should be visible
+		varMap.insert(lastFunc.funcContext->nameHash, lastFunc.funcContext);
+	}else{
+		AddVoidNode();
+	}
+	// Check if this function was already defined
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(lastFunc.nameHash);
+	while(curr)
+	{
+		FunctionInfo *func = curr->value;
+		if(func->visible && func->funcType == lastFunc.funcType && func != &lastFunc)
+			ThrowError(pos, "ERROR: function is already defined");
+		curr = funcMap.next(curr);
+	}
 }
 
 void FunctionStart(const char* pos)
@@ -2191,6 +2322,7 @@ void FunctionEnd(const char* pos)
 	if(lastFunc.retType && lastFunc.retType != typeVoid && !lastFunc.explicitlyReturned)
 		ThrowError(pos, "ERROR: function must return a value of type '%s'", lastFunc.retType->GetFullTypeName());
 
+	FunctionInfo *implementedPrototype = NULL;
 	HashMap<FunctionInfo*>::Node *curr = funcMap.first(lastFunc.nameHash);
 	while(curr)
 	{
@@ -2216,10 +2348,14 @@ void FunctionEnd(const char* pos)
 					ThrowError(pos, "ERROR: function '%s' is being defined with the same set of parameters", lastFunc.name);
 				else
 					info->address = lastFunc.indexInArr | 0x80000000;
+				assert(!implementedPrototype);
+				implementedPrototype = info;
 			}
 		}
 		curr = funcMap.next(curr);
 	}
+	if(implementedPrototype && implementedPrototype->parentFunc != lastFunc.parentFunc)
+		ThrowError(pos, "ERROR: function implementation is found in scope different from function prototype");
 
 	cycleDepth.pop_back();
 	// Save info about all local variables
@@ -2239,6 +2375,13 @@ void FunctionEnd(const char* pos)
 	if(lastFunc.firstLocal)
 		lastFunc.firstLocal->prev = NULL;
 
+	if(!currDefinedFunc.back()->retType)
+	{
+		currDefinedFunc.back()->retType = typeVoid;
+		currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
+	}
+	currDefinedFunc.pop_back();
+
 	unsigned int varFormerTop = varTop;
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
 	EndBlock(true, false);
@@ -2248,13 +2391,6 @@ void FunctionEnd(const char* pos)
 	CodeInfo::nodeList.push_back(funcNode);
 	funcNode->SetCodeInfo(pos);
 	CodeInfo::funcDefList.push_back(funcNode);
-
-	if(!currDefinedFunc.back()->retType)
-	{
-		currDefinedFunc.back()->retType = typeVoid;
-		currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
-	}
-	currDefinedFunc.pop_back();
 
 	if(lastFunc.retType->type == TypeInfo::TYPE_COMPLEX || lastFunc.retType->refLevel)
 		lastFunc.pure = false;	// Pure functions return value must be simple type
@@ -2307,7 +2443,21 @@ void FunctionEnd(const char* pos)
 		// Create a pointer to array
 		currType = CodeInfo::GetReferenceType(closureType);
 		lastFunc.extraParam->varType = currType;
-		VariableInfo *varInfo = AddVariable(pos, InplaceStr(hiddenHame, length));
+		VariableInfo *varInfo = NULL;
+		// If we've implemented a prototype of a local/coroutine function, update context variable placement
+		if(implementedPrototype && implementedPrototype->funcContext)
+		{
+			varInfo = implementedPrototype->funcContext;
+			varInfo->pos = varTop;
+			varInfo->varType = currType;
+			CodeInfo::varInfo.push_back(varInfo);
+			CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
+			varTop += currType->size;
+		}else{
+			varInfo = AddVariable(pos, InplaceStr(hiddenHame, length));
+		}
+
+		lastFunc.funcContext = varInfo; // Save function context variable
 
 		// Allocate array in dynamic memory
 		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
@@ -2322,13 +2472,14 @@ void FunctionEnd(const char* pos)
 
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
-			// Find in variable list
-			int i = CodeInfo::FindVariableByName(curr->variable->nameHash);
-			if(i == -1)
+			VariableInfo *currVar = curr->variable;
+			// Take special care for local coroutine variables that are accessed like external variables
+			if(lastFunc.type == FunctionInfo::COROUTINE && currVar->parentFunction == &lastFunc)
 			{
+				assert(currVar->parentFunction == &lastFunc);
 				// If not found, and this function is not a coroutine, than it's an internal compiler error
 				if(lastFunc.type != FunctionInfo::COROUTINE)
-					ThrowError(pos, "Can't capture variable %.*s", curr->variable->name.end-curr->variable->name.begin, curr->variable->name.begin);
+					ThrowError(pos, "Can't capture variable %.*s", currVar->name.end - currVar->name.begin, currVar->name.begin);
 				// Mark position as invalid so that when closure is created, this variable will be closed immediately
 				curr->targetLocal = true;
 				curr->targetPos = ~0u;
@@ -2337,38 +2488,36 @@ void FunctionEnd(const char* pos)
 				continue;
 			}
 
-			// Find the function that scopes target variable
-			FunctionInfo *parentFunc = currDefinedFunc.back();
-			for(unsigned int k = 0; k < currDefinedFunc.size()-1; k++)
-			{
-				if(i >= (int)varInfoTop[currDefinedFunc[k]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc[k+1]->vTopSize].activeVarCnt)
-				{
-					parentFunc = currDefinedFunc[k];
-					break;
-				}
-			}
+			assert(currDefinedFunc.size());
 
+			// Function that scopes target variable
+			FunctionInfo *parentFunc = currVar->parentFunction;
+			
 			// If variable is not in current scope (or a local in case of a coroutine), get it through closure
-			bool externalAccess = currDefinedFunc.size() && i >= (int)varInfoTop[currDefinedFunc[0]->vTopSize].activeVarCnt && i < (int)varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt;
-			if(currDefinedFunc.size() &&
-				(
-					(currDefinedFunc.back()->type == FunctionInfo::LOCAL && externalAccess)
-					||
-					(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || (unsigned)i >= varInfoTop[currDefinedFunc.back()->vTopSize].activeVarCnt + currDefinedFunc.back()->paramCount))
-				)
-			)
+			bool externalAccess = !currVar->isGlobal && currVar->parentFunction != currDefinedFunc.back();
+
+			// all coroutine variables except parameters are accessed through an external closure
+			bool coroutineParameter = false;
+			if(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && !externalAccess)
+			{
+				for(VariableInfo *param = currDefinedFunc.back()->firstParam; param && !coroutineParameter; param = param->next)
+					coroutineParameter = param == currVar;
+			}
+			if((currDefinedFunc.back()->type == FunctionInfo::LOCAL && externalAccess) || (currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (!currVar->isGlobal && !coroutineParameter)))
 			{
 				// Add variable name to the list of function external variables
-				FunctionInfo::ExternalInfo *external = AddFunctionExternal(currDefinedFunc.back(), CodeInfo::varInfo[i]);
+				FunctionInfo::ExternalInfo *external = AddFunctionExternal(currDefinedFunc.back(), currVar);
 
 				curr->targetLocal = false;
 				curr->targetPos = external->closurePos;
 			}else{
 				// Or get it from current scope
 				curr->targetLocal = true;
-				curr->targetPos = CodeInfo::varInfo[i]->pos;
+				curr->targetPos = currVar->pos;
+				curr->targetVar = currVar;
 			}
-			curr->targetFunc = CodeInfo::FindFunctionByPtr(parentFunc);
+			curr->targetFunc = parentFunc->indexInArr;
+			assert(curr->targetFunc == CodeInfo::FindFunctionByPtr(parentFunc));
 			curr->targetDepth = curr->variable->blockDepth - parentFunc->vTopSize - 1;
 
 			if(curr->variable->blockDepth - parentFunc->vTopSize > parentFunc->maxBlockDepth)
@@ -2379,6 +2528,21 @@ void FunctionEnd(const char* pos)
 		varDefined = saveVarDefined;
 		currType = saveCurrType;
 		funcNode->AddExtraNode();
+		// Context creation should be placed at the point of a function prototype if this function is its implementation
+		if(implementedPrototype && implementedPrototype->afterNode)
+		{
+			implementedPrototype->afterNode->AddNode();
+			AddVoidNode();
+		}
+	}
+	// If there were no external variables, the context created after function prototype should be updated
+	if((lastFunc.type == FunctionInfo::LOCAL || lastFunc.type == FunctionInfo::COROUTINE) && lastFunc.externalCount == 0 && implementedPrototype)
+	{
+		assert(implementedPrototype->funcContext);
+		implementedPrototype->funcContext->pos = varTop;
+		CodeInfo::varInfo.push_back(implementedPrototype->funcContext);
+		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
+		varTop += currType->size;
 	}
 	AliasInfo *info = lastFunc.childAlias;
 	while(info)
@@ -2581,7 +2745,7 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		// We have auto ref ref, so dereference it
 		AddGetVariableNode(pos);
 		// Push address to array
-		CodeInfo::nodeList.push_back(new NodeGetAddress(target, target->pos, target->isGlobal, target->varType));
+		CodeInfo::nodeList.push_back(new NodeGetAddress(target, target->pos, target->varType));
 		((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
 		// Find redirection function
 		HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash("__redirect"));
@@ -2630,7 +2794,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			// Take "this" pointer
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
-			CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, false, temp));
+			CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, temp));
 			CodeInfo::nodeList.push_back(new NodeDereference());
 			// "this" pointer will be passed as extra parameter
 			funcAddr = CodeInfo::nodeList.back();
@@ -2686,7 +2850,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		curr = funcMap.next(curr);
 	}
 	unsigned int count = bestFuncList.size();
-	unsigned int vID = ~0u;
+	VariableInfo *vInfo = NULL;
 	// If function wasn't found
 	if(count == 0)
 	{
@@ -2696,14 +2860,15 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		// If there was a function name, try to find a variable which may be a function pointer
 		if(funcName)
 		{
-			vID = CodeInfo::FindVariableByName(funcNameHash);
+			VariableInfo **info = varMap.find(funcNameHash);
 			// If variable is not found, throw an error
-			if(vID == ~0u)
+			if(!info)
 				ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
+			vInfo = *info;
 		}
 	}
 	// If there is a name and it's not a variable that holds 
-	if(vID == ~0u && funcName)
+	if(!vInfo && funcName)
 	{
 		// Find the best suited function
 		bestFuncRating.resize(count);
@@ -2923,10 +3088,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		currType = fType->retType;
 		FunctionAdd(pos, fInfo->name);
 
-		if(fInfo->type == FunctionInfo::COROUTINE)
-			CodeInfo::funcInfo.back()->type = FunctionInfo::COROUTINE;
+		// New function type is equal to generic function type no matter where we create an instance of it
+		CodeInfo::funcInfo.back()->type = fInfo->type;
+		CodeInfo::funcInfo.back()->parentClass = fInfo->parentClass;
 
-		Lexeme *start = CodeInfo::lexStart + fInfo->genericStart;
+		Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
 		CodeInfo::lastKnownStartPos = NULL;
 
 		unsigned argOffset = CodeInfo::nodeList.size() - fType->paramCount;
@@ -2941,8 +3107,9 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			assert(start->type == lex_ofigure);
 			start++;
 
-			CodeInfo::funcInfo[funcID]->generic = false;
-			CodeInfo::funcInfo[funcID]->genericStart = 0;
+			// Because we reparse a generic function, our function may be erroneously marked as generic
+			CodeInfo::funcInfo[funcID]->generic = NULL;
+			CodeInfo::funcInfo[funcID]->genericBase = fInfo->generic;
 
 			FunctionStart(pos);
 			const char *lastFunc = SetCurrentFunction(NULL);
@@ -2950,7 +3117,36 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				AddVoidNode();
 			SetCurrentFunction(lastFunc);
 
-			FunctionEnd(start->pos);
+			// A true function instance can only be created in the same scope as the base function
+			// So we must act as we've made only a function prototype if current scope is wrong
+			if(CodeInfo::funcInfo[funcID]->vTopSize != fInfo->vTopSize)
+			{
+				// Special case of FunctionEnd function
+				FunctionInfo &lastFunc = *currDefinedFunc.back();
+				cycleDepth.pop_back();
+				varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
+				EndBlock(true, false);	// close function block
+				if(!currDefinedFunc.back()->retType)	// resolve function return type if 'auto'
+				{
+					currDefinedFunc.back()->retType = typeVoid;
+					currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
+				}
+				currDefinedFunc.pop_back();
+				AliasInfo *info = lastFunc.childAlias; // Remove all typedefs made in function
+				while(info)
+				{
+					CodeInfo::classMap.remove(info->nameHash, info->type);
+					info = info->next;
+				}
+				lastFunc.pure = false; // Function cannot be evaluated at compile-time
+				lastFunc.implemented = false;	// This is a function prototype
+				lastFunc.parentFunc = fInfo->parentFunc;	// Fix instance function parent function
+				delayedInstance.push_back(&lastFunc); // Add this function to be instanced later
+				CodeInfo::nodeList.pop_back(); // Remove function code
+				AddVoidNode();
+			}else{
+				FunctionEnd(start->pos);
+			}
 		}else{
 			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 
@@ -2975,6 +3171,25 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		funcDefAtEnd = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
+
+		// A true function instance can only be created in the same scope as the base function
+		if(CodeInfo::funcInfo[funcID]->vTopSize != fInfo->vTopSize)
+		{
+			FunctionInfo &lastFunc = *CodeInfo::funcInfo[funcID];
+			if(lastFunc.type == FunctionInfo::LOCAL || lastFunc.type == FunctionInfo::COROUTINE)
+			{
+				char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
+				int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, lastFunc.indexInArr);
+				lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), 0, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
+				lastFunc.funcContext->blockDepth = fInfo->vTopSize;
+				// Use generic function expression list
+				assert(fInfo->afterNode);
+				lastFunc.afterNode = fInfo->afterNode;
+				varMap.insert(lastFunc.funcContext->nameHash, lastFunc.funcContext);
+			}
+		}
+		// Fix function outer scope level
+		CodeInfo::funcInfo[funcID]->vTopSize = fInfo->vTopSize;
 
 		fInfo = CodeInfo::funcInfo[funcID];
 		fType = fInfo->funcType->funcType;
@@ -3105,24 +3320,34 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	// If the function is called by name it accepts closure as extra parameter
 	if(fInfo && (fInfo->type == FunctionInfo::LOCAL || fInfo->type == FunctionInfo::COROUTINE))
 	{
-		// Construct closure name
-		char	*contextName = AllocateString(fInfo->nameLength + 24);
-		int length = sprintf(contextName, "$%s_%d_ext", fInfo->name, CodeInfo::FindFunctionByPtr(fInfo));
-		unsigned int contextHash = GetStringHash(contextName);
-
 		// Find closure.
 		// A name of a closure in the scope where function is defined is equal to the name of the function extra parameter
 		// This enables the following:
 		// When a function is called externally, a closure from the scope where function was defined is passed as extra argument
 		// When a function is called recursively, a current closure from extra parameter is passed as extra argument, preserving same context
-		int i = CodeInfo::FindVariableByName(contextHash);
-		if(i == -1)
+		VariableInfo **info = NULL;
+		InplaceStr	context;
+		if(fInfo->funcContext)
+		{
+			info = &fInfo->funcContext;
+			context = fInfo->funcContext->name;
+		}else{
+			char	*contextName = AllocateString(fInfo->nameLength + 24);
+			int length = sprintf(contextName, "$%s_%d_ext", fInfo->name, fInfo->indexInArr);
+			unsigned int contextHash = GetStringHash(contextName);
+			info = varMap.find(contextHash);
+			context = InplaceStr(contextName, length);
+		}
+		if(!info)
 		{
 			// When a local function is called from the outside, if it didn't use any external variables, there is no closure
 			CodeInfo::nodeList.push_back(new NodeNumber(0, CodeInfo::GetReferenceType(typeInt)));
 		}else{
 			// If closure is found, get it
-			AddGetAddressNode(pos, InplaceStr(contextName, length));
+			AddGetAddressNode(pos, context);
+			// This could be a forward-declared context, so make sure address will be correct if it changes
+			if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
+				((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
 			AddGetVariableNode(pos);
 		}
 	}
@@ -3477,7 +3702,7 @@ void CreateRedirectionTables()
 				if(bestFuncList[k]->parentClass == CodeInfo::typeInfo[i])
 				{
 					// Get array variable
-					CodeInfo::nodeList.push_back(new NodeGetAddress(curr, curr->pos, curr->isGlobal, curr->varType));
+					CodeInfo::nodeList.push_back(new NodeGetAddress(curr, curr->pos, curr->varType));
 					CodeInfo::nodeList.push_back(new NodeDereference());
 
 					// Push index (typeID number is index)
@@ -3637,6 +3862,8 @@ void CallbackInitialize()
 	varMap.init();
 	varMap.clear();
 
+	delayedInstance.clear();
+
 	ResetTreeGlobals();
 
 	vtblList = NULL;
@@ -3678,6 +3905,7 @@ void CallbackReset()
 	funcInfoTop.reset();
 	cycleDepth.reset();
 	currDefinedFunc.reset();
+	delayedInstance.reset();
 	bestFuncList.reset();
 	bestFuncRating.reset();
 	paramNodes.reset();

@@ -7,6 +7,7 @@
 #include "InstructionSet.h"
 
 class NodeZeroOP;
+class NodeExpressionList;
 
 class TypeInfo;
 class FunctionInfo;
@@ -26,6 +27,23 @@ public:
 	TypeInfo		**paramType;	// Array of pointers to type information
 	unsigned int	paramCount;
 	unsigned int	paramSize;
+};
+
+class GenericContext
+{
+public:
+	GenericContext()
+	{
+		start = 0;
+		globalVarTop = 0;
+		blockDepth = 0;
+		parent = NULL;
+	}
+
+	unsigned		start;
+	unsigned		globalVarTop;
+	unsigned		blockDepth;
+	FunctionInfo	*parent;
 };
 
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
@@ -421,8 +439,8 @@ public:
 		implemented = false;
 		pure = false;
 		explicitlyReturned = false;
-		generic = false;
-		genericStart = 0;
+		generic = NULL;
+		genericBase = NULL;
 		functionNode = NULL;
 		type = NORMAL;
 		funcType = NULL;
@@ -431,6 +449,8 @@ public:
 		parentFunc = NULL;
 
 		extraParam = firstParam = lastParam = NULL;
+		funcContext = NULL;
+		afterNode = NULL;
 		paramCount = 0;
 		firstExternal = lastExternal = NULL;
 		externalCount = 0;
@@ -475,6 +495,7 @@ public:
 			lastExternal->next = (ExternalInfo*)functionPool.Allocate(sizeof(ExternalInfo));
 			lastExternal = lastExternal->next;
 		}
+		memset(lastExternal, 0, sizeof(FunctionInfo::ExternalInfo));
 		lastExternal->next = NULL;
 		lastExternal->variable = var;
 		lastExternal->closurePos = externalSize;
@@ -500,6 +521,8 @@ public:
 
 	VariableInfo	*firstParam, *lastParam;	// Parameter list
 	VariableInfo	*extraParam;	// closure/this pointer
+	VariableInfo	*funcContext;	// context variable that placed outside the local/coroutine function
+	NodeExpressionList	*afterNode;	// node with closure initialization
 	unsigned int	paramCount;
 
 	unsigned int	allParamSize;
@@ -514,8 +537,8 @@ public:
 	bool		implemented;			// false if only function prototype has been found.
 	bool		pure;					// function is pure and can possibly be evaluated at compile time
 	bool		explicitlyReturned;		// an explicit return from function was compiled
-	bool		generic;				// function is a template that will be resolved at the time of calling
-	unsigned	genericStart;
+	GenericContext	*generic;				// function is a template that will be resolved at the time of calling
+	GenericContext	*genericBase;			// pointer to a generic function base context
 	void		*functionNode;
 
 	enum FunctionCategory{ NORMAL, LOCAL, THISCALL, COROUTINE };
@@ -527,6 +550,7 @@ public:
 
 		bool			targetLocal;	// Target in local scope
 		unsigned int	targetPos;		// Target address
+		VariableInfo	*targetVar;		// Target variable
 		unsigned int	targetFunc;		// Target function ID
 		unsigned int	targetDepth;
 		unsigned int	closurePos;		// Position in closure
@@ -613,6 +637,12 @@ public:
 				return "__operatorFuncCall";
 		}
 		return NULL;
+	}
+	GenericContext*	CreateGenericContext(unsigned genericStart)
+	{
+		generic = new (functionPool.Allocate(sizeof(GenericContext))) GenericContext();
+		generic->start = genericStart;
+		return generic;
 	}
 // Specialized allocation
 	void*		operator new(size_t size)

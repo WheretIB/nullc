@@ -162,3 +162,10 @@ TEST("Function parameters with different stack type", testParametersExtraordinai
 	CHECK_INT("i", 0, 26);
 }
 
+const char	*testPrototypePointer =
+"void foo();\r\n\
+auto a = foo;\r\n\
+void foo(){}\r\n\
+auto b = foo;\r\n\
+return a == b;";
+TEST_RESULT("Function prototype matches implementation", testPrototypePointer, "1");

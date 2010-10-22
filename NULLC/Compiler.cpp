@@ -713,8 +713,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 			if(lastFunc->funcType == typeVoid)
 			{
-				lastFunc->generic = true;
-				lastFunc->genericStart = fInfo->rOffsets[0] + (CodeInfo::lexFullStart - CodeInfo::lexStart);
+				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->rOffsets[0] + (CodeInfo::lexFullStart - CodeInfo::lexStart));
 				lastFunc->retType = fInfo->rOffsets[1] != ~0u ? CodeInfo::typeInfo[typeRemap[fInfo->rOffsets[1]]] : NULL;
 				lastFunc->funcType = CodeInfo::GetFunctionType(lastFunc->retType, lastFunc->firstParam, lastFunc->paramCount);
 			}else{
@@ -1793,14 +1792,17 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		FunctionInfo *refFunc = CodeInfo::funcInfo[i];
 
 		if(refFunc->codeSize == 0 && refFunc->address != -1 && (refFunc->address & 0x80000000))
+		{
 			funcInfo.address = CodeInfo::funcInfo[refFunc->address & ~0x80000000]->address;
-		else
+			funcInfo.codeSize = refFunc->address | 0x80000000;
+		}else{
 			funcInfo.address = refFunc->address;
-		funcInfo.codeSize = refFunc->codeSize;
+			funcInfo.codeSize = refFunc->codeSize;
+		}
 		funcInfo.funcPtr = refFunc->funcPtr;
 		funcInfo.isVisible = refFunc->visible;
 
-		offsetToGlobal += funcInfo.codeSize;
+		offsetToGlobal += refFunc->codeSize;
 
 		funcInfo.nameHash = refFunc->nameHash;
 
@@ -1841,7 +1843,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			memset(funcInfo.rOffsets, 0, 8 * sizeof(unsigned));
 			memset(funcInfo.fOffsets, 0, 8 * sizeof(unsigned));
 			funcInfo.ps3Callable = false;
-			funcInfo.rOffsets[0] = refFunc->genericStart - (CodeInfo::lexFullStart - CodeInfo::lexStart);
+			funcInfo.rOffsets[0] = refFunc->generic->start - (CodeInfo::lexFullStart - CodeInfo::lexStart);
 			funcInfo.rOffsets[1] = refFunc->retType ? refFunc->retType->typeIndex : ~0u;
 		}
 
@@ -1875,7 +1877,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			lInfo->paramType = ExternLocalInfo::EXTERNAL;
 			lInfo->type = vType->typeIndex;
 			lInfo->size = vType->size;
-			lInfo->target = curr->targetPos;
+			lInfo->target = curr->targetVar ? curr->targetVar->pos : curr->targetPos;
 			lInfo->closeListID = (curr->targetDepth + CodeInfo::funcInfo[curr->targetFunc]->closeListStart) | (curr->targetLocal ? 0x80000000 : 0);
 			lInfo->offsetToName = int(symbolPos - code->debugSymbols);
 			memcpy(symbolPos, vName.begin, vName.end - vName.begin + 1);
