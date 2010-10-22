@@ -416,6 +416,10 @@ namespace ColorerGrammar
 						!(chP('=')[ColorText] >> term4_9)
 					)
 				)[OnError];
+			oneLexOperator = strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("&&") | strP("||") | strP("^^") |
+				strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**=") |
+				chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('!') | chP('~') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') | chP('=');
+
 			funcdef		=
 				!strWP("coroutine")[ColorRWord] >>
 				(
@@ -425,9 +429,7 @@ namespace ColorerGrammar
 							(
 								strP("operator")[ColorRWord] >>
 								(
-									strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("&&") | strP("||") | strP("^^") | strP("()") |
-									strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**=") |
-									chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('!') | chP('~') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') |
+									oneLexOperator |
 									(chP('[') >> chP(']')) | (chP('(') >> chP(')')) |
 									chP('=')
 								)[ColorText] >>
@@ -565,7 +567,7 @@ namespace ColorerGrammar
 				(chP('&')[ColorText] >> appval) |
 				((strP("--") | strP("++"))[ColorText] >> appval) | 
 				(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
-				(!chP('@')[ColorText] >> quotedStrP() >> *postExpr) |
+				(!chP('@')[ColorText] >> (oneLexOperator[ColorFunc] | (quotedStrP() >> *postExpr))) |
 				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][ColorReal] |
 				longestD[(intP >> (chP('l') | chP('b') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
 				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorChar]) >> chP('\'')[ColorText]] |
@@ -622,7 +624,7 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
-		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr;
+		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator;
 		// Main rule
 		Rule code;
 	};
