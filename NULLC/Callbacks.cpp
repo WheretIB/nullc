@@ -2270,12 +2270,8 @@ void FunctionEnd(const char* pos)
 		}
 		TypeInfo *closureType = newType;
 
-		// Add padding
-		if(newType->size % 4 != 0)
-		{
-			newType->paddingBytes = 4 - (newType->size % 4);
-			newType->size += 4 - (newType->size % 4);
-		}
+		assert(newType->size % 4 == 0); // resulting type should never require padding
+
 		// Shift new types generated inside up, so that declaration will be in the correct order in C translation
 		for(unsigned int i = newType->originalIndex + 1; i < CodeInfo::typeInfo.size(); i++)
 			CodeInfo::typeInfo[i]->originalIndex--;
