@@ -1152,3 +1152,64 @@ Bar w;\r\n\
 w.y = 2000;\r\n\
 return w.bar(100);";
 TEST_RESULT("Generic member function instance while generic function is intanced", testGeneric84, "2121");
+
+const char *testGeneric85 =
+"class Foo{ auto foo(generic a){ return -a; } }\r\n\
+Foo y;\r\n\
+auto x = y.foo(5);\r\n\
+x += y.foo(12);\r\n\
+return x;";
+TEST_RESULT("Generic member function has correct name and isn't instanced multiple times", testGeneric85, "-17");
+
+const char *testGeneric86 =
+"class Foo\r\n\
+{\r\n\
+	auto foo(generic a){ return -a; }\r\n\
+}\r\n\
+Foo y;\r\n\
+y.foo(5);\r\n\
+class Bar\r\n\
+{\r\n\
+	Foo x;\r\n\
+	auto bar()\r\n\
+	{\r\n\
+		return x.foo(5);\r\n\
+	}\r\n\
+}\r\n\
+Bar z;\r\n\
+return z.bar();";
+TEST_RESULT("Generic member function continues type definition while other type is defined", testGeneric86, "-5");
+
+const char *testGeneric87 =
+"class Foo\r\n\
+{\r\n\
+	auto foo(generic a){ return -a; }\r\n\
+}\r\n\
+class Bar\r\n\
+{\r\n\
+	Foo x;\r\n\
+	auto bar()\r\n\
+	{\r\n\
+		return x.foo(5);\r\n\
+	}\r\n\
+}\r\n\
+Bar z;\r\n\
+return z.bar();";
+TEST_RESULT("Generic member function continues type definition while other type is defined 2", testGeneric87, "-5");
+
+const char *testGeneric88 =
+"class Foo\r\n\
+{\r\n\
+	auto foo(generic a){ return -a; }\r\n\
+}\r\n\
+class Bar\r\n\
+{\r\n\
+	Foo x;\r\n\
+	auto bar(generic z)\r\n\
+	{\r\n\
+		return x.foo(5) + z;\r\n\
+	}\r\n\
+}\r\n\
+Bar z;\r\n\
+return z.bar(2);";
+TEST_RESULT("Generic member function continues type definition while other type is defined 3", testGeneric88, "-3");
