@@ -292,6 +292,19 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			currType = fType->retType;
 			FunctionAdd(pos, fInfo->parentClass ? strchr(fInfo->name, ':') : fInfo->name);
 
+			// Get aliases from prototype argument list
+			AliasInfo *aliasFromParent = fProto->childAlias;
+			while(aliasFromParent)
+			{
+				CodeInfo::classMap.insert(aliasFromParent->nameHash, aliasFromParent->type);
+
+				AliasInfo *info = TypeInfo::CreateAlias(aliasFromParent->name, aliasFromParent->type);
+				info->next = CodeInfo::funcInfo.back()->childAlias;
+				CodeInfo::funcInfo.back()->childAlias = info;
+
+				aliasFromParent = aliasFromParent->next;
+			}
+
 			// New function type is equal to generic function type no matter where we create an instance of it
 			CodeInfo::funcInfo.back()->type = fInfo->type;
 			CodeInfo::funcInfo.back()->parentClass = fInfo->parentClass;
@@ -2436,6 +2449,13 @@ void FunctionPrototype(const char* pos)
 			ThrowError(pos, "ERROR: function is already defined");
 		curr = funcMap.next(curr);
 	}
+	// Remove aliases defined in a prototype argument list
+	AliasInfo *info = lastFunc.childAlias;
+	while(info)
+	{
+		CodeInfo::classMap.remove(info->nameHash, info->type);
+		info = info->next;
+	}
 }
 
 void FunctionStart(const char* pos)
@@ -2527,7 +2547,6 @@ void FunctionEnd(const char* pos)
 					ThrowError(pos, "ERROR: function '%s' is being defined with the same set of parameters", lastFunc.name);
 				else
 					info->address = lastFunc.indexInArr | 0x80000000;
-				assert(!implementedPrototype);
 				implementedPrototype = info;
 			}
 		}
@@ -2560,6 +2579,14 @@ void FunctionEnd(const char* pos)
 		currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 	}
 	currDefinedFunc.pop_back();
+
+	// Remove aliases defined in a function
+	AliasInfo *info = lastFunc.childAlias;
+	while(info)
+	{
+		CodeInfo::classMap.remove(info->nameHash, info->type);
+		info = info->next;
+	}
 
 	unsigned int varFormerTop = varTop;
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
@@ -2725,12 +2752,6 @@ void FunctionEnd(const char* pos)
 		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 		varTop += currType->size;
 	}
-	AliasInfo *info = lastFunc.childAlias;
-	while(info)
-	{
-		CodeInfo::classMap.remove(info->nameHash, info->type);
-		info = info->next;
-	}
 
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
 		methodCount++;
@@ -2785,6 +2806,9 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 	// Save current type
 	TypeInfo *lastType = currType;
 
+	// Reset function alias list
+	fInfo->childAlias = NULL;
+
 	// apply resolved argument types and test if it is ok
 	unsigned nodeOffset = CodeInfo::nodeList.size() - argumentCount;
 	// Move through all the arguments
@@ -2816,11 +2840,14 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 					newRating = ~0u; // function is not instanced
 					return NULL;
 				}
+				// Set generic function as being in definition so that 
+				currDefinedFunc.push_back(fInfo);
 				if(!ParseGenericType(&start, refTypeBase->childAlias ? refTypeBase : NULL)) // It is possible that generic type argument count is incorrect
 				{
 					newRating = ~0u; // function is not instanced
 					return NULL;
 				}
+				currDefinedFunc.pop_back();
 				// Check that both types follow the same tree
 				refTypeBase = referenceType;
 				TypeInfo *selectedType = currType;
@@ -2868,7 +2895,23 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 	assert(start->type == lex_cparen);
 	start++;
 
-	// we have to create a function type for generated parameters
+	// Remove aliases that were created
+	AliasInfo *aliasCurr = fInfo->childAlias;
+	while(aliasCurr)
+	{
+		// Find if there are aliases with the same name
+		AliasInfo *aliasNext = aliasCurr->next;
+		while(aliasNext)
+		{
+			if(aliasCurr->nameHash == aliasNext->nameHash)
+				ThrowError(pos, "ERROR: function '%s' argument list has multiple '%.*s' aliases", fInfo->name, aliasCurr->name.end - aliasCurr->name.begin, aliasCurr->name.begin);
+			aliasNext = aliasNext->next;
+		}
+		CodeInfo::classMap.remove(aliasCurr->nameHash, aliasCurr->type);
+		aliasCurr = aliasCurr->next;
+	}
+
+	// We have to create a function type for generated parameters
 	TypeInfo *tmpType = CodeInfo::GetFunctionType(NULL, tempListS, argumentCount);
 	newRating = GetFunctionRating(tmpType->funcType, argumentCount);
 
@@ -3182,6 +3225,20 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 	CodeInfo::funcInfo.back()->type = fInfo->type;
 	CodeInfo::funcInfo.back()->parentClass = forcedParentType ? forcedParentType : fInfo->parentClass;
 
+	// Get aliases defined in a base function argument list
+	AliasInfo *aliasFromParent = fInfo->generic->parent->childAlias;
+	while(aliasFromParent)
+	{
+		CodeInfo::classMap.insert(aliasFromParent->nameHash, aliasFromParent->type);
+		
+		AliasInfo *info = TypeInfo::CreateAlias(aliasFromParent->name, aliasFromParent->type);
+		info->next = CodeInfo::funcInfo.back()->childAlias;
+		CodeInfo::funcInfo.back()->childAlias = info;
+
+		aliasFromParent = aliasFromParent->next;
+	}
+	AliasInfo *aliasParent = CodeInfo::funcInfo.back()->childAlias;
+
 	Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
 	CodeInfo::lastKnownStartPos = NULL;
 
@@ -3230,6 +3287,8 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 				CodeInfo::classMap.remove(info->nameHash, info->type);
 				info = info->next;
 			}
+			while(lastFunc.childAlias != aliasParent)
+				lastFunc.childAlias = lastFunc.childAlias->next;
 			lastFunc.pure = false; // Function cannot be evaluated at compile-time
 			lastFunc.implemented = false;	// This is a function prototype
 			lastFunc.parentFunc = fInfo->parentFunc;	// Fix instance function parent function

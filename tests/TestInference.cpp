@@ -339,3 +339,34 @@ const char	*testFunctionTypeInference13 =
 vector<float[3]> a;\r\n\
 return a.arr.size;";
 TEST_RESULT("extended typeof expressions in a class 4", testFunctionTypeInference13, "3");
+
+const char	*testTypePostExpression1 = 
+"typedef int[5] ref T;\r\n\
+return T.target.target == int;";
+TEST_RESULT("extended typeof expressions after type", testTypePostExpression1, "1");
+
+const char	*testTypePostExpression2 = 
+"typedef int[5] ref T;\r\n\
+return T.target.arraySize;";
+TEST_RESULT("extended typeof expressions after type 2", testTypePostExpression2, "5");
+
+const char	*testTypePostExpression3 = 
+"class Foo\r\n\
+{\r\n\
+	int[5] arr;\r\n\
+}\r\n\
+return Foo.arr.arraySize;";
+TEST_RESULT("extended typeof expressions after type 3", testTypePostExpression3, "5");
+
+const char	*testTypeofPostExpression17 = 
+"class Foo\r\n\
+{\r\n\
+	int k;\r\n\
+}\r\n\
+auto foo(generic x, typeof(x).k l)\r\n\
+{\r\n\
+	return typeof(l) == int;\r\n\
+}\r\n\
+Foo m;\r\n\
+return foo(m, 3.0);";
+TEST_RESULT("extended typeof expressions (members) 17", testTypeofPostExpression17, "1");
