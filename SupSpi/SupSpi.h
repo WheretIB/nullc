@@ -233,6 +233,7 @@ namespace supspi
 			SetParser(myParser, GetParser(r.myParser));
 			return *this;
 		}
+		void	forceSet(unsigned int ptr){ myParser = ptr; }
 		
 		BaseP*	operator ->() const{ assert(GetParser(myParser) != NULL); return GetParser(myParser); }
 		BaseP*	getParser() const{ return GetParser(myParser); };
@@ -242,6 +243,20 @@ namespace supspi
 		Rule	operator [](ActionT act);
 	private:
 		unsigned int	myParser;
+	};
+	class AltRule : public Rule
+	{
+	public:
+		AltRule(): Rule(){}
+		explicit AltRule(BaseP* parser): Rule(parser){}
+		explicit AltRule(unsigned int ptr): Rule(ptr){}
+	};
+	class SeqRule : public Rule
+	{
+	public:
+		SeqRule(): Rule(){}
+		explicit SeqRule(BaseP* parser): Rule(parser){}
+		explicit SeqRule(unsigned int ptr): Rule(ptr){}
 	};
 
 	//AlternativeP can act differently, depending on state of this policy
@@ -666,35 +681,45 @@ namespace supspi
 	class AlternativeP: public BaseP
 	{
 	public:
-		AlternativeP(Rule a, Rule b): m_a(a.getPtr()), m_b(b.getPtr()){ }
+		AlternativeP(Rule a, Rule b)
+		{
+			arr[0].forceSet(a.getPtr());
+			arr[1].forceSet(b.getPtr());
+			count = 2;
+		}
 		virtual ~AlternativeP(){ }
 
 		virtual bool	Parse(char** str, SpaceRule space)
 		{
-			//static int issued = 0;
-			//issued++;
 			char* curr = *str;
 			
 			if(GetAlterPolicy() == ALTER_STANDART)
 			{
-				if(!m_a->Parse(str, space))
+				bool parsed = false;
+				for(unsigned i = 0; i < count; i++)
 				{
+					if(arr[i]->Parse(str, space))
+					{
+						parsed = true;
+						break;
+					}
 					if(!continueParse)
 						return false;
-					if(!m_b->Parse(str, space))
-					{
-						(*str) = curr;
-						return false;
-					}
+				}
+				if(!parsed)
+				{
+					(*str) = curr;
+					return false;
 				}
 			}else if(GetAlterPolicy() == ALTER_LONGEST || GetAlterPolicy() == ALTER_SHORTEST){
+				assert(count == 2);
 				ActionPolicy oldAction = GetActionPolicy();
 				SetActionPolicy(ACTION_NONE);
 				AlternativePolicy oldAlter = GetAlterPolicy();
 				SetAlterPolicy(ALTER_STANDART);
 				char *temp1 = *str, *temp2 = *str;
-				bool agood = m_a->Parse(&temp1, space);
-				bool bgood = m_b->Parse(&temp2, space);
+				bool agood = arr[0]->Parse(&temp1, space);
+				bool bgood = arr[1]->Parse(&temp2, space);
 				SetActionPolicy(oldAction);
 				
 				if(!agood && !bgood){
@@ -705,50 +730,66 @@ namespace supspi
 				if(oldAlter == ALTER_LONGEST)
 				{
 					if((unsigned int)(temp1-(*str)) >= (unsigned int)(temp2-(*str)))
-						m_a->Parse(str, space);
+						arr[0]->Parse(str, space);
 					else
-						m_b->Parse(str, space);
+						arr[1]->Parse(str, space);
 				}else{
 					if((unsigned int)(temp1-(*str)) <= (unsigned int)(temp2-(*str)))
-						m_a->Parse(str, space);
+						arr[0]->Parse(str, space);
 					else
-						m_b->Parse(str, space);
+						arr[1]->Parse(str, space);
 				}
 				SetAlterPolicy(oldAlter);
 			}
 			return continueParse;
 		}
+		void AddAlternative(Rule x)
+		{
+			assert(count != max);
+			arr[count++].forceSet(x.getPtr());
+		}
 	protected:
-		Rule	m_a, m_b;
+		static const unsigned max = 32;
+		Rule	arr[max];
+		unsigned	count;
 	};
 
 	class SequenceP: public BaseP
 	{
 	public:
-		SequenceP(const Rule& a, const Rule& b): m_a(a.getPtr()), m_b(b.getPtr()){ }
+		SequenceP(const Rule& a, const Rule& b)
+		{
+			arr[0].forceSet(a.getPtr());
+			arr[1].forceSet(b.getPtr());
+			count = 2;
+		}
 		virtual ~SequenceP(){  }
 
 		virtual bool	Parse(char** str, SpaceRule space)
 		{
-			//static int issued = 0;
-			//issued++;
 			char* curr = *str;
-			if(!m_a->Parse(str, space))
+
+			for(unsigned i = 0; i < count; i++)
 			{
-				(*str) = curr;
-				return false;
-			}
-			if(!continueParse)
-				return false;
-			if(!m_b->Parse(str, space))
-			{
-				(*str) = curr;
-				return false;
+				if(!arr[i]->Parse(str, space))
+				{
+					(*str) = curr;
+					return false;
+				}
+				if(!continueParse)
+					return false;
 			}
 			return continueParse;
 		}
+		void AddSequence(Rule x)
+		{
+			assert(count != max);
+			arr[count++].forceSet(x.getPtr());
+		}
 	protected:
-		Rule	m_a, m_b;
+		static const unsigned max = 8;
+		Rule	arr[max];
+		unsigned	count;
 	};
 
 	class ExcludeP: public BaseP
@@ -805,13 +846,17 @@ namespace supspi
 	Rule	operator +  (Rule a);
 	Rule	operator *  (Rule a);
 
-	Rule	operator |  (Rule a, Rule b);
-	Rule	operator |  (char a, Rule b);
-	Rule	operator |  (Rule a, char b);
+	AltRule	operator |  (Rule a, Rule b);
+	AltRule	operator |  (char a, Rule b);
+	AltRule	operator |  (Rule a, char b);
 
-	Rule	operator >> (Rule a, Rule b);
-	Rule	operator >> (char a, Rule b);
-	Rule	operator >> (Rule a, char b);
+	AltRule	operator |  (AltRule a, Rule b);
+
+	SeqRule	operator >> (Rule a, Rule b);
+	SeqRule	operator >> (char a, Rule b);
+	SeqRule	operator >> (Rule a, char b);
+
+	SeqRule	operator >> (SeqRule a, Rule b);
 
 	Rule	operator -  (Rule a, Rule b);
 

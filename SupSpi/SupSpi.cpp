@@ -44,13 +44,17 @@ namespace supspi
 	Rule	operator +  (Rule a){ return Rule(new RepeatP(a, PLUS)); }
 	Rule	operator *  (Rule a){ return Rule(new RepeatP(a, ZERO_PLUS)); }
 
-	Rule	operator |  (Rule a, Rule b){ return Rule(new AlternativeP(a, b)); }
-	Rule	operator |  (char a, Rule b){ return Rule(new AlternativeP(chP(a), b)); }
-	Rule	operator |  (Rule a, char b){ return Rule(new AlternativeP(a, chP(b))); }
+	AltRule	operator |  (Rule a, Rule b){ return AltRule(new AlternativeP(a, b)); }
+	AltRule	operator |  (char a, Rule b){ return AltRule(new AlternativeP(chP(a), b)); }
+	AltRule	operator |  (Rule a, char b){ return AltRule(new AlternativeP(a, chP(b))); }
 
-	Rule	operator >> (Rule a, Rule b){ return Rule(new SequenceP(a, b)); }
-	Rule	operator >> (char a, Rule b){ return Rule(new SequenceP(chP(a), b)); }
-	Rule	operator >> (Rule a, char b){ return Rule(new SequenceP(a, chP(b))); }
+	AltRule	operator |  (AltRule a, Rule b){ ((AlternativeP*)a.getParser())->AddAlternative(b); return a; }
+
+	SeqRule	operator >> (Rule a, Rule b){ return SeqRule(new SequenceP(a, b)); }
+	SeqRule	operator >> (char a, Rule b){ return SeqRule(new SequenceP(chP(a), b)); }
+	SeqRule	operator >> (Rule a, char b){ return SeqRule(new SequenceP(a, chP(b))); }
+
+	SeqRule	operator >> (SeqRule a, Rule b){ ((SequenceP*)a.getParser())->AddSequence(b); return a; }
 
 	Rule	operator -  (Rule a, Rule b){ return Rule(new ExcludeP(a, b)); }
 
