@@ -63,6 +63,11 @@ p.example_body
 	display: none;
 	margin-left: 10px;
 }
+pre.example_body
+{
+	display: none;
+	margin-left: 10px;
+}
 div.example
 {
 }
@@ -1018,6 +1023,51 @@ function toggleView(a, b, c)
 		</div>
 
 		Function call operator () can be overloaded with arbitrary number of parameters.<br />
+		<br />
+		To get a pointer to an overloaded operator, write an <span class="rword">@</span> before the operators name.<br />
+		<div class="example">
+			<p class="example_head" id="operator_ex_3a" onmousedown="toggleView(&quot;operator_ex_3a&quot;, &quot;operator_ex_3b&quot;, &quot;example of taking function pointer of an overloaded operator.&quot;);">Show example of taking function pointer of an overloaded operator.</p>
+			<pre class="code example_body" id="operator_ex_3b">
+<span class="rword">import </span><span class="var">std</span>.<span class="var">algorithm</span>;
+<span class="rword">import </span><span class="var">std</span>.<span class="var">io</span>;<span class="comment">
+
+// A pair of numbers
+</span><span class="rword">class IntPair
+</span>{
+	<span class="rword">int </span><span class="vardef">a</span>, <span class="vardef">b</span>;
+}<span class="comment">
+// An external constructor
+</span><span class="rword">IntPair </span><span class="func">IntPair</span><span class="bold">(</span><span class="rword">int </span><span class="var">a</span>, <span class="var">b</span><span class="bold">)
+{
+</span>	<span class="rword">IntPair </span><span class="vardef">r</span>;
+	<span class="var">r</span>.<span class="var">a </span>= <span class="var">a</span>;
+	<span class="var">r</span>.<span class="var">b </span>= <span class="var">b</span>;
+	<span class="rword">return </span><span class="var">r</span><span class="bold">;
+}</span><span class="comment">
+// Comparison operator
+</span><span class="rword">int operator </span>==<span class="bold">(</span><span class="rword">IntPair ref </span><span class="var">a</span>, <span class="var">b</span><span class="bold">){ </span><span class="rword">return </span><span class="var">a</span>.<span class="var">a </span>== <span class="var">b</span>.<span class="var">a </span>&& <span class="var">a</span>.<span class="var">b </span>== <span class="var">b</span>.<span class="var">b</span><span class="bold">; }</span><span class="comment">
+// Lexographical "less" comparison operator
+</span><span class="rword">int operator </span>&lt;<span class="bold">(</span><span class="rword">IntPair ref </span><span class="var">a</span>, <span class="var">b</span><span class="bold">){ </span><span class="rword">return </span><span class="var">a</span>.<span class="var">a </span>== <span class="var">b</span>.<span class="var">a </span>? <span class="var">a</span>.<span class="var">b </span>&lt; <span class="var">b</span>.<span class="var">b </span>: <span class="var">a</span>.<span class="var">a </span>&lt; <span class="var">b</span>.<span class="var">a</span><span class="bold">; }</span><span class="comment">
+// Lexographical "greater" comparison operator
+</span><span class="rword">int operator </span>&gt;<span class="bold">(</span><span class="rword">IntPair ref </span><span class="var">a</span>, <span class="var">b</span><span class="bold">){ </span><span class="rword">return </span><span class="var">a</span>.<span class="var">a </span>== <span class="var">b</span>.<span class="var">a </span>? <span class="var">a</span>.<span class="var">b </span>&gt; <span class="var">b</span>.<span class="var">b </span>: <span class="var">a</span>.<span class="var">a </span>&gt; <span class="var">b</span>.<span class="var">a</span><span class="bold">; }</span><span class="comment">
+
+// Create an array of objects
+</span><span class="rword">auto </span><span class="vardef">arr </span>= { <span class="func">IntPair</span><span class="bold">(</span><span class="real">2</span>, <span class="real">4</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">5</span>, <span class="real">8</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">2</span>, <span class="real">3</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">3</span>, <span class="real">1</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">0</span>, <span class="real">1</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">9</span>, <span class="real">1</span><span class="bold">) </span>};
+<span class="comment">
+</span><span class="func">sort</span><span class="bold">(</span><span class="var">arr</span>, @<span class="func">&lt;</span><span class="bold">)</span>;<span class="comment"> // For from 'smallest' to 'largest'
+</span><span class="rword">for</span>(<span class="vardef">i </span><span class="rword">in </span><span class="var">arr</span>)
+<span class="var">	io</span>.<span class="var">out </span>&lt;&lt; '<span class="string">(</span>' &lt;&lt; <span class="var">i</span>.<span class="var">a </span>&lt;&lt; "<span class="string">, </span>" &lt;&lt; <span class="var">i</span>.<span class="var">b </span>&lt;&lt; "<span class="string">); </span>";
+<span class="var">io</span>.<span class="var">out </span>&lt;&lt; <span class="var">io</span>.<span class="var">endl</span>;<span class="comment">
+// output: (0, 1); (2, 3); (2, 4); (3, 1); (5, 8); (9, 1);
+</span>
+<span class="func">sort</span><span class="bold">(</span><span class="var">arr</span>, @<span class="func">&gt;</span><span class="bold">)</span>;<span class="comment"> // For from 'largest' to 'smallest'
+</span><span class="rword">for</span>(<span class="vardef">i </span><span class="rword">in </span><span class="var">arr</span>)
+	<span class="var">io</span>.<span class="var">out </span>&lt;&lt; '<span class="string">(</span>' &lt;&lt; <span class="var">i</span>.<span class="var">a </span>&lt;&lt; "<span class="string">, </span>" &lt;&lt; <span class="var">i</span>.<span class="var">b </span>&lt;&lt; "<span class="string">); </span>";
+<span class="var">io</span>.<span class="var">out </span>&lt;&lt; <span class="var">io</span>.<span class="var">endl</span>;<span class="comment">
+// output: (9, 1); (5, 8); (3, 1); (2, 4); (2, 3); (0, 1);
+</span><span class="rword">
+return </span><span class="real">1</span><span class="bold">;</span></pre>
+		</div>
 	</div>
 	<hr />
 	<div class="subtopic">
