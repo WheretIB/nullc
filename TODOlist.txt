@@ -6,8 +6,12 @@ Core:
 	9. b. Fix alignment of dynamically allocated variables.
 	11. f. function should know if it is used as pointer, so that closure will not be created or closed(?)
 	13. f. coroutine should access context variables without one extra indirection.
-	14. b. GC should not fail with stack overflow.
 	15. f. AST optimizations shouldn't be disabled when translation to C or LLVM is enabled.
+	16. f. Forced pointer call foo!() ?
+	17. b. Functions called without nullcInit should not crash
+	18. f. stack trace with locals should print values
+	19. b. multiple function prototypes should be disallowed
+	20. f. context address tracking in not neccessary in most cases (?)
 
 Library:
 	1. f. string
@@ -188,3 +192,4 @@ DONE: automatic function binding
 DONE: fixed custom allocator
 DONE: fixed variable argument functions to accept 0 arguments through 'auto ref[]'
 DONE: fixed selection of function overloads which are varaible arguments functions
+DONE: GC should not fail with stack overflow.

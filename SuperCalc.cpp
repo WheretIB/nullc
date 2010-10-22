@@ -447,9 +447,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	freopen("CONOUT$", "w", stderr);
 	freopen("CONIN$", "r", stdin);
 
-	_dup2(_dup( _fileno( stdin )), 0);
-	_dup2(_dup( _fileno( stdout )), 1);
-	_dup2(_dup( _fileno( stderr )), 2);
+	_dup2(_dup(_fileno(stdin)), 0);
+	_dup2(_dup(_fileno(stdout)), 1);
+	_dup2(_dup(_fileno(stderr)), 2);
 #endif
 
 //#define NULLC_NO_UNITTESTS
