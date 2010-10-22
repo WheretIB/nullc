@@ -416,3 +416,18 @@ Foo<int> a;\r\n\
 a.x = 5;\r\n\
 return foo(a);";
 TEST_RESULT("Generic function specialization for generic type with alias", testGenericType31, "10");
+
+const char *testGenericType32 =
+"class Foo<T>{ T t; }\r\n\
+Foo<Foo<int>> b; b.t.t = 5;\r\n\
+auto foo(Foo<Foo<int>> z){ return z.t.t; }\r\n\
+return foo(b);";
+TEST_RESULT("Nested generic type definition '>>' resolve 1", testGenericType32, "5");
+
+const char *testGenericType33 =
+"class Foo<T>{ T t; }\r\n\
+class Bar<T, U>{ T t; U s; }\r\n\
+auto bar(Bar<@T, Foo<int>> z){ return z.s.t; }\r\n\
+Bar<int, Foo<int>> b; b.s.t = 5;\r\n\
+return bar(b);";
+TEST_RESULT("Nested generic type definition '>>' resolve 2", testGenericType33, "5");
