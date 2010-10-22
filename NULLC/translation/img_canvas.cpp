@@ -5,7 +5,8 @@ static unsigned __nullcTR[105];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[80];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -73,6 +74,7 @@ struct __typeProxy_void_ref_char_char_char_char_{};
 struct __typeProxy_void_ref_int_int_int_int_{};
 struct __typeProxy_void_ref_int_int_{};
 struct __typeProxy_int___ref__{};
+#pragma pack(pop)
 Canvas Canvas__(int width, int height, void* unused);
 void Canvas__Clear_void_ref_char_char_char_(char red, char green, char blue, Canvas * __context);
 void Canvas__Clear_void_ref_char_char_char_char_(char red, char green, char blue, char alpha, Canvas * __context);
@@ -92,7 +94,7 @@ Canvas  Canvas__(int width_0, int height_4, void* unused)
 }
 NULLCArray<int >  Canvas__GetData_int___ref__(Canvas * __context)
 {
-	return (*(&(*(&__context))->data));
+	return __nullcCheckedRet(__nullcTR[45], (*(&(*(&__context))->data)), (void*)&__context, 0);
 }
 int __init_img_canvas_nc()
 {

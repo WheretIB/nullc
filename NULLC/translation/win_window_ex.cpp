@@ -5,7 +5,8 @@ static unsigned __nullcTR[99];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[73];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -70,6 +71,7 @@ struct Window
 	void * handle;
 };
 struct __typeProxy_void_ref_Window_ref_char___int_int_int_int_{};
+#pragma pack(pop)
 void Window__(Window * wnd, NULLCArray<char > title, int x, int y, int width, int height, void* unused);
 int __init_win_window_ex_nc()
 {

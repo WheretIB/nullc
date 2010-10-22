@@ -5,7 +5,8 @@ static unsigned __nullcTR[116];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[101];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -85,6 +86,7 @@ struct __typeProxy_argument_iterator_ref__{};
 struct __typeProxy_argument_iterator_ref_ref__{};
 struct __typeProxy_auto_ref_ref_auto_ref_int_{};
 struct __typeProxy_auto_ref_ref_auto_ref_char___{};
+#pragma pack(pop)
 int isFunction(unsigned int type, void* unused);
 int isClass(unsigned int type, void* unused);
 int isSimple(unsigned int type, void* unused);
@@ -123,7 +125,7 @@ member_iterator  typeid__members_member_iterator_ref__(unsigned int * __context)
 }
 member_iterator *  member_iterator__start_member_iterator_ref_ref__(member_iterator * __context)
 {
-	return (*(&__context));
+	return __nullcCheckedRet(__nullcTR[99], (*(&__context)), (void*)&__context, 0);
 }
 int  member_iterator__hasnext_int_ref__(member_iterator * __context)
 {
@@ -146,7 +148,7 @@ argument_iterator  typeid__arguments_argument_iterator_ref__(unsigned int * __co
 }
 argument_iterator *  argument_iterator__start_argument_iterator_ref_ref__(argument_iterator * __context)
 {
-	return (*(&__context));
+	return __nullcCheckedRet(__nullcTR[109], (*(&__context)), (void*)&__context, 0);
 }
 int  argument_iterator__hasnext_int_ref__(argument_iterator * __context)
 {

@@ -5,7 +5,8 @@ static unsigned __nullcTR[99];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[76];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -62,6 +63,7 @@ struct __typeProxy_void_ref_auto___ref_int_{};
 struct __typeProxy_void_ref_auto_ref_{};
 struct __typeProxy_void_ref_auto_ref_char___{};
 struct __typeProxy_void_ref_char___{};
+#pragma pack(pop)
 void override(NULLCRef a, NULLCRef b, void* unused);
 void override(NULLCRef function, NULLCArray<char > code, void* unused);
 void eval_stub(void* unused);

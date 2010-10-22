@@ -5,7 +5,8 @@ static unsigned __nullcTR[130];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[97];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -119,6 +120,7 @@ struct __typeProxy_StdOut_ref_StdOut_char_{};
 struct __typeProxy_StdOut_ref_StdOut_int_{};
 struct __typeProxy_StdOut_ref_StdOut_double_{};
 struct __typeProxy_StdOut_ref_StdOut_long_{};
+#pragma pack(pop)
 __nullcUpvalue *__upvalue_83_x_0 = 0;
 __nullcUpvalue *__upvalue_83___context = 0;
 void Print(NULLCArray<char > text, void* unused);
@@ -149,15 +151,16 @@ int __Print_base_75(void* unused);
 StdIO io;
 NULLCArray<char >  StdIO___func1_84(StdNonTerminatedTag y_0, void* __StdIO___func1_84_ext_4)
 {
-	return (*((NULLCArray<char > * )((__nullcUpvalue*)((char*)__StdIO___func1_84_ext_4 + 0))->ptr));
+	return __nullcCheckedRet(__nullcTR[13], (*((NULLCArray<char > * )((__nullcUpvalue*)((char*)__StdIO___func1_84_ext_4 + 0))->ptr)), (void*)&y_0, (void*)&__StdIO___func1_84_ext_4, 0);
 }
 NULLCFuncPtr<__typeProxy_char___ref_StdNonTerminatedTag_>  StdIO__non_terminated_char___ref_StdNonTerminatedTag__ref_char___(NULLCArray<char > x_0, StdIO * __context)
 {
 	__StdIO___func1_84_cls * __StdIO___func1_84_ext_12;
-	NULLCFuncPtr<__typeProxy_char___ref_StdNonTerminatedTag_> __nullcRetVar0 = (	(__StdIO___func1_84_ext_12 = (__StdIO___func1_84_cls * )__newS(12, __nullcTR[109])),
-	(((int**)__StdIO___func1_84_ext_12)[0] = (int*)&x_0),
-	(((int**)__StdIO___func1_84_ext_12)[1] = (int*)__upvalue_83_x_0),
-	(((int*)__StdIO___func1_84_ext_12)[2] = 8),
+	NULLCFuncPtr<__typeProxy_char___ref_StdNonTerminatedTag_> __nullcRetVar0;
+	__nullcRetVar0 = (	(__StdIO___func1_84_ext_12 = (__StdIO___func1_84_cls * )__newS(12, __nullcTR[109])),
+	(*(int**)((char*)__StdIO___func1_84_ext_12 + 0) = (int*)&x_0),
+	(*(int**)((char*)__StdIO___func1_84_ext_12 + 4) = (int*)__upvalue_83_x_0),
+	(*(int*)((char*)__StdIO___func1_84_ext_12 + 8) = 8),
 	(__upvalue_83_x_0 = (__nullcUpvalue*)((int*)__StdIO___func1_84_ext_12 + 0)),
 	(NULLCFuncPtr<__typeProxy_char___ref_StdNonTerminatedTag_> )__nullcMakeFunction(__nullcFR[84], __StdIO___func1_84_ext_12));
 	__nullcCloseUpvalue(__upvalue_83_x_0, &x_0);

@@ -5,7 +5,8 @@ static unsigned __nullcTR[145];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[121];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -153,6 +154,7 @@ struct list_iterator
 };
 struct __typeProxy_list_iterator_ref_list_node_ref_{};
 struct __typeProxy_list_iterator_ref__{};
+#pragma pack(pop)
 extern int isFunction(unsigned int type, void* unused);
 extern int isClass(unsigned int type, void* unused);
 extern int isSimple(unsigned int type, void* unused);
@@ -353,11 +355,11 @@ NULLCRef  list__front_auto_ref_ref__(list * __context)
 }
 list_node *  list__begin_list_node_ref_ref__(list * __context)
 {
-	return (*(&(*(&__context))->first));
+	return __nullcCheckedRet(__nullcTR[116], (*(&(*(&__context))->first)), (void*)&__context, 0);
 }
 list_node *  list__end_list_node_ref_ref__(list * __context)
 {
-	return (*(&(*(&__context))->last));
+	return __nullcCheckedRet(__nullcTR[116], (*(&(*(&__context))->last)), (void*)&__context, 0);
 }
 int  list__empty_int_ref__(list * __context)
 {
