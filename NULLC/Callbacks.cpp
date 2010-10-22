@@ -2746,22 +2746,30 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		}
 
 		bool genericArg = false, genericRef = false;
-		if(!ParseSelectType(&start, true, false, true))
+		// Try to reparse the type
+		if(!ParseSelectType(&start, true, true))
 		{
-			if(start->type == lex_generic)
-				genericArg = !!(start++);
-			else{
+			if(start->type == lex_generic) // If failed because of generic
+			{
+				genericArg = !!(start++); // move forward and mark argument as a generic
+			}else if(start->type == lex_less){ // If failed because of generic type specialization
+				TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
+				if(referenceType->genericBase != currType) // If its generic base is not equal to generic type expected at this point
+				{
+					newRating = ~0u; // function is not instanced
+					return NULL;
+				}
+				if(!ParseGenericType(&start, referenceType->childAlias ? referenceType : NULL)) // It is possible that generic type argument count is incorrect
+				{
+					newRating = ~0u; // function is not instanced
+					return NULL;
+				}
+				genericArg = false;
+			}else{ // If failed for other reasons, such as typeof that depends on generic
 				assert(argID);
 				TypeInfo *argType = fInfo->funcType->funcType->paramType[argID - 1];
-				genericArg = argType == typeGeneric || argType->dependsOnGeneric;
+				genericArg = argType == typeGeneric || argType->dependsOnGeneric; // mark argument as a generic
 			}
-		}
-		if(currType && currType->genericInfo)
-		{
-			if(CodeInfo::nodeList[nodeOffset + argID]->typeInfo->genericBase != currType)
-				failRating = true;
-			else
-				currType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo;
 		}
 		genericRef = start->type == lex_ref ? !!(start++) : false;
 
@@ -3972,6 +3980,8 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 		ThrowError(pos, "ERROR: type has only '%d' generic argument(s) while '%d' specified", aliasID, aliases);
 	assert(start->type == lex_greater);
 	start++;
+
+	base->genericInfo->aliasCount = aliases;
 
 	// Remove type nodes used to instance class
 	for(unsigned i = 0; i < aliases; i++)

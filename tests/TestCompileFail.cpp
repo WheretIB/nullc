@@ -433,4 +433,28 @@ Pair<typeof(x4), typeof(x4)> x5;\r\n\
 return sizeof(x5);", "ERROR: generated generic type name exceeds maximum type length '2048'");
 
 	TEST_FOR_FAIL("generic type member function doesn't exist", "class Foo<T>{ T a; void foo(){} } Foo<int> x; x.food();", "ERROR: function 'Foo::food' is undefined");
+
+	TEST_FOR_FAIL_FULL("complex function specialization fail",
+"class Foo<T, U>{ T x; U y; }\r\n\
+auto foo(Foo<int, generic> a){ return a.x * a.y; }\r\n\
+Foo<int, int> b;\r\n\
+Foo<float, float> c;\r\n\
+b.x = 6; b.y = 1; c.x = 2; c.y = 1.5;\r\n\
+return int(foo(b) + foo(c));",
+"line 6 - ERROR: can't find function 'foo' with following parameters:\r\n\
+  foo(Foo<float, float>)\r\n\
+ the only available are:\r\n\
+  foo(Foo<int, int>)\r\n\
+  foo(generic) instanced to\r\n\
+    foo(Foo<int, float>)\r\n\
+\r\n\
+  at \"return int(foo(b) + foo(c));\"\r\n\
+                                ^\r\n\
+");
+
+	TEST_FOR_FAIL("generic function specialization fail", "class Bar{ typedef int ref iref; } class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } Bar z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("generic function specialization fail 2", "class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } return foo(5);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("generic function specialization fail 3", "class Bar<T>{ T ref ref y; } class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } Bar<float> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("generic function specialization fail 4", "class Foo<T>{ T x; }auto foo(Foo<generic, int> a){ return a.x; }Foo<float> z;return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
 }
