@@ -361,3 +361,18 @@ int a = foo(4);\r\n\
 int b = foo(4);\r\n\
 return a + b + foo(4);";
 TEST_RESULT("Coroutine prototype 3", testCoroutinePrototype3, "15");
+
+const char	*testCoroutineRecursion =
+"int u = 0;\r\n\
+coroutine int foo(int x)\r\n\
+{\r\n\
+	u += x;\r\n\
+	for(x++; x <= 4; x++)\r\n\
+	{\r\n\
+		foo(x);\r\n\
+	}\r\n\
+	return x;\r\n\
+}\r\n\
+foo(0);\r\n\
+return u;";
+TEST_RESULT("Coroutine recursion", testCoroutineRecursion, "49");

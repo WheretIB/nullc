@@ -683,3 +683,12 @@ for(i in array)\r\n\
 	sum += i;\r\n\
 return sum;";
 TEST_RESULT("Generic function test (temp variable placement doesn't look like coroutine parameter) 4", testGeneric44, "0");
+
+const char *testGeneric45 =
+"auto foo(generic a)\r\n\
+{\r\n\
+	auto fact(generic x){ if(x < 1) return typeof(x)(1); return x * fact(x-1); }\r\n\
+	return fact(a);\r\n\
+}\r\n\
+return foo(6);";
+TEST_RESULT("Generic function test (recursion in local generic function)", testGeneric45, "720");

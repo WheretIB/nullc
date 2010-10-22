@@ -1110,7 +1110,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			(
 				(currDefinedFunc.back()->type == FunctionInfo::LOCAL && externalAccess)
 				||
-				(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || (vInfo->blockDepth > currDefinedFunc.back()->vTopSize && vInfo->pos >= currDefinedFunc.back()->allParamSize)))
+				(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || (vInfo->blockDepth > currDefinedFunc.back()->vTopSize && vInfo->pos > currDefinedFunc.back()->allParamSize)))
 			)
 		)
 		{
@@ -2236,7 +2236,7 @@ void FunctionPrototype(const char* pos)
 		// When a function will be implemented, it will fill up the closure type with members, update this context variable and create closure initialization
 		char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
 		int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, lastFunc.indexInArr);
-		unsigned beginPos = lastFunc.parentFunc ? lastFunc.parentFunc->allParamSize : 0; // so that a coroutine will not mistake this for argument, choose starting position carefully
+		unsigned beginPos = lastFunc.parentFunc ? lastFunc.parentFunc->allParamSize + NULLC_PTR_SIZE : 0; // so that a coroutine will not mistake this for argument, choose starting position carefully
 		lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), beginPos, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
 		lastFunc.funcContext->blockDepth = varInfoTop.size();
 		// Allocate node where the context initialization will be placed
@@ -3180,7 +3180,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			{
 				char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
 				int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, lastFunc.indexInArr);
-				unsigned beginPos = fInfo->parentFunc ? fInfo->parentFunc->allParamSize : 0; // so that a coroutine will not mistake this for argument, choose starting position carefully
+				unsigned beginPos = fInfo->parentFunc ? fInfo->parentFunc->allParamSize + NULLC_PTR_SIZE : 0; // so that a coroutine will not mistake this for argument, choose starting position carefully
 				lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), beginPos, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
 				lastFunc.funcContext->blockDepth = fInfo->vTopSize;
 				// Use generic function expression list
