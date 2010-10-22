@@ -321,6 +321,12 @@ namespace ColorerGrammar
 					(chP(']')[ColorText] | epsP[LogError("ERROR: closing ']' not found in array definition")]) >>
 					!arrayDef
 				);
+			typePostExpr =
+				!(chP('<')[ColorText] >> typeExpr >> *(chP(',') >> typeExpr) >> chP('>')[ColorText]) >>
+				*(
+					(strWP("ref")[ColorRWord] >> !(chP('(')[ColorText] >> !typeExpr >> *(chP(',')[ColorText] >> typeExpr) >> chP(')')[ColorText])) |
+					arrayDef
+				);
 			typeExpr	=
 				(
 					(strWP("auto") | typenameP(typeName))[ColorRWord] |
@@ -346,21 +352,19 @@ namespace ColorerGrammar
 						)
 					)
 				) >>
-				*(
-					(strWP("ref")[ColorRWord] >> !(chP('(')[ColorText] >> !typeExpr >> *(chP(',')[ColorText] >> typeExpr) >> chP(')')[ColorText])) |
-					arrayDef
-				);
+				typePostExpr;
 
 			classdef	=
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
 				strP("class")[ColorRWord] >>
 				(idP[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
+				!(chP('<')[ColorText] >> idP[ColorRWord][StartType] >> *(chP(',') >> idP[ColorRWord][StartType]) >> chP('>')[ColorText]) >>
 				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
 				*(
 					typeDef |
 					funcdef |
 					(
-						typeExpr >>
+						(typeExpr | (idP[ColorErr][LogError("ERROR: unknown type name")] >> typePostExpr)) >>
 						(
 							(
 								(idP - typenameP(idP))[ColorVarDef] >>
@@ -435,7 +439,16 @@ namespace ColorerGrammar
 								)[ColorText] >>
 								chP('(')[ColorBold]
 							) |
-							(typenameP(typeName)[ColorRWord] >> (chP(':') | chP('.'))[ColorBold] >> (idP[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >> chP('(')[ColorBold]) |
+							(
+								typenameP(typeName)[ColorRWord] >>
+								(
+									chP(':')[ColorBold] |
+									chP('.')[ColorBold] |
+									(chP('<')[ColorText] >> typeExpr >> *(chP(',') >> typeExpr) >> chP('>')[ColorText] >> chP(':')[ColorBold])
+								) >>
+								(idP[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >>
+								chP('(')[ColorBold]
+							) |
 							(idP[ColorFunc] >> chP('(')[ColorBold])
 						)
 					)
@@ -567,7 +580,8 @@ namespace ColorerGrammar
 				(chP('&')[ColorText] >> appval) |
 				((strP("--") | strP("++"))[ColorText] >> appval) | 
 				(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
-				(!chP('@')[ColorText] >> (oneLexOperator[ColorFunc] | (quotedStrP() >> *postExpr))) |
+				(chP('@') >> oneLexOperator[ColorFunc]) |
+				(!chP('@')[ColorText] >> (quotedStrP() >> *postExpr)) |
 				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][ColorReal] |
 				longestD[(intP >> (chP('l') | chP('b') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
 				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorChar]) >> chP('\'')[ColorText]] |
@@ -624,7 +638,7 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
-		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator;
+		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr;
 		// Main rule
 		Rule code;
 	};
