@@ -255,7 +255,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which acce
 
 	TEST_FOR_FAIL("Inline generic function pointer", "int foo(int ref(int) f){ return f(5); } int x(generic a){ return -a; } return foo(x);", "ERROR: can't find function 'foo' with following parameters:");
 
-	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, 5l);", "ERROR: unsupported argument type to a binary operation");
+	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, double);", "ERROR: unable to call 'sum' after instantiating while matching argument vector");
 
 	TEST_FOR_FAIL("error in generic function body", "auto sum(generic a, b, c){ return a + b + ; } return sum(3, 4.5, 5l);", "ERROR: while instantiating generic function sum(generic, generic, generic)");
 }
