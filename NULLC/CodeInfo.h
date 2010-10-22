@@ -109,7 +109,6 @@ namespace CodeInfo
 				break;
 			}
 		}
-		bool skipIt = false;
 		// If none found, create new
 		if(!bestFit)
 		{
@@ -123,10 +122,9 @@ namespace CodeInfo
 			for(T *curr = paramTypes; curr; curr = curr->next, i++)
 			{
 				bestFit->funcType->paramType[i] = curr->varType;
-				if(!curr->varType->dependsOnGeneric)
-					bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : 4;
-				else
-					skipIt = true; // generic function type shouldn't be saved to a type array
+				if(curr->varType->dependsOnGeneric)
+					bestFit->dependsOnGeneric = true;
+				bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : 4;
 			}
 
 	#ifdef _DEBUG
@@ -136,13 +134,11 @@ namespace CodeInfo
 			bestFit->size = 4 + NULLC_PTR_SIZE;
 			bestFit->hasPointers = true;
 
-			if(!skipIt)
-			{
+			// if return type is auto, then it's a generic function type and it shouldn't be saved
+			if(retType)
 				typeFunctions.push_back(bestFit);
-			}else{
-				bestFit->dependsOnGeneric = true;
+			else
 				typeInfo.pop_back();
-			}
 		}
 		
 		return bestFit;
