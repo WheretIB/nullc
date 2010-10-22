@@ -15,6 +15,7 @@ span.code
 	font-family: Consolas, Courier New, monospace;
 	font-size: 10pt;
 }
+pre.code{ background: #eee; font-family: Consolas, Courier New, monospace; font-size: 10pt; }
 span.rword
 {
 	color: #00f;
@@ -40,6 +41,9 @@ span.string
 {
 	color: #880000;
 }
+span.vardef{color: #323232;}
+span.bold{font-weight: bold;}
+span.error{color: #f00;text-decoration: underline;}
 div.topic
 {
 	margin-left: 20px;
@@ -142,6 +146,7 @@ function toggleView(a, b, c)
 			<li><a href="#funcclosure">Closures</a></li>
 			<li><a href="#funcmember">Member functions</a></li>
 			<li><a href="#funcinline">Function Literals</a></li>
+			<li><a href="#funcshort">Short inline functions</a></li>
 			<li><a href="#funcoverload">Function overloading</a></li>
 			<li><a href="#funcoperators">Operator overloading</a></li>
 			<li><a href="#coroutine">Coroutines</a></li>
@@ -242,6 +247,12 @@ function toggleView(a, b, c)
 	<br />
 	auto can be used as a function return type. If a function has different exit points returning different type, an error occurs.<br />
 	auto can be used as a function argument type as long as this arguments has a default value.<br />
+	<br />
+	Type inference also works in situations where overloaded function pointer is used. Compiler will infer needed overload in the following context:<br />
+	- assignment to a variable with known type<br />
+	- return from a function with known return type<br />
+	- in default function arguments<br />
+	- in function call argument list<br />
 </div>
 <hr />
 <h2 align="center">2. Expressions</h2>
@@ -878,13 +889,34 @@ function toggleView(a, b, c)
 	</div>
 	<hr />
 	<div class="subtopic">
-		<h4><a name="funcoverload">4.3.6 Function overloading</a></h4>
+		<h4><a name="funcshort">4.3.6 Short inline functions</a></h4>
+
+		When function is written in a function call argument list, special short-hand syntax is available:<br />
+		<pre class="code">
+<span class="rword">int </span><span class="func">foo</span><span class="bold">(</span><span class="rword">int ref</span>(<span class="rword">int</span>, <span class="rword">int</span>) <span class="var">f</span><span class="bold">){ </span><span class="rword">return </span><span class="func">f</span><span class="bold">(</span><span class="real">3</span>, <span class="real">4</span><span class="bold">); }
+</span><span class="rword">return </span><span class="func">foo</span><span class="bold">(&lt;</span><span class="var">i</span>, <span class="var">j</span><span class="bold">&gt;{ </span><span class="var">i </span>+ <span class="var">j</span>; <span class="bold">});
+</span></pre>
+		Short inline function literal starts with '&lt;', immediately followed by the argument list, which is ended by '&gt;'.<br />
+		Function argument types can be omitted, and serve a different purpose that argument types in a regular function.<br />
+		In short inline function literal, argument types are always inferred from the function pointer type that the called function expects, but if you do specify them,
+		a conversion to a specified type will be performed, for example:<br />
+		<pre class="code">
+<span class="rword">int </span><span class="func">foo</span><span class="bold">(</span><span class="rword">int ref</span>(<span class="rword">auto ref</span>, <span class="rword">auto ref</span>) <span class="var">f</span><span class="bold">){ </span><span class="rword">return </span><span class="func">f</span><span class="bold">(</span><span class="real">3</span>, <span class="real">4</span><span class="bold">); }
+</span><span class="rword">return </span><span class="func">foo</span><span class="bold">(&lt;</span><span class="rword">int </span><span class="var">i</span>, <span class="rword">int </span><span class="var">j</span><span class="bold">&gt;{ </span><span class="var">i </span>&lt; <span class="var">j</span>; <span class="bold">});
+</span></pre>
+		Here we have a function that calls a function pointer with two arguments of type 'auto ref', but they are implicitly converted to 'int' in our short inline function literal.<br />
+		<br />
+		Also, note that in a short inline function literal, the last expression implicitly computes a value that is returned from function. This is used in both examples above.<br />
+	</div>
+	<hr />
+	<div class="subtopic">
+		<h4><a name="funcoverload">4.3.7 Function overloading</a></h4>
 
 		Functions can be overloaded. Better matching function will be selected during overloaded function call.
 	</div>
 	<hr />
 	<div class="subtopic">
-		<h4><a name="funcoperators">4.3.7 Operator overloading</a></h4>
+		<h4><a name="funcoperators">4.3.8 Operator overloading</a></h4>
 
 		Operator overloading allows user to define operators that work with any type.<br />
 		If operator overloads are placed inside a class or a <a href="#funclocal" title="Local functions">function</a>, they will be visible until the end of a class or the end of a function.<br />
@@ -966,7 +998,7 @@ function toggleView(a, b, c)
 	</div>
 	<hr />
 	<div class="subtopic">
-		<h4><a name="coroutine">4.3.8 Coroutines</a></h4>
+		<h4><a name="coroutine">4.3.9 Coroutines</a></h4>
 
 		Coroutine is a function that can return execution to its caller and when it is called again, resume execution from the point it has left.<br />
 		When function is resumed, its local variable state is restored, but function arguments are equal to the ones that caller passed to it.<br />
