@@ -4,6 +4,10 @@
 #include "Bytecode.h"
 #include "HashMap.h"
 
+void ThrowError(const char* pos, const char* err, ...);
+
+class TypeInfo;
+
 class CompilerError
 {
 	// One buffer is for the error itself, the other is for a decorated version (line number, cursor)
@@ -28,8 +32,11 @@ public:
 		{
 			curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "\r\n  at \"%s\"", line);
 			curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "\r\n      ");
-			for(unsigned int i = 0; i < shift; i++)
-				*(curr++) = ' ';
+			if((unsigned)(NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal)) > shift)
+			{
+				for(unsigned int i = 0; i < shift; i++)
+					*(curr++) = ' ';
+			}
 			curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "^");
 		}
 		curr += SafeSprintf(curr, NULLC_ERROR_BUFFER_SIZE - int(curr - errGlobal), "\r\n");

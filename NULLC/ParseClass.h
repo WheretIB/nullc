@@ -5,6 +5,7 @@
 #include "stdafx.h"
 
 #include "InstructionSet.h"
+#include "Compiler.h"
 
 class NodeZeroOP;
 class NodeExpressionList;
@@ -146,6 +147,8 @@ public:
 	const void		*llvmType;
 #endif
 
+#define LENGTH_CHECK(x) if(x >= 65532) ThrowError(NULL, "ERROR: internal compiler error; type name length is over the limit (65532)");
+
 	const char*		GetFullTypeName()
 	{
 		if(fullName)
@@ -153,6 +156,7 @@ public:
 		if(arrLevel && arrSize != TypeInfo::UNSIZED_ARRAY)
 		{
 			unsigned int subNameLength = subType->GetFullNameLength();
+			LENGTH_CHECK(subNameLength + 8 + 3);
 			fullName = (char*)typeInfoPool.Allocate(subNameLength + 8 + 3); // 8 for the digits of arrSize, and 3 for '[', ']' and \0
 			memcpy((char*)fullName, subType->GetFullTypeName(), subNameLength);
 			fullName[subNameLength] = '[';
@@ -162,6 +166,7 @@ public:
 			fullNameLength = (int)(curr - fullName + 1);
 		}else if(arrLevel && arrSize == TypeInfo::UNSIZED_ARRAY){
 			unsigned int subNameLength = subType->GetFullNameLength();
+			LENGTH_CHECK(subNameLength + 3);
 			fullName = (char*)typeInfoPool.Allocate(subNameLength + 3); // 3 for '[', ']' and \0
 			memcpy((char*)fullName, subType->GetFullTypeName(), subNameLength);
 			fullName[subNameLength] = '[';
@@ -170,6 +175,7 @@ public:
 			fullNameLength = subNameLength + 2;
 		}else if(refLevel){
 			unsigned int subNameLength = subType->GetFullNameLength();
+			LENGTH_CHECK(subNameLength + 5);
 			fullName = (char*)typeInfoPool.Allocate(subNameLength + 5); // 5 for " ref" and \0
 			memcpy((char*)fullName, subType->GetFullTypeName(), subNameLength);
 			memcpy((char*)fullName + subNameLength, " ref", 5);
@@ -182,7 +188,8 @@ public:
 				unsigned int bufferSize = 7 + retNameLength;
 				for(unsigned int i = 0; i < funcType->paramCount; i++)
 					bufferSize += funcType->paramType[i]->GetFullNameLength() + (i != funcType->paramCount-1 ? 1 : 0);
-				char *curr = (char*)typeInfoPool.Allocate(bufferSize+1);
+				LENGTH_CHECK(bufferSize + 1);
+				char *curr = (char*)typeInfoPool.Allocate(bufferSize + 1);
 				fullName = curr;
 				memcpy(curr, funcType->retType->GetFullTypeName(), retNameLength);
 				memcpy(curr + retNameLength, " ref(", 5);

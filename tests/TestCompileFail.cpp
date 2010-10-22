@@ -289,4 +289,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	TEST_FOR_FAIL_GENERIC("buffer overrun prevention", "int foo(generic a){ return -; /* %s %s %s %s %s %s %s %s %s %s %s %s %s %s */ } return foo(1);", "ERROR: while instantiating generic function foo(generic)", "ERROR: expression not found after '-'");
 
 	TEST_FOR_FAIL("Infinite instantiation recursion", "auto foo(generic a){ typeof(a) ref x; return foo(x); } return foo(1); }", "ERROR: while instantiating generic function foo(generic)");
+
+	TEST_FOR_FAIL("Infinite instantiation recursion 2", "auto foo(generic a){ typeof(a) ref(typeof(a) ref, typeof(a) ref, typeof(a) ref) x; return foo(x); } return foo(1); }", "ERROR: while instantiating generic function foo(generic)");
+
 }
