@@ -150,6 +150,7 @@ function toggleView(a, b, c)
 			<li><a href="#funcoverload">Function overloading</a></li>
 			<li><a href="#funcoperators">Operator overloading</a></li>
 			<li><a href="#coroutine">Coroutines</a></li>
+			<li><a href="#generic">Generic functions</a></li>
 		</ol>
 		<li><a href="#arrunsized">Arrays with implicit size</a></li>
 	</ol>
@@ -1120,6 +1121,46 @@ function toggleView(a, b, c)
 &nbsp;&nbsp;&nbsp;&nbsp;<span class="var">array</span>[<span class="var">i</span>] = <span class="func">rngB</span>();<br />
 			</p>
 		</div>
+	</div>
+	<hr />
+	<div class="subtopic">
+		<h4><a name="generic">4.3.10 Generic functions</a></h4>
+		
+		Sometimes there is a need for a function that can work for a large set or different types and not be restricted to run-time operations supported with "auto ref" type.<br />
+		These functions are called <b>generic</b>.<br />
+		To create a generic function, just use <span class="rword">generic</span> keyword as the argument type.<br />
+		Here is an example of a "map" function, which transforms all array elements by applying a function to them.<br />
+		<pre class="code">
+</span><span class="rword">import </span><span class="var">std</span>.<span class="var">vector</span>;
+<span class="comment">
+</span><span class="rword">void </span><span class="func">map</span><span class="bold">(</span><span class="rword">generic </span><span class="var">array</span>, <span class="rword">generic </span><span class="var">function</span><span class="bold">)
+{
+</span><span class="comment">	</span><span class="rword">for</span>(<span class="vardef">i </span><span class="rword">in </span><span class="var">array</span>)<span class="comment"> // for every element in an array
+		</span><span class="var">i </span>= <span class="func">function</span><span class="bold">(</span><span class="var">i</span><span class="bold">)</span>;<span class="comment"> // transform it using the function
+</span><span class="bold">}
+</span><span class="rword">auto </span><span class="vardef">arr1 </span>= { <span class="real">1</span>, <span class="real">2</span>, <span class="real">3</span>, <span class="real">4 </span>};
+<span class="rword">auto </span><span class="vardef">arr2 </span>= { <span class="real">1.0</span>, <span class="real">2.0</span>, <span class="real">3.0</span>, <span class="real">4.0 </span>};
+<span class="func">map</span><span class="bold">(</span><span class="var">arr1</span>, <span class="rword">auto</span><span class="bold">(</span><span class="rword">int </span><span class="var">x</span><span class="bold">){ </span><span class="rword">return </span>-<span class="var">x</span><span class="bold">; })</span>;
+<span class="func">map</span><span class="bold">(</span><span class="var">arr2</span>, <span class="rword">auto</span><span class="bold">(</span><span class="rword">double </span><span class="var">x</span><span class="bold">){ </span><span class="rword">return </span>-<span class="var">x</span><span class="bold">; })</span>;
+<span class="bold">
+</span><span class="rword">return </span><span class="real">0</span><span class="bold">;</span></pre>
+		<br />
+		If you want to force an argument to be a reference type, you can use <span class="rword">generic ref</span> type.<br />
+		For example, you may write a generic swap function:<br />
+		<pre class="code">
+<span class="rword">void </span><span class="func">swap</span><span class="bold">(</span><span class="rword">generic ref </span><span class="var">a</span>, <span class="rword">generic ref </span><span class="var">b</span><span class="bold">)
+{
+</span><span class="rword">	typeof</span>(<span class="var">b</span>).<span class="rword">target </span><span class="vardef">tmp </span>= *<span class="var">a</span>;
+	*<span class="var">a </span>= *<span class="var">b</span>;
+	*<span class="var">b </span>= <span class="var">tmp</span>;
+<span class="bold">}
+</span><span class="rword">int </span><span class="vardef">a </span>= <span class="real">0</span>, <span class="vardef">b </span>= <span class="real">0</span>;
+<span class="func">swap</span><span class="bold">(</span><span class="var">a</span>, <span class="real">8</span><span class="bold">)</span>;<span class="comment"> // a == 8; b == 0;
+</span><span class="func">swap</span><span class="bold">(</span><span class="real">4</span>, <span class="var">b</span><span class="bold">)</span>;<span class="comment"> // a == 8; b == 4;
+</span><span class="func">swap</span><span class="bold">(</span><span class="var">a</span>, <span class="var">b</span><span class="bold">)</span>;<span class="comment"> // a == 4; b == 8;
+</span><span class="rword">return </span><span class="var">a </span>- <span class="var">b</span><span class="bold">;</span><span class="comment"> // -4
+</span></pre>
+		Generic functions do not support default function arguments.<br />
 	</div>
 </div>
 <hr />
