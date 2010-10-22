@@ -374,7 +374,7 @@ nullres	nullcRun()
 }
 
 #ifndef NULLC_NO_EXECUTOR
-const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, va_list args)
+const char*	nullcGetArgumentVector(unsigned int functionID, uintptr_t extra, va_list args)
 {
 	using namespace NULLC;
 
@@ -468,8 +468,8 @@ const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, 
 			break;
 		}
 	}
-	*(int*)argPos = extra;
-	argPos += 4;
+	*(uintptr_t*)argPos = extra;
+	argPos += sizeof(uintptr_t);
 
 	return argBuf;
 }
@@ -591,7 +591,7 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	// Copy arguments in argument buffer
 	va_list args;
 	va_start(args, ptr);
-	const char *argBuf = nullcGetArgumentVector(ptr.id, (unsigned int)(uintptr_t)ptr.context, args);
+	const char *argBuf = nullcGetArgumentVector(ptr.id, (uintptr_t)ptr.context, args);
 	if(!argBuf)
 		return false;
 	va_end(args);
