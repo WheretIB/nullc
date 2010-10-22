@@ -1094,3 +1094,21 @@ const char *testGeneric78 =
 "auto foo(auto[] arr, generic x, typeof(x) ref(typeof(x)) f){ return f(x); }\r\n\
 return foo({ 0 }, 5, <i>{ -i; });";
 TEST_RESULT("Generic function with array type in arguments", testGeneric78, "-5");
+
+LOAD_MODULE(test_generic_export7, "test.generic_export7", "auto foo(generic a, int ref(typeof(a)) f){ return a + f(a); }");
+const char *testGeneric79 =
+"import test.generic_export7;\r\n\
+return foo(2, <i>{ i*8; });";
+TEST_RESULT("Generic function import, imported function depends on generic", testGeneric79, "18");
+
+LOAD_MODULE(test_generic_export8, "test.generic_export8", "auto foo(generic a, typeof(a)[] f){ return a + f[a]; }");
+const char *testGeneric80 =
+"import test.generic_export8;\r\n\
+return foo(1, { 3, 4 });";
+TEST_RESULT("Generic function import, imported array depends on generic", testGeneric80, "5");
+
+LOAD_MODULE(test_generic_export9, "test.generic_export9", "auto foo(generic a, typeof(a) ref f){ return a + *f; }");
+const char *testGeneric81 =
+"import test.generic_export9;\r\n\
+int z = 5; return foo(1, &z);";
+TEST_RESULT("Generic function import, imported reference depends on generic", testGeneric81, "6");
