@@ -4012,6 +4012,7 @@ void TypeGeneric(unsigned pos)
 	newType->genericInfo = newType->CreateGenericContext(pos);
 	newType->genericInfo->globalVarTop = varTop;
 	newType->genericInfo->blockDepth = currDefinedFunc.size() ? currDefinedFunc.back()->vTopSize : 1;
+	currType = newType;
 }
 
 void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)

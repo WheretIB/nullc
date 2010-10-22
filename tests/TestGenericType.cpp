@@ -498,3 +498,11 @@ auto y = x.foo;\r\n\
 auto z = s.foo;\r\n\
 return int(y() + z());";
 TEST_RESULT("Function call by pointer in a member function", testGenericType39, "-44");
+
+const char *testGenericType40 =
+"class Foo<T>{ T x; }\r\n\
+void Foo:set(T x){ assert(typeof(x) == double); this.x = x; }\r\n\
+Foo<double> m;\r\n\
+m.set(4);\r\n\
+return int(m.x * 1.5);";
+TEST_RESULT("Generic type aliases are available in external unspecialized member function argument list", testGenericType40, "6");
