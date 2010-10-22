@@ -5,7 +5,7 @@
 void CommonSetLinker(Linker* linker);
 
 void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, ExternFuncInfo::Upvalue* upvalue);
-void CloseUpvalues(char* paramBase, unsigned int argument);
+void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument);
 ExternTypeInfo*	GetTypeList();
 
 unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize);

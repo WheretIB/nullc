@@ -518,3 +518,28 @@ const char	*testLocalFunctionPrototype7 =
 }\r\n\
 return foo(5);";
 TEST_RESULT("Local function prototype 7", testLocalFunctionPrototype7, "-10");
+
+const char	*testLocalFunctionMultilevelReturn =
+"auto foo()\r\n\
+{\r\n\
+	int a = 3;\r\n\
+	{\r\n\
+		int b = 4;\r\n\
+		return auto(){ return a + b; };\r\n\
+	}\r\n\
+}\r\n\
+auto x = foo();\r\n\
+return x();";
+TEST_RESULT("Local function return through nested blocks", testLocalFunctionMultilevelReturn, "7");
+
+const char	*testLocalFunctionMultilevelReturn2 =
+"auto foo()\
+{\
+int ref() m;\
+{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{\
+int a = 4; int test(){ return a; } m = test;\
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}\
+return m;\
+}\
+return foo()();";
+TEST_RESULT("Local function return through nested blocks 2", testLocalFunctionMultilevelReturn2, "4");

@@ -1546,7 +1546,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 #endif
 			break;
 		case cmdCloseUpvals:
-			CloseUpvalues(&genParams[paramBase], cmd.argument);
+			CloseUpvalues(&genParams[paramBase], cmd.flag, cmd.argument);
 			break;
 
 		case cmdConvertPtr:

@@ -3184,11 +3184,12 @@ void GenCodeCmdCloseUpvalues(VMCmd cmd)
 	EMIT_COMMENT("CLOSEUPVALUES");
 
 	EMIT_OP_NUM(o_push, cmd.argument);
+	EMIT_OP_NUM(o_push, cmd.flag);
 	EMIT_OP_REG_RPTR(o_lea, rEBX, sNONE, rEBP, paramBase);
 	EMIT_OP_REG(o_push, rEBX);
 	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)upvaluesCloseFunc);
 	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 12);
 }
 
 void GenCodeCmdConvertPtr(VMCmd cmd)
