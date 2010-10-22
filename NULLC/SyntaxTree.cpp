@@ -1852,7 +1852,7 @@ void NodeExpressionList::Compile()
 	}while(curr);
 }
 
-NodeFunctionProxy::NodeFunctionProxy(FunctionInfo *info, const char *pos, bool silent)
+NodeFunctionProxy::NodeFunctionProxy(FunctionInfo *info, const char *pos, bool silent, bool takeThis)
 {
 	assert(info);
 	nodeType = typeNodeFunctionProxy;
@@ -1860,6 +1860,8 @@ NodeFunctionProxy::NodeFunctionProxy(FunctionInfo *info, const char *pos, bool s
 	funcInfo = info;
 	codePos = pos;
 	noError = silent;
+
+	first = takeThis ? TakeLastNode() : NULL;
 }
 NodeFunctionProxy::~NodeFunctionProxy()
 {

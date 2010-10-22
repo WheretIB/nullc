@@ -96,6 +96,7 @@ void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
 NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult, TypeInfo* forcedParentType = NULL);
 void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred = NULL);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
+void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count);
 
 void AddExtraNode()
 {
@@ -1058,7 +1059,7 @@ void GetFunctionContext(const char* pos, FunctionInfo *fInfo, bool handleThisCal
 }
 
 // Function that retrieves variable address
-void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPreferredType)
+void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPreferredType, NodeZeroOP *forcedThisNode)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -1115,7 +1116,9 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPref
 		if(fInfo->generic)
 			ThrowError(pos, "ERROR: can't take pointer to a generic function");
 
-		GetFunctionContext(pos, fInfo, true);
+		GetFunctionContext(pos, fInfo, !forcedThisNode);
+		if(forcedThisNode)
+			CodeInfo::nodeList.push_back(forcedThisNode);
 		// Create node that retrieves function address
 		fInfo->pure = false;
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(fInfo));
@@ -1603,12 +1606,31 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 					AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 				return;
 			}
-			ThrowError(pos, "ERROR: member variable or function '%.*s' is not defined in class '%s'", varName.end-varName.begin, varName.begin, currentType->GetFullTypeName());
+			// If this is a generic type, try to instance a member function and take pointer to it
+			if(currentType->genericBase)
+			{
+				memberGet[memberNameLength] = 0;
+				// Check that base class has this function
+				char *memberOrigName = GetClassFunctionName(currentType->genericBase, memberGet);
+				FunctionInfo **baseFunc = funcMap.find(GetStringHash(memberOrigName));
+				if(!baseFunc)
+					ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
+
+				CreateGenericFunctionInstance(pos, *baseFunc, memberFunc, currentType);
+				memberFunc->parentClass = currentType;
+			}else{
+				ThrowError(pos, "ERROR: member variable or function '%.*s' is not defined in class '%s'", varName.end-varName.begin, varName.begin, currentType->GetFullTypeName());
+			}
 		}else{
 			memberFunc = func->value;
 		}
 		if(func && funcMap.next(func))
-			ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
+		{
+			CodeInfo::nodeList.push_back(new NodeFunctionProxy(func->value, pos, false, true));
+			if(unifyTwo)
+				AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
+			return;
+		}
 	}
 	
 	// In case of a variable
@@ -1815,12 +1837,27 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 		AddExtraNode();
 	}else if(CodeInfo::nodeList.back()->nodeType == typeNodeFunctionProxy){ // If it is an unresolved function overload selection
 		FunctionInfo *info = ((NodeFunctionProxy*)CodeInfo::nodeList.back())->funcInfo;
+		NodeZeroOP *thisNode = ((NodeFunctionProxy*)CodeInfo::nodeList.back())->GetFirstNode();
 		CodeInfo::nodeList.pop_back();
 		if(!dstPreferred)
-			ThrowError(pos, "ERROR: there are more than one '%s' function, and the decision isn't clear", info->name);
+		{
+			HashMap<FunctionInfo*>::Node *func = funcMap.first(info->nameHash), *funcS = func;
+			bestFuncList.clear();
+			bestFuncRating.clear();
+			do
+			{
+				bestFuncList.push_back(func->value);
+				bestFuncRating.push_back(0);
+				func = funcMap.next(func);
+			}while(func);
+
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available:\r\n");
+			ThrowFunctionSelectError(pos, 0, errorReport, errPos, funcS->value->name, funcS->value->paramCount, bestFuncList.size());
+		}
 		if(!dstPreferred->funcType)
 			ThrowError(pos, "ERROR: cannot select function overload for a type '%s'", dstPreferred->GetFullTypeName());
-		AddGetAddressNode(pos, InplaceStr(info->name), dstPreferred);
+		AddGetAddressNode(pos, InplaceStr(info->name), dstPreferred, thisNode);
 	}
 }
 
@@ -3081,7 +3118,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 	{
 		if(bestFuncRating[n] != minRating)
 			continue;
-		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "  %s(", funcName);
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "  %s %s(", bestFuncList[n]->retType ? bestFuncList[n]->retType->GetFullTypeName() : "auto", funcName);
 		for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
 		if(bestFuncList[n]->generic)

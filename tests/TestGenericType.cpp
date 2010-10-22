@@ -446,3 +446,36 @@ auto foo(Foo<generic> ref m){ return -m.x; }\r\n\
 return foo(a);";
 TEST_RESULT("Generic type specialization to reference type 2", testGenericType35, "-5");
 
+const char *testGenericType36 =
+"class Foo<T>{ T a; }\r\n\
+auto Foo:foo(){ return 2*a; }\r\n\
+Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
+auto y = x.foo;\r\n\
+auto z = s.foo;\r\n\
+return int(y() + z());";
+TEST_RESULT("Taking pointer to a generic type member function", testGenericType36, "88");
+
+const char *testGenericType37 =
+"class Foo<T>{ T a; }\r\n\
+auto Foo:foo(){ return 2*a; }\r\n\
+int Foo<double>:foo(){ return -a; }\r\n\
+Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
+auto y = x.foo;\r\n\
+auto z = s.foo;\r\n\
+return int(y() + z());";
+TEST_RESULT("Taking pointer to a generic type member function (with a specialized option)", testGenericType37, "-32");
+
+const char *testGenericType38 =
+"class Foo<T>\r\n\
+{\r\n\
+	T a;\r\n\
+	auto foo(){ return -a; }\r\n\
+}\r\n\
+int Foo<double>:foo(){ return 2*a; }\r\n\
+\r\n\
+Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
+auto y = x.foo;\r\n\
+int ref() z = s.foo;\r\n\
+return int(y() + z());";
+TEST_RESULT("Taking pointer to a generic type member function (overload resolve)", testGenericType38, "76");
+

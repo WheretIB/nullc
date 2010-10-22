@@ -698,10 +698,10 @@ public:
 	NodeZeroOP		*paramHead, *paramTail;
 };
 
-class NodeFunctionProxy: public NodeZeroOP
+class NodeFunctionProxy: public NodeOneOP
 {
 public:
-	NodeFunctionProxy(FunctionInfo *info, const char *pos, bool silent = false);
+	NodeFunctionProxy(FunctionInfo *info, const char *pos, bool silent = false, bool takeThis = false);
 	virtual ~NodeFunctionProxy();
 
 			bool HasType(TypeInfo *type);
