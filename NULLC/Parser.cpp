@@ -530,11 +530,13 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 	CALLBACK(FunctionStart((*str-1)->pos));
 	if(!ParseLexem(str, lex_ofigure))
 		ThrowError((*str)->pos, "ERROR: '{' not found after function header");
+	const char *lastFunc = SetCurrentFunction(NULL);
 
 	if(!ParseCode(str))
 		CALLBACK(AddVoidNode());
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError((*str)->pos, "ERROR: '}' not found after function body");
+	SetCurrentFunction(lastFunc);
 
 	if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
 		CALLBACK(FunctionToOperator(start->pos));
@@ -543,6 +545,114 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 
 	if(typeMethod)
 		CALLBACK(TypeStop());
+	return true;
+}
+
+bool ParseShortFunctionDefinition(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_less))
+		return true;
+
+	// Save argument starting position
+	Lexeme *start = *str;
+	unsigned arguments = 0;
+	// parse argument count
+	if((*str)->type != lex_greater)
+	{
+		ParseSelectType(str);
+		if(!ParseLexem(str, lex_string))
+			ThrowError((*str)->pos, "ERROR: function argument name not found after '<'");
+		arguments++;
+		while(ParseLexem(str, lex_comma))
+		{
+			ParseSelectType(str);
+			if(!ParseLexem(str, lex_string))
+				ThrowError((*str)->pos, "ERROR: function argument name not found after ','");
+			arguments++;
+		}
+	}
+	// Restore argument starting position
+	*str = start;
+	// Get function type
+	TypeInfo *type = (TypeInfo*)GetCurrentArgumentType((*str)->pos, arguments);
+
+	static int unnamedFuncCount = 0;
+	char *functionName = (char*)stringPool.Allocate(16);
+	sprintf(functionName, "$funcs%d", unnamedFuncCount);
+	unnamedFuncCount++;
+
+	SelectTypeByPointer(type->funcType->retType);
+	FunctionAdd((*str)->pos, functionName);
+
+	for(unsigned currArg = 0; currArg < arguments; currArg++)
+	{
+		if(currArg != 0)
+			ParseLexem(str, lex_comma);
+		bool imaginary = ParseSelectType(str);
+		TypeInfo *selType = (TypeInfo*)GetSelectedType();
+		SelectTypeByPointer(type->funcType->paramType[currArg]);
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
+		if(!imaginary || type->funcType->paramType[currArg] == selType)
+		{
+			FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
+		}else{
+			char *paramName = (char*)stringPool.Allocate((*str)->length + 2);
+			paramName[0] = '$';
+			memcpy(paramName + 1, (*str)->pos, (*str)->length);
+			paramName[(*str)->length + 1] = 0;
+			FunctionParameter((*str)->pos, InplaceStr(paramName, (*str)->length + 1));
+		}
+		(*str)++;
+	}
+	
+	if(!ParseLexem(str, lex_greater))
+		ThrowError((*str)->pos, "ERROR: '>' expected after short inline function argument list");
+	
+	FunctionStart((*str)->pos);
+
+	Lexeme *curr = *str;
+	*str = start;
+	unsigned wraps = 0;
+	for(unsigned currArg = 0; currArg < arguments; currArg++)
+	{
+		if(currArg != 0)
+			ParseLexem(str, lex_comma);
+		if(ParseSelectType(str) && type->funcType->paramType[currArg] != GetSelectedType())
+		{
+			Lexeme *varName = *str;
+			void *varInfo = AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length));
+			(*str)++;
+			
+			char *paramName = (char*)stringPool.Allocate(varName->length + 2);
+			paramName[0] = '$';
+			memcpy(paramName + 1, varName->pos, varName->length);
+			paramName[varName->length + 1] = 0;
+			AddGetAddressNode((*str)->pos, InplaceStr(paramName, varName->length + 1));
+			AddGetVariableNode((*str)->pos);
+			AddDefineVariableNode((*str)->pos, varInfo);
+			AddPopNode((*str)->pos);
+			wraps++;
+		}
+		ParseLexem(str, lex_string);
+	}
+	*str = curr;
+
+	if(!ParseLexem(str, lex_ofigure))
+		ThrowError((*str)->pos, "ERROR: '{' not found after function header");
+	const char *lastFunc = SetCurrentFunction(NULL);
+
+	if(!ParseCode(str))
+		AddVoidNode();
+	while(wraps--)
+		AddTwoExpressionNode();
+	if(!ParseLexem(str, lex_cfigure))
+		ThrowError((*str)->pos, "ERROR: '}' not found after function body");
+	SetCurrentFunction(lastFunc);
+
+	InlineFunctionImplicitReturn((*str)->pos);
+	FunctionEnd(start->pos);
+
 	return true;
 }
 
@@ -1239,6 +1349,10 @@ bool ParseTerminal(Lexeme** str)
 	case lex_oparen:
 		ParseGroup(str);
 		ParsePostExpressions(str);
+		return true;
+		break;
+	case lex_less:
+		ParseShortFunctionDefinition(str);
 		return true;
 		break;
 	case lex_string:

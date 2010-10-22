@@ -120,10 +120,10 @@ void RunParseFailTests()
 
 	TEST_FOR_FAIL("parsing", "class Test{ int a{ } return 0;", "ERROR: 'get' is expected after '{'");
 	TEST_FOR_FAIL("parsing", "class Test{ int a{ get } return 0;", "ERROR: function body expected after 'get'");
-	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{} set } return 0;", "ERROR: function body expected after 'set'");
-	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{} set( } return 0;", "ERROR: r-value name not found after '('");
-	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{} set(value } return 0;", "ERROR: ')' not found after r-value");
-	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{} set(value){ } ", "ERROR: '}' is expected after property");
+	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{ return 0; } set } return 0;", "ERROR: function body expected after 'set'");
+	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{ return 0; } set( } return 0;", "ERROR: r-value name not found after '('");
+	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{ return 0; } set(value } return 0;", "ERROR: ')' not found after r-value");
+	TEST_FOR_FAIL("parsing", "class Test{ int a{ get{ return 0; } set(value){ } ", "ERROR: '}' is expected after property");
 
 	TEST_FOR_FAIL("parsing", "int[$] a; return 0;", "ERROR: unexpected expression after '['");
 	TEST_FOR_FAIL("parsing", "int ref(auto, int) a; return 0;", "ERROR: parameter type of a function type cannot be auto");
@@ -160,4 +160,10 @@ void RunParseFailTests()
 		SafeSprintf(error, 128, "ERROR: variable name length is limited to %d symbols", NULLC_MAX_VARIABLE_NAME_LENGTH);
 		TEST_FOR_FAIL("Variable name is too long.", code, error);
 	}
+
+	TEST_FOR_FAIL("parsing", "bar(<!i>{ i; });", "ERROR: function argument name not found after '<'");
+	TEST_FOR_FAIL("parsing", "bar(<i, >{ i; });", "ERROR: function argument name not found after ','");
+	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j{ i; });", "ERROR: '>' expected after short inline function argument list");
+	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j> i; });", "ERROR: '{' not found after function header");
+	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j>{ i; );", "ERROR: '}' not found after function body");
 }

@@ -230,8 +230,7 @@ TEST("Hexadecimal constants", testHexConst, "3735928559L")
 }
 
 const char	*testPriority = 
-"int func(){}\r\n\
-int a = 13, b = 17, c = 14;\r\n\
+"int a = 13, b = 17, c = 14;\r\n\
 int[10] res;\r\n\
 res[0] = a + b * c;\r\n\
 res[1] = a + b ** (c-10) * a;\r\n\

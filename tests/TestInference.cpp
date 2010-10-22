@@ -109,3 +109,52 @@ return bar(foo, 5);";
 TEST_RESULT("Function pointer select", testFunctionPointerSelect2, "10");
 
 #endif
+
+const char	*testShortInlineFunction1 = 
+"int bar(int ref(double) f, double y){ return f(y); }\r\n\
+return bar(<x>{ return -x; }, 5);";
+TEST_RESULT("Short inline function definition 1", testShortInlineFunction1, "-5");
+
+const char	*testShortInlineFunction2 = 
+"int bar(int ref(double) f, double y){ return f(y); }\r\n\
+return bar(<x>{ -x; }, 5);";
+TEST_RESULT("Short inline function definition with implicit return", testShortInlineFunction2, "-5");
+
+const char	*testShortInlineFunction3 = 
+"int bar(int ref(auto ref) f, double y){ return f(&y); }\r\n\
+return bar(<double ref x>{ -*x; }, 5);";
+TEST_RESULT("Short inline function with argument conversion", testShortInlineFunction3, "-5");
+
+const char	*testShortInlineFunction4 = 
+"int bar(int ref(auto ref, auto ref) f, double y, z){ return f(y, z); }\r\n\
+return bar(<double x, double y>{ x > y; }, 3, 4);";
+TEST_RESULT("Short inline function with argument conversion2", testShortInlineFunction4, "0");
+
+const char	*testShortInlineFunction5 = 
+"import std.algorithm;\r\n\
+int[] arr = { 7, 5, 3, 9, 3, 2, 1, 0, 15 };\r\n\
+int[] arr2 = { 0, 1, 2, 3, 3, 5, 7, 9, 15 };\r\n\
+sort(arr, <l, r>{ int(l) < int(r); });\r\n\
+int diff = 0; for(i in arr, j in arr2) diff += i - j;\r\n\
+return diff;";
+TEST_RESULT("Short inline funciton as a comparator", testShortInlineFunction5, "0");
+
+const char	*testShortInlineFunction6 = 
+"import std.algorithm;\r\n\
+int[] arr = { 7, 5, 3, 9, 3, 2, 1, 0, 15 };\r\n\
+int[] arr2 = { 0, 1, 2, 3, 3, 5, 7, 9, 15 };\r\n\
+sort(arr, <int l, int r>{ l < r; });\r\n\
+int diff = 0; for(i in arr, j in arr2) diff += i - j;\r\n\
+return diff;";
+TEST_RESULT("Short inline funciton as a comparator with argument conversion", testShortInlineFunction6, "0");
+
+const char	*testShortInlineFunction7 = 
+"import std.algorithm;\r\n\
+int[] arr = { 2, 6, 2, 3, 5, 8, 1, 0, 5, 4 };\r\n\
+sort(arr, <int a, int b>{ a > b; });\r\n\
+map(arr, <int ref x>{ *x = *x * 2; });\r\n\
+arr = filter(arr, <int x>{ x < 8; });\r\n\
+int sum = 0;\r\n\
+for(i in arr) sum += i;\r\n\
+return sum;";
+TEST_RESULT("Short inline funcitons passed to std.algorithm", testShortInlineFunction7, "16");

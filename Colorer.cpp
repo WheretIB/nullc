@@ -327,9 +327,8 @@ namespace ColorerGrammar
 			vardefsub	=	addvarp >> *(chP(',')[ColorText] >> vardefsub);
 			vardef		=
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
-				typeExpr >> 
+				(typeExpr - (typeExpr >> chP('('))) >> 
 				(
-					(fcallpart >> *postExpr) |
 					(
 						constExpr >>
 						(vardefsub | epsP[LogError("ERROR: variable definition after typename is incorrect")])
@@ -420,6 +419,14 @@ namespace ColorerGrammar
 			group		=	chP('(')[ColorText] >> term5 >> chP(')')[ColorText];
 			term1		=
 				funcdef |
+				(
+					chP('<')[ColorBold] >> (!typeExpr >> varname[ColorVar]) >> *(chP(',')[ColorText] >> !typeExpr >> varname[ColorVar]) >> chP('>')[ColorBold] >>
+					(
+						chP('{')[ColorBold] >>
+						code >>
+						(chP('}')[ColorBold] | epsP[LogError("ERROR: '}' not found after function body")])
+					)
+				) |
 				strWP("nullptr")[ColorRWord] |
 				(strWP("sizeof")[ColorRWord] >> chP('(')[ColorText] >> (typeExpr | term5) >> chP(')')[ColorText]) |
 				(chP('&')[ColorText] >> appval) |

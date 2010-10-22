@@ -52,8 +52,8 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Array underflow", "int[4] a; a[-1] = 2; return 1;", "ERROR: array index cannot be negative");
 	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;", "ERROR: array index out of bounds");
 
-	TEST_FOR_FAIL("No matching function", "int f(int a, b){} int f(int a, long b){} return f(1)'", "ERROR: can't find function 'f' with following parameters:");
-	TEST_FOR_FAIL("No clear decision", "int f(int a, b){} int f(int a, long b){} int f(){} return f(1, 3.0)'", "ERROR: ambiguity, there is more than one overloaded function available for the call.");
+	TEST_FOR_FAIL("No matching function", "int f(int a, b){ return 0; } int f(int a, long b){ return 0; } return f(1)'", "ERROR: can't find function 'f' with following parameters:");
+	TEST_FOR_FAIL("No clear decision", "int f(int a, b){ return 0; } int f(int a, long b){ return 0; } int f(){ return 0; } return f(1, 3.0)'", "ERROR: ambiguity, there is more than one overloaded function available for the call.");
 
 	TEST_FOR_FAIL("Array without member", "int[4] a; return a.m;", "ERROR: array doesn't have member with this name");
 	TEST_FOR_FAIL("No methods", "int[4] i; return i.ok();", "ERROR: function 'int[]::ok' is undefined");
@@ -61,7 +61,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;", "ERROR: name 'a' is already taken for a variable in current scope");
 	TEST_FOR_FAIL("Auto parameter", "auto(auto a){} return 1;", "ERROR: function parameter cannot be an auto type");
 	TEST_FOR_FAIL("Auto parameter 2 ", "int func(auto a, int i){ return 0; } return 0;", "ERROR: function parameter cannot be an auto type");
-	TEST_FOR_FAIL("Function redefine", "int a(int b){} int a(int c){} return 1;", "ERROR: function 'a' is being defined with the same set of parameters");
+	TEST_FOR_FAIL("Function redefine", "int a(int b){ return 0; } int a(int c){ return 0; } return 1;", "ERROR: function 'a' is being defined with the same set of parameters");
 	TEST_FOR_FAIL("Wrong overload", "int operator*(int a){} return 1;", "ERROR: binary operator definition or overload must accept exactly two arguments");
 	TEST_FOR_FAIL("No member function", "int a; return a.ok();", "ERROR: function 'int::ok' is undefined");
 	TEST_FOR_FAIL("Unclear decision - member function", "class test{ void a(int b){} void a(float b){} } test t; return t.a;", "ERROR: there are more than one 'a' function, and the decision isn't clear");
@@ -73,14 +73,14 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("void condition", "void f(){} for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'void'");
 	TEST_FOR_FAIL("void condition", "void f(){} while(f()){} return 1;", "ERROR: condition type cannot be 'void'");
 	TEST_FOR_FAIL("void condition", "void f(){} do{}while(f()); return 1;", "ERROR: condition type cannot be 'void'");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} if(f()){} return 1;", "ERROR: condition type cannot be 'float4'");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} if(f()){}else{} return 1;", "ERROR: condition type cannot be 'float4'");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} return f() ? 1 : 0;", "ERROR: condition type cannot be 'float4'");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'float4'");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} while(f()){} return 1;", "ERROR: condition type cannot be 'float4'");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} do{}while(f()); return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } if(f()){} return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } if(f()){}else{} return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } return f() ? 1 : 0;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } while(f()){} return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } do{}while(f()); return 1;", "ERROR: condition type cannot be 'float4'");
 	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;", "ERROR: condition type cannot be 'void'");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){} switch(f()){ case 1: break; } return 1;", "ERROR: condition type cannot be 'float4'");
+	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } switch(f()){ case 1: break; } return 1;", "ERROR: condition type cannot be 'float4'");
 	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;", "ERROR: case value type cannot be void");
 
 	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;", "ERROR: different type is being defined");
@@ -225,4 +225,26 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("Non-coroutine as an iterator 2", "auto omg(int z){ int foo(){ return z; } for(i in foo) return 1; } omg(1);", "ERROR: function is not a coroutine");
 
 	TEST_FOR_FAIL("Dereferencing non-pointer", "int a = 5; return *a;", "ERROR: cannot dereference type 'int' that is not a pointer");
+
+	TEST_FOR_FAIL("Short function outside argument list", "return <x>{ return 5; };", "ERROR: cannot infer type for inline function outside of the function call");
+	
+	TEST_FOR_FAIL("Short function outside argument list",
+"void bar(void ref() x){ x(); }\r\n\
+return bar(auto(){ int a = <x>{ return 5; }; });", "ERROR: cannot infer type for inline function outside of the function call");
+	
+	TEST_FOR_FAIL("Parent function not found", "return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which accepts a function with 1 argument(s) as an argument #0");
+	
+	TEST_FOR_FAIL("Multiple choices exist",
+"int bar(int ref(double) f, double y){ return f(y); }\r\n\
+int bar(int ref(int) f, int y){ return f(y); }\r\n\
+return bar(<x>{ return -x; }, 5);", "ERROR: there are multiple function 'bar' overloads expecting different function types as an argument #0");
+	
+	TEST_FOR_FAIL("Argument is not a function",
+"int bar(int x, int y){ return x + y; }\r\n\
+return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which accepts a function with 1 argument(s) as an argument #0");
+	
+	TEST_FOR_FAIL("Wrong argument count",
+"int bar(int ref(double) f, double y){ return f(y); }\r\n\
+return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which accepts a function with 0 argument(s) as an argument #0");
+
 }
