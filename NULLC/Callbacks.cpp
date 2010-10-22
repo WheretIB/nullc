@@ -1023,6 +1023,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 
 			assert(currFunc->allParamSize % 4 == 0);
 			CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(vInfo->varType)));
+			if(external->variable->autoDeref)
+				AddGetVariableNode(pos);
 		}else{
 			// Create node that places variable address on stack
 			CodeInfo::nodeList.push_back(new NodeGetAddress(vInfo, vInfo->pos, vInfo->isGlobal, vInfo->varType));
