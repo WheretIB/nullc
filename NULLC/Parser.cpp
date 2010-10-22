@@ -503,6 +503,8 @@ bool ParseClassDefinition(Lexeme** str)
 		{
 			CodeInfo::typeInfo.back()->dependsOnGeneric = true;
 			TypeGeneric(unsigned(*str - CodeInfo::lexStart));
+			TypeInfo *newType = GetSelectedType();
+			AliasInfo *aliasList = NULL;
 			unsigned count = 0;
 			do
 			{
@@ -512,9 +514,16 @@ bool ParseClassDefinition(Lexeme** str)
 					ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
 				if(ParseSelectType(str))
 					ThrowError((*str)->pos, "ERROR: there is already a type or an alias with the same name");
+
+				AliasInfo *info = TypeInfo::CreateAlias(InplaceStr((*str)->pos, (*str)->length), typeGeneric);
+				CodeInfo::classMap.insert(info->nameHash, info->type);
+				info->next = aliasList;
+				aliasList = info;
+
 				(*str)++;
 				count++;
 			}while(ParseLexem(str, lex_comma));
+			newType->childAlias = aliasList;
 			if(!ParseLexem(str, lex_greater))
 				ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
 			if(!ParseLexem(str, lex_ofigure))

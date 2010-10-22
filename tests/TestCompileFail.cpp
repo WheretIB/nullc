@@ -508,4 +508,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL("generic function default argument value 2", "auto foo(int y = 1, generic x){}", "ERROR: default argument values are unsupported in generic functions");
 
 	TEST_FOR_FAIL("typedef dies after a generic function instance in an incorrect scope", "auto foo(generic x){ typedef typeof(x) T; T a = x * 2; return a; } int bar(){ int x = foo(5); T y; return x; } return bar();", "ERROR: variable or function 'T' is not defined");
+
+	TEST_FOR_FAIL("alias redefinition in generic type definition", "class Foo<T, T>{ T x; } Foo<int, double> m;", "ERROR: there is already a type or an alias with the same name");
 }
