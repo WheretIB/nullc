@@ -3867,17 +3867,20 @@ void TypeStop()
 
 void AddAliasType(InplaceStr aliasName)
 {
+	AliasInfo *info = TypeInfo::CreateAlias(aliasName, currType);
 	if(newType && !currDefinedFunc.size())	// If we're inside a class definition, but _not_ inside a function
 	{
 		// Create alias and add it to type alias list, so that after type definition is finished, local aliases will be deleted
-		AliasInfo *info = TypeInfo::CreateAlias(GetStringHash(aliasName.begin, aliasName.end), currType);
 		info->next = newType->childAlias;
 		newType->childAlias = info;
 	}else if(currDefinedFunc.size()){	// If we're inside a function
 		// Create alias and add it to function alias list, so that after function is finished, local aliases will be deleted
-		AliasInfo *info = TypeInfo::CreateAlias(GetStringHash(aliasName.begin, aliasName.end), currType);
 		info->next = currDefinedFunc.back()->childAlias;
 		currDefinedFunc.back()->childAlias = info;
+	}else{
+		// Create alias and add it to global alias list
+		info->next = CodeInfo::globalAliases;
+		CodeInfo::globalAliases = info;
 	}
 	// Insert hash->type pair to class map, so that target type can be found by alias name
 	CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
@@ -4085,6 +4088,8 @@ void CallbackInitialize()
 	currDefinedFunc.clear();
 
 	CodeInfo::funcDefList.clear();
+
+	CodeInfo::globalAliases = NULL;
 
 	varDefined = false;
 	varTop = 0;

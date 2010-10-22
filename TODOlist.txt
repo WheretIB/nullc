@@ -11,7 +11,6 @@ Core:
 	20. f. context address tracking in not neccessary in most cases (?)
 	21. u. need to clarify when external variables in a local function inside a coroutine are closed.
 	23. f. move gen_list to base module as a generic function (?)
-	26. f. typedef should be exported
 	27. f. ability to replace parts of function type with generic (?)
 
 Library:
@@ -206,3 +205,4 @@ DONE: nullcFinalize shouldn't destroy objects in memory
 DONE: @ followed by lexeme of operator should take an address of a function with operators' name
 DONE: fix process deadlock on breakpoint (and on infinite loops) in finalizer called by nullcFinalize
 DONE: list comprehension should support arrays of pointers
+DONE: typedef should be exported

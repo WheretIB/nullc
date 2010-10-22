@@ -122,6 +122,12 @@ struct ExternFuncInfo
 	unsigned int	nameHash;
 };
 
+struct ExternTypedefInfo
+{
+	unsigned		offsetToName;
+	unsigned		targetType;
+};
+
 struct ExternModuleInfo
 {
 	const char		*name;
@@ -207,6 +213,9 @@ struct ByteCode
 
 	unsigned int	llvmSize;
 	unsigned int	llvmOffset;
+
+	unsigned int	typedefCount;
+	unsigned int	offsetToTypedef;
 
 //	ExternTypeInfo	types[typeCount];
 

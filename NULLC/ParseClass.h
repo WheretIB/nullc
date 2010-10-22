@@ -54,6 +54,7 @@ static asmDataType podTypeToDataType[] = { DTYPE_COMPLEX_TYPE, (asmDataType)0, D
 
 struct AliasInfo
 {
+	InplaceStr		name;
 	unsigned int	nameHash;
 	TypeInfo		*type;
 	AliasInfo		*next;
@@ -323,10 +324,11 @@ public:
 		funcType->retType = retType;
 		return funcType;
 	}
-	static AliasInfo*	CreateAlias(unsigned int hash, TypeInfo* type)
+	static AliasInfo*	CreateAlias(InplaceStr name, TypeInfo* type)
 	{
 		AliasInfo *info = new (typeInfoPool.Allocate(sizeof(AliasInfo))) AliasInfo;
-		info->nameHash = hash;
+		info->name = name;
+		info->nameHash = GetStringHash(name.begin, name.end);
 		info->type = type;
 		info->next = NULL;
 		return info;

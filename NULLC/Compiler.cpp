@@ -690,6 +690,33 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		return false;
 	}
 
+	// Import type aliases
+	ExternTypedefInfo *typedefInfo = (ExternTypedefInfo*)((char*)(bCode) + bCode->offsetToTypedef);
+	for(unsigned i = 0; i < bCode->typedefCount; i++)
+	{
+		// Find is this alias is already defined
+		unsigned int hash = GetStringHash(symbols + typedefInfo->offsetToName);
+		TypeInfo **type = CodeInfo::classMap.find(hash);
+		TypeInfo *targetType = CodeInfo::typeInfo[typeRemap[typedefInfo->targetType]];
+		if(!type)
+		{
+			SelectTypeByIndex(typeRemap[typedefInfo->targetType]);
+			AddAliasType(InplaceStr(symbols + typedefInfo->offsetToName));
+			typedefInfo++;
+		}else{
+			if((*type)->GetFullNameHash() == hash)
+			{
+				SafeSprintf(errBuf, 256, "ERROR: type '%s' alias '%s' is equal to previously imported class", targetType->GetFullTypeName(), symbols + typedefInfo->offsetToName);
+				CodeInfo::lastError.Init(errBuf, NULL);
+				return false;
+			}else if((*type) != targetType){
+				SafeSprintf(errBuf, 256, "ERROR: type '%s' alias '%s' is equal to previously imported alias", targetType->GetFullTypeName(), symbols + typedefInfo->offsetToName);
+				CodeInfo::lastError.Init(errBuf, NULL);
+				return false;
+			}
+		}
+	}
+
 	// Import functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
@@ -1677,6 +1704,17 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	size += clsListCount * sizeof(unsigned int);
 
+	unsigned typedefCount = 0;
+	AliasInfo *aliasInfo = CodeInfo::globalAliases;
+	while(aliasInfo)
+	{
+		typedefCount++;
+		symbolStorageSize += (unsigned)(aliasInfo->name.end - aliasInfo->name.begin) + 1;
+		aliasInfo = aliasInfo->next;
+	}
+	unsigned offsetToTypedef = size;
+	size += typedefCount * sizeof(ExternTypedefInfo);
+
 	unsigned int offsetToCode = size;
 	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
 
@@ -1694,7 +1732,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int offsetToLLVM = size;
 	size += llvmSize;
 #endif
-
+	
 #ifdef VERBOSE_DEBUG_OUTPUT
 	printf("Statistics. Overall: %d bytes\r\n", size);
 	printf("Types: %db, ", offsetToModule - sizeof(ByteCode));
@@ -2000,6 +2038,21 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->llvmOffset = offsetToLLVM;
 	memcpy(((char*)(code) + code->llvmOffset), llvmBinary, llvmSize);
 #endif
+
+	code->typedefCount = typedefCount;
+	code->offsetToTypedef = offsetToTypedef;
+	aliasInfo = CodeInfo::globalAliases;
+	ExternTypedefInfo *currAlias = (ExternTypedefInfo*)((char*)(code) + code->offsetToTypedef);
+	while(aliasInfo)
+	{
+		currAlias->offsetToName = int(symbolPos - code->debugSymbols);
+		memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.end - aliasInfo->name.begin + 1);
+		symbolPos += aliasInfo->name.end - aliasInfo->name.begin;
+		*symbolPos++ = 0;
+		currAlias->targetType = aliasInfo->type->typeIndex;
+		currAlias++;
+		aliasInfo = aliasInfo->next;
+	}
 
 	return size;
 }
