@@ -2755,6 +2755,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 		}
 	}__except(EXCEPTION_EXECUTE_HANDLER){
 		assert(!"Exception in window procedure handler");
+		SetWindowText(hResult, "ERROR: internal compiler error");
 	}
 	return DefWindowProc(hWnd, message, wParam, lParam);
 }
