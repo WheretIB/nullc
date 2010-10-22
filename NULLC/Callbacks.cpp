@@ -1072,14 +1072,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 						tempList = n;
 						start++;
 						
-						if(start->type == lex_set)
-						{
-							assert(!"untested");
-							start++;
-							if(!ParseTernaryExpr(&start))
-								ThrowError(pos, "ERROR: default parameter value not found after '='");
-							CodeInfo::nodeList.pop_back();
-						}
+						assert(start->type != lex_set);
 					}else{
 						if(genericArg)
 							currType = typeGeneric;

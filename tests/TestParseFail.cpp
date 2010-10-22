@@ -177,4 +177,6 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "double foo(){ return 0; } typeof(foo).argument.last;", "ERROR: this function type 'double ref()' doesn't have arguments");
 	TEST_FOR_FAIL("parsing", "return double == typeof(1).return;", "ERROR: 'return' can only be applied to a function type, but we have 'int'");
 	TEST_FOR_FAIL("parsing", "return double == typeof(1).target;", "ERROR: 'target' can only be applied to a pointer or array type, but we have 'int'");
+
+	TEST_FOR_FAIL("parsing", "auto foo(generic a = 5){ return -a; } return foo();", "ERROR: default argument values are unsupported in generic functions");
 }
