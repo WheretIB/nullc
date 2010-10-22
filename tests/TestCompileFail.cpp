@@ -355,4 +355,16 @@ return bar(foo);",
 	TEST_FOR_FAIL("no finalizable objects on stack 2", "class Foo{int a;} void Foo:finalize(){} auto x = *(new Foo);", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
 	TEST_FOR_FAIL("no finalizable objects on stack 3", "class Foo{int a;} void Foo:finalize(){} Foo[10] arr;", "ERROR: class 'Foo' implements 'finalize' so only an unsized array type can be created");
 	TEST_FOR_FAIL("no finalizable objects on stack 4", "class Foo{int a;} void Foo:finalize(){} class Bar{ Foo z; }", "ERROR: class 'Foo' implements 'finalize' so only a reference or an unsized array of 'Foo' can be put in a class");
+
+	if(!nullcLoadModuleBySource("test.import_typedef1a", "class Foo{ int bar; }"))
+		printf("Failed to create module test.import_typedef1a\n");
+	if(!nullcLoadModuleBySource("test.import_typedef1b", "typedef int Foo;"))
+		printf("Failed to create module test.import_typedef1b\n");
+	TEST_FOR_FAIL("type alias collision with class", "import test.import_typedef1a; import test.import_typedef1b; return 1;", "ERROR: type 'int' alias 'Foo' is equal to previously imported class");
+	
+	if(!nullcLoadModuleBySource("test.import_typedef2a", "typedef float Foo;"))
+		printf("Failed to create module test.import_typedef2a\n");
+	if(!nullcLoadModuleBySource("test.import_typedef2b", "typedef int Foo;"))
+		printf("Failed to create module test.import_typedef2b\n");
+	TEST_FOR_FAIL("type alias collision with class", "import test.import_typedef2a; import test.import_typedef2b; return 1;", "ERROR: type 'int' alias 'Foo' is equal to previously imported alias");
 }

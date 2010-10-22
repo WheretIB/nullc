@@ -41,3 +41,10 @@ return myFoo(2);";
 TEST_RESULT("Automatic function binding 2", testFunctionAutobinding2, "17");
 
 #endif
+
+LOAD_MODULE(test_importtypedef, "test.importtypedef", "class Foo_{ int bar; } typedef Foo_ ref Foo; Foo Foo(int y){ auto x = new Foo_; x.bar = y; return x; }");
+const char	*testImportTypedef =
+"import test.importtypedef;\r\n\
+Foo x = Foo(23);\r\n\
+return x.bar;";
+TEST_RESULT("Typedef import", testImportTypedef, "23");

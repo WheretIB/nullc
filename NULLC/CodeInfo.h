@@ -43,6 +43,7 @@ namespace CodeInfo
 	extern HashMap<TypeInfo*>		classMap;
 	extern FastVector<TypeInfo*>	typeArrays;
 	extern FastVector<TypeInfo*>	typeFunctions;
+	extern AliasInfo				*globalAliases;
 
 	// Поток комманд
 	// Command stream
