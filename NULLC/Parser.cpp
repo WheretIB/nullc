@@ -489,7 +489,6 @@ void ParseClassBody(Lexeme** str)
 
 bool ParseClassDefinition(Lexeme** str)
 {
-	Lexeme *curr = *str;
 	if(!ParseAlignment(str))
 		SetCurrentAlignment(0);
 
@@ -540,7 +539,6 @@ bool ParseClassDefinition(Lexeme** str)
 		TypeFinish();
 		return true;
 	}
-	*str = curr;
 	return false;
 }
 
@@ -1978,7 +1976,8 @@ bool ParseExpression(Lexeme** str)
 			return true;
 		}
 	case lex_class:
-		ParseClassDefinition(str);
+		if(!ParseClassDefinition(str))
+			ThrowError((*str)->pos, "ERROR: variable or class definition is expected after alignment specifier");
 		break;
 	case lex_ofigure:
 		ParseBlock(str);

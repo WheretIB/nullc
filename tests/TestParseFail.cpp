@@ -225,4 +225,6 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "class Foo<T>{ T a; } auto foo(Foo<@> x){} Foo<int> a; return foo(a);", "ERROR: type alias required after '@'");
 
 	TEST_FOR_FAIL("parsing", "class Foo<int>{ int a; } Foo<double> x;", "ERROR: there is already a type or an alias with the same name");
+
+	TEST_FOR_FAIL("parsing", "align(4) c", "ERROR: variable or class definition is expected after alignment specifier");
 }
