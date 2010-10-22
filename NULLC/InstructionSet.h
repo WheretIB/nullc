@@ -300,6 +300,7 @@ struct VMCmd
 		case cmdPushFloat:
 		case cmdPushDorL:
 		case cmdPushCmplx:
+		case cmdPushPtr:
 
 		case cmdPushCharStk:
 		case cmdPushShortStk:
@@ -307,10 +308,12 @@ struct VMCmd
 		case cmdPushFloatStk:
 		case cmdPushDorLStk:
 		case cmdPushCmplxStk:
+		case cmdPushPtrStk:
 			curr += sprintf(curr, " [%d%s] sizeof(%d)", argument, flag ? " + base" : "", helper);
 			break;
 
 		case cmdPushImmt:
+		case cmdPushPtrImmt:
 			curr += sprintf(curr, " %d", argument);
 			break;
 
@@ -362,7 +365,7 @@ struct VMCmd
 			break;
 
 		case cmdCreateClosure:
-			curr += sprintf(curr, " Function id: %d", argument);
+			curr += sprintf(curr, " Function id: %d Previous closure at %d", argument, helper);
 			break;
 		case cmdCloseUpvals:
 			curr += sprintf(curr, " Function id: %d Stack offset: %d", helper, argument);
@@ -373,6 +376,10 @@ struct VMCmd
 			break;
 		case cmdConvertPtr:
 			curr += sprintf(curr, " Type id: %d", argument);
+			break;
+
+		case cmdYield:
+			curr += sprintf(curr, " %s %s (context at %d)", flag ? "Restore" : "Save", flag ? " " : (helper ? "Yield" : "Return"), argument);
 			break;
 		}
 		return (int)(curr-buf);

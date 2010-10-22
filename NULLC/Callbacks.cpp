@@ -2469,7 +2469,8 @@ void FunctionEnd(const char* pos)
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, varInfo);
 
-		CodeInfo::nodeList.push_back(new NodeDereference(&lastFunc, lastFunc.type == FunctionInfo::COROUTINE ? 0 : currDefinedFunc.back()->allParamSize));
+		// Previous closure may not exists if it's the end of a global coroutine definition
+		CodeInfo::nodeList.push_back(new NodeDereference(&lastFunc, currDefinedFunc.size() ? currDefinedFunc.back()->allParamSize : 0));
 
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
