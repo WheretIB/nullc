@@ -701,3 +701,43 @@ auto foo(generic a)\r\n\
 }\r\n\
 return foo(6);";
 TEST_RESULT("Generic function test (recursion in a delayed instance)", testGeneric46, "720");
+
+const char *testGeneric47 =
+"coroutine int bar(int v)\r\n\
+{\r\n\
+	int u = v;\r\n\
+	coroutine int foo(generic x, y)\r\n\
+	{\r\n\
+		return u + x + y;\r\n\
+	}\r\n\
+	return foo(1, 8);\r\n\
+}\r\n\
+return bar(5);";
+TEST_RESULT("Generic function test (coroutine inside a coroutine)", testGeneric47, "14");
+
+const char *testGeneric48 =
+"coroutine int bar(generic v)\r\n\
+{\r\n\
+	int u = 0;\r\n\
+	coroutine int foo(generic x)\r\n\
+	{\r\n\
+		u += x;\r\n\
+		for(x++; x <= 4; x++)\r\n\
+		{\r\n\
+			foo(x);\r\n\
+		}\r\n\
+		return u;\r\n\
+	}\r\n\
+	for(int a = 0; a < 4; a++)\r\n\
+	{\r\n\
+		u = 0;\r\n\
+		yield foo(a);\r\n\
+	}\r\n\
+	return 0;\r\n\
+}\r\n\
+auto a = bar(1);\r\n\
+return bar(1);";
+TEST("Generic function test (coroutine inside a coroutine) 2", testGeneric48, "25")
+{
+	CHECK_INT("a", 0, 49);
+}

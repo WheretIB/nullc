@@ -455,7 +455,8 @@ bool Linker::LinkCode(const char *code)
 			cmd.argument = funcRemap[cmd.argument];
 			break;
 		case cmdCloseUpvals:
-			cmd.argument += exFunctions[funcRemap[cmd.helper]].closeListStart;
+			cmd.helper = funcRemap[cmd.helper];
+			cmd.argument += exFunctions[cmd.helper].closeListStart;
 			break;
 		case cmdPushTypeID:
 			cmd.cmd = cmdPushImmt;
