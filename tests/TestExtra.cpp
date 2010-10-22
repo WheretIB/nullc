@@ -288,3 +288,37 @@ TEST("Static if test 4", testStaticIf4, "1")
 	CHECK_INT("c", 0, 1);
 	CHECK_INT("d", 0, 0);
 }
+
+const char	*testStaticIf5 =
+"auto foo1(generic a)\r\n\
+{\r\n\
+	@if(typeof(a) == int)\r\n\
+		int[-1] a;\r\n\
+	else if(typeof(a) == double)\r\n\
+		int[-1] a;\r\n\
+	else\r\n\
+		return 1;\r\n\
+	return 0;\r\n\
+}\r\n\
+auto foo2(generic a)\r\n\
+{\r\n\
+	@if(typeof(a) == int)\r\n\
+		int[-1] a;\r\n\
+	else if(typeof(a) == double)\r\n\
+		return 1;\r\n\
+	else\r\n\
+		int[-1] a;\r\n\
+	return 0;\r\n\
+}\r\n\
+auto foo3(generic a)\r\n\
+{\r\n\
+	@if(typeof(a) == int)\r\n\
+		return 1;\r\n\
+	else if(typeof(a) == double)\r\n\
+		int[-1] a;\r\n\
+	else\r\n\
+		int[-1] a;\r\n\
+	return 0;\r\n\
+}\r\n\
+return foo1(4l) + foo2(5.0) + foo3(4);";
+TEST_RESULT("Static if test 5", testStaticIf5, "3");

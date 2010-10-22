@@ -913,7 +913,7 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 			}
 			if(ParseLexem(str, lex_else))
 			{
-				if(!ParseExpression(str))
+				if(!((*str)->type == lex_if ? ParseIfExpr(str, true) : ParseExpression(str)))
 					ThrowError((*str)->pos, "ERROR: expression not found after 'else'");
 			}else{
 				AddVoidNode();
