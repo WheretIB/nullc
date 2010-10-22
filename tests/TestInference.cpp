@@ -142,7 +142,7 @@ const char	*testShortInlineFunction5 =
 "import std.algorithm;\r\n\
 int[] arr = { 7, 5, 3, 9, 3, 2, 1, 0, 15 };\r\n\
 int[] arr2 = { 0, 1, 2, 3, 3, 5, 7, 9, 15 };\r\n\
-sort(arr, <l, r>{ int(l) < int(r); });\r\n\
+sort(arr, <l, r>{ *l < *r; });\r\n\
 int diff = 0; for(i in arr, j in arr2) diff += i - j;\r\n\
 return diff;";
 TEST_RESULT("Short inline funciton as a comparator", testShortInlineFunction5, "0");
@@ -273,3 +273,10 @@ const char	*testOperatorInference =
 int foo(int ref(int, int) f){ return f(3, 4); }\r\n\
 return foo(@+);";
 TEST_RESULT("Taking pointer to an overloaded operator", testOperatorInference, "7");
+
+const char	*testShortFunctionArgumentConversion = 
+"auto foo(int[] a, int ref(int ref) b){ a[0] = b(&a[1]); }\r\n\
+int[] arr1 = { 2, 3 };\r\n\
+foo(arr1, <int i>{ -i; });\r\n\
+return arr1[0];";
+TEST_RESULT("Conversion from reference to type in a short inline function", testShortFunctionArgumentConversion, "-3");

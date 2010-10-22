@@ -1,47 +1,53 @@
 // std.algorithm
 
-void copy_backwards(auto[] arr, int begin, end, target)
+void copy_backwards(generic arr, int begin, end, target)
 {
 	while(begin != end)
-		replace(arr[--target], arr[--end]);
+		arr[--target] = arr[--end];
 }
 
-void insertion_sort(auto[] arr, int begin, end, int ref(auto ref, auto ref) pred)
+void insertion_sort(generic arr, int begin, end, generic pred)
 {
 	assert(begin != end);
 
 	for(int it = begin + 1; it != end; ++it)
 	{
-		auto ref val = duplicate(arr[it]);
+		typeof(arr).target val = arr[it];
 
 		if(pred(val, arr[begin]))
 		{
 			// move to front
 			copy_backwards(arr, begin, it, it + 1);
-			replace(arr[begin], val);
+			arr[begin] = val;
 		}else{
 			int hole = it;
 
 			// move hole backwards
 			while(pred(val, arr[hole - 1]))
 			{
-				replace(arr[hole], arr[hole - 1]);
+				arr[hole] = arr[hole - 1];
 				hole--;
 			}
 
 			// fill hole with element
-			replace(arr[hole], val);
+			arr[hole] = val;
 		}
 	}
 }
+void sort_swap(generic ref a, generic ref b)
+{
+	typeof(a).target tmp = *a;
+	*a = *b;
+	*b = tmp;
+}
 
-void partition(auto[] arr, int begin, middle, end, int ref(auto ref, auto ref) pred, int ref out_eqbeg, out_eqend)
+void partition(generic arr, int begin, middle, end, generic pred, int ref out_eqbeg, out_eqend)
 {
 	int eqbeg = middle, eqend = middle + 1;
 
 	// expand equal range
-	while(eqbeg != begin && equal(arr[eqbeg - 1], arr[eqbeg])) --eqbeg;
-	while(eqend != end && equal(arr[eqend], arr[eqbeg])) ++eqend;
+	while(eqbeg != begin && arr[eqbeg - 1] == arr[eqbeg]) --eqbeg;
+	while(eqend != end && arr[eqend] == arr[eqbeg]) ++eqend;
 
 	// process outer elements
 	int ltend = eqbeg, gtbeg = eqend;
@@ -53,8 +59,8 @@ void partition(auto[] arr, int begin, middle, end, int ref(auto ref, auto ref) p
 		{
 			if(!pred(arr[eqbeg], arr[gtbeg]))
 			{
-				if(equal(arr[gtbeg], arr[eqbeg]))
-					swap(arr[gtbeg], arr[eqend++]);
+				if(arr[gtbeg] == arr[eqbeg])
+					sort_swap(arr[gtbeg], arr[eqend++]);
 				else
 					break;
 			}
@@ -65,8 +71,8 @@ void partition(auto[] arr, int begin, middle, end, int ref(auto ref, auto ref) p
 		{
 			if(!pred(arr[ltend - 1], arr[eqbeg]))
 			{
-				if(equal(arr[eqbeg], arr[ltend - 1]))
-					swap(arr[ltend - 1], arr[--eqbeg]);
+				if(arr[eqbeg] == arr[ltend - 1])
+					sort_swap(arr[ltend - 1], arr[--eqbeg]);
 				else
 					break;
 			}
@@ -84,29 +90,29 @@ void partition(auto[] arr, int begin, middle, end, int ref(auto ref, auto ref) p
 		if(gtbeg == end)
 		{
 			if(--ltend != --eqbeg)
-				swap(arr[ltend], arr[eqbeg]);
-			swap(arr[eqbeg], arr[--eqend]);
+				sort_swap(arr[ltend], arr[eqbeg]);
+			sort_swap(arr[eqbeg], arr[--eqend]);
 		}else if(ltend == begin){
 			if(eqend != gtbeg)
-				swap(arr[eqbeg], arr[eqend]);
+				sort_swap(arr[eqbeg], arr[eqend]);
 			++eqend;
-			swap(arr[gtbeg++], arr[eqbeg++]);
+			sort_swap(arr[gtbeg++], arr[eqbeg++]);
 		}else
-			swap(arr[gtbeg++], arr[--ltend]);
+			sort_swap(arr[gtbeg++], arr[--ltend]);
 	}
 }
 
-void median3(auto[] arr, int first, middle, last, int ref(auto ref, auto ref) pred)
+void median3(generic arr, int first, middle, last, generic pred)
 {
 	if(pred(arr[middle], arr[first]))
-		swap(arr[middle], arr[first]);
+		sort_swap(arr[middle], arr[first]);
 	if(pred(arr[last], arr[middle]))
-		swap(arr[last], arr[middle]);
+		sort_swap(arr[last], arr[middle]);
 	if(pred(arr[middle], arr[first]))
-		swap(arr[middle], arr[first]);
+		sort_swap(arr[middle], arr[first]);
 }
 
-void median(auto[] arr, int first, middle, last, int ref(auto ref, auto ref) pred)
+void median(generic arr, int first, middle, last, generic pred)
 {
 	if(last - first <= 40)
 	{
@@ -123,7 +129,7 @@ void median(auto[] arr, int first, middle, last, int ref(auto ref, auto ref) pre
 	}
 }
 
-void sort(auto[] arr, int begin, end, int ref(auto ref, auto ref) pred)
+void sort(generic arr, int begin, end, generic pred)
 {
 	// sort large chunks
 	while(end - begin > 32)
@@ -152,12 +158,12 @@ void sort(auto[] arr, int begin, end, int ref(auto ref, auto ref) pred)
 		insertion_sort(arr, begin, end, pred);
 }
 
-void sort(auto[] arr, int ref(auto ref, auto ref) pred)
+void sort(generic arr, int ref(typeof(arr).target ref, typeof(arr).target ref) pred)
 {
 	sort(arr, 0, arr.size, pred);
 }
 
-void map(auto[] arr, void ref(auto ref) f)
+void map(generic arr, void ref(typeof(arr).target ref) f)
 {
 	for(int i = 0; i < arr.size; i++)
 		f(arr[i]);
