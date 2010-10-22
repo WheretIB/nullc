@@ -1213,3 +1213,29 @@ class Bar\r\n\
 Bar z;\r\n\
 return z.bar(2);";
 TEST_RESULT("Generic member function continues type definition while other type is defined 3", testGeneric88, "-3");
+
+const char *testGeneric89 =
+"auto foo(generic x, int ref(int) f){ return f(x); }\r\n\
+int bar(int z)\r\n\
+{\r\n\
+	return foo(z, auto(int x){ return -x; });\r\n\
+}\r\n\
+return bar(5);";
+TEST_RESULT("Parenthesis in a generic delayed-instance function parameter list", testGeneric89, "-5");
+
+const char *testGeneric90 =
+"auto foo(generic x){}\r\n\
+int bar(){ foo(5); return 1; }\r\n\
+return bar();";
+TEST_RESULT("Empty function body in a generic delayed-instance function", testGeneric90, "1");
+
+const char *testGeneric91 =
+"auto foo(generic x)\r\n\
+{\r\n\
+	typedef typeof(x) T;\r\n\
+	T a = x * 2;\r\n\
+	return a;\r\n\
+}\r\n\
+int bar(){ return foo(5); }\r\n\
+return bar();";
+TEST_RESULT("typedef in a generic function", testGeneric91, "10");

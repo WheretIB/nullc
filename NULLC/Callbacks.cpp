@@ -306,7 +306,7 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 				currType = curr->varType;
 				FunctionParameter(pos, curr->name);
 			}
-			// Skip function parameter source
+			// Skip function parameters in source
 			unsigned parenthesis = 1;
 			while(parenthesis)
 			{
@@ -1286,7 +1286,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		while(currV)
 		{
 			VariableInfo *var = currV->value;
-			if(!var->varType->funcType && var->varType->funcType->paramCount > currArgument)
+			if(!var->varType->funcType || var->varType->funcType->paramCount <= currArgument)
 				break;	// If the first found variable doesn't match, we can't move to the next, because it's hidden by this one
 			// Temporarily change function pointer argument count to match current argument count
 			unsigned tmpCount = var->varType->funcType->paramCount;
@@ -1632,12 +1632,14 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			}
 		}else{
 			memberFunc = func->value;
+			if(memberFunc->generic)
+				ThrowError(pos, "ERROR: can't take pointer to a generic function");
 		}
 		if(func && funcMap.next(func))
 		{
-			CodeInfo::nodeList.push_back(new NodeFunctionProxy(func->value, pos, false, true));
 			if(unifyTwo)
 				AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
+			CodeInfo::nodeList.push_back(new NodeFunctionProxy(func->value, pos, false, true));
 			return;
 		}
 	}
@@ -2783,7 +2785,6 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 
 	// apply resolved argument types and test if it is ok
 	unsigned nodeOffset = CodeInfo::nodeList.size() - argumentCount;
-	bool failRating = false;
 	// Move through all the arguments
 	VariableInfo *tempListS = NULL, *tempListE = NULL;
 	for(unsigned argID = 0; argID < argumentCount; argID++)
@@ -2867,10 +2868,7 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 
 	// we have to create a function type for generated parameters
 	TypeInfo *tmpType = CodeInfo::GetFunctionType(NULL, tempListS, argumentCount);
-	if(failRating)
-		newRating = ~0u;
-	else
-		newRating = GetFunctionRating(tmpType->funcType, argumentCount);
+	newRating = GetFunctionRating(tmpType->funcType, argumentCount);
 
 	// Remove function arguments
 	while(tempListS)
