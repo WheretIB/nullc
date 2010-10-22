@@ -2997,22 +2997,23 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			if(silent)
 				return false;
-			char	errTemp[512];
+			const unsigned errLength = 2048;
+			char	errTemp[errLength];
 			char	*errPos = errTemp;
-			errPos += SafeSprintf(errPos, 512, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
+			errPos += SafeSprintf(errPos, errLength, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
 			for(unsigned int n = 0; n < callArgCount; n++)
 			{
 				NodeZeroOP *activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n];
 				TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 			}
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n the only available are:\r\n");
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n the only available are:\r\n");
 			for(unsigned int n = 0; n < count; n++)
 			{
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "  %s(", funcName);
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "  %s(", funcName);
 				for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
-					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
+					errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n");
 			}
 			ThrowError(pos, errTemp);
 		}else{
@@ -3024,24 +3025,25 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			if(k != minRatingIndex && bestFuncRating[k] == minRating)
 			{
-				char errTemp[512];
+				const unsigned errLength = 2048;
+				char	errTemp[errLength];
 				char	*errPos = errTemp;
-				errPos += SafeSprintf(errPos, 512, "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
+				errPos += SafeSprintf(errPos, errLength, "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
 				for(unsigned int n = 0; n < callArgCount; n++)
 				{
 					NodeZeroOP *activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n];
 					TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
-					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+					errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 				}
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n  candidates are:\r\n");
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n  candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
 					if(bestFuncRating[n] != minRating)
 						continue;
-					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "  %s(", funcName);
+					errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "  %s(", funcName);
 					for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
-						errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
-					errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
+						errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
+					errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n");
 				}
 				ThrowError(pos, errTemp);
 			}
@@ -3098,21 +3100,22 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 		if(bestRating == ~0u)
 		{
-			char	errTemp[512];
+			const unsigned errLength = 2048;
+			char	errTemp[errLength];
 			char	*errPos = errTemp;
 			if(callArgCount != fType->paramCount)
-				errPos += SafeSprintf(errPos, 512, "ERROR: function expects %d argument(s), while %d are supplied\r\n", fType->paramCount, callArgCount);
+				errPos += SafeSprintf(errPos, errLength, "ERROR: function expects %d argument(s), while %d are supplied\r\n", fType->paramCount, callArgCount);
 			else
-				errPos += SafeSprintf(errPos, 512, "ERROR: there is no conversion from specified arguments and the ones that function accepts\r\n");
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "\tExpected: (");
+				errPos += SafeSprintf(errPos, errLength, "ERROR: there is no conversion from specified arguments and the ones that function accepts\r\n");
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "\tExpected: (");
 			for(unsigned int n = 0; n < fType->paramCount; n++)
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", fType->paramType[n]->GetFullTypeName(), n != fType->paramCount - 1 ? ", " : "");
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", fType->paramType[n]->GetFullTypeName(), n != fType->paramCount - 1 ? ", " : "");
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n");
 			
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "\tProvided: (");
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "\tProvided: (");
 			for(unsigned int n = 0; n < callArgCount; n++)
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")");
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")");
 			ThrowError(pos, errTemp);
 		}
 	}
@@ -3194,16 +3197,17 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}else{
 			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 
-			char	errTemp[512];
+			const unsigned errLength = 2048;
+			char	errTemp[errLength];
 			char	*errPos = errTemp;
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "ERROR: while instantiating generic function %s(", fInfo->name);
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "ERROR: while instantiating generic function %s(", fInfo->name);
 			for(unsigned i = 0; i < fType->paramCount; i++)
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n\tusing argument vector (");
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n\tusing argument vector (");
 			for(unsigned i = 0; i < fType->paramCount; i++)
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s", CodeInfo::lastError.GetErrorString());
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n");
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s", CodeInfo::lastError.GetErrorString());
 			errPos -= 2;
 			*errPos++ = 0;
 			ThrowError(pos, errTemp);
@@ -3241,15 +3245,16 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		if(GetFunctionRating(fType, callArgCount) == ~0u)
 		{
-			char	errTemp[512];
+			const unsigned errLength = 2048;
+			char	errTemp[errLength];
 			char	*errPos = errTemp;
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "ERROR: unable to call '%s' after instantiating while matching argument vector\r\n\t(", fInfo->name);
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "ERROR: unable to call '%s' after instantiating while matching argument vector\r\n\t(", fInfo->name);
 			for(unsigned i = 0; i < fType->paramCount; i++)
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n\tagainst parameters\r\n\t(");
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n\tagainst parameters\r\n\t(");
 			for(unsigned i = 0; i < fType->paramCount; i++)
-				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
-			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")");
+				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
+			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")");
 			ThrowError(pos, errTemp);
 		}
 	}

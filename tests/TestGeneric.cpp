@@ -789,3 +789,43 @@ auto car(generic cell)\r\n\
 auto x = cons(5, cons(6, 7));\r\n\
 return car(x);";
 TEST_RESULT("Short inline function takes type from function pointer variable", testGeneric51, "5");
+
+
+const char *testGeneric52 =
+"auto cons(generic car, generic cdr)\r\n\
+{\r\n\
+	return auto (typeof(car) ref(typeof(car)) fcar, typeof(cdr) ref(typeof(cdr)) fcdr) { car = fcar(car); cdr = fcdr(cdr); };\r\n\
+}\r\n\
+auto car(generic cell)\r\n\
+{\r\n\
+	typeof(cell).argument[0].argument[0] result;\r\n\
+	cell(<x>{ result = x; }, <x>{ x; });\r\n\
+	return result;\r\n\
+}\r\n\
+auto cdr(generic cell)\r\n\
+{\r\n\
+	typeof(cell).argument[1].argument[0] result;\r\n\
+	cell(<x>{ x; }, <x>{ result = x; });\r\n\
+	return result;\r\n\
+}\r\n\
+auto setcar(generic cell, generic car)\r\n\
+{\r\n\
+	cell(<_>{ car; }, <x>{ x; });\r\n\
+}\r\n\
+auto setcdr(generic cell, generic cdr)\r\n\
+{\r\n\
+	cell(<x>{ x; }, <_>{ cdr; });\r\n\
+}\r\n\
+auto T(generic e0, generic e1) { return cons(e0, e1); }\r\n\
+auto T(generic e0, generic e1, generic e2) { return cons(e0, T(e1, e2)); }\r\n\
+auto T(generic e0, generic e1, generic e2, generic e3) { return cons(e0, T(e1, e2, e3)); }\r\n\
+int match(generic v, generic e0) { *e0 = v; return 1; }\r\n\
+int match(generic v, generic e0, generic e1) { *e0 = car(v); return match(cdr(v), e1); }\r\n\
+int match(generic v, generic e0, generic e1, generic e2) { *e0 = car(v); return match(cdr(v), e1, e2); }\r\n\
+int match(generic v, generic e0, generic e1, generic e2, generic e3) { *e0 = car(v); return match(cdr(v), e1, e2, e3); }\r\n\
+auto x = T(1, 2, 3, 4);\r\n\
+int x0, x1, x2, x3;\r\n\
+if (match(x, &x0, &x1, &x2, &x3))\r\n\
+	return x0 * 1000 + x1 * 100 + x2 * 10 + x3;\r\n\
+return 0;";
+TEST_RESULT("Complex generic extra test (short inline function, chained typeof)", testGeneric52, "1234");

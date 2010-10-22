@@ -206,7 +206,7 @@ namespace ColorerGrammar
 						(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
 						(term5 | epsP[LogError("ERROR: expression not found in 'typeof' statement")]) >>
 						(chP(')')[ColorText] | epsP[LogError("ERROR: ')' not found after 'typeof' statement")]) >>
-						!(
+						*(
 							chP('.')[ColorText] >>
 							(
 								(
