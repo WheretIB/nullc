@@ -736,8 +736,9 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 			if(lastFunc->funcType == typeVoid)
 			{
-				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->rOffsets[0] + (CodeInfo::lexFullStart - CodeInfo::lexStart));
+				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->rOffsets[0] + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
 				lastFunc->generic->parent = lastFunc;
+				lastFunc->vTopSize = 1;
 
 				lastFunc->retType = fInfo->rOffsets[1] != ~0u ? CodeInfo::typeInfo[typeRemap[fInfo->rOffsets[1]]] : NULL;
 				lastFunc->funcType = CodeInfo::GetFunctionType(lastFunc->retType, lastFunc->firstParam, lastFunc->paramCount);
@@ -1899,7 +1900,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			memset(funcInfo.rOffsets, 0, 8 * sizeof(unsigned));
 			memset(funcInfo.fOffsets, 0, 8 * sizeof(unsigned));
 			funcInfo.ps3Callable = false;
-			funcInfo.rOffsets[0] = refFunc->generic->start - (CodeInfo::lexFullStart - CodeInfo::lexStart);
+			funcInfo.rOffsets[0] = refFunc->generic->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart);
 			funcInfo.rOffsets[1] = refFunc->retType ? refFunc->retType->typeIndex : ~0u;
 		}
 
