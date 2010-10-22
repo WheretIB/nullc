@@ -694,3 +694,24 @@ auto fact4 = typeof(factorial(f)).x.target.arraySize; // 3628800\r\n\
 \r\n\
 return val1 + fact4;";
 TEST_RESULT("Generic type compile-time 4", testGenericType46, "3628808");
+
+const char *testGenericType47 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	void Foo(int x = 4){ this.x = x; }\r\n\
+}\r\n\
+auto x = new Foo<int>(8);\r\n\
+return x.x;";
+TEST_RESULT("Constructor call after new with generic type instance", testGenericType47, "8");
+
+const char *testGenericType48 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	void Foo(T x = 4.5){ this.x = x; }\r\n\
+}\r\n\
+auto x = new Foo<int>(8);\r\n\
+auto y = new Foo<double>();\r\n\
+return int(x.x * y.x);";
+TEST_RESULT("Constructor call after new with generic type instance 2", testGenericType48, "36");
