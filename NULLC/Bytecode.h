@@ -127,6 +127,7 @@ struct ExternTypedefInfo
 {
 	unsigned		offsetToName;
 	unsigned		targetType;
+	unsigned		parentType;
 };
 
 struct ExternModuleInfo

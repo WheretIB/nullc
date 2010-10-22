@@ -640,7 +640,7 @@ int __pncomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused)
 
 int __typeCount(void* unused)
 {
-	return __nullcTypeList.size();
+	return __nullcTypeList.size() + 1024;
 }
 
 NULLCAutoArray* __operatorSet(NULLCAutoArray* left, NULLCRef right, void* unused)
@@ -1505,12 +1505,12 @@ double NULLC::CollectTime()
 	return collectTime;
 }
 
-int  __newS(int size, unsigned typeID)
+int  __newS(int size, unsigned typeID, void* unused)
 {
 	return (int)(intptr_t)NULLC::AllocObject(size, typeID);
 }
 
-NULLCArray<void>  __newA(int size, int count, unsigned typeID)
+NULLCArray<void>  __newA(int size, int count, unsigned typeID, void* unused)
 {
 	return NULLC::AllocArray(size, count, typeID);
 }
@@ -1532,7 +1532,7 @@ void auto_array_impl(NULLCAutoArray* arr, unsigned int type, int count, void* un
 	arr->len = count;
 	arr->ptr = (char*)__newS(typeid__size__int_ref__(&type) * (count), type);
 }
-NULLCAutoArray auto_array(unsigned type, int count, void* unused)
+NULLCAutoArray auto_array__(unsigned type, int count, void* unused)
 {
 	NULLCAutoArray res;
 	auto_array_impl(&res, type, count, NULL);
@@ -1610,3 +1610,23 @@ int	__nullcOutputResultDouble(double x)
 	printf("%f", x);
 	return 0;
 }
+
+NULLCArray<NULLCRef> __getFinalizeList()
+{
+	NULLCArray<NULLCRef> ret;
+	return ret;
+}
+void __FinalizeProxy__finalize_void_ref__()
+{
+}
+
+void	__finalizeObjects()
+{
+}
+
+NULLCArray<int> __vtbl3761170085finalize;
+void __nullcInitBaseModule()
+{
+	__vtbl3761170085finalize = NULLC::AllocArray(4, 1024, 4);
+}
+

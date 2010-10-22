@@ -131,10 +131,13 @@ void FunctionEnd(const char* pos);
 void FunctionToOperator(const char* pos);
 bool FunctionGeneric(bool setGeneric, unsigned pos = 0);
 
+void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope);
+unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCount, unsigned int &minRating);
+
 unsigned GetFunctionRating(FunctionType *currFunc, unsigned callArgCount);
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
 bool PrepareMemberCall(const char* pos, const char* funcName = NULL);
-void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount);
+bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
 
 void AddIfNode(const char* pos);
 void AddIfElseNode(const char* pos);

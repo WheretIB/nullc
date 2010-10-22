@@ -163,3 +163,12 @@ int Bar:foo(int x){ return x + u; }\r\n\
 Bar m; m.u = 10;\r\n\
 return rc(m);";
 TEST_RESULT("Function call through 'auto ref', more types defined later", testIndirectCallModules, "15");
+
+const char	*testAutorefSelectionImprovement =
+"class Foo\r\n\
+{\r\n\
+	int boo(auto ref[] x){ return x.size; }\r\n\
+}\r\n\
+auto ref x = new Foo;\r\n\
+return x.boo(1, 2, 3) + x.boo(1, 2);";
+TEST_RESULT("Function call through 'auto ref', selection of a variable argument function", testAutorefSelectionImprovement, "5");

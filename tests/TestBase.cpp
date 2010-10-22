@@ -253,6 +253,11 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			strcat(cmdLine, " tests/translation/test_defargs6.cpp");
 		if(strstr(code, "test.coroutine1;"))
 			strcat(cmdLine, " tests/translation/test_coroutine1.cpp");
+		if(strstr(code, "test.autorefcall;"))
+			strcat(cmdLine, " tests/translation/test_autorefcall.cpp");
+		if(strstr(code, "test.class_typedef;"))
+			strcat(cmdLine, " tests/translation/test_class_typedef.cpp");
+		
 		if(strstr(code, "test.list_comp1;"))
 		{
 			strcat(cmdLine, " NULLC/translation/std_range.cpp");

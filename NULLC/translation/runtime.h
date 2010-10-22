@@ -177,8 +177,8 @@ NULLCArray<char>	double__str_char___ref_int_(int precision, int* __context);
 
 inline int __str_precision_19(){ return 6; }
 
-int	__newS(int size, unsigned typeID);
-NULLCArray<void>	__newA(int size, int count, unsigned typeID);
+int	__newS(int size, unsigned typeID, void* unused = NULL);
+NULLCArray<void>	__newA(int size, int count, unsigned typeID, void* unused = NULL);
 NULLCRef		duplicate(NULLCRef obj, void* unused);
 void			__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused);
 NULLCAutoArray	duplicate(NULLCAutoArray arr, void* unused);
@@ -272,7 +272,7 @@ int isStackPointer(NULLCRef ptr, void* unused);
 int typeid__size__int_ref__(unsigned int * __context);
 
 void auto_array_impl(NULLCAutoArray* arr, unsigned type, int count, void* unused);
-NULLCAutoArray auto_array(unsigned type, int count, void* unused);
+NULLCAutoArray auto_array__(unsigned type, int count, void* unused);
 void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused);
 
 void __force_size(NULLCAutoArray* arr, int size, void* unused);
@@ -329,5 +329,8 @@ template<typename T> NULLCArray<T> __nullcCheckedRet(unsigned typeID, NULLCArray
 	return data;
 }
 
+NULLCArray<NULLCRef> __getFinalizeList();
+void __FinalizeProxy__finalize_void_ref__();
+void __finalizeObjects();
 
-
+void __nullcInitBaseModule();

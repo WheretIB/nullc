@@ -388,7 +388,7 @@ a.x = 4;\r\n\
 a.y = 9;\r\n\
 auto f = a.sum();\r\n\
 return f();";
-TEST_RESULT("Class member capture in local functions.", testClassMemberCaptureInLocalFunction1, "13");
+TEST_RESULT("Class member capture in local functions", testClassMemberCaptureInLocalFunction1, "13");
 
 const char	*testClassMemberCaptureInLocalFunction2 =
 "class A\r\n\
@@ -401,7 +401,7 @@ a.x = 4;\r\n\
 a.y = 9;\r\n\
 auto f = a.sum();\r\n\
 return f();";
-TEST_RESULT("Class member capture in local functions.", testClassMemberCaptureInLocalFunction2, "13");
+TEST_RESULT("Class member capture in local functions 2", testClassMemberCaptureInLocalFunction2, "13");
 
 const char	*testExternalAutoDerefVariable =
 "int rand(int ref() f) \r\n\

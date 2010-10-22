@@ -722,8 +722,15 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		if(!type)
 		{
 			SelectTypeByIndex(typeRemap[typedefInfo->targetType]);
-			AddAliasType(InplaceStr(symbols + typedefInfo->offsetToName));
-			typedefInfo++;
+			if(typedefInfo->parentType != ~0u)
+			{
+				AliasInfo *info = TypeInfo::CreateAlias(InplaceStr(symbols + typedefInfo->offsetToName), GetSelectedType());
+				TypeInfo *parent = CodeInfo::typeInfo[typeRemap[typedefInfo->parentType]];
+				info->next = parent->childAlias;
+				parent->childAlias = info;
+			}else{
+				AddAliasType(InplaceStr(symbols + typedefInfo->offsetToName));
+			}
 		}else{
 			if((*type)->GetFullNameHash() == hash)
 			{
@@ -736,6 +743,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				return false;
 			}
 		}
+		typedefInfo++;
 	}
 
 	// Import functions
@@ -1306,15 +1314,26 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		}else{
 			fprintf(fC, "struct ");
 			type->OutputCType(fC, "\r\n");
+			unsigned countMembers = 0;
+			if(type->name[0] == '_' && type->name[1] == '_' && 0 == memcmp("_cls", type->fullName + type->fullNameLength - 4, 5))
+				countMembers = 1;
 			fprintf(fC, "{\r\n");
 			TypeInfo::MemberVariable *curr = type->firstVariable;
 			for(; curr; curr = curr->next)
 			{
 				fprintf(fC, "\t");
 				if(strchr(type->name, ':') && curr == type->firstVariable)
+				{
 					fprintf(fC, "void *%s", curr->name);
-				else
+				}else{
 					curr->type->OutputCType(fC, curr->name);
+				}
+				if(countMembers)
+				{
+					if(countMembers > 2)
+						fprintf(fC, "%d", countMembers);
+					countMembers++;
+				}
 				fprintf(fC, ";\r\n");
 			}
 			fprintf(fC, "};\r\n");
@@ -1337,6 +1356,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
 				sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin)-nameShift, local->name.begin+nameShift, local->pos);
+				GetEscapedName(name);
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
 			}
 		}
@@ -1361,7 +1381,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
 				sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin)-nameShift, local->name.begin+nameShift, local->pos);
-			
+				GetEscapedName(name);
 				if(info->name[0] == '$')
 					fprintf(fC, "static ");
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
@@ -1372,6 +1392,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 	{
 		FunctionInfo *info = CodeInfo::funcInfo[i];
 		if(i < functionsInModules && (info->type == FunctionInfo::LOCAL))
+			continue;
+		if(!info->retType)
 			continue;
 		if(i < functionsInModules)
 			fprintf(fC, "extern ");
@@ -1409,9 +1431,10 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		const char *namePrefix = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? "___" : "__") : "";
 		unsigned int nameShift = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? 2 : 1) : 0;
 		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin)-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+		GetEscapedName(vName);
 		if(varInfo->pos >> 24)
 			fprintf(fC, "extern ");
-		else if(*varInfo->name.begin == '$' && 0 != strcmp(varInfo->name.end-3, "ext"))
+		else if(*varInfo->name.begin == '$' && 0 != strcmp(varInfo->name.end-3, "ext") && 0 != memcmp(varInfo->name.begin, "$vtbl", 5))
 			fprintf(fC, "static ");
 		varInfo->varType->OutputCType(fC, vName);
 		fprintf(fC, ";\r\n");
@@ -1445,6 +1468,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		fprintf(fC, "\tstatic int moduleInitialized = 0;\r\n\tif(moduleInitialized++)\r\n\t\treturn 0;\r\n");
 		fprintf(fC, "\t__nullcFM = __nullcGetFunctionTable();\r\n");
 		fprintf(fC, "\tint __local = 0;\r\n\t__nullcRegisterBase((void*)&__local);\r\n");
+		fprintf(fC, "\t__nullcInitBaseModule();\r\n");
 		for(unsigned int i = 1; i < activeModules.size(); i++)
 		{
 			fprintf(fC, "\t__init_");
@@ -1502,9 +1526,10 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			if(varInfo->pos >> 24)
 				continue;
 			char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-			const char *namePrefix = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? "___" : "__") : "";
-			unsigned int nameShift = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? 2 : 1) : 0;
+			const char *namePrefix = varInfo->name.begin[0] == '$' ? "__" : "";
+			unsigned int nameShift = varInfo->name.begin[0] == '$' ? 1 : 0;
 			sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin)-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
+			GetEscapedName(vName);
 			fprintf(fC, "\t__nullcRegisterGlobal((void*)&%s, __nullcTR[%d]);\r\n", vName, varInfo->varType->typeIndex);
 		}
 		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
@@ -1523,7 +1548,8 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			{
 				if(i == l)
 					continue;
-				if(info->nameInCHash == CodeInfo::funcInfo[l]->nameInCHash && !((CodeInfo::funcInfo[l]->address & 0x80000000) && (CodeInfo::funcInfo[l]->address != -1)))
+				bool functionIsPrototype = ((info->address & 0x80000000) && (info->address != -1));
+				if(info->nameInCHash == CodeInfo::funcInfo[l]->nameInCHash && !((CodeInfo::funcInfo[l]->address & 0x80000000) && (CodeInfo::funcInfo[l]->address != -1)) && !functionIsPrototype)
 					duplicate = true;
 			}
 			if(duplicate)
@@ -1644,11 +1670,19 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	size += CodeInfo::typeInfo.size() * sizeof(ExternTypeInfo);
 
-	unsigned int symbolStorageSize = 0;
-	unsigned int allMemberCount = 0;
+	unsigned symbolStorageSize = 0;
+	unsigned allMemberCount = 0;
+	unsigned typedefCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		TypeInfo *type = CodeInfo::typeInfo[i];
+		AliasInfo *typeAlias = type->childAlias;
+		while(typeAlias)
+		{
+			typedefCount++;
+			symbolStorageSize += (unsigned)(typeAlias->name.end - typeAlias->name.begin) + 1;
+			typeAlias = typeAlias->next;
+		}
 
 		symbolStorageSize += type->GetFullNameLength() + 1;
 		if(type->type == TypeInfo::TYPE_COMPLEX && type->subType == NULL && type->funcType == NULL)
@@ -1725,7 +1759,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	size += clsListCount * sizeof(unsigned int);
 
-	unsigned typedefCount = 0;
 	AliasInfo *aliasInfo = CodeInfo::globalAliases;
 	while(aliasInfo)
 	{
@@ -2074,8 +2107,25 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		symbolPos += aliasInfo->name.end - aliasInfo->name.begin;
 		*symbolPos++ = 0;
 		currAlias->targetType = aliasInfo->type->typeIndex;
+		currAlias->parentType = ~0u;
 		currAlias++;
 		aliasInfo = aliasInfo->next;
+	}
+	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
+		TypeInfo *type = CodeInfo::typeInfo[i];
+		aliasInfo = type->childAlias;
+		while(aliasInfo)
+		{
+			currAlias->offsetToName = int(symbolPos - code->debugSymbols);
+			memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.end - aliasInfo->name.begin + 1);
+			symbolPos += aliasInfo->name.end - aliasInfo->name.begin;
+			*symbolPos++ = 0;
+			currAlias->targetType = aliasInfo->type->typeIndex;
+			currAlias->parentType = type->typeIndex;
+			currAlias++;
+			aliasInfo = aliasInfo->next;
+		}
 	}
 
 	return size;

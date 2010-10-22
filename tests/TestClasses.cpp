@@ -224,3 +224,33 @@ int func(Test a, int b){ return b; }\r\n\
 return func(b, 4);";
 TEST_RESULT("Class with size of 0 bytes", testExtraSmallClass, "4");
 
+const char	*testClassAutoConstructor =
+"class Foo\r\n\
+{\r\n\
+	int y;\r\n\
+	void Foo(){ y = 9; }\r\n\
+}\r\n\
+Foo l;\r\n\
+return l.y;";
+TEST_RESULT("automatic constructor call for class instance on stack", testClassAutoConstructor, "9");
+
+const char	*testClassConstructorStack =
+"class Foo\r\n\
+{\r\n\
+	int y;\r\n\
+	void Foo(int n){ y = n; }\r\n\
+}\r\n\
+Foo l!(5);\r\n\
+return l.y;";
+TEST_RESULT("manual constructor call for class instance on stack", testClassConstructorStack, "5");
+
+LOAD_MODULE(test_class_typedef, "test.class_typedef",
+"class Foo\r\n\
+{\r\n\
+	typedef int T;\r\n\
+}");
+const char *testClassTypeAliasImport1 =
+"import test.class_typedef;\r\n\
+void Foo:foo(){ T y; }\r\n\
+return 1;";
+TEST_RESULT("Import of class local aliases", testClassTypeAliasImport1, "1");
