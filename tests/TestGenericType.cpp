@@ -335,7 +335,7 @@ TEST_RESULT("Generic type import 6", testGenericType22, "185");
 
 const char *testGenericType23 =
 "class Foo<T>{ T x; }\r\n\
-auto foo(Foo a){ return -a.x; }\r\n\
+auto foo(Foo<generic> a){ return -a.x; }\r\n\
 Foo<int> b; Foo<float> c;\r\n\
 b.x = 6; c.x = 2;\r\n\
 return int(foo(b) + foo(c));";
@@ -343,7 +343,7 @@ TEST_RESULT("Function that accepts generic type 1", testGenericType23, "-8");
 
 const char *testGenericType24 =
 "class Foo<T>{ T x; }\r\n\
-auto foo(int x, Foo a){ return x - a.x; }\r\n\
+auto foo(int x, Foo<generic> a){ return x - a.x; }\r\n\
 Foo<int> b; Foo<float> c;\r\n\
 b.x = 6; c.x = 2;\r\n\
 return int(foo(1, b) + foo(1, c));";
@@ -355,3 +355,38 @@ auto Foo:foo(){ T y = 7; return x + y; }\r\n\
 Foo<int> a; a.x = 4;\r\n\
 return a.foo();";
 TEST_RESULT("Generic type external member function aliases restore", testGenericType25, "11");
+
+const char *testGenericType26 =
+"class Foo<T, U>{ T x; U y; }\r\n\
+auto foo(Foo<int, generic> a){ return a.x * a.y; }\r\n\
+Foo<int, int> b;\r\n\
+Foo<int, float> c;\r\n\
+b.x = 6; b.y = 1; c.x = 2; c.y = 1.5;\r\n\
+return int(foo(b) + foo(c));";
+TEST_RESULT("Generic function complex specialization for generic type", testGenericType26, "9");
+
+const char *testGenericType27 =
+"class Foo<T, U>{ T x; U y; }\r\n\
+auto foo(Foo<generic, generic> a){ return a.x * a.y; }\r\n\
+Foo<int, int> b;\r\n\
+Foo<float, float> c;\r\n\
+b.x = 6; b.y = 1; c.x = 2; c.y = 1.5;\r\n\
+return int(foo(b) + foo(c));";
+TEST_RESULT("Generic function complex specialization for generic type 2", testGenericType27, "9");
+
+const char *testGenericType28 =
+"class Foo<T, U>{ T x; U y; }\r\n\
+auto foo(int y, Foo<generic, generic> a){ return y+a.x * a.y; }\r\n\
+Foo<int, int> b;\r\n\
+Foo<float, float> c;\r\n\
+b.x = 6; b.y = 1; c.x = 2; c.y = 1.5;\r\n\
+return int(foo(1,b) + foo(2,c));";
+TEST_RESULT("Generic function complex specialization for generic type 3", testGenericType28, "12");
+
+const char *testGenericType29 =
+"class Foo<T>{ T x; }\r\n\
+auto operator +(Foo<generic> ref x, y){ return x.x + y.x; }\r\n\
+Foo<int> b; Foo<float> c;\r\n\
+b.x = 6; c.x = 2;\r\n\
+return int(b + c);";
+TEST_RESULT("Generic function complex specialization (fail possibility 1)", testGenericType29, "8");

@@ -342,9 +342,17 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 			{
 				if(!ParseSelectType(str))
 				{
+					// If we are allowed to failed to generic type and we have "generic"
 					if(genericOnFail && ParseLexem(str, lex_generic))
 					{
+						// Remove nodes that are already created
+						for(unsigned i = 0; i < count; i++)
+							CodeInfo::nodeList.pop_back();
+						// Select generic base type again
+						SelectTypeByPointer(genericType);
+						// Restore parsing position
 						*str = curr;
+						// Signal failure
 						return false;
 					}else{
 						ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
@@ -581,8 +589,68 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	return true;
 }
 
-bool ParseGenericType(Lexeme** str)
+bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 {
+	// Parse possible generic type specialization
+	if(ParseLexem(str, lex_less))
+	{
+		// Set preferred type signals that we must instantiate a type here
+		AliasInfo *revList = preferredType ? preferredType->childAlias : NULL, *forwList = NULL;
+		// To do that, we reverse a list of type aliases
+		while(revList)
+		{
+			AliasInfo *info = TypeInfo::CreateAlias(revList->name, revList->type);
+			info->next = forwList;
+			forwList = info;
+			revList = revList->next;
+		}
+		// Get generic base type that must be selected
+		TypeInfo *genericType = GetSelectedType();
+		assert(genericType->genericInfo);
+		unsigned count = 0;
+		do
+		{
+			// If it is instantiation and we have more arguments than generic type expects, fail
+			if(preferredType && count == genericType->genericInfo->aliasCount)
+			{
+				for(unsigned i = 0; i < count; i++) // Remove pushed type nodes
+					CodeInfo::nodeList.pop_back();
+				return false;
+			}
+			if(!ParseSelectType(str))
+			{
+				if(!ParseLexem(str, lex_generic))
+					ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
+				else if(preferredType) // If we are instancing a type
+					SelectTypeByPointer(forwList->type); // Select it
+			}
+			if(preferredType) // If we are instancing a type push a node with selected type
+			{
+				CodeInfo::nodeList.push_back(new NodeZeroOP(GetSelectedType()));
+				forwList = forwList->next;
+			}
+			count++;
+		}while(ParseLexem(str, lex_comma));
+		if(preferredType)
+		{
+			// If we have argument count that is not equal to generic type argument type, fail
+			if(count != genericType->genericInfo->aliasCount)
+			{
+				for(unsigned i = 0; i < count; i++) // Remove pushed type nodes
+					CodeInfo::nodeList.pop_back();
+				return false;
+			}
+			// Instance type
+			TypeInstanceGeneric((*str)->pos, genericType, count);
+		}
+		if(!ParseLexem(str, lex_greater))
+			ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
+		// Parse expressions after type
+		ParseTypePostExpressions(str, true, false);
+		if(!preferredType)
+			SelectTypeByPointer(typeGeneric);
+		return true;
+	}
 	if(!ParseLexem(str, lex_generic))
 		return false;
 	SelectTypeByPointer(typeGeneric);
@@ -595,7 +663,7 @@ bool ParseGenericType(Lexeme** str)
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
 	bool genericArg = false;
-	if(!ParseSelectType(str, true, true, true) && !ParseGenericType(str))
+	if(!ParseSelectType(str, true, true) && !ParseGenericType(str))
 		return true;
 
 	genericArg = GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
@@ -634,7 +702,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		argID++;
 		bool lastGeneric = genericArg;
 		genericArg = false;
-		if(!ParseSelectType(str, true, true, true))
+		if(!ParseSelectType(str, true, true))
 		{
 			if(!ParseGenericType(str))
 				genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one

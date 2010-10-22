@@ -40,6 +40,7 @@ public:
 		blockDepth = 0;
 		parent = NULL;
 		instancedType = NULL;
+		aliasCount = 0;
 	}
 
 	unsigned		start;
@@ -47,6 +48,7 @@ public:
 	unsigned		blockDepth;
 	FunctionInfo	*parent;
 	TypeInfo		*instancedType;
+	unsigned		aliasCount; // for generic type
 };
 
 static asmStackType podTypeToStackType[] = { STYPE_COMPLEX_TYPE, (asmStackType)0, STYPE_INT, STYPE_DOUBLE, STYPE_LONG, STYPE_DOUBLE, STYPE_INT, STYPE_INT };
