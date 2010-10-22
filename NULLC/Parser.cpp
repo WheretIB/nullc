@@ -101,6 +101,8 @@ bool ParseArrayDefinition(Lexeme** str)
 	if(!ParseLexem(str, lex_obracket))
 		return false;
 
+	TypeInfo *currType = GetSelectedType();
+
 	ResetConstantFoldError();
 	if((*str)->type == lex_cbracket)
 	{
@@ -113,8 +115,12 @@ bool ParseArrayDefinition(Lexeme** str)
 			ThrowError((*str)->pos, "ERROR: matching ']' not found");
 	}
 	ThrowConstantFoldError((*str)->pos);
+
+	SelectTypeByPointer(currType);
+
 	if((*str)->type == lex_obracket)
 		ParseArrayDefinition(str);
+
 	ConvertTypeToArray((*str)->pos);
 	return true;
 }
@@ -312,24 +318,29 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 		if(!ParseLexem(str, lex_oparen))
 			ThrowError((*str)->pos, "ERROR: typeof must be followed by '('");
 
-		jmp_buf oldHandler;
-		memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
-		unsigned nodeCount = CodeInfo::nodeList.size(); // Node count shouldn't change while we do this
-		if(!genericOnFail || !setjmp(CodeInfo::errorHandler)) // if genericOnFail is enabled, we will set error handler
-		{
-			if(!ParseVaribleSet(str))
-				ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
-			SetTypeOfLastNode();
-		}else{
-			if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
+		if(!ParseSelectType(str))
+		{	
+			jmp_buf oldHandler;
+			memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
+			unsigned nodeCount = CodeInfo::nodeList.size(); // Node count shouldn't change while we do this
+			if(!genericOnFail || !setjmp(CodeInfo::errorHandler)) // if genericOnFail is enabled, we will set error handler
 			{
-				memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
-				longjmp(CodeInfo::errorHandler, 1);
+				if(!ParseVaribleSet(str))
+					ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
+				SetTypeOfLastNode();
+			}else{
+				if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
+				{
+					memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+					longjmp(CodeInfo::errorHandler, 1);
+				}
+				SelectTypeByPointer(typeGeneric);
 			}
-			SelectTypeByPointer(typeGeneric);
+			if(genericOnFail)
+				memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+		}else if(!GetSelectedType()){
+			ThrowError((*str)->pos, "ERROR: cannot take typeid from auto type");
 		}
-		if(genericOnFail)
-			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 		if(!ParseLexem(str, lex_cparen))
 			ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
 		while(ParseTypeofExtended(str, notType));
