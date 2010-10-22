@@ -365,7 +365,10 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 	}else if((*str)->type == lex_auto){
 		SelectTypeByPointer(NULL);
 		(*str)++;
-	}else if((*str)->type == lex_string && (*str+1)->type != lex_oparen){
+	}else if((*str)->type == lex_string){
+		if(arrayType && (*str+1)->type == lex_oparen)
+			return false;
+
 		unsigned int index;
 		if((index = ParseTypename(str)) == 0)
 			return false;
@@ -1762,13 +1765,12 @@ bool ParseTerminal(Lexeme** str)
 	{
 		(*str)++;
 
-		if((*str)->type == lex_string && (*str + 1)->type == lex_oparen)
+		if((*str)->type == lex_string && ((*str + 1)->type == lex_oparen || (*str + 1)->type == lex_less))
 		{
-			unsigned int index;
-			if((index = ParseTypename(str)) == 0)
+			if(!ParseSelectType(str, false))
 				ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
-			SelectTypeByIndex(index - 1);
-			const char *name = GetSelectedTypeName();
+			TypeInfo *info = GetSelectedType();
+			const char *name = info->genericBase ? info->genericBase->name : info->name;
 			GetTypeSize((*str)->pos, false);
 			AddTypeAllocation((*str)->pos);
 			PrepareConstructorCall((*str)->pos);
