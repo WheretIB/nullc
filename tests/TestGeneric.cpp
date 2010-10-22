@@ -1089,3 +1089,8 @@ import test.generic_export6a;\r\n\
 import test.generic_export6b;\r\n\
 return x * y + foo(2, 3);";
 TEST_RESULT("Generic function collision on import", testGeneric77, "192");
+
+const char *testGeneric78 =
+"auto foo(auto[] arr, generic x, typeof(x) ref(typeof(x)) f){ return f(x); }\r\n\
+return foo({ 0 }, 5, <i>{ -i; });";
+TEST_RESULT("Generic function with array type in arguments", testGeneric78, "-5");

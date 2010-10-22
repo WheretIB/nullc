@@ -1203,7 +1203,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					}
 
 					bool genericArg = false, genericRef = false;;
-					if(!ParseSelectType(&start, false))
+					if(!ParseSelectType(&start))
 						genericArg = start->type == lex_generic ? !!(start++) : false;
 					genericRef = start->type == lex_ref ? !!(start++) : false;
 					
@@ -2725,7 +2725,7 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		}
 
 		bool genericArg = false, genericRef = false;
-		if(!ParseSelectType(&start, false))
+		if(!ParseSelectType(&start))
 		{
 			if(start->type == lex_generic)
 				genericArg = !!(start++);
