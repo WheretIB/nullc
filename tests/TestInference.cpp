@@ -158,3 +158,6 @@ int sum = 0;\r\n\
 for(i in arr) sum += i;\r\n\
 return sum;";
 TEST_RESULT("Short inline funcitons passed to std.algorithm", testShortInlineFunction7, "16");
+
+const char	*testTypeoOnFunctionArgument = "auto foo(int a, typeof(a) b){ return a + b; } return foo(5, 7);";
+TEST_RESULT("typeof on argument of a function in definition", testTypeoOnFunctionArgument, "12");

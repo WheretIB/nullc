@@ -247,4 +247,5 @@ return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which acc
 "int bar(int ref(double) f, double y){ return f(y); }\r\n\
 return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which accepts a function with 0 argument(s) as an argument #0");
 
+	TEST_FOR_FAIL("Using an argument of a function in definition in expression", "auto foo(int a, int b = a){ return a + b; } return foo(5, 7);", "ERROR: variable or function 'a' is not defined");
 }

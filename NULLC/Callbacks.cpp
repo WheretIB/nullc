@@ -1962,6 +1962,17 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	lastFunc.AddParameter(new VariableInfo(&lastFunc, paramName, hash, lastFunc.allParamSize + bigEndianShift, currType, false));
 	if(currType)
 		lastFunc.allParamSize += currType->size < 4 ? 4 : currType->size;
+
+	// Insert variable to a list so that a typeof can be taken from it
+	varMap.insert(lastFunc.lastParam->nameHash, lastFunc.lastParam);
+}
+
+void FunctionPrepareDefault()
+{
+	// Remove function variables before parsing the default parameter so that arguments wouldn't be referenced
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
+	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
+		varMap.remove(curr->nameHash, curr);
 }
 
 void FunctionParameterDefault(const char* pos)
@@ -1991,11 +2002,18 @@ void FunctionParameterDefault(const char* pos)
 
 	lastFunc.lastParam->defaultValue = CodeInfo::nodeList.back();
 	CodeInfo::nodeList.pop_back();
+
+	// Restore function arguments so that typeof could be taken
+	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
+		varMap.insert(curr->nameHash, curr);
 }
 
 void FunctionPrototype(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
+	// Remove function arguments used to enable typeof
+	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
+		varMap.remove(curr->nameHash, curr);
 	if(!lastFunc.retType)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
 	lastFunc.funcType = CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount);
@@ -2007,6 +2025,9 @@ void FunctionPrototype(const char* pos)
 void FunctionStart(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
+	// Remove function arguments used to enable typeof
+	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
+		varMap.remove(curr->nameHash, curr);
 	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 

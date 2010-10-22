@@ -402,6 +402,7 @@ bool ParseFunctionVariables(Lexeme** str)
 
 	if(ParseLexem(str, lex_set))
 	{
+		FunctionPrepareDefault();
 		if(!ParseTernaryExpr(str))
 			ThrowError((*str)->pos, "ERROR: default parameter value not found after '='");
 		CALLBACK(FunctionParameterDefault((*str)->pos));
@@ -420,6 +421,7 @@ bool ParseFunctionVariables(Lexeme** str)
 		
 		if(ParseLexem(str, lex_set))
 		{
+			FunctionPrepareDefault();
 			if(!ParseTernaryExpr(str))
 				ThrowError((*str)->pos, "ERROR: default parameter value not found after '='");
 			CALLBACK(FunctionParameterDefault((*str)->pos));
