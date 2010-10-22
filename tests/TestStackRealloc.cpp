@@ -350,6 +350,28 @@ coroutine auto test()\r\n\
 test(); return test();";
 TEST_RELOCATE("VM stack relocation (coroutine without stack for locals)", testCoroutineNoLocalStackRelocate, "3");
 
+const char	*testAutoRefStackRelocate =
+"class Foo{ int ref y; }\r\n\
+int x = 4;\r\n\
+auto y = new Foo;\r\n\
+y.y = &x;\r\n\
+auto ref z = y, w = z;\r\n\
+y = nullptr;\r\n\
+void corrupt(){ int[32*1024] e = 0xfeeefeee; } corrupt();\r\n\
+x = 8;\r\n\
+return *Foo(z).y;";
+TEST_RELOCATE("VM stack relocation (auto ref)", testAutoRefStackRelocate, "8");
+
+const char	*testArrayOfArraysStackRelocate =
+"class Foo{ int ref y; }\r\n\
+Foo[1][4] arr;\r\n\
+int x = 1, y = 1, z = 1, w = 1;\r\n\
+arr[0][0].y = &x; arr[0][1].y = &y; arr[0][2].y = &z; arr[0][3].y = &w;\r\n\
+void corrupt(){ int[32*1024] e = 0; } corrupt();\r\n\
+x = 2; y = 30; z = 400; w = 5000;\r\n\
+return *arr[0][0].y + *arr[0][1].y + *arr[0][2].y + *arr[0][3].y;";
+TEST_RELOCATE("VM stack relocation (array of arrays)", testArrayOfArraysStackRelocate, "5432");
+
 struct TestEval : TestQueue
 {
 	virtual void Run()

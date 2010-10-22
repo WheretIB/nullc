@@ -2023,9 +2023,6 @@ void Executor::FixupFunction(char* ptr)
 	if(!fPtr->context)
 		return;
 	const ExternFuncInfo &func = exFunctions[fPtr->id];
-	// External functions shouldn't be checked
-	if(func.address == -1)
-		return;
 	// If context is "this" pointer
 	if(func.parentType != ~0u)
 	{
