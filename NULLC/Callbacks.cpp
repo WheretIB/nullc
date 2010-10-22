@@ -3458,21 +3458,29 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	return true;
 }
-
+bool OptimizeIfElse(bool hasElse)
+{
+	if(CodeInfo::nodeList[CodeInfo::nodeList.size() - (hasElse ? 3 : 2)]->nodeType == typeNodeNumber)
+	{
+		if(!hasElse)
+			CodeInfo::nodeList.push_back(new NodeZeroOP());
+		int condition = ((NodeNumber*)CodeInfo::nodeList[CodeInfo::nodeList.size()-3])->GetInteger();
+		NodeZeroOP *remainingNode = condition ? CodeInfo::nodeList[CodeInfo::nodeList.size()-2] : CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList.back() = remainingNode;
+		return true;
+	}
+	return false;
+}
 void AddIfNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 2);
 
-	// If condition is constant
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeNumber)
-	{
-		int condition = ((NodeNumber*)CodeInfo::nodeList[CodeInfo::nodeList.size()-2])->GetInteger();
-		NodeZeroOP *remainingNode = condition ? CodeInfo::nodeList.back() : (new NodeZeroOP);
-		CodeInfo::nodeList.pop_back();
-		CodeInfo::nodeList.back() = remainingNode;
+	if(OptimizeIfElse(false))
 		return;
-	}
+
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(false));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
@@ -3481,16 +3489,9 @@ void AddIfElseNode(const char* pos)
 	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 3);
 
-	// If condition is constant
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-3]->nodeType == typeNodeNumber)
-	{
-		int condition = ((NodeNumber*)CodeInfo::nodeList[CodeInfo::nodeList.size()-3])->GetInteger();
-		NodeZeroOP *remainingNode = condition ? CodeInfo::nodeList[CodeInfo::nodeList.size()-2] : CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		CodeInfo::nodeList.pop_back();
-		CodeInfo::nodeList.back() = remainingNode;
+	if(OptimizeIfElse(true))
 		return;
-	}
+
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
@@ -3498,6 +3499,9 @@ void AddIfElseTermNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 3);
+
+	if(OptimizeIfElse(true))
+		return;
 
 	TypeInfo* typeA = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;

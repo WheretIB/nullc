@@ -110,7 +110,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);", "ERROR: there is no conversion from specified arguments and the ones that function accepts");
 
 	TEST_FOR_FAIL("Array element type mistmatch", "import std.math;\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;", "ERROR: element 1 doesn't match the type of element 0 (int)");
-	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\nauto err = 1 ? 1 : float2(2, 3);\r\nreturn 1;", "ERROR: ternary operator ?: result types are not equal (int : float2)");
+	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\nint x = 1; auto err = x ? 1 : float2(2, 3);\r\nreturn 1;", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
 	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];", "ERROR: indexing variable that is not an array (int)");
 	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;", "ERROR: cannot convert 'int[] ref' to 'int[]'");
@@ -131,8 +131,8 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Member variable or function is not found", "int a; a.b; return 1;", "ERROR: member variable or function 'b' is not defined in class 'int'");
 
 	TEST_FOR_FAIL("Inplace array element type mismatch", "auto a = { 12, 15.0 };", "ERROR: element 1 doesn't match the type of element 0 (int)");
-	TEST_FOR_FAIL("Ternary operator void return type", "void f(){} return 1 ? f() : 0.0;", "ERROR: one of ternary operator ?: result type is void (void : double)");
-	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; return 1 ? 12 : float2(3, 4);", "ERROR: ternary operator ?: result types are not equal (int : float2)");
+	TEST_FOR_FAIL("Ternary operator void return type", "void f(){} int a = 1; return a ? f() : 0.0;", "ERROR: one of ternary operator ?: result type is void (void : double)");
+	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; int a = 1; return a ? 12 : float2(3, 4);", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
 	TEST_FOR_FAIL("Variable type is unknow", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: variable type is unknown");
 

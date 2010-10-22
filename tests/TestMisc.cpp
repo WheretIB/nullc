@@ -183,3 +183,21 @@ TEST_RESULT("Escaping at the end of the string", testStringEscapeEnd, "92");
 
 const char *testCorrectCall = "int x = 8; int y = duplicate(x); return x + y;";
 TEST_RESULT("Correct duplicate call", testCorrectCall, "16");
+
+const char *testIfElseCompileTime1 = "if(1) return 2; else return 5;";
+TEST_RESULT("if(){}else{} compile time resolve 1", testIfElseCompileTime1, "2");
+
+const char *testIfElseCompileTime2 = "if(0) return 2; else return 5;";
+TEST_RESULT("if(){}else{} compile time resolve 2", testIfElseCompileTime2, "5");
+
+const char *testIfElseCompileTime3 = "return 1 ? 2 : 5;";
+TEST_RESULT("if(){}else{} compile time resolve 3", testIfElseCompileTime3, "2");
+
+const char *testIfElseCompileTime4 = "return 0 ? 2 : 5;";
+TEST_RESULT("if(){}else{} compile time resolve 4", testIfElseCompileTime4, "5");
+
+const char *testIfElseCompileTime5 = "if(1) return 2; return 5;";
+TEST_RESULT("if(){}else{} compile time resolve 5", testIfElseCompileTime5, "2");
+
+const char *testIfElseCompileTime6 = "if(0) return 2; return 5;";
+TEST_RESULT("if(){}else{} compile time resolve 6", testIfElseCompileTime6, "5");
