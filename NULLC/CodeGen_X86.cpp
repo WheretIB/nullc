@@ -583,6 +583,12 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg index, unsigned int mult, 
 			NULLC::stackRead[target] = false;
 			NULLC::stackUpdate[target] = (unsigned int)(x86Op - x86Base);
 		}
+	}else if(op == o_idiv || op == o_imul){
+		// still invalidate eax and edx
+		NULLC::InvalidateDependand(rEAX);
+		NULLC::reg[rEAX].type = x86Argument::argNone;
+		NULLC::InvalidateDependand(rEDX);
+		NULLC::reg[rEDX].type = x86Argument::argNone;
 	}
 	
 	NULLC::regRead[index] = true;
