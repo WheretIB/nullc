@@ -4,10 +4,10 @@
 #include <time.h>
 #include <stdarg.h>
 
-#ifdef __linux
 #include <malloc.h>
 #include <stdlib.h>
-#include <stdint.h>
+#ifndef _MSC_VER
+	#include <stdint.h>
 #endif
 
 #undef assert
