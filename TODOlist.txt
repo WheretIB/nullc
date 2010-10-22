@@ -12,6 +12,7 @@ Core:
 	18. f. stack trace with locals should print values
 	19. b. multiple function prototypes should be disallowed
 	20. f. context address tracking in not neccessary in most cases (?)
+	21. u. need to clarify when external variables in a local function inside a coroutine are closed.
 
 Library:
 	1. f. string

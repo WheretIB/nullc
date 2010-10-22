@@ -178,7 +178,7 @@ for(i in arr2)\r\n\
 	i = gen3from2();\r\n\
 	t2 = t2 * 10 + i;\r\n\
 }\r\n\
-return (t1 == 567756) + (t2 == 234423);";
+return (t1 == 567856) + (t2 == 234523);";
 TEST_RESULT("Coroutine 11 (coroutine in local function with local function inside).", testCoroutine10, "2");
 
 const char	*testCoroutine11 =
@@ -214,7 +214,7 @@ for(i in arr2)\r\n\
 	i = gen3from2(2);\r\n\
 	t2 = t2 * 10 + i;\r\n\
 }\r\n\
-return (t1 == 345534) + (t2 == 553455);";
+return (t1 == 345634) + (t2 == 563456);";
 TEST_RESULT("Coroutine 12 (coroutine with local function inside).", testCoroutine11, "2");
 
 const char	*testCoroutine12 =
@@ -249,7 +249,7 @@ for(i in arr2)\r\n\
 	i = gen3from2(2);\r\n\
 	t2 = t2 * 10 + i;\r\n\
 }\r\n\
-return (t1 == 567756) + (t2 == 442344);";
+return (t1 == 567856) + (t2 == 452345);";
 TEST_RESULT("Coroutine 13 (coroutine with local function inside, argument closure).", testCoroutine12, "2");
 
 const char	*testCoroutineExampleA =
@@ -376,3 +376,58 @@ coroutine int foo(int x)\r\n\
 foo(0);\r\n\
 return u;";
 TEST_RESULT("Coroutine recursion", testCoroutineRecursion, "49");
+
+const char	*testCoroutineLocal =
+"coroutine int bar(int v)\r\n\
+{\r\n\
+	int u = 5;\r\n\
+	coroutine int foo(int x)\r\n\
+	{\r\n\
+		return u;\r\n\
+	}\r\n\
+	return foo(1);\r\n\
+}\r\n\
+return bar(1);";
+TEST_RESULT("Local coroutine in coroutine with external variables", testCoroutineLocal, "5");
+
+const char	*testCoroutineLocal2 =
+"coroutine int bar(int v)\r\n\
+{\r\n\
+	int u = 5;\r\n\
+	coroutine int foo(int x, y)\r\n\
+	{\r\n\
+		return u + x + y;\r\n\
+	}\r\n\
+	return foo(1, 5);\r\n\
+}\r\n\
+return bar(1);";
+TEST_RESULT("Local coroutine in coroutine with external variables 2", testCoroutineLocal2, "11");
+
+const char	*testLocalCoroutinePrototype =
+"coroutine int bar(int v)\r\n\
+{\r\n\
+	int u = v;\r\n\
+	coroutine int foo(int x);\r\n\
+	return foo(1);\r\n\
+	coroutine int foo(int x)\r\n\
+	{\r\n\
+		return u;\r\n\
+	}\r\n\
+}\r\n\
+return bar(1);";
+TEST_RESULT("Local coroutine prototype", testLocalCoroutinePrototype, "1");
+
+const char	*testLocalCoroutineClosure =
+"coroutine auto foo(int x)\r\n\
+{\r\n\
+	yield auto(){ return -x; };\r\n\
+	return auto(){ return x * 2; };\r\n\
+}\r\n\
+auto x = foo(4);\r\n\
+auto y = foo(8);\r\n\
+\r\n\
+int a = x(); // -4\r\n\
+int b = y(); // 16\r\n\
+\r\n\
+return a + b; // 12";
+TEST_RESULT("Coroutin with local function, external variable closure test", testLocalCoroutineClosure, "12");
