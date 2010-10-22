@@ -156,6 +156,8 @@ void TypeAddMember(const char* pos, const char* varName);
 void TypeFinish();
 void TypeContinue(const char* pos);
 void TypeStop();
+void TypeGeneric(unsigned pos);
+void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases);
 
 void AddAliasType(InplaceStr aliasName);
 

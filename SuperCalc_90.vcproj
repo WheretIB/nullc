@@ -1220,6 +1220,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\tests\TestGenericType.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestImplicitArray.cpp"
 				>
 				<FileConfiguration

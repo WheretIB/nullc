@@ -628,6 +628,22 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				// This two pointers are used later to fill type member information
 				newInfo->firstVariable = (TypeInfo::MemberVariable*)(symbols + tInfo->offsetToName + strLength);
 				newInfo->lastVariable = (TypeInfo::MemberVariable*)tInfo;
+				// If definitionOffset offset is set
+				if(tInfo->definitionOffset != ~0u)
+				{
+					// It may be because it contains index of generic type base
+					if(tInfo->definitionOffset & 0x80000000)
+					{
+						newInfo->genericBase = CodeInfo::typeInfo[typeRemap[tInfo->definitionOffset & ~0x80000000]];
+					}else{ // Or because it is a generic type base
+						newInfo->dependsOnGeneric = true;
+						newInfo->genericInfo = newInfo->CreateGenericContext(tInfo->definitionOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
+
+						CodeInfo::nodeList.push_back(new NodeZeroOP());
+						newInfo->definitionList = new NodeExpressionList();
+						CodeInfo::funcDefList.push_back(newInfo->definitionList);
+					}
+				}
 			}
 				break;
 			default:
@@ -1847,6 +1863,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			typeInfo.subType = 0;
 			typeInfo.memberCount = 0;
 		}
+		typeInfo.definitionOffset = refType.genericInfo ? refType.genericInfo->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart) : ~0u;
+		if(refType.genericBase)
+			typeInfo.definitionOffset = 0x80000000 | refType.genericBase->typeIndex;
 
 		// Fill up next
 		tInfo++;
@@ -1921,7 +1940,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		funcInfo.funcCat = (unsigned char)refFunc->type;
 
-		funcInfo.isGenericInstance = !!refFunc->genericBase || refFunc->genericInstance;
+		funcInfo.isGenericInstance = !!refFunc->genericBase || refFunc->genericInstance || (refFunc->parentClass ? refFunc->parentClass->genericBase : false);
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 		funcInfo.parentType = (refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u);

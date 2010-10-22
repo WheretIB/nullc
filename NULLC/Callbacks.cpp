@@ -93,7 +93,7 @@ FastVector<NodeZeroOP*>	paramNodes;
 
 void AddInplaceVariable(const char* pos, TypeInfo* targetType = NULL);
 void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
-NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult);
+NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult, TypeInfo* forcedParentType = NULL);
 void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred = NULL);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
 
@@ -253,7 +253,8 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			if(!CodeInfo::funcInfo[i]->implemented && !(CodeInfo::funcInfo[i]->address & 0x80000000) && !CodeInfo::funcInfo[i]->generic && !CodeInfo::funcInfo[i]->genericBase)
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: local function '%s' went out of scope unimplemented", CodeInfo::funcInfo[i]->name);
 			// generic function instance will go out of scope only when base function goes out of scope
-			CodeInfo::funcInfo[i]->visible = CodeInfo::funcInfo[i]->genericBase ? CodeInfo::funcInfo[i]->genericBase->parent->visible : false;
+			// member function of a generic type will never go out of scope
+			CodeInfo::funcInfo[i]->visible = CodeInfo::funcInfo[i]->parentClass ? true : (CodeInfo::funcInfo[i]->genericBase ? CodeInfo::funcInfo[i]->genericBase->parent->visible : false);
 		}
 	}
 	funcInfoTop.pop_back();
@@ -275,6 +276,8 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			// Get ID of the function that will be created
 			unsigned funcID = CodeInfo::funcInfo.size();
 			FunctionInfo *fInfo = fProto->genericBase->parent;
+			// There may be a type in definition, and we must save it
+			TypeInfo *currDefinedType = newType;
 			if(fInfo->type == FunctionInfo::THISCALL)
 			{
 				currType = fInfo->parentClass;
@@ -325,6 +328,8 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			FunctionEnd(start->pos);
 			if(fInfo->type == FunctionInfo::THISCALL)
 				TypeStop();
+			// Restore type that was in definition
+			newType = currDefinedType;
 
 			// Remove function definition node, it was placed to funcDefList in FunctionEnd
 			CodeInfo::nodeList.pop_back();
@@ -1058,7 +1063,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPref
 	HashMap<VariableInfo*>::Node *curr = varMap.first(hash);
 	
 	// In generic function instance, skip all variables that are defined after the base generic function
-	while(curr && currDefinedFunc.size() && currDefinedFunc.back()->genericBase && !(curr->value->pos >> 24) && (curr->value->isGlobal ? currDefinedFunc.back()->genericBase->globalVarTop <= curr->value->pos : (currDefinedFunc.back()->genericBase->blockDepth < curr->value->blockDepth && currDefinedFunc.back() != curr->value->parentFunction)))
+	while(curr && currDefinedFunc.size() && currDefinedFunc.back()->genericBase && !(curr->value->pos >> 24) && !(curr->value->parentType) && (curr->value->isGlobal ? currDefinedFunc.back()->genericBase->globalVarTop <= curr->value->pos : (currDefinedFunc.back()->genericBase->blockDepth < curr->value->blockDepth && currDefinedFunc.back() != curr->value->parentFunction)))
 		curr = varMap.next(curr);
 
 	if(!curr)
@@ -2219,12 +2224,17 @@ void FunctionAdd(const char* pos, const char* funcName)
 	lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;
 	lastFunc->vTopSize = (unsigned int)varInfoTop.size();
 	lastFunc->retType = currType;
+	currDefinedFunc.push_back(lastFunc);
 	if(newType)
 	{
 		if(origHash == hashFinalizer)
 			newType->hasFinalizer = true;
 		lastFunc->type = FunctionInfo::THISCALL;
 		lastFunc->parentClass = newType;
+		if(newType->genericInfo)
+			FunctionGeneric(true);
+		if(newType->genericBase)
+			lastFunc->genericBase = newType->genericBase->genericInfo;
 	}
 	if(newType ? varInfoTop.size() > (newType->definitionDepth + 1) : varInfoTop.size() > 1)
 	{
@@ -2241,7 +2251,6 @@ void FunctionAdd(const char* pos, const char* funcName)
 	}
 	if(funcName[0] != '$' && !(chartype_table[(unsigned char)funcName[0]] & ct_start_symbol))
 		lastFunc->visible = false;
-	currDefinedFunc.push_back(lastFunc);
 }
 
 bool FunctionGeneric(bool setGeneric, unsigned pos)
@@ -2985,6 +2994,22 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	CheckForImmutable(currentType, pos);
 	// Construct name in a form of Class::Function
 	char *memberFuncName = GetClassFunctionName(currentType->subType, funcName);
+	// If this is generic type instance, maybe the function is not instanced at the moment
+	if(currentType->subType->genericBase)
+	{
+		if(!funcMap.find(GetStringHash(memberFuncName)))
+		{
+			// Check that base class has this function
+			char *memberOrigName = GetClassFunctionName(currentType->subType->genericBase, funcName);
+			FunctionInfo **baseFunc = funcMap.find(GetStringHash(memberOrigName));
+			if(!baseFunc)
+				ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
+
+			FunctionInfo *fResult = NULL;
+			CreateGenericFunctionInstance(pos, *baseFunc, fResult, currentType->subType);
+			fResult->parentClass = currentType->subType;
+		}
+	}
 	// Call it
 	AddFunctionCallNode(pos, memberFuncName, callArgCount);
 }
@@ -3037,16 +3062,18 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 
 // Function expects that nodes with argument types are on top of nodeList
 // Return node with function definition if there was one
-NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /* generic function */, FunctionInfo*& fResult /* function instance */)
+NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /* generic function */, FunctionInfo*& fResult /* function instance */, TypeInfo* forcedParentType)
 {
 	if(instanceDepth++ > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
 		ThrowError(pos, "ERROR: reached maximum generic function instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
 	// Get ID of the function that will be created
 	unsigned funcID = CodeInfo::funcInfo.size();
 
+	// There may be a type in definition, and we must save it
+	TypeInfo *currDefinedType = newType;
 	if(fInfo->type == FunctionInfo::THISCALL)
 	{
-		currType = fInfo->parentClass;
+		currType = forcedParentType ? forcedParentType : fInfo->parentClass;
 		TypeContinue(pos);
 	}
 
@@ -3054,11 +3081,13 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 
 	// Function return type
 	currType = fType->retType;
-	FunctionAdd(pos, fInfo->name);
+	if(forcedParentType)
+		assert(strchr(fInfo->name, ':'));
+	FunctionAdd(pos, forcedParentType ? strchr(fInfo->name, ':') + 2 : fInfo->name);
 
 	// New function type is equal to generic function type no matter where we create an instance of it
 	CodeInfo::funcInfo.back()->type = fInfo->type;
-	CodeInfo::funcInfo.back()->parentClass = fInfo->parentClass;
+	CodeInfo::funcInfo.back()->parentClass = forcedParentType ? forcedParentType : fInfo->parentClass;
 
 	Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
 	CodeInfo::lastKnownStartPos = NULL;
@@ -3089,7 +3118,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 
 		// A true function instance can only be created in the same scope as the base function
 		// So we must act as we've made only a function prototype if current scope is wrong
-		if(CodeInfo::funcInfo[funcID]->vTopSize != fInfo->vTopSize)
+		if(CodeInfo::funcInfo[funcID]->vTopSize != fInfo->vTopSize && !forcedParentType)
 		{
 			// Special case of FunctionEnd function
 			FunctionInfo &lastFunc = *currDefinedFunc.back();
@@ -3140,6 +3169,8 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 
 	if(fInfo->type == FunctionInfo::THISCALL)
 		TypeStop();
+	// Restore type that was in definition
+	newType = currDefinedType;
 
 	// A true function instance can only be created in the same scope as the base function
 	if(CodeInfo::funcInfo[funcID]->vTopSize != fInfo->vTopSize)
@@ -3769,6 +3800,7 @@ void TypeBegin(const char* pos, const char* end)
 	newType->alignBytes = currAlign;
 	newType->originalIndex = CodeInfo::typeInfo.size();
 	newType->definitionDepth = varInfoTop.size();
+	newType->hasFinished = false;
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	methodCount = 0;
 
@@ -3783,7 +3815,7 @@ void TypeAddMember(const char* pos, const char* varName)
 {
 	if(!currType)
 		ThrowError(pos, "ERROR: auto cannot be used for class members");
-	if(currType == newType)
+	if(!currType->hasFinished)
 		ThrowError(pos, "ERROR: Type '%s' is currently being defined. You can use '%s ref' or '%s[]' at this point", currType->GetFullTypeName(), currType->GetFullTypeName(), currType->GetFullTypeName());
 	// Align members to their default alignment, but not larger that 4 bytes
 	unsigned int alignment = currType->alignBytes > 4 ? 4 : currType->alignBytes;
@@ -3797,6 +3829,7 @@ void TypeAddMember(const char* pos, const char* varName)
 
 	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
 	varInfo->isGlobal = true;
+	varInfo->parentType = newType;
 }
 
 // End of type definition
@@ -3804,7 +3837,7 @@ void TypeFinish()
 {
 	// Class members changed variable top, here we restore it to original position
 	varTop -= newType->size;
-	// In NULLC, all classes have sizes multiple of 4, so add padding if neccessary
+	// In NULLC, all classes have sizes multiple of 4, so add padding if necessary
 	if(newType->size % 4 != 0)
 	{
 		newType->paddingBytes = 4 - (newType->size % 4);
@@ -3813,8 +3846,10 @@ void TypeFinish()
 
 	// Wrap all member function definitions into one expression list
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
+	AddOneExpressionNode();
 	for(unsigned int i = 0; i < methodCount; i++)
 		AddTwoExpressionNode();
+	newType->definitionList = CodeInfo::nodeList.back();
 
 	// Shift new types generated inside up, so that declaration will be in the correct order in C translation
 	for(unsigned int i = newType->originalIndex + 1; i < CodeInfo::typeInfo.size(); i++)
@@ -3828,6 +3863,7 @@ void TypeFinish()
 		CodeInfo::classMap.remove(info->nameHash, info->type);
 		info = info->next;
 	}
+	newType->hasFinished = true;
 
 	newType = NULL;
 
@@ -3848,6 +3884,7 @@ void TypeContinue(const char* pos)
 		currAlign = 4;
 		VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(curr->name));
 		varInfo->isGlobal = true;
+		varInfo->parentType = newType;
 		varDefined = false;
 	}
 	// Restore all type aliases defined inside a class
@@ -3874,6 +3911,121 @@ void TypeStop()
 	newType = NULL;
 	// Remove class members from global scope
 	EndBlock(false, false);
+}
+
+void TypeGeneric(unsigned pos)
+{
+	newType->genericInfo = newType->CreateGenericContext(pos);
+	newType->genericInfo->globalVarTop = varTop;
+	newType->genericInfo->blockDepth = currDefinedFunc.size() ? currDefinedFunc.back()->vTopSize : 1;
+}
+
+void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
+{
+	Lexeme *start = CodeInfo::lexStart + base->genericInfo->start;
+	NodeZeroOP **aliasType = &CodeInfo::nodeList[CodeInfo::nodeList.size() - aliases];
+	unsigned aliasID = 0;
+	// We are reparsing original class definition
+	do
+	{
+		currType = aliasType[aliasID]->typeInfo;
+		assert(start->type == lex_string); // This was already checked during parsing
+
+		InplaceStr aliasName = InplaceStr(start->pos, start->length);
+		AliasInfo *info = TypeInfo::CreateAlias(aliasName, currType);
+		info->next = CodeInfo::globalAliases;
+		CodeInfo::globalAliases = info;
+		CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
+
+		start++;
+		aliasID++;
+	}while(start->type == lex_comma ? !!start++ : false);
+	if(aliasID > aliases)
+		ThrowError(pos, "ERROR: there where only '%d' argument(s) to a generic type that expects '%d'", aliases, aliasID);
+	else if(aliasID < aliases)
+		ThrowError(pos, "ERROR: type has only '%d' generic argument(s) while '%d' specified", aliasID, aliases);
+	assert(start->type == lex_greater);
+	start++;
+
+	// Generate instance name
+	char tempName[NULLC_MAX_VARIABLE_NAME_LENGTH];
+	char *namePos = tempName;
+	namePos += SafeSprintf(namePos, NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName), "%s<", base->name);
+	for(unsigned i = 0; i < aliases; i++)
+		namePos += SafeSprintf(namePos, NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName), "%s%s", aliasType[i]->typeInfo->GetFullTypeName(), i == aliases - 1 ? "" : ", ");
+	namePos += SafeSprintf(namePos, NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName), ">");
+
+	// Check name length
+	if(NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName) == 0)
+		ThrowError(pos, "ERROR: generated generic type name exceeds maximum type length '%d'", NULLC_MAX_VARIABLE_NAME_LENGTH);
+
+	// Remove type nodes used to instance class
+	for(unsigned i = 0; i < aliases; i++)
+		CodeInfo::nodeList.pop_back();
+
+	// Search if the type was already defined
+	if(TypeInfo **lastType = CodeInfo::classMap.find(GetStringHash(tempName, namePos)))
+	{
+		currType = *lastType;
+		// Remove type aliases used to instance class
+		for(unsigned i = 0; i < aliases; i++)
+		{
+			CodeInfo::classMap.remove(CodeInfo::globalAliases->nameHash, CodeInfo::globalAliases->type);
+			CodeInfo::globalAliases = CodeInfo::globalAliases->next;
+		}
+		return;
+	}
+
+	if(instanceDepth++ > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
+		ThrowError(pos, "ERROR: reached maximum generic type instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
+
+	// If not found, create a new type
+	SetCurrentAlignment(base->alignBytes);
+	// Save the type that may be in definition
+	TypeInfo *currentDefinedType = newType;
+	unsigned int currentDefinedTypeMethodCount = methodCount;
+	// Begin new type
+	newType = NULL;
+	TypeBegin(tempName, namePos);
+	TypeInfo *instancedType = newType;
+	newType->genericBase = base;
+
+	// Reparse type body and format errors so that the user will know where it happened
+	jmp_buf oldHandler;
+	memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
+	if(!setjmp(CodeInfo::errorHandler))
+	{
+		ParseClassBody(&start);
+	}else{
+		memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+
+		char	*errPos = errorReport;
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "ERROR: while instantiating generic type %s:\r\n", instancedType->name);
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s", CodeInfo::lastError.GetErrorString());
+		if(errPos[-2] == '\r' && errPos[-1] == '\n')
+			errPos -= 2;
+		*errPos++ = 0;
+		CodeInfo::lastError = CompilerError(errorReport, pos);
+		longjmp(CodeInfo::errorHandler, 1);
+	}
+	// Stop type definition
+	TypeFinish();
+	((NodeExpressionList*)base->definitionList)->AddNode();
+	// Restore old error handler
+	memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+
+	// Remove type aliases used to instance class
+	for(unsigned i = 0; i < aliases; i++)
+	{
+		CodeInfo::classMap.remove(CodeInfo::globalAliases->nameHash, CodeInfo::globalAliases->type);
+		CodeInfo::globalAliases = CodeInfo::globalAliases->next;
+	}
+	currType = instancedType;
+	// Restore type that may have been in definition
+	methodCount = currentDefinedTypeMethodCount;
+	newType = currentDefinedType;
+
+	instanceDepth--;
 }
 
 void AddAliasType(InplaceStr aliasName)

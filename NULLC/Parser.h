@@ -9,8 +9,9 @@ unsigned int ParseTypename(Lexeme** str);
 
 bool ParseNumber(Lexeme** str);
 bool ParseArrayDefinition(Lexeme** str);
-bool ParseSelectType(Lexeme** str, bool arrayType = true, bool genericOnFail = false);
+bool ParseSelectType(Lexeme** str, bool arrayType = true, bool genericOnFail = false, bool allowGeneric = false);
 
+void ParseClassBody(Lexeme** str);
 bool ParseClassDefinition(Lexeme** str);
 
 unsigned int ParseFunctionArguments(Lexeme** str);
