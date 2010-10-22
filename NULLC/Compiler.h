@@ -30,11 +30,12 @@ public:
 			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "\r\n      ");
 			for(unsigned int i = 0; i < shift; i++)
 				*(curr++) = ' ';
-			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "^\r\n");
+			curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "^");
 		}
+		curr += SafeSprintf(curr, ERROR_LENGTH - int(curr - errBuf), "\r\n");
 		return errBuf;
 	}
-	static const char *codeStart;
+	static const char *codeStart, *codeEnd;
 private:
 	friend class Compiler;
 

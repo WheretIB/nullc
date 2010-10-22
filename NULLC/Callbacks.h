@@ -2,14 +2,18 @@
 #include "stdafx.h"
 #include "InstructionSet.h"
 
+class TypeInfo;
+class VariableInfo;
+class FunctionInfo;
+
 void CallbackInitialize();
 
 const char*	SetCurrentFunction(const char* name);
 unsigned	SetCurrentArgument(unsigned argument);
-void*		GetCurrentArgumentType(const char* pos, unsigned arguments);
+TypeInfo*	GetCurrentArgumentType(const char* pos, unsigned arguments);
 void		InlineFunctionImplicitReturn(const char* pos);
 
-void AddFunctionToSortedList(void *info);
+void AddFunctionToSortedList(FunctionInfo* info);
 
 void SetCurrentAlignment(unsigned int alignment);
 
@@ -60,12 +64,13 @@ void AddReturnNode(const char* pos, bool yield = false);
 void AddBreakNode(const char* pos);
 void AddContinueNode(const char* pos);
 
-void SelectTypeByPointer(void* type);
+void SelectTypeByPointer(TypeInfo* type);
+void SelectTypeForGeneric(const char* pos, unsigned nodeIndex);
 void SelectTypeByIndex(unsigned int index);
-void* GetSelectedType();
+TypeInfo* GetSelectedType();
 const char* GetSelectedTypeName();
 
-void* AddVariable(const char* pos, InplaceStr varName);
+VariableInfo* AddVariable(const char* pos, InplaceStr varName);
 
 void AddVariableReserveNode(const char* pos);
 
@@ -85,7 +90,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 void AddArrayIndexNode(const char* pos);
 
 // Function for variable assignment in place of definition
-void AddDefineVariableNode(const char* pos, void* varInfo, bool noOverload = false);
+void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverload = false);
 
 void AddSetVariableNode(const char* pos);
 
@@ -101,12 +106,12 @@ void AddUnaryModifyOpNode(const char* pos, bool isInc, bool prefixOp);
 
 void AddModifyVariableNode(const char* pos, CmdID cmd);
 
-void AddOneExpressionNode(void *retType = NULL);
-void AddTwoExpressionNode(void *retType = NULL);
+void AddOneExpressionNode(TypeInfo* retType = NULL);
+void AddTwoExpressionNode(TypeInfo* retType = NULL);
 
 void AddArrayConstructor(const char* pos, unsigned int arrElementCount);
 
-void AddArrayIterator(const char* pos, InplaceStr varName, void* type, bool extra = false);
+void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool extra = false);
 void MergeArrayIterators();
 
 void AddTypeAllocation(const char* pos);
@@ -122,6 +127,7 @@ void FunctionPrototype(const char* pos);
 void FunctionStart(const char* pos);
 void FunctionEnd(const char* pos);
 void FunctionToOperator(const char* pos);
+bool FunctionGeneric(bool setGeneric, unsigned pos = 0);
 
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
 bool PrepareMemberCall(const char* pos, const char* funcName = NULL);
@@ -155,7 +161,7 @@ void AddUnfixedArraySize();
 
 void CreateRedirectionTables();
 
-void AddListGenerator(const char* pos, void *rType);
+void AddListGenerator(const char* pos, TypeInfo* rType);
 
 void RestoreScopedGlobals();
 

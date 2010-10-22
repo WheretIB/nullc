@@ -159,5 +159,26 @@ for(i in arr) sum += i;\r\n\
 return sum;";
 TEST_RESULT("Short inline funcitons passed to std.algorithm", testShortInlineFunction7, "16");
 
-const char	*testTypeoOnFunctionArgument = "auto foo(int a, typeof(a) b){ return a + b; } return foo(5, 7);";
-TEST_RESULT("typeof on argument of a function in definition", testTypeoOnFunctionArgument, "12");
+const char	*testTypeofOnFunctionArgument = "auto foo(int a, typeof(a) b){ return a + b; } return foo(5, 7);";
+TEST_RESULT("typeof on argument of a function in definition", testTypeofOnFunctionArgument, "12");
+
+const char	*testTypeofPostExpression1 = "double foo(int a, double b, long c){ return 0; } return int == typeof(foo).argument.first;";
+TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression1, "1");
+
+const char	*testTypeofPostExpression2 = "double foo(int a, double b, long c){ return 0; } return long == typeof(foo).argument.last;";
+TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression2, "1");
+
+const char	*testTypeofPostExpression3 = "double foo(int a, double b, long c){ return 0; } return double == typeof(foo).argument[1];";
+TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression3, "1");
+
+const char	*testTypeofPostExpression4 = "double foo(int a, double b, long c){ return 0; } return double == typeof(foo).return;";
+TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression4, "1");
+
+const char	*testTypeofPostExpression5 = "int ref a; return int == typeof(a).target;";
+TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression5, "1");
+
+const char	*testTypeofPostExpression6 = "char[] a; return char == typeof(a).target;";
+TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression6, "1");
+
+const char	*testTypeofPostExpression7 = "float[4] a; return float == typeof(a).target;";
+TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression7, "1");

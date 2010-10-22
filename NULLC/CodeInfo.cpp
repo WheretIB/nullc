@@ -31,6 +31,8 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 	// Save it for future use
 	type->refType = newInfo;
 
+	newInfo->dependsOnGeneric = type->dependsOnGeneric;
+
 	typeInfo.push_back(newInfo);
 	return newInfo;
 }
@@ -109,6 +111,8 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 	}
 	newInfo->nextArrayType = type->arrayType;
 	type->arrayType = newInfo;
+
+	newInfo->dependsOnGeneric = type->dependsOnGeneric;
 
 	typeArrays.push_back(newInfo);
 	typeInfo.push_back(newInfo);

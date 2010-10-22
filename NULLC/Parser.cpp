@@ -136,9 +136,71 @@ bool ParseSelectType(Lexeme** str, bool arrayType = true)
 			ThrowError((*str)->pos, "ERROR: typeof must be followed by '('");
 		if(ParseVaribleSet(str))
 		{
-			CALLBACK(SetTypeOfLastNode());
+			SetTypeOfLastNode();
 			if(!ParseLexem(str, lex_cparen))
 				ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
+			if(ParseLexem(str, lex_point))
+			{
+				bool genericType = GetSelectedType() == typeGeneric;
+				// .argument .return .target
+				if((*str)->type == lex_string && memcmp((*str)->pos, "argument", 8) == 0)
+				{
+					(*str)++;
+					if(!GetSelectedType()->funcType && !genericType)
+						ThrowError((*str)->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%s'", GetSelectedType()->GetFullTypeName());
+					if((*str)->type != lex_obracket && !ParseLexem(str, lex_point))
+						ThrowError((*str)->pos, "ERROR: expected '.first'/'.last'/'[N]' at this point");
+					unsigned paramCount = !genericType ? GetSelectedType()->funcType->paramCount : 0;
+					if((*str)->type == lex_string && memcmp((*str)->pos, "first", 5) == 0)
+					{
+						(*str)++;
+						if(!genericType)
+						{
+							if(!paramCount)
+								ThrowError((*str)->pos, "ERROR: this function type '%s' doesn't have arguments", GetSelectedType()->GetFullTypeName());
+							SelectTypeByPointer(GetSelectedType()->funcType->paramType[0]);
+						}
+					}else if((*str)->type == lex_string && memcmp((*str)->pos, "last", 4) == 0){
+						(*str)++;
+						if(!genericType)
+						{
+							if(!paramCount)
+								ThrowError((*str)->pos, "ERROR: this function type '%s' doesn't have arguments", GetSelectedType()->GetFullTypeName());
+							SelectTypeByPointer(GetSelectedType()->funcType->paramType[paramCount-1]);
+						}
+					}else if(ParseLexem(str, lex_obracket)){
+						if((*str)->type != lex_number)
+							ThrowError((*str)->pos, "ERROR: argument number expected after '['");
+						unsigned request = atoi((*str)->pos);
+						if(request >= paramCount && !genericType)
+							ThrowError((*str)->pos, "ERROR: this function type '%s' has only %d argument(s)", GetSelectedType()->GetFullTypeName(), paramCount);
+						(*str)++;
+						if(!ParseLexem(str, lex_cbracket))
+							ThrowError((*str)->pos, "ERROR: expected ']'");
+						if(!genericType)
+							SelectTypeByPointer(GetSelectedType()->funcType->paramType[request]);
+					}else{
+						ThrowError((*str)->pos, "ERROR: expected 'first'/'last'/'[N]' at this point");
+					}
+				}else if(ParseLexem(str, lex_return)){
+					if(!genericType)
+					{
+						if(!GetSelectedType()->funcType)
+							ThrowError((*str)->pos, "ERROR: 'return' can only be applied to a function type, but we have '%s'", GetSelectedType()->GetFullTypeName());
+						SelectTypeByPointer(GetSelectedType()->funcType->retType);
+					}
+				}else if((*str)->type == lex_string && memcmp((*str)->pos, "target", 6) == 0){
+					(*str)++;
+					if(!genericType)
+					{
+						if(!GetSelectedType()->refLevel && !GetSelectedType()->arrLevel)
+							ThrowError((*str)->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%s'", GetSelectedType()->GetFullTypeName());
+						SelectTypeByPointer(GetSelectedType()->subType);
+					}
+				}else{
+					ThrowError((*str)->pos, "ERROR: expected 'argument'/'return'/'target' at this point");
+				}
+			}
 		}else{
 			ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
 		}
@@ -264,7 +326,7 @@ bool ParseClassDefinition(Lexeme** str)
 						ThrowError((*str)->pos, "ERROR: function body expected after 'get'");
 					CALLBACK(FunctionEnd((*str-1)->pos));
 					// Get function return type
-					void *propType = GetSelectedType();
+					TypeInfo *propType = GetSelectedType();
 					if((*str)->type == lex_string || (*str)->length == 3 || memcmp((*str)->pos, "set", 3) == 0)
 					{
 						// Set setter return type to auto
@@ -387,10 +449,31 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	return true;
 }
 
-bool ParseFunctionVariables(Lexeme** str)
+bool ParseGenericType(Lexeme** str)
 {
-	if(!ParseSelectType(str))
+	if(!ParseLexem(str, lex_generic))
+		return false;
+	SelectTypeByPointer(typeGeneric);
+	FunctionGeneric(true);
+	if(ParseLexem(str, lex_ref))
+		SelectTypeByPointer(CodeInfo::GetReferenceType(typeGeneric));
+	return true;
+}
+
+bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
+{
+	bool genericArg = false;
+	if(!ParseSelectType(str) && false == (genericArg = ParseGenericType(str)))
 		return true;
+
+	unsigned argID = 0;
+	if(genericArg && nodeOffset)
+	{
+		TypeInfo *curr = GetSelectedType();
+		SelectTypeForGeneric((*str)->pos, nodeOffset - 1 + argID);
+		if(curr->refLevel)
+			SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
+	}
 
 	if((*str)->type != lex_string)
 		ThrowError((*str)->pos, "ERROR: variable name not found after type in function variable list");
@@ -410,7 +493,21 @@ bool ParseFunctionVariables(Lexeme** str)
 
 	while(ParseLexem(str, lex_comma))
 	{
-		ParseSelectType(str);
+		argID++;
+		bool lastGeneric = genericArg;
+		genericArg = false;
+		if(!ParseSelectType(str))
+		{
+			ParseGenericType(str);
+			genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
+		}
+		if(genericArg && nodeOffset)
+		{
+			TypeInfo *curr = GetSelectedType();
+			SelectTypeForGeneric((*str)->pos, nodeOffset - 1 + argID);
+			if(curr->refLevel)
+				SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
+		}
 
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: variable name not found after type in function variable list");
@@ -513,6 +610,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 
 	CALLBACK(FunctionAdd((*str)->pos, functionName));
 
+	Lexeme *vars = *str;
 	ParseFunctionVariables(str);
 
 	if(!ParseLexem(str, lex_cparen))
@@ -520,6 +618,8 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 
 	if(ParseLexem(str, lex_semicolon))
 	{
+		if(FunctionGeneric(false))
+			ThrowError((*str)->pos, "ERROR: generic function cannot be forward-declared");
 		CALLBACK(AddVoidNode());
 		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
 			CALLBACK(FunctionToOperator(start->pos));
@@ -529,21 +629,42 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		return true;
 	}
 
-	CALLBACK(FunctionStart((*str-1)->pos));
-	if(!ParseLexem(str, lex_ofigure))
-		ThrowError((*str)->pos, "ERROR: '{' not found after function header");
-	const char *lastFunc = SetCurrentFunction(NULL);
+	if(FunctionGeneric(false))
+	{
+		if(!ParseLexem(str, lex_ofigure))
+			ThrowError((*str)->pos, "ERROR: '{' not found after function header");
+		FunctionGeneric(true, unsigned(vars - CodeInfo::lexStart));
+		FunctionPrototype(start->pos);
+		unsigned braces = 1;
+		while(braces)
+		{
+			if((*str)->type == lex_none)
+				ThrowError((*str)->pos, "ERROR: unknown lexeme in function body");
+			if(ParseLexem(str, lex_ofigure))
+				braces++;
+			else if(ParseLexem(str, lex_cfigure))
+				braces--;
+			else
+				(*str)++;
+		}
+		AddVoidNode();
+	}else{
+		CALLBACK(FunctionStart((*str-1)->pos));
+		if(!ParseLexem(str, lex_ofigure))
+			ThrowError((*str)->pos, "ERROR: '{' not found after function header");
+		const char *lastFunc = SetCurrentFunction(NULL);
 
-	if(!ParseCode(str))
-		CALLBACK(AddVoidNode());
-	if(!ParseLexem(str, lex_cfigure))
-		ThrowError((*str)->pos, "ERROR: '}' not found after function body");
-	SetCurrentFunction(lastFunc);
+		if(!ParseCode(str))
+			CALLBACK(AddVoidNode());
+		if(!ParseLexem(str, lex_cfigure))
+			ThrowError((*str)->pos, "ERROR: '}' not found after function body");
+		SetCurrentFunction(lastFunc);
 
-	if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
-		CALLBACK(FunctionToOperator(start->pos));
+		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
+			CALLBACK(FunctionToOperator(start->pos));
 
-	CALLBACK(FunctionEnd(start->pos));
+		CALLBACK(FunctionEnd(start->pos));
+	}
 
 	if(typeMethod)
 		CALLBACK(TypeStop());
@@ -623,7 +744,7 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 		if(ParseSelectType(str) && type->funcType->paramType[currArg] != GetSelectedType())
 		{
 			Lexeme *varName = *str;
-			void *varInfo = AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length));
+			VariableInfo *varInfo = AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length));
 			(*str)++;
 			
 			char *paramName = (char*)stringPool.Allocate(varName->length + 2);
@@ -672,7 +793,7 @@ bool ParseAddVariable(Lexeme** str)
 	if(ParseLexem(str, lex_obracket))
 		ThrowError((*str)->pos, "ERROR: array size must be specified after typename");
 
-	void *varInfo = AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length));
+	VariableInfo *varInfo = AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length));
 
 	if(ParseLexem(str, lex_set))
 	{
@@ -688,7 +809,7 @@ bool ParseAddVariable(Lexeme** str)
 
 bool ParseVariableDefineSub(Lexeme** str)
 {
-	void* currType = GetSelectedType();
+	TypeInfo* currType = GetSelectedType();
 	if(!ParseAddVariable(str))
 		ThrowError((*str)->pos, "ERROR: unexpected symbol '%.*s' after type name. Variable name is expected at this point", (*str)->length, (*str)->pos);
 
@@ -782,7 +903,7 @@ bool ParseForExpr(Lexeme** str)
 	{
 		isForEach = true;
 
-		void *type = (*str + 1)->type == lex_in ? NULL : GetSelectedType();
+		TypeInfo *type = (*str + 1)->type == lex_in ? NULL : GetSelectedType();
 		*str = curr;
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: variable name expected before 'in'");
@@ -799,7 +920,7 @@ bool ParseForExpr(Lexeme** str)
 
 		while(ParseLexem(str, lex_comma))
 		{
-			void *type = NULL;
+			TypeInfo *type = NULL;
 			if(ParseSelectType(str))
 				type = GetSelectedType();
 
@@ -1078,7 +1199,7 @@ bool ParseArray(Lexeme** str)
 			AddVoidNode();
 
 		AddGeneratorReturnData((*str)->pos);
-		void *retType = GetSelectedType();
+		TypeInfo *retType = GetSelectedType();
 		AddReturnNode((*str)->pos);
 		AddTwoExpressionNode();
 

@@ -166,4 +166,15 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j{ i; });", "ERROR: '>' expected after short inline function argument list");
 	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j> i; });", "ERROR: '{' not found after function header");
 	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j>{ i; );", "ERROR: '}' not found after function body");
+
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).name;", "ERROR: expected 'argument'/'return'/'target' at this point");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo(1,2,3)).argument;", "ERROR: 'argument' can only be applied to a function type, but we have 'double'");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument;", "ERROR: expected '.first'/'.last'/'[N]' at this point");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument[;", "ERROR: argument number expected after '['");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument[1;", "ERROR: expected ']'");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument[10;", "ERROR: this function type 'double ref(int,int,int)' has only 3 argument(s)");
+	TEST_FOR_FAIL("parsing", "double foo(){ return 0; } typeof(foo).argument.first;", "ERROR: this function type 'double ref()' doesn't have arguments");
+	TEST_FOR_FAIL("parsing", "double foo(){ return 0; } typeof(foo).argument.last;", "ERROR: this function type 'double ref()' doesn't have arguments");
+	TEST_FOR_FAIL("parsing", "return double == typeof(1).return;", "ERROR: 'return' can only be applied to a function type, but we have 'int'");
+	TEST_FOR_FAIL("parsing", "return double == typeof(1).target;", "ERROR: 'target' can only be applied to a pointer or array type, but we have 'int'");
 }

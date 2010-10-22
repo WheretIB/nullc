@@ -34,7 +34,7 @@ TEST_RUNTIME_FAIL("Modulus division by zero handling 2", testModZeroLong, "ERROR
 
 const char	*testFuncNoReturn = 
 "// Function with no return handling\r\n\
-int test(){ 1; } // temporary\r\n\
+int test(){ if(0) return 2; } // temporary\r\n\
 return test();";
 TEST_RUNTIME_FAIL("Function with no return handling", testFuncNoReturn, "ERROR: function didn't return a value");
 

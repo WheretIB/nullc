@@ -266,7 +266,7 @@ namespace ColorerGrammar
 				(strP(")")[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
 			funcvars	=
 				!(
-					typeExpr >>
+					(typeExpr | (strP("generic")[ColorRWord] >> !strP("ref"))) >>
 					constExpr >>
 					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")]) >>
 					!(chP('=')[ColorText] >> term4_9)
@@ -274,7 +274,7 @@ namespace ColorerGrammar
 				*(
 					strP(",")[ColorText] >>
 					(
-						!(typeExpr >> constExpr) >>
+						!((typeExpr | (strP("generic")[ColorRWord] >> !strP("ref"))) >> constExpr) >>
 						((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")]) >>
 						!(chP('=')[ColorText] >> term4_9)
 					)

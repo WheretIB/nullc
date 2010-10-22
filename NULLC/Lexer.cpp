@@ -303,6 +303,8 @@ void Lexer::Lexify(const char* code)
 							lType = lex_typedef;
 						else if(memcmp(code, "nullptr", 7) == 0)
 							lType = lex_nullptr;
+						else if(memcmp(code, "generic", 7) == 0)
+							lType = lex_generic;
 						break;
 					case 8:
 						if(memcmp(code, "continue", 8) == 0)
