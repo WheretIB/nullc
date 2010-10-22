@@ -315,7 +315,7 @@ int bar(int ref(float) f){ return f(10); }\r\n\
 return bar(foo);",
 "line 5 - ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n\
   bar(int ref(float) or int ref(int))\r\n\
- the only available are:\r\n\
+ candidates are:\r\n\
   bar(int ref(float))\r\n\
   bar(int ref(int))\r\n\
 \r\n\

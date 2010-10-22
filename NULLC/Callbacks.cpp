@@ -2984,7 +2984,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s", nodeType->GetFullTypeName());
 		}
 	}
-	errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n the only available are:\r\n");
+	errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), minRating == ~0u ? ")\r\n the only available are:\r\n" : ")\r\n candidates are:\r\n");
 	for(unsigned int n = 0; n < count; n++)
 	{
 		if(bestFuncRating[n] != minRating)
