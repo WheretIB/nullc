@@ -3968,7 +3968,7 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 		AliasInfo *info = TypeInfo::CreateAlias(aliasName, currType);
 		info->next = aliasList;
 		aliasList = info;
-		CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
+		CodeInfo::classMap.insert(info->nameHash, currType);
 
 		start++;
 		aliasID++;
@@ -3989,6 +3989,11 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 	// Search if the type was already defined
 	if(TypeInfo **lastType = CodeInfo::classMap.find(GetStringHash(tempName, namePos)))
 	{
+		while(aliasList)
+		{
+			CodeInfo::classMap.remove(aliasList->nameHash, aliasList->type);
+			aliasList = aliasList->next;
+		}
 		currType = *lastType;
 		return;
 	}
