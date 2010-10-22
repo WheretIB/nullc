@@ -205,7 +205,18 @@ namespace ColorerGrammar
 						strP("typeof")[ColorRWord] >>
 						(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
 						(term5 | epsP[LogError("ERROR: expression not found in 'typeof' statement")]) >>
-						(chP(')')[ColorText] | epsP[LogError("ERROR: ')' not found after 'typeof' statement")])
+						(chP(')')[ColorText] | epsP[LogError("ERROR: ')' not found after 'typeof' statement")]) >>
+						!(
+							chP('.')[ColorText] >>
+							(
+								(
+									strP("argument")[ColorRWord] >>
+									((chP('.')[ColorText] >> (strP("first")[ColorRWord] | strP("last")[ColorRWord])) | (chP('[')[ColorText] >> intP[ColorReal] >> chP(']')[ColorText]))
+								) |
+								strP("return")[ColorRWord] |
+								strP("target")[ColorRWord]
+							)
+						)
 					)
 				) >>
 				*(
@@ -266,7 +277,7 @@ namespace ColorerGrammar
 				(strP(")")[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
 			funcvars	=
 				!(
-					(typeExpr | (strP("generic")[ColorRWord] >> !strP("ref"))) >>
+					(typeExpr | (strP("generic")[ColorRWord] >> !strP("ref")[ColorRWord])) >>
 					constExpr >>
 					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")]) >>
 					!(chP('=')[ColorText] >> term4_9)
@@ -274,7 +285,7 @@ namespace ColorerGrammar
 				*(
 					strP(",")[ColorText] >>
 					(
-						!((typeExpr | (strP("generic")[ColorRWord] >> !strP("ref"))) >> constExpr) >>
+						!((typeExpr | (strP("generic")[ColorRWord] >> !strP("ref")[ColorRWord])) >> constExpr) >>
 						((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")]) >>
 						!(chP('=')[ColorText] >> term4_9)
 					)
