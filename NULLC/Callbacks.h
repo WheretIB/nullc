@@ -116,6 +116,7 @@ void FinishConstructorCall(const char* pos);
 void BeginCoroutine();
 void FunctionAdd(const char* pos, const char* funcName);
 void FunctionParameter(const char* pos, InplaceStr paramName);
+void FunctionPrepareDefault();
 void FunctionParameterDefault(const char* pos);
 void FunctionPrototype(const char* pos);
 void FunctionStart(const char* pos);
