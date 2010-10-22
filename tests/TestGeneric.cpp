@@ -1121,3 +1121,34 @@ foo(arr, bar);\r\n\
 foo(arr, bar);\r\n\
 return 1;";
 TEST_RESULT("Generic function is instanced only once", testGeneric82, "1");
+
+const char *testGeneric83 =
+"int a = 5;\r\n\
+class Foo\r\n\
+{\r\n\
+	int x;\r\n\
+	auto foo(generic t){ return a + t + x; }\r\n\
+}\r\n\
+Foo z;\r\n\
+z.x = 10;\r\n\
+return z.foo(6);";
+TEST_RESULT("Generic member function accesses member variables", testGeneric83, "21");
+
+const char *testGeneric84 =
+"int a = 5;\r\n\
+class Foo\r\n\
+{\r\n\
+	int x;\r\n\
+	auto foo(generic t){ return a + t + x; }\r\n\
+}\r\n\
+Foo z;\r\n\
+z.x = 10;\r\n\
+class Bar\r\n\
+{\r\n\
+	int y;\r\n\
+	auto bar(generic t){ return z.foo(6) + t + y; }\r\n\
+}\r\n\
+Bar w;\r\n\
+w.y = 2000;\r\n\
+return w.bar(100);";
+TEST_RESULT("Generic member function instance while generic function is intanced", testGeneric84, "2121");

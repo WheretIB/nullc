@@ -108,6 +108,12 @@ public:
 
 		definitionDepth = 1;
 
+		definitionList = NULL;
+		genericInfo = NULL;
+		genericBase = NULL;
+
+		hasFinished = true;
+
 #ifdef NULLC_LLVM_SUPPORT
 		llvmType = NULL;
 #endif
@@ -131,6 +137,7 @@ public:
 	bool			hasPointers;
 	bool			dependsOnGeneric;
 	bool			hasFinalizer;
+	bool			hasFinished;
 
 	unsigned int	arrSize;	// element count for an array
 	unsigned int	memberCount;
@@ -147,6 +154,10 @@ public:
 	TypeInfo		*refType, *unsizedType, *arrayType, *nextArrayType;
 
 	AliasInfo		*childAlias;
+
+	NodeZeroOP		*definitionList;
+	GenericContext	*genericInfo;
+	TypeInfo		*genericBase;
 
 #ifdef NULLC_LLVM_SUPPORT
 	const void		*llvmType;
@@ -333,6 +344,12 @@ public:
 		info->next = NULL;
 		return info;
 	}
+	GenericContext*	CreateGenericContext(unsigned genericStart)
+	{
+		genericInfo = new (typeInfoPool.Allocate(sizeof(GenericContext))) GenericContext();
+		genericInfo->start = genericStart;
+		return genericInfo;
+	}
 
 	FunctionType		*funcType;
 // Specialized allocation
@@ -375,6 +392,7 @@ public:
 		isGlobal = global;
 		usedAsExternal = false;
 		parentFunction = parent;
+		parentType = NULL;
 		
 		parentModule = 0;
 		blockDepth = 0;
@@ -397,6 +415,7 @@ public:
 	bool			isGlobal, usedAsExternal;
 	bool			autoDeref;
 	FunctionInfo	*parentFunction;
+	TypeInfo		*parentType;
 
 	unsigned int	parentModule;
 	unsigned int	blockDepth;

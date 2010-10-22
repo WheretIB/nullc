@@ -207,4 +207,18 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "typeof(1).isReference[4] x;", "ERROR: typeof expression result is not a type");
 
 	TEST_FOR_FAIL("parsing", "typeof(1).arraySize x;", "ERROR: 'arraySize' can only be applied to an array type, but we have 'int'");
+
+	TEST_FOR_FAIL("parsing", "class Foo<>{}", "ERROR: generic type alias required after '<'");
+	TEST_FOR_FAIL("parsing", "class Foo<T, >{}", "ERROR: generic type alias required after ','");
+	TEST_FOR_FAIL("parsing", "class Foo<T, U{}", "ERROR: '>' expected after generic type alias list");
+	TEST_FOR_FAIL("parsing", "class Foo<T, U>}", "ERROR: '{' not found after class name");
+	TEST_FOR_FAIL("parsing", "class Foo<T>{", "ERROR: unknown lexeme in class body");
+
+	TEST_FOR_FAIL("parsing", "class Foo<T>{ T x; } Foo a;", "ERROR: generic class instance requires list of types inside '<' '>'");
+	TEST_FOR_FAIL("parsing", "int<float> a;", "ERROR: cannot specify argument list for a class that is not generic");
+	TEST_FOR_FAIL("parsing", "class Foo<T, U>{} Foo<> a;", "ERROR: typename required after '<'");
+	TEST_FOR_FAIL("parsing", "class Foo<T, U>{} Foo<int, > b;", "ERROR: typename required after ','");
+	TEST_FOR_FAIL("parsing", "class Foo<T, U>{} Foo<int, int b;", "ERROR: '>' expected after generic type alias list");
+
+	TEST_FOR_FAIL("parsing", "class Foo{ int a; flaot b; }", "ERROR: 'flaot' is not a known type name");
 }

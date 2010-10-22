@@ -367,4 +367,70 @@ return bar(foo);",
 	if(!nullcLoadModuleBySource("test.import_typedef2b", "typedef int Foo;"))
 		printf("Failed to create module test.import_typedef2b\n");
 	TEST_FOR_FAIL("type alias collision with class", "import test.import_typedef2a; import test.import_typedef2b; return 1;", "ERROR: type 'int' alias 'Foo' is equal to previously imported alias");
+
+	TEST_FOR_FAIL("generic type too many arguments", "class Foo<T>{ T a; } Foo<int, float, int>", "ERROR: type has only '1' generic argument(s) while '3' specified");
+	TEST_FOR_FAIL("generic type wrong argument count", "class Foo<T, U>{ T a; } Foo<int>", "ERROR: there where only '1' argument(s) to a generic type that expects '2'");
+	TEST_FOR_FAIL("generic instance type invisible after instance", "class Foo<T>{ T x, y, z; } Foo<int> x; T a; return a;", "ERROR: variable or function 'T' is not defined");
+
+	TEST_FOR_FAIL("generic type used type in definition 1", "class Foo<T>{ T x; Bar<float> y; } class Bar<T>{ Foo<T ref> x; } Foo<Bar<int> > a; return 0;", "ERROR: while instantiating generic type Bar<int>:");
+	TEST_FOR_FAIL("generic type used type in definition 2", "class Foo<T>{ T x; Bar<T ref> y; } class Bar<T>{ Foo<T ref> x; } Foo<Bar<int> > a; return 0;", "ERROR: while instantiating generic type Bar<int>:");
+
+	TEST_FOR_FAIL_GENERIC("generic type function scope",
+"class Foo<T>\r\n\
+{\r\n\
+	T x, y, z;\r\n\
+	int foo()\r\n\
+	{\r\n\
+		return c;\r\n\
+	}\r\n\
+}\r\n\
+int c = 10;\r\n\
+Foo<int> x;\r\n\
+return x.foo();", "ERROR: while instantiating generic type Foo<int>:", "ERROR: variable or function 'c' is not defined");
+
+	TEST_FOR_FAIL_GENERIC("generic type function scope 2",
+"class Foo<T>\r\n\
+{\r\n\
+	T x, y, z;\r\n\
+	int foo()\r\n\
+	{\r\n\
+		return c;\r\n\
+	}\r\n\
+}\r\n\
+int bar()\r\n\
+{\r\n\
+	int ken()\r\n\
+	{\r\n\
+		int c = 5;\r\n\
+		Foo<int> x;\r\n\
+		return x.foo();\r\n\
+	}\r\n\
+	return ken();\r\n\
+}\r\n\
+return bar();", "ERROR: while instantiating generic type Foo<int>:", "ERROR: variable or function 'c' is not defined");
+
+	TEST_FOR_FAIL_GENERIC("generic type function scope 3",
+"class Foo<T>\r\n\
+{\r\n\
+	T x, y, z;\r\n\
+}\r\n\
+int Foo:foo()\r\n\
+{\r\n\
+	return c;\r\n\
+}\r\n\
+int c = 10;\r\n\
+Foo<int> x;\r\n\
+return x.foo();", "ERROR: while instantiating generic function Foo::foo()", "ERROR: variable or function 'c' is not defined");
+
+	TEST_FOR_FAIL("generic type name is too long", 
+"class Pair<T, U>{ T i; U j; }\r\n\
+Pair<int ref(int ref(int, int), int ref(int, int)), int ref(int ref(int, int), int ref(int, int))> x;\r\n\
+Pair<typeof(x), typeof(x)> x1;\r\n\
+Pair<typeof(x1), typeof(x1)> x2;\r\n\
+Pair<typeof(x2), typeof(x2)> x3;\r\n\
+Pair<typeof(x3), typeof(x3)> x4;\r\n\
+Pair<typeof(x4), typeof(x4)> x5;\r\n\
+return sizeof(x5);", "ERROR: generated generic type name exceeds maximum type length '2048'");
+
+	TEST_FOR_FAIL("generic type member function doesn't exist", "class Foo<T>{ T a; void foo(){} } Foo<int> x; x.food();", "ERROR: function 'Foo::food' is undefined");
 }
