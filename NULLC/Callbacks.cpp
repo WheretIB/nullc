@@ -18,6 +18,9 @@ unsigned int currAlign;
 // Is some variable being defined at the moment
 bool varDefined;
 
+unsigned int	instanceDepth;
+char			*errorReport = NULL;
+
 // Number of implicit variable
 unsigned int inplaceVariableNum;
 
@@ -3005,25 +3008,24 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			if(silent)
 				return false;
-			const unsigned errLength = 2048;
-			char	errTemp[errLength];
-			char	*errPos = errTemp;
-			errPos += SafeSprintf(errPos, errLength, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: can't find function '%s' with following parameters:\r\n  %s(", funcName, funcName);
 			for(unsigned int n = 0; n < callArgCount; n++)
 			{
 				NodeZeroOP *activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n];
 				TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 			}
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n the only available are:\r\n");
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n the only available are:\r\n");
 			for(unsigned int n = 0; n < count; n++)
 			{
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "  %s(", funcName);
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "  %s(", funcName);
 				for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
-					errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n");
+					errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
 			}
-			ThrowError(pos, errTemp);
+			CodeInfo::lastError = CompilerError(errorReport, pos);
+			longjmp(CodeInfo::errorHandler, 1);
 		}else{
 			fType = bestFuncList[minRatingIndex]->funcType->funcType;
 			fInfo = bestFuncList[minRatingIndex];
@@ -3033,27 +3035,26 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			if(k != minRatingIndex && bestFuncRating[k] == minRating)
 			{
-				const unsigned errLength = 2048;
-				char	errTemp[errLength];
-				char	*errPos = errTemp;
-				errPos += SafeSprintf(errPos, errLength, "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
+				char	*errPos = errorReport;
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call.\r\n  %s(", funcName);
 				for(unsigned int n = 0; n < callArgCount; n++)
 				{
 					NodeZeroOP *activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n];
 					TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
-					errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+					errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", nodeType->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
 				}
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n  candidates are:\r\n");
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n  candidates are:\r\n");
 				for(unsigned int n = 0; n < count; n++)
 				{
 					if(bestFuncRating[n] != minRating)
 						continue;
-					errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "  %s(", funcName);
+					errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "  %s(", funcName);
 					for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
-						errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
-					errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n");
+						errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
+					errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
 				}
-				ThrowError(pos, errTemp);
+				CodeInfo::lastError = CompilerError(errorReport, pos);
+				longjmp(CodeInfo::errorHandler, 1);
 			}
 		}
 	}else{
@@ -3108,28 +3109,29 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 		if(bestRating == ~0u)
 		{
-			const unsigned errLength = 2048;
-			char	errTemp[errLength];
-			char	*errPos = errTemp;
+			char	*errPos = errorReport;
 			if(callArgCount != fType->paramCount)
-				errPos += SafeSprintf(errPos, errLength, "ERROR: function expects %d argument(s), while %d are supplied\r\n", fType->paramCount, callArgCount);
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: function expects %d argument(s), while %d are supplied\r\n", fType->paramCount, callArgCount);
 			else
-				errPos += SafeSprintf(errPos, errLength, "ERROR: there is no conversion from specified arguments and the ones that function accepts\r\n");
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "\tExpected: (");
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: there is no conversion from specified arguments and the ones that function accepts\r\n");
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "\tExpected: (");
 			for(unsigned int n = 0; n < fType->paramCount; n++)
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", fType->paramType[n]->GetFullTypeName(), n != fType->paramCount - 1 ? ", " : "");
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n");
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", fType->paramType[n]->GetFullTypeName(), n != fType->paramCount - 1 ? ", " : "");
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
 			
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "\tProvided: (");
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "\tProvided: (");
 			for(unsigned int n = 0; n < callArgCount; n++)
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")");
-			ThrowError(pos, errTemp);
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n]->typeInfo->GetFullTypeName(), n != callArgCount-1 ? ", " : "");
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")");
+			CodeInfo::lastError = CompilerError(errorReport, pos);
+			longjmp(CodeInfo::errorHandler, 1);
 		}
 	}
 	NodeZeroOP *funcDefAtEnd = NULL;
 	if(fInfo && fInfo->generic)
 	{
+		if(instanceDepth++ > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
+			ThrowError(pos, "ERROR: reached maximum generic function instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
 		// Get ID of the function that will be created
 		unsigned funcID = CodeInfo::funcInfo.size();
 
@@ -3205,20 +3207,19 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}else{
 			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 
-			const unsigned errLength = 2048;
-			char	errTemp[errLength];
-			char	*errPos = errTemp;
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "ERROR: while instantiating generic function %s(", fInfo->name);
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "ERROR: while instantiating generic function %s(", fInfo->name);
 			for(unsigned i = 0; i < fType->paramCount; i++)
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n\tusing argument vector (");
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n\tusing argument vector (");
 			for(unsigned i = 0; i < fType->paramCount; i++)
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n");
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s", CodeInfo::lastError.GetErrorString());
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s", CodeInfo::lastError.GetErrorString());
 			errPos -= 2;
 			*errPos++ = 0;
-			ThrowError(pos, errTemp);
+			CodeInfo::lastError = CompilerError(errorReport, pos);
+			longjmp(CodeInfo::errorHandler, 1);
 		}
 		memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 
@@ -3253,18 +3254,18 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		if(GetFunctionRating(fType, callArgCount) == ~0u)
 		{
-			const unsigned errLength = 2048;
-			char	errTemp[errLength];
-			char	*errPos = errTemp;
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "ERROR: unable to call '%s' after instantiating while matching argument vector\r\n\t(", fInfo->name);
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "ERROR: unable to call '%s' after instantiating while matching argument vector\r\n\t(", fInfo->name);
 			for(unsigned i = 0; i < fType->paramCount; i++)
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")\r\n\tagainst parameters\r\n\t(");
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n\tagainst parameters\r\n\t(");
 			for(unsigned i = 0; i < fType->paramCount; i++)
-				errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
-			errPos += SafeSprintf(errPos, errLength - int(errPos - errTemp), ")");
-			ThrowError(pos, errTemp);
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")");
+			CodeInfo::lastError = CompilerError(errorReport, pos);
+			longjmp(CodeInfo::errorHandler, 1);
 		}
+		instanceDepth--;
 	}
 
 	if(fInfo && callArgCount < fType->paramCount)
@@ -3419,12 +3420,15 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	// Pure function evaluation
 	if(fInfo && fInfo->pure && !(currDefinedFunc.size() && currDefinedFunc.back() == fInfo))
 	{
-		//static int success = 0, fail = 0;
-		char memory[1024];
+#ifdef _DEBUG
+		static int inside = false;
+		assert(!inside);
+		inside = true;
+#endif
+		static char memory[1024];
 		NodeFuncCall::baseShift = 0;
 		if(NodeNumber *value = CodeInfo::nodeList.back()->Evaluate(memory, 1024))
 		{
-			//printf("Successful pure function call (%s) %d %d\n", fInfo->name, ++success, fail);
 			CodeInfo::nodeList.back() = value;
 		}else{
 			if(!uncalledFunc)
@@ -3432,8 +3436,10 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				uncalledFunc = fInfo;
 				uncalledPos = pos;
 			}
-			//printf("Function (%s) failed to evaluate %d %d\n", fInfo->name, success, ++fail);
 		}
+#ifdef _DEBUG
+		inside = false;
+#endif
 	}
 	if(fInfo && !fInfo->pure && !uncalledFunc)
 	{
@@ -3899,6 +3905,7 @@ void CallbackInitialize()
 	varDefined = false;
 	varTop = 0;
 	newType = NULL;
+	instanceDepth = 0;
 
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	inplaceVariableNum = 1;
@@ -3942,6 +3949,9 @@ void CallbackInitialize()
 	typeObjectArray = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
 
 	defineCoroutine = false;
+
+	if(!errorReport)
+		errorReport = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
 }
 
 unsigned int GetGlobalSize()
@@ -3976,4 +3986,7 @@ void CallbackReset()
 	VariableInfo::SetPoolTop(0);
 	FunctionInfo::functionPool.~ChunkedStackPool();
 	FunctionInfo::SetPoolTop(0);
+
+	NULLC::dealloc(errorReport);
+	errorReport = NULL;
 }

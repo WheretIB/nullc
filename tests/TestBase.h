@@ -203,7 +203,7 @@ Test_##code test_##code;
 	if(!good)\
 	{\
 		char buf[1024];\
-		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));\
+		strncpy(buf, strstr(nullcGetLastError(), "ERROR:"), 1023); buf[1023] = 0;\
 		if(char *lineEnd = strchr(buf, '\r'))\
 			*lineEnd = 0;\
 		if(strcmp(error, buf) != 0)\
