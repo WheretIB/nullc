@@ -37,22 +37,29 @@ const char*					CodeInfo::lastKnownStartPos = NULL;
 
 Lexeme						*CodeInfo::lexStart = NULL, *CodeInfo::lexFullStart = NULL;
 
-Compiler*	compiler;
+namespace NULLC
+{
+	Compiler*	compiler;
 #ifndef NULLC_NO_EXECUTOR
-	Linker*		linker;
-	Executor*	executor;
+		Linker*		linker;
+		Executor*	executor;
 #endif
 #ifdef NULLC_BUILD_X86_JIT
-	ExecutorX86*	executorX86;
+		ExecutorX86*	executorX86;
 #endif
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
-	ExecutorLLVM*	executorLLVM;
+		ExecutorLLVM*	executorLLVM;
 #endif
 
-const char*	nullcLastError = NULL;
+	const char*	nullcLastError = NULL;
 
-unsigned int currExec = 0;
-char	*argBuf = NULL;
+	unsigned int currExec = 0;
+	char	*argBuf = NULL;
+
+	bool initialized = false;
+}
+
+#define NULLC_CHECK_INITIALIZED(retval) if(!initialized){ nullcLastError = "ERROR: NULLC is not initialized"; return retval; }
 
 void	nullcInit(const char* importPath)
 {
@@ -61,6 +68,14 @@ void	nullcInit(const char* importPath)
 
 void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath)
 {
+	using namespace NULLC;
+	if(initialized)
+	{
+		nullcLastError = "ERROR: NULLC is already initialized";
+		return;
+	}
+	nullcLastError = "";
+
 	NULLC::alloc = allocFunc ? allocFunc : NULLC::defaultAlloc;
 	NULLC::dealloc = deallocFunc ? deallocFunc : NULLC::defaultDealloc;
 	NULLC::fileLoad = NULLC::defaultFileLoad;
@@ -94,6 +109,8 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	BinaryCache::SetImportPath(importPath);
 
 	argBuf = (char*)NULLC::alloc(64 * 1024);
+
+	initialized = true;
 }
 
 void	nullcSetImportPath(const char* importPath)
@@ -108,12 +125,17 @@ void	nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name
 
 void	nullcSetExecutor(unsigned int id)
 {
+	using namespace NULLC;
+
 	currExec = id;
 }
 
 #ifdef NULLC_BUILD_X86_JIT
 nullres	nullcSetJiTStack(void* start, void* end, unsigned int flagMemoryAllocated)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	if(!executorX86->SetStackPlacement(start, end, flagMemoryAllocated))
 	{
 		nullcLastError = executorX86->GetExecError();
@@ -132,6 +154,9 @@ void nullcSetGlobalMemoryLimit(unsigned int limit)
 
 nullres	nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	nullres good = compiler->AddModuleFunction(module, ptr, name, index);
 	if(good == 0)
 		nullcLastError = compiler->GetError();
@@ -140,6 +165,9 @@ nullres	nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const 
 
 nullres nullcLoadModuleBySource(const char* module, const char* code)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	if(!nullcCompile(code))
 		return false;
 	if(strlen(module) > 512)
@@ -170,6 +198,9 @@ nullres nullcLoadModuleBySource(const char* module, const char* code)
 
 nullres nullcLoadModuleByBinary(const char* module, const char* binary)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	if(strlen(module) > 512)
 	{
 		nullcLastError = "ERROR: module name is too long";
@@ -200,6 +231,9 @@ nullres nullcLoadModuleByBinary(const char* module, const char* binary)
 
 nullres	nullcCompile(const char* code)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	nullcLastError = "";
 	nullres good = compiler->Compile(code);
 	if(good == 0)
@@ -209,6 +243,9 @@ nullres	nullcCompile(const char* code)
 
 unsigned int nullcGetBytecode(char **bytecode)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(0);
+
 	unsigned int size = compiler->GetBytecode(bytecode);
 	// Load it into cache
 	BinaryCache::LastBytecode(*bytecode);
@@ -217,11 +254,17 @@ unsigned int nullcGetBytecode(char **bytecode)
 
 unsigned int nullcGetBytecodeNoCache(char **bytecode)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(0);
+
 	return compiler->GetBytecode(bytecode);
 }
 
 void	nullcSaveListing(const char *fileName)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED((void)0);
+
 #ifdef NULLC_LOG_FILES
 	compiler->SaveListing(fileName);
 #else
@@ -231,6 +274,9 @@ void	nullcSaveListing(const char *fileName)
 
 void	nullcTranslateToC(const char *fileName, const char *mainName)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED((void)0);
+
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	compiler->TranslateToC(fileName, mainName);
 #else
@@ -241,6 +287,9 @@ void	nullcTranslateToC(const char *fileName, const char *mainName)
 
 void nullcClean()
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED((void)0);
+
 #ifndef NULLC_NO_EXECUTOR
 	linker->CleanCode();
 	executor->ClearBreakpoints();
@@ -253,6 +302,9 @@ void nullcClean()
 
 nullres nullcLinkCode(const char *bytecode)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 #ifndef NULLC_NO_EXECUTOR
 	if(!linker->LinkCode(bytecode))
 	{
@@ -290,6 +342,8 @@ nullres nullcLinkCode(const char *bytecode)
 
 nullres nullcBuild(const char* code)
 {
+	using namespace NULLC;
+
 	if(!nullcCompile(code))
 		return false;
 	char *bytecode = NULL;
@@ -303,6 +357,9 @@ nullres nullcBuild(const char* code)
 
 nullres	nullcRun()
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 #ifndef NULLC_NO_EXECUTOR
 	return nullcRunFunction(NULL);
 #else
@@ -314,6 +371,8 @@ nullres	nullcRun()
 #ifndef NULLC_NO_EXECUTOR
 const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, va_list args)
 {
+	using namespace NULLC;
+
 	// Copy arguments in argument buffer
 	ExternFuncInfo	&func = linker->exFunctions[functionID];
 	char *argPos = argBuf;
@@ -413,6 +472,9 @@ const char*	nullcGetArgumentVector(unsigned int functionID, unsigned int extra, 
 
 nullres	nullcRunFunction(const char* funcName, ...)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	nullres good = true;
 
 #ifndef NULLC_NO_EXECUTOR
@@ -494,6 +556,9 @@ nullres	nullcRunFunction(const char* funcName, ...)
 
 void nullcThrowError(const char* error, ...)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED((void)0);
+
 	va_list args;
 	va_start(args, error);
 
@@ -514,6 +579,9 @@ void nullcThrowError(const char* error, ...)
 
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	const char* error = NULL;
 	// Copy arguments in argument buffer
 	va_list args;
@@ -542,6 +610,9 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 
 nullres nullcSetGlobal(const char* name, void* data)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !data || !mem)
 		return 0;
@@ -559,6 +630,9 @@ nullres nullcSetGlobal(const char* name, void* data)
 
 void* nullcGetGlobal(const char* name)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !mem)
 		return NULL;
@@ -573,6 +647,8 @@ void* nullcGetGlobal(const char* name)
 
 unsigned int nullcFindFunctionIndex(const char* name)
 {
+	using namespace NULLC;
+
 	if(!linker)
 	{
 		nullcLastError = "ERROR: NULLC cannot find linked code";
@@ -612,6 +688,9 @@ unsigned int nullcFindFunctionIndex(const char* name)
 
 nullres nullcGetFunction(const char* name, NULLCFuncPtr* func)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	if(!func)
 	{
 		nullcLastError = "ERROR: passed pointer to NULLC function is 'null'";
@@ -627,6 +706,9 @@ nullres nullcGetFunction(const char* name, NULLCFuncPtr* func)
 
 nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
 	unsigned int index = nullcFindFunctionIndex(name);
 	if(index == ~0u)
 		return false;
@@ -671,6 +753,9 @@ nullres nullcIsManagedPointer(void* ptr)
 
 const char* nullcGetResult()
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED("");
+
 #ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		return executor->GetResult();
@@ -687,6 +772,9 @@ const char* nullcGetResult()
 }
 int nullcGetResultInt()
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(0);
+
 #ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		return executor->GetResultInt();
@@ -703,6 +791,9 @@ int nullcGetResultInt()
 }
 double nullcGetResultDouble()
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(0.0);
+
 #ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		return executor->GetResultDouble();
@@ -719,6 +810,9 @@ double nullcGetResultDouble()
 }
 long long nullcGetResultLong()
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(0);
+
 #ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		return executor->GetResultLong();
@@ -736,28 +830,35 @@ long long nullcGetResultLong()
 
 const char*	nullcGetLastError()
 {
-	return nullcLastError;
+	return NULLC::nullcLastError;
 }
 
 #ifndef NULLC_NO_EXECUTOR
 void* nullcAllocate(unsigned int size)
 {
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
 	return NULLC::AllocObject(size);
 }
 
 int nullcInitTypeinfoModule()
 {
-	return nullcInitTypeinfoModule(linker);
+	return nullcInitTypeinfoModule(NULLC::linker);
 }
 
 int nullcInitDynamicModule()
 {
-	return nullcInitDynamicModule(linker);
+	return nullcInitDynamicModule(NULLC::linker);
 }
 #endif
 
 void nullcTerminate()
 {
+	using namespace NULLC;
+	nullcLastError = "";
+	if(!initialized)
+		return;
+
 	NULLC::dealloc(argBuf);
 	argBuf = NULL;
 
@@ -794,6 +895,8 @@ void nullcTerminate()
 	CodeInfo::typeArrays.reset();
 	CodeInfo::typeFunctions.reset();
 	CodeInfo::classMap.reset();
+
+	initialized = false;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -801,6 +904,8 @@ void nullcTerminate()
 
 void* nullcGetVariableData(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(currExec == NULLC_VM)
 	{
 #ifndef NULLC_NO_EXECUTOR
@@ -821,6 +926,8 @@ void* nullcGetVariableData(unsigned int *count)
 
 unsigned int nullcGetCurrentExecutor(void **exec)
 {
+	using namespace NULLC;
+
 #ifdef NULLC_BUILD_X86_JIT
 	if(exec)
 		*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
@@ -846,6 +953,8 @@ const void* nullcGetModule(const char* path)
 #ifndef NULLC_NO_EXECUTOR
 ExternTypeInfo* nullcDebugTypeInfo(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exTypes.size();
 	return linker ? linker->exTypes.data : NULL;
@@ -853,6 +962,8 @@ ExternTypeInfo* nullcDebugTypeInfo(unsigned int *count)
 
 unsigned int* nullcDebugTypeExtraInfo(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exTypeExtra.size();
 	return linker ? linker->exTypeExtra.data : NULL;
@@ -860,6 +971,8 @@ unsigned int* nullcDebugTypeExtraInfo(unsigned int *count)
 
 ExternVarInfo* nullcDebugVariableInfo(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exVariables.size();
 	return linker ? linker->exVariables.data : NULL;
@@ -867,6 +980,8 @@ ExternVarInfo* nullcDebugVariableInfo(unsigned int *count)
 
 ExternFuncInfo* nullcDebugFunctionInfo(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exFunctions.size();
 	return linker ? linker->exFunctions.data : NULL;
@@ -874,6 +989,8 @@ ExternFuncInfo* nullcDebugFunctionInfo(unsigned int *count)
 
 ExternLocalInfo* nullcDebugLocalInfo(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exLocals.size();
 	return linker ? linker->exLocals.data : NULL;
@@ -881,6 +998,8 @@ ExternLocalInfo* nullcDebugLocalInfo(unsigned int *count)
 
 char* nullcDebugSymbols(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exSymbols.size();
 	return linker ? linker->exSymbols.data : NULL;
@@ -888,11 +1007,15 @@ char* nullcDebugSymbols(unsigned int *count)
 
 char* nullcDebugSource()
 {
+	using namespace NULLC;
+
 	return linker ? linker->exSource.data : NULL;
 }
 
 NULLCCodeInfo* nullcDebugCodeInfo(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exCodeInfo.size() >> 1;
 	return linker ? (NULLCCodeInfo*)linker->exCodeInfo.data : NULL;
@@ -900,6 +1023,8 @@ NULLCCodeInfo* nullcDebugCodeInfo(unsigned int *count)
 
 VMCmd* nullcDebugCode(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exCode.size();
 	return linker ? (VMCmd*)linker->exCode.data : NULL;
@@ -907,6 +1032,8 @@ VMCmd* nullcDebugCode(unsigned int *count)
 
 ExternModuleInfo* nullcDebugModuleInfo(unsigned int *count)
 {
+	using namespace NULLC;
+
 	if(count && linker)
 		*count = linker->exModules.size();
 	return linker ? linker->exModules.data : NULL;
@@ -915,6 +1042,8 @@ ExternModuleInfo* nullcDebugModuleInfo(unsigned int *count)
 
 void nullcDebugBeginCallStack()
 {
+	using namespace NULLC;
+
 	if(currExec == NULLC_VM)
 	{
 #ifndef NULLC_NO_EXECUTOR
@@ -929,6 +1058,8 @@ void nullcDebugBeginCallStack()
 
 unsigned int nullcDebugGetStackFrame()
 {
+	using namespace NULLC;
+
 	unsigned int address = 0;
 	// Get next address from call stack
 	if(currExec == NULLC_VM)
@@ -947,6 +1078,8 @@ unsigned int nullcDebugGetStackFrame()
 #ifndef NULLC_NO_EXECUTOR
 nullres nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int))
 {
+	using namespace NULLC;
+
 	if(!executor)
 	{
 		nullcLastError = "ERROR: NULLC is not initialized";
@@ -966,6 +1099,8 @@ nullres nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int))
 
 nullres nullcDebugClearBreakpoints()
 {
+	using namespace NULLC;
+
 	if(!executor)
 	{
 		nullcLastError = "ERROR: NULLC is not initialized";
@@ -985,6 +1120,8 @@ nullres nullcDebugClearBreakpoints()
 
 nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 {
+	using namespace NULLC;
+
 	if(!executor)
 	{
 		nullcLastError = "ERROR: NULLC is not initialized";
@@ -1022,6 +1159,8 @@ nullres nullcDebugAddOneHitBreakpoint(unsigned int instruction)
 
 nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 {
+	using namespace NULLC;
+
 	if(!executor)
 	{
 		nullcLastError = "ERROR: NULLC is not initialized";

@@ -194,7 +194,7 @@ namespace NULLC
 
 	FastVector<void*>				globalObjects;
 
-	Linker	*linker = NULL;
+	static Linker	*linker = NULL;
 
 	double	markTime = 0.0;
 	double	collectTime = 0.0;

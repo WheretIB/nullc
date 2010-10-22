@@ -287,21 +287,25 @@ void	nullcDeinitTypeinfoModule()
 
 unsigned int	nullcGetTypeSize(unsigned int typeID)
 {
+	assert(NULLCTypeInfo::linker);
 	return NULLCTypeInfo::linker->exTypes[typeID].size;
 }
 
 const char*		nullcGetTypeName(unsigned int typeID)
 {
+	assert(NULLCTypeInfo::linker);
 	return &NULLCTypeInfo::linker->exSymbols[NULLCTypeInfo::linker->exTypes[typeID].offsetToName];
 }
 
 unsigned int	nullcGetFunctionType(unsigned int funcID)
 {
+	assert(NULLCTypeInfo::linker);
 	return NULLCTypeInfo::linker->exFunctions[funcID].funcType;
 }
 
 const char*		nullcGetFunctionName(unsigned int funcID)
 {
+	assert(NULLCTypeInfo::linker);
 	return &NULLCTypeInfo::linker->exSymbols[NULLCTypeInfo::linker->exFunctions[funcID].offsetToName];
 }
 
@@ -313,6 +317,7 @@ unsigned int	nullcGetArraySize(unsigned int typeID)
 
 unsigned int	nullcGetTypeCount()
 {
+	assert(NULLCTypeInfo::linker);
 	return NULLCTypeInfo::linker->exTypes.size();
 }
 
