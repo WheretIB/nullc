@@ -2,11 +2,7 @@
 #include "nullcdef.h"
 #include "Linker.h"
 
-#ifdef _M_X64
-typedef unsigned long long	markerType;
-#else
-typedef unsigned int		markerType;
-#endif
+typedef uintptr_t markerType;
 
 namespace NULLC
 {
