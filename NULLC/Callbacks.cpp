@@ -297,13 +297,9 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			while(aliasFromParent)
 			{
 				CodeInfo::classMap.insert(aliasFromParent->nameHash, aliasFromParent->type);
-
-				AliasInfo *info = TypeInfo::CreateAlias(aliasFromParent->name, aliasFromParent->type);
-				info->next = CodeInfo::funcInfo.back()->childAlias;
-				CodeInfo::funcInfo.back()->childAlias = info;
-
 				aliasFromParent = aliasFromParent->next;
 			}
+			CodeInfo::funcInfo.back()->childAlias = fProto->childAlias;
 
 			// New function type is equal to generic function type no matter where we create an instance of it
 			CodeInfo::funcInfo.back()->type = fInfo->type;
@@ -3230,13 +3226,9 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 	while(aliasFromParent)
 	{
 		CodeInfo::classMap.insert(aliasFromParent->nameHash, aliasFromParent->type);
-		
-		AliasInfo *info = TypeInfo::CreateAlias(aliasFromParent->name, aliasFromParent->type);
-		info->next = CodeInfo::funcInfo.back()->childAlias;
-		CodeInfo::funcInfo.back()->childAlias = info;
-
 		aliasFromParent = aliasFromParent->next;
 	}
+	CodeInfo::funcInfo.back()->childAlias = fInfo->generic->parent->childAlias;
 	AliasInfo *aliasParent = CodeInfo::funcInfo.back()->childAlias;
 
 	Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
