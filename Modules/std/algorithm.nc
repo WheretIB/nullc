@@ -180,6 +180,22 @@ auto[] filter(auto[] arr, int ref(auto ref) f)
 	return n;
 }
 
+auto foldl(generic array, typeof(array).target ref(typeof(array).target, typeof(array).target) f)
+{
+	auto tmp = array[0];
+	for(int i = 1; i < array.size; i++)
+		tmp = f(tmp, array[i]);
+	return tmp;
+}
+
+auto foldr(generic array, typeof(array).target ref(typeof(array).target, typeof(array).target) f)
+{
+	auto tmp = array[array.size - 1];
+	for(int i = array.size - 2; i >= 0; i--)
+		tmp = f(tmp, array[i]);
+	return tmp;
+}
+
 auto bind_first(generic f, v)
 {
 	@if(typeof(f).argument.size == 1)

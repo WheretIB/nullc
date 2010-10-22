@@ -779,6 +779,60 @@ return 0;";
 	SpeedTestText("raytrace.nc inlined", testCompileSpeed3);
 #endif
 
+	speedTestTimeThreshold = 1000;
+	char *tmp = new char[64*1024];
+
+	const char *testCompileSpeed456 = "(((a + b) * a - a / b) * ((a + b) * a - a / b) + a + a + -b) + (((a + b) * a - a / b) * ((a + b) * a - a / b) + a + a + -b) + (((a + b) * a - a / b) * ((a + b) * a - a / b) + a + a + -b),\r\n";
+	const char *testCompileSpeed456E = 
+"	1\r\n\
+};\r\n\
+return arr.size;";
+
+	const char *testCompileSpeed4S = 
+"class complex<T>{ T re, im; }\r\n\
+auto complex(generic re, im){ complex<typeof(re)> res; res.re = re; res.im = im; return res; }\r\n\
+auto operator + (complex<generic> a, b){ return complex(a.re + b.re, a.im + b.im); }\r\n\
+auto operator - (complex<generic> a, b){ return complex(a.re - b.re, a.im - b.im); }\r\n\
+auto operator * (complex<generic> a, b){ return complex(a.re * b.re - a.im * b.im, a.im * b.re + a.re * b.im); }\r\n\
+auto operator / (complex<generic> a, b){ double magn = b.re * b.re + b.im * b.im; return complex(typeof(a.re)((a.re * b.re + a.im * b.im) / magn), (a.im * b.re - a.re * b.im) / magn); }\r\n\
+// Test how complex generic specialized operators slow down typical arithmetic operatior compilation\r\n\
+double a, b;\r\n\
+auto arr = \r\n\
+{\r\n";
+	strcpy(tmp, testCompileSpeed4S);
+	for(unsigned i = 0; i < 32; i++)
+		strcat(tmp, testCompileSpeed456);
+	strcat(tmp, testCompileSpeed456E);
+	SpeedTestText("generic operators slowdown (generic class)", tmp);
+
+	const char *testCompileSpeed5S = 
+"class complex{ double re, im; }\r\n\
+auto complex(generic re, im){ complex res; res.re = re; res.im = im; return res; }\r\n\
+auto operator + (complex a, b){ return complex(a.re + b.re, a.im + b.im); }\r\n\
+auto operator - (complex a, b){ return complex(a.re - b.re, a.im - b.im); }\r\n\
+auto operator * (complex a, b){ return complex(a.re * b.re - a.im * b.im, a.im * b.re + a.re * b.im); }\r\n\
+auto operator / (complex a, b){ double magn = b.re * b.re + b.im * b.im; return complex(typeof(a.re)((a.re * b.re + a.im * b.im) / magn), (a.im * b.re - a.re * b.im) / magn); }\r\n\
+double a, b;\r\n\
+auto arr = \r\n\
+{\r\n";
+	strcpy(tmp, testCompileSpeed5S);
+	for(unsigned i = 0; i < 32; i++)
+		strcat(tmp, testCompileSpeed456);
+	strcat(tmp, testCompileSpeed456E);
+	SpeedTestText("generic operators slowdown (class)", tmp);
+
+	const char *testCompileSpeed6S = 
+"double a, b;\r\n\
+auto arr = \r\n\
+{\r\n";
+	strcpy(tmp, testCompileSpeed6S);
+	for(unsigned i = 0; i < 32; i++)
+		strcat(tmp, testCompileSpeed456);
+	strcat(tmp, testCompileSpeed456E);
+	SpeedTestText("generic operators slowdown (none)", tmp);
+
+	delete[] tmp;
+
 #endif
 
 #ifdef SPEED_TEST_EXTRA
