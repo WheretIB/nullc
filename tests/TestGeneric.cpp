@@ -573,4 +573,113 @@ int bar(int y)\r\n\
 	return foo(4);\r\n\
 }\r\n\
 return bar(4) + z;";
-TEST_RESULT("Generic function test (locally instanced local function context placement) 4", testGeneric40, "-8");
+TEST_RESULT("Generic function test (locally instanced local function context placement) 5", testGeneric40, "-8");
+
+const char *testGeneric41 =
+"coroutine int rand()\r\n\
+{\r\n\
+	int current = 0;\r\n\
+	auto clamp(generic arg)\r\n\
+	{\r\n\
+		return ((auto (int v) { return v; })(current) >> 16) & 32767;\r\n\
+	}\r\n\
+	{\r\n\
+		int current = 1;\r\n\
+		while(1) \r\n\
+		{ \r\n\
+			current = 1;\r\n\
+			yield clamp(current);\r\n\
+		}\r\n\
+	}\r\n\
+	return current;\r\n\
+} \r\n\
+int[8] array;\r\n\
+for(i in array)\r\n\
+	i = rand();\r\n\
+int sum = 0;\r\n\
+for(i in array)\r\n\
+	sum += i;\r\n\
+return sum;";
+TEST_RESULT("Generic function test (temp variable placement doesn't look like coroutine parameter) 1", testGeneric41, "0");
+
+const char *testGeneric42 =
+"coroutine int rand(int ref (int) eqn)\r\n\
+{\r\n\
+	int current = 0;\r\n\
+	auto clamp(generic arg)\r\n\
+	{\r\n\
+		return ((auto (int v) { return v; })(current) >> 16) & 32767;\r\n\
+	}\r\n\
+	{\r\n\
+		int current = 1;\r\n\
+		while(1)\r\n\
+		{\r\n\
+			current = eqn(current);\r\n\
+			yield clamp(current);\r\n\
+		}\r\n\
+	}\r\n\
+	return current;\r\n\
+}\r\n\
+int[8] array;\r\n\
+for(i in array)\r\n\
+	i = rand(auto (int x) { return x * 1103515245 + 12345; });\r\n\
+int sum = 0;\r\n\
+for(i in array)\r\n\
+	sum += i;\r\n\
+return sum;";
+TEST_RESULT("Generic function test (temp variable placement doesn't look like coroutine parameter) 2", testGeneric42, "0");
+
+const char *testGeneric43 =
+"coroutine int rand(generic eqn)\r\n\
+{\r\n\
+	int current = 0;\r\n\
+	auto clamp(generic arg)\r\n\
+	{\r\n\
+		return ((auto (int v) { return v; })(current) >> 16) & 32767;\r\n\
+	}\r\n\
+	{\r\n\
+		int current = 1;\r\n\
+		while(1)\r\n\
+		{\r\n\
+			current = eqn(current);\r\n\
+			yield clamp(current);\r\n\
+		}\r\n\
+	}\r\n\
+	return current;\r\n\
+}\r\n\
+int[8] array;\r\n\
+for(i in array)\r\n\
+	i = rand(auto (int x) { return x * 1103515245 + 12345; });\r\n\
+int sum = 0;\r\n\
+for(i in array)\r\n\
+	sum += i;\r\n\
+return sum;";
+TEST_RESULT("Generic function test (temp variable placement doesn't look like coroutine parameter) 3", testGeneric43, "0");
+
+const char *testGeneric44 =
+"coroutine int rand(generic eqn)\r\n\
+{\r\n\
+	int current = 0;\r\n\
+	auto clamp(generic arg)\r\n\
+	{\r\n\
+		return ((auto (int v) { return v; })(current) >> 16) & 32767;\r\n\
+	}\r\n\
+	yield clamp(current);\r\n\
+	{\r\n\
+		int current = 1;\r\n\
+		while(1)\r\n\
+		{\r\n\
+			current = eqn(current);\r\n\
+			yield clamp(current);\r\n\
+		}\r\n\
+	}\r\n\
+	return current;\r\n\
+}\r\n\
+int[8] array;\r\n\
+for(i in array)\r\n\
+	i = rand(auto (int x) { return x * 1103515245 + 12345; });\r\n\
+int sum = 0;\r\n\
+for(i in array)\r\n\
+	sum += i;\r\n\
+return sum;";
+TEST_RESULT("Generic function test (temp variable placement doesn't look like coroutine parameter) 4", testGeneric44, "0");

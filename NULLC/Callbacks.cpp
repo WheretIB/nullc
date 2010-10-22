@@ -984,7 +984,6 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
-
 	HashMap<VariableInfo*>::Node *curr = varMap.first(hash);
 	
 	// In generic function instance, skip all variables that are defined after the base generic function
@@ -1111,7 +1110,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			(
 				(currDefinedFunc.back()->type == FunctionInfo::LOCAL && externalAccess)
 				||
-				(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || (vInfo->blockDepth > currDefinedFunc.back()->vTopSize && vInfo->pos > currDefinedFunc.back()->allParamSize)))
+				(currDefinedFunc.back()->type == FunctionInfo::COROUTINE && (externalAccess || (vInfo->blockDepth > currDefinedFunc.back()->vTopSize && vInfo->pos >= currDefinedFunc.back()->allParamSize)))
 			)
 		)
 		{
@@ -2237,7 +2236,8 @@ void FunctionPrototype(const char* pos)
 		// When a function will be implemented, it will fill up the closure type with members, update this context variable and create closure initialization
 		char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
 		int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, lastFunc.indexInArr);
-		lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), 0, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
+		unsigned beginPos = lastFunc.parentFunc ? lastFunc.parentFunc->allParamSize : 0; // so that a coroutine will not mistake this for argument, choose starting position carefully
+		lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), beginPos, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
 		lastFunc.funcContext->blockDepth = varInfoTop.size();
 		// Allocate node where the context initialization will be placed
 		CodeInfo::nodeList.push_back(new NodeZeroOP());
@@ -3180,7 +3180,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			{
 				char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
 				int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, lastFunc.indexInArr);
-				lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), 0, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
+				unsigned beginPos = fInfo->parentFunc ? fInfo->parentFunc->allParamSize : 0; // so that a coroutine will not mistake this for argument, choose starting position carefully
+				lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), beginPos, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
 				lastFunc.funcContext->blockDepth = fInfo->vTopSize;
 				// Use generic function expression list
 				assert(fInfo->afterNode);

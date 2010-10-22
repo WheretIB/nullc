@@ -344,3 +344,20 @@ const char	*testCoroutineImport2 =
 auto x = foo;\r\n\
 return x() + x();";
 TEST_RESULT("Coroutine export and import 2", testCoroutineImport2, "21");
+
+const char	*testCoroutinePrototype3 =
+"coroutine int foo(int x)\r\n\
+{\r\n\
+	coroutine int bar();\r\n\
+	for(;1;)\r\n\
+		yield bar();\r\n\
+	coroutine int bar()\r\n\
+	{\r\n\
+		while(1)\r\n\
+			yield x++;\r\n\
+	}\r\n\
+}\r\n\
+int a = foo(4);\r\n\
+int b = foo(4);\r\n\
+return a + b + foo(4);";
+TEST_RESULT("Coroutine prototype 3", testCoroutinePrototype3, "15");
