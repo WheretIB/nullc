@@ -796,6 +796,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 
 	if(fileContent)
 	{
+		unsigned lexPos = lexer.GetStreamSize();
 		if(!Compile(fileContent, true))
 		{
 			unsigned int currLen = (unsigned int)strlen(CodeInfo::lastError.error);
@@ -812,7 +813,18 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 		GetBytecode(&bytecode);
 
 		if(needDelete)
+		{
+			const char *newStart = (const char*)bytecode + ((ByteCode*)bytecode)->offsetToSource;
+			// We have to fix lexeme positions to the code that is saved in bytecode
+			for(Lexeme *c = lexer.GetStreamStart() + lexPos, *e = lexer.GetStreamStart() + lexer.GetStreamSize(); c != e; c++)
+			{
+				// Exit fix up if lexemes exited scope of the current file
+				if(c->pos < fileContent || c->pos > (fileContent + fileSize))
+					break;
+				c->pos = (c->pos - fileContent) + newStart;
+			}
 			NULLC::dealloc(fileContent);
+		}
 
 		BinaryCache::PutBytecode(failedImportPath ? altFile : file, bytecode);
 
