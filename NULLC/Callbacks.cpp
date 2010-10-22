@@ -1929,9 +1929,8 @@ void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool 
 {
 	CodeInfo::lastKnownStartPos = pos;
 
-	// type size will be needed to shift pointer from one element to another
-	unsigned int typeSize = CodeInfo::nodeList.back()->typeInfo->subType ? CodeInfo::nodeList.back()->typeInfo->subType->size : ~0u;
-	unsigned int arrLevel = CodeInfo::nodeList.back()->typeInfo->arrLevel;
+	// Save current node type, because some information from it is required later
+	TypeInfo *startType = CodeInfo::nodeList.back()->typeInfo;
 
 	bool extraExpression = false;
 	// If value dereference was already called, but we need to get a pointer to array
@@ -1946,9 +1945,9 @@ void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool 
 	}
 
 	// Special implementation of for each for build-in arrays
-	if(arrLevel)
+	if(startType->arrLevel)
 	{
-		assert(typeSize != ~0u);
+		assert(startType->subType->size != ~0u);
 
 		// Add temporary variable that holds a pointer
 		AddInplaceVariable(pos);

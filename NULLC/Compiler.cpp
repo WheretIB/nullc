@@ -324,6 +324,7 @@ Compiler::Compiler()
 
 	// Add base module with build-in functions
 	bool res = Compile(nullcBaseCode);
+	(void)res;
 	assert(res && "Failed to compile base NULLC module");
 
 	char *bytecode = NULL;
