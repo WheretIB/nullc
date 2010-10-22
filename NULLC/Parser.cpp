@@ -1504,9 +1504,7 @@ bool ParseArray(Lexeme** str)
 		generatorFuncCount++;
 		FunctionAdd((*str)->pos, functionName);
 		FunctionStart((*str)->pos);
-		if(!ParseCode(str))
-			AddVoidNode();
-
+		ParseCode(str);
 		AddGeneratorReturnData((*str)->pos);
 		TypeInfo *retType = GetSelectedType();
 		AddReturnNode((*str)->pos);
