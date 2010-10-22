@@ -617,3 +617,12 @@ NodeNumber* NodeExpressionList::Evaluate(char *memory, unsigned int size)
 	}while(curr);
 	return value;
 }
+
+#pragma warning(disable: 4702) // unreachable code
+NodeNumber*	NodeFunctionProxy::Evaluate(char *memory, unsigned int size)
+{
+	(void)memory; (void)size;
+	ThrowError(codePos, "ERROR: internal compiler error at NodeFunctionProxy::Evaluate");
+	return NULL;
+}
+#pragma warning(default: 4702)

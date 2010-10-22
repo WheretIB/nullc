@@ -233,13 +233,14 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 
 		jmp_buf oldHandler;
 		memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
+		unsigned nodeCount = CodeInfo::nodeList.size(); // Node count shouldn't change while we do this
 		if(!genericOnFail || !setjmp(CodeInfo::errorHandler)) // if genericOnFail is enabled, we will set error handler
 		{
 			if(!ParseVaribleSet(str))
 				ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
 			SetTypeOfLastNode();
 		}else{
-			if(!FunctionGeneric(false))
+			if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
 			{
 				memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 				longjmp(CodeInfo::errorHandler, 1);
@@ -551,8 +552,10 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		genericArg = false;
 		if(!ParseSelectType(str, true, true))
 		{
-			ParseGenericType(str);
-			genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
+			if(!ParseGenericType(str))
+				genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
+			else
+				genericArg = true;
 		}
 		if(genericArg && nodeOffset)
 		{
@@ -614,7 +617,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 				(*str)++;
 		}
 	}else if((*str)->type == lex_string && ((*str + 1)->type == lex_colon || (*str + 1)->type == lex_point)){
-		TypeInfo *retType = (TypeInfo*)CALLBACK(GetSelectedType());
+		TypeInfo *retType = (TypeInfo*)GetSelectedType();
 		if(!ParseSelectType(str))
 			ThrowError((*str)->pos, "ERROR: class name expected before ':' or '.'");
 		if((*str)->type == lex_point)
@@ -622,8 +625,8 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		(*str)++;
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: function name expected after ':' or '.'");
-		CALLBACK(TypeContinue((*str)->pos));
-		CALLBACK(SelectTypeByPointer(retType));
+		TypeContinue((*str)->pos);
+		SelectTypeByPointer(retType);
 		typeMethod = true;
 	}
 	char	*functionName = NULL;
@@ -663,7 +666,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 	}
 	(*str)++;
 
-	CALLBACK(FunctionAdd((*str)->pos, functionName));
+	FunctionAdd((*str)->pos, functionName);
 
 	Lexeme *vars = *str;
 	ParseFunctionVariables(str);
@@ -671,15 +674,17 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: ')' not found after function variable list");
 
+	bool isOperator = name[0].type == lex_operator && ((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || name[1].type == lex_oparen || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot);
+
 	if(ParseLexem(str, lex_semicolon))
 	{
 		if(FunctionGeneric(false))
 			ThrowError((*str)->pos, "ERROR: generic function cannot be forward-declared");
-		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
-			CALLBACK(FunctionToOperator(start->pos));
-		CALLBACK(FunctionPrototype(start->pos));
+		if(isOperator)
+			FunctionToOperator(start->pos);
+		FunctionPrototype(start->pos);
 		if(typeMethod)
-			CALLBACK(TypeStop());
+			TypeStop();
 		return true;
 	}
 
@@ -688,6 +693,8 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		if(!ParseLexem(str, lex_ofigure))
 			ThrowError((*str)->pos, "ERROR: '{' not found after function header");
 		FunctionGeneric(true, unsigned(vars - CodeInfo::lexStart));
+		if(isOperator)
+			FunctionToOperator(start->pos);
 		FunctionPrototype(start->pos);
 		unsigned braces = 1;
 		while(braces)
@@ -702,25 +709,25 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 				(*str)++;
 		}
 	}else{
-		CALLBACK(FunctionStart((*str-1)->pos));
+		FunctionStart((*str-1)->pos);
 		if(!ParseLexem(str, lex_ofigure))
 			ThrowError((*str)->pos, "ERROR: '{' not found after function header");
 		const char *lastFunc = SetCurrentFunction(NULL);
 
 		if(!ParseCode(str))
-			CALLBACK(AddVoidNode());
+			AddVoidNode();
 		if(!ParseLexem(str, lex_cfigure))
 			ThrowError((*str)->pos, "ERROR: '}' not found after function body");
 		SetCurrentFunction(lastFunc);
 
-		if((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot)
-			CALLBACK(FunctionToOperator(start->pos));
+		if(isOperator)
+			FunctionToOperator(start->pos);
 
-		CALLBACK(FunctionEnd(start->pos));
+		FunctionEnd(start->pos);
 	}
 
 	if(typeMethod)
-		CALLBACK(TypeStop());
+		TypeStop();
 	return true;
 }
 
@@ -850,9 +857,10 @@ bool ParseAddVariable(Lexeme** str)
 
 	if(ParseLexem(str, lex_set))
 	{
+		Lexeme *curr = *str;
 		if(!ParseVaribleSet(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '='");
-		AddDefineVariableNode((*str)->pos, varInfo);
+		AddDefineVariableNode(curr->pos, varInfo);
 		AddPopNode((*str)->pos);
 	}else{
 		AddVariableReserveNode((*str)->pos);

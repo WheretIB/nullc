@@ -64,6 +64,7 @@ void	ConvertFirstToSecond(asmStackType first, asmStackType second)
 	}
 }
 
+#pragma warning(disable: 4702) // unreachable code
 TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 {
 	if(a->type == TypeInfo::TYPE_DOUBLE)
@@ -91,10 +92,9 @@ TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 	if(b->type == TypeInfo::TYPE_CHAR)
 		return b;
 	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unsupported argument type to a binary operation");
-#ifdef _DEBUG
 	return NULL;
-#endif
 }
+#pragma warning(default: 4702)
 
 // class implementation
 
@@ -1850,6 +1850,34 @@ void NodeExpressionList::Compile()
 		curr->Compile();
 		curr = curr->next;
 	}while(curr);
+}
+
+NodeFunctionProxy::NodeFunctionProxy(FunctionInfo *info, const char *pos, bool silent)
+{
+	assert(info);
+	nodeType = typeNodeFunctionProxy;
+	typeInfo = typeVoid;
+	funcInfo = info;
+	codePos = pos;
+	noError = silent;
+}
+NodeFunctionProxy::~NodeFunctionProxy()
+{
+}
+bool NodeFunctionProxy::HasType(TypeInfo *type)
+{
+	int fID = CodeInfo::funcInfo.size();
+	while((fID = CodeInfo::FindFunctionByName(funcInfo->nameHash, fID - 1)) != -1)
+	{
+		if(CodeInfo::funcInfo[fID]->funcType == type)
+			return true;
+	}
+	return false;
+}
+void NodeFunctionProxy::Compile()
+{
+	if(!noError)
+		ThrowError(codePos, "ERROR: there are more than one '%s' function, and the decision isn't clear(I)", funcInfo->name);
 }
 
 void ResetTreeGlobals()
