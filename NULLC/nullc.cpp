@@ -678,7 +678,7 @@ unsigned int nullcFindFunctionIndex(const char* name)
 		nullcLastError = "ERROR: function with such name cannot be found";
 		return ~0u;
 	}
-	if(!linker->exFunctions[index].isNormal)
+	if(linker->exFunctions[index].funcCat != ExternFuncInfo::NORMAL)
 	{
 		nullcLastError = "ERROR: function uses context, which is unavailable";
 		return ~0u;
@@ -712,7 +712,7 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	unsigned int index = nullcFindFunctionIndex(name);
 	if(index == ~0u)
 		return false;
-	if(!linker->exFunctions[func.id].isNormal)
+	if(linker->exFunctions[func.id].funcCat != ExternFuncInfo::NORMAL)
 	{
 		nullcLastError = "ERROR: source function uses context, which is unavailable";
 		return false;

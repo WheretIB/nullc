@@ -448,6 +448,7 @@ public:
 		implemented = false;
 		pure = false;
 		explicitlyReturned = false;
+		genericInstance = false;
 		generic = NULL;
 		genericBase = NULL;
 		functionNode = NULL;
@@ -546,6 +547,7 @@ public:
 	bool		implemented;			// false if only function prototype has been found.
 	bool		pure;					// function is pure and can possibly be evaluated at compile time
 	bool		explicitlyReturned;		// an explicit return from function was compiled
+	bool		genericInstance;		// function is a generic function instance
 	GenericContext	*generic;				// function is a template that will be resolved at the time of calling
 	GenericContext	*genericBase;			// pointer to a generic function base context
 	void		*functionNode;

@@ -1069,3 +1069,23 @@ const char *testGeneric75 =
 int foo(int a, b){ return a + b; }\r\n\
 return bind_last(bind_first(foo, 5), 3)();";
 TEST_RESULT("Multiple generic function import", testGeneric75, "8");
+
+LOAD_MODULE(test_generic_export5, "test.generic_export5", "auto foo(generic a, b){ return a + b; }");
+LOAD_MODULE(test_generic_export5_a, "test.generic_export5a", "import test.generic_export5; auto x = foo(5, 6);");
+LOAD_MODULE(test_generic_export5_b, "test.generic_export5b", "import test.generic_export5; auto y = foo(10.0, 7.0);");
+const char *testGeneric76 =
+"import test.generic_export5;\r\n\
+import test.generic_export5a;\r\n\
+import test.generic_export5b;\r\n\
+return int(x * y + foo(2l, 3l));";
+TEST_RESULT("Generic function import complex", testGeneric76, "192");
+
+LOAD_MODULE(test_generic_export6, "test.generic_export6", "auto foo(generic a, b){ return a + b; }");
+LOAD_MODULE(test_generic_export6_a, "test.generic_export6a", "import test.generic_export6; auto x = foo(5, 6);");
+LOAD_MODULE(test_generic_export6_b, "test.generic_export6b", "import test.generic_export6; auto y = foo(10, 7);");
+const char *testGeneric77 =
+"import test.generic_export6;\r\n\
+import test.generic_export6a;\r\n\
+import test.generic_export6b;\r\n\
+return x * y + foo(2, 3);";
+TEST_RESULT("Generic function collision on import", testGeneric77, "192");

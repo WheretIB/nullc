@@ -751,6 +751,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			}else{
 				lastFunc->retType = lastFunc->funcType->funcType->retType;
 			}
+			lastFunc->genericInstance = !!fInfo->isGenericInstance;
 
 			if(fInfo->parentType != ~0u && !fInfo->externCount)
 			{
@@ -770,7 +771,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			}
 			printf(")\r\n");
 #endif
-		}else if(CodeInfo::funcInfo[index]->name[0] == '$'){
+		}else if(CodeInfo::funcInfo[index]->name[0] == '$' || CodeInfo::funcInfo[index]->genericInstance){
 			CodeInfo::funcInfo.push_back(CodeInfo::funcInfo[index]);
 		}else{
 			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined. While importing %s", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName(), pos);
@@ -1863,8 +1864,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		funcInfo.nameHash = refFunc->nameHash;
 
-		funcInfo.isNormal = refFunc->type == FunctionInfo::NORMAL ? 1 : 0;
 		funcInfo.funcCat = (unsigned char)refFunc->type;
+
+		funcInfo.isGenericInstance = !!refFunc->genericBase || refFunc->genericInstance;
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 		funcInfo.parentType = (refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u);
