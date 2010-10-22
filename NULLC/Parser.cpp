@@ -222,71 +222,8 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 	return true;
 }
 
-bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allowGeneric)
+void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType)
 {
-	bool notType = false;
-	if((*str)->type == lex_typeof)
-	{
-		(*str)++;
-		if(!ParseLexem(str, lex_oparen))
-			ThrowError((*str)->pos, "ERROR: typeof must be followed by '('");
-
-		jmp_buf oldHandler;
-		memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
-		unsigned nodeCount = CodeInfo::nodeList.size(); // Node count shouldn't change while we do this
-		if(!genericOnFail || !setjmp(CodeInfo::errorHandler)) // if genericOnFail is enabled, we will set error handler
-		{
-			if(!ParseVaribleSet(str))
-				ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
-			SetTypeOfLastNode();
-		}else{
-			if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
-			{
-				memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
-				longjmp(CodeInfo::errorHandler, 1);
-			}
-			SelectTypeByPointer(typeGeneric);
-		}
-		if(genericOnFail)
-			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
-		if(!ParseLexem(str, lex_cparen))
-			ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
-		while(ParseTypeofExtended(str, notType));
-	}else if((*str)->type == lex_auto){
-		SelectTypeByPointer(NULL);
-		(*str)++;
-	}else if((*str)->type == lex_string && (*str+1)->type != lex_oparen){
-		unsigned int index;
-		if((index = ParseTypename(str)) == 0)
-			return false;
-		SelectTypeByIndex(index - 1);
-		if((*str)->type != lex_less && GetSelectedType()->dependsOnGeneric && GetSelectedType() != typeGeneric)
-		{
-			if(allowGeneric)
-				return true;
-			ThrowError((*str)->pos, "ERROR: generic class instance requires list of types inside '<' '>'");
-		}
-		if(ParseLexem(str, lex_less))
-		{
-			if(!GetSelectedType()->dependsOnGeneric)
-				ThrowError((*str)->pos, "ERROR: cannot specify argument list for a class that is not generic");
-			TypeInfo *genericType = GetSelectedType();
-			unsigned count = 0;
-			do
-			{
-				if(!ParseSelectType(str))
-					ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
-				CodeInfo::nodeList.push_back(new NodeZeroOP(GetSelectedType()));
-				count++;
-			}while(ParseLexem(str, lex_comma));
-			TypeInstanceGeneric((*str)->pos, genericType, count);
-			if(!ParseLexem(str, lex_greater))
-				ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
-		}
-	}else{
-		return false;
-	}
-
 	bool run = true;
 	while(run)
 	{
@@ -348,6 +285,83 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 			run = false;
 		}
 	}
+}
+
+bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allowGeneric)
+{
+	bool notType = false;
+	if((*str)->type == lex_typeof)
+	{
+		(*str)++;
+		if(!ParseLexem(str, lex_oparen))
+			ThrowError((*str)->pos, "ERROR: typeof must be followed by '('");
+
+		jmp_buf oldHandler;
+		memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
+		unsigned nodeCount = CodeInfo::nodeList.size(); // Node count shouldn't change while we do this
+		if(!genericOnFail || !setjmp(CodeInfo::errorHandler)) // if genericOnFail is enabled, we will set error handler
+		{
+			if(!ParseVaribleSet(str))
+				ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
+			SetTypeOfLastNode();
+		}else{
+			if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
+			{
+				memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+				longjmp(CodeInfo::errorHandler, 1);
+			}
+			SelectTypeByPointer(typeGeneric);
+		}
+		if(genericOnFail)
+			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+		if(!ParseLexem(str, lex_cparen))
+			ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
+		while(ParseTypeofExtended(str, notType));
+	}else if((*str)->type == lex_auto){
+		SelectTypeByPointer(NULL);
+		(*str)++;
+	}else if((*str)->type == lex_string && (*str+1)->type != lex_oparen){
+		unsigned int index;
+		if((index = ParseTypename(str)) == 0)
+			return false;
+		SelectTypeByIndex(index - 1);
+		if((*str)->type != lex_less && GetSelectedType()->dependsOnGeneric && GetSelectedType() != typeGeneric)
+		{
+			if(allowGeneric)
+				return true;
+			ThrowError((*str)->pos, "ERROR: generic class instance requires list of types inside '<' '>'");
+		}
+		Lexeme *curr = *str;
+		if(ParseLexem(str, lex_less))
+		{
+			if(!GetSelectedType()->dependsOnGeneric)
+				ThrowError((*str)->pos, "ERROR: cannot specify argument list for a class that is not generic");
+			TypeInfo *genericType = GetSelectedType();
+			unsigned count = 0;
+			do
+			{
+				if(!ParseSelectType(str))
+				{
+					if(genericOnFail && ParseLexem(str, lex_generic))
+					{
+						*str = curr;
+						return false;
+					}else{
+						ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
+					}
+				}
+				CodeInfo::nodeList.push_back(new NodeZeroOP(GetSelectedType()));
+				count++;
+			}while(ParseLexem(str, lex_comma));
+			TypeInstanceGeneric((*str)->pos, genericType, count);
+			if(!ParseLexem(str, lex_greater))
+				ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
+		}
+	}else{
+		return false;
+	}
+
+	ParseTypePostExpressions(str, arrayType, notType);
 	return true;
 }
 
@@ -581,8 +595,12 @@ bool ParseGenericType(Lexeme** str)
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
 	bool genericArg = false;
-	if(!ParseSelectType(str, true, true) && false == (genericArg = ParseGenericType(str)))
+	if(!ParseSelectType(str, true, true, true) && !ParseGenericType(str))
 		return true;
+
+	genericArg = GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
+	if(genericArg)
+		FunctionGeneric(true);
 
 	unsigned argID = 0;
 	if(genericArg && nodeOffset)
@@ -616,13 +634,16 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		argID++;
 		bool lastGeneric = genericArg;
 		genericArg = false;
-		if(!ParseSelectType(str, true, true))
+		if(!ParseSelectType(str, true, true, true))
 		{
 			if(!ParseGenericType(str))
 				genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
 			else
 				genericArg = true;
 		}
+		genericArg |= GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
+		if(genericArg)
+			FunctionGeneric(true);
 		if(genericArg && nodeOffset)
 		{
 			TypeInfo *curr = GetSelectedType();
