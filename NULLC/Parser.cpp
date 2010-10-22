@@ -160,7 +160,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 			Lexeme *curr = *str;
 			bool genericType = GetSelectedType() == typeGeneric;
 			// .argument .return .target
-			if(curr->type == lex_string && memcmp(curr->pos, "argument", 8) == 0)
+			if(curr->type == lex_string && curr->length == 8 && memcmp(curr->pos, "argument", 8) == 0)
 			{
 				curr++;
 				if(!GetSelectedType()->funcType && !genericType)
@@ -168,7 +168,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 				if(!ParseLexem(&curr, lex_point) && curr->type != lex_obracket)
 					ThrowError(curr->pos, "ERROR: expected '.first'/'.last'/'[N]' at this point");
 				unsigned paramCount = !genericType ? GetSelectedType()->funcType->paramCount : 0;
-				if(curr->type == lex_string && memcmp(curr->pos, "first", 5) == 0)
+				if(curr->type == lex_string && curr->length == 5 && memcmp(curr->pos, "first", 5) == 0)
 				{
 					curr++;
 					if(!genericType)
@@ -177,7 +177,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 							ThrowError(curr->pos, "ERROR: this function type '%s' doesn't have arguments", GetSelectedType()->GetFullTypeName());
 						SelectTypeByPointer(GetSelectedType()->funcType->paramType[0]);
 					}
-				}else if(curr->type == lex_string && memcmp(curr->pos, "last", 4) == 0){
+				}else if(curr->type == lex_string && curr->length == 4 && memcmp(curr->pos, "last", 4) == 0){
 					curr++;
 					if(!genericType)
 					{
@@ -206,7 +206,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 						ThrowError(curr->pos, "ERROR: 'return' can only be applied to a function type, but we have '%s'", GetSelectedType()->GetFullTypeName());
 					SelectTypeByPointer(GetSelectedType()->funcType->retType);
 				}
-			}else if(curr->type == lex_string && memcmp(curr->pos, "target", 6) == 0){
+			}else if(curr->type == lex_string && curr->length == 6 && memcmp(curr->pos, "target", 6) == 0){
 				curr++;
 				if(!genericType)
 				{
@@ -486,7 +486,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 	{
 		TypeInfo *curr = GetSelectedType();
 		SelectTypeForGeneric((*str)->pos, nodeOffset - 1 + argID);
-		if(curr->refLevel)
+		if(curr->refLevel && !GetSelectedType()->refLevel)
 			SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
 	}
 
@@ -522,7 +522,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		{
 			TypeInfo *curr = GetSelectedType();
 			SelectTypeForGeneric((*str)->pos, nodeOffset - 1 + argID);
-			if(curr->refLevel)
+			if(curr->refLevel && !GetSelectedType()->refLevel)
 				SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
 		}
 

@@ -30,7 +30,7 @@ TEST_RESULT("Generic function test (typeof used on generic argument)", testGener
 const char *testGeneric4 =
 "auto bind_first(generic arg1, generic function2)\r\n\
 {\r\n\
-return auto(typeof(function2).arguments.last arg2){ return function2(arg1, arg2); };\r\n\
+return auto(typeof(function2).argument.last arg2){ return function2(arg1, arg2); };\r\n\
 }\r\n\
 int sum(int a, b){ return a + b; }\r\n\
 auto x = bind_first(5, sum);\r\n\
@@ -40,7 +40,7 @@ TEST_RESULT("Generic function test (local function return)", testGeneric4, "8");
 const char *testGeneric5 =
 "auto bind_first(generic arg1, generic function2)\r\n\
 {\r\n\
-return auto(typeof(function2).arguments.last arg2){ return function2(arg1, arg2); };\r\n\
+return auto(typeof(function2).argument.last arg2){ return function2(arg1, arg2); };\r\n\
 }\r\n\
 auto x = bind_first(5, auto(int a, b){ return a + b; });\r\n\
 return x(3);";
@@ -271,3 +271,12 @@ auto a = prod(range(list));\r\n\
 auto b = prod(coroutine auto(){ list_node ref c = &list; while(c){ yield c.value; c = c.next; } return 0; });\r\n\
 return a + b;";
 TEST_RESULT("Generic function accepting a coroutine", testGeneric23, "20");
+
+const char *testGeneric24 =
+"void swap(generic ref a, generic ref b){ typeof(a).target tmp = *a; *a = *b; *b = tmp; }\r\n\
+int a = 4, b = 7;\r\n\
+swap(3, &b);\r\n\
+swap(&a, 8);\r\n\
+swap(&a, &b);\r\n\
+return a * 10 + b;";
+TEST_RESULT("Generic function test (generic ref construct) 2", testGeneric24, "38");

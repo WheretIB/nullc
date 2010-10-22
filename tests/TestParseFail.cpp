@@ -187,4 +187,10 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "int foo(generic a);", "ERROR: generic function cannot be forward-declared");
 	TEST_FOR_FAIL("parsing", "int foo(generic a) return 1; }", "ERROR: '{' not found after function header");
 	TEST_FOR_FAIL("parsing", "int foo(generic a){ return ##a; }", "ERROR: unknown lexeme in function body");
+
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).arguments;", "ERROR: expected 'argument'/'return'/'target' at this point");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument.firsta;", "ERROR: expected 'first'/'last' at this point");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument.lastu;", "ERROR: expected 'first'/'last' at this point");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).returnee;", "ERROR: expected 'argument'/'return'/'target' at this point");
+	TEST_FOR_FAIL("parsing", "int u; return int == typeof(&u).targetme;", "ERROR: expected 'argument'/'return'/'target' at this point");
 }
