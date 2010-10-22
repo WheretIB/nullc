@@ -430,4 +430,17 @@ int a = x(); // -4\r\n\
 int b = y(); // 16\r\n\
 \r\n\
 return a + b; // 12";
-TEST_RESULT("Coroutin with local function, external variable closure test", testLocalCoroutineClosure, "12");
+TEST_RESULT("Coroutine with local function, external variable closure test", testLocalCoroutineClosure, "12");
+
+const char	*testLocalFunctionOverloadInference =
+"int ref(int) a;\r\n\
+auto foo()\r\n\
+{\r\n\
+	int x = 5;\r\n\
+	int bar(int y){ return -x; }\r\n\
+	int bar(float y){ return 2*x; }\r\n\
+	a = bar;\r\n\
+	return a;\r\n\
+}\r\n\
+return foo()(2);";
+TEST_RESULT("Function overload inference for local function test", testLocalFunctionOverloadInference, "-5");

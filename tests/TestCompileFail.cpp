@@ -64,7 +64,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("sizeof auto", "return sizeof(auto);", "ERROR: sizeof(auto) is illegal");
 
 	TEST_FOR_FAIL("Unknown function", "return b;", "ERROR: variable or function 'b' is not defined");
-	TEST_FOR_FAIL("Unclear decision", "void a(int b){} void a(float b){} return a;", "ERROR: there are more than one 'a' function, and the decision isn't clear");
+	TEST_FOR_FAIL("Unclear decision", "void a(int b){} void a(float b){} return a;", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("Variable of unknown type used", "auto a = a + 1; return a;", "ERROR: variable 'a' is being used while its type is unknown");
 
 	TEST_FOR_FAIL("Indexing not an array", "int a; return a[5];", "ERROR: indexing variable that is not an array (int)");
@@ -83,7 +83,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Function redefine", "int a(int b){ return 0; } int a(int c){ return 0; } return 1;", "ERROR: function 'a' is being defined with the same set of parameters");
 	TEST_FOR_FAIL("Wrong overload", "int operator*(int a){} return 1;", "ERROR: binary operator definition or overload must accept exactly two arguments");
 	TEST_FOR_FAIL("No member function", "int a; return a.ok();", "ERROR: function 'int::ok' is undefined");
-	TEST_FOR_FAIL("Unclear decision - member function", "class test{ void a(int b){} void a(float b){} } test t; return t.a;", "ERROR: there are more than one 'a' function, and the decision isn't clear");
+	TEST_FOR_FAIL("Unclear decision - member function", "class test{ void a(int b){} void a(float b){} } test t; return t.a;", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("No function", "return k();", "ERROR: function 'k' is undefined");
 
 	TEST_FOR_FAIL("void condition", "void f(){} if(f()){} return 1;", "ERROR: condition type cannot be 'void'");
@@ -142,7 +142,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;", "ERROR: variable or function 'i' is not defined");
 
 	TEST_FOR_FAIL("Class function return unclear 1", "class Test{int i;int foo(){ return i; }int foo(int k){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: there are more than one 'foo' function, and the decision isn't clear");
-	TEST_FOR_FAIL("Class function return unclear 2", "int foo(){ return 2; }class Test{int i;int foo(){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: there are more than one 'foo' function, and the decision isn't clear");
+	TEST_FOR_FAIL("Class function return unclear 2", "int foo(){ return 2; }class Test{int i;int foo(){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: ambiguity, there is more than one overloaded function available:");
 
 	TEST_FOR_FAIL("Class externally defined method 1", "int dontexist:do(){ return 0; } return 1;", "ERROR: class name expected before ':' or '.'");
 	TEST_FOR_FAIL("Class externally defined method 2", "int int:(){ return *this; } return 1;", "ERROR: function name expected after ':' or '.'");
@@ -305,7 +305,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	TEST_FOR_FAIL("Infinite instantiation recursion", "auto foo(generic a){ typeof(a) ref x; return foo(x); } return foo(1); }", "ERROR: while instantiating generic function foo(generic)");
 	TEST_FOR_FAIL("Infinite instantiation recursion 2", "auto foo(generic a){ typeof(a) ref(typeof(a) ref, typeof(a) ref, typeof(a) ref) x; return foo(x); } return foo(1); }", "ERROR: while instantiating generic function foo(generic)");
 	TEST_FOR_FAIL("auto resolved to void", "void foo(){} auto x = foo();", "ERROR: r-value type is 'void'");
-	TEST_FOR_FAIL("unclear decision at return", "int foo(int x){ return -x; } int foo(float x){ return x * 2.0f; } auto bar(){ return foo; }", "ERROR: there are more than one 'foo' function, and the decision isn't clear");
+	TEST_FOR_FAIL("unclear decision at return", "int foo(int x){ return -x; } int foo(float x){ return x * 2.0f; } auto bar(){ return foo; }", "ERROR: ambiguity, there is more than one overloaded function available:");
 
 	TEST_FOR_FAIL_FULL("unclear target function",
 "int foo(int x){ return -x; }\r\n\
@@ -316,8 +316,8 @@ return bar(foo);",
 "line 5 - ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n\
   bar(int ref(float) or int ref(int))\r\n\
  candidates are:\r\n\
-  bar(int ref(float))\r\n\
-  bar(int ref(int))\r\n\
+  int bar(int ref(float))\r\n\
+  int bar(int ref(int))\r\n\
 \r\n\
   at \"return bar(foo);\"\r\n\
                      ^\r\n");
@@ -330,7 +330,7 @@ return bar(foo);",
 "line 4 - ERROR: can't find function 'bar' with following parameters:\r\n\
   bar(int ref(float) or int ref(double))\r\n\
  the only available are:\r\n\
-  bar(int ref(int))\r\n\
+  int bar(int ref(int))\r\n\
 \r\n\
   at \"return bar(foo);\"\r\n\
                      ^\r\n");
@@ -341,7 +341,7 @@ return bar(foo);",
 "line 2 - ERROR: can't find function 'foo' with following parameters:\r\n\
   foo(`function`)\r\n\
  the only available are:\r\n\
-  foo(int)\r\n\
+  int foo(int)\r\n\
 \r\n\
   at \"return foo(auto(generic y){ return -y; });\"\r\n\
                                                ^\r\n");
@@ -444,8 +444,8 @@ return int(foo(b) + foo(c));",
 "line 6 - ERROR: can't find function 'foo' with following parameters:\r\n\
   foo(Foo<float, float>)\r\n\
  the only available are:\r\n\
-  foo(Foo<int, int>)\r\n\
-  foo(generic) instanced to\r\n\
+  int foo(Foo<int, int>)\r\n\
+  auto foo(generic) instanced to\r\n\
     foo(Foo<int, float>)\r\n\
 \r\n\
   at \"return int(foo(b) + foo(c));\"\r\n\
@@ -468,4 +468,32 @@ return int(foo(b) + foo(c));",
 
 	TEST_FOR_FAIL("external function definition syntax inside a type 1", "class Foo{ void Foo:foo(){} }", "ERROR: cannot continue type 'Foo' definition inside 'Foo' type. Possible cause: external member function definition syntax inside a class");
 	TEST_FOR_FAIL("external function definition syntax inside a type 2", "class Bar{} class Foo{ void Bar:foo(){} }", "ERROR: cannot continue type 'Bar' definition inside 'Foo' type. Possible cause: external member function definition syntax inside a class");
+
+	TEST_FOR_FAIL_FULL("function pointer selection fail", "void foo(int a){} void foo(double a){}\r\nauto a = foo;\r\nreturn 1;",
+"line 2 - ERROR: ambiguity, there is more than one overloaded function available:\r\n\
+  foo(void ref(double))\r\n\
+ candidates are:\r\n\
+  void foo(double)\r\n\
+  void foo(int)\r\n\
+\r\n\
+  at \"auto a = foo;\"\r\n\
+               ^\r\n\
+");
+
+TEST_FOR_FAIL_FULL("function pointer selection fail 2",
+"class Foo<T>{ T a; auto foo(){ return -a; } }\r\n\
+int Foo<double>:foo(){ return -a; }\r\n\
+Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
+auto y = x.foo; auto z = s.foo;\r\n\
+return int(y() + z());",
+"line 4 - ERROR: ambiguity, there is more than one overloaded function available:\r\n\
+  Foo<double>::foo()\r\n\
+ candidates are:\r\n\
+  int Foo<double>::foo()\r\n\
+  double Foo<double>::foo()\r\n\
+\r\n\
+  at \"auto y = x.foo; auto z = s.foo;\"\r\n\
+                               ^\r\n\
+");
+
 }
