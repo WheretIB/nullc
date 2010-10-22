@@ -145,7 +145,7 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 		if(!GetSelectedType()->funcType && !genericType)
 			ThrowError(curr->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%s'", GetSelectedType()->GetFullTypeName());
 		if(!ParseLexem(&curr, lex_point) && curr->type != lex_obracket)
-			ThrowError(curr->pos, "ERROR: expected '.first'/'.last'/'[N]' at this point");
+			ThrowError(curr->pos, "ERROR: expected '.first'/'.last'/'[N]'/'.size' at this point");
 		unsigned paramCount = !genericType ? GetSelectedType()->funcType->paramCount : 0;
 		if(curr->type == lex_string && curr->length == 5 && memcmp(curr->pos, "first", 5) == 0)
 		{
@@ -180,7 +180,7 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 			CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (int)paramCount, typeVoid));
 			notType = true;
 		}else{
-			ThrowError(curr->pos, "ERROR: expected 'first'/'last' at this point");
+			ThrowError(curr->pos, "ERROR: expected 'first'/'last'/'size' at this point");
 		}
 	}else if(ParseLexem(&curr, lex_return)){
 		if(!genericType)
@@ -216,7 +216,7 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : ((int)GetSelectedType()->arrSize), typeVoid));
 		notType = true;
 	}else{
-		ThrowError(curr->pos, "ERROR: expected 'argument'/'return'/'target' at this point");
+		ThrowError(curr->pos, "ERROR: expected 'argument'/'return'/'target'/'isReference'/'isArray'/'isFunction'/'arraySize' at this point");
 	}
 	*str = curr;
 	return true;
