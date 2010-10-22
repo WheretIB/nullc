@@ -15,9 +15,11 @@ namespace NULLC
 	static Linker	*linker = NULL;
 	FastVector<NULLCRef>	finalizeList;
 
-	static unsigned	FINALIZE_OBJECT = 1 << 1;
-	static unsigned	OBJECT_FINALIZED = 1 << 2;
-	static unsigned OBJECT_ARRAY = 1 << 3;
+	static unsigned OBJECT_VISIBLE		= 1 << 0;
+	static unsigned OBJECT_FREED		= 1 << 1;
+	static unsigned	OBJECT_FINALIZABLE	= 1 << 2;
+	static unsigned	OBJECT_FINALIZED	= 1 << 3;
+	static unsigned OBJECT_ARRAY		= 1 << 4;
 
 	void FinalizeObject(unsigned& marker, char* base)
 	{
@@ -89,7 +91,7 @@ public:
 		if(freeBlocks && freeBlocks != &lastBlock)
 		{
 			result = freeBlocks;
-			freeBlocks = freeBlocks->next;
+			freeBlocks = (MySmallBlock*)((intptr_t)freeBlocks->next & ~NULLC::OBJECT_FREED);
 		}else{
 			if(lastNum == countInBlock)
 			{
@@ -118,7 +120,7 @@ public:
 		if(!ptr)
 			return;
 		MySmallBlock* freedBlock = static_cast<MySmallBlock*>(static_cast<void*>(ptr));
-		freedBlock->next = freeBlocks;
+		freedBlock->next = (MySmallBlock*)((intptr_t)freeBlocks | NULLC::OBJECT_FREED);
 		freeBlocks = freedBlock;
 	}
 	bool IsBasePointer(void* ptr)
@@ -170,7 +172,7 @@ public:
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				curr->page[i].marker = (curr->page[i].marker & ~1) | number;
+				curr->page[i].marker = (curr->page[i].marker & ~NULLC::OBJECT_VISIBLE) | number;
 			}
 			curr = curr->next;
 		}
@@ -183,9 +185,9 @@ public:
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				if(!(curr->page[i].marker & 1))
+				if(!(curr->page[i].marker & (NULLC::OBJECT_VISIBLE | NULLC::OBJECT_FREED)))
 				{
-					if((curr->page[i].marker & NULLC::FINALIZE_OBJECT) && !(curr->page[i].marker & NULLC::OBJECT_FINALIZED))
+					if((curr->page[i].marker & NULLC::OBJECT_FINALIZABLE) && !(curr->page[i].marker & NULLC::OBJECT_FINALIZED))
 					{
 						NULLC::FinalizeObject(curr->page[i].marker, curr->page[i].data);
 					}else{
@@ -317,7 +319,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 	}
 	int finalize = 0;
 	if(type && linker->exTypes[type].hasFinalizer)
-		finalize = FINALIZE_OBJECT;
+		finalize = OBJECT_FINALIZABLE;
 
 	memset(data, 0, size);
 	*(int*)data = finalize | (type << 8);
@@ -343,7 +345,7 @@ void NULLC::MarkMemory(unsigned int number)
 {
 	assert(number <= 1);
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
-		((unsigned int*)globalObjects[i])[1] = (((unsigned int*)globalObjects[i])[1] & ~1) | number;
+		((unsigned int*)globalObjects[i])[1] = (((unsigned int*)globalObjects[i])[1] & ~NULLC::OBJECT_VISIBLE) | number;
 	pool8.Mark(number);
 	pool16.Mark(number);
 	pool32.Mark(number);
@@ -424,9 +426,9 @@ void NULLC::CollectMemory()
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 	{
 		unsigned &marker = ((unsigned int*)globalObjects[i])[1];
-		if(!(marker & 1))
+		if(!(marker & NULLC::OBJECT_VISIBLE))
 		{
-			if((marker & NULLC::FINALIZE_OBJECT) && !(marker & NULLC::OBJECT_FINALIZED))
+			if((marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
 			{
 				NULLC::FinalizeObject(marker, (char*)globalObjects[i] + 4);
 			}else{
@@ -499,7 +501,7 @@ void NULLC::FinalizeMemory()
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 	{
 		unsigned &marker = ((unsigned int*)globalObjects[i])[1];
-		if(!(marker & 1) && (marker & NULLC::FINALIZE_OBJECT) && !(marker & NULLC::OBJECT_FINALIZED))
+		if(!(marker & NULLC::OBJECT_VISIBLE) && (marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
 			NULLC::FinalizeObject(marker, (char*)globalObjects[i] + 4);
 	}
 	nullcRunFunction("__finalizeObjects");

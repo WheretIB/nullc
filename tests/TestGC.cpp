@@ -360,3 +360,108 @@ coroutine auto test()\r\n\
 }\r\n\
 test(); return test();";
 TEST_RESULT("Coroutine without stack frame for locals GC test", testCoroutineNoLocalStackGC, "3");
+
+const char	*testArrayOfArraysGC =
+"import std.gc;\r\n\
+class Foo{ int ref y; }\r\n\
+Foo[1][4] arr;\r\n\
+arr[0][0].y = new int(2); arr[0][1].y = new int(30); arr[0][2].y = new int(400); arr[0][3].y = new int(5000);\r\n\
+GC.CollectMemory();\r\n\
+new int(0);new int(0);new int(0);new int(0);\r\n\
+return *arr[0][0].y + *arr[0][1].y + *arr[0][2].y + *arr[0][3].y;";
+TEST_RESULT("Array of arrays GC test", testArrayOfArraysGC, "5432");
+
+const char	*testUnusedUpvaluesGC =
+"import std.gc;\r\n\
+int ref() k;\r\n\
+auto foo(int x)\r\n\
+{\r\n\
+	int ref() m;\r\n\
+	for(int y = 0; y < 10; y++)\r\n\
+	{\r\n\
+		m = auto(){ return y + x; };\r\n\
+		if(y == 6)\r\n\
+			k = m;\r\n\
+	}\r\n\
+	GC.CollectMemory();\r\n\
+	return m;\r\n\
+}\r\n\
+return foo(5)() + k();";
+TEST_RESULT("Unused upvalues GC test", testUnusedUpvaluesGC, "25");
+
+const char	*testUnusedUpvaluesGC2 =
+"import std.gc;\r\n\
+int start = GC.UsedMemory();\r\n\
+int ref() k;\r\n\
+auto foo(int x)\r\n\
+{\r\n\
+	int a; int ref() m;\r\n\
+	for(int y = 0; y < 10; y++)\r\n\
+	{\r\n\
+		m = auto(){ return y + x + a; };\r\n\
+		if(y == 6)\r\n\
+			k = m;\r\n\
+	}\r\n\
+	GC.CollectMemory();\r\n\
+	return m;\r\n\
+}\r\n\
+foo(5)() + k();\r\n\
+return GC.UsedMemory() - start;";
+TEST_RESULT("Unused upvalues GC test", testUnusedUpvaluesGC2, "128");
+
+const char	*testDoubleMemoryRemovalGC =
+"import std.gc;\r\n\
+int start = GC.UsedMemory();\r\n\
+int ref() k;\r\n\
+auto foo(int x)\r\n\
+{\r\n\
+	int a; int ref() m;\r\n\
+	for(int y = 0; y < 10; y++)\r\n\
+	{\r\n\
+		m = auto(){ return y + x + a; };\r\n\
+		if(y == 6)\r\n\
+			k = m;\r\n\
+	}\r\n\
+	GC.CollectMemory();\r\n\
+	return m;\r\n\
+}\r\n\
+foo(5)() + k();\r\n\
+GC.CollectMemory();\r\n\
+return GC.UsedMemory() - start;";
+TEST_RESULT("Prevention of double memory removal", testDoubleMemoryRemovalGC, "64");
+
+const char	*testDoubleMemoryRemovalGC2 =
+"import std.gc;\r\n\
+import std.range;\r\n\
+int ref() k;\r\n\
+auto foo(int x)\r\n\
+{\r\n\
+	int ref() m;\r\n\
+	for(int y = 0; y < 10; y++)\r\n\
+	{\r\n\
+		m = auto(){ return y + x; };\r\n\
+		if(y == 6)\r\n\
+			k = m;\r\n\
+	}\r\n\
+	GC.CollectMemory();\r\n\
+	return m;\r\n\
+}\r\n\
+int zzz = foo(5)() + k();\r\n\
+GC.CollectMemory();\r\n\
+class Foo{ int[4] arr; int x; void Foo(int y){ x = y; } }\r\n\
+Foo ref[20] fArr;\r\n\
+for(i in fArr, j in range(2, 1000, 2))\r\n\
+	i = new Foo(j);\r\n\
+for(i in fArr, j in range(2, 1000, 2))\r\n\
+	assert(i.x == j);\r\n\
+	return zzz;";
+TEST_RESULT("Prevention of double memory removal 2", testDoubleMemoryRemovalGC2, "25");
+
+const char	*testStackVariablesGC =
+"int foo(int ref x, y, z, int[] arr)\r\n\
+{\r\n\
+	int ref s = new int(0), t = new int(0), r = new int(0);\r\n\
+	return *x + *y + *z;\r\n\
+}\r\n\
+return foo(new int(4), new int(6), new int(40), new int[32*1024*1024]);";
+TEST_RESULT("Checking of temporary varaible stack in GC test", testStackVariablesGC, "50");
