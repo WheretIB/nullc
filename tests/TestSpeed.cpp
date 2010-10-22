@@ -21,6 +21,7 @@
 #include "../NULLC/includes/pugi.h"
 
 double speedTestTimeThreshold = 5000;	// how long, in ms, to run a speed test
+#define RUN_GC_TESTS
 
 void TestDrawRect(int, int, int, int, int)
 {
@@ -111,7 +112,7 @@ void	SpeedTestFile(const char* file)
 void RunSpeedTests()
 {
 	#ifdef SPEED_TEST
-
+#ifdef RUN_GC_TESTS
 const char	*testGarbageCollection =
 "import std.random;\r\n\
 import std.io;\r\n\
@@ -167,6 +168,7 @@ io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
 return GC.UsedMemory();";
+
 	printf("Garbage collection\r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -236,6 +238,7 @@ io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
 return GC.UsedMemory();";
+
 	printf("Garbage collection 2 \r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -273,6 +276,7 @@ io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
 return GC.UsedMemory();";
+
 	printf("Garbage collection 3\r\n");
 	for(int t = 0; t < 2; t++)
 	{
@@ -282,7 +286,7 @@ return GC.UsedMemory();";
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
-
+#endif
 #if defined(_MSC_VER)
 	const char	*testCompileSpeed =
 "import img.canvas;\r\n\

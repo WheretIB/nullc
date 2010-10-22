@@ -8,16 +8,15 @@ Core:
 	13. f. coroutine should access context variables without one extra indirection.
 	15. f. AST optimizations shouldn't be disabled when translation to C or LLVM is enabled.
 	16. f. Forced pointer call foo!() ?
-	17. b. Functions called without nullcInit should not crash
 	18. f. stack trace with locals should print values
-	19. b. multiple function prototypes should be disallowed
 	20. f. context address tracking in not neccessary in most cases (?)
 	21. u. need to clarify when external variables in a local function inside a coroutine are closed.
+	22. f. finalizers
+	23. f. move gen_list to base module as a generic function (?)
 
 Library:
 	1. f. string
 	2. f. hash_map
-	3. f. sort
 	4. f. containers for pointers
 
 Debug:
@@ -27,7 +26,7 @@ SuperCalc:
 	4. f. Tooltips with variable values
 	7. b. Compiled modules must recompile after changes.
 	12 f. Editing code should be disabled\warning shown\edit & continue
-
+	
 DONE: ref variables - pointers
 DONE: multidimensional arrays
 DONE: e1	сделать поддержку всех заявленых бинарных и унарных операций
@@ -194,3 +193,8 @@ DONE: fixed custom allocator
 DONE: fixed variable argument functions to accept 0 arguments through 'auto ref[]'
 DONE: fixed selection of function overloads which are varaible arguments functions
 DONE: GC should not fail with stack overflow.
+DONE: redo
+DONE: short inline function in function pointer call
+DONE: multiple function prototypes should be disallowed
+DONE: Functions called without nullcInit should not crash
+DONE: sort

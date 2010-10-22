@@ -173,3 +173,16 @@ TEST_RESULT("Function prototype matches implementation", testPrototypePointer, "
 const char	*testFunctionHiddenByVariable =
 "int foo(int a){ return -a; } int bar(int ref(int) foo){ return foo(-5); } return bar(<i>{ i; });";
 TEST_RESULT("Function that is hidden by variable with the same name", testFunctionHiddenByVariable, "-5");
+
+const char	*testFunctionReturnVoid =
+"void foo()\r\n\
+{\r\n\
+	return;\r\n\
+}\r\n\
+void bar()\r\n\
+{\r\n\
+	return foo();\r\n\
+}\r\n\
+bar();\r\n\
+return 1;";
+TEST_RESULT("Function implicitly returns void", testFunctionReturnVoid, "1");
