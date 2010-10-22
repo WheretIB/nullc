@@ -866,16 +866,27 @@ void SelectTypeByPointer(TypeInfo* type)
 	currType = type;
 }
 
-void SelectTypeForGeneric(const char* pos, unsigned nodeIndex)
+void SelectTypeForGeneric(const char* pos, unsigned nodeIndex, bool transformNodes)
 {
 	if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFuncDef)
 	{
+		if(!transformNodes)
+		{
+			FunctionInfo *fInfo = ((NodeFuncDef*)CodeInfo::nodeList[nodeIndex])->GetFuncInfo();
+			currType = fInfo->funcType;
+			return;
+		}
 		CodeInfo::nodeList.push_back(CodeInfo::nodeList[nodeIndex]);
 		ConvertFunctionToPointer(pos);
 		NodeZeroOP *converted = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList[nodeIndex] = converted;
 	}else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp){
+		if(!transformNodes)
+		{
+			currType = CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY);
+			return;
+		}
 		CodeInfo::nodeList.push_back(CodeInfo::nodeList[nodeIndex]);
 		ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY));
 		NodeZeroOP *converted = CodeInfo::nodeList.back();
@@ -1210,7 +1221,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					if(argID != currArgument)
 					{
 						if(genericArg)
-							SelectTypeForGeneric(pos, nodeOffset + argID);
+							SelectTypeForGeneric(pos, nodeOffset + argID, false);
 						if(genericRef && !currType->refLevel)
 							currType = CodeInfo::GetReferenceType(currType);
 
@@ -2738,7 +2749,7 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		genericRef = start->type == lex_ref ? !!(start++) : false;
 
 		if(genericArg)
-			SelectTypeForGeneric(pos, nodeOffset + argID);
+			SelectTypeForGeneric(pos, nodeOffset + argID, false);
 		if(genericRef && !currType->refLevel)
 			currType = CodeInfo::GetReferenceType(currType);
 

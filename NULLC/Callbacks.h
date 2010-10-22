@@ -66,7 +66,7 @@ void AddBreakNode(const char* pos);
 void AddContinueNode(const char* pos);
 
 void SelectTypeByPointer(TypeInfo* type);
-void SelectTypeForGeneric(const char* pos, unsigned nodeIndex);
+void SelectTypeForGeneric(const char* pos, unsigned nodeIndex, bool transformNodes = true);
 void SelectTypeByIndex(unsigned int index);
 TypeInfo* GetSelectedType();
 const char* GetSelectedTypeName();
