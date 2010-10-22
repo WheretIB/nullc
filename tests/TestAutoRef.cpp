@@ -27,5 +27,5 @@ int k = 4;\r\n\
 func(&k);\r\n\
 \r\n\
 return k;";
-TEST_RESULT("Auto reference type", testAutoReference2, "9");
+TEST_RESULT("Auto reference type 2", testAutoReference2, "9");
 

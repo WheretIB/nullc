@@ -1990,7 +1990,6 @@ void GenCodeCmdCall(VMCmd cmd)
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 8 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 
-		static int continueLabel = 0;
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
 		EMIT_OP_REG_REG(o_test, rECX, rECX);
 		EMIT_OP_LABEL(o_jnz, aluLabels);

@@ -714,8 +714,16 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			if(lastFunc->funcType == typeVoid)
 			{
 				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->rOffsets[0] + (CodeInfo::lexFullStart - CodeInfo::lexStart));
+				lastFunc->generic->parent = lastFunc;
+
 				lastFunc->retType = fInfo->rOffsets[1] != ~0u ? CodeInfo::typeInfo[typeRemap[fInfo->rOffsets[1]]] : NULL;
 				lastFunc->funcType = CodeInfo::GetFunctionType(lastFunc->retType, lastFunc->firstParam, lastFunc->paramCount);
+				if(lastFunc->type == FunctionInfo::COROUTINE)
+				{
+					CodeInfo::nodeList.push_back(new NodeZeroOP());
+					lastFunc->afterNode = new NodeExpressionList();
+					CodeInfo::funcDefList.push_back(lastFunc->afterNode);
+				}
 			}else{
 				lastFunc->retType = lastFunc->funcType->funcType->retType;
 			}
@@ -1011,8 +1019,14 @@ bool Compiler::Compile(const char* str, bool noClear)
 #endif
 
 	CodeInfo::cmdList.push_back(VMCmd(cmdJmp));
+	unsigned coroutineContext = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
 	{
+		if(CodeInfo::funcDefList[i]->nodeType != typeNodeFuncDef)
+		{
+			coroutineContext++;
+			continue;
+		}
 		CodeInfo::funcDefList[i]->Compile();
 #ifdef NULLC_LOG_FILES
 		CodeInfo::funcDefList[i]->LogToStream(fGraph);
@@ -1023,6 +1037,13 @@ bool Compiler::Compile(const char* str, bool noClear)
 		((NodeFuncDef*)CodeInfo::funcDefList[i])->Disable();
 	}
 	CodeInfo::cmdList[0].argument = CodeInfo::cmdList.size();
+	for(unsigned int i = 0; i < coroutineContext; i++)
+	{
+		CodeInfo::funcDefList[i]->Compile();
+#ifdef NULLC_LOG_FILES
+		CodeInfo::funcDefList[i]->LogToStream(fGraph);
+#endif
+	}
 	if(CodeInfo::nodeList.back())
 	{
 		CodeInfo::nodeList.back()->Compile();
@@ -1405,7 +1426,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			{
 				if(i == l)
 					continue;
-				if(info->nameInCHash == CodeInfo::funcInfo[l]->nameInCHash)
+				if(info->nameInCHash == CodeInfo::funcInfo[l]->nameInCHash && !((CodeInfo::funcInfo[l]->address & 0x80000000) && (CodeInfo::funcInfo[l]->address != -1)))
 					duplicate = true;
 			}
 			if(duplicate)

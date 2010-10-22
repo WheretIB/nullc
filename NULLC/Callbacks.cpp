@@ -363,6 +363,18 @@ void CheckForImmutable(TypeInfo* type, const char* pos)
 	if(type->refLevel == 0)
 		ThrowError(pos, "ERROR: cannot change immutable value of type %s", type->GetFullTypeName());
 }
+
+void CheckCollisionWithFunction(const char* pos, InplaceStr varName, unsigned hash, unsigned scope)
+{
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(hash);
+	while(curr)
+	{
+		if(curr->value->visible && curr->value->vTopSize == scope)
+			ThrowError(pos, "ERROR: name '%.*s' is already taken for a function", varName.end - varName.begin, varName.begin);
+		curr = funcMap.next(curr);
+	}
+}
+
 // Functions used to add node for constant numbers of different type
 void AddNumberNodeChar(const char* pos)
 {
@@ -892,13 +904,7 @@ VariableInfo* AddVariable(const char* pos, InplaceStr varName)
 		if((*info)->blockDepth >= varInfoTop.size())
 			ThrowError(pos, "ERROR: name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 	// Check for functions with the same name
-	HashMap<FunctionInfo*>::Node *curr = funcMap.first(hash);
-	while(curr)
-	{
-		if(curr->value->visible)
-			ThrowError(pos, "ERROR: name '%.*s' is already taken for a function", varName.end-varName.begin, varName.begin);
-		curr = funcMap.next(curr);
-	}
+	CheckCollisionWithFunction(pos, varName, hash, varInfoTop.size());
 
 	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
 	{
@@ -965,8 +971,10 @@ void GetTypeSize(const char* pos, bool sizeOfExpr)
 	CodeInfo::nodeList.push_back(new NodeNumber((int)currType->size, typeInt));
 }
 
-void GetTypeId()
+void GetTypeId(const char* pos)
 {
+	if(!currType)
+		ThrowError(pos, "ERROR: cannot take typeid from auto type");
 	CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(currType)));
 	CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject));
 	CodeInfo::nodeList.back()->typeInfo = typeTypeid;
@@ -1141,10 +1149,10 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		ThrowError(pos, "ERROR: cannot infer type for inline function outside of the function call");
 
 	TypeInfo *preferredType = NULL;
-	HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash(currFunction));
-	while(curr)
+	HashMap<FunctionInfo*>::Node *currF = funcMap.first(GetStringHash(currFunction));
+	while(currF)
 	{
-		FunctionInfo *func = curr->value;
+		FunctionInfo *func = currF->value;
 		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->paramCount > currArgument)
 		{
 			unsigned tmpCount = func->funcType->funcType->paramCount;
@@ -1153,7 +1161,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 			func->funcType->funcType->paramCount = tmpCount;
 			if(rating == ~0u)
 			{
-				curr = funcMap.next(curr);
+				currF = funcMap.next(currF);
 				continue;
 			}
 			TypeInfo *argType = NULL;
@@ -1217,10 +1225,31 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 				preferredType = argType;
 			}
 		}
-		curr = funcMap.next(curr);
+		currF = funcMap.next(currF);
 	}
 	if(!preferredType)
-		ThrowError(pos, "ERROR: cannot find function '%s' which accepts a function with %d argument(s) as an argument #%d", currFunction, arguments, currArgument);
+	{
+		HashMap<VariableInfo*>::Node *currV = varMap.first(GetStringHash(currFunction));
+		while(currV)
+		{
+			VariableInfo *var = currV->value;
+			if(!var->varType->funcType && var->varType->funcType->paramCount > currArgument)
+				break;	// If the first found variable doesn't match, we can't move to the next, because it's hidden by this one
+			// Temporarily change function pointer argument count to match current argument count
+			unsigned tmpCount = var->varType->funcType->paramCount;
+			var->varType->funcType->paramCount = currArgument;
+			unsigned rating = GetFunctionRating(var->varType->funcType, currArgument);
+			var->varType->funcType->paramCount = tmpCount;
+			if(rating == ~0u)
+				break;	// If the first found variable doesn't match, we can't move to the next, because it's hidden by this one
+			TypeInfo *argType = var->varType->funcType->paramType[currArgument];
+			if(argType->funcType && argType->funcType->paramCount == arguments)
+				preferredType = argType;
+			break; // If the first found variable matches, we can't move to the next, because it's hidden by this one
+		}
+	}
+	if(!preferredType)
+		ThrowError(pos, "ERROR: cannot find function or variable '%s' which accepts a function with %d argument(s) as an argument #%d", currFunction, arguments, currArgument);
 	return preferredType;
 }
 
@@ -2285,6 +2314,7 @@ void FunctionStart(const char* pos)
 
 	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
 	{
+		CheckCollisionWithFunction(pos, curr->name, curr->nameHash, varInfoTop.size());
 		varTop += GetAlignmentOffset(pos, 4);
 		CodeInfo::varInfo.push_back(curr);
 		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
@@ -2843,6 +2873,19 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 	}
 
+	VariableInfo *vInfo = NULL;
+	unsigned	scope = 0;
+	// If there was a function name, try to find a variable which may be a function pointer and which will hide functions
+	if(funcName)
+	{
+		VariableInfo **info = varMap.find(funcNameHash);
+		if(info)
+		{
+			vInfo = *info;
+			scope = vInfo->blockDepth;
+		}
+	}
+
 	//Find all functions with given name
 	bestFuncList.clear();
 
@@ -2850,12 +2893,12 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	while(curr)
 	{
 		FunctionInfo *func = curr->value;
-		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType)
+		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->vTopSize >= scope)
 			bestFuncList.push_back(func);
 		curr = funcMap.next(curr);
 	}
 	unsigned int count = bestFuncList.size();
-	VariableInfo *vInfo = NULL;
+	
 	// If function wasn't found
 	if(count == 0)
 	{
@@ -2863,14 +2906,10 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		if(silent)
 			return false;
 		// If there was a function name, try to find a variable which may be a function pointer
-		if(funcName)
-		{
-			VariableInfo **info = varMap.find(funcNameHash);
-			// If variable is not found, throw an error
-			if(!info)
-				ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
-			vInfo = *info;
-		}
+		if(funcName && !vInfo)
+			ThrowError(pos, "ERROR: function '%s' is undefined", funcName);
+	}else{
+		vInfo = NULL;
 	}
 	// If there is a name and it's not a variable that holds 
 	if(!vInfo && funcName)
@@ -3768,7 +3807,7 @@ void AddListGenerator(const char* pos, TypeInfo *rType)
 	currType = typeAutoArray;
 	VariableInfo *varInfo = AddVariable(pos, InplaceStr("res"));
 	currType = retType;
-	GetTypeId();
+	GetTypeId(pos);
 	CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
 	AddFunctionCallNode(pos, "auto_array", 2);
 	AddDefineVariableNode(pos, varInfo);

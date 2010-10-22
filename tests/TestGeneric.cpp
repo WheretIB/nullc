@@ -417,12 +417,12 @@ const char *testGeneric33 =
 		yield current++;\r\n\
 }\r\n\
 int[8] array;\r\n\
-auto main()\r\n\
+auto main_func()\r\n\
 {\r\n\
 	for(i in array)\r\n\
 		i = rand(1);\r\n\
 } \r\n\
-main();\r\n\
+main_func();\r\n\
 int diff = 0;\r\n\
 for(i in array, j in { 1, 2, 3, 4, 5, 6, 7, 8 })\r\n\
 	diff += i-j;\r\n\
@@ -438,13 +438,13 @@ coroutine int rand(generic eqn)\r\n\
 		yield j + current++;\r\n\
 }\r\n\
 int[8] array;\r\n\
-auto main()\r\n\
+auto main_func()\r\n\
 {\r\n\
 	int j = 5;\r\n\
 	for(i in array)\r\n\
 		i = rand(1);\r\n\
 } \r\n\
-main();\r\n\
+main_func();\r\n\
 int diff = 0;\r\n\
 for(i in array, j in { 2, 3, 4, 5, 6, 7, 8, 9 })\r\n\
 	diff += i-j;\r\n\
@@ -453,7 +453,7 @@ TEST_RESULT("Generic function test (locally instanced coroutine context placemen
 
 const char *testGeneric35 =
 "int[8] array;\r\n\
-auto main()\r\n\
+auto main_func()\r\n\
 {\r\n\
 	coroutine int rand(generic eqn)\r\n\
 	{\r\n\
@@ -464,7 +464,7 @@ auto main()\r\n\
 	for(i in array)\r\n\
 		i = rand(1);\r\n\
 } \r\n\
-main();\r\n\
+main_func();\r\n\
 int diff = 0;\r\n\
 for(i in array, j in { 1, 2, 3, 4, 5, 6, 7, 8 })\r\n\
 	diff += i-j;\r\n\
@@ -741,3 +741,51 @@ TEST("Generic function test (coroutine inside a coroutine) 2", testGeneric48, "2
 {
 	CHECK_INT("a", 0, 49);
 }
+
+LOAD_MODULE(test_generic_export4, "test.generic_export4", "coroutine auto foo(generic a){ yield -a; return a+a; }");
+const char *testGeneric49 =
+"import test.generic_export4;\r\n\
+auto a = foo(4);\r\n\
+auto b = foo(4);\r\n\
+auto c = foo(4.0);\r\n\
+auto d = foo(4.0);\r\n\
+return 1;";
+TEST("Generic coroutine import", testGeneric49, "1")
+{
+	CHECK_INT("a", 0, -4);
+	CHECK_INT("b", 0, 8);
+	CHECK_DOUBLE("c", 0, -4.0);
+	CHECK_DOUBLE("d", 0, 8.0);
+}
+
+const char *testGeneric50 =
+"import test.generic_export4;\r\n\
+int bar1(int a){ return foo(a); }\r\n\
+double bar2(double a){ return foo(a); }\r\n\
+auto a = bar1(4);\r\n\
+auto b = bar1(4);\r\n\
+auto c = bar2(4.0);\r\n\
+auto d = bar2(4.0);\r\n\
+return 1;";
+TEST("Generic coroutine import 2", testGeneric50, "1")
+{
+	CHECK_INT("a", 0, -4);
+	CHECK_INT("b", 0, 8);
+	CHECK_DOUBLE("c", 0, -4.0);
+	CHECK_DOUBLE("d", 0, 8.0);
+}
+
+const char *testGeneric51 =
+"auto cons(generic car, generic cdr)\r\n\
+{\r\n\
+	return auto(void ref(typeof(car) ref, typeof(cdr) ref) f){ return f(car, cdr); };\r\n\
+}\r\n\
+auto car(generic cell)\r\n\
+{\r\n\
+	int result;\r\n\
+	cell(<x, _>{ result = *x; });\r\n\
+	return result;\r\n\
+}\r\n\
+auto x = cons(5, cons(6, 7));\r\n\
+return car(x);";
+TEST_RESULT("Short inline function takes type from function pointer variable", testGeneric51, "5");
