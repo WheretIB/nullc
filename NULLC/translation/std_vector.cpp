@@ -5,7 +5,8 @@ static unsigned __nullcTR[127];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[120];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -104,6 +105,7 @@ struct vector_iterator
 struct __typeProxy_vector_iterator_ref__{};
 struct __typeProxy_auto_ref_ref__{};
 struct __typeProxy_auto_ref_ref_vector_ref_int_{};
+#pragma pack(pop)
 extern int isFunction(unsigned int type, void* unused);
 extern int isClass(unsigned int type, void* unused);
 extern int isSimple(unsigned int type, void* unused);

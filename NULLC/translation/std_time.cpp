@@ -5,7 +5,8 @@ static unsigned __nullcTR[97];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[74];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -61,6 +62,7 @@ struct __typeProxy_void_ref_auto_ref_int_{};
 struct __typeProxy_void_ref_auto___ref_int_{};
 struct __typeProxy_void_ref_auto_ref_{};
 struct __typeProxy_double_ref__{};
+#pragma pack(pop)
 int clock(void* unused);
 double clock_precise(void* unused);
 int __init_std_time_nc()

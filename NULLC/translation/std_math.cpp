@@ -5,7 +5,8 @@ static unsigned __nullcTR[150];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[601];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -135,6 +136,7 @@ struct __typeProxy_float_ref__{};
 struct __typeProxy_float_ref_float2_ref_float2_ref_{};
 struct __typeProxy_float_ref_float3_ref_float3_ref_{};
 struct __typeProxy_float_ref_float4_ref_float4_ref_{};
+#pragma pack(pop)
 double cos(double deg, void* unused);
 double sin(double deg, void* unused);
 double tan(double deg, void* unused);
@@ -737,25 +739,25 @@ float2 *  __operatorAddSet(float2 * a_0, float2 b_4, void* unused)
 {
 	*(&(*(&a_0))->x) += *(&(&b_4)->x);
 	*(&(*(&a_0))->y) += *(&(&b_4)->y);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float2 *  __operatorSubSet(float2 * a_0, float2 b_4, void* unused)
 {
 	*(&(*(&a_0))->x) -= *(&(&b_4)->x);
 	*(&(*(&a_0))->y) -= *(&(&b_4)->y);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float2 *  __operatorMulSet(float2 * a_0, float b_4, void* unused)
 {
 	*(&(*(&a_0))->x) *= *(&b_4);
 	*(&(*(&a_0))->y) *= *(&b_4);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float2 *  __operatorDivSet(float2 * a_0, float b_4, void* unused)
 {
 	*(&(*(&a_0))->x) /= *(&b_4);
 	*(&(*(&a_0))->y) /= *(&b_4);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float3  float3__float3_float3_ref_float_float_float_(float x_0, float y_4, float z_8, float3 * __context)
 {
@@ -1016,28 +1018,28 @@ float3 *  __operatorAddSet(float3 * a_0, float3 b_4, void* unused)
 	*(&(*(&a_0))->x) += *(&(&b_4)->x);
 	*(&(*(&a_0))->y) += *(&(&b_4)->y);
 	*(&(*(&a_0))->z) += *(&(&b_4)->z);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float3 *  __operatorSubSet(float3 * a_0, float3 b_4, void* unused)
 {
 	*(&(*(&a_0))->x) -= *(&(&b_4)->x);
 	*(&(*(&a_0))->y) -= *(&(&b_4)->y);
 	*(&(*(&a_0))->z) -= *(&(&b_4)->z);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float3 *  __operatorMulSet(float3 * a_0, float b_4, void* unused)
 {
 	*(&(*(&a_0))->x) *= *(&b_4);
 	*(&(*(&a_0))->y) *= *(&b_4);
 	*(&(*(&a_0))->z) *= *(&b_4);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float3 *  __operatorDivSet(float3 * a_0, float b_4, void* unused)
 {
 	*(&(*(&a_0))->x) /= *(&b_4);
 	*(&(*(&a_0))->y) /= *(&b_4);
 	*(&(*(&a_0))->z) /= *(&b_4);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float4  float4__float4_float4_ref_float_float_float_float_(float x_0, float y_4, float z_8, float w_12, float4 * __context)
 {
@@ -2807,7 +2809,7 @@ float4 *  __operatorAddSet(float4 * a_0, float4 b_4, void* unused)
 	*(&(*(&a_0))->y) += *(&(&b_4)->y);
 	*(&(*(&a_0))->z) += *(&(&b_4)->z);
 	*(&(*(&a_0))->w) += *(&(&b_4)->w);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float4 *  __operatorSubSet(float4 * a_0, float4 b_4, void* unused)
 {
@@ -2815,7 +2817,7 @@ float4 *  __operatorSubSet(float4 * a_0, float4 b_4, void* unused)
 	*(&(*(&a_0))->y) -= *(&(&b_4)->y);
 	*(&(*(&a_0))->z) -= *(&(&b_4)->z);
 	*(&(*(&a_0))->w) -= *(&(&b_4)->w);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float4 *  __operatorMulSet(float4 * a_0, float b_4, void* unused)
 {
@@ -2823,7 +2825,7 @@ float4 *  __operatorMulSet(float4 * a_0, float b_4, void* unused)
 	*(&(*(&a_0))->y) *= *(&b_4);
 	*(&(*(&a_0))->z) *= *(&b_4);
 	*(&(*(&a_0))->w) *= *(&b_4);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float4 *  __operatorDivSet(float4 * a_0, float b_4, void* unused)
 {
@@ -2831,7 +2833,7 @@ float4 *  __operatorDivSet(float4 * a_0, float b_4, void* unused)
 	*(&(*(&a_0))->y) /= *(&b_4);
 	*(&(*(&a_0))->z) /= *(&b_4);
 	*(&(*(&a_0))->w) /= *(&b_4);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float3  float3__(float2 xy_0, float z_8, void* unused)
 {
@@ -2864,7 +2866,7 @@ float4  float4__(float x_0, float3 yzw_4, void* unused)
 float4 *  __operatorSet(float4 * a_0, double_4_ xyzw_4, void* unused)
 {
 	*(*(&a_0)) = float4__((float )(*(&(&xyzw_4)->ptr[__nullcIndex(0, 4u)])), (float )(*(&(&xyzw_4)->ptr[__nullcIndex(1, 4u)])), (float )(*(&(&xyzw_4)->ptr[__nullcIndex(2, 4u)])), (float )(*(&(&xyzw_4)->ptr[__nullcIndex(3, 4u)])), (void*)0);
-	return (*(&a_0));
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&xyzw_4, (void*)&unused, 0);
 }
 float3  reflect(float3 normal_0, float3 dir_12, void* unused)
 {

@@ -5,7 +5,8 @@ static unsigned __nullcTR[101];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[77];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -68,6 +69,7 @@ struct range_iterator
 };
 struct __typeProxy_range_iterator_ref__{};
 struct __typeProxy_range_iterator_ref_int_int_int_{};
+#pragma pack(pop)
 range_iterator range_iterator__start_range_iterator_ref__(range_iterator * __context);
 int range_iterator__next_int_ref__(range_iterator * __context);
 int range_iterator__hasnext_int_ref__(range_iterator * __context);

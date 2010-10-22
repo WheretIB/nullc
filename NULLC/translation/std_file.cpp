@@ -5,7 +5,8 @@ static unsigned __nullcTR[107];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[92];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -75,6 +76,7 @@ struct __typeProxy_void_ref_long_ref_{};
 struct __typeProxy_void_ref_float_ref_{};
 struct __typeProxy_void_ref_double_ref_{};
 struct __typeProxy_void_ref_char___{};
+#pragma pack(pop)
 File File__(void* unused);
 File File__(NULLCArray<char > name, NULLCArray<char > access, void* unused);
 void File__Open_void_ref_char___char___(NULLCArray<char > name, NULLCArray<char > access, File * __context);

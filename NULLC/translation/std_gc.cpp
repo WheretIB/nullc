@@ -5,7 +5,8 @@ static unsigned __nullcTR[98];
 static __nullcFunctionArray* __nullcFM;
 // Function pointer redirect table
 static unsigned __nullcFR[76];
-// Array classes
+// Function pointers, arrays, classes
+#pragma pack(push, 4)
 struct __typeProxy_void_ref_int_{};
 struct __typeProxy_void_ref_int_char___{};
 struct __typeProxy_int_ref_char___char___{};
@@ -64,6 +65,7 @@ struct __typeProxy_double_ref__{};
 struct NamespaceGC 
 {
 };
+#pragma pack(pop)
 void NamespaceGC__CollectMemory_void_ref__(NamespaceGC * __context);
 int NamespaceGC__UsedMemory_int_ref__(NamespaceGC * __context);
 double NamespaceGC__MarkTime_double_ref__(NamespaceGC * __context);
