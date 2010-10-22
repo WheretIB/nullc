@@ -2858,7 +2858,11 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 					refTypeBase = refTypeBase->subType;
 					selectedType = selectedType->subType;
 				}
-				assert(refTypeBase->genericBase == expectedType);
+				if(selectedType->genericBase != expectedType && !(selectedType->refLevel && selectedType->subType->genericBase == expectedType))
+				{
+					newRating = ~0u; // function is not instanced if there are any differences
+					return NULL;
+				}
 				genericArg = false;
 			}else{ // If failed for other reasons, such as typeof that depends on generic
 				assert(argID);
