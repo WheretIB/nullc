@@ -891,7 +891,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		ListView_InsertItem(hAttachList, &lvItem);
 	}
 
-	SetTimer(hWnd, 1, 500, 0);
+	SetTimer(hWnd, 1, 100, 0);
 
 	return TRUE;
 }

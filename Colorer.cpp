@@ -1,20 +1,16 @@
 #include "stdafx.h"
 
-#include "SupSpi/SupSpi.h"
-using namespace supspi;
-
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-
-#include "richedit.h"
-#include <windowsx.h>
 
 #include "Colorer.h"
 
 #include "NULLC/nullc_debug.h"
-#include "NULLC/StrAlgo.h"
+#include "NULLC/StrAlgo.h" // for GetStringHash
+#include "NULLC/Lexer.h" // for chartype_table
 
-#include <set>
+#include "SupSpi/SupSpi.h"
+using namespace supspi;
 
 class ColorCodeCallback
 {
@@ -45,23 +41,10 @@ private:
 
 namespace ColorerGrammar
 {
-	// Temporary variables
-	unsigned int	varSize, varTop;
-	bool	currValConst;
 	std::string	logStr;
-
 	const char *codeStart;
 
-	std::vector<std::string>	typeInfo;
-	std::vector<unsigned int>	callArgCount;
-
-	std::set<InplaceStr>	variables;
-
-	void MarkVar(char const* s, char const* e)
-	{
-		(void)s; (void)e;
-		//printf("%.*s\r\n", int(e-s), s);
-	}
+	std::vector<unsigned>	typeInfo;
 
 	// Callbacks
 	ColorCodeCallback ColorRWord, ColorVar, ColorVarDef, ColorFunc, ColorText, ColorChar, ColorReal, ColorInt, ColorBold, ColorErr, ColorComment;
@@ -69,14 +52,7 @@ namespace ColorerGrammar
 
 	//Error log
 	ostringstream logStream;
-
 	std::string	lastError;
-
-	std::string tempStr;
-	void SetTempStr(char const* s, char const* e)
-	{
-		tempStr.assign(s, e);
-	}
 
 	class LogError
 	{
@@ -116,7 +92,7 @@ namespace ColorerGrammar
 				logStream << "  at \"" << std::string(begin,end) << '\"';
 			}
 			logStream << "\r\n      ";
-			for(unsigned int i = 0; i < (unsigned int)(s-begin); i++)
+			for(unsigned int i = 0; i < (unsigned int)(s - begin); i++)
 				logStream << ' ';
 			logStream << "^\r\n";
 		}
@@ -138,9 +114,9 @@ namespace ColorerGrammar
 			m_a->Parse(str, NULL);
 			if(curr == *str)
 				return false;
-			std::string type(curr, *str);
+			unsigned hash = GetStringHash(curr, *str);
 			for(unsigned int i = 0; i < typeInfo.size(); i++)
-				if(typeInfo[i] == type)
+				if(typeInfo[i] == hash)
 					return true;
 			return false;
 		}
@@ -148,7 +124,91 @@ namespace ColorerGrammar
 		Rule m_a;
 	};
 	Rule	typenameP(Rule a){ return Rule(new TypeNameP(a)); }
-	Rule	strWP(char* str){ return (lexemeD[strP(str) >> (epsP - (alnumP | '_'))]); }
+
+	class IdentifierP: public BaseP
+	{
+	public:
+		IdentifierP(){ }
+		virtual ~IdentifierP(){ }
+
+		virtual bool	Parse(char** str, SpaceRule space)
+		{
+			if(space)
+				space(str);
+			if(!(chartype_table[(unsigned char)**str] & ct_start_symbol))
+				return false;
+
+			char *pos = *str;
+			while(chartype_table[(unsigned char)*pos] & ct_symbol)
+				pos++;
+			*str = pos;
+			return true;
+		}
+	protected:
+	};
+	Rule	id_P(){ return Rule(new IdentifierP()); }
+#define idP id_P()
+
+	class LexemeP: public BaseP
+	{
+	public:
+		LexemeP(const char *n){ lex = n; length = (unsigned)strlen(lex); }
+		virtual ~LexemeP(){ }
+
+		virtual bool	Parse(char** str, SpaceRule space)
+		{
+			if(space)
+				space(str);
+			if(memcmp(*str, lex, length) != 0)
+				return false;
+			if(chartype_table[*(*str + length)] & ct_symbol)
+				return false;
+			(*str) += length;
+			if(space)
+				space(str);
+			return true;
+		}
+	protected:
+		const char *lex;
+		unsigned	length;
+	};
+	Rule	strWP(char* str){ return Rule(new LexemeP(str)); }
+
+	class QuotedStrP: public BaseP
+	{
+	public:
+		QuotedStrP(){ }
+		virtual ~QuotedStrP(){ }
+
+		virtual bool	Parse(char** str, SpaceRule space)
+		{
+			if(space)
+				space(str);
+
+			char *pos = *str;
+			if(*pos++ != '\"')
+				return false;
+			ColorText(pos - 1, pos);
+			while(*pos && *pos != '\"')
+			{
+				if(pos[0] == '\\' && pos[1])
+				{
+					ColorReal(pos, pos + 2);
+					pos += 2;
+				}else{
+					ColorChar(pos, pos + 1);
+					pos++;
+				}
+			}
+			if(*pos)
+				pos++;
+			ColorText(pos - 1, pos);
+			*str = pos;
+			return true;
+		}
+	protected:
+	};
+	Rule	quotedStrP(){ return Rule(new QuotedStrP()); }
 
 	void	ParseSpace(char** str)
 	{
@@ -179,17 +239,80 @@ namespace ColorerGrammar
 		}
 	}
 
+	std::string importPath;
+	void ImportStart(char const* s, char const* e)
+	{
+		importPath.assign(s, e);
+	}
+	void ImportSeparator(char const* s, char const* e)
+	{
+		(void)s; (void)e;	// C4100
+		importPath.append(1, '/');
+	}
+	void ImportName(char const* s, char const* e)
+	{
+		importPath.append(s, e);
+	}
+	void ImportEnd(char const* s, char const* e)
+	{
+		(void)s; (void)e;	// C4100
+		importPath.append(".nc");
+		ByteCode *code = (ByteCode*)nullcGetModule(importPath.c_str());
+		if(!code)
+		{
+			logStream << "ERROR: can't find module '" << importPath << "'\r\n";
+		}else{
+			ExternTypeInfo *tInfo = FindFirstType(code);
+			const char *symbols = (char*)(code) + code->offsetToSymbols;
+			for(unsigned int i = 0; i < code->typeCount; i++, tInfo++)
+			{
+				if(tInfo->subCat != ExternTypeInfo::CAT_CLASS)
+					continue;
+				bool found = false;
+				for(unsigned int n = 0; n < typeInfo.size() && !found; n++)
+				{
+					if(tInfo->nameHash == typeInfo[n])
+						found = true;
+				}
+				if(found)
+					continue;
+				typeInfo.push_back(GetStringHash(symbols + tInfo->offsetToName));
+			}
+		}
+	}
+
+	void StartType(char const* s, char const* e)
+	{
+		typeInfo.push_back(GetStringHash(s, e));
+	}
+
+	void OnError(char const* s, char const* e)
+	{
+		if(s == e)
+			e++;
+		if(logStr.length() != 0)
+			ColorCode(COLOR_ERR, s, e);
+		logStr = "";
+	}
+
+	void LogStrAndInfo(char const* s, char const* e)
+	{
+		logStream << logStr << " " << std::string(s, e) << "\r\n";
+	}
+	void LogStr(char const* s, char const* e)
+	{
+		(void)s; (void)e;	// C4100
+		logStream << logStr << "\r\n";
+	}
+
 	class Grammar
 	{
 	public:
 		void	InitGrammar()
 		{
-			constExpr		=	epsP[AssignVar<bool>(currValConst, false)] >>
-				!strP("const")[ColorRWord][AssignVar<bool>(currValConst, true)];
 			symb		=	graphP - alnumP - chP(')');
 			symb2		=	graphP - alphaP;
-			varname		=	lexemeD[(alphaP | '_') >> *(alnumP | '_')];
-			typeName	=	varname - strP("return");
+			typeName	=	idP - strP("return");
 
 			arrayDef	=
 				(
@@ -231,8 +354,8 @@ namespace ColorerGrammar
 			classdef	=
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
 				strP("class")[ColorRWord] >>
-				(varname[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
-				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText][BlockBegin] >>
+				(idP[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
+				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
 				*(
 					typeDef |
 					funcdef |
@@ -240,7 +363,7 @@ namespace ColorerGrammar
 						typeExpr >>
 						(
 							(
-								(varname - typenameP(varname))[ColorVarDef] >>
+								(idP - typenameP(idP))[ColorVarDef] >>
 								chP('{')[ColorText] >>
 								(strP("get")[ColorRWord] | epsP[LogError("ERROR: 'get' is expected after '{'")]) >>
 								(block | epsP[LogError("ERROR: function body expected after 'get'")]) >>
@@ -248,49 +371,48 @@ namespace ColorerGrammar
 									strP("set")[ColorRWord] >>
 									!(
 										chP('(')[ColorText] >>
-										((varname - typenameP(varname))[ColorVarDef] | epsP[LogError("ERROR: r-value name not found")]) >>
+										((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: r-value name not found")]) >>
 										(chP(')')[ColorText] | epsP[LogError("ERROR: ')' is expected after r-value name")])
 									) >> 
 									(block | epsP[LogError("ERROR: function body expected after 'set'")])
 								) >>
 								(chP('}')[ColorText] | epsP[LogError("ERROR: '}' is expected after property")])
 							) | (
-								((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after type")]) >>
+								((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after type")]) >>
 								*(
 									chP(',')[ColorText] >>
-									((varname - typenameP(varname))[ColorVarDef][AddVar] | epsP[LogError("ERROR: variable name not found after ','")])
+									((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")])
 								) 
 							)
 						)>>
 						(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
 					)
 				) >>
-				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText][BlockEnd];
+				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText];
 
-			funccall	=	(typeExpr | varname)[ColorFunc] >> fcallpart;
+			funccall	=	(typeExpr | idP)[ColorFunc] >> fcallpart;
 
 			fcallpart	=
-				strP("(")[ColorBold][PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)] >>
+				chP('(')[ColorBold] >>
 				!(
-					term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] >>
+					term5 >>
 					*(
-						strP(",")[ColorText] >> 
-						(term5[ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: unexpected symbol after ','")])
+						chP(',')[ColorText] >> 
+						(term5 | epsP[LogError("ERROR: unexpected symbol after ','")])
 					)[OnError]
 				) >>
-				(strP(")")[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
+				(chP(')')[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
 			funcvars	=
 				!(
-					(typeExpr | (strP("generic")[ColorRWord] >> !strP("ref")[ColorRWord])) >>
-					constExpr >>
-					((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: variable name expected after type")]) >>
+					(typeExpr | (strP("generic")[ColorRWord] >> !strP("ref")[ColorRWord]) | (idP[ColorErr] >> epsP[LogError("ERROR: function argument type expected after '('")])) >>
+					((idP - typenameP(idP))[ColorVar] | epsP[LogError("ERROR: variable name expected after type")]) >>
 					!(chP('=')[ColorText] >> term4_9)
 				) >>
 				*(
-					strP(",")[ColorText] >>
+					chP(',')[ColorText] >>
 					(
-						!((typeExpr | (strP("generic")[ColorRWord] >> !strP("ref")[ColorRWord])) >> constExpr) >>
-						((varname - typenameP(varname))[ColorVar][AddVar][ArrBackInc<std::vector<unsigned int> >(callArgCount)] | epsP[LogError("ERROR: parameter name expected after ','")]) >>
+						!((typeExpr | (strP("generic")[ColorRWord] >> !strP("ref")[ColorRWord]))) >>
+						((idP - typenameP(idP))[ColorVar] | epsP[LogError("ERROR: parameter name expected after ','")]) >>
 						!(chP('=')[ColorText] >> term4_9)
 					)
 				)[OnError];
@@ -311,45 +433,40 @@ namespace ColorerGrammar
 								)[ColorText] >>
 								chP('(')[ColorBold]
 							) |
-							(typenameP(typeName)[ColorRWord] >> (chP(':') | chP('.'))[ColorBold] >> (varname[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >> chP('(')[ColorBold]) |
-							(varname[ColorFunc] >> chP('(')[ColorBold])
-						)[SetTempStr]
+							(typenameP(typeName)[ColorRWord] >> (chP(':') | chP('.'))[ColorBold] >> (idP[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >> chP('(')[ColorBold]) |
+							(idP[ColorFunc] >> chP('(')[ColorBold])
+						)
 					)
-				)[PushBackVal<std::vector<unsigned int>, unsigned int>(callArgCount, 0)][FuncAdd][BlockBegin] >>
+				) >>
 				(
 					(*(symb | digitP))[ColorErr] >>
 					funcvars
 				) >>
-				(chP(')')[ColorBold][FuncEnd] | epsP[LogError("ERROR: ')' expected after function parameter list")]) >>
+				(chP(')')[ColorBold] | epsP[LogError("ERROR: ')' expected after function parameter list")]) >>
 				!(strP("where")[ColorRWord] >> term4_9) >>
 				(
 					chP(';')[ColorBold] |
 					(
 						chP('{')[ColorBold] >>
 						(code | epsP[LogError("ERROR: function body not found")]) >>
-						(chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: '}' not found after function body")])
+						(chP('}')[ColorBold] | epsP[LogError("ERROR: '}' not found after function body")])
 					) |
 					epsP[LogError("ERROR: unexpected symbol after function header")]
 				);
 
-			postExpr	=	(chP('[')[ColorText] >> term5 >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	((varname[ColorFunc] >> fcallpart) | varname[ColorVar])) | fcallpart;
-			appval		=	(varname - (strP("case") | strP("default")))[ColorVar][MarkVar] >> ~chP('(') >> *postExpr;
+			postExpr	=	(chP('[')[ColorText] >> term5 >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	((idP[ColorFunc] >> fcallpart) | idP[ColorVar])) | fcallpart;
+			appval		=	(idP - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
 			addvarp		=
 				(
-				varname[ColorVarDef] >> epsP[AssignVar<unsigned int>(varSize,1)] >> 
+				idP[ColorVarDef] >> 
 				!chP('[')[LogError("ERROR: unexpected '[', array size must be specified after typename")]
-				)[AddVar] >>
+				) >>
 				((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: expression not found after '='")])) | epsP);
 			vardefsub	=	addvarp >> *(chP(',')[ColorText] >> vardefsub);
 			vardef		=
 				((strP("align")[ColorRWord] >> chP('(')[ColorText] >> intP[ColorReal] >> chP(')')[ColorText]) | (strP("noalign")[ColorRWord] | epsP)) >>
 				(typeExpr - (typeExpr >> chP('('))) >> 
-				(
-					(
-						constExpr >>
-						(vardefsub | epsP[LogError("ERROR: variable definition after typename is incorrect")])
-					)
-				);
+				(vardefsub | epsP[LogError("ERROR: variable definition after typename is incorrect")]);
 
 			ifExpr			=
 				!chP('@')[ColorText] >> strWP("if")[ColorRWord] >>
@@ -368,7 +485,7 @@ namespace ColorerGrammar
 				strWP("for")[ColorRWord] >>
 				('(' | epsP[LogError("ERROR: '(' not found after 'for'")])[ColorText] >>
 				(
-					(!typeExpr >> varname[ColorVarDef] >> strWP("in")[ColorRWord] >> term5 >> *(chP(',')[ColorText] >> !typeExpr >> varname[ColorVarDef] >> strWP("in")[ColorRWord] >> term5)) |
+					(!typeExpr >> idP[ColorVarDef] >> strWP("in")[ColorRWord] >> term5 >> *(chP(',')[ColorText] >> !typeExpr >> idP[ColorVarDef] >> strWP("in")[ColorRWord] >> term5)) |
 					(
 						(block | vardef | term5 | epsP ) >>
 						(';' | epsP[LogError("ERROR: ';' not found after initializer in 'for'")])[ColorText] >>
@@ -423,7 +540,7 @@ namespace ColorerGrammar
 				(typeExpr | epsP[LogError("ERROR: typename expected after typedef")]) >>
 				(
 					(typeExpr >> epsP[LogError("ERROR: there is already a type or an alias with the same name")]) |
-					varname[StartType][ColorRWord] |
+					idP[StartType][ColorRWord] |
 					epsP[LogError("ERROR: alias name expected after typename in typedef expression")]
 				) >>
 				(chP(';') | epsP[LogError("ERROR: ';' expected after typedef")]);
@@ -436,7 +553,7 @@ namespace ColorerGrammar
 			term1		=
 				funcdef |
 				(
-					chP('<')[ColorBold] >> (!typeExpr >> varname[ColorVar]) >> *(chP(',')[ColorText] >> !typeExpr >> varname[ColorVar]) >> chP('>')[ColorBold] >>
+					chP('<')[ColorBold] >> (!typeExpr >> idP[ColorVar]) >> *(chP(',')[ColorText] >> !typeExpr >> idP[ColorVar]) >> chP('>')[ColorBold] >>
 					(
 						chP('{')[ColorBold] >>
 						code >>
@@ -446,16 +563,16 @@ namespace ColorerGrammar
 				strWP("nullptr")[ColorRWord] |
 				(strWP("sizeof")[ColorRWord] >> chP('(')[ColorText] >> (typeExpr | term5) >> chP(')')[ColorText]) |
 				(chP('&')[ColorText] >> appval) |
-				((strP("--") | strP("++"))[ColorText] >> appval[GetVar]) | 
+				((strP("--") | strP("++"))[ColorText] >> appval) | 
 				(+chP('-')[ColorText] >> term1) | (+chP('+')[ColorText] >> term1) | ((chP('!') | '~')[ColorText] >> term1) |
-				(!chP('@')[ColorText] >> chP('\"')[ColorText] >> *((strP("\\\"") | strP("\\r") | strP("\\n") | strP("\\\'") | strP("\\\\") | strP("\\t") | strP("\\0"))[ColorReal] | (anycharP[ColorChar] - chP('\"'))) >> chP('\"')[ColorText] >> *postExpr) |
+				(!chP('@')[ColorText] >> quotedStrP() >> *postExpr) |
 				lexemeD[strP("0x") >> +(digitP | chP('a') | chP('b') | chP('c') | chP('d') | chP('e') | chP('f') | chP('A') | chP('B') | chP('C') | chP('D') | chP('E') | chP('F'))][ColorReal] |
 				longestD[(intP >> (chP('l') | chP('b') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
 				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorChar]) >> chP('\'')[ColorText]] |
 				(chP('{')[ColorText] >> ((forExpr >> code) | (term5 >> *(chP(',')[ColorText] >> term5))) >> chP('}')[ColorText] >> *postExpr) |
 				(strWP("new")[ColorRWord] >> typeExpr >> !((chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText]) | fcallpart)) |
 				(group >> *postExpr) |
-				(funccall[FuncCall] >> *postExpr) |
+				(funccall >> *postExpr) |
 				(typeExpr) |
 				(((+chP('*')[ColorText] >> term1) | appval) >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall >> *postExpr) | epsP));
 			term2	=	term1 >> *((strP("**") - strP("**="))[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
@@ -482,7 +599,7 @@ namespace ColorerGrammar
 					)
 				);
 
-			block	=	chP('{')[ColorBold][BlockBegin] >> (code | epsP) >> (chP('}')[ColorBold][BlockEnd] | epsP[LogError("ERROR: } not found after block")]);
+			block	=	chP('{')[ColorBold] >> (code | epsP) >> (chP('}')[ColorBold] | epsP[LogError("ERROR: } not found after block")]);
 			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' | epsP[LogError("ERROR: ; not found after variable definition")])[ColorText]) |
 				breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | typeDef | returnExpr |
 				(term5 >> (+chP(';')[ColorText] | epsP[LogError("ERROR: ; not found after expression")])));
@@ -505,124 +622,10 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
-		Rule appval, varname, symb, symb2, constExpr, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr;
+		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr;
 		// Main rule
 		Rule code;
 	};
-
-	bool CheckIfDeclared(const std::string& str)
-	{
-		if(str == "if" || str == "else" || str == "for" || str == "while" || str == "return" || str=="switch" || str=="case")
-		{
-			logStream << "ERROR: the name '" << str << "' is reserved\r\n";
-			return true;
-		}
-		return false;
-	}
-
-	std::string importPath;
-	void ImportStart(char const* s, char const* e)
-	{
-		importPath.assign(s, e);
-	}
-	void ImportSeparator(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-		importPath.append(1, '/');
-	}
-	void ImportName(char const* s, char const* e)
-	{
-		importPath.append(s, e);
-	}
-	void ImportEnd(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-		importPath.append(".nc");
-		ByteCode *code = (ByteCode*)nullcGetModule(importPath.c_str());
-		if(!code)
-		{
-			logStream << "ERROR: can't find module '" << importPath << "'\r\n";
-		}else{
-			ExternTypeInfo *tInfo = FindFirstType(code);
-			const char *symbols = (char*)(code) + code->offsetToSymbols;
-			for(unsigned int i = 0; i < code->typeCount; i++, tInfo++)
-			{
-				if(tInfo->subCat != ExternTypeInfo::CAT_CLASS)
-					continue;
-				bool found = false;
-				for(unsigned int n = 0; n < typeInfo.size() && !found; n++)
-				{
-					if(tInfo->nameHash == GetStringHash(typeInfo[n].c_str()))
-						found = true;
-				}
-				if(found)
-					continue;
-				typeInfo.push_back(symbols + tInfo->offsetToName);
-			}
-		}
-	}
-
-	void AddVar(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-	}
-
-	void SetVar(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-	}
-
-	void GetVar(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-	}
-
-	void FuncAdd(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-	}
-
-	void FuncEnd(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-	}
-
-	void FuncCall(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-	}
-
-	void StartType(char const* s, char const* e)
-	{
-		typeInfo.push_back(std::string(s, e));
-	}
-
-	void OnError(char const* s, char const* e)
-	{
-		if(s == e)
-			e++;
-		if(logStr.length() != 0)
-			ColorCode(COLOR_ERR, s, e);
-		logStr = "";
-	}
-	void BlockBegin(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-	}
-	void BlockEnd(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-	}
-
-	void LogStrAndInfo(char const* s, char const* e)
-	{
-		logStream << logStr << " " << std::string(s,e) << "\r\n";
-	}
-	void LogStr(char const* s, char const* e)
-	{
-		(void)s; (void)e;	// C4100
-		logStream << logStr << "\r\n";
-	}
 };
 
 Colorer::Colorer()
@@ -663,19 +666,15 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 
 	ColorerGrammar::typeInfo.clear();
 
-	ColorerGrammar::typeInfo.push_back("void");
-	ColorerGrammar::typeInfo.push_back("char");
-	ColorerGrammar::typeInfo.push_back("short");
-	ColorerGrammar::typeInfo.push_back("int");
-	ColorerGrammar::typeInfo.push_back("long");
-	ColorerGrammar::typeInfo.push_back("float");
-	ColorerGrammar::typeInfo.push_back("double");
-	ColorerGrammar::typeInfo.push_back("typeid");
-	ColorerGrammar::typeInfo.push_back("const_string");
-
-	ColorerGrammar::callArgCount.clear();
-	ColorerGrammar::varSize = 1;
-	ColorerGrammar::varTop = 3;
+	ColorerGrammar::typeInfo.push_back(GetStringHash("void"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("char"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("short"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("int"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("long"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("float"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("double"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("typeid"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("const_string"));
 
 	ColorerGrammar::logStream.str("");
 
