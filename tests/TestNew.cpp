@@ -13,7 +13,7 @@ TEST_RESULT("new call with function type", testFunctionTypeNew, "15");
 
 const char	*testTypeOfNew =
 "import std.range;\r\n\
-int test(){}\r\n\
+int test(){ return 0; }\r\n\
 auto a = { 1, 2, 3, 4, 5 };\r\n\
 auto b = new typeof(test)[a.size];\r\n\
 for(i in a, n in range(0, 4))\r\n\

@@ -6,6 +6,8 @@ void CallbackInitialize();
 
 const char*	SetCurrentFunction(const char* name);
 unsigned	SetCurrentArgument(unsigned argument);
+void*		GetCurrentArgumentType(const char* pos, unsigned arguments);
+void		InlineFunctionImplicitReturn(const char* pos);
 
 void AddFunctionToSortedList(void *info);
 

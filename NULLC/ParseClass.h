@@ -418,6 +418,7 @@ public:
 		visible = true;
 		implemented = false;
 		pure = false;
+		explicitlyReturned = false;
 		functionNode = NULL;
 		type = NORMAL;
 		funcType = NULL;
@@ -508,6 +509,7 @@ public:
 	bool		visible;				// true until function goes out of scope
 	bool		implemented;			// false if only function prototype has been found.
 	bool		pure;					// function is pure and can possibly be evaluated at compile time
+	bool		explicitlyReturned;		// an explicit return from function was compiled
 	void		*functionNode;
 
 	enum FunctionCategory{ NORMAL, LOCAL, THISCALL, COROUTINE };

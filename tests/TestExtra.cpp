@@ -82,7 +82,7 @@ int[] h = *g;\r\n\
 int j = g.size;\r\n\
 \r\n\
 auto n1 = auto(int a){ return -a; };\r\n\
-auto n2 = auto(){}, n4 = int ff(){};\r\n\
+auto n2 = auto(){}, n4 = int ff(){ return 0; };\r\n\
 int ref(int) n1_ = n1;\r\n\
 void ref() n2_ = n2;\r\n\
 int ref(int) n11 = int n11f(int a){ return ~a; }, n33;\r\n\

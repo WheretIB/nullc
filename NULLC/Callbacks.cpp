@@ -689,6 +689,7 @@ void AddReturnNode(const char* pos, bool yield)
 		if(yield)
 			currDefinedFunc.back()->yieldCount++;
 #endif
+		currDefinedFunc.back()->explicitlyReturned = true;
 	}else{
 		// Check for errors
 		if(realRetType == typeVoid)
@@ -1000,6 +1001,64 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 				currDefinedFunc.back()->pure = false;	// Access of external variables invalidates function purity
 		}
 	}
+}
+
+void* GetCurrentArgumentType(const char *pos, unsigned arguments)
+{
+	if(!currFunction)
+		ThrowError(pos, "ERROR: cannot infer type for inline function outside of the function call");
+
+	TypeInfo *preferredType = NULL;
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash(currFunction));
+	while(curr)
+	{
+		FunctionInfo *func = curr->value;
+		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->paramCount > currArgument)
+		{
+			TypeInfo *argType = func->funcType->funcType->paramType[currArgument];
+			if(argType->funcType && argType->funcType->paramCount == arguments)
+			{
+				if(preferredType && argType != preferredType)
+					ThrowError(pos, "ERROR: there are multiple function '%s' overloads expecting different function types as an argument #%d", currFunction, currArgument);
+				preferredType = argType;
+			}
+		}
+		curr = funcMap.next(curr);
+	}
+	if(!preferredType)
+		ThrowError(pos, "ERROR: cannot find function '%s' which accepts a function with %d argument(s) as an argument #%d", currFunction, arguments, currArgument);
+	return preferredType;
+}
+
+void InlineFunctionImplicitReturn(const char* pos)
+{
+	(void)pos;
+	if(currDefinedFunc.back()->explicitlyReturned)
+		return;
+	if(currDefinedFunc.back()->retType == typeVoid)
+		return;
+	if(CodeInfo::nodeList.back()->nodeType != typeNodeExpressionList)
+		return;
+	NodeZeroOP *curr = ((NodeExpressionList*)CodeInfo::nodeList.back())->GetFirstNode();
+	if(curr->next)
+	{
+		while(curr->next)
+		{
+			curr = curr->next;
+		}
+		if(curr->nodeType != typeNodePopOp)
+			return;
+
+		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
+		CodeInfo::nodeList.push_back(node);
+		curr->prev->next = new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false);
+	}else{
+		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
+		CodeInfo::nodeList.back() = node;
+		CodeInfo::nodeList.push_back(new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false));
+		AddOneExpressionNode(currDefinedFunc.back()->retType);
+	}
+	currDefinedFunc.back()->explicitlyReturned = true;
 }
 
 // Function for array indexing
@@ -2001,6 +2060,9 @@ void FunctionStart(const char* pos)
 void FunctionEnd(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
+
+	if(lastFunc.retType && lastFunc.retType != typeVoid && !lastFunc.explicitlyReturned)
+		ThrowError(pos, "ERROR: function must return a value of type '%s'", lastFunc.retType->GetFullTypeName());
 
 	HashMap<FunctionInfo*>::Node *curr = funcMap.first(lastFunc.nameHash);
 	while(curr)
