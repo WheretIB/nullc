@@ -169,3 +169,7 @@ void foo(){}\r\n\
 auto b = foo;\r\n\
 return a == b;";
 TEST_RESULT("Function prototype matches implementation", testPrototypePointer, "1");
+
+const char	*testFunctionHiddenByVariable =
+"int foo(int a){ return -a; } int bar(int ref(int) foo){ return foo(-5); } return bar(<i>{ i; });";
+TEST_RESULT("Function that is hidden by variable with the same name", testFunctionHiddenByVariable, "-5");

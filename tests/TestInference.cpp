@@ -87,8 +87,6 @@ auto f2(){ return 3; }\r\n\
 return f2();";
 TEST_RESULT("Auto return type tests", testAutoReturn, "3");
 
-#ifndef NULLC_ENABLE_C_TRANSLATION
-
 const char	*testFunctionPointerSelect = 
 "int foo(int a){ return -a; }\r\n\
 int foo(double a){ return a*2; }\r\n\
@@ -119,8 +117,6 @@ int foo(double a, b){ return a - b; }\r\n\
 \r\n\
 return caller(4, 5, foo);";
 TEST_RESULT("Function pointer select 3", testFunctionPointerSelect3, "20");
-
-#endif
 
 const char	*testShortInlineFunction1 = 
 "int bar(int ref(double) f, double y){ return f(y); }\r\n\

@@ -1586,7 +1586,7 @@ bool ParseTerminal(Lexeme** str)
 				ParsePostExpressions(str);
 				return true;
 			}
-			GetTypeId();
+			GetTypeId((*str)->pos);
 			return true;
 		}
 	}
@@ -1817,10 +1817,13 @@ bool ParseCode(Lexeme** str)
 	if(!ParseExpression(str))
 		return false;
 
-	if(ParseCode(str))
+	unsigned count = 0;
+	while(ParseExpression(str))
+		count++;
+
+	AddOneExpressionNode();
+	while(count--)
 		AddTwoExpressionNode();
-	else
-		AddOneExpressionNode();
 
 	return true;
 }

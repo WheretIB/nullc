@@ -232,7 +232,7 @@ int[foo(3)] arr;";
 "void bar(void ref() x){ x(); }\r\n\
 return bar(auto(){ int a = <x>{ return 5; }; });", "ERROR: cannot infer type for inline function outside of the function call");
 	
-	TEST_FOR_FAIL("Parent function not found", "return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which accepts a function with 1 argument(s) as an argument #0");
+	TEST_FOR_FAIL("Parent function not found", "return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 1 argument(s) as an argument #0");
 	
 	TEST_FOR_FAIL("Multiple choices exist",
 "int bar(int ref(double) f, double y){ return f(y); }\r\n\
@@ -241,11 +241,11 @@ return bar(<x>{ return -x; }, 5);", "ERROR: there are multiple function 'bar' ov
 	
 	TEST_FOR_FAIL("Argument is not a function",
 "int bar(int x, int y){ return x + y; }\r\n\
-return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which accepts a function with 1 argument(s) as an argument #0");
+return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 1 argument(s) as an argument #0");
 	
 	TEST_FOR_FAIL("Wrong argument count",
 "int bar(int ref(double) f, double y){ return f(y); }\r\n\
-return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which accepts a function with 0 argument(s) as an argument #0");
+return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 0 argument(s) as an argument #0");
 
 	TEST_FOR_FAIL("No expression list in short inline function", "int caller(int ref(int) f){ return f(5); } return caller(<x>{});", "ERROR: function must return a value of type 'int'");
 	TEST_FOR_FAIL("One expression in short function if not a pop node", "int caller(int ref(int) f){ return f(5); } return caller(<x>{ if(x){} });", "ERROR: function must return a value of type 'int'");
@@ -253,7 +253,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which acce
 
 	TEST_FOR_FAIL("Using an argument of a function in definition in expression", "auto foo(int a, int b = a){ return a + b; } return foo(5, 7);", "ERROR: variable or function 'a' is not defined");
 
-	TEST_FOR_FAIL("Short inline function at generic argument position", "auto foo(generic a, b, generic f){ return f(a, b); } return foo(5, 4, <x,y>{ x * y; });", "ERROR: cannot find function 'foo' which accepts a function with 2 argument(s) as an argument #2");
+	TEST_FOR_FAIL("Short inline function at generic argument position", "auto foo(generic a, b, generic f){ return f(a, b); } return foo(5, 4, <x,y>{ x * y; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 2 argument(s) as an argument #2");
 
 	TEST_FOR_FAIL("Inline generic function definition", "int foo(int ref(int) f){ return f(5); } return foo(int x(generic a){ return -a; });", "ERROR: can't find function 'foo' with following parameters:");
 
@@ -281,4 +281,6 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which acce
 		return 1;\
 	}\
 	return foo();", "ERROR: function block depth (256) is too large to handle");
+
+	TEST_FOR_FAIL("typeid of auto", "typeof(auto);", "ERROR: cannot take typeid from auto type");
 }
