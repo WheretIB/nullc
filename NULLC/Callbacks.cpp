@@ -302,7 +302,6 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 					parenthesis--;
 				start++;
 			}
-			ParseFunctionConstraints(&start, true);
 			start++;
 
 			// Because we reparse a generic function, our function may be erroneously marked as generic
@@ -3160,7 +3159,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			ParseFunctionVariables(&start, CodeInfo::nodeList.size() - fType->paramCount + 1);
 			assert(start->type == lex_cparen);
 			start++;
-			ParseFunctionConstraints(&start, true);
 			assert(start->type == lex_ofigure);
 			start++;
 
