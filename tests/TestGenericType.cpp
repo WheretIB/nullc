@@ -332,3 +332,26 @@ import test.generic_type3d;\r\n\
 Pair<int, float> z; z.x = 100; z.y = 1.5; auto m = z.prod();\r\n\
 return k + l + m;";
 TEST_RESULT("Generic type import 6", testGenericType22, "185");
+
+const char *testGenericType23 =
+"class Foo<T>{ T x; }\r\n\
+auto foo(Foo a){ return -a.x; }\r\n\
+Foo<int> b; Foo<float> c;\r\n\
+b.x = 6; c.x = 2;\r\n\
+return int(foo(b) + foo(c));";
+TEST_RESULT("Function that accepts generic type 1", testGenericType23, "-8");
+
+const char *testGenericType24 =
+"class Foo<T>{ T x; }\r\n\
+auto foo(int x, Foo a){ return x - a.x; }\r\n\
+Foo<int> b; Foo<float> c;\r\n\
+b.x = 6; c.x = 2;\r\n\
+return int(foo(1, b) + foo(1, c));";
+TEST_RESULT("Function that accepts generic type 2", testGenericType24, "-6");
+
+const char *testGenericType25 =
+"class Foo<T>{ T x; }\r\n\
+auto Foo:foo(){ T y = 7; return x + y; }\r\n\
+Foo<int> a; a.x = 4;\r\n\
+return a.foo();";
+TEST_RESULT("Generic type external member function aliases restore", testGenericType25, "11");

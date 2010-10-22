@@ -2734,6 +2734,7 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 
 	// apply resolved argument types and test if it is ok
 	unsigned nodeOffset = CodeInfo::nodeList.size() - argumentCount;
+	bool failRating = false;
 	// Move through all the arguments
 	VariableInfo *tempListS = NULL, *tempListE = NULL;
 	for(unsigned argID = 0; argID < argumentCount; argID++)
@@ -2745,7 +2746,7 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		}
 
 		bool genericArg = false, genericRef = false;
-		if(!ParseSelectType(&start))
+		if(!ParseSelectType(&start, true, false, true))
 		{
 			if(start->type == lex_generic)
 				genericArg = !!(start++);
@@ -2754,6 +2755,13 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 				TypeInfo *argType = fInfo->funcType->funcType->paramType[argID - 1];
 				genericArg = argType == typeGeneric || argType->dependsOnGeneric;
 			}
+		}
+		if(currType && currType->genericInfo)
+		{
+			if(CodeInfo::nodeList[nodeOffset + argID]->typeInfo->genericBase != currType)
+				failRating = true;
+			else
+				currType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo;
 		}
 		genericRef = start->type == lex_ref ? !!(start++) : false;
 
@@ -2782,7 +2790,10 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 
 	// we have to create a function type for generated parameters
 	TypeInfo *tmpType = CodeInfo::GetFunctionType(NULL, tempListS, argumentCount);
-	newRating = GetFunctionRating(tmpType->funcType, argumentCount);
+	if(failRating)
+		newRating = ~0u;
+	else
+		newRating = GetFunctionRating(tmpType->funcType, argumentCount);
 
 	// Remove function arguments
 	while(tempListS)
@@ -3924,28 +3935,6 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 {
 	Lexeme *start = CodeInfo::lexStart + base->genericInfo->start;
 	NodeZeroOP **aliasType = &CodeInfo::nodeList[CodeInfo::nodeList.size() - aliases];
-	unsigned aliasID = 0;
-	// We are reparsing original class definition
-	do
-	{
-		currType = aliasType[aliasID]->typeInfo;
-		assert(start->type == lex_string); // This was already checked during parsing
-
-		InplaceStr aliasName = InplaceStr(start->pos, start->length);
-		AliasInfo *info = TypeInfo::CreateAlias(aliasName, currType);
-		info->next = CodeInfo::globalAliases;
-		CodeInfo::globalAliases = info;
-		CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
-
-		start++;
-		aliasID++;
-	}while(start->type == lex_comma ? !!start++ : false);
-	if(aliasID > aliases)
-		ThrowError(pos, "ERROR: there where only '%d' argument(s) to a generic type that expects '%d'", aliases, aliasID);
-	else if(aliasID < aliases)
-		ThrowError(pos, "ERROR: type has only '%d' generic argument(s) while '%d' specified", aliasID, aliases);
-	assert(start->type == lex_greater);
-	start++;
 
 	// Generate instance name
 	char tempName[NULLC_MAX_VARIABLE_NAME_LENGTH];
@@ -3959,6 +3948,31 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 	if(NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName) == 0)
 		ThrowError(pos, "ERROR: generated generic type name exceeds maximum type length '%d'", NULLC_MAX_VARIABLE_NAME_LENGTH);
 
+	AliasInfo *aliasList = NULL;
+
+	unsigned aliasID = 0;
+	// We are reparsing original class definition
+	do
+	{
+		currType = aliasType[aliasID]->typeInfo;
+		assert(start->type == lex_string); // This was already checked during parsing
+
+		InplaceStr aliasName = InplaceStr(start->pos, start->length);
+		AliasInfo *info = TypeInfo::CreateAlias(aliasName, currType);
+		info->next = aliasList;
+		aliasList = info;
+		CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
+
+		start++;
+		aliasID++;
+	}while(start->type == lex_comma ? !!start++ : false);
+	if(aliasID > aliases)
+		ThrowError(pos, "ERROR: there where only '%d' argument(s) to a generic type that expects '%d'", aliases, aliasID);
+	else if(aliasID < aliases)
+		ThrowError(pos, "ERROR: type has only '%d' generic argument(s) while '%d' specified", aliasID, aliases);
+	assert(start->type == lex_greater);
+	start++;
+
 	// Remove type nodes used to instance class
 	for(unsigned i = 0; i < aliases; i++)
 		CodeInfo::nodeList.pop_back();
@@ -3967,12 +3981,6 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 	if(TypeInfo **lastType = CodeInfo::classMap.find(GetStringHash(tempName, namePos)))
 	{
 		currType = *lastType;
-		// Remove type aliases used to instance class
-		for(unsigned i = 0; i < aliases; i++)
-		{
-			CodeInfo::classMap.remove(CodeInfo::globalAliases->nameHash, CodeInfo::globalAliases->type);
-			CodeInfo::globalAliases = CodeInfo::globalAliases->next;
-		}
 		return;
 	}
 
@@ -3989,6 +3997,7 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 	TypeBegin(tempName, namePos);
 	TypeInfo *instancedType = newType;
 	newType->genericBase = base;
+	newType->childAlias = aliasList;
 
 	// Reparse type body and format errors so that the user will know where it happened
 	jmp_buf oldHandler;
@@ -4014,12 +4023,6 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 	// Restore old error handler
 	memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 
-	// Remove type aliases used to instance class
-	for(unsigned i = 0; i < aliases; i++)
-	{
-		CodeInfo::classMap.remove(CodeInfo::globalAliases->nameHash, CodeInfo::globalAliases->type);
-		CodeInfo::globalAliases = CodeInfo::globalAliases->next;
-	}
 	currType = instancedType;
 	// Restore type that may have been in definition
 	methodCount = currentDefinedTypeMethodCount;
