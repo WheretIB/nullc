@@ -25,6 +25,26 @@ TEST("Switch test", testSwitch, "12")
 	CHECK_INT("b", 0, 7);
 }
 
+const char	*testSwitch2 = 
+"double a = 5.0;\r\n\
+int i = 0;\r\n\
+switch(a)\r\n\
+{\r\n\
+case 1.0:\r\n\
+	i = 1;\r\n\
+	break;\r\n\
+case 5.0:\r\n\
+	i = 2;\r\n\
+	break;\r\n\
+case 7.0:\r\n\
+	i = 3;\r\n\
+	break;\r\n\
+default:\r\n\
+	i = 4;\r\n\
+}\r\n\
+return i;";
+TEST_RESULT("Switch test (double)", testSwitch2, "2")
+
 const char	*testDepthBreakContinue = 
 "int i, k = 0;\r\n\
 for(i = 0; i < 4; i++)\r\n\
