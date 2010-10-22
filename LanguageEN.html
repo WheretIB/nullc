@@ -100,6 +100,9 @@ function toggleView(a, b, c)
 	<ol>
 		<li><a href="#import">import expression</a></li>
 		<li><a href="#typeof">typeof expression</a></li>
+		<ol>
+			<li><a href="#typeof_ext">Extended typeof expressions</a></li>
+		</ol>
 		<li><a href="#sizeof">sizeof expression</a></li>
 		<li><a href="#new">new expression</a></li>
 		<ol>
@@ -262,9 +265,37 @@ function toggleView(a, b, c)
 	<h3><a name="typeof">2.2 typeof operator</a></h3>
 
 	<span class="rword">typeof</span>(expression) allows to get type of an expression (expression will not be evaluated at run time).<br />
-	<br />
+	<p class="code">
 	<span class="rword">typeof</span>(<span class="real">4</span>) is equal to specifying int.<br />
 	<span class="rword">typeof</span>(<span class="real">4</span> * <span class="real">0.2</span>) is equal to specifying double.<br />
+	</p>
+	<div class="subtopic">
+		<h3><a name="typeof_ext">2.2.1 Extended typeof expressions</a></h3>
+		Additional type information can be requested after a <span class="rword">typeof</span> expression.<br />
+		<br />
+		For function types following extended expressions are available:
+		<p class="code">
+		<span class="rword">typeof</span>(expression).<span class="rword">argument</span>.<span class="rword">first</span> - returns type of the first argument<br />
+		<span class="rword">typeof</span>(expression).<span class="rword">argument</span>.<span class="rword">last</span> - returns type of the last argument<br />
+		<span class="rword">typeof</span>(expression).<span class="rword">argument</span>.<span class="rword">size</span> - returns argument count<br />
+		<span class="rword">typeof</span>(expression).<span class="rword">argument</span>[<span class="real">N</span>] - returns argument at specified index<br />
+		<span class="rword">typeof</span>(expression).<span class="rword">return</span> - returns function return type<br />
+		</p>
+		For array types and reference types, the following extended expression is available:
+		<p class="code">
+		<span class="rword">typeof</span>(expression).<span class="rword">target</span> - returns the type of an array element type or a type the reference points to<br />
+		</p>
+		For array types, the following extended expression is available:
+		<p class="code">
+		<span class="rword">typeof</span>(expression).<span class="rword">arraySize</span> - returns size of an array (-1 for array with implicit size)<br />
+		</p>
+		Additional extended expressions are available for all types:
+		<p class="code">
+		<span class="rword">typeof</span>(expression).<span class="rword">isReference</span> - returns 1 if type is a reference and 0 otherwise<br />
+		<span class="rword">typeof</span>(expression).<span class="rword">isArray</span> - returns 1 if type is an array and 0 otherwise<br />
+		<span class="rword">typeof</span>(expression).<span class="rword">isFunction</span> - returns 1 if type is a function and 0 otherwise<br />
+		</p>
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -1978,6 +2009,8 @@ B int 5<br />
 		<span class="rword">type</span> -> <span class="rword">auto ref</span> <span class="comment">// only in function argument list</span><br />
 		<span class="rword">type ref</span> -> <span class="rword">auto ref</span><br />
 		<span class="rword">auto ref</span> -> <span class="rword">type ref</span> <span class="comment">// <b>except</b> for function argument list</span><br />
+		<span class="rword">type</span>[<span class="real">N</span>] -> <span class="rword">auto</span>[] <span class="comment">// only in function argument list</span><br />
+		<span class="rword">type</span>[] -> <span class="rword">auto</span>[] <span class="comment">// only in function argument list</span><br />
 	</p>
 </div>
 <hr />
