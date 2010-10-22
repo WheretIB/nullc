@@ -1100,6 +1100,26 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\tests\TestFinalizer.cpp"
+				>
+				<FileConfiguration
+					Name="Release_Notest|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Notest|x64"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath=".\tests\TestForEach.cpp"
 				>
 				<FileConfiguration

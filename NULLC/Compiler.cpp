@@ -113,18 +113,18 @@ int int(int a);\r\n\
 long long(long a);\r\n\
 float float(float a);\r\n\
 double double(double a);\r\n\
-void char:char(char a = 0){ *this = a; }\r\n\
-void short:short(short a = 0){ *this = a; }\r\n\
-void int:int(int a = 0){ *this = a; }\r\n\
-void long:long(long a = 0){ *this = a; }\r\n\
-void float:float(float a = 0){ *this = a; }\r\n\
-void double:double(double a = 0){ *this = a; }\r\n\
+void char:char(char a){ *this = a; }\r\n\
+void short:short(short a){ *this = a; }\r\n\
+void int:int(int a){ *this = a; }\r\n\
+void long:long(long a){ *this = a; }\r\n\
+void float:float(float a){ *this = a; }\r\n\
+void double:double(double a){ *this = a; }\r\n\
 \r\n\
 char[] int:str();\r\n\
 char[] double:str(int precision = 6);\r\n\
 \r\n\
-void ref __newS(int size);\r\n\
-int[] __newA(int size, int count);\r\n\
+void ref __newS(int size, int type);\r\n\
+int[] __newA(int size, int count, int type);\r\n\
 auto ref	duplicate(auto ref obj);\r\n\
 void		__duplicate_array(auto[] ref dst, auto[] src);\r\n\
 auto[]		duplicate(auto[] arr){ auto[] r; __duplicate_array(&r, arr); return r; }\r\n\
@@ -224,7 +224,15 @@ void auto_array:set(auto ref x, int pos);\r\n\
 void __force_size(auto[] ref s, int size);\r\n\
 \r\n\
 int isCoroutineReset(auto ref f);\r\n\
-void __assertCoroutine(auto ref f);";
+void __assertCoroutine(auto ref f);\r\n\
+auto ref[] __getFinalizeList();\r\n\
+class __FinalizeProxy{ void finalize(){} }\r\n\
+void	__finalizeObjects()\r\n\
+{\r\n\
+	auto l = __getFinalizeList();\r\n\
+	for(i in l)\r\n\
+		i.finalize();\r\n\
+}";
 
 Compiler::Compiler()
 {
@@ -377,6 +385,8 @@ Compiler::Compiler()
 
 	AddModuleFunction("$base$", (void (*)())NULLC::IsCoroutineReset, "isCoroutineReset", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::AssertCoroutine, "__assertCoroutine", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::GetFinalizationList, "__getFinalizeList", 0);
 #endif
 }
 
@@ -605,6 +615,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				unsigned int strLength = (unsigned int)strlen(symbols + tInfo->offsetToName) + 1;
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + tInfo->offsetToName);
 				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+
+				newInfo->hasFinalizer = !!tInfo->hasFinalizer;
 
 				CodeInfo::typeInfo.push_back(newInfo);
 				CodeInfo::classMap.insert(newInfo->GetFullNameHash(), newInfo);
@@ -1748,7 +1760,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.type = (ExternTypeInfo::TypeCategory)refType.type;
 		typeInfo.nameHash = refType.GetFullNameHash();
 
-		typeInfo.defaultAlign = (unsigned short)refType.alignBytes;
+		typeInfo.defaultAlign = (unsigned char)refType.alignBytes;
+		typeInfo.hasFinalizer = refType.hasFinalizer;
 
 		typeInfo.pointerCount = refType.hasPointers;
 		if(refType.funcType != 0)						// Function type

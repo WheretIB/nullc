@@ -240,10 +240,10 @@ namespace GC
 			GC_DEBUG_PRINT("\tMarker is %d\r\n", *marker);
 
 			// If block is unmarked
-			if(*marker == 0)
+			if(!(*marker & 1))
 			{
 				// Mark block as used
-				*marker = 1;
+				*marker |= 1;
 				// And if type is not simple, check memory to which pointer points to
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
 					next->push_back(RootInfo(*rPtr, takeSubtype ? &NULLC::commonLinker->exTypes[type.subType] : &type));
@@ -273,10 +273,10 @@ namespace GC
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 			// If there is no base pointer or memory already marked, exit
-			if(!basePtr || *((unsigned int*)(basePtr) - 1))
+			if(!basePtr || (*((unsigned int*)(basePtr) - 1) & 1))
 				return;
 			// Mark memory as used
-			*((unsigned int*)(basePtr) - 1) = 1;
+			*((unsigned int*)(basePtr) - 1) |= 1;
 		}else if(type.nameHash == autoArrayName){
 			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
 			// Get real variable type
@@ -332,10 +332,10 @@ namespace GC
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 			// If there is no base pointer or memory already marked, exit
-			if(!basePtr || *((unsigned int*)(basePtr) - 1))
+			if(!basePtr || (*((unsigned int*)(basePtr) - 1) & 1))
 				return;
 			// Mark memory as used
-			*((unsigned int*)(basePtr) - 1) = 1;
+			*((unsigned int*)(basePtr) - 1) |= 1;
 			// Fixup target
 			CheckVariable(*rPtr, *realType);
 			// Exit
@@ -542,7 +542,7 @@ void MarkUsedBlocks()
 		while(curr)
 		{
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(curr);
-			if(basePtr && basePtr[-1] == 0)
+			if(basePtr && !(basePtr[-1] & 1))
 			{
 				curr = curr->next;
 			}else{
@@ -555,7 +555,7 @@ void MarkUsedBlocks()
 		while(curr && curr->next)
 		{
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(curr->next);
-			if(basePtr && basePtr[-1] == 1)
+			if(basePtr && (basePtr[-1] & 1))
 			{
 				curr = curr->next;
 			}else{
@@ -594,8 +594,8 @@ void MarkUsedBlocks()
 			{
 				unsigned int *marker = (unsigned int*)(basePtr)-1;
 				// If block is unmarked, mark it as used
-				if(*marker == 0)
-					*marker = 1;
+				if(!(*marker & 1))
+					*marker |= 1;
 			}
 		}
 		tempStackBase += 4;

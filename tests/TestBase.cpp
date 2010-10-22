@@ -132,6 +132,8 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			const char* val = nullcGetResult();
 			varData = (char*)nullcGetVariableData(NULL);
 
+			nullcFinalize();
+
 			if(expected && strcmp(val, expected) != 0)
 			{
 				if(message && !messageVerbose)

@@ -23,8 +23,8 @@ namespace NULLC
 	NULLCArray	IntToStr(int* r);
 	NULLCArray	DoubleToStr(int precision, double* r);
 	
-	void*		AllocObject(int size);
-	NULLCArray	AllocArray(int size, int count);
+	void*		AllocObject(int size, unsigned type = 0);
+	NULLCArray	AllocArray(int size, int count, unsigned type = 0);
 	NULLCRef	CopyObject(NULLCRef ptr);
 	void		CopyArray(NULLCAutoArray* dst, NULLCAutoArray src);
 	NULLCRef	ReplaceObject(NULLCRef l, NULLCRef r);
@@ -41,6 +41,7 @@ namespace NULLC
 	double		MarkTime();
 	double		CollectTime();
 
+	void		FinalizeMemory();
 	void		ClearMemory();
 	void		ResetMemory();
 
@@ -76,4 +77,6 @@ namespace NULLC
 
 	int	IsCoroutineReset(NULLCRef f);
 	void AssertCoroutine(NULLCRef f);
+
+	NULLCArray GetFinalizationList();
 }

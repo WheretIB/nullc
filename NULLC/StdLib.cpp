@@ -10,6 +10,35 @@
 #include "Executor_Common.h"
 #include "includes/typeinfo.h"
 
+namespace NULLC
+{
+	static Linker	*linker = NULL;
+	FastVector<NULLCRef>	finalizeList;
+
+	static unsigned	FINALIZE_OBJECT = 1 << 1;
+	static unsigned	OBJECT_FINALIZED = 1 << 2;
+	static unsigned OBJECT_ARRAY = 1 << 3;
+
+	void FinalizeObject(unsigned& marker, char* base)
+	{
+		if(marker & NULLC::OBJECT_ARRAY)
+		{
+			unsigned count = *(unsigned*)(base + 4);
+			unsigned size = NULLC::linker->exTypes[marker >> 8].size;
+			NULLCRef r = { marker >> 8, base + 8 };
+			for(unsigned i = 0; i < count; i++)
+			{
+				NULLC::finalizeList.push_back(r);
+				r.ptr += size;
+			}
+		}else{
+			NULLCRef r = { marker >> 8, base + 4 };
+			NULLC::finalizeList.push_back(r);
+		}
+		marker |= NULLC::OBJECT_FINALIZED;
+	}
+}
+
 template<int elemSize>
 union SmallBlock
 {
@@ -135,19 +164,18 @@ public:
 	}
 	void Mark(unsigned int number)
 	{
-		assert(number < 128);
+		assert(number <= 1);
 		MyLargeBlock *curr = activePages;
 		while(curr)
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				if(curr->page[i].marker < 128)
-					curr->page[i].marker = number;
+				curr->page[i].marker = (curr->page[i].marker & ~1) | number;
 			}
 			curr = curr->next;
 		}
 	}
-	unsigned int FreeMarked(unsigned int number)
+	unsigned int FreeMarked()
 	{
 		unsigned int freed = 0;
 		MyLargeBlock *curr = activePages;
@@ -155,10 +183,15 @@ public:
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				if(curr->page[i].marker == number)
+				if(!(curr->page[i].marker & 1))
 				{
-					Free(&curr->page[i]);
-					freed++;
+					if((curr->page[i].marker & NULLC::FINALIZE_OBJECT) && !(curr->page[i].marker & NULLC::OBJECT_FINALIZED))
+					{
+						NULLC::FinalizeObject(curr->page[i].marker, curr->page[i].data);
+					}else{
+						Free(&curr->page[i]);
+						freed++;
+					}
 				}
 			}
 			curr = curr->next;
@@ -194,8 +227,6 @@ namespace NULLC
 
 	FastVector<void*>				globalObjects;
 
-	static Linker	*linker = NULL;
-
 	double	markTime = 0.0;
 	double	collectTime = 0.0;
 }
@@ -205,7 +236,7 @@ void NULLC::SetLinker(Linker *linker)
 	NULLC::linker = linker;
 }
 
-void* NULLC::AllocObject(int size)
+void* NULLC::AllocObject(int size, unsigned type)
 {
 	if(size < 0)
 	{
@@ -284,9 +315,12 @@ void* NULLC::AllocObject(int size)
 		nullcThrowError("Allocation failed.");
 		return NULL;
 	}
+	int finalize = 0;
+	if(type && linker->exTypes[type].hasFinalizer)
+		finalize = FINALIZE_OBJECT;
 
 	memset(data, 0, size);
-	*(int*)data = 0;
+	*(int*)data = finalize | (type << 8);
 	return (char*)data + 4;
 }
 
@@ -295,18 +329,21 @@ unsigned int NULLC::UsedMemory()
 	return usedMemory;
 }
 
-NULLCArray NULLC::AllocArray(int size, int count)
+NULLCArray NULLC::AllocArray(int size, int count, unsigned type)
 {
 	NULLCArray ret;
-	ret.ptr = (char*)AllocObject(count * size);
+	ret.ptr = 4 + (char*)AllocObject(count * size + 4, type);
+	((unsigned*)ret.ptr)[-1] = count;
+	((unsigned*)ret.ptr)[-2] |= OBJECT_ARRAY;
 	ret.len = count;
 	return ret;
 }
 
 void NULLC::MarkMemory(unsigned int number)
 {
+	assert(number <= 1);
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
-		((unsigned int*)globalObjects[i])[1] = number;
+		((unsigned int*)globalObjects[i])[1] = (((unsigned int*)globalObjects[i])[1] & ~1) | number;
 	pool8.Mark(number);
 	pool16.Mark(number);
 	pool32.Mark(number);
@@ -386,13 +423,19 @@ void NULLC::CollectMemory()
 	unsigned int unusedBlocks = 0;
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 	{
-		if(((unsigned int*)globalObjects[i])[1] == 0)
+		unsigned &marker = ((unsigned int*)globalObjects[i])[1];
+		if(!(marker & 1))
 		{
-			usedMemory -= *(unsigned int*)globalObjects[i];
-			NULLC::dealloc(globalObjects[i]);
-			globalObjects[i] = globalObjects.back();
-			globalObjects.pop_back();
-			unusedBlocks++;
+			if((marker & NULLC::FINALIZE_OBJECT) && !(marker & NULLC::OBJECT_FINALIZED))
+			{
+				NULLC::FinalizeObject(marker, (char*)globalObjects[i] + 4);
+			}else{
+				usedMemory -= *(unsigned int*)globalObjects[i];
+				NULLC::dealloc(globalObjects[i]);
+				globalObjects[i] = globalObjects.back();
+				globalObjects.pop_back();
+				unusedBlocks++;
+			}
 		}
 	}
 //	printf("%d unused globally allocated blocks destroyed (%d remains)\r\n", unusedBlocks, globalObjects.size());
@@ -400,25 +443,25 @@ void NULLC::CollectMemory()
 //	printf("%d used memory\r\n", usedMemory);
 
 	// Objects allocated from pools are freed
-	unusedBlocks = pool8.FreeMarked(0);
+	unusedBlocks = pool8.FreeMarked();
 	usedMemory -= unusedBlocks * 8;
 //	printf("%d unused pool blocks freed (8 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool16.FreeMarked(0);
+	unusedBlocks = pool16.FreeMarked();
 	usedMemory -= unusedBlocks * 16;
 //	printf("%d unused pool blocks freed (16 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool32.FreeMarked(0);
+	unusedBlocks = pool32.FreeMarked();
 	usedMemory -= unusedBlocks * 32;
 //	printf("%d unused pool blocks freed (32 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool64.FreeMarked(0);
+	unusedBlocks = pool64.FreeMarked();
 	usedMemory -= unusedBlocks * 64;
 //	printf("%d unused pool blocks freed (64 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool128.FreeMarked(0);
+	unusedBlocks = pool128.FreeMarked();
 	usedMemory -= unusedBlocks * 128;
 //	printf("%d unused pool blocks freed (128 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool256.FreeMarked(0);
+	unusedBlocks = pool256.FreeMarked();
 	usedMemory -= unusedBlocks * 256;
 //	printf("%d unused pool blocks freed (256 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool512.FreeMarked(0);
+	unusedBlocks = pool512.FreeMarked();
 	usedMemory -= unusedBlocks * 512;
 //	printf("%d unused pool blocks freed (512 bytes)\r\n", unusedBlocks);
 
@@ -428,6 +471,9 @@ void NULLC::CollectMemory()
 
 	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
 		collectableMinimum <<= 1;
+
+	nullcRunFunction("__finalizeObjects");
+	finalizeList.clear();
 }
 
 double NULLC::MarkTime()
@@ -438,6 +484,26 @@ double NULLC::MarkTime()
 double NULLC::CollectTime()
 {
 	return collectTime;
+}
+
+void NULLC::FinalizeMemory()
+{
+	MarkMemory(0);
+	pool8.FreeMarked();
+	pool16.FreeMarked();
+	pool32.FreeMarked();
+	pool64.FreeMarked();
+	pool128.FreeMarked();
+	pool256.FreeMarked();
+	pool512.FreeMarked();
+	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	{
+		unsigned &marker = ((unsigned int*)globalObjects[i])[1];
+		if(!(marker & 1) && (marker & NULLC::FINALIZE_OBJECT) && !(marker & NULLC::OBJECT_FINALIZED))
+			NULLC::FinalizeObject(marker, (char*)globalObjects[i] + 4);
+	}
+	nullcRunFunction("__finalizeObjects");
+	finalizeList.clear();
 }
 
 void NULLC::ClearMemory()
@@ -455,12 +521,15 @@ void NULLC::ClearMemory()
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 		NULLC::dealloc(globalObjects[i]);
 	globalObjects.clear();
+
+	finalizeList.clear();
 }
 
 void NULLC::ResetMemory()
 {
 	ClearMemory();
 	globalObjects.reset();
+	finalizeList.reset();
 	ResetGC();
 }
 
@@ -837,4 +906,12 @@ void NULLC::AssertCoroutine(NULLCRef f)
 	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
 	if(linker->exFunctions[fPtr->id].funcCat != ExternFuncInfo::COROUTINE)
 		nullcThrowError("ERROR: function is not a coroutine");
+}
+
+NULLCArray NULLC::GetFinalizationList()
+{
+	NULLCArray arr;
+	arr.ptr = (char*)finalizeList.data;
+	arr.len = finalizeList.size();
+	return arr;
 }

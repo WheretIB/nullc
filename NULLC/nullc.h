@@ -62,6 +62,10 @@ long long	nullcGetResultLong();
 /*	Returns last error description	*/
 const char*	nullcGetLastError();
 
+#ifndef NULLC_NO_EXECUTOR
+nullres		nullcFinalize();
+#endif
+
 /************************************************************************/
 /*							Interaction functions						*/
 

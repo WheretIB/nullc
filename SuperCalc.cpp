@@ -634,7 +634,7 @@ void AddTabWithFile(const char* filename, HINSTANCE hInstance)
 	RichTextarea::ResetUpdate(richEdits.back());
 }
 
-bool SaveFileFromTab(const char *file, const char *data)
+bool SaveFileFromTab(const char *file, const char *data, HWND editWnd)
 {
 	FILE *fSave = fopen(file, "wb");
 	if(!fSave)
@@ -646,6 +646,7 @@ bool SaveFileFromTab(const char *file, const char *data)
 		fwrite(data, 1, strlen(data), fSave);
 		fclose(fSave);
 	}
+	RichTextarea::ValidateHistory(editWnd);
 	return true;
 }
 
@@ -653,7 +654,7 @@ void CloseTabWithFile(TabbedFiles::TabInfo &info)
 {
 	if(info.dirty && MessageBox(hWnd, "File was changed. Save changes?", "Warning", MB_YESNO) == IDYES)
 	{
-		SaveFileFromTab(info.name, RichTextarea::GetAreaText(info.window));
+		SaveFileFromTab(info.name, RichTextarea::GetAreaText(info.window), info.window);
 	}
 	DestroyWindow(info.window);
 	for(unsigned int i = 0; i < richEdits.size(); i++)
@@ -759,6 +760,35 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 			start = end + 2;
 		}
 		delete[] fileContent;
+	}
+	FILE *undoStorage = fopen("nullc_undo.bin", "rb");
+	if(undoStorage)
+	{
+		int ptrSize = 0;
+		fread(&ptrSize, sizeof(int), 1, undoStorage);
+		if(ptrSize == sizeof(void*))
+		{
+			unsigned nameLength = 0;
+			while(fread(&nameLength, sizeof(unsigned), 1, undoStorage))
+			{
+				char buf[1024];
+				assert(nameLength < 1024);
+				fread(buf, 1, nameLength, undoStorage);
+				
+				bool loaded = false;
+				// Find window
+				for(unsigned i = 0; i < richEdits.size(); i++)
+				{
+					if(strcmp(TabbedFiles::GetTabInfo(hTabs, i).name, buf) != 0)
+						continue;
+					RichTextarea::LoadHistory(TabbedFiles::GetTabInfo(hTabs, i).window, undoStorage);
+					loaded = true;
+				}
+				if(!loaded)
+					RichTextarea::LoadHistory(NULL, undoStorage);
+			}
+		}
+		fclose(undoStorage);
 	}
 
 	TabbedFiles::SetOnCloseTab(hTabs, CloseTabWithFile);
@@ -1739,7 +1769,7 @@ void SuperCalcRun(bool debug)
 	{
 		if(!TabbedFiles::GetTabInfo(hTabs, i).dirty)
 			continue;
-		if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
+		if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window), TabbedFiles::GetTabInfo(hTabs, i).window))
 		{
 			TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
 			RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
@@ -2045,13 +2075,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				}
 
 				FILE *tabInfo = fopen("nullc_tab.cfg", "wb");
+				FILE *undoStorage = fopen("nullc_undo.bin", "wb");
+				int ptrSize = sizeof(void*);
+				fwrite(&ptrSize, sizeof(int), 1, undoStorage);
 				for(unsigned int i = 0; i < richEdits.size(); i++)
 				{
+					char buf[1024];
+					safeprintf(buf, 1024, "File '%s' was changed.\r\nSave changes?", TabbedFiles::GetTabInfo(hTabs, i).name);
+					if(TabbedFiles::GetTabInfo(hTabs, i).dirty && MessageBox(hWnd, buf, "Warning", MB_YESNO) == IDYES)
+						SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window), TabbedFiles::GetTabInfo(hTabs, i).window);
 					fprintf(tabInfo, "%s\r\n", TabbedFiles::GetTabInfo(hTabs, i).name);
+
+					unsigned nameLength = (int)strlen(TabbedFiles::GetTabInfo(hTabs, i).name) + 1;
+					fwrite(&nameLength, sizeof(unsigned), 1, undoStorage);
+					fwrite(TabbedFiles::GetTabInfo(hTabs, i).name, 1, nameLength, undoStorage);
+					RichTextarea::SaveHistory(richEdits[i], undoStorage);
+
 					DestroyWindow(richEdits[i]);
 				}
 				for(unsigned int i = 0; i < attachedEdits.size(); i++)
 					DestroyWindow(attachedEdits[i]);
+				fclose(undoStorage);
 				fclose(tabInfo);
 				RichTextarea::UnregisterTextarea();
 				PostQuitMessage(0);
@@ -2063,6 +2107,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(runRes.result)
 			{
 				const char *val = nullcGetResult();
+
+				nullcFinalize();
 
 				_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
 				result[1023] = '\0';
@@ -2270,6 +2316,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						fclose(fNew);
 						AddTabWithFile(fileName, hInst);
 						TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
+						ShowWindow(richEdits.back(), SW_SHOW);
 					}
 					fclose(fNew);
 				}else{
@@ -2451,6 +2498,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						{
 							AddTabWithFile(result, hInst);
 							TabbedFiles::SetCurrentTab(hTabs, (int)richEdits.size() - 1);
+							ShowWindow(richEdits.back(), SW_SHOW);
 						}
 						file += strlen(file) + 1;
 					}
@@ -2460,7 +2508,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			case ID_FILE_SAVE:
 				{
 					unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-					if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, id).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window)))
+					if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, id).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, id).window), TabbedFiles::GetTabInfo(hTabs, id).window))
 					{
 						TabbedFiles::GetTabInfo(hTabs, id).dirty = false;
 						RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, id).window);
@@ -2471,7 +2519,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			case ID_FILE_SAVEALL:
 				for(unsigned int i = 0; i < richEdits.size(); i++)
 				{
-					if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window)))
+					if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window), TabbedFiles::GetTabInfo(hTabs, i).window))
 					{
 						TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
 						RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
