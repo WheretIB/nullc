@@ -565,11 +565,13 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				newInfo = CodeInfo::typeInfo.back();
 				CodeInfo::typeFunctions.push_back(newInfo);
 				newInfo->CreateFunctionType(CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset]]], tInfo->memberCount);
+				newInfo->dependsOnGeneric = newInfo->funcType->retType->dependsOnGeneric;
 
 				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
 				{
 					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]];
 					newInfo->funcType->paramSize += newInfo->funcType->paramType[n-1]->size > 4 ? newInfo->funcType->paramType[n-1]->size : 4;
+					newInfo->dependsOnGeneric |= newInfo->funcType->paramType[n-1]->dependsOnGeneric;
 				}
 
 #ifdef _DEBUG
@@ -597,6 +599,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 					}
 				}
 				newInfo->nextArrayType = tempInfo->arrayType;
+				newInfo->dependsOnGeneric = tempInfo->dependsOnGeneric;
 				tempInfo->arrayType = newInfo;
 				CodeInfo::typeArrays.push_back(newInfo);
 				break;
@@ -606,6 +609,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, tempInfo->refLevel + 1, 0, 1, tempInfo, TypeInfo::NULLC_PTR_TYPE));
 				newInfo = CodeInfo::typeInfo.back();
 				newInfo->size = NULLC_PTR_SIZE;
+				newInfo->dependsOnGeneric = tempInfo->dependsOnGeneric;
 
 				// Save it for future use
 				CodeInfo::typeInfo[typeRemap[tInfo->subType]]->refType = newInfo;
