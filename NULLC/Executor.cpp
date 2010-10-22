@@ -130,7 +130,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
 		printf("%s, ", exLinker->exSymbols.data + exTypes[lInfo.type].offsetToName);
 	}
-	printf(") arg count %d\n", exFunctions[funcID].paramCount + (exFunctions[funcID].isNormal ? 0 : 1));*/
+	printf(") arg count %d\n", exFunctions[funcID].paramCount + (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 0 : 1));*/
 
 	// Create function call code, clear it out, copy call prologue to the beginning
 	code.push_back(gatePrologue, sizeof(gatePrologue) / sizeof(gatePrologue[0]));
@@ -150,7 +150,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	unsigned int usedIRegs = rvs, usedFRegs = 0;
 	// This two variables will help later to know we've reached the boundary of arguments that are placed in registers
 	unsigned int argsToIReg = 0, argsToFReg = 0;
-	for(unsigned int k = 0; k < exFunctions[funcID].paramCount + (exFunctions[funcID].isNormal ? 0 : 1); k++)
+	for(unsigned int k = 0; k < exFunctions[funcID].paramCount + (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 0 : 1); k++)
 	{
 		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
 		unsigned int typeSize = 8;
@@ -212,9 +212,9 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #endif
 	
 	// normal function doesn't accept context, so start of the stack skips those 2 dwords
-	unsigned int currentShift = (dwordsToPop - (exFunctions[funcID].isNormal ? 2 : 0)) * 4;
+	unsigned int currentShift = (dwordsToPop - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 2 : 0)) * 4;
 	unsigned int needpop = 0;
-	int i = exFunctions[funcID].paramCount - (exFunctions[funcID].isNormal ? 1 : 0);
+	int i = exFunctions[funcID].paramCount - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 1 : 0);
 	for(; i >= 0; i--)
 	{
 		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8

@@ -91,7 +91,7 @@ struct ExternFuncInfo
 		COROUTINE
 	};
 	unsigned char	funcCat;
-	unsigned char	isNormal;
+	unsigned char	isGenericInstance;
 	unsigned char	returnShift;
 	unsigned int	funcType;	// index to the type array
 

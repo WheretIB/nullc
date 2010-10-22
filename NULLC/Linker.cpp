@@ -313,7 +313,7 @@ bool Linker::LinkCode(const char *code)
 		// If the function exists and is internal, check if redefinition is allowed
 		if(index != index_none)
 		{
-			if(*(symbolInfo + fInfo->offsetToName) == '$')
+			if(*(symbolInfo + fInfo->offsetToName) == '$' || fInfo->isGenericInstance)
 			{
 				exFunctions.push_back(exFunctions[index]);
 				funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
