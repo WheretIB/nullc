@@ -932,7 +932,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 
 	CompilerError::codeStart = str;
 	CompilerError::codeEnd = (lexer.GetStreamStart() + lexStreamEnd - 1)->pos;
-	CodeInfo::cmdInfoList.SetSourceStart(str);
+	CodeInfo::cmdInfoList.SetSourceStart(CompilerError::codeStart, CompilerError::codeEnd);
 	CodeInfo::lexStart = lexer.GetStreamStart();
 	CodeInfo::lexFullStart = lexer.GetStreamStart() + lexStreamStart;
 

@@ -470,6 +470,7 @@ public:
 	SourceInfo()
 	{
 		sourceStart = NULL;
+		sourceEnd = NULL;
 	}
 
 	void	Reset()
@@ -477,9 +478,10 @@ public:
 		sourceInfo.reset();
 	}
 
-	void	SetSourceStart(const char *start)
+	void	SetSourceStart(const char* start, const char* end)
 	{
 		sourceStart = start;
+		sourceEnd = end;
 	}
 	void	Clear()
 	{
@@ -487,10 +489,12 @@ public:
 	}
 	void		AddDescription(unsigned int instructionNum, const char* pos)
 	{
-		sourceInfo.push_back(SourceLine(instructionNum, pos));
+		if(pos >= sourceStart && pos <= sourceEnd)
+			sourceInfo.push_back(SourceLine(instructionNum, pos));
 	}
 
 	const char *sourceStart;
+	const char *sourceEnd;
 	FastVector<SourceLine>	sourceInfo;	// Список строк к коду
 };
 
