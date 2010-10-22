@@ -307,7 +307,8 @@ class HistoryManager
 public:
 	HistoryManager(TextareaData *areaData)
 	{
-		firstShot = lastShot = NULL;
+		firstShotU = lastShotU = NULL;
+		firstShotR = lastShotR = NULL;
 		data = areaData;
 	}
 	~HistoryManager()
@@ -324,16 +325,25 @@ public:
 	void	ResetHistory()
 	{
 		// While we have snapshots, delete them
-		while(firstShot)
+		while(firstShotU)
 		{
-			Snapshot *next = firstShot->nextShot;
-			delete firstShot;
-			firstShot = next;
+			Snapshot *next = firstShotU->nextShot;
+			delete firstShotU;
+			firstShotU = next;
 		}
-		firstShot = lastShot = NULL;
+		firstShotU = lastShotU = NULL;
+		while(firstShotR)
+		{
+			Snapshot *next = firstShotR->nextShot;
+			delete firstShotR;
+			firstShotR = next;
+		}
+		firstShotR = lastShotR = NULL;
 	}
-	void	TakeSnapshot(AreaLine *start, ChangeFlag changeFlag, unsigned int linesAffected)
+	void	TakeSnapshot(AreaLine *start, ChangeFlag changeFlag, unsigned int linesAffected, bool redo = false, bool clearRedo = true)
 	{
+		Snapshot *&firstShot = redo ? firstShotR : firstShotU;
+		Snapshot *&lastShot = redo ? lastShotR : lastShotU;
 		// Create linked list
 		if(!firstShot)
 		{
@@ -344,6 +354,17 @@ public:
 			lastShot->nextShot->prevShot = lastShot;
 			lastShot->nextShot->nextShot = NULL;
 			lastShot = lastShot->nextShot;
+		}
+		// If snapshot is taken for undo, remove all redo snapshots (unless undo is made during redo)
+		if(clearRedo)
+		{
+			while(firstShotR)
+			{
+				Snapshot *next = firstShotR->nextShot;
+				delete firstShotR;
+				firstShotR = next;
+			}
+			firstShotR = lastShotR = NULL;
 		}
 		// Type of edit and lines affected by it
 		lastShot->type = changeFlag;
@@ -390,9 +411,29 @@ public:
 
 	void	Undo()
 	{
+		HistoryStep(false);
+	}
+
+	void	Redo()
+	{
+		HistoryStep(true);
+	}
+
+	void	HistoryStep(bool redo)
+	{
+		Snapshot *&firstShot = redo ? firstShotR : firstShotU;
+		Snapshot *&lastShot = redo ? lastShotR : lastShotU;
 		// If there are no snapshots, exit
 		if(!lastShot)
 			return;
+
+		// Set currLine to the old one
+		data->currLine = data->firstLine;
+		for(unsigned int i = 0; i < lastShot->startLine; i++)
+			data->currLine = data->currLine->next;
+
+		// Take a redo snapshot
+		TakeSnapshot(data->currLine, lastShot->type == LINES_ADDED ? LINES_DELETED : (lastShot->type == LINES_DELETED ? LINES_ADDED : LINES_CHANGED), lastShot->type == LINES_ADDED ? lastShot->lines + 1 : (lastShot->type == LINES_DELETED ? lastShot->lines - 1 : lastShot->lines), !redo, false);
 
 		// Disable selection
 		data->selectionOn = false;
@@ -407,10 +448,6 @@ public:
 		data->dragEndY = lastShot->selectEndY;
 		data->selectionOn = lastShot->selectionOn;
 
-		// Set currLine to the old one
-		data->currLine = data->firstLine;
-		for(unsigned int i = 0; i < lastShot->startLine; i++)
-			data->currLine = data->currLine->next;
 		// Copy previous contents of current line
 		ExtendLine(data->currLine, lastShot->first->length);
 		memcpy(data->currLine->data, lastShot->first->data, lastShot->first->length * sizeof(AreaChar));
@@ -475,7 +512,8 @@ public:
 		Snapshot		*nextShot, *prevShot;
 	};
 
-	Snapshot	*firstShot, *lastShot;
+	Snapshot	*firstShotU, *lastShotU;
+	Snapshot	*firstShotR, *lastShotR;
 
 	TextareaData	*data;
 };
@@ -1308,10 +1346,17 @@ AreaLine* TextareaData::ClientToCursor(int xPos, int yPos, unsigned int &cursorX
 			shiftCharY--;
 		yPos = 0;
 	}
+	if(xPos > 32768)
+	{
+		if(shiftCharX > 0)
+			shiftCharX--;
+		xPos = 0;
+	}
 	if(yPos > (areaHeight + RichTextarea::charHeight) && shiftCharY < int(lineCount) - (areaHeight / RichTextarea::charHeight) - 1)
 		shiftCharY++;
-	if(xPos > 32768)
-		xPos = 0;
+	int maxShiftX = currLine->length - ((areaWidth - 96) / RichTextarea::charWidth) - 1;
+	if(xPos > (areaWidth + RichTextarea::charWidth) && shiftCharX < (maxShiftX < 0 ? 0 : maxShiftX))
+		shiftCharX++;
 	// Find vertical cursor position
 	cursorY = yPos / RichTextarea::charHeight + shiftCharY - (yPos < 0 ? 1 : 0);
 
@@ -1752,6 +1797,9 @@ void TextareaData::OnCharacter(unsigned char ch)
 		needUpdate = ch == 24 ? true : false;
 	}else if(ch == 26){	// Ctrl+Z
 		history->Undo();
+		needUpdate = true;
+	}else if(ch == 25){	// Ctrl+Y
+		history->Redo();
 		needUpdate = true;
 	}
 	ScrollToCursor();
