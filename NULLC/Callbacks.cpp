@@ -1115,9 +1115,7 @@ void InlineFunctionImplicitReturn(const char* pos)
 	if(curr->next)
 	{
 		while(curr->next)
-		{
 			curr = curr->next;
-		}
 		if(curr->nodeType != typeNodePopOp)
 			return;
 
@@ -1125,6 +1123,8 @@ void InlineFunctionImplicitReturn(const char* pos)
 		CodeInfo::nodeList.push_back(node);
 		curr->prev->next = new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false);
 	}else{
+		if(curr->nodeType != typeNodePopOp)
+			return;
 		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
 		CodeInfo::nodeList.back() = node;
 		CodeInfo::nodeList.push_back(new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false));
@@ -1424,7 +1424,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 #endif
 			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
 		if(currentType->arrLevel || currentType == typeObject || currentType == typeAutoArray)
-			CodeInfo::nodeList.push_back(new NodeDereference(NULL, NULL, true));
+			CodeInfo::nodeList.push_back(new NodeDereference(NULL, 0, true));
 	}else{
 		// In case of a function, get it's address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(memberFunc));

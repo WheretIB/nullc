@@ -106,7 +106,19 @@ int bar(int ref(char) f, double y){ return f(y); }\r\n\
 int bar(int ref(double) f, double y){ return f(y); }\r\n\
 \r\n\
 return bar(foo, 5);";
-TEST_RESULT("Function pointer select", testFunctionPointerSelect2, "10");
+TEST_RESULT("Function pointer select 2", testFunctionPointerSelect2, "10");
+
+const char	*testFunctionPointerSelect3 = 
+"{\r\n\
+	int foo(int a, b){ return a + b; }\r\n\
+}\r\n\
+int caller(int x, y, int ref(int, int) f){ return f(x, y); }\r\n\
+\r\n\
+int foo(int a, b){ return a * b; }\r\n\
+int foo(double a, b){ return a - b; }\r\n\
+\r\n\
+return caller(4, 5, foo);";
+TEST_RESULT("Function pointer select 3", testFunctionPointerSelect3, "20");
 
 #endif
 

@@ -207,3 +207,29 @@ const char *testGeneric19 =
 "auto func(generic a, b, typeof(a*b) ref(typeof(a), typeof(b)) f){ return f(a, b); }\r\n\
 return int(10 * func(3, 4.5, auto(int a, double b){ return a * b; }));";
 TEST_RESULT("Test for complex typeof usage on generics", testGeneric19, "135");
+
+const char *testGeneric20 =
+"auto sum(generic a, b, typeof(a*b) c){ return a + b * c; }\r\n\
+auto x = sum(3, 4.5, 2);\r\n\
+auto y = sum(3, 4, 2);\r\n\
+auto z = sum(3.5, 4, 2);\r\n\
+return 0;";
+TEST("Generic function import 2", testGeneric20, "0")
+{
+	CHECK_DOUBLE("x", 0, 12);
+	CHECK_INT("y", 0, 11);
+	CHECK_DOUBLE("z", 0, 11.5);
+}
+
+LOAD_MODULE(test_generic_export3, "test.generic_export3", "import std.math; auto foo(generic u, v){ float2 x = float2(u, v); return typeof(u*v)(dot(x, x)); }");
+const char *testGeneric21 =
+"import test.generic_export3;\r\n\
+import std.math;\r\n\
+auto a = foo(4, 8);\r\n\
+auto b = foo(2, 2.5);\r\n\
+return 1;";
+TEST("Generic function import 3", testGeneric21, "1")
+{
+	CHECK_INT("a", 0, 80);
+	CHECK_DOUBLE("b", 0, 10.25);
+}
